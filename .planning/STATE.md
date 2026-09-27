@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 39-13-PLAN.md (phase 39 closed, 13/13 plans)
+status: executing
+stopped_at: Completed 39-13-PLAN.md (phase 39 closed, 13/13 plans); Phase 40 (parallel line of work) at 40-05-PLAN.md, 5/16 plans
 last_updated: "2026-09-27T14:48:41.463Z"
 last_activity: 2026-09-27
 progress:
   total_phases: 54
   completed_phases: 48
-  total_plans: 418
-  completed_plans: 393
-  percent: 94
+  total_plans: 434
+  completed_plans: 398
+  percent: 92
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -52,10 +52,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 39 — server-architecture-run-once-split-state-store-shared-module
+**Current focus:** Phase 40 — companion-architecture-routes-pages-templates-i18n-keys (Phase 39 closed in a parallel line of work)
 
 ## Current Position
 
+Phase: 40 (companion-architecture-routes-pages-templates-i18n-keys) — EXECUTING (5/16 plans, 2026-09-27)
 Phase: 39 (server-architecture-run-once-split-state-store-shared-module) — COMPLETE (13/13 plans, 2026-09-27; ARC-01..ARC-06 closed)
 Phase: 38 (efficiency-companion-poll-cycle-storage) — COMPLETE (13/13 plans, 2026-09-27; 38-01..38-05 merged via #146-#149, 38-06..38-13 and the review fixes on PR #150). Verification passed; EFF-01..EFF-06 closed.
 Phase: 37 (security-and-operations-hardening) — COMPLETE (11/11 plans; 37-11 Wave B: byos loopback-only + IP filter, no secret in argv, CP-11 and CP-7 done live 2026-09-26)
@@ -63,7 +64,7 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 13 of 13
+Plan: 13 of 13 (Phase 39, closed); Phase 40 (parallel line of work) at 6 of 16
 
 **39-13 executed (2026-09-27), plan 13/13 of Phase 39 (depends on 39-04/39-06/39-08/39-10/39-11/39-12), wave 7 — the phase close-out, two commits.** Task 1 added a tree-wide `test_no_function_in_server_or_stub_server_exceeds_80_code_lines` to `test-support/test_check_function_size.py` (calls `check_function_size.py`'s own `main()` in-process) plus a blocking CI step "Function size gate (non-test code in server/ and stub-server/)" right after the Type check step — two independent enforcement paths from one tool, so deleting either alone still fails the suite. Added `server/poll_cycle.py` to `[tool.mypy]`'s global `files` list (not the strict override — its pure core is fully typed per 39-11, the orchestration steps stay partially annotated); the only real gap was `detect_flight`'s `diagnostics` local needing an explicit `dict | None` annotation (typing-only, zero behaviour change) — `mypy` now reports 12 source files, up from 11. Refreshed `pyproject.toml`'s E402 comment to the real 6-file list from `ruff check --isolated --select E402 .`, dropping `server/poll_loop.py` (its own two imports now carry an inline `noqa: E402` rather than relying on the project-wide suppression). Task 2 re-ran every Before command from `39-ARC-BASELINE.md` on the final tree and filled in the After section (function size: 401 scanned, zero offenders, up from 365/6; CC: `run_once` 3, its highest named step `advance_display_queue` 10, vs Before's `_run_once_locked` 53/grade F — an 81% drop; typed functions: 73 of 356 non-test server functions annotated, up from 0/318, mypy 12 files green; companion imports of `server.poll_loop`: zero statement-level imports left; module-global setters: all three deleted outright; duplicated device policy: all nine rows now one definition each, the tenth — the quiet-hours invalid-time fallback — unified per D-4; suite: 2995 passed/139 skipped, coverage 94.27%, ruff and comment-history clean), a Criteria table (four ROADMAP criteria, each Met with its evidence command), and an Intentional behaviour changes section naming D-4 and D-5 with the tests that pin each. Updated `ARCHITECTURE.md`: replaced every stale `poll_loop.py`/`render.py` pipeline-body reference with `poll_cycle.py`/`server/plane/render/`, and added a Module map paragraph naming `poll_loop.py`, `poll_cycle.py`, `state_store.py`, `device_policy.py`, `themes.py`, `net/safe_fetch.py` and the `render/`/`calendar_rules/` packages. Commits: `9a1f444` (feat) Task 1, `39f9401` (docs) Task 2. Phase close-out (this plan's own scope): `ARC-01`..`ARC-06` marked Complete in `REQUIREMENTS.md` (checklist + summary table) via `requirements.mark-complete`; `roadmap.update-plan-progress 39` now reports the phase Complete at 13/13. `state.update-progress` reproduced this file's own documented recurring bug one final time — its own JSON correctly returned `percent: 94` (393/418) but the written frontmatter showed `percent: 89` (`completed_phases/total_phases` = 48/54) — corrected to `94` by hand per this file's established precedent, as the last STATE.md edit before this plan's own final commit.
 
@@ -596,6 +597,11 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 39 P12 | 17min | 2 tasks | 13 files |
 | Phase 39 P11 | 50min | 2 tasks | 5 files |
 | Phase 39 P13 | 25min | 2 tasks | 6 files |
+| Phase 40 P01 | 55min | 2 tasks | 5 files |
+| Phase 40 P02 | 90min | 2 tasks | 6 files |
+| Phase 40 P03 | 100min | 2 tasks | 9 files |
+| Phase 40 P04 | 24min | 2 tasks | 7 files |
+| Phase 40 P05 | ~120min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -1164,6 +1170,15 @@ Recent decisions affecting current work:
 - [Phase 39]: server/poll_cycle.py added to [tool.mypy]'s global files list (not the strict override) - its pure core (decide_hold, advance_is_due, normalise_pending, enqueue_pending, pop_fresh_pending, CycleContext) is fully typed, the orchestration steps stay partially annotated
 - [Phase 39]: pyproject's E402 comment refreshed to the real 6-file list from ruff --isolated --select E402; server/poll_loop.py dropped since its own imports now carry inline noqa: E402 rather than relying on the project-wide ignore
 - [Phase 39]: 39-ARC-BASELINE.md's After section reports run_once's own named-step CC ceiling (advance_display_queue, 10) separately from the module's overall ceiling (_record_history, 12, a pre-existing untouched helper) rather than conflating the two
+- [Phase 40]: Structural guard allowlist (12 long functions, 5 oversized files incl. style.css) measured live from test-support/companion_structure.py rather than transcribed from the plan
+- [Phase 40]: Froze time.time() and health_page.datetime.now() in the render-snapshot harness, beyond the plan-named history_db.utc_now_iso(), after finding both are genuine pre-existing time leaks
+- [Phase 40]: data-refresh-token normalised by regex in the render baseline harness, the one value that cannot be frozen since it folds in a file's kernel-set ctime
+- [Phase 40]: 40-02: custom properties (--*) excluded from the computed-style probe's per-element property walk — Chromium's indexed CSSStyleDeclaration enumeration lists every custom property declared on :root, so adding a token would otherwise always register as a false-positive computed-style regression
+- [Phase 40]: 40-02: new style.css colour tokens declared once in :root only, never repeated in the theme-override blocks — Matches the existing convention for theme-independent tokens (--radius-card, --space-*, --motion-*) since every new token held an identical value in every theme
+- [Phase 40-03]: Route table (companion/routes.py) plus a static allowlist (companion/static_files.py) replace companion/app.py's if-chain dispatch; gating is now one auth_required field checked in Handler._dispatch() — ROADMAP criterion 1: a route cannot be exposed by forgetting a require_session() line
+- [Phase 40]: FLASH_SLOT_MARKER moved into ui_base.py — dependency-free constant both page_header (ui_components) and page_shell (ui_shell) can import without creating a cross-module edge
+- [Phase 40]: layout.py keeps import companion.i18n as i18n, added to __all__ — tests reach layout.i18n.t()/.t_lang() directly even though no code inside layout.py calls it after the shell code moved to ui_shell.py
+- [Phase 40]: 40-05: moved companion/settings/calendar.py and rules.py during Task 1 rather than Task 2 — _aspect_card_html calls their builders directly, and splitting theme.py without them would have forced either a config_page import from theme.py (forbidden by this plan's own acceptance criteria) or a theme<->calendar/rules import cycle -- resolved instead by having _aspect_card_html take the Calendar/Rules Aspect-card rows as pre-built HTML parameters
 
 ### Pending Todos
 
@@ -1285,7 +1300,7 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-09-27T14:48:41.396Z
-Stopped at: Completed 39-13-PLAN.md (phase 39 closed, 13/13 plans)
+Stopped at: Completed 39-13-PLAN.md (phase 39 closed, 13/13 plans); Phase 40 (parallel line of work) last at 40-05-PLAN.md, 2026-09-27T10:35:03.762Z
 
 Resume file: 
 

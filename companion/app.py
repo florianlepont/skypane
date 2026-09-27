@@ -14,9 +14,7 @@ Never writes the poll pipeline's own persisted flight-state file —
 `main()` fails closed on a missing password rather than starting with
 auth silently disabled.
 """
-import collections
 import email.message
-import email.utils
 import hashlib
 import io
 # Serialises the login lockout's server-computed remaining-seconds figure
@@ -44,13 +42,13 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from companion import (  # noqa: E402
-    auth, frame_state, i18n, illustration_normalize, layout, prefs, theme_preview, wake)
+    auth, frame_state, i18n, illustration_normalize, layout, prefs, routes, static_files,
+    theme_preview, wake)
 from companion.pages import (  # noqa: E402
     airlines_page,
     config_page,
     health_page,
     history_page,
-    home_page,
 )
 # Reuses airlines_page's own membership test rather than re-implementing
 # it, so the render path (airlines_page.render()) and the write path
@@ -95,28 +93,27 @@ CONTENT_SECURITY_POLICY = (
 SLEEP_ENV_VAR = "SKYPANE_SLEEP_S"
 
 LOGIN_ROUTE = "/login"
-STYLE_ROUTE = "/static/style.css"
-# Each *_SCRIPT_ROUTE is the authoritative value a matching
-# *_SCRIPT_SRC constant elsewhere must equal exactly; a test asserts
-# the sync. Most are pre-auth by design (no session data, or served
-# only to the login page itself).
-SCRIPT_ROUTE = "/static/battery-trend.js"
-NAV_SCRIPT_ROUTE = "/static/nav-dropdown.js"
-DIRTY_STATE_SCRIPT_ROUTE = "/static/dirty-state.js"
-LIST_FILTER_SCRIPT_ROUTE = "/static/list-filter.js"
-COPY_BUTTON_SCRIPT_ROUTE = "/static/copy-button.js"
-FRESHNESS_SCRIPT_ROUTE = "/static/freshness.js"
-PANEL_LOOKUP_SCRIPT_ROUTE = "/static/panel-lookup.js"
-FLASH_CLEANUP_SCRIPT_ROUTE = "/static/flash-cleanup.js"
-POLL_COOLDOWN_SCRIPT_ROUTE = "/static/poll-cooldown.js"
-CONFIRM_SUBMIT_SCRIPT_ROUTE = "/static/confirm-submit.js"
-THEME_PREVIEW_SCRIPT_ROUTE = "/static/theme-preview.js"
-FLIGHT_ROWS_SCRIPT_ROUTE = "/static/flight-rows.js"
-LOGIN_CARD_SCRIPT_ROUTE = "/static/login-card.js"
-SUBMIT_GUARD_SCRIPT_ROUTE = "/static/submit-guard.js"
-RELATIVE_TIME_SCRIPT_ROUTE = "/static/relative-time.js"
-QUICK_SWITCH_SCRIPT_ROUTE = "/static/quick-switch.js"
-VALUE_CONTROLS_SCRIPT_ROUTE = "/static/value-controls.js"
+# Moved to companion/static_files.py (the static allowlist module);
+# rebound here under their historical names so every existing call site
+# and test assertion in this file keeps resolving.
+STYLE_ROUTE = static_files.STYLE_ROUTE
+SCRIPT_ROUTE = static_files.SCRIPT_ROUTE
+NAV_SCRIPT_ROUTE = static_files.NAV_SCRIPT_ROUTE
+DIRTY_STATE_SCRIPT_ROUTE = static_files.DIRTY_STATE_SCRIPT_ROUTE
+LIST_FILTER_SCRIPT_ROUTE = static_files.LIST_FILTER_SCRIPT_ROUTE
+COPY_BUTTON_SCRIPT_ROUTE = static_files.COPY_BUTTON_SCRIPT_ROUTE
+FRESHNESS_SCRIPT_ROUTE = static_files.FRESHNESS_SCRIPT_ROUTE
+PANEL_LOOKUP_SCRIPT_ROUTE = static_files.PANEL_LOOKUP_SCRIPT_ROUTE
+FLASH_CLEANUP_SCRIPT_ROUTE = static_files.FLASH_CLEANUP_SCRIPT_ROUTE
+POLL_COOLDOWN_SCRIPT_ROUTE = static_files.POLL_COOLDOWN_SCRIPT_ROUTE
+CONFIRM_SUBMIT_SCRIPT_ROUTE = static_files.CONFIRM_SUBMIT_SCRIPT_ROUTE
+THEME_PREVIEW_SCRIPT_ROUTE = static_files.THEME_PREVIEW_SCRIPT_ROUTE
+FLIGHT_ROWS_SCRIPT_ROUTE = static_files.FLIGHT_ROWS_SCRIPT_ROUTE
+LOGIN_CARD_SCRIPT_ROUTE = static_files.LOGIN_CARD_SCRIPT_ROUTE
+SUBMIT_GUARD_SCRIPT_ROUTE = static_files.SUBMIT_GUARD_SCRIPT_ROUTE
+RELATIVE_TIME_SCRIPT_ROUTE = static_files.RELATIVE_TIME_SCRIPT_ROUTE
+QUICK_SWITCH_SCRIPT_ROUTE = static_files.QUICK_SWITCH_SCRIPT_ROUTE
+VALUE_CONTROLS_SCRIPT_ROUTE = static_files.VALUE_CONTROLS_SCRIPT_ROUTE
 # Single definition site is companion/pages/config_page.py (app.py imports
 # that module, so the reverse import would be a cycle) — rebound here
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
@@ -421,101 +418,20 @@ FLASH_ROLES = {
     FLASH_KEY_NOTIFICATIONS_TEST_FAILED: "alert",
 }
 
-_STYLE_CSS_PATH = os.path.join(_HERE, "static", "style.css")
-_BATTERY_TREND_JS_PATH = os.path.join(_HERE, "static", "battery-trend.js")
-_NAV_DROPDOWN_JS_PATH = os.path.join(_HERE, "static", "nav-dropdown.js")
-_DIRTY_STATE_JS_PATH = os.path.join(_HERE, "static", "dirty-state.js")
-_LIST_FILTER_JS_PATH = os.path.join(_HERE, "static", "list-filter.js")
-_COPY_BUTTON_JS_PATH = os.path.join(_HERE, "static", "copy-button.js")
-_FRESHNESS_JS_PATH = os.path.join(_HERE, "static", "freshness.js")
-_PANEL_LOOKUP_JS_PATH = os.path.join(_HERE, "static", "panel-lookup.js")
-_FLASH_CLEANUP_JS_PATH = os.path.join(_HERE, "static", "flash-cleanup.js")
-_POLL_COOLDOWN_JS_PATH = os.path.join(_HERE, "static", "poll-cooldown.js")
-_CONFIRM_SUBMIT_JS_PATH = os.path.join(_HERE, "static", "confirm-submit.js")
-_THEME_PREVIEW_JS_PATH = os.path.join(_HERE, "static", "theme-preview.js")
-_FLIGHT_ROWS_JS_PATH = os.path.join(_HERE, "static", "flight-rows.js")
-_LOGIN_CARD_JS_PATH = os.path.join(_HERE, "static", "login-card.js")
-_SUBMIT_GUARD_JS_PATH = os.path.join(_HERE, "static", "submit-guard.js")
-_RELATIVE_TIME_JS_PATH = os.path.join(_HERE, "static", "relative-time.js")
-_QUICK_SWITCH_JS_PATH = os.path.join(_HERE, "static", "quick-switch.js")
-_VALUE_CONTROLS_JS_PATH = os.path.join(_HERE, "static", "value-controls.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
-# In-memory static-asset cache behind _serve_static() below: populated on
-# first read per process, keyed by absolute path. companion/app.py
-# restarts on every deploy (deploy/activate.sh restarts
-# skypane-companion.service), so a per-process cache is never stale in
-# production. An OSError from _read_static_bytes() propagates and leaves
-# the path uncached, so a file that starts missing and later appears is
-# served on the very next request.
-_StaticEntry = collections.namedtuple(
-    "_StaticEntry", "payload etag last_modified mtime_s")
-_STATIC_CACHE = {}
-_STATIC_CACHE_LOCK = threading.Lock()
-
-
-def _read_static_bytes(abs_path):
-    """The one disk-read seam behind `_static_entry()` - kept as its own
-    function so a test can monkeypatch it and count how often it runs.
-    """
-    with open(abs_path, "rb") as fh:
-        return fh.read()
-
-
-def _static_entry(abs_path):
-    """The cached `_StaticEntry` for `abs_path`, reading the file at most
-    once per process. Raises the underlying `OSError` (never caught
-    here) when the file is missing or unreadable; the caller maps that
-    to a 404.
-    """
-    with _STATIC_CACHE_LOCK:
-        entry = _STATIC_CACHE.get(abs_path)
-    if entry is not None:
-        return entry
-    payload = _read_static_bytes(abs_path)
-    mtime_s = int(os.stat(abs_path).st_mtime)
-    etag = '"%s"' % hashlib.sha256(payload).hexdigest()[:32]
-    last_modified = email.utils.formatdate(mtime_s, usegmt=True)
-    entry = _StaticEntry(payload, etag, last_modified, mtime_s)
-    with _STATIC_CACHE_LOCK:
-        _STATIC_CACHE[abs_path] = entry
-    return entry
-
-
-def _if_none_match_matches(headers, etag):
-    """Whether `headers`' `If-None-Match` (a comma-separated list, each
-    entry optionally `W/`-prefixed, or a bare `*`) already matches
-    `etag`. `None` (not `False`) when the header is absent, so a caller
-    that also wants the `If-Modified-Since` fallback (`_not_modified()`
-    below) can tell "no match" apart from "nothing to match against".
-    Header values are only ever compared here, never echoed into a
-    response.
-    """
-    inm = headers.get("If-None-Match")
-    if inm is None:
-        return None
-    tags = [tag.strip() for tag in inm.split(",")]
-    return "*" in tags or any(tag.removeprefix("W/") == etag for tag in tags)
-
-
-def _not_modified(headers, etag, mtime_s):
-    """Whether a conditional request already holds the current
-    representation, per RFC 9110 13.2.2's evaluation order: a present
-    If-None-Match decides the outcome outright (a mismatch just means
-    "no match", never an error), and If-Modified-Since is consulted only
-    in its absence. Defensive: a malformed date never raises, it simply
-    fails to match.
-    """
-    match = _if_none_match_matches(headers, etag)
-    if match is not None:
-        return match
-    ims = headers.get("If-Modified-Since")
-    if not ims:
-        return False
-    try:
-        return mtime_s <= email.utils.parsedate_to_datetime(ims).timestamp()
-    except (TypeError, ValueError, OverflowError, IndexError):
-        return False
+# Moved to companion/static_files.py; rebound under their historical
+# names so every existing call site, and every existing test monkeypatch
+# target that reaches the real caller, keeps resolving. `_serve_static()`
+# below is the caller of `_static_entry()`/`_not_modified()`, so a test
+# that wants to change what it sees monkeypatches `static_files.*`
+# directly (a monkeypatch of these aliases would never be seen by the
+# functions that actually run) - see companion/test_static_cache.py.
+_STATIC_CACHE = static_files._STATIC_CACHE
+_read_static_bytes = static_files.read_static_bytes
+_static_entry = static_files.static_entry
+_if_none_match_matches = static_files.if_none_match_matches
+_not_modified = static_files.not_modified
 
 
 # Process-global, not per-session: keyed per client IP and bounded, so
@@ -1723,8 +1639,8 @@ class Handler(BaseHTTPRequestHandler):
         return layout.login_shell(body, ui_theme=self._resolved_ui_theme())
 
     def _serve_static(self, abs_path, content_type, cache_control):
-        """Shared body behind `_serve_stylesheet()`, `_serve_script_file()`
-        and `_serve_runway_image()`: an in-memory, read-once-per-process
+        """Shared body behind `_serve_static_route()` and
+        `_serve_runway_image()`: an in-memory, read-once-per-process
         cache (`_static_entry()`), RFC 9110 conditional evaluation
         (`_not_modified()`), and a bodiless 304 on a match. `cache_control`
         is sent verbatim on both a 200 and a 304, so a caller's own policy
@@ -1753,79 +1669,17 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(entry.payload)
 
-    def _serve_stylesheet(self):
-        # Pre-auth, identical for every client: legitimately
-        # shared-cacheable. `no-cache` (never a max-age window) so every
-        # load revalidates: no page can ever run new HTML against a
-        # browser's stale cached stylesheet after a deploy.
-        return self._serve_static(_STYLE_CSS_PATH, "text/css", "public, no-cache")
-
-    def _serve_script_file(self, abs_path):
-        """Serve one fixed JavaScript file, pre-auth. `abs_path` is
-        always one of this module's own path constants, never a
-        client-supplied segment, so it has no path-traversal surface.
-        Shared body for every `_serve_*_script()` method below.
+    def _serve_static_route(self, route):
+        """Look up `route` in the static allowlist (companion/static_files.py's
+        STATIC_ROUTES) and serve it through `_serve_static()` above.
+        `route` is always a value already matched by an exact dict-key
+        lookup (companion/routes.py's ROUTES table), never a
+        client-supplied path segment, so this has no path-traversal
+        surface. No catch-all /static/ handler: a new script needs its
+        own STATIC_ROUTES entry and route-table row.
         """
-        # text/javascript is the sole current-standard MIME type for
-        # JavaScript per RFC 9239 (2022), which obsoletes RFC 4329's older
-        # application/-prefixed form — deliberately not used here.
-        # Same no-cache policy as _serve_stylesheet() above.
-        return self._serve_static(abs_path, "text/javascript", "public, no-cache")
-
-    # Each below is a thin delegate onto _serve_script_file(). No
-    # catch-all /static/ handler: a new script needs its own route,
-    # serve method and do_GET() branch.
-
-    def _serve_battery_trend_script(self):
-        return self._serve_script_file(_BATTERY_TREND_JS_PATH)
-
-    def _serve_nav_dropdown_script(self):
-        return self._serve_script_file(_NAV_DROPDOWN_JS_PATH)
-
-    def _serve_dirty_state_script(self):
-        return self._serve_script_file(_DIRTY_STATE_JS_PATH)
-
-    def _serve_list_filter_script(self):
-        return self._serve_script_file(_LIST_FILTER_JS_PATH)
-
-    def _serve_copy_button_script(self):
-        return self._serve_script_file(_COPY_BUTTON_JS_PATH)
-
-    def _serve_freshness_script(self):
-        return self._serve_script_file(_FRESHNESS_JS_PATH)
-
-    def _serve_panel_lookup_script(self):
-        return self._serve_script_file(_PANEL_LOOKUP_JS_PATH)
-
-    def _serve_flash_cleanup_script(self):
-        return self._serve_script_file(_FLASH_CLEANUP_JS_PATH)
-
-    def _serve_poll_cooldown_script(self):
-        return self._serve_script_file(_POLL_COOLDOWN_JS_PATH)
-
-    def _serve_confirm_submit_script(self):
-        return self._serve_script_file(_CONFIRM_SUBMIT_JS_PATH)
-
-    def _serve_theme_preview_script(self):
-        return self._serve_script_file(_THEME_PREVIEW_JS_PATH)
-
-    def _serve_flight_rows_script(self):
-        return self._serve_script_file(_FLIGHT_ROWS_JS_PATH)
-
-    def _serve_login_card_script(self):
-        return self._serve_script_file(_LOGIN_CARD_JS_PATH)
-
-    def _serve_submit_guard_script(self):
-        return self._serve_script_file(_SUBMIT_GUARD_JS_PATH)
-
-    def _serve_relative_time_script(self):
-        return self._serve_script_file(_RELATIVE_TIME_JS_PATH)
-
-    def _serve_quick_switch_script(self):
-        return self._serve_script_file(_QUICK_SWITCH_JS_PATH)
-
-    def _serve_value_controls_script(self):
-        return self._serve_script_file(_VALUE_CONTROLS_JS_PATH)
+        asset = static_files.STATIC_ROUTES[route]
+        return self._serve_static(asset.path, asset.content_type, asset.cache_control)
 
     def _serve_gallery_image(self, requested):
         payload = gallery_bytes(self.args.state_dir, requested)
@@ -2248,8 +2102,6 @@ class Handler(BaseHTTPRequestHandler):
         are not refresh pages, so they skip this whole branch and
         carry neither an ETag nor a `data-refresh-token` attribute.
         """
-        if not self.require_session():
-            return None
         ctx = self.page_context()
         if layout.nav_slug(route) in _FRESHNESS_PAGE_SLUGS:
             query = urlsplit(self.path).query
@@ -2266,163 +2118,75 @@ class Handler(BaseHTTPRequestHandler):
         body = render(ctx)
         return self.send_html(200, self._page_shell_for(route, body, ctx))
 
-    # --- GET -------------------------------------------------------------
+    # --- routing -----------------------------------------------------------
+
+    def _handle_login_get(self):
+        """GET LOGIN_ROUTE: already authenticated redirects home;
+        otherwise renders the login form with a validated `?next=`
+        destination carried through, so an unrecognised value never even
+        renders a hidden field for the user to resubmit.
+        """
+        if self._is_authenticated():
+            return self.redirect(HOME_ROUTE)
+        next_route = _validated_next_route(
+            parse_qs(urlsplit(self.path).query).get("next", [None])[0])
+        return self.send_html(200, self._render_login_page(next_route=next_route))
+
+    def _handle_logout_post(self):
+        """POST LOGOUT_ROUTE: revokes the session token server-side
+        before clearing the cookie, so replaying the old cookie value
+        stops verifying. Session gating happens in routes.ROUTES before
+        this runs.
+        """
+        token = auth.parse_cookies(self.headers.get("Cookie")).get(auth.SESSION_COOKIE_NAME)
+        if token:
+            auth.revoke(token)
+        return self.redirect(LOGIN_ROUTE, set_cookie=auth.logout_set_cookie_header())
+
+    def _handle_rule_delete_post(self, middle):
+        """POST RULES_DELETE_ROUTE_PREFIX/{kind}/{value}/RULES_DELETE_ROUTE_SUFFIX:
+        split the captured middle on '/' once to recover kind and value.
+        A middle that does not split into exactly two non-empty segments
+        is a 404. Session gating happens in routes.ROUTES before this
+        runs.
+        """
+        segments = middle.split("/", 1)
+        if len(segments) != 2 or not segments[0] or not segments[1]:
+            return self.send_html(404, self._not_found_page())
+        return self._handle_rule_delete(segments[0], segments[1])
 
     def do_GET(self):
         """One `history_db.connection_scope()` for the whole request:
-        every `history_db.open_db()` call `_dispatch_get()` makes on this
+        every `history_db.open_db()` call `_dispatch()` makes on this
         thread (however many route handlers read the database) shares one
         connection, opened lazily on the first database read - a static
         asset or an unauthenticated/pre-login route that reads no
         database table never opens one at all.
         """
         with history_db.connection_scope(self.args.state_dir):
-            return self._dispatch_get()
+            return self._dispatch("GET")
 
-    def _dispatch_get(self):
+    # Runs as the first statement for a POST, before urlsplit()/routing, so
+    # it covers every route uniformly including ones added later. Defence
+    # in depth on top of SameSite=Strict (see auth.post_origin_ok()'s
+    # docstring).
+    def _dispatch(self, method):
+        """The one dispatch every do_GET()/do_POST() call goes through:
+        `routes.match()` looks the request up in routes.ROUTES, the one
+        table that makes every route's gating a field of the route
+        itself rather than a hand-repeated `require_session()` call, and
+        this method is the ONLY place that gate now runs.
+        """
+        if method == "POST" and not auth.post_origin_ok(self.headers):
+            return self.send_html(403, self._forbidden_page())
         parsed = urlsplit(self.path)
-        path = parsed.path
-
-        if path == LOGIN_ROUTE:
-            if self._is_authenticated():
-                return self.redirect(HOME_ROUTE)
-            # A `?next=` query value survives the require_session()
-            # redirect round-trip; validated here too (not only on the
-            # POST path) so an unrecognised value never even renders a
-            # hidden field for the user to resubmit.
-            next_route = _validated_next_route(
-                parse_qs(parsed.query).get("next", [None])[0])
-            return self.send_html(200, self._render_login_page(next_route=next_route))
-
-        if path == STYLE_ROUTE:
-            return self._serve_stylesheet()
-
-        # Pre-auth, matching /static/style.css: a static asset carries no
-        # per-user or sensitive data, so gating it would add a session
-        # round-trip for zero benefit. Every other *_SCRIPT_ROUTE branch
-        # below shares this same reasoning.
-        if path == SCRIPT_ROUTE:
-            return self._serve_battery_trend_script()
-
-        if path == NAV_SCRIPT_ROUTE:
-            return self._serve_nav_dropdown_script()
-
-        if path == DIRTY_STATE_SCRIPT_ROUTE:
-            return self._serve_dirty_state_script()
-
-        if path == LIST_FILTER_SCRIPT_ROUTE:
-            return self._serve_list_filter_script()
-
-        if path == COPY_BUTTON_SCRIPT_ROUTE:
-            return self._serve_copy_button_script()
-
-        if path == FRESHNESS_SCRIPT_ROUTE:
-            return self._serve_freshness_script()
-
-        if path == PANEL_LOOKUP_SCRIPT_ROUTE:
-            return self._serve_panel_lookup_script()
-
-        if path == FLASH_CLEANUP_SCRIPT_ROUTE:
-            return self._serve_flash_cleanup_script()
-
-        if path == POLL_COOLDOWN_SCRIPT_ROUTE:
-            return self._serve_poll_cooldown_script()
-
-        if path == CONFIRM_SUBMIT_SCRIPT_ROUTE:
-            return self._serve_confirm_submit_script()
-
-        if path == THEME_PREVIEW_SCRIPT_ROUTE:
-            return self._serve_theme_preview_script()
-
-        if path == FLIGHT_ROWS_SCRIPT_ROUTE:
-            return self._serve_flight_rows_script()
-
-        if path == LOGIN_CARD_SCRIPT_ROUTE:
-            return self._serve_login_card_script()
-
-        if path == SUBMIT_GUARD_SCRIPT_ROUTE:
-            return self._serve_submit_guard_script()
-
-        if path == RELATIVE_TIME_SCRIPT_ROUTE:
-            return self._serve_relative_time_script()
-
-        if path == QUICK_SWITCH_SCRIPT_ROUTE:
-            return self._serve_quick_switch_script()
-
-        if path == VALUE_CONTROLS_SCRIPT_ROUTE:
-            return self._serve_value_controls_script()
-
-        # The six live tabs, each through _render_tab() above.
-        if path == HOME_ROUTE:
-            return self._render_tab(HOME_ROUTE, home_page.render)
-
-        if path == DISPLAY_ROUTE:
-            return self._render_tab(
-                DISPLAY_ROUTE,
-                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DISPLAY))
-
-        if path == DEVICE_ROUTE:
-            return self._render_tab(
-                DEVICE_ROUTE,
-                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DEVICE))
-
-        if path == FLIGHTS_ROUTE:
-            return self._render_tab(FLIGHTS_ROUTE, history_page.render)
-
-        if path == HEALTH_ROUTE:
-            return self._render_tab(HEALTH_ROUTE, health_page.render)
-
-        if path == AIRLINES_ROUTE:
-            return self._render_tab(AIRLINES_ROUTE, airlines_page.render)
-
-        # The pre-refactor page routes survive as fixed 303s so a stale
-        # bookmark or link still lands somewhere useful. The targets are
-        # literals, never derived from any request value.
-        if path == SETTINGS_ROUTE:
-            if not self.require_session():
-                return None
-            return self.redirect(DISPLAY_ROUTE)
-
-        if path == HISTORY_LEGACY_ROUTE:
-            if not self.require_session():
-                return None
-            return self.redirect(FLIGHTS_ROUTE)
-
-        if path == PREVIEW_PAGE_ROUTE:
-            if not self.require_session():
-                return None
-            # The Preview page is retired — History (now Flights)
-            # absorbed all of its content — so this route exists solely
-            # to send a stale bookmark/link somewhere useful. Fixed
-            # literal target, never a request value.
-            return self.redirect(FLIGHTS_ROUTE)
-
-        if path.startswith(GALLERY_ROUTE_PREFIX):
-            if not self.require_session():
-                return None
-            return self._serve_gallery_image(path[len(GALLERY_ROUTE_PREFIX):])
-
-        if path.startswith(RUNWAY_IMAGE_ROUTE_PREFIX) and path.endswith(".png"):
-            if not self.require_session():
-                return None
-            runway_id = path[len(RUNWAY_IMAGE_ROUTE_PREFIX):-len(".png")]
-            return self._serve_runway_image(runway_id)
-
-        if path.startswith(ILLUSTRATION_IMAGE_ROUTE_PREFIX) and path.endswith(".png"):
-            if not self.require_session():
-                return None
-            key = path[len(ILLUSTRATION_IMAGE_ROUTE_PREFIX):-len(".png")]
-            return self._serve_illustration_image(key)
-
-        if path.startswith(THEME_PREVIEW_ROUTE_PREFIX) and path.endswith(".png"):
-            if not self.require_session():
-                return None
-            theme_id = path[len(THEME_PREVIEW_ROUTE_PREFIX):-len(".png")]
-            return self._serve_theme_preview_image(theme_id)
-
-        return self.send_html(404, self._not_found_page())
-
-    # --- POST --------------------------------------------------------------
+        result = routes.match(method, parsed.path, parsed.query)
+        if result is None:
+            return self.send_html(404, self._not_found_page())
+        route, route_match = result
+        if route.auth_required and not self.require_session():
+            return None
+        return route.handler(self, route_match)
 
     def _login_throttle_key(self):
         """The one place this handler derives a LoginThrottle bucket key,
@@ -2631,159 +2395,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         """Same one-connection-per-request scope as `do_GET()` above,
-        wrapped around the unchanged `_dispatch_post()` dispatch - the
+        wrapped around the unchanged `_dispatch()` dispatch - the
         Origin/Sec-Fetch-Site gate stays that dispatch's first statement,
         run before this scope has opened anything.
         """
         with history_db.connection_scope(self.args.state_dir):
-            return self._dispatch_post()
-
-    # Runs as the first statement, before urlsplit()/routing, so it covers
-    # every route uniformly including ones added later. Defence in depth
-    # on top of SameSite=Strict (see auth.post_origin_ok()'s docstring).
-    def _dispatch_post(self):
-        if not auth.post_origin_ok(self.headers):
-            return self.send_html(403, self._forbidden_page())
-
-        parsed = urlsplit(self.path)
-        path = parsed.path
-
-        if path == LOGIN_ROUTE:
-            return self._handle_login_post()
-
-        if path == SETTINGS_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_settings_post()
-
-        if path == POLL_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_poll_now()
-
-        if path == QUICK_DISPLAY_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_quick_toggle("display_enabled")
-
-        if path == QUICK_QUIET_HOURS_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_quick_toggle("quiet_hours_enabled")
-
-        # Session-checked POST only, no CSRF token — SameSite=Strict is
-        # the only control here, so this must never be reachable by GET.
-        # return_to whitelist: /device is the LED switch's only page, so
-        # it is both the sole allowed value and the fallback.
-        if path == QUICK_LED_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_quick_toggle(
-                "led_enabled",
-                allowed_return_to=(layout.DEVICE_ROUTE,),
-                fallback_return_to=layout.DEVICE_ROUTE)
-
-        # Gated like every other state-changing route above — an
-        # unauthenticated caller setting another visitor's UI theme
-        # cookie is a real state change, not a cosmetic no-op.
-        if path == THEME_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_theme_post()
-
-        # Gated identically to THEME_ROUTE above — neither route may be
-        # reachable without a session.
-        if path == LANG_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_lang_post()
-
-        # Gated too: an unauthenticated POST is a CSRF-shaped forced
-        # sign-out. Revokes the token server-side before clearing the
-        # cookie, so replaying the old cookie value stops verifying.
-        if path == LOGOUT_ROUTE:
-            if not self.require_session():
-                return None
-            token = auth.parse_cookies(
-                self.headers.get("Cookie")).get(auth.SESSION_COOKIE_NAME)
-            if token:
-                auth.revoke(token)
-            return self.redirect(LOGIN_ROUTE, set_cookie=auth.logout_set_cookie_header())
-
-        # Step A of the two-step resolve flow — the session gate runs
-        # first, before any registry read or write, matching every other
-        # authenticated branch here.
-        if path == airlines_page.RESOLVE_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_manual_resolve_post()
-
-        # Mirrors the illustration-prefix branch's own slice-arithmetic
-        # shape below, but with a prefix and a suffix (the prefix
-        # segment is a dict key, not a filename).
-        if path.startswith(airlines_page.MANUAL_DELETE_ROUTE_PREFIX) and path.endswith(
-                airlines_page.MANUAL_DELETE_ROUTE_SUFFIX):
-            if not self.require_session():
-                return None
-            key = path[
-                len(airlines_page.MANUAL_DELETE_ROUTE_PREFIX):
-                -len(airlines_page.MANUAL_DELETE_ROUTE_SUFFIX)]
-            return self._handle_manual_resolution_delete(key)
-
-        # Mirrors the GET dispatch's own ILLUSTRATION_IMAGE_ROUTE_PREFIX
-        # branch above byte for byte — same prefix constant, same ".png"
-        # suffix test, same require_session() gate first, same slice
-        # arithmetic.
-        if path.startswith(ILLUSTRATION_IMAGE_ROUTE_PREFIX) and path.endswith(".png"):
-            if not self.require_session():
-                return None
-            key = path[len(ILLUSTRATION_IMAGE_ROUTE_PREFIX):-len(".png")]
-            return self._handle_illustration_replace(key)
-
-        # The rules editor's two immediate POST routes, behind the same
-        # require_session() gate as every other state-changing route
-        # above — no new auth mechanism and no CSRF token, inheriting the
-        # site-wide session gate and the SameSite=Strict cookie control
-        # uniformly applied here.
-        if path == RULES_ADD_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_rule_add_post()
-
-        # The calendar disconnect action's own dedicated route, gated
-        # identically to every other state-changing route above.
-        if path == CALENDAR_DISCONNECT_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_calendar_disconnect_post()
-
-        if path == CALENDAR_CONNECT_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_calendar_connect_post()
-
-        if path == NOTIFICATIONS_TEST_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_notifications_test_post()
-
-        # Mirrors the manual-resolution delete branch's own startswith/
-        # endswith shape above, with the one extra step this route's
-        # two-segment path needs: split the recovered middle on a slash
-        # ONCE to recover the kind and the value. A middle that does not
-        # split into exactly two non-empty segments is a 404.
-        if path.startswith(RULES_DELETE_ROUTE_PREFIX) and path.endswith(
-                RULES_DELETE_ROUTE_SUFFIX):
-            if not self.require_session():
-                return None
-            middle = path[
-                len(RULES_DELETE_ROUTE_PREFIX):-len(RULES_DELETE_ROUTE_SUFFIX)]
-            segments = middle.split("/", 1)
-            if len(segments) != 2 or not segments[0] or not segments[1]:
-                return self.send_html(404, self._not_found_page())
-            return self._handle_rule_delete(segments[0], segments[1])
-
-        return self.send_html(404, self._not_found_page())
+            return self._dispatch("POST")
 
     # --- logging -------------------------------------------------------
 

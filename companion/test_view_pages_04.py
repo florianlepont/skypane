@@ -409,10 +409,16 @@ def test_recent_flight_thumbnails_share_the_shipped_treatments(served_css):
     the placeholder's own rule reuses .airline-card__placeholder's exact dashed/canvas-fill
     values (never a new literal, never sharing that pinned selector), so a missing thumbnail
     matches the real ones in weight (B18)"""
-    shared_rules = rules_with_selector(served_css, "img.recent-flight__thumb")
-    assert any(".now-showing__image" in rule.selectors for rule in shared_rules), (
-        "expected img.recent-flight__thumb to join the shared white-backing/hairline/radius "
-        "rule .now-showing__image already carries")
+    # img.recent-flight__thumb and .now-showing__image now each have their own single
+    # rule (one rule per selector per at-rule context), so the shared treatment is
+    # asserted as equal resolved declarations rather than shared selector-list membership.
+    thumb_decls = declarations_for(served_css, "img.recent-flight__thumb")
+    now_showing_decls = declarations_for(served_css, ".now-showing__image")
+    for prop in ("border", "border-radius", "background"):
+        assert thumb_decls.get(prop) == now_showing_decls.get(prop), (
+            "expected img.recent-flight__thumb's %r to match .now-showing__image's shared "
+            "white-backing/hairline/radius treatment, got %r vs %r"
+            % (prop, thumb_decls.get(prop), now_showing_decls.get(prop)))
 
     # .airline-card__placeholder's own selector stays standalone —
     # companion/test_status_pages.py (a sibling harness this plan may not

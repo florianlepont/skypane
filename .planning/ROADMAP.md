@@ -1932,11 +1932,26 @@ Plans:
 3. No duplicated CSS selector; no hard-coded colour outside tokens
 4. Rewording an English string cannot drop its French translation
 
-**Plans:** 0 plans
+**Plans:** 5/16 plans executed
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 40 to break down)
+- [x] 40-01-PLAN.md — structural length guard + committed render/unauthenticated baseline (W1)
+- [x] 40-02-PLAN.md — CSS: merge duplicated selectors, colour literals to tokens, computed styles proven unchanged (W1)
+- [x] 40-03-PLAN.md — route table + static allowlist; table-driven auth coverage test (W2)
+- [x] 40-04-PLAN.md — layout.py split into ui_* modules; named templates for page_shell/login_shell (W2)
+- [x] 40-05-PLAN.md — config_page.py settings groups extracted into companion/settings/ (W2)
+- [ ] 40-06-PLAN.md — battery chart migrated onto draw.py (CFG-39); health signals/chart split out of health_page.py (W2)
+- [ ] 40-07-PLAN.md — history/airlines builder splits; artwork drop zone keyboard measurement (CFG-52) (W2)
+- [ ] 40-08-PLAN.md — config_page render/handle_post split per settings group (W3)
+- [ ] 40-09-PLAN.md — shared body-drain and cookie helpers; flash/freshness/login/post-action modules out of app.py (W3)
+- [ ] 40-10-PLAN.md — three live relative ages (CFG-34) with a wrapper-only baseline diff (W4)
+- [ ] 40-11-PLAN.md — typed lazy PageContext replaces the page_context() dict (W5)
+- [ ] 40-12-PLAN.md — stable message IDs: mechanism + shared modules (W6)
+- [ ] 40-13-PLAN.md — stable message IDs: Home/Flights/Airlines/Health (W7)
+- [ ] 40-14-PLAN.md — stable message IDs: Display/Device settings (W7)
+- [ ] 40-15-PLAN.md — ID-only i18n lookup enforced + completeness/rewording tests (W8)
+- [ ] 40-16-PLAN.md — final structural guard, full suite, requirement outcomes recorded (W9)
 
 ### Phase 41: Docs, repository hygiene and closing re-audit
 
@@ -1960,7 +1975,7 @@ Plans:
 
 **Goal:** A firmware release reaches the frame on the wall without a USB cable: the server offers it, the device downloads it into the inactive slot, boots it on trial and keeps it only after a successful poll, and a bad image rolls back on its own. Promoted from `.planning/seeds/SEED-009-remote-firmware-update-ota.md` (feasibility, design sketch and breadcrumbs live there).
 **Requirements**: OTA-01, OTA-02, OTA-03, OTA-04, OTA-05, OTA-06, OTA-07, OTA-08, OTA-09, OTA-10, OTA-11, OTA-12 (decisions: `42-CONTEXT.md`)
-**Depends on:** Phase 41. The seed targets milestone v1.1. The developer asked on 2026-09-25 to launch it now, so it sits at the end of the current roadmap and runs after the v1.0 audit remediation, which still changes the firmware (Phase 35) and the device protocol (Phase 36).
+**Depends on:** Phase 41. This phase is **v1.0 scope**, not v1.1: the seed was originally earmarked for v1.1, but the developer asked on 2026-09-25 to promote it into v1.0 and launch it now, so it sits at the end of the current roadmap and runs after the v1.0 audit remediation, which still changes the firmware (Phase 35) and the device protocol (Phase 36).
 
 **Success criteria:**
 

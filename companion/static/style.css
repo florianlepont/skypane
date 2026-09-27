@@ -42,6 +42,31 @@
   --radius-card: 10px;
   --radius-control: 8px;
 
+  /* Theme-independent colour tokens: every one of these held the exact
+   * same value in every theme block before it was a token, so (like
+   * --radius-card, --space-* and --motion-* above) it is declared once
+   * here rather than repeated in the dark-mode/explicit-theme blocks
+   * below — :root's cascade already reaches an element carrying
+   * html[data-ui-theme], and none of those blocks override it. */
+  --color-image-backdrop: #ffffff;
+  --color-scrim: rgba(0, 0, 0, 0.5);
+  /* A dark tint painted OVER an image preview (a replace-zone icon/hint),
+   * never over the page background — always dark regardless of theme,
+   * which is why it is not built from --color-text (that inverts in
+   * dark mode). */
+  --color-overlay-icon: rgba(23, 25, 31, 0.55);
+  --color-overlay-text: rgba(23, 25, 31, 0.7);
+  /* A bare <button>'s idle wash/border: the color-mix() equivalent that
+   * immediately follows each use is the real, theme-aware value: these
+   * are the fallback for a browser without color-mix() support, so they
+   * carry the light-mode-shaped value forever, same as before this was
+   * a token. */
+  --color-control-wash: rgba(23, 25, 31, 0.045);
+  --color-control-border-subtle: rgba(23, 25, 31, 0.09);
+  --shadow-control: inset 0 1px 0 rgba(255, 255, 255, .14), 0 1px 2px rgba(18, 21, 27, .14);
+  --shadow-control-hover: inset 0 1px 0 rgba(255, 255, 255, .16), 0 2px 5px rgba(18, 21, 27, .18);
+  --color-shadow-strong: rgba(18, 21, 27, 0.16);
+
   /* The app's entire motion budget: two durations only, enforced by
    * companion/test_companion_app.py (no bare literals, no third token).
    * --motion-fast (180ms) is for a REACTION the user is watching
@@ -165,16 +190,40 @@ html[data-ui-theme="dark"] {
   }
 }
 
+/* Base state hidden via display (not opacity/visibility), so the
+ * hidden copy stays out of the tab order and a11y tree at mobile width
+ * — never two navigation landmarks exposed at once. */
 .dashboard-sidebar {
   view-transition-name: skypane-sidebar;
+  display: none;
 }
 
-.page-title {
-  view-transition-name: skypane-title;
-}
-
+/* Every .preview-frame__image declaration site the file used to carry
+ * separately, folded into one rule: the view-transition hook, the base
+ * box shared with the other thumbnail selectors (now each with their
+ * own single rule instead of a group site), the shimmer gradient
+ * (background-image, a LONGHAND, deliberately declared after the
+ * background SHORTHAND above it so it overrides only that one
+ * sub-property rather than the shorthand's implicit background-image:
+ * none — reproducing the exact two-rule cascade this used to take), and
+ * the aspect-ratio/object-fit pairing that keeps a differently shaped
+ * source safely letterboxed inside a guaranteed box. */
 .preview-frame__image {
   view-transition-name: skypane-picture;
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-image-backdrop);
+  background-image: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--color-text) 4%, transparent) 0 40%,
+    color-mix(in srgb, var(--color-text) 9%, transparent) 50%,
+    color-mix(in srgb, var(--color-text) 4%, transparent) 60% 100%
+  );
+  aspect-ratio: 3 / 4;
+  object-fit: contain;
 }
 
 /* The app's only @keyframes block for an ambient pulse, shared by two
@@ -275,11 +324,18 @@ body {
 /* Stays weight-regular on purpose: this is the middle rung of a
  * three-tier heading ladder (semibold .page-title above, semibold
  * nested-card-title below) — a regular middle tier is what keeps all
- * three reading as distinct levels instead of one weight repeated. */
+ * three reading as distinct levels instead of one weight repeated.
+ * Carries the same family/letter-spacing/margin every heading-role
+ * selector below shares, folded in here rather than left in a group
+ * this class also had to join (h1, h2 and h3 keep their own copy since
+ * a bare heading tag with no .text-heading class still needs it). */
 .text-heading {
+  font-family: var(--font-serif);
   font-size: var(--font-heading-size);
   font-weight: var(--weight-regular);
   line-height: 1.25;
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--space-sm);
 }
 
 /* Composes with .text-label (both classes always applied together)
@@ -313,28 +369,21 @@ body {
 }
 
 /* Headings-only: body text, tables, form controls, nav links and
- * monospace content stay on --font-ui, never --font-serif. legend is
- * included deliberately — it is a <fieldset>'s accessible group name,
- * the same role as an <h2>, and previously fell through to the browser
- * default instead. Any future heading role belongs in this selector. */
+ * monospace content stay on --font-ui, never --font-serif. legend's own
+ * identical family/weight/letter-spacing live on its own dedicated rule
+ * further down (it is a <fieldset>'s accessible group name, the same
+ * role as an <h2>) rather than here, so this selector list is not a
+ * second declaration site for it; .text-heading carries its own copy
+ * too, above, for the same reason. Any future heading role belongs in
+ * this selector — stated once, in the same selector as the family, so a
+ * bare heading tag with no size-giving class still gets the right
+ * identity and the heading-rhythm margin. */
 h1,
 h2,
-h3,
-legend,
-.text-heading {
+h3 {
   font-family: var(--font-serif);
   font-weight: var(--weight-regular);
   letter-spacing: -0.01em;
-}
-
-/* Stated once, in the same selector as the family: .text-heading is
- * applied to both real <h2> elements and <p> elements, so leaving
- * margin to UA defaults would give the same visual role two different
- * spacings depending on which tag it landed on. */
-h1,
-h2,
-h3,
-.text-heading {
   margin: 0 0 var(--space-sm);
 }
 
@@ -342,6 +391,7 @@ h3,
  * regular on .text-heading, semibold again on the nested-card-title
  * tier — what makes all three read as distinct levels. */
 .page-title {
+  view-transition-name: skypane-title;
   font-family: var(--font-serif);
   font-size: var(--font-page-title-size);
   font-weight: var(--weight-semibold);
@@ -859,13 +909,6 @@ select.visually-hidden {
   display: inline-block;
 }
 
-/* Base state hidden via display (not opacity/visibility), so the
- * hidden copy stays out of the tab order and a11y tree at mobile width
- * — never two navigation landmarks exposed at once. */
-.dashboard-sidebar {
-  display: none;
-}
-
 .sidebar-nav {
   display: flex;
   flex-direction: column;
@@ -1150,11 +1193,16 @@ fieldset {
   margin-bottom: var(--space-lg);
 }
 
-/* Size and padding only: font-weight must NOT be restated here. Both
- * this and the serif `legend` rule near the top are bare `legend`
- * (0,0,1); at equal specificity the later one wins, so a weight here
- * would silently override that rule's own --weight-regular. */
+/* The one legend rule (folded together with what used to be a second,
+ * separate bare `legend` rule near the top of the file): family/weight/
+ * letter-spacing match the shared heading identity h1/h2/h3/.text-heading
+ * carry, plus legend's own size and padding. No margin: legend never
+ * joined the heading-rhythm margin group above, and folding these two
+ * rules into one must not add it now. */
 legend {
+  font-family: var(--font-serif);
+  font-weight: var(--weight-regular);
+  letter-spacing: -0.01em;
   font-size: var(--font-heading-size);
   padding: 0 var(--space-xs);
 }
@@ -1196,9 +1244,9 @@ button {
   font-family: var(--font-ui);
   border-radius: 6px;
   cursor: pointer;
-  background: rgba(23, 25, 31, 0.045); /* fallback for browsers without color-mix() */
+  background: var(--color-control-wash); /* fallback for browsers without color-mix() */
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
-  border: 1px solid rgba(23, 25, 31, 0.09); /* fallback for browsers without color-mix() */
+  border: 1px solid var(--color-control-border-subtle); /* fallback for browsers without color-mix() */
   border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
   color: var(--color-text);
   transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease;
@@ -1208,7 +1256,7 @@ button[type="submit"] {
   background: var(--color-accent);
   color: var(--color-on-accent);
   border-color: transparent;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 1px 2px rgba(18,21,27,.14);
+  box-shadow: var(--shadow-control);
 }
 
 /* Not a bare .theme-option:hover: .theme-form .theme-option (0,2,0)
@@ -1217,7 +1265,7 @@ button[type="submit"] {
 button[type="submit"]:hover {
   background: var(--color-accent-hover);
   border-color: transparent;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 2px 5px rgba(18,21,27,.18);
+  box-shadow: var(--shadow-control-hover);
 }
 
 /* Excludes .value-control__handle: that class is positioned via
@@ -1248,7 +1296,7 @@ button:not(.value-control__handle):active {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   margin-top: var(--space-md);
-  box-shadow: var(--shadow-card-hover), 0 12px 32px rgba(18, 21, 27, 0.16);
+  box-shadow: var(--shadow-card-hover), 0 12px 32px var(--color-shadow-strong);
   /* Reuses the existing skypane-bar-arrive @keyframes rather than a new
    * block, keeping the file's pinned @keyframes count unchanged. Fires
    * when display changes from none, the only way this element is ever
@@ -1534,6 +1582,12 @@ button:disabled {
   width: 100%;
   height: 56px;
   object-fit: cover;
+  background-image: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--color-text) 4%, transparent) 0 40%,
+    color-mix(in srgb, var(--color-text) 9%, transparent) 50%,
+    color-mix(in srgb, var(--color-text) 4%, transparent) 60% 100%
+  );
 }
 
 .theme-chip__body {
@@ -1550,6 +1604,9 @@ button:disabled {
   font-weight: var(--weight-semibold);
   line-height: 1.2;
   margin-bottom: var(--space-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .theme-chip__swatches {
@@ -2346,6 +2403,7 @@ table.data-table--registry .cell-inline-sep {
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .filter-bar [data-filter-clear]:hover {
@@ -3425,7 +3483,7 @@ a.airline-card {
 }
 
 .lightbox::backdrop {
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--color-scrim);
 }
 
 .lightbox__actions {
@@ -3480,7 +3538,7 @@ a.airline-card {
 
 .lightbox__replace-zone .lightbox__replace-icon,
 .resolve-upload-zone .lightbox__replace-icon {
-  color: rgba(23, 25, 31, 0.55); /* fallback for browsers without color-mix() */
+  color: var(--color-overlay-icon); /* fallback for browsers without color-mix() */
   color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
 
@@ -3498,7 +3556,7 @@ a.airline-card {
 .lightbox__replace-hint {
   margin: 0;
   font-size: 13px;
-  color: rgba(23, 25, 31, 0.7); /* fallback for browsers without color-mix() */
+  color: var(--color-overlay-text); /* fallback for browsers without color-mix() */
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -3513,7 +3571,7 @@ a.airline-card {
   max-width: 100%;
   font-family: var(--font-ui);
   font-size: 13px;
-  color: rgba(23, 25, 31, 0.7); /* fallback for browsers without color-mix() */
+  color: var(--color-overlay-text); /* fallback for browsers without color-mix() */
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -3801,9 +3859,6 @@ a.airline-card {
 .quick-action__form {
   flex: none;
   margin: 0;
-}
-
-.quick-action__form {
   display: flex;
   align-items: center;
 }
@@ -3916,6 +3971,7 @@ a.airline-card {
 
 .frame-strip__cell.quick-action {
   border-left-width: 4px;
+  flex: 1 1 220px;
 }
 
 .frame-strip__row--state {
@@ -3943,7 +3999,6 @@ a.airline-card {
   gap: var(--space-lg);
 }
 
-.frame-strip__cell.quick-action,
 .frame-strip__cell--update {
   flex: 1 1 220px;
 }
@@ -3963,29 +4018,24 @@ a.airline-card {
   margin: 0;
 }
 
-/* img.recent-flight__thumb (tag-qualified, not bare .recent-flight__thumb)
- * avoids tying at equal specificity with the dashed-placeholder span's
- * own rule, which would let source order rather than intent decide. */
-.now-showing__image,
-.preview-frame__image,
-img.recent-flight__thumb,
-img.history-card__thumb {
+.now-showing__image {
   display: block;
   width: 100%;
   height: auto;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
-  background: #ffffff;
-}
-
-.now-showing__image {
+  background: var(--color-image-backdrop);
   max-width: 360px;
   margin: 0 auto var(--space-sm);
 }
 
 img.history-card__thumb {
-  height: 56px;
+  display: block;
   width: auto;
+  height: 56px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-image-backdrop);
   max-width: 100%;
   object-fit: contain;
 }
@@ -4022,15 +4072,11 @@ img.history-card__thumb {
   font-weight: var(--weight-semibold);
 }
 
-.recent-flight__detail,
-.recent-flight__time {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
 /* order: 1 keeps the detail line last visually even though it is the
  * third child before the time (fourth); the inline-start margin
  * reproduces the old grid's thumbnail-width offset (40px + gap). */
 .recent-flight__detail {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
   overflow-wrap: anywhere;
   order: 1;
   flex: 1 1 100%;
@@ -4042,21 +4088,32 @@ img.history-card__thumb {
  * derived width and always overflow itself (measured: 88px clientWidth
  * vs 147px scrollWidth in English). The track itself is the line cap. */
 .recent-flight__time {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
   text-align: right;
   margin-inline-start: auto;
   white-space: nowrap;
 }
 
-img.recent-flight__thumb,
+/* img.recent-flight__thumb (tag-qualified, not bare .recent-flight__thumb)
+ * avoids tying at equal specificity with the dashed-placeholder span's
+ * own rule, which would let source order rather than intent decide. */
+img.recent-flight__thumb {
+  display: block;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-image-backdrop);
+  object-fit: cover;
+  flex: none;
+}
+
 .recent-flight__thumb--placeholder {
   width: 40px;
   height: 40px;
   border-radius: var(--radius-control);
   object-fit: cover;
   flex: none;
-}
-
-.recent-flight__thumb--placeholder {
   border: 1px dashed var(--color-border);
   background: var(--color-canvas);
 }
@@ -4087,17 +4144,6 @@ img.recent-flight__thumb,
 .config-form input[name="wake_interval_s"] {
   width: 8ch;
   min-width: 96px;
-}
-
-.theme-chip__name {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-
-.filter-bar [data-filter-clear] {
-  white-space: nowrap;
 }
 
 .filter-bar__meta {
@@ -4172,25 +4218,6 @@ a.airline-card__zoom {
 
 .preview-frame {
   margin: 0;
-}
-
-/* aspect-ratio is explicit, not left to the width/height attributes, so
- * the reserved box is a guarantee rather than a coincidence of arrival
- * size — this fixed a real ~500px desktop layout shift. object-fit:
- * contain lets a differently shaped source letterbox safely. */
-.preview-frame__image {
-  aspect-ratio: 3 / 4;
-  object-fit: contain;
-}
-
-.preview-frame__image,
-.theme-chip__preview {
-  background-image: linear-gradient(
-    110deg,
-    color-mix(in srgb, var(--color-text) 4%, transparent) 0 40%,
-    color-mix(in srgb, var(--color-text) 9%, transparent) 50%,
-    color-mix(in srgb, var(--color-text) 4%, transparent) 60% 100%
-  );
 }
 
 @media (min-width: 960px) {
