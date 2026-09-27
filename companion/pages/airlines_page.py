@@ -5,7 +5,7 @@ resolutions.
 Renders the static curated list from
 `illustrations.target_variants_by_airline()`; opens no database.
 `unresolved_row_for_prefix()` makes one read-only membership check via
-`state_store.load_poll_state()`, gated on `ctx["resolve_prefix"]`. Each
+`state_store.load_poll_state()`, gated on `ctx.resolve_prefix`. Each
 `<img>` carries `illustration_normalize`'s width/height constants so the
 browser reserves space before the image loads.
 """
@@ -20,6 +20,7 @@ from companion.illustration_normalize import (
 import companion.i18n as i18n
 from companion.layout import escape_html
 import companion.layout as layout
+import companion.page_context as page_context
 from server.plane import illustrations
 # manual_resolutions, enrich and state_store import this page module in
 # neither direction, so importing them here creates no cycle.
@@ -1101,7 +1102,7 @@ def _manual_delete_form_html(action):
 
 
 def _resolve_section_html(ctx):
-    """The conditional resolve section: `""` when `ctx.get("resolve_prefix")`
+    """The conditional resolve section: `""` when `ctx.resolve_prefix`
     is falsy; otherwise one of several states, decided from server-side
     data alone, never from the raw query-string value past the first
     membership check. Its markup comes from the shared rendering functions
@@ -1117,11 +1118,11 @@ def _resolve_section_html(ctx):
     manual-delete form renders only for the two branches that reached a
     stored entry.
     """
-    prefix_raw = ctx.get("resolve_prefix")
+    prefix_raw = ctx.resolve_prefix
     if not prefix_raw:
         return ""
-    state_dir = ctx.get("state_dir")
-    now = ctx.get("now")
+    state_dir = ctx.state_dir
+    now = ctx.now
     back_link = '<a class="text-label" href="%s">%s</a>' % (
         AIRLINES_ROUTE, i18n.t(RESOLVE_BACK_LINK_TEXT))
 
@@ -1257,24 +1258,25 @@ def render(ctx):
     lightbox dialog, and the conditional resolve section.
 
     Reads `state_dir`, `now`, `resolve_prefix` and `manual_resolutions`
-    from `ctx` with `ctx.get()`, never `ctx[...]` — `render({})` must
+    from the coerced `ctx` by plain attribute access — `render({})` must
     still render the plain gallery. Opens no database; the filter bar and
     lightbox render whenever at least one card exists, and the manual
     summary has its own independent empty-registry gate.
     """
-    # ctx.get(): test_view_pages.py calls render({}) with a literal
-    # empty dict, and every real caller supplies state_dir.
-    state_dir = ctx.get("state_dir")
+    # coerce(): test_view_pages.py calls render({}) with a literal empty
+    # dict, and every real caller supplies state_dir.
+    ctx = page_context.coerce(ctx)
+    state_dir = ctx.state_dir
     # Read once and threaded into every card builder, so the JS path's
     # data-* text and the no-JS path's rendered text come from one value
     # and cannot disagree.
-    now = ctx.get("now")
+    now = ctx.now
     resolve_html = _resolve_section_html(ctx)
     pairs = illustrations.target_variants_by_airline()
 
     # Loaded once here and threaded into _gap_rows_for_grid() below, so
     # one render() call reads manual_resolutions.json exactly once.
-    registry = ctx.get("manual_resolutions")
+    registry = ctx.manual_resolutions
     if registry is None:
         registry = manual_resolutions.load_manual_resolutions(state_dir) if state_dir else {}
     manual_rows = _manual_resolution_rows(state_dir, registry)

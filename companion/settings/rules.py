@@ -351,9 +351,10 @@ def rules_usage_row_html(ctx):
     `<details class="rule-add">` disclosure, and "How rules combine"
     outside it, since it explains the list, not the form. Built here
     (not in `companion.settings.theme`) so that module stays independent
-    of this one — see its own docstring for why.
+    of this one — see its own docstring for why. `ctx` arrives already a
+    `PageContext`, coerced once by config_page.render() itself.
     """
-    registry = ctx.get("colour_rules")
+    registry = ctx.colour_rules
     if not isinstance(registry, dict):
         registry = {kind: {} for kind in colour_rules.RULE_KINDS}
     rule_rows = colour_rules.rule_rows(registry)
@@ -384,7 +385,7 @@ def rules_usage_row_html(ctx):
     ) % (
         escape_html(i18n.t(RULE_ADD_BUTTON_TEXT)),
         _rule_add_form_html(),
-        _rule_suggestion_chips_html(ctx.get("state_dir")),
+        _rule_suggestion_chips_html(ctx.state_dir),
     )
     return _usage_row_html(
         COLOUR_USAGE_RULES,

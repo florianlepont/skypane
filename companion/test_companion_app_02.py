@@ -564,18 +564,18 @@ def test_page_context_threads_wake_interval_env_default(tmp_path, monkeypatch):
     fake_self = _FakePageContextHandler(str(tmp_path))
     monkeypatch.setenv(app_module.SLEEP_ENV_VAR, "900")
     ctx = app_module.Handler.page_context(fake_self)
-    assert ctx.get("wake_interval_env_default") == 900, (
+    assert ctx.wake_interval_env_default == 900, (
         "expected wake_interval_env_default == 900 with SKYPANE_SLEEP_S=900, got %r"
-        % (ctx.get("wake_interval_env_default"),))
+        % (ctx.wake_interval_env_default,))
 
     monkeypatch.delenv(app_module.SLEEP_ENV_VAR, raising=False)
     ctx_unset = app_module.Handler.page_context(fake_self)
-    assert "wake_interval_env_default" in ctx_unset, (
-        "expected the wake_interval_env_default key to always be present in ctx, even "
+    assert ctx_unset.is_resolved("wake_interval_env_default"), (
+        "expected the wake_interval_env_default field to always be present in ctx, even "
         "with SKYPANE_SLEEP_S unset")
-    assert ctx_unset["wake_interval_env_default"] is None, (
+    assert ctx_unset.wake_interval_env_default is None, (
         "expected wake_interval_env_default to be None with SKYPANE_SLEEP_S unset, got %r"
-        % (ctx_unset["wake_interval_env_default"],))
+        % (ctx_unset.wake_interval_env_default,))
 
 
 # ==========================================================================
@@ -973,11 +973,11 @@ def test_page_context_supplies_resolve_prefix_and_manual_resolutions(tmp_path):
         "expected the fixture add_entry() call to succeed, got %r" % (add_result,))
     fake_self = _FakeResolveCtxHandler(tmp, "/airlines?resolve=XYZ")
     ctx = app_module.Handler.page_context(fake_self)
-    assert ctx.get("resolve_prefix") == "XYZ", (
-        "expected ctx['resolve_prefix'] == 'XYZ', got %r" % (ctx.get("resolve_prefix"),))
-    registry = ctx.get("manual_resolutions")
+    assert ctx.resolve_prefix == "XYZ", (
+        "expected ctx.resolve_prefix == 'XYZ', got %r" % (ctx.resolve_prefix,))
+    registry = ctx.manual_resolutions
     assert isinstance(registry, dict) and "XYZ" in registry, (
-        "expected ctx['manual_resolutions'] to reflect the seeded entry, got %r" % (registry,))
+        "expected ctx.manual_resolutions to reflect the seeded entry, got %r" % (registry,))
     assert registry["XYZ"].get("airline_name") == "Brand New Air", (
         "expected the seeded entry's airline_name to round-trip through ctx, got %r"
         % (registry["XYZ"],))
@@ -989,8 +989,8 @@ def test_page_context_supplies_resolve_prefix_and_manual_resolutions(tmp_path):
     # for THIS check's own subject: resolve_prefix/manual_resolutions are
     # already asserted present and correct above.
     for key in ("state_dir", "device_config", "flash_role", "now"):
-        assert key in ctx, (
-            "expected the always-present ctx key %r to actually be present in "
+        assert ctx.is_resolved(key), (
+            "expected the always-present ctx field %r to actually be present in "
             "page_context()'s return" % (key,))
 
 

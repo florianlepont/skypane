@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 import companion.i18n as i18n
 from companion.layout import escape_html
 import companion.layout as layout
+import companion.page_context as page_context
 import companion.prefs as prefs
 from server import device_config
 from server import history_db
@@ -425,14 +426,15 @@ def history_rows(conn):
 def flights_limit(ctx):
     """The number of flights this render should show, an int inside
     `[FLIGHTS_PAGE_SIZE, HISTORY_ROW_LIMIT]`. Reads the raw, unvalidated
-    `?limit=` value from `ctx["flights_limit"]` and clamps rather than
+    `?limit=` value from `ctx.flights_limit` and clamps rather than
     rejects an out-of-range result to `None`: a hand-edited URL should
     render a page, not an error, and `HISTORY_ROW_LIMIT` is already the
     hard ceiling `history_rows()` fetches, so clamping upward can never
     ask for a row the query would not return anyway. Total by
     construction: no input, however malformed, ever raises.
     """
-    raw = ctx.get("flights_limit")
+    ctx = page_context.coerce(ctx)
+    raw = ctx.flights_limit
     if isinstance(raw, bool):
         # bool is an int subclass; rejected explicitly before str()/int()
         # rather than relying on int(str(True)) failing by accident.
@@ -1127,8 +1129,9 @@ def _show_more_html(shown, total_available):
 
 
 def render(ctx):
-    state_dir = ctx["state_dir"]
-    now = ctx.get("now") or history_db.utc_now_iso()
+    ctx = page_context.coerce(ctx)
+    state_dir = ctx.state_dir
+    now = ctx.now or history_db.utc_now_iso()
     rows = _safe_query(state_dir, history_rows)
 
     # Flights sits on the same self-refreshing loop the other pages use:
@@ -1140,7 +1143,7 @@ def render(ctx):
 
     # gallery_entries_list is the input to nearest_gallery_entry() below,
     # which every per-row "View panel near this time" trigger depends on.
-    gallery_entries_list = ctx.get("gallery_entries") or []
+    gallery_entries_list = ctx.gallery_entries or []
 
     if rows is _DB_UNAVAILABLE:
         body = '<p class="text-body">%s</p>' % escape_html(i18n.t(_HISTORY_UNAVAILABLE_TEXT))

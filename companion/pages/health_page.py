@@ -28,6 +28,7 @@ import companion.draw as draw
 import companion.health_signals as health_signals_module
 import companion.i18n as i18n
 import companion.layout as layout
+import companion.page_context as page_context
 import companion.prefs as prefs  # for the resolved language directly:
 # French requires a real U+00A0 before the colon (_label_colon() below),
 # not merely a translated label.
@@ -532,8 +533,8 @@ def compute_health_state(state_dir, now=None):
     """The single computation both the nav-tab dot and the full Health
     page need. Running these independently against fresh DB connections
     at two different instants let a write land between them and make
-    the two disagree; `page_context()` now calls this once per request
-    and threads the result through `ctx["health_state"]`.
+    the two disagree; `build_page_context()` now calls this once per
+    request and threads the result through `ctx.health_state`.
 
     Composed from exactly one `health_signals()` snapshot fed into
     `health_state_from_signals()`, so the severity `safe_health_signals()`
@@ -1583,12 +1584,13 @@ def _stats_section_html(stats):
 
 
 def render(ctx):
-    state_dir = ctx["state_dir"]
-    now = ctx.get("now") or history_db.utc_now_iso()
+    ctx = page_context.coerce(ctx)
+    state_dir = ctx.state_dir
+    now = ctx.now or history_db.utc_now_iso()
 
-    # Reuse the state page_context() already computed, rather than
+    # Reuse the state build_page_context() already computed, rather than
     # re-deriving it. Falls back to a fresh compute for a direct caller.
-    state = ctx.get("health_state") or compute_health_state(state_dir, now)
+    state = ctx.health_state or compute_health_state(state_dir, now)
     source_fault_raw = state["source_fault_raw"]
 
     device_html, device_state = state["device_html"], state["device_state"]

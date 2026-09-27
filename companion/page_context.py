@@ -147,29 +147,6 @@ class PageContext:
             name for name in LAZY_FIELDS if name not in self._loaders]
         return "PageContext(%s)" % ", ".join(resolved_names)
 
-    # --- mapping compatibility, for callers still written against the
-    # old _LazyContext dict shape. Delegates to the attribute path above,
-    # so `ctx["x"]`/`ctx.get("x")`/`"x" in ctx` see the same lazily
-    # resolved value (and pay the same one-time cost) `ctx.x` would.
-    # Deleted once no production reader uses them.
-
-    def __getitem__(self, key):
-        try:
-            return getattr(self, key)
-        except AttributeError:
-            raise KeyError(key)
-
-    def get(self, key, default=None):
-        try:
-            return getattr(self, key)
-        except AttributeError:
-            return default
-
-    def __contains__(self, key):
-        if key in EAGER_FIELDS:
-            return True
-        return key in self._loaders or key in self._resolved
-
 
 def coerce(value):
     """`value` as a `PageContext`: unchanged if it already is one,

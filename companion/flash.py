@@ -215,8 +215,8 @@ FLASH_MESSAGES = {
 
 # Every FLASH_KEY_* -> the ARIA role its rendered flash banner should
 # carry — "alert" (assertive) for a genuine failure, "status" (polite)
-# for everything else. page_context() resolves this into
-# ctx["flash_role"], threaded into every layout.flash_banner(role=...)
+# for everything else. build_page_context() resolves this into
+# ctx.flash_role, threaded into every layout.flash_banner(role=...)
 # call site below.
 FLASH_ROLES = {
     FLASH_KEY_SAVED: "status",

@@ -18,6 +18,7 @@ import companion.draw as draw
 import companion.frame_state as frame_state
 import companion.i18n as i18n
 import companion.layout as layout
+import companion.page_context as page_context
 import companion.wake as wake
 from companion.layout import escape_html
 from server import device_config, history_db
@@ -300,14 +301,15 @@ def _status_tiles_html(ctx):
     sibling of `pipeline_html` — Home renders its own verdict above it,
     never Health's second copy of the same judgement.
     """
-    health = ctx.get("health_state") or {}
+    ctx = page_context.coerce(ctx)
+    health = ctx.health_state or {}
     pipeline_state = health.get("pipeline_state") or "warn"
     battery_state = health.get("battery_state") or "warn"
 
     next_wake_iso, effective_interval_s, hold_reason = wake.next_wake_status(
-        ctx.get("last_checkin_ts"), ctx.get("device_config"))
+        ctx.last_checkin_ts, ctx.device_config)
     resolved_frame_state = frame_state.resolve_state(
-        next_wake_iso, effective_interval_s, hold_reason, ctx.get("now"))
+        next_wake_iso, effective_interval_s, hold_reason, ctx.now)
     if resolved_frame_state == frame_state.STATE_UNKNOWN:
         device_state = health.get("device_state") or "warn"
         frame_detail = _plain_text_from_markup(health.get("device_detail_html"))
@@ -316,12 +318,12 @@ def _status_tiles_html(ctx):
         device_state = _FRAME_STATE_TO_TILE_STATE[resolved_frame_state]
         next_wake_parsed = layout.parse_iso(next_wake_iso)
         frame_detail = layout.local_clock_text(
-            next_wake_parsed, now_parsed=layout.parse_iso(ctx.get("now")))
+            next_wake_parsed, now_parsed=layout.parse_iso(ctx.now))
         frame_detail_class = "time-value"
     frame_verdict = i18n.t(FRAME_STATE_TEXT.get(device_state, FRAME_STATE_TEXT["warn"]))
     frame_html = _tile_content_html(frame_verdict, frame_detail, detail_class=frame_detail_class)
 
-    reading = _safe_query(ctx.get("state_dir"), _latest_battery)
+    reading = _safe_query(ctx.state_dir, _latest_battery)
     battery_ring_html = ""
     if reading and reading.get("battery_mv"):
         pct = battery.battery_percent(reading["battery_mv"])
@@ -372,8 +374,9 @@ def _current_picture_html(ctx, current_flight_row):
     "AFR1380 · Air France · ORY → TLS" reusing the same recent-flights
     query result — no second query for the current flight.
     """
-    entries = ctx.get("gallery_entries") or []
-    now = ctx.get("now")
+    ctx = page_context.coerce(ctx)
+    entries = ctx.gallery_entries or []
+    now = ctx.now
     newest = entries[0] if entries else None
     if not newest:
         return layout.empty_state(i18n.t(NO_PANEL_HEADING), i18n.t(NO_PANEL_BODY))
@@ -592,13 +595,13 @@ def _day_band_html(ctx, rows):
     """
     if rows is None:
         return ""
-    bounds = _paris_day_bounds(ctx.get("now"))
+    bounds = _paris_day_bounds(ctx.now)
     if bounds is None:
         return ""
     day, day_start, day_seconds = bounds
     instants = _day_band_instants(rows, day)
     window, start_hm, end_hm = _quiet_hours_window(
-        ctx.get("device_config"), day_start, day_seconds)
+        ctx.device_config, day_start, day_seconds)
     canvas, collapsed = draw.day_band(
         day_start, day_seconds, instants, window=window,
         label=i18n.t(DAY_BAND_LABEL))
@@ -664,24 +667,24 @@ def render(ctx):
     `layout.REFRESH_SWAP_SELECTORS_BY_PAGE` declares for this page, are
     unchanged by that wrapping.
     """
-    now = ctx.get("now")
+    ctx = page_context.coerce(ctx)
+    now = ctx.now
     # One read, reused for both the hero's flight one-liner (its first
     # row is "the current flight") and the recent-flights list — never
     # two independent queries for the same data.
-    rows = _safe_query(ctx.get("state_dir"), _recent_flights)
+    rows = _safe_query(ctx.state_dir, _recent_flights)
     current_flight_row = rows[0] if rows else None
     # The day band's own single read, made here and passed down so a
     # builder that queried for itself would not make the page's cost
     # depend on how many sections happen to want the data.
-    checkin_rows = _safe_query(ctx.get("state_dir"), _day_checkins)
+    checkin_rows = _safe_query(ctx.state_dir, _day_checkins)
     header = layout.page_header(
         i18n.t(PAGE_TITLE), purpose=i18n.t(PAGE_PURPOSE),
         freshness_html=layout.freshness_line_html(now))
     # _status_tiles_html() below makes its own fresh call to the same
     # wake accessor against the same ctx fields, so the two can never
     # disagree.
-    next_wake_iso = wake.next_wake_status(
-        ctx.get("last_checkin_ts"), ctx.get("device_config"))[0]
+    next_wake_iso = wake.next_wake_status(ctx.last_checkin_ts, ctx.device_config)[0]
     return (
         header
         + _hero_html(
@@ -691,6 +694,6 @@ def render(ctx):
             _day_band_html(ctx, checkin_rows))
         + '<div class="home-columns home-picture-row">'
         + _current_picture_html(ctx, current_flight_row)
-        + _recent_flights_html(rows, now, ctx.get("state_dir"))
+        + _recent_flights_html(rows, now, ctx.state_dir)
         + "</div>"
     )

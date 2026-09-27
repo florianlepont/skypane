@@ -8,6 +8,7 @@ this module only renders its button/copy).
 from companion import i18n
 from companion.layout import escape_html
 import companion.layout as layout
+import companion.page_context as page_context
 from companion import screens
 from companion import wake
 from server import device_config
@@ -575,16 +576,17 @@ def _device_groups_html(builders, groups):
 def _render_current_values(ctx):
     """The device_config-derived "current" values render() threads into
     every group builder, header slot and the Aspect card — resolved
-    once here from ctx's own device_config snapshot.
+    once here from ctx's own device_config snapshot. `ctx` arrives
+    already a `PageContext`, coerced once by render() itself.
     """
-    device_cfg = ctx.get("device_config") or {}
+    device_cfg = ctx.device_config or {}
     current_notifications = device_cfg.get("notifications") or device_config.DEFAULT_NOTIFICATIONS
     # `is None`, not `or`: 0 is never a valid wake_interval_s. Falls back
     # to the deployed SKYPANE_SLEEP_S env default when device_config has
     # no value yet (e.g. a fresh install with no systemd unit).
     wake_interval_s = device_cfg.get("wake_interval_s")
     if wake_interval_s is None:
-        wake_interval_s = ctx.get("wake_interval_env_default")
+        wake_interval_s = ctx.wake_interval_env_default
     return {
         "device_cfg": device_cfg,
         # Explicit `.get()`, no `or` fallback below: `None` is a
@@ -614,15 +616,16 @@ def _render_calendar_and_poll_context(ctx):
     and the Poll section each need.
     """
     return {
-        "calendar_configured": ctx.get("calendar_configured"),
-        "calendar_last_synced_at": ctx.get("calendar_last_synced_at"),
+        "calendar_configured": ctx.calendar_configured,
+        "calendar_last_synced_at": ctx.calendar_last_synced_at,
         # last_attempt_at distinguishes "just connected, no sync yet"
         # from "has been failing"; entry_count feeds the status detail
         # template.
-        "calendar_last_attempt_at": ctx.get("calendar_last_attempt_at"),
-        "calendar_entry_count": ctx.get("calendar_entry_count") or 0,
-        "calendar_drift": ctx.get("calendar_drift"),
-        "cooldown_remaining": ctx.get("poll_cooldown_remaining", 0),
+        "calendar_last_attempt_at": ctx.calendar_last_attempt_at,
+        "calendar_entry_count": ctx.calendar_entry_count or 0,
+        "calendar_drift": ctx.calendar_drift,
+        "cooldown_remaining": (
+            ctx.poll_cooldown_remaining if ctx.poll_cooldown_remaining is not None else 0),
     }
 
 
@@ -635,12 +638,12 @@ def _next_wake_clock_and_iso(ctx, device_cfg):
     a placeholder.
     """
     next_wake_clock = None
-    next_wake_iso, _, _ = wake.next_wake_status(ctx.get("last_checkin_ts"), device_cfg)
+    next_wake_iso, _, _ = wake.next_wake_status(ctx.last_checkin_ts, device_cfg)
     if next_wake_iso:
         next_wake_parsed = layout.parse_iso(next_wake_iso)
         if next_wake_parsed is not None:
             next_wake_clock = layout.local_clock_text(
-                next_wake_parsed, now_parsed=layout.parse_iso(ctx.get("now")))
+                next_wake_parsed, now_parsed=layout.parse_iso(ctx.now))
     return next_wake_clock, next_wake_iso
 
 
@@ -669,7 +672,7 @@ def _group_builders(ctx, values, errors, submitted, next_wake_clock):
     """
     return {
         screens.GROUP_RUNWAY: lambda: runway_fieldset(
-            values["runway_id"], ctx.get("runway_images") or (),
+            values["runway_id"], ctx.runway_images or (),
             errors=errors, submitted=submitted, next_wake_clock=next_wake_clock),
         screens.GROUP_LED: lambda: led_group(
             values["led_enabled"], errors=errors, submitted=submitted,
@@ -682,14 +685,14 @@ def _group_builders(ctx, values, errors, submitted, next_wake_clock):
         screens.GROUP_WAKE_INTERVAL: lambda: wake_interval_group(
             values["wake_interval_s"], errors=errors, submitted=submitted,
             next_wake_clock=next_wake_clock,
-            battery_rows=wake_battery_rows(ctx.get("state_dir"), ctx.get("now"))),
+            battery_rows=wake_battery_rows(ctx.state_dir, ctx.now)),
         screens.GROUP_NOTIFICATIONS: lambda: notifications_group(
             values["notifications_configured"], values["notifications_battery"],
             values["notifications_silent"], errors=errors, submitted=submitted),
     }
 
 
-def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, submitted, values, calendar_ctx, next_wake_iso):
+def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, submitted, values, calendar_status, next_wake_iso):
     """Display scope's own header, Frame strip, hidden scope fields and
     the two headed supersections (Aspect card and Watches/On, via
     `_display_groups_html()`). `groups_html` stays empty: every saved
@@ -709,7 +712,7 @@ def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, subm
     # reports unsaved edits.
     header = layout.page_header(
         i18n.t(DISPLAY_PAGE_TITLE), purpose=i18n.t(DISPLAY_PAGE_PURPOSE),
-        freshness_html=layout.freshness_line_html(ctx.get("now")),
+        freshness_html=layout.freshness_line_html(ctx.now),
         action_html=_screen_caption_html(screen) + _screen_selector_html(screen_id, errors=errors))
     frame_strip_section_html = layout.frame_strip_html(
         ctx, return_to=layout.DISPLAY_ROUTE, next_wake_iso=next_wake_iso)
@@ -722,10 +725,10 @@ def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, subm
         # slightly different rounding.
         departures_safe_id = departures_safe_theme_id(values["theme_id"], submitted)
         calendar_row_html, calendar_disconnect_form_html = calendar_usage_row_html(
-            departures_safe_id, values["calendar_theme_id"], calendar_ctx["calendar_configured"],
-            calendar_ctx["calendar_drift"], calendar_ctx["calendar_last_synced_at"],
-            calendar_ctx["calendar_last_attempt_at"], ctx.get("now"), calendar_ctx["calendar_entry_count"],
-            errors=errors, submitted=submitted, state_dir=ctx.get("state_dir"))
+            departures_safe_id, values["calendar_theme_id"], calendar_status["calendar_configured"],
+            calendar_status["calendar_drift"], calendar_status["calendar_last_synced_at"],
+            calendar_status["calendar_last_attempt_at"], ctx.now, calendar_status["calendar_entry_count"],
+            errors=errors, submitted=submitted, state_dir=ctx.state_dir)
         rules_row_html = rules_usage_row_html(ctx)
         aspect_section_html = (
             layout.section_intro_html(
@@ -734,7 +737,7 @@ def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, subm
                 _aspect_card_html(
                     values["theme_id"], values["theme_arriving"],
                     calendar_row_html, calendar_disconnect_form_html, rules_row_html,
-                    errors=errors, submitted=submitted, state_dir=ctx.get("state_dir")),
+                    errors=errors, submitted=submitted, state_dir=ctx.state_dir),
                 "page-section aspect-card", "page-section--nested"))
     else:
         aspect_section_html = ""
@@ -879,10 +882,11 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     `_submitted_checkbox_checked()` — collapsing them would render
     every checkbox unchecked on every ordinary load.
     """
+    ctx = page_context.coerce(ctx)
     if errors is None:
         errors = {}
     values = _render_current_values(ctx)
-    calendar_ctx = _render_calendar_and_poll_context(ctx)
+    calendar_status = _render_calendar_and_poll_context(ctx)
     next_wake_clock, next_wake_iso = _next_wake_clock_and_iso(ctx, values["device_cfg"])
     dirty_strings = _dirty_bar_strings()
 
@@ -904,13 +908,13 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     if scope == SCOPE_DISPLAY:
         pieces = _render_display_scope(
             ctx, screen, screen_id, groups, builders, errors, submitted, values,
-            calendar_ctx, next_wake_iso)
+            calendar_status, next_wake_iso)
     elif scope == SCOPE_DEVICE:
         pieces = _render_device_scope(screen, screen_id, groups, builders, errors, next_wake_clock)
     else:
         pieces = _render_all_scope(groups, builders)
 
-    poll_html = _poll_html_for_scope(scope, pieces["show_poll"], calendar_ctx["cooldown_remaining"])
+    poll_html = _poll_html_for_scope(scope, pieces["show_poll"], calendar_status["cooldown_remaining"])
     return _settings_page_html(pieces, notifications_test_html, quick_led_html, poll_html, dirty_strings)
 
 
@@ -1053,7 +1057,8 @@ def handle_post(form, ctx, errors=None):
     only for the `set`/`clear` signals, since `carry_forward` would
     otherwise erase the fetched calendar registry.
     """
-    state_dir = ctx["state_dir"]
+    ctx = page_context.coerce(ctx)
+    state_dir = ctx.state_dir
     scope = submitted_scope(form)
     in_scope = set(scope_groups(scope, screens.current_screen_id(ctx)))
     calendar_signal = submitted_calendar_signal(form)
@@ -1079,7 +1084,7 @@ def handle_post(form, ctx, errors=None):
         lambda: form_post.resolve_wake_interval(form, errors),
         lambda: form_post.resolve_display(form, errors),
         lambda: form_post.resolve_notifications(
-            form, in_scope, errors, state_dir, ctx.get("lang")),
+            form, in_scope, errors, state_dir, ctx.lang),
     )
     save_kwargs = {}
     for step in steps:
