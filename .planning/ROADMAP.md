@@ -1932,7 +1932,7 @@ Plans:
 3. No duplicated CSS selector; no hard-coded colour outside tokens
 4. Rewording an English string cannot drop its French translation
 
-**Plans:** 10/16 plans executed
+**Plans:** 11/16 plans executed
 
 Plans:
 
@@ -1946,7 +1946,7 @@ Plans:
 - [x] 40-08-PLAN.md — config_page render/handle_post split per settings group (W3)
 - [x] 40-09-PLAN.md — shared body-drain and cookie helpers; flash/freshness/login/post-action modules out of app.py (W3)
 - [x] 40-10-PLAN.md — three live relative ages (CFG-34) with a wrapper-only baseline diff (W4)
-- [ ] 40-11-PLAN.md — typed lazy PageContext replaces the page_context() dict (W5)
+- [x] 40-11-PLAN.md — typed lazy PageContext replaces the page_context() dict (W5)
 - [ ] 40-12-PLAN.md — stable message IDs: mechanism + shared modules (W6)
 - [ ] 40-13-PLAN.md — stable message IDs: Home/Flights/Airlines/Health (W7)
 - [ ] 40-14-PLAN.md — stable message IDs: Display/Device settings (W7)

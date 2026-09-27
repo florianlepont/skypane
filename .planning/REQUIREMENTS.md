@@ -188,7 +188,7 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [x] **CMP-01**: Route table `(method, matcher, handler, auth_required)`
 - [x] **CMP-02**: One `{route: path}` allowlist
 - [x] **CMP-03**: Split by settings group / by responsibility
-- [ ] **CMP-04**: Typed per-page context
+- [x] **CMP-04**: Typed per-page context
 - [x] **CMP-05**: Named templates
 - [x] **CMP-06**: Broken down; `handle_post` per settings group
 - [x] **CMP-07**: Shared helpers
@@ -438,7 +438,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CMP-01 | Phase 40 | Complete |
 | CMP-02 | Phase 40 | Complete |
 | CMP-03 | Phase 40 | Complete |
-| CMP-04 | Phase 40 | Pending |
+| CMP-04 | Phase 40 | Complete |
 | CMP-05 | Phase 40 | Complete |
 | CMP-06 | Phase 40 | Complete |
 | CMP-07 | Phase 40 | Complete |
