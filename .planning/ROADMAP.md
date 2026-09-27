@@ -1881,7 +1881,7 @@ Plans:
 3. Quiet hours, battery-critical and battery-curve logic exist once
 4. mypy green in CI on the typed modules; behaviour unchanged (suite green)
 
-**Plans:** 8/13 plans executed
+**Plans:** 9/13 plans executed
 
 Plans:
 
@@ -1904,7 +1904,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 39-09-PLAN.md — server wiring: poll_loop/wake/device_config use the shared modules; copies deleted [ARC-02, ARC-05]
+- [x] 39-09-PLAN.md — server wiring: poll_loop/wake/device_config use the shared modules; copies deleted [ARC-02, ARC-05]
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
