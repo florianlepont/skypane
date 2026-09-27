@@ -248,6 +248,19 @@ def test_stdlib_only_imports():
     assert third_party == [], "non-stdlib imports found: %r" % third_party
 
 
+# ---------------------------------------------------------------------------
+# Tree-wide gate: the same assertion CI's blocking step makes, as a test so
+# removing that one CI line still fails the suite
+# ---------------------------------------------------------------------------
+
+def test_no_function_in_server_or_stub_server_exceeds_80_code_lines(capsys):
+    server_root = os.path.join(REPO_ROOT, "server")
+    stub_server_root = os.path.join(REPO_ROOT, "stub-server")
+    exit_code = cfs.main(["check", "--max", "80", server_root, stub_server_root])
+    out = capsys.readouterr().out
+    assert exit_code == 0, "function(s) over 80 code lines in server/ or stub-server/:\n%s" % out
+
+
 def test_tool_own_source_passes_comment_history_check():
     result = subprocess.run(
         [sys.executable, os.path.join(REPO_ROOT, "scripts", "check_comment_history.py"),

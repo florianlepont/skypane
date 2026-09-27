@@ -18,11 +18,16 @@ target-version = "py314"
 select = ["E4", "E7", "E9", "F"]
 
 # E402 (import not at top) suppressed, not fixed: every finding is a
-# documented sys.path bootstrap (server/poll_loop.py, server/device_config.py,
+# documented sys.path bootstrap (server/device_config.py,
 # server/panel_preview.py, server/plane/detect.py, server/plane/enrich.py,
 # server/themes.py, stub-server/byos_server.py), needed so
 # `server/.venv/bin/python3 server/poll_loop.py` (server/README.md's own
 # invocation) resolves its `server.*` imports when run as a direct script.
+# Refreshed 39-13 with `server/.venv/bin/ruff check --isolated --select
+# E402 .` (isolated ignores this project's own ignore, so it lists only
+# the real remaining sites): server/poll_loop.py's own two post-bootstrap
+# imports carry an inline `# noqa: E402` each rather than relying on this
+# project-wide suppression, so it is no longer part of this list.
 # server/plane/render/'s own bootstrap was dropped in the 39-08 package
 # split - `python3 -m server.plane.render` needs none, since `-m` already
 # puts the repo root (the invocation's cwd) on sys.path.
@@ -137,6 +142,12 @@ files = [
     "server/atomic_io.py",
     "server/plane/runway_config.py",
     "server/plane/colour_rules.py",
+    # Added under the global settings only, not the strict override below:
+    # the pure helpers (decide_hold, advance_is_due, normalise_pending,
+    # enqueue_pending, pop_fresh_pending) and CycleContext are fully
+    # annotated, but the orchestration steps over CycleContext stay
+    # partially annotated.
+    "server/poll_cycle.py",
 ]
 
 # mypy's own `strict` preset is a global-only switch; these per-flag

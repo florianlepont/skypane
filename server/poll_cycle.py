@@ -1020,7 +1020,7 @@ def detect_flight(ctx):
     # `diagnostics`, when populated, is the only signal that tells "every
     # source is down" apart from "nothing on the runway" - both otherwise
     # return the same None selection.
-    diagnostics = None
+    diagnostics: dict | None = None
     # This cycle's updated `{provider_name: epoch_seconds}` map, persisted
     # into history.db meta (never poll_state.json - see
     # _record_history()'s own comment) by every _record_history() call

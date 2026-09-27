@@ -100,6 +100,9 @@ jobs:
       - name: Type check (blocking; module list lives in pyproject.toml)
         run: server/.venv/bin/mypy
 
+      - name: Function size gate (non-test code in server/ and stub-server/)
+        run: server/.venv/bin/python scripts/check_function_size.py check --max 80 server stub-server
+
       - name: Shellcheck deploy scripts
         # Reads each file's own shebang, so the POSIX-sh Mac scripts under
         # deploy/backup/mac/ are checked against the right dialect too.
