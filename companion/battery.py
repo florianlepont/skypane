@@ -2,41 +2,21 @@
 service. Page-independent, stdlib-only, so home_page.py and
 health_page.py can share one estimate without importing each other.
 
-The one home for this estimate: a source scan proves no other module
-defines the millivolt constants or a second percentage function.
-`battery_fraction()`, `battery_percent()` and `LOW_BATTERY_DISPLAY_MV`
-all derive from the same ratio, so a gauge and its printed percentage
-can never round to different stories.
+The 14-knot discharge curve, its endpoints and the two percentage
+functions are the server's shared battery policy
+(`server/device_policy.py`), re-exported here rather than redefined:
+one curve for the percentage shown on the frame and the percentage
+this page prints, so the two can never round to different stories.
+`LOW_BATTERY_DISPLAY_MV` and the life-estimate code below are this
+module's own, companion-only additions on top of that shared curve.
 """
 
 import datetime
 
-# A 14-knot piecewise millivolt-to-percent lookup (source:
-# hardware/BATTERY-RUN.md's 12.34-day discharge run), replacing a
-# linear 4.2V/3.3V estimate that overstated charge. Deliberately not
-# linear between the endpoints: flat near the top, a cliff near the
-# bottom — a straight line misreads 3500 mV as ~48% when ~15% remained.
-BATTERY_DISCHARGE_CURVE = (
-    (2946, 0),
-    (3364, 7),
-    (3500, 15),
-    (3556, 22),
-    (3652, 29),
-    (3734, 36),
-    (3784, 43),
-    (3814, 50),
-    (3836, 57),
-    (3892, 65),
-    (3922, 72),
-    (3982, 79),
-    (4000, 90),
-    (4112, 100),
+from server.device_policy import (  # noqa: F401
+    BATTERY_DISCHARGE_CURVE, BATTERY_FULL_MV, BATTERY_EMPTY_MV,
+    battery_fraction, battery_percent,
 )
-
-# The end knots, indexed rather than typed, so a change to the table
-# above can never drift out of sync with the clamp endpoints below.
-BATTERY_FULL_MV = BATTERY_DISCHARGE_CURVE[-1][0]
-BATTERY_EMPTY_MV = BATTERY_DISCHARGE_CURVE[0][0]
 
 
 def _curve_mv_at_percent(percent):
@@ -59,55 +39,12 @@ def _curve_mv_at_percent(percent):
 
 
 # The COMPANION's own low-battery chart mark — distinct from
-# server/poll_loop.py's device-side BATTERY_LOW_THRESHOLD_MV (3500,
+# server/device_policy.py's device-side BATTERY_LOW_THRESHOLD_MV (3500,
 # raw millivolts, not an estimate). Derived from the curve above via
 # `_curve_mv_at_percent()`, so the chart line and the printed "≈ N%"
 # can never tell two different stories: 3540 mV at 20%.
 LOW_BATTERY_DISPLAY_PERCENT = 20
 LOW_BATTERY_DISPLAY_MV = _curve_mv_at_percent(LOW_BATTERY_DISPLAY_PERCENT)
-
-
-def battery_fraction(mv):
-    """The clamped 0.0-1.0 state-of-charge fraction for `mv`, read off
-    BATTERY_DISCHARGE_CURVE, or None for a non-numeric, non-positive or
-    NaN reading (0 or -1 mV is a broken sensor, not a flat battery).
-    Never raises. THE computation: `battery_percent()` is just this
-    value rounded, so a gauge and its printed percentage can never
-    disagree. Exactly 0.0 at/below BATTERY_EMPTY_MV, exactly 1.0
-    at/above BATTERY_FULL_MV, linear between knots otherwise.
-    """
-    try:
-        value = float(mv)
-    except (TypeError, ValueError):
-        return None
-    if value != value:  # NaN is the one float that compares unequal to itself.
-        return None
-    if value <= 0:
-        return None
-    if value <= BATTERY_EMPTY_MV:
-        return 0.0
-    if value >= BATTERY_FULL_MV:
-        return 1.0
-    for (lower_mv, lower_pct), (upper_mv, upper_pct) in zip(
-            BATTERY_DISCHARGE_CURVE, BATTERY_DISCHARGE_CURVE[1:]):
-        if upper_mv >= value:
-            percent = lower_pct + (value - lower_mv) * (upper_pct - lower_pct) / float(
-                upper_mv - lower_mv)
-            return percent / 100.0
-    return 1.0  # unreachable: value < BATTERY_FULL_MV already returned above.
-
-
-def battery_percent(mv):
-    """A clamped 0-100 estimate for `mv`, or None for a non-numeric,
-    non-positive or NaN reading. Never raises.
-
-    The arithmetic lives in `battery_fraction()` above; this function is
-    just its rounding, `int(round(fraction * 100))`.
-    """
-    ratio = battery_fraction(mv)
-    if ratio is None:
-        return None
-    return int(round(ratio * 100))
 
 
 # Named states, not an overloaded None: "no reading at all" must read

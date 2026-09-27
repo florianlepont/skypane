@@ -1,6 +1,6 @@
 """Shared fixture-seeding and formatting helpers for the `companion/
 test_status_pages*.py` test family: `server/history_db.py` writers, a
-`server/poll_loop.py` seeding wrapper, a manual_resolutions.py seeding
+`server/state_store.py` seeding wrapper, a manual_resolutions.py seeding
 wrapper, and rendered-markup helpers several parts of the family reuse.
 Not a test module itself — `__test__ = False` keeps pytest from
 collecting it directly.
@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 from server import history_db
 from server.plane import manual_resolutions
-import server.poll_loop as poll_loop
+import server.state_store as state_store
 from companion_app_server import served_stylesheet
 from companion_markup import css_rules
 
@@ -54,7 +54,7 @@ def seed_runway_events(state_dir, events):
 
 
 def seed_unresolved_prefixes(state_dir, registry):
-    poll_loop.save_poll_state(state_dir, {"unresolved_prefixes": registry})
+    state_store.save_poll_state(state_dir, {"unresolved_prefixes": registry})
 
 
 def seed_manual_resolutions(state_dir, entries):

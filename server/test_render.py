@@ -105,6 +105,102 @@ TEST_LONG_ROUTE = {
 }
 
 
+# The full surface server/plane/render/__init__.py re-exports, so the
+# package split (39-08) keeps `import server.plane.render` exposing every
+# name any caller or test in this repo reaches through `render.` -
+# derived from `grep -rhoE "\brender\.[A-Za-z_][A-Za-z_0-9]*" server
+# companion firmware test-support` plus every other public/private name
+# server/plane/render.py used to define at module scope.
+_RENDER_PACKAGE_SURFACE = (
+    # Modules and PIL classes re-exported for read access (never rebound
+    # for the duration of a test - see the retargeted spies above).
+    "device_config", "illustrations", "Image", "ImageDraw", "ImageFont",
+    "pf", "dither", "enrich", "runway_config",
+    "WIDTH", "HEIGHT", "IDX_BLACK", "IDX_BLUE", "IDX_GREEN", "IDX_RED", "IDX_WHITE", "IDX_YELLOW",
+    # style.py
+    "SPACE_XS", "SPACE_SM", "SPACE_MD", "SPACE_LG", "MARGIN", "SAFE_BOX",
+    "FONT_DIR", "PT_SERIF_REGULAR", "PT_SERIF_BOLD",
+    "STATE_LABEL_FONT", "TOP_TAG_FONT", "MAIN_LINE1_FONT", "MAIN_LINE2_FONT",
+    "PREVIOUS_LINE1_FONT", "PREVIOUS_LINE2_FONT", "EMPTY_HEADING_FONT", "EMPTY_BODY_FONT",
+    "LABEL_TRACKING_PX", "_BAND_TOP_LABEL_DIRECTION",
+    "MAIN_LINE1_MIN_SIZE", "MAIN_LINE2_MIN_SIZE", "PREVIOUS_LINE1_MIN_SIZE", "PREVIOUS_LINE2_MIN_SIZE",
+    "EMPTY_HEADING_MIN_SIZE", "_FIT_STEP_PX",
+    "STATE_BACKGROUND", "STATE_INK", "STATE_LABEL_TEXT",
+    "state_background_index", "state_ink_index", "runway_tag_text", "empty_heading_text",
+    "EMPTY_HEADING_TEXT", "EMPTY_INK", "EMPTY_BODY_LINES", "EMPTY_BODY_TEXT",
+    "TOP_RIGHT_TAG_TEXT", "ROUTE_FALLBACK_TEXT",
+    "QUIET_HOURS_HEADING_TEXT", "QUIET_HOURS_BODY_TEMPLATE",
+    "DISPLAY_OFF_HEADING_TEXT", "DISPLAY_OFF_BODY_LINES", "DISPLAY_OFF_BODY_TEXT",
+    "BATTERY_EMPTY_HEADING_TEXT", "BATTERY_EMPTY_BODY_LINES", "BATTERY_EMPTY_BODY_TEXT",
+    "NO_CONNECTION_HEADING_TEXT", "NO_CONNECTION_BODY_LINES", "NO_CONNECTION_BODY_TEXT",
+    "DIMMED_FIELD_IDX", "DIMMED_INK", "DIMMED_LABEL_FONT", "DIMMED_LABEL_TRACKING_PX",
+    "DIMMED_RULE_WIDTH_PX", "DIMMED_RULE_HEIGHT_PX", "DIMMED_BODY_FONT", "DIMMED_BODY_LINE_GAP_PX",
+    "SOURCE_FAULT_TEXT", "SOURCE_FAULT_GLYPH_PX",
+    "FRAME_INSET_FRAC", "FRAME_STROKE_PX",
+    "MAIN_ILLUSTRATION_WIDTH_FRAC", "MAIN_ILLUSTRATION_CENTER_Y_FRAC", "MAIN_LINE_GAP_PX",
+    "PREVIOUS_ILLUSTRATION_WIDTH_FRAC", "PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC", "PREVIOUS_LINE_GAP_PX",
+    "PREVIOUS_TEXT_LEFT_OFFSET_PX", "MAIN_TEXT_GAP_PX", "PREVIOUS_TEXT_GAP_PX",
+    "BAND_SHIFT_FRAC", "BAND_TOP_LEFT_FRAC", "BAND_TOP_RIGHT_FRAC", "BAND_BOT_LEFT_FRAC", "BAND_BOT_RIGHT_FRAC",
+    "BATTERY_ICON_LEFT", "BATTERY_ICON_BOTTOM", "BATTERY_ICON_BODY_W", "BATTERY_ICON_BODY_H",
+    "BATTERY_ICON_NUB_W", "BATTERY_ICON_NUB_H", "BATTERY_ICON_STROKE_PX", "BATTERY_ICON_FILL_FRAC",
+    "_assert_in_safe_box", "_assert_within_canvas", "_band_edges", "_band_center_x",
+    # text.py
+    "_font_cache", "_font", "fit_text_size", "_tracked_text_width", "draw_tracked_text",
+    "_tracked_text_bbox", "_role_weight_path", "_role_font", "_role_fit_text_size", "_wrap_text",
+    "_flight_line1_text", "_TYPE_DISPLAY_LABELS", "_AIRLINE_DISPLAY_ALIASES", "display_airline_name",
+    "_flight_line2_text", "_role_fit_tracked_text_size", "draw_main_text_block", "draw_previous_text_block",
+    "BAND_MAIN_NUMBER_FONT", "BAND_MAIN_ROUTE_FONT", "BAND_MAIN_AIRLINE_FONT",
+    "BAND_MAIN_DASH_W", "BAND_MAIN_DASH_GAP",
+    "BAND_MAIN_NUMBER_MIN_SIZE", "BAND_MAIN_ROUTE_MIN_SIZE", "BAND_MAIN_AIRLINE_MIN_SIZE",
+    "BAND_PREV_NUMBER_FONT", "BAND_PREV_ROUTE_FONT", "BAND_PREV_AIRLINE_FONT",
+    "BAND_PREV_DASH_W", "BAND_PREV_DASH_GAP",
+    "BAND_PREV_NUMBER_MIN_SIZE", "BAND_PREV_ROUTE_MIN_SIZE", "BAND_PREV_AIRLINE_MIN_SIZE",
+    # glyphs.py
+    "draw_source_fault_badge", "draw_battery_icon",
+    "POWER_ICON_DIAMETER_PX", "POWER_ICON_STROKE_PX", "POWER_ICON_GAP_DEGREES",
+    "POWER_ICON_BAR_RISE_PX", "POWER_ICON_BAR_DROP_PX", "draw_power_icon",
+    "MOON_ICON_DIAMETER_PX", "MOON_ICON_BITE_DIAMETER_PX", "MOON_ICON_BITE_OFFSET_PX", "MOON_ICON_SAMPLES",
+    "draw_moon_icon",
+    "EMPTY_BATTERY_ICON_HEIGHT_PX", "EMPTY_BATTERY_ICON_WIDTH_PX", "EMPTY_BATTERY_NUB_W_PX",
+    "EMPTY_BATTERY_NUB_H_PX", "EMPTY_BATTERY_ICON_STROKE_PX", "draw_empty_battery_icon",
+    "ALERT_ICON_HEIGHT_PX", "ALERT_ICON_WIDTH_PX", "ALERT_ICON_STROKE_PX", "draw_alert_icon",
+    "RUNWAY_ICON_HEIGHT_PX", "RUNWAY_ICON_WIDTH_PX", "RUNWAY_ICON_STROKE_PX",
+    "RUNWAY_ICON_DASH_PX", "RUNWAY_ICON_DASH_GAP_PX", "RUNWAY_ICON_KEY_PX", "RUNWAY_ICON_KEY_W_PX",
+    "draw_runway_icon",
+    # hold_screens.py
+    "_build_empty_canvas", "_build_quiet_hours_canvas", "_build_display_off_canvas",
+    "_build_battery_empty_canvas", "_build_no_connection_canvas",
+    "_build_hold_canvas", "_build_dimmed_hold_canvas",
+    # layout.py
+    "draw_diagonal_band", "draw_frame", "draw_top_labels",
+    "_illustration_over_pixel_cap", "_load_illustration_safely",
+    "_illustration_cache", "_ILLUSTRATION_CACHE_MAX_ENTRIES", "_resize_illustration",
+    "ILLUSTRATION_ALPHA_THRESHOLD", "_threshold_alpha", "_opaque_bbox", "IllustrationPlacement",
+    "_left_for_centered_content", "_left_for_right_aligned_content", "_top_for_centered_content",
+    "draw_illustration", "_LEGAL_PANEL_INDICES", "_assert_legal_palette", "_build_active_canvas",
+    "build_canvas", "render_panel",
+    # cli.py
+    "build_parser", "main", "_PREVIEW_ROUTE", "_PREVIEW_PREVIOUS_ROUTE",
+)
+
+
+def test_package_exposes_every_name_callers_and_tests_use():
+    """server.plane.render (the render/ package, post-39-08 split) still carries every name any caller or test in this repo reaches through `render.` - the full historical surface, both public and test-visible private"""
+    missing = [name for name in _RENDER_PACKAGE_SURFACE if not hasattr(render, name)]
+    if missing:
+        pytest.fail("server.plane.render is missing %d expected attribute(s): %r" % (len(missing), missing))
+
+
+def test_package_split_into_expected_submodules():
+    """server/plane/render/ is a package of exactly the six submodules the split introduced, each importable as a render.X attribute (required for the rebind-retargeting above to reach the real call sites)"""
+    for submodule_name in ("style", "text", "glyphs", "hold_screens", "layout", "cli"):
+        submodule = getattr(render, submodule_name, None)
+        if submodule is None:
+            pytest.fail("server.plane.render has no %r submodule attribute" % (submodule_name,))
+        if not hasattr(submodule, "__file__"):
+            pytest.fail("server.plane.render.%s does not look like a real module (no __file__)" % (submodule_name,))
+
+
 def nibble_counts(buf):
     # Counter(buf) counts each distinct byte value once in C, then each
     # byte's count is expanded into its two nibbles - same {nibble: count}
@@ -217,7 +313,8 @@ class _SelectIllustrationSpy:
     of (route, aircraft_type) argument pairs, in call order. Monkeypatches
     render.illustrations.select_illustration (the reference render.py
     itself calls through), following _TextSpy's monkeypatch-and-restore
-    shape.
+    shape. Accepts (and forwards) the state_dir keyword _build_active_canvas()
+    always passes, even though this spy does not record it.
     """
 
     def __init__(self, render_mod):
@@ -228,9 +325,9 @@ class _SelectIllustrationSpy:
     def __enter__(self):
         self._orig = self._render_mod.illustrations.select_illustration
 
-        def _spy(route, aircraft_type=None):
+        def _spy(route, aircraft_type=None, state_dir=None):
             self.calls.append((route, aircraft_type))
-            return self._orig(route, aircraft_type)
+            return self._orig(route, aircraft_type, state_dir=state_dir)
 
         self._render_mod.illustrations.select_illustration = _spy
         return self
@@ -257,18 +354,23 @@ class _PlacementSpy:
         self._orig = None
 
     def __enter__(self):
-        self._orig = self._render_mod.draw_illustration
+        # Retargeted to render.layout: draw_illustration() and its one
+        # caller, _build_active_canvas(), both live in layout.py after the
+        # render/ package split - a rebind on the package object itself
+        # would be a silent no-op, since _build_active_canvas() looks the
+        # name up in its own module's globals, not the package's.
+        self._orig = self._render_mod.layout.draw_illustration
 
         def _spy(canvas, resized_rgba, left, top):
             placement = self._orig(canvas, resized_rgba, left, top)
             self.placements.append(placement)
             return placement
 
-        self._render_mod.draw_illustration = _spy
+        self._render_mod.layout.draw_illustration = _spy
         return self
 
     def __exit__(self, exc_type, exc, tb):
-        self._render_mod.draw_illustration = self._orig
+        self._render_mod.layout.draw_illustration = self._orig
         return False
 
 
@@ -283,7 +385,7 @@ def _forced_illustration_pair(render_mod, main_path, prev_path):
     """
     orig = render_mod.illustrations.select_illustration
     paths = iter((main_path, prev_path))
-    render_mod.illustrations.select_illustration = lambda route, aircraft_type=None: next(paths)
+    render_mod.illustrations.select_illustration = lambda route, aircraft_type=None, state_dir=None: next(paths)
     try:
         yield
     finally:
@@ -322,9 +424,10 @@ def _write_oversized_png(tmp_path):
 @contextlib.contextmanager
 def _forced_illustration(render_mod, path, fallback_path=None):
     """Monkeypatch `render_mod.illustrations.select_illustration` to a
-    lambda accepting `(route, aircraft_type=None)` and returning `path` -
-    following `_SelectIllustrationSpy`'s exact monkeypatch-and-restore
-    shape, but overriding the return value instead of recording arguments.
+    lambda accepting `(route, aircraft_type=None, state_dir=None)` and
+    returning `path` - following `_SelectIllustrationSpy`'s exact
+    monkeypatch-and-restore shape, but overriding the return value instead
+    of recording arguments.
     When `fallback_path` is given, also monkeypatches
     `render_mod.illustrations.generic_fallback_path` to return it -
     letting a caller force both the primary candidate and the fallback
@@ -333,7 +436,7 @@ def _forced_illustration(render_mod, path, fallback_path=None):
     """
     orig_select = render_mod.illustrations.select_illustration
     orig_fallback = render_mod.illustrations.generic_fallback_path
-    render_mod.illustrations.select_illustration = lambda route, aircraft_type=None: path
+    render_mod.illustrations.select_illustration = lambda route, aircraft_type=None, state_dir=None: path
     if fallback_path is not None:
         render_mod.illustrations.generic_fallback_path = lambda: fallback_path
     try:
@@ -747,13 +850,18 @@ def test_previous_line2_font_grew_to_20px():
 # actually requested.
 def _spy_requested_font_paths(theme_id):
     requested_paths = []
-    orig_font = render._font
+    # Retargeted to render.text: _font() and every caller that reaches it
+    # (_role_font(), fit_text_size(), ...) live in text.py after the
+    # render/ package split - a rebind on the package object would be a
+    # silent no-op there, since those callers look the name up in their
+    # own module's globals, not the package's.
+    orig_font = render.text._font
 
     def _spy_font(spec):
         requested_paths.append(spec[0])
         return orig_font(spec)
 
-    render._font = _spy_font
+    render.text._font = _spy_font
     try:
         render.build_canvas(
             TEST_FLIGHT, "departing", route=TEST_ROUTE,
@@ -766,7 +874,10 @@ def _spy_requested_font_paths(theme_id):
             theme_id=theme_id,
         )
     finally:
-        render._font = orig_font
+        render.text._font = orig_font
+    if not requested_paths:
+        pytest.fail("_spy_requested_font_paths: render.text._font was never called - the rebind above did not "
+            "reach the real call sites (non-vacuity check)")
     return requested_paths
 
 
@@ -775,19 +886,22 @@ def _spy_requested_font_paths_with_fault(theme_id):
     # source_fault=True so draw_source_fault_badge()'s caption font
     # request is captured too.
     requested_paths = []
-    orig_font = render._font
+    orig_font = render.text._font
 
     def _spy_font(spec):
         requested_paths.append(spec[0])
         return orig_font(spec)
 
-    render._font = _spy_font
+    render.text._font = _spy_font
     try:
         render.build_canvas(
             TEST_FLIGHT, "departing", route=TEST_ROUTE, source_fault=True, theme_id=theme_id,
         )
     finally:
-        render._font = orig_font
+        render.text._font = orig_font
+    if not requested_paths:
+        pytest.fail("_spy_requested_font_paths_with_fault: render.text._font was never called - the rebind above "
+            "did not reach the real call sites (non-vacuity check)")
     return requested_paths
 
 
@@ -960,6 +1074,32 @@ def test_select_illustration_calls_each_receive_their_own_flights_type():
         pytest.fail("select_illustration() calls got the wrong route pairing: %r" % (spy.calls,))
 
 
+def test_build_canvas_state_dir_reaches_illustration_override(tmp_path):
+    """build_canvas(..., state_dir=tmp) forwards state_dir all the way to select_illustration(), which then resolves an illustration override placed under tmp's illustration_overrides/ dir; omitting state_dir resolves the vendored file instead."""
+    override_dir = tmp_path / illustrations.ILLUSTRATION_OVERRIDE_DIRNAME
+    override_dir.mkdir()
+    override_path = override_dir / "transavia-france.png"
+    override_path.write_bytes(b"not a real png - path-existence fixture only")
+
+    with _SelectIllustrationSpy(render) as spy_with_state_dir:
+        render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, state_dir=str(tmp_path))
+    if not spy_with_state_dir.calls:
+        pytest.fail("no select_illustration() call captured with state_dir set")
+
+    resolved_with_state_dir = illustrations.select_illustration(
+        TEST_ROUTE, TEST_FLIGHT.get("aircraft_type"), state_dir=str(tmp_path))
+    assert resolved_with_state_dir == str(override_path), (
+        "with state_dir=tmp, select_illustration() resolved %r, expected the override path %r" % (
+            resolved_with_state_dir, override_path)
+    )
+
+    resolved_without_state_dir = illustrations.select_illustration(TEST_ROUTE, TEST_FLIGHT.get("aircraft_type"))
+    assert resolved_without_state_dir != str(override_path), (
+        "with no state_dir argument, select_illustration() must not resolve the override path, got %r" % (
+            resolved_without_state_dir,)
+    )
+
+
 def test_no_previous_flight_never_raises_and_never_crosses_over():
     """previous_flight=None still completes without raising and never fabricates a type for the omitted previous card"""
     try:
@@ -977,13 +1117,21 @@ def test_no_previous_flight_never_raises_and_never_crosses_over():
 
 
 def test_render_source_never_uses_text_outline_arguments():
-    """server/plane/render.py's comment-stripped source contains no stroke_width/stroke_fill text-outline usage"""
-    render_path = os.path.join(REPO_ROOT, "server", "plane", "render.py")
-    with open(render_path, "r") as fh:
-        code_lines = [line for line in fh if not line.lstrip().startswith("#")]
-    stripped_source = "".join(code_lines)
-    if "stroke_width" in stripped_source or "stroke_fill" in stripped_source:
-        pytest.fail("server/plane/render.py references stroke_width/stroke_fill outside a full-line comment")
+    """every .py file under server/plane/render/'s comment-stripped source contains no stroke_width/stroke_fill text-outline usage"""
+    render_dir = os.path.join(REPO_ROOT, "server", "plane", "render")
+    checked = 0
+    for name in sorted(os.listdir(render_dir)):
+        if not name.endswith(".py"):
+            continue
+        checked += 1
+        module_path = os.path.join(render_dir, name)
+        with open(module_path, "r") as fh:
+            code_lines = [line for line in fh if not line.lstrip().startswith("#")]
+        stripped_source = "".join(code_lines)
+        if "stroke_width" in stripped_source or "stroke_fill" in stripped_source:
+            pytest.fail("server/plane/render/%s references stroke_width/stroke_fill outside a full-line comment" % (name,))
+    if checked == 0:
+        pytest.fail("no .py files found under server/plane/render/ - the scan above checked nothing")
 
 
 
@@ -2495,13 +2643,24 @@ def test_non_band_text_blocks_unaffected_by_band_idx_kwarg():
     if len(non_band_ids) != 11:
         pytest.fail("expected exactly 11 pre-band theme ids, found %d: %r" % (len(non_band_ids), non_band_ids))
 
-    orig_main = render.draw_main_text_block
-    orig_prev = render.draw_previous_text_block
+    # Retargeted to render.text: draw_main_text_block()/
+    # draw_previous_text_block() are called from layout.py's
+    # _build_active_canvas() through the text module attribute after the
+    # render/ package split, so the rebind must land on render.text, not
+    # the package - a rebind on the package object would be a silent
+    # no-op, and this byte-identity check would then pass vacuously (both
+    # renders would use the real functions). call_counts proves the spy
+    # was actually reached at least once per theme.
+    orig_main = render.text.draw_main_text_block
+    orig_prev = render.text.draw_previous_text_block
+    call_counts = {"main": 0, "prev": 0}
 
     def _main_no_band_kwarg(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight, band_idx=None):
+        call_counts["main"] += 1
         return orig_main(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight)
 
     def _prev_no_band_kwarg(canvas, flight, state, route, prev_placement, ink_idx, bg_idx, weight, band_idx=None):
+        call_counts["prev"] += 1
         return orig_prev(canvas, flight, state, route, prev_placement, ink_idx, bg_idx, weight)
 
     for theme_id in non_band_ids:
@@ -2510,8 +2669,10 @@ def test_non_band_text_blocks_unaffected_by_band_idx_kwarg():
             previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE, previous_state="arriving",
             theme_id=theme_id,
         )
-        render.draw_main_text_block = _main_no_band_kwarg
-        render.draw_previous_text_block = _prev_no_band_kwarg
+        call_counts["main"] = 0
+        call_counts["prev"] = 0
+        render.text.draw_main_text_block = _main_no_band_kwarg
+        render.text.draw_previous_text_block = _prev_no_band_kwarg
         try:
             canvas_unwired = render.build_canvas(
                 TEST_FLIGHT, "departing", route=TEST_ROUTE,
@@ -2519,8 +2680,11 @@ def test_non_band_text_blocks_unaffected_by_band_idx_kwarg():
                 theme_id=theme_id,
             )
         finally:
-            render.draw_main_text_block = orig_main
-            render.draw_previous_text_block = orig_prev
+            render.text.draw_main_text_block = orig_main
+            render.text.draw_previous_text_block = orig_prev
+        if call_counts["main"] == 0 or call_counts["prev"] == 0:
+            pytest.fail("theme %r: the rebind of render.text.draw_main_text_block/draw_previous_text_block was "
+                "never reached (call_counts=%r) - non-vacuity check failed" % (theme_id, call_counts))
         if list(canvas_wired.getdata()) != list(canvas_unwired.getdata()):
             pytest.fail("theme %r: build_canvas() output differs when draw_main_text_block()/draw_previous_text_block() "
                 "are called with no band_idx argument at all vs. _build_active_canvas()'s normal band_idx=band_idx "
@@ -2580,19 +2744,27 @@ def test_band_center_x_computed_once_not_recomputed_per_line():
 
 def test_band_black_main_card_ink_swaps_to_white():
     """every registered band theme's main card text samples as IDX_WHITE (never IDX_BLACK) inside its own drawn bboxes - the round-13 ink swap, widened on real glass to every band colour, is proven by actual pixel colour, not by absence of an exception (PHASE9-5)"""
-    orig_main = render.draw_main_text_block
+    # Retargeted to render.text: see test_non_band_text_blocks_unaffected_by_band_idx_kwarg()'s
+    # comment above - same rebind-target reasoning applies here.
+    orig_main = render.text.draw_main_text_block
+    no_op_calls = []
 
     def _main_no_op(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight, band_idx=None):
+        no_op_calls.append(1)
         return None, None
 
     def _ink_pixels_drawn(theme_id):
         with _TextBBoxSpy(render) as bbox_spy:
             canvas_with_text = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id=theme_id)
-        render.draw_main_text_block = _main_no_op
+        del no_op_calls[:]
+        render.text.draw_main_text_block = _main_no_op
         try:
             canvas_without_text = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id=theme_id)
         finally:
-            render.draw_main_text_block = orig_main
+            render.text.draw_main_text_block = orig_main
+        if not no_op_calls:
+            pytest.fail("%s: the rebind of render.text.draw_main_text_block was never reached - non-vacuity "
+                "check failed" % (theme_id,))
         with_pixels = canvas_with_text.load()
         without_pixels = canvas_without_text.load()
         ink_values = set()
@@ -2926,18 +3098,24 @@ def test_battery_empty_copy_constants_match_locked_strings():
 
 def test_battery_empty_dispatches_through_shared_dimmed_composition():
     """build_canvas(None, 'battery_empty') calls render._build_dimmed_hold_canvas exactly once, with draw_empty_battery_icon, EMPTY_BATTERY_ICON_HEIGHT_PX, BATTERY_EMPTY_HEADING_TEXT, BATTERY_EMPTY_BODY_LINES, source_fault=False and battery_low=False"""
-    orig = render._build_dimmed_hold_canvas
+    # Retargeted to render.hold_screens: _build_dimmed_hold_canvas() and
+    # its caller (_build_battery_empty_canvas()) both live in
+    # hold_screens.py after the render/ package split - a rebind on the
+    # package object would be a silent no-op there. The len(calls) != 1
+    # check below already fails loudly (0 != 1) if that happened, so it
+    # doubles as the non-vacuity proof.
+    orig = render.hold_screens._build_dimmed_hold_canvas
     calls = []
 
     def _spy(*args, **kwargs):
         calls.append((args, kwargs))
         return orig(*args, **kwargs)
 
-    render._build_dimmed_hold_canvas = _spy
+    render.hold_screens._build_dimmed_hold_canvas = _spy
     try:
         render.build_canvas(None, "battery_empty")
     finally:
-        render._build_dimmed_hold_canvas = orig
+        render.hold_screens._build_dimmed_hold_canvas = orig
     if len(calls) != 1:
         pytest.fail("_build_dimmed_hold_canvas was called %d time(s), expected exactly 1" % (len(calls),))
     args, kwargs = calls[0]
@@ -3075,18 +3253,20 @@ def test_no_connection_copy_constants_match_locked_strings():
 
 def test_no_connection_dispatches_through_shared_hold_composition():
     """render._build_no_connection_canvas() calls render._build_hold_canvas exactly once, with draw_alert_icon, ALERT_ICON_HEIGHT_PX, NO_CONNECTION_HEADING_TEXT, NO_CONNECTION_BODY_LINES, DIMMED_FIELD_IDX, DIMMED_INK and dithered=True by default"""
-    orig = render._build_hold_canvas
+    # Retargeted to render.hold_screens: same rebind-target reasoning as
+    # test_battery_empty_dispatches_through_shared_dimmed_composition() above.
+    orig = render.hold_screens._build_hold_canvas
     calls = []
 
     def _spy(*args, **kwargs):
         calls.append((args, kwargs))
         return orig(*args, **kwargs)
 
-    render._build_hold_canvas = _spy
+    render.hold_screens._build_hold_canvas = _spy
     try:
         render._build_no_connection_canvas()
     finally:
-        render._build_hold_canvas = orig
+        render.hold_screens._build_hold_canvas = orig
     if len(calls) != 1:
         pytest.fail("_build_hold_canvas was called %d time(s), expected exactly 1" % (len(calls),))
     args, kwargs = calls[0]

@@ -544,33 +544,15 @@ def generic_fallback_path():
 # `{state_dir}/illustration_overrides/{key}.png`.
 ILLUSTRATION_OVERRIDE_DIRNAME = "illustration_overrides"
 
-# Process-scoped default; `None` means no override location configured.
-_override_state_dir = None
-
-
-def set_override_state_dir(state_dir):
-    """Set the process-wide default state dir the resolver functions
-    below fall back to when called without an explicit `state_dir=`.
-
-    Exists because `select_illustration()` is called from deep inside
-    `render._build_active_canvas()`, which carries no filesystem-location
-    awareness. The explicit `state_dir=` parameter every resolver accepts
-    stays the primary, directly testable contract - this setter only
-    exists for callers, like the render call chain, that have no way to pass one
-    directly. Passing `None` restores the vendored-only behaviour.
-    """
-    global _override_state_dir
-    _override_state_dir = state_dir
-
 
 def override_dir_for_state_dir(state_dir=None):
-    """`{state_dir or process default}/ILLUSTRATION_OVERRIDE_DIRNAME`, or
-    `None` when neither is set. Never creates the directory.
+    """`{state_dir}/ILLUSTRATION_OVERRIDE_DIRNAME`, or `None` when
+    `state_dir` is falsy - no state dir means vendored-only, no override
+    directory exists to look in. Never creates the directory.
     """
-    effective = state_dir if state_dir is not None else _override_state_dir
-    if not effective:
+    if not state_dir:
         return None
-    return os.path.join(effective, ILLUSTRATION_OVERRIDE_DIRNAME)
+    return os.path.join(state_dir, ILLUSTRATION_OVERRIDE_DIRNAME)
 
 
 def override_path_for_key(key, state_dir=None):

@@ -5,7 +5,9 @@
 # Modified from FlightPortrait (github.com/flightportrait/frame) for
 # SkyPane; the changes are listed in stub-server/VENDOR.md. Full licence
 # text: firmware/LICENSE.
-"""Minimal bring-your-own-server for FlightPortrait frames. Stdlib only.
+"""Minimal bring-your-own-server for FlightPortrait frames. Stdlib only,
+plus the stdlib-only shared modules server.device_policy and
+server.state_store.
 
 Implements the three device endpoints from docs/PROTOCOL.md well enough
 to run a stock frame: point the frame at this host during BLE
@@ -54,11 +56,20 @@ import secrets
 import sys
 import tempfile
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-# zoneinfo is stdlib since Python 3.9 - this module's "Stdlib only" claim
-# above stays true.
-from zoneinfo import ZoneInfo
+
+# Repo-root sys.path bootstrap, the same shape server/poll_loop.py and
+# server/state_store.py use: the deployed layout already ships server/
+# next to stub-server/ (deploy/skypane-byos.service's WorkingDirectory),
+# so this always resolves from the file's own location, never a
+# cwd-relative path. Insert only if absent - devices_cli.py and the test
+# harnesses below may load this file more than once per process.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+from server import device_policy, state_store
 
 IMAGE_BYTES = 960000
 # X-Battery-Mv bounds: PROTOCOL.md §2 reserves 0 as the "unknown" sentinel,
@@ -67,32 +78,19 @@ IMAGE_BYTES = 960000
 BATTERY_MV_MIN = 1
 BATTERY_MV_MAX = 10000
 
-# Quiet-hours HH:MM shape gate, kept in lockstep with server/device_config.py's
-# own _HHMM_RE (see the vendor-boundary note above seconds_until_quiet_hours_end()).
-_HHMM_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)\Z")
-
-# One fixed physical location, so the quiet-hours timezone is hardcoded
-# here, matching server/device_config.py's own QUIET_HOURS_TZ.
-QUIET_HOURS_TZ = ZoneInfo("Europe/Paris")
-
-# wake_interval_s bounds, redefined here (never imported - see the
-# vendor-boundary note below) and kept numerically equal by hand to
-# server/device_config.py's WAKE_INTERVAL_MIN_S/MAX_S; not covered by the
-# byte-for-byte drift guard, which pins only the arithmetic core and regex.
-WAKE_INTERVAL_MIN_S = 60
-WAKE_INTERVAL_MAX_S = 3600
-
-# Off-state check-in cadence while display_enabled is false, mirrored by
-# hand from server/device_config.py's DISPLAY_OFF_SLEEP_S; a bare integer,
-# so a lighter parity check covers it instead of the drift guard above.
-DISPLAY_OFF_SLEEP_S = 300
-
-# Parked cadence while server/poll_loop.py's battery-empty hold is active,
-# and the recovery-mv threshold, both mirrored by hand from that module's
-# constants of the same name/value - byos only anticipates a recovery
-# already reported in the poll it is answering, never decides to park.
-BATTERY_CRITICAL_SLEEP_S = 3600
-BATTERY_CRITICAL_RECOVER_MV = 3700
+# Quiet-hours HH:MM shape gate, the quiet-hours timezone, the
+# wake_interval_s bounds, the off-state check-in cadence and the
+# battery-critical parked cadence/recovery threshold: bindings to
+# server/device_policy.py's shared objects, kept under these historical
+# names since the handlers below, devices_cli.py and the tests still
+# resolve them here.
+_HHMM_RE = device_policy.HHMM_RE
+QUIET_HOURS_TZ = device_policy.QUIET_HOURS_TZ
+WAKE_INTERVAL_MIN_S = device_policy.WAKE_INTERVAL_MIN_S
+WAKE_INTERVAL_MAX_S = device_policy.WAKE_INTERVAL_MAX_S
+DISPLAY_OFF_SLEEP_S = device_policy.DISPLAY_OFF_SLEEP_S
+BATTERY_CRITICAL_SLEEP_S = device_policy.BATTERY_CRITICAL_SLEEP_S
+BATTERY_CRITICAL_RECOVER_MV = device_policy.BATTERY_CRITICAL_RECOVER_MV
 
 
 def _read_umask():
@@ -129,10 +127,14 @@ def _atomic_write(path, data, mode=None):
     with the same observable contract (unique temp name, requested mode
     set on the temp file's descriptor before any byte is written, never
     chmod'ed after the rename, fsynced before the rename, temp removed
-    and the exception re-raised on any failure) - byos must never import
-    server.* (stub-server/VENDOR.md's vendor boundary); a behaviour-
-    parity test in test_byos_hardening.py pins the two to the same
-    contract instead of a source-text drift guard.
+    and the exception re-raised on any failure) - kept as a local copy
+    for the files byos alone owns (byos_state.json, devices.json,
+    img/*.bin), independent of the shared server.device_policy and
+    server.state_store modules this file now imports for quiet-hours,
+    battery-critical policy and the poll_state.json latch read; a
+    behaviour-parity test in test_byos_hardening.py pins this copy and
+    server/atomic_io.py's to the same contract instead of a source-text
+    drift guard.
     """
     if isinstance(data, str):
         payload = data.encode("utf-8")
@@ -333,24 +335,13 @@ def read_display_enabled(state_dir):
     return True
 
 
-def read_battery_critical(state_dir):
-    """Best-effort, read-only read of poll_state.json's
-    battery_critical_active latch (server/poll_loop.py's
-    apply_battery_critical_hysteresis() is the sole writer). Never
-    raises; any failure degrades to False - a wrong False costs a few
-    extra wakes, never a missed BATTERY EMPTY render, which remains
-    poll_loop's own responsibility. Mirrors
-    server.wake.read_battery_critical() field-for-field (this file must
-    never import that module).
-    """
-    try:
-        with open(os.path.join(state_dir, "poll_state.json")) as fh:
-            data = json.load(fh)
-    except (OSError, ValueError):
-        return False
-    if not isinstance(data, dict):
-        return False
-    return data.get("battery_critical_active") is True
+# Best-effort, read-only read of poll_state.json's battery_critical_active
+# latch (server/poll_loop.py's apply_battery_critical_hysteresis() is the
+# sole writer); fail-open to False on any read failure - a wrong False
+# costs a few extra wakes, never a missed BATTERY EMPTY render, which
+# remains poll_loop's own responsibility. The one shared reader server/
+# state_store.py and this file both use.
+read_battery_critical = state_store.read_battery_critical
 
 
 def read_wake_interval_s(state_dir, default):
@@ -377,56 +368,27 @@ def read_wake_interval_s(state_dir, default):
 
 # --- Quiet-hours sleep_s extension --------------------------------------
 #
-# seconds_until_quiet_hours_end() below is a byte-for-byte duplicate of
-# server/device_config.py's function of the same name - this file must
-# never import a server.* module (breaks the "Stdlib only" claim above
-# and blurs the vendor boundary stub-server/VENDOR.md tracks). Pinned
-# equal by a drift guard in stub-server/test_poll_cycle.py; change one,
-# change the other identically, in the same commit.
-def seconds_until_quiet_hours_end(now_utc, start_hm, end_hm):
-    """Seconds remaining until the daily [start_hm, end_hm) Europe/Paris
-    window's end, or None when `now_utc` falls outside it. Wraps midnight
-    when `end_hm <= start_hm`; a zero-width window (`start_hm == end_hm`)
-    is never active.
-
-    Arithmetic core only, no validation: `now_utc` must be timezone-aware;
-    `start_hm`/`end_hm` must already match `_HHMM_RE`.
-    stub-server/byos_server.py duplicates this byte-for-byte.
-
-    Two DST-safety properties: (a) the final subtraction converts to UTC
-    first (`end_dt.astimezone(timezone.utc) - now_utc`), since two aware
-    datetimes sharing a `tzinfo` subtract by wall-clock numerals only,
-    which is wrong by an hour across a DST transition; (b) a boundary
-    configured inside the 02:00-03:00 transition hour can resolve up to
-    an hour off (PEP 495 `fold=0`, accepted, not engineered around).
-    """
-    local_now = now_utc.astimezone(QUIET_HOURS_TZ)
-    start_h, start_m = (int(x) for x in start_hm.split(":"))
-    end_h, end_m = (int(x) for x in end_hm.split(":"))
-    start_today = local_now.replace(hour=start_h, minute=start_m, second=0, microsecond=0)
-    end_today = local_now.replace(hour=end_h, minute=end_m, second=0, microsecond=0)
-    if (start_h, start_m) <= (end_h, end_m):
-        if not (start_today <= local_now < end_today):
-            return None
-        end_dt = end_today
-    else:
-        if local_now >= start_today:
-            end_dt = end_today + timedelta(days=1)
-        elif local_now < end_today:
-            end_dt = end_today
-        else:
-            return None
-    return max(0, int((end_dt.astimezone(timezone.utc) - now_utc).total_seconds()))
+# The shared arithmetic core: seconds remaining until the daily
+# [start_hm, end_hm) Europe/Paris window's end, or None when `now_utc`
+# falls outside it. server/device_policy.py's own docstring has the full
+# DST-safety notes (fold=0 accepted, not engineered around).
+seconds_until_quiet_hours_end = device_policy.seconds_until_quiet_hours_end
 
 
 def read_quiet_hours(state_dir):
     """Best-effort read of the shared device_config.json's quiet-hours
-    fields. Never raises; any failure - including `quiet_hours_enabled`
-    not literally `True`, or either bound failing
-    `isinstance(value, str) and _HHMM_RE.match(value)` - degrades to
-    `None` (quiet hours not in effect), so a corrupted config can never
-    take down the always-on /device/v1/display service. Returns
-    `(start_hm, end_hm)` when every check passes, otherwise `None`.
+    fields, then device_policy.quiet_hours_window()'s shared fallback
+    rule. Never raises; a missing/unreadable/malformed device_config.json
+    or a non-dict document degrades to `None` (quiet hours not in
+    effect), so a corrupted config can never take down the always-on
+    /device/v1/display service.
+
+    An invalid stored bound (wrong shape, wrong type, or missing) no
+    longer disables quiet hours here: it falls back to the default
+    23:00-07:00 window instead, independently per bound - the same rule
+    server/poll_loop.py's hold decision uses, so a corrupted or
+    hand-edited quiet-hours time now extends the device's sleep rather
+    than silently letting it poll through the night.
     """
     try:
         with open(device_config_path(state_dir)) as fh:
@@ -435,15 +397,7 @@ def read_quiet_hours(state_dir):
         return None
     if not isinstance(data, dict):
         return None
-    if data.get("quiet_hours_enabled") is not True:
-        return None
-    start_hm = data.get("quiet_hours_start")
-    end_hm = data.get("quiet_hours_end")
-    if not (isinstance(start_hm, str) and _HHMM_RE.match(start_hm)):
-        return None
-    if not (isinstance(end_hm, str) and _HHMM_RE.match(end_hm)):
-        return None
-    return start_hm, end_hm
+    return device_policy.quiet_hours_window(data)
 
 
 def display_off_sleep_s(base_sleep_s, state_dir):
@@ -478,12 +432,14 @@ def battery_critical_sleep_s(base_sleep_s, state_dir, fresh_battery_mv):
     Composition order is load-bearing, extending display_off_sleep_s()'s
     contract: nested INSIDE quiet_hours_sleep_s() but OUTSIDE
     display_off_sleep_s().
+
+    The pin rule itself is device_policy.battery_critical_pin_applies():
+    the one canonical latched/fresh-reading truth table this file and
+    the poll cycle both apply.
     """
-    if read_battery_critical(state_dir) is not True:
-        return base_sleep_s
-    if fresh_battery_mv is not None and fresh_battery_mv >= BATTERY_CRITICAL_RECOVER_MV:
-        return base_sleep_s
-    return BATTERY_CRITICAL_SLEEP_S
+    if device_policy.battery_critical_pin_applies(read_battery_critical(state_dir), fresh_battery_mv):
+        return BATTERY_CRITICAL_SLEEP_S
+    return base_sleep_s
 
 
 def quiet_hours_sleep_s(base_sleep_s, state_dir, now=None):

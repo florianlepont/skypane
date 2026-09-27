@@ -173,15 +173,14 @@ def test_delete_entry_returns_true_once_then_false(tmp_path):
     assert second is False, "second delete_entry() call returned %r, expected False" % (second,)
 
 
-def test_state_dir_cache_round_trips_and_clears_on_reset(tmp_path):
-    """set_manual_registry_state_dir()/airline_name_for_prefix() cache round-trips and clears on reset to None."""
+def test_airline_name_for_prefix_reads_the_passed_registry_and_none_means_empty(tmp_path):
+    """airline_name_for_prefix(prefix, registry) reads the passed-in registry; registry=None (or omitted) means the empty registry."""
     m.add_entry(tmp_path, "AAA", "Volotea")
-    m.set_manual_registry_state_dir(tmp_path)
-    cached = m.airline_name_for_prefix("AAA")
-    m.set_manual_registry_state_dir(None)
-    after_reset = m.airline_name_for_prefix("AAA")
-    assert cached == "Volotea", "expected 'Volotea' from the cache, got %r" % (cached,)
-    assert after_reset is None, "expected None after set_manual_registry_state_dir(None), got %r" % (after_reset,)
+    registry = m.load_manual_resolutions(tmp_path)
+    with_registry = m.airline_name_for_prefix("AAA", registry)
+    without_registry = m.airline_name_for_prefix("AAA")
+    assert with_registry == "Volotea", "expected 'Volotea' from the loaded registry, got %r" % (with_registry,)
+    assert without_registry is None, "expected None with no registry argument, got %r" % (without_registry,)
 
 
 def test_entry_rows_sorted_and_skips_malformed_entry():
@@ -349,4 +348,10 @@ def test_add_entry_rejects_hostile_input_sweep(tmp_path):
         )
     registry_after = m.load_manual_resolutions(tmp_path)
     assert registry_after == {}, "registry not empty after the hostile-input sweep: %r" % (registry_after,)
+
+
+def test_no_setter_or_module_global_remains():
+    """manual_resolutions.py exposes no module-global setter and no process-scoped cache."""
+    for name in ("set_manual_registry_state_dir", "_cached_registry"):
+        assert not hasattr(m, name), "manual_resolutions module still has %r, expected it removed" % (name,)
 

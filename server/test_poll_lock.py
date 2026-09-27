@@ -18,15 +18,16 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _LOCK_RACE_TEMPLATE = """
 import sys
 sys.path.insert(0, {repo_root!r})
-import server.poll_loop as poll_loop
+import server.poll_cycle as poll_cycle
+import server.state_store as state_store
 
 state_dir, count = sys.argv[1], int(sys.argv[2])
 
 for _ in range(count):
-    with poll_loop.poll_cycle_lock(state_dir):
-        state = poll_loop.load_poll_state(state_dir)
+    with poll_cycle.poll_cycle_lock(state_dir):
+        state = state_store.load_poll_state(state_dir)
         state["counter"] = state.get("counter", 0) + 1
-        poll_loop.save_poll_state(state_dir, state)
+        state_store.save_poll_state(state_dir, state)
 """
 
 
@@ -57,9 +58,9 @@ def test_two_processes_x_200_locked_increments_end_at_400_no_lost_updates(tmp_pa
     assert all(not err for err in stderrs), (
         "expected empty stderr from both children, got %r" % (stderrs,))
 
-    import server.poll_loop as poll_loop
+    import server.state_store as state_store
 
-    final_state = poll_loop.load_poll_state(state_dir)
+    final_state = state_store.load_poll_state(state_dir)
     assert final_state.get("counter") == 400, (
         "expected the counter to end at 400 (two processes x 200 locked increments with zero "
         "lost updates), got %r" % (final_state.get("counter"),))

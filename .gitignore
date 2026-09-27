@@ -21,9 +21,10 @@ __pycache__/
 /server/.venv
 
 # --- Tooling caches ---
-# Landed here before ruff/coverage/pytest ever run, so no cache file is
-# ever in git history.
+# Landed here before ruff/coverage/pytest/mypy ever run, so no cache file
+# is ever in git history.
 .ruff_cache/
+.mypy_cache/
 .coverage
 .coverage.*
 .pytest_cache/

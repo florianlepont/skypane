@@ -9,10 +9,12 @@ this module (the reverse direction would cycle). Its callsign/prefix
 normalisers duplicate small primitives from `enrich.py`/
 `manual_resolutions.py` rather than import them, for the same reason.
 
-**Caching:** `set_colour_rules_state_dir()`'s cache is for the
-once-per-cycle poll pipeline only. `companion/`'s long-running
-`ThreadingHTTPServer` must call `load_colour_rules(state_dir)` fresh per
-request instead.
+**Loading:** the caller loads the registry once per cycle with
+`load_colour_rules(state_dir)` and passes it into
+`resolve_effective_theme_id(..., rules=registry)` - this module holds no
+cache of its own. `companion/`'s long-running `ThreadingHTTPServer` must
+call `load_colour_rules(state_dir)` fresh per request, same as any other
+caller.
 
 A rule record is a dict (`{"theme_id": ..., "created_at": ...}`), not a
 bare theme-id string, so a future entry can carry fields not yet defined.
@@ -20,6 +22,8 @@ bare theme-id string, so a future entry can carry fields not yet defined.
 Lives at `{state_dir}/colour_rules.json`, excluded from `deploy/deploy.sh`'s
 rsync so it survives a redeploy.
 """
+from __future__ import annotations
+
 import json
 import os
 import re
@@ -27,6 +31,11 @@ import threading
 from datetime import datetime, timezone
 
 from server import atomic_io, device_config
+
+# A rule record: `{"theme_id": ..., "created_at": ...}`. The per-kind
+# registry is keyed on the rule's normalised value (callsign/hex/prefix).
+RuleRecord = dict[str, str]
+RuleRegistry = dict[str, dict[str, RuleRecord]]
 
 COLOUR_RULES_FILENAME = "colour_rules.json"
 
@@ -68,23 +77,20 @@ ADD_FAILED = "failed"
 # load before either has written and lose an update.
 _WRITE_LOCK = threading.Lock()
 
-# Process-scoped cache; unset means the empty registry shape.
-_cached_rules = {kind: {} for kind in RULE_KINDS}
 
-
-def colour_rules_path(state_dir):
+def colour_rules_path(state_dir: str) -> str:
     """Join `state_dir` and `COLOUR_RULES_FILENAME`."""
     return os.path.join(state_dir, COLOUR_RULES_FILENAME)
 
 
-def normalise_rule_kind(raw):
+def normalise_rule_kind(raw: object) -> str | None:
     """Member of `RULE_KINDS` matching `raw` exactly, else `None`. Never raises."""
     if isinstance(raw, str) and raw in RULE_KINDS:
         return raw
     return None
 
 
-def normalise_rule_callsign(raw):
+def normalise_rule_callsign(raw: object) -> str | None:
     """Stripped/upper-cased `raw` when it matches `_CALLSIGN_RULE_RE`, else `None`. Never raises."""
     if not isinstance(raw, str) or not raw:
         return None
@@ -94,7 +100,7 @@ def normalise_rule_callsign(raw):
     return candidate
 
 
-def normalise_rule_hex(raw):
+def normalise_rule_hex(raw: object) -> str | None:
     """Stripped/upper-cased `raw` when it matches `_HEX_RULE_RE`, else `None`. Never raises."""
     if not isinstance(raw, str) or not raw:
         return None
@@ -104,7 +110,7 @@ def normalise_rule_hex(raw):
     return candidate
 
 
-def normalise_rule_prefix(raw):
+def normalise_rule_prefix(raw: object) -> str | None:
     """Stripped/upper-cased `raw` when it matches `_PREFIX_RE`, else `None`. Never raises."""
     if not isinstance(raw, str) or not raw:
         return None
@@ -114,7 +120,7 @@ def normalise_rule_prefix(raw):
     return candidate
 
 
-def normalise_rule_value(kind, raw):
+def normalise_rule_value(kind: object, raw: object) -> str | None:
     """Dispatch to the per-kind normaliser for a normalised `kind`; an
     unknown kind returns `None`. The single definition of "a valid rule
     key" every caller shares. Never raises.
@@ -129,7 +135,7 @@ def normalise_rule_value(kind, raw):
     return normalise_rule_prefix(raw)
 
 
-def normalise_rule_theme_id(raw):
+def normalise_rule_theme_id(raw: object) -> str | None:
     """`raw` unchanged when it is a member of `device_config.THEMES`,
     else `None` - never degrades to the default theme; an unrecognised
     id makes the rule invalid, dropped rather than retargeted.
@@ -139,7 +145,7 @@ def normalise_rule_theme_id(raw):
     return None
 
 
-def load_colour_rules(state_dir):
+def load_colour_rules(state_dir: str) -> RuleRegistry:
     """Read `{state_dir}/colour_rules.json`; never raises. A missing/
     unreadable/invalid file yields the empty registry shape. Each
     surviving entry is rebuilt from scratch, re-applying `add_rule()`'s
@@ -155,7 +161,7 @@ def load_colour_rules(state_dir):
     if not isinstance(data, dict):
         data = {}
 
-    ordered_pairs = []
+    ordered_pairs: list[tuple[str, str, object]] = []
     for kind in RULE_KINDS:
         kind_data = data.get(kind)
         if not isinstance(kind_data, dict):
@@ -163,7 +169,7 @@ def load_colour_rules(state_dir):
         for key in sorted(k for k in kind_data.keys() if isinstance(k, str)):
             ordered_pairs.append((kind, key, kind_data[key]))
 
-    registry = {kind: {} for kind in RULE_KINDS}
+    registry: RuleRegistry = {kind: {} for kind in RULE_KINDS}
     rejected = 0
     capped_remainder = 0
     surviving = 0
@@ -199,7 +205,9 @@ def load_colour_rules(state_dir):
     return registry
 
 
-def add_rule(state_dir, kind, value, theme_id, now=None):
+def add_rule(
+    state_dir: str, kind: object, value: object, theme_id: object, now: str | None = None,
+) -> str:
     """Validate and persist one `(kind, value) -> theme_id` colour rule.
     Returns an `ADD_*` module constant; never raises. Validates kind,
     value and theme_id before touching the filesystem, then holds
@@ -244,7 +252,7 @@ def add_rule(state_dir, kind, value, theme_id, now=None):
     return ADD_OK_REPLACED if replacing else ADD_OK_NEW
 
 
-def delete_rule(state_dir, kind, value):
+def delete_rule(state_dir: str, kind: object, value: object) -> bool:
     """Remove `(kind, value)` from the registry at `state_dir`. `True`
     when removed, `False` otherwise (unknown kind, malformed value,
     absent key, write failure). Idempotent, never raises; same
@@ -274,12 +282,12 @@ def delete_rule(state_dir, kind, value):
     return True
 
 
-def rule_rows(registry):
+def rule_rows(registry: object) -> list[tuple[str, str, str, str]]:
     """`(kind, value, theme_id, created_at)` tuples from an already-loaded
     registry, ordered by kind then value, skipping malformed entries.
     Never raises. What the Settings rules list renders from.
     """
-    rows = []
+    rows: list[tuple[str, str, str, str]] = []
     if not isinstance(registry, dict):
         return rows
     for kind in RULE_KINDS:
@@ -298,20 +306,7 @@ def rule_rows(registry):
     return rows
 
 
-def set_colour_rules_state_dir(state_dir):
-    """Set the process-wide cached registry `resolve_effective_theme_id()`
-    reads through. Call once per poll cycle so a companion-side save
-    landing mid-cycle never splits one rendered panel across two
-    configurations. Falsy `state_dir` caches the empty registry shape.
-    """
-    global _cached_rules
-    if state_dir:
-        _cached_rules = load_colour_rules(state_dir)
-    else:
-        _cached_rules = {kind: {} for kind in RULE_KINDS}
-
-
-def _rule_theme_from_cache(cache, kind, key):
+def _rule_theme_from_cache(cache: RuleRegistry, kind: str, key: str | None) -> str | None:
     """Defensive nested lookup used only by `resolve_effective_theme_id()`
     below — never raises regardless of `cache`'s shape, including a
     tampered or malformed cache dict.
@@ -327,9 +322,12 @@ def _rule_theme_from_cache(cache, kind, key):
     return entry.get("theme_id")
 
 
-def resolve_effective_theme_id(state, flight, device_cfg, calendar_theme_id=None):
+def resolve_effective_theme_id(
+    state: object, flight: object, device_cfg: object,
+    calendar_theme_id: object = None, rules: object = None,
+) -> str:
     """The single resolver that decides what colour the panel is. Reads
-    `_cached_rules` only, never touches disk. Never raises; always
+    only its `rules` argument, never touches disk. Never raises; always
     returns a member of `device_config.THEMES`.
 
     Order: `calendar_theme_id`, then exact callsign rule, hex rule,
@@ -341,11 +339,16 @@ def resolve_effective_theme_id(state, flight, device_cfg, calendar_theme_id=None
     `calendar_theme_id` is computed by the caller (`poll_loop.py`, via
     `calendar_rules.match_calendar_theme()`), preserving this module's
     leaf-import contract.
+
+    `rules`: the registry the caller loaded once this cycle via
+    `load_colour_rules(state_dir)`. `None`, or anything not a dict, is
+    treated as the empty registry - matching the behaviour of a process
+    that never loaded one.
     """
     if isinstance(calendar_theme_id, str) and calendar_theme_id in device_config.THEMES:
         return calendar_theme_id
 
-    cache = _cached_rules if isinstance(_cached_rules, dict) else {}
+    cache = rules if isinstance(rules, dict) else {kind: {} for kind in RULE_KINDS}
 
     raw_callsign = flight.get("callsign") if isinstance(flight, dict) else None
     raw_hex = flight.get("hex") if isinstance(flight, dict) else None

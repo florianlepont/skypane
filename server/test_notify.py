@@ -32,10 +32,10 @@ if REPO_ROOT not in sys.path:
 import server.notify as notify  # noqa: E402
 from server import http_fetch  # noqa: E402
 
-# send_notification()'s first line is calendar_rules._url_is_safe(), which
+# send_notification()'s first line is safe_fetch.url_is_safe(), which
 # for a real "https://ntfy.sh/..." topic URL does a genuine
 # socket.getaddrinfo("ntfy.sh", ...) DNS lookup as part of its SSRF
-# public-address check (server/plane/calendar_rules.py:_host_is_safe()).
+# public-address check (server/net/safe_fetch.py:host_is_safe()).
 # conftest.py's non-loopback DNS guard correctly blocks that lookup in
 # every test - stub it with a fixed, real, public IP (the historical
 # example.com/example.org address, never actually connected to: every

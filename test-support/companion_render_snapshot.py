@@ -55,7 +55,7 @@ from companion import auth
 from companion.pages import airlines_page, health_page
 from server import device_config, history_db
 from server.plane import calendar_rules, colour_rules, manual_resolutions
-import server.poll_loop as poll_loop
+import server.state_store as state_store
 from skypane_test_support import REPO_ROOT
 
 # A fixed, deterministic instant — never real wall-clock time. Every
@@ -251,7 +251,7 @@ def seed_snapshot_state(state_dir, now_iso):
 
     # One unresolved prefix, so Health's registry renders its First/Last
     # seen cells.
-    poll_loop.save_poll_state(state_dir, {"unresolved_prefixes": {
+    state_store.save_poll_state(state_dir, {"unresolved_prefixes": {
         "TVF": {
             "count": 5, "first_seen": now_iso, "last_seen": now_iso,
             "example_callsign": "TVF123",

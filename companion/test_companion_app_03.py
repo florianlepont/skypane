@@ -1309,16 +1309,27 @@ def test_battery_life_estimate_is_total_and_never_claims_what_it_cannot():
             % (bad, hostile["relative_factor"]))
 
 
-def test_battery_module_imports_neither_a_page_module_nor_the_server_package():
-    """companion/battery.py imports nothing from companion.pages and nothing from the server
-    package — proven by importing it fresh in a subprocess and inspecting sys.modules, never by
-    reading its source"""
+def test_battery_module_imports_only_the_shared_device_policy_from_server():
+    """companion/battery.py imports nothing from companion.pages, and nothing from the server
+    package beyond the stdlib-only shared device-policy module — proven by importing it fresh
+    in a subprocess and diffing sys.modules before/after the import, never by reading its
+    source"""
     script = (
         "import json, sys\n"
+        "before = set(sys.modules)\n"
         "import companion.battery\n"
+        "after = set(sys.modules) - before\n"
         "banned = sorted(\n"
-        "    m for m in sys.modules\n"
-        "    if m == 'server' or m.startswith('server.') or m.startswith('companion.pages')\n"
+        "    m for m in after\n"
+        "    if (\n"
+        "        ((m == 'server' or m.startswith('server.'))\n"
+        "         and m not in ('server', 'server.device_policy'))\n"
+        "        or m.startswith('companion.pages')\n"
+        "        or m in ('PIL', 'requests', 'urllib3')\n"
+        "        or m.startswith('PIL.')\n"
+        "        or m.startswith('requests.')\n"
+        "        or m.startswith('urllib3.')\n"
+        "    )\n"
         ")\n"
         "print(json.dumps(banned))\n"
     )
@@ -1328,8 +1339,8 @@ def test_battery_module_imports_neither_a_page_module_nor_the_server_package():
     assert result.returncode == 0, result.stdout + result.stderr
     banned = json.loads(result.stdout.strip().splitlines()[-1])
     assert banned == [], (
-        "importing companion.battery pulled %r into sys.modules — this module is stdlib-only on "
-        "purpose (D-27)" % (banned,))
+        "importing companion.battery pulled %r into sys.modules — this module stays "
+        "stdlib-only apart from the stdlib-only shared device-policy module" % (banned,))
 
 
 # ==========================================================================
