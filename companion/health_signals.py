@@ -2,12 +2,12 @@
 computation — every state the nav-tab dot and the full Health page banner
 need, with zero HTML built.
 
-Never imports a page module (companion/pages/health_page.py imports this
+Never imports a page module (the Health page module imports this
 module, never the reverse — the direction is one-way, so this module can
 never end up needing a markup builder to compute a verdict). Every value
 returned is plain data: strings, dicts, lists, never a '<' character.
-`health_page.py` re-exports every name here under its historical name, so
-nothing outside this file needs to know the split happened.
+The Health page module re-exports every name here under its historical
+name, so nothing outside this file needs to know the split happened.
 """
 import os
 import re
@@ -72,7 +72,7 @@ _FRAME_STATE_TO_DEVICE_STATE = {
 _DB_UNAVAILABLE = object()  # sentinel distinguishing "query raised" from
 # "query succeeded and legitimately returned None/empty" (e.g. no rows
 # recorded yet), which must render very differently. The one instance:
-# companion/pages/health_page.py imports this exact object, never a
+# the Health page module imports this exact object, never a
 # second sentinel, so an `is _DB_UNAVAILABLE` check works across both
 # modules.
 
@@ -186,7 +186,7 @@ def battery_daily_rows(conn, now):
 def _battery_daily_series_usable(daily_rows):
     """True when there are at least two Europe/Paris-day buckets to plot
     as a trend, kept in exactly one place so `_battery_section()` and
-    `_battery_trend_caption()` (companion/pages/health_page.py) can never
+    `_battery_trend_caption()` (the Health page) can never
     disagree about which series is on screen. `daily_rows` may be the
     `_DB_UNAVAILABLE` sentinel: a failed read is never "usable".
     """
@@ -208,7 +208,7 @@ def _real_trend_reading_count(trend_rows):
 def _battery_trend_caption(trend_rows, daily_rows):
     """The heading caption text, honest about which series is on screen:
     uses `_battery_daily_series_usable()`, the same predicate
-    `_battery_section()` (companion/pages/health_page.py) uses, so the
+    `_battery_section()` (the Health page) uses, so the
     two can never disagree. Three cases: the daily series plotted, no
     readings at all (same 3-month framing), or a fallback of fewer than
     two days of raw readings ("Latest %d readings", the real count,
@@ -277,7 +277,7 @@ def _offbox_anomaly_text(offbox):
     """The single anomaly sentence for a non-ok `offbox` status, or
     `None` when `offbox` is `None` or already `"ok"`. Shared by
     `collect_anomalies()` and `_offbox_section_html()`
-    (companion/pages/health_page.py) so the two can never read different
+    (the Health page) so the two can never read different
     words for the same state.
     """
     if offbox is None or offbox["state"] == "ok":
@@ -350,7 +350,7 @@ def overall_severity(
 
 def _device_resolved_state(next_wake_iso, effective_interval_s, hold_reason, now):
     """The one `frame_state.resolve_state()` call both `_device_state()`
-    and `_device_section()` (companion/pages/health_page.py) key off, so
+    and `_device_section()` (the Health page) key off, so
     a due/held/late/unknown verdict can never differ between the
     state-only path and the tile markup.
     """
@@ -471,7 +471,7 @@ def coverage_status(rows):
 
 def _read_health_inputs(state_dir, now):
     """The reads `render()` and `compute_health_state()`
-    (companion/pages/health_page.py) both need, single-sourced into one
+    (the Health page) both need, single-sourced into one
     dict so the nav-tab dot and the page's own anomaly banner can't
     disagree. `registry_rows` uses its own narrow `(OSError, ValueError)`
     guard, a different failure mode from the SQLite reads below
@@ -509,7 +509,7 @@ def health_signals(state_dir, now=None):
     — severity, the anomaly list, and each section's own state — derived
     from one `_read_health_inputs()` read, with zero markup built. This
     is the snapshot `health_state_from_signals()`
-    (companion/pages/health_page.py) renders from and
+    (the Health page) renders from and
     `compute_health_state()` composes with it; nothing computed here is
     ever recomputed downstream, only rendered.
 

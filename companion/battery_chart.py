@@ -2,8 +2,8 @@
 on companion/draw.py's shared scale and shape primitives.
 
 Never imports a page module: this is presentation logic for one drawing,
-consumed by companion/pages/health_page.py (which re-exports every name a
-test or another module reads as `health_page.X`, so nothing outside this
+consumed by the Health page module (which re-exports every name a test
+or another module reads as its own attribute, so nothing outside this
 file needs to know the chart moved here).
 
 The chart's own class strings ("sparkline-hit", ...) are unchanged from
@@ -46,7 +46,7 @@ SPARKLINE_AXIS_LABEL_CLASS = draw.DRAWING_CHART_AXIS_LABEL_CLASS
 
 # "%d" is interpolated with BATTERY_TREND_WINDOW_DAYS // 30 at the one
 # call site below, never a typed literal, so the heading cannot silently
-# drift from the window the chart plots. health_page.py's own visible
+# drift from the window the chart plots. The Health page's own visible
 # `<h2>` heading interpolates the same two constants, imported from here.
 BATTERY_SECTION_HEADING_TEMPLATE = "Battery · %d months"
 
