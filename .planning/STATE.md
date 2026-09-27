@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
+status: ready_to_plan
 stopped_at: "Phase 38 complete (13/13, closed 2026-09-27): EFF-01..EFF-06 all closed; 38-VERIFICATION.md passed (10/10 must-haves) after the developer confirmed live zstd compression and a 304 revalidation through Caddy on production; code review found 2 critical + 3 warnings, all fixed with regression tests (38-REVIEW-FIX.md). Before/after record in 38-EFF-BASELINE.md. Remaining optional developer follow-ups: freshness.js and device-host curl rows. Next: Phase 39."
-last_updated: "2026-09-26T21:25:00.000Z"
+last_updated: "2026-09-27T05:45:00.000Z"
 last_activity: 2026-09-26
 progress:
   total_phases: 54
   completed_phases: 47
   total_plans: 405
   completed_plans: 380
-  percent: 85
+  percent: 87
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -52,17 +52,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 36 — state-integrity-and-device-protocol
+**Current focus:** Phase 39 — server architecture: run_once split, state store, shared module (not yet planned)
 
 ## Current Position
 
+Phase: 39 (server-architecture-run-once-split-state-store-shared-module) — NOT PLANNED YET (next)
 Phase: 38 (efficiency-companion-poll-cycle-storage) — COMPLETE (13/13 plans, 2026-09-27; 38-01..38-05 merged via #146-#149, 38-06..38-13 and the review fixes on PR #150). Verification passed; EFF-01..EFF-06 closed.
 Phase: 37 (security-and-operations-hardening) — COMPLETE (11/11 plans; 37-11 Wave B: byos loopback-only + IP filter, no secret in argv, CP-11 and CP-7 done live 2026-09-26)
 Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human_needed: TimeoutStartUSec=1min 30s confirmed live 2026-09-26; only the optional on-frame panel-swap check remains)
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 3 of 13
+Plan: Phase 39 not started
 
 **38-03 executed (2026-09-26), plan 3/13 of Phase 38 (depends on 38-01), wave 2 — EFF-03 storage machinery: history_db connection_scope, schema-once, write_batch.** Task 1 (TDD) added `connection_scope(state_dir)`, a re-entrant `threading.local()`-backed context manager: every `open_db(state_dir)` call on the same thread inside it shares one lazily-opened connection, closed (rolled back first if left in a transaction) only at the outermost exit; a scope for a different path started while one is active is served unscoped (passthrough); another thread never sees this thread's scope; a scoped open failure is remembered and re-raised on every later `open_db` in the scope without retrying. `open_db()`'s own signature is unchanged and its passthrough (unscoped) behaviour is identical to before. Task 2 (TDD) made schema and `PRAGMA journal_mode=WAL` run once per process per database file identity (`realpath`, `st_dev`, `st_ino`, in a lock-guarded set), with an empty-file override so a restored or deleted-and-recreated `history.db` always reruns it; connections now come from a `sqlite3.Connection` subclass (`_HistoryConnection`) carrying a batch-depth counter, and a new `write_batch(conn)` defers every writer's commit while open, committing once on clean exit or rolling back and re-raising on an exception — a private `_commit()` (now called by all four writers instead of a bare `conn.commit()`) keeps outside-a-batch behaviour identical to before. New `server/test_history_db_scope.py` (17 tests, including two branch-coverage-driven additions found after the first coverage run: a different-path `connection_scope` nested inside an active one, and `write_batch` against a bare `sqlite3.Connection` lacking `_batch_depth`). **Two deviations, both auto-fixed inline (Rule 1/Rule 2):** a `_SCHEMA_READY` comment's literal phrase "CREATE TABLE" tripped `test_config_history.py`'s regex-based "every CREATE TABLE is IF NOT EXISTS-guarded" test and was reworded; the two coverage-gap tests above were added after the fact. Nothing in `companion/app.py`, `companion/pages/*.py` or `server/poll_loop.py` calls `connection_scope` yet — that is 38-07/38-08's job (both `depends_on: ["38-03"]`); EFF-03 stays open until they land. Both tasks ran RED→GREEN: `2a4ae7c`/`66d7286` (Task 1), `5f44c1f`/`f214183` (Task 2). `server/test_history_db_scope.py` + `server/test_config_history.py` + `server/test_caddy_tail.py` + `deploy/tests/test_backup.py` (126 passed), the whole repo's `./scripts/run-all-tests.sh -m "not browser"` (2771 passed) and with the Playwright shim (2900 passed, 1 pre-existing unrelated local Chromium-baseline failure), ruff and `check_comment_history.py` all green.
 
@@ -315,6 +316,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | 16 | 7 | - | - |
 | 29 | 6 | - | - |
 | 30 | 8 | - | - |
+| 38 | 13 | - | - |
 
 **Recent Trend:**
 
