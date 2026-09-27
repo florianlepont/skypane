@@ -17,11 +17,10 @@ phase itself exists to shrink. `PENDING_OVERSIZED_FILES` and
 phase land, and this phase's closing plan is expected to empty both.
 
 Companion test modules (`companion/test_*.py`) are outside the ceiling
-entirely: the audit findings this guard enforces (CMP-03 file size,
-CMP-06 function size) scope to production code, and test modules are
-already split by concern under the Phase 32/33 test-migration
-conventions — a second, unrelated size discipline for test files does
-not belong in this guard.
+entirely: the audit findings this guard enforces scope to production
+code only, and test modules are already split by concern under this
+project's own established test-migration conventions — a second,
+unrelated size discipline for test files does not belong in this guard.
 """
 
 import companion_structure
