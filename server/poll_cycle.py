@@ -147,14 +147,14 @@ def _as_timestamp(value):
     return float(value)
 
 
-def normalise_pending(value):
+def normalise_pending(value: object) -> list[dict]:
     """Coerce poll_state.json's "pending_flights" into a list of
     `{"flight": dict, "first_seen": float}` entries, dropping anything
     malformed rather than raising.
     """
     if not isinstance(value, list):
         return []
-    entries = []
+    entries: list[dict] = []
     for entry in value:
         if not isinstance(entry, dict):
             continue
@@ -166,7 +166,7 @@ def normalise_pending(value):
     return entries
 
 
-def advance_is_due(last_advance_at, now, min_interval_s=None):
+def advance_is_due(last_advance_at: float | None, now: float, min_interval_s: float | None = None) -> bool:
     """May the "current" display slot advance on this cycle? No recorded
     advance, or a negative elapsed time (clock stepped backwards), both
     read as due.
@@ -181,7 +181,7 @@ def advance_is_due(last_advance_at, now, min_interval_s=None):
     return elapsed >= min_interval_s
 
 
-def enqueue_pending(pending, flight, now, max_entries=None):
+def enqueue_pending(pending: list[dict], flight: dict, now: float, max_entries: int | None = None) -> list:
     """Append `flight` to the pending queue; return hexes evicted by the
     depth cap. Re-detecting an already-queued aircraft refreshes its
     record but leaves `first_seen` untouched (it measures wait time, and
@@ -201,7 +201,7 @@ def enqueue_pending(pending, flight, now, max_entries=None):
     return evicted
 
 
-def pop_fresh_pending(pending, now, max_staleness_s=None):
+def pop_fresh_pending(pending: list[dict], now: float, max_staleness_s: float | None = None) -> tuple[dict | None, list]:
     """Pop the oldest still-fresh entry (FIFO), dropping any entry that
     exceeded `max_staleness_s` on the way. Returns `(flight_or_None,
     dropped_hexes)`; mutates `pending` in place. A negative age (clock
@@ -209,7 +209,7 @@ def pop_fresh_pending(pending, now, max_staleness_s=None):
     """
     if max_staleness_s is None:
         max_staleness_s = MAX_STALENESS_S
-    dropped = []
+    dropped: list = []
     while pending:
         entry = pending.pop(0)
         if (now - entry["first_seen"]) > max_staleness_s:
@@ -853,7 +853,7 @@ def load_cycle_context(snapshot, state_dir, geofence, caddy_log):
     )
 
 
-def decide_hold(battery_critical, display_enabled, quiet_remaining):
+def decide_hold(battery_critical: bool, display_enabled: bool, quiet_remaining: int | None) -> str | None:
     """Priority: battery_empty > display_off > quiet_hours. A flat pack
     overrides everything else - it doesn't matter what was configured if
     the device is about to lose power mid-refresh. Pure: the same three
