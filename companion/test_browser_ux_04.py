@@ -33,7 +33,8 @@ from companion.test_browser_ux_helpers import (
     _assert_hit_target, _assert_js_gate, _assert_no_page_overflow,
     _assert_surfaces_agree, _await_upload_zone, _bar_text, _click_control,
     _commit_field, _drop_files, _handle_sel, _in_both_themes, _login,
-    _no_js_page, _persist_without_js, _quiet_arc_minutes, _save_via_bar,
+    _no_js_page, _persist_without_js, _POINTER_RECORDER_ARM,
+    _POINTER_RECORDER_READ, _quiet_arc_minutes, _save_via_bar,
     _SUBMIT_PROBE, _set_ui_theme, _upload_without_js, _upload_zone_state,
     _wait_for_bar, _wait_for_bar_hidden, seed_state_dir,
 )
@@ -1397,4 +1398,120 @@ def test_the_artwork_drop_zone_meets_its_floors_at_360px_in_both_themes(
                 "is not reading the theme's tokens" % (painted[0][1],))
         _ = hit
     finally:
+        context.close()
+
+
+# The artwork drop zone's own keyboard-only recipe, previously
+# unmeasured: `_operate_with_keyboard()` cannot drive a native
+# `<input type="file">` (its picker is an OS surface it never touches),
+# so this measures the real recipe instead — Tab alone to the input, a
+# key press inside expect_file_chooser() to open the platform picker,
+# Enter on the focused submit button to send it — with the pointer
+# recorder armed for the whole sequence.
+_MAX_TAB_PRESSES = 200
+
+
+def _tab_until_focused(page, selector, theme, after_what):
+    """Presses Tab, never anything else, up to `_MAX_TAB_PRESSES` times,
+    until `document.activeElement` is the element `selector` matches.
+    Raises, naming the last focused element, rather than looping forever.
+    """
+    is_focused = "sel => document.activeElement === document.querySelector(sel)"
+    for _ in range(_MAX_TAB_PRESSES):
+        if page.evaluate(is_focused, selector):
+            return
+        page.keyboard.press("Tab")
+    last = page.evaluate(
+        "() => { const a = document.activeElement;"
+        " return a ? (a.id || a.tagName) : null; }")
+    raise AssertionError(
+        "theme=%s: Tab alone never reached %r within %d presses %s - the last "
+        "focused element was %r"
+        % (theme, selector, _MAX_TAB_PRESSES, after_what, last))
+
+
+@pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
+def test_the_artwork_drop_zone_is_operable_from_the_keyboard_alone(
+        new_context, make_app_server, tmp_path, theme):
+    """The artwork drop zone's previously-unmeasured keyboard clause: at
+    360px, scripts enabled, in each explicit theme, with the pointer
+    recorder armed before the first key press, pressing Tab alone from
+    the top of the freshly-loaded document reaches the drop zone's own
+    native `<input type="file">` (never `.click()`, never `.focus()` —
+    focus moves only through `page.keyboard.press("Tab")`).
+
+    "Enter" was tried first inside `page.expect_file_chooser()`;
+    measured against this repo's real Chromium
+    (`--only-shell-installed`) over 8 full runs it opened the platform
+    chooser only 3/8 times, so this test uses the documented fallback
+    instead: "Space" opens it 12/12 across the same measurement. The
+    chosen file is then submitted by pressing "Enter"
+    on the submit button (a real `<button>`, where Enter's default
+    action is unambiguous), reached the same Tab-only way. Zero pointer
+    events fire across the whole sequence, and the uploaded file lands
+    on disk, read back through `illustrations.override_path_for_key()`
+    the same way `test_dropped_and_picked_files_are_stored_identically()`
+    does, and decodes to the source fixture's own 1200x300.
+    """
+    server = make_app_server(seed=_seed_with_needs_artwork_entry, fake_providers=True)
+    fixtures = _write_artwork_fixtures(tmp_path)
+    base_url = server.base_url()
+
+    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+    try:
+        if _stored_artwork(server) is not None:
+            raise AssertionError(
+                "stored artwork for %r was already on disk when this check started"
+                % (ARTWORK_KEY,))
+
+        page = context.new_page()
+        _login(page, base_url)
+        page.goto(base_url + ARTWORK_ROUTE)
+        _await_upload_zone(page, DIALOG_ZONE)
+        _set_ui_theme(page, theme)
+
+        input_sel = "#%s" % (airlines_page.MANUAL_UPLOAD_INPUT_ID + "-dialog")
+        submit_sel = "#%s button[type=\"submit\"]" % (
+            airlines_page.MANUAL_UPLOAD_FORM_ID + "-dialog")
+
+        # Armed before the very first Tab press, so "zero pointer events"
+        # is a measurement of the entire sequence below, not just its tail.
+        page.evaluate(_POINTER_RECORDER_ARM)
+
+        _tab_until_focused(page, input_sel, theme, "from the top of the document")
+
+        with page.expect_file_chooser() as chooser_info:
+            page.keyboard.press("Space")
+        chooser_info.value.set_files(fixtures["art_path"])
+        page.wait_for_function(
+            "sel => { const i = document.querySelector(sel);"
+            " return !!(i.files && i.files.length); }",
+            arg=input_sel, timeout=5000)
+
+        _tab_until_focused(page, submit_sel, theme, "after choosing a file")
+
+        with page.expect_navigation():
+            page.keyboard.press("Enter")
+
+        fired = page.evaluate(_POINTER_RECORDER_READ)
+        if fired:
+            raise AssertionError(
+                "theme=%s: the keyboard-only upload sequence fired %d pointer "
+                "event(s) - %r. A keyboard proof that a pointer took part proves "
+                "nothing about a keyboard-only visitor" % (theme, len(fired), fired))
+
+        stored = _stored_artwork(server)
+        if stored is None:
+            raise AssertionError(
+                "theme=%s: the keyboard-only upload sequence stored nothing - the "
+                "browser navigated to %r, which is exactly what a REJECTED upload "
+                "looks like from outside" % (theme, page.url))
+        decoded = Image.open(io.BytesIO(stored))
+        if decoded.size != (1200, 300):
+            raise AssertionError(
+                "theme=%s: the stored file decodes to %r, not the source fixture's "
+                "own 1200x300 - the keyboard path reached a different file, or a "
+                "second transform crept in" % (theme, decoded.size))
+    finally:
+        _clear_stored_artwork(server)
         context.close()
