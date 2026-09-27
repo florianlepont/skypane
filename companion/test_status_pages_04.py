@@ -374,8 +374,11 @@ def test_registry_mobile_cards_paired_with_the_desktop_table(tmp_path):
         for raw_ts in (first_seen, last_seen):
             clock = layout.escape_html(
                 layout.local_clock_text(layout.parse_iso(raw_ts), layout.parse_iso(now_iso)))
-            age = layout.escape_html(
-                layout.relative_age_text(layout.age_seconds(raw_ts, now_iso)))
+            # The desktop cell's age half is a live <time data-relative> element
+            # (layout.relative_time_html()'s own pre-escaped markup), not
+            # escape_html(relative_age_text(...)) — interpolated verbatim below,
+            # matching health_page._registry_seen_cell_html()'s own construction.
+            age = layout.relative_time_html(raw_ts, now_iso)
             expected_cell = (
                 '<span class="cell-primary" title="%s">%s</span>'
                 '<span class="cell-inline-sep">%s</span>'
