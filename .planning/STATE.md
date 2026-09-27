@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_plan
-stopped_at: "Phase 38 complete (13/13, closed 2026-09-27): EFF-01..EFF-06 all closed; 38-VERIFICATION.md passed (10/10 must-haves) after the developer confirmed live zstd compression and a 304 revalidation through Caddy on production; code review found 2 critical + 3 warnings, all fixed with regression tests (38-REVIEW-FIX.md). Before/after record in 38-EFF-BASELINE.md. Remaining optional developer follow-ups: freshness.js and device-host curl rows. Next: Phase 39."
-last_updated: "2026-09-27T05:45:00.000Z"
-last_activity: 2026-09-26
+status: executing
+stopped_at: Completed 40-05-PLAN.md
+last_updated: "2026-09-27T10:35:03.836Z"
+last_activity: 2026-09-27
 progress:
   total_phases: 54
   completed_phases: 47
-  total_plans: 405
-  completed_plans: 380
+  total_plans: 421
+  completed_plans: 385
   percent: 87
 ---
 
@@ -38,7 +38,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [█████████░] 93%
+  [█████████░] 91%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -52,18 +52,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 39 — server architecture: run_once split, state store, shared module (not yet planned)
+**Current focus:** Phase 40 — companion-architecture-routes-pages-templates-i18n-keys
 
 ## Current Position
 
-Phase: 39 (server-architecture-run-once-split-state-store-shared-module) — NOT PLANNED YET (next)
+Phase: 40 (companion-architecture-routes-pages-templates-i18n-keys) — EXECUTING
 Phase: 38 (efficiency-companion-poll-cycle-storage) — COMPLETE (13/13 plans, 2026-09-27; 38-01..38-05 merged via #146-#149, 38-06..38-13 and the review fixes on PR #150). Verification passed; EFF-01..EFF-06 closed.
 Phase: 37 (security-and-operations-hardening) — COMPLETE (11/11 plans; 37-11 Wave B: byos loopback-only + IP filter, no secret in argv, CP-11 and CP-7 done live 2026-09-26)
 Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human_needed: TimeoutStartUSec=1min 30s confirmed live 2026-09-26; only the optional on-frame panel-swap check remains)
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: Phase 39 not started
+Plan: 6 of 16
 
 **38-03 executed (2026-09-26), plan 3/13 of Phase 38 (depends on 38-01), wave 2 — EFF-03 storage machinery: history_db connection_scope, schema-once, write_batch.** Task 1 (TDD) added `connection_scope(state_dir)`, a re-entrant `threading.local()`-backed context manager: every `open_db(state_dir)` call on the same thread inside it shares one lazily-opened connection, closed (rolled back first if left in a transaction) only at the outermost exit; a scope for a different path started while one is active is served unscoped (passthrough); another thread never sees this thread's scope; a scoped open failure is remembered and re-raised on every later `open_db` in the scope without retrying. `open_db()`'s own signature is unchanged and its passthrough (unscoped) behaviour is identical to before. Task 2 (TDD) made schema and `PRAGMA journal_mode=WAL` run once per process per database file identity (`realpath`, `st_dev`, `st_ino`, in a lock-guarded set), with an empty-file override so a restored or deleted-and-recreated `history.db` always reruns it; connections now come from a `sqlite3.Connection` subclass (`_HistoryConnection`) carrying a batch-depth counter, and a new `write_batch(conn)` defers every writer's commit while open, committing once on clean exit or rolling back and re-raising on an exception — a private `_commit()` (now called by all four writers instead of a bare `conn.commit()`) keeps outside-a-batch behaviour identical to before. New `server/test_history_db_scope.py` (17 tests, including two branch-coverage-driven additions found after the first coverage run: a different-path `connection_scope` nested inside an active one, and `write_batch` against a bare `sqlite3.Connection` lacking `_batch_depth`). **Two deviations, both auto-fixed inline (Rule 1/Rule 2):** a `_SCHEMA_READY` comment's literal phrase "CREATE TABLE" tripped `test_config_history.py`'s regex-based "every CREATE TABLE is IF NOT EXISTS-guarded" test and was reworded; the two coverage-gap tests above were added after the fact. Nothing in `companion/app.py`, `companion/pages/*.py` or `server/poll_loop.py` calls `connection_scope` yet — that is 38-07/38-08's job (both `depends_on: ["38-03"]`); EFF-03 stays open until they land. Both tasks ran RED→GREEN: `2a4ae7c`/`66d7286` (Task 1), `5f44c1f`/`f214183` (Task 2). `server/test_history_db_scope.py` + `server/test_config_history.py` + `server/test_caddy_tail.py` + `deploy/tests/test_backup.py` (126 passed), the whole repo's `./scripts/run-all-tests.sh -m "not browser"` (2771 passed) and with the Playwright shim (2900 passed, 1 pre-existing unrelated local Chromium-baseline failure), ruff and `check_comment_history.py` all green.
 
@@ -210,7 +210,7 @@ Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03
 
 Status: Executing Phase 06.6.4.1 (8/9 plans; Task 2's developer verification checklist is the sole remaining item). Phase 11 and the sibling Phase 06.6.4.1.1 are both complete, merged in from separate branches.
 Also merged 2026-08-30 (third merge, this one — `git merge origin/main` into `claude/backlog-6x-phases-d6bb33` after this branch had drifted 32 commits behind, resolving conflicts in this file and `companion/test_companion_app.py`): origin/main's quick task 260829-0rl (2026-08-29) — `send_bytes()` in `companion/app.py` gained a `public` parameter (default `False`/private), fixing Phase 06.4's code-review finding WR-02 (shared/intermediary caching risk on authenticated byte-serving routes); `/static/style.css`'s route opted into `public=True` since it's pre-auth and content-identical for every client. While merging, found and fixed directly (not a conflict, a merge-introduced inconsistency): `_serve_script_file()` — the shared body for `/static/battery-trend.js` and `/static/nav-dropdown.js`, both pre-auth routes shipped by this branch's own 06.6.1-05 — hadn't opted into `public=True` the way `/static/style.css`'s route had, simply because that method didn't exist yet when `public` was added on main; added `public=True` there too, with a docstring line explaining why. `_serve_gallery_image()`/`_serve_runway_image()` (session-gated) correctly remain on the private default — verified, no change needed. `companion/test_companion_app.py`'s `EXPECTED_CHECK_COUNT` conflict (this branch's `68` vs origin's `52`) resolved to `69` — both branches' independent additions summed (this branch's 06.6.1 work + origin's 1 new WR-02 regression check, which had already auto-merged cleanly elsewhere in the file).
-Last activity: 2026-09-26
+Last activity: 2026-09-27
 Last activity: 2026-09-25 - Completed 33-32-PLAN.md: the legacy harness shim, legacy lists, collect_ignore, the legacy_harness marker and LegacyHarness retired; the guard scans every companion test module and test_no_legacy_runner_anywhere covers every test directory; F-01 resolved (served stylesheet checks parse the CSS via companion_markup, new rule_indices()/at_rule_blocks(), guard rule G11 bans regex/substring checks over served stylesheet text, G12 bans test-module-to-test-module imports); CI paths filter drops the .planning re-includes and re-includes deploy/README.md; runner, CLAUDE.md, README and CONTRIBUTING updated; stub-server/test_devices_registry.py on tmp_path; full suite 2588 passed/5 skipped/0 failed, coverage 93.23%.
 Last activity: 2026-09-25 - Completed 33-31-PLAN.md: status-pages part 07 (checks #293-#317, the chain's LAST slice: the tab bar's margin-fit/More-sheet/French-label/dropdown-max-height contracts, a structural style.css comment-terminator guard, the T3/T4 disclosure-marker/dead-sticky-claim sweep, freshness.js's backoff ladder and breathing-dot mechanism, the .resolve-context[hidden]/.flight-detail-row__grid CSS guards, the renamed hamburger-toggle label, the restored save-bar geometry, the Health-tile/Frame-strip agreement across all four lateness states, the shared quiet-schedule link, the two server-rendered switches and their optimistic-failure toast, the freshness line's live dot/ticking clock, and two end-to-end real-subprocess checks) migrated to companion/test_status_pages_07.py (25 pytest node ids); companion/test_status_pages.py — the LAST legacy companion harness — deleted outright; ledger 317/317 (313 ported, 4 deleted, 0 pending); 33-ledger-check.py --all confirms ALL 9 companion harnesses now fully migrated (0 pending everywhere); full suite 2569 passed/6 skipped/0 failed in 304s.
 Last activity: 2026-09-25 - Completed 33-30-PLAN.md: status-pages part 06 (checks #245-#292: the lightbox replace form, the D19 drag-and-drop upload affordance, the coverage-gap block, manual-resolution card states, the conditional resolve section, the manual-resolutions summary line, list-filter.js's [data-filter-set] hook, the phase 14 Component-Inventory CSS sweep, Frame-strip behaviour/CSS, and the bottom tab bar's CSS) migrated to companion/test_status_pages_06.py (46 pytest node ids, 2 checks deleted outright); legacy harness EXPECTED_CHECK_COUNT down to 25 (rows 293-317 remain for 33-31, the chain's closing plan).
@@ -564,6 +564,11 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 36 P05 | 21min | 3 tasks | 4 files |
 | Phase 36 P06 | 22min | 3 tasks | 6 files |
 | Phase 36 P07 | 90min | 2 tasks | 5 files |
+| Phase 40 P01 | 55min | 2 tasks | 5 files |
+| Phase 40 P02 | 90min | 2 tasks | 6 files |
+| Phase 40 P03 | 100min | 2 tasks | 9 files |
+| Phase 40 P04 | 24min | 2 tasks | 7 files |
+| Phase 40 P05 | ~120min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -1110,6 +1115,15 @@ Recent decisions affecting current work:
 - [Phase 36]: _record_history() gained detected=; a queued-but-undisplayed detection now advances META_LAST_DETECTION, and enrich.resolve_route() is called with now=now_s() so the adsbdb cache follows the injected poll clock
 - [Phase 38]: _serve_static() delegates both CSS/JS (public, no-cache) and the runway image (private, max-age=300) through one implementation via an opaque cache_control parameter — no branching on caller identity; the same in-memory cache/validator logic serves two distinct cache policies
 - [Phase 38]: The browser criterion-2 test drives its round trip with two explicit fetch() calls instead of page.reload() — companion/conftest.py's mandatory loopback-only route() guard on every browser test disables Chromium's disk cache via CDP request interception as a side effect, confirmed with a standalone unguarded-vs-guarded comparison script; conftest.py itself is out of this plan's file scope
+- [Phase 40]: Structural guard allowlist (12 long functions, 5 oversized files incl. style.css) measured live from test-support/companion_structure.py rather than transcribed from the plan
+- [Phase 40]: Froze time.time() and health_page.datetime.now() in the render-snapshot harness, beyond the plan-named history_db.utc_now_iso(), after finding both are genuine pre-existing time leaks
+- [Phase 40]: data-refresh-token normalised by regex in the render baseline harness, the one value that cannot be frozen since it folds in a file's kernel-set ctime
+- [Phase 40]: 40-02: custom properties (--*) excluded from the computed-style probe's per-element property walk — Chromium's indexed CSSStyleDeclaration enumeration lists every custom property declared on :root, so adding a token would otherwise always register as a false-positive computed-style regression
+- [Phase 40]: 40-02: new style.css colour tokens declared once in :root only, never repeated in the theme-override blocks — Matches the existing convention for theme-independent tokens (--radius-card, --space-*, --motion-*) since every new token held an identical value in every theme
+- [Phase 40-03]: Route table (companion/routes.py) plus a static allowlist (companion/static_files.py) replace companion/app.py's if-chain dispatch; gating is now one auth_required field checked in Handler._dispatch() — ROADMAP criterion 1: a route cannot be exposed by forgetting a require_session() line
+- [Phase 40]: FLASH_SLOT_MARKER moved into ui_base.py — dependency-free constant both page_header (ui_components) and page_shell (ui_shell) can import without creating a cross-module edge
+- [Phase 40]: layout.py keeps import companion.i18n as i18n, added to __all__ — tests reach layout.i18n.t()/.t_lang() directly even though no code inside layout.py calls it after the shell code moved to ui_shell.py
+- [Phase 40]: 40-05: moved companion/settings/calendar.py and rules.py during Task 1 rather than Task 2 — _aspect_card_html calls their builders directly, and splitting theme.py without them would have forced either a config_page import from theme.py (forbidden by this plan's own acceptance criteria) or a theme<->calendar/rules import cycle -- resolved instead by having _aspect_card_html take the Calendar/Rules Aspect-card rows as pre-built HTML parameters
 
 ### Pending Todos
 
@@ -1230,8 +1244,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-26T11:15:48.402Z
-Stopped at: Phase 36 plan 07 complete (last plan of Phase 36): cross-process poll_cycle_lock() over atomic_io.exclusive_lock(poll.lock) serialises run_once() across the systemd oneshot and the companion's POST /poll-now (two-process x 200 reproduction: 400, zero lost updates); every remaining fixed-.tmp/pid-tagged temp name in server/poll_loop.py and companion/app.py is migrated onto atomic_io.atomic_write(); main() prints a full traceback on a genuine cycle failure; a queued-but-undisplayed detection still advances META_LAST_DETECTION; the adsbdb cache's TTL/LRU stamps follow the injected poll clock. All 14 INT-01..INT-14 requirements are now Complete. Phase 36 is done; next: verify/close the phase.
+Last session: 2026-09-27T10:35:03.762Z
+Stopped at: Completed 40-05-PLAN.md
 
 Resume file: 
 

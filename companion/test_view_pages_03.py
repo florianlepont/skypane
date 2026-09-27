@@ -1060,16 +1060,20 @@ def test_phone_cards_carry_the_airline_name_and_artwork_thumbnail(tmp_path, serv
     assert "history-card__airline-name" in li_noart, (
         "expected every card to name its airline, artwork or not")
 
-    shared_rules = [r for r in css_rules(served_css) if "img.history-card__thumb" in r.selectors]
-    assert any(
-        ".now-showing__image" in r.selectors and ".preview-frame__image" in r.selectors
-        for r in shared_rules), (
-        "expected img.history-card__thumb to join the shared white-backing/hairline/radius "
-        "rule .now-showing__image and .preview-frame__image already share")
-    assert any(
-        dict(r.declarations).get("height") == "56px"
-        and dict(r.declarations).get("object-fit") == "contain"
-        for r in shared_rules), (
+    # Every one of .now-showing__image / .preview-frame__image / img.recent-flight__thumb
+    # / img.history-card__thumb now has its own single rule (one rule per selector per
+    # at-rule context, no shared-group site any more), so the shared white-backing/
+    # hairline/radius treatment is asserted as three equal resolved declarations rather
+    # than as selector-list membership in one shared rule.
+    thumb_decls = declarations_for(served_css, "img.history-card__thumb")
+    for shared_selector in (".now-showing__image", ".preview-frame__image"):
+        shared_decls = declarations_for(served_css, shared_selector)
+        for prop in ("border", "border-radius", "background"):
+            assert thumb_decls.get(prop) == shared_decls.get(prop), (
+                "expected img.history-card__thumb's %r to match %r's shared white-backing/"
+                "hairline/radius treatment, got %r vs %r"
+                % (prop, shared_selector, thumb_decls.get(prop), shared_decls.get(prop)))
+    assert thumb_decls.get("height") == "56px" and thumb_decls.get("object-fit") == "contain", (
         "expected img.history-card__thumb's own rule to declare a fixed 56px-tall box with "
         "contain fitting")
 
