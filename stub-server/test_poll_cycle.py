@@ -14,15 +14,20 @@ the quiet-hours/wake-interval/display-off/battery-critical sleep_s
 composition (unit, integration and constant-parity coverage - see each
 test's own docstring below for exactly what it proves).
 
-The battery-critical behaviour-parity check imports server.wake
-directly (the only project import in this file) - unlike byos_server.py
-itself, which is vendored and must never import server.*. Every other
-cross-file check here reads the project side as plain text (the drift
-guards) instead. This one check needs the real function, not source
-text, because read_battery_critical()'s two copies are not
+byos_server.py itself imports server.device_policy and server.state_store
+directly (a repo-root sys.path bootstrap, same as server/poll_loop.py's),
+so most of the cross-file checks below assert identity against those
+shared objects, plus a value check against server.device_config's own
+current attribute - stronger than the byte-for-byte source-text drift
+guards they replace.
+
+The one remaining behaviour-parity check imports server.wake directly:
+read_battery_critical()'s two current copies (server.wake's own, and
+server.state_store's, which byos_server.py now uses) are not
 byte-identical (one references server.wake.BATTERY_CRITICAL_STATE_KEY,
-the other the literal string it equals) - so behaviour, not source
-text, is what it proves equal.
+the other the literal string it equals) - a later plan switches
+server.wake onto server.state_store too, at which point this check can
+also become an identity check.
 """
 import hashlib
 import importlib.util
@@ -45,8 +50,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 SERVER_PATH = os.path.join(HERE, "byos_server.py")
 MAKE_PANEL_PATH = os.path.join(HERE, "make_test_panel.py")
-DEVICE_CONFIG_MODULE_PATH = os.path.join(REPO_ROOT, "server", "device_config.py")
-POLL_LOOP_MODULE_PATH = os.path.join(REPO_ROOT, "server", "poll_loop.py")
 IMAGE_BYTES = 960000
 STARTUP_DEADLINE_S = 10.0
 # A fixed 64-lowercase-hex enrolment secret Harness.start_server() registers
@@ -65,6 +68,9 @@ _TEST_SUPPORT_DIR = os.path.join(REPO_ROOT, "test-support")
 if _TEST_SUPPORT_DIR not in sys.path:
     sys.path.insert(0, _TEST_SUPPORT_DIR)
 
+import server.device_config as device_config  # noqa: E402 - see the module docstring
+import server.device_policy as device_policy  # noqa: E402 - see the module docstring
+import server.state_store as state_store  # noqa: E402 - see the module docstring
 import server.wake as server_wake  # noqa: E402 - see the module docstring
 from skypane_test_support import child_env  # noqa: E402
 
@@ -153,42 +159,6 @@ def load_byos_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
-
-
-def _extract_def_block(source_text, def_line_prefix):
-    """Return the line starting with `def_line_prefix` plus every
-    following line, up to (but not including) the first subsequent
-    non-blank line that starts at column 0 - i.e. the whole body of the
-    named top-level def, including its docstring. Returns None if
-    `def_line_prefix` is never found.
-    """
-    lines = source_text.splitlines(keepends=True)
-    start = None
-    for i, line in enumerate(lines):
-        if line.startswith(def_line_prefix):
-            start = i
-            break
-    if start is None:
-        return None
-    end = len(lines)
-    for i in range(start + 1, len(lines)):
-        line = lines[i]
-        if line.strip() == "":
-            continue
-        if not line[0].isspace():
-            end = i
-            break
-    return "".join(lines[start:end])
-
-
-def _extract_line(source_text, line_prefix):
-    """Return the first line in `source_text` starting with
-    `line_prefix`, or None if not found.
-    """
-    for line in source_text.splitlines():
-        if line.startswith(line_prefix):
-            return line
-    return None
 
 
 class Harness:
@@ -299,42 +269,62 @@ def byos_module():
     return load_byos_module()
 
 
+# --- Repo-root sys.path bootstrap -----------------------------------------
+
+
+def test_help_flag_runs_from_a_different_cwd(tmp_path):
+    """`python3 byos_server.py --help` exits 0 when launched from a cwd other than the repo
+    root: the repo-root sys.path bootstrap resolves `from server import device_policy,
+    state_store` from the file's own location (dirname(dirname(__file__))), never a
+    cwd-relative path."""
+    result = subprocess.run(
+        [sys.executable, SERVER_PATH, "--help"],
+        cwd=str(tmp_path), capture_output=True, text=True, env=child_env(), timeout=10,
+    )
+    assert result.returncode == 0, (
+        "byos_server.py --help failed from cwd=%r:\nstdout:\n%s\nstderr:\n%s"
+        % (tmp_path, result.stdout, result.stderr)
+    )
+
+
 # --- Unit: quiet-hours-aware sleep_s extension ----------------------------
 
 
-def test_quiet_hours_helpers_drift_guard_matches_device_config():
-    """seconds_until_quiet_hours_end() and _HHMM_RE are byte-for-byte identical between
-    server/device_config.py and stub-server/byos_server.py"""
-    with open(DEVICE_CONFIG_MODULE_PATH) as fh:
-        origin_text = fh.read()
-    with open(SERVER_PATH) as fh:
-        vendored_text = fh.read()
+def test_quiet_hours_helpers_are_the_shared_device_policy_objects(byos_module):
+    """byos_server.py's quiet-hours arithmetic, its _HHMM_RE/QUIET_HOURS_TZ constants, its
+    wake_interval_s bounds and its read_battery_critical() reader are the identical objects
+    from server/device_policy.py and server/state_store.py (not merely equal) - a stronger
+    guarantee than the byte-for-byte source-text drift guard this test replaces. HHMM_RE,
+    QUIET_HOURS_TZ and the wake_interval_s bounds also still match server/device_config.py's
+    own current value, read by attribute rather than as source text."""
+    assert byos_module.seconds_until_quiet_hours_end is device_policy.seconds_until_quiet_hours_end
+    assert byos_module._HHMM_RE is device_policy.HHMM_RE
+    assert byos_module.QUIET_HOURS_TZ is device_policy.QUIET_HOURS_TZ
+    assert byos_module.WAKE_INTERVAL_MIN_S is device_policy.WAKE_INTERVAL_MIN_S
+    assert byos_module.WAKE_INTERVAL_MAX_S is device_policy.WAKE_INTERVAL_MAX_S
+    assert byos_module.read_battery_critical is state_store.read_battery_critical
 
-    origin_fn = _extract_def_block(origin_text, "def seconds_until_quiet_hours_end(")
-    vendored_fn = _extract_def_block(vendored_text, "def seconds_until_quiet_hours_end(")
-    assert origin_fn is not None, "could not locate seconds_until_quiet_hours_end() in server/device_config.py"
-    assert vendored_fn is not None, "could not locate seconds_until_quiet_hours_end() in stub-server/byos_server.py"
-    assert origin_fn == vendored_fn, (
-        "seconds_until_quiet_hours_end() has drifted between server/device_config.py and "
-        "stub-server/byos_server.py - the two copies must stay byte-for-byte identical:\n"
-        "--- server/device_config.py ---\n%s\n"
-        "--- stub-server/byos_server.py ---\n%s" % (origin_fn, vendored_fn)
+    assert device_policy.HHMM_RE.pattern == device_config._HHMM_RE.pattern, (
+        "device_policy.HHMM_RE has drifted from server/device_config.py's own _HHMM_RE "
+        "(%r vs %r)" % (device_policy.HHMM_RE.pattern, device_config._HHMM_RE.pattern)
     )
-
-    origin_re = _extract_line(origin_text, "_HHMM_RE = re.compile(")
-    vendored_re = _extract_line(vendored_text, "_HHMM_RE = re.compile(")
-    assert origin_re is not None and vendored_re is not None, (
-        "could not locate '_HHMM_RE = re.compile(' in one of the two files"
+    assert device_policy.QUIET_HOURS_TZ == device_config.QUIET_HOURS_TZ, (
+        "device_policy.QUIET_HOURS_TZ has drifted from server/device_config.py's own "
+        "QUIET_HOURS_TZ (%r vs %r)" % (device_policy.QUIET_HOURS_TZ, device_config.QUIET_HOURS_TZ)
     )
-    assert origin_re == vendored_re, (
-        "_HHMM_RE has drifted between server/device_config.py and stub-server/byos_server.py:\n"
-        "%r\nvs\n%r" % (origin_re, vendored_re)
+    assert device_policy.WAKE_INTERVAL_MIN_S == device_config.WAKE_INTERVAL_MIN_S, (
+        "device_policy.WAKE_INTERVAL_MIN_S has drifted from server/device_config.py's own "
+        "value (%r vs %r)" % (device_policy.WAKE_INTERVAL_MIN_S, device_config.WAKE_INTERVAL_MIN_S)
+    )
+    assert device_policy.WAKE_INTERVAL_MAX_S == device_config.WAKE_INTERVAL_MAX_S, (
+        "device_policy.WAKE_INTERVAL_MAX_S has drifted from server/device_config.py's own "
+        "value (%r vs %r)" % (device_policy.WAKE_INTERVAL_MAX_S, device_config.WAKE_INTERVAL_MAX_S)
     )
 
 
 def test_read_quiet_hours_fail_open_never_raises(byos_module, tmp_path):
-    """read_quiet_hours() returns None and never raises for a missing, truncated, non-dict,
-    disabled, or badly-shaped device_config.json"""
+    """read_quiet_hours() returns None and never raises for a missing, truncated, non-dict, or
+    disabled device_config.json"""
     tmpdir = str(tmp_path)
     assert byos_module.read_quiet_hours(tmpdir) is None, "expected None for a missing device_config.json"
     cfg_path = os.path.join(tmpdir, "device_config.json")
@@ -345,6 +335,27 @@ def test_read_quiet_hours_fail_open_never_raises(byos_module, tmp_path):
                      "quiet_hours_end": "07:00"}), "quiet_hours_enabled: false"),
         (json.dumps({"quiet_hours_enabled": "yes", "quiet_hours_start": "23:00",
                      "quiet_hours_end": "07:00"}), 'quiet_hours_enabled: "yes"'),
+    ]
+    for raw, label in cases:
+        with open(cfg_path, "w") as fh:
+            fh.write(raw)
+        result = byos_module.read_quiet_hours(tmpdir)
+        assert result is None, "expected None for %s, got %r" % (label, result)
+
+
+def test_read_quiet_hours_invalid_time_falls_back_to_default_window(byos_module, tmp_path):
+    """With quiet hours enabled, an invalid stored quiet_hours_start ("25:99") or a wrong-typed
+    quiet_hours_end (the int 7) no longer disables quiet hours - byos's previous behaviour,
+    retired here on the developer's decision to unify the fallback with the server's own hold.
+    Each invalid bound now falls back independently to the shared 23:00-07:00 default, matching
+    server/device_policy.py's quiet_hours_window() (pinned on the server side by
+    server/test_device_policy.py::test_quiet_hours_invalid_stored_time_falls_back_to_default_window),
+    and quiet_hours_sleep_s() extends sleep_s to that fallback window's remaining time exactly as
+    it would for an explicitly configured 23:00-07:00 window."""
+    tmpdir = str(tmp_path)
+    cfg_path = os.path.join(tmpdir, "device_config.json")
+
+    cases = [
         (json.dumps({"quiet_hours_enabled": True, "quiet_hours_start": "25:99",
                      "quiet_hours_end": "07:00"}), 'quiet_hours_start: "25:99"'),
         (json.dumps({"quiet_hours_enabled": True, "quiet_hours_start": "23:00",
@@ -354,7 +365,20 @@ def test_read_quiet_hours_fail_open_never_raises(byos_module, tmp_path):
         with open(cfg_path, "w") as fh:
             fh.write(raw)
         result = byos_module.read_quiet_hours(tmpdir)
-        assert result is None, "expected None for %s, got %r" % (label, result)
+        assert result == ("23:00", "07:00"), (
+            "expected the default (23:00, 07:00) window for %s, got %r" % (label, result)
+        )
+
+    # Same anchor (00:30 Europe/Paris, 28000s before the window's 07:00 end) that
+    # test_quiet_hours_sleep_s_extends_inside_window_and_flat_after below already pins for an
+    # explicitly configured 23:00-07:00 window - the fallback window must extend sleep_s
+    # identically.
+    with open(cfg_path, "w") as fh:
+        json.dump({"quiet_hours_enabled": True, "quiet_hours_start": "25:99",
+                   "quiet_hours_end": "07:00"}, fh)
+    now = datetime.fromtimestamp(1700000000.0, timezone.utc)
+    result = byos_module.quiet_hours_sleep_s(300, tmpdir, now=now)
+    assert result == 28000, "expected the 28000s fallback-window extension, got %r" % (result,)
 
 
 def test_quiet_hours_sleep_s_extends_inside_window_and_flat_after(byos_module, tmp_path):
@@ -565,16 +589,14 @@ def test_display_on_state_matches_preexisting_chain(byos_module, tmp_path):
 
 
 def test_display_off_sleep_s_constant_parity(byos_module):
-    """DISPLAY_OFF_SLEEP_S is numerically equal between server/device_config.py (read as plain
-    text, never imported) and the loaded stub-server/byos_server.py module"""
-    with open(DEVICE_CONFIG_MODULE_PATH) as fh:
-        origin_text = fh.read()
-    origin_line = _extract_line(origin_text, "DISPLAY_OFF_SLEEP_S = ")
-    assert origin_line is not None, "could not locate 'DISPLAY_OFF_SLEEP_S = ' in server/device_config.py"
-    origin_value = int(origin_line.split("=", 1)[1].strip().split()[0])
-    assert origin_value == byos_module.DISPLAY_OFF_SLEEP_S, (
-        "DISPLAY_OFF_SLEEP_S has drifted between server/device_config.py (%r) and "
-        "stub-server/byos_server.py (%r)" % (origin_value, byos_module.DISPLAY_OFF_SLEEP_S)
+    """DISPLAY_OFF_SLEEP_S is the identical object from server/device_policy.py (not merely
+    equal), which in turn still matches server/device_config.py's own current value, read by
+    attribute rather than as source text"""
+    assert byos_module.DISPLAY_OFF_SLEEP_S is device_policy.DISPLAY_OFF_SLEEP_S
+    assert device_policy.DISPLAY_OFF_SLEEP_S == device_config.DISPLAY_OFF_SLEEP_S, (
+        "device_policy.DISPLAY_OFF_SLEEP_S has drifted from server/device_config.py's own "
+        "DISPLAY_OFF_SLEEP_S (%r vs %r)"
+        % (device_policy.DISPLAY_OFF_SLEEP_S, device_config.DISPLAY_OFF_SLEEP_S)
     )
 
 
@@ -703,29 +725,23 @@ def test_battery_critical_composed_chain(byos_module, tmp_path):
 
 
 def test_battery_critical_constant_parity(byos_module):
-    """BATTERY_CRITICAL_SLEEP_S is numerically equal between server/device_config.py and the
-    loaded stub-server/byos_server.py module, and BATTERY_CRITICAL_RECOVER_MV is numerically
-    equal between server/poll_loop.py and the loaded module - both read as plain text, never
-    imported"""
-    with open(DEVICE_CONFIG_MODULE_PATH) as fh:
-        device_config_text = fh.read()
-    with open(POLL_LOOP_MODULE_PATH) as fh:
-        poll_loop_text = fh.read()
+    """BATTERY_CRITICAL_SLEEP_S and BATTERY_CRITICAL_RECOVER_MV are the identical objects from
+    server/device_policy.py (not merely equal). BATTERY_CRITICAL_SLEEP_S still matches
+    server/device_config.py's own current value, read by attribute rather than as source text;
+    BATTERY_CRITICAL_RECOVER_MV still matches the developer-confirmed literal 3700 - never
+    server/poll_loop.py, which still keeps its own copy until a later plan switches it onto this
+    same shared module."""
+    assert byos_module.BATTERY_CRITICAL_SLEEP_S is device_policy.BATTERY_CRITICAL_SLEEP_S
+    assert byos_module.BATTERY_CRITICAL_RECOVER_MV is device_policy.BATTERY_CRITICAL_RECOVER_MV
 
-    sleep_line = _extract_line(device_config_text, "BATTERY_CRITICAL_SLEEP_S = ")
-    assert sleep_line is not None, "could not locate 'BATTERY_CRITICAL_SLEEP_S = ' in server/device_config.py"
-    sleep_value = int(sleep_line.split("=", 1)[1].strip().split()[0])
-    assert sleep_value == byos_module.BATTERY_CRITICAL_SLEEP_S, (
-        "BATTERY_CRITICAL_SLEEP_S has drifted between server/device_config.py (%r) and "
-        "stub-server/byos_server.py (%r)" % (sleep_value, byos_module.BATTERY_CRITICAL_SLEEP_S)
+    assert device_policy.BATTERY_CRITICAL_SLEEP_S == device_config.BATTERY_CRITICAL_SLEEP_S, (
+        "device_policy.BATTERY_CRITICAL_SLEEP_S has drifted from server/device_config.py's own "
+        "BATTERY_CRITICAL_SLEEP_S (%r vs %r)"
+        % (device_policy.BATTERY_CRITICAL_SLEEP_S, device_config.BATTERY_CRITICAL_SLEEP_S)
     )
-
-    recover_line = _extract_line(poll_loop_text, "BATTERY_CRITICAL_RECOVER_MV = ")
-    assert recover_line is not None, "could not locate 'BATTERY_CRITICAL_RECOVER_MV = ' in server/poll_loop.py"
-    recover_value = int(recover_line.split("=", 1)[1].strip().split()[0])
-    assert recover_value == byos_module.BATTERY_CRITICAL_RECOVER_MV, (
-        "BATTERY_CRITICAL_RECOVER_MV has drifted between server/poll_loop.py (%r) and "
-        "stub-server/byos_server.py (%r)" % (recover_value, byos_module.BATTERY_CRITICAL_RECOVER_MV)
+    assert device_policy.BATTERY_CRITICAL_RECOVER_MV == 3700, (
+        "device_policy.BATTERY_CRITICAL_RECOVER_MV has drifted from the developer-confirmed "
+        "literal 3700 (got %r)" % (device_policy.BATTERY_CRITICAL_RECOVER_MV,)
     )
 
 
