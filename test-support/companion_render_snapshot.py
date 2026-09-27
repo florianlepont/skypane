@@ -30,7 +30,7 @@ One value cannot be frozen by patching its source and is instead
 normalised by regex, exactly once, on every captured page body: the four
 freshness pages' (Home, Display, Health, Flights) `data-refresh-token`
 attribute (and the identical value in their ETag, not itself captured).
-`companion/app.py`'s `_freshness_file_stamp()` folds each stamped file's
+`companion/freshness.py`'s `_freshness_file_stamp()` folds each stamped file's
 `st_ctime_ns` into the token, and `ctime` is the filesystem's own
 "metadata last changed" clock — set by the kernel on every write, with no
 syscall (`os.utime()` included) able to back-date it. Two independent
