@@ -1881,13 +1881,13 @@ Plans:
 3. Quiet hours, battery-critical and battery-curve logic exist once
 4. mypy green in CI on the typed modules; behaviour unchanged (suite green)
 
-**Plans:** 13 plans
+**Plans:** 1/13 plans executed
 
 Plans:
 
 **Wave 1**
 
-- [ ] 39-01-PLAN.md — function-size gate script + 39-ARC-BASELINE.md Before (size, CC, typing, imports, setters, duplicates) [ARC-01..06]
+- [x] 39-01-PLAN.md — function-size gate script + 39-ARC-BASELINE.md Before (size, CC, typing, imports, setters, duplicates) [ARC-01..06]
 
 **Wave 2** *(blocked on Wave 1 completion)*
 

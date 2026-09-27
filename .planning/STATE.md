@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 36 plan 07 complete (last plan of Phase 36): cross-process poll_cycle_lock() over atomic_io.exclusive_lock(poll.lock) serialises run_once() across the systemd oneshot and the companion's POST /poll-now (two-process x 200 reproduction: 400, zero lost updates); every remaining fixed-.tmp/pid-tagged temp name in server/poll_loop.py and companion/app.py is migrated onto atomic_io.atomic_write(); main() prints a full traceback on a genuine cycle failure; a queued-but-undisplayed detection still advances META_LAST_DETECTION; the adsbdb cache's TTL/LRU stamps follow the injected poll clock. All 14 INT-01..INT-14 requirements are now Complete. Phase 36 is done; next: verify/close the phase."
-last_updated: "2026-09-27T06:39:48.740Z"
+stopped_at: Completed 39-01-PLAN.md
+last_updated: "2026-09-27T06:51:49.415Z"
 last_activity: 2026-09-27
 progress:
   total_phases: 54
   completed_phases: 47
   total_plans: 418
-  completed_plans: 380
+  completed_plans: 381
   percent: 87
 ---
 
@@ -32,13 +32,13 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
-status: Executing Phase 39
+status: Ready to execute
 stopped_at: "Phase 06.6.4.1 CLOSED at 9/9 plans, on branch claude/06.6.4.1-closing-validation (rebased onto PR #44's tip 4a31a62, unpushed). Its dangling closing plan (06.6.4.1-09) had Task 1's automated gates re-verified for real twice — once against this branch's own base (92bc660), again after PR #44 (Phases 8-11: panel theme rework, band themes, scheduled quiet hours, web-configurable wake interval) merged mid-checkpoint from a separate line of work — both times 16/16 harnesses green, 92% coverage. Task 2, the blocking 28-item developer checklist (D-23/D-24/D-25), returned its verdict: PASS on all 28 items, no fails, no marginals, including the two twice-deferred items with no escape hatch — a real assistive-technology pass and a live production walkthrough (https://config-92-222-92-167.nip.io) — each confirmed by a direct question rather than accepted on the strength of an initial blanket approval alone. Two real drift findings were disclosed to the developer rather than silently absorbed: History's retired 'Now showing' section (D-18/D-19, superseded by quick task 260903-c4o) and Settings' two new Phase 10/11 sections (Quiet hours, Wake interval) not covered by the original checklist text. No open phase remains after 06.6.4.1 — Phase 11 (the highest-numbered phase) is also complete per PR #44, and no Phase 12 exists yet in ROADMAP.md. Next: push this branch, open a PR, and ask the developer what's next once it's merged."
 last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [█████████░] 93%
+  [█████████░] 91%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -63,7 +63,7 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 1 of 13
+Plan: 2 of 13
 
 **38-03 executed (2026-09-26), plan 3/13 of Phase 38 (depends on 38-01), wave 2 — EFF-03 storage machinery: history_db connection_scope, schema-once, write_batch.** Task 1 (TDD) added `connection_scope(state_dir)`, a re-entrant `threading.local()`-backed context manager: every `open_db(state_dir)` call on the same thread inside it shares one lazily-opened connection, closed (rolled back first if left in a transaction) only at the outermost exit; a scope for a different path started while one is active is served unscoped (passthrough); another thread never sees this thread's scope; a scoped open failure is remembered and re-raised on every later `open_db` in the scope without retrying. `open_db()`'s own signature is unchanged and its passthrough (unscoped) behaviour is identical to before. Task 2 (TDD) made schema and `PRAGMA journal_mode=WAL` run once per process per database file identity (`realpath`, `st_dev`, `st_ino`, in a lock-guarded set), with an empty-file override so a restored or deleted-and-recreated `history.db` always reruns it; connections now come from a `sqlite3.Connection` subclass (`_HistoryConnection`) carrying a batch-depth counter, and a new `write_batch(conn)` defers every writer's commit while open, committing once on clean exit or rolling back and re-raising on an exception — a private `_commit()` (now called by all four writers instead of a bare `conn.commit()`) keeps outside-a-batch behaviour identical to before. New `server/test_history_db_scope.py` (17 tests, including two branch-coverage-driven additions found after the first coverage run: a different-path `connection_scope` nested inside an active one, and `write_batch` against a bare `sqlite3.Connection` lacking `_batch_depth`). **Two deviations, both auto-fixed inline (Rule 1/Rule 2):** a `_SCHEMA_READY` comment's literal phrase "CREATE TABLE" tripped `test_config_history.py`'s regex-based "every CREATE TABLE is IF NOT EXISTS-guarded" test and was reworded; the two coverage-gap tests above were added after the fact. Nothing in `companion/app.py`, `companion/pages/*.py` or `server/poll_loop.py` calls `connection_scope` yet — that is 38-07/38-08's job (both `depends_on: ["38-03"]`); EFF-03 stays open until they land. Both tasks ran RED→GREEN: `2a4ae7c`/`66d7286` (Task 1), `5f44c1f`/`f214183` (Task 2). `server/test_history_db_scope.py` + `server/test_config_history.py` + `server/test_caddy_tail.py` + `deploy/tests/test_backup.py` (126 passed), the whole repo's `./scripts/run-all-tests.sh -m "not browser"` (2771 passed) and with the Playwright shim (2900 passed, 1 pre-existing unrelated local Chromium-baseline failure), ruff and `check_comment_history.py` all green.
 
@@ -564,6 +564,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 36 P05 | 21min | 3 tasks | 4 files |
 | Phase 36 P06 | 22min | 3 tasks | 6 files |
 | Phase 36 P07 | 90min | 2 tasks | 5 files |
+| Phase 39 P01 | 25min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -1110,6 +1111,7 @@ Recent decisions affecting current work:
 - [Phase 36]: _record_history() gained detected=; a queued-but-undisplayed detection now advances META_LAST_DETECTION, and enrich.resolve_route() is called with now=now_s() so the adsbdb cache follows the injected poll clock
 - [Phase 38]: _serve_static() delegates both CSS/JS (public, no-cache) and the runway image (private, max-age=300) through one implementation via an opaque cache_control parameter — no branching on caller identity; the same in-memory cache/validator logic serves two distinct cache policies
 - [Phase 38]: The browser criterion-2 test drives its round trip with two explicit fetch() calls instead of page.reload() — companion/conftest.py's mandatory loopback-only route() guard on every browser test disables Chromium's disk cache via CDP request interception as a side effect, confirmed with a standalone unguarded-vs-guarded comparison script; conftest.py itself is out of this plan's file scope
+- [Phase 39]: 39-01: instruments-only function-size gate; baseline reproduces the research inventory exactly (365 scanned, 6 offenders, CC 53/2, 0/318 typed) — Reused test_check_comment_history.py's spec_from_file_location loader pattern; radon ad hoc (never locked), matching 39-RESEARCH.md's recommendation
 
 ### Pending Todos
 
@@ -1230,12 +1232,12 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-26T11:15:48.402Z
-Stopped at: Phase 36 plan 07 complete (last plan of Phase 36): cross-process poll_cycle_lock() over atomic_io.exclusive_lock(poll.lock) serialises run_once() across the systemd oneshot and the companion's POST /poll-now (two-process x 200 reproduction: 400, zero lost updates); every remaining fixed-.tmp/pid-tagged temp name in server/poll_loop.py and companion/app.py is migrated onto atomic_io.atomic_write(); main() prints a full traceback on a genuine cycle failure; a queued-but-undisplayed detection still advances META_LAST_DETECTION; the adsbdb cache's TTL/LRU stamps follow the injected poll clock. All 14 INT-01..INT-14 requirements are now Complete. Phase 36 is done; next: verify/close the phase.
+Last session: 2026-09-27T06:51:49.344Z
+Stopped at: Completed 39-01-PLAN.md
 
 Resume file: 
 
-None
+39-02-PLAN.md
 
 - `/gsd-execute-phase 33` continuation ran plan `33-22` (Wave 5, browser_ux part 02) after the original executor was killed by a container restart post-task-commits, pre-verification. This session verified both existing task commits (`6f556e4`, `72340ee`) against every one of the plan's acceptance criteria rather than redoing the migration (no gap found), then re-ran the full verification chain from `33-MIGRATION-RULES.md` section 5 plus the full unscoped suite from scratch: `companion/test_browser_ux_02.py` 43/43 passed under `SKYPANE_REQUIRE_BROWSER=1`, the shrunk legacy shim 1/1, `test_suite_guards.py`/`test-support` 101/101, `ruff check .` clean, ledger check `75/75 baseline checks mapped (36 ported, 1 deleted, 38 pending)`, and the full suite (`companion test-support server stub-server deploy`) at 2085 passed / 5 skipped / 0 failed.
 - `companion/test_browser_ux.py`'s `EXPECTED_CHECK_COUNT` is now 38 (down from 57); 36/75 of the file's original checks are ported, 1 deleted, 38 remain across parts 03-04.
