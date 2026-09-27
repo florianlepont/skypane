@@ -145,6 +145,91 @@ def test_t_lang_round_trips_every_catalog_key():
 
 
 # ==========================================================================
+# Message IDs: a Message carries a stable ID so its French
+# translation survives an English reword. Every registration below lives
+# under a "test." area, isolated from the real REGISTRY/BY_ID by the
+# isolated_registry fixture (a swapped-in copy, restored by monkeypatch
+# when the test ends).
+# ==========================================================================
+
+
+@pytest.fixture
+def isolated_registry(monkeypatch):
+    """Give a test its own copy of REGISTRY and BY_ID to register into,
+    so a test-only "test.*" id never leaks into another test or into the
+    real catalogue."""
+    monkeypatch.setattr(i18n, "REGISTRY", dict(i18n.REGISTRY))
+    monkeypatch.setattr(i18n_fr, "BY_ID", dict(i18n_fr.BY_ID))
+
+
+def test_msg_returns_a_str_equal_to_its_english_with_a_msg_id(isolated_registry):
+    greeting = i18n.msg("test.greeting", "Hello")
+    assert greeting == "Hello"
+    assert isinstance(greeting, str)
+    assert greeting.msg_id == "test.greeting"
+    # Formatting, escaping and concatenation behave exactly like the
+    # plain str it wraps.
+    assert ("%s, world" % greeting) == "Hello, world"
+    assert (greeting + "!") == "Hello!"
+    assert greeting.upper() == "HELLO"
+
+
+def test_msg_same_id_same_english_is_idempotent(isolated_registry):
+    i18n.msg("test.dup", "A")
+    i18n.msg("test.dup", "A")  # no raise
+
+
+def test_msg_same_id_different_english_raises(isolated_registry):
+    i18n.msg("test.dup", "A")
+    with pytest.raises(ValueError, match="test.dup"):
+        i18n.msg("test.dup", "B")
+
+
+def test_msg_rejects_an_id_not_matching_the_expected_shape(isolated_registry):
+    with pytest.raises(ValueError):
+        i18n.msg("NoArea", "Bad id, no dot or wrong case")
+    with pytest.raises(ValueError):
+        i18n.msg("test", "Missing the dot entirely")
+    with pytest.raises(ValueError):
+        i18n.msg("Test.bad", "Uppercase area")
+
+
+def test_t_lang_looks_up_a_message_by_id_in_by_id(isolated_registry):
+    message = i18n.msg("test.greeting", "Hello")
+    i18n_fr.BY_ID["test.greeting"] = "Bonjour"
+    assert i18n.t_lang(message, "fr") == "Bonjour"
+
+
+def test_t_lang_reworded_english_keeps_its_french_translation(isolated_registry):
+    i18n.msg("test.greeting", "Hello")
+    i18n_fr.BY_ID["test.greeting"] = "Bonjour"
+    # Same ID, different English (as if the source were reworded after
+    # the ID was assigned) — the lookup is by ID, not by text.
+    reworded = i18n.Message("test.greeting", "Hi there")
+    assert i18n.t_lang(reworded, "fr") == "Bonjour"
+
+
+def test_t_lang_message_in_english_returns_the_plain_english_str(isolated_registry):
+    message = i18n.msg("test.greeting", "Hello")
+    i18n_fr.BY_ID["test.greeting"] = "Bonjour"
+    result = i18n.t_lang(message, "en")
+    assert result == "Hello"
+    assert type(result) is str
+
+
+def test_t_lang_plain_str_still_translates_through_the_legacy_catalog():
+    assert i18n.t_lang("Home", "fr") == "Accueil"
+
+
+def test_t_lang_message_with_no_by_id_entry_falls_back_to_legacy_catalog(isolated_registry):
+    # "Home" is legacy English-keyed in i18n_fr.nav.CATALOG; a Message
+    # sharing that English text but with an ID that has no BY_ID entry
+    # yet must still resolve through the legacy fallback.
+    message = i18n.Message("test.not_yet_migrated", "Home")
+    assert i18n.t_lang(message, "fr") == "Accueil"
+
+
+# ==========================================================================
 # Source-level import-boundary check: companion.i18n/companion.prefs stay
 # leaf modules, never reaching into companion.pages or the server tree.
 # Proven by importing them in a fresh interpreter and inspecting the
