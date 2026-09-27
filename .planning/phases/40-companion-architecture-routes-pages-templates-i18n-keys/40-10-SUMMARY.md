@@ -183,6 +183,11 @@ None - no external service configuration required.
 - CFG-34's clause 1 ("every relative age on screen is live") holds with exactly one enumerated, justified exception (the battery-trend tooltip), matching the plan's own success criterion
 - No blockers for subsequent Phase 40 plans
 
+## Self-Check: PASSED
+
+All 10 key files and this SUMMARY.md confirmed present on disk; all 6 commit hashes
+(`e9abde8`, `eab914e`, `bbac90f`, `7ecd354`, `04e7e31`, `8c787a3`) confirmed in `git log`.
+
 ---
 *Phase: 40-companion-architecture-routes-pages-templates-i18n-keys*
 *Completed: 2026-09-27*
