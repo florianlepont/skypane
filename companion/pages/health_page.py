@@ -1141,7 +1141,7 @@ def _registry_seen_cell_html(raw_ts, now):
     unparseable one renders the raw value with no secondary line.
 
     The secondary line is `layout.relative_time_html()`'s own
-    pre-escaped `<time data-relative>` markup (CFG-34c), not
+    pre-escaped `<time data-relative>` markup, not
     `escape_html(layout.relative_age_text(age))` — interpolated verbatim,
     never re-escaped, so a ticker script can find and update it.
     """

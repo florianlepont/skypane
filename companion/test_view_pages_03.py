@@ -1366,7 +1366,7 @@ def test_flights_when_cell_age_is_a_live_time_element(tmp_path):
     <time data-relative> element (layout.relative_time_html()'s own markup) carrying the
     row's own instant, reading exactly what relative_age_text() reads today, with the
     cell-primary/cell-inline-sep/cell-secondary shape _merged_cell() also emits, and no
-    double-escaping (CFG-34a)"""
+    double-escaping"""
     from companion_markup import parse_html
 
     now = "2026-09-27T12:00:00+00:00"

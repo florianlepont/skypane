@@ -997,7 +997,7 @@ def test_calendar_status_refreshed_age_is_a_live_time_element():
     element (layout.relative_time_html()'s own markup) carrying last_synced_at's own instant,
     read exactly what relative_age_text() reads today, still wrapped by the same
     .status-row/.status-row__detail shape layout.status_row() emits, and no
-    double-escaping, at both a singular and a plural entry count (CFG-34b)"""
+    double-escaping, at both a singular and a plural entry count"""
     now = "2026-09-27T12:00:00+00:00"
     synced = "2026-09-27T11:50:00+00:00"
     expected_age = layout.relative_age_text(600)

@@ -667,7 +667,7 @@ def test_registry_seen_cells_age_is_a_live_time_element(tmp_path):
     """the unresolved-prefix registry's First seen / Last seen cells render their relative age
     as a live <time data-relative> element (layout.relative_time_html()'s own markup), reading
     exactly what relative_age_text() reads today, with the cell-primary/cell-inline-sep/
-    cell-secondary shape unchanged and no double-escaping (CFG-34c)"""
+    cell-secondary shape unchanged and no double-escaping"""
     state_dir = str(tmp_path)
     now = shp.now()
     seen_ts = shp.iso(now - timedelta(seconds=600))

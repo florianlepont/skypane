@@ -172,7 +172,7 @@ def _calendar_status_html(configured, drift, last_synced_at, last_attempt_at, no
     already wrapped by `layout.status_row()` for every branch except the
     "usable" one below, which bypasses it via
     `_status_row_with_html_detail()` so the age can be a live
-    `<time data-relative>` element (CFG-34b) instead of static text.
+    `<time data-relative>` element instead of static text.
     Split out of `_calendar_connection_html()` so that function stays
     under this project's function-length ceiling.
 
