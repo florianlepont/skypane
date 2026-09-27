@@ -238,32 +238,19 @@ def _frame_strip_cell_html(extra_class, label_row_html, state_row_html, caption_
          label_row_html, state_row_html, caption_row_html)
 
 
-def frame_strip_html(ctx, return_to, next_wake_iso=None):
-    """The "Frame" strip: one shared body, called identically by
-    home_page.render() and config_page.render()'s Display scope, so both
-    pages' switches and headline can never disagree. `return_to` is
-    written escaped; the server validates it against a route whitelist
-    before using it as a redirect target.
+def _frame_resolved_state(ctx):
+    """The one state resolution shared by every cell below: `(resolved_state,
+    headline_template_value, delay_template_value, resolved_next_wake_iso,
+    next_wake_clock, now_value)`, computed once via wake.next_wake_status()
+    against the same fields every caller already reads.
 
-    Renders no update cell when no next-wake data is available. Three
-    states share one dot vocabulary: due `.dot--ok`, held the neutral
-    `.dot--off`, late `.dot--warn`, the warn signal carried by wording
-    and dot, never text colour. Both switch forms carry
-    `data-quick-switch`, the hook companion/static/dirty-state.js keys
-    its leave-guard on — do not delete it as apparently unused. Every
-    value crosses escape_html(); every string crosses i18n.t().
+    `battery_critical` is the battery-empty latch, read once per request by
+    page_context() — never a second read here. Without it, a parked frame
+    would cross the warn threshold every wake cycle and wrongly announce
+    "late" on a flat battery.
     """
     device_cfg = ctx.get("device_config") or {}
     now_value = ctx.get("now")
-
-    # The one state resolution: wake.next_wake_status(), against the same
-    # pair every caller already used to compute `next_wake_iso` above —
-    # not a second, disagreeing computation.
-
-    # `battery_critical` is the battery-empty latch, read once per
-    # request by page_context() — never a second read here. Without it,
-    # a parked frame would cross the warn threshold every wake cycle and
-    # wrongly announce "late" on a flat battery.
     resolved_next_wake_iso, effective_interval_s, hold_reason = wake.next_wake_status(
         ctx.get("last_checkin_ts"), device_cfg, battery_critical=ctx.get("battery_critical", False))
     resolved_state = frame_state.resolve_state(
@@ -271,24 +258,34 @@ def frame_strip_html(ctx, return_to, next_wake_iso=None):
     headline_template_value = frame_state.headline_template(resolved_state)
     delay_template_value = frame_state.delay_sentence_template(
         resolved_next_wake_iso, effective_interval_s, hold_reason, now_value)
-
     next_wake_clock = None
     if resolved_next_wake_iso:
         next_wake_parsed = parse_iso(resolved_next_wake_iso)
         if next_wake_parsed is not None:
             next_wake_clock = local_clock_text(next_wake_parsed, now_parsed=parse_iso(now_value))
+    return (
+        resolved_state, headline_template_value, delay_template_value,
+        resolved_next_wake_iso, next_wake_clock, now_value)
 
-    # The one computed delay sentence, shared verbatim by both switch cells'
-    # captions.
+
+def _frame_delay_caption_html(delay_template_value, next_wake_clock):
+    """The one computed delay sentence, shared verbatim by both switch
+    cells' captions (the Quiet cell appends its own schedule link after
+    it).
+    """
     if delay_template_value == frame_state.DELAY_HELD and next_wake_clock is not None:
         delay_sentence_text = i18n.t(_FRAME_DELAY_HELD_TEXT) % next_wake_clock
     elif delay_template_value == frame_state.DELAY_DUE and next_wake_clock is not None:
         delay_sentence_text = i18n.t(_FRAME_DELAY_DUE_TEXT) % next_wake_clock
     else:
         delay_sentence_text = i18n.t(_FRAME_DELAY_UNKNOWN_TEXT)
-    delay_caption_html = '<p class="text-label section-caption">%s</p>' % escape_html(
-        delay_sentence_text)
+    return '<p class="text-label section-caption">%s</p>' % escape_html(delay_sentence_text)
 
+
+def _frame_display_cell_html(device_cfg, return_to, delay_caption_html):
+    """The Screen switch cell: label, state-plus-control row, and the
+    shared delay caption.
+    """
     display_enabled = device_cfg.get("display_enabled", True)
     is_display_on = display_enabled is not False
     display_label_html = '<span class="text-label quick-action__label" id="%s">%s%s</span>' % (
@@ -302,11 +299,21 @@ def frame_strip_html(ctx, return_to, next_wake_iso=None):
         + quick_switch_html(
             "/quick/display", return_to, is_display_on,
             QUICK_SWITCH_SCREEN_LABEL_ID, QUICK_SWITCH_SCREEN_STATE_ID))
-    display_cell_html = _frame_strip_cell_html(
+    return _frame_strip_cell_html(
         "quick-action quick-action--%s" % ("on" if is_display_on else "off"),
         display_label_html, display_state_row_html, delay_caption_html,
         extra_attrs=QUICK_SWITCH_REGION_ATTR)
 
+
+def _frame_quiet_cell_html(device_cfg, return_to, delay_caption_html):
+    """The Quiet hours switch cell: label, state-plus-control row, and the
+    shared delay caption plus its own schedule link.
+
+    The link is appended to a COPY of the shared delay sentence, never to
+    `delay_caption_html` itself, which is also the Screen cell's own
+    caption. Always a real `<a href>`, even when `return_to` is already
+    DISPLAY_ROUTE — a same-page fragment link still works with no script.
+    """
     quiet_enabled = device_cfg.get("quiet_hours_enabled", False)
     is_quiet_on = quiet_enabled is True
     quiet_start = device_cfg.get("quiet_hours_start") or "23:00"
@@ -323,59 +330,85 @@ def frame_strip_html(ctx, return_to, next_wake_iso=None):
         + quick_switch_html(
             "/quick/quiet-hours", return_to, is_quiet_on,
             QUICK_SWITCH_QUIET_LABEL_ID, QUICK_SWITCH_QUIET_STATE_ID))
-    # The one write site for the Quiet hours caption link: appended to a
-    # copy of the shared delay sentence, never to `delay_caption_html`
-    # itself, which is also the Screen cell's own caption. Always a real
-    # `<a href>`, even when `return_to` is already DISPLAY_ROUTE — a
-    # same-page fragment link still works with no script.
     quiet_schedule_link_html = '<a class="text-link frame-strip__schedule-link" href="%s#%s">%s</a>' % (
         DISPLAY_ROUTE, _FRAME_QUIET_SCHEDULE_TARGET_ID,
         escape_html(i18n.t(_FRAME_QUIET_SCHEDULE_LINK_TEXT)))
     quiet_caption_html = delay_caption_html + quiet_schedule_link_html
-    quiet_cell_html = _frame_strip_cell_html(
+    return _frame_strip_cell_html(
         "quick-action quick-action--%s" % ("on" if is_quiet_on else "off"),
         quiet_label_html, quiet_state_row_html, quiet_caption_html,
         extra_attrs=QUICK_SWITCH_REGION_ATTR)
 
-    update_cell_html = ""
-    if next_wake_clock is not None:
-        dot_class = _FRAME_DOT_CLASS_BY_STATE.get(resolved_state, "dot--ok")
-        headline_class = "status-card__headline"
-        if headline_template_value == frame_state.HEADLINE_LATE:
-            headline_i18n_source = _FRAME_HEADLINE_LATE_TEXT
-            headline_class = headline_class + " status-card__headline--warn"
-        elif headline_template_value == frame_state.HEADLINE_HELD:
-            headline_i18n_source = _FRAME_HEADLINE_HELD_TEXT
-        else:
-            headline_i18n_source = _FRAME_HEADLINE_DUE_TEXT
-        # The clock value is its own `.time-value` element, not baked into the
-        # sentence's escaped text: each headline template carries exactly one
-        # "%s", so the leading text, the clock span and the trailing text are
-        # escaped separately at their own interpolation sites.
-        headline_before, headline_after = i18n.t(headline_i18n_source).split("%s", 1)
-        headline_text = "%s%s%s" % (
-            escape_html(headline_before),
-            '<span class="time-value time-value--primary">%s</span>' % escape_html(next_wake_clock),
-            escape_html(headline_after),
-        )
-        update_state_row_html = (
-            '<p class="%s"><span class="dot %s"></span>%s</p>'
-        ) % (headline_class, dot_class, headline_text)
-        # The countdown, beside — never inside — the headline. It is
-        # formatting and decides nothing: the instant and state word both
-        # come from calls already made above; relative-time.js advances
-        # the duration without re-deciding due/held/late.
 
-        # `countdown=True` keeps it a countdown after its instant passes,
-        # reading the waiting wording rather than silently becoming an
-        # age: "Expected since 14:32 / waiting…", never "2m ago" — a
-        # second, quieter lateness claim beside the headline's.
-        countdown_html = (
-            '<p class="text-label section-caption">%s</p>'
-            % relative_time_html(resolved_next_wake_iso, now_value, countdown=True))
-        update_cell_html = _frame_strip_cell_html(
-            "frame-strip__cell--update", "", update_state_row_html, countdown_html)
+def _frame_update_cell_html(
+        resolved_state, headline_template_value, next_wake_clock,
+        resolved_next_wake_iso, now_value):
+    """The next-update cell: "" when no next-wake data is available. Three
+    states share one dot vocabulary: due `.dot--ok`, held the neutral
+    `.dot--off`, late `.dot--warn`, the warn signal carried by wording and
+    dot, never text colour.
 
+    The countdown sits beside — never inside — the headline. It is
+    formatting and decides nothing: the instant and state word both come
+    from `_frame_resolved_state()` above; relative-time.js advances the
+    duration without re-deciding due/held/late. `countdown=True` keeps it
+    a countdown after its instant passes, reading the waiting wording
+    rather than silently becoming an age: "Expected since 14:32 /
+    waiting…", never "2m ago" — a second, quieter lateness claim beside
+    the headline's.
+    """
+    if next_wake_clock is None:
+        return ""
+    dot_class = _FRAME_DOT_CLASS_BY_STATE.get(resolved_state, "dot--ok")
+    headline_class = "status-card__headline"
+    if headline_template_value == frame_state.HEADLINE_LATE:
+        headline_i18n_source = _FRAME_HEADLINE_LATE_TEXT
+        headline_class = headline_class + " status-card__headline--warn"
+    elif headline_template_value == frame_state.HEADLINE_HELD:
+        headline_i18n_source = _FRAME_HEADLINE_HELD_TEXT
+    else:
+        headline_i18n_source = _FRAME_HEADLINE_DUE_TEXT
+    # The clock value is its own `.time-value` element, not baked into the
+    # sentence's escaped text: each headline template carries exactly one
+    # "%s", so the leading text, the clock span and the trailing text are
+    # escaped separately at their own interpolation sites.
+    headline_before, headline_after = i18n.t(headline_i18n_source).split("%s", 1)
+    headline_text = "%s%s%s" % (
+        escape_html(headline_before),
+        '<span class="time-value time-value--primary">%s</span>' % escape_html(next_wake_clock),
+        escape_html(headline_after),
+    )
+    update_state_row_html = (
+        '<p class="%s"><span class="dot %s"></span>%s</p>'
+    ) % (headline_class, dot_class, headline_text)
+    countdown_html = (
+        '<p class="text-label section-caption">%s</p>'
+        % relative_time_html(resolved_next_wake_iso, now_value, countdown=True))
+    return _frame_strip_cell_html(
+        "frame-strip__cell--update", "", update_state_row_html, countdown_html)
+
+
+def frame_strip_html(ctx, return_to, next_wake_iso=None):
+    """The "Frame" strip: one shared body, called identically by
+    home_page.render() and config_page.render()'s Display scope, so both
+    pages' switches and headline can never disagree. `return_to` is
+    written escaped; the server validates it against a route whitelist
+    before using it as a redirect target.
+
+    Both switch forms carry `data-quick-switch`, the hook
+    companion/static/dirty-state.js keys its leave-guard on — do not
+    delete it as apparently unused. Every value crosses escape_html();
+    every string crosses i18n.t().
+    """
+    device_cfg = ctx.get("device_config") or {}
+    (resolved_state, headline_template_value, delay_template_value,
+     resolved_next_wake_iso, next_wake_clock, now_value) = _frame_resolved_state(ctx)
+    delay_caption_html = _frame_delay_caption_html(delay_template_value, next_wake_clock)
+    display_cell_html = _frame_display_cell_html(device_cfg, return_to, delay_caption_html)
+    quiet_cell_html = _frame_quiet_cell_html(device_cfg, return_to, delay_caption_html)
+    update_cell_html = _frame_update_cell_html(
+        resolved_state, headline_template_value, next_wake_clock,
+        resolved_next_wake_iso, now_value)
     return (
         '<div class="frame-strip stat-tile stat-tile--accent" aria-labelledby="frame-strip-heading">'
         '<h2 id="frame-strip-heading" class="text-heading">%s</h2>'

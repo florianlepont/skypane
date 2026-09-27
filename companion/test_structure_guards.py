@@ -46,7 +46,6 @@ TRACKED_FILE_EXCEPTIONS = {
 # nothing as this phase's later plans split them.
 PENDING_OVERSIZED_FILES = {
     "companion/app.py",
-    "companion/layout.py",
     "companion/pages/config_page.py",
     "companion/pages/health_page.py",
 }
@@ -54,8 +53,6 @@ PENDING_OVERSIZED_FILES = {
 # Qualified function names over FUNCTION_LINE_LIMIT today, expected to
 # shrink to nothing as this phase's later plans split them.
 PENDING_LONG_FUNCTIONS = {
-    "companion/ui_components.py::frame_strip_html",
-    "companion/layout.py::page_shell",
     "companion/pages/airlines_page.py::_airline_card_html",
     "companion/pages/config_page.py::_aspect_card_html",
     "companion/pages/config_page.py::_calendar_connection_html",
