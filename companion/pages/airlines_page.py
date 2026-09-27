@@ -453,41 +453,15 @@ def _seen_attribute_text(value, now):
     return html_module.unescape(_MARKUP_TAG_RE.sub("", markup))
 
 
-def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=None,
-                       now=None):
-    """One `.airline-card`: an image behind a click-to-enlarge trigger, the
-    airline's name, and one chip per fleet-type variant. Every value is
-    escaped exactly once, at its point of interpolation. Returns `""` for
-    an airline whose normalised key is falsy.
-
-    `index` becomes `data-filter-group`; `state_dir` resolves the
-    illustration cache buster. `manual_info`, when present, is the
-    `(prefix, superseded, needs_artwork)` triple sliced by the caller,
-    turning the trigger into a resolve link with the manual-state chip.
+def _airline_card_manual_fields(manual_info, airline_name, key, state_dir, now):
+    """Every manual-info-dependent value `_airline_card_html` renders,
+    derived once here from the sliced `(prefix, superseded,
+    needs_artwork)` triple, never re-derived from a second lookup.
+    Returns `(mode, has_manual, superseded, manual_value,
+    resolve_prefix_value, heading_value, upload_action_value,
+    delete_action_value, manual_note_value, first_seen_value,
+    last_seen_value, count_value)`.
     """
-    key = illustrations.normalise_airline_key(airline_name)
-    if not key:
-        return ""
-    # Built once and reused for both the <img src> and the zoom
-    # trigger's data-view-panel-src, plus the cache-busting suffix, so
-    # the two cannot point at different images.
-    image_url = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
-    # The replace-action attribute deliberately uses the un-busted
-    # image_url — a query string on a POST target is pointless. Already
-    # escaped once above; do not escape it again here.
-    busted_image_url = image_url + _illustration_cache_buster(key, state_dir)
-    image_html = (
-        '<img class="airline-card__image" src="%s" '
-        'width="%d" height="%d" '
-        'loading="lazy" decoding="async" alt="%s">'
-    ) % (
-        busted_image_url,
-        ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT,
-        escape_html(i18n.t(CARD_IMAGE_ALT_TEMPLATE) % airline_name),
-    )
-    # Every manual-info-dependent value is derived once here from the
-    # sliced (prefix, superseded, needs_artwork) triple, never
-    # re-derived from a second lookup.
     has_manual = manual_info is not None
     prefix = superseded = needs_artwork = None
     if has_manual:
@@ -496,12 +470,6 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
     mode = (
         _VIEW_PANEL_MODE_NEEDS_ARTWORK if (has_manual and needs_artwork)
         else _VIEW_PANEL_MODE_ART)
-    # A manually-resolved airline with no artwork yet would otherwise
-    # render an <img> whose src 404s; use the same dashed placeholder a
-    # gap card uses, and an empty src so the dialog hides its image too.
-    if mode == _VIEW_PANEL_MODE_NEEDS_ARTWORK:
-        image_html = '<span class="airline-card__placeholder" aria-hidden="true"></span>'
-        busted_image_url = ""
     if has_manual:
         manual_value = (
             _VIEW_PANEL_MANUAL_SUPERSEDED if superseded else _VIEW_PANEL_MANUAL_ACTIVE)
@@ -545,16 +513,32 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
             last_seen_value = escape_html(_seen_attribute_text(gap_last_seen, now))
             count_value = escape_html(gap_count)
 
+    return (
+        mode, has_manual, superseded, manual_value, resolve_prefix_value,
+        heading_value, upload_action_value, delete_action_value,
+        manual_note_value, first_seen_value, last_seen_value, count_value,
+    )
+
+
+def _airline_card_zoom_html(airline_name, mode, image_html, busted_image_url, image_url,
+                            manual_value, resolve_prefix_value, heading_value,
+                            upload_action_value, delete_action_value, manual_note_value,
+                            first_seen_value, last_seen_value, count_value):
+    """The click-to-enlarge trigger. A real `<button>`, not the `<img>`,
+    is the click target for keyboard focus; panel-lookup.js's delegation
+    still resolves an image click to it. Every trigger carries the full
+    data-view-panel-* vocabulary, with unused attributes left empty
+    rather than omitted, since an omitted attribute is how a stale value
+    could leak from a previous click. A resolve-prefix card becomes a
+    real `<a href="?resolve={prefix}">` instead. The returned markup is
+    also the edit-mode Replace control's second trigger for the same
+    dialog and must carry an identical vocabulary, or panel-lookup.js's
+    attr-copy idiom would blank the dialog's mode and forms there.
+    """
     # The per-prefix scope sentence is a raw-gap-only concept; these
     # cards already show a resolved name.
     scope_value = ""
 
-    # A real <button>, not the <img>, is the click target for keyboard
-    # focus; panel-lookup.js's delegation still resolves an image click to
-    # it. Every trigger carries the full data-view-panel-* vocabulary, with
-    # unused attributes left empty rather than omitted, since an omitted
-    # attribute is how a stale value could leak from a previous click. A
-    # resolve-prefix card becomes a real <a href="?resolve={prefix}"> instead.
     if resolve_prefix_value:
         opening_tag = '<a href="%s?%s=%s" class="airline-card__zoom" ' % (
             AIRLINES_ROUTE, RESOLVE_QUERY_PARAM, resolve_prefix_value)
@@ -562,10 +546,6 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
     else:
         opening_tag = '<button type="button" class="airline-card__zoom" '
         closing_tag = "</button>"
-    # Built once into a variable: the edit-mode Replace control below is
-    # a second trigger for the same dialog and must carry an identical
-    # vocabulary, or panel-lookup.js's attr-copy idiom would blank the
-    # dialog's mode and forms on that second trigger.
     panel_attrs = (
         '%s="%s" %s="%s" %s="%s" %s="%s" '
         '%s="%s" %s="%s" %s="%s" %s="%s" '
@@ -587,13 +567,62 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
         _VIEW_PANEL_DELETE_ACTION_ATTR, delete_action_value,
         _VIEW_PANEL_MANUAL_NOTE_ATTR, manual_note_value,
     )
-    zoom_html = (
+    return (
         opening_tag + panel_attrs + 'aria-label="%s">%s%s'
     ) % (
         escape_html(i18n.t(ZOOM_LABEL_TEMPLATE) % airline_name),
         image_html,
         closing_tag,
     )
+
+
+def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=None,
+                       now=None):
+    """One `.airline-card`: an image behind a click-to-enlarge trigger, the
+    airline's name, and one chip per fleet-type variant. Every value is
+    escaped exactly once, at its point of interpolation. Returns `""` for
+    an airline whose normalised key is falsy.
+
+    `index` becomes `data-filter-group`; `state_dir` resolves the
+    illustration cache buster. `manual_info`, when present, is the
+    `(prefix, superseded, needs_artwork)` triple sliced by the caller,
+    turning the trigger into a resolve link with the manual-state chip.
+    """
+    key = illustrations.normalise_airline_key(airline_name)
+    if not key:
+        return ""
+    # Built once and reused for both the <img src> and the zoom
+    # trigger's data-view-panel-src, plus the cache-busting suffix, so
+    # the two cannot point at different images.
+    image_url = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
+    # The replace-action attribute deliberately uses the un-busted
+    # image_url — a query string on a POST target is pointless. Already
+    # escaped once above; do not escape it again here.
+    busted_image_url = image_url + _illustration_cache_buster(key, state_dir)
+    image_html = (
+        '<img class="airline-card__image" src="%s" '
+        'width="%d" height="%d" '
+        'loading="lazy" decoding="async" alt="%s">'
+    ) % (
+        busted_image_url,
+        ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT,
+        escape_html(i18n.t(CARD_IMAGE_ALT_TEMPLATE) % airline_name),
+    )
+    (mode, has_manual, superseded, manual_value, resolve_prefix_value,
+     heading_value, upload_action_value, delete_action_value,
+     manual_note_value, first_seen_value, last_seen_value, count_value) = (
+        _airline_card_manual_fields(manual_info, airline_name, key, state_dir, now))
+    # A manually-resolved airline with no artwork yet would otherwise
+    # render an <img> whose src 404s; use the same dashed placeholder a
+    # gap card uses, and an empty src so the dialog hides its image too.
+    if mode == _VIEW_PANEL_MODE_NEEDS_ARTWORK:
+        image_html = '<span class="airline-card__placeholder" aria-hidden="true"></span>'
+        busted_image_url = ""
+    zoom_html = _airline_card_zoom_html(
+        airline_name, mode, image_html, busted_image_url, image_url,
+        manual_value, resolve_prefix_value, heading_value,
+        upload_action_value, delete_action_value, manual_note_value,
+        first_seen_value, last_seen_value, count_value)
     chip_parts = []
     if shapes:
         chip_parts.extend(

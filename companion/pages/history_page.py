@@ -928,6 +928,122 @@ def _card_thumb_html(airline_raw, state_dir):
     ) % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key), escape_html(alt_text))
 
 
+def _history_card_primary_html(row, now):
+    """The card's primary line: callsign (or bare-hex fallback) plus the
+    concise local time. Mirrors `_callsign_hex_cell()`'s desktop
+    hex-only branch: when a row has no callsign but has a hex, the
+    primary slot carries the hex (never blank) with a NO_CALLSIGN_NOTE_TEXT
+    note.
+    """
+    if row["callsign"]:
+        primary_value_html = (
+            '<span class="cell-primary mono">%s</span>'
+            % escape_html(row["callsign"]))
+    elif row["hex"]:
+        primary_value_html = (
+            '<span class="cell-primary mono">%s</span>'
+            '<span class="cell-secondary">%s</span>'
+        ) % (escape_html(row["hex"]), escape_html(i18n.t(NO_CALLSIGN_NOTE_TEXT)))
+    else:
+        primary_value_html = '<span class="cell-primary mono"></span>'
+    return (
+        '<div class="history-card__primary">'
+        "%s"
+        '<span class="history-card__time">%s</span>'
+        "</div>"
+    ) % (
+        primary_value_html,
+        layout.concise_timestamp_html(row["raw_ts"], now),
+    )
+
+
+def _history_card_secondary_html(row):
+    """The card's secondary line: route, the module's existing middle
+    dot (CELL_SEPARATOR_TEXT/CLASS) that `_merged_cell()` also emits on
+    the desktop side, and the confirmed state.
+    """
+    return (
+        '<div class="history-card__secondary">'
+        "<span>%s</span>"
+        '<span class="%s">%s</span>'
+        "<span>%s</span>"
+        "</div>"
+    ) % (
+        escape_html(row["route_label"]),
+        CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
+        escape_html(row["confirmed_state"]),
+    )
+
+
+def _history_card_airline_line_html(row):
+    """The card's airline line. The airline and artwork sit on the
+    card's own face, outside the `<details>` disclosure; the resolve
+    link sits outside it too (see the card assembly in
+    `_history_cards_html()`), so the mobile card carries the same
+    affordances as the desktop cell.
+    """
+    is_unresolved = row["airline_label"] == AIRLINE_FALLBACK_TEXT
+    airline_display = i18n.t(row["airline_label"]) if is_unresolved else row["airline_label"]
+    return (
+        '<div class="history-card__airline">%s'
+        '<span class="history-card__airline-name">%s</span>'
+        "</div>"
+    ) % (
+        row.get("thumb_html", ""),
+        escape_html(airline_display),
+    )
+
+
+def _history_card_details_html(row, primary, secondary, airline_line):
+    """The `<details>` disclosure: the three face blocks as its
+    `<summary>`, then the remaining fields in a `<dl>`. All three
+    mobile copy buttons (callsign, hex, full timestamp) live inside
+    this disclosure, including the callsign one already visible on the
+    primary line, so the copy affordance has a home alongside its
+    siblings.
+    """
+    row_name = _row_copy_name(row["callsign"], row["hex"])
+    return (
+        '<details class="history-card__details">'
+        '<summary class="history-card__summary">'
+        '<div class="history-card__face">%s%s%s</div>'
+        '<span class="visually-hidden">%s</span>'
+        "</summary>"
+        "<dl>"
+        '<dt>%s</dt><dd class="mono">%s%s</dd>'
+        "<dt>%s</dt><dd>%s</dd>"
+        "<dt>%s</dt><dd>%s</dd>"
+        "<dt>%s</dt><dd>%s</dd>"
+        '<dt>%s</dt><dd class="mono">%s%s</dd>'
+        '<dt>%s</dt><dd class="time-value">%s%s</dd>'
+        "</dl>%s"
+        "</details>"
+    ) % (
+        primary, secondary, airline_line,
+        escape_html(i18n.t("More details")),
+        escape_html(i18n.t("Callsign")),
+        escape_html(row["callsign"]),
+        _copy_button_html(row["callsign"], i18n.t(_COPY_CALLSIGN_LABEL) % row_name),
+        escape_html(i18n.t("Aircraft")),
+        escape_html(row["aircraft_type_label"]),
+        escape_html(i18n.t("Corroboration")),
+        layout.status_dot(
+            row["corroboration_status"], row["corroboration_label"],
+            row["corroboration_title"]),
+        escape_html(i18n.t("Runway")),
+        escape_html(row["tracked_runway"]),
+        escape_html(i18n.t("Hex")),
+        escape_html(row["hex"]),
+        _copy_button_html(row["hex"], i18n.t(_COPY_HEX_LABEL) % row_name),
+        # The visible timestamp is the Paris local clock; the raw
+        # ISO survives only in the copy control's data-copy-value.
+        escape_html(i18n.t("Full timestamp")),
+        escape_html(full_local_time_text(row["raw_ts"])),
+        _copy_button_html(row["raw_ts"], i18n.t(_COPY_TIMESTAMP_LABEL) % row_name),
+        row.get("view_panel_html", ""),
+    )
+
+
 def _history_cards_html(formatted_rows, now=None):
     """Mobile compact-card representation, one `<li>` per row, built
     from the same `formatted_rows` list `_history_table_html()`
@@ -941,101 +1057,10 @@ def _history_cards_html(formatted_rows, now=None):
         return ""
     items = []
     for index, row in enumerate(formatted_rows):
-        # Mirrors _callsign_hex_cell()'s desktop hex-only branch: when a
-        # row has no callsign but has a hex, the primary slot carries
-        # the hex (never blank) with a NO_CALLSIGN_NOTE_TEXT note.
-        if row["callsign"]:
-            primary_value_html = (
-                '<span class="cell-primary mono">%s</span>'
-                % escape_html(row["callsign"]))
-        elif row["hex"]:
-            primary_value_html = (
-                '<span class="cell-primary mono">%s</span>'
-                '<span class="cell-secondary">%s</span>'
-            ) % (escape_html(row["hex"]), escape_html(i18n.t(NO_CALLSIGN_NOTE_TEXT)))
-        else:
-            primary_value_html = '<span class="cell-primary mono"></span>'
-        primary = (
-            '<div class="history-card__primary">'
-            "%s"
-            '<span class="history-card__time">%s</span>'
-            "</div>"
-        ) % (
-            primary_value_html,
-            layout.concise_timestamp_html(row["raw_ts"], now),
-        )
-        # The separator is the module's existing middle dot
-        # (CELL_SEPARATOR_TEXT/CLASS), the same pair _merged_cell()
-        # emits on the desktop side, reused rather than invented anew.
-        secondary = (
-            '<div class="history-card__secondary">'
-            "<span>%s</span>"
-            '<span class="%s">%s</span>'
-            "<span>%s</span>"
-            "</div>"
-        ) % (
-            escape_html(row["route_label"]),
-            CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
-            escape_html(row["confirmed_state"]),
-        )
-        # All three mobile copy buttons (callsign, hex, full timestamp)
-        # live inside this <details> disclosure, including the callsign
-        # one already visible on the primary line, so the copy
-        # affordance has a home alongside its siblings.
-        is_unresolved = row["airline_label"] == AIRLINE_FALLBACK_TEXT
-        airline_display = i18n.t(row["airline_label"]) if is_unresolved else row["airline_label"]
-        # The airline and artwork sit on the card's own face, outside
-        # the disclosure; the resolve link sits outside it too (see the
-        # card assembly below), so the mobile card carries the same
-        # affordances as the desktop cell.
-        airline_line = (
-            '<div class="history-card__airline">%s'
-            '<span class="history-card__airline-name">%s</span>'
-            "</div>"
-        ) % (
-            row.get("thumb_html", ""),
-            escape_html(airline_display),
-        )
-        row_name = _row_copy_name(row["callsign"], row["hex"])
-        details = (
-            '<details class="history-card__details">'
-            '<summary class="history-card__summary">'
-            '<div class="history-card__face">%s%s%s</div>'
-            '<span class="visually-hidden">%s</span>'
-            "</summary>"
-            "<dl>"
-            '<dt>%s</dt><dd class="mono">%s%s</dd>'
-            "<dt>%s</dt><dd>%s</dd>"
-            "<dt>%s</dt><dd>%s</dd>"
-            "<dt>%s</dt><dd>%s</dd>"
-            '<dt>%s</dt><dd class="mono">%s%s</dd>'
-            '<dt>%s</dt><dd class="time-value">%s%s</dd>'
-            "</dl>%s"
-            "</details>"
-        ) % (
-            primary, secondary, airline_line,
-            escape_html(i18n.t("More details")),
-            escape_html(i18n.t("Callsign")),
-            escape_html(row["callsign"]),
-            _copy_button_html(row["callsign"], i18n.t(_COPY_CALLSIGN_LABEL) % row_name),
-            escape_html(i18n.t("Aircraft")),
-            escape_html(row["aircraft_type_label"]),
-            escape_html(i18n.t("Corroboration")),
-            layout.status_dot(
-                row["corroboration_status"], row["corroboration_label"],
-                row["corroboration_title"]),
-            escape_html(i18n.t("Runway")),
-            escape_html(row["tracked_runway"]),
-            escape_html(i18n.t("Hex")),
-            escape_html(row["hex"]),
-            _copy_button_html(row["hex"], i18n.t(_COPY_HEX_LABEL) % row_name),
-            # The visible timestamp is the Paris local clock; the raw
-            # ISO survives only in the copy control's data-copy-value.
-            escape_html(i18n.t("Full timestamp")),
-            escape_html(full_local_time_text(row["raw_ts"])),
-            _copy_button_html(row["raw_ts"], i18n.t(_COPY_TIMESTAMP_LABEL) % row_name),
-            row.get("view_panel_html", ""),
-        )
+        primary = _history_card_primary_html(row, now)
+        secondary = _history_card_secondary_html(row)
+        airline_line = _history_card_airline_line_html(row)
+        details = _history_card_details_html(row, primary, secondary, airline_line)
         # The card's three face blocks sit inside <details> as its
         # <summary>, so a tap anywhere opens it through the native
         # disclosure, no script needed. The resolve link stays out of
