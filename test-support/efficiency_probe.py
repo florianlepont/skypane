@@ -30,6 +30,7 @@ import server.history_db as history_db
 import server.plane.detect as detect
 import server.plane.enrich as enrich
 import server.poll_loop as poll_loop
+import server.state_store as state_store
 
 # Captured at import time, before anything in this module could have
 # patched time.sleep - every recorder below sleeps through this, never
@@ -37,7 +38,7 @@ import server.poll_loop as poll_loop
 # recurse into their own recording.
 REAL_SLEEP = time.sleep
 
-POLL_STATE_BASENAME = "poll_state.json"
+POLL_STATE_BASENAME = state_store.POLL_STATE_FILENAME
 
 
 @contextlib.contextmanager

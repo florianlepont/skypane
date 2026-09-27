@@ -7,25 +7,23 @@ Separate file (`device_config.json`) from `poll_state.json`: a second
 writer touching poll_state.json would race server/poll_loop.py's own
 read-modify-write cycle every 30s.
 
-Leaf module: stdlib plus `server.atomic_io` and `server.themes` only;
-must never import `server.plane.detect`, `server.plane.render`, or
-`server.poll_loop`.
+Leaf module: stdlib plus `server.atomic_io`, `server.device_policy` and
+`server.themes` only; must never import `server.plane.detect`,
+`server.plane.render`, or `server.poll_loop`.
 
 Theme registry and its presentation accessors live in `server.themes`;
-this module re-exports them so every existing caller and test keeps
-working unchanged. Adding a theme: append one entry to
-`server.themes.THEMES`; every accessor derives from it, no other
-call-site change needed.
+quiet-hours window arithmetic and its wake/sleep constants live in
+`server.device_policy`. This module re-exports both so every existing
+caller and test keeps working unchanged. Adding a theme: append one
+entry to `server.themes.THEMES`; every accessor derives from it, no
+other call-site change needed.
 
 Print-free by design - never log or print the config file's contents.
 """
 import json
 import os
-import re
 import sys
 import threading
-from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
 
 # Allow both `import server.device_config` (package import) and direct
 # script execution: sys.path[0] is server/ itself when this file is
@@ -36,7 +34,19 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from server import atomic_io
+from server import atomic_io, device_policy
+from server.device_policy import (  # noqa: F401
+    BATTERY_CRITICAL_SLEEP_S,
+    DEFAULT_QUIET_HOURS_END,
+    DEFAULT_QUIET_HOURS_START,
+    DISPLAY_OFF_SLEEP_S,
+    QUIET_HOURS_TZ,
+    WAKE_INTERVAL_MAX_S,
+    WAKE_INTERVAL_MIN_S,
+    normalise_quiet_hours_time,
+    quiet_hours_status,
+    seconds_until_quiet_hours_end,
+)
 from server.themes import (  # noqa: F401
     DEFAULT_THEME_ID,
     THEME_IDS,
@@ -51,32 +61,18 @@ from server.themes import (  # noqa: F401
     theme_weight,
 )
 
+# Anchored with `\Z`, not `$` (device_policy.HHMM_RE's own gate) - rebound
+# here under this module's historical name so every existing caller keeps
+# working unchanged.
+_HHMM_RE = device_policy.HHMM_RE
+
 DEFAULT_RUNWAY_ID = "3"
 DEFAULT_LED_ENABLED = True  # Matches the LED's current hardcoded always-on behaviour, so nothing changes until a user opts out.
 DEFAULT_QUIET_HOURS_ENABLED = False  # An explicit boolean independent of the stored times - never "empty fields mean off" - so nothing changes for any existing installation until a user opts in.
-DEFAULT_QUIET_HOURS_START = "23:00"  # One daily recurring window, never per-weekday.
-DEFAULT_QUIET_HOURS_END = "07:00"  # One daily recurring window, never per-weekday.
 DEFAULT_DISPLAY_ENABLED = True  # An explicit boolean following the
 # DEFAULT_LED_ENABLED/DEFAULT_QUIET_HOURS_ENABLED precedent, never an
 # absence-means-off convention, so nothing changes for an installation
 # already in service until someone opts in.
-
-# Bounds for the stored wake_interval_s field. 60 mirrors firmware's
-# FP_MIN_REFRESH_SPACING_S default (a conservative margin against
-# needless redraws, not a vendor minimum - GDEP133C02 specifies none).
-# 3600 is the developer-confirmed ceiling.
-WAKE_INTERVAL_MIN_S = 60
-WAKE_INTERVAL_MAX_S = 3600
-
-# Fixed off-state check-in cadence while display_enabled is False,
-# independent of wake_interval_s. stub-server/byos_server.py
-# independently redefines this value and must be kept in step.
-DISPLAY_OFF_SLEEP_S = 300
-
-# Fixed check-in cadence while BATTERY EMPTY is active - one hour, since
-# detection is skipped entirely while parked. Kept in step with
-# stub-server/byos_server.py's independent copy.
-BATTERY_CRITICAL_SLEEP_S = 3600
 
 # No DEFAULT_WAKE_INTERVAL_S: wake_interval_s's unset state is `None`
 # (the real fallback is the deployed SKYPANE_SLEEP_S, not knowable here).
@@ -86,15 +82,6 @@ BATTERY_CRITICAL_SLEEP_S = 3600
 # companion/pages/health_page.py's `_DB_UNAVAILABLE` idiom. Compared by
 # identity, never equality.
 CLEAR_THEME_ARRIVING = object()
-
-# Anchored with `\Z`, not `$`: `$` also matches before a trailing
-# newline, which would let a dirty "07:00\n" reach the panel's body text
-# unvalidated.
-_HHMM_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)\Z")
-
-# Fixed physical location, so the timezone is hardcoded, not
-# per-installation.
-QUIET_HOURS_TZ = ZoneInfo("Europe/Paris")
 
 # --- Runway registry -----------------------------------------------------
 #
@@ -261,16 +248,6 @@ def normalise_display_enabled(value):
     if isinstance(value, bool):
         return value
     return DEFAULT_DISPLAY_ENABLED
-
-
-def normalise_quiet_hours_time(value, default):
-    """`value` unchanged if it matches the `_HHMM_RE` shape gate, else
-    `default`. Shared by both start/end fields so they can't drift apart
-    on validation strictness.
-    """
-    if isinstance(value, str) and _HHMM_RE.match(value):
-        return value
-    return default
 
 
 def normalise_wake_interval_s(value):
@@ -499,68 +476,6 @@ def save_device_config(
                 screen_id=screen_id, notifications=notifications,
             )
             atomic_io.atomic_write(device_config_path(state_dir), json.dumps(new_config, indent=1))
-
-
-# --- Quiet-hours window arithmetic --------------------------------------
-#
-# See seconds_until_quiet_hours_end()'s own docstring for its two
-# DST-safety properties.
-
-
-def seconds_until_quiet_hours_end(now_utc, start_hm, end_hm):
-    """Seconds remaining until the daily [start_hm, end_hm) Europe/Paris
-    window's end, or None when `now_utc` falls outside it. Wraps midnight
-    when `end_hm <= start_hm`; a zero-width window (`start_hm == end_hm`)
-    is never active.
-
-    Arithmetic core only, no validation: `now_utc` must be timezone-aware;
-    `start_hm`/`end_hm` must already match `_HHMM_RE`.
-    stub-server/byos_server.py duplicates this byte-for-byte.
-
-    Two DST-safety properties: (a) the final subtraction converts to UTC
-    first (`end_dt.astimezone(timezone.utc) - now_utc`), since two aware
-    datetimes sharing a `tzinfo` subtract by wall-clock numerals only,
-    which is wrong by an hour across a DST transition; (b) a boundary
-    configured inside the 02:00-03:00 transition hour can resolve up to
-    an hour off (PEP 495 `fold=0`, accepted, not engineered around).
-    """
-    local_now = now_utc.astimezone(QUIET_HOURS_TZ)
-    start_h, start_m = (int(x) for x in start_hm.split(":"))
-    end_h, end_m = (int(x) for x in end_hm.split(":"))
-    start_today = local_now.replace(hour=start_h, minute=start_m, second=0, microsecond=0)
-    end_today = local_now.replace(hour=end_h, minute=end_m, second=0, microsecond=0)
-    if (start_h, start_m) <= (end_h, end_m):
-        if not (start_today <= local_now < end_today):
-            return None
-        end_dt = end_today
-    else:
-        if local_now >= start_today:
-            end_dt = end_today + timedelta(days=1)
-        elif local_now < end_today:
-            end_dt = end_today
-        else:
-            return None
-    return max(0, int((end_dt.astimezone(timezone.utc) - now_utc).total_seconds()))
-
-
-def quiet_hours_status(config, now_epoch):
-    """`(seconds_remaining, end_hm)`, or `(None, None)` when quiet hours
-    aren't enabled or `seconds_until_quiet_hours_end()` returns None.
-    `now_epoch` is epoch seconds (float); never raises, even for a
-    hostile value.
-    """
-    try:
-        if not isinstance(config, dict) or config.get("quiet_hours_enabled") is not True:
-            return None, None
-        start_hm = normalise_quiet_hours_time(config.get("quiet_hours_start"), DEFAULT_QUIET_HOURS_START)
-        end_hm = normalise_quiet_hours_time(config.get("quiet_hours_end"), DEFAULT_QUIET_HOURS_END)
-        now_utc = datetime.fromtimestamp(float(now_epoch), timezone.utc)
-        remaining = seconds_until_quiet_hours_end(now_utc, start_hm, end_hm)
-        if remaining is None:
-            return None, None
-        return remaining, end_hm
-    except (TypeError, ValueError, OverflowError, OSError):
-        return None, None
 
 
 def runway_tag_text(runway_id):

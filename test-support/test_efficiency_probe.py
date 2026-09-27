@@ -77,10 +77,10 @@ def test_count_sleeps_records_inside_and_not_outside():
 
 
 def test_count_poll_state_writes_counts_only_poll_state_json(tmp_path):
-    import server.poll_loop as poll_loop
+    import server.state_store as state_store
 
     with efficiency_probe.count_poll_state_writes() as writes:
-        poll_loop.save_poll_state(str(tmp_path), {"a": 1})
+        state_store.save_poll_state(str(tmp_path), {"a": 1})
         atomic_io.atomic_write(os.path.join(str(tmp_path), "other.json"), "{}")
 
     assert len(writes) == 1

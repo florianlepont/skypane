@@ -27,7 +27,6 @@ import argparse
 import contextlib
 import hashlib
 import io
-import json
 import math
 import os
 import sqlite3
@@ -45,6 +44,7 @@ if _REPO_ROOT not in sys.path:
 
 import server.atomic_io as atomic_io
 import server.device_config as device_config
+import server.device_policy as device_policy
 import server.history_db as history_db
 import server.notify as notify
 import server.panel_format as panel_format
@@ -55,9 +55,10 @@ import server.plane.enrich as enrich
 import server.plane.manual_resolutions as manual_resolutions
 import server.plane.render as render
 import server.plane.runway_config as runway_config
+import server.state_store as state_store
 import server.wake as wake
 
-DEFAULT_STATE_DIR = os.path.join(_HERE, "state")
+DEFAULT_STATE_DIR = state_store.DEFAULT_STATE_DIR
 POLL_INTERVAL_S = 30
 
 # Each archived PNG is a full 1200x1600 panel image (a few hundred KB) -
@@ -225,22 +226,6 @@ def pop_fresh_pending(pending, now, max_staleness_s=None):
     return None, dropped
 
 
-# Battery-low hysteresis, raw millivolts - never a derived percentage,
-# since no real discharge curve exists for this pack. THRESHOLD_MV=3500
-# sits with margin above hardware/logtools.py's --cutoff-mv 3400;
-# CLEAR_MV=3600 is a 100 mV re-arm buffer against flapping.
-BATTERY_LOW_THRESHOLD_MV = 3500
-BATTERY_LOW_CLEAR_MV = 3600
-
-# BATTERY EMPTY hysteresis, raw millivolts, sourced from a measured
-# discharge run (~3500 mV at ~43h remaining, 2960 mV ~17 min before the
-# panel froze). CRITICAL_MV=3300 sits below the 3500 mV badge and above
-# the 2960 mV failure point; RECOVER_MV=3700 is a wider 400 mV re-arm
-# buffer than the badge's, since a false recovery risks dying mid-refresh.
-BATTERY_CRITICAL_MV = 3300
-BATTERY_CRITICAL_RECOVER_MV = 3700
-
-
 def _extract_aircraft(snapshot):
     """A raw aggregator response's aircraft array, under a provider-specific
     key ("ac" or "aircraft"). Never raises; [] on any unexpected shape.
@@ -268,140 +253,11 @@ def _classify_state_source(vertical_rate_fpm):
     return "held"
 
 
-def _poll_state_path(state_dir):
-    return os.path.join(state_dir, "poll_state.json")
-
-
-def load_poll_state(state_dir):
-    """Missing, unreadable, or malformed -> empty state, never a crash."""
-    try:
-        with open(_poll_state_path(state_dir)) as fh:
-            data = json.load(fh)
-    except (OSError, ValueError):
-        return {}
-    return data if isinstance(data, dict) else {}
-
-
-# Tri-valued hold-state latch; `None` means not holding. A single key
-# keeps "already holding?" the single test `was_hold is None` for any
-# number of hold mechanisms.
-_HOLD_KINDS = ("quiet_hours", "display_off", "battery_empty")
-
-
-def _hold_state(poll_state):
-    """The current hold kind, or `None` when not holding. Falls back to
-    the legacy `quiet_hours_active` boolean when `hold_state` is absent
-    (an older poll_state.json); the caller retires that key on its next
-    write. Never raises.
-    """
-    if "hold_state" in poll_state:
-        kind = poll_state.get("hold_state")
-        return kind if kind in _HOLD_KINDS else None
-    return "quiet_hours" if poll_state.get("quiet_hours_active") is True else None
-
-
-def load_battery_state(state_dir):
-    """Read-only: `<state_dir>/battery_state.json` is owned and written
-    exclusively by stub-server/byos_server.py's save_battery_state().
-    Returns the int `battery_mv` reading, or None on any failure (missing
-    file, invalid JSON, wrong type, non-positive). Never raises.
-    """
-    try:
-        with open(os.path.join(state_dir, "battery_state.json")) as fh:
-            data = json.load(fh)
-    except (OSError, ValueError):
-        return None
-    if not isinstance(data, dict):
-        return None
-    mv = data.get("battery_mv")
-    if isinstance(mv, bool) or not isinstance(mv, int) or mv <= 0:
-        return None
-    return mv
-
-
-def apply_battery_hysteresis(battery_mv, was_active):
-    """Pure function: the battery-low decision, hysteresis between
-    BATTERY_LOW_THRESHOLD_MV (3500) and BATTERY_LOW_CLEAR_MV (3600).
-    `battery_mv=None` returns `was_active` unchanged. A reading strictly
-    between the two constants holds the previous decision either way.
-    """
-    if battery_mv is None:
-        return was_active
-    if was_active:
-        return battery_mv < BATTERY_LOW_CLEAR_MV
-    return battery_mv <= BATTERY_LOW_THRESHOLD_MV
-
-
-def apply_battery_critical_hysteresis(battery_mv, was_active):
-    """Pure function: the BATTERY EMPTY latch decision - the identical
-    shape as `apply_battery_hysteresis()` above, applied to the park/hold
-    decision, with hysteresis between BATTERY_CRITICAL_MV (3300) and
-    BATTERY_CRITICAL_RECOVER_MV (3700).
-    """
-    if battery_mv is None:
-        return was_active
-    if was_active:
-        return battery_mv < BATTERY_CRITICAL_RECOVER_MV
-    return battery_mv <= BATTERY_CRITICAL_MV
-
-
 # The shared "notifications" sub-dict of poll_state.json and its two
 # never-raising transition hooks below: each sends at most one push per
 # genuine transition and records the reported state regardless of send
 # success, so a flapping endpoint can't turn one transition into a push
 # every cycle.
-
-# Duplicated (not imported) from companion/battery.py's identical
-# BATTERY_DISCHARGE_CURVE/battery_percent(), since this module must never
-# import companion/. companion/test_companion_app.py pins the two copies
-# equal.
-_NOTIFY_BATTERY_DISCHARGE_CURVE = (
-    (2946, 0),
-    (3364, 7),
-    (3500, 15),
-    (3556, 22),
-    (3652, 29),
-    (3734, 36),
-    (3784, 43),
-    (3814, 50),
-    (3836, 57),
-    (3892, 65),
-    (3922, 72),
-    (3982, 79),
-    (4000, 90),
-    (4112, 100),
-)
-_NOTIFY_BATTERY_FULL_MV = _NOTIFY_BATTERY_DISCHARGE_CURVE[-1][0]
-_NOTIFY_BATTERY_EMPTY_MV = _NOTIFY_BATTERY_DISCHARGE_CURVE[0][0]
-
-
-def _battery_percent_estimate(battery_mv):
-    """A clamped 0-100 estimate for `battery_mv`, or None for a non-numeric,
-    non-positive or NaN reading. Mirrors companion/battery.py's
-    battery_fraction() + battery_percent(). Never raises.
-    """
-    try:
-        value = float(battery_mv)
-    except (TypeError, ValueError):
-        return None
-    if value != value:  # NaN is the one float that compares unequal to itself.
-        return None
-    if value <= 0:
-        return None
-    if value <= _NOTIFY_BATTERY_EMPTY_MV:
-        fraction = 0.0
-    elif value >= _NOTIFY_BATTERY_FULL_MV:
-        fraction = 1.0
-    else:
-        fraction = None
-        for (lower_mv, lower_pct), (upper_mv, upper_pct) in zip(
-                _NOTIFY_BATTERY_DISCHARGE_CURVE, _NOTIFY_BATTERY_DISCHARGE_CURVE[1:]):
-            if upper_mv >= value:
-                percent = lower_pct + (value - lower_mv) * (upper_pct - lower_pct) / float(
-                    upper_mv - lower_mv)
-                fraction = percent / 100.0
-                break
-    return int(round(fraction * 100))
 
 
 def _humanize_age_s(age_s):
@@ -462,7 +318,7 @@ def _notify_battery_transition(state_dir, poll_state, battery_low, battery_mv, d
             return
         lang = notifications.get("lang")
         if battery_low:
-            pct = _battery_percent_estimate(battery_mv)
+            pct = device_policy.battery_percent(battery_mv)
             body = notify.body_for_lang(notify.BATTERY_LOW_BODY, lang) % (
                 battery_mv, pct if pct is not None else 0,
             )
@@ -535,49 +391,6 @@ def _notify_silence_transition(state_dir, poll_state, conn, device_cfg, sender=N
             "poll_loop: _notify_silence_transition failed: %s" % type(exc).__name__,
             file=sys.stderr,
         )
-
-
-def _serialize_poll_state(state):
-    """Compact JSON encoding of `state` - no indentation, no space after a
-    "," or ":". Every reader (load_poll_state, wake.read_battery_critical,
-    stub-server/byos_server.py, the companion health/airlines pages) uses
-    json.load, so this is invisible to them; the compactness only shrinks
-    the file on disk, and gives `_persist_poll_state()` a cheap string to
-    diff against the snapshot taken at load time.
-    """
-    return json.dumps(state, separators=(",", ":"))
-
-
-def save_poll_state(state_dir, state):
-    """Atomic same-directory-mkstemp-then-os.replace() via atomic_io, so two
-    processes writing this same path (the systemd oneshot and the
-    companion's POST /poll-now, both under poll_cycle_lock()) can never
-    collide on one fixed temp name. Never leaves a stray temp file behind,
-    even if the write itself fails. Always writes, unconditionally - this
-    stays the public seam the test suite uses to seed a poll_state.json
-    directly; the write-once-only-if-changed decision below lives in
-    `_persist_poll_state()`, called only from `_run_once_locked()`'s two
-    exits.
-    """
-    atomic_io.atomic_write(_poll_state_path(state_dir), _serialize_poll_state(state))
-
-
-def _persist_poll_state(state_dir, poll_state, baseline):
-    """The cycle's single end-of-cycle save. Serialises `poll_state` once
-    and writes it through the same atomic path as `save_poll_state()`,
-    but only when that serialisation differs from `baseline` - the compact
-    snapshot `_run_once_locked()` took right after `load_poll_state()`,
-    before any branch mutated the dict in place (the dict can't serve as
-    its own baseline once mutated). An unchanged repeat cycle (a held
-    hold, an unchanged empty sky) compares equal and writes nothing.
-    Called from both of `_run_once_locked()`'s exits - the hold-branch
-    return and the shared tail - never mid-branch, so poll_state.json is
-    written at most once per cycle, and always after panel.bin (the save
-    moved later than it used to, never earlier).
-    """
-    serialized = _serialize_poll_state(poll_state)
-    if serialized != baseline:
-        atomic_io.atomic_write(_poll_state_path(state_dir), serialized)
 
 
 def write_panel_atomic(state_dir, rendered):
@@ -921,7 +734,7 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
 
     Hold states: a quiet-hours window and the manual display-off toggle
     both gate through one shared `poll_state["hold_state"]` latch
-    (`_hold_state()`). Either active takes an early return before any
+    (`state_store.hold_state()`). Either active takes an early return before any
     ADS-B call - a hold suppresses detection entirely, not just display.
     "Render once at entry, then hold": the held screen draws once, on the
     first cycle a hold starts, and every subsequent held cycle is a
@@ -963,18 +776,18 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
     # below reuses these objects rather than re-reading. One battery read
     # feeds three decisions: the badge, the BATTERY EMPTY latch, and (via
     # that latch) the wake-interval pin below.
-    poll_state = load_poll_state(state_dir)
+    poll_state = state_store.load_poll_state(state_dir)
     # A string snapshot taken before any branch below mutates poll_state in
     # place - the dict itself can't serve as its own "did anything change?"
     # baseline once mutated. Compared against at the cycle's two exits by
-    # _persist_poll_state(); never re-taken mid-cycle.
-    poll_state_baseline = _serialize_poll_state(poll_state)
-    battery_mv = load_battery_state(state_dir)
+    # state_store.persist_poll_state_if_changed(); never re-taken mid-cycle.
+    poll_state_baseline = state_store.serialize_poll_state(poll_state)
+    battery_mv = state_store.load_battery_state(state_dir)
     # Stored back into poll_state immediately, before
     # wake.effective_wake_interval_s() below, so it sees this cycle's own
     # decision, not last cycle's stale one.
     was_battery_critical = poll_state.get(wake.BATTERY_CRITICAL_STATE_KEY) is True
-    battery_critical = apply_battery_critical_hysteresis(battery_mv, was_battery_critical)
+    battery_critical = device_policy.apply_battery_critical_hysteresis(battery_mv, was_battery_critical)
     poll_state[wake.BATTERY_CRITICAL_STATE_KEY] = battery_critical
     # The cadence in force this cycle, resolved once and passed to every
     # _record_history() call rather than re-resolved. None is a legitimate
@@ -1015,13 +828,13 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
         # unbounded. poll_state/battery_mv reused from above so this
         # branch's battery_low decision can't observe a different mV
         # reading than the top-level battery_critical one.
-        was_hold = _hold_state(poll_state)
+        was_hold = state_store.hold_state(poll_state)
         legacy_present = "quiet_hours_active" in poll_state
 
         # Same battery decision the main path computes below - the held
         # screen carries the same battery-low icon.
         was_battery_low = bool(poll_state.get("battery_low_active", False))
-        battery_low = apply_battery_hysteresis(battery_mv, was_battery_low)
+        battery_low = device_policy.apply_battery_hysteresis(battery_mv, was_battery_low)
         battery_changed = battery_low != was_battery_low
         poll_state["battery_low_active"] = battery_low
         if battery_changed:
@@ -1066,7 +879,7 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
         # flip, and the notify hook's `poll_state["notifications"]`
         # mutation below are exactly the fields this branch may change -
         # all persisted together by the one end-of-cycle
-        # `_persist_poll_state()` call below, not saved individually here.
+        # `state_store.persist_poll_state_if_changed()` call below, not saved individually here.
 
         # Not optional: advances META_LAST_PIPELINE_RUN, or a long hold
         # would make the companion Health page raise a false staleness
@@ -1091,7 +904,7 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
         # above (hold-kind, battery flags, migration flush, or the notify
         # hook's own poll_state["notifications"] write) actually changed
         # anything from the snapshot taken at load.
-        _persist_poll_state(state_dir, poll_state, poll_state_baseline)
+        state_store.persist_poll_state_if_changed(state_dir, poll_state, poll_state_baseline)
 
         print(
             "poll_loop: hold_state=%s until=%s entered=%s panel_changed=%s "
@@ -1155,7 +968,7 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
     # hold kind here means "first cycle after the last hold ended". Clear
     # it now, and remember the fact in hold_exited so branches that don't
     # unconditionally repaint can force exactly one exit repaint.
-    hold_exited = _hold_state(poll_state) is not None
+    hold_exited = state_store.hold_state(poll_state) is not None
     if hold_exited:
         poll_state["hold_state"] = None
         if "quiet_hours_active" in poll_state:
@@ -1187,7 +1000,7 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
     # Battery-low decision, computed before any branching - every branch
     # needs it, to thread into a render call or gate a hold-cycle repaint.
     was_battery_low = bool(poll_state.get("battery_low_active", False))
-    battery_low = apply_battery_hysteresis(battery_mv, was_battery_low)
+    battery_low = device_policy.apply_battery_hysteresis(battery_mv, was_battery_low)
     battery_changed = battery_low != was_battery_low
     poll_state["battery_low_active"] = battery_low
     if battery_changed:
@@ -1356,8 +1169,8 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
         poll_state["previous_route"] = previous_route
         poll_state["pending_flights"] = pending
         poll_state["last_advance_at"] = last_advance_at
-        # Persisted once at the cycle's end (_persist_poll_state, in the
-        # shared tail below), not here.
+        # Persisted once at the cycle's end (state_store.persist_poll_state_if_changed,
+        # in the shared tail below), not here.
         _record_history(
             state_dir, current_flight, confirmed_state, route_source, route,
             tracked_runway_id, source_fault, event_recorded, now_iso,
@@ -1422,9 +1235,9 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
             # Nothing displayed changed, but the queue did, and this script
             # has no memory across invocations - unpersisted, an enqueue
             # would be lost the instant this process exits. Persisted once
-            # at the cycle's end (_persist_poll_state, in the shared tail
-            # below), along with any battery-flag or hold-exit change this
-            # branch made.
+            # at the cycle's end (state_store.persist_poll_state_if_changed,
+            # in the shared tail below), along with any battery-flag or
+            # hold-exit change this branch made.
             poll_state["pending_flights"] = pending
             poll_state["last_advance_at"] = last_advance_at
         _record_history(
@@ -1453,8 +1266,8 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
         if panel_changed:
             _save_to_gallery(state_dir, canvas, now_iso)
         # Any battery-flag or hold-exit change this branch made is
-        # persisted once at the cycle's end (_persist_poll_state, in the
-        # shared tail below) - without that shared save, hysteresis memory
+        # persisted once at the cycle's end (state_store.persist_poll_state_if_changed,
+        # in the shared tail below) - without that shared save, hysteresis memory
         # for a frame that has never seen an aircraft would never reach
         # disk.
         _record_history(
@@ -1475,8 +1288,8 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
     # the OLD last_recorded_* values on disk and insert the same event
     # again. Written only if any branch above actually changed something
     # from the snapshot taken at load.
-    _persist_poll_state(state_dir, poll_state, poll_state_baseline)
-    after_branches_serialized = _serialize_poll_state(poll_state)
+    state_store.persist_poll_state_if_changed(state_dir, poll_state, poll_state_baseline)
+    after_branches_serialized = state_store.serialize_poll_state(poll_state)
     # Shared call site for the frame-silence check, common to all three
     # branches above (the hold branch has its own, right after its own
     # _record_history()). Placed after every branch's history write so a
@@ -1493,7 +1306,7 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
     # with only a branch mutation still writes exactly once, before the
     # notify call - this second call only fires on a genuine silent/
     # recovered transition landing in the same cycle as a branch mutation.
-    _persist_poll_state(state_dir, poll_state, after_branches_serialized)
+    state_store.persist_poll_state_if_changed(state_dir, poll_state, after_branches_serialized)
 
     # Logs only this project's own records/telemetry, never a third-party
     # response body or the raw battery millivolt reading. `hex=` is this

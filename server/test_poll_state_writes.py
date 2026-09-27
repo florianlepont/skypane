@@ -2,9 +2,9 @@
 """Behaviour tests for server/poll_loop.py's write-once-only-if-changed,
 compact poll_state.json save.
 
-Covers `_serialize_poll_state()`/`_persist_poll_state()` (the end-of-cycle
-save `_run_once_locked()` now calls from its two exits instead of the
-former mid-branch/unconditional-final saves) and `save_poll_state()`'s
+Covers `state_store.serialize_poll_state()`/`state_store.persist_poll_state_if_changed()`
+(the end-of-cycle save `_run_once_locked()` calls from its two exits instead of the
+former mid-branch/unconditional-final saves) and `state_store.save_poll_state()`'s
 still-unconditional, now-compact seam:
 
   * the research's seven poll-cycle branches each write poll_state.json
@@ -53,6 +53,7 @@ import server.device_config as device_config  # noqa: E402
 import server.history_db as history_db  # noqa: E402
 import server.plane.enrich as enrich  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
+import server.state_store as state_store  # noqa: E402
 import server.wake as wake  # noqa: E402
 
 pytestmark = pytest.mark.slow
@@ -244,7 +245,7 @@ def test_a_silence_transition_on_an_otherwise_unchanged_cycle_writes_exactly_onc
         pytest.fail(
             "silence transition: expected exactly 1 poll_state.json write, got %d" % result["poll_state_writes"])
 
-    on_disk = poll_loop.load_poll_state(state_dir)
+    on_disk = state_store.load_poll_state(state_dir)
     notifications = on_disk.get("notifications")
     if not isinstance(notifications, dict) or notifications.get("last_silent_sent") is not True:
         pytest.fail(
@@ -268,7 +269,7 @@ def test_the_written_file_is_compact_and_round_trips(tmp_path, fake_providers):
         pytest.fail("expected no space after a key's colon in the compact poll_state.json, found one")
 
     decoded = json.loads(text)
-    if decoded != poll_loop.load_poll_state(state_dir):
+    if decoded != state_store.load_poll_state(state_dir):
         pytest.fail("json.loads(text) did not round-trip to the in-memory state")
 
     indented_len = len(json.dumps(decoded, indent=1))
@@ -295,8 +296,8 @@ def test_save_poll_state_always_writes_and_is_compact(tmp_path, monkeypatch):
 
     monkeypatch.setattr(atomic_io, "atomic_write", counting_atomic_write)
 
-    poll_loop.save_poll_state(state_dir, state)
-    poll_loop.save_poll_state(state_dir, state)  # identical state - must still write
+    state_store.save_poll_state(state_dir, state)
+    state_store.save_poll_state(state_dir, state)  # identical state - must still write
 
     if len(calls) != 2:
         pytest.fail(

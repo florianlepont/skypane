@@ -17,13 +17,17 @@ import pytest
 
 from skypane_test_support import REPO_ROOT, child_env
 
+import server.device_config as device_config
 import server.device_policy as device_policy
+import server.poll_loop as poll_loop
+import server.state_store as state_store
+import server.wake as wake
 
 # --- Battery-percent golden table --------------------------------------
 #
-# mv -> percent, computed once against today's poll_loop._battery_percent_estimate()
-# (and companion.battery.battery_percent(), which shares the identical curve)
-# and hard-coded here as literals.
+# mv -> percent, computed once against the now-retired poll_loop copy of
+# this estimate (and companion.battery.battery_percent(), which shares the
+# identical curve) and hard-coded here as literals.
 _BATTERY_PERCENT_GOLDEN = (
     (None, None),
     ("x", None),
@@ -45,8 +49,8 @@ _BATTERY_PERCENT_GOLDEN = (
 
 
 def test_battery_percent_golden_table():
-    """battery_percent() over the golden mv table matches today's
-    poll_loop._battery_percent_estimate() output, hard-coded as literals."""
+    """battery_percent() over the golden mv table matches the now-retired
+    poll_loop copy's output, hard-coded as literals."""
     for mv, expected in _BATTERY_PERCENT_GOLDEN:
         got = device_policy.battery_percent(mv)
         if got != expected:
@@ -237,6 +241,59 @@ def test_same_day_window_and_zero_width_window():
     got_zero_width = device_policy.seconds_until_quiet_hours_end(at_1330, "13:00", "13:00")
     if got_zero_width is not None:
         pytest.fail("start_hm == end_hm returned %r, expected None (a zero-width window is never active)" % (got_zero_width,))
+
+
+# --- Server modules bind the shared objects, they don't re-implement them --
+
+
+_REMOVED_POLL_LOOP_NAMES = (
+    "BATTERY_LOW_THRESHOLD_MV",
+    "BATTERY_LOW_CLEAR_MV",
+    "BATTERY_CRITICAL_MV",
+    "BATTERY_CRITICAL_RECOVER_MV",
+    "apply_battery_hysteresis",
+    "apply_battery_critical_hysteresis",
+    "_NOTIFY_BATTERY_DISCHARGE_CURVE",
+    "_NOTIFY_BATTERY_FULL_MV",
+    "_NOTIFY_BATTERY_EMPTY_MV",
+    "_battery_percent_estimate",
+    "_poll_state_path",
+    "load_poll_state",
+    "_HOLD_KINDS",
+    "_hold_state",
+    "load_battery_state",
+    "_serialize_poll_state",
+    "save_poll_state",
+    "_persist_poll_state",
+)
+
+
+def test_server_modules_use_the_shared_policy_objects():
+    """device_config, wake and poll_loop bind the shared device_policy/
+    state_store objects rather than keeping their own copies: identity
+    (`is`), not mere equality, and the moved poll_loop names no longer
+    exist at all."""
+    if device_config.seconds_until_quiet_hours_end is not device_policy.seconds_until_quiet_hours_end:
+        pytest.fail("device_config.seconds_until_quiet_hours_end is not the shared device_policy object")
+    if device_config.quiet_hours_status is not device_policy.quiet_hours_status:
+        pytest.fail("device_config.quiet_hours_status is not the shared device_policy object")
+    if device_config.normalise_quiet_hours_time is not device_policy.normalise_quiet_hours_time:
+        pytest.fail("device_config.normalise_quiet_hours_time is not the shared device_policy object")
+    if device_config._HHMM_RE is not device_policy.HHMM_RE:
+        pytest.fail("device_config._HHMM_RE is not the shared device_policy.HHMM_RE object")
+    if device_config.QUIET_HOURS_TZ is not device_policy.QUIET_HOURS_TZ:
+        pytest.fail("device_config.QUIET_HOURS_TZ is not the shared device_policy.QUIET_HOURS_TZ object")
+    if wake.read_battery_critical is not state_store.read_battery_critical:
+        pytest.fail("wake.read_battery_critical is not the shared state_store object")
+    # poll_loop.device_policy is device_policy: the identical module object,
+    # not merely an equal one.
+    if poll_loop.device_policy is not device_policy:
+        pytest.fail("poll_loop.device_policy is not the shared device_policy module")
+    if poll_loop.state_store is not state_store:
+        pytest.fail("poll_loop.state_store is not the shared state_store module")
+    for name in _REMOVED_POLL_LOOP_NAMES:
+        if hasattr(poll_loop, name):
+            pytest.fail("poll_loop.%s still exists - should have moved to device_policy/state_store" % name)
 
 
 # --- Import isolation --------------------------------------------------

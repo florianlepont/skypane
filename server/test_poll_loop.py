@@ -80,12 +80,14 @@ if _TEST_SUPPORT_DIR not in sys.path:
 
 import server.poll_loop as poll_loop  # noqa: E402
 import server.device_config as device_config  # noqa: E402
+import server.device_policy as device_policy  # noqa: E402
 import server.plane.detect as detect  # noqa: E402
 import server.plane.render as render  # noqa: E402
 import server.plane.calendar_rules as calendar_rules  # noqa: E402
 import server.plane.colour_rules as colour_rules  # noqa: E402
 import server.plane.enrich as enrich  # noqa: E402
 import server.plane.manual_resolutions as manual_resolutions  # noqa: E402
+import server.state_store as state_store  # noqa: E402
 from server import history_db  # noqa: E402
 from skypane_test_support import requires_non_root  # noqa: E402
 
@@ -289,7 +291,7 @@ def _seed_calendar_cache(poll_loop, state_dir, callsign, origin_iata=_CAL_ORIGIN
     such parameter only because it never touches poll_loop.py's own
     persistence helpers).
     """
-    poll_loop.save_poll_state(state_dir, {
+    state_store.save_poll_state(state_dir, {
         "enrichment_cache": {
             callsign: {
                 "found": True,
@@ -364,7 +366,7 @@ def test_two_deep_flight_history_sequence(tmp_path, monkeypatch, clock):
     def _run(hex_code, callsign):
         clock["t"] += poll_loop.MIN_ADVANCE_INTERVAL_S + 30
         poll_loop.run_once(snapshot=_snapshot(hex_code, callsign, 2400), state_dir=state_dir, geofence=GEOFENCE_PATH)
-        return poll_loop.load_poll_state(state_dir)
+        return state_store.load_poll_state(state_dir)
 
     # 1. First-ever detection: no previous_flight yet.
     state1 = _run("aaaaaa", "FLIGHT1 ")
@@ -430,14 +432,14 @@ def test_unresolved_prefix_registry_accumulates_across_cycles(tmp_path, clock):
     try:
         _tick(clock, poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
         poll_loop.run_once(snapshot=_snapshot("111111", "ZZQ1234", CLIMB), state_dir=oz9_dir, geofence=GEOFENCE_PATH)
-        state_after_1 = poll_loop.load_poll_state(oz9_dir)
+        state_after_1 = state_store.load_poll_state(oz9_dir)
         reg1 = state_after_1.get("unresolved_prefixes")
         if not isinstance(reg1, dict) or reg1.get("ZZQ", {}).get("count") != 1:
             pytest.fail("after cycle 1, unresolved_prefixes = %r, expected ZZQ at count 1" % (reg1,))
 
         _tick(clock, poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
         poll_loop.run_once(snapshot=_snapshot("222222", "ZZQ5678", CLIMB), state_dir=oz9_dir, geofence=GEOFENCE_PATH)
-        state_after_2 = poll_loop.load_poll_state(oz9_dir)
+        state_after_2 = state_store.load_poll_state(oz9_dir)
         reg2 = state_after_2.get("unresolved_prefixes")
         if list(reg2) != ["ZZQ"] or reg2["ZZQ"].get("count") != 2:
             pytest.fail("after cycle 2, unresolved_prefixes = %r, expected one entry ZZQ at count 2" % (reg2,))
@@ -456,11 +458,11 @@ def test_recognized_airline_leaves_registry_untouched(tmp_path, clock):
     try:
         _tick(clock, poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
         poll_loop.run_once(snapshot=_snapshot("111111", "ZZQ1234", CLIMB), state_dir=oz9_dir, geofence=GEOFENCE_PATH)
-        reg_before = poll_loop.load_poll_state(oz9_dir).get("unresolved_prefixes")
+        reg_before = state_store.load_poll_state(oz9_dir).get("unresolved_prefixes")
 
         _tick(clock, poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
         poll_loop.run_once(snapshot=_snapshot("333333", "AFR1234", CLIMB), state_dir=oz9_dir, geofence=GEOFENCE_PATH)
-        reg_after = poll_loop.load_poll_state(oz9_dir).get("unresolved_prefixes")
+        reg_after = state_store.load_poll_state(oz9_dir).get("unresolved_prefixes")
 
         if reg_after != reg_before:
             pytest.fail("a recognized airline (AFR) changed the registry: %r -> %r" % (reg_before, reg_after))
@@ -534,7 +536,7 @@ def _drive(clock, state_dir, detections, until_s, poll_interval_s=None, draw_int
         with contextlib.redirect_stdout(buf):
             poll_loop.run_once(snapshot=snapshot, state_dir=state_dir, geofence=GEOFENCE_PATH)
         line = [ln for ln in buf.getvalue().splitlines() if ln.startswith("poll_loop: ")][-1]
-        st = poll_loop.load_poll_state(state_dir)
+        st = state_store.load_poll_state(state_dir)
         shown = (st.get("last_flight") or {}).get("hex")
         prev = (st.get("previous_flight") or {}).get("hex")
         pending = [e["flight"].get("hex") for e in poll_loop.normalise_pending(st.get("pending_flights"))]
@@ -747,7 +749,7 @@ def test_queue_survives_the_process_boundary(tmp_path, clock):
 
     # Read back from DISK - the only assertion in this test that proves
     # the queue crosses the oneshot's boundary.
-    on_disk = poll_loop.load_poll_state(persist_dir)
+    on_disk = state_store.load_poll_state(persist_dir)
     queued = poll_loop.normalise_pending(on_disk.get("pending_flights"))
     assert [e["flight"].get("hex") for e in queued] == ["bb22bb"], (
         "pending_flights on disk is %r, expected the deferred bb22bb" % (on_disk.get("pending_flights"),))
@@ -762,17 +764,17 @@ def test_malformed_queue_state_degrades_instead_of_raising(tmp_path, clock):
     persist_dir = str(tmp_path)
     clock["t"] = CLOCK_BASE
     poll_loop.run_once(snapshot=_snapshot("aa11aa", "ZZQ0001", 2400), state_dir=persist_dir, geofence=GEOFENCE_PATH)
-    on_disk = poll_loop.load_poll_state(persist_dir)
+    on_disk = state_store.load_poll_state(persist_dir)
     # Hand-corrupt every field the queue reads - non-list, non-dict
     # entries, a missing flight, an unusable first_seen, a non-numeric
     # timestamp.
     on_disk["pending_flights"] = [{"nope": 1}, "garbage", {"flight": {"hex": "x"}, "first_seen": "soon"}, 7]
     on_disk["last_advance_at"] = "half past four"
-    poll_loop.save_poll_state(persist_dir, on_disk)
+    state_store.save_poll_state(persist_dir, on_disk)
 
     clock["t"] = CLOCK_BASE + 60
     poll_loop.run_once(snapshot=_snapshot("cc33cc", "ZZQ0003", 2400), state_dir=persist_dir, geofence=GEOFENCE_PATH)
-    recovered = poll_loop.load_poll_state(persist_dir)
+    recovered = state_store.load_poll_state(persist_dir)
     assert not poll_loop.normalise_pending(recovered.get("pending_flights")), (
         "malformed entries survived normalisation: %r" % (recovered.get("pending_flights"),))
     assert recovered.get("last_flight", {}).get("hex") in ("aa11aa", "cc33cc"), (
@@ -812,7 +814,7 @@ def test_a_deferred_cycle_is_distinguishable_in_the_log(tmp_path, clock):
 
 def test_hysteresis_truth_table():
     """apply_battery_hysteresis()'s truth table: threshold-inclusive disarm (<=3500 sets True), clear-inclusive re-arm (>=3600 clears True) - a reading strictly between the two constants holds the previous decision in both directions (Pitfall 5)"""
-    f = poll_loop.apply_battery_hysteresis
+    f = device_policy.apply_battery_hysteresis
     cases = [
         # (battery_mv, was_active, expected)
         (3499, False, True), (3500, False, True), (3501, False, False),
@@ -828,9 +830,9 @@ def test_hysteresis_truth_table():
 
 def test_never_reported_reading_holds():
     """apply_battery_hysteresis(None, was_active) holds was_active unchanged - a device that has never reported must not spuriously show the icon, and an unreadable file must not spuriously clear a real warning"""
-    if poll_loop.apply_battery_hysteresis(None, False) is not False:
+    if device_policy.apply_battery_hysteresis(None, False) is not False:
         pytest.fail("apply_battery_hysteresis(None, False) is not False")
-    if poll_loop.apply_battery_hysteresis(None, True) is not True:
+    if device_policy.apply_battery_hysteresis(None, True) is not True:
         pytest.fail("apply_battery_hysteresis(None, True) is not True")
 
 
@@ -848,35 +850,35 @@ def test_load_battery_state_degrades_never_raises(tmp_path):
             with open(path, "w") as fh:
                 json.dump(obj, fh)
 
-        if poll_loop.load_battery_state(d) is not None:
+        if state_store.load_battery_state(d) is not None:
             pytest.fail("missing file: expected None")
         _write_raw("{not valid json")
-        if poll_loop.load_battery_state(d) is not None:
+        if state_store.load_battery_state(d) is not None:
             pytest.fail("invalid JSON: expected None")
         _write_json([1, 2, 3])
-        if poll_loop.load_battery_state(d) is not None:
+        if state_store.load_battery_state(d) is not None:
             pytest.fail("a JSON list (non-dict payload): expected None")
         _write_json({"other": 1})
-        if poll_loop.load_battery_state(d) is not None:
+        if state_store.load_battery_state(d) is not None:
             pytest.fail("a dict with no battery_mv key: expected None")
         _write_json({"battery_mv": "3400"})
-        if poll_loop.load_battery_state(d) is not None:
+        if state_store.load_battery_state(d) is not None:
             pytest.fail("a string battery_mv: expected None")
         _write_json({"battery_mv": True})
-        if poll_loop.load_battery_state(d) is not None:
+        if state_store.load_battery_state(d) is not None:
             pytest.fail("a bool battery_mv: expected None")
         _write_json({"battery_mv": 3400.5})
-        if poll_loop.load_battery_state(d) is not None:
+        if state_store.load_battery_state(d) is not None:
             pytest.fail("a float battery_mv: expected None")
         _write_json({"battery_mv": -1})
-        if poll_loop.load_battery_state(d) is not None:
+        if state_store.load_battery_state(d) is not None:
             pytest.fail("a negative int battery_mv: expected None")
         _write_json({"battery_mv": 0})
-        if poll_loop.load_battery_state(d) is not None:
+        if state_store.load_battery_state(d) is not None:
             pytest.fail("battery_mv=0: expected None")
         _write_json({"battery_mv": 3400, "received_at": 1.0})
-        if poll_loop.load_battery_state(d) != 3400:
-            pytest.fail("a well-formed state: expected 3400, got %r" % (poll_loop.load_battery_state(d),))
+        if state_store.load_battery_state(d) != 3400:
+            pytest.fail("a well-formed state: expected 3400, got %r" % (state_store.load_battery_state(d),))
         return
     finally:
         shutil.rmtree(d, ignore_errors=True)
@@ -893,7 +895,7 @@ def test_cross_cycle_persistence_and_hold_branch_rerender(tmp_path):
         # says so.
         _write_battery_state(d, 3400)
         poll_loop.run_once(snapshot=_snapshot("eeeeee", "FLIGHT5 ", CLIMB), state_dir=d, geofence=GEOFENCE_PATH)
-        state1 = poll_loop.load_poll_state(d)
+        state1 = state_store.load_poll_state(d)
         if state1.get("battery_low_active") is not True:
             pytest.fail("after a detection cycle with battery_mv=3400, battery_low_active = %r, expected True" % (state1.get("battery_low_active"),))
         with open(panel_path, "rb") as fh:
@@ -906,7 +908,7 @@ def test_cross_cycle_persistence_and_hold_branch_rerender(tmp_path):
         # on a cycle with no detection at all.
         _write_battery_state(d, 3700)
         result2 = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=d, geofence=GEOFENCE_PATH)
-        state2 = poll_loop.load_poll_state(d)
+        state2 = state_store.load_poll_state(d)
         if state2.get("battery_low_active") is not False:
             pytest.fail("after a battery flip to 3700 on a hold cycle, battery_low_active = %r, expected False" % (state2.get("battery_low_active"),))
         if result2.get("panel_changed") is not True:
@@ -1138,7 +1140,7 @@ def test_crash_during_notify_after_history_commit_does_not_duplicate_the_event(t
         # The crash landed after the runway_events row committed but before
         # the notify call would have run - the dedup fields must already be
         # on disk at this point, not merely in the now-gone process's memory.
-        state_on_disk = poll_loop.load_poll_state(crash_dir)
+        state_on_disk = state_store.load_poll_state(crash_dir)
         if state_on_disk.get("last_recorded_hex") != "aaaaaa":
             pytest.fail("poll_state.json's dedup fields were not persisted before the crash: %r" % (state_on_disk,))
 
@@ -1570,7 +1572,7 @@ def test_quiet_hours_entry_renders_once_and_persists_flag(tmp_path, clock):
             pytest.fail("entry cycle returned state=%r, expected 'quiet_hours'" % (result.get("state"),))
         if not result.get("panel_changed"):
             pytest.fail("entry cycle returned panel_changed=%r, expected True" % (result.get("panel_changed"),))
-        on_disk = poll_loop.load_poll_state(qh_dir)
+        on_disk = state_store.load_poll_state(qh_dir)
         if on_disk.get("hold_state") != "quiet_hours":
             pytest.fail("poll_state.json's hold_state is %r, expected 'quiet_hours'" % (on_disk.get("hold_state"),))
         return
@@ -1678,7 +1680,7 @@ def test_quiet_hours_exit_from_held_branch_repaints(tmp_path, clock):
             after_bytes = fh.read()
         if after_bytes == quiet_bytes:
             pytest.fail("panel.bin is still the QUIET HOURS bytes after the window ended - the stale-image bug this plan exists to prevent")
-        on_disk = poll_loop.load_poll_state(qh_dir)
+        on_disk = state_store.load_poll_state(qh_dir)
         if on_disk.get("hold_state") is not None:
             pytest.fail("poll_state.json's hold_state is %r after window exit, expected None" % (on_disk.get("hold_state"),))
         return
@@ -1737,7 +1739,7 @@ def test_display_off_entry_renders_once_and_matches_canvas(tmp_path, clock):
             pytest.fail("entry cycle returned state=%r, expected 'display_off'" % (result.get("state"),))
         if not result.get("panel_changed"):
             pytest.fail("entry cycle returned panel_changed=%r, expected True" % (result.get("panel_changed"),))
-        on_disk = poll_loop.load_poll_state(off_dir)
+        on_disk = state_store.load_poll_state(off_dir)
         if on_disk.get("hold_state") != "display_off":
             pytest.fail("poll_state.json's hold_state is %r, expected 'display_off'" % (on_disk.get("hold_state"),))
         with open(os.path.join(off_dir, "panel.bin"), "rb") as fh:
@@ -1825,7 +1827,7 @@ def test_display_off_wins_over_active_quiet_hours_window(tmp_path, clock):
         result = poll_loop.run_once(state_dir=overlap_dir, geofence=GEOFENCE_PATH)
         if result.get("state") != "display_off":
             pytest.fail("toggle-off with an active window returned state=%r, expected 'display_off' (D-05: the toggle wins on what the panel shows)" % (result.get("state"),))
-        on_disk = poll_loop.load_poll_state(overlap_dir)
+        on_disk = state_store.load_poll_state(overlap_dir)
         if on_disk.get("hold_state") != "display_off":
             pytest.fail("poll_state.json's hold_state is %r, expected 'display_off'" % (on_disk.get("hold_state"),))
         with open(os.path.join(overlap_dir, "panel.bin"), "rb") as fh:
@@ -1867,7 +1869,7 @@ def test_toggle_off_mid_window_produces_no_refresh(tmp_path, clock):
         after_count = len(os.listdir(gallery_dir)) if os.path.isdir(gallery_dir) else 0
         if after_count != before_count:
             pytest.fail("switching the toggle off mid-window added a gallery entry (%d -> %d), expected none" % (before_count, after_count))
-        on_disk = poll_loop.load_poll_state(transit_dir)
+        on_disk = state_store.load_poll_state(transit_dir)
         if on_disk.get("hold_state") != "display_off":
             pytest.fail("poll_state.json's hold_state is %r after switching off mid-window, expected 'display_off'" % (on_disk.get("hold_state"),))
         return
@@ -1910,7 +1912,7 @@ def test_toggle_back_on_during_window_produces_no_refresh(tmp_path, clock):
         after_count = len(os.listdir(gallery_dir)) if os.path.isdir(gallery_dir) else 0
         if after_count != before_count:
             pytest.fail("toggling back on during an active window added a gallery entry (%d -> %d), expected none" % (before_count, after_count))
-        on_disk = poll_loop.load_poll_state(transit_dir)
+        on_disk = state_store.load_poll_state(transit_dir)
         if on_disk.get("hold_state") != "quiet_hours":
             pytest.fail("poll_state.json's hold_state is %r after toggling back on during an active window, expected 'quiet_hours'" % (on_disk.get("hold_state"),))
         return
@@ -1945,7 +1947,7 @@ def test_display_off_exit_repaints_once_with_no_transition_screen(tmp_path, cloc
             after_bytes = fh.read()
         if after_bytes == off_bytes:
             pytest.fail("panel.bin is still the DISPLAY OFF bytes after the toggle was switched back on - a stale-image bug")
-        on_disk = poll_loop.load_poll_state(exit_dir)
+        on_disk = state_store.load_poll_state(exit_dir)
         if on_disk.get("hold_state") is not None:
             pytest.fail("poll_state.json's hold_state is %r after the toggle exit, expected None" % (on_disk.get("hold_state"),))
         return
@@ -1972,7 +1974,7 @@ def test_legacy_poll_state_migrates_without_spurious_repaint(tmp_path, clock):
         legacy_bytes = poll_loop.panel_format.pack_panel(legacy_canvas)
         with open(os.path.join(mig_dir, "panel.bin"), "wb") as fh:
             fh.write(legacy_bytes)
-        poll_loop.save_poll_state(mig_dir, {"quiet_hours_active": True})
+        state_store.save_poll_state(mig_dir, {"quiet_hours_active": True})
 
         result = poll_loop.run_once(state_dir=mig_dir, geofence=GEOFENCE_PATH)
         if result.get("panel_changed"):
@@ -1981,7 +1983,7 @@ def test_legacy_poll_state_migrates_without_spurious_repaint(tmp_path, clock):
             after_bytes = fh.read()
         if after_bytes != legacy_bytes:
             pytest.fail("panel.bin changed on the first post-upgrade cycle, expected it byte-identical to the legacy-written image")
-        with open(poll_loop._poll_state_path(mig_dir)) as fh:
+        with open(state_store.poll_state_path(mig_dir)) as fh:
             on_disk_raw = json.load(fh)
         if on_disk_raw.get("hold_state") != "quiet_hours":
             pytest.fail("the on-disk poll_state.json's hold_state is %r, expected 'quiet_hours'" % (on_disk_raw.get("hold_state"),))
@@ -2023,7 +2025,7 @@ def test_manual_registry_loaded_once_per_cycle_from_its_own_state_dir(tmp_path, 
         if "route_source=manual" not in line_seeded:
             pytest.fail("a cycle against a state dir seeded with ZZZ -> 'Zephyr Air' did not log "
                 "route_source=manual: %s" % (line_seeded,))
-        route_seeded = poll_loop.load_poll_state(seeded_dir).get("last_route")
+        route_seeded = state_store.load_poll_state(seeded_dir).get("last_route")
         if not isinstance(route_seeded, dict) or route_seeded.get("airline_name") != "Zephyr Air":
             pytest.fail("the seeded cycle's persisted last_route = %r, expected airline_name='Zephyr Air'" % (route_seeded,))
 
@@ -2036,7 +2038,7 @@ def test_manual_registry_loaded_once_per_cycle_from_its_own_state_dir(tmp_path, 
             pytest.fail("a cycle against a DIFFERENT state dir with no manual_resolutions.json logged "
                 "route_source=manual - the registry must be reloaded from THIS cycle's own state_dir, "
                 "not left over from the previous cycle's: %s" % (line_empty,))
-        route_empty = poll_loop.load_poll_state(empty_dir).get("last_route")
+        route_empty = state_store.load_poll_state(empty_dir).get("last_route")
         if isinstance(route_empty, dict) and route_empty.get("airline_name") == "Zephyr Air":
             pytest.fail("the registry-less cycle's persisted last_route unexpectedly carries the "
                 "previous state dir's manually-resolved airline_name: %r" % (route_empty,))
@@ -2091,7 +2093,7 @@ def test_manual_resolution_reaches_route_source_end_to_end(tmp_path, clock):
         line = [ln for ln in buf.getvalue().splitlines() if ln.startswith("poll_loop: ")][-1]
         if "route_source=manual" not in line:
             pytest.fail("a manually-resolved-only callsign did not log route_source=manual: %s" % (line,))
-        route = poll_loop.load_poll_state(manual_dir).get("last_route")
+        route = state_store.load_poll_state(manual_dir).get("last_route")
         if not isinstance(route, dict) or route.get("airline_name") != "Meridian Air":
             pytest.fail("the persisted last_route = %r, expected airline_name='Meridian Air'" % (route,))
         return
@@ -2109,7 +2111,7 @@ def test_clear_resolved_unresolved_prefix_removes_resolvable_entry(tmp_path, clo
             "last_seen": "2026-01-02T00:00:00+00:00",
             "example_callsign": "PPP5555",
         }
-        poll_loop.save_poll_state(d14a_dir, {
+        state_store.save_poll_state(d14a_dir, {
             "unresolved_prefixes": {
                 "NNN": {
                     "count": 3,
@@ -2125,7 +2127,7 @@ def test_clear_resolved_unresolved_prefix_removes_resolvable_entry(tmp_path, clo
         _tick(clock, poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
         poll_loop.run_once(snapshot=_snapshot("666666", "NNN7777", CLIMB), state_dir=d14a_dir, geofence=GEOFENCE_PATH)
 
-        unresolved_after = poll_loop.load_poll_state(d14a_dir).get("unresolved_prefixes")
+        unresolved_after = state_store.load_poll_state(d14a_dir).get("unresolved_prefixes")
         if not isinstance(unresolved_after, dict) or "NNN" in unresolved_after:
             pytest.fail("NNN is still present after being resolved via the manual registry: %r" % (unresolved_after,))
         if unresolved_after.get("PPP") != seeded_still_unresolved:
@@ -2154,7 +2156,7 @@ def test_clear_resolved_unresolved_prefix_is_independent_of_route_source(tmp_pat
             "last_seen": "2026-01-03T00:00:00+00:00",
             "example_callsign": "TUV2222",
         }
-        poll_loop.save_poll_state(d14b_dir, {
+        state_store.save_poll_state(d14b_dir, {
             "unresolved_prefixes": {
                 "QRS": {
                     "count": 2,
@@ -2175,7 +2177,7 @@ def test_clear_resolved_unresolved_prefix_is_independent_of_route_source(tmp_pat
         if "route_source=fresh_hit" not in line:
             pytest.fail("test setup did not produce route_source=fresh_hit as required: %s" % (line,))
 
-        unresolved_after = poll_loop.load_poll_state(d14b_dir).get("unresolved_prefixes")
+        unresolved_after = state_store.load_poll_state(d14b_dir).get("unresolved_prefixes")
         if not isinstance(unresolved_after, dict) or "QRS" in unresolved_after:
             pytest.fail("QRS is still present after a fresh_hit cycle - the cleanup must not be gated on "
                 "route_source: %r" % (unresolved_after,))
@@ -2285,7 +2287,7 @@ def test_held_branch_with_no_confirmed_state_ignores_rule_and_override(tmp_path,
         # but last_flight IS persisted.
         _tick(clock, poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
         poll_loop.run_once(snapshot=_snapshot("d13005", "SNK5555", 0), state_dir=b2_dir, geofence=GEOFENCE_PATH)
-        state_after_1 = poll_loop.load_poll_state(b2_dir)
+        state_after_1 = state_store.load_poll_state(b2_dir)
         if state_after_1.get("last_confirmed_state") is not None:
             pytest.fail("test setup did not produce an unconfirmed first detection: last_confirmed_state=%r"
                 % (state_after_1.get("last_confirmed_state"),))
@@ -2315,7 +2317,7 @@ def test_hold_early_return_ignores_rule_and_override(tmp_path, clock):
     try:
         colour_rules.add_rule(b3_dir, colour_rules.RULE_KIND_CALLSIGN, "SNK6666", "black")
         device_config.save_device_config(b3_dir, theme_arriving="yellow", display_enabled=False)
-        poll_loop.save_poll_state(b3_dir, {
+        state_store.save_poll_state(b3_dir, {
             "last_flight": {"hex": "d13006", "callsign": "SNK6666"},
             "last_confirmed_state": "departing",
         })
@@ -2512,7 +2514,7 @@ def test_held_branch_with_no_confirmed_state_ignores_calendar_match(tmp_path, cl
         # is "empty" and last_confirmed_state persists as None,
         # but last_flight IS persisted (check 53's own template).
         poll_loop.run_once(snapshot=_snapshot("cal0011", "TVF7065", 0), state_dir=cal4_dir, geofence=GEOFENCE_PATH)
-        state_after_1 = poll_loop.load_poll_state(cal4_dir)
+        state_after_1 = state_store.load_poll_state(cal4_dir)
         if state_after_1.get("last_confirmed_state") is not None:
             pytest.fail("test setup did not produce an unconfirmed first detection: last_confirmed_state=%r"
                 % (state_after_1.get("last_confirmed_state"),))
@@ -2545,7 +2547,7 @@ def test_hold_early_return_ignores_calendar_match(tmp_path, clock):
         match_time = clock["t"]
         calendar_rules.write_calendar_registry(
             cal5_dir, [_calendar_entry(match_time)], match_time, None, now=match_time)
-        poll_loop.save_poll_state(cal5_dir, {
+        state_store.save_poll_state(cal5_dir, {
             "last_flight": {"hex": "cal0012", "callsign": "TVF7066"},
             "last_confirmed_state": "departing",
             "last_calendar_theme_id": "green",
@@ -2581,7 +2583,7 @@ def test_airline_only_route_never_matches_the_calendar(tmp_path, clock):
         # carries no origin_iata/destination_iata/callsign_iata.
         result = poll_loop.run_once(snapshot=_snapshot("cal0013", "TVF9999", CLIMB), state_dir=cal6_dir, geofence=GEOFENCE_PATH)
 
-        state_after = poll_loop.load_poll_state(cal6_dir)
+        state_after = state_store.load_poll_state(cal6_dir)
         route_after = state_after.get("last_route")
         if not isinstance(route_after, dict) or route_after.get("origin_iata") is not None:
             pytest.fail("test setup did not produce an airline-only route: last_route=%r" % (route_after,))
@@ -2611,12 +2613,12 @@ def test_tampered_last_calendar_theme_id_falls_back_to_base_theme(tmp_path, cloc
             pytest.fail("test setup did not produce a calendar-matched cycle: effective_theme=%r"
                 % (result1.get("effective_theme"),))
 
-        tampered = poll_loop.load_poll_state(cal7_dir)
+        tampered = state_store.load_poll_state(cal7_dir)
         if tampered.get("last_calendar_theme_id") != "green":
             pytest.fail("the flight-detected branch did not persist last_calendar_theme_id: %r"
                 % (tampered.get("last_calendar_theme_id"),))
         tampered["last_calendar_theme_id"] = "not_a_registered_theme"
-        poll_loop.save_poll_state(cal7_dir, tampered)
+        state_store.save_poll_state(cal7_dir, tampered)
 
         # 3400: below the 3500 badge
         # threshold, above BATTERY_CRITICAL_MV (3300) - a
@@ -2762,9 +2764,9 @@ def test_battery_low_transition_sends_once_with_mv():
         pytest.fail("expected the millivolt figure 3400 in body %r" % (body,))
     if "(≈ 9%)" not in body:
         pytest.fail("expected the SEED-006 curve percentage '(≈ 9%%)' in body %r" % (body,))
-    if poll_loop._battery_percent_estimate(3400) != 9:
-        pytest.fail("expected poll_loop._battery_percent_estimate(3400) == 9, got %r"
-            % (poll_loop._battery_percent_estimate(3400),))
+    if device_policy.battery_percent(3400) != 9:
+        pytest.fail("expected device_policy.battery_percent(3400) == 9, got %r"
+            % (device_policy.battery_percent(3400),))
     if poll_state.get("notifications", {}).get("last_battery_sent") is not True:
         pytest.fail("expected last_battery_sent=True recorded, got %r" % (poll_state,))
 
@@ -3057,7 +3059,7 @@ def test_silence_transition_fires_during_display_off_hold(tmp_path, monkeypatch,
             pytest.fail("expected a display_off hold cycle, got state=%r" % (result.get("state"),))
         if len(sender.calls) != 1:
             pytest.fail("expected exactly one frame-silent push from the hold branch, got %d: %r" % (len(sender.calls), sender.calls))
-        on_disk = poll_loop.load_poll_state(hold_dir)
+        on_disk = state_store.load_poll_state(hold_dir)
         if on_disk.get("notifications", {}).get("last_silent_sent") is not True:
             pytest.fail("expected last_silent_sent=True persisted after a hold cycle, got %r" % (on_disk,))
         return
@@ -3132,7 +3134,7 @@ def test_apply_battery_critical_hysteresis_boundaries():
         ((3700, True), False),
     ]
     for (mv, was_active), expected in cases:
-        got = poll_loop.apply_battery_critical_hysteresis(mv, was_active)
+        got = device_policy.apply_battery_critical_hysteresis(mv, was_active)
         if got != expected:
             pytest.fail("apply_battery_critical_hysteresis(%r, %r) = %r, expected %r"
                 % (mv, was_active, got, expected))
@@ -3163,7 +3165,7 @@ def test_battery_empty_entry_from_live_board_renders_and_skips_detection(tmp_pat
             pytest.fail("entry cycle returned state=%r, expected 'battery_empty'" % (result.get("state"),))
         if not result.get("panel_changed"):
             pytest.fail("entry cycle returned panel_changed=%r, expected True" % (result.get("panel_changed"),))
-        on_disk = poll_loop.load_poll_state(be_dir)
+        on_disk = state_store.load_poll_state(be_dir)
         if on_disk.get("hold_state") != "battery_empty":
             pytest.fail("poll_state.json's hold_state is %r, expected 'battery_empty'" % (on_disk.get("hold_state"),))
         if on_disk.get(poll_loop.wake.BATTERY_CRITICAL_STATE_KEY) is not True:
@@ -3223,7 +3225,7 @@ def test_battery_empty_entry_from_existing_display_off_hold_repaints(tmp_path, c
         poll_loop.run_once(state_dir=d, geofence=GEOFENCE_PATH)
         with open(os.path.join(d, "panel.bin"), "rb") as fh:
             off_bytes = fh.read()
-        on_disk = poll_loop.load_poll_state(d)
+        on_disk = state_store.load_poll_state(d)
         if on_disk.get("hold_state") != "display_off":
             pytest.fail("setup did not enter display_off first: hold_state=%r" % (on_disk.get("hold_state"),))
 
@@ -3348,7 +3350,7 @@ def test_battery_empty_recovery_repaints_live_board(tmp_path, clock):
             pytest.fail("a 3700 mV reading did not clear the BATTERY EMPTY hold")
         if not result.get("panel_changed"):
             pytest.fail("recovery did not repaint the live board: panel_changed=%r" % (result.get("panel_changed"),))
-        on_disk = poll_loop.load_poll_state(d)
+        on_disk = state_store.load_poll_state(d)
         if on_disk.get(poll_loop.wake.BATTERY_CRITICAL_STATE_KEY) is not False:
             pytest.fail("poll_state.json's battery_critical_active is %r after recovery, expected False"
                 % (on_disk.get(poll_loop.wake.BATTERY_CRITICAL_STATE_KEY),))
@@ -3396,7 +3398,7 @@ def test_badge_threshold_reading_sets_badge_without_parking(tmp_path, clock):
         )
         if result.get("state") == "battery_empty":
             pytest.fail("3400 mV entered battery_empty, expected the badge only")
-        on_disk = poll_loop.load_poll_state(d)
+        on_disk = state_store.load_poll_state(d)
         if on_disk.get("battery_low_active") is not True:
             pytest.fail("3400 mV did not set battery_low_active: %r" % (on_disk.get("battery_low_active"),))
         if on_disk.get(poll_loop.wake.BATTERY_CRITICAL_STATE_KEY) is not False:
@@ -3431,8 +3433,8 @@ def test_silence_transition_parked_suppresses_false_alert(tmp_path):
         # well inside the 3600s BATTERY_CRITICAL_SLEEP_S-derived
         # warn window and must raise nothing.
         _seed_device_health(poll_loop, parked_dir, checkin_iso)
-        poll_loop.save_poll_state(parked_dir, {poll_loop.wake.BATTERY_CRITICAL_STATE_KEY: True})
-        parked_state = poll_loop.load_poll_state(parked_dir)
+        state_store.save_poll_state(parked_dir, {poll_loop.wake.BATTERY_CRITICAL_STATE_KEY: True})
+        parked_state = state_store.load_poll_state(parked_dir)
         parked_sender = _FakeSender()
         with poll_loop.history_db.open_db(parked_dir) as conn:
             poll_loop._notify_silence_transition(parked_dir, parked_state, conn, device_cfg, sender=parked_sender)
@@ -3697,7 +3699,7 @@ def test_now_s_clock_reaches_adsbdb_cache_stamp(tmp_path, clock):
     poll_loop.run_once(
         snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=state_dir, geofence=GEOFENCE_PATH)
 
-    on_disk = poll_loop.load_poll_state(state_dir)
+    on_disk = state_store.load_poll_state(state_dir)
     cache = on_disk.get("enrichment_cache", {})
     entry = cache.get("FLIGHT1")
     assert entry is not None, (

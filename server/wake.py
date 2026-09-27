@@ -1,21 +1,26 @@
 """The effective wake interval and derived device-staleness thresholds,
 shared across the server and companion app.
 
-Leaf module under `server/`: may import server.device_config, never
-companion/ (whose own wake module re-exports this one instead).
+Leaf module under `server/`: may import server.device_config,
+server.device_policy and server.state_store, never companion/ (whose
+own wake module re-exports this one instead).
 """
-import json
 import os
 from datetime import datetime, timedelta, timezone
 
-from server import device_config
+from server import device_config, device_policy, state_store
 
 SLEEP_ENV_VAR = "SKYPANE_SLEEP_S"
 
-# The BATTERY EMPTY latch's key in poll_state.json - lives in this leaf
-# module so every writer and reader across the codebase can share it
-# without importing poll_loop.py itself.
-BATTERY_CRITICAL_STATE_KEY = "battery_critical_active"
+# The BATTERY EMPTY latch's key in poll_state.json - re-exported from
+# device_policy (the single owner) so every writer and reader across the
+# codebase can share it without importing poll_loop.py itself.
+BATTERY_CRITICAL_STATE_KEY = device_policy.BATTERY_CRITICAL_STATE_KEY
+
+# read_battery_critical() is state_store's own poll_state.json reader -
+# bound here, not redefined, so this module and companion/wake.py (which
+# re-exports this name) resolve to the single implementation.
+read_battery_critical = state_store.read_battery_critical
 
 # Warn after this many missed wakes, error after this many, each
 # multiplier applied to the wake interval and then floored below.
@@ -44,22 +49,6 @@ def env_sleep_s():
     if value <= 0:
         return None
     return value
-
-
-def read_battery_critical(state_dir):
-    """True only when poll_state.json's BATTERY_CRITICAL_STATE_KEY is
-    literally `True`; any failure degrades to False, never raises -
-    fail-open, since a wrongly-returned False costs a few extra wakes,
-    never a missed BATTERY EMPTY render.
-    """
-    try:
-        with open(os.path.join(state_dir, "poll_state.json")) as fh:
-            data = json.load(fh)
-    except (OSError, ValueError):
-        return False
-    if not isinstance(data, dict):
-        return False
-    return data.get(BATTERY_CRITICAL_STATE_KEY) is True
 
 
 def effective_wake_interval_s(device_cfg, battery_critical=False):

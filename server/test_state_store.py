@@ -13,7 +13,6 @@ import pytest
 
 import server.atomic_io as atomic_io
 import server.device_policy as device_policy
-import server.poll_loop as poll_loop
 import server.state_store as state_store
 
 
@@ -61,12 +60,12 @@ def test_load_poll_state_returns_the_dict_otherwise(tmp_path):
         pytest.fail("load_poll_state() on a valid file returned %r" % (got,))
 
 
-# --- serialize_poll_state: byte-identical to today's poll_loop copy -----
+# --- serialize_poll_state: byte-identical to the historical compact format -
 
 
-# Computed once against today's poll_loop._serialize_poll_state() and
-# hard-coded here as a literal - a later plan deletes poll_loop's own copy
-# and this literal becomes the sole expectation.
+# Computed once against poll_loop's now-deleted _serialize_poll_state()
+# copy and hard-coded here as a literal - the sole expectation, now that
+# poll_loop itself has no copy left to compare against.
 _REPRESENTATIVE_STATE = {
     "pending_flights": [],
     "notifications": {"last_battery_sent": False, "last_silent_sent": False},
@@ -80,13 +79,8 @@ _REPRESENTATIVE_STATE_JSON = (
 )
 
 
-def test_serialize_poll_state_matches_poll_loops_copy_and_the_literal():
+def test_serialize_poll_state_matches_the_literal():
     got = state_store.serialize_poll_state(_REPRESENTATIVE_STATE)
-    want_from_poll_loop = poll_loop._serialize_poll_state(_REPRESENTATIVE_STATE)
-    if got != want_from_poll_loop:
-        pytest.fail(
-            "state_store.serialize_poll_state() returned %r, expected byte-identical to "
-            "poll_loop._serialize_poll_state()'s %r" % (got, want_from_poll_loop))
     if got != _REPRESENTATIVE_STATE_JSON:
         pytest.fail("state_store.serialize_poll_state() returned %r, expected the literal %r" % (
             got, _REPRESENTATIVE_STATE_JSON))
@@ -131,14 +125,11 @@ def test_persist_poll_state_if_changed_writes_zero_when_unchanged(tmp_path, monk
     monkeypatch.setattr(atomic_io, "atomic_write", lambda *a, **k: calls.append(a))
 
     got = state_store.persist_poll_state_if_changed(state_dir, poll_state, baseline)
-    want = poll_loop._persist_poll_state(state_dir, dict(poll_state), baseline)
 
     if len(calls) != 0:
         pytest.fail("persist_poll_state_if_changed() on an unchanged state wrote %d times, expected 0" % len(calls))
-    if got != want:
-        pytest.fail(
-            "persist_poll_state_if_changed() returned %r, expected the same value poll_loop._persist_poll_state() "
-            "returns (%r)" % (got, want))
+    if got is not None:
+        pytest.fail("persist_poll_state_if_changed() returned %r, expected None" % (got,))
 
 
 def test_persist_poll_state_if_changed_writes_once_when_changed(tmp_path, monkeypatch):
