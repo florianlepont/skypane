@@ -1881,7 +1881,7 @@ Plans:
 3. Quiet hours, battery-critical and battery-curve logic exist once
 4. mypy green in CI on the typed modules; behaviour unchanged (suite green)
 
-**Plans:** 5/13 plans executed
+**Plans:** 6/13 plans executed
 
 Plans:
 
@@ -1898,7 +1898,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 39-06-PLAN.md — byos uses device_policy/state_store; invalid-time fallback unified; vendored-byos docs corrected [ARC-05]
+- [x] 39-06-PLAN.md — byos uses device_policy/state_store; invalid-time fallback unified; vendored-byos docs corrected [ARC-05]
 - [ ] 39-07-PLAN.md — companion import switches (pages, battery allowlist, app.py state paths), one commit each [ARC-02, ARC-05]
 - [ ] 39-08-PLAN.md — `render/` package split; three oversized render functions split [ARC-03, ARC-01]
 

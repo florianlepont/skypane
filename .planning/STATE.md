@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 39-05-PLAN.md
-last_updated: "2026-09-27T08:43:55.965Z"
+stopped_at: Completed 39-06-PLAN.md
+last_updated: "2026-09-27T09:15:04.476Z"
 last_activity: 2026-09-27
 progress:
   total_phases: 54
   completed_phases: 47
   total_plans: 418
-  completed_plans: 385
+  completed_plans: 386
   percent: 92
 ---
 
@@ -63,7 +63,9 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 6 of 13
+Plan: 7 of 13
+
+**39-06 executed (2026-09-27), plan 6/13 of Phase 39 (depends on 39-02), wave 3 — ARC-05's byos wiring, D-3/D-4/D-6.** Task 1 gave `stub-server/byos_server.py` a repo-root `sys.path` bootstrap (`_REPO_ROOT = dirname(dirname(abspath(__file__)))`, same shape as `server/poll_loop.py`'s) and `from server import device_policy, state_store`, then rebound `_HHMM_RE`/`QUIET_HOURS_TZ`/`WAKE_INTERVAL_MIN_S`/`WAKE_INTERVAL_MAX_S`/`DISPLAY_OFF_SLEEP_S`/`BATTERY_CRITICAL_SLEEP_S`/`BATTERY_CRITICAL_RECOVER_MV`/`seconds_until_quiet_hours_end`/`read_battery_critical` to those shared stdlib-only objects, deleting the hand-mirrored duplicate arithmetic/regex/constants and their "vendor boundary" comments; `read_quiet_hours()` keeps its own fail-open file read then delegates to `device_policy.quiet_hours_window(data)`, and `battery_critical_sleep_s()` calls `device_policy.battery_critical_pin_applies()`. **Behaviour change (D-4, developer-approved):** an invalid stored quiet-hours time now falls back to the default 23:00-07:00 window (extending sleep) instead of disabling quiet hours — matches the server's own poll-cycle hold. `stub-server/test_poll_cycle.py`'s three byte-for-byte source-text drift-guard tests became identity checks (`byos_module.X is device_policy.X`) plus attribute-equality against `server/device_config.py`'s current values; the two invalid-time cases moved out of `test_read_quiet_hours_fail_open_never_raises` into a new, retargeted `test_read_quiet_hours_invalid_time_falls_back_to_default_window` (mirrors `server/test_device_policy.py`'s own D-4 test from 39-02); a new subprocess test proves `--help` works from another cwd. Task 2 corrected `ARCHITECTURE.md`'s "Serving" paragraph and battery-critical-latch sentence, and added an 11th local modification to `stub-server/VENDOR.md` (entries 5/6/8 updated to point forward to it; 1-4/7/9/10 and provenance/licence untouched) stating the real boundary: byos may import exactly `server.device_policy`/`server.state_store` and nothing else from the project. `stub-server/README.md` had no stdlib-only/import sentence to fix, per the plan's own skip instruction. Two Rule-1 auto-fixes: removed the now-unused `timedelta` import (ruff F401) and corrected `_atomic_write()`'s docstring, which had asserted "byos must never import server.*" three lines above the file's own new import. Commits: `7427539` (feat) Task 1, `c04ed89` (docs) Task 2. Full `stub-server` suite + `server/test_pipeline_e2e.py` (64 passed, 1 skipped — root-euid permission-bits skip, pre-existing), ruff and `check_comment_history.py` both clean, `byos_server.py --help` exits 0 from the repo root and another cwd. Per this phase's own convention, ARC-02/ARC-05 are NOT marked Complete in REQUIREMENTS.md here — only 39-13 flips ARC-* to Complete. `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 92` (386/418) but the written frontmatter showed `percent: 87` (`completed_phases/total_phases` = 47/54) — corrected to `92` by hand per this file's established precedent.
 
 **39-05 executed (2026-09-27), plan 5/13 of Phase 39 (depends on 39-01), wave 2 — ARC-03's theme module and ARC-01's save_device_config size clause.** Task 1 (TDD) moved `device_config.py`'s theme registry (`THEMES`, `THEME_IDS`, `DEFAULT_THEME_ID`) and its eight presentation accessors verbatim into a new typed `server/themes.py` (stdlib + `server.panel_format` only); `device_config.py` re-exports every one of those names via `from server.themes import (...)  # noqa: F401`, so `device_config.THEMES is themes.THEMES` and every accessor resolves to the same function object through either module, and `device_config` no longer imports `server.panel_format` directly (that import only ever fed the moved dict). New `server/test_themes.py` (4 tests): identity re-export checks on the registry and all eight accessors, `theme_background_index`'s state-gate behaviour matching the panel_format IDX constant, and a subprocess check that `import server.themes` never pulls in PIL. RED (`4415ad8`, 2/4 tests failing against the pre-refactor `device_config.py`, confirmed via `git checkout -- server/device_config.py` before the test commit) → GREEN (`e7c2521`). Task 2 split `save_device_config` (87 code lines, over the plan's 80-line gate) into five private helpers (`_validate_theme_fields`, `_validate_runway_and_flags`, `_validate_quiet_hours`, `_validate_wake_interval`, `_validate_notifications`) plus `_merged_config(current, **supplied)`, each raising/building exactly what the inline code did before, called in the same relative order — `save_device_config` itself is now 33 code lines and still a `device_config` module global (`companion/test_config_page_02.py`'s monkeypatch keeps working unchanged). New `server/test_config_history.py` test (`test_save_device_config_rejects_invalid_notifications_even_with_every_other_field_valid`) proves notifications, the last-validated field, still raises before the file is touched even when every other supplied field is valid. Committed `118c4a9` (refactor) as GREEN-only — this task's new behaviour test already passes against the pre-split function too (notifications was validated last there as well), so no RED state could exist for the right reason; documented under the SUMMARY's own TDD Gate Compliance section. `python3 scripts/check_function_size.py check --max 80 server/device_config.py server/themes.py` now exits 0 (33 functions, none over 80) — `save_device_config` is off the phase's own baseline offender list. No `companion/` file touched by either task. `server/test_themes.py` + `server/test_config_history.py` + `server/test_render.py` (240 passed); whole-repo `./scripts/run-all-tests.sh` (2972 passed, 139 skipped — same pre-existing Chromium-shell/root-euid environment skips), ruff and `check_comment_history.py` both green, coverage 94%. Per this phase's own convention (39-02's premature tick was reverted), ARC-01/ARC-03 are NOT marked Complete in REQUIREMENTS.md here — only the phase's closing plan (39-13) flips ARC-* to Complete. `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 92` (385/418) but the written frontmatter showed `percent: 87` (`completed_phases/total_phases` = 47/54, the same recurring wrong-ratio bug) — corrected to `92` by hand per this file's established precedent. `state.add-decision` again wrote `[Phase ?]` (same recurring doc/CLI-arg mismatch documented throughout this file's history) — left as-is per precedent.
 
@@ -573,6 +575,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 39 P03 | 55min | 2 tasks | 12 files |
 | Phase 39 P04 | 26min | 2 tasks | 11 files |
 | Phase 39 P05 | 45min | 2 tasks | 4 files |
+| Phase 39 P06 | 45min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -1126,6 +1129,8 @@ Recent decisions affecting current work:
 - [Phase 39]: 39-03: companion theme preview becomes vendored-only (D-5, accepted) - it can no longer see an in-process /poll-now's live illustration override, now that the module-global setter it relied on is gone.
 - [Phase 39]: calendar_rules package split keeps _normalise_calendar_url and CALENDAR_FETCH_INTERVAL_S in registry.py rather than __init__.py, since registry cannot import the package __init__ without a cycle — registry.py owns calendar_fetch_is_due (the only caller of CALENDAR_FETCH_INTERVAL_S) and the webcal normalisation used by save_calendar_url; matching the plan's own submodule-content list kept the split acyclic by construction
 - [Phase ?]: device_config re-exports server.themes' theme registry/accessors by identity; save_device_config split into five _validate_* helpers plus _merged_config, staying under the 80-code-line gate with no behaviour change
+- [Phase 39]: byos_server.py now imports server.device_policy/server.state_store via a repo-root sys.path bootstrap; the former byte-for-byte drift guards became identity checks — D-3/D-6; retires hand-mirrored quiet-hours/battery-critical constants and functions
+- [Phase 39]: D-4 implemented: byos's invalid stored quiet-hours time now falls back to the default 23:00-07:00 window (extends sleep) instead of disabling quiet hours — unifies with the server's own poll-cycle hold decision; old outcome retargeted in a new test, not dropped
 
 ### Pending Todos
 
@@ -1246,8 +1251,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-27T08:43:55.891Z
-Stopped at: Completed 39-05-PLAN.md
+Last session: 2026-09-27T09:15:04.398Z
+Stopped at: Completed 39-06-PLAN.md
 
 Resume file: 
 
