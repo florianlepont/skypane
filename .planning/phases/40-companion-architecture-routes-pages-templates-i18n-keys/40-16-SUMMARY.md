@@ -145,3 +145,8 @@ None - no external service configuration required.
 ---
 *Phase: 40-companion-architecture-routes-pages-templates-i18n-keys*
 *Completed: 2026-09-27*
+
+## Self-Check: PASSED
+
+All 7 key files confirmed present on disk; all 3 commit hashes
+(`a4a2f79`, `51d0319`, `d8d8cb4`) confirmed in `git log`.
