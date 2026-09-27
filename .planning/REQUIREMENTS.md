@@ -191,7 +191,7 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [ ] **CMP-04**: Typed per-page context
 - [x] **CMP-05**: Named templates
 - [x] **CMP-06**: Broken down; `handle_post` per settings group
-- [ ] **CMP-07**: Shared helpers
+- [x] **CMP-07**: Shared helpers
 - [x] **CMP-08**: Merged; colours → tokens
 - [ ] **CMP-09**: Stable message IDs
 - [ ] **DOC-01**: All docs aligned with the code as it stands after phases 32–40
@@ -441,7 +441,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CMP-04 | Phase 40 | Pending |
 | CMP-05 | Phase 40 | Complete |
 | CMP-06 | Phase 40 | Complete |
-| CMP-07 | Phase 40 | Pending |
+| CMP-07 | Phase 40 | Complete |
 | CMP-08 | Phase 40 | Complete |
 | CMP-09 | Phase 40 | Pending |
 | DOC-01 | Phase 41 | Pending |

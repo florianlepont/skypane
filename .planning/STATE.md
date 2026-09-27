@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 40-08-PLAN.md
-last_updated: "2026-09-27T14:49:00.224Z"
+stopped_at: Completed 40-09-PLAN.md
+last_updated: "2026-09-27T15:36:16.525Z"
 last_activity: 2026-09-27
 progress:
   total_phases: 54
   completed_phases: 47
   total_plans: 421
-  completed_plans: 388
+  completed_plans: 389
   percent: 87
 ---
 
@@ -63,7 +63,7 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 9 of 16
+Plan: 10 of 16
 
 **38-03 executed (2026-09-26), plan 3/13 of Phase 38 (depends on 38-01), wave 2 — EFF-03 storage machinery: history_db connection_scope, schema-once, write_batch.** Task 1 (TDD) added `connection_scope(state_dir)`, a re-entrant `threading.local()`-backed context manager: every `open_db(state_dir)` call on the same thread inside it shares one lazily-opened connection, closed (rolled back first if left in a transaction) only at the outermost exit; a scope for a different path started while one is active is served unscoped (passthrough); another thread never sees this thread's scope; a scoped open failure is remembered and re-raised on every later `open_db` in the scope without retrying. `open_db()`'s own signature is unchanged and its passthrough (unscoped) behaviour is identical to before. Task 2 (TDD) made schema and `PRAGMA journal_mode=WAL` run once per process per database file identity (`realpath`, `st_dev`, `st_ino`, in a lock-guarded set), with an empty-file override so a restored or deleted-and-recreated `history.db` always reruns it; connections now come from a `sqlite3.Connection` subclass (`_HistoryConnection`) carrying a batch-depth counter, and a new `write_batch(conn)` defers every writer's commit while open, committing once on clean exit or rolling back and re-raising on an exception — a private `_commit()` (now called by all four writers instead of a bare `conn.commit()`) keeps outside-a-batch behaviour identical to before. New `server/test_history_db_scope.py` (17 tests, including two branch-coverage-driven additions found after the first coverage run: a different-path `connection_scope` nested inside an active one, and `write_batch` against a bare `sqlite3.Connection` lacking `_batch_depth`). **Two deviations, both auto-fixed inline (Rule 1/Rule 2):** a `_SCHEMA_READY` comment's literal phrase "CREATE TABLE" tripped `test_config_history.py`'s regex-based "every CREATE TABLE is IF NOT EXISTS-guarded" test and was reworded; the two coverage-gap tests above were added after the fact. Nothing in `companion/app.py`, `companion/pages/*.py` or `server/poll_loop.py` calls `connection_scope` yet — that is 38-07/38-08's job (both `depends_on: ["38-03"]`); EFF-03 stays open until they land. Both tasks ran RED→GREEN: `2a4ae7c`/`66d7286` (Task 1), `5f44c1f`/`f214183` (Task 2). `server/test_history_db_scope.py` + `server/test_config_history.py` + `server/test_caddy_tail.py` + `deploy/tests/test_backup.py` (126 passed), the whole repo's `./scripts/run-all-tests.sh -m "not browser"` (2771 passed) and with the Playwright shim (2900 passed, 1 pre-existing unrelated local Chromium-baseline failure), ruff and `check_comment_history.py` all green.
 
@@ -572,6 +572,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 40 P06 | 46min | 2 tasks | 9 files |
 | Phase 40 P07 | ~50min | 2 tasks | 3 files |
 | Phase 40 P08 | 35min | 2 tasks | 5 files |
+| Phase 40 P09 | ~2h40min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -1133,6 +1134,9 @@ Recent decisions affecting current work:
 - [Phase 40]: CFG-52's platform-file-chooser key for the artwork drop zone is Space, not Enter — measured 3/8 vs 12/12 against this repo's real Chromium; no production code changed, only the test's key press
 - [Phase ?]: form_post.py splits four groups (theme, calendar, quiet_hours, notifications) into two calls each to preserve handle_post()'s exact original validation order, per the plan's own two-phase hint
 - [Phase ?]: companion/settings/screen.py was skipped: config_page.py was already under the 1500-line ceiling after Task 1's move, so the plan's conditional file-split step did not trigger
+- [Phase 40]: MAX_ILLUSTRATION_UPLOAD_BYTES/parse_single_uploaded_file()/_illustration_filenames() moved into companion/post_actions.py so the moved illustration-replace handler stays self-contained; app.py rebinds all three under their historical names
+- [Phase 40]: _POLL_LOCK now defined once in companion/post_actions.py and rebound in app.py, never a second independent Lock(), so the calendar-connect route and app.py's own settings/poll-now triggers keep serialising against the same object
+- [Phase 40]: companion/freshness.py keeps its historical underscore-prefixed internal names (only _FRESHNESS_PAGE_SLUGS and _page_freshness_token are rebound into app.py) since no other call site exists for the rest
 
 ### Pending Todos
 
@@ -1253,8 +1257,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-27T14:49:00.142Z
-Stopped at: Completed 40-08-PLAN.md
+Last session: 2026-09-27T15:36:16.451Z
+Stopped at: Completed 40-09-PLAN.md
 
 Resume file: 
 
