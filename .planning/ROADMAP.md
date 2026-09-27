@@ -1881,7 +1881,7 @@ Plans:
 3. Quiet hours, battery-critical and battery-curve logic exist once
 4. mypy green in CI on the typed modules; behaviour unchanged (suite green)
 
-**Plans:** 10/13 plans executed
+**Plans:** 11/13 plans executed
 
 Plans:
 
@@ -1909,7 +1909,7 @@ Plans:
 **Wave 5** *(blocked on Wave 4 completion)*
 
 - [x] 39-10-PLAN.md — `server/poll_cycle.py` library move; companion /poll-now switch; import-boundary tests [ARC-01, ARC-02]
-- [ ] 39-12-PLAN.md — mypy dev pin + lock, `[tool.mypy]`, CI step, pure-core annotations [ARC-06]
+- [x] 39-12-PLAN.md — mypy dev pin + lock, `[tool.mypy]`, CI step, pure-core annotations [ARC-06]
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
