@@ -37,8 +37,8 @@ _PREVIEW_PREVIOUS_ROUTE = {
 }
 
 
-def build_parser():
-    parser = argparse.ArgumentParser(description=__doc__)
+def _add_flight_arguments(parser):
+    """--state and the fake-callsign/hex flags for both cards."""
     parser.add_argument(
         "--state",
         choices=["departing", "arriving", "empty", "quiet_hours", "display_off", "battery_empty"],
@@ -54,6 +54,10 @@ def build_parser():
     parser.add_argument(
         "--previous-hex", default="111111", help="Manual QA only: fake ICAO hex for the previous flight."
     )
+
+
+def _add_output_arguments(parser):
+    """Where the render goes: the packed .bin and/or a viewable PNG preview."""
     parser.add_argument("--out", help="Write the packed 960,000-byte .bin to this path.")
     parser.add_argument(
         "--preview",
@@ -61,6 +65,13 @@ def build_parser():
         help="Also write a viewable PNG preview. WARNING (D-P2-03): preview colours "
              "are nominal render-internal RGB triples, not a colour-accurate panel preview.",
     )
+
+
+def _add_route_shaping_arguments(parser):
+    """Flags that reshape the synthetic preview route (or skip route
+    enrichment entirely) for a departing/arriving preview, plus the
+    standalone calibration-preview diagnostic.
+    """
     parser.add_argument(
         "--no-route",
         action="store_true",
@@ -109,6 +120,12 @@ def build_parser():
              "already None (--no-route won) or when --preview-airline-only is also given (that route "
              "has no cities and lands on tier 3 regardless) - both combinations are harmless no-ops.",
     )
+
+
+def _add_state_arguments(parser):
+    """Theme/runway registry ids plus the device/server-health indicator
+    flags and the quiet-hours end-time preview flag.
+    """
     parser.add_argument(
         "--theme", choices=device_config.THEME_IDS, default=device_config.DEFAULT_THEME_ID,
         help="CFG-01: theme id from server/device_config.py's THEMES registry.",
@@ -134,76 +151,79 @@ def build_parser():
              "--state quiet_hours preview's 'Back at' line shows. Ignored for every other --state, "
              "including --state display_off, which never shows a return-time value (D-03/D-04).",
     )
+
+
+def build_parser():
+    """Assemble the CLI's option groups in their historical order, so
+    `--help` output stays byte-identical to before the 39-08 split.
+    """
+    parser = argparse.ArgumentParser(description=__doc__)
+    _add_flight_arguments(parser)
+    _add_output_arguments(parser)
+    _add_route_shaping_arguments(parser)
+    _add_state_arguments(parser)
     return parser
 
 
-def main(argv=None):
-    args = build_parser().parse_args(argv)
+def _preview_route_for(args, preview_route, callsign_iata_owner):
+    """Shape one card's route dict (main or previous) from `args`, mirroring
+    the tier/override precedence documented on `--preview-airline-only`,
+    `--no-route`, `--no-identifier`, `--airline` and `--city`: airline-only
+    beats no-route, no-identifier strips callsign_iata, and airline/city
+    only apply to the main card's own route dict (`callsign_iata_owner`
+    distinguishes the main card, which honours them, from the previous
+    card, which never took them historically).
+    """
+    if args.preview_airline_only:
+        route = enrich.airline_only_route(preview_route["airline_name"])
+    elif args.no_route:
+        route = None
+    else:
+        route = preview_route
+    if args.no_identifier and route is not None:
+        route = dict(route)
+        route["callsign_iata"] = None
+    if callsign_iata_owner and route is not None and (args.airline or args.city):
+        route = dict(route)
+        if args.airline:
+            route["airline_name"] = args.airline
+        if args.city:
+            city_field = "destination_city" if args.state == runway_config.STATE_DEPARTING else "origin_city"
+            route[city_field] = args.city
+    return route
 
-    if args.calibration_preview:
-        # A standalone diagnostic action, not mixed with a panel render -
-        # no --state/--out/--preview handling below is reached.
-        for path in dither.write_calibration_preview(args.calibration_preview):
-            print("wrote %s" % path)
-        return 0
 
-    flight = None
-    route = None
+def _preview_inputs(args):
+    """Build the (flight, route, previous_flight, previous_route,
+    previous_state) tuple `layout.build_canvas()` needs, from the CLI's
+    fake-callsign/route-shaping flags. All five stay `None` for a
+    non-aircraft `--state` (empty/quiet_hours/display_off/battery_empty) -
+    the quiet-hours state has no flight to enrich, exactly like empty, so
+    membership is tested against the two real aircraft states rather than
+    a negative list a future third non-flight state would have to be
+    remembered into.
+    """
+    if args.state not in (runway_config.STATE_DEPARTING, runway_config.STATE_ARRIVING):
+        return None, None, None, None, None
+
+    flight = {"hex": args.hex, "callsign": args.callsign}
+    # --airline/--city (callsign_iata_owner=True) apply only to the main
+    # card's route, matching the original single-function implementation.
+    route = _preview_route_for(args, _PREVIEW_ROUTE, callsign_iata_owner=True)
+
     previous_flight = None
     previous_route = None
     previous_state = None
-    # The quiet-hours state has no flight to enrich, exactly like empty -
-    # test membership against the two real aircraft states rather than a
-    # second negative list (`!= "empty"`) that a future third non-flight
-    # state would have to be remembered into.
-    if args.state in (runway_config.STATE_DEPARTING, runway_config.STATE_ARRIVING):
-        flight = {"hex": args.hex, "callsign": args.callsign}
-        # --preview-airline-only takes precedence over --no-route when both
-        # are given (documented in --preview-airline-only's own help text
-        # above).
-        if args.preview_airline_only:
-            route = enrich.airline_only_route(_PREVIEW_ROUTE["airline_name"])
-        elif args.no_route:
-            route = None
-        else:
-            route = _PREVIEW_ROUTE
-        # --no-identifier strips callsign_iata so a departing/arriving
-        # preview forces tier 2. No-op when route is already None
-        # (--no-route won, nothing to strip) or when it is the
-        # airline-only route (--preview-airline-only won; that route's
-        # callsign_iata is already None and it has no cities regardless, so
-        # stripping it again changes nothing). Never mutates _PREVIEW_ROUTE
-        # itself.
-        if args.no_identifier and route is not None:
-            route = dict(route)
-            route["callsign_iata"] = None
-        # --airline/--city override _PREVIEW_ROUTE's own fields so a
-        # long/real name is a flag rather than a hand-built dict.
-        # --no-route continues to win over both - route is already None above
-        # and stays None here. Never mutates _PREVIEW_ROUTE itself.
-        if route is not None and (args.airline or args.city):
-            route = dict(route)
-            if args.airline:
-                route["airline_name"] = args.airline
-            if args.city:
-                city_field = (
-                    "destination_city" if args.state == runway_config.STATE_DEPARTING
-                    else "origin_city"
-                )
-                route[city_field] = args.city
-        if args.previous_callsign:
-            previous_flight = {"hex": args.previous_hex, "callsign": args.previous_callsign}
-            if args.preview_airline_only:
-                previous_route = enrich.airline_only_route(_PREVIEW_PREVIOUS_ROUTE["airline_name"])
-            elif args.no_route:
-                previous_route = None
-            else:
-                previous_route = _PREVIEW_PREVIOUS_ROUTE
-            if args.no_identifier and previous_route is not None:
-                previous_route = dict(previous_route)
-                previous_route["callsign_iata"] = None
-            previous_state = runway_config.STATE_ARRIVING if args.state == runway_config.STATE_DEPARTING else runway_config.STATE_DEPARTING
+    if args.previous_callsign:
+        previous_flight = {"hex": args.previous_hex, "callsign": args.previous_callsign}
+        previous_route = _preview_route_for(args, _PREVIEW_PREVIOUS_ROUTE, callsign_iata_owner=False)
+        previous_state = runway_config.STATE_ARRIVING if args.state == runway_config.STATE_DEPARTING else runway_config.STATE_DEPARTING
 
+    return flight, route, previous_flight, previous_route, previous_state
+
+
+def _render_preview(args, flight, route, previous_flight, previous_route, previous_state):
+    """Build the canvas and pack it, exiting on an internal size mismatch."""
     canvas = layout.build_canvas(
         flight,
         args.state,
@@ -220,7 +240,14 @@ def main(argv=None):
     data = pf.pack_panel(canvas)
     if len(data) != pf.IMAGE_BYTES:
         sys.exit("internal error: generated %d bytes, expected %d" % (len(data), pf.IMAGE_BYTES))
+    return canvas, data
 
+
+def _write_outputs(args, canvas, data):
+    """Write --out/--preview as requested, or print the render's sha256
+    when neither was given. Prints the SYNTHETIC-panel reminder and the
+    preview colour-accuracy warning at the same points as before the split.
+    """
     if args.out:
         with open(args.out, "wb") as fh:
             fh.write(data)
@@ -251,4 +278,18 @@ def main(argv=None):
         print("rendered %d bytes (state=%s), sha256 %s (pass --out/--preview to write a file)"
               % (len(data), args.state, digest))
 
+
+def main(argv=None):
+    args = build_parser().parse_args(argv)
+
+    if args.calibration_preview:
+        # A standalone diagnostic action, not mixed with a panel render -
+        # no --state/--out/--preview handling below is reached.
+        for path in dither.write_calibration_preview(args.calibration_preview):
+            print("wrote %s" % path)
+        return 0
+
+    flight, route, previous_flight, previous_route, previous_state = _preview_inputs(args)
+    canvas, data = _render_preview(args, flight, route, previous_flight, previous_route, previous_state)
+    _write_outputs(args, canvas, data)
     return 0

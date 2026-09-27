@@ -17,10 +17,15 @@ target-version = "py314"
 # a stylistic rewrite risk with no correctness benefit, not an oversight.
 select = ["E4", "E7", "E9", "F"]
 
-# E402 (import not at top) suppressed, not fixed: all 8 findings are the
-# documented sys.path bootstrap in server/poll_loop.py (4), render.py (3)
-# and enrich.py (1), needed so `server/.venv/bin/python3 server/poll_loop.py`
-# (server/README.md's own invocation) resolves its `server.*` imports.
+# E402 (import not at top) suppressed, not fixed: every finding is a
+# documented sys.path bootstrap (server/poll_loop.py, server/device_config.py,
+# server/panel_preview.py, server/plane/detect.py, server/plane/enrich.py,
+# server/themes.py, stub-server/byos_server.py), needed so
+# `server/.venv/bin/python3 server/poll_loop.py` (server/README.md's own
+# invocation) resolves its `server.*` imports when run as a direct script.
+# server/plane/render/'s own bootstrap was dropped in the 39-08 package
+# split - `python3 -m server.plane.render` needs none, since `-m` already
+# puts the repo root (the invocation's cwd) on sys.path.
 ignore = ["E402"]
 
 [tool.pytest.ini_options]
