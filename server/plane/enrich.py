@@ -573,7 +573,7 @@ def static_airline_name_for_prefix(prefix):
     return _ICAO_AIRLINE_PREFIXES.get(prefix)
 
 
-def airline_source_from_callsign(callsign):
+def airline_source_from_callsign(callsign, manual_registry=None):
     """Return `(airline_name, source)` for `callsign`'s ICAO prefix,
     where `source` is `"static"`, `"manual"`, or `None`.
 
@@ -584,12 +584,17 @@ def airline_source_from_callsign(callsign):
       3. `_ICAO_AIRLINE_PREFIXES.get(prefix)` — a hit wins immediately
          and always (a prefix present in both tables can never report
          `"manual"`).
-      4. Only on a static miss, `manual_resolutions.airline_name_for_prefix()`.
+      4. Only on a static miss,
+         `manual_resolutions.airline_name_for_prefix(prefix, manual_registry)`.
       5. Otherwise `(None, None)`.
+
+    `manual_registry`: the registry the caller loaded once this cycle via
+    `manual_resolutions.load_manual_resolutions(state_dir)`. `None` means
+    the empty registry, matching a caller that never loaded one.
 
     Never raises: every gate is a type/shape check before either table is
     consulted, and `manual_resolutions.airline_name_for_prefix()` itself
-    never raises (it reads a process-scoped dict, never the disk).
+    never raises (it reads its `registry` argument, never the disk).
     """
     normalised = normalise_callsign(callsign)
     if normalised is None:
@@ -600,16 +605,16 @@ def airline_source_from_callsign(callsign):
     static_name = _ICAO_AIRLINE_PREFIXES.get(prefix)
     if static_name:
         return static_name, "static"
-    manual_name = manual_resolutions.airline_name_for_prefix(prefix)
+    manual_name = manual_resolutions.airline_name_for_prefix(prefix, manual_registry)
     if manual_name:
         return manual_name, "manual"
     return None, None
 
 
-def airline_from_callsign(callsign):
+def airline_from_callsign(callsign, manual_registry=None):
     """Return the airline name for `callsign`'s ICAO prefix, or `None`.
-    A thin wrapper: `return airline_source_from_callsign(callsign)[0]`.
-    Never raises.
+    A thin wrapper: `return airline_source_from_callsign(callsign,
+    manual_registry)[0]`. Never raises.
 
     Returnable values now include operator-supplied names from
     `server.plane.manual_resolutions`'s runtime registry, not only fixed
@@ -621,13 +626,13 @@ def airline_from_callsign(callsign):
     read — a hostile or traversal-shaped name can never be stored, let
     alone returned from here.
 
-    Performs no network access and opens no file of its own: it reads a
-    process-scoped dict that
-    `manual_resolutions.set_manual_registry_state_dir()` populates once
-    per poll cycle. A process that never calls that setter sees an empty
-    registry here.
+    Performs no network access and opens no file of its own: `manual_registry`
+    is the registry the caller loaded once this cycle via
+    `manual_resolutions.load_manual_resolutions(state_dir)`. A caller that
+    passes `None` (including one that never loaded a registry) sees an
+    empty registry here.
     """
-    return airline_source_from_callsign(callsign)[0]
+    return airline_source_from_callsign(callsign, manual_registry)[0]
 
 
 def airline_only_route(airline_name):
@@ -650,7 +655,7 @@ def airline_only_route(airline_name):
     }
 
 
-def resolve_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT, now=None):
+def resolve_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT, now=None, manual_registry=None):
     """Single resolution seam: classify `callsign`'s enrichment outcome
     into one of five sources and return `(route, source)`.
 
@@ -682,7 +687,9 @@ def resolve_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT, now=
     expired entry that was just re-fetched reports `"fresh_hit"`, not
     `"cache_hit"`. The prefix resolution is never cached — recomputed from
     the static and manual tables on every call, cheaper than a second
-    cache. Never raises.
+    cache. `manual_registry` is the registry the caller loaded once this
+    cycle via `manual_resolutions.load_manual_resolutions(state_dir)`;
+    `None` means the empty registry. Never raises.
     """
     if now is None:
         now = time.time()
@@ -690,7 +697,7 @@ def resolve_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT, now=
     if route is not None:
         corrected = apply_airline_name_correction(normalise_callsign(callsign), route)
         return corrected, ("cache_hit" if from_cache else "fresh_hit")
-    airline_name, airline_source = airline_source_from_callsign(callsign)
+    airline_name, airline_source = airline_source_from_callsign(callsign, manual_registry)
     if airline_name:
         source = "airline_only" if airline_source == "static" else "manual"
         return airline_only_route(airline_name), source
@@ -737,17 +744,17 @@ UNRESOLVED_PREFIX_MAX_ENTRIES = 200
 UNRESOLVED_EXAMPLE_MAX_LEN = 16
 
 
-def note_unresolved_prefix(callsign, registry, now=None):
+def note_unresolved_prefix(callsign, registry, now=None, manual_registry=None):
     """Record `callsign`'s 3-letter ICAO prefix in `registry` as an
     unrecognized carrier, or return `None` without recording anything.
 
     Records only when `callsign` passes `_AIRLINE_PREFIX_SHAPE_RE` AND
-    `airline_from_callsign(callsign)` returns `None` — both derived from
-    that single call, so this function can never drift from
-    `airline_from_callsign()`'s resolve/`None` verdict as either backing
-    table grows. `clear_resolved_unresolved_prefix()` (this function's
-    structural inverse) is gated on the identical call, so the two can
-    never disagree.
+    `airline_from_callsign(callsign, manual_registry)` returns `None` —
+    both derived from that single call, so this function can never drift
+    from `airline_from_callsign()`'s resolve/`None` verdict as either
+    backing table grows. `clear_resolved_unresolved_prefix()` (this
+    function's structural inverse) is gated on the identical call, with
+    the identical `manual_registry`, so the two can never disagree.
 
     `registry` is a plain, JSON-serialisable dict
     (`poll_state.json`'s `unresolved_prefixes` key) mapping a prefix to
@@ -757,7 +764,10 @@ def note_unresolved_prefix(callsign, registry, now=None):
     and leaves `first_seen` untouched.
 
     `now` defaults to a UTC ISO-8601 string computed inside the
-    function, but stays injectable. `example_callsign` is truncated to
+    function, but stays injectable. `manual_registry` is the registry the
+    caller loaded once this cycle via
+    `manual_resolutions.load_manual_resolutions(state_dir)`; `None` means
+    the empty registry. `example_callsign` is truncated to
     `UNRESOLVED_EXAMPLE_MAX_LEN`. A pre-existing entry that is not a
     well-shaped dict is rebuilt fresh rather than trusted. Never raises.
     """
@@ -768,7 +778,7 @@ def note_unresolved_prefix(callsign, registry, now=None):
         return None
     if not _AIRLINE_PREFIX_SHAPE_RE.match(normalised):
         return None
-    if airline_from_callsign(callsign) is not None:
+    if airline_from_callsign(callsign, manual_registry) is not None:
         return None
 
     prefix = normalised[:3]
@@ -792,7 +802,7 @@ def note_unresolved_prefix(callsign, registry, now=None):
     return prefix
 
 
-def clear_resolved_unresolved_prefix(callsign, registry):
+def clear_resolved_unresolved_prefix(callsign, registry, manual_registry=None):
     """Remove `callsign`'s 3-letter ICAO prefix from `registry` if
     present AND now resolves, returning the removed prefix; otherwise
     `None`, leaving `registry` untouched. Never raises.
@@ -801,14 +811,17 @@ def clear_resolved_unresolved_prefix(callsign, registry):
     resolves, but nothing removed an entry that predates the resolution
     — without this function a resolved prefix would keep showing up in
     the gap report as a phantom, permanently stale entry. Written as that
-    function's structural inverse, with the identical gate order, so the
-    two can never drift apart.
+    function's structural inverse, with the identical gate order (and the
+    same `manual_registry`), so the two can never drift apart.
 
-    The resolution test is `airline_from_callsign()` — a hit in either
-    table — deliberately never a `resolve_route()` source value: the
-    source describes only this cycle's specific adsbdb outcome (adsbdb
-    wins by construction there), not whether the prefix as a whole is now
-    resolvable.
+    The resolution test is `airline_from_callsign(callsign,
+    manual_registry)` — a hit in either table — deliberately never a
+    `resolve_route()` source value: the source describes only this
+    cycle's specific adsbdb outcome (adsbdb wins by construction there),
+    not whether the prefix as a whole is now resolvable. `manual_registry`
+    is the registry the caller loaded once this cycle via
+    `manual_resolutions.load_manual_resolutions(state_dir)`; `None` means
+    the empty registry.
 
     Must run, in the caller (`server/poll_loop.py`'s `run_once()`),
     before `trim_unresolved_prefixes()` and the `unresolved_prefixes`
@@ -826,7 +839,7 @@ def clear_resolved_unresolved_prefix(callsign, registry):
     prefix = normalised[:3]
     if prefix not in registry:
         return None
-    if airline_from_callsign(callsign) is None:
+    if airline_from_callsign(callsign, manual_registry) is None:
         return None
     del registry[prefix]
     return prefix

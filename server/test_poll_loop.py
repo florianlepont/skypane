@@ -2009,31 +2009,74 @@ def test_display_enabled_is_inert(tmp_path, clock):
 
 
 def test_manual_registry_loaded_once_per_cycle_from_its_own_state_dir(tmp_path, clock):
-    """run_once() configures the manual-resolution registry from THIS cycle's own state_dir every cycle - a seeded prefix resolves after a cycle against its state dir, and a later cycle against a different, registry-less state dir leaves it unresolved again"""
+    """run_once() loads the manual-resolution registry from THIS cycle's own state_dir every cycle - a seeded prefix's cycle logs route_source=manual and persists last_route's airline_name, and a later cycle against a different, registry-less state dir (same callsign prefix) logs neither, asserted through cycle output (route_source / last_route) now that the resolver reads an explicitly loaded registry rather than a module-global cache."""
     seeded_dir = _mkdir(tmp_path, "manual-a")
     empty_dir = _mkdir(tmp_path, "manual-b")
     try:
         manual_resolutions.add_entry(seeded_dir, "ZZZ", "Zephyr Air")
 
+        buf_seeded = io.StringIO()
         _tick(clock, poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
-        poll_loop.run_once(snapshot=_snapshot("777777", "AAA1234", CLIMB), state_dir=seeded_dir, geofence=GEOFENCE_PATH)
-        if enrich.airline_from_callsign("ZZZ1234") != "Zephyr Air":
-            pytest.fail("after a cycle against a state dir seeded with ZZZ -> 'Zephyr Air', "
-                "enrich.airline_from_callsign('ZZZ1234') = %r, expected 'Zephyr Air'"
-                % (enrich.airline_from_callsign("ZZZ1234"),))
+        with contextlib.redirect_stdout(buf_seeded):
+            poll_loop.run_once(snapshot=_snapshot("777777", "ZZZ1234", CLIMB), state_dir=seeded_dir, geofence=GEOFENCE_PATH)
+        line_seeded = [ln for ln in buf_seeded.getvalue().splitlines() if ln.startswith("poll_loop: ")][-1]
+        if "route_source=manual" not in line_seeded:
+            pytest.fail("a cycle against a state dir seeded with ZZZ -> 'Zephyr Air' did not log "
+                "route_source=manual: %s" % (line_seeded,))
+        route_seeded = poll_loop.load_poll_state(seeded_dir).get("last_route")
+        if not isinstance(route_seeded, dict) or route_seeded.get("airline_name") != "Zephyr Air":
+            pytest.fail("the seeded cycle's persisted last_route = %r, expected airline_name='Zephyr Air'" % (route_seeded,))
 
+        buf_empty = io.StringIO()
         _tick(clock, poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
-        poll_loop.run_once(snapshot=_snapshot("888888", "BBB1234", CLIMB), state_dir=empty_dir, geofence=GEOFENCE_PATH)
-        if enrich.airline_from_callsign("ZZZ1234") is not None:
-            pytest.fail("after a cycle against a DIFFERENT state dir with no manual_resolutions.json, "
-                "enrich.airline_from_callsign('ZZZ1234') = %r, expected None (today's exact "
-                "behaviour - the registry must be reloaded from THIS cycle's own state_dir, "
-                "not left over from the previous cycle's)" % (enrich.airline_from_callsign("ZZZ1234"),))
+        with contextlib.redirect_stdout(buf_empty):
+            poll_loop.run_once(snapshot=_snapshot("888888", "ZZZ5678", CLIMB), state_dir=empty_dir, geofence=GEOFENCE_PATH)
+        line_empty = [ln for ln in buf_empty.getvalue().splitlines() if ln.startswith("poll_loop: ")][-1]
+        if "route_source=manual" in line_empty:
+            pytest.fail("a cycle against a DIFFERENT state dir with no manual_resolutions.json logged "
+                "route_source=manual - the registry must be reloaded from THIS cycle's own state_dir, "
+                "not left over from the previous cycle's: %s" % (line_empty,))
+        route_empty = poll_loop.load_poll_state(empty_dir).get("last_route")
+        if isinstance(route_empty, dict) and route_empty.get("airline_name") == "Zephyr Air":
+            pytest.fail("the registry-less cycle's persisted last_route unexpectedly carries the "
+                "previous state dir's manually-resolved airline_name: %r" % (route_empty,))
         return
     finally:
-        manual_resolutions.set_manual_registry_state_dir(None)
         shutil.rmtree(seeded_dir, ignore_errors=True)
         shutil.rmtree(empty_dir, ignore_errors=True)
+
+
+def test_illustration_override_reaches_the_render_call(tmp_path, monkeypatch, clock):
+    """an illustration override placed under the cycle's own state_dir is the file render.build_canvas()'s state_dir keyword makes illustrations.select_illustration() resolve to - not merely a state_dir argument forwarded, but the override file actually selected over the vendored one, now that poll_loop.py passes state_dir straight through instead of priming a module-global override setter."""
+    override_state_dir = _mkdir(tmp_path, "illustration-override")
+    try:
+        override_dir = os.path.join(str(override_state_dir), "illustration_overrides")
+        os.makedirs(override_dir, exist_ok=True)
+        override_path = os.path.join(override_dir, "air-france.png")
+        with open(override_path, "wb") as fh:
+            fh.write(b"not a real png - path-existence fixture only")
+
+        resolved_paths = []
+        original = render.illustrations.select_illustration
+
+        def _spy(route, aircraft_type=None, state_dir=None):
+            resolved = original(route, aircraft_type, state_dir=state_dir)
+            resolved_paths.append(resolved)
+            return resolved
+
+        monkeypatch.setattr(render.illustrations, "select_illustration", _spy)
+        _tick(clock, poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+        # AFR1234 resolves to "Air France" via the static ICAO-prefix
+        # table (an adsbdb network call is blocked by the pytest-socket
+        # guard and treated as a miss), whose illustration key is
+        # "air-france" - exactly the override file seeded above.
+        poll_loop.run_once(snapshot=_snapshot("aaaaaa", "AFR1234", CLIMB), state_dir=override_state_dir, geofence=GEOFENCE_PATH)
+        if override_path not in resolved_paths:
+            pytest.fail("select_illustration() call(s) resolved %r, expected the override path %r among them" % (
+                resolved_paths, override_path))
+        return
+    finally:
+        shutil.rmtree(override_state_dir, ignore_errors=True)
 
 
 def test_manual_resolution_reaches_route_source_end_to_end(tmp_path, clock):
@@ -2053,7 +2096,6 @@ def test_manual_resolution_reaches_route_source_end_to_end(tmp_path, clock):
             pytest.fail("the persisted last_route = %r, expected airline_name='Meridian Air'" % (route,))
         return
     finally:
-        manual_resolutions.set_manual_registry_state_dir(None)
         shutil.rmtree(manual_dir, ignore_errors=True)
 
 
@@ -2090,7 +2132,6 @@ def test_clear_resolved_unresolved_prefix_removes_resolvable_entry(tmp_path, clo
             pytest.fail("the still-unresolvable PPP entry was not left byte-identical: %r" % (unresolved_after.get("PPP"),))
         return
     finally:
-        manual_resolutions.set_manual_registry_state_dir(None)
         shutil.rmtree(d14a_dir, ignore_errors=True)
 
 
@@ -2142,7 +2183,6 @@ def test_clear_resolved_unresolved_prefix_is_independent_of_route_source(tmp_pat
             pytest.fail("the still-unresolvable TUV entry was not left byte-identical: %r" % (unresolved_after.get("TUV"),))
         return
     finally:
-        manual_resolutions.set_manual_registry_state_dir(None)
         shutil.rmtree(d14b_dir, ignore_errors=True)
 
 
@@ -2211,7 +2251,6 @@ def test_battery_transition_never_flips_effective_theme_for_the_same_flight(tmp_
                 "genuinely consult the same rule" % (rendered_theme_1,))
         return
     finally:
-        colour_rules.set_colour_rules_state_dir(None)
         shutil.rmtree(d13_dir, ignore_errors=True)
 
 
@@ -2230,7 +2269,6 @@ def test_nothing_ever_detected_ignores_rule_and_override(tmp_path, clock):
                 % (result.get("effective_theme"),))
         return
     finally:
-        colour_rules.set_colour_rules_state_dir(None)
         shutil.rmtree(b1_dir, ignore_errors=True)
 
 
@@ -2268,7 +2306,6 @@ def test_held_branch_with_no_confirmed_state_ignores_rule_and_override(tmp_path,
                 % (result.get("effective_theme"),))
         return
     finally:
-        colour_rules.set_colour_rules_state_dir(None)
         shutil.rmtree(b2_dir, ignore_errors=True)
 
 
@@ -2293,7 +2330,6 @@ def test_hold_early_return_ignores_rule_and_override(tmp_path, clock):
                 "onto a hold screen (D-09)" % (result.get("effective_theme"),))
         return
     finally:
-        colour_rules.set_colour_rules_state_dir(None)
         shutil.rmtree(b3_dir, ignore_errors=True)
 
 
@@ -2323,7 +2359,6 @@ def test_direction_sensitivity_through_the_real_loop(tmp_path, clock):
                 "arriving (D-04)" % (departing_result.get("effective_theme"),))
         return
     finally:
-        colour_rules.set_colour_rules_state_dir(None)
         shutil.rmtree(c_dir_arr, ignore_errors=True)
         shutil.rmtree(c_dir_dep, ignore_errors=True)
 
@@ -2348,7 +2383,6 @@ def test_colour_rules_registry_reloaded_every_cycle_from_its_own_state_dir(tmp_p
                 % (after.get("effective_theme"),))
         return
     finally:
-        colour_rules.set_colour_rules_state_dir(None)
         shutil.rmtree(d_dir, ignore_errors=True)
 
 
@@ -2416,7 +2450,6 @@ def test_calendar_match_survives_a_battery_repaint_past_its_own_window(tmp_path,
                 "fail if both branches were wrong in the same direction" % (rendered_theme_1,))
         return
     finally:
-        colour_rules.set_colour_rules_state_dir(None)
         shutil.rmtree(cal1_dir, ignore_errors=True)
 
 
@@ -2440,7 +2473,6 @@ def test_calendar_match_beats_an_exact_callsign_rule(tmp_path, clock):
                 "'black' (D-02)" % (result.get("effective_theme"),))
         return
     finally:
-        colour_rules.set_colour_rules_state_dir(None)
         shutil.rmtree(cal2_dir, ignore_errors=True)
 
 
@@ -2461,7 +2493,6 @@ def test_nothing_ever_detected_ignores_calendar_match(tmp_path, clock):
                 "never reach an empty state" % (result.get("effective_theme"),))
         return
     finally:
-        colour_rules.set_colour_rules_state_dir(None)
         shutil.rmtree(cal3_dir, ignore_errors=True)
 
 
@@ -2502,7 +2533,6 @@ def test_held_branch_with_no_confirmed_state_ignores_calendar_match(tmp_path, cl
                 % (result.get("effective_theme"),))
         return
     finally:
-        colour_rules.set_colour_rules_state_dir(None)
         shutil.rmtree(cal4_dir, ignore_errors=True)
 
 
@@ -2530,7 +2560,6 @@ def test_hold_early_return_ignores_calendar_match(tmp_path, clock):
                 "a hold screen" % (result.get("effective_theme"),))
         return
     finally:
-        colour_rules.set_colour_rules_state_dir(None)
         shutil.rmtree(cal5_dir, ignore_errors=True)
 
 
@@ -2563,7 +2592,6 @@ def test_airline_only_route_never_matches_the_calendar(tmp_path, clock):
                 "present (CORRECTION 1)" % (result.get("effective_theme"),))
         return
     finally:
-        colour_rules.set_colour_rules_state_dir(None)
         shutil.rmtree(cal6_dir, ignore_errors=True)
 
 
@@ -2605,7 +2633,6 @@ def test_tampered_last_calendar_theme_id_falls_back_to_base_theme(tmp_path, cloc
                 % (result2.get("effective_theme"),))
         return
     finally:
-        colour_rules.set_colour_rules_state_dir(None)
         shutil.rmtree(cal7_dir, ignore_errors=True)
 
 
@@ -2622,7 +2649,6 @@ def test_unconfigured_cycle_never_creates_the_registry_file(tmp_path, clock):
             pytest.fail("calendar_rules.json was created for a cycle with the calendar feature unconfigured")
         return
     finally:
-        colour_rules.set_colour_rules_state_dir(None)
         shutil.rmtree(cal8_dir, ignore_errors=True)
 
 
@@ -2650,7 +2676,6 @@ def test_throttled_cycles_never_rewrite_the_registry_file(tmp_path, clock):
                 "changed=%s" % (before_mtime, after_mtime, after_bytes != before_bytes))
         return
     finally:
-        colour_rules.set_colour_rules_state_dir(None)
         shutil.rmtree(cal9_dir, ignore_errors=True)
 
 
@@ -2684,7 +2709,6 @@ def test_feature_off_leaves_every_pre_phase_behaviour_unchanged(tmp_path, clock)
                 % (base_result.get("effective_theme"),))
         return
     finally:
-        colour_rules.set_colour_rules_state_dir(None)
         shutil.rmtree(off_rule_dir, ignore_errors=True)
         shutil.rmtree(off_arr_dir, ignore_errors=True)
         shutil.rmtree(off_base_dir, ignore_errors=True)
@@ -2716,7 +2740,6 @@ def test_default_min_interval_s_preserves_poll_loops_pacing(tmp_path, clock):
                 % (before_mtime, after_mtime, after_bytes != before_bytes))
         return
     finally:
-        colour_rules.set_colour_rules_state_dir(None)
         shutil.rmtree(cal10_dir, ignore_errors=True)
 
 

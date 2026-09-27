@@ -2,10 +2,10 @@
 """Contract tests for server/plane/colour_rules.py - the per-flight
 colour-rule registry and its resolver.
 
-Because colour_rules.py keeps a process-global cache, every resolver test
-primes it explicitly with set_colour_rules_state_dir() and resets it
-unconditionally afterwards (via try/finally), so test order can never leak
-state between tests.
+colour_rules.py holds no process-global cache: every resolver test builds
+its own registry (directly, or via load_colour_rules() against a
+tmp_path) and passes it explicitly as resolve_effective_theme_id()'s
+`rules=` argument, so test order can never leak state between tests.
 """
 import json
 import os
@@ -165,14 +165,10 @@ def test_rule_rows_ordered_and_skips_malformed_entry():
     assert rows == expected, "expected %r, got %r" % (expected, rows)
 
 
-def test_cache_reset_to_none_falls_through_to_base_theme():
-    """set_colour_rules_state_dir(None) clears the cache and resolve_effective_theme_id() falls through to the base theme."""
-    try:
-        c.set_colour_rules_state_dir(None)
-        result = c.resolve_effective_theme_id(
-            "departing", {"callsign": "AFR1234", "hex": "39de4a"}, {"theme": "white", "theme_arriving": None})
-    finally:
-        c.set_colour_rules_state_dir(None)
+def test_no_rules_argument_falls_through_to_base_theme():
+    """resolve_effective_theme_id() with no rules= argument (None) falls through to the base theme."""
+    result = c.resolve_effective_theme_id(
+        "departing", {"callsign": "AFR1234", "hex": "39de4a"}, {"theme": "white", "theme_arriving": None})
     assert result == "white", "expected 'white', got %r" % (result,)
 
 
@@ -298,20 +294,17 @@ def test_concurrent_add_rule_calls_lose_no_updates(tmp_path):
 
 
 def _resolver_with(tmp_path_factory, state_dir_registry, state, flight, device_cfg, calendar_theme_id=None):
-    try:
-        if state_dir_registry is None:
-            c.set_colour_rules_state_dir(None)
-        else:
-            tmp = tmp_path_factory.mktemp("cr-resolver")
-            for kind, value, theme_id in state_dir_registry:
-                add_result = c.add_rule(tmp, kind, value, theme_id)
-                assert add_result in (c.ADD_OK_NEW, c.ADD_OK_REPLACED), (
-                    "setup failure: add_rule(%r, %r, %r, %r) returned %r" % (tmp, kind, value, theme_id, add_result)
-                )
-            c.set_colour_rules_state_dir(tmp)
-        return c.resolve_effective_theme_id(state, flight, device_cfg, calendar_theme_id=calendar_theme_id)
-    finally:
-        c.set_colour_rules_state_dir(None)
+    if state_dir_registry is None:
+        rules = None
+    else:
+        tmp = tmp_path_factory.mktemp("cr-resolver")
+        for kind, value, theme_id in state_dir_registry:
+            add_result = c.add_rule(tmp, kind, value, theme_id)
+            assert add_result in (c.ADD_OK_NEW, c.ADD_OK_REPLACED), (
+                "setup failure: add_rule(%r, %r, %r, %r) returned %r" % (tmp, kind, value, theme_id, add_result)
+            )
+        rules = c.load_colour_rules(tmp)
+    return c.resolve_effective_theme_id(state, flight, device_cfg, calendar_theme_id=calendar_theme_id, rules=rules)
 
 
 FLIGHT_AFR = {"callsign": "AFR1234", "hex": "39de4a"}
@@ -364,7 +357,6 @@ def test_resolver_row7_rule_beats_override(tmp_path_factory):
 
 def test_resolver_never_raises_on_defensive_inputs():
     """resolve_effective_theme_id() never raises for flight=None/{}/non-dict, a None callsign/hex, or a device_cfg with no theme_arriving key, falling through to the base theme."""
-    c.set_colour_rules_state_dir(None)
     cases = [
         (None, {"theme": "white"}),
         ({}, {"theme": "white"}),
@@ -378,21 +370,18 @@ def test_resolver_never_raises_on_defensive_inputs():
 
 
 def test_resolver_ignores_tampered_cache_theme_id(tmp_path):
-    """resolve_effective_theme_id() ignores a cached entry whose theme_id is not a member of device_config.THEMES rather than returning it."""
-    try:
-        add_result = c.add_rule(tmp_path, "callsign", "AFR1234", "white")
-        assert add_result == c.ADD_OK_NEW, "setup failure: add_rule() returned %r" % (add_result,)
-        c.set_colour_rules_state_dir(tmp_path)
-        c._cached_rules["callsign"]["AFR1234"]["theme_id"] = "not-a-real-theme"
-        result = c.resolve_effective_theme_id("departing", {"callsign": "AFR1234"}, {"theme": "black"})
-        assert result == "black", (
-            "expected the tampered entry to be ignored and fall through to 'black', got %r" % (result,)
-        )
-        assert "not-a-real-theme" not in device_config.THEMES, (
-            "test setup invalid: 'not-a-real-theme' is somehow a real theme id"
-        )
-    finally:
-        c.set_colour_rules_state_dir(None)
+    """resolve_effective_theme_id() ignores a rules entry whose theme_id is not a member of device_config.THEMES rather than returning it."""
+    add_result = c.add_rule(tmp_path, "callsign", "AFR1234", "white")
+    assert add_result == c.ADD_OK_NEW, "setup failure: add_rule() returned %r" % (add_result,)
+    rules = c.load_colour_rules(tmp_path)
+    rules["callsign"]["AFR1234"]["theme_id"] = "not-a-real-theme"
+    result = c.resolve_effective_theme_id("departing", {"callsign": "AFR1234"}, {"theme": "black"}, rules=rules)
+    assert result == "black", (
+        "expected the tampered entry to be ignored and fall through to 'black', got %r" % (result,)
+    )
+    assert "not-a-real-theme" not in device_config.THEMES, (
+        "test setup invalid: 'not-a-real-theme' is somehow a real theme id"
+    )
 
 
 # --- calendar_theme_id precedence over rules and the arrivals override ----
@@ -464,17 +453,20 @@ def test_backward_compatible_three_positional_call(tmp_path_factory):
 
 def test_tampered_calendar_theme_id_ignored(tmp_path):
     """resolve_effective_theme_id() ignores a calendar_theme_id that is not a member of device_config.THEMES, falling through to the matching rule rather than returning it or the base theme (T-16-TAMPER)."""
-    try:
-        add_result = c.add_rule(tmp_path, "callsign", "AFR1234", RULE_THEME_FOR_PRECEDENCE)
-        assert add_result == c.ADD_OK_NEW, "setup failure: add_rule() returned %r" % (add_result,)
-        c.set_colour_rules_state_dir(tmp_path)
-        for bad in ("not-a-real-theme", "", 1, True, {}, []):
-            result = c.resolve_effective_theme_id(
-                "departing", FLIGHT_AFR, {"theme": "white"}, calendar_theme_id=bad)
-            assert result == RULE_THEME_FOR_PRECEDENCE, (
-                "calendar_theme_id=%r: expected fall-through to the rule's theme %r, got %r" % (
-                    bad, RULE_THEME_FOR_PRECEDENCE, result)
-            )
-    finally:
-        c.set_colour_rules_state_dir(None)
+    add_result = c.add_rule(tmp_path, "callsign", "AFR1234", RULE_THEME_FOR_PRECEDENCE)
+    assert add_result == c.ADD_OK_NEW, "setup failure: add_rule() returned %r" % (add_result,)
+    rules = c.load_colour_rules(tmp_path)
+    for bad in ("not-a-real-theme", "", 1, True, {}, []):
+        result = c.resolve_effective_theme_id(
+            "departing", FLIGHT_AFR, {"theme": "white"}, calendar_theme_id=bad, rules=rules)
+        assert result == RULE_THEME_FOR_PRECEDENCE, (
+            "calendar_theme_id=%r: expected fall-through to the rule's theme %r, got %r" % (
+                bad, RULE_THEME_FOR_PRECEDENCE, result)
+        )
+
+
+def test_no_setter_or_module_global_remains():
+    """colour_rules.py exposes no module-global setter and no process-scoped cache."""
+    for name in ("set_colour_rules_state_dir", "_cached_rules"):
+        assert not hasattr(c, name), "colour_rules module still has %r, expected it removed" % (name,)
 

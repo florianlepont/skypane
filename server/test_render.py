@@ -217,7 +217,8 @@ class _SelectIllustrationSpy:
     of (route, aircraft_type) argument pairs, in call order. Monkeypatches
     render.illustrations.select_illustration (the reference render.py
     itself calls through), following _TextSpy's monkeypatch-and-restore
-    shape.
+    shape. Accepts (and forwards) the state_dir keyword _build_active_canvas()
+    always passes, even though this spy does not record it.
     """
 
     def __init__(self, render_mod):
@@ -228,9 +229,9 @@ class _SelectIllustrationSpy:
     def __enter__(self):
         self._orig = self._render_mod.illustrations.select_illustration
 
-        def _spy(route, aircraft_type=None):
+        def _spy(route, aircraft_type=None, state_dir=None):
             self.calls.append((route, aircraft_type))
-            return self._orig(route, aircraft_type)
+            return self._orig(route, aircraft_type, state_dir=state_dir)
 
         self._render_mod.illustrations.select_illustration = _spy
         return self
@@ -283,7 +284,7 @@ def _forced_illustration_pair(render_mod, main_path, prev_path):
     """
     orig = render_mod.illustrations.select_illustration
     paths = iter((main_path, prev_path))
-    render_mod.illustrations.select_illustration = lambda route, aircraft_type=None: next(paths)
+    render_mod.illustrations.select_illustration = lambda route, aircraft_type=None, state_dir=None: next(paths)
     try:
         yield
     finally:
@@ -322,9 +323,10 @@ def _write_oversized_png(tmp_path):
 @contextlib.contextmanager
 def _forced_illustration(render_mod, path, fallback_path=None):
     """Monkeypatch `render_mod.illustrations.select_illustration` to a
-    lambda accepting `(route, aircraft_type=None)` and returning `path` -
-    following `_SelectIllustrationSpy`'s exact monkeypatch-and-restore
-    shape, but overriding the return value instead of recording arguments.
+    lambda accepting `(route, aircraft_type=None, state_dir=None)` and
+    returning `path` - following `_SelectIllustrationSpy`'s exact
+    monkeypatch-and-restore shape, but overriding the return value instead
+    of recording arguments.
     When `fallback_path` is given, also monkeypatches
     `render_mod.illustrations.generic_fallback_path` to return it -
     letting a caller force both the primary candidate and the fallback
@@ -333,7 +335,7 @@ def _forced_illustration(render_mod, path, fallback_path=None):
     """
     orig_select = render_mod.illustrations.select_illustration
     orig_fallback = render_mod.illustrations.generic_fallback_path
-    render_mod.illustrations.select_illustration = lambda route, aircraft_type=None: path
+    render_mod.illustrations.select_illustration = lambda route, aircraft_type=None, state_dir=None: path
     if fallback_path is not None:
         render_mod.illustrations.generic_fallback_path = lambda: fallback_path
     try:
@@ -958,6 +960,32 @@ def test_select_illustration_calls_each_receive_their_own_flights_type():
         pytest.fail("previous-card call received the main flight's type - card-type crossover bug")
     if main_route != TEST_ROUTE or prev_route != TEST_PREVIOUS_ROUTE:
         pytest.fail("select_illustration() calls got the wrong route pairing: %r" % (spy.calls,))
+
+
+def test_build_canvas_state_dir_reaches_illustration_override(tmp_path):
+    """build_canvas(..., state_dir=tmp) forwards state_dir all the way to select_illustration(), which then resolves an illustration override placed under tmp's illustration_overrides/ dir; omitting state_dir resolves the vendored file instead."""
+    override_dir = tmp_path / illustrations.ILLUSTRATION_OVERRIDE_DIRNAME
+    override_dir.mkdir()
+    override_path = override_dir / "transavia-france.png"
+    override_path.write_bytes(b"not a real png - path-existence fixture only")
+
+    with _SelectIllustrationSpy(render) as spy_with_state_dir:
+        render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, state_dir=str(tmp_path))
+    if not spy_with_state_dir.calls:
+        pytest.fail("no select_illustration() call captured with state_dir set")
+
+    resolved_with_state_dir = illustrations.select_illustration(
+        TEST_ROUTE, TEST_FLIGHT.get("aircraft_type"), state_dir=str(tmp_path))
+    assert resolved_with_state_dir == str(override_path), (
+        "with state_dir=tmp, select_illustration() resolved %r, expected the override path %r" % (
+            resolved_with_state_dir, override_path)
+    )
+
+    resolved_without_state_dir = illustrations.select_illustration(TEST_ROUTE, TEST_FLIGHT.get("aircraft_type"))
+    assert resolved_without_state_dir != str(override_path), (
+        "with no state_dir argument, select_illustration() must not resolve the override path, got %r" % (
+            resolved_without_state_dir,)
+    )
 
 
 def test_no_previous_flight_never_raises_and_never_crosses_over():

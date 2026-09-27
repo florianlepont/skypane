@@ -1649,13 +1649,17 @@ def _assert_legal_palette(canvas, bg_idx):
 def _build_active_canvas(
     flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None,
     theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID,
-    source_fault=False, battery_low=False,
+    source_fault=False, battery_low=False, state_dir=None,
 ):
     """Build the departing/arriving two-flight poster canvas.
 
     `battery_low`/`source_fault`: when True, draw the bottom-left
     battery-low icon / bottom-centre source-fault badge in the state's
     own ink, via `state_ink_index()` so neither can use an illegal index.
+
+    `state_dir`: forwarded to both `illustrations.select_illustration()`
+    calls below, so an illustration override placed under this cycle's
+    state dir reaches the rendered canvas. `None` means vendored-only.
     """
     if state not in STATE_BACKGROUND:
         raise ValueError("unknown state %r (expected 'departing', 'arriving', or 'empty')" % (state,))
@@ -1690,7 +1694,7 @@ def _build_active_canvas(
     inner_width = WIDTH * (1 - 2 * FRAME_INSET_FRAC)
     main_w = round(inner_width * MAIN_ILLUSTRATION_WIDTH_FRAC)
 
-    main_path = illustrations.select_illustration(route, flight.get("aircraft_type"))
+    main_path = illustrations.select_illustration(route, flight.get("aircraft_type"), state_dir=state_dir)
     main_placement = None
     main_resized = _load_illustration_safely(main_path, main_w)
     if main_resized is not None:
@@ -1702,7 +1706,7 @@ def _build_active_canvas(
 
     # Previous flight: the detection immediately preceding this one.
     if previous_flight is not None and main_placement is not None:
-        prev_path = illustrations.select_illustration(previous_route, (previous_flight or {}).get("aircraft_type"))
+        prev_path = illustrations.select_illustration(previous_route, (previous_flight or {}).get("aircraft_type"), state_dir=state_dir)
         # SIZE derives from `.rect` (constant per file), not `.content`,
         # so it does not depend on which airline is in the main slot.
         main_rect = main_placement.rect
@@ -1736,7 +1740,7 @@ def _build_active_canvas(
 def build_canvas(
     flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None,
     theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID,
-    source_fault=False, battery_low=False, quiet_hours_until=None,
+    source_fault=False, battery_low=False, quiet_hours_until=None, state_dir=None,
 ):
     """Pre-pack "P"-mode canvas for `flight` in `state` ("departing" /
     "arriving" / "empty" / "quiet_hours" / "display_off" /
@@ -1747,7 +1751,11 @@ def build_canvas(
     empty state. `theme_id`/`runway_id`: registry ids, degrading to the
     default when unrecognised. `source_fault`: only when every ADS-B
     source has failed. `quiet_hours_until` ("HH:MM") applies only to
-    `state == "quiet_hours"`.
+    `state == "quiet_hours"`. `state_dir`: forwarded to
+    `_build_active_canvas()` only - the hold-screen builders
+    (`_build_battery_empty_canvas`/`_build_display_off_canvas`/
+    `_build_quiet_hours_canvas`/`_build_empty_canvas`) draw no
+    illustration and never consult it.
 
     `"display_off"`/`"quiet_hours"`/`"empty"` are always White/Black.
     `"battery_empty"` ignores every other argument: its bytes/hash must
@@ -1774,6 +1782,7 @@ def build_canvas(
         runway_id=runway_id,
         source_fault=source_fault,
         battery_low=battery_low,
+        state_dir=state_dir,
     )
 
 

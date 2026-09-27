@@ -9,10 +9,12 @@ this module (the reverse direction would cycle). Its callsign/prefix
 normalisers duplicate small primitives from `enrich.py`/
 `manual_resolutions.py` rather than import them, for the same reason.
 
-**Caching:** `set_colour_rules_state_dir()`'s cache is for the
-once-per-cycle poll pipeline only. `companion/`'s long-running
-`ThreadingHTTPServer` must call `load_colour_rules(state_dir)` fresh per
-request instead.
+**Loading:** the caller loads the registry once per cycle with
+`load_colour_rules(state_dir)` and passes it into
+`resolve_effective_theme_id(..., rules=registry)` - this module holds no
+cache of its own. `companion/`'s long-running `ThreadingHTTPServer` must
+call `load_colour_rules(state_dir)` fresh per request, same as any other
+caller.
 
 A rule record is a dict (`{"theme_id": ..., "created_at": ...}`), not a
 bare theme-id string, so a future entry can carry fields not yet defined.
@@ -67,9 +69,6 @@ ADD_FAILED = "failed"
 # just os.replace()), so two concurrent companion writers can never each
 # load before either has written and lose an update.
 _WRITE_LOCK = threading.Lock()
-
-# Process-scoped cache; unset means the empty registry shape.
-_cached_rules = {kind: {} for kind in RULE_KINDS}
 
 
 def colour_rules_path(state_dir):
@@ -298,19 +297,6 @@ def rule_rows(registry):
     return rows
 
 
-def set_colour_rules_state_dir(state_dir):
-    """Set the process-wide cached registry `resolve_effective_theme_id()`
-    reads through. Call once per poll cycle so a companion-side save
-    landing mid-cycle never splits one rendered panel across two
-    configurations. Falsy `state_dir` caches the empty registry shape.
-    """
-    global _cached_rules
-    if state_dir:
-        _cached_rules = load_colour_rules(state_dir)
-    else:
-        _cached_rules = {kind: {} for kind in RULE_KINDS}
-
-
 def _rule_theme_from_cache(cache, kind, key):
     """Defensive nested lookup used only by `resolve_effective_theme_id()`
     below — never raises regardless of `cache`'s shape, including a
@@ -327,9 +313,9 @@ def _rule_theme_from_cache(cache, kind, key):
     return entry.get("theme_id")
 
 
-def resolve_effective_theme_id(state, flight, device_cfg, calendar_theme_id=None):
+def resolve_effective_theme_id(state, flight, device_cfg, calendar_theme_id=None, rules=None):
     """The single resolver that decides what colour the panel is. Reads
-    `_cached_rules` only, never touches disk. Never raises; always
+    only its `rules` argument, never touches disk. Never raises; always
     returns a member of `device_config.THEMES`.
 
     Order: `calendar_theme_id`, then exact callsign rule, hex rule,
@@ -341,11 +327,16 @@ def resolve_effective_theme_id(state, flight, device_cfg, calendar_theme_id=None
     `calendar_theme_id` is computed by the caller (`poll_loop.py`, via
     `calendar_rules.match_calendar_theme()`), preserving this module's
     leaf-import contract.
+
+    `rules`: the registry the caller loaded once this cycle via
+    `load_colour_rules(state_dir)`. `None`, or anything not a dict, is
+    treated as the empty registry - matching the behaviour of a process
+    that never loaded one.
     """
     if isinstance(calendar_theme_id, str) and calendar_theme_id in device_config.THEMES:
         return calendar_theme_id
 
-    cache = _cached_rules if isinstance(_cached_rules, dict) else {}
+    cache = rules if isinstance(rules, dict) else {kind: {} for kind in RULE_KINDS}
 
     raw_callsign = flight.get("callsign") if isinstance(flight, dict) else None
     raw_hex = flight.get("hex") if isinstance(flight, dict) else None

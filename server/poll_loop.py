@@ -52,7 +52,6 @@ import server.plane.calendar_rules as calendar_rules
 import server.plane.colour_rules as colour_rules
 import server.plane.detect as detect
 import server.plane.enrich as enrich
-import server.plane.illustrations as illustrations
 import server.plane.manual_resolutions as manual_resolutions
 import server.plane.render as render
 import server.plane.runway_config as runway_config
@@ -935,19 +934,19 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
     state_dir = state_dir or DEFAULT_STATE_DIR
     os.makedirs(state_dir, exist_ok=True)
 
-    # Configure the illustration override resolver and manual-resolution
-    # registry from THIS cycle's state_dir, here rather than in main() -
-    # run_once() is the single entry point both the systemd oneshot and
-    # companion/app.py's POST /poll-now trigger go through. Reloaded once
-    # per cycle so a companion-side save landing mid-cycle can't split one
-    # cycle across two registries (a manual resolution reaches the glass
-    # at the next wake, never instantly).
-    illustrations.set_override_state_dir(state_dir)
-    manual_resolutions.set_manual_registry_state_dir(state_dir)
-    # Same per-cycle priming for the colour-rule registry cache. The
-    # resolver itself is not called here - render_state and current_flight
-    # aren't settled yet.
-    colour_rules.set_colour_rules_state_dir(state_dir)
+    # Load the manual-resolution and colour-rule registries from THIS
+    # cycle's state_dir, here rather than in main() - run_once() is the
+    # single entry point both the systemd oneshot and companion/app.py's
+    # POST /poll-now trigger go through. Loaded once per cycle and passed
+    # explicitly down the call chain (manual_registry=/rules=/state_dir=)
+    # so a companion-side save landing mid-cycle can't split one cycle
+    # across two registries (a manual resolution reaches the glass at the
+    # next wake, never instantly). The colour-rule registry's resolver
+    # itself is not called here - render_state and current_flight aren't
+    # settled yet. illustration overrides need no load here: state_dir
+    # itself is passed straight through to render.build_canvas() below.
+    manual_registry = manual_resolutions.load_manual_resolutions(state_dir)
+    colour_rules_registry = colour_rules.load_colour_rules(state_dir)
 
     # The calendar refresh is its own distinct step (may open a socket,
     # unlike the JSON-only priming above). Safe unconditionally:
@@ -1265,7 +1264,7 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
             calendar_theme_id = None
             canvas = render.build_canvas(
                 None, render_state, theme_id=theme_id, runway_id=tracked_runway_id,
-                source_fault=source_fault, battery_low=battery_low,
+                source_fault=source_fault, battery_low=battery_low, state_dir=state_dir,
             )
         else:
             render_state = confirmed_state
@@ -1280,7 +1279,7 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
             # registry (only when the static table has no entry - it wins
             # on a collision); "miss" resolved nothing.
             route, route_source = enrich.resolve_route(
-                current_flight.get("callsign"), cache, now=now_s())
+                current_flight.get("callsign"), cache, now=now_s(), manual_registry=manual_registry)
             enrich.trim_cache(cache)
             poll_state["enrichment_cache"] = cache
             # A "miss" is an unrecognized ICAO prefix - recorded so the
@@ -1291,9 +1290,11 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
             # Clear this prefix from the gap registry unconditionally if it
             # now resolves, before the miss-recording branch below -
             # gating on route_source would leave stale entries uncleaned.
-            enrich.clear_resolved_unresolved_prefix(current_flight.get("callsign"), unresolved_prefixes)
+            enrich.clear_resolved_unresolved_prefix(
+                current_flight.get("callsign"), unresolved_prefixes, manual_registry=manual_registry)
             if route_source == "miss":
-                unknown_prefix = enrich.note_unresolved_prefix(current_flight.get("callsign"), unresolved_prefixes)
+                unknown_prefix = enrich.note_unresolved_prefix(
+                    current_flight.get("callsign"), unresolved_prefixes, manual_registry=manual_registry)
             enrich.trim_unresolved_prefixes(unresolved_prefixes)
             poll_state["unresolved_prefixes"] = unresolved_prefixes
             # A real transition, computed before last_recorded_* is
@@ -1326,7 +1327,7 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
                 calendar_registry, route, render_state, device_cfg, now_s())
             effective_theme_id = colour_rules.resolve_effective_theme_id(
                 render_state, current_flight, device_cfg,
-                calendar_theme_id=calendar_theme_id)
+                calendar_theme_id=calendar_theme_id, rules=colour_rules_registry)
             canvas = render.build_canvas(
                 current_flight,
                 render_state,
@@ -1338,6 +1339,7 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
                 runway_id=tracked_runway_id,
                 source_fault=source_fault,
                 battery_low=battery_low,
+                state_dir=state_dir,
             )
         rendered = panel_format.pack_panel(canvas)
         panel_changed = write_panel_atomic(state_dir, rendered)
@@ -1393,7 +1395,7 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
                 # display, silently changing colour mid-hold.
                 effective_theme_id = colour_rules.resolve_effective_theme_id(
                     render_state, current_flight, device_cfg,
-                    calendar_theme_id=current_calendar_theme_id)
+                    calendar_theme_id=current_calendar_theme_id, rules=colour_rules_registry)
                 held_canvas = render.build_canvas(
                     current_flight,
                     render_state,
@@ -1405,11 +1407,12 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
                     runway_id=tracked_runway_id,
                     source_fault=source_fault,
                     battery_low=battery_low,
+                    state_dir=state_dir,
                 )
             else:
                 held_canvas = render.build_canvas(
                     None, "empty", theme_id=theme_id, runway_id=tracked_runway_id,
-                    source_fault=source_fault, battery_low=battery_low,
+                    source_fault=source_fault, battery_low=battery_low, state_dir=state_dir,
                 )
             rerendered = panel_format.pack_panel(held_canvas)
             panel_changed = write_panel_atomic(state_dir, rerendered)
@@ -1443,7 +1446,7 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
         route_source = "n/a"
         canvas = render.build_canvas(
             None, render_state, theme_id=theme_id, runway_id=tracked_runway_id,
-            source_fault=source_fault, battery_low=battery_low,
+            source_fault=source_fault, battery_low=battery_low, state_dir=state_dir,
         )
         rendered = panel_format.pack_panel(canvas)
         panel_changed = write_panel_atomic(state_dir, rendered)
