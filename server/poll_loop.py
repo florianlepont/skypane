@@ -42,11 +42,6 @@ if _REPO_ROOT not in sys.path:
 from server.poll_cycle import PollBusy, run_once  # noqa: E402
 from server.state_store import DEFAULT_STATE_DIR  # noqa: E402
 
-# Transitional read-only bindings for the companion's own switch (a
-# separate, isolated commit): removed once companion/app.py imports
-# server.poll_cycle directly instead of reaching these through here.
-from server.poll_cycle import _save_to_gallery, now_s, poll_cycle_lock, write_panel_atomic  # noqa: E402,F401
-
 
 def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
