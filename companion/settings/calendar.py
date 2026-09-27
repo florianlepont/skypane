@@ -144,14 +144,37 @@ def _masked_calendar_url(url):
     return "%s…" % netloc
 
 
+def _status_row_with_html_detail(verdict, detail_html, state):
+    """`layout.status_row()`'s exact markup for the label="" case, except
+    `detail_html` is spliced verbatim instead of being escaped again —
+    the one caller below (the "usable" branch of `_calendar_status_html()`)
+    has already escaped its template text and glued in
+    `layout.relative_time_html()`'s own pre-escaped `<time>` markup, so
+    running it through `escape_html()` again would double-encode that
+    markup. `verdict` is still escaped here, exactly like `status_row()`.
+    Never call this for any other case — every other branch keeps calling
+    `layout.status_row()` unchanged.
+    """
+    dot_class = layout._STATUS_DOT_CLASSES.get(state, layout._DEFAULT_STATUS_DOT_CLASS)
+    modifier = layout.card_status_class("status-row", state)
+    css_class = "status-row" + ((" " + modifier) if modifier else "")
+    return (
+        '<div class="%s">'
+        '<span class="dot %s"></span>'
+        '<span class="status-row__verdict">%s</span>'
+        '<span class="status-row__detail">%s</span>'
+        "</div>"
+    ) % (css_class, dot_class, escape_html(verdict), detail_html)
+
+
 def _calendar_status_html(configured, drift, last_synced_at, last_attempt_at, now, entry_count):
     """The Calendar connection row's status line: verdict + detail,
-    already wrapped by `layout.status_row()`. Split out of
-    `_calendar_connection_html()` so that function stays under this
-    project's function-length ceiling; kept as its own function (not
-    inlined back) because it is also where a future live "refreshed Xm
-    ago" age conversion belongs, self-contained from the rest of the
-    connection block's markup.
+    already wrapped by `layout.status_row()` for every branch except the
+    "usable" one below, which bypasses it via
+    `_status_row_with_html_detail()` so the age can be a live
+    `<time data-relative>` element (CFG-34b) instead of static text.
+    Split out of `_calendar_connection_html()` so that function stays
+    under this project's function-length ceiling.
 
     Drift is checked before `configured`, since a drifted link already
     forces it False.
@@ -173,14 +196,14 @@ def _calendar_status_html(configured, drift, last_synced_at, last_attempt_at, no
             and layout.age_seconds(last_synced_at, now) is not None)
         verdict = i18n.t(CALENDAR_STATUS_CONNECTED_VERDICT)
         if usable:
-            age = layout.age_seconds(last_synced_at, now)
+            age_html = layout.relative_time_html(last_synced_at, now)
             if entry_count == 1:
-                detail = i18n.t(CALENDAR_STATUS_DETAIL_SINGULAR_TEMPLATE) % (
-                    layout.relative_age_text(age),)
+                detail_html = escape_html(i18n.t(CALENDAR_STATUS_DETAIL_SINGULAR_TEMPLATE)) % (
+                    age_html,)
             else:
-                detail = i18n.t(CALENDAR_STATUS_DETAIL_TEMPLATE) % (
-                    entry_count, layout.relative_age_text(age))
-            state = "ok"
+                detail_html = escape_html(i18n.t(CALENDAR_STATUS_DETAIL_TEMPLATE)) % (
+                    entry_count, age_html)
+            return _status_row_with_html_detail(verdict, detail_html, "ok")
         elif last_attempt_at is not None:
             detail = i18n.t(CALENDAR_STATUS_FETCH_FAILED_DETAIL)
             state = "error"

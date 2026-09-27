@@ -1361,6 +1361,37 @@ def test_home_rendered_caption_carries_the_element_through_the_template(tmp_path
             prefs.set_request_prefs(lang="en")
 
 
+def test_flights_when_cell_age_is_a_live_time_element(tmp_path):
+    """Flights desktop table's When column renders its relative age as a live
+    <time data-relative> element (layout.relative_time_html()'s own markup) carrying the
+    row's own instant, reading exactly what relative_age_text() reads today, with the
+    cell-primary/cell-inline-sep/cell-secondary shape _merged_cell() also emits, and no
+    double-escaping (CFG-34a)"""
+    from companion_markup import parse_html
+
+    now = "2026-09-27T12:00:00+00:00"
+    ts = "2026-09-27T11:50:00+00:00"
+    vp.seed_runway_events(tmp_path, [
+        {"ts": ts, "hex": "3c6444", "callsign": "AFR1380",
+         "airline": "Air France", "origin": "ORY", "destination": "TLS"},
+    ])
+    rendered = history_page.render(vp.history_ctx(tmp_path, now=now))
+    tr_block = vp.row_block(rendered, "tr", 0)
+    assert tr_block is not None, "expected to locate the seeded row"
+    when_cell = tr_block.select("td")[0]
+    element = when_cell.select_one("time[data-relative]")
+    expected_age = layout.relative_age_text(600)
+    assert element.text() == expected_age, (
+        "expected the When cell's age text to read exactly relative_age_text()'s own output, "
+        "got %r" % (element.text(),))
+    assert element.attrs.get("datetime"), "expected a non-empty datetime attribute"
+    assert layout.age_seconds(element.attrs["datetime"], now) == 600, (
+        "expected the element's own instant to carry the row's own moment")
+    assert when_cell.find("span", cls=history_page.CELL_PRIMARY_CLASS) is not None
+    assert when_cell.find("span", cls=history_page.CELL_SECONDARY_CLASS) is not None
+    assert "&lt;time" not in rendered, "found a double-escaped '&lt;time' on Flights"
+
+
 def test_recent_flight_thumb_resolved_vs_placeholder(tmp_path):
     """a recent-flight row whose airline resolves to a real illustration file renders exactly
     one lazily-loaded /illustration/ thumbnail <img>; a null/unrecognised airline AND an

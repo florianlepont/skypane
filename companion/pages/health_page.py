@@ -1139,6 +1139,11 @@ def _registry_seen_cell_html(raw_ts, now):
     wide for two of six columns to fit unwrapped in French. Degrades
     like `_when_cell_html()`: a falsy timestamp renders empty, an
     unparseable one renders the raw value with no secondary line.
+
+    The secondary line is `layout.relative_time_html()`'s own
+    pre-escaped `<time data-relative>` markup (CFG-34c), not
+    `escape_html(layout.relative_age_text(age))` — interpolated verbatim,
+    never re-escaped, so a ticker script can find and update it.
     """
     if not raw_ts:
         return ""
@@ -1155,7 +1160,7 @@ def _registry_seen_cell_html(raw_ts, now):
             '<span class="cell-secondary">%s</span>'
         ) % (
             escape_html(_REGISTRY_CELL_SEPARATOR_TEXT),
-            escape_html(layout.relative_age_text(age)))
+            layout.relative_time_html(raw_ts, now))
     return html
 
 

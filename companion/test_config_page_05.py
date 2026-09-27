@@ -36,7 +36,7 @@ from companion import battery, frame_state
 from companion.layout import escape_html
 from companion.pages import config_page
 from companion_app_server import get, http_request, login, served_asset, served_stylesheet
-from companion_markup import css_rules, declarations_for
+from companion_markup import css_rules, declarations_for, parse_html
 from server import device_config, history_db
 from server.plane import calendar_rules
 
@@ -990,6 +990,40 @@ def test_the_calendar_status_detail_has_a_singular_form():
         prefs.set_request_prefs(lang="en")
     assert "1 vol à venir" in fr_one, "expected the French singular form"
     assert "3 vols à venir" in fr_many, "expected the French plural form"
+
+
+def test_calendar_status_refreshed_age_is_a_live_time_element():
+    """the Calendar status row's 'refreshed Xm ago' age is a live <time data-relative>
+    element (layout.relative_time_html()'s own markup) carrying last_synced_at's own instant,
+    read exactly what relative_age_text() reads today, still wrapped by the same
+    .status-row/.status-row__detail shape layout.status_row() emits, and no
+    double-escaping, at both a singular and a plural entry count (CFG-34b)"""
+    now = "2026-09-27T12:00:00+00:00"
+    synced = "2026-09-27T11:50:00+00:00"
+    expected_age = layout.relative_age_text(600)
+
+    for count in (1, 3):
+        row_body_html, _disconnect_form_html = config_page._calendar_connection_html(
+            True, False, synced, None, now, count)
+        assert "&lt;time" not in row_body_html, (
+            "count=%d: found a double-escaped '&lt;time' in the Calendar status row" % count)
+        doc = parse_html(row_body_html)
+        row = doc.select_one(".status-row")
+        assert "status-row--ok" in row.attrs.get("class", "").split(), (
+            "count=%d: expected the usable branch to still carry the ok modifier" % count
+        )
+        detail = row.select_one(".status-row__detail")
+        element = detail.select_one("time[data-relative]")
+        assert element.text() == expected_age, (
+            "count=%d: expected the status detail's age to read exactly relative_age_text()'s "
+            "own output, got %r" % (count, element.text()))
+        assert element.attrs.get("datetime"), "count=%d: expected a non-empty datetime attribute" % count
+        assert layout.age_seconds(element.attrs["datetime"], now) == 600, (
+            "count=%d: expected the element's own instant to carry last_synced_at" % count)
+        expected_count_text = "1 upcoming flight" if count == 1 else "%d upcoming flights" % count
+        assert expected_count_text in detail.text(), (
+            "count=%d: expected the surrounding template text unchanged, got %r"
+            % (count, detail.text()))
 
 
 # --- the page-refresh loop's swap regions and freshness markers ------

@@ -729,6 +729,15 @@ def _when_cell_html(raw_ts, now):
     here. Degrades gracefully: a falsy `raw_ts` renders the fallback
     text with no secondary; an unparseable one renders the raw value the
     same way. Never raises.
+
+    The has-age branch bypasses `_merged_cell()` (kept untouched, and
+    still called for the fallback/unparseable branches above): the
+    secondary half is built inline from `layout.relative_time_html()`'s
+    own pre-escaped `<time data-relative>` markup, using the same span
+    classes and separator `_merged_cell()` emits, so a ticker script can
+    find and update it. Only the primary clock half is escaped here —
+    the age half is never re-escaped, matching `home_page.
+    _recent_flight_time_html()`'s build-and-concatenate precedent.
     """
     if not raw_ts:
         html = _merged_cell(i18n.t(_CLOCK_CELL_FALLBACK), "")
@@ -740,8 +749,17 @@ def _when_cell_html(raw_ts, now):
             now_parsed = layout.parse_iso(now)
             clock_text = layout.local_clock_text(parsed, now_parsed)
             age = layout.age_seconds(raw_ts, now)
-            secondary = layout.relative_age_text(age) if age is not None else ""
-            html = _merged_cell(clock_text, secondary)
+            if age is None:
+                html = _merged_cell(clock_text, "")
+            else:
+                html = (
+                    '<td><span class="%s">%s</span>'
+                    '<span class="%s">%s</span>'
+                    '<span class="%s">%s</span></td>'
+                ) % (
+                    CELL_PRIMARY_CLASS, escape_html(clock_text),
+                    CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
+                    CELL_SECONDARY_CLASS, layout.relative_time_html(raw_ts, now))
     return html
 
 

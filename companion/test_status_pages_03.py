@@ -663,6 +663,39 @@ def test_registry_card_keeps_filter_bar_note_and_non_button_clear(tmp_path):
         "the migrated registry card's Clear control must not be a <button>")
 
 
+def test_registry_seen_cells_age_is_a_live_time_element(tmp_path):
+    """the unresolved-prefix registry's First seen / Last seen cells render their relative age
+    as a live <time data-relative> element (layout.relative_time_html()'s own markup), reading
+    exactly what relative_age_text() reads today, with the cell-primary/cell-inline-sep/
+    cell-secondary shape unchanged and no double-escaping (CFG-34c)"""
+    state_dir = str(tmp_path)
+    now = shp.now()
+    seen_ts = shp.iso(now - timedelta(seconds=600))
+    registry = {
+        "ABC": {"count": 1, "first_seen": seen_ts, "last_seen": seen_ts,
+                "example_callsign": "ABC123"},
+    }
+    shp.seed_unresolved_prefixes(state_dir, registry)
+    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    doc = parse_html(rendered)
+    row = doc.select_one('.data-table--registry tr[data-filter-group="0"]')
+    assert row is not None, "expected to locate the seeded registry row"
+    cells = row.select("td")
+    expected_age = layout.relative_age_text(600)
+    for label, cell in (("First seen", cells[2]), ("Last seen", cells[3])):
+        element = cell.select_one("time[data-relative]")
+        assert element is not None, "expected %s to carry a <time data-relative> element" % label
+        assert element.text() == expected_age, (
+            "%s: expected the age text to read exactly relative_age_text()'s own output, got %r"
+            % (label, element.text()))
+        assert element.attrs.get("datetime"), "%s: expected a non-empty datetime attribute" % label
+        assert layout.age_seconds(element.attrs["datetime"], shp.iso(now)) == 600, (
+            "%s: expected the element's own instant to carry the registry row's moment" % label)
+        assert cell.find("span", cls="cell-primary") is not None
+        assert cell.find("span", cls="cell-secondary") is not None
+    assert "&lt;time" not in rendered, "found a double-escaped '&lt;time' on Health"
+
+
 def test_read_only_note_reworded_to_point_at_airlines_not_the_runbook(tmp_path):
     """the read-only note is reworded to name Airlines as the resolution surface, no longer points at
     the manual runbook, no longer says 'prefix' in either half, and is now split into a short
