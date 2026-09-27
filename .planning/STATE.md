@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 39-07-PLAN.md
-last_updated: "2026-09-27T09:39:58.028Z"
+stopped_at: Completed 39-08-PLAN.md
+last_updated: "2026-09-27T10:18:35.615Z"
 last_activity: 2026-09-27
 progress:
   total_phases: 54
   completed_phases: 47
   total_plans: 418
-  completed_plans: 387
+  completed_plans: 388
   percent: 93
 ---
 
@@ -63,7 +63,9 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 8 of 13
+Plan: 9 of 13
+
+**39-08 executed (2026-09-27), plan 8/13 of Phase 39 (depends on 39-03), wave 3 — ARC-03's render split, ARC-01's three inherited size offenders, two commits.** Task 1 `git mv`'d `server/plane/render.py` (2049 lines) into `server/plane/render/__init__.py`, then carved it into `style.py` (spacing/fonts/state colours/geometry/the two canvas-bounds assertion helpers/the diagonal band's pure edge-geometry helpers), `text.py` (font fitting, tracked text, main/previous flight text blocks), `glyphs.py` (the five hold-screen glyphs plus the two small status indicators), `hold_screens.py` (the five non-active-flight canvases), `layout.py` (band/top labels/illustration placement/`build_canvas`/`render_panel`) and `cli.py` (the preview CLI) plus `__main__.py`; `__init__.py` re-exports the full historical surface (~150 names) so `server.plane.render` stays importable unchanged (D-2) — verified programmatically byte-identical against the git-committed original across every state/theme/indicator combination. `draw_source_fault_badge`/`draw_battery_icon` moved to `glyphs.py` rather than `layout.py` (the research's own line-range table), and `_band_edges`/`_band_center_x` moved to `style.py` rather than staying beside `draw_diagonal_band()` in `layout.py` — both to avoid import cycles (`hold_screens.py` must not import `layout.py`; `text.py` cannot import `layout.py` either). Beyond the plan's own named three rebind-retargeting hazards (`_font`/`draw_main_text_block`/`draw_previous_text_block`), found and fixed three more of the identical kind: `_PlacementSpy` rebinding `draw_illustration`, and two dispatch-proof tests rebinding `_build_hold_canvas`/`_build_dimmed_hold_canvas` — all intra-module bare calls a package-level rebind cannot reach; retargeted to `render.layout.*`/`render.hold_screens.*` with non-vacuity assertions (two of the four plan-named retargets also needed a NEW non-vacuity check, since their existing byte-identity/pixel-diff assertions would have passed vacuously, not failed loudly, had the retarget been wrong). The no-stroke-outline source-text test now scans every `.py` under `server/plane/render/`; a new surface test asserts the full name list plus `device_config`/`illustrations`/`Image`/`ImageDraw` module attributes. The `render.py` sys.path bootstrap was dropped entirely (documented entry is `python3 -m server.plane.render`, run from the repo root, which needs none). Task 2 split `cli.py`'s `build_parser()` (98→~6 code lines) into four section helpers called in their original order (byte-identical `--help`, diffed and confirmed) and `main()` (84→~9) into `_preview_inputs()`/`_render_preview()`/`_write_outputs()`; `text.py`'s `draw_main_text_block()` (91→~4) dispatches to `_draw_main_block_plain()`/`_draw_main_block_band()` plus two more helpers. Updated the repo-root `README.md` (not `server/README.md` as the plan named — that file has no render-invocation line at all) to `python3 -m server.plane.render`, and trimmed `pyproject.toml`'s E402 comment (render.py's bootstrap count is now zero). Commits: `062cac9` (feat) Task 1, `ed86fa6` (refactor) Task 2. Full suite green (2976 passed, 139 skipped), ruff and `check_comment_history.py` both clean, coverage 94% (≥93% required), `check_function_size.py check --max 80 server/plane/render` reports 72 functions scanned none over 80, `git diff --name-only` across both commits touches no `companion/`/`firmware/` file. Per this phase's own convention, ARC-01/ARC-03 are NOT marked Complete in REQUIREMENTS.md here — only 39-13 flips ARC-* to Complete. `state.update-progress`/`state.record-metric`/`state.add-decision` reproduced this file's own documented recurring bug twice more in this same session — the written frontmatter kept reverting to `percent: 87` (`completed_phases/total_phases` = 47/54) after each mutation; corrected to `93` (388/418) by hand as the last STATE.md edit before the final commit, per this file's established precedent.
 
 **39-07 executed (2026-09-27), plan 7/13 of Phase 39 (depends on 39-02), wave 3 — ARC-02/ARC-05's companion import switches, D-6, three isolated commits.** Task 1 switched `companion/pages/health_page.py` and `companion/pages/airlines_page.py` off `server.poll_loop` and onto `server.state_store` for every `load_poll_state()` call site, rewording every comment/docstring in both files that named the old module (including two in `health_page.py` about `POLL_INTERVAL_S`/the device hysteresis threshold, reworded to drop the module name since those still live in `poll_loop.py` unchanged); retargeted `test_status_pages_05b.py`'s airlines-page import-shape test (renamed, asserts `state_store` binding, dropped the stale `(phase 13 D-11 supersession)` ID from its message) and `test_companion_app_05.py`'s poll-trigger cooldown seed helper. Task 2 made `companion/battery.py` re-export `server.device_policy`'s `BATTERY_DISCHARGE_CURVE`/`BATTERY_FULL_MV`/`BATTERY_EMPTY_MV`/`battery_fraction`/`battery_percent` (`companion/wake.py`'s own shim pattern) instead of maintaining a second copy, keeping `_curve_mv_at_percent`, `LOW_BATTERY_DISPLAY_*` and the whole life-estimate section unchanged; per D-6, `test_companion_app_03.py`'s "imports nothing from server" isolation test became `test_battery_module_imports_only_the_shared_device_policy_from_server`, an allowlist (only `server`/`server.device_policy`, no `companion.pages*`, no `PIL`/`requests`/`urllib3`) diffing `sys.modules` before/after the import — required because `child_env()`'s own `sitecustomize.py` unconditionally imports `requests` before any application code runs, so a raw post-import set would false-positive (same pattern 39-02 established for `device_policy`'s own isolation test); `test_companion_app_02.py`'s parity test became `test_battery_estimate_is_the_shared_device_policy`, asserting identity (`is`), not equality, plus the same 2800-4400 mV sweep and hostile-input set, dropping the stale `(D-27)` ID from its message. Task 3 switched `companion/app.py`'s poll_state freshness-stamp path and `--state-dir` CLI default onto `state_store.poll_state_path()`/`DEFAULT_STATE_DIR`, leaving `poll_loop.run_once`/`PollBusy`/`poll_cycle_lock`/`now_s` untouched (those move to the future poll-cycle library module), and switched all four companion test-seeding helpers' `save_poll_state()` calls onto `state_store`, dropping the now-unused `poll_loop` import from the two/three helpers that had no other use of it (`test_browser_ux_helpers.py` keeps it for `_save_to_gallery`). One Rule-1 auto-fix during Task 3's own acceptance-criteria grep (which is repo-wide, not scoped to the task's file list): a stale comment in `test_status_pages_03.py` still named `poll_loop.load_poll_state()` after Task 1's commit had already switched the page it describes onto `state_store`; reworded to match. Commits: `cc1837f` (feat) Task 1, `9bfc02e` (feat) Task 2, `0499fd7` (feat) Task 3. Full suite green after each commit (2974 passed, 139 skipped — pre-existing Playwright-browser-missing/root-euid skips), ruff and `check_comment_history.py` both clean, coverage 94% (≥93% required). No `server/`/`stub-server/` file touched, per this plan's own coordination note (Phase 40 owns `companion/` in parallel). Per this phase's own convention, ARC-02/ARC-05 are NOT marked Complete in REQUIREMENTS.md here — only 39-13 flips ARC-* to Complete. `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 93` (387/418) but the written frontmatter showed `percent: 87` (`completed_phases/total_phases` = 47/54) — corrected to `93` by hand per this file's established precedent.
 
@@ -579,6 +581,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 39 P05 | 45min | 2 tasks | 4 files |
 | Phase 39 P06 | 45min | 2 tasks | 4 files |
 | Phase 39 P07 | 10min | 3 tasks | 13 files |
+| Phase 39 P08 | 70min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -1136,6 +1139,8 @@ Recent decisions affecting current work:
 - [Phase 39]: D-4 implemented: byos's invalid stored quiet-hours time now falls back to the default 23:00-07:00 window (extends sleep) instead of disabling quiet hours — unifies with the server's own poll-cycle hold decision; old outcome retargeted in a new test, not dropped
 - [Phase 39]: companion/battery.py's isolation test retargeted to an allowlist (server.device_policy only), per D-6 — the shared battery-policy module is stdlib-only, so companion may depend on it alone without breaking the 'no third-party import' invariant
 - [Phase 39]: 39-07: companion.battery's parity test asserts identity (is) with server.device_policy's objects, not equality with poll_loop's old private copy — re-exporting the same objects makes identity the true invariant, which subsumes the weaker equality property the old test checked
+- [Phase 39]: 39-08: draw_source_fault_badge/draw_battery_icon moved to glyphs.py (not layout.py as research located them) to avoid an import cycle - both are called from hold_screens.py, which must not import layout.py
+- [Phase 39]: 39-08: found and fixed three rebind-retargeting hazards beyond the plan's own named three (_font/draw_main_text_block/draw_previous_text_block) - draw_illustration, _build_hold_canvas and _build_dimmed_hold_canvas are the same intra-module-bare-call hazard, retargeted with non-vacuity assertions
 
 ### Pending Todos
 
@@ -1256,8 +1261,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-27T09:39:57.956Z
-Stopped at: Completed 39-07-PLAN.md
+Last session: 2026-09-27T10:18:35.547Z
+Stopped at: Completed 39-08-PLAN.md
 
 Resume file: 
 
