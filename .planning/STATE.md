@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Completed 40-01-PLAN.md: structural guard + render-snapshot baseline"
-last_updated: "2026-09-27T07:06:51.812Z"
+stopped_at: "Completed 40-02-PLAN.md: deduplicated and tokenised style.css"
+last_updated: "2026-09-27T08:36:57.510Z"
 last_activity: 2026-09-27
 progress:
   total_phases: 54
   completed_phases: 47
   total_plans: 421
-  completed_plans: 381
+  completed_plans: 382
   percent: 87
 ---
 
@@ -38,7 +38,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [█████████░] 90%
+  [█████████░] 91%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -63,7 +63,7 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 2 of 16
+Plan: 3 of 16
 
 **38-03 executed (2026-09-26), plan 3/13 of Phase 38 (depends on 38-01), wave 2 — EFF-03 storage machinery: history_db connection_scope, schema-once, write_batch.** Task 1 (TDD) added `connection_scope(state_dir)`, a re-entrant `threading.local()`-backed context manager: every `open_db(state_dir)` call on the same thread inside it shares one lazily-opened connection, closed (rolled back first if left in a transaction) only at the outermost exit; a scope for a different path started while one is active is served unscoped (passthrough); another thread never sees this thread's scope; a scoped open failure is remembered and re-raised on every later `open_db` in the scope without retrying. `open_db()`'s own signature is unchanged and its passthrough (unscoped) behaviour is identical to before. Task 2 (TDD) made schema and `PRAGMA journal_mode=WAL` run once per process per database file identity (`realpath`, `st_dev`, `st_ino`, in a lock-guarded set), with an empty-file override so a restored or deleted-and-recreated `history.db` always reruns it; connections now come from a `sqlite3.Connection` subclass (`_HistoryConnection`) carrying a batch-depth counter, and a new `write_batch(conn)` defers every writer's commit while open, committing once on clean exit or rolling back and re-raising on an exception — a private `_commit()` (now called by all four writers instead of a bare `conn.commit()`) keeps outside-a-batch behaviour identical to before. New `server/test_history_db_scope.py` (17 tests, including two branch-coverage-driven additions found after the first coverage run: a different-path `connection_scope` nested inside an active one, and `write_batch` against a bare `sqlite3.Connection` lacking `_batch_depth`). **Two deviations, both auto-fixed inline (Rule 1/Rule 2):** a `_SCHEMA_READY` comment's literal phrase "CREATE TABLE" tripped `test_config_history.py`'s regex-based "every CREATE TABLE is IF NOT EXISTS-guarded" test and was reworded; the two coverage-gap tests above were added after the fact. Nothing in `companion/app.py`, `companion/pages/*.py` or `server/poll_loop.py` calls `connection_scope` yet — that is 38-07/38-08's job (both `depends_on: ["38-03"]`); EFF-03 stays open until they land. Both tasks ran RED→GREEN: `2a4ae7c`/`66d7286` (Task 1), `5f44c1f`/`f214183` (Task 2). `server/test_history_db_scope.py` + `server/test_config_history.py` + `server/test_caddy_tail.py` + `deploy/tests/test_backup.py` (126 passed), the whole repo's `./scripts/run-all-tests.sh -m "not browser"` (2771 passed) and with the Playwright shim (2900 passed, 1 pre-existing unrelated local Chromium-baseline failure), ruff and `check_comment_history.py` all green.
 
@@ -565,6 +565,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 36 P06 | 22min | 3 tasks | 6 files |
 | Phase 36 P07 | 90min | 2 tasks | 5 files |
 | Phase 40 P01 | 55min | 2 tasks | 5 files |
+| Phase 40 P02 | 90min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -1114,6 +1115,8 @@ Recent decisions affecting current work:
 - [Phase 40]: Structural guard allowlist (12 long functions, 5 oversized files incl. style.css) measured live from test-support/companion_structure.py rather than transcribed from the plan
 - [Phase 40]: Froze time.time() and health_page.datetime.now() in the render-snapshot harness, beyond the plan-named history_db.utc_now_iso(), after finding both are genuine pre-existing time leaks
 - [Phase 40]: data-refresh-token normalised by regex in the render baseline harness, the one value that cannot be frozen since it folds in a file's kernel-set ctime
+- [Phase 40]: 40-02: custom properties (--*) excluded from the computed-style probe's per-element property walk — Chromium's indexed CSSStyleDeclaration enumeration lists every custom property declared on :root, so adding a token would otherwise always register as a false-positive computed-style regression
+- [Phase 40]: 40-02: new style.css colour tokens declared once in :root only, never repeated in the theme-override blocks — Matches the existing convention for theme-independent tokens (--radius-card, --space-*, --motion-*) since every new token held an identical value in every theme
 
 ### Pending Todos
 
@@ -1234,8 +1237,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-27T07:06:51.738Z
-Stopped at: Completed 40-01-PLAN.md: structural guard + render-snapshot baseline
+Last session: 2026-09-27T08:36:57.429Z
+Stopped at: Completed 40-02-PLAN.md: deduplicated and tokenised style.css
 
 Resume file: 
 
