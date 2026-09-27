@@ -22,6 +22,8 @@ distinct new detection is queued rather than shown immediately, and the
 - a mitigation, not a cure: a severe burst can still overflow the queue
 and lose flights.
 """
+from __future__ import annotations
+
 import contextlib
 import hashlib
 import io
@@ -30,6 +32,7 @@ import os
 import sqlite3
 import sys
 import time
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 import server.atomic_io as atomic_io
@@ -684,6 +687,313 @@ def _save_to_gallery(state_dir, canvas, now_iso):
         print("poll_loop: gallery archive failed: %s: %s" % (type(exc).__name__, exc))
 
 
+@dataclass(slots=True)
+class CycleContext:
+    """Mutable state threaded through one poll cycle's named steps, from
+    `load_cycle_context()` through `log_cycle()`. Each step reads some of
+    these fields and writes others - see each step's own docstring for
+    exactly which. Grouped the same way `_run_once_locked()`'s own former
+    anatomy grouped its locals: inputs (set once, never mutated again),
+    config (the per-cycle settings snapshot), state (poll_state.json's
+    read-once contents and its two hysteresis flags), detection (this
+    cycle's ADS-B read), slots (the pacing queue's current/previous
+    display state) and outcome (what render_and_publish() decided and
+    published).
+    """
+
+    # Inputs: set once by load_cycle_context(), never mutated afterwards.
+    state_dir: str
+    snapshot: dict | None
+    geofence: str | None
+    caddy_log: object | None
+
+    # Config: the per-cycle settings snapshot, read once in
+    # load_cycle_context() so a mid-cycle save can never split one cycle
+    # across two configs.
+    device_cfg: dict = field(default_factory=dict)
+    theme_id: str | None = None
+    tracked_runway_id: str | None = None
+    display_enabled: bool = True
+    effective_wake_interval_s: float | None = None
+    quiet_remaining: int | None = None
+    quiet_until: str | None = None
+    calendar_registry: dict = field(default_factory=dict)
+    colour_rules_registry: dict = field(default_factory=dict)
+    manual_registry: dict = field(default_factory=dict)
+
+    # State: poll_state.json's read-once contents, and the hysteresis
+    # flags derived from it before the hold decision.
+    poll_state: dict = field(default_factory=dict)
+    poll_state_baseline: str = ""
+    battery_mv: float | None = None
+    battery_critical: bool = False
+    battery_low: bool = False
+    battery_changed: bool = False
+    hold_kind: str | None = None
+    was_hold: str | None = None
+
+    # Detection: this cycle's ADS-B read (live path only - never touched
+    # on a hold, which returns before detect_flight() runs).
+    diagnostics: dict | None = None
+    provider_last_calls: dict | None = None
+    flight: dict | None = None
+    source_fault: bool = False
+    previous_source_fault: bool = False
+    now_iso: str = ""
+    now: float = 0.0
+    hold_exited: bool = False
+
+    # Slots: the pacing queue's current/previous display state.
+    current_flight: dict | None = None
+    current_confirmed_state: str | None = None
+    current_route: dict | None = None
+    current_calendar_theme_id: str | None = None
+    previous_flight: dict | None = None
+    previous_confirmed_state: str | None = None
+    previous_route: dict | None = None
+    pending: list = field(default_factory=list)
+    last_advance_at: float | None = None
+
+    # Pacing: which detection (if any) advances the "current" slot this
+    # cycle.
+    promoted: dict | None = None
+    refreshed: bool = False
+    dropped: list = field(default_factory=list)
+    queue_dirty: bool = False
+    prior_confirmed_state: str | None = None
+
+    # Outcome: what render_and_publish() decided and published.
+    branch: str | None = None
+    confirmed_state: str | None = None
+    render_state: str | None = None
+    state_source: str | None = None
+    route_source: str | None = None
+    route: dict | None = None
+    calendar_theme_id: str | None = None
+    effective_theme_id: str | None = None
+    unknown_prefix: str | None = None
+    event_recorded: bool = False
+    panel_changed: bool = False
+
+
+def load_cycle_context(snapshot, state_dir, geofence, caddy_log):
+    """Everything a cycle needs before the hold decision can be made:
+    ensures `state_dir` exists, loads the manual-resolution and
+    colour-rule registries from THIS cycle's state_dir (once per cycle,
+    passed explicitly down the call chain so a companion-side save
+    landing mid-cycle can't split one cycle across two registries),
+    refreshes the calendar registry (may open a socket, safe
+    unconditionally - never raises, makes no transport call when
+    unconfigured or throttled), and reads device_cfg/poll_state/
+    battery_state once, so every later step reuses these same objects
+    rather than re-reading. The colour-rule registry's resolver itself is
+    not called here - render_state and current_flight aren't settled
+    yet. Illustration overrides need no load here: state_dir itself is
+    passed straight through to `render.build_canvas()` by later steps.
+    """
+    state_dir = state_dir or DEFAULT_STATE_DIR
+    os.makedirs(state_dir, exist_ok=True)
+
+    manual_registry = manual_resolutions.load_manual_resolutions(state_dir)
+    colour_rules_registry = colour_rules.load_colour_rules(state_dir)
+    _, calendar_registry = calendar_rules.refresh_calendar_registry(state_dir, now_s())
+
+    # Read the user's saved theme + tracked runway once per cycle - a
+    # mid-cycle save landing between two reads is how a panel ends up
+    # rendered half in one config and half in another.
+    device_cfg = device_config.load_device_config(state_dir)
+    theme_id = device_cfg["theme"]
+    # poll_state.json/battery_state.json read once here; every branch
+    # below reuses these objects rather than re-reading. One battery read
+    # feeds three decisions: the badge, the BATTERY EMPTY latch, and (via
+    # that latch) the wake-interval pin below.
+    poll_state = state_store.load_poll_state(state_dir)
+    # A string snapshot taken before any branch below mutates poll_state
+    # in place - the dict itself can't serve as its own "did anything
+    # change?" baseline once mutated. Compared against at the cycle's two
+    # exits by state_store.persist_poll_state_if_changed(); never re-taken
+    # mid-cycle.
+    poll_state_baseline = state_store.serialize_poll_state(poll_state)
+    battery_mv = state_store.load_battery_state(state_dir)
+    # Stored back into poll_state immediately, before
+    # wake.effective_wake_interval_s() below, so it sees this cycle's own
+    # decision, not last cycle's stale one.
+    was_battery_critical = poll_state.get(wake.BATTERY_CRITICAL_STATE_KEY) is True
+    battery_critical = device_policy.apply_battery_critical_hysteresis(battery_mv, was_battery_critical)
+    poll_state[wake.BATTERY_CRITICAL_STATE_KEY] = battery_critical
+    # The cadence in force this cycle, resolved once and passed to every
+    # _record_history() call rather than re-resolved. None is a
+    # legitimate "cannot be determined" value.
+    effective_wake_interval_s = wake.effective_wake_interval_s(device_cfg, battery_critical=battery_critical)
+    tracked_runway_id = device_cfg["tracked_runway"]
+    # now_s(), not datetime.now(): this module's harness-replaceable clock
+    # seam, so the test harness's fake clock drives this arithmetic too.
+    quiet_remaining, quiet_until = device_config.quiet_hours_status(device_cfg, now_s())
+    # The operator's display toggle wins over a standing quiet-hours
+    # window on what the panel shows (checked by decide_hold(), first) -
+    # the sleep-duration axis resolves the opposite way, in
+    # stub-server/byos_server.py, not here.
+    display_enabled = device_cfg["display_enabled"]
+
+    return CycleContext(
+        state_dir=state_dir, snapshot=snapshot, geofence=geofence, caddy_log=caddy_log,
+        device_cfg=device_cfg, theme_id=theme_id, tracked_runway_id=tracked_runway_id,
+        display_enabled=display_enabled, effective_wake_interval_s=effective_wake_interval_s,
+        quiet_remaining=quiet_remaining, quiet_until=quiet_until,
+        calendar_registry=calendar_registry, colour_rules_registry=colour_rules_registry,
+        manual_registry=manual_registry,
+        poll_state=poll_state, poll_state_baseline=poll_state_baseline,
+        battery_mv=battery_mv, battery_critical=battery_critical,
+        # Default assignment, not a resolution: render_state/current_flight
+        # aren't settled yet, so the colour_rules/calendar resolvers can't
+        # run here without either raising or resolving against stale
+        # values. Both are computed at the flight-detected branch's
+        # resolver call site, further down the live path.
+        effective_theme_id=theme_id,
+    )
+
+
+def decide_hold(battery_critical, display_enabled, quiet_remaining):
+    """Priority: battery_empty > display_off > quiet_hours. A flat pack
+    overrides everything else - it doesn't matter what was configured if
+    the device is about to lose power mid-refresh. Pure: the same three
+    inputs always give the same hold_kind (or None, no hold active).
+    """
+    if battery_critical:
+        return "battery_empty"
+    if not display_enabled:
+        return "display_off"
+    if quiet_remaining is not None:
+        return "quiet_hours"
+    return None
+
+
+def publish_canvas(ctx, canvas):
+    """The one render -> pack -> write -> gallery sequence, replacing
+    every former "publish copy": pack `canvas`, atomically write
+    panel.bin only if its bytes actually changed, and archive to the
+    gallery only on that same change (an unchanged cycle is not a new
+    render, and archiving one would fill the gallery with visually
+    identical duplicates). Sets `ctx.panel_changed` and returns it, so the
+    branch that called this can gate its own poll_state writes on the
+    same value it already asked for. Requires `ctx.now_iso` to already be
+    set - every caller sets it before its first publish_canvas() call.
+    """
+    rendered = panel_format.pack_panel(canvas)
+    changed = write_panel_atomic(ctx.state_dir, rendered)
+    if changed:
+        _save_to_gallery(ctx.state_dir, canvas, ctx.now_iso)
+    ctx.panel_changed = changed
+    return changed
+
+
+def run_hold_cycle(ctx):
+    """The early-return hold branch: reached only when decide_hold()
+    found `battery_empty`/`display_off`/`quiet_hours` active
+    (`ctx.hold_kind` already set by the caller). No provider is queried
+    here - inside a hold, this cycle must not touch `detect` at all, or
+    an off period (no scheduled end) would query the aggregators
+    unbounded. `ctx.poll_state`/`ctx.battery_mv` are reused from
+    load_cycle_context() so this branch's battery_low decision can't
+    observe a different mV reading than the live path's own.
+
+    "Render once at entry, then hold": the held screen draws once, on the
+    first cycle a hold starts, and every subsequent held cycle is a
+    no-op, except crossing into/out of BATTERY EMPTY, which always
+    repaints (the device can't fetch anything mid-hold, so re-rendering
+    for no new information wastes the panel, but entering or recovering
+    from BATTERY EMPTY must reach the glass).
+    """
+    poll_state = ctx.poll_state
+    ctx.was_hold = state_store.hold_state(poll_state)
+    legacy_present = "quiet_hours_active" in poll_state
+
+    # Same battery decision the live path computes further down - the
+    # held screen carries the same battery-low icon.
+    was_battery_low = bool(poll_state.get("battery_low_active", False))
+    ctx.battery_low = device_policy.apply_battery_hysteresis(ctx.battery_mv, was_battery_low)
+    ctx.battery_changed = ctx.battery_low != was_battery_low
+    poll_state["battery_low_active"] = ctx.battery_low
+    if ctx.battery_changed:
+        _notify_battery_transition(ctx.state_dir, poll_state, ctx.battery_low, ctx.battery_mv, ctx.device_cfg)
+
+    # No provider was queried this cycle - carry the previous fault flag
+    # forward rather than inventing or clearing one.
+    ctx.source_fault = _last_source_fault(ctx.state_dir)
+    poll_state["hold_state"] = ctx.hold_kind
+    if legacy_present:
+        del poll_state["quiet_hours_active"]
+    ctx.now_iso = history_db.utc_now_iso()
+
+    battery_empty_boundary_crossed = (
+        (ctx.was_hold == "battery_empty") != (ctx.hold_kind == "battery_empty"))
+    ctx.panel_changed = False
+    if ctx.was_hold is None or battery_empty_boundary_crossed:
+        if ctx.hold_kind == "battery_empty":
+            # The byte-stable BATTERY EMPTY screen: build_canvas() never
+            # consults theme_id/quiet_hours_until/source_fault/
+            # battery_low for this state, so none can leak a
+            # hash-changing byte into the parked image.
+            canvas = render.build_canvas(None, "battery_empty")
+        else:
+            canvas = render.build_canvas(
+                None, ctx.hold_kind, theme_id=ctx.theme_id, quiet_hours_until=ctx.quiet_until,
+                source_fault=ctx.source_fault, battery_low=ctx.battery_low,
+            )
+        publish_canvas(ctx, canvas)
+
+    # Not optional: advances META_LAST_PIPELINE_RUN, or a long hold would
+    # make the companion Health page raise a false staleness anomaly.
+    _record_history(
+        ctx.state_dir, None, None, None, None, ctx.tracked_runway_id,
+        ctx.source_fault, False, ctx.now_iso, caddy_log=ctx.caddy_log,
+        wake_interval_s=ctx.effective_wake_interval_s,
+    )
+
+    # A display_off hold has no scheduled end, and nothing else here
+    # re-checks staleness while it lasts - without this, a frame that
+    # dies mid-hold would never raise a frame_silent push. After
+    # _record_history() so this cycle's check-in has already committed.
+    try:
+        with history_db.open_db(ctx.state_dir) as conn:
+            _notify_silence_transition(ctx.state_dir, poll_state, conn, ctx.device_cfg)
+    except (sqlite3.Error, OSError) as exc:
+        print("poll_loop: silence-transition history read failed (hold branch): %s: %s" % (type(exc).__name__, exc))
+    # The cycle's one save: written only if this branch's mutations above
+    # (hold-kind, battery flags, migration flush, or the notify hook's own
+    # poll_state["notifications"] write) actually changed anything from
+    # the snapshot taken at load.
+    state_store.persist_poll_state_if_changed(ctx.state_dir, poll_state, ctx.poll_state_baseline)
+
+    print(
+        "poll_loop: hold_state=%s until=%s entered=%s panel_changed=%s "
+        "battery_low=%s theme=%s tracked_runway=%s source_fault=%s"
+        % (
+            ctx.hold_kind,
+            ctx.quiet_until,
+            ctx.was_hold is None,
+            ctx.panel_changed,
+            ctx.battery_low,
+            ctx.theme_id,
+            ctx.tracked_runway_id,
+            ctx.source_fault,
+        )
+    )
+
+    return {
+        "flight": None,
+        "state": ctx.hold_kind,
+        "panel_changed": ctx.panel_changed,
+        "theme": ctx.theme_id,
+        # A hold screen's effective theme IS the base theme - no rule or
+        # arrivals override is ever consulted for a hold screen.
+        "effective_theme": ctx.theme_id,
+        "tracked_runway": ctx.tracked_runway_id,
+        "source_fault": ctx.source_fault,
+        "event_recorded": False,
+    }
+
+
 def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_timeout_s=None):
     """One poll cycle, serialised across every process that shares
     `state_dir` by `poll_cycle_lock()`: the lock is held for the cycle's
@@ -734,195 +1044,25 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
     stub-server/byos_server.py. The first cycle after all holds clear
     forces one repaint of the live board.
     """
-    state_dir = state_dir or DEFAULT_STATE_DIR
-    os.makedirs(state_dir, exist_ok=True)
+    ctx = load_cycle_context(snapshot, state_dir, geofence, caddy_log)
+    ctx.hold_kind = decide_hold(ctx.battery_critical, ctx.display_enabled, ctx.quiet_remaining)
+    if ctx.hold_kind is not None:
+        return run_hold_cycle(ctx)
 
-    # Load the manual-resolution and colour-rule registries from THIS
-    # cycle's state_dir, here rather than in main() - run_once() is the
-    # single entry point both the systemd oneshot and companion/app.py's
-    # POST /poll-now trigger go through. Loaded once per cycle and passed
-    # explicitly down the call chain (manual_registry=/rules=/state_dir=)
-    # so a companion-side save landing mid-cycle can't split one cycle
-    # across two registries (a manual resolution reaches the glass at the
-    # next wake, never instantly). The colour-rule registry's resolver
-    # itself is not called here - render_state and current_flight aren't
-    # settled yet. illustration overrides need no load here: state_dir
-    # itself is passed straight through to render.build_canvas() below.
-    manual_registry = manual_resolutions.load_manual_resolutions(state_dir)
-    colour_rules_registry = colour_rules.load_colour_rules(state_dir)
-
-    # The calendar refresh is its own distinct step (may open a socket,
-    # unlike the JSON-only priming above). Safe unconditionally:
-    # refresh_calendar_registry() makes no transport call when unconfigured
-    # or throttled, one bounded call otherwise, and never raises.
-    _, calendar_registry = calendar_rules.refresh_calendar_registry(state_dir, now_s())
-
-    # Read the user's saved theme + tracked runway once per cycle - a
-    # mid-cycle save landing between two reads is how a panel ends up
-    # rendered half in one config and half in another.
-    device_cfg = device_config.load_device_config(state_dir)
-    theme_id = device_cfg["theme"]
-    # poll_state.json/battery_state.json read once here; every branch
-    # below reuses these objects rather than re-reading. One battery read
-    # feeds three decisions: the badge, the BATTERY EMPTY latch, and (via
-    # that latch) the wake-interval pin below.
-    poll_state = state_store.load_poll_state(state_dir)
-    # A string snapshot taken before any branch below mutates poll_state in
-    # place - the dict itself can't serve as its own "did anything change?"
-    # baseline once mutated. Compared against at the cycle's two exits by
-    # state_store.persist_poll_state_if_changed(); never re-taken mid-cycle.
-    poll_state_baseline = state_store.serialize_poll_state(poll_state)
-    battery_mv = state_store.load_battery_state(state_dir)
-    # Stored back into poll_state immediately, before
-    # wake.effective_wake_interval_s() below, so it sees this cycle's own
-    # decision, not last cycle's stale one.
-    was_battery_critical = poll_state.get(wake.BATTERY_CRITICAL_STATE_KEY) is True
-    battery_critical = device_policy.apply_battery_critical_hysteresis(battery_mv, was_battery_critical)
-    poll_state[wake.BATTERY_CRITICAL_STATE_KEY] = battery_critical
-    # The cadence in force this cycle, resolved once and passed to every
-    # _record_history() call rather than re-resolved. None is a legitimate
-    # "cannot be determined" value. See wake.effective_wake_interval_s()'s
-    # own docstring for the battery_critical precedence.
-    effective_wake_interval_s = wake.effective_wake_interval_s(device_cfg, battery_critical=battery_critical)
-    # Default assignment, not a resolution: render_state/current_flight
-    # aren't settled yet, so the colour_rules/calendar resolvers can't run
-    # here without either raising or resolving against stale values. Both
-    # are computed at the flight-detected branch's resolver call site
-    # below.
-    effective_theme_id = theme_id
-    tracked_runway_id = device_cfg["tracked_runway"]
-    # now_s(), not datetime.now(): this module's harness-replaceable clock
-    # seam, so the test harness's fake clock drives this arithmetic too.
-    quiet_remaining, quiet_until = device_config.quiet_hours_status(device_cfg, now_s())
-    # The operator's display toggle wins over a standing quiet-hours
-    # window on what the panel shows (checked first below) - the
-    # sleep-duration axis resolves the opposite way, in
-    # stub-server/byos_server.py, not here.
-    display_enabled = device_cfg["display_enabled"]
-    # Priority: battery_empty > display_off > quiet_hours. A flat pack
-    # overrides everything else - it doesn't matter what was configured if
-    # the device is about to lose power mid-refresh.
-    if battery_critical:
-        hold_kind = "battery_empty"
-    elif not display_enabled:
-        hold_kind = "display_off"
-    elif quiet_remaining is not None:
-        hold_kind = "quiet_hours"
-    else:
-        hold_kind = None
-
-    if hold_kind is not None:
-        # Early return before detect.load_geofence()/poll_current_aircraft():
-        # inside a hold, this cycle must not touch `detect` at all, or an
-        # off period (no scheduled end) would query the aggregators
-        # unbounded. poll_state/battery_mv reused from above so this
-        # branch's battery_low decision can't observe a different mV
-        # reading than the top-level battery_critical one.
-        was_hold = state_store.hold_state(poll_state)
-        legacy_present = "quiet_hours_active" in poll_state
-
-        # Same battery decision the main path computes below - the held
-        # screen carries the same battery-low icon.
-        was_battery_low = bool(poll_state.get("battery_low_active", False))
-        battery_low = device_policy.apply_battery_hysteresis(battery_mv, was_battery_low)
-        battery_changed = battery_low != was_battery_low
-        poll_state["battery_low_active"] = battery_low
-        if battery_changed:
-            _notify_battery_transition(state_dir, poll_state, battery_low, battery_mv, device_cfg)
-
-        # No provider was queried this cycle - carry the previous fault
-        # flag forward rather than inventing or clearing one.
-        source_fault = _last_source_fault(state_dir)
-        poll_state["hold_state"] = hold_kind
-        if legacy_present:
-            del poll_state["quiet_hours_active"]
-        now_iso = history_db.utc_now_iso()
-
-        # Render on entry into a hold (`was_hold is None`), never merely on
-        # `was_hold != hold_kind`, except crossing into/out of BATTERY
-        # EMPTY: the device can't fetch anything mid-hold, so re-rendering
-        # for no new information wastes the panel. A move between QUIET
-        # HOURS and DISPLAY OFF stays silent either way, but entering or
-        # recovering from BATTERY EMPTY must repaint, or the parked screen
-        # (or its recovery) would never reach the glass.
-        battery_empty_boundary_crossed = (was_hold == "battery_empty") != (hold_kind == "battery_empty")
-        panel_changed = False
-        if was_hold is None or battery_empty_boundary_crossed:
-            if hold_kind == "battery_empty":
-                # The byte-stable BATTERY EMPTY screen: build_canvas() never
-                # consults theme_id/quiet_hours_until/source_fault/
-                # battery_low for this state, so none can leak a
-                # hash-changing byte into the parked image.
-                canvas = render.build_canvas(None, "battery_empty")
-            else:
-                canvas = render.build_canvas(
-                    None, hold_kind, theme_id=theme_id, quiet_hours_until=quiet_until,
-                    source_fault=source_fault, battery_low=battery_low,
-                )
-            rendered = panel_format.pack_panel(canvas)
-            panel_changed = write_panel_atomic(state_dir, rendered)
-            if panel_changed:
-                _save_to_gallery(state_dir, canvas, now_iso)
-
-        # `was_hold != hold_kind` (a hold-kind change), `legacy_present`
-        # (the one-time migration flush), the battery-critical latch's own
-        # flip, and the notify hook's `poll_state["notifications"]`
-        # mutation below are exactly the fields this branch may change -
-        # all persisted together by the one end-of-cycle
-        # `state_store.persist_poll_state_if_changed()` call below, not saved individually here.
-
-        # Not optional: advances META_LAST_PIPELINE_RUN, or a long hold
-        # would make the companion Health page raise a false staleness
-        # anomaly.
-        _record_history(
-            state_dir, None, None, None, None, tracked_runway_id,
-            source_fault, False, now_iso, caddy_log=caddy_log,
-            wake_interval_s=effective_wake_interval_s,
-        )
-
-        # A display_off hold has no scheduled end, and nothing else here
-        # re-checks staleness while it lasts - without this, a frame that
-        # dies mid-hold would never raise a frame_silent push. After
-        # _record_history() so this cycle's check-in has already
-        # committed.
-        try:
-            with history_db.open_db(state_dir) as conn:
-                _notify_silence_transition(state_dir, poll_state, conn, device_cfg)
-        except (sqlite3.Error, OSError) as exc:
-            print("poll_loop: silence-transition history read failed (hold branch): %s: %s" % (type(exc).__name__, exc))
-        # The cycle's one save: written only if this branch's mutations
-        # above (hold-kind, battery flags, migration flush, or the notify
-        # hook's own poll_state["notifications"] write) actually changed
-        # anything from the snapshot taken at load.
-        state_store.persist_poll_state_if_changed(state_dir, poll_state, poll_state_baseline)
-
-        print(
-            "poll_loop: hold_state=%s until=%s entered=%s panel_changed=%s "
-            "battery_low=%s theme=%s tracked_runway=%s source_fault=%s"
-            % (
-                hold_kind,
-                quiet_until,
-                was_hold is None,
-                panel_changed,
-                battery_low,
-                theme_id,
-                tracked_runway_id,
-                source_fault,
-            )
-        )
-
-        return {
-            "flight": None,
-            "state": hold_kind,
-            "panel_changed": panel_changed,
-            "theme": theme_id,
-            # A hold screen's effective theme IS the base theme - no rule
-            # or arrivals override is ever consulted for a hold screen.
-            "effective_theme": theme_id,
-            "tracked_runway": tracked_runway_id,
-            "source_fault": source_fault,
-            "event_recorded": False,
-        }
+    # Bind locals from ctx for the (otherwise unchanged) live path below -
+    # see CycleContext's own docstring for what each field is.
+    state_dir = ctx.state_dir
+    device_cfg = ctx.device_cfg
+    theme_id = ctx.theme_id
+    poll_state = ctx.poll_state
+    poll_state_baseline = ctx.poll_state_baseline
+    battery_mv = ctx.battery_mv
+    effective_wake_interval_s = ctx.effective_wake_interval_s
+    effective_theme_id = ctx.effective_theme_id
+    tracked_runway_id = ctx.tracked_runway_id
+    calendar_registry = ctx.calendar_registry
+    colour_rules_registry = ctx.colour_rules_registry
+    manual_registry = ctx.manual_registry
 
     geofence_data = detect.load_geofence(geofence)
 
@@ -951,8 +1091,10 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
     source_fault = _classify_source_fault(diagnostics)
     previous_source_fault = _last_source_fault(state_dir)
     # Shared by every history/gallery write this cycle makes, so they all
-    # record the same instant.
+    # record the same instant. Mirrored onto ctx.now_iso too - every
+    # publish_canvas() call below reads it from there.
     now_iso = history_db.utc_now_iso()
+    ctx.now_iso = now_iso
 
     # Reaching this line means no hold is active any more, so a non-None
     # hold kind here means "first cycle after the last hold ended". Clear
@@ -1144,10 +1286,7 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
                 battery_low=battery_low,
                 state_dir=state_dir,
             )
-        rendered = panel_format.pack_panel(canvas)
-        panel_changed = write_panel_atomic(state_dir, rendered)
-        if panel_changed:
-            _save_to_gallery(state_dir, canvas, now_iso)
+        panel_changed = publish_canvas(ctx, canvas)
         poll_state["last_flight"] = current_flight
         poll_state["last_confirmed_state"] = confirmed_state
         poll_state["last_route"] = route
@@ -1217,10 +1356,7 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
                     None, "empty", theme_id=theme_id, runway_id=tracked_runway_id,
                     source_fault=source_fault, battery_low=battery_low, state_dir=state_dir,
                 )
-            rerendered = panel_format.pack_panel(held_canvas)
-            panel_changed = write_panel_atomic(state_dir, rerendered)
-            if panel_changed:
-                _save_to_gallery(state_dir, held_canvas, now_iso)
+            panel_changed = publish_canvas(ctx, held_canvas)
         if queue_dirty:
             # Nothing displayed changed, but the queue did, and this script
             # has no memory across invocations - unpersisted, an enqueue
@@ -1251,10 +1387,7 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
             None, render_state, theme_id=theme_id, runway_id=tracked_runway_id,
             source_fault=source_fault, battery_low=battery_low, state_dir=state_dir,
         )
-        rendered = panel_format.pack_panel(canvas)
-        panel_changed = write_panel_atomic(state_dir, rendered)
-        if panel_changed:
-            _save_to_gallery(state_dir, canvas, now_iso)
+        panel_changed = publish_canvas(ctx, canvas)
         # Any battery-flag or hold-exit change this branch made is
         # persisted once at the cycle's end (state_store.persist_poll_state_if_changed,
         # in the shared tail below) - without that shared save, hysteresis memory
