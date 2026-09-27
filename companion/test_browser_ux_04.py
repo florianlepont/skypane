@@ -1430,6 +1430,33 @@ def _tab_until_focused(page, selector, theme, after_what):
         % (theme, selector, _MAX_TAB_PRESSES, after_what, last))
 
 
+# Under the full suite's own concurrency, "Space" opening the platform file
+# chooser can arrive after a long single wait would already have given up
+# (measured: reliable in isolation, occasionally >10s under full-suite
+# load) — so this retries a few short waits with a fresh "Space" press each
+# time rather than one long one, still keyboard-only throughout.
+_FILE_CHOOSER_ATTEMPTS = 3
+_FILE_CHOOSER_ATTEMPT_TIMEOUT_MS = 10_000
+
+
+def _open_file_chooser_with_space(page):
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+    last_error = None
+    for _ in range(_FILE_CHOOSER_ATTEMPTS):
+        try:
+            with page.expect_file_chooser(
+                    timeout=_FILE_CHOOSER_ATTEMPT_TIMEOUT_MS) as chooser_info:
+                page.keyboard.press("Space")
+            return chooser_info.value
+        except PlaywrightTimeoutError as exc:
+            last_error = exc
+    raise AssertionError(
+        "pressing Space never opened the platform file chooser within %d "
+        "attempts of %dms each: %s"
+        % (_FILE_CHOOSER_ATTEMPTS, _FILE_CHOOSER_ATTEMPT_TIMEOUT_MS, last_error))
+
+
 @pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
 def test_the_artwork_drop_zone_is_operable_from_the_keyboard_alone(
         new_context, make_app_server, tmp_path, theme):
@@ -1444,7 +1471,11 @@ def test_the_artwork_drop_zone_is_operable_from_the_keyboard_alone(
     measured against this repo's real Chromium
     (`--only-shell-installed`) over 8 full runs it opened the platform
     chooser only 3/8 times, so this test uses the documented fallback
-    instead: "Space" opens it 12/12 across the same measurement. The
+    instead: "Space" opens it 12/12 across the same measurement in
+    isolation. Under the full suite's parallel load the same interception
+    can still arrive a little late, so a short-timeout attempt retries
+    once with a fresh "Space" press rather than waiting out one long
+    timeout — still keyboard-only, still zero pointer events. The
     chosen file is then submitted by pressing "Enter"
     on the submit button (a real `<button>`, where Enter's default
     action is unambiguous), reached the same Tab-only way. Zero pointer
@@ -1480,9 +1511,8 @@ def test_the_artwork_drop_zone_is_operable_from_the_keyboard_alone(
 
         _tab_until_focused(page, input_sel, theme, "from the top of the document")
 
-        with page.expect_file_chooser() as chooser_info:
-            page.keyboard.press("Space")
-        chooser_info.value.set_files(fixtures["art_path"])
+        chooser = _open_file_chooser_with_space(page)
+        chooser.set_files(fixtures["art_path"])
         page.wait_for_function(
             "sel => { const i = document.querySelector(sel);"
             " return !!(i.files && i.files.length); }",
