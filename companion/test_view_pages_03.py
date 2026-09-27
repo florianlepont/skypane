@@ -1149,14 +1149,24 @@ def test_flights_full_seeded_render_french_end_to_end(tmp_path):
 
 
 def test_flights_catalog_keys_all_present_in_merged_catalog():
-    """every key in companion/i18n_fr/flights.py's own CATALOG is also a key of the merged
-    companion.i18n_fr.CATALOG, proving the auto-merge package picked the module up
+    """every key in companion/i18n_fr/flights.py's own CATALOG/MESSAGES is also a key of the
+    merged companion.i18n_fr.CATALOG/BY_ID, proving the auto-merge package picked the module up.
+    flights.py has fully migrated onto stable ids: it exports MESSAGES, not CATALOG, so the
+    CATALOG half reduces to an always-empty check for that module — kept rather than deleted so a
+    regression back to a CATALOG export is still caught.
    """
     import companion.i18n_fr as i18n_fr
     import companion.i18n_fr.flights as i18n_fr_flights
 
-    missing = [k for k in i18n_fr_flights.CATALOG if k not in i18n_fr.CATALOG]
+    missing = [
+        k for k in getattr(i18n_fr_flights, "CATALOG", {})
+        if k not in i18n_fr.CATALOG]
     assert not missing, "keys missing from the merged CATALOG: %r" % (missing,)
+
+    missing_ids = [
+        k for k in getattr(i18n_fr_flights, "MESSAGES", {})
+        if k not in i18n_fr.BY_ID]
+    assert not missing_ids, "ids missing from the merged BY_ID: %r" % (missing_ids,)
 
 
 def test_home_page_render_with_seeded_state(tmp_path):

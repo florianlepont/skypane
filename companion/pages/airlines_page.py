@@ -34,13 +34,22 @@ import server.state_store as state_store
 # in companion/test_status_pages.py.
 ILLUSTRATION_ROUTE_PREFIX = "/illustration/"
 
-GALLERY_PURPOSE_TEXT = (
+# Owned by companion/i18n_fr/nav.py, not airlines.py — the same id the
+# nav tab label uses.
+_NAV_AIRLINES_TEXT = i18n.msg("nav.airlines", "Airlines")
+
+GALLERY_PURPOSE_TEXT = i18n.msg(
+    "airlines.illustration_reference_for_every_airline_this",
     "Illustration reference for every airline this frame can recognize.")
 
-CARD_IMAGE_ALT_TEMPLATE = "%s illustration"
+# Owned by companion/i18n_fr/home.py, not airlines.py — the same id
+# home_page.py's own thumbnail alt text uses.
+CARD_IMAGE_ALT_TEMPLATE = i18n.msg("home.illustration", "%s illustration")
 
-GAP_STRIP_HEADING = "Unidentified airlines"
-GAP_STRIP_BODY = "Tap a callsign below to name its airline."
+GAP_STRIP_HEADING = i18n.msg("airlines.unidentified_airlines", "Unidentified airlines")
+GAP_STRIP_BODY = i18n.msg(
+    "airlines.tap_a_callsign_below_to_name_its_airline",
+    "Tap a callsign below to name its airline.")
 
 # Reuses History's shared <dialog> lightbox and panel-lookup.js's click
 # delegation. These five names are duplicated (not imported) from
@@ -141,20 +150,30 @@ UPLOAD_DROP_MESSAGE_CLASS = "upload-drop__message"
 # "Framed" not "look": shows the whole image inside the frame it will
 # occupy; the server may still crop differently and is the only
 # authority on that.
-UPLOAD_DROP_HINT_TEXT = "Or drag an image onto this card."
-UPLOAD_PREVIEW_CAPTION_TEXT = "Framing preview — how it will be framed."
-UPLOAD_PREVIEW_ALT_TEXT = "Framing preview of the image you chose"
-UPLOAD_DROP_TYPE_ERROR_TEXT = "Only PNG images can be dropped here."
-UPLOAD_DROP_MULTIPLE_ERROR_TEXT = "Drop one image at a time."
-UPLOAD_DROP_SIZE_ERROR_TEMPLATE = "That image is larger than the %d MB limit."
+UPLOAD_DROP_HINT_TEXT = i18n.msg(
+    "airlines.or_drag_an_image_onto_this_card", "Or drag an image onto this card.")
+UPLOAD_PREVIEW_CAPTION_TEXT = i18n.msg(
+    "airlines.framing_preview_how_it_will_be_framed",
+    "Framing preview — how it will be framed.")
+UPLOAD_PREVIEW_ALT_TEXT = i18n.msg(
+    "airlines.framing_preview_of_the_image_you_chose",
+    "Framing preview of the image you chose")
+UPLOAD_DROP_TYPE_ERROR_TEXT = i18n.msg(
+    "airlines.only_png_images_can_be_dropped_here",
+    "Only PNG images can be dropped here.")
+UPLOAD_DROP_MULTIPLE_ERROR_TEXT = i18n.msg(
+    "airlines.drop_one_image_at_a_time", "Drop one image at a time.")
+UPLOAD_DROP_SIZE_ERROR_TEMPLATE = i18n.msg(
+    "airlines.that_image_is_larger_than_the_mb_limit",
+    "That image is larger than the %d MB limit.")
 
-ZOOM_LABEL_TEMPLATE = "Enlarge %s illustration"
+ZOOM_LABEL_TEMPLATE = i18n.msg("airlines.enlarge_illustration", "Enlarge %s illustration")
 
 # Empty by design: panel-lookup.js's shared guard clause requires
 # .lightbox__note to exist or its click handler never attaches;
 # style.css collapses an empty note to no visible space.
 LIGHTBOX_NOTE = ""
-LIGHTBOX_ARIA_LABEL = "Airline illustration"
+LIGHTBOX_ARIA_LABEL = i18n.msg("airlines.airline_illustration", "Airline illustration")
 
 # Flash keys are defined here, not in app.py, because app.py already
 # imports this module — the reverse import would cycle. app.py rebinds
@@ -200,17 +219,29 @@ RESOLVE_QUERY_PARAM = "resolve"
 GAP_BLOCK_THRESHOLD = 3
 GAP_BLOCK_CAP = 12
 
-RESOLVE_BACK_LINK_TEXT = "← Back to Airlines"
-RESOLVE_STALE_BODY = (
+RESOLVE_BACK_LINK_TEXT = i18n.msg("airlines.back_to_airlines", "← Back to Airlines")
+RESOLVE_STALE_BODY = i18n.msg(
+    "airlines.that_coverage_gap_isn_t_there_anymore_it_may",
     "That coverage gap isn’t there anymore — it may already be "
     "resolved. See Health for the complete list of current gaps.")
-RESOLVE_HEADING = "Resolve an unidentified flight"
+RESOLVE_HEADING = i18n.msg(
+    "airlines.resolve_an_unidentified_flight", "Resolve an unidentified flight")
 # No callsign clause: this template must stay true even when no
 # sighting data survives for the prefix (the row-gone fallback path).
-RESOLVE_CAPTION_TEMPLATE = (
+RESOLVE_CAPTION_TEMPLATE = i18n.msg(
+    "airlines.every_flight_using_prefix_will_show_as_this",
     "Every flight using prefix %s will show as this airline.")
+# "Prefix"/"First seen"/"Last seen"/"Example callsign" are owned by
+# companion/i18n_fr/health.py, not airlines.py — the same ids
+# health_page.py's own unresolved-prefix table uses. "Times seen" is
+# airlines.py's own.
 RESOLVE_CONTEXT_LABELS = (
-    "Prefix", "First seen", "Last seen", "Times seen", "Example callsign")
+    i18n.msg("health.prefix", "Prefix"),
+    i18n.msg("health.first_seen", "First seen"),
+    i18n.msg("health.last_seen", "Last seen"),
+    i18n.msg("airlines.times_seen", "Times seen"),
+    i18n.msg("health.example_callsign", "Example callsign"),
+)
 # 5-tuple aligned 1:1 with RESOLVE_CONTEXT_LABELS so the two can only
 # ever be zipped, never mismatched.
 RESOLVE_CONTEXT_DD_CLASSES = (
@@ -220,16 +251,22 @@ RESOLVE_CONTEXT_DD_CLASSES = (
     "resolve-context__count",
     "resolve-context__callsign",
 )
-NAME_LABEL_TEXT = "Airline name"
-NAME_HINT_TEXT = "Start typing — pick a suggestion."
-SAVE_BUTTON_TEXT = "Save airline name"
-STEP_B_HEADING_TEMPLATE = "Add an illustration for %s"
-STEP_B_CAPTION = "Saved — add artwork below, or skip for now."
-STEP_B_SKIP_TEXT = "Skip — I’ll add artwork later"
+NAME_LABEL_TEXT = i18n.msg("airlines.airline_name", "Airline name")
+NAME_HINT_TEXT = i18n.msg(
+    "airlines.start_typing_pick_a_suggestion", "Start typing — pick a suggestion.")
+SAVE_BUTTON_TEXT = i18n.msg("airlines.save_airline_name", "Save airline name")
+STEP_B_HEADING_TEMPLATE = i18n.msg(
+    "airlines.add_an_illustration_for", "Add an illustration for %s")
+STEP_B_CAPTION = i18n.msg(
+    "airlines.saved_add_artwork_below_or_skip_for_now",
+    "Saved — add artwork below, or skip for now.")
+STEP_B_SKIP_TEXT = i18n.msg(
+    "airlines.skip_i_ll_add_artwork_later", "Skip — I’ll add artwork later")
 # Fourth reachable state: a bookmark or Back press lands on a prefix
 # that's still listed as a gap but is already fully resolved.
 # RESOLVE_STALE_BODY would be false here.
-RESOLVE_ALREADY_DONE_TEMPLATE = (
+RESOLVE_ALREADY_DONE_TEMPLATE = i18n.msg(
+    "airlines.is_already_named_for_this_prefix_and_has",
     "%s is already named for this prefix and has artwork — nothing "
     "more to do here.")
 
@@ -243,40 +280,50 @@ MANUAL_DATALIST_ID = "known-airlines"
 
 # SUPERSEDED_MARKER_TEXT and DELETE_BUTTON_TEXT are still consumed by
 # _airline_card_html()'s chip and _manual_delete_form_html()'s shared
-# form.
-SUPERSEDED_MARKER_TEXT = "Superseded"
-DELETE_BUTTON_TEXT = "Delete"
+# form. "Delete" is owned by companion/i18n_fr/display.py, not
+# airlines.py — the same id config_page.py's own rule-delete button uses.
+SUPERSEDED_MARKER_TEXT = i18n.msg("airlines.superseded", "Superseded")
+DELETE_BUTTON_TEXT = i18n.msg("display.delete", "Delete")
 
-GAP_CARD_ARIA_TEMPLATE = "Resolve prefix %s — example callsign %s"
-MANUAL_CHIP_ACTIVE_TEXT = "Resolved by hand"
-MANUAL_DELETE_CAPTION = (
+GAP_CARD_ARIA_TEMPLATE = i18n.msg(
+    "airlines.resolve_prefix_example_callsign", "Resolve prefix %s — example callsign %s")
+MANUAL_CHIP_ACTIVE_TEXT = i18n.msg("airlines.resolved_by_hand", "Resolved by hand")
+MANUAL_DELETE_CAPTION = i18n.msg(
+    "airlines.deleting_removes_this_manual_name_any_uploaded",
     "Deleting removes this manual name — any uploaded artwork stays in place.")
 # %s arity: prefix, built-in name, operator's own name, built-in name
 # again. A status message about a real naming conflict, not a caption
 # — LIGHTBOX_MANUAL_NOTE_CLASS never composes with the site-wide
 # caption-length selector.
-MANUAL_SUPERSEDED_NOTE_TEMPLATE = (
+MANUAL_SUPERSEDED_NOTE_TEMPLATE = i18n.msg(
+    "airlines.skypane_s_built_in_list_now_recognizes_prefix",
     "SkyPane’s built-in list now recognizes prefix %s as “%s” — its "
     "entry wins over the name you gave it (“%s”), so that artwork is "
     "no longer shown. Add artwork for “%s” below, or delete this "
     "entry.")
 # Two constants because only the tail is the <a>'s own text; their
 # concatenation must equal the copy deck's single string byte-for-byte.
-MANUAL_OVERFLOW_TEMPLATE = "%d other unresolved prefixes — "
-MANUAL_OVERFLOW_LINK_TEXT = "see the full list"
+MANUAL_OVERFLOW_TEMPLATE = i18n.msg(
+    "airlines.other_unresolved_prefixes", "%d other unresolved prefixes — ")
+MANUAL_OVERFLOW_LINK_TEXT = i18n.msg("airlines.see_the_full_list", "see the full list")
 # With-superseded and no-superseded forms; %d arity is manual count
 # then superseded count.
-MANUAL_SUMMARY_TEMPLATE = "%d manual resolutions, %d superseded"
-MANUAL_SUMMARY_TEMPLATE_NONE = "%d manual resolutions"
+MANUAL_SUMMARY_TEMPLATE = i18n.msg(
+    "airlines.manual_resolutions_superseded", "%d manual resolutions, %d superseded")
+MANUAL_SUMMARY_TEMPLATE_NONE = i18n.msg(
+    "airlines.manual_resolutions", "%d manual resolutions")
 # Singular variants avoid "1 manual resolutions" — French and English
 # don't agree on the plural boundary, so each language's catalogue
 # owns its own singular string.
-MANUAL_SUMMARY_TEMPLATE_SINGULAR = "%d manual resolution, %d superseded"
-MANUAL_SUMMARY_TEMPLATE_NONE_SINGULAR = "%d manual resolution"
+MANUAL_SUMMARY_TEMPLATE_SINGULAR = i18n.msg(
+    "airlines.manual_resolution_superseded", "%d manual resolution, %d superseded")
+MANUAL_SUMMARY_TEMPLATE_NONE_SINGULAR = i18n.msg(
+    "airlines.manual_resolution", "%d manual resolution")
 
 # No revert-to-original control is in scope for this feature.
-REPLACE_LABEL_TEXT = "Replace this illustration"
-REPLACE_BUTTON_TEXT = "Upload"
+REPLACE_LABEL_TEXT = i18n.msg(
+    "airlines.replace_this_illustration", "Replace this illustration")
+REPLACE_BUTTON_TEXT = i18n.msg("airlines.upload", "Upload")
 # A single static id: exactly one file input exists on the page, so
 # there's nothing to disambiguate.
 REPLACE_INPUT_ID = "airline-replace-input"
@@ -286,7 +333,9 @@ REPLACE_FORM_ID = "airline-replace-form"
 
 # Must not contain revert/reset/restore/undo/original — a no-revert-
 # control scan in test_status_pages.py checks this form for those words.
-REPLACE_HINT_TEXT = "Transparent PNG, at least 1200px wide, landscape."
+REPLACE_HINT_TEXT = i18n.msg(
+    "airlines.transparent_png_at_least_1200px_wide_landscape",
+    "Transparent PNG, at least 1200px wide, landscape.")
 
 # variant_chip_label()'s two shape-domain patterns: an alphanumeric
 # type code is a letter prefix immediately followed by digits,
@@ -846,7 +895,7 @@ def _lightbox_html():
         replace_html,
         delete_html,
         LIGHTBOX_ACTIONS_CLASS,
-        _VIEW_PANEL_CLOSE_ATTR, escape_html(i18n.t("Close")),
+        _VIEW_PANEL_CLOSE_ATTR, escape_html(i18n.t(_CLOSE_TEXT)),
         MANUAL_RESOLVE_FORM_ID + "-dialog", escape_html(i18n.t(SAVE_BUTTON_TEXT)),
     )
 
@@ -857,10 +906,19 @@ def _lightbox_html():
 # <button> (not an anchor), since this gallery carries no read-only
 # constraint.
 _FILTER_INPUT_ID = "airlines_gallery_filter_input"
-_FILTER_LABEL_TEXT = "Filter by airline or callsign"
-_FILTER_EMPTY_HEADING = "No matching airlines"
-_FILTER_EMPTY_BODY_TEMPLATE = (
+_FILTER_LABEL_TEXT = i18n.msg(
+    "airlines.filter_by_airline_or_callsign", "Filter by airline or callsign")
+_FILTER_EMPTY_HEADING = i18n.msg("airlines.no_matching_airlines", "No matching airlines")
+_FILTER_EMPTY_BODY_TEMPLATE = i18n.msg(
+    "airlines.try_a_different_search_or_clear_filter_to_see",
     "Try a different search, or Clear filter to see all %d airlines.")
+
+# "%d of %d shown" and "Clear" are owned by companion/i18n_fr/health.py,
+# not airlines.py — the same ids health_page.py's own filter bar uses.
+_FILTER_COUNT_TEMPLATE = i18n.msg("health.of_shown", "%d of %d shown")
+_CLEAR_TEXT = i18n.msg("health.clear", "Clear")
+_CLOSE_TEXT = i18n.msg("airlines.close", "Close")
+_CHOOSE_AN_IMAGE_TEXT = i18n.msg("airlines.choose_an_image", "Choose an image")
 
 
 def _filter_bar_html(total, summary_html=""):
@@ -874,7 +932,7 @@ def _filter_bar_html(total, summary_html=""):
     control are siblings inside one `.filter-bar__meta` group so they wrap
     as a unit rather than separately.
     """
-    count_text = i18n.t("%d of %d shown") % (total, total)
+    count_text = i18n.t(_FILTER_COUNT_TEMPLATE) % (total, total)
     empty_body = i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total
     return (
         '<div class="filter-bar">'
@@ -901,7 +959,7 @@ def _filter_bar_html(total, summary_html=""):
         _FILTER_INPUT_ID,
         summary_html,
         escape_html(count_text),
-        escape_html(i18n.t("Clear")),
+        escape_html(i18n.t(_CLEAR_TEXT)),
         escape_html(i18n.t(_FILTER_EMPTY_HEADING)),
         escape_html(empty_body),
     )
@@ -1074,7 +1132,7 @@ def _resolve_upload_form_html(action, id_suffix):
     ) % (
         RESOLVE_UPLOAD_ZONE_CLASS,
         icon_html,
-        upload_input_id, i18n.t("Choose an image"),
+        upload_input_id, i18n.t(_CHOOSE_AN_IMAGE_TEXT),
         REPLACE_HINT_CLASS, i18n.t(REPLACE_HINT_TEXT),
         MANUAL_UPLOAD_FORM_ID + id_suffix,
         action,
@@ -1314,7 +1372,7 @@ def render(ctx):
     summary_html = _manual_summary_html(manual_rows)
     filter_html = _filter_bar_html(total, summary_html) if (pairs or gap_shown) else ""
     return (
-        layout.page_header(i18n.t("Airlines"), purpose=i18n.t(GALLERY_PURPOSE_TEXT))
+        layout.page_header(i18n.t(_NAV_AIRLINES_TEXT), purpose=i18n.t(GALLERY_PURPOSE_TEXT))
         + filter_html
         + _gallery_grid_html(
             pairs, state_dir, manual_info_by_name=manual_info_by_name, now=now)

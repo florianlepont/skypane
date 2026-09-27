@@ -1318,11 +1318,11 @@ def test_airlines_full_seeded_render_french_end_to_end(tmp_path):
         resolve_fr = airlines_page.render({"state_dir": str(tmp_path), "resolve_prefix": "XYZ"})
     finally:
         prefs.set_request_prefs(lang="en")
-    # Task 2 : the needle names the CURRENT French
-    # translation via the module's own CATALOG lookup, never a hand-typed
-    # literal that would silently go stale on the next edit.
+    # The needle names the CURRENT French translation via the module's
+    # own MESSAGES lookup (by stable id), never a hand-typed literal
+    # that would silently go stale on the next edit.
     for needle in (">Compagnies<", "Compagnies non identifiées",
-                   i18n_fr_airlines.CATALOG[airlines_page.GAP_STRIP_BODY]):
+                   i18n_fr_airlines.MESSAGES[airlines_page.GAP_STRIP_BODY.msg_id]):
         assert needle in rendered_fr, "expected the French %r in the French Airlines render" % (needle,)
     for needle in ("Identifier un vol non reconnu", "Nom de la compagnie",
                    "Enregistrer le nom de la compagnie"):
@@ -1337,13 +1337,23 @@ def test_airlines_full_seeded_render_french_end_to_end(tmp_path):
 
 
 def test_airlines_catalog_keys_all_present_in_merged_catalog():
-    """every key in companion/i18n_fr/airlines.py's own CATALOG is also a key of the merged
-    companion.i18n_fr.CATALOG, proving the auto-merge package picked the module up"""
+    """every key in companion/i18n_fr/airlines.py's own CATALOG/MESSAGES is also a key of the
+    merged companion.i18n_fr.CATALOG/BY_ID, proving the auto-merge package picked the module up.
+    airlines.py has fully migrated onto stable ids: it exports MESSAGES, not CATALOG, so the
+    CATALOG half reduces to an always-empty check for that module — kept rather than deleted so a
+    regression back to a CATALOG export is still caught."""
     import companion.i18n_fr as i18n_fr
     import companion.i18n_fr.airlines as i18n_fr_airlines
 
-    missing = [k for k in i18n_fr_airlines.CATALOG if k not in i18n_fr.CATALOG]
+    missing = [
+        k for k in getattr(i18n_fr_airlines, "CATALOG", {})
+        if k not in i18n_fr.CATALOG]
     assert not missing, "keys missing from the merged CATALOG: %r" % (missing,)
+
+    missing_ids = [
+        k for k in getattr(i18n_fr_airlines, "MESSAGES", {})
+        if k not in i18n_fr.BY_ID]
+    assert not missing_ids, "ids missing from the merged BY_ID: %r" % (missing_ids,)
 
 
 # ======================================================================

@@ -44,16 +44,17 @@ from skypane_test_support import REPO_ROOT, child_env
 
 
 def test_t_lang_fr_translates_a_known_key():
-    # "Status" is a plain, legacy English-keyed CATALOG entry (home.py) —
-    # unlike a migrated string such as "Home", it translates correctly
-    # with no dependence on some other module's Message declarations
-    # having run first, which is what this module's own minimal import
-    # set (no companion.layout/ui_base) would otherwise require.
-    assert i18n.t_lang("Status", "fr") == "Statut"
+    # "Cancel" is a plain, legacy English-keyed CATALOG entry
+    # (display.py, not yet migrated) — unlike a migrated string such as
+    # "Home", it translates correctly with no dependence on some other
+    # module's Message declarations having run first, which is what
+    # this module's own minimal import set (no companion.layout/
+    # ui_base) would otherwise require.
+    assert i18n.t_lang("Cancel", "fr") == "Annuler"
 
 
 def test_t_lang_en_returns_the_english_source():
-    assert i18n.t_lang("Status", "en") == "Status"
+    assert i18n.t_lang("Cancel", "en") == "Cancel"
 
 
 def test_t_lang_degrades_a_missing_key_to_the_english_source_unchanged():
@@ -69,13 +70,13 @@ def test_t_lang_degrades_a_missing_key_to_the_english_source_unchanged():
 def test_t_follows_set_request_prefs_and_back():
     try:
         prefs.set_request_prefs(lang="fr")
-        fr_result = i18n.t("Status")
+        fr_result = i18n.t("Cancel")
         prefs.set_request_prefs(lang="en")
-        en_result = i18n.t("Status")
+        en_result = i18n.t("Cancel")
     finally:
         prefs.set_request_prefs(lang="en")
-    assert fr_result == "Statut"
-    assert en_result == "Status"
+    assert fr_result == "Annuler"
+    assert en_result == "Cancel"
 
 
 # ==========================================================================
@@ -279,16 +280,16 @@ def test_t_lang_message_in_english_returns_the_plain_english_str(isolated_regist
 
 
 def test_t_lang_plain_str_still_translates_through_the_legacy_catalog():
-    assert i18n.t_lang("Status", "fr") == "Statut"
+    assert i18n.t_lang("Cancel", "fr") == "Annuler"
 
 
 def test_t_lang_message_with_no_by_id_entry_falls_back_to_legacy_catalog(isolated_registry):
-    # "Screen" is legacy English-keyed in i18n_fr.health.CATALOG (not
+    # "Settings" is legacy English-keyed in i18n_fr.display.CATALOG (not
     # yet migrated onto a stable id); a Message sharing that English text
     # but with an ID that has no BY_ID entry yet must still resolve
     # through the legacy fallback.
-    message = i18n.Message("test.not_yet_migrated", "Screen")
-    assert i18n.t_lang(message, "fr") == "Écran"
+    message = i18n.Message("test.not_yet_migrated", "Settings")
+    assert i18n.t_lang(message, "fr") == "Réglages"
 
 
 # ==========================================================================
