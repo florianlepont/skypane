@@ -65,6 +65,16 @@ _AGE_UNIT_SUFFIX_FR = {
     "d": "j",
 }
 
+# The four wordings relative_age_text()/relative_future_text() pass to
+# i18n.t_lang() below, hoisted from inline literals to module-level
+# Messages. Each id is owned by companion/i18n_fr/health.py's catalogue
+# (untouched by this plan; migrated later), so the id-with-no-BY_ID-entry
+# fallback keeps every one of these resolving until then.
+_JUST_NOW_TEXT = i18n.msg("health.just_now", "just now")
+_AGO_TEXT = i18n.msg("health.ago", "%s ago")
+_IN_A_MOMENT_TEXT = i18n.msg("health.in_a_moment", "in a moment")
+_IN_QUANTITY_TEXT = i18n.msg("health.in", "in %s")
+
 
 def _age_bucket(age_seconds):
     """The s/m/h/d bucket a whole number of seconds falls in, as a `(value,
@@ -114,9 +124,9 @@ def relative_age_text(age_seconds, lang=None):
     value, unit = _age_bucket(age_seconds)
     if lang == "fr":
         if unit == "s":
-            return i18n.t_lang("just now", "fr")
+            return i18n.t_lang(_JUST_NOW_TEXT, "fr")
         quantity = "%d %s" % (value, _AGE_UNIT_SUFFIX_FR[unit])
-        return i18n.t_lang("%s ago", "fr") % quantity
+        return i18n.t_lang(_AGO_TEXT, "fr") % quantity
     return "%d%s ago" % (value, unit)
 
 
@@ -140,9 +150,9 @@ def relative_future_text(seconds_ahead, lang=None):
         lang = prefs.current_lang()
     if lang == "fr":
         if unit == "s":
-            return i18n.t_lang("in a moment", "fr")
+            return i18n.t_lang(_IN_A_MOMENT_TEXT, "fr")
         quantity = "%d %s" % (value, _AGE_UNIT_SUFFIX_FR[unit])
-        return i18n.t_lang("in %s", "fr") % quantity
+        return i18n.t_lang(_IN_QUANTITY_TEXT, "fr") % quantity
     return "in %d%s" % (value, unit)
 
 
@@ -184,19 +194,23 @@ def duration_text(seconds, lang=None):
 # quantity _age_bucket() picks, equals relative_age_text()'s/
 # relative_future_text()'s own return value, in both languages.
 RELATIVE_QUANTITY_MARK = "#"
-RELATIVE_PAST_SECONDS_TEXT = "#s ago"
-RELATIVE_PAST_MINUTES_TEXT = "#m ago"
-RELATIVE_PAST_HOURS_TEXT = "#h ago"
-RELATIVE_PAST_DAYS_TEXT = "#d ago"
-RELATIVE_FUTURE_SECONDS_TEXT = "in #s"
-RELATIVE_FUTURE_MINUTES_TEXT = "in #m"
-RELATIVE_FUTURE_HOURS_TEXT = "in #h"
-RELATIVE_FUTURE_DAYS_TEXT = "in #d"
+# Each of the eight bucket wordings below, plus RELATIVE_WAITING_TEXT,
+# is a Message: relative_copy_attrs() passes every one to i18n.t_lang(),
+# and every id is owned by companion/i18n_fr/health.py's catalogue
+# (untouched by this plan; migrated later).
+RELATIVE_PAST_SECONDS_TEXT = i18n.msg("health.s_ago", "#s ago")
+RELATIVE_PAST_MINUTES_TEXT = i18n.msg("health.m_ago", "#m ago")
+RELATIVE_PAST_HOURS_TEXT = i18n.msg("health.h_ago", "#h ago")
+RELATIVE_PAST_DAYS_TEXT = i18n.msg("health.d_ago", "#d ago")
+RELATIVE_FUTURE_SECONDS_TEXT = i18n.msg("health.in_s", "in #s")
+RELATIVE_FUTURE_MINUTES_TEXT = i18n.msg("health.in_m", "in #m")
+RELATIVE_FUTURE_HOURS_TEXT = i18n.msg("health.in_h", "in #h")
+RELATIVE_FUTURE_DAYS_TEXT = i18n.msg("health.in_d", "in #d")
 
 # What a countdown reads once its instant has passed. Never a warning
 # word or colour — a thing which has not happened yet is not a fault;
 # this is the app's neutral breathing treatment.
-RELATIVE_WAITING_TEXT = "waiting…"
+RELATIVE_WAITING_TEXT = i18n.msg("health.waiting", "waiting…")
 
 # Must equal the attribute names companion/static/relative-time.js
 # reads, in bucket order (s/m/h/d), matching _age_bucket()'s own unit
@@ -453,15 +467,16 @@ def local_clock_text(parsed, now_parsed=None, lang=None):
 # The freshness line: one definition site with three call sites, so markup
 # read by two scripts and pinned by test harnesses cannot drift between
 # copies. companion/pages/health_page.py imports these names from here rather
-# than redefining them.
-REFRESH_PILL_TEXT = "Updating…"
+# than redefining them. Both Messages below are owned by health.py's
+# catalogue (untouched by this plan; migrated later).
+REFRESH_PILL_TEXT = i18n.msg("health.updating", "Updating…")
 
 # The hook companion/static/freshness.js toggles its breathing class on.
 # Duplicated rather than imported, since freshness.js is a static asset, not a
 # Python module.
 REFRESH_LIVE_DOT_ATTR = "data-refresh-live-dot"
 
-FRESHNESS_PREFIX_TEXT = "Updated "
+FRESHNESS_PREFIX_TEXT = i18n.msg("health.updated", "Updated ")
 
 # A `now_parsed` guaranteed to fall on a different Europe/Paris calendar day
 # than any real device reading, forcing local_clock_text()'s cross-day

@@ -93,13 +93,35 @@ def test_prefs_unknown_lang_degrades_to_en():
 
 
 def test_catalog_contains_every_key_defined_in_common():
-    missing = [k for k in i18n_fr_common.CATALOG if k not in i18n_fr.CATALOG]
+    missing = [
+        k for k in getattr(i18n_fr_common, "CATALOG", {})
+        if k not in i18n_fr.CATALOG]
     assert not missing, "keys missing from merged CATALOG: %r" % (missing,)
 
 
 def test_catalog_contains_every_key_defined_in_nav():
-    missing = [k for k in i18n_fr_nav.CATALOG if k not in i18n_fr.CATALOG]
+    # nav.py has fully migrated onto stable ids: it exports MESSAGES, not
+    # CATALOG, so this reduces to an always-empty check for that module —
+    # kept for symmetry with the common.py check above, and so a future
+    # regression back to a CATALOG export is still caught.
+    missing = [
+        k for k in getattr(i18n_fr_nav, "CATALOG", {})
+        if k not in i18n_fr.CATALOG]
     assert not missing, "keys missing from merged CATALOG: %r" % (missing,)
+
+
+def test_by_id_contains_every_message_defined_in_common():
+    missing = [
+        k for k in getattr(i18n_fr_common, "MESSAGES", {})
+        if k not in i18n_fr.BY_ID]
+    assert not missing, "ids missing from merged BY_ID: %r" % (missing,)
+
+
+def test_by_id_contains_every_message_defined_in_nav():
+    missing = [
+        k for k in getattr(i18n_fr_nav, "MESSAGES", {})
+        if k not in i18n_fr.BY_ID]
+    assert not missing, "ids missing from merged BY_ID: %r" % (missing,)
 
 
 # A short, named exception list of genuine French/English cognates: a
@@ -222,11 +244,12 @@ def test_t_lang_plain_str_still_translates_through_the_legacy_catalog():
 
 
 def test_t_lang_message_with_no_by_id_entry_falls_back_to_legacy_catalog(isolated_registry):
-    # "Home" is legacy English-keyed in i18n_fr.nav.CATALOG; a Message
-    # sharing that English text but with an ID that has no BY_ID entry
-    # yet must still resolve through the legacy fallback.
-    message = i18n.Message("test.not_yet_migrated", "Home")
-    assert i18n.t_lang(message, "fr") == "Accueil"
+    # "Password" is legacy English-keyed in i18n_fr.common.CATALOG (not
+    # yet migrated onto a stable id); a Message sharing that English text
+    # but with an ID that has no BY_ID entry yet must still resolve
+    # through the legacy fallback.
+    message = i18n.Message("test.not_yet_migrated", "Password")
+    assert i18n.t_lang(message, "fr") == "Mot de passe"
 
 
 # ==========================================================================

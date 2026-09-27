@@ -56,6 +56,10 @@ from companion.ui_nav import (
 )
 from companion.ui_time import relative_copy_attrs
 
+# The pre-authentication document's <title> — the one inline i18n.t()
+# literal this module used to carry, hoisted to a module-level Message.
+_LOGIN_TITLE_TEXT = i18n.msg("common.login", "Login")
+
 # The pre-authentication document's own named template: no icon sprite,
 # skip link, sidebar or nav-dropdown script — the body holds only the
 # login card. No literal "{" or "}" appears in the skeleton below other
@@ -101,7 +105,7 @@ def login_shell(body, ui_theme="auto", lang=None):
         # Only "Login" is translated; SITE_TITLE is a brand name and stays
         # untranslated, so the title keeps the same "<page> - <product>" shape
         # as page_shell()'s <title>.
-        "title": escape_html(i18n.t("Login")),
+        "title": escape_html(i18n.t(_LOGIN_TITLE_TEXT)),
         "site_title": escape_html(SITE_TITLE),
         "favicon_link": FAVICON_LINK_HTML,
         "body": body,

@@ -1,16 +1,38 @@
 # -*- coding: utf-8 -*-
 """French strings for the login page, the 404 and 403 pages, the shared
 "Sign out" control, and every flash-banner template in
-companion/app.py's FLASH_MESSAGES dict. Every key is the exact English
-source string a call site in companion/app.py or companion/layout.py
-passes to companion.i18n.t(), including the "%d"/"%s"/"{n}"/"{s}"/
-"{key}" placeholder shape.
+companion/app.py's FLASH_MESSAGES dict. Every CATALOG key is the exact
+English source string a call site in companion/app.py or
+companion/layout.py passes to companion.i18n.t(), including the
+"%d"/"%s"/"{n}"/"{s}"/"{key}" placeholder shape.
+
+MESSAGES holds the entries already migrated onto a stable message ID
+(companion/ui_shell.py's/ui_nav.py's own Message constants declare the
+matching id); CATALOG keeps the rest, still keyed by English source
+text, until their own call sites (companion/app.py, companion/flash.py,
+companion/login_page.py) migrate too.
 
 Two FLASH_MESSAGES values are deliberately absent here — the Frame
 strip's poll-cooldown copy and the Notifications card's "Send a test"
 outcomes — already keyed in sibling modules; the auto-merge package
 raises ValueError on a duplicate key across sibling modules.
 """
+
+# The entries below are migrated onto a stable id: their source-side
+# Message is declared where the English constant already lives
+# (companion/ui_shell.py, companion/ui_nav.py), never here — this
+# module only carries the id's French translation.
+MESSAGES = {
+    "common.login": "Connexion",
+    "common.sign_out": "Se déconnecter",
+    "common.couldn_t_change_that_please_try_again":
+        "Impossible de modifier ce réglage — réessayez.",
+    # The two neutral states freshness.js's refresh loop can be in,
+    # rendered onto <body> by companion/ui_shell.py and read client-side;
+    # the English forms are also the script's own no-attribute fallbacks.
+    "common.paused": "En pause",
+    "common.reconnecting": "Reconnexion…",
+}
 
 CATALOG = {
     # --- Login page ------------------------------------------------
@@ -27,9 +49,6 @@ CATALOG = {
     "Show password": "Afficher le mot de passe",
     "Hide password": "Masquer le mot de passe",
 
-    # The login shell's own <title>.
-    "Login": "Connexion",
-
     # --- 404 page ----------------------------------------------------
     "Page not found.": "Page introuvable.",
     "The page you requested doesn't exist or may have moved.":
@@ -43,9 +62,6 @@ CATALOG = {
     "Request refused": "Requête refusée",
     "This request came from another site, so it was refused. Open SkyPane directly and try again.":
         "Cette requête venait d’un autre site, elle a donc été refusée. Ouvrez SkyPane directement et réessayez.",
-
-    # --- Shared footer control -----------------------------------------
-    "Sign out": "Se déconnecter",
 
     # --- Flash banners ---------------------------------------------
     "Screen switched on — the frame will wake up and show a picture "
@@ -192,9 +208,4 @@ CATALOG = {
     "Paste a valid calendar feed URL to connect one.":
         "Collez une URL de flux de calendrier valide pour en "
         "connecter un.",
-    # The two neutral states freshness.js's refresh loop can be in,
-    # rendered onto <body> by companion/layout.py and read client-side;
-    # the English forms are also the script's own no-attribute fallbacks.
-    "Paused": "En pause",
-    "Reconnecting…": "Reconnexion…",
 }

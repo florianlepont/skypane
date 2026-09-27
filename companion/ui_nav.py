@@ -32,6 +32,15 @@ from companion.ui_base import (
     nav_slug,
 )
 
+# Hoisted from what used to be inline i18n.t() literals below, so every
+# string this module passes to i18n.t()/i18n.t_lang() is a module-level
+# Message.
+_PRIMARY_NAVIGATION_TEXT = i18n.msg("nav.primary_navigation", "Primary navigation")
+_THEME_TEXT = i18n.msg("nav.theme", "Theme")
+_LANGUAGE_TEXT = i18n.msg("nav.language", "Language")
+_SIGN_OUT_TEXT = i18n.msg("common.sign_out", "Sign out")
+
+
 def ui_theme_from_cookie(cookies):
     """Return the UI theme named by `cookies`, or "auto" when the cookie is
     missing or holds a value outside UI_THEME_CHOICES.
@@ -115,11 +124,13 @@ def _health_alert_markup(severity):
     ) % (dot_class, NAV_NOTIFICATION_CLASS, escape_html(i18n.t(HEALTH_ALERT_SUFFIX_TEXT)))
 
 
-NAV_SCREEN_ON_TEXT = "Screen on"
-NAV_SCREEN_OFF_TEXT = "Screen off"
-NAV_QUIET_ON_TEXT = "Quiet hours on"
-NAV_QUIET_OFF_TEXT = "Quiet hours off"
-NAV_STATUS_ARIA_LABEL_TEXT = "Screen and quiet hours status — go to Home"
+NAV_SCREEN_ON_TEXT = i18n.msg("nav.screen_on", "Screen on")
+NAV_SCREEN_OFF_TEXT = i18n.msg("nav.screen_off", "Screen off")
+NAV_QUIET_ON_TEXT = i18n.msg("nav.quiet_hours_on", "Quiet hours on")
+NAV_QUIET_OFF_TEXT = i18n.msg("nav.quiet_hours_off", "Quiet hours off")
+NAV_STATUS_ARIA_LABEL_TEXT = i18n.msg(
+    "nav.screen_and_quiet_hours_status_go_to_home",
+    "Screen and quiet hours status — go to Home")
 # The middle dot that separates the two state segments, promoted to a
 # named constant because the two segments are `white-space: nowrap`
 # spans inside a wrapping flex row (the line may break BETWEEN them,
@@ -237,7 +248,7 @@ def sidebar_nav(active, health_alert=None, device_config=None):
         # "Primary navigation" is the one nav landmark exposed to the
         # accessibility tree at any given viewport width (see this module's own
         # comment above _mobile_nav_html()).
-        escape_html(i18n.t("Primary navigation")),
+        escape_html(i18n.t(_PRIMARY_NAVIGATION_TEXT)),
         "".join(parts))
 
 
@@ -245,7 +256,7 @@ def sidebar_nav(active, health_alert=None, device_config=None):
 # label voice — a nav destination is a destination, not a label, which
 # is why companion/static/style.css's `.tab-bar__label` declares no
 # uppercase and no tracking.
-TAB_BAR_MORE_LABEL = "More"
+TAB_BAR_MORE_LABEL = i18n.msg("nav.more", "More")
 
 # The glyph on that cell. A whitelist member (ICON_IDS above), so
 # icon_html()'s own fallback contract applies unchanged.
@@ -268,8 +279,8 @@ TAB_BAR_BODY_CLASS = "has-tab-bar"
 
 # Emitted unconditionally, like the deferred scripts below: most pages
 # carry no refresh loop, and the attributes are inert there.
-REFRESH_PAUSED_TEXT = "Paused"
-REFRESH_RECONNECTING_TEXT = "Reconnecting…"
+REFRESH_PAUSED_TEXT = i18n.msg("common.paused", "Paused")
+REFRESH_RECONNECTING_TEXT = i18n.msg("common.reconnecting", "Reconnecting…")
 
 # Must equal the attribute names companion/static/freshness.js reads.
 REFRESH_PAUSED_ATTR = "data-refresh-paused-text"
@@ -448,7 +459,7 @@ def _tab_bar_html(active, health_alert=None, device_config=None):
         # Same translated landmark name as sidebar_nav(); the 960px CSS breakpoint sets
         # display: none on the losing copy, so only one is ever in the accessibility
         # tree.
-        escape_html(i18n.t("Primary navigation")),
+        escape_html(i18n.t(_PRIMARY_NAVIGATION_TEXT)),
         "".join(cells))
 
 
@@ -467,12 +478,14 @@ def _tab_bar_cell_body(icon_id, label, extra_html=""):
         icon_html(icon_id, extra_class="tab-bar__icon"), label, extra_html)
 
 
+_THEME_LABEL_TEXT = {
+    "auto": i18n.msg("nav.auto", "Auto"),
+    "light": i18n.msg("nav.light", "Light"),
+    "dark": i18n.msg("nav.dark", "Dark"),
+}
+
+
 def _theme_form_html(resolved_theme):
-    # A function-scoped lookup table, not `choice.capitalize()`:
-    # companion/test_i18n.py's AST scanner cannot fold a `.capitalize()` call back
-    # to a literal, so `choice` indexes this table before reaching i18n.t(),
-    # keeping the call scanner-visible.
-    _THEME_LABEL_TEXT = {"auto": "Auto", "light": "Light", "dark": "Dark"}
     options = []
     for choice in UI_THEME_CHOICES:
         is_active = choice == resolved_theme
@@ -490,7 +503,7 @@ def _theme_form_html(resolved_theme):
     # label is translated.
     return (
         '<form class="theme-form" method="post" action="/ui-theme" aria-label="%s">%s</form>'
-        % (escape_html(i18n.t("Theme")), "".join(options)))
+        % (escape_html(i18n.t(_THEME_TEXT)), "".join(options)))
 
 
 def _lang_form_html(resolved_lang):
@@ -509,7 +522,7 @@ def _lang_form_html(resolved_lang):
                escape_html(choice.upper())))
     return (
         '<form class="theme-form" method="post" action="/ui-lang" aria-label="%s">%s</form>'
-        % (escape_html(i18n.t("Language")), "".join(options)))
+        % (escape_html(i18n.t(_LANGUAGE_TEXT)), "".join(options)))
 
 
 def _logout_form_html():
@@ -525,7 +538,7 @@ def _logout_form_html():
         '<form method="post" action="/logout" class="logout-form">'
         '<button type="submit">%s</button>'
         "</form>"
-    ) % escape_html(i18n.t("Sign out"))
+    ) % escape_html(i18n.t(_SIGN_OUT_TEXT))
 
 
 def _mobile_nav_html(
