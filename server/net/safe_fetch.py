@@ -38,7 +38,7 @@ def _address_is_public(ip_text: str) -> bool:
     this early gate and the real connection agree by construction on
     what counts as public.
     """
-    return http_fetch.address_is_public(ip_text)
+    return bool(http_fetch.address_is_public(ip_text))
 
 
 def host_is_safe(hostname: str, port: int | None = None) -> bool:
@@ -66,7 +66,7 @@ def host_is_safe(hostname: str, port: int | None = None) -> bool:
         return False
     for info in infos:
         sockaddr = info[4]
-        address_text = sockaddr[0]
+        address_text = str(sockaddr[0])
         if not _address_is_public(address_text):
             return False
     return True

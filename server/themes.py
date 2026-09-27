@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 import sys
+from typing import cast
 
 # Allow both `import server.themes` (package import) and direct script
 # execution: sys.path[0] is server/ itself when this file is executed
@@ -225,32 +226,32 @@ def theme_background_index(state: str, theme_id: str) -> int:
     """
     theme = THEMES[theme_id]
     if state == "departing":
-        return theme["departing_index"]
+        return cast(int, theme["departing_index"])
     if state == "arriving":
-        return theme["arriving_index"]
+        return cast(int, theme["arriving_index"])
     raise ValueError("unknown state %r (expected 'departing' or 'arriving')" % (state,))
 
 
 def theme_ink_index(theme_id: str) -> int:
-    return THEMES[theme_id]["ink_index"]
+    return cast(int, THEMES[theme_id]["ink_index"])
 
 
 def theme_label(theme_id: str) -> str:
-    return THEMES[theme_id]["label"]
+    return cast(str, THEMES[theme_id]["label"])
 
 
 def theme_dithered(theme_id: str) -> bool:
     """Whether `theme_id`'s background is dithered rather than flat - see
     THEMES' own comment.
     """
-    return THEMES[theme_id]["dithered"]
+    return cast(bool, THEMES[theme_id]["dithered"])
 
 
 def theme_weight(theme_id: str) -> str:
     """`theme_id`'s PT Serif weight ("regular"/"bold"); not derivable from
     `theme_dithered()` alone - see THEMES' own comment.
     """
-    return THEMES[theme_id]["weight"]
+    return cast(str, THEMES[theme_id]["weight"])
 
 
 def theme_is_band(theme_id: str) -> bool:
@@ -264,11 +265,11 @@ def theme_band_index(theme_id: str) -> int | None:
     """`theme_id`'s diagonal band colour as a panel_format.IDX_* constant,
     or `None` for a non-band theme.
     """
-    return THEMES[theme_id].get("band_index")
+    return cast("int | None", THEMES[theme_id].get("band_index"))
 
 
 def theme_band_dithered(theme_id: str) -> bool:
     """Whether `theme_id`'s diagonal band is dithered; `False` for a
     non-band theme.
     """
-    return THEMES[theme_id].get("band_dithered", False)
+    return cast(bool, THEMES[theme_id].get("band_dithered", False))

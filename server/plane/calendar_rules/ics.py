@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 import sys
 from datetime import datetime, timezone
+from typing import cast
 
 # The one CATEGORIES value that marks a VEVENT as a flight rather than
 # duty-roster noise.
@@ -77,7 +78,7 @@ def unfold_ics_lines(raw_text: object) -> list[str]:
     if not isinstance(raw_text, str):
         return []
     normalised = raw_text.replace("\r\n", "\n")
-    logical_lines = []
+    logical_lines: list[str] = []
     for line in normalised.split("\n"):
         if line[:1] in (" ", "\t") and logical_lines:
             logical_lines[-1] += line[1:]
@@ -118,7 +119,7 @@ def parse_ics_datetime(value: object) -> float | None:
     return parsed.timestamp()
 
 
-def _build_entry(props: dict) -> tuple[dict | None, str | None]:
+def _build_entry(props: dict[str, str]) -> tuple[dict[str, object] | None, str | None]:
     """Turn one closed VEVENT block's accumulated property dict into a
     five-key entry, or reject it. Returns `(entry_or_None, reason)`:
     `"date_form"` when the event was otherwise valid but its
@@ -178,7 +179,7 @@ def _build_entry(props: dict) -> tuple[dict | None, str | None]:
     return entry, None
 
 
-def parse_ics_events(raw_text: object) -> list[dict]:
+def parse_ics_events(raw_text: object) -> list[dict[str, object]]:
     """Parse an untrusted iCal feed body into a bounded, sorted list of
     match-candidate entries (ascending by `start_at`). Never raises.
 
@@ -207,11 +208,11 @@ def parse_ics_events(raw_text: object) -> list[dict]:
     except Exception:
         return []
 
-    entries = []
+    entries: list[dict[str, object]] = []
     rejected_date_form = 0
     rejected_other = 0
     in_event = False
-    current = None
+    current: dict[str, str] | None = None
     # Depth of any component nested inside the open VEVENT (e.g. a VALARM
     # Apple Calendar attaches to an event with an alert). Tracking depth
     # keeps a nested END from closing the VEVENT early and keeps a nested
@@ -259,7 +260,10 @@ def parse_ics_events(raw_text: object) -> list[dict]:
 
             # nested_depth == 0 keeps a nested component's own properties
             # out of the parent event.
-            if in_event and current is not None and nested_depth == 0 and name in _TRACKED_PROPERTIES:
+            if (
+                in_event and current is not None and nested_depth == 0
+                and name in _TRACKED_PROPERTIES and value is not None
+            ):
                 current[name] = value
     except Exception:
         # Defence in depth: every branch above is already guarded, but a
@@ -275,5 +279,5 @@ def parse_ics_events(raw_text: object) -> list[dict]:
             file=sys.stderr,
         )
 
-    entries.sort(key=lambda entry: entry["start_at"])
+    entries.sort(key=lambda entry: cast(float, entry["start_at"]))
     return entries
