@@ -87,6 +87,15 @@ RULE_KIND_LABELS = {
     colour_rules.RULE_KIND_HEX: i18n.msg("rules.aircraft", "Aircraft"),
     colour_rules.RULE_KIND_PREFIX: i18n.msg("rules.airline", "Airline"),
 }
+
+
+def _rule_kind_label_text(kind):
+    """RULE_KIND_LABELS[kind], translated; an unrecognised kind (a
+    stale/foreign value on an old row) degrades to the raw kind
+    unchanged rather than raising — never passed to i18n.t(), which
+    only accepts a Message."""
+    message = RULE_KIND_LABELS.get(kind)
+    return i18n.t(message) if message is not None else kind
 # A separate mapping from RULE_KIND_LABELS above, read only for each
 # segment's own title attribute, never shown as the visible label text.
 # Owned by display.py, like RULE_KIND_FIELD_LABEL above.
@@ -347,8 +356,8 @@ def _rule_row_html(kind, value, theme_id):
     ) % (
         swatch_html,
         escape_html(value),
-        escape_html(i18n.t(RULE_KIND_LABELS.get(kind, kind))),
-        escape_html(i18n.t(_theme_label_message(theme_id))),
+        escape_html(_rule_kind_label_text(kind)),
+        escape_html(_theme_label_message(theme_id)),
         delete_form,
     )
 

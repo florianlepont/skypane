@@ -17,23 +17,20 @@ companion/i18n_fr/registry.py, not here.
 Copy follows sentence case, the typographic apostrophe (U+2019, never
 a straight quote), and a non-breaking space (U+00A0) before
 ":" ";" "?" "!".
-"""
 
-# Four retired action wordings that reach no i18n.t() call any more (a
-# role="switch" control is now named by the setting via
-# aria-labelledby, never by an action) — companion/ui_base.py's own
-# QUICK_ACTION_SWITCH_ON_BUTTON/QUICK_ACTION_SWITCH_OFF_BUTTON/
-# QUICK_ACTION_QUIET_TURN_ON_BUTTON/QUICK_ACTION_QUIET_TURN_OFF_BUTTON
-# survive only as plain-str names a test asserts are no longer
-# rendered, so these four have no call site left to declare a Message.
-# Kept as legacy CATALOG rather than deleted outright, in case a future
-# UI reintroduces one of these actions.
-CATALOG = {
-    "Switch on": "Allumer",
-    "Switch off": "Éteindre",
-    "Turn on": "Activer",
-    "Turn off": "Désactiver",
-}
+Four retired action wordings ("Switch on"/"Switch off"/"Turn on"/
+"Turn off", French "Allumer"/"Éteindre"/"Activer"/"Désactiver") used to
+live here as a legacy English-keyed residual: a role="switch" control
+is now named by the setting via aria-labelledby, never by an action,
+so companion/ui_base.py's own QUICK_ACTION_SWITCH_ON_BUTTON/
+QUICK_ACTION_SWITCH_OFF_BUTTON/QUICK_ACTION_QUIET_TURN_ON_BUTTON/
+QUICK_ACTION_QUIET_TURN_OFF_BUTTON reach no i18n.t() call site any
+more. With no call site left to declare a stable-id Message, and the
+legacy English-keyed lookup removed entirely, these four entries were
+deleted rather than migrated. Reintroducing one of these actions means
+adding a fresh i18n.msg() declaration and a fresh MESSAGES entry, not
+restoring these.
+"""
 
 MESSAGES = {
     # --- Display/Device page shells -------------------------------------
@@ -98,6 +95,14 @@ MESSAGES = {
     "display.preview_with_your_last_flight":
         "Aperçu avec votre dernier vol : %s",
     "display.preview_with_a_sample_flight": "Aperçu avec un vol d’exemple",
+    # The theme chip grid's per-chip image alt text (companion/theme_
+    # preview.py). Never translated before this id existed either — kept
+    # identical to the English so the render stays byte-for-byte
+    # unchanged (see test_i18n.py's _UNCHANGED_IN_FRENCH); a real French
+    # alt text is a follow-up, not a rendered-output change this
+    # refactor-only migration may make.
+    "display.sample_panel_rendered_in_the_theme":
+        "Sample panel rendered in the %s theme",
 
     # --- Runway card ---------------------------------------------------
     "display.runway": "Piste",
@@ -221,11 +226,10 @@ MESSAGES = {
     "display.save_settings": "Enregistrer les réglages",
     "display.next_wake": "Prochain réveil",
     "display.next_wake_2": " (prochain réveil ≈ %s)",
-    # No original catalogue entry: the pre-migration plain-string call
-    # site ("≈ %s") was never in this CATALOG either, so it never
-    # translated. Registered with no French value here for the same
-    # reason — declaring one now would change rendered French output,
-    # which this migration must not do.
+    # Symbolic notation ("≈" plus a placeholder already localized by its
+    # caller), identical in both languages — not a missed translation,
+    # listed in test_i18n.py's _UNCHANGED_IN_FRENCH cognate set.
+    "display.next_wake_approx": "≈ %s",
 
     # The restored dirty-save-bar's connector/progress words and the
     # "Saving…" progressive, sharing the "Enregistrer les réglages"

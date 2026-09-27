@@ -208,6 +208,14 @@ _CORROBORATION_TITLES = {
     "None": i18n.msg("health.only_one_saw_it", "Only one saw it"),
 }
 
+
+def _corroboration_title_text(corroborated_key):
+    """The long-form tooltip text for the "None" (single-source) state,
+    translated; "" for True/False and any other key, which need none —
+    never passed to i18n.t(), which only accepts a Message."""
+    message = _CORROBORATION_TITLES.get(corroborated_key)
+    return i18n.t(message) if message is not None else ""
+
 _DB_UNAVAILABLE = object()  # Same sentinel discipline as health_page.py:
 # distinguishes "query raised" from "query succeeded, legitimately empty".
 
@@ -338,17 +346,20 @@ _CONFIRMED_STATE_LABELS = {
 
 def _confirmed_state_label(raw):
     """Maps a runway_events.confirmed_state raw value to its
-    presentation label. Falsy input renders as an empty string, never
-    the literal word "None". A recognised value maps via
-    `_CONFIRMED_STATE_LABELS`; anything else falls back to a
-    title-cased, underscore-stripped rendering, so an unexpected state
-    still reads as a human label instead of a raw machine value.
+    presentation label, already translated for the current request.
+    Falsy input renders as an empty string, never the literal word
+    "None". A recognised value maps via `_CONFIRMED_STATE_LABELS` (a
+    Message, translated here); anything else falls back to a
+    title-cased, underscore-stripped rendering of the raw value itself
+    — not a Message (its text is data-dependent, not a fixed catalogue
+    entry), so it is never passed to i18n.t(), exactly as it was never
+    found in the legacy catalogue either.
     """
     if not raw:
         return ""
     label = _CONFIRMED_STATE_LABELS.get(raw)
     if label is not None:
-        return label
+        return i18n.t(label)
     return raw.replace("_", " ").title()
 
 
@@ -372,7 +383,8 @@ def _runway_label(raw):
     """
     if raw and raw in device_config.RUNWAY_IDS:
         label = device_config.runway_label(raw)
-        return i18n.t(_RUNWAY_LABEL_MESSAGES.get(label, label))
+        message = _RUNWAY_LABEL_MESSAGES.get(label)
+        return i18n.t(message) if message is not None else label
     return raw or ""
 
 
@@ -578,12 +590,12 @@ def format_event_row(row, now=None):
         # value, never the aliased display name.
         "airline_raw": row.get("airline") or "",
         "route_label": route_label,
-        "confirmed_state": i18n.t(_confirmed_state_label(row.get("confirmed_state"))),
+        "confirmed_state": _confirmed_state_label(row.get("confirmed_state")),
         "corroboration_status": corroboration_status,
         "corroboration_label": corroboration_label,
         # The long form for the "None" (single-source) state, rendered
         # as status_dot()'s tooltip; "" for True/False, which need none.
-        "corroboration_title": i18n.t(_CORROBORATION_TITLES.get(row.get("corroborated"), "")),
+        "corroboration_title": _corroboration_title_text(row.get("corroborated")),
         "tracked_runway": _runway_label(row.get("tracked_runway")),
     }
 

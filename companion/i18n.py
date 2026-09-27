@@ -4,12 +4,12 @@ Page-independent: imports only companion.i18n_fr and companion.prefs.
 t() returns plain text, never markup — every call site still wraps its
 return value in layout.escape_html(), like any other dynamic string.
 
-Message/msg()/REGISTRY are the stable-ID translation mechanism: a Message
-is the English text wrapped with a `.msg_id` that never changes when the
-English is reworded, so its French translation (looked up by ID, not by
-text, in companion.i18n_fr.BY_ID) survives a copy edit. A plain str is
-still accepted everywhere a Message is, for call sites and catalogue
-modules not yet migrated onto the ID scheme.
+Message/msg()/REGISTRY are the stable-ID translation mechanism: a
+Message is the English text wrapped with a `.msg_id` that never changes
+when the English is reworded, so its French translation (looked up by
+ID, not by text, in companion.i18n_fr.BY_ID) survives a copy edit. t()
+and t_lang() accept ONLY a Message declared with i18n.msg() — a plain
+str raises TypeError, so no call site can bypass the stable-ID lookup.
 """
 import re
 
@@ -65,44 +65,28 @@ def msg(msg_id, english):
     return Message(msg_id, english)
 
 
-def _derived_english_to_french():
-    """An English->French view built from REGISTRY+BY_ID, for a plain
-    str call site whose text happens to equal a registered Message's
-    English — it still translates, even though the str it holds has no
-    `.msg_id` to look up directly. Rebuilt on every call: catalogues are
-    small (hundreds of entries) and i18n_fr.CATALOG itself has no
-    caching either.
-    """
-    view = {}
-    for msg_id, english in REGISTRY.items():
-        french = i18n_fr.BY_ID.get(msg_id)
-        if french is not None:
-            view[english] = french
-    return view
+def _require_message(text):
+    if not isinstance(text, Message):
+        raise TypeError(
+            "i18n.t() takes a Message declared with i18n.msg(), got "
+            "%s: %r" % (type(text).__name__, text))
 
 
-def _translate_fr(text):
-    msg_id = getattr(text, "msg_id", None)
-    if msg_id is not None:
-        french = i18n_fr.BY_ID.get(msg_id)
-        if french is not None:
-            return french
-        # Not migrated on the catalogue side yet — fall back to the
-        # legacy English-keyed lookup.
-        return i18n_fr.CATALOG.get(str(text), str(text))
-    french = i18n_fr.CATALOG.get(text)
-    if french is not None:
-        return french
-    return _derived_english_to_french().get(text, text)
+def _translate_fr(message):
+    # A Message with no BY_ID entry degrades to its own English source
+    # rather than raising — a completeness gap the test suite's own
+    # runtime sweep (test_i18n.py) catches separately, not a runtime
+    # error a real request should ever surface.
+    return i18n_fr.BY_ID.get(message.msg_id, str(message))
 
 
 def t(text):
     """Return the French translation of `text` when the current
     request language is French; otherwise the English source unchanged
-    (as a plain str). Never raises, never logs — a missing key degrades
-    to the English source string exactly like a request in English
-    would render.
+    (as a plain str). `text` must be a Message returned by i18n.msg();
+    a plain str raises TypeError.
     """
+    _require_message(text)
     if prefs.current_lang() == "fr":
         return _translate_fr(text)
     return str(text)
@@ -112,6 +96,7 @@ def t_lang(text, lang):
     """t()'s test-only sibling: looks up `text` for an explicit `lang`
     without touching prefs' per-request ContextVar. Same contract as t().
     """
+    _require_message(text)
     if lang == "fr":
         return _translate_fr(text)
     return str(text)

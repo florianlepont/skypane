@@ -410,7 +410,7 @@ def calendar_usage_row_html(
         calendar_safe_id = (
             effective_calendar if effective_calendar in device_config.THEMES
             else departures_safe_id)
-        calendar_meta = i18n.t(_theme_label_message(calendar_safe_id))
+        calendar_meta = _theme_label_message(calendar_safe_id)
         calendar_swatch_id = calendar_safe_id
     # The calendar's connection block nests directly beneath this row's
     # palette and field error. The disconnect form returned alongside

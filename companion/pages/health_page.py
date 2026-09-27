@@ -313,9 +313,11 @@ CHECK_IN_CAPTION_EMPTY = i18n.msg(
 # Europe/Paris and a raw ISO string survives only behind a copy control.
 CHECK_IN_CELL_TITLE = i18n.msg(
     "health.longest_observed_gap", "%s — %s: longest observed gap %s")
-# No catalogue entry: a bare "%s — %s" join has never carried
-# translatable words of its own, so this stays a plain template.
-CHECK_IN_CELL_TITLE_NONE = "%s — %s"
+# A bare "%s — %s" join carries no translatable words of its own — the
+# id exists only so i18n.t() (Message-only) can still be called on it;
+# its French BY_ID entry is the identical template, listed in
+# test_i18n.py's _UNCHANGED_IN_FRENCH.
+CHECK_IN_CELL_TITLE_NONE = i18n.msg("health.day_dash_verdict", "%s — %s")
 CHECK_IN_GRID_LABEL = i18n.msg(
     "health.observed_check_in_regularity_one_cell_per_day",
     "Observed check-in regularity, one cell per day over the last %d days: "
@@ -473,6 +475,9 @@ _VIEW_READING_TEMPLATE = i18n.msg("health.view_reading", "View %d reading%s")
 _MORE_DETAILS_TEXT = i18n.msg("health.more_details", "More details")
 _NOTHING_TO_COMPARE_YET_TEXT = i18n.msg(
     "health.nothing_to_compare_yet", "Nothing to compare yet.")
+_APPEARS_ONCE_RECORDED_TEXT = i18n.msg(
+    "health.this_appears_once_the_frame_has_recorded_at",
+    "This appears once the frame has recorded at least one flight.")
 _FILTER_COUNT_TEMPLATE = i18n.msg("health.of_shown", "%d of %d shown")
 _CLEAR_TEXT = i18n.msg("health.clear", "Clear")
 _RESOLVED_PCT_TEMPLATE = i18n.msg("health.1f_resolved", "%.1f%% resolved")
@@ -1053,9 +1058,7 @@ def _corroboration_section(counts):
         # widget-verdict/widget-detail pair.
         return layout.empty_state(
             i18n.t(_NOTHING_TO_COMPARE_YET_TEXT),
-            i18n.t(
-                "This appears once the frame has recorded at least one "
-                "flight."),
+            i18n.t(_APPEARS_ONCE_RECORDED_TEXT),
             compact=True), False
 
     statuses = corroboration_status(counts)

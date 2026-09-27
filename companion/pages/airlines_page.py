@@ -886,7 +886,9 @@ def _lightbox_html():
         "</div>"
         "</dialog>"
     ) % (
-        LIGHTBOX_DIALOG_ID, escape_html(i18n.t(LIGHTBOX_ARIA_LABEL)), escape_html(i18n.t(LIGHTBOX_NOTE)),
+        # LIGHTBOX_NOTE is always the empty-string placeholder above, not
+        # translatable text — i18n.t() only accepts a Message.
+        LIGHTBOX_DIALOG_ID, escape_html(i18n.t(LIGHTBOX_ARIA_LABEL)), escape_html(LIGHTBOX_NOTE),
         LIGHTBOX_HEADING_CLASS,
         LIGHTBOX_MANUAL_NOTE_CLASS,
         resolve_context_html,

@@ -963,13 +963,16 @@ def _screen_caption_html(screen):
     the visible end of the companion/screens.py seam. Rendered as an
     already-safe block for page_header()'s `action_html` slot.
     """
-    # screen["label"] is translated at this display site (i18n.t());
-    # the screen id itself never changes.
+    # screen["label"] is translated at this display site (i18n.t()),
+    # unless it is a label this table does not (yet) know — the id
+    # itself never changes, and an unrecognised raw label was never in
+    # any catalogue, so it is not passed to i18n.t().
     raw_label = screen["label"]
-    label_message = _SCREEN_LABEL_MESSAGES.get(raw_label, raw_label)
+    label_message = _SCREEN_LABEL_MESSAGES.get(raw_label)
+    label_text = i18n.t(label_message) if label_message is not None else raw_label
     return (
         '<p class="page-header__screen text-label">%s</p>'
-        % escape_html(i18n.t(SCREEN_CAPTION_TEMPLATE) % i18n.t(label_message)))
+        % escape_html(i18n.t(SCREEN_CAPTION_TEMPLATE) % label_text))
 
 
 NEXT_WAKE_HEADER_LABEL = i18n.msg("display.next_wake", "Next wake")

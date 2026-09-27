@@ -269,6 +269,10 @@ MESSAGES = {
     "health.missing": "Manquant",
     "health.no_record": "Aucun relevé",
     "health.longest_observed_gap": "%s — %s : plus long écart observé %s",
+    # A bare "%s — %s" join, no translatable words of its own — the
+    # French entry is the identical template (test_i18n.py’s
+    # _UNCHANGED_IN_FRENCH).
+    "health.day_dash_verdict": "%s — %s",
     "health.observed_check_in_regularity_one_cell_per_day":
         "Régularité observée des relevés, une case par jour sur les %d "
         "derniers jours : %d dans la cadence, %d en retard, %d manquants, "

@@ -67,14 +67,15 @@ _THEME_LABEL_MESSAGES = {
 
 
 def _theme_label_message(theme_id):
-    """`device_config.theme_label(theme_id)`'s registry text as a
-    Message, so every display site passes `i18n.t()` a stable id
-    instead of the raw label string. Falls back to the raw label
+    """`device_config.theme_label(theme_id)`'s registry text, already
+    translated when this table knows it. Falls back to the raw label
     unchanged for a theme id this table does not (yet) know — never
-    raises.
+    raises, and never calls i18n.t() on the raw fallback (it was never
+    in any catalogue, so it is not a Message).
     """
     label = device_config.theme_label(theme_id)
-    return _THEME_LABEL_MESSAGES.get(label, label)
+    message = _THEME_LABEL_MESSAGES.get(label)
+    return i18n.t(message) if message is not None else label
 
 # "Aspect": the one merged card, a native `<details name="aspect-rows">`
 # accordion over four rows. No radiogroup selects which row is showing
@@ -165,7 +166,7 @@ def _palette_chip_html(field_name, theme_id, selected, radio_form_id=None):
     """
     form_attr_html = ' form="%s"' % escape_html(radio_form_id) if radio_form_id else ""
     escaped_id = escape_html(theme_id)
-    label = i18n.t(_theme_label_message(theme_id))
+    label = _theme_label_message(theme_id)
     check_html = ""
     if selected:
         check_html = (
@@ -221,7 +222,7 @@ def _usage_row_summary_html(usage, theme_id, meta_text=None):
     source. `meta_text`, when omitted, defaults to the saved theme name.
     """
     if meta_text is None:
-        meta_text = i18n.t(_theme_label_message(theme_id))
+        meta_text = _theme_label_message(theme_id)
     row_label = i18n.t(FRAME_COLOURS_ROW_LABELS[usage])
     escaped_row_label = escape_html(row_label)
     escaped_meta = escape_html(meta_text)
@@ -273,7 +274,7 @@ def _theme_chip_grid_html(
         theme = device_config.THEMES[theme_id]
         # device_config.theme_label()'s registry text is translated at
         # this display site; the theme id itself never changes.
-        label = i18n.t(_theme_label_message(theme_id))
+        label = _theme_label_message(theme_id)
         escaped_id = escape_html(theme_id)
         departing_hex = _palette_hex(theme["departing_index"])
         arriving_hex = _palette_hex(theme["arriving_index"])
@@ -335,7 +336,7 @@ def _theme_live_preview_html(current_theme_id, state_dir, extra_class=""):
     live_theme_id = (
         current_theme_id if current_theme_id in device_config.THEMES
         else device_config.DEFAULT_THEME_ID)
-    label = i18n.t(_theme_label_message(live_theme_id))
+    label = _theme_label_message(live_theme_id)
     callsign = None
     if state_dir:
         try:
@@ -488,7 +489,7 @@ def _aspect_card_html(
         arrivals_safe_id = (
             effective_arriving if effective_arriving in device_config.THEMES
             else departures_safe_id)
-        arrivals_meta = i18n.t(_theme_label_message(arrivals_safe_id))
+        arrivals_meta = _theme_label_message(arrivals_safe_id)
         arrivals_swatch_id = arrivals_safe_id
     arrivals_row = _usage_row_html(
         COLOUR_USAGE_ARRIVALS,

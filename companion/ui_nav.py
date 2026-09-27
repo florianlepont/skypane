@@ -95,7 +95,12 @@ def _nav_groups(active):
         count = len(entries)
         group_links = links[offset:offset + count]
         offset += count
-        groups.append((escape_html(i18n.t(group_label)), group_links))
+        # The first group's label is the empty-string sentinel "no
+        # heading" (see NAV_GROUPS), never a Message — i18n.t() only
+        # accepts a Message, so an empty label skips translation
+        # entirely rather than being passed through it.
+        label_text = i18n.t(group_label) if group_label else group_label
+        groups.append((escape_html(label_text), group_links))
     return groups
 
 

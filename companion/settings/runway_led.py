@@ -79,7 +79,8 @@ def runway_fieldset(
             ' %s="%s"' % (CURRENT_BADGE_ATTR, escape_html(i18n.t(CURRENT_BADGE_LABEL)))
             if selected else "")
         raw_label = device_config.runway_label(runway_id)
-        label = i18n.t(_RUNWAY_LABEL_MESSAGES.get(raw_label, raw_label))
+        _runway_message = _RUNWAY_LABEL_MESSAGES.get(raw_label)
+        label = i18n.t(_runway_message) if _runway_message is not None else raw_label
         escaped_id = escape_html(runway_id)
         image_html = ""
         if runway_id in images_available:
