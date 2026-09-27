@@ -6,15 +6,15 @@ The measurement itself lives in `test-support/companion_structure.py`
 never `ast`/`inspect`/`tokenize`/`linecache` itself (companion/test_suite_guards.py
 rule G2) and never reads a source file as text (rule G3).
 
-Both ceilings below (`FILE_LINE_LIMIT`, `FUNCTION_LINE_LIMIT`) are already
-exceeded by pre-existing production code, measured at this plan's base
-commit. Rather than fail the suite outright, every offender that exists
-today is named in an explicit allowlist (`TRACKED_FILE_EXCEPTIONS`,
-`PENDING_OVERSIZED_FILES`, `PENDING_LONG_FUNCTIONS`); the guard's real job
-is catching a NEW offender, not the four files and twelve functions this
-phase itself exists to shrink. `PENDING_OVERSIZED_FILES` and
-`PENDING_LONG_FUNCTIONS` are expected to shrink as later plans in this
-phase land, and this phase's closing plan is expected to empty both.
+Both ceilings below (`FILE_LINE_LIMIT`, `FUNCTION_LINE_LIMIT`) are now
+held with no allowlist standing in for work still owed: this phase's
+earlier plans shrank every oversized production file and split every
+overlong function, and this phase's own closing plan retired the two
+mid-phase allowances a still-in-progress snapshot once needed. The one
+file still over `FILE_LINE_LIMIT` is named, permanently, in
+`TRACKED_FILE_EXCEPTIONS` with a one-line reason; any other file or
+function crossing a ceiling from here on is a real, new offender this
+guard is meant to catch.
 
 Companion test modules (`companion/test_*.py`) are outside the ceiling
 entirely: the audit findings this guard enforces scope to production
@@ -42,29 +42,13 @@ TRACKED_FILE_EXCEPTIONS = {
     ),
 }
 
-# Production .py files over FILE_LINE_LIMIT today, expected to shrink to
-# nothing as this phase's later plans split them.
-PENDING_OVERSIZED_FILES = {
-    "companion/pages/health_page.py",
-}
-
-# Qualified function names over FUNCTION_LINE_LIMIT today, expected to
-# shrink to nothing as this phase's later plans split them.
-PENDING_LONG_FUNCTIONS = {
-    "companion/pages/airlines_page.py::_airline_card_html",
-    "companion/pages/health_page.py::battery_sparkline_svg",
-    "companion/pages/history_page.py::_history_cards_html",
-}
-
 
 def test_no_companion_file_exceeds_the_line_ceiling():
     offenders = companion_structure.oversized_files(limit=FILE_LINE_LIMIT)
-    allowed = set(TRACKED_FILE_EXCEPTIONS) | PENDING_OVERSIZED_FILES
     counts = companion_structure.file_line_counts()
-    unexpected = [path for path in offenders if path not in allowed]
+    unexpected = [path for path in offenders if path not in TRACKED_FILE_EXCEPTIONS]
     assert unexpected == [], (
-        "new file(s) over the %d-line ceiling, not in TRACKED_FILE_EXCEPTIONS or "
-        "PENDING_OVERSIZED_FILES: %s" % (
+        "new file(s) over the %d-line ceiling, not in TRACKED_FILE_EXCEPTIONS: %s" % (
             FILE_LINE_LIMIT,
             ", ".join("%s (%d lines)" % (path, counts[path]) for path in unexpected),
         )
@@ -74,11 +58,11 @@ def test_no_companion_file_exceeds_the_line_ceiling():
 def test_no_production_function_exceeds_the_code_line_ceiling():
     offenders = companion_structure.long_functions(limit=FUNCTION_LINE_LIMIT)
     counts = companion_structure.function_code_lines()
-    unexpected = [key for key in offenders if key not in PENDING_LONG_FUNCTIONS]
-    assert unexpected == [], (
-        "new function(s) over the %d-code-line ceiling, not in PENDING_LONG_FUNCTIONS: %s" % (
+    assert offenders == [], (
+        "function(s) over the %d-code-line ceiling, with no pending allowlist left to "
+        "excuse them: %s" % (
             FUNCTION_LINE_LIMIT,
-            ", ".join("%s (%d lines)" % (key, counts[key]) for key in unexpected),
+            ", ".join("%s (%d lines)" % (key, counts[key]) for key in offenders),
         )
     )
 
