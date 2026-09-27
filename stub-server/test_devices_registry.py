@@ -143,16 +143,27 @@ class Harness:
             stdout_fh.close()  # child holds its own duplicated fd
 
         deadline = time.time() + STARTUP_DEADLINE_S
+        connected = False
         while time.time() < deadline:
             if self.proc.poll() is not None:
                 raise RuntimeError(
                     "byos_server.py exited early (code %s) before accepting "
                     "connections:\n%s" % (self.proc.returncode, self.read_stdout()))
-            try:
-                with socket.create_connection(("127.0.0.1", self.port), timeout=0.5):
-                    return
-            except OSError:
-                time.sleep(0.1)
+            if not connected:
+                try:
+                    with socket.create_connection(("127.0.0.1", self.port), timeout=0.5):
+                        connected = True
+                except OSError:
+                    time.sleep(0.1)
+                    continue
+            # byos_server.py's main() constructs ThreadingHTTPServer - which
+            # binds and starts listening - before it prints its startup
+            # line, so a bare TCP connect can succeed while stdout is still
+            # empty. Wait for the startup line too, so callers never read
+            # an empty read_stdout() right after start() returns.
+            if "serving " in self.read_stdout():
+                return
+            time.sleep(0.05)
         raise RuntimeError("server did not start listening within %.0fs" % STARTUP_DEADLINE_S)
 
     def stop(self):
