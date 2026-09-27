@@ -44,11 +44,16 @@ from skypane_test_support import REPO_ROOT, child_env
 
 
 def test_t_lang_fr_translates_a_known_key():
-    assert i18n.t_lang("Home", "fr") == "Accueil"
+    # "Status" is a plain, legacy English-keyed CATALOG entry (home.py) —
+    # unlike a migrated string such as "Home", it translates correctly
+    # with no dependence on some other module's Message declarations
+    # having run first, which is what this module's own minimal import
+    # set (no companion.layout/ui_base) would otherwise require.
+    assert i18n.t_lang("Status", "fr") == "Statut"
 
 
 def test_t_lang_en_returns_the_english_source():
-    assert i18n.t_lang("Home", "en") == "Home"
+    assert i18n.t_lang("Status", "en") == "Status"
 
 
 def test_t_lang_degrades_a_missing_key_to_the_english_source_unchanged():
@@ -64,13 +69,13 @@ def test_t_lang_degrades_a_missing_key_to_the_english_source_unchanged():
 def test_t_follows_set_request_prefs_and_back():
     try:
         prefs.set_request_prefs(lang="fr")
-        fr_result = i18n.t("Home")
+        fr_result = i18n.t("Status")
         prefs.set_request_prefs(lang="en")
-        en_result = i18n.t("Home")
+        en_result = i18n.t("Status")
     finally:
         prefs.set_request_prefs(lang="en")
-    assert fr_result == "Accueil"
-    assert en_result == "Home"
+    assert fr_result == "Statut"
+    assert en_result == "Status"
 
 
 # ==========================================================================
@@ -126,44 +131,78 @@ def test_by_id_contains_every_message_defined_in_nav():
 
 # A short, named exception list of genuine French/English cognates: a
 # shared loanword whose correct French translation is spelled and
-# pronounced identically to its English key, never a missed translation.
+# pronounced identically to its English source, never a missed
+# translation. Keyed by whatever identifies the entry in
+# _sweep_entries() below — the English text itself for a legacy CATALOG
+# entry, the stable message id for a migrated one — so a cognate
+# survives its own entry's id-migration with no exception-list edit.
 _UNCHANGED_IN_FRENCH = frozenset(
     {"Corroboration", "Source", "Description", "Notifications", "Aspect"})
 
 
+def _sweep_entries():
+    """Every translatable entry this suite's self-consistency sweep
+    covers, as `(identifier, english, french)` triples: one per legacy
+    `i18n_fr.CATALOG` entry (identifier is the English key itself) plus
+    one per migrated entry that has both a REGISTRY declaration and a
+    BY_ID translation (identifier is the stable message id). A
+    REGISTRY id with no BY_ID entry yet (declared but not migrated on
+    the catalogue side — plans 40-13/40-14/40-15 territory) is skipped
+    here; it has no French value to sweep.
+    """
+    entries = [(key, key, value) for key, value in i18n_fr.CATALOG.items()]
+    for msg_id, english in i18n.REGISTRY.items():
+        french = i18n_fr.BY_ID.get(msg_id)
+        if french is not None:
+            entries.append((msg_id, english, french))
+    return entries
+
+
 def test_every_catalog_value_is_str_and_differs_from_its_english_key():
-    bad_type = [k for k, v in i18n_fr.CATALOG.items() if not isinstance(v, str)]
-    assert not bad_type, "non-str CATALOG values for keys: %r" % (bad_type,)
+    bad_type = [
+        identifier for identifier, _english, french in _sweep_entries()
+        if not isinstance(french, str)]
+    assert not bad_type, "non-str French value for: %r" % (bad_type,)
     identical = [
-        k for k, v in i18n_fr.CATALOG.items()
-        if v == k and k not in _UNCHANGED_IN_FRENCH]
-    assert not identical, "CATALOG values identical to their English key: %r" % (identical,)
+        identifier for identifier, english, french in _sweep_entries()
+        if french == english and identifier not in _UNCHANGED_IN_FRENCH]
+    assert not identical, "French value identical to its English source: %r" % (identical,)
 
 
 def test_every_catalog_value_is_non_empty():
-    empty = [k for k, v in i18n_fr.CATALOG.items() if not v.strip()]
-    assert not empty, "CATALOG value(s) empty for keys: %r" % (empty,)
+    empty = [
+        identifier for identifier, _english, french in _sweep_entries()
+        if not french.strip()]
+    assert not empty, "empty French value for: %r" % (empty,)
 
 
 _PLACEHOLDER_RE = re.compile(r"%[sd]|\{[^}]*\}")
 
 
 def test_catalog_placeholders_match_between_key_and_value():
-    """Every `%s`/`%d`/`{name}` placeholder in an English catalogue key
-    also appears in its French translation, and vice versa — the shape a
+    """Every `%s`/`%d`/`{name}` placeholder in an English source also
+    appears in its French translation, and vice versa — the shape a
     mistranslation that drops or mistypes a placeholder actually takes."""
     mismatched = {}
-    for key, value in i18n_fr.CATALOG.items():
-        key_placeholders = sorted(_PLACEHOLDER_RE.findall(key))
-        value_placeholders = sorted(_PLACEHOLDER_RE.findall(value))
-        if key_placeholders != value_placeholders:
-            mismatched[key] = (key_placeholders, value_placeholders)
+    for identifier, english, french in _sweep_entries():
+        english_placeholders = sorted(_PLACEHOLDER_RE.findall(english))
+        french_placeholders = sorted(_PLACEHOLDER_RE.findall(french))
+        if english_placeholders != french_placeholders:
+            mismatched[identifier] = (english_placeholders, french_placeholders)
     assert not mismatched, "placeholder mismatch (key placeholders, value placeholders): %r" % (mismatched,)
 
 
 def test_t_lang_round_trips_every_catalog_key():
     for key, value in i18n_fr.CATALOG.items():
         assert i18n.t_lang(key, "fr") == value
+
+
+def test_t_lang_round_trips_every_migrated_message_id():
+    for msg_id, english in i18n.REGISTRY.items():
+        french = i18n_fr.BY_ID.get(msg_id)
+        if french is None:
+            continue
+        assert i18n.t_lang(i18n.Message(msg_id, english), "fr") == french
 
 
 # ==========================================================================
@@ -240,16 +279,16 @@ def test_t_lang_message_in_english_returns_the_plain_english_str(isolated_regist
 
 
 def test_t_lang_plain_str_still_translates_through_the_legacy_catalog():
-    assert i18n.t_lang("Home", "fr") == "Accueil"
+    assert i18n.t_lang("Status", "fr") == "Statut"
 
 
 def test_t_lang_message_with_no_by_id_entry_falls_back_to_legacy_catalog(isolated_registry):
-    # "Password" is legacy English-keyed in i18n_fr.common.CATALOG (not
+    # "Screen" is legacy English-keyed in i18n_fr.health.CATALOG (not
     # yet migrated onto a stable id); a Message sharing that English text
     # but with an ID that has no BY_ID entry yet must still resolve
     # through the legacy fallback.
-    message = i18n.Message("test.not_yet_migrated", "Password")
-    assert i18n.t_lang(message, "fr") == "Mot de passe"
+    message = i18n.Message("test.not_yet_migrated", "Screen")
+    assert i18n.t_lang(message, "fr") == "Écran"
 
 
 # ==========================================================================

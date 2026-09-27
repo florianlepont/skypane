@@ -1,26 +1,24 @@
 # -*- coding: utf-8 -*-
-"""French strings for the three frame-state headlines and the three
-delay sentences. Every key is the exact English source string
-`companion/frame_state.py` defines as a module constant, including the
-"%s" placeholder.
+"""French strings for the frame-state held headline and the two delay
+sentences companion/frame_state.py owns outright (the due headline, the
+late headline and the unknown-delay sentence are keyed in sibling
+modules — home.py and display.py respectively — since those wordings
+are shared with a page-level consumer).
+
+Every entry is migrated onto a stable message id: the source-side
+Message is declared where the English constant already lives
+(companion/frame_state.py, companion/ui_base.py), never here — this
+module only carries each id's French translation.
 
 Copy follows sentence case, the typographic apostrophe (U+2019, never
 a straight quote), and a non-breaking space (U+00A0) before
 ":" ";" "?" "!". The middle dot ("·") in the held headline is a visual
 separator, not one of those four characters, so it takes no leading
 non-breaking space.
-
-"Next update ≈ %s", "Expected since %s" and "Applies the next time the
-frame wakes up." are deliberately absent, already keyed in sibling
-modules — the auto-merge package raises ValueError on a duplicate key.
-"Expected since %s" and the "applies" sentence carry a known, tracked
-wording mismatch against this module's own copy: their sibling entries
-use a different grammatical agreement than this context calls for,
-left for the plan that retires their other consumer to reconcile.
 """
 
-CATALOG = {
-    "Next wake around %s · quiet hours": "Prochain réveil vers %s · heures calmes",
-    "Applies at the next wake, around %s.": "S’applique au prochain réveil, vers %s.",
-    "Applies when quiet hours end, around %s.": "S’applique à la fin des heures calmes, vers %s.",
+MESSAGES = {
+    "frame_state.next_wake_around_quiet_hours": "Prochain réveil vers %s · heures calmes",
+    "frame_state.applies_at_the_next_wake_around": "S’applique au prochain réveil, vers %s.",
+    "frame_state.applies_when_quiet_hours_end_around": "S’applique à la fin des heures calmes, vers %s.",
 }

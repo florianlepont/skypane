@@ -24,11 +24,15 @@ from companion import i18n, layout
 LOGIN_ROUTE = "/login"
 
 # The login card's one-sentence purpose text.
-LOGIN_EXPLANATION_TEXT = "Sign in to manage this device's settings."
+LOGIN_EXPLANATION_TEXT = i18n.msg(
+    "common.sign_in_to_manage_this_device_s_settings",
+    "Sign in to manage this device's settings.")
 
 # A module constant beside LOGIN_EXPLANATION_TEXT because login_body()
 # and the live countdown's template must both build from this one string.
-LOGIN_LOCKOUT_TEXT = "Too many attempts — try again in %ds."
+LOGIN_LOCKOUT_TEXT = i18n.msg(
+    "common.too_many_attempts_try_again_in_s",
+    "Too many attempts — try again in %ds.")
 
 # The substitution token the live countdown swaps for the remaining
 # figure each second. "__N__" is excluded from test_i18n.py's French-
@@ -43,8 +47,8 @@ LOGIN_MESSAGE_ID = "login-error"
 
 # Rendered as server-escaped data-* attributes and swapped by
 # companion/static/login-card.js, so that file hard-codes no English.
-LOGIN_REVEAL_SHOW_LABEL = "Show password"
-LOGIN_REVEAL_HIDE_LABEL = "Hide password"
+LOGIN_REVEAL_SHOW_LABEL = i18n.msg("common.show_password", "Show password")
+LOGIN_REVEAL_HIDE_LABEL = i18n.msg("common.hide_password", "Hide password")
 
 # Marks, not words — deliberately not translated; legible without
 # relying on colour alone.
@@ -53,15 +57,26 @@ LOGIN_REVEAL_SHOWN_GLYPH = "○"
 
 # `layout.page_header()` escapes both when it renders them — these are
 # always plain strings, never pre-escaped markup.
-NOT_FOUND_TITLE = "Page not found."
-NOT_FOUND_PURPOSE_TEXT = "The page you requested doesn't exist or may have moved."
+NOT_FOUND_TITLE = i18n.msg("common.page_not_found", "Page not found.")
+NOT_FOUND_PURPOSE_TEXT = i18n.msg(
+    "common.the_page_you_requested_doesn_t_exist_or_may",
+    "The page you requested doesn't exist or may have moved.")
 
 # Handler._dispatch()'s own Origin/Sec-Fetch-Site gate's 403 body — see
 # forbidden_page() below.
-FORBIDDEN_TITLE = "Request refused"
-FORBIDDEN_PURPOSE_TEXT = (
+FORBIDDEN_TITLE = i18n.msg("common.request_refused", "Request refused")
+FORBIDDEN_PURPOSE_TEXT = i18n.msg(
+    "common.this_request_came_from_another_site_so_it_was",
     "This request came from another site, so it was refused. Open SkyPane "
     "directly and try again.")
+
+# The inline i18n.t() literals login_body()/not_found_page()/
+# forbidden_page() below used to carry, hoisted to module-level
+# Messages.
+_BACK_TO_HOME_TEXT = i18n.msg("common.back_to_home", "Back to Home")
+_PASSWORD_TEXT = i18n.msg("common.password", "Password")
+_SIGN_IN_TEXT = i18n.msg("common.sign_in", "Sign in")
+_NOT_FOUND_TAB_TITLE_TEXT = i18n.msg("common.not_found", "Not Found")
 
 
 def login_reveal_toggle_html():
@@ -162,12 +177,12 @@ def login_body(error=None, lockout_seconds=None, next_route=None):
         '<button type="submit"%s>%s</button>'
         "</form>" % (
             LOGIN_ROUTE, form_attrs, next_field_html,
-            layout.escape_html(i18n.t("Password")),
+            layout.escape_html(i18n.t(_PASSWORD_TEXT)),
             field_attrs,
             login_reveal_toggle_html(),
             message_html,
             " disabled" if locked else "",
-            layout.escape_html(i18n.t("Sign in")))
+            layout.escape_html(i18n.t(_SIGN_IN_TEXT)))
     )
     return "".join(parts)
 
@@ -186,14 +201,13 @@ def not_found_page(ui_theme, health_alert):
     body = (
         layout.page_header(i18n.t(NOT_FOUND_TITLE), purpose=i18n.t(NOT_FOUND_PURPOSE_TEXT))
         + '<p class="text-body"><a href="%s">%s</a></p>'
-        % (layout.HOME_ROUTE, layout.escape_html(i18n.t("Back to Home")))
+        % (layout.HOME_ROUTE, layout.escape_html(i18n.t(_BACK_TO_HOME_TEXT)))
     )
     return layout.page_shell(
         # The <title> tag's own short form — distinct from
         # NOT_FOUND_TITLE above (the page heading's longer sentence) —
-        # needs its own i18n.t() entry so the browser tab is
-        # translated too.
-        title=i18n.t("Not Found"), active="", body=body,
+        # needs its own Message so the browser tab is translated too.
+        title=i18n.t(_NOT_FOUND_TAB_TITLE_TEXT), active="", body=body,
         ui_theme=ui_theme, health_alert=health_alert)
 
 
@@ -206,7 +220,7 @@ def forbidden_page(ui_theme, health_alert):
     body = (
         layout.page_header(i18n.t(FORBIDDEN_TITLE), purpose=i18n.t(FORBIDDEN_PURPOSE_TEXT))
         + '<p class="text-body"><a href="%s">%s</a></p>'
-        % (layout.HOME_ROUTE, layout.escape_html(i18n.t("Back to Home")))
+        % (layout.HOME_ROUTE, layout.escape_html(i18n.t(_BACK_TO_HOME_TEXT)))
     )
     return layout.page_shell(
         title=i18n.t(FORBIDDEN_TITLE), active="", body=body,

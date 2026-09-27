@@ -243,14 +243,17 @@ LOGIN_THROTTLE = auth.LoginThrottle()
 # guards under it) — rebound here, never a second, independent Lock().
 _POLL_LOCK = post_actions._POLL_LOCK
 
-_PAGE_TITLES = {
-    layout.HOME_ROUTE: "Home",
-    layout.DISPLAY_ROUTE: "Display",
-    layout.FLIGHTS_ROUTE: "Flights",
-    layout.AIRLINES_ROUTE: "Airlines",
-    layout.HEALTH_ROUTE: "Health",
-    layout.DEVICE_ROUTE: "Device",
-}
+# The same six (route, label) pairs layout.NAV_TABS already carries as
+# Messages — reused rather than re-declared, so this dict's labels never
+# drift from the nav's own and this module never registers a second
+# Message for the same id.
+_PAGE_TITLES = dict(layout.NAV_TABS)
+
+# The literal call-site translation _handle_login_post() below needs —
+# see that method's own comment for why it cannot go through a
+# constant `login_page` would otherwise own.
+_INCORRECT_PASSWORD_TEXT = i18n.msg(
+    "common.incorrect_password_try_again", "Incorrect password. Try again.")
 
 # Each tab's own extra scripts, on top of layout.GLOBAL_PAGE_SCRIPTS
 # (present on every authenticated page regardless). One tuple per
@@ -943,12 +946,10 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
                 set_cookie=auth.session_set_cookie_header(token))
         LOGIN_THROTTLE.record_failure(throttle_key)
         return self.send_html(401, self._render_login_page(
-            # Translated here, at the literal call site — see
-            # _login_body()'s own docstring for why (`error` is an
-            # opaque parameter by the time it reaches that function,
-            # invisible to the ast-based scanner that traces i18n.t()
-            # call arguments).
-            error=i18n.t("Incorrect password. Try again."), next_route=next_route))
+            # Translated here, at the call site — see login_page.py's
+            # own login_body() docstring for why (`error` is an opaque
+            # parameter by the time it reaches that function).
+            error=i18n.t(_INCORRECT_PASSWORD_TEXT), next_route=next_route))
 
     def _handle_settings_post(self):
         """POST /settings. Re-renders the scoped page at 200 with field

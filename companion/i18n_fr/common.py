@@ -1,211 +1,176 @@
 # -*- coding: utf-8 -*-
 """French strings for the login page, the 404 and 403 pages, the shared
 "Sign out" control, and every flash-banner template in
-companion/app.py's FLASH_MESSAGES dict. Every CATALOG key is the exact
-English source string a call site in companion/app.py or
-companion/layout.py passes to companion.i18n.t(), including the
-"%d"/"%s"/"{n}"/"{s}"/"{key}" placeholder shape.
-
-MESSAGES holds the entries already migrated onto a stable message ID
-(companion/ui_shell.py's/ui_nav.py's own Message constants declare the
-matching id); CATALOG keeps the rest, still keyed by English source
-text, until their own call sites (companion/app.py, companion/flash.py,
-companion/login_page.py) migrate too.
+companion/flash.py's FLASH_MESSAGES dict. Every entry is migrated onto
+a stable message id: the source-side Message is declared where the
+English constant already lives (companion/login_page.py,
+companion/app.py, companion/flash.py, companion/ui_shell.py,
+companion/ui_nav.py, companion/ui_base.py), never here — this module
+only carries each id's French translation.
 
 Two FLASH_MESSAGES values are deliberately absent here — the Frame
 strip's poll-cooldown copy and the Notifications card's "Send a test"
 outcomes — already keyed in sibling modules; the auto-merge package
-raises ValueError on a duplicate key across sibling modules.
+raises ValueError on a duplicate id across sibling modules.
 """
 
-# The entries below are migrated onto a stable id: their source-side
-# Message is declared where the English constant already lives
-# (companion/ui_shell.py, companion/ui_nav.py), never here — this
-# module only carries the id's French translation.
 MESSAGES = {
-    "common.login": "Connexion",
-    "common.sign_out": "Se déconnecter",
-    "common.couldn_t_change_that_please_try_again":
-        "Impossible de modifier ce réglage — réessayez.",
-    # The two neutral states freshness.js's refresh loop can be in,
-    # rendered onto <body> by companion/ui_shell.py and read client-side;
-    # the English forms are also the script's own no-attribute fallbacks.
-    "common.paused": "En pause",
-    "common.reconnecting": "Reconnexion…",
-}
-
-CATALOG = {
     # --- Login page ------------------------------------------------
-    "Sign in to manage this device's settings.":
+    "common.sign_in_to_manage_this_device_s_settings":
         "Connectez-vous pour gérer les réglages de cet appareil.",
-    "Too many attempts — try again in %ds.":
+    "common.too_many_attempts_try_again_in_s":
         "Trop de tentatives — réessayez dans %d s.",
-    "Password": "Mot de passe",
-    "Sign in": "Se connecter",
-    "Incorrect password. Try again.":
+    "common.password": "Mot de passe",
+    "common.sign_in": "Se connecter",
+    "common.incorrect_password_try_again":
         "Mot de passe incorrect. Réessayez.",
     # The show-password toggle's two accessible names. The toggle is
     # icon-only, so these are the only names it ever has.
-    "Show password": "Afficher le mot de passe",
-    "Hide password": "Masquer le mot de passe",
+    "common.show_password": "Afficher le mot de passe",
+    "common.hide_password": "Masquer le mot de passe",
+    "common.login": "Connexion",
 
     # --- 404 page ----------------------------------------------------
-    "Page not found.": "Page introuvable.",
-    "The page you requested doesn't exist or may have moved.":
+    "common.page_not_found": "Page introuvable.",
+    "common.the_page_you_requested_doesn_t_exist_or_may":
         "La page demandée n’existe pas ou a peut-être été déplacée.",
-    "Back to Home": "Retour à l’accueil",
+    "common.back_to_home": "Retour à l’accueil",
     # The 404 page's own <title> — a short form distinct from the
     # page heading's longer sentence above.
-    "Not Found": "Introuvable",
+    "common.not_found": "Introuvable",
 
     # --- 403 page ------------------------------------------------------
-    "Request refused": "Requête refusée",
-    "This request came from another site, so it was refused. Open SkyPane directly and try again.":
-        "Cette requête venait d’un autre site, elle a donc été refusée. Ouvrez SkyPane directement et réessayez.",
+    "common.request_refused": "Requête refusée",
+    "common.this_request_came_from_another_site_so_it_was":
+        "Cette requête venait d’un autre site, elle a donc été refusée. "
+        "Ouvrez SkyPane directement et réessayez.",
+
+    # --- Shared footer control -----------------------------------------
+    "common.sign_out": "Se déconnecter",
 
     # --- Flash banners ---------------------------------------------
-    "Screen switched on — the frame will wake up and show a picture "
-    "within about five minutes.":
+    "common.screen_switched_on_the_frame_will_wake_up_and":
         "Écran allumé — le cadre va se réveiller et afficher une image "
         "dans environ cinq minutes.",
-    "Screen switched off — the frame will blank itself within about "
-    "five minutes.":
+    "common.screen_switched_off_the_frame_will_blank_itself":
         "Écran éteint — le cadre va s’effacer dans environ cinq "
         "minutes.",
-    "Quiet hours turned on — applies the next time the frame wakes up.":
+    "common.quiet_hours_turned_on_applies_the_next_time_the":
         "Heures calmes activées — s’applique au prochain réveil du "
         "cadre.",
-    "Quiet hours turned off — applies the next time the frame wakes up.":
+    "common.quiet_hours_turned_off_applies_the_next_time":
         "Heures calmes désactivées — s’applique au prochain réveil du "
         "cadre.",
     # The Diagnostic LED's own two outcomes, worded on the quiet-hours
     # pair above rather than the screen pair — the LED takes effect on
     # the frame's next wake rather than within about five minutes.
-    "Diagnostic LED turned on — applies the next time the frame wakes up.":
+    "common.diagnostic_led_turned_on_applies_the_next_time":
         "LED de diagnostic allumée — s’applique au prochain réveil du "
         "cadre.",
-    "Diagnostic LED turned off — applies the next time the frame wakes up.":
+    "common.diagnostic_led_turned_off_applies_the_next_time":
         "LED de diagnostic éteinte — s’applique au prochain réveil du "
         "cadre.",
-    "Couldn't change that — please try again.":
+    "common.couldn_t_change_that_please_try_again":
         "Impossible de modifier ce réglage — réessayez.",
-    "Saved — %s": "Enregistré — %s",
-    "Couldn't save settings — please try again. If this keeps "
-    "happening, check the companion service logs.":
+    "common.saved": "Enregistré — %s",
+    "common.couldn_t_save_settings_please_try_again_if_this":
         "Impossible d’enregistrer les réglages — réessayez. Si le "
         "problème persiste, consultez les journaux du service "
         "companion.",
-    "Refreshing — the frame's new picture will appear on Home within a "
-    "few seconds.":
+    "common.refreshing_the_frame_s_new_picture_will_appear":
         "Actualisation en cours — la nouvelle image du cadre "
         "apparaîtra sur Accueil dans quelques secondes.",
-    "Poll trigger failed — please try again. If this keeps happening, "
-    "check the companion service logs.":
+    "common.poll_trigger_failed_please_try_again_if_this":
         "Échec du déclenchement de la vérification — réessayez. Si le "
         "problème persiste, consultez les journaux du service "
         "companion.",
-    "A poll is already in progress — try again in a moment.":
+    "common.a_poll_is_already_in_progress_try_again_in_a":
         "Une vérification est déjà en cours — réessayez dans un "
         "instant.",
-    "Illustration replaced — the frame will use it next time it wakes and polls.":
+    "common.illustration_replaced_the_frame_will_use_it":
         "Illustration remplacée — le cadre l’utilisera à son prochain "
         "réveil et à sa prochaine vérification.",
-    "Couldn't use that image — upload a transparent PNG that's at "
-    "least 1200 pixels wide and landscape (wider than tall).":
+    "common.couldn_t_use_that_image_upload_a_transparent":
         "Impossible d’utiliser cette image — envoyez un PNG "
         "transparent d’au moins 1200 pixels de large, au format "
         "paysage (plus large que haut).",
-    "Couldn't replace the illustration — please try again. If this "
-    "keeps happening, check the companion service logs.":
+    "common.couldn_t_replace_the_illustration_please_try":
         "Impossible de remplacer l’illustration — réessayez. Si le "
         "problème persiste, consultez les journaux du service "
         "companion.",
-    "Airline name saved — the frame will pick it up next time it "
-    "wakes and polls.":
+    "common.airline_name_saved_the_frame_will_pick_it_up":
         "Nom de compagnie enregistré — le cadre le récupérera à son "
         "prochain réveil et à sa prochaine vérification.",
-    "Enter an airline name before saving.":
+    "common.enter_an_airline_name_before_saving":
         "Saisissez un nom de compagnie avant d’enregistrer.",
-    "That name's too long — airline names top out at 100 characters.":
+    "common.that_name_s_too_long_airline_names_top_out_at":
         "Ce nom est trop long — les noms de compagnie sont limités à "
         "100 caractères.",
-    "That name is reserved for the frame's own fallback artwork — "
-    "try the airline's real name instead.":
+    "common.that_name_is_reserved_for_the_frame_s_own":
         "Ce nom est réservé à l’illustration de repli du cadre — "
         "utilisez plutôt le vrai nom de la compagnie.",
-    "That coverage gap isn't there anymore — check Health for "
-    "current gaps.":
+    "common.that_coverage_gap_isn_t_there_anymore_check":
         "Cette lacune de couverture n’existe plus — consultez État "
         "pour les lacunes actuelles.",
-    "The manual-resolution list is full (200 entries) — delete an "
-    "old one before adding another.":
+    "common.the_manual_resolution_list_is_full_200_entries":
         "La liste des résolutions manuelles est pleine (200 entrées) "
         "— supprimez-en une avant d’en ajouter une autre.",
-    "Couldn't save that resolution — the frame's state directory "
-    "may not be writable.":
+    "common.couldn_t_save_that_resolution_the_frame_s_state":
         "Impossible d’enregistrer cette résolution — le dossier "
         "d’état du cadre n’est peut-être pas accessible en écriture.",
-    "Couldn't delete that entry — the frame's state directory may "
-    "not be writable.":
+    "common.couldn_t_delete_that_entry_the_frame_s_state":
         "Impossible de supprimer cette entrée — le dossier d’état du "
         "cadre n’est peut-être pas accessible en écriture.",
-    "That name can't be used for an illustration — try a different "
-    "spelling, or a name with letters and numbers.":
+    "common.that_name_can_t_be_used_for_an_illustration_try":
         "Ce nom ne peut pas être utilisé pour une illustration — "
         "essayez une autre orthographe, ou un nom avec des lettres et "
         "des chiffres.",
-    "Rule added — the frame will use it next time it wakes and polls.":
+    "common.rule_added_the_frame_will_use_it_next_time_it":
         "Règle ajoutée — le cadre l’utilisera à son prochain réveil "
         "et à sa prochaine vérification.",
-    "Updated the rule for {key} — it replaces the one that was "
-    "there before, applied next time the frame wakes and polls.":
+    "common.updated_the_rule_for_key_it_replaces_the_one":
         "Règle mise à jour pour {key} — elle remplace la précédente "
         "et s’appliquera au prochain réveil et à la prochaine "
         "vérification du cadre.",
-    "That doesn't match the selected kind's format — a callsign "
-    "(e.g. AFR1234), an ICAO24 hex (e.g. 3944F2), or a 3-letter "
-    "prefix (e.g. AFR).":
+    "common.that_doesn_t_match_the_selected_kind_s_format_a":
         "Cela ne correspond pas au format du type sélectionné — un "
         "indicatif (par ex. AFR1234), un hex ICAO24 (par ex. "
         "3944F2), ou un préfixe à 3 lettres (par ex. AFR).",
-    "The rules list is full (200 entries) — delete an old one "
-    "before adding another.":
+    "common.the_rules_list_is_full_200_entries_delete_an":
         "La liste des règles est pleine (200 entrées) — supprimez-en "
         "une avant d’en ajouter une autre.",
-    "Couldn't save that rule — the frame's state directory may not "
-    "be writable.":
+    "common.couldn_t_save_that_rule_the_frame_s_state":
         "Impossible d’enregistrer cette règle — le dossier d’état du "
         "cadre n’est peut-être pas accessible en écriture.",
-    "Rule deleted — the frame will stop using it next time it "
-    "wakes and polls.":
+    "common.rule_deleted_the_frame_will_stop_using_it_next":
         "Règle supprimée — le cadre cessera de l’utiliser à son "
         "prochain réveil et à sa prochaine vérification.",
-    "Couldn't delete that rule — the frame's state directory may "
-    "not be writable.":
+    "common.couldn_t_delete_that_rule_the_frame_s_state":
         "Impossible de supprimer cette règle — le dossier d’état du "
         "cadre n’est peut-être pas accessible en écriture.",
-    "Connected — {n} flight{s} from this calendar in the frame's "
-    "current window.":
+    "common.connected_n_flight_s_from_this_calendar_in_the":
         "Connecté — {n} vol{s} de ce calendrier dans la fenêtre "
         "actuelle du cadre.",
-    "Saved, but couldn't sync that calendar right now — check the "
-    "URL and try again. The frame will keep retrying on its own "
-    "schedule.":
+    "common.saved_but_couldn_t_sync_that_calendar_right_now":
         "Enregistré, mais impossible de synchroniser ce calendrier "
         "pour le moment — vérifiez l’URL et réessayez. Le cadre "
         "continuera de réessayer selon son propre calendrier.",
-    "Calendar disconnected — the flights it supplied have been "
-    "deleted from the server.":
+    "common.calendar_disconnected_the_flights_it_supplied":
         "Calendrier déconnecté — les vols qu’il fournissait ont été "
         "supprimés du serveur.",
-    "Saved — a poll was already running, so this calendar will "
-    "sync on the frame's next scheduled poll.":
+    "common.saved_a_poll_was_already_running_so_this":
         "Enregistré — une vérification était déjà en cours, ce "
         "calendrier se synchronisera donc à la prochaine vérification "
         "programmée du cadre.",
-    "Calendar connected — {n} flights found.":
+    "common.calendar_connected_n_flights_found":
         "Calendrier connecté — {n} vols trouvés.",
-    "Paste a valid calendar feed URL to connect one.":
+    "common.paste_a_valid_calendar_feed_url_to_connect_one":
         "Collez une URL de flux de calendrier valide pour en "
         "connecter un.",
+
+    # The two neutral states freshness.js's refresh loop can be in,
+    # rendered onto <body> by companion/ui_shell.py and read client-side;
+    # the English forms are also the script's own no-attribute fallbacks.
+    "common.paused": "En pause",
+    "common.reconnecting": "Reconnexion…",
 }
