@@ -41,7 +41,7 @@ from companion.pages import config_page
 from companion_app_server import http_request, login
 from server import device_config
 from server import notify as notify_module
-import server.poll_loop as poll_loop
+import server.state_store as state_store
 from server.plane import calendar_rules, colour_rules, manual_resolutions
 
 import companion.app as app_module
@@ -327,7 +327,7 @@ def test_manual_resolve_post_rejection_mapping_and_d03_branch(make_app_server):
     session = login(server)
 
     def _seed_gap(prefix):
-        state = poll_loop.load_poll_state(server.state_dir)
+        state = state_store.load_poll_state(server.state_dir)
         registry = state.get("unresolved_prefixes")
         if not isinstance(registry, dict):
             registry = {}

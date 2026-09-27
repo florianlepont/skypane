@@ -5,7 +5,7 @@ resolutions.
 Renders the static curated list from
 `illustrations.target_variants_by_airline()`; opens no database.
 `unresolved_row_for_prefix()` makes one read-only membership check via
-`poll_loop.load_poll_state()`, gated on `ctx["resolve_prefix"]`. Each
+`state_store.load_poll_state()`, gated on `ctx["resolve_prefix"]`. Each
 `<img>` carries `illustration_normalize`'s width/height constants so the
 browser reserves space before the image loads.
 """
@@ -21,11 +21,11 @@ import companion.i18n as i18n
 from companion.layout import escape_html
 import companion.layout as layout
 from server.plane import illustrations
-# manual_resolutions, enrich and poll_loop import this page module in
+# manual_resolutions, enrich and state_store import this page module in
 # neither direction, so importing them here creates no cycle.
 from server.plane import manual_resolutions
 from server.plane import enrich
-import server.poll_loop as poll_loop
+import server.state_store as state_store
 
 # Mirrors companion/app.py's own ILLUSTRATION_IMAGE_ROUTE_PREFIX,
 # duplicated rather than imported since app.py imports this module (the
@@ -653,7 +653,7 @@ def _gap_rows_for_grid(state_dir, manual_registry=None):
     """
     if not state_dir:
         return [], 0
-    state = poll_loop.load_poll_state(state_dir)
+    state = state_store.load_poll_state(state_dir)
     registry = state.get("unresolved_prefixes")
     if not isinstance(registry, dict):
         return [], 0
@@ -898,7 +898,7 @@ def unresolved_row_for_prefix(state_dir, prefix):
     prefix = manual_resolutions.normalise_prefix(prefix)
     if prefix is None:
         return None
-    state = poll_loop.load_poll_state(state_dir)
+    state = state_store.load_poll_state(state_dir)
     registry = state.get("unresolved_prefixes")
     if not isinstance(registry, dict):
         return None

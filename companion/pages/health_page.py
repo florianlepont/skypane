@@ -33,7 +33,7 @@ import companion.frame_state as frame_state  # the one frame-state
 # device_staleness_thresholds() alone.
 from server import device_config
 from server import history_db
-import server.poll_loop as poll_loop
+import server.state_store as state_store
 
 HEALTH_UNAVAILABLE_TEXT = (
     "Health history is temporarily unavailable — check the companion "
@@ -47,9 +47,9 @@ def _label_colon(label):
     """
     return label + (" :" if prefs.current_lang() == "fr" else ":")
 
-# ADS-B pipeline freshness thresholds: server/poll_loop.py's
-# POLL_INTERVAL_S is a fixed 30-second systemd timer, not a tunable
-# per-deployment value, so these can be set tight relative to it.
+# ADS-B pipeline freshness thresholds: the poll cycle's POLL_INTERVAL_S
+# is a fixed 30-second systemd timer, not a tunable per-deployment
+# value, so these can be set tight relative to it.
 STALE_PIPELINE_WARN_S = 180  # 6x the cadence: one missed cycle is jitter, six is not.
 STALE_PIPELINE_ERROR_S = 900  # 30x the cadence: well past a timer having a rough moment.
 
@@ -863,7 +863,7 @@ def battery_sparkline_svg(rows, now=None, daily=False):
 
     # The low-battery threshold. Read from companion/battery.py, never
     # retyped: LOW_BATTERY_DISPLAY_MV is the companion's own display
-    # threshold, a different number from server/poll_loop.py's device
+    # threshold, a different number from the poll cycle's device
     # hysteresis threshold — two numbers for two jobs.
     #
     # Placed by the same _point_y() every reading uses, so it cannot
@@ -1784,7 +1784,7 @@ def _source_fault_block(source_fault_raw):
 
 
 # The unresolved-prefix registry read goes through
-# poll_loop.load_poll_state() (filesystem/JSON failure mode), and the
+# state_store.load_poll_state() (filesystem/JSON failure mode), and the
 # stats read goes through _safe_query() (SQLite failure mode) — render()
 # calls both independently so one failing source degrades only its own
 # card.
@@ -1793,13 +1793,13 @@ def _source_fault_block(source_fault_raw):
 def unresolved_rows(state_dir):
     """The unresolved-prefix registry as a sorted list of
     `(prefix, count, first_seen, last_seen, example_callsign)` tuples,
-    read through `server.poll_loop.load_poll_state()`'s
+    read through `server.state_store.load_poll_state()`'s
     `unresolved_prefixes` key. Sorted by count descending, then prefix
     ascending, for a deterministic render order. A malformed entry
     (not a dict, or a non-int `count`) is skipped rather than raising:
     the registry is hand-editable, so a bad edit must degrade gracefully.
     """
-    state = poll_loop.load_poll_state(state_dir)
+    state = state_store.load_poll_state(state_dir)
     registry = state.get("unresolved_prefixes")
     if not isinstance(registry, dict):
         return []

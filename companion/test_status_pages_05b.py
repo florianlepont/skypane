@@ -524,22 +524,23 @@ def test_every_card_carries_distinct_filter_text_and_group(tmp_path):
         "distinct of %d total occurrences" % (len(set(groups)), len(groups)))
 
 
-def test_airlines_page_imports_no_history_db_or_sqlite_but_does_import_poll_loop():
+def test_airlines_page_imports_no_history_db_or_sqlite_but_does_import_state_store():
     """companion/pages/airlines_page.py imports no history-database module and no sqlite
-    module (a non-goal: no detection-history cross-reference), and does import poll_loop"""
+    module (a non-goal: no detection-history cross-reference), and does import state_store"""
     # A runtime check of airlines_page's own module namespace, which name
     # IS bound there being a fact about its own import statements — never
-    # a sys.modules-membership check, since poll_loop (which this module
-    # IS required to import) itself imports sqlite3/history_db.
+    # a sys.modules-membership check, since state_store (which this module
+    # IS required to import) is the poll state's single owner and pulls in
+    # neither sqlite3 nor history_db.
     import sqlite3
-    import server.poll_loop as poll_loop_module
+    import server.state_store as state_store_module
     from server import history_db
     bound_values = list(vars(airlines_page).values())
     assert sqlite3 not in bound_values, "airlines_page.py must not import sqlite3 (D-17 non-goal)"
     assert history_db not in bound_values, (
         "airlines_page.py must not import server.history_db (D-17 non-goal)")
-    assert vars(airlines_page).get("poll_loop") is poll_loop_module, (
-        "expected airlines_page to import poll_loop (phase 13 D-11 supersession)")
+    assert vars(airlines_page).get("state_store") is state_store_module, (
+        "expected airlines_page to read the poll state through its single owner, state_store")
 
 
 def test_airlines_page_no_longer_renders_registry_or_stats_headers(tmp_path):
