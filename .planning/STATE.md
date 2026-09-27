@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 39-09-PLAN.md
-last_updated: "2026-09-27T12:57:05.158Z"
+stopped_at: Completed 39-10-PLAN.md
+last_updated: "2026-09-27T13:31:51.558Z"
 last_activity: 2026-09-27
 progress:
   total_phases: 54
   completed_phases: 47
   total_plans: 418
-  completed_plans: 389
+  completed_plans: 390
   percent: 93
 ---
 
@@ -63,7 +63,9 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 10 of 13
+Plan: 11 of 13
+
+**39-10 executed (2026-09-27), plan 10/13 of Phase 39 (depends on 39-09), wave 5 — the poll cycle moved to server/poll_cycle.py, the companion switched, the import boundary guarded, three commits (D-1).** Task 1 `git mv`'d `server/poll_loop.py` to `server/poll_cycle.py` so history follows the cycle code, stripped the entrypoint code (`build_parser`/`main`/the `__main__` block/the shebang/the sys.path bootstrap) and rewrote the module docstring to describe the library; wrote a new, small `server/poll_loop.py` carrying only `build_parser`/`main`, the repo-root bootstrap, `from server.poll_cycle import PollBusy, run_once`, `from server.state_store import DEFAULT_STATE_DIR`, and four transitional read-only bindings (`_save_to_gallery`/`now_s`/`poll_cycle_lock`/`write_panel_atomic`) kept only until Task 2's own companion commit landed. Retargeted every monkeypatch/attribute-read seam across `server/test_poll_loop.py` (3710 lines, ~168 `run_once` references), `test_poll_state_writes.py`, `test_poll_lock.py`, `test_poll_efficiency.py`, `test_provider_rate.py`, `test_pipeline_e2e.py`, `test_device_policy.py` and `test-support/efficiency_probe.py` from `poll_loop` to `poll_cycle`, keeping `import server.poll_loop as poll_loop` and its two `poll_loop.main(...)` calls plus the one `setattr(poll_loop, "run_once", _raise)` exactly where the interfaces map said (`main()` resolves those bare names against poll_loop's own module globals — not a dead re-export). `test_state_writers.py`, `test-support/test_efficiency_probe.py` and `scripts/measure_efficiency.py` needed no edits — verified by grep, not assumed. Task 2 (its own isolated commit, touching exactly three files per the plan's own acceptance criteria) switched `companion/app.py`'s import and every `run_once`/`PollBusy`/`poll_cycle_lock`/`now_s` call site plus five comments to `server.poll_cycle`, and retargeted `companion/test_browser_ux_helpers.py`'s gallery-seeding helper and `companion/test_view_pages_helpers.py`'s docstring the same way. Task 3 (TDD) added `server/test_import_boundaries.py` (5 subprocess/identity tests: importing `companion.app`/`server.poll_cycle` never loads `server.poll_loop`, `poll_loop.run_once`/`PollBusy` are the identical `poll_cycle` objects, `poll_loop` carries none of the four transitional bindings or the long-moved `load_poll_state`, and `poll_loop.py --help` still works from another cwd) — RED confirmed for the right reason (only the removed-names test failed against the still-present bindings), then removed the four bindings for GREEN. **One auto-fixed deviation (Rule 1):** the Task 1 scripted `poll_loop`->`poll_cycle` word-swap on `test_poll_loop.py` initially also corrupted the nine `"poll_loop: "` log-prefix string literals tests parse (the plan's own convention keeps that printed prefix literal, unchanged by the module rename); caught immediately by the file's own test run (13 failures) and reverted with a plain text replace before committing. Commits: `5c51bc2` (feat) Task 1, `d790c6b` (feat) Task 2, `7849d74` (test, RED) / `0687e84` (feat, GREEN) Task 3. Full suite green after every commit (2982 passed after Task 3, up from 2977 — the 5 new boundary tests; 139 skipped, pre-existing environment skips), ruff and `check_comment_history.py` both clean, coverage 94% (≥93% required). `git diff --stat deploy/` empty across the whole plan. Six stale `poll_loop.`-naming docstring mentions in companion files outside Task 2's 3-file list (companion/wake.py, test_request_connections.py, test_freshness_token.py x2, test_companion_app_05.py, test_companion_app_helpers.py, test_browser_ux_03.py) were left alone and logged to this phase's new `deferred-items.md`, per Phase 39/40's parallel companion/-ownership split — none of them touch an actual import or call site. Per this phase's own convention, ARC-01/ARC-02 are NOT marked Complete in REQUIREMENTS.md here — only 39-13 flips ARC-* to Complete. `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 93` (390/418) but the written frontmatter showed `percent: 87` (`completed_phases/total_phases` = 47/54) — corrected to `93` by hand per this file's established precedent.
 
 **39-09 executed (2026-09-27), plan 9/13 of Phase 39 (depends on 39-02, 39-03, 39-05, 39-06, 39-07), wave 4 — ARC-02/ARC-05's server-side switch, one combined commit.** `poll_loop.py`, `wake.py` and `device_config.py` no longer define their own battery hysteresis, discharge curve, quiet-hours arithmetic or `poll_state.json` I/O: `poll_loop.py` deleted `_poll_state_path`/`load_poll_state`/`_HOLD_KINDS`/`_hold_state`/`load_battery_state`/`_serialize_poll_state`/`save_poll_state`/`_persist_poll_state`/`BATTERY_LOW_THRESHOLD_MV`/`BATTERY_LOW_CLEAR_MV`/`BATTERY_CRITICAL_MV`/`BATTERY_CRITICAL_RECOVER_MV`/`apply_battery_hysteresis`/`apply_battery_critical_hysteresis`/`_NOTIFY_BATTERY_DISCHARGE_CURVE`/`_NOTIFY_BATTERY_FULL_MV`/`_EMPTY_MV`/`_battery_percent_estimate`, rewriting every internal call site to the module-attribute form (`state_store.load_poll_state(state_dir)`, `device_policy.battery_percent(battery_mv)`) and rebinding `DEFAULT_STATE_DIR` to `state_store.DEFAULT_STATE_DIR`; `device_config.py` deleted its quiet-hours/wake constants and helpers and re-exports them from `device_policy` under the same names (`_HHMM_RE`, `QUIET_HOURS_TZ`, `normalise_quiet_hours_time`, `seconds_until_quiet_hours_end`, `quiet_hours_status`, etc.); `wake.py` rebinds `BATTERY_CRITICAL_STATE_KEY` from `device_policy` and `read_battery_critical = state_store.read_battery_critical`. `test_device_policy.py` gained `test_server_modules_use_the_shared_policy_objects` (identity assertions plus `not hasattr(poll_loop, name)` for every removed name); `test_state_store.py`/`test_poll_lock.py`/`test_poll_loop.py`/`test_poll_state_writes.py`/`test-support/efficiency_probe.py`/`test-support/test_efficiency_probe.py` retargeted to `state_store`/`device_policy` with unchanged assertions (only the module prefix changed). A repo-wide grep confirmed `test_poll_efficiency.py`, `test_provider_rate.py`, `test_pipeline_e2e.py` and `test_state_writers.py` reference none of the moved names, so they needed no edits — verified, not assumed. Both of the plan's tasks are one commit (`2da50f5`, feat), exactly as the plan's own acceptance criteria anticipated (Task 1 alone leaves `test_poll_loop` red). Full suite green (2977 passed, 139 skipped — pre-existing environment skips), ruff and `check_comment_history.py` both clean, coverage 94% (≥93% required), `check_function_size.py check --max 80 server stub-server`'s only offender is `poll_loop._run_once_locked` (338 lines, expected — Plan 39-11's job after 39-10 moves it). `git diff --name-only` touches no `companion/`/`stub-server/` file. Per this phase's own convention, ARC-02/ARC-05 are NOT marked Complete in REQUIREMENTS.md here — only 39-13 flips ARC-* to Complete. **Session interruption:** the executor agent that did this plan's edits was killed by a session rate limit after finishing both tasks but before its final verification run or commit, leaving the edits uncommitted. The next session re-ran the full suite and every one of the plan's acceptance-criteria greps from a clean read before committing anything — nothing was carried over on trust. `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `completed_plans: 389`/`total_plans: 418` but the written frontmatter's `percent` field used `completed_phases/total_phases` (47/54 = 87) instead — corrected to `93` by hand per this file's established precedent.
 
@@ -584,6 +586,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 39 P06 | 45min | 2 tasks | 4 files |
 | Phase 39 P07 | 10min | 3 tasks | 13 files |
 | Phase 39 P08 | 70min | 2 tasks | 11 files |
+| Phase 39 P10 | 65min | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -1143,6 +1146,8 @@ Recent decisions affecting current work:
 - [Phase 39]: 39-07: companion.battery's parity test asserts identity (is) with server.device_policy's objects, not equality with poll_loop's old private copy — re-exporting the same objects makes identity the true invariant, which subsumes the weaker equality property the old test checked
 - [Phase 39]: 39-08: draw_source_fault_badge/draw_battery_icon moved to glyphs.py (not layout.py as research located them) to avoid an import cycle - both are called from hold_screens.py, which must not import layout.py
 - [Phase 39]: 39-08: found and fixed three rebind-retargeting hazards beyond the plan's own named three (_font/draw_main_text_block/draw_previous_text_block) - draw_illustration, _build_hold_canvas and _build_dimmed_hold_canvas are the same intra-module-bare-call hazard, retargeted with non-vacuity assertions
+- [Phase 39]: poll_cycle.py keeps the literal stdout log prefix "poll_loop: " unchanged; only the module callers reach through changed
+- [Phase 39]: Six out-of-scope companion docstring mentions of poll_loop outside Task 2's 3-file list logged to deferred-items.md, not fixed, per Phase 40's parallel ownership of companion/
 
 ### Pending Todos
 
@@ -1263,8 +1268,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-27T10:18:35.547Z
-Stopped at: Completed 39-08-PLAN.md
+Last session: 2026-09-27T13:31:51.483Z
+Stopped at: Completed 39-10-PLAN.md
 
 Resume file: 
 
