@@ -1367,8 +1367,6 @@ def test_flights_when_cell_age_is_a_live_time_element(tmp_path):
     row's own instant, reading exactly what relative_age_text() reads today, with the
     cell-primary/cell-inline-sep/cell-secondary shape _merged_cell() also emits, and no
     double-escaping"""
-    from companion_markup import parse_html
-
     now = "2026-09-27T12:00:00+00:00"
     ts = "2026-09-27T11:50:00+00:00"
     vp.seed_runway_events(tmp_path, [
