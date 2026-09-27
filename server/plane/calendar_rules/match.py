@@ -23,7 +23,7 @@ DEPARTING_STATE = "departing"
 ARRIVING_STATE = "arriving"
 
 
-def _airline_iata_from_route(route):
+def _airline_iata_from_route(route: object) -> str | None:
     """Derive the detected flight's 2-letter IATA airline code from
     `route["callsign_iata"]`'s leading two characters, or `None`.
 
@@ -45,7 +45,7 @@ def _airline_iata_from_route(route):
     return None
 
 
-def _far_end_iata(route, render_state):
+def _far_end_iata(route: object, render_state: object) -> str | None:
     """The detected flight's "far end" airport for this direction: the
     destination for a departure, the origin for an arrival. `None` for a
     non-dict `route` or an unrecognised `render_state`.
@@ -63,7 +63,7 @@ def _far_end_iata(route, render_state):
     return None
 
 
-def _entry_far_end_iata(entry, render_state):
+def _entry_far_end_iata(entry: object, render_state: object) -> str | None:
     """`_far_end_iata()`'s mirror for a registry entry: `destination_iata`
     for a departure, `origin_iata` for an arrival. `None` otherwise.
     """
@@ -76,7 +76,7 @@ def _entry_far_end_iata(entry, render_state):
     return None
 
 
-def _reference_time(entry, render_state):
+def _reference_time(entry: object, render_state: object) -> float | None:
     """The moment a calendar entry is measured against for this
     direction: `start_at` for a departure (near off-blocks), `end_at` for
     an arrival (near on-blocks). `None` otherwise.
@@ -90,7 +90,9 @@ def _reference_time(entry, render_state):
     return None
 
 
-def match_calendar_theme(registry, route, render_state, device_cfg, now):
+def match_calendar_theme(
+    registry: object, route: object, render_state: object, device_cfg: object, now: object,
+) -> str | None:
     """Return the operator's configured calendar theme id when the
     detected, enriched `route` and `render_state` match at least one
     candidate entry in `registry` on airline, far-end airport and time;

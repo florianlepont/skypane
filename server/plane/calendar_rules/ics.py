@@ -63,7 +63,7 @@ _ICAL_UTC_RE = re.compile(r"^\d{8}T\d{6}Z$")
 _TRACKED_PROPERTIES = ("SUMMARY", "CATEGORIES", "STATUS", "DTSTART", "DTEND")
 
 
-def unfold_ics_lines(raw_text):
+def unfold_ics_lines(raw_text: object) -> list[str]:
     """RFC 5545 section 3.1 unfolding: rejoin a content line folded across
     physical lines into one logical line, before any property is split
     out of it. Must run first — splitting into properties off raw
@@ -86,7 +86,7 @@ def unfold_ics_lines(raw_text):
     return logical_lines
 
 
-def split_property(line):
+def split_property(line: object) -> tuple[str | None, str | None, str | None]:
     """Split one already-unfolded logical line into `(name, params, value)`.
 
     Partitions on the first colon: `DTSTART;VALUE=DATE-TIME:20260901T060000Z`
@@ -103,7 +103,7 @@ def split_property(line):
     return name, params, value
 
 
-def parse_ics_datetime(value):
+def parse_ics_datetime(value: object) -> float | None:
     """Parse this producer's one accepted DTSTART/DTEND shape — bare UTC
     `YYYYMMDDTHHMMSSZ` — into a float epoch. Returns `None` for anything
     else, including a calendrically impossible value (e.g. month 13).
@@ -118,7 +118,7 @@ def parse_ics_datetime(value):
     return parsed.timestamp()
 
 
-def _build_entry(props):
+def _build_entry(props: dict) -> tuple[dict | None, str | None]:
     """Turn one closed VEVENT block's accumulated property dict into a
     five-key entry, or reject it. Returns `(entry_or_None, reason)`:
     `"date_form"` when the event was otherwise valid but its
@@ -178,7 +178,7 @@ def _build_entry(props):
     return entry, None
 
 
-def parse_ics_events(raw_text):
+def parse_ics_events(raw_text: object) -> list[dict]:
     """Parse an untrusted iCal feed body into a bounded, sorted list of
     match-candidate entries (ascending by `start_at`). Never raises.
 
