@@ -2535,6 +2535,84 @@ def test_redirect_from_normalised_webcal_still_revalidated():
         pytest.fail("expected exactly one transport call (the redirect target must never be fetched): %r" % (calls,))
 
 
+# The public/test-visible surface of the calendar_rules package -
+# derived by running:
+#   grep -rn "calendar_rules\.\w*" server companion --include=*.py -o
+#     | sort | uniq -c
+# and every "cr.NAME" this file's own tests read - kept as one literal
+# tuple so a future accidental drop of any name fails this one test by
+# name, rather than an unrelated caller failing somewhere else.
+CALENDAR_RULES_PUBLIC_SURFACE = (
+    "ARRIVING_STATE", "CALENDAR_FETCH_DEADLINE_S", "CALENDAR_FETCH_INTERVAL_S",
+    "CALENDAR_FETCH_TIMEOUT_S", "CALENDAR_MATCH_TOLERANCE_S", "CALENDAR_MAX_ENTRIES",
+    "CALENDAR_MAX_RAW_EXAMINED", "CALENDAR_MAX_REDIRECTS", "CALENDAR_MAX_RESPONSE_BYTES",
+    "CLEAR_CALENDAR_URL", "DEPARTING_STATE", "FETCH_FAILED", "FETCH_OK",
+    "FETCH_REJECTED_URL", "FETCH_SKIPPED_THROTTLED", "FETCH_SKIPPED_UNCONFIGURED",
+    "FETCH_SUPERSEDED", "USER_AGENT",
+    "_build_entry", "_normalise_calendar_entry", "_normalise_calendar_url", "_url_is_safe",
+    "calendar_fetch_is_due", "calendar_is_configured", "calendar_rules_path",
+    "calendar_secret_mode_is_unsafe", "calendar_secret_path", "configured_calendar_url",
+    "default_calendar_transport", "fetch_ics", "load_calendar_registry", "match_calendar_theme",
+    "os", "parse_ics_datetime", "parse_ics_events", "refresh_calendar_registry",
+    "save_calendar_url", "select_window_entries", "split_property", "unfold_ics_lines",
+    "write_calendar_registry",
+)
+
+
+def test_package_exposes_every_name_callers_and_tests_use():
+    """import server.plane.calendar_rules as cr exposes every name this codebase's callers and tests read off it today - a package split must drop none of them"""
+    missing = [name for name in CALENDAR_RULES_PUBLIC_SURFACE if not hasattr(cr, name)]
+    if missing:
+        pytest.fail("calendar_rules package is missing these previously-public names: %r" % (missing,))
+
+
+def test_default_calendar_transport_assignment_on_the_package_is_honoured_by_fetch_ics(monkeypatch):
+    """assigning cr.default_calendar_transport = fake then calling cr.fetch_ics(url) uses the fake - fetch_ics() looks up default_calendar_transport as a bare name in its own module's (the package __init__'s) global namespace, which is exactly where this assignment lands (the companion's stubbed_calendar_transport helper relies on this)"""
+    monkeypatch.setattr(socket, "getaddrinfo", lambda host, port=None, *a, **k: [
+        (2, 1, 6, "", (PUBLIC_IP, 443)),
+    ])
+    calls = []
+
+    def fake_transport(url, timeout):
+        calls.append(url)
+        raise RuntimeError("simulated failure - proves this fake ran, not the real transport")
+
+    real = cr.default_calendar_transport
+    cr.default_calendar_transport = fake_transport
+    try:
+        result = cr.fetch_ics("https://public-looking-name.example/a.ics")
+    finally:
+        cr.default_calendar_transport = real
+    if result is not None:
+        pytest.fail("expected None (the fake transport raises), got %r" % (result,))
+    if calls != ["https://public-looking-name.example/a.ics"]:
+        pytest.fail("expected fetch_ics() to have called the assigned fake transport exactly once, got %r" % (calls,))
+
+
+def test_cr_os_is_the_real_os_module():
+    """cr.os is os - the many os.open/os.replace/os.chmod/os.remove/os.fdopen monkeypatches this file's own tests apply to cr.os keep reaching registry.py's file operations, since it is the identical module object"""
+    if cr.os is not os:
+        pytest.fail("expected cr.os to be the real os module by identity")
+
+
+def test_no_package_or_module_named_plain_calendar_exists():
+    """neither server/plane/calendar/ nor server/plane/calendar.py exists - a package literally named 'calendar' would shadow the stdlib calendar module whenever a server/plane/*.py script runs directly"""
+    # cr.__file__ is .../server/plane/calendar_rules/__init__.py, so its
+    # own directory is calendar_rules/ and its parent is server/plane/.
+    calendar_rules_dir = os.path.dirname(os.path.abspath(cr.__file__))
+    server_plane_dir = os.path.dirname(calendar_rules_dir)
+    forbidden_pkg = os.path.join(server_plane_dir, "calendar")
+    forbidden_module = os.path.join(server_plane_dir, "calendar.py")
+    if os.path.exists(forbidden_pkg):
+        pytest.fail(
+            "%r must not exist - a package named 'calendar' would shadow the stdlib "
+            "calendar module whenever a server/plane/*.py script runs directly" % (forbidden_pkg,))
+    if os.path.exists(forbidden_module):
+        pytest.fail(
+            "%r must not exist - a module named 'calendar.py' would shadow the stdlib "
+            "calendar module whenever a server/plane/*.py script runs directly" % (forbidden_module,))
+
+
 def test_save_calendar_url_stores_the_normalised_form(tmp_path):
     """save_calendar_url() stores a webcal:// value already rewritten to its https:// form, so the secret file never holds a webcal:// string (UAT)"""
     tmp = tmp_path
