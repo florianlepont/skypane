@@ -53,7 +53,6 @@ PENDING_OVERSIZED_FILES = {
 # shrink to nothing as this phase's later plans split them.
 PENDING_LONG_FUNCTIONS = {
     "companion/pages/airlines_page.py::_airline_card_html",
-    "companion/pages/config_page.py::render",
     "companion/pages/health_page.py::battery_sparkline_svg",
     "companion/pages/history_page.py::_history_cards_html",
 }
