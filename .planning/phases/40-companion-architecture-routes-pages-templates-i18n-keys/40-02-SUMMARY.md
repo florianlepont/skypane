@@ -124,3 +124,7 @@ None - no external service configuration required.
 ---
 *Phase: 40-companion-architecture-routes-pages-templates-i18n-keys*
 *Completed: 2026-09-27*
+
+## Self-Check: PASSED
+
+All claimed files found on disk; all claimed commits (`4678c98`, `e26ed2e`, `27b7484`, `e058d8a`) found in git history.
