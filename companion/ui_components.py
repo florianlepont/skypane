@@ -556,6 +556,11 @@ def page_header(title, purpose=None, freshness_html=None, action_html=None):
     )
 
 
+_DATA_TABLE_EMPTY_HEADING = i18n.msg("common.no_data_yet", "No data yet.")
+_DATA_TABLE_EMPTY_BODY = i18n.msg(
+    "common.nothing_to_show_here_yet", "Nothing to show here yet.")
+
+
 def data_table(headers, rows, mono_columns=(), raw_columns=(), desc_columns=(), prose=False,
                modifier=None):
     """A header row plus alternating body rows, every value escaped.
@@ -574,7 +579,8 @@ def data_table(headers, rows, mono_columns=(), raw_columns=(), desc_columns=(), 
     class; pass the bare stem, never the full class name.
     """
     if not rows:
-        return empty_state("No data yet.", "Nothing to show here yet.")
+        return empty_state(
+            i18n.t(_DATA_TABLE_EMPTY_HEADING), i18n.t(_DATA_TABLE_EMPTY_BODY))
 
     header_cells = "".join(
         "<th>%s</th>" % escape_html(header) for header in headers)
