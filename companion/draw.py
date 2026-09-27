@@ -87,6 +87,28 @@ DRAWING_STATUS_CLASSES = (
     DRAWING_STATUS_ERROR_CLASS,
 )
 
+# The battery-trend chart's own class vocabulary (companion/battery_chart.py).
+# Kept as its own named block, string values UNCHANGED from the chart's
+# pre-migration markup ("sparkline-*"), since companion/static/battery-trend.js's
+# selectors and companion/static/style.css's `.sparkline*` rules read them
+# directly, as static assets, and cannot be renamed alongside a Python refactor.
+DRAWING_CHART_HIT_CLASS = "sparkline-hit"
+DRAWING_CHART_DOT_CLASS = "sparkline-dot"
+DRAWING_CHART_LINE_CLASS = "sparkline-line"
+DRAWING_CHART_AXIS_CLASS = "sparkline-axis"
+DRAWING_CHART_AREA_LAYER_CLASS = "sparkline__area"
+DRAWING_CHART_AREA_CLASS = "sparkline-area"
+DRAWING_CHART_MARK_CLASS = "sparkline-mark"
+DRAWING_CHART_THRESHOLD_CLASS = "sparkline-threshold"
+DRAWING_CHART_LEGEND_ROW_CLASS = "sparkline__legend"
+DRAWING_CHART_LEGEND_CLASS = "sparkline-legend"
+DRAWING_CHART_LEGEND_SWATCH_CLASS = "sparkline-swatch"
+DRAWING_CHART_AXIS_LABEL_CLASS = "sparkline-axis-label"
+DRAWING_CHART_CANVAS_CLASS = "sparkline__canvas"
+DRAWING_CHART_GRID_CLASS = "sparkline"
+DRAWING_CHART_Y_LABELS_CLASS = "sparkline__y"
+DRAWING_CHART_X_LABELS_CLASS = "sparkline__x"
+
 DRAWING_CLASSES = (
     DRAWING_GRID_CLASS,
     DRAWING_Y_LABELS_CLASS,
@@ -110,6 +132,28 @@ DRAWING_CLASSES = (
     DRAWING_STATUS_OK_CLASS,
     DRAWING_STATUS_WARN_CLASS,
     DRAWING_STATUS_ERROR_CLASS,
+    DRAWING_CHART_HIT_CLASS,
+    DRAWING_CHART_DOT_CLASS,
+    DRAWING_CHART_LINE_CLASS,
+    DRAWING_CHART_AXIS_CLASS,
+    DRAWING_CHART_AREA_CLASS,
+    DRAWING_CHART_MARK_CLASS,
+    DRAWING_CHART_THRESHOLD_CLASS,
+    DRAWING_CHART_LEGEND_ROW_CLASS,
+    DRAWING_CHART_LEGEND_CLASS,
+    DRAWING_CHART_LEGEND_SWATCH_CLASS,
+    DRAWING_CHART_AXIS_LABEL_CLASS,
+    DRAWING_CHART_GRID_CLASS,
+    DRAWING_CHART_Y_LABELS_CLASS,
+    DRAWING_CHART_X_LABELS_CLASS,
+    # DRAWING_CHART_CANVAS_CLASS ("sparkline__canvas") and
+    # DRAWING_CHART_AREA_LAYER_CLASS ("sparkline__area") are deliberately
+    # EXCLUDED here: style.css sizes both <svg> elements through the one
+    # higher-specificity `.battery-trend-section svg:not(.icon)` rule and
+    # carries no bare rule for either class on purpose (a bare
+    # `.sparkline__canvas` rule would be out-specified silently; see that
+    # rule's own comment) — the class-resolves-in-CSS contract this tuple
+    # backs would wrongly fail two classes that are correct by design.
 )
 
 # The only values a fill or stroke attribute may carry; every real colour
@@ -314,6 +358,27 @@ def unit_canvas(class_name, children, width, height, label=None, hidden=False):
     return "<svg%s>%s</svg>" % (_attrs(attrs), _children(children))
 
 
+def area_canvas(class_name, view_width, view_height, children):
+    """A nested, always-`aria-hidden`, private-viewBox <svg>: `view_width`
+    x `view_height` user units, `preserveAspectRatio="none"`, and no
+    intrinsic width/height attributes of its own — unlike `unit_canvas()`,
+    which locks an aspect ratio via its own intrinsic size, this stretches
+    to fill whatever CSS size its parent (a percentage-scheme canvas) is
+    already rendered at. For a percentage-scheme drawing's filled
+    area-under-the-line layer, whose `<polygon>` needs user-unit
+    coordinates a percentage-scheme canvas cannot give it directly. Always
+    `aria-hidden`: the shapes painted above this layer already carry the
+    drawing's own reading.
+    """
+    attrs = {
+        "class": _require_class(class_name),
+        "viewBox": "0 0 %s %s" % (_number(view_width), _number(view_height)),
+        "preserveAspectRatio": "none",
+        "aria-hidden": "true",
+    }
+    return "<svg%s>%s</svg>" % (_attrs(attrs), _children(children))
+
+
 def unit_circle_dash_array(fraction, radius):
     """The `stroke-dasharray` value that paints `fraction` of a circle of
     `radius` user units — the ring gauge's value arc, as a dashed full
@@ -407,6 +472,17 @@ def path(class_name, d, attrs=None):
     return _shape("path", class_name, (("d", d),), attrs)
 
 
+def polygon(class_name, points, attrs=None):
+    """A <polygon>. `points` is a pre-built "x,y x,y ..." user-unit
+    string: percentages are not permitted in a `points` list, so a
+    polygon belongs to the unit scheme, or to a nested unit-scheme
+    canvas (see `area_canvas()` below) inside a percentage-scheme
+    drawing — the battery chart's filled area-under-the-line layer is
+    exactly this shape.
+    """
+    return _shape("polygon", class_name, (("points", points),), attrs)
+
+
 def title(text):
     """A <title> child — the tooltip and accessible name a drawn shape
     carries. `text` is escaped, with no exception: these carry
@@ -415,15 +491,19 @@ def title(text):
     return "<title>%s</title>" % escape(text)
 
 
-def label_span(text, hidden=True):
+def label_span(text, hidden=True, class_name=DRAWING_AXIS_LABEL_CLASS):
     """One axis label, as an HTML <span> outside the canvas.
 
     Keeping labels outside the SVG makes viewBox overflow unreachable and
     keeps the label at a constant CSS size. `hidden` defaults True since
     a drawing whose points already announce their readings would
-    otherwise be read twice.
+    otherwise be read twice. `class_name` defaults to this module's own
+    generic axis-label class; the battery chart passes its own
+    `DRAWING_CHART_AXIS_LABEL_CLASS` instead, so `battery-trend.js` and
+    `style.css`'s pre-existing `.sparkline-axis-label` selector keep
+    working unchanged.
     """
-    attrs = {"class": DRAWING_AXIS_LABEL_CLASS}
+    attrs = {"class": class_name}
     if hidden:
         attrs["aria-hidden"] = "true"
     return "<span%s>%s</span>" % (_attrs(attrs), escape(text))

@@ -1146,6 +1146,79 @@ def test_every_drawing_class_resolves_in_the_served_stylesheet(served_css):
             "NOTHING at all" % (class_name,))
 
 
+# --- battery_sparkline_svg() chart-migration equivalence baseline ---------
+# The pre-migration chart's markup, captured for a fixed `now` and a fixed
+# set of named inputs, committed once to
+# companion/testdata/battery_chart_baseline.json (regenerated only by a
+# one-off command, never by a test — see that file's own git history) and
+# asserted byte-identical on every run: the proof the chart-onto-draw.py
+# migration changed no rendered pixel.
+_CHART_NOW = "2024-06-15T12:00:00"
+
+
+def _chart_dense_rows(count, start_mv=3700, step_mv=2):
+    return [
+        {"ts": "2024-06-%02dT%02d:00:00" % (1 + (i % 28), i % 24), "battery_mv": start_mv + i * step_mv}
+        for i in range(count)
+    ]
+
+
+CHART_CASES = (
+    ("no_rows", [], {}),
+    ("one_row", [{"ts": "2024-06-01T00:00:00", "battery_mv": 3800}], {}),
+    ("two_rows", [
+        {"ts": "2024-06-02T00:00:00", "battery_mv": 3900},
+        {"ts": "2024-06-01T00:00:00", "battery_mv": 3800},
+    ], {}),
+    ("dense_90_point_series", _chart_dense_rows(90), {}),
+    ("out_of_range_readings", [
+        {"ts": "2024-06-03T00:00:00", "battery_mv": 4500},
+        {"ts": "2024-06-02T00:00:00", "battery_mv": 3800},
+        {"ts": "2024-06-01T00:00:00", "battery_mv": 2500},
+    ], {}),
+    ("daily_series", [
+        {"ts": "2024-06-03T00:00:00", "battery_mv": 3950, "reading_count": 12},
+        {"ts": "2024-06-02T00:00:00", "battery_mv": 3900, "reading_count": 1},
+        {"ts": "2024-06-01T00:00:00", "battery_mv": 3850, "reading_count": 0},
+    ], {"daily": True}),
+    ("threshold_visible_series", [
+        {"ts": "2024-06-03T00:00:00", "battery_mv": 3600},
+        {"ts": "2024-06-02T00:00:00", "battery_mv": 3540},
+        {"ts": "2024-06-01T00:00:00", "battery_mv": 3480},
+    ], {}),
+    ("hostile_firmware_timestamp", [
+        {"ts": "2024-06-02T00:00:00", "battery_mv": 3900},
+        {"ts": "2024-06-01T00:00:00<script>alert(1)</script>&\"'", "battery_mv": 3800},
+    ], {}),
+)
+
+
+def _chart_baseline_path():
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "testdata", "battery_chart_baseline.json")
+
+
+def test_battery_chart_markup_is_unchanged():
+    """battery_sparkline_svg() emits byte-identical markup, for a fixed `now` and a fixed set of
+    named inputs (no rows, one row, two rows, a dense 90-point series, out-of-range readings, a
+    daily series, a threshold-visible series, a hostile firmware/timestamp string), to the
+    committed pre-migration baseline — the proof moving the chart onto companion/draw.py's
+    shared primitives changed no rendered byte"""
+    with open(_chart_baseline_path(), encoding="utf-8") as fh:
+        baseline = json.load(fh)
+    actual = {
+        name: health_page.battery_sparkline_svg(rows, now=_CHART_NOW, **kwargs)
+        for name, rows, kwargs in CHART_CASES
+    }
+    assert sorted(baseline) == sorted(actual), (
+        "the baseline and a fresh capture carry a different case set: only in baseline %r, only "
+        "in capture %r" % (sorted(set(baseline) - set(actual)), sorted(set(actual) - set(baseline))))
+    for name in baseline:
+        assert actual[name] == baseline[name], (
+            "battery_sparkline_svg() case %r no longer matches the committed baseline "
+            "(companion/testdata/battery_chart_baseline.json) — the chart migration must not "
+            "change a single rendered byte" % (name,))
+
+
 def test_draw_module_imports_no_page_and_no_server():
     """companion/draw.py imports no page module, nothing from the server package and not
     companion/layout.py — proven by importing it fresh in a subprocess and inspecting

@@ -16,10 +16,10 @@ from datetime import date, datetime, timedelta, timezone
 # `date` joins the three for the regularity grid's window walk, which is
 # ordinal calendar arithmetic (toordinal()/fromordinal()) and carries no
 # duration anywhere in it.
-from zoneinfo import ZoneInfo
 
 from companion.layout import escape_html
 import companion.battery as battery
+import companion.battery_chart as battery_chart
 import companion.draw as draw
 import companion.i18n as i18n
 import companion.layout as layout
@@ -72,8 +72,12 @@ BATTERY_TREND_LIMIT = 20  # A display choice, not retention: bounds the
 # raw-readings table, the anomaly scan and the fallback chart; the
 # chart's primary series plots daily averages instead.
 
-BATTERY_TREND_WINDOW_DAYS = 90  # The chart's primary window, locked at
-# 3 months by explicit request. A display window only: nothing is deleted.
+# The chart's primary window, locked at 3 months by explicit request. A
+# display window only: nothing is deleted. Lives in
+# companion/battery_chart.py, since the chart's own aria-label
+# interpolates it directly; re-exported here for battery_trend_rows()'s
+# query window below.
+BATTERY_TREND_WINDOW_DAYS = battery_chart.BATTERY_TREND_WINDOW_DAYS
 
 # 100 mV: a genuine discharge measured ~50 mV/day through the middle and
 # a couple mV per reading even across the steepest final cliff
@@ -207,19 +211,21 @@ REFRESH_SWAP_SELECTORS = layout.REFRESH_SWAP_SELECTORS_BY_PAGE[
 # not imported, since those are static assets. A cross-file check
 # asserts both literals appear in battery-trend.js's shipped source.
 BATTERY_READOUT_ID = "battery-readout"
-SPARKLINE_HIT_CLASS = "sparkline-hit"
-SPARKLINE_DOT_CLASS = "sparkline-dot"
-SPARKLINE_LINE_CLASS = "sparkline-line"
-SPARKLINE_AXIS_CLASS = "sparkline-axis"
-# Two classes for two elements: a nested <svg> layer owning the
-# coordinate system, and the filled <polygon> inside it.
-SPARKLINE_AREA_LAYER_CLASS = "sparkline__area"
-SPARKLINE_AREA_CLASS = "sparkline-area"
-SPARKLINE_MARK_CLASS = "sparkline-mark"
-SPARKLINE_THRESHOLD_CLASS = "sparkline-threshold"
-SPARKLINE_LEGEND_ROW_CLASS = "sparkline__legend"
-SPARKLINE_LEGEND_CLASS = "sparkline-legend"
-SPARKLINE_LEGEND_SWATCH_CLASS = "sparkline-swatch"
+# The chart's own class vocabulary, geometry and markup now live in
+# companion/battery_chart.py (built on companion/draw.py); re-exported
+# here under their historical names so nothing outside this module needs
+# to know the chart moved.
+SPARKLINE_HIT_CLASS = battery_chart.SPARKLINE_HIT_CLASS
+SPARKLINE_DOT_CLASS = battery_chart.SPARKLINE_DOT_CLASS
+SPARKLINE_LINE_CLASS = battery_chart.SPARKLINE_LINE_CLASS
+SPARKLINE_AXIS_CLASS = battery_chart.SPARKLINE_AXIS_CLASS
+SPARKLINE_AREA_LAYER_CLASS = battery_chart.SPARKLINE_AREA_LAYER_CLASS
+SPARKLINE_AREA_CLASS = battery_chart.SPARKLINE_AREA_CLASS
+SPARKLINE_MARK_CLASS = battery_chart.SPARKLINE_MARK_CLASS
+SPARKLINE_THRESHOLD_CLASS = battery_chart.SPARKLINE_THRESHOLD_CLASS
+SPARKLINE_LEGEND_ROW_CLASS = battery_chart.SPARKLINE_LEGEND_ROW_CLASS
+SPARKLINE_LEGEND_CLASS = battery_chart.SPARKLINE_LEGEND_CLASS
+SPARKLINE_LEGEND_SWATCH_CLASS = battery_chart.SPARKLINE_LEGEND_SWATCH_CLASS
 # Must equal companion/app.py's SCRIPT_ROUTE — duplicated, not imported,
 # since companion/pages/__init__.py forbids a page module importing
 # companion.app (app.py imports pages, so the reverse would be
@@ -227,9 +233,12 @@ SPARKLINE_LEGEND_SWATCH_CLASS = "sparkline-swatch"
 BATTERY_TREND_SCRIPT_SRC = "/static/battery-trend.js"
 
 # "%d" is interpolated with BATTERY_TREND_WINDOW_DAYS // 30 at the one
-# call site, never a typed literal, so the heading cannot silently drift
-# from the window the chart plots.
-BATTERY_SECTION_HEADING_TEMPLATE = "Battery · %d months"
+# call site below, never a typed literal, so the heading cannot silently
+# drift from the window the chart plots. Both constants live in
+# companion/battery_chart.py, since the chart's own <svg aria-label>
+# interpolates the exact same two values and the two headings must never
+# disagree.
+BATTERY_SECTION_HEADING_TEMPLATE = battery_chart.BATTERY_SECTION_HEADING_TEMPLATE
 # Contract value shared with style.css's .battery-trend-section rule,
 # guarded against silent drift by a cross-file check.
 BATTERY_SECTION_CLASS = "battery-trend-section"
@@ -567,392 +576,35 @@ def _battery_trend_caption(trend_rows, daily_rows):
     return i18n.t("Latest %d readings") % _real_trend_reading_count(trend_rows)
 
 
-# No hand-estimated gutter: the CSS-grid label column is sized `auto`,
-# so the browser measures the real widest-label width. With no viewBox,
-# cx is a percentage of the canvas's own rendered width, so the canvas
-# is the plot area edge to edge.
-
-# Declared once here and in style.css's `.battery-trend-section
-# svg:not(.icon)` rule: every point coordinate is a percentage of this
-# height, so a responsive height would silently move every point.
-_SPARKLINE_CANVAS_HEIGHT_PX = 160
-
-# Vertical margin the plotted line never crosses, as a percent of canvas
-# height: at least the marker's own radius so no dot is clipped, and set
-# to half the axis label's line box so labels centre on the level they name.
-_SPARKLINE_VERTICAL_INSET_PERCENT = 3.75
-
-# A fixed Y-axis range, never auto-scaled: auto-scaling pinned a flat
-# series to the canvas bottom and stretched a tiny real wiggle to fill
-# the whole range. The percentage beside the chart comes from a
-# different, piecewise discharge curve, so equal vertical distances here
-# are not equal percentages. A reading below 3000 mV clamps to the floor.
-SPARKLINE_Y_MIN_MV = 3000
-SPARKLINE_Y_MAX_MV = 4200
-_SPARKLINE_Y_SPAN_MV = SPARKLINE_Y_MAX_MV - SPARKLINE_Y_MIN_MV
-
-_SPARKLINE_DOT_RADIUS_PX = 3
-_SPARKLINE_HIT_RADIUS_PX = 8
-
-# Strictly larger than the dot radius so the mark reads as a mark, and
-# no larger than the vertical inset so it isn't clipped at the edge.
-_SPARKLINE_MARK_RADIUS_PX = 5
-
-# The point count at which the daily chart's cosmetic dots stop reading
-# as separate marks. Derived from a live-measured 226px canvas width at
-# a 375px viewport with a 90-day dataset.
-_SPARKLINE_NARROWEST_CANVAS_PX = 226
-
-
-def _sparkline_dense_threshold(canvas_width_px):
-    """The first integer point count at which evenly spread points sit
-    closer together than the cosmetic dot's own diameter, for a canvas
-    `canvas_width_px` CSS pixels wide. The server cannot know a client's
-    actual rendered width (no viewBox), so this is always called with
-    the narrowest width this project has measured — conservative, not a
-    guarantee for a still-narrower container.
-    """
-    spacing_ceiling_px = 2 * _SPARKLINE_DOT_RADIUS_PX
-    return int(canvas_width_px / spacing_ceiling_px + 1) + 1
-
-
-_SPARKLINE_DENSE_POINT_THRESHOLD = _sparkline_dense_threshold(_SPARKLINE_NARROWEST_CANVAS_PX)
-
-# The reduced hit-target radius at/above the density threshold: smaller
-# than the normal 8px so heavily overlapping hit circles no longer
-# nearly-fully overlap; every point stays reachable via the
-# roving-tabindex/arrow-key keyboard path, which is unaffected.
-_SPARKLINE_DENSE_HIT_RADIUS_PX = 4
-
-
-def sparkline_point_y(value):
-    """The y position `value` gets on the battery chart, as a percentage
-    of canvas height. Shared by every non-reading chart element (area
-    baseline, threshold line) so none can drift from the plotted line.
-    Clamped into the fixed Y range, so an out-of-range value draws
-    pinned at the canvas edge; inverted to match SVG's top-down axis.
-    """
-    inset = _SPARKLINE_VERTICAL_INSET_PERCENT
-    clamped = max(SPARKLINE_Y_MIN_MV, min(SPARKLINE_Y_MAX_MV, value))
-    return inset + (
-        1 - (clamped - SPARKLINE_Y_MIN_MV) / _SPARKLINE_Y_SPAN_MV
-    ) * (100 - 2 * inset)
-
-
-# The hover/tap readout's text, as constants so the French catalogue
-# (companion/i18n_fr/health.py) carries them.
-BATTERY_AVERAGE_WHEN_ONE_TEMPLATE = "%s — daily average (%d reading)"
-BATTERY_AVERAGE_WHEN_MANY_TEMPLATE = "%s — daily average (%d readings)"
-BATTERY_AVERAGE_WHEN_BARE_TEMPLATE = "%s — daily average"
-
-# The drawn low-battery threshold's label names what the line means, not
-# just what it is worth. Prints the percentage beside the level because
-# the level is the millivolt reading at which battery.py's estimate
-# returns that percentage, tying the line to the same figure the readout
-# and ring print above the chart.
-BATTERY_THRESHOLD_LABEL_TEMPLATE = "Low battery — %d mV (≈ %d%%)"
-
-# The sentinel and helper live in companion/layout.py, since the
-# freshness line this page shares with Home and the Display scope needs
-# the same full local timestamp, and a page module cannot import another.
-_FULL_TIMESTAMP_SENTINEL_NOW = layout.FULL_TIMESTAMP_SENTINEL_NOW
-
-
-def _full_local_timestamp_text(ts):
-    """"D Mon HH:MM" in Europe/Paris — see
-    `layout.full_local_timestamp_text()`, of which this is the delegate.
-    """
-    return layout.full_local_timestamp_text(ts)
-
-
-def _as_paris(parsed):
-    """A naive datetime is taken as UTC (matching
-    `history_db.utc_now_iso()`'s output), then converted to
-    Europe/Paris. Shared by every helper below that renders a battery
-    timestamp, so there is exactly one place a stored `ts` crosses into
-    local wall-clock time.
-    """
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=ZoneInfo("UTC"))
-    return parsed.astimezone(layout.LOCAL_TZ)
-
-
-def _axis_clock_label(ts):
-    """"HH:MM" Europe/Paris clock text for a battery-chart X-axis label.
-    Built through `layout.local_clock_text()` with no `now_parsed`,
-    which keeps this a bare clock rather than the day-qualified form.
-    Falls back to the raw `ts` string, never raising, when it fails to
-    parse.
-    """
-    parsed = layout.parse_iso(ts)
-    return layout.local_clock_text(parsed) if parsed is not None else (ts or "")
-
-
-def _axis_day_label(ts):
-    """"D Mon" X-axis label for the chart's daily mode, for a `ts` that
-    names a whole Europe/Paris calendar day: `_axis_clock_label()` would
-    parse it fine but print "00:00" for every day, hence this sibling.
-    Uses `layout.month_abbr()`, not `strftime`'s locale-dependent
-    directive. Falls back to the raw `ts` string when it fails to parse.
-    """
-    parsed = layout.parse_iso(ts)
-    if parsed is None:
-        return ts or ""
-    local = _as_paris(parsed)
-    return "%d %s" % (local.day, layout.month_abbr(local.month))
-
-
-def _battery_reading_parts(mv, ts, now):
-    """The plain-text `(value, when)` pair every rendering of one
-    battery reading shares, computed once so they can't drift apart.
-    `value` is "≈ NN% · {mv} mV" when the estimate resolves, else bare
-    "{mv} mV" (the frame's own warning uses the exact mV threshold, not
-    this estimate). Returns unescaped text, not markup: `battery-trend.js`
-    rewrites the readout via `textContent`, which would destroy markup.
-    """
-    pct = battery.battery_percent(mv)
-    value = ("≈ %d%% · %s mV" % (pct, mv)) if pct is not None else ("%s mV" % mv)
-    age = layout.age_seconds(ts, now)
-    if age is None:
-        return value, (ts or "")
-    when = "%s (%s)" % (_full_local_timestamp_text(ts), layout.relative_age_text(age))
-    return value, when
-
-
-def _daily_reading_parts(mv, ts, reading_count):
-    """`_battery_reading_parts()`'s sibling for a daily-average chart
-    point: names that the value is an average, not a raw reading, so a
-    hovered point can't be mistaken for the resting readout. Degrades to
-    a bare "daily average" phrase when `reading_count` is missing or not
-    a positive int, since naming zero or an unknown count would mislead.
-    """
-    value = "%d mV" % mv
-    day_label = _axis_day_label(ts)
-    if isinstance(reading_count, int) and not isinstance(reading_count, bool) and reading_count > 0:
-        template = (BATTERY_AVERAGE_WHEN_ONE_TEMPLATE if reading_count == 1
-                    else BATTERY_AVERAGE_WHEN_MANY_TEMPLATE)
-        when = i18n.t(template) % (day_label, reading_count)
-    else:
-        when = i18n.t(BATTERY_AVERAGE_WHEN_BARE_TEMPLATE) % day_label
-    return value, when
-
-
-def battery_sparkline_svg(rows, now=None, daily=False):
-    """A minimal, dependency-free battery-trend chart built server-side
-    from `rows` (newest-first). No external reference of any kind
-    (`url(`, `<image`, a script tag). Each plotted point carries a
-    cosmetic marker plus a transparent, enlarged, keyboard-focusable hit
-    target with a `<title>` tooltip, so the reading is available on
-    hover/tap with no JavaScript.
-
-    Returns a `<div class="sparkline">` grid wrapper. The inner `<svg>`
-    has no `viewBox`, so every horizontal position is a percentage and
-    every size is an absolute CSS pixel at every container width; the
-    trend line is `n - 1` `<line>` segments, since a `<polyline>` cannot
-    take percentage coordinates. Also draws an area under the line (its
-    own nested `<svg>` with a private viewBox), a mark on the newest
-    point, and a low-battery threshold line read from
-    `companion/battery.py`.
-
-    Returns `""` when fewer than two rows carry a numeric `battery_mv`.
-    `daily=True` plots daily aggregates instead of individual readings:
-    axis and point labels switch to their day-aware siblings, and
-    cosmetic dots suppress above `_SPARKLINE_DENSE_POINT_THRESHOLD`.
-    """
-    if now is None:
-        now = history_db.utc_now_iso()
-    chronological = list(reversed(rows))
-    pairs = [
-        (row.get("battery_mv"), row.get("ts"), row.get("reading_count"))
-        for row in chronological
-        if isinstance(row.get("battery_mv"), int) and not isinstance(row.get("battery_mv"), bool)
-    ]
-    if len(pairs) < 2:
-        return ""
-    point_count = len(pairs)
-    # Keyed on point_count alone, not `daily`: the newest point's mark is
-    # exempt from this dot-suppression rule (a different class, not a
-    # cosmetic dot), so density and "keep the mark" cannot conflict.
-    dense = point_count >= _SPARKLINE_DENSE_POINT_THRESHOLD
-    hit_radius = _SPARKLINE_DENSE_HIT_RADIUS_PX if dense else _SPARKLINE_HIT_RADIUS_PX
-
-    def _point_x(index):
-        return index / (point_count - 1) * 100
-
-    _point_y = sparkline_point_y
-
-    # Filled <rect> elements, not stroked <line>: an axis-aligned
-    # integer-width filled rect has no stroke-centring to reason about,
-    # and can pair a percentage position with an absolute size (needed
-    # since every tick mixes both).
-    axis_chrome = (
-        # Y axis, X axis, then Y ticks (max/min, poking into the label
-        # gap) and X ticks (oldest/newest, hanging below the axis).
-        '<rect class="%s" x="0" y="0" width="1" height="100%%" aria-hidden="true"/>'
-        '<rect class="%s" x="0" y="100%%" width="100%%" height="1" aria-hidden="true"/>'
-        '<rect class="%s" x="-4" y="%.2f%%" width="4" height="1" aria-hidden="true"/>'
-        '<rect class="%s" x="-4" y="%.2f%%" width="4" height="1" aria-hidden="true"/>'
-        '<rect class="%s" x="%.2f%%" y="100%%" width="1" height="4" aria-hidden="true"/>'
-        '<rect class="%s" x="%.2f%%" y="100%%" width="1" height="4" aria-hidden="true"/>'
-    ) % (
-        SPARKLINE_AXIS_CLASS,
-        SPARKLINE_AXIS_CLASS,
-        SPARKLINE_AXIS_CLASS, _point_y(SPARKLINE_Y_MAX_MV),
-        SPARKLINE_AXIS_CLASS, _point_y(SPARKLINE_Y_MIN_MV),
-        SPARKLINE_AXIS_CLASS, _point_x(0),
-        SPARKLINE_AXIS_CLASS, _point_x(point_count - 1),
-    )
-
-    # SVG paints in document order; the cosmetic marker is emitted
-    # immediately before its own hit target so it is never visually
-    # painted under it (`.sparkline-dot`'s `pointer-events: none` is
-    # what actually lets a tap reach the target regardless of order).
-    line_segments = []
-    circles = []
-    plotted = []
-    prev_x = prev_y = None
-    for index, (value, ts, reading_count) in enumerate(pairs):
-        x = _point_x(index)
-        y = _point_y(value)
-        plotted.append((x, y))
-        if prev_x is not None:
-            line_segments.append(
-                '<line class="%s" x1="%.2f%%" y1="%.2f%%" x2="%.2f%%" y2="%.2f%%"/>'
-                % (SPARKLINE_LINE_CLASS, prev_x, prev_y, x, y))
-        prev_x, prev_y = x, y
-
-        # Computed from `pairs`, never `rows`: the newest stored row may
-        # carry no battery_mv, and a mark derived from it would point at
-        # a reading the chart never plotted.
-        is_latest = index == point_count - 1
-
-        # Above the density threshold, the cosmetic dot is suppressed
-        # but the hit target below still emits at a reduced radius, so
-        # every point stays reachable. The latest point always gets the
-        # mark (a different class, emitted in the same loop rather than
-        # a second circle appended afterwards, to stay inside the
-        # roving-tabindex sequence the hit targets establish).
-        if is_latest:
-            circles.append(
-                '<circle class="%s" cx="%.2f%%" cy="%.2f%%" r="%d" aria-hidden="true"/>'
-                % (SPARKLINE_MARK_CLASS, x, y, _SPARKLINE_MARK_RADIUS_PX))
-        elif not dense:
-            circles.append(
-                '<circle class="%s" cx="%.2f%%" cy="%.2f%%" r="%d" aria-hidden="true"/>'
-                % (SPARKLINE_DOT_CLASS, x, y, _SPARKLINE_DOT_RADIUS_PX))
-
-        if daily:
-            _value_text, when_text = _daily_reading_parts(value, ts, reading_count)
-        else:
-            _value_text, when_text = _battery_reading_parts(value, ts, now)
-        # Tooltip, aria-label and data-when carry the same string, never
-        # a "value — when" composite: battery-trend.js's reveal() writes
-        # data-mv into the readout separately and prepends its own
-        # " — ", so duplicating the value here would print it twice.
-        escaped_when = escape_html(when_text)
-        # Roving tabindex: only the latest (rightmost) point is a normal
-        # Tab stop; every other point is reachable via
-        # battery-trend.js's arrow-key handler instead.
-        tabindex = "0" if is_latest else "-1"
-        circles.append(
-            '<circle class="%s" cx="%.2f%%" cy="%.2f%%" r="%d" tabindex="%s" '
-            'role="button" data-mv="%d" data-ts="%s" data-when="%s" aria-label="%s">'
-            "<title>%s</title></circle>"
-            % (SPARKLINE_HIT_CLASS, x, y, hit_radius, tabindex, value, escape_html(ts),
-               escaped_when, escaped_when, escaped_when))
-
-    # The low-battery threshold. Read from companion/battery.py, never
-    # retyped: LOW_BATTERY_DISPLAY_MV is the companion's own display
-    # threshold, a different number from server/poll_loop.py's device
-    # hysteresis threshold — two numbers for two jobs.
-    #
-    # Placed by the same _point_y() every reading uses, so it cannot
-    # drift from the readings it is compared against. Suppressed
-    # entirely when the value falls outside the chart's fixed range:
-    # _point_y() clamps, so an out-of-range threshold would draw pinned
-    # to the axis edge and falsely read as "low starts at the bottom".
-    threshold_mv = battery.LOW_BATTERY_DISPLAY_MV
-    threshold_visible = (
-        isinstance(threshold_mv, int) and not isinstance(threshold_mv, bool)
-        and SPARKLINE_Y_MIN_MV < threshold_mv < SPARKLINE_Y_MAX_MV)
-    threshold_rect = ""
-    legend_html = ""
-    if threshold_visible:
-        threshold_rect = (
-            '<rect class="%s" x="0" y="%.2f%%" width="100%%" height="1" aria-hidden="true"/>'
-        ) % (SPARKLINE_THRESHOLD_CLASS, _point_y(threshold_mv))
-        # A legend in its own row, not a third Y-label (the threshold
-        # sits at 59.25%, not at top/bottom/middle). Not aria-hidden,
-        # unlike the axis labels: nothing else announces where "low"
-        # starts.
-        legend_html = (
-            '<div class="%s">'
-            '<span class="%s"><span class="%s" aria-hidden="true"></span>%s</span>'
-            "</div>"
-        ) % (
-            SPARKLINE_LEGEND_ROW_CLASS, SPARKLINE_LEGEND_CLASS,
-            SPARKLINE_LEGEND_SWATCH_CLASS,
-            escape_html(i18n.t(BATTERY_THRESHOLD_LABEL_TEMPLATE)
-                        % (threshold_mv, battery.LOW_BATTERY_DISPLAY_PERCENT)),
-        )
-
-    # The area under the line: a nested <svg> with its own private
-    # viewBox, since percentages aren't permitted in a <polygon> points
-    # list and the outer canvas's no-viewBox scheme can't be traded away
-    # (that would shrink every stroke/marker at small widths). No size
-    # attributes of its own: style.css already sizes every <svg> in the
-    # section. Baseline is the scale's own floor, not the canvas edge,
-    # so the filled height stays the value above the axis minimum. Fill
-    # is `currentColor` at reduced opacity, not a `<linearGradient>`,
-    # which could only be referenced via `url(#id)` — forbidden by this
-    # function's no-external-reference guarantee. Emitted first, so it
-    # paints under the axis chrome, line segments and points.
-    area_baseline_y = _point_y(SPARKLINE_Y_MIN_MV)
-    area_points = " ".join(
-        "%.2f,%.2f" % (x, y) for x, y in plotted
-    ) + " %.2f,%.2f %.2f,%.2f" % (
-        plotted[-1][0], area_baseline_y, plotted[0][0], area_baseline_y)
-    area_layer = (
-        '<svg class="%s" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">'
-        '<polygon class="%s" points="%s"/>'
-        "</svg>"
-    ) % (SPARKLINE_AREA_LAYER_CLASS, SPARKLINE_AREA_CLASS, area_points)
-
-    # Document order places max above min, oldest before newest (both
-    # flex containers use space-between). These print the fixed
-    # SPARKLINE_Y_MIN_MV/MAX_MV constants, never a per-render min/max, so
-    # the axis matches the fixed range _point_y() draws against.
-    y_labels_html = (
-        '<div class="sparkline__y">'
-        '<span class="sparkline-axis-label" aria-hidden="true">%d mV</span>'
-        '<span class="sparkline-axis-label" aria-hidden="true">%d mV</span>'
-        "</div>"
-    ) % (SPARKLINE_Y_MAX_MV, SPARKLINE_Y_MIN_MV)
-    x_labels_html = (
-        '<div class="sparkline__x">'
-        '<span class="sparkline-axis-label" aria-hidden="true">%s</span>'
-        '<span class="sparkline-axis-label" aria-hidden="true">%s</span>'
-        "</div>"
-    ) % (
-        escape_html(_axis_day_label(pairs[0][1]) if daily else _axis_clock_label(pairs[0][1])),
-        escape_html(_axis_day_label(pairs[-1][1]) if daily else _axis_clock_label(pairs[-1][1])),
-    )
-
-    # Recomputed the same way the visible heading is, so the two can
-    # never disagree.
-    svg_html = (
-        '<svg class="sparkline__canvas" role="group" aria-label="%s">'
-        "%s%s%s%s%s"
-        "</svg>"
-    ) % (escape_html(i18n.t(BATTERY_SECTION_HEADING_TEMPLATE) % (BATTERY_TREND_WINDOW_DAYS // 30)),
-         area_layer, axis_chrome, threshold_rect,
-         "".join(line_segments), "".join(circles))
-
-    # Grid document order: Y-label column, canvas, X-label row, then the
-    # threshold legend (grid-column: 1 / -1 in style.css) — "" when no
-    # threshold is drawn, so the row simply does not exist.
-    return '<div class="sparkline">%s%s%s%s</div>' % (
-        y_labels_html, svg_html, x_labels_html, legend_html)
+# The chart's geometry, size constants and markup builder all live in
+# companion/battery_chart.py (built on companion/draw.py); re-exported
+# here under their historical names, since a number of tests reach these
+# by name as `health_page.X` and `_battery_readout_block()`/
+# `_battery_section()` below call some of them as bare names.
+_SPARKLINE_CANVAS_HEIGHT_PX = battery_chart._SPARKLINE_CANVAS_HEIGHT_PX
+_SPARKLINE_VERTICAL_INSET_PERCENT = battery_chart._SPARKLINE_VERTICAL_INSET_PERCENT
+SPARKLINE_Y_MIN_MV = battery_chart.SPARKLINE_Y_MIN_MV
+SPARKLINE_Y_MAX_MV = battery_chart.SPARKLINE_Y_MAX_MV
+_SPARKLINE_DOT_RADIUS_PX = battery_chart._SPARKLINE_DOT_RADIUS_PX
+_SPARKLINE_HIT_RADIUS_PX = battery_chart._SPARKLINE_HIT_RADIUS_PX
+_SPARKLINE_MARK_RADIUS_PX = battery_chart._SPARKLINE_MARK_RADIUS_PX
+_SPARKLINE_NARROWEST_CANVAS_PX = battery_chart._SPARKLINE_NARROWEST_CANVAS_PX
+_sparkline_dense_threshold = battery_chart._sparkline_dense_threshold
+_SPARKLINE_DENSE_POINT_THRESHOLD = battery_chart._SPARKLINE_DENSE_POINT_THRESHOLD
+_SPARKLINE_DENSE_HIT_RADIUS_PX = battery_chart._SPARKLINE_DENSE_HIT_RADIUS_PX
+sparkline_point_y = battery_chart.sparkline_point_y
+BATTERY_AVERAGE_WHEN_ONE_TEMPLATE = battery_chart.BATTERY_AVERAGE_WHEN_ONE_TEMPLATE
+BATTERY_AVERAGE_WHEN_MANY_TEMPLATE = battery_chart.BATTERY_AVERAGE_WHEN_MANY_TEMPLATE
+BATTERY_AVERAGE_WHEN_BARE_TEMPLATE = battery_chart.BATTERY_AVERAGE_WHEN_BARE_TEMPLATE
+BATTERY_THRESHOLD_LABEL_TEMPLATE = battery_chart.BATTERY_THRESHOLD_LABEL_TEMPLATE
+_FULL_TIMESTAMP_SENTINEL_NOW = battery_chart._FULL_TIMESTAMP_SENTINEL_NOW
+_full_local_timestamp_text = battery_chart._full_local_timestamp_text
+_as_paris = battery_chart._as_paris
+_axis_clock_label = battery_chart._axis_clock_label
+_axis_day_label = battery_chart._axis_day_label
+_battery_reading_parts = battery_chart._battery_reading_parts
+_daily_reading_parts = battery_chart._daily_reading_parts
+battery_sparkline_svg = battery_chart.battery_sparkline_svg
 
 
 def battery_status(rows):
