@@ -48,7 +48,7 @@ SPARKLINE_AXIS_LABEL_CLASS = draw.DRAWING_CHART_AXIS_LABEL_CLASS
 # call site below, never a typed literal, so the heading cannot silently
 # drift from the window the chart plots. The Health page's own visible
 # `<h2>` heading interpolates the same two constants, imported from here.
-BATTERY_SECTION_HEADING_TEMPLATE = "Battery · %d months"
+BATTERY_SECTION_HEADING_TEMPLATE = i18n.msg("health.battery_months", "Battery · %d months")
 
 BATTERY_TREND_WINDOW_DAYS = 90  # The chart's primary window, locked at
 # 3 months by explicit request. A display window only: nothing is deleted.
@@ -123,16 +123,20 @@ sparkline_point_y = functools.partial(
 
 # The hover/tap readout's text, as constants so the French catalogue
 # (companion/i18n_fr/health.py) carries them.
-BATTERY_AVERAGE_WHEN_ONE_TEMPLATE = "%s — daily average (%d reading)"
-BATTERY_AVERAGE_WHEN_MANY_TEMPLATE = "%s — daily average (%d readings)"
-BATTERY_AVERAGE_WHEN_BARE_TEMPLATE = "%s — daily average"
+BATTERY_AVERAGE_WHEN_ONE_TEMPLATE = i18n.msg(
+    "health.daily_average_reading", "%s — daily average (%d reading)")
+BATTERY_AVERAGE_WHEN_MANY_TEMPLATE = i18n.msg(
+    "health.daily_average_readings", "%s — daily average (%d readings)")
+BATTERY_AVERAGE_WHEN_BARE_TEMPLATE = i18n.msg(
+    "health.daily_average", "%s — daily average")
 
 # The drawn low-battery threshold's label names what the line means, not
 # just what it is worth. Prints the percentage beside the level because
 # the level is the millivolt reading at which battery.py's estimate
 # returns that percentage, tying the line to the same figure the readout
 # and ring print above the chart.
-BATTERY_THRESHOLD_LABEL_TEMPLATE = "Low battery — %d mV (≈ %d%%)"
+BATTERY_THRESHOLD_LABEL_TEMPLATE = i18n.msg(
+    "health.low_battery_mv", "Low battery — %d mV (≈ %d%%)")
 
 # The sentinel and helper live in companion/layout.py, since the
 # freshness line this page shares with Home and the Display scope needs

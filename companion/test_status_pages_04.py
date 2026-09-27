@@ -438,12 +438,12 @@ def test_registry_table_fits_by_stacked_cells_and_short_french_headers(tmp_path,
         "expected no 1100px card-fallback breakpoint — measurement showed levers 1 and 2 "
         "fit the table in both languages, so lever 3 was not applied")
 
-    assert i18n_fr_health.CATALOG.get("First seen") == "Première fois", (
+    assert i18n_fr_health.MESSAGES.get("health.first_seen") == "Première fois", (
         "expected the shortened French 'First seen' header")
-    assert i18n_fr_health.CATALOG.get("Last seen") == "Dernière fois", (
+    assert i18n_fr_health.MESSAGES.get("health.last_seen") == "Dernière fois", (
         "expected the shortened French 'Last seen' header")
     for retired in ("Vu pour la première fois", "Vu pour la dernière fois"):
-        assert retired not in i18n_fr_health.CATALOG.values(), (
+        assert retired not in i18n_fr_health.MESSAGES.values(), (
             "expected the retired long French header %r to be gone" % (retired,))
     assert health_page._REGISTRY_HEADERS[2:4] == ("First seen", "Last seen"), (
         "expected the English header sources to be unchanged")

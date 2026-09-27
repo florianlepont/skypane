@@ -41,7 +41,8 @@ from server import device_config
 from server import history_db
 
 
-HEALTH_UNAVAILABLE_TEXT = (
+HEALTH_UNAVAILABLE_TEXT = i18n.msg(
+    "health.health_history_is_temporarily_unavailable_check",
     "Health history is temporarily unavailable — check the companion "
     "service logs.")
 
@@ -71,18 +72,24 @@ _CORROBORATION_ROWS = (
     # (stored corroborated string, display label, status, explanation).
     # The stored key ("True"/"None"/"False") is the on-disk vocabulary
     # history_db.save_poll_state() writes and must never be renamed.
-    ("True", "Both agree", "ok",
-     "Both flight-data sources on the frame picked the same aircraft."),
+    ("True", i18n.msg("health.both_agree", "Both agree"), "ok",
+     i18n.msg(
+         "health.both_flight_data_sources_on_the_frame_picked",
+         "Both flight-data sources on the frame picked the same aircraft.")),
     # "off", not "ok": this state means there was nothing to compare
     # against, not that agreement was confirmed — a neutral, everyday
     # state, never a problem, so never "warn" either.
-    ("None", "Only one saw it", "off",
-     "Only one of the two sources returned an aircraft this cycle — "
-     "that is not the same as a disagreement, there was simply nothing "
-     "from the other source to compare it against."),
-    ("False", "They disagree", "warn",
-     "The two sources named different aircraft, so nothing was shown "
-     "that cycle — the display kept the previous image instead."),
+    ("None", i18n.msg("health.only_one_saw_it", "Only one saw it"), "off",
+     i18n.msg(
+         "health.only_one_of_the_two_sources_returned_an",
+         "Only one of the two sources returned an aircraft this cycle — "
+         "that is not the same as a disagreement, there was simply nothing "
+         "from the other source to compare it against.")),
+    ("False", i18n.msg("health.they_disagree", "They disagree"), "warn",
+     i18n.msg(
+         "health.the_two_sources_named_different_aircraft_so",
+         "The two sources named different aircraft, so nothing was shown "
+         "that cycle — the display kept the previous image instead.")),
 )
 
 # Kept as a literal, human-maintained list rather than importing
@@ -91,8 +98,9 @@ _CORROBORATION_ROWS = (
 # detect.DEFAULT_PROVIDER_ORDER by hand if that list ever changes.
 _ADSB_PROVIDER_NAMES = ("adsb.fi", "adsb.lol")
 
-SOURCE_FAULT_HEADING = "ADS-B source outage"
-SOURCE_FAULT_BODY_TEMPLATE = (
+SOURCE_FAULT_HEADING = i18n.msg("health.ads_b_source_outage", "ADS-B source outage")
+SOURCE_FAULT_BODY_TEMPLATE = i18n.msg(
+    "health.the_frame_s_alert_badge_is_showing_because",
     "The frame's alert badge is showing because every configured ADS-B "
     "source (%s) failed to respond on the most recent pipeline run — "
     "this is a data-source outage, not a device problem.")
@@ -100,26 +108,36 @@ SOURCE_FAULT_BODY = SOURCE_FAULT_BODY_TEMPLATE % ", ".join(_ADSB_PROVIDER_NAMES)
 
 # The leading "⚠ " glyph lives in _anomaly_banner_html(), not here, so
 # this stays a literal substring of whatever renders.
-ANOMALY_BANNER_TEXT = "Something needs attention — check the tiles below."
+ANOMALY_BANNER_TEXT = i18n.msg(
+    "health.something_needs_attention_check_the_tiles_below",
+    "Something needs attention — check the tiles below.")
 
-_SEVERITY_BANNER_NOUNS = {"warn": "warning", "error": "error"}  # falls
-# back to "issue" for any severity not in this dict.
+_SEVERITY_BANNER_NOUNS = {
+    "warn": i18n.msg("health.warning", "warning"),
+    "error": i18n.msg("health.error", "error"),
+}  # falls back to "issue" for any severity not in this dict.
+_SEVERITY_BANNER_ISSUE_TEXT = i18n.msg("health.issue", "issue")
 
-DEVICE_FRESHNESS_LABEL = "Device last checked in"
+DEVICE_FRESHNESS_LABEL = i18n.msg("health.device_last_checked_in", "Device last checked in")
 # Plain-language visible label; the technical term stays one hover away
 # via `caption_title` at the tile's stat_tile() call site below.
-PIPELINE_FRESHNESS_LABEL = "Flight data last updated"
-PIPELINE_FRESHNESS_TITLE = "ADS-B pipeline last ran"
+PIPELINE_FRESHNESS_LABEL = i18n.msg(
+    "health.flight_data_last_updated", "Flight data last updated")
+PIPELINE_FRESHNESS_TITLE = i18n.msg(
+    "health.ads_b_pipeline_last_ran", "ADS-B pipeline last ran")
 
-CORROBORATION_TILE_LABEL = "Do the two data sources agree?"
-CORROBORATION_TILE_TITLE = "Corroboration"
+CORROBORATION_TILE_LABEL = i18n.msg(
+    "health.do_the_two_data_sources_agree", "Do the two data sources agree?")
+CORROBORATION_TILE_TITLE = i18n.msg("health.corroboration", "Corroboration")
 
-LAST_DETECTION_LABEL = "Last aircraft detected"
+LAST_DETECTION_LABEL = i18n.msg("health.last_aircraft_detected", "Last aircraft detected")
 
 # Evidence only ("since it started"), never the state name, so it is
 # safe to publish verdict-free as compute_health_state()'s
 # "pipeline_detail_html" key.
-PIPELINE_NEVER_RAN_DETAIL_TEXT = "The frame has not reported a flight since it started."
+PIPELINE_NEVER_RAN_DETAIL_TEXT = i18n.msg(
+    "health.the_frame_has_not_reported_a_flight_since_it",
+    "The frame has not reported a flight since it started.")
 
 # A short plain-sentence verdict for each stat tile whose caption names
 # a signal but whose border colour alone was the only place the actual
@@ -128,27 +146,30 @@ PIPELINE_NEVER_RAN_DETAIL_TEXT = "The frame has not reported a flight since it s
 # sibling dict here — see render()'s own comment at that tile's
 # stat_tile() call.
 DEVICE_STATE_TEXT = {
-    "ok": "Checking in normally",
-    "warn": "Has not checked in for a while",
-    "error": "Has not checked in for a long time",
+    "ok": i18n.msg("health.checking_in_normally", "Checking in normally"),
+    "warn": i18n.msg(
+        "health.has_not_checked_in_for_a_while", "Has not checked in for a while"),
+    "error": i18n.msg(
+        "health.has_not_checked_in_for_a_long_time",
+        "Has not checked in for a long time"),
     # A genuine fourth device state, not merely "hasn't checked in for a
     # while": a frame the strip/tile both know is quiet-hours-held.
     # Reuses the "off" token the pipeline's never-ran state and the
     # strip's held dot use, a neutral state that is never a problem. A
     # held frame is routed here only when frame_state.resolve_state()
     # says STATE_HELD.
-    "off": "Asleep for quiet hours",
+    "off": i18n.msg("health.asleep_for_quiet_hours", "Asleep for quiet hours"),
 }
 
 PIPELINE_STATE_TEXT = {
-    "ok": "Running on schedule",
-    "warn": "A little behind",
-    "error": "Has not run for a long time",
-    "off": "No detection yet",
+    "ok": i18n.msg("health.running_on_schedule", "Running on schedule"),
+    "warn": i18n.msg("health.a_little_behind", "A little behind"),
+    "error": i18n.msg("health.has_not_run_for_a_long_time", "Has not run for a long time"),
+    "off": i18n.msg("health.no_detection_yet", "No detection yet"),
 }
 CORROBORATION_STATE_TEXT = {
-    "ok": "Sources agree",
-    "warn": "Sources disagreed recently",
+    "ok": i18n.msg("health.sources_agree", "Sources agree"),
+    "warn": i18n.msg("health.sources_disagreed_recently", "Sources disagreed recently"),
 }
 
 # Retired: status_dot() emitted an empty first span with no accessible
@@ -228,7 +249,7 @@ ICON_CORROBORATION = "icon-corroboration"
 # wake.classify_check_in_gap(), derived from the same
 # wake.device_staleness_thresholds() the Frame tile consumes, so this
 # grid and that tile can never disagree about "late".
-CHECK_IN_SECTION_HEADING = "Check-in regularity"
+CHECK_IN_SECTION_HEADING = i18n.msg("health.check_in_regularity", "Check-in regularity")
 
 # One cell per Europe/Paris calendar day. Inside draw.regularity_grid()'s
 # own bound (ten columns by six rows = 60 cells at the measured card
@@ -245,39 +266,44 @@ CHECK_IN_KEY_SWATCH_CLASS = "check-in-key__swatch"
 # Colour is not a reading: four squares in four colours need their four
 # names in text beside them, which is what the key below the grid is.
 CHECK_IN_STATE_TEXT = {
-    wake.CHECK_IN_ON_CADENCE: "On cadence",
-    wake.CHECK_IN_LATE: "Late",
-    wake.CHECK_IN_MISSING: "Missing",
-    wake.CHECK_IN_UNKNOWN: "No record",
+    wake.CHECK_IN_ON_CADENCE: i18n.msg("health.on_cadence", "On cadence"),
+    wake.CHECK_IN_LATE: i18n.msg("health.late", "Late"),
+    wake.CHECK_IN_MISSING: i18n.msg("health.missing", "Missing"),
+    wake.CHECK_IN_UNKNOWN: i18n.msg("health.no_record", "No record"),
 }
 
 # The caption's clauses, one constant each: only CHECK_IN_CAPTION_OBSERVED
 # renders in the card's always-visible caption; every other clause moves
 # into a `<details class="readings-disclosure">` immediately after it
 # (see `_check_in_regularity_section_html()`).
-CHECK_IN_CAPTION_OBSERVED = (
+CHECK_IN_CAPTION_OBSERVED = i18n.msg(
+    "health.each_cell_is_one_day_of_observed_check_in",
     "Each cell is one day of observed check-in regularity, oldest first.")
 # The cadence actually in force on an earlier day is not recoverable
 # (device_config.json is a current-state file), so naming it without
 # this qualifier would be a claim about the past made from a present value.
-CHECK_IN_CAPTION_CADENCE = (
+CHECK_IN_CAPTION_CADENCE = i18n.msg(
+    "health.judged_against_the_cadence_configured_now_a",
     "Judged against the cadence configured now — a check-in every %s — not "
     "necessarily the cadence in force on an earlier day.")
 # When there is no cadence to name at all: device_staleness_thresholds()'
 # bare floors apply, and the caption must say so rather than print an
 # assumed default.
-CHECK_IN_CAPTION_CADENCE_FALLBACK = (
+CHECK_IN_CAPTION_CADENCE_FALLBACK = i18n.msg(
+    "health.this_frame_s_cadence_cannot_be_determined_so",
     "This frame's cadence cannot be determined, so the grid is judged against "
     "the fallback staleness floors rather than against a configured cadence.")
 # What a gap is not: the record cannot tell a wake the frame missed from
 # a log range this server lost, so a grid without this sentence would
 # make a claim its own data cannot support.
-CHECK_IN_CAPTION_NOT_PROOF = (
+CHECK_IN_CAPTION_NOT_PROOF = i18n.msg(
+    "health.a_day_with_no_record_is_not_proof_the_frame_did",
     "A day with no record is not proof the frame did not wake: a log rotation "
     "this server missed leaves exactly the same gap.")
 # The empty deployment: a real case, rendering an honest grid of
 # no-observation cells rather than a missing section.
-CHECK_IN_CAPTION_EMPTY = (
+CHECK_IN_CAPTION_EMPTY = i18n.msg(
+    "health.no_check_in_intervals_are_recorded_yet_so_every",
     "No check-in intervals are recorded yet, so every day below is a day the "
     "record says nothing about.")
 
@@ -285,9 +311,13 @@ CHECK_IN_CAPTION_EMPTY = (
 # named as a DURATION in the app's own form (layout.duration_text()) and
 # the day as a local date — every visible instant in this app is
 # Europe/Paris and a raw ISO string survives only behind a copy control.
-CHECK_IN_CELL_TITLE = "%s — %s: longest observed gap %s"
+CHECK_IN_CELL_TITLE = i18n.msg(
+    "health.longest_observed_gap", "%s — %s: longest observed gap %s")
+# No catalogue entry: a bare "%s — %s" join has never carried
+# translatable words of its own, so this stays a plain template.
 CHECK_IN_CELL_TITLE_NONE = "%s — %s"
-CHECK_IN_GRID_LABEL = (
+CHECK_IN_GRID_LABEL = i18n.msg(
+    "health.observed_check_in_regularity_one_cell_per_day",
     "Observed check-in regularity, one cell per day over the last %d days: "
     "%d on cadence, %d late, %d missing, %d with no record.")
 
@@ -296,43 +326,53 @@ CHECK_IN_GRID_LABEL = (
 # to this exact anchor (#server-data) — renaming it silently breaks that
 # link.
 SCREEN_SECTION_ID = "screen"
-SCREEN_SECTION_HEADING = "Screen"
+SCREEN_SECTION_HEADING = i18n.msg("health.screen", "Screen")
 SERVER_DATA_SECTION_ID = "server-data"
-SERVER_DATA_SECTION_HEADING = "Server & data"
+SERVER_DATA_SECTION_HEADING = i18n.msg("health.server_data", "Server & data")
 # Plain-language label; the technical term stays reachable via
 # `caption_title` at this tile's stat_tile() call site below.
-RESOLUTION_RATE_LABEL = "Flights we could name"
-RESOLUTION_RATE_TITLE = "Route resolution rate"
-UNRESOLVED_SECTION_HEADING = "Airlines we could not name"
-STATS_SECTION_HEADING = "How well we name flights"
+RESOLUTION_RATE_LABEL = i18n.msg("health.flights_we_could_name", "Flights we could name")
+RESOLUTION_RATE_TITLE = i18n.msg("health.route_resolution_rate", "Route resolution rate")
+UNRESOLVED_SECTION_HEADING = i18n.msg(
+    "health.airlines_we_could_not_name", "Airlines we could not name")
+STATS_SECTION_HEADING = i18n.msg(
+    "health.how_well_we_name_flights", "How well we name flights")
 
 # Keep the leading em-dash and the space after it on both descriptions:
 # that is what makes the heading and its description read as one
 # continuous phrase across the baseline-aligned `.section-intro` row.
-PAGE_PURPOSE_TEXT = "Screen status and server data quality, in one place."
-SCREEN_SECTION_DESCRIPTION = (
+PAGE_PURPOSE_TEXT = i18n.msg(
+    "health.screen_status_and_server_data_quality_in_one",
+    "Screen status and server data quality, in one place.")
+SCREEN_SECTION_DESCRIPTION = i18n.msg(
+    "health.the_physical_frame_is_it_checking_in_and_how_s",
     "— the physical frame: is it checking in, and how's the battery.")
-SERVER_DATA_SECTION_DESCRIPTION = (
+SERVER_DATA_SECTION_DESCRIPTION = i18n.msg(
+    "health.the_ads_b_pipeline_and_route_resolution_is_the",
     "— the ADS-B pipeline and route resolution: is the data fresh and "
     "trustworthy.")
 
-_NO_GAPS_HEADING = "No coverage gaps."
-_NO_GAPS_BODY = (
+_NO_GAPS_HEADING = i18n.msg("health.no_coverage_gaps", "No coverage gaps.")
+_NO_GAPS_BODY = i18n.msg(
+    "health.every_airline_we_ve_seen_recently_has_been",
     "Every airline we've seen recently has been named — nothing left to look up.")
 
 # The genuine reference material — where resolution happens and what it
 # does — lives in _READ_ONLY_NOTE_DETAIL below, rendered in a `<details
 # class="readings-disclosure">` immediately after this visible sentence.
-_READ_ONLY_NOTE = "This list is read-only here."
-_READ_ONLY_NOTE_DETAIL = (
+_READ_ONLY_NOTE = i18n.msg("health.this_list_is_read_only_here", "This list is read-only here.")
+_READ_ONLY_NOTE_DETAIL = i18n.msg(
+    "health.each_row_s_resolve_link_opens_the_airlines_page",
     "Each row's Resolve link opens the Airlines page to name that airline "
     "(and add artwork, if it needs one).")
 
 # The heading is a %-template interpolated with RESOLUTION_WINDOW_DAYS
 # at the one call site, never a literal "30", so it cannot silently
 # drift from the window constant.
-_NO_STATS_HEADING = "No flights in the last %d days"
-_NO_STATS_BODY = (
+_NO_STATS_HEADING = i18n.msg(
+    "health.no_flights_in_the_last_days", "No flights in the last %d days")
+_NO_STATS_BODY = i18n.msg(
+    "health.the_frame_has_not_recorded_a_detection_in_this",
     "The frame has not recorded a detection in this window. It will "
     "appear here after the next wake.")
 
@@ -341,8 +381,10 @@ _NO_STATS_BODY = (
 # dead copy. Singular chosen at the call site, never a runtime "add an
 # s" rule, which French cannot express (it pluralises the noun and
 # needs article agreement too).
-_RESOLUTION_DETAIL_TEMPLATE = "over the last %d days, %d events"
-_RESOLUTION_DETAIL_SINGULAR_TEMPLATE = "over the last %d days, %d event"
+_RESOLUTION_DETAIL_TEMPLATE = i18n.msg(
+    "health.over_the_last_days_events", "over the last %d days, %d events")
+_RESOLUTION_DETAIL_SINGULAR_TEMPLATE = i18n.msg(
+    "health.over_the_last_days_event", "over the last %d days, %d event")
 
 RESOLUTION_WINDOW_DAYS = 30  # A month smooths over a quiet week at this
 # single-airport traffic volume, while still reading as "recent".
@@ -354,20 +396,30 @@ RESOLUTION_WINDOW_DAYS = 30  # A month smooths over a quiet week at this
 # live/cache/static-table distinction is kept deliberately: collapsing
 # it would hide which mechanism actually resolved the route.
 _SOURCE_ROWS = (
-    ("fresh_hit", "Fresh lookup",
-     "A live lookup in the route database resolved a full route this cycle."),
-    ("cache_hit", "Cached hit",
-     "A previously-cached route was reused, sparing a network request."),
-    ("airline_only", "Airline only",
-     "The route database had no route, but the callsign's ICAO prefix "
-     "identified the airline from the static prefix table."),
-    ("miss", "Miss",
-     "Neither the route database nor the static prefix table resolved "
-     "anything for this callsign, so it shows up in the %s list above."
-     % UNRESOLVED_SECTION_HEADING),
-    ("manual", "Manual",
-     "The operator resolved this callsign's prefix by hand, from the "
-     "companion web interface."),
+    ("fresh_hit", i18n.msg("health.fresh_lookup", "Fresh lookup"),
+     i18n.msg(
+         "health.a_live_lookup_in_the_route_database_resolved_a",
+         "A live lookup in the route database resolved a full route this cycle.")),
+    ("cache_hit", i18n.msg("health.cached_hit", "Cached hit"),
+     i18n.msg(
+         "health.a_previously_cached_route_was_reused_sparing_a",
+         "A previously-cached route was reused, sparing a network request.")),
+    ("airline_only", i18n.msg("health.airline_only", "Airline only"),
+     i18n.msg(
+         "health.the_route_database_had_no_route_but_the",
+         "The route database had no route, but the callsign's ICAO prefix "
+         "identified the airline from the static prefix table.")),
+    ("miss", i18n.msg("health.miss", "Miss"),
+     i18n.msg(
+         "health.neither_the_route_database_nor_the_static",
+         "Neither the route database nor the static prefix table resolved "
+         "anything for this callsign, so it shows up in the %s list above."
+         % UNRESOLVED_SECTION_HEADING)),
+    ("manual", i18n.msg("health.manual", "Manual"),
+     i18n.msg(
+         "health.the_operator_resolved_this_callsign_s_prefix_by",
+         "The operator resolved this callsign's prefix by hand, from the "
+         "companion web interface.")),
 )
 
 # A sixth, catch-all row for any route_source value outside the five
@@ -375,8 +427,9 @@ _SOURCE_ROWS = (
 # _SOURCE_ROWS itself: that tuple is the fixed, ordered enumeration of
 # known mechanisms, and folding an "unknown" bucket into it would
 # misrepresent it as a sixth understood mechanism.
-_OTHER_SOURCE_LABEL = "Other"
-_OTHER_SOURCE_GLOSS = (
+_OTHER_SOURCE_LABEL = i18n.msg("health.other", "Other")
+_OTHER_SOURCE_GLOSS = i18n.msg(
+    "health.a_route_source_this_page_does_not_recognise_or",
     "A route source this page does not recognise, or none was recorded "
     "at all — still counted here so the total always matches every "
     "event in the window.")
@@ -385,17 +438,53 @@ _OTHER_SOURCE_GLOSS = (
 # disagree on a header word. Index 2 ("Count") is read directly by the
 # card builder; "Description" has no card-side equivalent, since the
 # mobile card renders the full description as stacked prose.
-_STATS_HEADERS = ("Source", "Description", "Count")
+_STATS_HEADERS = (
+    i18n.msg("health.source", "Source"),
+    i18n.msg("health.description", "Description"),
+    i18n.msg("health.count", "Count"),
+)
 
 # Driven client-side by list-filter.js's data-filter-* attribute
 # contract. No hyphen in this value: see history_page.py's own
 # `_FILTER_INPUT_ID` comment for the WebKit/Safari contacts-autofill
 # explanation.
 _FILTER_INPUT_ID = "airlines_filter_input"
-_FILTER_LABEL_TEXT = "Filter by prefix"
-_FILTER_EMPTY_HEADING = "No matching prefixes"
-_FILTER_EMPTY_BODY_TEMPLATE = (
+_FILTER_LABEL_TEXT = i18n.msg("health.filter_by_prefix", "Filter by prefix")
+_FILTER_EMPTY_HEADING = i18n.msg("health.no_matching_prefixes", "No matching prefixes")
+_FILTER_EMPTY_BODY_TEMPLATE = i18n.msg(
+    "health.try_a_different_search_or_clear_filter_to_see",
     "Try a different search, or Clear filter to see all %d prefixes.")
+
+# Inline literals hoisted from the markup builders below, one constant
+# per distinct English string. "More details" is shared by four
+# disclosure summaries; "%d of %d shown" and "Clear" are also read by
+# history_page.py/airlines_page.py's own filter bars (declared there
+# too, with the same id — msg() is idempotent on a repeat pair).
+_LATEST_READINGS_TEMPLATE = i18n.msg("health.latest_readings", "Latest %d readings")
+_NO_BATTERY_READINGS_YET_TEXT = i18n.msg(
+    "health.no_battery_readings_yet", "No battery readings yet.")
+_NO_BATTERY_TELEMETRY_RECORDED_TEXT = i18n.msg(
+    "health.no_battery_telemetry_recorded_yet_check_back",
+    "No battery telemetry recorded yet — check back after the "
+    "device's next poll.")
+_TIMESTAMP_TEXT = i18n.msg("health.timestamp", "Timestamp")
+_BATTERY_MV_TEXT = i18n.msg("health.battery_mv", "Battery (mV)")
+_VIEW_READING_TEMPLATE = i18n.msg("health.view_reading", "View %d reading%s")
+_MORE_DETAILS_TEXT = i18n.msg("health.more_details", "More details")
+_NOTHING_TO_COMPARE_YET_TEXT = i18n.msg(
+    "health.nothing_to_compare_yet", "Nothing to compare yet.")
+_FILTER_COUNT_TEMPLATE = i18n.msg("health.of_shown", "%d of %d shown")
+_CLEAR_TEXT = i18n.msg("health.clear", "Clear")
+_RESOLVED_PCT_TEMPLATE = i18n.msg("health.1f_resolved", "%.1f%% resolved")
+_OFFBOX_UP_TO_DATE_TEXT = i18n.msg(
+    "health.off_box_backup_up_to_date", "Off-box backup up to date")
+_OFFBOX_OVERDUE_TEXT = i18n.msg("health.off_box_backup_overdue", "Off-box backup overdue")
+_LAST_OFFBOX_BACKUP_TEXT = i18n.msg("health.last_off_box_backup", "Last off-box backup")
+_NEVER_TEXT = i18n.msg("health.never", "never")
+_OFFBOX_BACKUP_TEXT = i18n.msg("health.off_box_backup", "Off-box backup")
+# Owned by companion/i18n_fr/nav.py, not health.py — the same id the
+# nav tab label uses.
+_NAV_HEALTH_TEXT = i18n.msg("nav.health", "Health")
 
 # The DB-unavailable sentinel, the safe-query/cutoff/meta-flag helpers,
 # staleness_status(), offbox_backup_status() and the battery query
@@ -609,7 +698,7 @@ def _anomaly_banner_html(severity, anomalies):
     """
     css_class = "banner--anomaly" if severity == "error" else "banner--warn"
     role = "alert" if severity == "error" else "status"
-    noun = i18n.t(_SEVERITY_BANNER_NOUNS.get(severity, "issue"))
+    noun = i18n.t(_SEVERITY_BANNER_NOUNS.get(severity, _SEVERITY_BANNER_ISSUE_TEXT))
     count = len(anomalies)
     plural = "" if count == 1 else "s"
     lead_html = '<span class="banner__label">%s</span>' % escape_html(
@@ -854,7 +943,7 @@ def _battery_trend_section_html(battery_html, state, caption=None):
     """
     modifier = layout.card_status_class(BATTERY_SECTION_CLASS, state)
     section_class = BATTERY_SECTION_CLASS + ((" " + modifier) if modifier else "")
-    caption_text = caption if caption is not None else (i18n.t("Latest %d readings") % BATTERY_TREND_LIMIT)
+    caption_text = caption if caption is not None else (i18n.t(_LATEST_READINGS_TEMPLATE) % BATTERY_TREND_LIMIT)
     heading_text = i18n.t(BATTERY_SECTION_HEADING_TEMPLATE) % (BATTERY_TREND_WINDOW_DAYS // 30)
     return (
         '<section class="%s">'
@@ -882,10 +971,8 @@ def _battery_section(trend_rows, daily_rows=None):
         return _unavailable_block(), "ok"
     if not trend_rows:
         return layout.empty_state(
-            i18n.t("No battery readings yet."),
-            i18n.t(
-                "No battery telemetry recorded yet — check back after the "
-                "device's next poll.")), "ok"
+            i18n.t(_NO_BATTERY_READINGS_YET_TEXT),
+            i18n.t(_NO_BATTERY_TELEMETRY_RECORDED_TEXT)), "ok"
     # Through the state-only sibling, not a bare battery_status() call:
     # keeps this tile's border colour and health_signals()'s severity
     # input reading identically from the same two early-exit cases.
@@ -902,14 +989,14 @@ def _battery_section(trend_rows, daily_rows=None):
     # table from .data-table's min-width: max-content no-crop floor: at
     # 390px the floor sized this two-column table wider than its wrap.
     table_html = layout.data_table(
-        [i18n.t("Timestamp"), i18n.t("Battery (mV)")], table_rows,
+        [i18n.t(_TIMESTAMP_TEXT), i18n.t(_BATTERY_MV_TEXT)], table_rows,
         mono_columns=(1,), raw_columns=(0,), modifier="readings")
     # Collapsed behind a closed-by-default native <details> disclosure —
     # no custom JS toggler needed.
     disclosure_html = (
         '<details class="readings-disclosure"><summary>%s</summary>%s</details>'
         % (
-            escape_html(i18n.t("View %d reading%s") % (
+            escape_html(i18n.t(_VIEW_READING_TEMPLATE) % (
                 len(trend_rows), "" if len(trend_rows) == 1 else "s")),
             table_html))
     # One predicate decides both the series and the label mode passed to
@@ -944,7 +1031,7 @@ def _corroboration_details_html():
     )
     return (
         '<details class="readings-disclosure"><summary>%s</summary>'
-        "<dl>%s</dl></details>" % (escape_html(i18n.t("More details")), dl_items)
+        "<dl>%s</dl></details>" % (escape_html(i18n.t(_MORE_DETAILS_TEXT)), dl_items)
     )
 
 
@@ -965,7 +1052,7 @@ def _corroboration_section(counts):
         # element; the compact form already emits the same
         # widget-verdict/widget-detail pair.
         return layout.empty_state(
-            i18n.t("Nothing to compare yet."),
+            i18n.t(_NOTHING_TO_COMPARE_YET_TEXT),
             i18n.t(
                 "This appears once the frame has recorded at least one "
                 "flight."),
@@ -1068,7 +1155,7 @@ def _registry_filter_bar_html(total):
     pointing at the filter input's id, which both scrolls to and focuses
     it via fragment navigation.
     """
-    count_text = i18n.t("%d of %d shown") % (total, total)
+    count_text = i18n.t(_FILTER_COUNT_TEMPLATE) % (total, total)
     empty_body = i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total
     return (
         '<div class="filter-bar">'
@@ -1094,7 +1181,7 @@ def _registry_filter_bar_html(total):
         _FILTER_INPUT_ID,
         escape_html(count_text),
         _FILTER_INPUT_ID,
-        escape_html(i18n.t("Clear")),
+        escape_html(i18n.t(_CLEAR_TEXT)),
         escape_html(i18n.t(_FILTER_EMPTY_HEADING)),
         escape_html(empty_body),
     )
@@ -1105,17 +1192,25 @@ def _registry_filter_bar_html(total):
 # _registry_cards_html() for its field labels; index 0 ("Prefix") has no
 # card-side label because the prefix is the card's primary line. "Resolve"
 # is always appended, never inserted, since those index lookups are
-# positional.
-_REGISTRY_HEADERS = ("Prefix", "Count", "First seen", "Last seen", "Example callsign", "Resolve")
+# positional. "Prefix"/"First seen"/"Last seen"/"Example callsign" are
+# the same ids airlines_page.py's own RESOLVE_CONTEXT_LABELS uses.
+_REGISTRY_HEADERS = (
+    i18n.msg("health.prefix", "Prefix"),
+    i18n.msg("health.count", "Count"),
+    i18n.msg("health.first_seen", "First seen"),
+    i18n.msg("health.last_seen", "Last seen"),
+    i18n.msg("health.example_callsign", "Example callsign"),
+    i18n.msg("health.resolve", "Resolve"),
+)
 
 # The per-row deep link to the Airlines resolve surface. Both
 # representations (_registry_row_html()'s <td> and
 # _registry_cards_html()'s .data-card__action block) build their anchor
 # from these same constants, so href/aria-label/text can't drift apart.
 RESOLVE_LINK_HREF_TEMPLATE = "/airlines?resolve=%s"
-RESOLVE_LINK_ARIA_TEMPLATE = "Resolve prefix %s"
-RESOLVE_LINK_TEXT = "Resolve"
-RESOLVE_CARD_LINK_TEXT = "Resolve this prefix"
+RESOLVE_LINK_ARIA_TEMPLATE = i18n.msg("health.resolve_prefix", "Resolve prefix %s")
+RESOLVE_LINK_TEXT = i18n.msg("health.resolve", "Resolve")
+RESOLVE_CARD_LINK_TEXT = i18n.msg("health.resolve_this_prefix", "Resolve this prefix")
 
 
 def _registry_filter_text(prefix):
@@ -1269,7 +1364,7 @@ def _registry_cards_html(rows, now):
             "</dl>"
             "</details>"
         ) % (
-            escape_html(i18n.t("More details")),
+            escape_html(i18n.t(_MORE_DETAILS_TEXT)),
             escape_html(i18n.t(_REGISTRY_HEADERS[2])),
             layout.concise_timestamp_html(first_seen, now, fallback=""),
             escape_html(i18n.t(_REGISTRY_HEADERS[4])),
@@ -1294,7 +1389,7 @@ def _registry_section(rows, now):
         '<details class="readings-disclosure"><summary>%s</summary><p>%s</p></details>'
     ) % (
         escape_html(i18n.t(_READ_ONLY_NOTE)),
-        escape_html(i18n.t("More details")),
+        escape_html(i18n.t(_MORE_DETAILS_TEXT)),
         escape_html(i18n.t(_READ_ONLY_NOTE_DETAIL)),
     )
 
@@ -1375,7 +1470,7 @@ def _resolution_rate_tile_html(stats):
         '<p class="stat-tile__value">%s</p>'
         '<div class="%s">%s</div>'
     ) % (
-        escape_html(i18n.t("%.1f%% resolved") % stats["resolved_pct"]),
+        escape_html(i18n.t(_RESOLVED_PCT_TEMPLATE) % stats["resolved_pct"]),
         _TILE_DETAIL_CLASS,
         escape_html(i18n.t(detail_template) % (
             RESOLUTION_WINDOW_DAYS, stats["total"])),
@@ -1473,7 +1568,7 @@ def _check_in_regularity_section_html(gap_rows, wake_interval_s, now):
         disclosure_html = (
             '<details class="readings-disclosure"><summary>%s</summary><p>%s</p></details>'
         ) % (
-            escape_html(i18n.t("More details")),
+            escape_html(i18n.t(_MORE_DETAILS_TEXT)),
             escape_html(" ".join(disclosure_clauses)))
         body = (
             '<p class="text-label section-caption">%s</p>'
@@ -1535,16 +1630,16 @@ def _offbox_section_html(offbox, now):
     card_class = "page-section page-section--nested" + (
         (" " + modifier) if modifier else "")
     label = (
-        i18n.t("Off-box backup up to date") if state == "ok"
-        else i18n.t("Off-box backup overdue"))
+        i18n.t(_OFFBOX_UP_TO_DATE_TEXT) if state == "ok"
+        else i18n.t(_OFFBOX_OVERDUE_TEXT))
     # concise_timestamp_html() returns pre-escaped markup; wrapping it in
     # escape_html() again would double-encode it and print raw tags.
     last_backup_html = (
         '<p>%s %s</p>'
         % (
-            escape_html(_label_colon(i18n.t("Last off-box backup"))),
+            escape_html(_label_colon(i18n.t(_LAST_OFFBOX_BACKUP_TEXT))),
             layout.concise_timestamp_html(
-                offbox["snapshot_ts"], now, fallback=i18n.t("never")),
+                offbox["snapshot_ts"], now, fallback=i18n.t(_NEVER_TEXT)),
         )
     )
     warn_html = ""
@@ -1556,7 +1651,7 @@ def _offbox_section_html(offbox, now):
         '<p class="text-body">%s</p>%s%s</section>'
     ) % (
         card_class,
-        escape_html(i18n.t("Off-box backup")),
+        escape_html(i18n.t(_OFFBOX_BACKUP_TEXT)),
         layout.status_dot(state, label),
         last_backup_html,
         warn_html,
@@ -1681,7 +1776,7 @@ def render(ctx):
 
     return (
         layout.page_header(
-            i18n.t("Health"), purpose=i18n.t(PAGE_PURPOSE_TEXT), freshness_html=freshness_html)
+            i18n.t(_NAV_HEALTH_TEXT), purpose=i18n.t(PAGE_PURPOSE_TEXT), freshness_html=freshness_html)
         + _source_fault_block(source_fault_raw)
         + banner_html
         + screen_section_html

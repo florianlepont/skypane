@@ -311,12 +311,20 @@ def test_health_page_device_and_pipeline_timestamps_fully_localise_under_french(
 
 
 def test_health_catalog_every_key_and_value_is_a_nonempty_str():
-    """every key of companion/i18n_fr/health.py's own CATALOG is a non-empty str mapping to a
-    non-empty str"""
+    """every key of companion/i18n_fr/health.py's own CATALOG/MESSAGES is a non-empty str mapping
+    to a non-empty str. health.py has fully migrated onto stable ids: it exports MESSAGES, not
+    CATALOG, so the CATALOG half reduces to an always-empty check for that module — kept rather
+    than deleted so a regression back to a CATALOG export is still caught."""
     bad = [
-        (key, value) for key, value in i18n_fr_health.CATALOG.items()
+        (key, value) for key, value in getattr(i18n_fr_health, "CATALOG", {}).items()
         if not isinstance(key, str) or not key or not isinstance(value, str) or not value]
     assert not bad, "expected every CATALOG key/value to be a non-empty str, found: %r" % (bad,)
+
+    bad_ids = [
+        (key, value) for key, value in getattr(i18n_fr_health, "MESSAGES", {}).items()
+        if not isinstance(key, str) or not key or not isinstance(value, str) or not value]
+    assert not bad_ids, "expected every MESSAGES id/value to be a non-empty str, found: %r" % (
+        bad_ids,)
 
 
 # ==========================================================================

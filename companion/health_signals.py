@@ -76,6 +76,31 @@ _DB_UNAVAILABLE = object()  # sentinel distinguishing "query raised" from
 # second sentinel, so an `is _DB_UNAVAILABLE` check works across both
 # modules.
 
+# The battery-trend caption's two fixed wordings, and the two off-box
+# anomaly sentences.
+_LAST_3_MONTHS_DAILY_AVERAGE_TEXT = i18n.msg(
+    "health.last_3_months_daily_average", "Last 3 months, daily average")
+_LATEST_READINGS_TEMPLATE = i18n.msg("health.latest_readings", "Latest %d readings")
+_NO_OFFBOX_BACKUP_PULLED_TEXT = i18n.msg(
+    "health.no_off_box_backup_has_been_pulled_yet",
+    "No off-box backup has been pulled yet.")
+_NO_OFFBOX_BACKUP_IN_3_DAYS_TEXT = i18n.msg(
+    "health.no_off_box_backup_in_the_last_3_days",
+    "No off-box backup in the last 3 days.")
+
+# collect_anomalies()'s seven fixed anomaly sentences.
+_DEVICE_CHECK_IN_STALE_TEXT = i18n.msg(
+    "health.device_check_in_is_stale", "Device check-in is stale.")
+_FLIGHT_DATA_STALE_TEXT = i18n.msg("health.flight_data_is_stale", "Flight data is stale.")
+_BATTERY_DROPPED_ABNORMALLY_TEXT = i18n.msg(
+    "health.battery_dropped_abnormally", "Battery dropped abnormally.")
+_DATA_SOURCES_DISAGREED_RECENTLY_TEXT = i18n.msg(
+    "health.data_sources_disagreed_recently", "Data sources disagreed recently.")
+_SOME_AIRLINES_ARE_UNIDENTIFIED_TEXT = i18n.msg(
+    "health.some_airlines_are_unidentified", "Some airlines are unidentified.")
+_ALL_DATA_SOURCES_FAILED_TEXT = i18n.msg(
+    "health.all_data_sources_failed", "All data sources failed.")
+
 
 def _safe_query(state_dir, fn):
     """Run `fn(conn)` against a fresh `history_db` connection, returning
@@ -215,10 +240,10 @@ def _battery_trend_caption(trend_rows, daily_rows):
     never a fixed limit).
     """
     if _battery_daily_series_usable(daily_rows):
-        return i18n.t("Last 3 months, daily average")
+        return i18n.t(_LAST_3_MONTHS_DAILY_AVERAGE_TEXT)
     if not trend_rows or trend_rows is _DB_UNAVAILABLE:
-        return i18n.t("Last 3 months, daily average")
-    return i18n.t("Latest %d readings") % _real_trend_reading_count(trend_rows)
+        return i18n.t(_LAST_3_MONTHS_DAILY_AVERAGE_TEXT)
+    return i18n.t(_LATEST_READINGS_TEMPLATE) % _real_trend_reading_count(trend_rows)
 
 
 def _latest_numeric_battery_reading(trend_rows):
@@ -283,8 +308,8 @@ def _offbox_anomaly_text(offbox):
     if offbox is None or offbox["state"] == "ok":
         return None
     if offbox["snapshot_ts"] is None:
-        return i18n.t("No off-box backup has been pulled yet.")
-    return i18n.t("No off-box backup in the last 3 days.")
+        return i18n.t(_NO_OFFBOX_BACKUP_PULLED_TEXT)
+    return i18n.t(_NO_OFFBOX_BACKUP_IN_3_DAYS_TEXT)
 
 
 def collect_anomalies(
@@ -303,17 +328,17 @@ def collect_anomalies(
     # never ran) — treated identically to "ok", never as an anomaly: a
     # held or never-run signal is not the same fact as a stale one.
     if device_state not in ("ok", "off"):
-        anomalies.append(i18n.t("Device check-in is stale."))
+        anomalies.append(i18n.t(_DEVICE_CHECK_IN_STALE_TEXT))
     if pipeline_state not in ("ok", "off"):
-        anomalies.append(i18n.t("Flight data is stale."))
+        anomalies.append(i18n.t(_FLIGHT_DATA_STALE_TEXT))
     if battery_state != "ok":
-        anomalies.append(i18n.t("Battery dropped abnormally."))
+        anomalies.append(i18n.t(_BATTERY_DROPPED_ABNORMALLY_TEXT))
     if disagreement_warn:
-        anomalies.append(i18n.t("Data sources disagreed recently."))
+        anomalies.append(i18n.t(_DATA_SOURCES_DISAGREED_RECENTLY_TEXT))
     if coverage_state != "ok":
-        anomalies.append(i18n.t("Some airlines are unidentified."))
+        anomalies.append(i18n.t(_SOME_AIRLINES_ARE_UNIDENTIFIED_TEXT))
     if source_fault:
-        anomalies.append(i18n.t("All data sources failed."))
+        anomalies.append(i18n.t(_ALL_DATA_SOURCES_FAILED_TEXT))
     offbox_text = _offbox_anomaly_text(offbox)
     if offbox_text:
         anomalies.append(offbox_text)

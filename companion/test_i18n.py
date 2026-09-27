@@ -137,8 +137,13 @@ def test_by_id_contains_every_message_defined_in_nav():
 # _sweep_entries() below — the English text itself for a legacy CATALOG
 # entry, the stable message id for a migrated one — so a cognate
 # survives its own entry's id-migration with no exception-list edit.
-_UNCHANGED_IN_FRENCH = frozenset(
-    {"Corroboration", "Source", "Description", "Notifications", "Aspect"})
+_UNCHANGED_IN_FRENCH = frozenset({
+    "Notifications", "Aspect",
+    # health.py's own migrated cognates, replacing this set's former
+    # legacy English-keyed entries ("Corroboration", "Source",
+    # "Description") now that health_page.py declares them as Messages.
+    "health.corroboration", "health.source", "health.description",
+})
 
 
 def _sweep_entries():
