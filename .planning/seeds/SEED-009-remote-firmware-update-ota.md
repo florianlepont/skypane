@@ -5,8 +5,8 @@ promoted_date: 2026-09-25
 promoted_to: "Phase 42 (ROADMAP.md)"
 planted: 2026-09-24
 planted_during: "v1.0 audit remediation (Phases 32–41), after Phase 34 (firmware)"
-trigger_when: "Milestone v1.1 — earmarked by the developer on 2026-09-24, together with SEED-007 and SEED-008."
-target_milestone: v1.1
+trigger_when: "Fulfilled — promoted 2026-09-25 to Phase 42 of milestone v1.0 (see promoted_to above), at the developer's request, ahead of the v1.1 earmark this seed originally carried."
+target_milestone: v1.0
 scope: large
 ---
 
@@ -116,5 +116,8 @@ recovery from `factory`.
 ## Notes
 
 Planted 2026-09-24 at the developer's request ("pouvoir mettre à jour le
-firmware à distance si la carte ESP le permet"), for milestone v1.1
-alongside SEED-007 and SEED-008.
+firmware à distance si la carte ESP le permet"), originally earmarked for
+milestone v1.1 alongside SEED-007 and SEED-008. Promoted 2026-09-25 to
+Phase 42 of milestone **v1.0**, at the developer's request, ahead of that
+earmark — see the frontmatter above and `.planning/ROADMAP.md`'s Phase 42
+entry, which is v1.0 scope, not a v1.1 item running early.
