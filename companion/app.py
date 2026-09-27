@@ -22,7 +22,6 @@ import io
 # countdown from; never anything client-supplied.
 import json
 import os
-import socket
 import sqlite3
 import sys
 import tempfile
@@ -42,8 +41,8 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from companion import (  # noqa: E402
-    auth, frame_state, i18n, illustration_normalize, layout, prefs, routes, static_files,
-    theme_preview, wake)
+    auth, frame_state, i18n, illustration_normalize, layout, prefs, request_body, routes,
+    static_files, theme_preview, wake)
 from companion.pages import (  # noqa: E402
     airlines_page,
     config_page,
@@ -1285,26 +1284,15 @@ class Handler(BaseHTTPRequestHandler):
         capped at MAX_FORM_BYTES. An oversized/undecodable/stalled
         (`socket.timeout`, bounded by `Handler.timeout`) body degrades
         to an empty form rather than raising; an oversized body's
-        remainder is still drained so the connection isn't left corrupt.
-        Reachable pre-auth from `POST /login`.
+        remainder is still drained (via `request_body.drain_capped_body()`)
+        so the connection isn't left corrupt. Reachable pre-auth from
+        `POST /login`.
         """
-        try:
-            length = int(self.headers.get("Content-Length", "0"))
-        except ValueError:
-            length = 0
+        length = request_body.parse_content_length(self.headers)
         if length <= 0:
             return {}
-        try:
-            raw = self.rfile.read(min(length, MAX_FORM_BYTES + 1))
-            if length > MAX_FORM_BYTES:
-                remaining = length - len(raw)
-                while remaining > 0:
-                    chunk = self.rfile.read(min(remaining, 65536))
-                    if not chunk:
-                        break
-                    remaining -= len(chunk)
-                return {}
-        except socket.timeout:
+        raw, _over_cap = request_body.drain_capped_body(self.rfile, length, MAX_FORM_BYTES)
+        if raw is None:
             return {}
         try:
             text = raw.decode("utf-8")
@@ -1318,26 +1306,14 @@ class Handler(BaseHTTPRequestHandler):
         bounded by `MAX_ILLUSTRATION_UPLOAD_BYTES`. Returns `None` for
         an absent/unparseable/non-positive/over-cap length or a
         `socket.timeout`; an over-cap body's remainder is still drained
-        first so the connection isn't left mid-body.
+        first (via `request_body.drain_capped_body()`) so the connection
+        isn't left mid-body.
         """
-        try:
-            length = int(self.headers.get("Content-Length", "0"))
-        except (TypeError, ValueError):
-            return None
+        length = request_body.parse_content_length(self.headers)
         if length <= 0:
             return None
-        try:
-            raw = self.rfile.read(min(length, MAX_ILLUSTRATION_UPLOAD_BYTES + 1))
-            if length > MAX_ILLUSTRATION_UPLOAD_BYTES:
-                remaining = length - len(raw)
-                while remaining > 0:
-                    chunk = self.rfile.read(min(remaining, 65536))
-                    if not chunk:
-                        break
-                    remaining -= len(chunk)
-                return None
-        except socket.timeout:
-            return None
+        raw, _over_cap = request_body.drain_capped_body(
+            self.rfile, length, MAX_ILLUSTRATION_UPLOAD_BYTES)
         return raw
 
     def page_context(self):
@@ -2364,17 +2340,25 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_no_content()
         return self.redirect("%s?flash=%s" % (return_to, quote(flash_key)))
 
+    def _choice_cookie_header(self, name, value, choices, max_age_s):
+        """The `Set-Cookie` header for a UI-preference cookie (theme,
+        lang): `name=value` with HttpOnly/SameSite=Strict/Path=/, or
+        None when `value` is not a member of `choices` — an unrecognised
+        submission sets no cookie at all. Routed through
+        auth.secure_cookie_flag() so every cookie this app sets, session
+        included, agrees on the Secure flag. The one format string
+        `_handle_theme_post()`/`_handle_lang_post()` below share.
+        """
+        if value not in choices:
+            return None
+        return "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d" % (
+            name, value, auth.secure_cookie_flag(), max_age_s)
+
     def _handle_theme_post(self):
         form = self.read_form()
-        submitted = form.get("ui_theme")
-        cookie_header = None
-        if submitted in layout.UI_THEME_CHOICES:
-            # Routed through auth.secure_cookie_flag() so this cookie
-            # and the session cookie cannot drift on the Secure flag.
-            cookie_header = (
-                "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d"
-                % (auth.UI_THEME_COOKIE_NAME, submitted, auth.secure_cookie_flag(),
-                   THEME_COOKIE_MAX_AGE_S))
+        cookie_header = self._choice_cookie_header(
+            auth.UI_THEME_COOKIE_NAME, form.get("ui_theme"), layout.UI_THEME_CHOICES,
+            THEME_COOKIE_MAX_AGE_S)
         return self.redirect(self._referring_tab(), set_cookie=cookie_header)
 
     def _handle_lang_post(self):
@@ -2383,13 +2367,9 @@ class Handler(BaseHTTPRequestHandler):
         exactly like the theme route already behaves.
         """
         form = self.read_form()
-        submitted = form.get("ui_lang")
-        cookie_header = None
-        if submitted in prefs.LANG_CHOICES:
-            cookie_header = (
-                "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d"
-                % (auth.UI_LANG_COOKIE_NAME, submitted, auth.secure_cookie_flag(),
-                   LANG_COOKIE_MAX_AGE_S))
+        cookie_header = self._choice_cookie_header(
+            auth.UI_LANG_COOKIE_NAME, form.get("ui_lang"), prefs.LANG_CHOICES,
+            LANG_COOKIE_MAX_AGE_S)
         return self.redirect(self._referring_tab(), set_cookie=cookie_header)
 
     def do_POST(self):
