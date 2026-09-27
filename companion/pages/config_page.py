@@ -5,8 +5,6 @@ colour-rules editor and the manual "Trigger poll now" control (its
 route, cooldown gate and poll trigger are owned by companion/app.py;
 this module only renders its button/copy).
 """
-import re
-
 from companion import i18n
 from companion.layout import escape_html
 import companion.layout as layout
@@ -14,6 +12,8 @@ from companion import screens
 from companion import wake
 from server import device_config
 from server.plane import calendar_rules
+
+from companion.settings import form_post
 
 # Every settings-group module's names, re-exported here (explicit,
 # aliased imports so ruff's F401 does not flag a name this module
@@ -255,6 +255,26 @@ from companion.settings.notifications import (
     _notifications_url_field_html as _notifications_url_field_html,
     notifications_group as notifications_group,
     notifications_test_section as notifications_test_section)
+# handle_post()'s own per-group resolvers moved to form_post.py (that
+# module never imports this one back), so its shared error/checkbox
+# constants and the calendar-signal sentinels live there now too;
+# re-exported here so companion/app.py and the test suite keep reading
+# them as config_page.X.
+from companion.settings.form_post import (
+    CALENDAR_DISCONNECT_CHECKBOX_VALUE as CALENDAR_DISCONNECT_CHECKBOX_VALUE,
+    CALENDAR_URL_SIGNAL_CARRY_FORWARD as CALENDAR_URL_SIGNAL_CARRY_FORWARD,
+    CALENDAR_URL_SIGNAL_CLEAR as CALENDAR_URL_SIGNAL_CLEAR,
+    CALENDAR_URL_SIGNAL_INVALID as CALENDAR_URL_SIGNAL_INVALID,
+    CALENDAR_URL_SIGNAL_SET as CALENDAR_URL_SIGNAL_SET,
+    DISPLAY_CHECKBOX_VALUE as DISPLAY_CHECKBOX_VALUE,
+    ERROR_CALENDAR_URL_INVALID as ERROR_CALENDAR_URL_INVALID,
+    ERROR_INVALID_CHOICE as ERROR_INVALID_CHOICE,
+    ERROR_QUIET_HOURS_TIME_SHAPE as ERROR_QUIET_HOURS_TIME_SHAPE,
+    ERROR_UNEXPECTED_SWITCH_VALUE as ERROR_UNEXPECTED_SWITCH_VALUE,
+    ERROR_WAKE_INTERVAL_RANGE as ERROR_WAKE_INTERVAL_RANGE,
+    LED_CHECKBOX_VALUE as LED_CHECKBOX_VALUE,
+    QUIET_HOURS_CHECKBOX_VALUE as QUIET_HOURS_CHECKBOX_VALUE,
+    _QUIET_HOURS_TIME_RE as _QUIET_HOURS_TIME_RE)
 
 
 # The single definition of this route. companion/app.py rebinds its own
@@ -366,13 +386,6 @@ def submitted_return_route(form):
         return value
     return layout.DISPLAY_ROUTE
 
-# The sole accepted submitted value for each checkbox — shared by the
-# group's own markup and handle_post()'s validator so the two can never
-# drift apart.
-LED_CHECKBOX_VALUE = "on"
-QUIET_HOURS_CHECKBOX_VALUE = "on"
-DISPLAY_CHECKBOX_VALUE = "on"
-
 
 POLL_SECTION_HEADING = "Manual refresh"
 
@@ -455,14 +468,6 @@ ASPECT_CAPTION_EXEMPTIONS = (
     DISPLAY_LOOK_INTRO,
     CALENDAR_URL_HINT,
 )
-# submitted_calendar_signal()'s gates still compare a submitted
-# calendar_disconnect field against this value, kept deliberately
-# reachable for a hostile client crafting that field into a /settings
-# POST. The dedicated CALENDAR_DISCONNECT_ROUTE never reads this value
-# at all — it always means "disconnect", once its own confirm gate
-# passes.
-CALENDAR_DISCONNECT_CHECKBOX_VALUE = "on"
-
 
 # The flash keys the save-triggered immediate sync can produce;
 # companion/app.py rebinds each under its own FLASH_KEY_CALENDAR_* name.
@@ -920,47 +925,6 @@ def _scope_fields_html(scope, return_route):
     )
 
 
-# The four outcomes of resolving the submitted calendar fields. Plain
-# strings, never rendered and never travel in a URL. Four distinct
-# sentinels (not e.g. two bools) so a caller cannot mistake one outcome
-# for another by falsy-comparing the wrong pair.
-CALENDAR_URL_SIGNAL_CARRY_FORWARD = "carry_forward"
-CALENDAR_URL_SIGNAL_SET = "set"
-CALENDAR_URL_SIGNAL_CLEAR = "clear"
-CALENDAR_URL_SIGNAL_INVALID = "invalid"
-
-# handle_post()'s per-field error messages, one constant per rejected
-# field, so the copy exists in exactly one place. Sentence case, no
-# stack-trace vocabulary, matching this file's label voice.
-ERROR_INVALID_CHOICE = "That is not one of the available choices."
-ERROR_UNEXPECTED_SWITCH_VALUE = "That switch sent an unexpected value."
-ERROR_WAKE_INTERVAL_RANGE = "Enter a whole number of seconds between 60 and 3600."
-ERROR_QUIET_HOURS_TIME_SHAPE = "Enter a time as HH:MM, for example 23:00."
-# Covers both the over-length and the contradictory (calendar_url +
-# calendar_disconnect together) cases; deliberately never echoes any
-# part of the submitted URL back.
-ERROR_CALENDAR_URL_INVALID = (
-    "That link is too long, or conflicts with the disconnect option below.")
-
-# A local copy of device_config's private HH:MM pattern — not imported,
-# since it is private to that module. UX pre-check only:
-# save_device_config()'s own identical gate is authoritative; a test
-# pins the two patterns against the same input table so they cannot
-# silently drift apart.
-_QUIET_HOURS_TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)\Z")
-
-
-def _note_error(errors, field, message):
-    """No-ops when `errors is None`. Otherwise sets `errors[field]`
-    only if that field has no message yet, so a later, more generic
-    gate can never overwrite an earlier, more specific one.
-    """
-    if errors is None:
-        return
-    if field not in errors:
-        errors[field] = message
-
-
 def submitted_calendar_signal(form):
     """The single definition of what a submitted `calendar_url` +
     `calendar_disconnect` pair means. Both `handle_post()` and the
@@ -1003,15 +967,23 @@ def handle_post(form, ctx, errors=None):
     `save_device_config()` call. Rejection is all-or-nothing: a crafted
     or invalid value in any field aborts before any write.
 
+    Delegates every group's own validation and value resolution to
+    `companion.settings.form_post`, calling its resolvers in the exact
+    sequence the pre-split version of this function checked the same
+    fields in — see that module's own docstring for why some groups
+    need two calls rather than one. Each resolver returns either that
+    group's own `save_device_config()` keyword argument(s), or
+    `form_post.FAILED` once it has already noted the error; this
+    function stops at the first `FAILED` and returns the save-failed
+    flash key immediately, exactly like the unsplit version's own
+    per-field early returns.
+
     Every checkbox not rendered on the current scope resolves absent
     -> `None` (leave unchanged), never `False` — a scope with no control
     for a field must not silently turn it off. The two Notifications
     checkboxes are the exception, since their card is always in scope
-    when rendered.
+    when rendered (see `form_post.resolve_notifications()`).
 
-    `wake_interval_s` needs a string-to-int conversion that the two
-    quiet-hours time fields skip, since those stay strings in
-    `device_config`. `errors`, if given, is filled via `_note_error()`.
     The calendar secret write is layered after the device-config write,
     only for the `set`/`clear` signals, since `carry_forward` would
     otherwise erase the fetched calendar registry.
@@ -1019,166 +991,40 @@ def handle_post(form, ctx, errors=None):
     state_dir = ctx["state_dir"]
     scope = submitted_scope(form)
     in_scope = set(scope_groups(scope, screens.current_screen_id(ctx)))
-    submitted_theme = form.get("theme")
-    submitted_theme_arriving = form.get("theme_arriving")
-    submitted_runway = form.get("tracked_runway")
-    submitted_led = form.get("led_enabled")
-    submitted_qh_enabled = form.get("quiet_hours_enabled")
-    submitted_qh_start = form.get("quiet_hours_start")
-    submitted_qh_end = form.get("quiet_hours_end")
-    submitted_wake_interval = form.get("wake_interval_s")
-    submitted_display = form.get("display_enabled")
-    submitted_calendar_theme_id = form.get("calendar_theme_id")
-    submitted_calendar_url = form.get("calendar_url")
-    submitted_screen_id = form.get("screen_id")
-    submitted_notifications_topic_url = form.get("notifications_topic_url")
-    submitted_notifications_battery = form.get("notifications_battery")
-    submitted_notifications_silent = form.get("notifications_silent")
     calendar_signal = submitted_calendar_signal(form)
+    submitted_calendar_url = form.get("calendar_url")
 
-    if submitted_theme is not None and submitted_theme not in device_config.THEME_IDS:
-        _note_error(errors, "theme", ERROR_INVALID_CHOICE)
-        return FLASH_SAVE_FAILED
-    if submitted_screen_id is not None and submitted_screen_id not in screens.SCREEN_IDS:
-        _note_error(errors, "screen_id", ERROR_INVALID_CHOICE)
-        return FLASH_SAVE_FAILED
-    if calendar_signal == CALENDAR_URL_SIGNAL_INVALID:
-        _note_error(errors, "calendar_url", ERROR_CALENDAR_URL_INVALID)
-        return FLASH_SAVE_FAILED
-    # A shape bound against an absurd paste, checked only when the field
-    # is actually in scope.
-    if (
-        screens.GROUP_NOTIFICATIONS in in_scope
-        and submitted_notifications_topic_url
-        and len(submitted_notifications_topic_url.strip()) > NOTIFICATIONS_URL_MAX_LEN
-    ):
-        _note_error(errors, "notifications_topic_url", ERROR_NOTIFICATIONS_URL_TOO_LONG)
-        return FLASH_SAVE_FAILED
-    # Both gates below exempt "" in addition to a real theme id: the
-    # "Same as departures" chip submits "" for this field, and rejecting
-    # it would reject the whole save whenever a user picks that option.
-    if (
-        submitted_calendar_theme_id is not None
-        and submitted_calendar_theme_id not in ("",) + device_config.THEME_IDS
-    ):
-        _note_error(errors, "calendar_theme_id", ERROR_INVALID_CHOICE)
-        return FLASH_SAVE_FAILED
-    if (
-        submitted_theme_arriving is not None
-        and submitted_theme_arriving not in ("",) + device_config.THEME_IDS
-    ):
-        _note_error(errors, "theme_arriving", ERROR_INVALID_CHOICE)
-        return FLASH_SAVE_FAILED
-    if submitted_runway is not None and submitted_runway not in device_config.RUNWAY_IDS:
-        _note_error(errors, "tracked_runway", ERROR_INVALID_CHOICE)
-        return FLASH_SAVE_FAILED
-    # A malformed value here is a real user error, reported at this
-    # field; absent still means unchanged (including structural absence
-    # on a scope that never rendered this group).
-    if submitted_qh_start is not None and not _QUIET_HOURS_TIME_RE.match(submitted_qh_start):
-        _note_error(errors, "quiet_hours_start", ERROR_QUIET_HOURS_TIME_SHAPE)
-        return FLASH_SAVE_FAILED
-    if submitted_qh_end is not None and not _QUIET_HOURS_TIME_RE.match(submitted_qh_end):
-        _note_error(errors, "quiet_hours_end", ERROR_QUIET_HOURS_TIME_SHAPE)
-        return FLASH_SAVE_FAILED
-    # theme_arriving: out of scope or genuinely absent -> unchanged; ""
-    # -> CLEAR_THEME_ARRIVING; anything else has already passed the
-    # membership gate above, so it is a real theme id.
-    if screens.GROUP_THEME not in in_scope:
-        theme_arriving = None
-    elif submitted_theme_arriving is None:
-        theme_arriving = None
-    elif submitted_theme_arriving == "":
-        theme_arriving = device_config.CLEAR_THEME_ARRIVING
-    else:
-        theme_arriving = submitted_theme_arriving
-    if submitted_led is None:
-        led_enabled = None
-    elif submitted_led == LED_CHECKBOX_VALUE:
-        led_enabled = True
-    else:
-        _note_error(errors, "led_enabled", ERROR_UNEXPECTED_SWITCH_VALUE)
-        return FLASH_SAVE_FAILED
-    if submitted_qh_enabled is None:
-        quiet_hours_enabled = None
-    elif submitted_qh_enabled == QUIET_HOURS_CHECKBOX_VALUE:
-        quiet_hours_enabled = True
-    else:
-        _note_error(errors, "quiet_hours_enabled", ERROR_UNEXPECTED_SWITCH_VALUE)
-        return FLASH_SAVE_FAILED
-    if submitted_wake_interval is None or submitted_wake_interval == "":
-        wake_interval_s = None
-    else:
-        try:
-            wake_interval_s = int(submitted_wake_interval)
-        except ValueError:
-            _note_error(errors, "wake_interval_s", ERROR_WAKE_INTERVAL_RANGE)
+    # Each step is a zero-arg thunk, not a bare call, and the loop below
+    # invokes them ONE AT A TIME, stopping at the first FAILED: a tuple
+    # of already-evaluated call results would run every resolver up
+    # front regardless of an earlier failure, noting every group's own
+    # error at once instead of stopping at the first one, exactly the
+    # behaviour change this split must not introduce.
+    steps = (
+        lambda: form_post.resolve_theme(form, errors),
+        lambda: form_post.resolve_screen(form, errors),
+        lambda: form_post.resolve_calendar_signal(calendar_signal, errors),
+        lambda: form_post.resolve_notifications_url_length(form, in_scope, errors),
+        lambda: form_post.resolve_calendar_theme_id(form, errors),
+        lambda: form_post.resolve_theme_arriving(form, in_scope, errors),
+        lambda: form_post.resolve_runway(form, errors),
+        lambda: form_post.resolve_quiet_hours_times(form, errors),
+        lambda: form_post.resolve_led(form, errors),
+        lambda: form_post.resolve_quiet_hours_enabled(form, errors),
+        lambda: form_post.resolve_wake_interval(form, errors),
+        lambda: form_post.resolve_display(form, errors),
+        lambda: form_post.resolve_notifications(
+            form, in_scope, errors, state_dir, ctx.get("lang")),
+    )
+    save_kwargs = {}
+    for step in steps:
+        step_result = step()
+        if step_result is form_post.FAILED:
             return FLASH_SAVE_FAILED
-        # A syntactically valid but out-of-range value would otherwise
-        # only surface via save_device_config()'s own generic
-        # ValueError; checked here to report it at this field.
-        if not (
-            device_config.WAKE_INTERVAL_MIN_S
-            <= wake_interval_s
-            <= device_config.WAKE_INTERVAL_MAX_S
-        ):
-            _note_error(errors, "wake_interval_s", ERROR_WAKE_INTERVAL_RANGE)
-            return FLASH_SAVE_FAILED
-    if submitted_display is None:
-        display_enabled = None
-    elif submitted_display == DISPLAY_CHECKBOX_VALUE:
-        display_enabled = True
-    else:
-        _note_error(errors, "display_enabled", ERROR_UNEXPECTED_SWITCH_VALUE)
-        return FLASH_SAVE_FAILED
-    # Unlike the fields above, these two checkboxes DO resolve absent ->
-    # False: their card is always in scope when rendered (see docstring).
-    if screens.GROUP_NOTIFICATIONS not in in_scope:
-        notifications = None
-    else:
-        if submitted_notifications_battery is None:
-            notifications_battery = False
-        elif submitted_notifications_battery == NOTIFICATIONS_BATTERY_CHECKBOX_VALUE:
-            notifications_battery = True
-        else:
-            _note_error(errors, "notifications_battery", ERROR_UNEXPECTED_SWITCH_VALUE)
-            return FLASH_SAVE_FAILED
-        if submitted_notifications_silent is None:
-            notifications_silent = False
-        elif submitted_notifications_silent == NOTIFICATIONS_SILENT_CHECKBOX_VALUE:
-            notifications_silent = True
-        else:
-            _note_error(errors, "notifications_silent", ERROR_UNEXPECTED_SWITCH_VALUE)
-            return FLASH_SAVE_FAILED
-        # An empty submission means leave the stored URL unchanged,
-        # never clear it — there is no UI affordance to clear a
-        # configured topic URL. Read fresh from disk rather than from
-        # ctx, so this is correct even with a stale ctx.
-        current_notifications_on_disk = device_config.load_device_config(
-            state_dir)["notifications"]
-        stripped_notifications_url = (submitted_notifications_topic_url or "").strip()
-        notifications_topic_url = (
-            stripped_notifications_url if stripped_notifications_url
-            else current_notifications_on_disk.get("topic_url"))
-        notifications = {
-            "topic_url": notifications_topic_url,
-            "battery_low": notifications_battery,
-            "frame_silent": notifications_silent,
-            # Written from the session's resolved language at save
-            # time; there is no language-picking control for this
-            # group (the poll loop has no browser to ask).
-            "lang": ctx.get("lang") or device_config.DEFAULT_NOTIFICATIONS["lang"],
-        }
+        save_kwargs.update(step_result)
 
     try:
-        device_config.save_device_config(
-            state_dir, theme=submitted_theme, theme_arriving=theme_arriving,
-            tracked_runway=submitted_runway,
-            led_enabled=led_enabled, quiet_hours_enabled=quiet_hours_enabled,
-            quiet_hours_start=submitted_qh_start, quiet_hours_end=submitted_qh_end,
-            wake_interval_s=wake_interval_s, display_enabled=display_enabled,
-            calendar_theme_id=submitted_calendar_theme_id,
-            screen_id=submitted_screen_id, notifications=notifications)
+        device_config.save_device_config(state_dir, **save_kwargs)
     except (ValueError, OSError):
         return FLASH_SAVE_FAILED
 

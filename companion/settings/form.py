@@ -121,6 +121,18 @@ def _submitted_or_current(submitted, field, current):
     return current
 
 
+def _note_error(errors, field, message):
+    """No-ops when `errors is None`. Otherwise sets `errors[field]`
+    only if that field has no message yet, so a later, more generic
+    gate can never overwrite an earlier, more specific one. Shared by
+    `companion.settings.form_post`'s per-group resolvers.
+    """
+    if errors is None:
+        return
+    if field not in errors:
+        errors[field] = message
+
+
 def _submitted_checkbox_checked(submitted, field, checked_value, current_checked):
     """The rendered `checked` state for one of the absent-means-False
     checkbox fields on a rejected save's re-render.
