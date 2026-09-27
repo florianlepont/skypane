@@ -4,9 +4,10 @@ frame-silent alerts. One attempt, a five-second default timeout, never
 raises.
 
 A push topic URL is exactly as attacker-reachable as the calendar feed
-URL, so it gets the same two defences: `server.plane.calendar_rules.
-_url_is_safe()` refuses an unsafe scheme/address before any network
-attempt is made, and the default transport connects through `server.
+URL, so it gets the same two defences: `server.net.safe_fetch.
+url_is_safe()` refuses an unsafe scheme/address before any network
+attempt is made - the identical gate the calendar feed fetch uses, not
+a second copy - and the default transport connects through `server.
 http_fetch`'s pinned request primitive - one DNS resolution, every
 answer checked public, the socket dialled only to an address already
 checked (closing the gap where a second resolution at connect time
@@ -15,11 +16,11 @@ against the topic's own hostname. That primitive never follows a
 redirect itself, so a 3xx response comes back unfollowed and this
 module's own 2xx check turns it into a plain failure - a push topic
 never legitimately redirects, and revalidating a `Location` target the
-way `fetch_ics()` does would be pointless machinery for a feature with
-no legitimate redirect to revalidate.
+way the calendar feed's own fetch does would be pointless machinery for
+a feature with no legitimate redirect to revalidate.
 
 Bounded by `NOTIFY_DEADLINE_S`, the same total-wall-clock-deadline shape
-`calendar_rules.fetch_ics()` applies, on top of the per-call `timeout`
+the calendar feed's own fetch applies, on top of the per-call `timeout`
 argument. Logging never includes the URL or the raw exception string,
 only the exception type: several exception forms this module's
 transport can raise embed the request URL in their default string, and
@@ -28,7 +29,7 @@ a topic URL is as secret-shaped as a calendar feed URL.
 import sys
 
 from server import http_fetch
-from server.plane import calendar_rules
+from server.net import safe_fetch
 
 # English source strings; French forms live in _BODY_FR below, keyed by
 # the identical English string (this file must never import companion/).
@@ -98,7 +99,7 @@ def default_notify_transport(url, title, body, timeout):
         headers={
             "Title": title,
             "Content-Type": "text/plain; charset=utf-8",
-            "User-Agent": calendar_rules.USER_AGENT,
+            "User-Agent": safe_fetch.USER_AGENT,
         },
         body=body.encode("utf-8"),
         timeout=timeout,
@@ -112,7 +113,7 @@ def send_notification(topic_url, title, body, timeout=5, transport=None):
     unfollowed redirect, timeout, transport exception) - never raises.
     One attempt, no retry.
     """
-    if not calendar_rules._url_is_safe(topic_url):
+    if not safe_fetch.url_is_safe(topic_url):
         return False
     send = transport or default_notify_transport
     try:

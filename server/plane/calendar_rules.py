@@ -17,7 +17,6 @@ import json
 import math
 import os
 import re
-import socket
 import stat
 import sys
 import threading
@@ -26,16 +25,14 @@ from datetime import datetime, timezone
 from urllib.parse import urljoin, urlparse, urlunparse
 
 from server import atomic_io, device_config, http_fetch
+from server.net import safe_fetch
 
 # --- Constants -------------------------------------------------------------
 
-# Self-identification for this module's one outbound call, matching
-# detect.py's/enrich.py's own USER_AGENT convention.
-USER_AGENT = (
-    "skypane-server/0.1 "
-    "(hobby project, Phase 16 calendar-linked flight highlighting; "
-    "see server/README.md for what this traffic is)"
-)
+# Alias, not a copy: server.net.safe_fetch owns the one SSRF gate shared
+# with notify.py. Kept under this module's historical name since every
+# existing caller/test here already reads USER_AGENT off this module.
+USER_AGENT = safe_fetch.USER_AGENT
 
 # On-disk registry filename, mirroring colour_rules.py's naming.
 CALENDAR_RULES_FILENAME = "calendar_rules.json"
@@ -903,50 +900,15 @@ def select_window_entries(entries, now):
 # exception type, never the exception object — several requests
 # exceptions embed the request URL, which carries the calendar's access
 # token, in their default string form.
+#
+# The SSRF gate itself (_address_is_public/_host_is_safe/_url_is_safe)
+# lives in server.net.safe_fetch, shared with notify.py — these three
+# names are aliases (identity, not copies) kept so the many existing
+# `cr._url_is_safe(...)` reads in this module and its tests keep working.
 
-
-def _address_is_public(ip_text):
-    """`True` when `ip_text` parses as a public unicast address, `False`
-    otherwise — including on a parse failure.
-
-    Delegates to `http_fetch.address_is_public()` — the identical
-    classification `pinned_request()`'s own resolution check applies, so
-    this early gate and the real connection agree by construction on
-    what counts as public.
-    """
-    return http_fetch.address_is_public(ip_text)
-
-
-def _host_is_safe(hostname, port=None):
-    """`True` only when every address `hostname` resolves to is a public
-    unicast address; `False` on a resolution failure or if even one
-    resolved address is not public.
-
-    An early refusal only — this resolution is never reused by the real
-    connection. The actual protection against a changed DNS answer (DNS
-    rebinding) is that `default_calendar_transport()` goes through
-    `http_fetch`'s own pinned request primitive, which resolves once more
-    of its own accord, checks every address that second resolution
-    returns, and connects only to one it already checked — never
-    re-resolving between the check and the connect. This function's own
-    resolve-then-check is
-    still useful as a cheap, early "obviously unsafe" refusal (e.g. a
-    literal loopback/private/link-local address needs no network fetch to
-    reject), and every redirect hop repeats it before ever calling the
-    transport. Never raises.
-    """
-    try:
-        infos = socket.getaddrinfo(hostname, port)
-    except (socket.gaierror, UnicodeError, OSError):
-        return False
-    if not infos:
-        return False
-    for info in infos:
-        sockaddr = info[4]
-        address_text = sockaddr[0]
-        if not _address_is_public(address_text):
-            return False
-    return True
+_address_is_public = safe_fetch._address_is_public
+_host_is_safe = safe_fetch.host_is_safe
+_url_is_safe = safe_fetch.url_is_safe
 
 
 def _normalise_calendar_url(url):
@@ -968,31 +930,6 @@ def _normalise_calendar_url(url):
     if parsed.scheme.lower() != "webcal":
         return url
     return urlunparse(parsed._replace(scheme="https"))
-
-
-def _url_is_safe(url):
-    """`True` only when `url`'s scheme is exactly `https`, it has a
-    hostname, and `_host_is_safe()` accepts every address that hostname
-    resolves to. Never raises.
-
-    Deliberately does not recognise `webcal` or any non-`https` scheme —
-    every caller reaching this gate already runs `_normalise_calendar_url()`
-    first, keeping "acceptable scheme" defined in one place.
-    """
-    try:
-        parsed = urlparse(url)
-    except (ValueError, TypeError):
-        return False
-    if parsed.scheme != "https":
-        return False
-    hostname = parsed.hostname
-    if not hostname:
-        return False
-    try:
-        port = parsed.port
-    except ValueError:
-        return False
-    return _host_is_safe(hostname, port)
 
 
 def default_calendar_transport(url, timeout):
@@ -1069,7 +1006,7 @@ def fetch_ics(url, timeout=None, transport=None, max_redirects=None, max_bytes=N
     deadline = clock() + deadline_s
     current_url = _normalise_calendar_url(url)
     for _ in range(max_redirects + 1):
-        if not _url_is_safe(current_url):
+        if not safe_fetch.url_is_safe(current_url):
             return None
 
         try:
