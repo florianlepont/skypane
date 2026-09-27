@@ -1932,7 +1932,7 @@ Plans:
 3. No duplicated CSS selector; no hard-coded colour outside tokens
 4. Rewording an English string cannot drop its French translation
 
-**Plans:** 15/16 plans executed
+**Plans:** 16/16 plans complete
 
 Plans:
 
@@ -1951,7 +1951,7 @@ Plans:
 - [x] 40-13-PLAN.md — stable message IDs: Home/Flights/Airlines/Health (W7)
 - [x] 40-14-PLAN.md — stable message IDs: Display/Device settings (W7)
 - [x] 40-15-PLAN.md — ID-only i18n lookup enforced + completeness/rewording tests (W8)
-- [ ] 40-16-PLAN.md — final structural guard, full suite, requirement outcomes recorded (W9)
+- [x] 40-16-PLAN.md — final structural guard, full suite, requirement outcomes recorded (W9)
 
 ### Phase 41: Docs, repository hygiene and closing re-audit
 
