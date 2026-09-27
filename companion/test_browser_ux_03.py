@@ -227,12 +227,18 @@ def test_an_expired_countdown_reads_waiting_and_never_a_warning(new_context, ser
             context.close()
 
 
-def test_a_swap_leaves_the_region_holding_focus_alone(new_context, server):
+def test_a_swap_leaves_the_region_holding_focus_alone(new_context, make_app_server):
     """A Home refresh swaps the regions that changed while leaving the one holding keyboard
     focus untouched — asserted on node identity through a JS expando, not a selector match,
     since a replaced node matching the same selector is exactly the defect — against a
     control proving another region really was swapped in the same cycle.
+
+    Its own dedicated server (never the shared read-only `server` fixture): each half seeds a
+    genuine new detection so the freshness token actually changes and the tick gets a real 200
+    to swap, rather than the light freshness check's own 304 - unlike the shared fixture, this
+    server's history.db is never read by another test.
     """
+    server = make_app_server(seed=seed_state_dir, fake_providers=True)
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
@@ -247,6 +253,8 @@ def test_a_swap_leaves_the_region_holding_focus_alone(new_context, server):
         _mark(page, focus_target, "focused")
         _dirty_the_region(page, region)
         _mark(page, ".page-header__freshness", "elsewhere")
+        _record_a_new_detection(
+            server.tmpdir, "FOCUS01", "39f001", "2026-08-01T23:31:00+00:00")
         with page.expect_response(lambda r: r.url.split("?")[0] == base_url + "/"):
             _force_refresh(page)
         page.wait_for_timeout(REFRESH_SETTLE_MS)
@@ -269,6 +277,8 @@ def test_a_swap_leaves_the_region_holding_focus_alone(new_context, server):
         page.evaluate("() => document.activeElement.blur()")
         _mark(page, region, "unfocused-region")
         _dirty_the_region(page, region)
+        _record_a_new_detection(
+            server.tmpdir, "FOCUS02", "39f002", "2026-08-01T23:32:00+00:00")
         with page.expect_response(lambda r: r.url.split("?")[0] == base_url + "/"):
             _force_refresh(page)
         page.wait_for_timeout(REFRESH_SETTLE_MS)
@@ -281,10 +291,15 @@ def test_a_swap_leaves_the_region_holding_focus_alone(new_context, server):
         context.close()
 
 
-def test_a_swap_leaves_a_pending_region_alone(new_context, server):
+def test_a_swap_leaves_a_pending_region_alone(new_context, make_app_server):
     """A region containing a [data-pending] element survives a refresh untouched, by node
     identity, while another region on the same page is swapped in the same cycle.
+
+    Its own dedicated server: each half seeds a genuine new detection so the freshness token
+    actually changes and the tick gets a real 200 to swap, rather than the light freshness
+    check's own 304.
     """
+    server = make_app_server(seed=seed_state_dir, fake_providers=True)
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
@@ -299,6 +314,8 @@ def test_a_swap_leaves_a_pending_region_alone(new_context, server):
             "  probe.setAttribute('data-pending', '');"
             "  el.appendChild(probe); el.__skypaneProbe = 'pending'; }")
         _mark(page, ".page-header__freshness", "elsewhere")
+        _record_a_new_detection(
+            server.tmpdir, "PEND01", "39f003", "2026-08-01T23:33:00+00:00")
         with page.expect_response(lambda r: r.url.split("?")[0] == base_url + "/"):
             _force_refresh(page)
         page.wait_for_timeout(REFRESH_SETTLE_MS)
@@ -323,6 +340,8 @@ def test_a_swap_leaves_a_pending_region_alone(new_context, server):
             "el => { el.querySelector('[data-pending]').removeAttribute("
             "  'data-pending');"
             "  el.__skypaneProbe = 'unmarked'; }")
+        _record_a_new_detection(
+            server.tmpdir, "PEND02", "39f004", "2026-08-01T23:34:00+00:00")
         with page.expect_response(lambda r: r.url.split("?")[0] == base_url + "/"):
             _force_refresh(page)
         page.wait_for_timeout(REFRESH_SETTLE_MS)
@@ -427,12 +446,18 @@ def test_a_hidden_tab_issues_zero_requests_on_all_three_pages(new_context, serve
             context.close()
 
 
-def test_the_picture_fades_only_when_the_picture_changed(new_context, server):
+def test_the_picture_fades_only_when_the_picture_changed(new_context, make_app_server):
     """The frame picture fades in when a new render arrives and does not animate when the
     same picture is swapped back in — both phases in one check, against a control proving a
     swap happened at all, with the class proven to resolve to the stylesheet's own fade-in
     block.
+
+    Its own dedicated server: each half seeds a genuine new detection (which changes Home's
+    recent-flights list and its freshness token, but never the panel/preview-frame image
+    itself, which a raw runway_events row does not touch) so the tick gets a real 200 to swap
+    from, rather than the light freshness check's own 304.
     """
+    server = make_app_server(seed=seed_state_dir, fake_providers=True)
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
@@ -442,6 +467,8 @@ def test_the_picture_fades_only_when_the_picture_changed(new_context, server):
         page.wait_for_load_state("networkidle")
         image = ".preview-frame__image"
         _mark(page, ".page-header__freshness", "elsewhere")
+        _record_a_new_detection(
+            server.tmpdir, "FADE01", "39f005", "2026-08-01T23:35:00+00:00")
         with page.expect_response(lambda r: r.url.split("?")[0] == base_url + "/"):
             _force_refresh(page)
         page.wait_for_timeout(REFRESH_SETTLE_MS)
@@ -458,6 +485,8 @@ def test_the_picture_fades_only_when_the_picture_changed(new_context, server):
         page.eval_on_selector(
             image, "el => { el.setAttribute('src', el.getAttribute('src')"
                    " + '?stale=1'); }")
+        _record_a_new_detection(
+            server.tmpdir, "FADE02", "39f006", "2026-08-01T23:36:00+00:00")
         with page.expect_response(lambda r: r.url.split("?")[0] == base_url + "/"):
             _force_refresh(page)
         page.wait_for_timeout(REFRESH_SETTLE_MS)
@@ -697,6 +726,12 @@ def test_a_refresh_landing_mid_flip_does_not_repaint_the_switch(new_context, mak
         page.evaluate("() => document.activeElement.blur()")
         _mark(page, ".frame-strip", "strip")
         _mark(page, ".page-header__freshness", "elsewhere")
+        # The held POST has not landed yet, so device_config itself has not
+        # changed - seed an unrelated genuine detection so the freshness
+        # token still changes and this tick gets a real 200 to swap from,
+        # rather than the light freshness check's own 304.
+        _record_a_new_detection(
+            server.tmpdir, "MIDFLIP1", "39f007", "2026-08-01T23:37:00+00:00")
         with page.expect_response(lambda r: r.url.split("?")[0] == base_url + "/"):
             _force_refresh(page)
         page.wait_for_timeout(REFRESH_SETTLE_MS)
@@ -721,6 +756,8 @@ def test_a_refresh_landing_mid_flip_does_not_repaint_the_switch(new_context, mak
             raise AssertionError("expected the marker to clear once the answer arrived")
         _mark(page, ".frame-strip", "settled-strip")
         _dirty_the_region(page, ".frame-strip")
+        _record_a_new_detection(
+            server.tmpdir, "MIDFLIP2", "39f008", "2026-08-01T23:38:00+00:00")
         with page.expect_response(lambda r: r.url.split("?")[0] == base_url + "/"):
             _force_refresh(page)
         page.wait_for_timeout(REFRESH_SETTLE_MS)

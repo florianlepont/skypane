@@ -687,10 +687,26 @@ def _spaced_query(name, center, radius_nm, timeout, last_call_at, lock, clock, s
     entry, defeating the point of spacing them independently. `clock` and
     `sleep` are the caller's already-resolved `time.time`/`time.sleep` (or
     a test double), never looked up here.
+
+    `wait` is clamped to `[0, MIN_SECONDS_BETWEEN_CALLS]`: `previous` is a
+    wall-clock value that can outlive the process that wrote it (the
+    systemd timer oneshot and the companion's own /poll-now each persist
+    it independently), so a clock that stepped back (NTP), a restored
+    history.db from a host with a skewed clock, or a hand-edited meta row
+    can leave `previous` ahead of `clock()` by an arbitrary amount. An
+    uncapped wait there would sleep out that whole gap - long enough for
+    the systemd 90s TimeoutStartSec to kill the unit before `last_call_at`
+    is ever updated, so every later cycle reads the same stale value and
+    is killed the same way. A non-finite `previous` (the loader normally
+    drops these, but this function must not assume that) is treated the
+    same as "no previous call".
     """
     with lock:
         previous = last_call_at.get(name)
-        wait = (previous + MIN_SECONDS_BETWEEN_CALLS - clock()) if previous is not None else 0.0
+        now = clock()
+        wait = 0.0
+        if previous is not None and math.isfinite(previous):
+            wait = min(max(previous + MIN_SECONDS_BETWEEN_CALLS - now, 0.0), MIN_SECONDS_BETWEEN_CALLS)
     if wait > 0:
         sleep(wait)
     with lock:

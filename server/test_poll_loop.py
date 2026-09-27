@@ -987,7 +987,7 @@ def test_non_default_runway_reaches_poll_current_aircraft(tmp_path, monkeypatch)
         device_config.save_device_config(runway_dir, tracked_runway="02-20")
         captured = {}
 
-        def _fake_poll(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None):
+        def _fake_poll(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None, last_call_at=None):
             captured["runway_id"] = runway_id
             if diagnostics is not None:
                 diagnostics.update({"queried": [], "failed": [], "selected": [], "disagreement": False, "runway_id": runway_id})
@@ -1006,7 +1006,7 @@ def test_all_failed_diagnostics_yields_true_fault_flag(tmp_path, monkeypatch):
     """an all-providers-failed diagnostics report yields a true source_fault flag passed to render.build_canvas"""
     fault_dir = _mkdir(tmp_path, "fault")
     try:
-        def _fake_poll(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None):
+        def _fake_poll(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None, last_call_at=None):
             if diagnostics is not None:
                 diagnostics.update({"queried": ["adsbfi", "adsblol"], "failed": ["adsbfi", "adsblol"], "selected": [], "disagreement": False, "runway_id": runway_id})
             return None
@@ -1034,7 +1034,7 @@ def test_successful_query_no_selection_yields_false_fault_flag(tmp_path, monkeyp
     """providers queried successfully with nothing selected leaves the source_fault flag false"""
     fault_dir = _mkdir(tmp_path, "nofault")
     try:
-        def _fake_poll(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None):
+        def _fake_poll(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None, last_call_at=None):
             if diagnostics is not None:
                 diagnostics.update({"queried": ["adsbfi", "adsblol"], "failed": [], "selected": [], "disagreement": False, "runway_id": runway_id})
             return None
@@ -1068,7 +1068,7 @@ def test_fault_transition_gated_not_value(tmp_path, monkeypatch):
     try:
         poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=trans_dir, geofence=GEOFENCE_PATH)
 
-        def _fake_poll_all_failed(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None):
+        def _fake_poll_all_failed(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None, last_call_at=None):
             if diagnostics is not None:
                 diagnostics.update({"queried": ["adsbfi", "adsblol"], "failed": ["adsbfi", "adsblol"], "selected": [], "disagreement": False, "runway_id": runway_id})
             return None
@@ -1122,6 +1122,37 @@ def test_history_row_written_only_on_hex_transition(tmp_path):
         shutil.rmtree(hist_dir, ignore_errors=True)
 
 
+def test_crash_during_notify_after_history_commit_does_not_duplicate_the_event(tmp_path, monkeypatch):
+    """a process death during the frame-silence notify call - which runs after this cycle's runway_events row already committed - leaves poll_state.json's dedup fields already on disk, so the next cycle does not insert the same event again"""
+    crash_dir = _mkdir(tmp_path, "crash-dedup")
+    try:
+        original_notify = poll_loop._notify_silence_transition
+
+        def _die(*args, **kwargs):
+            raise SystemExit(1)
+
+        monkeypatch.setattr(poll_loop, "_notify_silence_transition", _die)
+        with pytest.raises(SystemExit):
+            poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=crash_dir, geofence=GEOFENCE_PATH)
+
+        # The crash landed after the runway_events row committed but before
+        # the notify call would have run - the dedup fields must already be
+        # on disk at this point, not merely in the now-gone process's memory.
+        state_on_disk = poll_loop.load_poll_state(crash_dir)
+        if state_on_disk.get("last_recorded_hex") != "aaaaaa":
+            pytest.fail("poll_state.json's dedup fields were not persisted before the crash: %r" % (state_on_disk,))
+
+        monkeypatch.setattr(poll_loop, "_notify_silence_transition", original_notify)
+        poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=crash_dir, geofence=GEOFENCE_PATH)
+        with history_db.open_db(crash_dir) as conn:
+            rows = history_db.recent_runway_events(conn, limit=100)
+        if len(rows) != 1:
+            pytest.fail("a crash between the history commit and the notify call produced %d total runway_events rows after the next cycle, expected still 1" % (len(rows),))
+        return
+    finally:
+        shutil.rmtree(crash_dir, ignore_errors=True)
+
+
 def test_history_row_written_on_confirmed_state_flip(tmp_path):
     """a confirmed_state flip on the same hex writes a new runway_events row"""
     hist_dir = _mkdir(tmp_path, "hist-state")
@@ -1173,6 +1204,33 @@ def test_history_row_written_on_corroboration_flip(tmp_path, monkeypatch):
         return
     finally:
         shutil.rmtree(hist_dir, ignore_errors=True)
+
+
+def test_load_provider_last_calls_drops_non_finite_and_future_values(tmp_path):
+    """_load_provider_last_calls: an inf/nan stored value and a value far in the future are both dropped as if absent, never raised"""
+    meta_dir = _mkdir(tmp_path, "provider-last-call")
+    try:
+        provider_names = list(detect.DEFAULT_PROVIDER_ORDER)
+        if len(provider_names) < 2:
+            pytest.skip("this test needs at least two default providers")
+        finite_name, future_name = provider_names[0], provider_names[1]
+        with history_db.open_db(meta_dir) as conn:
+            history_db.set_meta(
+                conn, history_db.META_PROVIDER_LAST_CALL_PREFIX + finite_name, repr(float("nan")))
+            # An hour ahead of the real wall clock - a stepped-back clock or
+            # a restored history.db, not a value this code should ever
+            # trust enough to space a live poll off it.
+            history_db.set_meta(
+                conn, history_db.META_PROVIDER_LAST_CALL_PREFIX + future_name,
+                repr(time.time() + 3600.0))
+        last_call_at = poll_loop._load_provider_last_calls(meta_dir, provider_names)
+        if finite_name in last_call_at:
+            pytest.fail("expected the non-finite stored value for %r dropped, got %r" % (finite_name, last_call_at))
+        if future_name in last_call_at:
+            pytest.fail("expected the future stored value for %r dropped, got %r" % (future_name, last_call_at))
+        return
+    finally:
+        shutil.rmtree(meta_dir, ignore_errors=True)
 
 
 def test_pipeline_run_meta_updated_every_cycle(tmp_path):
@@ -1334,6 +1392,103 @@ def test_caddy_log_ingestion_wired_into_poll_cycle(tmp_path):
         return
     finally:
         shutil.rmtree(log_dir, ignore_errors=True)
+
+
+def test_caddy_ingest_failure_does_not_roll_back_heartbeat_or_event(tmp_path, monkeypatch):
+    """a Caddy-log ingest failure inside _record_history's write_batch rolls back only its own
+    write - never the pipeline heartbeat or the runway_events row staged in the same cycle"""
+    log_dir = _mkdir(tmp_path, "caddy-fault")
+    try:
+        log_path = os.path.join(log_dir, "caddy-access.log")
+        with open(log_path, "w") as fh:
+            fh.write(json.dumps({
+                "ts": 1_700_000_000.0,
+                "request": {
+                    "uri": "/device/v1/display",
+                    "headers": {"X-Battery-Mv": ["4090"]},
+                },
+            }) + "\n")
+
+        def _boom(conn, readings, new_offset):
+            raise sqlite3.OperationalError("simulated caddy ingest fault")
+
+        monkeypatch.setattr(poll_loop.history_db, "apply_caddy_battery_log", _boom)
+        poll_loop.run_once(
+            snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB),
+            state_dir=log_dir, geofence=GEOFENCE_PATH, caddy_log=log_path,
+        )
+        with history_db.open_db(log_dir) as conn:
+            events = history_db.recent_runway_events(conn, limit=5)
+            pipeline_run = history_db.get_meta(conn, history_db.META_LAST_PIPELINE_RUN)
+            health_rows = history_db.recent_device_health(conn, limit=5)
+        if len(events) != 1:
+            pytest.fail("a caddy-ingest fault rolled back the runway_events insert, got %d rows" % (len(events),))
+        if not pipeline_run:
+            pytest.fail("a caddy-ingest fault rolled back the pipeline-run heartbeat")
+        if health_rows:
+            pytest.fail("expected the faulted ingest to insert nothing at all, got %r" % (health_rows,))
+        return
+    finally:
+        shutil.rmtree(log_dir, ignore_errors=True)
+
+
+def test_caddy_log_tail_reads_before_the_write_batch_opens(tmp_path, monkeypatch):
+    """the Caddy-log tail (up to 10 MiB of file I/O plus one meta SELECT) runs before
+    _record_history's write_batch opens, never while the write lock is held"""
+    log_dir = _mkdir(tmp_path, "caddy-lock-order")
+    try:
+        log_path = os.path.join(log_dir, "caddy-access.log")
+        with open(log_path, "w") as fh:
+            fh.write(json.dumps({
+                "ts": 1_700_000_000.0,
+                "request": {"uri": "/device/v1/display", "headers": {"X-Battery-Mv": ["4090"]}},
+            }) + "\n")
+
+        observed = {}
+        original_read = poll_loop.history_db.read_caddy_battery_log
+
+        def _spy(conn, path):
+            observed["batch_depth_during_read"] = getattr(conn, "_batch_depth", 0)
+            return original_read(conn, path)
+
+        monkeypatch.setattr(poll_loop.history_db, "read_caddy_battery_log", _spy)
+        poll_loop.run_once(
+            snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB),
+            state_dir=log_dir, geofence=GEOFENCE_PATH, caddy_log=log_path,
+        )
+        if observed.get("batch_depth_during_read") != 0:
+            pytest.fail("expected the Caddy-log tail to run before write_batch opened (depth 0), got %r" % (observed,))
+        return
+    finally:
+        shutil.rmtree(log_dir, ignore_errors=True)
+
+
+def test_provider_last_call_meta_failure_does_not_roll_back_heartbeat(tmp_path, monkeypatch):
+    """a provider-timestamp meta write failure inside _record_history's write_batch rolls back
+    only its own write - never the pipeline heartbeat staged in the same cycle"""
+    prov_dir = _mkdir(tmp_path, "provider-meta-fault")
+    try:
+        original_set_meta = poll_loop.history_db.set_meta
+
+        def _flaky_set_meta(conn, key, value):
+            if key.startswith(poll_loop.history_db.META_PROVIDER_LAST_CALL_PREFIX):
+                raise sqlite3.OperationalError("simulated provider-meta fault")
+            return original_set_meta(conn, key, value)
+
+        monkeypatch.setattr(poll_loop.history_db, "set_meta", _flaky_set_meta)
+        # No injected snapshot - the injected-snapshot path never queries a
+        # live provider, so provider_last_calls would stay empty and this
+        # fault would never be reached; the live path (stubbed via the
+        # fake_providers fixture, autoused through _stub_adsbdb) always
+        # populates it, queried or not.
+        poll_loop.run_once(state_dir=prov_dir, geofence=GEOFENCE_PATH)
+        with history_db.open_db(prov_dir) as conn:
+            pipeline_run = history_db.get_meta(conn, history_db.META_LAST_PIPELINE_RUN)
+        if not pipeline_run:
+            pytest.fail("a provider-meta fault rolled back the pipeline-run heartbeat")
+        return
+    finally:
+        shutil.rmtree(prov_dir, ignore_errors=True)
 
 
 def test_caddy_log_omitted_is_noop(tmp_path):

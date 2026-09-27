@@ -1830,7 +1830,7 @@ Plans:
 3. SQLite connections per page request: 1; per poll cycle: 1
 4. Poll cycle wall time measured before/after (no fixed 1.1 s sleep)
 
-**Plans:** 5/13 plans executed
+**Plans:** 13/13 plans complete (closed 2026-09-27; verification passed, live VPS compression confirmed)
 
 Plans:
 
@@ -1847,26 +1847,26 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 38-06-PLAN.md — per-page script tuples, `page_shell(scripts=...)`, hook-coverage test [EFF-02]
-- [ ] 38-07-PLAN.md — poll cycle: one connection, one COMMIT, no transaction during ntfy [EFF-03]
+- [x] 38-06-PLAN.md — per-page script tuples, `page_shell(scripts=...)`, hook-coverage test [EFF-02]
+- [x] 38-07-PLAN.md — poll cycle: one connection, one COMMIT, no transaction during ntfy [EFF-03]
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 38-08-PLAN.md — companion: one connection per request (scope around GET/POST dispatch) [EFF-03]
-- [ ] 38-09-PLAN.md — `poll_state.json` saved once, only if changed, compact [EFF-05]
+- [x] 38-08-PLAN.md — companion: one connection per request (scope around GET/POST dispatch) [EFF-03]
+- [x] 38-09-PLAN.md — `poll_state.json` saved once, only if changed, compact [EFF-05]
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 38-10-PLAN.md — lazy `page_context`, 404/403 severity from signals, cooldown degrades to 0 [EFF-04]
-- [ ] 38-11-PLAN.md — provider last-call times persisted in meta; spacing kept across back-to-back cycles [EFF-06]
+- [x] 38-10-PLAN.md — lazy `page_context`, 404/403 severity from signals, cooldown degrades to 0 [EFF-04]
+- [x] 38-11-PLAN.md — provider last-call times persisted in meta; spacing kept across back-to-back cycles [EFF-06]
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 38-12-PLAN.md — freshness: input token, conditional GET on the same URL, 304, forced full refresh (D-2) [EFF-04]
+- [x] 38-12-PLAN.md — freshness: input token, conditional GET on the same URL, 304, forced full refresh (D-2) [EFF-04]
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 38-13-PLAN.md — AFTER tables + criteria check; VPS compression checkpoint (before now, after deploy) [EFF-01..06]
+- [x] 38-13-PLAN.md — AFTER tables + criteria check; VPS compression checkpoint (before now, after deploy) [EFF-01..06]
 
 ### Phase 39: Server architecture — run_once split, state store, shared modules
 

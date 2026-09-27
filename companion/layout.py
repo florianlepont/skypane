@@ -1427,6 +1427,12 @@ REFRESH_RECONNECTING_ATTR = "data-refresh-reconnecting-text"
 # literal in the script mirroring this, pinned entry-for-entry and
 # key-for-key by companion/test_status_pages.py in both directions. The
 # keys are nav_slug()'s own values, never a second vocabulary.
+# The freshness token: a conditional GET on the page's own URL,
+# computed from its inputs without ever rendering it, rather than a new
+# route or a body-hash ETag. Rendered on <body> - never on
+# the freshness wrapper itself, which is a swap target - so a swap can
+# never carry it out from under companion/static/freshness.js.
+REFRESH_TOKEN_ATTR = "data-refresh-token"
 REFRESH_PAGE_ATTR = "data-refresh-page"
 REFRESH_PAGE_HOME = nav_slug(HOME_ROUTE)
 REFRESH_PAGE_DISPLAY = nav_slug(DISPLAY_ROUTE)
@@ -1845,9 +1851,44 @@ def freshness_line_html(now, lang=None):
     return freshness_html
 
 
+# The shell's own 15 script srcs, in the fixed relative order they are
+# emitted whenever present - the one place that order is declared.
+# page_shell()'s `scripts` argument only ever widens or narrows which of
+# these are present; it never reorders them.
+SHELL_SCRIPT_ORDER = (
+    NAV_DROPDOWN_SCRIPT_SRC,
+    DIRTY_STATE_SCRIPT_SRC,
+    LIST_FILTER_SCRIPT_SRC,
+    COPY_BUTTON_SCRIPT_SRC,
+    FRESHNESS_SCRIPT_SRC,
+    PANEL_LOOKUP_SCRIPT_SRC,
+    FLASH_CLEANUP_SCRIPT_SRC,
+    POLL_COOLDOWN_SCRIPT_SRC,
+    CONFIRM_SUBMIT_SCRIPT_SRC,
+    THEME_PREVIEW_SCRIPT_SRC,
+    FLIGHT_ROWS_SCRIPT_SRC,
+    SUBMIT_GUARD_SCRIPT_SRC,
+    RELATIVE_TIME_SCRIPT_SRC,
+    QUICK_SWITCH_SCRIPT_SRC,
+    VALUE_CONTROLS_SCRIPT_SRC,
+)
+
+# Present on every authenticated page_shell() document regardless of its
+# `scripts` argument: the hamburger (every page has the nav), a flash
+# cleanup (any page can carry `?flash=`), every form's submit guard, and
+# the nav status line's relative time.
+GLOBAL_PAGE_SCRIPTS = (
+    NAV_DROPDOWN_SCRIPT_SRC,
+    FLASH_CLEANUP_SCRIPT_SRC,
+    SUBMIT_GUARD_SCRIPT_SRC,
+    RELATIVE_TIME_SCRIPT_SRC,
+)
+
+
 def page_shell(
         title, active, body, ui_theme="auto", flash=None, banner=None,
-        health_alert=None, lang=None, device_config=None):
+        health_alert=None, lang=None, device_config=None, scripts=(),
+        refresh_token=None):
     """Return a complete HTML5 document wrapping `body` in the shared shell.
 
     `title` and nav labels are escaped here. `body`, `flash` and `banner` are
@@ -1860,7 +1901,28 @@ def page_shell(
     `None`, resolved through prefs.current_lang(). `device_config` defaults to
     `None`, the same no-context degrade, threaded to both nav renderers via
     nav_status_html().
+
+    `scripts` is this page's own extra `*_SCRIPT_SRC` constants, on top of
+    GLOBAL_PAGE_SCRIPTS (present regardless). Emitted in SHELL_SCRIPT_ORDER's
+    fixed relative order, each at most once, however many times it appears
+    across the two sets. A src not present in SHELL_SCRIPT_ORDER raises
+    ValueError - failing fast on a typo rather than silently emitting nothing.
+
+    `refresh_token` (default `None`) renders as REFRESH_TOKEN_ATTR on
+    `<body>`, escaped, only when given - the four refresh pages'
+    companion/app.py call site passes their own freshness token; every
+    other caller (including the rejected-settings-save re-render) omits
+    it, so that page carries no such attribute at all.
     """
+    unknown_scripts = set(scripts) - set(SHELL_SCRIPT_ORDER)
+    if unknown_scripts:
+        raise ValueError(
+            "page_shell(): scripts=%r is not in SHELL_SCRIPT_ORDER"
+            % (sorted(unknown_scripts),))
+    wanted_scripts = set(GLOBAL_PAGE_SCRIPTS) | set(scripts)
+    script_tags_html = "".join(
+        '<script src="%s" defer></script>\n' % src
+        for src in SHELL_SCRIPT_ORDER if src in wanted_scripts)
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
     resolved_lang = lang if lang in prefs.LANG_CHOICES else prefs.current_lang()
     sidebar_html = sidebar_nav(
@@ -1893,6 +1955,13 @@ def page_shell(
     # unknown key selects nothing.
     body_class_attr += ' %s="%s"' % (
         REFRESH_PAGE_ATTR, escape_html(active))
+    # The freshness token itself, rendered only when the
+    # caller has one - /device and /airlines (not refresh pages) and the
+    # rejected-settings-save re-render never pass refresh_token, so they
+    # carry no such attribute at all.
+    if refresh_token is not None:
+        body_class_attr += ' %s="%s"' % (
+            REFRESH_TOKEN_ATTR, escape_html(refresh_token))
     # The optimistic switch's user-facing sentence, translated here and read
     # client-side, on <body> for the same swap-safety reason as the attributes
     # above — emitted unconditionally; a page with no switch carries one inert
@@ -1980,21 +2049,7 @@ def page_shell(
         # there is no fetch, so nothing here can fail beyond what the
         # server's own flash already reports.
         '<div class="quick-toast" %s role="alert"></div>\n'
-        '<script src="%s" defer></script>\n'
-        '<script src="%s" defer></script>\n'
-        '<script src="%s" defer></script>\n'
-        '<script src="%s" defer></script>\n'
-        '<script src="%s" defer></script>\n'
-        '<script src="%s" defer></script>\n'
-        '<script src="%s" defer></script>\n'
-        '<script src="%s" defer></script>\n'
-        '<script src="%s" defer></script>\n'
-        '<script src="%s" defer></script>\n'
-        '<script src="%s" defer></script>\n'
-        '<script src="%s" defer></script>\n'
-        '<script src="%s" defer></script>\n'
-        '<script src="%s" defer></script>\n'
-        '<script src="%s" defer></script>\n'
+        "%s"
         "</body>\n"
         "</html>\n"
     ) % (
@@ -2014,50 +2069,10 @@ def page_shell(
         flash_html, banner_html, body,
         tab_bar_html,
         QUICK_TOAST_ATTR,
-        NAV_DROPDOWN_SCRIPT_SRC,
-        # Emitted unconditionally on every authenticated page, matching
-        # nav-dropdown.js and battery-trend.js's serve-everywhere,
-        # no-op-via-guard-clause convention.
-        DIRTY_STATE_SCRIPT_SRC,
-        LIST_FILTER_SCRIPT_SRC,
-        COPY_BUTTON_SCRIPT_SRC,
-        FRESHNESS_SCRIPT_SRC,
-        # Same unconditional convention; History and the Airlines gallery both
-        # render #panel-lookup-dialog.
-        PANEL_LOOKUP_SCRIPT_SRC,
-        # Same unconditional convention; cleans up after the flash banner this
-        # function emits on every authenticated page.
-        FLASH_CLEANUP_SCRIPT_SRC,
-        # Same unconditional convention; only Settings renders #poll-trigger-btn.
-        POLL_COOLDOWN_SCRIPT_SRC,
-        # Same unconditional convention; only the Device page renders a
-        # form[data-confirm] (the calendar disconnect form).
-        CONFIRM_SUBMIT_SCRIPT_SRC,
-        # Same unconditional convention; only Display renders .theme-live-preview
-        # img plus .theme-chip-grid.
-        THEME_PREVIEW_SCRIPT_SRC,
-        # Same unconditional convention; only Flights renders .flight-detail-row /
-        # [data-row-toggle].
-        FLIGHT_ROWS_SCRIPT_SRC,
-        # Same unconditional convention, and here the convention is the point: the
-        # guard is a delegated document-level submit listener, so covering every
-        # form costs one registration.
-        SUBMIT_GUARD_SCRIPT_SRC,
-        # Same unconditional convention. The elements it ticks come from one
-        # builder (relative_time_html(), reached mostly via
-        # concise_timestamp_html()), so no page module needs to know whether it has
-        # one; its own guard clause returns early otherwise.
-        RELATIVE_TIME_SCRIPT_SRC,
-        # Same unconditional convention: the listener is delegated at document level
-        # over every [data-quick-switch] form (Home/Display's Frame strip, Device's
-        # LED switch), and with the file absent those forms still post and still
-        # save.
-        QUICK_SWITCH_SCRIPT_SRC,
-        # Same unconditional convention: listeners are delegated at document level
-        # over every [data-value-control] wrapper (quiet-hours dial, wake-interval
-        # slider, more expected), and with the file absent each value is still held
-        # by a native input the form posts.
-        VALUE_CONTROLS_SCRIPT_SRC,
+        # GLOBAL_PAGE_SCRIPTS on every authenticated page, plus `scripts`'s
+        # own additions, each emitted at most once, in SHELL_SCRIPT_ORDER's
+        # fixed relative order - see script_tags_html above.
+        script_tags_html,
     )
 
 

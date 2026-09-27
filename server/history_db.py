@@ -44,6 +44,15 @@ META_SOURCE_FAULT = "source_fault"
 META_CADDY_LOG_OFFSET = "caddy_log_offset"
 META_LAST_POLL_TRIGGER = "last_poll_trigger"
 
+# Prefix for one meta key per ADS-B provider name (e.g.
+# "provider_last_call:adsbfi"), holding that provider's own last-call
+# epoch as a float string. Fixed-size regardless of cycle count: one row
+# per provider, updated in place, never appended. Lives here rather than
+# in poll_state.json so a timer cycle and a companion-triggered poll-now
+# share the same bookkeeping across process boundaries without perturbing
+# poll_state.json's own "only write when content changes" contract.
+META_PROVIDER_LAST_CALL_PREFIX = "provider_last_call:"
+
 _RUNWAY_EVENT_COLUMNS = (
     "ts", "hex", "callsign", "aircraft_type", "confirmed_state",
     "corroborated", "route_source", "airline", "origin", "destination",
@@ -689,16 +698,22 @@ def tail_caddy_battery_log(log_path, offset):
     return readings, consumed_through
 
 
-def ingest_caddy_battery_log(conn, log_path):
-    """Read the stored offset (a non-integer, negative, or empty stored
-    value resets to 0 rather than raising; reset to 0 if the file shrank,
-    i.e. rotated), tail the file, insert every reading, store the new
-    offset. Returns rows actually inserted (a re-tail of an already-seen
-    range is silently ignored by `UNIQUE(ts, battery_mv)`). A missing log
-    file returns 0 without raising.
+def read_caddy_battery_log(conn, log_path):
+    """The read-only half of the Caddy-log tailer: resolve the stored
+    offset (a non-integer, negative, or empty stored value resets to 0
+    rather than raising; reset to 0 if the file shrank, i.e. rotated) and
+    tail the file from there. Returns `(readings, new_offset)`, or `None`
+    for a missing log file.
+
+    Deliberately reads `META_CADDY_LOG_OFFSET` via a plain `get_meta()`
+    SELECT and touches no writer - a caller may run this BEFORE opening a
+    `write_batch()`, so tailing up to a 10 MiB file never happens while
+    the write lock is held (a companion writer would otherwise wait on
+    `busy_timeout` for that whole read). `apply_caddy_battery_log()` is
+    this function's write-side counterpart.
     """
     if not os.path.exists(log_path):
-        return 0
+        return None
 
     stored_offset = get_meta(conn, META_CADDY_LOG_OFFSET)
     try:
@@ -711,11 +726,19 @@ def ingest_caddy_battery_log(conn, log_path):
     try:
         file_size = os.path.getsize(log_path)
     except OSError:
-        return 0
+        return None
     if file_size < offset:
         offset = 0  # Caddy rotated the log out from under us.
 
-    readings, new_offset = tail_caddy_battery_log(log_path, offset)
+    return tail_caddy_battery_log(log_path, offset)
+
+
+def apply_caddy_battery_log(conn, readings, new_offset):
+    """The write half of the Caddy-log tailer: insert every reading from
+    `read_caddy_battery_log()`'s result and store the new offset. Returns
+    rows actually inserted (a re-tail of an already-seen range is
+    silently ignored by `UNIQUE(ts, battery_mv)`).
+    """
     inserted = 0
     for reading in readings:
         inserted += record_device_health(
@@ -728,3 +751,17 @@ def ingest_caddy_battery_log(conn, log_path):
         )
     set_meta(conn, META_CADDY_LOG_OFFSET, str(new_offset))
     return inserted
+
+
+def ingest_caddy_battery_log(conn, log_path):
+    """Read and apply in one call - `read_caddy_battery_log()` followed by
+    `apply_caddy_battery_log()` - for a caller with no reason to split the
+    file read from the DB write (a script, a test, or any writer not
+    itself inside a shared multi-write transaction). Returns rows
+    actually inserted; 0 for a missing log file.
+    """
+    result = read_caddy_battery_log(conn, log_path)
+    if result is None:
+        return 0
+    readings, new_offset = result
+    return apply_caddy_battery_log(conn, readings, new_offset)

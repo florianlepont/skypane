@@ -28,6 +28,7 @@ import contextlib
 import hashlib
 import io
 import json
+import math
 import os
 import sqlite3
 import sys
@@ -537,14 +538,47 @@ def _notify_silence_transition(state_dir, poll_state, conn, device_cfg, sender=N
         )
 
 
+def _serialize_poll_state(state):
+    """Compact JSON encoding of `state` - no indentation, no space after a
+    "," or ":". Every reader (load_poll_state, wake.read_battery_critical,
+    stub-server/byos_server.py, the companion health/airlines pages) uses
+    json.load, so this is invisible to them; the compactness only shrinks
+    the file on disk, and gives `_persist_poll_state()` a cheap string to
+    diff against the snapshot taken at load time.
+    """
+    return json.dumps(state, separators=(",", ":"))
+
+
 def save_poll_state(state_dir, state):
     """Atomic same-directory-mkstemp-then-os.replace() via atomic_io, so two
     processes writing this same path (the systemd oneshot and the
     companion's POST /poll-now, both under poll_cycle_lock()) can never
     collide on one fixed temp name. Never leaves a stray temp file behind,
-    even if the write itself fails.
+    even if the write itself fails. Always writes, unconditionally - this
+    stays the public seam the test suite uses to seed a poll_state.json
+    directly; the write-once-only-if-changed decision below lives in
+    `_persist_poll_state()`, called only from `_run_once_locked()`'s two
+    exits.
     """
-    atomic_io.atomic_write(_poll_state_path(state_dir), json.dumps(state, indent=1))
+    atomic_io.atomic_write(_poll_state_path(state_dir), _serialize_poll_state(state))
+
+
+def _persist_poll_state(state_dir, poll_state, baseline):
+    """The cycle's single end-of-cycle save. Serialises `poll_state` once
+    and writes it through the same atomic path as `save_poll_state()`,
+    but only when that serialisation differs from `baseline` - the compact
+    snapshot `_run_once_locked()` took right after `load_poll_state()`,
+    before any branch mutated the dict in place (the dict can't serve as
+    its own baseline once mutated). An unchanged repeat cycle (a held
+    hold, an unchanged empty sky) compares equal and writes nothing.
+    Called from both of `_run_once_locked()`'s exits - the hold-branch
+    return and the shared tail - never mid-branch, so poll_state.json is
+    written at most once per cycle, and always after panel.bin (the save
+    moved later than it used to, never earlier).
+    """
+    serialized = _serialize_poll_state(poll_state)
+    if serialized != baseline:
+        atomic_io.atomic_write(_poll_state_path(state_dir), serialized)
 
 
 def write_panel_atomic(state_dir, rendered):
@@ -584,6 +618,59 @@ def _classify_source_fault(diagnostics):
     return set(failed) == set(queried)
 
 
+def _load_provider_last_calls(state_dir, provider_names):
+    """The `{provider_name: epoch_seconds}` map `detect.poll_current_aircraft()`
+    needs so a provider is never called twice within its own
+    `MIN_SECONDS_BETWEEN_CALLS` spacing across two back-to-back cycles - a
+    timer cycle immediately followed by the companion's `/poll-now`, each
+    its own process with no in-memory state of the other. Read from
+    `history.db`'s meta table (a plain SELECT, no transaction, through the
+    cycle's own scoped connection) rather than `poll_state.json`: see
+    `_record_history()`'s own comment for why this bookkeeping must never
+    perturb poll_state's "only write when content changes" contract.
+
+    A missing or unparsable stored value for one provider is silently
+    treated as "no previous call" for that provider alone (never an
+    exception - a corrupted value must not block detection); a
+    database/filesystem failure logs one line and returns an empty map,
+    so the cycle still polls, just without cross-cycle spacing memory for
+    this one cycle.
+
+    Two more stored-value shapes are treated the same "no previous call"
+    way, both of them defence against `detect._spaced_query()` sleeping
+    for far longer than intended:
+
+      * non-finite (`"inf"`/`"-inf"`/`"nan"` all parse as valid floats,
+        so `float(raw)` alone would not catch them - `time.sleep(inf)`
+        raises `OverflowError`, which is outside this module's caught
+        `(requests.RequestException, ValueError)`, failing the cycle);
+      * a value ahead of the current wall clock by more than one
+        spacing interval - the clock stepped back (NTP), `history.db`
+        was restored from a host with a skewed clock, or the meta row
+        was edited by hand. `_spaced_query()` itself now also clamps its
+        wait, but a value this stale is worth dropping outright rather
+        than spacing a live poll off it at all.
+    """
+    last_call_at = {}
+    try:
+        with history_db.open_db(state_dir) as conn:
+            for name in provider_names:
+                raw = history_db.get_meta(conn, history_db.META_PROVIDER_LAST_CALL_PREFIX + name)
+                if raw is None:
+                    continue
+                try:
+                    value = float(raw)
+                except (TypeError, ValueError):
+                    continue
+                if not math.isfinite(value) or value > time.time() + detect.MIN_SECONDS_BETWEEN_CALLS:
+                    continue
+                last_call_at[name] = value
+    except (sqlite3.Error, OSError) as exc:
+        print("poll_loop: could not read provider_last_call meta: %s: %s" % (type(exc).__name__, exc))
+        return {}
+    return last_call_at
+
+
 def _last_source_fault(state_dir):
     """Best-effort read of the previously-persisted fault flag from
     `history.db`'s meta table - not `poll_state.json`, to avoid a second
@@ -619,11 +706,50 @@ def _should_record_event(flight, confirmed_state, poll_state):
 _NO_WAKE_EPOCH = object()
 
 
-def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH, detected=False):
-    """Write this cycle's durable signals into `history.db`, in one
-    connection: a database/filesystem failure is caught and logged, never
-    allowed to fail the poll cycle - history is an accessory to the
-    panel, not a dependency of it.
+def _run_isolated_write(conn, savepoint_name, action):
+    """Run `action()` (a zero-argument callable making writes on `conn`)
+    inside its own SAVEPOINT nested inside the caller's own outer
+    `write_batch()`. A `(sqlite3.Error, OSError)` there rolls back only
+    the writes `action()` itself made - never the pipeline heartbeat or
+    the runway-event insert already staged earlier in the same outer
+    batch - and is logged rather than propagated, so an accessory write's
+    own fault can never stop the core writes' commit.
+    """
+    conn.execute("SAVEPOINT %s" % savepoint_name)
+    try:
+        action()
+    except (sqlite3.Error, OSError) as exc:
+        conn.execute("ROLLBACK TO %s" % savepoint_name)
+        conn.execute("RELEASE %s" % savepoint_name)
+        print("poll_loop: %s failed: %s: %s" % (savepoint_name, type(exc).__name__, exc))
+    else:
+        conn.execute("RELEASE %s" % savepoint_name)
+
+
+def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH, detected=False, provider_last_calls=None):
+    """Write this cycle's durable signals into `history.db` in one
+    connection and one transaction: every write below runs inside one
+    `history_db.write_batch(conn)`, committed once as this function
+    returns (or rolled back as one unit if any write raises) - never left
+    open while `_notify_silence_transition()` makes its ntfy HTTP call
+    afterwards. A database/filesystem failure from a CORE write (the
+    event insert, the three per-cycle meta keys, the wake epoch) is
+    caught and logged, never allowed to fail the poll cycle - history is
+    an accessory to the panel, not a dependency of it.
+
+    Two of the writes below are ACCESSORY rather than core, and are each
+    isolated in their own SAVEPOINT via `_run_isolated_write()` so a
+    fault in one can never roll back the pipeline heartbeat or the
+    runway-event insert staged just above them in the same outer batch:
+    the Caddy-log ingest (one `INSERT OR IGNORE` per log line - a
+    malformed row, `SQLITE_FULL`, or a corrupt page reached only by that
+    table could otherwise stop `META_LAST_PIPELINE_RUN` from advancing,
+    making the Health page report "stale" while the pipeline runs fine)
+    and the provider-timestamp meta rows. The Caddy log itself - up to 10
+    MiB - is also tailed BEFORE this function's own `write_batch()` even
+    opens (`history_db.read_caddy_battery_log()`, a plain meta SELECT
+    plus file I/O, no writer), so that read never holds the write lock a
+    companion writer would otherwise wait on via `busy_timeout`.
 
     `record_event` gates the one thing not written every cycle: a
     `runway_events` row, on a real transition only. The pipeline-run
@@ -639,33 +765,62 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
     queue this cycle enqueued is a real detection in its own right). The
     last-detection timestamp advances on either signal, so "Last aircraft
     detected" never lags behind a genuinely queued sighting.
+
+    `provider_last_calls`, when a (non-empty) dict, is this cycle's
+    updated `{provider_name: epoch_seconds}` map from
+    `detect.poll_current_aircraft()` - written here, one meta row per
+    provider, inside the SAME outer batch as everything else above (just
+    isolated in its own savepoint, per the paragraph above). Lives in
+    meta rather than poll_state.json so a timer cycle immediately
+    followed by the companion's `/poll-now` (two separate processes) never
+    calls the same provider twice within its own spacing limit, without
+    making poll_state.json's own "write only if content changed" bit flip
+    on every cycle just because a provider was queried. `None` (the hold
+    branch and the injected-snapshot path, neither of which queries a
+    live provider) writes nothing here.
     """
     route = route if isinstance(route, dict) else {}
     try:
         with history_db.open_db(state_dir) as conn:
-            if record_event and isinstance(flight, dict):
-                history_db.record_runway_event(
-                    conn,
-                    ts=now_iso,
-                    hex=flight.get("hex"),
-                    callsign=flight.get("callsign"),
-                    aircraft_type=flight.get("aircraft_type"),
-                    confirmed_state=confirmed_state,
-                    corroborated=flight.get("corroborated"),
-                    route_source=route_source,
-                    airline=route.get("airline_name"),
-                    origin=route.get("origin_iata"),
-                    destination=route.get("destination_iata"),
-                    tracked_runway=tracked_runway_id,
-                )
-            history_db.set_meta(conn, history_db.META_LAST_PIPELINE_RUN, now_iso)
-            history_db.set_meta(conn, history_db.META_SOURCE_FAULT, str(source_fault))
-            if flight is not None or detected:
-                history_db.set_meta(conn, history_db.META_LAST_DETECTION, now_iso)
+            caddy_result = None
             if caddy_log:
-                history_db.ingest_caddy_battery_log(conn, caddy_log)
-            if wake_interval_s is not _NO_WAKE_EPOCH:
-                history_db.record_wake_epoch(conn, now_iso, wake_interval_s)
+                try:
+                    caddy_result = history_db.read_caddy_battery_log(conn, caddy_log)
+                except (sqlite3.Error, OSError) as exc:
+                    print("poll_loop: caddy log read failed: %s: %s" % (type(exc).__name__, exc))
+            with history_db.write_batch(conn):
+                if record_event and isinstance(flight, dict):
+                    history_db.record_runway_event(
+                        conn,
+                        ts=now_iso,
+                        hex=flight.get("hex"),
+                        callsign=flight.get("callsign"),
+                        aircraft_type=flight.get("aircraft_type"),
+                        confirmed_state=confirmed_state,
+                        corroborated=flight.get("corroborated"),
+                        route_source=route_source,
+                        airline=route.get("airline_name"),
+                        origin=route.get("origin_iata"),
+                        destination=route.get("destination_iata"),
+                        tracked_runway=tracked_runway_id,
+                    )
+                history_db.set_meta(conn, history_db.META_LAST_PIPELINE_RUN, now_iso)
+                history_db.set_meta(conn, history_db.META_SOURCE_FAULT, str(source_fault))
+                if flight is not None or detected:
+                    history_db.set_meta(conn, history_db.META_LAST_DETECTION, now_iso)
+                if caddy_result is not None:
+                    readings, new_offset = caddy_result
+                    _run_isolated_write(
+                        conn, "caddy_ingest",
+                        lambda: history_db.apply_caddy_battery_log(conn, readings, new_offset))
+                if wake_interval_s is not _NO_WAKE_EPOCH:
+                    history_db.record_wake_epoch(conn, now_iso, wake_interval_s)
+                if provider_last_calls:
+                    def _write_provider_last_calls():
+                        for name, value in provider_last_calls.items():
+                            history_db.set_meta(
+                                conn, history_db.META_PROVIDER_LAST_CALL_PREFIX + name, repr(float(value)))
+                    _run_isolated_write(conn, "provider_last_call_meta", _write_provider_last_calls)
     except (sqlite3.Error, OSError) as exc:
         print("poll_loop: history write failed: %s: %s" % (type(exc).__name__, exc))
 
@@ -734,13 +889,19 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_
     is passed straight through to `poll_cycle_lock()` - `None` (the
     systemd oneshot's default) waits up to `POLL_LOCK_WAIT_S`; `0` (the
     companion's POST /poll-now) raises `PollBusy` at once rather than
-    ever blocking a request thread. See `_run_once_locked()` for the
-    cycle itself.
+    ever blocking a request thread. Nested inside the lock, one
+    `history_db.connection_scope(state_dir)` spans the whole cycle body,
+    so every `history_db.open_db(state_dir)` call `_run_once_locked()`
+    makes on this thread - directly, or nested inside `connection_scope`
+    itself if a caller (e.g. the companion's request dispatch) is already
+    inside one for the same path - shares the one connection this cycle
+    opens. See `_run_once_locked()` for the cycle itself.
     """
     state_dir = state_dir or DEFAULT_STATE_DIR
     with poll_cycle_lock(state_dir, lock_timeout_s):
-        return _run_once_locked(
-            snapshot=snapshot, state_dir=state_dir, geofence=geofence, caddy_log=caddy_log)
+        with history_db.connection_scope(state_dir):
+            return _run_once_locked(
+                snapshot=snapshot, state_dir=state_dir, geofence=geofence, caddy_log=caddy_log)
 
 
 def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
@@ -804,6 +965,11 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
     # feeds three decisions: the badge, the BATTERY EMPTY latch, and (via
     # that latch) the wake-interval pin below.
     poll_state = load_poll_state(state_dir)
+    # A string snapshot taken before any branch below mutates poll_state in
+    # place - the dict itself can't serve as its own "did anything change?"
+    # baseline once mutated. Compared against at the cycle's two exits by
+    # _persist_poll_state(); never re-taken mid-cycle.
+    poll_state_baseline = _serialize_poll_state(poll_state)
     battery_mv = load_battery_state(state_dir)
     # Stored back into poll_state immediately, before
     # wake.effective_wake_interval_s() below, so it sees this cycle's own
@@ -896,14 +1062,12 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
             if panel_changed:
                 _save_to_gallery(state_dir, canvas, now_iso)
 
-        # `was_hold != hold_kind` persists a hold-kind change even with
-        # nothing rendered; `legacy_present` is the one-time migration
-        # flush; `battery_critical_changed` is named explicitly rather than
-        # relied on implicitly, so a future priority change can't silently
-        # stop persisting this latch's flip.
-        battery_critical_changed = battery_critical != was_battery_critical
-        if was_hold != hold_kind or battery_changed or legacy_present or battery_critical_changed:
-            save_poll_state(state_dir, poll_state)
+        # `was_hold != hold_kind` (a hold-kind change), `legacy_present`
+        # (the one-time migration flush), the battery-critical latch's own
+        # flip, and the notify hook's `poll_state["notifications"]`
+        # mutation below are exactly the fields this branch may change -
+        # all persisted together by the one end-of-cycle
+        # `_persist_poll_state()` call below, not saved individually here.
 
         # Not optional: advances META_LAST_PIPELINE_RUN, or a long hold
         # would make the companion Health page raise a false staleness
@@ -918,14 +1082,17 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
         # re-checks staleness while it lasts - without this, a frame that
         # dies mid-hold would never raise a frame_silent push. After
         # _record_history() so this cycle's check-in has already
-        # committed. Persisted unconditionally after, since the hook may
-        # have mutated poll_state["notifications"].
+        # committed.
         try:
             with history_db.open_db(state_dir) as conn:
                 _notify_silence_transition(state_dir, poll_state, conn, device_cfg)
         except (sqlite3.Error, OSError) as exc:
             print("poll_loop: silence-transition history read failed (hold branch): %s: %s" % (type(exc).__name__, exc))
-        save_poll_state(state_dir, poll_state)
+        # The cycle's one save: written only if this branch's mutations
+        # above (hold-kind, battery flags, migration flush, or the notify
+        # hook's own poll_state["notifications"] write) actually changed
+        # anything from the snapshot taken at load.
+        _persist_poll_state(state_dir, poll_state, poll_state_baseline)
 
         print(
             "poll_loop: hold_state=%s until=%s entered=%s panel_changed=%s "
@@ -961,12 +1128,23 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
     # source is down" apart from "nothing on the runway" - both otherwise
     # return the same None selection.
     diagnostics = None
+    # This cycle's updated `{provider_name: epoch_seconds}` map, persisted
+    # into history.db meta (never poll_state.json - see
+    # _record_history()'s own comment) by every _record_history() call
+    # below on the live path only. Stays None on the injected-snapshot
+    # path (no live provider is ever queried there, so there is nothing to
+    # persist) - `_load_provider_last_calls()` itself is also skipped on
+    # that path for the same reason.
+    provider_last_calls = None
     if snapshot is not None:
         aircraft = _extract_aircraft(snapshot)
         flight = detect.select_aircraft_for_runway(aircraft, geofence_data, runway_id=tracked_runway_id)
     else:
         diagnostics = {}
-        flight = detect.poll_current_aircraft(geofence_data, runway_id=tracked_runway_id, diagnostics=diagnostics)
+        provider_last_calls = _load_provider_last_calls(state_dir, detect.DEFAULT_PROVIDER_ORDER)
+        flight = detect.poll_current_aircraft(
+            geofence_data, runway_id=tracked_runway_id, diagnostics=diagnostics,
+            last_call_at=provider_last_calls)
 
     source_fault = _classify_source_fault(diagnostics)
     previous_source_fault = _last_source_fault(state_dir)
@@ -1176,11 +1354,13 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
         poll_state["previous_route"] = previous_route
         poll_state["pending_flights"] = pending
         poll_state["last_advance_at"] = last_advance_at
-        save_poll_state(state_dir, poll_state)
+        # Persisted once at the cycle's end (_persist_poll_state, in the
+        # shared tail below), not here.
         _record_history(
             state_dir, current_flight, confirmed_state, route_source, route,
             tracked_runway_id, source_fault, event_recorded, now_iso,
             caddy_log=caddy_log, wake_interval_s=effective_wake_interval_s,
+            provider_last_calls=provider_last_calls,
         )
     elif current_flight is not None:
         # Nothing new reached the display this cycle, but a flight was
@@ -1238,11 +1418,12 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
         if queue_dirty:
             # Nothing displayed changed, but the queue did, and this script
             # has no memory across invocations - unpersisted, an enqueue
-            # would be lost the instant this process exits.
+            # would be lost the instant this process exits. Persisted once
+            # at the cycle's end (_persist_poll_state, in the shared tail
+            # below), along with any battery-flag or hold-exit change this
+            # branch made.
             poll_state["pending_flights"] = pending
             poll_state["last_advance_at"] = last_advance_at
-        if battery_changed or queue_dirty or hold_exited:
-            save_poll_state(state_dir, poll_state)
         _record_history(
             state_dir, None, None, None, None,
             tracked_runway_id, source_fault, False, now_iso,
@@ -1251,6 +1432,7 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
             # the display (`current_flight`, unchanged here) - a distinct
             # aircraft that only got queued is still a real detection.
             detected=flight is not None,
+            provider_last_calls=provider_last_calls,
         )
     else:
         # Nothing detected, and nothing has ever been detected since the
@@ -1267,17 +1449,31 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
         panel_changed = write_panel_atomic(state_dir, rendered)
         if panel_changed:
             _save_to_gallery(state_dir, canvas, now_iso)
-        # The flight-detected branch always saves unconditionally; this
-        # branch otherwise never would, losing hysteresis memory for a
-        # frame that has never seen an aircraft.
-        if battery_changed or hold_exited:
-            save_poll_state(state_dir, poll_state)
+        # Any battery-flag or hold-exit change this branch made is
+        # persisted once at the cycle's end (_persist_poll_state, in the
+        # shared tail below) - without that shared save, hysteresis memory
+        # for a frame that has never seen an aircraft would never reach
+        # disk.
         _record_history(
             state_dir, None, None, None, None,
             tracked_runway_id, source_fault, False, now_iso,
             caddy_log=caddy_log, wake_interval_s=effective_wake_interval_s,
+            provider_last_calls=provider_last_calls,
         )
 
+    # Saved here, BEFORE the frame-silence notify call below, not after it
+    # - the flight-detected branch above may have just committed a
+    # runway_events row gated on poll_state["last_recorded_*"]
+    # (_should_record_event()); those dedup fields must reach disk before
+    # the notify hook's ntfy HTTP call (5s timeout plus DNS) gives a crash
+    # (SIGKILL/OOM, the systemd 90s TimeoutStartSec kill, an atomic_write
+    # OSError, a companion restart mid /poll-now) a window to lose them -
+    # otherwise the next cycle's _should_record_event() would still see
+    # the OLD last_recorded_* values on disk and insert the same event
+    # again. Written only if any branch above actually changed something
+    # from the snapshot taken at load.
+    _persist_poll_state(state_dir, poll_state, poll_state_baseline)
+    after_branches_serialized = _serialize_poll_state(poll_state)
     # Shared call site for the frame-silence check, common to all three
     # branches above (the hold branch has its own, right after its own
     # _record_history()). Placed after every branch's history write so a
@@ -1287,7 +1483,14 @@ def _run_once_locked(snapshot=None, state_dir=None, geofence=None, caddy_log=Non
             _notify_silence_transition(state_dir, poll_state, conn, device_cfg)
     except (sqlite3.Error, OSError) as exc:
         print("poll_loop: silence-transition history read failed: %s: %s" % (type(exc).__name__, exc))
-    save_poll_state(state_dir, poll_state)
+    # A second save, only on top of the one above - written only if the
+    # notify hook's own poll_state["notifications"] mutation changed
+    # anything beyond what was just persisted. A steady-state cycle (no
+    # branch mutation, no transition) still writes nothing at all; a cycle
+    # with only a branch mutation still writes exactly once, before the
+    # notify call - this second call only fires on a genuine silent/
+    # recovered transition landing in the same cycle as a branch mutation.
+    _persist_poll_state(state_dir, poll_state, after_branches_serialized)
 
     # Logs only this project's own records/telemetry, never a third-party
     # response body or the raw battery millivolt reading. `hex=` is this

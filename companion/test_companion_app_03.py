@@ -401,7 +401,10 @@ def test_theme_preview_script_route_src_agree():
 def test_theme_preview_script_tag_exactly_once_and_no_bare_inline_script():
     """a rendered authenticated page contains exactly one theme-preview.js <script> tag and no
     inline <script> without a src"""
-    doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+    # Per-page scripts: this src is opt-in via `scripts=` now, not global.
+    doc = layout.page_shell(
+        title="T", active="health", body="<p>b</p>",
+        scripts=(layout.THEME_PREVIEW_SCRIPT_SRC,))
     expected_tag = '<script src="%s" defer></script>' % layout.THEME_PREVIEW_SCRIPT_SRC
     assert doc.count(expected_tag) == 1, (
         "expected exactly one %r, got %d" % (expected_tag, doc.count(expected_tag)))
@@ -455,7 +458,10 @@ def test_flight_rows_script_route_src_agree():
 def test_flight_rows_script_tag_exactly_once_and_no_bare_inline_script():
     """a rendered authenticated page contains exactly one flight-rows.js <script> tag and no
     inline <script> without a src"""
-    doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+    # Per-page scripts: this src is opt-in via `scripts=` now, not global.
+    doc = layout.page_shell(
+        title="T", active="health", body="<p>b</p>",
+        scripts=(layout.FLIGHT_ROWS_SCRIPT_SRC,))
     expected_tag = '<script src="%s" defer></script>' % layout.FLIGHT_ROWS_SCRIPT_SRC
     assert doc.count(expected_tag) == 1, (
         "expected exactly one %r, got %d" % (expected_tag, doc.count(expected_tag)))
@@ -474,13 +480,27 @@ def test_real_get_flight_rows_route_serves_expected_body(app03_server):
 
 
 def test_fifteen_deferred_scripts_before_closing_body():
-    """a rendered authenticated page contains exactly fifteen deferred <script src= tags before
-    the closing body tag, including panel-lookup.js, flash-cleanup.js, poll-cooldown.js,
-    confirm-submit.js, theme-preview.js, flight-rows.js, submit-guard.js, relative-time.js,
-    quick-switch.js and value-controls.js — and NOT login-card.js, which login_shell() alone
+    """Per-page scripts: a bare page_shell() call emits only
+    GLOBAL_PAGE_SCRIPTS' 4 tags before the closing body tag; asking for
+    every other SHELL_SCRIPT_ORDER script via `scripts=` still emits all
+    fifteen together, including panel-lookup.js, flash-cleanup.js,
+    poll-cooldown.js, confirm-submit.js, theme-preview.js, flight-rows.js,
+    submit-guard.js, relative-time.js, quick-switch.js and
+    value-controls.js — and NOT login-card.js, which login_shell() alone
     emits, nor submit-guard.js/relative-time.js/quick-switch.js/value-controls.js on that login
     shell, which still emits exactly one"""
-    doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+    bare_doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+    bare_count = bare_doc[:bare_doc.index("</body>")].count('<script src=')
+    assert bare_count == len(layout.GLOBAL_PAGE_SCRIPTS), (
+        "expected a bare page_shell() call to emit exactly "
+        "len(GLOBAL_PAGE_SCRIPTS)=%d deferred <script src= tags before "
+        "</body>, got %d" % (len(layout.GLOBAL_PAGE_SCRIPTS), bare_count))
+
+    all_non_global = tuple(
+        src for src in layout.SHELL_SCRIPT_ORDER
+        if src not in layout.GLOBAL_PAGE_SCRIPTS)
+    doc = layout.page_shell(
+        title="T", active="health", body="<p>b</p>", scripts=all_non_global)
     body_close = doc.index("</body>")
     head = doc[:body_close]
     count = head.count('<script src=')
@@ -861,7 +881,10 @@ def test_quick_switch_script_route_src_agree():
 def test_quick_switch_script_tag_exactly_once_and_no_bare_inline_script():
     """a rendered authenticated page contains exactly one quick-switch.js <script> tag and no
     inline <script> without a src"""
-    doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+    # Per-page scripts: this src is opt-in via `scripts=` now, not global.
+    doc = layout.page_shell(
+        title="T", active="health", body="<p>b</p>",
+        scripts=(layout.QUICK_SWITCH_SCRIPT_SRC,))
     expected_tag = '<script src="%s" defer></script>' % layout.QUICK_SWITCH_SCRIPT_SRC
     assert doc.count(expected_tag) == 1, (
         "expected exactly one %r, got %d" % (expected_tag, doc.count(expected_tag)))
@@ -975,7 +998,10 @@ def test_value_controls_script_route_src_agree():
 def test_value_controls_script_tag_exactly_once_and_no_bare_inline_script():
     """a rendered authenticated page contains exactly one value-controls.js <script> tag and no
     inline <script> without a src"""
-    doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+    # Per-page scripts: this src is opt-in via `scripts=` now, not global.
+    doc = layout.page_shell(
+        title="T", active="health", body="<p>b</p>",
+        scripts=(layout.VALUE_CONTROLS_SCRIPT_SRC,))
     expected_tag = '<script src="%s" defer></script>' % layout.VALUE_CONTROLS_SCRIPT_SRC
     assert doc.count(expected_tag) == 1, (
         "expected exactly one %r, got %d" % (expected_tag, doc.count(expected_tag)))

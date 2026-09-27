@@ -174,11 +174,11 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [x] **SEC-07**: Secret via env; env file `root:root 600`; secret passed through `env:`
 - [x] **SEC-08**: `sshd_config.d/00-skypane.conf`, `PermitRootLogin no`, validated
 - [x] **EFF-01**: `encode zstd gzip`; validators + 304; static bytes cached in memory
-- [ ] **EFF-02**: Only the scripts each page uses (no build step)
-- [ ] **EFF-03**: One connection per request/cycle; schema once per process; one transaction
-- [ ] **EFF-04**: Lazy context; severity computed without markup; light freshness endpoint
-- [ ] **EFF-05**: Saved once, only if changed, compact
-- [ ] **EFF-06**: Providers queried in parallel, per-provider rate limit kept
+- [x] **EFF-02**: Only the scripts each page uses (no build step)
+- [x] **EFF-03**: One connection per request/cycle; schema once per process; one transaction
+- [x] **EFF-04**: Lazy context; severity computed without markup; light freshness endpoint
+- [x] **EFF-05**: Saved once, only if changed, compact
+- [x] **EFF-06**: Providers queried in parallel, per-provider rate limit kept
 - [ ] **ARC-01**: `load_cycle_context` / `decide_hold` / `advance_display_queue` / `render_and_publish` / `persist` / `record` over a `CycleContext` dataclass
 - [ ] **ARC-02**: `server/state_store.py` owns `poll_state.json`; companion imports it
 - [ ] **ARC-03**: `render/{layout,text,hold_screens,cli}`, `calendar/{ics,registry,match}`, `themes.py`, shared `net/safe_fetch.py`
@@ -424,11 +424,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SEC-07 | Phase 37 | Complete |
 | SEC-08 | Phase 37 | Complete |
 | EFF-01 | Phase 38 | Complete |
-| EFF-02 | Phase 38 | Pending |
-| EFF-03 | Phase 38 | Pending |
-| EFF-04 | Phase 38 | Pending |
-| EFF-05 | Phase 38 | Pending |
-| EFF-06 | Phase 38 | Pending |
+| EFF-02 | Phase 38 | Complete |
+| EFF-03 | Phase 38 | Complete |
+| EFF-04 | Phase 38 | Complete |
+| EFF-05 | Phase 38 | Complete |
+| EFF-06 | Phase 38 | Complete |
 | ARC-01 | Phase 39 | Pending |
 | ARC-02 | Phase 39 | Pending |
 | ARC-03 | Phase 39 | Pending |
