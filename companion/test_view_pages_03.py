@@ -511,7 +511,7 @@ def test_day_label_is_the_paris_day_formatters_own_output_and_never_sticky(serve
             "local_clock_text()'s own cross-day output (%r)" % (lang, label, formatter))
     for bad in (None, "", "not-a-timestamp", 17):
         assert history_page.paris_day(bad) is None, "expected paris_day(%r) to degrade to None" % (bad,)
-    assert history_page.day_label(day, day) == i18n.t_lang("Today", "en"), (
+    assert history_page.day_label(day, day) == i18n.t_lang(history_page._DAY_TODAY_LABEL, "en"), (
         "expected a same-day group to read Today")
 
     rule = declarations_for(served_css, ".flight-day-row th")

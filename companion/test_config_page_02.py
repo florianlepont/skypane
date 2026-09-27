@@ -19,6 +19,7 @@ import companion.test_config_page_helpers as cp
 from companion import draw
 from companion.layout import escape_html
 from companion.pages import config_page
+from companion.settings import form_post
 from companion_app_server import served_asset, served_stylesheet
 from companion_markup import css_rules, declarations_for, rule_indices
 from server import device_config
@@ -427,7 +428,7 @@ def test_the_ring_is_an_addition_and_the_four_controls_are_untouched():
                                 "quiet_hours_end": "zz"})):
         markup = config_page.quiet_hours_group(
             start, end, submitted=submitted,
-            errors={"quiet_hours_end": "Bad"} if submitted else None)
+            errors={"quiet_hours_end": form_post.ERROR_QUIET_HOURS_TIME_SHAPE} if submitted else None)
         effective_start = config_page._submitted_or_current(
             submitted, "quiet_hours_start", start)
         effective_end = config_page._submitted_or_current(
@@ -543,7 +544,7 @@ def test_the_ring_is_an_addition_and_the_four_controls_are_untouched():
     # stored, or the two disagree on exactly the screen where a mistake
     # is being fixed.
     echoed = config_page.quiet_hours_group(
-        "23:00", "07:00", errors={"quiet_hours_end": "Bad"},
+        "23:00", "07:00", errors={"quiet_hours_end": form_post.ERROR_QUIET_HOURS_TIME_SHAPE},
         submitted={"quiet_hours_start": "09:00", "quiet_hours_end": "17:00"})
     submitted_span = config_page.quiet_window_span("09:00", "17:00")
     arc = _dial_circle(echoed, config_page.QUIET_DIAL_ARC_CLASS)
@@ -599,9 +600,9 @@ def test_both_time_fields_and_twins_sit_inside_the_times_row_with_their_own_erro
         ("quiet_hours_end", "quiet-hours-end"))
     for errors, submitted in (
             (None, None),
-            ({"quiet_hours_start": "Bad start"},
+            ({"quiet_hours_start": form_post.ERROR_QUIET_HOURS_TIME_SHAPE},
              {"quiet_hours_start": "bad", "quiet_hours_end": "07:00"}),
-            ({"quiet_hours_end": "Bad end"},
+            ({"quiet_hours_end": form_post.ERROR_QUIET_HOURS_TIME_SHAPE},
              {"quiet_hours_start": "23:00", "quiet_hours_end": "bad"})):
         markup = config_page.quiet_hours_group(
             "23:00", "07:00", errors=errors, submitted=submitted)
@@ -790,7 +791,7 @@ _DECODE_QUIET_CASES = (
     ("23:00", "07:00", None, None),
     ("08:00", "18:00", None, None),
     ("23:00", "07:00",
-     {"quiet_hours_end": "Bad"},
+     {"quiet_hours_end": form_post.ERROR_QUIET_HOURS_TIME_SHAPE},
      {"quiet_hours_start": "09:00", "quiet_hours_end": "17:00"}),
 )
 

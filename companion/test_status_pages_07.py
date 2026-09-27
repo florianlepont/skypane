@@ -537,9 +537,12 @@ def test_nav_toggle_label_now_describes_the_preferences_panel():
         "expected the toggle to name what the panel now holds, got %r" % (layout.NAV_TOGGLE_LABEL,))
     assert layout.i18n.t_lang(layout.NAV_TOGGLE_LABEL, "fr") != layout.NAV_TOGGLE_LABEL, (
         "expected a French entry for the renamed toggle label")
-    assert layout.i18n.t_lang("Open menu", "fr") == "Open menu", (
-        "expected the retired 'Open menu' translation to be deleted, not superseded in place — "
-        "it names a menu of pages the panel no longer holds")
+    # The retired "Open menu" wording is not a Message anywhere any
+    # more (deleted, not superseded in place) — i18n.t_lang() only
+    # accepts a Message, so the plain string it used to be raises
+    # TypeError rather than degrading to some stale translation.
+    with pytest.raises(TypeError):
+        layout.i18n.t_lang("Open menu", "fr")
     try:
         prefs.set_request_prefs(lang="fr")
         rendered = layout.page_shell(

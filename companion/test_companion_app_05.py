@@ -34,7 +34,10 @@ import pytest
 
 import companion.i18n as i18n_module
 import companion.layout as layout
+import companion.login_page as login_page
 import companion.test_companion_app_helpers as cah
+import companion.ui_nav as ui_nav
+import companion.ui_shell as ui_shell
 from companion.test_config_page_helpers import caption_word_count_text
 from companion import auth, frame_state
 from companion.pages import config_page
@@ -1457,7 +1460,7 @@ def test_flash_and_title_strings_round_trip_to_french_and_back():
         _assert_round_trips(template, "FLASH_MESSAGES[%r]" % (key,))
     for route, title in app_module._PAGE_TITLES.items():
         _assert_round_trips(title, "_PAGE_TITLES[%r]" % (route,))
-    for title in ("Not Found", "Login"):
+    for title in (login_page._NOT_FOUND_TAB_TITLE_TEXT, ui_shell._LOGIN_TITLE_TEXT):
         _assert_round_trips(title, "the %r <title> literal" % (title,))
 
 
@@ -1465,7 +1468,9 @@ def test_nav_and_theme_labels_round_trip_to_french_and_back():
     """the nav landmark's aria-label ("Primary navigation") and the theme picker's three segment
     labels ("Auto"/"Light"/"Dark") round-trip to French under i18n.t_lang(..., 'fr') and to their
     original English text under i18n.t_lang(..., 'en')"""
-    for text in ("Primary navigation", "Auto", "Light", "Dark"):
+    for text in (
+            ui_nav._PRIMARY_NAVIGATION_TEXT, ui_nav._THEME_LABEL_TEXT["auto"],
+            ui_nav._THEME_LABEL_TEXT["light"], ui_nav._THEME_LABEL_TEXT["dark"]):
         en_result = i18n_module.t_lang(text, "en")
         assert en_result == text, (
             "expected t_lang(%r, 'en') to be byte-identical to the English source, got %r"

@@ -34,6 +34,7 @@ from companion import app as companion_app
 from companion import battery, frame_state
 from companion.layout import escape_html
 from companion.pages import config_page
+from companion.settings import form_post, wake_interval
 from companion_app_server import get, http_request, login, served_asset, served_stylesheet
 from companion_markup import css_rules, declarations_for, parse_html
 from server import device_config, history_db
@@ -491,7 +492,7 @@ def test_control_with_both_hint_and_error_carries_both_ids_in_order():
     error, never one overwriting another, and no error id at all when there is no error"""
     rendered = config_page.render(
         _TASK3_BASE_CTX, scope=config_page.SCOPE_DEVICE,
-        errors={"led_enabled": "msg"}, submitted={})
+        errors={"led_enabled": form_post.ERROR_UNEXPECTED_SWITCH_VALUE}, submitted={})
     input_match = re.search(r'<button type="submit" class="switch"[^>]*>', rendered)
     assert input_match, "expected the led_enabled switch to render"
     describedby_match = re.search(r'aria-describedby="([^"]+)"', input_match.group(0))
@@ -943,7 +944,7 @@ def test_the_wake_interval_field_has_a_label_above_it_and_a_content_sized_input(
     the unit as a sibling label"""
     rendered = config_page.wake_interval_group(300)
     label = '<label for="%s">%s</label>' % (
-        config_page.WAKE_INTERVAL_INPUT_ID, escape_html(config_page.i18n.t("Wake interval (seconds)")))
+        config_page.WAKE_INTERVAL_INPUT_ID, escape_html(i18n.t(wake_interval.WAKE_INTERVAL_INPUT_LABEL)))
     assert label in rendered, "expected the label to be its own element above the control (B17)"
     assert "</label><input" in rendered, "expected the input to be the label's SIBLING, not its child (B17)"
     unit = (
@@ -1347,7 +1348,7 @@ def test_the_gauges_are_an_addition_and_the_number_input_is_untouched(
             "%s: the number input carries a value attribute - an out-of-range value fails "
             "HTML5 constraint validation" % name)
     label = '<label for="%s">%s</label>' % (
-        escape_html(config_page.WAKE_INTERVAL_INPUT_ID), escape_html(i18n.t("Wake interval (seconds)")))
+        escape_html(config_page.WAKE_INTERVAL_INPUT_ID), escape_html(i18n.t(wake_interval.WAKE_INTERVAL_INPUT_LABEL)))
     unit = ('<span class="text-label field-inline-value" aria-hidden="true">%s</span>'
             % escape_html(config_page.WAKE_INTERVAL_UNIT_LABEL))
     assert label in markup and unit in markup, "%s: the B17 label or the unit sibling changed" % name
@@ -1369,7 +1370,7 @@ def test_the_gauges_error_block_still_attaches_with_the_gauges_after_it():
     of the six-shape check above, split out because it exercises a distinct fixture (an `errors`
     dict) rather than a seventh parametrize case"""
     with_error = config_page.wake_interval_group(
-        600, errors={"wake_interval_s": "Enter a whole number of seconds."},
+        600, errors={"wake_interval_s": form_post.ERROR_WAKE_INTERVAL_RANGE},
         submitted={"wake_interval_s": "900"}, battery_rows=_FALLING)
     error_block = re.search(r'<p class="field-error[^"]*" id="wake-interval-s-error"', with_error)
     assert error_block, "the field error block no longer renders"
@@ -1409,7 +1410,7 @@ def test_the_range_is_gated_nameless_and_bounded_by_device_config():
                    'aria-describedby="%s %s"' % (config_page.WAKE_GAUGE_FRESHNESS_ID,
                                                  config_page.WAKE_GAUGE_BATTERY_ID)):
         assert needed in element, "the range is missing %r - %s" % (needed, element)
-    assert i18n.t(config_page.WAKE_SLIDER_LABEL) != i18n.t("Wake interval (seconds)"), (
+    assert i18n.t(config_page.WAKE_SLIDER_LABEL) != i18n.t(wake_interval.WAKE_INTERVAL_INPUT_LABEL), (
         "the range and the number input share one accessible name")
     for tag_match in re.finditer(r"<[a-zA-Z][-\w]*\b[^>]*>", markup):
         text = tag_match.group(0)
@@ -1547,7 +1548,8 @@ def test_the_native_submit_is_emitted_unconditionally_on_every_render(tmp_path):
     }
     render_kwargs = [
         {},
-        {"errors": {"wake_interval_s": "bad"}, "submitted": {"wake_interval_s": "x"}},
+        {"errors": {"wake_interval_s": form_post.ERROR_WAKE_INTERVAL_RANGE},
+         "submitted": {"wake_interval_s": "x"}},
         {"errors": {}, "submitted": {}},
     ]
     for scope in (config_page.SCOPE_ALL, config_page.SCOPE_DISPLAY, config_page.SCOPE_DEVICE):

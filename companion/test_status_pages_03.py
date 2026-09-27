@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 import companion.app as app
+import companion.health_signals as health_signals
 from companion import i18n, layout, prefs
 from companion.pages import health_page
 import companion.test_status_pages_helpers as shp
@@ -92,7 +93,7 @@ def test_collect_anomalies_and_overall_severity_treat_pipeline_off_as_healthy():
     # proving 'off' is a real exemption, not an accidental membership-check
     # bug that swallowed every non-'ok' value.
     assert health_page.collect_anomalies("ok", "warn", "ok", False) == [
-        health_page.i18n.t("Flight data is stale.")], (
+        health_page.i18n.t(health_signals._FLIGHT_DATA_STALE_TEXT)], (
         "expected collect_anomalies() to still flag a genuinely stale pipeline")
     assert health_page.overall_severity("ok", "warn", "ok", False) == "warn", (
         "expected overall_severity() to still warn for a genuinely stale pipeline")
@@ -730,7 +731,7 @@ def test_read_only_note_reworded_to_point_at_airlines_not_the_runbook(tmp_path):
         "expected the rendered page to contain the visible note verbatim (escaped)")
     detail_marker = (
         '<details class="readings-disclosure"><summary>%s</summary><p>%s</p></details>'
-        % (layout.escape_html(i18n.t("More details")), layout.escape_html(expected_detail)))
+        % (layout.escape_html(i18n.t(health_page._MORE_DETAILS_TEXT)), layout.escape_html(expected_detail)))
     assert detail_marker in rendered, (
         "expected the moved instruction verbatim (escaped) inside a readings-disclosure")
     assert old_note_closing_phrase not in rendered, (
@@ -1195,7 +1196,7 @@ def test_battery_trend_caption_all_three_branches_render_in_sibling_caption(tmp_
         readings.append((shp.iso(base - timedelta(days=day)), mv))
     shp.seed_device_health(daily_dir, readings)
     rendered = health_page.render(shp.ctx(daily_dir, now_value=shp.iso(base)))
-    expected = layout.escape_html(i18n.t("Last 3 months, daily average"))
+    expected = layout.escape_html(i18n.t(health_signals._LAST_3_MONTHS_DAILY_AVERAGE_TEXT))
     assert _caption_paragraph(rendered) == expected, (
         "daily-series branch: expected caption %r" % expected)
 
@@ -1203,7 +1204,7 @@ def test_battery_trend_caption_all_three_branches_render_in_sibling_caption(tmp_
     # the same 3-month framing) — an empty state dir.
     empty_dir = str(tmp_path / "empty")
     rendered = health_page.render(shp.ctx(empty_dir, now_value=shp.iso(base)))
-    expected = layout.escape_html(i18n.t("Last 3 months, daily average"))
+    expected = layout.escape_html(i18n.t(health_signals._LAST_3_MONTHS_DAILY_AVERAGE_TEXT))
     assert _caption_paragraph(rendered) == expected, "no-rows branch: expected caption %r" % expected
 
     # Branch 3: a sub-two-day raw series (the day-1 fallback) — the real
@@ -1216,7 +1217,7 @@ def test_battery_trend_caption_all_three_branches_render_in_sibling_caption(tmp_
     ]
     shp.seed_device_health(sameday_dir, sameday_readings)
     rendered = health_page.render(shp.ctx(sameday_dir, now_value=shp.iso(base)))
-    expected = layout.escape_html(i18n.t("Latest %d readings") % len(sameday_readings))
+    expected = layout.escape_html(i18n.t(health_signals._LATEST_READINGS_TEMPLATE) % len(sameday_readings))
     assert _caption_paragraph(rendered) == expected, "sub-two-day branch: expected caption %r" % expected
 
 

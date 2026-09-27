@@ -18,6 +18,7 @@ import companion.test_config_page_helpers as cp
 from companion import app as companion_app
 from companion.layout import escape_html
 from companion.pages import config_page
+from companion.settings import form_post
 from companion_app_server import served_asset, served_stylesheet
 from companion_markup import (
     at_rule_blocks,
@@ -220,14 +221,15 @@ def test_render_no_new_args_byte_identical_and_no_field_error_markup():
 
 
 def test_render_wake_interval_error_shows_message_value_and_aria():
-    """render(ctx, errors={"wake_interval_s": "msg"}, submitted={"wake_interval_s": "7"}) renders
-    the message once, echoes value="7" back into the input, and sets aria-invalid plus a
+    """render(ctx, errors={"wake_interval_s": ERROR_WAKE_INTERVAL_RANGE}, submitted={"wake_interval_s": "7"})
+    renders the message once, echoes value="7" back into the input, and sets aria-invalid plus a
     matching aria-describedby"""
+    error_message = form_post.ERROR_WAKE_INTERVAL_RANGE
     rendered = config_page.render(
-        _TASK2_BASE_CTX, errors={"wake_interval_s": "msg"},
+        _TASK2_BASE_CTX, errors={"wake_interval_s": error_message},
         submitted={"wake_interval_s": "7"})
-    assert rendered.count("msg") == 1, (
-        "expected the error message to render exactly once, got %d" % rendered.count("msg"))
+    assert rendered.count(error_message) == 1, (
+        "expected the error message to render exactly once, got %d" % rendered.count(error_message))
     assert 'value="7"' in rendered, "expected the submitted value 7 to be echoed back into the input"
     input_match = re.search(
         r'<input type="number" id="[^"]*" name="wake_interval_s"[^>]*>', rendered)
@@ -270,17 +272,19 @@ def test_render_both_quiet_hours_time_inputs_carry_required():
 
 
 def test_calendar_connection_url_error_never_echoes_the_submitted_secret():
-    """_calendar_connection_html(..., errors={"calendar_url": "msg"}) renders the error message
-    under the field while the write-only field itself still carries no value attribute at all
+    """_calendar_connection_html(..., errors={"calendar_url": ERROR_CALENDAR_URL_INVALID}) renders
+    the error message under the field while the write-only field itself still carries no value
+    attribute at all
 
     The write-only calendar_url field's own `errors` parameter now lives directly on
     _calendar_connection_html() - it never accepts `submitted` at all (nothing to repopulate:
     the one field it renders is write-only), so there is no submitted URL for it to echo.
     """
+    error_message = form_post.ERROR_CALENDAR_URL_INVALID
     rendered, _disconnect_form_html = config_page._calendar_connection_html(
         False, False, None, None, "2026-09-07T09:12:04+00:00", 0,
-        errors={"calendar_url": "msg"})
-    assert "msg" in rendered, "expected the calendar_url error message to render"
+        errors={"calendar_url": error_message})
+    assert error_message in rendered, "expected the calendar_url error message to render"
     assert 'name="calendar_url"' in rendered, "expected the calendar_url field itself to still render"
     after_name = rendered.split('name="calendar_url"', 1)[1].split(">", 1)[0]
     assert "value=" not in after_name, (
@@ -815,7 +819,7 @@ def test_aspect_arrivals_override_preselects_the_override_not_same_as_departures
         "expected the departures theme (white) to NOT be marked selected in the arrivals row "
         "once an override is set")
     summary_segment = arrivals_segment.split("</summary>", 1)[0]
-    override_label = escape_html(i18n.t(device_config.theme_label("black")))
+    override_label = escape_html(device_config.theme_label("black"))
     assert override_label in summary_segment, (
         "expected the arrivals row's summary meta to name the override's own label")
     same_as_label = escape_html(i18n.t(config_page.SAME_AS_DEPARTURES_LABEL))
