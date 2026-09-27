@@ -324,8 +324,8 @@ served, so `byos_server.py` never serves a half-written file and the
 device's own image-hash short-circuit (above) actually has something
 stable to compare against.
 
-**Serving.** `stub-server/byos_server.py` — vendored from
-`flightportrait/frame`, unchanged in logic — implements the device-facing
+**Serving.** `stub-server/byos_server.py` derives from
+`flightportrait/frame`'s protocol server and implements the device-facing
 protocol in production, not just for local dev bring-up: `POST
 /device/v1/setup` (issues a bearer token), `GET /device/v1/display`
 (returns the current `image_hash`/`sleep_s`, computed by re-hashing
@@ -333,7 +333,14 @@ protocol in production, not just for local dev bring-up: `POST
 themselves), and `POST /device/v1/log` (device telemetry/error reports).
 It is a pure reader of `state/panel.bin` — it never calls an upstream API
 itself, so a device poll's response time is decoupled from aggregator or
-`adsbdb` latency entirely.
+`adsbdb` latency entirely. It shares device policy with the poll cycle
+through `server/device_policy.py` (quiet hours, the battery-critical
+rule, the sleep/wake constants) and `server/state_store.py` (the
+`poll_state.json` latch reader), both stdlib-only so byos gains no
+third-party dependency; it reaches them through the release's repo root
+on `sys.path` (`/opt/skypane/current`, root-owned, read-only under
+`ProtectSystem=strict`). An invalid stored quiet-hours time now falls
+back to the same default 23:00–07:00 window on both sides.
 
 **Hold screens and the `sleep_s` composition.** Three deliberate "resting
 on purpose" screens can each replace the live board, in priority order:
@@ -354,9 +361,10 @@ which is unaffected), persisting the decision as
 `poll_state.json`'s `battery_critical_active` key — `poll_loop.py` is
 that file's single writer. While parked, detection is skipped entirely
 (there is nothing new to check for until the pack is recharged), and
-`stub-server/byos_server.py` reads the same latch (`read_battery_critical()`,
-a fail-open reader proven behaviour-identical to `server/wake.py`'s own
-copy) to pin `sleep_s` to a fixed 3600 seconds — composed as
+`stub-server/byos_server.py` reads the same latch through
+`server/state_store.py`'s `read_battery_critical()` — the one shared,
+fail-open reader both processes now call — to pin `sleep_s` to a fixed
+3600 seconds — composed as
 `quiet_hours_sleep_s(battery_critical_sleep_s(display_off_sleep_s(base,
 ...), ..., fresh_battery_mv), ...)`, so a longer active quiet-hours
 window can still extend the sleep beyond an hour, and a display-off pin
@@ -436,11 +444,11 @@ as `<public-host>`, never by its real address).
   health/runway-event history, `server/history_db.py`) and a small
   `device_config.json` side-file for the theme/runway settings a Save
   click writes. It never touches `stub-server/byos_server.py`. Because
-  that vendored server prints the device's battery-voltage header but
-  persists nothing, and cannot be modified, the companion service's own
-  battery history comes from a second source instead: Caddy's own durable
-  JSON access log on the device-protocol site block, tailed for the
-  `X-Battery-Mv` header on every device poll.
+  that server prints the device's battery-voltage header but persists
+  nothing of its own, the companion service's own battery history comes
+  from a second source instead: Caddy's own durable JSON access log on
+  the device-protocol site block, tailed for the `X-Battery-Mv` header on
+  every device poll.
 - **Device authentication** is a bearer token, issued at
   `/device/v1/setup` in exchange for a shared setup secret
   (`SKYPANE_BYOS_SECRET`, set once in a hand-written, gitignored

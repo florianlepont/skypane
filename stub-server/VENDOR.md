@@ -152,23 +152,21 @@ names, response shapes, telemetry printing) is untouched:
    per D-01's Claude's-Discretion resolution).
 
    `seconds_until_quiet_hours_end()` - the window-end arithmetic
-   `quiet_hours_sleep_s()` calls - is a deliberate byte-for-byte
-   DUPLICATE of `server/device_config.py`'s function of the same name
-   (landed by plan 10-01), kept duplicated rather than imported because
-   this file must never import a `server.*` project module: there is no
-   `sys.path` bootstrap here to make such an import even resolve, it
-   would break this file's own "Stdlib only" docstring claim, and it
-   would blur the vendor-provenance boundary this document exists to
-   track - the same reasoning that already kept local modifications 1-4
-   free of any project-package import. The two copies (the function body
-   and the `_HHMM_RE` pattern) are pinned byte-for-byte equal by an
-   automated drift guard in `stub-server/test_poll_cycle.py`, which reads
-   both `server/device_config.py` and this file as plain text (never by
-   importing `server.device_config`) and fails with a diff-style message
-   naming both files if they diverge. `re`, `datetime`, and `zoneinfo`
-   (added to this file's import block for this change) are all Python
-   standard library - `zoneinfo` since 3.9 - so the "Stdlib only"
-   contract stays intact.
+   `quiet_hours_sleep_s()` calls - was originally a deliberate
+   byte-for-byte DUPLICATE of `server/device_config.py`'s function of
+   the same name (landed by plan 10-01), kept duplicated rather than
+   imported because this file had no `sys.path` bootstrap to make a
+   `server.*` import resolve at all. **Local modification 11 (phase 39)
+   retired that duplicate**: this file now binds `seconds_until_quiet_hours_end`
+   directly to `server/device_policy.py`'s function of the same name, and
+   the byte-for-byte drift guard in `stub-server/test_poll_cycle.py`
+   became an identity check (`byos_module.seconds_until_quiet_hours_end
+   is device_policy.seconds_until_quiet_hours_end`) instead of a
+   plain-text comparison. `re`, `datetime`, and `zoneinfo` (added to this
+   file's import block for this change) are all Python standard library
+   - `zoneinfo` since 3.9 - so the "Stdlib only" contract (now "stdlib
+   only, plus the two shared stdlib-only modules" - see local
+   modification 11) stays intact.
 
    `quiet_hours_sleep_s()` runs inside the `do_GET` `/device/v1/display`
    branch, after the pre-existing `bearer_ok()` gate, so no new
@@ -186,10 +184,12 @@ names, response shapes, telemetry printing) is untouched:
    change is this vendored file's read half of that same feature.
 
    Concretely: this repository adds `WAKE_INTERVAL_MIN_S = 60` /
-   `WAKE_INTERVAL_MAX_S = 3600` (independently redefined duplicates of
-   `server/device_config.py`'s constants of the same names, never
-   imported, matching how `_HHMM_RE`/`QUIET_HOURS_TZ` are already
-   duplicated) and `read_wake_interval_s(state_dir, default)` (mirrors
+   `WAKE_INTERVAL_MAX_S = 3600` (originally independently redefined
+   duplicates of `server/device_config.py`'s constants of the same
+   names, matching how `_HHMM_RE`/`QUIET_HOURS_TZ` were already
+   duplicated; local modification 11 later rebound both to
+   `server/device_policy.py`'s own constants) and
+   `read_wake_interval_s(state_dir, default)` (mirrors
    `read_led_enabled()`'s shape and never-raises contract: a missing file,
    an unreadable file, malformed JSON, a non-dict document, an absent
    key, a wrong-typed value including a bool, or a value outside the
@@ -227,10 +227,11 @@ names, response shapes, telemetry printing) is untouched:
    renders a new panel while off but keeps checking in often enough to notice
    promptly when the toggle flips back on.
 
-   Concretely: this repository adds `DISPLAY_OFF_SLEEP_S = 300` (independently
-   redefined, never imported, matching how `WAKE_INTERVAL_MIN_S`/`MAX_S` are
+   Concretely: this repository adds `DISPLAY_OFF_SLEEP_S = 300` (originally
+   independently redefined, matching how `WAKE_INTERVAL_MIN_S`/`MAX_S` were
    already duplicated — origin: `server/device_config.py`'s constant of the same
-   name), `read_display_enabled(state_dir)` (mirrors `read_led_enabled()`'s
+   name; local modification 11 later rebound it to `server/device_policy.py`'s
+   own constant), `read_display_enabled(state_dir)` (mirrors `read_led_enabled()`'s
    shape and never-raises contract: a missing file, an unreadable file,
    malformed JSON, a non-dict document, or a present-but-non-bool
    `display_enabled` value all degrade to `True`), and
@@ -284,17 +285,22 @@ names, response shapes, telemetry printing) is untouched:
    image that cannot change until it is recharged.
 
    Concretely: this repository adds `BATTERY_CRITICAL_SLEEP_S = 3600`
-   (independently redefined, never imported, mirroring
+   (originally independently redefined, mirroring
    `server/device_config.py`'s constant of the same name and value) and
-   `BATTERY_CRITICAL_RECOVER_MV = 3700` (independently redefined, never
-   imported, mirroring `server/poll_loop.py`'s constant of the same name and
-   value); `read_battery_critical(state_dir)` (mirrors `read_display_enabled()`'s
+   `BATTERY_CRITICAL_RECOVER_MV = 3700` (originally independently
+   redefined, mirroring `server/poll_loop.py`'s constant of the same name and
+   value; local modification 11 later rebound both to
+   `server/device_policy.py`'s own constants); `read_battery_critical(state_dir)`
+   (mirrors `read_display_enabled()`'s
    shape and never-raises contract: a missing file, an unreadable file,
    malformed JSON, a non-dict document, or a present value that is anything
-   other than the literal boolean `True` all degrade to `False` — proven to
-   match `server.wake.read_battery_critical()`'s own behaviour field-by-field
-   across the identical fixture set, since this file must never import that
-   module); and `battery_critical_sleep_s(base_sleep_s, state_dir,
+   other than the literal boolean `True` all degrade to `False` — originally
+   proven to match `server.wake.read_battery_critical()`'s own behaviour
+   field-by-field across the identical fixture set without importing that
+   module; local modification 11 later rebound this function directly to
+   `server/state_store.py`'s own `read_battery_critical()`, which the test
+   still checks for behaviour parity against `server.wake`'s copy since that
+   one has not yet been switched over); and `battery_critical_sleep_s(base_sleep_s, state_dir,
    fresh_battery_mv)` (returns `BATTERY_CRITICAL_SLEEP_S` while parked, unless
    `fresh_battery_mv` — this same request's own already-parsed `X-Battery-Mv`
    reading, possibly `None` — is already at or above
@@ -331,11 +337,15 @@ names, response shapes, telemetry printing) is untouched:
    pins. `stub-server/test_poll_cycle.py` proves the composed chain live over
    HTTP, plus the parity checks named above.
 
-   A deliberate decision **not** made here, for the same reasons already
-   given for local modifications 4, 6 and 7: this file does not import
-   `server.wake` or `server.poll_loop` to read or validate the latch — the
-   read logic above is a small, self-contained, independent reimplementation
-   of just the read half of `server.wake.read_battery_critical()`.
+   At the time, this file did not import `server.wake` or `server.poll_loop`
+   to read or validate the latch — the read logic above was a small,
+   self-contained, independent reimplementation of just the read half of
+   `server.wake.read_battery_critical()`. **Local modification 11 (phase 39)**
+   replaced that reimplementation with a direct binding to
+   `server/state_store.py`'s own `read_battery_critical()`, the one shared
+   reader `server/poll_loop.py`'s writer and this file's own poll now agree
+   on; `server.wake`/`server.poll_loop` themselves remain off-limits to this
+   file.
 
    No other endpoint, response field, status code, or telemetry print
    statement was touched by this change.
@@ -380,6 +390,49 @@ names, response shapes, telemetry printing) is untouched:
     Caddy on loopback is byos's only client (`deploy/skypane-byos.service`).
     Nothing else changed.
 
+11. **Adopted the shared `server/device_policy.py` and `server/state_store.py`
+    modules for quiet hours, the battery-critical rule, and the wake/sleep
+    constants** (phase 39, ARC-05). This retires local modifications 5, 6
+    and 8's "duplicate rather than import" framing: this file now inserts
+    the repo root onto `sys.path` (`os.path.dirname(os.path.dirname(os.path.abspath(__file__)))`,
+    the same shape `server/poll_loop.py` and `server/state_store.py` use)
+    and binds `_HHMM_RE`, `QUIET_HOURS_TZ`, `WAKE_INTERVAL_MIN_S`/`MAX_S`,
+    `DISPLAY_OFF_SLEEP_S`, `BATTERY_CRITICAL_SLEEP_S`,
+    `BATTERY_CRITICAL_RECOVER_MV`, `seconds_until_quiet_hours_end`, and
+    `read_battery_critical` directly to the objects those two stdlib-only
+    modules define, instead of maintaining independent, hand-mirrored
+    copies. The vendor boundary this document tracks is updated, not
+    dropped: this file may import exactly `server.device_policy` and
+    `server.state_store` (both stdlib-only, so the module docstring's
+    "Stdlib only" claim stays true in substance) and nothing else from the
+    project — `server.poll_loop`, `server.wake`, `server.device_config`,
+    `server.plane.render`, etc. remain off-limits. The former
+    byte-for-byte source-text drift guards in `stub-server/test_poll_cycle.py`
+    became identity checks (e.g.
+    `byos_module.seconds_until_quiet_hours_end is device_policy.seconds_until_quiet_hours_end`),
+    a strictly stronger guarantee than text equality, plus a value check
+    against `server/device_config.py`'s own current attribute for the
+    constants that module still keeps a separate copy of.
+
+    **One behaviour changed, deliberately, at the developer's explicit
+    direction (D-4).** With quiet hours enabled and an invalid stored
+    start or end time, this file previously treated quiet hours as
+    disabled (local modification 5's own fail-open contract) and kept
+    serving fresh data on the normal cadence. It now falls back to the
+    default 23:00–07:00 window instead and extends the device's sleep
+    through it, matching `server/device_policy.py`'s `quiet_hours_window()`
+    and the server's own poll-cycle hold decision — the two sides no
+    longer disagree on this edge case; a hand-edited or corrupted
+    quiet-hours time now costs one held night's worth of polling instead
+    of silently letting the device poll through it. The old "disabled"
+    outcome is retargeted, not dropped:
+    `stub-server/test_poll_cycle.py`'s
+    `test_read_quiet_hours_invalid_time_falls_back_to_default_window` pins
+    the new merged behaviour (mirroring
+    `server/test_device_policy.py::test_quiet_hours_invalid_stored_time_falls_back_to_default_window`),
+    retiring the two invalid-time cases the old
+    `test_read_quiet_hours_fail_open_never_raises` pinned to `None`.
+
 **Everything else is verbatim**, including: `GET /device/v1/display`,
 `POST /device/v1/log`, `GET /img/*`, the `--image`/`--port`/`--sleep`
 flags, the bearer-token issuance and check logic once a setup request
@@ -417,14 +470,15 @@ reference simulator, per `docs/PROTOCOL.md`'s own text).
 
 A future re-pin of `byos_server.py` to a newer upstream commit is a
 deliberate, reviewable act: diff the new upstream file against the version
-recorded here, re-apply all **ten** local modifications (`--state-dir`,
+recorded here, re-apply all **eleven** local modifications (`--state-dir`,
 `--image-url-scheme`, the DEVICE-04 `X-Battery-Mv` validation/persistence,
 the LED read, the quiet-hours `sleep_s` extension, the wake-interval
 read, the display-off `sleep_s` pin, the BATTERY EMPTY `sleep_s` pin,
-the per-device enrolment registry, and `--bind`), update the pinned commit hash above,
-and re-run `stub-server/test_poll_cycle.py` and
-`stub-server/test_devices_registry.py` to confirm the contract —
-including both scheme checks, the quiet-hours drift guard, the
-display-off composition-order coverage, the BATTERY EMPTY
-composition-order and parity coverage, and every registry rule —
-still holds.
+the per-device enrolment registry, `--bind`, and the repo-root
+`sys.path` bootstrap onto `server.device_policy`/`server.state_store`),
+update the pinned commit hash above, and re-run
+`stub-server/test_poll_cycle.py` and `stub-server/test_devices_registry.py`
+to confirm the contract — including both scheme checks, the shared
+device-policy identity checks, the display-off composition-order
+coverage, the BATTERY EMPTY composition-order and parity coverage, and
+every registry rule — still holds.
