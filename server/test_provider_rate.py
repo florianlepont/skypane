@@ -4,7 +4,7 @@ back-to-back poll cycles (and processes), now that the old fixed
 inter-provider sleep is gone.
 
 Covers `server/history_db.py`'s `META_PROVIDER_LAST_CALL_PREFIX` and
-`server/poll_loop.py`'s `_load_provider_last_calls()`/`_record_history()`
+`server/poll_cycle.py`'s `_load_provider_last_calls()`/`_record_history()`
 wiring:
 
   * two cycles run back to back never call the same provider twice within
@@ -52,7 +52,7 @@ import server.device_config as device_config  # noqa: E402
 import server.history_db as history_db  # noqa: E402
 import server.plane.detect as detect  # noqa: E402
 import server.plane.enrich as enrich  # noqa: E402
-import server.poll_loop as poll_loop  # noqa: E402
+import server.poll_cycle as poll_cycle  # noqa: E402
 
 pytestmark = pytest.mark.slow
 
@@ -93,8 +93,8 @@ def test_back_to_back_cycles_never_call_the_same_provider_twice_within_its_spaci
     state_dir = str(tmp_path / "spacing")
 
     with efficiency_probe.fake_provider_latency(0) as calls:
-        poll_loop.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
-        poll_loop.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
+        poll_cycle.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
+        poll_cycle.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
 
     by_provider = {}
     for name, start, _end, _thread in calls:
@@ -128,7 +128,7 @@ def test_provider_last_call_times_persist_in_meta_and_a_later_cycle_still_waits(
     state_dir = str(tmp_path / "cross-cycle")
 
     with efficiency_probe.fake_provider_latency(0):
-        poll_loop.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
+        poll_cycle.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
 
     stored = {}
     for name in detect.DEFAULT_PROVIDER_ORDER:
@@ -141,7 +141,7 @@ def test_provider_last_call_times_persist_in_meta_and_a_later_cycle_still_waits(
             pytest.fail("meta value for %s is not a parsable float: %r" % (name, raw))
 
     with efficiency_probe.fake_provider_latency(0) as calls:
-        poll_loop.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
+        poll_cycle.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
 
     seen = set()
     for name, start, _end, _thread in calls:
@@ -165,7 +165,7 @@ def test_a_cycle_with_no_prior_meta_sleeps_zero_times_and_makes_one_connection_a
     with efficiency_probe.count_sleeps() as sleeps, \
             efficiency_probe.count_db() as counts, \
             efficiency_probe.fake_provider_latency(0):
-        poll_loop.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
+        poll_cycle.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
 
     if sleeps:
         pytest.fail("expected no sleep on a cycle with no prior provider_last_call meta, got %r" % (sleeps,))
@@ -182,11 +182,11 @@ def test_an_unchanged_live_repeat_writes_poll_state_zero_times(tmp_path):
     state_dir = str(tmp_path / "repeat")
 
     with efficiency_probe.fake_provider_latency(0):
-        poll_loop.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)  # warm-up
+        poll_cycle.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)  # warm-up
 
     with efficiency_probe.count_poll_state_writes() as writes, \
             efficiency_probe.fake_provider_latency(0):
-        poll_loop.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
+        poll_cycle.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
 
     if writes:
         pytest.fail(
@@ -211,7 +211,7 @@ def test_an_unparsable_stored_last_call_value_is_treated_as_no_previous_call(tmp
         history_db.set_meta(conn, history_db.META_PROVIDER_LAST_CALL_PREFIX + "adsbfi", "abc")
 
     with efficiency_probe.count_sleeps() as sleeps, efficiency_probe.fake_provider_latency(0):
-        result = poll_loop.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
+        result = poll_cycle.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
 
     if result is None or "panel_changed" not in result:
         pytest.fail("run_once() did not return its normal result dict against a corrupt meta value: %r" % (result,))
@@ -228,7 +228,7 @@ def test_a_hold_cycle_and_an_injected_snapshot_cycle_never_touch_the_provider_me
     # One real live cycle first, so there is something in meta that a
     # later cycle could (but must not) disturb.
     with efficiency_probe.fake_provider_latency(0):
-        poll_loop.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
+        poll_cycle.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
 
     before = {
         name: _meta_value(state_dir, history_db.META_PROVIDER_LAST_CALL_PREFIX + name)
@@ -240,11 +240,11 @@ def test_a_hold_cycle_and_an_injected_snapshot_cycle_never_touch_the_provider_me
     # A hold cycle: display_enabled=False takes the early return before
     # detect.load_geofence()/poll_current_aircraft() is ever reached.
     device_config.save_device_config(state_dir, display_enabled=False)
-    poll_loop.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
+    poll_cycle.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
     device_config.save_device_config(state_dir, display_enabled=True)
 
     # An injected-snapshot cycle: no live provider is ever queried.
-    poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=state_dir, geofence=GEOFENCE_PATH)
+    poll_cycle.run_once(snapshot=_empty_snapshot(), state_dir=state_dir, geofence=GEOFENCE_PATH)
 
     after = {
         name: _meta_value(state_dir, history_db.META_PROVIDER_LAST_CALL_PREFIX + name)
@@ -266,10 +266,10 @@ def test_a_history_write_failure_does_not_raise_out_of_the_cycle_with_provider_l
     def _boom(*args, **kwargs):
         raise sqlite3.OperationalError("meta write exploded")
 
-    monkeypatch.setattr(poll_loop.history_db, "set_meta", _boom)
+    monkeypatch.setattr(poll_cycle.history_db, "set_meta", _boom)
 
     with efficiency_probe.fake_provider_latency(0):
-        result = poll_loop.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
+        result = poll_cycle.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
 
     if result is None or "panel_changed" not in result:
         pytest.fail("run_once() did not return its normal result dict after a history write failure: %r" % (result,))

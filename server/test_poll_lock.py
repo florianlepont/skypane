@@ -18,13 +18,13 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _LOCK_RACE_TEMPLATE = """
 import sys
 sys.path.insert(0, {repo_root!r})
-import server.poll_loop as poll_loop
+import server.poll_cycle as poll_cycle
 import server.state_store as state_store
 
 state_dir, count = sys.argv[1], int(sys.argv[2])
 
 for _ in range(count):
-    with poll_loop.poll_cycle_lock(state_dir):
+    with poll_cycle.poll_cycle_lock(state_dir):
         state = state_store.load_poll_state(state_dir)
         state["counter"] = state.get("counter", 0) + 1
         state_store.save_poll_state(state_dir, state)

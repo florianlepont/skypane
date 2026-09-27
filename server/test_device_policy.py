@@ -19,7 +19,7 @@ from skypane_test_support import REPO_ROOT, child_env
 
 import server.device_config as device_config
 import server.device_policy as device_policy
-import server.poll_loop as poll_loop
+import server.poll_cycle as poll_cycle
 import server.state_store as state_store
 import server.wake as wake
 
@@ -269,7 +269,7 @@ _REMOVED_POLL_LOOP_NAMES = (
 
 
 def test_server_modules_use_the_shared_policy_objects():
-    """device_config, wake and poll_loop bind the shared device_policy/
+    """device_config, wake and poll_cycle bind the shared device_policy/
     state_store objects rather than keeping their own copies: identity
     (`is`), not mere equality, and the moved poll_loop names no longer
     exist at all."""
@@ -285,15 +285,15 @@ def test_server_modules_use_the_shared_policy_objects():
         pytest.fail("device_config.QUIET_HOURS_TZ is not the shared device_policy.QUIET_HOURS_TZ object")
     if wake.read_battery_critical is not state_store.read_battery_critical:
         pytest.fail("wake.read_battery_critical is not the shared state_store object")
-    # poll_loop.device_policy is device_policy: the identical module object,
+    # poll_cycle.device_policy is device_policy: the identical module object,
     # not merely an equal one.
-    if poll_loop.device_policy is not device_policy:
-        pytest.fail("poll_loop.device_policy is not the shared device_policy module")
-    if poll_loop.state_store is not state_store:
-        pytest.fail("poll_loop.state_store is not the shared state_store module")
+    if poll_cycle.device_policy is not device_policy:
+        pytest.fail("poll_cycle.device_policy is not the shared device_policy module")
+    if poll_cycle.state_store is not state_store:
+        pytest.fail("poll_cycle.state_store is not the shared state_store module")
     for name in _REMOVED_POLL_LOOP_NAMES:
-        if hasattr(poll_loop, name):
-            pytest.fail("poll_loop.%s still exists - should have moved to device_policy/state_store" % name)
+        if hasattr(poll_cycle, name):
+            pytest.fail("poll_cycle.%s still exists - should have moved to device_policy/state_store" % name)
 
 
 # --- Import isolation --------------------------------------------------

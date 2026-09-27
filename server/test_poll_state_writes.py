@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Behaviour tests for server/poll_loop.py's write-once-only-if-changed,
+"""Behaviour tests for server/poll_cycle.py's write-once-only-if-changed,
 compact poll_state.json save.
 
 Covers `state_store.serialize_poll_state()`/`state_store.persist_poll_state_if_changed()`
@@ -52,7 +52,7 @@ import server.atomic_io as atomic_io  # noqa: E402
 import server.device_config as device_config  # noqa: E402
 import server.history_db as history_db  # noqa: E402
 import server.plane.enrich as enrich  # noqa: E402
-import server.poll_loop as poll_loop  # noqa: E402
+import server.poll_cycle as poll_cycle  # noqa: E402
 import server.state_store as state_store  # noqa: E402
 import server.wake as wake  # noqa: E402
 
@@ -237,7 +237,7 @@ def test_a_silence_transition_on_an_otherwise_unchanged_cycle_writes_exactly_onc
     with history_db.open_db(state_dir) as conn:
         history_db.record_device_health(conn, stale_iso, battery_mv=3700)
 
-    monkeypatch.setattr(poll_loop.notify, "send_notification", lambda *a, **k: True)
+    monkeypatch.setattr(poll_cycle.notify, "send_notification", lambda *a, **k: True)
 
     result = efficiency_probe.cycle_probe(state_dir, latency_s=0, records=empty_records)
 

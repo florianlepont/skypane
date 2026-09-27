@@ -29,7 +29,7 @@ import server.atomic_io as atomic_io
 import server.history_db as history_db
 import server.plane.detect as detect
 import server.plane.enrich as enrich
-import server.poll_loop as poll_loop
+import server.poll_cycle as poll_cycle
 import server.state_store as state_store
 
 # Captured at import time, before anything in this module could have
@@ -260,7 +260,7 @@ def route_weight(server, path, cookie=None, repeats=5, extra_headers=None):
 # --- Poll-cycle probe -----------------------------------------------------
 
 def cycle_probe(state_dir, latency_s=0.25, records=None, **run_once_kwargs):
-    """Run one `server.poll_loop.run_once(state_dir=state_dir,
+    """Run one `server.poll_cycle.run_once(state_dir=state_dir,
     **run_once_kwargs)` under every counter above, plus a fake
     `server.plane.enrich.default_transport` that returns `(404, None)`
     (an unresolved-callsign response, so a cycle never makes a real HTTP
@@ -282,7 +282,7 @@ def cycle_probe(state_dir, latency_s=0.25, records=None, **run_once_kwargs):
                 count_poll_state_writes() as writes, \
                 fake_provider_latency(latency_s, records):
             start = time.perf_counter()
-            result = poll_loop.run_once(state_dir=state_dir, **run_once_kwargs)
+            result = poll_cycle.run_once(state_dir=state_dir, **run_once_kwargs)
             wall_s = time.perf_counter() - start
 
     return {

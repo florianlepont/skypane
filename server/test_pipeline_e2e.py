@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""End-to-end contract test: server/poll_loop.py's run_once() through the
+"""End-to-end contract test: server/poll_cycle.py's run_once() through the
 real stub-server/byos_server.py device protocol.
 
-poll_loop transitively imports Pillow via server.plane.render, so this
+poll_cycle transitively imports Pillow via server.plane.render, so this
 module must be run under server/.venv's interpreter, not the bare system
 python3.
 
@@ -60,7 +60,7 @@ if _TEST_SUPPORT_DIR not in sys.path:
 import server.device_config as device_config  # noqa: E402
 import server.panel_format as panel_format  # noqa: E402
 import server.plane.render as render  # noqa: E402
-import server.poll_loop as poll_loop  # noqa: E402
+import server.poll_cycle as poll_cycle  # noqa: E402
 from skypane_test_support import child_env  # noqa: E402
 
 
@@ -187,8 +187,8 @@ def byos_server_factory(tmp_path):
     and guarantees it is stopped at teardown, even if the test fails
     partway through starting a later one. Defaults each new instance's
     own state dir to a fresh subdirectory under `tmp_path` (isolated from
-    poll_loop's own state_dir); a caller that needs a server to share
-    poll_loop's state (the battery/park checks below) passes `state_dir`
+    poll_cycle's own state_dir); a caller that needs a server to share
+    poll_cycle's state (the battery/park checks below) passes `state_dir`
     explicitly.
     """
     harnesses = []
@@ -244,7 +244,7 @@ def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fak
 
     # 1. run_once() with the multi-aircraft fixture writes a panel.bin of
     #    exactly 960000 bytes.
-    poll_loop.run_once(snapshot=multi_snapshot, state_dir=tmpdir, geofence=GEOFENCE_PATH)
+    poll_cycle.run_once(snapshot=multi_snapshot, state_dir=tmpdir, geofence=GEOFENCE_PATH)
     assert os.path.exists(panel_path), "run_once did not write panel.bin"
     with open(panel_path, "rb") as fh:
         panel_bytes = fh.read()
@@ -291,7 +291,7 @@ def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fak
     # 5. run_once() with an empty geofence snapshot leaves the
     #    already-served panel.bin byte-identical - no waiting screen, no
     #    expiry.
-    poll_loop.run_once(snapshot=empty_snapshot, state_dir=tmpdir, geofence=GEOFENCE_PATH)
+    poll_cycle.run_once(snapshot=empty_snapshot, state_dir=tmpdir, geofence=GEOFENCE_PATH)
     with open(panel_path, "rb") as fh:
         after_empty = fh.read()
     assert after_empty == panel_bytes, "panel.bin changed after an empty-snapshot cycle (violates D-04)"
@@ -300,7 +300,7 @@ def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fak
     # subprocess is started
     # against THIS SAME tmp_path (mirroring the real deployment's shared
     # SKYPANE_STATE_DIR - byos_server.py writes battery_state.json there,
-    # poll_loop.py both reads it and serves panel.bin from the same
+    # poll_cycle.py both reads it and serves panel.bin from the same
     # directory), a real authenticated poll carries X-Battery-Mv:3400,
     # and the next run_once() cycle's served panel.bin must differ from
     # the pre-battery baseline only inside the icon's byte columns/rows.
@@ -315,7 +315,7 @@ def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fak
     # Healthy-battery baseline: re-run the multi-aircraft cycle (same
     # aircraft already on screen - a re-detection, not a new one) with no
     # battery signal ever reported yet.
-    poll_loop.run_once(snapshot=multi_snapshot, state_dir=tmpdir, geofence=GEOFENCE_PATH)
+    poll_cycle.run_once(snapshot=multi_snapshot, state_dir=tmpdir, geofence=GEOFENCE_PATH)
     with open(panel_path, "rb") as fh:
         panel_before = fh.read()
 
@@ -325,7 +325,7 @@ def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fak
     assert status == 200, "battery-carrying display poll expected 200, got %d" % status
     time.sleep(1.0)  # allow the child process's write to land
 
-    result_after = poll_loop.run_once(snapshot=multi_snapshot, state_dir=tmpdir, geofence=GEOFENCE_PATH)
+    result_after = poll_cycle.run_once(snapshot=multi_snapshot, state_dir=tmpdir, geofence=GEOFENCE_PATH)
     with open(panel_path, "rb") as fh:
         panel_after = fh.read()
 
@@ -398,7 +398,7 @@ def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fak
     assert status == 200, "3290 mV check-in expected 200, got %d" % status
     time.sleep(1.0)  # allow the child process's write to land
 
-    result1 = poll_loop.run_once(snapshot=multi_snapshot, state_dir=tmpdir, geofence=GEOFENCE_PATH)
+    result1 = poll_cycle.run_once(snapshot=multi_snapshot, state_dir=tmpdir, geofence=GEOFENCE_PATH)
     assert result1.get("state") == "battery_empty", (
         "expected state='battery_empty' after a 3290 mV check-in, got %r" % (result1.get("state"),)
     )
@@ -424,7 +424,7 @@ def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fak
 
     # A second run_once() with the panel already parked changes nothing -
     # the hash-skip the whole park exists to produce.
-    poll_loop.run_once(snapshot=multi_snapshot, state_dir=tmpdir, geofence=GEOFENCE_PATH)
+    poll_cycle.run_once(snapshot=multi_snapshot, state_dir=tmpdir, geofence=GEOFENCE_PATH)
     with open(panel_path, "rb") as fh:
         panel_parked_2 = fh.read()
     assert panel_parked_2 == panel_parked_1, (
@@ -445,7 +445,7 @@ def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fak
 
     # The next run_once() clears the park and repaints the live board - a
     # different hash from the parked one.
-    result2 = poll_loop.run_once(snapshot=multi_snapshot, state_dir=tmpdir, geofence=GEOFENCE_PATH)
+    result2 = poll_cycle.run_once(snapshot=multi_snapshot, state_dir=tmpdir, geofence=GEOFENCE_PATH)
     assert result2.get("state") != "battery_empty", (
         "expected the park to clear after a 4100 mV recovery, but state is still 'battery_empty'"
     )
