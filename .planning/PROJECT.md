@@ -50,8 +50,9 @@ Phases 32–41) is complete. Scope seeds:
   deep-sleep leakage.
 - **SEED-008** — choose the real field wake interval together with the
   battery pack (keep the 3000 mAh pack or move to a bigger one).
-- **SEED-009** — remote firmware update (OTA), which the ESP32-S3 and the
-  existing partition table already allow.
+- ~~SEED-009 — remote firmware update (OTA)~~ — promoted 2026-09-25 to
+  Phase 42 of milestone **v1.0** at the developer's request; it is no
+  longer v1.1 scope. See `.planning/ROADMAP.md`'s Phase 42 entry.
 
 ## Context
 
