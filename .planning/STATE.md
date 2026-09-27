@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 39-12-PLAN.md
-last_updated: "2026-09-27T13:51:42.732Z"
+stopped_at: Completed 39-11-PLAN.md
+last_updated: "2026-09-27T14:24:17.256Z"
 last_activity: 2026-09-27
 progress:
   total_phases: 54
   completed_phases: 47
   total_plans: 418
-  completed_plans: 391
+  completed_plans: 392
   percent: 94
 ---
 
@@ -63,7 +63,9 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 12 of 13
+Plan: 13 of 13
+
+**39-11 executed (2026-09-27), plan 11/13 of Phase 39 (depends on 39-10), wave 6 — the run_once split into named steps over CycleContext, three commits.** `_run_once_locked` (338 code lines, McCabe CC 53, the phase's last ARC-01 size-gate offender) is gone. Task 1 added `CycleContext` (`@dataclass(slots=True)`, `from __future__ import annotations`), `load_cycle_context()` (makedirs, registry loads, calendar refresh, device_cfg/poll_state/battery_state read — verbatim from the former opening segment), `decide_hold()` (pure `battery_empty > display_off > quiet_hours` precedence), `publish_canvas()` (the one render → pack → write → gallery sequence, replacing all four former inline publish copies — confirmed by grep: `_save_to_gallery(` now appears exactly twice, its own def plus the one call inside `publish_canvas`), and `run_hold_cycle()` (the hold branch kept verbatim over `ctx`). Task 2 extracted the live path into `detect_flight`, `load_display_slots`, `update_battery_low` (shared with `run_hold_cycle` only after confirming their battery-low blocks were byte-identical by diff), `advance_display_queue`, `render_and_publish` (dispatching to `_render_promoted`/`_render_held`/`_render_empty`; `_render_promoted` further delegates to `_enrich_current_flight`/`_resolve_theme` to stay under the line cap), `record`, `persist`, `log_cycle` and `cycle_result`; `run_once()` now calls the eight live steps in order inside its existing lock + `history_db.connection_scope`; `_run_once_locked` deleted (grepped first — no test reached it as a monkeypatch/attribute target, only prose mentions in three files' docstrings, updated in place). Added `server/test_poll_cycle_steps.py`: `decide_hold`'s precedence table, `publish_canvas`'s write/gallery contract, and two step-ordering spy tests (the live path's exact 8-step call order via wrapping the real functions; the hold path never calls `detect_flight` and publishes at most once across an entry+repeat pair). **The hold-path and live-path poll_state persist orders were kept exactly as two distinct function bodies** (`run_hold_cycle`: record → silence notify → one persist; `persist()`: publish → record → persist → silence notify → persist-if-changed) — never unified, per the plan's own explicit warning. Addendum commit annotated `decide_hold`/`advance_is_due`/`normalise_pending`/`enqueue_pending`/`pop_fresh_pending` (the plan's own must-have truth names these plus `CycleContext` as "the typed pure core"; `CycleContext` was already annotated via its dataclass fields) — confirmed zero new errors with a local ad hoc `mypy --disallow-untyped-defs --check-untyped-defs` pass (not yet in pyproject's typed-files list; that's 39-13's scope). Commits: `a8a7836` (feat) Task 1, `dc54090` (feat) Task 2, `67619c2` (feat) addendum. Every function in `server/poll_cycle.py` is now ≤57 code lines (45 functions scanned, none over 80); max cyclomatic complexity in the module is unchanged at 12 (`_record_history`, untouched). Full suite green (2994 passed, up from 2992 — the 2 new spy tests; 139 skipped, pre-existing environment skips), ruff and `check_comment_history.py` both clean. Per this phase's own convention, ARC-01/ARC-06 are NOT marked Complete in REQUIREMENTS.md here — only 39-13 flips ARC-* to Complete. `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 94` (392/418) but the written frontmatter showed `percent: 87` (`completed_phases/total_phases` = 47/54) — corrected to `94` by hand per this file's established precedent.
 
 **39-10 executed (2026-09-27), plan 10/13 of Phase 39 (depends on 39-09), wave 5 — the poll cycle moved to server/poll_cycle.py, the companion switched, the import boundary guarded, three commits (D-1).** Task 1 `git mv`'d `server/poll_loop.py` to `server/poll_cycle.py` so history follows the cycle code, stripped the entrypoint code (`build_parser`/`main`/the `__main__` block/the shebang/the sys.path bootstrap) and rewrote the module docstring to describe the library; wrote a new, small `server/poll_loop.py` carrying only `build_parser`/`main`, the repo-root bootstrap, `from server.poll_cycle import PollBusy, run_once`, `from server.state_store import DEFAULT_STATE_DIR`, and four transitional read-only bindings (`_save_to_gallery`/`now_s`/`poll_cycle_lock`/`write_panel_atomic`) kept only until Task 2's own companion commit landed. Retargeted every monkeypatch/attribute-read seam across `server/test_poll_loop.py` (3710 lines, ~168 `run_once` references), `test_poll_state_writes.py`, `test_poll_lock.py`, `test_poll_efficiency.py`, `test_provider_rate.py`, `test_pipeline_e2e.py`, `test_device_policy.py` and `test-support/efficiency_probe.py` from `poll_loop` to `poll_cycle`, keeping `import server.poll_loop as poll_loop` and its two `poll_loop.main(...)` calls plus the one `setattr(poll_loop, "run_once", _raise)` exactly where the interfaces map said (`main()` resolves those bare names against poll_loop's own module globals — not a dead re-export). `test_state_writers.py`, `test-support/test_efficiency_probe.py` and `scripts/measure_efficiency.py` needed no edits — verified by grep, not assumed. Task 2 (its own isolated commit, touching exactly three files per the plan's own acceptance criteria) switched `companion/app.py`'s import and every `run_once`/`PollBusy`/`poll_cycle_lock`/`now_s` call site plus five comments to `server.poll_cycle`, and retargeted `companion/test_browser_ux_helpers.py`'s gallery-seeding helper and `companion/test_view_pages_helpers.py`'s docstring the same way. Task 3 (TDD) added `server/test_import_boundaries.py` (5 subprocess/identity tests: importing `companion.app`/`server.poll_cycle` never loads `server.poll_loop`, `poll_loop.run_once`/`PollBusy` are the identical `poll_cycle` objects, `poll_loop` carries none of the four transitional bindings or the long-moved `load_poll_state`, and `poll_loop.py --help` still works from another cwd) — RED confirmed for the right reason (only the removed-names test failed against the still-present bindings), then removed the four bindings for GREEN. **One auto-fixed deviation (Rule 1):** the Task 1 scripted `poll_loop`->`poll_cycle` word-swap on `test_poll_loop.py` initially also corrupted the nine `"poll_loop: "` log-prefix string literals tests parse (the plan's own convention keeps that printed prefix literal, unchanged by the module rename); caught immediately by the file's own test run (13 failures) and reverted with a plain text replace before committing. Commits: `5c51bc2` (feat) Task 1, `d790c6b` (feat) Task 2, `7849d74` (test, RED) / `0687e84` (feat, GREEN) Task 3. Full suite green after every commit (2982 passed after Task 3, up from 2977 — the 5 new boundary tests; 139 skipped, pre-existing environment skips), ruff and `check_comment_history.py` both clean, coverage 94% (≥93% required). `git diff --stat deploy/` empty across the whole plan. Six stale `poll_loop.`-naming docstring mentions in companion files outside Task 2's 3-file list (companion/wake.py, test_request_connections.py, test_freshness_token.py x2, test_companion_app_05.py, test_companion_app_helpers.py, test_browser_ux_03.py) were left alone and logged to this phase's new `deferred-items.md`, per Phase 39/40's parallel companion/-ownership split — none of them touch an actual import or call site. Per this phase's own convention, ARC-01/ARC-02 are NOT marked Complete in REQUIREMENTS.md here — only 39-13 flips ARC-* to Complete. `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 93` (390/418) but the written frontmatter showed `percent: 87` (`completed_phases/total_phases` = 47/54) — corrected to `93` by hand per this file's established precedent.
 
@@ -590,6 +592,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 39 P08 | 70min | 2 tasks | 11 files |
 | Phase 39 P10 | 65min | 3 tasks | 12 files |
 | Phase 39 P12 | 17min | 2 tasks | 13 files |
+| Phase 39 P11 | 50min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -1152,6 +1155,9 @@ Recent decisions affecting current work:
 - [Phase 39]: poll_cycle.py keeps the literal stdout log prefix "poll_loop: " unchanged; only the module callers reach through changed
 - [Phase 39]: Six out-of-scope companion docstring mentions of poll_loop outside Task 2's 3-file list logged to deferred-items.md, not fixed, per Phase 40's parallel ownership of companion/
 - [Phase 39]: mypy strictness via per-flag [[tool.mypy.overrides]] scoped to a files allowlist rather than the global strict preset — mypy's strict flag is global-only; the 11-module pure core needs stricter checks than the rest of the untyped tree, so per-flag overrides were used instead
+- [Phase 39]: update_battery_low shared between the hold and live paths only after confirming their battery-low blocks were byte-identical
+- [Phase 39]: hold-path and live-path poll_state persist orders kept as two distinct function bodies (run_hold_cycle vs persist), never unified
+- [Phase 39]: _run_once_locked deleted (not kept as a wrapper) after confirming no test reaches it as a monkeypatch/attribute target; the plan's five pure-core helpers plus CycleContext annotated per its own must-have truth
 
 ### Pending Todos
 
@@ -1272,8 +1278,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-27T13:51:42.657Z
-Stopped at: Completed 39-12-PLAN.md
+Last session: 2026-09-27T14:24:17.183Z
+Stopped at: Completed 39-11-PLAN.md
 
 Resume file: 
 

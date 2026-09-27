@@ -1881,7 +1881,7 @@ Plans:
 3. Quiet hours, battery-critical and battery-curve logic exist once
 4. mypy green in CI on the typed modules; behaviour unchanged (suite green)
 
-**Plans:** 11/13 plans executed
+**Plans:** 12/13 plans executed
 
 Plans:
 
@@ -1913,7 +1913,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 39-11-PLAN.md — run_once split into named steps over `CycleContext`, single `publish_canvas` [ARC-01]
+- [x] 39-11-PLAN.md — run_once split into named steps over `CycleContext`, single `publish_canvas` [ARC-01]
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
