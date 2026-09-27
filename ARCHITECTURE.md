@@ -21,7 +21,8 @@ purpose.
         │ HTTPS, geofenced query                │ HTTPS, cache-first
         ▼                                       ▼
  ┌─────────────────────────────────────────────────────────┐
- │  server/poll_loop.py  (systemd oneshot, every 30s)       │
+ │  server/poll_loop.py (systemd oneshot entrypoint,         │
+ │  every 30s) calls poll_cycle.py's run_once():              │
  │    detect.py   -> select the one aircraft "using         │
  │                    runway 3 right now"                   │
  │    runway_config.py -> departing/arriving from vertical  │
@@ -29,12 +30,12 @@ purpose.
  │    enrich.py   -> airline + route, an airline-only         │
  │                    fallback from the callsign's ICAO      │
  │                    prefix, or a designed miss              │
- │    render.py   -> two-flight poster, packed to the        │
+ │    render/     -> two-flight poster, packed to the        │
  │                    960,000-byte panel_format.py wire       │
  │                    format                                  │
  │  writes state/panel.bin (atomic, only if the image        │
- │  actually changed) + state/poll_state.json (cross-cycle   │
- │  history + enrichment cache)                               │
+ │  actually changed) + state/poll_state.json (owned by      │
+ │  state_store.py; cross-cycle history + enrichment cache)  │
  └───────────────────────────┬───────────────────────────────┘
                               │ reads panel.bin on every request
                               ▼
@@ -142,11 +143,36 @@ panel being visibly mid-redraw for roughly half a minute afterward.
 
 `server/poll_loop.py` is the single entrypoint, invoked as a systemd-timer
 oneshot every 30 seconds (matching Phase 1's validated aggregator sampler
-interval, and comfortably inside both aggregators' 1 req/s limit). It has
-no in-process memory of its own between invocations — all cross-cycle
-state lives in `state/poll_state.json`, written with the same
+interval, and comfortably inside both aggregators' 1 req/s limit) — it
+does nothing but parse `argparse` arguments and call `server/poll_cycle.py`'s
+`run_once()`, which the companion's `POST /poll-now` calls the exact same
+way. The cycle itself has no in-process memory of its own between
+invocations — all cross-cycle state lives in `state/poll_state.json`,
+owned by `server/state_store.py` (path, load, serialise, save,
+persist-if-changed) and written with the same
 tmp-write-then-`os.replace()` atomic pattern used throughout this
 project.
+
+**Module map.** `server/poll_loop.py` (the systemd-timer/companion
+entrypoint — `argparse`/`main()` only); `server/poll_cycle.py` (the cycle
+itself: `load_cycle_context` / `decide_hold` / `run_hold_cycle` or
+`detect_flight` / `load_display_slots` / `update_battery_low` /
+`advance_display_queue` / `render_and_publish` / `record` / `persist` /
+`log_cycle`, each a named step over one `CycleContext` dataclass, with
+one shared `publish_canvas()` replacing every former inline
+render-pack-write-gallery copy); `server/state_store.py`
+(`poll_state.json`'s sole owner); `server/device_policy.py` (stdlib-only
+battery hysteresis, the discharge curve and quiet-hours arithmetic,
+shared unchanged by `server/`, `stub-server/byos_server.py` and
+`companion/battery.py`/`wake.py`); `server/themes.py` (the theme
+registry and its presentation accessors, out of `device_config.py`);
+`server/net/safe_fetch.py` (the one SSRF-safety gate `calendar_rules` and
+`notify.py` both call); `server/plane/render/` (the two-flight poster,
+split into `style`/`text`/`glyphs`/`hold_screens`/`layout`/`cli`, still
+importable as `server.plane.render`); `server/plane/calendar_rules/`
+(RFC 5545 parsing/registry/theme-matching, split into
+`ics`/`registry`/`match`, still importable as
+`server.plane.calendar_rules`).
 
 **Detection.** `server/plane/detect.py` queries a geofenced bounding box
 around runway 3 against both default sources, `adsb.fi` then `adsb.lol`
@@ -272,7 +298,8 @@ device redraw, and any aircraft whose turn fell entirely between two redraws
 was never fetched, never drawn, and left no trace anywhere — the server's own
 logs looked perfectly healthy throughout.
 
-So `poll_loop.py` keeps a small **bounded-age FIFO queue** of distinct
+So `poll_cycle.py`'s `advance_display_queue` step keeps a small
+**bounded-age FIFO queue** of distinct
 selections in `poll_state.json` (`pending_flights`, each entry stamped with
 the time it was *first* detected, plus a `last_advance_at` timestamp). The
 "current" slot advances no more often than `MIN_ADVANCE_INTERVAL_S` (90s,
@@ -300,7 +327,7 @@ pacing and staleness decision is arithmetic over timestamps persisted in
 `poll_state.json`; the clock itself is a module-level seam (`now_s()`) so the
 harness can drive cadence deterministically instead of sleeping.
 
-**Composition.** `server/plane/render.py` builds a two-flight poster: the
+**Composition.** `server/plane/render/` builds a two-flight poster: the
 current detection (large, upper-center) and the immediately-preceding one
 from `poll_state.json`'s two-deep history (smaller, lower-right) — since the
 pacing change above, "preceding" means the aircraft that previously occupied
@@ -316,13 +343,13 @@ green for arriving) — no dithered gradient. Every text role uses PT Serif
 Regular.
 
 **Encoding.** `server/panel_format.py` is the single source of truth for
-the wire format both `render.py` and the device agree on: a 1200×1600
-canvas packed to exactly 960,000 bytes, two 4-bit pixels per byte, six
-legal palette codes. `poll_loop.py` writes the packed result to
-`state/panel.bin` only if its SHA-256 differs from what's already being
-served, so `byos_server.py` never serves a half-written file and the
-device's own image-hash short-circuit (above) actually has something
-stable to compare against.
+the wire format both `server/plane/render/` and the device agree on: a
+1200×1600 canvas packed to exactly 960,000 bytes, two 4-bit pixels per
+byte, six legal palette codes. `poll_cycle.py`'s `publish_canvas()`
+writes the packed result to `state/panel.bin` only if its SHA-256 differs
+from what's already being served, so `byos_server.py` never serves a
+half-written file and the device's own image-hash short-circuit (above)
+actually has something stable to compare against.
 
 **Serving.** `stub-server/byos_server.py` derives from
 `flightportrait/frame`'s protocol server and implements the device-facing
@@ -346,21 +373,23 @@ back to the same default 23:00–07:00 window on both sides.
 on purpose" screens can each replace the live board, in priority order:
 BATTERY EMPTY, then DISPLAY OFF (the companion's manual toggle), then
 QUIET HOURS (the companion's scheduled window). All three are drawn by
-`server/plane/render.py`'s shared dimmed composition (a dithered dark
-field, one glyph, a tracked label, a short rule, two body sentences) so
-they read as one family; `poll_loop.py`'s hold branch renders each once
-on entry (and, uniquely for BATTERY EMPTY, again on the boundary crossing
-into or out of it from another hold) and is otherwise a no-op — an e-ink
-refresh costs energy and time the device is asleep for regardless.
+`server/plane/render/hold_screens.py`'s shared dimmed composition (a
+dithered dark field, one glyph, a tracked label, a short rule, two body
+sentences) so they read as one family; `poll_cycle.py`'s `run_hold_cycle()`
+renders each once on entry (and, uniquely for BATTERY EMPTY, again on the
+boundary crossing into or out of it from another hold) and is otherwise a
+no-op — an e-ink refresh costs energy and time the device is asleep for
+regardless.
 
 BATTERY EMPTY is latched from the device's own `X-Battery-Mv` header:
-`poll_loop.py`'s `apply_battery_critical_hysteresis()` enters the hold at
-3300 mV and clears it only at 3700 mV or above (a 400 mV re-arm buffer,
-wider than the separate 3500/3600 mV low-battery *badge* hysteresis,
-which is unaffected), persisting the decision as
-`poll_state.json`'s `battery_critical_active` key — `poll_loop.py` is
-that file's single writer. While parked, detection is skipped entirely
-(there is nothing new to check for until the pack is recharged), and
+`server/device_policy.py`'s `apply_battery_critical_hysteresis()` (called
+from `poll_cycle.py`'s `load_cycle_context()`) enters the hold at 3300 mV
+and clears it only at 3700 mV or above (a 400 mV re-arm buffer, wider
+than the separate 3500/3600 mV low-battery *badge* hysteresis, which is
+unaffected), persisting the decision as `poll_state.json`'s
+`battery_critical_active` key — `server/state_store.py` is that file's
+single writer. While parked, detection is skipped entirely (there is
+nothing new to check for until the pack is recharged), and
 `stub-server/byos_server.py` reads the same latch through
 `server/state_store.py`'s `read_battery_critical()` — the one shared,
 fail-open reader both processes now call — to pin `sleep_s` to a fixed
@@ -372,7 +401,7 @@ never outlasts the flatter-pack pin. `battery_critical_sleep_s()`
 additionally anticipates recovery *within the same request that reports
 it*: if that request's own `X-Battery-Mv` is already at or above 3700 mV,
 it hands back the normal base value immediately rather than the stale
-3600 seconds `poll_loop.py`'s own latch clear (up to 30 seconds later)
+3600 seconds `poll_cycle.py`'s own latch clear (up to 30 seconds later)
 would otherwise still imply.
 
 The same latch feeds a monitoring mirror so a parked frame's slower
@@ -380,7 +409,7 @@ check-ins are never mistaken for silence: `server/wake.py`'s
 `effective_wake_interval_s()`/`next_wake_status()` accept a
 `battery_critical` flag that pins their own answer to the 3600-second
 cadence ahead of every other consideration, and every caller that decides
-whether the frame has "gone quiet" — `poll_loop.py`'s
+whether the frame has "gone quiet" — `poll_cycle.py`'s
 `_notify_silence_transition()` (the ntfy push) and the companion's Frame
 strip/flash text (`companion/layout.py`, `companion/app.py`) — reads it
 from the same persisted latch before computing its own staleness
@@ -407,7 +436,7 @@ sentinel reusing `FP_NVS_IMAGE_HASH` (deliberately never shaped like a
 real `sha256:<hex>` server hash) suppresses every subsequent failing
 wake's redraw and guarantees the first healthy poll after recovery
 always re-downloads and blits the real server picture, since its hash
-can never match the sentinel. `server/plane/render.py`'s
+can never match the sentinel. `server/plane/render/hold_screens.py`'s
 `_build_no_connection_canvas()` is the artwork's one source of truth —
 the same shared `_build_hold_canvas()` composition DISPLAY OFF/QUIET
 HOURS/BATTERY EMPTY go through, with its own alert-triangle glyph
@@ -439,7 +468,7 @@ as `<public-host>`, never by its real address).
   configuration web interface — as its own process, its own unit, on its
   own loopback port, behind its own Caddy hostname (`config-`-prefixed,
   its own Let's Encrypt certificate). It reads the state directory
-  `server/poll_loop.py` writes (flight history, the packed panel image)
+  `server/poll_cycle.py` writes (flight history, the packed panel image)
   and writes two persistence artefacts of its own: `history.db` (device
   health/runway-event history, `server/history_db.py`) and a small
   `device_config.json` side-file for the theme/runway settings a Save
