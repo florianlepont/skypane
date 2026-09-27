@@ -29,8 +29,10 @@ subclass, `ResponseTooLarge` and `UnsafeDestination` plain
 this codebase keeps working unchanged once a caller migrates onto these
 primitives.
 
-Kept as one small module for now; a future refactor is expected to absorb
-it, plus `calendar_rules._url_is_safe`, into a shared `net/safe_fetch.py`.
+The SSRF gate itself (checking whether an operator-chosen URL is safe to
+fetch at all, before ever calling `pinned_request`) lives in
+`server.net.safe_fetch`, shared by `server.plane.calendar_rules` and
+`server.notify`.
 """
 
 import collections
@@ -316,6 +318,111 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
         self.sock = self._ssl_context.wrap_socket(sock, server_hostname=self.host)
 
 
+def _resolve_pinned_target(url, deadline, clock, resolver):
+    """Parse `url` (`https` only), resolve its hostname to a checked
+    address list, and return `(hostname, port, path, addresses)`.
+
+    Raises `UnsafeDestination` for a non-`https` scheme or a hostless
+    URL, without ever resolving; `resolve_public_addresses` (called here)
+    raises it for a resolution failure or an unsafe address. Split out of
+    `pinned_request` so no function there exceeds the size gate; the
+    split changes no behaviour or exception type.
+    """
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme != "https":
+        raise UnsafeDestination(
+            "pinned_request: only https is supported, got %r" % (parsed.scheme,)
+        )
+    hostname = parsed.hostname
+    if not hostname:
+        raise UnsafeDestination("pinned_request: no hostname in %r" % (url,))
+    port = parsed.port or 443
+
+    addresses = resolve_public_addresses(
+        hostname, port, resolver=resolver,
+        timeout_s=_time_left(deadline, clock, "resolving"))
+
+    path = parsed.path or "/"
+    if parsed.query:
+        path = path + "?" + parsed.query
+    return hostname, port, path, addresses
+
+
+def _open_pinned_connection(
+        hostname, port, addresses, timeout, deadline, clock, create_connection, ssl_context):
+    """Try each of `addresses` in order, returning the first connected
+    `_PinnedHTTPSConnection`. A refused address is not itself a safety
+    failure -- it just means that address is not currently reachable;
+    raises `UnsafeDestination` only if none connects.
+    """
+    conn = None
+    last_exc = None
+    for address in addresses:
+        connect_timeout = min(timeout, _time_left(deadline, clock, "connecting"))
+        candidate = _PinnedHTTPSConnection(
+            hostname,
+            port,
+            address,
+            timeout=connect_timeout,
+            create_connection=create_connection,
+            ssl_context=ssl_context,
+        )
+        try:
+            candidate.connect()
+        except OSError as exc:
+            last_exc = exc
+            continue
+        conn = candidate
+        break
+    if conn is None:
+        raise UnsafeDestination(
+            "pinned_request: could not connect to any checked address for %r"
+            % (hostname,)
+        ) from last_exc
+    return conn
+
+
+def _send_pinned_request(conn, method, path, hostname, port, headers, body, timeout, deadline, clock):
+    """Send `method path` over the already-connected `conn`, and return
+    its `http.client.HTTPResponse`.
+
+    Closes `conn` and re-raises under a `requests.exceptions.
+    RequestException` subclass on any failure, so an existing
+    `except requests.RequestException` handler in a caller keeps working
+    unchanged regardless of which underlying exception this raised.
+    """
+    request_headers = dict(headers or {})
+    request_headers["Host"] = hostname if port == 443 else "%s:%d" % (hostname, port)
+    if body is not None:
+        request_headers["Content-Length"] = str(len(body))
+
+    try:
+        conn.sock.settimeout(min(timeout, _time_left(deadline, clock, "sending")))
+        conn.putrequest(method, path, skip_host=True, skip_accept_encoding=True)
+        for key, value in request_headers.items():
+            conn.putheader(key, value)
+        conn.endheaders(body)
+
+        conn.sock.settimeout(min(timeout, _time_left(deadline, clock, "the response")))
+        return conn.getresponse()
+    except requests.exceptions.RequestException:
+        conn.close()
+        raise
+    except TimeoutError as exc:
+        conn.close()
+        raise requests.exceptions.ReadTimeout(
+            "pinned_request: %r timed out" % (hostname,)) from exc
+    except (OSError, http.client.HTTPException) as exc:
+        # Callers handle requests.RequestException; a raw socket or
+        # protocol error must not escape under a different type.
+        conn.close()
+        raise requests.exceptions.ConnectionError(
+            "pinned_request: %s talking to %r" % (type(exc).__name__, hostname)) from exc
+    except BaseException:
+        conn.close()
+        raise
+
+
 def pinned_request(
     method,
     url,
@@ -346,79 +453,11 @@ def pinned_request(
     ssl_context = ssl_context or _default_ssl_context()
     deadline = clock() + deadline_s
 
-    parsed = urllib.parse.urlsplit(url)
-    if parsed.scheme != "https":
-        raise UnsafeDestination(
-            "pinned_request: only https is supported, got %r" % (parsed.scheme,)
-        )
-    hostname = parsed.hostname
-    if not hostname:
-        raise UnsafeDestination("pinned_request: no hostname in %r" % (url,))
-    port = parsed.port or 443
-
-    addresses = resolve_public_addresses(
-        hostname, port, resolver=resolver,
-        timeout_s=_time_left(deadline, clock, "resolving"))
-
-    path = parsed.path or "/"
-    if parsed.query:
-        path = path + "?" + parsed.query
-
-    conn = None
-    last_exc = None
-    for address in addresses:
-        connect_timeout = min(timeout, _time_left(deadline, clock, "connecting"))
-        candidate = _PinnedHTTPSConnection(
-            hostname,
-            port,
-            address,
-            timeout=connect_timeout,
-            create_connection=create_connection,
-            ssl_context=ssl_context,
-        )
-        try:
-            candidate.connect()
-        except OSError as exc:
-            last_exc = exc
-            continue
-        conn = candidate
-        break
-    if conn is None:
-        raise UnsafeDestination(
-            "pinned_request: could not connect to any checked address for %r"
-            % (hostname,)
-        ) from last_exc
-
-    request_headers = dict(headers or {})
-    request_headers["Host"] = hostname if port == 443 else "%s:%d" % (hostname, port)
-    if body is not None:
-        request_headers["Content-Length"] = str(len(body))
-
-    try:
-        conn.sock.settimeout(min(timeout, _time_left(deadline, clock, "sending")))
-        conn.putrequest(method, path, skip_host=True, skip_accept_encoding=True)
-        for key, value in request_headers.items():
-            conn.putheader(key, value)
-        conn.endheaders(body)
-
-        conn.sock.settimeout(min(timeout, _time_left(deadline, clock, "the response")))
-        http_response = conn.getresponse()
-    except requests.exceptions.RequestException:
-        conn.close()
-        raise
-    except TimeoutError as exc:
-        conn.close()
-        raise requests.exceptions.ReadTimeout(
-            "pinned_request: %r timed out" % (hostname,)) from exc
-    except (OSError, http.client.HTTPException) as exc:
-        # Callers handle requests.RequestException; a raw socket or
-        # protocol error must not escape under a different type.
-        conn.close()
-        raise requests.exceptions.ConnectionError(
-            "pinned_request: %s talking to %r" % (type(exc).__name__, hostname)) from exc
-    except BaseException:
-        conn.close()
-        raise
+    hostname, port, path, addresses = _resolve_pinned_target(url, deadline, clock, resolver)
+    conn = _open_pinned_connection(
+        hostname, port, addresses, timeout, deadline, clock, create_connection, ssl_context)
+    http_response = _send_pinned_request(
+        conn, method, path, hostname, port, headers, body, timeout, deadline, clock)
 
     return PinnedResponse(
         http_response, conn.sock, deadline=deadline, clock=clock, timeout=timeout

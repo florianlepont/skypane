@@ -15,10 +15,9 @@ through `server/atomic_io.py`'s `atomic_write()` (unique per-call temp
 name, no leftover file on failure). The
 companion writes this file (`add_entry()`/`delete_entry()`, from an
 authenticated HTTP route) and the server reads it
-(`load_manual_resolutions()`/`set_manual_registry_state_dir()`/
-`airline_name_for_prefix()`, wired into `enrich`). Lives at
-`{state_dir}/manual_resolutions.json`, outside the git-tracked tree, so
-it survives a redeploy.
+(`load_manual_resolutions()`/`airline_name_for_prefix()`, wired into
+`enrich`). Lives at `{state_dir}/manual_resolutions.json`, outside the
+git-tracked tree, so it survives a redeploy.
 
 Imports `server.plane.illustrations` but must never import
 `server.plane.enrich` - that direction is reserved for `enrich` to
@@ -30,11 +29,11 @@ hostile operator input instead of only ever a fixed-table value.
 `_SAFE_KEY_RE` below is this module's own positive allowlist against
 that, applied both before persisting and on every read.
 
-`set_manual_registry_state_dir()`/cached `airline_name_for_prefix()` are
-for the poll pipeline ONLY - one `run_once()` reads the registry once via
-a process-global cache. `companion/` must never use the cache: it is a
-long-running `ThreadingHTTPServer`, and every request must call
-`load_manual_resolutions(state_dir)` fresh.
+`airline_name_for_prefix(prefix, registry)` takes the registry as an
+explicit argument - one `run_once()` calls `load_manual_resolutions(state_dir)`
+once per cycle and passes the result down. `companion/` must never share
+that registry across requests: it is a long-running `ThreadingHTTPServer`,
+and every request must call `load_manual_resolutions(state_dir)` fresh.
 """
 import json
 import os
@@ -89,11 +88,6 @@ ADD_FAILED = "failed"
 # Derived from illustrations.GENERIC_FALLBACK_FILENAME rather than a
 # second hardcoded string, so the two can never drift apart.
 _GENERIC_FALLBACK_KEY = illustrations.GENERIC_FALLBACK_FILENAME[: -len(".png")]
-
-# Process-scoped cache, mirroring illustrations.set_override_state_dir().
-# A None/falsy state_dir means "empty registry", matching pre-existing
-# enrich test behaviour. Set once per poll cycle only.
-_cached_registry = {}
 
 # add_entry()/delete_entry() are both an unlocked load-modify-write-
 # whole-file cycle, and companion/app.py runs under ThreadingHTTPServer -
@@ -371,38 +365,20 @@ def entry_rows(registry):
     return rows
 
 
-def set_manual_registry_state_dir(state_dir):
-    """Set the process-wide cached registry the poll pipeline reads
-    through `airline_name_for_prefix()`, mirroring
-    `illustrations.set_override_state_dir()`.
+def airline_name_for_prefix(prefix, registry=None):
+    """Return the manual-resolution airline name for a normalised
+    3-letter prefix, or `None`. Reads only `registry`, an already-loaded
+    dict from `load_manual_resolutions(state_dir)` - never touches the
+    disk itself.
 
-    Call once per poll cycle, beside the existing
-    `illustrations.set_override_state_dir(state_dir)` call: a
-    companion-side save landing mid-cycle must not split one poll cycle
-    across two different registries.
-
-    `state_dir` truthy -> cache `load_manual_resolutions(state_dir)`.
-    `state_dir` falsy (including `None`) -> cache `{}`.
-    """
-    global _cached_registry
-    if state_dir:
-        _cached_registry = load_manual_resolutions(state_dir)
-    else:
-        _cached_registry = {}
-
-
-def airline_name_for_prefix(prefix):
-    """Return the cached manual-resolution airline name for a normalised
-    3-letter prefix, or `None`. Reads only the process-wide cache set by
-    `set_manual_registry_state_dir()` - never touches the disk.
-
-    A process that never calls the setter sees an empty registry here,
-    matching pre-existing `enrich` test behaviour.
+    `registry` is `None`, or anything not a dict, is treated as the empty
+    registry - matching the behaviour of a caller that never loaded one.
     """
     normalised_prefix = normalise_prefix(prefix)
     if normalised_prefix is None:
         return None
-    entry = _cached_registry.get(normalised_prefix)
+    effective_registry = registry if isinstance(registry, dict) else {}
+    entry = effective_registry.get(normalised_prefix)
     if not isinstance(entry, dict):
         return None
     airline_name = entry.get("airline_name")

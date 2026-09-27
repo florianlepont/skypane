@@ -1027,7 +1027,7 @@ def test_quick_260902_gjj_muted_captions_compose_section_caption(tmp_path, css_t
 def test_migrated_cards_have_independent_failure_isolation(tmp_path):
     """corrupting only the database leaves the registry card rendering while the stats card degrades, and
     vice versa"""
-    # The registry read (poll_loop.load_poll_state(), a filesystem/JSON
+    # The registry read (state_store.load_poll_state(), a filesystem/JSON
     # failure mode) and the stats read (_safe_query(), a SQLite failure
     # mode) must degrade independently — corrupting one source must never
     # take down the other card.

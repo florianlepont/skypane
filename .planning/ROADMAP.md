@@ -1881,11 +1881,43 @@ Plans:
 3. Quiet hours, battery-critical and battery-curve logic exist once
 4. mypy green in CI on the typed modules; behaviour unchanged (suite green)
 
-**Plans:** 0 plans
+**Plans:** 13/13 plans complete
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 39 to break down)
+**Wave 1**
+
+- [x] 39-01-PLAN.md — function-size gate script + 39-ARC-BASELINE.md Before (size, CC, typing, imports, setters, duplicates) [ARC-01..06]
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 39-02-PLAN.md — new `server/device_policy.py` (stdlib-only) and `server/state_store.py`, typed, with the unified quiet-hours fallback test [ARC-02, ARC-05, ARC-06]
+- [x] 39-03-PLAN.md — explicit injection: setters removed from illustrations/manual_resolutions/colour_rules; theme preview vendored-only [ARC-04]
+- [x] 39-04-PLAN.md — `calendar_rules/` package (ics, registry, match) + `net/safe_fetch.py`; notify decoupled; `pinned_request` split [ARC-03, ARC-01]
+- [x] 39-05-PLAN.md — `server/themes.py`; `save_device_config` split [ARC-03, ARC-01]
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 39-06-PLAN.md — byos uses device_policy/state_store; invalid-time fallback unified; vendored-byos docs corrected [ARC-05]
+- [x] 39-07-PLAN.md — companion import switches (pages, battery allowlist, app.py state paths), one commit each [ARC-02, ARC-05]
+- [x] 39-08-PLAN.md — `render/` package split; three oversized render functions split [ARC-03, ARC-01]
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 39-09-PLAN.md — server wiring: poll_loop/wake/device_config use the shared modules; copies deleted [ARC-02, ARC-05]
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [x] 39-10-PLAN.md — `server/poll_cycle.py` library move; companion /poll-now switch; import-boundary tests [ARC-01, ARC-02]
+- [x] 39-12-PLAN.md — mypy dev pin + lock, `[tool.mypy]`, CI step, pure-core annotations [ARC-06]
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [x] 39-11-PLAN.md — run_once split into named steps over `CycleContext`, single `publish_canvas` [ARC-01]
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [x] 39-13-PLAN.md — size gate in CI, poll_cycle under mypy, baseline After + criteria, ARCHITECTURE.md module map [ARC-01..06]
 
 ### Phase 40: Companion architecture — routes, pages, templates, i18n keys
 

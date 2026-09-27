@@ -1133,6 +1133,35 @@ def test_save_notifications_rejects_every_malformed_shape(tmp_path):
             pytest.fail("save_device_config(notifications=%r) changed a pre-existing file's bytes" % (hostile,))
 
 
+def test_save_device_config_rejects_invalid_notifications_even_with_every_other_field_valid(tmp_path):
+    """save_device_config() with every other field valid but a malformed notifications sub-field still raises
+    ValueError and leaves a pre-existing, legitimately-saved file byte-identical - proving notifications, the
+    last-validated field, is still checked (not short-circuited away) when every field validated before it
+    would itself be accepted"""
+    tmpdir = tmp_path
+    device_config.save_device_config(tmpdir, theme="black", tracked_runway="3")
+    path = device_config.device_config_path(tmpdir)
+    with open(path, "rb") as fh:
+        before = fh.read()
+    raised = False
+    try:
+        device_config.save_device_config(
+            tmpdir, theme="red", theme_arriving="blue", calendar_theme_id="green",
+            tracked_runway="06-24", screen_id="plane-frame", led_enabled=True,
+            quiet_hours_enabled=True, quiet_hours_start="22:00", quiet_hours_end="06:00",
+            wake_interval_s=120, display_enabled=False,
+            notifications={"topic_url": None, "battery_low": "not-a-bool", "frame_silent": True, "lang": "en"},
+        )
+    except ValueError:
+        raised = True
+    if not raised:
+        pytest.fail("save_device_config() with a malformed notifications sub-field and every other field valid did not raise ValueError")
+    with open(path, "rb") as fh:
+        after = fh.read()
+    if before != after:
+        pytest.fail("save_device_config() with a malformed notifications sub-field changed a pre-existing file's bytes even though every other supplied field was valid")
+
+
 def test_saved_topic_url_never_appears_in_a_rejected_writes_bytes_or_this_modules_own_source():
     """server/device_config.py introduces no print()/logging call for the notifications group, preserving this module's own print-free-by-design contract - a topic_url can never reach a log this module controls"""
     # This module stores topic_url verbatim in device_config.json

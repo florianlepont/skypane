@@ -21,9 +21,9 @@ import companion.layout as layout
 import companion.wake as wake
 from server import device_config
 from server import history_db
-import server.poll_loop as poll_loop
+import server.state_store as state_store
 
-# ADS-B pipeline freshness thresholds: server/poll_loop.py's
+# ADS-B pipeline freshness thresholds: server/poll_cycle.py's
 # POLL_INTERVAL_S is a fixed 30-second systemd timer, not a tunable
 # per-deployment value, so these can be set tight relative to it.
 STALE_PIPELINE_WARN_S = 180  # 6x the cadence: one missed cycle is jitter, six is not.
@@ -433,13 +433,13 @@ def _disagreement_warn(counts):
 def unresolved_rows(state_dir):
     """The unresolved-prefix registry as a sorted list of
     `(prefix, count, first_seen, last_seen, example_callsign)` tuples,
-    read through `server.poll_loop.load_poll_state()`'s
+    read through `server.state_store.load_poll_state()`'s
     `unresolved_prefixes` key. Sorted by count descending, then prefix
     ascending, for a deterministic render order. A malformed entry
     (not a dict, or a non-int `count`) is skipped rather than raising:
     the registry is hand-editable, so a bad edit must degrade gracefully.
     """
-    state = poll_loop.load_poll_state(state_dir)
+    state = state_store.load_poll_state(state_dir)
     registry = state.get("unresolved_prefixes")
     if not isinstance(registry, dict):
         return []

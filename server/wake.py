@@ -1,21 +1,28 @@
 """The effective wake interval and derived device-staleness thresholds,
 shared across the server and companion app.
 
-Leaf module under `server/`: may import server.device_config, never
-companion/ (whose own wake module re-exports this one instead).
+Leaf module under `server/`: may import server.device_config,
+server.device_policy and server.state_store, never companion/ (whose
+own wake module re-exports this one instead).
 """
-import json
+from __future__ import annotations
+
 import os
 from datetime import datetime, timedelta, timezone
 
-from server import device_config
+from server import device_config, device_policy, state_store
 
 SLEEP_ENV_VAR = "SKYPANE_SLEEP_S"
 
-# The BATTERY EMPTY latch's key in poll_state.json - lives in this leaf
-# module so every writer and reader across the codebase can share it
-# without importing poll_loop.py itself.
-BATTERY_CRITICAL_STATE_KEY = "battery_critical_active"
+# The BATTERY EMPTY latch's key in poll_state.json - re-exported from
+# device_policy (the single owner) so every writer and reader across the
+# codebase can share it without importing poll_loop.py itself.
+BATTERY_CRITICAL_STATE_KEY = device_policy.BATTERY_CRITICAL_STATE_KEY
+
+# read_battery_critical() is state_store's own poll_state.json reader -
+# bound here, not redefined, so this module and companion/wake.py (which
+# re-exports this name) resolve to the single implementation.
+read_battery_critical = state_store.read_battery_critical
 
 # Warn after this many missed wakes, error after this many, each
 # multiplier applied to the wake interval and then floored below.
@@ -29,7 +36,7 @@ STALE_WARN_FLOOR_S = 300
 STALE_ERROR_FLOOR_S = 1200
 
 
-def env_sleep_s():
+def env_sleep_s() -> int | None:
     """The deployed SKYPANE_SLEEP_S as a positive int, or None if unset/
     invalid. Read fresh on every call, never cached. Deliberately
     unclamped by device_config's [WAKE_INTERVAL_MIN_S,
@@ -37,32 +44,20 @@ def env_sleep_s():
     below that floor and is the device's real cadence.
     """
     raw = os.environ.get(SLEEP_ENV_VAR)
+    if raw is None:
+        return None
     try:
         value = int(raw)
-    except (TypeError, ValueError):
+    except ValueError:
         return None
     if value <= 0:
         return None
     return value
 
 
-def read_battery_critical(state_dir):
-    """True only when poll_state.json's BATTERY_CRITICAL_STATE_KEY is
-    literally `True`; any failure degrades to False, never raises -
-    fail-open, since a wrongly-returned False costs a few extra wakes,
-    never a missed BATTERY EMPTY render.
-    """
-    try:
-        with open(os.path.join(state_dir, "poll_state.json")) as fh:
-            data = json.load(fh)
-    except (OSError, ValueError):
-        return False
-    if not isinstance(data, dict):
-        return False
-    return data.get(BATTERY_CRITICAL_STATE_KEY) is True
-
-
-def effective_wake_interval_s(device_cfg, battery_critical=False):
+def effective_wake_interval_s(
+    device_cfg: dict[str, object] | None, battery_critical: bool = False,
+) -> int | None:
     """The wake interval in seconds actually governing this device now, or
     None when undetermined. `device_cfg` may be None or a partial dict;
     never raises.
@@ -89,7 +84,7 @@ def effective_wake_interval_s(device_cfg, battery_critical=False):
     return env_sleep_s()
 
 
-def device_staleness_thresholds(wake_interval_s):
+def device_staleness_thresholds(wake_interval_s: object) -> tuple[int, int]:
     """The `(warn_s, error_s)` pair for the Device tile: warn after
     MISSED_WAKES_WARN missed wakes, error after MISSED_WAKES_ERROR, each
     floored at STALE_WARN_FLOOR_S/STALE_ERROR_FLOOR_S. A non-positive or
@@ -116,7 +111,7 @@ CHECK_IN_MISSING = "missing"
 CHECK_IN_UNKNOWN = "unknown"  # gap_s is None: span not datable
 
 
-def classify_check_in_gap(gap_s, wake_interval_s):
+def classify_check_in_gap(gap_s: object, wake_interval_s: object) -> str:
     """Classify one observed check-in gap as CHECK_IN_ON_CADENCE/_LATE/
     _MISSING/_UNKNOWN, via device_staleness_thresholds() so a grid drawn
     from these verdicts can never disagree with the Device tile. Boundary:
@@ -149,7 +144,10 @@ def classify_check_in_gap(gap_s, wake_interval_s):
 HOLD_QUIET_HOURS = "quiet_hours"
 
 
-def next_wake_status(last_checkin_ts, device_cfg, battery_critical=False):
+def next_wake_status(
+    last_checkin_ts: str | None, device_cfg: dict[str, object] | None,
+    battery_critical: bool = False,
+) -> tuple[str, int, str | None] | tuple[None, None, None]:
     """The `(next_wake_iso, effective_interval_s, hold_reason)` triple
     every "when will the frame next wake" consumer reads, so callers can
     never disagree. Returns (None, None, None) when `last_checkin_ts` is
@@ -193,7 +191,10 @@ def next_wake_status(last_checkin_ts, device_cfg, battery_critical=False):
     return next_wake_iso, effective_interval_s, hold_reason
 
 
-def next_wake_at_iso(last_checkin_ts, device_cfg, battery_critical=False):
+def next_wake_at_iso(
+    last_checkin_ts: str | None, device_cfg: dict[str, object] | None,
+    battery_critical: bool = False,
+) -> str | None:
     """The next wake time as an ISO-8601 UTC string, or None. A thin
     wrapper over `next_wake_status()`'s first element - never formatted,
     since this module has no view dependency; callers format for display.

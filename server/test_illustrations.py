@@ -8,18 +8,17 @@ missing" degradation), validate_illustration_file()'s rejection
 categories, the target/required/outstanding filename contracts, the
 per-airline variant table, and the override-resolution layer
 (resolved_illustration_path(), select_illustration()'s state_dir
-parameter, set_override_state_dir()). Tests against the real,
-already-vendored files under server/assets/icons/illustrations/ where
-they are stable and pass --validate, rather than synthetic fixtures -
-malformed fixtures are still built programmatically in tmp_path since no
-broken binary should ever be committed to the repo.
+parameter). Tests against the real, already-vendored files under
+server/assets/icons/illustrations/ where they are stable and pass
+--validate, rather than synthetic fixtures - malformed fixtures are still
+built programmatically in tmp_path since no broken binary should ever be
+committed to the repo.
 """
 import hashlib
 import os
 import re
 import sys
 
-import pytest
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -39,17 +38,6 @@ def _touch_override_file(path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as f:
         f.write(b"not a real png - path-existence fixture only")
-
-
-@pytest.fixture(autouse=True)
-def _reset_override_state_dir():
-    """Every check that touches set_override_state_dir() resets it
-    explicitly, but this belt-and-braces autouse fixture guarantees no
-    leftover process-default override dir survives into an unrelated
-    test even if a future edit drops that discipline.
-    """
-    yield
-    ill.set_override_state_dir(None)
 
 
 # --- normalise_airline_key() -----------------------------------------------
@@ -754,25 +742,29 @@ def test_vendored_file_immutable_after_override_resolution(tmp_path):
     )
 
 
-def test_set_override_state_dir_round_trip(tmp_path):
-    """set_override_state_dir() round trip: setting it makes a bare select_illustration() call pick up the override; resetting to None restores the vendored path, and the reset is guaranteed by a finally block"""
+def test_select_illustration_state_dir_argument_round_trip(tmp_path):
+    """select_illustration()'s state_dir argument round trip: passing it makes select_illustration() pick up the override; omitting it (or passing None) restores the vendored path."""
     override_path = tmp_path / ill.ILLUSTRATION_OVERRIDE_DIRNAME / "air-france.png"
     _touch_override_file(str(override_path))
     vendored = ill.illustration_path_for_key("air-france")
 
-    ill.set_override_state_dir(str(tmp_path))
-    got_with_default = ill.select_illustration({"airline_name": "Air France"})
-    assert got_with_default == str(override_path), (
-        "after set_override_state_dir(tmp), a bare select_illustration() call returned %r, expected the "
-        "override path %r" % (got_with_default, override_path)
+    got_with_state_dir = ill.select_illustration({"airline_name": "Air France"}, state_dir=str(tmp_path))
+    assert got_with_state_dir == str(override_path), (
+        "with state_dir=tmp, select_illustration() returned %r, expected the override path %r" % (
+            got_with_state_dir, override_path)
     )
 
-    ill.set_override_state_dir(None)
-    got_after_reset = ill.select_illustration({"airline_name": "Air France"})
-    assert got_after_reset == vendored, (
-        "after set_override_state_dir(None), select_illustration() returned %r, expected the vendored path %r "
-        "- the reset did not take effect" % (got_after_reset, vendored)
+    got_without_state_dir = ill.select_illustration({"airline_name": "Air France"})
+    assert got_without_state_dir == vendored, (
+        "with no state_dir argument, select_illustration() returned %r, expected the vendored path %r" % (
+            got_without_state_dir, vendored)
     )
+
+
+def test_no_setter_or_module_global_remains():
+    """illustrations.py exposes no module-global setter and no process-scoped default."""
+    for name in ("set_override_state_dir", "_override_state_dir"):
+        assert not hasattr(ill, name), "illustrations module still has %r, expected it removed" % (name,)
 
 
 # --- Nine [DEVELOPER-OBSERVED] targets, delivered on arrival --------------

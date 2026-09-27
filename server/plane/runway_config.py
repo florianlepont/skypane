@@ -23,6 +23,7 @@ isinstance() checks, skip/hold rather than raise. Booleans are rejected
 explicitly before the numeric comparison, since Python treats bool as an
 int subclass.
 """
+from __future__ import annotations
 
 CLIMB_THRESHOLD_FPM = 200
 DESCEND_THRESHOLD_FPM = -200
@@ -31,7 +32,7 @@ STATE_DEPARTING = "departing"
 STATE_ARRIVING = "arriving"
 
 
-def infer_runway_config(vertical_rate_fpm, last_confirmed_state):
+def infer_runway_config(vertical_rate_fpm: object, last_confirmed_state: object) -> object:
     """Inferred runway configuration for a single vertical-rate reading,
     applying the deadband and hold-last-state rule. A non-numeric or
     boolean reading holds `last_confirmed_state` (never raises, never
@@ -51,7 +52,7 @@ def infer_runway_config(vertical_rate_fpm, last_confirmed_state):
     return last_confirmed_state
 
 
-def infer_from_flight(flight, last_confirmed_state):
+def infer_from_flight(flight: object, last_confirmed_state: object) -> object:
     """Delegate to infer_runway_config() using `flight["vertical_rate_fpm"]`,
     so poll_loop never has to reach into raw aggregator fields itself.
     """

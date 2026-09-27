@@ -6,6 +6,12 @@ and importing it here would invert the dependency. Both encode
 docs/PROTOCOL.md section 1's wire format; PROTOCOL.md is the tiebreaker
 if they ever drift.
 """
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PIL import Image as PILImageModule
 
 WIDTH = 1200
 HEIGHT = 1600
@@ -60,14 +66,14 @@ _HIGH_NIBBLE_TABLE = bytes(INDEX_TO_NIBBLE.get(i, 0) << 4 for i in range(256))
 _LOW_NIBBLE_TABLE = bytes(INDEX_TO_NIBBLE.get(i, 0) for i in range(256))
 
 
-def padded_palette():
+def padded_palette() -> list[int]:
     """The 768-int (256 * 3) zero-padded RGB palette Pillow's "P"-mode
     putpalette() expects, built from PALETTE_RGB.
     """
     return list(PALETTE_RGB) + [0, 0, 0] * (_PALETTE_SIZE - len(PALETTE_RGB) // 3)
 
 
-def new_canvas(bg_index):
+def new_canvas(bg_index: int) -> "PILImageModule.Image":
     """A fresh "P"-mode (1200x1600) canvas, palette applied, filled with
     bg_index. Draw with integer palette-index fills, never RGB.
     """
@@ -78,7 +84,7 @@ def new_canvas(bg_index):
     return canvas
 
 
-def pack_panel(canvas):
+def pack_panel(canvas: "PILImageModule.Image") -> bytes:
     """Pack a "P"-mode (1200x1600) canvas into the exact 960,000-byte
     docs/PROTOCOL.md section 1 wire format: 1600 rows x 600 bytes, 2 px
     per byte, left pixel in the high nibble.

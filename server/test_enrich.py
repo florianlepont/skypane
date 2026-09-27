@@ -69,17 +69,6 @@ def aia_hit_body():
     return load_fixture("adsbdb_hit_AIA6412.json")["body"]
 
 
-@pytest.fixture(autouse=True)
-def _reset_manual_registry_state_dir():
-    """Every check that touches manual_resolutions.set_manual_registry_state_dir()
-    resets it in its own try/finally, but this belt-and-braces autouse
-    fixture guarantees no leftover state dir survives into an unrelated
-    test even if a future edit drops that discipline.
-    """
-    yield
-    manual_resolutions.set_manual_registry_state_dir(None)
-
-
 def test_hit_fixture_normalises(hit_body):
     """replaying the real recorded adsbdb hit (TVF16VB) yields the normalised route."""
     cache = {}
@@ -1030,21 +1019,22 @@ def test_airline_source_from_callsign_static_path_parity():
 
 
 def test_airline_source_from_callsign_manual_path(tmp_path):
-    """after manual_resolutions.set_manual_registry_state_dir(tmp) with a ZZZ->'Zephyr Air' entry, airline_source_from_callsign('ZZZ1234') returns ('Zephyr Air', 'manual') and airline_from_callsign() returns 'Zephyr Air'; clearing the state dir restores (None, None)."""
+    """with a manual_registry loaded from a ZZZ->'Zephyr Air' entry, airline_source_from_callsign('ZZZ1234', manual_registry) returns ('Zephyr Air', 'manual') and airline_from_callsign() returns 'Zephyr Air'; passing no registry restores (None, None)."""
     result = manual_resolutions.add_entry(tmp_path, "ZZZ", "Zephyr Air")
     assert result == manual_resolutions.ADD_OK, "setup failure: add_entry() = %r, expected ADD_OK" % (result,)
-    manual_resolutions.set_manual_registry_state_dir(tmp_path)
-    got = enrich.airline_source_from_callsign("ZZZ1234")
+    manual_registry = manual_resolutions.load_manual_resolutions(tmp_path)
+    got = enrich.airline_source_from_callsign("ZZZ1234", manual_registry)
     assert got == ("Zephyr Air", "manual"), (
-        "airline_source_from_callsign('ZZZ1234') = %r, expected ('Zephyr Air', 'manual')" % (got,)
+        "airline_source_from_callsign('ZZZ1234', manual_registry) = %r, expected ('Zephyr Air', 'manual')" % (got,)
     )
-    assert enrich.airline_from_callsign("ZZZ1234") == "Zephyr Air", (
-        "airline_from_callsign('ZZZ1234') = %r, expected 'Zephyr Air'" % (enrich.airline_from_callsign("ZZZ1234"),)
+    assert enrich.airline_from_callsign("ZZZ1234", manual_registry) == "Zephyr Air", (
+        "airline_from_callsign('ZZZ1234', manual_registry) = %r, expected 'Zephyr Air'" % (
+            enrich.airline_from_callsign("ZZZ1234", manual_registry),
+        )
     )
-    manual_resolutions.set_manual_registry_state_dir(None)
     got = enrich.airline_source_from_callsign("ZZZ1234")
     assert got == (None, None), (
-        "after clearing the state dir, airline_source_from_callsign('ZZZ1234') = %r, expected (None, None)" % (got,)
+        "with no manual_registry argument, airline_source_from_callsign('ZZZ1234') = %r, expected (None, None)" % (got,)
     )
 
 
@@ -1052,8 +1042,8 @@ def test_d06_collision_and_static_airline_name_for_prefix(tmp_path):
     """a manual entry for a prefix already in the static table is never consulted: airline_source_from_callsign() still reports the static name and source 'static'; static_airline_name_for_prefix() returns the static name for that prefix, None for a manual-only prefix, and handles non-string/wrong-length input without raising."""
     result = manual_resolutions.add_entry(tmp_path, "TVF", "Some Operator Typo")
     assert result == manual_resolutions.ADD_OK, "setup failure: add_entry() = %r, expected ADD_OK" % (result,)
-    manual_resolutions.set_manual_registry_state_dir(tmp_path)
-    got = enrich.airline_source_from_callsign("TVF16VB")
+    manual_registry = manual_resolutions.load_manual_resolutions(tmp_path)
+    got = enrich.airline_source_from_callsign("TVF16VB", manual_registry)
     assert got == ("Transavia France", "static"), (
         "D-06 violated: airline_source_from_callsign('TVF16VB') with a colliding manual entry = %r, "
         "expected ('Transavia France', 'static')" % (got,)
@@ -1066,7 +1056,6 @@ def test_d06_collision_and_static_airline_name_for_prefix(tmp_path):
 
     result2 = manual_resolutions.add_entry(tmp_path, "ZZZ", "Zephyr Air")
     assert result2 == manual_resolutions.ADD_OK, "setup failure: add_entry() = %r, expected ADD_OK" % (result2,)
-    manual_resolutions.set_manual_registry_state_dir(tmp_path)
     assert enrich.static_airline_name_for_prefix("ZZZ") is None, (
         "static_airline_name_for_prefix('ZZZ') should ignore the manual-only entry, got %r" % (
             enrich.static_airline_name_for_prefix("ZZZ"),
@@ -1085,10 +1074,10 @@ def test_resolve_route_manual_source(tmp_path):
     """resolve_route() with a manual entry for a prefix absent from the static table and an adsbdb miss returns source 'manual' and an airline-only route whose airline_name is the operator's name and whose other five keys are None."""
     result = manual_resolutions.add_entry(tmp_path, "ZZZ", "Zephyr Air")
     assert result == manual_resolutions.ADD_OK, "setup failure: add_entry() = %r, expected ADD_OK" % (result,)
-    manual_resolutions.set_manual_registry_state_dir(tmp_path)
+    manual_registry = manual_resolutions.load_manual_resolutions(tmp_path)
     cache = {}
     transport = make_transport(404, {"response": "unknown callsign"})
-    route, source = enrich.resolve_route("ZZZ1234", cache, transport=transport)
+    route, source = enrich.resolve_route("ZZZ1234", cache, transport=transport, manual_registry=manual_registry)
     assert source == "manual", "expected source 'manual', got %r" % (source,)
     assert route is not None and route.get("airline_name") == "Zephyr Air", (
         "expected an airline-only route with airline_name 'Zephyr Air', got %r" % (route,)
@@ -1102,18 +1091,19 @@ def test_resolve_route_static_and_adsbdb_precedence_over_manual(hit_body, tmp_pa
     """a manual entry for a static-table prefix still yields 'airline_only' under an adsbdb miss, and adsbdb still wins by construction ('fresh_hit') even when a manual entry exists for that prefix."""
     result = manual_resolutions.add_entry(tmp_path, "TVF", "Some Operator Typo")
     assert result == manual_resolutions.ADD_OK, "setup failure: add_entry() = %r, expected ADD_OK" % (result,)
-    manual_resolutions.set_manual_registry_state_dir(tmp_path)
+    manual_registry = manual_resolutions.load_manual_resolutions(tmp_path)
 
     cache = {}
     miss_transport = make_transport(404, {"response": "unknown callsign"})
-    route, source = enrich.resolve_route("TVF16VB", cache, transport=miss_transport)
+    route, source = enrich.resolve_route("TVF16VB", cache, transport=miss_transport, manual_registry=manual_registry)
     assert source == "airline_only" and route is not None and route.get("airline_name") == "Transavia France", (
         "D-06 violated: expected ('Transavia France', 'airline_only') for a static-table prefix with a "
         "colliding manual entry under an adsbdb miss, got (%r, %r)" % (route, source)
     )
 
     cache2 = {}
-    route2, source2 = enrich.resolve_route("TVF16VB", cache2, transport=make_transport(200, hit_body))
+    route2, source2 = enrich.resolve_route(
+        "TVF16VB", cache2, transport=make_transport(200, hit_body), manual_registry=manual_registry)
     assert source2 == "fresh_hit", "expected source 'fresh_hit' even with a manual entry present, got %r" % (source2,)
 
 
@@ -1125,7 +1115,7 @@ def test_clear_resolved_unresolved_prefix_happy_path_and_idempotence(tmp_path):
     """clear_resolved_unresolved_prefix() removes a manually-resolved prefix's entry and returns the prefix, a second call returns None, and a still-unresolved prefix's entry survives byte-identical."""
     result = manual_resolutions.add_entry(tmp_path, "ZZZ", "Zephyr Air")
     assert result == manual_resolutions.ADD_OK, "setup failure: add_entry() = %r, expected ADD_OK" % (result,)
-    manual_resolutions.set_manual_registry_state_dir(tmp_path)
+    manual_registry = manual_resolutions.load_manual_resolutions(tmp_path)
 
     still_unresolved_entry = {
         "count": 3,
@@ -1143,14 +1133,14 @@ def test_clear_resolved_unresolved_prefix_happy_path_and_idempotence(tmp_path):
         "YYY": dict(still_unresolved_entry),
     }
 
-    got = enrich.clear_resolved_unresolved_prefix("ZZZ1234", registry)
+    got = enrich.clear_resolved_unresolved_prefix("ZZZ1234", registry, manual_registry=manual_registry)
     assert got == "ZZZ", "expected 'ZZZ' removed and returned, got %r" % (got,)
     assert "ZZZ" not in registry, "expected the 'ZZZ' entry to be removed from the registry, still present: %r" % (registry,)
     assert registry.get("YYY") == still_unresolved_entry, (
         "the still-unresolved 'YYY' entry must survive byte-identical, got %r" % (registry.get("YYY"),)
     )
 
-    got2 = enrich.clear_resolved_unresolved_prefix("ZZZ1234", registry)
+    got2 = enrich.clear_resolved_unresolved_prefix("ZZZ1234", registry, manual_registry=manual_registry)
     assert got2 is None, "second call should return None (already cleared), got %r" % (got2,)
     assert registry.get("YYY") == still_unresolved_entry, (
         "the still-unresolved 'YYY' entry must survive the second call too, got %r" % (registry.get("YYY"),)

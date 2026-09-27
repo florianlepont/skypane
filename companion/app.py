@@ -9,7 +9,7 @@ session (`Handler.require_session()`), enforced in this one file. Binds
 because Caddy is the only intended client.
 
 Never writes the poll pipeline's own persisted flight-state file —
-`server.poll_loop.run_once()` is that file's one legitimate writer.
+`server.poll_cycle.run_once()` is that file's one legitimate writer.
 
 `main()` fails closed on a missing password rather than starting with
 auth silently disabled.
@@ -40,7 +40,8 @@ from companion.pages import (  # noqa: E402
 from server import device_config, history_db  # noqa: E402
 from server.plane import (  # noqa: E402
     calendar_rules, colour_rules, illustrations, manual_resolutions)
-import server.poll_loop as poll_loop  # noqa: E402
+import server.poll_cycle as poll_cycle  # noqa: E402
+import server.state_store as state_store  # noqa: E402
 
 DEFAULT_PORT = 8643
 GALLERY_DIRNAME = "gallery"
@@ -231,10 +232,10 @@ LOGIN_THROTTLE = auth.LoginThrottle()
 
 # Guards the check-cooldown -> run_once() -> mark-triggered sequence in
 # _handle_poll_now(), so two concurrent POST /poll-now requests can
-# never both call poll_loop.run_once(). Process-local only: correct
+# never both call poll_cycle.run_once(). Process-local only: correct
 # because main() runs exactly one ThreadingHTTPServer in one OS process -
 # the in-process fast path. Cross-process exclusion (the systemd oneshot
-# racing this same handler) is poll_loop.poll_cycle_lock()'s poll.lock,
+# racing this same handler) is poll_cycle.poll_cycle_lock()'s poll.lock,
 # taken inside run_once() itself with lock_timeout_s=0 below, so a busy
 # lock never blocks this request thread. Single definition site is
 # companion/post_actions.py (whose own calendar-connect route also
@@ -1252,7 +1253,7 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
             return self._settings_saved_redirect(back, FLASH_KEY_CALENDAR_SYNC_DEFERRED)
         try:
             result_code, _registry = calendar_rules.refresh_calendar_registry(
-                state_dir, poll_loop.now_s(), min_interval_s=0)
+                state_dir, poll_cycle.now_s(), min_interval_s=0)
         finally:
             _POLL_LOCK.release()
 
@@ -1291,10 +1292,10 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
                     # poll.lock — a lock held by another process (the
                     # oneshot, or an overlapping trigger) must answer at
                     # once, exactly like the in-process _POLL_LOCK above.
-                    poll_loop.run_once(
+                    poll_cycle.run_once(
                         state_dir=state_dir, geofence=self.args.geofence,
                         lock_timeout_s=0)
-                except poll_loop.PollBusy:
+                except poll_cycle.PollBusy:
                     flash = FLASH_KEY_POLL_ALREADY_RUNNING
                 except Exception:
                     flash = FLASH_KEY_POLL_FAILED
@@ -1425,7 +1426,7 @@ def build_parser():
     )
     parser.add_argument(
         "--state-dir",
-        default=poll_loop.DEFAULT_STATE_DIR,
+        default=state_store.DEFAULT_STATE_DIR,
         help="Directory holding the poll pipeline's own state (default: "
              "server/state/) — read-only from this service's perspective "
              "except via the real production poll cycle POST /poll-now "
@@ -1451,8 +1452,9 @@ def main():
     # Matches stub-server/byos_server.py's own main(): stdout is fully
     # buffered (not line-buffered) once journald redirects it away from a
     # TTY, which can silently lose this process's own startup line and
-    # every server.poll_loop print a POST /poll-now trigger emits if the
-    # service is ever killed before the buffer next flushes.
+    # every server.poll_cycle print (still prefixed "poll_loop: ") a POST
+    # /poll-now trigger emits if the service is ever killed before the
+    # buffer next flushes.
     sys.stdout.reconfigure(line_buffering=True)
 
     Handler.args = args

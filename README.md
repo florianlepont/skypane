@@ -101,7 +101,7 @@ Render a panel by hand (writes the 960,000-byte panel file plus a PNG
 preview):
 
 ```bash
-server/.venv/bin/python3 server/plane/render.py --state departing --callsign AF1380 --out /tmp/panel.bin --preview /tmp/panel.png
+server/.venv/bin/python3 -m server.plane.render --state departing --callsign AF1380 --out /tmp/panel.bin --preview /tmp/panel.png
 ```
 
 Run one real poll cycle against the live ADS-B feeds:

@@ -39,6 +39,7 @@ import companion.frame_state as frame_state  # the one frame-state
 from server import device_config
 from server import history_db
 
+
 HEALTH_UNAVAILABLE_TEXT = (
     "Health history is temporarily unavailable — check the companion "
     "service logs.")
@@ -1008,7 +1009,7 @@ def _source_fault_block(source_fault_raw):
 
 
 # The unresolved-prefix registry read goes through
-# poll_loop.load_poll_state() (filesystem/JSON failure mode), and the
+# state_store.load_poll_state() (filesystem/JSON failure mode), and the
 # stats read goes through _safe_query() (SQLite failure mode) — render()
 # calls both independently so one failing source degrades only its own
 # card.

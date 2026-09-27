@@ -17,10 +17,20 @@ target-version = "py314"
 # a stylistic rewrite risk with no correctness benefit, not an oversight.
 select = ["E4", "E7", "E9", "F"]
 
-# E402 (import not at top) suppressed, not fixed: all 8 findings are the
-# documented sys.path bootstrap in server/poll_loop.py (4), render.py (3)
-# and enrich.py (1), needed so `server/.venv/bin/python3 server/poll_loop.py`
-# (server/README.md's own invocation) resolves its `server.*` imports.
+# E402 (import not at top) suppressed, not fixed: every finding is a
+# documented sys.path bootstrap (server/device_config.py,
+# server/panel_preview.py, server/plane/detect.py, server/plane/enrich.py,
+# server/themes.py, stub-server/byos_server.py), needed so
+# `server/.venv/bin/python3 server/poll_loop.py` (server/README.md's own
+# invocation) resolves its `server.*` imports when run as a direct script.
+# Refreshed 39-13 with `server/.venv/bin/ruff check --isolated --select
+# E402 .` (isolated ignores this project's own ignore, so it lists only
+# the real remaining sites): server/poll_loop.py's own two post-bootstrap
+# imports carry an inline `# noqa: E402` each rather than relying on this
+# project-wide suppression, so it is no longer part of this list.
+# server/plane/render/'s own bootstrap was dropped in the 39-08 package
+# split - `python3 -m server.plane.render` needs none, since `-m` already
+# puts the repo root (the invocation's cwd) on sys.path.
 ignore = ["E402"]
 
 [tool.pytest.ini_options]
@@ -95,3 +105,69 @@ omit = [
 [tool.coverage.report]
 # Floor derivation: measured 93.38% total on 2026-09-25 (CPython 3.14.0rc2, ./scripts/run-all-tests.sh as non-root); ratchets upward only, never down.
 fail_under = 93
+
+[tool.mypy]
+# Production runs Ubuntu 26.04's distro python3 (3.14); the local venv is
+# 3.11 (see server/README.md) - annotations in the files list below must
+# type-check identically on both, so no PEP 695 syntax is used there.
+python_version = "3.14"
+# server/ has no __init__.py (a namespace package, so test files can run
+# both as package members and direct scripts, per the pytest section
+# above) - this tells mypy to derive each module's dotted name from its
+# path instead of requiring one.
+explicit_package_bases = true
+mypy_path = "."
+# A typed module importing an unchecked one (e.g. server.device_config)
+# is analysed for its own errors only; the unchecked import's errors are
+# not surfaced here; nothing outside `files` is type-checked at all.
+follow_imports = "silent"
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+check_untyped_defs = true
+
+# The pure core, typed at birth or annotated for this gate. Grows only as
+# a future module is annotated end to end - a module half-covered here
+# would give a false sense of the check's reach.
+files = [
+    "server/device_policy.py",
+    "server/state_store.py",
+    "server/themes.py",
+    "server/net/safe_fetch.py",
+    "server/plane/calendar_rules/ics.py",
+    "server/plane/calendar_rules/match.py",
+    "server/wake.py",
+    "server/panel_format.py",
+    "server/atomic_io.py",
+    "server/plane/runway_config.py",
+    "server/plane/colour_rules.py",
+    # Added under the global settings only, not the strict override below:
+    # the pure helpers (decide_hold, advance_is_due, normalise_pending,
+    # enqueue_pending, pop_fresh_pending) and CycleContext are fully
+    # annotated, but the orchestration steps over CycleContext stay
+    # partially annotated.
+    "server/poll_cycle.py",
+]
+
+# mypy's own `strict` preset is a global-only switch; these per-flag
+# equivalents apply only to the pure-core files above, not to every
+# module `follow_imports` still resolves along the way.
+[[tool.mypy.overrides]]
+module = [
+    "server.device_policy",
+    "server.state_store",
+    "server.themes",
+    "server.net.safe_fetch",
+    "server.plane.calendar_rules.ics",
+    "server.plane.calendar_rules.match",
+    "server.wake",
+    "server.panel_format",
+    "server.atomic_io",
+    "server.plane.runway_config",
+    "server.plane.colour_rules",
+]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_any_generics = true
+warn_return_any = true

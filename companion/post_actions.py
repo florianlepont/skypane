@@ -54,7 +54,7 @@ from companion.pages import airlines_page, config_page
 from companion.pages.airlines_page import unresolved_row_for_prefix
 from server import atomic_io, device_config, notify
 from server.plane import calendar_rules, colour_rules, illustrations, manual_resolutions
-import server.poll_loop as poll_loop
+import server.poll_cycle as poll_cycle
 
 # Bounds peak memory per upload to a few MB. Enforced by the caller
 # (SettingsActionsMixin._read_upload_body() on companion/app.py's
@@ -423,7 +423,7 @@ class SettingsActionsMixin:
                 "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_DEFERRED)))
         try:
             result_code, _registry = calendar_rules.refresh_calendar_registry(
-                state_dir, poll_loop.now_s(), min_interval_s=0)
+                state_dir, poll_cycle.now_s(), min_interval_s=0)
         finally:
             _POLL_LOCK.release()
         if result_code == calendar_rules.FETCH_OK:

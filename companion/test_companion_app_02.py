@@ -32,7 +32,7 @@ from server import device_config
 from server.plane import illustrations as server_illustrations
 from server.plane import manual_resolutions
 from server.plane import render
-import server.poll_loop as poll_loop
+import server.device_policy as device_policy
 from skypane_test_support import REPO_ROOT, child_env
 
 
@@ -996,8 +996,8 @@ def test_page_context_supplies_resolve_prefix_and_manual_resolutions(tmp_path):
 
 # ==========================================================================
 # Section 2.8: the drawing contract —
-# companion/draw.py, companion/battery.py, server/poll_loop.py's 
-# private copy, and the served stylesheet.
+# companion/draw.py, companion/battery.py's shared discharge curve, and
+# the served stylesheet.
 #
 # The original harness's `_battery_estimate_has_exactly_one_home()` check
 # scans every companion/server *.py source file's tokens (via `tokenize`,
@@ -1005,8 +1005,10 @@ def test_page_context_supplies_resolve_prefix_and_manual_resolutions(tmp_path):
 # functions — a structural anti-duplication guard with no directly
 # observable HTTP/DOM consequence of its own. It is DELETED here (rubric
 # S): the actual failure mode it exists to prevent — two homes disagreeing
-# about a percentage for the same reading — is fully covered behaviourally
-# by test_battery_estimate_parity_between_companion_and_server() below.
+# about a percentage for the same reading — cannot arise once
+# companion/battery.py re-exports the shared module's own objects, which
+# test_battery_estimate_is_the_shared_device_policy() below pins by
+# identity rather than by value.
 #
 # `_no_colour_literal_in_emitted_markup()` and `_every_drawn_shape_has_a_
 # fill_route()` similarly scanned every string literal in companion/draw.py
@@ -1062,39 +1064,43 @@ def test_battery_discharge_curve_is_well_formed():
     assert (health_page.SPARKLINE_Y_MIN_MV < battery_module.LOW_BATTERY_DISPLAY_MV
             < health_page.SPARKLINE_Y_MAX_MV), (
         "expected LOW_BATTERY_DISPLAY_MV strictly inside the sparkline's fixed range")
-    assert poll_loop.BATTERY_LOW_THRESHOLD_MV < battery_module.LOW_BATTERY_DISPLAY_MV, (
-        "expected poll_loop.BATTERY_LOW_THRESHOLD_MV < LOW_BATTERY_DISPLAY_MV, pinning the "
+    assert device_policy.BATTERY_LOW_THRESHOLD_MV < battery_module.LOW_BATTERY_DISPLAY_MV, (
+        "expected device_policy.BATTERY_LOW_THRESHOLD_MV < LOW_BATTERY_DISPLAY_MV, pinning the "
         "relationship the module's own comment states")
 
 
-def test_battery_estimate_parity_between_companion_and_server():
-    """companion.battery and server.poll_loop's independently-maintained battery-percentage
-    copies agree on their curve table, their FULL/EMPTY endpoints, and their output
-    for every integer millivolt value from 2800 to 4400, a few non-integer floats, and a
-    hostile input set — a drift here is exactly T-gaf-02"""
+def test_battery_estimate_is_the_shared_device_policy():
+    """companion.battery's discharge curve, its FULL/EMPTY endpoints, and both percentage
+    functions ARE server.device_policy's own objects — not equal-valued copies — and the
+    re-export agrees with the shared module for every integer millivolt value from 2800 to
+    4400, a few non-integer floats, and a hostile input set"""
     from companion import battery as battery_module
 
-    assert battery_module.BATTERY_DISCHARGE_CURVE == poll_loop._NOTIFY_BATTERY_DISCHARGE_CURVE, (
-        "companion.battery.BATTERY_DISCHARGE_CURVE != poll_loop._NOTIFY_BATTERY_DISCHARGE_CURVE "
-        "— the D-27 duplicate has drifted")
-    assert battery_module.BATTERY_FULL_MV == poll_loop._NOTIFY_BATTERY_FULL_MV, (
-        "BATTERY_FULL_MV != _NOTIFY_BATTERY_FULL_MV")
-    assert battery_module.BATTERY_EMPTY_MV == poll_loop._NOTIFY_BATTERY_EMPTY_MV, (
-        "BATTERY_EMPTY_MV != _NOTIFY_BATTERY_EMPTY_MV")
+    assert battery_module.BATTERY_DISCHARGE_CURVE is device_policy.BATTERY_DISCHARGE_CURVE, (
+        "companion.battery.BATTERY_DISCHARGE_CURVE is not server.device_policy's own object")
+    assert battery_module.BATTERY_FULL_MV is device_policy.BATTERY_FULL_MV, (
+        "BATTERY_FULL_MV is not server.device_policy's own object")
+    assert battery_module.BATTERY_EMPTY_MV is device_policy.BATTERY_EMPTY_MV, (
+        "BATTERY_EMPTY_MV is not server.device_policy's own object")
+    assert battery_module.battery_fraction is device_policy.battery_fraction, (
+        "battery_fraction is not server.device_policy's own function")
+    assert battery_module.battery_percent is device_policy.battery_percent, (
+        "battery_percent is not server.device_policy's own function")
     inputs = list(range(2800, 4401)) + [3540.5, 3999.9, 4111.99]
     for value in inputs:
         companion_out = battery_module.battery_percent(value)
-        server_out = poll_loop._battery_percent_estimate(value)
-        assert companion_out == server_out, (
-            "the two homes disagree at %r: companion.battery.battery_percent() == %r, "
-            "poll_loop._battery_percent_estimate() == %r" % (value, companion_out, server_out))
+        shared_out = device_policy.battery_percent(value)
+        assert companion_out == shared_out, (
+            "the re-export disagrees with the shared module at %r: companion.battery."
+            "battery_percent() == %r, server.device_policy.battery_percent() == %r"
+            % (value, companion_out, shared_out))
     hostile = (None, "x", "", "3700", 0, -1, True, float("nan"), float("inf"), float("-inf"))
     for value in hostile:
         companion_out = battery_module.battery_percent(value)
-        server_out = poll_loop._battery_percent_estimate(value)
-        assert companion_out == server_out, (
-            "the two homes disagree on hostile input %r: companion returned %r, server "
-            "returned %r" % (value, companion_out, server_out))
+        shared_out = device_policy.battery_percent(value)
+        assert companion_out == shared_out, (
+            "the re-export disagrees with the shared module on hostile input %r: companion "
+            "returned %r, server.device_policy returned %r" % (value, companion_out, shared_out))
 
 
 _DRAWING_CONTRACT_SAMPLES = (

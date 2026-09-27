@@ -16,7 +16,7 @@ import socket
 from datetime import datetime, timedelta, timezone
 
 from server.plane import calendar_rules
-import server.poll_loop as poll_loop
+import server.state_store as state_store
 
 __test__ = False
 
@@ -147,7 +147,7 @@ def seed_unresolved_prefixes(state_dir, registry):
     name exactly, since that is the exact membership set
     `unresolved_row_for_prefix()` reads.
     """
-    poll_loop.save_poll_state(state_dir, {"unresolved_prefixes": registry})
+    state_store.save_poll_state(state_dir, {"unresolved_prefixes": registry})
 
 
 def encode_multipart(

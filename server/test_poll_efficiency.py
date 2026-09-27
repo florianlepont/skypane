@@ -2,8 +2,8 @@
 """Contract tests for one SQLite connection and one transaction per poll
 cycle.
 
-Covers `server/poll_loop.py`'s `run_once()` (now wrapping `_run_once_locked()`
-in a `history_db.connection_scope(state_dir)`, nested inside
+Covers `server/poll_cycle.py`'s `run_once()` (its whole named-step sequence
+runs inside one `history_db.connection_scope(state_dir)`, nested inside
 `poll_cycle_lock()`) and `_record_history()` (now grouping every write in one
 `history_db.write_batch(conn)`), across:
 
@@ -55,7 +55,7 @@ import efficiency_probe  # noqa: E402
 import server.device_config as device_config  # noqa: E402
 import server.history_db as history_db  # noqa: E402
 import server.plane.enrich as enrich  # noqa: E402
-import server.poll_loop as poll_loop  # noqa: E402
+import server.poll_cycle as poll_cycle  # noqa: E402
 import server.wake as wake  # noqa: E402
 
 pytestmark = pytest.mark.slow
@@ -236,9 +236,9 @@ def test_no_write_transaction_open_during_notify_send_and_batch_already_visible(
             second_conn.close()
         return True
 
-    monkeypatch.setattr(poll_loop.notify, "send_notification", fake_send)
+    monkeypatch.setattr(poll_cycle.notify, "send_notification", fake_send)
 
-    poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=state_dir, geofence=GEOFENCE_PATH)
+    poll_cycle.run_once(snapshot=_empty_snapshot(), state_dir=state_dir, geofence=GEOFENCE_PATH)
 
     if "in_transaction" not in probe:
         pytest.fail("the fake notify.send_notification was never called - expected the silence transition to fire")
@@ -266,9 +266,9 @@ def test_history_write_failure_is_contained_and_the_whole_batch_rolls_back(tmp_p
     def _boom(*args, **kwargs):
         raise sqlite3.OperationalError("meta write exploded")
 
-    monkeypatch.setattr(poll_loop.history_db, "set_meta", _boom)
+    monkeypatch.setattr(poll_cycle.history_db, "set_meta", _boom)
 
-    result = poll_loop.run_once(
+    result = poll_cycle.run_once(
         snapshot=_flight_snapshot(), state_dir=state_dir, geofence=GEOFENCE_PATH)
 
     if result is None or "panel_changed" not in result:
@@ -295,7 +295,7 @@ def test_run_once_nested_inside_an_active_connection_scope_opens_no_additional_c
 
     with efficiency_probe.count_db() as counts:
         with history_db.connection_scope(state_dir):
-            poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=state_dir, geofence=GEOFENCE_PATH)
+            poll_cycle.run_once(snapshot=_empty_snapshot(), state_dir=state_dir, geofence=GEOFENCE_PATH)
 
     if counts.connections != 1:
         pytest.fail("run_once() nested inside an active connection_scope() opened %d connections, expected 1" % counts.connections)
