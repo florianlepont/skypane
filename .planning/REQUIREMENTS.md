@@ -179,12 +179,12 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [x] **EFF-04**: Lazy context; severity computed without markup; light freshness endpoint
 - [x] **EFF-05**: Saved once, only if changed, compact
 - [x] **EFF-06**: Providers queried in parallel, per-provider rate limit kept
-- [ ] **ARC-01**: `load_cycle_context` / `decide_hold` / `advance_display_queue` / `render_and_publish` / `persist` / `record` over a `CycleContext` dataclass
-- [ ] **ARC-02**: `server/state_store.py` owns `poll_state.json`; companion imports it
-- [ ] **ARC-03**: `render/{layout,text,hold_screens,cli}`, `calendar/{ics,registry,match}`, `themes.py`, shared `net/safe_fetch.py`
-- [ ] **ARC-04**: Explicit injection
-- [ ] **ARC-05**: One shared module used by server, byos and companion
-- [ ] **ARC-06**: Type hints on the pure core; mypy in CI
+- [x] **ARC-01**: `load_cycle_context` / `decide_hold` / `advance_display_queue` / `render_and_publish` / `persist` / `record` over a `CycleContext` dataclass
+- [x] **ARC-02**: `server/state_store.py` owns `poll_state.json`; companion imports it
+- [x] **ARC-03**: `render/{layout,text,hold_screens,cli}`, `calendar/{ics,registry,match}`, `themes.py`, shared `net/safe_fetch.py`
+- [x] **ARC-04**: Explicit injection
+- [x] **ARC-05**: One shared module used by server, byos and companion
+- [x] **ARC-06**: Type hints on the pure core; mypy in CI
 - [ ] **CMP-01**: Route table `(method, matcher, handler, auth_required)`
 - [ ] **CMP-02**: One `{route: path}` allowlist
 - [ ] **CMP-03**: Split by settings group / by responsibility
@@ -429,12 +429,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EFF-04 | Phase 38 | Complete |
 | EFF-05 | Phase 38 | Complete |
 | EFF-06 | Phase 38 | Complete |
-| ARC-01 | Phase 39 | Pending |
-| ARC-02 | Phase 39 | Pending |
-| ARC-03 | Phase 39 | Pending |
-| ARC-04 | Phase 39 | Pending |
-| ARC-05 | Phase 39 | Pending |
-| ARC-06 | Phase 39 | Pending |
+| ARC-01 | Phase 39 | Complete |
+| ARC-02 | Phase 39 | Complete |
+| ARC-03 | Phase 39 | Complete |
+| ARC-04 | Phase 39 | Complete |
+| ARC-05 | Phase 39 | Complete |
+| ARC-06 | Phase 39 | Complete |
 | CMP-01 | Phase 40 | Pending |
 | CMP-02 | Phase 40 | Pending |
 | CMP-03 | Phase 40 | Pending |

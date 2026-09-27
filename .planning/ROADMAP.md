@@ -1881,7 +1881,7 @@ Plans:
 3. Quiet hours, battery-critical and battery-curve logic exist once
 4. mypy green in CI on the typed modules; behaviour unchanged (suite green)
 
-**Plans:** 12/13 plans executed
+**Plans:** 13/13 plans complete
 
 Plans:
 
@@ -1917,7 +1917,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 39-13-PLAN.md — size gate in CI, poll_cycle under mypy, baseline After + criteria, ARCHITECTURE.md module map [ARC-01..06]
+- [x] 39-13-PLAN.md — size gate in CI, poll_cycle under mypy, baseline After + criteria, ARCHITECTURE.md module map [ARC-01..06]
 
 ### Phase 40: Companion architecture — routes, pages, templates, i18n keys
 

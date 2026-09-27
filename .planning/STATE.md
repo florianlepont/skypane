@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 39-11-PLAN.md
-last_updated: "2026-09-27T14:24:17.256Z"
+status: verifying
+stopped_at: Completed 39-13-PLAN.md (phase 39 closed, 13/13 plans)
+last_updated: "2026-09-27T14:48:41.463Z"
 last_activity: 2026-09-27
 progress:
   total_phases: 54
-  completed_phases: 47
+  completed_phases: 48
   total_plans: 418
-  completed_plans: 392
+  completed_plans: 393
   percent: 94
 ---
 
@@ -32,7 +32,7 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
-status: Ready to execute
+status: Phase complete — ready for verification
 stopped_at: "Phase 06.6.4.1 CLOSED at 9/9 plans, on branch claude/06.6.4.1-closing-validation (rebased onto PR #44's tip 4a31a62, unpushed). Its dangling closing plan (06.6.4.1-09) had Task 1's automated gates re-verified for real twice — once against this branch's own base (92bc660), again after PR #44 (Phases 8-11: panel theme rework, band themes, scheduled quiet hours, web-configurable wake interval) merged mid-checkpoint from a separate line of work — both times 16/16 harnesses green, 92% coverage. Task 2, the blocking 28-item developer checklist (D-23/D-24/D-25), returned its verdict: PASS on all 28 items, no fails, no marginals, including the two twice-deferred items with no escape hatch — a real assistive-technology pass and a live production walkthrough (https://config-92-222-92-167.nip.io) — each confirmed by a direct question rather than accepted on the strength of an initial blanket approval alone. Two real drift findings were disclosed to the developer rather than silently absorbed: History's retired 'Now showing' section (D-18/D-19, superseded by quick task 260903-c4o) and Settings' two new Phase 10/11 sections (Quiet hours, Wake interval) not covered by the original checklist text. No open phase remains after 06.6.4.1 — Phase 11 (the highest-numbered phase) is also complete per PR #44, and no Phase 12 exists yet in ROADMAP.md. Next: push this branch, open a PR, and ask the developer what's next once it's merged."
 last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
@@ -56,7 +56,7 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 39 (server-architecture-run-once-split-state-store-shared-module) — EXECUTING
+Phase: 39 (server-architecture-run-once-split-state-store-shared-module) — COMPLETE (13/13 plans, 2026-09-27; ARC-01..ARC-06 closed)
 Phase: 38 (efficiency-companion-poll-cycle-storage) — COMPLETE (13/13 plans, 2026-09-27; 38-01..38-05 merged via #146-#149, 38-06..38-13 and the review fixes on PR #150). Verification passed; EFF-01..EFF-06 closed.
 Phase: 37 (security-and-operations-hardening) — COMPLETE (11/11 plans; 37-11 Wave B: byos loopback-only + IP filter, no secret in argv, CP-11 and CP-7 done live 2026-09-26)
 Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human_needed: TimeoutStartUSec=1min 30s confirmed live 2026-09-26; only the optional on-frame panel-swap check remains)
@@ -64,6 +64,8 @@ Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, ver
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
 Plan: 13 of 13
+
+**39-13 executed (2026-09-27), plan 13/13 of Phase 39 (depends on 39-04/39-06/39-08/39-10/39-11/39-12), wave 7 — the phase close-out, two commits.** Task 1 added a tree-wide `test_no_function_in_server_or_stub_server_exceeds_80_code_lines` to `test-support/test_check_function_size.py` (calls `check_function_size.py`'s own `main()` in-process) plus a blocking CI step "Function size gate (non-test code in server/ and stub-server/)" right after the Type check step — two independent enforcement paths from one tool, so deleting either alone still fails the suite. Added `server/poll_cycle.py` to `[tool.mypy]`'s global `files` list (not the strict override — its pure core is fully typed per 39-11, the orchestration steps stay partially annotated); the only real gap was `detect_flight`'s `diagnostics` local needing an explicit `dict | None` annotation (typing-only, zero behaviour change) — `mypy` now reports 12 source files, up from 11. Refreshed `pyproject.toml`'s E402 comment to the real 6-file list from `ruff check --isolated --select E402 .`, dropping `server/poll_loop.py` (its own two imports now carry an inline `noqa: E402` rather than relying on the project-wide suppression). Task 2 re-ran every Before command from `39-ARC-BASELINE.md` on the final tree and filled in the After section (function size: 401 scanned, zero offenders, up from 365/6; CC: `run_once` 3, its highest named step `advance_display_queue` 10, vs Before's `_run_once_locked` 53/grade F — an 81% drop; typed functions: 73 of 356 non-test server functions annotated, up from 0/318, mypy 12 files green; companion imports of `server.poll_loop`: zero statement-level imports left; module-global setters: all three deleted outright; duplicated device policy: all nine rows now one definition each, the tenth — the quiet-hours invalid-time fallback — unified per D-4; suite: 2995 passed/139 skipped, coverage 94.27%, ruff and comment-history clean), a Criteria table (four ROADMAP criteria, each Met with its evidence command), and an Intentional behaviour changes section naming D-4 and D-5 with the tests that pin each. Updated `ARCHITECTURE.md`: replaced every stale `poll_loop.py`/`render.py` pipeline-body reference with `poll_cycle.py`/`server/plane/render/`, and added a Module map paragraph naming `poll_loop.py`, `poll_cycle.py`, `state_store.py`, `device_policy.py`, `themes.py`, `net/safe_fetch.py` and the `render/`/`calendar_rules/` packages. Commits: `9a1f444` (feat) Task 1, `39f9401` (docs) Task 2. Phase close-out (this plan's own scope): `ARC-01`..`ARC-06` marked Complete in `REQUIREMENTS.md` (checklist + summary table) via `requirements.mark-complete`; `roadmap.update-plan-progress 39` now reports the phase Complete at 13/13. `state.update-progress` reproduced this file's own documented recurring bug one final time — its own JSON correctly returned `percent: 94` (393/418) but the written frontmatter showed `percent: 89` (`completed_phases/total_phases` = 48/54) — corrected to `94` by hand per this file's established precedent, as the last STATE.md edit before this plan's own final commit.
 
 **39-11 executed (2026-09-27), plan 11/13 of Phase 39 (depends on 39-10), wave 6 — the run_once split into named steps over CycleContext, three commits.** `_run_once_locked` (338 code lines, McCabe CC 53, the phase's last ARC-01 size-gate offender) is gone. Task 1 added `CycleContext` (`@dataclass(slots=True)`, `from __future__ import annotations`), `load_cycle_context()` (makedirs, registry loads, calendar refresh, device_cfg/poll_state/battery_state read — verbatim from the former opening segment), `decide_hold()` (pure `battery_empty > display_off > quiet_hours` precedence), `publish_canvas()` (the one render → pack → write → gallery sequence, replacing all four former inline publish copies — confirmed by grep: `_save_to_gallery(` now appears exactly twice, its own def plus the one call inside `publish_canvas`), and `run_hold_cycle()` (the hold branch kept verbatim over `ctx`). Task 2 extracted the live path into `detect_flight`, `load_display_slots`, `update_battery_low` (shared with `run_hold_cycle` only after confirming their battery-low blocks were byte-identical by diff), `advance_display_queue`, `render_and_publish` (dispatching to `_render_promoted`/`_render_held`/`_render_empty`; `_render_promoted` further delegates to `_enrich_current_flight`/`_resolve_theme` to stay under the line cap), `record`, `persist`, `log_cycle` and `cycle_result`; `run_once()` now calls the eight live steps in order inside its existing lock + `history_db.connection_scope`; `_run_once_locked` deleted (grepped first — no test reached it as a monkeypatch/attribute target, only prose mentions in three files' docstrings, updated in place). Added `server/test_poll_cycle_steps.py`: `decide_hold`'s precedence table, `publish_canvas`'s write/gallery contract, and two step-ordering spy tests (the live path's exact 8-step call order via wrapping the real functions; the hold path never calls `detect_flight` and publishes at most once across an entry+repeat pair). **The hold-path and live-path poll_state persist orders were kept exactly as two distinct function bodies** (`run_hold_cycle`: record → silence notify → one persist; `persist()`: publish → record → persist → silence notify → persist-if-changed) — never unified, per the plan's own explicit warning. Addendum commit annotated `decide_hold`/`advance_is_due`/`normalise_pending`/`enqueue_pending`/`pop_fresh_pending` (the plan's own must-have truth names these plus `CycleContext` as "the typed pure core"; `CycleContext` was already annotated via its dataclass fields) — confirmed zero new errors with a local ad hoc `mypy --disallow-untyped-defs --check-untyped-defs` pass (not yet in pyproject's typed-files list; that's 39-13's scope). Commits: `a8a7836` (feat) Task 1, `dc54090` (feat) Task 2, `67619c2` (feat) addendum. Every function in `server/poll_cycle.py` is now ≤57 code lines (45 functions scanned, none over 80); max cyclomatic complexity in the module is unchanged at 12 (`_record_history`, untouched). Full suite green (2994 passed, up from 2992 — the 2 new spy tests; 139 skipped, pre-existing environment skips), ruff and `check_comment_history.py` both clean. Per this phase's own convention, ARC-01/ARC-06 are NOT marked Complete in REQUIREMENTS.md here — only 39-13 flips ARC-* to Complete. `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 94` (392/418) but the written frontmatter showed `percent: 87` (`completed_phases/total_phases` = 47/54) — corrected to `94` by hand per this file's established precedent.
 
@@ -593,6 +595,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 39 P10 | 65min | 3 tasks | 12 files |
 | Phase 39 P12 | 17min | 2 tasks | 13 files |
 | Phase 39 P11 | 50min | 2 tasks | 5 files |
+| Phase 39 P13 | 25min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -1158,6 +1161,9 @@ Recent decisions affecting current work:
 - [Phase 39]: update_battery_low shared between the hold and live paths only after confirming their battery-low blocks were byte-identical
 - [Phase 39]: hold-path and live-path poll_state persist orders kept as two distinct function bodies (run_hold_cycle vs persist), never unified
 - [Phase 39]: _run_once_locked deleted (not kept as a wrapper) after confirming no test reaches it as a monkeypatch/attribute target; the plan's five pure-core helpers plus CycleContext annotated per its own must-have truth
+- [Phase 39]: server/poll_cycle.py added to [tool.mypy]'s global files list (not the strict override) - its pure core (decide_hold, advance_is_due, normalise_pending, enqueue_pending, pop_fresh_pending, CycleContext) is fully typed, the orchestration steps stay partially annotated
+- [Phase 39]: pyproject's E402 comment refreshed to the real 6-file list from ruff --isolated --select E402; server/poll_loop.py dropped since its own imports now carry inline noqa: E402 rather than relying on the project-wide ignore
+- [Phase 39]: 39-ARC-BASELINE.md's After section reports run_once's own named-step CC ceiling (advance_display_queue, 10) separately from the module's overall ceiling (_record_history, 12, a pre-existing untouched helper) rather than conflating the two
 
 ### Pending Todos
 
@@ -1278,8 +1284,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-27T14:24:17.183Z
-Stopped at: Completed 39-11-PLAN.md
+Last session: 2026-09-27T14:48:41.396Z
+Stopped at: Completed 39-13-PLAN.md (phase 39 closed, 13/13 plans)
 
 Resume file: 
 
