@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 39-06-PLAN.md
-last_updated: "2026-09-27T09:15:04.476Z"
+stopped_at: Completed 39-07-PLAN.md
+last_updated: "2026-09-27T09:39:58.028Z"
 last_activity: 2026-09-27
 progress:
   total_phases: 54
   completed_phases: 47
   total_plans: 418
-  completed_plans: 386
-  percent: 92
+  completed_plans: 387
+  percent: 93
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -38,7 +38,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [█████████░] 92%
+  [█████████░] 93%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -63,7 +63,9 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 7 of 13
+Plan: 8 of 13
+
+**39-07 executed (2026-09-27), plan 7/13 of Phase 39 (depends on 39-02), wave 3 — ARC-02/ARC-05's companion import switches, D-6, three isolated commits.** Task 1 switched `companion/pages/health_page.py` and `companion/pages/airlines_page.py` off `server.poll_loop` and onto `server.state_store` for every `load_poll_state()` call site, rewording every comment/docstring in both files that named the old module (including two in `health_page.py` about `POLL_INTERVAL_S`/the device hysteresis threshold, reworded to drop the module name since those still live in `poll_loop.py` unchanged); retargeted `test_status_pages_05b.py`'s airlines-page import-shape test (renamed, asserts `state_store` binding, dropped the stale `(phase 13 D-11 supersession)` ID from its message) and `test_companion_app_05.py`'s poll-trigger cooldown seed helper. Task 2 made `companion/battery.py` re-export `server.device_policy`'s `BATTERY_DISCHARGE_CURVE`/`BATTERY_FULL_MV`/`BATTERY_EMPTY_MV`/`battery_fraction`/`battery_percent` (`companion/wake.py`'s own shim pattern) instead of maintaining a second copy, keeping `_curve_mv_at_percent`, `LOW_BATTERY_DISPLAY_*` and the whole life-estimate section unchanged; per D-6, `test_companion_app_03.py`'s "imports nothing from server" isolation test became `test_battery_module_imports_only_the_shared_device_policy_from_server`, an allowlist (only `server`/`server.device_policy`, no `companion.pages*`, no `PIL`/`requests`/`urllib3`) diffing `sys.modules` before/after the import — required because `child_env()`'s own `sitecustomize.py` unconditionally imports `requests` before any application code runs, so a raw post-import set would false-positive (same pattern 39-02 established for `device_policy`'s own isolation test); `test_companion_app_02.py`'s parity test became `test_battery_estimate_is_the_shared_device_policy`, asserting identity (`is`), not equality, plus the same 2800-4400 mV sweep and hostile-input set, dropping the stale `(D-27)` ID from its message. Task 3 switched `companion/app.py`'s poll_state freshness-stamp path and `--state-dir` CLI default onto `state_store.poll_state_path()`/`DEFAULT_STATE_DIR`, leaving `poll_loop.run_once`/`PollBusy`/`poll_cycle_lock`/`now_s` untouched (those move to the future poll-cycle library module), and switched all four companion test-seeding helpers' `save_poll_state()` calls onto `state_store`, dropping the now-unused `poll_loop` import from the two/three helpers that had no other use of it (`test_browser_ux_helpers.py` keeps it for `_save_to_gallery`). One Rule-1 auto-fix during Task 3's own acceptance-criteria grep (which is repo-wide, not scoped to the task's file list): a stale comment in `test_status_pages_03.py` still named `poll_loop.load_poll_state()` after Task 1's commit had already switched the page it describes onto `state_store`; reworded to match. Commits: `cc1837f` (feat) Task 1, `9bfc02e` (feat) Task 2, `0499fd7` (feat) Task 3. Full suite green after each commit (2974 passed, 139 skipped — pre-existing Playwright-browser-missing/root-euid skips), ruff and `check_comment_history.py` both clean, coverage 94% (≥93% required). No `server/`/`stub-server/` file touched, per this plan's own coordination note (Phase 40 owns `companion/` in parallel). Per this phase's own convention, ARC-02/ARC-05 are NOT marked Complete in REQUIREMENTS.md here — only 39-13 flips ARC-* to Complete. `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 93` (387/418) but the written frontmatter showed `percent: 87` (`completed_phases/total_phases` = 47/54) — corrected to `93` by hand per this file's established precedent.
 
 **39-06 executed (2026-09-27), plan 6/13 of Phase 39 (depends on 39-02), wave 3 — ARC-05's byos wiring, D-3/D-4/D-6.** Task 1 gave `stub-server/byos_server.py` a repo-root `sys.path` bootstrap (`_REPO_ROOT = dirname(dirname(abspath(__file__)))`, same shape as `server/poll_loop.py`'s) and `from server import device_policy, state_store`, then rebound `_HHMM_RE`/`QUIET_HOURS_TZ`/`WAKE_INTERVAL_MIN_S`/`WAKE_INTERVAL_MAX_S`/`DISPLAY_OFF_SLEEP_S`/`BATTERY_CRITICAL_SLEEP_S`/`BATTERY_CRITICAL_RECOVER_MV`/`seconds_until_quiet_hours_end`/`read_battery_critical` to those shared stdlib-only objects, deleting the hand-mirrored duplicate arithmetic/regex/constants and their "vendor boundary" comments; `read_quiet_hours()` keeps its own fail-open file read then delegates to `device_policy.quiet_hours_window(data)`, and `battery_critical_sleep_s()` calls `device_policy.battery_critical_pin_applies()`. **Behaviour change (D-4, developer-approved):** an invalid stored quiet-hours time now falls back to the default 23:00-07:00 window (extending sleep) instead of disabling quiet hours — matches the server's own poll-cycle hold. `stub-server/test_poll_cycle.py`'s three byte-for-byte source-text drift-guard tests became identity checks (`byos_module.X is device_policy.X`) plus attribute-equality against `server/device_config.py`'s current values; the two invalid-time cases moved out of `test_read_quiet_hours_fail_open_never_raises` into a new, retargeted `test_read_quiet_hours_invalid_time_falls_back_to_default_window` (mirrors `server/test_device_policy.py`'s own D-4 test from 39-02); a new subprocess test proves `--help` works from another cwd. Task 2 corrected `ARCHITECTURE.md`'s "Serving" paragraph and battery-critical-latch sentence, and added an 11th local modification to `stub-server/VENDOR.md` (entries 5/6/8 updated to point forward to it; 1-4/7/9/10 and provenance/licence untouched) stating the real boundary: byos may import exactly `server.device_policy`/`server.state_store` and nothing else from the project. `stub-server/README.md` had no stdlib-only/import sentence to fix, per the plan's own skip instruction. Two Rule-1 auto-fixes: removed the now-unused `timedelta` import (ruff F401) and corrected `_atomic_write()`'s docstring, which had asserted "byos must never import server.*" three lines above the file's own new import. Commits: `7427539` (feat) Task 1, `c04ed89` (docs) Task 2. Full `stub-server` suite + `server/test_pipeline_e2e.py` (64 passed, 1 skipped — root-euid permission-bits skip, pre-existing), ruff and `check_comment_history.py` both clean, `byos_server.py --help` exits 0 from the repo root and another cwd. Per this phase's own convention, ARC-02/ARC-05 are NOT marked Complete in REQUIREMENTS.md here — only 39-13 flips ARC-* to Complete. `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 92` (386/418) but the written frontmatter showed `percent: 87` (`completed_phases/total_phases` = 47/54) — corrected to `92` by hand per this file's established precedent.
 
@@ -576,6 +578,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 39 P04 | 26min | 2 tasks | 11 files |
 | Phase 39 P05 | 45min | 2 tasks | 4 files |
 | Phase 39 P06 | 45min | 2 tasks | 4 files |
+| Phase 39 P07 | 10min | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -1131,6 +1134,8 @@ Recent decisions affecting current work:
 - [Phase ?]: device_config re-exports server.themes' theme registry/accessors by identity; save_device_config split into five _validate_* helpers plus _merged_config, staying under the 80-code-line gate with no behaviour change
 - [Phase 39]: byos_server.py now imports server.device_policy/server.state_store via a repo-root sys.path bootstrap; the former byte-for-byte drift guards became identity checks — D-3/D-6; retires hand-mirrored quiet-hours/battery-critical constants and functions
 - [Phase 39]: D-4 implemented: byos's invalid stored quiet-hours time now falls back to the default 23:00-07:00 window (extends sleep) instead of disabling quiet hours — unifies with the server's own poll-cycle hold decision; old outcome retargeted in a new test, not dropped
+- [Phase 39]: companion/battery.py's isolation test retargeted to an allowlist (server.device_policy only), per D-6 — the shared battery-policy module is stdlib-only, so companion may depend on it alone without breaking the 'no third-party import' invariant
+- [Phase 39]: 39-07: companion.battery's parity test asserts identity (is) with server.device_policy's objects, not equality with poll_loop's old private copy — re-exporting the same objects makes identity the true invariant, which subsumes the weaker equality property the old test checked
 
 ### Pending Todos
 
@@ -1251,8 +1256,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-27T09:15:04.398Z
-Stopped at: Completed 39-06-PLAN.md
+Last session: 2026-09-27T09:39:57.956Z
+Stopped at: Completed 39-07-PLAN.md
 
 Resume file: 
 
