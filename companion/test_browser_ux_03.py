@@ -24,8 +24,7 @@ import pytest
 
 from companion import auth, i18n, layout
 from companion.pages import config_page, history_page
-from server import device_config, history_db
-import server.poll_loop as poll_loop
+from server import device_config, history_db, state_store
 from server.plane import calendar_rules
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE,
@@ -1844,7 +1843,7 @@ def _seed_calendar_ticker(state_dir):
 
 def _seed_health_ticker(state_dir):
     seen = (datetime.now(timezone.utc) - timedelta(minutes=_TICK_MINUTES_AGO)).isoformat()
-    poll_loop.save_poll_state(state_dir, {"unresolved_prefixes": {
+    state_store.save_poll_state(state_dir, {"unresolved_prefixes": {
         "TVF": {"count": 5, "first_seen": seen, "last_seen": seen,
                 "example_callsign": "TVF123"},
     }})
