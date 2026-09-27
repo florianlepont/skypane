@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 40-14-PLAN.md
-last_updated: "2026-09-27T21:10:32.505Z"
+stopped_at: Completed 40-15-PLAN.md
+last_updated: "2026-09-27T21:53:02.252Z"
 last_activity: 2026-09-27
 progress:
   total_phases: 54
   completed_phases: 48
   total_plans: 434
-  completed_plans: 407
+  completed_plans: 408
   percent: 89
 ---
 
@@ -64,7 +64,7 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 15 of 16
+Plan: 16 of 16
 
 **39-13 executed (2026-09-27), plan 13/13 of Phase 39 (depends on 39-04/39-06/39-08/39-10/39-11/39-12), wave 7 — the phase close-out, two commits.** Task 1 added a tree-wide `test_no_function_in_server_or_stub_server_exceeds_80_code_lines` to `test-support/test_check_function_size.py` (calls `check_function_size.py`'s own `main()` in-process) plus a blocking CI step "Function size gate (non-test code in server/ and stub-server/)" right after the Type check step — two independent enforcement paths from one tool, so deleting either alone still fails the suite. Added `server/poll_cycle.py` to `[tool.mypy]`'s global `files` list (not the strict override — its pure core is fully typed per 39-11, the orchestration steps stay partially annotated); the only real gap was `detect_flight`'s `diagnostics` local needing an explicit `dict | None` annotation (typing-only, zero behaviour change) — `mypy` now reports 12 source files, up from 11. Refreshed `pyproject.toml`'s E402 comment to the real 6-file list from `ruff check --isolated --select E402 .`, dropping `server/poll_loop.py` (its own two imports now carry an inline `noqa: E402` rather than relying on the project-wide suppression). Task 2 re-ran every Before command from `39-ARC-BASELINE.md` on the final tree and filled in the After section (function size: 401 scanned, zero offenders, up from 365/6; CC: `run_once` 3, its highest named step `advance_display_queue` 10, vs Before's `_run_once_locked` 53/grade F — an 81% drop; typed functions: 73 of 356 non-test server functions annotated, up from 0/318, mypy 12 files green; companion imports of `server.poll_loop`: zero statement-level imports left; module-global setters: all three deleted outright; duplicated device policy: all nine rows now one definition each, the tenth — the quiet-hours invalid-time fallback — unified per D-4; suite: 2995 passed/139 skipped, coverage 94.27%, ruff and comment-history clean), a Criteria table (four ROADMAP criteria, each Met with its evidence command), and an Intentional behaviour changes section naming D-4 and D-5 with the tests that pin each. Updated `ARCHITECTURE.md`: replaced every stale `poll_loop.py`/`render.py` pipeline-body reference with `poll_cycle.py`/`server/plane/render/`, and added a Module map paragraph naming `poll_loop.py`, `poll_cycle.py`, `state_store.py`, `device_policy.py`, `themes.py`, `net/safe_fetch.py` and the `render/`/`calendar_rules/` packages. Commits: `9a1f444` (feat) Task 1, `39f9401` (docs) Task 2. Phase close-out (this plan's own scope): `ARC-01`..`ARC-06` marked Complete in `REQUIREMENTS.md` (checklist + summary table) via `requirements.mark-complete`; `roadmap.update-plan-progress 39` now reports the phase Complete at 13/13. `state.update-progress` reproduced this file's own documented recurring bug one final time — its own JSON correctly returned `percent: 94` (393/418) but the written frontmatter showed `percent: 89` (`completed_phases/total_phases` = 48/54) — corrected to `94` by hand per this file's established precedent, as the last STATE.md edit before this plan's own final commit.
 
@@ -611,6 +611,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 40 P12 | 29min | 3 tasks | 17 files |
 | Phase 40 P13 | long session | 2 tasks | 17 files |
 | Phase 40 P14 | unknown | 2 tasks | 19 files |
+| Phase 40 P15 | unknown | 2 tasks | 25 files |
 
 ## Accumulated Context
 
@@ -1208,6 +1209,9 @@ Recent decisions affecting current work:
 - [Phase 40]: Task 1/Task 2 split respected display.py's own catalogue: 51/105 entries stayed legacy CATALOG through Task 1's own commit, converted only once Task 2's config_page.py/notifications.py/calendar.py/rules.py declared their Messages — Converting an entry to MESSAGES before its declaring call site exists breaks t()'s legacy-CATALOG fallback mid-plan, verified live by a failing test_render_baseline.py rather than assumed
 - [Phase 40]: Four display.py entries (Switch on/off, Turn on/off) never convert to MESSAGES — companion/ui_base.py documents them as retired action wordings with no i18n.t() call site left anywhere to declare their Message
 - [Phase 40]: companion/i18n_fr/registry.py itself stays untouched by plan 40-14 (out of its own files_modified scope) — every theme-name/runway/screen-label display site now declares the Message registry.py's still-legacy CATALOG resolves through, ready for a later plan to finish the conversion with no new id derivation needed
+- [Phase 40]: registry.py's residual entries convert onto ids theme.py/config_page.py already assumed (40-14); display.py's 4 dead action-wording entries deleted outright, not preserved
+- [Phase 40]: i18n.t()/t_lang() now raise TypeError for any non-Message argument; both legacy English-keyed fallbacks removed (CMP-09 complete)
+- [Phase 40]: A dict .get(key, key) fallback-to-raw-key pattern feeding i18n.t() is a latent bug once t() is Message-only; every such site rewritten to translate only when a real Message is found
 
 ### Pending Todos
 
@@ -1329,8 +1333,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-27T21:10:32.420Z
-Stopped at: Completed 40-14-PLAN.md
+Last session: 2026-09-27T21:53:02.168Z
+Stopped at: Completed 40-15-PLAN.md
 
 Resume file: 
 

@@ -193,7 +193,7 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [x] **CMP-06**: Broken down; `handle_post` per settings group
 - [x] **CMP-07**: Shared helpers
 - [x] **CMP-08**: Merged; colours → tokens
-- [ ] **CMP-09**: Stable message IDs
+- [x] **CMP-09**: Stable message IDs
 - [ ] **DOC-01**: All docs aligned with the code as it stands after phases 32–40
 - [ ] **DOC-02**: Log gzipped in the tree (no history rewrite, D-A6); unused asset removed from the deploy; completed v1.0 phases archived via `/gsd-cleanup` at milestone close
 - [ ] **DOC-03**: Re-audit: every ID in this ledger verified against the code and marked closed
@@ -443,7 +443,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CMP-06 | Phase 40 | Complete |
 | CMP-07 | Phase 40 | Complete |
 | CMP-08 | Phase 40 | Complete |
-| CMP-09 | Phase 40 | Pending |
+| CMP-09 | Phase 40 | Complete |
 | DOC-01 | Phase 41 | Pending |
 | DOC-02 | Phase 41 | Pending |
 | DOC-03 | Phase 41 | Pending |
