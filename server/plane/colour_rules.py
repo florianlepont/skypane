@@ -22,6 +22,8 @@ bare theme-id string, so a future entry can carry fields not yet defined.
 Lives at `{state_dir}/colour_rules.json`, excluded from `deploy/deploy.sh`'s
 rsync so it survives a redeploy.
 """
+from __future__ import annotations
+
 import json
 import os
 import re
@@ -29,6 +31,11 @@ import threading
 from datetime import datetime, timezone
 
 from server import atomic_io, device_config
+
+# A rule record: `{"theme_id": ..., "created_at": ...}`. The per-kind
+# registry is keyed on the rule's normalised value (callsign/hex/prefix).
+RuleRecord = dict[str, str]
+RuleRegistry = dict[str, dict[str, RuleRecord]]
 
 COLOUR_RULES_FILENAME = "colour_rules.json"
 
@@ -71,19 +78,19 @@ ADD_FAILED = "failed"
 _WRITE_LOCK = threading.Lock()
 
 
-def colour_rules_path(state_dir):
+def colour_rules_path(state_dir: str) -> str:
     """Join `state_dir` and `COLOUR_RULES_FILENAME`."""
     return os.path.join(state_dir, COLOUR_RULES_FILENAME)
 
 
-def normalise_rule_kind(raw):
+def normalise_rule_kind(raw: object) -> str | None:
     """Member of `RULE_KINDS` matching `raw` exactly, else `None`. Never raises."""
     if isinstance(raw, str) and raw in RULE_KINDS:
         return raw
     return None
 
 
-def normalise_rule_callsign(raw):
+def normalise_rule_callsign(raw: object) -> str | None:
     """Stripped/upper-cased `raw` when it matches `_CALLSIGN_RULE_RE`, else `None`. Never raises."""
     if not isinstance(raw, str) or not raw:
         return None
@@ -93,7 +100,7 @@ def normalise_rule_callsign(raw):
     return candidate
 
 
-def normalise_rule_hex(raw):
+def normalise_rule_hex(raw: object) -> str | None:
     """Stripped/upper-cased `raw` when it matches `_HEX_RULE_RE`, else `None`. Never raises."""
     if not isinstance(raw, str) or not raw:
         return None
@@ -103,7 +110,7 @@ def normalise_rule_hex(raw):
     return candidate
 
 
-def normalise_rule_prefix(raw):
+def normalise_rule_prefix(raw: object) -> str | None:
     """Stripped/upper-cased `raw` when it matches `_PREFIX_RE`, else `None`. Never raises."""
     if not isinstance(raw, str) or not raw:
         return None
@@ -113,7 +120,7 @@ def normalise_rule_prefix(raw):
     return candidate
 
 
-def normalise_rule_value(kind, raw):
+def normalise_rule_value(kind: object, raw: object) -> str | None:
     """Dispatch to the per-kind normaliser for a normalised `kind`; an
     unknown kind returns `None`. The single definition of "a valid rule
     key" every caller shares. Never raises.
@@ -128,7 +135,7 @@ def normalise_rule_value(kind, raw):
     return normalise_rule_prefix(raw)
 
 
-def normalise_rule_theme_id(raw):
+def normalise_rule_theme_id(raw: object) -> str | None:
     """`raw` unchanged when it is a member of `device_config.THEMES`,
     else `None` - never degrades to the default theme; an unrecognised
     id makes the rule invalid, dropped rather than retargeted.
@@ -138,7 +145,7 @@ def normalise_rule_theme_id(raw):
     return None
 
 
-def load_colour_rules(state_dir):
+def load_colour_rules(state_dir: str) -> RuleRegistry:
     """Read `{state_dir}/colour_rules.json`; never raises. A missing/
     unreadable/invalid file yields the empty registry shape. Each
     surviving entry is rebuilt from scratch, re-applying `add_rule()`'s
@@ -154,7 +161,7 @@ def load_colour_rules(state_dir):
     if not isinstance(data, dict):
         data = {}
 
-    ordered_pairs = []
+    ordered_pairs: list[tuple[str, str, object]] = []
     for kind in RULE_KINDS:
         kind_data = data.get(kind)
         if not isinstance(kind_data, dict):
@@ -162,7 +169,7 @@ def load_colour_rules(state_dir):
         for key in sorted(k for k in kind_data.keys() if isinstance(k, str)):
             ordered_pairs.append((kind, key, kind_data[key]))
 
-    registry = {kind: {} for kind in RULE_KINDS}
+    registry: RuleRegistry = {kind: {} for kind in RULE_KINDS}
     rejected = 0
     capped_remainder = 0
     surviving = 0
@@ -198,7 +205,9 @@ def load_colour_rules(state_dir):
     return registry
 
 
-def add_rule(state_dir, kind, value, theme_id, now=None):
+def add_rule(
+    state_dir: str, kind: object, value: object, theme_id: object, now: str | None = None,
+) -> str:
     """Validate and persist one `(kind, value) -> theme_id` colour rule.
     Returns an `ADD_*` module constant; never raises. Validates kind,
     value and theme_id before touching the filesystem, then holds
@@ -243,7 +252,7 @@ def add_rule(state_dir, kind, value, theme_id, now=None):
     return ADD_OK_REPLACED if replacing else ADD_OK_NEW
 
 
-def delete_rule(state_dir, kind, value):
+def delete_rule(state_dir: str, kind: object, value: object) -> bool:
     """Remove `(kind, value)` from the registry at `state_dir`. `True`
     when removed, `False` otherwise (unknown kind, malformed value,
     absent key, write failure). Idempotent, never raises; same
@@ -273,12 +282,12 @@ def delete_rule(state_dir, kind, value):
     return True
 
 
-def rule_rows(registry):
+def rule_rows(registry: object) -> list[tuple[str, str, str, str]]:
     """`(kind, value, theme_id, created_at)` tuples from an already-loaded
     registry, ordered by kind then value, skipping malformed entries.
     Never raises. What the Settings rules list renders from.
     """
-    rows = []
+    rows: list[tuple[str, str, str, str]] = []
     if not isinstance(registry, dict):
         return rows
     for kind in RULE_KINDS:
@@ -297,7 +306,7 @@ def rule_rows(registry):
     return rows
 
 
-def _rule_theme_from_cache(cache, kind, key):
+def _rule_theme_from_cache(cache: RuleRegistry, kind: str, key: str | None) -> str | None:
     """Defensive nested lookup used only by `resolve_effective_theme_id()`
     below — never raises regardless of `cache`'s shape, including a
     tampered or malformed cache dict.
@@ -313,7 +322,10 @@ def _rule_theme_from_cache(cache, kind, key):
     return entry.get("theme_id")
 
 
-def resolve_effective_theme_id(state, flight, device_cfg, calendar_theme_id=None, rules=None):
+def resolve_effective_theme_id(
+    state: object, flight: object, device_cfg: object,
+    calendar_theme_id: object = None, rules: object = None,
+) -> str:
     """The single resolver that decides what colour the panel is. Reads
     only its `rules` argument, never touches disk. Never raises; always
     returns a member of `device_config.THEMES`.

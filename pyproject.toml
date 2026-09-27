@@ -132,6 +132,11 @@ files = [
     "server/net/safe_fetch.py",
     "server/plane/calendar_rules/ics.py",
     "server/plane/calendar_rules/match.py",
+    "server/wake.py",
+    "server/panel_format.py",
+    "server/atomic_io.py",
+    "server/plane/runway_config.py",
+    "server/plane/colour_rules.py",
 ]
 
 # mypy's own `strict` preset is a global-only switch; these per-flag
@@ -145,6 +150,11 @@ module = [
     "server.net.safe_fetch",
     "server.plane.calendar_rules.ics",
     "server.plane.calendar_rules.match",
+    "server.wake",
+    "server.panel_format",
+    "server.atomic_io",
+    "server.plane.runway_config",
+    "server.plane.colour_rules",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

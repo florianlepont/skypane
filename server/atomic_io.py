@@ -38,19 +38,24 @@ which is why `exclusive_lock` alone is enough to add cross-thread
 exclusion on top of cross-process exclusion.
 """
 
+from __future__ import annotations
+
 import contextlib
 import errno
 import os
 import tempfile
 import time
+from collections.abc import Callable, Generator
+from types import ModuleType
 
+fcntl: ModuleType | None
 try:
     import fcntl
 except ImportError:  # pragma: no cover - not exercised on this project's targets
     fcntl = None
 
 
-def _read_umask():
+def _read_umask() -> int:
     """Return the process umask without racing another thread's
     umask-sensitive open() the way the `os.umask(0)` / `os.umask(old)`
     read-then-restore pair would. `/proc/self/status`'s `Umask:` line
@@ -78,7 +83,7 @@ def _read_umask():
 DEFAULT_FILE_MODE = 0o666 & ~_read_umask()
 
 
-def _encode(data):
+def _encode(data: object) -> bytes:
     if isinstance(data, str):
         return data.encode("utf-8")
     if isinstance(data, bytes):
@@ -89,7 +94,9 @@ def _encode(data):
 
 
 @contextlib.contextmanager
-def staged_write(path, data, mode=None):
+def staged_write(
+    path: str, data: object, mode: int | None = None,
+) -> Generator[Callable[[], None], None, None]:
     """Write `data` (bytes, or str encoded as UTF-8) to a same-directory
     temp file, fsync it, then yield a `commit()` callable that publishes it
     onto `path` with one `os.replace` call. Not calling `commit()` before
@@ -126,7 +133,7 @@ def staged_write(path, data, mode=None):
 
     committed = False
 
-    def commit():
+    def commit() -> None:
         nonlocal committed
         os.replace(tmp, path)
         committed = True
@@ -141,7 +148,7 @@ def staged_write(path, data, mode=None):
                 pass
 
 
-def atomic_write(path, data, mode=None):
+def atomic_write(path: str, data: object, mode: int | None = None) -> None:
     """Write `data` (bytes, or str encoded as UTF-8) to `path` so a
     concurrent reader, or a crash, only ever sees the old complete content
     or the new complete content -- never a partial write, and never a
@@ -164,7 +171,9 @@ LOCK_POLL_S = 0.05
 
 
 @contextlib.contextmanager
-def exclusive_lock(lock_path, timeout_s, blocking=True):
+def exclusive_lock(
+    lock_path: str, timeout_s: float, blocking: bool = True,
+) -> Generator[None, None, None]:
     """Cross-process, cross-thread advisory lock over `fcntl.flock`.
     Creates `lock_path`'s parent directory and the lock file itself (mode
     0600) if missing. With `blocking=True` (the default) a busy lock is
