@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 39-04-PLAN.md
-last_updated: "2026-09-27T08:24:14.202Z"
+stopped_at: Completed 39-05-PLAN.md
+last_updated: "2026-09-27T08:43:55.965Z"
 last_activity: 2026-09-27
 progress:
   total_phases: 54
   completed_phases: 47
   total_plans: 418
-  completed_plans: 384
+  completed_plans: 385
   percent: 92
 ---
 
@@ -63,7 +63,9 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 5 of 13
+Plan: 6 of 13
+
+**39-05 executed (2026-09-27), plan 5/13 of Phase 39 (depends on 39-01), wave 2 — ARC-03's theme module and ARC-01's save_device_config size clause.** Task 1 (TDD) moved `device_config.py`'s theme registry (`THEMES`, `THEME_IDS`, `DEFAULT_THEME_ID`) and its eight presentation accessors verbatim into a new typed `server/themes.py` (stdlib + `server.panel_format` only); `device_config.py` re-exports every one of those names via `from server.themes import (...)  # noqa: F401`, so `device_config.THEMES is themes.THEMES` and every accessor resolves to the same function object through either module, and `device_config` no longer imports `server.panel_format` directly (that import only ever fed the moved dict). New `server/test_themes.py` (4 tests): identity re-export checks on the registry and all eight accessors, `theme_background_index`'s state-gate behaviour matching the panel_format IDX constant, and a subprocess check that `import server.themes` never pulls in PIL. RED (`4415ad8`, 2/4 tests failing against the pre-refactor `device_config.py`, confirmed via `git checkout -- server/device_config.py` before the test commit) → GREEN (`e7c2521`). Task 2 split `save_device_config` (87 code lines, over the plan's 80-line gate) into five private helpers (`_validate_theme_fields`, `_validate_runway_and_flags`, `_validate_quiet_hours`, `_validate_wake_interval`, `_validate_notifications`) plus `_merged_config(current, **supplied)`, each raising/building exactly what the inline code did before, called in the same relative order — `save_device_config` itself is now 33 code lines and still a `device_config` module global (`companion/test_config_page_02.py`'s monkeypatch keeps working unchanged). New `server/test_config_history.py` test (`test_save_device_config_rejects_invalid_notifications_even_with_every_other_field_valid`) proves notifications, the last-validated field, still raises before the file is touched even when every other supplied field is valid. Committed `118c4a9` (refactor) as GREEN-only — this task's new behaviour test already passes against the pre-split function too (notifications was validated last there as well), so no RED state could exist for the right reason; documented under the SUMMARY's own TDD Gate Compliance section. `python3 scripts/check_function_size.py check --max 80 server/device_config.py server/themes.py` now exits 0 (33 functions, none over 80) — `save_device_config` is off the phase's own baseline offender list. No `companion/` file touched by either task. `server/test_themes.py` + `server/test_config_history.py` + `server/test_render.py` (240 passed); whole-repo `./scripts/run-all-tests.sh` (2972 passed, 139 skipped — same pre-existing Chromium-shell/root-euid environment skips), ruff and `check_comment_history.py` both green, coverage 94%. Per this phase's own convention (39-02's premature tick was reverted), ARC-01/ARC-03 are NOT marked Complete in REQUIREMENTS.md here — only the phase's closing plan (39-13) flips ARC-* to Complete. `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 92` (385/418) but the written frontmatter showed `percent: 87` (`completed_phases/total_phases` = 47/54, the same recurring wrong-ratio bug) — corrected to `92` by hand per this file's established precedent. `state.add-decision` again wrote `[Phase ?]` (same recurring doc/CLI-arg mismatch documented throughout this file's history) — left as-is per precedent.
 
 **39-04 executed (2026-09-27), plan 4/13 of Phase 39 (depends on 39-01), wave 2 — ARC-03 (calendar package, net/safe_fetch, notify decoupled) and ARC-01's pinned_request size clause.** Task 1 (TDD) moved `calendar_rules`'s SSRF section verbatim into `server/net/safe_fetch.py` (`USER_AGENT`/`_address_is_public`/`host_is_safe`/`url_is_safe`, typed); `calendar_rules.USER_AGENT`/`_address_is_public`/`_host_is_safe`/`_url_is_safe` are now identity aliases of `safe_fetch`'s names, and `fetch_ics()`'s own redirect-hop check calls `safe_fetch.url_is_safe` directly. `notify.py` no longer imports `server.plane.calendar_rules` at all (`grep -n "calendar_rules" server/notify.py` returns nothing) — it imports `server.net.safe_fetch` for the same gate and `USER_AGENT`, with its docstring and a stale `test_notify.py` comment updated to match. `http_fetch.pinned_request` (85 code lines, over the plan's 80-line gate) split into `_resolve_pinned_target`/`_open_pinned_connection`/`_send_pinned_request`, same signature/exceptions/deadline handling/pinning order, every `test_http_fetch.py` test unchanged and green. Task 2 `git mv`'d `calendar_rules.py` to `calendar_rules/__init__.py` then carved out `ics.py` (RFC 5545 parsing, typed), `registry.py` (registry/secret file contract, lock, throttle, window) and `match.py` (`match_calendar_theme`, typed) — `registry` imports `ics`, `match` imports both, neither imports the package `__init__`, so the split is acyclic. `__init__.py` keeps `default_calendar_transport`/`fetch_ics`/`refresh_calendar_registry` plus the Task 1 aliases and re-exports every name callers/tests use today; four new `test_calendar_rules.py` tests prove the full surface via `hasattr()`, the `default_calendar_transport` assignment contract `fetch_ics()` relies on (bare-name lookup in the package's own globals), `cr.os is os` by identity (so this file's existing `os.open`/`replace`/`chmod`/`remove`/`fdopen` monkeypatches keep reaching `registry.py`), and that no plain `calendar` package/module exists (would shadow the stdlib). No `companion/` file touched by either task, keeping the stable `server.plane.calendar_rules` import path per CONTEXT D-2. Commits: `28c4c75`(test)/`526364b`(feat) Task 1, `8fe92d8`(feat)/`ce55396`(feat, follow-up typing on ics.py/match.py) Task 2. No deviations. `server/test_safe_fetch.py` + `server/test_notify.py` + `server/test_http_fetch.py` + `server/test_calendar_rules.py` (179 passed); whole-repo `./scripts/run-all-tests.sh` (2967 passed, 139 skipped — all pre-existing Chromium-shell/root-euid environment skips), ruff and `check_comment_history.py` all green, coverage 94%. Per this phase's own convention (39-02's premature tick was reverted), ARC-01/ARC-03 are NOT marked Complete in REQUIREMENTS.md here — only the phase's closing plan (39-13) flips ARC-* to Complete.
 
@@ -570,6 +572,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 39 P02 | 50min | 2 tasks | 4 files |
 | Phase 39 P03 | 55min | 2 tasks | 12 files |
 | Phase 39 P04 | 26min | 2 tasks | 11 files |
+| Phase 39 P05 | 45min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -1122,6 +1125,7 @@ Recent decisions affecting current work:
 - [Phase 39]: 39-03: Tasks 1+2 committed together (single commit) since Task 1 alone deletes setters poll_loop.py still calls, per the plan's own explicit allowance.
 - [Phase 39]: 39-03: companion theme preview becomes vendored-only (D-5, accepted) - it can no longer see an in-process /poll-now's live illustration override, now that the module-global setter it relied on is gone.
 - [Phase 39]: calendar_rules package split keeps _normalise_calendar_url and CALENDAR_FETCH_INTERVAL_S in registry.py rather than __init__.py, since registry cannot import the package __init__ without a cycle — registry.py owns calendar_fetch_is_due (the only caller of CALENDAR_FETCH_INTERVAL_S) and the webcal normalisation used by save_calendar_url; matching the plan's own submodule-content list kept the split acyclic by construction
+- [Phase ?]: device_config re-exports server.themes' theme registry/accessors by identity; save_device_config split into five _validate_* helpers plus _merged_config, staying under the 80-code-line gate with no behaviour change
 
 ### Pending Todos
 
@@ -1242,8 +1246,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-27T08:24:14.131Z
-Stopped at: Completed 39-04-PLAN.md
+Last session: 2026-09-27T08:43:55.891Z
+Stopped at: Completed 39-05-PLAN.md
 
 Resume file: 
 
