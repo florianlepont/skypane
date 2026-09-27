@@ -54,7 +54,14 @@ EXPECTED_KEY_COUNT = (len(ROUTES_AUTHENTICATED) + 1) * len(VIEWPORT_WIDTHS) * le
 # above _CAPTURE_JS's freeze step for why), then walks every element in document order,
 # its own computed style plus its ::before/::after, as {prop: value} maps built by
 # walking the live CSSStyleDeclaration by index -- never a hand-picked property list, so
-# a property this file does not name today is still captured tomorrow.
+# a property this file does not name today is still captured tomorrow. Custom properties
+# (--*) are excluded: Chromium's indexed CSSStyleDeclaration enumeration lists every
+# custom property declared on :root (inherited onto every element in the document), so
+# adding, renaming or removing a token would otherwise always show up as a "computed
+# style changed" false positive, even though a custom
+# property by itself paints nothing; only a var() reference to it can. This mirrors
+# companion/test_stylesheet_structure.py's own colour-literal check, which draws the
+# identical "a declaration whose property does not start with --" boundary.
 #
 # A ::before/::after whose resolved `content` is "none" generates no box at all (CSS
 # Generated Content: a pseudo-element with no `content` does not exist), so every one of
@@ -89,6 +96,7 @@ _CAPTURE_JS = """
     const out = {};
     for (let i = 0; i < decl.length; i++) {
       const prop = decl.item(i);
+      if (prop.startsWith('--')) continue;
       out[prop] = decl.getPropertyValue(prop);
     }
     return out;
