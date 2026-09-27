@@ -95,7 +95,6 @@ def _home_seeded_ctx(tmp, now, flight_ts):
                          "battery_state": "ok",
                          "device_detail_html": "",
                          "pipeline_html": ""},
-        "simple_mode": False,
     }
 
 
@@ -1182,7 +1181,6 @@ def test_home_page_render_with_seeded_state(tmp_path):
                          "battery_state": "ok",
                          "device_detail_html": '<span class="mono">14:00 (5m ago)</span>',
                          "pipeline_html": "<p>A little stale</p>"},
-        "simple_mode": False,
     }
     rendered = home_page.render(ctx)
     for needle in (
@@ -1216,7 +1214,7 @@ def test_home_battery_ring_is_the_same_drawing_at_a_smaller_size(tmp_path):
     ctx = {"state_dir": str(home_dir), "now": now, "gallery_entries": [],
            "last_checkin_ts": "2026-08-27T11:55:00+00:00",
            "device_config": {"wake_interval_s": 900, "display_enabled": True},
-           "health_state": health_state, "simple_mode": False}
+           "health_state": health_state}
     rendered = home_page.render(ctx)
 
     def _rings(markup):

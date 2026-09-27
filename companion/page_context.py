@@ -1,6 +1,6 @@
 """The typed `PageContext` every page module's `render()`/`handle_post()`
 receives, and the builder that assembles one per request — moved out of
-`companion/app.py` (CMP-04), replacing the `_LazyContext` dict subclass
+`companion/app.py`, replacing the `_LazyContext` dict subclass
 that used to live there.
 
 `PageContext` keeps `_LazyContext`'s laziness byte-for-byte: the cheap
@@ -151,7 +151,7 @@ class PageContext:
     # old _LazyContext dict shape. Delegates to the attribute path above,
     # so `ctx["x"]`/`ctx.get("x")`/`"x" in ctx` see the same lazily
     # resolved value (and pay the same one-time cost) `ctx.x` would.
-    # Deleted once no production reader uses them (CMP-04 Task 3).
+    # Deleted once no production reader uses them.
 
     def __getitem__(self, key):
         try:

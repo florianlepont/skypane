@@ -787,7 +787,6 @@ def _home_ctx(tmp, now_value):
         "health_state": {"device_state": "ok", "pipeline_state": "ok",
                          "battery_state": "ok",
                          "device_detail_html": "", "pipeline_html": ""},
-        "simple_mode": False,
     }
 
 

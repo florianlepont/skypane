@@ -17,6 +17,7 @@ import sqlite3
 from zoneinfo import ZoneInfo
 
 from companion import frame_state, layout
+import companion.page_context as page_context
 from companion.pages import health_page
 from server import device_config, history_db
 from server.plane import calendar_rules, colour_rules, manual_resolutions
@@ -173,16 +174,17 @@ def _page_freshness_token(route, ctx, query):
     (companion/static/freshness.js's FORCED_REFRESH_EVERY_N_TICKS)
     bounds whatever this list still misses.
 
-    `ctx["_health_signals"]` is read through the ctx's own internal
-    loader key (shared with "health_state"/"health_severity"), so the
-    one `health_page.health_signals()` read this triggers is the same
+    `ctx._health_signals` is read through the ctx's own internal loader
+    field (shared with "health_state"/"health_severity"), so the one
+    `health_page.health_signals()` read this triggers is the same
     snapshot a route's own `render()` reuses afterwards on a token
     mismatch - never a second, independent read at a later instant.
     """
-    state_dir = ctx["state_dir"]
-    now = ctx["now"]
+    ctx = page_context.coerce(ctx)
+    state_dir = ctx.state_dir
+    now = ctx.now
     slug = layout.nav_slug(route)
-    signals = ctx["_health_signals"]
+    signals = ctx._health_signals
     signal_fields = (
         None if signals is None
         else {key: signals[key] for key in _FRESHNESS_SIGNAL_FIELDS}
@@ -190,8 +192,8 @@ def _page_freshness_token(route, ctx, query):
     parts = {
         "route": route,
         "query": query,
-        "lang": ctx["lang"],
-        "ui_theme": ctx["ui_theme"],
+        "lang": ctx.lang,
+        "ui_theme": ctx.ui_theme,
         "db": _freshness_db_signal(
             state_dir,
             want_pipeline_run=slug in (layout.REFRESH_PAGE_HEALTH, layout.REFRESH_PAGE_HOME)),
@@ -201,7 +203,7 @@ def _page_freshness_token(route, ctx, query):
         # this first read) rather than a second, direct gallery_entries()
         # call - a route whose render() also reads it (Home, Flights)
         # must still pay for exactly one scandir(), not two.
-        "gallery_newest": (ctx["gallery_entries"] or [None])[0],
+        "gallery_newest": (ctx.gallery_entries or [None])[0],
     }
     if slug in (layout.REFRESH_PAGE_HOME, layout.REFRESH_PAGE_DISPLAY):
         parts["frame_state"] = (

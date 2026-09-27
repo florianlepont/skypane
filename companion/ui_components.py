@@ -8,6 +8,7 @@ element frame_strip_html() renders; no import from ui_nav or ui_shell.
 """
 import companion.frame_state as frame_state
 import companion.i18n as i18n
+import companion.page_context as page_context
 import companion.wake as wake
 from companion.ui_base import (
     DISPLAY_ROUTE,
@@ -245,14 +246,18 @@ def _frame_resolved_state(ctx):
     against the same fields every caller already reads.
 
     `battery_critical` is the battery-empty latch, read once per request by
-    page_context() — never a second read here. Without it, a parked frame
-    would cross the warn threshold every wake cycle and wrongly announce
-    "late" on a flat battery.
+    build_page_context() — never a second read here. Without it, a parked
+    frame would cross the warn threshold every wake cycle and wrongly
+    announce "late" on a flat battery.
+
+    `ctx` arrives already a `PageContext` — coerced once, by this
+    function's own public caller, `frame_strip_html()`.
     """
-    device_cfg = ctx.get("device_config") or {}
-    now_value = ctx.get("now")
+    device_cfg = ctx.device_config or {}
+    now_value = ctx.now
+    battery_critical = ctx.battery_critical if ctx.battery_critical is not None else False
     resolved_next_wake_iso, effective_interval_s, hold_reason = wake.next_wake_status(
-        ctx.get("last_checkin_ts"), device_cfg, battery_critical=ctx.get("battery_critical", False))
+        ctx.last_checkin_ts, device_cfg, battery_critical=battery_critical)
     resolved_state = frame_state.resolve_state(
         resolved_next_wake_iso, effective_interval_s, hold_reason, now_value)
     headline_template_value = frame_state.headline_template(resolved_state)
@@ -400,7 +405,8 @@ def frame_strip_html(ctx, return_to, next_wake_iso=None):
     delete it as apparently unused. Every value crosses escape_html();
     every string crosses i18n.t().
     """
-    device_cfg = ctx.get("device_config") or {}
+    ctx = page_context.coerce(ctx)
+    device_cfg = ctx.device_config or {}
     (resolved_state, headline_template_value, delay_template_value,
      resolved_next_wake_iso, next_wake_clock, now_value) = _frame_resolved_state(ctx)
     delay_caption_html = _frame_delay_caption_html(delay_template_value, next_wake_clock)

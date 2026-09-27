@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 from companion import i18n
 import companion.layout as layout
 from companion.layout import escape_html
+import companion.page_context as page_context
 from server import device_config
 from server.plane import calendar_rules
 
@@ -343,8 +344,10 @@ def calendar_disconnect_confirm_page(ctx):
     The form re-posts to the same route with the confirm field
     pre-filled; cancel is a plain link back to Display, never a second
     form. `ctx` is accepted but unused today, matching every other
-    scoped builder's signature.
+    scoped builder's signature - coerced anyway, so a typo'd test ctx
+    still fails loudly rather than being silently accepted.
     """
+    page_context.coerce(ctx)
     return (
         layout.page_header(i18n.t(CALENDAR_DISCONNECT_CONFIRM_HEADING))
         + '<p class="text-body">%s</p>'

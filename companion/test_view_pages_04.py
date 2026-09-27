@@ -118,7 +118,6 @@ def _home_band_ctx(state_dir, now, checkins, config=None):
         "health_state": {"device_state": "ok", "pipeline_state": "ok",
                          "battery_state": "ok", "device_detail_html": "",
                          "pipeline_html": ""},
-        "simple_mode": False,
     }
 
 
@@ -180,7 +179,6 @@ def test_home_full_seeded_render_localises_to_french_without_leaking_english(tmp
                          "battery_state": "ok",
                          "device_detail_html": '<span class="mono">14:00 (5m ago)</span>',
                          "pipeline_html": "<p>A little stale</p>"},
-        "simple_mode": False,
     }
     prefs.set_request_prefs(lang="fr")
     try:
@@ -228,7 +226,7 @@ def test_home_status_card_localises_real_health_state_timestamps_under_french(tm
             "state_dir": str(tmp_path), "now": now, "gallery_entries": [],
             "last_checkin_ts": device_ts,
             "device_config": {"wake_interval_s": 900, "display_enabled": True},
-            "health_state": health_state, "simple_mode": False,
+            "health_state": health_state,
         }
         rendered = home_page.render(ctx)
     finally:

@@ -1392,9 +1392,12 @@ def test_calendar_save_does_not_touch_the_manual_poll_cooldown(app_server_in_pro
 # since a whole-repo text grep has no observable behaviour of its own.
 # Confirmed by grepping the WHOLE repo before writing this test that
 # none of the identifier-shaped tokens
-# appear anywhere in production code any more (only as "simple_mode":
-# False fixture dict keys in unrelated test files, which are not this
-# retired symbol). The two non-identifier tokens (the "/ui-mode" route
+# appear anywhere in production code any more. (At the time this test
+# was written, "simple_mode": False also lingered as a dead fixture-dict
+# key in several unrelated test files, which was not this retired symbol
+# either; page_context.coerce() rejecting unknown ctx fields by
+# name later forced those leftover keys out too.) The two non-identifier
+# tokens (the "/ui-mode" route
 # and the "sp_ui_mode" cookie name) are behavioural claims covered by
 # sibling tests: the route's 404 by
 # test_companion_app_04b.py::test_post_to_the_deleted_display_mode_route_with_session_now_404s,
