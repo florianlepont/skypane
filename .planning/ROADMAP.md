@@ -1881,7 +1881,7 @@ Plans:
 3. Quiet hours, battery-critical and battery-curve logic exist once
 4. mypy green in CI on the typed modules; behaviour unchanged (suite green)
 
-**Plans:** 2/13 plans executed
+**Plans:** 3/13 plans executed
 
 Plans:
 
@@ -1892,7 +1892,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 39-02-PLAN.md — new `server/device_policy.py` (stdlib-only) and `server/state_store.py`, typed, with the unified quiet-hours fallback test [ARC-02, ARC-05, ARC-06]
-- [ ] 39-03-PLAN.md — explicit injection: setters removed from illustrations/manual_resolutions/colour_rules; theme preview vendored-only [ARC-04]
+- [x] 39-03-PLAN.md — explicit injection: setters removed from illustrations/manual_resolutions/colour_rules; theme preview vendored-only [ARC-04]
 - [ ] 39-04-PLAN.md — `calendar_rules/` package (ics, registry, match) + `net/safe_fetch.py`; notify decoupled; `pinned_request` split [ARC-03, ARC-01]
 - [ ] 39-05-PLAN.md — `server/themes.py`; `save_device_config` split [ARC-03, ARC-01]
 
