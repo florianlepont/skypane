@@ -14,7 +14,7 @@ from datetime import timedelta
 import pytest
 
 import companion.app as app_module
-from companion import auth
+from companion import auth, static_files
 from companion.test_browser_ux_helpers import _login
 from companion_app_server import http_request, login
 from companion_markup import parse_html
@@ -210,18 +210,22 @@ def test_static_bytes_are_read_from_disk_at_most_once_per_process(
         app_server_in_process, monkeypatch):
     """Three GETs of the same static path read the underlying file exactly once - the rest
     are served from the in-memory cache, counted through the one disk-read seam
-    `_read_static_bytes()` exists for.
+    `static_files.read_static_bytes()` exists for.
+
+    Patched on `static_files` itself, not on `app_module._read_static_bytes` (a re-exported
+    alias companion/static_files.py's own `static_entry()` never calls through) - a
+    monkeypatch of the alias would never be seen by the real caller.
     """
     server = app_server_in_process
     app_module._STATIC_CACHE.clear()
     calls = []
-    original = app_module._read_static_bytes
+    original = static_files.read_static_bytes
 
     def counting(abs_path):
         calls.append(abs_path)
         return original(abs_path)
 
-    monkeypatch.setattr(app_module, "_read_static_bytes", counting)
+    monkeypatch.setattr(static_files, "read_static_bytes", counting)
 
     for _ in range(3):
         status, _headers, body = http_request(server.base_url() + "/static/style.css")
@@ -236,10 +240,17 @@ def test_missing_static_file_404s_and_caches_nothing(
         app_server_in_process, monkeypatch, tmp_path):
     """A static path whose file does not exist 404s and caches nothing, so creating the
     file afterwards makes the very next request succeed.
+
+    The STYLE_ROUTE entry itself is swapped in `static_files.STATIC_ROUTES` (not
+    `app_module._STYLE_CSS_PATH`, an alias that no longer exists - the allowlist looks its
+    path up fresh from that dict on every request), restored automatically at teardown.
     """
     server = app_server_in_process
     missing_path = str(tmp_path / "missing-style.css")
-    monkeypatch.setattr(app_module, "_STYLE_CSS_PATH", missing_path)
+    original_asset = static_files.STATIC_ROUTES[app_module.STYLE_ROUTE]
+    monkeypatch.setitem(
+        static_files.STATIC_ROUTES, app_module.STYLE_ROUTE,
+        original_asset._replace(path=missing_path))
 
     status, _headers, _body = http_request(server.base_url() + "/static/style.css")
     assert status == 404, "expected 404, got %d" % status

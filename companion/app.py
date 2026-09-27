@@ -14,9 +14,7 @@ Never writes the poll pipeline's own persisted flight-state file —
 `main()` fails closed on a missing password rather than starting with
 auth silently disabled.
 """
-import collections
 import email.message
-import email.utils
 import hashlib
 import io
 # Serialises the login lockout's server-computed remaining-seconds figure
@@ -44,7 +42,8 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from companion import (  # noqa: E402
-    auth, frame_state, i18n, illustration_normalize, layout, prefs, theme_preview, wake)
+    auth, frame_state, i18n, illustration_normalize, layout, prefs, routes, static_files,
+    theme_preview, wake)
 from companion.pages import (  # noqa: E402
     airlines_page,
     config_page,
@@ -94,28 +93,27 @@ CONTENT_SECURITY_POLICY = (
 SLEEP_ENV_VAR = "SKYPANE_SLEEP_S"
 
 LOGIN_ROUTE = "/login"
-STYLE_ROUTE = "/static/style.css"
-# Each *_SCRIPT_ROUTE is the authoritative value a matching
-# *_SCRIPT_SRC constant elsewhere must equal exactly; a test asserts
-# the sync. Most are pre-auth by design (no session data, or served
-# only to the login page itself).
-SCRIPT_ROUTE = "/static/battery-trend.js"
-NAV_SCRIPT_ROUTE = "/static/nav-dropdown.js"
-DIRTY_STATE_SCRIPT_ROUTE = "/static/dirty-state.js"
-LIST_FILTER_SCRIPT_ROUTE = "/static/list-filter.js"
-COPY_BUTTON_SCRIPT_ROUTE = "/static/copy-button.js"
-FRESHNESS_SCRIPT_ROUTE = "/static/freshness.js"
-PANEL_LOOKUP_SCRIPT_ROUTE = "/static/panel-lookup.js"
-FLASH_CLEANUP_SCRIPT_ROUTE = "/static/flash-cleanup.js"
-POLL_COOLDOWN_SCRIPT_ROUTE = "/static/poll-cooldown.js"
-CONFIRM_SUBMIT_SCRIPT_ROUTE = "/static/confirm-submit.js"
-THEME_PREVIEW_SCRIPT_ROUTE = "/static/theme-preview.js"
-FLIGHT_ROWS_SCRIPT_ROUTE = "/static/flight-rows.js"
-LOGIN_CARD_SCRIPT_ROUTE = "/static/login-card.js"
-SUBMIT_GUARD_SCRIPT_ROUTE = "/static/submit-guard.js"
-RELATIVE_TIME_SCRIPT_ROUTE = "/static/relative-time.js"
-QUICK_SWITCH_SCRIPT_ROUTE = "/static/quick-switch.js"
-VALUE_CONTROLS_SCRIPT_ROUTE = "/static/value-controls.js"
+# Moved to companion/static_files.py (the static allowlist module);
+# rebound here under their historical names so every existing call site
+# and test assertion in this file keeps resolving.
+STYLE_ROUTE = static_files.STYLE_ROUTE
+SCRIPT_ROUTE = static_files.SCRIPT_ROUTE
+NAV_SCRIPT_ROUTE = static_files.NAV_SCRIPT_ROUTE
+DIRTY_STATE_SCRIPT_ROUTE = static_files.DIRTY_STATE_SCRIPT_ROUTE
+LIST_FILTER_SCRIPT_ROUTE = static_files.LIST_FILTER_SCRIPT_ROUTE
+COPY_BUTTON_SCRIPT_ROUTE = static_files.COPY_BUTTON_SCRIPT_ROUTE
+FRESHNESS_SCRIPT_ROUTE = static_files.FRESHNESS_SCRIPT_ROUTE
+PANEL_LOOKUP_SCRIPT_ROUTE = static_files.PANEL_LOOKUP_SCRIPT_ROUTE
+FLASH_CLEANUP_SCRIPT_ROUTE = static_files.FLASH_CLEANUP_SCRIPT_ROUTE
+POLL_COOLDOWN_SCRIPT_ROUTE = static_files.POLL_COOLDOWN_SCRIPT_ROUTE
+CONFIRM_SUBMIT_SCRIPT_ROUTE = static_files.CONFIRM_SUBMIT_SCRIPT_ROUTE
+THEME_PREVIEW_SCRIPT_ROUTE = static_files.THEME_PREVIEW_SCRIPT_ROUTE
+FLIGHT_ROWS_SCRIPT_ROUTE = static_files.FLIGHT_ROWS_SCRIPT_ROUTE
+LOGIN_CARD_SCRIPT_ROUTE = static_files.LOGIN_CARD_SCRIPT_ROUTE
+SUBMIT_GUARD_SCRIPT_ROUTE = static_files.SUBMIT_GUARD_SCRIPT_ROUTE
+RELATIVE_TIME_SCRIPT_ROUTE = static_files.RELATIVE_TIME_SCRIPT_ROUTE
+QUICK_SWITCH_SCRIPT_ROUTE = static_files.QUICK_SWITCH_SCRIPT_ROUTE
+VALUE_CONTROLS_SCRIPT_ROUTE = static_files.VALUE_CONTROLS_SCRIPT_ROUTE
 # Single definition site is companion/pages/config_page.py (app.py imports
 # that module, so the reverse import would be a cycle) — rebound here
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
@@ -420,101 +418,20 @@ FLASH_ROLES = {
     FLASH_KEY_NOTIFICATIONS_TEST_FAILED: "alert",
 }
 
-_STYLE_CSS_PATH = os.path.join(_HERE, "static", "style.css")
-_BATTERY_TREND_JS_PATH = os.path.join(_HERE, "static", "battery-trend.js")
-_NAV_DROPDOWN_JS_PATH = os.path.join(_HERE, "static", "nav-dropdown.js")
-_DIRTY_STATE_JS_PATH = os.path.join(_HERE, "static", "dirty-state.js")
-_LIST_FILTER_JS_PATH = os.path.join(_HERE, "static", "list-filter.js")
-_COPY_BUTTON_JS_PATH = os.path.join(_HERE, "static", "copy-button.js")
-_FRESHNESS_JS_PATH = os.path.join(_HERE, "static", "freshness.js")
-_PANEL_LOOKUP_JS_PATH = os.path.join(_HERE, "static", "panel-lookup.js")
-_FLASH_CLEANUP_JS_PATH = os.path.join(_HERE, "static", "flash-cleanup.js")
-_POLL_COOLDOWN_JS_PATH = os.path.join(_HERE, "static", "poll-cooldown.js")
-_CONFIRM_SUBMIT_JS_PATH = os.path.join(_HERE, "static", "confirm-submit.js")
-_THEME_PREVIEW_JS_PATH = os.path.join(_HERE, "static", "theme-preview.js")
-_FLIGHT_ROWS_JS_PATH = os.path.join(_HERE, "static", "flight-rows.js")
-_LOGIN_CARD_JS_PATH = os.path.join(_HERE, "static", "login-card.js")
-_SUBMIT_GUARD_JS_PATH = os.path.join(_HERE, "static", "submit-guard.js")
-_RELATIVE_TIME_JS_PATH = os.path.join(_HERE, "static", "relative-time.js")
-_QUICK_SWITCH_JS_PATH = os.path.join(_HERE, "static", "quick-switch.js")
-_VALUE_CONTROLS_JS_PATH = os.path.join(_HERE, "static", "value-controls.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
-# In-memory static-asset cache behind _serve_static() below: populated on
-# first read per process, keyed by absolute path. companion/app.py
-# restarts on every deploy (deploy/activate.sh restarts
-# skypane-companion.service), so a per-process cache is never stale in
-# production. An OSError from _read_static_bytes() propagates and leaves
-# the path uncached, so a file that starts missing and later appears is
-# served on the very next request.
-_StaticEntry = collections.namedtuple(
-    "_StaticEntry", "payload etag last_modified mtime_s")
-_STATIC_CACHE = {}
-_STATIC_CACHE_LOCK = threading.Lock()
-
-
-def _read_static_bytes(abs_path):
-    """The one disk-read seam behind `_static_entry()` - kept as its own
-    function so a test can monkeypatch it and count how often it runs.
-    """
-    with open(abs_path, "rb") as fh:
-        return fh.read()
-
-
-def _static_entry(abs_path):
-    """The cached `_StaticEntry` for `abs_path`, reading the file at most
-    once per process. Raises the underlying `OSError` (never caught
-    here) when the file is missing or unreadable; the caller maps that
-    to a 404.
-    """
-    with _STATIC_CACHE_LOCK:
-        entry = _STATIC_CACHE.get(abs_path)
-    if entry is not None:
-        return entry
-    payload = _read_static_bytes(abs_path)
-    mtime_s = int(os.stat(abs_path).st_mtime)
-    etag = '"%s"' % hashlib.sha256(payload).hexdigest()[:32]
-    last_modified = email.utils.formatdate(mtime_s, usegmt=True)
-    entry = _StaticEntry(payload, etag, last_modified, mtime_s)
-    with _STATIC_CACHE_LOCK:
-        _STATIC_CACHE[abs_path] = entry
-    return entry
-
-
-def _if_none_match_matches(headers, etag):
-    """Whether `headers`' `If-None-Match` (a comma-separated list, each
-    entry optionally `W/`-prefixed, or a bare `*`) already matches
-    `etag`. `None` (not `False`) when the header is absent, so a caller
-    that also wants the `If-Modified-Since` fallback (`_not_modified()`
-    below) can tell "no match" apart from "nothing to match against".
-    Header values are only ever compared here, never echoed into a
-    response.
-    """
-    inm = headers.get("If-None-Match")
-    if inm is None:
-        return None
-    tags = [tag.strip() for tag in inm.split(",")]
-    return "*" in tags or any(tag.removeprefix("W/") == etag for tag in tags)
-
-
-def _not_modified(headers, etag, mtime_s):
-    """Whether a conditional request already holds the current
-    representation, per RFC 9110 13.2.2's evaluation order: a present
-    If-None-Match decides the outcome outright (a mismatch just means
-    "no match", never an error), and If-Modified-Since is consulted only
-    in its absence. Defensive: a malformed date never raises, it simply
-    fails to match.
-    """
-    match = _if_none_match_matches(headers, etag)
-    if match is not None:
-        return match
-    ims = headers.get("If-Modified-Since")
-    if not ims:
-        return False
-    try:
-        return mtime_s <= email.utils.parsedate_to_datetime(ims).timestamp()
-    except (TypeError, ValueError, OverflowError, IndexError):
-        return False
+# Moved to companion/static_files.py; rebound under their historical
+# names so every existing call site, and every existing test monkeypatch
+# target that reaches the real caller, keeps resolving. `_serve_static()`
+# below is the caller of `_static_entry()`/`_not_modified()`, so a test
+# that wants to change what it sees monkeypatches `static_files.*`
+# directly (a monkeypatch of these aliases would never be seen by the
+# functions that actually run) - see companion/test_static_cache.py.
+_STATIC_CACHE = static_files._STATIC_CACHE
+_read_static_bytes = static_files.read_static_bytes
+_static_entry = static_files.static_entry
+_if_none_match_matches = static_files.if_none_match_matches
+_not_modified = static_files.not_modified
 
 
 # Process-global, not per-session: keyed per client IP and bounded, so
@@ -1722,8 +1639,8 @@ class Handler(BaseHTTPRequestHandler):
         return layout.login_shell(body, ui_theme=self._resolved_ui_theme())
 
     def _serve_static(self, abs_path, content_type, cache_control):
-        """Shared body behind `_serve_stylesheet()`, `_serve_script_file()`
-        and `_serve_runway_image()`: an in-memory, read-once-per-process
+        """Shared body behind `_serve_static_route()` and
+        `_serve_runway_image()`: an in-memory, read-once-per-process
         cache (`_static_entry()`), RFC 9110 conditional evaluation
         (`_not_modified()`), and a bodiless 304 on a match. `cache_control`
         is sent verbatim on both a 200 and a 304, so a caller's own policy
@@ -1752,79 +1669,17 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(entry.payload)
 
-    def _serve_stylesheet(self):
-        # Pre-auth, identical for every client: legitimately
-        # shared-cacheable. `no-cache` (never a max-age window) so every
-        # load revalidates: no page can ever run new HTML against a
-        # browser's stale cached stylesheet after a deploy.
-        return self._serve_static(_STYLE_CSS_PATH, "text/css", "public, no-cache")
-
-    def _serve_script_file(self, abs_path):
-        """Serve one fixed JavaScript file, pre-auth. `abs_path` is
-        always one of this module's own path constants, never a
-        client-supplied segment, so it has no path-traversal surface.
-        Shared body for every `_serve_*_script()` method below.
+    def _serve_static_route(self, route):
+        """Look up `route` in the static allowlist (companion/static_files.py's
+        STATIC_ROUTES) and serve it through `_serve_static()` above.
+        `route` is always a value already matched by an exact dict-key
+        lookup (companion/routes.py's ROUTES table), never a
+        client-supplied path segment, so this has no path-traversal
+        surface. No catch-all /static/ handler: a new script needs its
+        own STATIC_ROUTES entry and route-table row.
         """
-        # text/javascript is the sole current-standard MIME type for
-        # JavaScript per RFC 9239 (2022), which obsoletes RFC 4329's older
-        # application/-prefixed form — deliberately not used here.
-        # Same no-cache policy as _serve_stylesheet() above.
-        return self._serve_static(abs_path, "text/javascript", "public, no-cache")
-
-    # Each below is a thin delegate onto _serve_script_file(). No
-    # catch-all /static/ handler: a new script needs its own route,
-    # serve method and do_GET() branch.
-
-    def _serve_battery_trend_script(self):
-        return self._serve_script_file(_BATTERY_TREND_JS_PATH)
-
-    def _serve_nav_dropdown_script(self):
-        return self._serve_script_file(_NAV_DROPDOWN_JS_PATH)
-
-    def _serve_dirty_state_script(self):
-        return self._serve_script_file(_DIRTY_STATE_JS_PATH)
-
-    def _serve_list_filter_script(self):
-        return self._serve_script_file(_LIST_FILTER_JS_PATH)
-
-    def _serve_copy_button_script(self):
-        return self._serve_script_file(_COPY_BUTTON_JS_PATH)
-
-    def _serve_freshness_script(self):
-        return self._serve_script_file(_FRESHNESS_JS_PATH)
-
-    def _serve_panel_lookup_script(self):
-        return self._serve_script_file(_PANEL_LOOKUP_JS_PATH)
-
-    def _serve_flash_cleanup_script(self):
-        return self._serve_script_file(_FLASH_CLEANUP_JS_PATH)
-
-    def _serve_poll_cooldown_script(self):
-        return self._serve_script_file(_POLL_COOLDOWN_JS_PATH)
-
-    def _serve_confirm_submit_script(self):
-        return self._serve_script_file(_CONFIRM_SUBMIT_JS_PATH)
-
-    def _serve_theme_preview_script(self):
-        return self._serve_script_file(_THEME_PREVIEW_JS_PATH)
-
-    def _serve_flight_rows_script(self):
-        return self._serve_script_file(_FLIGHT_ROWS_JS_PATH)
-
-    def _serve_login_card_script(self):
-        return self._serve_script_file(_LOGIN_CARD_JS_PATH)
-
-    def _serve_submit_guard_script(self):
-        return self._serve_script_file(_SUBMIT_GUARD_JS_PATH)
-
-    def _serve_relative_time_script(self):
-        return self._serve_script_file(_RELATIVE_TIME_JS_PATH)
-
-    def _serve_quick_switch_script(self):
-        return self._serve_script_file(_QUICK_SWITCH_JS_PATH)
-
-    def _serve_value_controls_script(self):
-        return self._serve_script_file(_VALUE_CONTROLS_JS_PATH)
+        asset = static_files.STATIC_ROUTES[route]
+        return self._serve_static(asset.path, asset.content_type, asset.cache_control)
 
     def _serve_gallery_image(self, requested):
         payload = gallery_bytes(self.args.state_dir, requested)
@@ -2294,62 +2149,62 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_html(200, self._render_login_page(next_route=next_route))
 
         if path == STYLE_ROUTE:
-            return self._serve_stylesheet()
+            return self._serve_static_route(STYLE_ROUTE)
 
         # Pre-auth, matching /static/style.css: a static asset carries no
         # per-user or sensitive data, so gating it would add a session
         # round-trip for zero benefit. Every other *_SCRIPT_ROUTE branch
         # below shares this same reasoning.
         if path == SCRIPT_ROUTE:
-            return self._serve_battery_trend_script()
+            return self._serve_static_route(SCRIPT_ROUTE)
 
         if path == NAV_SCRIPT_ROUTE:
-            return self._serve_nav_dropdown_script()
+            return self._serve_static_route(NAV_SCRIPT_ROUTE)
 
         if path == DIRTY_STATE_SCRIPT_ROUTE:
-            return self._serve_dirty_state_script()
+            return self._serve_static_route(DIRTY_STATE_SCRIPT_ROUTE)
 
         if path == LIST_FILTER_SCRIPT_ROUTE:
-            return self._serve_list_filter_script()
+            return self._serve_static_route(LIST_FILTER_SCRIPT_ROUTE)
 
         if path == COPY_BUTTON_SCRIPT_ROUTE:
-            return self._serve_copy_button_script()
+            return self._serve_static_route(COPY_BUTTON_SCRIPT_ROUTE)
 
         if path == FRESHNESS_SCRIPT_ROUTE:
-            return self._serve_freshness_script()
+            return self._serve_static_route(FRESHNESS_SCRIPT_ROUTE)
 
         if path == PANEL_LOOKUP_SCRIPT_ROUTE:
-            return self._serve_panel_lookup_script()
+            return self._serve_static_route(PANEL_LOOKUP_SCRIPT_ROUTE)
 
         if path == FLASH_CLEANUP_SCRIPT_ROUTE:
-            return self._serve_flash_cleanup_script()
+            return self._serve_static_route(FLASH_CLEANUP_SCRIPT_ROUTE)
 
         if path == POLL_COOLDOWN_SCRIPT_ROUTE:
-            return self._serve_poll_cooldown_script()
+            return self._serve_static_route(POLL_COOLDOWN_SCRIPT_ROUTE)
 
         if path == CONFIRM_SUBMIT_SCRIPT_ROUTE:
-            return self._serve_confirm_submit_script()
+            return self._serve_static_route(CONFIRM_SUBMIT_SCRIPT_ROUTE)
 
         if path == THEME_PREVIEW_SCRIPT_ROUTE:
-            return self._serve_theme_preview_script()
+            return self._serve_static_route(THEME_PREVIEW_SCRIPT_ROUTE)
 
         if path == FLIGHT_ROWS_SCRIPT_ROUTE:
-            return self._serve_flight_rows_script()
+            return self._serve_static_route(FLIGHT_ROWS_SCRIPT_ROUTE)
 
         if path == LOGIN_CARD_SCRIPT_ROUTE:
-            return self._serve_login_card_script()
+            return self._serve_static_route(LOGIN_CARD_SCRIPT_ROUTE)
 
         if path == SUBMIT_GUARD_SCRIPT_ROUTE:
-            return self._serve_submit_guard_script()
+            return self._serve_static_route(SUBMIT_GUARD_SCRIPT_ROUTE)
 
         if path == RELATIVE_TIME_SCRIPT_ROUTE:
-            return self._serve_relative_time_script()
+            return self._serve_static_route(RELATIVE_TIME_SCRIPT_ROUTE)
 
         if path == QUICK_SWITCH_SCRIPT_ROUTE:
-            return self._serve_quick_switch_script()
+            return self._serve_static_route(QUICK_SWITCH_SCRIPT_ROUTE)
 
         if path == VALUE_CONTROLS_SCRIPT_ROUTE:
-            return self._serve_value_controls_script()
+            return self._serve_static_route(VALUE_CONTROLS_SCRIPT_ROUTE)
 
         # The six live tabs, each through _render_tab() above.
         if path == HOME_ROUTE:
