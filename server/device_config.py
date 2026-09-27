@@ -319,6 +319,129 @@ def load_device_config(state_dir):
     }
 
 
+def _validate_theme_fields(theme, theme_arriving, calendar_theme_id):
+    """`theme`/`theme_arriving`/`calendar_theme_id`'s own validation,
+    extracted from `save_device_config()` verbatim - same messages, same
+    order. See `save_device_config()`'s docstring for the three-state
+    `theme_arriving` contract this depends on.
+    """
+    if theme is not None and theme not in THEMES:
+        raise ValueError("unknown theme id %r (expected one of %r)" % (theme, THEME_IDS))
+    if theme_arriving is not None and theme_arriving is not CLEAR_THEME_ARRIVING and theme_arriving not in THEMES:
+        raise ValueError("unknown theme_arriving id %r (expected None, CLEAR_THEME_ARRIVING, or one of %r)" % (theme_arriving, THEME_IDS))
+    # The empty string is a third valid write-time value (carry-forward
+    # None, set to a real id, or clear via "") - the Frame colours card's
+    # "Same as departures" chip submits it, and this gate must accept it.
+    if calendar_theme_id is not None and calendar_theme_id not in ("",) + THEME_IDS:
+        raise ValueError("unknown calendar_theme_id %r (expected None, the empty string, or one of %r)" % (calendar_theme_id, THEME_IDS))
+
+
+def _validate_runway_and_flags(tracked_runway, led_enabled, display_enabled, screen_id):
+    """`tracked_runway`/`screen_id`/`led_enabled`/`display_enabled`'s own
+    validation, extracted from `save_device_config()` verbatim.
+    """
+    if tracked_runway is not None and tracked_runway not in RUNWAYS:
+        raise ValueError("unknown tracked_runway id %r (expected one of %r)" % (tracked_runway, RUNWAY_IDS))
+    if screen_id is not None and screen_id not in SCREEN_IDS:
+        raise ValueError("unknown screen_id %r (expected one of %r)" % (screen_id, SCREEN_IDS))
+    if led_enabled is not None and not isinstance(led_enabled, bool):
+        raise ValueError("led_enabled must be a bool, got %r" % (led_enabled,))
+    if display_enabled is not None and not isinstance(display_enabled, bool):
+        raise ValueError("display_enabled must be a bool, got %r" % (display_enabled,))
+
+
+def _validate_quiet_hours(quiet_hours_enabled, quiet_hours_start, quiet_hours_end):
+    """`quiet_hours_enabled`/`quiet_hours_start`/`quiet_hours_end`'s own
+    validation, extracted from `save_device_config()` verbatim.
+    """
+    if quiet_hours_enabled is not None and not isinstance(quiet_hours_enabled, bool):
+        raise ValueError("quiet_hours_enabled must be a bool, got %r" % (quiet_hours_enabled,))
+    if quiet_hours_start is not None and not (isinstance(quiet_hours_start, str) and _HHMM_RE.match(quiet_hours_start)):
+        raise ValueError("quiet_hours_start must be a 24-hour zero-padded HH:MM string, got %r" % (quiet_hours_start,))
+    if quiet_hours_end is not None and not (isinstance(quiet_hours_end, str) and _HHMM_RE.match(quiet_hours_end)):
+        raise ValueError("quiet_hours_end must be a 24-hour zero-padded HH:MM string, got %r" % (quiet_hours_end,))
+
+
+def _validate_wake_interval(wake_interval_s):
+    """`wake_interval_s`'s own validation, extracted from
+    `save_device_config()` verbatim.
+    """
+    if wake_interval_s is not None and not (
+        isinstance(wake_interval_s, int)
+        and not isinstance(wake_interval_s, bool)
+        and WAKE_INTERVAL_MIN_S <= wake_interval_s <= WAKE_INTERVAL_MAX_S
+    ):
+        raise ValueError(
+            "wake_interval_s must be an int in [%d, %d], got %r"
+            % (WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S, wake_interval_s)
+        )
+
+
+def _validate_notifications(notifications):
+    """`notifications`'s own per-sub-key validation, extracted from
+    `save_device_config()` verbatim - a no-op for `None` (carry forward).
+    """
+    if notifications is None:
+        return
+    if not isinstance(notifications, dict):
+        raise ValueError("notifications must be a dict, got %r" % (notifications,))
+    topic_url = notifications.get("topic_url")
+    if topic_url is not None and not isinstance(topic_url, str):
+        raise ValueError("notifications['topic_url'] must be a str or None, got %r" % (topic_url,))
+    battery_low = notifications.get("battery_low")
+    if not isinstance(battery_low, bool):
+        raise ValueError("notifications['battery_low'] must be a bool, got %r" % (battery_low,))
+    frame_silent = notifications.get("frame_silent")
+    if not isinstance(frame_silent, bool):
+        raise ValueError("notifications['frame_silent'] must be a bool, got %r" % (frame_silent,))
+    lang = notifications.get("lang")
+    if lang not in ("en", "fr"):
+        raise ValueError("notifications['lang'] must be 'en' or 'fr', got %r" % (lang,))
+
+
+def _merged_config(
+    current, theme=None, theme_arriving=None, calendar_theme_id=None, tracked_runway=None,
+    led_enabled=None, quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
+    wake_interval_s=None, display_enabled=None, screen_id=None, notifications=None,
+):
+    """The same 12-key dict `save_device_config()` used to build inline:
+    every supplied (non-`None`) field wins, everything else carries
+    `current`'s value forward. `theme_arriving`'s three-state contract
+    (sentinel clears, non-None sets, None carries forward) and
+    `notifications`'s per-sub-key merge are unchanged from before the
+    split.
+    """
+    if theme_arriving is CLEAR_THEME_ARRIVING:
+        new_theme_arriving = None
+    elif theme_arriving is not None:
+        new_theme_arriving = theme_arriving
+    else:
+        new_theme_arriving = current["theme_arriving"]
+    return {
+        "theme": theme if theme is not None else current["theme"],
+        "theme_arriving": new_theme_arriving,
+        "calendar_theme_id": calendar_theme_id if calendar_theme_id is not None else current["calendar_theme_id"],
+        "tracked_runway": tracked_runway if tracked_runway is not None else current["tracked_runway"],
+        "led_enabled": led_enabled if led_enabled is not None else current["led_enabled"],
+        "quiet_hours_enabled": quiet_hours_enabled if quiet_hours_enabled is not None else current["quiet_hours_enabled"],
+        "quiet_hours_start": quiet_hours_start if quiet_hours_start is not None else current["quiet_hours_start"],
+        "quiet_hours_end": quiet_hours_end if quiet_hours_end is not None else current["quiet_hours_end"],
+        "wake_interval_s": wake_interval_s if wake_interval_s is not None else current["wake_interval_s"],
+        "display_enabled": display_enabled if display_enabled is not None else current["display_enabled"],
+        "screen_id": screen_id if screen_id is not None else current["screen_id"],
+        "notifications": (
+            {
+                "topic_url": notifications.get("topic_url"),
+                "battery_low": notifications.get("battery_low"),
+                "frame_silent": notifications.get("frame_silent"),
+                "lang": notifications.get("lang"),
+            }
+            if notifications is not None
+            else current["notifications"]
+        ),
+    }
+
+
 def save_device_config(
     state_dir, theme=None, theme_arriving=None, tracked_runway=None, led_enabled=None,
     quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
@@ -329,7 +452,9 @@ def save_device_config(
     means "not supplied, carry the current on-disk value forward" for
     every field. An invalid non-None value raises `ValueError` naming the
     rejected value and the registry/bounds, before anything is written -
-    a rejected write leaves any pre-existing file byte-identical.
+    a rejected write leaves any pre-existing file byte-identical. Each
+    field's own gate lives in one of the `_validate_*()` helpers above,
+    run in the same order they used to appear inline here.
 
     `theme_arriving` has a three-state contract instead of two: `None`
     carries forward, `CLEAR_THEME_ARRIVING` (an identity-compared
@@ -352,53 +477,11 @@ def save_device_config(
     `atomic_io.atomic_write`, which itself uses a unique per-call temp
     name and leaves no leftover file on failure.
     """
-    if theme is not None and theme not in THEMES:
-        raise ValueError("unknown theme id %r (expected one of %r)" % (theme, THEME_IDS))
-    if theme_arriving is not None and theme_arriving is not CLEAR_THEME_ARRIVING and theme_arriving not in THEMES:
-        raise ValueError("unknown theme_arriving id %r (expected None, CLEAR_THEME_ARRIVING, or one of %r)" % (theme_arriving, THEME_IDS))
-    # The empty string is a third valid write-time value (carry-forward
-    # None, set to a real id, or clear via "") - the Frame colours card's
-    # "Same as departures" chip submits it, and this gate must accept it.
-    if calendar_theme_id is not None and calendar_theme_id not in ("",) + THEME_IDS:
-        raise ValueError("unknown calendar_theme_id %r (expected None, the empty string, or one of %r)" % (calendar_theme_id, THEME_IDS))
-    if tracked_runway is not None and tracked_runway not in RUNWAYS:
-        raise ValueError("unknown tracked_runway id %r (expected one of %r)" % (tracked_runway, RUNWAY_IDS))
-    if screen_id is not None and screen_id not in SCREEN_IDS:
-        raise ValueError("unknown screen_id %r (expected one of %r)" % (screen_id, SCREEN_IDS))
-    if led_enabled is not None and not isinstance(led_enabled, bool):
-        raise ValueError("led_enabled must be a bool, got %r" % (led_enabled,))
-    if quiet_hours_enabled is not None and not isinstance(quiet_hours_enabled, bool):
-        raise ValueError("quiet_hours_enabled must be a bool, got %r" % (quiet_hours_enabled,))
-    if display_enabled is not None and not isinstance(display_enabled, bool):
-        raise ValueError("display_enabled must be a bool, got %r" % (display_enabled,))
-    if quiet_hours_start is not None and not (isinstance(quiet_hours_start, str) and _HHMM_RE.match(quiet_hours_start)):
-        raise ValueError("quiet_hours_start must be a 24-hour zero-padded HH:MM string, got %r" % (quiet_hours_start,))
-    if quiet_hours_end is not None and not (isinstance(quiet_hours_end, str) and _HHMM_RE.match(quiet_hours_end)):
-        raise ValueError("quiet_hours_end must be a 24-hour zero-padded HH:MM string, got %r" % (quiet_hours_end,))
-    if wake_interval_s is not None and not (
-        isinstance(wake_interval_s, int)
-        and not isinstance(wake_interval_s, bool)
-        and WAKE_INTERVAL_MIN_S <= wake_interval_s <= WAKE_INTERVAL_MAX_S
-    ):
-        raise ValueError(
-            "wake_interval_s must be an int in [%d, %d], got %r"
-            % (WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S, wake_interval_s)
-        )
-    if notifications is not None:
-        if not isinstance(notifications, dict):
-            raise ValueError("notifications must be a dict, got %r" % (notifications,))
-        topic_url = notifications.get("topic_url")
-        if topic_url is not None and not isinstance(topic_url, str):
-            raise ValueError("notifications['topic_url'] must be a str or None, got %r" % (topic_url,))
-        battery_low = notifications.get("battery_low")
-        if not isinstance(battery_low, bool):
-            raise ValueError("notifications['battery_low'] must be a bool, got %r" % (battery_low,))
-        frame_silent = notifications.get("frame_silent")
-        if not isinstance(frame_silent, bool):
-            raise ValueError("notifications['frame_silent'] must be a bool, got %r" % (frame_silent,))
-        lang = notifications.get("lang")
-        if lang not in ("en", "fr"):
-            raise ValueError("notifications['lang'] must be 'en' or 'fr', got %r" % (lang,))
+    _validate_theme_fields(theme, theme_arriving, calendar_theme_id)
+    _validate_runway_and_flags(tracked_runway, led_enabled, display_enabled, screen_id)
+    _validate_quiet_hours(quiet_hours_enabled, quiet_hours_start, quiet_hours_end)
+    _validate_wake_interval(wake_interval_s)
+    _validate_notifications(notifications)
 
     os.makedirs(state_dir, exist_ok=True)
     with _SAVE_LOCK:
@@ -407,39 +490,14 @@ def save_device_config(
             DEVICE_CONFIG_LOCK_TIMEOUT_S,
         ):
             current = load_device_config(state_dir)
-            # theme_arriving's three write-time meanings: sentinel clears
-            # to None, any other non-None value sets it, None carries
-            # forward.
-            if theme_arriving is CLEAR_THEME_ARRIVING:
-                new_theme_arriving = None
-            elif theme_arriving is not None:
-                new_theme_arriving = theme_arriving
-            else:
-                new_theme_arriving = current["theme_arriving"]
-            new_config = {
-                "theme": theme if theme is not None else current["theme"],
-                "theme_arriving": new_theme_arriving,
-                "calendar_theme_id": calendar_theme_id if calendar_theme_id is not None else current["calendar_theme_id"],
-                "tracked_runway": tracked_runway if tracked_runway is not None else current["tracked_runway"],
-                "led_enabled": led_enabled if led_enabled is not None else current["led_enabled"],
-                "quiet_hours_enabled": quiet_hours_enabled if quiet_hours_enabled is not None else current["quiet_hours_enabled"],
-                "quiet_hours_start": quiet_hours_start if quiet_hours_start is not None else current["quiet_hours_start"],
-                "quiet_hours_end": quiet_hours_end if quiet_hours_end is not None else current["quiet_hours_end"],
-                "wake_interval_s": wake_interval_s if wake_interval_s is not None else current["wake_interval_s"],
-                "display_enabled": display_enabled if display_enabled is not None else current["display_enabled"],
-                "screen_id": screen_id if screen_id is not None else current["screen_id"],
-                "notifications": (
-                    {
-                        "topic_url": notifications.get("topic_url"),
-                        "battery_low": notifications.get("battery_low"),
-                        "frame_silent": notifications.get("frame_silent"),
-                        "lang": notifications.get("lang"),
-                    }
-                    if notifications is not None
-                    else current["notifications"]
-                ),
-            }
-
+            new_config = _merged_config(
+                current, theme=theme, theme_arriving=theme_arriving,
+                calendar_theme_id=calendar_theme_id, tracked_runway=tracked_runway,
+                led_enabled=led_enabled, quiet_hours_enabled=quiet_hours_enabled,
+                quiet_hours_start=quiet_hours_start, quiet_hours_end=quiet_hours_end,
+                wake_interval_s=wake_interval_s, display_enabled=display_enabled,
+                screen_id=screen_id, notifications=notifications,
+            )
             atomic_io.atomic_write(device_config_path(state_dir), json.dumps(new_config, indent=1))
 
 
