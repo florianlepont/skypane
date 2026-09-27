@@ -27,7 +27,6 @@ from pathlib import Path
 import pytest
 
 import companion.i18n as i18n
-import companion.i18n_fr as i18n_fr
 import companion.layout as layout
 import companion.prefs as prefs
 import companion.test_config_page_helpers as cp
@@ -1212,7 +1211,8 @@ def test_wake_battery_text_reads_the_estimate_through_the_qualified_battery_modu
             assert artefact not in template, (
                 "the template %r carries %r, a format artefact companion/test_i18n.py's Check "
                 "3 scans every French render for" % (template, artefact))
-        assert template in i18n_fr.CATALOG, "the template %r has no French sibling" % template
+        translated = i18n.t_lang(template, "fr")
+        assert translated and translated != template, "the template %r has no French sibling" % template
 
 
 # ------------------------------------------------------------------

@@ -28,6 +28,7 @@ imported back by a module it itself imports.
 """
 import re
 
+from companion import i18n
 from companion import screens
 from companion.settings.form import _note_error
 from companion.settings.notifications import (
@@ -48,14 +49,23 @@ FAILED = object()
 # Moved here (rather than staying in the settings page module) because
 # this module's own resolvers are the ones that raise them, and that
 # module may never be imported back into this one.
-ERROR_INVALID_CHOICE = "That is not one of the available choices."
-ERROR_UNEXPECTED_SWITCH_VALUE = "That switch sent an unexpected value."
-ERROR_WAKE_INTERVAL_RANGE = "Enter a whole number of seconds between 60 and 3600."
-ERROR_QUIET_HOURS_TIME_SHAPE = "Enter a time as HH:MM, for example 23:00."
+ERROR_INVALID_CHOICE = i18n.msg(
+    "display.that_is_not_one_of_the_available_choices",
+    "That is not one of the available choices.")
+ERROR_UNEXPECTED_SWITCH_VALUE = i18n.msg(
+    "display.that_switch_sent_an_unexpected_value",
+    "That switch sent an unexpected value.")
+ERROR_WAKE_INTERVAL_RANGE = i18n.msg(
+    "display.enter_a_whole_number_of_seconds_between_60_and",
+    "Enter a whole number of seconds between 60 and 3600.")
+ERROR_QUIET_HOURS_TIME_SHAPE = i18n.msg(
+    "display.enter_a_time_as_hh_mm_for_example_23_00",
+    "Enter a time as HH:MM, for example 23:00.")
 # Covers both the over-length and the contradictory (calendar_url +
 # calendar_disconnect together) cases; deliberately never echoes any
 # part of the submitted URL back.
-ERROR_CALENDAR_URL_INVALID = (
+ERROR_CALENDAR_URL_INVALID = i18n.msg(
+    "display.that_link_is_too_long_or_conflicts_with_the",
     "That link is too long, or conflicts with the disconnect option below.")
 
 # The sole accepted submitted value for each checkbox — shared by the

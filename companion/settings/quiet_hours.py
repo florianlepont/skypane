@@ -18,8 +18,9 @@ from companion.settings.form import (
 
 # The Frame strip is the only quiet-hours on/off control; this caption
 # states enable-by-schedule semantics rather than an on/off state.
-QUIET_HOURS_SECTION_HEADING = "Quiet hours"
-QUIET_HOURS_SECTION_CAPTION = (
+QUIET_HOURS_SECTION_HEADING = i18n.msg("display.quiet_hours", "Quiet hours")
+QUIET_HOURS_SECTION_CAPTION = i18n.msg(
+    "display.pauses_the_frame_s_wake_poll_and_display_cycle",
     "Pauses the frame's wake, poll and display cycle during the "
     "schedule below.")
 QUIET_HOURS_SECTION_CAPTION_ID = "quiet-hours-caption"
@@ -32,14 +33,14 @@ QUIET_HOURS_GROUP_HEADING_ID = "quiet-hours-group-heading"
 # default can never drift apart.
 QUIET_HOURS_PRESET_NIGHT_START = device_config.DEFAULT_QUIET_HOURS_START
 QUIET_HOURS_PRESET_NIGHT_END = device_config.DEFAULT_QUIET_HOURS_END
-QUIET_HOURS_PRESET_NIGHT_LABEL = "Night"
+QUIET_HOURS_PRESET_NIGHT_LABEL = i18n.msg("display.night", "Night")
 QUIET_HOURS_PRESET_WORKDAY_START = "08:00"
 QUIET_HOURS_PRESET_WORKDAY_END = "18:00"
-QUIET_HOURS_PRESET_WORKDAY_LABEL = "Day"
+QUIET_HOURS_PRESET_WORKDAY_LABEL = i18n.msg("display.day", "Day")
 # "Always on" unchecks the enable checkbox and leaves both times
 # untouched, via a distinct data-preset-enabled="0" attribute rather
 # than overloading the time attributes with a sentinel value.
-QUIET_HOURS_PRESET_ALWAYS_ON_LABEL = "Always on"
+QUIET_HOURS_PRESET_ALWAYS_ON_LABEL = i18n.msg("display.always_on", "Always on")
 QUIET_HOURS_PRESET_ATTR = "data-quiet-preset"
 
 
@@ -295,8 +296,13 @@ QUIET_DIAL_HANDLE_STEP = 15
 # it): a screen reader reading "one thousand three hundred and eighty"
 # instead of "23:00" is the whole reason aria-valuetext exists, and
 # repeating the label on every arrow press is noise, not information.
-QUIET_DIAL_START_LABEL = "Quiet hours start"
-QUIET_DIAL_END_LABEL = "Quiet hours end"
+QUIET_DIAL_START_LABEL = i18n.msg("display.quiet_hours_start", "Quiet hours start")
+QUIET_DIAL_END_LABEL = i18n.msg("display.quiet_hours_end", "Quiet hours end")
+
+# The two native <input type="time"> fields' own visible labels — a
+# separate pair from the dial handles' own accessible names above.
+QUIET_HOURS_START_FIELD_LABEL = i18n.msg("display.start", "Start")
+QUIET_HOURS_END_FIELD_LABEL = i18n.msg("display.end", "End")
 
 
 def quiet_dial_handle_fraction(minute):
@@ -509,11 +515,11 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
         dial_html, readout_html,
         preset_row_html,
         QUIET_TIMES_ROW_CLASS,
-        escape_html(i18n.t("Start")),
+        escape_html(i18n.t(QUIET_HOURS_START_FIELD_LABEL)),
         escape_html(effective_start), escape_html(site_lang), SETTINGS_FORM_ID, start_error_attrs,
         _normalised_time_html(effective_start),
         start_error_html,
-        escape_html(i18n.t("End")),
+        escape_html(i18n.t(QUIET_HOURS_END_FIELD_LABEL)),
         escape_html(effective_end), escape_html(site_lang), SETTINGS_FORM_ID, end_error_attrs,
         _normalised_time_html(effective_end),
         end_error_html,

@@ -1,17 +1,27 @@
 # -*- coding: utf-8 -*-
-"""French strings for the Display and Device pages. Every key is the
-exact English source string a call site in
-companion/pages/config_page.py passes to companion.i18n.t(), including
-any "%s"/"%d"/"{n}" placeholder shape.
+"""French strings for the Display and Device pages.
+
+Mid-migration: CATALOG below still carries every entry whose only
+declaring call site is companion/pages/config_page.py (not yet
+migrated onto companion.i18n.Message this plan) or one of
+companion/settings/notifications.py, calendar.py, rules.py (declared
+later in this same plan's second task) — each key there is still the
+exact English source string that call site passes to
+companion.i18n.t(), including any "%s"/"%d"/"{n}" placeholder shape.
+MESSAGES carries every entry already declared as a stable-id Message by
+a settings module this plan's first task migrated, or by an earlier
+plan's shared/page module (ui_base.py, frame_state.py, flash.py,
+history_page.py, airlines_page.py) — this module only carries each
+id's French translation there.
 
 "Theme", "Display" and "Device" are already defined in
 companion/i18n_fr/nav.py, and "Screen" in
 companion/i18n_fr/health.py — deliberately absent here since the
-package's duplicate-key guard would raise otherwise. Every theme/runway
-*name* shown to people, and the screen label, are translated at the
-config_page.py display sites that call i18n.t() on the registry's own
-returned text; their French entries live in companion/i18n_fr/registry.py,
-not here.
+package's duplicate-key/id guard would raise otherwise. Every
+theme/runway *name* shown to people, and the screen label, are
+translated at the config_page.py/settings display sites that call
+i18n.t() on the registry's own returned text; their French entries live
+in companion/i18n_fr/registry.py, not here.
 
 Copy follows sentence case, the typographic apostrophe (U+2019, never
 a straight quote), and a non-breaking space (U+00A0) before
@@ -40,8 +50,6 @@ CATALOG = {
     "When it is on": "Quand il est allumé",
     "— when the screen is lit and when it stays quiet.":
         "— quand l’écran est allumé et quand il reste silencieux.",
-    "Applies the next time the frame wakes up.":
-        "S’applique au prochain réveil du cadre.",
 
     # --- Device's own two supersections plus the Poll card's own
     #     one-card supersection -------------------------------------
@@ -56,39 +64,10 @@ CATALOG = {
     "— fetch a new picture right now.":
         "— récupère une nouvelle image tout de suite.",
 
-    # --- Aspect card ---------------------------------------------------
-    # This identity translation is required, not optional: the
-    # FR-completeness harness fails an untranslated key regardless of
-    # the two words being the same. A different English key from the
-    # pre-existing "Look": "Aspect" entry above (Display's supersection
-    # heading), not a duplicate of it.
-    "Aspect": "Aspect",
-    "Departures": "Départs",
-    "Arrivals": "Arrivées",
-    "Calendar flights": "Vols du calendrier",
-    "Per-flight rules": "Règles par vol",
-    "Same as departures": "Comme les départs",
+    # --- Aspect card's rules usage row -----------------------------
     "1 rule": "1 règle",
     "%d rules": "%d règles",
     "No rules yet": "Aucune règle pour l’instant",
-    "Selected": "Sélectionné",
-    # The one-line legend under the rule-add form's compact chip grid,
-    # naming the two swatch dots as departures/arrivals, joined into
-    # one phrase with no separator.
-    "Departures & arrivals": "Départs et arrivées",
-    "Current": "Actuel",
-
-    # --- The live theme preview above the chip grid -----------------
-    "Live preview of the %s theme": "Aperçu en direct du thème %s",
-    "Preview with your last flight: %s":
-        "Aperçu avec votre dernier vol : %s",
-    "Preview with a sample flight": "Aperçu avec un vol d’exemple",
-
-    # --- Runway card ---------------------------------------------------
-    "Runway": "Piste",
-    "Which Orly runway the device watches.":
-        "Quelle piste d’Orly l’appareil surveille.",
-    "Airport diagram for %s": "Schéma de l’aéroport pour %s",
 
     # --- Calendar row's connection block --------------------------------
     # The confirmation-page strings below (with a question mark, or
@@ -125,97 +104,27 @@ CATALOG = {
     "Match by": "Correspondance par",
     "Value": "Valeur",
     "Add rule": "Ajouter la règle",
-    "Callsign": "Indicatif",
     "ICAO24 hex": "Code hexadécimal ICAO24",
     "Callsign prefix": "Préfixe d’indicatif",
-    "Delete": "Supprimer",
 
-    # --- Quiet hours card ------------------------------------------------
-    "Quiet hours": "Heures calmes",
-    "Pauses the frame's wake, poll and display cycle during the "
-    "schedule below.":
-        "Suspend le réveil, la vérification et l’affichage du cadre "
-        "pendant cette plage.",
-    "Start": "Début",
-    "End": "Fin",
-    # The two quiet-hours dial handles' accessible names. Each handle is
-    # a real <button> carrying role="slider" with a bare time as its
-    # aria-valuetext, so only these two names need a French sibling.
-    # Not composed from "Quiet hours" + "Start": a French accessible
-    # name is a phrase, not two catalogue keys joined with a space.
-    "Quiet hours start": "Début des heures calmes",
-    "Quiet hours end": "Fin des heures calmes",
-    # The duration ladder's client-side wordings, pinned equal to
-    # duration_text()'s own return per bucket. The real U+00A0 between
-    # "#" and the unit matches duration_text()'s French branch
-    # byte-for-byte; a plain space would silently desync the two.
-    "#s": "# s",
-    "#m": "# min",
-    "#h": "# h",
-    "#d": "# j",
-    "Night": "Nuit",
-    "Day": "Journée",
-    "Always on": "Toujours actif",
-    "On": "Allumé",
-    "Off": "Éteint",
+    # --- Device-only groups: two retired action wordings that reach no
+    # i18n.t() call any more (a role="switch" control is now named by
+    # the setting via aria-labelledby, never by an action) — kept only
+    # as names a test asserts are no longer rendered.
     "Switch on": "Allumer",
     "Switch off": "Éteindre",
     "Turn on": "Activer",
     "Turn off": "Désactiver",
-    "On — %s to %s": "Allumé — %s à %s",
 
-    # --- Device-only groups ----------------------------------------------
-    "Diagnostic LED": "LED de diagnostic",
-    "Lit only during the device's brief wake window.":
-        "Allumée seulement pendant la brève période de réveil.",
-    "Wake interval": "Intervalle de réveil",
-    "Shorter: fresher data, more battery drain.":
-        "Plus court, données plus fraîches, batterie sollicitée.",
-    "Wake interval (seconds)": "Intervalle de réveil (secondes)",
-    # The range input's own accessible name, distinct from the number
-    # input's label above — two controls sharing one accessible name is
-    # how a screen-reader visitor loses track of which they are on.
-    "Wake interval slider": "Curseur d’intervalle de réveil",
-    # The two gauges: "#" is the quantity's place in both, and the unit
-    # is always whole minutes in both languages, which keeps these
-    # sentences free of a plural form. U+00A0 between the number and
-    # its unit, as layout.duration_text() does for its French branch.
-    "A plane reaches the frame at most # min later.":
-        "Un avion apparaît sur le cadre au plus # min plus tard.",
-    # The two absolute-figure wordings, singular and plural both — a
-    # days count of 1 is reachable (a nearly empty battery).
-    "≈ # day of battery left, from this frame's own recent readings.":
-        "≈ # jour d’autonomie restante, d’après les relevés "
-        "récents de ce cadre.",
-    "≈ # days of battery left, from this frame's own recent readings.":
-        "≈ # jours d’autonomie restante, d’après les relevés "
-        "récents de ce cadre.",
-    "Not enough battery history yet to say how long a charge lasts.":
-        "Pas encore assez d’historique de batterie pour dire combien "
-        "de temps dure une charge.",
-    "While the screen is off, the frame wakes every %s instead.":
-        "Quand l’écran est éteint, le cadre se réveille toutes les %s "
-        "à la place.",
-    # "%d" is the saved cadence, filled server-side; "#" is the
-    # proposed one, filled client-side as the slider moves. The
-    # relative clause names both cadences rather than a ratio, so it
-    # carries no decimal at all.
-    "This setting wakes the frame every # min instead of every %d min.":
-        "Ce réglage réveille le cadre toutes les # min au lieu de toutes "
-        "les %d min.",
-    "Uses server default": "Utilise la valeur par défaut du serveur",
     "Manual refresh": "Actualisation manuelle",
     "Trigger an immediate poll cycle.":
         "Déclenchez un cycle de vérification immédiat.",
     "Trigger poll now": "Déclencher une vérification maintenant",
     "Polling…": "Vérification en cours…",
-    "Poll triggered recently — try again in {n}s.":
-        "Vérification déclenchée récemment — réessayez dans {n} s.",
 
     # --- Save --------------------------------------------------------
     "Save settings": "Enregistrer les réglages",
     "Next wake": "Prochain réveil",
-    " (next wake ≈ %s)": " (prochain réveil ≈ %s)",
 
     # The restored dirty-save-bar's connector/progress words and the
     # "Saving…" progressive, sharing the "Enregistrer les réglages"
@@ -228,20 +137,137 @@ CATALOG = {
     "1 unsaved change": "1 modification non enregistrée",
     " unsaved changes": " modifications non enregistrées",
 
+    # The Notifications topic-URL field's own shorter error, distinct
+    # from the calendar URL's longer message below.
+    "That link is too long.": "Ce lien est trop long.",
+}
+
+MESSAGES = {
+    # --- Display/Device page shells -------------------------------------
+    "display.selected": "Sélectionné",
+    "display.current": "Actuel",
+
+    # --- Display's three supersections ----------------------------
+    # This identity translation is required, not optional: the
+    # FR-completeness harness fails an untranslated key regardless of
+    # the two words being the same. A different id from "display.look"
+    # above (Display's supersection heading), not a duplicate of it.
+    "display.aspect": "Aspect",
+    "display.applies_the_next_time_the_frame_wakes_up":
+        "S’applique au prochain réveil du cadre.",
+
+    # --- Aspect card ---------------------------------------------------
+    "display.departures": "Départs",
+    "display.arrivals": "Arrivées",
+    "display.calendar_flights": "Vols du calendrier",
+    "display.per_flight_rules": "Règles par vol",
+    "display.same_as_departures": "Comme les départs",
+    # The one-line legend under the rule-add form's compact chip grid,
+    # naming the two swatch dots as departures/arrivals, joined into
+    # one phrase with no separator.
+    "display.departures_arrivals": "Départs et arrivées",
+
+    # --- The live theme preview above the chip grid -----------------
+    "display.live_preview_of_the_theme": "Aperçu en direct du thème %s",
+    "display.preview_with_your_last_flight":
+        "Aperçu avec votre dernier vol : %s",
+    "display.preview_with_a_sample_flight": "Aperçu avec un vol d’exemple",
+
+    # --- Runway card ---------------------------------------------------
+    "display.runway": "Piste",
+    "display.which_orly_runway_the_device_watches":
+        "Quelle piste d’Orly l’appareil surveille.",
+    "display.airport_diagram_for": "Schéma de l’aéroport pour %s",
+
+    # --- Calendar row's connection block --------------------------------
+    "display.callsign": "Indicatif",
+    "display.delete": "Supprimer",
+
+    # --- Quiet hours card ------------------------------------------------
+    "display.quiet_hours": "Heures calmes",
+    "display.pauses_the_frame_s_wake_poll_and_display_cycle":
+        "Suspend le réveil, la vérification et l’affichage du cadre "
+        "pendant cette plage.",
+    "display.start": "Début",
+    "display.end": "Fin",
+    # The two quiet-hours dial handles' accessible names. Each handle is
+    # a real <button> carrying role="slider" with a bare time as its
+    # aria-valuetext, so only these two names need a French sibling.
+    # Not composed from "Quiet hours" + "Start": a French accessible
+    # name is a phrase, not two catalogue entries joined with a space.
+    "display.quiet_hours_start": "Début des heures calmes",
+    "display.quiet_hours_end": "Fin des heures calmes",
+    # The duration ladder's client-side wordings, pinned equal to
+    # duration_text()'s own return per bucket. The real U+00A0 between
+    # "#" and the unit matches duration_text()'s French branch
+    # byte-for-byte; a plain space would silently desync the two.
+    "display.s": "# s",
+    "display.m": "# min",
+    "display.h": "# h",
+    "display.d": "# j",
+    "display.night": "Nuit",
+    "display.day": "Journée",
+    "display.always_on": "Toujours actif",
+    "display.on": "Allumé",
+    "display.off": "Éteint",
+    "display.on_to": "Allumé — %s à %s",
+
+    # --- Device-only groups ----------------------------------------------
+    "display.diagnostic_led": "LED de diagnostic",
+    "display.lit_only_during_the_device_s_brief_wake_window":
+        "Allumée seulement pendant la brève période de réveil.",
+    "display.wake_interval": "Intervalle de réveil",
+    "display.shorter_fresher_data_more_battery_drain":
+        "Plus court, données plus fraîches, batterie sollicitée.",
+    "display.wake_interval_seconds": "Intervalle de réveil (secondes)",
+    # The range input's own accessible name, distinct from the number
+    # input's label above — two controls sharing one accessible name is
+    # how a screen-reader visitor loses track of which they are on.
+    "display.wake_interval_slider": "Curseur d’intervalle de réveil",
+    # The two gauges: "#" is the quantity's place in both, and the unit
+    # is always whole minutes in both languages, which keeps these
+    # sentences free of a plural form. U+00A0 between the number and
+    # its unit, as layout.duration_text() does for its French branch.
+    "display.a_plane_reaches_the_frame_at_most_min_later":
+        "Un avion apparaît sur le cadre au plus # min plus tard.",
+    # The two absolute-figure wordings, singular and plural both — a
+    # days count of 1 is reachable (a nearly empty battery).
+    "display.day_of_battery_left_from_this_frame_s_own":
+        "≈ # jour d’autonomie restante, d’après les relevés "
+        "récents de ce cadre.",
+    "display.days_of_battery_left_from_this_frame_s_own":
+        "≈ # jours d’autonomie restante, d’après les relevés "
+        "récents de ce cadre.",
+    "display.not_enough_battery_history_yet_to_say_how_long":
+        "Pas encore assez d’historique de batterie pour dire combien "
+        "de temps dure une charge.",
+    "display.while_the_screen_is_off_the_frame_wakes_every":
+        "Quand l’écran est éteint, le cadre se réveille toutes les %s "
+        "à la place.",
+    # "%d" is the saved cadence, filled server-side; "#" is the
+    # proposed one, filled client-side as the slider moves. The
+    # relative clause names both cadences rather than a ratio, so it
+    # carries no decimal at all.
+    "display.this_setting_wakes_the_frame_every_min_instead":
+        "Ce réglage réveille le cadre toutes les # min au lieu de toutes "
+        "les %d min.",
+    "display.uses_server_default": "Utilise la valeur par défaut du serveur",
+    "display.poll_triggered_recently_try_again_in_n_s":
+        "Vérification déclenchée récemment — réessayez dans {n} s.",
+
+    # --- Save --------------------------------------------------------
+    "display.next_wake_2": " (prochain réveil ≈ %s)",
+
     # --- Field-level validation errors ------------------------------
-    "That is not one of the available choices.":
+    "display.that_is_not_one_of_the_available_choices":
         "Ce n’est pas l’un des choix disponibles.",
-    "That switch sent an unexpected value.":
+    "display.that_switch_sent_an_unexpected_value":
         "Cet interrupteur a envoyé une valeur inattendue.",
-    "Enter a whole number of seconds between 60 and 3600.":
+    "display.enter_a_whole_number_of_seconds_between_60_and":
         "Entrez un nombre entier de secondes entre 60 et 3600.",
-    "Enter a time as HH:MM, for example 23:00.":
+    "display.enter_a_time_as_hh_mm_for_example_23_00":
         "Entrez une heure au format HH:MM, par exemple 23:00.",
-    "That link is too long, or conflicts with the disconnect option "
-    "below.":
+    "display.that_link_is_too_long_or_conflicts_with_the":
         "Ce lien est trop long, ou entre en conflit avec l’option de "
         "déconnexion ci-dessous.",
-    # The Notifications topic-URL field's own shorter error, distinct
-    # from the calendar URL's longer message above.
-    "That link is too long.": "Ce lien est trop long.",
 }

@@ -282,10 +282,14 @@ def relative_copy_attrs(lang=None):
 # All four buckets ship even though a quiet window's arithmetic can
 # never reach "d": "s" is reachable (a zero-length window is real), and
 # a ladder with a hole in it is one somebody falls through later.
-DURATION_SECONDS_TEXT = "#s"
-DURATION_MINUTES_TEXT = "#m"
-DURATION_HOURS_TEXT = "#h"
-DURATION_DAYS_TEXT = "#d"
+# Owned by companion/i18n_fr/display.py's own catalogue (these four
+# wordings are read only by companion/settings/quiet_hours.py's live
+# duration readout — a Display-page card), not by this module's own
+# relative-age wordings above.
+DURATION_SECONDS_TEXT = i18n.msg("display.s", "#s")
+DURATION_MINUTES_TEXT = i18n.msg("display.m", "#m")
+DURATION_HOURS_TEXT = i18n.msg("display.h", "#h")
+DURATION_DAYS_TEXT = i18n.msg("display.d", "#d")
 
 # Ordered s/m/h/d, matching _age_bucket()'s own unit letters. Read by
 # config_page.py's quiet_dial_readout_html() and by

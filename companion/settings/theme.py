@@ -19,7 +19,7 @@ from server import device_config, history_db, panel_format
 
 from companion.settings.form import (
     CURRENT_BADGE_ATTR, CURRENT_BADGE_LABEL, DIRTY_SECTION_ATTR,
-    SETTINGS_FORM_ID, _field_error_html, _submitted_or_current)
+    SELECTED_LABEL, SETTINGS_FORM_ID, _field_error_html, _submitted_or_current)
 
 
 THEME_PREVIEW_ROUTE_PREFIX = theme_preview.THEME_PREVIEW_ROUTE_PREFIX
@@ -30,9 +30,51 @@ THEME_PREVIEW_ALT_TEMPLATE = theme_preview.THEME_PREVIEW_ALT_TEMPLATE
 # shares the chip grid's crop/size; only the rendered scene differs
 # (the last real runway event instead of the fixed fixture).
 THEME_LIVE_PREVIEW_WIDTH, THEME_LIVE_PREVIEW_HEIGHT = theme_preview.THEME_PREVIEW_SIZE
-THEME_LIVE_PREVIEW_ALT_TEMPLATE = "Live preview of the %s theme"
-THEME_LIVE_PREVIEW_CAPTION_WITH_FLIGHT_TEMPLATE = "Preview with your last flight: %s"
-THEME_LIVE_PREVIEW_CAPTION_SAMPLE = "Preview with a sample flight"
+THEME_LIVE_PREVIEW_ALT_TEMPLATE = i18n.msg(
+    "display.live_preview_of_the_theme", "Live preview of the %s theme")
+THEME_LIVE_PREVIEW_CAPTION_WITH_FLIGHT_TEMPLATE = i18n.msg(
+    "display.preview_with_your_last_flight", "Preview with your last flight: %s")
+THEME_LIVE_PREVIEW_CAPTION_SAMPLE = i18n.msg(
+    "display.preview_with_a_sample_flight", "Preview with a sample flight")
+
+# server.device_config.theme_label()'s registry text, wrapped as a
+# stable-id Message at this display site (companion/i18n_fr/registry.py
+# still carries these eighteen names as a legacy English-keyed CATALOG —
+# unconverted until a later plan finishes that module). Every other
+# call site that reads a theme's display name (companion.settings.calendar,
+# companion.settings.rules) goes through `_theme_label_message()` below
+# rather than re-declaring these ids a second time.
+_THEME_LABEL_MESSAGES = {
+    "White": i18n.msg("registry.white", "White"),
+    "Black": i18n.msg("registry.black", "Black"),
+    "Grey": i18n.msg("registry.grey", "Grey"),
+    "Yellow": i18n.msg("registry.yellow", "Yellow"),
+    "Yellow Light": i18n.msg("registry.yellow_light", "Yellow Light"),
+    "Red": i18n.msg("registry.red", "Red"),
+    "Red Light": i18n.msg("registry.red_light", "Red Light"),
+    "Green": i18n.msg("registry.green", "Green"),
+    "Green Light": i18n.msg("registry.green_light", "Green Light"),
+    "Blue": i18n.msg("registry.blue", "Blue"),
+    "Blue Light": i18n.msg("registry.blue_light", "Blue Light"),
+    "Band Blue": i18n.msg("registry.band_blue", "Band Blue"),
+    "Band Blue Light": i18n.msg("registry.band_blue_light", "Band Blue Light"),
+    "Band Green Light": i18n.msg("registry.band_green_light", "Band Green Light"),
+    "Band Red": i18n.msg("registry.band_red", "Band Red"),
+    "Band Black": i18n.msg("registry.band_black", "Band Black"),
+    "Band Blue Field": i18n.msg("registry.band_blue_field", "Band Blue Field"),
+    "Band Red Field": i18n.msg("registry.band_red_field", "Band Red Field"),
+}
+
+
+def _theme_label_message(theme_id):
+    """`device_config.theme_label(theme_id)`'s registry text as a
+    Message, so every display site passes `i18n.t()` a stable id
+    instead of the raw label string. Falls back to the raw label
+    unchanged for a theme id this table does not (yet) know — never
+    raises.
+    """
+    label = device_config.theme_label(theme_id)
+    return _THEME_LABEL_MESSAGES.get(label, label)
 
 # "Aspect": the one merged card, a native `<details name="aspect-rows">`
 # accordion over four rows. No radiogroup selects which row is showing
@@ -42,7 +84,7 @@ THEME_LIVE_PREVIEW_CAPTION_SAMPLE = "Preview with a sample flight"
 # branch keys), never submitted to handle_post() — distinct from the
 # three saved field names (theme/theme_arriving/calendar_theme_id)
 # each row's own palette posts through via form="settings-form".
-ASPECT_HEADING = "Aspect"
+ASPECT_HEADING = i18n.msg("display.aspect", "Aspect")
 ASPECT_HEADING_ID = "aspect-heading"
 COLOUR_USAGE_DEPARTURES = "departures"
 COLOUR_USAGE_ARRIVALS = "arrivals"
@@ -55,23 +97,23 @@ COLOUR_USAGES = (
     COLOUR_USAGE_DEPARTURES, COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_CALENDAR,
     COLOUR_USAGE_RULES)
 FRAME_COLOURS_ROW_LABELS = {
-    COLOUR_USAGE_DEPARTURES: "Departures",
-    COLOUR_USAGE_ARRIVALS: "Arrivals",
-    COLOUR_USAGE_CALENDAR: "Calendar flights",
-    COLOUR_USAGE_RULES: "Per-flight rules",
+    COLOUR_USAGE_DEPARTURES: i18n.msg("display.departures", "Departures"),
+    COLOUR_USAGE_ARRIVALS: i18n.msg("display.arrivals", "Arrivals"),
+    COLOUR_USAGE_CALENDAR: i18n.msg("display.calendar_flights", "Calendar flights"),
+    COLOUR_USAGE_RULES: i18n.msg("display.per_flight_rules", "Per-flight rules"),
 }
 
 ASPECT_ROWS_GROUP_NAME = "aspect-rows"
 
 ASPECT_ROW_SUMMARY_TEMPLATE = "%s — %s"
 
-THEME_CHIP_SWATCH_LEGEND = "Departures & arrivals"
+THEME_CHIP_SWATCH_LEGEND = i18n.msg("display.departures_arrivals", "Departures & arrivals")
 
 # The leading "Same as departures" chip Arrivals'/Calendar's own grids
 # gain, submitting the empty string (the clear signal handle_post()
 # maps to device_config.CLEAR_THEME_ARRIVING/None) — reused verbatim as
 # both the chip's own label and the row's own "no override" meta text.
-SAME_AS_DEPARTURES_LABEL = "Same as departures"
+SAME_AS_DEPARTURES_LABEL = i18n.msg("display.same_as_departures", "Same as departures")
 
 
 def _palette_hex(index):
@@ -123,13 +165,13 @@ def _palette_chip_html(field_name, theme_id, selected, radio_form_id=None):
     """
     form_attr_html = ' form="%s"' % escape_html(radio_form_id) if radio_form_id else ""
     escaped_id = escape_html(theme_id)
-    label = i18n.t(device_config.theme_label(theme_id))
+    label = i18n.t(_theme_label_message(theme_id))
     check_html = ""
     if selected:
         check_html = (
             '<span class="palette-chip__check">%s'
             '<span class="visually-hidden">%s</span></span>'
-        ) % (layout.icon_html("icon-check"), escape_html(i18n.t("Selected")))
+        ) % (layout.icon_html("icon-check"), escape_html(i18n.t(SELECTED_LABEL)))
     return (
         '<label class="palette-chip" data-preview-src="%s%s.png?live=1">'
         '<input type="radio" name="%s" value="%s" class="visually-hidden"%s%s>'
@@ -179,7 +221,7 @@ def _usage_row_summary_html(usage, theme_id, meta_text=None):
     source. `meta_text`, when omitted, defaults to the saved theme name.
     """
     if meta_text is None:
-        meta_text = i18n.t(device_config.theme_label(theme_id))
+        meta_text = i18n.t(_theme_label_message(theme_id))
     row_label = i18n.t(FRAME_COLOURS_ROW_LABELS[usage])
     escaped_row_label = escape_html(row_label)
     escaped_meta = escape_html(meta_text)
@@ -231,7 +273,7 @@ def _theme_chip_grid_html(
         theme = device_config.THEMES[theme_id]
         # device_config.theme_label()'s registry text is translated at
         # this display site; the theme id itself never changes.
-        label = i18n.t(device_config.theme_label(theme_id))
+        label = i18n.t(_theme_label_message(theme_id))
         escaped_id = escape_html(theme_id)
         departing_hex = _palette_hex(theme["departing_index"])
         arriving_hex = _palette_hex(theme["arriving_index"])
@@ -262,7 +304,7 @@ def _theme_chip_grid_html(
                 escape_html(label),
                 escape_html(departing_hex), escape_html(arriving_hex),
                 layout.icon_html("icon-check"),
-                escape_html(i18n.t("Selected")),
+                escape_html(i18n.t(SELECTED_LABEL)),
             )
         )
     grid_class = "theme-chip-grid"
@@ -293,7 +335,7 @@ def _theme_live_preview_html(current_theme_id, state_dir, extra_class=""):
     live_theme_id = (
         current_theme_id if current_theme_id in device_config.THEMES
         else device_config.DEFAULT_THEME_ID)
-    label = i18n.t(device_config.theme_label(live_theme_id))
+    label = i18n.t(_theme_label_message(live_theme_id))
     callsign = None
     if state_dir:
         try:
@@ -345,7 +387,7 @@ def _same_as_departures_chip_html(field_name, checked, radio_form_id=None):
     ) % (
         escape_html(field_name), form_attr_html, " checked" if checked else "",
         escape_html(i18n.t(SAME_AS_DEPARTURES_LABEL)),
-        layout.icon_html("icon-check"), escape_html(i18n.t("Selected")),
+        layout.icon_html("icon-check"), escape_html(i18n.t(SELECTED_LABEL)),
     )
 
 
@@ -446,7 +488,7 @@ def _aspect_card_html(
         arrivals_safe_id = (
             effective_arriving if effective_arriving in device_config.THEMES
             else departures_safe_id)
-        arrivals_meta = i18n.t(device_config.theme_label(arrivals_safe_id))
+        arrivals_meta = i18n.t(_theme_label_message(arrivals_safe_id))
         arrivals_swatch_id = arrivals_safe_id
     arrivals_row = _usage_row_html(
         COLOUR_USAGE_ARRIVALS,

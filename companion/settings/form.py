@@ -18,7 +18,7 @@ SETTINGS_FORM_ID = "settings-form"
 # The "Current" badge's own text, server-rendered onto the saved
 # chip/card as `data-current-label` and read back by
 # `content: attr(data-current-label)` in style.css.
-CURRENT_BADGE_LABEL = "Current"
+CURRENT_BADGE_LABEL = i18n.msg("display.current", "Current")
 # The attribute the badge's content: attr(...) reads. Written as
 # literal text at both the markup site below and in style.css.
 CURRENT_BADGE_ATTR = "data-current-label"
@@ -34,7 +34,16 @@ DIRTY_SECTION_ATTR = "data-dirty-section"
 # `companion.settings.calendar.CALENDAR_HOW_IT_WORKS_BODY`) may imply
 # otherwise. Shared here because `notifications_group()` reuses this
 # same summary label rather than a second, near-duplicate string.
-CALENDAR_HOW_IT_WORKS_SUMMARY = "How it works"
+# Owned by companion/i18n_fr/calendar_group.py, not this module's own
+# display.py — the Calendar row's own connection block is where this
+# label's French sibling lives.
+CALENDAR_HOW_IT_WORKS_SUMMARY = i18n.msg("calendar_group.how_it_works", "How it works")
+
+# The "Selected" visually-hidden text beside a chosen palette/runway
+# chip's check icon — shared by companion.settings.theme and
+# companion.settings.runway_led, declared once here so the two never
+# drift onto two different ids for the same word.
+SELECTED_LABEL = i18n.msg("display.selected", "Selected")
 
 
 def _field_error_html(errors, field, control_id):
@@ -68,7 +77,7 @@ def _describedby_attr(*ids):
 # The suffix appended to a caption's own apply-timing clause when the
 # next-wake value is known — never baked into the caption constant
 # itself, so the caption reads unchanged when the value is not known.
-NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE = " (next wake ≈ %s)"
+NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE = i18n.msg("display.next_wake_2", " (next wake ≈ %s)")
 
 
 def _with_next_wake(caption, next_wake_clock):

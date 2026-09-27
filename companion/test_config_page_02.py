@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-import companion.i18n_fr as i18n_fr
+import companion.i18n as i18n
 import companion.layout as layout
 import companion.prefs as prefs
 import companion.test_config_page_helpers as cp
@@ -1127,7 +1127,7 @@ def test_the_two_handles_are_gated_and_hold_no_value_of_their_own(value_controls
     finally:
         prefs.set_request_prefs(lang="en")
     for label in (config_page.QUIET_DIAL_START_LABEL, config_page.QUIET_DIAL_END_LABEL):
-        translated = i18n_fr.CATALOG.get(label)
+        translated = i18n.t_lang(label, "fr")
         assert translated and translated != label, "%r has no French sibling" % label
         assert ('aria-label="%s"' % escape_html(translated)) in french, (
             "the French render does not name the handle %r" % translated)

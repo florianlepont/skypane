@@ -44,17 +44,19 @@ from skypane_test_support import REPO_ROOT, child_env
 
 
 def test_t_lang_fr_translates_a_known_key():
-    # "Cancel" is a plain, legacy English-keyed CATALOG entry
-    # (display.py, not yet migrated) — unlike a migrated string such as
-    # "Home", it translates correctly with no dependence on some other
-    # module's Message declarations having run first, which is what
-    # this module's own minimal import set (no companion.layout/
-    # ui_base) would otherwise require.
-    assert i18n.t_lang("Cancel", "fr") == "Annuler"
+    # "Plane frame" is a plain, legacy English-keyed CATALOG entry
+    # (registry.py, not yet migrated — its only consumer,
+    # companion/screens.py's screen-type registry, stays out of scope
+    # until a later plan) — unlike a migrated string such as "Home", it
+    # translates correctly with no dependence on some other module's
+    # Message declarations having run first, which is what this
+    # module's own minimal import set (no companion.layout/ui_base)
+    # would otherwise require.
+    assert i18n.t_lang("Plane frame", "fr") == "Cadre avion"
 
 
 def test_t_lang_en_returns_the_english_source():
-    assert i18n.t_lang("Cancel", "en") == "Cancel"
+    assert i18n.t_lang("Plane frame", "en") == "Plane frame"
 
 
 def test_t_lang_degrades_a_missing_key_to_the_english_source_unchanged():
@@ -70,13 +72,13 @@ def test_t_lang_degrades_a_missing_key_to_the_english_source_unchanged():
 def test_t_follows_set_request_prefs_and_back():
     try:
         prefs.set_request_prefs(lang="fr")
-        fr_result = i18n.t("Cancel")
+        fr_result = i18n.t("Plane frame")
         prefs.set_request_prefs(lang="en")
-        en_result = i18n.t("Cancel")
+        en_result = i18n.t("Plane frame")
     finally:
         prefs.set_request_prefs(lang="en")
-    assert fr_result == "Annuler"
-    assert en_result == "Cancel"
+    assert fr_result == "Cadre avion"
+    assert en_result == "Plane frame"
 
 
 # ==========================================================================
@@ -138,7 +140,11 @@ def test_by_id_contains_every_message_defined_in_nav():
 # entry, the stable message id for a migrated one — so a cognate
 # survives its own entry's id-migration with no exception-list edit.
 _UNCHANGED_IN_FRENCH = frozenset({
-    "Notifications", "Aspect",
+    "Notifications",
+    # display.py's own migrated cognate, replacing this set's former
+    # legacy English-keyed "Aspect" entry now that
+    # companion/settings/theme.py declares it as a Message.
+    "display.aspect",
     # health.py's own migrated cognates, replacing this set's former
     # legacy English-keyed entries ("Corroboration", "Source",
     # "Description") now that health_page.py declares them as Messages.
@@ -285,16 +291,16 @@ def test_t_lang_message_in_english_returns_the_plain_english_str(isolated_regist
 
 
 def test_t_lang_plain_str_still_translates_through_the_legacy_catalog():
-    assert i18n.t_lang("Cancel", "fr") == "Annuler"
+    assert i18n.t_lang("Plane frame", "fr") == "Cadre avion"
 
 
 def test_t_lang_message_with_no_by_id_entry_falls_back_to_legacy_catalog(isolated_registry):
-    # "Settings" is legacy English-keyed in i18n_fr.display.CATALOG (not
+    # "White" is legacy English-keyed in i18n_fr.registry.CATALOG (not
     # yet migrated onto a stable id); a Message sharing that English text
     # but with an ID that has no BY_ID entry yet must still resolve
     # through the legacy fallback.
-    message = i18n.Message("test.not_yet_migrated", "Settings")
-    assert i18n.t_lang(message, "fr") == "Réglages"
+    message = i18n.Message("test.not_yet_migrated", "White")
+    assert i18n.t_lang(message, "fr") == "Blanc"
 
 
 # ==========================================================================

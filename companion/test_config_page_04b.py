@@ -583,10 +583,19 @@ def test_device_render_carries_no_edit_artwork_markup_in_either_language():
 
 
 def test_every_display_catalogue_key_is_a_key_of_the_merged_catalog():
-    """every key of companion/i18n_fr/display.py is a key of the merged companion.i18n_fr.CATALOG
+    """every legacy CATALOG key (if any) of companion/i18n_fr/display.py is a key of the merged
+    companion.i18n_fr.CATALOG, and every MESSAGES id is a key of the merged companion.i18n_fr.BY_ID
     (the auto-merge package actually picked this module up)"""
-    missing = [key for key in i18n_fr_display.CATALOG if key not in i18n_fr.CATALOG]
-    assert not missing, "expected every companion/i18n_fr/display.py key in the merged CATALOG, missing %r" % (missing,)
+    missing_catalog = [
+        key for key in getattr(i18n_fr_display, "CATALOG", {}) if key not in i18n_fr.CATALOG]
+    assert not missing_catalog, (
+        "expected every companion/i18n_fr/display.py CATALOG key in the merged CATALOG, "
+        "missing %r" % (missing_catalog,))
+    missing_messages = [
+        msg_id for msg_id in getattr(i18n_fr_display, "MESSAGES", {}) if msg_id not in i18n_fr.BY_ID]
+    assert not missing_messages, (
+        "expected every companion/i18n_fr/display.py MESSAGES id in the merged BY_ID, "
+        "missing %r" % (missing_messages,))
 
 
 def test_submitted_scope_and_return_route_are_allowlisted():
