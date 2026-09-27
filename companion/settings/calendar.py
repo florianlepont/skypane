@@ -144,21 +144,17 @@ def _masked_calendar_url(url):
     return "%s…" % netloc
 
 
-def _calendar_connection_html(
-        configured, drift, last_synced_at, last_attempt_at, now, entry_count,
-        errors=None, submitted=None, state_dir=None):
-    """Calendar's connection block inside the Aspect card's Calendar
-    row: status, connect/replace form or masked URL, and the cross-DOM
-    Disconnect button. Returns `(row_body_html, disconnect_form_html)`
-    separately, since HTML forbids nesting the disconnect form inside
-    the row's own connect/replace form.
+def _calendar_status_html(configured, drift, last_synced_at, last_attempt_at, now, entry_count):
+    """The Calendar connection row's status line: verdict + detail,
+    already wrapped by `layout.status_row()`. Split out of
+    `_calendar_connection_html()` so that function stays under this
+    project's function-length ceiling; kept as its own function (not
+    inlined back) because it is also where a future live "refreshed Xm
+    ago" age conversion belongs, self-contained from the rest of the
+    connection block's markup.
 
-    The feed URL field is write-only: never a `value` attribute, only a
-    masked `host + "…"` once connected. Drift is checked before
-    `configured`, since a drifted link already forces it False.
-    Disconnect posts an empty confirm field to a two-step, server-
-    rendered confirm page; the client-side `data-confirm` dialog is a
-    misclick guard only, never the real gate.
+    Drift is checked before `configured`, since a drifted link already
+    forces it False.
     """
     # Drift first: it already forces `configured` False, so checking
     # `not configured` first would make this branch unreachable.
@@ -191,12 +187,20 @@ def _calendar_connection_html(
         else:
             detail = ""
             state = "warn"
-    status_html = layout.status_row("", verdict, detail, state)
+    return layout.status_row("", verdict, detail, state)
 
+
+def _calendar_url_field_html(errors=None):
+    """The write-only feed-URL `<div class="rule-add-form__field">`,
+    shared by the connect and replace forms below (its own `<form>`
+    wrapper differs by the button text alone). Split out of
+    `_calendar_connection_html()` for the same function-length reason as
+    `_calendar_status_html()` above.
+    """
     error_attrs = _field_error_attrs(
         errors, "calendar_url", "calendar-connect-url", hint_id=CALENDAR_URL_HINT_ID)
     error_html = _field_error_html(errors, "calendar_url", "calendar-connect-url")
-    field_html = (
+    return (
         '<div class="rule-add-form__field">'
         '<label for="calendar-connect-url">%s</label>'
         '<input type="text" id="calendar-connect-url" name="calendar_url" '
@@ -210,6 +214,26 @@ def _calendar_connection_html(
         escape_html(CALENDAR_URL_HINT_ID), escape_html(i18n.t(CALENDAR_URL_HINT)),
         error_html,
     )
+
+
+def _calendar_connection_html(
+        configured, drift, last_synced_at, last_attempt_at, now, entry_count,
+        errors=None, submitted=None, state_dir=None):
+    """Calendar's connection block inside the Aspect card's Calendar
+    row: status, connect/replace form or masked URL, and the cross-DOM
+    Disconnect button. Returns `(row_body_html, disconnect_form_html)`
+    separately, since HTML forbids nesting the disconnect form inside
+    the row's own connect/replace form.
+
+    The feed URL field is write-only: never a `value` attribute, only a
+    masked `host + "…"` once connected.
+    Disconnect posts an empty confirm field to a two-step, server-
+    rendered confirm page; the client-side `data-confirm` dialog is a
+    misclick guard only, never the real gate.
+    """
+    status_html = _calendar_status_html(
+        configured, drift, last_synced_at, last_attempt_at, now, entry_count)
+    field_html = _calendar_url_field_html(errors)
     # Literal id/action text, not a %s interpolation: this module's
     # acceptance gate greps the attribute text directly.
     disconnect_button_html = (

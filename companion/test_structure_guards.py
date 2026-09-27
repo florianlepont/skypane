@@ -46,7 +46,6 @@ TRACKED_FILE_EXCEPTIONS = {
 # nothing as this phase's later plans split them.
 PENDING_OVERSIZED_FILES = {
     "companion/app.py",
-    "companion/pages/config_page.py",
     "companion/pages/health_page.py",
 }
 
@@ -55,11 +54,9 @@ PENDING_OVERSIZED_FILES = {
 PENDING_LONG_FUNCTIONS = {
     "companion/pages/airlines_page.py::_airline_card_html",
     "companion/pages/config_page.py::handle_post",
-    "companion/pages/config_page.py::notifications_group",
     "companion/pages/config_page.py::render",
     "companion/pages/health_page.py::battery_sparkline_svg",
     "companion/pages/history_page.py::_history_cards_html",
-    "companion/settings/calendar.py::_calendar_connection_html",
 }
 
 

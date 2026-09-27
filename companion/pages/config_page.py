@@ -6,18 +6,13 @@ route, cooldown gate and poll trigger are owned by companion/app.py;
 this module only renders its button/copy).
 """
 import re
-from datetime import timedelta
 
 from companion import i18n
-# The one battery estimator, imported as a module and called qualified
-# — a bare `from companion.battery import battery_life_estimate` would
-# make the estimate read as this page's own.
-from companion import battery
 from companion.layout import escape_html
 import companion.layout as layout
 from companion import screens
 from companion import wake
-from server import device_config, history_db
+from server import device_config
 from server.plane import calendar_rules
 
 # Every settings-group module's names, re-exported here (explicit,
@@ -203,6 +198,63 @@ from companion.settings.rules import (
     _rule_suggestion_chips_html as _rule_suggestion_chips_html,
     poll_trigger_section as poll_trigger_section,
     rules_usage_row_html as rules_usage_row_html)
+from companion.settings.wake_interval import (
+    WAKE_BATTERY_DAYS_TEXT as WAKE_BATTERY_DAYS_TEXT,
+    WAKE_BATTERY_DAY_TEXT as WAKE_BATTERY_DAY_TEXT,
+    WAKE_BATTERY_INSTEAD_TEXT as WAKE_BATTERY_INSTEAD_TEXT,
+    WAKE_BATTERY_SCREEN_OFF_TEXT as WAKE_BATTERY_SCREEN_OFF_TEXT,
+    WAKE_BATTERY_UNKNOWN_TEXT as WAKE_BATTERY_UNKNOWN_TEXT,
+    WAKE_BATTERY_WINDOW_DAYS as WAKE_BATTERY_WINDOW_DAYS,
+    WAKE_FRESHNESS_TEXT as WAKE_FRESHNESS_TEXT,
+    WAKE_GAUGE_BATTERY_ID as WAKE_GAUGE_BATTERY_ID,
+    WAKE_GAUGE_CLASS as WAKE_GAUGE_CLASS,
+    WAKE_GAUGE_FRESHNESS_ID as WAKE_GAUGE_FRESHNESS_ID,
+    WAKE_GAUGE_SECONDS_PER_MINUTE as WAKE_GAUGE_SECONDS_PER_MINUTE,
+    WAKE_INTERVAL_FIELD_NAME as WAKE_INTERVAL_FIELD_NAME,
+    WAKE_INTERVAL_INPUT_ID as WAKE_INTERVAL_INPUT_ID,
+    WAKE_INTERVAL_PLACEHOLDER_TEXT as WAKE_INTERVAL_PLACEHOLDER_TEXT,
+    WAKE_INTERVAL_SECTION_CAPTION as WAKE_INTERVAL_SECTION_CAPTION,
+    WAKE_INTERVAL_SECTION_CAPTION_ID as WAKE_INTERVAL_SECTION_CAPTION_ID,
+    WAKE_INTERVAL_SECTION_HEADING as WAKE_INTERVAL_SECTION_HEADING,
+    WAKE_INTERVAL_UNIT_LABEL as WAKE_INTERVAL_UNIT_LABEL,
+    WAKE_SLIDER_CLASS as WAKE_SLIDER_CLASS,
+    WAKE_SLIDER_INPUT_CLASS as WAKE_SLIDER_INPUT_CLASS,
+    WAKE_SLIDER_LABEL as WAKE_SLIDER_LABEL,
+    WAKE_SLIDER_STEP_S as WAKE_SLIDER_STEP_S,
+    _wake_battery_cutoff_iso as _wake_battery_cutoff_iso,
+    _wake_minutes as _wake_minutes,
+    wake_battery_observed_text as wake_battery_observed_text,
+    wake_battery_relative_template as wake_battery_relative_template,
+    wake_battery_relative_text as wake_battery_relative_text,
+    wake_battery_rows as wake_battery_rows,
+    wake_freshness_text as wake_freshness_text,
+    wake_gauge_interval_s as wake_gauge_interval_s,
+    wake_gauges_html as wake_gauges_html,
+    wake_interval_group as wake_interval_group,
+    wake_screen_off_text as wake_screen_off_text,
+    wake_slider_html as wake_slider_html)
+from companion.settings.notifications import (
+    ERROR_NOTIFICATIONS_URL_TOO_LONG as ERROR_NOTIFICATIONS_URL_TOO_LONG,
+    NOTIFICATIONS_BATTERY_CHECKBOX_VALUE as NOTIFICATIONS_BATTERY_CHECKBOX_VALUE,
+    NOTIFICATIONS_BATTERY_LABEL as NOTIFICATIONS_BATTERY_LABEL,
+    NOTIFICATIONS_REPLACE_URL_SUMMARY as NOTIFICATIONS_REPLACE_URL_SUMMARY,
+    NOTIFICATIONS_SECTION_CAPTION as NOTIFICATIONS_SECTION_CAPTION,
+    NOTIFICATIONS_SECTION_CAPTION_ID as NOTIFICATIONS_SECTION_CAPTION_ID,
+    NOTIFICATIONS_SECTION_HEADING as NOTIFICATIONS_SECTION_HEADING,
+    NOTIFICATIONS_SILENT_CHECKBOX_VALUE as NOTIFICATIONS_SILENT_CHECKBOX_VALUE,
+    NOTIFICATIONS_SILENT_LABEL as NOTIFICATIONS_SILENT_LABEL,
+    NOTIFICATIONS_STATUS_CONFIGURED_VERDICT as NOTIFICATIONS_STATUS_CONFIGURED_VERDICT,
+    NOTIFICATIONS_STATUS_NOT_CONFIGURED_VERDICT as NOTIFICATIONS_STATUS_NOT_CONFIGURED_VERDICT,
+    NOTIFICATIONS_TEST_BUTTON_TEXT as NOTIFICATIONS_TEST_BUTTON_TEXT,
+    NOTIFICATIONS_TEST_ROUTE as NOTIFICATIONS_TEST_ROUTE,
+    NOTIFICATIONS_URL_FIELD_LABEL as NOTIFICATIONS_URL_FIELD_LABEL,
+    NOTIFICATIONS_URL_HINT as NOTIFICATIONS_URL_HINT,
+    NOTIFICATIONS_URL_HINT_ID as NOTIFICATIONS_URL_HINT_ID,
+    NOTIFICATIONS_URL_HOW_IT_WORKS_BODY as NOTIFICATIONS_URL_HOW_IT_WORKS_BODY,
+    NOTIFICATIONS_URL_MAX_LEN as NOTIFICATIONS_URL_MAX_LEN,
+    _notifications_url_field_html as _notifications_url_field_html,
+    notifications_group as notifications_group,
+    notifications_test_section as notifications_test_section)
 
 
 # The single definition of this route. companion/app.py rebinds its own
@@ -325,95 +377,6 @@ DISPLAY_CHECKBOX_VALUE = "on"
 POLL_SECTION_HEADING = "Manual refresh"
 
 
-WAKE_INTERVAL_SECTION_HEADING = "Wake interval"
-WAKE_INTERVAL_SECTION_CAPTION = "Shorter: fresher data, more battery drain."
-WAKE_INTERVAL_PLACEHOLDER_TEXT = "Uses server default"
-# The unit, rendered as a sibling beside the number input (never a
-# placeholder, which vanishes once a value is typed). Not routed
-# through i18n.t(): "s" is the SI symbol for a second, the same symbol
-# in French, so it is a unit symbol, not prose. aria-hidden, since the
-# field's own translated label already says "seconds".
-WAKE_INTERVAL_UNIT_LABEL = "s"
-WAKE_INTERVAL_INPUT_ID = "wake-interval-s"
-WAKE_INTERVAL_SECTION_CAPTION_ID = "wake-interval-caption"
-
-# The wake interval trades off freshness against battery life. Only one
-# side can be stated honestly today: freshness is true by construction
-# as long as it says "at most" (the frame learns about a plane at its
-# next wake, so it appears at most one interval later). Battery life
-# has no first-principles formula (no per-wake energy cost is known),
-# so its figure comes from `battery.battery_life_estimate()`'s own
-# observed discharge slope, or the named "not enough history" state
-# when it refuses to derive one — never an invented number.
-WAKE_INTERVAL_FIELD_NAME = "wake_interval_s"
-WAKE_GAUGE_CLASS = "wake-gauge"
-WAKE_GAUGE_FRESHNESS_ID = "wake-gauge-freshness"
-WAKE_GAUGE_BATTERY_ID = "wake-gauge-battery"
-WAKE_GAUGE_SECONDS_PER_MINUTE = 60
-# Deliberately shorter than health_page's own 3-month trend window:
-# this sentence says "recent", and two weeks is comfortably more than
-# battery.LIFE_MIN_OBSERVED_SPAN_DAYS while staying recent.
-WAKE_BATTERY_WINDOW_DAYS = 14
-# The quantity's place is "#", never "%s"/"%d"/"{}": every template
-# below reaches the browser as an attribute value value-controls.js
-# substitutes into live, and a check scans every French render for a
-# stray format artefact.
-WAKE_FRESHNESS_TEXT = (
-    "A plane reaches the frame at most # min later.")
-# Carries this app's own "≈" honesty marker plus the source of the
-# claim, so it is never read as a datasheet number.
-WAKE_BATTERY_DAY_TEXT = (
-    "≈ # day of battery left, from this frame's own recent readings.")
-WAKE_BATTERY_DAYS_TEXT = (
-    "≈ # days of battery left, from this frame's own recent readings.")
-WAKE_BATTERY_UNKNOWN_TEXT = (
-    "Not enough battery history yet to say how long a charge lasts.")
-# Neither the bound nor the battery figure applies while the screen is
-# off, since DISPLAY_OFF_SLEEP_S is pinned independently of this field
-# then.
-WAKE_BATTERY_SCREEN_OFF_TEXT = (
-    "While the screen is off, the frame wakes every %s instead.")
-# The relative half, and the only half value-controls.js may recompute
-# while the slider moves: two cadences, never a ratio (which would only
-# be a valid multiplier on lifetime if every joule went into waking).
-# "%d" is the saved cadence (server-side, fixed for the page); "#" is
-# the proposed one, the only thing the script substitutes.
-WAKE_BATTERY_INSTEAD_TEXT = (
-    "This setting wakes the frame every # min instead of every %d min.")
-
-WAKE_SLIDER_CLASS = "wake-slider"
-WAKE_SLIDER_INPUT_CLASS = "wake-slider__input"
-WAKE_SLIDER_STEP_S = 60
-# Its own accessible name: the number input's label names that
-# control, and two controls sharing one name loses a screen-reader
-# visitor track of which they are on.
-WAKE_SLIDER_LABEL = "Wake interval slider"
-
-NOTIFICATIONS_SECTION_HEADING = "Notifications"
-NOTIFICATIONS_SECTION_CAPTION = "Get a push alert about battery or connection issues."
-NOTIFICATIONS_SECTION_CAPTION_ID = "notifications-caption"
-# Write-only, like the calendar feed URL — never rendered back, not
-# partially masked. The status row reports only whether a URL is stored.
-NOTIFICATIONS_STATUS_CONFIGURED_VERDICT = "Configured"
-NOTIFICATIONS_STATUS_NOT_CONFIGURED_VERDICT = "Not configured"
-NOTIFICATIONS_URL_FIELD_LABEL = "Push topic URL"
-NOTIFICATIONS_URL_HINT = "Paste your ntfy.sh topic URL (or a self-hosted one)."
-NOTIFICATIONS_URL_HINT_ID = "notifications-url-hint"
-NOTIFICATIONS_URL_HOW_IT_WORKS_BODY = (
-    "Stored on the server and never shown back here — pasting a new "
-    "one replaces the old.")
-NOTIFICATIONS_REPLACE_URL_SUMMARY = "Replace the URL"
-# A shape bound against an absurd paste; the arbiter of an acceptable
-# topic URL stays server/notify.py's send-time gate, not this bound.
-NOTIFICATIONS_URL_MAX_LEN = 2048
-NOTIFICATIONS_BATTERY_LABEL = "Battery low"
-NOTIFICATIONS_SILENT_LABEL = "Frame silent"
-NOTIFICATIONS_TEST_BUTTON_TEXT = "Send a test"
-NOTIFICATIONS_BATTERY_CHECKBOX_VALUE = "on"
-NOTIFICATIONS_SILENT_CHECKBOX_VALUE = "on"
-NOTIFICATIONS_TEST_ROUTE = "/settings/notifications/test"
-ERROR_NOTIFICATIONS_URL_TOO_LONG = "That link is too long."
-
 # The Screen on/off and Quiet hours routes the Frame strip's switches
 # post to. Home's own route constants are byte-for-byte duplicates,
 # never imported: a page module may never import another page module.
@@ -516,445 +479,6 @@ FLASH_CALENDAR_CONNECT_INVALID = "calendar_connect_invalid"
 # The two outcomes POST /settings/notifications/test can produce.
 FLASH_NOTIFICATIONS_TEST_OK = "notifications_test_ok"
 FLASH_NOTIFICATIONS_TEST_FAILED = "notifications_test_failed"
-
-
-def wake_gauge_interval_s(current_wake_interval_s, submitted=None):
-    """The interval the two gauges describe, as an int inside
-    `[WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S]`, or `None` (nothing
-    renders). On a rejected save, echoes the raw submitted string
-    rather than the stored value so the gauges match the field being
-    fixed — but an out-of-range echo ("7", "99999") still renders no
-    gauge. Total by construction: never raises.
-    """
-    if submitted is not None and "wake_interval_s" in submitted:
-        raw = submitted["wake_interval_s"]
-        try:
-            candidate = int(str(raw).strip())
-        except (TypeError, ValueError):
-            return None
-    elif isinstance(current_wake_interval_s, int) and not isinstance(
-            current_wake_interval_s, bool):
-        candidate = current_wake_interval_s
-    else:
-        return None
-    if device_config.WAKE_INTERVAL_MIN_S <= candidate <= device_config.WAKE_INTERVAL_MAX_S:
-        return candidate
-    return None
-
-
-def _wake_minutes(interval_s):
-    """`interval_s` as a whole number of minutes, rounded up.
-
-    Both sentences are claims about a bound: a 90-second cadence bounds
-    the wait at a minute and a half, and `90 // 60` would print "at
-    most 1 min", which is false. The ceiling prints "at most 2 min",
-    true and merely loose. This control's own step is a whole minute;
-    the ceiling matters for values already on disk from before it
-    existed.
-    """
-    return -(-int(interval_s) // WAKE_GAUGE_SECONDS_PER_MINUTE)
-
-
-def wake_freshness_text(interval_s):
-    """"A plane reaches the frame at most 5 min after it passes." — the
-    bound, or `""` when there is no interval to bound.
-
-    "At most" is the whole sentence: the frame learns about a plane at
-    its next wake, so a plane that passes one instant after a wake
-    appears one whole interval later and never later — true for every
-    interval, by construction, unlike a claim about typical behaviour.
-    """
-    if interval_s is None:
-        return ""
-    return i18n.t(WAKE_FRESHNESS_TEXT).replace(
-        layout.VALUE_CONTROL_TEXT_TOKEN, str(_wake_minutes(interval_s)))
-
-
-def wake_battery_observed_text(interval_s, battery_rows=None):
-    """The battery half: an absolute figure only when observed history
-    supports one, else the named "not enough history yet" sentence;
-    `""` when there is no interval. The figure is
-    `battery.battery_life_estimate()`'s, never computed here — this
-    only picks singular vs. plural wording. `battery_rows` defaults to
-    `()`, the ordinary state of a fresh deployment.
-    """
-    if interval_s is None:
-        return ""
-    estimate = battery.battery_life_estimate(
-        battery_rows or (), interval_s, interval_s)
-    days = estimate["days_remaining"]
-    if (estimate["trend"] == battery.LIFE_TREND_FALLING
-            and isinstance(days, int) and not isinstance(days, bool)):
-        template = WAKE_BATTERY_DAY_TEXT if days == 1 else WAKE_BATTERY_DAYS_TEXT
-        return i18n.t(template).replace(
-            layout.VALUE_CONTROL_TEXT_TOKEN, str(days))
-    return i18n.t(WAKE_BATTERY_UNKNOWN_TEXT)
-
-
-def wake_screen_off_text():
-    """"While the screen is off the frame wakes every 5m instead,
-    whatever this is set to."
-
-    Rendered unconditionally beside the battery sentence, not gated on
-    `display_enabled`: the clause is true whichever way that switch is
-    set, and a qualifier shown only once the screen is off is one
-    nobody reads in time.
-
-    The cadence goes through `layout.duration_text()` since it is a
-    fixed constant; the two sentences above do not, since their number
-    changes as the slider moves and would need a second copy of the
-    ladder in JavaScript to recompute client-side.
-    """
-    return i18n.t(WAKE_BATTERY_SCREEN_OFF_TEXT) % layout.duration_text(
-        device_config.DISPLAY_OFF_SLEEP_S)
-
-
-def wake_battery_relative_template(saved_interval_s):
-    """The relative clause's template, saved cadence already written
-    in and `#` standing for the proposed one — `""` with no usable
-    saved cadence. "This setting wakes the frame every # min instead of
-    every 10 min." — two whole cadences, not a ratio, since a ratio
-    needs a decimal mark that differs between English and French.
-
-    Routed through `battery.battery_life_estimate()`'s
-    `relative_factor` for its guard: a clause built on a cadence that
-    function would refuse (bool, non-numeric, non-positive) is about
-    nothing.
-    """
-    estimate = battery.battery_life_estimate(
-        (), saved_interval_s, saved_interval_s)
-    if estimate["relative_factor"] is None:
-        return ""
-    return i18n.t(WAKE_BATTERY_INSTEAD_TEXT) % _wake_minutes(saved_interval_s)
-
-
-def wake_battery_relative_text(proposed_interval_s, saved_interval_s):
-    """The relative clause as the server would render it for a given
-    proposal — `""` when the two cadences are equal, the case every
-    real page render produces. The one definition of this sentence in
-    Python; `test_browser_ux.py` compares the script's own live output
-    against it. Never carries a days figure: that half stays
-    server-rendered, deliberately unreachable from script.
-    """
-    template = wake_battery_relative_template(saved_interval_s)
-    if not template:
-        return ""
-    estimate = battery.battery_life_estimate(
-        (), saved_interval_s, proposed_interval_s)
-    factor = estimate["relative_factor"]
-    if factor is None or factor == 1.0:
-        return ""
-    return template.replace(
-        layout.VALUE_CONTROL_TEXT_TOKEN, str(_wake_minutes(proposed_interval_s)))
-
-
-def wake_battery_rows(state_dir, now=None):
-    """`WAKE_BATTERY_WINDOW_DAYS` of daily battery averages for the
-    battery sentence, or `()` on any read failure or absent state dir.
-    Never raises: a settings page that 500s because a battery history
-    table could not be opened would be worse than a card that says it
-    has no history yet.
-
-    Read here rather than threaded through `ctx`: this is the only card
-    that needs the series, and `page_context()` runs on every
-    authenticated render.
-    """
-    if not state_dir:
-        return ()
-    try:
-        with history_db.open_db(state_dir) as conn:
-            return history_db.daily_battery_averages(
-                conn, since=_wake_battery_cutoff_iso(now))
-    except Exception:
-        return ()
-
-
-def _wake_battery_cutoff_iso(now):
-    """The `since=` bound for the read above, or `None` when `now` does
-    not parse — in which case `daily_battery_averages()` degrades to an
-    UNBOUNDED read, health_page's own documented choice for the one
-    input it does not control: more history rather than none.
-    """
-    parsed = layout.parse_iso(now)
-    if parsed is None:
-        return None
-    return (parsed - timedelta(days=WAKE_BATTERY_WINDOW_DAYS)).isoformat(
-        timespec="seconds")
-
-
-def wake_gauges_html(interval_s, battery_rows=None):
-    """The two gauges, as two muted sentences — `""` when there is no
-    interval. Server-rendered, outside the `.js` gate: a script only
-    updates these, never creates them, so a failed script leaves
-    correct sentences. Neither is a live region — they'd re-announce
-    continuously during a drag; the range announces itself natively.
-    """
-    if interval_s is None:
-        return ""
-    # The freshness paragraph is entirely live (its whole text is
-    # arithmetic on the value); the battery paragraph's figure came
-    # from observed history, so only its trailing span (two cadences,
-    # no days figure) may be rewritten by script.
-    return (
-        '<p class="text-label section-caption %s" id="%s" %s="%s" %s="%s" %s="%d">%s</p>'
-        '<p class="text-label section-caption %s" id="%s">%s %s '
-        '<span %s="%s" %s="%s" %s="%d" %s="%d">%s</span></p>'
-    ) % (
-        escape_html(WAKE_GAUGE_CLASS), escape_html(WAKE_GAUGE_FRESHNESS_ID),
-        layout.VALUE_CONTROL_READOUT_ATTR, escape_html(WAKE_INTERVAL_FIELD_NAME),
-        layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
-        escape_html(i18n.t(WAKE_FRESHNESS_TEXT)),
-        layout.VALUE_CONTROL_READOUT_SCALE_ATTR, WAKE_GAUGE_SECONDS_PER_MINUTE,
-        escape_html(wake_freshness_text(interval_s)),
-
-        escape_html(WAKE_GAUGE_CLASS), escape_html(WAKE_GAUGE_BATTERY_ID),
-        escape_html(wake_battery_observed_text(interval_s, battery_rows)),
-        escape_html(wake_screen_off_text()),
-        layout.VALUE_CONTROL_READOUT_ATTR, escape_html(WAKE_INTERVAL_FIELD_NAME),
-        layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
-        escape_html(wake_battery_relative_template(interval_s)),
-        layout.VALUE_CONTROL_READOUT_SCALE_ATTR, WAKE_GAUGE_SECONDS_PER_MINUTE,
-        # The base: the readout says nothing while the proposed value
-        # is still the saved one (every page load and no-JS render).
-        layout.VALUE_CONTROL_READOUT_BASE_ATTR, interval_s,
-        escape_html(wake_battery_relative_text(interval_s, interval_s)),
-    )
-
-
-def wake_slider_html(interval_s):
-    """The range input, inside the `.js` gate — `""` when there is no
-    saved interval to start from.
-
-    Carries no `name`: a named range would post a second value for
-    `wake_interval_s`, and whichever arrived last would win silently.
-    The `<input type="number">` is the only control on this card that
-    posts; this one only writes into it via `value-controls.js`.
-
-    Gated, since a range with no script drags and shows nothing; the
-    gauges and number input are not gated. `min`/`max` come from
-    `device_config`, never re-typed, so this control can never accept
-    what `save_device_config()`'s own server-side re-check would reject.
-    """
-    if interval_s is None:
-        return ""
-    return (
-        '<div class="%s %s" %s %s="%s" %s="%s" %s="%d" %s="%d" %s="%d">'
-        '<input type="range" class="%s" %s value="%d" min="%d" max="%d" step="%d"'
-        ' aria-label="%s" aria-describedby="%s %s">'
-        "</div>"
-    ) % (
-        escape_html(WAKE_SLIDER_CLASS), escape_html(layout.JS_GATE_CLASS),
-        layout.VALUE_CONTROL_ATTR,
-        layout.VALUE_CONTROL_FIELD_ATTR, escape_html(WAKE_INTERVAL_FIELD_NAME),
-        layout.VALUE_CONTROL_FORM_ATTR, SETTINGS_FORM_ID,
-        layout.VALUE_CONTROL_MIN_ATTR, device_config.WAKE_INTERVAL_MIN_S,
-        layout.VALUE_CONTROL_MAX_ATTR, device_config.WAKE_INTERVAL_MAX_S,
-        layout.VALUE_CONTROL_STEP_ATTR, WAKE_SLIDER_STEP_S,
-        escape_html(WAKE_SLIDER_INPUT_CLASS), layout.VALUE_CONTROL_INPUT_ATTR,
-        interval_s,
-        device_config.WAKE_INTERVAL_MIN_S, device_config.WAKE_INTERVAL_MAX_S,
-        WAKE_SLIDER_STEP_S,
-        escape_html(i18n.t(WAKE_SLIDER_LABEL)),
-        escape_html(WAKE_GAUGE_FRESHNESS_ID), escape_html(WAKE_GAUGE_BATTERY_ID),
-    )
-
-
-def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, next_wake_clock=None,
-                        battery_rows=None):
-    """The Wake interval settings group: a plain `<label>` wraps a
-    single `<input type="number">` (no checkbox gate, unlike
-    `quiet_hours_group()`). `min`/`max` come from `device_config`
-    rather than re-typed literals.
-
-    The `value` attribute is emitted only for an in-range, non-bool
-    int; otherwise the placeholder carries the empty state — an
-    out-of-range `value` fails HTML5 constraint validation and blocks
-    the whole form's submission. On a rejected save the raw submitted
-    string is echoed back verbatim instead, bypassing that guard so the
-    user sees what they typed. `battery_rows` feeds the battery gauge,
-    which appends after the error block.
-    """
-    if submitted is not None and "wake_interval_s" in submitted:
-        raw_submitted = submitted["wake_interval_s"]
-        value_attr = ' value="%s"' % escape_html(raw_submitted) if raw_submitted else ""
-    else:
-        value_attr = (
-            ' value="%d"' % current_wake_interval_s
-            if (
-                isinstance(current_wake_interval_s, int)
-                and not isinstance(current_wake_interval_s, bool)
-                and device_config.WAKE_INTERVAL_MIN_S <= current_wake_interval_s <= device_config.WAKE_INTERVAL_MAX_S
-            ) else "")
-    error_attrs = _field_error_attrs(
-        errors, "wake_interval_s", "wake-interval-s", hint_id=WAKE_INTERVAL_SECTION_CAPTION_ID)
-    error_html = _field_error_html(errors, "wake_interval_s", "wake-interval-s")
-    # One resolution of the gauges' and the slider's subject, so the
-    # three can never describe different values.
-    gauge_interval_s = wake_gauge_interval_s(current_wake_interval_s, submitted)
-    return (
-        '<div class="theme-status" %s="%s">'
-        '<h2 class="text-heading">%s</h2>'
-        '<p class="text-label section-caption" id="%s">%s</p>'
-        # The label is its own element above the control (for=), not a
-        # wrapping <label> — a wrapping label put its text and the
-        # input on one line, misaligning this field against every
-        # sibling field on the page.
-        '<label for="%s">%s</label>'
-        '<input type="number" id="%s" name="wake_interval_s" min="%d" max="%d"'
-        ' placeholder="%s"%s%s>'
-        # The unit as a sibling, aria-hidden: the label above already
-        # names the unit, so repeating it would announce the fact twice.
-        '<span class="text-label field-inline-value" aria-hidden="true">%s</span>'
-        "%s"
-        # The slider sits after the error message, not between it and
-        # the field, so the error stays adjacent to the control it is
-        # about. The gauges come last, since they describe what the
-        # setting means, after the control that sets it.
-        "%s%s"
-        "</div>"
-    ) % (
-        DIRTY_SECTION_ATTR, escape_html(i18n.t(WAKE_INTERVAL_SECTION_HEADING)),
-        escape_html(i18n.t(WAKE_INTERVAL_SECTION_HEADING)),
-        escape_html(WAKE_INTERVAL_SECTION_CAPTION_ID),
-        escape_html(_with_next_wake(i18n.t(WAKE_INTERVAL_SECTION_CAPTION), next_wake_clock)),
-        escape_html(WAKE_INTERVAL_INPUT_ID), escape_html(i18n.t("Wake interval (seconds)")),
-        escape_html(WAKE_INTERVAL_INPUT_ID),
-        device_config.WAKE_INTERVAL_MIN_S, device_config.WAKE_INTERVAL_MAX_S,
-        escape_html(i18n.t(WAKE_INTERVAL_PLACEHOLDER_TEXT)),
-        value_attr, error_attrs,
-        escape_html(WAKE_INTERVAL_UNIT_LABEL),
-        error_html,
-        wake_slider_html(gauge_interval_s),
-        wake_gauges_html(gauge_interval_s, battery_rows),
-    )
-
-
-def notifications_group(
-        configured, current_battery_low, current_frame_silent,
-        errors=None, submitted=None):
-    """The Notifications settings card (Device scope only): battery-low
-    and frame-silent checkboxes plus a write-only push-topic URL field.
-    `configured` is a bare bool: the status row and the input (no
-    `value` attribute, ever) never reveal the stored secret.
-
-    The URL field waits on the page-wide Save; only "Send a test" is
-    its own immediate-POST form, a sibling of `#settings-form`, since
-    an immediate action must never nest inside the Save form.
-    `errors`/`submitted` repopulate both checkboxes on a rejected save.
-    """
-    status_html = layout.status_row(
-        "",
-        i18n.t(
-            NOTIFICATIONS_STATUS_CONFIGURED_VERDICT if configured
-            else NOTIFICATIONS_STATUS_NOT_CONFIGURED_VERDICT),
-        "",
-        "ok" if configured else "warn")
-
-    url_error_attrs = _field_error_attrs(
-        errors, "notifications_topic_url", "notifications-topic-url",
-        hint_id=NOTIFICATIONS_URL_HINT_ID)
-    url_error_html = _field_error_html(
-        errors, "notifications_topic_url", "notifications-topic-url")
-    # Reuses the Calendar card's "How it works" summary label rather
-    # than a second, near-duplicate string. Unconditional: the
-    # storage/replacement fact is true whether or not a URL is stored yet.
-    how_it_works_html = (
-        '<details><summary>%s</summary><p class="text-body">%s</p></details>'
-    ) % (
-        escape_html(i18n.t(CALENDAR_HOW_IT_WORKS_SUMMARY)),
-        escape_html(i18n.t(NOTIFICATIONS_URL_HOW_IT_WORKS_BODY)),
-    )
-    field_html = (
-        '<div class="rule-add-form__field">'
-        '<label for="notifications-topic-url">%s</label>'
-        '<input type="text" id="notifications-topic-url" '
-        'name="notifications_topic_url" autocomplete="off" '
-        'spellcheck="false" maxlength="%s"%s>'
-        '<p class="text-label section-caption" id="%s">%s</p>'
-        "%s"
-        "%s"
-        "</div>"
-    ) % (
-        escape_html(i18n.t(NOTIFICATIONS_URL_FIELD_LABEL)),
-        NOTIFICATIONS_URL_MAX_LEN, url_error_attrs,
-        escape_html(NOTIFICATIONS_URL_HINT_ID), escape_html(i18n.t(NOTIFICATIONS_URL_HINT)),
-        url_error_html,
-        how_it_works_html,
-    )
-    if configured:
-        field_html = (
-            '<details class="calendar-url-disclosure"><summary>%s</summary>%s</details>'
-        ) % (escape_html(i18n.t(NOTIFICATIONS_REPLACE_URL_SUMMARY)), field_html)
-
-    battery_checked = _submitted_checkbox_checked(
-        submitted, "notifications_battery", NOTIFICATIONS_BATTERY_CHECKBOX_VALUE,
-        current_battery_low)
-    battery_error_attrs = _field_error_attrs(
-        errors, "notifications_battery", "notifications-battery")
-    battery_error_html = _field_error_html(
-        errors, "notifications_battery", "notifications-battery")
-
-    silent_checked = _submitted_checkbox_checked(
-        submitted, "notifications_silent", NOTIFICATIONS_SILENT_CHECKBOX_VALUE,
-        current_frame_silent)
-    silent_error_attrs = _field_error_attrs(
-        errors, "notifications_silent", "notifications-silent")
-    silent_error_html = _field_error_html(
-        errors, "notifications_silent", "notifications-silent")
-
-    return (
-        '<div class="theme-status" %s="%s">'
-        '<h2 class="text-heading">%s</h2>'
-        '<p class="text-label section-caption" id="%s">%s</p>'
-        "%s"
-        "%s"
-        '<label class="settings-checkbox">'
-        '<input type="checkbox" name="notifications_battery" value="%s"%s%s> %s'
-        "</label>"
-        "%s"
-        '<label class="settings-checkbox">'
-        '<input type="checkbox" name="notifications_silent" value="%s"%s%s> %s'
-        "</label>"
-        "%s"
-        # Cross-DOM form= binds this button to the sibling
-        # notifications-test form (notifications_test_section() below).
-        '<button type="submit" form="notifications-test">%s</button>'
-        "</div>"
-    ) % (
-        DIRTY_SECTION_ATTR, escape_html(i18n.t(NOTIFICATIONS_SECTION_HEADING)),
-        escape_html(i18n.t(NOTIFICATIONS_SECTION_HEADING)),
-        escape_html(NOTIFICATIONS_SECTION_CAPTION_ID), escape_html(i18n.t(NOTIFICATIONS_SECTION_CAPTION)),
-        status_html,
-        field_html,
-        escape_html(NOTIFICATIONS_BATTERY_CHECKBOX_VALUE), " checked" if battery_checked else "",
-        battery_error_attrs, escape_html(i18n.t(NOTIFICATIONS_BATTERY_LABEL)),
-        battery_error_html,
-        escape_html(NOTIFICATIONS_SILENT_CHECKBOX_VALUE), " checked" if silent_checked else "",
-        silent_error_attrs, escape_html(i18n.t(NOTIFICATIONS_SILENT_LABEL)),
-        silent_error_html,
-        escape_html(i18n.t(NOTIFICATIONS_TEST_BUTTON_TEXT)),
-    )
-
-
-def notifications_test_section():
-    """The "Send a test" button's own empty `<form>`, a sibling of
-    `<form id="{SETTINGS_FORM_ID}">` — an immediate action must never
-    nest inside the page-wide Save form. `render()` emits this after
-    `</form>` closes, on the Device scope only.
-
-    Carries no `data-confirm`: the handler reads the stored URL from
-    disk and never trusts the request body, which is the real
-    mitigation, not a confirmation dialog.
-    """
-    # The action and id are literal path/attribute text, not a %s
-    # interpolation: this module's acceptance gate greps them.
-    # The form stays a sibling of #settings-form, since a <form> can
-    # never nest inside another <form>; the button reaches it via
-    # form="notifications-test".
-    return (
-        '<form method="post" action="/settings/notifications/test" '
-        'id="notifications-test" class="notifications-test-form"></form>'
-    )
 
 
 def _nested_wrapper_html(html_fragment, base_class, nested_class):
