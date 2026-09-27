@@ -118,3 +118,17 @@ None — the SSRF gate (T-39-07), the `pinned_request` split (T-39-08) and the e
 ---
 *Phase: 39-server-architecture-run-once-split-state-store-shared-module*
 *Completed: 2026-09-27*
+
+## Self-Check: PASSED
+
+- FOUND: server/net/__init__.py
+- FOUND: server/net/safe_fetch.py
+- FOUND: server/test_safe_fetch.py
+- FOUND: server/plane/calendar_rules/__init__.py
+- FOUND: server/plane/calendar_rules/ics.py
+- FOUND: server/plane/calendar_rules/registry.py
+- FOUND: server/plane/calendar_rules/match.py
+- FOUND commit: 28c4c75
+- FOUND commit: 526364b
+- FOUND commit: 8fe92d8
+- FOUND commit: ce55396
