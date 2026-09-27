@@ -1900,7 +1900,7 @@ Plans:
 3. No duplicated CSS selector; no hard-coded colour outside tokens
 4. Rewording an English string cannot drop its French translation
 
-**Plans:** 5/16 plans executed
+**Plans:** 6/16 plans executed
 
 Plans:
 
@@ -1909,7 +1909,7 @@ Plans:
 - [x] 40-03-PLAN.md — route table + static allowlist; table-driven auth coverage test (W2)
 - [x] 40-04-PLAN.md — layout.py split into ui_* modules; named templates for page_shell/login_shell (W2)
 - [x] 40-05-PLAN.md — config_page.py settings groups extracted into companion/settings/ (W2)
-- [ ] 40-06-PLAN.md — battery chart migrated onto draw.py (CFG-39); health signals/chart split out of health_page.py (W2)
+- [x] 40-06-PLAN.md — battery chart migrated onto draw.py (CFG-39); health signals/chart split out of health_page.py (W2)
 - [ ] 40-07-PLAN.md — history/airlines builder splits; artwork drop zone keyboard measurement (CFG-52) (W2)
 - [ ] 40-08-PLAN.md — config_page render/handle_post split per settings group (W3)
 - [ ] 40-09-PLAN.md — shared body-drain and cookie helpers; flash/freshness/login/post-action modules out of app.py (W3)
