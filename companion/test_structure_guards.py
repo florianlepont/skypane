@@ -45,7 +45,6 @@ TRACKED_FILE_EXCEPTIONS = {
 # Production .py files over FILE_LINE_LIMIT today, expected to shrink to
 # nothing as this phase's later plans split them.
 PENDING_OVERSIZED_FILES = {
-    "companion/app.py",
     "companion/pages/health_page.py",
 }
 
