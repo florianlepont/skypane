@@ -4,7 +4,7 @@ Produces (and, via `main()`, writes) `companion/testdata/render_baseline.json`:
 a byte-level record of every page's served HTML (both languages, both
 explicit themes, a deterministic seeded state, a frozen clock) plus the
 unauthenticated (status, Location) response of every route
-`companion/app.py`'s `_dispatch_get()`/`_dispatch_post()` know about today.
+`companion/routes.py`'s `ROUTES` table knows about today.
 `companion/test_render_baseline.py` asserts a fresh capture equals this
 file byte-for-byte — the "no rendered-output change" proof this
 behaviour-preserving refactor phase is verified against.
@@ -90,8 +90,8 @@ PAGE_REQUESTS = (
     (companion_app.CALENDAR_DISCONNECT_ROUTE, "POST", True, {}),
 )
 
-# One concrete (method, path) sample for EVERY branch _dispatch_get()/
-# _dispatch_post() know about today, named from companion/app.py's own
+# One concrete (method, path) sample for EVERY route companion/routes.py's
+# ROUTES table knows about today, named from companion/app.py's own
 # route constants — never discovered by reading its source text. Prefix
 # routes get a plausible id; POSTs are issued with an Origin header
 # auth.post_origin_ok() accepts (the server's own base URL).

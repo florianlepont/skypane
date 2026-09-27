@@ -54,8 +54,6 @@ PENDING_OVERSIZED_FILES = {
 # Qualified function names over FUNCTION_LINE_LIMIT today, expected to
 # shrink to nothing as this phase's later plans split them.
 PENDING_LONG_FUNCTIONS = {
-    "companion/app.py::Handler._dispatch_get",
-    "companion/app.py::Handler._dispatch_post",
     "companion/layout.py::frame_strip_html",
     "companion/layout.py::page_shell",
     "companion/pages/airlines_page.py::_airline_card_html",

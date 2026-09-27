@@ -49,7 +49,6 @@ from companion.pages import (  # noqa: E402
     config_page,
     health_page,
     history_page,
-    home_page,
 )
 # Reuses airlines_page's own membership test rather than re-implementing
 # it, so the render path (airlines_page.render()) and the write path
@@ -2102,8 +2101,6 @@ class Handler(BaseHTTPRequestHandler):
         are not refresh pages, so they skip this whole branch and
         carry neither an ETag nor a `data-refresh-token` attribute.
         """
-        if not self.require_session():
-            return None
         ctx = self.page_context()
         if layout.nav_slug(route) in _FRESHNESS_PAGE_SLUGS:
             query = urlsplit(self.path).query
@@ -2120,163 +2117,75 @@ class Handler(BaseHTTPRequestHandler):
         body = render(ctx)
         return self.send_html(200, self._page_shell_for(route, body, ctx))
 
-    # --- GET -------------------------------------------------------------
+    # --- routing -----------------------------------------------------------
+
+    def _handle_login_get(self):
+        """GET LOGIN_ROUTE: already authenticated redirects home;
+        otherwise renders the login form with a validated `?next=`
+        destination carried through, so an unrecognised value never even
+        renders a hidden field for the user to resubmit.
+        """
+        if self._is_authenticated():
+            return self.redirect(HOME_ROUTE)
+        next_route = _validated_next_route(
+            parse_qs(urlsplit(self.path).query).get("next", [None])[0])
+        return self.send_html(200, self._render_login_page(next_route=next_route))
+
+    def _handle_logout_post(self):
+        """POST LOGOUT_ROUTE: revokes the session token server-side
+        before clearing the cookie, so replaying the old cookie value
+        stops verifying. Session gating happens in routes.ROUTES before
+        this runs.
+        """
+        token = auth.parse_cookies(self.headers.get("Cookie")).get(auth.SESSION_COOKIE_NAME)
+        if token:
+            auth.revoke(token)
+        return self.redirect(LOGIN_ROUTE, set_cookie=auth.logout_set_cookie_header())
+
+    def _handle_rule_delete_post(self, middle):
+        """POST RULES_DELETE_ROUTE_PREFIX/{kind}/{value}/RULES_DELETE_ROUTE_SUFFIX:
+        split the captured middle on '/' once to recover kind and value.
+        A middle that does not split into exactly two non-empty segments
+        is a 404. Session gating happens in routes.ROUTES before this
+        runs.
+        """
+        segments = middle.split("/", 1)
+        if len(segments) != 2 or not segments[0] or not segments[1]:
+            return self.send_html(404, self._not_found_page())
+        return self._handle_rule_delete(segments[0], segments[1])
 
     def do_GET(self):
         """One `history_db.connection_scope()` for the whole request:
-        every `history_db.open_db()` call `_dispatch_get()` makes on this
+        every `history_db.open_db()` call `_dispatch()` makes on this
         thread (however many route handlers read the database) shares one
         connection, opened lazily on the first database read - a static
         asset or an unauthenticated/pre-login route that reads no
         database table never opens one at all.
         """
         with history_db.connection_scope(self.args.state_dir):
-            return self._dispatch_get()
+            return self._dispatch("GET")
 
-    def _dispatch_get(self):
+    # Runs as the first statement for a POST, before urlsplit()/routing, so
+    # it covers every route uniformly including ones added later. Defence
+    # in depth on top of SameSite=Strict (see auth.post_origin_ok()'s
+    # docstring).
+    def _dispatch(self, method):
+        """The one dispatch every do_GET()/do_POST() call goes through:
+        `routes.match()` looks the request up in routes.ROUTES, the one
+        table that makes every route's gating a field of the route
+        itself rather than a hand-repeated `require_session()` call, and
+        this method is the ONLY place that gate now runs.
+        """
+        if method == "POST" and not auth.post_origin_ok(self.headers):
+            return self.send_html(403, self._forbidden_page())
         parsed = urlsplit(self.path)
-        path = parsed.path
-
-        if path == LOGIN_ROUTE:
-            if self._is_authenticated():
-                return self.redirect(HOME_ROUTE)
-            # A `?next=` query value survives the require_session()
-            # redirect round-trip; validated here too (not only on the
-            # POST path) so an unrecognised value never even renders a
-            # hidden field for the user to resubmit.
-            next_route = _validated_next_route(
-                parse_qs(parsed.query).get("next", [None])[0])
-            return self.send_html(200, self._render_login_page(next_route=next_route))
-
-        if path == STYLE_ROUTE:
-            return self._serve_static_route(STYLE_ROUTE)
-
-        # Pre-auth, matching /static/style.css: a static asset carries no
-        # per-user or sensitive data, so gating it would add a session
-        # round-trip for zero benefit. Every other *_SCRIPT_ROUTE branch
-        # below shares this same reasoning.
-        if path == SCRIPT_ROUTE:
-            return self._serve_static_route(SCRIPT_ROUTE)
-
-        if path == NAV_SCRIPT_ROUTE:
-            return self._serve_static_route(NAV_SCRIPT_ROUTE)
-
-        if path == DIRTY_STATE_SCRIPT_ROUTE:
-            return self._serve_static_route(DIRTY_STATE_SCRIPT_ROUTE)
-
-        if path == LIST_FILTER_SCRIPT_ROUTE:
-            return self._serve_static_route(LIST_FILTER_SCRIPT_ROUTE)
-
-        if path == COPY_BUTTON_SCRIPT_ROUTE:
-            return self._serve_static_route(COPY_BUTTON_SCRIPT_ROUTE)
-
-        if path == FRESHNESS_SCRIPT_ROUTE:
-            return self._serve_static_route(FRESHNESS_SCRIPT_ROUTE)
-
-        if path == PANEL_LOOKUP_SCRIPT_ROUTE:
-            return self._serve_static_route(PANEL_LOOKUP_SCRIPT_ROUTE)
-
-        if path == FLASH_CLEANUP_SCRIPT_ROUTE:
-            return self._serve_static_route(FLASH_CLEANUP_SCRIPT_ROUTE)
-
-        if path == POLL_COOLDOWN_SCRIPT_ROUTE:
-            return self._serve_static_route(POLL_COOLDOWN_SCRIPT_ROUTE)
-
-        if path == CONFIRM_SUBMIT_SCRIPT_ROUTE:
-            return self._serve_static_route(CONFIRM_SUBMIT_SCRIPT_ROUTE)
-
-        if path == THEME_PREVIEW_SCRIPT_ROUTE:
-            return self._serve_static_route(THEME_PREVIEW_SCRIPT_ROUTE)
-
-        if path == FLIGHT_ROWS_SCRIPT_ROUTE:
-            return self._serve_static_route(FLIGHT_ROWS_SCRIPT_ROUTE)
-
-        if path == LOGIN_CARD_SCRIPT_ROUTE:
-            return self._serve_static_route(LOGIN_CARD_SCRIPT_ROUTE)
-
-        if path == SUBMIT_GUARD_SCRIPT_ROUTE:
-            return self._serve_static_route(SUBMIT_GUARD_SCRIPT_ROUTE)
-
-        if path == RELATIVE_TIME_SCRIPT_ROUTE:
-            return self._serve_static_route(RELATIVE_TIME_SCRIPT_ROUTE)
-
-        if path == QUICK_SWITCH_SCRIPT_ROUTE:
-            return self._serve_static_route(QUICK_SWITCH_SCRIPT_ROUTE)
-
-        if path == VALUE_CONTROLS_SCRIPT_ROUTE:
-            return self._serve_static_route(VALUE_CONTROLS_SCRIPT_ROUTE)
-
-        # The six live tabs, each through _render_tab() above.
-        if path == HOME_ROUTE:
-            return self._render_tab(HOME_ROUTE, home_page.render)
-
-        if path == DISPLAY_ROUTE:
-            return self._render_tab(
-                DISPLAY_ROUTE,
-                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DISPLAY))
-
-        if path == DEVICE_ROUTE:
-            return self._render_tab(
-                DEVICE_ROUTE,
-                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DEVICE))
-
-        if path == FLIGHTS_ROUTE:
-            return self._render_tab(FLIGHTS_ROUTE, history_page.render)
-
-        if path == HEALTH_ROUTE:
-            return self._render_tab(HEALTH_ROUTE, health_page.render)
-
-        if path == AIRLINES_ROUTE:
-            return self._render_tab(AIRLINES_ROUTE, airlines_page.render)
-
-        # The pre-refactor page routes survive as fixed 303s so a stale
-        # bookmark or link still lands somewhere useful. The targets are
-        # literals, never derived from any request value.
-        if path == SETTINGS_ROUTE:
-            if not self.require_session():
-                return None
-            return self.redirect(DISPLAY_ROUTE)
-
-        if path == HISTORY_LEGACY_ROUTE:
-            if not self.require_session():
-                return None
-            return self.redirect(FLIGHTS_ROUTE)
-
-        if path == PREVIEW_PAGE_ROUTE:
-            if not self.require_session():
-                return None
-            # The Preview page is retired — History (now Flights)
-            # absorbed all of its content — so this route exists solely
-            # to send a stale bookmark/link somewhere useful. Fixed
-            # literal target, never a request value.
-            return self.redirect(FLIGHTS_ROUTE)
-
-        if path.startswith(GALLERY_ROUTE_PREFIX):
-            if not self.require_session():
-                return None
-            return self._serve_gallery_image(path[len(GALLERY_ROUTE_PREFIX):])
-
-        if path.startswith(RUNWAY_IMAGE_ROUTE_PREFIX) and path.endswith(".png"):
-            if not self.require_session():
-                return None
-            runway_id = path[len(RUNWAY_IMAGE_ROUTE_PREFIX):-len(".png")]
-            return self._serve_runway_image(runway_id)
-
-        if path.startswith(ILLUSTRATION_IMAGE_ROUTE_PREFIX) and path.endswith(".png"):
-            if not self.require_session():
-                return None
-            key = path[len(ILLUSTRATION_IMAGE_ROUTE_PREFIX):-len(".png")]
-            return self._serve_illustration_image(key)
-
-        if path.startswith(THEME_PREVIEW_ROUTE_PREFIX) and path.endswith(".png"):
-            if not self.require_session():
-                return None
-            theme_id = path[len(THEME_PREVIEW_ROUTE_PREFIX):-len(".png")]
-            return self._serve_theme_preview_image(theme_id)
-
-        return self.send_html(404, self._not_found_page())
-
-    # --- POST --------------------------------------------------------------
+        result = routes.match(method, parsed.path, parsed.query)
+        if result is None:
+            return self.send_html(404, self._not_found_page())
+        route, route_match = result
+        if route.auth_required and not self.require_session():
+            return None
+        return route.handler(self, route_match)
 
     def _login_throttle_key(self):
         """The one place this handler derives a LoginThrottle bucket key,
@@ -2485,159 +2394,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         """Same one-connection-per-request scope as `do_GET()` above,
-        wrapped around the unchanged `_dispatch_post()` dispatch - the
+        wrapped around the unchanged `_dispatch()` dispatch - the
         Origin/Sec-Fetch-Site gate stays that dispatch's first statement,
         run before this scope has opened anything.
         """
         with history_db.connection_scope(self.args.state_dir):
-            return self._dispatch_post()
-
-    # Runs as the first statement, before urlsplit()/routing, so it covers
-    # every route uniformly including ones added later. Defence in depth
-    # on top of SameSite=Strict (see auth.post_origin_ok()'s docstring).
-    def _dispatch_post(self):
-        if not auth.post_origin_ok(self.headers):
-            return self.send_html(403, self._forbidden_page())
-
-        parsed = urlsplit(self.path)
-        path = parsed.path
-
-        if path == LOGIN_ROUTE:
-            return self._handle_login_post()
-
-        if path == SETTINGS_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_settings_post()
-
-        if path == POLL_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_poll_now()
-
-        if path == QUICK_DISPLAY_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_quick_toggle("display_enabled")
-
-        if path == QUICK_QUIET_HOURS_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_quick_toggle("quiet_hours_enabled")
-
-        # Session-checked POST only, no CSRF token — SameSite=Strict is
-        # the only control here, so this must never be reachable by GET.
-        # return_to whitelist: /device is the LED switch's only page, so
-        # it is both the sole allowed value and the fallback.
-        if path == QUICK_LED_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_quick_toggle(
-                "led_enabled",
-                allowed_return_to=(layout.DEVICE_ROUTE,),
-                fallback_return_to=layout.DEVICE_ROUTE)
-
-        # Gated like every other state-changing route above — an
-        # unauthenticated caller setting another visitor's UI theme
-        # cookie is a real state change, not a cosmetic no-op.
-        if path == THEME_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_theme_post()
-
-        # Gated identically to THEME_ROUTE above — neither route may be
-        # reachable without a session.
-        if path == LANG_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_lang_post()
-
-        # Gated too: an unauthenticated POST is a CSRF-shaped forced
-        # sign-out. Revokes the token server-side before clearing the
-        # cookie, so replaying the old cookie value stops verifying.
-        if path == LOGOUT_ROUTE:
-            if not self.require_session():
-                return None
-            token = auth.parse_cookies(
-                self.headers.get("Cookie")).get(auth.SESSION_COOKIE_NAME)
-            if token:
-                auth.revoke(token)
-            return self.redirect(LOGIN_ROUTE, set_cookie=auth.logout_set_cookie_header())
-
-        # Step A of the two-step resolve flow — the session gate runs
-        # first, before any registry read or write, matching every other
-        # authenticated branch here.
-        if path == airlines_page.RESOLVE_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_manual_resolve_post()
-
-        # Mirrors the illustration-prefix branch's own slice-arithmetic
-        # shape below, but with a prefix and a suffix (the prefix
-        # segment is a dict key, not a filename).
-        if path.startswith(airlines_page.MANUAL_DELETE_ROUTE_PREFIX) and path.endswith(
-                airlines_page.MANUAL_DELETE_ROUTE_SUFFIX):
-            if not self.require_session():
-                return None
-            key = path[
-                len(airlines_page.MANUAL_DELETE_ROUTE_PREFIX):
-                -len(airlines_page.MANUAL_DELETE_ROUTE_SUFFIX)]
-            return self._handle_manual_resolution_delete(key)
-
-        # Mirrors the GET dispatch's own ILLUSTRATION_IMAGE_ROUTE_PREFIX
-        # branch above byte for byte — same prefix constant, same ".png"
-        # suffix test, same require_session() gate first, same slice
-        # arithmetic.
-        if path.startswith(ILLUSTRATION_IMAGE_ROUTE_PREFIX) and path.endswith(".png"):
-            if not self.require_session():
-                return None
-            key = path[len(ILLUSTRATION_IMAGE_ROUTE_PREFIX):-len(".png")]
-            return self._handle_illustration_replace(key)
-
-        # The rules editor's two immediate POST routes, behind the same
-        # require_session() gate as every other state-changing route
-        # above — no new auth mechanism and no CSRF token, inheriting the
-        # site-wide session gate and the SameSite=Strict cookie control
-        # uniformly applied here.
-        if path == RULES_ADD_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_rule_add_post()
-
-        # The calendar disconnect action's own dedicated route, gated
-        # identically to every other state-changing route above.
-        if path == CALENDAR_DISCONNECT_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_calendar_disconnect_post()
-
-        if path == CALENDAR_CONNECT_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_calendar_connect_post()
-
-        if path == NOTIFICATIONS_TEST_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_notifications_test_post()
-
-        # Mirrors the manual-resolution delete branch's own startswith/
-        # endswith shape above, with the one extra step this route's
-        # two-segment path needs: split the recovered middle on a slash
-        # ONCE to recover the kind and the value. A middle that does not
-        # split into exactly two non-empty segments is a 404.
-        if path.startswith(RULES_DELETE_ROUTE_PREFIX) and path.endswith(
-                RULES_DELETE_ROUTE_SUFFIX):
-            if not self.require_session():
-                return None
-            middle = path[
-                len(RULES_DELETE_ROUTE_PREFIX):-len(RULES_DELETE_ROUTE_SUFFIX)]
-            segments = middle.split("/", 1)
-            if len(segments) != 2 or not segments[0] or not segments[1]:
-                return self.send_html(404, self._not_found_page())
-            return self._handle_rule_delete(segments[0], segments[1])
-
-        return self.send_html(404, self._not_found_page())
+            return self._dispatch("POST")
 
     # --- logging -------------------------------------------------------
 

@@ -120,7 +120,7 @@ def _walk_functions(node, qualname_stack, lines, path, result):
 def function_code_lines():
     """{"path::Qualified.name": n} for every `FunctionDef`/`AsyncFunctionDef`
     in every production `.py` file. Methods carry their class as a prefix
-    (e.g. `"companion/app.py::Handler._dispatch_get"`).
+    (e.g. `"companion/app.py::Handler._dispatch"`).
     """
     result = {}
     for path in production_files():

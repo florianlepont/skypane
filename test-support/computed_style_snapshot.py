@@ -32,7 +32,7 @@ from companion import auth  # noqa: E402
 
 # The six NAV_TABS destinations. /login is captured separately below, in its own
 # unauthenticated context -- an authenticated visit to /login redirects straight to
-# Home (companion/app.py's own _dispatch_get()), so it can never share a context with
+# Home (companion/app.py's own _handle_login_get()), so it can never share a context with
 # the six routes above.
 ROUTES_AUTHENTICATED = (
     companion_app.HOME_ROUTE,
