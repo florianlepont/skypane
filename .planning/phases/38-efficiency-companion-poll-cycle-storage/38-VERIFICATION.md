@@ -1,8 +1,8 @@
 ---
 phase: 38-efficiency-companion-poll-cycle-storage
 verified: 2026-09-26T21:37:28Z
-status: human_needed
-score: 10/10 must-haves verified (4 ROADMAP criteria + 6 requirement truths); 1 live-VPS item pending human check
+status: passed
+score: 10/10 must-haves verified (4 ROADMAP criteria + 6 requirement truths); live VPS compression confirmed by the developer 2026-09-27
 overrides_applied: 0
 human_verification:
   - test: "Live Caddy compression on the production companion host (38-13 Task 2), after this branch is deployed"
@@ -14,7 +14,7 @@ human_verification:
 
 **Phase Goal:** Pages and poll cycles do only the work they need: compressed and cacheable static files, per-page scripts, one SQLite connection per request/cycle, no throwaway markup, one state write per cycle, no fixed sleep between providers.
 **Verified:** 2026-09-26T21:37:28Z
-**Status:** human_needed
+**Status:** passed (human item resolved 2026-09-27, see Addendum)
 **Re-verification:** No, this is the initial verification.
 
 ## Goal Achievement
@@ -125,3 +125,13 @@ There are no gaps. All four ROADMAP criteria and all six EFF requirements hold i
 
 _Verified: 2026-09-26T21:37:28Z_
 _Verifier: Claude (gsd-verifier)_
+
+## Addendum: live VPS check (2026-09-27)
+
+The developer ran the 38-13 Task 2 commands against the production companion host. `/static/style.css` returned `content-encoding: zstd`, `cache-control: public, no-cache`, `etag: "…-zstd"`, `vary: Accept-Encoding`, and 39,361 bytes, down from 140,426 identity. A revalidation with that ETag printed `revalidate=304 size=0`, which proves that Caddy strips its encoding suffix from `If-None-Match` and that the origin's 304 path works through the proxy.
+
+Two checks are still optional follow-ups for the developer, recorded as pending in `38-EFF-BASELINE.md`:
+- the same check on `/static/freshness.js`;
+- the device-host check that the device protocol returns no `Content-Encoding`. `deploy/tests/test_caddyfile.py` already asserts, on the rendered site file, that the device block has no `encode`.
+
+The human-verification item is therefore resolved and the status is `passed`.

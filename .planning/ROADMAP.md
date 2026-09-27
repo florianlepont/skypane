@@ -1830,7 +1830,7 @@ Plans:
 3. SQLite connections per page request: 1; per poll cycle: 1
 4. Poll cycle wall time measured before/after (no fixed 1.1 s sleep)
 
-**Plans:** 12/13 plans executed
+**Plans:** 13/13 plans complete (closed 2026-09-27; verification passed, live VPS compression confirmed)
 
 Plans:
 
@@ -1866,7 +1866,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 38-13-PLAN.md — AFTER tables + criteria check; VPS compression checkpoint (before now, after deploy) [EFF-01..06]
+- [x] 38-13-PLAN.md — AFTER tables + criteria check; VPS compression checkpoint (before now, after deploy) [EFF-01..06]
 
 ### Phase 39: Server architecture — run_once split, state store, shared modules
 

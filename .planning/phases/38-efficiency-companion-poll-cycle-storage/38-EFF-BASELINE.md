@@ -326,9 +326,23 @@ numbers above.
 against the production companion host, before and after `deploy/Caddyfile`
 gains `encode zstd gzip` in the companion site block.
 
-| when | URL | Accept-Encoding | Content-Encoding | size_download |
-| --- | --- | --- | --- | --- |
-| (recorded at the phase's final checkpoint) | | | | |
+| when | URL | Accept-Encoding | Content-Encoding | Cache-Control / ETag | size_download | revalidate (`If-None-Match`) |
+| --- | --- | --- | --- | --- | --- | --- |
+| before (not captured live) | `/static/style.css` | zstd, gzip | none (no `encode` in the site file) | `public, max-age=300`, no ETag | 140,426 (identity, from the in-process Before table) | 200, full body |
+| before (not captured live) | `/static/freshness.js` | gzip | none | `public, max-age=300`, no ETag | identity (in-process Before table) | 200, full body |
+| after, 2026-09-27 | `https://<companion host>/static/style.css` | zstd, gzip | `zstd` | `public, no-cache`, ETag `"…-zstd"`, `Vary: Accept-Encoding` | 39,361 | 304, 0 bytes |
+| after | `/static/freshness.js` | gzip | pending (not run) | pending | pending | pending |
+| after | device host `/device/v1/display` | gzip | pending (expected: none) | - | - | - |
 
-The developer records this table at the final checkpoint (VPS access is
-developer-only - see `38-RESEARCH.md`'s Environment Availability table).
+The live "before" rows were not captured: by the time the developer ran the
+Task 2 commands, the static-cache and Caddy `encode` changes had already been
+merged and deployed, so production answered with the new headers. The before
+values above are the pre-change behaviour as measured in-process on the
+unmodified tree (see `## Before`), which is what the site served before the
+deploy. The style.css row shows the whole EFF-01 chain working live: Caddy
+compresses the companion response with zstd (140,426 → 39,361 bytes, -72 %),
+adds its `-zstd` suffix to the origin's strong ETag, and a revalidation with
+that ETag still reaches the origin's 304 path (Caddy strips the suffix from
+`If-None-Match`). The freshness.js row and the device-host check (no
+`Content-Encoding` on the device protocol) are for the developer to re-run with
+the Task 2 commands; they are recorded here when available.
