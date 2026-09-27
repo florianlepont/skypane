@@ -88,9 +88,9 @@ def seed_unresolved_prefixes(state_dir, registry):
     `unresolved_prefixes` dict, never a hand-written JSON literal —
     mirrors `companion/test_status_pages.py`'s own helper of the same
     name."""
-    import server.poll_loop as poll_loop
+    import server.state_store as state_store
 
-    poll_loop.save_poll_state(str(state_dir), {"unresolved_prefixes": registry})
+    state_store.save_poll_state(str(state_dir), {"unresolved_prefixes": registry})
 
 
 def write_panel_file(state_dir):

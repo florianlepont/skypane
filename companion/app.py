@@ -60,6 +60,7 @@ from server import atomic_io, device_config, history_db, notify  # noqa: E402
 from server.plane import (  # noqa: E402
     calendar_rules, colour_rules, illustrations, manual_resolutions)
 import server.poll_loop as poll_loop  # noqa: E402
+import server.state_store as state_store  # noqa: E402
 
 DEFAULT_PORT = 8643
 GALLERY_DIRNAME = "gallery"
@@ -641,7 +642,7 @@ def _freshness_file_stamps(state_dir):
     return {
         "device_config": _freshness_file_stamp(
             device_config.device_config_path(state_dir)),
-        "poll_state": _freshness_file_stamp(poll_loop._poll_state_path(state_dir)),
+        "poll_state": _freshness_file_stamp(state_store.poll_state_path(state_dir)),
         "calendar_registry": _freshness_file_stamp(
             calendar_rules.calendar_rules_path(state_dir)),
         "calendar_secret": _freshness_file_stamp(
@@ -2808,7 +2809,7 @@ def build_parser():
     )
     parser.add_argument(
         "--state-dir",
-        default=poll_loop.DEFAULT_STATE_DIR,
+        default=state_store.DEFAULT_STATE_DIR,
         help="Directory holding the poll pipeline's own state (default: "
              "server/state/) — read-only from this service's perspective "
              "except via the real production poll cycle POST /poll-now "

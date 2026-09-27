@@ -33,6 +33,7 @@ from companion_app_server import TEST_PASSWORD  # noqa: E402
 from server import device_config, history_db  # noqa: E402
 from server.plane import colour_rules, manual_resolutions  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
+import server.state_store as state_store  # noqa: E402
 
 VIEW_TRANSITION_ROUTES = ("/", "/display", "/flights", "/airlines", "/health", "/device")
 VIEW_TRANSITION_NAMES = {
@@ -68,7 +69,8 @@ SEED_BASE_TS = datetime(2026, 8, 1, 6, 0, 0, tzinfo=timezone.utc)
 
 def seed_state_dir(state_dir, base_ts=SEED_BASE_TS):
     """Write a fixture into a fresh temp state directory, through the same modules
-    companion/app.py and server/poll_loop.py use to write this data themselves.
+    companion/app.py, server/poll_loop.py and server/state_store.py use to write this
+    data themselves.
     """
     runway_ids = device_config.RUNWAY_IDS
     theme_ids = device_config.THEME_IDS
@@ -111,7 +113,7 @@ def seed_state_dir(state_dir, base_ts=SEED_BASE_TS):
 
     # 2 unresolved prefixes, same registry shape companion/test_status_pages.py's own
     # _seed_unresolved_prefixes() helper writes, through the identical save_poll_state() call.
-    poll_loop.save_poll_state(state_dir, {"unresolved_prefixes": {
+    state_store.save_poll_state(state_dir, {"unresolved_prefixes": {
         "TVF": {
             "count": 5, "first_seen": now_iso, "last_seen": now_iso,
             "example_callsign": "TVF123",
