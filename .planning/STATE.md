@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Completed 40-10-PLAN.md (Phase 39 closed at 13/13 in a parallel line of work, merged via PR #154)"
-last_updated: "2026-09-27T18:35:33.299Z"
+stopped_at: Completed 40-12-PLAN.md
+last_updated: "2026-09-27T19:16:35.101Z"
 last_activity: 2026-09-27
 progress:
   total_phases: 54
   completed_phases: 48
   total_plans: 434
-  completed_plans: 404
+  completed_plans: 405
   percent: 89
 ---
 
@@ -64,7 +64,7 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 12 of 16
+Plan: 13 of 16
 
 **39-13 executed (2026-09-27), plan 13/13 of Phase 39 (depends on 39-04/39-06/39-08/39-10/39-11/39-12), wave 7 — the phase close-out, two commits.** Task 1 added a tree-wide `test_no_function_in_server_or_stub_server_exceeds_80_code_lines` to `test-support/test_check_function_size.py` (calls `check_function_size.py`'s own `main()` in-process) plus a blocking CI step "Function size gate (non-test code in server/ and stub-server/)" right after the Type check step — two independent enforcement paths from one tool, so deleting either alone still fails the suite. Added `server/poll_cycle.py` to `[tool.mypy]`'s global `files` list (not the strict override — its pure core is fully typed per 39-11, the orchestration steps stay partially annotated); the only real gap was `detect_flight`'s `diagnostics` local needing an explicit `dict | None` annotation (typing-only, zero behaviour change) — `mypy` now reports 12 source files, up from 11. Refreshed `pyproject.toml`'s E402 comment to the real 6-file list from `ruff check --isolated --select E402 .`, dropping `server/poll_loop.py` (its own two imports now carry an inline `noqa: E402` rather than relying on the project-wide suppression). Task 2 re-ran every Before command from `39-ARC-BASELINE.md` on the final tree and filled in the After section (function size: 401 scanned, zero offenders, up from 365/6; CC: `run_once` 3, its highest named step `advance_display_queue` 10, vs Before's `_run_once_locked` 53/grade F — an 81% drop; typed functions: 73 of 356 non-test server functions annotated, up from 0/318, mypy 12 files green; companion imports of `server.poll_loop`: zero statement-level imports left; module-global setters: all three deleted outright; duplicated device policy: all nine rows now one definition each, the tenth — the quiet-hours invalid-time fallback — unified per D-4; suite: 2995 passed/139 skipped, coverage 94.27%, ruff and comment-history clean), a Criteria table (four ROADMAP criteria, each Met with its evidence command), and an Intentional behaviour changes section naming D-4 and D-5 with the tests that pin each. Updated `ARCHITECTURE.md`: replaced every stale `poll_loop.py`/`render.py` pipeline-body reference with `poll_cycle.py`/`server/plane/render/`, and added a Module map paragraph naming `poll_loop.py`, `poll_cycle.py`, `state_store.py`, `device_policy.py`, `themes.py`, `net/safe_fetch.py` and the `render/`/`calendar_rules/` packages. Commits: `9a1f444` (feat) Task 1, `39f9401` (docs) Task 2. Phase close-out (this plan's own scope): `ARC-01`..`ARC-06` marked Complete in `REQUIREMENTS.md` (checklist + summary table) via `requirements.mark-complete`; `roadmap.update-plan-progress 39` now reports the phase Complete at 13/13. `state.update-progress` reproduced this file's own documented recurring bug one final time — its own JSON correctly returned `percent: 94` (393/418) but the written frontmatter showed `percent: 89` (`completed_phases/total_phases` = 48/54) — corrected to `94` by hand per this file's established precedent, as the last STATE.md edit before this plan's own final commit.
 
@@ -608,6 +608,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 40 P09 | ~2h40min | 2 tasks | 8 files |
 | Phase 40 P10 | 45m | 2 tasks | 10 files |
 | Phase 40 P11 | 30min | 3 tasks | 22 files |
+| Phase 40 P12 | 29min | 3 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -1197,6 +1198,9 @@ Recent decisions affecting current work:
 - [Phase 40]: CFG-34: bypassed _merged_cell()/status_row() only at the two call sites that need live-age markup (Flights When cell, Calendar status detail), following home_page's build-and-concatenate precedent — Neither helper's general contract or other callers changed; proven by a wrapper-only render-baseline diff
 - [Phase 40]: Battery-trend tooltip stays the one deliberate static exception to CFG-34's live-age conversion — It writes into an SVG title via setAttribute, which cannot hold markup; converting it needs changing that script's transport first
 - [Phase 40]: PageContext deferred imports break a circular dependency between page_context.py and the page modules it must call at request time — companion.pages.health_page/airlines_page/history_page and companion.flash (imported by build_page_context) each import page_context.coerce() at their own module level; importing them back at page_context.py's module level would cycle, so those four imports are function-local instead
+- [Phase 40]: i18n stable-ID scheme: '<area>.<slug>', slug = deterministic slug_for(english) in test-support/i18n_ids.py, shared by plans 40-12/13/14 so independently-migrated catalogue halves agree on one id
+- [Phase 40]: common.py and nav.py i18n catalogues fully converted to MESSAGES in plan 40-12 (not partially) since every entry is consumed by a module that plan already touches
+- [Phase 40]: CMP-09 requirement NOT marked complete after plan 40-12 — this plan is explicitly part 1 of 4 (message-ID mechanism plus shared modules only); pages and the leftover legacy fallback removal are 40-13/40-14/40-15
 
 ### Pending Todos
 
@@ -1317,8 +1321,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-27T18:35:33.224Z
-Stopped at: Completed 40-10-PLAN.md (Phase 39 closed at 13/13 in a parallel line of work, merged via PR #154)
+Last session: 2026-09-27T19:16:11.815Z
+Stopped at: Completed 40-12-PLAN.md
 
 Resume file: 
 
