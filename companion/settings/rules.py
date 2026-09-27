@@ -12,11 +12,15 @@ from server.plane import colour_rules
 from companion.settings.form import (
     _field_error_attrs, _field_error_html, _submitted_or_current)
 from companion.settings.theme import (
-    COLOUR_USAGE_RULES, _palette_hex, _theme_chip_grid_html, _usage_row_html,
-    _usage_row_summary_html)
+    COLOUR_USAGE_RULES, _palette_hex, _theme_chip_grid_html, _theme_label_message,
+    _usage_row_html, _usage_row_summary_html)
 
 
-POLL_SECTION_CAPTION = "Trigger an immediate poll cycle."
+# Owned by companion/i18n_fr/display.py, not this module's own rules.py
+# catalogue — the Poll card's copy lives beside the rest of Device's
+# own display.py strings.
+POLL_SECTION_CAPTION = i18n.msg(
+    "display.trigger_an_immediate_poll_cycle", "Trigger an immediate poll cycle.")
 
 
 
@@ -25,7 +29,9 @@ POLL_SECTION_CAPTION = "Trigger an immediate poll cycle."
 # shown while the trigger is disabled — a separate rendering site from
 # companion/app.py's own FLASH_MESSAGES entry for the same event, since
 # a page module must never import companion/app.py.
-POLL_COOLDOWN_HELPER_TEXT = "Poll triggered recently — try again in {n}s."
+POLL_COOLDOWN_HELPER_TEXT = i18n.msg(
+    "display.poll_triggered_recently_try_again_in_n_s",
+    "Poll triggered recently — try again in {n}s.")
 
 # DOM ids the live countdown script (poll-cooldown.js) hooks with
 # document.getElementById(), shared with poll_trigger_section()'s
@@ -36,7 +42,11 @@ POLL_COOLDOWN_TEXT_ID = "poll-cooldown-text"
 # The enabled (zero-cooldown) branch's button label while a submit is
 # pending. Cosmetic only: companion/app.py's _POLL_LOCK is the actual
 # correctness boundary.
-POLL_SUBMIT_PENDING_TEXT = "Polling…"
+POLL_SUBMIT_PENDING_TEXT = i18n.msg("display.polling", "Polling…")
+
+# The manual-poll button's own label, shared by both the enabled and
+# cooldown branches of poll_trigger_section() below.
+POLL_TRIGGER_BUTTON_TEXT = i18n.msg("display.trigger_poll_now", "Trigger poll now")
 
 # The placeholder the client substitutes the live second count into, so
 # the ticking copy stays word-identical to the static, server-rendered
@@ -54,47 +64,60 @@ RULES_DELETE_ROUTE_PREFIX = "/settings/rules/"
 RULES_DELETE_ROUTE_SUFFIX = "/delete"
 
 
-RULES_SECTION_CAPTION = "Give one flight, one aircraft or one airline its own theme."
-RULES_HOW_RULES_COMBINE_SUMMARY = "How rules combine"
-RULES_HOW_RULES_COMBINE_BODY = (
+RULES_SECTION_CAPTION = i18n.msg(
+    "rules.give_one_flight_one_aircraft_or_one_airline_its",
+    "Give one flight, one aircraft or one airline its own theme.")
+RULES_HOW_RULES_COMBINE_SUMMARY = i18n.msg("rules.how_rules_combine", "How rules combine")
+RULES_HOW_RULES_COMBINE_BODY = i18n.msg(
+    "rules.the_most_specific_match_wins_a_flight_rule",
     "The most specific match wins — a flight rule beats an aircraft "
     "rule, which beats an airline rule — and adding a key that's "
     "already in use replaces the existing rule for it.")
-RULE_KIND_FIELD_LABEL = "Match by"
-RULE_VALUE_FIELD_LABEL = "Value"
-RULE_ADD_BUTTON_TEXT = "Add rule"
+# Owned by companion/i18n_fr/display.py, not this module's own
+# rules.py catalogue — shared segmented-control copy that predates the
+# per-flight rules feature.
+RULE_KIND_FIELD_LABEL = i18n.msg("display.match_by", "Match by")
+RULE_VALUE_FIELD_LABEL = i18n.msg("display.value", "Value")
+RULE_ADD_BUTTON_TEXT = i18n.msg("display.add_rule", "Add rule")
 # The plain-language segment labels, used by both the add form's
 # segment text and the rule-row kind badge, so the two can never
 # disagree.
 RULE_KIND_LABELS = {
-    colour_rules.RULE_KIND_CALLSIGN: "Flight",
-    colour_rules.RULE_KIND_HEX: "Aircraft",
-    colour_rules.RULE_KIND_PREFIX: "Airline",
+    colour_rules.RULE_KIND_CALLSIGN: i18n.msg("rules.flight", "Flight"),
+    colour_rules.RULE_KIND_HEX: i18n.msg("rules.aircraft", "Aircraft"),
+    colour_rules.RULE_KIND_PREFIX: i18n.msg("rules.airline", "Airline"),
 }
 # A separate mapping from RULE_KIND_LABELS above, read only for each
 # segment's own title attribute, never shown as the visible label text.
+# Owned by display.py, like RULE_KIND_FIELD_LABEL above.
 RULE_KIND_TITLES = {
-    colour_rules.RULE_KIND_CALLSIGN: "Callsign",
-    colour_rules.RULE_KIND_HEX: "ICAO24 hex",
-    colour_rules.RULE_KIND_PREFIX: "Callsign prefix",
+    colour_rules.RULE_KIND_CALLSIGN: i18n.msg("display.callsign", "Callsign"),
+    colour_rules.RULE_KIND_HEX: i18n.msg("display.icao24_hex", "ICAO24 hex"),
+    colour_rules.RULE_KIND_PREFIX: i18n.msg("display.callsign_prefix", "Callsign prefix"),
 }
 RULE_VALUE_PLACEHOLDER = "AFR1234"
-RULES_EMPTY_HEADING = "No flight colours yet."
-RULES_EMPTY_BODY = (
+RULES_EMPTY_HEADING = i18n.msg("rules.no_flight_colours_yet", "No flight colours yet.")
+RULES_EMPTY_BODY = i18n.msg(
+    "rules.add_one_above_to_give_a_flight_aircraft_or",
     "Add one above to give a flight, aircraft or airline its own theme.")
-RULE_REMOVE_BUTTON_TEXT = "Remove"
+RULE_REMOVE_BUTTON_TEXT = i18n.msg("rules.remove", "Remove")
 # The suggestion chips' own label prefix; the joined callsign list
 # itself is data, never translated.
-RULE_SUGGESTIONS_LABEL = "Recent:"
+RULE_SUGGESTIONS_LABEL = i18n.msg("rules.recent", "Recent:")
 # aria-labelledby targets for the two radiogroups the add form carries.
 RULE_KIND_HEADING_ID = "rule-kind-heading"
 RULE_THEME_HEADING_ID = "rule-theme-heading"
-RULE_REMOVE_CONFIRM_QUESTION = "Remove this rule?"
+RULE_REMOVE_CONFIRM_QUESTION = i18n.msg("rules.remove_this_rule", "Remove this rule?")
+# "Theme" is nav.py's own tab label (companion/ui_nav.py declares the
+# Message); redeclared here with the identical (id, English) pair —
+# msg() is idempotent on a repeat declaration — since a settings module
+# never imports a page/nav module directly.
+RULE_THEME_FIELD_LABEL = i18n.msg("nav.theme", "Theme")
 
 
-FRAME_COLOURS_RULES_COUNT_SINGULAR = "1 rule"
-FRAME_COLOURS_RULES_COUNT_PLURAL_TEMPLATE = "%d rules"
-FRAME_COLOURS_RULES_EMPTY_META = "No rules yet"
+FRAME_COLOURS_RULES_COUNT_SINGULAR = i18n.msg("display.1_rule", "1 rule")
+FRAME_COLOURS_RULES_COUNT_PLURAL_TEMPLATE = i18n.msg("display.rules", "%d rules")
+FRAME_COLOURS_RULES_EMPTY_META = i18n.msg("display.no_rules_yet", "No rules yet")
 
 
 def poll_trigger_section(cooldown_remaining):
@@ -132,7 +155,7 @@ def poll_trigger_section(cooldown_remaining):
             escape_html(POLL_COOLDOWN_TEXT_ID),
             escape_html(template),
             escape_html(POLL_COOLDOWN_TEMPLATE_TOKEN),
-            escape_html(i18n.t("Trigger poll now")),
+            escape_html(i18n.t(POLL_TRIGGER_BUTTON_TEXT)),
             POLL_COOLDOWN_TEXT_ID,
             escape_html(cooldown_text),
         )
@@ -146,7 +169,7 @@ def poll_trigger_section(cooldown_remaining):
         caption_html,
         POLL_TRIGGER_BUTTON_ID,
         escape_html(i18n.t(POLL_SUBMIT_PENDING_TEXT)),
-        escape_html(i18n.t("Trigger poll now")),
+        escape_html(i18n.t(POLL_TRIGGER_BUTTON_TEXT)),
     )
 
 
@@ -248,7 +271,7 @@ def _rule_add_form_html(errors=None, submitted=None):
         escape_html(i18n.t(RULE_VALUE_FIELD_LABEL)),
         escape_html(RULE_VALUE_PLACEHOLDER), escape_html(submitted_value), value_error_attrs,
         value_error_html,
-        escape_html(RULE_THEME_HEADING_ID), escape_html(i18n.t("Theme")),
+        escape_html(RULE_THEME_HEADING_ID), escape_html(i18n.t(RULE_THEME_FIELD_LABEL)),
         chip_grid_html,
         theme_error_html,
         escape_html(i18n.t(RULE_ADD_BUTTON_TEXT)),
@@ -325,7 +348,7 @@ def _rule_row_html(kind, value, theme_id):
         swatch_html,
         escape_html(value),
         escape_html(i18n.t(RULE_KIND_LABELS.get(kind, kind))),
-        escape_html(i18n.t(device_config.theme_label(theme_id))),
+        escape_html(i18n.t(_theme_label_message(theme_id))),
         delete_form,
     )
 

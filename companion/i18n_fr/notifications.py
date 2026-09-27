@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """French strings for the Notifications group
-(companion/pages/config_page.py's notifications_group()/
-notifications_test_section()). Every key is the exact English
-source string a call site passes to companion.i18n.t(), including
-any "%s" placeholder shape.
+(companion/settings/notifications.py's notifications_group()/
+notifications_test_section()), keyed by stable message id (see
+companion/i18n.py's Message/msg()). Every id is declared at its own
+display site in companion/settings/notifications.py — this module only
+carries each id's French translation.
 
 Deliberately absent: the four notification transition bodies and
 the "Send a test" button's fixed title/body pair — all six already
@@ -16,29 +17,28 @@ never a straight quote), and a non-breaking space (U+00A0) before
 ":" ";" "?" "!".
 """
 
-CATALOG = {
-    "Notifications": "Notifications",
-    "Get a push alert about battery or connection issues.":
+MESSAGES = {
+    "notifications.notifications": "Notifications",
+    "notifications.get_a_push_alert_about_battery_or_connection":
         "Recevez une alerte pour les problèmes de batterie ou de "
         "connexion.",
 
-    "Configured": "Configuré",
-    "Not configured": "Non configuré",
-    "Push topic URL": "URL du sujet de notification",
-    "Paste your ntfy.sh topic URL (or a self-hosted one).":
+    "notifications.configured": "Configuré",
+    "notifications.not_configured": "Non configuré",
+    "notifications.push_topic_url": "URL du sujet de notification",
+    "notifications.paste_your_ntfy_sh_topic_url_or_a_self_hosted":
         "Collez l’URL de votre sujet ntfy.sh (ou d’un serveur ntfy "
         "personnel).",
-    "Stored on the server and never shown back here — pasting a new "
-    "one replaces the old.":
+    "notifications.stored_on_the_server_and_never_shown_back_here":
         "Stockée sur le serveur et jamais réaffichée ici — en coller "
         "une nouvelle remplace l’ancienne.",
-    "Replace the URL": "Remplacer l’URL",
+    "notifications.replace_the_url": "Remplacer l’URL",
 
-    "Battery low": "Batterie faible",
-    "Frame silent": "Cadre silencieux",
+    "notifications.battery_low": "Batterie faible",
+    "notifications.frame_silent": "Cadre silencieux",
 
-    "Send a test": "Envoyer un test",
-    "Test notification sent.": "Notification de test envoyée.",
-    "Couldn't reach that topic — check the URL.":
+    "notifications.send_a_test": "Envoyer un test",
+    "notifications.test_notification_sent": "Notification de test envoyée.",
+    "notifications.couldn_t_reach_that_topic_check_the_url":
         "Impossible d’atteindre ce sujet — vérifiez l’URL.",
 }

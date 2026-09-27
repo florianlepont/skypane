@@ -140,11 +140,14 @@ def test_by_id_contains_every_message_defined_in_nav():
 # entry, the stable message id for a migrated one — so a cognate
 # survives its own entry's id-migration with no exception-list edit.
 _UNCHANGED_IN_FRENCH = frozenset({
-    "Notifications",
     # display.py's own migrated cognate, replacing this set's former
     # legacy English-keyed "Aspect" entry now that
     # companion/settings/theme.py declares it as a Message.
     "display.aspect",
+    # notifications.py's own migrated cognate, replacing this set's
+    # former legacy English-keyed "Notifications" entry now that
+    # companion/settings/notifications.py declares it as a Message.
+    "notifications.notifications",
     # health.py's own migrated cognates, replacing this set's former
     # legacy English-keyed entries ("Corroboration", "Source",
     # "Description") now that health_page.py declares them as Messages.

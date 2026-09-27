@@ -1,167 +1,93 @@
 # -*- coding: utf-8 -*-
-"""French strings for the Display and Device pages.
-
-Mid-migration: CATALOG below still carries every entry whose only
-declaring call site is companion/pages/config_page.py (not yet
-migrated onto companion.i18n.Message this plan) or one of
-companion/settings/notifications.py, calendar.py, rules.py (declared
-later in this same plan's second task) — each key there is still the
-exact English source string that call site passes to
-companion.i18n.t(), including any "%s"/"%d"/"{n}" placeholder shape.
-MESSAGES carries every entry already declared as a stable-id Message by
-a settings module this plan's first task migrated, or by an earlier
-plan's shared/page module (ui_base.py, frame_state.py, flash.py,
-history_page.py, airlines_page.py) — this module only carries each
-id's French translation there.
+"""French strings for the Display and Device pages, keyed by stable
+message id (see companion/i18n.py's Message/msg()). Every id is
+declared at its own display site, in companion/pages/config_page.py or
+one of companion/settings/*.py — this module only carries each id's
+French translation.
 
 "Theme", "Display" and "Device" are already defined in
 companion/i18n_fr/nav.py, and "Screen" in
 companion/i18n_fr/health.py — deliberately absent here since the
-package's duplicate-key/id guard would raise otherwise. Every
-theme/runway *name* shown to people, and the screen label, are
-translated at the config_page.py/settings display sites that call
-i18n.t() on the registry's own returned text; their French entries live
-in companion/i18n_fr/registry.py, not here.
+package's duplicate-id guard would raise otherwise. Every theme/runway
+*name* shown to people, and the screen label, are translated at the
+config_page.py/settings display sites that call i18n.t() on the
+registry's own returned text; their French entries live in
+companion/i18n_fr/registry.py, not here.
 
 Copy follows sentence case, the typographic apostrophe (U+2019, never
 a straight quote), and a non-breaking space (U+00A0) before
 ":" ";" "?" "!".
 """
 
+# Four retired action wordings that reach no i18n.t() call any more (a
+# role="switch" control is now named by the setting via
+# aria-labelledby, never by an action) — companion/ui_base.py's own
+# QUICK_ACTION_SWITCH_ON_BUTTON/QUICK_ACTION_SWITCH_OFF_BUTTON/
+# QUICK_ACTION_QUIET_TURN_ON_BUTTON/QUICK_ACTION_QUIET_TURN_OFF_BUTTON
+# survive only as plain-str names a test asserts are no longer
+# rendered, so these four have no call site left to declare a Message.
+# Kept as legacy CATALOG rather than deleted outright, in case a future
+# UI reintroduces one of these actions.
 CATALOG = {
-    # --- Display/Device page shells -------------------------------------
-    "Everything about what the frame shows and when.":
-        "Tout ce que le cadre affiche, et quand.",
-    "Hardware, data and diagnostics for the frame.":
-        "Matériel, données et diagnostics du cadre.",
-    "Settings": "Réglages",
-    "Screen: %s": "Écran : %s",
-    "Screen type": "Type d’écran",
-
-    # --- Display's three supersections ----------------------------
-    "Look": "Aspect",
-    "— the theme, flight colours and calendar that decide how the "
-    "picture looks.":
-        "— le thème, les couleurs de vol et le calendrier qui "
-        "décident de l’apparence de l’image.",
-    "What it watches": "Ce qu’il surveille",
-    "— which Orly runway the frame is watching.":
-        "— quelle piste d’Orly le cadre surveille.",
-    "When it is on": "Quand il est allumé",
-    "— when the screen is lit and when it stays quiet.":
-        "— quand l’écran est allumé et quand il reste silencieux.",
-
-    # --- Device's own two supersections plus the Poll card's own
-    #     one-card supersection -------------------------------------
-    "When it wakes": "Quand il se réveille",
-    "— how often the frame wakes up to fetch a new picture.":
-        "— à quelle fréquence le cadre se réveille pour récupérer une "
-        "nouvelle image.",
-    "How it tells you": "Comment il vous prévient",
-    "— the light on the frame and the alerts on your phone.":
-        "— le voyant du cadre et les alertes sur votre téléphone.",
-    "When you can't wait": "Quand vous ne pouvez pas attendre",
-    "— fetch a new picture right now.":
-        "— récupère une nouvelle image tout de suite.",
-
-    # --- Aspect card's rules usage row -----------------------------
-    "1 rule": "1 règle",
-    "%d rules": "%d règles",
-    "No rules yet": "Aucune règle pour l’instant",
-
-    # --- Calendar row's connection block --------------------------------
-    # The confirmation-page strings below (with a question mark, or
-    # naming "calendar"/"calendar?" alone) belong to
-    # calendar_disconnect_confirm_page(); the merged card's own small
-    # Disconnect button reads the shorter "Disconnect" instead
-    # (companion/i18n_fr/calendar_group.py).
-    "Connected, but ignored — its saved link on the server became "
-    "readable beyond this frame. Paste the feed URL again below to "
-    "store it safely.":
-        "Connecté, mais ignoré — son lien enregistré sur le serveur "
-        "est devenu lisible au-delà de ce cadre. Collez à nouveau "
-        "l’URL du flux ci-dessous pour le stocker en sécurité.",
-    "Calendar feed URL": "URL du flux du calendrier",
-    "Your calendar's private iCal link. Stored on the server and "
-    "never shown back here — pasting a new one replaces the old.":
-        "Le lien iCal privé de votre calendrier. Stocké sur le serveur "
-        "et jamais réaffiché ici — en coller un nouveau remplace "
-        "l’ancien.",
-    "Disconnect this calendar and delete the flights it supplied?":
-        "Déconnecter ce calendrier et supprimer les vols qu’il a "
-        "fournis ?",
-    "Disconnect calendar?": "Déconnecter le calendrier ?",
-    "This disconnects your calendar and deletes the flights it "
-    "supplied from the server. This can't be undone — you'd need to "
-    "paste the feed URL again to reconnect.":
-        "Ceci déconnecte votre calendrier et supprime du serveur les "
-        "vols qu’il a fournis. Cette action est irréversible — vous "
-        "devrez coller à nouveau l’URL du flux pour vous reconnecter.",
-    "Disconnect calendar": "Déconnecter le calendrier",
-    "Cancel": "Annuler",
-
-    # --- Flight colours / per-flight rules ------------------------------
-    "Match by": "Correspondance par",
-    "Value": "Valeur",
-    "Add rule": "Ajouter la règle",
-    "ICAO24 hex": "Code hexadécimal ICAO24",
-    "Callsign prefix": "Préfixe d’indicatif",
-
-    # --- Device-only groups: two retired action wordings that reach no
-    # i18n.t() call any more (a role="switch" control is now named by
-    # the setting via aria-labelledby, never by an action) — kept only
-    # as names a test asserts are no longer rendered.
     "Switch on": "Allumer",
     "Switch off": "Éteindre",
     "Turn on": "Activer",
     "Turn off": "Désactiver",
-
-    "Manual refresh": "Actualisation manuelle",
-    "Trigger an immediate poll cycle.":
-        "Déclenchez un cycle de vérification immédiat.",
-    "Trigger poll now": "Déclencher une vérification maintenant",
-    "Polling…": "Vérification en cours…",
-
-    # --- Save --------------------------------------------------------
-    "Save settings": "Enregistrer les réglages",
-    "Next wake": "Prochain réveil",
-
-    # The restored dirty-save-bar's connector/progress words and the
-    # "Saving…" progressive, sharing the "Enregistrer les réglages"
-    # verb and the "Vérification en cours…" ellipsis style above.
-    "Saving…": "Enregistrement…",
-    "Unsaved changes": "Modifications non enregistrées",
-    " changed": " modifié",
-    " and ": " et ",
-    ", and ": " et ",
-    "1 unsaved change": "1 modification non enregistrée",
-    " unsaved changes": " modifications non enregistrées",
-
-    # The Notifications topic-URL field's own shorter error, distinct
-    # from the calendar URL's longer message below.
-    "That link is too long.": "Ce lien est trop long.",
 }
 
 MESSAGES = {
     # --- Display/Device page shells -------------------------------------
+    "display.everything_about_what_the_frame_shows_and_when":
+        "Tout ce que le cadre affiche, et quand.",
+    "display.hardware_data_and_diagnostics_for_the_frame":
+        "Matériel, données et diagnostics du cadre.",
+    "display.settings": "Réglages",
+    "display.screen": "Écran : %s",
+    "display.screen_type": "Type d’écran",
     "display.selected": "Sélectionné",
     "display.current": "Actuel",
 
     # --- Display's three supersections ----------------------------
-    # This identity translation is required, not optional: the
-    # FR-completeness harness fails an untranslated key regardless of
-    # the two words being the same. A different id from "display.look"
-    # above (Display's supersection heading), not a duplicate of it.
-    "display.aspect": "Aspect",
+    "display.look": "Aspect",
+    "display.the_theme_flight_colours_and_calendar_that":
+        "— le thème, les couleurs de vol et le calendrier qui "
+        "décident de l’apparence de l’image.",
+    "display.what_it_watches": "Ce qu’il surveille",
+    "display.which_orly_runway_the_frame_is_watching":
+        "— quelle piste d’Orly le cadre surveille.",
+    "display.when_it_is_on": "Quand il est allumé",
+    "display.when_the_screen_is_lit_and_when_it_stays_quiet":
+        "— quand l’écran est allumé et quand il reste silencieux.",
     "display.applies_the_next_time_the_frame_wakes_up":
         "S’applique au prochain réveil du cadre.",
 
+    # --- Device's own two supersections plus the Poll card's own
+    #     one-card supersection -------------------------------------
+    "display.when_it_wakes": "Quand il se réveille",
+    "display.how_often_the_frame_wakes_up_to_fetch_a_new":
+        "— à quelle fréquence le cadre se réveille pour récupérer une "
+        "nouvelle image.",
+    "display.how_it_tells_you": "Comment il vous prévient",
+    "display.the_light_on_the_frame_and_the_alerts_on_your":
+        "— le voyant du cadre et les alertes sur votre téléphone.",
+    "display.when_you_can_t_wait": "Quand vous ne pouvez pas attendre",
+    "display.fetch_a_new_picture_right_now":
+        "— récupère une nouvelle image tout de suite.",
+
     # --- Aspect card ---------------------------------------------------
+    # This identity translation is required, not optional: the
+    # FR-completeness harness fails an untranslated id regardless of
+    # the two words being the same. A different id from "display.look"
+    # above (Display's supersection heading), not a duplicate of it.
+    "display.aspect": "Aspect",
     "display.departures": "Départs",
     "display.arrivals": "Arrivées",
     "display.calendar_flights": "Vols du calendrier",
     "display.per_flight_rules": "Règles par vol",
     "display.same_as_departures": "Comme les départs",
+    "display.1_rule": "1 règle",
+    "display.rules": "%d règles",
+    "display.no_rules_yet": "Aucune règle pour l’instant",
     # The one-line legend under the rule-add form's compact chip grid,
     # naming the two swatch dots as departures/arrivals, joined into
     # one phrase with no separator.
@@ -180,7 +106,38 @@ MESSAGES = {
     "display.airport_diagram_for": "Schéma de l’aéroport pour %s",
 
     # --- Calendar row's connection block --------------------------------
+    # The confirmation-page strings below (with a question mark, or
+    # naming "calendar"/"calendar?" alone) belong to
+    # calendar_disconnect_confirm_page(); the merged card's own small
+    # Disconnect button reads the shorter "Disconnect" instead
+    # (companion/i18n_fr/calendar_group.py).
+    "display.connected_but_ignored_its_saved_link_on_the":
+        "Connecté, mais ignoré — son lien enregistré sur le serveur "
+        "est devenu lisible au-delà de ce cadre. Collez à nouveau "
+        "l’URL du flux ci-dessous pour le stocker en sécurité.",
+    "display.calendar_feed_url": "URL du flux du calendrier",
+    "display.your_calendar_s_private_ical_link_stored_on_the":
+        "Le lien iCal privé de votre calendrier. Stocké sur le serveur "
+        "et jamais réaffiché ici — en coller un nouveau remplace "
+        "l’ancien.",
+    "display.disconnect_this_calendar_and_delete_the_flights":
+        "Déconnecter ce calendrier et supprimer les vols qu’il a "
+        "fournis ?",
+    "display.disconnect_calendar": "Déconnecter le calendrier ?",
+    "display.this_disconnects_your_calendar_and_deletes_the":
+        "Ceci déconnecte votre calendrier et supprime du serveur les "
+        "vols qu’il a fournis. Cette action est irréversible — vous "
+        "devrez coller à nouveau l’URL du flux pour vous reconnecter.",
+    "display.disconnect_calendar_2": "Déconnecter le calendrier",
+    "display.cancel": "Annuler",
+
+    # --- Flight colours / per-flight rules ------------------------------
+    "display.match_by": "Correspondance par",
+    "display.value": "Valeur",
+    "display.add_rule": "Ajouter la règle",
     "display.callsign": "Indicatif",
+    "display.icao24_hex": "Code hexadécimal ICAO24",
+    "display.callsign_prefix": "Préfixe d’indicatif",
     "display.delete": "Supprimer",
 
     # --- Quiet hours card ------------------------------------------------
@@ -252,11 +209,34 @@ MESSAGES = {
         "Ce réglage réveille le cadre toutes les # min au lieu de toutes "
         "les %d min.",
     "display.uses_server_default": "Utilise la valeur par défaut du serveur",
+    "display.manual_refresh": "Actualisation manuelle",
+    "display.trigger_an_immediate_poll_cycle":
+        "Déclenchez un cycle de vérification immédiat.",
+    "display.trigger_poll_now": "Déclencher une vérification maintenant",
+    "display.polling": "Vérification en cours…",
     "display.poll_triggered_recently_try_again_in_n_s":
         "Vérification déclenchée récemment — réessayez dans {n} s.",
 
     # --- Save --------------------------------------------------------
+    "display.save_settings": "Enregistrer les réglages",
+    "display.next_wake": "Prochain réveil",
     "display.next_wake_2": " (prochain réveil ≈ %s)",
+    # No original catalogue entry: the pre-migration plain-string call
+    # site ("≈ %s") was never in this CATALOG either, so it never
+    # translated. Registered with no French value here for the same
+    # reason — declaring one now would change rendered French output,
+    # which this migration must not do.
+
+    # The restored dirty-save-bar's connector/progress words and the
+    # "Saving…" progressive, sharing the "Enregistrer les réglages"
+    # verb and the "Vérification en cours…" ellipsis style above.
+    "display.saving": "Enregistrement…",
+    "display.unsaved_changes": "Modifications non enregistrées",
+    "display.changed": " modifié",
+    "display.and": " et ",
+    "display.and_2": " et ",
+    "display.1_unsaved_change": "1 modification non enregistrée",
+    "display.unsaved_changes_2": " modifications non enregistrées",
 
     # --- Field-level validation errors ------------------------------
     "display.that_is_not_one_of_the_available_choices":
@@ -270,4 +250,7 @@ MESSAGES = {
     "display.that_link_is_too_long_or_conflicts_with_the":
         "Ce lien est trop long, ou entre en conflit avec l’option de "
         "déconnexion ci-dessous.",
+    # The Notifications topic-URL field's own shorter error, distinct
+    # from the calendar URL's longer message above.
+    "display.that_link_is_too_long": "Ce lien est trop long.",
 }
