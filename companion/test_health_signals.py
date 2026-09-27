@@ -1,13 +1,21 @@
-"""Tests for `companion/pages/health_page.py`'s markup-free severity path:
-`health_signals()`, `safe_health_signals()` and `health_state_from_signals()`.
+"""Tests for companion/health_signals.py's markup-free severity path:
+`health_signals()`, `safe_health_signals()` and
+`companion/pages/health_page.py`'s `health_state_from_signals()`.
 
-Every check calls `health_page`/`wake` directly, in-process; `tmp_path`
-subpaths keep every state dir writable even when running as root.
+Every check calls `health_page`/`health_signals`/`wake` directly,
+in-process; `tmp_path` subpaths keep every state dir writable even when
+running as root. A monkeypatch that must be seen by a bare-name call
+inside companion/health_signals.py's own functions (`health_signals()`,
+`safe_health_signals()`) patches the `health_signals` module itself —
+patching the `health_page` re-export would not reach it, since a
+function's bare-name lookups resolve in the module it is DEFINED in,
+never in a module that merely re-imported it.
 """
 from datetime import timedelta
 
 import pytest
 
+import companion.health_signals as health_signals
 import companion.test_status_pages_helpers as shp
 from companion.pages import health_page
 import companion.wake as wake
@@ -190,7 +198,11 @@ def test_safe_health_signals_returns_none_on_read_failure(tmp_path, monkeypatch)
     def _raise(*_args, **_kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(health_page, "_read_health_inputs", _raise)
+    # Patched on the health_signals module itself: safe_health_signals()
+    # and health_signals() are defined there, and their bare-name call to
+    # _read_health_inputs() resolves in THAT module's globals, not in
+    # health_page.py's re-export of the same name.
+    monkeypatch.setattr(health_signals, "_read_health_inputs", _raise)
     assert health_page.safe_health_signals(str(tmp_path)) is None
 
 

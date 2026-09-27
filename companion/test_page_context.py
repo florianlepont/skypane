@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 import companion.app as app
+import companion.health_signals as health_signals
 import efficiency_probe
 
 from companion import layout
@@ -147,7 +148,7 @@ def test_health_markup_builds_only_on_home_and_health(app_server_in_process, mon
     efficiency_probe.seed_history(server.state_dir)
     session = login(server)
 
-    real_health_signals = health_page.health_signals
+    real_health_signals = health_signals.health_signals
     real_health_state_from_signals = health_page.health_state_from_signals
     signals_calls = []
     state_calls = []
@@ -160,7 +161,15 @@ def test_health_markup_builds_only_on_home_and_health(app_server_in_process, mon
         state_calls.append(1)
         return real_health_state_from_signals(*args, **kwargs)
 
-    monkeypatch.setattr(health_page, "health_signals", counting_health_signals)
+    # Patched on the health_signals module itself, not on health_page's
+    # re-export: safe_health_signals() is DEFINED in companion/health_signals.py,
+    # and its own bare-name call to health_signals() resolves in that
+    # module's globals — a patch on health_page.health_signals would never
+    # be seen by it. health_state_from_signals() stays patched on
+    # health_page, since companion/app.py's _lazy_health_state() calls it
+    # through a `health_page.health_state_from_signals(...)` attribute
+    # lookup at every request.
+    monkeypatch.setattr(health_signals, "health_signals", counting_health_signals)
     monkeypatch.setattr(
         health_page, "health_state_from_signals", counting_health_state_from_signals)
 
@@ -221,7 +230,7 @@ def test_404_severity_is_authenticated_only_and_never_builds_markup(
     _seed_warn_scenario(server.state_dir)
     session = login(server)
 
-    real_health_signals = health_page.health_signals
+    real_health_signals = health_signals.health_signals
     real_health_state_from_signals = health_page.health_state_from_signals
     signals_calls = []
     state_calls = []
@@ -234,7 +243,11 @@ def test_404_severity_is_authenticated_only_and_never_builds_markup(
         state_calls.append(1)
         return real_health_state_from_signals(*args, **kwargs)
 
-    monkeypatch.setattr(health_page, "health_signals", counting_health_signals)
+    # See test_health_markup_builds_only_on_home_and_health()'s own
+    # comment: health_signals() is patched on its defining module, since
+    # safe_health_signals()'s bare-name call to it resolves there, never
+    # on health_page's re-export.
+    monkeypatch.setattr(health_signals, "health_signals", counting_health_signals)
     monkeypatch.setattr(
         health_page, "health_state_from_signals", counting_health_state_from_signals)
 
