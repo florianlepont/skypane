@@ -1900,14 +1900,14 @@ Plans:
 3. No duplicated CSS selector; no hard-coded colour outside tokens
 4. Rewording an English string cannot drop its French translation
 
-**Plans:** 3/16 plans executed
+**Plans:** 4/16 plans executed
 
 Plans:
 
 - [x] 40-01-PLAN.md — structural length guard + committed render/unauthenticated baseline (W1)
 - [x] 40-02-PLAN.md — CSS: merge duplicated selectors, colour literals to tokens, computed styles proven unchanged (W1)
 - [x] 40-03-PLAN.md — route table + static allowlist; table-driven auth coverage test (W2)
-- [ ] 40-04-PLAN.md — layout.py split into ui_* modules; named templates for page_shell/login_shell (W2)
+- [x] 40-04-PLAN.md — layout.py split into ui_* modules; named templates for page_shell/login_shell (W2)
 - [ ] 40-05-PLAN.md — config_page.py settings groups extracted into companion/settings/ (W2)
 - [ ] 40-06-PLAN.md — battery chart migrated onto draw.py (CFG-39); health signals/chart split out of health_page.py (W2)
 - [ ] 40-07-PLAN.md — history/airlines builder splits; artwork drop zone keyboard measurement (CFG-52) (W2)

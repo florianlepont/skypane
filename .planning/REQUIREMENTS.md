@@ -187,9 +187,9 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [ ] **ARC-06**: Type hints on the pure core; mypy in CI
 - [x] **CMP-01**: Route table `(method, matcher, handler, auth_required)`
 - [x] **CMP-02**: One `{route: path}` allowlist
-- [ ] **CMP-03**: Split by settings group / by responsibility
+- [x] **CMP-03**: Split by settings group / by responsibility
 - [ ] **CMP-04**: Typed per-page context
-- [ ] **CMP-05**: Named templates
+- [x] **CMP-05**: Named templates
 - [x] **CMP-06**: Broken down; `handle_post` per settings group
 - [ ] **CMP-07**: Shared helpers
 - [x] **CMP-08**: Merged; colours → tokens
@@ -437,9 +437,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ARC-06 | Phase 39 | Pending |
 | CMP-01 | Phase 40 | Complete |
 | CMP-02 | Phase 40 | Complete |
-| CMP-03 | Phase 40 | Pending |
+| CMP-03 | Phase 40 | Complete |
 | CMP-04 | Phase 40 | Pending |
-| CMP-05 | Phase 40 | Pending |
+| CMP-05 | Phase 40 | Complete |
 | CMP-06 | Phase 40 | Complete |
 | CMP-07 | Phase 40 | Pending |
 | CMP-08 | Phase 40 | Complete |
