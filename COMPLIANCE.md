@@ -140,13 +140,23 @@ document.
   unauthenticated public lookup service, used only to enrich data this
   project already holds (a callsign it detected itself), not to
   republish adsbdb's own dataset.
-- **Request pattern:** one lookup per newly-seen callsign only. Both hits
-  and misses are cached persistently (`enrich.py`'s `lookup_route()`,
-  keyed by normalised callsign, capped at `CACHE_MAX_ENTRIES = 300` and
-  bounded by `trim_cache()`) — a callsign already seen is never
-  re-queried, which is the behaviour that keeps request volume low
-  (02-RESEARCH.md: tens to low hundreds of enrichment calls/day for this
-  airport's traffic, live-verified at a 52.6% real-world hit rate).
+- **Request pattern:** one lookup per newly-seen callsign, or per callsign
+  whose cache entry has expired. Only two outcomes are cached at all
+  (`enrich.py`'s `_lookup()`): a 404, or a 2xx response whose body yields
+  no parseable route, is stored as a miss; a resolved route is stored as
+  a hit. Every other outcome — a timeout, a connection error, a 429, a
+  5xx, or any other non-404 4xx — is treated as transient and is never
+  cached, so the same callsign is retried on the very next call rather
+  than poisoned by a passing upstream hiccup. A cached miss is trusted
+  for `CACHE_MISS_TTL_S` (one day); a cached hit for `CACHE_HIT_TTL_S`
+  (thirty days) — past its TTL, an entry is evicted and the callsign is
+  looked up again (`enrich.py`'s `_fresh_entry()`). The cache is also
+  bounded by entry count (`CACHE_MAX_ENTRIES = 300`) and evicts
+  least-recently-used first (`trim_cache()`). This keeps request volume
+  low without letting a stale answer — for example a callsign whose
+  operator changed — survive forever (02-RESEARCH.md: tens to low
+  hundreds of enrichment calls/day for this airport's traffic,
+  live-verified at a 52.6% real-world hit rate).
 - **Verdict:** used within the bounds of what a free, unauthenticated,
   crowdsourced lookup service reasonably expects — low request volume,
   no redistribution of its dataset, self-identifying `User-Agent` string
@@ -161,12 +171,18 @@ document.
   explicitly deferred to v2 (`.planning/REQUIREMENTS.md`, RER-01/02/03,
   "Deferred 2026-08-11 — user-requested scope reduction so v1 ships
   single-view (plane-only)").
-- **Verification:** a case-insensitive grep for `prim`, `iledefrance`, and
-  the platform's own naming across every `.py` file under `server/` and
-  `stub-server/` returns zero matches (run 2026-08-26, this session:
-  `grep -rniE 'prim|iledefrance|aerodatabox' server/ stub-server/ --include='*.py'`
-  — no output, confirming none of the three names appear anywhere in
-  shipped code, PRIM included).
+- **Verification:** a case-insensitive, word-bounded grep for `prim`,
+  `iledefrance`, and `aerodatabox` across every git-tracked `.py` file
+  under `server/` and `stub-server/` returns zero matches (re-verified
+  2026-09-28, after Phases 32-40 added many more source and test files
+  that use "prim" only as a substring of unrelated words like "primary"
+  or "priming" — a plain substring grep now finds those false positives,
+  so the check must be word-bounded and restricted to tracked files, not
+  a local `server/.venv/` that may contain third-party libraries using
+  the same substrings):
+  `` git grep -niE '\bprim\b|iledefrance|aerodatabox' -- 'server/**/*.py' 'stub-server/**/*.py' ``
+  — no output, confirming none of the three platform names appear
+  anywhere in shipped code, PRIM included.
 - **Verdict:** PRIM/IDFM's terms (including its CGU republication clause,
   which could not be independently fetched during research — two
   candidate URLs also returned 403) are genuinely immaterial to this v1
@@ -188,7 +204,7 @@ document.
   local ADS-B receiver/aggregators chosen over public
   flight-data/schedule APIs).
 - **Verification:** same grep as the PRIM entry above
-  (`grep -rniE 'prim|iledefrance|aerodatabox' server/ stub-server/ --include='*.py'`)
+  (`` git grep -niE '\bprim\b|iledefrance|aerodatabox' -- 'server/**/*.py' 'stub-server/**/*.py' ``)
   returns zero matches for `aerodatabox`.
 - **Verdict:** no AeroDataBox API key was ever provisioned, and no request
   to any AeroDataBox endpoint is ever made by shipped code. Its terms are
@@ -228,8 +244,10 @@ document.
   their data.
 - **Enrichment load is minimized by caching.** `server/plane/enrich.py`'s
   persistent hit-and-miss cache (`lookup_route()`, `trim_cache()`) means
-  a given callsign is queried against adsbdb at most once for the
-  lifetime of the cache, not once per poll cycle.
+  a given callsign is queried against adsbdb at most once per poll cycle
+  it appears in, and at most once per TTL window otherwise (one day for
+  a miss, thirty days for a hit) — never once per poll cycle regardless
+  of how many cycles that aircraft is tracked across.
 
 ## Status table
 
