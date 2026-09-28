@@ -23,6 +23,7 @@ import os
 import socket
 import subprocess
 import sys
+import threading
 import time
 import types
 import urllib.error
@@ -506,6 +507,61 @@ def test_nothing_written_when_no_header_and_no_offer(tmp_path):
             "expected no device_report.json to be created by an ordinary poll")
     finally:
         harness.stop()
+
+
+def test_cancel_cannot_race_the_offer_decision(byos_module, tmp_path):
+    """firmware_registry.cancel_schedule() and byos's own offer decision
+    must never observe two different snapshots of the same schedule: a
+    cancel that lands between byos's registry read and its "offered"
+    write must either (a) complete before that read (so no offer for
+    the cancelled schedule is ever computed) or (b) block until after
+    the "offered" event is written (so it sees the schedule as already
+    started and refuses with "not_cancellable") -- never "cancelled"
+    while this same call still serves an offer for that schedule.
+
+    Calls _record_device_report_and_offer() directly (no subprocess),
+    the only way to inject a cancel_schedule() call at the exact instant
+    between the registry read and the offer write that the real race
+    depends on. compute_offer() is patched to signal readiness and give
+    a background thread a window to call cancel_schedule() -- a stand-in
+    for byos and the companion running in separate processes with no
+    shared lock, which real_compute_offer's own I/O-free body cannot
+    otherwise be paused inside.
+    """
+    state_dir = str(tmp_path)
+    publish_test_release(state_dir, "fw-v1.1.0")
+    assert firmware_registry.schedule_release(state_dir, "fw-v1.1.0", running_version=None) == "scheduled"
+
+    ready = threading.Event()
+    cancel_result = {}
+    real_compute_offer = firmware_registry.compute_offer
+
+    def slow_compute_offer(*args, **kwargs):
+        ready.set()
+        time.sleep(0.3)  # a window for the background cancel to run
+        return real_compute_offer(*args, **kwargs)
+
+    def do_cancel():
+        ready.wait(5)
+        cancel_result["value"] = firmware_registry.cancel_schedule(state_dir)
+
+    thread = threading.Thread(target=do_cancel)
+    with mock.patch.object(byos_module.firmware_registry, "compute_offer", side_effect=slow_compute_offer):
+        thread.start()
+        offer = byos_module._record_device_report_and_offer(
+            state_dir, {"tokens": {}}, {"X-Fw-Version": "fw-v1.0.0"}, "http", "example.org")
+    thread.join(5)
+    assert not thread.is_alive(), "cancel_schedule() did not return within the join timeout"
+
+    assert cancel_result["value"] == "not_cancellable", (
+        "cancel_schedule() must block on the registry lock byos holds while it decides and "
+        "records this offer, then see the just-written 'offered' event and refuse -- got %r "
+        "(offer=%r)" % (cancel_result["value"], offer)
+    )
+    assert offer is not None and offer["version"] == "fw-v1.1.0"
+    assert firmware_registry.load_registry(state_dir)["schedule"] is not None, (
+        "the schedule must still be present -- cancel_schedule() must not have cleared it"
+    )
 
 
 # --- GET /fw/<sha256>.bin --------------------------------------------------

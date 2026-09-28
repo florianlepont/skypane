@@ -707,14 +707,27 @@ def _record_device_report_and_offer(state_dir, state, headers, image_url_scheme,
     auth = headers.get("Authorization", "")
     presented = auth[len("Bearer "):] if auth.startswith("Bearer ") else None
     device_id = _resolve_device_id(state, presented)
-
-    registry = firmware_registry.load_registry(state_dir)
-    battery_low_active = read_battery_low_active(state_dir)
     base_url = "%s://%s" % (image_url_scheme, host)
-    schedule = registry.get("schedule")
-    schedule_id = schedule.get("id") if schedule is not None else None
 
-    with _device_report_lock:
+    # registry_lock is taken first, _device_report_lock second -- the
+    # same lock server.firmware_registry's own writers (schedule_release,
+    # cancel_schedule, apply_reconcile) already hold for their whole
+    # read-modify-write. Loading the registry *inside* this lock, instead
+    # of before it as before, is what makes the offer decision below
+    # atomic with the companion's cancel/replace decision: without this,
+    # byos could read a schedule the companion has just cancelled, decide
+    # to offer it anyway, and only then write the "offered" event that
+    # would have made cancel_schedule() refuse -- the operator would see
+    # "cancelled" while the frame still gets flashed. LockBusy propagates
+    # to the caller as an OSError (it subclasses TimeoutError, which is
+    # already an OSError subclass), which the GET handler already treats
+    # as "no offer this poll", never a 500.
+    with firmware_registry.registry_lock(state_dir), _device_report_lock:
+        registry = firmware_registry.load_registry(state_dir)
+        battery_low_active = read_battery_low_active(state_dir)
+        schedule = registry.get("schedule")
+        schedule_id = schedule.get("id") if schedule is not None else None
+
         device_report = firmware_registry.load_device_report(state_dir)
         devices = device_report["devices"]
         entry = devices.get(device_id) or {"fw_version": None, "reported_at": None, "events": []}
