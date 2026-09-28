@@ -1965,14 +1965,14 @@ Plans:
 2. Every ID in the audit ledger marked closed with its evidence (commit / test)
 3. A fresh audit pass finds no regression of a closed item
 
-**Plans:** 1/8 plans executed
+**Plans:** 2/8 plans executed
 
 Plans:
 
 **Wave 1**
 
 - [x] 41-01-PLAN.md — DOC-01 part 1: deploy/ and CI doc surface aligned with code, per-claim drift log [DOC-01]
-- [ ] 41-02-PLAN.md — DOC-01 part 2: ARCHITECTURE/COMPLIANCE/README/CONTRIBUTING/CLAUDE.md/VENDOR.md and code-comment claims aligned [DOC-01]
+- [x] 41-02-PLAN.md — DOC-01 part 2: ARCHITECTURE/COMPLIANCE/README/CONTRIBUTING/CLAUDE.md/VENDOR.md and code-comment claims aligned [DOC-01]
 - [ ] 41-03-PLAN.md — DOC-02: power-cycle log gzipped in the tree, unused illustration draft removed, archival deferred to v1.0 close [DOC-02]
 - [ ] 41-04-PLAN.md — DOC-03 re-audit: TST-01..15, HYG-01..06 (full gate runs) [DOC-03]
 - [ ] 41-05-PLAN.md — DOC-03 re-audit: FW-01..15, read-only on firmware/ [DOC-03]

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 41-01-PLAN.md — deploy/CI doc-drift corrected (DOC-01 part 1/2); ready for 41-02
-last_updated: "2026-09-28T05:01:27.661Z"
+stopped_at: Completed 41-02-PLAN.md — ARCHITECTURE.md/COMPLIANCE.md/firmware-VENDOR.md/CLAUDE.md doc-drift corrected and poll_loop writer-model comments repointed (DOC-01 part 2/2); ready for 41-03
+last_updated: "2026-09-28T05:29:13.010Z"
 last_activity: 2026-09-28
 progress:
   total_phases: 54
   completed_phases: 49
   total_plans: 442
-  completed_plans: 410
+  completed_plans: 411
   percent: 93
 ---
 
@@ -64,7 +64,7 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 2 of 8
+Plan: 3 of 8
 
 **40-16 executed (2026-09-27), plan 16/16 of Phase 40 (depends on 40-02/40-03/40-10/40-11/40-15), wave 9 — the phase close-out, three commits.** Task 1 extracted `companion/pages/health_page.py`'s registry ("Airlines we could not name"), resolution-statistics ("How well we name flights") and check-in-regularity sections into a new `companion/health_sections.py` (the same companion-level pattern `battery_chart.py`/`health_signals.py` already use, since a page module may not import another page module), shrinking `health_page.py` from 1787 to 1111 lines — comfortably under the 1500-line ceiling, so `companion/test_structure_guards.py`'s `PENDING_OVERSIZED_FILES`/`PENDING_LONG_FUNCTIONS` allowlists (and every reference to them) were deleted outright; `grep -c "PENDING_"` on that file is now 0. `_unavailable_block()`/`HEALTH_UNAVAILABLE_TEXT`/`_resolution_rate_tile_html()`/`_TILE_DETAIL_CLASS` moved too, alongside the three named groups, to break a circular re-export (two of the moving functions call `_unavailable_block()`, which six staying functions also call) — `health_page.py` re-exports everything the moved code left it still needing, discovered to convergence by running the full suite rather than by static grep alone (one test resolves an attribute through a loop variable). The split is a pure extraction, proven by `companion/test_render_baseline.py`'s two tests passing byte-for-byte once `test-support/companion_render_snapshot.py`'s clock-freezing patch target followed `resolution_stats()` from `health_page.datetime` to `health_sections.datetime`. One unrelated pre-existing full-suite failure was fixed (Rule 1): `stub-server/test_poll_cycle.py`'s hostile-quiet-hours-config integration step still asserted the pre-D-4 fail-open `sleep_s == 300`, stale since Phase 39's `39-06` shipped the fallback-to-default-window behaviour — now computed from `device_policy.seconds_until_quiet_hours_end()` against that same default window. `SKYPANE_REQUIRE_BROWSER=1 ./scripts/run-all-tests.sh` exits 0: 3211 passed, 0 failed, 7 skipped (pre-existing root-euid skips), 94.86% coverage; ruff and `check_comment_history.py` both clean. Task 2 appended dated Phase 40 paragraphs to `REQUIREMENTS.md`'s CFG-34 and CFG-39 rows (each clause named, held-or-not stated, test(s) cited) and ticked both — CFG-34: all three convertible sites (Flights desktop When cell, Calendar status detail, Health registry cells, all landed by 40-10) now tick in a real browser, the battery-trend tooltip stays the one permanent structural exception; CFG-39: `battery_sparkline_svg()`'s scale IS `draw.percent_y` (not a second implementation) since 40-06's migration, closing the old row's "nothing pins the two together" gap. CFG-52 already carried its own Phase 40 paragraph from `40-07` and was verified, not rewritten. CMP-01..09's traceability rows now name their satisfying plan(s) instead of a bare "Phase 40 \| Complete". Commits: `a4a2f79` (feat) Task 1, `51d0319` (docs) Task 2, `d8d8cb4`/`99cca1d` (docs) SUMMARY. `roadmap.update-plan-progress 40` now reports the phase Complete at 16/16; `requirements.mark-complete` found all twelve IDs already ticked. `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 94` (409/434) but the written frontmatter showed `percent: 91` (`completed_phases/total_phases` = 49/54) — corrected to `94` by hand per this file's established precedent, as the last STATE.md edit before this plan's own final commit.
 
@@ -617,6 +617,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 40 P15 | unknown | 2 tasks | 25 files |
 | Phase 40 P16 | 40min | 2 tasks | 6 files |
 | Phase 41 P01 | 50min | 2 tasks | 6 files |
+| Phase 41 P02 | 90min | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -1220,6 +1221,9 @@ Recent decisions affecting current work:
 - [Phase 40]: 40-16 (Phase 40 close): registry/stats/check-in-regularity markup moved out of health_page.py into companion/health_sections.py (1787 -> 1111 lines), following the battery_chart.py/health_signals.py precedent for a markup helper shared by exactly one page.
 - [Phase 41]: DOC-01 left unticked after 41-01 — This plan is part 1 of 2 (deploy/CI docs only); 41-02 owns the rest of the doc surface, 41-07 folds both into the closing DOC-01 row
 - [Phase 41]: Fixed deploy/.gitignore's comment during 41-01 even though it wasn't in the plan's files_modified list — It named the retired SKYPANE_BYOS_SECRET; a one-line comment-only correction directly on-topic for DOC-01
+- [Phase 41]: ARCHITECTURE.md's device-authentication model is per-device (devices.json + per-device NVS secret), not a single shared SKYPANE_BYOS_SECRET
+- [Phase 41]: COMPLIANCE.md's adsbdb caching is TTL-bounded (1 day miss / 30 days hit), not never-re-queried; only 404/empty-route responses cache as a miss
+- [Phase 41]: poll_loop.py's post-Phase-36/39 writer model repointed everywhere: the cycle body, battery-empty hold and quiet-hours decision live in server/poll_cycle.py/server/device_policy.py, not poll_loop.py
 
 ### Pending Todos
 
@@ -1341,8 +1345,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T05:01:27.565Z
-Stopped at: Completed 41-01-PLAN.md — deploy/CI doc-drift corrected (DOC-01 part 1/2); ready for 41-02
+Last session: 2026-09-28T05:29:12.914Z
+Stopped at: Completed 41-02-PLAN.md — ARCHITECTURE.md/COMPLIANCE.md/firmware-VENDOR.md/CLAUDE.md doc-drift corrected and poll_loop writer-model comments repointed (DOC-01 part 2/2); ready for 41-03
 
 Resume file: 
 
