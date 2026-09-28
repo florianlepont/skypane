@@ -174,3 +174,7 @@ None - no external service configuration required. The first real `fw-v*` tag pu
 ---
 *Phase: 42-remote-firmware-update-over-the-air-ota-promoted-from-seed-0*
 *Completed: 2026-09-28*
+
+## Self-Check: PASSED
+
+All 11 created/modified files and all 7 commit hashes (d78c3c9c, 9a113c4b, 35b6150d, 16b1e4a6, 425fd473, b1157435, d6b4163f) confirmed present on disk / in git log.
