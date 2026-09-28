@@ -22,6 +22,8 @@
 
 #include "esp_err.h"
 
+#include "validate.h"
+
 /* 1200*1600 pixels, two nibble-packed pixels per byte — PROTOCOL.md §1. */
 #define FP_IMAGE_BYTES 960000u
 
@@ -41,6 +43,19 @@
 #define FP_ERR_NO_SECRET       ((esp_err_t)0x00600007) /* no valid enrolment secret in the secret partition */
 #define FP_ERR_CONFIG          ((esp_err_t)0x00600008) /* API base URL rejected by this build */
 
+/* One firmware release offer, parsed from the display response's
+ * optional "firmware" object. `present` is the only field a caller may
+ * read when the object was absent, null, or malformed — every other
+ * field is populated only when the whole offer validated (see
+ * fp_api_get_display()'s doc comment below). */
+typedef struct {
+    bool present;
+    char version[FP_FW_VERSION_BUF];
+    char url[FP_FW_URL_BUF];
+    char sha256[FP_IMAGE_HASH_BUF];
+    uint32_t size;
+} fp_fw_offer_t;
+
 typedef struct {
     char image_url[768];   /* presigned URLs are long */
     char image_hash[80];   /* "sha256:<64 hex>" */
@@ -51,6 +66,11 @@ typedef struct {
      * one defaults to true whenever it is absent, null or the wrong JSON
      * type. See fp_api_get_display()'s doc comment below. */
     bool led_enabled;
+    /* The OTA offer — likewise optional and permissive: a missing,
+     * null, or malformed "firmware" object means fw.present is false
+     * and every other field of fw is unspecified. Never rejects the
+     * response. */
+    fp_fw_offer_t fw;
 } fp_display_t;
 
 /* True once POST /device/v1/setup has stored a bearer token in NVS. */
@@ -69,12 +89,16 @@ esp_err_t fp_api_setup(void);
  * call when none is open. */
 void fp_api_release(void);
 
-/* GET /device/v1/display. Sends the Authorization bearer header and all
- * four telemetry headers on every call. Rejects the whole response
- * before copying any field if image_hash, sleep_s or image_url fails
- * its PROTOCOL.md §2 validation rule. `led_enabled` is deliberately
- * outside that list: it is optional, and no value it can take rejects
- * the response. */
+/* GET /device/v1/display. Sends the Authorization bearer header, all
+ * four telemetry headers, and (whenever one is waiting to be reported)
+ * X-Ota-Result, on every call. Rejects the whole response before
+ * copying any field if image_hash, sleep_s or image_url fails its
+ * PROTOCOL.md §2 validation rule. `led_enabled` and `fw` are
+ * deliberately outside that list: both are optional, and no value
+ * either can take rejects the response — an absent, null, or malformed
+ * "firmware" object simply means out->fw.present is false, never a
+ * rejected poll. A result reported via X-Ota-Result is cleared only
+ * once this call returns ESP_OK. */
 esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out);
 
 /* Stream image_url into buf (FP_IMAGE_BYTES). Returns ESP_OK only when

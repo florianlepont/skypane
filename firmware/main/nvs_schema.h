@@ -5,7 +5,7 @@
  * Modified from FlightPortrait (github.com/flightportrait/frame) for
  * SkyPane; the changes are listed in firmware/VENDOR.md. */
 /* SkyPane NVS schema — trimmed from upstream's nvs_schema.h down to
- * everything a device remembers: four keys in the `skypane` namespace
+ * everything a device remembers: six keys in the `skypane` namespace
  * on the default `nvs` partition, plus eight more in that namespace on
  * its own dedicated `secret` partition (see firmware/VENDOR.md for what
  * was removed and why). A later phase reintroducing provisioning must
@@ -35,6 +35,21 @@
 /* Boot counter — diagnostic only, emitted in the "wake reason=... boot_count=..."
  * log line. */
 #define FP_NVS_BOOT_COUNT "boot_count"
+
+/* The version an in-progress or just-completed OTA trial is attempting,
+ * set by ota.c before the download begins and read back after a restart
+ * (fp_ota_boot_check) to classify what happened across it: trial,
+ * rolled back, or interrupted. Erased once that trial has been fully
+ * classified — confirmed, rolled back, or reported as interrupted. */
+#define FP_NVS_OTA_TRY "ota_try"
+
+/* "<token>;<version>" describing the OTA outcome still waiting to be
+ * reported to the server, set by fp_ota_record_result. Sent as the
+ * X-Ota-Result telemetry header on every /display poll while set, and
+ * erased only once a poll carrying it gets back a 200 response
+ * (fp_ota_result_clear) — never on a failed or unsent poll, so a result
+ * is never silently dropped. */
+#define FP_NVS_OTA_RESULT "ota_result"
 
 /* The enrolment secret's own NVS partition (firmware/partitions.csv),
  * kept apart from the default `nvs` partition above so re-provisioning a

@@ -25,6 +25,7 @@
 #include "enrol_secret.h"
 #include "nvs_schema.h"
 #include "nvs_util.h"
+#include "ota.h"
 #include "tls_session.h"
 #include "validate.h"
 #include "wake_guard.h"
@@ -76,6 +77,7 @@ static void clear_request_headers(esp_http_client_handle_t http)
     esp_http_client_delete_header(http, "X-Battery-Mv");
     esp_http_client_delete_header(http, "X-Fw-Version");
     esp_http_client_delete_header(http, "X-Boot-Reason");
+    esp_http_client_delete_header(http, "X-Ota-Result");
 }
 
 /* Extracts "scheme://host[:port]" from url, stopping at the first '/'
@@ -255,6 +257,14 @@ static void telemetry_headers(esp_http_client_handle_t http,
     esp_http_client_set_header(http, "X-Fw-Version",
                                esp_app_get_description()->version);
     esp_http_client_set_header(http, "X-Boot-Reason", boot_reason);
+
+    /* Only present while an OTA outcome is still waiting to be
+     * reported (fp_ota_record_result); cleared by
+     * fp_api_get_display() once this poll gets back a 200. */
+    char ota_result[FP_OTA_RESULT_BUF];
+    if (fp_ota_result_pending(ota_result, sizeof(ota_result))) {
+        esp_http_client_set_header(http, "X-Ota-Result", ota_result);
+    }
 }
 
 /* One esp_http_client config shape (crt_bundle_attach, timeout) for the
@@ -486,6 +496,58 @@ void fp_api_release(void)
     s_tls_saved = false;
 }
 
+/* Parses the display response's optional "firmware" object into an
+ * fp_fw_offer_t. Absent, JSON null, or any other non-object value is
+ * silently treated as no offer (out->present stays false, no log line
+ * - that is the normal, expected shape of most polls). A present
+ * object that fails validation is also no offer, but logs the first
+ * field name that failed, since that case is worth a diagnostic line:
+ * either the server has a bug, or a compromised/misbehaving server is
+ * sending a malformed offer. Never rejects the whole poll either way -
+ * PROTOCOL.md's OTA offer field is exactly as optional as led_enabled. */
+static void parse_fw_offer(const cJSON *json, fp_fw_offer_t *out)
+{
+    *out = (fp_fw_offer_t){0};
+    const cJSON *fw = cJSON_GetObjectItem(json, "firmware");
+    if (!fw || cJSON_IsNull(fw)) {
+        return;
+    }
+    if (!cJSON_IsObject(fw)) {
+        ESP_LOGW(TAG, "ota offer ignored field=firmware");
+        return;
+    }
+
+    const cJSON *version = cJSON_GetObjectItem(fw, "version");
+    const cJSON *url = cJSON_GetObjectItem(fw, "url");
+    const cJSON *sha256 = cJSON_GetObjectItem(fw, "sha256");
+    const cJSON *size = cJSON_GetObjectItem(fw, "size");
+
+    uint32_t size_val = 0;
+    bool size_ok = cJSON_IsNumber(size) && fp_fw_size_parse(size->valuedouble, &size_val);
+
+    const char *bad_field = NULL;
+    if (!cJSON_IsString(version) || !fp_fw_version_valid(version->valuestring)) {
+        bad_field = "version";
+    } else if (!cJSON_IsString(url) ||
+               !fp_url_valid(url->valuestring, sizeof(out->url), false)) {
+        bad_field = "url";
+    } else if (!cJSON_IsString(sha256) || !fp_image_hash_valid(sha256->valuestring)) {
+        bad_field = "sha256";
+    } else if (!size_ok) {
+        bad_field = "size";
+    }
+    if (bad_field) {
+        ESP_LOGW(TAG, "ota offer ignored field=%s", bad_field);
+        return;
+    }
+
+    strlcpy(out->version, version->valuestring, sizeof(out->version));
+    strlcpy(out->url, url->valuestring, sizeof(out->url));
+    strlcpy(out->sha256, sha256->valuestring, sizeof(out->sha256));
+    out->size = size_val;
+    out->present = true;
+}
+
 /* ---------------------------------------------------------------- display */
 
 esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out)
@@ -565,11 +627,16 @@ esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out)
      * validated the way image_url/sleep_s are above. */
     parsed.led_enabled = fp_led_enabled_resolve(cJSON_IsBool(led), cJSON_IsTrue(led));
 
-    /* `firmware` is out of scope (OTA is not implemented); no field of
-     * it is read or stored regardless of what the server sends. */
+    parse_fw_offer(json, &parsed.fw);
+
     *out = parsed;
     cJSON_Delete(json);
     memset(resp, 0, sizeof(resp));
+    /* An OTA result carried by this request's X-Ota-Result header (see
+     * telemetry_headers()) has now been delivered in a response the
+     * server accepted with 200 - only now is it safe to stop resending
+     * it on every subsequent poll. */
+    fp_ota_result_clear();
     return ESP_OK;
 }
 
