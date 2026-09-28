@@ -44,7 +44,10 @@ image_url advertise https behind a TLS-terminating reverse proxy.
 The same response's firmware field is the operator's scheduled release,
 or null, computed by server/firmware_registry.py's compute_offer() from
 the request's own X-Fw-Version/X-Ota-Result headers, which this file
-records into <state-dir>/firmware/device_report.json.
+records into <state-dir>/firmware/device_report.json. A served release
+image is fetched from GET /fw/<sha256>.bin, content-addressed against
+that same registry; any other name, or a sha never published, is 404 -
+unlike /img/, nothing here prunes a release image once published.
 
 This is a reference, not a product: no TLS (the frame accepts plain
 http for hand-set targets), no rate limiting, one image for every
@@ -58,6 +61,7 @@ import json
 import os
 import re
 import secrets
+import stat
 import sys
 import tempfile
 import threading
@@ -482,6 +486,15 @@ IMG_KEEP = 8
 
 _IMG_NAME_RE = re.compile(r"\A[0-9a-f]{64}\.bin\Z")
 _IMG_PATH_RE = re.compile(r"\A/img/([0-9a-f]{64})\.bin\Z")
+
+# Matched against the raw request path (never a query-stripped copy), so
+# a query string, a trailing extra path segment, or an uppercase digest
+# never matches - all fall through to the generic 404 below rather than
+# reaching firmware_image_path() with an unvalidated string.
+_FW_PATH_RE = re.compile(r"\A/fw/([0-9a-f]{64})\.bin\Z")
+# 64 KiB, matching server/firmware_registry.py's own hashing chunk size -
+# a release image is never held in memory all at once.
+_FW_STREAM_CHUNK_BYTES = 65536
 
 
 def _img_dir(state_dir):
@@ -978,7 +991,48 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(image)
             return None
+        match = _FW_PATH_RE.match(self.path)
+        if match is not None:
+            return self._serve_firmware_image(match.group(1))
         return self.send_json(404, {"detail": "unknown endpoint"})
+
+    def _serve_firmware_image(self, sha256):
+        """Stream firmware/<sha>.bin for a `sha256` that is both a
+        release registered in registry.json and a regular file on disk
+        within MAX_IMAGE_BYTES - anything else gets the same 404 body
+        the /img/ route above already uses. No authentication, matching
+        /img/'s own rule: release images are signed and carry no
+        credential, so they are not secret.
+        """
+        registry = firmware_registry.load_registry(self.args.state_dir)
+        release = next(
+            (r for r in registry.get("releases", []) if r.get("sha256") == sha256), None)
+        if release is None:
+            return self.send_json(404, {"detail": "unknown image"})
+        path = firmware_registry.firmware_image_path(self.args.state_dir, sha256)
+        try:
+            file_stat = os.stat(path)
+        except OSError:
+            return self.send_json(404, {"detail": "unknown image"})
+        if not stat.S_ISREG(file_stat.st_mode) or file_stat.st_size > firmware_registry.MAX_IMAGE_BYTES:
+            return self.send_json(404, {"detail": "unknown image"})
+        try:
+            fh = open(path, "rb")
+        except OSError:
+            return self.send_json(404, {"detail": "unknown image"})
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Length", str(file_stat.st_size))
+            self.end_headers()
+            while True:
+                chunk = fh.read(_FW_STREAM_CHUNK_BYTES)
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+        finally:
+            fh.close()
+        return None
 
     def log_message(self, fmt, *fmt_args):
         # getattr, not self.command/self.path directly: a TimeoutError

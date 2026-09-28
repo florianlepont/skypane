@@ -1,26 +1,34 @@
 #!/usr/bin/env python3
-"""End-to-end contract tests for byos_server.py's OTA offer: the
-firmware offer in GET /device/v1/display, and the device report it is
-derived from and records into firmware/device_report.json.
+"""End-to-end and unit contract tests for byos_server.py's OTA surface:
+the firmware offer in GET /device/v1/display, the device report it is
+derived from and records into firmware/device_report.json, and the
+strict content-addressed GET /fw/<sha256>.bin route.
 
 Every scenario below drives a real byos_server.py subprocess on
 loopback (matching stub-server/test_poll_cycle.py's own Harness shape)
 against a tmp_path state dir, calling server/firmware_registry.py
 directly to publish and schedule releases the way the companion's
-Update page and the CI deploy import eventually will.
+Update page and the CI deploy import eventually will. The one exception
+is the chunked-streaming proof, a unit test against byos_server.py's
+_serve_firmware_image() with a fake handler and no subprocess, since a
+bounded-read-size guarantee is not otherwise observable over HTTP.
 
 Usage:
     python3 stub-server/test_ota_offer.py
 """
 import hashlib
+import importlib.util
 import json
 import os
 import socket
 import subprocess
 import sys
 import time
+import types
 import urllib.error
 import urllib.request
+from io import BytesIO
+from unittest import mock
 
 import pytest
 
@@ -50,6 +58,18 @@ from skypane_test_support import child_env  # noqa: E402
 # device_report.json key.
 KNOWN_MAC = "aa:bb:cc:dd:ee:01"
 KNOWN_TOKEN = "cd" * 32
+
+
+def load_byos_module():
+    """Load byos_server.py directly via importlib.util, matching every
+    other stub-server test file's own pattern, so _serve_firmware_image()
+    can be unit-checked without a subprocess or real sockets.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "byos_server_ota_offer_under_test", SERVER_PATH)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def http_request(url, method="GET", headers=None, json_body=None, timeout=10):
@@ -211,6 +231,11 @@ class Harness:
                 return fh.read()
         except OSError:
             return ""
+
+
+@pytest.fixture(scope="module")
+def byos_module():
+    return load_byos_module()
 
 
 # --- The offer in GET /device/v1/display ----------------------------------
@@ -481,6 +506,155 @@ def test_nothing_written_when_no_header_and_no_offer(tmp_path):
             "expected no device_report.json to be created by an ordinary poll")
     finally:
         harness.stop()
+
+
+# --- GET /fw/<sha256>.bin --------------------------------------------------
+
+
+def test_fw_route_serves_registered_release_image(tmp_path):
+    state_dir = str(tmp_path)
+    harness = Harness(state_dir)
+    try:
+        harness.start()
+        sha256, image_bytes = publish_test_release(state_dir, "fw-v1.2.0")
+
+        status, headers, body = http_request(harness.base_url() + "/fw/%s.bin" % sha256, method="GET")
+        assert status == 200, "expected 200, got %d" % status
+        assert headers.get("Content-Type") == "application/octet-stream"
+        assert headers.get("Content-Length") == str(len(image_bytes))
+        assert body == image_bytes, "served bytes did not match the published image"
+    finally:
+        harness.stop()
+
+
+@pytest.mark.parametrize("bad_path", [
+    "/fw/" + "a" * 64 + ".bin",       # well-formed but never published
+    "/fw/" + "A" * 64 + ".bin",       # uppercase hex
+    "/fw/" + "a" * 63 + ".bin",       # 63 hex chars
+    "/fw/" + "a" * 65 + ".bin",       # 65 hex chars
+    "/fw/../registry.json",
+    "/fw/" + "a" * 64 + ".bin?x=1",   # query string
+    "/fw/" + "a" * 64 + ".BIN",       # uppercase extension
+])
+def test_fw_route_404_for_malformed_or_unregistered_paths(tmp_path, bad_path):
+    state_dir = str(tmp_path)
+    harness = Harness(state_dir)
+    try:
+        harness.start()
+        status, _ = raw_http_get(harness.port, bad_path)
+        assert status == 404, "expected 404 for %r, got %r" % (bad_path, status)
+    finally:
+        harness.stop()
+
+
+def test_fw_route_404_when_registered_image_file_is_missing(tmp_path):
+    """A sha registered in registry.json whose image file was removed
+    out from under it (e.g. a botched manual state-dir edit) is a 404,
+    not a 500.
+    """
+    state_dir = str(tmp_path)
+    harness = Harness(state_dir)
+    try:
+        harness.start()
+        sha256, _ = publish_test_release(state_dir, "fw-v1.2.0")
+        os.remove(firmware_registry.firmware_image_path(state_dir, sha256))
+
+        status, _, _ = http_request(harness.base_url() + "/fw/%s.bin" % sha256, method="GET")
+        assert status == 404, "expected 404 for a registered sha with a missing file, got %d" % status
+    finally:
+        harness.stop()
+
+
+def test_fw_route_never_serves_a_file_larger_than_max_image_bytes(tmp_path):
+    """A registered release whose on-disk file has since grown past
+    MAX_IMAGE_BYTES (a corrupted or tampered state dir) is never served.
+    """
+    state_dir = str(tmp_path)
+    harness = Harness(state_dir)
+    try:
+        harness.start()
+        sha256, _ = publish_test_release(state_dir, "fw-v1.2.0")
+        oversized_path = firmware_registry.firmware_image_path(state_dir, sha256)
+        with open(oversized_path, "wb") as fh:
+            fh.write(b"\x00" * (firmware_registry.MAX_IMAGE_BYTES + 1))
+
+        status, _, _ = http_request(harness.base_url() + "/fw/%s.bin" % sha256, method="GET")
+        assert status == 404, "expected 404 for an oversized on-disk image, got %d" % status
+    finally:
+        harness.stop()
+
+
+def test_serve_firmware_image_streams_in_fixed_size_chunks(byos_module, tmp_path):
+    """_serve_firmware_image() never reads the whole release image into
+    memory in one call - every open("rb") read against the served file
+    requests exactly _FW_STREAM_CHUNK_BYTES bytes, more than once for a
+    file larger than one chunk. Proven with a fake handler (no
+    subprocess, no real socket) since this is not otherwise observable
+    over HTTP.
+    """
+    state_dir = str(tmp_path)
+    image_bytes = os.urandom(3 * byos_module._FW_STREAM_CHUNK_BYTES + 100)
+    image_path = os.path.join(state_dir, "release.bin")
+    with open(image_path, "wb") as fh:
+        fh.write(image_bytes)
+    sha256 = hashlib.sha256(image_bytes).hexdigest()
+    manifest = {
+        "version": "fw-v1.0.0", "sha256": sha256, "size": len(image_bytes),
+        "released_at": "2026-01-01T00:00:00Z", "commit": "a" * 40,
+    }
+    firmware_registry.publish_release(state_dir, manifest, image_path)
+    served_path = firmware_registry.firmware_image_path(state_dir, sha256)
+
+    class _FakeHandler:
+        def __init__(self):
+            self.args = types.SimpleNamespace(state_dir=state_dir)
+            self.wfile = BytesIO()
+            self.status = None
+            self.headers_sent = {}
+
+        def send_response(self, code):
+            self.status = code
+
+        def send_header(self, key, value):
+            self.headers_sent[key] = value
+
+        def end_headers(self):
+            pass
+
+    class _ChunkTrackingFile:
+        def __init__(self, real):
+            self._real = real
+            self.read_sizes = []
+
+        def read(self, size=-1):
+            self.read_sizes.append(size)
+            return self._real.read(size)
+
+        def close(self):
+            self._real.close()
+
+    tracking = {}
+    real_open = open
+
+    def _tracking_open(path, mode="r", *args, **kwargs):
+        fh = real_open(path, mode, *args, **kwargs)
+        if path == served_path and "b" in mode:
+            wrapped = _ChunkTrackingFile(fh)
+            tracking["file"] = wrapped
+            return wrapped
+        return fh
+
+    fake = _FakeHandler()
+    with mock.patch("builtins.open", side_effect=_tracking_open):
+        byos_module.Handler._serve_firmware_image(fake, sha256)
+
+    assert fake.status == 200
+    assert fake.headers_sent.get("Content-Length") == str(len(image_bytes))
+    assert fake.wfile.getvalue() == image_bytes, "streamed bytes did not match the source image"
+    read_sizes = tracking["file"].read_sizes
+    assert len(read_sizes) > 1, "expected more than one read() call for a multi-chunk file"
+    assert all(size == byos_module._FW_STREAM_CHUNK_BYTES for size in read_sizes), (
+        "expected every read() to request exactly _FW_STREAM_CHUNK_BYTES, got %r" % (read_sizes,))
 
 
 if __name__ == "__main__":

@@ -433,6 +433,78 @@ names, response shapes, telemetry printing) is untouched:
     retiring the two invalid-time cases the old
     `test_read_quiet_hours_fail_open_never_raises` pinned to `None`.
 
+12. **Added the OTA offer, the device report it is derived from, and a
+    strict content-addressed `/fw/<sha256>.bin` release-image route**
+    (the OTA milestone, promoted from a backlog seed). Upstream, and
+    this repository's own state before this change, hardcode `GET
+    /device/v1/display`'s `firmware` field to the literal `null` — no
+    server anywhere in this project has ever offered the device a
+    firmware update. This change is byos's device-facing half of that
+    feature: the operator's scheduled release, gated by `server/
+    firmware_registry.py`'s single decision function, so a device
+    polling with an out-of-date `X-Fw-Version` learns about it, and its
+    reported install/rollback/failure outcomes are recorded for the
+    companion's Update page and the poll loop's own reconciliation step
+    to read later.
+
+    Concretely: this repository adds a fourth import,
+    `server.firmware_registry` (also stdlib-only, so the module
+    docstring's "stdlib only, plus the shared modules" claim stays true
+    in substance), and:
+
+    - `parse_fw_version_header()` / `parse_ota_result_header()` —
+      anchored-regex parsers for `X-Fw-Version` and `X-Ota-Result`
+      (`"<result token>;<version>"`, the token one of `firmware_registry.
+      RESULT_TOKENS`, the whole header capped at 64 bytes). Anything
+      unanchored, over the cap, or naming an unrecognised token is
+      ignored, never recorded, never fatal.
+    - `read_battery_low_active()` — a fail-open, read-only read of the
+      shared `poll_state.json`'s `battery_low_active` latch (`server/
+      poll_cycle.py`'s `update_battery_low()` is the sole writer),
+      mirroring `read_battery_critical()`'s own shape but for the
+      lower, non-parking battery-low threshold the offer gate needs.
+    - `_resolve_device_id()` — which MAC (or `"default"`) the presented
+      bearer token belongs to, by the same `hmac.compare_digest` sweep
+      `bearer_ok()` already does; only ever called after that gate has
+      already confirmed the token is valid.
+    - `_write_device_report()` / `_record_device_report_and_offer()` —
+      the one writer of a new file, `<state-dir>/firmware/
+      device_report.json` (byos-owned; `server/firmware_registry.py`
+      only ever reads it), guarded by a module-level `threading.Lock`
+      against this process's own other request-handling threads. Each
+      authenticated `GET /device/v1/display` records the device's
+      `fw_version`/`reported_at` and a `"result"` event for a validated
+      `X-Ota-Result`, computes the offer from `firmware_registry.
+      compute_offer()` against the now-current entry, and — when an
+      offer results — appends an `"offered"` event for it *before* the
+      response is sent, so a schedule the device has just been offered
+      is no longer cancellable from that instant. A write failure (a
+      full or read-only state dir) degrades to no offer, never a 500;
+      the panel poll the response also carries has already succeeded by
+      that point and must still be answered.
+    - The `do_GET` `/device/v1/display` branch's `"firmware": None`
+      literal becomes the value this call returns. The offer
+      deliberately never passes through `quiet_hours_sleep_s()` or
+      `display_off_sleep_s()` above it — a scheduled update reaches the
+      frame at its next wake whatever the display/quiet-hours mode,
+      unlike `sleep_s`.
+    - `log_telemetry()`'s allow-listed header loop gains `X-Ota-Result`
+      alongside the four it already echoes to stdout.
+    - `_serve_firmware_image()` and its `GET /fw/<sha256>.bin` route,
+      added next to `/img/*.bin`: the path is matched against a strict
+      `^/fw/([0-9a-f]{64})\.bin$` regex (a query string, an uppercase
+      digest, a wrong-length hex run, or any other path segment falls
+      through to the existing generic 404), the sha must both be a
+      release registered in `registry.json` and a regular file on disk
+      within `firmware_registry.MAX_IMAGE_BYTES`, and the body is
+      streamed in fixed 64 KiB chunks (`_FW_STREAM_CHUNK_BYTES`) rather
+      than read into memory in one call. No authentication, matching
+      `/img/`'s own existing rule: release images are signed and carry
+      no credential, so they are not secret.
+
+    No other endpoint, response field, status code, or telemetry print
+    statement was touched by this change.
+
 **Everything else is verbatim**, including: `GET /device/v1/display`,
 `POST /device/v1/log`, `GET /img/*`, the `--image`/`--port`/`--sleep`
 flags, the bearer-token issuance and check logic once a setup request
@@ -470,15 +542,17 @@ reference simulator, per `docs/PROTOCOL.md`'s own text).
 
 A future re-pin of `byos_server.py` to a newer upstream commit is a
 deliberate, reviewable act: diff the new upstream file against the version
-recorded here, re-apply all **eleven** local modifications (`--state-dir`,
+recorded here, re-apply all **twelve** local modifications (`--state-dir`,
 `--image-url-scheme`, the DEVICE-04 `X-Battery-Mv` validation/persistence,
 the LED read, the quiet-hours `sleep_s` extension, the wake-interval
 read, the display-off `sleep_s` pin, the BATTERY EMPTY `sleep_s` pin,
-the per-device enrolment registry, `--bind`, and the repo-root
-`sys.path` bootstrap onto `server.device_policy`/`server.state_store`),
-update the pinned commit hash above, and re-run
-`stub-server/test_poll_cycle.py` and `stub-server/test_devices_registry.py`
+the per-device enrolment registry, `--bind`, the repo-root
+`sys.path` bootstrap onto `server.device_policy`/`server.state_store`,
+and the OTA offer/device report/`/fw/` route), update the pinned commit
+hash above, and re-run `stub-server/test_poll_cycle.py`,
+`stub-server/test_devices_registry.py` and `stub-server/test_ota_offer.py`
 to confirm the contract — including both scheme checks, the shared
 device-policy identity checks, the display-off composition-order
-coverage, the BATTERY EMPTY composition-order and parity coverage, and
-every registry rule — still holds.
+coverage, the BATTERY EMPTY composition-order and parity coverage,
+every registry rule, and the OTA offer/device-report/`/fw/` behaviour —
+still holds.
