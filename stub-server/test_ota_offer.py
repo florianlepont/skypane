@@ -617,6 +617,41 @@ def test_stale_resent_result_does_not_close_a_different_schedule(byos_module, tm
     )
 
 
+def test_next_seq_stays_monotonic_against_a_reset_device_report(byos_module, tmp_path):
+    """A restore whose tarball captured device_report.json just before a
+    reconcile and registry.json just after (the two files are read at
+    different moments, with no shared lock across a backup/restore) can
+    leave device_report.json's own next_seq far behind
+    registry["reconciled_seq"]. The next assigned seq must never regress
+    below reconciled_seq -- otherwise every new event this call ever
+    records is already <= reconciled_seq and reconcile() ignores it
+    forever: an offer never counts as an attempt, and an "installed"
+    result never closes its schedule.
+    """
+    state_dir = str(tmp_path)
+    publish_test_release(state_dir, "fw-v1.1.0")
+    assert firmware_registry.schedule_release(state_dir, "fw-v1.1.0", running_version=None) == "scheduled"
+
+    registry = firmware_registry.load_registry(state_dir)
+    registry["reconciled_seq"] = 40
+    firmware_registry._save_registry(state_dir, registry)  # noqa: SLF001 - test seeds a restore scenario directly
+
+    # device_report.json is missing/reset (next_seq back to 0), as a
+    # fresh document would be after a lossy restore.
+    assert not os.path.exists(firmware_registry.device_report_path(state_dir))
+
+    byos_module._record_device_report_and_offer(
+        state_dir, {"tokens": {}}, {"X-Fw-Version": "fw-v1.0.0"}, "http", "example.org")
+
+    device_report = firmware_registry.load_device_report(state_dir)
+    entry = device_report["devices"]["default"]
+    seqs = [e["seq"] for e in entry["events"]]
+    assert seqs and min(seqs) > 40, (
+        "a new event's seq must be strictly above reconciled_seq, got %r" % (seqs,)
+    )
+    assert device_report["next_seq"] > 40
+
+
 # --- GET /fw/<sha256>.bin --------------------------------------------------
 
 

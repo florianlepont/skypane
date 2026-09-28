@@ -606,10 +606,36 @@ def compute_offer(registry, device_entry, battery_low_active, base_url):
         return None
     version = schedule.get("version")
     entry = device_entry or {}
-    if version == entry.get("fw_version"):
+    reported_version = entry.get("fw_version")
+    if version == reported_version:
         return None
-    if not at_or_above_floor(version, registry.get("floor_version", FLOOR_VERSION)):
+    floor_version = registry.get("floor_version", FLOOR_VERSION)
+    if not at_or_above_floor(version, floor_version):
         return None
+    # A device whose own reported version cannot even reach the floor
+    # (a pre-OTA build's raw `git describe`, for instance) can never
+    # confirm, replace or roll back an OTA install -- serving it an
+    # offer only wastes its next wake on a download, or, worse, an
+    # offer it can never act on leaves the schedule permanently
+    # "offered" and so permanently un-cancellable (acknowledged() below
+    # requires a device event, and this refusal here never produces
+    # one). `reported_version is None` (nothing valid ever reported
+    # yet) is deliberately let through: it is the ordinary state of
+    # every device before its very first poll response, not evidence
+    # of an ineligible device.
+    if reported_version is not None and not at_or_above_floor(reported_version, floor_version):
+        return None
+    # A device whose own reported version cannot even reach the floor
+    # (a pre-OTA build's raw `git describe`, for instance) can never
+    # confirm, replace or roll back an OTA install -- serving it an
+    # offer only wastes its next wake on a download, or, worse, an
+    # offer it can never act on leaves the schedule permanently
+    # "offered" and so permanently un-cancellable (acknowledged() below
+    # requires a device event, and this refusal here never produces
+    # one). `reported_version is None` (nothing valid ever reported
+    # yet) is deliberately let through: it is the ordinary state of
+    # every device before its very first poll response, not evidence
+    # of an ineligible device.
 
     reconciled_seq = registry.get("reconciled_seq", 0)
     schedule_id = schedule.get("id")

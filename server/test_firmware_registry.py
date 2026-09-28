@@ -501,6 +501,7 @@ def test_compute_offer_signature_has_no_quiet_hours_param():
     "below_floor",
     "max_attempts",
     "release_missing",
+    "reporting_device_below_floor",
 ])
 def test_compute_offer_none_conditions(case):
     battery_low_active = False
@@ -531,9 +532,29 @@ def test_compute_offer_none_conditions(case):
     elif case == "release_missing":
         registry = _offer_registry()
         registry["releases"] = []
+    elif case == "reporting_device_below_floor":
+        # A pre-OTA build's own git-describe version (never checked
+        # against the floor before this fix) must not be offered a
+        # schedule it can never confirm, roll back, or report on --
+        # such a device can only ever be recovered by USB flash, so an
+        # offer here is a wasted download that also permanently blocks
+        # cancel/replace.
+        registry = _offer_registry()
+        device_entry = {"fw_version": "a1b2c3d", "events": []}
 
     offer = registry_mod.compute_offer(registry, device_entry, battery_low_active, "https://example.test")
     assert offer is None
+
+
+def test_compute_offer_unreported_device_still_gets_offered():
+    """fw_version=None (nothing valid ever reported yet, the ordinary
+    state before a device's first poll response) must not be confused
+    with a device whose reported version is known and below the floor.
+    """
+    registry = _offer_registry()
+    device_entry = {"fw_version": None, "events": []}
+    offer = registry_mod.compute_offer(registry, device_entry, False, "https://example.test")
+    assert offer is not None
 
 
 # --- reconcile / apply_reconcile --------------------------------------------

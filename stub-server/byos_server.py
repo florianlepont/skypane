@@ -736,8 +736,23 @@ def _record_device_report_and_offer(state_dir, state, headers, image_url_scheme,
         # a fresh document), so the next seq to hand out is one more than
         # that - never 0, since compute_offer()'s own reconciled_seq
         # baseline starts at 0 and only counts events with seq strictly
-        # greater than it.
-        next_seq = device_report["next_seq"]
+        # greater than it. Floored against every event seq actually on
+        # record and against registry["reconciled_seq"] too: a restore
+        # whose tarball captured device_report.json just before a
+        # reconcile and registry.json just after (the two files are read
+        # at different moments, with no shared lock), or simply a
+        # missing/corrupt device_report.json, would otherwise reset
+        # next_seq below reconciled_seq. Every event this call assigns
+        # would then already be <= reconciled_seq and reconcile() would
+        # ignore them all forever -- no offer ever counts as an attempt
+        # again, and an "installed" result never closes its schedule.
+        highest_recorded_seq = max(
+            (event.get("seq", 0)
+             for device_entry in devices.values()
+             for event in device_entry.get("events", [])),
+            default=0,
+        )
+        next_seq = max(device_report["next_seq"], registry.get("reconciled_seq", 0), highest_recorded_seq)
         changed = False
 
         if fw_version is not None:
