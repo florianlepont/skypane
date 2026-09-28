@@ -281,6 +281,55 @@ def draw_alert_icon(draw, center_x, top_y, ink_idx):
     return ALERT_ICON_HEIGHT_PX
 
 
+# --- Updating (OTA) refresh glyph ------------------------------------------
+# Two opposing ~90-degree arcs, each ending in a small chevron arrowhead
+# drawn strictly inside the ring (never past its radius) - the OTA
+# "in progress" motif shown while a firmware update installs. Same 76px
+# footprint and Bold-class 8px stroke as the power ring: thin strokes
+# drown in the dither noise, matching POWER_ICON_STROKE_PX's own comment.
+UPDATING_ICON_DIAMETER_PX = 76
+UPDATING_ICON_STROKE_PX = POWER_ICON_STROKE_PX
+UPDATING_ICON_ARC_SPAN_DEGREES = 90
+UPDATING_ICON_ARROWHEAD_WING_DEGREES = 18
+UPDATING_ICON_ARROWHEAD_WING_FRAC = 0.72  # wing tip's radius, as a fraction of the ring radius
+
+
+def draw_updating_icon(draw, center_x, top_y, ink_idx):
+    """Draw the OTA refresh mark (two opposing ~90-degree arcs, each with
+    a small chevron arrowhead at its leading, clockwise end) centred on
+    `center_x`, topmost pixel at `top_y`. Returns the glyph's total
+    height (== UPDATING_ICON_DIAMETER_PX).
+    """
+    radius = UPDATING_ICON_DIAMETER_PX / 2.0
+    cx = float(center_x)
+    cy = top_y + radius
+    box = (center_x - radius, top_y, center_x + radius, top_y + UPDATING_ICON_DIAMETER_PX)
+    half_span = UPDATING_ICON_ARC_SPAN_DEGREES / 2.0
+
+    for center_deg in (45, 225):
+        start = center_deg - half_span
+        end = center_deg + half_span
+        draw.arc(box, start, end, fill=ink_idx, width=UPDATING_ICON_STROKE_PX)
+        _draw_updating_arrowhead(draw, cx, cy, radius, end, ink_idx)
+
+    return UPDATING_ICON_DIAMETER_PX
+
+
+def _draw_updating_arrowhead(draw, cx, cy, radius, tip_angle_deg, ink_idx):
+    """Two short strokes from a point on the ring's own circumference
+    (`tip_angle_deg`) inward to two wing points at
+    `UPDATING_ICON_ARROWHEAD_WING_FRAC * radius` - a chevron entirely
+    inside the ring, never exceeding its radius.
+    """
+    tip_a = math.radians(tip_angle_deg)
+    tip = (cx + radius * math.cos(tip_a), cy + radius * math.sin(tip_a))
+    wing_r = radius * UPDATING_ICON_ARROWHEAD_WING_FRAC
+    for sign in (-1, 1):
+        wing_a = math.radians(tip_angle_deg + sign * UPDATING_ICON_ARROWHEAD_WING_DEGREES)
+        wing = (cx + wing_r * math.cos(wing_a), cy + wing_r * math.sin(wing_a))
+        draw.line([tip, wing], fill=ink_idx, width=UPDATING_ICON_STROKE_PX)
+
+
 # --- Empty-state runway glyph ---------------------------------------------
 # A runway seen from above: a strip with a dashed centreline and a
 # threshold bar at each end. Same 76px height as the ring and crescent.

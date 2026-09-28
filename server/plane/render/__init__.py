@@ -144,6 +144,9 @@ from .style import (  # noqa: F401
     STATE_LABEL_TEXT,
     TOP_RIGHT_TAG_TEXT,
     TOP_TAG_FONT,
+    UPDATING_BODY_LINES,
+    UPDATING_BODY_TEXT,
+    UPDATING_HEADING_TEXT,
     _BAND_TOP_LABEL_DIRECTION,
     _FIT_STEP_PX,
     _assert_in_safe_box,
@@ -216,6 +219,11 @@ from .glyphs import (  # noqa: F401
     RUNWAY_ICON_KEY_W_PX,
     RUNWAY_ICON_STROKE_PX,
     RUNWAY_ICON_WIDTH_PX,
+    UPDATING_ICON_ARC_SPAN_DEGREES,
+    UPDATING_ICON_ARROWHEAD_WING_DEGREES,
+    UPDATING_ICON_ARROWHEAD_WING_FRAC,
+    UPDATING_ICON_DIAMETER_PX,
+    UPDATING_ICON_STROKE_PX,
     draw_alert_icon,
     draw_battery_icon,
     draw_empty_battery_icon,
@@ -223,6 +231,7 @@ from .glyphs import (  # noqa: F401
     draw_power_icon,
     draw_runway_icon,
     draw_source_fault_badge,
+    draw_updating_icon,
 )
 from .hold_screens import (  # noqa: F401
     _build_battery_empty_canvas,
@@ -232,6 +241,7 @@ from .hold_screens import (  # noqa: F401
     _build_hold_canvas,
     _build_no_connection_canvas,
     _build_quiet_hours_canvas,
+    _build_updating_canvas,
 )
 from .layout import (  # noqa: F401
     ILLUSTRATION_ALPHA_THRESHOLD,

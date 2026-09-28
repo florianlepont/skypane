@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Florian Lepont
 # SPDX-License-Identifier: Apache-2.0
-"""Generates
-`firmware/main/fault_screen_mask.h` - the committed 1-bpp ink mask
-firmware/main/fault_screen.c stamps onto its own on-device dithered dark
-field to draw the NO CONNECTION hold screen with zero server round-trip.
+"""Generates the committed 1-bpp ink mask headers the firmware stamps onto
+its own on-device dithered dark field to draw a hold screen with zero
+server round-trip - `firmware/main/fault_screen_mask.h` (NO CONNECTION,
+the default) and `firmware/main/updating_screen_mask.h` (UPDATING, via
+`--screen updating`).
 
 Source of truth: `server.plane.render._build_no_connection_canvas(flat=True)`
-- the same composition (`_build_hold_canvas()`) DISPLAY OFF / QUIET HOURS /
-BATTERY EMPTY go through, called flat (no dither) so the extracted mask is
-an exact ink/no-ink boolean per pixel, not a dithered approximation of one.
-`server/test_fault_screen_mask.py` proves this generator's output matches
-the committed header byte-for-byte - rerunning this tool must
-always leave `git diff --stat firmware/main/fault_screen_mask.h` empty.
+/ `_build_updating_canvas(flat=True)` - the same composition
+(`_build_hold_canvas()`) DISPLAY OFF / QUIET HOURS / BATTERY EMPTY go
+through, called flat (no dither) so the extracted mask is an exact
+ink/no-ink boolean per pixel, not a dithered approximation of one.
+`server/test_fault_screen_mask.py` / `server/test_updating_screen_mask.py`
+prove this generator's output matches each committed header byte-for-byte -
+rerunning this tool for a given `--screen` must always leave that screen's
+own header's `git diff --stat` empty.
 
---- The dither spec (shared with firmware/main/fault_screen.c) ---------------
+--- The dither spec (shared with firmware/main/hold_screen.c) ---------------
 
 Both `firmware_equivalent_image()` below and the C module implement this
 exact integer Floyd-Steinberg recipe against one constant target level
@@ -48,7 +51,7 @@ spec instead:
 - Dithering runs across every pixel of the full field, including pixels
   the mask will later override - the field is identical to what an
   unmasked dither would produce everywhere, matching
-  firmware/main/fault_screen.c's own approach: masked pixels still
+  firmware/main/hold_screen.c's own approach: masked pixels still
   contribute to (and receive) diffused error exactly as if they carried
   no mask at all, so the two sides can never drift on that account.
 - Final pixel value: if the pixel lies inside the mask's bounding box AND
@@ -63,6 +66,7 @@ Python keeps this file trivially auditable against the C it mirrors.
 import argparse
 import os
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(os.path.dirname(HERE))
@@ -84,20 +88,60 @@ DEFAULT_PREVIEW_PATH = os.path.join(
     "no-connection-preview.png",
 )
 
+UPDATING_HEADER_PATH = os.path.join(HERE, "..", "main", "updating_screen_mask.h")
+# Deliberately outside the repo tree (the system temp dir), unlike the
+# no-connection preview's historical path above - this screen's own
+# default preview is scratch output, not tied to any one archived task.
+DEFAULT_UPDATING_PREVIEW_PATH = os.path.join(
+    tempfile.gettempdir(), "skypane-updating-preview.png"
+)
+
 # The dither spec's one constant target level (server/plane/dither.py's own
 # `round(255 * 0.4)` lighten-toward-White blend, at 0% - the field's own
 # ink - vs 100% - pure White). See the module docstring's dither spec for
 # the full recipe this feeds.
 DITHER_TARGET_LEVEL = 102
 
+# Per-screen config: which flat canvas to extract the mask from, where the
+# generated header/default preview live, and the macro/symbol names its
+# header uses. Keyed by the `--screen` CLI value.
+_SCREENS = {
+    "no-connection": {
+        "flat_canvas_fn": lambda: render._build_no_connection_canvas(flat=True),
+        "preview_canvas_fn": lambda: render._build_no_connection_canvas(),
+        "header_path": HEADER_PATH,
+        "include_guard": "FP_FAULT_SCREEN_MASK_H",
+        "macro_prefix": "FP_FAULT_MASK_",
+        "bits_symbol": "fp_fault_mask_bits",
+        "source_comment": "server/plane/render.py _build_no_connection_canvas(flat=True)",
+        "regen_suffix": "",
+        "default_preview_path": DEFAULT_PREVIEW_PATH,
+    },
+    "updating": {
+        "flat_canvas_fn": lambda: render._build_updating_canvas(flat=True),
+        "preview_canvas_fn": lambda: render._build_updating_canvas(),
+        "header_path": UPDATING_HEADER_PATH,
+        "include_guard": "FP_UPDATING_SCREEN_MASK_H",
+        "macro_prefix": "FP_UPDATING_MASK_",
+        "bits_symbol": "fp_updating_mask_bits",
+        "source_comment": "server/plane/render.py _build_updating_canvas(flat=True)",
+        "regen_suffix": " --screen updating",
+        "default_preview_path": DEFAULT_UPDATING_PREVIEW_PATH,
+    },
+}
 
-def render_mask():
-    """Render `_build_no_connection_canvas(flat=True)`, extract the boolean
-    ink mask (`pixel index == pf.IDX_WHITE`), crop to its bounding box via
-    `Image.getbbox()`, and pack it MSB-first, one bit per pixel, row stride
-    `(w + 7) // 8`, padding bits zero. Returns `(x, y, w, h, bits)`.
+
+def render_mask(screen="no-connection"):
+    """Render `screen`'s flat canvas (`_SCREENS[screen]["flat_canvas_fn"]`),
+    extract the boolean ink mask (`pixel index == pf.IDX_WHITE`), crop to
+    its bounding box via `Image.getbbox()`, and pack it MSB-first, one bit
+    per pixel, row stride `(w + 7) // 8`, padding bits zero. Returns
+    `(x, y, w, h, bits)`.
+
+    `screen` defaults to `"no-connection"`, matching every call site that
+    predates the `--screen` option.
     """
-    canvas = render._build_no_connection_canvas(flat=True)
+    canvas = _SCREENS[screen]["flat_canvas_fn"]()
     # A 1-bit "1" mode image where ink (White) pixels are 255 (truthy) is
     # exactly what Image.getbbox() needs to find the tightest ink-only
     # bounding box - .point() with a 256-entry LUT is a vectorised
@@ -108,7 +152,7 @@ def render_mask():
 
     bbox = mask_img.getbbox()
     if bbox is None:
-        raise ValueError("no-connection canvas has no White (ink) pixels - nothing to mask")
+        raise ValueError("%s canvas has no White (ink) pixels - nothing to mask" % (screen,))
     x0, y0, x1, y1 = bbox
     w = x1 - x0
     h = y1 - y0
@@ -126,45 +170,52 @@ def render_mask():
     return x0, y0, w, h, bytes(bits)
 
 
-def render_header_text():
-    """Return the deterministic generated-header text: SPDX + GENERATED
-    banner, the include guard, `#include <stdint.h>`, the
-    `FP_FAULT_MASK_X/Y/W/H/STRIDE` macros, and the packed
-    `fp_fault_mask_bits[]` array, 16 bytes per line as `0x%02x,`. No
-    timestamps, no absolute paths - the output must be byte-for-byte
-    reproducible on any machine (including CI), which is exactly what
-    `server/test_fault_screen_mask.py`'s drift test relies on.
+def render_header_text(screen="no-connection"):
+    """Return the deterministic generated-header text for `screen`: SPDX +
+    GENERATED banner, the include guard, `#include <stdint.h>`, the
+    `<PREFIX>X/Y/W/H/STRIDE` macros, and the packed bits array, 16 bytes
+    per line as `0x%02x,`. No timestamps, no absolute paths - the output
+    must be byte-for-byte reproducible on any machine (including CI),
+    which is exactly what `server/test_fault_screen_mask.py`'s and
+    `server/test_updating_screen_mask.py`'s drift tests rely on.
     """
-    x, y, w, h, bits = render_mask()
+    cfg = _SCREENS[screen]
+    x, y, w, h, bits = render_mask(screen)
     stride = (w + 7) // 8
+    prefix = cfg["macro_prefix"]
+    guard = cfg["include_guard"]
+    bits_symbol = cfg["bits_symbol"]
 
     lines = []
     lines.append("/* SPDX-FileCopyrightText: 2026 Florian Lepont")
     lines.append(" * SPDX-License-Identifier: Apache-2.0 */")
     lines.append("/* GENERATED by firmware/tools/gen_fault_screen.py from")
-    lines.append(" * server/plane/render.py _build_no_connection_canvas(flat=True) - DO NOT EDIT;")
-    lines.append(" * regenerate with: server/.venv/bin/python3 firmware/tools/gen_fault_screen.py */")
+    lines.append(" * %s - DO NOT EDIT;" % (cfg["source_comment"],))
+    lines.append(
+        " * regenerate with: server/.venv/bin/python3 firmware/tools/gen_fault_screen.py%s */"
+        % (cfg["regen_suffix"],)
+    )
     lines.append("#pragma once")
-    lines.append("#ifndef FP_FAULT_SCREEN_MASK_H")
-    lines.append("#define FP_FAULT_SCREEN_MASK_H")
+    lines.append("#ifndef %s" % (guard,))
+    lines.append("#define %s" % (guard,))
     lines.append("")
     lines.append("#include <stdint.h>")
     lines.append("")
-    lines.append("#define FP_FAULT_MASK_X %d" % x)
-    lines.append("#define FP_FAULT_MASK_Y %d" % y)
-    lines.append("#define FP_FAULT_MASK_W %d" % w)
-    lines.append("#define FP_FAULT_MASK_H %d" % h)
-    lines.append("#define FP_FAULT_MASK_STRIDE %d" % stride)
+    lines.append("#define %sX %d" % (prefix, x))
+    lines.append("#define %sY %d" % (prefix, y))
+    lines.append("#define %sW %d" % (prefix, w))
+    lines.append("#define %sH %d" % (prefix, h))
+    lines.append("#define %sSTRIDE %d" % (prefix, stride))
     lines.append("")
     lines.append(
-        "static const uint8_t fp_fault_mask_bits[FP_FAULT_MASK_STRIDE * FP_FAULT_MASK_H] = {"
+        "static const uint8_t %s[%sSTRIDE * %sH] = {" % (bits_symbol, prefix, prefix)
     )
     for i in range(0, len(bits), 16):
         chunk = bits[i : i + 16]
         lines.append("    " + "".join("0x%02x," % b for b in chunk))
     lines.append("};")
     lines.append("")
-    lines.append("#endif /* FP_FAULT_SCREEN_MASK_H */")
+    lines.append("#endif /* %s */" % (guard,))
     lines.append("")
     return "\n".join(lines)
 
@@ -180,15 +231,15 @@ def _trunc16(numerator):
     return -((-numerator) // 16)
 
 
-def firmware_equivalent_image():
+def firmware_equivalent_image(screen="no-connection"):
     """Python port of the exact C dither algorithm (see the module
     docstring's shared spec) plus the mask stamp - a 1200x1600 "1"-mode
     (Black/White only) `PIL.Image` reproducing exactly what
-    `firmware/main/fault_screen.c`'s `fp_fault_screen_render()` would blit,
-    for the side-by-side preview.
+    `firmware/main/hold_screen.c`'s `fp_hold_screen_render()` would blit
+    for `screen`, for the side-by-side preview.
     """
     width, height = pf.WIDTH, pf.HEIGHT
-    x0, y0, w, h, bits = render_mask()
+    x0, y0, w, h, bits = render_mask(screen)
     stride = (w + 7) // 8
 
     def mask_bit_set(col, row):
@@ -233,19 +284,20 @@ def firmware_equivalent_image():
     return img.convert("1")
 
 
-def _write_preview(preview_path):
+def _write_preview(preview_path, screen="no-connection"):
     """Write the firmware-equivalent image side by side with the server's
-    own dithered `_build_no_connection_canvas()`, following this
-    project's side-by-side preview convention (server preview left, firmware
+    own dithered canvas for `screen`, following this project's
+    side-by-side preview convention (server preview left, firmware
     reproduction right, joined via server.panel_preview's decode path for
     the server side so the comparison uses the same colour conversion the
     companion's own preview route uses).
     """
-    server_canvas = render._build_no_connection_canvas()
+    cfg = _SCREENS[screen]
+    server_canvas = cfg["preview_canvas_fn"]()
     from server import panel_format as _pf
 
     server_rgb = server_canvas.convert("RGB")
-    fw_rgb = firmware_equivalent_image().convert("RGB")
+    fw_rgb = firmware_equivalent_image(screen).convert("RGB")
 
     gutter = 40
     combined = Image.new("RGB", (_pf.WIDTH * 2 + gutter, _pf.HEIGHT), (200, 200, 200))
@@ -259,16 +311,26 @@ def _write_preview(preview_path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        "--screen",
+        choices=sorted(_SCREENS),
+        default="no-connection",
+        help="Which hold screen's mask to generate (default: no-connection)",
+    )
+    parser.add_argument(
         "--preview",
-        default=DEFAULT_PREVIEW_PATH,
-        help="Where to write the server-vs-firmware side-by-side preview PNG",
+        default=None,
+        help="Where to write the server-vs-firmware side-by-side preview PNG "
+        "(default: the selected screen's own default preview path)",
     )
     parser.add_argument(
         "--no-preview", action="store_true", help="Skip writing the preview PNG"
     )
     args = parser.parse_args()
 
-    x, y, w, h, bits = render_mask()
+    screen = args.screen
+    cfg = _SCREENS[screen]
+
+    x, y, w, h, bits = render_mask(screen)
     print("mask bbox: x=%d y=%d w=%d h=%d" % (x, y, w, h))
     if w * h > 100_000 * 8:  # a bbox producing >100KB of packed mask data
         raise SystemExit(
@@ -276,15 +338,16 @@ def main():
             "committing a bloated header; investigate the canvas composition first" % (w, h)
         )
 
-    header_text = render_header_text()
-    header_path = os.path.normpath(HEADER_PATH)
+    header_text = render_header_text(screen)
+    header_path = os.path.normpath(cfg["header_path"])
     with open(header_path, "w", encoding="utf-8") as f:
         f.write(header_text)
     header_bytes = len(header_text.encode("utf-8"))
     print("wrote %s (%d bytes)" % (header_path, header_bytes))
 
     if not args.no_preview:
-        preview_path = _write_preview(args.preview)
+        preview_path = args.preview or cfg["default_preview_path"]
+        preview_path = _write_preview(preview_path, screen)
         print("wrote %s" % (preview_path,))
 
 
