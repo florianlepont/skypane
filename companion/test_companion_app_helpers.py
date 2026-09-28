@@ -119,7 +119,7 @@ def ics_body(entries):
     `calendar_rules._build_entry()`'s exact accepted shape (CATEGORIES:
     FLT, a `FLIGHT ORI-DST` summary, bare-UTC DTSTART/DTEND). Every
     DTSTART is computed from real wall-clock time at call time, since the
-    settings-post handler under test calls `poll_loop.now_s()` (real
+    settings-post handler under test calls `poll_cycle.now_s()` (real
     `time.time()`) for its own `now` — there is no injectable clock on
     this path.
     """

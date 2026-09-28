@@ -39,9 +39,9 @@ BATTERY_CRITICAL_MV = 3300
 BATTERY_CRITICAL_RECOVER_MV = 3700
 
 # The BATTERY EMPTY latch's key in poll_state.json - lives here so every
-# writer (server/poll_loop.py's apply_battery_critical_hysteresis) and
-# every reader (server/state_store.py, stub-server/byos_server.py) shares
-# one literal.
+# writer (this module's own apply_battery_critical_hysteresis(), called
+# from server/poll_cycle.py's load_cycle_context()) and every reader
+# (server/state_store.py, stub-server/byos_server.py) shares one literal.
 BATTERY_CRITICAL_STATE_KEY = "battery_critical_active"
 
 

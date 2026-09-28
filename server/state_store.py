@@ -12,9 +12,9 @@ an on-disk contract shared across three independent processes (the
 systemd poll timer, the always-on byos device endpoint, and the
 companion) - changing either here changes it for all of them at once.
 
-Do not edit poll_loop.py, wake.py or byos_server.py here: this module is a
-new, unwired file; later plans switch those callers over to it, one owner
-at a time.
+This module is fully wired in: server/poll_cycle.py, server/wake.py and
+stub-server/byos_server.py all import it directly rather than keeping a
+second copy of the path/load/save logic.
 """
 from __future__ import annotations
 

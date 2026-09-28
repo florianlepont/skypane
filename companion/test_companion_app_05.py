@@ -1268,7 +1268,7 @@ def test_calendar_sync_bypasses_the_throttle_via_min_interval_zero(app_server_in
 
 
 def test_poll_modules_own_refresh_call_site_still_throttles(tmp_path):
-    """server/poll_loop.py's own refresh_calendar_registry() call shape (no min_interval_s
+    """server/poll_cycle.py's own refresh_calendar_registry() call shape (no min_interval_s
     override) still honours the standard throttle against the identical seeded state - the
     bypass is scoped to the new call site alone, never widening the poll cycle's own throttle"""
     state_dir = str(tmp_path)
