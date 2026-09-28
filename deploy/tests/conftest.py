@@ -35,9 +35,14 @@ def _write_fake_firmware_cli(path, log_path):
     """A minimal stand-in for server/firmware_cli.py inside a fake
     release: activate.sh's own tests only need to observe that
     `import-dir <dir> --state-dir <dir>` was invoked (logged, like every
-    other stub in this file) and to control its exit code --
-    server/firmware_cli.py's own real import behaviour is proven by
-    server/test_firmware_cli.py, not re-tested here.
+    other stub in this file), which release-tag subdirectories the
+    passed <dir> actually held *at invocation time* (logged as
+    `entries=...`, sorted and comma-joined -- the directory can be a
+    per-deploy temp path that activate.sh removes right after this
+    process exits, so the test can only see its contents through this
+    log line), and to control its exit code -- server/firmware_cli.py's
+    own real import behaviour is proven by server/test_firmware_cli.py,
+    not re-tested here.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -45,8 +50,15 @@ def _write_fake_firmware_cli(path, log_path):
         "import os\n"
         "import sys\n"
         f"_LOG = {str(log_path)!r}\n"
+        "_args = sys.argv[1:]\n"
+        "_entries = ''\n"
+        "if len(_args) >= 2 and _args[0] == 'import-dir':\n"
+        "    try:\n"
+        "        _entries = ','.join(sorted(os.listdir(_args[1])))\n"
+        "    except OSError as _exc:\n"
+        "        _entries = '<%s>' % type(_exc).__name__\n"
         "with open(_LOG, 'a') as f:\n"
-        "    f.write('firmware_cli ' + ' '.join(sys.argv[1:]) + chr(10))\n"
+        "    f.write('firmware_cli ' + ' '.join(_args) + ' entries=' + _entries + chr(10))\n"
         "sys.exit(int(os.environ.get('FAKE_FIRMWARE_IMPORT_RC', '0')))\n"
     )
     path.chmod(0o755)

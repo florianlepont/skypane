@@ -133,6 +133,18 @@ for _port in "${SKYPANE_BYOS_PORT}" "${SKYPANE_COMPANION_PORT}"; do
 done
 
 echo "==> Staging release ${SHA}"
+# Firmware is per-deploy input, not part of the immutable release tree:
+# deploy.sh streams every published fw-v* release into
+# ${INCOMING}/firmware-releases/ on *every* deploy, even a re-run of a
+# sha that is already staged. Pull it out into its own directory before
+# the release tree is either moved into place or discarded below, so a
+# same-sha redeploy (the tag-push -> ci.yml dispatch flow always is one)
+# still imports the firmware it just streamed instead of losing it.
+FIRMWARE_RELEASES_DIR="${SKYPANE_ROOT}/releases/.firmware-${SHA}-$$"
+rm -rf "${FIRMWARE_RELEASES_DIR}"
+if [ -d "${INCOMING}/firmware-releases" ]; then
+    mv -T "${INCOMING}/firmware-releases" "${FIRMWARE_RELEASES_DIR}"
+fi
 if [ ! -d "${RELEASE_DIR}" ]; then
     if [ ! -d "${INCOMING}" ]; then
         echo "activate.sh: incoming release not found: ${INCOMING}" >&2
@@ -141,11 +153,17 @@ if [ ! -d "${RELEASE_DIR}" ]; then
     mv -T "${INCOMING}" "${RELEASE_DIR}"
 else
     # Redeploying a sha already staged (a re-run job) - the freshly
-    # streamed duplicate is discarded, never re-extracted.
+    # streamed duplicate release tree is discarded (it is identical, by
+    # definition of "same sha"), never re-extracted. Its firmware-releases/
+    # was already pulled out above and is imported below regardless.
     rm -rf "${INCOMING}"
 fi
 chown -R root:root "${RELEASE_DIR}"
 chmod -R go-w "${RELEASE_DIR}"
+if [ -d "${FIRMWARE_RELEASES_DIR}" ]; then
+    chown -R root:root "${FIRMWARE_RELEASES_DIR}"
+    chmod -R go-w "${FIRMWARE_RELEASES_DIR}"
+fi
 
 echo "==> Checking requirements hash"
 REQ_FILE="${RELEASE_DIR}/server/requirements.txt"
@@ -181,16 +199,22 @@ chown skypane:skypane "${FIRMWARE_STATE_DIR}"
 
 echo "==> Firmware import"
 # deploy.sh streams every published fw-v* release into
-# releases/.incoming-<sha>/firmware-releases/, which staging above just
-# moved to ${RELEASE_DIR}/firmware-releases/ along with the rest of the
-# release. Importing here, before the swap, means a bad release (a
-# hash/size mismatch) fails activation with the previous code still
-# serving -- never half-imported firmware behind newly swapped code.
-FIRMWARE_RELEASES_DIR="${RELEASE_DIR}/firmware-releases"
+# releases/.incoming-<sha>/firmware-releases/ on every deploy of this sha,
+# which the staging step above pulled out to ${FIRMWARE_RELEASES_DIR}
+# (a directory of its own, not part of ${RELEASE_DIR}) before either
+# moving or discarding the rest of the incoming tree. Importing here,
+# before the swap, means a bad release (a hash/size mismatch) fails
+# activation with the previous code still serving -- never half-imported
+# firmware behind newly swapped code. ${FIRMWARE_RELEASES_DIR} is removed
+# right after: publish_release() has already read and copied every image
+# it accepted, so nothing is lost by discarding the source directory.
 if [ -d "${FIRMWARE_RELEASES_DIR}" ]; then
-    if ! ( cd "${RELEASE_DIR}" \
-            && runuser -u skypane -- "${VENV}/bin/python3" -m server.firmware_cli import-dir \
-                "${FIRMWARE_RELEASES_DIR}" --state-dir "${STATE_DIR}" ); then
+    IMPORT_RC=0
+    ( cd "${RELEASE_DIR}" \
+        && runuser -u skypane -- "${VENV}/bin/python3" -m server.firmware_cli import-dir \
+            "${FIRMWARE_RELEASES_DIR}" --state-dir "${STATE_DIR}" ) || IMPORT_RC=$?
+    rm -rf "${FIRMWARE_RELEASES_DIR}"
+    if [ "${IMPORT_RC}" -ne 0 ]; then
         echo "activate.sh: firmware import failed for ${SHA} - not swapping" >&2
         exit 1
     fi

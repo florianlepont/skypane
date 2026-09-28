@@ -461,10 +461,15 @@ def test_firmware_import_runs_before_swap_when_present(fake_root, fake_release, 
     assert import_idx < restart_idx, "firmware import must run before the post-swap restart"
 
     import_line = log_lines[import_idx]
-    release_dir = fake_root.releases / "f00d002"
-    assert str(release_dir / "firmware-releases") in import_line
+    assert "entries=fw-v1.0.0" in import_line
     assert "--state-dir" in import_line
     assert str(fake_root.state_dir) in import_line
+
+    # The per-deploy firmware staging directory is a temp path outside
+    # the release tree, and does not outlive this run.
+    release_dir = fake_root.releases / "f00d002"
+    assert not (release_dir / "firmware-releases").exists()
+    assert not any(p.name.startswith(".firmware-") for p in fake_root.releases.iterdir())
 
 
 def test_no_firmware_releases_directory_skips_import(fake_root, fake_release, run_activate):
@@ -474,6 +479,34 @@ def test_no_firmware_releases_directory_skips_import(fake_root, fake_release, ru
     assert r.returncode == 0, r.stderr
     assert "firmware_cli" not in fake_root.call_log.read_text()
     assert "no firmware-releases directory staged" in r.stdout
+
+
+def test_same_sha_redeploy_imports_freshly_streamed_firmware(fake_root, fake_release, run_activate):
+    """A re-run of the ci.yml dispatch job for a sha that is already
+    staged (the normal tag-push -> release-workflow -> dispatched-deploy
+    flow, since the push to main already deployed this sha once) must
+    still import whatever firmware-releases/ this run's own incoming
+    stream carried -- not silently discard it because the release tree
+    itself was already on disk.
+    """
+    fake_release("f00d006")
+    r1 = run_activate("f00d006")
+    assert r1.returncode == 0, r1.stderr
+    assert os.readlink(fake_root.current_link) == "releases/f00d006"
+
+    # Re-deploy the SAME sha. The release tree is already staged, but
+    # this run's incoming stream carries a firmware release the first
+    # deploy never saw.
+    incoming = fake_release("f00d006")
+    _add_firmware_releases(incoming, "fw-v1.0.0")
+    r2 = run_activate("f00d006")
+    assert r2.returncode == 0, r2.stderr
+
+    log = fake_root.call_log.read_text()
+    import_lines = [ln for ln in log.splitlines() if ln.startswith("firmware_cli import-dir")]
+    assert import_lines, "a same-sha redeploy that streamed new firmware must still import it"
+    assert "entries=fw-v1.0.0" in import_lines[-1]
+    assert not any(p.name.startswith(".firmware-") for p in fake_root.releases.iterdir())
 
 
 def test_firmware_import_failure_blocks_swap_previous_release_still_current(
