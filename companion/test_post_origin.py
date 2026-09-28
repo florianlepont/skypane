@@ -108,6 +108,8 @@ _EXACT_POST_ROUTES = (
     app.CALENDAR_DISCONNECT_ROUTE,
     app.CALENDAR_CONNECT_ROUTE,
     app.NOTIFICATIONS_TEST_ROUTE,
+    app.UPDATE_INSTALL_ROUTE,
+    app.UPDATE_CANCEL_ROUTE,
 )
 
 # Prefix routes do_POST() matches with startswith()/endswith() rather than

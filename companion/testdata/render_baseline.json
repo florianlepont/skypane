@@ -401,6 +401,14 @@
   "POST /ui-theme": {
    "location": "/login",
    "status": 303
+  },
+  "POST /update/cancel": {
+   "location": "/login",
+   "status": 303
+  },
+  "POST /update/install": {
+   "location": "/login",
+   "status": 303
   }
  }
 }

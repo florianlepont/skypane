@@ -1,11 +1,12 @@
-"""The Update page: firmware release status and version history.
+"""The Update page: firmware release status, version history, and the
+Install/Cancel action markup.
 
-The read side of OTA-08: the running version, the update state, a
-rollback warning and the version history, driven entirely by
-`server.firmware_registry.update_view()`. Install/Cancel POST handlers
-and their confirmation flow are a later plan's own routes; this module
-renders their forms as static markup targeting /update/install and
-/update/cancel, which are not live routes yet.
+The running version, the update state, a rollback warning and the
+version history are driven entirely by `server.firmware_registry.
+update_view()` (`update_page()`/`render()`). `update_install_confirm_page()`
+is the real, server-side install-confirmation gate -- `companion/app.py`'s
+`_handle_update_install_post()`/`_handle_update_cancel_post()` are the
+live POST handlers for the forms this module renders.
 """
 import companion.i18n as i18n
 import companion.layout as layout
@@ -15,9 +16,9 @@ import companion.wake as wake
 from server import firmware_registry
 from server import history_db
 
-# Not live routes yet (a later plan implements the handlers); named here
-# once so the per-row/Cancel forms below and this module's own tests
-# share one definition.
+# Named here once, so the per-row/Cancel forms below, companion/app.py's
+# POST handlers and this module's own tests share one definition rather
+# than retyping the literal path.
 INSTALL_ROUTE = "/update/install"
 CANCEL_ROUTE = "/update/cancel"
 
@@ -67,6 +68,31 @@ NOT_INSTALLABLE_TEXT = i18n.msg("update.not_installable", "Not installable")
 INSTALL_CONFIRM_QUESTION_TEMPLATE = i18n.msg(
     "update.install_s_now",
     "Install %s now? It will apply at the next wake.")
+
+# The server-side confirmation page's own copy (the real install gate,
+# not the data-confirm misclick guard above) -- companion/app.py's
+# _handle_update_install_post() interpolates the version/next-wake time.
+INSTALL_CONFIRM_HEADING_TEMPLATE = i18n.msg(
+    "update.install_firmware_s", "Install firmware %s?")
+INSTALL_CONFIRM_SENTENCE_TEMPLATE = i18n.msg(
+    "update.the_frame_will_download_and_install_this",
+    "The frame will download and install this version at its next "
+    "wake, around %s. It will keep the update after one successful "
+    "check-in — otherwise it rolls back automatically.")
+
+# The two flash keys companion/app.py's install/cancel handlers redirect
+# to on a non-"scheduled"/non-cancellable outcome or an exception -- the
+# literal strings are defined here (this page's own module), matching
+# companion/pages/config_page.py's/airlines_page.py's own FLASH_* keys;
+# companion/flash.py re-exports them as FLASH_KEY_UPDATE_*.
+FLASH_UPDATE_SCHEDULE_FAILED = "update_schedule_failed"
+FLASH_UPDATE_CANCEL_FAILED = "update_cancel_failed"
+FLASH_UPDATE_SCHEDULE_FAILED_TEXT = i18n.msg(
+    "update.couldn_t_schedule_that_update_please_try_again",
+    "Couldn't schedule that update — please try again.")
+FLASH_UPDATE_CANCEL_FAILED_TEXT = i18n.msg(
+    "update.couldn_t_cancel_the_frame_may_have_already",
+    "Couldn't cancel — the frame may have already started.")
 
 TABLE_HEADER_VERSION_TEXT = i18n.msg("update.version", "Version")
 TABLE_HEADER_DATE_TEXT = i18n.msg("update.date", "Date")
@@ -237,6 +263,63 @@ def _history_card_html(ctx, view):
     ) % (escape_html(i18n.t(HISTORY_HEADING_TEXT)), body_html)
 
 
+def _install_confirm_form_html(version):
+    return (
+        '<form method="post" action="%s">'
+        '<input type="hidden" name="version" value="%s">'
+        '<input type="hidden" name="confirm" value="yes">'
+        '<button type="submit">%s</button>'
+        "</form>"
+    ) % (INSTALL_ROUTE, escape_html(version), escape_html(i18n.t(INSTALL_BUTTON_TEXT)))
+
+
+def update_install_confirm_page(ctx, version, next_wake_text):
+    """Two-step install confirmation: rendered whenever the posted
+    `confirm` field is not exactly "yes", including a bare POST with
+    none. This page is the actual security control -- it works with
+    JavaScript disabled, blocked by CSP, or against a hand-crafted
+    request that skips the client-side `data-confirm` dialog -- the same
+    control-flow shape as
+    `companion/settings/calendar.py`'s `calendar_disconnect_confirm_page()`.
+
+    `version` has already been validated (the registry's own version
+    pattern and length cap) by the caller before this page is ever
+    reached; still escaped here, defence in depth. `ctx` is accepted but
+    unused, matching every other confirm-page builder's signature.
+    """
+    ctx = page_context.coerce(ctx)
+    resolved_wake_text = next_wake_text or i18n.t(UNKNOWN_TIME_TEXT)
+    heading = i18n.t(INSTALL_CONFIRM_HEADING_TEMPLATE) % version
+    sentence = i18n.t(INSTALL_CONFIRM_SENTENCE_TEMPLATE) % resolved_wake_text
+    return (
+        layout.page_header(heading)
+        + '<p class="text-body">%s</p>' % escape_html(sentence)
+        + _install_confirm_form_html(version)
+        + '<p><a class="text-label" href="%s">%s</a></p>'
+        % (layout.UPDATE_ROUTE, escape_html(i18n.t(CANCEL_BUTTON_TEXT)))
+    )
+
+
+def compute_next_wake_text(ctx):
+    """The Update page's own next-wake clock text: shared by the live GET
+    `render()` below and the install-confirmation page's sentence
+    (`companion/app.py`'s `_handle_update_install_post()`), so both ever
+    name the exact same wake time.
+    """
+    ctx = page_context.coerce(ctx)
+    device_cfg = ctx.device_config or {}
+    battery_critical = ctx.battery_critical if ctx.battery_critical is not None else False
+    next_wake_iso = wake.next_wake_at_iso(
+        ctx.last_checkin_ts, device_cfg, battery_critical=battery_critical)
+    if not next_wake_iso:
+        return ""
+    next_wake_parsed = layout.parse_iso(next_wake_iso)
+    if next_wake_parsed is None:
+        return ""
+    now = ctx.now or history_db.utc_now_iso()
+    return layout.local_clock_text(next_wake_parsed, now_parsed=layout.parse_iso(now))
+
+
 def update_page(ctx, view, next_wake_text):
     """The page body: `layout.page_header()`, then the Status card
     (running version, update state, rollback warning, scheduled
@@ -256,8 +339,7 @@ def update_page(ctx, view, next_wake_text):
 def render(ctx):
     """companion/routes.py's GET /update entry point: loads the registry
     and device report fresh from `ctx.state_dir`, derives the next-wake
-    clock text the same way companion/pages/health_page.py's Device tile
-    does, and renders `update_page()`.
+    clock text via `compute_next_wake_text()`, and renders `update_page()`.
     """
     ctx = page_context.coerce(ctx)
     state_dir = ctx.state_dir
@@ -265,16 +347,4 @@ def render(ctx):
     registry = firmware_registry.load_registry(state_dir)
     device_report = firmware_registry.load_device_report(state_dir)
     view = firmware_registry.update_view(registry, device_report, now)
-
-    device_cfg = ctx.device_config or {}
-    battery_critical = ctx.battery_critical if ctx.battery_critical is not None else False
-    next_wake_iso = wake.next_wake_at_iso(
-        ctx.last_checkin_ts, device_cfg, battery_critical=battery_critical)
-    next_wake_text = ""
-    if next_wake_iso:
-        next_wake_parsed = layout.parse_iso(next_wake_iso)
-        if next_wake_parsed is not None:
-            next_wake_text = layout.local_clock_text(
-                next_wake_parsed, now_parsed=layout.parse_iso(now))
-
-    return update_page(ctx, view, next_wake_text)
+    return update_page(ctx, view, compute_next_wake_text(ctx))

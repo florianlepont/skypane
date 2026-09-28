@@ -39,6 +39,16 @@ MESSAGES = {
     "update.cancel": "Annuler",
     "update.install": "Installer",
     "update.not_installable": "Non installable",
+    "update.install_firmware_s": "Installer le firmware %s ?",
+    "update.the_frame_will_download_and_install_this":
+        "Le cadre téléchargera et installera cette version à son "
+        "prochain réveil, vers %s. Il conservera la mise à jour après un "
+        "premier contact réussi — sinon, il revient automatiquement en "
+        "arrière.",
+    "update.couldn_t_schedule_that_update_please_try_again":
+        "Impossible de planifier cette mise à jour — veuillez réessayer.",
+    "update.couldn_t_cancel_the_frame_may_have_already":
+        "Impossible d’annuler — le cadre a peut-être déjà commencé.",
     "update.install_s_now":
         "Installer %s maintenant ? Elle s’appliquera au prochain réveil.",
 

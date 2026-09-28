@@ -37,8 +37,9 @@ from companion.pages import (  # noqa: E402
     airlines_page,  # noqa: F401
     config_page,
     health_page,
+    update_page,
 )
-from server import device_config, history_db  # noqa: E402
+from server import device_config, firmware_registry, history_db  # noqa: E402
 from server.plane import calendar_rules, illustrations  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
 import server.state_store as state_store  # noqa: E402
@@ -165,6 +166,8 @@ RULES_DELETE_ROUTE_SUFFIX = config_page.RULES_DELETE_ROUTE_SUFFIX
 CALENDAR_DISCONNECT_ROUTE = config_page.CALENDAR_DISCONNECT_ROUTE
 CALENDAR_CONNECT_ROUTE = config_page.CALENDAR_CONNECT_ROUTE
 NOTIFICATIONS_TEST_ROUTE = config_page.NOTIFICATIONS_TEST_ROUTE
+UPDATE_INSTALL_ROUTE = update_page.INSTALL_ROUTE
+UPDATE_CANCEL_ROUTE = update_page.CANCEL_ROUTE
 
 # The flash vocabulary (FLASH_MESSAGES/FLASH_ROLES/every FLASH_KEY_*)
 # and its text resolution now live in companion/flash.py — rebound here
@@ -204,6 +207,8 @@ FLASH_KEY_CALENDAR_CONNECT_OK = flash.FLASH_KEY_CALENDAR_CONNECT_OK
 FLASH_KEY_CALENDAR_CONNECT_INVALID = flash.FLASH_KEY_CALENDAR_CONNECT_INVALID
 FLASH_KEY_NOTIFICATIONS_TEST_OK = flash.FLASH_KEY_NOTIFICATIONS_TEST_OK
 FLASH_KEY_NOTIFICATIONS_TEST_FAILED = flash.FLASH_KEY_NOTIFICATIONS_TEST_FAILED
+FLASH_KEY_UPDATE_SCHEDULE_FAILED = flash.FLASH_KEY_UPDATE_SCHEDULE_FAILED
+FLASH_KEY_UPDATE_CANCEL_FAILED = flash.FLASH_KEY_UPDATE_CANCEL_FAILED
 FLASH_KEY_DISPLAY_ON = flash.FLASH_KEY_DISPLAY_ON
 FLASH_KEY_DISPLAY_OFF = flash.FLASH_KEY_DISPLAY_OFF
 FLASH_KEY_QUIET_ON = flash.FLASH_KEY_QUIET_ON
@@ -301,9 +306,10 @@ _PAGE_SCRIPTS = {
         layout.PANEL_LOOKUP_SCRIPT_SRC,
     ),
     # CONFIRM_SUBMIT_SCRIPT_SRC gates the per-release Install form's
-    # data-confirm misclick guard (its "no data-confirm-field, always
-    # lands on the confirm page" contract is a later plan's own route;
-    # this page's forms already carry the attribute the script reads).
+    # data-confirm misclick guard: the script never sets a "confirm"
+    # field of its own, so accepting the native confirm() dialog still
+    # lands on _handle_update_install_post()'s server-side confirm page,
+    # never schedules directly.
     layout.UPDATE_ROUTE: (
         layout.CONFIRM_SUBMIT_SCRIPT_SRC,
     ),
@@ -1129,6 +1135,64 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
             auth.UI_LANG_COOKIE_NAME, form.get("ui_lang"), prefs.LANG_CHOICES,
             LANG_COOKIE_MAX_AGE_S)
         return self.redirect(self._referring_tab(), set_cookie=cookie_header)
+
+    def _handle_update_install_post(self):
+        """POST UPDATE_INSTALL_ROUTE: two-step confirmation, server-side,
+        the same control-flow shape as
+        `SettingsActionsMixin._handle_calendar_disconnect_post()` — a
+        bare or non-matching `confirm` value renders the confirm page at
+        200 without touching the registry, since that page (not the
+        client-side `data-confirm` dialog the per-row Install form
+        carries) is the real gate. `version` is checked against the
+        registry's own version pattern and length cap before anything
+        renders it, so an implausible value (a script tag, an oversized
+        string) is treated as unknown rather than ever reaching a
+        template — and the registry's own membership/floor/running-
+        version checks in schedule_release() cover every other rejection
+        (unknown, below floor, same as running, busy).
+        """
+        form = self.read_form()
+        version = form.get("version") or ""
+        if (
+                len(version) > firmware_registry.VERSION_MAX_LEN
+                or not firmware_registry.VERSION_RE.match(version)):
+            return self.redirect(
+                "%s?flash=%s" % (UPDATE_ROUTE, quote(FLASH_KEY_UPDATE_SCHEDULE_FAILED)))
+        if form.get("confirm") != "yes":
+            ctx = self.page_context()
+            next_wake_text = update_page.compute_next_wake_text(ctx)
+            body = update_page.update_install_confirm_page(ctx, version, next_wake_text)
+            return self.send_html(200, self._page_shell_for(UPDATE_ROUTE, body, ctx))
+        state_dir = self.args.state_dir
+        now = history_db.utc_now_iso()
+        view = firmware_registry.update_view(
+            firmware_registry.load_registry(state_dir),
+            firmware_registry.load_device_report(state_dir), now)
+        try:
+            result = firmware_registry.schedule_release(
+                state_dir, version, view.get("running_version"), now)
+        except (OSError, TimeoutError):
+            result = None
+        if result != "scheduled":
+            return self.redirect(
+                "%s?flash=%s" % (UPDATE_ROUTE, quote(FLASH_KEY_UPDATE_SCHEDULE_FAILED)))
+        return self.redirect(UPDATE_ROUTE)
+
+    def _handle_update_cancel_post(self):
+        """POST UPDATE_CANCEL_ROUTE: a plain POST, no confirmation step —
+        cancelling is non-destructive and immediately reversible
+        (Install again). Only fails once the device has already
+        acknowledged the offer (firmware_registry.cancel_schedule()'s
+        own "not_cancellable" outcome).
+        """
+        try:
+            result = firmware_registry.cancel_schedule(self.args.state_dir)
+        except (OSError, TimeoutError):
+            result = None
+        if result in ("cancelled", "none"):
+            return self.redirect(UPDATE_ROUTE)
+        return self.redirect(
+            "%s?flash=%s" % (UPDATE_ROUTE, quote(FLASH_KEY_UPDATE_CANCEL_FAILED)))
 
     def do_POST(self):
         """Same one-connection-per-request scope as `do_GET()` above,

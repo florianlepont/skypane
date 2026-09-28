@@ -1,7 +1,8 @@
 """The flash-message vocabulary and its text/role resolution, moved out
 of `companion/app.py`: the FLASH_KEY_* aliases (each defined exactly
-once in `companion/pages/config_page.py` or `companion/pages/airlines_page.py`,
-re-exported here under its historical name so every existing call site —
+once in `companion/pages/config_page.py`, `companion/pages/airlines_page.py`
+or `companion/pages/update_page.py`, re-exported here under its
+historical name so every existing call site —
 and every test assertion against the literal query-string value — stays
 unchanged), the FLASH_MESSAGES/FLASH_ROLES tables built from them, and
 resolve_flash_text(). poll_cooldown_remaining() lives here too: it is
@@ -16,7 +17,7 @@ this module).
 import time
 
 from companion import frame_state, i18n, layout, wake
-from companion.pages import airlines_page, config_page
+from companion.pages import airlines_page, config_page, update_page
 from server import history_db
 from server.plane import calendar_rules, colour_rules
 
@@ -63,6 +64,8 @@ FLASH_KEY_CALENDAR_CONNECT_OK = config_page.FLASH_CALENDAR_CONNECT_OK
 FLASH_KEY_CALENDAR_CONNECT_INVALID = config_page.FLASH_CALENDAR_CONNECT_INVALID
 FLASH_KEY_NOTIFICATIONS_TEST_OK = config_page.FLASH_NOTIFICATIONS_TEST_OK
 FLASH_KEY_NOTIFICATIONS_TEST_FAILED = config_page.FLASH_NOTIFICATIONS_TEST_FAILED
+FLASH_KEY_UPDATE_SCHEDULE_FAILED = update_page.FLASH_UPDATE_SCHEDULE_FAILED
+FLASH_KEY_UPDATE_CANCEL_FAILED = update_page.FLASH_UPDATE_CANCEL_FAILED
 
 # A fixed key -> copy dictionary — the flash mechanism only ever renders
 # one of these, never a value taken verbatim from the query string.
@@ -268,6 +271,11 @@ FLASH_MESSAGES = {
     FLASH_KEY_NOTIFICATIONS_TEST_FAILED: i18n.msg(
         "notifications.couldn_t_reach_that_topic_check_the_url",
         "Couldn't reach that topic — check the URL."),
+    # Never echoes the submitted version or any exception text -- the
+    # registry's own return code (unknown/below_floor/same_as_running/
+    # busy) never leaks into operator-facing copy either.
+    FLASH_KEY_UPDATE_SCHEDULE_FAILED: update_page.FLASH_UPDATE_SCHEDULE_FAILED_TEXT,
+    FLASH_KEY_UPDATE_CANCEL_FAILED: update_page.FLASH_UPDATE_CANCEL_FAILED_TEXT,
 }
 
 # Every FLASH_KEY_* -> the ARIA role its rendered flash banner should
@@ -319,6 +327,8 @@ FLASH_ROLES = {
     FLASH_KEY_CALENDAR_CONNECT_INVALID: "alert",
     FLASH_KEY_NOTIFICATIONS_TEST_OK: "status",
     FLASH_KEY_NOTIFICATIONS_TEST_FAILED: "alert",
+    FLASH_KEY_UPDATE_SCHEDULE_FAILED: "alert",
+    FLASH_KEY_UPDATE_CANCEL_FAILED: "alert",
 }
 
 
