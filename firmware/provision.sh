@@ -208,6 +208,19 @@ reject_comma_or_newline() {
         echo "ERROR: ${name} must not contain a newline" >&2
         exit 2
     fi
+    # nvs_partition_gen reads secret.csv with Python's csv.DictReader
+    # under default (RFC4180-like) quoting: a value starting with '"' is
+    # parsed as a quoted field and silently rewritten at the next
+    # embedded '"' (e.g. `"abc"defgh` becomes `abcdefgh`). A leading
+    # double quote is printable ASCII and legal in a WPA passphrase, so
+    # this would otherwise store a mangled value the device can never
+    # match against what the operator actually typed.
+    case "${val}" in
+        \"*)
+            echo "ERROR: ${name} must not start with a double quote" >&2
+            exit 2
+            ;;
+    esac
 }
 
 validate_ssid() {
@@ -259,6 +272,15 @@ validate_api_base() {
             exit 2
             ;;
     esac
+    # Mirrors main/api_base.h's FP_API_BASE_MAX (128, including the NUL):
+    # nvs_get_str returns ESP_ERR_NVS_INVALID_LENGTH for a value of 128
+    # bytes or more, so a value that reaches that ceiling would make the
+    # device fail closed with step=config on every wake.
+    len=$(printf '%s' "${base}" | wc -c | tr -d ' ')
+    if [ "${len}" -gt 127 ]; then
+        echo "ERROR: --api-base must be at most 127 bytes (got ${len})" >&2
+        exit 2
+    fi
     reject_comma_or_newline "--api-base" "${base}"
 }
 
