@@ -5,14 +5,14 @@ milestone_name: milestone
 current_phase: 42
 current_phase_name: remote-firmware-update-over-the-air-ota-promoted-from-seed-0
 status: executing
-stopped_at: "Completed 42-01-PLAN.md (server/firmware_registry.py: storage, publish/schedule/cancel, and the pure offer/reconcile/view functions; 88 tests, 99% coverage). Next: 42-02."
-last_updated: "2026-09-28T09:27:06.165Z"
+stopped_at: "Completed 42-02-PLAN.md (firmware/main/ota_policy.c + validate.c offer-field validators; 18 host-test cases across two new/extended suites). Next: 42-03."
+last_updated: "2026-09-28T09:40:55.008Z"
 last_activity: 2026-09-28
 progress:
   total_phases: 54
   completed_phases: 50
   total_plans: 442
-  completed_plans: 418
+  completed_plans: 419
   percent: 93
 ---
 
@@ -66,7 +66,7 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 2 of 16
+Plan: 3 of 16
 
 **42-01 executed (2026-09-28), plan 1/16 of Phase 42 (depends on none, wave 1) — the server-side firmware release registry, three commits.** Task 1 re-verified gate G-41 against `origin/main` (all four checks passed: `41-VERIFICATION.md` status passed, 0 unchecked Phase 41 boxes, `server/atomic_io.py` defines `atomic_write`/`exclusive_lock`, `origin/main` an ancestor of HEAD) — read-only, no edits, no commit. Task 2 added `server/firmware_registry.py`'s storage layer: the `firmware/registry.json` / `firmware/device_report.json` / `firmware/<sha>.bin` layout, tolerant field-by-field `load_registry`/`load_device_report` (never raise, degrade individually malformed entries rather than the whole document), `publish_release` (SHA-256/size re-verified against the manifest, idempotent, refuses rebinding a version to a different sha, never deletes), `schedule_release`/`cancel_schedule`/`acknowledged` (a schedule is cancellable only until the device has started; any published release at or above the floor that differs from the running version can be scheduled, older ones included). Task 3 added the pure decision layer: `compute_offer` (battery-low / no-or-failed schedule / version-equals-running / below-floor / three-counted-failures / missing-release all withhold it; no quiet-hours or display-off input exists on the function at all), `reconcile`/`apply_reconcile` (device report events to installed/rollback/failed outcomes and notifications, exactly once per event, replay-safe, never mutating inputs), and `update_view` (the Update page's state/cancellable/rollback/history view model). 88 tests in `server/test_firmware_registry.py`, including a two-process `multiprocessing` concurrency test proving `registry_lock` loses no update; 99% coverage on the module (required: 95%). One auto-fixed deviation (Rule 1): several docstrings had cited decision IDs (D-05, D-13, ...) and the requirement ID OTA-01, which `scripts/check_comment_history.py check` correctly flagged as forbidden — reworded to keep the rationale without the ID citation. Commits: `7b7aae28` (feat) Task 2, `2096c009` (feat) Task 3, `9ea65bf3` (docs) SUMMARY. `REQUIREMENTS.md` intentionally left untouched: OTA-01/05/06/10 are each shared across several later plans in this phase (byos, poll loop, firmware, CI), so `requirements mark-complete` was not called — matching this project's established convention (Phase 39/40's ARC-*/CMP-* precedent) of only flipping a shared requirement ID at the phase's own close-out plan. `roadmap.update-plan-progress 42` now reports 1/16 plans (summaries) with the phase still In Progress. `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 95` (418/442) but the written frontmatter showed `percent: 93` (`completed_phases/total_phases` = 50/54) — corrected to `95` by hand per this file's established precedent.
 
@@ -632,6 +632,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 41 P07 | 55min | 2 tasks | 1 files |
 | Phase 41 P08 | 40min | 3 tasks | 3 files |
 | Phase 42 P01 | 25min | 3 tasks | 2 files |
+| Phase 42 P02 | 15m | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -1253,6 +1254,8 @@ Recent decisions affecting current work:
 - [Phase 41]: CFG-72/CFG-73 ticked after re-verifying their tests pass; CFG-74 and CFG-34/37/39/42/50/52/65 left byte-identical to the phase base per 41-CONTEXT.md's locked developer decision
 - [Phase 42]: Tolerant registry/device-report loaders validate field-by-field (drop/degrade individually malformed entries) rather than discarding the whole document on any single defect, matching device_config.py's existing load_device_config() contract
 - [Phase 42]: compute_offer counts unreconciled counted-failure events from the requesting device's own event list so a third failure reported in the same poll cannot grant a fourth attempt before apply_reconcile runs
+- [Phase 42-02]: fp_ota_decide checks same-version before battery before floor, and a voluntary downgrade is allowed as long as it clears the floor (D-06)
+- [Phase 42-02]: fp_ota_image_check re-derives project/version/floor from the signed app descriptor independently of the offer, so the floor holds even if a compromised VPS lies in the offer
 
 ### Pending Todos
 
@@ -1375,8 +1378,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T09:27:06.139Z
-Stopped at: Completed 42-01-PLAN.md (server/firmware_registry.py: storage, publish/schedule/cancel, and the pure offer/reconcile/view functions; 88 tests, 99% coverage). Next: 42-02.
+Last session: 2026-09-28T09:40:54.984Z
+Stopped at: Completed 42-02-PLAN.md (firmware/main/ota_policy.c + validate.c offer-field validators; 18 host-test cases across two new/extended suites). Next: 42-03.
 
 Resume file: 
 
