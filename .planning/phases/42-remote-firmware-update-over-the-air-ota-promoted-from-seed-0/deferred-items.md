@@ -56,3 +56,29 @@ without raqm and would have failed in CI; it was regenerated with raqm
 `server/requirements-dev.txt`), and both mask drift tests pass there.
 Regenerate any committed mask header the same way. Check locally with
 `python -c "from PIL import features; print(features.check('raqm'))"`.
+
+## 42-05: `deploy/tests/test_activate.py` and `test_install_backup_key.py` fail on this sandbox, pre-existing and unrelated to this plan
+
+**Found during:** 42-05 Task 2/3 verification (ran the full `deploy/tests`
+directory as an extra check beyond the plan's own targeted verify commands).
+
+**Symptom:** 17 failures across `test_activate.py` (all cases) and two
+`test_install_backup_key.py` cases when run natively on this non-root macOS
+sandbox. `41-REAUDIT-INT-SEC.md` (Phase 41, plan 6) already documents the
+same class of failure for a different pair of files in this exact sandbox
+("BSD `mv` lacks `-T`"), and re-runs them inside a plain Linux container
+instead of leaving them unproven.
+
+**Why not fixed here:** none of this plan's three files
+(`scripts/check_cert_chain.py`, `deploy/tests/test_cert_chain_check.py`,
+`.github/workflows/firmware-chain-check.yml`) touch `deploy/activate.sh`,
+`deploy/install_backup_key.sh`, or anything either failing test file
+exercises — out of this plan's `files_modified` list and scope boundary.
+This plan's own targeted verify commands
+(`deploy/tests/test_cert_chain_check.py deploy/tests/test_ci_secrets.py`)
+pass cleanly; the broader `deploy/tests` run was an extra check, not a
+plan requirement.
+
+**Suggested follow-up:** re-run `deploy/tests/test_activate.py` and
+`test_install_backup_key.py` inside a Linux container (as 41-06 did) if a
+future plan needs to prove them; not needed for this plan's own scope.
