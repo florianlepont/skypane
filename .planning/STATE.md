@@ -2,16 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
+current_phase: 41
+current_phase_name: docs-repository-hygiene-and-closing-re-audit
 status: executing
-stopped_at: Completed 41-05-PLAN.md
-last_updated: "2026-09-28T06:16:15.197Z"
+stopped_at: Completed 41-06-PLAN.md
+last_updated: "2026-09-28T07:07:10.126Z"
 last_activity: 2026-09-28
 progress:
   total_phases: 54
   completed_phases: 49
   total_plans: 442
-  completed_plans: 414
-  percent: 91
+  completed_plans: 415
+  percent: 94
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -64,7 +66,9 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 6 of 8
+Plan: 7 of 8
+
+**41-06 executed (2026-09-28), plan 6/8 of Phase 41 (depends on none, wave 1) — read-only closing re-audit of Phase 36 (INT-01..INT-14) and Phase 37 (SEC-01..SEC-08), one commit for the report plus its SUMMARY.** Wrote `41-REAUDIT-INT-SEC.md`: all 22 findings VERIFIED-CLOSED against the current codebase, confirmed unbroken across the Phase 38-40 refactors (poll_cycle split, history_db rewrite, calendar_rules package split, companion route table) — poll.lock/flock now lives in `server/poll_cycle.py`, INT-14's IP-pinning fix (`server/http_fetch.py::pinned_request`) is the option that shipped with `server/net/safe_fetch.py` (a Phase 39 addition) confirmed as an additive early gate rather than a replacement, and SEC-03's Origin/Sec-Fetch-Site check was re-traced against the current, larger 17-route `companion/routes.py` table by finding it runs once in `companion/app.py::_dispatch()` before routing, covering routes Phase 40 added. Ran the plan's full targeted test sets (94 + 442 + 124 passed across the INT and SEC gates) plus `deploy/tests` (100 passed natively, 4 skipped for missing `systemd-analyze`). This sandbox (non-root macOS, unlike 41-04/41-05's root-Linux sandboxes) could not natively run two `deploy/tests` files (BSD `mv` lacks `-T`) or `systemd-analyze` at all — both were re-run inside Docker containers (a plain Linux container for the tests: 70 passed, 4 skipped; a systemd-installed Ubuntu container for the security scoring: byos 1.3 OK/companion 1.5 OK/poll 1.5 OK/backup 0.8 SAFE, byte-identical to `37-SEC-BASELINE.md`) rather than left unproven. `roadmap.update-plan-progress 41` now reports 6/8 plans (summaries) with the phase still In Progress (41-07/41-08 are not this plan's scope). `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 94` (415/442) but the written frontmatter showed `percent: 91` (`completed_phases/total_phases` = 49/54) — corrected to `94` by hand per this file's established precedent.
 
 **40-16 executed (2026-09-27), plan 16/16 of Phase 40 (depends on 40-02/40-03/40-10/40-11/40-15), wave 9 — the phase close-out, three commits.** Task 1 extracted `companion/pages/health_page.py`'s registry ("Airlines we could not name"), resolution-statistics ("How well we name flights") and check-in-regularity sections into a new `companion/health_sections.py` (the same companion-level pattern `battery_chart.py`/`health_signals.py` already use, since a page module may not import another page module), shrinking `health_page.py` from 1787 to 1111 lines — comfortably under the 1500-line ceiling, so `companion/test_structure_guards.py`'s `PENDING_OVERSIZED_FILES`/`PENDING_LONG_FUNCTIONS` allowlists (and every reference to them) were deleted outright; `grep -c "PENDING_"` on that file is now 0. `_unavailable_block()`/`HEALTH_UNAVAILABLE_TEXT`/`_resolution_rate_tile_html()`/`_TILE_DETAIL_CLASS` moved too, alongside the three named groups, to break a circular re-export (two of the moving functions call `_unavailable_block()`, which six staying functions also call) — `health_page.py` re-exports everything the moved code left it still needing, discovered to convergence by running the full suite rather than by static grep alone (one test resolves an attribute through a loop variable). The split is a pure extraction, proven by `companion/test_render_baseline.py`'s two tests passing byte-for-byte once `test-support/companion_render_snapshot.py`'s clock-freezing patch target followed `resolution_stats()` from `health_page.datetime` to `health_sections.datetime`. One unrelated pre-existing full-suite failure was fixed (Rule 1): `stub-server/test_poll_cycle.py`'s hostile-quiet-hours-config integration step still asserted the pre-D-4 fail-open `sleep_s == 300`, stale since Phase 39's `39-06` shipped the fallback-to-default-window behaviour — now computed from `device_policy.seconds_until_quiet_hours_end()` against that same default window. `SKYPANE_REQUIRE_BROWSER=1 ./scripts/run-all-tests.sh` exits 0: 3211 passed, 0 failed, 7 skipped (pre-existing root-euid skips), 94.86% coverage; ruff and `check_comment_history.py` both clean. Task 2 appended dated Phase 40 paragraphs to `REQUIREMENTS.md`'s CFG-34 and CFG-39 rows (each clause named, held-or-not stated, test(s) cited) and ticked both — CFG-34: all three convertible sites (Flights desktop When cell, Calendar status detail, Health registry cells, all landed by 40-10) now tick in a real browser, the battery-trend tooltip stays the one permanent structural exception; CFG-39: `battery_sparkline_svg()`'s scale IS `draw.percent_y` (not a second implementation) since 40-06's migration, closing the old row's "nothing pins the two together" gap. CFG-52 already carried its own Phase 40 paragraph from `40-07` and was verified, not rewritten. CMP-01..09's traceability rows now name their satisfying plan(s) instead of a bare "Phase 40 \| Complete". Commits: `a4a2f79` (feat) Task 1, `51d0319` (docs) Task 2, `d8d8cb4`/`99cca1d` (docs) SUMMARY. `roadmap.update-plan-progress 40` now reports the phase Complete at 16/16; `requirements.mark-complete` found all twelve IDs already ticked. `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 94` (409/434) but the written frontmatter showed `percent: 91` (`completed_phases/total_phases` = 49/54) — corrected to `94` by hand per this file's established precedent, as the last STATE.md edit before this plan's own final commit.
 
@@ -621,6 +625,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 41 P03 | 12min | 2 tasks | 5 files |
 | Phase 41 P04 | 20min | 2 tasks | 1 files |
 | Phase 41 P05 | 55min | 2 tasks | 1 files |
+| Phase 41 P06 | 70min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -1234,6 +1239,8 @@ Recent decisions affecting current work:
 - [Phase 41]: HYG-01/HYG-06 marked FLAGGED-OPEN in the 41-04 re-audit — Guard-evasion hunt found 21 genuine history references (letter-suffixed decision IDs, dotted UI-SPEC section numbers) across 12 files that the comment-history guard's regex misses; minimal 3-edit fix proposed for a later plan
 - [Phase 41]: All 15 FW findings (FW-01..FW-15) verify VERIFIED-CLOSED against current firmware; firmware/ untouched throughout the re-audit
 - [Phase 41]: 34-VERIFICATION.md's W-1 warning (NVS panic-loop) was fixed after that report was written despite being scored non-blocking - positive drift documented in 41-REAUDIT-FW.md
+- [Phase 41]: INT-01..14 and SEC-01..08 all VERIFIED-CLOSED against current code (post Phase 38-40 refactors); no regressions found
+- [Phase 41]: INT-14: IP-pinning fix confirmed shipped (http_fetch.pinned_request); server/net/safe_fetch.py is additive, not a replacement
 
 ### Pending Todos
 
@@ -1355,8 +1362,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T06:16:15.082Z
-Stopped at: Completed 41-05-PLAN.md
+Last session: 2026-09-28T07:07:10.100Z
+Stopped at: Completed 41-06-PLAN.md
 
 Resume file: 
 

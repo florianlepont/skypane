@@ -1805,6 +1805,7 @@ Plans:
 **Plans:** 11/11 plans complete (Wave A and Wave B; closed 2026-09-26)
 
 Plans:
+
 - [x] 37-01-PLAN.md — Wave A — SEC-01 per-client-IP login throttle, plus the companion `--bind` flag (D-22)
 - [x] 37-02-PLAN.md — Wave A — off-box backup freshness on the companion Health page, warn nav dot (SEC-04, D-07, D-23)
 - [x] 37-03-PLAN.md — Wave A — HSTS + shared Caddyfile renderer, hardened units on `/opt/skypane/current` + backup timer, `ci.yml` secrets via `env:` + offline `systemd-analyze` gate (SEC-02/05/06/07)
@@ -1965,7 +1966,7 @@ Plans:
 2. Every ID in the audit ledger marked closed with its evidence (commit / test)
 3. A fresh audit pass finds no regression of a closed item
 
-**Plans:** 5/8 plans executed
+**Plans:** 6/8 plans executed
 
 Plans:
 
@@ -1976,7 +1977,7 @@ Plans:
 - [x] 41-03-PLAN.md — DOC-02: power-cycle log gzipped in the tree, unused illustration draft removed, archival deferred to v1.0 close [DOC-02]
 - [x] 41-04-PLAN.md — DOC-03 re-audit: TST-01..15, HYG-01..06 (full gate runs) [DOC-03]
 - [x] 41-05-PLAN.md — DOC-03 re-audit: FW-01..15, read-only on firmware/ [DOC-03]
-- [ ] 41-06-PLAN.md — DOC-03 re-audit: INT-01..14, SEC-01..08 [DOC-03]
+- [x] 41-06-PLAN.md — DOC-03 re-audit: INT-01..14, SEC-01..08 [DOC-03]
 - [ ] 41-07-PLAN.md — DOC-03 re-audit: EFF-01..06, ARC-01..06, CMP-01..09 [DOC-03]
 
 **Wave 2** *(blocked on Wave 1 completion)*
