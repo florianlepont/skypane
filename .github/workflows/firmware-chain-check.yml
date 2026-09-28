@@ -1,0 +1,60 @@
+# SkyPane — Firmware CA chain guard.
+#
+# Proves the certificate chain the production host serves still ends at
+# one of the roots compiled into firmware/main/certs. Runs on its own
+# schedule rather than inside pytest: scripts/check_cert_chain.py's
+# `check` subcommand needs the real network, and the pytest-socket guard
+# used everywhere else in this repository blocks any non-loopback
+# connection from a test process. If the certificate authority ever moves
+# the served chain to a root outside firmware/main/certs, a frame already
+# in the field cannot be reached to fix it remotely — the fix ships the
+# same way every other change does, as a normal signed release that adds
+# the new root, published before the old chain expires.
+name: Firmware CA chain guard
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - 'firmware/main/certs/**'
+      - 'scripts/check_cert_chain.py'
+      - '.github/workflows/firmware-chain-check.yml'
+
+# Least privilege: read-only GITHUB_TOKEN.
+permissions:
+  contents: read
+
+jobs:
+  chain-check:
+    name: Verify the production TLS chain leads to a compiled root
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Confirm the PRODUCTION_HOST secret is set
+        id: secret_check
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+        run: |
+          if [ -z "$PRODUCTION_HOST" ]; then
+            echo "::error::PRODUCTION_HOST secret is not set"
+            exit 1
+          fi
+
+      - name: Fetch and verify the served chain against firmware/main/certs
+        id: check
+        # Passed via env:, not interpolated into run: -- a `${{ }}` in
+        # run: becomes literal script text, letting a secret value inject
+        # shell commands.
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+        run: python3 scripts/check_cert_chain.py check --host "$PRODUCTION_HOST" --roots firmware/main/certs
+
+      - name: Explain a failing chain
+        if: steps.check.outcome == 'failure'
+        run: echo "::error::The production host's certificate chain no longer leads to a root in firmware/main/certs. Add the new root there and ship a signed release before the frame loses TLS."
