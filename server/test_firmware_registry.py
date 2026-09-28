@@ -452,6 +452,350 @@ def test_concurrent_publish_and_schedule_loses_no_update(tmp_path):
         assert os.path.exists(image_path)
 
 
+# --- compute_offer ----------------------------------------------------------
+
+def _offer_registry(version=NEXT_VERSION, sha256="a" * 64, size=1234, attempts=0, state="scheduled", reconciled_seq=0, floor_version=registry_mod.FLOOR_VERSION):
+    return {
+        "schema": 1, "floor_version": floor_version,
+        "releases": [{
+            "version": version, "sha256": sha256, "size": size,
+            "released_at": "2026-09-28", "published_at": NOW, "commit": "a" * 40,
+            "notes": [], "bench": False, "installed_at": [],
+        }],
+        "schedule": {
+            "id": "sched1", "version": version, "sha256": sha256,
+            "scheduled_at": NOW, "state": state, "attempts": attempts,
+            "failed_at": None, "last_result": None,
+        },
+        "last_outcome": None, "reconciled_seq": reconciled_seq,
+    }
+
+
+def test_compute_offer_returns_offer_object():
+    registry = _offer_registry()
+    device_entry = {"fw_version": RUNNING_VERSION, "events": []}
+    offer = registry_mod.compute_offer(registry, device_entry, False, "https://example.test")
+    assert offer == {
+        "version": NEXT_VERSION,
+        "url": "https://example.test/fw/" + "a" * 64 + ".bin",
+        "sha256": "sha256:" + "a" * 64,
+        "size": 1234,
+    }
+
+
+def test_compute_offer_signature_has_no_quiet_hours_param():
+    """The function takes exactly these four inputs, so quiet hours and
+    display-off structurally cannot influence the offer.
+    """
+    registry = _offer_registry()
+    device_entry = {"fw_version": RUNNING_VERSION, "events": []}
+    offer = registry_mod.compute_offer(registry, device_entry, False, "https://example.test")
+    assert offer is not None
+
+
+@pytest.mark.parametrize("case", [
+    "battery_low",
+    "no_schedule",
+    "failed_schedule",
+    "version_equals_running",
+    "below_floor",
+    "max_attempts",
+    "release_missing",
+])
+def test_compute_offer_none_conditions(case):
+    battery_low_active = False
+    device_entry = {"fw_version": RUNNING_VERSION, "events": []}
+
+    if case == "battery_low":
+        registry = _offer_registry()
+        battery_low_active = True
+    elif case == "no_schedule":
+        registry = _offer_registry()
+        registry["schedule"] = None
+    elif case == "failed_schedule":
+        registry = _offer_registry(state="failed")
+    elif case == "version_equals_running":
+        registry = _offer_registry(version=RUNNING_VERSION)
+        registry["releases"][0]["version"] = RUNNING_VERSION
+        registry["schedule"]["version"] = RUNNING_VERSION
+    elif case == "below_floor":
+        registry = _offer_registry(version=BELOW_FLOOR_VERSION, floor_version="fw-v1.0.0")
+        registry["releases"][0]["version"] = BELOW_FLOOR_VERSION
+        registry["schedule"]["version"] = BELOW_FLOOR_VERSION
+    elif case == "max_attempts":
+        registry = _offer_registry(attempts=2)
+        device_entry = {
+            "fw_version": RUNNING_VERSION,
+            "events": [{"seq": 1, "at": NOW, "kind": "result", "schedule_id": "sched1", "token": "fail-hash", "version": NEXT_VERSION}],
+        }
+    elif case == "release_missing":
+        registry = _offer_registry()
+        registry["releases"] = []
+
+    offer = registry_mod.compute_offer(registry, device_entry, battery_low_active, "https://example.test")
+    assert offer is None
+
+
+# --- reconcile / apply_reconcile --------------------------------------------
+
+def _schedule_doc(version=NEXT_VERSION, sha256="d" * 64, attempts=0, state="scheduled"):
+    return {
+        "schema": 1, "floor_version": registry_mod.FLOOR_VERSION,
+        "releases": [{
+            "version": version, "sha256": sha256, "size": 10,
+            "released_at": "2026-09-28", "published_at": NOW, "commit": "d" * 40,
+            "notes": [], "bench": False, "installed_at": [],
+        }],
+        "schedule": {
+            "id": "sched1", "version": version, "sha256": sha256,
+            "scheduled_at": NOW, "state": state, "attempts": attempts,
+            "failed_at": None, "last_result": None,
+        },
+        "last_outcome": None, "reconciled_seq": 0,
+    }
+
+
+def test_reconcile_processes_only_new_events_in_seq_order():
+    registry = _schedule_doc()
+    registry["reconciled_seq"] = 1
+    device_report = _make_device_report([
+        {"seq": 1, "at": NOW, "kind": "result", "schedule_id": "sched1", "token": "fail-hash", "version": NEXT_VERSION},
+        {"seq": 2, "at": LATER, "kind": "result", "schedule_id": "sched1", "token": "fail-hash", "version": NEXT_VERSION},
+    ])
+    new_registry, notifications = registry_mod.reconcile(registry, device_report, LATER)
+    assert new_registry["schedule"]["attempts"] == 1  # only seq=2 processed
+    assert new_registry["reconciled_seq"] == 2
+    assert notifications == []
+
+
+def test_reconcile_counted_failure_increments_attempts():
+    registry = _schedule_doc()
+    device_report = _make_device_report([
+        {"seq": 1, "at": NOW, "kind": "result", "schedule_id": "sched1", "token": "fail-download", "version": NEXT_VERSION},
+    ])
+    new_registry, notifications = registry_mod.reconcile(registry, device_report, NOW)
+    assert new_registry["schedule"]["attempts"] == 1
+    assert new_registry["schedule"]["last_result"] == "fail-download"
+    assert notifications == []
+
+
+def test_reconcile_third_failure_marks_failed_and_notifies():
+    registry = _schedule_doc(attempts=2)
+    device_report = _make_device_report([
+        {"seq": 1, "at": NOW, "kind": "result", "schedule_id": "sched1", "token": "fail-hash", "version": NEXT_VERSION},
+    ], fw_version=RUNNING_VERSION)
+    new_registry, notifications = registry_mod.reconcile(registry, device_report, LATER)
+    assert new_registry["schedule"]["state"] == "failed"
+    assert new_registry["schedule"]["failed_at"] == LATER
+    assert new_registry["last_outcome"] == {
+        "kind": "failed", "version": NEXT_VERSION, "back_on": RUNNING_VERSION, "at": LATER,
+    }
+    assert notifications == [("failed", NEXT_VERSION, RUNNING_VERSION)]
+
+
+def test_reconcile_rollback_sets_last_outcome_until_third_attempt():
+    registry = _schedule_doc(attempts=0)
+    device_report = _make_device_report([
+        {"seq": 1, "at": NOW, "kind": "result", "schedule_id": "sched1", "token": "rollback", "version": NEXT_VERSION},
+    ], fw_version=RUNNING_VERSION)
+    new_registry, notifications = registry_mod.reconcile(registry, device_report, NOW)
+    assert new_registry["last_outcome"]["kind"] == "rollback"
+    assert new_registry["schedule"]["state"] == "scheduled"  # not yet the third attempt
+    assert notifications == []
+
+
+def test_reconcile_installed_appends_installed_at_and_notifies():
+    registry = _schedule_doc()
+    device_report = _make_device_report([
+        {"seq": 1, "at": NOW, "kind": "result", "schedule_id": "sched1", "token": "installed", "version": NEXT_VERSION},
+    ])
+    new_registry, notifications = registry_mod.reconcile(registry, device_report, NOW)
+    assert new_registry["schedule"] is None
+    assert new_registry["releases"][0]["installed_at"] == [NOW]
+    assert new_registry["last_outcome"] == {"kind": "installed", "version": NEXT_VERSION, "back_on": None, "at": NOW}
+    assert notifications == [("installed", NEXT_VERSION, None)]
+
+
+def test_reconcile_trial_and_deferred_battery_never_count():
+    registry = _schedule_doc()
+    device_report = _make_device_report([
+        {"seq": 1, "at": NOW, "kind": "result", "schedule_id": "sched1", "token": "trial", "version": NEXT_VERSION},
+        {"seq": 2, "at": LATER, "kind": "result", "schedule_id": "sched1", "token": "deferred-battery", "version": NEXT_VERSION},
+    ])
+    new_registry, notifications = registry_mod.reconcile(registry, device_report, LATER)
+    assert new_registry["schedule"]["attempts"] == 0
+    assert notifications == []
+
+
+def test_reconcile_replay_produces_no_new_notification():
+    registry = _schedule_doc()
+    device_report = _make_device_report([
+        {"seq": 1, "at": NOW, "kind": "result", "schedule_id": "sched1", "token": "installed", "version": NEXT_VERSION},
+    ])
+    new_registry, notifications = registry_mod.reconcile(registry, device_report, NOW)
+    assert notifications
+    replayed_registry, replayed_notifications = registry_mod.reconcile(new_registry, device_report, LATER)
+    assert replayed_notifications == []
+    assert replayed_registry == new_registry
+
+
+def test_reconcile_stale_schedule_id_updates_last_outcome_not_attempts():
+    registry = _schedule_doc(attempts=0)
+    device_report = _make_device_report([
+        {"seq": 1, "at": NOW, "kind": "result", "schedule_id": "some-old-schedule", "token": "installed", "version": "fw-v0.9.0"},
+    ])
+    new_registry, notifications = registry_mod.reconcile(registry, device_report, NOW)
+    assert new_registry["schedule"]["attempts"] == 0
+    assert new_registry["last_outcome"] == {"kind": "installed", "version": "fw-v0.9.0", "back_on": None, "at": NOW}
+    assert notifications == []
+
+
+def test_apply_reconcile_writes_only_when_changed(tmp_path):
+    state_dir = str(tmp_path)
+    _publish(tmp_path)  # registers NEXT_VERSION so it can be scheduled below
+    registry_mod.schedule_release(state_dir, NEXT_VERSION, RUNNING_VERSION, now=NOW)
+
+    doc = registry_mod.load_registry(state_dir)
+    schedule_id = doc["schedule"]["id"] if doc["schedule"] else None
+    notifications = registry_mod.apply_reconcile(state_dir, now=NOW)
+    assert notifications == []
+
+    import json
+    device_report = _make_device_report([
+        {"seq": 1, "at": NOW, "kind": "result", "schedule_id": schedule_id, "token": "installed", "version": NEXT_VERSION},
+    ])
+    with open(registry_mod.device_report_path(state_dir), "w") as fh:
+        json.dump(device_report, fh)
+
+    registry_path = registry_mod.registry_path(state_dir)
+    before_mtime = os.stat(registry_path).st_mtime_ns
+    notifications2 = registry_mod.apply_reconcile(state_dir, now=LATER)
+    after_mtime = os.stat(registry_path).st_mtime_ns
+    assert notifications2 == [("installed", NEXT_VERSION, None)]
+    assert after_mtime != before_mtime
+
+    before_mtime2 = os.stat(registry_path).st_mtime_ns
+    notifications3 = registry_mod.apply_reconcile(state_dir, now=LATER)
+    after_mtime2 = os.stat(registry_path).st_mtime_ns
+    assert notifications3 == []
+    assert after_mtime2 == before_mtime2
+
+
+# --- update_view -------------------------------------------------------------
+
+def _view_registry(schedule=None, last_outcome=None, releases=None, floor_version=registry_mod.FLOOR_VERSION):
+    return {
+        "schema": 1, "floor_version": floor_version,
+        "releases": releases if releases is not None else [],
+        "schedule": schedule, "last_outcome": last_outcome, "reconciled_seq": 0,
+    }
+
+
+def _view_device_report(fw_version=RUNNING_VERSION, reported_at=NOW, events=None):
+    return _make_device_report(events or [], fw_version=fw_version)
+
+
+def test_update_view_available_state():
+    releases = [{
+        "version": NEXT_VERSION, "sha256": "e" * 64, "size": 10,
+        "released_at": "2026-09-28", "published_at": NOW, "commit": "e" * 40,
+        "notes": [], "bench": False, "installed_at": [],
+    }]
+    registry = _view_registry(releases=releases)
+    device_report = _view_device_report()
+    view = registry_mod.update_view(registry, device_report, NOW)
+    assert view["state"] == "available"
+    assert view["state_at"] == NOW
+    assert view["running_version"] == RUNNING_VERSION
+    assert view["cancellable"] is False
+    assert view["rollback"] is None
+    assert view["releases"][0]["installable"] is True
+
+
+def test_update_view_scheduled_state_is_cancellable():
+    schedule = {
+        "id": "sched1", "version": NEXT_VERSION, "sha256": "f" * 64,
+        "scheduled_at": NOW, "state": "scheduled", "attempts": 0,
+        "failed_at": None, "last_result": None,
+    }
+    registry = _view_registry(schedule=schedule)
+    device_report = _view_device_report(events=[])
+    view = registry_mod.update_view(registry, device_report, LATER)
+    assert view["state"] == "scheduled"
+    assert view["state_at"] == NOW
+    assert view["cancellable"] is True
+
+
+def test_update_view_in_progress_state_not_cancellable():
+    schedule = {
+        "id": "sched1", "version": NEXT_VERSION, "sha256": "f" * 64,
+        "scheduled_at": NOW, "state": "scheduled", "attempts": 0,
+        "failed_at": None, "last_result": None,
+    }
+    registry = _view_registry(schedule=schedule)
+    device_report = _view_device_report(events=[
+        {"seq": 1, "at": LATER, "kind": "offered", "schedule_id": "sched1", "token": None, "version": NEXT_VERSION},
+    ])
+    view = registry_mod.update_view(registry, device_report, LATER)
+    assert view["state"] == "in_progress"
+    assert view["state_at"] == LATER
+    assert view["cancellable"] is False
+
+
+def test_update_view_failed_state():
+    schedule = {
+        "id": "sched1", "version": NEXT_VERSION, "sha256": "f" * 64,
+        "scheduled_at": NOW, "state": "failed", "attempts": 3,
+        "failed_at": LATER, "last_result": "fail-hash",
+    }
+    registry = _view_registry(schedule=schedule)
+    device_report = _view_device_report()
+    view = registry_mod.update_view(registry, device_report, LATER)
+    assert view["state"] == "failed"
+    assert view["state_at"] == LATER
+
+
+def test_update_view_installed_state():
+    last_outcome = {"kind": "installed", "version": RUNNING_VERSION, "back_on": None, "at": NOW}
+    registry = _view_registry(last_outcome=last_outcome)
+    device_report = _view_device_report(fw_version=RUNNING_VERSION)
+    view = registry_mod.update_view(registry, device_report, LATER)
+    assert view["state"] == "installed"
+    assert view["state_at"] == NOW
+
+
+def test_update_view_rollback_field():
+    last_outcome = {"kind": "rollback", "version": NEXT_VERSION, "back_on": RUNNING_VERSION, "at": NOW}
+    registry = _view_registry(last_outcome=last_outcome)
+    device_report = _view_device_report(fw_version=RUNNING_VERSION)
+    view = registry_mod.update_view(registry, device_report, LATER)
+    assert view["rollback"] == {"version": NEXT_VERSION, "back_on": RUNNING_VERSION}
+
+
+def test_update_view_releases_installable_and_installed_at():
+    releases = [
+        {
+            "version": NEXT_VERSION, "sha256": "1" * 64, "size": 10,
+            "released_at": "2026-09-28", "published_at": LATER, "commit": "1" * 40,
+            "notes": ["a note"], "bench": False, "installed_at": [],
+        },
+        {
+            "version": RUNNING_VERSION, "sha256": "2" * 64, "size": 10,
+            "released_at": "2026-09-01", "published_at": NOW, "commit": "2" * 40,
+            "notes": [], "bench": False, "installed_at": [NOW],
+        },
+    ]
+    registry = _view_registry(releases=releases)
+    device_report = _view_device_report(fw_version=RUNNING_VERSION)
+    view = registry_mod.update_view(registry, device_report, LATER)
+    # newest published_at first
+    assert [r["version"] for r in view["releases"]] == [NEXT_VERSION, RUNNING_VERSION]
+    assert view["releases"][0]["installable"] is True
+    # running version is not installable against itself
+    assert view["releases"][1]["installable"] is False
+    assert view["releases"][1]["installed_at"] == [NOW]
+
+
 # --- additional coverage: small helpers and every tolerant-degrade branch --
 
 def test_firmware_image_path_rejects_non_hex_or_non_string(tmp_path):
@@ -627,3 +971,65 @@ def test_publish_release_rejects_non_string_notes(tmp_path):
         registry_mod.publish_release(str(tmp_path), manifest, image_path)
 
 
+def test_compute_offer_skips_events_with_other_schedule_id_or_kind():
+    registry = _offer_registry(attempts=0)
+    device_entry = {
+        "fw_version": RUNNING_VERSION,
+        "events": [
+            {"seq": 1, "at": NOW, "kind": "offered", "schedule_id": "sched1", "token": None, "version": NEXT_VERSION},
+            {"seq": 2, "at": NOW, "kind": "result", "schedule_id": "some-other-schedule", "token": "fail-hash", "version": NEXT_VERSION},
+        ],
+    }
+    offer = registry_mod.compute_offer(registry, device_entry, False, "https://example.test")
+    assert offer is not None  # neither event counts toward attempts
+
+
+def test_compute_offer_skips_events_at_or_below_reconciled_seq():
+    registry = _offer_registry(attempts=0, reconciled_seq=5)
+    device_entry = {
+        "fw_version": RUNNING_VERSION,
+        "events": [
+            {"seq": 3, "at": NOW, "kind": "result", "schedule_id": "sched1", "token": "fail-hash", "version": NEXT_VERSION},
+            {"seq": 6, "at": NOW, "kind": "result", "schedule_id": "sched1", "token": "fail-hash", "version": NEXT_VERSION},
+        ],
+    }
+    offer = registry_mod.compute_offer(registry, device_entry, False, "https://example.test")
+    assert offer is not None  # only seq=6 counts (1 attempt, below MAX_ATTEMPTS)
+
+
+def test_reconcile_offered_event_advances_seq_without_effect():
+    registry = _schedule_doc()
+    device_report = _make_device_report([
+        {"seq": 1, "at": NOW, "kind": "offered", "schedule_id": "sched1", "token": None, "version": NEXT_VERSION},
+    ])
+    new_registry, notifications = registry_mod.reconcile(registry, device_report, NOW)
+    assert new_registry["reconciled_seq"] == 1
+    assert new_registry["schedule"]["attempts"] == 0
+    assert notifications == []
+
+
+def test_reconcile_stale_schedule_id_rollback_updates_last_outcome():
+    registry = _schedule_doc(attempts=0)
+    device_report = _make_device_report([
+        {"seq": 1, "at": NOW, "kind": "result", "schedule_id": "some-old-schedule", "token": "rollback", "version": "fw-v0.9.0"},
+    ], fw_version=RUNNING_VERSION)
+    new_registry, notifications = registry_mod.reconcile(registry, device_report, NOW)
+    assert new_registry["schedule"]["attempts"] == 0
+    assert new_registry["last_outcome"] == {
+        "kind": "rollback", "version": "fw-v0.9.0", "back_on": RUNNING_VERSION, "at": NOW,
+    }
+    assert notifications == []
+
+
+def test_most_recent_device_entry_skips_entries_without_reported_at():
+    device_report = {
+        "schema": 1, "next_seq": 2,
+        "devices": {
+            "no-report": {"fw_version": "fw-v0.0.1", "reported_at": None, "events": []},
+            "has-report": {"fw_version": RUNNING_VERSION, "reported_at": NOW, "events": []},
+        },
+    }
+    registry = _view_registry()
+    view = registry_mod.update_view(registry, device_report, NOW)
+    assert view["running_version"] == RUNNING_VERSION
+    assert view["reported_at"] == NOW

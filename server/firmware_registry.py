@@ -26,6 +26,7 @@ kept (a voluntary downgrade needs the old image to still be there), so
 there is no pruning to write.
 """
 import contextlib
+import copy
 import hashlib
 import json
 import os
@@ -145,10 +146,10 @@ def _utc_now_iso():
 
 # --- Version helpers ---------------------------------------------------
 #
-# Only the floor comparison orders versions (D-11); the offer rule
-# itself is "differs from running", never "newer than" (D-06). A
-# version string is parsed only for that floor check -- releases are
-# otherwise identified by their registry entry.
+# Only the floor comparison orders versions; the offer rule itself is
+# "differs from running", never "newer than" -- a voluntary downgrade
+# is allowed. A version string is parsed only for that floor check --
+# releases are otherwise identified by their registry entry.
 
 def parse_version(text):
     """(major, minor, patch) for a VERSION_RE match at most
@@ -416,7 +417,7 @@ def _newest_event_for_schedule(schedule_id, device_report):
 
 
 def acknowledged(schedule, device_report):
-    """The single rule for "the device has started" (D-05): the newest
+    """The single rule for "the device has started": the newest
     event recorded for this schedule id, across every device. An
     "offered" event, or any "result" whose token is not
     "deferred-battery", means the device has started -- no event at
@@ -529,11 +530,11 @@ def publish_release(state_dir, manifest, image_path, bench=False, now=None):
 
 
 def schedule_release(state_dir, version, running_version, now=None):
-    """Make `version` the scheduled release (D-01: recording intent
-    only, never touching the device or byos). Any published release at
-    or above the floor whose version differs from `running_version` can
-    be scheduled, older ones included (D-06, D-11) -- see the return
-    value table in this module's tests for every other outcome.
+    """Make `version` the scheduled release -- recording intent only,
+    never touching the device or byos. Any published release at or
+    above the floor whose version differs from `running_version` can be
+    scheduled, older ones (a voluntary downgrade) included -- see the
+    return value table in this module's tests for every other outcome.
     """
     now = now if now is not None else _utc_now_iso()
     with registry_lock(state_dir):
@@ -567,10 +568,10 @@ def schedule_release(state_dir, version, running_version, now=None):
 
 
 def cancel_schedule(state_dir, now=None):
-    """Clear the current schedule, only while it is not yet acknowledged
-    (D-05). `now` is accepted for signature symmetry with
-    schedule_release() but is not stored anywhere -- cancelling leaves
-    no trace in the registry beyond the schedule's absence.
+    """Clear the current schedule, only while it is not yet acknowledged.
+    `now` is accepted for signature symmetry with schedule_release() but
+    is not stored anywhere -- cancelling leaves no trace in the registry
+    beyond the schedule's absence.
     """
     del now
     with registry_lock(state_dir):
@@ -585,3 +586,247 @@ def cancel_schedule(state_dir, now=None):
         _save_registry(state_dir, registry)
         return "cancelled"
 
+
+# --- Pure offer, reconcile and view functions ---------------------------
+#
+# No I/O, no clock reads: every timestamp this section needs is a
+# parameter. This is what keeps the offer gate, the outcome transitions
+# and the view model testable without a filesystem.
+
+def compute_offer(registry, device_entry, battery_low_active, base_url):
+    """The device offer, or None. Deliberately has no quiet-hours or
+    display-off parameter at all -- a scheduled update goes out at the
+    frame's next wake whatever the mode, so only these four inputs ever
+    decide whether an offer is served.
+    """
+    if battery_low_active:
+        return None
+    schedule = registry.get("schedule")
+    if schedule is None or schedule.get("state") == "failed":
+        return None
+    version = schedule.get("version")
+    entry = device_entry or {}
+    if version == entry.get("fw_version"):
+        return None
+    if not at_or_above_floor(version, registry.get("floor_version", FLOOR_VERSION)):
+        return None
+
+    reconciled_seq = registry.get("reconciled_seq", 0)
+    schedule_id = schedule.get("id")
+    attempts = schedule.get("attempts", 0)
+    for event in entry.get("events", []):
+        if event.get("kind") != "result" or event.get("schedule_id") != schedule_id:
+            continue
+        seq = event.get("seq")
+        if not isinstance(seq, int) or isinstance(seq, bool) or seq <= reconciled_seq:
+            continue
+        if event.get("token") in COUNTED_FAILURES:
+            attempts += 1
+    if attempts >= MAX_ATTEMPTS:
+        return None
+
+    release = _find_release(registry, version)
+    if release is None:
+        return None
+    sha256 = release["sha256"]
+    return {
+        "version": version,
+        "url": base_url.rstrip("/") + "/fw/" + sha256 + ".bin",
+        "sha256": "sha256:" + sha256,
+        "size": release["size"],
+    }
+
+
+def _collect_events(device_report, min_seq):
+    """(seq, event, reporting device's fw_version) for every event with
+    seq > min_seq across every device, oldest first.
+    """
+    collected = []
+    for device_entry in device_report.get("devices", {}).values():
+        fw_version = device_entry.get("fw_version")
+        for event in device_entry.get("events", []):
+            seq = event.get("seq")
+            if not isinstance(seq, int) or isinstance(seq, bool) or seq <= min_seq:
+                continue
+            collected.append((seq, event, fw_version))
+    collected.sort(key=lambda item: item[0])
+    return collected
+
+
+def reconcile(registry, device_report, now):
+    """Turn every unreconciled device report event into a registry
+    update and a notification list. Deep-copies `registry` -- neither
+    input is ever mutated. Only "result" events for the *current*
+    schedule's id move attempts or clear the schedule; a "result" for
+    any other schedule id still refreshes last_outcome for "installed"/
+    "rollback" but never touches attempts. reconciled_seq always
+    advances to the highest seq seen, offered events included,
+    so a replay with unchanged input produces no new notification and
+    no change.
+    """
+    new_registry = copy.deepcopy(registry)
+    notifications = []
+    reconciled_seq = new_registry.get("reconciled_seq", 0)
+    highest_seq = reconciled_seq
+
+    for seq, event, device_fw_version in _collect_events(device_report, reconciled_seq):
+        if seq > highest_seq:
+            highest_seq = seq
+        if event.get("kind") != "result":
+            continue
+
+        token = event.get("token")
+        event_version = event.get("version")
+        schedule = new_registry.get("schedule")
+        current_id = schedule.get("id") if schedule is not None else None
+
+        if schedule is not None and event.get("schedule_id") == current_id:
+            if token in ("trial", "deferred-battery"):
+                continue
+            if token == "installed":
+                release = _find_release(new_registry, schedule["version"])
+                if release is not None:
+                    release["installed_at"].append(now)
+                new_registry["schedule"] = None
+                new_registry["last_outcome"] = {
+                    "kind": "installed", "version": schedule["version"],
+                    "back_on": None, "at": now,
+                }
+                notifications.append(("installed", schedule["version"], None))
+            elif token in COUNTED_FAILURES:
+                schedule["attempts"] = schedule.get("attempts", 0) + 1
+                schedule["last_result"] = token
+                if token == "rollback":
+                    new_registry["last_outcome"] = {
+                        "kind": "rollback", "version": schedule["version"],
+                        "back_on": device_fw_version, "at": now,
+                    }
+                if schedule["attempts"] >= MAX_ATTEMPTS:
+                    schedule["state"] = "failed"
+                    schedule["failed_at"] = now
+                    new_registry["last_outcome"] = {
+                        "kind": "failed", "version": schedule["version"],
+                        "back_on": device_fw_version, "at": now,
+                    }
+                    notifications.append(("failed", schedule["version"], device_fw_version))
+        else:
+            # A stale schedule id (the operator has already replaced or
+            # cancelled it): still worth recording for the view, but
+            # this is not the pending action any attempt counter or
+            # notification belongs to.
+            if token == "installed":
+                new_registry["last_outcome"] = {
+                    "kind": "installed", "version": event_version,
+                    "back_on": None, "at": now,
+                }
+            elif token == "rollback":
+                new_registry["last_outcome"] = {
+                    "kind": "rollback", "version": event_version,
+                    "back_on": device_fw_version, "at": now,
+                }
+
+    new_registry["reconciled_seq"] = highest_seq
+    return new_registry, notifications
+
+
+def apply_reconcile(state_dir, now=None):
+    """The one locked I/O wrapper around reconcile(), used by the poll
+    loop. Writes only when reconciled_seq actually moved.
+    """
+    now = now if now is not None else _utc_now_iso()
+    with registry_lock(state_dir):
+        registry = load_registry(state_dir)
+        device_report = load_device_report(state_dir)
+        new_registry, notifications = reconcile(registry, device_report, now)
+        if new_registry.get("reconciled_seq") != registry.get("reconciled_seq"):
+            _save_registry(state_dir, new_registry)
+        return notifications
+
+
+def _most_recent_device_entry(device_report):
+    """The device entry with the latest reported_at -- the per-device
+    map stays (so multiple devices are not ruled out) but the Update
+    page shows one frame's state (single-frame UI).
+    """
+    best = None
+    best_reported_at = None
+    for device_entry in device_report.get("devices", {}).values():
+        reported_at = device_entry.get("reported_at")
+        if reported_at is None:
+            continue
+        if best_reported_at is None or reported_at > best_reported_at:
+            best = device_entry
+            best_reported_at = reported_at
+    return best
+
+
+def _newest_release_published_at(registry):
+    published_ats = [r.get("published_at") for r in registry.get("releases", []) if r.get("published_at")]
+    return max(published_ats) if published_ats else None
+
+
+def update_view(registry, device_report, now):
+    """The Update page's view model. `now` is accepted for signature
+    symmetry with the rest of this pure section; the derivation below
+    never reads the clock.
+    """
+    del now
+    device_entry = _most_recent_device_entry(device_report) or {}
+    running_version = device_entry.get("fw_version")
+    reported_at = device_entry.get("reported_at")
+
+    schedule = registry.get("schedule")
+    last_outcome = registry.get("last_outcome")
+
+    rollback = None
+    if last_outcome is not None and last_outcome.get("kind") == "rollback":
+        rollback = {"version": last_outcome.get("version"), "back_on": last_outcome.get("back_on")}
+
+    cancellable = False
+    if schedule is not None and schedule.get("state") == "scheduled":
+        if acknowledged(schedule, device_report):
+            state = "in_progress"
+            state_at = _newest_event_for_schedule(schedule.get("id"), device_report)
+            state_at = state_at.get("at") if state_at else None
+        else:
+            state = "scheduled"
+            state_at = schedule.get("scheduled_at")
+            cancellable = True
+    elif schedule is not None and schedule.get("state") == "failed":
+        state = "failed"
+        state_at = schedule.get("failed_at")
+    elif (
+        schedule is None and last_outcome is not None
+        and last_outcome.get("kind") == "installed"
+        and last_outcome.get("version") == running_version
+    ):
+        state = "installed"
+        state_at = last_outcome.get("at")
+    else:
+        state = "available"
+        state_at = _newest_release_published_at(registry)
+
+    floor_version = registry.get("floor_version", FLOOR_VERSION)
+    releases = []
+    for release in sorted(registry.get("releases", []), key=lambda r: r.get("published_at") or "", reverse=True):
+        releases.append({
+            "version": release.get("version"),
+            "released_at": release.get("released_at"),
+            "notes": release.get("notes", []),
+            "installed_at": release.get("installed_at", []),
+            "bench": release.get("bench", False),
+            "installable": (
+                at_or_above_floor(release.get("version"), floor_version)
+                and release.get("version") != running_version
+            ),
+        })
+
+    return {
+        "running_version": running_version,
+        "reported_at": reported_at,
+        "state": state,
+        "state_at": state_at,
+        "cancellable": cancellable,
+        "rollback": rollback,
+        "releases": releases,
+    }
