@@ -6,14 +6,14 @@ current_phase: 42
 current_phase_name: remote-firmware-update-over-the-air-ota-promoted-from-seed-0
 status: executing
 stopped_at: "Completed 42-08-PLAN.md (OTA device mechanics: ota.c/.h over esp_https_ota, api_client.c firmware-offer parsing and X-Ota-Result telemetry, proven by a real container build). Next: 42-09."
-last_updated: "2026-09-28T13:06:59.234Z"
+last_updated: "2026-09-28T16:02:53.685Z"
 last_activity: 2026-09-28
 progress:
   total_phases: 54
   completed_phases: 50
   total_plans: 442
-  completed_plans: 425
-  percent: 96
+  completed_plans: 426
+  percent: 93
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -66,7 +66,7 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 9 of 16
+Plan: 10 of 16
 
 **42-03 executed (2026-09-28), plan 3/16 of Phase 42 (depends on none, wave 1) — the OTA Kconfig chain, release tagging and signing procedure, three commits.** Task 1 re-verified gate G-41 against `origin/main` (all four checks passed) — read-only, no edits, no commit. Task 2 confirmed the signed-app Kconfig chain (`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y`, `CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y`, `CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y`, RSA-3072 scheme) by running a *clean* `idf.py reconfigure` inside the pinned `espressif/idf:v5.3.1` container, first against a scratch copy of `firmware/`, then byte-identical against the real committed defaults; discovered along the way that an *incremental* reconfigure silently carries over a stale `CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES=y` even after the defaults file is edited to turn it off, and that `CONFIG_SECURE_SIGNED_ON_BOOT_NO_SECURE_BOOT` is genuinely absent from the resolved sdkconfig for the RSA scheme (its Kconfig entry depends on ECDSA specifically) — both findings recorded in the new `firmware/SIGNING.md`. Extended `firmware/tests/check_production_config.sh`: static mode now requires the new lines and fails on any eFuse-burning option in a committed defaults file (mutation-proven with a real scratch-copy failure run); built mode requires the resolved chain and logs it — confirmed by running a full real container build end to end (`./firmware/build.sh`, correctly reported "App built but not signed. Sign app before flashing") and then the built-mode check against the real artifact (PASS). Added `SKYPANE_OTA_FLOOR_VERSION` to `firmware/main/Kconfig.projbuild` and raised `SKYPANE_WAKE_BUDGET_S`'s default 300 → 360 for an OTA wake's extra stages. Task 3 added `firmware/build.sh`'s `SKYPANE_RELEASE_TAG` release mode (tag-exact `PROJECT_VER` on a clean, tagged HEAD, validated before Docker starts, both failure paths confirmed to exit 2) plus `SKYPANE_VERSION_LABEL` for bench images, and restricted non-release `git describe` to `--match 'fw-v*'` so a dev build can never print a bare release tag; completed `firmware/SIGNING.md` with the human-only key-generation/backup/rotation procedure (`FW_SIGNING_KEY` GitHub environment secret in a `firmware-signing` environment with a required reviewer, encrypted offline backup, public key at `firmware/signing/skypane-signing-pubkey.pem`), the forbidden list, and local bench-image signing — confirmed no private key material anywhere in `firmware/`. Commits: `24bdd684` (feat) Task 2, `88df2ba4` (feat) Task 3, `9150ea42`+`51bf0472` (docs) SUMMARY. Per this project's established convention, `REQUIREMENTS.md` was intentionally left untouched: OTA-03/04/05/10 are each shared across several later plans in this phase, so `requirements mark-complete` was not called. `roadmap.update-plan-progress 42` now reports 3/16 plans (summaries) with the phase still In Progress. `state.update-progress` reproduced this file's own documented recurring bug twice more during this plan's own close-out — its own JSON correctly returned `percent: 95` (420/442) both times, but the written frontmatter showed `percent: 93` (`completed_phases/total_phases` = 50/54) — corrected to `95` by hand each time per this file's established precedent.
 
@@ -641,6 +641,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 42 P06 | 25min | 3 tasks | 18 files |
 | Phase 42 P07 | ~50min | 2 tasks | 3 files |
 | Phase 42 P08 | 45min | 2 tasks | 6 files |
+| Phase 42 P09 | 35min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -1275,6 +1276,7 @@ Recent decisions affecting current work:
 - [Phase ?]: OTA offer url field validated https-only unconditionally (fp_url_valid(url, FP_FW_URL_BUF, false)), ignoring CONFIG_SKYPANE_ALLOW_HTTP
 - [Phase ?]: fp_ota_confirm_if_pending() calls fp_ota_should_confirm(pending, true) rather than re-deriving the pending check itself, since its own contract is caller-only-invokes-on-success
 - [Phase ?]: fp_ota_apply() does not self-record a failure result; it returns *fail_out for the caller (plan 13) to record with its own context
+- [Phase 42]: companion/i18n_fr/__init__.py needed no edit for plan 09 -- pkgutil.iter_modules discovers companion/i18n_fr/update.py automatically
 
 ### Pending Todos
 
@@ -1397,7 +1399,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T13:06:59.208Z
+Last session: 2026-09-28T16:02:29.174Z
 Stopped at: Completed 42-08-PLAN.md (OTA device mechanics: ota.c/.h over esp_https_ota, api_client.c firmware-offer parsing and X-Ota-Result telemetry, proven by a real container build). Next: 42-09.
 
 Resume file: 
