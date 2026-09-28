@@ -42,3 +42,17 @@ its preview) in whatever environment is authoritative for committed
 artifacts (e.g. the `firmware.yml` CI runner), confirm the drift is real
 there too or sandbox-only, and either commit the regenerated header or pin
 the font-rendering toolchain so the mask is reproducible across machines.
+
+**Resolved — root cause found (orchestrator, 2026-09-28):** not a Pillow or
+FreeType version drift but a text *layout engine* difference. Pillow uses
+libraqm for layout when the system library is present; the CI runner
+(`ubuntu-latest`) has it, this macOS sandbox and a bare `python:3.14-slim`
+container do not, and basic layout differs by one pixel of advance. The
+committed `fault_screen_mask.h` was generated with raqm, so it passes in CI
+and in a `python:3.14` container with `libraqm0` installed, and fails
+without raqm. The first `updating_screen_mask.h` commit was generated
+without raqm and would have failed in CI; it was regenerated with raqm
+(`docker run python:3.14`, `apt-get install libraqm0`, hash-locked
+`server/requirements-dev.txt`), and both mask drift tests pass there.
+Regenerate any committed mask header the same way. Check locally with
+`python -c "from PIL import features; print(features.check('raqm'))"`.
