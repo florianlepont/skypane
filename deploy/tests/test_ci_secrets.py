@@ -3,14 +3,19 @@ plus the offline systemd-analyze CI gate.
 
 Deliberately no PyYAML dependency (stdlib-only, matching this project's
 discipline): a small text scanner is enough to find every `run:` block in
-ci.yml and check its content, without needing a full YAML parser.
+a workflow file and check its content, without needing a full YAML parser.
+The no-secret-in-run: scan covers every file under .github/workflows/, not
+only ci.yml -- a new workflow (for example firmware-release.yml) is caught
+the same way, with no per-file allowlist to remember to update.
 """
 
 import re
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-_CI_YML = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
+_WORKFLOWS_DIR = _REPO_ROOT / ".github" / "workflows"
+_CI_YML = _WORKFLOWS_DIR / "ci.yml"
+_FIRMWARE_RELEASE_YML = _WORKFLOWS_DIR / "firmware-release.yml"
 
 _RUN_LINE_RE = re.compile(r"^(?P<indent>[ \t]*)run:[ \t]*(?P<rest>.*)$")
 
@@ -80,15 +85,27 @@ def _steps_by_name(text):
         yield name, run_match
 
 
+def _workflow_files():
+    return sorted(_WORKFLOWS_DIR.glob("*.yml"))
+
+
 def test_no_secrets_expression_inside_any_run_block():
-    text = _CI_YML.read_text()
     offenders = []
-    for name, run_text in _steps_by_name(text):
-        if run_text is None:
-            continue
-        if "${{ secrets." in run_text:
-            offenders.append(name)
+    for path in _workflow_files():
+        text = path.read_text()
+        for name, run_text in _steps_by_name(text):
+            if run_text is None:
+                continue
+            if "${{ secrets." in run_text:
+                offenders.append("%s: %s" % (path.name, name))
     assert not offenders, "run: block(s) still interpolate a secret: %s" % offenders
+
+
+def test_at_least_two_workflow_files_are_scanned():
+    # A guard against this test quietly scanning only one file if
+    # .github/workflows/ ever loses every workflow but one -- the scan
+    # itself is only meaningful across more than a single file.
+    assert len(_workflow_files()) >= 2
 
 
 def test_deploy_job_passes_host_key_and_target_through_env():
@@ -112,6 +129,15 @@ def test_offline_systemd_analyze_gate_present_in_test_job():
     score_run = names_and_runs.get("Score systemd units (offline, fail above 2.0)")
     assert score_run is not None
     assert "systemd-analyze security --offline=true --threshold=20" in score_run
+
+
+def test_firmware_release_passes_signing_key_through_env():
+    text = _FIRMWARE_RELEASE_YML.read_text()
+    assert "FW_SIGNING_KEY: ${{ secrets.FW_SIGNING_KEY }}" in text
+    names_and_runs = dict(_steps_by_name(text))
+    sign_run = names_and_runs.get("Sign the release image")
+    assert sign_run is not None
+    assert '"$FW_SIGNING_KEY"' in sign_run
 
 
 def test_webfactory_ssh_agent_with_input_unaffected():
