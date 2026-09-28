@@ -14,25 +14,11 @@ Never writes the poll pipeline's own persisted flight-state file —
 `main()` fails closed on a missing password rather than starting with
 auth silently disabled.
 """
-import email.message
-import hashlib
-import io
-# Serialises the login lockout's server-computed remaining-seconds figure
-# into the data-* attribute companion/static/login-card.js seeds its
-# countdown from; never anything client-supplied.
-import json
 import os
-import socket
-import sqlite3
 import sys
-import tempfile
-import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, quote, urlsplit
-from zoneinfo import ZoneInfo
-
-from PIL import Image
 
 # Same repo-root sys.path bootstrap as server/poll_loop.py, so
 # server.* resolves whether this file runs as a package or standalone.
@@ -42,28 +28,27 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from companion import (  # noqa: E402
-    auth, frame_state, i18n, illustration_normalize, layout, prefs, routes, static_files,
-    theme_preview, wake)
+    auth, flash, freshness, i18n, illustration_normalize, layout, login_page, page_context,
+    post_actions, prefs, request_body, routes, static_files, theme_preview)
 from companion.pages import (  # noqa: E402
-    airlines_page,
+    # airlines_page is unused by this module's own code; kept so
+    # companion/test_post_origin.py's app.airlines_page.* route reads
+    # keep resolving.
+    airlines_page,  # noqa: F401
     config_page,
     health_page,
-    history_page,
 )
-# Reuses airlines_page's own membership test rather than re-implementing
-# it, so the render path (airlines_page.render()) and the write path
-# (Handler._handle_manual_resolve_post() below) can never diverge.
-from companion.pages.airlines_page import unresolved_row_for_prefix  # noqa: E402
-from server import atomic_io, device_config, history_db, notify  # noqa: E402
-from server.plane import (  # noqa: E402
-    calendar_rules, colour_rules, illustrations, manual_resolutions)
+from server import device_config, history_db  # noqa: E402
+from server.plane import calendar_rules, illustrations  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
 import server.state_store as state_store  # noqa: E402
 
 DEFAULT_PORT = 8643
-GALLERY_DIRNAME = "gallery"
-GALLERY_DEFAULT_LIMIT = 30
-POLL_COOLDOWN_S = 45  # tens of seconds, a double-click guard, not an abuse rate-limit.
+# The gallery-directory-name convention lives in companion/page_context.py
+# (build_page_context()'s "gallery_entries" loader owns it); rebound here
+# under its historical name since companion/test_freshness_token.py reads
+# app.GALLERY_DIRNAME directly and gallery_bytes() below still uses it.
+GALLERY_DIRNAME = page_context.GALLERY_DIRNAME
 THEME_COOKIE_MAX_AGE_S = 365 * 24 * 3600
 # Reuses THEME_COOKIE_MAX_AGE_S's own value and reasoning: a per-browser
 # preference the site should remember indefinitely.
@@ -71,7 +56,10 @@ LANG_COOKIE_MAX_AGE_S = THEME_COOKIE_MAX_AGE_S
 MAX_FORM_BYTES = 8192  # far more than any form on this site needs.
 # Bounds peak memory per upload to a few MB. Enforced by the caller
 # (Handler._read_upload_body()), not by parse_single_uploaded_file().
-MAX_ILLUSTRATION_UPLOAD_BYTES = 4 * 1024 * 1024
+# Single definition site is companion/post_actions.py (the illustration-
+# replace handler's own module) — rebound here rather than retyped;
+# companion/pages/airlines_page.py imports it from this module lazily.
+MAX_ILLUSTRATION_UPLOAD_BYTES = post_actions.MAX_ILLUSTRATION_UPLOAD_BYTES
 # Bounds a stalled/slow-drip client's socket reads (including the
 # unauthenticated POST /login body) so it cannot tie up a worker thread
 # indefinitely — a slowloris-shaped DoS reachable before any credential
@@ -177,248 +165,53 @@ CALENDAR_DISCONNECT_ROUTE = config_page.CALENDAR_DISCONNECT_ROUTE
 CALENDAR_CONNECT_ROUTE = config_page.CALENDAR_CONNECT_ROUTE
 NOTIFICATIONS_TEST_ROUTE = config_page.NOTIFICATIONS_TEST_ROUTE
 
-# The flash-key string literals below are defined exactly once, in
-# companion/pages/config_page.py or companion/pages/airlines_page.py —
-# imported here under their historical FLASH_KEY_* names so every
-# existing call site in this file (and its test assertions against the
-# literal query-string values) stays unchanged.
-FLASH_KEY_SAVED = config_page.FLASH_SAVED
-FLASH_KEY_SAVE_FAILED = config_page.FLASH_SAVE_FAILED
-FLASH_KEY_POLL_TRIGGERED = config_page.FLASH_POLL_TRIGGERED
-FLASH_KEY_POLL_COOLDOWN = config_page.FLASH_POLL_COOLDOWN
-FLASH_KEY_POLL_FAILED = config_page.FLASH_POLL_FAILED
-FLASH_KEY_POLL_ALREADY_RUNNING = config_page.FLASH_POLL_ALREADY_RUNNING
-FLASH_KEY_ILLUSTRATION_REPLACED = airlines_page.FLASH_ILLUSTRATION_REPLACED
-FLASH_KEY_ILLUSTRATION_REJECTED = airlines_page.FLASH_ILLUSTRATION_REJECTED
-FLASH_KEY_ILLUSTRATION_REPLACE_FAILED = airlines_page.FLASH_ILLUSTRATION_REPLACE_FAILED
-FLASH_KEY_MANUAL_RESOLVED = airlines_page.FLASH_MANUAL_RESOLVED
-FLASH_KEY_MANUAL_NAME_EMPTY = airlines_page.FLASH_MANUAL_NAME_EMPTY
-FLASH_KEY_MANUAL_NAME_TOO_LONG = airlines_page.FLASH_MANUAL_NAME_TOO_LONG
-FLASH_KEY_MANUAL_NAME_RESERVED = airlines_page.FLASH_MANUAL_NAME_RESERVED
-FLASH_KEY_MANUAL_PREFIX_STALE = airlines_page.FLASH_MANUAL_PREFIX_STALE
-FLASH_KEY_MANUAL_REGISTRY_FULL = airlines_page.FLASH_MANUAL_REGISTRY_FULL
-FLASH_KEY_MANUAL_SAVE_FAILED = airlines_page.FLASH_MANUAL_SAVE_FAILED
-FLASH_KEY_MANUAL_DELETE_FAILED = airlines_page.FLASH_MANUAL_DELETE_FAILED
-# Distinguishes a name the operator genuinely typed but that
-# add_entry() can't use, from a genuinely empty field.
-FLASH_KEY_MANUAL_NAME_UNUSABLE = airlines_page.FLASH_MANUAL_NAME_UNUSABLE
-FLASH_KEY_RULE_ADDED = config_page.FLASH_RULE_ADDED
-FLASH_KEY_RULE_REPLACED = config_page.FLASH_RULE_REPLACED
-FLASH_KEY_RULE_KEY_INVALID = config_page.FLASH_RULE_KEY_INVALID
-FLASH_KEY_RULE_REGISTRY_FULL = config_page.FLASH_RULE_REGISTRY_FULL
-FLASH_KEY_RULE_SAVE_FAILED = config_page.FLASH_RULE_SAVE_FAILED
-FLASH_KEY_RULE_DELETED = config_page.FLASH_RULE_DELETED
-FLASH_KEY_RULE_DELETE_FAILED = config_page.FLASH_RULE_DELETE_FAILED
-FLASH_KEY_CALENDAR_CONNECTED = config_page.FLASH_CALENDAR_CONNECTED
-FLASH_KEY_CALENDAR_SYNC_FAILED = config_page.FLASH_CALENDAR_SYNC_FAILED
-FLASH_KEY_CALENDAR_DISCONNECTED = config_page.FLASH_CALENDAR_DISCONNECTED
-FLASH_KEY_CALENDAR_SYNC_DEFERRED = config_page.FLASH_CALENDAR_SYNC_DEFERRED
-FLASH_KEY_CALENDAR_CONNECT_OK = config_page.FLASH_CALENDAR_CONNECT_OK
-FLASH_KEY_CALENDAR_CONNECT_INVALID = config_page.FLASH_CALENDAR_CONNECT_INVALID
-FLASH_KEY_NOTIFICATIONS_TEST_OK = config_page.FLASH_NOTIFICATIONS_TEST_OK
-FLASH_KEY_NOTIFICATIONS_TEST_FAILED = config_page.FLASH_NOTIFICATIONS_TEST_FAILED
-
-# A fixed key -> copy dictionary — the flash mechanism only ever renders
-# one of these, never a value taken verbatim from the query string.
-# FLASH_KEY_POLL_COOLDOWN's "{n}" is filled in with a server-computed
-# remaining-seconds figure, never anything client-supplied.
-FLASH_KEY_DISPLAY_ON = "display_on"
-FLASH_KEY_DISPLAY_OFF = "display_off"
-FLASH_KEY_QUIET_ON = "quiet_on"
-FLASH_KEY_QUIET_OFF = "quiet_off"
-FLASH_KEY_QUICK_FAILED = "quick_failed"
-# The LED switch's own two outcomes, worded like the Quiet-hours pair
-# rather than the Screen pair — the LED, like quiet hours, takes effect
-# on the frame's next wake rather than within about five minutes.
-FLASH_KEY_LED_ON = "led_on"
-FLASH_KEY_LED_OFF = "led_off"
-
-FLASH_MESSAGES = {
-    FLASH_KEY_DISPLAY_ON: (
-        "Screen switched on — the frame will wake up and show a picture "
-        "within about five minutes."),
-    FLASH_KEY_DISPLAY_OFF: (
-        "Screen switched off — the frame will blank itself within about "
-        "five minutes."),
-    FLASH_KEY_QUIET_ON: "Quiet hours turned on — applies the next time the frame wakes up.",
-    FLASH_KEY_QUIET_OFF: "Quiet hours turned off — applies the next time the frame wakes up.",
-    FLASH_KEY_QUICK_FAILED: "Couldn't change that — please try again.",
-    FLASH_KEY_LED_ON: "Diagnostic LED turned on — applies the next time the frame wakes up.",
-    FLASH_KEY_LED_OFF: "Diagnostic LED turned off — applies the next time the frame wakes up.",
-    # "%s" is filled by _resolve_flash_text()'s own frame-state special
-    # case below with one computed delay sentence (companion/frame_state.py,
-    # via the same wake.next_wake_status() triple the Frame strip and the
-    # Quiet hours caption both read).
-    FLASH_KEY_SAVED: "Saved — %s",
-    FLASH_KEY_SAVE_FAILED: (
-        "Couldn't save settings — please try again. If this keeps "
-        "happening, check the companion service logs."),
-    FLASH_KEY_POLL_TRIGGERED: (
-        "Refreshing — the frame's new picture will appear on Home within a "
-        "few seconds."),
-    FLASH_KEY_POLL_COOLDOWN: "Poll triggered recently — try again in {n}s.",
-    FLASH_KEY_POLL_FAILED: (
-        "Poll trigger failed — please try again. If this keeps happening, "
-        "check the companion service logs."),
-    FLASH_KEY_POLL_ALREADY_RUNNING: "A poll is already in progress — try again in a moment.",
-    FLASH_KEY_ILLUSTRATION_REPLACED: (
-        "Illustration replaced — the frame will use it next time it wakes and polls."),
-    # Actionable, states the real requirements in user terms, and never
-    # echoes a server path or any part of the uploaded file back to the
-    # client — validate_illustration_file()'s own problem strings go to
-    # the service log only, never into this copy.
-    FLASH_KEY_ILLUSTRATION_REJECTED: (
-        "Couldn't use that image — upload a transparent PNG that's at "
-        "least 1200 pixels wide and landscape (wider than tall)."),
-    FLASH_KEY_ILLUSTRATION_REPLACE_FAILED: (
-        "Couldn't replace the illustration — please try again. If this "
-        "keeps happening, check the companion service logs."),
-    # Must not imply the frame changes instantly: the frame only ever
-    # picks up a manual resolution on its next wake/poll, bounded by
-    # `wake_interval_s` (device_config.py) — never sooner, whatever the
-    # copy might otherwise suggest.
-    FLASH_KEY_MANUAL_RESOLVED: (
-        "Airline name saved — the frame will pick it up next time it "
-        "wakes and polls."),
-    FLASH_KEY_MANUAL_NAME_EMPTY: "Enter an airline name before saving.",
-    FLASH_KEY_MANUAL_NAME_TOO_LONG: (
-        "That name's too long — airline names top out at 100 characters."),
-    FLASH_KEY_MANUAL_NAME_RESERVED: (
-        "That name is reserved for the frame's own fallback artwork — "
-        "try the airline's real name instead."),
-    FLASH_KEY_MANUAL_PREFIX_STALE: (
-        "That coverage gap isn't there anymore — check Health for "
-        "current gaps."),
-    FLASH_KEY_MANUAL_REGISTRY_FULL: (
-        "The manual-resolution list is full (200 entries) — delete an "
-        "old one before adding another."),
-    FLASH_KEY_MANUAL_SAVE_FAILED: (
-        "Couldn't save that resolution — the frame's state directory "
-        "may not be writable."),
-    FLASH_KEY_MANUAL_DELETE_FAILED: (
-        "Couldn't delete that entry — the frame's state directory may "
-        "not be writable."),
-    # Distinct from FLASH_KEY_MANUAL_NAME_EMPTY above — the operator did
-    # type something, it just can't be turned into an illustration key.
-    # Never echoes the rejected value back.
-    FLASH_KEY_MANUAL_NAME_UNUSABLE: (
-        "That name can't be used for an illustration — try a different "
-        "spelling, or a name with letters and numbers."),
-    # rule_replaced's copy is a template: the {key} placeholder is filled
-    # in by _resolve_flash_text()'s own second special case below, never
-    # interpolated here.
-    FLASH_KEY_RULE_ADDED: (
-        "Rule added — the frame will use it next time it wakes and polls."),
-    FLASH_KEY_RULE_REPLACED: (
-        "Updated the rule for {key} — it replaces the one that was "
-        "there before, applied next time the frame wakes and polls."),
-    FLASH_KEY_RULE_KEY_INVALID: (
-        "That doesn't match the selected kind's format — a callsign "
-        "(e.g. AFR1234), an ICAO24 hex (e.g. 3944F2), or a 3-letter "
-        "prefix (e.g. AFR)."),
-    # The entry count is a literal; colour_rules.COLOUR_RULE_MAX_ENTRIES
-    # is also 200, and the two must be kept equal by hand (a test pins
-    # this).
-    FLASH_KEY_RULE_REGISTRY_FULL: (
-        "The rules list is full (200 entries) — delete an old one "
-        "before adding another."),
-    FLASH_KEY_RULE_SAVE_FAILED: (
-        "Couldn't save that rule — the frame's state directory may not "
-        "be writable."),
-    FLASH_KEY_RULE_DELETED: (
-        "Rule deleted — the frame will stop using it next time it "
-        "wakes and polls."),
-    FLASH_KEY_RULE_DELETE_FAILED: (
-        "Couldn't delete that rule — the frame's state directory may "
-        "not be writable."),
-    # "{n}"/"{s}" are filled from a fresh on-disk read at render time,
-    # never carried through the redirect's query string.
-    FLASH_KEY_CALENDAR_CONNECTED: (
-        "Connected — {n} flight{s} from this calendar in the frame's "
-        "current window."),
-    # Never echoes anything the operator submitted or any exception text.
-    FLASH_KEY_CALENDAR_SYNC_FAILED: (
-        "Saved, but couldn't sync that calendar right now — check the "
-        "URL and try again. The frame will keep retrying on its own "
-        "schedule."),
-    # States both halves of what a disconnect did: the calendar is
-    # disconnected, AND the flights it had supplied are gone from disk —
-    # a promise the code keeps and the operator has no other way to learn.
-    FLASH_KEY_CALENDAR_DISCONNECTED: (
-        "Calendar disconnected — the flights it supplied have been "
-        "deleted from the server."),
-    # Deliberately not FLASH_KEY_POLL_ALREADY_RUNNING's copy: that string
-    # says nothing about whether the save itself succeeded, which would
-    # leave the operator unsure their URL was even stored. This key says
-    # plainly that the save landed and the sync will happen on the
-    # frame's own next scheduled poll.
-    FLASH_KEY_CALENDAR_SYNC_DEFERRED: (
-        "Saved — a poll was already running, so this calendar will "
-        "sync on the frame's next scheduled poll."),
-    # "{n}" is filled by _resolve_flash_text()'s own fourth special case
-    # below, read fresh from disk at render time — never carried through
-    # the redirect's query string.
-    FLASH_KEY_CALENDAR_CONNECT_OK: "Calendar connected — {n} flights found.",
-    FLASH_KEY_CALENDAR_CONNECT_INVALID: (
-        "Paste a valid calendar feed URL to connect one."),
-    # Never echoes the stored URL or any part of server.notify's own
-    # transport-exception text.
-    FLASH_KEY_NOTIFICATIONS_TEST_OK: "Test notification sent.",
-    FLASH_KEY_NOTIFICATIONS_TEST_FAILED: "Couldn't reach that topic — check the URL.",
-}
-
-# Every FLASH_KEY_* -> the ARIA role its rendered flash banner should
-# carry — "alert" (assertive) for a genuine failure, "status" (polite)
-# for everything else. page_context() resolves this into
-# ctx["flash_role"], threaded into every layout.flash_banner(role=...)
-# call site below.
-FLASH_ROLES = {
-    FLASH_KEY_SAVED: "status",
-    FLASH_KEY_SAVE_FAILED: "alert",
-    FLASH_KEY_POLL_TRIGGERED: "status",
-    FLASH_KEY_POLL_COOLDOWN: "status",
-    FLASH_KEY_POLL_FAILED: "alert",
-    # Informational, not itself a failure — a different session/tab is
-    # already legitimately running a poll.
-    FLASH_KEY_POLL_ALREADY_RUNNING: "status",
-    # Success and rejection are both user-facing outcomes of a normal
-    # upload flow (polite "status"); an unexpected server-side failure
-    # takes the assertive "alert" role, matching FLASH_KEY_SAVE_FAILED's
-    # own treatment above.
-    FLASH_KEY_ILLUSTRATION_REPLACED: "status",
-    FLASH_KEY_ILLUSTRATION_REJECTED: "status",
-    FLASH_KEY_ILLUSTRATION_REPLACE_FAILED: "alert",
-    # Success is "status"; every rejection or failure is "alert".
-    FLASH_KEY_MANUAL_RESOLVED: "status",
-    FLASH_KEY_MANUAL_NAME_EMPTY: "alert",
-    FLASH_KEY_MANUAL_NAME_TOO_LONG: "alert",
-    FLASH_KEY_MANUAL_NAME_RESERVED: "alert",
-    FLASH_KEY_MANUAL_PREFIX_STALE: "alert",
-    FLASH_KEY_MANUAL_REGISTRY_FULL: "alert",
-    FLASH_KEY_MANUAL_SAVE_FAILED: "alert",
-    FLASH_KEY_MANUAL_DELETE_FAILED: "alert",
-    FLASH_KEY_MANUAL_NAME_UNUSABLE: "alert",
-    # Added/replaced/deleted are "status" (an outcome of a normal
-    # add/delete flow); key-invalid/registry-full/save-failed/
-    # delete-failed are "alert" (a rejection or a genuine failure).
-    FLASH_KEY_RULE_ADDED: "status",
-    FLASH_KEY_RULE_REPLACED: "status",
-    FLASH_KEY_RULE_KEY_INVALID: "alert",
-    FLASH_KEY_RULE_REGISTRY_FULL: "alert",
-    FLASH_KEY_RULE_SAVE_FAILED: "alert",
-    FLASH_KEY_RULE_DELETED: "status",
-    FLASH_KEY_RULE_DELETE_FAILED: "alert",
-    FLASH_KEY_CALENDAR_CONNECTED: "status",
-    FLASH_KEY_CALENDAR_SYNC_FAILED: "alert",
-    FLASH_KEY_CALENDAR_DISCONNECTED: "status",
-    FLASH_KEY_CALENDAR_SYNC_DEFERRED: "status",
-    FLASH_KEY_CALENDAR_CONNECT_OK: "status",
-    FLASH_KEY_CALENDAR_CONNECT_INVALID: "alert",
-    FLASH_KEY_NOTIFICATIONS_TEST_OK: "status",
-    FLASH_KEY_NOTIFICATIONS_TEST_FAILED: "alert",
-}
-
-_RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
+# The flash vocabulary (FLASH_MESSAGES/FLASH_ROLES/every FLASH_KEY_*)
+# and its text resolution now live in companion/flash.py — rebound here
+# under their historical names so every existing call site in this file,
+# and every test assertion against the literal query-string values,
+# stays unchanged.
+FLASH_KEY_SAVED = flash.FLASH_KEY_SAVED
+FLASH_KEY_SAVE_FAILED = flash.FLASH_KEY_SAVE_FAILED
+FLASH_KEY_POLL_TRIGGERED = flash.FLASH_KEY_POLL_TRIGGERED
+FLASH_KEY_POLL_COOLDOWN = flash.FLASH_KEY_POLL_COOLDOWN
+FLASH_KEY_POLL_FAILED = flash.FLASH_KEY_POLL_FAILED
+FLASH_KEY_POLL_ALREADY_RUNNING = flash.FLASH_KEY_POLL_ALREADY_RUNNING
+FLASH_KEY_ILLUSTRATION_REPLACED = flash.FLASH_KEY_ILLUSTRATION_REPLACED
+FLASH_KEY_ILLUSTRATION_REJECTED = flash.FLASH_KEY_ILLUSTRATION_REJECTED
+FLASH_KEY_ILLUSTRATION_REPLACE_FAILED = flash.FLASH_KEY_ILLUSTRATION_REPLACE_FAILED
+FLASH_KEY_MANUAL_RESOLVED = flash.FLASH_KEY_MANUAL_RESOLVED
+FLASH_KEY_MANUAL_NAME_EMPTY = flash.FLASH_KEY_MANUAL_NAME_EMPTY
+FLASH_KEY_MANUAL_NAME_TOO_LONG = flash.FLASH_KEY_MANUAL_NAME_TOO_LONG
+FLASH_KEY_MANUAL_NAME_RESERVED = flash.FLASH_KEY_MANUAL_NAME_RESERVED
+FLASH_KEY_MANUAL_PREFIX_STALE = flash.FLASH_KEY_MANUAL_PREFIX_STALE
+FLASH_KEY_MANUAL_REGISTRY_FULL = flash.FLASH_KEY_MANUAL_REGISTRY_FULL
+FLASH_KEY_MANUAL_SAVE_FAILED = flash.FLASH_KEY_MANUAL_SAVE_FAILED
+FLASH_KEY_MANUAL_DELETE_FAILED = flash.FLASH_KEY_MANUAL_DELETE_FAILED
+FLASH_KEY_MANUAL_NAME_UNUSABLE = flash.FLASH_KEY_MANUAL_NAME_UNUSABLE
+FLASH_KEY_RULE_ADDED = flash.FLASH_KEY_RULE_ADDED
+FLASH_KEY_RULE_REPLACED = flash.FLASH_KEY_RULE_REPLACED
+FLASH_KEY_RULE_KEY_INVALID = flash.FLASH_KEY_RULE_KEY_INVALID
+FLASH_KEY_RULE_REGISTRY_FULL = flash.FLASH_KEY_RULE_REGISTRY_FULL
+FLASH_KEY_RULE_SAVE_FAILED = flash.FLASH_KEY_RULE_SAVE_FAILED
+FLASH_KEY_RULE_DELETED = flash.FLASH_KEY_RULE_DELETED
+FLASH_KEY_RULE_DELETE_FAILED = flash.FLASH_KEY_RULE_DELETE_FAILED
+FLASH_KEY_CALENDAR_CONNECTED = flash.FLASH_KEY_CALENDAR_CONNECTED
+FLASH_KEY_CALENDAR_SYNC_FAILED = flash.FLASH_KEY_CALENDAR_SYNC_FAILED
+FLASH_KEY_CALENDAR_DISCONNECTED = flash.FLASH_KEY_CALENDAR_DISCONNECTED
+FLASH_KEY_CALENDAR_SYNC_DEFERRED = flash.FLASH_KEY_CALENDAR_SYNC_DEFERRED
+FLASH_KEY_CALENDAR_CONNECT_OK = flash.FLASH_KEY_CALENDAR_CONNECT_OK
+FLASH_KEY_CALENDAR_CONNECT_INVALID = flash.FLASH_KEY_CALENDAR_CONNECT_INVALID
+FLASH_KEY_NOTIFICATIONS_TEST_OK = flash.FLASH_KEY_NOTIFICATIONS_TEST_OK
+FLASH_KEY_NOTIFICATIONS_TEST_FAILED = flash.FLASH_KEY_NOTIFICATIONS_TEST_FAILED
+FLASH_KEY_DISPLAY_ON = flash.FLASH_KEY_DISPLAY_ON
+FLASH_KEY_DISPLAY_OFF = flash.FLASH_KEY_DISPLAY_OFF
+FLASH_KEY_QUIET_ON = flash.FLASH_KEY_QUIET_ON
+FLASH_KEY_QUIET_OFF = flash.FLASH_KEY_QUIET_OFF
+FLASH_KEY_QUICK_FAILED = flash.FLASH_KEY_QUICK_FAILED
+FLASH_KEY_LED_ON = flash.FLASH_KEY_LED_ON
+FLASH_KEY_LED_OFF = flash.FLASH_KEY_LED_OFF
+FLASH_MESSAGES = flash.FLASH_MESSAGES
+FLASH_ROLES = flash.FLASH_ROLES
 
 # Moved to companion/static_files.py; rebound under their historical
 # names so every existing call site, and every existing test monkeypatch
@@ -445,17 +238,22 @@ LOGIN_THROTTLE = auth.LoginThrottle()
 # the in-process fast path. Cross-process exclusion (the systemd oneshot
 # racing this same handler) is poll_cycle.poll_cycle_lock()'s poll.lock,
 # taken inside run_once() itself with lock_timeout_s=0 below, so a busy
-# lock never blocks this request thread.
-_POLL_LOCK = threading.Lock()
+# lock never blocks this request thread. Single definition site is
+# companion/post_actions.py (whose own calendar-connect route also
+# guards under it) — rebound here, never a second, independent Lock().
+_POLL_LOCK = post_actions._POLL_LOCK
 
-_PAGE_TITLES = {
-    layout.HOME_ROUTE: "Home",
-    layout.DISPLAY_ROUTE: "Display",
-    layout.FLIGHTS_ROUTE: "Flights",
-    layout.AIRLINES_ROUTE: "Airlines",
-    layout.HEALTH_ROUTE: "Health",
-    layout.DEVICE_ROUTE: "Device",
-}
+# The same six (route, label) pairs layout.NAV_TABS already carries as
+# Messages — reused rather than re-declared, so this dict's labels never
+# drift from the nav's own and this module never registers a second
+# Message for the same id.
+_PAGE_TITLES = dict(layout.NAV_TABS)
+
+# The literal call-site translation _handle_login_post() below needs —
+# see that method's own comment for why it cannot go through a
+# constant `login_page` would otherwise own.
+_INCORRECT_PASSWORD_TEXT = i18n.msg(
+    "common.incorrect_password_try_again", "Incorrect password. Try again.")
 
 # Each tab's own extra scripts, on top of layout.GLOBAL_PAGE_SCRIPTS
 # (present on every authenticated page regardless). One tuple per
@@ -503,242 +301,20 @@ _PAGE_SCRIPTS = {
     ),
 }
 
-# The four refresh pages a freshness tick may answer with a bodiless 304:
-# a conditional GET on the page's OWN URL, never a new route. Keyed by
-# layout.nav_slug(route) - the same vocabulary
-# layout.REFRESH_PAGE_* and companion/static/freshness.js's
-# SWAP_SELECTORS_BY_PAGE already use - so /device and /airlines (neither
-# a member) never compute a token or carry one on <body> at all.
-_FRESHNESS_PAGE_SLUGS = frozenset((
-    layout.REFRESH_PAGE_HOME, layout.REFRESH_PAGE_DISPLAY,
-    layout.REFRESH_PAGE_HEALTH, layout.REFRESH_PAGE_FLIGHTS,
-))
+# The freshness-token machinery (the four refresh-page slugs, every
+# _freshness_*() stamp/signal helper, and _page_freshness_token() itself)
+# now lives in companion/freshness.py. Only these two names are rebound
+# here: every other freshness helper is purely internal to that module's
+# own token computation, with no other call site in this file.
+_FRESHNESS_PAGE_SLUGS = freshness._FRESHNESS_PAGE_SLUGS
+# Called through this module global (not a direct freshness.* call) so
+# test_freshness_token.py's `monkeypatch.setattr(app, "_page_freshness_token",
+# ...)` still reaches every call site below.
+_page_freshness_token = freshness._page_freshness_token
 
 
-def _freshness_file_stamp(path):
-    """`[mtime_ns, ctime_ns, size, mode]` for `path`, or the literal
-    "missing" - a stat() failure (never created, or deleted) is a real,
-    distinct input state for the freshness token, not an error to
-    swallow. `st_ctime_ns`/`st_mode` matter beyond `st_mtime_ns`/
-    `st_size` for at least one stamped file: a bare `chmod` on the
-    calendar secret changes only the mode and the ctime, never the
-    mtime or the size, and that mode is itself a security signal
-    (`calendar_rules.calendar_secret_mode_is_unsafe()` reads it to
-    raise the drift banner).
-    """
-    try:
-        st = os.stat(path)
-    except OSError:
-        return "missing"
-    return [st.st_mtime_ns, st.st_ctime_ns, st.st_size, st.st_mode]
-
-
-def _freshness_file_stamps(state_dir):
-    """`_freshness_file_stamp()` for every file-backed freshness-token
-    input: `device_config.json`, `poll_state.json`, the calendar
-    registry, the calendar secret, the manual-resolutions registry, the
-    colour-rules registry, `panel.bin`, and the off-box marker (if
-    configured at all - "disabled" when `OFFBOX_MARKER_ENV_VAR` is
-    unset, distinct from "missing", which means the env var names a file
-    that is not there). Each path comes from its own module's own path
-    builder, never a second, drifting copy of the filename - `panel.bin`
-    has no such builder anywhere in the codebase (every writer inlines
-    the name), so this does too.
-
-    The calendar secret is stamped separately from the calendar registry
-    it is stored beside: Display renders `calendar_configured` and
-    `calendar_drift` (`config_page._aspect_card_html()`), both read from
-    `calendar_rules.calendar_secret_path()` - a drift appearing/clearing,
-    the secret being removed by hand, or a `save_calendar_url()` path
-    that leaves the registry untouched are all otherwise invisible to
-    this token until the forced full refresh, on a signal that can mean
-    the secret was exposed.
-    """
-    marker_path = os.environ.get(health_page.OFFBOX_MARKER_ENV_VAR)
-    return {
-        "device_config": _freshness_file_stamp(
-            device_config.device_config_path(state_dir)),
-        "poll_state": _freshness_file_stamp(state_store.poll_state_path(state_dir)),
-        "calendar_registry": _freshness_file_stamp(
-            calendar_rules.calendar_rules_path(state_dir)),
-        "calendar_secret": _freshness_file_stamp(
-            calendar_rules.calendar_secret_path(state_dir)),
-        "manual_resolutions": _freshness_file_stamp(
-            manual_resolutions.manual_resolutions_path(state_dir)),
-        "colour_rules": _freshness_file_stamp(colour_rules.colour_rules_path(state_dir)),
-        "panel_bin": _freshness_file_stamp(os.path.join(state_dir, "panel.bin")),
-        "offbox_marker": (
-            "disabled" if not marker_path else _freshness_file_stamp(marker_path)),
-    }
-
-
-def _freshness_db_signal(state_dir, want_pipeline_run):
-    """The freshness token's database-backed piece: the two per-table
-    MAX(id) watermarks (one SELECT) plus the last-detection/source-fault
-    meta keys, read through the request's own single scoped connection -
-    an `open_db()` call here inside an active `connection_scope()`
-    reuses it, never opens a second one. Any (sqlite3.Error, OSError)
-    collapses the WHOLE group to the literal "unavailable" (still
-    hashed into the token, so an outage still answers 200 with a token,
-    never a 500) rather than a partial read. `want_pipeline_run` is set
-    for Health and Home - Health's Pipeline tile and Home's Flight-data
-    tile both render that timestamp as plain text via
-    `concise_timestamp_html()`, and `.home-status-grid` is one of
-    Home's own declared swap regions - the other two pages (Flights,
-    Display) render nothing derived from it, so they must never see it
-    change on every poll cycle, or an unchanged repeat cycle would give
-    them a new token for no visible reason.
-
-    No third watermark from the per-wake-interval-change table: nothing
-    under companion/ may read it yet (a repo-wide guard test enforces
-    this - it accrues data for a later phase), so it can never be a
-    token input here either.
-    """
-    try:
-        with history_db.open_db(state_dir) as conn:
-            row = conn.execute(
-                "SELECT "
-                "(SELECT MAX(id) FROM runway_events) AS runway_events_id, "
-                "(SELECT MAX(id) FROM device_health) AS device_health_id"
-            ).fetchone()
-            result = {
-                "runway_events_id": row["runway_events_id"],
-                "device_health_id": row["device_health_id"],
-                "last_detection": history_db.get_meta(conn, history_db.META_LAST_DETECTION),
-                "source_fault": history_db.get_meta(conn, history_db.META_SOURCE_FAULT),
-            }
-            if want_pipeline_run:
-                result["last_pipeline_run"] = history_db.get_meta(
-                    conn, history_db.META_LAST_PIPELINE_RUN)
-            return result
-    except (sqlite3.Error, OSError):
-        return "unavailable"
-
-
-def _freshness_paris_date(now):
-    """The Europe/Paris calendar date `now` falls on, or `None` when
-    `now` fails to parse - Health's regularity grid buckets its cells
-    by this same day. A naive `now` (never produced by
-    `history_db.utc_now_iso()` in practice) is taken as UTC first,
-    matching `health_page._as_paris()`'s own convention, rather than
-    the ambiguous "system local time" `astimezone()` would otherwise
-    assume.
-    """
-    parsed = layout.parse_iso(now)
-    if parsed is None:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=ZoneInfo("UTC"))
-    return parsed.astimezone(layout.LOCAL_TZ).date().isoformat()
-
-
-# The health_signals() fields every freshness token folds in unchanged -
-# never recomputed, the same "copy, don't recompute" discipline
-# health_page.health_state_from_signals() itself follows. Anything a
-# route's own render() derives from one of these (a tile's verdict text,
-# the frame strip) is therefore already covered without naming it twice.
-_FRESHNESS_SIGNAL_FIELDS = (
-    "severity", "anomalies", "device_state", "pipeline_state",
-    "battery_state", "coverage_state", "disagreement_warn", "source_fault",
-    "offbox", "next_wake_iso", "effective_interval_s", "hold_reason",
-)
-
-
-def _page_freshness_token(route, ctx, query):
-    """The freshness check's server-computed input token: built from the
-    page's own inputs alone, with NO markup ever rendered
-    to answer a tick - `render(ctx)` never runs on this path at all when
-    the token matches. A completeness test mutates each input below and
-    expects a different token on the affected route or routes; the
-    client's own periodic forced full refresh
-    (companion/static/freshness.js's FORCED_REFRESH_EVERY_N_TICKS)
-    bounds whatever this list still misses.
-
-    `ctx["_health_signals"]` is read through the ctx's own internal
-    loader key (shared with "health_state"/"health_severity"), so the
-    one `health_page.health_signals()` read this triggers is the same
-    snapshot a route's own `render()` reuses afterwards on a token
-    mismatch - never a second, independent read at a later instant.
-    """
-    state_dir = ctx["state_dir"]
-    now = ctx["now"]
-    slug = layout.nav_slug(route)
-    signals = ctx["_health_signals"]
-    signal_fields = (
-        None if signals is None
-        else {key: signals[key] for key in _FRESHNESS_SIGNAL_FIELDS}
-    )
-    parts = {
-        "route": route,
-        "query": query,
-        "lang": ctx["lang"],
-        "ui_theme": ctx["ui_theme"],
-        "db": _freshness_db_signal(
-            state_dir,
-            want_pipeline_run=slug in (layout.REFRESH_PAGE_HEALTH, layout.REFRESH_PAGE_HOME)),
-        "signals": signal_fields,
-        "files": _freshness_file_stamps(state_dir),
-        # Reuses the ctx's own lazy "gallery_entries" loader (cached after
-        # this first read) rather than a second, direct gallery_entries()
-        # call - a route whose render() also reads it (Home, Flights)
-        # must still pay for exactly one scandir(), not two.
-        "gallery_newest": (ctx["gallery_entries"] or [None])[0],
-    }
-    if slug in (layout.REFRESH_PAGE_HOME, layout.REFRESH_PAGE_DISPLAY):
-        parts["frame_state"] = (
-            None if signals is None else frame_state.resolve_state(
-                signals["next_wake_iso"], signals["effective_interval_s"],
-                signals["hold_reason"], now))
-    if slug in (layout.REFRESH_PAGE_HEALTH, layout.REFRESH_PAGE_HOME, layout.REFRESH_PAGE_DISPLAY):
-        # Home's day band (_day_checkins()) buckets check-ins by this same
-        # Paris calendar day, and both Home's and Display's own next-wake
-        # local_clock_text() choose day qualifiers ("today"/"tomorrow")
-        # relative to `now` - at midnight, with no new check-in, neither
-        # page's token would otherwise change until the forced refresh.
-        parts["paris_date"] = _freshness_paris_date(now)
-    encoded = json.dumps(parts, sort_keys=True, default=str)
-    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:32]
-
-
-# The login card's one-sentence purpose text.
-LOGIN_EXPLANATION_TEXT = "Sign in to manage this device's settings."
-
-# A module constant beside LOGIN_EXPLANATION_TEXT because _login_body()
-# and the live countdown's template must both build from this one string.
-LOGIN_LOCKOUT_TEXT = "Too many attempts — try again in %ds."
-
-# The substitution token the live countdown swaps for the remaining
-# figure each second. "__N__" is excluded from test_i18n.py's French-
-# catalogue scan as an uppercase code; a lowercase placeholder would not
-# be, and would have to be translated (meaningless) or exempted.
-LOGIN_LOCKOUT_TEMPLATE_TOKEN = "__N__"
-
-# The id the login card's one message element carries (wrong-password
-# and lockout share it); `aria-describedby` points at it only when a
-# message is rendered.
-LOGIN_MESSAGE_ID = "login-error"
-
-# Rendered as server-escaped data-* attributes and swapped by
-# companion/static/login-card.js, so that file hard-codes no English.
-LOGIN_REVEAL_SHOW_LABEL = "Show password"
-LOGIN_REVEAL_HIDE_LABEL = "Hide password"
-
-# Marks, not words — deliberately not translated; legible without
-# relying on colour alone.
-LOGIN_REVEAL_MASKED_GLYPH = "●"
-LOGIN_REVEAL_SHOWN_GLYPH = "○"
-
-# `layout.page_header()` escapes both when it renders them — these are
-# always plain strings, never pre-escaped markup.
-NOT_FOUND_TITLE = "Page not found."
-NOT_FOUND_PURPOSE_TEXT = "The page you requested doesn't exist or may have moved."
-
-# do_POST()'s own Origin/Sec-Fetch-Site gate's 403 body — see
-# _forbidden_page() below.
-FORBIDDEN_TITLE = "Request refused"
-FORBIDDEN_PURPOSE_TEXT = (
-    "This request came from another site, so it was refused. Open SkyPane "
-    "directly and try again.")
+# The login card's markup and its own text constants, and the shared
+# 404/403 error-page bodies, now live in companion/login_page.py.
 
 
 def _validated_next_route(candidate):
@@ -751,171 +327,24 @@ def _validated_next_route(candidate):
     return candidate if candidate in allowed else None
 
 
-def _resolve_flash_text(
-        flash_key, state_dir, rule_key=None, last_checkin_ts=None, device_cfg=None,
-        battery_critical=False):
-    """Build this flash's already-translated message text, or None if
-    flash_key is unknown.
+# The flash-text resolution (_resolve_flash_text()) and the poll-trigger
+# cooldown read (poll_cooldown_remaining()) now live in companion/flash.py
+# — rebound here under their historical names.
+_resolve_flash_text = flash.resolve_flash_text
+poll_cooldown_remaining = flash.poll_cooldown_remaining
 
-    rule_key: re-normalised before interpolation — never trusted raw;
-    a failed check degrades to the generic FLASH_KEY_RULE_ADDED copy.
-    last_checkin_ts/device_cfg/battery_critical: feed the one computed
-    delay sentence via the same wake.next_wake_status() triple every
-    other reader shares, so they can never disagree.
-    """
-    if flash_key not in FLASH_MESSAGES:
-        return None
-    # Translate first, fill placeholders after, so the French template
-    # controls where the value lands. One expression, so test_i18n.py's
-    # scanner sees FLASH_MESSAGES as a real i18n.t() consumer.
-    template = i18n.t(FLASH_MESSAGES[flash_key])
-    if flash_key == FLASH_KEY_SAVED:
-        next_wake_iso, effective_interval_s, hold_reason = wake.next_wake_status(
-            last_checkin_ts, device_cfg or {}, battery_critical=battery_critical)
-        delay_template = frame_state.delay_sentence_template(
-            next_wake_iso, effective_interval_s, hold_reason)
-        delay_text = i18n.t(delay_template)
-        if "%s" in delay_text:
-            next_wake_parsed = layout.parse_iso(next_wake_iso)
-            clock = (
-                layout.local_clock_text(next_wake_parsed)
-                if next_wake_parsed is not None else None)
-            delay_text = (
-                delay_text % clock if clock else i18n.t(frame_state.DELAY_UNKNOWN))
-        # Lower-cased so the computed clause reads naturally after
-        # "Saved — " (every frame_state sentence is written to stand
-        # alone, capitalised, as a settings-caption's own second
-        # sentence — not as a flash banner's trailing clause).
-        if delay_text:
-            delay_text = delay_text[:1].lower() + delay_text[1:]
-        return template % delay_text
-    if flash_key == FLASH_KEY_POLL_COOLDOWN:
-        return template.format(n=poll_cooldown_remaining(state_dir))
-    if flash_key == FLASH_KEY_CALENDAR_CONNECTED:
-        # Read fresh from disk, on this redirect target's own render —
-        # never carried through the redirect's query string, which is
-        # client-supplied on the way back in. load_calendar_registry() is
-        # contractually never-raising, which is what makes it safe to
-        # call unconditionally here on every render that carries this key.
-        count = len(calendar_rules.load_calendar_registry(state_dir)["entries"])
-        return template.format(n=count, s="" if count == 1 else "s")
-    if flash_key == FLASH_KEY_CALENDAR_CONNECT_OK:
-        count = len(calendar_rules.load_calendar_registry(state_dir)["entries"])
-        return template.format(n=count)
-    if flash_key == FLASH_KEY_RULE_REPLACED:
-        normalised_key = colour_rules.normalise_rule_callsign(rule_key)
-        if normalised_key is None:
-            # Goes through i18n.t() like every other return path here —
-            # an invalid rule_key must not silently produce an
-            # untranslated English banner under a French request.
-            return i18n.t(FLASH_MESSAGES[FLASH_KEY_RULE_ADDED])
-        return template.format(key=normalised_key)
-    return template
-
-
-def poll_cooldown_remaining(state_dir):
-    """Seconds remaining before another `POST /poll-now` is allowed, or 0
-    when the cooldown has elapsed. Server-global and persisted in
-    `history.db`'s meta table (not the session cookie), so a second
-    browser tab cannot bypass it and a service restart does not reset it.
-    """
-    with history_db.open_db(state_dir) as conn:
-        value = history_db.get_meta(conn, history_db.META_LAST_POLL_TRIGGER)
-    if not value:
-        return 0
-    try:
-        last_triggered = int(value)
-    except (TypeError, ValueError):
-        return 0
-    remaining = POLL_COOLDOWN_S - (time.time() - last_triggered)
-    return int(remaining) if remaining > 0 else 0
-
-
-def _safe_poll_cooldown_remaining(state_dir):
-    """`page_context()`'s lazy "poll_cooldown_remaining" loader: degrades
-    to 0 (cooldown elapsed) on `(sqlite3.Error, OSError)` instead of
-    raising. Unlike the plain `poll_cooldown_remaining()` above — which
-    `_handle_poll_now()` and `_resolve_flash_text()`'s
-    FLASH_KEY_POLL_COOLDOWN branch both still call unguarded, since a
-    database fault there means the poll trigger itself cannot be trusted
-    either way — a page render's own cooldown display is decorative: the
-    Device page's poll button just shows enabled rather than a wrong
-    countdown, instead of 500ing every tab over one meta-table read.
-    """
-    try:
-        return poll_cooldown_remaining(state_dir)
-    except (sqlite3.Error, OSError):
-        return 0
-
-
-def _lazy_health_state(ctx):
-    """`page_context()`'s lazy "health_state" loader: the markup
-    `health_page.health_state_from_signals()` builds from the shared
-    `_health_signals` snapshot, or `None` when that snapshot itself
-    failed (a fresh compute is skipped rather than opening a second,
-    non-atomic set of reads at a different instant), or when building
-    markup from a real snapshot raises — the same broad `except
-    Exception` fail-closed contract `health_page.safe_health_state()`
-    uses, since this loader replaces that direct call.
-    """
-    signals = ctx["_health_signals"]
-    if signals is None:
-        return None
-    try:
-        return health_page.health_state_from_signals(signals)
-    except Exception:
-        return None
-
-
-def _lazy_health_severity(ctx):
-    """`page_context()`'s lazy "health_severity" loader: every tab reads
-    this for its nav-tab dot, so this is the one loader every route pays
-    for. Taken from "health_state" without recomputing anything when
-    that markup was already built (Home, Health — `dict.__contains__()`
-    here, bypassing `_LazyContext.__contains__()`, so checking is never
-    itself what triggers the build); otherwise straight from the shared
-    signals snapshot, so a route that never reads "health_state" still
-    triggers only the one signals read `_health_signals`'s own loader
-    already resolved. "ok" when the snapshot is `None` (a failure), the
-    same fail-closed default `compute_health_state()`'s callers use.
-    """
-    if dict.__contains__(ctx, "health_state"):
-        health_state = dict.__getitem__(ctx, "health_state")
-        return health_state["severity"] if health_state else "ok"
-    signals = ctx["_health_signals"]
-    return signals["severity"] if signals is not None else "ok"
-
-
-def env_wake_interval_default():
-    """Deployed SKYPANE_SLEEP_S as an int, or None. Read fresh each call,
-    not captured at import time. Clamped to `[WAKE_INTERVAL_MIN_S,
-    WAKE_INTERVAL_MAX_S]` only for this Settings form `min=` pre-fill —
-    `wake.effective_wake_interval_s()` reads the unclamped value. Fail-open
-    (None), unlike `configured_password()`'s fail-closed contract: a UI
-    convenience, not an auth boundary.
-    """
-    value = wake.env_sleep_s()
-    if value is None:
-        return None
-    if device_config.WAKE_INTERVAL_MIN_S <= value <= device_config.WAKE_INTERVAL_MAX_S:
-        return value
-    return None
-
-
-def _safe_last_checkin_ts(state_dir):
-    """The device's last real check-in, as the raw `device_health.ts`
-    string `history_db.latest_device_health()` returns, or `None` on any
-    failure — a missing/locked/unreadable database, or simply no reading
-    recorded yet. Narrow `(sqlite3.Error, OSError)` catch, the same
-    shape `companion.pages.health_page._safe_query()` uses so one
-    section's data access never faults the whole page render.
-    """
-    try:
-        with history_db.open_db(state_dir) as conn:
-            row = history_db.latest_device_health(conn)
-    except (sqlite3.Error, OSError):
-        return None
-    return row["ts"] if row else None
+# page_context()'s own lazy loaders (_safe_poll_cooldown_remaining(),
+# _lazy_health_state(), _lazy_health_severity()), the Settings form's
+# SKYPANE_SLEEP_S pre-fill (env_wake_interval_default()), and the last-
+# check-in reader page_context() shares with resolve_flash_text()
+# (_safe_last_checkin_ts()) all now live in companion/page_context.py —
+# rebound here under their historical names for the tests that still read
+# them off this module.
+_safe_poll_cooldown_remaining = page_context._safe_poll_cooldown_remaining
+_lazy_health_state = page_context._lazy_health_state
+_lazy_health_severity = page_context._lazy_health_severity
+env_wake_interval_default = page_context.env_wake_interval_default
+_safe_last_checkin_ts = page_context._safe_last_checkin_ts
 
 
 def _safe_latest_runway_event(state_dir):
@@ -942,22 +371,14 @@ def mark_poll_triggered(state_dir):
             conn, history_db.META_LAST_POLL_TRIGGER, str(int(time.time())))
 
 
-def gallery_entries(state_dir, limit=GALLERY_DEFAULT_LIMIT):
-    """The newest `limit` gallery filenames (name-descending; files are
-    named by timestamp, so lexical order is chronological), filtered to
-    files ending in the PNG extension. A missing gallery directory
-    returns an empty list rather than raising.
-    """
-    gallery_dir = os.path.join(state_dir, GALLERY_DIRNAME)
-    try:
-        entries = sorted(
-            (entry.name for entry in os.scandir(gallery_dir)
-             if entry.is_file() and entry.name.endswith(".png")),
-            reverse=True,
-        )
-    except OSError:
-        return []
-    return entries[:limit]
+# gallery_entries() (page_context()'s own lazy loader) and
+# runway_images_available()/_runway_image_path()/_runway_image_filename()
+# (the runway-diagram-presence check page_context() also computes eagerly,
+# plus _serve_runway_image()'s own path builder below) now live in
+# companion/page_context.py — rebound here under their historical names.
+gallery_entries = page_context.gallery_entries
+runway_images_available = page_context.runway_images_available
+_runway_image_path = page_context._runway_image_path
 
 
 def gallery_bytes(state_dir, requested):
@@ -978,150 +399,23 @@ def gallery_bytes(state_dir, requested):
     return None
 
 
-def _runway_image_filename(runway_id):
-    """The single, mechanical place the on-disk naming convention is
-    expressed: `runway-{runway_id}.png`.
-    """
-    return "runway-%s.png" % runway_id
+# _illustration_filenames()/parse_single_uploaded_file() now live in
+# companion/post_actions.py (the illustration-replace handler's own
+# module, and _serve_illustration_image()'s below) — rebound here under
+# their historical names; companion/pages/airlines_page.py imports
+# MAX_ILLUSTRATION_UPLOAD_BYTES from this module lazily.
+_illustration_filenames = post_actions._illustration_filenames
+parse_single_uploaded_file = post_actions.parse_single_uploaded_file
 
 
-def _runway_image_path(runway_id, image_dir=_RUNWAY_IMAGE_DIR):
-    return os.path.join(image_dir, _runway_image_filename(runway_id))
+# The typed PageContext every page module's render()/handle_post()
+# receives (replacing the _LazyContext dict subclass that used to live
+# here) now lives in companion/page_context.py — see that module's own
+# docstring. Handler.page_context() below is a one-line delegation to
+# page_context.build_page_context().
 
 
-def runway_images_available(image_dir=_RUNWAY_IMAGE_DIR):
-    """The subset of `device_config.RUNWAY_IDS` that currently has a real
-    `runway-{id}.png` file on disk. A missing `image_dir`, a missing
-    individual file, or any other OS-level error while checking is a
-    graceful-fallback state, not an error: `os.path.isfile()` already
-    swallows `OSError`/`ValueError` and returns `False`. The result is
-    bounded by the fixed `RUNWAY_IDS` registry (iterated, never
-    `os.scandir()`-ed), so it can never report an image for an id that
-    isn't a real runway.
-    """
-    available = set()
-    for runway_id in device_config.RUNWAY_IDS:
-        if os.path.isfile(_runway_image_path(runway_id, image_dir)):
-            available.add(runway_id)
-    return available
-
-
-def _illustration_filenames(state_dir=None):
-    """The known-safe membership set for validating a requested
-    illustration key before any filesystem path is constructed: the
-    fixed vendored list, unioned with resolved `manual_resolutions.json`
-    entries. The manual half comes from a prior, already-durable
-    request, never the current one. Recomputed per call, never cached,
-    since that manual state is mutable.
-    """
-    filenames = set(illustrations.target_filenames())
-    if state_dir:
-        for entry in manual_resolutions.load_manual_resolutions(state_dir).values():
-            key = manual_resolutions.illustration_key_for_name(entry["airline_name"])
-            if key:
-                filenames.add(key + ".png")
-    return frozenset(filenames)
-
-
-def parse_single_uploaded_file(content_type, body):
-    """Parse a `multipart/form-data` body known to hold exactly one file
-    part, returning its raw payload `bytes`, or `None` for anything that
-    doesn't match that exact shape. Never raises. The header block
-    (filename, field name, media type) is discarded and never parsed —
-    the destination path and the "is this an image" check both come
-    from elsewhere, never from this body's own claims.
-    """
-    try:
-        message = email.message.Message()
-        message["content-type"] = content_type
-        if message.get_content_type() != "multipart/form-data":
-            return None
-        boundary = message.get_param("boundary")
-        if not isinstance(boundary, str) or not boundary:
-            return None
-        boundary_bytes = boundary.encode("ascii")
-        if len(boundary_bytes) > 70:  # RFC 2046 boundary length ceiling.
-            return None
-
-        delimiter = b"--" + boundary_bytes
-        segments = body.split(delimiter)
-        # Exactly one part: a preamble, the part itself, and an epilogue.
-        # Zero parts, two-or-more parts, and a missing closing delimiter
-        # all produce a different segment count and are rejected here.
-        if len(segments) != 3:
-            return None
-        preamble, part, epilogue = segments
-        if preamble.strip(b"\r\n \t") != b"":
-            return None
-        if not epilogue.startswith(b"--"):
-            return None
-
-        if not part.startswith(b"\r\n"):
-            return None
-        part = part[2:]
-        header_block, separator, payload = part.partition(b"\r\n\r\n")
-        if not separator:
-            return None
-        del header_block  # discarded — see docstring above.
-
-        if payload.endswith(b"\r\n"):
-            payload = payload[:-2]
-        if not payload:
-            return None
-        return payload
-    except Exception:
-        return None
-
-
-class _LazyContext(dict):
-    """A `page_context()` `ctx` dict whose expensive values resolve at
-    most once, on first read, and only when a page actually reads them —
-    every non-Health tab draws its nav-tab dot from `health_severity`
-    alone, so paying for the full Health markup build (or the gallery
-    listing, the manual-resolutions/colour-rules registries, or the
-    calendar registry) on every request wasted most of that work.
-
-    Constructed with the request's cheap values already computed
-    eagerly, plus a `loaders` mapping of key -> zero-argument callable
-    for everything else. A loader may itself read `ctx[...]` (a
-    dict.__getitem__ on `self`, since a bound method closes over `self`)
-    to share another lazy value's already-resolved result, the way
-    `health_severity`'s loader reads the shared `_health_signals`
-    snapshot without recomputing it.
-
-    `dict.get()`/`dict.__contains__()` never call `__missing__`, so both
-    are overridden here — a page module that reads `ctx.get("k")` or
-    tests `"k" in ctx` must see the same lazily-resolved value (and pay
-    the same one-time cost) that `ctx["k"]` would.
-    """
-
-    def __init__(self, values, loaders):
-        super().__init__(values)
-        self._loaders = dict(loaders)
-
-    def __getitem__(self, key):
-        if key in self._loaders:
-            # Popped only AFTER loader() returns - a loader that raises
-            # must leave its key exactly as it found it (still lazy, not
-            # half-resolved), so a second read retries the loader instead
-            # of falling through to dict.__getitem__() and raising
-            # KeyError, which would hide the original exception.
-            value = self._loaders[key]()
-            del self._loaders[key]
-            dict.__setitem__(self, key, value)
-            return value
-        return dict.__getitem__(self, key)
-
-    def get(self, key, default=None):
-        if key in self._loaders:
-            return self[key]
-        return dict.get(self, key, default)
-
-    def __contains__(self, key):
-        return key in self._loaders or dict.__contains__(self, key)
-
-
-class Handler(BaseHTTPRequestHandler):
+class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
     server_version = "skypane-companion"
     args = None
     # socketserver.StreamRequestHandler honours this attribute, so a
@@ -1286,26 +580,15 @@ class Handler(BaseHTTPRequestHandler):
         capped at MAX_FORM_BYTES. An oversized/undecodable/stalled
         (`socket.timeout`, bounded by `Handler.timeout`) body degrades
         to an empty form rather than raising; an oversized body's
-        remainder is still drained so the connection isn't left corrupt.
-        Reachable pre-auth from `POST /login`.
+        remainder is still drained (via `request_body.drain_capped_body()`)
+        so the connection isn't left corrupt. Reachable pre-auth from
+        `POST /login`.
         """
-        try:
-            length = int(self.headers.get("Content-Length", "0"))
-        except ValueError:
-            length = 0
+        length = request_body.parse_content_length(self.headers)
         if length <= 0:
             return {}
-        try:
-            raw = self.rfile.read(min(length, MAX_FORM_BYTES + 1))
-            if length > MAX_FORM_BYTES:
-                remaining = length - len(raw)
-                while remaining > 0:
-                    chunk = self.rfile.read(min(remaining, 65536))
-                    if not chunk:
-                        break
-                    remaining -= len(chunk)
-                return {}
-        except socket.timeout:
+        raw, _over_cap = request_body.drain_capped_body(self.rfile, length, MAX_FORM_BYTES)
+        if raw is None:
             return {}
         try:
             text = raw.decode("utf-8")
@@ -1319,156 +602,22 @@ class Handler(BaseHTTPRequestHandler):
         bounded by `MAX_ILLUSTRATION_UPLOAD_BYTES`. Returns `None` for
         an absent/unparseable/non-positive/over-cap length or a
         `socket.timeout`; an over-cap body's remainder is still drained
-        first so the connection isn't left mid-body.
+        first (via `request_body.drain_capped_body()`) so the connection
+        isn't left mid-body.
         """
-        try:
-            length = int(self.headers.get("Content-Length", "0"))
-        except (TypeError, ValueError):
-            return None
+        length = request_body.parse_content_length(self.headers)
         if length <= 0:
             return None
-        try:
-            raw = self.rfile.read(min(length, MAX_ILLUSTRATION_UPLOAD_BYTES + 1))
-            if length > MAX_ILLUSTRATION_UPLOAD_BYTES:
-                remaining = length - len(raw)
-                while remaining > 0:
-                    chunk = self.rfile.read(min(remaining, 65536))
-                    if not chunk:
-                        break
-                    remaining -= len(chunk)
-                return None
-        except socket.timeout:
-            return None
+        raw, _over_cap = request_body.drain_capped_body(
+            self.rfile, length, MAX_ILLUSTRATION_UPLOAD_BYTES)
         return raw
 
     def page_context(self):
-        """Build the `ctx` dict every page module's render()/handle_post()
-        receives — documented in full in companion/pages/__init__.py.
-
-        Returns a `_LazyContext`: the cheap values below are computed
-        eagerly (every route needs them, or a later value here depends
-        on one), but the expensive ones — Health's severity/markup,
-        the gallery listing, the manual-resolutions/colour-rules/
-        calendar registries, and the poll cooldown — are lazy loaders,
-        resolved at most once, only if a route's own render() or
-        `_page_shell_for()`'s nav-dot read actually touches them. Every
-        tab still reads `health_severity` (the nav dot), so every tab
-        pays for one `health_page.health_signals()` read; only Home and
-        Health read `health_state`, so only those two pay for the
-        markup `health_page.health_state_from_signals()` builds from
-        that same snapshot — the invariant that keeps the nav dot and
-        the Health page's own banner in agreement.
+        """Build the `PageContext` every page module's render()/
+        handle_post() receives — documented in full in
+        companion/pages/__init__.py and companion/page_context.py.
         """
-        parsed = urlsplit(self.path)
-        params = parse_qs(parsed.query)
-        flash_key = params.get("flash", [None])[0]
-        # For FLASH_KEY_RULE_REPLACED's copy; re-normalised inside
-        # _resolve_flash_text() before ever being interpolated.
-        rule_key = params.get("rule", [None])[0]
-        state_dir = self.args.state_dir
-        now = history_db.utc_now_iso()
-        # Must run before any Health work below: a fresh per-thread
-        # ContextVar defaults to English, so setting the language late
-        # would build health markup in the wrong language.
-        prefs.set_request_prefs(lang=self._lang_from_request())
-        # Loaded once, reused for both "device_config" and "screen_id".
-        device_cfg = device_config.load_device_config(state_dir)
-        # Reused by _resolve_flash_text()'s FLASH_KEY_SAVED special case.
-        last_checkin_ts = _safe_last_checkin_ts(state_dir)
-        # Reused by _resolve_flash_text()'s delay-sentence computation.
-        battery_critical = wake.read_battery_critical(state_dir)
-
-        ctx = _LazyContext(
-            {
-                "state_dir": state_dir,
-                "ui_theme": self._resolved_ui_theme(),
-                "lang": prefs.current_lang(),
-                "device_config": device_cfg,
-                # The persisted screen_id, read from the same
-                # device_config dict already loaded above — consumed via
-                # companion.screens.current_screen_id(ctx), which already
-                # falls back to DEFAULT_SCREEN_ID for a missing/unknown
-                # value.
-                "screen_id": device_cfg.get("screen_id"),
-                # Data only; the page module formats it, matching
-                # wake.py's no-view-dependency rule.
-                "last_checkin_ts": last_checkin_ts,
-                "battery_critical": battery_critical,
-                # An int in [WAKE_INTERVAL_MIN_S, MAX_S] or None. An
-                # on-disk wake_interval_s always wins; this is only the
-                # pre-fill for before the user ever sets one explicitly.
-                "wake_interval_env_default": env_wake_interval_default(),
-                "flash": _resolve_flash_text(
-                    flash_key, state_dir, rule_key=rule_key,
-                    last_checkin_ts=last_checkin_ts, device_cfg=device_cfg,
-                    battery_critical=battery_critical),
-                "flash_role": FLASH_ROLES.get(flash_key, "status"),
-                "runway_images": runway_images_available(),
-                "now": now,
-                # Deliberately unvalidated: validation belongs to
-                # airlines_page.unresolved_row_for_prefix(), the single
-                # membership test shared by the render and write paths.
-                "resolve_prefix": params.get(
-                    airlines_page.RESOLVE_QUERY_PARAM, [None])[0],
-                # Deliberately unvalidated: validation belongs to
-                # history_page.flights_limit(). Presentation-only.
-                "flights_limit": params.get(
-                    history_page.FLIGHTS_LIMIT_QUERY_PARAM, [None])[0],
-            },
-            {
-                # The severity/anomaly snapshot every tab's nav dot needs,
-                # with zero markup built. Shared (never recomputed) by the
-                # "health_state" and "health_severity" loaders below.
-                "_health_signals": lambda: health_page.safe_health_signals(state_dir, now),
-                # Only Home and Health read this — the markup step. `None`
-                # both when the signals snapshot itself failed and when
-                # building markup from a real snapshot raises: the same
-                # fail-closed "None means ok, render() falls back to a
-                # fresh compute" contract safe_health_state() has always
-                # had.
-                "health_state": lambda: _lazy_health_state(ctx),
-                # "ok"/"warn"/"error". Taken from "health_state" without
-                # recomputing it when a page already built the markup
-                # (Home, Health); otherwise straight from the shared
-                # signals snapshot, so a route that never reads
-                # "health_state" still pays for exactly one signals read,
-                # never a second one.
-                "health_severity": lambda: _lazy_health_severity(ctx),
-                "gallery_entries": lambda: gallery_entries(state_dir),
-                # Read fresh per request, never through the poll cycle's
-                # own process-scoped cache — this is a long-running
-                # server.
-                "manual_resolutions": lambda: manual_resolutions.load_manual_resolutions(
-                    state_dir),
-                # Read fresh per request for the same reason.
-                "colour_rules": lambda: colour_rules.load_colour_rules(state_dir),
-                # A status line only needs presence, not the value: the
-                # calendar URL is a subscription secret, never rendered.
-                # A file-mode read, not the registry below — its own
-                # loader, so a route that reads only "calendar_configured"
-                # never pays for the registry's JSON parse.
-                "calendar_configured": lambda: calendar_rules.calendar_is_configured(
-                    state_dir),
-                # Loaded once, shared by the three calendar_* values below
-                # so a route that reads more than one of them still pays
-                # for a single registry read.
-                "_calendar_registry": lambda: calendar_rules.load_calendar_registry(state_dir),
-                # Read fresh from disk; a sync landing mid-session must be
-                # visible on the very next request.
-                "calendar_last_synced_at": lambda: ctx["_calendar_registry"]["last_synced_at"],
-                # Distinguishes "just connected, no sync yet" from "has
-                # been failing", without a new server-side field.
-                "calendar_last_attempt_at": lambda: ctx["_calendar_registry"]["last_attempt_at"],
-                "calendar_entry_count": lambda: len(ctx["_calendar_registry"]["entries"]),
-                # Consumed by config_page.calendar_group()'s status branch
-                # alone; never widens calendar_configured's own bool
-                # contract. Its own file-mode read, not the registry.
-                "calendar_drift": lambda: calendar_rules.calendar_secret_mode_is_unsafe(
-                    state_dir),
-                "poll_cooldown_remaining": lambda: _safe_poll_cooldown_remaining(state_dir),
-            },
-        )
-        return ctx
+        return page_context.build_page_context(self)
 
     # --- shared page fragments -------------------------------------------
 
@@ -1481,7 +630,8 @@ class Handler(BaseHTTPRequestHandler):
         severity, never the markup `health_state_from_signals()` would
         build for an error page that never renders it.
         `self.page_context()` is deliberately not called: too many
-        reads for an error path.
+        reads for an error path. The markup itself is
+        `companion/login_page.py`'s `not_found_page()`.
         """
         # Pre-session: resolved from the cookie or Accept-Language.
         prefs.set_request_prefs(lang=self._lang_from_request())
@@ -1490,24 +640,12 @@ class Handler(BaseHTTPRequestHandler):
             signals = health_page.safe_health_signals(
                 self.args.state_dir, history_db.utc_now_iso())
             health_alert = signals["severity"] if signals else "ok"
-        body = (
-            layout.page_header(i18n.t(NOT_FOUND_TITLE), purpose=i18n.t(NOT_FOUND_PURPOSE_TEXT))
-            + '<p class="text-body"><a href="%s">%s</a></p>'
-            % (HOME_ROUTE, layout.escape_html(i18n.t("Back to Home")))
-        )
-        return layout.page_shell(
-            # The <title> tag's own short form — distinct from
-            # NOT_FOUND_TITLE above (the page heading's longer sentence) —
-            # needs its own i18n.t() entry so the browser tab is
-            # translated too.
-            title=i18n.t("Not Found"), active="", body=body,
-            ui_theme=self._resolved_ui_theme(), health_alert=health_alert)
+        return login_page.not_found_page(self._resolved_ui_theme(), health_alert)
 
     def _forbidden_page(self):
         """The shared 403 body for do_POST()'s Origin/Sec-Fetch-Site gate.
-        Byte-for-byte the same shape as `_not_found_page()` above, kept
-        as a separate helper so a later route-table refactor can relocate
-        this gate independently.
+        Byte-for-byte the same shape as `_not_found_page()` above. The
+        markup itself is `companion/login_page.py`'s `forbidden_page()`.
         """
         prefs.set_request_prefs(lang=self._lang_from_request())
         health_alert = None
@@ -1515,128 +653,15 @@ class Handler(BaseHTTPRequestHandler):
             signals = health_page.safe_health_signals(
                 self.args.state_dir, history_db.utc_now_iso())
             health_alert = signals["severity"] if signals else "ok"
-        body = (
-            layout.page_header(i18n.t(FORBIDDEN_TITLE), purpose=i18n.t(FORBIDDEN_PURPOSE_TEXT))
-            + '<p class="text-body"><a href="%s">%s</a></p>'
-            % (HOME_ROUTE, layout.escape_html(i18n.t("Back to Home")))
-        )
-        return layout.page_shell(
-            title=i18n.t(FORBIDDEN_TITLE), active="", body=body,
-            ui_theme=self._resolved_ui_theme(), health_alert=health_alert)
-
-    def _login_body(self, error=None, lockout_seconds=None, next_route=None):
-        """The login card's inner markup. `next_route` rides a hidden
-        field so a failed login doesn't lose the destination. `error` is
-        already translated by the caller; this only escapes it, so
-        test_i18n.py's scanner can trace the literal at its one call
-        site. `aria-invalid="true"` fires only on wrong-password, never
-        on lockout (the typed value isn't what's wrong).
-        """
-        parts = [
-            '<h1 class="page-title">SkyPane</h1>',
-            '<p class="text-body">%s</p>' % layout.escape_html(i18n.t(LOGIN_EXPLANATION_TEXT)),
-        ]
-        # `if lockout_seconds:` (not `is not None`): a zero or absent
-        # figure never renders a lockout sentence, matching
-        # companion/static/login-card.js's own `remaining > 0` guard.
-        locked = bool(lockout_seconds)
-        if locked:
-            message = i18n.t(LOGIN_LOCKOUT_TEXT) % lockout_seconds
-        elif error:
-            message = error
-        else:
-            message = None
-
-        field_attrs = ""
-        if message is not None:
-            field_attrs += ' aria-describedby="%s"' % LOGIN_MESSAGE_ID
-        if message is not None and not locked:
-            field_attrs += ' aria-invalid="true"'
-        # During a lockout both controls are natively disabled. This is
-        # an affordance, never a boundary: companion/auth.py's
-        # LoginThrottle is re-consulted on every POST before the
-        # password is even looked at, so a visitor who re-enables these
-        # two elements in devtools gains nothing at all.
-        if locked:
-            field_attrs += " disabled"
-
-        # The live countdown's seed and template, server-computed and
-        # serialised here — never computed from a client clock.
-        form_attrs = ""
-        if locked:
-            form_attrs = (
-                ' data-lockout-seconds="%s" data-lockout-template="%s"'
-                ' data-lockout-token="%s"' % (
-                    layout.escape_html(json.dumps(int(lockout_seconds))),
-                    layout.escape_html(
-                        i18n.t(LOGIN_LOCKOUT_TEXT).replace(
-                            "%d", LOGIN_LOCKOUT_TEMPLATE_TOKEN)),
-                    layout.escape_html(LOGIN_LOCKOUT_TEMPLATE_TOKEN)))
-
-        message_html = (
-            '<p id="%s" class="field-error text-label" role="alert">%s</p>'
-            % (LOGIN_MESSAGE_ID, layout.escape_html(message))
-        ) if message is not None else ""
-
-        next_field_html = (
-            '<input type="hidden" name="next" value="%s">'
-            % layout.escape_html(next_route)) if next_route else ""
-        parts.append(
-            '<form method="post" action="%s" class="login-form"%s>'
-            "%s"
-            '<label for="password">%s</label>'
-            '<span class="login-form__field">'
-            '<input type="password" id="password" name="password" '
-            'class="login-form__input" '
-            'autocomplete="current-password" autofocus required%s>'
-            "%s"
-            "</span>"
-            "%s"
-            '<button type="submit"%s>%s</button>'
-            "</form>" % (
-                LOGIN_ROUTE, form_attrs, next_field_html,
-                layout.escape_html(i18n.t("Password")),
-                field_attrs,
-                self._login_reveal_toggle_html(),
-                message_html,
-                " disabled" if locked else "",
-                layout.escape_html(i18n.t("Sign in")))
-        )
-        return "".join(parts)
-
-    @staticmethod
-    def _login_reveal_toggle_html():
-        """The show-password toggle. Server-rendered `hidden`, always —
-        a script-blocked browser never sees it (no-JS floor by
-        construction), and the form still submits normally. Glyph swaps
-        with state so appearance isn't carried by colour alone; both
-        labels/glyphs are server-escaped data-* attributes so no English
-        is hard-coded in the JS.
-        """
-        show_label = i18n.t(LOGIN_REVEAL_SHOW_LABEL)
-        return (
-            '<button type="button" class="copy-btn login-reveal" hidden '
-            'aria-pressed="false" aria-label="%s" title="%s" '
-            'data-login-reveal data-show-label="%s" data-hide-label="%s" '
-            'data-show-glyph="%s" data-hide-glyph="%s">'
-            '<span class="icon login-reveal__glyph" aria-hidden="true" '
-            'data-login-reveal-glyph>%s</span>'
-            "</button>" % (
-                layout.escape_html(show_label),
-                layout.escape_html(show_label),
-                layout.escape_html(show_label),
-                layout.escape_html(i18n.t(LOGIN_REVEAL_HIDE_LABEL)),
-                layout.escape_html(LOGIN_REVEAL_MASKED_GLYPH),
-                layout.escape_html(LOGIN_REVEAL_SHOWN_GLYPH),
-                layout.escape_html(LOGIN_REVEAL_MASKED_GLYPH))
-        )
+        return login_page.forbidden_page(self._resolved_ui_theme(), health_alert)
 
     def _render_login_page(self, error=None, lockout_seconds=None, next_route=None):
-        # Pre-session, like _not_found_page() above.
+        # Pre-session, like _not_found_page() above. The markup itself is
+        # companion/login_page.py's render_login_page()/login_body().
         prefs.set_request_prefs(lang=self._lang_from_request())
-        body = self._login_body(
-            error=error, lockout_seconds=lockout_seconds, next_route=next_route)
-        return layout.login_shell(body, ui_theme=self._resolved_ui_theme())
+        return login_page.render_login_page(
+            self._resolved_ui_theme(), error=error, lockout_seconds=lockout_seconds,
+            next_route=next_route)
 
     def _serve_static(self, abs_path, content_type, cache_control):
         """Shared body behind `_serve_static_route()` and
@@ -1750,311 +775,13 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_html(404, self._not_found_page())
         return self.send_bytes(200, "image/png", payload, cache_seconds=300)
 
-    def _handle_illustration_replace(self, key):
-        """POST /illustration/{key}.png — upload a replacement
-        illustration, the first untrusted file upload this codebase
-        handles. Membership-tests `key` before any path is built or
-        body byte is read. Only the server's own Pillow re-encode is
-        ever written to disk — the client's original bytes are never
-        stored. No CSRF token: relies on SameSite=Strict, like every
-        other state-changing POST.
-        """
-        filename = key + ".png"
-        if filename not in _illustration_filenames(self.args.state_dir):
-            return self.send_html(404, self._not_found_page())
-
-        raw = self._read_upload_body()
-        if raw is None:
-            return self.redirect(
-                "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
-
-        payload = parse_single_uploaded_file(self.headers.get("Content-Type"), raw)
-        if payload is None or len(payload) > MAX_ILLUSTRATION_UPLOAD_BYTES:
-            return self.redirect(
-                "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
-
-        state_dir = self.args.state_dir
-        override_dir = illustrations.override_dir_for_state_dir(state_dir)
-        try:
-            os.makedirs(override_dir, exist_ok=True)
-        except OSError:
-            return self.redirect(
-                "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED))
-
-        # The raw upload's temp lives in override_dir (mkstemp: a unique
-        # name, so two concurrent uploads of the same key can never
-        # collide) so it never needs a cross-filesystem copy before
-        # validate_illustration_file()/Image.open() read it back. The
-        # encoded PNG is never staged as a file at all - it is built in
-        # memory and published straight through atomic_io.atomic_write(),
-        # which owns its own unique temp name and cleans it up on any
-        # failure.
-        raw_tmp_path = None
-        try:
-            raw_tmp_fd, raw_tmp_path = tempfile.mkstemp(
-                dir=override_dir, prefix="." + key + ".upload.", suffix=".tmp")
-            with os.fdopen(raw_tmp_fd, "wb") as fh:
-                fh.write(payload)
-
-            # Reads format/dimensions from the header only, rejecting an
-            # over-cap pixel count before any pixel data decodes — a
-            # decompression-bomb upload is never expanded.
-            problems = illustrations.validate_illustration_file(raw_tmp_path)
-            if problems:
-                for problem in problems:
-                    print("illustration replace rejected for %r: %s" % (key, problem))
-                return self.redirect(
-                    "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
-
-            with Image.open(raw_tmp_path) as img:
-                rgba = img.convert("RGBA")
-                buffer = io.BytesIO()
-                rgba.save(buffer, format="PNG")
-
-            override_path = illustrations.override_path_for_key(key, state_dir)
-            atomic_io.atomic_write(override_path, buffer.getvalue())
-            return self.redirect(
-                "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACED))
-        except Exception:
-            return self.redirect(
-                "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED))
-        finally:
-            if raw_tmp_path is not None:
-                try:
-                    os.unlink(raw_tmp_path)
-                except OSError:
-                    pass
-
-    def _handle_manual_resolve_post(self):
-        """POST /airlines/resolve — Step A of the two-step resolve flow.
-        `prefix` is re-validated against the live unresolved-callsign
-        registry, never trusted from the hidden form field; a stale
-        prefix writes nothing. The illustration key on success is
-        recomputed server-side from the just-persisted name, never from
-        the form value. No CSRF token: relies on SameSite=Strict, like
-        every other state-changing route.
-        """
-        form = self.read_form()
-        state_dir = self.args.state_dir
-
-        row = unresolved_row_for_prefix(state_dir, form.get("prefix"))
-        if row is None:
-            return self.redirect(
-                "%s?flash=%s"
-                % (airlines_page.AIRLINES_ROUTE, quote(FLASH_KEY_MANUAL_PREFIX_STALE)))
-        prefix = row[0]
-
-        result = manual_resolutions.add_entry(state_dir, prefix, form.get("airline_name"))
-
-        if result == manual_resolutions.ADD_OK:
-            registry = manual_resolutions.load_manual_resolutions(state_dir)
-            entry = registry.get(prefix) or {}
-            key = manual_resolutions.illustration_key_for_name(entry.get("airline_name"))
-            if key and illustrations.resolved_illustration_path(key, state_dir) is not None:
-                return self.redirect(
-                    "%s?flash=%s"
-                    % (airlines_page.AIRLINES_ROUTE, quote(FLASH_KEY_MANUAL_RESOLVED)))
-            return self.redirect(
-                "%s?resolve=%s&flash=%s"
-                % (airlines_page.AIRLINES_ROUTE, quote(prefix, safe=""),
-                   quote(FLASH_KEY_MANUAL_RESOLVED)))
-
-        if result == manual_resolutions.ADD_REJECTED_PREFIX:
-            flash_key = FLASH_KEY_MANUAL_NAME_EMPTY
-        elif result == manual_resolutions.ADD_REJECTED_NAME_EMPTY:
-            # add_entry() collapses "empty" and "supplied but unusable"
-            # onto one result code; distinguish them here by re-reading
-            # the same raw posted value, never re-deriving the regex.
-            raw_name = form.get("airline_name")
-            if isinstance(raw_name, str) and raw_name.strip():
-                flash_key = FLASH_KEY_MANUAL_NAME_UNUSABLE
-            else:
-                flash_key = FLASH_KEY_MANUAL_NAME_EMPTY
-        elif result == manual_resolutions.ADD_REJECTED_NAME_TOO_LONG:
-            flash_key = FLASH_KEY_MANUAL_NAME_TOO_LONG
-        elif result == manual_resolutions.ADD_REJECTED_NAME_RESERVED:
-            flash_key = FLASH_KEY_MANUAL_NAME_RESERVED
-        elif result == manual_resolutions.ADD_REJECTED_FULL:
-            flash_key = FLASH_KEY_MANUAL_REGISTRY_FULL
-        elif result == manual_resolutions.ADD_FAILED:
-            flash_key = FLASH_KEY_MANUAL_SAVE_FAILED
-        else:
-            # An unrecognised result must still speak, never fall through
-            # to no flash at all.
-            flash_key = FLASH_KEY_MANUAL_SAVE_FAILED
-        return self.redirect(
-            "%s?resolve=%s&flash=%s"
-            % (airlines_page.AIRLINES_ROUTE, quote(prefix, safe=""), quote(flash_key)))
-
-    def _handle_manual_resolution_delete(self, key):
-        """POST /airlines/manual-resolutions/{prefix}/delete. `key` is
-        normalised and used only as a dict key into
-        `manual_resolutions.json`, never joined into a filesystem path.
-        Deleting an already-absent prefix is success, not an error
-        (idempotent double-submission tolerance); only a genuine write
-        failure gets a failure flash.
-        """
-        prefix = manual_resolutions.normalise_prefix(key)
-        if prefix is None:
-            return self.send_html(404, self._not_found_page())
-
-        state_dir = self.args.state_dir
-        existed = prefix in manual_resolutions.load_manual_resolutions(state_dir)
-        deleted = manual_resolutions.delete_entry(state_dir, prefix)
-        if not deleted and existed:
-            return self.redirect(
-                "%s?flash=%s"
-                % (airlines_page.AIRLINES_ROUTE, quote(FLASH_KEY_MANUAL_DELETE_FAILED)))
-        return self.redirect(airlines_page.AIRLINES_ROUTE)
-
-    def _handle_rule_add_post(self):
-        """POST /settings/rules/add: the colour-rules editor's immediate
-        add route, an action outside SETTINGS_ROUTE. `colour_rules.add_rule()`
-        is the single validation authority; this handler validates
-        nothing itself and maps every result to a flash key with an
-        explicit branch, so an unrecognised result can never fall
-        through silently. No CSRF token, like every state-changing route.
-        """
-        form = self.read_form()
-        state_dir = self.args.state_dir
-
-        submitted_kind = form.get("rule_kind")
-        submitted_key = form.get("rule_key")
-        submitted_theme_id = form.get("rule_theme_id")
-
-        result = colour_rules.add_rule(
-            state_dir, submitted_kind, submitted_key, submitted_theme_id)
-
-        if result == colour_rules.ADD_OK_NEW:
-            return self.redirect(
-                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_RULE_ADDED)))
-        if result == colour_rules.ADD_OK_REPLACED:
-            # Both segments are already known-valid at this point (that is
-            # exactly why add_rule() returned ADD_OK_REPLACED rather than
-            # a rejection) — re-derived here, never trusted from the raw
-            # form value (validate-then-echo).
-            normalised_kind = colour_rules.normalise_rule_kind(submitted_kind)
-            normalised_value = colour_rules.normalise_rule_value(
-                normalised_kind, submitted_key)
-            return self.redirect(
-                "%s?flash=%s&rule=%s"
-                % (DISPLAY_ROUTE, quote(FLASH_KEY_RULE_REPLACED),
-                   quote(normalised_value, safe="")))
-        if result == colour_rules.ADD_REJECTED_KEY:
-            flash_key = FLASH_KEY_RULE_KEY_INVALID
-        elif result == colour_rules.ADD_REJECTED_FULL:
-            flash_key = FLASH_KEY_RULE_REGISTRY_FULL
-        else:
-            # ADD_REJECTED_KIND, ADD_REJECTED_THEME, ADD_FAILED, and any
-            # unrecognised result all reuse the generic save-failed key —
-            # a result must never fall through to no flash at all.
-            flash_key = FLASH_KEY_RULE_SAVE_FAILED
-        return self.redirect("%s?flash=%s" % (DISPLAY_ROUTE, quote(flash_key)))
-
-    def _handle_rule_delete(self, kind, value):
-        """POST /settings/rules/{kind}/{value}/delete. `kind` and
-        `value` are re-normalised before any registry lookup — an
-        unrecognised kind or malformed value 404s without touching the
-        registry. Deleting an already-absent pair is success, not an
-        error (idempotent double-submission tolerance).
-        """
-        normalised_kind = colour_rules.normalise_rule_kind(kind)
-        if normalised_kind is None:
-            return self.send_html(404, self._not_found_page())
-        normalised_value = colour_rules.normalise_rule_value(normalised_kind, value)
-        if normalised_value is None:
-            return self.send_html(404, self._not_found_page())
-
-        state_dir = self.args.state_dir
-        registry = colour_rules.load_colour_rules(state_dir)
-        existed = normalised_value in registry.get(normalised_kind, {})
-        deleted = colour_rules.delete_rule(state_dir, normalised_kind, normalised_value)
-        if deleted:
-            return self.redirect(
-                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_RULE_DELETED)))
-        if existed:
-            return self.redirect(
-                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_RULE_DELETE_FAILED)))
-        return self.redirect(DISPLAY_ROUTE)
-
-    def _handle_calendar_disconnect_post(self):
-        """POST /settings/calendar/disconnect. Two-step confirmation,
-        server-side: a bare or non-matching confirm value renders the
-        confirm page at 200 without touching anything — the client-side
-        `confirm()` dialog is a misclick guard only, never the security
-        control. Only an exact confirm match proceeds to clear the URL.
-        """
-        form = self.read_form()
-        confirm = form.get(config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD)
-        if confirm != config_page.CALENDAR_DISCONNECT_CONFIRM_VALUE:
-            ctx = self.page_context()
-            body = config_page.calendar_disconnect_confirm_page(ctx)
-            return self.send_html(200, self._page_shell_for(DISPLAY_ROUTE, body, ctx))
-        state_dir = self.args.state_dir
-        if calendar_rules.save_calendar_url(
-                state_dir, calendar_rules.CLEAR_CALENDAR_URL):
-            return self.redirect(
-                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_DISCONNECTED)))
-        return self.redirect(
-            "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
-
-    def _handle_calendar_connect_post(self):
-        """POST /settings/calendar/connect: the Calendar card's own
-        dedicated route — never the scoped settings handler, since a
-        scoped POST carrying only `calendar_url` would read every
-        absent checkbox on Display as an explicit OFF. Writes the URL,
-        then syncs under `_POLL_LOCK` (process-local; see
-        `_handle_settings_post()` for the cross-process lock).
-        """
-        form = self.read_form()
-        signal = config_page.submitted_calendar_signal(form)
-        if signal in (
-                config_page.CALENDAR_URL_SIGNAL_CARRY_FORWARD,
-                config_page.CALENDAR_URL_SIGNAL_INVALID,
-                config_page.CALENDAR_URL_SIGNAL_CLEAR):
-            return self.redirect(
-                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_CONNECT_INVALID)))
-        state_dir = self.args.state_dir
-        stripped_url = (form.get("calendar_url") or "").strip()
-        if not calendar_rules.save_calendar_url(state_dir, stripped_url):
-            return self.redirect(
-                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
-        if not _POLL_LOCK.acquire(blocking=False):
-            return self.redirect(
-                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_DEFERRED)))
-        try:
-            result_code, _registry = calendar_rules.refresh_calendar_registry(
-                state_dir, poll_cycle.now_s(), min_interval_s=0)
-        finally:
-            _POLL_LOCK.release()
-        if result_code == calendar_rules.FETCH_OK:
-            return self.redirect(
-                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_CONNECT_OK)))
-        return self.redirect(
-            "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
-
-    def _handle_notifications_test_post(self):
-        """POST /settings/notifications/test. SSRF-by-proxy guard: the
-        topic URL is read from the stored device config, never from the
-        submitted form body — accepting a client-supplied URL here would
-        turn this button into an open request-forwarder.
-        """
-        state_dir = self.args.state_dir
-        stored_notifications = device_config.load_device_config(state_dir)["notifications"]
-        topic_url = stored_notifications.get("topic_url")
-        if not topic_url:
-            return self.redirect(
-                "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_NOTIFICATIONS_TEST_FAILED)))
-        lang = stored_notifications.get("lang") or "en"
-        sent = notify.send_notification(
-            topic_url,
-            notify.body_for_lang(notify.TEST_NOTIFICATION_TITLE, lang),
-            notify.body_for_lang(notify.TEST_NOTIFICATION_BODY, lang))
-        if sent:
-            return self.redirect(
-                "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_NOTIFICATIONS_TEST_OK)))
-        return self.redirect(
-            "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_NOTIFICATIONS_TEST_FAILED)))
+    # _handle_illustration_replace(), _handle_manual_resolve_post(),
+    # _handle_manual_resolution_delete(), _handle_rule_add_post(),
+    # _handle_rule_delete(), _handle_calendar_disconnect_post(),
+    # _handle_calendar_connect_post(), and _handle_notifications_test_post()
+    # now live on companion/post_actions.py's SettingsActionsMixin, which
+    # this class inherits — method names unchanged, so
+    # companion/routes.py's ROUTES table keeps resolving them.
 
     def _referring_tab(self):
         referer = self.headers.get("Referer", "")
@@ -2075,13 +802,13 @@ class Handler(BaseHTTPRequestHandler):
         renders it onto `<body>` only when given.
         """
         flash_html = (
-            layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
-            if ctx["flash"] else None)
+            layout.flash_banner(ctx.flash, role=ctx.flash_role)
+            if ctx.flash else None)
         return layout.page_shell(
             title=i18n.t(_PAGE_TITLES[route]), active=layout.nav_slug(route),
             body=body,
-            ui_theme=ctx["ui_theme"], flash=flash_html,
-            health_alert=ctx["health_severity"], device_config=ctx["device_config"],
+            ui_theme=ctx.ui_theme, flash=flash_html,
+            health_alert=ctx.health_severity, device_config=ctx.device_config,
             scripts=_PAGE_SCRIPTS[route], refresh_token=refresh_token)
 
     def _render_tab(self, route, render):
@@ -2219,12 +946,10 @@ class Handler(BaseHTTPRequestHandler):
                 set_cookie=auth.session_set_cookie_header(token))
         LOGIN_THROTTLE.record_failure(throttle_key)
         return self.send_html(401, self._render_login_page(
-            # Translated here, at the literal call site — see
-            # _login_body()'s own docstring for why (`error` is an
-            # opaque parameter by the time it reaches that function,
-            # invisible to the ast-based scanner that traces i18n.t()
-            # call arguments).
-            error=i18n.t("Incorrect password. Try again."), next_route=next_route))
+            # Translated here, at the call site — see login_page.py's
+            # own login_body() docstring for why (`error` is an opaque
+            # parameter by the time it reaches that function).
+            error=i18n.t(_INCORRECT_PASSWORD_TEXT), next_route=next_route))
 
     def _handle_settings_post(self):
         """POST /settings. Re-renders the scoped page at 200 with field
@@ -2365,17 +1090,25 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_no_content()
         return self.redirect("%s?flash=%s" % (return_to, quote(flash_key)))
 
+    def _choice_cookie_header(self, name, value, choices, max_age_s):
+        """The `Set-Cookie` header for a UI-preference cookie (theme,
+        lang): `name=value` with HttpOnly/SameSite=Strict/Path=/, or
+        None when `value` is not a member of `choices` — an unrecognised
+        submission sets no cookie at all. Routed through
+        auth.secure_cookie_flag() so every cookie this app sets, session
+        included, agrees on the Secure flag. The one format string
+        `_handle_theme_post()`/`_handle_lang_post()` below share.
+        """
+        if value not in choices:
+            return None
+        return "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d" % (
+            name, value, auth.secure_cookie_flag(), max_age_s)
+
     def _handle_theme_post(self):
         form = self.read_form()
-        submitted = form.get("ui_theme")
-        cookie_header = None
-        if submitted in layout.UI_THEME_CHOICES:
-            # Routed through auth.secure_cookie_flag() so this cookie
-            # and the session cookie cannot drift on the Secure flag.
-            cookie_header = (
-                "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d"
-                % (auth.UI_THEME_COOKIE_NAME, submitted, auth.secure_cookie_flag(),
-                   THEME_COOKIE_MAX_AGE_S))
+        cookie_header = self._choice_cookie_header(
+            auth.UI_THEME_COOKIE_NAME, form.get("ui_theme"), layout.UI_THEME_CHOICES,
+            THEME_COOKIE_MAX_AGE_S)
         return self.redirect(self._referring_tab(), set_cookie=cookie_header)
 
     def _handle_lang_post(self):
@@ -2384,13 +1117,9 @@ class Handler(BaseHTTPRequestHandler):
         exactly like the theme route already behaves.
         """
         form = self.read_form()
-        submitted = form.get("ui_lang")
-        cookie_header = None
-        if submitted in prefs.LANG_CHOICES:
-            cookie_header = (
-                "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d"
-                % (auth.UI_LANG_COOKIE_NAME, submitted, auth.secure_cookie_flag(),
-                   LANG_COOKIE_MAX_AGE_S))
+        cookie_header = self._choice_cookie_header(
+            auth.UI_LANG_COOKIE_NAME, form.get("ui_lang"), prefs.LANG_CHOICES,
+            LANG_COOKIE_MAX_AGE_S)
         return self.redirect(self._referring_tab(), set_cookie=cookie_header)
 
     def do_POST(self):

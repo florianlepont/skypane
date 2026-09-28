@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 import companion.app as app
+import companion.health_signals as health_signals
 from companion import i18n, layout, prefs
 from companion.pages import health_page
 import companion.test_status_pages_helpers as shp
@@ -92,7 +93,7 @@ def test_collect_anomalies_and_overall_severity_treat_pipeline_off_as_healthy():
     # proving 'off' is a real exemption, not an accidental membership-check
     # bug that swallowed every non-'ok' value.
     assert health_page.collect_anomalies("ok", "warn", "ok", False) == [
-        health_page.i18n.t("Flight data is stale.")], (
+        health_page.i18n.t(health_signals._FLIGHT_DATA_STALE_TEXT)], (
         "expected collect_anomalies() to still flag a genuinely stale pipeline")
     assert health_page.overall_severity("ok", "warn", "ok", False) == "warn", (
         "expected overall_severity() to still warn for a genuinely stale pipeline")
@@ -663,6 +664,39 @@ def test_registry_card_keeps_filter_bar_note_and_non_button_clear(tmp_path):
         "the migrated registry card's Clear control must not be a <button>")
 
 
+def test_registry_seen_cells_age_is_a_live_time_element(tmp_path):
+    """the unresolved-prefix registry's First seen / Last seen cells render their relative age
+    as a live <time data-relative> element (layout.relative_time_html()'s own markup), reading
+    exactly what relative_age_text() reads today, with the cell-primary/cell-inline-sep/
+    cell-secondary shape unchanged and no double-escaping"""
+    state_dir = str(tmp_path)
+    now = shp.now()
+    seen_ts = shp.iso(now - timedelta(seconds=600))
+    registry = {
+        "ABC": {"count": 1, "first_seen": seen_ts, "last_seen": seen_ts,
+                "example_callsign": "ABC123"},
+    }
+    shp.seed_unresolved_prefixes(state_dir, registry)
+    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    doc = parse_html(rendered)
+    row = doc.select_one('.data-table--registry tr[data-filter-group="0"]')
+    assert row is not None, "expected to locate the seeded registry row"
+    cells = row.select("td")
+    expected_age = layout.relative_age_text(600)
+    for label, cell in (("First seen", cells[2]), ("Last seen", cells[3])):
+        element = cell.select_one("time[data-relative]")
+        assert element is not None, "expected %s to carry a <time data-relative> element" % label
+        assert element.text() == expected_age, (
+            "%s: expected the age text to read exactly relative_age_text()'s own output, got %r"
+            % (label, element.text()))
+        assert element.attrs.get("datetime"), "%s: expected a non-empty datetime attribute" % label
+        assert layout.age_seconds(element.attrs["datetime"], shp.iso(now)) == 600, (
+            "%s: expected the element's own instant to carry the registry row's moment" % label)
+        assert cell.find("span", cls="cell-primary") is not None
+        assert cell.find("span", cls="cell-secondary") is not None
+    assert "&lt;time" not in rendered, "found a double-escaped '&lt;time' on Health"
+
+
 def test_read_only_note_reworded_to_point_at_airlines_not_the_runbook(tmp_path):
     """the read-only note is reworded to name Airlines as the resolution surface, no longer points at
     the manual runbook, no longer says 'prefix' in either half, and is now split into a short
@@ -697,7 +731,7 @@ def test_read_only_note_reworded_to_point_at_airlines_not_the_runbook(tmp_path):
         "expected the rendered page to contain the visible note verbatim (escaped)")
     detail_marker = (
         '<details class="readings-disclosure"><summary>%s</summary><p>%s</p></details>'
-        % (layout.escape_html(i18n.t("More details")), layout.escape_html(expected_detail)))
+        % (layout.escape_html(i18n.t(health_page._MORE_DETAILS_TEXT)), layout.escape_html(expected_detail)))
     assert detail_marker in rendered, (
         "expected the moved instruction verbatim (escaped) inside a readings-disclosure")
     assert old_note_closing_phrase not in rendered, (
@@ -1162,7 +1196,7 @@ def test_battery_trend_caption_all_three_branches_render_in_sibling_caption(tmp_
         readings.append((shp.iso(base - timedelta(days=day)), mv))
     shp.seed_device_health(daily_dir, readings)
     rendered = health_page.render(shp.ctx(daily_dir, now_value=shp.iso(base)))
-    expected = layout.escape_html(i18n.t("Last 3 months, daily average"))
+    expected = layout.escape_html(i18n.t(health_signals._LAST_3_MONTHS_DAILY_AVERAGE_TEXT))
     assert _caption_paragraph(rendered) == expected, (
         "daily-series branch: expected caption %r" % expected)
 
@@ -1170,7 +1204,7 @@ def test_battery_trend_caption_all_three_branches_render_in_sibling_caption(tmp_
     # the same 3-month framing) — an empty state dir.
     empty_dir = str(tmp_path / "empty")
     rendered = health_page.render(shp.ctx(empty_dir, now_value=shp.iso(base)))
-    expected = layout.escape_html(i18n.t("Last 3 months, daily average"))
+    expected = layout.escape_html(i18n.t(health_signals._LAST_3_MONTHS_DAILY_AVERAGE_TEXT))
     assert _caption_paragraph(rendered) == expected, "no-rows branch: expected caption %r" % expected
 
     # Branch 3: a sub-two-day raw series (the day-1 fallback) — the real
@@ -1183,7 +1217,7 @@ def test_battery_trend_caption_all_three_branches_render_in_sibling_caption(tmp_
     ]
     shp.seed_device_health(sameday_dir, sameday_readings)
     rendered = health_page.render(shp.ctx(sameday_dir, now_value=shp.iso(base)))
-    expected = layout.escape_html(i18n.t("Latest %d readings") % len(sameday_readings))
+    expected = layout.escape_html(i18n.t(health_signals._LATEST_READINGS_TEMPLATE) % len(sameday_readings))
     assert _caption_paragraph(rendered) == expected, "sub-two-day branch: expected caption %r" % expected
 
 

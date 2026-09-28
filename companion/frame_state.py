@@ -3,12 +3,15 @@
 Returns a state name and a template-key string only, never HTML or
 formatted text — rendering is the caller's job. Every consumer resolves
 state from the same `server.wake.next_wake_status()` triple, so they
-can never disagree on due/held/late. Stdlib-only. Never raises:
-malformed input degrades to STATE_UNKNOWN/DELAY_UNKNOWN.
+can never disagree on due/held/late. Depends only on stdlib plus
+companion.wake and companion.i18n (for the six wordings' stable message
+ids). Never raises: malformed input degrades to STATE_UNKNOWN/
+DELAY_UNKNOWN.
 """
 from datetime import datetime, timedelta, timezone
 
 from companion import wake
+import companion.i18n as i18n
 
 # --- The three frame states ---------------------------------------------
 
@@ -20,20 +23,34 @@ STATE_UNKNOWN = "unknown"
 # --- The three headlines -------------------------------------------------
 #
 # `%s` placeholders only, never f-strings or `.format()`, matching every
-# other catalogue in this codebase.
+# other catalogue in this codebase. HEADLINE_DUE/HEADLINE_LATE are owned
+# by companion/i18n_fr/home.py's catalogue (untouched by this plan;
+# migrated later); HEADLINE_HELD is owned by this module's own
+# companion/i18n_fr/frame_state.py catalogue, migrated alongside it.
 
-HEADLINE_DUE = "Next update ≈ %s"
-HEADLINE_HELD = "Next wake around %s · quiet hours"
-HEADLINE_LATE = "Expected since %s"
+HEADLINE_DUE = i18n.msg("home.next_update", "Next update ≈ %s")
+HEADLINE_HELD = i18n.msg(
+    "frame_state.next_wake_around_quiet_hours",
+    "Next wake around %s · quiet hours")
+HEADLINE_LATE = i18n.msg("home.expected_since", "Expected since %s")
 
 # --- The three delay-sentence branches ------------------------------------
 #
 # One computed sentence in exactly three branches, replacing every
 # hard-coded per-control latency caption this codebase used to carry.
+# DELAY_UNKNOWN is owned by companion/i18n_fr/display.py's catalogue
+# (untouched by this plan; migrated later); DELAY_DUE/DELAY_HELD are
+# owned by this module's own catalogue.
 
-DELAY_DUE = "Applies at the next wake, around %s."
-DELAY_HELD = "Applies when quiet hours end, around %s."
-DELAY_UNKNOWN = "Applies the next time the frame wakes up."
+DELAY_DUE = i18n.msg(
+    "frame_state.applies_at_the_next_wake_around",
+    "Applies at the next wake, around %s.")
+DELAY_HELD = i18n.msg(
+    "frame_state.applies_when_quiet_hours_end_around",
+    "Applies when quiet hours end, around %s.")
+DELAY_UNKNOWN = i18n.msg(
+    "display.applies_the_next_time_the_frame_wakes_up",
+    "Applies the next time the frame wakes up.")
 
 
 def _parse_reference(value):

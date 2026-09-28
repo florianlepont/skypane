@@ -10,44 +10,49 @@ never a straight quote), and a non-breaking space (U+00A0) before
 ":" ";" "?" "!".
 
 Also carries the one nav-landmark accessible name shared by
-companion/layout.py's sidebar_nav()/_mobile_nav_html(), and the
+companion/ui_nav.py's sidebar_nav()/_mobile_nav_html(), and the
 theme-picker's three segment labels — grouped here because the
 theme picker sits in this same sidebar/mobile-nav footer region.
+
+Every entry is migrated onto a stable message id: the source-side
+Message is declared where the English constant already lives
+(companion/ui_base.py, companion/ui_nav.py), never here — this module
+only carries each id's French translation.
 """
 
-CATALOG = {
-    "Home": "Accueil",
-    "Display": "Affichage",
-    "Flights": "Vols",
-    "Airlines": "Compagnies",
-    "Advanced": "Avancé",
-    "Health": "État",
-    "Device": "Appareil",
+MESSAGES = {
+    "nav.home": "Accueil",
+    "nav.display": "Affichage",
+    "nav.flights": "Vols",
+    "nav.airlines": "Compagnies",
+    "nav.advanced": "Avancé",
+    "nav.health": "État",
+    "nav.device": "Appareil",
 
     # The bottom tab bar's fifth cell; its <details> sheet holds the
     # Advanced group's two destinations.
-    "More": "Plus",
+    "nav.more": "Plus",
 
-    "Language": "Langue",
-    "Theme": "Thème",
+    "nav.language": "Langue",
+    "nav.theme": "Thème",
 
     # The hamburger toggle's accessible name, describing what the
     # panel holds, and the nav Health dot's hidden suffix.
-    "Account and preferences": "Compte et préférences",
-    " — attention needed": " — attention requise",
+    "nav.account_and_preferences": "Compte et préférences",
+    "nav.attention_needed": " — attention requise",
 
     # Fully French. "Activées"/"désactivées" matches this app's
     # existing "Activer"/"Désactiver" verb pair.
-    "Screen on": "Écran allumé",
-    "Screen off": "Écran éteint",
-    "Quiet hours on": "Heures calmes activées",
-    "Quiet hours off": "Heures calmes désactivées",
-    "Screen and quiet hours status — go to Home":
+    "nav.screen_on": "Écran allumé",
+    "nav.screen_off": "Écran éteint",
+    "nav.quiet_hours_on": "Heures calmes activées",
+    "nav.quiet_hours_off": "Heures calmes désactivées",
+    "nav.screen_and_quiet_hours_status_go_to_home":
         "État de l’écran et des heures calmes — aller à l’accueil",
 
-    "Primary navigation": "Navigation principale",
+    "nav.primary_navigation": "Navigation principale",
 
-    "Auto": "Automatique",
-    "Light": "Clair",
-    "Dark": "Sombre",
+    "nav.auto": "Automatique",
+    "nav.light": "Clair",
+    "nav.dark": "Sombre",
 }

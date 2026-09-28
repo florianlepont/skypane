@@ -14,9 +14,15 @@ from companion.settings.form import (
     _with_next_wake)
 
 
-WAKE_INTERVAL_SECTION_HEADING = "Wake interval"
-WAKE_INTERVAL_SECTION_CAPTION = "Shorter: fresher data, more battery drain."
-WAKE_INTERVAL_PLACEHOLDER_TEXT = "Uses server default"
+WAKE_INTERVAL_SECTION_HEADING = i18n.msg("display.wake_interval", "Wake interval")
+WAKE_INTERVAL_SECTION_CAPTION = i18n.msg(
+    "display.shorter_fresher_data_more_battery_drain",
+    "Shorter: fresher data, more battery drain.")
+WAKE_INTERVAL_PLACEHOLDER_TEXT = i18n.msg("display.uses_server_default", "Uses server default")
+# The number input's own visible label, distinct from
+# WAKE_SLIDER_LABEL below (the paired range control's own name).
+WAKE_INTERVAL_INPUT_LABEL = i18n.msg(
+    "display.wake_interval_seconds", "Wake interval (seconds)")
 # The unit, rendered as a sibling beside the number input (never a
 # placeholder, which vanishes once a value is typed). Not routed
 # through i18n.t(): "s" is the SI symbol for a second, the same symbol
@@ -47,27 +53,33 @@ WAKE_BATTERY_WINDOW_DAYS = 14
 # below reaches the browser as an attribute value value-controls.js
 # substitutes into live, and a check scans every French render for a
 # stray format artefact.
-WAKE_FRESHNESS_TEXT = (
+WAKE_FRESHNESS_TEXT = i18n.msg(
+    "display.a_plane_reaches_the_frame_at_most_min_later",
     "A plane reaches the frame at most # min later.")
 # Carries this app's own "≈" honesty marker plus the source of the
 # claim, so it is never read as a datasheet number.
-WAKE_BATTERY_DAY_TEXT = (
+WAKE_BATTERY_DAY_TEXT = i18n.msg(
+    "display.day_of_battery_left_from_this_frame_s_own",
     "≈ # day of battery left, from this frame's own recent readings.")
-WAKE_BATTERY_DAYS_TEXT = (
+WAKE_BATTERY_DAYS_TEXT = i18n.msg(
+    "display.days_of_battery_left_from_this_frame_s_own",
     "≈ # days of battery left, from this frame's own recent readings.")
-WAKE_BATTERY_UNKNOWN_TEXT = (
+WAKE_BATTERY_UNKNOWN_TEXT = i18n.msg(
+    "display.not_enough_battery_history_yet_to_say_how_long",
     "Not enough battery history yet to say how long a charge lasts.")
 # Neither the bound nor the battery figure applies while the screen is
 # off, since DISPLAY_OFF_SLEEP_S is pinned independently of this field
 # then.
-WAKE_BATTERY_SCREEN_OFF_TEXT = (
+WAKE_BATTERY_SCREEN_OFF_TEXT = i18n.msg(
+    "display.while_the_screen_is_off_the_frame_wakes_every",
     "While the screen is off, the frame wakes every %s instead.")
 # The relative half, and the only half value-controls.js may recompute
 # while the slider moves: two cadences, never a ratio (which would only
 # be a valid multiplier on lifetime if every joule went into waking).
 # "%d" is the saved cadence (server-side, fixed for the page); "#" is
 # the proposed one, the only thing the script substitutes.
-WAKE_BATTERY_INSTEAD_TEXT = (
+WAKE_BATTERY_INSTEAD_TEXT = i18n.msg(
+    "display.this_setting_wakes_the_frame_every_min_instead",
     "This setting wakes the frame every # min instead of every %d min.")
 
 WAKE_SLIDER_CLASS = "wake-slider"
@@ -76,7 +88,7 @@ WAKE_SLIDER_STEP_S = 60
 # Its own accessible name: the number input's label names that
 # control, and two controls sharing one name loses a screen-reader
 # visitor track of which they are on.
-WAKE_SLIDER_LABEL = "Wake interval slider"
+WAKE_SLIDER_LABEL = i18n.msg("display.wake_interval_slider", "Wake interval slider")
 
 
 def wake_gauge_interval_s(current_wake_interval_s, submitted=None):
@@ -378,7 +390,7 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
         escape_html(i18n.t(WAKE_INTERVAL_SECTION_HEADING)),
         escape_html(WAKE_INTERVAL_SECTION_CAPTION_ID),
         escape_html(_with_next_wake(i18n.t(WAKE_INTERVAL_SECTION_CAPTION), next_wake_clock)),
-        escape_html(WAKE_INTERVAL_INPUT_ID), escape_html(i18n.t("Wake interval (seconds)")),
+        escape_html(WAKE_INTERVAL_INPUT_ID), escape_html(i18n.t(WAKE_INTERVAL_INPUT_LABEL)),
         escape_html(WAKE_INTERVAL_INPUT_ID),
         device_config.WAKE_INTERVAL_MIN_S, device_config.WAKE_INTERVAL_MAX_S,
         escape_html(i18n.t(WAKE_INTERVAL_PLACEHOLDER_TEXT)),

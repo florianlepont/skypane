@@ -11,30 +11,41 @@ from companion.settings.form import (
     _field_error_html, _submitted_checkbox_checked)
 
 
-NOTIFICATIONS_SECTION_HEADING = "Notifications"
-NOTIFICATIONS_SECTION_CAPTION = "Get a push alert about battery or connection issues."
+NOTIFICATIONS_SECTION_HEADING = i18n.msg("notifications.notifications", "Notifications")
+NOTIFICATIONS_SECTION_CAPTION = i18n.msg(
+    "notifications.get_a_push_alert_about_battery_or_connection",
+    "Get a push alert about battery or connection issues.")
 NOTIFICATIONS_SECTION_CAPTION_ID = "notifications-caption"
 # Write-only, like the calendar feed URL — never rendered back, not
 # partially masked. The status row reports only whether a URL is stored.
-NOTIFICATIONS_STATUS_CONFIGURED_VERDICT = "Configured"
-NOTIFICATIONS_STATUS_NOT_CONFIGURED_VERDICT = "Not configured"
-NOTIFICATIONS_URL_FIELD_LABEL = "Push topic URL"
-NOTIFICATIONS_URL_HINT = "Paste your ntfy.sh topic URL (or a self-hosted one)."
+NOTIFICATIONS_STATUS_CONFIGURED_VERDICT = i18n.msg("notifications.configured", "Configured")
+NOTIFICATIONS_STATUS_NOT_CONFIGURED_VERDICT = i18n.msg(
+    "notifications.not_configured", "Not configured")
+NOTIFICATIONS_URL_FIELD_LABEL = i18n.msg("notifications.push_topic_url", "Push topic URL")
+NOTIFICATIONS_URL_HINT = i18n.msg(
+    "notifications.paste_your_ntfy_sh_topic_url_or_a_self_hosted",
+    "Paste your ntfy.sh topic URL (or a self-hosted one).")
 NOTIFICATIONS_URL_HINT_ID = "notifications-url-hint"
-NOTIFICATIONS_URL_HOW_IT_WORKS_BODY = (
+NOTIFICATIONS_URL_HOW_IT_WORKS_BODY = i18n.msg(
+    "notifications.stored_on_the_server_and_never_shown_back_here",
     "Stored on the server and never shown back here — pasting a new "
     "one replaces the old.")
-NOTIFICATIONS_REPLACE_URL_SUMMARY = "Replace the URL"
+NOTIFICATIONS_REPLACE_URL_SUMMARY = i18n.msg(
+    "notifications.replace_the_url", "Replace the URL")
 # A shape bound against an absurd paste; the arbiter of an acceptable
 # topic URL stays server/notify.py's send-time gate, not this bound.
 NOTIFICATIONS_URL_MAX_LEN = 2048
-NOTIFICATIONS_BATTERY_LABEL = "Battery low"
-NOTIFICATIONS_SILENT_LABEL = "Frame silent"
-NOTIFICATIONS_TEST_BUTTON_TEXT = "Send a test"
+NOTIFICATIONS_BATTERY_LABEL = i18n.msg("notifications.battery_low", "Battery low")
+NOTIFICATIONS_SILENT_LABEL = i18n.msg("notifications.frame_silent", "Frame silent")
+NOTIFICATIONS_TEST_BUTTON_TEXT = i18n.msg("notifications.send_a_test", "Send a test")
 NOTIFICATIONS_BATTERY_CHECKBOX_VALUE = "on"
 NOTIFICATIONS_SILENT_CHECKBOX_VALUE = "on"
 NOTIFICATIONS_TEST_ROUTE = "/settings/notifications/test"
-ERROR_NOTIFICATIONS_URL_TOO_LONG = "That link is too long."
+# Owned by companion/i18n_fr/display.py, not this module's own
+# notifications.py — the calendar URL field's own longer error
+# (companion.settings.form_post.ERROR_CALENDAR_URL_INVALID) shares that
+# catalogue, and this is its shorter Notifications-URL sibling.
+ERROR_NOTIFICATIONS_URL_TOO_LONG = i18n.msg("display.that_link_is_too_long", "That link is too long.")
 
 
 def _notifications_url_field_html(errors=None):

@@ -19,18 +19,21 @@ all three are frozen by `frozen_clock()` for the whole capture:
   retention-window filter falls back to it when no `now=` is supplied
   (companion/app.py's own read call sites never pass one), so the set of
   calendar entries a page sees at render time depends on it too.
-- `companion.pages.health_page.datetime.now(timezone.utc)` — the one
+- `companion.health_sections.datetime.now(timezone.utc)` — the one
   fallback `resolution_stats()` takes when its own caller
   (`companion/pages/health_page.py`'s `render()`) does not pass `now=`
   explicitly; frozen by replacing the module's own `datetime` name with a
   `datetime` subclass whose `now()` is pinned, not by patching the
-  immutable stdlib class itself.
+  immutable stdlib class itself. `resolution_stats()` moved out of
+  `health_page.py` into `companion/health_sections.py` (a companion-level
+  markup module, not a page module) to keep `health_page.py` under this
+  app's own file-size ceiling; the frozen name follows the function.
 
 One value cannot be frozen by patching its source and is instead
 normalised by regex, exactly once, on every captured page body: the four
 freshness pages' (Home, Display, Health, Flights) `data-refresh-token`
 attribute (and the identical value in their ETag, not itself captured).
-`companion/app.py`'s `_freshness_file_stamp()` folds each stamped file's
+`companion/freshness.py`'s `_freshness_file_stamp()` folds each stamped file's
 `st_ctime_ns` into the token, and `ctime` is the filesystem's own
 "metadata last changed" clock — set by the kernel on every write, with no
 syscall (`os.utime()` included) able to back-date it. Two independent
@@ -52,7 +55,8 @@ from datetime import datetime, timedelta
 import companion_app_server
 import companion.app as companion_app
 from companion import auth
-from companion.pages import airlines_page, health_page
+import companion.health_sections as health_sections
+from companion.pages import airlines_page
 from server import device_config, history_db
 from server.plane import calendar_rules, colour_rules, manual_resolutions
 import server.state_store as state_store
@@ -190,16 +194,16 @@ def frozen_clock(now_iso=FROZEN_NOW):
 
     original_utc_now_iso = history_db.utc_now_iso
     original_time_time = time.time
-    original_health_datetime = health_page.datetime
+    original_health_datetime = health_sections.datetime
     history_db.utc_now_iso = lambda: now_iso
     time.time = lambda: frozen_epoch
-    health_page.datetime = _FrozenDatetime
+    health_sections.datetime = _FrozenDatetime
     try:
         yield frozen_dt
     finally:
         history_db.utc_now_iso = original_utc_now_iso
         time.time = original_time_time
-        health_page.datetime = original_health_datetime
+        health_sections.datetime = original_health_datetime
 
 
 def seed_snapshot_state(state_dir, now_iso):

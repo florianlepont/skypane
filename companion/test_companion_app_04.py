@@ -27,6 +27,7 @@ import pytest
 
 import companion.i18n as i18n_module
 import companion.layout as layout
+import companion.login_page as login_page
 from companion import auth
 from companion.pages import config_page
 from companion_app_server import (
@@ -238,9 +239,9 @@ def test_login_reveal_toggle_is_server_hidden_and_named(app04_server):
     assert 'aria-pressed="false"' in tag, "the toggle must server-render aria-pressed=\"false\""
     for needed in ('data-show-label="Show password"', 'data-hide-label="Hide password"'):
         assert needed in tag, "expected %r on the toggle" % needed
-    for english in ("Show password", "Hide password"):
-        assert i18n_module.t_lang(english, "fr") != english, (
-            "%r has no French catalogue entry" % english)
+    for message in (login_page.LOGIN_REVEAL_SHOW_LABEL, login_page.LOGIN_REVEAL_HIDE_LABEL):
+        assert i18n_module.t_lang(message, "fr") != message, (
+            "%r has no French catalogue entry" % message)
     assert 'class="copy-btn login-reveal"' in tag, (
         "the toggle must carry .copy-btn as its first class so the 22x22 box, the 44x44 "
         "::before hit area and the 14px glyph box are reused verbatim, got %r" % tag)

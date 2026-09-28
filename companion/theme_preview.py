@@ -17,11 +17,14 @@ import re
 
 from PIL import Image
 
+import companion.i18n as i18n
 from server import atomic_io, device_config, panel_format
 from server.plane import render
 
 THEME_PREVIEW_ROUTE_PREFIX = "/theme-preview/"
-THEME_PREVIEW_ALT_TEMPLATE = "Sample panel rendered in the %s theme"
+THEME_PREVIEW_ALT_TEMPLATE = i18n.msg(
+    "display.sample_panel_rendered_in_the_theme",
+    "Sample panel rendered in the %s theme")
 
 # The fixed scene: a departing main flight + an arriving previous
 # flight, the richest two-block composition the panel engine can

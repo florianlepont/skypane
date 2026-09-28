@@ -27,7 +27,6 @@ from pathlib import Path
 import pytest
 
 import companion.i18n as i18n
-import companion.i18n_fr as i18n_fr
 import companion.layout as layout
 import companion.prefs as prefs
 import companion.test_config_page_helpers as cp
@@ -35,8 +34,9 @@ from companion import app as companion_app
 from companion import battery, frame_state
 from companion.layout import escape_html
 from companion.pages import config_page
+from companion.settings import form_post, wake_interval
 from companion_app_server import get, http_request, login, served_asset, served_stylesheet
-from companion_markup import css_rules, declarations_for
+from companion_markup import css_rules, declarations_for, parse_html
 from server import device_config, history_db
 from server.plane import calendar_rules
 
@@ -492,7 +492,7 @@ def test_control_with_both_hint_and_error_carries_both_ids_in_order():
     error, never one overwriting another, and no error id at all when there is no error"""
     rendered = config_page.render(
         _TASK3_BASE_CTX, scope=config_page.SCOPE_DEVICE,
-        errors={"led_enabled": "msg"}, submitted={})
+        errors={"led_enabled": form_post.ERROR_UNEXPECTED_SWITCH_VALUE}, submitted={})
     input_match = re.search(r'<button type="submit" class="switch"[^>]*>', rendered)
     assert input_match, "expected the led_enabled switch to render"
     describedby_match = re.search(r'aria-describedby="([^"]+)"', input_match.group(0))
@@ -944,7 +944,7 @@ def test_the_wake_interval_field_has_a_label_above_it_and_a_content_sized_input(
     the unit as a sibling label"""
     rendered = config_page.wake_interval_group(300)
     label = '<label for="%s">%s</label>' % (
-        config_page.WAKE_INTERVAL_INPUT_ID, escape_html(config_page.i18n.t("Wake interval (seconds)")))
+        config_page.WAKE_INTERVAL_INPUT_ID, escape_html(i18n.t(wake_interval.WAKE_INTERVAL_INPUT_LABEL)))
     assert label in rendered, "expected the label to be its own element above the control (B17)"
     assert "</label><input" in rendered, "expected the input to be the label's SIBLING, not its child (B17)"
     unit = (
@@ -990,6 +990,40 @@ def test_the_calendar_status_detail_has_a_singular_form():
         prefs.set_request_prefs(lang="en")
     assert "1 vol à venir" in fr_one, "expected the French singular form"
     assert "3 vols à venir" in fr_many, "expected the French plural form"
+
+
+def test_calendar_status_refreshed_age_is_a_live_time_element():
+    """the Calendar status row's 'refreshed Xm ago' age is a live <time data-relative>
+    element (layout.relative_time_html()'s own markup) carrying last_synced_at's own instant,
+    read exactly what relative_age_text() reads today, still wrapped by the same
+    .status-row/.status-row__detail shape layout.status_row() emits, and no
+    double-escaping, at both a singular and a plural entry count"""
+    now = "2026-09-27T12:00:00+00:00"
+    synced = "2026-09-27T11:50:00+00:00"
+    expected_age = layout.relative_age_text(600)
+
+    for count in (1, 3):
+        row_body_html, _disconnect_form_html = config_page._calendar_connection_html(
+            True, False, synced, None, now, count)
+        assert "&lt;time" not in row_body_html, (
+            "count=%d: found a double-escaped '&lt;time' in the Calendar status row" % count)
+        doc = parse_html(row_body_html)
+        row = doc.select_one(".status-row")
+        assert "status-row--ok" in row.attrs.get("class", "").split(), (
+            "count=%d: expected the usable branch to still carry the ok modifier" % count
+        )
+        detail = row.select_one(".status-row__detail")
+        element = detail.select_one("time[data-relative]")
+        assert element.text() == expected_age, (
+            "count=%d: expected the status detail's age to read exactly relative_age_text()'s "
+            "own output, got %r" % (count, element.text()))
+        assert element.attrs.get("datetime"), "count=%d: expected a non-empty datetime attribute" % count
+        assert layout.age_seconds(element.attrs["datetime"], now) == 600, (
+            "count=%d: expected the element's own instant to carry last_synced_at" % count)
+        expected_count_text = "1 upcoming flight" if count == 1 else "%d upcoming flights" % count
+        assert expected_count_text in detail.text(), (
+            "count=%d: expected the surrounding template text unchanged, got %r"
+            % (count, detail.text()))
 
 
 # --- the page-refresh loop's swap regions and freshness markers ------
@@ -1178,7 +1212,8 @@ def test_wake_battery_text_reads_the_estimate_through_the_qualified_battery_modu
             assert artefact not in template, (
                 "the template %r carries %r, a format artefact companion/test_i18n.py's Check "
                 "3 scans every French render for" % (template, artefact))
-        assert template in i18n_fr.CATALOG, "the template %r has no French sibling" % template
+        translated = i18n.t_lang(template, "fr")
+        assert translated and translated != template, "the template %r has no French sibling" % template
 
 
 # ------------------------------------------------------------------
@@ -1313,7 +1348,7 @@ def test_the_gauges_are_an_addition_and_the_number_input_is_untouched(
             "%s: the number input carries a value attribute - an out-of-range value fails "
             "HTML5 constraint validation" % name)
     label = '<label for="%s">%s</label>' % (
-        escape_html(config_page.WAKE_INTERVAL_INPUT_ID), escape_html(i18n.t("Wake interval (seconds)")))
+        escape_html(config_page.WAKE_INTERVAL_INPUT_ID), escape_html(i18n.t(wake_interval.WAKE_INTERVAL_INPUT_LABEL)))
     unit = ('<span class="text-label field-inline-value" aria-hidden="true">%s</span>'
             % escape_html(config_page.WAKE_INTERVAL_UNIT_LABEL))
     assert label in markup and unit in markup, "%s: the B17 label or the unit sibling changed" % name
@@ -1335,7 +1370,7 @@ def test_the_gauges_error_block_still_attaches_with_the_gauges_after_it():
     of the six-shape check above, split out because it exercises a distinct fixture (an `errors`
     dict) rather than a seventh parametrize case"""
     with_error = config_page.wake_interval_group(
-        600, errors={"wake_interval_s": "Enter a whole number of seconds."},
+        600, errors={"wake_interval_s": form_post.ERROR_WAKE_INTERVAL_RANGE},
         submitted={"wake_interval_s": "900"}, battery_rows=_FALLING)
     error_block = re.search(r'<p class="field-error[^"]*" id="wake-interval-s-error"', with_error)
     assert error_block, "the field error block no longer renders"
@@ -1375,7 +1410,7 @@ def test_the_range_is_gated_nameless_and_bounded_by_device_config():
                    'aria-describedby="%s %s"' % (config_page.WAKE_GAUGE_FRESHNESS_ID,
                                                  config_page.WAKE_GAUGE_BATTERY_ID)):
         assert needed in element, "the range is missing %r - %s" % (needed, element)
-    assert i18n.t(config_page.WAKE_SLIDER_LABEL) != i18n.t("Wake interval (seconds)"), (
+    assert i18n.t(config_page.WAKE_SLIDER_LABEL) != i18n.t(wake_interval.WAKE_INTERVAL_INPUT_LABEL), (
         "the range and the number input share one accessible name")
     for tag_match in re.finditer(r"<[a-zA-Z][-\w]*\b[^>]*>", markup):
         text = tag_match.group(0)
@@ -1513,7 +1548,8 @@ def test_the_native_submit_is_emitted_unconditionally_on_every_render(tmp_path):
     }
     render_kwargs = [
         {},
-        {"errors": {"wake_interval_s": "bad"}, "submitted": {"wake_interval_s": "x"}},
+        {"errors": {"wake_interval_s": form_post.ERROR_WAKE_INTERVAL_RANGE},
+         "submitted": {"wake_interval_s": "x"}},
         {"errors": {}, "submitted": {}},
     ]
     for scope in (config_page.SCOPE_ALL, config_page.SCOPE_DISPLAY, config_page.SCOPE_DEVICE):
@@ -1524,3 +1560,235 @@ def test_the_native_submit_is_emitted_unconditionally_on_every_render(tmp_path):
                 "expected exactly one %r occurrence on scope=%r kwargs=%r, found %d - the "
                 "native submit must render unconditionally, once, on every code path"
                 % (config_page.STATIC_SAVE_FALLBACK_ATTR, scope, kwargs, count))
+
+
+# ======================================================================
+# Section 7: handle_post()'s per-group split - characterisation tests.
+#
+# Both tests below were run against the unmodified (pre-split) handle_post
+# and passed; every literal is captured from that run, not guessed. They
+# stay in the suite after the split as the split's own regression proof:
+# a per-group resolver refactor that reorders a check or resolves a value
+# differently fails one of these two tests immediately.
+# ======================================================================
+
+# The field this module's handle_post() actually records into `errors`
+# for each of its checks, in the order the unmodified function visits
+# them - captured by repeatedly calling handle_post() against a form
+# where every field starts invalid, recording the one field it stops on,
+# clearing just that field (letting the next check take over), and
+# repeating until the submission succeeds. Because handle_post() returns
+# immediately on the first invalid field it finds, this is the only way
+# to observe the FULL order rather than just the first entry.
+_FULLY_INVALID_SETTINGS_ORDER = (
+    ("theme", "That is not one of the available choices."),
+    ("screen_id", "That is not one of the available choices."),
+    ("calendar_url", "That link is too long, or conflicts with the disconnect option below."),
+    ("notifications_topic_url", config_page.ERROR_NOTIFICATIONS_URL_TOO_LONG),
+    ("calendar_theme_id", "That is not one of the available choices."),
+    ("theme_arriving", "That is not one of the available choices."),
+    ("tracked_runway", "That is not one of the available choices."),
+    ("quiet_hours_start", "Enter a time as HH:MM, for example 23:00."),
+    ("quiet_hours_end", "Enter a time as HH:MM, for example 23:00."),
+    ("led_enabled", "That switch sent an unexpected value."),
+    ("quiet_hours_enabled", "That switch sent an unexpected value."),
+    ("wake_interval_s", "Enter a whole number of seconds between 60 and 3600."),
+    ("display_enabled", "That switch sent an unexpected value."),
+    ("notifications_battery", "That switch sent an unexpected value."),
+    ("notifications_silent", "That switch sent an unexpected value."),
+)
+
+# error-field -> the submitted form key(s) to clear once that error has
+# been observed, so the next call's checks reach the next offender.
+# Every field clears itself except calendar_url, whose own offending
+# form key is calendar_disconnect (the signal, not the URL itself).
+_ERROR_FIELD_TO_FORM_KEYS = {"calendar_url": ("calendar_disconnect",)}
+
+
+def test_handle_post_errors_keep_their_order_for_a_fully_invalid_submission(tmp_path):
+    """A form where every field starts invalid is resolved one field at a time, in exactly
+    _FULLY_INVALID_SETTINGS_ORDER's order, ending in FLASH_SAVED once every field has been
+    cleared - the exact behaviour of the unmodified, pre-split handle_post()."""
+    form = {
+        "theme": "not-a-theme",
+        "screen_id": "not-a-screen",
+        "calendar_disconnect": "bogus-disconnect",
+        "notifications_topic_url": "x" * (config_page.NOTIFICATIONS_URL_MAX_LEN + 1),
+        "calendar_theme_id": "not-a-theme",
+        "theme_arriving": "not-a-theme",
+        "tracked_runway": "not-a-runway",
+        "quiet_hours_start": "bogus",
+        "quiet_hours_end": "bogus",
+        "led_enabled": "bogus",
+        "quiet_hours_enabled": "bogus",
+        "wake_interval_s": "not-an-int",
+        "display_enabled": "bogus",
+        "notifications_battery": "bogus",
+        "notifications_silent": "bogus",
+    }
+    ctx = {"state_dir": str(tmp_path)}
+    observed = []
+    for _ in range(len(_FULLY_INVALID_SETTINGS_ORDER) + 1):
+        errors = {}
+        flash_key = config_page.handle_post(dict(form), dict(ctx), errors=errors)
+        if flash_key == config_page.FLASH_SAVED:
+            assert not errors, "FLASH_SAVED must never carry an errors entry, got %r" % (errors,)
+            break
+        assert len(errors) == 1, (
+            "expected exactly one field in errors per call (handle_post() returns on the "
+            "first invalid field), got %r" % (errors,))
+        field, message = next(iter(errors.items()))
+        observed.append((field, message))
+        for form_key in _ERROR_FIELD_TO_FORM_KEYS.get(field, (field,)):
+            form.pop(form_key, None)
+    else:
+        raise AssertionError("form never resolved to FLASH_SAVED: %r" % (observed,))
+    assert tuple(observed) == _FULLY_INVALID_SETTINGS_ORDER, (
+        "handle_post()'s validation order changed: expected %r, got %r"
+        % (_FULLY_INVALID_SETTINGS_ORDER, observed))
+
+
+# One (group, absent_form, empty_form, valid_form, invalid_form, expected) tuple per settings
+# group. Every form dict is the ONLY thing submitted (scope defaults to SCOPE_ALL, so every
+# group is in scope); `expected` is (flash_key, config_overrides, calendar_configured) captured
+# by running the unmodified handle_post() against a fresh tmp_path for each shape -
+# config_overrides is the subset of device_config.load_device_config()'s keys this shape's
+# submission is expected to change away from a fresh install's defaults.
+_GROUP_SHAPES = (
+    (
+        "theme",
+        {}, {"theme": ""}, {"theme": "black"}, {"theme": "not-a-theme"},
+        {
+            "absent": ("saved", {}),
+            "empty": ("save_failed", {}),
+            "valid": ("saved", {"theme": "black"}),
+            "invalid": ("save_failed", {}),
+        },
+    ),
+    (
+        "screen",
+        {}, {"screen_id": ""}, {"screen_id": "plane-frame"}, {"screen_id": "not-a-screen"},
+        {
+            "absent": ("saved", {}),
+            "empty": ("save_failed", {}),
+            "valid": ("saved", {}),
+            "invalid": ("save_failed", {}),
+        },
+    ),
+    (
+        "runway",
+        {}, {"tracked_runway": ""}, {"tracked_runway": "06-24"}, {"tracked_runway": "bogus"},
+        {
+            "absent": ("saved", {}),
+            "empty": ("save_failed", {}),
+            "valid": ("saved", {"tracked_runway": "06-24"}),
+            "invalid": ("save_failed", {}),
+        },
+    ),
+    (
+        "quiet_hours",
+        {}, {"quiet_hours_start": ""},
+        {"quiet_hours_start": "22:00", "quiet_hours_end": "06:00", "quiet_hours_enabled": "on"},
+        {"quiet_hours_start": "99:99"},
+        {
+            "absent": ("saved", {}),
+            "empty": ("save_failed", {}),
+            "valid": (
+                "saved",
+                {"quiet_hours_start": "22:00", "quiet_hours_end": "06:00", "quiet_hours_enabled": True}),
+            "invalid": ("save_failed", {}),
+        },
+    ),
+    (
+        "led",
+        {}, {"led_enabled": ""}, {"led_enabled": "on"}, {"led_enabled": "bogus"},
+        {
+            "absent": ("saved", {}),
+            "empty": ("save_failed", {}),
+            "valid": ("saved", {"led_enabled": True}),
+            "invalid": ("save_failed", {}),
+        },
+    ),
+    (
+        "wake_interval",
+        {}, {"wake_interval_s": ""}, {"wake_interval_s": "300"}, {"wake_interval_s": "abc"},
+        {
+            # "" behaves exactly like absent for this field - never an error.
+            "absent": ("saved", {}),
+            "empty": ("saved", {}),
+            "valid": ("saved", {"wake_interval_s": 300}),
+            "invalid": ("save_failed", {}),
+        },
+    ),
+    (
+        "display",
+        {}, {"display_enabled": ""}, {"display_enabled": "on"}, {"display_enabled": "bogus"},
+        {
+            "absent": ("saved", {}),
+            "empty": ("save_failed", {}),
+            "valid": ("saved", {}),
+            "invalid": ("save_failed", {}),
+        },
+    ),
+    (
+        "notifications",
+        {}, {"notifications_topic_url": ""},
+        {
+            "notifications_topic_url": "https://ntfy.sh/skypane-x",
+            "notifications_battery": "on", "notifications_silent": "on",
+        },
+        {"notifications_battery": "bogus"},
+        {
+            "absent": ("saved", {"notifications": {
+                "topic_url": None, "battery_low": False, "frame_silent": False, "lang": "en"}}),
+            "empty": ("saved", {"notifications": {
+                "topic_url": None, "battery_low": False, "frame_silent": False, "lang": "en"}}),
+            "valid": ("saved", {"notifications": {
+                "topic_url": "https://ntfy.sh/skypane-x",
+                "battery_low": True, "frame_silent": True, "lang": "en"}}),
+            "invalid": ("save_failed", {}),
+        },
+    ),
+    (
+        "calendar",
+        {}, {"calendar_url": ""}, {"calendar_url": "https://example.invalid/x.ics"},
+        {"calendar_disconnect": "bogus"},
+        {
+            "absent": ("saved", {}),
+            "empty": ("saved", {}),
+            "valid": ("saved", {}),
+            "invalid": ("save_failed", {}),
+        },
+    ),
+)
+
+
+@pytest.mark.parametrize("group_name, forms", [
+    (group, {"absent": absent, "empty": empty, "valid": valid, "invalid": invalid})
+    for group, absent, empty, valid, invalid, _expected in _GROUP_SHAPES
+])
+def test_handle_post_saves_the_same_config_for_every_group_shape(tmp_path, group_name, forms):
+    """For every settings group, the absent/empty/valid/invalid submission shapes persist the
+    same device config (and calendar-configured state, for the calendar group) and return the
+    same flash key as the unmodified, pre-split handle_post()."""
+    expected_by_shape = next(
+        expected for group, *_rest, expected in _GROUP_SHAPES if group == group_name)
+    for shape_name, form in forms.items():
+        case_dir = tmp_path / group_name / shape_name
+        case_dir.mkdir(parents=True)
+        ctx = {"state_dir": str(case_dir)}
+        flash_key = config_page.handle_post(dict(form), ctx)
+        expected_flash, expected_overrides = expected_by_shape[shape_name]
+        assert flash_key == expected_flash, (
+            "%s/%s: expected flash key %r, got %r"
+            % (group_name, shape_name, expected_flash, flash_key))
+        on_disk = device_config.load_device_config(str(case_dir))
+        for field, expected_value in expected_overrides.items():
+            assert on_disk[field] == expected_value, (
+                "%s/%s: expected %s == %r, got %r"
+                % (group_name, shape_name, field, expected_value, on_disk[field]))
+        if group_name == "calendar":
+            expected_configured = shape_name == "valid"
+            assert calendar_rules.calendar_is_configured(str(case_dir)) == expected_configured, (
+                "%s/%s: expected calendar_is_configured() == %r"
+                % (group_name, shape_name, expected_configured))

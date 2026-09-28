@@ -9,15 +9,33 @@ from server import device_config
 
 from companion.settings.form import (
     CURRENT_BADGE_ATTR, CURRENT_BADGE_LABEL, DIRTY_SECTION_ATTR,
-    SETTINGS_FORM_ID, _describedby_attr, _field_error_html,
+    SELECTED_LABEL, SETTINGS_FORM_ID, _describedby_attr, _field_error_html,
     _submitted_or_current, _with_next_wake)
 
 
 RUNWAY_IMAGE_ROUTE_PREFIX = "/runway-image/"
-RUNWAY_IMAGE_ALT_TEMPLATE = "Airport diagram for %s"
+RUNWAY_IMAGE_ALT_TEMPLATE = i18n.msg("display.airport_diagram_for", "Airport diagram for %s")
 
-RUNWAY_SECTION_CAPTION = "Which Orly runway the device watches."
-LED_SECTION_CAPTION = "Lit only during the device's brief wake window."
+RUNWAY_SECTION_CAPTION = i18n.msg(
+    "display.which_orly_runway_the_device_watches", "Which Orly runway the device watches.")
+LED_SECTION_CAPTION = i18n.msg(
+    "display.lit_only_during_the_device_s_brief_wake_window",
+    "Lit only during the device's brief wake window.")
+
+# server.device_config.runway_label()'s registry text, wrapped as a
+# stable-id Message at this display site — the SAME ids
+# companion/pages/history_page.py's own `_RUNWAY_LABEL_MESSAGES` already
+# declares (msg() is idempotent on a repeat (id, english) pair).
+_RUNWAY_LABEL_MESSAGES = {
+    "Runway 3 (07/25)": i18n.msg("registry.runway_3_07_25", "Runway 3 (07/25)"),
+    "Runway 4 (06/24)": i18n.msg("registry.runway_4_06_24", "Runway 4 (06/24)"),
+    "Runway 2 (02/20)": i18n.msg("registry.runway_2_02_20", "Runway 2 (02/20)"),
+}
+
+# "Runway" is used twice below: the card's own dirty-section heading and
+# the radiogroup's aria-labelledby heading. Declared once so both call
+# sites share the same Message.
+RUNWAY_HEADING_TEXT = i18n.msg("display.runway", "Runway")
 
 # Stable DOM ids for the group headings a radiogroup's aria-labelledby
 # points at, and for each hint paragraph an aria-describedby points at.
@@ -29,7 +47,7 @@ RUNWAY_SECTION_CAPTION_ID = "runway-caption"
 RUNWAY_GROUP_HEADING_ID = "runway-group-heading"
 LED_SECTION_CAPTION_ID = "led-caption"
 
-LED_SECTION_HEADING = "Diagnostic LED"
+LED_SECTION_HEADING = i18n.msg("display.diagnostic_led", "Diagnostic LED")
 
 
 def runway_fieldset(
@@ -60,7 +78,9 @@ def runway_fieldset(
         current_attr_html = (
             ' %s="%s"' % (CURRENT_BADGE_ATTR, escape_html(i18n.t(CURRENT_BADGE_LABEL)))
             if selected else "")
-        label = i18n.t(device_config.runway_label(runway_id))
+        raw_label = device_config.runway_label(runway_id)
+        _runway_message = _RUNWAY_LABEL_MESSAGES.get(raw_label)
+        label = i18n.t(_runway_message) if _runway_message is not None else raw_label
         escaped_id = escape_html(runway_id)
         image_html = ""
         if runway_id in images_available:
@@ -84,7 +104,7 @@ def runway_fieldset(
                 escaped_id, SETTINGS_FORM_ID, checked,
                 escape_html(label),
                 image_html, layout.icon_html("icon-check"),
-                escape_html(i18n.t("Selected")),
+                escape_html(i18n.t(SELECTED_LABEL)),
             )
         )
     runway_error_html = _field_error_html(errors, "tracked_runway", "tracked-runway")
@@ -98,9 +118,9 @@ def runway_fieldset(
         "%s"
         "</div>"
     ) % (
-        DIRTY_SECTION_ATTR, escape_html(i18n.t("Runway")),
+        DIRTY_SECTION_ATTR, escape_html(i18n.t(RUNWAY_HEADING_TEXT)),
         escape_html(RUNWAY_GROUP_HEADING_ID),
-        escape_html(i18n.t("Runway")),
+        escape_html(i18n.t(RUNWAY_HEADING_TEXT)),
         escape_html(RUNWAY_SECTION_CAPTION_ID),
         escape_html(_with_next_wake(i18n.t(RUNWAY_SECTION_CAPTION), next_wake_clock)),
         row_attr,

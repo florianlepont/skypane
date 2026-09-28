@@ -13,7 +13,11 @@ Every page module exposes:
         companion.layout.page_shell(), which supplies the
         <html>/<head>/nav/theme-toggle shell exactly once.
 
-    ctx (built by companion/app.py's Handler.page_context()):
+    ctx (a companion.page_context.PageContext, built by
+    companion/page_context.py's build_page_context() and delegated to by
+    Handler.page_context(); a plain {field: value} mapping — the shape
+    several hundred existing unit tests still pass — is accepted too,
+    converted at the call by companion.page_context.coerce()):
         - state_dir: the on-disk state directory
         - ui_theme: the resolved theme ("auto"/"light"/"dark")
         - lang: the resolved language ("fr"/"en"); presentation only, no

@@ -11,7 +11,6 @@ import json
 import os
 import re
 
-import companion.i18n as i18n
 import companion.pages.config_page as config_page
 import companion.test_config_page_helpers as cp
 from companion.layout import escape_html
@@ -441,7 +440,7 @@ def test_aspect_card_covers_every_registered_theme_with_own_id_and_label():
         assert with_form == total
     for theme_id in theme_ids:
         assert 'value="%s"' % escape_html(theme_id) in rendered
-        label_needle = escape_html(i18n.t(device_config.theme_label(theme_id)))
+        label_needle = escape_html(device_config.theme_label(theme_id))
         assert label_needle in rendered
         preview_needle = 'data-preview-src="%s%s.png?live=1"' % (
             config_page.THEME_PREVIEW_ROUTE_PREFIX, theme_id)

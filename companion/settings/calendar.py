@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 from companion import i18n
 import companion.layout as layout
 from companion.layout import escape_html
+import companion.page_context as page_context
 from server import device_config
 from server.plane import calendar_rules
 
@@ -17,8 +18,8 @@ from companion.settings.form import (
     _submitted_or_current)
 from companion.settings.theme import (
     ASPECT_HEADING_ID, COLOUR_USAGE_CALENDAR, SAME_AS_DEPARTURES_LABEL,
-    _palette_grid_html, _same_as_departures_chip_html, _usage_row_html,
-    _usage_row_summary_html)
+    _palette_grid_html, _same_as_departures_chip_html, _theme_label_message,
+    _usage_row_html, _usage_row_summary_html)
 
 
 # An immediate, session-gated POST outside SETTINGS_ROUTE and the
@@ -30,7 +31,8 @@ CALENDAR_DISCONNECT_ROUTE = "/settings/calendar/disconnect"
 # companion.settings.form.CALENDAR_HOW_IT_WORKS_SUMMARY (form.py's own
 # docstring carries the full reasoning, since notifications_group()
 # reuses that same summary label).
-CALENDAR_HOW_IT_WORKS_BODY = (
+CALENDAR_HOW_IT_WORKS_BODY = i18n.msg(
+    "calendar_group.it_can_only_colour_a_flight_that_happens_to_be",
     "It can only colour a flight that happens to be on screen — it "
     "does not track or announce anything on its own. Applies on the "
     "frame's next scheduled poll, not immediately.")
@@ -39,33 +41,42 @@ CALENDAR_HOW_IT_WORKS_BODY = (
 # "Not connected" covers both the never-configured and the
 # permission-drifted states — a drifted stored link is not usably
 # connected either.
-CALENDAR_STATUS_CONNECTED_VERDICT = "Connected"
-CALENDAR_STATUS_NOT_CONNECTED_VERDICT = "Not connected"
-CALENDAR_STATUS_DETAIL_SINGULAR_TEMPLATE = "1 upcoming flight · checked %s"
-CALENDAR_STATUS_DETAIL_TEMPLATE = "%d upcoming flights · checked %s"
+CALENDAR_STATUS_CONNECTED_VERDICT = i18n.msg("calendar_group.connected", "Connected")
+CALENDAR_STATUS_NOT_CONNECTED_VERDICT = i18n.msg(
+    "calendar_group.not_connected", "Not connected")
+CALENDAR_STATUS_DETAIL_SINGULAR_TEMPLATE = i18n.msg(
+    "calendar_group.1_upcoming_flight_checked", "1 upcoming flight · checked %s")
+CALENDAR_STATUS_DETAIL_TEMPLATE = i18n.msg(
+    "calendar_group.upcoming_flights_checked", "%d upcoming flights · checked %s")
 
 
 # A fixed dict keyed on a category derived from existing fields
 # (last_attempt_at newer than any usable last_synced_at) — never the
 # fetch's own caught exception text, which is not persisted anywhere
 # this module could read it from.
-CALENDAR_STATUS_FETCH_FAILED_DETAIL = "The feed could not be read"
+CALENDAR_STATUS_FETCH_FAILED_DETAIL = i18n.msg(
+    "calendar_group.the_feed_could_not_be_read", "The feed could not be read")
 
 
-CALENDAR_CONNECT_BUTTON_TEXT = "Connect calendar"
-CALENDAR_REPLACE_URL_SUMMARY = "Replace the feed URL"
+CALENDAR_CONNECT_BUTTON_TEXT = i18n.msg("calendar_group.connect_calendar", "Connect calendar")
+CALENDAR_REPLACE_URL_SUMMARY = i18n.msg(
+    "calendar_group.replace_the_feed_url", "Replace the feed URL")
 
 
 # The same form/route posts the URL field in both states, but the
 # button reads shorter once a feed is already stored — "Connect
 # calendar" only ever applies to a first-time paste.
-CALENDAR_REPLACE_BUTTON_TEXT = "Replace"
+CALENDAR_REPLACE_BUTTON_TEXT = i18n.msg("calendar_group.replace", "Replace")
 
 
 # Plain, honest wording: no surveillance verb, no promise the frame
 # cannot keep. The file the URL is stored in is never named below.
-CALENDAR_URL_FIELD_LABEL = "Calendar feed URL"
-CALENDAR_URL_HINT = (
+# Owned by companion/i18n_fr/display.py, not this module's own
+# calendar_group.py — the Display page's Calendar row shares this field
+# label/hint with the rest of the Aspect card's own display.py copy.
+CALENDAR_URL_FIELD_LABEL = i18n.msg("display.calendar_feed_url", "Calendar feed URL")
+CALENDAR_URL_HINT = i18n.msg(
+    "display.your_calendar_s_private_ical_link_stored_on_the",
     "Your calendar's private iCal link. Stored on the server and never "
     "shown back here — pasting a new one replaces the old.")
 CALENDAR_URL_HINT_ID = "calendar-url-hint"
@@ -73,7 +84,7 @@ CALENDAR_URL_HINT_ID = "calendar-url-hint"
 
 # A cross-DOM form= attribute (CALENDAR_DISCONNECT_FORM_ID) lets this
 # button submit a <form> that is never its own DOM ancestor.
-CALENDAR_DISCONNECT_BUTTON_TEXT = "Disconnect"
+CALENDAR_DISCONNECT_BUTTON_TEXT = i18n.msg("calendar_group.disconnect", "Disconnect")
 CALENDAR_DISCONNECT_FORM_ID = "calendar-disconnect-form"
 
 
@@ -89,26 +100,36 @@ CALENDAR_DISCONNECT_CONFIRM_VALUE = "yes"
 
 # The question confirm-submit.js passes to window.confirm() (a
 # misclick guard only), carried via the disconnect form's data-confirm
-# attribute, never duplicated in the script itself.
-CALENDAR_DISCONNECT_CONFIRM_QUESTION = (
+# attribute, never duplicated in the script itself. Owned by
+# companion/i18n_fr/display.py, not calendar_group.py — these four
+# confirmation-page strings belong to the Display-page-adjacent
+# calendar_disconnect_confirm_page(), distinct from the merged card's
+# own shorter calendar_group.* strings above.
+CALENDAR_DISCONNECT_CONFIRM_QUESTION = i18n.msg(
+    "display.disconnect_this_calendar_and_delete_the_flights",
     "Disconnect this calendar and delete the flights it supplied?")
 
 
 # What a no-JS or CSP-blocked browser sees instead of the native dialog
 # above, on the server-rendered two-step confirmation page.
-CALENDAR_DISCONNECT_CONFIRM_HEADING = "Disconnect calendar?"
-CALENDAR_DISCONNECT_CONFIRM_SENTENCE = (
+CALENDAR_DISCONNECT_CONFIRM_HEADING = i18n.msg(
+    "display.disconnect_calendar", "Disconnect calendar?")
+CALENDAR_DISCONNECT_CONFIRM_SENTENCE = i18n.msg(
+    "display.this_disconnects_your_calendar_and_deletes_the",
     "This disconnects your calendar and deletes the flights it "
     "supplied from the server. This can't be undone — you'd need to "
     "paste the feed URL again to reconnect.")
-CALENDAR_DISCONNECT_CONFIRM_BUTTON_TEXT = "Disconnect calendar"
-CALENDAR_DISCONNECT_CANCEL_TEXT = "Cancel"
+CALENDAR_DISCONNECT_CONFIRM_BUTTON_TEXT = i18n.msg(
+    "display.disconnect_calendar_2", "Disconnect calendar")
+CALENDAR_DISCONNECT_CANCEL_TEXT = i18n.msg("display.cancel", "Cancel")
 
 
 # The one string in this interface permitted to reference "the server",
 # since this is the one case where the operator has to act there.
-# Names no path, filename or part of the URL.
-CALENDAR_STATUS_PERMISSION_UNSAFE = (
+# Names no path, filename or part of the URL. Owned by display.py, like
+# the confirmation strings above.
+CALENDAR_STATUS_PERMISSION_UNSAFE = i18n.msg(
+    "display.connected_but_ignored_its_saved_link_on_the",
     "Connected, but ignored — its saved link on the server became "
     "readable beyond this frame. Paste the feed URL again below to "
     "store it safely.")
@@ -144,14 +165,37 @@ def _masked_calendar_url(url):
     return "%s…" % netloc
 
 
+def _status_row_with_html_detail(verdict, detail_html, state):
+    """`layout.status_row()`'s exact markup for the label="" case, except
+    `detail_html` is spliced verbatim instead of being escaped again —
+    the one caller below (the "usable" branch of `_calendar_status_html()`)
+    has already escaped its template text and glued in
+    `layout.relative_time_html()`'s own pre-escaped `<time>` markup, so
+    running it through `escape_html()` again would double-encode that
+    markup. `verdict` is still escaped here, exactly like `status_row()`.
+    Never call this for any other case — every other branch keeps calling
+    `layout.status_row()` unchanged.
+    """
+    dot_class = layout._STATUS_DOT_CLASSES.get(state, layout._DEFAULT_STATUS_DOT_CLASS)
+    modifier = layout.card_status_class("status-row", state)
+    css_class = "status-row" + ((" " + modifier) if modifier else "")
+    return (
+        '<div class="%s">'
+        '<span class="dot %s"></span>'
+        '<span class="status-row__verdict">%s</span>'
+        '<span class="status-row__detail">%s</span>'
+        "</div>"
+    ) % (css_class, dot_class, escape_html(verdict), detail_html)
+
+
 def _calendar_status_html(configured, drift, last_synced_at, last_attempt_at, now, entry_count):
     """The Calendar connection row's status line: verdict + detail,
-    already wrapped by `layout.status_row()`. Split out of
-    `_calendar_connection_html()` so that function stays under this
-    project's function-length ceiling; kept as its own function (not
-    inlined back) because it is also where a future live "refreshed Xm
-    ago" age conversion belongs, self-contained from the rest of the
-    connection block's markup.
+    already wrapped by `layout.status_row()` for every branch except the
+    "usable" one below, which bypasses it via
+    `_status_row_with_html_detail()` so the age can be a live
+    `<time data-relative>` element instead of static text.
+    Split out of `_calendar_connection_html()` so that function stays
+    under this project's function-length ceiling.
 
     Drift is checked before `configured`, since a drifted link already
     forces it False.
@@ -173,14 +217,14 @@ def _calendar_status_html(configured, drift, last_synced_at, last_attempt_at, no
             and layout.age_seconds(last_synced_at, now) is not None)
         verdict = i18n.t(CALENDAR_STATUS_CONNECTED_VERDICT)
         if usable:
-            age = layout.age_seconds(last_synced_at, now)
+            age_html = layout.relative_time_html(last_synced_at, now)
             if entry_count == 1:
-                detail = i18n.t(CALENDAR_STATUS_DETAIL_SINGULAR_TEMPLATE) % (
-                    layout.relative_age_text(age),)
+                detail_html = escape_html(i18n.t(CALENDAR_STATUS_DETAIL_SINGULAR_TEMPLATE)) % (
+                    age_html,)
             else:
-                detail = i18n.t(CALENDAR_STATUS_DETAIL_TEMPLATE) % (
-                    entry_count, layout.relative_age_text(age))
-            state = "ok"
+                detail_html = escape_html(i18n.t(CALENDAR_STATUS_DETAIL_TEMPLATE)) % (
+                    entry_count, age_html)
+            return _status_row_with_html_detail(verdict, detail_html, "ok")
         elif last_attempt_at is not None:
             detail = i18n.t(CALENDAR_STATUS_FETCH_FAILED_DETAIL)
             state = "error"
@@ -320,8 +364,10 @@ def calendar_disconnect_confirm_page(ctx):
     The form re-posts to the same route with the confirm field
     pre-filled; cancel is a plain link back to Display, never a second
     form. `ctx` is accepted but unused today, matching every other
-    scoped builder's signature.
+    scoped builder's signature - coerced anyway, so a typo'd test ctx
+    still fails loudly rather than being silently accepted.
     """
+    page_context.coerce(ctx)
     return (
         layout.page_header(i18n.t(CALENDAR_DISCONNECT_CONFIRM_HEADING))
         + '<p class="text-body">%s</p>'
@@ -364,7 +410,7 @@ def calendar_usage_row_html(
         calendar_safe_id = (
             effective_calendar if effective_calendar in device_config.THEMES
             else departures_safe_id)
-        calendar_meta = i18n.t(device_config.theme_label(calendar_safe_id))
+        calendar_meta = _theme_label_message(calendar_safe_id)
         calendar_swatch_id = calendar_safe_id
     # The calendar's connection block nests directly beneath this row's
     # palette and field error. The disconnect form returned alongside

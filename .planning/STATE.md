@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 39-13-PLAN.md (phase 39 closed, 13/13 plans); Phase 40 (parallel line of work) at 40-05-PLAN.md, 5/16 plans
-last_updated: "2026-09-27T14:48:41.463Z"
+status: ready_to_plan
+stopped_at: Phase 40 complete (16/16) — ready to discuss Phase 41
+last_updated: 2026-09-27T23:04:57.242Z
 last_activity: 2026-09-27
 progress:
   total_phases: 54
-  completed_phases: 48
+  completed_phases: 49
   total_plans: 434
-  completed_plans: 398
-  percent: 92
+  completed_plans: 410
+  percent: 91
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -32,7 +32,7 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
-status: Phase complete — ready for verification
+status: Ready to plan
 stopped_at: "Phase 06.6.4.1 CLOSED at 9/9 plans, on branch claude/06.6.4.1-closing-validation (rebased onto PR #44's tip 4a31a62, unpushed). Its dangling closing plan (06.6.4.1-09) had Task 1's automated gates re-verified for real twice — once against this branch's own base (92bc660), again after PR #44 (Phases 8-11: panel theme rework, band themes, scheduled quiet hours, web-configurable wake interval) merged mid-checkpoint from a separate line of work — both times 16/16 harnesses green, 92% coverage. Task 2, the blocking 28-item developer checklist (D-23/D-24/D-25), returned its verdict: PASS on all 28 items, no fails, no marginals, including the two twice-deferred items with no escape hatch — a real assistive-technology pass and a live production walkthrough (https://config-92-222-92-167.nip.io) — each confirmed by a direct question rather than accepted on the strength of an initial blanket approval alone. Two real drift findings were disclosed to the developer rather than silently absorbed: History's retired 'Now showing' section (D-18/D-19, superseded by quick task 260903-c4o) and Settings' two new Phase 10/11 sections (Quiet hours, Wake interval) not covered by the original checklist text. No open phase remains after 06.6.4.1 — Phase 11 (the highest-numbered phase) is also complete per PR #44, and no Phase 12 exists yet in ROADMAP.md. Next: push this branch, open a PR, and ask the developer what's next once it's merged."
 last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
@@ -52,11 +52,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 40 — companion-architecture-routes-pages-templates-i18n-keys (Phase 39 closed in a parallel line of work)
+**Current focus:** Phase 41 — docs repository hygiene and closing re audit
 
 ## Current Position
 
-Phase: 40 (companion-architecture-routes-pages-templates-i18n-keys) — EXECUTING (5/16 plans, 2026-09-27)
+Phase: 41
 Phase: 39 (server-architecture-run-once-split-state-store-shared-module) — COMPLETE (13/13 plans, 2026-09-27; ARC-01..ARC-06 closed)
 Phase: 38 (efficiency-companion-poll-cycle-storage) — COMPLETE (13/13 plans, 2026-09-27; 38-01..38-05 merged via #146-#149, 38-06..38-13 and the review fixes on PR #150). Verification passed; EFF-01..EFF-06 closed.
 Phase: 37 (security-and-operations-hardening) — COMPLETE (11/11 plans; 37-11 Wave B: byos loopback-only + IP filter, no secret in argv, CP-11 and CP-7 done live 2026-09-26)
@@ -64,7 +64,9 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 13 of 13 (Phase 39, closed); Phase 40 (parallel line of work) at 6 of 16
+Plan: Not started
+
+**40-16 executed (2026-09-27), plan 16/16 of Phase 40 (depends on 40-02/40-03/40-10/40-11/40-15), wave 9 — the phase close-out, three commits.** Task 1 extracted `companion/pages/health_page.py`'s registry ("Airlines we could not name"), resolution-statistics ("How well we name flights") and check-in-regularity sections into a new `companion/health_sections.py` (the same companion-level pattern `battery_chart.py`/`health_signals.py` already use, since a page module may not import another page module), shrinking `health_page.py` from 1787 to 1111 lines — comfortably under the 1500-line ceiling, so `companion/test_structure_guards.py`'s `PENDING_OVERSIZED_FILES`/`PENDING_LONG_FUNCTIONS` allowlists (and every reference to them) were deleted outright; `grep -c "PENDING_"` on that file is now 0. `_unavailable_block()`/`HEALTH_UNAVAILABLE_TEXT`/`_resolution_rate_tile_html()`/`_TILE_DETAIL_CLASS` moved too, alongside the three named groups, to break a circular re-export (two of the moving functions call `_unavailable_block()`, which six staying functions also call) — `health_page.py` re-exports everything the moved code left it still needing, discovered to convergence by running the full suite rather than by static grep alone (one test resolves an attribute through a loop variable). The split is a pure extraction, proven by `companion/test_render_baseline.py`'s two tests passing byte-for-byte once `test-support/companion_render_snapshot.py`'s clock-freezing patch target followed `resolution_stats()` from `health_page.datetime` to `health_sections.datetime`. One unrelated pre-existing full-suite failure was fixed (Rule 1): `stub-server/test_poll_cycle.py`'s hostile-quiet-hours-config integration step still asserted the pre-D-4 fail-open `sleep_s == 300`, stale since Phase 39's `39-06` shipped the fallback-to-default-window behaviour — now computed from `device_policy.seconds_until_quiet_hours_end()` against that same default window. `SKYPANE_REQUIRE_BROWSER=1 ./scripts/run-all-tests.sh` exits 0: 3211 passed, 0 failed, 7 skipped (pre-existing root-euid skips), 94.86% coverage; ruff and `check_comment_history.py` both clean. Task 2 appended dated Phase 40 paragraphs to `REQUIREMENTS.md`'s CFG-34 and CFG-39 rows (each clause named, held-or-not stated, test(s) cited) and ticked both — CFG-34: all three convertible sites (Flights desktop When cell, Calendar status detail, Health registry cells, all landed by 40-10) now tick in a real browser, the battery-trend tooltip stays the one permanent structural exception; CFG-39: `battery_sparkline_svg()`'s scale IS `draw.percent_y` (not a second implementation) since 40-06's migration, closing the old row's "nothing pins the two together" gap. CFG-52 already carried its own Phase 40 paragraph from `40-07` and was verified, not rewritten. CMP-01..09's traceability rows now name their satisfying plan(s) instead of a bare "Phase 40 \| Complete". Commits: `a4a2f79` (feat) Task 1, `51d0319` (docs) Task 2, `d8d8cb4`/`99cca1d` (docs) SUMMARY. `roadmap.update-plan-progress 40` now reports the phase Complete at 16/16; `requirements.mark-complete` found all twelve IDs already ticked. `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 94` (409/434) but the written frontmatter showed `percent: 91` (`completed_phases/total_phases` = 49/54) — corrected to `94` by hand per this file's established precedent, as the last STATE.md edit before this plan's own final commit.
 
 **39-13 executed (2026-09-27), plan 13/13 of Phase 39 (depends on 39-04/39-06/39-08/39-10/39-11/39-12), wave 7 — the phase close-out, two commits.** Task 1 added a tree-wide `test_no_function_in_server_or_stub_server_exceeds_80_code_lines` to `test-support/test_check_function_size.py` (calls `check_function_size.py`'s own `main()` in-process) plus a blocking CI step "Function size gate (non-test code in server/ and stub-server/)" right after the Type check step — two independent enforcement paths from one tool, so deleting either alone still fails the suite. Added `server/poll_cycle.py` to `[tool.mypy]`'s global `files` list (not the strict override — its pure core is fully typed per 39-11, the orchestration steps stay partially annotated); the only real gap was `detect_flight`'s `diagnostics` local needing an explicit `dict | None` annotation (typing-only, zero behaviour change) — `mypy` now reports 12 source files, up from 11. Refreshed `pyproject.toml`'s E402 comment to the real 6-file list from `ruff check --isolated --select E402 .`, dropping `server/poll_loop.py` (its own two imports now carry an inline `noqa: E402` rather than relying on the project-wide suppression). Task 2 re-ran every Before command from `39-ARC-BASELINE.md` on the final tree and filled in the After section (function size: 401 scanned, zero offenders, up from 365/6; CC: `run_once` 3, its highest named step `advance_display_queue` 10, vs Before's `_run_once_locked` 53/grade F — an 81% drop; typed functions: 73 of 356 non-test server functions annotated, up from 0/318, mypy 12 files green; companion imports of `server.poll_loop`: zero statement-level imports left; module-global setters: all three deleted outright; duplicated device policy: all nine rows now one definition each, the tenth — the quiet-hours invalid-time fallback — unified per D-4; suite: 2995 passed/139 skipped, coverage 94.27%, ruff and comment-history clean), a Criteria table (four ROADMAP criteria, each Met with its evidence command), and an Intentional behaviour changes section naming D-4 and D-5 with the tests that pin each. Updated `ARCHITECTURE.md`: replaced every stale `poll_loop.py`/`render.py` pipeline-body reference with `poll_cycle.py`/`server/plane/render/`, and added a Module map paragraph naming `poll_loop.py`, `poll_cycle.py`, `state_store.py`, `device_policy.py`, `themes.py`, `net/safe_fetch.py` and the `render/`/`calendar_rules/` packages. Commits: `9a1f444` (feat) Task 1, `39f9401` (docs) Task 2. Phase close-out (this plan's own scope): `ARC-01`..`ARC-06` marked Complete in `REQUIREMENTS.md` (checklist + summary table) via `requirements.mark-complete`; `roadmap.update-plan-progress 39` now reports the phase Complete at 13/13. `state.update-progress` reproduced this file's own documented recurring bug one final time — its own JSON correctly returned `percent: 94` (393/418) but the written frontmatter showed `percent: 89` (`completed_phases/total_phases` = 48/54) — corrected to `94` by hand per this file's established precedent, as the last STATE.md edit before this plan's own final commit.
 
@@ -306,7 +308,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 
 **Velocity:**
 
-- Total plans completed: 122 (re-derived at merge time from ROADMAP.md's own plan checkboxes across both merged phases, superseding both sides' pre-merge figures of 93 and 96)
+- Total plans completed: 138 (re-derived at merge time from ROADMAP.md's own plan checkboxes across both merged phases, superseding both sides' pre-merge figures of 93 and 96)
 - Average duration: - min
 - Total execution time: 0 hours
 
@@ -338,6 +340,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | 29 | 6 | - | - |
 | 30 | 8 | - | - |
 | 38 | 13 | - | - |
+| 40 | 16 | - | - |
 
 **Recent Trend:**
 
@@ -602,6 +605,17 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 40 P03 | 100min | 2 tasks | 9 files |
 | Phase 40 P04 | 24min | 2 tasks | 7 files |
 | Phase 40 P05 | ~120min | 2 tasks | 11 files |
+| Phase 40 P06 | 46min | 2 tasks | 9 files |
+| Phase 40 P07 | ~50min | 2 tasks | 3 files |
+| Phase 40 P08 | 35min | 2 tasks | 5 files |
+| Phase 40 P09 | ~2h40min | 2 tasks | 8 files |
+| Phase 40 P10 | 45m | 2 tasks | 10 files |
+| Phase 40 P11 | 30min | 3 tasks | 22 files |
+| Phase 40 P12 | 29min | 3 tasks | 17 files |
+| Phase 40 P13 | long session | 2 tasks | 17 files |
+| Phase 40 P14 | unknown | 2 tasks | 19 files |
+| Phase 40 P15 | unknown | 2 tasks | 25 files |
+| Phase 40 P16 | 40min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -1179,6 +1193,30 @@ Recent decisions affecting current work:
 - [Phase 40]: FLASH_SLOT_MARKER moved into ui_base.py — dependency-free constant both page_header (ui_components) and page_shell (ui_shell) can import without creating a cross-module edge
 - [Phase 40]: layout.py keeps import companion.i18n as i18n, added to __all__ — tests reach layout.i18n.t()/.t_lang() directly even though no code inside layout.py calls it after the shell code moved to ui_shell.py
 - [Phase 40]: 40-05: moved companion/settings/calendar.py and rules.py during Task 1 rather than Task 2 — _aspect_card_html calls their builders directly, and splitting theme.py without them would have forced either a config_page import from theme.py (forbidden by this plan's own acceptance criteria) or a theme<->calendar/rules import cycle -- resolved instead by having _aspect_card_html take the Calendar/Rules Aspect-card rows as pre-built HTML parameters
+- [Phase 40]: Kept health_state_from_signals()/compute_health_state()/safe_health_state() in health_page.py since they call page markup builders; health_signals.py never imports health_page.py
+- [Phase 40]: Excluded draw.DRAWING_CHART_CANVAS_CLASS and DRAWING_CHART_AREA_LAYER_CLASS from draw.DRAWING_CLASSES: style.css sizes both via one higher-specificity selector by design, with no bare rule of their own
+- [Phase 40]: health_page.py ends at 1681 lines (down from 2516), still above the plan's 1500-line target; closing the gap needs a further extraction of the registry/stats/check-in sections, out of this plan's scope
+- [Phase 40]: CFG-52's platform-file-chooser key for the artwork drop zone is Space, not Enter — measured 3/8 vs 12/12 against this repo's real Chromium; no production code changed, only the test's key press
+- [Phase ?]: form_post.py splits four groups (theme, calendar, quiet_hours, notifications) into two calls each to preserve handle_post()'s exact original validation order, per the plan's own two-phase hint
+- [Phase ?]: companion/settings/screen.py was skipped: config_page.py was already under the 1500-line ceiling after Task 1's move, so the plan's conditional file-split step did not trigger
+- [Phase 40]: MAX_ILLUSTRATION_UPLOAD_BYTES/parse_single_uploaded_file()/_illustration_filenames() moved into companion/post_actions.py so the moved illustration-replace handler stays self-contained; app.py rebinds all three under their historical names
+- [Phase 40]: _POLL_LOCK now defined once in companion/post_actions.py and rebound in app.py, never a second independent Lock(), so the calendar-connect route and app.py's own settings/poll-now triggers keep serialising against the same object
+- [Phase 40]: companion/freshness.py keeps its historical underscore-prefixed internal names (only _FRESHNESS_PAGE_SLUGS and _page_freshness_token are rebound into app.py) since no other call site exists for the rest
+- [Phase 40]: CFG-34: bypassed _merged_cell()/status_row() only at the two call sites that need live-age markup (Flights When cell, Calendar status detail), following home_page's build-and-concatenate precedent — Neither helper's general contract or other callers changed; proven by a wrapper-only render-baseline diff
+- [Phase 40]: Battery-trend tooltip stays the one deliberate static exception to CFG-34's live-age conversion — It writes into an SVG title via setAttribute, which cannot hold markup; converting it needs changing that script's transport first
+- [Phase 40]: PageContext deferred imports break a circular dependency between page_context.py and the page modules it must call at request time — companion.pages.health_page/airlines_page/history_page and companion.flash (imported by build_page_context) each import page_context.coerce() at their own module level; importing them back at page_context.py's module level would cycle, so those four imports are function-local instead
+- [Phase 40]: i18n stable-ID scheme: '<area>.<slug>', slug = deterministic slug_for(english) in test-support/i18n_ids.py, shared by plans 40-12/13/14 so independently-migrated catalogue halves agree on one id
+- [Phase 40]: common.py and nav.py i18n catalogues fully converted to MESSAGES in plan 40-12 (not partially) since every entry is consumed by a module that plan already touches
+- [Phase 40]: CMP-09 requirement NOT marked complete after plan 40-12 — this plan is explicitly part 1 of 4 (message-ID mechanism plus shared modules only); pages and the leftover legacy fallback removal are 40-13/40-14/40-15
+- [Phase ?]: registry.py's residual CATALOG kept for entries with no in-scope declaring module (theme names, screen label) — documented for 40-14
+- [Phase ?]: AST byte-span codemod (col_offset is UTF-8 byte offset, not codepoint offset) converts health.py's 130-entry catalogue to MESSAGES while preserving every comment and byte-exact French text
+- [Phase 40]: Task 1/Task 2 split respected display.py's own catalogue: 51/105 entries stayed legacy CATALOG through Task 1's own commit, converted only once Task 2's config_page.py/notifications.py/calendar.py/rules.py declared their Messages — Converting an entry to MESSAGES before its declaring call site exists breaks t()'s legacy-CATALOG fallback mid-plan, verified live by a failing test_render_baseline.py rather than assumed
+- [Phase 40]: Four display.py entries (Switch on/off, Turn on/off) never convert to MESSAGES — companion/ui_base.py documents them as retired action wordings with no i18n.t() call site left anywhere to declare their Message
+- [Phase 40]: companion/i18n_fr/registry.py itself stays untouched by plan 40-14 (out of its own files_modified scope) — every theme-name/runway/screen-label display site now declares the Message registry.py's still-legacy CATALOG resolves through, ready for a later plan to finish the conversion with no new id derivation needed
+- [Phase 40]: registry.py's residual entries convert onto ids theme.py/config_page.py already assumed (40-14); display.py's 4 dead action-wording entries deleted outright, not preserved
+- [Phase 40]: i18n.t()/t_lang() now raise TypeError for any non-Message argument; both legacy English-keyed fallbacks removed (CMP-09 complete)
+- [Phase 40]: A dict .get(key, key) fallback-to-raw-key pattern feeding i18n.t() is a latent bug once t() is Message-only; every such site rewritten to translate only when a real Message is found
+- [Phase 40]: 40-16 (Phase 40 close): registry/stats/check-in-regularity markup moved out of health_page.py into companion/health_sections.py (1787 -> 1111 lines), following the battery_chart.py/health_signals.py precedent for a markup helper shared by exactly one page.
 
 ### Pending Todos
 
@@ -1208,6 +1246,7 @@ None yet.
 - NOTED by 22-13, for whoever records the collision: a component whose base rule sets `display` needs its own higher-specificity `[hidden]` selector or the server-rendered hidden attribute is silently defeated by the author stylesheet. style.css now has THREE such rules — `.dirty-bar[hidden]`, `.refresh-pill[hidden]` and `.login-reveal[hidden]`. The third was found by companion/test_browser_ux.py's scripts-blocked pass, not by inspection: `.copy-btn`'s `display: inline-flex` was rendering a dead show-password button on a page with JavaScript off
 - NOTED by 22-13, a plan-frontmatter inaccuracy 22-16 may want to correct rather than inherit: 22-13-PLAN.md's own must_haves claim style.css had no `.login-card` rule, and derive an acceptance grep from it. `.login-shell`/`.login-card` have existed since 06.6.2-07, so that grep was already non-zero before the plan ran and cannot discriminate. What genuinely did not exist is any rule for the two CONTROLS inside the card, which is what the audit row actually said (`.login-form`)
 - STATE.md was structurally degraded: two YAML frontmatter blocks and two '## Current Position' sections, both stale, so 'gsd-sdk query state.advance-plan' could not parse it and errored. **REPAIRED 2026-09-13.** The real parse failure was one line — 'Plan: 1 of ?', whose '?' the parser's /of\s+(\d+)/ cannot read — not the duplication itself; the duplication was a separate, genuine defect fixed alongside. The stale frontmatter is demoted to a quoted yaml block under the title rather than deleted, since its stopped_at prose records phase 06.6.4.1's closing and exists nowhere else. Verified: state.advance-plan now returns current_plan 16, total_plans 16, ready_for_verification.
+- Pre-existing test_cfg34_live_age_ticks_at_each_converted_site[chromium-health-registry] fails on server.poll_loop.save_poll_state AttributeError, reproduces before 40-13 — Phase 39's server/ scope, logged in 40-13's deferred-items.md
 
 ### Quick Tasks Completed
 
@@ -1299,8 +1338,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-27T14:48:41.396Z
-Stopped at: Completed 39-13-PLAN.md (phase 39 closed, 13/13 plans); Phase 40 (parallel line of work) last at 40-05-PLAN.md, 2026-09-27T10:35:03.762Z
+Last session: 2026-09-27T22:32:18.252Z
+Stopped at: Completed 40-16-PLAN.md — Phase 40 closed (16/16 plans)
 
 Resume file: 
 

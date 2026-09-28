@@ -5,8 +5,9 @@ wording, status-dot/stat-tile class tables), plus the three
 zero-dependency-on-a-sibling-ui-module helpers (`nav_slug`, `icon_html`,
 `escape_html`) every other `companion/ui_*.py` module and page module builds
 on. stdlib `html` and `zoneinfo` only, plus `companion.frame_state` for the
-frame-strip dot-class table; no import from another `companion/ui_*.py`
-module, `companion.app`, or a page module.
+frame-strip dot-class table and `companion.i18n` for the stable message IDs
+the nav/quick-action/frame-strip wording below declares; no import from
+another `companion/ui_*.py` module, `companion.app`, or a page module.
 
 `escape_html()` is defined once, here; every companion/pages/*.py module
 must import and use it rather than the stdlib `html` module directly, or
@@ -21,6 +22,7 @@ from zoneinfo import ZoneInfo
 # _FRAME_DOT_CLASS_BY_STATE below, the dot-class table companion/
 # ui_components.py's frame_strip_html() reads.
 import companion.frame_state as frame_state
+import companion.i18n as i18n
 
 SITE_TITLE = "SkyPane"
 
@@ -50,18 +52,28 @@ AIRLINES_ROUTE = "/airlines"
 HEALTH_ROUTE = "/health"
 DEVICE_ROUTE = "/device"
 
-ADVANCED_GROUP_LABEL = "Advanced"
+ADVANCED_GROUP_LABEL = i18n.msg("nav.advanced", "Advanced")
+
+# The six nav-tab labels, each a Message so its French lookup survives a
+# reword of the English below; declared once here since NAV_GROUPS/
+# NAV_TABS are the one source of these labels for every renderer.
+_NAV_LABEL_HOME = i18n.msg("nav.home", "Home")
+_NAV_LABEL_DISPLAY = i18n.msg("nav.display", "Display")
+_NAV_LABEL_FLIGHTS = i18n.msg("nav.flights", "Flights")
+_NAV_LABEL_AIRLINES = i18n.msg("nav.airlines", "Airlines")
+_NAV_LABEL_HEALTH = i18n.msg("nav.health", "Health")
+_NAV_LABEL_DEVICE = i18n.msg("nav.device", "Device")
 
 NAV_GROUPS = (
     ("", (
-        (HOME_ROUTE, "Home"),
-        (DISPLAY_ROUTE, "Display"),
-        (FLIGHTS_ROUTE, "Flights"),
-        (AIRLINES_ROUTE, "Airlines"),
+        (HOME_ROUTE, _NAV_LABEL_HOME),
+        (DISPLAY_ROUTE, _NAV_LABEL_DISPLAY),
+        (FLIGHTS_ROUTE, _NAV_LABEL_FLIGHTS),
+        (AIRLINES_ROUTE, _NAV_LABEL_AIRLINES),
     )),
     (ADVANCED_GROUP_LABEL, (
-        (HEALTH_ROUTE, "Health"),
-        (DEVICE_ROUTE, "Device"),
+        (HEALTH_ROUTE, _NAV_LABEL_HEALTH),
+        (DEVICE_ROUTE, _NAV_LABEL_DEVICE),
     )),
 )
 
@@ -100,7 +112,7 @@ MOBILE_NAV_OPEN_CLASS = "mobile-nav--open"
 # state. Renamed from "Open menu": the panel no longer holds a menu of
 # pages — the bottom tab bar owns destinations now, and what remains is
 # the state reminder plus language, theme and Sign out.
-NAV_TOGGLE_LABEL = "Account and preferences"
+NAV_TOGGLE_LABEL = i18n.msg("nav.account_and_preferences", "Account and preferences")
 
 # Must equal companion/app.py's NAV_SCRIPT_ROUTE exactly. Duplicated
 # rather than imported: companion/pages/__init__.py's boundary forbids
@@ -273,15 +285,24 @@ QUICK_STATE_OFF = "off"
 # The eleven QUICK_ACTION_* constants, moved here byte-identical from
 # config_page.py, so home_page.py can share them too. Every English
 # value is unchanged, so every French catalogue entry keeps resolving —
-# it is keyed by English string, not by which module holds the constant.
-QUICK_ACTION_SCREEN_LABEL = "Screen"
-QUICK_ACTION_ON_TEXT = "On"
-QUICK_ACTION_OFF_TEXT = "Off"
+# it is looked up by stable id (or, for the four retired button
+# wordings below that reach no i18n.t() call, kept as plain text).
+#
+# Each Message's id names the i18n_fr module that actually owns its
+# French translation today (health.py for "Screen", display.py for the
+# rest) — none of them is common.py/nav.py, and that catalogue stays
+# untouched by this plan; the id-with-no-BY_ID-entry fallback keeps
+# every one of these resolving until a later plan migrates that module.
+QUICK_ACTION_SCREEN_LABEL = i18n.msg("health.screen", "Screen")
+QUICK_ACTION_ON_TEXT = i18n.msg("display.on", "On")
+QUICK_ACTION_OFF_TEXT = i18n.msg("display.off", "Off")
 QUICK_ACTION_SWITCH_ON_BUTTON = "Switch on"
 QUICK_ACTION_SWITCH_OFF_BUTTON = "Switch off"
-QUICK_ACTION_QUIET_LABEL = "Quiet hours"
-QUICK_ACTION_QUIET_ON_TEMPLATE = "On — %s to %s"
-QUICK_ACTION_QUIET_OFF_TEXT = "Off"
+QUICK_ACTION_QUIET_LABEL = i18n.msg("display.quiet_hours", "Quiet hours")
+QUICK_ACTION_QUIET_ON_TEMPLATE = i18n.msg("display.on_to", "On — %s to %s")
+# Same id as QUICK_ACTION_OFF_TEXT above: same English, same French
+# translation, and msg() is idempotent for a repeat id/English pair.
+QUICK_ACTION_QUIET_OFF_TEXT = i18n.msg("display.off", "Off")
 # These four action wordings are no longer rendered markup: a
 # role="switch" control may not be named by an action ("Switch off"
 # contradicts aria-checked), so the button is now named by the setting
@@ -323,49 +344,64 @@ QUICK_SWITCH_QUIET_STATE_ID = "quick-switch-quiet-state"
 # FLASH_MESSAGES[FLASH_KEY_QUICK_FAILED]: neither reader is told a
 # status code or anything else the server knows. layout.py may not
 # import companion/app.py, so the English literal is duplicated here,
-# like the QUICK_ACTION_* constants above.
-QUICK_SWITCH_FAILED_TEXT = "Couldn't change that — please try again."
+# like the QUICK_ACTION_* constants above. Same id as the FLASH_MESSAGES
+# entry app.py will declare in its own migration.
+QUICK_SWITCH_FAILED_TEXT = i18n.msg(
+    "common.couldn_t_change_that_please_try_again",
+    "Couldn't change that — please try again.")
 QUICK_SWITCH_FAILED_ATTR = "data-quick-failed-text"
 QUICK_TOAST_ATTR = "data-quick-toast"
 # No longer used by frame_strip_html(): the one computed delay
 # sentence below (frame_state.py's DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN)
 # replaces this old static caption. It survives as DELAY_UNKNOWN's own
 # wording (_FRAME_DELAY_UNKNOWN_TEXT below) and stays defined because
-# config_page.py still references it directly.
-QUICK_ACTION_APPLIES_SENTENCE = "Applies the next time the frame wakes up."
+# config_page.py still references it directly. Its id/English is owned
+# by display.py, which stays untouched by this plan.
+QUICK_ACTION_APPLIES_SENTENCE = i18n.msg(
+    "display.applies_the_next_time_the_frame_wakes_up",
+    "Applies the next time the frame wakes up.")
 
 # The strip's own heading, byte-identical to home_page.FRAME_ROW_LABEL
-# ("Frame") — both resolve through the same i18n catalogue entry, keyed
-# by English string. A second, separately named constant is required
-# because layout.py may never import a page module.
-FRAME_STRIP_HEADING = "Frame"
+# ("Frame") — both resolve through the same stable id, owned by
+# home.py (untouched by this plan). A second, separately named
+# constant is required because layout.py may never import a page
+# module.
+FRAME_STRIP_HEADING = i18n.msg("home.frame", "Frame")
 
 # frame_state.py's HEADLINE_DUE/HEADLINE_HELD/HEADLINE_LATE are the
 # one canonical registry of this copy; frame_strip_html() below calls
 # frame_state.resolve_state()/headline_template() to pick between them,
 # never re-deriving that decision.
 
-# The six _FRAME_*_TEXT constants exist only because
-# companion/test_i18n.py's AST scan proves a string alive by tracing a
-# local `i18n.t(CONSTANT)` call, and cannot follow an attribute access.
-# Kept byte-identical to their frame_state.py counterparts; only the
-# wording's scanner-visible home is local.
-_FRAME_HEADLINE_DUE_TEXT = "Next update ≈ %s"
-_FRAME_HEADLINE_HELD_TEXT = "Next wake around %s · quiet hours"
-_FRAME_HEADLINE_LATE_TEXT = "Expected since %s"
-_FRAME_DELAY_DUE_TEXT = "Applies at the next wake, around %s."
-_FRAME_DELAY_HELD_TEXT = "Applies when quiet hours end, around %s."
+# The six _FRAME_*_TEXT constants exist because companion/frame_state.py
+# defines the same wording as its own module constants, and a local copy
+# here is what companion/ui_components.py's frame_strip_html() actually
+# passes to i18n.t(). Kept byte-identical to their frame_state.py
+# counterparts. Two of the three headlines and the schedule-link text
+# below are owned by home.py's catalogue (untouched by this plan); the
+# held headline and both delay sentences are owned by frame_state.py's
+# own catalogue, migrated later in this same plan.
+_FRAME_HEADLINE_DUE_TEXT = i18n.msg("home.next_update", "Next update ≈ %s")
+_FRAME_HEADLINE_HELD_TEXT = i18n.msg(
+    "frame_state.next_wake_around_quiet_hours",
+    "Next wake around %s · quiet hours")
+_FRAME_HEADLINE_LATE_TEXT = i18n.msg("home.expected_since", "Expected since %s")
+_FRAME_DELAY_DUE_TEXT = i18n.msg(
+    "frame_state.applies_at_the_next_wake_around",
+    "Applies at the next wake, around %s.")
+_FRAME_DELAY_HELD_TEXT = i18n.msg(
+    "frame_state.applies_when_quiet_hours_end_around",
+    "Applies when quiet hours end, around %s.")
 # Byte-identical to QUICK_ACTION_APPLIES_SENTENCE above by
 # construction (same value, not a coincidence) — the retired static
 # caption's own text survives as exactly this one computed branch's
-# wording.
+# wording, including its Message identity.
 _FRAME_DELAY_UNKNOWN_TEXT = QUICK_ACTION_APPLIES_SENTENCE
 
 # The quiet cell's caption link, appended to the same
 # `delay_caption_html` slot the switch cells share — never a new slot.
-# The link text is scanner-visible for the same reason the six
-# _FRAME_*_TEXT constants above are: a local, byte-identical copy.
-_FRAME_QUIET_SCHEDULE_LINK_TEXT = "Change the schedule"
+# Owned by home.py's catalogue, like the two headlines above.
+_FRAME_QUIET_SCHEDULE_LINK_TEXT = i18n.msg("home.change_the_schedule", "Change the schedule")
 # Byte-identical to config_page.py's own QUIET_HOURS_GROUP_HEADING_ID
 # — duplicated, never imported, since a page module may never import
 # another. Kept byte-identical by hand; a harness proves it.
@@ -690,7 +726,7 @@ NAV_NOTIFICATION_CLASS = "nav-notification"
 # visually-hidden span, so assistive tech announces "Health — attention
 # needed" rather than losing the word "Health" to an aria-label
 # override.
-HEALTH_ALERT_SUFFIX_TEXT = " — attention needed"
+HEALTH_ALERT_SUFFIX_TEXT = i18n.msg("nav.attention_needed", " — attention needed")
 # A substitution token, never markup that ships: page_header() emits it,
 # page_shell() swaps it for the flash banner when present, and strips any
 # leftover occurrence unconditionally before the response is returned.

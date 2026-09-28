@@ -14,15 +14,20 @@ running `companion/app.py` server. Two checks run with
 import hashlib
 import hmac
 import html
+import io
 import os
 import re
+import socket
 import time
 import urllib.parse
 
 import pytest
 
+import companion.app as app_module
 import companion.auth as auth
 import companion.layout as layout
+import companion.prefs as prefs
+import companion.request_body as request_body
 import companion.test_companion_app_helpers as cah
 from companion_app_server import http_request, login, served_stylesheet
 from companion_markup import css_rules, declarations_for, rules_with_selector
@@ -878,3 +883,85 @@ def test_delete_post_redirects_manual_delete_failed_when_state_dir_is_read_only(
         "got %r" % location)
     registry_after = manual_resolutions.load_manual_resolutions(server.state_dir)
     assert "DLF" in registry_after, "expected the entry to survive a failed delete_entry() write"
+
+
+# ==========================================================================
+# Section 4: companion/request_body.py's shared capped-body drain, and
+# the Set-Cookie header POST /ui-theme and POST /ui-lang now build
+# through Handler._choice_cookie_header().
+# ==========================================================================
+
+
+class _TimeoutRFile:
+    """An `rfile` stand-in whose first read always raises socket.timeout —
+    drain_capped_body() must never attempt to distinguish an already-read
+    partial body from a timeout on the very first read.
+    """
+
+    def read(self, _size):
+        raise socket.timeout("timed out")
+
+
+def test_drain_capped_body_at_the_cap_returns_the_bytes_not_over_cap():
+    """a body exactly at the cap returns the bytes and over_cap False"""
+    payload = b"x" * 10
+    raw, over_cap = request_body.drain_capped_body(io.BytesIO(payload), len(payload), 10)
+    assert raw == payload and over_cap is False
+
+
+def test_drain_capped_body_one_byte_over_the_cap_drains_the_whole_length():
+    """one byte over the cap returns (None, True) and consumes the whole declared length,
+    leaving nothing behind on rfile for a later mis-read"""
+    payload = b"x" * 11
+    rfile = io.BytesIO(payload)
+    raw, over_cap = request_body.drain_capped_body(rfile, len(payload), 10)
+    assert raw is None and over_cap is True
+    assert rfile.read() == b"", "expected the whole declared length to already be drained"
+
+
+def test_drain_capped_body_short_read_stops_without_looping_forever():
+    """a short read (the client closes early, well short of the declared length) stops the
+    drain loop on the first empty chunk instead of looping forever"""
+    rfile = io.BytesIO(b"x" * 11)  # declares 100 but the client only ever sends 11
+    raw, over_cap = request_body.drain_capped_body(rfile, 100, 10)
+    assert raw is None and over_cap is True
+
+
+def test_drain_capped_body_socket_timeout_returns_none_and_not_over_cap():
+    """a socket.timeout while reading returns (None, False), distinct from an over-cap body"""
+    raw, over_cap = request_body.drain_capped_body(_TimeoutRFile(), 20, 10)
+    assert raw is None and over_cap is False
+
+
+def test_ui_theme_and_ui_lang_post_set_byte_exact_cookies_or_none(make_app_server):
+    """POST /ui-theme and POST /ui-lang emit a byte-exact Set-Cookie header, built through the
+    one shared _choice_cookie_header(), for every allowed value, and no Set-Cookie header at
+    all for a disallowed one"""
+    server = make_app_server(fake_providers=True)
+    session_cookie = login(server)
+    base = server.base_url()
+
+    for route, field, cookie_name, choices, max_age_s in (
+            ("/ui-theme", "ui_theme", auth.UI_THEME_COOKIE_NAME, layout.UI_THEME_CHOICES,
+             app_module.THEME_COOKIE_MAX_AGE_S),
+            ("/ui-lang", "ui_lang", auth.UI_LANG_COOKIE_NAME, prefs.LANG_CHOICES,
+             app_module.LANG_COOKIE_MAX_AGE_S)):
+        for value in choices:
+            status, headers, _ = http_request(
+                base + route, method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({field: value}).encode())
+            assert status == 303, "expected 303 for %s=%s, got %d" % (field, value, status)
+            expected = "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d" % (
+                cookie_name, value, auth.secure_cookie_flag(), max_age_s)
+            assert headers.get("Set-Cookie") == expected, (
+                "expected the exact cookie header %r for %s=%s, got %r"
+                % (expected, field, value, headers.get("Set-Cookie")))
+
+        status, headers, _ = http_request(
+            base + route, method="POST", cookie=session_cookie,
+            data=urllib.parse.urlencode({field: "not-a-real-choice"}).encode())
+        assert status == 303, (
+            "expected 303 for a disallowed %s value too, got %d" % (field, status))
+        assert "Set-Cookie" not in headers, (
+            "expected no Set-Cookie header for an unrecognised %s value, got %r"
+            % (field, headers.get("Set-Cookie")))

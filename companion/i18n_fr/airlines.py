@@ -1,32 +1,30 @@
 # -*- coding: utf-8 -*-
-"""French strings for the Airlines page. Every key is the exact English
-source string a call site in companion/pages/airlines_page.py passes to
-companion.i18n.t(), including any "%s"/"%d" placeholder.
+"""French strings for the Airlines page. Every entry is migrated onto a
+stable message id: the source-side Message is declared where the
+English constant already lives (companion/pages/airlines_page.py),
+never here — this module only carries each id's French translation.
 
-Some keys are deliberately absent here and reused from a sibling module
+Some ids are deliberately absent here and reused from a sibling module
 instead ("Airlines", "%s illustration", "Delete", the resolve-context
 labels, the filter-bar copy) — the auto-merge package raises ValueError
-on a duplicate key across sibling modules.
+on a duplicate id across sibling modules.
 
 Copy follows sentence case, the typographic apostrophe (U+2019, never a
 straight quote), guillemets («…») for an embedded quotation, and a
 non-breaking space (U+00A0) before ":" ";" "?" "!".
 """
 
-CATALOG = {
+MESSAGES = {
     # --- Page header, gallery, cards --------------------------------
-    "Illustration reference for every airline this frame can recognize.":
+    "airlines.illustration_reference_for_every_airline_this":
         "Référence des illustrations pour chaque compagnie que le cadre "
         "peut reconnaître.",
-    "Enlarge %s illustration": "Agrandir l’illustration %s",
-    "Airline illustration": "Illustration de la compagnie",
-    "Close": "Fermer",
-    "Superseded": "Remplacée",
-    "Resolved by hand": "Résolue à la main",
-    "SkyPane’s built-in list now recognizes prefix %s as “%s” — its "
-    "entry wins over the name you gave it (“%s”), so that artwork is "
-    "no longer shown. Add artwork for “%s” below, or delete this "
-    "entry.":
+    "airlines.enlarge_illustration": "Agrandir l’illustration %s",
+    "airlines.airline_illustration": "Illustration de la compagnie",
+    "airlines.close": "Fermer",
+    "airlines.superseded": "Remplacée",
+    "airlines.resolved_by_hand": "Résolue à la main",
+    "airlines.skypane_s_built_in_list_now_recognizes_prefix":
         "La liste intégrée de SkyPane reconnaît maintenant le préfixe %s "
         "comme « %s » — son entrée l’emporte sur le nom que vous lui "
         "aviez donné (« %s »), cette image n’est donc plus affichée. "
@@ -34,75 +32,73 @@ CATALOG = {
         "entrée.",
 
     # --- The "Unidentified airlines" gap strip and its cards --------
-    "Unidentified airlines": "Compagnies non identifiées",
-    "Tap a callsign below to name its airline.":
+    "airlines.unidentified_airlines": "Compagnies non identifiées",
+    "airlines.tap_a_callsign_below_to_name_its_airline":
         "Touchez un indicatif ci-dessous pour nommer sa compagnie.",
-    "Resolve prefix %s — example callsign %s":
+    "airlines.resolve_prefix_example_callsign":
         "Identifier le préfixe %s — exemple d’indicatif %s",
-    "%d other unresolved prefixes — ": "%d autres préfixes non résolus — ",
-    "see the full list": "voir la liste complète",
-    "%d manual resolutions, %d superseded": "%d résolutions manuelles, %d remplacées",
-    "%d manual resolutions": "%d résolutions manuelles",
+    "airlines.other_unresolved_prefixes": "%d autres préfixes non résolus — ",
+    "airlines.see_the_full_list": "voir la liste complète",
+    "airlines.manual_resolutions_superseded": "%d résolutions manuelles, %d remplacées",
+    "airlines.manual_resolutions": "%d résolutions manuelles",
     # The singular halves: French and English agree on where this
     # boundary falls, but each language still owns its own string
     # rather than sharing a runtime rule.
-    "%d manual resolution, %d superseded": "%d résolution manuelle, %d remplacée",
-    "%d manual resolution": "%d résolution manuelle",
+    "airlines.manual_resolution_superseded": "%d résolution manuelle, %d remplacée",
+    "airlines.manual_resolution": "%d résolution manuelle",
 
     # --- The gallery's filter bar ------------------------------------
-    "Filter by airline or callsign": "Filtrer par compagnie ou indicatif",
-    "No matching airlines": "Aucune compagnie correspondante",
-    "Try a different search, or Clear filter to see all %d airlines.":
+    "airlines.filter_by_airline_or_callsign": "Filtrer par compagnie ou indicatif",
+    "airlines.no_matching_airlines": "Aucune compagnie correspondante",
+    "airlines.try_a_different_search_or_clear_filter_to_see":
         "Essayez une autre recherche, ou effacez le filtre pour voir les "
         "%d compagnies.",
 
     # --- The "resolve an unidentified flight" section ----------------
-    "← Back to Airlines": "← Retour à Compagnies",
-    "That coverage gap isn’t there anymore — it may already be "
-    "resolved. See Health for the complete list of current gaps.":
+    "airlines.back_to_airlines": "← Retour à Compagnies",
+    "airlines.that_coverage_gap_isn_t_there_anymore_it_may":
         "Cette lacune n’existe plus — elle est peut-être déjà résolue. "
         "Consultez État pour la liste complète des lacunes actuelles.",
-    "Resolve an unidentified flight": "Identifier un vol non reconnu",
-    "Every flight using prefix %s will show as this airline.":
+    "airlines.resolve_an_unidentified_flight": "Identifier un vol non reconnu",
+    "airlines.every_flight_using_prefix_will_show_as_this":
         "Chaque vol utilisant le préfixe %s s’affichera sous cette "
         "compagnie.",
-    "Times seen": "Nombre de vues",
-    "Airline name": "Nom de la compagnie",
-    "Start typing — pick a suggestion.":
+    "airlines.times_seen": "Nombre de vues",
+    "airlines.airline_name": "Nom de la compagnie",
+    "airlines.start_typing_pick_a_suggestion":
         "Commencez à taper — choisissez une suggestion.",
-    "Save airline name": "Enregistrer le nom de la compagnie",
-    "Add an illustration for %s": "Ajouter une illustration pour %s",
-    "Saved — add artwork below, or skip for now.":
+    "airlines.save_airline_name": "Enregistrer le nom de la compagnie",
+    "airlines.add_an_illustration_for": "Ajouter une illustration pour %s",
+    "airlines.saved_add_artwork_below_or_skip_for_now":
         "Enregistré — ajoutez une image ci-dessous, ou ignorez pour "
         "l’instant.",
-    "Skip — I’ll add artwork later": "Ignorer — j’ajouterai une image plus tard",
-    "%s is already named for this prefix and has artwork — nothing "
-    "more to do here.":
+    "airlines.skip_i_ll_add_artwork_later": "Ignorer — j’ajouterai une image plus tard",
+    "airlines.is_already_named_for_this_prefix_and_has":
         "%s est déjà nommée pour ce préfixe et a une image — rien de "
         "plus à faire ici.",
-    "Choose an image": "Choisir une image",
-    "Deleting removes this manual name — any uploaded artwork stays in place.":
+    "airlines.choose_an_image": "Choisir une image",
+    "airlines.deleting_removes_this_manual_name_any_uploaded":
         "La suppression retire ce nom manuel — l’image reste en place.",
 
     # --- The replace/upload forms' shared copy ------------------------
-    "Replace this illustration": "Remplacer cette illustration",
-    "Upload": "Envoyer",
-    "Transparent PNG, at least 1200px wide, landscape.":
+    "airlines.replace_this_illustration": "Remplacer cette illustration",
+    "airlines.upload": "Envoyer",
+    "airlines.transparent_png_at_least_1200px_wide_landscape":
         "PNG transparent, au moins 1200 px de large, au format paysage.",
 
     # --- The drag-and-drop upload affordance --------------------------
     # "cadrée", never "à quoi elle ressemblera": the preview shows the
     # frame the image will occupy; the server alone decides the final
     # crop, the same distinction the English copy makes.
-    "Or drag an image onto this card.":
+    "airlines.or_drag_an_image_onto_this_card":
         "Ou glissez une image sur cette carte.",
-    "Framing preview — how it will be framed.":
+    "airlines.framing_preview_how_it_will_be_framed":
         "Aperçu du cadrage — comment elle sera cadrée.",
-    "Framing preview of the image you chose":
+    "airlines.framing_preview_of_the_image_you_chose":
         "Aperçu du cadrage de l’image choisie",
-    "Only PNG images can be dropped here.":
+    "airlines.only_png_images_can_be_dropped_here":
         "Seules les images PNG peuvent être déposées ici.",
-    "Drop one image at a time.": "Déposez une seule image à la fois.",
-    "That image is larger than the %d MB limit.":
+    "airlines.drop_one_image_at_a_time": "Déposez une seule image à la fois.",
+    "airlines.that_image_is_larger_than_the_mb_limit":
         "Cette image dépasse la limite de %d Mo.",
 }

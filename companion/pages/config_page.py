@@ -5,15 +5,16 @@ colour-rules editor and the manual "Trigger poll now" control (its
 route, cooldown gate and poll trigger are owned by companion/app.py;
 this module only renders its button/copy).
 """
-import re
-
 from companion import i18n
 from companion.layout import escape_html
 import companion.layout as layout
+import companion.page_context as page_context
 from companion import screens
 from companion import wake
 from server import device_config
 from server.plane import calendar_rules
+
+from companion.settings import form_post
 
 # Every settings-group module's names, re-exported here (explicit,
 # aliased imports so ruff's F401 does not flag a name this module
@@ -255,6 +256,26 @@ from companion.settings.notifications import (
     _notifications_url_field_html as _notifications_url_field_html,
     notifications_group as notifications_group,
     notifications_test_section as notifications_test_section)
+# handle_post()'s own per-group resolvers moved to form_post.py (that
+# module never imports this one back), so its shared error/checkbox
+# constants and the calendar-signal sentinels live there now too;
+# re-exported here so companion/app.py and the test suite keep reading
+# them as config_page.X.
+from companion.settings.form_post import (
+    CALENDAR_DISCONNECT_CHECKBOX_VALUE as CALENDAR_DISCONNECT_CHECKBOX_VALUE,
+    CALENDAR_URL_SIGNAL_CARRY_FORWARD as CALENDAR_URL_SIGNAL_CARRY_FORWARD,
+    CALENDAR_URL_SIGNAL_CLEAR as CALENDAR_URL_SIGNAL_CLEAR,
+    CALENDAR_URL_SIGNAL_INVALID as CALENDAR_URL_SIGNAL_INVALID,
+    CALENDAR_URL_SIGNAL_SET as CALENDAR_URL_SIGNAL_SET,
+    DISPLAY_CHECKBOX_VALUE as DISPLAY_CHECKBOX_VALUE,
+    ERROR_CALENDAR_URL_INVALID as ERROR_CALENDAR_URL_INVALID,
+    ERROR_INVALID_CHOICE as ERROR_INVALID_CHOICE,
+    ERROR_QUIET_HOURS_TIME_SHAPE as ERROR_QUIET_HOURS_TIME_SHAPE,
+    ERROR_UNEXPECTED_SWITCH_VALUE as ERROR_UNEXPECTED_SWITCH_VALUE,
+    ERROR_WAKE_INTERVAL_RANGE as ERROR_WAKE_INTERVAL_RANGE,
+    LED_CHECKBOX_VALUE as LED_CHECKBOX_VALUE,
+    QUIET_HOURS_CHECKBOX_VALUE as QUIET_HOURS_CHECKBOX_VALUE,
+    _QUIET_HOURS_TIME_RE as _QUIET_HOURS_TIME_RE)
 
 
 # The single definition of this route. companion/app.py rebinds its own
@@ -286,43 +307,61 @@ SCOPES = (SCOPE_ALL, SCOPE_DISPLAY, SCOPE_DEVICE)
 SCOPE_FIELD_NAME = "scope"
 RETURN_TO_FIELD_NAME = "return_to"
 
-DISPLAY_PAGE_TITLE = "Display"
-DISPLAY_PAGE_PURPOSE = "Everything about what the frame shows and when."
-DEVICE_PAGE_TITLE = "Device"
-DEVICE_PAGE_PURPOSE = "Hardware, data and diagnostics for the frame."
-SCREEN_CAPTION_TEMPLATE = "Screen: %s"
+# "Display"/"Device" reuse companion/ui_base.py's own nav-tab ids —
+# msg() is idempotent on a repeat (id, English) pair, and a settings
+# page module may not import a page-independent shell module's private
+# constants, so the id is redeclared here rather than imported.
+DISPLAY_PAGE_TITLE = i18n.msg("nav.display", "Display")
+DISPLAY_PAGE_PURPOSE = i18n.msg(
+    "display.everything_about_what_the_frame_shows_and_when",
+    "Everything about what the frame shows and when.")
+DEVICE_PAGE_TITLE = i18n.msg("nav.device", "Device")
+DEVICE_PAGE_PURPOSE = i18n.msg(
+    "display.hardware_data_and_diagnostics_for_the_frame",
+    "Hardware, data and diagnostics for the frame.")
+SCREEN_CAPTION_TEMPLATE = i18n.msg("display.screen", "Screen: %s")
 
 # The three headed supersections Display's own groups render under, in
 # this locked order. Each heading/intro pair renders through the shared
 # section-intro helper in layout.py.
 DISPLAY_LOOK_SECTION_ID = "display-look"
-DISPLAY_LOOK_HEADING = "Look"
-DISPLAY_LOOK_INTRO = (
+DISPLAY_LOOK_HEADING = i18n.msg("display.look", "Look")
+DISPLAY_LOOK_INTRO = i18n.msg(
+    "display.the_theme_flight_colours_and_calendar_that",
     "— the theme, flight colours and calendar that decide how the "
     "picture looks.")
 DISPLAY_WATCHES_SECTION_ID = "display-watches"
-DISPLAY_WATCHES_HEADING = "What it watches"
-DISPLAY_WATCHES_INTRO = "— which Orly runway the frame is watching."
+DISPLAY_WATCHES_HEADING = i18n.msg("display.what_it_watches", "What it watches")
+DISPLAY_WATCHES_INTRO = i18n.msg(
+    "display.which_orly_runway_the_frame_is_watching",
+    "— which Orly runway the frame is watching.")
 DISPLAY_ON_SECTION_ID = "display-on"
-DISPLAY_ON_HEADING = "When it is on"
-DISPLAY_ON_INTRO = "— when the screen is lit and when it stays quiet."
+DISPLAY_ON_HEADING = i18n.msg("display.when_it_is_on", "When it is on")
+DISPLAY_ON_INTRO = i18n.msg(
+    "display.when_the_screen_is_lit_and_when_it_stays_quiet",
+    "— when the screen is lit and when it stays quiet.")
 # Device's own two supersections, the same section_intro_html() shape
 # as the three above. The LED/Notifications pairing is a real shared
 # subject: both cards are the frame's signalling channels — the LED
 # reports on the device itself, notifications report on the reader's
 # phone.
 DEVICE_WAKES_SECTION_ID = "device-wakes"
-DEVICE_WAKES_HEADING = "When it wakes"
-DEVICE_WAKES_INTRO = "— how often the frame wakes up to fetch a new picture."
+DEVICE_WAKES_HEADING = i18n.msg("display.when_it_wakes", "When it wakes")
+DEVICE_WAKES_INTRO = i18n.msg(
+    "display.how_often_the_frame_wakes_up_to_fetch_a_new",
+    "— how often the frame wakes up to fetch a new picture.")
 DEVICE_TELLS_SECTION_ID = "device-tells"
-DEVICE_TELLS_HEADING = "How it tells you"
-DEVICE_TELLS_INTRO = "— the light on the frame and the alerts on your phone."
+DEVICE_TELLS_HEADING = i18n.msg("display.how_it_tells_you", "How it tells you")
+DEVICE_TELLS_INTRO = i18n.msg(
+    "display.the_light_on_the_frame_and_the_alerts_on_your",
+    "— the light on the frame and the alerts on your phone.")
 DEVICE_POLL_SECTION_ID = "device-poll"
-DEVICE_POLL_HEADING = "When you can't wait"
-DEVICE_POLL_INTRO = "— fetch a new picture right now."
+DEVICE_POLL_HEADING = i18n.msg("display.when_you_can_t_wait", "When you can't wait")
+DEVICE_POLL_INTRO = i18n.msg(
+    "display.fetch_a_new_picture_right_now", "— fetch a new picture right now.")
 # An element id, not a class, since its own <label> targets it via for=.
 SCREEN_SELECTOR_ID = "screen-id-selector"
-SCREEN_SELECTOR_LABEL_TEXT = "Screen type"
+SCREEN_SELECTOR_LABEL_TEXT = i18n.msg("display.screen_type", "Screen type")
 
 
 def scope_groups(scope, screen_id=None):
@@ -366,15 +405,8 @@ def submitted_return_route(form):
         return value
     return layout.DISPLAY_ROUTE
 
-# The sole accepted submitted value for each checkbox — shared by the
-# group's own markup and handle_post()'s validator so the two can never
-# drift apart.
-LED_CHECKBOX_VALUE = "on"
-QUIET_HOURS_CHECKBOX_VALUE = "on"
-DISPLAY_CHECKBOX_VALUE = "on"
 
-
-POLL_SECTION_HEADING = "Manual refresh"
+POLL_SECTION_HEADING = i18n.msg("display.manual_refresh", "Manual refresh")
 
 
 # The Screen on/off and Quiet hours routes the Frame strip's switches
@@ -401,15 +433,15 @@ STATIC_SAVE_FALLBACK_ATTR = "data-static-save-fallback"
 # would announce a false "Unsaved changes" claim via `role="status"` on
 # every page load before anything changed. dirty-state.js writes it
 # only once it actually finds a difference.
-DIRTY_BAR_INITIAL_TEXT = "Unsaved changes"
-DIRTY_CHANGED_SUFFIX = " changed"
-DIRTY_AND = " and "
-DIRTY_LIST_AND = ", and "
-DIRTY_UNSAVED_SINGULAR = "1 unsaved change"
-DIRTY_UNSAVED_PLURAL = " unsaved changes"
+DIRTY_BAR_INITIAL_TEXT = i18n.msg("display.unsaved_changes", "Unsaved changes")
+DIRTY_CHANGED_SUFFIX = i18n.msg("display.changed", " changed")
+DIRTY_AND = i18n.msg("display.and", " and ")
+DIRTY_LIST_AND = i18n.msg("display.and_2", ", and ")
+DIRTY_UNSAVED_SINGULAR = i18n.msg("display.1_unsaved_change", "1 unsaved change")
+DIRTY_UNSAVED_PLURAL = i18n.msg("display.unsaved_changes_2", " unsaved changes")
 # The ellipsis is the single U+2026 character, matching this module's
 # "Polling…" and layout.py's "Reconnecting…" — never three periods.
-DIRTY_SAVING_TEXT = "Saving…"
+DIRTY_SAVING_TEXT = i18n.msg("display.saving", "Saving…")
 
 
 # The flash keys this module's handle_post() can return — the single
@@ -455,14 +487,6 @@ ASPECT_CAPTION_EXEMPTIONS = (
     DISPLAY_LOOK_INTRO,
     CALENDAR_URL_HINT,
 )
-# submitted_calendar_signal()'s gates still compare a submitted
-# calendar_disconnect field against this value, kept deliberately
-# reachable for a hostile client crafting that field into a /settings
-# POST. The dedicated CALENDAR_DISCONNECT_ROUTE never reads this value
-# at all — it always means "disconnect", once its own confirm gate
-# passes.
-CALENDAR_DISCONNECT_CHECKBOX_VALUE = "on"
-
 
 # The flash keys the save-triggered immediate sync can produce;
 # companion/app.py rebinds each under its own FLASH_KEY_CALENDAR_* name.
@@ -567,229 +591,268 @@ def _device_groups_html(builders, groups):
     return wakes_supersection_html + tells_supersection_html
 
 
-def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
-    """Render one settings page (SCOPE_ALL/SCOPE_DISPLAY/SCOPE_DEVICE).
-
-    `errors`/`submitted` are passed together only by a rejected save,
-    threaded into each group builder so a field can repopulate itself.
-    `submitted` is deliberately not defaulted to `{}`: `None` (an
-    ordinary load) and an actual dict mean different things to
-    `_submitted_checkbox_checked()` — collapsing them would render
-    every checkbox unchecked on every ordinary load.
+def _render_current_values(ctx):
+    """The device_config-derived "current" values render() threads into
+    every group builder, header slot and the Aspect card — resolved
+    once here from ctx's own device_config snapshot. `ctx` arrives
+    already a `PageContext`, coerced once by render() itself.
     """
-    if errors is None:
-        errors = {}
-    device_cfg = ctx.get("device_config") or {}
-    current_theme_id = device_cfg.get("theme", device_config.DEFAULT_THEME_ID)
-    # Explicit `.get()`, no `or` fallback: `None` is a meaningful value
-    # (no arrivals-theme override), not an oversight.
-    current_theme_arriving = device_cfg.get("theme_arriving")
-    current_runway_id = device_cfg.get(
-        "tracked_runway", device_config.DEFAULT_RUNWAY_ID)
-    current_led_enabled = device_cfg.get(
-        "led_enabled", device_config.DEFAULT_LED_ENABLED)
-    current_quiet_start = device_cfg.get(
-        "quiet_hours_start", device_config.DEFAULT_QUIET_HOURS_START)
-    current_quiet_end = device_cfg.get(
-        "quiet_hours_end", device_config.DEFAULT_QUIET_HOURS_END)
+    device_cfg = ctx.device_config or {}
+    current_notifications = device_cfg.get("notifications") or device_config.DEFAULT_NOTIFICATIONS
     # `is None`, not `or`: 0 is never a valid wake_interval_s. Falls back
     # to the deployed SKYPANE_SLEEP_S env default when device_config has
     # no value yet (e.g. a fresh install with no systemd unit).
-    current_wake_interval_s = device_cfg.get("wake_interval_s")
-    if current_wake_interval_s is None:
-        current_wake_interval_s = ctx.get("wake_interval_env_default")
-    # Explicit `.get()`, no `or` fallback: `None` means no calendar
-    # theme chosen yet, defaulting to the base theme.
-    current_calendar_theme_id = device_cfg.get("calendar_theme_id")
-    calendar_configured = ctx.get("calendar_configured")
-    calendar_last_synced_at = ctx.get("calendar_last_synced_at")
-    # last_attempt_at distinguishes "just connected, no sync yet" from
-    # "has been failing"; entry_count feeds the status detail template.
-    calendar_last_attempt_at = ctx.get("calendar_last_attempt_at")
-    calendar_entry_count = ctx.get("calendar_entry_count") or 0
-    calendar_drift = ctx.get("calendar_drift")
-    # A device_config.json predating this field resolves through
-    # device_config.DEFAULT_NOTIFICATIONS, never a KeyError.
-    current_notifications = device_cfg.get("notifications") or device_config.DEFAULT_NOTIFICATIONS
-    notifications_configured = bool(current_notifications.get("topic_url"))
-    current_notifications_battery = current_notifications.get(
-        "battery_low", device_config.DEFAULT_NOTIFICATIONS["battery_low"])
-    current_notifications_silent = current_notifications.get(
-        "frame_silent", device_config.DEFAULT_NOTIFICATIONS["frame_silent"])
-    cooldown_remaining = ctx.get("poll_cooldown_remaining", 0)
-    # next_wake_clock is the shared next-wake clock string threaded into
-    # every group's caption and the Device header slot; None when
-    # unknown (no check-in yet, or no known interval), and every
-    # consumer omits the suffix/line in that case rather than show a
-    # placeholder.
+    wake_interval_s = device_cfg.get("wake_interval_s")
+    if wake_interval_s is None:
+        wake_interval_s = ctx.wake_interval_env_default
+    return {
+        "device_cfg": device_cfg,
+        # Explicit `.get()`, no `or` fallback below: `None` is a
+        # meaningful value (no arrivals-theme override / no calendar
+        # theme chosen yet), not an oversight.
+        "theme_id": device_cfg.get("theme", device_config.DEFAULT_THEME_ID),
+        "theme_arriving": device_cfg.get("theme_arriving"),
+        "runway_id": device_cfg.get("tracked_runway", device_config.DEFAULT_RUNWAY_ID),
+        "led_enabled": device_cfg.get("led_enabled", device_config.DEFAULT_LED_ENABLED),
+        "quiet_start": device_cfg.get("quiet_hours_start", device_config.DEFAULT_QUIET_HOURS_START),
+        "quiet_end": device_cfg.get("quiet_hours_end", device_config.DEFAULT_QUIET_HOURS_END),
+        "wake_interval_s": wake_interval_s,
+        "calendar_theme_id": device_cfg.get("calendar_theme_id"),
+        # A device_config.json predating this field resolves through
+        # device_config.DEFAULT_NOTIFICATIONS, never a KeyError.
+        "notifications_configured": bool(current_notifications.get("topic_url")),
+        "notifications_battery": current_notifications.get(
+            "battery_low", device_config.DEFAULT_NOTIFICATIONS["battery_low"]),
+        "notifications_silent": current_notifications.get(
+            "frame_silent", device_config.DEFAULT_NOTIFICATIONS["frame_silent"]),
+    }
+
+
+def _render_calendar_and_poll_context(ctx):
+    """The calendar-status and poll-cooldown values read straight from
+    `ctx` (not `device_config`) that the Display scope's Aspect card
+    and the Poll section each need.
+    """
+    return {
+        "calendar_configured": ctx.calendar_configured,
+        "calendar_last_synced_at": ctx.calendar_last_synced_at,
+        # last_attempt_at distinguishes "just connected, no sync yet"
+        # from "has been failing"; entry_count feeds the status detail
+        # template.
+        "calendar_last_attempt_at": ctx.calendar_last_attempt_at,
+        "calendar_entry_count": ctx.calendar_entry_count or 0,
+        "calendar_drift": ctx.calendar_drift,
+        "cooldown_remaining": (
+            ctx.poll_cooldown_remaining if ctx.poll_cooldown_remaining is not None else 0),
+    }
+
+
+def _next_wake_clock_and_iso(ctx, device_cfg):
+    """The shared next-wake clock string threaded into every group's
+    caption and the Device header slot, plus the raw ISO timestamp
+    `layout.frame_strip_html()` needs. `(None, next_wake_iso)` when the
+    clock cannot be resolved (no check-in yet, or no known interval) —
+    every consumer omits the suffix/line in that case rather than show
+    a placeholder.
+    """
     next_wake_clock = None
-    next_wake_iso, _, _ = wake.next_wake_status(
-        ctx.get("last_checkin_ts"), device_cfg)
+    next_wake_iso, _, _ = wake.next_wake_status(ctx.last_checkin_ts, device_cfg)
     if next_wake_iso:
         next_wake_parsed = layout.parse_iso(next_wake_iso)
         if next_wake_parsed is not None:
             next_wake_clock = layout.local_clock_text(
-                next_wake_parsed, now_parsed=layout.parse_iso(ctx.get("now")))
+                next_wake_parsed, now_parsed=layout.parse_iso(ctx.now))
+    return next_wake_clock, next_wake_iso
 
-    # data-dirty-form marks the form dirty-state.js watches to drive the
-    # save bar below. The native Save button (STATIC_SAVE_FALLBACK_ATTR)
-    # is the one save affordance on the page — an AST check pins it
-    # reaching this function's own return as a bare name, so it can
-    # never accidentally duplicate or vanish.
-    #
-    # No `hidden` attribute: this bar is the only save affordance for a
-    # scripts-blocked visitor, so it must render visible by default.
-    # dirty-state.js hides it at init and reveals it on real changes.
-    # Cancel is a native `type="reset"` (works without script);
-    # `[data-dirty-count]` starts empty to avoid a false "Unsaved
-    # changes" announcement on every fresh, unscripted page load.
-    dirty_changed_suffix_html = escape_html(i18n.t(DIRTY_CHANGED_SUFFIX))
-    dirty_and_html = escape_html(i18n.t(DIRTY_AND))
-    dirty_list_and_html = escape_html(i18n.t(DIRTY_LIST_AND))
-    dirty_unsaved_singular_html = escape_html(i18n.t(DIRTY_UNSAVED_SINGULAR))
-    dirty_unsaved_plural_html = escape_html(i18n.t(DIRTY_UNSAVED_PLURAL))
-    dirty_saving_html = escape_html(i18n.t(DIRTY_SAVING_TEXT))
-    dirty_initial_text_html = escape_html(i18n.t(DIRTY_BAR_INITIAL_TEXT))
 
-    screen_id = screens.current_screen_id(ctx)
-    screen = screens.screen_type(screen_id)
-    if scope not in SCOPES:
-        scope = SCOPE_ALL
-    groups = scope_groups(scope, screen_id)
+def _dirty_bar_strings():
+    """The words dirty-state.js's own updateBar()/dirtySectionLabels()
+    carry as translated data-* attributes on the save bar — resolved
+    once here rather than inline in the final HTML assembly.
+    """
+    return {
+        "changed_suffix": escape_html(i18n.t(DIRTY_CHANGED_SUFFIX)),
+        "and_word": escape_html(i18n.t(DIRTY_AND)),
+        "list_and": escape_html(i18n.t(DIRTY_LIST_AND)),
+        "unsaved_singular": escape_html(i18n.t(DIRTY_UNSAVED_SINGULAR)),
+        "unsaved_plural": escape_html(i18n.t(DIRTY_UNSAVED_PLURAL)),
+        "saving": escape_html(i18n.t(DIRTY_SAVING_TEXT)),
+        "initial_text": escape_html(i18n.t(DIRTY_BAR_INITIAL_TEXT)),
+    }
 
-    # screens.GROUP_THEME/GROUP_CALENDAR have no entry here: their own
-    # renderer (the Aspect card, built by render()'s Display branch)
-    # contains real <form> elements that must never render as a literal
-    # descendant of <form id="{SETTINGS_FORM_ID}">.
-    builders = {
+
+def _group_builders(ctx, values, errors, submitted, next_wake_clock):
+    """The lazy, scope-independent per-group builder table render()'s
+    scope branches read from. screens.GROUP_THEME/GROUP_CALENDAR have
+    no entry here: their own renderer (the Aspect card, built by the
+    Display branch) contains real <form> elements that must never
+    render as a literal descendant of <form id="{SETTINGS_FORM_ID}">.
+    """
+    return {
         screens.GROUP_RUNWAY: lambda: runway_fieldset(
-            current_runway_id, ctx.get("runway_images") or (),
+            values["runway_id"], ctx.runway_images or (),
             errors=errors, submitted=submitted, next_wake_clock=next_wake_clock),
         screens.GROUP_LED: lambda: led_group(
-            current_led_enabled, errors=errors, submitted=submitted,
+            values["led_enabled"], errors=errors, submitted=submitted,
             next_wake_clock=next_wake_clock),
         screens.GROUP_QUIET_HOURS: lambda: quiet_hours_group(
-            current_quiet_start, current_quiet_end,
+            values["quiet_start"], values["quiet_end"],
             errors=errors, submitted=submitted),
         # Read inside the lambda so it costs nothing unless this group
         # is actually in scope.
         screens.GROUP_WAKE_INTERVAL: lambda: wake_interval_group(
-            current_wake_interval_s, errors=errors, submitted=submitted,
+            values["wake_interval_s"], errors=errors, submitted=submitted,
             next_wake_clock=next_wake_clock,
-            battery_rows=wake_battery_rows(ctx.get("state_dir"), ctx.get("now"))),
+            battery_rows=wake_battery_rows(ctx.state_dir, ctx.now)),
         screens.GROUP_NOTIFICATIONS: lambda: notifications_group(
-            notifications_configured, current_notifications_battery,
-            current_notifications_silent, errors=errors, submitted=submitted),
+            values["notifications_configured"], values["notifications_battery"],
+            values["notifications_silent"], errors=errors, submitted=submitted),
     }
-    # Its own immediate-POST form; must render after </form> closes so
-    # it never nests inside the settings form.
-    notifications_test_html = (
-        notifications_test_section() if screens.GROUP_NOTIFICATIONS in groups else "")
-    # The LED switch's own instant-toggle form, for the same reason.
-    quick_led_html = (
-        quick_led_form_html(current_led_enabled) if screens.GROUP_LED in groups else "")
-    if scope == SCOPE_DISPLAY:
-        # The strip and this freshness line are the only elements this
-        # page declares swappable (layout.REFRESH_SWAP_SELECTORS_BY_PAGE);
-        # everything else here is a <form>, and a swap mid-edit would
-        # corrupt it. The refresh loop also stands down while the save
-        # bar reports unsaved edits.
-        header = layout.page_header(
-            i18n.t(DISPLAY_PAGE_TITLE), purpose=i18n.t(DISPLAY_PAGE_PURPOSE),
-            freshness_html=layout.freshness_line_html(ctx.get("now")),
-            action_html=_screen_caption_html(screen) + _screen_selector_html(screen_id, errors=errors))
-        frame_strip_section_html = layout.frame_strip_html(
-            ctx, return_to=layout.DISPLAY_ROUTE, next_wake_iso=next_wake_iso)
-        hidden_html = _scope_fields_html(scope, layout.DISPLAY_ROUTE)
-        show_poll = False
-        # groups_html stays empty on Display: every saved control here
-        # cross-submits from outside the form via
-        # form="{SETTINGS_FORM_ID}".
-        # submits from outside the form via `form="{SETTINGS_FORM_ID}"`,
-        # exactly like Runway/Calendar already do (Structural Note 2's
-        # own "the physical form becomes a pure submission target").
-        #
-        # Gated on GROUP_THEME alone: safe only because
-        # companion/screens.py's one registered screen type lists
-        # GROUP_THEME and GROUP_CALENDAR together (always both true or
-        # both false today). A future screen type with only one of the
-        # two must split this gate.
-        if screens.GROUP_THEME in groups:
-            # departures_safe_theme_id() is resolved once here (Calendar's
-            # own usage row needs it for its "same as departures" swatch
-            # fallback, the same resolution _aspect_card_html() applies to
-            # its own departures/arrivals rows) and threaded through,
-            # rather than each of the three usage-row builders
-            # recomputing it with slightly different rounding.
-            departures_safe_id = departures_safe_theme_id(current_theme_id, submitted)
-            calendar_row_html, calendar_disconnect_form_html = calendar_usage_row_html(
-                departures_safe_id, current_calendar_theme_id, calendar_configured,
-                calendar_drift, calendar_last_synced_at, calendar_last_attempt_at,
-                ctx.get("now"), calendar_entry_count,
-                errors=errors, submitted=submitted, state_dir=ctx.get("state_dir"))
-            rules_row_html = rules_usage_row_html(ctx)
-            aspect_section_html = (
-                layout.section_intro_html(
-                    DISPLAY_LOOK_SECTION_ID, i18n.t(DISPLAY_LOOK_HEADING),
-                    i18n.t(DISPLAY_LOOK_INTRO))
-                + _nested_wrapper_html(
-                    _aspect_card_html(
-                        current_theme_id, current_theme_arriving,
-                        calendar_row_html, calendar_disconnect_form_html, rules_row_html,
-                        errors=errors, submitted=submitted, state_dir=ctx.get("state_dir")),
-                    "page-section aspect-card", "page-section--nested"))
-        else:
-            aspect_section_html = ""
-        groups_html = ""
-        (display_watches_supersection_html,
-            display_on_supersection_html) = _display_groups_html(builders, groups)
-    elif scope == SCOPE_DEVICE:
-        header = layout.page_header(
-            i18n.t(DEVICE_PAGE_TITLE), purpose=i18n.t(DEVICE_PAGE_PURPOSE),
-            action_html=(
-                _screen_caption_html(screen) + _screen_selector_html(screen_id, errors=errors)
-                + _next_wake_caption_html(next_wake_clock)))
-        hidden_html = _scope_fields_html(scope, layout.DEVICE_ROUTE)
-        # The Frame strip renders only on Home and Display, never Device.
-        frame_strip_section_html = ""
-        show_poll = bool(screen.get("has_manual_poll"))
-        groups_html = _device_groups_html(builders, groups)
-        aspect_section_html = ""
-        display_watches_supersection_html = ""
-        display_on_supersection_html = ""
-    else:
-        header = layout.page_header(i18n.t("Settings"))
-        hidden_html = ""
-        frame_strip_section_html = ""
-        show_poll = True
-        # SCOPE_ALL is the legacy, never-served whole-page render, kept
-        # byte-identical to its pre-existing output for harness checks
-        # against the full form; no live app.py route uses it.
-        groups_html = "".join(builders[g]() for g in groups if g in builders)
-        aspect_section_html = ""
-        display_watches_supersection_html = ""
-        display_on_supersection_html = ""
 
+
+def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, submitted, values, calendar_status, next_wake_iso):
+    """Display scope's own header, Frame strip, hidden scope fields and
+    the two headed supersections (Aspect card and Watches/On, via
+    `_display_groups_html()`). `groups_html` stays empty: every saved
+    control here cross-submits from outside the physical form via
+    `form="{SETTINGS_FORM_ID}"`, exactly like Runway/Calendar's own
+    cards already do.
+
+    Gated on GROUP_THEME alone: safe only because companion/screens.py's
+    one registered screen type lists GROUP_THEME and GROUP_CALENDAR
+    together (always both true or both false today). A future screen
+    type with only one of the two must split this gate.
+    """
+    # The strip and this freshness line are the only elements this page
+    # declares swappable (layout.REFRESH_SWAP_SELECTORS_BY_PAGE);
+    # everything else here is a <form>, and a swap mid-edit would
+    # corrupt it. The refresh loop also stands down while the save bar
+    # reports unsaved edits.
+    header = layout.page_header(
+        i18n.t(DISPLAY_PAGE_TITLE), purpose=i18n.t(DISPLAY_PAGE_PURPOSE),
+        freshness_html=layout.freshness_line_html(ctx.now),
+        action_html=_screen_caption_html(screen) + _screen_selector_html(screen_id, errors=errors))
+    frame_strip_section_html = layout.frame_strip_html(
+        ctx, return_to=layout.DISPLAY_ROUTE, next_wake_iso=next_wake_iso)
+    if screens.GROUP_THEME in groups:
+        # departures_safe_theme_id() is resolved once here (Calendar's
+        # own usage row needs it for its "same as departures" swatch
+        # fallback, the same resolution _aspect_card_html() applies to
+        # its own departures/arrivals rows) and threaded through, rather
+        # than each of the three usage-row builders recomputing it with
+        # slightly different rounding.
+        departures_safe_id = departures_safe_theme_id(values["theme_id"], submitted)
+        calendar_row_html, calendar_disconnect_form_html = calendar_usage_row_html(
+            departures_safe_id, values["calendar_theme_id"], calendar_status["calendar_configured"],
+            calendar_status["calendar_drift"], calendar_status["calendar_last_synced_at"],
+            calendar_status["calendar_last_attempt_at"], ctx.now, calendar_status["calendar_entry_count"],
+            errors=errors, submitted=submitted, state_dir=ctx.state_dir)
+        rules_row_html = rules_usage_row_html(ctx)
+        aspect_section_html = (
+            layout.section_intro_html(
+                DISPLAY_LOOK_SECTION_ID, i18n.t(DISPLAY_LOOK_HEADING), i18n.t(DISPLAY_LOOK_INTRO))
+            + _nested_wrapper_html(
+                _aspect_card_html(
+                    values["theme_id"], values["theme_arriving"],
+                    calendar_row_html, calendar_disconnect_form_html, rules_row_html,
+                    errors=errors, submitted=submitted, state_dir=ctx.state_dir),
+                "page-section aspect-card", "page-section--nested"))
+    else:
+        aspect_section_html = ""
+    display_watches_html, display_on_html = _display_groups_html(builders, groups)
+    return {
+        "header": header, "frame_strip_section_html": frame_strip_section_html,
+        "hidden_html": _scope_fields_html(SCOPE_DISPLAY, layout.DISPLAY_ROUTE),
+        "show_poll": False, "groups_html": "",
+        "aspect_section_html": aspect_section_html,
+        "display_watches_supersection_html": display_watches_html,
+        "display_on_supersection_html": display_on_html,
+    }
+
+
+def _render_device_scope(screen, screen_id, groups, builders, errors, next_wake_clock):
+    """Device scope's own header (Screen caption, selector and the
+    "Next wake" line), hidden scope fields and its groups_html — the
+    Frame strip renders only on Home and Display, never here.
+    """
+    header = layout.page_header(
+        i18n.t(DEVICE_PAGE_TITLE), purpose=i18n.t(DEVICE_PAGE_PURPOSE),
+        action_html=(
+            _screen_caption_html(screen) + _screen_selector_html(screen_id, errors=errors)
+            + _next_wake_caption_html(next_wake_clock)))
+    return {
+        "header": header, "frame_strip_section_html": "",
+        "hidden_html": _scope_fields_html(SCOPE_DEVICE, layout.DEVICE_ROUTE),
+        "show_poll": bool(screen.get("has_manual_poll")),
+        "groups_html": _device_groups_html(builders, groups),
+        "aspect_section_html": "", "display_watches_supersection_html": "",
+        "display_on_supersection_html": "",
+    }
+
+
+# SCOPE_ALL's own legacy page title, never rendered by a live route.
+SCOPE_ALL_PAGE_TITLE = i18n.msg("display.settings", "Settings")
+
+
+def _render_all_scope(groups, builders):
+    """SCOPE_ALL's own legacy, never-served whole-page render, kept
+    byte-identical to its pre-existing output for harness checks
+    against the full form; no live app.py route uses it.
+    """
+    return {
+        "header": layout.page_header(i18n.t(SCOPE_ALL_PAGE_TITLE)),
+        "frame_strip_section_html": "", "hidden_html": "", "show_poll": True,
+        "groups_html": "".join(builders[g]() for g in groups if g in builders),
+        "aspect_section_html": "", "display_watches_supersection_html": "",
+        "display_on_supersection_html": "",
+    }
+
+
+def _poll_html_for_scope(scope, show_poll, cooldown_remaining):
+    """The Poll card's own HTML, wrapped in its "When you can't wait"
+    supersection on Device scope alone (Display/SCOPE_ALL never set
+    `show_poll`, so both return "" there).
+    """
     poll_section_html = (
         '<section class="page-section">'
         '<h2 class="text-heading">%s</h2>'
         "%s"
         "</section>" % (escape_html(i18n.t(POLL_SECTION_HEADING)), poll_trigger_section(cooldown_remaining))
         if show_poll else "")
-    # Device-scope-only: wraps the Poll card under its own supersection,
-    # "When you can't wait". "" on Display/SCOPE_ALL, which never set
-    # show_poll for this branch.
-    poll_supersection_html = (
-        (layout.section_intro_html(
-            DEVICE_POLL_SECTION_ID, i18n.t(DEVICE_POLL_HEADING), i18n.t(DEVICE_POLL_INTRO))
-         + _nested_wrapper_html(poll_section_html, "page-section", "page-section--nested"))
-        if scope == SCOPE_DEVICE and poll_section_html else "")
-
+    if scope != SCOPE_DEVICE or not poll_section_html:
+        return poll_section_html
     return (
-        header
+        layout.section_intro_html(DEVICE_POLL_SECTION_ID, i18n.t(DEVICE_POLL_HEADING), i18n.t(DEVICE_POLL_INTRO))
+        + _nested_wrapper_html(poll_section_html, "page-section", "page-section--nested"))
+
+
+# The dirty-save-bar's own two button labels.
+SAVE_BUTTON_TEXT = i18n.msg("display.save_settings", "Save settings")
+# Same id as companion.settings.calendar.CALENDAR_DISCONNECT_CANCEL_TEXT
+# — same English, same French translation, and msg() is idempotent for
+# a repeat id/English pair.
+CANCEL_BUTTON_TEXT = i18n.msg("display.cancel", "Cancel")
+
+
+def _settings_page_html(pieces, notifications_test_html, quick_led_html, poll_html, dirty_strings):
+    """The final HTML assembly: the physical `<form>` (hidden scope
+    fields, groups_html), every scope's own extra sections in their
+    locked order, and the dirty-bar save affordance last, after
+    `</form>` and the Poll section, so its `position: fixed` sits
+    outside the short settings form.
+
+    A native `type="reset"` Cancel and an empty-until-JS count span
+    keep the bar usable with no script; no `hidden` attribute, since it
+    is the only save affordance for a scripts-blocked visitor —
+    dirty-state.js hides it at init and reveals it on real changes.
+    `STATIC_SAVE_FALLBACK_ATTR` must reach the format call below as a
+    bare name, for the AST invariant checked elsewhere.
+    """
+    return (
+        pieces["header"]
         # The Frame strip renders after the header and before the
         # form; "" on Device and SCOPE_ALL.
-        + frame_strip_section_html
+        + pieces["frame_strip_section_html"]
         + '<form class="config-form" id="%s" data-dirty-form method="post" action="%s">'
         "%s"
         "%s"
@@ -800,11 +863,6 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         "%s"
         "%s"
         "%s"
-        # The dirty bar is last, after </form> and the Poll section, so
-        # its position: fixed sits outside the short settings form.
-        # A native type="reset" Cancel and an empty-until-JS count span
-        # keep this bar usable with no script (see local-variable
-        # comment above).
         '<div class="dirty-bar" data-dirty-bar role="status" '
         'data-dirty-changed-suffix="%s" data-dirty-and="%s" '
         'data-dirty-list-and="%s" data-dirty-unsaved-singular="%s" '
@@ -817,31 +875,87 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     ) % (
         SETTINGS_FORM_ID,
         SETTINGS_ROUTE,
-        hidden_html,
-        groups_html,
+        pieces["hidden_html"],
+        pieces["groups_html"],
         # "" on the Device/SCOPE_ALL paths (both set it to "" above).
-        aspect_section_html,
-        display_watches_supersection_html,
+        pieces["aspect_section_html"],
+        pieces["display_watches_supersection_html"],
         notifications_test_html,
         quick_led_html,
-        display_on_supersection_html,
-        poll_supersection_html if scope == SCOPE_DEVICE else poll_section_html,
-        dirty_changed_suffix_html,
-        dirty_and_html,
-        dirty_list_and_html,
-        dirty_unsaved_singular_html,
-        dirty_unsaved_plural_html,
-        dirty_saving_html,
-        dirty_initial_text_html,
-        # STATIC_SAVE_FALLBACK_ATTR must reach here as a bare name for
-        # the AST invariant checked elsewhere.
+        pieces["display_on_supersection_html"],
+        poll_html,
+        dirty_strings["changed_suffix"],
+        dirty_strings["and_word"],
+        dirty_strings["list_and"],
+        dirty_strings["unsaved_singular"],
+        dirty_strings["unsaved_plural"],
+        dirty_strings["saving"],
+        dirty_strings["initial_text"],
         SETTINGS_FORM_ID,
         STATIC_SAVE_FALLBACK_ATTR,
-        escape_html(i18n.t("Save settings")),
+        escape_html(i18n.t(SAVE_BUTTON_TEXT)),
         # The Cancel button: form=, then its label.
         SETTINGS_FORM_ID,
-        escape_html(i18n.t("Cancel")),
+        escape_html(i18n.t(CANCEL_BUTTON_TEXT)),
     )
+
+
+def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
+    """Render one settings page (SCOPE_ALL/SCOPE_DISPLAY/SCOPE_DEVICE) —
+    a short orchestrator over the per-scope/per-group assembly helpers
+    above.
+
+    `errors`/`submitted` are passed together only by a rejected save,
+    threaded into each group builder so a field can repopulate itself.
+    `submitted` is deliberately not defaulted to `{}`: `None` (an
+    ordinary load) and an actual dict mean different things to
+    `_submitted_checkbox_checked()` — collapsing them would render
+    every checkbox unchecked on every ordinary load.
+    """
+    ctx = page_context.coerce(ctx)
+    if errors is None:
+        errors = {}
+    values = _render_current_values(ctx)
+    calendar_status = _render_calendar_and_poll_context(ctx)
+    next_wake_clock, next_wake_iso = _next_wake_clock_and_iso(ctx, values["device_cfg"])
+    dirty_strings = _dirty_bar_strings()
+
+    screen_id = screens.current_screen_id(ctx)
+    screen = screens.screen_type(screen_id)
+    if scope not in SCOPES:
+        scope = SCOPE_ALL
+    groups = scope_groups(scope, screen_id)
+
+    builders = _group_builders(ctx, values, errors, submitted, next_wake_clock)
+    # Both render after </form> closes so neither ever nests inside the
+    # settings form: notifications_test_html is its own immediate-POST
+    # form, quick_led_html is the LED switch's own instant-toggle form.
+    notifications_test_html = (
+        notifications_test_section() if screens.GROUP_NOTIFICATIONS in groups else "")
+    quick_led_html = (
+        quick_led_form_html(values["led_enabled"]) if screens.GROUP_LED in groups else "")
+
+    if scope == SCOPE_DISPLAY:
+        pieces = _render_display_scope(
+            ctx, screen, screen_id, groups, builders, errors, submitted, values,
+            calendar_status, next_wake_iso)
+    elif scope == SCOPE_DEVICE:
+        pieces = _render_device_scope(screen, screen_id, groups, builders, errors, next_wake_clock)
+    else:
+        pieces = _render_all_scope(groups, builders)
+
+    poll_html = _poll_html_for_scope(scope, pieces["show_poll"], calendar_status["cooldown_remaining"])
+    return _settings_page_html(pieces, notifications_test_html, quick_led_html, poll_html, dirty_strings)
+
+
+# companion/screens.py's own SCREEN_TYPES["label"] values, wrapped as
+# stable-id Messages at this display site — companion/i18n_fr/registry.py
+# still carries this one entry as a legacy English-keyed CATALOG
+# (unconverted until a later plan finishes that module, alongside its
+# eighteen theme names).
+_SCREEN_LABEL_MESSAGES = {
+    "Plane frame": i18n.msg("registry.plane_frame", "Plane frame"),
+}
 
 
 def _screen_caption_html(screen):
@@ -849,15 +963,28 @@ def _screen_caption_html(screen):
     the visible end of the companion/screens.py seam. Rendered as an
     already-safe block for page_header()'s `action_html` slot.
     """
-    # screen["label"] is translated at this display site (i18n.t());
-    # the screen id itself never changes.
+    # screen["label"] is translated at this display site (i18n.t()),
+    # unless it is a label this table does not (yet) know — the id
+    # itself never changes, and an unrecognised raw label was never in
+    # any catalogue, so it is not passed to i18n.t().
+    raw_label = screen["label"]
+    label_message = _SCREEN_LABEL_MESSAGES.get(raw_label)
+    label_text = i18n.t(label_message) if label_message is not None else raw_label
     return (
         '<p class="page-header__screen text-label">%s</p>'
-        % escape_html(i18n.t(SCREEN_CAPTION_TEMPLATE) % i18n.t(screen["label"])))
+        % escape_html(i18n.t(SCREEN_CAPTION_TEMPLATE) % label_text))
 
 
-NEXT_WAKE_HEADER_LABEL = "Next wake"
-NEXT_WAKE_HEADER_VALUE_TEMPLATE = "≈ %s"
+NEXT_WAKE_HEADER_LABEL = i18n.msg("display.next_wake", "Next wake")
+# No existing catalogue id fits: slug_for() reduces "≈ %s" to an empty
+# slug (the only two characters are a symbol and a placeholder, and
+# both are stripped before the alnum-run collapse), so this id is
+# named by hand rather than derived. Registers with no
+# companion/i18n_fr/display.py MESSAGES entry yet — resolves through
+# the legacy-CATALOG-miss fallback to the unchanged English "≈ %s",
+# exactly like the pre-migration plain-string call site did (this
+# template was never in display.py's own CATALOG either).
+NEXT_WAKE_HEADER_VALUE_TEMPLATE = i18n.msg("display.next_wake_approx", "≈ %s")
 
 
 def _next_wake_caption_html(next_wake_clock):
@@ -920,47 +1047,6 @@ def _scope_fields_html(scope, return_route):
     )
 
 
-# The four outcomes of resolving the submitted calendar fields. Plain
-# strings, never rendered and never travel in a URL. Four distinct
-# sentinels (not e.g. two bools) so a caller cannot mistake one outcome
-# for another by falsy-comparing the wrong pair.
-CALENDAR_URL_SIGNAL_CARRY_FORWARD = "carry_forward"
-CALENDAR_URL_SIGNAL_SET = "set"
-CALENDAR_URL_SIGNAL_CLEAR = "clear"
-CALENDAR_URL_SIGNAL_INVALID = "invalid"
-
-# handle_post()'s per-field error messages, one constant per rejected
-# field, so the copy exists in exactly one place. Sentence case, no
-# stack-trace vocabulary, matching this file's label voice.
-ERROR_INVALID_CHOICE = "That is not one of the available choices."
-ERROR_UNEXPECTED_SWITCH_VALUE = "That switch sent an unexpected value."
-ERROR_WAKE_INTERVAL_RANGE = "Enter a whole number of seconds between 60 and 3600."
-ERROR_QUIET_HOURS_TIME_SHAPE = "Enter a time as HH:MM, for example 23:00."
-# Covers both the over-length and the contradictory (calendar_url +
-# calendar_disconnect together) cases; deliberately never echoes any
-# part of the submitted URL back.
-ERROR_CALENDAR_URL_INVALID = (
-    "That link is too long, or conflicts with the disconnect option below.")
-
-# A local copy of device_config's private HH:MM pattern — not imported,
-# since it is private to that module. UX pre-check only:
-# save_device_config()'s own identical gate is authoritative; a test
-# pins the two patterns against the same input table so they cannot
-# silently drift apart.
-_QUIET_HOURS_TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)\Z")
-
-
-def _note_error(errors, field, message):
-    """No-ops when `errors is None`. Otherwise sets `errors[field]`
-    only if that field has no message yet, so a later, more generic
-    gate can never overwrite an earlier, more specific one.
-    """
-    if errors is None:
-        return
-    if field not in errors:
-        errors[field] = message
-
-
 def submitted_calendar_signal(form):
     """The single definition of what a submitted `calendar_url` +
     `calendar_disconnect` pair means. Both `handle_post()` and the
@@ -1003,182 +1089,65 @@ def handle_post(form, ctx, errors=None):
     `save_device_config()` call. Rejection is all-or-nothing: a crafted
     or invalid value in any field aborts before any write.
 
+    Delegates every group's own validation and value resolution to
+    `companion.settings.form_post`, calling its resolvers in the exact
+    sequence the pre-split version of this function checked the same
+    fields in — see that module's own docstring for why some groups
+    need two calls rather than one. Each resolver returns either that
+    group's own `save_device_config()` keyword argument(s), or
+    `form_post.FAILED` once it has already noted the error; this
+    function stops at the first `FAILED` and returns the save-failed
+    flash key immediately, exactly like the unsplit version's own
+    per-field early returns.
+
     Every checkbox not rendered on the current scope resolves absent
     -> `None` (leave unchanged), never `False` — a scope with no control
     for a field must not silently turn it off. The two Notifications
     checkboxes are the exception, since their card is always in scope
-    when rendered.
+    when rendered (see `form_post.resolve_notifications()`).
 
-    `wake_interval_s` needs a string-to-int conversion that the two
-    quiet-hours time fields skip, since those stay strings in
-    `device_config`. `errors`, if given, is filled via `_note_error()`.
     The calendar secret write is layered after the device-config write,
     only for the `set`/`clear` signals, since `carry_forward` would
     otherwise erase the fetched calendar registry.
     """
-    state_dir = ctx["state_dir"]
+    ctx = page_context.coerce(ctx)
+    state_dir = ctx.state_dir
     scope = submitted_scope(form)
     in_scope = set(scope_groups(scope, screens.current_screen_id(ctx)))
-    submitted_theme = form.get("theme")
-    submitted_theme_arriving = form.get("theme_arriving")
-    submitted_runway = form.get("tracked_runway")
-    submitted_led = form.get("led_enabled")
-    submitted_qh_enabled = form.get("quiet_hours_enabled")
-    submitted_qh_start = form.get("quiet_hours_start")
-    submitted_qh_end = form.get("quiet_hours_end")
-    submitted_wake_interval = form.get("wake_interval_s")
-    submitted_display = form.get("display_enabled")
-    submitted_calendar_theme_id = form.get("calendar_theme_id")
-    submitted_calendar_url = form.get("calendar_url")
-    submitted_screen_id = form.get("screen_id")
-    submitted_notifications_topic_url = form.get("notifications_topic_url")
-    submitted_notifications_battery = form.get("notifications_battery")
-    submitted_notifications_silent = form.get("notifications_silent")
     calendar_signal = submitted_calendar_signal(form)
+    submitted_calendar_url = form.get("calendar_url")
 
-    if submitted_theme is not None and submitted_theme not in device_config.THEME_IDS:
-        _note_error(errors, "theme", ERROR_INVALID_CHOICE)
-        return FLASH_SAVE_FAILED
-    if submitted_screen_id is not None and submitted_screen_id not in screens.SCREEN_IDS:
-        _note_error(errors, "screen_id", ERROR_INVALID_CHOICE)
-        return FLASH_SAVE_FAILED
-    if calendar_signal == CALENDAR_URL_SIGNAL_INVALID:
-        _note_error(errors, "calendar_url", ERROR_CALENDAR_URL_INVALID)
-        return FLASH_SAVE_FAILED
-    # A shape bound against an absurd paste, checked only when the field
-    # is actually in scope.
-    if (
-        screens.GROUP_NOTIFICATIONS in in_scope
-        and submitted_notifications_topic_url
-        and len(submitted_notifications_topic_url.strip()) > NOTIFICATIONS_URL_MAX_LEN
-    ):
-        _note_error(errors, "notifications_topic_url", ERROR_NOTIFICATIONS_URL_TOO_LONG)
-        return FLASH_SAVE_FAILED
-    # Both gates below exempt "" in addition to a real theme id: the
-    # "Same as departures" chip submits "" for this field, and rejecting
-    # it would reject the whole save whenever a user picks that option.
-    if (
-        submitted_calendar_theme_id is not None
-        and submitted_calendar_theme_id not in ("",) + device_config.THEME_IDS
-    ):
-        _note_error(errors, "calendar_theme_id", ERROR_INVALID_CHOICE)
-        return FLASH_SAVE_FAILED
-    if (
-        submitted_theme_arriving is not None
-        and submitted_theme_arriving not in ("",) + device_config.THEME_IDS
-    ):
-        _note_error(errors, "theme_arriving", ERROR_INVALID_CHOICE)
-        return FLASH_SAVE_FAILED
-    if submitted_runway is not None and submitted_runway not in device_config.RUNWAY_IDS:
-        _note_error(errors, "tracked_runway", ERROR_INVALID_CHOICE)
-        return FLASH_SAVE_FAILED
-    # A malformed value here is a real user error, reported at this
-    # field; absent still means unchanged (including structural absence
-    # on a scope that never rendered this group).
-    if submitted_qh_start is not None and not _QUIET_HOURS_TIME_RE.match(submitted_qh_start):
-        _note_error(errors, "quiet_hours_start", ERROR_QUIET_HOURS_TIME_SHAPE)
-        return FLASH_SAVE_FAILED
-    if submitted_qh_end is not None and not _QUIET_HOURS_TIME_RE.match(submitted_qh_end):
-        _note_error(errors, "quiet_hours_end", ERROR_QUIET_HOURS_TIME_SHAPE)
-        return FLASH_SAVE_FAILED
-    # theme_arriving: out of scope or genuinely absent -> unchanged; ""
-    # -> CLEAR_THEME_ARRIVING; anything else has already passed the
-    # membership gate above, so it is a real theme id.
-    if screens.GROUP_THEME not in in_scope:
-        theme_arriving = None
-    elif submitted_theme_arriving is None:
-        theme_arriving = None
-    elif submitted_theme_arriving == "":
-        theme_arriving = device_config.CLEAR_THEME_ARRIVING
-    else:
-        theme_arriving = submitted_theme_arriving
-    if submitted_led is None:
-        led_enabled = None
-    elif submitted_led == LED_CHECKBOX_VALUE:
-        led_enabled = True
-    else:
-        _note_error(errors, "led_enabled", ERROR_UNEXPECTED_SWITCH_VALUE)
-        return FLASH_SAVE_FAILED
-    if submitted_qh_enabled is None:
-        quiet_hours_enabled = None
-    elif submitted_qh_enabled == QUIET_HOURS_CHECKBOX_VALUE:
-        quiet_hours_enabled = True
-    else:
-        _note_error(errors, "quiet_hours_enabled", ERROR_UNEXPECTED_SWITCH_VALUE)
-        return FLASH_SAVE_FAILED
-    if submitted_wake_interval is None or submitted_wake_interval == "":
-        wake_interval_s = None
-    else:
-        try:
-            wake_interval_s = int(submitted_wake_interval)
-        except ValueError:
-            _note_error(errors, "wake_interval_s", ERROR_WAKE_INTERVAL_RANGE)
+    # Each step is a zero-arg thunk, not a bare call, and the loop below
+    # invokes them ONE AT A TIME, stopping at the first FAILED: a tuple
+    # of already-evaluated call results would run every resolver up
+    # front regardless of an earlier failure, noting every group's own
+    # error at once instead of stopping at the first one, exactly the
+    # behaviour change this split must not introduce.
+    steps = (
+        lambda: form_post.resolve_theme(form, errors),
+        lambda: form_post.resolve_screen(form, errors),
+        lambda: form_post.resolve_calendar_signal(calendar_signal, errors),
+        lambda: form_post.resolve_notifications_url_length(form, in_scope, errors),
+        lambda: form_post.resolve_calendar_theme_id(form, errors),
+        lambda: form_post.resolve_theme_arriving(form, in_scope, errors),
+        lambda: form_post.resolve_runway(form, errors),
+        lambda: form_post.resolve_quiet_hours_times(form, errors),
+        lambda: form_post.resolve_led(form, errors),
+        lambda: form_post.resolve_quiet_hours_enabled(form, errors),
+        lambda: form_post.resolve_wake_interval(form, errors),
+        lambda: form_post.resolve_display(form, errors),
+        lambda: form_post.resolve_notifications(
+            form, in_scope, errors, state_dir, ctx.lang),
+    )
+    save_kwargs = {}
+    for step in steps:
+        step_result = step()
+        if step_result is form_post.FAILED:
             return FLASH_SAVE_FAILED
-        # A syntactically valid but out-of-range value would otherwise
-        # only surface via save_device_config()'s own generic
-        # ValueError; checked here to report it at this field.
-        if not (
-            device_config.WAKE_INTERVAL_MIN_S
-            <= wake_interval_s
-            <= device_config.WAKE_INTERVAL_MAX_S
-        ):
-            _note_error(errors, "wake_interval_s", ERROR_WAKE_INTERVAL_RANGE)
-            return FLASH_SAVE_FAILED
-    if submitted_display is None:
-        display_enabled = None
-    elif submitted_display == DISPLAY_CHECKBOX_VALUE:
-        display_enabled = True
-    else:
-        _note_error(errors, "display_enabled", ERROR_UNEXPECTED_SWITCH_VALUE)
-        return FLASH_SAVE_FAILED
-    # Unlike the fields above, these two checkboxes DO resolve absent ->
-    # False: their card is always in scope when rendered (see docstring).
-    if screens.GROUP_NOTIFICATIONS not in in_scope:
-        notifications = None
-    else:
-        if submitted_notifications_battery is None:
-            notifications_battery = False
-        elif submitted_notifications_battery == NOTIFICATIONS_BATTERY_CHECKBOX_VALUE:
-            notifications_battery = True
-        else:
-            _note_error(errors, "notifications_battery", ERROR_UNEXPECTED_SWITCH_VALUE)
-            return FLASH_SAVE_FAILED
-        if submitted_notifications_silent is None:
-            notifications_silent = False
-        elif submitted_notifications_silent == NOTIFICATIONS_SILENT_CHECKBOX_VALUE:
-            notifications_silent = True
-        else:
-            _note_error(errors, "notifications_silent", ERROR_UNEXPECTED_SWITCH_VALUE)
-            return FLASH_SAVE_FAILED
-        # An empty submission means leave the stored URL unchanged,
-        # never clear it — there is no UI affordance to clear a
-        # configured topic URL. Read fresh from disk rather than from
-        # ctx, so this is correct even with a stale ctx.
-        current_notifications_on_disk = device_config.load_device_config(
-            state_dir)["notifications"]
-        stripped_notifications_url = (submitted_notifications_topic_url or "").strip()
-        notifications_topic_url = (
-            stripped_notifications_url if stripped_notifications_url
-            else current_notifications_on_disk.get("topic_url"))
-        notifications = {
-            "topic_url": notifications_topic_url,
-            "battery_low": notifications_battery,
-            "frame_silent": notifications_silent,
-            # Written from the session's resolved language at save
-            # time; there is no language-picking control for this
-            # group (the poll loop has no browser to ask).
-            "lang": ctx.get("lang") or device_config.DEFAULT_NOTIFICATIONS["lang"],
-        }
+        save_kwargs.update(step_result)
 
     try:
-        device_config.save_device_config(
-            state_dir, theme=submitted_theme, theme_arriving=theme_arriving,
-            tracked_runway=submitted_runway,
-            led_enabled=led_enabled, quiet_hours_enabled=quiet_hours_enabled,
-            quiet_hours_start=submitted_qh_start, quiet_hours_end=submitted_qh_end,
-            wake_interval_s=wake_interval_s, display_enabled=display_enabled,
-            calendar_theme_id=submitted_calendar_theme_id,
-            screen_id=submitted_screen_id, notifications=notifications)
+        device_config.save_device_config(state_dir, **save_kwargs)
     except (ValueError, OSError):
         return FLASH_SAVE_FAILED
 

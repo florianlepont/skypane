@@ -1133,8 +1133,13 @@ def test_device_protocol_end_to_end_over_real_http(tmp_path):
             os.remove(fixture_path)
 
         # 22. Integration, hostile config: a corrupted quiet-hours
-        # document must never take down the always-on /display handler -
-        # sleep_s degrades to exactly the unchanged base value.
+        # document must never take down the always-on /display handler.
+        # An invalid stored quiet-hours time falls back to the default
+        # 23:00-07:00 window per bound rather than disabling quiet hours
+        # outright, so sleep_s degrades to exactly the unchanged base
+        # value only when "now" itself falls outside that default window
+        # - otherwise it extends past it exactly like a validly-configured
+        # window would (test 21, above).
         with open(fixture_path, "w") as fh:
             json.dump({"quiet_hours_enabled": True, "quiet_hours_start": "'; DROP",
                        "quiet_hours_end": None}, fh)
@@ -1144,7 +1149,13 @@ def test_device_protocol_end_to_end_over_real_http(tmp_path):
                 headers={"Authorization": "Bearer %s" % token})
             assert status == 200, "expected 200, got %d" % status
             obj = json.loads(body.decode())
-            assert obj.get("sleep_s") == 300, "expected sleep_s exactly 300 (fail-open), got %r" % (obj.get("sleep_s"),)
+            remaining = device_policy.seconds_until_quiet_hours_end(
+                datetime.now(timezone.utc), device_policy.DEFAULT_QUIET_HOURS_START,
+                device_policy.DEFAULT_QUIET_HOURS_END)
+            expected_sleep_s = 300 if remaining is None else max(300, remaining)
+            assert obj.get("sleep_s") == expected_sleep_s, (
+                "expected sleep_s %r (fail-open to the default 23:00-07:00 window), got %r"
+                % (expected_sleep_s, obj.get("sleep_s")))
         finally:
             os.remove(fixture_path)
 

@@ -18,6 +18,7 @@ import companion.draw as draw
 import companion.frame_state as frame_state
 import companion.i18n as i18n
 import companion.layout as layout
+import companion.page_context as page_context
 import companion.wake as wake
 from companion.layout import escape_html
 from server import device_config, history_db
@@ -28,14 +29,15 @@ from server.plane import illustrations
 # stored airline string — only user-visible text is aliased.
 from server.plane import render as panel_render
 
-PAGE_TITLE = "Home"
-PAGE_PURPOSE = "Your frame at a glance."
+PAGE_TITLE = i18n.msg("nav.home", "Home")
+PAGE_PURPOSE = i18n.msg("home.your_frame_at_a_glance", "Your frame at a glance.")
 
 RECENT_FLIGHTS_LIMIT = 5
-RECENT_FLIGHTS_HEADING = "Recent flights"
-RECENT_FLIGHTS_LINK_TEXT = "See all flights"
-NO_FLIGHTS_HEADING = "No flights yet."
-NO_FLIGHTS_BODY = (
+RECENT_FLIGHTS_HEADING = i18n.msg("home.recent_flights", "Recent flights")
+RECENT_FLIGHTS_LINK_TEXT = i18n.msg("home.see_all_flights", "See all flights")
+NO_FLIGHTS_HEADING = i18n.msg("home.no_flights_yet", "No flights yet.")
+NO_FLIGHTS_BODY = i18n.msg(
+    "home.the_first_aircraft_the_frame_detects_on_the",
     "The first aircraft the frame detects on the watched runway will "
     "appear here.")
 FLIGHTS_ROUTE = "/flights"
@@ -47,58 +49,73 @@ FLIGHTS_ROUTE = "/flights"
 # truncated read and stops the caption claiming a total.
 DAY_BAND_ROW_LIMIT = 3000
 
-DAY_BAND_HEADING = "Today"
+# "Today" is owned by companion/i18n_fr/flights.py, not home.py — the
+# same id history_page.py's own day-separator heading uses.
+DAY_BAND_HEADING = i18n.msg("flights.today", "Today")
 # The canvas's accessible name; a named group rather than aria-hidden,
 # since the band is the only statement of this data.
-DAY_BAND_LABEL = "The frame's check-ins through the day, midnight to midnight"
+DAY_BAND_LABEL = i18n.msg(
+    "home.the_frame_s_check_ins_through_the_day_midnight",
+    "The frame's check-ins through the day, midnight to midnight")
 DAY_BAND_HOUR_LABELS = ("00:00", "12:00", "24:00")
-DAY_BAND_EMPTY_TEXT = "No check-ins recorded on %s."
-DAY_BAND_ONE_TEXT = "1 check-in on %s."
-DAY_BAND_COUNT_TEXT = "%s check-ins on %s."
+DAY_BAND_EMPTY_TEXT = i18n.msg(
+    "home.no_check_ins_recorded_on", "No check-ins recorded on %s.")
+DAY_BAND_ONE_TEXT = i18n.msg("home.1_check_in_on", "1 check-in on %s.")
+DAY_BAND_COUNT_TEXT = i18n.msg("home.check_ins_on", "%s check-ins on %s.")
 # Appended only when draw.day_band() reports a collapse, so a reader who
 # counts the marks and gets fewer is not left thinking the band lost some.
-DAY_BAND_COLLAPSED_TEXT = (
+DAY_BAND_COLLAPSED_TEXT = i18n.msg(
+    "home.some_marks_are_merged_check_ins_closer_together",
     "Some marks are merged — check-ins closer together than the band can "
     "separate are drawn as one.")
-DAY_BAND_QUIET_TEXT = "Shaded: quiet hours, %s to %s."
+DAY_BAND_QUIET_TEXT = i18n.msg(
+    "home.shaded_quiet_hours_to", "Shaded: quiet hours, %s to %s.")
 
 # Duplicated here rather than imported from airlines_page.py — a page
 # module cannot import a sibling page module.
 ILLUSTRATION_ROUTE_PREFIX = "/illustration/"
-THUMBNAIL_ALT_TEMPLATE = "%s illustration"
+THUMBNAIL_ALT_TEMPLATE = i18n.msg("home.illustration", "%s illustration")
 
-RENDERED_CAPTION_TEMPLATE = "Rendered %s"
-NO_PANEL_HEADING = "Nothing rendered yet."
-NO_PANEL_BODY = (
+RENDERED_CAPTION_TEMPLATE = i18n.msg("home.rendered", "Rendered %s")
+NO_PANEL_HEADING = i18n.msg("home.nothing_rendered_yet", "Nothing rendered yet.")
+NO_PANEL_BODY = i18n.msg(
+    "home.the_server_saves_a_copy_of_each_picture_it",
     "The server saves a copy of each picture it sends to the frame; the "
     "latest one will appear here.")
-PANEL_ALT_TEXT = "The picture currently on the frame"
+PANEL_ALT_TEXT = i18n.msg(
+    "home.the_picture_currently_on_the_frame",
+    "The picture currently on the frame")
 GALLERY_ROUTE_PREFIX = "/gallery/"
 
-DIRECTION_DEPARTING_TEXT = "Departing"
-DIRECTION_ARRIVING_TEXT = "Arriving"
+DIRECTION_DEPARTING_TEXT = i18n.msg("home.departing", "Departing")
+DIRECTION_ARRIVING_TEXT = i18n.msg("home.arriving", "Arriving")
 
 # The screen/quiet-hours switches and the next-update headline render
 # once in the shared Frame strip helper (see render() below); Refresh-now
 # lives on Device's own Manual refresh section instead.
 
-STATUS_HEADING = "Status"
+STATUS_HEADING = i18n.msg("home.status", "Status")
 # "Frame" is reserved for the shared Frame strip's own <h2> heading,
 # rendered directly above this tile; only this tile's caption moves.
-FRAME_ROW_LABEL = "Check-ins"
-BATTERY_ROW_LABEL = "Battery"
-DATA_ROW_LABEL = "Flight data"
-HEALTH_LINK_TEXT = "See details on Health"
+FRAME_ROW_LABEL = i18n.msg("home.check_ins", "Check-ins")
+BATTERY_ROW_LABEL = i18n.msg("home.battery", "Battery")
+DATA_ROW_LABEL = i18n.msg("home.flight_data", "Flight data")
+HEALTH_LINK_TEXT = i18n.msg("home.see_details_on_health", "See details on Health")
 
 # Stays byte-identical to health_page.DEVICE_STATE_TEXT's own values —
 # see companion/i18n_fr/home.py's comment for why the two dicts must
 # never be edited to differ. "off" is a held (quiet-hours) frame, a
 # genuine fourth state, reusing health_page.py's own neutral wording.
+# Owned by companion/i18n_fr/health.py, not home.py — the ids match
+# health_page.py's own DEVICE_STATE_TEXT declarations exactly.
 FRAME_STATE_TEXT = {
-    "ok": "Checking in normally",
-    "warn": "Has not checked in for a while",
-    "error": "Has not checked in for a long time",
-    "off": "Asleep for quiet hours",
+    "ok": i18n.msg("health.checking_in_normally", "Checking in normally"),
+    "warn": i18n.msg(
+        "health.has_not_checked_in_for_a_while", "Has not checked in for a while"),
+    "error": i18n.msg(
+        "health.has_not_checked_in_for_a_long_time",
+        "Has not checked in for a long time"),
+    "off": i18n.msg("health.asleep_for_quiet_hours", "Asleep for quiet hours"),
 }
 # The one mapping from frame_state's three real states to this tile's
 # vocabulary — byte-identical in shape to
@@ -111,20 +128,23 @@ _FRAME_STATE_TO_TILE_STATE = {
     frame_state.STATE_LATE: "warn",
 }
 DATA_STATE_TEXT = {
-    "ok": "Up to date",
-    "warn": "A little stale",
-    "error": "Stale — the server may be down",
+    "ok": i18n.msg("home.up_to_date", "Up to date"),
+    "warn": i18n.msg("home.a_little_stale", "A little stale"),
+    "error": i18n.msg(
+        "home.stale_the_server_may_be_down", "Stale — the server may be down"),
     # Byte-identical to health_page.PIPELINE_STATE_TEXT["off"]: a
     # pipeline that has never run is the same neutral fact on both
-    # pages, never Home's "A little stale" wording.
-    "off": "No detection yet",
+    # pages, never Home's "A little stale" wording. Owned by
+    # companion/i18n_fr/health.py, not home.py.
+    "off": i18n.msg("health.no_detection_yet", "No detection yet"),
 }
+_BATTERY_DROPPING_QUICKLY_TEXT = i18n.msg("home.dropping_quickly", "Dropping quickly")
 BATTERY_STATE_TEXT = {
-    "ok": "Healthy",
-    "warn": "Dropping quickly",
-    "error": "Dropping quickly",
+    "ok": i18n.msg("home.healthy", "Healthy"),
+    "warn": _BATTERY_DROPPING_QUICKLY_TEXT,
+    "error": _BATTERY_DROPPING_QUICKLY_TEXT,
 }
-NO_READING_TEXT = "No reading yet"
+NO_READING_TEXT = i18n.msg("home.no_reading_yet", "No reading yet")
 
 _TAG_RE = re.compile(r"<[^>]+>")
 # health_page.py's pipeline_html fragment is two or three stacked
@@ -300,14 +320,15 @@ def _status_tiles_html(ctx):
     sibling of `pipeline_html` — Home renders its own verdict above it,
     never Health's second copy of the same judgement.
     """
-    health = ctx.get("health_state") or {}
+    ctx = page_context.coerce(ctx)
+    health = ctx.health_state or {}
     pipeline_state = health.get("pipeline_state") or "warn"
     battery_state = health.get("battery_state") or "warn"
 
     next_wake_iso, effective_interval_s, hold_reason = wake.next_wake_status(
-        ctx.get("last_checkin_ts"), ctx.get("device_config"))
+        ctx.last_checkin_ts, ctx.device_config)
     resolved_frame_state = frame_state.resolve_state(
-        next_wake_iso, effective_interval_s, hold_reason, ctx.get("now"))
+        next_wake_iso, effective_interval_s, hold_reason, ctx.now)
     if resolved_frame_state == frame_state.STATE_UNKNOWN:
         device_state = health.get("device_state") or "warn"
         frame_detail = _plain_text_from_markup(health.get("device_detail_html"))
@@ -316,12 +337,12 @@ def _status_tiles_html(ctx):
         device_state = _FRAME_STATE_TO_TILE_STATE[resolved_frame_state]
         next_wake_parsed = layout.parse_iso(next_wake_iso)
         frame_detail = layout.local_clock_text(
-            next_wake_parsed, now_parsed=layout.parse_iso(ctx.get("now")))
+            next_wake_parsed, now_parsed=layout.parse_iso(ctx.now))
         frame_detail_class = "time-value"
     frame_verdict = i18n.t(FRAME_STATE_TEXT.get(device_state, FRAME_STATE_TEXT["warn"]))
     frame_html = _tile_content_html(frame_verdict, frame_detail, detail_class=frame_detail_class)
 
-    reading = _safe_query(ctx.get("state_dir"), _latest_battery)
+    reading = _safe_query(ctx.state_dir, _latest_battery)
     battery_ring_html = ""
     if reading and reading.get("battery_mv"):
         pct = battery.battery_percent(reading["battery_mv"])
@@ -372,8 +393,9 @@ def _current_picture_html(ctx, current_flight_row):
     "AFR1380 · Air France · ORY → TLS" reusing the same recent-flights
     query result — no second query for the current flight.
     """
-    entries = ctx.get("gallery_entries") or []
-    now = ctx.get("now")
+    ctx = page_context.coerce(ctx)
+    entries = ctx.gallery_entries or []
+    now = ctx.now
     newest = entries[0] if entries else None
     if not newest:
         return layout.empty_state(i18n.t(NO_PANEL_HEADING), i18n.t(NO_PANEL_BODY))
@@ -427,7 +449,9 @@ def _recent_flight_thumb_html(row, state_dir):
     return '<span class="recent-flight__thumb recent-flight__thumb--placeholder"></span>'
 
 
-_TIME_CELL_FALLBACK_TEXT = "no reading yet"
+# Owned by companion/i18n_fr/flights.py, not home.py — the same id
+# history_page.py's own clock-cell fallback uses.
+_TIME_CELL_FALLBACK_TEXT = i18n.msg("flights.no_reading_yet", "no reading yet")
 
 
 def _recent_flight_time_html(ts, now):
@@ -592,13 +616,13 @@ def _day_band_html(ctx, rows):
     """
     if rows is None:
         return ""
-    bounds = _paris_day_bounds(ctx.get("now"))
+    bounds = _paris_day_bounds(ctx.now)
     if bounds is None:
         return ""
     day, day_start, day_seconds = bounds
     instants = _day_band_instants(rows, day)
     window, start_hm, end_hm = _quiet_hours_window(
-        ctx.get("device_config"), day_start, day_seconds)
+        ctx.device_config, day_start, day_seconds)
     canvas, collapsed = draw.day_band(
         day_start, day_seconds, instants, window=window,
         label=i18n.t(DAY_BAND_LABEL))
@@ -664,24 +688,24 @@ def render(ctx):
     `layout.REFRESH_SWAP_SELECTORS_BY_PAGE` declares for this page, are
     unchanged by that wrapping.
     """
-    now = ctx.get("now")
+    ctx = page_context.coerce(ctx)
+    now = ctx.now
     # One read, reused for both the hero's flight one-liner (its first
     # row is "the current flight") and the recent-flights list — never
     # two independent queries for the same data.
-    rows = _safe_query(ctx.get("state_dir"), _recent_flights)
+    rows = _safe_query(ctx.state_dir, _recent_flights)
     current_flight_row = rows[0] if rows else None
     # The day band's own single read, made here and passed down so a
     # builder that queried for itself would not make the page's cost
     # depend on how many sections happen to want the data.
-    checkin_rows = _safe_query(ctx.get("state_dir"), _day_checkins)
+    checkin_rows = _safe_query(ctx.state_dir, _day_checkins)
     header = layout.page_header(
         i18n.t(PAGE_TITLE), purpose=i18n.t(PAGE_PURPOSE),
         freshness_html=layout.freshness_line_html(now))
     # _status_tiles_html() below makes its own fresh call to the same
     # wake accessor against the same ctx fields, so the two can never
     # disagree.
-    next_wake_iso = wake.next_wake_status(
-        ctx.get("last_checkin_ts"), ctx.get("device_config"))[0]
+    next_wake_iso = wake.next_wake_status(ctx.last_checkin_ts, ctx.device_config)[0]
     return (
         header
         + _hero_html(
@@ -691,6 +715,6 @@ def render(ctx):
             _day_band_html(ctx, checkin_rows))
         + '<div class="home-columns home-picture-row">'
         + _current_picture_html(ctx, current_flight_row)
-        + _recent_flights_html(rows, now, ctx.get("state_dir"))
+        + _recent_flights_html(rows, now, ctx.state_dir)
         + "</div>"
     )

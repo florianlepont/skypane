@@ -95,7 +95,6 @@ def _home_seeded_ctx(tmp, now, flight_ts):
                          "battery_state": "ok",
                          "device_detail_html": "",
                          "pipeline_html": ""},
-        "simple_mode": False,
     }
 
 
@@ -512,7 +511,7 @@ def test_day_label_is_the_paris_day_formatters_own_output_and_never_sticky(serve
             "local_clock_text()'s own cross-day output (%r)" % (lang, label, formatter))
     for bad in (None, "", "not-a-timestamp", 17):
         assert history_page.paris_day(bad) is None, "expected paris_day(%r) to degrade to None" % (bad,)
-    assert history_page.day_label(day, day) == i18n.t_lang("Today", "en"), (
+    assert history_page.day_label(day, day) == i18n.t_lang(history_page._DAY_TODAY_LABEL, "en"), (
         "expected a same-day group to read Today")
 
     rule = declarations_for(served_css, ".flight-day-row th")
@@ -1150,14 +1149,24 @@ def test_flights_full_seeded_render_french_end_to_end(tmp_path):
 
 
 def test_flights_catalog_keys_all_present_in_merged_catalog():
-    """every key in companion/i18n_fr/flights.py's own CATALOG is also a key of the merged
-    companion.i18n_fr.CATALOG, proving the auto-merge package picked the module up
+    """every key in companion/i18n_fr/flights.py's own CATALOG/MESSAGES is also a key of the
+    merged companion.i18n_fr.CATALOG/BY_ID, proving the auto-merge package picked the module up.
+    flights.py has fully migrated onto stable ids: it exports MESSAGES, not CATALOG, so the
+    CATALOG half reduces to an always-empty check for that module — kept rather than deleted so a
+    regression back to a CATALOG export is still caught.
    """
     import companion.i18n_fr as i18n_fr
     import companion.i18n_fr.flights as i18n_fr_flights
 
-    missing = [k for k in i18n_fr_flights.CATALOG if k not in i18n_fr.CATALOG]
+    missing = [
+        k for k in getattr(i18n_fr_flights, "CATALOG", {})
+        if k not in i18n_fr.CATALOG]
     assert not missing, "keys missing from the merged CATALOG: %r" % (missing,)
+
+    missing_ids = [
+        k for k in getattr(i18n_fr_flights, "MESSAGES", {})
+        if k not in i18n_fr.BY_ID]
+    assert not missing_ids, "ids missing from the merged BY_ID: %r" % (missing_ids,)
 
 
 def test_home_page_render_with_seeded_state(tmp_path):
@@ -1182,7 +1191,6 @@ def test_home_page_render_with_seeded_state(tmp_path):
                          "battery_state": "ok",
                          "device_detail_html": '<span class="mono">14:00 (5m ago)</span>',
                          "pipeline_html": "<p>A little stale</p>"},
-        "simple_mode": False,
     }
     rendered = home_page.render(ctx)
     for needle in (
@@ -1216,7 +1224,7 @@ def test_home_battery_ring_is_the_same_drawing_at_a_smaller_size(tmp_path):
     ctx = {"state_dir": str(home_dir), "now": now, "gallery_entries": [],
            "last_checkin_ts": "2026-08-27T11:55:00+00:00",
            "device_config": {"wake_interval_s": 900, "display_enabled": True},
-           "health_state": health_state, "simple_mode": False}
+           "health_state": health_state}
     rendered = home_page.render(ctx)
 
     def _rings(markup):
@@ -1359,6 +1367,35 @@ def test_home_rendered_caption_carries_the_element_through_the_template(tmp_path
                 "lang=%s: the caption template double-escaped the element" % (lang,))
         finally:
             prefs.set_request_prefs(lang="en")
+
+
+def test_flights_when_cell_age_is_a_live_time_element(tmp_path):
+    """Flights desktop table's When column renders its relative age as a live
+    <time data-relative> element (layout.relative_time_html()'s own markup) carrying the
+    row's own instant, reading exactly what relative_age_text() reads today, with the
+    cell-primary/cell-inline-sep/cell-secondary shape _merged_cell() also emits, and no
+    double-escaping"""
+    now = "2026-09-27T12:00:00+00:00"
+    ts = "2026-09-27T11:50:00+00:00"
+    vp.seed_runway_events(tmp_path, [
+        {"ts": ts, "hex": "3c6444", "callsign": "AFR1380",
+         "airline": "Air France", "origin": "ORY", "destination": "TLS"},
+    ])
+    rendered = history_page.render(vp.history_ctx(tmp_path, now=now))
+    tr_block = vp.row_block(rendered, "tr", 0)
+    assert tr_block is not None, "expected to locate the seeded row"
+    when_cell = tr_block.select("td")[0]
+    element = when_cell.select_one("time[data-relative]")
+    expected_age = layout.relative_age_text(600)
+    assert element.text() == expected_age, (
+        "expected the When cell's age text to read exactly relative_age_text()'s own output, "
+        "got %r" % (element.text(),))
+    assert element.attrs.get("datetime"), "expected a non-empty datetime attribute"
+    assert layout.age_seconds(element.attrs["datetime"], now) == 600, (
+        "expected the element's own instant to carry the row's own moment")
+    assert when_cell.find("span", cls=history_page.CELL_PRIMARY_CLASS) is not None
+    assert when_cell.find("span", cls=history_page.CELL_SECONDARY_CLASS) is not None
+    assert "&lt;time" not in rendered, "found a double-escaped '&lt;time' on Flights"
 
 
 def test_recent_flight_thumb_resolved_vs_placeholder(tmp_path):

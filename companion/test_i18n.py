@@ -3,40 +3,70 @@ companion/i18n_fr/ catalogue package.
 
 Covers: t_lang()'s round-trip and fallback behaviour, t()'s own
 per-request resolution through prefs.set_request_prefs(), prefs'
-membership-tested degrade-to-default contract, the catalogue's
-completeness against its own sibling modules, a self-consistency sweep
-over every catalogue entry (non-empty, placeholder parity, no value
-identical to its own English key outside a documented cognate list, the
-two typographic copy rules), an import-boundary proof that
-companion.i18n/companion.prefs never pull in companion.pages or the
-server package, and a real render of every authenticated page (plus the
-login, 404 and calendar-disconnect-confirm pages) in French against a
-running service.
+membership-tested degrade-to-default contract, a completeness test that
+every Message id declared anywhere in companion/ has both an English
+text (REGISTRY) and a French translation (BY_ID) with no orphan on
+either side, a self-consistency sweep over every (REGISTRY, BY_ID) pair
+(non-empty, placeholder parity, no value identical to its own English
+key outside a documented cognate list, the two typographic copy
+rules), a proof that rewording a Message's English keeps its French (a
+lookup is by id, never by text), a proof that a plain str is refused
+with TypeError, an import-boundary proof that companion.i18n/
+companion.prefs never pull in companion.pages or the server package,
+and a real render of every authenticated page (plus the login, 404 and
+calendar-disconnect-confirm pages) in French against a running service.
 
 This file never scans production source files as text: proving "every
 user-visible string has a translation" by reading source text is
 exactly what this suite's guard forbids. The guarantee is behavioural
-instead: the catalogue's own internal
-consistency (no empty value, matching %s/%d/{...} placeholders between a
-key and its translation, a working round trip through t_lang()) plus the
-real French page renders below, which are the direct proof that what a
-user actually sees is translated.
+instead: importing every production module (so every i18n.msg()
+declaration has run) and then asserting on the resulting runtime
+REGISTRY/BY_ID objects, plus the real French page renders below, which
+are the direct proof that what a user actually sees is translated.
 """
+import importlib
 import os
+import pkgutil
 import re
 import subprocess
 import sys
 
 import pytest
 
+import companion
 import companion.auth as auth
 import companion.i18n as i18n
 import companion.i18n_fr as i18n_fr
-import companion.i18n_fr.common as i18n_fr_common
-import companion.i18n_fr.nav as i18n_fr_nav
 import companion.prefs as prefs
 import companion_app_server
 from skypane_test_support import REPO_ROOT, child_env
+
+# ==========================================================================
+# Import every companion production module once per test session: a
+# Message only reaches companion.i18n.REGISTRY when the module that
+# declares it (i18n.msg(...)) is imported, and pytest never imports a
+# module this file does not otherwise need for collection. Every
+# completeness/self-consistency check below depends on REGISTRY (and
+# therefore BY_ID) being fully populated first.
+# ==========================================================================
+
+
+def _import_every_production_module():
+    imported = []
+    for module_info in pkgutil.walk_packages(
+            companion.__path__, prefix="companion."):
+        last = module_info.name.rsplit(".", 1)[-1]
+        if last.startswith("test_") or last == "conftest":
+            continue
+        importlib.import_module(module_info.name)
+        imported.append(module_info.name)
+    return imported
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _all_production_modules_imported():
+    return _import_every_production_module()
+
 
 # ==========================================================================
 # t_lang() round-trip and fallback
@@ -44,16 +74,24 @@ from skypane_test_support import REPO_ROOT, child_env
 
 
 def test_t_lang_fr_translates_a_known_key():
-    assert i18n.t_lang("Home", "fr") == "Accueil"
+    # "nav.home" is declared in companion/ui_base.py and translated in
+    # companion/i18n_fr/nav.py; constructing the Message by hand (rather
+    # than importing ui_base.py) keeps this test's own import set
+    # minimal — i18n_fr.BY_ID["nav.home"] is populated the moment
+    # companion.i18n_fr itself is imported, independent of which page
+    # module registers the id in REGISTRY.
+    message = i18n.Message("nav.home", "Home")
+    assert i18n.t_lang(message, "fr") == "Accueil"
 
 
 def test_t_lang_en_returns_the_english_source():
-    assert i18n.t_lang("Home", "en") == "Home"
+    message = i18n.Message("nav.home", "Home")
+    assert i18n.t_lang(message, "en") == "Home"
 
 
 def test_t_lang_degrades_a_missing_key_to_the_english_source_unchanged():
-    text = "a string nobody translated"
-    assert i18n.t_lang(text, "fr") == text
+    message = i18n.Message("test.nobody_translated_this", "a string nobody translated")
+    assert i18n.t_lang(message, "fr") == "a string nobody translated"
 
 
 # ==========================================================================
@@ -62,11 +100,12 @@ def test_t_lang_degrades_a_missing_key_to_the_english_source_unchanged():
 
 
 def test_t_follows_set_request_prefs_and_back():
+    message = i18n.Message("nav.home", "Home")
     try:
         prefs.set_request_prefs(lang="fr")
-        fr_result = i18n.t("Home")
+        fr_result = i18n.t(message)
         prefs.set_request_prefs(lang="en")
-        en_result = i18n.t("Home")
+        en_result = i18n.t(message)
     finally:
         prefs.set_request_prefs(lang="en")
     assert fr_result == "Accueil"
@@ -88,60 +127,208 @@ def test_prefs_unknown_lang_degrades_to_en():
 
 
 # ==========================================================================
-# Catalogue completeness against its own sibling modules
+# Completeness: every Message id has both an English text and a French
+# translation, and no BY_ID entry is orphaned.
 # ==========================================================================
 
 
-def test_catalog_contains_every_key_defined_in_common():
-    missing = [k for k in i18n_fr_common.CATALOG if k not in i18n_fr.CATALOG]
-    assert not missing, "keys missing from merged CATALOG: %r" % (missing,)
+def test_every_message_id_has_english_and_french():
+    registry_ids = set(i18n.REGISTRY)
+    by_id_ids = set(i18n_fr.BY_ID)
+    missing_french = sorted(registry_ids - by_id_ids)
+    orphan_french = sorted(by_id_ids - registry_ids)
+    assert not missing_french and not orphan_french, (
+        "missing French translation for id(s): %r; "
+        "orphan French translation (no declaring Message) for id(s): %r"
+        % (missing_french, orphan_french))
 
 
-def test_catalog_contains_every_key_defined_in_nav():
-    missing = [k for k in i18n_fr_nav.CATALOG if k not in i18n_fr.CATALOG]
-    assert not missing, "keys missing from merged CATALOG: %r" % (missing,)
+_ID_SHAPE_RE = re.compile(r"^[a-z][a-z0-9_]*\.[a-z0-9_]+$")
+
+
+def test_every_message_id_has_the_stable_shape():
+    i18n_fr_areas = {
+        module_info.name for module_info in pkgutil.iter_modules(i18n_fr.__path__)}
+    bad_shape = [msg_id for msg_id in i18n.REGISTRY if not _ID_SHAPE_RE.match(msg_id)]
+    assert not bad_shape, "id(s) not matching '<area>.<slug>': %r" % (bad_shape,)
+    unknown_area = [
+        msg_id for msg_id in i18n.REGISTRY
+        if msg_id.split(".", 1)[0] not in i18n_fr_areas]
+    assert not unknown_area, (
+        "id(s) whose area is not an existing companion.i18n_fr module: %r"
+        % (unknown_area,))
+
+
+def test_rewording_the_english_keeps_the_french():
+    # A sample of real, production-declared ids: rewording the English
+    # (as if a call site's copy were edited after the id was assigned)
+    # must not change the French lookup — the lookup is by id, never by
+    # text.
+    sample = list(i18n.REGISTRY)[:25]
+    assert sample, "REGISTRY is unexpectedly empty — production modules failed to import"
+    for msg_id in sample:
+        french = i18n_fr.BY_ID[msg_id]
+        reworded = i18n.Message(msg_id, "reworded")
+        assert i18n.t_lang(reworded, "fr") == french, (
+            "rewording the English of %r changed its French translation" % (msg_id,))
+
+
+def test_plain_strings_are_refused():
+    with pytest.raises(TypeError):
+        i18n.t("Home")
+    with pytest.raises(TypeError):
+        i18n.t_lang("Home", "fr")
+
+
+# ==========================================================================
+# Self-consistency sweep over every (REGISTRY id, BY_ID translation) pair.
+# ==========================================================================
 
 
 # A short, named exception list of genuine French/English cognates: a
 # shared loanword whose correct French translation is spelled and
-# pronounced identically to its English key, never a missed translation.
-_UNCHANGED_IN_FRENCH = frozenset(
-    {"Corroboration", "Source", "Description", "Notifications", "Aspect"})
+# pronounced identically to its English source, never a missed
+# translation. Keyed by the stable message id.
+_UNCHANGED_IN_FRENCH = frozenset({
+    "display.aspect",
+    "notifications.notifications",
+    "health.corroboration", "health.source", "health.description",
+    # "≈ %s": symbolic notation, identical in both languages.
+    "display.next_wake_approx",
+    # Image alt text never translated before this id existed either —
+    # kept identical so the render stays byte-for-byte unchanged.
+    "display.sample_panel_rendered_in_the_theme",
+    # A bare "%s — %s" join: no translatable words of its own.
+    "health.day_dash_verdict",
+})
+
+
+def _sweep_entries():
+    """Every `(msg_id, english, french)` triple this suite's
+    self-consistency sweep covers — every id declared in REGISTRY that
+    also has a BY_ID translation (the completeness test above is what
+    proves there is no other kind)."""
+    entries = []
+    for msg_id, english in i18n.REGISTRY.items():
+        french = i18n_fr.BY_ID.get(msg_id)
+        if french is not None:
+            entries.append((msg_id, english, french))
+    return entries
 
 
 def test_every_catalog_value_is_str_and_differs_from_its_english_key():
-    bad_type = [k for k, v in i18n_fr.CATALOG.items() if not isinstance(v, str)]
-    assert not bad_type, "non-str CATALOG values for keys: %r" % (bad_type,)
+    bad_type = [
+        identifier for identifier, _english, french in _sweep_entries()
+        if not isinstance(french, str)]
+    assert not bad_type, "non-str French value for: %r" % (bad_type,)
     identical = [
-        k for k, v in i18n_fr.CATALOG.items()
-        if v == k and k not in _UNCHANGED_IN_FRENCH]
-    assert not identical, "CATALOG values identical to their English key: %r" % (identical,)
+        identifier for identifier, english, french in _sweep_entries()
+        if french == english and identifier not in _UNCHANGED_IN_FRENCH]
+    assert not identical, "French value identical to its English source: %r" % (identical,)
 
 
 def test_every_catalog_value_is_non_empty():
-    empty = [k for k, v in i18n_fr.CATALOG.items() if not v.strip()]
-    assert not empty, "CATALOG value(s) empty for keys: %r" % (empty,)
+    empty = [
+        identifier for identifier, _english, french in _sweep_entries()
+        if not french.strip()]
+    assert not empty, "empty French value for: %r" % (empty,)
 
 
 _PLACEHOLDER_RE = re.compile(r"%[sd]|\{[^}]*\}")
 
 
 def test_catalog_placeholders_match_between_key_and_value():
-    """Every `%s`/`%d`/`{name}` placeholder in an English catalogue key
-    also appears in its French translation, and vice versa — the shape a
+    """Every `%s`/`%d`/`{name}` placeholder in an English source also
+    appears in its French translation, and vice versa — the shape a
     mistranslation that drops or mistypes a placeholder actually takes."""
     mismatched = {}
-    for key, value in i18n_fr.CATALOG.items():
-        key_placeholders = sorted(_PLACEHOLDER_RE.findall(key))
-        value_placeholders = sorted(_PLACEHOLDER_RE.findall(value))
-        if key_placeholders != value_placeholders:
-            mismatched[key] = (key_placeholders, value_placeholders)
+    for identifier, english, french in _sweep_entries():
+        english_placeholders = sorted(_PLACEHOLDER_RE.findall(english))
+        french_placeholders = sorted(_PLACEHOLDER_RE.findall(french))
+        if english_placeholders != french_placeholders:
+            mismatched[identifier] = (english_placeholders, french_placeholders)
     assert not mismatched, "placeholder mismatch (key placeholders, value placeholders): %r" % (mismatched,)
 
 
-def test_t_lang_round_trips_every_catalog_key():
-    for key, value in i18n_fr.CATALOG.items():
-        assert i18n.t_lang(key, "fr") == value
+def test_t_lang_round_trips_every_message_id():
+    for msg_id, english in i18n.REGISTRY.items():
+        french = i18n_fr.BY_ID.get(msg_id)
+        if french is None:
+            continue
+        assert i18n.t_lang(i18n.Message(msg_id, english), "fr") == french
+
+
+# ==========================================================================
+# Message IDs: a Message carries a stable ID so its French
+# translation survives an English reword. Every registration below lives
+# under a "test." area, isolated from the real REGISTRY/BY_ID by the
+# isolated_registry fixture (a swapped-in copy, restored by monkeypatch
+# when the test ends).
+# ==========================================================================
+
+
+@pytest.fixture
+def isolated_registry(monkeypatch):
+    """Give a test its own copy of REGISTRY and BY_ID to register into,
+    so a test-only "test.*" id never leaks into another test or into the
+    real catalogue."""
+    monkeypatch.setattr(i18n, "REGISTRY", dict(i18n.REGISTRY))
+    monkeypatch.setattr(i18n_fr, "BY_ID", dict(i18n_fr.BY_ID))
+
+
+def test_msg_returns_a_str_equal_to_its_english_with_a_msg_id(isolated_registry):
+    greeting = i18n.msg("test.greeting", "Hello")
+    assert greeting == "Hello"
+    assert isinstance(greeting, str)
+    assert greeting.msg_id == "test.greeting"
+    # Formatting, escaping and concatenation behave exactly like the
+    # plain str it wraps.
+    assert ("%s, world" % greeting) == "Hello, world"
+    assert (greeting + "!") == "Hello!"
+    assert greeting.upper() == "HELLO"
+
+
+def test_msg_same_id_same_english_is_idempotent(isolated_registry):
+    i18n.msg("test.dup", "A")
+    i18n.msg("test.dup", "A")  # no raise
+
+
+def test_msg_same_id_different_english_raises(isolated_registry):
+    i18n.msg("test.dup", "A")
+    with pytest.raises(ValueError, match="test.dup"):
+        i18n.msg("test.dup", "B")
+
+
+def test_msg_rejects_an_id_not_matching_the_expected_shape(isolated_registry):
+    with pytest.raises(ValueError):
+        i18n.msg("NoArea", "Bad id, no dot or wrong case")
+    with pytest.raises(ValueError):
+        i18n.msg("test", "Missing the dot entirely")
+    with pytest.raises(ValueError):
+        i18n.msg("Test.bad", "Uppercase area")
+
+
+def test_t_lang_looks_up_a_message_by_id_in_by_id(isolated_registry):
+    message = i18n.msg("test.greeting", "Hello")
+    i18n_fr.BY_ID["test.greeting"] = "Bonjour"
+    assert i18n.t_lang(message, "fr") == "Bonjour"
+
+
+def test_t_lang_reworded_english_keeps_its_french_translation(isolated_registry):
+    i18n.msg("test.greeting", "Hello")
+    i18n_fr.BY_ID["test.greeting"] = "Bonjour"
+    # Same ID, different English (as if the source were reworded after
+    # the ID was assigned) — the lookup is by ID, not by text.
+    reworded = i18n.Message("test.greeting", "Hi there")
+    assert i18n.t_lang(reworded, "fr") == "Bonjour"
+
+
+def test_t_lang_message_in_english_returns_the_plain_english_str(isolated_registry):
+    message = i18n.msg("test.greeting", "Hello")
+    i18n_fr.BY_ID["test.greeting"] = "Bonjour"
+    result = i18n.t_lang(message, "en")
+    assert result == "Hello"
+    assert type(result) is str
 
 
 # ==========================================================================
@@ -268,9 +455,9 @@ def test_calendar_disconnect_confirm_page_renders_in_french(french_render_server
 
 
 def test_every_catalog_value_uses_the_typographic_apostrophe():
-    offenders = sorted(key for key, value in i18n_fr.CATALOG.items() if "'" in value)
+    offenders = sorted(key for key, value in i18n_fr.BY_ID.items() if "'" in value)
     assert not offenders, (
-        "%d CATALOG value(s) contain a straight apostrophe instead of "
+        "%d BY_ID value(s) contain a straight apostrophe instead of "
         "U+2019: %r" % (len(offenders), offenders))
 
 
@@ -279,8 +466,8 @@ _REGULAR_SPACE_BEFORE_PUNCT_RE = re.compile(r" [:;?!]")
 
 def test_every_catalog_value_uses_nbsp_before_punctuation():
     offenders = sorted(
-        key for key, value in i18n_fr.CATALOG.items()
+        key for key, value in i18n_fr.BY_ID.items()
         if _REGULAR_SPACE_BEFORE_PUNCT_RE.search(value))
     assert not offenders, (
-        "%d CATALOG value(s) have a ':'/';'/'?'/'!' preceded by a plain "
+        "%d BY_ID value(s) have a ':'/';'/'?'/'!' preceded by a plain "
         "space instead of U+00A0: %r" % (len(offenders), offenders))

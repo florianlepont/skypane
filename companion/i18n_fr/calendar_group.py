@@ -1,28 +1,30 @@
 # -*- coding: utf-8 -*-
 """French strings for the Calendar row's connection block
-(companion/pages/config_page.py's _calendar_connection_html()).
+(companion/settings/calendar.py's _calendar_connection_html()), keyed
+by stable message id (see companion/i18n.py's Message/msg()). Every id
+is declared at its own display site in companion/settings/calendar.py
+or notifications.py — this module only carries each id's French
+translation.
 
 "Calendar", its feed-URL field/hint, "Cancel", "Theme" and the
-disconnect action's own strings are deliberately absent, defined
+disconnect action's own strings are deliberately absent, declared
 instead in sibling modules the auto-merge package would otherwise
-reject as duplicate keys.
+reject as duplicate ids.
 """
 
-CATALOG = {
-    "How it works": "Comment ça marche",
-    "It can only colour a flight that happens to be on screen — it "
-    "does not track or announce anything on its own. Applies on the "
-    "frame's next scheduled poll, not immediately.":
+MESSAGES = {
+    "calendar_group.how_it_works": "Comment ça marche",
+    "calendar_group.it_can_only_colour_a_flight_that_happens_to_be":
         "Il ne peut colorer qu’un vol déjà affiché à l’écran — il ne "
         "suit ni n’annonce rien de lui-même. S’applique lors de la "
         "prochaine vérification programmée du cadre, pas immédiatement.",
-    "Connected": "Connecté",
-    "Not connected": "Non connecté",
-    "1 upcoming flight · checked %s": "1 vol à venir · vérifié %s",
-    "%d upcoming flights · checked %s": "%d vols à venir · vérifié %s",
-    "The feed could not be read": "Impossible de lire le flux",
-    "Connect calendar": "Connecter le calendrier",
-    "Replace the feed URL": "Remplacer l’URL du flux",
-    "Replace": "Remplacer",
-    "Disconnect": "Déconnecter",
+    "calendar_group.connected": "Connecté",
+    "calendar_group.not_connected": "Non connecté",
+    "calendar_group.1_upcoming_flight_checked": "1 vol à venir · vérifié %s",
+    "calendar_group.upcoming_flights_checked": "%d vols à venir · vérifié %s",
+    "calendar_group.the_feed_could_not_be_read": "Impossible de lire le flux",
+    "calendar_group.connect_calendar": "Connecter le calendrier",
+    "calendar_group.replace_the_feed_url": "Remplacer l’URL du flux",
+    "calendar_group.replace": "Remplacer",
+    "calendar_group.disconnect": "Déconnecter",
 }

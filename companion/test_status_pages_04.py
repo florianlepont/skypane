@@ -374,8 +374,11 @@ def test_registry_mobile_cards_paired_with_the_desktop_table(tmp_path):
         for raw_ts in (first_seen, last_seen):
             clock = layout.escape_html(
                 layout.local_clock_text(layout.parse_iso(raw_ts), layout.parse_iso(now_iso)))
-            age = layout.escape_html(
-                layout.relative_age_text(layout.age_seconds(raw_ts, now_iso)))
+            # The desktop cell's age half is a live <time data-relative> element
+            # (layout.relative_time_html()'s own pre-escaped markup), not
+            # escape_html(relative_age_text(...)) — interpolated verbatim below,
+            # matching health_page._registry_seen_cell_html()'s own construction.
+            age = layout.relative_time_html(raw_ts, now_iso)
             expected_cell = (
                 '<span class="cell-primary" title="%s">%s</span>'
                 '<span class="cell-inline-sep">%s</span>'
@@ -435,12 +438,12 @@ def test_registry_table_fits_by_stacked_cells_and_short_french_headers(tmp_path,
         "expected no 1100px card-fallback breakpoint — measurement showed levers 1 and 2 "
         "fit the table in both languages, so lever 3 was not applied")
 
-    assert i18n_fr_health.CATALOG.get("First seen") == "Première fois", (
+    assert i18n_fr_health.MESSAGES.get("health.first_seen") == "Première fois", (
         "expected the shortened French 'First seen' header")
-    assert i18n_fr_health.CATALOG.get("Last seen") == "Dernière fois", (
+    assert i18n_fr_health.MESSAGES.get("health.last_seen") == "Dernière fois", (
         "expected the shortened French 'Last seen' header")
     for retired in ("Vu pour la première fois", "Vu pour la dernière fois"):
-        assert retired not in i18n_fr_health.CATALOG.values(), (
+        assert retired not in i18n_fr_health.MESSAGES.values(), (
             "expected the retired long French header %r to be gone" % (retired,))
     assert health_page._REGISTRY_HEADERS[2:4] == ("First seen", "Last seen"), (
         "expected the English header sources to be unchanged")

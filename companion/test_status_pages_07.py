@@ -14,7 +14,7 @@ import pytest
 from PIL import Image
 
 import companion.app as app
-import companion.i18n_fr.nav as i18n_fr_nav
+import companion.i18n as i18n
 import companion.test_status_pages_helpers as shp
 from companion import illustration_normalize, layout, prefs
 from companion.pages import airlines_page, config_page, health_page, home_page
@@ -120,16 +120,15 @@ def test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit(css_text):
     available_px = cell_width_px - (2 * horizontal_margin_px)
 
     # The longest label across BOTH shipped languages — read from
-    # layout.NAV_GROUPS and companion.i18n_fr.nav.CATALOG, never typed
-    # literally, so a future longer label re-runs this same arithmetic
-    # rather than silently going unchecked.
+    # layout.NAV_GROUPS and the real i18n.t_lang() French translation,
+    # never typed literally, so a future longer label re-runs this same
+    # arithmetic rather than silently going unchecked.
     candidate_labels = []
     for _route, label in unlabelled_entries:
         candidate_labels.append(label)
-        candidate_labels.append(i18n_fr_nav.CATALOG.get(label, label))
+        candidate_labels.append(i18n.t_lang(label, "fr"))
     candidate_labels.append(layout.TAB_BAR_MORE_LABEL)
-    candidate_labels.append(
-        i18n_fr_nav.CATALOG.get(layout.TAB_BAR_MORE_LABEL, layout.TAB_BAR_MORE_LABEL))
+    candidate_labels.append(i18n.t_lang(layout.TAB_BAR_MORE_LABEL, "fr"))
     longest_label = max(candidate_labels, key=len)
 
     # Per-character advance: MEASURED, not modelled — the audit's own real
@@ -538,9 +537,12 @@ def test_nav_toggle_label_now_describes_the_preferences_panel():
         "expected the toggle to name what the panel now holds, got %r" % (layout.NAV_TOGGLE_LABEL,))
     assert layout.i18n.t_lang(layout.NAV_TOGGLE_LABEL, "fr") != layout.NAV_TOGGLE_LABEL, (
         "expected a French entry for the renamed toggle label")
-    assert layout.i18n.t_lang("Open menu", "fr") == "Open menu", (
-        "expected the retired 'Open menu' translation to be deleted, not superseded in place — "
-        "it names a menu of pages the panel no longer holds")
+    # The retired "Open menu" wording is not a Message anywhere any
+    # more (deleted, not superseded in place) — i18n.t_lang() only
+    # accepts a Message, so the plain string it used to be raises
+    # TypeError rather than degrading to some stale translation.
+    with pytest.raises(TypeError):
+        layout.i18n.t_lang("Open menu", "fr")
     try:
         prefs.set_request_prefs(lang="fr")
         rendered = layout.page_shell(
@@ -787,7 +789,6 @@ def _home_ctx(tmp, now_value):
         "health_state": {"device_state": "ok", "pipeline_state": "ok",
                          "battery_state": "ok",
                          "device_detail_html": "", "pipeline_html": ""},
-        "simple_mode": False,
     }
 
 

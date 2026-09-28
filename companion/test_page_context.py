@@ -1,17 +1,20 @@
-"""Lazy `page_context()` and markup-free severity.
+"""Lazy `PageContext` (`companion/page_context.py`) and markup-free
+severity.
 
 `page_context()` used to build the full Health markup, the gallery
 listing, the manual-resolutions/colour-rules/calendar registries, and
 the poll cooldown on every request, only for the nav-tab dot in the
-common case. It now returns an `_LazyContext`: every expensive value is
+common case. It now returns a `PageContext`: every expensive value is
 a loader resolved at most once, only if a route's own `render()` or the
 nav-dot read in `_page_shell_for()` actually touches it.
 
-Every behaviour here is asserted against a REAL running
+Every server-level behaviour here is asserted against a REAL running
 `companion/app.py` (`app_server_in_process`, the only fixture family
 whose monkeypatches take effect in the same interpreter the server
 thread runs in), never against source text - matching
-`companion/test_request_connections.py`'s own convention.
+`companion/test_request_connections.py`'s own convention. The unit
+section just below asserts `PageContext`'s own laziness/coerce()
+contract directly, with no server needed.
 """
 import re
 import sqlite3
@@ -19,7 +22,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-import companion.app as app
+import companion.health_signals as health_signals
+import companion.page_context as page_context
 import efficiency_probe
 
 from companion import layout
@@ -54,70 +58,53 @@ def _seed_warn_scenario(state_dir):
 
 
 # ==========================================================================
-# _LazyContext itself - unit-level, no server needed.
+# PageContext itself - unit-level, no server needed.
 # ==========================================================================
 
 
-def test_lazy_context_eager_values_are_present_without_a_loader():
-    """an eagerly-supplied value resolves through __getitem__/get()/__contains__ with no
-    loaders dict at all"""
-    ctx = app._LazyContext({"k": "v"}, {})
-    assert ctx["k"] == "v"
-    assert ctx.get("k") == "v"
-    assert "k" in ctx
-    assert "absent" not in ctx
+def test_page_context_eager_values_are_present_without_a_loader():
+    """an eagerly-supplied value resolves through plain attribute access with no loaders dict at
+    all, and is_resolved() is True for it - matching every other declared eager field"""
+    ctx = page_context.PageContext({"state_dir": "state-dir-placeholder"}, {})
+    assert ctx.state_dir == "state-dir-placeholder"
+    assert ctx.is_resolved("state_dir")
 
 
-def test_lazy_context_getitem_resolves_a_loader_once():
-    """ctx["k"] as the FIRST access still resolves the loader exactly once, caching the result"""
+def test_page_context_getattr_resolves_a_loader_once():
+    """ctx.<lazy field> as the FIRST access still resolves the loader exactly once, caching the
+    result"""
     calls = []
 
     def _load():
         calls.append(1)
         return 42
 
-    ctx = app._LazyContext({}, {"lazy": _load})
-    assert ctx["lazy"] == 42
-    assert ctx["lazy"] == 42
+    ctx = page_context.PageContext({}, {"poll_cooldown_remaining": _load})
+    assert ctx.poll_cooldown_remaining == 42
+    assert ctx.poll_cooldown_remaining == 42
     assert len(calls) == 1, "expected the loader to run exactly once, got %d" % len(calls)
 
 
-def test_lazy_context_contains_never_triggers_the_loader():
-    """"k" in ctx sees a pending loader as present without resolving it - dict.__contains__()
-    would otherwise never even see a pending key, since it is not yet a real dict entry"""
+def test_page_context_is_resolved_never_triggers_the_loader():
+    """is_resolved() sees a pending loader as unresolved without running it - replaces
+    _LazyContext's own "k" in ctx contract, which used to answer the same question"""
     calls = []
 
     def _load():
         calls.append(1)
         return "computed"
 
-    ctx = app._LazyContext({}, {"lazy": _load})
-    assert "lazy" in ctx
-    assert len(calls) == 0, "expected 'in' to never resolve the loader"
-    assert "missing" not in ctx
+    ctx = page_context.PageContext({}, {"poll_cooldown_remaining": _load})
+    assert ctx.is_resolved("poll_cooldown_remaining") is False
+    assert len(calls) == 0, "expected is_resolved() to never resolve the loader"
+    assert ctx.is_resolved("state_dir") is True, (
+        "expected a declared eager field to always report resolved")
 
 
-def test_lazy_context_get_resolves_once_and_falls_back_on_a_real_default():
-    """ctx.get("k") resolves and caches a pending loader exactly like ctx["k"]; ctx.get("missing",
-    7) == 7 for a key with neither a loader nor an eager value"""
-    calls = []
-
-    def _load():
-        calls.append(1)
-        return "computed"
-
-    ctx = app._LazyContext({}, {"lazy": _load})
-    assert ctx.get("lazy") == "computed"
-    assert ctx.get("lazy") == "computed"
-    assert len(calls) == 1, "expected the loader to run exactly once via .get(), got %d" % len(
-        calls)
-    assert ctx.get("missing", 7) == 7
-
-
-def test_lazy_context_getitem_keeps_a_raising_loader_pending_for_retry():
-    """a loader that raises leaves its key exactly as pending as it found it - neither resolved
+def test_page_context_getattr_keeps_a_raising_loader_pending_for_retry():
+    """a loader that raises leaves its field exactly as pending as it found it - neither resolved
     nor forgotten - so a second read retries the SAME loader (and can raise the SAME original
-    exception) instead of falling through to a masking KeyError"""
+    exception) instead of falling through to a masking error"""
     calls = []
 
     def _flaky_load():
@@ -126,12 +113,45 @@ def test_lazy_context_getitem_keeps_a_raising_loader_pending_for_retry():
             raise RuntimeError("simulated loader failure")
         return "computed on retry"
 
-    ctx = app._LazyContext({}, {"lazy": _flaky_load})
+    ctx = page_context.PageContext({}, {"poll_cooldown_remaining": _flaky_load})
     with pytest.raises(RuntimeError):
-        ctx["lazy"]
-    assert "lazy" in ctx, "expected the key to remain a pending loader after the raise"
-    assert ctx["lazy"] == "computed on retry"
+        ctx.poll_cooldown_remaining
+    assert ctx.is_resolved("poll_cooldown_remaining") is False, (
+        "expected the field to remain a pending loader after the raise")
+    assert ctx.poll_cooldown_remaining == "computed on retry"
     assert len(calls) == 2, "expected exactly one retry after the first raise, got %d calls" % len(calls)
+
+
+def test_page_context_undeclared_attribute_raises():
+    """reading a field PageContext never declared raises AttributeError instead of the god-dict's
+    silent None - a typo in a page module or a test's ctx now fails loudly"""
+    ctx = page_context.PageContext({"state_dir": "state-dir-placeholder"}, {})
+    with pytest.raises(AttributeError):
+        ctx.nonsense
+
+
+def test_coerce_returns_a_pagecontext_instance_unchanged():
+    """coerce() is a no-op on an already-real PageContext - never rewrapped, never copied"""
+    ctx = page_context.PageContext({"state_dir": "state-dir-placeholder"}, {})
+    assert page_context.coerce(ctx) is ctx
+
+
+def test_coerce_defaults_every_undeclared_field_to_none_and_runs_no_loader():
+    """coerce(mapping) sets the keys given, defaults every other declared field (eager or lazy)
+    to None - the value ctx.get() used to return for an absent key - and never runs a loader:
+    every lazy field reports resolved immediately, with no loaders dict left pending"""
+    ctx = page_context.coerce({"state_dir": "state-dir-placeholder"})
+    assert ctx.state_dir == "state-dir-placeholder"
+    assert ctx.now is None
+    assert ctx.poll_cooldown_remaining is None
+    assert ctx.is_resolved("poll_cooldown_remaining") is True
+
+
+def test_coerce_rejects_an_unknown_field_by_name():
+    """a typo'd or invented field name in a test's ctx mapping raises TypeError naming it,
+    rather than silently being ignored or read back as None forever"""
+    with pytest.raises(TypeError, match="nonsense"):
+        page_context.coerce({"state_dir": "state-dir-placeholder", "nonsense": 1})
 
 
 # ==========================================================================
@@ -147,7 +167,7 @@ def test_health_markup_builds_only_on_home_and_health(app_server_in_process, mon
     efficiency_probe.seed_history(server.state_dir)
     session = login(server)
 
-    real_health_signals = health_page.health_signals
+    real_health_signals = health_signals.health_signals
     real_health_state_from_signals = health_page.health_state_from_signals
     signals_calls = []
     state_calls = []
@@ -160,7 +180,15 @@ def test_health_markup_builds_only_on_home_and_health(app_server_in_process, mon
         state_calls.append(1)
         return real_health_state_from_signals(*args, **kwargs)
 
-    monkeypatch.setattr(health_page, "health_signals", counting_health_signals)
+    # Patched on the health_signals module itself, not on health_page's
+    # re-export: safe_health_signals() is DEFINED in companion/health_signals.py,
+    # and its own bare-name call to health_signals() resolves in that
+    # module's globals — a patch on health_page.health_signals would never
+    # be seen by it. health_state_from_signals() stays patched on
+    # health_page, since companion/app.py's _lazy_health_state() calls it
+    # through a `health_page.health_state_from_signals(...)` attribute
+    # lookup at every request.
+    monkeypatch.setattr(health_signals, "health_signals", counting_health_signals)
     monkeypatch.setattr(
         health_page, "health_state_from_signals", counting_health_state_from_signals)
 
@@ -221,7 +249,7 @@ def test_404_severity_is_authenticated_only_and_never_builds_markup(
     _seed_warn_scenario(server.state_dir)
     session = login(server)
 
-    real_health_signals = health_page.health_signals
+    real_health_signals = health_signals.health_signals
     real_health_state_from_signals = health_page.health_state_from_signals
     signals_calls = []
     state_calls = []
@@ -234,7 +262,11 @@ def test_404_severity_is_authenticated_only_and_never_builds_markup(
         state_calls.append(1)
         return real_health_state_from_signals(*args, **kwargs)
 
-    monkeypatch.setattr(health_page, "health_signals", counting_health_signals)
+    # See test_health_markup_builds_only_on_home_and_health()'s own
+    # comment: health_signals() is patched on its defining module, since
+    # safe_health_signals()'s bare-name call to it resolves there, never
+    # on health_page's re-export.
+    monkeypatch.setattr(health_signals, "health_signals", counting_health_signals)
     monkeypatch.setattr(
         health_page, "health_state_from_signals", counting_health_state_from_signals)
 
@@ -275,12 +307,12 @@ def test_expensive_registries_load_lazily_at_most_once_per_request(
     calendar_* ctx keys - config_page.render() reads all three) run at most once per request on
     every tab route; on /flights, the three Airlines/Display/Device-only registries never run at
     all, while gallery_entries runs exactly once (history_page.py itself reads
-    ctx.get("gallery_entries"))"""
+    ctx.gallery_entries)"""
     server = app_server_in_process
     efficiency_probe.seed_history(server.state_dir)
     session = login(server)
 
-    real_gallery = app.gallery_entries
+    real_gallery = page_context.gallery_entries
     real_manual = manual_resolutions.load_manual_resolutions
     real_colour = colour_rules.load_colour_rules
     real_calendar = calendar_rules.load_calendar_registry
@@ -293,7 +325,11 @@ def test_expensive_registries_load_lazily_at_most_once_per_request(
             return real(*args, **kwargs)
         return wrapper
 
-    monkeypatch.setattr(app, "gallery_entries", _wrap("gallery", real_gallery))
+    # Patched on companion.page_context, the loader lambda's own defining
+    # module (build_page_context()'s "gallery_entries" loader resolves
+    # the bare name there) - not on companion.app, which merely
+    # re-exports the name for tests that call it directly.
+    monkeypatch.setattr(page_context, "gallery_entries", _wrap("gallery", real_gallery))
     monkeypatch.setattr(
         manual_resolutions, "load_manual_resolutions", _wrap("manual", real_manual))
     monkeypatch.setattr(colour_rules, "load_colour_rules", _wrap("colour", real_colour))
