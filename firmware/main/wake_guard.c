@@ -27,6 +27,12 @@ static fp_wake_expired_fn s_on_expired;
 _Static_assert(CONFIG_SKYPANE_WAKE_BUDGET_S > FP_WAKE_WORST_CASE_S(CONFIG_FP_MAX_GUARD_WAIT_S),
                "wake budget must exceed the worst legitimate wake");
 
+/* The same budget must also exceed the worst-case legitimate OTA wake -
+ * an alternative worst case to the one above, not an addition on top of
+ * it, but the configured budget has to clear both (wake_deadline.h). */
+_Static_assert(CONFIG_SKYPANE_WAKE_BUDGET_S > FP_WAKE_OTA_WORST_CASE_S(CONFIG_FP_MAX_GUARD_WAIT_S),
+               "wake budget must exceed the worst legitimate OTA wake");
+
 /* Whether the task watchdog timer keeps counting through light sleep is
  * not guaranteed by ESP-IDF, so no single light-sleep slice may
  * approach the watchdog's timeout. */

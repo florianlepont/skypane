@@ -6,8 +6,10 @@
  * detector, capped at 60 s, so it can only catch one stage wedging,
  * never bound a whole wake. This deadline is a longer, one-shot budget
  * covering every stage a legitimate wake can stack; FP_WAKE_WORST_CASE_S
- * computes that worst case from the timeouts already coded elsewhere,
- * so the two numbers cannot silently drift apart. */
+ * and FP_WAKE_OTA_WORST_CASE_S compute those worst cases (a normal wake
+ * and an OTA wake - alternatives, never both in the same wake) from the
+ * timeouts already coded elsewhere, so the numbers cannot silently
+ * drift apart. */
 #pragma once
 #include <stdbool.h>
 #include <stdint.h>
@@ -20,6 +22,12 @@
 #define FP_WAKE_STAGE_DISPLAY_S  20u /* api_client.c .timeout_ms = 20000 */
 #define FP_WAKE_STAGE_DOWNLOAD_S 30u /* api_client.c .timeout_ms = 30000 */
 #define FP_WAKE_STAGE_BLIT_S     70u /* epd13in3e.c: send_half x2 + PON/DRF/POF busy-waits */
+/* ota.c's esp_https_ota download of one full firmware image into the
+ * inactive OTA slot, assuming a conservative minimum throughput of
+ * about 12 KB/s over the ISRG-only certificate bundle for a ~1.05 MB
+ * release image - well below the LAN/VPS path this device actually
+ * uses, so the budget still has real margin at that assumed floor. */
+#define FP_WAKE_STAGE_OTA_S      90u
 
 /* Worst-case legitimate whole wake: every stage stacked, plus the
  * panel-guard spacing wait (CONFIG_FP_MAX_GUARD_WAIT_S, passed in as
@@ -30,6 +38,22 @@
     (FP_WAKE_STAGE_WIFI_S + FP_WAKE_STAGE_SNTP_S + FP_WAKE_STAGE_SETUP_S + \
      FP_WAKE_STAGE_DISPLAY_S + FP_WAKE_STAGE_DOWNLOAD_S + \
      FP_WAKE_STAGE_BLIT_S + (guard_wait_s))
+
+/* Worst-case legitimate OTA wake: an alternative to FP_WAKE_WORST_CASE_S
+ * above, not an addition on top of it - an OTA wake never also
+ * downloads and blits the normal display image, it either restarts
+ * into the trial image or fails through the single failure exit, so
+ * FP_WAKE_STAGE_DOWNLOAD_S plays no part here. Stacks Wi-Fi, SNTP,
+ * setup and display (the normal poll that carried the offer), the
+ * panel-guard spacing wait, the UPDATING-screen blit, a second Wi-Fi
+ * join after the trial-image reboot, and the firmware image download
+ * itself. The configured wake budget (CONFIG_SKYPANE_WAKE_BUDGET_S)
+ * must exceed both worst cases - see wake_guard.c's two
+ * _Static_assert lines. */
+#define FP_WAKE_OTA_WORST_CASE_S(guard_wait_s) \
+    (FP_WAKE_STAGE_WIFI_S + FP_WAKE_STAGE_SNTP_S + FP_WAKE_STAGE_SETUP_S + \
+     FP_WAKE_STAGE_DISPLAY_S + (guard_wait_s) + FP_WAKE_STAGE_BLIT_S + \
+     FP_WAKE_STAGE_WIFI_S + FP_WAKE_STAGE_OTA_S)
 
 /* True iff now_us is at or past start_us + budget_s worth of
  * microseconds - i.e. the whole-wake budget has expired. now_us before
