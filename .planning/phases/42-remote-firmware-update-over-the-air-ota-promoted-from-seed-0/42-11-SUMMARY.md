@@ -173,3 +173,7 @@ None - no external service configuration required. The `firmware-signing` GitHub
 ---
 *Phase: 42-remote-firmware-update-over-the-air-ota-promoted-from-seed-0*
 *Completed: 2026-09-28*
+
+## Self-Check: PASSED
+
+All created files found on disk; all four commit hashes (`2f95caac`, `dc09c605`, `5a1c4194`, `1e246989`) found in `git log --oneline --all`.
