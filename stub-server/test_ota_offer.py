@@ -656,6 +656,3 @@ def test_serve_firmware_image_streams_in_fixed_size_chunks(byos_module, tmp_path
     assert all(size == byos_module._FW_STREAM_CHUNK_BYTES for size in read_sizes), (
         "expected every read() to request exactly _FW_STREAM_CHUNK_BYTES, got %r" % (read_sizes,))
 
-
-if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, "-v"]))
