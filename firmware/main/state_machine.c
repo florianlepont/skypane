@@ -214,6 +214,20 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
             esp_err_t apply_err = fp_ota_apply(&disp.fw, &ota_fail);
             if (apply_err == ESP_OK) {
                 ESP_LOGI(TAG, "ota switched version=%s restarting", disp.fw.version);
+                /* esp_restart() is a soft reset, not deep sleep: ESP-IDF
+                 * re-runs the C runtime init for the .rtc.data segment on
+                 * this kind of reset, so panel.c's RTC_DATA_ATTR guard
+                 * counter always reads back as 0 on the trial wake below,
+                 * whatever it holds here. Waiting out any spacing still
+                 * owed right now - radio already down
+                 * (draw_updating_screen() called fp_wifi_stop()), panel
+                 * already powered off after its own blit - means the
+                 * spacing is honoured in real elapsed time instead of
+                 * relying on a counter that cannot survive this reset. */
+                uint32_t guard_wait_s = fp_panel_wait_seconds();
+                if (guard_wait_s > 0) {
+                    fp_wake_light_sleep_s(guard_wait_s);
+                }
                 esp_restart();
             }
             fp_ota_record_result(ota_fail, disp.fw.version);
