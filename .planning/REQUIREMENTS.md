@@ -195,7 +195,7 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [x] **CMP-08**: Merged; colours → tokens
 - [x] **CMP-09**: Stable message IDs
 - [ ] **DOC-01**: All docs aligned with the code as it stands after phases 32–40
-- [ ] **DOC-02**: Log gzipped in the tree (no history rewrite, D-A6); unused asset removed from the deploy; completed v1.0 phases archived via `/gsd-cleanup` at milestone close
+- [x] **DOC-02**: Log gzipped in the tree (no history rewrite, D-A6); unused asset removed from the deploy; completed v1.0 phases archived via `/gsd-cleanup` at milestone close
 - [ ] **DOC-03**: Re-audit: every ID in this ledger verified against the code and marked closed
 
 ### Remote firmware update (Phase 42)
@@ -445,7 +445,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CMP-08 | Phase 40 | Complete (40-02 — no duplicated selector, no hard-coded colour outside tokens) |
 | CMP-09 | Phase 40 | Complete (40-12, 40-13, 40-14, 40-15 — stable message IDs across every page, strict ID-only lookup and completeness tests) |
 | DOC-01 | Phase 41 | Pending |
-| DOC-02 | Phase 41 | Pending |
+| DOC-02 | Phase 41 | Complete |
 | DOC-03 | Phase 41 | Pending |
 | OTA-01 | Phase 42 | Pending |
 | OTA-02 | Phase 42 | Pending |
