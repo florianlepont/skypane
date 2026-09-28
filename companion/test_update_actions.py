@@ -1,7 +1,7 @@
 """Plain-request (no browser) tests for the Update page's Install/Cancel
 POST flows: POST /update/install's two-step server-side confirmation
-(D-04, D-06, D-11) and POST /update/cancel's cancel-until-acknowledged
-window (D-05), against a real companion/app.py subprocess -- never
+and POST /update/cancel's cancel-until-acknowledged
+window, against a real companion/app.py subprocess -- never
 source text (companion/test_suite_guards.py's behaviour-over-source
 rule). companion/test_browser_update.py covers the JS confirm-dialog
 and mobile-fit gate that need a real browser; this module proves every
@@ -27,7 +27,7 @@ _NOW = "2026-09-28T12:00:00+00:00"
 
 # Three published releases: fw-v1.0.0 (at the floor), fw-v1.1.0, and
 # fw-v1.2.0 (the running version) -- so both fw-v1.0.0 and fw-v1.1.0 are
-# installable downgrades (D-06), with no special-cased wording expected.
+# installable downgrades, with no special-cased wording expected.
 _RUNNING_VERSION = "fw-v1.2.0"
 _DOWNGRADE_VERSION = "fw-v1.1.0"
 _FLOOR_VERSION = "fw-v1.0.0"
@@ -103,7 +103,7 @@ def cookie(server):
 
 # ==========================================================================
 # POST /update/install: the no-confirm branch renders the server-side
-# confirmation page (D-04) without touching the registry.
+# confirmation page without touching the registry.
 # ==========================================================================
 
 
@@ -131,7 +131,7 @@ def test_install_confirm_page_offers_a_plain_cancel_link_not_a_second_form(serve
 
 # ==========================================================================
 # POST /update/install confirm=yes: the real schedule, including a
-# voluntary downgrade rendered with no special-cased wording (D-06).
+# voluntary downgrade rendered with no special-cased wording.
 # ==========================================================================
 
 
@@ -153,7 +153,7 @@ def test_install_confirm_yes_schedules_and_get_shows_scheduled(server, cookie):
 
 
 def test_install_confirm_yes_downgrade_reads_the_same_as_any_other_install(server, cookie):
-    """fw-v1.1.0 is older than the running fw-v1.2.0 -- D-06 says this is a
+    """fw-v1.1.0 is older than the running fw-v1.2.0 -- this is a
     first-class install, not a special "downgrade" flow: the confirm
     page and the scheduled outcome carry no extra wording.
     """
@@ -246,7 +246,7 @@ def test_install_implausible_version_treated_as_unknown_never_echoed(server, coo
 
 # ==========================================================================
 # POST /update/cancel: cancellable only until the device has acknowledged
-# the offer (D-05).
+# the offer.
 # ==========================================================================
 
 

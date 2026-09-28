@@ -1,7 +1,7 @@
 """Browser checks for the Update page's Install/Cancel action flows: the
 JS `data-confirm` misclick guard versus the no-JS-safe server
-confirmation gate (D-04), the full install -> scheduled -> cancel round
-trip, and the D-02 mobile-fit gate for the tab bar's More sheet
+confirmation gate, the full install -> scheduled -> cancel round
+trip, and the mobile-fit gate for the tab bar's More sheet
 (375px/390px, English/French) plus the >=960px sidebar Advanced group.
 
 Real Playwright browser throughout -- never markup-string assertions
@@ -33,9 +33,9 @@ from server import firmware_registry as fr
 
 pytestmark = pytest.mark.browser
 
-# D-02's own mobile-fit gate names these two exact viewports (42-UI-SPEC.md's
-# executor verification checklist) -- 375x812 is not one of
-# companion/test_browser_ux_helpers.py's shared named constants (whose own
+# The Update page's mobile-fit requirement names these two exact viewports.
+# 375x812 is not one of companion/test_browser_ux_helpers.py's shared
+# named constants (whose own
 # "minimum supported" floor is 360px), so it is declared here rather than
 # reusing VIEWPORT_MIN_SUPPORTED, which is a different, narrower viewport.
 VIEWPORT_375 = {"width": 375, "height": 812}
@@ -113,7 +113,7 @@ def _click_install_form_no_js(page):
 
 
 # ==========================================================================
-# JS confirm-dialog misclick guard versus the server-side gate (D-04).
+# JS confirm-dialog misclick guard versus the server-side gate.
 # ==========================================================================
 
 
@@ -216,7 +216,7 @@ def test_full_flow_install_then_scheduled_then_cancel_returns_to_available(
 
 
 # ==========================================================================
-# D-02's mobile-fit gate: measured, not assumed.
+# The mobile-fit gate: measured, not assumed.
 # ==========================================================================
 
 _MORE_SHEET_LINK_SELECTOR = ".tab-bar__more-panel a.mobile-nav__link"
