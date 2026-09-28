@@ -2000,7 +2000,7 @@ Plans:
 6. Release images hold no device credentials: Wi-Fi and server address come from the provisioned `secret` partition (D-20)
 7. A CI check fails when the production certificate chain no longer leads to a root in the firmware's trust store (D-19)
 
-**Plans:** 2/16 plans executed
+**Plans:** 3/16 plans executed
 
 **Execution gate:** G-41 — the first task of every wave-1 plan (42-01..42-06) stops with "blocked: Phase 41 not complete on main" unless Phase 41 is complete on `main`. 42-06 (device credentials out of the image) implements D-20, confirmed by the developer on 2026-09-25. One writer per file per wave.
 
@@ -2010,7 +2010,7 @@ Plans:
 
 - [x] 42-01-PLAN.md — Server release registry: publish/schedule/cancel, offer gate, outcome reconcile, Update view model [OTA-01, OTA-05, OTA-06, OTA-10]
 - [x] 42-02-PLAN.md — Firmware pure OTA policy (battery/floor/start, image check, boot outcome, confirm rule) + offer validators [OTA-02, OTA-03, OTA-05, OTA-06]
-- [ ] 42-03-PLAN.md — Rollback + signed-app Kconfig confirmed in the pinned container, no-eFuse CI guard, release-tag PROJECT_VER, floor, SIGNING.md [OTA-03, OTA-04, OTA-05, OTA-10]
+- [x] 42-03-PLAN.md — Rollback + signed-app Kconfig confirmed in the pinned container, no-eFuse CI guard, release-tag PROJECT_VER, floor, SIGNING.md [OTA-03, OTA-04, OTA-05, OTA-10]
 - [ ] 42-04-PLAN.md — UPDATING hold screen: render.py composition, generated mask, shared on-device renderer [OTA-07]
 - [ ] 42-05-PLAN.md — Let's Encrypt chain guard: offline-tested checker + scheduled workflow [OTA-11]
 - [ ] 42-06-PLAN.md — Device credentials out of the image into the secret partition (enables CI-built releases) [OTA-10]
