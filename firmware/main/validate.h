@@ -19,6 +19,17 @@
 /* "sha256:" (7) + 64 lowercase hex chars + NUL. */
 #define FP_IMAGE_HASH_BUF 72
 
+/* esp_app_desc_t.version is char[32]; one byte reserved for the NUL. */
+#define FP_FW_VERSION_BUF 32
+
+/* Generous bound for a firmware release image URL. */
+#define FP_FW_URL_BUF 256
+
+/* One OTA slot's size (firmware/partitions.csv: ota_0/ota_1 are each
+ * 0x250000 bytes) - a firmware offer's size field can never legitimately
+ * exceed what a slot can hold. */
+#define FP_FW_MAX_IMAGE_BYTES 0x250000u
+
 /* True iff s is exactly expected_len lowercase hex characters (0-9, a-f).
  * NULL, wrong length, or any uppercase/non-hex byte is false. The one
  * hex-shape check every other validator in this module is built from. */
@@ -45,6 +56,19 @@ bool fp_url_valid(const char *url, size_t cap, bool allow_http);
  * FP_SLEEP_S_MIN..FP_SLEEP_S_MAX. Rejects NaN, negatives and fractions.
  * *out is written only on success; left untouched on rejection. */
 bool fp_sleep_s_parse(double value, uint32_t *out);
+
+/* True iff v is 1 to (FP_FW_VERSION_BUF - 1) bytes, every byte one of
+ * [A-Za-z0-9._-]. NULL, empty, too long, or any other byte (including
+ * ';' and '/') is false. The set excludes ';' because the device
+ * reports OTA results as "<token>;<version>" and excludes '/' so a
+ * version string can never be mistaken for a path. */
+bool fp_fw_version_valid(const char *v);
+
+/* Parses value as a firmware image size in bytes: must be an exact
+ * integer in 1..FP_FW_MAX_IMAGE_BYTES. Rejects NaN, zero, negatives,
+ * fractions and anything past one OTA slot. *out is written only on
+ * success; left untouched on rejection. */
+bool fp_fw_size_parse(double value, uint32_t *out);
 
 /* Resolves the led_enabled field. Permissive by design: an absent field
  * or a value of the wrong JSON type is not a boolean, so it resolves to
