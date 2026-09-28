@@ -727,6 +727,7 @@ def _record_device_report_and_offer(state_dir, state, headers, image_url_scheme,
         battery_low_active = read_battery_low_active(state_dir)
         schedule = registry.get("schedule")
         schedule_id = schedule.get("id") if schedule is not None else None
+        schedule_version = schedule.get("version") if schedule is not None else None
 
         device_report = firmware_registry.load_device_report(state_dir)
         devices = device_report["devices"]
@@ -746,10 +747,21 @@ def _record_device_report_and_offer(state_dir, state, headers, image_url_scheme,
 
         if ota_result is not None:
             token, result_version = ota_result
+            # The firmware resends its last X-Ota-Result on every poll
+            # until a 200 response parses it, so a late or duplicate
+            # delivery is routine, not an edge case. Attribute this
+            # event to the *current* schedule only when the reported
+            # version actually matches it -- otherwise this is a result
+            # for a schedule the operator has since replaced or
+            # cancelled (or the same result outrunning its own 200), and
+            # crediting it to whatever schedule happens to be current
+            # now would move that unrelated schedule's attempt counter
+            # or clear it outright.
+            event_schedule_id = schedule_id if result_version == schedule_version else None
             next_seq += 1
             entry["events"].append({
                 "seq": next_seq, "at": _utc_now_iso(), "kind": "result",
-                "schedule_id": schedule_id, "token": token, "version": result_version,
+                "schedule_id": event_schedule_id, "token": token, "version": result_version,
             })
             changed = True
 

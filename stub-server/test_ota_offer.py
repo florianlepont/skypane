@@ -564,6 +564,59 @@ def test_cancel_cannot_race_the_offer_decision(byos_module, tmp_path):
     )
 
 
+def test_stale_resent_result_does_not_close_a_different_schedule(byos_module, tmp_path):
+    """A device resends its last X-Ota-Result on every poll until a 200
+    parses it (firmware/main/api_client.c). If that first 200 is lost,
+    the device keeps resending a result for a schedule the operator has
+    since replaced. byos must never credit that stale resend to
+    whatever schedule happens to be current now -- only to the
+    schedule whose version the result actually names.
+    """
+    state_dir = str(tmp_path)
+    publish_test_release(state_dir, "fw-v1.3.0")
+    publish_test_release(state_dir, "fw-v1.4.0")
+    assert firmware_registry.schedule_release(state_dir, "fw-v1.3.0", running_version=None) == "scheduled"
+
+    # S1 (v1.3.0) installs; byos records it, but (from the device's own
+    # point of view) the response never arrives.
+    offer1 = byos_module._record_device_report_and_offer(
+        state_dir, {"tokens": {}},
+        {"X-Fw-Version": "fw-v1.3.0", "X-Ota-Result": "installed;fw-v1.3.0"},
+        "http", "example.org")
+    assert offer1 is None  # already running the scheduled version
+
+    notifications = firmware_registry.apply_reconcile(state_dir)
+    assert [n[0] for n in notifications] == ["installed"]
+    assert firmware_registry.load_registry(state_dir)["schedule"] is None
+
+    # The operator schedules v1.4.0 (S2).
+    assert firmware_registry.schedule_release(
+        state_dir, "fw-v1.4.0", running_version="fw-v1.3.0") == "scheduled"
+
+    # The device, still waiting for its own confirmation of the S1
+    # install, resends the SAME result on its next wake.
+    byos_module._record_device_report_and_offer(
+        state_dir, {"tokens": {}},
+        {"X-Fw-Version": "fw-v1.3.0", "X-Ota-Result": "installed;fw-v1.3.0"},
+        "http", "example.org")
+
+    device_report = firmware_registry.load_device_report(state_dir)
+    entry = device_report["devices"]["default"]
+    result_events = [e for e in entry["events"] if e["kind"] == "result"]
+    stale_event = result_events[-1]
+    assert stale_event["version"] == "fw-v1.3.0"
+    assert stale_event["schedule_id"] is None, (
+        "a resent result for a replaced schedule must not be tagged with the new schedule's id"
+    )
+
+    notifications2 = firmware_registry.apply_reconcile(state_dir)
+    assert notifications2 == [], "the resent v1.3.0 result must not resolve the v1.4.0 schedule"
+    schedule = firmware_registry.load_registry(state_dir)["schedule"]
+    assert schedule is not None and schedule["version"] == "fw-v1.4.0", (
+        "the new schedule must still be pending -- a stale resend must not close it"
+    )
+
+
 # --- GET /fw/<sha256>.bin --------------------------------------------------
 
 
