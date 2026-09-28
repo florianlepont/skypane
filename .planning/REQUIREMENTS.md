@@ -209,7 +209,7 @@ Promoted from `.planning/seeds/SEED-009-remote-firmware-update-ota.md` on 2026-0
 - [ ] **OTA-05**: A software version floor: the server never offers, and the device never accepts, a release older than the first OTA-capable release (D-11)
 - [ ] **OTA-06**: The device refuses to start an update below the battery-low level it measures itself. A failed download, hash, signature or trial boot counts as one attempt and toward normal backoff; after three attempts the release is marked failed and the offer withdrawn (D-12, D-15)
 - [ ] **OTA-07**: The panel shows an "Updating…" screen for every update, including during quiet hours and with the display off; the next normal poll redraws what the current mode calls for (D-14)
-- [ ] **OTA-08**: A companion **Update** page, third entry of the Advanced nav group, shows the running version, the update state with its timestamp, a rollback warning, and every published release with its date and generated notes. Install asks for confirmation (with and without JS), a scheduled install can be cancelled until the device starts downloading, and any published release at or above the floor can be installed (D-02..D-07)
+- [x] **OTA-08**: A companion **Update** page, third entry of the Advanced nav group, shows the running version, the update state with its timestamp, a rollback warning, and every published release with its date and generated notes. Install asks for confirmation (with and without JS), a scheduled install can be cancelled until the device starts downloading, and any published release at or above the floor can be installed (D-02..D-07)
 - [ ] **OTA-09**: A push notification reports a successful update and a failed one (with the version the frame is back on), through `server/notify.py`, in English and French (D-08)
 - [ ] **OTA-10**: A git tag creates a release: CI builds with the tag as `PROJECT_VER`, signs, records version, SHA-256, size, date and the `firmware/` commits since the previous release; the reviewer-gated deploy job copies it into the state directory's firmware store; every release is kept (D-16, D-17, D-18)
 - [ ] **OTA-11**: A CI check that reaches the network fails when the production host's certificate chain no longer leads to a root in `firmware/main/certs` (D-19)
@@ -454,7 +454,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OTA-05 | Phase 42 | Pending |
 | OTA-06 | Phase 42 | Pending |
 | OTA-07 | Phase 42 | Pending |
-| OTA-08 | Phase 42 | Pending |
+| OTA-08 | Phase 42 | Complete |
 | OTA-09 | Phase 42 | Pending |
 | OTA-10 | Phase 42 | Pending |
 | OTA-11 | Phase 42 | Pending |
