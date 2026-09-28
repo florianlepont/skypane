@@ -53,6 +53,7 @@ CADDY_SITES_DIR="${CADDY_SITES_DIR:-/etc/caddy/sites}"
 CADDY_SITE_FILE="${CADDY_SITE_FILE:-${CADDY_SITES_DIR}/skypane.caddy}"
 BACKUP_GATE_DIR="${BACKUP_GATE_DIR:-/usr/local/lib/skypane}"
 BACKUP_ROOT="${BACKUP_ROOT:-/var/lib/skypane-backup}"
+STATE_DIR="${STATE_DIR:-${SKYPANE_ROOT}/state}"
 KEEP_RELEASES="${KEEP_RELEASES:-5}"
 PROBE_TIMEOUT_S="${PROBE_TIMEOUT_S:-30}"
 SKYPANE_ACTIVATE_ALLOW_NONROOT="${SKYPANE_ACTIVATE_ALLOW_NONROOT:-0}"
@@ -169,6 +170,32 @@ if ! "${VENV}/bin/python3" "${RELEASE_DIR}/companion/app.py" --help >/dev/null 2
     || ! "${VENV}/bin/python3" "${RELEASE_DIR}/deploy/backup/skypane_backup.py" --help >/dev/null 2>&1; then
     echo "activate.sh: smoke check failed for release ${SHA} - not swapping" >&2
     exit 1
+fi
+
+echo "==> Ensuring the firmware state directory"
+FIRMWARE_STATE_DIR="${STATE_DIR}/firmware"
+if [ ! -d "${FIRMWARE_STATE_DIR}" ]; then
+    install -d -m 0750 "${FIRMWARE_STATE_DIR}"
+fi
+chown skypane:skypane "${FIRMWARE_STATE_DIR}"
+
+echo "==> Firmware import"
+# deploy.sh streams every published fw-v* release into
+# releases/.incoming-<sha>/firmware-releases/, which staging above just
+# moved to ${RELEASE_DIR}/firmware-releases/ along with the rest of the
+# release. Importing here, before the swap, means a bad release (a
+# hash/size mismatch) fails activation with the previous code still
+# serving -- never half-imported firmware behind newly swapped code.
+FIRMWARE_RELEASES_DIR="${RELEASE_DIR}/firmware-releases"
+if [ -d "${FIRMWARE_RELEASES_DIR}" ]; then
+    if ! ( cd "${RELEASE_DIR}" \
+            && runuser -u skypane -- "${VENV}/bin/python3" -m server.firmware_cli \
+                import-dir "${FIRMWARE_RELEASES_DIR}" --state-dir "${STATE_DIR}" ); then
+        echo "activate.sh: firmware import failed for ${SHA} - not swapping" >&2
+        exit 1
+    fi
+else
+    echo "    no firmware-releases directory staged - skipping import"
 fi
 
 restore_site_file() {

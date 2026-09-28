@@ -27,6 +27,11 @@ if [ -n "$(git -C "${REPO_ROOT}" status --porcelain)" ]; then
         "committed tree at ${SHA} ships, nothing else" >&2
 fi
 
+if [ -n "${SKYPANE_FIRMWARE_DIR:-}" ] && [ ! -d "${SKYPANE_FIRMWARE_DIR}" ]; then
+    echo "deploy.sh: SKYPANE_FIRMWARE_DIR is set but is not a directory: ${SKYPANE_FIRMWARE_DIR}" >&2
+    exit 1
+fi
+
 INCOMING="/opt/skypane/releases/.incoming-${SHA}"
 
 echo "==> Streaming the committed tree at ${SHA} to ${SSH_TARGET}:${INCOMING}"
@@ -43,6 +48,17 @@ git -C "${REPO_ROOT}" archive --format=tar "${SHA}" -- \
         && sudo rm -rf '${INCOMING}' \
         && sudo install -d -m 0755 '${INCOMING}' \
         && sudo tar -x -C '${INCOMING}'"
+
+if [ -n "${SKYPANE_FIRMWARE_DIR:-}" ]; then
+    echo "==> Streaming firmware releases from ${SKYPANE_FIRMWARE_DIR} to ${SSH_TARGET}:${INCOMING}/firmware-releases"
+    # A second tar stream, same shape as the code archive above -- every
+    # published fw-v* release's image and manifest, so activate.sh's own
+    # firmware import step has something to publish from.
+    # shellcheck disable=SC2029
+    tar -C "${SKYPANE_FIRMWARE_DIR}" -cf - . \
+        | ssh "${SSH_TARGET}" "sudo install -d -m 0755 '${INCOMING}/firmware-releases' \
+            && sudo tar -x --no-same-owner -C '${INCOMING}/firmware-releases'"
+fi
 
 echo "==> Running activate.sh on ${SSH_TARGET} for ${SHA}"
 # shellcheck disable=SC2029
