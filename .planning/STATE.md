@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 42
 current_phase_name: remote-firmware-update-over-the-air-ota-promoted-from-seed-0
 status: executing
-stopped_at: "Completed 42-10-PLAN.md (server-side OTA outcome loop: notify.py EN/FR firmware bodies, poll_cycle.py's run_once() reconciling every device-reported OTA outcome into the registry across every hold branch, with exactly one push per install/failure). Next: 42-11."
-last_updated: "2026-09-28T16:23:49.019Z"
+stopped_at: "Completed 42-11-PLAN.md (release pipeline build half: scripts/fw_release_manifest.py generates release.json + notes from git, .github/workflows/firmware-release.yml builds/signs/verifies/publishes on a fw-v* tag push gated behind the firmware-signing GitHub environment, deploy/tests/test_ci_secrets.py now scans every workflow file). Next: 42-12."
+last_updated: "2026-09-28T16:43:38.789Z"
 last_activity: 2026-09-28
 progress:
   total_phases: 54
   completed_phases: 50
   total_plans: 442
-  completed_plans: 427
-  percent: 93
+  completed_plans: 428
+  percent: 97
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -66,7 +66,9 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 11 of 16
+Plan: 12 of 16
+
+**42-11 executed (2026-09-28), plan 11/16 of Phase 42 (depends on 42-01, 42-03, 42-06), wave 2 — the release pipeline's build half, five commits.** Task 1 (TDD) added `scripts/fw_release_manifest.py`: a stdlib-only, argument-list-only-subprocess CLI (`--tag`, `--image`, `--out`, `--repo`, `--notes-md`) that hashes the image and walks `git log`/`rev-list`/`show` to build the exact manifest shape `server.firmware_registry.publish_release` expects (version, sha256, size, released_at, commit, notes) plus an optional Markdown release-notes body, with no hand-written release text anywhere (D-07). Notes are `firmware/`-only, no-merges, newest-first, capped at 60 with a real `"and N earlier commits"` remaining count; the previous release tag is chosen by parsed version order among `fw-v*` tags reachable from the current tag, never by tag creation time — proven with a dedicated test (`fw-v1.0.5` tagged before the lower-version `fw-v1.0.2`, confirming the naive "most recently created tag" bug is absent) (RED/GREEN: `2f95caac` test, `dc09c605` feat; GREEN's own commit fixed a self-inflicted docstring collision where the sentence explaining "never shell=True" literally contained the substring `shell=True`, caught by the acceptance-criteria grep before committing). Task 2 added `.github/workflows/firmware-release.yml`: `on: push: tags: ['fw-v*']`, one `release` job gated behind the `firmware-signing` GitHub environment (a human reviewer must approve before `FW_SIGNING_KEY` ever reaches the run), a guard step failing the job before any build if the tag is malformed or its commit is not an ancestor of `origin/main`, a build via `firmware/build.sh`'s `SKYPANE_RELEASE_TAG` release mode, the production-config and Log Line Contract checks re-run against the built image, signing via `espsecure.py sign_data` inside the pinned `espressif/idf:v5.3.1` container (key written to a `$RUNNER_TEMP` file under `umask 077`, removed by an `if: always()` step, never interpolated into `run:` text), verification via `espsecure.py verify_signature` against the committed public key, manifest/notes generation, staging the five fixed-name release assets (including the exact `partition-table-<tag>.bin` spelling from the plan's interfaces block), publishing via `gh release create --verify-tag`, and finally triggering `ci.yml`'s reviewer-gated production deploy via `gh workflow run` (expected to fail loudly until a later plan adds `ci.yml`'s `workflow_dispatch` trigger — acceptable since no release tag is pushed before the hardware session). `deploy/tests/test_ci_secrets.py`'s no-secret-in-`run:` scan now iterates every `.github/workflows/*.yml` file instead of only `ci.yml`, proven with a real mutation (a scratch workflow leaking `${{ secrets.X }}` in a `run:` block made the test fail with the exact offending file/step name, then was removed) (`5a1c4194` feat). `actionlint .github/workflows/firmware-release.yml` clean. One environment-specific issue: this session's interactive shell aliases `grep` to `ugrep -G` (basic regex), which does not match a literal `${{ ... }}` pattern the way real `grep` does — every acceptance-criteria grep had to be re-run via `command grep` to get a true result; not a defect in the files themselves. `roadmap.update-plan-progress 42` now reports 11/16 plans (summaries) with the phase still In Progress. `REQUIREMENTS.md` intentionally left untouched: OTA-04/OTA-10 are each shared across later plans in this phase (the deploy import, the hardware session), matching this phase's established convention. `state.update-progress` reproduced this file's own documented recurring bug twice more in this same session — its own JSON correctly returned `percent: 97` (428/442) both times, but the written frontmatter reverted to `percent: 93` (`completed_phases/total_phases` = 50/54) after `state.update-progress` and again after `state.record-session` — corrected to `97` by hand each time per this file's established precedent.
 
 **42-10 executed (2026-09-28), plan 10/16 of Phase 42 (depends on 42-01), wave 2 — the server-side OTA outcome loop, four commits.** Task 1 added `notify.py`'s `FIRMWARE_INSTALLED_BODY`/`FIRMWARE_FAILED_BODY` English constants and their French forms in `_BODY_FR` (RED/GREEN: `a90e9532` test, `b58d5df3` feat). Task 2 added `server/poll_cycle.py::_reconcile_firmware()`, called from `run_once()` right after `load_cycle_context()` and before `decide_hold()` — the one point every branch (live, battery-empty, quiet-hours, display-off) passes through unconditionally — so a poll cycle folds device-reported OTA outcomes into the registry via `firmware_registry.apply_reconcile()` and fires exactly one push per installed/failed outcome, gated on the same group-present/topic-present check `_notify_battery_transition()` already uses, in the operator's language; a raising reconcile is caught and logged as `firmware reconcile failed: <ExceptionType>` only, never the topic URL or exception text (RED/GREEN: `36af9410` test, `5a28a27a` feat). The plan's own `files_modified` list named `server/poll_loop.py` from before the Phase 39 poll_cycle.py/poll_loop.py split; this plan's own `<read_first>` instruction to re-read `poll_loop.py` on main surfaced that it is now only the CLI wrapper, and the real step list lives in `poll_cycle.py::run_once()` — the reconcile step landed there instead, documented as a deviation in the SUMMARY. 10 new cycle-level tests in `server/test_firmware_reconcile.py`, each driving the real `run_once()` over a hold branch (display-off, quiet-hours, or battery-empty) so no live ADS-B/adsbdb network seam needed stubbing. Two Rule-1 auto-fixes: a comment-history violation (D-15/D-08 decision-ID citations in the new docstrings, reworded per `scripts/check_comment_history.py check`), and a test-isolation fix (the battery-empty hold-branch test initially double-counted an unrelated pre-existing battery-low transition push sharing the same monkeypatched sender — fixed by disabling that unrelated toggle for the one test). `./scripts/run-all-tests.sh` (the project's `fullcheck.sh` wrapper): 3354 passed, 21 known-environment-only failures (macOS raqm mask-header rendering, Linux/systemd-only deploy tests), zero new failures; 95.18% coverage (required 93%); ruff, mypy, `check_comment_history.py` and the function-size gate all clean. `roadmap.update-plan-progress 42` now reports 10/16 plans (summaries) with the phase still In Progress. `REQUIREMENTS.md` intentionally left untouched: OTA-06/OTA-09 are each shared across further plans in this phase (the device-side three-attempts refusal, the battery-low-start gate, OTA-09's own wording review), so `requirements mark-complete` was not called — matching this phase's established convention. `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 97` (427/442) but the written frontmatter showed `percent: 93` (`completed_phases/total_phases` = 50/54) — corrected to `97` by hand per this file's established precedent.
 
@@ -645,6 +647,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 42 P08 | 45min | 2 tasks | 6 files |
 | Phase 42 P09 | 35min | 2 tasks | 10 files |
 | Phase 42 P10 | 35min | 2 tasks | 4 files |
+| Phase 42 P11 | 40min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -1282,6 +1285,8 @@ Recent decisions affecting current work:
 - [Phase 42]: companion/i18n_fr/__init__.py needed no edit for plan 09 -- pkgutil.iter_modules discovers companion/i18n_fr/update.py automatically
 - [Phase 42]: The reconcile step landed in server/poll_cycle.py (Phase 39's cycle-body module), not server/poll_loop.py (now only the CLI wrapper) -- the plan's own files_modified list predated the Phase 39 split
 - [Phase 42]: Firmware notifications reuse the same group-present/topic-present gate _notify_battery_transition() already checks first, with no new dedicated OTA notifications toggle field added to device_config.py
+- [Phase 42]: 42-11: previous_tag() orders fw-v* candidates by parsed version tuple, never by tag creation time; proven with a test where the lower-version tag is created after the higher-version one
+- [Phase 42]: 42-11: release asset file names taken verbatim from the plan's interfaces block, including partition-table-<tag>.bin (not the shorter partition-<tag>.bin)
 
 ### Pending Todos
 
@@ -1404,12 +1409,13 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T16:23:48.994Z
-Stopped at: Completed 42-10-PLAN.md (server-side OTA outcome loop: notify.py EN/FR firmware bodies, poll_cycle.py's run_once() reconciling every device-reported OTA outcome into the registry across every hold branch, with exactly one push per install/failure). Next: 42-11.
+Last session: 2026-09-28T16:43:38.764Z
+Stopped at: Completed 42-11-PLAN.md (release pipeline build half: scripts/fw_release_manifest.py generates release.json + notes from git, .github/workflows/firmware-release.yml builds/signs/verifies/publishes on a fw-v* tag push gated behind the firmware-signing GitHub environment, deploy/tests/test_ci_secrets.py now scans every workflow file). Next: 42-12.
 
 Resume file: 
 
-- `companion/test_browser_ux.py`'s `EXPECTED_CHECK_COUNT` is now 38 (down from 57); 36/75 of the file's original checks are ported, 1 deleted, 38 remain across parts 03-04.
+None
+
 - `33-22-SUMMARY.md` written (`d8bf280`) documenting the container-restart interruption and the re-verification rather than re-migration.
 - Progress counters: `gsd-sdk query state.advance-plan --phase 33` and `state.update-progress --phase 33` both reproduced the documented SDK bug this session — the first returned `completed_plans: 325, percent: 77` (a drop from the pre-existing `321/93`), and the second additionally rewrote the demoted 2026-09-04 historical frontmatter block's own progress bar (`92%` -> `94%`), which must never be touched since it is frozen historical data. Both mutation results were discarded; the file was restored from a pre-call backup and the frontmatter was corrected by hand instead: `completed_plans: 322` (321 + 1 for this plan), `percent: 93` (322/347). The `Plan: N of 33` body line was advanced by hand from 23 to 24 (matching the one sane field the `state.advance-plan` response returned, `current_plan: 24`), independent of the corrupted frontmatter fields.
 - Next step: continue `/gsd-execute-phase 33` with plan `33-23` (browser_ux part 03, Wave 6) or whichever other Wave 5/6 plan (`33-28` status_pages part 04 is still unchecked in ROADMAP.md's Wave 5) the orchestrator schedules next.
