@@ -32,7 +32,11 @@ key-decisions:
   - "compute_offer counts unreconciled counted-failure events from the requesting device's own event list (passed in as device_entry), so a third failure reported in the same poll that would grant a fourth attempt is caught before apply_reconcile ever runs"
   - "acknowledged() is shared verbatim by schedule_release, cancel_schedule and update_view (via a private _newest_event_for_schedule helper) so 'has the device started' has exactly one implementation"
 
-requirements-completed: [OTA-01, OTA-05, OTA-06, OTA-10]
+requirements-completed: []  # OTA-01/05/06/10 are listed in this plan's frontmatter but are each shared across
+                            # several plans in this phase (OTA-06 alone spans 6 plans, OTA-10 spans 6);
+                            # REQUIREMENTS.md is left Pending here per this project's established convention
+                            # (see Phase 39/40's ARC-*/CMP-* precedent) -- only the phase's own close-out plan
+                            # flips these to Complete once byos/device/CI actually satisfy each clause.
 
 coverage:
   - id: D1
@@ -177,8 +181,17 @@ None - no external service configuration required. This plan is server-side, std
 
 - `server/firmware_registry.py` exports every name the interfaces block promised (`load_registry`, `load_device_report`, `publish_release`, `schedule_release`, `cancel_schedule`, `acknowledged`, `compute_offer`, `reconcile`, `apply_reconcile`, `update_view`, `parse_version`, `at_or_above_floor`, `firmware_image_path`, `registry_lock`) -- later plans in this phase (byos's offer route, the poll loop's reconcile call, the companion Update page, the CI deploy import) can build against these names as documented, unchanged.
 - No blockers. The storage layout (`firmware/registry.json`, `firmware/device_report.json`, `firmware/<sha>.bin`) is defined and locked; `device_report.json` itself is still byos-owned and does not yet exist on disk in production until byos's own plan lands -- `load_device_report`'s tolerant-missing-file default already covers that gap.
+- `REQUIREMENTS.md` was deliberately left untouched: OTA-01/05/06/10 are each shared across several later plans in this phase (byos, poll loop, firmware, CI), so this plan does not call `requirements mark-complete` for them -- matching this project's established convention of only flipping a shared requirement ID at the phase's own close-out plan.
 
 ---
 
 *Phase: 42-remote-firmware-update-over-the-air-ota-promoted-from-seed-0*
 *Completed: 2026-09-28*
+
+## Self-Check: PASSED
+
+- FOUND: server/firmware_registry.py
+- FOUND: server/test_firmware_registry.py
+- FOUND: .planning/phases/42-remote-firmware-update-over-the-air-ota-promoted-from-seed-0/42-01-SUMMARY.md
+- FOUND: 7b7aae28 (feat: registry storage, publish, schedule, cancel)
+- FOUND: 2096c009 (feat: pure offer, reconcile, view)
