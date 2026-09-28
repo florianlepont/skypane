@@ -1,9 +1,11 @@
 # SkyPane — CI pipeline.
 #
-# `test`: lint + full pytest suite (coverage gate) + attribution check,
-# on Python 3.14 (matches production), every push and PR. `deploy` runs
-# only after `test` succeeds, only on a push to main, and pauses for a
-# human reviewer. Firmware builds live in their own file (firmware.yml):
+# `test`: ruff lint + comment-history guard + mypy + function-size gate +
+# shellcheck + offline systemd-unit security scoring + full pytest suite
+# (coverage gate) + vendored-asset attribution check, on Python 3.14
+# (matches production), every push and PR. `deploy` runs only after
+# `test` succeeds, only on a push to main, and pauses for a human
+# reviewer. Firmware builds live in their own file (firmware.yml):
 # path-restricted triggers are workflow-level, not job-level.
 name: CI
 

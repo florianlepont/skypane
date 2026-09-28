@@ -17,8 +17,9 @@
 
     # Durable per-request access log (not stdout, which is journald-bound
     # and rotates on its own schedule). The device's battery voltage
-    # arrives as the X-Battery-Mv header; byos_server.py prints it but
-    # persists nothing, so this file is the only durable record.
+    # arrives as the X-Battery-Mv header; byos_server.py persists only
+    # the latest reading (battery_state.json), so this file is the only
+    # durable per-request record.
     #
     # Caddy's header redaction covers only Cookie/Set-Cookie/Authorization/
     # Proxy-Authorization, so telemetry headers appear here; the tailer
