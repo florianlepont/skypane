@@ -125,7 +125,16 @@ esp_err_t fp_ota_apply(const fp_fw_offer_t *offer, fp_ota_result_t *fail_out)
         mbedtls_sha256_context sha_ctx;
         mbedtls_sha256_init(&sha_ctx);
         mbedtls_sha256_starts(&sha_ctx, 0);
-        uint8_t chunk[HASH_CHUNK_BYTES];
+        /* static, not a local: Xtensa reserves a function's whole frame
+         * on entry, so a 4 KiB array here would stay live on the stack
+         * through esp_https_ota_begin()/perform()/finish() too (the
+         * mbedTLS handshake and the RSA-3072 signature check), on top
+         * of app_main's own ~1.2 KB fp_display_t - the heaviest stack
+         * path in the firmware. fp_ota_apply() is single-threaded and
+         * runs at most once per wake (state_machine.c never calls it
+         * twice in the same wake), so a static buffer here has no
+         * reentrancy hazard. */
+        static uint8_t chunk[HASH_CHUNK_BYTES];
         uint32_t offset = 0;
         while (offset < offer->size) {
             uint32_t take = offer->size - offset;
