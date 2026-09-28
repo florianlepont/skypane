@@ -112,7 +112,13 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
         timing_out->wifi_ms = elapsed_ms_since(t_wifi);
     }
     if (wifi_err != ESP_OK) {
-        *fail_step_out = "wifi";
+        /* fp_wifi_connect() returns FP_ERR_CONFIG, with no radio activity
+         * at all, when the provisioned credentials are missing or
+         * invalid (wifi.h). That is a provisioning defect, not a radio
+         * or AP problem, and the Log Line Contract's "wifi" token points
+         * an operator at the wrong fix (radio/AP) instead of the right
+         * one (provision.sh) if the two are conflated here. */
+        *fail_step_out = wifi_err == FP_ERR_CONFIG ? "config" : "wifi";
         return FP_POLL_FAILED;
     }
     fp_wake_checkpoint();
