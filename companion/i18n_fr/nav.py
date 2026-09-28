@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """French strings for the nav labels and the nav-footer switches.
 
-The seven nav labels are fixed: Accueil, Affichage, Vols, Compagnies,
-Avancé, État, Appareil. "FR"/"EN" are identifiers, not translated,
-and therefore have no entry here.
+The eight nav labels are fixed: Accueil, Affichage, Vols, Compagnies,
+Avancé, État, Appareil, Mise à jour. "FR"/"EN" are identifiers, not
+translated, and therefore have no entry here.
 
 Copy follows sentence case, the typographic apostrophe (U+2019,
 never a straight quote), and a non-breaking space (U+00A0) before
@@ -28,6 +28,7 @@ MESSAGES = {
     "nav.advanced": "Avancé",
     "nav.health": "État",
     "nav.device": "Appareil",
+    "nav.update": "Mise à jour",
 
     # The bottom tab bar's fifth cell; its <details> sheet holds the
     # Advanced group's two destinations.

@@ -473,30 +473,30 @@ def test_sidebar_nav_escapes_hostile_active():
 
 
 def test_nav_tabs_shrunk_to_four_settled_order():
-    """layout.NAV_TABS holds exactly 6 entries, in order home/display/flights/airlines/health/device"""
+    """layout.NAV_TABS holds exactly 7 entries, in order home/display/flights/airlines/health/device/update"""
     # 06.6.4.1-08 : NAV_TABS shrinks from five entries to four -
     # Preview is retired, its whole content absorbed into History
     # (06.6.4.1-05). Order matters: every nav renderer walks NAV_TABS in
-    # this exact order. : six tabs in two groups - the everyday
-    # four, then the two under the "Advanced" label - flattened in that
-    # order.
-    assert len(layout.NAV_TABS) == 6
-    expected_routes = ("/", "/display", "/flights", "/airlines", "/health", "/device")
+    # this exact order. : seven tabs in two groups - the everyday
+    # four, then the three under the "Advanced" label (Update joined
+    # Health/Device) - flattened in that order.
+    assert len(layout.NAV_TABS) == 7
+    expected_routes = ("/", "/display", "/flights", "/airlines", "/health", "/device", "/update")
     actual_routes = tuple(route for route, _ in layout.NAV_TABS)
     assert actual_routes == expected_routes
 
 
 def test_sidebar_and_tab_bar_render_exactly_six_links_one_active_each():
-    """a rendered authenticated page contains exactly six sidebar nav links and exactly six
+    """a rendered authenticated page contains exactly seven sidebar nav links and exactly seven
     tab-bar links, with exactly one marked active in each, and the hamburger dropdown holds
     zero destination links"""
     # The sub-960px dropdown now holds preferences, not destinations, and
-    # the tab bar holds all six destination links instead. The count and
-    # the exactly-one-active assertion are unchanged; what they are
-    # counted over moved.
+    # the tab bar holds all seven destination links instead (Update
+    # joined Health/Device). The count and the exactly-one-active
+    # assertion are unchanged; what they are counted over moved.
     sidebar_markup = layout.sidebar_nav("flights")
     sidebar_link_count = sidebar_markup.count('<a class="sidebar-link')
-    assert sidebar_link_count == 6
+    assert sidebar_link_count == 7
     assert sidebar_markup.count("sidebar-link--active") == 1
 
     doc = layout.page_shell(
@@ -507,7 +507,7 @@ def test_sidebar_and_tab_bar_render_exactly_six_links_one_active_each():
     bar_link_count = (
         bar.count('<a class="tab-bar__link')
         + bar.count('<a class="mobile-nav__link'))
-    assert bar_link_count == 6
+    assert bar_link_count == 7
     assert bar.count("tab-bar__link--active") == 1
 
     # And the dropdown now holds ZERO destination links - this is the

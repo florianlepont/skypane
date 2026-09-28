@@ -51,10 +51,13 @@ FLIGHTS_ROUTE = "/flights"
 AIRLINES_ROUTE = "/airlines"
 HEALTH_ROUTE = "/health"
 DEVICE_ROUTE = "/device"
+# The Update page: a third Advanced-group destination alongside Health
+# and Device, for reviewing and installing firmware releases.
+UPDATE_ROUTE = "/update"
 
 ADVANCED_GROUP_LABEL = i18n.msg("nav.advanced", "Advanced")
 
-# The six nav-tab labels, each a Message so its French lookup survives a
+# The seven nav-tab labels, each a Message so its French lookup survives a
 # reword of the English below; declared once here since NAV_GROUPS/
 # NAV_TABS are the one source of these labels for every renderer.
 _NAV_LABEL_HOME = i18n.msg("nav.home", "Home")
@@ -63,6 +66,7 @@ _NAV_LABEL_FLIGHTS = i18n.msg("nav.flights", "Flights")
 _NAV_LABEL_AIRLINES = i18n.msg("nav.airlines", "Airlines")
 _NAV_LABEL_HEALTH = i18n.msg("nav.health", "Health")
 _NAV_LABEL_DEVICE = i18n.msg("nav.device", "Device")
+_NAV_LABEL_UPDATE = i18n.msg("nav.update", "Update")
 
 NAV_GROUPS = (
     ("", (
@@ -74,6 +78,7 @@ NAV_GROUPS = (
     (ADVANCED_GROUP_LABEL, (
         (HEALTH_ROUTE, _NAV_LABEL_HEALTH),
         (DEVICE_ROUTE, _NAV_LABEL_DEVICE),
+        (UPDATE_ROUTE, _NAV_LABEL_UPDATE),
     )),
 )
 
@@ -513,6 +518,14 @@ ICON_IDS = ICON_IDS + (
     "icon-gear",
 )
 
+# One more icon, for the Update nav destination: a two-arrow cycle
+# glyph, distinct from icon-refresh (reserved for the copy-button/
+# manual-refresh family). Appended, not merged, for the same reason
+# above.
+ICON_IDS = ICON_IDS + (
+    "icon-nav-update",
+)
+
 # One shared inline sprite, emitted once per document by page_shell().
 # This sprite must never move inside a conditionally rendered region: a
 # <use> referencing a symbol that isn't in the DOM at all (not merely
@@ -656,6 +669,16 @@ ICON_DEFS_HTML = (
     '<path d="M6 7l4-4 4 4"/>'
     '<path d="M3.5 13v3a1.5 1.5 0 0 0 1.5 1.5h10a1.5 1.5 0 0 0 1.5-1.5v-3"/>'
     "</symbol>"
+    # The Update nav destination's glyph: a two-arrow cycle, same
+    # viewBox/stroke language as the other icon-nav-* symbols, distinct
+    # from icon-refresh (reserved for the copy-button/manual-refresh
+    # family).
+    '<symbol id="icon-nav-update" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<path d="M3 9.5a7 7 0 0 1 11.5-4.5M17 10.5a7 7 0 0 1-11.5 4.5"/>'
+    '<path d="M13 3.5v3h3M7 16.5v-3H4"/>'
+    "</symbol>"
     # The bottom tab bar's "More" glyph: three dots drawn as zero-length
     # round-capped strokes rather than three <circle fill="currentColor">,
     # so this symbol keeps the sprite's own
@@ -695,6 +718,7 @@ NAV_ICON_IDS = {
     "airlines": "icon-nav-airlines",
     "health": "icon-nav-health",
     "device": "icon-nav-device",
+    "update": "icon-nav-update",
 }
 
 # The fragment id the skip-link's first-focusable <a href="#..."> points

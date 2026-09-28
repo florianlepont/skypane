@@ -82,3 +82,28 @@ plan requirement.
 **Suggested follow-up:** re-run `deploy/tests/test_activate.py` and
 `test_install_backup_key.py` inside a Linux container (as 41-06 did) if a
 future plan needs to prove them; not needed for this plan's own scope.
+
+## 42-09: `companion/test_suite_guards.py::test_no_legacy_runner_anywhere` fails, caused by `stub-server/test_ota_offer.py` (42-07), unrelated to this plan
+
+**Found during:** 42-09 Task 1 verification, running the plan's own stated
+command `pytest -q companion/test_update_page.py companion/test_suite_guards.py`.
+
+**Symptom:** `test_no_legacy_runner_anywhere` (a repo-wide guard scanning
+`server`, `stub-server`, `test-support`, `companion` and `deploy/tests` for
+a hand-rolled `if __name__ == "__main__":` runner) fails, naming
+`stub-server/test_ota_offer.py:660`.
+
+**Proven pre-existing and unrelated to this plan:** `git log`/`git status`/
+`git diff` on `stub-server/test_ota_offer.py` show it untouched by this
+plan and last committed by `dc865bbc` (42-07, "serve release images from a
+strict /fw/<sha>.bin route") — well before this plan started. This plan's
+`files_modified` list touches only `companion/` files; it has never had a
+reason to edit anything under `stub-server/`.
+
+**Why not fixed here:** out of this plan's `files_modified` list and scope
+boundary — a `stub-server/` test file's trailing `if __name__ == "__main__":
+raise SystemExit(pytest.main(...))` block from a prior, already-merged plan
+is not something 42-09's own Update-page display work caused or touches.
+
+**Suggested follow-up:** a small follow-up (or the next 42-* plan that
+touches `stub-server/test_ota_offer.py`) should delete that trailing block.
