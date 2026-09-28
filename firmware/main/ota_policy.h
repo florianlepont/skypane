@@ -84,6 +84,11 @@ fp_ota_image_verdict_t fp_ota_image_check(const char *desc_project,
 typedef enum {
     FP_OTA_BOOT_NONE,         /* no trial was in progress                    */
     FP_OTA_BOOT_TRIAL,        /* running the just-installed image, unconfirmed */
+    FP_OTA_BOOT_INSTALLED,    /* running the just-installed image, already
+                               * confirmed, but that confirm's own INSTALLED
+                               * result was never recorded (a crash between
+                               * the confirm and recording it, or a boot
+                               * with rollback support absent) */
     FP_OTA_BOOT_ROLLED_BACK,  /* bootloader reverted a failed trial          */
     FP_OTA_BOOT_INTERRUPTED,  /* a trial was recorded but this boot is neither
                                * that image nor its recorded rollback target */
@@ -94,8 +99,10 @@ typedef enum {
  * last_invalid_version: the version the bootloader marked invalid, if
  * any) compared against what is running now. ota_try NULL or empty
  * means no trial was recorded: NONE. ota_try == running: TRIAL if the
- * app has not confirmed itself valid yet, NONE if it already has
- * (an earlier wake already classified and confirmed this boot).
+ * app has not confirmed itself valid yet, INSTALLED if it already has
+ * (the confirm itself happened - by fp_ota_confirm_if_pending() or the
+ * bootloader's own rollback-disabled default - but the INSTALLED result
+ * was never recorded, so the server still needs to hear about it).
  * ota_try != running: ROLLED_BACK if last_invalid_version == ota_try
  * (the bootloader's own record agrees this is why we rolled back),
  * INTERRUPTED otherwise (the image changed for some other reason - a

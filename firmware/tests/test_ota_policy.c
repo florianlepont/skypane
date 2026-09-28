@@ -102,7 +102,7 @@ static void boot_classify_cases(void)
            == FP_OTA_BOOT_TRIAL);
 
     assert(fp_ota_boot_classify("fw-v1.2.0", "fw-v1.2.0", false, NULL)
-           == FP_OTA_BOOT_NONE); /* already confirmed earlier */
+           == FP_OTA_BOOT_INSTALLED); /* confirmed earlier, INSTALLED never recorded */
 
     assert(fp_ota_boot_classify("fw-v1.2.0", "fw-v1.1.0", true, "fw-v1.2.0")
            == FP_OTA_BOOT_ROLLED_BACK);

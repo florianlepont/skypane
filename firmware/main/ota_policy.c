@@ -136,7 +136,7 @@ fp_ota_boot_outcome_t fp_ota_boot_classify(const char *ota_try,
         return FP_OTA_BOOT_NONE;
     }
     if (strcmp(ota_try, running) == 0) {
-        return running_pending_verify ? FP_OTA_BOOT_TRIAL : FP_OTA_BOOT_NONE;
+        return running_pending_verify ? FP_OTA_BOOT_TRIAL : FP_OTA_BOOT_INSTALLED;
     }
     if (last_invalid_version && strcmp(ota_try, last_invalid_version) == 0) {
         return FP_OTA_BOOT_ROLLED_BACK;

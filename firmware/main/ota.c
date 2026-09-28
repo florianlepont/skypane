@@ -242,6 +242,16 @@ void fp_ota_boot_check(void)
         outcome_name = "trial";
         fp_ota_record_result(FP_OTA_RESULT_TRIAL, ota_try);
         break;
+    case FP_OTA_BOOT_INSTALLED:
+        /* The confirm itself already happened on some earlier wake (the
+         * running image is no longer pending verification), but that
+         * confirm's own INSTALLED result never reached the server -
+         * catch up on it now rather than silently dropping it (see
+         * ota_policy.h's FP_OTA_BOOT_INSTALLED doc). */
+        outcome_name = "installed";
+        fp_ota_record_result(FP_OTA_RESULT_INSTALLED, ota_try);
+        fp_nvs_erase_key(FP_NVS_OTA_TRY);
+        break;
     case FP_OTA_BOOT_ROLLED_BACK:
         outcome_name = "rollback";
         fp_ota_record_result(FP_OTA_RESULT_ROLLBACK, ota_try);
