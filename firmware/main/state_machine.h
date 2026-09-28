@@ -6,12 +6,13 @@
  * SkyPane; the changes are listed in firmware/VENDOR.md. */
 /* Trimmed from upstream's state_machine.c/.h. Upstream's state machine
  * dispatches boot -> provision | pair | poll across BLE provisioning,
- * possession-pairing re-registration, OTA evaluation, remote reset, and
- * button-driven branches — none of which is compiled into this project
- * (see firmware/VENDOR.md). This is the walking-skeleton path only:
- * connect Wi-Fi, ensure a bearer token exists, poll the display
- * endpoint, hash-skip or download+verify+blit, persist the new hash
- * only after a successful blit. */
+ * possession-pairing re-registration, remote reset, and button-driven
+ * branches — none of which is compiled into this project (see
+ * firmware/VENDOR.md). Connect Wi-Fi, ensure a bearer token exists,
+ * poll the display endpoint, apply an OTA offer before the hash-skip
+ * (ota.c/ota_policy.c own every OTA decision; this file only calls
+ * them), hash-skip or download+verify+blit, persist the new hash only
+ * after a successful blit. */
 #pragma once
 #include <stdint.h>
 
