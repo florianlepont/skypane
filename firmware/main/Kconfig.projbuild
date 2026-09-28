@@ -17,14 +17,28 @@ menu "SkyPane"
     config SKYPANE_WAKE_BUDGET_S
         int "Whole-wake time budget (seconds)"
         range 180 900
-        default 300
+        default 360
         help
             Bounds one wake end to end. On expiry the wake is recorded as
             a failure and the device backs off. Must exceed the worst
             legitimate wake (Wi-Fi, SNTP, setup, display, download,
             refresh-spacing wait, blit - about 250 s with the default
-            guard wait). Separate from the 60 s task watchdog, which only
+            guard wait), plus an OTA wake's extra stages: a hold-screen
+            blit for the "Updating..." screen, a second Wi-Fi join after
+            the trial-image reboot, and the firmware image download
+            itself. Separate from the 60 s task watchdog, which only
             detects hangs.
+
+    config SKYPANE_OTA_FLOOR_VERSION
+        string "Oldest release tag this device accepts over OTA"
+        default "fw-v1.0.0"
+        help
+            The oldest release this device accepts as an OTA offer or
+            OTA-applied image -- the first OTA-capable release. Installing
+            anything older would end remote updates for this device for
+            good, since it would no longer carry the OTA machinery. Must
+            match the floor enforced independently by the server's release
+            registry.
 
     config SKYPANE_TLS_SESSION_PERSIST
         bool "Resume the TLS session across deep sleep (best effort)"

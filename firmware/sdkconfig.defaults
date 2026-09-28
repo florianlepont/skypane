@@ -14,9 +14,29 @@ CONFIG_SPIRAM=y
 CONFIG_SPIRAM_MODE_OCT=y
 CONFIG_SPIRAM_SPEED_80M=y
 
-# No OTA code exists yet, so nothing ever marks an image valid; rollback
-# stays off until OTA is implemented.
-CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=n
+# The bootloader boots a new OTA image on trial and automatically falls
+# back to the previous one unless the app explicitly marks it valid after
+# a successful poll. This is a bootloader option: it only takes effect
+# after a USB flash of a bootloader built with this Kconfig, never
+# through OTA itself (OTA can never rewrite the bootloader or `factory`).
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+
+# Signed-app verification without hardware secure boot: the frame refuses
+# an OTA image whose signature does not match the public key embedded in
+# the signature block of the currently-running app. Confirmed in the
+# pinned espressif/idf:v5.3.1 container (firmware/SIGNING.md, "Resolved
+# configuration") that this reads and writes no eFuse -- the trust anchor
+# is the running app's own signature block, not hardware-locked key
+# storage, and CONFIG_SECURE_BOOT/CONFIG_SECURE_FLASH_ENC_ENABLED/
+# CONFIG_NVS_ENCRYPTION/CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK all resolve as
+# not set. CI signs every release out of band with `espsecure.py
+# sign_data --version 2` using a GitHub Actions secret key, so
+# CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES stays off and the private key
+# never touches a build machine (firmware/SIGNING.md).
+CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y
+CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y
+CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME=y
+# CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES is not set
 
 # The task watchdog is a hang detector: it panics when a subscribed task
 # stops feeding it for 60 s (the Kconfig maximum), and the next boot sees
@@ -35,8 +55,10 @@ CONFIG_LWIP_DHCP_RESTORE_LAST_IP=y
 CONFIG_LWIP_DHCP_DOES_ARP_CHECK=n
 
 # Trust only the ISRG roots behind the VPS's Let's Encrypt certificate; if
-# Let's Encrypt ever moves to a root not in this directory, devices stop
-# connecting until reflashed - update main/certs before that happens.
+# Let's Encrypt ever moves to a root not in this directory, a certificate
+# change ships as an ordinary signed release over OTA -- there is no
+# separate CA-update channel, since the bundle is compiled into the app
+# image like everything else.
 CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_NONE=y
 CONFIG_MBEDTLS_CUSTOM_CERTIFICATE_BUNDLE=y
 CONFIG_MBEDTLS_CUSTOM_CERTIFICATE_BUNDLE_PATH="main/certs"
