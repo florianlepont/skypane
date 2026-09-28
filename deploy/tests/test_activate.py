@@ -24,6 +24,23 @@ def _companion_unit_path(release_dir):
     return release_dir / "deploy" / "skypane-companion.service"
 
 
+def _add_firmware_releases(incoming, *tags):
+    """Populate <incoming>/firmware-releases/<tag>/{skypane-<tag>.bin,
+    release.json} the way deploy.sh's own second tar stream would --
+    content is irrelevant here since the fake_release fixture's
+    server/firmware_cli.py stand-in only logs its own invocation, never
+    reads either file (server/test_firmware_cli.py proves the real
+    import behaviour).
+    """
+    base = incoming / "firmware-releases"
+    for tag in tags:
+        subdir = base / tag
+        subdir.mkdir(parents=True)
+        (subdir / f"skypane-{tag}.bin").write_bytes(b"image")
+        (subdir / "release.json").write_text("{}")
+    return base
+
+
 def _mark_release(release_dir, marker):
     """Append a unique comment to one unit file so two releases built
     from the same working tree are byte-distinguishable — needed to
@@ -414,3 +431,62 @@ def test_backup_and_staging_names_escape_the_import_glob(fake_root, fake_release
     assert fake_root.site_file_prev.exists()
     imported = {p.name for p in fake_root.sites_dir.glob("*.caddy")}
     assert imported == {"skypane.caddy"}
+
+
+# --- Firmware import (server/firmware_cli.py import-dir) --------------------
+
+
+def test_firmware_state_directory_created_mode_0750(fake_root, fake_release, run_activate):
+    fake_release("f00d001")
+    r = run_activate("f00d001")
+    assert r.returncode == 0, r.stderr
+
+    firmware_dir = fake_root.state_dir / "firmware"
+    assert firmware_dir.is_dir()
+    assert (firmware_dir.stat().st_mode & 0o777) == 0o750
+
+
+def test_firmware_import_runs_before_swap_when_present(fake_root, fake_release, run_activate):
+    incoming = fake_release("f00d002")
+    _add_firmware_releases(incoming, "fw-v1.0.0")
+
+    r = run_activate("f00d002")
+    assert r.returncode == 0, r.stderr
+
+    log_lines = fake_root.call_log.read_text().splitlines()
+    import_idx = next(i for i, ln in enumerate(log_lines) if ln.startswith("firmware_cli import-dir"))
+    restart_idx = next(
+        i for i, ln in enumerate(log_lines) if ln == "systemctl restart skypane-byos.service"
+    )
+    assert import_idx < restart_idx, "firmware import must run before the post-swap restart"
+
+    import_line = log_lines[import_idx]
+    release_dir = fake_root.releases / "f00d002"
+    assert str(release_dir / "firmware-releases") in import_line
+    assert "--state-dir" in import_line
+    assert str(fake_root.state_dir) in import_line
+
+
+def test_no_firmware_releases_directory_skips_import(fake_root, fake_release, run_activate):
+    fake_release("f00d003")  # no firmware-releases/ added
+
+    r = run_activate("f00d003")
+    assert r.returncode == 0, r.stderr
+    assert "firmware_cli" not in fake_root.call_log.read_text()
+    assert "no firmware-releases directory staged" in r.stdout
+
+
+def test_firmware_import_failure_blocks_swap_previous_release_still_current(
+    fake_root, fake_release, run_activate
+):
+    fake_release("f00d004")
+    r1 = run_activate("f00d004")
+    assert r1.returncode == 0, r1.stderr
+
+    incoming = fake_release("f00d005")
+    _add_firmware_releases(incoming, "fw-v1.0.0")
+    r2 = run_activate("f00d005", FAKE_FIRMWARE_IMPORT_RC="1")
+    assert r2.returncode != 0
+    assert "firmware import failed" in r2.stderr
+
+    assert os.readlink(fake_root.current_link) == "releases/f00d004"

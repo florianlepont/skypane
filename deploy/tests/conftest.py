@@ -31,6 +31,27 @@ HOST_CADDYFILE = (
 )
 
 
+def _write_fake_firmware_cli(path, log_path):
+    """A minimal stand-in for server/firmware_cli.py inside a fake
+    release: activate.sh's own tests only need to observe that
+    `import-dir <dir> --state-dir <dir>` was invoked (logged, like every
+    other stub in this file) and to control its exit code --
+    server/firmware_cli.py's own real import behaviour is proven by
+    server/test_firmware_cli.py, not re-tested here.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "#!/usr/bin/env python3\n"
+        "import os\n"
+        "import sys\n"
+        f"_LOG = {str(log_path)!r}\n"
+        "with open(_LOG, 'a') as f:\n"
+        "    f.write('firmware_cli ' + ' '.join(sys.argv[1:]) + chr(10))\n"
+        "sys.exit(int(os.environ.get('FAKE_FIRMWARE_IMPORT_RC', '0')))\n"
+    )
+    path.chmod(0o755)
+
+
 def _write_fake_smoke_script(path):
     """A minimal stand-in for companion/app.py, server/poll_loop.py and
     stub-server/byos_server.py inside a fake release: it only needs to
@@ -283,6 +304,7 @@ def fake_release(fake_root):
         _write_fake_smoke_script(incoming / "server" / "poll_loop.py")
         _write_fake_smoke_script(incoming / "companion" / "app.py")
         _write_fake_smoke_script(incoming / "stub-server" / "byos_server.py")
+        _write_fake_firmware_cli(incoming / "server" / "firmware_cli.py", fake_root.call_log)
         (incoming / "server" / "requirements.txt").write_text("stubpkg==1.0.0\n")
         (incoming / "adsb-test").mkdir(parents=True, exist_ok=True)
         (incoming / "adsb-test" / "runway3.json").write_text("{}\n")
@@ -316,6 +338,7 @@ def run_activate(fake_root, stub_bin):
                 "CADDY_SITES_DIR": str(fake_root.sites_dir),
                 "BACKUP_GATE_DIR": str(fake_root.backup_gate_dir),
                 "BACKUP_ROOT": str(fake_root.backup_root),
+                "STATE_DIR": str(fake_root.state_dir),
                 "KEEP_RELEASES": "5",
                 "PROBE_TIMEOUT_S": "5",
                 "SKYPANE_ACTIVATE_ALLOW_NONROOT": "1",
