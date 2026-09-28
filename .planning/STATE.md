@@ -5,14 +5,14 @@ milestone_name: milestone
 current_phase: 42
 current_phase_name: remote-firmware-update-over-the-air-ota-promoted-from-seed-0
 status: executing
-stopped_at: "Completed 42-08-PLAN.md (OTA device mechanics: ota.c/.h over esp_https_ota, api_client.c firmware-offer parsing and X-Ota-Result telemetry, proven by a real container build). Next: 42-09."
-last_updated: "2026-09-28T16:02:53.685Z"
+stopped_at: "Completed 42-10-PLAN.md (server-side OTA outcome loop: notify.py EN/FR firmware bodies, poll_cycle.py's run_once() reconciling every device-reported OTA outcome into the registry across every hold branch, with exactly one push per install/failure). Next: 42-11."
+last_updated: "2026-09-28T16:23:49.019Z"
 last_activity: 2026-09-28
 progress:
   total_phases: 54
   completed_phases: 50
   total_plans: 442
-  completed_plans: 426
+  completed_plans: 427
   percent: 93
 ---
 
@@ -66,7 +66,9 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 10 of 16
+Plan: 11 of 16
+
+**42-10 executed (2026-09-28), plan 10/16 of Phase 42 (depends on 42-01), wave 2 — the server-side OTA outcome loop, four commits.** Task 1 added `notify.py`'s `FIRMWARE_INSTALLED_BODY`/`FIRMWARE_FAILED_BODY` English constants and their French forms in `_BODY_FR` (RED/GREEN: `a90e9532` test, `b58d5df3` feat). Task 2 added `server/poll_cycle.py::_reconcile_firmware()`, called from `run_once()` right after `load_cycle_context()` and before `decide_hold()` — the one point every branch (live, battery-empty, quiet-hours, display-off) passes through unconditionally — so a poll cycle folds device-reported OTA outcomes into the registry via `firmware_registry.apply_reconcile()` and fires exactly one push per installed/failed outcome, gated on the same group-present/topic-present check `_notify_battery_transition()` already uses, in the operator's language; a raising reconcile is caught and logged as `firmware reconcile failed: <ExceptionType>` only, never the topic URL or exception text (RED/GREEN: `36af9410` test, `5a28a27a` feat). The plan's own `files_modified` list named `server/poll_loop.py` from before the Phase 39 poll_cycle.py/poll_loop.py split; this plan's own `<read_first>` instruction to re-read `poll_loop.py` on main surfaced that it is now only the CLI wrapper, and the real step list lives in `poll_cycle.py::run_once()` — the reconcile step landed there instead, documented as a deviation in the SUMMARY. 10 new cycle-level tests in `server/test_firmware_reconcile.py`, each driving the real `run_once()` over a hold branch (display-off, quiet-hours, or battery-empty) so no live ADS-B/adsbdb network seam needed stubbing. Two Rule-1 auto-fixes: a comment-history violation (D-15/D-08 decision-ID citations in the new docstrings, reworded per `scripts/check_comment_history.py check`), and a test-isolation fix (the battery-empty hold-branch test initially double-counted an unrelated pre-existing battery-low transition push sharing the same monkeypatched sender — fixed by disabling that unrelated toggle for the one test). `./scripts/run-all-tests.sh` (the project's `fullcheck.sh` wrapper): 3354 passed, 21 known-environment-only failures (macOS raqm mask-header rendering, Linux/systemd-only deploy tests), zero new failures; 95.18% coverage (required 93%); ruff, mypy, `check_comment_history.py` and the function-size gate all clean. `roadmap.update-plan-progress 42` now reports 10/16 plans (summaries) with the phase still In Progress. `REQUIREMENTS.md` intentionally left untouched: OTA-06/OTA-09 are each shared across further plans in this phase (the device-side three-attempts refusal, the battery-low-start gate, OTA-09's own wording review), so `requirements mark-complete` was not called — matching this phase's established convention. `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 97` (427/442) but the written frontmatter showed `percent: 93` (`completed_phases/total_phases` = 50/54) — corrected to `97` by hand per this file's established precedent.
 
 **42-03 executed (2026-09-28), plan 3/16 of Phase 42 (depends on none, wave 1) — the OTA Kconfig chain, release tagging and signing procedure, three commits.** Task 1 re-verified gate G-41 against `origin/main` (all four checks passed) — read-only, no edits, no commit. Task 2 confirmed the signed-app Kconfig chain (`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y`, `CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y`, `CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y`, RSA-3072 scheme) by running a *clean* `idf.py reconfigure` inside the pinned `espressif/idf:v5.3.1` container, first against a scratch copy of `firmware/`, then byte-identical against the real committed defaults; discovered along the way that an *incremental* reconfigure silently carries over a stale `CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES=y` even after the defaults file is edited to turn it off, and that `CONFIG_SECURE_SIGNED_ON_BOOT_NO_SECURE_BOOT` is genuinely absent from the resolved sdkconfig for the RSA scheme (its Kconfig entry depends on ECDSA specifically) — both findings recorded in the new `firmware/SIGNING.md`. Extended `firmware/tests/check_production_config.sh`: static mode now requires the new lines and fails on any eFuse-burning option in a committed defaults file (mutation-proven with a real scratch-copy failure run); built mode requires the resolved chain and logs it — confirmed by running a full real container build end to end (`./firmware/build.sh`, correctly reported "App built but not signed. Sign app before flashing") and then the built-mode check against the real artifact (PASS). Added `SKYPANE_OTA_FLOOR_VERSION` to `firmware/main/Kconfig.projbuild` and raised `SKYPANE_WAKE_BUDGET_S`'s default 300 → 360 for an OTA wake's extra stages. Task 3 added `firmware/build.sh`'s `SKYPANE_RELEASE_TAG` release mode (tag-exact `PROJECT_VER` on a clean, tagged HEAD, validated before Docker starts, both failure paths confirmed to exit 2) plus `SKYPANE_VERSION_LABEL` for bench images, and restricted non-release `git describe` to `--match 'fw-v*'` so a dev build can never print a bare release tag; completed `firmware/SIGNING.md` with the human-only key-generation/backup/rotation procedure (`FW_SIGNING_KEY` GitHub environment secret in a `firmware-signing` environment with a required reviewer, encrypted offline backup, public key at `firmware/signing/skypane-signing-pubkey.pem`), the forbidden list, and local bench-image signing — confirmed no private key material anywhere in `firmware/`. Commits: `24bdd684` (feat) Task 2, `88df2ba4` (feat) Task 3, `9150ea42`+`51bf0472` (docs) SUMMARY. Per this project's established convention, `REQUIREMENTS.md` was intentionally left untouched: OTA-03/04/05/10 are each shared across several later plans in this phase, so `requirements mark-complete` was not called. `roadmap.update-plan-progress 42` now reports 3/16 plans (summaries) with the phase still In Progress. `state.update-progress` reproduced this file's own documented recurring bug twice more during this plan's own close-out — its own JSON correctly returned `percent: 95` (420/442) both times, but the written frontmatter showed `percent: 93` (`completed_phases/total_phases` = 50/54) — corrected to `95` by hand each time per this file's established precedent.
 
@@ -642,6 +644,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 42 P07 | ~50min | 2 tasks | 3 files |
 | Phase 42 P08 | 45min | 2 tasks | 6 files |
 | Phase 42 P09 | 35min | 2 tasks | 10 files |
+| Phase 42 P10 | 35min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -1277,6 +1280,8 @@ Recent decisions affecting current work:
 - [Phase ?]: fp_ota_confirm_if_pending() calls fp_ota_should_confirm(pending, true) rather than re-deriving the pending check itself, since its own contract is caller-only-invokes-on-success
 - [Phase ?]: fp_ota_apply() does not self-record a failure result; it returns *fail_out for the caller (plan 13) to record with its own context
 - [Phase 42]: companion/i18n_fr/__init__.py needed no edit for plan 09 -- pkgutil.iter_modules discovers companion/i18n_fr/update.py automatically
+- [Phase 42]: The reconcile step landed in server/poll_cycle.py (Phase 39's cycle-body module), not server/poll_loop.py (now only the CLI wrapper) -- the plan's own files_modified list predated the Phase 39 split
+- [Phase 42]: Firmware notifications reuse the same group-present/topic-present gate _notify_battery_transition() already checks first, with no new dedicated OTA notifications toggle field added to device_config.py
 
 ### Pending Todos
 
@@ -1399,12 +1404,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T16:02:29.174Z
-Stopped at: Completed 42-08-PLAN.md (OTA device mechanics: ota.c/.h over esp_https_ota, api_client.c firmware-offer parsing and X-Ota-Result telemetry, proven by a real container build). Next: 42-09.
+Last session: 2026-09-28T16:23:48.994Z
+Stopped at: Completed 42-10-PLAN.md (server-side OTA outcome loop: notify.py EN/FR firmware bodies, poll_cycle.py's run_once() reconciling every device-reported OTA outcome into the registry across every hold branch, with exactly one push per install/failure). Next: 42-11.
 
 Resume file: 
-
-None
 
 - `companion/test_browser_ux.py`'s `EXPECTED_CHECK_COUNT` is now 38 (down from 57); 36/75 of the file's original checks are ported, 1 deleted, 38 remain across parts 03-04.
 - `33-22-SUMMARY.md` written (`d8bf280`) documenting the container-restart interruption and the re-verification rather than re-migration.

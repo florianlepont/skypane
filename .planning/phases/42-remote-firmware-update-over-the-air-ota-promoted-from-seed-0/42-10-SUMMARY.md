@@ -173,3 +173,16 @@ None - no external service configuration required. This plan is server-side, std
 
 *Phase: 42-remote-firmware-update-over-the-air-ota-promoted-from-seed-0*
 *Completed: 2026-09-28*
+
+## Self-Check: PASSED
+
+- FOUND: server/notify.py
+- FOUND: server/test_notify.py
+- FOUND: server/poll_cycle.py
+- FOUND: server/test_firmware_reconcile.py
+- FOUND: .planning/phases/42-remote-firmware-update-over-the-air-ota-promoted-from-seed-0/42-10-SUMMARY.md
+- FOUND: a90e9532 (test: failing tests for firmware notification bodies)
+- FOUND: b58d5df3 (feat: firmware installed/failed notification bodies)
+- FOUND: 36af9410 (test: failing cycle-level tests for the reconcile step)
+- FOUND: 5a28a27a (feat: reconcile OTA outcomes and notify every poll cycle)
+- FOUND: 172f31da (docs: plan 10 SUMMARY)
