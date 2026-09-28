@@ -11,7 +11,7 @@ for the byte-for-byte drift proof).
 Runs under server/.venv's interpreter - render transitively imports Pillow.
 Mirrors server/test_render.py's NO CONNECTION tests (same
 `_build_hold_canvas()` family, same flat/dithered contract), scoped to the
-one new screen this file owns (D-14, UI-SPEC Surface 2).
+one new screen this file owns.
 """
 import os
 import sys
@@ -158,7 +158,7 @@ def test_draw_updating_icon_height_and_stroke_budget():
 
 
 def test_build_canvas_never_produces_the_updating_canvas():
-    """build_canvas() never returns the same bytes as _build_updating_canvas() for any state it accepts - that screen is drawn only by the firmware, never dispatched by the server (D-14)"""
+    """build_canvas() never returns the same bytes as _build_updating_canvas() for any state it accepts - that screen is drawn only by the firmware, never dispatched by the server"""
     updating_bytes = render._build_updating_canvas().tobytes()
     cases = [
         (None, "battery_empty", {}),
