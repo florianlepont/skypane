@@ -318,6 +318,67 @@ def test_import_bench_symlinked_image_rejected(tmp_path, capsys):
     assert "symlink" in out.err
 
 
+def test_import_bench_rejects_bare_release_tag_version(tmp_path, capsys):
+    """A bench version with no suffix could squat a future release's
+    version -- the real CI release would then fail import with a sha
+    conflict, wrongly blamed on the release itself.
+    """
+    state_dir = tmp_path / "state"
+    image = tmp_path / "bench.bin"
+    image.write_bytes(b"payload")
+
+    rc = firmware_cli.main([
+        "--state-dir", str(state_dir), "import-bench",
+        "--file", str(image), "--version", "fw-v1.3.0", "--commit", COMMIT,
+    ])
+    out = capsys.readouterr()
+
+    assert rc == 1
+    assert "looks like a release tag" in out.err
+    registry = firmware_registry.load_registry(str(state_dir))
+    assert registry["releases"] == []
+
+
+def test_import_bench_accepts_explicit_commit_outside_a_git_checkout(tmp_path, monkeypatch, capsys):
+    """--commit lets import-bench run from a checkout-less release
+    directory such as /opt/skypane/current (git archive output, no
+    .git) -- the only place a real deployed frame's poll loop and byos
+    ever read from.
+    """
+    state_dir = tmp_path / "state"
+    image = tmp_path / "bench.bin"
+    image.write_bytes(b"payload")
+    monkeypatch.setattr(firmware_cli, "_repo_root", lambda: str(tmp_path))
+
+    rc = firmware_cli.main([
+        "--state-dir", str(state_dir), "import-bench",
+        "--file", str(image), "--version", "fw-v1.0.1-bench1", "--commit", COMMIT,
+    ])
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    assert "added fw-v1.0.1-bench1" in out
+    registry = firmware_registry.load_registry(str(state_dir))
+    assert registry["releases"][0]["commit"] == COMMIT
+
+
+def test_import_bench_rejects_malformed_explicit_commit(tmp_path, capsys):
+    state_dir = tmp_path / "state"
+    image = tmp_path / "bench.bin"
+    image.write_bytes(b"payload")
+
+    rc = firmware_cli.main([
+        "--state-dir", str(state_dir), "import-bench",
+        "--file", str(image), "--version", "fw-v1.0.1-bench1", "--commit", "not-a-commit",
+    ])
+    out = capsys.readouterr()
+
+    assert rc == 1
+    assert "must be 40 lowercase hex characters" in out.err
+    registry = firmware_registry.load_registry(str(state_dir))
+    assert registry["releases"] == []
+
+
 def test_import_bench_outside_a_git_checkout_reports_no_commit(tmp_path, monkeypatch, capsys):
     state_dir = tmp_path / "state"
     image = tmp_path / "bench.bin"

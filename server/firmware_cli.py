@@ -17,7 +17,14 @@ Subcommands:
                                       published with bench=True and a
                                       generated note -- used only in the
                                       hardware session, never by a
-                                      deploy.
+                                      deploy. V must carry a bench
+                                      suffix (e.g. "-bench1"); a bare
+                                      release tag is refused. --commit
+                                      is required when run from a
+                                      checkout with no .git (a release
+                                      directory such as
+                                      /opt/skypane/current), optional
+                                      from an ordinary git checkout.
   list                                one line per published release.
 
 --state-dir defaults to server.state_store.DEFAULT_STATE_DIR, the same
@@ -183,9 +190,30 @@ def cmd_import_bench(args):
         print("firmware_cli: %s" % image_error, file=sys.stderr)
         return 1
 
-    commit = _current_commit()
+    # --commit is required outside a git checkout: /opt/skypane/current
+    # (the only place a real deployed frame's poll loop and byos ever
+    # read from) is `git archive` output with no .git, so
+    # _current_commit() always fails there. Explicit --commit is the
+    # only way to run this command against that layout; a bare git
+    # checkout can still omit it.
+    # A bare release-tag version (no bench suffix) would let a locally
+    # built bench image squat a future release's version -- the real CI
+    # release would then fail to import with a sha conflict. Bench
+    # versions must additionally NOT match the stricter release-tag
+    # pattern.
+    if firmware_registry.RELEASE_TAG_RE.match(args.version):
+        print(
+            "firmware_cli: %r looks like a release tag, not a bench version -- "
+            "bench versions must carry a suffix (e.g. fw-v1.3.0-bench1)" % (args.version,),
+            file=sys.stderr)
+        return 1
+
+    commit = args.commit if args.commit is not None else _current_commit()
     if commit is None:
-        print("firmware_cli: could not resolve a git commit for this bench image", file=sys.stderr)
+        print(
+            "firmware_cli: could not resolve a git commit for this bench image "
+            "-- pass --commit explicitly (this command's own checkout is not "
+            "a git repository, e.g. /opt/skypane/current)", file=sys.stderr)
         return 1
 
     sha256, size = _hash_and_size(args.file)
@@ -238,6 +266,9 @@ def build_parser():
         "import-bench", help="publish one locally built bench image (hardware session only)")
     import_bench.add_argument("--file", required=True)
     import_bench.add_argument("--version", required=True)
+    import_bench.add_argument(
+        "--commit", default=None,
+        help="40-hex-char commit the bench image was built from; required outside a git checkout")
     import_bench.set_defaults(func=cmd_import_bench)
 
     listp = sub.add_parser("list", help="list published releases")
