@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 42
 current_phase_name: remote-firmware-update-over-the-air-ota-promoted-from-seed-0
 status: executing
-stopped_at: "Completed 42-04-PLAN.md (UPDATING hold screen: server composition, generated mask, shared device dither+mask renderer). Next: 42-05."
-last_updated: "2026-09-28T11:43:45.410Z"
+stopped_at: "Completed 42-05-PLAN.md (Let's Encrypt chain guard: offline-provable check_cert_chain.py verify, throwaway-fixture pytest suite, daily/dispatch/certs-change firmware-chain-check.yml workflow). Next: 42-06."
+last_updated: "2026-09-28T11:57:06.108Z"
 last_activity: 2026-09-28
 progress:
   total_phases: 54
   completed_phases: 50
   total_plans: 442
-  completed_plans: 421
-  percent: 95
+  completed_plans: 422
+  percent: 93
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -66,7 +66,7 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 5 of 16
+Plan: 6 of 16
 
 **42-03 executed (2026-09-28), plan 3/16 of Phase 42 (depends on none, wave 1) — the OTA Kconfig chain, release tagging and signing procedure, three commits.** Task 1 re-verified gate G-41 against `origin/main` (all four checks passed) — read-only, no edits, no commit. Task 2 confirmed the signed-app Kconfig chain (`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y`, `CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y`, `CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y`, RSA-3072 scheme) by running a *clean* `idf.py reconfigure` inside the pinned `espressif/idf:v5.3.1` container, first against a scratch copy of `firmware/`, then byte-identical against the real committed defaults; discovered along the way that an *incremental* reconfigure silently carries over a stale `CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES=y` even after the defaults file is edited to turn it off, and that `CONFIG_SECURE_SIGNED_ON_BOOT_NO_SECURE_BOOT` is genuinely absent from the resolved sdkconfig for the RSA scheme (its Kconfig entry depends on ECDSA specifically) — both findings recorded in the new `firmware/SIGNING.md`. Extended `firmware/tests/check_production_config.sh`: static mode now requires the new lines and fails on any eFuse-burning option in a committed defaults file (mutation-proven with a real scratch-copy failure run); built mode requires the resolved chain and logs it — confirmed by running a full real container build end to end (`./firmware/build.sh`, correctly reported "App built but not signed. Sign app before flashing") and then the built-mode check against the real artifact (PASS). Added `SKYPANE_OTA_FLOOR_VERSION` to `firmware/main/Kconfig.projbuild` and raised `SKYPANE_WAKE_BUDGET_S`'s default 300 → 360 for an OTA wake's extra stages. Task 3 added `firmware/build.sh`'s `SKYPANE_RELEASE_TAG` release mode (tag-exact `PROJECT_VER` on a clean, tagged HEAD, validated before Docker starts, both failure paths confirmed to exit 2) plus `SKYPANE_VERSION_LABEL` for bench images, and restricted non-release `git describe` to `--match 'fw-v*'` so a dev build can never print a bare release tag; completed `firmware/SIGNING.md` with the human-only key-generation/backup/rotation procedure (`FW_SIGNING_KEY` GitHub environment secret in a `firmware-signing` environment with a required reviewer, encrypted offline backup, public key at `firmware/signing/skypane-signing-pubkey.pem`), the forbidden list, and local bench-image signing — confirmed no private key material anywhere in `firmware/`. Commits: `24bdd684` (feat) Task 2, `88df2ba4` (feat) Task 3, `9150ea42`+`51bf0472` (docs) SUMMARY. Per this project's established convention, `REQUIREMENTS.md` was intentionally left untouched: OTA-03/04/05/10 are each shared across several later plans in this phase, so `requirements mark-complete` was not called. `roadmap.update-plan-progress 42` now reports 3/16 plans (summaries) with the phase still In Progress. `state.update-progress` reproduced this file's own documented recurring bug twice more during this plan's own close-out — its own JSON correctly returned `percent: 95` (420/442) both times, but the written frontmatter showed `percent: 93` (`completed_phases/total_phases` = 50/54) — corrected to `95` by hand each time per this file's established precedent.
 
@@ -637,6 +637,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 42 P02 | 15m | 3 tasks | 6 files |
 | Phase 42 P03 | 55min | 3 tasks | 4 files |
 | Phase 42 P04 | 1h43m | 3 tasks | 16 files |
+| Phase 42 P05 | 11min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -1262,6 +1263,8 @@ Recent decisions affecting current work:
 - [Phase 42-02]: fp_ota_image_check re-derives project/version/floor from the signed app descriptor independently of the offer, so the floor holds even if a compromised VPS lies in the offer
 - [Phase 42]: Confirmed the OTA signed-app Kconfig chain (rollback + signed-app-verification-without-secure-boot, RSA-3072, zero eFuse) via a clean idf.py reconfigure inside the pinned espressif/idf:v5.3.1 container, against both a scratch copy and the real committed sdkconfig.defaults, before committing it -- discovered an incremental reconfigure silently carries over a stale CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES=y even after the defaults file is edited to turn it off, so only a clean reconfigure is trustworthy for this kind of confirmation
 - [Phase ?]: server/plane/render is now a package (render/) since Phase 39's split; new UPDATING code placed in the matching sibling modules and re-exported through __init__.py
+- [Phase 42-05]: verify_chain() failure message names the top block's issuer (the actual foreign root's own subject for a leaf+intermediate chain), not the intermediate's own subject
+- [Phase 42-05]: firmware-chain-check.yml's failure-explanation step is gated on the chain-check step's own outcome, not a blanket if: failure(), so a missing-secret failure and a real chain failure never share one message
 
 ### Pending Todos
 
@@ -1384,8 +1387,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T11:43:01.166Z
-Stopped at: Completed 42-04-PLAN.md (UPDATING hold screen: server composition, generated mask, shared device dither+mask renderer). Next: 42-05.
+Last session: 2026-09-28T11:57:06.081Z
+Stopped at: Completed 42-05-PLAN.md (Let's Encrypt chain guard: offline-provable check_cert_chain.py verify, throwaway-fixture pytest suite, daily/dispatch/certs-change firmware-chain-check.yml workflow). Next: 42-06.
 
 Resume file: 
 
