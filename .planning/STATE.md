@@ -2,16 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_plan
-stopped_at: Phase 40 complete (16/16) — ready to discuss Phase 41
-last_updated: 2026-09-27T23:04:57.242Z
-last_activity: 2026-09-27
+current_phase: 42
+current_phase_name: OTA
+status: ready_to_execute
+stopped_at: Phase 41 complete (8/8 plans, verification passed with 1 developer override — HYG-01/HYG-06 accepted open, fix deferred to .planning/todos/pending/comment-history-guard-residue.md). Next: merge the Phase 41 PR to main (gate G-41), then execute Phase 42.
+last_updated: "2026-09-28T08:55:49.763Z"
+last_activity: 2026-09-28
+last_activity_desc: Phase 41 complete, transitioned to Phase 42
 progress:
   total_phases: 54
-  completed_phases: 49
-  total_plans: 434
-  completed_plans: 410
-  percent: 91
+  completed_phases: 50
+  total_plans: 442
+  completed_plans: 418
+  percent: 95
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -32,7 +35,7 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
-status: Ready to plan
+status: Ready to execute
 stopped_at: "Phase 06.6.4.1 CLOSED at 9/9 plans, on branch claude/06.6.4.1-closing-validation (rebased onto PR #44's tip 4a31a62, unpushed). Its dangling closing plan (06.6.4.1-09) had Task 1's automated gates re-verified for real twice — once against this branch's own base (92bc660), again after PR #44 (Phases 8-11: panel theme rework, band themes, scheduled quiet hours, web-configurable wake interval) merged mid-checkpoint from a separate line of work — both times 16/16 harnesses green, 92% coverage. Task 2, the blocking 28-item developer checklist (D-23/D-24/D-25), returned its verdict: PASS on all 28 items, no fails, no marginals, including the two twice-deferred items with no escape hatch — a real assistive-technology pass and a live production walkthrough (https://config-92-222-92-167.nip.io) — each confirmed by a direct question rather than accepted on the strength of an initial blanket approval alone. Two real drift findings were disclosed to the developer rather than silently absorbed: History's retired 'Now showing' section (D-18/D-19, superseded by quick task 260903-c4o) and Settings' two new Phase 10/11 sections (Quiet hours, Wake interval) not covered by the original checklist text. No open phase remains after 06.6.4.1 — Phase 11 (the highest-numbered phase) is also complete per PR #44, and no Phase 12 exists yet in ROADMAP.md. Next: push this branch, open a PR, and ask the developer what's next once it's merged."
 last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
@@ -52,11 +55,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 41 — docs repository hygiene and closing re audit
+**Current focus:** Phase 41 — docs-repository-hygiene-and-closing-re-audit
 
 ## Current Position
 
-Phase: 41
+Phase: 42 — Remote firmware update over the air (OTA), promoted from SEED-009
 Phase: 39 (server-architecture-run-once-split-state-store-shared-module) — COMPLETE (13/13 plans, 2026-09-27; ARC-01..ARC-06 closed)
 Phase: 38 (efficiency-companion-poll-cycle-storage) — COMPLETE (13/13 plans, 2026-09-27; 38-01..38-05 merged via #146-#149, 38-06..38-13 and the review fixes on PR #150). Verification passed; EFF-01..EFF-06 closed.
 Phase: 37 (security-and-operations-hardening) — COMPLETE (11/11 plans; 37-11 Wave B: byos loopback-only + IP filter, no secret in argv, CP-11 and CP-7 done live 2026-09-26)
@@ -65,6 +68,8 @@ Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, ver
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
 Plan: Not started
+
+**41-06 executed (2026-09-28), plan 6/8 of Phase 41 (depends on none, wave 1) — read-only closing re-audit of Phase 36 (INT-01..INT-14) and Phase 37 (SEC-01..SEC-08), one commit for the report plus its SUMMARY.** Wrote `41-REAUDIT-INT-SEC.md`: all 22 findings VERIFIED-CLOSED against the current codebase, confirmed unbroken across the Phase 38-40 refactors (poll_cycle split, history_db rewrite, calendar_rules package split, companion route table) — poll.lock/flock now lives in `server/poll_cycle.py`, INT-14's IP-pinning fix (`server/http_fetch.py::pinned_request`) is the option that shipped with `server/net/safe_fetch.py` (a Phase 39 addition) confirmed as an additive early gate rather than a replacement, and SEC-03's Origin/Sec-Fetch-Site check was re-traced against the current, larger 17-route `companion/routes.py` table by finding it runs once in `companion/app.py::_dispatch()` before routing, covering routes Phase 40 added. Ran the plan's full targeted test sets (94 + 442 + 124 passed across the INT and SEC gates) plus `deploy/tests` (100 passed natively, 4 skipped for missing `systemd-analyze`). This sandbox (non-root macOS, unlike 41-04/41-05's root-Linux sandboxes) could not natively run two `deploy/tests` files (BSD `mv` lacks `-T`) or `systemd-analyze` at all — both were re-run inside Docker containers (a plain Linux container for the tests: 70 passed, 4 skipped; a systemd-installed Ubuntu container for the security scoring: byos 1.3 OK/companion 1.5 OK/poll 1.5 OK/backup 0.8 SAFE, byte-identical to `37-SEC-BASELINE.md`) rather than left unproven. `roadmap.update-plan-progress 41` now reports 6/8 plans (summaries) with the phase still In Progress (41-07/41-08 are not this plan's scope). `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 94` (415/442) but the written frontmatter showed `percent: 91` (`completed_phases/total_phases` = 49/54) — corrected to `94` by hand per this file's established precedent.
 
 **40-16 executed (2026-09-27), plan 16/16 of Phase 40 (depends on 40-02/40-03/40-10/40-11/40-15), wave 9 — the phase close-out, three commits.** Task 1 extracted `companion/pages/health_page.py`'s registry ("Airlines we could not name"), resolution-statistics ("How well we name flights") and check-in-regularity sections into a new `companion/health_sections.py` (the same companion-level pattern `battery_chart.py`/`health_signals.py` already use, since a page module may not import another page module), shrinking `health_page.py` from 1787 to 1111 lines — comfortably under the 1500-line ceiling, so `companion/test_structure_guards.py`'s `PENDING_OVERSIZED_FILES`/`PENDING_LONG_FUNCTIONS` allowlists (and every reference to them) were deleted outright; `grep -c "PENDING_"` on that file is now 0. `_unavailable_block()`/`HEALTH_UNAVAILABLE_TEXT`/`_resolution_rate_tile_html()`/`_TILE_DETAIL_CLASS` moved too, alongside the three named groups, to break a circular re-export (two of the moving functions call `_unavailable_block()`, which six staying functions also call) — `health_page.py` re-exports everything the moved code left it still needing, discovered to convergence by running the full suite rather than by static grep alone (one test resolves an attribute through a loop variable). The split is a pure extraction, proven by `companion/test_render_baseline.py`'s two tests passing byte-for-byte once `test-support/companion_render_snapshot.py`'s clock-freezing patch target followed `resolution_stats()` from `health_page.datetime` to `health_sections.datetime`. One unrelated pre-existing full-suite failure was fixed (Rule 1): `stub-server/test_poll_cycle.py`'s hostile-quiet-hours-config integration step still asserted the pre-D-4 fail-open `sleep_s == 300`, stale since Phase 39's `39-06` shipped the fallback-to-default-window behaviour — now computed from `device_policy.seconds_until_quiet_hours_end()` against that same default window. `SKYPANE_REQUIRE_BROWSER=1 ./scripts/run-all-tests.sh` exits 0: 3211 passed, 0 failed, 7 skipped (pre-existing root-euid skips), 94.86% coverage; ruff and `check_comment_history.py` both clean. Task 2 appended dated Phase 40 paragraphs to `REQUIREMENTS.md`'s CFG-34 and CFG-39 rows (each clause named, held-or-not stated, test(s) cited) and ticked both — CFG-34: all three convertible sites (Flights desktop When cell, Calendar status detail, Health registry cells, all landed by 40-10) now tick in a real browser, the battery-trend tooltip stays the one permanent structural exception; CFG-39: `battery_sparkline_svg()`'s scale IS `draw.percent_y` (not a second implementation) since 40-06's migration, closing the old row's "nothing pins the two together" gap. CFG-52 already carried its own Phase 40 paragraph from `40-07` and was verified, not rewritten. CMP-01..09's traceability rows now name their satisfying plan(s) instead of a bare "Phase 40 \| Complete". Commits: `a4a2f79` (feat) Task 1, `51d0319` (docs) Task 2, `d8d8cb4`/`99cca1d` (docs) SUMMARY. `roadmap.update-plan-progress 40` now reports the phase Complete at 16/16; `requirements.mark-complete` found all twelve IDs already ticked. `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 94` (409/434) but the written frontmatter showed `percent: 91` (`completed_phases/total_phases` = 49/54) — corrected to `94` by hand per this file's established precedent, as the last STATE.md edit before this plan's own final commit.
 
@@ -233,7 +238,7 @@ Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03
 
 Status: Executing Phase 06.6.4.1 (8/9 plans; Task 2's developer verification checklist is the sole remaining item). Phase 11 and the sibling Phase 06.6.4.1.1 are both complete, merged in from separate branches.
 Also merged 2026-08-30 (third merge, this one — `git merge origin/main` into `claude/backlog-6x-phases-d6bb33` after this branch had drifted 32 commits behind, resolving conflicts in this file and `companion/test_companion_app.py`): origin/main's quick task 260829-0rl (2026-08-29) — `send_bytes()` in `companion/app.py` gained a `public` parameter (default `False`/private), fixing Phase 06.4's code-review finding WR-02 (shared/intermediary caching risk on authenticated byte-serving routes); `/static/style.css`'s route opted into `public=True` since it's pre-auth and content-identical for every client. While merging, found and fixed directly (not a conflict, a merge-introduced inconsistency): `_serve_script_file()` — the shared body for `/static/battery-trend.js` and `/static/nav-dropdown.js`, both pre-auth routes shipped by this branch's own 06.6.1-05 — hadn't opted into `public=True` the way `/static/style.css`'s route had, simply because that method didn't exist yet when `public` was added on main; added `public=True` there too, with a docstring line explaining why. `_serve_gallery_image()`/`_serve_runway_image()` (session-gated) correctly remain on the private default — verified, no change needed. `companion/test_companion_app.py`'s `EXPECTED_CHECK_COUNT` conflict (this branch's `68` vs origin's `52`) resolved to `69` — both branches' independent additions summed (this branch's 06.6.1 work + origin's 1 new WR-02 regression check, which had already auto-merged cleanly elsewhere in the file).
-Last activity: 2026-09-27
+Last activity: 2026-09-28 — Phase 41 complete, transitioned to Phase 42
 Last activity: 2026-09-25 - Completed 33-32-PLAN.md: the legacy harness shim, legacy lists, collect_ignore, the legacy_harness marker and LegacyHarness retired; the guard scans every companion test module and test_no_legacy_runner_anywhere covers every test directory; F-01 resolved (served stylesheet checks parse the CSS via companion_markup, new rule_indices()/at_rule_blocks(), guard rule G11 bans regex/substring checks over served stylesheet text, G12 bans test-module-to-test-module imports); CI paths filter drops the .planning re-includes and re-includes deploy/README.md; runner, CLAUDE.md, README and CONTRIBUTING updated; stub-server/test_devices_registry.py on tmp_path; full suite 2588 passed/5 skipped/0 failed, coverage 93.23%.
 Last activity: 2026-09-25 - Completed 33-31-PLAN.md: status-pages part 07 (checks #293-#317, the chain's LAST slice: the tab bar's margin-fit/More-sheet/French-label/dropdown-max-height contracts, a structural style.css comment-terminator guard, the T3/T4 disclosure-marker/dead-sticky-claim sweep, freshness.js's backoff ladder and breathing-dot mechanism, the .resolve-context[hidden]/.flight-detail-row__grid CSS guards, the renamed hamburger-toggle label, the restored save-bar geometry, the Health-tile/Frame-strip agreement across all four lateness states, the shared quiet-schedule link, the two server-rendered switches and their optimistic-failure toast, the freshness line's live dot/ticking clock, and two end-to-end real-subprocess checks) migrated to companion/test_status_pages_07.py (25 pytest node ids); companion/test_status_pages.py — the LAST legacy companion harness — deleted outright; ledger 317/317 (313 ported, 4 deleted, 0 pending); 33-ledger-check.py --all confirms ALL 9 companion harnesses now fully migrated (0 pending everywhere); full suite 2569 passed/6 skipped/0 failed in 304s.
 Last activity: 2026-09-25 - Completed 33-30-PLAN.md: status-pages part 06 (checks #245-#292: the lightbox replace form, the D19 drag-and-drop upload affordance, the coverage-gap block, manual-resolution card states, the conditional resolve section, the manual-resolutions summary line, list-filter.js's [data-filter-set] hook, the phase 14 Component-Inventory CSS sweep, Frame-strip behaviour/CSS, and the bottom tab bar's CSS) migrated to companion/test_status_pages_06.py (46 pytest node ids, 2 checks deleted outright); legacy harness EXPECTED_CHECK_COUNT down to 25 (rows 293-317 remain for 33-31, the chain's closing plan).
@@ -308,7 +313,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 
 **Velocity:**
 
-- Total plans completed: 138 (re-derived at merge time from ROADMAP.md's own plan checkboxes across both merged phases, superseding both sides' pre-merge figures of 93 and 96)
+- Total plans completed: 159 (re-derived at merge time from ROADMAP.md's own plan checkboxes across both merged phases, superseding both sides' pre-merge figures of 93 and 96)
 - Average duration: - min
 - Total execution time: 0 hours
 
@@ -341,6 +346,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | 30 | 8 | - | - |
 | 38 | 13 | - | - |
 | 40 | 16 | - | - |
+| 41 | 8 | - | - |
 
 **Recent Trend:**
 
@@ -616,6 +622,14 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 40 P14 | unknown | 2 tasks | 19 files |
 | Phase 40 P15 | unknown | 2 tasks | 25 files |
 | Phase 40 P16 | 40min | 2 tasks | 6 files |
+| Phase 41 P01 | 50min | 2 tasks | 6 files |
+| Phase 41 P02 | 90min | 2 tasks | 14 files |
+| Phase 41 P03 | 12min | 2 tasks | 5 files |
+| Phase 41 P04 | 20min | 2 tasks | 1 files |
+| Phase 41 P05 | 55min | 2 tasks | 1 files |
+| Phase 41 P06 | 70min | 2 tasks | 1 files |
+| Phase 41 P07 | 55min | 2 tasks | 1 files |
+| Phase 41 P08 | 40min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -1217,6 +1231,24 @@ Recent decisions affecting current work:
 - [Phase 40]: i18n.t()/t_lang() now raise TypeError for any non-Message argument; both legacy English-keyed fallbacks removed (CMP-09 complete)
 - [Phase 40]: A dict .get(key, key) fallback-to-raw-key pattern feeding i18n.t() is a latent bug once t() is Message-only; every such site rewritten to translate only when a real Message is found
 - [Phase 40]: 40-16 (Phase 40 close): registry/stats/check-in-regularity markup moved out of health_page.py into companion/health_sections.py (1787 -> 1111 lines), following the battery_chart.py/health_signals.py precedent for a markup helper shared by exactly one page.
+- [Phase 41]: DOC-01 left unticked after 41-01 — This plan is part 1 of 2 (deploy/CI docs only); 41-02 owns the rest of the doc surface, 41-07 folds both into the closing DOC-01 row
+- [Phase 41]: Fixed deploy/.gitignore's comment during 41-01 even though it wasn't in the plan's files_modified list — It named the retired SKYPANE_BYOS_SECRET; a one-line comment-only correction directly on-topic for DOC-01
+- [Phase 41]: ARCHITECTURE.md's device-authentication model is per-device (devices.json + per-device NVS secret), not a single shared SKYPANE_BYOS_SECRET
+- [Phase 41]: COMPLIANCE.md's adsbdb caching is TTL-bounded (1 day miss / 30 days hit), not never-re-queried; only 404/empty-route responses cache as a miss
+- [Phase 41]: poll_loop.py's post-Phase-36/39 writer model repointed everywhere: the cycle body, battery-empty hold and quiet-hours decision live in server/poll_cycle.py/server/device_policy.py, not poll_loop.py
+- [Phase 41]: D-A6 honored for DOC-02: backoff-powercycle.log gzipped in the working tree only, no history rewrite; blob stays reachable at and before 7bd8664
+- [Phase 41]: air-caraibes-atr72-unused.png re-verified unused at execution time before deletion, per 41-CONTEXT.md's DOC-02 stop condition
+- [Phase 41]: /gsd-cleanup phase-directory archival deferred: ROADMAP.md places Phase 42 (OTA) in v1.0 scope right after Phase 41, so v1.0 is not closing yet
+- [Phase 41]: TST-02/TST-15 (Phase 32/33 migration ledgers) marked FLAGGED-DIFFERENT in the 41-04 re-audit — Both ledger-checker scripts now fail against node ids Phase 39 legitimately renamed/strengthened after Phase 32/33 closed; traced every case, no lost coverage or test count
+- [Phase 41]: HYG-01/HYG-06 marked FLAGGED-OPEN in the 41-04 re-audit — Guard-evasion hunt found 21 genuine history references (letter-suffixed decision IDs, dotted UI-SPEC section numbers) across 12 files that the comment-history guard's regex misses; minimal 3-edit fix proposed for a later plan
+- [Phase 41]: All 15 FW findings (FW-01..FW-15) verify VERIFIED-CLOSED against current firmware; firmware/ untouched throughout the re-audit
+- [Phase 41]: 34-VERIFICATION.md's W-1 warning (NVS panic-loop) was fixed after that report was written despite being scored non-blocking - positive drift documented in 41-REAUDIT-FW.md
+- [Phase 41]: INT-01..14 and SEC-01..08 all VERIFIED-CLOSED against current code (post Phase 38-40 refactors); no regressions found
+- [Phase 41]: INT-14: IP-pinning fix confirmed shipped (http_fetch.pinned_request); server/net/safe_fetch.py is additive, not a replacement
+- [Phase 41]: 41-07: All 21 EFF/ARC/CMP findings VERIFIED-CLOSED against current code; ARC-03 FLAGGED-DIFFERENT on naming only (calendar_rules/ vs ledger's calendar/ shorthand), intent fully met
+- [Phase 41]: 41-07: Phase 40 deferred browser test (chromium-health-registry) now passes; root cause resolved by Phase 39's ARC-02 state_store split
+- [Phase 41]: Closed the 82-finding audit ledger: 77 VERIFIED-CLOSED, 3 FLAGGED-DIFFERENT (naming/tooling only), 2 FLAGGED-OPEN (HYG-01/HYG-06, comment-history guard gap); DOC-03 left unticked as a result
+- [Phase 41]: CFG-72/CFG-73 ticked after re-verifying their tests pass; CFG-74 and CFG-34/37/39/42/50/52/65 left byte-identical to the phase base per 41-CONTEXT.md's locked developer decision
 
 ### Pending Todos
 
@@ -1338,8 +1370,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-27T22:32:18.252Z
-Stopped at: Completed 40-16-PLAN.md — Phase 40 closed (16/16 plans)
+Last session: 2026-09-28T07:54:20.024Z
+Stopped at: Completed 41-08-PLAN.md (closing plan) — 41-CLOSING-AUDIT.md written (77 VERIFIED-CLOSED/3 FLAGGED-DIFFERENT/2 FLAGGED-OPEN), REQUIREMENTS.md bookkeeping done, 41-PR-DESCRIPTION.md drafted. Phase 41 ready for verification; HYG-01/HYG-06 remain open.
 
 Resume file: 
 

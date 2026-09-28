@@ -35,7 +35,7 @@ in byos_state.json inside --state-dir, so restarts don't strand frames.
 GET /device/v1/display's sleep_s is the companion app's saved
 wake_interval_s (or --sleep), composed with three overrides in order: a
 fixed off-state cadence while display_enabled is false, a fixed parked
-cadence while server/poll_loop.py's battery-empty hold is active
+cadence while server/poll_cycle.py's battery-empty hold is active
 (unless this poll's own X-Battery-Mv already reports recovery), and an
 extension spanning the saved quiet-hours window. led_enabled mirrors
 the companion app's saved bring-up-LED setting; --image-url-scheme lets
@@ -336,10 +336,11 @@ def read_display_enabled(state_dir):
 
 
 # Best-effort, read-only read of poll_state.json's battery_critical_active
-# latch (server/poll_loop.py's apply_battery_critical_hysteresis() is the
+# latch (server/device_policy.py's apply_battery_critical_hysteresis(),
+# called from server/poll_cycle.py's load_cycle_context(), is the
 # sole writer); fail-open to False on any read failure - a wrong False
 # costs a few extra wakes, never a missed BATTERY EMPTY render, which
-# remains poll_loop's own responsibility. The one shared reader server/
+# remains poll_cycle's own responsibility. The one shared reader server/
 # state_store.py and this file both use.
 read_battery_critical = state_store.read_battery_critical
 
@@ -386,7 +387,7 @@ def read_quiet_hours(state_dir):
     An invalid stored bound (wrong shape, wrong type, or missing) no
     longer disables quiet hours here: it falls back to the default
     23:00-07:00 window instead, independently per bound - the same rule
-    server/poll_loop.py's hold decision uses, so a corrupted or
+    server/poll_cycle.py's hold decision uses, so a corrupted or
     hand-edited quiet-hours time now extends the device's sleep rather
     than silently letting it poll through the night.
     """
@@ -419,12 +420,12 @@ def display_off_sleep_s(base_sleep_s, state_dir):
 
 def battery_critical_sleep_s(base_sleep_s, state_dir, fresh_battery_mv):
     """Return the sleep_s to feed into quiet_hours_sleep_s() as its base:
-    exactly BATTERY_CRITICAL_SLEEP_S (3600) while poll_loop.py's
+    exactly BATTERY_CRITICAL_SLEEP_S (3600) while poll_cycle.py's
     battery-empty hold is active, unless `fresh_battery_mv` (this
     request's own X-Battery-Mv) already signals recovery at or above
     BATTERY_CRITICAL_RECOVER_MV, in which case `base_sleep_s` wins.
 
-    poll_loop.py clears its latch up to 30s after the recovering
+    poll_cycle.py clears its latch up to 30s after the recovering
     check-in this request represents, so a plain latch read would still
     see the stale True; `fresh_battery_mv` anticipates that recovery
     instead, without writing anything itself.
@@ -558,8 +559,9 @@ def save_battery_state(state_dir, mv):
     """Persist {"battery_mv": mv, "received_at": time.time()} to
     battery_state.json via _atomic_write (unique temp name, fsync,
     os.replace). The only writer of that file anywhere in the repo -
-    server/poll_loop.py only reads it, avoiding a read-modify-write
-    race between two processes on one JSON file.
+    server/poll_cycle.py only reads it (via server/state_store.py's
+    load_battery_state()), avoiding a read-modify-write race between
+    two processes on one JSON file.
     """
     path = battery_state_path(state_dir)
     _atomic_write(path, json.dumps({"battery_mv": mv, "received_at": time.time()}, indent=1))
@@ -716,7 +718,7 @@ class Handler(BaseHTTPRequestHandler):
             # victim frame's panel into a permanent low-battery warning.
             # A telemetry side-effect must never turn a healthy panel
             # poll into a 500 - a full or read-only state directory
-            # degrades to "no battery signal", which poll_loop.py
+            # degrades to "no battery signal", which server/poll_cycle.py
             # already treats as legitimate (this is the only place
             # battery_state.json is written).
             battery_mv = parse_battery_mv(self.headers.get("X-Battery-Mv"))
@@ -745,7 +747,7 @@ class Handler(BaseHTTPRequestHandler):
                 # sleep_s composes, in order: the companion Settings page's
                 # saved wake_interval_s (falling back to --sleep), the flat
                 # off-state cadence while display_enabled is false, the
-                # flat parked cadence while poll_loop's battery-empty hold
+                # flat parked cadence while poll_cycle's battery-empty hold
                 # is active (unless this poll's own battery_mv already
                 # reports recovery), and the quiet-hours extension.
                 # Composition order is load-bearing - see each function's

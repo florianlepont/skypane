@@ -6,7 +6,7 @@ the module's ~16 `open_db()` call sites a route touches, only one real
 `sqlite3.connect()` ever happens - and a request that touches none (a
 static asset, the login page, an unauthenticated tab's redirect) opens
 zero. `POST /poll-now` shares that same connection with the whole poll
-cycle it runs, since `poll_loop.run_once()` nests its own
+cycle it runs, since `poll_cycle.run_once()` nests its own
 `connection_scope()` inside an already-active one for the same state
 directory.
 
@@ -93,9 +93,9 @@ def test_a_second_request_runs_init_schema_zero_times(app_server_in_process):
 
 def test_poll_now_uses_one_connection_for_the_whole_cycle_and_persists_the_cooldown(
         app_server_in_process, monkeypatch):
-    """POST /poll-now shares its request's one connection with the whole poll cycle run_once()
-    performs, and the cooldown it writes to history.db's meta table is durable - a later GET (its
-    own fresh request, its own fresh connection) still sees it"""
+    """POST /poll-now shares its request's one connection with the whole poll cycle
+    poll_cycle.run_once() performs, and the cooldown it writes to history.db's meta table is
+    durable - a later GET (its own fresh request, its own fresh connection) still sees it"""
     server = app_server_in_process
     session = login(server)
     # An unresolved-callsign response, never a real HTTP call - matches

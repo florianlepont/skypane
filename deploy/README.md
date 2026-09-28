@@ -9,13 +9,13 @@ instead of a laptop-local stub. Phase 37 hardened the operational side of
 this same box: an atomic, self-verifying deploy (`activate.sh`), nightly
 off-box backups, systemd sandboxing, and SSH hardening.
 
-**Provider note:** the plan (`02-05-PLAN.md`) and its D-P2-06 decision
-specify Hetzner CX22; this deployment instead targets OVH VPS-1, an
-equivalent box (2 vCPU / 4 GB RAM / 40 GB NVMe, Ubuntu 26.04, always-on)
-at the user's explicit request after a live price/locale comparison — see
-`02-05-SUMMARY.md`'s Deviations section. Every script and unit file below
-is provider-agnostic (they target "a fresh Ubuntu box reachable over
-SSH"); only this README's prose and the one-time human steps changed.
+**Provider note:** the original plan and its D-P2-06 decision specify
+Hetzner CX22; this deployment instead targets OVH VPS-1, an equivalent
+box (2 vCPU / 4 GB RAM / 40 GB NVMe, Ubuntu 26.04, always-on) at the
+user's explicit request after a live price/locale comparison. Every
+script and unit file below is provider-agnostic (they target "a fresh
+Ubuntu box reachable over SSH"); only this README's prose and the
+one-time human steps changed.
 
 **SSH login note:** production logs in as the non-root `ubuntu` user with
 passwordless sudo — current Ubuntu cloud images (including this VPS's
@@ -32,7 +32,7 @@ after the SSH hardening step has run.
 | `skypane.env.example` | Template for the real, gitignored `skypane.env` — secrets and per-deployment config, read by systemd as root via `EnvironmentFile=` |
 | `skypane-byos.service` | Runs `stub-server/byos_server.py` as the `skypane` user, bound to loopback, `--image-url-scheme https` |
 | `skypane-poll.service` / `skypane-poll.timer` | A `Type=oneshot` unit invoking `server/poll_loop.py --once`, fired every 30s by the timer |
-| `skypane-companion.service` | Runs `companion/app.py` as the `skypane` user, bound to loopback — the companion configuration web interface (06-11-PLAN.md) |
+| `skypane-companion.service` | Runs `companion/app.py` as the `skypane` user, bound to loopback — the companion configuration web interface |
 | `skypane-backup.service` / `.timer` | Nightly (03:15 UTC) oneshot snapshot of `/opt/skypane/state` into `/var/lib/skypane-backup/archives` — see "Backups" below |
 | `Caddyfile` | Template for SkyPane's own Caddy site file, `/etc/caddy/sites/skypane.caddy` (site blocks only, imported by the shared host Caddyfile — see "Caddy layout" below). Reverse-proxies the public hostname to `127.0.0.1:8642` (device protocol) and a second hostname to `127.0.0.1:8643` (companion interface; `config-<public-host>` by default, or its own domain), both with Caddy's automatic Let's Encrypt HTTPS and HSTS |
 | `render_caddyfile.sh` | The one anchored, hostname-validated renderer `activate.sh` uses to turn `Caddyfile` into `/etc/caddy/sites/skypane.caddy` |

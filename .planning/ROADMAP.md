@@ -1805,6 +1805,7 @@ Plans:
 **Plans:** 11/11 plans complete (Wave A and Wave B; closed 2026-09-26)
 
 Plans:
+
 - [x] 37-01-PLAN.md — Wave A — SEC-01 per-client-IP login throttle, plus the companion `--bind` flag (D-22)
 - [x] 37-02-PLAN.md — Wave A — off-box backup freshness on the companion Health page, warn nav dot (SEC-04, D-07, D-23)
 - [x] 37-03-PLAN.md — Wave A — HSTS + shared Caddyfile renderer, hardened units on `/opt/skypane/current` + backup timer, `ci.yml` secrets via `env:` + offline `systemd-analyze` gate (SEC-02/05/06/07)
@@ -1965,11 +1966,23 @@ Plans:
 2. Every ID in the audit ledger marked closed with its evidence (commit / test)
 3. A fresh audit pass finds no regression of a closed item
 
-**Plans:** 0 plans
+**Plans:** 8/8 plans complete
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 41 to break down)
+**Wave 1**
+
+- [x] 41-01-PLAN.md — DOC-01 part 1: deploy/ and CI doc surface aligned with code, per-claim drift log [DOC-01]
+- [x] 41-02-PLAN.md — DOC-01 part 2: ARCHITECTURE/COMPLIANCE/README/CONTRIBUTING/CLAUDE.md/VENDOR.md and code-comment claims aligned [DOC-01]
+- [x] 41-03-PLAN.md — DOC-02: power-cycle log gzipped in the tree, unused illustration draft removed, archival deferred to v1.0 close [DOC-02]
+- [x] 41-04-PLAN.md — DOC-03 re-audit: TST-01..15, HYG-01..06 (full gate runs) [DOC-03]
+- [x] 41-05-PLAN.md — DOC-03 re-audit: FW-01..15, read-only on firmware/ [DOC-03]
+- [x] 41-06-PLAN.md — DOC-03 re-audit: INT-01..14, SEC-01..08 [DOC-03]
+- [x] 41-07-PLAN.md — DOC-03 re-audit: EFF-01..06, ARC-01..06, CMP-01..09 [DOC-03]
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 41-08-PLAN.md — Final regression pass, 41-CLOSING-AUDIT.md (82 IDs), CFG-72/73 ticked after verification, PR description for the 32-41 arc [DOC-01, DOC-02, DOC-03]
 
 ### Phase 42: Remote firmware update over the air (OTA), promoted from SEED-009
 

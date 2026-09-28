@@ -159,16 +159,10 @@ removed draft (2048×768,
 different bytes from the new file and was superseded, not promoted — `git
 rm`, not `git mv`.
 
-This one file exists on disk (required here only so
-`scripts/check-attribution.sh` — which recurses — passes; it is invisible
-to `server/plane/illustrations.py --validate`, which does a non-recursive
-directory listing) but corresponds to **no `(airline, shape)` combination
-any code path can ever select**. A future reader must not mistake this for
-shipped, reachable art.
-
-| Filename | Why it is not a target | Dimensions (px) | sha256 |
-|---|---|---|---|
-| `_unresolved/air-caraibes-atr72-unused.png` | Superseded draft retained only for historical reference. A separately audited `air-caraibes-atr72.png` is now a canonical target. | 2172×724 | `f7a682ae42c45a351949797eb2f62cb2eb51537cc2320a2e7189390e1843f8d3` |
+This directory held rejected or superseded illustration drafts — never
+selection targets for `server/plane/illustrations.py`, and never shipped.
+It is now empty; every draft formerly listed here has been removed from
+disk, with its content still reachable in git history.
 
 The aircraft-type column mirrors `server/assets/icons/VENDOR.md`'s
 existing "Selected aircraft types" list, cross-checked against
@@ -309,8 +303,8 @@ by design, per `03.1-LIVE-RESOLUTION.md`):**
   speculatively-generated `_unresolved/amelia-international.png` this
   exclusion produced has since been removed from disk (2026-08-27, by the
   same parallel session that delivered the real `amelia.png`/
-  `amelia-embraer.png` art) — it is no longer present and no longer listed
-  in the `_unresolved/` table above.
+  `amelia-embraer.png` art) — it is no longer present, and `_unresolved/`
+  itself now holds no files (see the note above).
 - **La Compagnie** — `[UNRESOLVED]` **through quick task 260921-v9c only.**
   **Status changed by quick task `260921-v9c` (2026-09-21): this carrier IS
   now a real target** (`la-compagnie.png`, primary — see the "Quick task
@@ -326,8 +320,8 @@ by design, per `03.1-LIVE-RESOLUTION.md`):**
   speculatively-generated `_unresolved/la-compagnie.png` draft this
   exclusion produced has been removed from disk — the new `la-compagnie.png`
   is a fresh regeneration superseding that draft, not the draft promoted
-  (different bytes, different sha256; see the `_unresolved/` table above
-  for the removed draft's own digest).
+  (different bytes, different sha256 — the removed draft's own digest is
+  recorded above, in the note under `_unresolved/`).
 
 ### Quick task 260827-kih (2026-08-27) — Amelia added, three files renamed, correction mechanism introduced
 

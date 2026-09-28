@@ -1,6 +1,6 @@
 """Thin re-export shim over server/wake.py.
 
-The real arithmetic lives in server/wake.py so server/poll_loop.py can
+The real arithmetic lives in server/wake.py so server/poll_cycle.py can
 import it without ever importing anything under companion/ ("the
 server never imports the companion"). Every `companion.wake.*` call
 site (home_page.py, health_page.py, config_page.py) goes through this

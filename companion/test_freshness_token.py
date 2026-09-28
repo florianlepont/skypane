@@ -210,7 +210,7 @@ def test_two_requests_with_no_change_get_the_same_token(app_server_in_process):
 
 def test_identical_second_poll_cycle_leaves_display_and_flights_tokens_unchanged(
         app_server_in_process):
-    """a second, identical poll_loop.run_once() cycle (fake providers, empty sky) leaves the
+    """a second, identical poll_cycle.run_once() cycle (fake providers, empty sky) leaves the
     Display and Flights tokens unchanged - Home and Health are both excluded here, since
     each renders last_pipeline_run as plain text (Health's Pipeline tile, Home's Flight-data
     tile), and that meta key genuinely advances every cycle"""
@@ -235,7 +235,7 @@ def test_identical_second_poll_cycle_leaves_display_and_flights_tokens_unchanged
 
 
 def test_identical_second_poll_cycle_still_changes_the_home_token(app_server_in_process):
-    """a second, identical poll_loop.run_once() cycle (fake providers, empty sky) still changes
+    """a second, identical poll_cycle.run_once() cycle (fake providers, empty sky) still changes
     Home's own token - the Flight-data tile renders the same last_pipeline_run timestamp
     Health's Pipeline tile does, as plain text, so it must keep tracking that meta key even
     when nothing else about the cycle changed"""

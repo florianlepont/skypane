@@ -8,13 +8,19 @@ interval, and its place on that curve survives a total loss of power.**
 
 - **Date:** 2026-08-25 (Task 1/2) and 2026-08-26 (Task 3, this document)
 - **Firmware version reported by the device:** `0.1.0-p1` (`app_init: App
-  version: 0.1.0-p1`, confirmed live in `hardware/logs/backoff-powercycle.log`)
-- **Checker command run against the full merged evidence:**
+  version: 0.1.0-p1`, confirmed live in `hardware/logs/backoff-powercycle.log.gz`)
+- **Checker command run against the full merged evidence** (the tracked
+  `hardware/logs/backoff-powercycle.log.gz` is decompressed on the fly
+  with process substitution, since `hardware/logtools.py` has no gzip
+  support and is not modified by this repository-hygiene pass):
   ```
   python3 hardware/logtools.py check-backoff \
-    hardware/logs/backoff-run.log hardware/logs/backoff-powercycle.log \
+    hardware/logs/backoff-run.log <(gunzip -c hardware/logs/backoff-powercycle.log.gz) \
     --min-steps 6 --expect-persist --expect-reset
   ```
+  Every line number cited in this document refers to the decompressed
+  log; the original uncompressed blob remains reachable in git history at
+  and before commit `7bd8664`, unchanged by this repository-hygiene pass.
 - **Checker's literal result on that command: `5/8 checks pass`, exit
   code 1.** This is disclosed in full below, not hidden. The three
   failing sub-checks are each individually diagnosed and explained — none
@@ -38,7 +44,8 @@ full argument.
 ## Observed Sequence
 
 One row per wake across both captures, transcribed from
-`hardware/logs/backoff-run.log` and `hardware/logs/backoff-powercycle.log`.
+`hardware/logs/backoff-run.log` and (decompressed)
+`hardware/logs/backoff-powercycle.log.gz`.
 Times are local (CEST, `stamp`'s wall clock). "Wall-clock gap" is measured
 from the previous row's wake timestamp where both are known.
 
@@ -51,10 +58,10 @@ from the previous row's wake timestamp where both are known.
 | 5 | rtc | 39 | http | 4 | 4800 | 80 min | 2387s (~ armed 2400s) | backoff-run.log |
 | — | *(unobserved — capture deliberately stopped overnight, see note below)* | — | http (inferred) | 5 (inferred) | 9600 (inferred) | 160 min | ~4800s (armed interval from row 5) | not captured |
 | — | *(unobserved — same overnight gap)* | — | http (inferred) | 6 (inferred) | 19200 (inferred) | 320 min | ~9600s (armed interval, inferred) | not captured |
-| 6 | **not captured in serial log** (see `## Capture-Timing Limitation`) | — | http | **7** | 21600 | 6 h (cap) | 2h22m *earlier* than the natural ~09:38 schedule the prior armed interval implies — proves an external power interruption | backoff-powercycle.log, line 6 |
-| 7 | **not captured in serial log** | — | http | **8** | 21600 | 6 h (cap) | **12m37s** after row 6 armed a 21600s (6h) sleep — mathematically impossible without an external power interruption | backoff-powercycle.log, line 22 |
-| 8 | **not captured in serial log, but confirmed power-on via server-side `X-Boot-Reason=power-on` telemetry** (see `## Power-Cycle Persistence`) | — | *(success)* | reset to 0 pending | 300 | 5 min | forced early via a third physical unplug/replug, ahead of row 7's armed 21600s | backoff-powercycle.log, line 35 (`poll ok sleep_s=300 hash_skip=1`) |
-| 9 | **rtc**, boot_count=45 (captured cleanly) | 45 | http | **0** | 300 | 5 min | 299s (~ armed 300s from row 8) | backoff-powercycle.log, line 72/119 |
+| 6 | **not captured in serial log** (see `## Capture-Timing Limitation`) | — | http | **7** | 21600 | 6 h (cap) | 2h22m *earlier* than the natural ~09:38 schedule the prior armed interval implies — proves an external power interruption | backoff-powercycle.log.gz, decompressed line 6 |
+| 7 | **not captured in serial log** | — | http | **8** | 21600 | 6 h (cap) | **12m37s** after row 6 armed a 21600s (6h) sleep — mathematically impossible without an external power interruption | backoff-powercycle.log.gz, decompressed line 22 |
+| 8 | **not captured in serial log, but confirmed power-on via server-side `X-Boot-Reason=power-on` telemetry** (see `## Power-Cycle Persistence`) | — | *(success)* | reset to 0 pending | 300 | 5 min | forced early via a third physical unplug/replug, ahead of row 7's armed 21600s | backoff-powercycle.log.gz, decompressed line 35 (`poll ok sleep_s=300 hash_skip=1`) |
+| 9 | **rtc**, boot_count=45 (captured cleanly) | 45 | http | **0** | 300 | 5 min | 299s (~ armed 300s from row 8) | backoff-powercycle.log.gz, decompressed line 72/119 |
 
 Row 9 is the reset proof: after row 8's success, the very next induced
 failure reports `backoff_n=0 sleep_s=300` — the curve restarted at the
@@ -146,9 +153,11 @@ re-download it did not need.
 ## Capture-Timing Limitation (why `wake reason=power-on` is not literally in the log)
 
 The plan's own must-haves and Task 3's automated `<verify>` block expect
-`hardware/logs/backoff-powercycle.log` to literally contain the string
-`wake reason=power-on`. **It does not**, and this is disclosed here
-rather than worked around. What follows is the diagnosis, not an excuse.
+`hardware/logs/backoff-powercycle.log.gz` (tracked gzipped since the
+Phase 41 repository-hygiene pass; decompressed content unchanged) to
+literally contain the string `wake reason=power-on`. **It does not**, and
+this is disclosed here rather than worked around. What follows is the
+diagnosis, not an excuse.
 
 The reconnect-tolerant capture technique (proven in Task 2, reused here)
 polls for `/dev/cu.usbmodem*` and attaches the instant the path appears.
@@ -237,7 +246,13 @@ Full, verbatim output of the command in `## Verdict`, run against both
 captured logs concatenated in order:
 
 ```
-$ python3 hardware/logtools.py check-backoff hardware/logs/backoff-run.log hardware/logs/backoff-powercycle.log --min-steps 6 --expect-persist --expect-reset
+$ python3 hardware/logtools.py check-backoff hardware/logs/backoff-run.log <(gunzip -c hardware/logs/backoff-powercycle.log.gz) --min-steps 6 --expect-persist --expect-reset
+```
+(`hardware/logs/backoff-powercycle.log.gz` is decompressed on the fly above,
+tracked gzipped since the Phase 41 repository-hygiene pass. The transcript
+below is the original, unedited output from the 2026-08-26 session, run
+against the log before it was compressed, and is left as recorded.)
+```
 PASS at least 6 failed polls are present
 PASS every failed poll's interval matches the curve for its own counter
 FAIL failed-poll counters form a gapless sequence, reset only by a success - expected backoff_n=5, got 7 (line: '[2026-08-26T07:16:04] W (6871) inkframe: poll fail step=http backoff_n=7 sleep_s=21600')
@@ -323,7 +338,9 @@ PASS backoff-rtc-reset.log (rejected, as required)
   to the second — but it is disclosed here as an imperfection in this
   session's own tooling discipline, not silently corrected after the
   fact.
-- **Secret scan on `hardware/logs/backoff-powercycle.log`:** the bearer
+- **Secret scan on `hardware/logs/backoff-powercycle.log.gz`** (tracked
+  gzipped since the Phase 41 repository-hygiene pass — same bytes once
+  decompressed)**:** the bearer
   token, Wi-Fi password (`INK_WIFI_PASS`), setup secret
   (`INK_SETUP_SECRET`), and API base URL (`INK_API_BASE`) from
   `firmware/main/secrets.h` are all absent. The Wi-Fi SSID

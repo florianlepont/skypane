@@ -83,7 +83,7 @@ apt-get install -y caddy
 echo "==> Granting caddy read access to the durable access log (CFG-03)"
 # server/poll_loop.py (user skypane) tails caddy-access.log for
 # X-Battery-Mv telemetry; caddy (user caddy) writes it via Caddyfile's
-# `mode 640`. Caddy has no group= option, so adding caddy to group
+# `mode 660`. Caddy has no group= option, so adding caddy to group
 # skypane plus setgid on STATE_DIR is what lets skypane's group-read bit apply.
 usermod -aG "${APP_USER}" caddy
 chmod g+ws "${STATE_DIR}"

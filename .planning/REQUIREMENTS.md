@@ -95,8 +95,8 @@ Promoted 2026-08-27 from the v2 backlog to Phase 6 (see ROADMAP.md) — selected
 - [x] **CFG-69**: The Frame strip's Quiet hours cell links to the schedule fields, written ONCE in the shared component so Home and Display both get it from the same write site and neither is forked
 - [x] **CFG-70**: Two findings carried in from earlier phases are closed rather than re-deferred — the "Departures · Arrivals" legend stops naming two swatches that the registry never makes different (asserted as a relationship against the registry, so it self-corrects if a theme ever does differ), and `.copy-btn`'s 34×26 hit area meets the 44 px floor measured in its own container, together with `.row-toggle`, which reuses its values verbatim
 - [x] **CFG-71**: The phase's instrumentation floor is its own lesson made executable — ASSERT RELATIONSHIPS, NOT JUST ENDPOINTS: where several rendered surfaces are functions of one underlying value, ONE check decodes every surface to one canonical value and asserts the set has exactly one member, that the member is what the interaction requested and that it differs from what was there before; every check is mutation-tested with its failure message quoted, every `EXPECTED_CHECK_COUNT` is re-derived by RUNNING, and the phase adds no new script and no new route so the deferred-script pin stays at 15
-- [ ] **CFG-72**: A settings card's own title renders in ONE typographic form regardless of which settings page hosts it — Device's cards are wrapped in the same nested-supersection style Display's already are, measured by `getComputedStyle` (font-size, weight, family) on every such title across both pages and asserted equal, not by grepping markup for a shared class name
-- [ ] **CFG-73**: The quiet-hours dial is correct THROUGHOUT an interaction, not only before and after it — (a) after a drag, a keyboard step, a typed field edit or a preset click, the caption states both endpoints as HH:MM and a correctly recomputed duration, byte-for-byte matching the format the server emits at load, proven by reading the caption's actual displayed text after each interaction kind rather than by the existence of a formatting function; (b) the handle stays on the dial's own ring for the FULL DURATION of a press or drag, proven by sampling its resolved position against the dial's centre and radius while held rather than only at rest — the collapse toward the centre is a CSS specificity collision (`button:active`'s generic depress transform beating the handle's own positioning transform, both class-level specificity, the generic rule winning by source order and animating there via the shared `transition: transform`) and not the angle/pointer math, so the fix gives the positioned handle's own active state precedence without touching the value it reports, and extends to the wake-interval slider's handle, which shares the same base class and is subject to the identical collision
+- [x] **CFG-72**: A settings card's own title renders in ONE typographic form regardless of which settings page hosts it — Device's cards are wrapped in the same nested-supersection style Display's already are, measured by `getComputedStyle` (font-size, weight, family) on every such title across both pages and asserted equal, not by grepping markup for a shared class name
+- [x] **CFG-73**: The quiet-hours dial is correct THROUGHOUT an interaction, not only before and after it — (a) after a drag, a keyboard step, a typed field edit or a preset click, the caption states both endpoints as HH:MM and a correctly recomputed duration, byte-for-byte matching the format the server emits at load, proven by reading the caption's actual displayed text after each interaction kind rather than by the existence of a formatting function; (b) the handle stays on the dial's own ring for the FULL DURATION of a press or drag, proven by sampling its resolved position against the dial's centre and radius while held rather than only at rest — the collapse toward the centre is a CSS specificity collision (`button:active`'s generic depress transform beating the handle's own positioning transform, both class-level specificity, the generic rule winning by source order and animating there via the shared `transition: transform`) and not the angle/pointer math, so the fix gives the positioned handle's own active state precedence without touching the value it reports, and extends to the wake-interval slider's handle, which shares the same base class and is subject to the identical collision
 - [ ] **CFG-74**: A settings save failure is never silent and never permanent — investigated live by the developer across iPhone Safari and Mac desktop Safari and CONFIRMED SEVERE: no setting on ANY settings page (Display or Device) currently saves via auto-save in real Safari, with no visible error and no way to retry — a regression from Phase 27's removal of the manual save button that a Chromium-only harness cannot see (its own `_click_control()` helper already documents that a real coordinate click doesn't land reliably on these controls). Thorough code review of `dirty-state.js`, the toast element and its CSS found no incompatibility, and the exact root cause could not be confirmed without a live WebKit debugger, unavailable in this project's development environment — **this requirement does not claim to have found and fixed that root cause.** It requires resilience regardless of cause: (a) the save status is visible independent of scroll position (fixed/sticky, not tied to page-header position); (b) any save failure — non-204 response, opaque redirect, thrown exception, or a save that never resolves within a bounded timeout — surfaces a real, actionable retry affordance that appears ONLY on genuine failure and is invisible otherwise, honoring the developer's standing "zero buttons" preference; (c) the runway radios' `form=`-attribute wiring is additionally proven by its own check against the same pass/fail contract every other control meets, closing a path Phase 27's checks did not specifically cover; and (d) if the executor's own live-Chromium testing while building (a) and (b) surfaces a genuine, reproducible defect in the save pipeline along the way, it is fixed and named as a real root-cause fix, not folded silently into "resilience" — **SUPERSEDED before implementation (2026-09-16), never built.** This requirement's own text names its own root cause: "a regression from Phase 27's removal of the manual save button." With that button restored (CFG-77/CFG-78), the resilience machinery this requirement specified — a fetch-timeout, distinguished async failure kinds, a conditional retry affordance — has no fetch left to wrap, since the settings form goes back to a real native POST whose success or failure is unambiguous by construction (a real page navigation, not an async call that can fail silently). Left unticked rather than retired-as-met, because nothing here was ever built: the real Chromium data captured while the developer WAS testing the silent auto-save (a genuine 204 success with zero visible confirmation) is what led directly to the reversal, and stands as this requirement's own evidence for why "resilience around a silent mechanism" was the wrong fix for the symptom it correctly diagnosed.
 - [x] **CFG-75**: Every theme carousel's live preview follows the scroll position — while scrolling or swiping, the preview image updates to match whichever chip is currently centered in the strip, without changing the SELECTED theme (no radio state change, no persisted setting change) until an actual click or keyboard-select commits it; every carousel instance (departures, arrivals, calendar) tracks its own preview state independently, preserving 27-07's per-instance `strip_id` discipline, proven by asserting the preview `<img src>` actually matches the geometrically centered chip during a scroll rather than by a scroll listener merely being attached
 - [x] **CFG-76**: The mobile nav toggle's icon matches what it opens — `#site-nav-toggle` renders a gear glyph instead of the hamburger, with its `aria-label` and the account/preferences panel it opens unchanged, and no other icon in `ICON_IDS` collides with the new gear symbol
@@ -194,9 +194,9 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [x] **CMP-07**: Shared helpers
 - [x] **CMP-08**: Merged; colours → tokens
 - [x] **CMP-09**: Stable message IDs
-- [ ] **DOC-01**: All docs aligned with the code as it stands after phases 32–40
-- [ ] **DOC-02**: Log gzipped in the tree (no history rewrite, D-A6); unused asset removed from the deploy; completed v1.0 phases archived via `/gsd-cleanup` at milestone close
-- [ ] **DOC-03**: Re-audit: every ID in this ledger verified against the code and marked closed
+- [x] **DOC-01**: All docs aligned with the code as it stands after phases 32–40
+- [x] **DOC-02**: Log gzipped in the tree (no history rewrite, D-A6); unused asset removed from the deploy; completed v1.0 phases archived via `/gsd-cleanup` at milestone close
+- [x] **DOC-03**: Re-audit: every ID in this ledger verified against the code and marked closed
 
 ### Remote firmware update (Phase 42)
 
@@ -366,7 +366,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CFG-85 | Phase 30 | Pending — phase added 2026-09-21; a `/gsd-sketch` round precedes planning. |
 | CFG-86 | Phase 30 | Pending — phase added 2026-09-21, not yet planned. |
 | TST-01 | Phase 32 | Complete |
-| TST-02 | Phase 32 | Complete |
+| TST-02 | Phase 32 | Complete — remediation differs from the ledger wording, see 41-CLOSING-AUDIT.md |
 | TST-03 | Phase 32 | Complete |
 | TST-04 | Phase 32 | Complete |
 | TST-05 | Phase 32 | Complete |
@@ -379,7 +379,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TST-12 | Phase 33 | Complete |
 | TST-13 | Phase 33 | Complete |
 | TST-14 | Phase 33 | Complete |
-| TST-15 | Phase 33 | Complete |
+| TST-15 | Phase 33 | Complete — remediation differs from the ledger wording, see 41-CLOSING-AUDIT.md |
 | FW-01 | Phase 34 | Complete |
 | FW-02 | Phase 34 | Complete |
 | FW-03 | Phase 34 | Complete |
@@ -395,12 +395,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FW-13 | Phase 34 | Complete |
 | FW-14 | Phase 34 | Complete |
 | FW-15 | Phase 34 | Complete |
-| HYG-01 | Phase 35 | Complete |
+| HYG-01 | Phase 35 | Accepted open — reopened by the Phase 41 re-audit, accepted as-is by the developer 2026-09-28, fix deferred to `.planning/todos/pending/comment-history-guard-residue.md`; see 41-CLOSING-AUDIT.md |
 | HYG-02 | Phase 35 | Complete |
 | HYG-03 | Phase 35 | Complete |
 | HYG-04 | Phase 35 | Complete |
 | HYG-05 | Phase 35 | Complete |
-| HYG-06 | Phase 35 | Complete |
+| HYG-06 | Phase 35 | Accepted open — reopened by the Phase 41 re-audit, accepted as-is by the developer 2026-09-28, fix deferred to `.planning/todos/pending/comment-history-guard-residue.md`; see 41-CLOSING-AUDIT.md |
 | INT-01 | Phase 36 | Complete |
 | INT-02 | Phase 36 | Complete |
 | INT-03 | Phase 36 | Complete |
@@ -431,7 +431,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EFF-06 | Phase 38 | Complete |
 | ARC-01 | Phase 39 | Complete |
 | ARC-02 | Phase 39 | Complete |
-| ARC-03 | Phase 39 | Complete |
+| ARC-03 | Phase 39 | Complete — remediation differs from the ledger wording, see 41-CLOSING-AUDIT.md |
 | ARC-04 | Phase 39 | Complete |
 | ARC-05 | Phase 39 | Complete |
 | ARC-06 | Phase 39 | Complete |
@@ -444,9 +444,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CMP-07 | Phase 40 | Complete (40-09 — one shared body-drain helper, one cookie builder) |
 | CMP-08 | Phase 40 | Complete (40-02 — no duplicated selector, no hard-coded colour outside tokens) |
 | CMP-09 | Phase 40 | Complete (40-12, 40-13, 40-14, 40-15 — stable message IDs across every page, strict ID-only lookup and completeness tests) |
-| DOC-01 | Phase 41 | Pending |
-| DOC-02 | Phase 41 | Pending |
-| DOC-03 | Phase 41 | Pending |
+| DOC-01 | Phase 41 | Complete (41-01, 41-02) |
+| DOC-02 | Phase 41 | Complete (41-03 — log gzipped in tree; unused asset removed; /gsd-cleanup archival deferred to the v1.0 close after Phase 42) |
+| DOC-03 | Phase 41 | Complete (41-04..41-08) — every ledger ID has an evidenced verdict; HYG-01/HYG-06 accepted open, see 41-CLOSING-AUDIT.md ## Accepted open |
 | OTA-01 | Phase 42 | Pending |
 | OTA-02 | Phase 42 | Pending |
 | OTA-03 | Phase 42 | Pending |

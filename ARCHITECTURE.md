@@ -111,11 +111,16 @@ deferred draw resets the counter to 0, so the device recovers to its
 normal (server-supplied) cadence immediately once polling succeeds again.
 
 **What persists in NVS across a full power loss** (`nvs_schema.h`, trimmed
-from upstream's ~30 keys to exactly four): the bearer token
-(`FP_NVS_DEVICE_TOKEN`), the last successfully-blitted image hash
-(`FP_NVS_IMAGE_HASH`), the consecutive-failure counter
-(`FP_NVS_BACKOFF_N`), and a boot counter (`FP_NVS_BOOT_COUNT`). Nothing
-about which view is active is stored, because v1 has only one view.
+from upstream's ~30 keys to five, split across two partitions): on the
+default `nvs` partition, the bearer token (`FP_NVS_DEVICE_TOKEN`), the
+last successfully-blitted image hash (`FP_NVS_IMAGE_HASH`), the
+consecutive-failure counter (`FP_NVS_BACKOFF_N`), and a boot counter
+(`FP_NVS_BOOT_COUNT`); on its own dedicated `secret` partition
+(read-only from the application's side), the per-device enrolment secret
+(`FP_NVS_ENROL_SECRET`, written once over USB by `firmware/provision.sh`
+— see Deployment topology below for how the server side of that pairing
+works). Nothing about which view is active is stored, because v1 has
+only one view.
 
 **The observable interface — the Log Line Contract** (`firmware/VENDOR.md`),
 five fixed line shapes emitted with ESP log tag `skypane`, deliberately
@@ -146,7 +151,13 @@ oneshot every 30 seconds (matching Phase 1's validated aggregator sampler
 interval, and comfortably inside both aggregators' 1 req/s limit) — it
 does nothing but parse `argparse` arguments and call `server/poll_cycle.py`'s
 `run_once()`, which the companion's `POST /poll-now` calls the exact same
-way. The cycle itself has no in-process memory of its own between
+way — the two callers can never run a cycle concurrently, because
+`run_once()` opens `state/poll.lock` (`poll_cycle.poll_cycle_lock()`, an
+`fcntl.flock`) for the duration of the cycle: the systemd timer's call
+waits up to a bounded timeout for the lock, and the companion's call
+fails fast (`PollBusy`, surfaced as the "already running" flash) rather
+than ever blocking a request thread. The cycle itself has no in-process
+memory of its own between
 invocations — all cross-cycle state lives in `state/poll_state.json`,
 owned by `server/state_store.py` (path, load, serialise, save,
 persist-if-changed) and written with the same
@@ -472,19 +483,27 @@ as `<public-host>`, never by its real address).
   and writes two persistence artefacts of its own: `history.db` (device
   health/runway-event history, `server/history_db.py`) and a small
   `device_config.json` side-file for the theme/runway settings a Save
-  click writes. It never touches `stub-server/byos_server.py`. Because
-  that server prints the device's battery-voltage header but persists
-  nothing of its own, the companion service's own battery history comes
-  from a second source instead: Caddy's own durable JSON access log on
-  the device-protocol site block, tailed for the `X-Battery-Mv` header on
-  every device poll.
-- **Device authentication** is a bearer token, issued at
-  `/device/v1/setup` in exchange for a shared setup secret
-  (`SKYPANE_BYOS_SECRET`, set once in a hand-written, gitignored
-  `skypane.env` that is never rsynced and never committed) and then sent
-  as `Authorization: Bearer <token>` on every subsequent `/display` and
-  `/log` call. The device never accepts inbound connections at any point
-  — it is poll-only, with no listening socket of its own.
+  click writes. It never touches `stub-server/byos_server.py`. That
+  server does persist one artefact of its own — `state/battery_state.json`,
+  the single latest `X-Battery-Mv` reading (`byos_server.py`'s
+  `save_battery_state()`, read by `server/state_store.py`'s
+  `load_battery_state()`) — but that file is overwritten every poll, not
+  a history, so the companion service's own battery *history* still
+  comes from a second source: Caddy's own durable JSON access log on the
+  device-protocol site block, tailed for the same `X-Battery-Mv` header.
+- **Device authentication** is per-device, not a single shared secret.
+  `stub-server/byos_server.py` gates `/device/v1/setup` against a
+  per-device registry (`devices.json` in its state dir, mapping each MAC
+  to the SHA-256 of that device's own enrolment secret, managed with
+  `stub-server/devices_cli.py`); a device presents its MAC and its own
+  secret (held read-only on the device's dedicated `secret` NVS
+  partition, provisioned once over USB by `firmware/provision.sh`) and,
+  on a match, receives a bearer token, sent as
+  `Authorization: Bearer <token>` on every subsequent `/display` and
+  `/log` call. A wrong or unregistered secret leaves any existing token
+  untouched — one compromised device's secret cannot be used to hijack
+  another's enrolment. The device never accepts inbound connections at
+  any point — it is poll-only, with no listening socket of its own.
 - **State** — `state/panel.bin` and `state/poll_state.json` — lives on the
   VPS's local disk only, fully reproducible from this repository's
   `server/` and `stub-server/` trees plus the one hand-written env file;

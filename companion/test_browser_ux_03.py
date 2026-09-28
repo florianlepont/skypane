@@ -137,7 +137,7 @@ def _switch_state(page, selector=None):
 
 def _record_a_new_detection(state_dir, callsign, hex_value, ts):
     """One more runway_events row, written through the same module
-    server/poll_loop.py writes them with — never a hand-built INSERT, so
+    server/poll_cycle.py writes them with — never a hand-built INSERT, so
     the row this check calls "a new detection" is the shape a real
     detection has."""
     with history_db.open_db(state_dir) as conn:
