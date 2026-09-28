@@ -107,3 +107,29 @@ is not something 42-09's own Update-page display work caused or touches.
 
 **Suggested follow-up:** a small follow-up (or the next 42-* plan that
 touches `stub-server/test_ota_offer.py`) should delete that trailing block.
+
+## 42-09: two `companion/test_app_server_fixture.py` tests fail, macOS sandbox limitations unrelated to this plan
+
+**Found during:** 42-09 Task 2's full-suite verification (`pytest -q
+companion -m "not browser"`).
+
+**Symptom:** `test_stop_kills_the_whole_process_group_including_a_grandchild`
+(a killpg-signal-delivery race, flaky under this sandbox's process
+scheduling) and `test_child_env_carries_no_network_var_and_pythonpath`
+(reads `/proc/<pid>/environ`, which does not exist on macOS) both fail.
+
+**Proven pre-existing and unrelated to this plan:** `git status`/`git log`
+show `companion/test_app_server_fixture.py` and
+`test-support/companion_app_server.py` untouched by this plan (last
+touched by Phase 35's comment purge); neither test exercises anything
+about navigation, the Update page, or any file this plan's
+`files_modified` list names.
+
+**Why not fixed here:** out of scope — a subprocess-management test's
+platform assumption (a `/proc` filesystem) and process-group signal
+timing are not something 42-09's own display-only Update page work
+caused or touches.
+
+**Suggested follow-up:** none needed for this plan; a macOS-specific skip
+or a Linux-container re-run (as 41-06/42-05 already do for other
+sandbox-only gaps) would close this if a future plan needs it proven.

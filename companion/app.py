@@ -118,6 +118,7 @@ FLIGHTS_ROUTE = layout.FLIGHTS_ROUTE
 AIRLINES_ROUTE = layout.AIRLINES_ROUTE
 HEALTH_ROUTE = layout.HEALTH_ROUTE
 DEVICE_ROUTE = layout.DEVICE_ROUTE
+UPDATE_ROUTE = layout.UPDATE_ROUTE
 # The pre-refactor History route, kept as a fixed 303 to FLIGHTS_ROUTE
 # for stale bookmarks — the same treatment PREVIEW_PAGE_ROUTE gets.
 HISTORY_LEGACY_ROUTE = "/history"
@@ -298,6 +299,13 @@ _PAGE_SCRIPTS = {
     layout.AIRLINES_ROUTE: (
         layout.LIST_FILTER_SCRIPT_SRC,
         layout.PANEL_LOOKUP_SCRIPT_SRC,
+    ),
+    # CONFIRM_SUBMIT_SCRIPT_SRC gates the per-release Install form's
+    # data-confirm misclick guard (its "no data-confirm-field, always
+    # lands on the confirm page" contract is a later plan's own route;
+    # this page's forms already carry the attribute the script reads).
+    layout.UPDATE_ROUTE: (
+        layout.CONFIRM_SUBMIT_SCRIPT_SRC,
     ),
 }
 
