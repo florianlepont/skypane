@@ -1966,7 +1966,7 @@ Plans:
 2. Every ID in the audit ledger marked closed with its evidence (commit / test)
 3. A fresh audit pass finds no regression of a closed item
 
-**Plans:** 6/8 plans executed
+**Plans:** 7/8 plans executed
 
 Plans:
 
@@ -1978,7 +1978,7 @@ Plans:
 - [x] 41-04-PLAN.md — DOC-03 re-audit: TST-01..15, HYG-01..06 (full gate runs) [DOC-03]
 - [x] 41-05-PLAN.md — DOC-03 re-audit: FW-01..15, read-only on firmware/ [DOC-03]
 - [x] 41-06-PLAN.md — DOC-03 re-audit: INT-01..14, SEC-01..08 [DOC-03]
-- [ ] 41-07-PLAN.md — DOC-03 re-audit: EFF-01..06, ARC-01..06, CMP-01..09 [DOC-03]
+- [x] 41-07-PLAN.md — DOC-03 re-audit: EFF-01..06, ARC-01..06, CMP-01..09 [DOC-03]
 
 **Wave 2** *(blocked on Wave 1 completion)*
 

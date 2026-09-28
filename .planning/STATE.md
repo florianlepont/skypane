@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 41
 current_phase_name: docs-repository-hygiene-and-closing-re-audit
 status: executing
-stopped_at: Completed 41-06-PLAN.md
-last_updated: "2026-09-28T07:07:10.126Z"
+stopped_at: Completed 41-07-PLAN.md
+last_updated: "2026-09-28T07:24:12.130Z"
 last_activity: 2026-09-28
 progress:
   total_phases: 54
   completed_phases: 49
   total_plans: 442
-  completed_plans: 415
-  percent: 94
+  completed_plans: 416
+  percent: 91
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -66,7 +66,7 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 7 of 8
+Plan: 8 of 8
 
 **41-06 executed (2026-09-28), plan 6/8 of Phase 41 (depends on none, wave 1) — read-only closing re-audit of Phase 36 (INT-01..INT-14) and Phase 37 (SEC-01..SEC-08), one commit for the report plus its SUMMARY.** Wrote `41-REAUDIT-INT-SEC.md`: all 22 findings VERIFIED-CLOSED against the current codebase, confirmed unbroken across the Phase 38-40 refactors (poll_cycle split, history_db rewrite, calendar_rules package split, companion route table) — poll.lock/flock now lives in `server/poll_cycle.py`, INT-14's IP-pinning fix (`server/http_fetch.py::pinned_request`) is the option that shipped with `server/net/safe_fetch.py` (a Phase 39 addition) confirmed as an additive early gate rather than a replacement, and SEC-03's Origin/Sec-Fetch-Site check was re-traced against the current, larger 17-route `companion/routes.py` table by finding it runs once in `companion/app.py::_dispatch()` before routing, covering routes Phase 40 added. Ran the plan's full targeted test sets (94 + 442 + 124 passed across the INT and SEC gates) plus `deploy/tests` (100 passed natively, 4 skipped for missing `systemd-analyze`). This sandbox (non-root macOS, unlike 41-04/41-05's root-Linux sandboxes) could not natively run two `deploy/tests` files (BSD `mv` lacks `-T`) or `systemd-analyze` at all — both were re-run inside Docker containers (a plain Linux container for the tests: 70 passed, 4 skipped; a systemd-installed Ubuntu container for the security scoring: byos 1.3 OK/companion 1.5 OK/poll 1.5 OK/backup 0.8 SAFE, byte-identical to `37-SEC-BASELINE.md`) rather than left unproven. `roadmap.update-plan-progress 41` now reports 6/8 plans (summaries) with the phase still In Progress (41-07/41-08 are not this plan's scope). `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 94` (415/442) but the written frontmatter showed `percent: 91` (`completed_phases/total_phases` = 49/54) — corrected to `94` by hand per this file's established precedent.
 
@@ -626,6 +626,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 41 P04 | 20min | 2 tasks | 1 files |
 | Phase 41 P05 | 55min | 2 tasks | 1 files |
 | Phase 41 P06 | 70min | 2 tasks | 1 files |
+| Phase 41 P07 | 55min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -1241,6 +1242,8 @@ Recent decisions affecting current work:
 - [Phase 41]: 34-VERIFICATION.md's W-1 warning (NVS panic-loop) was fixed after that report was written despite being scored non-blocking - positive drift documented in 41-REAUDIT-FW.md
 - [Phase 41]: INT-01..14 and SEC-01..08 all VERIFIED-CLOSED against current code (post Phase 38-40 refactors); no regressions found
 - [Phase 41]: INT-14: IP-pinning fix confirmed shipped (http_fetch.pinned_request); server/net/safe_fetch.py is additive, not a replacement
+- [Phase 41]: 41-07: All 21 EFF/ARC/CMP findings VERIFIED-CLOSED against current code; ARC-03 FLAGGED-DIFFERENT on naming only (calendar_rules/ vs ledger's calendar/ shorthand), intent fully met
+- [Phase 41]: 41-07: Phase 40 deferred browser test (chromium-health-registry) now passes; root cause resolved by Phase 39's ARC-02 state_store split
 
 ### Pending Todos
 
@@ -1362,8 +1365,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T07:07:10.100Z
-Stopped at: Completed 41-06-PLAN.md
+Last session: 2026-09-28T07:24:12.105Z
+Stopped at: Completed 41-07-PLAN.md
 
 Resume file: 
 
