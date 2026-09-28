@@ -6,7 +6,7 @@
  * SkyPane; the changes are listed in firmware/VENDOR.md. */
 /* SkyPane NVS schema — trimmed from upstream's nvs_schema.h down to
  * everything a device remembers: four keys in the `skypane` namespace
- * on the default `nvs` partition, plus one more in that namespace on
+ * on the default `nvs` partition, plus eight more in that namespace on
  * its own dedicated `secret` partition (see firmware/VENDOR.md for what
  * was removed and why). A later phase reintroducing provisioning must
  * migrate this namespace in place, never rename it — a factory reset
@@ -41,7 +41,21 @@
  * device (firmware/provision.sh) can never touch the token, image hash
  * or backoff keys, and so an application factory-reset of the default
  * partition can never erase the one copy of this device's credential.
- * The application only ever reads this key — it never writes or erases
- * the `secret` partition (enrol_secret.c). */
+ * The application only ever reads these keys — it never writes or
+ * erases the `secret` partition (enrol_secret.c). */
 #define FP_NVS_SECRET_PARTITION "secret"
 #define FP_NVS_ENROL_SECRET "enrol_secret"
+
+/* Device credentials, written into the same `secret` partition by
+ * firmware/provision.sh alongside the enrolment secret above, so the
+ * compiled image carries no credential of its own (enrol_secret.c reads
+ * all seven of these keys via fp_device_creds_load). The static-IP keys
+ * are optional: either all four are present, or none are — see
+ * fp_static_ip_set_valid (creds.h). */
+#define FP_NVS_WIFI_SSID "wifi_ssid"
+#define FP_NVS_WIFI_PASS "wifi_pass"
+#define FP_NVS_API_BASE "api_base"
+#define FP_NVS_STATIC_IP "static_ip"
+#define FP_NVS_STATIC_MASK "static_mask"
+#define FP_NVS_STATIC_GW "static_gw"
+#define FP_NVS_STATIC_DNS "static_dns"

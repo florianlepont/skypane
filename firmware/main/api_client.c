@@ -25,7 +25,6 @@
 #include "enrol_secret.h"
 #include "nvs_schema.h"
 #include "nvs_util.h"
-#include "secrets.h"
 #include "tls_session.h"
 #include "validate.h"
 #include "wake_guard.h"
@@ -197,29 +196,29 @@ bool fp_api_has_token(void)
     return fp_nvs_get_str(FP_NVS_DEVICE_TOKEN, token, sizeof(token)) == ESP_OK;
 }
 
-/* Resolves and validates the server base URL: the dev override when this
- * build allows plain http and one is configured, else the compiled
- * production default; normalized (fp_api_base_normalize collapses a
- * trailing slash so callers never build "//device...") and checked
- * against this build's scheme policy. Every caller propagates
+/* Resolves and validates the server base URL: read from the same
+ * provisioned secret partition fp_wifi_connect() reads its Wi-Fi
+ * credentials from (fp_device_creds_load, enrol_secret.h) — a dev board
+ * is provisioned with its own http:// base and only a dev build
+ * (CONFIG_SKYPANE_ALLOW_HTTP) accepts it; normalized (fp_api_base_normalize
+ * collapses a trailing slash so callers never build "//device...") and
+ * checked against this build's scheme policy. Every caller propagates
  * FP_ERR_CONFIG unchanged rather than attempting a request with a
- * rejected base. */
+ * rejected or unprovisioned base. */
 static esp_err_t api_base_get(char *out, size_t cap)
 {
-#ifdef CONFIG_SKYPANE_ALLOW_HTTP
-#ifdef SKYPANE_API_BASE_DEV
-    const char *source = SKYPANE_API_BASE_DEV;
-#else
-    const char *source = SKYPANE_API_BASE;
-#endif
-#else
-    const char *source = SKYPANE_API_BASE;
-#endif
-    if (fp_api_base_normalize(source, out, cap) != 0 || out[0] == 0 ||
+    fp_device_creds_t creds;
+    esp_err_t err = fp_device_creds_load(&creds);
+    if (err != ESP_OK) {
+        return err; /* FP_ERR_CONFIG; enrol_secret.c already logged which key */
+    }
+    if (fp_api_base_normalize(creds.api_base, out, cap) != 0 || out[0] == 0 ||
         !fp_url_valid(out, cap, s_allow_http)) {
         ESP_LOGE(TAG, "API base URL rejected (this build requires https)");
+        memset(&creds, 0, sizeof(creds));
         return FP_ERR_CONFIG;
     }
+    memset(&creds, 0, sizeof(creds));
     return ESP_OK;
 }
 

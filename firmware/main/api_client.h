@@ -9,11 +9,11 @@
  * firmware offers, possession-pairing signed headers, and a versioned
  * target-blob (BYOS override) resolution chain written only by
  * provisioning flows — none of that is compiled here. This project's
- * server is addressed via SKYPANE_API_BASE (secrets.h), with the
- * per-device enrolment secret read separately (enrol_secret.h). Kept:
- * the two endpoints, all four telemetry headers, and the streamed
- * download with SHA-256 + exact-byte-count verification before any
- * buffer reaches panel.c — PROTOCOL.md §2-3. */
+ * server base and the per-device enrolment secret are both read from
+ * the provisioned secret NVS partition (enrol_secret.h), so the compiled
+ * image carries neither. Kept: the two endpoints, all four telemetry
+ * headers, and the streamed download with SHA-256 + exact-byte-count
+ * verification before any buffer reaches panel.c — PROTOCOL.md §2-3. */
 #pragma once
 
 #include <stdbool.h>
