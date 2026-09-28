@@ -204,6 +204,7 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
             esp_err_t ota_wifi_err = fp_wifi_connect(15000);
             if (ota_wifi_err != ESP_OK) {
                 fp_ota_record_result(FP_OTA_RESULT_FAIL_DOWNLOAD, disp.fw.version);
+                fp_nvs_erase_key(FP_NVS_OTA_TRY); /* attempt fully classified */
                 *fail_step_out = "ota";
                 return FP_POLL_FAILED;
             }
@@ -216,6 +217,7 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
                 esp_restart();
             }
             fp_ota_record_result(ota_fail, disp.fw.version);
+            fp_nvs_erase_key(FP_NVS_OTA_TRY); /* attempt fully classified */
             *fail_step_out = "ota";
             return FP_POLL_FAILED;
         }

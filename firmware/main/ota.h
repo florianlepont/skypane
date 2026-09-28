@@ -84,9 +84,13 @@ void fp_ota_confirm_if_pending(void);
 void fp_ota_record_result(fp_ota_result_t r, const char *version);
 
 /* Records version as the trial currently being attempted (FP_NVS_OTA_TRY),
- * to be read back by fp_ota_boot_check() after the restart fp_ota_apply()
- * leads to. Call this before esp_restart(), once fp_ota_apply() returns
- * ESP_OK. A NULL version is a no-op. */
+ * to be read back by fp_ota_boot_check() after the restart a successful
+ * fp_ota_apply() leads to. Call this before fp_ota_apply(), not after -
+ * the caller must erase FP_NVS_OTA_TRY itself once an in-wake failure
+ * (fp_ota_apply() returning anything other than ESP_OK) has been fully
+ * classified and recorded, or the next boot's fp_ota_boot_check() will
+ * reclassify it as INTERRUPTED and overwrite the specific reason already
+ * reported. A NULL version is a no-op. */
 void fp_ota_mark_try(const char *version);
 
 /* True and out filled iff an OTA result is currently waiting to be
