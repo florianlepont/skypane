@@ -6,14 +6,14 @@ current_phase: 42
 current_phase_name: remote-firmware-update-over-the-air-ota-promoted-from-seed-0
 status: executing
 stopped_at: "Completed 42-06-PLAN.md (provisioned device credentials: creds.c validators, fp_device_creds_load, wifi.c/api_client.c integration, provision.sh --wifi-ssid/--api-base/static-IP, secrets.h retired from CI/docs). Next: 42-07."
-last_updated: "2026-09-28T12:18:49.359Z"
+last_updated: "2026-09-28T12:51:27.880Z"
 last_activity: 2026-09-28
 progress:
   total_phases: 54
   completed_phases: 50
   total_plans: 442
-  completed_plans: 423
-  percent: 96
+  completed_plans: 424
+  percent: 93
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -66,7 +66,7 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 7 of 16
+Plan: 8 of 16
 
 **42-03 executed (2026-09-28), plan 3/16 of Phase 42 (depends on none, wave 1) — the OTA Kconfig chain, release tagging and signing procedure, three commits.** Task 1 re-verified gate G-41 against `origin/main` (all four checks passed) — read-only, no edits, no commit. Task 2 confirmed the signed-app Kconfig chain (`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y`, `CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y`, `CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y`, RSA-3072 scheme) by running a *clean* `idf.py reconfigure` inside the pinned `espressif/idf:v5.3.1` container, first against a scratch copy of `firmware/`, then byte-identical against the real committed defaults; discovered along the way that an *incremental* reconfigure silently carries over a stale `CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES=y` even after the defaults file is edited to turn it off, and that `CONFIG_SECURE_SIGNED_ON_BOOT_NO_SECURE_BOOT` is genuinely absent from the resolved sdkconfig for the RSA scheme (its Kconfig entry depends on ECDSA specifically) — both findings recorded in the new `firmware/SIGNING.md`. Extended `firmware/tests/check_production_config.sh`: static mode now requires the new lines and fails on any eFuse-burning option in a committed defaults file (mutation-proven with a real scratch-copy failure run); built mode requires the resolved chain and logs it — confirmed by running a full real container build end to end (`./firmware/build.sh`, correctly reported "App built but not signed. Sign app before flashing") and then the built-mode check against the real artifact (PASS). Added `SKYPANE_OTA_FLOOR_VERSION` to `firmware/main/Kconfig.projbuild` and raised `SKYPANE_WAKE_BUDGET_S`'s default 300 → 360 for an OTA wake's extra stages. Task 3 added `firmware/build.sh`'s `SKYPANE_RELEASE_TAG` release mode (tag-exact `PROJECT_VER` on a clean, tagged HEAD, validated before Docker starts, both failure paths confirmed to exit 2) plus `SKYPANE_VERSION_LABEL` for bench images, and restricted non-release `git describe` to `--match 'fw-v*'` so a dev build can never print a bare release tag; completed `firmware/SIGNING.md` with the human-only key-generation/backup/rotation procedure (`FW_SIGNING_KEY` GitHub environment secret in a `firmware-signing` environment with a required reviewer, encrypted offline backup, public key at `firmware/signing/skypane-signing-pubkey.pem`), the forbidden list, and local bench-image signing — confirmed no private key material anywhere in `firmware/`. Commits: `24bdd684` (feat) Task 2, `88df2ba4` (feat) Task 3, `9150ea42`+`51bf0472` (docs) SUMMARY. Per this project's established convention, `REQUIREMENTS.md` was intentionally left untouched: OTA-03/04/05/10 are each shared across several later plans in this phase, so `requirements mark-complete` was not called. `roadmap.update-plan-progress 42` now reports 3/16 plans (summaries) with the phase still In Progress. `state.update-progress` reproduced this file's own documented recurring bug twice more during this plan's own close-out — its own JSON correctly returned `percent: 95` (420/442) both times, but the written frontmatter showed `percent: 93` (`completed_phases/total_phases` = 50/54) — corrected to `95` by hand each time per this file's established precedent.
 
@@ -639,6 +639,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 42 P04 | 1h43m | 3 tasks | 16 files |
 | Phase 42 P05 | 11min | 3 tasks | 3 files |
 | Phase 42 P06 | 25min | 3 tasks | 18 files |
+| Phase 42 P07 | ~50min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -1267,6 +1268,9 @@ Recent decisions affecting current work:
 - [Phase 42-05]: verify_chain() failure message names the top block's issuer (the actual foreign root's own subject for a leaf+intermediate chain), not the intermediate's own subject
 - [Phase 42-05]: firmware-chain-check.yml's failure-explanation step is gated on the chain-check step's own outcome, not a blanket if: failure(), so a missing-secret failure and a real chain failure never share one message
 - [Phase 42-06]: D-20 implemented: device credentials (Wi-Fi SSID/password, API base, optional static IP) move out of the firmware image into the secret NVS partition, written by firmware/provision.sh over USB
+- [Phase 42]: byos already imports server.device_policy/server.state_store (vendor boundary retired), so server.firmware_registry was added the same way rather than a byos-local parity copy of compute_offer/load_registry/load_device_report
+- [Phase 42]: device_report.json's next_seq counter is pre-incremented so the first-ever event gets seq 1, never 0 -- compute_offer() only counts events with seq strictly greater than reconciled_seq (0 by default)
+- [Phase 42]: GET /fw/<sha256>.bin carries no authentication, matching /img/'s existing rule: release images are signed and carry no credential
 
 ### Pending Todos
 
@@ -1389,12 +1393,13 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T12:18:49.333Z
+Last session: 2026-09-28T12:49:40.404Z
 Stopped at: Completed 42-06-PLAN.md (provisioned device credentials: creds.c validators, fp_device_creds_load, wifi.c/api_client.c integration, provision.sh --wifi-ssid/--api-base/static-IP, secrets.h retired from CI/docs). Next: 42-07.
 
 Resume file: 
 
-- `/gsd-execute-phase 33` continuation ran plan `33-22` (Wave 5, browser_ux part 02) after the original executor was killed by a container restart post-task-commits, pre-verification. This session verified both existing task commits (`6f556e4`, `72340ee`) against every one of the plan's acceptance criteria rather than redoing the migration (no gap found), then re-ran the full verification chain from `33-MIGRATION-RULES.md` section 5 plus the full unscoped suite from scratch: `companion/test_browser_ux_02.py` 43/43 passed under `SKYPANE_REQUIRE_BROWSER=1`, the shrunk legacy shim 1/1, `test_suite_guards.py`/`test-support` 101/101, `ruff check .` clean, ledger check `75/75 baseline checks mapped (36 ported, 1 deleted, 38 pending)`, and the full suite (`companion test-support server stub-server deploy`) at 2085 passed / 5 skipped / 0 failed.
+None
+
 - `companion/test_browser_ux.py`'s `EXPECTED_CHECK_COUNT` is now 38 (down from 57); 36/75 of the file's original checks are ported, 1 deleted, 38 remain across parts 03-04.
 - `33-22-SUMMARY.md` written (`d8bf280`) documenting the container-restart interruption and the re-verification rather than re-migration.
 - Progress counters: `gsd-sdk query state.advance-plan --phase 33` and `state.update-progress --phase 33` both reproduced the documented SDK bug this session — the first returned `completed_plans: 325, percent: 77` (a drop from the pre-existing `321/93`), and the second additionally rewrote the demoted 2026-09-04 historical frontmatter block's own progress bar (`92%` -> `94%`), which must never be touched since it is frozen historical data. Both mutation results were discarded; the file was restored from a pre-call backup and the frontmatter was corrected by hand instead: `completed_plans: 322` (321 + 1 for this plan), `percent: 93` (322/347). The `Plan: N of 33` body line was advanced by hand from 23 to 24 (matching the one sane field the `state.advance-plan` response returned, `current_plan: 24`), independent of the corrupted frontmatter fields.
