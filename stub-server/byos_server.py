@@ -668,7 +668,12 @@ def _resolve_device_id(state, presented_token):
     if not isinstance(presented_token, str):
         return "default"
     presented_bytes = presented_token.encode("utf-8", "surrogateescape")
-    for mac, stored in state["tokens"].items():
+    # list(...): this runs on a ThreadingHTTPServer worker while
+    # /device/v1/setup can concurrently insert into this same dict --
+    # iterating the live dict directly risks "dictionary changed size
+    # during iteration" (bearer_ok() above already snapshots for the
+    # same reason).
+    for mac, stored in list(state["tokens"].items()):
         stored_bytes = stored.encode("utf-8", "surrogateescape")
         if hmac.compare_digest(presented_bytes, stored_bytes):
             return mac

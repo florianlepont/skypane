@@ -467,6 +467,38 @@ def test_malformed_ota_headers_are_ignored(tmp_path):
         harness.stop()
 
 
+def test_resolve_device_id_tolerates_concurrent_token_insert(byos_module):
+    """_resolve_device_id() iterates state["tokens"] on a
+    ThreadingHTTPServer worker while /device/v1/setup can concurrently
+    insert into the very same dict (bearer_ok() already guards against
+    this the same way). Simulate that insert landing mid-iteration by
+    making it a side effect of the first hmac.compare_digest() call --
+    deterministic, unlike a real background thread racing the loop --
+    and confirm resolution still completes instead of raising
+    "dictionary changed size during iteration".
+    """
+    # The match must not be the first entry compared: the insert below
+    # needs the loop to advance to a *second* items() iterator step
+    # after the dict has already grown, which is exactly when CPython's
+    # dict iterator raises "changed size during iteration" -- a match
+    # on the very first entry would return before ever taking that step.
+    known_mac = "aa:bb:cc:dd:ee:02"
+    tokens = {"aa:bb:cc:dd:ee:01": "other-token", known_mac: "known-token-aaa"}
+    state = {"tokens": tokens}
+    real_compare_digest = byos_module.hmac.compare_digest
+    calls = {"n": 0}
+
+    def racing_compare_digest(a, b):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            tokens["ff:ff:ff:ff:ff:ff"] = "new-token-from-setup"
+        return real_compare_digest(a, b)
+
+    with mock.patch.object(byos_module.hmac, "compare_digest", side_effect=racing_compare_digest):
+        device_id = byos_module._resolve_device_id(state, "known-token-aaa")
+    assert device_id == known_mac
+
+
 def test_unauthenticated_request_records_nothing_and_401(tmp_path):
     """An unauthenticated poll gets the existing 401 and never touches
     device_report.json.
