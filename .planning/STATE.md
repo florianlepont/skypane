@@ -5,14 +5,14 @@ milestone_name: milestone
 current_phase: 42
 current_phase_name: remote-firmware-update-over-the-air-ota-promoted-from-seed-0
 status: executing
-stopped_at: "Completed 42-12-PLAN.md (signing key ceremony: RSA-3072 key generated offline by the developer, FW_SIGNING_KEY stored in the reviewer-gated firmware-signing environment limited to fw-v* tags, gpg-encrypted backup in iCloud Drive with the passphrase in Apple Passwords, plaintext deleted, public key committed at firmware/signing/skypane-signing-pubkey.pem). Wave 2 complete. Next: wave 3, 42-13."
-last_updated: "2026-09-28T16:57:30.664Z"
+stopped_at: "Completed 42-13-PLAN.md (OTA wired into the wake loop: state_machine.c's offer decision before the hash-skip, the on-device UPDATING screen, download/restart/fail-with-backoff; app_main.c's boot classification before the reset-reason exit and confirm-before-sleep as the last call before the healthy path's deep sleep; the OTA wake worst-case budget gated at compile time; VENDOR.md records every firmware change of the phase). Wave 3. Next: 42-14."
+last_updated: "2026-09-28T17:20:19.055Z"
 last_activity: 2026-09-28
 progress:
   total_phases: 54
   completed_phases: 50
   total_plans: 442
-  completed_plans: 429
+  completed_plans: 430
   percent: 97
 ---
 
@@ -66,7 +66,7 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 13 of 16
+Plan: 14 of 16
 
 **42-11 executed (2026-09-28), plan 11/16 of Phase 42 (depends on 42-01, 42-03, 42-06), wave 2 — the release pipeline's build half, five commits.** Task 1 (TDD) added `scripts/fw_release_manifest.py`: a stdlib-only, argument-list-only-subprocess CLI (`--tag`, `--image`, `--out`, `--repo`, `--notes-md`) that hashes the image and walks `git log`/`rev-list`/`show` to build the exact manifest shape `server.firmware_registry.publish_release` expects (version, sha256, size, released_at, commit, notes) plus an optional Markdown release-notes body, with no hand-written release text anywhere (D-07). Notes are `firmware/`-only, no-merges, newest-first, capped at 60 with a real `"and N earlier commits"` remaining count; the previous release tag is chosen by parsed version order among `fw-v*` tags reachable from the current tag, never by tag creation time — proven with a dedicated test (`fw-v1.0.5` tagged before the lower-version `fw-v1.0.2`, confirming the naive "most recently created tag" bug is absent) (RED/GREEN: `2f95caac` test, `dc09c605` feat; GREEN's own commit fixed a self-inflicted docstring collision where the sentence explaining "never shell=True" literally contained the substring `shell=True`, caught by the acceptance-criteria grep before committing). Task 2 added `.github/workflows/firmware-release.yml`: `on: push: tags: ['fw-v*']`, one `release` job gated behind the `firmware-signing` GitHub environment (a human reviewer must approve before `FW_SIGNING_KEY` ever reaches the run), a guard step failing the job before any build if the tag is malformed or its commit is not an ancestor of `origin/main`, a build via `firmware/build.sh`'s `SKYPANE_RELEASE_TAG` release mode, the production-config and Log Line Contract checks re-run against the built image, signing via `espsecure.py sign_data` inside the pinned `espressif/idf:v5.3.1` container (key written to a `$RUNNER_TEMP` file under `umask 077`, removed by an `if: always()` step, never interpolated into `run:` text), verification via `espsecure.py verify_signature` against the committed public key, manifest/notes generation, staging the five fixed-name release assets (including the exact `partition-table-<tag>.bin` spelling from the plan's interfaces block), publishing via `gh release create --verify-tag`, and finally triggering `ci.yml`'s reviewer-gated production deploy via `gh workflow run` (expected to fail loudly until a later plan adds `ci.yml`'s `workflow_dispatch` trigger — acceptable since no release tag is pushed before the hardware session). `deploy/tests/test_ci_secrets.py`'s no-secret-in-`run:` scan now iterates every `.github/workflows/*.yml` file instead of only `ci.yml`, proven with a real mutation (a scratch workflow leaking `${{ secrets.X }}` in a `run:` block made the test fail with the exact offending file/step name, then was removed) (`5a1c4194` feat). `actionlint .github/workflows/firmware-release.yml` clean. One environment-specific issue: this session's interactive shell aliases `grep` to `ugrep -G` (basic regex), which does not match a literal `${{ ... }}` pattern the way real `grep` does — every acceptance-criteria grep had to be re-run via `command grep` to get a true result; not a defect in the files themselves. `roadmap.update-plan-progress 42` now reports 11/16 plans (summaries) with the phase still In Progress. `REQUIREMENTS.md` intentionally left untouched: OTA-04/OTA-10 are each shared across later plans in this phase (the deploy import, the hardware session), matching this phase's established convention. `state.update-progress` reproduced this file's own documented recurring bug twice more in this same session — its own JSON correctly returned `percent: 97` (428/442) both times, but the written frontmatter reverted to `percent: 93` (`completed_phases/total_phases` = 50/54) after `state.update-progress` and again after `state.record-session` — corrected to `97` by hand each time per this file's established precedent.
 
@@ -648,6 +648,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 42 P09 | 35min | 2 tasks | 10 files |
 | Phase 42 P10 | 35min | 2 tasks | 4 files |
 | Phase 42 P11 | 40min | 2 tasks | 4 files |
+| Phase 42 P13 | ~50min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -1287,6 +1288,9 @@ Recent decisions affecting current work:
 - [Phase 42]: Firmware notifications reuse the same group-present/topic-present gate _notify_battery_transition() already checks first, with no new dedicated OTA notifications toggle field added to device_config.py
 - [Phase 42]: 42-11: previous_tag() orders fw-v* candidates by parsed version tuple, never by tag creation time; proven with a test where the lower-version tag is created after the higher-version one
 - [Phase 42]: 42-11: release asset file names taken verbatim from the plan's interfaces block, including partition-table-<tag>.bin (not the shorter partition-<tag>.bin)
+- [Phase 42]: 42-13: FP_WAKE_OTA_WORST_CASE_S is an alternative worst case to FP_WAKE_WORST_CASE_S, not additive to it - an OTA wake never also downloads and blits the normal display image
+- [Phase 42]: 42-13: state_machine.c's OTA branch sits between the LED preference and the hash-skip, so an offer lands even on a wake where the picture is unchanged
+- [Phase 42]: 42-13: app_main.c calls fp_ota_boot_check() before the reset-reason failure exit and fp_ota_confirm_if_pending() as the last call before the healthy path's deep sleep - source-order gated, never deferred to a later wake
 
 ### Pending Todos
 
@@ -1409,8 +1413,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T16:43:38.764Z
-Stopped at: Completed 42-11-PLAN.md (release pipeline build half: scripts/fw_release_manifest.py generates release.json + notes from git, .github/workflows/firmware-release.yml builds/signs/verifies/publishes on a fw-v* tag push gated behind the firmware-signing GitHub environment, deploy/tests/test_ci_secrets.py now scans every workflow file). Next: 42-12.
+Last session: 2026-09-28T17:20:19.031Z
+Stopped at: Completed 42-13-PLAN.md (OTA wired into the wake loop: state_machine.c's offer decision before the hash-skip, the on-device UPDATING screen, download/restart/fail-with-backoff; app_main.c's boot classification before the reset-reason exit and confirm-before-sleep as the last call before the healthy path's deep sleep; the OTA wake worst-case budget gated at compile time; VENDOR.md records every firmware change of the phase). Wave 3. Next: 42-14.
 
 Resume file: 
 
