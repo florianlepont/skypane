@@ -125,6 +125,34 @@ def test_import_dir_rejects_missing_release_json(tmp_path, capsys):
     assert "release.json" in out.err
 
 
+def test_import_dir_rejects_directory_manifest_version_mismatch(tmp_path, capsys):
+    """A release.json whose own version disagrees with its directory
+    would otherwise publish that directory's image under a different
+    label -- compute_offer's same-version and floor checks would then
+    run against the wrong one.
+    """
+    base = tmp_path / "releases"
+    state_dir = tmp_path / "state"
+    _write_release_subdir(base, "fw-v1.0.1")
+    # Directory is named fw-v1.0.2, but the manifest inside claims a
+    # different version -- the image file itself is still
+    # skypane-fw-v1.0.2.bin, matching the directory name (the way a
+    # real CI-produced subdirectory always names it).
+    _write_release_subdir(base, "fw-v1.0.2", version="fw-v1.0.3")
+
+    rc = firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)])
+    out = capsys.readouterr()
+
+    assert rc == 1
+    assert "added fw-v1.0.1" in out.out
+    assert "fw-v1.0.3" not in out.out
+    assert "fw-v1.0.2: release.json version 'fw-v1.0.3' does not match directory" in out.err
+
+    registry = firmware_registry.load_registry(str(state_dir))
+    versions = {r["version"] for r in registry["releases"]}
+    assert versions == {"fw-v1.0.1"}
+
+
 def test_import_dir_rejects_symlinked_image(tmp_path, capsys):
     base = tmp_path / "releases"
     state_dir = tmp_path / "state"

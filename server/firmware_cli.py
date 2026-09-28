@@ -132,6 +132,20 @@ def cmd_import_dir(args):
             ok = False
             continue
 
+        # The subdirectory name picked the image file above
+        # (skypane-<name>.bin), but publish_release() only ever
+        # registers manifest["version"] -- a release.json whose own
+        # version disagrees with its directory would publish that
+        # directory's image under a *different* label, and every
+        # version-keyed check downstream (compute_offer's same-version
+        # and floor checks) would then run against the wrong one.
+        if manifest.get("version") != name:
+            print(
+                "firmware_cli: %s: release.json version %r does not match directory"
+                % (name, manifest.get("version")), file=sys.stderr)
+            ok = False
+            continue
+
         try:
             outcome = firmware_registry.publish_release(args.state_dir, manifest, image_path, bench=False)
         except ValueError as exc:
