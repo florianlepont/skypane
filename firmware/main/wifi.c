@@ -103,9 +103,17 @@ esp_err_t fp_wifi_platform_init(void)
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
         return err;
     }
-    s_sta_netif = esp_netif_create_default_wifi_sta();
+    /* Guarded: fp_wifi_stop() destroys s_sta_netif and resets it to NULL
+     * (see below), but this still protects against any future call path
+     * that reaches here with a netif already created without going
+     * through that reset - esp_netif_create_default_wifi_sta() refuses a
+     * second "WIFI_STA_DEF" netif and this driver aborts on the NULL it
+     * gets back (esp_netif_lwip.c / wifi_default.c in ESP-IDF v5.3.1). */
     if (!s_sta_netif) {
-        return ESP_FAIL;
+        s_sta_netif = esp_netif_create_default_wifi_sta();
+        if (!s_sta_netif) {
+            return ESP_FAIL;
+        }
     }
     wifi_init_config_t init = WIFI_INIT_CONFIG_DEFAULT();
     err = esp_wifi_init(&init);
@@ -235,6 +243,19 @@ void fp_wifi_stop(void)
         esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP,
                                      on_event);
         esp_wifi_deinit();
+        /* Destroy the netif along with the driver it was attached to,
+         * mirroring exactly what a fresh boot does (no netif exists
+         * until platform_init creates one). Without this, an OTA-path
+         * stop -> connect cycle within the same wake left a stale netif
+         * behind: fp_wifi_platform_init()'s next
+         * esp_netif_create_default_wifi_sta() call would then find
+         * "WIFI_STA_DEF" already registered, get NULL back, and abort
+         * the device via ESP-IDF's own assert(netif) - the OTA path
+         * could never complete a download. */
+        if (s_sta_netif) {
+            esp_netif_destroy_default_wifi(s_sta_netif);
+            s_sta_netif = NULL;
+        }
         if (s_events) {
             vEventGroupDelete(s_events);
             s_events = NULL;
