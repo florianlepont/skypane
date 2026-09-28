@@ -2,18 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 41
-current_phase_name: docs-repository-hygiene-and-closing-re-audit
-status: executing
-stopped_at: Completed 41-08-PLAN.md (closing plan) — 41-CLOSING-AUDIT.md written (77 VERIFIED-CLOSED/3 FLAGGED-DIFFERENT/2 FLAGGED-OPEN), REQUIREMENTS.md bookkeeping done, 41-PR-DESCRIPTION.md drafted. Phase 41 ready for verification; HYG-01/HYG-06 remain open.
-last_updated: "2026-09-28T07:54:20.052Z"
+current_phase: 42
+current_phase_name: OTA
+status: ready_to_execute
+stopped_at: Phase 41 complete (8/8 plans, verification passed with 1 developer override — HYG-01/HYG-06 accepted open, fix deferred to .planning/todos/pending/comment-history-guard-residue.md). Next: merge the Phase 41 PR to main (gate G-41), then execute Phase 42.
+last_updated: "2026-09-28T08:55:49.763Z"
 last_activity: 2026-09-28
+last_activity_desc: Phase 41 complete, transitioned to Phase 42
 progress:
   total_phases: 54
   completed_phases: 50
   total_plans: 442
-  completed_plans: 417
-  percent: 94
+  completed_plans: 418
+  percent: 95
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -58,7 +59,7 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 41 (docs-repository-hygiene-and-closing-re-audit) — EXECUTING
+Phase: 42 — Remote firmware update over the air (OTA), promoted from SEED-009
 Phase: 39 (server-architecture-run-once-split-state-store-shared-module) — COMPLETE (13/13 plans, 2026-09-27; ARC-01..ARC-06 closed)
 Phase: 38 (efficiency-companion-poll-cycle-storage) — COMPLETE (13/13 plans, 2026-09-27; 38-01..38-05 merged via #146-#149, 38-06..38-13 and the review fixes on PR #150). Verification passed; EFF-01..EFF-06 closed.
 Phase: 37 (security-and-operations-hardening) — COMPLETE (11/11 plans; 37-11 Wave B: byos loopback-only + IP filter, no secret in argv, CP-11 and CP-7 done live 2026-09-26)
@@ -66,7 +67,7 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 8 of 8
+Plan: Not started
 
 **41-06 executed (2026-09-28), plan 6/8 of Phase 41 (depends on none, wave 1) — read-only closing re-audit of Phase 36 (INT-01..INT-14) and Phase 37 (SEC-01..SEC-08), one commit for the report plus its SUMMARY.** Wrote `41-REAUDIT-INT-SEC.md`: all 22 findings VERIFIED-CLOSED against the current codebase, confirmed unbroken across the Phase 38-40 refactors (poll_cycle split, history_db rewrite, calendar_rules package split, companion route table) — poll.lock/flock now lives in `server/poll_cycle.py`, INT-14's IP-pinning fix (`server/http_fetch.py::pinned_request`) is the option that shipped with `server/net/safe_fetch.py` (a Phase 39 addition) confirmed as an additive early gate rather than a replacement, and SEC-03's Origin/Sec-Fetch-Site check was re-traced against the current, larger 17-route `companion/routes.py` table by finding it runs once in `companion/app.py::_dispatch()` before routing, covering routes Phase 40 added. Ran the plan's full targeted test sets (94 + 442 + 124 passed across the INT and SEC gates) plus `deploy/tests` (100 passed natively, 4 skipped for missing `systemd-analyze`). This sandbox (non-root macOS, unlike 41-04/41-05's root-Linux sandboxes) could not natively run two `deploy/tests` files (BSD `mv` lacks `-T`) or `systemd-analyze` at all — both were re-run inside Docker containers (a plain Linux container for the tests: 70 passed, 4 skipped; a systemd-installed Ubuntu container for the security scoring: byos 1.3 OK/companion 1.5 OK/poll 1.5 OK/backup 0.8 SAFE, byte-identical to `37-SEC-BASELINE.md`) rather than left unproven. `roadmap.update-plan-progress 41` now reports 6/8 plans (summaries) with the phase still In Progress (41-07/41-08 are not this plan's scope). `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 94` (415/442) but the written frontmatter showed `percent: 91` (`completed_phases/total_phases` = 49/54) — corrected to `94` by hand per this file's established precedent.
 
@@ -237,7 +238,7 @@ Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03
 
 Status: Executing Phase 06.6.4.1 (8/9 plans; Task 2's developer verification checklist is the sole remaining item). Phase 11 and the sibling Phase 06.6.4.1.1 are both complete, merged in from separate branches.
 Also merged 2026-08-30 (third merge, this one — `git merge origin/main` into `claude/backlog-6x-phases-d6bb33` after this branch had drifted 32 commits behind, resolving conflicts in this file and `companion/test_companion_app.py`): origin/main's quick task 260829-0rl (2026-08-29) — `send_bytes()` in `companion/app.py` gained a `public` parameter (default `False`/private), fixing Phase 06.4's code-review finding WR-02 (shared/intermediary caching risk on authenticated byte-serving routes); `/static/style.css`'s route opted into `public=True` since it's pre-auth and content-identical for every client. While merging, found and fixed directly (not a conflict, a merge-introduced inconsistency): `_serve_script_file()` — the shared body for `/static/battery-trend.js` and `/static/nav-dropdown.js`, both pre-auth routes shipped by this branch's own 06.6.1-05 — hadn't opted into `public=True` the way `/static/style.css`'s route had, simply because that method didn't exist yet when `public` was added on main; added `public=True` there too, with a docstring line explaining why. `_serve_gallery_image()`/`_serve_runway_image()` (session-gated) correctly remain on the private default — verified, no change needed. `companion/test_companion_app.py`'s `EXPECTED_CHECK_COUNT` conflict (this branch's `68` vs origin's `52`) resolved to `69` — both branches' independent additions summed (this branch's 06.6.1 work + origin's 1 new WR-02 regression check, which had already auto-merged cleanly elsewhere in the file).
-Last activity: 2026-09-28
+Last activity: 2026-09-28 — Phase 41 complete, transitioned to Phase 42
 Last activity: 2026-09-25 - Completed 33-32-PLAN.md: the legacy harness shim, legacy lists, collect_ignore, the legacy_harness marker and LegacyHarness retired; the guard scans every companion test module and test_no_legacy_runner_anywhere covers every test directory; F-01 resolved (served stylesheet checks parse the CSS via companion_markup, new rule_indices()/at_rule_blocks(), guard rule G11 bans regex/substring checks over served stylesheet text, G12 bans test-module-to-test-module imports); CI paths filter drops the .planning re-includes and re-includes deploy/README.md; runner, CLAUDE.md, README and CONTRIBUTING updated; stub-server/test_devices_registry.py on tmp_path; full suite 2588 passed/5 skipped/0 failed, coverage 93.23%.
 Last activity: 2026-09-25 - Completed 33-31-PLAN.md: status-pages part 07 (checks #293-#317, the chain's LAST slice: the tab bar's margin-fit/More-sheet/French-label/dropdown-max-height contracts, a structural style.css comment-terminator guard, the T3/T4 disclosure-marker/dead-sticky-claim sweep, freshness.js's backoff ladder and breathing-dot mechanism, the .resolve-context[hidden]/.flight-detail-row__grid CSS guards, the renamed hamburger-toggle label, the restored save-bar geometry, the Health-tile/Frame-strip agreement across all four lateness states, the shared quiet-schedule link, the two server-rendered switches and their optimistic-failure toast, the freshness line's live dot/ticking clock, and two end-to-end real-subprocess checks) migrated to companion/test_status_pages_07.py (25 pytest node ids); companion/test_status_pages.py — the LAST legacy companion harness — deleted outright; ledger 317/317 (313 ported, 4 deleted, 0 pending); 33-ledger-check.py --all confirms ALL 9 companion harnesses now fully migrated (0 pending everywhere); full suite 2569 passed/6 skipped/0 failed in 304s.
 Last activity: 2026-09-25 - Completed 33-30-PLAN.md: status-pages part 06 (checks #245-#292: the lightbox replace form, the D19 drag-and-drop upload affordance, the coverage-gap block, manual-resolution card states, the conditional resolve section, the manual-resolutions summary line, list-filter.js's [data-filter-set] hook, the phase 14 Component-Inventory CSS sweep, Frame-strip behaviour/CSS, and the bottom tab bar's CSS) migrated to companion/test_status_pages_06.py (46 pytest node ids, 2 checks deleted outright); legacy harness EXPECTED_CHECK_COUNT down to 25 (rows 293-317 remain for 33-31, the chain's closing plan).
@@ -312,7 +313,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 
 **Velocity:**
 
-- Total plans completed: 138 (re-derived at merge time from ROADMAP.md's own plan checkboxes across both merged phases, superseding both sides' pre-merge figures of 93 and 96)
+- Total plans completed: 159 (re-derived at merge time from ROADMAP.md's own plan checkboxes across both merged phases, superseding both sides' pre-merge figures of 93 and 96)
 - Average duration: - min
 - Total execution time: 0 hours
 
@@ -345,6 +346,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | 30 | 8 | - | - |
 | 38 | 13 | - | - |
 | 40 | 16 | - | - |
+| 41 | 8 | - | - |
 
 **Recent Trend:**
 

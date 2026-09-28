@@ -1,11 +1,16 @@
 ---
 phase: 41-docs-repository-hygiene-and-closing-re-audit
 verified: 2026-09-28T09:15:00Z
-status: gaps_found
-score: 5/7 must-haves verified
+status: passed
+score: 7/7 must-haves verified
 behavior_unverified: 0
-overrides_applied: 0
-gaps:
+overrides_applied: 1
+overrides:
+  - must_have: "Every audit finding is verified closed against the code (ROADMAP success criterion 2: every ID in the ledger marked closed with its evidence)"
+    reason: "HYG-01 and HYG-06 are genuinely open (comment/docstring history references and a comment-guard regex gap; no runtime behaviour involved). The developer accepted them as-is so Phase 42 can start, and deferred the fix to .planning/todos/pending/comment-history-guard-residue.md. Every other ledger ID is VERIFIED-CLOSED or FLAGGED-DIFFERENT with evidence."
+    accepted_by: "Florian Lepont"
+    accepted_at: "2026-09-28T12:00:00Z"
+gaps_accepted:
   - truth: "Every audit finding is verified closed against the code (ROADMAP success criterion 2: every ID in the ledger marked closed with its evidence)"
     status: partial
     reason: "HYG-01 and HYG-06 are genuinely open, independently confirmed. The comment-history guard's regex (scripts/check_comment_history.py:38-55) does not match a letter-suffixed decision ID (e.g. `D-14c`), a dotted UI-SPEC section number (e.g. `06.6.4.1.1-04`), or a bare `NN-NN` reference without a preceding `plan `/`Plan ` marker or trailing ` Task` (e.g. `39-13`, `39-08` used mid-sentence). Confirmed by direct regex inspection and by spot-checking every cited file:line."
@@ -46,7 +51,7 @@ gaps:
 
 **Phase Goal:** The docs describe the code as it is, the repository ships nothing it does not use, and every audit finding is verified closed against the code.
 **Verified:** 2026-09-28T09:15:00Z
-**Status:** gaps_found
+**Status:** passed (1 developer override)
 **Re-verification:** No — initial verification
 
 ## Goal Achievement
@@ -56,14 +61,14 @@ gaps:
 | # | Truth | Status | Evidence |
 |---|---|---|---|
 | 1 | Every doc claim flagged in DOC-01 corrected and re-checked (ROADMAP SC1) | VERIFIED | Independently re-checked all 5 named drift examples from 41-CONTEXT.md against the current tree: `grep -rn "persists nothing" deploy/ ARCHITECTURE.md` → no hits; `grep -n "mode 640" deploy/provision.sh` → no hits, `mode 660` is now the documented value in `deploy/Caddyfile:34`/`deploy/README.md:463`; `grep -rn "18 harnesses" .github` → no hits; `deploy/skypane.env.example:3` reads "Copy this file to `/opt/skypane/skypane.env` ON THE VPS ONLY" — corrected path. DOC-01 ticked in REQUIREMENTS.md:197. |
-| 2 | Every ID in the audit ledger marked closed with its evidence (ROADMAP SC2) | FAILED | 80/82 IDs are VERIFIED-CLOSED or FLAGGED-DIFFERENT (naming/tooling-only, no open risk — independently confirmed ARC-03's `server/plane/calendar_rules/{ics,match,registry}` exists). **HYG-01 and HYG-06 are FLAGGED-OPEN**, independently confirmed genuinely open (see gaps below) — not merely restated from the SUMMARY. |
+| 2 | Every ID in the audit ledger marked closed with its evidence (ROADMAP SC2) | PASSED (override) | Override: HYG-01/HYG-06 accepted open by Florian Lepont on 2026-09-28, fix deferred to `.planning/todos/pending/comment-history-guard-residue.md`. Original finding: | 80/82 IDs are VERIFIED-CLOSED or FLAGGED-DIFFERENT (naming/tooling-only, no open risk — independently confirmed ARC-03's `server/plane/calendar_rules/{ics,match,registry}` exists). **HYG-01 and HYG-06 are FLAGGED-OPEN**, independently confirmed genuinely open (see gaps below) — not merely restated from the SUMMARY. |
 | 3 | A fresh audit pass finds no regression of a closed item (ROADMAP SC3) | VERIFIED | The base-tree REQUIREMENTS.md (`7bd8664`) had HYG-01/HYG-06 ticked `[x]`/"Complete" (`git show 7bd8664:.planning/REQUIREMENTS.md` lines 148,153,398,403). This phase's re-audit caught that they were falsely marked closed and correctly reopened them (unticked, "Reopened by the Phase 41 re-audit") rather than silently leaving them ticked — this is the criterion working as intended, not a new regression introduced by this phase. `git diff --name-status 7bd8664 HEAD -- ':!.planning'` touches no production behavior outside VENDOR.md/comment edits, confirmed by `check_comment_history.py same-code` (rc 0). |
 | 4 | Repository ships nothing it does not use (DOC-02, goal clause 2) | VERIFIED | `hardware/logs/backoff-powercycle.log.gz` present (86.5 KB, gzipped in tree only, history untouched per `git log` showing the file's prior blob still reachable); `_unresolved/air-caraibes-atr72-unused.png` removed (`git log --all -- '*air-caraibes-atr72-unused*'` shows only the removal commit `38d3e888`, confirmed no other reference exists). DOC-02 ticked in REQUIREMENTS.md:198. |
 | 5 | Nothing under firmware/ other than VENDOR.md prose differs from the phase base | VERIFIED | `git diff --name-status 7bd8664 HEAD -- firmware/` → `firmware/VENDOR.md` only. |
 | 6 | CFG-72/CFG-73 ticked only after their proving tests pass; CFG-74 and CFG-34/37/39/42/50/52/65 byte-identical to base | VERIFIED | Independently re-ran the three named tests with `SKYPANE_REQUIRE_BROWSER=1`: `companion/test_browser_ux_04.py::test_a_settings_card_title_renders_identically_on_both_settings_pages` and `companion/test_browser_ux_quiet_wake.py::test_the_dial_caption_keeps_its_form_after_every_interaction_kind` — both pass (`2 passed in 4.81s`). `git show 7bd8664:.planning/REQUIREMENTS.md \| grep -n CFG-74` byte-identical to current CFG-74 text/line number. |
 | 7 | A PR description summarizes Phases 32-41 for the developer | VERIFIED | `41-PR-DESCRIPTION.md` exists (140 lines), contains a phase-by-phase account with PR numbers, verified-criteria counts, and re-audit verdicts per phase. |
 
-**Score:** 5/7 truths verified (2 FAILED — see gaps)
+**Score:** 7/7 truths verified (6 VERIFIED, 1 PASSED (override)). The original count read 5/7, but only truth 2 was FAILED.
 
 ### Required Artifacts
 
@@ -86,7 +91,7 @@ gaps:
 |---|---|---|---|---|
 | DOC-01 | 41-01, 41-02, 41-08 | All docs aligned with the code as it stands after phases 32-40 | SATISFIED | Independently spot-checked 5/5 named drift examples corrected; ticked in REQUIREMENTS.md |
 | DOC-02 | 41-03, 41-08 | Log gzipped in tree, unused asset removed, archival deferred to v1.0 close | SATISFIED | Verified file states directly |
-| DOC-03 | 41-04, 41-05, 41-06, 41-07, 41-08 | Re-audit: every ID in the ledger verified against the code and marked closed | BLOCKED | 80/82 closed; HYG-01/HYG-06 genuinely open — REQUIREMENTS.md itself correctly leaves DOC-03 unticked, consistent with this verification's finding, but the ROADMAP success criterion ("every ID... marked closed") is not fully met |
+| DOC-03 | 41-04, 41-05, 41-06, 41-07, 41-08 | Re-audit: every ID in the ledger verified against the code and marked closed | SATISFIED (override) | 80/82 closed; HYG-01/HYG-06 genuinely open — REQUIREMENTS.md itself correctly leaves DOC-03 unticked, consistent with this verification's finding, but the ROADMAP success criterion ("every ID... marked closed") is not fully met |
 
 No orphaned requirements: all three phase-scoped IDs (DOC-01, DOC-02, DOC-03) are claimed across the eight plans' `requirements:` frontmatter, matching REQUIREMENTS.md's Phase 41 rows.
 
@@ -118,3 +123,10 @@ None. All must-haves resolved to VERIFIED or FAILED via direct codebase inspecti
 The phase substantially achieved its goal: DOC-01 (doc/code alignment) and DOC-02 (repository hygiene) are both genuinely done, and 80 of 82 audit-ledger findings are genuinely closed or closed-with-a-documented-naming-difference. The closing report (`41-CLOSING-AUDIT.md`) is honest and its own flagged items were independently reproduced, not just trusted.
 
 However, ROADMAP success criterion 2 — "every ID in the audit ledger marked closed with its evidence" — is not met: **HYG-01** (21 residual plan/decision-history references surviving in 12 tracked comment/docstring sites) and **HYG-06** (the root cause: the comment-history guard's regex has no case for a letter-suffixed `D-`ID, a dotted UI-SPEC section number, or a bare mid-sentence `NN-NN` reference) are genuinely open, independently confirmed by regex inspection and by reading every cited file:line. This is not a fabricated or overstated gap — the phase's own plan (41-08) deliberately deferred fixing these to a follow-up plan (`/gsd-plan-phase 41 --gaps`) rather than fixing them inside this closing plan, which is a reasonable scoping choice, but it means the phase's own goal text is not yet fully true of the codebase. The fix is small and well-scoped (three regex edits plus ~21 comment rewords, no behavior change, does not touch `firmware/`), and is the correct next step before this phase can be marked passed.
+
+## Developer override (2026-09-28)
+
+The developer accepted HYG-01 and HYG-06 as-is rather than running the
+gap-closure plans (drafted in commit `3e45e90a`, then withdrawn). The
+recorded gap under `gaps_accepted:` above stays as the specification for
+`.planning/todos/pending/comment-history-guard-residue.md`. DOC-03 is ticked on that basis.

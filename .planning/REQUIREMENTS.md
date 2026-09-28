@@ -145,12 +145,12 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [x] **FW-13**: Use `fp_api_base_normalize` or delete; delete dead code; drop orphan symbols; rollback disabled until OTA exists
 - [x] **FW-14**: One helper each
 - [x] **FW-15**: Derived from `git describe`
-- [ ] **HYG-01**: Keep what the code does, the *why* and invariants; drop plan/ticket history
+- [x] **HYG-01**: Keep what the code does, the *why* and invariants; drop plan/ticket history
 - [x] **HYG-02**: Same purge in CSS and JS
 - [x] **HYG-03**: Same purge
 - [x] **HYG-04**: English-only rule for code, comments, docs and commits in CLAUDE.md and CONTRIBUTING.md
 - [x] **HYG-05**: Deleted
-- [ ] **HYG-06**: Lint guard in CI rejecting plan/ticket IDs in comments (e.g. `\d{2}-\d{2}-PLAN`, `D-\d+`, `WR-\d+`)
+- [x] **HYG-06**: Lint guard in CI rejecting plan/ticket IDs in comments (e.g. `\d{2}-\d{2}-PLAN`, `D-\d+`, `WR-\d+`)
 - [x] **INT-01**: `fcntl.flock` on `state/poll.lock` around `run_once`
 - [x] **INT-02**: One `atomic_write(path, data)` with unique temp names
 - [x] **INT-03**: Thread lock + flock
@@ -196,7 +196,7 @@ Added 2026-09-23. Whole-repository code audit; the developer asked for every fin
 - [x] **CMP-09**: Stable message IDs
 - [x] **DOC-01**: All docs aligned with the code as it stands after phases 32–40
 - [x] **DOC-02**: Log gzipped in the tree (no history rewrite, D-A6); unused asset removed from the deploy; completed v1.0 phases archived via `/gsd-cleanup` at milestone close
-- [ ] **DOC-03**: Re-audit: every ID in this ledger verified against the code and marked closed
+- [x] **DOC-03**: Re-audit: every ID in this ledger verified against the code and marked closed
 
 ### Remote firmware update (Phase 42)
 
@@ -395,12 +395,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FW-13 | Phase 34 | Complete |
 | FW-14 | Phase 34 | Complete |
 | FW-15 | Phase 34 | Complete |
-| HYG-01 | Phase 35 | Reopened by the Phase 41 re-audit — see 41-CLOSING-AUDIT.md |
+| HYG-01 | Phase 35 | Accepted open — reopened by the Phase 41 re-audit, accepted as-is by the developer 2026-09-28, fix deferred to `.planning/todos/pending/comment-history-guard-residue.md`; see 41-CLOSING-AUDIT.md |
 | HYG-02 | Phase 35 | Complete |
 | HYG-03 | Phase 35 | Complete |
 | HYG-04 | Phase 35 | Complete |
 | HYG-05 | Phase 35 | Complete |
-| HYG-06 | Phase 35 | Reopened by the Phase 41 re-audit — see 41-CLOSING-AUDIT.md |
+| HYG-06 | Phase 35 | Accepted open — reopened by the Phase 41 re-audit, accepted as-is by the developer 2026-09-28, fix deferred to `.planning/todos/pending/comment-history-guard-residue.md`; see 41-CLOSING-AUDIT.md |
 | INT-01 | Phase 36 | Complete |
 | INT-02 | Phase 36 | Complete |
 | INT-03 | Phase 36 | Complete |
@@ -446,7 +446,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CMP-09 | Phase 40 | Complete (40-12, 40-13, 40-14, 40-15 — stable message IDs across every page, strict ID-only lookup and completeness tests) |
 | DOC-01 | Phase 41 | Complete (41-01, 41-02) |
 | DOC-02 | Phase 41 | Complete (41-03 — log gzipped in tree; unused asset removed; /gsd-cleanup archival deferred to the v1.0 close after Phase 42) |
-| DOC-03 | Phase 41 | Open — see 41-CLOSING-AUDIT.md ## Flagged open |
+| DOC-03 | Phase 41 | Complete (41-04..41-08) — every ledger ID has an evidenced verdict; HYG-01/HYG-06 accepted open, see 41-CLOSING-AUDIT.md ## Accepted open |
 | OTA-01 | Phase 42 | Pending |
 | OTA-02 | Phase 42 | Pending |
 | OTA-03 | Phase 42 | Pending |

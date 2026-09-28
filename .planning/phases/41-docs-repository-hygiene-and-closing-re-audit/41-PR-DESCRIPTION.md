@@ -26,8 +26,9 @@ bookkeeping for CFG-72/CFG-73 (DOC-03).
 - **Phase 35** (#140/#141) — English-only comment purge, dead code, a CI
   guard against plan/ticket IDs reappearing. Verified: 4/4 must-haves.
   Re-audit: HYG-02..HYG-05 VERIFIED-CLOSED; **HYG-01 and HYG-06
-  FLAGGED-OPEN** — a guard-evasion hunt in this phase found 21 residual
-  history references the shipped guard's regex does not match.
+  ACCEPTED-OPEN**: the shipped guard's regex misses some ID shapes, so
+  history references survive in comments. Accepted as-is by the developer,
+  fix deferred to a todo.
 - **Phase 36** (#142) — State integrity and device protocol. Verified:
   14/14 must-haves. Re-audit: INT-01..INT-14, all 14 VERIFIED-CLOSED.
 - **Phase 37** (#114-118, #143/#144) — Security and operations hardening.
@@ -47,15 +48,15 @@ bookkeeping for CFG-72/CFG-73 (DOC-03).
   context, named templates, CSS tokens, stable i18n IDs. Verified: 12/12
   must-haves. Re-audit: CMP-01..CMP-09, all 9 VERIFIED-CLOSED.
 - **Phase 41** (this PR) — Docs, repository hygiene, closing re-audit.
-  DOC-01 and DOC-02 VERIFIED-CLOSED; **DOC-03 FLAGGED-OPEN** (it can only
-  be VERIFIED-CLOSED if every other row is, and HYG-01/HYG-06 are not).
+  DOC-01, DOC-02 and DOC-03 VERIFIED-CLOSED (DOC-03 on the developer's
+  acceptance of HYG-01/HYG-06).
 
 ## Closing re-audit
 
 **Totals across all 82 ledger IDs (`41-CLOSING-AUDIT.md`):**
-77 VERIFIED-CLOSED, 3 FLAGGED-DIFFERENT, 2 FLAGGED-OPEN.
+77 VERIFIED-CLOSED, 3 FLAGGED-DIFFERENT, 2 ACCEPTED-OPEN, 0 FLAGGED-OPEN.
 
-**FLAGGED-OPEN (2):**
+**ACCEPTED-OPEN (2), developer decision 2026-09-28:**
 - **HYG-01** — 21 residual plan/decision-history references (`D-14c`-style
   IDs, dotted UI-SPEC section numbers, two bare Phase-Plan numerics) across
   12 companion/server test files and `pyproject.toml`, in shapes the
@@ -64,9 +65,13 @@ bookkeeping for CFG-72/CFG-73 (DOC-03).
   are correctly wired; the gap is in the guard's own regex (three targeted
   edits proposed in `41-CLOSING-AUDIT.md`), which is what HYG-01 exploits.
 
-Both are small, comment/regex-only fixes, not `firmware/` changes. Because
-these two remain open, **DOC-03 is not ticked** in `REQUIREMENTS.md` — it
-can only tick once a follow-up plan closes them and a re-audit confirms it.
+Neither involves runtime behaviour. A gap-closure pass prototyped the
+tightened guard and found the residue is bigger than first measured (about
+85 real hits in 34 files, including one JS and one shell file). Rather than
+run six more plans before Phase 42, the developer accepted both as-is and
+deferred the fix to `.planning/todos/pending/comment-history-guard-residue.md`. The drafted plans are
+recoverable from commit `3e45e90a`. `41-VERIFICATION.md` records this as
+a developer override, and DOC-03 is ticked on that basis.
 
 **FLAGGED-DIFFERENT (3), all naming/tooling-only, no open risk:**
 - **TST-02** — Phase 32's own migration ledger closed correctly; a

@@ -55,15 +55,19 @@ path).
 
 ## Verdict totals
 
+Recomputed from the rows below. The first version of this table read 77/3/2
+while its rows counted 76/3/3 (DOC-03's own open row was not counted).
+
 | Verdict | Count |
 |---|---|
 | VERIFIED-CLOSED | 77 |
 | FLAGGED-DIFFERENT | 3 |
-| FLAGGED-OPEN | 2 |
+| ACCEPTED-OPEN | 2 |
+| FLAGGED-OPEN | 0 |
 | **Total** | **82** |
 
 FLAGGED-DIFFERENT: TST-02, TST-15, ARC-03.
-FLAGGED-OPEN: HYG-01, HYG-06.
+ACCEPTED-OPEN: HYG-01, HYG-06 (accepted as-is by the developer on 2026-09-28 (the guard tightening and reword were deferred to `.planning/todos/pending/comment-history-guard-residue.md`)).
 
 ## All 82 findings
 
@@ -84,12 +88,12 @@ FLAGGED-OPEN: HYG-01, HYG-06.
 | TST-13 | VERIFIED-CLOSED | `4f7221a`, gap closure `3e15556` | Root run: `requires_non_root`-marked tests skip cleanly (7 named), every write inside `tmp_path` | `41-REAUDIT-TST-HYG.md` TST-13 |
 | TST-14 | VERIFIED-CLOSED | `4f7221a` | `run_all_tests.py` gone; `EXPECTED_CHECK_COUNT` survives only inside the two migration-ledger tool scripts' own vocabulary; `run-all-tests.sh` is a thin pytest wrapper | `41-REAUDIT-TST-HYG.md` TST-14 |
 | TST-15 | FLAGGED-DIFFERENT | `4f7221a` | Coverage parity holds (94.86%/94.95% ≥ pre-migration 93.35%/93.38%); the standalone `33-ledger-check.py --all` fails on 4 harness fragments Phase 39 legitimately renamed — same root cause as TST-02, no lost coverage | `41-REAUDIT-TST-HYG.md` TST-15 |
-| HYG-01 | FLAGGED-OPEN | `ee2737a` (guard), `f266a05`/`8a8b8b4` (purge) | `check_comment_history.py check` passes against its own pattern set, but a targeted guard-evasion hunt found 21 genuine residual history references (10 letter-suffixed `D-`IDs, 11 dotted UI-SPEC section numbers, 2 bare Phase-Plan numerics) across 12 tracked files the shipped guard's regex does not match | `41-REAUDIT-TST-HYG.md` HYG-01 |
+| HYG-01 | ACCEPTED-OPEN | `ee2737a` (guard), `f266a05`/`8a8b8b4` (purge) | `check_comment_history.py check` passes against its own pattern set, but a targeted guard-evasion hunt found 21 genuine residual history references (10 letter-suffixed `D-`IDs, 11 dotted UI-SPEC section numbers, 2 bare Phase-Plan numerics) across 12 tracked files the shipped guard's regex does not match | `41-REAUDIT-TST-HYG.md` HYG-01 |
 | HYG-02 | VERIFIED-CLOSED | `f266a05`/`7cd0380` | Zero genuine `history_hits` in `.css`/`.js`; the hunt's two hits are false positives (a date, arithmetic, a filename reference) | `41-REAUDIT-TST-HYG.md` HYG-02 |
 | HYG-03 | VERIFIED-CLOSED | `7cd0380` | Zero genuine `history_hits` in `.c/.h/.sh/.service/.timer/Caddyfile/.env.example`; the hunt's two hits are false positives (a duration, a date) | `41-REAUDIT-TST-HYG.md` HYG-03 |
 | HYG-04 | VERIFIED-CLOSED | `ee2737a` | English-only rule stated in both `.claude/CLAUDE.md` and `CONTRIBUTING.md`; one non-English hit found, inside `.planning/spikes/` (excluded by design, outside production scope) | `41-REAUDIT-TST-HYG.md` HYG-04 |
 | HYG-05 | VERIFIED-CLOSED | `8a8b8b4` | `health_severity`/`anomaly_active`/`usable_pairs`/`label_grid` deleted from all tracked non-`.planning` code | `41-REAUDIT-TST-HYG.md` HYG-05 |
-| HYG-06 | FLAGGED-OPEN | `ee2737a` | The CI guard step and its own mutation-tested test suite are correctly wired and run unconditionally in `ci.yml`, but the regex itself has the gap HYG-01 exploits — three targeted regex edits proposed, not yet made | `41-REAUDIT-TST-HYG.md` HYG-06 |
+| HYG-06 | ACCEPTED-OPEN | `ee2737a` | The CI guard step and its own mutation-tested test suite are correctly wired and run unconditionally in `ci.yml`, but the regex itself has the gap HYG-01 exploits — three targeted regex edits proposed, not yet made | `41-REAUDIT-TST-HYG.md` HYG-06 |
 | FW-01 | VERIFIED-CLOSED | `745322a`, `fc4e2e5` (W-1 fix), `7cd0380` | Reset-reason check → backoff+sleep before Wi-Fi; `epd_init` returns errors, no `ESP_ERROR_CHECK`; `34-VERIFICATION.md`'s W-1 warning closed anyway by `fc4e2e5`/`nvs_boot.c` | `41-REAUDIT-FW.md` FW-01 |
 | FW-02 | VERIFIED-CLOSED | `745322a` | One-shot `esp_timer` wake-budget deadline + independent task WDT; hardware logs confirm both mechanisms firing correctly | `41-REAUDIT-FW.md` FW-02 |
 | FW-03 | VERIFIED-CLOSED | `745322a`, `7cd0380` | 401/403 clears `FP_NVS_DEVICE_TOKEN`, re-enrols next wake, distinct `step=auth` vs `step=enrol`; hardware logs confirm | `41-REAUDIT-FW.md` FW-03 |
@@ -150,9 +154,29 @@ FLAGGED-OPEN: HYG-01, HYG-06.
 | CMP-09 | VERIFIED-CLOSED | `708761ef`, `c1937743` | Stable `msg_id`-keyed lookup; rewording the English source cannot silently drop the French translation; completeness sweep passes | `41-REAUDIT-EFF-ARC-CMP.md` CMP-09 |
 | DOC-01 | VERIFIED-CLOSED | `4d4c51b`, `313e0a7` (41-01), `7ad0ff7`, `83121a3` (41-02) | 98 doc/comment claims re-checked against the current code across `deploy/`, CI headers, `ARCHITECTURE.md`, `COMPLIANCE.md`, `README.md`, `CONTRIBUTING.md`, `.claude/CLAUDE.md`, `server/README.md`, `firmware/VENDOR.md` prose and 13 Python comment sites; every drift found (bind address, "persists nothing", harness counts, file modes, state paths, single-writer claims, unit counts, CI check list, byos vendored/secret model, PRIM reproduction command) was corrected in place; zero left as `CODE DISCREPANCY` | `41-DOC-DRIFT-DEPLOY.md` (rows 1-35), `41-DOC-DRIFT-DOCS.md` (rows 36-102) |
 | DOC-02 | VERIFIED-CLOSED | `2101217`, `38d3e88` | `hardware/logs/backoff-powercycle.log` gzipped in the working tree only (15.8 MB → 86.5 KB, sha256-verified, git history untouched); unused illustration draft re-verified unreferenced then removed; `/gsd-cleanup` archival explicitly deferred to the v1.0 close after Phase 42, consistent with the ledger's own "at milestone close" wording | `41-03-SUMMARY.md` |
-| DOC-03 | FLAGGED-OPEN | (this plan, 41-08) | 80 of the other 81 findings are VERIFIED-CLOSED or FLAGGED-DIFFERENT (naming-only, no open risk); **HYG-01 and HYG-06 remain FLAGGED-OPEN** — a real, small, not-yet-fixed guard gap. Per this plan's own instruction, DOC-03 is VERIFIED-CLOSED only if no other row is FLAGGED-OPEN; since two rows are, DOC-03 itself is FLAGGED-OPEN | See `## Flagged open` below |
+| DOC-03 | VERIFIED-CLOSED | 41-04..41-08 | Every one of the 82 ledger IDs has a verdict backed by evidence; no row is FLAGGED-OPEN. HYG-01 and HYG-06 are ACCEPTED-OPEN: the developer accepted them as-is on 2026-09-28 and deferred the fix to `.planning/todos/pending/comment-history-guard-residue.md` | See `## Accepted open` below |
 
-## Flagged open
+## Accepted open
+
+**Developer decision, 2026-09-28.** HYG-01 and HYG-06 are real, open findings.
+The developer accepted them as-is so Phase 41 can close and Phase 42 (OTA)
+can start, and deferred the fix to `.planning/todos/pending/comment-history-guard-residue.md`.
+Nothing in them changes runtime behaviour: they are comment/docstring
+history references and a lint-guard regex gap. The facts below are the
+record at the time of the decision.
+
+A gap-closure pass (plans drafted in commit `3e45e90a`, withdrawn in favour of
+this decision) prototyped the tightened guard and found the residue is larger
+than this report first measured: about 85 real hits in 34 files, not 21 in 12.
+The 41-04 hunt had classified about 40 real bare plan IDs as false positives,
+including a JS site (`companion/static/panel-lookup.js`) and a shell site
+(`scripts/check-attribution.sh`). So the HYG-02 and HYG-03 "zero genuine hits"
+evidence above is also too optimistic, and the todo covers those files too.
+None of the hits are under `firmware/` except one prose "Task 3's" in
+`firmware/main/battery.c`, which the guard would not target.
+
+The original findings, as first recorded:
+
 
 - **HYG-01** — 21 residual plan/decision-history references survive in 12
   companion/server test files and `pyproject.toml`, in shapes

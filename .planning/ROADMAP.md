@@ -1966,7 +1966,7 @@ Plans:
 2. Every ID in the audit ledger marked closed with its evidence (commit / test)
 3. A fresh audit pass finds no regression of a closed item
 
-**Plans:** 8/14 plans complete
+**Plans:** 8/8 plans complete
 
 Plans:
 
@@ -1983,15 +1983,6 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 41-08-PLAN.md — Final regression pass, 41-CLOSING-AUDIT.md (82 IDs), CFG-72/73 ticked after verification, PR description for the 32-41 arc [DOC-01, DOC-02, DOC-03]
-
-**Gap closure** *(added 2026-09-28 from `41-VERIFICATION.md`: HYG-01/HYG-06 open, so DOC-03 open; waves 3-8 run one plan at a time, each blocked on the previous)*
-
-- [ ] 41-09-PLAN.md — Wave 3 — Tighten the comment-history guard (letter-suffixed decision IDs, dotted section/plan IDs, dotted/v threat IDs, A-/S-/UF- prefixes, bare plan IDs) with mutation-proven tests; classify every whole-tree hit before any reword [HYG-06]
-- [ ] 41-10-PLAN.md — Wave 4 — Reword the flagged residue in companion app/browser-UX tests and static JS (comment-only, same-code proven) [HYG-01]
-- [ ] 41-11-PLAN.md — Wave 5 — Reword the flagged residue in settings-page and status-page tests [HYG-01]
-- [ ] 41-12-PLAN.md — Wave 6 — Reword the flagged residue in view-page tests, server/, pyproject.toml and check-attribution.sh; whole-tree guard at zero [HYG-01]
-- [ ] 41-13-PLAN.md — Wave 7 — Final gate run with base-tree non-vacuity replay and comment-only proof; census of prose residue outside the guard [HYG-01, HYG-06, DOC-03]
-- [ ] 41-14-PLAN.md — Wave 8 — Developer decision on the prose residue, then REQUIREMENTS.md / 41-CLOSING-AUDIT.md / PR description bookkeeping [HYG-01, HYG-06, DOC-03]
 
 ### Phase 42: Remote firmware update over the air (OTA), promoted from SEED-009
 
