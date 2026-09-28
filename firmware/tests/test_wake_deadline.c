@@ -58,6 +58,23 @@ static void worst_case_macro_matches_the_stacked_stage_budgets(void)
     assert(300 > FP_WAKE_WORST_CASE_S(90));
 }
 
+static void ota_worst_case_macro_matches_its_own_stacked_stage_budgets(void)
+{
+    /* An OTA wake never also downloads and blits the normal display
+     * image - it either restarts into the trial image or fails - so
+     * this is an alternative worst case to FP_WAKE_WORST_CASE_S, not an
+     * addition on top of it: Wi-Fi + SNTP + setup + display + guard +
+     * the UPDATING-screen blit + a second Wi-Fi join after the trial
+     * reboot + the firmware image download itself.
+     * 15 + 10 + 15 + 20 + 90 + 70 + 15 + 90 = 325. */
+    assert(FP_WAKE_OTA_WORST_CASE_S(90) == 325);
+    /* The configured wake budget (360 s, CONFIG_SKYPANE_WAKE_BUDGET_S's
+     * default) must exceed both worst cases - a healthy OTA wake and a
+     * healthy normal wake must never trip their own device's deadline. */
+    assert(FP_WAKE_OTA_WORST_CASE_S(90) < 360);
+    assert(FP_WAKE_WORST_CASE_S(90) < 360);
+}
+
 int main(void)
 {
     expiry_is_exact_at_the_microsecond_boundary();
@@ -66,6 +83,7 @@ int main(void)
     wake_slice_caps_at_the_max_and_passes_through_below_it();
     a_zero_slice_max_means_unsliced();
     worst_case_macro_matches_the_stacked_stage_budgets();
+    ota_worst_case_macro_matches_its_own_stacked_stage_budgets();
     printf("wake_deadline: all cases pass\n");
     return 0;
 }
