@@ -194,23 +194,34 @@ Files in `firmware/` that are not vendored from upstream at all:
   them, and that every `poll fail step=` token the code can actually
   produce is documented in this file's Log Line Contract table below.
   Run in `.github/workflows/firmware.yml` before the build.
-- `main/fault_screen.c` / `main/fault_screen.h` — pure C11, no
-  ESP-IDF dependency: renders the NO CONNECTION hold screen entirely in
-  firmware — an on-device integer Floyd-Steinberg dither of the same
-  field the server-rendered fallback screens use, stamped with a
-  committed ink mask — plus the allow-listed step/counter/already-shown
-  gate deciding whether to draw at all. Wired into `main/app_main.c`'s
-  failure path.
+- `main/hold_screen.c` / `main/hold_screen.h` — pure C11, no ESP-IDF
+  dependency: the one on-device integer Floyd-Steinberg dither-and-mask-
+  stamp renderer shared by every hold screen drawn entirely in firmware
+  (NO CONNECTION, UPDATING) — one field the server-rendered fallback
+  screens use, stamped with each screen's own committed ink mask.
+- `main/fault_screen.c` / `main/fault_screen.h` — the NO CONNECTION hold
+  screen: a thin call into `hold_screen.c` with the committed
+  `fault_screen_mask.h` mask, plus the allow-listed
+  step/counter/already-shown gate deciding whether to draw at all.
+  Wired into `main/app_main.c`'s failure path.
 - `main/fault_screen_mask.h` — generated (never hand-edited — a server
   test proves it matches its generator byte-for-byte) 1-bpp ink mask of
   the server's own NO CONNECTION composition, produced by
   `tools/gen_fault_screen.py`.
+- `main/updating_screen.c` / `main/updating_screen.h` — the UPDATING
+  hold screen shown for the duration of every OTA attempt: a thin call
+  into `hold_screen.c` with the committed `updating_screen_mask.h` mask.
+- `main/updating_screen_mask.h` — generated (never hand-edited — a
+  server test proves it matches its generator byte-for-byte) 1-bpp ink
+  mask of the server's own UPDATING composition, produced by
+  `tools/gen_fault_screen.py --screen updating`.
 - `tools/gen_fault_screen.py` — renders the server's NO CONNECTION
-  composition flat, extracts and packs the ink mask into
-  `main/fault_screen_mask.h`, and implements a Python port of
-  `fault_screen.c`'s exact integer Floyd-Steinberg dither spec (one
+  (default) or UPDATING (`--screen updating`) composition flat, extracts
+  and packs the ink mask into `main/fault_screen_mask.h` /
+  `main/updating_screen_mask.h`, and implements a Python port of
+  `hold_screen.c`'s exact integer Floyd-Steinberg dither spec (one
   spec, two implementations) to produce a firmware-equivalent
-  side-by-side preview PNG.
+  side-by-side preview PNG per screen.
 
 ## Deliberately Not Vendored
 

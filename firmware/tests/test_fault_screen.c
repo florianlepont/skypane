@@ -1,13 +1,15 @@
 /* SPDX-FileCopyrightText: 2026 Florian Lepont
  * SPDX-License-Identifier: Apache-2.0 */
 /* Host-side unit test for the NO CONNECTION hold screen:
- * fp_fault_screen_render()'s on-device dither + mask stamp, and
+ * fp_fault_screen_render()'s on-device dither + mask stamp (now a thin
+ * call into the shared hold_screen.c renderer), and
  * fp_fault_screen_should_draw()'s allow-list/counter/already-shown
  * gate.
  *
- *   cc -Wall -Wextra -std=c11 main/fault_screen.c \
+ *   cc -Wall -Wextra -std=c11 main/fault_screen.c main/hold_screen.c \
  *      tests/test_fault_screen.c -o /tmp/tfs && /tmp/tfs
  */
+/* HOST_TEST_DEPS: hold_screen.c */
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -175,6 +177,32 @@ static void hash_sentinel_is_not_a_server_hash_shape(void)
     assert(strncmp(FP_FAULT_SCREEN_HASH, "sha256:", 7) != 0);
 }
 
+static uint64_t fnv1a64(const uint8_t *buf, size_t len)
+{
+    uint64_t h = 0xcbf29ce484222325ULL;
+    for (size_t i = 0; i < len; i++) {
+        h ^= buf[i];
+        h *= 0x100000001b3ULL;
+    }
+    return h;
+}
+
+/* Recorded from fp_fault_screen_render()'s output BEFORE the dither+mask
+ * routine moved out of this file into hold_screen.c. Pinning this proves
+ * the refactor left the NO CONNECTION screen's bytes byte-identical - if
+ * this test ever fails, the shared renderer changed the output, not just
+ * where the code lives. */
+#define FP_FAULT_SCREEN_GOLDEN_DIGEST 0xaafed7ceeac86622ULL
+
+static void render_output_matches_golden_digest(void)
+{
+    uint8_t *buf = alloc_buf();
+    fp_fault_screen_render(buf, NULL);
+    uint64_t digest = fnv1a64(buf, FP_FAULT_SCREEN_BYTES);
+    assert(digest == FP_FAULT_SCREEN_GOLDEN_DIGEST);
+    free(buf);
+}
+
 int main(void)
 {
     every_nibble_is_black_or_white();
@@ -184,6 +212,7 @@ int main(void)
     tick_is_invoked_and_null_tick_is_accepted();
     should_draw_matches_the_spec_table();
     hash_sentinel_is_not_a_server_hash_shape();
+    render_output_matches_golden_digest();
     printf("test_fault_screen: all tests passed\n");
     return 0;
 }
