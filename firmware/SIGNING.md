@@ -83,3 +83,102 @@ bootloader from being physically updated" -- the opposite of what a
 hardware-locked eFuse key would guarantee, which is exactly the
 trade-off this project chose: network-origin authenticity without an
 irreversible hardware commitment.
+
+## What is signed and why
+
+Every OTA-eligible release image carries an RSA-3072 Secure Boot V2
+signature block appended after the app image. On an update, the device
+checks that signature against the public key embedded in the currently
+running app's own signature block -- not against a hardware-locked key,
+since no eFuse is used at all. A compromised server can serve any bytes
+it likes, but the device will still refuse to boot an image signed with
+the wrong key, or an image with no signature block at all.
+
+The SHA-256 hash and byte size the server advertises alongside an offer
+stay as an earlier, cheaper gate: they catch a truncated or corrupted
+download before the device spends time on signature verification, but
+they are not the security boundary -- the signature is. A hash and size
+alone can be recomputed by anyone; a signature cannot be forged without
+the private key.
+
+## Release tags
+
+A release is named `fw-vMAJOR.MINOR.PATCH`, created as a git tag on a
+commit already on `main`. The first OTA-capable release is `fw-v1.0.0`,
+which is also the compiled-in version floor: no device ever accepts, and
+the server never offers, anything older.
+
+## One-time key generation (human only)
+
+Run this once, by hand, inside the pinned `espressif/idf:v5.3.1`
+container on the developer's own Mac -- offline if possible, since the
+key never needs to touch a network until it is uploaded as a secret.
+
+1. Generate the signing key:
+   ```
+   espsecure.py generate_signing_key --version 2 --scheme rsa3072 \
+       skypane-signing-key.pem
+   ```
+2. Extract the public half:
+   ```
+   espsecure.py extract_public_key --version 2 \
+       --keyfile skypane-signing-key.pem skypane-signing-pubkey.pem
+   ```
+3. Store the private key as a GitHub Actions environment secret, in an
+   environment named `firmware-signing` with the developer set as a
+   required reviewer, so every signing run needs an explicit approval:
+   ```
+   gh secret set FW_SIGNING_KEY --env firmware-signing \
+       < skypane-signing-key.pem
+   ```
+4. Make an encrypted offline backup -- a password manager attachment, or
+   an `age -p` / `gpg --symmetric` encrypted file kept on the developer's
+   Mac. Without this backup, losing the GitHub secret means losing the
+   key permanently (see Rotation below).
+5. Delete the plaintext private key from disk:
+   ```
+   rm -P skypane-signing-key.pem
+   ```
+6. Commit only the public key, at `firmware/signing/skypane-signing-pubkey.pem`.
+
+The private key must never be copied to the VPS, committed to the
+repository, or pasted into a chat or a log. It exists in exactly two
+places: the `firmware-signing` GitHub environment secret, and the
+developer's own encrypted offline backup.
+
+## Rotation
+
+A new signing key only ever reaches the device inside an image signed by
+the *current* key -- there is no remote channel for changing the trusted
+key directly, since the trust anchor is the running app's own embedded
+public key. To rotate: sign a transition release with the old key that
+changes nothing else, install it normally, then start signing subsequent
+releases with the new key.
+
+If the old key is lost or compromised before a rotation release ships,
+the only recovery path is a USB flash carrying a factory image signed
+with a new key.
+
+## Forbidden
+
+- Any `espefuse.py burn_*` command.
+- Enabling hardware secure boot (`CONFIG_SECURE_BOOT`) or flash
+  encryption (`CONFIG_SECURE_FLASH_ENC_ENABLED`).
+- `CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES=y` -- that would require the
+  private key to be present on the build machine itself, which is
+  exactly what CI-side out-of-band signing avoids.
+
+## Local signing for bench images
+
+For a bench image built from a release tag but not going through CI (for
+example during the hardware session), the developer signs it locally
+using the offline key inside the pinned container:
+
+```
+espsecure.py sign_data --version 2 --keyfile <path-to-decrypted-key> \
+    --output <signed-output.bin> <unsigned-input.bin>
+```
+
+Delete the decrypted key file immediately afterward. `SKYPANE_VERSION_LABEL`
+(for example `unsigned`) marks a bench image that has not gone through
+this step, so it is never mistaken for a real release artifact.
