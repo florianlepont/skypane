@@ -1966,7 +1966,7 @@ Plans:
 2. Every ID in the audit ledger marked closed with its evidence (commit / test)
 3. A fresh audit pass finds no regression of a closed item
 
-**Plans:** 7/8 plans executed
+**Plans:** 8/8 plans complete
 
 Plans:
 
@@ -1982,7 +1982,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 41-08-PLAN.md — Final regression pass, 41-CLOSING-AUDIT.md (82 IDs), CFG-72/73 ticked after verification, PR description for the 32-41 arc [DOC-01, DOC-02, DOC-03]
+- [x] 41-08-PLAN.md — Final regression pass, 41-CLOSING-AUDIT.md (82 IDs), CFG-72/73 ticked after verification, PR description for the 32-41 arc [DOC-01, DOC-02, DOC-03]
 
 ### Phase 42: Remote firmware update over the air (OTA), promoted from SEED-009
 

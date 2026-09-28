@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 41
 current_phase_name: docs-repository-hygiene-and-closing-re-audit
 status: executing
-stopped_at: Completed 41-07-PLAN.md
-last_updated: "2026-09-28T07:24:12.130Z"
+stopped_at: Completed 41-08-PLAN.md (closing plan) — 41-CLOSING-AUDIT.md written (77 VERIFIED-CLOSED/3 FLAGGED-DIFFERENT/2 FLAGGED-OPEN), REQUIREMENTS.md bookkeeping done, 41-PR-DESCRIPTION.md drafted. Phase 41 ready for verification; HYG-01/HYG-06 remain open.
+last_updated: "2026-09-28T07:54:20.052Z"
 last_activity: 2026-09-28
 progress:
   total_phases: 54
-  completed_phases: 49
+  completed_phases: 50
   total_plans: 442
-  completed_plans: 416
-  percent: 91
+  completed_plans: 417
+  percent: 94
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -627,6 +627,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 41 P05 | 55min | 2 tasks | 1 files |
 | Phase 41 P06 | 70min | 2 tasks | 1 files |
 | Phase 41 P07 | 55min | 2 tasks | 1 files |
+| Phase 41 P08 | 40min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -1244,6 +1245,8 @@ Recent decisions affecting current work:
 - [Phase 41]: INT-14: IP-pinning fix confirmed shipped (http_fetch.pinned_request); server/net/safe_fetch.py is additive, not a replacement
 - [Phase 41]: 41-07: All 21 EFF/ARC/CMP findings VERIFIED-CLOSED against current code; ARC-03 FLAGGED-DIFFERENT on naming only (calendar_rules/ vs ledger's calendar/ shorthand), intent fully met
 - [Phase 41]: 41-07: Phase 40 deferred browser test (chromium-health-registry) now passes; root cause resolved by Phase 39's ARC-02 state_store split
+- [Phase 41]: Closed the 82-finding audit ledger: 77 VERIFIED-CLOSED, 3 FLAGGED-DIFFERENT (naming/tooling only), 2 FLAGGED-OPEN (HYG-01/HYG-06, comment-history guard gap); DOC-03 left unticked as a result
+- [Phase 41]: CFG-72/CFG-73 ticked after re-verifying their tests pass; CFG-74 and CFG-34/37/39/42/50/52/65 left byte-identical to the phase base per 41-CONTEXT.md's locked developer decision
 
 ### Pending Todos
 
@@ -1365,8 +1368,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T07:24:12.105Z
-Stopped at: Completed 41-07-PLAN.md
+Last session: 2026-09-28T07:54:20.024Z
+Stopped at: Completed 41-08-PLAN.md (closing plan) — 41-CLOSING-AUDIT.md written (77 VERIFIED-CLOSED/3 FLAGGED-DIFFERENT/2 FLAGGED-OPEN), REQUIREMENTS.md bookkeeping done, 41-PR-DESCRIPTION.md drafted. Phase 41 ready for verification; HYG-01/HYG-06 remain open.
 
 Resume file: 
 
