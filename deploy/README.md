@@ -338,6 +338,59 @@ ssh ubuntu@<vps-ip> "sudo ln -sfn releases/<previous-sha> /opt/skypane/current \
     && sudo systemctl restart skypane-byos skypane-companion skypane-poll.timer"
 ```
 
+## Firmware releases (OTA)
+
+Signed firmware images reach the VPS only through this same reviewed
+deploy, never any other path (D-17):
+
+1. A `fw-vMAJOR.MINOR.PATCH` tag on `main` triggers
+   `.github/workflows/firmware-release.yml`, gated behind its own
+   `firmware-signing` GitHub environment reviewer approval. It builds,
+   signs and verifies the image, generates the release manifest from
+   git, and publishes a GitHub Release (`skypane-<tag>.bin` +
+   `release.json`, content-addressed by SHA-256).
+2. That workflow then dispatches `ci.yml` on `main`
+   (`gh workflow run ci.yml --ref main`), whose `deploy` job is gated
+   behind the same `production` GitHub environment reviewer approval
+   used for every ordinary code deploy — a manual `workflow_dispatch`
+   trigger, not a push, so this reviewed run carries no code change of
+   its own.
+3. Once approved, the `Download firmware releases` step lists every
+   `fw-v*` GitHub Release and downloads each one's image and manifest
+   into `firmware-releases/<tag>/`. `deploy.sh` ships that whole
+   directory to the VPS (`SKYPANE_FIRMWARE_DIR=firmware-releases`)
+   alongside the code archive, and `activate.sh` imports every release
+   with `firmware_cli import-dir` — as the `skypane` user, before the
+   `current` symlink swap — into `/opt/skypane/state/firmware/`. A
+   release whose bytes do not match its own manifest fails activation
+   before the swap, leaving the previous release serving.
+4. The import is idempotent: an ordinary code-only deploy (no new tag)
+   still re-downloads and re-imports whatever is already published,
+   prints `exists <tag>` for each one, and changes nothing. Nothing
+   ever prunes `/opt/skypane/state/firmware/` — every release is kept
+   forever (D-18) — and `byos_server.py` serves each image at
+   `GET /fw/<sha256>.bin`, content-addressed against the registry.
+5. After import, a release is merely **available** (the companion
+   Update page's "Available" state) — nothing installs it
+   automatically (D-01); an operator or the device owner still chooses
+   Install from the companion.
+
+The firmware store lives under `/opt/skypane/state/firmware/`, so it
+is included in the nightly backup's allow-list alongside `devices.json`
+and `gallery/` (see "Backups" below) — each archive grows by roughly
+1 MB per kept release, since every release stays forever.
+
+List what is published on the VPS directly:
+
+```bash
+ssh ubuntu@<vps-ip> "sudo -u skypane /opt/skypane/venv/bin/python3 -m server.firmware_cli --state-dir /opt/skypane/state list"
+```
+
+`import-bench --file <bin> --version <v>` publishes one locally-built
+bench image (marked `bench=True`, with a generated
+"Bench image (not a release)" note) — reserved for the hardware
+session, never run by a deploy.
+
 ## Backups
 
 A nightly systemd timer (`skypane-backup.timer`, 03:15 UTC,
