@@ -520,6 +520,17 @@ def publish_release(state_dir, manifest, image_path, bench=False, now=None):
         target = firmware_image_path(state_dir, sha256)
         if not os.path.exists(target):
             atomic_io.atomic_write(target, image_bytes)
+        else:
+            # The path is content-addressed by sha256, but its
+            # filename encoding that digest is not proof the bytes on
+            # disk still match it -- a hand-copied partial file, disk
+            # corruption, or a restore of a truncated archive would
+            # otherwise be kept forever and re-imported "idempotently"
+            # on every deploy with nothing to notice it. Re-verify and
+            # repair from the bytes this call already hashed above.
+            existing_digest, existing_size, _ = _hash_and_size(target)
+            if existing_digest != sha256 or existing_size != size:
+                atomic_io.atomic_write(target, image_bytes)
         registry["releases"].append({
             "version": version, "sha256": sha256, "size": size,
             "released_at": released_at, "published_at": now, "commit": commit,

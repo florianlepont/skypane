@@ -226,6 +226,31 @@ def test_publish_release_never_deletes_a_release_or_image(tmp_path):
         assert os.path.exists(image_path)
 
 
+def test_publish_release_repairs_a_corrupted_image_already_on_disk(tmp_path):
+    """A crash between the image write and the registry save (or disk
+    corruption, or a restore of a truncated archive) can leave a
+    <sha>.bin on disk with the wrong bytes while the registry has no
+    entry for it yet. The next publish_release() for that same version
+    must notice and repair it, not trust the path's own name and skip
+    writing forever.
+    """
+    version = "fw-v1.3.0"
+    image = _image_bytes(version.encode())
+    image_path = _write_image(tmp_path, image, name=version + ".bin")
+    manifest = _manifest_for(image, version)
+    sha256 = manifest["sha256"]
+
+    target = registry_mod.firmware_image_path(str(tmp_path), sha256)
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    with open(target, "wb") as fh:
+        fh.write(b"corrupted-bytes-not-the-real-image")
+
+    outcome = registry_mod.publish_release(str(tmp_path), manifest, image_path, now=NOW)
+    assert outcome == "added"
+    with open(target, "rb") as fh:
+        assert fh.read() == image, "the corrupted on-disk image must be repaired from the verified bytes"
+
+
 # --- schedule_release / cancel_schedule / acknowledged --------------------
 
 def test_schedule_release_returns_scheduled_and_writes_schedule(tmp_path):
