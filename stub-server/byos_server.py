@@ -6,8 +6,8 @@
 # SkyPane; the changes are listed in stub-server/VENDOR.md. Full licence
 # text: firmware/LICENSE.
 """Minimal bring-your-own-server for FlightPortrait frames. Stdlib only,
-plus the stdlib-only shared modules server.device_policy and
-server.state_store.
+plus the stdlib-only shared modules server.device_policy, server.state_store
+and server.firmware_registry.
 
 Implements the three device endpoints from docs/PROTOCOL.md well enough
 to run a stock frame: point the frame at this host during BLE
@@ -41,6 +41,11 @@ extension spanning the saved quiet-hours window. led_enabled mirrors
 the companion app's saved bring-up-LED setting; --image-url-scheme lets
 image_url advertise https behind a TLS-terminating reverse proxy.
 
+The same response's firmware field is the operator's scheduled release,
+or null, computed by server/firmware_registry.py's compute_offer() from
+the request's own X-Fw-Version/X-Ota-Result headers, which this file
+records into <state-dir>/firmware/device_report.json.
+
 This is a reference, not a product: no TLS (the frame accepts plain
 http for hand-set targets), no rate limiting, one image for every
 frame. See stub-server/VENDOR.md for the local changes from upstream
@@ -55,6 +60,7 @@ import re
 import secrets
 import sys
 import tempfile
+import threading
 import time
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -69,7 +75,7 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from server import device_policy, state_store
+from server import device_policy, firmware_registry, state_store
 
 IMAGE_BYTES = 960000
 # X-Battery-Mv bounds: PROTOCOL.md §2 reserves 0 as the "unknown" sentinel,
@@ -567,6 +573,178 @@ def save_battery_state(state_dir, mv):
     _atomic_write(path, json.dumps({"battery_mv": mv, "received_at": time.time()}, indent=1))
 
 
+# --- OTA offer composition and device report recording -------------------
+#
+# firmware/device_report.json is owned by this file alone --
+# server/firmware_registry.py only ever reads it (see that module's own
+# docstring). Every write below goes through _write_device_report(),
+# guarded by _device_report_lock against this process's own other
+# request-handling threads; no inter-process file lock is added on top,
+# since this file is the document's only writer anywhere in the
+# deployment.
+_device_report_lock = threading.Lock()
+
+# The device-reported firmware version, one to 31 of the same characters
+# server/firmware_registry.py's own VERSION_RE allows for a release tag --
+# permissive enough for a bench build's free-form suffix too.
+_FW_VERSION_HEADER_RE = re.compile(r"\A[A-Za-z0-9._-]{1,31}\Z")
+
+# X-Ota-Result: "<result token>;<version>", the token one of
+# firmware_registry.RESULT_TOKENS, the version 1-31 of the same
+# characters X-Fw-Version allows. The whole header is capped at 64 bytes
+# so a hostile or buggy device cannot grow device_report.json's events
+# without bound through this one field.
+_OTA_RESULT_HEADER_RE = re.compile(
+    r"\A(" + "|".join(re.escape(t) for t in firmware_registry.RESULT_TOKENS) + r");"
+    r"([A-Za-z0-9._-]{1,31})\Z"
+)
+_OTA_RESULT_HEADER_MAX_BYTES = 64
+
+# The newest events kept per device in firmware/device_report.json --
+# matches server/firmware_registry.py's own defensive re-cap on load, so
+# a value trimmed here on write is never re-expanded by the next read.
+_DEVICE_REPORT_EVENTS_KEEP = 50
+
+
+def _utc_now_iso():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def parse_fw_version_header(raw):
+    """The device's reported X-Fw-Version, or None for anything not 1-31
+    of the allowed version characters -- a malformed header is ignored,
+    never recorded.
+    """
+    if not isinstance(raw, str) or not _FW_VERSION_HEADER_RE.match(raw):
+        return None
+    return raw
+
+
+def parse_ota_result_header(raw):
+    """(result token, version) parsed from a device's X-Ota-Result
+    header, or None for anything unanchored, over the byte cap, an
+    unrecognised result token, or a malformed version component.
+    """
+    if not isinstance(raw, str) or len(raw) > _OTA_RESULT_HEADER_MAX_BYTES:
+        return None
+    match = _OTA_RESULT_HEADER_RE.match(raw)
+    if match is None:
+        return None
+    return match.group(1), match.group(2)
+
+
+def read_battery_low_active(state_dir):
+    """Best-effort, read-only read of poll_state.json's battery_low_active
+    flag (server/poll_cycle.py's update_battery_low() is the sole
+    writer). Fails open to False: a wrongly-served offer during a real
+    low-battery window costs a wasted download attempt, while a false
+    positive here only delays an update the operator already approved
+    to the device's next wake.
+    """
+    return state_store.load_poll_state(state_dir).get("battery_low_active") is True
+
+
+def _resolve_device_id(state, presented_token):
+    """The MAC byos issued `presented_token` to, compared with
+    hmac.compare_digest against every stored token (never `==`, the same
+    timing reason bearer_ok() above already gives), or "default" when
+    none matches. Only ever called after bearer_ok() has already
+    confirmed the token is valid, so this decides which device's
+    device_report.json entry a poll updates, not whether it may.
+    """
+    if not isinstance(presented_token, str):
+        return "default"
+    presented_bytes = presented_token.encode("utf-8", "surrogateescape")
+    for mac, stored in state["tokens"].items():
+        stored_bytes = stored.encode("utf-8", "surrogateescape")
+        if hmac.compare_digest(presented_bytes, stored_bytes):
+            return mac
+    return "default"
+
+
+def _write_device_report(state_dir, doc):
+    """The one writer of firmware/device_report.json anywhere in this
+    process -- server/firmware_registry.py deliberately never writes it.
+    Mirrors that module's own firmware/ directory mode fix-up, since
+    either module may be the first to create it under a fresh state
+    dir.
+    """
+    path = firmware_registry.device_report_path(state_dir)
+    directory = os.path.dirname(path)
+    if not os.path.isdir(directory):
+        os.makedirs(directory, mode=0o750, exist_ok=True)
+        os.chmod(directory, 0o750)
+    _atomic_write(path, json.dumps(doc, indent=1, sort_keys=True))
+
+
+def _record_device_report_and_offer(state_dir, state, headers, image_url_scheme, host):
+    """The single call GET /device/v1/display makes for the whole OTA
+    offer contract: parse this request's X-Fw-Version/X-Ota-Result,
+    resolve which device sent it, update firmware/device_report.json
+    (fw_version/reported_at, a "result" event), compute the offer from
+    the now-current entry, and -- when an offer results -- record an
+    "offered" event for it before returning, so a schedule the device
+    has just been offered is no longer cancellable from that instant.
+    Any failure raised by the write below is the caller's to treat as
+    no offer, never an error response; the registry/device-report reads
+    this function makes are already tolerant and never raise.
+    """
+    fw_version = parse_fw_version_header(headers.get("X-Fw-Version"))
+    ota_result = parse_ota_result_header(headers.get("X-Ota-Result"))
+    auth = headers.get("Authorization", "")
+    presented = auth[len("Bearer "):] if auth.startswith("Bearer ") else None
+    device_id = _resolve_device_id(state, presented)
+
+    registry = firmware_registry.load_registry(state_dir)
+    battery_low_active = read_battery_low_active(state_dir)
+    base_url = "%s://%s" % (image_url_scheme, host)
+    schedule = registry.get("schedule")
+    schedule_id = schedule.get("id") if schedule is not None else None
+
+    with _device_report_lock:
+        device_report = firmware_registry.load_device_report(state_dir)
+        devices = device_report["devices"]
+        entry = devices.get(device_id) or {"fw_version": None, "reported_at": None, "events": []}
+        # device_report["next_seq"] counts events already assigned (0 for
+        # a fresh document), so the next seq to hand out is one more than
+        # that - never 0, since compute_offer()'s own reconciled_seq
+        # baseline starts at 0 and only counts events with seq strictly
+        # greater than it.
+        next_seq = device_report["next_seq"]
+        changed = False
+
+        if fw_version is not None:
+            entry["fw_version"] = fw_version
+            entry["reported_at"] = _utc_now_iso()
+            changed = True
+
+        if ota_result is not None:
+            token, result_version = ota_result
+            next_seq += 1
+            entry["events"].append({
+                "seq": next_seq, "at": _utc_now_iso(), "kind": "result",
+                "schedule_id": schedule_id, "token": token, "version": result_version,
+            })
+            changed = True
+
+        offer = firmware_registry.compute_offer(registry, entry, battery_low_active, base_url)
+        if offer is not None:
+            next_seq += 1
+            entry["events"].append({
+                "seq": next_seq, "at": _utc_now_iso(), "kind": "offered",
+                "schedule_id": schedule_id, "token": None, "version": offer["version"],
+            })
+            changed = True
+
+        if changed:
+            entry["events"] = entry["events"][-_DEVICE_REPORT_EVENTS_KEEP:]
+            devices[device_id] = entry
+            device_report["next_seq"] = next_seq
+            _write_device_report(state_dir, device_report)
+
+    return offer
+
+
 # Largest legitimate device body (a batched log upload); anything above
 # this is refused with 413 before a single byte of it is read.
 MAX_BODY_BYTES = 64 * 1024
@@ -653,7 +831,7 @@ class Handler(BaseHTTPRequestHandler):
     def log_telemetry(self):
         parts = []
         for h in ("X-Fw-Version", "X-Boot-Reason", "X-Rssi",
-                  "X-Battery-Mv"):
+                  "X-Battery-Mv", "X-Ota-Result"):
             v = self.headers.get(h)
             if v:
                 parts.append("%s=%s" % (h, v))
@@ -740,6 +918,15 @@ class Handler(BaseHTTPRequestHandler):
             except OSError:
                 return self.send_json(503, {"detail": "image unavailable"})
             host = self.headers.get("Host", "localhost")
+            try:
+                offer = _record_device_report_and_offer(
+                    self.args.state_dir, self.state, self.headers,
+                    self.args.image_url_scheme, host)
+            except OSError:
+                # A full or read-only state dir degrades to "no offer",
+                # never a 500 - the panel poll above already succeeded
+                # and must still be answered.
+                offer = None
             return self.send_json(200, {
                 "image_url": "%s://%s/img/%s.bin" % (
                     self.args.image_url_scheme, host, digest),
@@ -759,7 +946,16 @@ class Handler(BaseHTTPRequestHandler):
                             self.args.state_dir),
                         self.args.state_dir, battery_mv),
                     self.args.state_dir),
-                "firmware": None,
+                # The operator's scheduled release, gated by
+                # server/firmware_registry.py's compute_offer(): only
+                # when it differs from the device's own reported
+                # version, is at or above the version floor, has not
+                # already failed three times, and the device's own
+                # battery-low alert is not active. Deliberately does not
+                # go through quiet_hours_sleep_s()/display_off_sleep_s()
+                # above - a scheduled update reaches the frame at its
+                # next wake whatever the display/quiet-hours mode.
+                "firmware": offer,
                 "reset": False,
                 # The bring-up LED toggle: the firmware half can only be
                 # changed by reflashing the board, while this server-side
