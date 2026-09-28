@@ -65,13 +65,14 @@ in production, driven by systemd units and fronted by Caddy for automatic
 HTTPS — see `deploy/README.md` for the full runbook (provisioning,
 shipping code, verifying TLS, reading logs, rolling back).
 
-**Firmware-side change (configuration only, no C source changes):** once
-the server is deployed, `firmware/main/secrets.h`'s `SKYPANE_API_BASE` moves
-from the Phase 1 LAN address (`http://192.168.1.42:8642`) to the real
-`https://<public-host>` base recorded in `deploy/README.md`, and
-`SKYPANE_SETUP_SECRET` moves to the server's `SKYPANE_BYOS_SECRET` value. This is
-a configuration change only — `firmware/main/api_client.c`'s ESP-TLS
+**Firmware-side change (provisioning only, no rebuild):** once the server
+is deployed, a device's API base moves from the Phase 1 LAN address
+(`http://192.168.1.42:8642`) to the real `https://<public-host>` base
+recorded in `deploy/README.md` by re-running `firmware/provision.sh
+<serial-port> --wifi-ssid <ssid> --api-base https://<public-host>` — the
+API base lives in the device's own `secret` NVS partition
+(`fp_device_creds_load`, `firmware/main/enrol_secret.c`), never compiled
+into the image, so pointing a device at a real HTTPS base needs no
+firmware rebuild or reflash. `firmware/main/api_client.c`'s ESP-TLS
 `crt_bundle_attach` path is already compiled in and reachable on every
-request (see `firmware/VENDOR.md`), so pointing it at a real HTTPS base
-requires no firmware code changes, only rebuilding and reflashing with the
-new `secrets.h` values (`firmware/build.sh`).
+request regardless of which base is provisioned (see `firmware/VENDOR.md`).

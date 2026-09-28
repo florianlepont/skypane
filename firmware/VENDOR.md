@@ -51,7 +51,7 @@ changes it still needs, and re-run the host tests
 | `tests/test_backoff.c` | `tests/test_backoff.c` | yes | none |
 | `tests/test_api_base.c` | `tests/test_api_base.c` | yes | none |
 | `partitions.csv` | `partitions.csv` | no | Added one partition, `secret` (NVS type, offset `0x13000`, size `0x3000`), in the existing free gap between `nvs_keys` and `factory`. Every other partition is byte-identical to upstream. |
-| `sdkconfig.defaults` | `sdkconfig.defaults` | no | `CONFIG_FP_API_BASE` (upstream's compiled-in production URL) is removed outright, not merely repointed — `firmware/tests/check_production_config.sh` fails the build if this or any other orphan `CONFIG_FP_*` symbol reappears in this file. The API base is resolved at compile time from a `secrets.h` macro instead (`main/api_client.c`). Bluetooth disabled (no BLE provisioning is compiled in; a gitignored `secrets.h` supplies credentials instead). Hardening added: task-watchdog panic on a stuck main task, the PSRAM self-test removed from every wake, DHCP rejoin tuning, a two-root ISRG-only mbedtls certificate bundle (replacing the full default trust store), best-effort TLS session tickets, and app rollback disabled (no OTA path exists to use it). Everything else (ESP32-S3 target, OPI PSRAM settings, the 12 KiB `app_main` stack, the panel pin map) is untouched from upstream. |
+| `sdkconfig.defaults` | `sdkconfig.defaults` | no | `CONFIG_FP_API_BASE` (upstream's compiled-in production URL) is removed outright, not merely repointed — `firmware/tests/check_production_config.sh` fails the build if this or any other orphan `CONFIG_FP_*` symbol reappears in this file. The API base is resolved at runtime from the device's provisioned `secret` NVS partition instead (`main/api_client.c`, `main/enrol_secret.c`). Bluetooth disabled (no BLE provisioning is compiled in; `firmware/provision.sh` writes credentials into that same partition instead). Hardening added: task-watchdog panic on a stuck main task, the PSRAM self-test removed from every wake, DHCP rejoin tuning, a two-root ISRG-only mbedtls certificate bundle (replacing the full default trust store), best-effort TLS session tickets, and app rollback disabled (no OTA path exists to use it). Everything else (ESP32-S3 target, OPI PSRAM settings, the 12 KiB `app_main` stack, the panel pin map) is untouched from upstream. |
 | `CMakeLists.txt` | `CMakeLists.txt` | no | `project(flightportrait)` renamed to `project(skypane)`. `PROJECT_VER` no longer hardcoded — `firmware/build.sh` resolves `git describe --tags --always --dirty` on the host and passes it in, so every image reports the exact commit it was built from. |
 | `main/epd13in3e.c` | `main/epd13in3e.c` | no | `epd_init`'s GPIO/SPI setup no longer calls `ESP_ERROR_CHECK`; each failure now returns `ESP_FAIL` through the function's own `esp_err_t` path, freeing the SPI bus first if it was already initialised. `epd_sleep` tracks which setup steps actually completed so it can never touch an uninitialised handle. `busy_wait()`'s poll loop and `send_half()`'s periodic yield feed the task watchdog. `epd_blit()` now checks its busy-wait timeout and returns `ESP_FAIL` instead of silently ignoring it. The 800 µs per-row pacing is unchanged — see "Operational notes" below for why. |
 | `main/epd13in3e.h` | `main/epd13in3e.h` | yes | none |
@@ -61,12 +61,12 @@ changes it still needs, and re-run the host tests
 | `main/panel_guard.h` | `main/panel_guard.h` | no | Doc comment only: the refresh-spacing guard's rationale was corrected to match the verified GDEP133C02 datasheet finding (no documented refresh-rate or endurance limit; refresh at least every 24 h). No declaration changed. |
 | `tests/test_panel_guard.c` | `tests/test_panel_guard.c` | yes | none |
 | `sdkconfig.ee02.defaults` | `sdkconfig.ee02.defaults` | no | Appended two SkyPane blocks after the upstream content, which is otherwise untouched: battery-sense pins and the bring-up LED pins/polarity. |
-| `main/Kconfig.projbuild` | `main/Kconfig.projbuild` | no | Top-level menu renamed from "FlightPortrait" to "SkyPane". The API base Kconfig option is removed entirely, not defaulted to a placeholder — see the `sdkconfig.defaults` row above; the base URL now comes from a `secrets.h` macro at compile time, so no Kconfig prompt for it exists to misconfigure. Trimmed to the options this project actually compiles against: the hardware revision choice, the full 8-pin panel-pins menu, and the panel-timing menu. Removed the BLE-provisioning timeout and factory-prep options, since neither has any code behind it. Retained the button-controls menu (pin values are measured hardware fact from a real EE02 key-sweep) with a comment explaining why it stays without a compiled consumer yet. Added four project-specific options: an HTTP-allowed dev-only switch, the whole-wake budget in seconds, TLS session persistence, and a bench-only fault-injection choice. |
-| `main/wifi.c` | `main/wifi.c` | no | Credential source changed from NVS (written by a BLE provisioning flow this project doesn't compile) to macros in the gitignored `secrets.h`. Dropped the BLE-provisioning-adoption branch and the NVS-backed fast-connect helper, since this project's trimmed `nvs_schema.h` no longer defines those keys. Kept: the join/retry logic, the SNTP time sync (a TLS prerequisite after any power loss — the device has no RTC battery), RSSI read, and radio-off-before-sleep. Added an optional static-IP fallback, compiled in only when all four address macros are defined in `secrets.h`. |
+| `main/Kconfig.projbuild` | `main/Kconfig.projbuild` | no | Top-level menu renamed from "FlightPortrait" to "SkyPane". The API base Kconfig option is removed entirely, not defaulted to a placeholder — see the `sdkconfig.defaults` row above; the base URL is now a provisioned, runtime value, so no Kconfig prompt for it exists to misconfigure. Trimmed to the options this project actually compiles against: the hardware revision choice, the full 8-pin panel-pins menu, and the panel-timing menu. Removed the BLE-provisioning timeout and factory-prep options, since neither has any code behind it. Retained the button-controls menu (pin values are measured hardware fact from a real EE02 key-sweep) with a comment explaining why it stays without a compiled consumer yet. Added four project-specific options: an HTTP-allowed dev-only switch, the whole-wake budget in seconds, TLS session persistence, and a bench-only fault-injection choice. |
+| `main/wifi.c` | `main/wifi.c` | no | Credential source changed from NVS written by a BLE provisioning flow this project doesn't compile to NVS written by `firmware/provision.sh` over USB instead (`fp_device_creds_load`, `main/enrol_secret.c`) — the compiled image carries no credential of its own. Dropped the BLE-provisioning-adoption branch and the NVS-backed fast-connect helper, since this project's trimmed `nvs_schema.h` no longer defines those keys. Kept: the join/retry logic, the SNTP time sync (a TLS prerequisite after any power loss — the device has no RTC battery), RSSI read, and radio-off-before-sleep. The optional static-IP fallback is now a runtime branch on the loaded credentials' `has_static` flag rather than a compile-time macro set. |
 | `main/wifi.h` | `main/wifi.h` | no | Trimmed to the four functions the above still implements: `fp_wifi_platform_init`, `fp_wifi_connect`, `fp_wifi_rssi`, `fp_wifi_stop`. Removed the credential-store/-load and factory-reset declarations, since nothing compiled here calls them. |
-| `main/api_client.c` | `main/api_client.c` | no | Trimmed to the three endpoints this project uses. Removed: OTA firmware-offer handling and partition writing, pairing registration and signature computation, and the versioned target-blob (BYOS override) resolution chain. Base-URL resolution now reads a macro from `secrets.h` directly instead of resolving an NVS target blob. Kept, with local re-implementations since upstream's validators aren't vendored: display-response field validation, the streamed download with SHA-256 + exact-byte-count verification before any buffer is returned to the caller, and the setup call's token-shape check. All four telemetry headers are now sent unconditionally on every request, rather than upstream's conditional RSSI header; the battery header reports a real measured value. Every inline validation rule was replaced by calls to the pure `validate.c` functions, and every failure is classified into a Log Line Contract step token instead of a single generic error. One shared `esp_http_client` handle is reused for every request of a wake — setup, display and a same-origin download share one TCP+TLS connection — with header hygiene between requests, a retry-once-on-stale-connection rule, and the download bounded by the whole-wake budget. `tls_session.c` best-effort persists the TLS session across deep sleep. NVS access goes through `nvs_util.c` instead of hand-rolled sequences. A 401/403 on an authenticated call now erases the stored bearer token so the next wake re-enrols with no reflash. |
+| `main/api_client.c` | `main/api_client.c` | no | Trimmed to the three endpoints this project uses. Removed: OTA firmware-offer handling and partition writing, pairing registration and signature computation, and the versioned target-blob (BYOS override) resolution chain. Base-URL resolution now reads the device's provisioned `secret` NVS partition (`fp_device_creds_load`) instead of resolving an NVS target blob or a compiled-in macro. Kept, with local re-implementations since upstream's validators aren't vendored: display-response field validation, the streamed download with SHA-256 + exact-byte-count verification before any buffer is returned to the caller, and the setup call's token-shape check. All four telemetry headers are now sent unconditionally on every request, rather than upstream's conditional RSSI header; the battery header reports a real measured value. Every inline validation rule was replaced by calls to the pure `validate.c` functions, and every failure is classified into a Log Line Contract step token instead of a single generic error. One shared `esp_http_client` handle is reused for every request of a wake — setup, display and a same-origin download share one TCP+TLS connection — with header hygiene between requests, a retry-once-on-stale-connection rule, and the download bounded by the whole-wake budget. `tls_session.c` best-effort persists the TLS session across deep sleep. NVS access goes through `nvs_util.c` instead of hand-rolled sequences. A 401/403 on an authenticated call now erases the stored bearer token so the next wake re-enrols with no reflash. |
 | `main/api_client.h` | `main/api_client.h` | no | Trimmed to match: OTA and pairing-ack fields, structs and functions are all removed, since they exist only to serve machinery this project doesn't compile. Added `fp_api_has_token()`, `fp_api_release()`, and error sentinels for every Log Line Contract step token an authenticated call can fail on. |
-| `main/nvs_schema.h` | `main/nvs_schema.h` | no | Trimmed from roughly thirty keys (BLE provisioning, pairing, OTA tracking, shipping mode, QR state) to five: the bearer token, the last blitted image hash, the failure counter and the boot counter on the default `nvs` partition, plus the per-device enrolment secret on its own dedicated `secret` partition (read-only from the application's side, so neither a factory-reset nor an application bug can erase the one copy of a device's credential). |
+| `main/nvs_schema.h` | `main/nvs_schema.h` | no | Trimmed from roughly thirty keys (BLE provisioning, pairing, OTA tracking, shipping mode, QR state) to twelve: the bearer token, the last blitted image hash, the failure counter and the boot counter on the default `nvs` partition, plus the per-device enrolment secret and the seven provisioned device-credential keys (Wi-Fi SSID/password, API base, optional static-IP set) on their own dedicated `secret` partition (read-only from the application's side, so neither a factory-reset nor an application bug can erase the one copy of a device's credentials). |
 | `main/state_machine.c` | `main/state_machine.c` | no | Trimmed to the walking-skeleton path only: connect Wi-Fi, ensure a bearer token exists, poll the display endpoint, hash-skip or download+verify+blit, persist the hash only after a successful blit. Removed the signed re-pair branch, the remote-reset branch, the OTA-offer evaluation branch, the button-wake/QR branches, and the whole provisioning/repair/factory-reset surface. Preserved the deferred-vs-failed distinction and the ordering rule that the image hash is written only after a successful blit. Added whole-wake budget checkpoints at each stage boundary, a table mapping every failure to its Log Line Contract token, per-stage wall-clock timing, and a bench-only fault-injection call site compiled to nothing in production. |
 | `main/state_machine.h` | `main/state_machine.h` | no | Trimmed to the one function this project's `app_main.c` calls, `fp_poll_once()`. Added a `fail_step_out` parameter so the caller can emit the Log Line Contract's failure line without re-deriving the step token, and a `timing_out` parameter carrying five per-stage millisecond fields for the diagnostic wake-timing line. |
 | `main/app_main.c` | `main/app_main.c` | no | Replaces upstream's BLE-provisioning dispatch, shipping-mode state machine, button actions, signed re-pair and factory-reset branches with the real wake dispatcher: init NVS, classify the wake reason, call `fp_poll_once()`, then either reset the failure counter and sleep for the server-supplied interval or back off on failure — every branch ends in `esp_deep_sleep_start()`. Added: nine compile-time assertions tying the local reset-reason mirror to the real ESP-IDF enum; the whole-wake budget timer and task watchdog armed before anything that could hang; an abnormal reset routes straight to a failure sleep before the radio starts; the battery is read before Wi-Fi; a diagnostic wake-timing line and a reset-reason line outside the frozen five-line contract; and, on the 2nd+ consecutive failure of an allow-listed step, a firmware-local NO CONNECTION hold screen drawn with zero server round-trip. The `poll fail step=…` contract line itself is byte-for-byte unchanged. |
@@ -93,12 +93,10 @@ Files in `firmware/` that are not vendored from upstream at all:
 - `main/CMakeLists.txt` — this project's own component registration,
   using `SRC_DIRS "."` so every new `main/*.c` file compiles into the
   image automatically on a CMake reconfigure.
-- `main/secrets.example.h` — committed template for `main/secrets.h`
-  (gitignored), defining the Wi-Fi and API-base macros `wifi.c`/
-  `api_client.c` read. The per-device enrolment secret is not one of
-  these macros — it is written directly into the device's own `secret`
-  NVS partition by `firmware/provision.sh`, so the compiled image is
-  identical for every device.
+- `main/creds.h` / `main/creds.c` — pure (no ESP-IDF, no I/O,
+  host-compilable) validators for the Wi-Fi SSID/password, a dotted-quad
+  IPv4 address, and the all-or-nothing static-IP set; `main/enrol_secret.c`
+  calls these, it does not re-derive the rules itself.
 - `main/battery_math.h` / `main/battery_math.c` — a pure, saturating
   divider-ratio conversion and sample-averaging helper (no I/O, no
   ESP-IDF headers, host-compilable with plain `cc`).
@@ -143,9 +141,11 @@ Files in `firmware/` that are not vendored from upstream at all:
   project shares; none of its functions call `ESP_ERROR_CHECK` — an NVS
   failure degrades to an `esp_err_t` return, never a crash.
 - `main/enrol_secret.h` / `main/enrol_secret.c` — read-only access to
-  the per-device enrolment secret on its own dedicated NVS partition —
+  the per-device enrolment secret and every provisioned device
+  credential (`fp_device_creds_load`: Wi-Fi SSID/password, API base,
+  optional static-IP set) on the dedicated `secret` NVS partition —
   never writes or erases it, since that would destroy the one copy of
-  the device's credential.
+  the device's credentials.
 - `main/fault_inject.h` / `main/fault_inject.c` — four bench-only fault
   triggers (panic, task-watchdog hang, interrupt-watchdog spin, a
   past-budget slow wake) selected by a Kconfig choice; the whole
@@ -161,17 +161,18 @@ Files in `firmware/` that are not vendored from upstream at all:
   a full handshake every wake.
 - `tests/test_battery_math.c`, `tests/test_reset_reason.c`,
   `tests/test_wake_deadline.c`, `tests/test_sleep_decision.c`,
-  `tests/test_nvs_boot.c`, `tests/test_validate.c` — host tests for the
-  modules above, discovered automatically by `run_host_tests.sh`'s
-  naming convention.
+  `tests/test_nvs_boot.c`, `tests/test_validate.c`, `tests/test_creds.c`
+  — host tests for the modules above, discovered automatically by
+  `run_host_tests.sh`'s naming convention.
 - `provision.sh` — host script (Python `secrets` for random generation)
-  that writes a per-device secret into the device's dedicated `secret`
-  NVS partition over USB — parsing the partition's offset/size from
-  `partitions.csv` at runtime, building the NVS image inside the pinned
-  container, writing only that partition's byte range with host
-  `esptool`, verifying by read-back `cmp` — then prints the MAC and a
-  hash of the secret, never the secret itself. `--dry-run <mac>`
-  previews the same output with no hardware access.
+  that writes a per-device enrolment secret, the Wi-Fi SSID/password,
+  the API base and the optional static-IP set into the device's
+  dedicated `secret` NVS partition over USB — parsing the partition's
+  offset/size from `partitions.csv` at runtime, building the NVS image
+  inside the pinned container, writing only that partition's byte range
+  with host `esptool`, verifying by read-back `cmp` — then prints the
+  MAC and a hash of the secret, never the secret or the Wi-Fi password.
+  `--dry-run <mac>` previews the same output with no hardware access.
 - `sdkconfig.dev.defaults` — a dev-only sdkconfig overlay layered onto
   `sdkconfig.defaults` only under the dev build profile — currently one
   line, `CONFIG_SKYPANE_ALLOW_HTTP=y` — never referenced by the
@@ -228,8 +229,9 @@ Files in `firmware/` that are not vendored from upstream at all:
 Upstream `main/` sources this project does not carry, and why:
 
 - **BLE Security-2 provisioning** — this project talks only to a local
-  server it controls; hardcoded credentials in a gitignored `secrets.h`
-  replace provisioning.
+  server it controls; `firmware/provision.sh` writes credentials
+  directly into the device's own `secret` NVS partition over USB
+  instead, so the compiled image carries none of its own.
 - **Runtime identity and pairing** — exists to support re-pairing a
   device against a changing cloud identity, which this project's fixed
   server target does not need.

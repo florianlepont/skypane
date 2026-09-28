@@ -133,21 +133,22 @@ browser tests with `./scripts/run-all-tests.sh -m browser`.
 ## Firmware
 
 The firmware builds in a pinned ESP-IDF container, so no toolchain
-install is needed:
-
-```bash
-cp firmware/main/secrets.example.h firmware/main/secrets.h
-```
-
-Edit `secrets.h` with your Wi-Fi credentials and server URL (it's
-gitignored), then build:
+install is needed, and the compiled image carries no credential of its
+own — every build is identical for every device:
 
 ```bash
 firmware/build.sh
 ```
 
 Flashing is a separate, host-native step (`firmware/flash.sh`) because
-Docker's USB passthrough is unreliable on macOS.
+Docker's USB passthrough is unreliable on macOS. After flashing, provision
+the device with its Wi-Fi SSID/password and the server's API base —
+written directly into its own `secret` NVS partition over USB, never
+compiled in:
+
+```bash
+firmware/provision.sh <serial-port> --wifi-ssid <ssid> --api-base <url>
+```
 
 ## Deployment
 

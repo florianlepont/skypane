@@ -78,9 +78,12 @@ ipconfig getifaddr en0 || ipconfig getifaddr en1
 ```
 
 The firmware's server base is the `http` scheme followed by that address
-and the port — e.g. `http://192.168.1.42:8642`. This value is set in
-`firmware/main/secrets.example.h` (copy it to `firmware/main/secrets.h`,
-which is gitignored, and fill in the real address there).
+and the port — e.g. `http://192.168.1.42:8642`. This value is written
+into the device's own `secret` NVS partition, not compiled in — provision
+the device with a dev build (`SKYPANE_PROFILE=dev`, so
+`CONFIG_SKYPANE_ALLOW_HTTP` is set) and `firmware/provision.sh
+<serial-port> --wifi-ssid <ssid> --api-base http://192.168.1.42:8642
+--allow-http-base`.
 
 The laptop must stay awake and on the same network for the device to reach
 it. macOS sleep is the single most common cause of an unexplained device
@@ -90,8 +93,9 @@ for no reason, check whether the laptop went to sleep first.
 ## Transport
 
 The device protocol permits a hand-set BYOS server target to be plain
-`http` — only the compiled-in production default requires strict HTTPS.
-This stub therefore serves plain HTTP and needs no certificate.
+`http` on a dev build (`CONFIG_SKYPANE_ALLOW_HTTP`) — a production build
+requires strict HTTPS regardless of what is provisioned. This stub
+therefore serves plain HTTP and needs no certificate.
 
 **Accepted consequence:** the bearer token travels in cleartext on the
 local network. **Hard boundary:** this applies only to this throwaway
