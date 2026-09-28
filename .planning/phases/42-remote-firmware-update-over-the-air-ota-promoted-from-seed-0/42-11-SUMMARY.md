@@ -117,6 +117,7 @@ Each task was committed atomically:
 1. **Task 1a: Release manifest generator tests (RED)** - `2f95caac` (test)
 2. **Task 1b: Release manifest generator implementation (GREEN)** - `dc09c605` (feat)
 3. **Task 2: Tag-triggered signed release workflow + secrets test coverage** - `5a1c4194` (feat)
+4. **Post-verification fix: drop a decision-ID citation from the workflow header** - `182d17f0` (fix)
 
 _TDD task: Task 1 has 2 commits (test → feat). No refactor commit — GREEN was clean on the first pass._
 
@@ -154,7 +155,20 @@ Confirms the broadened scan actually reaches every file under `.github/workflows
 
 ## Deviations from Plan
 
-None - plan executed exactly as written. The one wording collision caught during Task 1 (my own docstring literally contained the substring `shell=True` inside a sentence explaining that the script never uses it, which the `grep -c 'shell=True'` acceptance check would have flagged) was fixed within the same GREEN commit, before it was ever committed — not a deviation from the plan's instructions, just a self-correction during the TDD GREEN step.
+### Auto-fixed Issues
+
+**1. [Rule 1 - Bug] Decision-ID citation in the release workflow's header comment**
+- **Found during:** post-Task-2 full verification pass (`scripts/check_comment_history.py check`, run after both tasks' commits, per this plan's own project rules)
+- **Issue:** `firmware-release.yml`'s header comment cited `(D-01)` when explaining that publishing a release only makes it available — a forbidden decision-ID reference per this project's comment-history convention.
+- **Fix:** Reworded the sentence to keep the same rationale without the citation.
+- **Files modified:** `.github/workflows/firmware-release.yml`
+- **Verification:** `server/.venv/bin/python scripts/check_comment_history.py check` exits 0; `actionlint .github/workflows/firmware-release.yml` still clean; `deploy/tests/test_ci_secrets.py` and the `FW_SIGNING_KEY`/`verify_signature`/`if: always()` greps still pass.
+- **Committed in:** `182d17f0` (fix)
+
+---
+
+**Total deviations:** 1 auto-fixed (1 bug — comment-history compliance)
+**Impact on plan:** Wording-only; no behavioral change to the workflow. The one separate wording collision caught during Task 1 (my own docstring literally contained the substring `shell=True` inside a sentence explaining that the script never uses it, which the `grep -c 'shell=True'` acceptance check would have flagged) was fixed within the same GREEN commit, before it was ever committed — not a deviation from the plan's instructions, just a self-correction during the TDD GREEN step.
 
 ## Issues Encountered
 
@@ -176,4 +190,4 @@ None - no external service configuration required. The `firmware-signing` GitHub
 
 ## Self-Check: PASSED
 
-All created files found on disk; all four commit hashes (`2f95caac`, `dc09c605`, `5a1c4194`, `1e246989`) found in `git log --oneline --all`.
+All created files found on disk; all commit hashes (`2f95caac`, `dc09c605`, `5a1c4194`, `1e246989`, `182d17f0`) found in `git log --oneline --all`.
