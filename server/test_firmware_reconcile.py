@@ -1,7 +1,7 @@
 """Cycle-level tests for the firmware reconcile step server/poll_cycle.py
 runs every poll cycle: folding server/firmware_registry.py's
 apply_reconcile() into the registry, and firing exactly one push
-notification per installed/failed outcome (D-08, D-15).
+notification per installed/failed outcome.
 
 Every test drives the real run_once() cycle body with display_enabled set
 to False, so it takes the display-off hold branch and never needs any
@@ -100,11 +100,11 @@ def _write_device_report(state_dir, events, fw_version=RUNNING_VERSION):
         json.dump(device_report, fh)
 
 
-def _save_cfg(state_dir, hold_kwargs, topic_url=_NOTIFY_TOPIC_URL, lang="en", notifications=True):
+def _save_cfg(state_dir, hold_kwargs, topic_url=_NOTIFY_TOPIC_URL, lang="en", notifications=True, battery_low_toggle=True):
     kwargs = dict(hold_kwargs)
     if notifications:
         kwargs["notifications"] = {
-            "topic_url": topic_url, "battery_low": True,
+            "topic_url": topic_url, "battery_low": battery_low_toggle,
             "frame_silent": True, "lang": lang,
         }
     device_config.save_device_config(state_dir, **kwargs)
@@ -288,7 +288,11 @@ def test_reconcile_runs_on_battery_empty_hold_branch(tmp_path, monkeypatch):
     _write_device_report(d, [
         {"seq": 1, "at": NOW, "kind": "result", "schedule_id": schedule_id, "token": "installed", "version": NEXT_VERSION},
     ])
-    _save_cfg(d, {})  # display enabled, no quiet hours - battery alone forces the hold
+    # battery_low_toggle=False: isolate the firmware notification from
+    # the unrelated battery-low transition push this same battery state
+    # would otherwise also fire (both go through the same monkeypatched
+    # sender below).
+    _save_cfg(d, {}, battery_low_toggle=False)  # display enabled, no quiet hours - battery alone forces the hold
     _write_battery_state(d, 3000)  # below device_policy.BATTERY_CRITICAL_MV (3300)
     sender = _FakeSender()
     monkeypatch.setattr(poll_cycle.notify, "send_notification", sender)
