@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 41-04-PLAN.md
-last_updated: "2026-09-28T06:04:39.900Z"
+stopped_at: Completed 41-05-PLAN.md
+last_updated: "2026-09-28T06:16:15.197Z"
 last_activity: 2026-09-28
 progress:
   total_phases: 54
   completed_phases: 49
   total_plans: 442
-  completed_plans: 413
-  percent: 93
+  completed_plans: 414
+  percent: 91
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -38,7 +38,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [█████████░] 93%
+  [█████████░] 94%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -64,7 +64,7 @@ Phase: 36 (state-integrity-and-device-protocol) — EXECUTED (verification human
 Phase 35 (comment-purge-in-english-and-dead-code) — COMPLETE (23/23 plans, verification passed; gate G-35 re-verified independently by 36-01's Task 1 before any edit)
 Phase 30 (aspect-rebuilt...) — COMPLETE (8/8 plans, verification passed 9/9)
 Phase 34 (firmware-resilience-power-security-cleanup) — COMPLETE (11/11 plans, hardware session PASS on 2026-09-25, verification passed 5/5); gate G-34 confirmed and cleared by 35-21
-Plan: 5 of 8
+Plan: 6 of 8
 
 **40-16 executed (2026-09-27), plan 16/16 of Phase 40 (depends on 40-02/40-03/40-10/40-11/40-15), wave 9 — the phase close-out, three commits.** Task 1 extracted `companion/pages/health_page.py`'s registry ("Airlines we could not name"), resolution-statistics ("How well we name flights") and check-in-regularity sections into a new `companion/health_sections.py` (the same companion-level pattern `battery_chart.py`/`health_signals.py` already use, since a page module may not import another page module), shrinking `health_page.py` from 1787 to 1111 lines — comfortably under the 1500-line ceiling, so `companion/test_structure_guards.py`'s `PENDING_OVERSIZED_FILES`/`PENDING_LONG_FUNCTIONS` allowlists (and every reference to them) were deleted outright; `grep -c "PENDING_"` on that file is now 0. `_unavailable_block()`/`HEALTH_UNAVAILABLE_TEXT`/`_resolution_rate_tile_html()`/`_TILE_DETAIL_CLASS` moved too, alongside the three named groups, to break a circular re-export (two of the moving functions call `_unavailable_block()`, which six staying functions also call) — `health_page.py` re-exports everything the moved code left it still needing, discovered to convergence by running the full suite rather than by static grep alone (one test resolves an attribute through a loop variable). The split is a pure extraction, proven by `companion/test_render_baseline.py`'s two tests passing byte-for-byte once `test-support/companion_render_snapshot.py`'s clock-freezing patch target followed `resolution_stats()` from `health_page.datetime` to `health_sections.datetime`. One unrelated pre-existing full-suite failure was fixed (Rule 1): `stub-server/test_poll_cycle.py`'s hostile-quiet-hours-config integration step still asserted the pre-D-4 fail-open `sleep_s == 300`, stale since Phase 39's `39-06` shipped the fallback-to-default-window behaviour — now computed from `device_policy.seconds_until_quiet_hours_end()` against that same default window. `SKYPANE_REQUIRE_BROWSER=1 ./scripts/run-all-tests.sh` exits 0: 3211 passed, 0 failed, 7 skipped (pre-existing root-euid skips), 94.86% coverage; ruff and `check_comment_history.py` both clean. Task 2 appended dated Phase 40 paragraphs to `REQUIREMENTS.md`'s CFG-34 and CFG-39 rows (each clause named, held-or-not stated, test(s) cited) and ticked both — CFG-34: all three convertible sites (Flights desktop When cell, Calendar status detail, Health registry cells, all landed by 40-10) now tick in a real browser, the battery-trend tooltip stays the one permanent structural exception; CFG-39: `battery_sparkline_svg()`'s scale IS `draw.percent_y` (not a second implementation) since 40-06's migration, closing the old row's "nothing pins the two together" gap. CFG-52 already carried its own Phase 40 paragraph from `40-07` and was verified, not rewritten. CMP-01..09's traceability rows now name their satisfying plan(s) instead of a bare "Phase 40 \| Complete". Commits: `a4a2f79` (feat) Task 1, `51d0319` (docs) Task 2, `d8d8cb4`/`99cca1d` (docs) SUMMARY. `roadmap.update-plan-progress 40` now reports the phase Complete at 16/16; `requirements.mark-complete` found all twelve IDs already ticked. `state.update-progress` reproduced this file's own documented recurring bug again — its own JSON correctly returned `percent: 94` (409/434) but the written frontmatter showed `percent: 91` (`completed_phases/total_phases` = 49/54) — corrected to `94` by hand per this file's established precedent, as the last STATE.md edit before this plan's own final commit.
 
@@ -620,6 +620,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 41 P02 | 90min | 2 tasks | 14 files |
 | Phase 41 P03 | 12min | 2 tasks | 5 files |
 | Phase 41 P04 | 20min | 2 tasks | 1 files |
+| Phase 41 P05 | 55min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -1231,6 +1232,8 @@ Recent decisions affecting current work:
 - [Phase 41]: /gsd-cleanup phase-directory archival deferred: ROADMAP.md places Phase 42 (OTA) in v1.0 scope right after Phase 41, so v1.0 is not closing yet
 - [Phase 41]: TST-02/TST-15 (Phase 32/33 migration ledgers) marked FLAGGED-DIFFERENT in the 41-04 re-audit — Both ledger-checker scripts now fail against node ids Phase 39 legitimately renamed/strengthened after Phase 32/33 closed; traced every case, no lost coverage or test count
 - [Phase 41]: HYG-01/HYG-06 marked FLAGGED-OPEN in the 41-04 re-audit — Guard-evasion hunt found 21 genuine history references (letter-suffixed decision IDs, dotted UI-SPEC section numbers) across 12 files that the comment-history guard's regex misses; minimal 3-edit fix proposed for a later plan
+- [Phase 41]: All 15 FW findings (FW-01..FW-15) verify VERIFIED-CLOSED against current firmware; firmware/ untouched throughout the re-audit
+- [Phase 41]: 34-VERIFICATION.md's W-1 warning (NVS panic-loop) was fixed after that report was written despite being scored non-blocking - positive drift documented in 41-REAUDIT-FW.md
 
 ### Pending Todos
 
@@ -1352,8 +1355,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T06:04:39.807Z
-Stopped at: Completed 41-04-PLAN.md
+Last session: 2026-09-28T06:16:15.082Z
+Stopped at: Completed 41-05-PLAN.md
 
 Resume file: 
 
