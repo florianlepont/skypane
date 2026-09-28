@@ -37,6 +37,8 @@ BATTERY_LOW_BODY = "Battery low — %s mV (≈ %d%%)"
 BATTERY_OK_BODY = "Battery back to normal"
 FRAME_SILENT_BODY = "The frame has not checked in for %s"
 FRAME_RECOVERED_BODY = "The frame is back"
+FIRMWARE_INSTALLED_BODY = "Firmware %s installed"
+FIRMWARE_FAILED_BODY = "Update failed, back on %s"
 
 # Real battery-low/frame-silent pushes use this title, kept distinct from
 # TEST_NOTIFICATION_TITLE below even though both hold the same text today,
@@ -60,6 +62,8 @@ _BODY_FR = {
     "The frame has not checked in for %s": "Le cadre ne s'est pas connecté depuis %s",
     "The frame is back": "Le cadre est de retour",
     "This is a test notification from SkyPane.": "Ceci est une notification de test de SkyPane.",
+    "Firmware %s installed": "Micrologiciel %s installé",
+    "Update failed, back on %s": "Échec de la mise à jour, retour à %s",
 }
 
 

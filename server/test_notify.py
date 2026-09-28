@@ -288,13 +288,13 @@ def test_firmware_notification_bodies_are_the_expected_english_source_strings():
 def test_firmware_installed_body_for_lang_fr():
     got = notify.body_for_lang(notify.FIRMWARE_INSTALLED_BODY, "fr") % "fw-v1.4.0"
     expected = "Micrologiciel fw-v1.4.0 installé"
-    assert got == expected, "body_for_lang(FIRMWARE_INSTALLED_BODY, 'fr') % ... returned %r, expected %r" % (got, expected)
+    assert got == expected, "body_for_lang(FIRMWARE_INSTALLED_BODY, 'fr') percent-formatted returned %r, expected %r" % (got, expected)
 
 
 def test_firmware_failed_body_for_lang_fr():
     got = notify.body_for_lang(notify.FIRMWARE_FAILED_BODY, "fr") % "fw-v1.3.0"
     expected = "Échec de la mise à jour, retour à fw-v1.3.0"
-    assert got == expected, "body_for_lang(FIRMWARE_FAILED_BODY, 'fr') % ... returned %r, expected %r" % (got, expected)
+    assert got == expected, "body_for_lang(FIRMWARE_FAILED_BODY, 'fr') percent-formatted returned %r, expected %r" % (got, expected)
 
 
 def test_firmware_body_for_lang_en_returns_english_unchanged():
