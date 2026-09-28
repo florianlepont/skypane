@@ -10,7 +10,7 @@
 # compromised laptop or a compromised server can never produce a signed
 # image. Publishing a release only makes it *available* — nothing
 # reaches the frame until the operator schedules it in the companion's
-# Update page (D-01). This workflow's last step asks the reviewer-gated
+# Update page. This workflow's last step asks the reviewer-gated
 # production deploy (ci.yml) to run, which is what actually copies the
 # release onto the VPS.
 name: Firmware release
