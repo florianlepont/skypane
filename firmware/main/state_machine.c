@@ -170,9 +170,17 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
     if (disp.fw.present) {
         fp_ota_decision_t decision = fp_ota_decide(
             disp.fw.version, fp_ota_running_version(),
-            CONFIG_SKYPANE_OTA_FLOOR_VERSION, fp_battery_mv());
+            CONFIG_SKYPANE_OTA_FLOOR_VERSION, fp_battery_mv(),
+            fp_ota_trial_pending());
         switch (decision) {
         case FP_OTA_SKIP_SAME_VERSION:
+            break;
+        case FP_OTA_REFUSE_TRIAL_PENDING:
+            /* Never touch FP_NVS_OTA_RESULT here: fp_ota_boot_check()
+             * may have just recorded "trial;<running>" earlier this same
+             * wake, still waiting to be reported, and overwriting it
+             * with anything else would lose that report. */
+            ESP_LOGI(TAG, "ota refused reason=trial_pending");
             break;
         case FP_OTA_REFUSE_BATTERY:
             fp_ota_record_result(FP_OTA_RESULT_DEFERRED_BATTERY, disp.fw.version);

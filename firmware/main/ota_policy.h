@@ -46,23 +46,33 @@ bool fp_ota_version_parse(const char *v, uint16_t out[3]);
 bool fp_ota_version_at_or_above_floor(const char *v, const char *floor);
 
 typedef enum {
-    FP_OTA_START,             /* start the update                         */
-    FP_OTA_SKIP_SAME_VERSION, /* offered == running: nothing to do        */
-    FP_OTA_REFUSE_BATTERY,    /* battery at/below the floor, or unknown   */
-    FP_OTA_REFUSE_FLOOR,      /* offered version is below the floor       */
+    FP_OTA_START,                /* start the update                       */
+    FP_OTA_SKIP_SAME_VERSION,    /* offered == running: nothing to do      */
+    FP_OTA_REFUSE_BATTERY,       /* battery at/below the floor, or unknown */
+    FP_OTA_REFUSE_FLOOR,         /* offered version is below the floor     */
+    FP_OTA_REFUSE_TRIAL_PENDING, /* running image is still on trial; do not
+                                  * start a different version's update
+                                  * until it is confirmed or rolled back */
 } fp_ota_decision_t;
 
 /* Decides whether to start an offered update. Checked in order: same
- * version as running (SKIP, regardless of battery or floor - there is
- * nothing to install); battery at or below FP_OTA_MIN_BATTERY_MV,
- * including the unknown-battery sentinel 0 (REFUSE_BATTERY); offered
- * below floor (REFUSE_FLOOR); otherwise START. A voluntary downgrade
- * (offered older than running) is allowed as long as it still clears
- * the floor - only the floor is compared, never offered against
- * running. NULL offered/running/floor never starts an update
- * (REFUSE_FLOOR, the safest of the two refusal states to fail into). */
+ * version as running (SKIP, regardless of battery, floor or trial state
+ * - there is nothing to install); running image still on trial and the
+ * offer is for a different version (REFUSE_TRIAL_PENDING - starting a
+ * second image switch before the first is confirmed makes
+ * esp_ota_begin() refuse with ESP_ERR_OTA_ROLLBACK_INVALID_STATE, and
+ * the resulting poll failure would leave the trial's own confirm never
+ * run, so the bootloader rolls back a healthy image on the next wake);
+ * battery at or below FP_OTA_MIN_BATTERY_MV, including the
+ * unknown-battery sentinel 0 (REFUSE_BATTERY); offered below floor
+ * (REFUSE_FLOOR); otherwise START. A voluntary downgrade (offered older
+ * than running) is allowed as long as it still clears the floor - only
+ * the floor is compared, never offered against running. NULL
+ * offered/running/floor never starts an update (REFUSE_FLOOR, the
+ * safest of the refusal states to fail into). */
 fp_ota_decision_t fp_ota_decide(const char *offered, const char *running,
-                                const char *floor, uint32_t battery_mv);
+                                const char *floor, uint32_t battery_mv,
+                                bool trial_pending);
 
 typedef enum {
     FP_OTA_IMAGE_OK,               /* project, version and floor all check out */

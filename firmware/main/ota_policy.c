@@ -90,13 +90,17 @@ bool fp_ota_version_at_or_above_floor(const char *v, const char *floor)
 }
 
 fp_ota_decision_t fp_ota_decide(const char *offered, const char *running,
-                                const char *floor, uint32_t battery_mv)
+                                const char *floor, uint32_t battery_mv,
+                                bool trial_pending)
 {
     if (!offered || !running || !floor) {
         return FP_OTA_REFUSE_FLOOR; /* malformed input never starts an update */
     }
     if (strcmp(offered, running) == 0) {
         return FP_OTA_SKIP_SAME_VERSION;
+    }
+    if (trial_pending) {
+        return FP_OTA_REFUSE_TRIAL_PENDING;
     }
     if (battery_mv <= FP_OTA_MIN_BATTERY_MV) {
         return FP_OTA_REFUSE_BATTERY; /* covers the unknown-battery 0 sentinel too */

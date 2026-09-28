@@ -53,30 +53,48 @@ static void version_at_or_above_floor_cases(void)
 
 static void decide_cases(void)
 {
-    /* same offered and running: SKIP, checked before battery/floor. */
-    assert(fp_ota_decide("fw-v1.0.0", "fw-v1.0.0", "fw-v1.0.0", 0)
+    /* same offered and running: SKIP, checked before battery/floor/trial. */
+    assert(fp_ota_decide("fw-v1.0.0", "fw-v1.0.0", "fw-v1.0.0", 0, false)
+           == FP_OTA_SKIP_SAME_VERSION);
+
+    /* same offered and running even while a trial is pending: still SKIP,
+     * not REFUSE_TRIAL_PENDING - there is nothing to install either way. */
+    assert(fp_ota_decide("fw-v1.0.0", "fw-v1.0.0", "fw-v1.0.0", 0, true)
            == FP_OTA_SKIP_SAME_VERSION);
 
     /* battery at the refusal threshold. */
-    assert(fp_ota_decide("fw-v1.1.0", "fw-v1.0.0", "fw-v1.0.0", 3500)
+    assert(fp_ota_decide("fw-v1.1.0", "fw-v1.0.0", "fw-v1.0.0", 3500, false)
            == FP_OTA_REFUSE_BATTERY);
 
     /* battery unknown (0 sentinel). */
-    assert(fp_ota_decide("fw-v1.1.0", "fw-v1.0.0", "fw-v1.0.0", 0)
+    assert(fp_ota_decide("fw-v1.1.0", "fw-v1.0.0", "fw-v1.0.0", 0, false)
            == FP_OTA_REFUSE_BATTERY);
 
     /* battery fine, offered below the floor. */
-    assert(fp_ota_decide("fw-v0.9.0", "fw-v1.0.0", "fw-v1.0.0", 3501)
+    assert(fp_ota_decide("fw-v0.9.0", "fw-v1.0.0", "fw-v1.0.0", 3501, false)
            == FP_OTA_REFUSE_FLOOR);
 
     /* battery fine, offered above the floor but older than running:
      * a voluntary downgrade, still allowed. */
-    assert(fp_ota_decide("fw-v1.0.0", "fw-v1.2.0", "fw-v1.0.0", 3501)
+    assert(fp_ota_decide("fw-v1.0.0", "fw-v1.2.0", "fw-v1.0.0", 3501, false)
            == FP_OTA_START);
 
     /* one mV above the threshold, offered clears the floor: starts. */
-    assert(fp_ota_decide("fw-v1.3.0", "fw-v1.2.0", "fw-v1.0.0", 3501)
+    assert(fp_ota_decide("fw-v1.3.0", "fw-v1.2.0", "fw-v1.0.0", 3501, false)
            == FP_OTA_START);
+
+    /* a different version offered while the running image is still on
+     * trial: refused outright, before battery or floor are even looked
+     * at - starting a second switch would make esp_ota_begin() refuse
+     * and strand the trial's own confirm unconfirmed. */
+    assert(fp_ota_decide("fw-v1.3.0", "fw-v1.2.0", "fw-v1.0.0", 3501, true)
+           == FP_OTA_REFUSE_TRIAL_PENDING);
+
+    /* trial pending also outranks a battery or floor refusal - the
+     * result is always REFUSE_TRIAL_PENDING, never REFUSE_BATTERY or
+     * REFUSE_FLOOR, when a different version is offered mid-trial. */
+    assert(fp_ota_decide("fw-v0.9.0", "fw-v1.2.0", "fw-v1.0.0", 0, true)
+           == FP_OTA_REFUSE_TRIAL_PENDING);
 }
 
 static void image_check_cases(void)
