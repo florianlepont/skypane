@@ -151,13 +151,16 @@ def test_empty_registry_never_leaks_the_hard_coded_no_reading_yet_fallback():
 
 
 def test_releases_render_newest_first_with_install_form_and_installed_column():
-    """two releases with the newer one running: the older release's row carries an Install
-    form (data-confirm, a hidden version field, no confirm field) and its Installed column
-    shows a timestamp; the running release's row carries neither an Install form nor
-    "Not installable" """
+    """two releases published at different times, the older one inserted first, the newer one
+    running: the newer release's row comes first whatever the registry's insertion order; the
+    older release's row carries an Install form (data-confirm, a hidden version field, no
+    confirm field) and its Installed column shows a timestamp; the running release's row
+    carries neither an Install form nor "Not installable" """
+    older_published = "2026-09-01T09:00:00+00:00"
+    newer_published = "2026-09-20T09:00:00+00:00"
     releases = [
-        _release("fw-v1.0.0", installed_at=[_NOW]),
-        _release("fw-v1.1.0"),
+        _release("fw-v1.0.0", installed_at=[_NOW], published_at=older_published),
+        _release("fw-v1.1.0", published_at=newer_published),
     ]
     view = _view(releases=releases, device_entry={
         "fw_version": "fw-v1.1.0", "reported_at": _NOW, "events": []})
@@ -166,18 +169,18 @@ def test_releases_render_newest_first_with_install_form_and_installed_column():
 
     old_idx = table_html.index("fw-v1.0.0")
     new_idx = table_html.index("fw-v1.1.0")
-    assert old_idx < new_idx, "expected newest-published-first ordering to still put fw-v1.0.0 first here"
+    assert new_idx < old_idx, "expected the newest-published release's row before the older one"
 
-    old_row = table_html[old_idx:new_idx]
+    new_row = table_html[new_idx:old_idx]
+    assert update_page.INSTALL_ROUTE not in new_row
+    assert i18n.t(update_page.NOT_INSTALLABLE_TEXT) not in new_row
+
+    old_row = table_html[old_idx:].split("</tr>", 1)[0]
     assert update_page.INSTALL_ROUTE in old_row
     assert "data-confirm=" in old_row
     assert '<input type="hidden" name="version" value="fw-v1.0.0">' in old_row
     assert "\"confirm\"" not in old_row, "the row-level Install form must post no confirm field"
     assert "icon-check" in old_row
-
-    new_row = table_html[new_idx:].split("</tr>", 1)[0]
-    assert update_page.INSTALL_ROUTE not in new_row
-    assert i18n.t(update_page.NOT_INSTALLABLE_TEXT) not in new_row
 
 
 def test_below_floor_release_shows_not_installable_text_no_form():
