@@ -71,6 +71,46 @@ def _seed_two_releases(state_dir):
     atomic_io.atomic_write(fr.device_report_path(str(state_dir)), json.dumps(device_report))
 
 
+_THIRD_VERSION = "fw-v1.2.0"
+
+
+def _seed_three_releases_with_realistic_notes(state_dir):
+    """Three published releases (one running, two available), each with two
+    realistic-length notes -- wide enough, in aggregate, that a plain
+    desktop table would measure roughly twice a 375px viewport's own
+    width if rendered unstacked.
+    """
+    os.makedirs(str(state_dir), exist_ok=True)
+    releases = (
+        (_RUNNING_VERSION, ["Initial factory image."]),
+        (_AVAILABLE_VERSION, [
+            "Fixes the OTA netif double-init panic that blocked every remote update.",
+            "Adds a watchdog feed between the HTTPS OTA begin call and the first perform.",
+        ]),
+        (_THIRD_VERSION, [
+            "Improves battery telemetry accuracy under low-temperature conditions.",
+            "Reworks the panel refresh-spacing guard so it survives a mid-wake reset.",
+        ]),
+    )
+    for version, notes in releases:
+        image_path = os.path.join(str(state_dir), version + ".bin")
+        image_bytes = ("fake-firmware-" + version).encode()
+        with open(image_path, "wb") as fh:
+            fh.write(image_bytes)
+        manifest = {
+            "version": version, "sha256": hashlib.sha256(image_bytes).hexdigest(),
+            "size": len(image_bytes), "released_at": _NOW, "commit": "a" * 40,
+            "notes": notes,
+        }
+        fr.publish_release(str(state_dir), manifest, image_path, now=_NOW)
+    device_report = {
+        "schema": 1, "next_seq": 1,
+        "devices": {
+            "dev1": {"fw_version": _RUNNING_VERSION, "reported_at": _NOW, "events": []}},
+    }
+    atomic_io.atomic_write(fr.device_report_path(str(state_dir)), json.dumps(device_report))
+
+
 @pytest.fixture(scope="module")
 def server(module_app_server_factory):
     """The shared, read-only seeded fixture the mobile-fit and sidebar
@@ -304,6 +344,65 @@ def test_more_sheet_fits_health_device_update_at_phone_widths(
         print(
             "D-02 mobile-fit: %dpx/%s More-sheet link heights=%r (floor 44px)"
             % (viewport["width"], lang, heights))
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize(
+    "viewport", [VIEWPORT_375, VIEWPORT_PHONE], ids=["375", "390"])
+def test_history_cards_fit_at_phone_widths_with_no_overflow(
+        new_context, make_app_server, viewport, lang):
+    """At 375px and 390px, in English and French, with three releases and two realistic
+    notes each: the Version history renders as stacked cards (the desktop table stays
+    hidden), nothing overflows the viewport horizontally, and the first Install button is
+    fully inside the viewport and enabled.
+    """
+    server = make_app_server(seed=_seed_three_releases_with_realistic_notes)
+    context = new_context(viewport=viewport)
+    try:
+        page = context.new_page()
+        base_url = server.base_url()
+        context.add_cookies([{
+            "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
+        _login(page, base_url)
+        page.goto(base_url + layout.UPDATE_ROUTE)
+        if page.viewport_size["width"] != viewport["width"]:
+            raise AssertionError("expected the measurement to be taken at %dpx" % (viewport["width"],))
+
+        cards = page.locator("ul.data-cards > li.data-card")
+        assert cards.count() == 3, (
+            "expected 3 stacked release cards at %dpx/%s, got %d"
+            % (viewport["width"], lang, cards.count()))
+        table = page.locator("table.data-table--firmware-history")
+        assert table.count() == 1
+        assert not table.is_visible(), (
+            "expected the desktop table to stay hidden below the 960px breakpoint "
+            "at %dpx/%s" % (viewport["width"], lang))
+
+        no_overflow = page.evaluate(
+            "() => document.documentElement.scrollWidth <= "
+            "document.documentElement.clientWidth + 0.5")
+        assert no_overflow, "expected no horizontal overflow at %dpx/%s" % (viewport["width"], lang)
+
+        install_button = _install_submit(page)
+        box = install_button.bounding_box()
+        assert box is not None, (
+            "expected a visible Install button on at least one card at %dpx/%s"
+            % (viewport["width"], lang))
+        assert box["x"] >= -0.5, (
+            "Install button's left edge (%r) sits off-screen at %dpx/%s"
+            % (box["x"], viewport["width"], lang))
+        assert box["x"] + box["width"] <= viewport["width"] + 0.5, (
+            "Install button's right edge (%r) exceeds the %dpx viewport at %s"
+            % (box["x"] + box["width"], viewport["width"], lang))
+        assert install_button.is_enabled()
+
+        desc = page.locator("li.data-card p.data-card__desc").first
+        desc_box = desc.bounding_box()
+        assert desc_box is not None, "expected a visible notes paragraph in at least one card"
+        assert desc_box["width"] <= viewport["width"] + 0.5, (
+            "notes paragraph wider than the %dpx viewport at %s" % (viewport["width"], lang))
     finally:
         context.close()
 

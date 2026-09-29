@@ -328,6 +328,49 @@ def _release_row(release, running_version, target_version, installs_blocked, now
     return (version, date_html, notes_text, installed_html, action_html)
 
 
+def _release_card_html(row):
+    """The mobile stacked-card representation of one `_release_row()`
+    result: version/date on one line, notes as wrapping prose, the
+    Installed timestamp (when there is one), and the same action markup
+    the desktop row already built -- built from the identical row tuple,
+    so the two representations can never disagree about what a release
+    is offering. Matches `health_sections.py`'s own `.data-card` pattern
+    (`_registry_cards_html()`/`_stats_cards_html()`) rather than a new
+    one: a `<ul class="data-cards">` sibling toggled against the table
+    below it purely by `companion/static/style.css`'s existing
+    `.data-cards ~ .data-table-wrap` rule -- no table-specific CSS is
+    needed for the toggle itself.
+    """
+    version, date_html, notes_text, installed_html, action_html = row
+    primary_html = (
+        '<div class="data-card__primary">'
+        '<span class="cell-primary mono">%s</span>'
+        '<span class="data-card__value">'
+        '<span class="data-card__label">%s</span> %s'
+        "</span>"
+        "</div>"
+    ) % (escape_html(version), escape_html(i18n.t(TABLE_HEADER_DATE_TEXT)), date_html)
+    desc_html = (
+        '<p class="data-card__desc">%s</p>' % escape_html(notes_text)) if notes_text else ""
+    installed_row_html = (
+        (
+            '<div class="data-card__secondary">'
+            '<span class="data-card__label">%s</span> %s'
+            "</div>"
+        ) % (escape_html(i18n.t(TABLE_HEADER_INSTALLED_TEXT)), installed_html)
+    ) if installed_html else ""
+    action_row_html = (
+        '<div class="data-card__action">%s</div>' % action_html) if action_html else ""
+    return "<li class=\"data-card\">%s%s%s%s</li>" % (
+        primary_html, desc_html, installed_row_html, action_row_html)
+
+
+def _history_cards_html(rows):
+    if not rows:
+        return ""
+    return '<ul class="data-cards">%s</ul>' % "".join(_release_card_html(row) for row in rows)
+
+
 def _history_card_html(ctx, view):
     releases = view.get("releases") or []
     if not releases:
@@ -343,9 +386,14 @@ def _history_card_html(ctx, view):
         headers = (
             i18n.t(TABLE_HEADER_VERSION_TEXT), i18n.t(TABLE_HEADER_DATE_TEXT),
             i18n.t(TABLE_HEADER_NOTES_TEXT), i18n.t(TABLE_HEADER_INSTALLED_TEXT), "")
-        body_html = layout.data_table(
+        table_html = layout.data_table(
             headers, rows, mono_columns=(0,), raw_columns=(1, 3, 4),
             desc_columns=(2,), prose=True, modifier="firmware-history")
+        # Cards must render before the table: style.css's
+        # `.data-cards ~ .data-table-wrap` sibling-combinator toggle
+        # depends on this DOM order (matching health_sections.py's own
+        # "do not reorder" contract for the identical mechanism).
+        body_html = _history_cards_html(rows) + table_html
     return (
         '<section class="page-section">'
         '<h2 class="text-heading">%s</h2>'
