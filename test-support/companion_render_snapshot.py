@@ -154,7 +154,6 @@ _UNAUTH_POST_REQUESTS = (
     companion_app.RULES_ADD_ROUTE,
     companion_app.CALENDAR_DISCONNECT_ROUTE,
     companion_app.CALENDAR_CONNECT_ROUTE,
-    companion_app.NOTIFICATIONS_TEST_ROUTE,
     companion_app.UPDATE_INSTALL_ROUTE,
     companion_app.UPDATE_CANCEL_ROUTE,
     companion_app.RULES_DELETE_ROUTE_PREFIX + "callsign/AFR" + companion_app.RULES_DELETE_ROUTE_SUFFIX,

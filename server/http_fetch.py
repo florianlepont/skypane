@@ -31,8 +31,7 @@ primitives.
 
 The SSRF gate itself (checking whether an operator-chosen URL is safe to
 fetch at all, before ever calling `pinned_request`) lives in
-`server.net.safe_fetch`, shared by `server.plane.calendar_rules` and
-`server.notify`.
+`server.net.safe_fetch`, called by `server.plane.calendar_rules`.
 """
 
 import collections
@@ -252,9 +251,9 @@ _REDIRECT_STATUSES = (301, 302, 303, 307, 308)
 
 class PinnedResponse:
     """A `pinned_request()` response: the `http.client.HTTPResponse`
-    surface `calendar_rules.fetch_ics` and `notify.send_notification`
-    need (`status_code`, `headers.get(...)`, `iter_content`, `close`),
-    plus `is_redirect` and `getcode()`. Never follows a redirect itself --
+    surface `calendar_rules.fetch_ics` needs (`status_code`,
+    `headers.get(...)`, `iter_content`, `close`), plus `is_redirect` and
+    `getcode()`. Never follows a redirect itself --
     `is_redirect` only reports one is present.
     """
 

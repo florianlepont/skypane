@@ -29,8 +29,7 @@ CALENDAR_DISCONNECT_ROUTE = "/settings/calendar/disconnect"
 
 # Shares its "no surveillance verb" discipline with
 # companion.settings.form.CALENDAR_HOW_IT_WORKS_SUMMARY (form.py's own
-# docstring carries the full reasoning, since notifications_group()
-# reuses that same summary label).
+# comment carries the full reasoning).
 CALENDAR_HOW_IT_WORKS_BODY = i18n.msg(
     "calendar_group.it_can_only_colour_a_flight_that_happens_to_be",
     "It can only colour a flight that happens to be on screen — it "

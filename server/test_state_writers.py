@@ -33,7 +33,7 @@ def _tmp_leftovers(directory):
     return [name for name in os.listdir(directory) if name.endswith(".tmp")]
 
 
-# --- No-lost-update: 12 threads x 20 saves, one distinct field each ------
+# --- No-lost-update: 11 threads x 20 saves, one distinct field each ------
 
 _QUIET_START_A, _QUIET_START_B = "22:00", "23:30"
 _QUIET_END_A, _QUIET_END_B = "06:00", "07:30"
@@ -70,15 +70,6 @@ def _field_plans():
             ["" if i % 2 == 0 else "green" for i in range(20)], "green"),
         "screen_id": (
             [device_config.DEFAULT_SCREEN_ID for _ in range(20)], device_config.DEFAULT_SCREEN_ID),
-        "notifications": (
-            [
-                {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"}
-                if i % 2 == 0 else
-                {"topic_url": "https://ntfy.example/skypane", "battery_low": False, "frame_silent": False, "lang": "fr"}
-                for i in range(20)
-            ],
-            {"topic_url": "https://ntfy.example/skypane", "battery_low": False, "frame_silent": False, "lang": "fr"},
-        ),
     }
 
 
@@ -89,8 +80,8 @@ def test_concurrent_save_device_config_loses_no_field(tmp_path):
         "theme", "theme_arriving", "tracked_runway", "led_enabled",
         "quiet_hours_enabled", "quiet_hours_start", "quiet_hours_end",
         "wake_interval_s", "display_enabled", "calendar_theme_id",
-        "screen_id", "notifications",
-    }, "test setup: expected exactly the twelve save_device_config() keywords"
+        "screen_id",
+    }, "test setup: expected exactly the eleven save_device_config() keywords"
 
     errors = []
 

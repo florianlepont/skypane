@@ -13,10 +13,6 @@ runs inside one `history_db.connection_scope(state_dir)`, nested inside
   * `init_schema()` running at most once across that whole sequence
   * the injected-`snapshot=` path (no live ADS-B query) also opening exactly
     one connection
-  * a cycle whose frame-silent notification fires: no write transaction is
-    open on the cycle's own connection while the fake `notify.send_notification`
-    runs, and the batch's own row is already visible from a second,
-    independently-opened connection
   * a mid-batch history-write failure: contained by `_record_history()`'s
     existing handler, and the whole batch (not just the failing write) rolls
     back
@@ -31,8 +27,6 @@ research-instrument convention.
 import os
 import sqlite3
 import sys
-import time
-from datetime import datetime, timezone
 
 import pytest
 
@@ -56,11 +50,8 @@ import server.device_config as device_config  # noqa: E402
 import server.history_db as history_db  # noqa: E402
 import server.plane.enrich as enrich  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
-import server.wake as wake  # noqa: E402
 
 pytestmark = pytest.mark.slow
-
-_NOTIFY_TOPIC_URL = "https://ntfy.sh/skypane-test-topic"
 
 # Same shape and values as scripts/measure_efficiency.py's own FLIGHT_RECORD:
 # a raw aggregator-shaped record positioned inside adsb-test/runway3.json's
@@ -88,13 +79,6 @@ def _empty_snapshot():
 
 def _flight_snapshot():
     return {"ac": [_FLIGHT_RECORD]}
-
-
-def _iso(epoch):
-    """`epoch` (seconds) as the same timezone-aware UTC ISO-8601-at-
-    seconds-precision string `history_db.utc_now_iso()` produces.
-    """
-    return datetime.fromtimestamp(epoch, tz=timezone.utc).isoformat(timespec="seconds")
 
 
 @pytest.fixture(autouse=True)
@@ -180,74 +164,6 @@ def test_injected_snapshot_path_also_opens_exactly_one_connection(tmp_path):
 
     if result["connections"] != 1:
         pytest.fail("snapshot-injected cycle opened %d connections, expected 1" % result["connections"])
-
-
-# --- No write transaction open during the ntfy send -------------------------
-
-
-def test_no_write_transaction_open_during_notify_send_and_batch_already_visible(tmp_path, monkeypatch):
-    """A cycle whose frame-silent notification fires: the cycle's own
-    connection (captured through a `sqlite3.connect` wrapper) has no
-    pending write transaction when the fake `notify.send_notification`
-    runs, and the batch's own meta row is already visible from a second,
-    independently-opened connection at that point - proof the batch
-    committed before the HTTP call, not after or during it.
-    """
-    state_dir = str(tmp_path / "notify")
-    device_config.save_device_config(
-        state_dir, display_enabled=True,
-        notifications={
-            "topic_url": _NOTIFY_TOPIC_URL, "battery_low": False,
-            "frame_silent": True, "lang": "en",
-        },
-    )
-
-    device_cfg = device_config.load_device_config(state_dir)
-    warn_s, _error_s = wake.device_staleness_thresholds(
-        wake.effective_wake_interval_s(device_cfg, battery_critical=False)
-    )
-    stale_iso = _iso(time.time() - warn_s - 3600)
-    with history_db.open_db(state_dir) as conn:
-        history_db.record_device_health(conn, stale_iso, battery_mv=3700)
-
-    captured_conns = []
-    real_connect = sqlite3.connect
-
-    def capturing_connect(*args, **kwargs):
-        conn = real_connect(*args, **kwargs)
-        captured_conns.append(conn)
-        return conn
-
-    monkeypatch.setattr(sqlite3, "connect", capturing_connect)
-
-    probe = {}
-
-    def fake_send(topic_url, title, body, timeout=5, transport=None):
-        # Captured BEFORE opening the second connection below: this is the
-        # count of connections the cycle itself opened, not including the
-        # one this fake sender is about to open of its own.
-        probe["cycle_connections"] = len(captured_conns)
-        probe["in_transaction"] = captured_conns[-1].in_transaction
-        second_conn = history_db.connect(state_dir)
-        try:
-            probe["meta_from_second_conn"] = history_db.get_meta(
-                second_conn, history_db.META_LAST_PIPELINE_RUN)
-        finally:
-            second_conn.close()
-        return True
-
-    monkeypatch.setattr(poll_cycle.notify, "send_notification", fake_send)
-
-    poll_cycle.run_once(snapshot=_empty_snapshot(), state_dir=state_dir, geofence=GEOFENCE_PATH)
-
-    if "in_transaction" not in probe:
-        pytest.fail("the fake notify.send_notification was never called - expected the silence transition to fire")
-    if probe["cycle_connections"] != 1:
-        pytest.fail("expected exactly one connection opened by the cycle itself, got %d" % probe["cycle_connections"])
-    if probe["in_transaction"] is not False:
-        pytest.fail("expected no open write transaction during the notify send, got %r" % (probe["in_transaction"],))
-    if probe["meta_from_second_conn"] is None:
-        pytest.fail("expected the batch's meta row already visible from a second connection, got %r" % (probe["meta_from_second_conn"],))
 
 
 # --- A mid-batch history-write failure ---------------------------------------

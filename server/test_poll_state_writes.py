@@ -12,8 +12,6 @@ exit instead of the former mid-branch/unconditional-final saves) and
   * the two unchanged-repeat branches (empty sky, a held hold) write it
     zero times, leaving the file byte-for-byte and mtime unchanged
   * a flight-detected cycle writes exactly once, strictly after panel.bin
-  * a frame-silent notification transition on an otherwise unchanged cycle
-    still writes exactly once (the notifications mutation is persisted)
   * the written file is compact JSON that round-trips through json.loads
     and is never longer than the equivalent indent=1 encoding
   * save_poll_state() itself keeps writing unconditionally (the seed seam
@@ -28,8 +26,6 @@ decoded value - never source text.
 import json
 import os
 import sys
-import time
-from datetime import datetime, timezone
 
 import pytest
 
@@ -50,15 +46,11 @@ import efficiency_probe  # noqa: E402
 
 import server.atomic_io as atomic_io  # noqa: E402
 import server.device_config as device_config  # noqa: E402
-import server.history_db as history_db  # noqa: E402
 import server.plane.enrich as enrich  # noqa: E402
-import server.poll_cycle as poll_cycle  # noqa: E402
 import server.state_store as state_store  # noqa: E402
-import server.wake as wake  # noqa: E402
 
 pytestmark = pytest.mark.slow
 
-_NOTIFY_TOPIC_URL = "https://ntfy.sh/skypane-test-topic"
 
 # Same shape as scripts/measure_efficiency.py's own FLIGHT_RECORD: a raw
 # aggregator-shaped record inside adsb-test/runway3.json's bbox/altitude
@@ -72,13 +64,6 @@ _FLIGHT_RECORD = {
 
 def _poll_state_path(state_dir):
     return os.path.join(state_dir, "poll_state.json")
-
-
-def _iso(epoch):
-    """`epoch` (seconds) as the same timezone-aware UTC ISO-8601-at-
-    seconds-precision string `history_db.utc_now_iso()` produces.
-    """
-    return datetime.fromtimestamp(epoch, tz=timezone.utc).isoformat(timespec="seconds")
 
 
 @pytest.fixture(autouse=True)
@@ -212,45 +197,6 @@ def test_flight_detected_writes_poll_state_exactly_once_after_panel_bin(tmp_path
         pytest.fail("expected poll_state.json to have been written, got atomic_write order %r" % (order,))
     if order.index("panel.bin") > order.index("poll_state.json"):
         pytest.fail("panel.bin must be written before poll_state.json, got order %r" % (order,))
-
-
-# --- A silence-notification transition on an otherwise unchanged cycle ------
-
-
-def test_a_silence_transition_on_an_otherwise_unchanged_cycle_writes_exactly_once(tmp_path, fake_providers, monkeypatch):
-    state_dir = str(tmp_path / "silence")
-    empty_records = {}
-
-    efficiency_probe.cycle_probe(state_dir, latency_s=0, records=empty_records)  # bootstrap
-
-    device_config.save_device_config(
-        state_dir, notifications={
-            "topic_url": _NOTIFY_TOPIC_URL, "battery_low": False,
-            "frame_silent": True, "lang": "en",
-        },
-    )
-    device_cfg = device_config.load_device_config(state_dir)
-    warn_s, _error_s = wake.device_staleness_thresholds(
-        wake.effective_wake_interval_s(device_cfg, battery_critical=False)
-    )
-    stale_iso = _iso(time.time() - warn_s - 3600)
-    with history_db.open_db(state_dir) as conn:
-        history_db.record_device_health(conn, stale_iso, battery_mv=3700)
-
-    monkeypatch.setattr(poll_cycle.notify, "send_notification", lambda *a, **k: True)
-
-    result = efficiency_probe.cycle_probe(state_dir, latency_s=0, records=empty_records)
-
-    if result["poll_state_writes"] != 1:
-        pytest.fail(
-            "silence transition: expected exactly 1 poll_state.json write, got %d" % result["poll_state_writes"])
-
-    on_disk = state_store.load_poll_state(state_dir)
-    notifications = on_disk.get("notifications")
-    if not isinstance(notifications, dict) or notifications.get("last_silent_sent") is not True:
-        pytest.fail(
-            "expected the notify hook's poll_state['notifications'] mutation to be persisted, got %r"
-            % (notifications,))
 
 
 # --- Compact format, round-trips, never longer than indent=1 ----------------

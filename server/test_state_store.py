@@ -68,12 +68,12 @@ def test_load_poll_state_returns_the_dict_otherwise(tmp_path):
 # poll_loop itself has no copy left to compare against.
 _REPRESENTATIVE_STATE = {
     "pending_flights": [],
-    "notifications": {"last_battery_sent": False, "last_silent_sent": False},
+    "battery_low_active": False,
     "current": {"hex": "39a1b2", "flight": "AFR123", "airline": "Aéroports de Paris"},
     "hold_state": None,
 }
 _REPRESENTATIVE_STATE_JSON = (
-    '{"pending_flights":[],"notifications":{"last_battery_sent":false,"last_silent_sent":false},'
+    '{"pending_flights":[],"battery_low_active":false,'
     '"current":{"hex":"39a1b2","flight":"AFR123","airline":"A\\u00e9roports de Paris"},'
     '"hold_state":null}'
 )

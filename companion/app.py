@@ -152,8 +152,8 @@ LOGOUT_ROUTE = "/logout"
 PREVIEW_PAGE_ROUTE = "/preview"
 GALLERY_ROUTE_PREFIX = "/gallery/"
 # Rebound from config_page.py (the single definition site) rather than
-# retyped, to avoid a reverse-import cycle. Same for RULES_*/CALENDAR_*/
-# NOTIFICATIONS_TEST_ROUTE and the FLASH_KEY_* constants below.
+# retyped, to avoid a reverse-import cycle. Same for RULES_*/CALENDAR_*
+# and the FLASH_KEY_* constants below.
 RUNWAY_IMAGE_ROUTE_PREFIX = config_page.RUNWAY_IMAGE_ROUTE_PREFIX
 ILLUSTRATION_IMAGE_ROUTE_PREFIX = "/illustration/"
 # Rebound from companion/theme_preview.py — the render/cache mechanism,
@@ -165,7 +165,6 @@ RULES_DELETE_ROUTE_PREFIX = config_page.RULES_DELETE_ROUTE_PREFIX
 RULES_DELETE_ROUTE_SUFFIX = config_page.RULES_DELETE_ROUTE_SUFFIX
 CALENDAR_DISCONNECT_ROUTE = config_page.CALENDAR_DISCONNECT_ROUTE
 CALENDAR_CONNECT_ROUTE = config_page.CALENDAR_CONNECT_ROUTE
-NOTIFICATIONS_TEST_ROUTE = config_page.NOTIFICATIONS_TEST_ROUTE
 UPDATE_INSTALL_ROUTE = update_page.INSTALL_ROUTE
 UPDATE_CANCEL_ROUTE = update_page.CANCEL_ROUTE
 
@@ -205,8 +204,6 @@ FLASH_KEY_CALENDAR_DISCONNECTED = flash.FLASH_KEY_CALENDAR_DISCONNECTED
 FLASH_KEY_CALENDAR_SYNC_DEFERRED = flash.FLASH_KEY_CALENDAR_SYNC_DEFERRED
 FLASH_KEY_CALENDAR_CONNECT_OK = flash.FLASH_KEY_CALENDAR_CONNECT_OK
 FLASH_KEY_CALENDAR_CONNECT_INVALID = flash.FLASH_KEY_CALENDAR_CONNECT_INVALID
-FLASH_KEY_NOTIFICATIONS_TEST_OK = flash.FLASH_KEY_NOTIFICATIONS_TEST_OK
-FLASH_KEY_NOTIFICATIONS_TEST_FAILED = flash.FLASH_KEY_NOTIFICATIONS_TEST_FAILED
 FLASH_KEY_UPDATE_SCHEDULE_FAILED = flash.FLASH_KEY_UPDATE_SCHEDULE_FAILED
 FLASH_KEY_UPDATE_CANCEL_FAILED = flash.FLASH_KEY_UPDATE_CANCEL_FAILED
 FLASH_KEY_UPDATE_BUSY = flash.FLASH_KEY_UPDATE_BUSY
@@ -793,8 +790,7 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
     # _handle_illustration_replace(), _handle_manual_resolve_post(),
     # _handle_manual_resolution_delete(), _handle_rule_add_post(),
     # _handle_rule_delete(), _handle_calendar_disconnect_post(),
-    # _handle_calendar_connect_post(), and _handle_notifications_test_post()
-    # now live on companion/post_actions.py's SettingsActionsMixin, which
+    # and _handle_calendar_connect_post() now live on companion/post_actions.py's SettingsActionsMixin, which
     # this class inherits — method names unchanged, so
     # companion/routes.py's ROUTES table keeps resolving them.
 

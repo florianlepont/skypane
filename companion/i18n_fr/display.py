@@ -65,8 +65,7 @@ MESSAGES = {
         "— à quelle fréquence le cadre se réveille pour récupérer une "
         "nouvelle image.",
     "display.how_it_tells_you": "Comment il vous prévient",
-    "display.the_light_on_the_frame_and_the_alerts_on_your":
-        "— le voyant du cadre et les alertes sur votre téléphone.",
+    "display.the_light_on_the_frame": "— le voyant du cadre.",
     "display.when_you_can_t_wait": "Quand vous ne pouvez pas attendre",
     "display.fetch_a_new_picture_right_now":
         "— récupère une nouvelle image tout de suite.",
@@ -254,7 +253,4 @@ MESSAGES = {
     "display.that_link_is_too_long_or_conflicts_with_the":
         "Ce lien est trop long, ou entre en conflit avec l’option de "
         "déconnexion ci-dessous.",
-    # The Notifications topic-URL field's own shorter error, distinct
-    # from the calendar URL's longer message above.
-    "display.that_link_is_too_long": "Ce lien est trop long.",
 }

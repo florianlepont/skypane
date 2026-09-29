@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-"""Contract tests for server/net/safe_fetch.py - the one SSRF gate shared
-by the calendar feed fetch (server/plane/calendar_rules.py) and the ntfy
-push notification (server/notify.py).
+"""Contract tests for server/net/safe_fetch.py - the one SSRF gate the
+calendar feed fetch (server/plane/calendar_rules.py) calls.
 
 Every test here fakes socket.getaddrinfo() rather than making a real DNS
 lookup or network call, the same technique server/test_calendar_rules.py
@@ -27,7 +26,6 @@ PUBLIC_IP = "93.184.216.34"
 
 from server.net import safe_fetch  # noqa: E402
 from server.plane import calendar_rules  # noqa: E402
-import server.notify as notify  # noqa: E402
 
 
 def test_non_https_scheme_refused():
@@ -113,22 +111,3 @@ def test_calendar_rules_user_agent_is_the_same_string_object():
     )
 
 
-def test_notify_has_no_calendar_rules_attribute():
-    """notify.py no longer imports server.plane.calendar_rules at all"""
-    assert not hasattr(notify, "calendar_rules"), (
-        "expected notify to have no attribute 'calendar_rules' - it must reach the SSRF gate "
-        "through server.net.safe_fetch instead"
-    )
-
-
-def test_notify_rejects_an_unsafe_topic_url_via_safe_fetch(monkeypatch):
-    """send_notification() still refuses an unsafe topic URL before ever calling the transport, now via safe_fetch.url_is_safe()"""
-    calls = []
-
-    def transport(url, title, body, timeout):
-        calls.append(url)
-        raise AssertionError("the transport must never be called for an unsafe URL")
-
-    ok = notify.send_notification("http://127.0.0.1:8080/x", "t", "b", transport=transport)
-    assert ok is False, "expected False for an unsafe topic URL, got %r" % (ok,)
-    assert not calls, "expected the transport to never be called, got %r" % (calls,)

@@ -620,8 +620,8 @@ def test_stale_resent_result_does_not_close_a_different_schedule(byos_module, tm
         "http", "example.org")
     assert offer1 is None  # already running the scheduled version
 
-    notifications = firmware_registry.apply_reconcile(state_dir)
-    assert [n[0] for n in notifications] == ["installed"]
+    outcomes = firmware_registry.apply_reconcile(state_dir)
+    assert [n[0] for n in outcomes] == ["installed"]
     assert firmware_registry.load_registry(state_dir)["schedule"] is None
 
     # The operator schedules v1.4.0 (S2).
@@ -644,8 +644,8 @@ def test_stale_resent_result_does_not_close_a_different_schedule(byos_module, tm
         "a resent result for a replaced schedule must not be tagged with the new schedule's id"
     )
 
-    notifications2 = firmware_registry.apply_reconcile(state_dir)
-    assert notifications2 == [], "the resent v1.3.0 result must not resolve the v1.4.0 schedule"
+    outcomes2 = firmware_registry.apply_reconcile(state_dir)
+    assert outcomes2 == [], "the resent v1.3.0 result must not resolve the v1.4.0 schedule"
     schedule = firmware_registry.load_registry(state_dir)["schedule"]
     assert schedule is not None and schedule["version"] == "fw-v1.4.0", (
         "the new schedule must still be pending -- a stale resend must not close it"

@@ -7,10 +7,9 @@ unauthenticated), the manual-resolution `/airlines/resolve` and
 `/settings/rules/*` routes, the poll-trigger cooldown sequence and its
 distinct failure flash key, the concurrent `/poll-now` lock-serialization
 proof, the calendar save-triggered sync family (connect/disconnect
-routes, the throttle bypass, lock contention, a flash leak guard), the
-notifications "send a test" route, a `not hasattr()` battery proving the
-retired display-mode-switch tokens no longer appear anywhere in
-production code, the flash/title/nav i18n round trips, and the
+routes, the throttle bypass, lock contention, a flash leak guard), a
+`not hasattr()` battery proving the retired display-mode-switch tokens
+no longer appear anywhere in production code, the flash/title/nav i18n round trips, and the
 site-wide editorial floor whose one counting rule,
 `caption_word_count_text()`, is shared with test_config_page_05.py
 through companion/test_config_page_helpers.py.
@@ -43,7 +42,6 @@ from companion import auth, frame_state
 from companion.pages import config_page
 from companion_app_server import http_request, login
 from server import device_config
-from server import notify as notify_module
 import server.state_store as state_store
 from server.plane import calendar_rules, colour_rules, manual_resolutions
 
@@ -1100,131 +1098,6 @@ def test_calendar_connect_route_unauthenticated_redirects_to_login(app_server_in
     assert headers.get("Location") == "/login", "expected a redirect to /login, got %r" % headers.get("Location")
     assert not calendar_rules.calendar_is_configured(server.state_dir), (
         "expected nothing to be written for an unauthenticated POST")
-
-
-# ==========================================================================
-# Task 1 : "Send a test"'s own dedicated
-# POST /settings/notifications/test route — session-gated, reads the
-# topic URL from the stored config only, and never trusts a submitted
-# topic_url field.
-# ==========================================================================
-
-
-def test_notifications_test_route_unauthenticated_redirects_to_login(app_server_in_process):
-    """an unauthenticated POST /settings/notifications/test redirects to /login"""
-    server = app_server_in_process
-    status, headers, _b = http_request(
-        server.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE, method="POST", data=b"")
-    assert status == 303, "expected a 303 redirect for an unauthenticated POST, got %d" % status
-    assert headers.get("Location") == "/login", "expected a redirect to /login, got %r" % headers.get("Location")
-
-
-def test_notifications_test_route_unconfigured_flashes_failure_and_never_calls_sender(app_server_in_process):
-    """with no stored topic URL, POST /settings/notifications/test redirects with the
-    notifications_test_failed flash key and never calls notify.send_notification()"""
-    server = app_server_in_process
-    session = login(server)
-    calls = []
-    original = notify_module.send_notification
-
-    def _fake_send(topic_url, title, body, timeout=5, transport=None):
-        calls.append(topic_url)
-        return True
-
-    notify_module.send_notification = _fake_send
-    try:
-        status, headers, _b = http_request(
-            server.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE, method="POST", data=b"",
-            cookie=session)
-    finally:
-        notify_module.send_notification = original
-    assert status == 303, "expected a 303 redirect, got %d" % status
-    location = headers.get("Location", "")
-    assert ("flash=%s" % config_page.FLASH_NOTIFICATIONS_TEST_FAILED) in location, (
-        "expected the notifications_test_failed flash key, got %r" % location)
-    assert not calls, "expected send_notification() to never be called with no stored URL"
-
-
-def test_notifications_test_route_configured_calls_sender_once_and_flashes_success(app_server_in_process):
-    """with a stored topic URL, POST /settings/notifications/test calls
-    notify.send_notification() exactly once with the stored URL and redirects with the
-    notifications_test_ok flash key"""
-    server = app_server_in_process
-    stored_url = "https://ntfy.sh/skypane-test-topic-abc"
-    device_config.save_device_config(
-        server.state_dir, notifications={
-            "topic_url": stored_url, "battery_low": True, "frame_silent": True, "lang": "en"})
-    session = login(server)
-    calls = []
-    original = notify_module.send_notification
-
-    def _fake_send(topic_url, title, body, timeout=5, transport=None):
-        calls.append(topic_url)
-        return True
-
-    notify_module.send_notification = _fake_send
-    try:
-        status, headers, _b = http_request(
-            server.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE, method="POST", data=b"",
-            cookie=session)
-    finally:
-        notify_module.send_notification = original
-    assert status == 303, "expected a 303 redirect, got %d" % status
-    location = headers.get("Location", "")
-    assert ("flash=%s" % config_page.FLASH_NOTIFICATIONS_TEST_OK) in location, (
-        "expected the notifications_test_ok flash key, got %r" % location)
-    assert calls == [stored_url], (
-        "expected send_notification() to be called exactly once with the stored url, got %r" % (calls,))
-
-
-def test_notifications_test_route_sender_returning_false_flashes_failure(app_server_in_process):
-    """a sender returning False redirects with the notifications_test_failed flash key"""
-    server = app_server_in_process
-    stored_url = "https://ntfy.sh/skypane-test-topic-def"
-    device_config.save_device_config(
-        server.state_dir, notifications={
-            "topic_url": stored_url, "battery_low": True, "frame_silent": True, "lang": "en"})
-    session = login(server)
-    original = notify_module.send_notification
-    notify_module.send_notification = lambda *a, **k: False
-    try:
-        status, headers, _b = http_request(
-            server.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE, method="POST", data=b"",
-            cookie=session)
-    finally:
-        notify_module.send_notification = original
-    assert status == 303, "expected a 303 redirect, got %d" % status
-    location = headers.get("Location", "")
-    assert ("flash=%s" % config_page.FLASH_NOTIFICATIONS_TEST_FAILED) in location, (
-        "expected the notifications_test_failed flash key, got %r" % location)
-
-
-def test_notifications_test_route_ignores_a_submitted_topic_url_field(app_server_in_process):
-    """a POST /settings/notifications/test carrying its own topic_url field is ignored in favour
-    of the stored one — the field is never read from the request body"""
-    server = app_server_in_process
-    stored_url = "https://ntfy.sh/skypane-test-topic-ghi"
-    device_config.save_device_config(
-        server.state_dir, notifications={
-            "topic_url": stored_url, "battery_low": True, "frame_silent": True, "lang": "en"})
-    session = login(server)
-    calls = []
-    original = notify_module.send_notification
-
-    def _fake_send(topic_url, title, body, timeout=5, transport=None):
-        calls.append(topic_url)
-        return True
-
-    notify_module.send_notification = _fake_send
-    try:
-        status, _headers, _b = http_request(
-            server.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE, method="POST",
-            data=urllib.parse.urlencode({"topic_url": "https://attacker.example/forward-me"}).encode(),
-            cookie=session)
-    finally:
-        notify_module.send_notification = original
-    assert status == 303, "expected a 303 redirect, got %d" % status
-    assert calls == [stored_url], "expected send_notification() to receive the STORED url only, got %r" % (calls,)
 
 
 def test_calendar_sync_bypasses_the_throttle_via_min_interval_zero(app_server_in_process):

@@ -8,10 +8,10 @@ companion/app.py, companion/flash.py, companion/ui_shell.py,
 companion/ui_nav.py, companion/ui_base.py), never here — this module
 only carries each id's French translation.
 
-Two FLASH_MESSAGES values are deliberately absent here — the Frame
-strip's poll-cooldown copy and the Notifications card's "Send a test"
-outcomes — already keyed in sibling modules; the auto-merge package
-raises ValueError on a duplicate id across sibling modules.
+One FLASH_MESSAGES value is deliberately absent here — the Frame
+strip's poll-cooldown copy — already keyed in a sibling module; the
+auto-merge package raises ValueError on a duplicate id across sibling
+modules.
 """
 
 MESSAGES = {

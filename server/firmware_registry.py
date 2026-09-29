@@ -737,17 +737,17 @@ def _collect_events(device_report, min_seq):
 
 def reconcile(registry, device_report, now):
     """Turn every unreconciled device report event into a registry
-    update and a notification list. Deep-copies `registry` -- neither
+    update and a list of install/failure outcomes. Deep-copies `registry` -- neither
     input is ever mutated. Only "result" events for the *current*
     schedule's id move attempts or clear the schedule; a "result" for
     any other schedule id still refreshes last_outcome for "installed"/
     "rollback" but never touches attempts. reconciled_seq always
     advances to the highest seq seen, offered events included,
-    so a replay with unchanged input produces no new notification and
+    so a replay with unchanged input produces no new outcome and
     no change.
     """
     new_registry = copy.deepcopy(registry)
-    notifications = []
+    outcomes = []
     reconciled_seq = new_registry.get("reconciled_seq", 0)
     highest_seq = reconciled_seq
 
@@ -774,7 +774,7 @@ def reconcile(registry, device_report, now):
                     "kind": "installed", "version": schedule["version"],
                     "back_on": None, "at": now,
                 }
-                notifications.append(("installed", schedule["version"], None))
+                outcomes.append(("installed", schedule["version"], None))
             elif token in COUNTED_FAILURES:
                 schedule["attempts"] = schedule.get("attempts", 0) + 1
                 schedule["last_result"] = token
@@ -790,12 +790,12 @@ def reconcile(registry, device_report, now):
                         "kind": "failed", "version": schedule["version"],
                         "back_on": device_fw_version, "at": now,
                     }
-                    notifications.append(("failed", schedule["version"], device_fw_version))
+                    outcomes.append(("failed", schedule["version"], device_fw_version))
         else:
             # A stale schedule id (the operator has already replaced or
             # cancelled it): still worth recording for the view, but
             # this is not the pending action any attempt counter or
-            # notification belongs to.
+            # outcome belongs to.
             if token == "installed":
                 new_registry["last_outcome"] = {
                     "kind": "installed", "version": event_version,
@@ -808,7 +808,7 @@ def reconcile(registry, device_report, now):
                 }
 
     new_registry["reconciled_seq"] = highest_seq
-    return new_registry, notifications
+    return new_registry, outcomes
 
 
 def apply_reconcile(state_dir, now=None):
@@ -819,10 +819,10 @@ def apply_reconcile(state_dir, now=None):
     with registry_lock(state_dir):
         registry = _load_registry_for_write(state_dir)
         device_report = load_device_report(state_dir)
-        new_registry, notifications = reconcile(registry, device_report, now)
+        new_registry, outcomes = reconcile(registry, device_report, now)
         if new_registry.get("reconciled_seq") != registry.get("reconciled_seq"):
             _save_registry(state_dir, new_registry)
-        return notifications
+        return outcomes
 
 
 def _most_recent_device_entry(device_report):

@@ -6,7 +6,7 @@ Description=SkyPane companion configuration web interface (companion/app.py)
 # (--bind), so loopback is enforced twice over.
 #
 # No systemd IP address allow-list filter here: this service makes its
-# own outbound calls (calendar ICS fetch, ntfy, /poll-now), and systemd's
+# own outbound calls (calendar ICS fetch, /poll-now), and systemd's
 # IP filtering directives apply to both directions.
 #
 # Separate service from skypane-byos (device protocol) and skypane-poll

@@ -454,7 +454,7 @@ def test_pinned_request_post_sends_body_and_content_length():
 
     result = http_fetch.pinned_request(
         "POST",
-        "https://ntfy.example/topic",
+        "https://feed.example/topic",
         timeout=5,
         deadline_s=5,
         body=body,

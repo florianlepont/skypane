@@ -32,8 +32,7 @@ DIRTY_SECTION_ATTR = "data-dirty-section"
 # notify, or know a flight is happening independently of what is on
 # screen, and no string below (nor its sibling
 # `companion.settings.calendar.CALENDAR_HOW_IT_WORKS_BODY`) may imply
-# otherwise. Shared here because `notifications_group()` reuses this
-# same summary label rather than a second, near-duplicate string.
+# otherwise.
 # Owned by companion/i18n_fr/calendar_group.py, not this module's own
 # display.py — the Calendar row's own connection block is where this
 # label's French sibling lives.

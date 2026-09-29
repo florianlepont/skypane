@@ -1323,10 +1323,10 @@ def test_the_pair_seam_publishes_both_handles_onto_the_shared_ancestor(value_con
 # ======================================================================
 
 
-def test_render_exactly_five_dirty_sections_in_order():
-    """render() carries exactly five data-dirty-section elements, in document order Runway/
-    Diagnostic LED/Quiet hours/Wake interval/Notifications (Theme, Calendar and Display each
-    have no entry on this legacy scope)"""
+def test_render_exactly_four_dirty_sections_in_order():
+    """render() carries exactly four data-dirty-section elements, in document order Runway/
+    Diagnostic LED/Quiet hours/Wake interval (Theme, Calendar and Display each have no entry
+    on this legacy scope)"""
     rendered = config_page.render({
         "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
         "poll_cooldown_remaining": 0,
@@ -1334,8 +1334,7 @@ def test_render_exactly_five_dirty_sections_in_order():
     found = re.findall(
         r'%s="([^"]*)"' % re.escape(config_page.DIRTY_SECTION_ATTR), rendered)
     expected = [
-        "Runway", "Diagnostic LED", "Quiet hours",
-        "Wake interval", "Notifications"]
+        "Runway", "Diagnostic LED", "Quiet hours", "Wake interval"]
     assert found == expected, "expected %r in document order, got %r" % (expected, found)
 
 
@@ -1448,12 +1447,11 @@ def test_the_bar_s_save_button_is_the_same_static_fallback_element_relocated():
         "relocation CFG-78 asked for" % (bar_open, bar_close, attr_pos))
     # No second submit-shaped control left inside the settings form THAT
     # WOULD ACTUALLY SUBMIT IT, now that the one that did has moved out.
-    # The Frame strip's LED quick-switch and the Notifications card's
-    # "Send a test" both render a type="submit" button positionally
-    # inside this <form>...</form> markup already (a cross-DOM idiom) —
-    # each carries its OWN form= attribute pointing at a DIFFERENT
-    # physical form ("quick-led", "notifications-test"), so neither
-    # actually submits settings-form despite sitting inside its markup.
+    # The Frame strip's LED quick-switch renders a type="submit" button
+    # positionally inside this <form>...</form> markup already (a
+    # cross-DOM idiom) — it carries its OWN form= attribute pointing at
+    # a DIFFERENT physical form ("quick-led"), so it does not actually
+    # submit settings-form despite sitting inside its markup.
     # Only a
     # type="submit" button with NO form= attribute (which would submit
     # its nearest ancestor form — this one) or an explicit
@@ -1825,13 +1823,7 @@ def test_valid_save_writes_both_and_returns_saved_key(tmp_path):
     # means "same theme as departures", never DEFAULT_THEME_ID) and
     # calendar_theme_id too (None here, no calendar theme has been
     # chosen), and screen_id ("plane-frame", DEFAULT_SCREEN_ID, since
-    # this post carries no screen_id field), and notifications too.
-    # screens.GROUP_NOTIFICATIONS joins the legacy SCOPE_ALL tuple this
-    # un-scoped post resolves to, so its two checkboxes resolve
-    # absent-means-False like every other in-scope checkbox this handler
-    # owns, rather than DEFAULT_NOTIFICATIONS's own True/True. The topic
-    # URL still carries forward the (here, never-set) on-disk value, and
-    # lang falls back to "en" (this test's ctx carries no "lang" key).
+    # this post carries no screen_id field).
     # display_enabled is True here (not a hard-coded False) — this posted
     # form omits display_enabled entirely, and that field's absence now
     # means "leave unchanged" UNCONDITIONALLY, so on this fresh state
@@ -1847,7 +1839,6 @@ def test_valid_save_writes_both_and_returns_saved_key(tmp_path):
         "tracked_runway": "06-24", "led_enabled": True, "quiet_hours_enabled": False,
         "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": True,
         "wake_interval_s": None, "screen_id": "plane-frame",
-        "notifications": {"topic_url": None, "battery_low": False, "frame_silent": False, "lang": "en"},
     }, "on-disk config does not match the posted values: %r" % (on_disk,)
 
 

@@ -101,8 +101,8 @@ from .match import (  # noqa: F401
 
 # --- SSRF gate aliases (Task 1 of this plan) --------------------------------
 #
-# Identity, not copies: server.net.safe_fetch owns the one SSRF gate
-# shared with notify.py. Kept under this package's historical names since
+# Identity, not copies: server.net.safe_fetch owns the one SSRF gate.
+# Kept under this package's historical names since
 # every existing caller/test here already reads them off `calendar_rules`.
 USER_AGENT = safe_fetch.USER_AGENT
 _address_is_public = safe_fetch._address_is_public

@@ -1,5 +1,5 @@
 """The Settings page: theme/runway/LED/quiet-hours/wake-interval/
-calendar/notifications controls, rendered and validated against
+calendar controls, rendered and validated against
 `server.device_config`'s own registries, plus the per-flight
 colour-rules editor and the manual "Trigger poll now" control (its
 route, cooldown gate and poll trigger are owned by companion/app.py;
@@ -234,28 +234,6 @@ from companion.settings.wake_interval import (
     wake_interval_group as wake_interval_group,
     wake_screen_off_text as wake_screen_off_text,
     wake_slider_html as wake_slider_html)
-from companion.settings.notifications import (
-    ERROR_NOTIFICATIONS_URL_TOO_LONG as ERROR_NOTIFICATIONS_URL_TOO_LONG,
-    NOTIFICATIONS_BATTERY_CHECKBOX_VALUE as NOTIFICATIONS_BATTERY_CHECKBOX_VALUE,
-    NOTIFICATIONS_BATTERY_LABEL as NOTIFICATIONS_BATTERY_LABEL,
-    NOTIFICATIONS_REPLACE_URL_SUMMARY as NOTIFICATIONS_REPLACE_URL_SUMMARY,
-    NOTIFICATIONS_SECTION_CAPTION as NOTIFICATIONS_SECTION_CAPTION,
-    NOTIFICATIONS_SECTION_CAPTION_ID as NOTIFICATIONS_SECTION_CAPTION_ID,
-    NOTIFICATIONS_SECTION_HEADING as NOTIFICATIONS_SECTION_HEADING,
-    NOTIFICATIONS_SILENT_CHECKBOX_VALUE as NOTIFICATIONS_SILENT_CHECKBOX_VALUE,
-    NOTIFICATIONS_SILENT_LABEL as NOTIFICATIONS_SILENT_LABEL,
-    NOTIFICATIONS_STATUS_CONFIGURED_VERDICT as NOTIFICATIONS_STATUS_CONFIGURED_VERDICT,
-    NOTIFICATIONS_STATUS_NOT_CONFIGURED_VERDICT as NOTIFICATIONS_STATUS_NOT_CONFIGURED_VERDICT,
-    NOTIFICATIONS_TEST_BUTTON_TEXT as NOTIFICATIONS_TEST_BUTTON_TEXT,
-    NOTIFICATIONS_TEST_ROUTE as NOTIFICATIONS_TEST_ROUTE,
-    NOTIFICATIONS_URL_FIELD_LABEL as NOTIFICATIONS_URL_FIELD_LABEL,
-    NOTIFICATIONS_URL_HINT as NOTIFICATIONS_URL_HINT,
-    NOTIFICATIONS_URL_HINT_ID as NOTIFICATIONS_URL_HINT_ID,
-    NOTIFICATIONS_URL_HOW_IT_WORKS_BODY as NOTIFICATIONS_URL_HOW_IT_WORKS_BODY,
-    NOTIFICATIONS_URL_MAX_LEN as NOTIFICATIONS_URL_MAX_LEN,
-    _notifications_url_field_html as _notifications_url_field_html,
-    notifications_group as notifications_group,
-    notifications_test_section as notifications_test_section)
 # handle_post()'s own per-group resolvers moved to form_post.py (that
 # module never imports this one back), so its shared error/checkbox
 # constants and the calendar-signal sentinels live there now too;
@@ -341,10 +319,8 @@ DISPLAY_ON_INTRO = i18n.msg(
     "display.when_the_screen_is_lit_and_when_it_stays_quiet",
     "— when the screen is lit and when it stays quiet.")
 # Device's own two supersections, the same section_intro_html() shape
-# as the three above. The LED/Notifications pairing is a real shared
-# subject: both cards are the frame's signalling channels — the LED
-# reports on the device itself, notifications report on the reader's
-# phone.
+# as the three above. "How it tells you" holds the Diagnostic LED card,
+# the frame's own signalling channel.
 DEVICE_WAKES_SECTION_ID = "device-wakes"
 DEVICE_WAKES_HEADING = i18n.msg("display.when_it_wakes", "When it wakes")
 DEVICE_WAKES_INTRO = i18n.msg(
@@ -353,8 +329,7 @@ DEVICE_WAKES_INTRO = i18n.msg(
 DEVICE_TELLS_SECTION_ID = "device-tells"
 DEVICE_TELLS_HEADING = i18n.msg("display.how_it_tells_you", "How it tells you")
 DEVICE_TELLS_INTRO = i18n.msg(
-    "display.the_light_on_the_frame_and_the_alerts_on_your",
-    "— the light on the frame and the alerts on your phone.")
+    "display.the_light_on_the_frame", "— the light on the frame.")
 DEVICE_POLL_SECTION_ID = "device-poll"
 DEVICE_POLL_HEADING = i18n.msg("display.when_you_can_t_wait", "When you can't wait")
 DEVICE_POLL_INTRO = i18n.msg(
@@ -381,7 +356,7 @@ def scope_groups(scope, screen_id=None):
     return (
         screens.GROUP_THEME, screens.GROUP_RUNWAY, screens.GROUP_LED,
         screens.GROUP_QUIET_HOURS, screens.GROUP_WAKE_INTERVAL,
-        screens.GROUP_CALENDAR, screens.GROUP_NOTIFICATIONS)
+        screens.GROUP_CALENDAR)
 
 
 def submitted_scope(form):
@@ -500,10 +475,6 @@ FLASH_CALENDAR_SYNC_DEFERRED = "calendar_sync_deferred"
 FLASH_CALENDAR_CONNECT_OK = "calendar_connect_ok"
 FLASH_CALENDAR_CONNECT_INVALID = "calendar_connect_invalid"
 
-# The two outcomes POST /settings/notifications/test can produce.
-FLASH_NOTIFICATIONS_TEST_OK = "notifications_test_ok"
-FLASH_NOTIFICATIONS_TEST_FAILED = "notifications_test_failed"
-
 
 def _nested_wrapper_html(html_fragment, base_class, nested_class):
     """Appends a `--nested` modifier class to a group builder's own
@@ -554,8 +525,8 @@ def _display_groups_html(builders, groups):
 
 def _device_groups_html(builders, groups):
     """Device scope's two headed supersections: "When it wakes" (Wake
-    interval alone) and "How it tells you" (Diagnostic LED and
-    Notifications together).
+    interval alone) and "How it tells you" (the Diagnostic LED
+    card).
 
     Unlike `_display_groups_html()`, a supersection's heading is
     omitted entirely when every card under it is absent — an intro
@@ -576,17 +547,11 @@ def _device_groups_html(builders, groups):
         _nested_wrapper_html(
             builders[screens.GROUP_LED](), "theme-status", "theme-status--nested")
         if screens.GROUP_LED in groups and screens.GROUP_LED in builders else "")
-    notifications_html = (
-        _nested_wrapper_html(
-            builders[screens.GROUP_NOTIFICATIONS](), "theme-status", "theme-status--nested")
-        if screens.GROUP_NOTIFICATIONS in groups and screens.GROUP_NOTIFICATIONS in builders
-        else "")
-    tells_cards_html = led_html + notifications_html
     tells_supersection_html = (
         (layout.section_intro_html(
             DEVICE_TELLS_SECTION_ID, i18n.t(DEVICE_TELLS_HEADING), i18n.t(DEVICE_TELLS_INTRO))
-         + tells_cards_html)
-        if tells_cards_html else "")
+         + led_html)
+        if led_html else "")
 
     return wakes_supersection_html + tells_supersection_html
 
@@ -598,7 +563,6 @@ def _render_current_values(ctx):
     already a `PageContext`, coerced once by render() itself.
     """
     device_cfg = ctx.device_config or {}
-    current_notifications = device_cfg.get("notifications") or device_config.DEFAULT_NOTIFICATIONS
     # `is None`, not `or`: 0 is never a valid wake_interval_s. Falls back
     # to the deployed SKYPANE_SLEEP_S env default when device_config has
     # no value yet (e.g. a fresh install with no systemd unit).
@@ -618,13 +582,6 @@ def _render_current_values(ctx):
         "quiet_end": device_cfg.get("quiet_hours_end", device_config.DEFAULT_QUIET_HOURS_END),
         "wake_interval_s": wake_interval_s,
         "calendar_theme_id": device_cfg.get("calendar_theme_id"),
-        # A device_config.json predating this field resolves through
-        # device_config.DEFAULT_NOTIFICATIONS, never a KeyError.
-        "notifications_configured": bool(current_notifications.get("topic_url")),
-        "notifications_battery": current_notifications.get(
-            "battery_low", device_config.DEFAULT_NOTIFICATIONS["battery_low"]),
-        "notifications_silent": current_notifications.get(
-            "frame_silent", device_config.DEFAULT_NOTIFICATIONS["frame_silent"]),
     }
 
 
@@ -704,9 +661,6 @@ def _group_builders(ctx, values, errors, submitted, next_wake_clock):
             values["wake_interval_s"], errors=errors, submitted=submitted,
             next_wake_clock=next_wake_clock,
             battery_rows=wake_battery_rows(ctx.state_dir, ctx.now)),
-        screens.GROUP_NOTIFICATIONS: lambda: notifications_group(
-            values["notifications_configured"], values["notifications_battery"],
-            values["notifications_silent"], errors=errors, submitted=submitted),
     }
 
 
@@ -834,7 +788,7 @@ SAVE_BUTTON_TEXT = i18n.msg("display.save_settings", "Save settings")
 CANCEL_BUTTON_TEXT = i18n.msg("display.cancel", "Cancel")
 
 
-def _settings_page_html(pieces, notifications_test_html, quick_led_html, poll_html, dirty_strings):
+def _settings_page_html(pieces, quick_led_html, poll_html, dirty_strings):
     """The final HTML assembly: the physical `<form>` (hidden scope
     fields, groups_html), every scope's own extra sections in their
     locked order, and the dirty-bar save affordance last, after
@@ -862,7 +816,6 @@ def _settings_page_html(pieces, notifications_test_html, quick_led_html, poll_ht
         "%s"
         "%s"
         "%s"
-        "%s"
         '<div class="dirty-bar" data-dirty-bar role="status" '
         'data-dirty-changed-suffix="%s" data-dirty-and="%s" '
         'data-dirty-list-and="%s" data-dirty-unsaved-singular="%s" '
@@ -880,7 +833,6 @@ def _settings_page_html(pieces, notifications_test_html, quick_led_html, poll_ht
         # "" on the Device/SCOPE_ALL paths (both set it to "" above).
         pieces["aspect_section_html"],
         pieces["display_watches_supersection_html"],
-        notifications_test_html,
         quick_led_html,
         pieces["display_on_supersection_html"],
         poll_html,
@@ -927,11 +879,8 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     groups = scope_groups(scope, screen_id)
 
     builders = _group_builders(ctx, values, errors, submitted, next_wake_clock)
-    # Both render after </form> closes so neither ever nests inside the
-    # settings form: notifications_test_html is its own immediate-POST
-    # form, quick_led_html is the LED switch's own instant-toggle form.
-    notifications_test_html = (
-        notifications_test_section() if screens.GROUP_NOTIFICATIONS in groups else "")
+    # Rendered after </form> closes so it never nests inside the settings
+    # form: quick_led_html is the LED switch's own instant-toggle form.
     quick_led_html = (
         quick_led_form_html(values["led_enabled"]) if screens.GROUP_LED in groups else "")
 
@@ -945,7 +894,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         pieces = _render_all_scope(groups, builders)
 
     poll_html = _poll_html_for_scope(scope, pieces["show_poll"], calendar_status["cooldown_remaining"])
-    return _settings_page_html(pieces, notifications_test_html, quick_led_html, poll_html, dirty_strings)
+    return _settings_page_html(pieces, quick_led_html, poll_html, dirty_strings)
 
 
 # companion/screens.py's own SCREEN_TYPES["label"] values, wrapped as
@@ -1102,9 +1051,7 @@ def handle_post(form, ctx, errors=None):
 
     Every checkbox not rendered on the current scope resolves absent
     -> `None` (leave unchanged), never `False` — a scope with no control
-    for a field must not silently turn it off. The two Notifications
-    checkboxes are the exception, since their card is always in scope
-    when rendered (see `form_post.resolve_notifications()`).
+    for a field must not silently turn it off.
 
     The calendar secret write is layered after the device-config write,
     only for the `set`/`clear` signals, since `carry_forward` would
@@ -1127,7 +1074,6 @@ def handle_post(form, ctx, errors=None):
         lambda: form_post.resolve_theme(form, errors),
         lambda: form_post.resolve_screen(form, errors),
         lambda: form_post.resolve_calendar_signal(calendar_signal, errors),
-        lambda: form_post.resolve_notifications_url_length(form, in_scope, errors),
         lambda: form_post.resolve_calendar_theme_id(form, errors),
         lambda: form_post.resolve_theme_arriving(form, in_scope, errors),
         lambda: form_post.resolve_runway(form, errors),
@@ -1136,8 +1082,6 @@ def handle_post(form, ctx, errors=None):
         lambda: form_post.resolve_quiet_hours_enabled(form, errors),
         lambda: form_post.resolve_wake_interval(form, errors),
         lambda: form_post.resolve_display(form, errors),
-        lambda: form_post.resolve_notifications(
-            form, in_scope, errors, state_dir, ctx.lang),
     )
     save_kwargs = {}
     for step in steps:
