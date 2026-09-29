@@ -242,9 +242,23 @@ def test_install_implausible_version_treated_as_unknown_never_echoed(server, coo
     status, headers, body = _post(
         server, update_page.INSTALL_ROUTE, cookie, {"version": hostile})
     assert status == 303
+    # A 303 always carries Content-Length: 0 -- checking the empty body
+    # proves nothing about what the handler did with the value. Check
+    # what can actually carry it: the redirect target itself.
     assert hostile not in body.decode("utf-8", errors="replace")
-    assert headers.get("Location", "").startswith(layout.UPDATE_ROUTE + "?flash=")
+    location = headers.get("Location", "")
+    assert hostile not in location
+    assert location == "%s?flash=%s" % (
+        layout.UPDATE_ROUTE, urllib.parse.quote(update_page.FLASH_UPDATE_SCHEDULE_FAILED))
     assert fr.load_registry(server.state_dir)["schedule"] == before
+
+    # Follow the redirect: neither the raw value nor its escaped form may
+    # appear on the served page either.
+    status, _headers, followed_body = get(server, location, cookie=cookie)
+    assert status == 200
+    followed_html = followed_body.decode("utf-8", errors="replace")
+    assert hostile not in followed_html
+    assert layout.escape_html(hostile) not in followed_html
 
 
 # ==========================================================================
