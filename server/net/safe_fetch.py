@@ -1,14 +1,13 @@
 """The single SSRF gate for user-configured outbound URLs.
 
-Both the calendar feed URL (`server.plane.calendar_rules`) and the ntfy
-topic URL (`server.notify`) are operator-chosen, attacker-reachable
-destinations, so both call `url_is_safe()` before any network attempt is
-made. This module holds that one gate rather than each leaf module
-carrying its own copy.
+The calendar feed URL (`server.plane.calendar_rules`) is the one
+operator-chosen, attacker-reachable destination, so the feed fetch calls
+`url_is_safe()` before any network attempt is made. This module holds
+that one gate rather than the leaf module carrying its own copy.
 
 `url_is_safe()`'s own resolve-then-check is an early, cheap refusal
 only; the actual protection against a changed DNS answer (DNS rebinding)
-is that both callers go through `http_fetch.pinned_request()`, which
+is that the caller goes through `http_fetch.pinned_request()`, which
 resolves once more of its own accord, checks every address that second
 resolution returns, and connects only to one it already checked -- never
 re-resolving between the check and the connect.
@@ -20,8 +19,8 @@ from urllib.parse import urlparse
 
 from server import http_fetch
 
-# Self-identification for this module's callers' one outbound call each,
-# matching detect.py's/enrich.py's own USER_AGENT convention.
+# Self-identification for the calendar feed's outbound call, matching
+# detect.py's/enrich.py's own USER_AGENT convention.
 USER_AGENT = (
     "skypane-server/0.1 "
     "(hobby project, Phase 16 calendar-linked flight highlighting; "

@@ -120,16 +120,6 @@ RUNWAY_IDS = tuple(RUNWAYS)
 DEFAULT_SCREEN_ID = "plane-frame"
 SCREEN_IDS = ("plane-frame",)
 
-# First dict-valued field in this registry. `topic_url` is write-only,
-# stored verbatim for poll_loop.py's notification sender to POST to.
-# `lang` is a persisted en/fr snapshot since the poll loop has no browser.
-DEFAULT_NOTIFICATIONS = {
-    "topic_url": None,
-    "battery_low": True,
-    "frame_silent": True,
-    "lang": "en",
-}
-
 DEVICE_CONFIG_FILENAME = "device_config.json"
 
 # Lock file name for the cross-process guard around save_device_config()'s
@@ -200,26 +190,6 @@ def normalise_screen_id(value):
     return DEFAULT_SCREEN_ID
 
 
-def normalise_notifications(value):
-    """A well-formed notifications sub-dict - degrades to
-    `DEFAULT_NOTIFICATIONS` wholesale for a non-dict, per-field otherwise.
-    Never raises. `topic_url` is not URL-validated here -
-    `server/notify.py`'s `_url_is_safe()` does that at send time.
-    """
-    if not isinstance(value, dict):
-        return dict(DEFAULT_NOTIFICATIONS)
-    topic_url = value.get("topic_url")
-    battery_low = value.get("battery_low")
-    frame_silent = value.get("frame_silent")
-    lang = value.get("lang")
-    return {
-        "topic_url": topic_url if isinstance(topic_url, str) else None,
-        "battery_low": battery_low if isinstance(battery_low, bool) else DEFAULT_NOTIFICATIONS["battery_low"],
-        "frame_silent": frame_silent if isinstance(frame_silent, bool) else DEFAULT_NOTIFICATIONS["frame_silent"],
-        "lang": lang if lang in ("en", "fr") else DEFAULT_NOTIFICATIONS["lang"],
-    }
-
-
 def normalise_led_enabled(value):
     """`value` unchanged if `isinstance(value, bool)`, else
     `DEFAULT_LED_ENABLED`. Never raises; an int like 0/1 is not a bool
@@ -265,13 +235,17 @@ def normalise_wake_interval_s(value):
 def load_device_config(state_dir):
     """Read device_config.json; a missing/unreadable/malformed/non-dict
     file falls back to an empty dict, never raises. Always returns all
-    twelve keys with valid values via the normalise_*() functions above,
+    eleven keys with valid values via the normalise_*() functions above,
     so a hostile or stale value on disk never reaches a caller.
-    `theme_arriving`, `calendar_theme_id`, `screen_id`, `notifications`
-    are read with `.get()` so an older file missing them resolves to
-    their documented default. `wake_interval_s`, `theme_arriving`,
-    `calendar_theme_id` are the three keys whose valid value set includes
-    `None`.
+    `theme_arriving`, `calendar_theme_id`, `screen_id` are read with
+    `.get()` so an older file missing them resolves to their documented
+    default. `wake_interval_s`, `theme_arriving`, `calendar_theme_id` are
+    the three keys whose valid value set includes `None`.
+
+    The loader returns only the registry's own keys, so a key an older
+    file still carries (one a removed feature left behind) never reaches
+    a caller, and `save_device_config()` rewrites the file from that
+    dict, which drops it on the next save.
     """
     try:
         with open(device_config_path(state_dir)) as fh:
@@ -292,7 +266,6 @@ def load_device_config(state_dir):
         "wake_interval_s": normalise_wake_interval_s(data.get("wake_interval_s")),
         "display_enabled": normalise_display_enabled(data.get("display_enabled")),
         "screen_id": normalise_screen_id(data.get("screen_id")),
-        "notifications": normalise_notifications(data.get("notifications")),
     }
 
 
@@ -354,38 +327,15 @@ def _validate_wake_interval(wake_interval_s):
         )
 
 
-def _validate_notifications(notifications):
-    """`notifications`'s own per-sub-key validation, extracted from
-    `save_device_config()` verbatim - a no-op for `None` (carry forward).
-    """
-    if notifications is None:
-        return
-    if not isinstance(notifications, dict):
-        raise ValueError("notifications must be a dict, got %r" % (notifications,))
-    topic_url = notifications.get("topic_url")
-    if topic_url is not None and not isinstance(topic_url, str):
-        raise ValueError("notifications['topic_url'] must be a str or None, got %r" % (topic_url,))
-    battery_low = notifications.get("battery_low")
-    if not isinstance(battery_low, bool):
-        raise ValueError("notifications['battery_low'] must be a bool, got %r" % (battery_low,))
-    frame_silent = notifications.get("frame_silent")
-    if not isinstance(frame_silent, bool):
-        raise ValueError("notifications['frame_silent'] must be a bool, got %r" % (frame_silent,))
-    lang = notifications.get("lang")
-    if lang not in ("en", "fr"):
-        raise ValueError("notifications['lang'] must be 'en' or 'fr', got %r" % (lang,))
-
-
 def _merged_config(
     current, theme=None, theme_arriving=None, calendar_theme_id=None, tracked_runway=None,
     led_enabled=None, quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
-    wake_interval_s=None, display_enabled=None, screen_id=None, notifications=None,
+    wake_interval_s=None, display_enabled=None, screen_id=None,
 ):
-    """The same 12-key dict `save_device_config()` used to build inline:
-    every supplied (non-`None`) field wins, everything else carries
-    `current`'s value forward. `theme_arriving`'s three-state contract
-    (sentinel clears, non-None sets, None carries forward) and
-    `notifications`'s per-sub-key merge are unchanged from before the
+    """The eleven-key dict `save_device_config()` writes: every supplied
+    (non-`None`) field wins, everything else carries `current`'s value
+    forward. `theme_arriving`'s three-state contract (sentinel clears,
+    non-None sets, None carries forward) is unchanged from before the
     split.
     """
     if theme_arriving is CLEAR_THEME_ARRIVING:
@@ -406,16 +356,6 @@ def _merged_config(
         "wake_interval_s": wake_interval_s if wake_interval_s is not None else current["wake_interval_s"],
         "display_enabled": display_enabled if display_enabled is not None else current["display_enabled"],
         "screen_id": screen_id if screen_id is not None else current["screen_id"],
-        "notifications": (
-            {
-                "topic_url": notifications.get("topic_url"),
-                "battery_low": notifications.get("battery_low"),
-                "frame_silent": notifications.get("frame_silent"),
-                "lang": notifications.get("lang"),
-            }
-            if notifications is not None
-            else current["notifications"]
-        ),
     }
 
 
@@ -423,7 +363,7 @@ def save_device_config(
     state_dir, theme=None, theme_arriving=None, tracked_runway=None, led_enabled=None,
     quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
     wake_interval_s=None, display_enabled=None, calendar_theme_id=None,
-    screen_id=None, notifications=None,
+    screen_id=None,
 ):
     """Validate and persist any subset of the device settings; `None`
     means "not supplied, carry the current on-disk value forward" for
@@ -438,9 +378,6 @@ def save_device_config(
     sentinel) clears the override to `None`, any other value must be a
     THEMES member. `calendar_theme_id` needs no sentinel - the empty
     string is itself a genuine "clear" value, distinct from `None`.
-    `notifications` is the one dict-valued field; its sub-keys are each
-    validated individually, and its `topic_url` is not URL-checked here
-    (`server/notify.py` does that at send time).
 
     The whole load-merge-write sequence runs under a module
     `threading.Lock` (same-process fast path) and then
@@ -458,7 +395,6 @@ def save_device_config(
     _validate_runway_and_flags(tracked_runway, led_enabled, display_enabled, screen_id)
     _validate_quiet_hours(quiet_hours_enabled, quiet_hours_start, quiet_hours_end)
     _validate_wake_interval(wake_interval_s)
-    _validate_notifications(notifications)
 
     os.makedirs(state_dir, exist_ok=True)
     with _SAVE_LOCK:
@@ -473,7 +409,7 @@ def save_device_config(
                 led_enabled=led_enabled, quiet_hours_enabled=quiet_hours_enabled,
                 quiet_hours_start=quiet_hours_start, quiet_hours_end=quiet_hours_end,
                 wake_interval_s=wake_interval_s, display_enabled=display_enabled,
-                screen_id=screen_id, notifications=notifications,
+                screen_id=screen_id,
             )
             atomic_io.atomic_write(device_config_path(state_dir), json.dumps(new_config, indent=1))
 

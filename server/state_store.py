@@ -38,19 +38,31 @@ DEFAULT_STATE_DIR = os.path.join(_HERE, "state")
 # number of hold mechanisms.
 HOLD_KINDS = ("quiet_hours", "display_off", "battery_empty")
 
+# Keys an older poll_state.json may still carry that nothing reads any
+# more. They are dropped at load, so the next write leaves them out.
+RETIRED_POLL_STATE_KEYS: tuple[str, ...] = ("notifications",)
+
 
 def poll_state_path(state_dir: str) -> str:
     return os.path.join(state_dir, POLL_STATE_FILENAME)
 
 
 def load_poll_state(state_dir: str) -> dict[str, object]:
-    """Missing, unreadable, or malformed -> empty state, never a crash."""
+    """Missing, unreadable, or malformed -> empty state, never a crash.
+    Every `RETIRED_POLL_STATE_KEYS` entry is dropped from a loaded dict,
+    so every reader gets the same view and the poll cycle's load-time
+    baseline snapshot already lacks them.
+    """
     try:
         with open(poll_state_path(state_dir)) as fh:
             data = json.load(fh)
     except (OSError, ValueError):
         return {}
-    return data if isinstance(data, dict) else {}
+    if not isinstance(data, dict):
+        return {}
+    for key in RETIRED_POLL_STATE_KEYS:
+        data.pop(key, None)
+    return data
 
 
 def hold_state(poll_state: dict[str, object]) -> str | None:

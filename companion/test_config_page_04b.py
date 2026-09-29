@@ -257,7 +257,7 @@ def test_title_form_inventory_classifies_every_h2_text_heading_on_both_routes_af
     # (8, 4, 3, 1) to (7, 3, 3, 1) - one fewer h2.text-heading instance and one fewer form-A card
     # title, both for the identical reason (the Calendar card's own separate heading is retired).
     # Device's own tuple drops one h2.text-heading instance and one form-A card title with the
-    # retired Notifications card.
+    # removed push-alert card.
     expected = {"display": (7, 3, 3, 1), "device": (6, 2, 3, 1)}
     assert counts == expected, (
         "expected {route: (total h2.text-heading, form-A card titles, form-B supersection "

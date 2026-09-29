@@ -54,7 +54,7 @@ def test_missing_state_dir_yields_defaults(tmp_path):
     tmpdir = tmp_path
     missing = os.path.join(tmpdir, "does-not-exist")
     config = device_config.load_device_config(missing)
-    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"}}:
+    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
         pytest.fail("expected defaults, got %r" % (config,))
 
 
@@ -66,7 +66,7 @@ def test_malformed_file_yields_defaults(tmp_path):
         with open(path, "w") as fh:
             fh.write(bad_content)
         config = device_config.load_device_config(tmpdir)
-        if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"}}:
+        if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
             pytest.fail("content %r produced %r, expected defaults" % (bad_content, config))
 
 
@@ -77,7 +77,7 @@ def test_hostile_values_yield_defaults(tmp_path):
     with open(path, "w") as fh:
         fh.write('{"theme": "../../etc/passwd", "tracked_runway": 7}')
     config = device_config.load_device_config(tmpdir)
-    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"}}:
+    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
         pytest.fail("hostile input produced %r, expected defaults for both keys" % (config,))
 
 
@@ -86,7 +86,7 @@ def test_save_then_load_round_trips(tmp_path):
     tmpdir = tmp_path
     device_config.save_device_config(tmpdir, theme="black", tracked_runway="02-20")
     config = device_config.load_device_config(tmpdir)
-    if config != {"theme": "black", "theme_arriving": None, "tracked_runway": "02-20", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"}}:
+    if config != {"theme": "black", "theme_arriving": None, "tracked_runway": "02-20", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
         pytest.fail("round-trip produced %r" % (config,))
 
 
@@ -123,7 +123,7 @@ def test_hostile_hand_edit_after_a_real_save_still_yields_defaults(tmp_path):
     with open(path, "w") as fh:
         fh.write('{"theme": "black/../x", "tracked_runway": "3; DROP TABLE"}')
     config = device_config.load_device_config(tmpdir)
-    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"}}:
+    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
         pytest.fail("hand-edited hostile file produced %r, expected defaults for both keys" % (config,))
 
 
@@ -144,7 +144,7 @@ def test_save_led_enabled_false_round_trips(tmp_path):
     tmpdir = tmp_path
     device_config.save_device_config(tmpdir, led_enabled=False)
     config = device_config.load_device_config(tmpdir)
-    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"}}:
+    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
         pytest.fail("round-trip produced %r" % (config,))
 
 
@@ -464,7 +464,6 @@ def test_save_quiet_hours_round_trips(tmp_path):
         "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
         "quiet_hours_enabled": True, "quiet_hours_start": "22:30", "quiet_hours_end": "06:15",
         "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame",
-        "notifications": {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"},
     }:
         pytest.fail("round-trip produced %r" % (config,))
 
@@ -611,7 +610,6 @@ def test_save_wake_interval_s_round_trips(tmp_path):
         "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
         "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
         "wake_interval_s": 120, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame",
-        "notifications": {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"},
     }:
         pytest.fail("round-trip produced %r" % (config,))
 
@@ -815,7 +813,6 @@ def test_save_display_enabled_false_round_trips_and_carries_forward(tmp_path):
         "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
         "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
         "wake_interval_s": None, "display_enabled": False, "calendar_theme_id": None, "screen_id": "plane-frame",
-        "notifications": {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"},
     }:
         pytest.fail("round-trip produced %r" % (config,))
     device_config.save_device_config(tmpdir, theme="black")
@@ -1045,147 +1042,6 @@ def test_screen_id_registry_agrees_with_companion_screens():
     if device_config.DEFAULT_SCREEN_ID != screens.DEFAULT_SCREEN_ID:
         pytest.fail("device_config.DEFAULT_SCREEN_ID %r != companion.screens.DEFAULT_SCREEN_ID %r" % (
             device_config.DEFAULT_SCREEN_ID, screens.DEFAULT_SCREEN_ID))
-
-
-def test_notifications_absent_from_disk_resolves_to_default_with_no_migration(tmp_path):
-    """a device_config.json written before this phase (no notifications key at all) resolves notifications to DEFAULT_NOTIFICATIONS and is not rewritten on disk by load_device_config() - no migration"""
-    tmpdir = tmp_path
-    path = device_config.device_config_path(tmpdir)
-    pre_phase_20_doc = {
-        "theme": "blue", "tracked_runway": "06-24", "led_enabled": False,
-        "quiet_hours_enabled": True, "quiet_hours_start": "22:00", "quiet_hours_end": "06:00",
-        "wake_interval_s": 300, "display_enabled": False,
-    }
-    with open(path, "w") as fh:
-        json.dump(pre_phase_20_doc, fh)
-    with open(path, "rb") as fh:
-        before = fh.read()
-    config = device_config.load_device_config(tmpdir)
-    if config["notifications"] != device_config.DEFAULT_NOTIFICATIONS:
-        pytest.fail("a file with no notifications key produced %r, expected DEFAULT_NOTIFICATIONS" % (config["notifications"],))
-    with open(path, "rb") as fh:
-        after = fh.read()
-    if before != after:
-        pytest.fail("load_device_config() rewrote a pre-phase-20 file on disk - no migration is permitted")
-
-
-def test_normalise_notifications_degrades_hostile_shapes_per_field():
-    """normalise_notifications() degrades a non-dict value ('x', [], 7, None) to a copy of DEFAULT_NOTIFICATIONS wholesale, and degrades each hostile sub-field ({'lang': 'de'}, or a wrong-typed topic_url/battery_low/frame_silent) independently while a real sibling field survives"""
-    for hostile in ("x", [], 7, None):
-        got = device_config.normalise_notifications(hostile)
-        if got != device_config.DEFAULT_NOTIFICATIONS:
-            pytest.fail("normalise_notifications(%r) returned %r, expected a copy of DEFAULT_NOTIFICATIONS wholesale" % (hostile, got))
-    got_partial = device_config.normalise_notifications({"lang": "de"})
-    if got_partial != {
-        "topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en",
-    }:
-        pytest.fail("normalise_notifications({'lang': 'de'}) returned %r, expected every field at its own default" % (got_partial,))
-    got_mixed = device_config.normalise_notifications({
-        "topic_url": 7, "battery_low": "yes", "frame_silent": 1, "lang": "fr",
-    })
-    if got_mixed != {
-        "topic_url": None, "battery_low": True, "frame_silent": True, "lang": "fr",
-    }:
-        pytest.fail("normalise_notifications() with a wrong-typed topic_url/battery_low/frame_silent returned %r - each hostile sub-field must degrade independently, and the real lang='fr' must survive" % (got_mixed,))
-
-
-def test_save_notifications_round_trips(tmp_path):
-    """save_device_config(notifications={...}) round-trips through load_device_config() unchanged, leaving every sibling field at its prior (default) value"""
-    tmpdir = tmp_path
-    device_config.save_device_config(tmpdir, notifications={
-        "topic_url": "https://ntfy.sh/skypane-xyz", "battery_low": False,
-        "frame_silent": True, "lang": "fr",
-    })
-    config = device_config.load_device_config(tmpdir)
-    if config["notifications"] != {
-        "topic_url": "https://ntfy.sh/skypane-xyz", "battery_low": False,
-        "frame_silent": True, "lang": "fr",
-    }:
-        pytest.fail("round-trip produced %r" % (config["notifications"],))
-    if config["theme"] != device_config.DEFAULT_THEME_ID:
-        pytest.fail("a notifications-only save disturbed theme, got %r" % (config["theme"],))
-
-
-def test_save_notifications_rejects_every_malformed_shape(tmp_path):
-    """save_device_config() rejects a non-dict notifications value, a non-str topic_url, a non-bool battery_low/frame_silent, and a lang outside ('en', 'fr') with ValueError, leaving a pre-existing, legitimately-saved file byte-identical across every rejection"""
-    tmpdir = tmp_path
-    device_config.save_device_config(tmpdir, theme="black")
-    path = device_config.device_config_path(tmpdir)
-    with open(path, "rb") as fh:
-        before = fh.read()
-    hostile_groups = (
-        "not-a-dict",
-        {"topic_url": 7, "battery_low": True, "frame_silent": True, "lang": "en"},
-        {"topic_url": None, "battery_low": "yes", "frame_silent": True, "lang": "en"},
-        {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "de"},
-    )
-    for hostile in hostile_groups:
-        raised = False
-        try:
-            device_config.save_device_config(tmpdir, notifications=hostile)
-        except ValueError:
-            raised = True
-        if not raised:
-            pytest.fail("save_device_config(notifications=%r) did not raise ValueError" % (hostile,))
-        with open(path, "rb") as fh:
-            after = fh.read()
-        if before != after:
-            pytest.fail("save_device_config(notifications=%r) changed a pre-existing file's bytes" % (hostile,))
-
-
-def test_save_device_config_rejects_invalid_notifications_even_with_every_other_field_valid(tmp_path):
-    """save_device_config() with every other field valid but a malformed notifications sub-field still raises
-    ValueError and leaves a pre-existing, legitimately-saved file byte-identical - proving notifications, the
-    last-validated field, is still checked (not short-circuited away) when every field validated before it
-    would itself be accepted"""
-    tmpdir = tmp_path
-    device_config.save_device_config(tmpdir, theme="black", tracked_runway="3")
-    path = device_config.device_config_path(tmpdir)
-    with open(path, "rb") as fh:
-        before = fh.read()
-    raised = False
-    try:
-        device_config.save_device_config(
-            tmpdir, theme="red", theme_arriving="blue", calendar_theme_id="green",
-            tracked_runway="06-24", screen_id="plane-frame", led_enabled=True,
-            quiet_hours_enabled=True, quiet_hours_start="22:00", quiet_hours_end="06:00",
-            wake_interval_s=120, display_enabled=False,
-            notifications={"topic_url": None, "battery_low": "not-a-bool", "frame_silent": True, "lang": "en"},
-        )
-    except ValueError:
-        raised = True
-    if not raised:
-        pytest.fail("save_device_config() with a malformed notifications sub-field and every other field valid did not raise ValueError")
-    with open(path, "rb") as fh:
-        after = fh.read()
-    if before != after:
-        pytest.fail("save_device_config() with a malformed notifications sub-field changed a pre-existing file's bytes even though every other supplied field was valid")
-
-
-def test_saved_topic_url_never_appears_in_a_rejected_writes_bytes_or_this_modules_own_source():
-    """server/device_config.py introduces no print()/logging call for the notifications group, preserving this module's own print-free-by-design contract - a topic_url can never reach a log this module controls"""
-    # This module stores topic_url verbatim in device_config.json
-    # (server/notify.py needs the real value to send a push) - there is
-    # no separate config-history/audit log in this codebase for any
-    # field to hook into (confirmed by inspection: no sibling field -
-    # theme, led_enabled, the calendar URL in
-    # server/plane/calendar_rules.py - writes to any such log either).
-    # What IS real and pinned here is device_config.py's own
-    # "print-free by design" contract (this module's own top-of-file
-    # docstring): adding notifications introduces no new print()/logging
-    # call anywhere in this module, so a hostile or legitimate topic_url
-    # can never reach a log this module itself controls - the same proof
-    # server/test_calendar_rules.py's own checks pin for the calendar
-    # feed URL, applied here by source inspection since this module
-    # (unlike calendar_rules.fetch_ics()) has no failure path that logs
-    # at all.
-    src_path = os.path.join(REPO_ROOT, "server", "device_config.py")
-    with open(src_path) as fh:
-        src = fh.read()
-    if "print(" in src:
-        pytest.fail("server/device_config.py must stay print-free by design; found a print( call")
-    if re.search(r'\blogging\.', src):
-        pytest.fail("server/device_config.py must stay print-free by design; found a logging module call")
 
 
 def test_connect_creates_db_with_wal_and_tables(tmp_path):

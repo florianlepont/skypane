@@ -1812,9 +1812,7 @@ def test_valid_save_writes_both_and_returns_saved_key(tmp_path):
     flash_key = config_page.handle_post(
         {"theme": "black", "tracked_runway": "06-24"}, ctx)
     assert flash_key == config_page.FLASH_SAVED, "expected FLASH_SAVED, got %r" % (flash_key,)
-    on_disk = {
-        key: value for key, value in device_config.load_device_config(tmpdir).items()
-        if key != "notifications"}
+    on_disk = device_config.load_device_config(tmpdir)
     # led_enabled is resolved by handle_post() itself, with checkbox-
     # absent-means-False semantics (never carried forward like theme/
     # runway) — this posted form omits led_enabled entirely, so the

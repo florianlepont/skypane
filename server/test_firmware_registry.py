@@ -679,10 +679,10 @@ def test_reconcile_processes_only_new_events_in_seq_order():
         {"seq": 1, "at": NOW, "kind": "result", "schedule_id": "sched1", "token": "fail-hash", "version": NEXT_VERSION},
         {"seq": 2, "at": LATER, "kind": "result", "schedule_id": "sched1", "token": "fail-hash", "version": NEXT_VERSION},
     ])
-    new_registry, notifications = registry_mod.reconcile(registry, device_report, LATER)
+    new_registry, outcomes = registry_mod.reconcile(registry, device_report, LATER)
     assert new_registry["schedule"]["attempts"] == 1  # only seq=2 processed
     assert new_registry["reconciled_seq"] == 2
-    assert notifications == []
+    assert outcomes == []
 
 
 def test_reconcile_counted_failure_increments_attempts():
@@ -690,24 +690,24 @@ def test_reconcile_counted_failure_increments_attempts():
     device_report = _make_device_report([
         {"seq": 1, "at": NOW, "kind": "result", "schedule_id": "sched1", "token": "fail-download", "version": NEXT_VERSION},
     ])
-    new_registry, notifications = registry_mod.reconcile(registry, device_report, NOW)
+    new_registry, outcomes = registry_mod.reconcile(registry, device_report, NOW)
     assert new_registry["schedule"]["attempts"] == 1
     assert new_registry["schedule"]["last_result"] == "fail-download"
-    assert notifications == []
+    assert outcomes == []
 
 
-def test_reconcile_third_failure_marks_failed_and_notifies():
+def test_reconcile_third_failure_marks_failed_and_reports_the_outcome():
     registry = _schedule_doc(attempts=2)
     device_report = _make_device_report([
         {"seq": 1, "at": NOW, "kind": "result", "schedule_id": "sched1", "token": "fail-hash", "version": NEXT_VERSION},
     ], fw_version=RUNNING_VERSION)
-    new_registry, notifications = registry_mod.reconcile(registry, device_report, LATER)
+    new_registry, outcomes = registry_mod.reconcile(registry, device_report, LATER)
     assert new_registry["schedule"]["state"] == "failed"
     assert new_registry["schedule"]["failed_at"] == LATER
     assert new_registry["last_outcome"] == {
         "kind": "failed", "version": NEXT_VERSION, "back_on": RUNNING_VERSION, "at": LATER,
     }
-    assert notifications == [("failed", NEXT_VERSION, RUNNING_VERSION)]
+    assert outcomes == [("failed", NEXT_VERSION, RUNNING_VERSION)]
 
 
 def test_reconcile_rollback_sets_last_outcome_until_third_attempt():
@@ -715,22 +715,22 @@ def test_reconcile_rollback_sets_last_outcome_until_third_attempt():
     device_report = _make_device_report([
         {"seq": 1, "at": NOW, "kind": "result", "schedule_id": "sched1", "token": "rollback", "version": NEXT_VERSION},
     ], fw_version=RUNNING_VERSION)
-    new_registry, notifications = registry_mod.reconcile(registry, device_report, NOW)
+    new_registry, outcomes = registry_mod.reconcile(registry, device_report, NOW)
     assert new_registry["last_outcome"]["kind"] == "rollback"
     assert new_registry["schedule"]["state"] == "scheduled"  # not yet the third attempt
-    assert notifications == []
+    assert outcomes == []
 
 
-def test_reconcile_installed_appends_installed_at_and_notifies():
+def test_reconcile_installed_appends_installed_at_and_reports_the_outcome():
     registry = _schedule_doc()
     device_report = _make_device_report([
         {"seq": 1, "at": NOW, "kind": "result", "schedule_id": "sched1", "token": "installed", "version": NEXT_VERSION},
     ])
-    new_registry, notifications = registry_mod.reconcile(registry, device_report, NOW)
+    new_registry, outcomes = registry_mod.reconcile(registry, device_report, NOW)
     assert new_registry["schedule"] is None
     assert new_registry["releases"][0]["installed_at"] == [NOW]
     assert new_registry["last_outcome"] == {"kind": "installed", "version": NEXT_VERSION, "back_on": None, "at": NOW}
-    assert notifications == [("installed", NEXT_VERSION, None)]
+    assert outcomes == [("installed", NEXT_VERSION, None)]
 
 
 def test_reconcile_trial_and_deferred_battery_never_count():
@@ -739,20 +739,20 @@ def test_reconcile_trial_and_deferred_battery_never_count():
         {"seq": 1, "at": NOW, "kind": "result", "schedule_id": "sched1", "token": "trial", "version": NEXT_VERSION},
         {"seq": 2, "at": LATER, "kind": "result", "schedule_id": "sched1", "token": "deferred-battery", "version": NEXT_VERSION},
     ])
-    new_registry, notifications = registry_mod.reconcile(registry, device_report, LATER)
+    new_registry, outcomes = registry_mod.reconcile(registry, device_report, LATER)
     assert new_registry["schedule"]["attempts"] == 0
-    assert notifications == []
+    assert outcomes == []
 
 
-def test_reconcile_replay_produces_no_new_notification():
+def test_reconcile_replay_produces_no_new_outcome():
     registry = _schedule_doc()
     device_report = _make_device_report([
         {"seq": 1, "at": NOW, "kind": "result", "schedule_id": "sched1", "token": "installed", "version": NEXT_VERSION},
     ])
-    new_registry, notifications = registry_mod.reconcile(registry, device_report, NOW)
-    assert notifications
-    replayed_registry, replayed_notifications = registry_mod.reconcile(new_registry, device_report, LATER)
-    assert replayed_notifications == []
+    new_registry, outcomes = registry_mod.reconcile(registry, device_report, NOW)
+    assert outcomes
+    replayed_registry, replayed_outcomes = registry_mod.reconcile(new_registry, device_report, LATER)
+    assert replayed_outcomes == []
     assert replayed_registry == new_registry
 
 
@@ -761,10 +761,10 @@ def test_reconcile_stale_schedule_id_updates_last_outcome_not_attempts():
     device_report = _make_device_report([
         {"seq": 1, "at": NOW, "kind": "result", "schedule_id": "some-old-schedule", "token": "installed", "version": "fw-v0.9.0"},
     ])
-    new_registry, notifications = registry_mod.reconcile(registry, device_report, NOW)
+    new_registry, outcomes = registry_mod.reconcile(registry, device_report, NOW)
     assert new_registry["schedule"]["attempts"] == 0
     assert new_registry["last_outcome"] == {"kind": "installed", "version": "fw-v0.9.0", "back_on": None, "at": NOW}
-    assert notifications == []
+    assert outcomes == []
 
 
 def test_apply_reconcile_writes_only_when_changed(tmp_path):
@@ -774,8 +774,8 @@ def test_apply_reconcile_writes_only_when_changed(tmp_path):
 
     doc = registry_mod.load_registry(state_dir)
     schedule_id = doc["schedule"]["id"] if doc["schedule"] else None
-    notifications = registry_mod.apply_reconcile(state_dir, now=NOW)
-    assert notifications == []
+    outcomes = registry_mod.apply_reconcile(state_dir, now=NOW)
+    assert outcomes == []
 
     import json
     device_report = _make_device_report([
@@ -790,15 +790,15 @@ def test_apply_reconcile_writes_only_when_changed(tmp_path):
     # one filesystem timestamp tick can leave unchanged.
     registry_path = registry_mod.registry_path(state_dir)
     before_ino = os.stat(registry_path).st_ino
-    notifications2 = registry_mod.apply_reconcile(state_dir, now=LATER)
+    outcomes2 = registry_mod.apply_reconcile(state_dir, now=LATER)
     after_ino = os.stat(registry_path).st_ino
-    assert notifications2 == [("installed", NEXT_VERSION, None)]
+    assert outcomes2 == [("installed", NEXT_VERSION, None)]
     assert after_ino != before_ino
 
     before_ino2 = os.stat(registry_path).st_ino
-    notifications3 = registry_mod.apply_reconcile(state_dir, now=LATER)
+    outcomes3 = registry_mod.apply_reconcile(state_dir, now=LATER)
     after_ino2 = os.stat(registry_path).st_ino
-    assert notifications3 == []
+    assert outcomes3 == []
     assert after_ino2 == before_ino2
 
 
@@ -1128,10 +1128,10 @@ def test_reconcile_offered_event_advances_seq_without_effect():
     device_report = _make_device_report([
         {"seq": 1, "at": NOW, "kind": "offered", "schedule_id": "sched1", "token": None, "version": NEXT_VERSION},
     ])
-    new_registry, notifications = registry_mod.reconcile(registry, device_report, NOW)
+    new_registry, outcomes = registry_mod.reconcile(registry, device_report, NOW)
     assert new_registry["reconciled_seq"] == 1
     assert new_registry["schedule"]["attempts"] == 0
-    assert notifications == []
+    assert outcomes == []
 
 
 def test_reconcile_stale_schedule_id_rollback_updates_last_outcome():
@@ -1139,12 +1139,12 @@ def test_reconcile_stale_schedule_id_rollback_updates_last_outcome():
     device_report = _make_device_report([
         {"seq": 1, "at": NOW, "kind": "result", "schedule_id": "some-old-schedule", "token": "rollback", "version": "fw-v0.9.0"},
     ], fw_version=RUNNING_VERSION)
-    new_registry, notifications = registry_mod.reconcile(registry, device_report, NOW)
+    new_registry, outcomes = registry_mod.reconcile(registry, device_report, NOW)
     assert new_registry["schedule"]["attempts"] == 0
     assert new_registry["last_outcome"] == {
         "kind": "rollback", "version": "fw-v0.9.0", "back_on": RUNNING_VERSION, "at": NOW,
     }
-    assert notifications == []
+    assert outcomes == []
 
 
 def test_most_recent_device_entry_skips_entries_without_reported_at():

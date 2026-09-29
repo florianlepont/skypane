@@ -33,14 +33,12 @@ import sqlite3
 import sys
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 
 import server.atomic_io as atomic_io
 import server.device_config as device_config
 import server.device_policy as device_policy
 import server.firmware_registry as firmware_registry
 import server.history_db as history_db
-import server.notify as notify
 import server.panel_format as panel_format
 import server.plane.calendar_rules as calendar_rules
 import server.plane.colour_rules as colour_rules
@@ -247,185 +245,23 @@ def _classify_state_source(vertical_rate_fpm):
     return "held"
 
 
-# The shared "notifications" sub-dict of poll_state.json and its two
-# never-raising transition hooks below: each sends at most one push per
-# genuine transition and records the reported state regardless of send
-# success, so a flapping endpoint can't turn one transition into a push
-# every cycle.
-
-
-def _humanize_age_s(age_s):
-    """A short "2 h"-shaped duration string, floored at 0 so a negative age
-    (clock skew) never reads as "in the future".
-    """
-    age_s = max(0, int(age_s))
-    if age_s < 60:
-        return "%ds" % age_s
-    if age_s < 3600:
-        return "%d min" % (age_s // 60)
-    if age_s < 86400:
-        return "%d h" % (age_s // 3600)
-    return "%d d" % (age_s // 86400)
-
-
-def _parse_iso_epoch(ts):
-    """An ISO-8601 string to epoch seconds, or None if unparsable. A
-    timezone-naive value is stamped UTC first. Never raises.
-    """
-    try:
-        parsed = datetime.fromisoformat(ts)
-    except (TypeError, ValueError):
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.timestamp()
-
-
-def _notifications_group(device_cfg):
-    """The `notifications` sub-dict off `device_cfg`, or None. Never
-    raises.
-    """
-    if not isinstance(device_cfg, dict):
-        return None
-    notifications = device_cfg.get("notifications")
-    return notifications if isinstance(notifications, dict) else None
-
-
-def _notify_battery_transition(state_dir, poll_state, battery_low, battery_mv, device_cfg, sender=None):
-    """Push exactly one notification per genuine battery-low transition,
-    gated on the caller's own `battery_changed`. A no-op when the group
-    has no `topic_url` or `battery_low` is off. Never raises: any
-    exception is logged by type name and swallowed. `state_dir` is
-    unused, kept for signature symmetry with `_notify_silence_transition()`.
-    """
-    try:
-        notifications = _notifications_group(device_cfg)
-        if notifications is None:
-            return
-        topic_url = notifications.get("topic_url")
-        if not topic_url or not notifications.get("battery_low"):
-            return
-        state = poll_state.setdefault(
-            "notifications", {"last_battery_sent": False, "last_silent_sent": False}
-        )
-        if state.get("last_battery_sent") is battery_low:
-            return
-        lang = notifications.get("lang")
-        if battery_low:
-            pct = device_policy.battery_percent(battery_mv)
-            body = notify.body_for_lang(notify.BATTERY_LOW_BODY, lang) % (
-                battery_mv, pct if pct is not None else 0,
-            )
-        else:
-            body = notify.body_for_lang(notify.BATTERY_OK_BODY, lang)
-        send = sender or notify.send_notification
-        # ALERT_TITLE, not TEST_NOTIFICATION_TITLE: this is a real
-        # transition push, not the test button.
-        send(topic_url, notify.ALERT_TITLE, body)
-        state["last_battery_sent"] = battery_low
-    except Exception as exc:
-        print(
-            "poll_loop: battery-transition notification hook failed: %s" % type(exc).__name__,
-            file=sys.stderr,
-        )
-
-
-def _notify_silence_transition(state_dir, poll_state, conn, device_cfg, sender=None):
-    """Push exactly one notification per genuine frame-silent transition, on
-    the same staleness threshold the Health page displays
-    (`wake.device_staleness_thresholds()`'s WARN value). A no-op when the
-    group has no `topic_url`, `frame_silent` is off, or there's no
-    check-in row yet.
-
-    Must be called only after this cycle's own `_record_history()` call
-    has committed, so a frame that just checked in can't be reported
-    silent before that fresh row is visible. Never raises.
-    """
-    try:
-        notifications = _notifications_group(device_cfg)
-        if notifications is None:
-            return
-        topic_url = notifications.get("topic_url")
-        if not topic_url or not notifications.get("frame_silent"):
-            return
-        latest = history_db.latest_device_health(conn)
-        if not latest:
-            return
-        checkin_epoch = _parse_iso_epoch(latest.get("ts"))
-        if checkin_epoch is None:
-            return
-        age_s = now_s() - checkin_epoch
-        # Same critical-aware mirror run_once() feeds into
-        # effective_wake_interval_s - without it, a parked frame would
-        # cross the warn threshold on its short pre-park cadence and raise
-        # a false push every hour it stays parked.
-        warn_s, _error_s = wake.device_staleness_thresholds(
-            wake.effective_wake_interval_s(
-                device_cfg, battery_critical=bool(poll_state.get(wake.BATTERY_CRITICAL_STATE_KEY) is True)
-            )
-        )
-        silent = age_s >= warn_s
-        state = poll_state.setdefault(
-            "notifications", {"last_battery_sent": False, "last_silent_sent": False}
-        )
-        if state.get("last_silent_sent") is silent:
-            return
-        lang = notifications.get("lang")
-        if silent:
-            body = notify.body_for_lang(notify.FRAME_SILENT_BODY, lang) % _humanize_age_s(age_s)
-        else:
-            body = notify.body_for_lang(notify.FRAME_RECOVERED_BODY, lang)
-        send = sender or notify.send_notification
-        # ALERT_TITLE, not TEST_NOTIFICATION_TITLE: this is a real
-        # transition push, not the test button.
-        send(topic_url, notify.ALERT_TITLE, body)
-        state["last_silent_sent"] = silent
-    except Exception as exc:
-        print(
-            "poll_loop: _notify_silence_transition failed: %s" % type(exc).__name__,
-            file=sys.stderr,
-        )
-
-
-def _reconcile_firmware(state_dir, device_cfg, now, sender=None):
+def _reconcile_firmware(state_dir, now):
     """Fold every device-reported OTA outcome into the release registry,
     once per cycle, called before the hold decision so a battery-hold,
     quiet-hours or display-off cycle still closes out an install,
-    rollback or failure exactly like a live cycle would. Sends the
-    resulting notifications (installed/failed) through the same
-    group-present/topic-present gate `_notify_battery_transition` checks
-    first, with the language from the same notifications group. Never
+    rollback or failure exactly like a live cycle would. The outcomes
+    the registry reports are recorded there (its `last_outcome`) and
+    shown by the companion; nothing here sends them anywhere. Never
     raises: any exception is logged by type name only, and the cycle
     continues untouched - a reconcile failure must never break polling.
     """
     try:
-        notifications = firmware_registry.apply_reconcile(state_dir, now)
+        firmware_registry.apply_reconcile(state_dir, now)
     except Exception as exc:
         print(
             "poll_loop: firmware reconcile failed: %s" % type(exc).__name__,
             file=sys.stderr,
         )
-        return
-    if not notifications:
-        return
-    group = _notifications_group(device_cfg)
-    if group is None:
-        return
-    topic_url = group.get("topic_url")
-    if not topic_url:
-        return
-    lang = group.get("lang")
-    send = sender or notify.send_notification
-    for kind, version, back_on in notifications:
-        if kind == "installed":
-            body = notify.body_for_lang(notify.FIRMWARE_INSTALLED_BODY, lang) % version
-        elif kind == "failed":
-            body = notify.body_for_lang(notify.FIRMWARE_FAILED_BODY, lang) % back_on
-        else:
-            continue
-        # ALERT_TITLE, not TEST_NOTIFICATION_TITLE: this is a real
-        # outcome push, not the test button.
-        send(topic_url, notify.ALERT_TITLE, body)
 
 
 def write_panel_atomic(state_dir, rendered):
@@ -578,8 +414,7 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
     connection and one transaction: every write below runs inside one
     `history_db.write_batch(conn)`, committed once as this function
     returns (or rolled back as one unit if any write raises) - never left
-    open while `_notify_silence_transition()` makes its ntfy HTTP call
-    afterwards. A database/filesystem failure from a CORE write (the
+    open across any later work. A database/filesystem failure from a CORE write (the
     event insert, the three per-cycle meta keys, the wake epoch) is
     caught and logged, never allowed to fail the poll cycle - history is
     an accessory to the panel, not a dependency of it.
@@ -987,19 +822,9 @@ def run_hold_cycle(ctx):
         wake_interval_s=ctx.effective_wake_interval_s,
     )
 
-    # A display_off hold has no scheduled end, and nothing else here
-    # re-checks staleness while it lasts - without this, a frame that
-    # dies mid-hold would never raise a frame_silent push. After
-    # _record_history() so this cycle's check-in has already committed.
-    try:
-        with history_db.open_db(ctx.state_dir) as conn:
-            _notify_silence_transition(ctx.state_dir, poll_state, conn, ctx.device_cfg)
-    except (sqlite3.Error, OSError) as exc:
-        print("poll_loop: silence-transition history read failed (hold branch): %s: %s" % (type(exc).__name__, exc))
     # The cycle's one save: written only if this branch's mutations above
-    # (hold-kind, battery flags, migration flush, or the notify hook's own
-    # poll_state["notifications"] write) actually changed anything from
-    # the snapshot taken at load.
+    # (hold-kind, battery flags, migration flush) actually changed anything
+    # from the snapshot taken at load.
     state_store.persist_poll_state_if_changed(ctx.state_dir, poll_state, ctx.poll_state_baseline)
 
     print(
@@ -1035,16 +860,13 @@ def update_battery_low(ctx):
     """Battery-low decision, shared verbatim by the hold and live paths -
     every branch needs it, to thread into a render call or gate a
     hold-cycle repaint. Reads `ctx.battery_mv`/`ctx.poll_state`; sets
-    `ctx.battery_low`/`ctx.battery_changed` and pushes a notification on
-    a genuine transition.
+    `ctx.battery_low`/`ctx.battery_changed`.
     """
     poll_state = ctx.poll_state
     was_battery_low = bool(poll_state.get("battery_low_active", False))
     ctx.battery_low = device_policy.apply_battery_hysteresis(ctx.battery_mv, was_battery_low)
     ctx.battery_changed = ctx.battery_low != was_battery_low
     poll_state["battery_low_active"] = ctx.battery_low
-    if ctx.battery_changed:
-        _notify_battery_transition(ctx.state_dir, poll_state, ctx.battery_low, ctx.battery_mv, ctx.device_cfg)
 
 
 def detect_flight(ctx):
@@ -1464,41 +1286,14 @@ def record(ctx):
 
 
 def persist(ctx):
-    """persist -> silence notify -> persist-if-changed: the live path's
-    own order, kept distinct from the hold path's record -> notify ->
-    one-persist order (see the module's own "Write-once poll_state"
-    note - these two orders differ on purpose and must never be
-    unified). Saved BEFORE the frame-silence notify call - a branch
-    above may have just committed a runway_events row gated on
-    `poll_state["last_recorded_*"]` (`_should_record_event()`); those
-    dedup fields must reach disk before the notify hook's ntfy HTTP call
-    (5s timeout plus DNS) gives a crash (SIGKILL/OOM, the systemd 90s
-    TimeoutStartSec kill, an atomic_write OSError, a companion restart
-    mid /poll-now) a window to lose them - otherwise the next cycle's
-    `_should_record_event()` would still see the OLD `last_recorded_*`
-    values on disk and insert the same event again.
+    """The live path's one end-of-cycle save of poll_state.json, written
+    only if a branch's mutations changed anything from the snapshot taken
+    at load. It runs after every branch's history write, so the
+    `last_recorded_*` dedup fields that gate `_should_record_event()`
+    reach disk in this save: a crash after a runway_events row committed
+    can never leave the next cycle inserting the same event again.
     """
-    state_dir = ctx.state_dir
-    poll_state = ctx.poll_state
-    state_store.persist_poll_state_if_changed(state_dir, poll_state, ctx.poll_state_baseline)
-    after_branches_serialized = state_store.serialize_poll_state(poll_state)
-    # Shared call site for the frame-silence check, common to all three
-    # live branches (the hold branch has its own, right after its own
-    # _record_history()). Placed after every branch's history write so a
-    # frame that just checked in this cycle can never be reported silent.
-    try:
-        with history_db.open_db(state_dir) as conn:
-            _notify_silence_transition(state_dir, poll_state, conn, ctx.device_cfg)
-    except (sqlite3.Error, OSError) as exc:
-        print("poll_loop: silence-transition history read failed: %s: %s" % (type(exc).__name__, exc))
-    # A second save, only on top of the one above - written only if the
-    # notify hook's own poll_state["notifications"] mutation changed
-    # anything beyond what was just persisted. A steady-state cycle (no
-    # branch mutation, no transition) still writes nothing at all; a cycle
-    # with only a branch mutation still writes exactly once, before the
-    # notify call - this second call only fires on a genuine silent/
-    # recovered transition landing in the same cycle as a branch mutation.
-    state_store.persist_poll_state_if_changed(state_dir, poll_state, after_branches_serialized)
+    state_store.persist_poll_state_if_changed(ctx.state_dir, ctx.poll_state, ctx.poll_state_baseline)
 
 
 def log_cycle(ctx):
@@ -1585,8 +1380,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_
     detection.
 
     Before any hold decision, `_reconcile_firmware()` folds every
-    device-reported OTA outcome into the release registry and fires at
-    most one install/failure notification per event, unconditionally -
+    device-reported OTA outcome into the release registry, unconditionally -
     a battery-hold, quiet-hours or display-off cycle still closes out a
     pending update exactly like a live cycle would.
 
@@ -1615,7 +1409,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_
             # Before the hold decision, so a battery-hold, quiet-hours or
             # display-off cycle still reconciles device-reported OTA
             # outcomes exactly like a live cycle would.
-            _reconcile_firmware(ctx.state_dir, ctx.device_cfg, history_db.utc_now_iso())
+            _reconcile_firmware(ctx.state_dir, history_db.utc_now_iso())
             ctx.hold_kind = decide_hold(ctx.battery_critical, ctx.display_enabled, ctx.quiet_remaining)
             if ctx.hold_kind is not None:
                 return run_hold_cycle(ctx)
