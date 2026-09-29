@@ -2,9 +2,8 @@
 floor, live authenticated companion/app.py HTTP round trips (save
 confirmation, PRG redirect + flash cleanup, the retired LED route, the
 runway-image route's session/path-traversal guards, the calendar secret
-never reaching the served bytes), the Notifications group, the live
-theme preview, the Aspect card's swatch legend and "Current" badge,
-cross-file DOM-contract guards between config_page.py and
+never reaching the served bytes), the live theme preview, the Aspect
+card's swatch legend and "Current" badge, cross-file DOM-contract guards between config_page.py and
 companion/static/style.css/value-controls.js, the two wake-interval
 gauges' honesty contract and the gated range/readout seam that steers
 them, and the closing structural proofs (one radio set per theme field,
@@ -509,103 +508,6 @@ def test_control_with_both_hint_and_error_carries_both_ids_in_order():
 
 
 # ======================================================================
-# Section 5: the Notifications group.
-# ======================================================================
-
-def test_notifications_group_status_row_configured_vs_not_and_write_only_url():
-    """notifications_group()'s status row reads 'Not configured' with no URL stored and
-    'Configured' with one, the topic-URL input never carries a value attribute in either state,
-    and no substring of a seeded URL appears anywhere in the rendered page"""
-    rendered_unconfigured = config_page.render(
-        {"device_config": {}, "poll_cooldown_remaining": 0}, scope=config_page.SCOPE_DEVICE)
-    assert config_page.NOTIFICATIONS_SECTION_HEADING in rendered_unconfigured
-    assert config_page.NOTIFICATIONS_STATUS_NOT_CONFIGURED_VERDICT in rendered_unconfigured
-    assert config_page.NOTIFICATIONS_STATUS_CONFIGURED_VERDICT not in rendered_unconfigured
-
-    seeded_url = "https://ntfy.sh/skypane-secret-token-xyz"
-    rendered_configured = config_page.render(
-        {
-            "device_config": {
-                "notifications": {
-                    "topic_url": seeded_url, "battery_low": True,
-                    "frame_silent": False, "lang": "en"}},
-            "poll_cooldown_remaining": 0,
-        },
-        scope=config_page.SCOPE_DEVICE)
-    assert config_page.NOTIFICATIONS_STATUS_CONFIGURED_VERDICT in rendered_configured
-    assert config_page.NOTIFICATIONS_STATUS_NOT_CONFIGURED_VERDICT not in rendered_configured
-    assert seeded_url not in rendered_configured and "secret-token-xyz" not in rendered_configured
-    for rendered in (rendered_unconfigured, rendered_configured):
-        match = re.search(r'<input[^>]*name="notifications_topic_url"[^>]*>', rendered)
-        assert match, "expected the notifications_topic_url input to render"
-        assert "value=" not in match.group(0), "expected no value attribute on the write-only topic-URL input"
-
-
-def test_notifications_checkboxes_reflect_stored_state():
-    """notifications_group()'s two checkboxes reflect the stored battery_low/frame_silent
-    booleans"""
-    rendered = config_page.render(
-        {
-            "device_config": {
-                "notifications": {
-                    "topic_url": "https://ntfy.sh/x", "battery_low": False,
-                    "frame_silent": True, "lang": "fr"}},
-            "poll_cooldown_remaining": 0,
-        },
-        scope=config_page.SCOPE_DEVICE)
-    battery_match = re.search(r'<input type="checkbox" name="notifications_battery"[^>]*>', rendered)
-    silent_match = re.search(r'<input type="checkbox" name="notifications_silent"[^>]*>', rendered)
-    assert battery_match and silent_match, "expected both notifications checkboxes to render"
-    assert " checked" not in battery_match.group(0), "expected notifications_battery unchecked when stored False"
-    assert " checked" in silent_match.group(0), "expected notifications_silent checked when stored True"
-
-
-def test_notifications_group_has_no_lang_selector():
-    """the Device page contains no notifications_lang control anywhere (lang travels
-    silently, never through a <select>)"""
-    rendered = config_page.render(_TASK3_BASE_CTX, scope=config_page.SCOPE_DEVICE)
-    assert "notifications_lang" not in rendered
-
-
-def test_handle_post_notifications_round_trip_writes_lang_from_ctx(tmp_path):
-    """handle_post() with scope=device, a topic URL and both checkboxes persists the whole
-    notifications group and writes lang from ctx['lang']"""
-    ctx = {"state_dir": str(tmp_path), "lang": "fr"}
-    flash_key = config_page.handle_post(
-        {
-            "scope": config_page.SCOPE_DEVICE,
-            "notifications_topic_url": "https://ntfy.sh/skypane-abc123",
-            "notifications_battery": config_page.NOTIFICATIONS_BATTERY_CHECKBOX_VALUE,
-            "notifications_silent": config_page.NOTIFICATIONS_SILENT_CHECKBOX_VALUE,
-        },
-        ctx)
-    assert flash_key == config_page.FLASH_SAVED, "expected FLASH_SAVED, got %r" % (flash_key,)
-    on_disk = device_config.load_device_config(str(tmp_path))["notifications"]
-    expected = {
-        "topic_url": "https://ntfy.sh/skypane-abc123",
-        "battery_low": True, "frame_silent": True, "lang": "fr"}
-    assert on_disk == expected
-
-
-def test_handle_post_empty_notifications_url_leaves_stored_url_intact(tmp_path):
-    """handle_post() with an empty notifications_topic_url leaves the previously stored URL
-    unchanged (empty means 'leave unchanged', never 'clear it')"""
-    ctx = {"state_dir": str(tmp_path)}
-    device_config.save_device_config(
-        str(tmp_path), notifications={
-            "topic_url": "https://ntfy.sh/skypane-seeded",
-            "battery_low": True, "frame_silent": True, "lang": "en"})
-    flash_key = config_page.handle_post(
-        {"scope": config_page.SCOPE_DEVICE, "notifications_topic_url": ""}, ctx)
-    assert flash_key == config_page.FLASH_SAVED, "expected FLASH_SAVED, got %r" % (flash_key,)
-    on_disk = device_config.load_device_config(str(tmp_path))["notifications"]
-    assert on_disk["topic_url"] == "https://ntfy.sh/skypane-seeded", (
-        "expected the stored URL to survive an empty submission, got %r" % (on_disk["topic_url"],))
-    assert on_disk["battery_low"] is False and on_disk["frame_silent"] is False, (
-        "expected both checkboxes to resolve absent-means-False")
-
-
-# ======================================================================
 # Section 6: the live theme preview.
 # ======================================================================
 
@@ -905,38 +807,7 @@ def test_style_css_carries_b9_b15_and_b7_geometry_rules(served_css):
     assert partner, "expected the :not()-scoped non-active hover rule to still exist"
 
 
-# --- the Notifications form idiom and the wake-interval field --------
-
-def test_send_a_test_lives_inside_the_notifications_card_via_the_form_idiom():
-    """'Send a test' renders inside the Notifications card and reaches its own EMPTY sibling
-    <form> through the cross-DOM form= idiom's fifth consumer - no control renders between two
-    cards, and the form keeps its own action"""
-    card = config_page.notifications_group(True, False, False)
-    button = '<button type="submit" form="notifications-test">%s</button>' % escape_html(
-        config_page.NOTIFICATIONS_TEST_BUTTON_TEXT)
-    assert button in card, "expected the test button INSIDE the Notifications card (B8)"
-    assert card.rstrip().endswith("</div>"), "expected the card to still close its own wrapper last"
-
-    section = config_page.notifications_test_section()
-    expected_form = (
-        '<form method="post" action="/settings/notifications/test" '
-        'id="notifications-test" class="notifications-test-form"></form>')
-    assert section == expected_form, (
-        "expected notifications_test_section() to render an EMPTY form carrying the button's "
-        "form= id, got %r" % (section,))
-    assert "<button" not in section, "the sibling form must hold no control of its own (B8)"
-
-    rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DEVICE)
-    assert rendered.count('form="notifications-test"') == 1
-    assert rendered.count('id="notifications-test"') == 1
-    assert "</form><form" in rendered.replace("\n", ""), (
-        "expected the empty test form to render immediately after the settings form, with no "
-        "orphaned control between the two cards (B8)")
-    card_end = rendered.index('id="notifications-test"')
-    assert rendered.index('form="notifications-test"') < card_end, (
-        "expected the button to render BEFORE the empty form, inside its card")
-    assert config_page.NOTIFICATIONS_TEST_ROUTE in rendered
-
+# --- the wake-interval field ------------------------------------------
 
 def test_the_wake_interval_field_has_a_label_above_it_and_a_content_sized_input(served_css):
     """the wake-interval field puts its label on its own line above a content-sized input (8ch
@@ -1584,7 +1455,6 @@ _FULLY_INVALID_SETTINGS_ORDER = (
     ("theme", "That is not one of the available choices."),
     ("screen_id", "That is not one of the available choices."),
     ("calendar_url", "That link is too long, or conflicts with the disconnect option below."),
-    ("notifications_topic_url", config_page.ERROR_NOTIFICATIONS_URL_TOO_LONG),
     ("calendar_theme_id", "That is not one of the available choices."),
     ("theme_arriving", "That is not one of the available choices."),
     ("tracked_runway", "That is not one of the available choices."),
@@ -1594,8 +1464,6 @@ _FULLY_INVALID_SETTINGS_ORDER = (
     ("quiet_hours_enabled", "That switch sent an unexpected value."),
     ("wake_interval_s", "Enter a whole number of seconds between 60 and 3600."),
     ("display_enabled", "That switch sent an unexpected value."),
-    ("notifications_battery", "That switch sent an unexpected value."),
-    ("notifications_silent", "That switch sent an unexpected value."),
 )
 
 # error-field -> the submitted form key(s) to clear once that error has
@@ -1613,7 +1481,6 @@ def test_handle_post_errors_keep_their_order_for_a_fully_invalid_submission(tmp_
         "theme": "not-a-theme",
         "screen_id": "not-a-screen",
         "calendar_disconnect": "bogus-disconnect",
-        "notifications_topic_url": "x" * (config_page.NOTIFICATIONS_URL_MAX_LEN + 1),
         "calendar_theme_id": "not-a-theme",
         "theme_arriving": "not-a-theme",
         "tracked_runway": "not-a-runway",
@@ -1623,8 +1490,6 @@ def test_handle_post_errors_keep_their_order_for_a_fully_invalid_submission(tmp_
         "quiet_hours_enabled": "bogus",
         "wake_interval_s": "not-an-int",
         "display_enabled": "bogus",
-        "notifications_battery": "bogus",
-        "notifications_silent": "bogus",
     }
     ctx = {"state_dir": str(tmp_path)}
     observed = []
@@ -1727,25 +1592,6 @@ _GROUP_SHAPES = (
             "absent": ("saved", {}),
             "empty": ("save_failed", {}),
             "valid": ("saved", {}),
-            "invalid": ("save_failed", {}),
-        },
-    ),
-    (
-        "notifications",
-        {}, {"notifications_topic_url": ""},
-        {
-            "notifications_topic_url": "https://ntfy.sh/skypane-x",
-            "notifications_battery": "on", "notifications_silent": "on",
-        },
-        {"notifications_battery": "bogus"},
-        {
-            "absent": ("saved", {"notifications": {
-                "topic_url": None, "battery_low": False, "frame_silent": False, "lang": "en"}}),
-            "empty": ("saved", {"notifications": {
-                "topic_url": None, "battery_low": False, "frame_silent": False, "lang": "en"}}),
-            "valid": ("saved", {"notifications": {
-                "topic_url": "https://ntfy.sh/skypane-x",
-                "battery_low": True, "frame_silent": True, "lang": "en"}}),
             "invalid": ("save_failed", {}),
         },
     ),

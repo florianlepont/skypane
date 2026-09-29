@@ -1,7 +1,7 @@
 """The settings-action POST handlers moved out of `companion/app.py`'s
 `Handler`: illustration replace, the two-step manual-resolution flow,
-the colour-rules add/delete pair, the calendar connect/disconnect pair,
-and the notifications test send. Packaged as a `SettingsActionsMixin`
+the colour-rules add/delete pair, and the calendar connect/disconnect
+pair. Packaged as a `SettingsActionsMixin`
 `Handler` inherits (`Handler(SettingsActionsMixin, BaseHTTPRequestHandler)`)
 so every method keeps its historical name and `companion/routes.py`'s
 `ROUTES` table keeps resolving it unchanged.
@@ -40,8 +40,6 @@ from companion.flash import (
     FLASH_KEY_MANUAL_REGISTRY_FULL,
     FLASH_KEY_MANUAL_RESOLVED,
     FLASH_KEY_MANUAL_SAVE_FAILED,
-    FLASH_KEY_NOTIFICATIONS_TEST_FAILED,
-    FLASH_KEY_NOTIFICATIONS_TEST_OK,
     FLASH_KEY_RULE_ADDED,
     FLASH_KEY_RULE_DELETE_FAILED,
     FLASH_KEY_RULE_DELETED,
@@ -52,7 +50,7 @@ from companion.flash import (
 )
 from companion.pages import airlines_page, config_page
 from companion.pages.airlines_page import unresolved_row_for_prefix
-from server import atomic_io, device_config, notify
+from server import atomic_io
 from server.plane import calendar_rules, colour_rules, illustrations, manual_resolutions
 import server.poll_cycle as poll_cycle
 
@@ -431,26 +429,3 @@ class SettingsActionsMixin:
                 "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_CONNECT_OK)))
         return self.redirect(
             "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
-
-    def _handle_notifications_test_post(self):
-        """POST /settings/notifications/test. SSRF-by-proxy guard: the
-        topic URL is read from the stored device config, never from the
-        submitted form body — accepting a client-supplied URL here would
-        turn this button into an open request-forwarder.
-        """
-        state_dir = self.args.state_dir
-        stored_notifications = device_config.load_device_config(state_dir)["notifications"]
-        topic_url = stored_notifications.get("topic_url")
-        if not topic_url:
-            return self.redirect(
-                "%s?flash=%s" % (layout.DEVICE_ROUTE, quote(FLASH_KEY_NOTIFICATIONS_TEST_FAILED)))
-        lang = stored_notifications.get("lang") or "en"
-        sent = notify.send_notification(
-            topic_url,
-            notify.body_for_lang(notify.TEST_NOTIFICATION_TITLE, lang),
-            notify.body_for_lang(notify.TEST_NOTIFICATION_BODY, lang))
-        if sent:
-            return self.redirect(
-                "%s?flash=%s" % (layout.DEVICE_ROUTE, quote(FLASH_KEY_NOTIFICATIONS_TEST_OK)))
-        return self.redirect(
-            "%s?flash=%s" % (layout.DEVICE_ROUTE, quote(FLASH_KEY_NOTIFICATIONS_TEST_FAILED)))

@@ -996,9 +996,9 @@ def test_theme_arriving_clearable_contract_full_round_trip(tmp_path):
     ), "expected every other setting to survive the second save unchanged, got %r" % (after_second,)
 
 
-def test_settings_page_has_zero_fieldsets_and_five_dirty_sections():
-    """the rendered Settings page contains no <fieldset> and no <legend>, and exactly five
-    data-dirty-section groups (Runway/Diagnostic LED/Quiet hours/Wake interval/Notifications -
+def test_settings_page_has_zero_fieldsets_and_four_dirty_sections():
+    """the rendered Settings page contains no <fieldset> and no <legend>, and exactly four
+    data-dirty-section groups (Runway/Diagnostic LED/Quiet hours/Wake interval -
     Theme, Calendar and Display each have no entry on this legacy scope)
 
     dirty-state.js's section-aware walk still finds each group as one addressable unit.
@@ -1009,9 +1009,9 @@ def test_settings_page_has_zero_fieldsets_and_five_dirty_sections():
     })
     assert "<fieldset" not in rendered, "expected zero <fieldset> elements on the rendered Settings page"
     assert "<legend" not in rendered, "expected zero <legend> elements on the rendered Settings page"
-    assert rendered.count(config_page.DIRTY_SECTION_ATTR) == 5, (
-        "expected exactly 5 %s occurrences (Runway/Diagnostic LED/Quiet hours/Wake interval/"
-        "Notifications), got %d" % (config_page.DIRTY_SECTION_ATTR, rendered.count(config_page.DIRTY_SECTION_ATTR)))
+    assert rendered.count(config_page.DIRTY_SECTION_ATTR) == 4, (
+        "expected exactly 4 %s occurrences (Runway/Diagnostic LED/Quiet hours/Wake interval), "
+        "got %d" % (config_page.DIRTY_SECTION_ATTR, rendered.count(config_page.DIRTY_SECTION_ATTR)))
 
 
 # ======================================================================

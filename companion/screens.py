@@ -20,10 +20,6 @@ GROUP_RUNWAY = "runway"
 GROUP_LED = "led"
 GROUP_WAKE_INTERVAL = "wake_interval"
 GROUP_CALENDAR = "calendar"
-# A Device-page-only group (never everyday). "Manual refresh" is not a
-# group in this registry (it is a plain `.page-section` `render()`
-# renders directly, gated by `has_manual_poll` below).
-GROUP_NOTIFICATIONS = "notifications"
 
 # Documentation only — these two tuples gate nothing; each screen
 # type's own "everyday_groups"/"advanced_groups" below is what
@@ -31,7 +27,10 @@ GROUP_NOTIFICATIONS = "notifications"
 # Frame strip is the only on/off control, but the constant stays
 # defined since handle_post() still validates a crafted value against it.
 EVERYDAY_GROUPS = (GROUP_THEME, GROUP_CALENDAR, GROUP_RUNWAY, GROUP_QUIET_HOURS)
-ADVANCED_GROUPS = (GROUP_LED, GROUP_WAKE_INTERVAL, GROUP_NOTIFICATIONS)
+# "Manual refresh" is not a group in this registry (it is a plain
+# `.page-section` `render()` renders directly, gated by
+# `has_manual_poll` below).
+ADVANCED_GROUPS = (GROUP_LED, GROUP_WAKE_INTERVAL)
 
 DEFAULT_SCREEN_ID = "plane-frame"
 
@@ -47,7 +46,7 @@ SCREEN_TYPES = {
             GROUP_THEME, GROUP_CALENDAR, GROUP_RUNWAY, GROUP_QUIET_HOURS),
         # "Manual refresh" is rendered directly by render()'s own
         # has_manual_poll branch, never through this tuple.
-        "advanced_groups": (GROUP_LED, GROUP_WAKE_INTERVAL, GROUP_NOTIFICATIONS),
+        "advanced_groups": (GROUP_LED, GROUP_WAKE_INTERVAL),
         "has_colour_rules": True,
         "has_manual_poll": True,
     },

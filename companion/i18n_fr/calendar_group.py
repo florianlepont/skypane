@@ -2,9 +2,8 @@
 """French strings for the Calendar row's connection block
 (companion/settings/calendar.py's _calendar_connection_html()), keyed
 by stable message id (see companion/i18n.py's Message/msg()). Every id
-is declared at its own display site in companion/settings/calendar.py
-or notifications.py — this module only carries each id's French
-translation.
+is declared at its own display site in companion/settings/calendar.py —
+this module only carries each id's French translation.
 
 "Calendar", its feed-URL field/hint, "Cancel", "Theme" and the
 disconnect action's own strings are deliberately absent, declared

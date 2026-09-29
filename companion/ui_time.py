@@ -377,7 +377,7 @@ def absolute_and_relative(ts, now_ts, fallback="no reading yet", lang=None):
 
     `lang` defaults to `None`, resolved via relative_age_text()'s own
     default; an explicit `lang` threads through for a caller with no
-    request context (e.g. a server-side notification body).
+    request context.
     """
     if not ts:
         return fallback

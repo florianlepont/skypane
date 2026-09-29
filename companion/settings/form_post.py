@@ -31,9 +31,6 @@ import re
 from companion import i18n
 from companion import screens
 from companion.settings.form import _note_error
-from companion.settings.notifications import (
-    ERROR_NOTIFICATIONS_URL_TOO_LONG, NOTIFICATIONS_BATTERY_CHECKBOX_VALUE,
-    NOTIFICATIONS_SILENT_CHECKBOX_VALUE, NOTIFICATIONS_URL_MAX_LEN)
 from server import device_config
 
 
@@ -132,24 +129,6 @@ def resolve_calendar_signal(calendar_signal, errors):
     """
     if calendar_signal == CALENDAR_URL_SIGNAL_INVALID:
         _note_error(errors, "calendar_url", ERROR_CALENDAR_URL_INVALID)
-        return FAILED
-    return {}
-
-
-def resolve_notifications_url_length(form, in_scope, errors):
-    """Notifications group, step 1: a shape bound against an absurd
-    paste, checked only when the field is actually in scope. The
-    group's remaining fields (battery/silent/url resolution) are
-    checked later, by `resolve_notifications` — the unmodified code
-    checked several other groups' fields in between.
-    """
-    submitted_notifications_topic_url = form.get("notifications_topic_url")
-    if (
-        screens.GROUP_NOTIFICATIONS in in_scope
-        and submitted_notifications_topic_url
-        and len(submitted_notifications_topic_url.strip()) > NOTIFICATIONS_URL_MAX_LEN
-    ):
-        _note_error(errors, "notifications_topic_url", ERROR_NOTIFICATIONS_URL_TOO_LONG)
         return FAILED
     return {}
 
@@ -295,54 +274,3 @@ def resolve_display(form, errors):
         _note_error(errors, "display_enabled", ERROR_UNEXPECTED_SWITCH_VALUE)
         return FAILED
     return {"display_enabled": display_enabled}
-
-
-def resolve_notifications(form, in_scope, errors, state_dir, lang):
-    """Notifications group, step 2: the battery/silent checkboxes and
-    the write-only topic URL's carry-forward resolution, combined (as
-    the unmodified code had them). See `resolve_notifications_url_length`
-    for the group's own earlier shape check.
-
-    Unlike the checkbox groups above, these two checkboxes DO resolve
-    absent -> False: their card is always in scope when rendered (see
-    `screens.GROUP_NOTIFICATIONS not in in_scope` below).
-
-    An empty submitted URL means leave the stored URL unchanged, never
-    clear it — there is no UI affordance to clear a configured topic
-    URL. Read fresh from disk rather than from ctx, so this is correct
-    even with a stale ctx.
-    """
-    submitted_notifications_topic_url = form.get("notifications_topic_url")
-    submitted_notifications_battery = form.get("notifications_battery")
-    submitted_notifications_silent = form.get("notifications_silent")
-    if screens.GROUP_NOTIFICATIONS not in in_scope:
-        return {"notifications": None}
-    if submitted_notifications_battery is None:
-        notifications_battery = False
-    elif submitted_notifications_battery == NOTIFICATIONS_BATTERY_CHECKBOX_VALUE:
-        notifications_battery = True
-    else:
-        _note_error(errors, "notifications_battery", ERROR_UNEXPECTED_SWITCH_VALUE)
-        return FAILED
-    if submitted_notifications_silent is None:
-        notifications_silent = False
-    elif submitted_notifications_silent == NOTIFICATIONS_SILENT_CHECKBOX_VALUE:
-        notifications_silent = True
-    else:
-        _note_error(errors, "notifications_silent", ERROR_UNEXPECTED_SWITCH_VALUE)
-        return FAILED
-    current_notifications_on_disk = device_config.load_device_config(state_dir)["notifications"]
-    stripped_notifications_url = (submitted_notifications_topic_url or "").strip()
-    notifications_topic_url = (
-        stripped_notifications_url if stripped_notifications_url
-        else current_notifications_on_disk.get("topic_url"))
-    notifications = {
-        "topic_url": notifications_topic_url,
-        "battery_low": notifications_battery,
-        "frame_silent": notifications_silent,
-        # Written from the session's resolved language at save time;
-        # there is no language-picking control for this group (the
-        # poll loop has no browser to ask).
-        "lang": lang or device_config.DEFAULT_NOTIFICATIONS["lang"],
-    }
-    return {"notifications": notifications}

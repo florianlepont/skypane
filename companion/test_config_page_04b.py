@@ -123,8 +123,7 @@ def test_the_quick_led_form_is_a_sibling_of_the_settings_form(tmp_path):
         "the posted state must be the OPPOSITE of the stored one, or pressing the switch with "
         "scripts blocked re-asserts the state it is already in")
     assert "<button" not in section, (
-        "the form stays EMPTY - its button lives in the LED card and reaches it across the DOM, "
-        "mirroring notifications_test_section()'s own shape")
+        "the form stays EMPTY - its button lives in the LED card and reaches it across the DOM")
     # And on a real Device render it is a sibling, not a descendant.
     tmp = str(tmp_path)
     device_config.save_device_config(tmp, led_enabled=True)
@@ -257,8 +256,9 @@ def test_title_form_inventory_classifies_every_h2_text_heading_on_both_routes_af
     # RE-DERIVED BY RUNNING: Display's own tuple moves from
     # (8, 4, 3, 1) to (7, 3, 3, 1) - one fewer h2.text-heading instance and one fewer form-A card
     # title, both for the identical reason (the Calendar card's own separate heading is retired).
-    # Device's own tuple is untouched.
-    expected = {"display": (7, 3, 3, 1), "device": (7, 3, 3, 1)}
+    # Device's own tuple drops one h2.text-heading instance and one form-A card title with the
+    # retired Notifications card.
+    expected = {"display": (7, 3, 3, 1), "device": (6, 2, 3, 1)}
     assert counts == expected, (
         "expected {route: (total h2.text-heading, form-A card titles, form-B supersection "
         "intros, unclassified)} == %r, measured %r by running" % (expected, counts))
@@ -266,8 +266,7 @@ def test_title_form_inventory_classifies_every_h2_text_heading_on_both_routes_af
     card_title_headings = {
         "display": (config_page.ASPECT_HEADING, "Runway", config_page.QUIET_HOURS_SECTION_HEADING),
         "device": (
-            config_page.LED_SECTION_HEADING, config_page.WAKE_INTERVAL_SECTION_HEADING,
-            config_page.NOTIFICATIONS_SECTION_HEADING),
+            config_page.LED_SECTION_HEADING, config_page.WAKE_INTERVAL_SECTION_HEADING),
     }
     for route, rendered in (("display", display), ("device", device)):
         for heading in card_title_headings[route]:
@@ -304,10 +303,10 @@ def test_title_form_inventory_classifies_every_h2_text_heading_on_both_routes_af
         "had collapsed into the same word" % (overlap,))
 
 
-def test_device_scope_wraps_all_four_settings_cards_with_the_nested_modifier():
+def test_device_scope_wraps_all_three_settings_cards_with_the_nested_modifier():
     """the cheap structural guard, NOT the real proof (that is test_browser_ux.py's cross-page
-    getComputedStyle comparator): the Device scope's rendered output wraps all four of its
-    settings cards with the --nested modifier (three theme-status--nested, one
+    getComputedStyle comparator): the Device scope's rendered output wraps all three of its
+    settings cards with the --nested modifier (two theme-status--nested, one
     page-section--nested) and carries zero unmodified settings-card wrappers of either base
     class"""
     ctx = {
@@ -316,9 +315,9 @@ def test_device_scope_wraps_all_four_settings_cards_with_the_nested_modifier():
     }
     device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
     nested_theme_status = device.count('class="theme-status theme-status--nested"')
-    assert nested_theme_status == 3, (
-        "expected exactly 3 theme-status--nested settings-card wrappers on Device (LED, wake "
-        "interval, notifications), got %d" % nested_theme_status)
+    assert nested_theme_status == 2, (
+        "expected exactly 2 theme-status--nested settings-card wrappers on Device (LED, wake "
+        "interval), got %d" % nested_theme_status)
     nested_page_section = device.count('class="page-section page-section--nested"')
     assert nested_page_section == 1, (
         "expected exactly 1 page-section--nested settings-card wrapper on Device (Poll), got %d"

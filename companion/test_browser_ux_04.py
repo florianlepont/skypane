@@ -806,9 +806,9 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
     Device) in one session, addresses every settings-card title by structural position
     rather than by class name, reads its getComputedStyle font-size/font-weight/font-family,
     and asserts the combined set across both pages has cardinality 1. Fails naming the empty
-    side if either page contributes zero titles; every Device title must be one of the four
+    side if either page contributes zero titles; every Device title must be one of the three
     named cards and the Poll card's own title specifically must be among them, proving the
-    probe's reach extends to the one .page-section card, not just the three .theme-status
+    probe's reach extends to the one .page-section card, not just the two .theme-status
     ones; the failure message names the offending page, the offending title's text and both
     triples. Supersection intro headings (.section-intro > h2) are excluded structurally,
     deliberately: a different, generically-worded tier, not an inconsistency this check
@@ -844,11 +844,10 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
                     "expected at least one settings-card title on %s, got NONE - a "
                     "comparator with an empty side would pass vacuously" % route)
 
-        # Device must contribute exactly the four NAMED cards.
+        # Device must contribute exactly the three NAMED cards.
         allowed_device_texts = {
             config_page.LED_SECTION_HEADING,
             config_page.WAKE_INTERVAL_SECTION_HEADING,
-            config_page.NOTIFICATIONS_SECTION_HEADING,
             config_page.POLL_SECTION_HEADING}
         device_texts = {e["text"] for e in by_page["/device"]}
         unexpected = device_texts - allowed_device_texts

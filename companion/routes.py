@@ -58,7 +58,6 @@ RULES_DELETE_ROUTE_PREFIX = config_page.RULES_DELETE_ROUTE_PREFIX
 RULES_DELETE_ROUTE_SUFFIX = config_page.RULES_DELETE_ROUTE_SUFFIX
 CALENDAR_DISCONNECT_ROUTE = config_page.CALENDAR_DISCONNECT_ROUTE
 CALENDAR_CONNECT_ROUTE = config_page.CALENDAR_CONNECT_ROUTE
-NOTIFICATIONS_TEST_ROUTE = config_page.NOTIFICATIONS_TEST_ROUTE
 UPDATE_INSTALL_ROUTE = update_page.INSTALL_ROUTE
 UPDATE_CANCEL_ROUTE = update_page.CANCEL_ROUTE
 
@@ -175,9 +174,6 @@ _POST_ROUTES = (
     Route(
         "POST", Exact(CALENDAR_CONNECT_ROUTE),
         lambda h, m: h._handle_calendar_connect_post(), True),
-    Route(
-        "POST", Exact(NOTIFICATIONS_TEST_ROUTE),
-        lambda h, m: h._handle_notifications_test_post(), True),
     Route(
         "POST", Exact(UPDATE_INSTALL_ROUTE),
         lambda h, m: h._handle_update_install_post(), True),

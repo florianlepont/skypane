@@ -589,7 +589,7 @@ def _persist_without_js(make_context, base_url, route, field, value, read_back,
     The verdict is `read_back()`, a caller-supplied reader of the real state directory, compared
     as text — the reloaded DOM is corroboration only, since a rejected submission can echo back
     into the field. `shows_back=False` opts out of that DOM corroboration for write-only fields
-    like `notifications_topic_url`. `restore=True` (default) puts the setting back via the same
+    that store correctly while rendering empty forever. `restore=True` (default) puts the setting back via the same
     sequence as its last act; `cookies` passes through to `_no_js_page()` for language-cookie
     coverage. Runs entirely inside `_no_js_page()`, keeping this file's one scripts-blocked call
     site to one.

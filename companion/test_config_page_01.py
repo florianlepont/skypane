@@ -27,10 +27,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # ======================================================================
 
 
-def test_render_emits_no_fieldset_or_legend_five_groups_three_runway_cards_and_save_button():
+def test_render_emits_no_fieldset_or_legend_four_groups_three_runway_cards_and_save_button():
     """render() emits no <fieldset>/<legend> and no .theme-chip-grid on this legacy SCOPE_ALL
-    render, five theme-status-wrapped groups (Runway/Diagnostic LED/Quiet hours/Wake
-    interval/Notifications), three runway-card labels, and a Save settings submit button"""
+    render, four theme-status-wrapped groups (Runway/Diagnostic LED/Quiet hours/Wake
+    interval), three runway-card labels, and a Save settings submit button"""
     ctx = {
         "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
         "poll_cooldown_remaining": 0,
@@ -38,7 +38,7 @@ def test_render_emits_no_fieldset_or_legend_five_groups_three_runway_cards_and_s
     rendered = config_page.render(ctx)
     assert "<fieldset" not in rendered
     assert "<legend" not in rendered
-    assert rendered.count('class="theme-status"') == 5
+    assert rendered.count('class="theme-status"') == 4
     assert "theme-chip-grid" not in rendered
     assert rendered.count('<label class="runway-card') == 3
     assert "Save settings" in rendered

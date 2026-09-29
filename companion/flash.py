@@ -62,8 +62,6 @@ FLASH_KEY_CALENDAR_DISCONNECTED = config_page.FLASH_CALENDAR_DISCONNECTED
 FLASH_KEY_CALENDAR_SYNC_DEFERRED = config_page.FLASH_CALENDAR_SYNC_DEFERRED
 FLASH_KEY_CALENDAR_CONNECT_OK = config_page.FLASH_CALENDAR_CONNECT_OK
 FLASH_KEY_CALENDAR_CONNECT_INVALID = config_page.FLASH_CALENDAR_CONNECT_INVALID
-FLASH_KEY_NOTIFICATIONS_TEST_OK = config_page.FLASH_NOTIFICATIONS_TEST_OK
-FLASH_KEY_NOTIFICATIONS_TEST_FAILED = config_page.FLASH_NOTIFICATIONS_TEST_FAILED
 FLASH_KEY_UPDATE_SCHEDULE_FAILED = update_page.FLASH_UPDATE_SCHEDULE_FAILED
 FLASH_KEY_UPDATE_CANCEL_FAILED = update_page.FLASH_UPDATE_CANCEL_FAILED
 FLASH_KEY_UPDATE_BUSY = update_page.FLASH_UPDATE_BUSY
@@ -83,11 +81,10 @@ FLASH_KEY_QUICK_FAILED = "quick_failed"
 FLASH_KEY_LED_ON = "led_on"
 FLASH_KEY_LED_OFF = "led_off"
 
-# Every value below is a Message: the id owned by companion/i18n_fr/
-# common.py, except the two notifications outcomes at the end, owned by
-# companion/i18n_fr/notifications.py (untouched by this plan; migrated
-# later — the Message-with-no-BY_ID-entry legacy fallback keeps both
-# resolving meanwhile).
+# Every value below is a Message. Its id is owned by companion/i18n_fr/
+# common.py, except the poll-cooldown copy (owned by
+# companion/i18n_fr/display.py) and the three firmware-update outcomes
+# at the end (owned by companion/i18n_fr/update.py).
 FLASH_MESSAGES = {
     FLASH_KEY_DISPLAY_ON: i18n.msg(
         "common.screen_switched_on_the_frame_will_wake_up_and",
@@ -264,14 +261,6 @@ FLASH_MESSAGES = {
     FLASH_KEY_CALENDAR_CONNECT_INVALID: i18n.msg(
         "common.paste_a_valid_calendar_feed_url_to_connect_one",
         "Paste a valid calendar feed URL to connect one."),
-    # Never echoes the stored URL or any part of server.notify's own
-    # transport-exception text. Owned by notifications.py's catalogue
-    # (untouched by this plan).
-    FLASH_KEY_NOTIFICATIONS_TEST_OK: i18n.msg(
-        "notifications.test_notification_sent", "Test notification sent."),
-    FLASH_KEY_NOTIFICATIONS_TEST_FAILED: i18n.msg(
-        "notifications.couldn_t_reach_that_topic_check_the_url",
-        "Couldn't reach that topic — check the URL."),
     # Never echoes the submitted version or any exception text -- the
     # registry's own return code (unknown/below_floor/same_as_running)
     # never leaks into operator-facing copy either. "busy" gets its own
@@ -329,8 +318,6 @@ FLASH_ROLES = {
     FLASH_KEY_CALENDAR_SYNC_DEFERRED: "status",
     FLASH_KEY_CALENDAR_CONNECT_OK: "status",
     FLASH_KEY_CALENDAR_CONNECT_INVALID: "alert",
-    FLASH_KEY_NOTIFICATIONS_TEST_OK: "status",
-    FLASH_KEY_NOTIFICATIONS_TEST_FAILED: "alert",
     FLASH_KEY_UPDATE_SCHEDULE_FAILED: "alert",
     FLASH_KEY_UPDATE_CANCEL_FAILED: "alert",
     FLASH_KEY_UPDATE_BUSY: "status",
