@@ -1,0 +1,6 @@
+I (36352) epd13in3e: refresh complete
+I (36452) skypane: blit ok bytes=960000 sha256_ok=1
+I (36462) skypane: refreshed to sha256:0214e05a926881d1...
+I (36462) skypane: poll ok sleep_s=60 hash_skip=0
+I (36462) fp_diag: wake timing total_ms=36136 wifi_ms=1127 setup_ms=0 display_ms=150 download_ms=3147 draw_ms=31589
+I (36462) skypane: sleep enter sleep_s=60

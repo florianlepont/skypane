@@ -1,0 +1,149 @@
+I (553) secure_boot_v2_rsa: Signature verified successfully!
+I (553) fp_ota: ota boot outcome=none
+I (563) skypane: wake reason=power-on boot_count=10537
+I (563) fp_boot: reset reason=poweron
+I (563) gpio: GPIO[6]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (573) fp_batt: battery mv=4188 pin_mv=2094
+I (573) pp: pp rom version: e7ae62f
+I (573) net80211: net80211 rom version: e7ae62f
+I (583) wifi:wifi driver task: 3fcbdb08, prio:23, stack:6656, core=0
+I (593) wifi:wifi firmware version: ccaebfa
+I (593) wifi:wifi certification version: v7.0
+I (593) wifi:config NVS flash: enabled
+I (593) wifi:config nano formating: disabled
+I (593) wifi:Init data frame dynamic rx buffer num: 32
+I (593) wifi:Init static rx mgmt buffer num: 5
+I (593) wifi:Init management short buffer num: 32
+I (593) wifi:Init static tx buffer num: 16
+I (593) wifi:Init tx cache buffer num: 32
+I (593) wifi:Init static tx FG buffer num: 2
+I (593) wifi:Init static rx buffer size: 1600
+I (593) wifi:Init static rx buffer num: 10
+I (593) wifi:Init dynamic rx buffer num: 32
+I (593) wifi_init: rx ba win: 6
+I (593) wifi_init: accept mbox: 6
+I (593) wifi_init: tcpip mbox: 32
+I (593) wifi_init: udp mbox: 6
+I (593) wifi_init: tcp mbox: 6
+I (593) wifi_init: tcp tx win: 5760
+I (593) wifi_init: tcp rx win: 5760
+I (593) wifi_init: tcp mss: 1440
+I (593) wifi_init: WiFi IRAM OP enabled
+I (593) wifi_init: WiFi RX IRAM OP enabled
+W (593) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+I (593) phy_init: phy_version 680,a6008b2,Jun  4 2024,16:41:10
+I (633) wifi:mode : sta (94:a9:90:cf:80:08)
+I (633) wifi:enable tsf
+I (643) wifi:new:<6,0>, old:<1,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (653) wifi:state: init -> auth (0xb0)
+I (663) wifi:state: auth -> assoc (0x0)
+I (683) wifi:state: assoc -> run (0x10)
+I (693) wifi:connected with <ssid>, aid = 1, channel 6, BW20, bssid = <bssid>
+I (693) wifi:security: WPA2-PSK, phy: bgn, rssi: -48
+I (703) wifi:pm start, type: 1
+
+I (703) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (703) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (713) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1713) wifi:<ba-add>idx:0 (ifx:0, <bssid>), tid:0, ssn:0, winSize:64
+I (1723) esp_netif_handlers: sta ip: <lan-ip>, mask: <lan-mask>, gw: <lan-gw>
+I (4463) fp_wifi: clock set via SNTP
+I (5723) esp-x509-crt-bundle: Certificate validated
+I (6863) fp_tls: TLS session saved (1167 bytes)
+I (6873) fp_api: http connects=1 first_connect_ms=1909 tls_offered=0 tls_saved_len=1167
+I (6873) wifi:state: run -> init (0x0)
+I (6873) wifi:pm stop, total sleep time: 5441401 us / 6175313 us
+
+I (6873) wifi:<ba-del>idx:0, tid:0
+I (6873) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (6923) wifi:flush txq
+I (6923) wifi:stop sw txq
+I (6923) wifi:lmac stop hw txq
+I (6923) wifi:Deinit lldesc rx mblock:10
+I (8303) gpio: GPIO[10]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (8303) gpio: GPIO[38]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (8303) gpio: GPIO[41]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (8303) gpio: GPIO[43]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (8303) gpio: GPIO[44]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (8303) gpio: GPIO[4]| InputEn: 1| OutputEn: 0| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (39713) epd13in3e: refresh complete
+I (39813) skypane: ota updating screen drawn
+I (39813) pp: pp rom version: e7ae62f
+I (39813) net80211: net80211 rom version: e7ae62f
+I (39823) wifi:wifi driver task: 3fcd7e80, prio:23, stack:6656, core=0
+I (39833) wifi:wifi firmware version: ccaebfa
+I (39833) wifi:wifi certification version: v7.0
+I (39833) wifi:config NVS flash: enabled
+I (39833) wifi:config nano formating: disabled
+I (39833) wifi:Init data frame dynamic rx buffer num: 32
+I (39833) wifi:Init static rx mgmt buffer num: 5
+I (39833) wifi:Init management short buffer num: 32
+I (39833) wifi:Init static tx buffer num: 16
+I (39833) wifi:Init tx cache buffer num: 32
+I (39833) wifi:Init static tx FG buffer num: 2
+I (39833) wifi:Init static rx buffer size: 1600
+I (39833) wifi:Init static rx buffer num: 10
+I (39833) wifi:Init dynamic rx buffer num: 32
+I (39833) wifi_init: rx ba win: 6
+I (39833) wifi_init: accept mbox: 6
+I (39833) wifi_init: tcpip mbox: 32
+I (39833) wifi_init: udp mbox: 6
+I (39833) wifi_init: tcp mbox: 6
+I (39833) wifi_init: tcp tx win: 5760
+I (39833) wifi_init: tcp rx win: 5760
+I (39833) wifi_init: tcp mss: 1440
+I (39833) wifi_init: WiFi IRAM OP enabled
+I (39833) wifi_init: WiFi RX IRAM OP enabled
+W (39833) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+I (39843) wifi:mode : sta (94:a9:90:cf:80:08)
+I (39843) wifi:enable tsf
+I (39853) wifi:new:<6,0>, old:<1,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (39853) wifi:state: init -> auth (0xb0)
+I (39873) wifi:state: auth -> assoc (0x0)
+I (39893) wifi:state: assoc -> run (0x10)
+I (39903) wifi:connected with <ssid>, aid = 1, channel 6, BW20, bssid = <bssid>
+I (39903) wifi:security: WPA2-PSK, phy: bgn, rssi: -42
+I (39903) wifi:pm start, type: 1
+
+I (39903) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (39903) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (39913) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (40923) wifi:<ba-add>idx:0 (ifx:0, <bssid>), tid:0, ssn:0, winSize:64
+I (40933) esp_netif_handlers: sta ip: <lan-ip>, mask: <lan-mask>, gw: <lan-gw>
+I (42193) esp-x509-crt-bundle: Certificate validated
+I (42913) esp_https_ota: Starting OTA...
+I (42913) esp_https_ota: Writing to partition subtype 17 at offset 0x4c0000
+I (42913) fp_ota: ota step=begin result=ok
+I (42923) fp_ota: ota step=desc result=ok
+I (63853) fp_ota: ota step=download result=ok
+I (64023) fp_ota: ota step=hash result=ok
+I (64023) esp_image: segment 0: paddr=004c0020 vaddr=3c0c0020 size=39968h (235880) map
+I (64053) esp_image: segment 1: paddr=004f9990 vaddr=3fc9dc00 size=05344h ( 21316) 
+I (64063) esp_image: segment 2: paddr=004fecdc vaddr=40374000 size=0133ch (  4924) 
+I (64063) esp_image: segment 3: paddr=00500020 vaddr=42000020 size=b1f30h (728880) map
+I (64163) esp_image: segment 4: paddr=005b1f58 vaddr=4037533c size=18848h (100424) 
+I (64173) esp_image: segment 5: paddr=005ca7a8 vaddr=50000000 size=00c8ch (  3212) 
+I (64173) esp_image: segment 6: paddr=005cb43c vaddr=600fe000 size=00100h (   256) 
+I (64173) esp_image: segment 7: paddr=005cb544 vaddr=600fe100 size=00008h (     8) 
+I (64173) esp_image: segment 8: paddr=005cb554 vaddr=00000000 size=04a7ch ( 19068) 
+I (64183) esp_image: Verifying image signature...
+I (64183) secure_boot_v2: Take trusted digest key(s) from running app
+I (64183) secure_boot_v2: #0 app key digest == #0 trusted key digest
+I (64183) secure_boot_v2: Verifying with RSA-PSS...
+I (64233) secure_boot_v2_rsa: Signature verified successfully!
+I (64243) esp_image: segment 0: paddr=004c0020 vaddr=3c0c0020 size=39968h (235880) map
+I (64273) esp_image: segment 1: paddr=004f9990 vaddr=3fc9dc00 size=05344h ( 21316) 
+I (64283) esp_image: segment 2: paddr=004fecdc vaddr=40374000 size=0133ch (  4924) 
+I (64283) esp_image: segment 3: paddr=00500020 vaddr=42000020 size=b1f30h (728880) map
+I (64373) esp_image: segment 4: paddr=005b1f58 vaddr=4037533c size=18848h (100424) 
+I (64393) esp_image: segment 5: paddr=005ca7a8 vaddr=50000000 size=00c8ch (  3212) 
+I (64393) esp_image: segment 6: paddr=005cb43c vaddr=600fe000 size=00100h (   256) 
+I (64393) esp_image: segment 7: paddr=005cb544 vaddr=600fe100 size=00008h (     8) 
+I (64393) esp_image: segment 8: paddr=005cb554 vaddr=00000000 size=04a7ch ( 19068) 
+I (64393) esp_image: Verifying image signature...
+I (64393) secure_boot_v2: Take trusted digest key(s) from running app
+I (64403) secure_boot_v2: #0 app key digest == #0 trusted key digest
+I (64403) secure_boot_v2: Verifying with RSA-PSS...
+I (64453) secure_boot_v2_rsa: Signature verified successfully!
+I (64513) fp_ota: ota step=finish result=ok
+I (64513) skypane: ota switched version=fw-v1.0.1-crash restarting

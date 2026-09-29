@@ -1,0 +1,19 @@
+H42-01: fw-v1.0.0 released through the gated pipeline (session of 2026-09-29)
+
+Recorded by the orchestrator from GitHub and from the VPS; not a device capture.
+
+tag                  fw-v1.0.0 on c9acfb51
+release run          36575555701  (guard job, then the gated signing job): success
+assets (5)           skypane-fw-v1.0.0.bin, release.json, bootloader-fw-v1.0.0.bin,
+                     partition-table-fw-v1.0.0.bin, ota_data_initial-fw-v1.0.0.bin
+image size           1118208 bytes
+image sha256         e9f25b7f20bba3ff... (prefix only; equals the sha256 in release.json)
+signature            espsecure.py verify_signature --version 2 with
+                     firmware/signing/skypane-signing-pubkey.pem:
+                     "Signature block 0 verification successful"
+deploy run           36575975888 (workflow_dispatch of ci.yml, production gate approved);
+                     printed "added fw-v1.0.0" on a same-sha redeploy (the firmware
+                     import fix for already-deployed commits, seen live)
+store                firmware_cli list shows fw-v1.0.0
+companion            fw-v1.0.0 listed as available with generated notes
+                     (seen by the developer)

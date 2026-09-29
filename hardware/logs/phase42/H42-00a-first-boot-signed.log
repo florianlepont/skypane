@@ -1,0 +1,30 @@
+I (3493) wifi:state: run -> init (0xf00)
+I (3503) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (3513) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (3513) wifi:state: init -> auth (0xb0)
+I (3523) wifi:state: auth -> assoc (0x0)
+I (3533) wifi:state: assoc -> run (0x10)
+I (6543) wifi:state: run -> init (0xf00)
+I (6553) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (8973) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (8973) wifi:state: init -> auth (0xb0)
+I (8993) wifi:state: auth -> assoc (0x0)
+I (9003) wifi:state: assoc -> run (0x10)
+I (12013) wifi:state: run -> init (0xf00)
+I (12023) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+W (12023) fp_wifi: join failed/timeout
+W (12023) skypane: poll fail step=wifi backoff_n=1 sleep_s=600
+I (12023) fp_diag: wake timing total_ms=11699 wifi_ms=11661 setup_ms=0 display_ms=0 download_ms=0 draw_ms=0
+I (12023) wifi:flush txq
+I (12023) wifi:stop sw txq
+I (12023) wifi:lmac stop hw txq
+I (12033) wifi:Deinit lldesc rx mblock:10
+I (13403) gpio: GPIO[10]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (13403) gpio: GPIO[38]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (13403) gpio: GPIO[41]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (13403) gpio: GPIO[43]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (13403) gpio: GPIO[44]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (13403) gpio: GPIO[4]| InputEn: 1| OutputEn: 0| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (44843) epd13in3e: refresh complete
+I (44953) fp_diag: fault screen drawn step=wifi backoff_n=2
+I (44953) skypane: sleep enter sleep_s=600

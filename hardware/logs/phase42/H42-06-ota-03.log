@@ -1,0 +1,57 @@
+I (1502) esp_netif_handlers: sta ip: <lan-ip>, mask: <lan-mask>, gw: <lan-gw>
+I (1512) fp_tls: offering a saved TLS session (1167 bytes)
+I (1672) fp_api: http connects=1 first_connect_mI (1672) wifi:state: run -> init (0x0)
+ / 1200726 us
+I (1672) wifi:<ba-del>idx:0, tid:0
+>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (1712) wifi:stop sw txq
+I (1712) wifi:Deinit lldesc rx mblock:10
+I (3092) gpio: GPIO[10]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+rain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (3092) gpio: GPIO[41]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+in: 0| Pullup: 0| Pulldown: 0| InI (3092) gpio: GPIO[44]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (3092) gpio: GPIO[4]| InputEn: 1| OutputEn: 0| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (34522) epd13in3e: refresh complete
+I (34622) pp: pp rom version: e7ae62f
+rom version: e7ae62f
+er task: 3fcd87e8, prio:23, stack:6656, core=0
+re version: ccaebfa
+I (34642) wifi:wifi certification version: v7.0
+I (34642) wifi:config nano formating: disabled
+
+I (34642) wifi:Init static tx buffer num: 16
+I (34642) wifi:Init static tx FG buffer num: 2
+I (34642) wifi:Init static rx buffer size: 1600
+I (34642) wifi:Init static rx buffer num: 10
+buffer num: 32
+I (34642) wifi_init: accept mbox: 6
+wifi_init: tcpip mbox: 32
+I (34642) wifi_init: tcp mbox: 6
+I (34642) wifi_init: tcp rx win: 5760
+I (34642) wifi_init: WiFi IRAM OP enabled
+m
+ges from OPI (34652) wifi:mode : sta (94:a9:90:cf:80:08)
+I (34682) wifi:state: auth -> assoc (0x0)
+I (34712) wifi:connected with <ssid>, aid = <bssid>
+I (34712) wifi:pm start, type: 1
+
+I (34712) wifi:set rx beacon pti, rx_bcn_pti: 0, bc000
+I (34782) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (35752) esp_netif_handlers: sta ip: <lan-ip>, mask: <lan-mask>, gw: <lan-gw>
+I (37592) esp_https_ota: Starting OTA...
+offset 0x4c0000
+I (58742) fp_ota: ota step=download result=ok
+I (58912) esp_image: segment 0: paddr=004c0020 vaddr=3c0c020 size=39928h (235816) map
+I (58942) esp_image: segment 1: paddr=004f9950 vaddr=3fc9dc00 size=05344h ( 21316) 
+I (58952) esp_image: segment 2: paddr=004fec9c vaddr=40374000 size=0137ch (  4988) 
+I (58952) esp_image: segment 3: paddr=00500020 vaddr=42000020 size=b1edch (728796) map
+I (59062) esp_image: segment 5: paddr=005ca714 vaddr=50000000 size=00cI (59062) esp_ima  256) 
+I (59062) esp_image: segment 7: paddr=005cb4b0 vaddr=600fe100 size=00008h (     8) 
+ paddr=005cb4c0 vaddr=00000000 size=04b10h ( 19216) ..
+: Take trusE (59072) esp_image: Secure boot signature veI (59072) esp_image: Calculating simple W (59162) esp_image: image valid, signature baW (59162) fp_ota: ota step=finish result=faFAILED
+ff_n=1 sleep_s=600
+ wifi_ms=1143 setup_ms=0 display_ms=164 doI (59172) wifi:pm stop, total s
+I (59172) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (59222) wifi:stop sw txq
+I (59222) wifi:Deinit lldesc rx mblock:10
+I (59232) skypane: sleep enter sleep_s=600

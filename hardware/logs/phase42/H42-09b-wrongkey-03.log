@@ -1,0 +1,108 @@
+I (473) wifi:state: auth -> assoc (0x0)
+I (483) wifi:state: assoc -> run (0x10)
+I (493) wifi:connected with <ssid>, aid = 3, channel 6, BW20, bssid = <bssid>
+I (503) wifi:security: WPA2-PSK, phy: bgn, rssi: -68
+I (503) wifi:pm start, type: 1
+
+I (503) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (503) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (573) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1503) wifi:<ba-add>idx:0 (ifx:0, <bssid>), tid:0, ssn:0, winSize:64
+I (1513) esp_netif_handlers: sta ip: <lan-ip>, mask: <lan-mask>, gw: <lan-gw>
+I (3343) fp_wifi: clock set via SNTP
+I (4603) esp-x509-crt-bundle: Certificate validated
+I (5213) fp_tls: TLS session saved (1167 bytes)
+I (5223) fp_api: http connects=1 first_connect_ms=1805 tls_offered=0 tls_saved_len=1167
+I (5223) wifi:state: run -> init (0x0)
+I (5223) wifi:pm stop, total sleep time: 3986291 us / 4724796 us
+
+I (5223) wifi:<ba-del>idx:0, tid:0
+I (5223) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (5283) wifi:flush txq
+I (5283) wifi:stop sw txq
+I (5283) wifi:lmac stop hw txq
+I (5283) wifi:Deinit lldesc rx mblock:10
+I (6663) gpio: GPIO[10]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (6663) gpio: GPIO[38]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (6663) gpio: GPIO[41]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (6663) gpio: GPIO[43]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (6663) gpio: GPIO[44]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (6663) gpio: GPIO[4]| InputEn: 1| OutputEn: 0| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (38083) epd13in3e: refresh complete
+I (38183) skypane: ota updating screen drawn
+I (38183) pp: pp rom version: e7ae62f
+I (38183) net80211: net80211 rom version: e7ae62f
+I (38193) wifi:wifi driver task: 3fcd87d8, prio:23, stack:6656, core=0
+I (38203) wifi:wifi firmware version: ccaebfa
+I (38203) wifi:wifi certification version: v7.0
+I (38203) wifi:config NVS flash: enabled
+I (38203) wifi:config nano formating: disabled
+I (38203) wifi:Init data frame dynamic rx buffer num: 32
+I (38203) wifi:Init static rx mgmt buffer num: 5
+I (38203) wifi:Init management short buffer num: 32
+I (38203) wifi:Init static tx buffer num: 16
+I (38203) wifi:Init tx cache buffer num: 32
+I (38203) wifi:Init static tx FG buffer num: 2
+I (38203) wifi:Init static rx buffer size: 1600
+I (38203) wifi:Init static rx buffer num: 10
+I (38203) wifi:Init dynamic rx buffer num: 32
+I (38203) wifi_init: rx ba win: 6
+I (38203) wifi_init: accept mbox: 6
+I (38203) wifi_init: tcpip mbox: 32
+I (38203) wifi_init: udp mbox: 6
+I (38203) wifi_init: tcp mbox: 6
+I (38203) wifi_init: tcp tx win: 5760
+I (38203) wifi_init: tcp rx win: 5760
+I (38203) wifi_init: tcp mss: 1440
+I (38203) wifi_init: WiFi IRAM OP enabled
+I (38203) wifi_init: WiFi RX IRAM OP enabled
+W (38203) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+I (38213) wifi:mode : sta (94:a9:90:cf:80:08)
+I (38213) wifi:enable tsf
+I (38223) wifi:new:<6,0>, old:<1,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (38223) wifi:state: init -> auth (0xb0)
+I (38243) wifi:state: auth -> assoc (0x0)
+I (38263) wifi:state: assoc -> run (0x10)
+I (38283) wifi:connected with <ssid>, aid = 1, channel 6, BW20, bssid = <bssid>
+I (38283) wifi:security: WPA2-PSK, phy: bgn, rssi: -44
+I (38283) wifi:pm start, type: 1
+
+I (38283) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (38283) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (38393) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (39293) wifi:<ba-add>idx:0 (ifx:0, <bssid>), tid:0, ssn:0, winSize:64
+I (39303) esp_netif_handlers: sta ip: <lan-ip>, mask: <lan-mask>, gw: <lan-gw>
+I (40563) esp-x509-crt-bundle: Certificate validated
+I (41393) esp_https_ota: Starting OTA...
+I (41393) esp_https_ota: Writing to partition subtype 17 at offset 0x4c0000
+I (41393) fp_ota: ota step=begin result=ok
+I (41403) fp_ota: ota step=desc result=ok
+I (62423) fp_ota: ota step=download result=ok
+I (62603) fp_ota: ota step=hash result=ok
+I (62603) esp_image: segment 0: paddr=004c0020 vaddr=3c0c0020 size=39928h (235816) map
+I (62633) esp_image: segment 1: paddr=004f9950 vaddr=3fc9dc00 size=05344h ( 21316) 
+I (62633) esp_image: segment 2: paddr=004fec9c vaddr=40374000 size=0137ch (  4988) 
+I (62633) esp_image: segment 3: paddr=00500020 vaddr=42000020 size=b1edch (728796) map
+I (62733) esp_image: segment 4: paddr=005b1f04 vaddr=4037537c size=18808h (100360) 
+I (62753) esp_image: segment 5: paddr=005ca714 vaddr=50000000 size=00c8ch (  3212) 
+I (62753) esp_image: segment 6: paddr=005cb3a8 vaddr=600fe000 size=00100h (   256) 
+I (62753) esp_image: segment 7: paddr=005cb4b0 vaddr=600fe100 size=00008h (     8) 
+I (62753) esp_image: segment 8: paddr=005cb4c0 vaddr=00000000 size=04b10h ( 19216) 
+I (62753) esp_image: Verifying image signature...
+I (62753) secure_boot_v2: Take trusted digest key(s) from running app
+E (62763) esp_image: Secure boot signature verification failed
+I (62763) esp_image: Calculating simple hash to check for corruption...
+W (62843) esp_image: image valid, signature bad
+W (62853) fp_ota: ota step=finish result=fail err=ESP_ERR_OTA_VALIDATE_FAILED
+W (62923) skypane: poll fail step=ota backoff_n=1 sleep_s=600
+I (62923) fp_diag: wake timing total_ms=62597 wifi_ms=2981 setup_ms=0 display_ms=1876 download_ms=0 draw_ms=0
+I (62923) wifi:state: run -> init (0x0)
+I (62923) wifi:pm stop, total sleep time: 11345693 us / 24642351 us
+
+I (62923) wifi:<ba-del>idx:0, tid:0
+I (62923) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (62963) wifi:flush txq
+I (62963) wifi:stop sw txq
+I (62963) wifi:lmac stop hw txq
+I (62963) wifi:Deinit lldesc rx mblock:10
+I (62973) skypane: sleep enter sleep_s=600

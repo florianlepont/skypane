@@ -1,0 +1,25 @@
+I (2623) fp_wifi: clock set via SNTP
+I (3873) esp-x509-crt-bundle: Certificate validated
+I (4473) fp_tls: TLS session saved (1167 bytes)
+I (7553) fp_api: http connects=1 first_connect_ms=1810 tls_offered=0 tls_saved_len=1167
+I (7563) wifi:state: run -> init (0x0)
+I (7573) wifi:pm stop, total sleep time: 3246480 us / 6880613 us
+
+I (7573) wifi:<ba-del>idx:0, tid:0
+I (7573) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (7603) wifi:flush txq
+I (7603) wifi:stop sw txq
+I (7603) wifi:lmac stop hw txq
+I (7603) wifi:Deinit lldesc rx mblock:10
+I (7613) gpio: GPIO[10]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (7613) gpio: GPIO[38]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (7613) gpio: GPIO[41]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (7613) gpio: GPIO[43]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (7613) gpio: GPIO[44]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (7613) gpio: GPIO[4]| InputEn: 1| OutputEn: 0| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (39093) epd13in3e: refresh complete
+I (39193) skypane: blit ok bytes=960000 sha256_ok=1
+I (39203) skypane: refreshed to sha256:20a84b49fbf60e9d...
+I (39203) skypane: poll ok sleep_s=60 hash_skip=0
+I (39203) fp_diag: wake timing total_ms=38876 wifi_ms=2261 setup_ms=0 display_ms=1851 download_ms=3081 draw_ms=31579
+I (39203) skypane: sleep enter sleep_s=60

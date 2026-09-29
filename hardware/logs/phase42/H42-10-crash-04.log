@@ -1,0 +1,53 @@
+I (493) esp_image: Verifying image signature...
+I (493) secure_boot_v2: Take trusted digest key(s) from running app
+I (493) secure_boot_v2: #0 app key digest == #0 trusted key digest
+I (503) secure_boot_v2: Verifying with RSA-PSS...
+I (553) secure_boot_v2_rsa: Signature verified successfully!
+I (553) fp_ota: ota boot outcome=none
+I (563) skypane: wake reason=power-on boot_count=10544
+I (563) fp_boot: reset reason=poweron
+I (563) gpio: GPIO[6]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (573) fp_batt: battery mv=4184 pin_mv=2092
+I (573) pp: pp rom version: e7ae62f
+I (573) net80211: net80211 rom version: e7ae62f
+I (583) wifi:wifi driver task: 3fcbdb08, prio:23, stack:6656, core=0
+I (593) wifi:wifi firmware version: ccaebfa
+I (593) wifi:wifi certification version: v7.0
+I (593) wifi:config NVS flash: enabled
+I (593) wifi:config nano formating: disabled
+I (593) wifi:Init data frame dynamic rx buffer num: 32
+I (593) wifi:Init static rx mgmt buffer num: 5
+I (593) wifi:Init management short buffer num: 32
+I (593) wifi:Init static tx buffer num: 16
+I (593) wifi:Init tx cache buffer num: 32
+I (593) wifi:Init static tx FG buffer num: 2
+I (593) wifi:Init static rx buffer size: 1600
+I (593) wifi:Init static rx buffer num: 10
+I (593) wifi:Init dynamic rx buffer num: 32
+I (593) wifi_init: rx ba win: 6
+I (593) wifi_init: accept mbox: 6
+I (593) wifi_init: tcpip mbox: 32
+I (593) wifi_init: udp mbox: 6
+I (593) wifi_init: tcp mbox: 6
+I (593) wifi_init: tcp tx win: 5760
+I (593) wifi_init: tcp rx win: 5760
+I (593) wifi_init: tcp mss: 1440
+I (593) wifi_init: WiFi IRAM OP enabled
+I (593) wifi_init: WiFi RX IRAM OP enabled
+W (593) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+I (593) phy_init: phy_version 680,a6008b2,Jun  4 2024,16:41:10
+I (633) wifi:mode : sta (94:a9:90:cf:80:08)
+I (633) wifi:enable tsf
+I (643) wifi:new:<6,0>, old:<1,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (653) wifi:state: init -> auth (0xb0)
+I (853) wifi:state: auth -> assoc (0x0)
+I (863) wifi:state: assoc -> run (0x10)
+I (873) wifi:connected with <ssid>, aid = 3, channel 6, BW20, bssid = <bssid>
+I (873) wifi:security: WPA2-PSK, phy: bgn, rssi: -63
+I (883) wifi:pm start, type: 1
+
+I (883) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (883) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (933) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1893) wifi:<ba-add>idx:0 (ifx:0, <bssid>), tid:0, ssn:0, winSize:64
+I (1903) esp_netif_handlers: sta ip: <lan-ip>, mask: <lan-mask>, gw: <lan-gw>

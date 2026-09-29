@@ -1,0 +1,94 @@
+I (1482) wifi:<ba-add>idx:0 (ifx:0, <bssid>), tid:0, ssn:0, winSize:64
+I (1492) esp_netif_handlers: sta ip: <lan-ip>, mask: <lan-mask>, gw: <lan-gw>
+I (1502) fp_tls: offering a saved TLS session (1167 bytes)
+I (1642) fp_tls: TLS session saved (1167 bytes)
+I (1642) fp_api: http connects=1 first_connect_ms=57 tls_offered=1 tls_saved_len=1167
+I (1642) wifi:state: run -> init (0x0)
+I (1642) wifi:pm stop, total sleep time: 755324 us / 1174283 us
+
+I (1652) wifi:<ba-del>idx:0, tid:0
+I (1652) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (1682) wifi:flush txq
+I (1682) wifi:stop sw txq
+I (1682) wifi:lmac stop hw txq
+I (1682) wifi:Deinit lldesc rx mblock:10
+I (3062) gpio: GPIO[10]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (3062) gpio: GPIO[38]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (3062) gpio: GPIO[41]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (3062) gpio: GPIO[43]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (3062) gpio: GPIO[44]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (3062) gpio: GPIO[4]| InputEn: 1| OutputEn: 0| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (34502) epd13in3e: refresh complete
+I (34602) skypane: ota updating screen drawn
+I (34612) pp: pp rom version: e7ae62f
+I (34612) net80211: net80211 rom version: e7ae62f
+I (34622) wifi:wifi driver task: 3fcd87e8, prio:23, stack:6656, core=0
+I (34632) wifi:wifi firmware version: ccaebfa
+I (34632) wifi:wifi certification version: v7.0
+I (34632) wifi:config NVS flash: enabled
+I (34632) wifi:config nano formating: disabled
+I (34632) wifi:Init data frame dynamic rx buffer num: 32
+I (34632) wifi:Init static rx mgmt buffer num: 5
+I (34632) wifi:Init management short buffer num: 32
+I (34632) wifi:Init static tx buffer num: 16
+I (34632) wifi:Init tx cache buffer num: 32
+I (34632) wifi:Init static tx FG buffer num: 2
+I (34632) wifi:Init static rx buffer size: 1600
+I (34632) wifi:Init static rx buffer num: 10
+I (34632) wifi:Init dynamic rx buffer num: 32
+I (34632) wifi_init: rx ba win: 6
+I (34632) wifi_init: accept mbox: 6
+I (34632) wifi_init: tcpip mbox: 32
+I (34632) wifi_init: udp mbox: 6
+I (34632) wifi_init: tcp mbox: 6
+I (34632) wifi_init: tcp tx win: 5760
+I (34632) wifi_init: tcp rx win: 5760
+I (34632) wifi_init: tcp mss: 1440
+I (34632) wifi_init: WiFi IRAM OP enabled
+I (34632) wifi_init: WiFi RX IRAM OP enabled
+W (34632) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+I (34642) wifi:mode : sta (94:a9:90:cf:80:08)
+I (34642) wifi:enable tsf
+I (34652) wifi:new:<6,0>, old:<1,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (34652) wifi:state: init -> auth (0xb0)
+I (34672) wifi:state: auth -> assoc (0x0)
+I (34682) wifi:state: assoc -> run (0x10)
+I (34702) wifi:connected with <ssid>, aid = 1, channel 6, BW20, bssid = <bssid>
+I (34702) wifi:security: WPA2-PSK, phy: bgn, rssi: -39
+I (34712) wifi:pm start, type: 1
+
+I (34712) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (34712) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (34752) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (35722) wifi:<ba-add>idx:0 (ifx:0, <bssid>), tid:0, ssn:0, winSize:64
+I (35732) esp_netif_handlers: sta ip: <lan-ip>, mask: <lan-mask>, gw: <lan-gw>
+I (37002) esp-x509-crt-bundle: Certificate validated
+I (37762) esp_https_ota: Starting OTA...
+I (37762) esp_https_ota: Writing to partition subtype 17 at offset 0x4c0000
+I (37762) fp_ota: ota step=begin result=ok
+I (37762) fp_ota: ota step=desc result=ok
+I (58682) fp_ota: ota step=download result=ok
+I (58862) fp_ota: ota step=hash result=ok
+I (58862) esp_image: segment 0: paddr=004c0020 vaddr=3c0c0020 size=39928h (235816) map
+I (58892) esp_image: segment 1: paddr=004f9950 vaddr=3fc9dc00 size=05344h ( 21316) 
+I (58892) esp_image: segment 2: paddr=004fec9c vaddr=40374000 size=0137ch (  4988) 
+I (58892) esp_image: segment 3: paddr=00500020 vaddr=42000020 size=b1edch (728796) map
+I (58992) esp_image: segment 4: paddr=005b1f04 vaddr=4037537c size=18808h (100360) 
+I (59002) esp_image: segment 5: paddr=005ca714 vaddr=50000000 size=00c8ch (  3212) 
+I (59002) esp_image: segment 6: paddr=005cb3a8 vaddr=600fe000 size=00100h (   256) 
+I (59012) esp_image: segment 7: paddr=005cb4b0 vaddr=600fe100 size=00008h (     8) 
+I (59012) esp_image: segment 8: paddr=005cb4c0 vaddr=00000000 size=04b10h ( 19216) 
+E (59012) esp_image: Checksum failed. Calculated 0x54 read 0x6f
+W (59012) fp_ota: ota step=finish result=fail err=ESP_ERR_OTA_VALIDATE_FAILED
+W (59022) skypane: poll fail step=ota backoff_n=0 sleep_s=300
+I (59022) fp_diag: wake timing total_ms=58696 wifi_ms=1131 setup_ms=0 display_ms=148 download_ms=0 draw_ms=0
+I (59022) wifi:state: run -> init (0x0)
+I (59022) wifi:pm stop, total sleep time: 10476421 us / 24315889 us
+
+I (59022) wifi:<ba-del>idx:0, tid:0
+I (59022) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (59062) wifi:flush txq
+I (59062) wifi:stop sw txq
+I (59062) wifi:lmac stop hw txq
+I (59062) wifi:Deinit lldesc rx mblock:10
+I (59072) skypane: sleep enter sleep_s=300

@@ -1,0 +1,25 @@
+Server-side evidence for the OTA hardware session of 2026-09-29
+
+Read by the orchestrator from /opt/skypane/state/firmware/registry.json and
+device_report.json on the VPS. All times are UTC. This covers the rows whose
+serial capture is missing or partial (H42-04, H42-06, H42-07, H42-10, H42-11)
+and corroborates the others.
+
+H42-00a  bench fw-v9.9.9-bench: offered 13:24:27, trial 13:26:04, installed 13:27:40
+H42-04   first poll as fw-v1.0.0 at 13:53:24
+H42-06   fw-v1.0.1 (tag on 4be7351c, release run 36581150646, deploy run
+         36581557153), battery 3984 mV before:
+         offered 14:29:48, trial 14:31:26, installed 14:33:02
+H42-07   after 14:33:02 the frame reported fw-v1.0.1 over many deep-sleep wakes
+         (for example 15:28:52 and 15:40:03); no rollback event
+H42-08   fw-v1.0.1-unsigned: fail-image at 15:51:22, 16:02:13, 16:22:56;
+         schedule failed (3 attempts) at 16:23:42
+H42-09a  fw-v1.0.1-tampered: fail-image at 17:06:24 and 17:08:27 plus the first
+         attempt; schedule failed (3 attempts) at about 17:09
+H42-09b  fw-v1.0.1-wrongkey: fail-image at 17:15:08, 17:16:20, 17:19:07;
+         schedule failed after three attempts
+H42-10   fw-v1.0.1-crash: rollback at 17:22:54, 17:29:31, 17:32:32;
+         schedule failed after three attempts
+H42-11   after erasing otadata (0xf000, 0x2000) and a hard reset: the frame
+         reported factory fw-v1.0.0 at 17:35:18. With the display off, Install
+         fw-v1.0.1: offered 17:42:13, trial 17:43:50, installed 17:44:52

@@ -1,0 +1,14 @@
+I (1492) wifi:<ba-add>idx:0 (ifx:0, <bssid>), tid:0, ssn:0, winSize:64
+I (1502) esp_netif_handlers: sta ip: <lan-ip>, mask: <lan-mask>, gw: <lan-gw>
+I (1512) fp_tls: offering a saved TLS session (1167 bytes)
+I (1662) fp_tls: TLS session saved (1167 bytes)
+I (1682) fp_api: http connects=1 first_connect_ms=54 tls_offered=1 tls_saved_len=1167
+I (1682) wifi:state: run -> init (0x0)
+I (1682) wifi:pm stop, total sleep time: 750289 us / 1208374 us
+
+I (1682) wifi:<ba-del>idx:0, tid:0
+I (1682) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (1732) wifi:flush txq
+I (1732) wifi:stop sw txq
+I (1732) wifi:lmac stop hw txq
+I (1732) wifi:Deinit lldesc rx mblock:10

@@ -1,0 +1,10 @@
+H42-05: Firmware CA chain guard (session of 2026-09-29)
+
+Recorded by the orchestrator from GitHub Actions; not a device capture.
+
+workflow             firmware-chain-check.yml, dispatched once
+run                  36578611110
+conclusion           success (run after the PRODUCTION_HOST secret was corrected
+                     to vps-1440bce3.vps.ovh.net)
+served chain         leaf -> Let's Encrypt YE2 -> ISRG Root YE -> ISRG Root X2
+                     -> ISRG Root X1
