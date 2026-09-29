@@ -91,6 +91,72 @@ def test_import_dir_mismatched_bytes_exits_1_names_tag_and_field_other_still_rep
     assert versions == {"fw-v1.0.1"}
 
 
+def test_import_dir_stale_release_sha_conflict_alone_does_not_block_deploy(tmp_path, capsys):
+    """A release already registered by an earlier deploy whose staged
+    asset now disagrees with the recorded sha256 (a GitHub Release
+    deleted and re-signed -- RSA-PSS signatures are randomized, so
+    re-signing always changes the hash -- or a corrupted/truncated
+    file) must not fail this command: import-dir re-imports every
+    published release on every deploy, so a fatal per-item error here
+    would block every future, otherwise-unrelated code deploy until
+    someone edits the registry by hand.
+    """
+    base = tmp_path / "releases"
+    state_dir = tmp_path / "state"
+    _write_release_subdir(base, "fw-v1.0.1")
+    assert firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)]) == 0
+    capsys.readouterr()
+    original_sha = hashlib.sha256(b"fw-v1.0.1-image-payload").hexdigest()
+
+    # The staged directory's asset changed since it was first registered
+    # -- same tag, different bytes.
+    _write_release_subdir(base, "fw-v1.0.1", image=b"different-bytes-now")
+
+    rc = firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)])
+    out = capsys.readouterr()
+
+    assert rc == 0, "a stale conflict on an already-registered release must not block the deploy: %r" % (out.err,)
+    assert "fw-v1.0.1" in out.err
+    assert "already registered -- not blocking this deploy over it" in out.err
+
+    registry = firmware_registry.load_registry(str(state_dir))
+    release = next(r for r in registry["releases"] if r["version"] == "fw-v1.0.1")
+    assert release["sha256"] == original_sha, "the originally registered image must never be overwritten by a conflict"
+
+
+def test_import_dir_new_tag_failure_still_blocks_despite_unrelated_stale_release(tmp_path, capsys):
+    """A brand-new tag's own failure still blocks the deploy exactly as
+    before, even alongside an unrelated already-registered release whose
+    own re-import now conflicts (downgraded to a warning by the test
+    above) -- only a tag genuinely new to this deploy is this run's
+    problem.
+    """
+    base = tmp_path / "releases"
+    state_dir = tmp_path / "state"
+    _write_release_subdir(base, "fw-v1.0.1")
+    assert firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)]) == 0
+    capsys.readouterr()
+
+    _write_release_subdir(base, "fw-v1.0.1", image=b"different-bytes-now")  # stale, non-fatal
+    _write_release_subdir(base, "fw-v1.0.3", sha256="0" * 64)  # new, must still fail
+
+    rc = firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)])
+    out = capsys.readouterr()
+
+    assert rc == 1
+    err_lines = out.err.splitlines()
+    assert any("fw-v1.0.1" in ln and "already registered -- not blocking this deploy over it" in ln
+               for ln in err_lines)
+    fw103_lines = [ln for ln in err_lines if "fw-v1.0.3" in ln]
+    assert fw103_lines, "expected an error line naming the new, genuinely failing tag"
+    assert not any("already registered" in ln for ln in fw103_lines), (
+        "a genuinely new tag's failure must never be downgraded to a non-blocking warning")
+
+    registry = firmware_registry.load_registry(str(state_dir))
+    versions = {r["version"] for r in registry["releases"]}
+    assert versions == {"fw-v1.0.1"}
+
+
 def test_import_dir_rejects_non_tag_subdirectory_name(tmp_path, capsys):
     base = tmp_path / "releases"
     state_dir = tmp_path / "state"

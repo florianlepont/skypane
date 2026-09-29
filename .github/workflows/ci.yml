@@ -212,7 +212,11 @@ jobs:
         # release. Zero releases (no fw-v* tag published yet) is fine:
         # the loop below simply does nothing. github.token is enough --
         # reading releases needs no more than this job's own
-        # contents: read.
+        # contents: read. A release missing either asset (for example a
+        # release created by hand, with no release.json) is skipped with
+        # a warning rather than aborting this whole step under set -e --
+        # firmware bookkeeping for one malformed release must not block
+        # every ordinary code deploy that follows it.
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -221,6 +225,12 @@ jobs:
           tags="$(gh release list --limit 200 --json tagName --jq '.[].tagName' \
               | grep -E '^fw-v(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,3})$' || true)"
           for tag in $tags; do
+            assets="$(gh release view "$tag" --json assets --jq '.assets[].name')"
+            if ! printf '%s\n' "$assets" | grep -qxF "skypane-${tag}.bin" \
+                || ! printf '%s\n' "$assets" | grep -qxF "release.json"; then
+              echo "::warning::release ${tag} is missing skypane-${tag}.bin or release.json - skipping its firmware import"
+              continue
+            fi
             mkdir -p "firmware-releases/${tag}"
             gh release download "$tag" \
                 --pattern "skypane-${tag}.bin" --pattern release.json \

@@ -116,48 +116,63 @@ def cmd_import_dir(args):
         print("firmware_cli: not a directory: %s" % base, file=sys.stderr)
         return 1
 
+    # This command re-imports every subdirectory on every deploy, whether
+    # or not that deploy touched firmware at all. A tag never registered
+    # here before is new to *this* deploy, so its own failure is this
+    # run's problem and must block the swap (the strict behaviour below).
+    # A tag already registered is old news: a release.json that no longer
+    # parses, an image that no longer matches its recorded sha256 (most
+    # often a GitHub Release deleted and re-signed -- RSA-PSS signatures
+    # are randomized, so re-signing always changes the hash), or a
+    # manifest whose version no longer matches its directory, is reported
+    # loudly but never fails the whole command: nothing about an
+    # unrelated, already-published release should be able to block every
+    # future code deploy until someone performs registry surgery.
+    already_registered = {
+        release.get("version") for release in firmware_registry.load_registry(args.state_dir).get("releases", [])
+    }
+
     ok = True
     for name in sorted(os.listdir(base)):
         subdir = os.path.join(base, name)
         if not os.path.isdir(subdir):
             continue
+        is_new = name not in already_registered
+
+        error = None
+        outcome = None
         if not firmware_registry.RELEASE_TAG_RE.match(name):
-            print("firmware_cli: %s: not a release tag" % name, file=sys.stderr)
-            ok = False
-            continue
+            error = "not a release tag"
+        else:
+            image_path = os.path.join(subdir, "skypane-%s.bin" % name)
+            error = _reject_symlink_image(image_path)
+            manifest = None
+            if error is None:
+                manifest, error = _load_manifest(os.path.join(subdir, "release.json"))
+            # The subdirectory name picked the image file above
+            # (skypane-<name>.bin), but publish_release() only ever
+            # registers manifest["version"] -- a release.json whose own
+            # version disagrees with its directory would publish that
+            # directory's image under a *different* label, and every
+            # version-keyed check downstream (compute_offer's same-
+            # version and floor checks) would then run against the
+            # wrong one.
+            if error is None and manifest.get("version") != name:
+                error = "release.json version %r does not match directory" % (manifest.get("version"),)
+            if error is None:
+                try:
+                    outcome = firmware_registry.publish_release(args.state_dir, manifest, image_path, bench=False)
+                except ValueError as exc:
+                    error = str(exc)
 
-        image_path = os.path.join(subdir, "skypane-%s.bin" % name)
-        image_error = _reject_symlink_image(image_path)
-        if image_error is not None:
-            print("firmware_cli: %s: %s" % (name, image_error), file=sys.stderr)
-            ok = False
-            continue
-
-        manifest, manifest_error = _load_manifest(os.path.join(subdir, "release.json"))
-        if manifest_error is not None:
-            print("firmware_cli: %s: %s" % (name, manifest_error), file=sys.stderr)
-            ok = False
-            continue
-
-        # The subdirectory name picked the image file above
-        # (skypane-<name>.bin), but publish_release() only ever
-        # registers manifest["version"] -- a release.json whose own
-        # version disagrees with its directory would publish that
-        # directory's image under a *different* label, and every
-        # version-keyed check downstream (compute_offer's same-version
-        # and floor checks) would then run against the wrong one.
-        if manifest.get("version") != name:
-            print(
-                "firmware_cli: %s: release.json version %r does not match directory"
-                % (name, manifest.get("version")), file=sys.stderr)
-            ok = False
-            continue
-
-        try:
-            outcome = firmware_registry.publish_release(args.state_dir, manifest, image_path, bench=False)
-        except ValueError as exc:
-            print("firmware_cli: %s: %s" % (name, exc), file=sys.stderr)
-            ok = False
+        if error is not None:
+            print("firmware_cli: %s: %s" % (name, error), file=sys.stderr)
+            if is_new:
+                ok = False
+            else:
+                print(
+                    "firmware_cli: %s: already registered -- not blocking this deploy over it" % name,
+                    file=sys.stderr)
             continue
 
         print("%s %s" % (outcome, name))
