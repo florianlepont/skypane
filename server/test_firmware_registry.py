@@ -784,18 +784,22 @@ def test_apply_reconcile_writes_only_when_changed(tmp_path):
     with open(registry_mod.device_report_path(state_dir), "w") as fh:
         json.dump(device_report, fh)
 
+    # Every write goes through atomic_write's os.replace(), so a write
+    # gives the path a new inode and a skipped write keeps the old one.
+    # The inode is used rather than st_mtime_ns, which two writes inside
+    # one filesystem timestamp tick can leave unchanged.
     registry_path = registry_mod.registry_path(state_dir)
-    before_mtime = os.stat(registry_path).st_mtime_ns
+    before_ino = os.stat(registry_path).st_ino
     notifications2 = registry_mod.apply_reconcile(state_dir, now=LATER)
-    after_mtime = os.stat(registry_path).st_mtime_ns
+    after_ino = os.stat(registry_path).st_ino
     assert notifications2 == [("installed", NEXT_VERSION, None)]
-    assert after_mtime != before_mtime
+    assert after_ino != before_ino
 
-    before_mtime2 = os.stat(registry_path).st_mtime_ns
+    before_ino2 = os.stat(registry_path).st_ino
     notifications3 = registry_mod.apply_reconcile(state_dir, now=LATER)
-    after_mtime2 = os.stat(registry_path).st_mtime_ns
+    after_ino2 = os.stat(registry_path).st_ino
     assert notifications3 == []
-    assert after_mtime2 == before_mtime2
+    assert after_ino2 == before_ino2
 
 
 # --- update_view -------------------------------------------------------------
