@@ -791,9 +791,10 @@ def _record_device_report_and_offer(state_dir, state, headers, image_url_scheme,
             # it is that same telling arriving twice, not a second
             # attempt. This can under-count a device that genuinely fails
             # the same way twice in a row, but never over-counts, which
-            # matters more: SRV-CR-03 and MAX_ATTEMPTS both key off this
-            # count, and double-crediting one lost response would close a
-            # schedule or fail it a poll early.
+            # matters more: the schedule-attribution check above and
+            # MAX_ATTEMPTS both key off this count, and double-crediting
+            # one lost response would close a schedule or fail it a poll
+            # early.
             last_result_event = next(
                 (event for event in reversed(entry["events"]) if event.get("kind") == "result"), None)
             is_resend = (
