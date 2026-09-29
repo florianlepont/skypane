@@ -8,6 +8,7 @@ is the real, server-side install-confirmation gate -- `companion/app.py`'s
 `_handle_update_install_post()`/`_handle_update_cancel_post()` are the
 live POST handlers for the forms this module renders.
 """
+import companion.frame_state as frame_state
 import companion.i18n as i18n
 import companion.layout as layout
 from companion.layout import escape_html
@@ -57,6 +58,14 @@ UNKNOWN_TIME_TEXT = i18n.msg("update.unknown_time", "an unknown time")
 SCHEDULED_SENTENCE_TEMPLATE = i18n.msg(
     "update.scheduled_installs_at_the_next_wake_around_s",
     "Scheduled — installs at the next wake, around %s.")
+# The quiet-hours variant of the sentence above: frame_state.STATE_HELD
+# means the computed wake time already accounts for the frame deferring
+# through quiet hours (wake.next_wake_status()'s own hold_reason), so
+# "at the next wake" would misdescribe why it is later than the base
+# interval.
+SCHEDULED_SENTENCE_HELD_TEMPLATE = i18n.msg(
+    "update.scheduled_installs_when_quiet_hours_end_around_s",
+    "Scheduled — installs when quiet hours end, around %s.")
 ROLLBACK_SENTENCE_TEMPLATE = i18n.msg(
     "update.firmware_rolled_back",
     "Firmware rolled back — the update to %s failed on trial boot; "
@@ -79,6 +88,13 @@ INSTALL_CONFIRM_SENTENCE_TEMPLATE = i18n.msg(
     "The frame will download and install this version at its next "
     "wake, around %s. It will keep the update after one successful "
     "check-in — otherwise it rolls back automatically.")
+# The quiet-hours variant, matching SCHEDULED_SENTENCE_HELD_TEMPLATE's
+# own reasoning above.
+INSTALL_CONFIRM_SENTENCE_HELD_TEMPLATE = i18n.msg(
+    "update.the_frame_will_download_and_install_this_held",
+    "The frame will download and install this version when quiet "
+    "hours end, around %s. It will keep the update after one "
+    "successful check-in — otherwise it rolls back automatically.")
 
 # The flash keys companion/app.py's install/cancel handlers redirect to
 # on a non-"scheduled"/non-cancellable outcome or an exception -- the
@@ -194,11 +210,12 @@ def _status_state_row_html(ctx, view):
     ) % (label_html, detail_html)
 
 
-def _scheduled_sentence_html(view, next_wake_text):
+def _scheduled_sentence_html(view, next_wake_text, wake_held=False):
     if view.get("state") != "scheduled":
         return ""
     resolved_text = next_wake_text or i18n.t(UNKNOWN_TIME_TEXT)
-    sentence = i18n.t(SCHEDULED_SENTENCE_TEMPLATE) % resolved_text
+    template = SCHEDULED_SENTENCE_HELD_TEMPLATE if wake_held else SCHEDULED_SENTENCE_TEMPLATE
+    sentence = i18n.t(template) % resolved_text
     return '<p class="text-label section-caption">%s</p>' % escape_html(sentence)
 
 
@@ -226,7 +243,7 @@ def _rollback_banner_html(view):
     return '<div class="banner banner--warn" role="alert">%s</div>' % escape_html(text)
 
 
-def _status_card_html(ctx, view, next_wake_text):
+def _status_card_html(ctx, view, next_wake_text, wake_held=False):
     return (
         '<section class="page-section">'
         '<h2 class="text-heading">%s</h2>'
@@ -237,7 +254,7 @@ def _status_card_html(ctx, view, next_wake_text):
         _rollback_banner_html(view),
         _status_verdict_block_html(ctx, view),
         _status_state_row_html(ctx, view),
-        _scheduled_sentence_html(view, next_wake_text),
+        _scheduled_sentence_html(view, next_wake_text, wake_held),
         _cancel_form_html(view),
     )
 
@@ -347,7 +364,7 @@ def _install_confirm_form_html(version):
     ) % (INSTALL_ROUTE, escape_html(version), escape_html(i18n.t(INSTALL_BUTTON_TEXT)))
 
 
-def update_install_confirm_page(ctx, version, next_wake_text):
+def update_install_confirm_page(ctx, version, next_wake_text, wake_held=False):
     """Two-step install confirmation: rendered whenever the posted
     `confirm` field is not exactly "yes", including a bare POST with
     none. This page is the actual security control -- it works with
@@ -360,11 +377,16 @@ def update_install_confirm_page(ctx, version, next_wake_text):
     pattern and length cap) by the caller before this page is ever
     reached; still escaped here, defence in depth. `ctx` is accepted but
     unused, matching every other confirm-page builder's signature.
+    `wake_held` selects the quiet-hours wording, matching
+    `compute_next_wake_text()`'s own resolved state.
     """
     ctx = page_context.coerce(ctx)
     resolved_wake_text = next_wake_text or i18n.t(UNKNOWN_TIME_TEXT)
     heading = i18n.t(INSTALL_CONFIRM_HEADING_TEMPLATE) % version
-    sentence = i18n.t(INSTALL_CONFIRM_SENTENCE_TEMPLATE) % resolved_wake_text
+    template = (
+        INSTALL_CONFIRM_SENTENCE_HELD_TEMPLATE if wake_held
+        else INSTALL_CONFIRM_SENTENCE_TEMPLATE)
+    sentence = i18n.t(template) % resolved_wake_text
     return (
         layout.page_header(heading)
         + '<p class="text-body">%s</p>' % escape_html(sentence)
@@ -375,37 +397,53 @@ def update_install_confirm_page(ctx, version, next_wake_text):
 
 
 def compute_next_wake_text(ctx):
-    """The Update page's own next-wake clock text: shared by the live GET
-    `render()` below and the install-confirmation page's sentence
-    (`companion/app.py`'s `_handle_update_install_post()`), so both ever
-    name the exact same wake time.
+    """The Update page's own `(next_wake_text, wake_held)` pair: shared
+    by the live GET `render()` below and the install-confirmation page's
+    sentence (`companion/app.py`'s `_handle_update_install_post()`), so
+    both ever name the exact same wake time -- or agree that there is
+    none to name.
+
+    Resolves through the same `wake.next_wake_status()` /
+    `frame_state.resolve_state()` triple every other next-wake consumer
+    uses (`frame_state.py`'s own "so they can never disagree" contract,
+    and the arguments Home's Frame tile passes -- `home_page.py`'s
+    `_status_tiles_html()`), rather than a bare
+    `wake.next_wake_at_iso()` call: a wake already overdue
+    (`frame_state.STATE_LATE`) or unresolvable
+    (`frame_state.STATE_UNKNOWN`) returns "" -- callers fall back to
+    `UNKNOWN_TIME_TEXT` -- instead of quietly formatting a time that has
+    already passed. `wake_held` is `frame_state.STATE_HELD`: the frame is
+    deferring into or through quiet hours, so callers can swap in that
+    wording instead of "at the next wake".
     """
     ctx = page_context.coerce(ctx)
     device_cfg = ctx.device_config or {}
-    battery_critical = ctx.battery_critical if ctx.battery_critical is not None else False
-    next_wake_iso = wake.next_wake_at_iso(
-        ctx.last_checkin_ts, device_cfg, battery_critical=battery_critical)
-    if not next_wake_iso:
-        return ""
+    now = ctx.now or history_db.utc_now_iso()
+    next_wake_iso, effective_interval_s, hold_reason = wake.next_wake_status(
+        ctx.last_checkin_ts, device_cfg)
+    state = frame_state.resolve_state(next_wake_iso, effective_interval_s, hold_reason, now)
+    if state in (frame_state.STATE_LATE, frame_state.STATE_UNKNOWN):
+        return "", False
     next_wake_parsed = layout.parse_iso(next_wake_iso)
     if next_wake_parsed is None:
-        return ""
-    now = ctx.now or history_db.utc_now_iso()
-    return layout.local_clock_text(next_wake_parsed, now_parsed=layout.parse_iso(now))
+        return "", False
+    text = layout.local_clock_text(next_wake_parsed, now_parsed=layout.parse_iso(now))
+    return text, state == frame_state.STATE_HELD
 
 
-def update_page(ctx, view, next_wake_text):
+def update_page(ctx, view, next_wake_text, wake_held=False):
     """The page body: `layout.page_header()`, then the Status card
     (running version, update state, rollback warning, scheduled
     sentence, Cancel) and the Version history card, in that order.
     `view` is `server.firmware_registry.update_view()`'s own return
     value; `next_wake_text` is the caller's own formatted clock string
-    (or "" when no next-wake time could be computed).
+    (or "" when no next-wake time could be computed); `wake_held`
+    selects the quiet-hours wording for that sentence.
     """
     ctx = page_context.coerce(ctx)
     return (
         layout.page_header(i18n.t(_NAV_UPDATE_TEXT))
-        + _status_card_html(ctx, view, next_wake_text)
+        + _status_card_html(ctx, view, next_wake_text, wake_held)
         + _history_card_html(ctx, view)
     )
 
@@ -421,4 +459,5 @@ def render(ctx):
     registry = firmware_registry.load_registry(state_dir)
     device_report = firmware_registry.load_device_report(state_dir)
     view = firmware_registry.update_view(registry, device_report, now)
-    return update_page(ctx, view, compute_next_wake_text(ctx))
+    next_wake_text, wake_held = compute_next_wake_text(ctx)
+    return update_page(ctx, view, next_wake_text, wake_held)

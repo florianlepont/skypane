@@ -1161,8 +1161,9 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
                 "%s?flash=%s" % (UPDATE_ROUTE, quote(FLASH_KEY_UPDATE_SCHEDULE_FAILED)))
         if form.get("confirm") != "yes":
             ctx = self.page_context()
-            next_wake_text = update_page.compute_next_wake_text(ctx)
-            body = update_page.update_install_confirm_page(ctx, version, next_wake_text)
+            next_wake_text, wake_held = update_page.compute_next_wake_text(ctx)
+            body = update_page.update_install_confirm_page(
+                ctx, version, next_wake_text, wake_held=wake_held)
             return self.send_html(200, self._page_shell_for(UPDATE_ROUTE, body, ctx))
         state_dir = self.args.state_dir
         now = history_db.utc_now_iso()

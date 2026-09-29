@@ -14,10 +14,12 @@ import hashlib
 import json
 import os
 import re
+from datetime import datetime, timedelta, timezone
 
 import companion.auth as auth
 import companion.i18n as i18n
 import companion.layout as layout
+import companion.page_context as page_context
 import companion.prefs as prefs
 from companion.pages import update_page
 from companion_app_server import get, login
@@ -59,6 +61,59 @@ def _view(releases=(), schedule=None, last_outcome=None, device_entry=None, now=
     if device_entry is not None:
         device_report["devices"]["dev1"] = device_entry
     return fr.update_view(registry, device_report, now)
+
+
+def test_compute_next_wake_text_never_shows_a_past_time_and_matches_quiet_hours_wording():
+    """compute_next_wake_text() returns ("", False) for an overdue (LATE) wake instead of a
+    past clock time, and (text, True) for a wake still deferred by quiet hours (HELD) -- the
+    same wake.next_wake_status()/frame_state.resolve_state() triple Home's Frame tile
+    resolves from, so the two pages can never disagree on whether the wake is already late"""
+    device_cfg = {"wake_interval_s": 900, "display_enabled": True, "quiet_hours_enabled": False}
+    ctx = page_context.coerce({
+        "last_checkin_ts": "2026-01-01T00:00:00+00:00",
+        "device_config": device_cfg,
+        "now": "2026-01-15T12:00:00+00:00",
+    })
+    assert update_page.compute_next_wake_text(ctx) == ("", False)
+
+    # The nightly regression config (quiet hours 23:00-07:00, check-in 22:58, clock 02:00,
+    # Europe/Paris) that companion/test_view_pages_04.py's own frame_state contract test
+    # resolves to STATE_HELD.
+    qh_config = {
+        "wake_interval_s": 900, "display_enabled": True,
+        "quiet_hours_enabled": True,
+        "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+    }
+    paris = timezone(timedelta(hours=1))
+    checkin = datetime(2026, 1, 15, 22, 58, 0, tzinfo=paris)
+    clock = datetime(2026, 1, 16, 2, 0, 0, tzinfo=paris)
+    ctx = page_context.coerce({
+        "last_checkin_ts": checkin.isoformat(),
+        "device_config": qh_config,
+        "now": clock.isoformat(),
+    })
+    text, held = update_page.compute_next_wake_text(ctx)
+    assert held is True
+    assert text, "expected a formatted clock time, not an empty string, for a held wake"
+
+
+def test_scheduled_sentence_swaps_to_quiet_hours_wording_when_held():
+    """the Scheduled state's sentence and the install confirm page's sentence both use the
+    quiet-hours template when wake_held is True"""
+    view = _view(
+        releases=[_release("fw-v1.0.0")],
+        schedule={
+            "id": "s1", "version": "fw-v1.0.0", "sha256": "a" * 64,
+            "scheduled_at": _NOW, "state": "scheduled", "attempts": 0,
+            "failed_at": None, "last_result": None,
+        })
+    html = update_page.update_page(_ctx(), view, "07:00", wake_held=True)
+    assert (i18n.t(update_page.SCHEDULED_SENTENCE_HELD_TEMPLATE) % "07:00") in html
+    assert (i18n.t(update_page.SCHEDULED_SENTENCE_TEMPLATE) % "07:00") not in html
+
+    confirm_html = update_page.update_install_confirm_page(
+        _ctx(), "fw-v1.0.0", "07:00", wake_held=True)
+    assert (i18n.t(update_page.INSTALL_CONFIRM_SENTENCE_HELD_TEMPLATE) % "07:00") in confirm_html
 
 
 # ==========================================================================

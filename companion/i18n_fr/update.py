@@ -32,6 +32,8 @@ MESSAGES = {
     "update.unknown_time": "une heure inconnue",
     "update.scheduled_installs_at_the_next_wake_around_s":
         "Planifiée — installation au prochain réveil, vers %s.",
+    "update.scheduled_installs_when_quiet_hours_end_around_s":
+        "Planifiée — installation à la fin des heures calmes, vers %s.",
     "update.firmware_rolled_back":
         "Firmware rétabli — la mise à jour vers %s a échoué au démarrage "
         "d’essai ; le cadre est revenu à %s.",
@@ -43,6 +45,11 @@ MESSAGES = {
     "update.the_frame_will_download_and_install_this":
         "Le cadre téléchargera et installera cette version à son "
         "prochain réveil, vers %s. Il conservera la mise à jour après un "
+        "premier contact réussi — sinon, il revient automatiquement en "
+        "arrière.",
+    "update.the_frame_will_download_and_install_this_held":
+        "Le cadre téléchargera et installera cette version à la fin des "
+        "heures calmes, vers %s. Il conservera la mise à jour après un "
         "premier contact réussi — sinon, il revient automatiquement en "
         "arrière.",
     "update.couldn_t_schedule_that_update_please_try_again":
