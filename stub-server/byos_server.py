@@ -778,38 +778,21 @@ def _record_device_report_and_offer(state_dir, state, headers, image_url_scheme,
             # now would move that unrelated schedule's attempt counter
             # or clear it outright.
             event_schedule_id = schedule_id if result_version == schedule_version else None
-            # A resend carries the exact same (token, version) as the
-            # device's own last result, because the firmware only clears
-            # its pending result once some later response's body has
-            # actually parsed (api_client.c's fp_ota_result_clear(), run
-            # at the end of parse_display_response()) -- it never
-            # composes a fresh one just because a poll happened. So the
-            # most recent "result" event recorded for this device (an
-            # "offered" event may sit between it and here; that alone is
-            # not proof the device ever saw it) is the last thing this
-            # device is known to have told us, and an identical repeat of
-            # it is that same telling arriving twice, not a second
-            # attempt. This can under-count a device that genuinely fails
-            # the same way twice in a row, but never over-counts, which
-            # matters more: the schedule-attribution check above and
-            # MAX_ATTEMPTS both key off this count, and double-crediting
-            # one lost response would close a schedule or fail it a poll
-            # early.
-            last_result_event = next(
-                (event for event in reversed(entry["events"]) if event.get("kind") == "result"), None)
-            is_resend = (
-                last_result_event is not None
-                and last_result_event.get("token") == token
-                and last_result_event.get("version") == result_version
-                and last_result_event.get("schedule_id") == event_schedule_id
-            )
-            if not is_resend:
-                next_seq += 1
-                entry["events"].append({
-                    "seq": next_seq, "at": _utc_now_iso(), "kind": "result",
-                    "schedule_id": event_schedule_id, "token": token, "version": result_version,
-                })
-                changed = True
+            # Every reported result counts as an attempt, even when it
+            # repeats the previous one exactly. A repeat can be the same
+            # report resent because its response was lost, or a genuine
+            # new attempt that failed the same way; both arrive between
+            # two offers, so they cannot be told apart here. Counting
+            # both errs towards failing a release one attempt early,
+            # which the operator can reschedule, rather than never
+            # reaching MAX_ATTEMPTS and re-offering a bad image on every
+            # wake.
+            next_seq += 1
+            entry["events"].append({
+                "seq": next_seq, "at": _utc_now_iso(), "kind": "result",
+                "schedule_id": event_schedule_id, "token": token, "version": result_version,
+            })
+            changed = True
 
         offer = firmware_registry.compute_offer(registry, entry, battery_low_active, base_url)
         if offer is not None:

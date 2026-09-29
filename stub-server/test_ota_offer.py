@@ -380,14 +380,12 @@ def test_offered_event_recorded_and_schedule_not_cancellable(tmp_path):
 
 
 def test_third_counted_failure_withdraws_offer_in_the_same_response(tmp_path):
-    """A device reporting three *distinct* failed results for the same
-    schedule sees the offer withdrawn on the response containing the
-    third failure - no fourth offer, even before the poll loop
-    reconciles. Each attempt below fails a different way (fail-hash,
-    fail-size, fail-download) so this exercises three genuinely separate
-    attempts, not the same result resent -- see
-    test_resent_identical_result_is_not_double_counted below for that
-    case.
+    """A device reporting three fail-hash results for the same schedule
+    sees the offer withdrawn on the response containing the third
+    failure - no fourth offer, even before the poll loop reconciles.
+    The three reports are identical on purpose: an image refused the
+    same way on every attempt must still reach the attempt limit, or it
+    would be re-offered and re-downloaded on every wake.
     """
     state_dir = str(tmp_path)
     harness = Harness(state_dir)
@@ -396,12 +394,11 @@ def test_third_counted_failure_withdraws_offer_in_the_same_response(tmp_path):
         publish_test_release(state_dir, "fw-v1.1.0")
         assert firmware_registry.schedule_release(state_dir, "fw-v1.1.0", running_version=None) == "scheduled"
 
-        tokens = ["fail-hash", "fail-size", "fail-download"]
-        for attempt, token in enumerate(tokens):
+        for attempt in range(3):
             status, _, body = http_request(
                 harness.base_url() + "/device/v1/display", method="GET",
                 headers={**harness.auth_headers(), "X-Fw-Version": "fw-v1.0.0",
-                         "X-Ota-Result": "%s;fw-v1.1.0" % token})
+                         "X-Ota-Result": "fail-hash;fw-v1.1.0"})
             assert status == 200
             offer = json.loads(body.decode()).get("firmware")
             if attempt < 2:
@@ -415,50 +412,6 @@ def test_third_counted_failure_withdraws_offer_in_the_same_response(tmp_path):
         assert status == 200
         assert json.loads(body.decode()).get("firmware") is None, (
             "expected the offer to stay withdrawn on a plain follow-up poll")
-    finally:
-        harness.stop()
-
-
-def test_resent_identical_result_is_not_double_counted(tmp_path):
-    """The firmware resends its last X-Ota-Result on every poll until a
-    response it can parse clears it (api_client.c's
-    fp_ota_result_clear(), run only at the end of a successful parse) --
-    it never composes a fresh one just because a poll happened. So an
-    identical (token, version) repeat is the same failure arriving
-    twice, not a second attempt, and must count once: two identical
-    fail-hash reports must not withdraw the offer after MAX_ATTEMPTS=3
-    the way three would.
-    """
-    state_dir = str(tmp_path)
-    harness = Harness(state_dir)
-    try:
-        harness.start()
-        publish_test_release(state_dir, "fw-v1.1.0")
-        assert firmware_registry.schedule_release(state_dir, "fw-v1.1.0", running_version=None) == "scheduled"
-
-        for _ in range(2):
-            status, _, body = http_request(
-                harness.base_url() + "/device/v1/display", method="GET",
-                headers={**harness.auth_headers(), "X-Fw-Version": "fw-v1.0.0",
-                         "X-Ota-Result": "fail-hash;fw-v1.1.0"})
-            assert status == 200
-            assert json.loads(body.decode()).get("firmware") is not None, (
-                "a resent identical result must not withdraw the offer")
-
-        device_report = firmware_registry.load_device_report(state_dir)
-        entry = device_report["devices"][KNOWN_MAC]
-        result_events = [e for e in entry["events"] if e["kind"] == "result"]
-        assert len(result_events) == 1, (
-            "a resent identical (token, version) must be recorded once, not once per poll: %r"
-            % (result_events,))
-
-        registry = firmware_registry.load_registry(state_dir)
-        assert registry["schedule"]["attempts"] == 0, (
-            "attempts is only updated by reconcile(); nothing should have moved it yet")
-        firmware_registry.apply_reconcile(state_dir)
-        registry = firmware_registry.load_registry(state_dir)
-        assert registry["schedule"]["attempts"] == 1, (
-            "two resends of the same result must reconcile as a single counted attempt")
     finally:
         harness.stop()
 
