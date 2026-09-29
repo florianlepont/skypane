@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 42
 current_phase_name: remote-firmware-update-over-the-air-ota-promoted-from-seed-0
 status: executing
-stopped_at: "Completed 42-14-PLAN.md (POST /update/install two-step server-side confirm + POST /update/cancel, both behind the session/Origin gate; measured D-02 mobile-fit proof at 375/390px en/fr; OTA-08 marked Complete). Wave 3. Next: 42-15 or 42-16 (phase close-out)."
-last_updated: "2026-09-28T21:13:19.020Z"
-last_activity: 2026-09-28
+stopped_at: "Completed 42-16-PLAN.md (OTA hardware session on the real frame: all H42 rows PASS except H42-00b N/A; four defects recorded, unsigned-image boot abort fixed in PR #159; validation record closed). Plan 16 of 16 done; Phase 42 ready for verification. REQUIREMENTS.md is marked by the orchestrator at phase close."
+last_updated: "2026-09-29T17:56:35.469Z"
+last_activity: 2026-09-29
 progress:
   total_phases: 54
-  completed_phases: 50
+  completed_phases: 51
   total_plans: 442
-  completed_plans: 432
-  percent: 93
+  completed_plans: 433
+  percent: 98
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -245,7 +245,7 @@ Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03
 
 Status: Executing Phase 06.6.4.1 (8/9 plans; Task 2's developer verification checklist is the sole remaining item). Phase 11 and the sibling Phase 06.6.4.1.1 are both complete, merged in from separate branches.
 Also merged 2026-08-30 (third merge, this one — `git merge origin/main` into `claude/backlog-6x-phases-d6bb33` after this branch had drifted 32 commits behind, resolving conflicts in this file and `companion/test_companion_app.py`): origin/main's quick task 260829-0rl (2026-08-29) — `send_bytes()` in `companion/app.py` gained a `public` parameter (default `False`/private), fixing Phase 06.4's code-review finding WR-02 (shared/intermediary caching risk on authenticated byte-serving routes); `/static/style.css`'s route opted into `public=True` since it's pre-auth and content-identical for every client. While merging, found and fixed directly (not a conflict, a merge-introduced inconsistency): `_serve_script_file()` — the shared body for `/static/battery-trend.js` and `/static/nav-dropdown.js`, both pre-auth routes shipped by this branch's own 06.6.1-05 — hadn't opted into `public=True` the way `/static/style.css`'s route had, simply because that method didn't exist yet when `public` was added on main; added `public=True` there too, with a docstring line explaining why. `_serve_gallery_image()`/`_serve_runway_image()` (session-gated) correctly remain on the private default — verified, no change needed. `companion/test_companion_app.py`'s `EXPECTED_CHECK_COUNT` conflict (this branch's `68` vs origin's `52`) resolved to `69` — both branches' independent additions summed (this branch's 06.6.1 work + origin's 1 new WR-02 regression check, which had already auto-merged cleanly elsewhere in the file).
-Last activity: 2026-09-28
+Last activity: 2026-09-29
 Last activity: 2026-09-25 - Completed 33-32-PLAN.md: the legacy harness shim, legacy lists, collect_ignore, the legacy_harness marker and LegacyHarness retired; the guard scans every companion test module and test_no_legacy_runner_anywhere covers every test directory; F-01 resolved (served stylesheet checks parse the CSS via companion_markup, new rule_indices()/at_rule_blocks(), guard rule G11 bans regex/substring checks over served stylesheet text, G12 bans test-module-to-test-module imports); CI paths filter drops the .planning re-includes and re-includes deploy/README.md; runner, CLAUDE.md, README and CONTRIBUTING updated; stub-server/test_devices_registry.py on tmp_path; full suite 2588 passed/5 skipped/0 failed, coverage 93.23%.
 Last activity: 2026-09-25 - Completed 33-31-PLAN.md: status-pages part 07 (checks #293-#317, the chain's LAST slice: the tab bar's margin-fit/More-sheet/French-label/dropdown-max-height contracts, a structural style.css comment-terminator guard, the T3/T4 disclosure-marker/dead-sticky-claim sweep, freshness.js's backoff ladder and breathing-dot mechanism, the .resolve-context[hidden]/.flight-detail-row__grid CSS guards, the renamed hamburger-toggle label, the restored save-bar geometry, the Health-tile/Frame-strip agreement across all four lateness states, the shared quiet-schedule link, the two server-rendered switches and their optimistic-failure toast, the freshness line's live dot/ticking clock, and two end-to-end real-subprocess checks) migrated to companion/test_status_pages_07.py (25 pytest node ids); companion/test_status_pages.py — the LAST legacy companion harness — deleted outright; ledger 317/317 (313 ported, 4 deleted, 0 pending); 33-ledger-check.py --all confirms ALL 9 companion harnesses now fully migrated (0 pending everywhere); full suite 2569 passed/6 skipped/0 failed in 304s.
 Last activity: 2026-09-25 - Completed 33-30-PLAN.md: status-pages part 06 (checks #245-#292: the lightbox replace form, the D19 drag-and-drop upload affordance, the coverage-gap block, manual-resolution card states, the conditional resolve section, the manual-resolutions summary line, list-filter.js's [data-filter-set] hook, the phase 14 Component-Inventory CSS sweep, Frame-strip behaviour/CSS, and the bottom tab bar's CSS) migrated to companion/test_status_pages_06.py (46 pytest node ids, 2 checks deleted outright); legacy harness EXPECTED_CHECK_COUNT down to 25 (rows 293-317 remain for 33-31, the chain's closing plan).
@@ -651,6 +651,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 42 P13 | ~50min | 3 tasks | 7 files |
 | Phase 42 P14 | ~90min | 2 tasks | 11 files |
 | Phase 42 P15 | 120min | 3 tasks | 11 files |
+| Phase 42 P16 | 5h | 3 tasks | 44 files |
 
 ## Accumulated Context
 
@@ -1419,8 +1420,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-28T21:11:04.401Z
-Stopped at: Completed 42-14-PLAN.md (POST /update/install two-step server-side confirm + POST /update/cancel, both behind the session/Origin gate; measured D-02 mobile-fit proof at 375/390px en/fr; OTA-08 marked Complete). Wave 3. Next: 42-15 or 42-16 (phase close-out).
+Last session: 2026-09-29T17:56:31.486Z
+Stopped at: Completed 42-16-PLAN.md (OTA hardware session on the real frame: all H42 rows PASS except H42-00b N/A; four defects recorded, unsigned-image boot abort fixed in PR #159; validation record closed). Plan 16 of 16 done; Phase 42 ready for verification. REQUIREMENTS.md is marked by the orchestrator at phase close.
 
 Resume file: 
 
