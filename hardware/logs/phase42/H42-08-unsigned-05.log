@@ -1,0 +1,21 @@
+I (462) wifi:state: assoc -> run (0x10)
+I (472) wifi:connected with <ssid>, aid = 1, channel 6, BW20, bssid = <bssid>
+I (472) wifi:security: WPA2-PSK, phy: bgn, rssi: -37
+I (472) wifi:pm start, type: 1
+
+I (472) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (472) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (552) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1502) wifi:<ba-add>idx:0 (ifx:0, <bssid>), tid:0, ssn:0, winSize:64
+I (1522) fp_tls: offering a saved TLS session (1167 bytes)
+I (8522) fp_api: http connects=1 first_connect_ms=155 tls_offered=1 tls_saved_len=1167
+I (8542) wifi:pm stop, total sleep time: 2646463 us / 8062415 us
+I (8542) wifi:<ba-del>idx:0, tid:0
+I (8652) wifi:flush txq
+I (8652) wifi:lmac stop hw txq
+I (8662) gpio: GPIO[10]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (8662) gpio: GPIO[41]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (8662) gpio: GPIO[44]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (40172) epd13in3e: refresh complete
+I (40282) fp_diag: wake timing total_ms=39956 wifi_ms=1153 setup_ms=0 display_ms=523 download_ms=6487 draw_ms=31609
+I (40282) skypane: sleep enter sleep_s=60

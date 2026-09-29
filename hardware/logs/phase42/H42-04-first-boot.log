@@ -1,0 +1,6 @@
+I (213) esp_image: segment 4: paddr=00111f04 vaddr=403753bc size=187c8h (100296) load
+I (235) esp_image: segment 5: paddr=0012a6d4 vaddr=50000000 size=00c8ch (  3212) load
+I (236) esp_image: segment 6: paddr=0012b368 vaddr=600fe000 size=00100h (   256) load
+I (236) esp_image: segment 7: paddr=0012b470 vaddr=600fe100 size=00008h (     8) load
+I (237) esp_image: segment 8: paddr=0012b480 vaddr=00000000 size=04b50h ( 19280) 
+I (252) boot: Loaded app from partition at offset 0x20000

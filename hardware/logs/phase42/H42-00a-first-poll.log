@@ -1,0 +1,18 @@
+I (1513) wifi:<ba-add>idx:0 (ifx:0, <bssid>), tid:0, ssn:0, winSize:64
+I (1533) esp_netif_handlers: sta ip: <lan-ip>, mask: <lan-mask>, gw: <lan-gw>
+I (4483) fp_wifi: clock set via SNTP
+I (5733) esp-x509-crt-bundle: Certificate validated
+I (6323) fp_tls: TLS session saved (1159 bytes)
+W (6323) fp_api: HTTP 404 (80-byte response)
+W (6333) skypane: poll fail step=status backoff_n=3 sleep_s=2400
+I (6333) fp_diag: wake timing total_ms=6004 wifi_ms=4119 setup_ms=0 display_ms=1842 download_ms=0 draw_ms=0
+I (6333) wifi:state: run -> init (0x0)
+I (6333) wifi:pm stop, total sleep time: 5020729 us / 5821809 us
+
+I (6333) wifi:<ba-del>idx:0, tid:0
+I (6333) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (6383) wifi:flush txq
+I (6383) wifi:stop sw txq
+I (6383) wifi:lmac stop hw txq
+I (6383) wifi:Deinit lldesc rx mblock:10
+I (6393) skypane: sleep enter sleep_s=2400

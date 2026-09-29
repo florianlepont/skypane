@@ -2000,7 +2000,7 @@ Plans:
 6. Release images hold no device credentials: Wi-Fi and server address come from the provisioned `secret` partition (D-20)
 7. A CI check fails when the production certificate chain no longer leads to a root in the firmware's trust store (D-19)
 
-**Plans:** 15/16 plans executed
+**Plans:** 16/16 plans complete
 
 **Execution gate:** G-41 — the first task of every wave-1 plan (42-01..42-06) stops with "blocked: Phase 41 not complete on main" unless Phase 41 is complete on `main`. 42-06 (device credentials out of the image) implements D-20, confirmed by the developer on 2026-09-25. One writer per file per wave.
 
@@ -2032,4 +2032,4 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 42-16-PLAN.md — Hardware session (human checkpoint): one USB flash, signed install, unsigned/tampered/wrong-key refusal, crash rollback, factory recovery, eFuse unchanged [OTA-02, OTA-03, OTA-04, OTA-07, OTA-10, OTA-11, OTA-12]
+- [x] 42-16-PLAN.md — Hardware session (human checkpoint): one USB flash, signed install, unsigned/tampered/wrong-key refusal, crash rollback, factory recovery, eFuse unchanged [OTA-02, OTA-03, OTA-04, OTA-07, OTA-10, OTA-11, OTA-12]

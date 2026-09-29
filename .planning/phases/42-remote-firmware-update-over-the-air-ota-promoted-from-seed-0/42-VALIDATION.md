@@ -76,9 +76,9 @@ created: 2026-09-25
 | 42-15-T1 | 15 | 3 | OTA-10 | pytest unit | `pytest -q server/test_firmware_cli.py` | pending |
 | 42-15-T2 | 15 | 3 | OTA-10 | fake-root deploy tests + shellcheck | `pytest -q deploy/tests/test_deploy.py deploy/tests/test_activate.py` | pending |
 | 42-15-T3 | 15 | 3 | OTA-10 | deploy suite | `pytest -q deploy/tests` | pending |
-| 42-16-T1 | 16 | 4 | OTA-12 | grep of session sheet | `grep H42 rows in hardware/BRINGUP-LOG.md` | pending |
-| 42-16-T2 | 16 | 4 | OTA-02, OTA-03, OTA-04, OTA-07, OTA-10, OTA-11, OTA-12 | human-action hardware session | H42-01..H42-12 on the real frame | pending |
-| 42-16-T3 | 16 | 4 | OTA-12 | evidence + secret scan | `grep H42-12; efuse-after exists; no bearer token in captures` | pending |
+| 42-16-T1 | 16 | 4 | OTA-12 | grep of session sheet | `grep H42 rows in hardware/BRINGUP-LOG.md` | green |
+| 42-16-T2 | 16 | 4 | OTA-02, OTA-03, OTA-04, OTA-07, OTA-10, OTA-11, OTA-12 | human-action hardware session | H42-01..H42-12 on the real frame | green (H42-00b N/A) |
+| 42-16-T3 | 16 | 4 | OTA-12 | evidence + secret scan | `grep H42-12; efuse-after exists; no bearer token in captures` | green |
 
 Python commands run as `server/.venv/bin/python -m pytest ...`. Every non-checkpoint task has an automated command; the two human checkpoints (42-12-T1, 42-16-T2) are bracketed by automated tasks, so no three consecutive tasks lack automated feedback.
 
@@ -118,14 +118,29 @@ Created test-first inside the plans (no separate Wave 0 plan; each TDD task writ
 
 ## Manual-Only Verifications
 
-| Behavior | Requirement | Why Manual | Test Instructions |
-|----------|-------------|------------|-------------------|
-| Signed update installs on the real frame | OTA-12, OTA-02 | needs real bootloader, flash and Wi-Fi | tag a release, deploy, Install from the companion, watch the next wake |
-| Unsigned / tampered image refused | OTA-04, OTA-12 | signature check lives in the bootloader/app image verifier | serve a flipped-byte and an unsigned image, confirm refusal and failure count |
-| Forced crash on a trial image rolls back | OTA-03, OTA-12 | rollback is bootloader state | install a test build that aborts before its first successful poll |
-| Recovery from `factory` | OTA-12 | needs invalid OTA slots on real flash | erase `otadata` / invalidate both slots, confirm `factory` boots and polls |
-| Real tag → signed build → deploy copy | OTA-10 | needs GitHub Actions secrets and the real tag trigger | push a real tag, approve the deploy, check the firmware store on the VPS |
-| Chain guard against the production host | OTA-11 | reaches the network | run the workflow once |
+Hardware session run 2026-09-29 on the real frame; the rows, deviations and
+non-observations are in `hardware/BRINGUP-LOG.md` ("OTA hardware session"),
+the captures under `hardware/logs/phase42/`. Result: no failing row, no gaps;
+the items that could not be observed are named explicitly.
+
+| Behavior | Requirement | Why Manual | Test Instructions | Result and evidence |
+|----------|-------------|------------|-------------------|---------------------|
+| Signed update installs on the real frame | OTA-12, OTA-02 | needs real bootloader, flash and Wi-Fi | tag a release, deploy, Install from the companion, watch the next wake | PASS. H42-06 (`fw-v1.0.1`: offered 14:29:48, trial 14:31:26, installed 14:33:02; UPDATING seen on the glass, installed push received; serial capture not taken, so confirm-before-sleep is proven indirectly by H42-07), H42-00a (full stop-then-connect cycle on serial: `H42-00a-bench-cycle-01.log`), H42-11 (install from factory). `server-evidence.txt` |
+| Healthy update survives the next deep-sleep wake | OTA-03 | rollback is bootloader state | capture the wake after the update | PASS by server evidence. H42-07: `fw-v1.0.1` kept reporting across many deep-sleep wakes, no rollback event. `reset reason=deepsleep` and `ota boot outcome=none` not captured on serial |
+| Unsigned / tampered image refused | OTA-04, OTA-12 | signature check lives in the bootloader/app image verifier | serve a flipped-byte and an unsigned image, confirm refusal and failure count | PASS. H42-08 unsigned (`H42-08-unsigned-01.log`: `ota step=finish result=fail`, failed after 3 attempts), H42-09a tampered (`H42-09a-tampered-01.log`: image checksum failure, failed after 3), H42-09b wrong key (`H42-09b-wrongkey-02.log`: "image valid, signature bad", failed after 3). Failure push sent but not seen by the developer |
+| Forced crash on a trial image rolls back | OTA-03, OTA-12 | rollback is bootloader state | install a test build that aborts before its first successful poll | PASS. H42-10: three `ota switched version=fw-v1.0.1-crash` attempts (`H42-10-crash-01.log`, `-02`), server rollback events at 17:22:54, 17:29:31, 17:32:32, companion rollback banner seen, device stayed on `fw-v1.0.1`. The panic line and `ota boot outcome=rollback` boot not captured |
+| Recovery from `factory` | OTA-12 | needs invalid OTA slots on real flash | erase `otadata` / invalidate both slots, confirm `factory` boots and polls | PASS. H42-11: otadata erased, frame reported factory `fw-v1.0.0` at 17:35:18, then installed `fw-v1.0.1` from factory (17:42:13 to 17:44:52) with the display off. UPDATING screen during that install not confirmed on glass |
+| UPDATING screen with the display off / quiet hours | OTA-07 | needs the real glass | schedule an install while the display is off | PARTIAL. Install ran with the display off (H42-11) but the developer did not confirm the screen on glass; UPDATING was seen on the glass in H42-06 with the display on |
+| Real tag → signed build → deploy copy | OTA-10 | needs GitHub Actions secrets and the real tag trigger | push a real tag, approve the deploy, check the firmware store on the VPS | PASS. H42-01: `fw-v1.0.0` release run 36575555701, deploy run 36575975888, `firmware_cli list` shows it, signature verifies against the committed public key (`H42-01-release.txt`); `fw-v1.0.1` release run 36581150646, deploy run 36581557153 |
+| Chain guard against the production host | OTA-11 | reaches the network | run the workflow once | PASS. H42-05: run 36578611110 success after the `PRODUCTION_HOST` secret was corrected (`H42-05-chain-guard.txt`) |
+| eFuse untouched | OTA-04 | needs the real chip | `espefuse.py summary` before and after, compare | PASS. H42-02 and H42-12: `efuse-before.txt` and `efuse-after.txt` identical (192 lines, 112 fuse lines); no `burn_*` command run |
+
+Follow-ups found by the session (not blocking the phase): the UPDATING screen
+stays on the glass after a failed OTA attempt until the next successful poll
+redraws; a rolled-back image that sees `reset reason=panic` backs off without
+polling, so the rollback is reported only at the next wake. Fixed in the
+session: an unsigned image aborts at every boot (PR #159) and the wrong
+`PRODUCTION_HOST` secret.
 
 ---
 

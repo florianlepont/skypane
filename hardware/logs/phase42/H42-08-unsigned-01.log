@@ -1,0 +1,15 @@
+I (45997) fp_ota: ota step=hash result=ok
+(235816) map
+I (46037) esp_image: segment 2: paddr=004fec9c vaddr=40374000 size=0137ch (  4988) 
+ch (728796) map
+I (46127) esp_image: segment 4: paddr=005b1f04 vaddr=4037537c size=18808h (100360) 
+I (46147) esp_image: segment 6: paddr=005cb3a8 vaddr=600fe00I (46147) esp_image: segment 7: paddr=005cb4b0 vaddr=600fe100 size=00008h (     8) 
+0 vaddr=00000000 size=04b10h ( 19216) 
+I (46157) secure_boot_v2: Take trusted digest key(s) frE (46157) esp_image: Secure boot signature verification failed
+to check for corruption...
+W (46247) fp_ota: ota step=finish result=fail err=ESP_ERR_OTA_VAW (46247) skypane: poll fail step=ota backoff_n=0 sleep_s=300
+1156 setup_ms=0 display_ms=185 downloadI (46247) wifi:state: run -> init (0x0)
+489459 us
+I (46257) wifi:<ba-del>idx:0, tid:0
+I (46297) wifi:stop sw txq
+I (46297) wifi:Deinit lldesc rx mblock:10

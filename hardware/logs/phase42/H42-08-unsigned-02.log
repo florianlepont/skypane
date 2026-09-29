@@ -1,0 +1,41 @@
+I (1482) wifi:<ba-add>idx:0 (ifx:0, <bssid>), tid:0, ssn:0, winSize:64
+I (1662) fp_tls: TLS session saved (1167 bytes)
+s=63 tls_offered=1 tls_saved_len=1167
+I (1672) wifi:pm stop, total sleep time: 862447 us
+I (1672) wifi:new:<6,0I (1712) wifi:flush txq
+I (1712) wifi:lmac stop hw txq
+I (3092) gpio: GPIO[38]| InputEn: 0| OutputEn: 1| OpenDI (3092) gpio: GPIO[43]| InputEn: 0| OutputEn: 1| OpenDratr:0 
+I (34622) skypane: ota updating screen drawn
+I (34622) net80211: net80211 I (34632) wifi:wifi drivI (34642) wifi:wifi firmwaI (34642) wifi:config NVS flash: enabled
+I (34642) wifi:Init data frame dynamic rx buffer num: 32I (34642) wifi:Init static rx mgmt buffer num: 5
+I (34642) wifi:Init management short buffer num: 32
+I (34642) wifi:Init tx cache buffer num: 32
+I (34642) wifi:Init dynamic rx I (34642) wifi_init: rx ba win: 6
+I (34642) I (34642) wifi_init: udp mbox: 6
+I (34642) wifi_init: tcp tx win: 5760
+I (34642) wifi_init: tcp mss: 1440
+I (34642) wifi_init: WiFi RX IRAM OP enabled (34642) wifi:Password length matches WPA2 standards, authmode threshold chanEN to WPA2
+I (34652) wifi:enable tsf
+I (34662) wifi:new:<6,0>, old:<1,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (34662) wifi:state: init -> auth (0xb0)
+I (34702) wifi:state: assoc -> run (0x10)
+3, channel 6, BW20, bssid = 3a:07:16:eeI (34712) wifi:security: WPA2-PSK, phy: bgn, rssi: -57
+I (34712) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+n_timeout: 25000, mt_pti: 0, mt_time: 10I (35732) wifi:<ba-add>idx:0 (ifx:0, <bssid>), tid:0, ssn:0, winSize:64
+I (37012) esp-x509-crt-bundle: Certificate validated
+I (37592) esp_https_ota: Writing to partition subtype 17 at I (37592) fp_ota: ota step=begin result=ok
+I (37602) fp_ota: ota step=desc result=ok
+I (58912) fp_ota: ota step=hash result=ok
+0I (59052) esp_image: segment 4: paddr=005b1f04 vaddr=4037537c size=18808h (100360) 
+8ch (  3212) 
+ge: segment 6: paddr=005cb3a8 vaddr=600fe000 size=00100h ( I (59062) esp_image: segment 8:
+I (59062) esp_image: Verifying image signature.I (59072) secure_boot_v2ted digest key(s) from running app
+rification failed
+hash to check for corruption...
+d
+il err=ESP_ERR_OTA_VALIDATE_W (59162) skypane: poll fail step=ota backoI (59162) fp_diag: wake timing total_ms=58842wnload_ms=0 draw_ms=0
+I (59162) wifi:state: run -> init (0x0)
+leep time: 11067351 us / 24453559 us
+I (59172) wifi:<ba-del>idx:0, tid:0
+I (59222) wifi:flush txq
+I (59222) wifi:lmac stop hw txq

@@ -1,0 +1,50 @@
+I (1492) esp_netif_handlers: sta ip: <lan-ip>, mask: <lan-mask>, gw: <lan-gw>
+I (1692) fp_tls: TLS session saved (1167 bytes)
+I (1702) wifi:state: run -> init (0x0)
+
+I (1702) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (1742) wifi:stop sw txq
+I (1742) wifi:Deinit lldesc rx mblock:10
+I (3122) gpio: GPIO[38]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (3122) gpio: GPIO[43]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (3122) gpio: GPIO[4]| InputEn: 1| OutputEn: 0| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (34652) skypane: ota updating screen drawn
+I (34652) net80211: net80211 rom version: e7ae62f
+I (34662) wifi:wifi driver task: 3fcd87f4, prio:23, stack:6656, core=0
+I (34672) wifi:wifi certification version: v7.0
+I (34672) wifi:Init static rx mgmt buffer num: 5
+I (34672) wifi:Init static tx buffer num: 16
+I (34672) wifi:Init dynamic rx buffer num: 32
+I (34672) wifi_init: rx ba win: 6
+I (34672) wifi_init: accept mbox: 6
+I (34672) wifi_init: tcpip mbox: 32
+I (34672) wifi_init: udp mbox: 6
+I (34672) wifi_init: tcp mbox: 6
+I (34672) wifi_init: tcp tx win: 5760
+I (34672) wifi_init: tcp rx win: 5760
+I (34672) wifi_init: tcp mss: 1440
+I (34672) wifi_init: WiFi IRAM OP enabled
+I (34672) wifi_init: WiFi RX IRAM OP enabled
+W (34672) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+I (34682) wifi:enable tsf
+I (34692) wifi:new:<6,0>, old:<1,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (34712) wifi:state: auth -> assoc (0x0)
+I (34742) wifi:security: WPA2-PSK, phy: bgn, rssi: -38
+I (35772) esp_netif_handlers: sta ip: <lan-ip>, mask: <lan-mask>, gw: <lan-gw>
+I (37692) esp_https_ota: Starting OTA...
+I (37702) esp_https_ota: Writing to partition subtype 17 at offset 0x4c0000
+I (37702) fp_ota: ota step=desc result=ok
+I (58912) fp_ota: ota step=hash result=ok
+I (58942) esp_image: segment 1: paddr=004f9950 vaddr=3fc9dc00 size=05344h ( 21316) 
+I (58952) esp_image: segment 3: paddr=00500020 vaddr=42000020 size=b1edch (728796) map
+I (59062) esp_image: segment 5: paddr=005ca714 vaddr=50000000 size=00c8ch (  3212) 
+I (59062) esp_image: segment 7: paddr=005cb4b0 vaddr=600fe100 size=00008h (     8) 
+I (59072) esp_image: Verifying image signature...
+E (59072) esp_image: Secure boot signature verification failed
+W (59162) esp_image: image valid, signature bad
+W (59162) skypane: poll fail step=ota backoff_n=2 sleep_s=1200
+I (59172) wifi:state: run -> init (0x0)
+
+I (59172) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (59212) wifi:stop sw txq
+I (59212) wifi:Deinit lldesc rx mblock:10

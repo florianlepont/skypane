@@ -1,0 +1,14 @@
+I (45827) fp_ota: ota step=download result=ok
+I (45997) esp_image: segment 0: paddr=004c0020 vaddr=3c0c0020 size=39928h I (46027) esp_image: segment 1: paddr=004f9950 vaddr=3fc9dc00 size=05344h ( 21316) 
+I (46037) esp_image: segment 3: paddr=00500020 vaddr=42000020 size=b1edI (46147) esp_image: segment 5: paddr=005ca714 vaddr=50000000 size=00c8ch (  3212) 
+0 size=00100h (   256) 
+I (46147) esp_image: segment 8: paddr=005cb4cI (46147) esp_image: Verifying image signature...
+om running app
+I (46157) esp_image: Calculating simple hash W (46247) esp_image: image valid, signature bad
+LIDATE_FAILED
+I (46247) fp_diag: wake timing total_ms=45932 wifi_ms=_ms=0 draw_ms=0
+I (46257) wifi:pm stop, total sleep time: 2359214 us / 11
+I (46257) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (46297) wifi:flush txq
+I (46297) wifi:lmac stop hw txq
+I (46307) skypane: sleep enter sleep_s=300

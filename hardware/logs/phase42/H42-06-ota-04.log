@@ -1,0 +1,49 @@
+I (542) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1482) wifi:<ba-add>idx:0 (ifx:0, <bssid>), tid:0, ssn:0, winSize:64
+I (1492) fp_tls: offering a saved TLS session (1167 bytes)
+I (1702) fp_api: http connects=1 first_connect_ms=67 tls_offered=1 tls_saved_len=1167
+I (1702) wifi:pm stop, total sleep time: 924538 us / 1237847 us
+I (1702) wifi:<ba-del>idx:0, tid:0
+I (1742) wifi:flush txq
+I (1742) wifi:lmac stop hw txq
+I (3122) gpio: GPIO[10]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (3122) gpio: GPIO[41]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (3122) gpio: GPIO[44]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (34552) epd13in3e: refresh complete
+I (34652) pp: pp rom version: e7ae62f
+I (34672) wifi:wifi firmware version: ccaebfa
+I (34672) wifi:config NVS flash: enabled
+I (34672) wifi:config nano formating: disabled
+I (34672) wifi:Init data frame dynamic rx buffer num: 32
+I (34672) wifi:Init management short buffer num: 32
+I (34672) wifi:Init tx cache buffer num: 32
+I (34672) wifi:Init static tx FG buffer num: 2
+I (34672) wifi:Init static rx buffer size: 1600
+I (34672) wifi:Init static rx buffer num: 10
+I (34682) wifi:mode : sta (94:a9:90:cf:80:08)
+I (34692) wifi:state: init -> auth (0xb0)
+I (34732) wifi:state: assoc -> run (0x10)
+I (34742) wifi:connected with <ssid>, aid = 1, channel 6, BW20, bssid = <bssid>
+I (34752) wifi:pm start, type: 1
+
+I (34752) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+I (34752) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (34822) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (35762) wifi:<ba-add>idx:0 (ifx:0, <bssid>), tid:0, ssn:0, winSize:64
+I (37042) esp-x509-crt-bundle: Certificate validated
+I (37702) fp_ota: ota step=begin result=ok
+I (58742) fp_ota: ota step=download result=ok
+I (58912) esp_image: segment 0: paddr=004c0020 vaddr=3c0c0020 size=39928h (235816) map
+I (58952) esp_image: segment 2: paddr=004fec9c vaddr=40374000 size=0137ch (  4988) 
+I (59052) esp_image: segment 4: paddr=005b1f04 vaddr=4037537c size=18808h (100360) 
+I (59062) esp_image: segment 6: paddr=005cb3a8 vaddr=600fe000 size=00100h (   256) 
+I (59062) esp_image: segment 8: paddr=005cb4c0 vaddr=00000000 size=04b10h ( 19216) 
+I (59072) secure_boot_v2: Take trusted digest key(s) from running app
+I (59072) esp_image: Calculating simple hash to check for corruption...
+W (59162) fp_ota: ota step=finish result=fail err=ESP_ERR_OTA_VALIDATE_FAILED
+I (59162) fp_diag: wake timing total_ms=58843 wifi_ms=1130 setup_ms=0 display_ms=207 download_ms=0 draw_ms=0
+I (59172) wifi:pm stop, total sleep time: 9901454 us / 24421567 us
+I (59172) wifi:<ba-del>idx:0, tid:0
+I (59212) wifi:flush txq
+I (59212) wifi:lmac stop hw txq
+I (59222) skypane: sleep enter sleep_s=1200

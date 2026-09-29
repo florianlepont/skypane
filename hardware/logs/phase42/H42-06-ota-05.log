@@ -1,0 +1,15 @@
+I (542) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1482) wifi:<ba-add>idx:0 (ifx:0, <bssid>), tid:0, ssn:0, winSize:64
+I (1502) fp_tls: offering a saved TLS session (1167 bytes)
+I (5412) fp_api: http connects=1 first_connect_ms=75 tls_offered=1 tls_saved_len=1167
+I (5422) wifi:state: run -> init (0x0)
+
+I (5432) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (5492) wifi:stop sw txq
+I (5492) wifi:Deinit lldesc rx mblock:10
+I (5502) gpio: GPIO[38]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (5502) gpio: GPIO[43]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (5502) gpio: GPIO[4]| InputEn: 1| OutputEn: 0| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (37112) skypane: blit ok bytes=960000 sha256_ok=1
+I (37122) skypane: refreshed to sha256:facf1d5a4d5174cb...
+I (37122) skypane: poll ok sleep_s=60 hash_skip=0

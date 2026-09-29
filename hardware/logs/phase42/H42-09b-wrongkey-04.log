@@ -1,0 +1,22 @@
+I (623) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+I (1523) wifi:<ba-add>idx:0 (ifx:0, <bssid>), tid:0, ssn:0, winSize:64
+I (1533) esp_netif_handlers: sta ip: <lan-ip>, mask: <lan-mask>, gw: <lan-gw>
+I (2733) fp_wifi: clock set via SNTP
+I (3993) esp-x509-crt-bundle: Certificate validated
+I (4743) fp_tls: TLS session saved (1167 bytes)
+I (4753) fp_api: http connects=1 first_connect_ms=1947 tls_offered=0 tls_saved_len=1167
+I (4753) wifi:state: run -> init (0x0)
+I (4753) wifi:pm stop, total sleep time: 3673966 us / 4250273 us
+
+I (4763) wifi:<ba-del>idx:0, tid:0
+I (4763) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+I (4793) wifi:flush txq
+I (4793) wifi:stop sw txq
+I (4793) wifi:lmac stop hw txq
+I (4793) wifi:Deinit lldesc rx mblock:10
+I (6173) gpio: GPIO[10]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (6173) gpio: GPIO[38]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (6173) gpio: GPIO[41]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (6173) gpio: GPIO[43]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (6173) gpio: GPIO[44]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (6173) gpio: GPIO[4]| InputEn: 1| OutputEn: 0| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 

@@ -1,0 +1,12 @@
+I (1492) esp_netif_handlers: sta ip: <lan-ip>, mask: <lan-mask>, gw: <lan-gw>
+I (1672) fp_tls: TLS session saved (1167 bytes)
+I (5432) wifi:pm stop, total sleep time: 972504 us / 4949716 us
+I (5432) wifi:<ba-del>idx:0, tid:0
+I (5492) wifi:flush txq
+I (5492) wifi:lmac stop hw txq
+I (5502) gpio: GPIO[10]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (5502) gpio: GPIO[41]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (5502) gpio: GPIO[44]| InputEn: 0| OutputEn: 1| OpenDrain: 0| Pullup: 0| Pulldown: 0| Intr:0 
+I (37012) epd13in3e: refresh complete
+I (37122) fp_diag: wake timing total_ms=36797 wifi_ms=1139 setup_ms=0 display_ms=178 download_ms=3737 draw_ms=31609
+I (37122) skypane: sleep enter sleep_s=60
