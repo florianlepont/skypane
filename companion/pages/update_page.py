@@ -8,6 +8,8 @@ is the real, server-side install-confirmation gate -- `companion/app.py`'s
 `_handle_update_install_post()`/`_handle_update_cancel_post()` are the
 live POST handlers for the forms this module renders.
 """
+import collections
+
 import companion.frame_state as frame_state
 import companion.i18n as i18n
 import companion.layout as layout
@@ -80,6 +82,15 @@ NOT_INSTALLABLE_TEXT = i18n.msg("update.not_installable", "Not installable")
 # .banner__pill (settings/rules.py's own "<scope>__kind banner__pill"
 # pattern), no new CSS.
 BENCH_BADGE_TEXT = i18n.msg("update.bench", "Bench")
+# The running release's own badge, and the same word as the
+# visually-hidden label beside the Installed check mark, so the two can
+# never name the running release differently.
+RUNNING_BADGE_TEXT = i18n.msg("update.running_badge", "Running")
+# "%s" is the concise timestamp of an over-the-air install of a release
+# the frame no longer runs; split around "%s" so the timestamp stays its
+# own <time> element rather than baked into an escaped sentence.
+LAST_INSTALLED_TEMPLATE = i18n.msg("update.last_installed_s", "Last installed %s")
+SHOW_NOTES_TEXT = i18n.msg("update.show_notes", "Show notes")
 INSTALL_CONFIRM_QUESTION_TEMPLATE = i18n.msg(
     "update.install_s_now",
     "Install %s now? It will apply at the next wake.")
@@ -280,11 +291,97 @@ def _install_form_html(version):
     )
 
 
+# Release notes are CI-generated commit summaries. A single note this
+# short reads fine in place; anything longer or more numerous collapses
+# to an excerpt (about two lines in the desktop Notes column) plus a
+# native <details> holding the full list, so a release with dozens of
+# notes cannot turn the version history into a wall of text.
+NOTES_EXCERPT_LIMIT = 120
+
+# What the Installed cell carries, so the desktop cell and the phone
+# card's Installed line render from one decision.
+_INSTALLED_RUNNING = "running"
+_INSTALLED_PAST = "past"
+
+# One release, built once and rendered twice (desktop table cell tuple,
+# phone card), so the two can never disagree about what a release offers.
+#   notes_excerpt_html / notes_details_html: escaped excerpt and the
+#     closed <details> ("" when the notes fit in place / are absent).
+#   installed_kind: _INSTALLED_RUNNING, _INSTALLED_PAST or None.
+_ReleaseRow = collections.namedtuple("_ReleaseRow", (
+    "version_html", "date_html", "notes_excerpt_html", "notes_details_html",
+    "installed_html", "installed_kind", "action_html"))
+
+
+def _notes_excerpt(text, limit=NOTES_EXCERPT_LIMIT):
+    """`text` cut on a word boundary within `limit` characters and ended
+    with an ellipsis, or `text` itself when it already fits.
+    """
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    if " " in cut and text[limit] != " ":
+        cut = cut.rsplit(" ", 1)[0]
+    return cut.rstrip(" ,;:.-") + "\u2026"
+
+
+def _notes_html(notes):
+    """`(excerpt_html, details_html)` for a release's notes.
+
+    Every note is HTML-escaped here: notes are untrusted CI output, and
+    the Notes column is a raw column of `layout.data_table()`, which
+    interpolates it unescaped. A lone note that fits renders in place
+    with no toggle; otherwise the excerpt is followed by a closed
+    <details> listing every note, which works with scripts blocked.
+    """
+    notes = [str(note) for note in notes if note]
+    if not notes:
+        return "", ""
+    joined = "; ".join(notes)
+    if len(notes) == 1 and len(joined) <= NOTES_EXCERPT_LIMIT:
+        return escape_html(joined), ""
+    items_html = "".join("<li>%s</li>" % escape_html(note) for note in notes)
+    details_html = (
+        '<details class="update-history__notes">'
+        "<summary>%s</summary>"
+        '<ul class="update-history__notes-list">%s</ul>'
+        "</details>"
+    ) % (escape_html(i18n.t(SHOW_NOTES_TEXT)), items_html)
+    return escape_html(_notes_excerpt(joined)), details_html
+
+
+def _installed_cell(release, now):
+    """`(installed_html, installed_kind)` for the Installed column.
+
+    The check mark means "this is the release the frame runs", never
+    "this was once installed": only the running row carries it, with its
+    over-the-air install time beside it when that install is still the
+    newest one (`installed_now_at`; a release reached again by USB flash
+    shows the check alone). A release installed over the air earlier but
+    no longer running shows quiet "Last installed" history text instead.
+    """
+    if release.get("running"):
+        html = (
+            layout.icon_html("icon-check", size=16)
+            + '<span class="visually-hidden">%s</span>'
+            % escape_html(i18n.t(RUNNING_BADGE_TEXT)))
+        if release.get("installed_now_at"):
+            html += layout.concise_timestamp_html(release["installed_now_at"], now)
+        return html, _INSTALLED_RUNNING
+    installed_at = release.get("installed_at") or []
+    if not installed_at:
+        return "", None
+    prefix, _, suffix = i18n.t(LAST_INSTALLED_TEMPLATE).partition("%s")
+    html = '<span class="text-label">%s%s%s</span>' % (
+        escape_html(prefix), layout.concise_timestamp_html(installed_at[-1], now),
+        escape_html(suffix))
+    return html, _INSTALLED_PAST
+
+
 def _release_row(release, running_version, target_version, installs_blocked, now):
-    """One `layout.data_table()` row for `release`: version (mono, plain
-    text), date/installed/action (raw, already-safe markup), notes
-    (plain text, escaped by data_table() itself since it is not in
-    raw_columns -- CI-generated commit summaries are untrusted input).
+    """One `_ReleaseRow` for `release`: version (mono, plain text),
+    date/installed/action (already-safe markup) and notes (escaped
+    excerpt plus an optional closed <details>; see `_notes_html()`).
 
     `target_version` is `view["target_version"]` -- the release a
     schedule already targets renders a quiet "Scheduled" label instead
@@ -299,6 +396,10 @@ def _release_row(release, running_version, target_version, installs_blocked, now
     """
     version = release.get("version")
     version_html = '<span class="mono">%s</span>' % escape_html(version)
+    if release.get("running"):
+        version_html += (
+            ' <span class="update-history__running-badge banner__pill">%s</span>'
+            % escape_html(i18n.t(RUNNING_BADGE_TEXT)))
     if release.get("bench"):
         # A non-tag version (fw-v1.2.0-bench1) admitted by
         # publish_release(bench=True) -- the version's own suffix is the
@@ -310,15 +411,8 @@ def _release_row(release, running_version, target_version, installs_blocked, now
             ' <span class="update-history__bench-badge banner__pill">%s</span>'
             % escape_html(i18n.t(BENCH_BADGE_TEXT)))
     date_html = layout.concise_timestamp_html(release.get("released_at"), now)
-    notes = release.get("notes") or []
-    notes_text = "; ".join(notes)
-    installed_at = release.get("installed_at") or []
-    if installed_at:
-        installed_html = (
-            layout.icon_html("icon-check", size=16)
-            + layout.concise_timestamp_html(installed_at[-1], now))
-    else:
-        installed_html = ""
+    excerpt_html, details_html = _notes_html(release.get("notes") or [])
+    installed_html, installed_kind = _installed_cell(release, now)
     is_target = bool(target_version) and version == target_version
     if installs_blocked and is_target:
         action_html = (
@@ -344,23 +438,35 @@ def _release_row(release, running_version, target_version, installs_blocked, now
         action_html = (
             '<span class="text-label">%s</span>'
             % escape_html(i18n.t(NOT_INSTALLABLE_TEXT)))
-    return (version_html, date_html, notes_text, installed_html, action_html)
+    return _ReleaseRow(
+        version_html, date_html, excerpt_html, details_html,
+        installed_html, installed_kind, action_html)
+
+
+def _table_cells(row):
+    """The five cells `layout.data_table()` renders for `row`; notes
+    (column 2) and every other cell are already-safe markup.
+    """
+    return (
+        row.version_html, row.date_html, row.notes_excerpt_html + row.notes_details_html,
+        row.installed_html, row.action_html)
 
 
 def _release_card_html(row):
     """The mobile stacked-card representation of one `_release_row()`
-    result: version/date on one line, notes as wrapping prose, the
-    Installed timestamp (when there is one), and the same action markup
-    the desktop row already built -- built from the identical row tuple,
-    so the two representations can never disagree about what a release
-    is offering. Matches `health_sections.py`'s own `.data-card` pattern
-    (`_registry_cards_html()`/`_stats_cards_html()`) rather than a new
-    one: a `<ul class="data-cards">` sibling toggled against the table
-    below it purely by `companion/static/style.css`'s existing
-    `.data-cards ~ .data-table-wrap` rule -- no table-specific CSS is
-    needed for the toggle itself.
+    result: version/date on one line, the notes excerpt as wrapping
+    prose with its toggle right after it, the Installed line (a
+    labelled cell for the running release, the bare "Last installed"
+    text for a past install, nothing otherwise) and the same action
+    markup the desktop row already built -- built from the identical
+    row, so the two representations can never disagree about what a
+    release is offering. Matches `health_sections.py`'s own
+    `.data-card` pattern (`_registry_cards_html()`/`_stats_cards_html()`)
+    rather than a new one: a `<ul class="data-cards">` sibling toggled
+    against the table below it purely by `companion/static/style.css`'s
+    existing `.data-cards ~ .data-table-wrap` rule -- no table-specific
+    CSS is needed for the toggle itself.
     """
-    version_html, date_html, notes_text, installed_html, action_html = row
     primary_html = (
         '<div class="data-card__primary">'
         '<span class="cell-primary">%s</span>'
@@ -368,20 +474,25 @@ def _release_card_html(row):
         '<span class="data-card__label">%s</span> %s'
         "</span>"
         "</div>"
-    ) % (version_html, escape_html(i18n.t(TABLE_HEADER_DATE_TEXT)), date_html)
+    ) % (row.version_html, escape_html(i18n.t(TABLE_HEADER_DATE_TEXT)), row.date_html)
+    # The toggle sits after the excerpt paragraph, never inside it: a
+    # <details> is block content and cannot be a child of <p>.
     desc_html = (
-        '<p class="data-card__desc">%s</p>' % escape_html(notes_text)) if notes_text else ""
-    installed_row_html = (
-        (
+        '<p class="data-card__desc">%s</p>' % row.notes_excerpt_html
+    ) if row.notes_excerpt_html else ""
+    installed_row_html = ""
+    if row.installed_kind == _INSTALLED_RUNNING:
+        installed_row_html = (
             '<div class="data-card__secondary">'
             '<span class="data-card__label">%s</span> %s'
             "</div>"
-        ) % (escape_html(i18n.t(TABLE_HEADER_INSTALLED_TEXT)), installed_html)
-    ) if installed_html else ""
+        ) % (escape_html(i18n.t(TABLE_HEADER_INSTALLED_TEXT)), row.installed_html)
+    elif row.installed_kind == _INSTALLED_PAST:
+        installed_row_html = '<div class="data-card__secondary">%s</div>' % row.installed_html
     action_row_html = (
-        '<div class="data-card__action">%s</div>' % action_html) if action_html else ""
-    return "<li class=\"data-card\">%s%s%s%s</li>" % (
-        primary_html, desc_html, installed_row_html, action_row_html)
+        '<div class="data-card__action">%s</div>' % row.action_html) if row.action_html else ""
+    return "<li class=\"data-card\">%s%s%s%s%s</li>" % (
+        primary_html, desc_html, row.notes_details_html, installed_row_html, action_row_html)
 
 
 def _history_cards_html(rows):
@@ -406,7 +517,7 @@ def _history_card_html(ctx, view):
             i18n.t(TABLE_HEADER_VERSION_TEXT), i18n.t(TABLE_HEADER_DATE_TEXT),
             i18n.t(TABLE_HEADER_NOTES_TEXT), i18n.t(TABLE_HEADER_INSTALLED_TEXT), "")
         table_html = layout.data_table(
-            headers, rows, raw_columns=(0, 1, 3, 4),
+            headers, [_table_cells(row) for row in rows], raw_columns=(0, 1, 2, 3, 4),
             desc_columns=(2,), prose=True, modifier="firmware-history")
         # Cards must render before the table: style.css's
         # `.data-cards ~ .data-table-wrap` sibling-combinator toggle

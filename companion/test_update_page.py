@@ -154,8 +154,9 @@ def test_releases_render_newest_first_with_install_form_and_installed_column():
     """two releases published at different times, the older one inserted first, the newer one
     running: the newer release's row comes first whatever the registry's insertion order; the
     older release's row carries an Install form (data-confirm, a hidden version field, no
-    confirm field) and its Installed column shows a timestamp; the running release's row
-    carries neither an Install form nor "Not installable" """
+    confirm field) and its Installed column shows "Last installed" history text, not the
+    check mark (it is no longer the running release); the running release's row carries
+    neither an Install form nor "Not installable" """
     older_published = "2026-09-01T09:00:00+00:00"
     newer_published = "2026-09-20T09:00:00+00:00"
     releases = [
@@ -180,7 +181,8 @@ def test_releases_render_newest_first_with_install_form_and_installed_column():
     assert "data-confirm=" in old_row
     assert '<input type="hidden" name="version" value="fw-v1.0.0">' in old_row
     assert "\"confirm\"" not in old_row, "the row-level Install form must post no confirm field"
-    assert "icon-check" in old_row
+    assert "icon-check" not in old_row
+    assert "Last installed" in old_row
 
 
 def test_below_floor_release_shows_not_installable_text_no_form():
@@ -422,6 +424,190 @@ def test_french_render_translates_every_new_string():
     assert "Historique des versions" in html
     assert "Installer" in html
     assert "%s" not in html, "expected no leftover, unfilled %%s placeholder"
+
+
+# ==========================================================================
+# Running badge, honest Installed column, collapsed notes
+# ==========================================================================
+
+_FR_NBSP = "\u00a0"
+
+
+def _fr_html(view, now=_NOW):
+    try:
+        prefs.set_request_prefs(lang="fr")
+        return update_page.update_page(_ctx(now), view, "")
+    finally:
+        prefs.set_request_prefs(lang="en")
+
+
+def _rows(html):
+    """The table's <tr> bodies, keyed by the version in their first cell."""
+    table_html = html[html.index("<table"):]
+    rows = {}
+    for row_html in table_html.split("<tr class=")[1:]:
+        match = re.search(r'<span class="mono">(fw-v[^<]+)</span>', row_html)
+        rows[match.group(1)] = row_html.split("</tr>", 1)[0]
+    return rows
+
+
+def _cards(html):
+    cards = {}
+    cards_html = html.split('<ul class="data-cards">', 1)[1].split("</ul><div", 1)[0]
+    for card_html in cards_html.split('<li class="data-card">')[1:]:
+        match = re.search(r'<span class="mono">(fw-v[^<]+)</span>', card_html)
+        cards[match.group(1)] = card_html
+    return cards
+
+
+def _running_view(extra_releases=(), installed_at=None):
+    releases = [_release("fw-v1.0.0", installed_at=installed_at)] + list(extra_releases)
+    return _view(releases=releases, device_entry={
+        "fw_version": "fw-v1.0.0", "reported_at": _NOW, "events": []})
+
+
+def test_running_badge_is_on_the_running_row_and_card_only():
+    """the reported release carries the Running badge in its table row and its phone card;
+    no other release does"""
+    view = _running_view([_release("fw-v1.1.0", published_at="2026-09-29T09:00:00+00:00")])
+    html = update_page.update_page(_ctx(), view, "")
+    badge = 'class="update-history__running-badge banner__pill">Running</span>'
+    rows, cards = _rows(html), _cards(html)
+    assert badge in rows["fw-v1.0.0"] and badge in cards["fw-v1.0.0"]
+    assert "update-history__running-badge" not in rows["fw-v1.1.0"]
+    assert "update-history__running-badge" not in cards["fw-v1.1.0"]
+    assert html.count("update-history__running-badge") == 2
+
+
+def test_no_running_badge_without_a_reported_version():
+    view = _view(releases=[_release("fw-v1.0.0", installed_at=[_NOW])])
+    html = update_page.update_page(_ctx(), view, "")
+    assert "update-history__running-badge" not in html
+    assert "icon-check" not in html
+
+
+def test_running_badge_reads_en_cours_in_french():
+    html = _fr_html(_running_view())
+    assert 'update-history__running-badge banner__pill">En cours</span>' in html
+    assert "Running" not in html.split("<table", 1)[1].split("</table>", 1)[0]
+
+
+def test_running_and_bench_badges_share_one_row():
+    view = _view(
+        releases=[_release("fw-v1.2.0-bench1", bench=True)],
+        device_entry={"fw_version": "fw-v1.2.0-bench1", "reported_at": _NOW, "events": []})
+    row = _rows(update_page.update_page(_ctx(), view, ""))["fw-v1.2.0-bench1"]
+    assert "update-history__running-badge" in row
+    assert "update-history__bench-badge" in row
+
+
+def test_running_release_installed_cell_has_check_hidden_label_and_ota_time():
+    """the running release, newest OTA install: check mark, a visually-hidden Running label
+    and the concise install timestamp, in the table and in the card's labelled Installed line"""
+    install = "2026-09-28T11:00:00+00:00"
+    html = update_page.update_page(_ctx(), _running_view(installed_at=[install]), "")
+    row = _rows(html)["fw-v1.0.0"]
+    installed_cell = row.split("</td>")[3]
+    assert "icon-check" in installed_cell
+    assert '<span class="visually-hidden">Running</span>' in installed_cell
+    assert "<time" in installed_cell
+    assert "Last installed" not in installed_cell
+    card = _cards(html)["fw-v1.0.0"]
+    assert "icon-check" in card
+    assert 'data-card__label">Installed</span>' in card
+
+
+def test_usb_flashed_running_release_shows_check_without_a_time():
+    """bench installed over the air later than the running release's own install: the bench
+    row shows history text and no check; the running row keeps the check with no time"""
+    bench_install = "2026-09-29T15:27:00+00:00"
+    view = _running_view(
+        [_release("fw-v9.9.9-bench", installed_at=[bench_install], bench=True,
+                  published_at="2026-09-29T09:00:00+00:00")],
+        installed_at=["2026-09-01T09:00:00+00:00"])
+    html = update_page.update_page(_ctx("2026-09-29T16:00:00+00:00"), view, "")
+    rows = _rows(html)
+    running_cell = rows["fw-v1.0.0"].split("</td>")[3]
+    assert "icon-check" in running_cell
+    assert "<time" not in running_cell and "Last installed" not in running_cell
+    bench_cell = rows["fw-v9.9.9-bench"].split("</td>")[3]
+    assert "icon-check" not in bench_cell
+    assert "Last installed" in bench_cell and "<time" in bench_cell
+    cards = _cards(html)
+    assert "icon-check" not in cards["fw-v9.9.9-bench"]
+    assert "Last installed" in cards["fw-v9.9.9-bench"]
+    assert 'data-card__label">Installed</span>' not in cards["fw-v9.9.9-bench"]
+
+
+def test_never_installed_release_has_an_empty_installed_cell_and_no_card_line():
+    view = _running_view([_release("fw-v1.1.0", published_at="2026-09-29T09:00:00+00:00")])
+    html = update_page.update_page(_ctx(), view, "")
+    assert _rows(html)["fw-v1.1.0"].split("</td>")[3].endswith("<td>")
+    card = _cards(html)["fw-v1.1.0"]
+    assert "data-card__secondary" not in card
+
+
+def test_last_installed_reads_in_french():
+    view = _running_view([_release(
+        "fw-v1.1.0", installed_at=["2026-09-28T11:00:00+00:00"],
+        published_at="2026-09-29T09:00:00+00:00")])
+    html = _fr_html(view)
+    assert "Dernière installation" + _FR_NBSP + ": " in html
+    assert "Last installed" not in html
+
+
+def test_single_short_note_renders_plain_with_no_toggle():
+    view = _view(releases=[_release("fw-v1.0.0", notes=["Initial factory image."])])
+    html = update_page.update_page(_ctx(), view, "")
+    assert "Initial factory image." in html
+    assert "<details" not in html
+    assert "update-history__notes" not in html
+
+
+def test_several_notes_render_an_excerpt_and_a_closed_details_with_every_note():
+    notes = ["First note", "Second note", "Third note"]
+    html = update_page.update_page(
+        _ctx(), _view(releases=[_release("fw-v1.0.0", notes=notes)]), "")
+    row, card = _rows(html)["fw-v1.0.0"], _cards(html)["fw-v1.0.0"]
+    for fragment in (row, card):
+        assert '<details class="update-history__notes">' in fragment
+        assert "<details class=\"update-history__notes\" open" not in fragment
+        assert "<summary>Show notes</summary>" in fragment
+        for note in notes:
+            assert "<li>%s</li>" % note in fragment
+    assert 'class="data-card__desc">First note; Second note; Third note</p>' in card
+    assert card.index("</p>") < card.index("<details")
+
+
+def test_one_long_note_is_cut_on_a_word_boundary_with_an_ellipsis():
+    limit = update_page.NOTES_EXCERPT_LIMIT
+    note = " ".join(["wordy"] * 60)
+    html = update_page.update_page(
+        _ctx(), _view(releases=[_release("fw-v1.0.0", notes=[note])]), "")
+    card = _cards(html)["fw-v1.0.0"]
+    excerpt = re.search(r'<p class="data-card__desc">([^<]*)</p>', card).group(1)
+    assert excerpt.endswith("\u2026")
+    body = excerpt[:-1]
+    assert len(body) <= limit
+    assert body.split(" ") == ["wordy"] * len(body.split(" ")), "cut mid-word: %r" % body
+    assert len(body) > limit - 6, "cut far short of the limit: %r" % body
+    assert "<li>%s</li>" % note in card
+
+
+def test_notes_are_escaped_in_the_excerpt_and_the_list():
+    hostile = "<script>alert(1)</script>"
+    notes = [hostile, 'x" onmouseover="alert(2)']
+    html = update_page.update_page(
+        _ctx(), _view(releases=[_release("fw-v1.0.0", notes=notes)]), "")
+    assert "<script>" not in html
+    assert html.count("&lt;script&gt;alert(1)&lt;/script&gt;") >= 4
+    assert 'onmouseover="alert' not in html
+
+
+def test_show_notes_reads_afficher_les_notes_in_french():
+    html = _fr_html(_view(releases=[_release("fw-v1.0.0", notes=["a", "b"])]))
+    assert "<summary>Afficher les notes</summary>" in html
+    assert "Show notes" not in html
 
 
 def _seed_update_state(state_dir):

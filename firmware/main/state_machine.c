@@ -168,11 +168,12 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
 
     /* OTA before the hash-skip below: an offer must land even on a wake
      * where the picture is unchanged. Every branch either falls through
-     * to continue this wake's normal poll (skip/refuse) or ends the
-     * wake itself (a real reboot into the trial image, or a failure
-     * through the single failure exit with step token "ota"). Neither
-     * a battery nor a floor refusal is a failure - both mean "try again
-     * later", not backoff-worthy. */
+     * to continue this wake's normal poll (skip/refuse, or a failed
+     * attempt - see FP_OTA_START) or ends the wake itself (a real reboot
+     * into the trial image, or a failure through the single failure exit
+     * with step token "ota" when a failed attempt cannot get the radio
+     * back). Neither a battery nor a floor refusal is a failure - both
+     * mean "try again later", not backoff-worthy. */
     if (disp.fw.present) {
         fp_ota_decision_t decision = fp_ota_decide(
             disp.fw.version, fp_ota_running_version(),
@@ -201,39 +202,54 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
             draw_updating_screen();
             fp_wake_checkpoint();
 
-            esp_err_t ota_wifi_err = fp_wifi_connect(15000);
-            if (ota_wifi_err != ESP_OK) {
-                fp_ota_record_result(FP_OTA_RESULT_FAIL_DOWNLOAD, disp.fw.version);
-                fp_nvs_erase_key(FP_NVS_OTA_TRY); /* attempt fully classified */
+            fp_ota_result_t ota_fail = FP_OTA_RESULT_FAIL_DOWNLOAD;
+            bool radio_up = fp_wifi_connect(15000) == ESP_OK;
+            if (radio_up) {
+                fp_wake_checkpoint();
+                esp_err_t apply_err = fp_ota_apply(&disp.fw, &ota_fail);
+                if (apply_err == ESP_OK) {
+                    ESP_LOGI(TAG, "ota switched version=%s restarting", disp.fw.version);
+                    /* esp_restart() is a soft reset, not deep sleep: ESP-IDF
+                     * re-runs the C runtime init for the .rtc.data segment on
+                     * this kind of reset, so panel.c's RTC_DATA_ATTR guard
+                     * counter always reads back as 0 on the trial wake below,
+                     * whatever it holds here. Waiting out any spacing still
+                     * owed right now - radio already down
+                     * (draw_updating_screen() called fp_wifi_stop()), panel
+                     * already powered off after its own blit - means the
+                     * spacing is honoured in real elapsed time instead of
+                     * relying on a counter that cannot survive this reset. */
+                    uint32_t guard_wait_s = fp_panel_wait_seconds();
+                    if (guard_wait_s > 0) {
+                        fp_wake_light_sleep_s(guard_wait_s);
+                    }
+                    esp_restart();
+                }
+            }
+
+            /* The attempt failed (or its Wi-Fi join did). Classify it -
+             * reported on the next poll, counted by the server toward its
+             * attempt limit - and clear the try marker, exactly as a
+             * failure always did. What changed is the rest of this wake:
+             * the UPDATING screen is on the glass and its sentinel hash
+             * is stored, so the hash check below can never skip and the
+             * normal image path puts the current picture back (or defers
+             * it behind the panel guard). The wake then counts as
+             * healthy, so there is no failure backoff. */
+            fp_ota_record_result(ota_fail, disp.fw.version);
+            fp_nvs_erase_key(FP_NVS_OTA_TRY); /* attempt fully classified */
+            if (!radio_up) {
+                /* The picture needs a radio: one more join. */
+                radio_up = fp_wifi_connect(15000) == ESP_OK;
+            }
+            if (fp_ota_after_failure(radio_up) == FP_OTA_AFTER_FAIL_WAKE) {
                 *fail_step_out = "ota";
                 return FP_POLL_FAILED;
             }
+            ESP_LOGI(TAG, "ota failed result=%s continuing poll",
+                     fp_ota_result_token(ota_fail));
             fp_wake_checkpoint();
-
-            fp_ota_result_t ota_fail;
-            esp_err_t apply_err = fp_ota_apply(&disp.fw, &ota_fail);
-            if (apply_err == ESP_OK) {
-                ESP_LOGI(TAG, "ota switched version=%s restarting", disp.fw.version);
-                /* esp_restart() is a soft reset, not deep sleep: ESP-IDF
-                 * re-runs the C runtime init for the .rtc.data segment on
-                 * this kind of reset, so panel.c's RTC_DATA_ATTR guard
-                 * counter always reads back as 0 on the trial wake below,
-                 * whatever it holds here. Waiting out any spacing still
-                 * owed right now - radio already down
-                 * (draw_updating_screen() called fp_wifi_stop()), panel
-                 * already powered off after its own blit - means the
-                 * spacing is honoured in real elapsed time instead of
-                 * relying on a counter that cannot survive this reset. */
-                uint32_t guard_wait_s = fp_panel_wait_seconds();
-                if (guard_wait_s > 0) {
-                    fp_wake_light_sleep_s(guard_wait_s);
-                }
-                esp_restart();
-            }
-            fp_ota_record_result(ota_fail, disp.fw.version);
-            fp_nvs_erase_key(FP_NVS_OTA_TRY); /* attempt fully classified */
-            *fail_step_out = "ota";
-            return FP_POLL_FAILED;
+            break;
         }
         }
     }

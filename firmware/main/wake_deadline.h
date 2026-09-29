@@ -40,20 +40,26 @@
      FP_WAKE_STAGE_BLIT_S + (guard_wait_s))
 
 /* Worst-case legitimate OTA wake: an alternative to FP_WAKE_WORST_CASE_S
- * above, not an addition on top of it - an OTA wake never also
- * downloads and blits the normal display image, it either restarts
- * into the trial image or fails through the single failure exit, so
- * FP_WAKE_STAGE_DOWNLOAD_S plays no part here. Stacks Wi-Fi, SNTP,
- * setup and display (the normal poll that carried the offer), the
- * panel-guard spacing wait, the UPDATING-screen blit, a second Wi-Fi
- * join after the trial-image reboot, and the firmware image download
- * itself. The configured wake budget (CONFIG_SKYPANE_WAKE_BUDGET_S)
- * must exceed both worst cases - see wake_guard.c's two
- * _Static_assert lines. */
+ * above, not an addition on top of it. An OTA wake either restarts into
+ * the trial image or, when the attempt fails, carries on with the
+ * normal poll in the same wake (so the UPDATING screen is replaced by
+ * the current picture); the failing one is the longer, and is what this
+ * macro stacks: Wi-Fi, SNTP, setup and display (the normal poll that
+ * carried the offer), the panel-guard spacing wait, the UPDATING-screen
+ * blit, a second Wi-Fi join, the firmware image download itself, and
+ * then the picture download and its blit. The panel-guard spacing owed
+ * before that second blit is at most CONFIG_FP_MIN_REFRESH_SPACING_S
+ * (60 s by default), it starts counting when the UPDATING blit ends, and
+ * FP_WAKE_STAGE_OTA_S already covers it, so it adds nothing here. A
+ * failed second Wi-Fi join that is retried once is bounded by the same
+ * FP_WAKE_STAGE_WIFI_S plus the (then absent) OTA stage. The configured
+ * wake budget (CONFIG_SKYPANE_WAKE_BUDGET_S) must exceed both worst
+ * cases - see wake_guard.c's two _Static_assert lines. */
 #define FP_WAKE_OTA_WORST_CASE_S(guard_wait_s) \
     (FP_WAKE_STAGE_WIFI_S + FP_WAKE_STAGE_SNTP_S + FP_WAKE_STAGE_SETUP_S + \
      FP_WAKE_STAGE_DISPLAY_S + (guard_wait_s) + FP_WAKE_STAGE_BLIT_S + \
-     FP_WAKE_STAGE_WIFI_S + FP_WAKE_STAGE_OTA_S)
+     FP_WAKE_STAGE_WIFI_S + FP_WAKE_STAGE_OTA_S + \
+     FP_WAKE_STAGE_DOWNLOAD_S + FP_WAKE_STAGE_BLIT_S)
 
 /* True iff now_us is at or past start_us + budget_s worth of
  * microseconds - i.e. the whole-wake budget has expired. now_us before

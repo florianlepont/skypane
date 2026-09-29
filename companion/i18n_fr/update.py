@@ -72,6 +72,10 @@ MESSAGES = {
         "Publiez une version en poussant un tag fw-v*. Elle apparaîtra ici "
         "une fois que la CI aura terminé la construction et la signature.",
 
+    "update.running_badge": "En cours",
+    "update.last_installed_s": "Dernière installation\u00a0: %s",
+    "update.show_notes": "Afficher les notes",
+
     "update.bench": "Banc d’essai",
     "update.this_is_a_bench_build": "Il s’agit d’une version de banc d’essai.",
 }

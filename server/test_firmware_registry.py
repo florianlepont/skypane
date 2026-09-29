@@ -922,6 +922,88 @@ def test_update_view_releases_installable_and_installed_at():
     assert view["releases"][1]["installed_at"] == [NOW]
 
 
+def _view_release(version, installed_at=(), published_at=NOW, bench=False):
+    return {
+        "version": version, "sha256": "3" * 64, "size": 10,
+        "released_at": "2026-09-01", "published_at": published_at, "commit": "3" * 40,
+        "notes": [], "bench": bench, "installed_at": list(installed_at),
+    }
+
+
+def _release_by_version(view):
+    return {r["version"]: r for r in view["releases"]}
+
+
+def test_update_view_marks_exactly_the_reported_release_as_running():
+    releases = [_view_release("fw-v1.0.0"), _view_release("fw-v1.1.0"), _view_release("fw-v1.2.0")]
+    registry = _view_registry(releases=releases)
+    view = registry_mod.update_view(registry, _view_device_report(fw_version="fw-v1.1.0"), NOW)
+    assert [r["version"] for r in view["releases"] if r["running"]] == ["fw-v1.1.0"]
+
+
+def test_update_view_marks_no_release_running_without_a_device_report():
+    releases = [_view_release("fw-v1.0.0")]
+    registry = _view_registry(releases=releases)
+    view = registry_mod.update_view(registry, _make_device_report([], fw_version=None), NOW)
+    assert view["running_version"] is None
+    assert all(r["running"] is False for r in view["releases"])
+    assert all(r["installed_now_at"] is None for r in view["releases"])
+
+
+def test_update_view_installed_now_at_is_the_running_release_newest_install():
+    releases = [_view_release("fw-v1.0.0", installed_at=[NOW, LATER])]
+    registry = _view_registry(releases=releases)
+    view = registry_mod.update_view(registry, _view_device_report(fw_version="fw-v1.0.0"), LATER)
+    assert view["releases"][0]["running"] is True
+    assert view["releases"][0]["installed_now_at"] == LATER
+
+
+def test_update_view_usb_flashed_release_keeps_no_install_time_after_a_later_ota_elsewhere():
+    """The real-hardware case: a bench build was installed over the air, then the frame was
+    USB-flashed back to fw-v1.0.0. The bench row is not running; the running row must not
+    borrow (or show) an install time that belongs to another release."""
+    bench_install = "2026-09-29T15:27:00+00:00"
+    releases = [
+        _view_release("fw-v9.9.9-bench", installed_at=[bench_install], published_at=LATER, bench=True),
+        _view_release("fw-v1.0.0", published_at=NOW),
+    ]
+    registry = _view_registry(releases=releases)
+    view = registry_mod.update_view(registry, _view_device_report(fw_version="fw-v1.0.0"), LATER)
+    by_version = _release_by_version(view)
+    assert by_version["fw-v9.9.9-bench"]["running"] is False
+    assert by_version["fw-v9.9.9-bench"]["installed_now_at"] is None
+    assert by_version["fw-v9.9.9-bench"]["installed_at"] == [bench_install]
+    assert by_version["fw-v1.0.0"]["running"] is True
+    assert by_version["fw-v1.0.0"]["installed_now_at"] is None
+
+
+def test_update_view_older_ota_install_of_running_release_is_overtaken_by_a_newer_one_elsewhere():
+    releases = [
+        _view_release("fw-v1.0.0", installed_at=[NOW]),
+        _view_release("fw-v1.1.0", installed_at=[LATER], published_at=LATER),
+    ]
+    registry = _view_registry(releases=releases)
+    view = registry_mod.update_view(registry, _view_device_report(fw_version="fw-v1.0.0"), LATER)
+    assert _release_by_version(view)["fw-v1.0.0"]["installed_now_at"] is None
+
+
+def test_update_view_rolled_back_attempt_leaves_the_running_release_its_install_time():
+    """A failed or rolled-back attempt never appends to installed_at, so after a rollback
+    the frame runs the old release and that release keeps its own OTA install time."""
+    releases = [
+        _view_release("fw-v1.0.0", installed_at=[NOW]),
+        _view_release("fw-v1.1.0", published_at=LATER),
+    ]
+    last_outcome = {"kind": "rollback", "version": "fw-v1.1.0", "back_on": "fw-v1.0.0", "at": LATER}
+    registry = _view_registry(releases=releases, last_outcome=last_outcome)
+    view = registry_mod.update_view(registry, _view_device_report(fw_version="fw-v1.0.0"), LATER)
+    by_version = _release_by_version(view)
+    assert by_version["fw-v1.0.0"]["running"] is True
+    assert by_version["fw-v1.0.0"]["installed_now_at"] == NOW
+    assert by_version["fw-v1.1.0"]["installed_now_at"] is None
+    assert by_version["fw-v1.1.0"]["installed_at"] == []
+
+
 # --- additional coverage: small helpers and every tolerant-degrade branch --
 
 def test_firmware_image_path_rejects_non_hex_or_non_string(tmp_path):

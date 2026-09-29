@@ -1956,6 +1956,22 @@ table.data-table--firmware-history td:last-child {
   white-space: nowrap;
 }
 
+/* The excerpt and its toggle share one Notes cell (and one phone card),
+ * so the toggle needs only a small gap from the excerpt above it. The
+ * summary itself keeps the global 44px hit height. */
+.update-history__notes {
+  margin-top: var(--space-xs);
+}
+
+/* Notes are untrusted CI text: overflow-wrap: anywhere lets one long
+ * unbroken token wrap instead of widening the card past a 375px
+ * viewport; the padding gives the bullets room inside the card. */
+.update-history__notes-list {
+  margin: 0;
+  padding: 0 0 var(--space-sm) var(--space-lg);
+  overflow-wrap: anywhere;
+}
+
 .flight-detail-row td {
   background: color-mix(in srgb, var(--color-text) 3%, transparent);
   padding: var(--space-md);
