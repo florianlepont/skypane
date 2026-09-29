@@ -447,13 +447,29 @@ def test_firmware_state_directory_created_mode_0750(fake_root, fake_release, run
 
 
 def test_firmware_import_runs_before_swap_when_present(fake_root, fake_release, run_activate):
+    # A prior release is already `current` -- otherwise there would be
+    # no swap for the import to run "before", and moving the import
+    # after `mv -T` would pass this test just as well as running it
+    # before (both read the same nonexistent `current`).
+    fake_release("f00d001")
+    r0 = run_activate("f00d001")
+    assert r0.returncode == 0, r0.stderr
+    assert os.readlink(fake_root.current_link) == "releases/f00d001"
+
+    # This run's own log lines start after the first deploy's -- the
+    # first deploy's "systemctl restart" line would otherwise precede
+    # the second deploy's "firmware_cli import-dir" line by sheer
+    # accident of the two runs' call order, defeating the ordering
+    # check below.
+    lines_before_second_deploy = len(fake_root.call_log.read_text().splitlines())
+
     incoming = fake_release("f00d002")
     _add_firmware_releases(incoming, "fw-v1.0.0")
 
     r = run_activate("f00d002")
     assert r.returncode == 0, r.stderr
 
-    log_lines = fake_root.call_log.read_text().splitlines()
+    log_lines = fake_root.call_log.read_text().splitlines()[lines_before_second_deploy:]
     import_idx = next(i for i, ln in enumerate(log_lines) if ln.startswith("firmware_cli import-dir"))
     restart_idx = next(
         i for i, ln in enumerate(log_lines) if ln == "systemctl restart skypane-byos.service"
@@ -464,6 +480,15 @@ def test_firmware_import_runs_before_swap_when_present(fake_root, fake_release, 
     assert "entries=fw-v1.0.0" in import_line
     assert "--state-dir" in import_line
     assert str(fake_root.state_dir) in import_line
+
+    # `current` still pointed at the *previous* release when import-dir
+    # ran -- proof the import precedes the `current` swap itself, not
+    # only the later `systemctl restart` (moving the import after
+    # `mv -T` would still pass the ordering check above, since the
+    # restart happens after the swap either way, but this line would
+    # then read "releases/f00d002").
+    assert "current=releases/f00d001" in import_line, (
+        "firmware import must run before the current symlink is swapped: %r" % (import_line,))
 
     # The per-deploy firmware staging directory is a temp path outside
     # the release tree, and does not outlive this run.
