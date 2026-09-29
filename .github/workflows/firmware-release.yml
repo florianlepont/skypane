@@ -24,17 +24,23 @@ permissions:
   contents: read
 
 jobs:
-  release:
-    name: Build, sign and publish a firmware release
+  guard:
+    name: Guard the tag shape and that it is on main
+    # No `environment:` here, deliberately: this job carries no secret
+    # and needs no reviewer approval, so it can run -- and fail loudly on
+    # a malformed tag or an off-main commit -- before the release job
+    # below ever asks a human to approve entry into firmware-signing.
+    # Before this split, the environment gate was job-level and so ran
+    # ahead of every step, including this check: a reviewer approving
+    # the run had no guarantee yet that the tag was even well-formed or
+    # on main, and anyone who could push a fw-v* tag on an unmerged
+    # commit could edit this very check out of the workflow file the tag
+    # itself carries. The human approval on the `release` job below is
+    # now only ever requested for a tag this job has already verified.
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    environment: firmware-signing
+    timeout-minutes: 5
     permissions:
-      contents: write
-      actions: write
-    concurrency:
-      group: firmware-release
-      cancel-in-progress: false
+      contents: read
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -50,9 +56,6 @@ jobs:
           git fetch origin main
 
       - name: Guard the tag shape and that it is on main
-        # A tag that is malformed, or whose commit is not an ancestor of
-        # main, fails here -- before any build, before Docker, and
-        # before the firmware-signing environment gate is ever reached.
         run: |
           set -eu
           if ! printf '%s' "$GITHUB_REF_NAME" \
@@ -64,6 +67,24 @@ jobs:
             echo "::error::$GITHUB_SHA (tag $GITHUB_REF_NAME) is not an ancestor of origin/main"
             exit 1
           fi
+
+  release:
+    name: Build, sign and publish a firmware release
+    needs: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: firmware-signing
+    permissions:
+      contents: write
+      actions: write
+    concurrency:
+      group: firmware-release
+      cancel-in-progress: false
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Build the release firmware image
         # Same containerised build a developer runs locally; the tag
