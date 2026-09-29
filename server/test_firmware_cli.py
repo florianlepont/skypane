@@ -7,6 +7,8 @@ lines, registry contents) -- never about the module's source text.
 import hashlib
 import os
 
+import pytest
+
 from server import firmware_cli, firmware_registry
 
 COMMIT = "a" * 40
@@ -52,6 +54,31 @@ def test_import_dir_publishes_two_valid_releases_and_prints_added_twice(tmp_path
     registry = firmware_registry.load_registry(str(state_dir))
     versions = {r["version"] for r in registry["releases"]}
     assert versions == {"fw-v1.0.1", "fw-v1.0.2"}
+
+
+@pytest.mark.parametrize("argv_shape", ["before", "after"])
+def test_state_dir_is_honoured_before_or_after_the_subcommand(tmp_path, capsys, argv_shape):
+    """--state-dir works on either side of the subcommand, and the value
+    given is the one used, not the default. A deploy once failed because
+    its call put --state-dir after `import-dir`, which argparse rejected.
+    """
+    base = tmp_path / "releases"
+    state_dir = tmp_path / "state"
+    _write_release_subdir(base, "fw-v1.0.1")
+    if argv_shape == "before":
+        argv = ["--state-dir", str(state_dir), "import-dir", str(base)]
+    else:
+        argv = ["import-dir", str(base), "--state-dir", str(state_dir)]
+
+    assert firmware_cli.main(argv) == 0
+    assert "added fw-v1.0.1" in capsys.readouterr().out
+    registry = firmware_registry.load_registry(str(state_dir))
+    assert [r["version"] for r in registry["releases"]] == ["fw-v1.0.1"]
+
+    list_argv = (["--state-dir", str(state_dir), "list"] if argv_shape == "before"
+                 else ["list", "--state-dir", str(state_dir)])
+    assert firmware_cli.main(list_argv) == 0
+    assert "fw-v1.0.1" in capsys.readouterr().out
 
 
 def test_import_dir_rerun_prints_exists_twice_and_exits_0(tmp_path, capsys):

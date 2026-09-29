@@ -270,15 +270,23 @@ def build_parser():
         prog="firmware_cli", description="Publish firmware releases into server.firmware_registry.")
     ap.add_argument("--state-dir", default=DEFAULT_STATE_DIR,
                      help="registry state directory (default: %s)" % DEFAULT_STATE_DIR)
+    # --state-dir is also accepted after the subcommand, so both
+    # `firmware_cli --state-dir D import-dir X` and
+    # `firmware_cli import-dir X --state-dir D` work. SUPPRESS keeps a
+    # subcommand that omits it from overwriting the top-level value.
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--state-dir", default=argparse.SUPPRESS,
+                        help="registry state directory (default: %s)" % DEFAULT_STATE_DIR)
     sub = ap.add_subparsers(dest="command", required=True)
 
     import_dir = sub.add_parser(
-        "import-dir", help="publish every <dir>/<tag>/{skypane-<tag>.bin,release.json} subdirectory")
+        "import-dir", parents=[common],
+        help="publish every <dir>/<tag>/{skypane-<tag>.bin,release.json} subdirectory")
     import_dir.add_argument("dir")
     import_dir.set_defaults(func=cmd_import_dir)
 
     import_bench = sub.add_parser(
-        "import-bench", help="publish one locally built bench image (hardware session only)")
+        "import-bench", parents=[common], help="publish one locally built bench image (hardware session only)")
     import_bench.add_argument("--file", required=True)
     import_bench.add_argument("--version", required=True)
     import_bench.add_argument(
@@ -286,7 +294,7 @@ def build_parser():
         help="40-hex-char commit the bench image was built from; required outside a git checkout")
     import_bench.set_defaults(func=cmd_import_bench)
 
-    listp = sub.add_parser("list", help="list published releases")
+    listp = sub.add_parser("list", parents=[common], help="list published releases")
     listp.set_defaults(func=cmd_list)
 
     return ap
