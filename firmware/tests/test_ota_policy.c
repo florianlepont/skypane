@@ -4,7 +4,8 @@
 /* Host-side unit test for every OTA decision the device makes: version
  * parsing and floor comparison, the start/refuse decision, the
  * downloaded-image check, boot-outcome classification after a restart,
- * the confirm rule, and the result token/format the device reports.
+ * the confirm rule, what a failed attempt does to the rest of the
+ * wake, and the result token/format the device reports.
  *
  *   cc -Wall -Wextra -std=c11 main/ota_policy.c main/validate.c \
  *      tests/test_ota_policy.c -o /tmp/top && /tmp/top
@@ -189,6 +190,18 @@ static void result_format_cases(void)
     assert(buf[0] == '\0');
 }
 
+static void after_failure_cases(void)
+{
+    /* A failed update attempt does not end the wake by itself: with the
+     * radio back up the poll goes on to re-fetch and redraw the current
+     * picture (the UPDATING screen is on the glass and must not stay
+     * there). Before this rule every failed attempt ended the wake, so
+     * the very first assert below is the one that fails without it. */
+    assert(fp_ota_after_failure(true) == FP_OTA_AFTER_CONTINUE_POLL);
+    /* No radio means no picture to fetch: the wake fails, as before. */
+    assert(fp_ota_after_failure(false) == FP_OTA_AFTER_FAIL_WAKE);
+}
+
 int main(void)
 {
     version_parse_cases();
@@ -199,6 +212,7 @@ int main(void)
     should_confirm_cases();
     result_token_cases();
     result_format_cases();
+    after_failure_cases();
     printf("ota_policy: all cases pass\n");
     return 0;
 }

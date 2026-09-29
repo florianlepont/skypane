@@ -60,19 +60,25 @@ static void worst_case_macro_matches_the_stacked_stage_budgets(void)
 
 static void ota_worst_case_macro_matches_its_own_stacked_stage_budgets(void)
 {
-    /* An OTA wake never also downloads and blits the normal display
-     * image - it either restarts into the trial image or fails - so
-     * this is an alternative worst case to FP_WAKE_WORST_CASE_S, not an
-     * addition on top of it: Wi-Fi + SNTP + setup + display + guard +
-     * the UPDATING-screen blit + a second Wi-Fi join after the trial
-     * reboot + the firmware image download itself.
-     * 15 + 10 + 15 + 20 + 90 + 70 + 15 + 90 = 325. */
-    assert(FP_WAKE_OTA_WORST_CASE_S(90) == 325);
-    /* The configured wake budget (360 s, CONFIG_SKYPANE_WAKE_BUDGET_S's
+    /* An OTA wake either restarts into the trial image or, when the
+     * attempt fails, carries on with the normal poll in the same wake so
+     * the glass gets the current picture back. The worst legitimate one
+     * is that failing wake: Wi-Fi + SNTP + setup + display + guard + the
+     * UPDATING-screen blit + a second Wi-Fi join + the firmware image
+     * download, then the picture download and its blit. (The panel-guard
+     * spacing owed before that second blit is at most
+     * CONFIG_FP_MIN_REFRESH_SPACING_S and elapses during the OTA stage,
+     * so it adds nothing to the stack.)
+     * 15 + 10 + 15 + 20 + 90 + 70 + 15 + 90 + 30 + 70 = 425. */
+    assert(FP_WAKE_OTA_WORST_CASE_S(90) == 425);
+    /* The successful-restart path is a prefix of the failing one. */
+    assert(FP_WAKE_OTA_WORST_CASE_S(90) ==
+           15 + 10 + 15 + 20 + 90 + 70 + 15 + 90 + FP_WAKE_STAGE_DOWNLOAD_S + FP_WAKE_STAGE_BLIT_S);
+    /* The configured wake budget (460 s, CONFIG_SKYPANE_WAKE_BUDGET_S's
      * default) must exceed both worst cases - a healthy OTA wake and a
      * healthy normal wake must never trip their own device's deadline. */
-    assert(FP_WAKE_OTA_WORST_CASE_S(90) < 360);
-    assert(FP_WAKE_WORST_CASE_S(90) < 360);
+    assert(FP_WAKE_OTA_WORST_CASE_S(90) < 460);
+    assert(FP_WAKE_WORST_CASE_S(90) < 460);
 }
 
 int main(void)

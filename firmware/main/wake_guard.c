@@ -33,6 +33,12 @@ _Static_assert(CONFIG_SKYPANE_WAKE_BUDGET_S > FP_WAKE_WORST_CASE_S(CONFIG_FP_MAX
 _Static_assert(CONFIG_SKYPANE_WAKE_BUDGET_S > FP_WAKE_OTA_WORST_CASE_S(CONFIG_FP_MAX_GUARD_WAIT_S),
                "wake budget must exceed the worst legitimate OTA wake");
 
+/* wake_deadline.h counts the panel-guard spacing owed before an OTA
+ * wake's second blit as already elapsed inside the OTA download stage;
+ * that only holds while the spacing does not outlast that stage. */
+_Static_assert(CONFIG_FP_MIN_REFRESH_SPACING_S <= FP_WAKE_STAGE_OTA_S,
+               "refresh spacing must not outlast the OTA stage that covers it");
+
 /* Whether the task watchdog timer keeps counting through light sleep is
  * not guaranteed by ESP-IDF, so no single light-sleep slice may
  * approach the watchdog's timeout. */
