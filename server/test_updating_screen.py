@@ -157,6 +157,40 @@ def test_draw_updating_icon_height_and_stroke_budget():
         pytest.fail("draw_updating_icon drew nothing (getbbox() is None)")
 
 
+@pytest.mark.parametrize("top_y, center_x", [(200, 600), (60, 300), (10, 100), (300, 1000)])
+def test_draw_updating_icon_ink_stays_within_declared_bounds(top_y, center_x):
+    """draw_updating_icon()'s full ink (ring plus both arrowheads) never extends past the
+    bare ring's own vertical ink bounds, at several center/top_y positions -- the arrowheads
+    read as inside the glyph's declared radius, never a spike past it. Compares against a
+    bare-ring reference built with the same box/arc-span primitives, rather than a magic pixel
+    margin, so this stays correct if the ring's own footprint (a pre-existing PIL
+    box-inclusive convention) ever changes. Multiple positions matter here specifically: a
+    diagonal line's own sub-pixel rounding shifts by a row depending on where its endpoints
+    land, so a fix proven at one position only can still regress at another."""
+    ring_only = panel_format.new_canvas(IDX_BLACK)
+    ring_draw = ImageDraw.Draw(ring_only)
+    radius = render.UPDATING_ICON_DIAMETER_PX / 2.0
+    box = (
+        center_x - radius, top_y, center_x + radius, top_y + render.UPDATING_ICON_DIAMETER_PX)
+    half_span = render.UPDATING_ICON_ARC_SPAN_DEGREES / 2.0
+    for center_deg in (45, 225):
+        ring_draw.arc(
+            box, center_deg - half_span, center_deg + half_span,
+            fill=IDX_WHITE, width=render.UPDATING_ICON_STROKE_PX)
+    ring_bbox = ring_only.getbbox()
+
+    full = panel_format.new_canvas(IDX_BLACK)
+    full_draw = ImageDraw.Draw(full)
+    render.draw_updating_icon(full_draw, center_x, top_y, IDX_WHITE)
+    full_bbox = full.getbbox()
+
+    if full_bbox[1] < ring_bbox[1] or full_bbox[3] > ring_bbox[3]:
+        pytest.fail(
+            "draw_updating_icon's ink extends past the bare ring's own vertical bounds at "
+            "top_y=%r/center_x=%r: ring %r, full glyph (ring + arrowheads) %r"
+            % (top_y, center_x, ring_bbox, full_bbox))
+
+
 def test_build_canvas_never_produces_the_updating_canvas():
     """build_canvas() never returns the same bytes as _build_updating_canvas() for any state it accepts - that screen is drawn only by the firmware, never dispatched by the server"""
     updating_bytes = render._build_updating_canvas().tobytes()

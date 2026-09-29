@@ -290,8 +290,26 @@ def draw_alert_icon(draw, center_x, top_y, ink_idx):
 UPDATING_ICON_DIAMETER_PX = 76
 UPDATING_ICON_STROKE_PX = POWER_ICON_STROKE_PX
 UPDATING_ICON_ARC_SPAN_DEGREES = 90
-UPDATING_ICON_ARROWHEAD_WING_DEGREES = 18
-UPDATING_ICON_ARROWHEAD_WING_FRAC = 0.72  # wing tip's radius, as a fraction of the ring radius
+# The arrowhead's own tunables. The tip sits inset from the ring's own
+# outer radius by UPDATING_ICON_ARROWHEAD_TIP_INSET_PX, close to (but
+# slightly inside) the ring's own stroke centreline: `ImageDraw.arc()`
+# draws its stroke inward from the box it is given, so a tip placed
+# exactly on the outer radius, drawn as a diagonal line of the same
+# stroke width, bleeds past that radius in an axis-aligned bounding-box
+# measurement even with a butt cap. Each wing sits at that same inset
+# radius, offset backward along the arc (opposite the direction of
+# travel) by UPDATING_ICON_ARROWHEAD_BACK_DEGREES, and split across the
+# radius by +/-UPDATING_ICON_ARROWHEAD_SPREAD_PX - a chevron that points
+# along the arc's own tangent, not a spike that points radially outward
+# with no direction. Measured empirically, across several center/top_y
+# positions (this module has no other ink-extent contract to derive it
+# from): with these three values the whole glyph's ink bounding box
+# never exceeds the bare ring's own (verified by
+# server/test_updating_screen.py's
+# test_draw_updating_icon_ink_stays_within_declared_bounds).
+UPDATING_ICON_ARROWHEAD_BACK_DEGREES = 25
+UPDATING_ICON_ARROWHEAD_SPREAD_PX = 4
+UPDATING_ICON_ARROWHEAD_TIP_INSET_PX = 6
 
 
 def draw_updating_icon(draw, center_x, top_y, ink_idx):
@@ -310,22 +328,26 @@ def draw_updating_icon(draw, center_x, top_y, ink_idx):
         start = center_deg - half_span
         end = center_deg + half_span
         draw.arc(box, start, end, fill=ink_idx, width=UPDATING_ICON_STROKE_PX)
+        # Increasing angle is the clockwise direction in image space
+        # (PIL's y-down convention), matching "leading, clockwise end"
+        # above: `end` is the direction of travel, `start` is behind it.
         _draw_updating_arrowhead(draw, cx, cy, radius, end, ink_idx)
 
     return UPDATING_ICON_DIAMETER_PX
 
 
 def _draw_updating_arrowhead(draw, cx, cy, radius, tip_angle_deg, ink_idx):
-    """Two short strokes from a point on the ring's own circumference
-    (`tip_angle_deg`) inward to two wing points at
-    `UPDATING_ICON_ARROWHEAD_WING_FRAC * radius` - a chevron entirely
-    inside the ring, never exceeding its radius.
+    """A chevron at `tip_angle_deg` (the arc's leading end) pointing
+    along the arc's own tangent, entirely within the ring's own ink
+    footprint. See UPDATING_ICON_ARROWHEAD_* above for the geometry this
+    implements.
     """
+    tip_r = radius - UPDATING_ICON_ARROWHEAD_TIP_INSET_PX
     tip_a = math.radians(tip_angle_deg)
-    tip = (cx + radius * math.cos(tip_a), cy + radius * math.sin(tip_a))
-    wing_r = radius * UPDATING_ICON_ARROWHEAD_WING_FRAC
+    tip = (cx + tip_r * math.cos(tip_a), cy + tip_r * math.sin(tip_a))
+    wing_a = math.radians(tip_angle_deg - UPDATING_ICON_ARROWHEAD_BACK_DEGREES)
     for sign in (-1, 1):
-        wing_a = math.radians(tip_angle_deg + sign * UPDATING_ICON_ARROWHEAD_WING_DEGREES)
+        wing_r = tip_r + sign * UPDATING_ICON_ARROWHEAD_SPREAD_PX
         wing = (cx + wing_r * math.cos(wing_a), cy + wing_r * math.sin(wing_a))
         draw.line([tip, wing], fill=ink_idx, width=UPDATING_ICON_STROKE_PX)
 
