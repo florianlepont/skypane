@@ -34,7 +34,7 @@ HOST_CADDYFILE = (
 def _write_fake_firmware_cli(path, log_path, current_link):
     """A minimal stand-in for server/firmware_cli.py inside a fake
     release: activate.sh's own tests only need to observe that
-    `import-dir <dir> --state-dir <dir>` was invoked (logged, like every
+    `--state-dir <dir> import-dir <dir>` was invoked (logged, like every
     other stub in this file), which release-tag subdirectories the
     passed <dir> actually held *at invocation time* (logged as
     `entries=...`, sorted and comma-joined -- the directory can be a
@@ -56,9 +56,9 @@ def _write_fake_firmware_cli(path, log_path, current_link):
         f"_CURRENT_LINK = {str(current_link)!r}\n"
         "_args = sys.argv[1:]\n"
         "_entries = ''\n"
-        "if len(_args) >= 2 and _args[0] == 'import-dir':\n"
+        "if 'import-dir' in _args and _args.index('import-dir') + 1 < len(_args):\n"
         "    try:\n"
-        "        _entries = ','.join(sorted(os.listdir(_args[1])))\n"
+        "        _entries = ','.join(sorted(os.listdir(_args[_args.index('import-dir') + 1])))\n"
         "    except OSError as _exc:\n"
         "        _entries = '<%s>' % type(_exc).__name__\n"
         "try:\n"

@@ -211,8 +211,8 @@ echo "==> Firmware import"
 if [ -d "${FIRMWARE_RELEASES_DIR}" ]; then
     IMPORT_RC=0
     ( cd "${RELEASE_DIR}" \
-        && runuser -u skypane -- "${VENV}/bin/python3" -m server.firmware_cli import-dir \
-            "${FIRMWARE_RELEASES_DIR}" --state-dir "${STATE_DIR}" ) || IMPORT_RC=$?
+        && runuser -u skypane -- "${VENV}/bin/python3" -m server.firmware_cli \
+            --state-dir "${STATE_DIR}" import-dir "${FIRMWARE_RELEASES_DIR}" ) || IMPORT_RC=$?
     rm -rf "${FIRMWARE_RELEASES_DIR}"
     if [ "${IMPORT_RC}" -ne 0 ]; then
         echo "activate.sh: firmware import failed for ${SHA} - not swapping" >&2

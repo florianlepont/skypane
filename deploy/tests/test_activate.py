@@ -470,7 +470,7 @@ def test_firmware_import_runs_before_swap_when_present(fake_root, fake_release, 
     assert r.returncode == 0, r.stderr
 
     log_lines = fake_root.call_log.read_text().splitlines()[lines_before_second_deploy:]
-    import_idx = next(i for i, ln in enumerate(log_lines) if ln.startswith("firmware_cli import-dir"))
+    import_idx = next(i for i, ln in enumerate(log_lines) if (ln.startswith("firmware_cli ") and " import-dir " in ln))
     restart_idx = next(
         i for i, ln in enumerate(log_lines) if ln == "systemctl restart skypane-byos.service"
     )
@@ -528,7 +528,7 @@ def test_same_sha_redeploy_imports_freshly_streamed_firmware(fake_root, fake_rel
     assert r2.returncode == 0, r2.stderr
 
     log = fake_root.call_log.read_text()
-    import_lines = [ln for ln in log.splitlines() if ln.startswith("firmware_cli import-dir")]
+    import_lines = [ln for ln in log.splitlines() if (ln.startswith("firmware_cli ") and " import-dir " in ln)]
     assert import_lines, "a same-sha redeploy that streamed new firmware must still import it"
     assert "entries=fw-v1.0.0" in import_lines[-1]
     assert not any(p.name.startswith(".firmware-") for p in fake_root.releases.iterdir())
