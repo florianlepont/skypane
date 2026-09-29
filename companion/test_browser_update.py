@@ -111,6 +111,48 @@ def _seed_three_releases_with_realistic_notes(state_dir):
     atomic_io.atomic_write(fr.device_report_path(str(state_dir)), json.dumps(device_report))
 
 
+_BENCH_VERSION = "fw-v1.0.5-bench1"
+
+
+def _seed_running_bench_and_newer(state_dir):
+    """The real-hardware shape: fw-v1.0.0 running with about 30 notes, a
+    bench build installed over the air earlier today (so it is history,
+    not running), and a newer installable fw-v1.1.0. Published through
+    firmware_registry's write API; the bench install time is set on the
+    saved registry because only a device result appends to it.
+    """
+    os.makedirs(str(state_dir), exist_ok=True)
+    releases = (
+        (_RUNNING_VERSION, "2026-09-20T09:00:00+00:00", False,
+         ["Note %02d: a realistic commit summary that runs to a full line of text." % n
+          for n in range(30)]),
+        (_BENCH_VERSION, "2026-09-27T09:00:00+00:00", True, ["Bench build."]),
+        (_AVAILABLE_VERSION, "2026-09-28T09:00:00+00:00", False, ["Fixes the OTA netif panic."]),
+    )
+    for version, published_at, bench, notes in releases:
+        image_path = os.path.join(str(state_dir), version + ".bin")
+        image_bytes = ("fake-firmware-" + version).encode()
+        with open(image_path, "wb") as fh:
+            fh.write(image_bytes)
+        manifest = {
+            "version": version, "sha256": hashlib.sha256(image_bytes).hexdigest(),
+            "size": len(image_bytes), "released_at": published_at, "commit": "a" * 40,
+            "notes": notes,
+        }
+        fr.publish_release(str(state_dir), manifest, image_path, bench=bench, now=published_at)
+    registry = fr.load_registry(str(state_dir))
+    for release in registry["releases"]:
+        if release["version"] == _BENCH_VERSION:
+            release["installed_at"] = ["2026-09-28T07:30:00+00:00"]
+    fr._save_registry(str(state_dir), registry)
+    device_report = {
+        "schema": 1, "next_seq": 1,
+        "devices": {
+            "dev1": {"fw_version": _RUNNING_VERSION, "reported_at": _NOW, "events": []}},
+    }
+    atomic_io.atomic_write(fr.device_report_path(str(state_dir)), json.dumps(device_report))
+
+
 @pytest.fixture(scope="module")
 def server(module_app_server_factory):
     """The shared, read-only seeded fixture the mobile-fit and sidebar
@@ -403,6 +445,70 @@ def test_history_cards_fit_at_phone_widths_with_no_overflow(
         assert desc_box is not None, "expected a visible notes paragraph in at least one card"
         assert desc_box["width"] <= viewport["width"] + 0.5, (
             "notes paragraph wider than the %dpx viewport at %s" % (viewport["width"], lang))
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize(
+    "viewport", [VIEWPORT_375, VIEWPORT_DESKTOP], ids=["375", "1280"])
+def test_running_badge_and_collapsed_notes_work_at_phone_and_desktop_widths(
+        new_context, make_app_server, viewport, lang):
+    """At 375x812 and 1280x900, in English and French, with a running release carrying about
+    30 notes, an earlier bench install and a newer release: the Running badge is visible on
+    the running row/card, the notes toggle starts closed with its list hidden, its summary is
+    at least 44px tall and inside the viewport, clicking it reveals the list, nothing overflows
+    horizontally and the first Install button stays visible and enabled.
+    """
+    server = make_app_server(seed=_seed_running_bench_and_newer)
+    context = new_context(viewport=viewport)
+    try:
+        page = context.new_page()
+        base_url = server.base_url()
+        context.add_cookies([{
+            "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
+        _login(page, base_url)
+        page.goto(base_url + layout.UPDATE_ROUTE)
+        if page.viewport_size["width"] != viewport["width"]:
+            raise AssertionError("expected the measurement to be taken at %dpx" % (viewport["width"],))
+        phone = viewport["width"] < 960
+        where = "%dpx/%s" % (viewport["width"], lang)
+
+        badge = page.locator(".update-history__running-badge:visible")
+        assert badge.count() == 1, "expected one visible Running badge at %s" % where
+        assert badge.inner_text().strip().lower() == ("running" if lang == "en" else "en cours")
+
+        visible_notes = page.locator("details.update-history__notes:visible")
+        assert visible_notes.count() == 1, (
+            "expected only the running release's notes to need a toggle at %s" % where)
+        assert visible_notes.evaluate("el => el.open") is False
+        summary = visible_notes.locator("summary")
+        list_locator = visible_notes.locator("ul.update-history__notes-list")
+        assert not list_locator.is_visible(), "notes list should start closed at %s" % where
+        box = summary.bounding_box()
+        assert box["height"] >= 44 - 0.5, "summary is %r tall at %s" % (box["height"], where)
+        assert box["x"] >= -0.5 and box["x"] + box["width"] <= viewport["width"] + 0.5
+        assert box["y"] >= 0
+
+        summary.click()
+        assert visible_notes.evaluate("el => el.open") is True
+        assert list_locator.is_visible()
+        assert list_locator.locator("li").count() == 30
+
+        assert page.evaluate(
+            "() => document.documentElement.scrollWidth <= "
+            "document.documentElement.clientWidth + 0.5"), (
+            "expected no horizontal overflow at %s" % where)
+        # :visible, not _install_submit(): at desktop the hidden phone card list comes
+        # first in the DOM and would answer with an invisible button.
+        install_button = page.locator(
+            'form[action="%s"]:visible button[type="submit"]' % update_page.INSTALL_ROUTE
+        ).first
+        install_box = install_button.bounding_box()
+        assert install_box is not None and install_button.is_enabled()
+        assert install_box["x"] + install_box["width"] <= viewport["width"] + 0.5
+        if phone:
+            assert page.locator("p.data-card__desc").first.is_visible()
     finally:
         context.close()
 

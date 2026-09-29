@@ -111,6 +111,11 @@ fp_ota_decision_t fp_ota_decide(const char *offered, const char *running,
     return FP_OTA_START;
 }
 
+fp_ota_after_failure_t fp_ota_after_failure(bool radio_up)
+{
+    return radio_up ? FP_OTA_AFTER_CONTINUE_POLL : FP_OTA_AFTER_FAIL_WAKE;
+}
+
 fp_ota_image_verdict_t fp_ota_image_check(const char *desc_project,
                                           const char *desc_version,
                                           const char *offered,

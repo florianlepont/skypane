@@ -847,6 +847,53 @@ def _newest_release_published_at(registry):
     return max(published_ats) if published_ats else None
 
 
+def _release_views(registry, running_version):
+    """The Update page's per-release rows, newest published first.
+
+    `running` marks the one release whose version is the frame's
+    reported X-Fw-Version. `installed_at` stays the raw list of every
+    over-the-air install this release has had (only an "installed"
+    result appends to it), so it is history, not proof of what runs now.
+
+    `installed_now_at` is the time to print beside the running release's
+    check mark, and it is only honest when that release's newest OTA
+    install is also the newest OTA install of any release: a frame
+    reached again by USB flash, or rolled forward by a later OTA install
+    of another release that was then flashed over, would otherwise show
+    an install time that was overtaken. ISO timestamps compare
+    lexicographically, the same way `_newest_release_published_at()`
+    does. A failed or rolled-back attempt never appends to
+    `installed_at`, so it cannot move this. It is None on every
+    non-running row.
+    """
+    floor_version = registry.get("floor_version", FLOOR_VERSION)
+    releases = sorted(
+        registry.get("releases", []), key=lambda r: r.get("published_at") or "", reverse=True)
+    newest_install_anywhere = max(
+        (r["installed_at"][-1] for r in releases if r.get("installed_at")), default=None)
+    views = []
+    for release in releases:
+        version = release.get("version")
+        installed_at = release.get("installed_at", [])
+        running = running_version is not None and version == running_version
+        installed_now_at = None
+        if running and installed_at and installed_at[-1] >= newest_install_anywhere:
+            installed_now_at = installed_at[-1]
+        views.append({
+            "version": version,
+            "released_at": release.get("released_at"),
+            "notes": release.get("notes", []),
+            "installed_at": installed_at,
+            "bench": release.get("bench", False),
+            "running": running,
+            "installed_now_at": installed_now_at,
+            "installable": (
+                at_or_above_floor(version, floor_version) and version != running_version
+            ),
+        })
+    return views
+
+
 def update_view(registry, device_report, now):
     """The Update page's view model. `now` is accepted for signature
     symmetry with the rest of this pure section; the derivation below
@@ -888,20 +935,7 @@ def update_view(registry, device_report, now):
         state = "available"
         state_at = _newest_release_published_at(registry)
 
-    floor_version = registry.get("floor_version", FLOOR_VERSION)
-    releases = []
-    for release in sorted(registry.get("releases", []), key=lambda r: r.get("published_at") or "", reverse=True):
-        releases.append({
-            "version": release.get("version"),
-            "released_at": release.get("released_at"),
-            "notes": release.get("notes", []),
-            "installed_at": release.get("installed_at", []),
-            "bench": release.get("bench", False),
-            "installable": (
-                at_or_above_floor(release.get("version"), floor_version)
-                and release.get("version") != running_version
-            ),
-        })
+    releases = _release_views(registry, running_version)
 
     return {
         "running_version": running_version,

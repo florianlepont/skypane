@@ -75,6 +75,27 @@ fp_ota_decision_t fp_ota_decide(const char *offered, const char *running,
                                 bool trial_pending);
 
 typedef enum {
+    FP_OTA_AFTER_CONTINUE_POLL, /* carry on with this wake's normal poll:
+                                 * re-fetch and redraw the current picture */
+    FP_OTA_AFTER_FAIL_WAKE,     /* end the wake through the failure exit,
+                                 * step token "ota"                         */
+} fp_ota_after_failure_t;
+
+/* What a wake does once an update attempt has failed (the result is
+ * already recorded and the try marker cleared). The attempt drew the
+ * UPDATING screen and wrote its sentinel image hash, so the glass says
+ * "updating" and the hash-skip can never treat it as the current
+ * picture. A failed update is therefore not a reason to fail the wake:
+ * with the radio up the poll simply continues into its normal image
+ * path (download, blit, or the panel guard's deferral), and the wake
+ * counts as healthy - no failure backoff, so the next attempt arrives at
+ * the normal wake cadence, still reported on the next poll and still
+ * counted toward the server's attempt limit. Only when the radio cannot
+ * be brought up for that fetch does the wake fail. Never reached while a
+ * trial is pending: fp_ota_decide() refuses to start an update then. */
+fp_ota_after_failure_t fp_ota_after_failure(bool radio_up);
+
+typedef enum {
     FP_OTA_IMAGE_OK,               /* project, version and floor all check out */
     FP_OTA_IMAGE_WRONG_PROJECT,    /* app descriptor's project_name isn't ours */
     FP_OTA_IMAGE_VERSION_MISMATCH, /* descriptor version != the offered one    */
