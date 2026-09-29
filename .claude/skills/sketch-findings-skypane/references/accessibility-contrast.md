@@ -58,7 +58,7 @@
 - *"the page navigated after submit"* — passes against a POST the server rejected and redirected straight back from.
 - *"the reloaded page shows the value"* — **passes against this app deliberately**, because `wake_interval_group()`'s own docstring records D-07 requiring a rejected submission's raw string be echoed back into the field. A DOM-only check reads `900` back off a page that stored nothing.
 
-So the verdict is **the value read back FROM DISK**, through the app's own loader, after a real operate-submit round trip with scripts blocked at 360 px; the reloaded DOM is corroboration and is *optional* (`notifications_topic_url` is write-only by design and stores correctly while rendering empty forever). The DOM clause being optional and the disk clause never being optional is the shape to copy.
+So the verdict is **the value read back FROM DISK**, through the app's own loader, after a real operate-submit round trip with scripts blocked at 360 px; the reloaded DOM is corroboration and is *optional* (a write-only field stores correctly while rendering empty forever). The DOM clause being optional and the disk clause never being optional is the shape to copy.
 
 **Four accessibility clauses inside that floor, each paid for by a measurement:**
 

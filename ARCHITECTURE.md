@@ -177,8 +177,8 @@ battery hysteresis, the discharge curve and quiet-hours arithmetic,
 shared unchanged by `server/`, `stub-server/byos_server.py` and
 `companion/battery.py`/`wake.py`); `server/themes.py` (the theme
 registry and its presentation accessors, out of `device_config.py`);
-`server/net/safe_fetch.py` (the one SSRF-safety gate `calendar_rules` and
-`notify.py` both call); `server/plane/render/` (the two-flight poster,
+`server/net/safe_fetch.py` (the one SSRF-safety gate the calendar feed
+fetch in `calendar_rules` calls); `server/plane/render/` (the two-flight poster,
 split into `style`/`text`/`glyphs`/`hold_screens`/`layout`/`cli`, still
 importable as `server.plane.render`); `server/plane/calendar_rules/`
 (RFC 5545 parsing/registry/theme-matching, split into
@@ -420,8 +420,7 @@ check-ins are never mistaken for silence: `server/wake.py`'s
 `effective_wake_interval_s()`/`next_wake_status()` accept a
 `battery_critical` flag that pins their own answer to the 3600-second
 cadence ahead of every other consideration, and every caller that decides
-whether the frame has "gone quiet" — `poll_cycle.py`'s
-`_notify_silence_transition()` (the ntfy push) and the companion's Frame
+whether the frame has "gone quiet" — the companion's Frame
 strip/flash text (`companion/layout.py`, `companion/app.py`) — reads it
 from the same persisted latch before computing its own staleness
 threshold.
