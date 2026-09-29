@@ -80,19 +80,27 @@ INSTALL_CONFIRM_SENTENCE_TEMPLATE = i18n.msg(
     "wake, around %s. It will keep the update after one successful "
     "check-in — otherwise it rolls back automatically.")
 
-# The two flash keys companion/app.py's install/cancel handlers redirect
-# to on a non-"scheduled"/non-cancellable outcome or an exception -- the
+# The flash keys companion/app.py's install/cancel handlers redirect to
+# on a non-"scheduled"/non-cancellable outcome or an exception -- the
 # literal strings are defined here (this page's own module), matching
 # companion/pages/config_page.py's/airlines_page.py's own FLASH_* keys;
 # companion/flash.py re-exports them as FLASH_KEY_UPDATE_*.
 FLASH_UPDATE_SCHEDULE_FAILED = "update_schedule_failed"
 FLASH_UPDATE_CANCEL_FAILED = "update_cancel_failed"
+# A distinct key for schedule_release()'s own "busy" outcome (an install
+# is already in progress): the generic schedule-failed copy tells the
+# operator to retry, which cannot succeed until the running install
+# finishes -- a different failure needs different copy.
+FLASH_UPDATE_BUSY = "update_busy"
 FLASH_UPDATE_SCHEDULE_FAILED_TEXT = i18n.msg(
     "update.couldn_t_schedule_that_update_please_try_again",
     "Couldn't schedule that update — please try again.")
 FLASH_UPDATE_CANCEL_FAILED_TEXT = i18n.msg(
     "update.couldn_t_cancel_the_frame_may_have_already",
     "Couldn't cancel — the frame may have already started.")
+FLASH_UPDATE_BUSY_TEXT = i18n.msg(
+    "update.an_update_is_already_installing_wait",
+    "An update is already installing — wait for it to finish.")
 
 TABLE_HEADER_VERSION_TEXT = i18n.msg("update.version", "Version")
 TABLE_HEADER_DATE_TEXT = i18n.msg("update.date", "Date")
@@ -247,7 +255,7 @@ def _install_form_html(version):
     )
 
 
-def _release_row(release, running_version, target_version, now):
+def _release_row(release, running_version, target_version, installs_blocked, now):
     """One `layout.data_table()` row for `release`: version (mono, plain
     text), date/installed/action (raw, already-safe markup), notes
     (plain text, escaped by data_table() itself since it is not in
@@ -258,6 +266,11 @@ def _release_row(release, running_version, target_version, now):
     of a second, identical-looking Install button: the Status card's
     own state row already names this schedule's outcome, so an Install
     button on this row would only offer to schedule it again.
+
+    `installs_blocked` is `view["state"] == "in_progress"`: the device
+    has already acknowledged an offer, so `schedule_release()` can only
+    return "busy" for every row, the target's own included -- no row
+    renders an Install form while that holds.
     """
     version = release.get("version")
     date_html = layout.concise_timestamp_html(release.get("released_at"), now)
@@ -270,7 +283,16 @@ def _release_row(release, running_version, target_version, now):
             + layout.concise_timestamp_html(installed_at[-1], now))
     else:
         installed_html = ""
-    if release.get("installable") and target_version and version == target_version:
+    is_target = bool(target_version) and version == target_version
+    if installs_blocked and is_target:
+        action_html = (
+            '<span class="text-label">%s</span>'
+            % escape_html(i18n.t(STATE_LABELS["in_progress"])))
+    elif installs_blocked:
+        # A different install is already running: no button, since
+        # posting here can only ever come back "busy" too.
+        action_html = ""
+    elif release.get("installable") and is_target:
         action_html = (
             '<span class="text-label">%s</span>'
             % escape_html(i18n.t(STATE_LABELS["scheduled"])))
@@ -295,9 +317,11 @@ def _history_card_html(ctx, view):
         body_html = layout.empty_state(
             i18n.t(EMPTY_RELEASES_HEADING_TEXT), i18n.t(EMPTY_RELEASES_BODY_TEXT))
     else:
+        installs_blocked = view.get("state") == "in_progress"
         rows = [
             _release_row(
-                release, view.get("running_version"), view.get("target_version"), ctx.now)
+                release, view.get("running_version"), view.get("target_version"),
+                installs_blocked, ctx.now)
             for release in releases]
         headers = (
             i18n.t(TABLE_HEADER_VERSION_TEXT), i18n.t(TABLE_HEADER_DATE_TEXT),

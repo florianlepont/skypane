@@ -209,6 +209,7 @@ FLASH_KEY_NOTIFICATIONS_TEST_OK = flash.FLASH_KEY_NOTIFICATIONS_TEST_OK
 FLASH_KEY_NOTIFICATIONS_TEST_FAILED = flash.FLASH_KEY_NOTIFICATIONS_TEST_FAILED
 FLASH_KEY_UPDATE_SCHEDULE_FAILED = flash.FLASH_KEY_UPDATE_SCHEDULE_FAILED
 FLASH_KEY_UPDATE_CANCEL_FAILED = flash.FLASH_KEY_UPDATE_CANCEL_FAILED
+FLASH_KEY_UPDATE_BUSY = flash.FLASH_KEY_UPDATE_BUSY
 FLASH_KEY_DISPLAY_ON = flash.FLASH_KEY_DISPLAY_ON
 FLASH_KEY_DISPLAY_OFF = flash.FLASH_KEY_DISPLAY_OFF
 FLASH_KEY_QUIET_ON = flash.FLASH_KEY_QUIET_ON
@@ -1173,10 +1174,16 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
                 state_dir, version, view.get("running_version"), now)
         except (OSError, TimeoutError):
             result = None
-        if result != "scheduled":
+        if result == "scheduled":
+            return self.redirect(UPDATE_ROUTE)
+        if result == "busy":
+            # An install is already running -- the generic
+            # schedule-failed copy tells the operator to retry, which
+            # cannot work until that install finishes.
             return self.redirect(
-                "%s?flash=%s" % (UPDATE_ROUTE, quote(FLASH_KEY_UPDATE_SCHEDULE_FAILED)))
-        return self.redirect(UPDATE_ROUTE)
+                "%s?flash=%s" % (UPDATE_ROUTE, quote(FLASH_KEY_UPDATE_BUSY)))
+        return self.redirect(
+            "%s?flash=%s" % (UPDATE_ROUTE, quote(FLASH_KEY_UPDATE_SCHEDULE_FAILED)))
 
     def _handle_update_cancel_post(self):
         """POST UPDATE_CANCEL_ROUTE: a plain POST, no confirmation step —

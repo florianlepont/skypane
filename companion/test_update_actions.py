@@ -225,7 +225,10 @@ def test_install_confirm_yes_while_busy_flashes_failure_original_schedule_unchan
         server, update_page.INSTALL_ROUTE, cookie,
         {"version": _FLOOR_VERSION, "confirm": "yes"})
     assert status == 303
-    assert headers.get("Location", "").startswith(layout.UPDATE_ROUTE + "?flash=")
+    location = headers.get("Location", "")
+    assert location.startswith(layout.UPDATE_ROUTE + "?flash=")
+    assert urllib.parse.unquote(location.split("flash=", 1)[1]) == update_page.FLASH_UPDATE_BUSY, (
+        "expected the busy-specific flash key, not the generic schedule-failed one")
     registry = fr.load_registry(server.state_dir)
     assert registry["schedule"]["id"] == schedule_id
     assert registry["schedule"]["version"] == _DOWNGRADE_VERSION

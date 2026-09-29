@@ -259,6 +259,32 @@ def test_in_progress_offered_state_shows_no_cancel_form_anywhere():
     assert update_page.CANCEL_ROUTE not in html
 
 
+def test_in_progress_state_shows_no_install_form_on_any_row():
+    """once the device has acknowledged the offer, no Install form renders anywhere on the
+    page -- posting could only ever come back "busy" -- and the target release's own row
+    shows a quiet "In progress" label instead"""
+    view = _view(
+        releases=[_release("fw-v1.0.0"), _release("fw-v1.2.0")],
+        schedule={
+            "id": "s1", "version": "fw-v1.0.0", "sha256": "a" * 64,
+            "scheduled_at": _NOW, "state": "scheduled", "attempts": 0,
+            "failed_at": None, "last_result": None,
+        },
+        device_entry={
+            "fw_version": "fw-v0.9.0", "reported_at": _NOW,
+            "events": [{
+                "seq": 1, "at": _NOW, "kind": "offered",
+                "schedule_id": "s1", "token": None, "version": "fw-v1.0.0",
+            }],
+        })
+    assert view["state"] == "in_progress"
+    html = update_page.update_page(_ctx(), view, "08:14")
+    assert update_page.INSTALL_ROUTE not in html
+    table_html = html[html.index("<table"):]
+    target_row = table_html[table_html.index("fw-v1.0.0"):table_html.index("fw-v1.2.0")]
+    assert i18n.t(update_page.STATE_LABELS["in_progress"]) in target_row
+
+
 def test_rollback_outcome_shows_the_warn_alert_banner():
     """a rollback outcome renders the role="alert" warn banner naming both versions"""
     view = _view(

@@ -66,6 +66,7 @@ FLASH_KEY_NOTIFICATIONS_TEST_OK = config_page.FLASH_NOTIFICATIONS_TEST_OK
 FLASH_KEY_NOTIFICATIONS_TEST_FAILED = config_page.FLASH_NOTIFICATIONS_TEST_FAILED
 FLASH_KEY_UPDATE_SCHEDULE_FAILED = update_page.FLASH_UPDATE_SCHEDULE_FAILED
 FLASH_KEY_UPDATE_CANCEL_FAILED = update_page.FLASH_UPDATE_CANCEL_FAILED
+FLASH_KEY_UPDATE_BUSY = update_page.FLASH_UPDATE_BUSY
 
 # A fixed key -> copy dictionary — the flash mechanism only ever renders
 # one of these, never a value taken verbatim from the query string.
@@ -272,10 +273,13 @@ FLASH_MESSAGES = {
         "notifications.couldn_t_reach_that_topic_check_the_url",
         "Couldn't reach that topic — check the URL."),
     # Never echoes the submitted version or any exception text -- the
-    # registry's own return code (unknown/below_floor/same_as_running/
-    # busy) never leaks into operator-facing copy either.
+    # registry's own return code (unknown/below_floor/same_as_running)
+    # never leaks into operator-facing copy either. "busy" gets its own
+    # key/copy below, since retrying is the one thing that cannot work
+    # while an install is already running.
     FLASH_KEY_UPDATE_SCHEDULE_FAILED: update_page.FLASH_UPDATE_SCHEDULE_FAILED_TEXT,
     FLASH_KEY_UPDATE_CANCEL_FAILED: update_page.FLASH_UPDATE_CANCEL_FAILED_TEXT,
+    FLASH_KEY_UPDATE_BUSY: update_page.FLASH_UPDATE_BUSY_TEXT,
 }
 
 # Every FLASH_KEY_* -> the ARIA role its rendered flash banner should
@@ -329,6 +333,7 @@ FLASH_ROLES = {
     FLASH_KEY_NOTIFICATIONS_TEST_FAILED: "alert",
     FLASH_KEY_UPDATE_SCHEDULE_FAILED: "alert",
     FLASH_KEY_UPDATE_CANCEL_FAILED: "alert",
+    FLASH_KEY_UPDATE_BUSY: "status",
 }
 
 

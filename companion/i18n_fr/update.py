@@ -49,6 +49,9 @@ MESSAGES = {
         "Impossible de planifier cette mise à jour — veuillez réessayer.",
     "update.couldn_t_cancel_the_frame_may_have_already":
         "Impossible d’annuler — le cadre a peut-être déjà commencé.",
+    "update.an_update_is_already_installing_wait":
+        "Une mise à jour est déjà en cours d’installation — veuillez "
+        "patienter.",
     "update.install_s_now":
         "Installer %s maintenant ? Elle s’appliquera au prochain réveil.",
 
