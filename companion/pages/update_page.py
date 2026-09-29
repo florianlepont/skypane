@@ -130,21 +130,39 @@ def _status_verdict_block_html(ctx, view):
     verdict_html = (
         '<p class="text-body widget-verdict">%s<span class="mono">%s</span></p>'
     ) % (escape_html(prefix_text), escape_html(running_version))
-    detail_html = (
-        '<div class="widget-detail">%s</div>'
-        % layout.concise_timestamp_html(view.get("reported_at"), ctx.now))
+    detail_html = _timestamp_detail_html(view.get("reported_at"), ctx.now)
     return verdict_html + detail_html
+
+
+def _timestamp_detail_html(ts, now):
+    """A `.widget-detail` div for `ts`, or "" when `ts` is falsy.
+
+    `concise_timestamp_html()`'s own default fallback is the hard-coded
+    English literal "no reading yet" (battery-reading vocabulary, not a
+    translated Message) -- wrong under an update state and never
+    translated under French. Passing `fallback=""` and dropping the div
+    entirely when there is nothing to show avoids both: a fresh install
+    with no release published yet, or an in_progress state with no
+    matching event, renders no detail line rather than a leaked English
+    string.
+    """
+    if not ts:
+        return ""
+    timestamp_html = layout.concise_timestamp_html(ts, now, fallback="")
+    if not timestamp_html:
+        return ""
+    return '<div class="widget-detail">%s</div>' % timestamp_html
 
 
 def _status_state_row_html(ctx, view):
     state = view.get("state")
     state_label = i18n.t(STATE_LABELS.get(state, STATE_LABELS["available"]))
     dot_token = _STATE_DOT_TOKENS.get(state, "off")
-    timestamp_html = layout.concise_timestamp_html(view.get("state_at"), ctx.now)
+    detail_html = _timestamp_detail_html(view.get("state_at"), ctx.now)
     return (
         '<p class="text-body widget-verdict">%s</p>'
-        '<div class="widget-detail">%s</div>'
-    ) % (layout.status_dot(dot_token, state_label), timestamp_html)
+        "%s"
+    ) % (layout.status_dot(dot_token, state_label), detail_html)
 
 
 def _scheduled_sentence_html(view, next_wake_text):

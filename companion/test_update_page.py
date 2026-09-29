@@ -77,6 +77,24 @@ def test_empty_registry_shows_no_version_reported_and_no_releases_yet():
     assert "<table" not in html
 
 
+def test_empty_registry_never_leaks_the_hard_coded_no_reading_yet_fallback():
+    """an empty registry (available state, no reported_at, no state_at) never renders
+    concise_timestamp_html()'s own hard-coded, untranslated English "no reading yet"
+    fallback -- in either language"""
+    view = _view()
+    assert view["state"] == "available"
+    assert view["state_at"] is None
+    assert view["reported_at"] is None
+    html_en = update_page.update_page(_ctx(), view, "")
+    assert "no reading yet" not in html_en
+    try:
+        prefs.set_request_prefs(lang="fr")
+        html_fr = update_page.update_page(_ctx(), view, "")
+    finally:
+        prefs.set_request_prefs(lang="en")
+    assert "no reading yet" not in html_fr
+
+
 def test_releases_render_newest_first_with_install_form_and_installed_column():
     """two releases with the newer one running: the older release's row carries an Install
     form (data-confirm, a hidden version field, no confirm field) and its Installed column
