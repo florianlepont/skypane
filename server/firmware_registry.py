@@ -32,6 +32,7 @@ import json
 import os
 import re
 import secrets
+import time
 from datetime import datetime, timezone
 
 from server import atomic_io
@@ -305,6 +306,13 @@ def load_registry(state_dir):
     """The registry document, tolerant of a missing/empty/non-JSON/
     wrong-shape file -- always the empty schema-1 document (floor_version
     == FLOOR_VERSION) in that case. Never raises.
+
+    For *readers* only (byos's offer decision, the companion's Update
+    page, `firmware_cli list`): a poll or a page load that shows "nothing
+    published yet" for a corrupt file is far safer than one that raises.
+    Every locked read-modify-write below uses `_load_registry_for_write`
+    instead, which never lets this tolerance turn a corrupt on-disk file
+    into a silent, unrecoverable reset to empty.
     """
     try:
         with open(registry_path(state_dir)) as fh:
@@ -314,6 +322,54 @@ def load_registry(state_dir):
     if not isinstance(data, dict):
         return _default_registry()
     return _normalise_registry(data)
+
+
+class RegistryCorruptError(OSError):
+    """Raised by `_load_registry_for_write` (never by `load_registry`,
+    which stays tolerant for readers) when firmware/registry.json exists
+    but is not parseable JSON, or does not parse to an object. A
+    subclass of OSError so it is caught wherever schedule_release() and
+    cancel_schedule()'s existing `except (OSError, TimeoutError)` already
+    treat a locked write it could not complete as "no change made" --
+    exactly the right response here too, since this write never
+    happened.
+    """
+
+
+def _load_registry_for_write(state_dir):
+    """Like load_registry(), but never quietly substitutes the empty
+    document for a file that exists and fails to parse. A missing file
+    (a fresh state directory) is still the empty schema-1 document --
+    there is nothing to lose. A file that exists and either is not valid
+    JSON or does not parse to an object is moved aside intact, under a
+    timestamped name next to it, and raises RegistryCorruptError instead
+    of returning defaults: every caller here is about to read-modify-
+    write the registry, and load_registry()'s own tolerance would
+    otherwise have every release, the installed_at history, the
+    schedule and the floor silently replaced by the next write this
+    process makes.
+    """
+    path = registry_path(state_dir)
+    try:
+        with open(path) as fh:
+            raw = fh.read()
+    except FileNotFoundError:
+        return _default_registry()
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        data = None
+    if isinstance(data, dict):
+        return _normalise_registry(data)
+    corrupt_path = "%s.corrupt-%d" % (path, int(time.time()))
+    try:
+        os.replace(path, corrupt_path)
+    except OSError:
+        corrupt_path = None
+    raise RegistryCorruptError(
+        "firmware/registry.json is not a valid registry document"
+        + (" -- moved aside to %s" % corrupt_path if corrupt_path else " -- could not move it aside")
+    )
 
 
 def _save_registry(state_dir, doc):
@@ -508,7 +564,7 @@ def publish_release(state_dir, manifest, image_path, bench=False, now=None):
     now = now if now is not None else _utc_now_iso()
 
     with registry_lock(state_dir):
-        registry = load_registry(state_dir)
+        registry = _load_registry_for_write(state_dir)
         existing = _find_release(registry, version)
         if existing is not None:
             if existing["sha256"] == sha256:
@@ -549,7 +605,7 @@ def schedule_release(state_dir, version, running_version, now=None):
     """
     now = now if now is not None else _utc_now_iso()
     with registry_lock(state_dir):
-        registry = load_registry(state_dir)
+        registry = _load_registry_for_write(state_dir)
         release = _find_release(registry, version)
         if release is None:
             return "unknown"
@@ -586,7 +642,7 @@ def cancel_schedule(state_dir, now=None):
     """
     del now
     with registry_lock(state_dir):
-        registry = load_registry(state_dir)
+        registry = _load_registry_for_write(state_dir)
         schedule = registry["schedule"]
         if schedule is None:
             return "none"
@@ -772,7 +828,7 @@ def apply_reconcile(state_dir, now=None):
     """
     now = now if now is not None else _utc_now_iso()
     with registry_lock(state_dir):
-        registry = load_registry(state_dir)
+        registry = _load_registry_for_write(state_dir)
         device_report = load_device_report(state_dir)
         new_registry, notifications = reconcile(registry, device_report, now)
         if new_registry.get("reconciled_seq") != registry.get("reconciled_seq"):

@@ -97,6 +97,77 @@ def test_load_registry_never_raises_on_hostile_release_entries(tmp_path):
     assert doc["schedule"] is None
 
 
+def test_load_registry_for_write_missing_file_returns_defaults(tmp_path):
+    # No firmware/ directory at all yet -- a fresh state dir, nothing to
+    # lose, so this is not "corrupt".
+    doc = registry_mod._load_registry_for_write(str(tmp_path))
+    assert doc == registry_mod._default_registry()
+
+
+def test_load_registry_for_write_refuses_non_json_and_moves_it_aside(tmp_path):
+    os.makedirs(registry_mod.firmware_dir(str(tmp_path)))
+    path = registry_mod.registry_path(str(tmp_path))
+    with open(path, "w") as fh:
+        fh.write("{not json")
+
+    with pytest.raises(registry_mod.RegistryCorruptError):
+        registry_mod._load_registry_for_write(str(tmp_path))
+
+    assert not os.path.exists(path), "a corrupt file must not be left where load_registry() would read it"
+    moved = [
+        name for name in os.listdir(os.path.dirname(path))
+        if name.startswith(os.path.basename(path) + ".corrupt-")
+    ]
+    assert len(moved) == 1
+    with open(os.path.join(os.path.dirname(path), moved[0])) as fh:
+        assert fh.read() == "{not json", "the corrupt bytes must be preserved verbatim, not discarded"
+
+
+def test_load_registry_for_write_refuses_wrong_top_level_shape(tmp_path):
+    os.makedirs(registry_mod.firmware_dir(str(tmp_path)))
+    with open(registry_mod.registry_path(str(tmp_path)), "w") as fh:
+        fh.write("[1, 2, 3]")
+
+    with pytest.raises(registry_mod.RegistryCorruptError):
+        registry_mod._load_registry_for_write(str(tmp_path))
+
+
+def test_publish_release_refuses_to_overwrite_a_corrupt_registry(tmp_path):
+    """The exact failure mode this guards against: without it, the next
+    write after a corrupt registry.json quietly replaces every release,
+    the installed_at history, the schedule and the floor with the empty
+    default document, because load_registry()'s own tolerance is meant
+    for readers, not for a read-modify-write.
+    """
+    os.makedirs(registry_mod.firmware_dir(str(tmp_path)))
+    registry_path = registry_mod.registry_path(str(tmp_path))
+    with open(registry_path, "w") as fh:
+        fh.write("{not json")
+
+    with pytest.raises(registry_mod.RegistryCorruptError):
+        _publish(tmp_path)
+
+    # The corrupt file was moved aside, not overwritten with a fresh
+    # empty document -- publish_release() never got the chance to write
+    # anything, since the corruption is detected before the lock's
+    # read-modify-write body runs its write.
+    assert not os.path.exists(registry_path)
+    corrupt_siblings = [
+        name for name in os.listdir(os.path.dirname(registry_path))
+        if name.startswith(os.path.basename(registry_path) + ".corrupt-")
+    ]
+    assert len(corrupt_siblings) == 1
+
+
+def test_schedule_release_refuses_a_corrupt_registry(tmp_path):
+    os.makedirs(registry_mod.firmware_dir(str(tmp_path)))
+    with open(registry_mod.registry_path(str(tmp_path)), "w") as fh:
+        fh.write("not even json")
+
+    with pytest.raises(registry_mod.RegistryCorruptError):
+        registry_mod.schedule_release(str(tmp_path), NEXT_VERSION, RUNNING_VERSION, now=NOW)
+
+
 def test_load_device_report_missing_file_returns_defaults(tmp_path):
     doc = registry_mod.load_device_report(str(tmp_path))
     assert doc == {"schema": 1, "next_seq": 0, "devices": {}}

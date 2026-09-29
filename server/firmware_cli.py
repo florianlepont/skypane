@@ -162,7 +162,7 @@ def cmd_import_dir(args):
             if error is None:
                 try:
                     outcome = firmware_registry.publish_release(args.state_dir, manifest, image_path, bench=False)
-                except ValueError as exc:
+                except (ValueError, firmware_registry.RegistryCorruptError) as exc:
                     error = str(exc)
 
         if error is not None:
@@ -242,7 +242,7 @@ def cmd_import_bench(args):
     }
     try:
         outcome = firmware_registry.publish_release(args.state_dir, manifest, args.file, bench=True)
-    except ValueError as exc:
+    except (ValueError, firmware_registry.RegistryCorruptError) as exc:
         print("firmware_cli: %s" % exc, file=sys.stderr)
         return 1
     print("%s %s" % (outcome, args.version))
