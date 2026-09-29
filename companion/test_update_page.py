@@ -235,7 +235,7 @@ _STATE_DOT_CLASSES = {
 
 def test_each_state_renders_its_word_and_dot_class_with_a_timestamp():
     """each of the five update states renders its own word, the UI contract's dot class, and a
-    timestamp element"""
+    timestamp element inside the Status section (not just the history table's date cells)"""
     cases = {
         "available": _view(releases=[_release("fw-v1.0.0")]),
         "scheduled": _view(
@@ -278,7 +278,10 @@ def test_each_state_renders_its_word_and_dot_class_with_a_timestamp():
         assert state_label in html, "state %r: missing label %r" % (state, state_label)
         dot_class = _STATE_DOT_CLASSES[state]
         assert dot_class in html, "state %r: missing dot class %r" % (state, dot_class)
-        assert "data-relative" in html, "state %r: missing a timestamp element" % (state,)
+        status_section = html[html.index("<section"):html.index("</section>")]
+        assert "data-relative" in status_section, (
+            "state %r: the Status section itself must render a timestamp element, "
+            "not only the history table's date cells" % (state,))
 
 
 def test_scheduled_state_shows_next_wake_sentence_and_cancel_form():
