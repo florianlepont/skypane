@@ -281,6 +281,77 @@ def draw_alert_icon(draw, center_x, top_y, ink_idx):
     return ALERT_ICON_HEIGHT_PX
 
 
+# --- Updating (OTA) refresh glyph ------------------------------------------
+# Two opposing ~90-degree arcs, each ending in a small chevron arrowhead
+# drawn strictly inside the ring (never past its radius) - the OTA
+# "in progress" motif shown while a firmware update installs. Same 76px
+# footprint and Bold-class 8px stroke as the power ring: thin strokes
+# drown in the dither noise, matching POWER_ICON_STROKE_PX's own comment.
+UPDATING_ICON_DIAMETER_PX = 76
+UPDATING_ICON_STROKE_PX = POWER_ICON_STROKE_PX
+UPDATING_ICON_ARC_SPAN_DEGREES = 90
+# The arrowhead's own tunables. The tip sits inset from the ring's own
+# outer radius by UPDATING_ICON_ARROWHEAD_TIP_INSET_PX, close to (but
+# slightly inside) the ring's own stroke centreline: `ImageDraw.arc()`
+# draws its stroke inward from the box it is given, so a tip placed
+# exactly on the outer radius, drawn as a diagonal line of the same
+# stroke width, bleeds past that radius in an axis-aligned bounding-box
+# measurement even with a butt cap. Each wing sits at that same inset
+# radius, offset backward along the arc (opposite the direction of
+# travel) by UPDATING_ICON_ARROWHEAD_BACK_DEGREES, and split across the
+# radius by +/-UPDATING_ICON_ARROWHEAD_SPREAD_PX - a chevron that points
+# along the arc's own tangent, not a spike that points radially outward
+# with no direction. Measured empirically, across several center/top_y
+# positions (this module has no other ink-extent contract to derive it
+# from): with these three values the whole glyph's ink bounding box
+# never exceeds the bare ring's own (verified by
+# server/test_updating_screen.py's
+# test_draw_updating_icon_ink_stays_within_declared_bounds).
+UPDATING_ICON_ARROWHEAD_BACK_DEGREES = 25
+UPDATING_ICON_ARROWHEAD_SPREAD_PX = 4
+UPDATING_ICON_ARROWHEAD_TIP_INSET_PX = 6
+
+
+def draw_updating_icon(draw, center_x, top_y, ink_idx):
+    """Draw the OTA refresh mark (two opposing ~90-degree arcs, each with
+    a small chevron arrowhead at its leading, clockwise end) centred on
+    `center_x`, topmost pixel at `top_y`. Returns the glyph's total
+    height (== UPDATING_ICON_DIAMETER_PX).
+    """
+    radius = UPDATING_ICON_DIAMETER_PX / 2.0
+    cx = float(center_x)
+    cy = top_y + radius
+    box = (center_x - radius, top_y, center_x + radius, top_y + UPDATING_ICON_DIAMETER_PX)
+    half_span = UPDATING_ICON_ARC_SPAN_DEGREES / 2.0
+
+    for center_deg in (45, 225):
+        start = center_deg - half_span
+        end = center_deg + half_span
+        draw.arc(box, start, end, fill=ink_idx, width=UPDATING_ICON_STROKE_PX)
+        # Increasing angle is the clockwise direction in image space
+        # (PIL's y-down convention), matching "leading, clockwise end"
+        # above: `end` is the direction of travel, `start` is behind it.
+        _draw_updating_arrowhead(draw, cx, cy, radius, end, ink_idx)
+
+    return UPDATING_ICON_DIAMETER_PX
+
+
+def _draw_updating_arrowhead(draw, cx, cy, radius, tip_angle_deg, ink_idx):
+    """A chevron at `tip_angle_deg` (the arc's leading end) pointing
+    along the arc's own tangent, entirely within the ring's own ink
+    footprint. See UPDATING_ICON_ARROWHEAD_* above for the geometry this
+    implements.
+    """
+    tip_r = radius - UPDATING_ICON_ARROWHEAD_TIP_INSET_PX
+    tip_a = math.radians(tip_angle_deg)
+    tip = (cx + tip_r * math.cos(tip_a), cy + tip_r * math.sin(tip_a))
+    wing_a = math.radians(tip_angle_deg - UPDATING_ICON_ARROWHEAD_BACK_DEGREES)
+    for sign in (-1, 1):
+        wing_r = tip_r + sign * UPDATING_ICON_ARROWHEAD_SPREAD_PX
+        wing = (cx + wing_r * math.cos(wing_a), cy + wing_r * math.sin(wing_a))
+        draw.line([tip, wing], fill=ink_idx, width=UPDATING_ICON_STROKE_PX)
+
+
 # --- Empty-state runway glyph ---------------------------------------------
 # A runway seen from above: a strip with a dashed centreline and a
 # threshold bar at each end. Same 76px height as the ring and crescent.

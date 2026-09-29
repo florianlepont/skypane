@@ -76,10 +76,11 @@ THEMES = ("light", "dark")
 _NOT_FOUND_PATH = "/this-page-does-not-exist"
 
 # One concrete (path, method, needs_session, form) sample per PAGE_REQUESTS
-# entry the plan calls for: the six NAV_TABS routes, /device and /display
-# with the flash-banner query, the unauthenticated /login page, a 404
-# path, and the calendar-disconnect confirm page (a POST with no confirm
-# field, which renders the confirm page at 200 without changing state).
+# entry the plan calls for: the seven NAV_TABS routes, /device and
+# /display with the flash-banner query, the unauthenticated /login page,
+# a 404 path, and the calendar-disconnect confirm page (a POST with no
+# confirm field, which renders the confirm page at 200 without changing
+# state).
 PAGE_REQUESTS = (
     (companion_app.HOME_ROUTE, "GET", True, None),
     (companion_app.DISPLAY_ROUTE, "GET", True, None),
@@ -87,6 +88,7 @@ PAGE_REQUESTS = (
     (companion_app.FLIGHTS_ROUTE, "GET", True, None),
     (companion_app.HEALTH_ROUTE, "GET", True, None),
     (companion_app.AIRLINES_ROUTE, "GET", True, None),
+    (companion_app.UPDATE_ROUTE, "GET", True, None),
     (companion_app.DEVICE_ROUTE + "?flash=saved", "GET", True, None),
     (companion_app.DISPLAY_ROUTE + "?flash=saved", "GET", True, None),
     (companion_app.LOGIN_ROUTE, "GET", False, None),
@@ -125,6 +127,7 @@ _UNAUTH_GET_REQUESTS = (
     companion_app.FLIGHTS_ROUTE,
     companion_app.HEALTH_ROUTE,
     companion_app.AIRLINES_ROUTE,
+    companion_app.UPDATE_ROUTE,
     companion_app.SETTINGS_ROUTE,
     companion_app.HISTORY_LEGACY_ROUTE,
     companion_app.PREVIEW_PAGE_ROUTE,
@@ -152,6 +155,8 @@ _UNAUTH_POST_REQUESTS = (
     companion_app.CALENDAR_DISCONNECT_ROUTE,
     companion_app.CALENDAR_CONNECT_ROUTE,
     companion_app.NOTIFICATIONS_TEST_ROUTE,
+    companion_app.UPDATE_INSTALL_ROUTE,
+    companion_app.UPDATE_CANCEL_ROUTE,
     companion_app.RULES_DELETE_ROUTE_PREFIX + "callsign/AFR" + companion_app.RULES_DELETE_ROUTE_SUFFIX,
     _NOT_FOUND_PATH,
 )

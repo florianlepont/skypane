@@ -130,6 +130,61 @@ static void sleep_s_parse_cases(void)
     assert(out == 999u);
 }
 
+static void fw_version_valid_cases(void)
+{
+    assert(fp_fw_version_valid("fw-v1.0.0") == true);
+    assert(fp_fw_version_valid("fw-v1.4.0-bench") == true);
+    assert(fp_fw_version_valid("a") == true); /* 1 char */
+
+    char max_len[FP_FW_VERSION_BUF];
+    memset(max_len, 'a', FP_FW_VERSION_BUF - 1);
+    max_len[FP_FW_VERSION_BUF - 1] = 0;
+    assert(fp_fw_version_valid(max_len) == true); /* 31 chars, fits */
+
+    char too_long[FP_FW_VERSION_BUF + 1];
+    memset(too_long, 'a', FP_FW_VERSION_BUF);
+    too_long[FP_FW_VERSION_BUF] = 0;
+    assert(fp_fw_version_valid(too_long) == false); /* 32 chars, one too many */
+
+    assert(fp_fw_version_valid(NULL) == false);
+    assert(fp_fw_version_valid("") == false);
+    assert(fp_fw_version_valid("fw v1") == false);       /* space */
+    assert(fp_fw_version_valid("fw-v1.0.0;x") == false); /* semicolon */
+    assert(fp_fw_version_valid("fw-v1/0") == false);     /* slash */
+}
+
+static void fw_size_parse_cases(void)
+{
+    uint32_t out = 999;
+
+    assert(fp_fw_size_parse(1.0, &out) == true);
+    assert(out == 1u);
+
+    out = 999;
+    assert(fp_fw_size_parse((double)FP_FW_MAX_IMAGE_BYTES, &out) == true);
+    assert(out == FP_FW_MAX_IMAGE_BYTES);
+
+    out = 999;
+    assert(fp_fw_size_parse(0.0, &out) == false);
+    assert(out == 999u);
+
+    out = 999;
+    assert(fp_fw_size_parse((double)FP_FW_MAX_IMAGE_BYTES + 1.0, &out) == false);
+    assert(out == 999u);
+
+    out = 999;
+    assert(fp_fw_size_parse(-1.0, &out) == false);
+    assert(out == 999u);
+
+    out = 999;
+    assert(fp_fw_size_parse(1.5, &out) == false);
+    assert(out == 999u);
+
+    out = 999;
+    assert(fp_fw_size_parse(NAN, &out) == false);
+    assert(out == 999u);
+}
+
 static void led_enabled_resolve_cases(void)
 {
     assert(fp_led_enabled_resolve(false, false) == true); /* absent -> enabled */
@@ -198,6 +253,8 @@ int main(void)
     url_scheme_allowed_cases();
     url_valid_cases();
     sleep_s_parse_cases();
+    fw_version_valid_cases();
+    fw_size_parse_cases();
     led_enabled_resolve_cases();
     download_verdict_cases();
     sha256_to_image_hash_cases();

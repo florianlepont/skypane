@@ -56,12 +56,6 @@ jobs:
       - name: Check Log Line Contract
         run: sh firmware/tests/check_log_contract.sh
 
-      - name: Create compile-only credentials header
-        # firmware/main/secrets.h is gitignored and never committed. This
-        # copies the tracked placeholder template so the build has the
-        # four symbols it needs, incapable of connecting anywhere.
-        run: cp firmware/main/secrets.example.h firmware/main/secrets.h
-
       - name: Build firmware image
         # Same containerised invocation used locally; the container
         # image, toolchain setup and sdkconfig flags stay owned by the

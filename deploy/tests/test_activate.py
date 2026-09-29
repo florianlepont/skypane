@@ -24,6 +24,23 @@ def _companion_unit_path(release_dir):
     return release_dir / "deploy" / "skypane-companion.service"
 
 
+def _add_firmware_releases(incoming, *tags):
+    """Populate <incoming>/firmware-releases/<tag>/{skypane-<tag>.bin,
+    release.json} the way deploy.sh's own second tar stream would --
+    content is irrelevant here since the fake_release fixture's
+    server/firmware_cli.py stand-in only logs its own invocation, never
+    reads either file (server/test_firmware_cli.py proves the real
+    import behaviour).
+    """
+    base = incoming / "firmware-releases"
+    for tag in tags:
+        subdir = base / tag
+        subdir.mkdir(parents=True)
+        (subdir / f"skypane-{tag}.bin").write_bytes(b"image")
+        (subdir / "release.json").write_text("{}")
+    return base
+
+
 def _mark_release(release_dir, marker):
     """Append a unique comment to one unit file so two releases built
     from the same working tree are byte-distinguishable — needed to
@@ -414,3 +431,120 @@ def test_backup_and_staging_names_escape_the_import_glob(fake_root, fake_release
     assert fake_root.site_file_prev.exists()
     imported = {p.name for p in fake_root.sites_dir.glob("*.caddy")}
     assert imported == {"skypane.caddy"}
+
+
+# --- Firmware import (server/firmware_cli.py import-dir) --------------------
+
+
+def test_firmware_state_directory_created_mode_0750(fake_root, fake_release, run_activate):
+    fake_release("f00d001")
+    r = run_activate("f00d001")
+    assert r.returncode == 0, r.stderr
+
+    firmware_dir = fake_root.state_dir / "firmware"
+    assert firmware_dir.is_dir()
+    assert (firmware_dir.stat().st_mode & 0o777) == 0o750
+
+
+def test_firmware_import_runs_before_swap_when_present(fake_root, fake_release, run_activate):
+    # A prior release is already `current` -- otherwise there would be
+    # no swap for the import to run "before", and moving the import
+    # after `mv -T` would pass this test just as well as running it
+    # before (both read the same nonexistent `current`).
+    fake_release("f00d001")
+    r0 = run_activate("f00d001")
+    assert r0.returncode == 0, r0.stderr
+    assert os.readlink(fake_root.current_link) == "releases/f00d001"
+
+    # This run's own log lines start after the first deploy's -- the
+    # first deploy's "systemctl restart" line would otherwise precede
+    # the second deploy's "firmware_cli import-dir" line by sheer
+    # accident of the two runs' call order, defeating the ordering
+    # check below.
+    lines_before_second_deploy = len(fake_root.call_log.read_text().splitlines())
+
+    incoming = fake_release("f00d002")
+    _add_firmware_releases(incoming, "fw-v1.0.0")
+
+    r = run_activate("f00d002")
+    assert r.returncode == 0, r.stderr
+
+    log_lines = fake_root.call_log.read_text().splitlines()[lines_before_second_deploy:]
+    import_idx = next(i for i, ln in enumerate(log_lines) if ln.startswith("firmware_cli import-dir"))
+    restart_idx = next(
+        i for i, ln in enumerate(log_lines) if ln == "systemctl restart skypane-byos.service"
+    )
+    assert import_idx < restart_idx, "firmware import must run before the post-swap restart"
+
+    import_line = log_lines[import_idx]
+    assert "entries=fw-v1.0.0" in import_line
+    assert "--state-dir" in import_line
+    assert str(fake_root.state_dir) in import_line
+
+    # `current` still pointed at the *previous* release when import-dir
+    # ran -- proof the import precedes the `current` swap itself, not
+    # only the later `systemctl restart` (moving the import after
+    # `mv -T` would still pass the ordering check above, since the
+    # restart happens after the swap either way, but this line would
+    # then read "releases/f00d002").
+    assert "current=releases/f00d001" in import_line, (
+        "firmware import must run before the current symlink is swapped: %r" % (import_line,))
+
+    # The per-deploy firmware staging directory is a temp path outside
+    # the release tree, and does not outlive this run.
+    release_dir = fake_root.releases / "f00d002"
+    assert not (release_dir / "firmware-releases").exists()
+    assert not any(p.name.startswith(".firmware-") for p in fake_root.releases.iterdir())
+
+
+def test_no_firmware_releases_directory_skips_import(fake_root, fake_release, run_activate):
+    fake_release("f00d003")  # no firmware-releases/ added
+
+    r = run_activate("f00d003")
+    assert r.returncode == 0, r.stderr
+    assert "firmware_cli" not in fake_root.call_log.read_text()
+    assert "no firmware-releases directory staged" in r.stdout
+
+
+def test_same_sha_redeploy_imports_freshly_streamed_firmware(fake_root, fake_release, run_activate):
+    """A re-run of the ci.yml dispatch job for a sha that is already
+    staged (the normal tag-push -> release-workflow -> dispatched-deploy
+    flow, since the push to main already deployed this sha once) must
+    still import whatever firmware-releases/ this run's own incoming
+    stream carried -- not silently discard it because the release tree
+    itself was already on disk.
+    """
+    fake_release("f00d006")
+    r1 = run_activate("f00d006")
+    assert r1.returncode == 0, r1.stderr
+    assert os.readlink(fake_root.current_link) == "releases/f00d006"
+
+    # Re-deploy the SAME sha. The release tree is already staged, but
+    # this run's incoming stream carries a firmware release the first
+    # deploy never saw.
+    incoming = fake_release("f00d006")
+    _add_firmware_releases(incoming, "fw-v1.0.0")
+    r2 = run_activate("f00d006")
+    assert r2.returncode == 0, r2.stderr
+
+    log = fake_root.call_log.read_text()
+    import_lines = [ln for ln in log.splitlines() if ln.startswith("firmware_cli import-dir")]
+    assert import_lines, "a same-sha redeploy that streamed new firmware must still import it"
+    assert "entries=fw-v1.0.0" in import_lines[-1]
+    assert not any(p.name.startswith(".firmware-") for p in fake_root.releases.iterdir())
+
+
+def test_firmware_import_failure_blocks_swap_previous_release_still_current(
+    fake_root, fake_release, run_activate
+):
+    fake_release("f00d004")
+    r1 = run_activate("f00d004")
+    assert r1.returncode == 0, r1.stderr
+
+    incoming = fake_release("f00d005")
+    _add_firmware_releases(incoming, "fw-v1.0.0")
+    r2 = run_activate("f00d005", FAKE_FIRMWARE_IMPORT_RC="1")
+    assert r2.returncode != 0
+    assert "firmware import failed" in r2.stderr
+
+    assert os.readlink(fake_root.current_link) == "releases/f00d004"

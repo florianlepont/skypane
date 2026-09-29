@@ -85,6 +85,42 @@ done <<EOF
 ${FLASH_FILE_LIST}
 EOF
 
+# The running app's own signature block is the trust anchor for every
+# later OTA (SIGNING.md): CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT
+# checks a downloaded image against the public key embedded in whatever
+# is running right now, with no eFuse-locked key involved. build.sh never
+# signs (CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES is off on purpose, so
+# the private key never touches a build machine), so an unsigned
+# skypane.bin boots fine over USB but can then never verify a single
+# future OTA update -- every device must run a signed image before its
+# first OTA. Refuse to USB-flash an unsigned production image by mistake;
+# a dev-profile bench image is exempt; sign a release locally per
+# SIGNING.md's "Local signing for bench images" before flashing it as
+# prod.
+if [ "${SKYPANE_PROFILE}" = "prod" ]; then
+    APP_BIN="${BUILD_DIR}/skypane.bin"
+    PUBKEY="${SCRIPT_DIR}/signing/skypane-signing-pubkey.pem"
+    if ! command -v espsecure.py >/dev/null 2>&1; then
+        echo "ERROR: espsecure.py not found on PATH (pip install esptool, or" \
+             "brew install esptool). Cannot verify ${APP_BIN} is signed." >&2
+        exit 1
+    fi
+    if [ ! -f "${PUBKEY}" ]; then
+        echo "ERROR: ${PUBKEY} not found; cannot verify the production" \
+             "image is signed." >&2
+        exit 1
+    fi
+    if ! espsecure.py verify_signature --version 2 --keyfile "${PUBKEY}" \
+            "${APP_BIN}" >/dev/null 2>&1; then
+        echo "ERROR: ${APP_BIN} has no valid signature for ${PUBKEY}." >&2
+        echo "Refusing to flash an unsigned or wrongly-signed production" \
+             "image -- see firmware/SIGNING.md, \"Local signing for bench" \
+             "images\"." >&2
+        exit 1
+    fi
+    echo "Signature check: ${APP_BIN} verified against ${PUBKEY}"
+fi
+
 echo "Flashing ${PORT} (chip=${CHIP}, baud=${BAUD})..."
 # shellcheck disable=SC2086
 esptool --chip "${CHIP}" --port "${PORT}" --baud "${BAUD}" \

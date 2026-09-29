@@ -4,12 +4,18 @@
 # shellcheck + offline systemd-unit security scoring + full pytest suite
 # (coverage gate) + vendored-asset attribution check, on Python 3.14
 # (matches production), every push and PR. `deploy` runs only after
-# `test` succeeds, only on a push to main, and pauses for a human
-# reviewer. Firmware builds live in their own file (firmware.yml):
-# path-restricted triggers are workflow-level, not job-level.
+# `test` succeeds, on a push to main or a manual dispatch, and pauses
+# for a human reviewer. A tagged firmware release publishes a GitHub
+# Release, then dispatches this workflow on main itself (see
+# firmware-release.yml) so the reviewed deploy also imports it; the
+# import is idempotent, so an ordinary code-only deploy re-syncs
+# whatever is already published with no extra effect. Firmware builds
+# live in their own file (firmware.yml): path-restricted triggers are
+# workflow-level, not job-level.
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     # Skips a docs-only push (safe: main requires no status checks), but
@@ -135,7 +141,7 @@ jobs:
   deploy:
     name: Deploy to production
     needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # Separate group from `test`. cancel-in-progress: false means a
@@ -198,11 +204,46 @@ jobs:
           printf '%s\n' "$DEPLOY_HOST_KEY" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
+      - name: Download firmware releases
+        # Every fw-v* GitHub Release's image and manifest, so deploy.sh
+        # can ship them alongside the code and activate.sh can import
+        # them into the VPS state directory -- idempotent, so this runs
+        # on every deploy, not only one dispatched by a firmware
+        # release. Zero releases (no fw-v* tag published yet) is fine:
+        # the loop below simply does nothing. github.token is enough --
+        # reading releases needs no more than this job's own
+        # contents: read. A release missing either asset (for example a
+        # release created by hand, with no release.json) is skipped with
+        # a warning rather than aborting this whole step under set -e --
+        # firmware bookkeeping for one malformed release must not block
+        # every ordinary code deploy that follows it.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p firmware-releases
+          tags="$(gh release list --limit 200 --json tagName --jq '.[].tagName' \
+              | grep -E '^fw-v(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,3})$' || true)"
+          for tag in $tags; do
+            assets="$(gh release view "$tag" --json assets --jq '.assets[].name')"
+            if ! printf '%s\n' "$assets" | grep -qxF "skypane-${tag}.bin" \
+                || ! printf '%s\n' "$assets" | grep -qxF "release.json"; then
+              echo "::warning::release ${tag} is missing skypane-${tag}.bin or release.json - skipping its firmware import"
+              continue
+            fi
+            mkdir -p "firmware-releases/${tag}"
+            gh release download "$tag" \
+                --pattern "skypane-${tag}.bin" --pattern release.json \
+                --dir "firmware-releases/${tag}"
+          done
+
       - name: Deploy
-        # Runs deploy.sh: ships the committed tree, then activate.sh
-        # stages the release, swaps `current` atomically, probes services
-        # and rolls back on failure. Target passed via env:, same
+        # Runs deploy.sh: ships the committed tree and every downloaded
+        # firmware release, then activate.sh stages the release, imports
+        # the firmware, swaps `current` atomically, probes services and
+        # rolls back on failure. Both passed via env:, same
         # injection-prevention reason as the host key above.
         env:
           DEPLOY_SSH_TARGET: ${{ secrets.DEPLOY_SSH_TARGET }}
+          SKYPANE_FIRMWARE_DIR: firmware-releases
         run: ./deploy/deploy.sh "$DEPLOY_SSH_TARGET"

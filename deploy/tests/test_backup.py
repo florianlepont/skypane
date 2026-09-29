@@ -164,6 +164,31 @@ class TestArchiveMembers:
         ):
             assert excluded not in members
 
+    def test_firmware_directory_archived_no_drift_lock_excluded(self, tmp_path, capsys):
+        state_dir = tmp_path / "state"
+        archive_dir = tmp_path / "archives"
+        _seed_minimal_state(state_dir)
+
+        firmware = state_dir / "firmware"
+        firmware.mkdir()
+        (firmware / "registry.json").write_text("{}")
+        (firmware / ("a" * 64 + ".bin")).write_bytes(b"image-bytes")
+        (firmware / "device_report.json").write_text("{}")
+        (firmware / "registry.lock").write_text("")
+
+        rc = skypane_backup.main(["--state-dir", str(state_dir), "--archive-dir", str(archive_dir)])
+        assert rc == 0
+
+        out = capsys.readouterr().out
+        assert "not in include list: firmware" not in out
+
+        archive_path = archive_dir / _archive_names(archive_dir)[0]
+        members = _members(archive_path)
+        assert "firmware/registry.json" in members
+        assert "firmware/%s.bin" % ("a" * 64) in members
+        assert "firmware/device_report.json" in members
+        assert "firmware/registry.lock" not in members
+
     def test_unlisted_file_is_drift_known_excluded_is_silent(self, tmp_path, capsys):
         state_dir = tmp_path / "state"
         archive_dir = tmp_path / "archives"

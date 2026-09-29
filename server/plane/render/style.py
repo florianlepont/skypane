@@ -190,6 +190,22 @@ NO_CONNECTION_BODY_LINES = (
 )
 NO_CONNECTION_BODY_TEXT = " ".join(NO_CONNECTION_BODY_LINES)
 
+# Locked English copy, same fixed-string convention as NO_CONNECTION_* -
+# the server never renders this screen either. The firmware draws it on
+# its own (firmware/tools/gen_fault_screen.py --screen updating bakes it
+# into updating_screen_mask.h at build time), so changing either sentence
+# requires regenerating that header or server/test_updating_screen_mask.py's
+# drift test fails. Body line 2 deliberately does not promise success -
+# "when it's ready" covers both a clean install and a silent
+# rollback-and-resume, both of which end the same way from the reader's
+# perspective.
+UPDATING_HEADING_TEXT = "UPDATING"
+UPDATING_BODY_LINES = (
+    "Installing a firmware update.",
+    "The frame will restart when it's ready.",
+)
+UPDATING_BODY_TEXT = " ".join(UPDATING_BODY_LINES)
+
 # --- The dimmed hold composition ------------------------------------------
 # Shared by DISPLAY OFF and QUIET HOURS via hold_screens._build_dimmed_hold_canvas():
 # glyph, tracked Bold label over a hairline rule, then body, on a dimmed

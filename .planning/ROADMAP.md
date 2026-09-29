@@ -22,7 +22,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Visual Polish on Real Glass** - Refine the plane view's visual design against real Spectra 6 E-ink output, resolving legibility/balance items that a digital preview can't settle (completed 2026-08-26 — on-glass visual sign-off moved to Phase 7, not a blocker on this phase)
 - [x] **Phase 3.1: Procedural Per-Airline Livery Rendering** (INSERTED) - Extends Phase 3's externally generated illustration set to real per-flight aircraft-type accuracy, by (a) surfacing the ADS-B ICAO type designator in `server/plane/detect.py`, (b) adding a second selection key plus a four-tier fallback in `server/plane/illustrations.py`, and (c) expanding the externally generated asset set per D-03's verified 24-airline / 7-base-shape table (completed 2026-08-27)
 - [x] **Phase 4: CI/CD, Documentation & Legal Compliance** - GitHub Actions CI (tests, build, code quality, coverage) with automated deploy to the OVH VPS, a project README, a code LICENSE, third-party API terms-of-use compliance documentation, and consolidated asset attribution (completed 2026-08-26 — repo public at github.com/florianlepont/skypane, CI-block and deploy-gate proven on real infrastructure)
-- [ ] **Phase 5: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience (05-02/05-03 complete 2026-08-27, DEVICE-04 fully closed and confirmed on real glass; 05-01's actual multi-day discharge run — success criterion 1, DEVICE-05 — still deliberately deferred to end of project)
+- [x] **Phase 5: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience (05-02/05-03 complete 2026-08-27, DEVICE-04 confirmed on real glass; 05-01's discharge run gave a MEASURED verdict on 2026-09-15, 0.923 mAh/cycle, DEVICE-05 closed with physical post-mortem confirmation — see `hardware/BATTERY-RUN.md`) (completed 2026-09-24)
 - [x] **Phase 6: Companion Configuration Web Interface** - A password-protected web page (theme picker, runway selection, health/history, airline-coverage monitoring, flight log, manual poll trigger, render preview/gallery) covering CFG-01, CFG-03..12, promoted from the v2 backlog (12/12 plans complete — developer sign-off checkpoint passed 2026-08-28, two real defects found live and fixed: a poll-trigger crash and mobile table cropping) (completed 2026-08-28)
 - [x] **Phase 6.1: Battery status on companion web interface** (INSERTED) - SUPERSEDED 2026-08-28, before planning — merged into Phase 6.5 (identical target: health_page.py's Battery Trend section). Never planned standalone; see Phase 6.5.
 - [x] **Phase 6.2: LED enable/disable toggle** (INSERTED) - Allow the board's LEDs to be enabled/disabled from the companion interface (completed 2026-08-28).
@@ -213,7 +213,7 @@ Plans:
 
 **Goal**: Real on-battery wake/poll/sleep viability is measured on real hardware (not estimated), producing a mAh-per-cycle figure a wake-interval and battery-life plan can be built on; users can then see a clear low-battery warning on the frame — completing the v1 device experience for the single-view (plane-only) device.
 
-**Note on scope (2026-08-26)**: The battery-measurement plan (05-01, formerly Phase 1's 01-08) was moved here at the user's request — the unattended multi-day (up to 21-day) discharge run is deliberately scheduled for the end of the project, once other phases no longer need this Mac to stay awake continuously. Task 1 (pre-registered protocol + `check-battery` checker, proven on fixtures) is already complete; Tasks 2-3 (the actual run and its verdict) remain. **Renumbered from Phase 4 to Phase 5 (2026-08-26, user request)** to run after CI/CD, Documentation & Legal Compliance instead of before it — see that phase's note.
+**Note on scope (2026-08-26)**: The battery-measurement plan (05-01, formerly Phase 1's 01-08) was moved here at the user's request — the unattended multi-day (up to 21-day) discharge run was deliberately scheduled for the end of the project, once other phases no longer needed this Mac to stay awake continuously. All three tasks are now done: the run gave its MEASURED verdict on 2026-09-15 and DEVICE-05 closed on 2026-09-24. **Renumbered from Phase 4 to Phase 5 (2026-08-26, user request)** to run after CI/CD, Documentation & Legal Compliance instead of before it — see that phase's note.
 **Mode:** mvp
 **Depends on**: Phase 4
 **Requirements**: DEVICE-04, DEVICE-05
@@ -222,10 +222,10 @@ Plans:
   1. The device completes multiple wake/poll/sleep cycles running on battery power alone, producing a measured mAh-per-cycle figure — not an estimate — that supports a realistic wake-interval and battery-life plan.
   2. User can see a low-battery indicator on the frame when the battery is running low.
 
-**Plans**: 3/3 plans executed, but the phase is NOT complete — 05-01's Tasks 2-3 (success criterion 1, DEVICE-05) are deliberately parked until the end of the project; only DEVICE-04 (criterion 2, 05-02+05-03) is actually closed.
+**Plans**: 3/3 plans complete. DEVICE-04 (criterion 2, 05-02+05-03) closed 2026-08-27; DEVICE-05 (criterion 1, 05-01 Tasks 2-3) closed 2026-09-24 on a MEASURED verdict of 0.923 mAh/cycle — see `hardware/BATTERY-RUN.md`.
 **Wave 1**
 
-- [ ] 05-01-PLAN.md — Battery-life measurement: pre-registered D-07 protocol + check-battery checker (Task 1 done), unattended multi-day discharge run and verdict (Tasks 2-3 pending, deliberately deferred)
+- [x] 05-01-PLAN.md — Battery-life measurement: pre-registered D-07 protocol + check-battery checker, unattended multi-day discharge run and verdict (MEASURED, 0.923 mAh/cycle, closed 2026-09-24)
 - [x] 05-02-PLAN.md — Low-battery indicator, server half: strict X-Battery-Mv validation and single-writer persistence, the 3500/3600 mV hysteresis decision, and the bottom-left battery icon drawn onto the served panel
 
 **Wave 2**
@@ -245,14 +245,14 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 2. Plane View — End-to-End Slice | 5/5 | Complete    | 2026-08-26 |
 | 3. Visual Polish on Real Glass | 4/4 | Complete    | 2026-08-26 |
 | 4. CI/CD, Documentation & Legal Compliance | 6/6 | Complete    | 2026-08-26 |
-| 5. Battery Life & Low-Battery Indicator | 3/3 executed | In Progress (DEVICE-04 done, DEVICE-05 pending) | - |
+| 5. Battery Life & Low-Battery Indicator | 3/3 | Complete    | 2026-09-24 |
 | 6. Companion Configuration Web Interface | 12/12 | Complete    | 2026-08-28 |
 | 7. Final On-Glass Verification | 1/1 | Complete   | 2026-08-28 |
 **Plans:** 4/7 phases complete (1-4 plus inserted 3.1); 5 and 6 in progress, 7 not started
 
 Plans:
 
-- [x] 05-01-PLAN.md — Battery-life measurement (DEVICE-05) — Task 1 done, Tasks 2-3 parked to end of project
+- [x] 05-01-PLAN.md — Battery-life measurement (DEVICE-05) — all 3 tasks done, MEASURED verdict, closed 2026-09-24
 - [x] 05-02-PLAN.md — Low-battery indicator, server half (DEVICE-04) — Wave 1
 - [x] 05-03-PLAN.md — Low-battery indicator, device half + hardware bring-up (DEVICE-04) — Wave 2 (completed 2026-08-27, confirmed on real glass)
 
@@ -2000,7 +2000,7 @@ Plans:
 6. Release images hold no device credentials: Wi-Fi and server address come from the provisioned `secret` partition (D-20)
 7. A CI check fails when the production certificate chain no longer leads to a root in the firmware's trust store (D-19)
 
-**Plans:** 16 plans (4 waves)
+**Plans:** 15/16 plans executed
 
 **Execution gate:** G-41 — the first task of every wave-1 plan (42-01..42-06) stops with "blocked: Phase 41 not complete on main" unless Phase 41 is complete on `main`. 42-06 (device credentials out of the image) implements D-20, confirmed by the developer on 2026-09-25. One writer per file per wave.
 
@@ -2008,27 +2008,27 @@ Plans:
 
 **Wave 1**
 
-- [ ] 42-01-PLAN.md — Server release registry: publish/schedule/cancel, offer gate, outcome reconcile, Update view model [OTA-01, OTA-05, OTA-06, OTA-10]
-- [ ] 42-02-PLAN.md — Firmware pure OTA policy (battery/floor/start, image check, boot outcome, confirm rule) + offer validators [OTA-02, OTA-03, OTA-05, OTA-06]
-- [ ] 42-03-PLAN.md — Rollback + signed-app Kconfig confirmed in the pinned container, no-eFuse CI guard, release-tag PROJECT_VER, floor, SIGNING.md [OTA-03, OTA-04, OTA-05, OTA-10]
-- [ ] 42-04-PLAN.md — UPDATING hold screen: render.py composition, generated mask, shared on-device renderer [OTA-07]
-- [ ] 42-05-PLAN.md — Let's Encrypt chain guard: offline-tested checker + scheduled workflow [OTA-11]
-- [ ] 42-06-PLAN.md — Device credentials out of the image into the secret partition (enables CI-built releases) [OTA-10]
+- [x] 42-01-PLAN.md — Server release registry: publish/schedule/cancel, offer gate, outcome reconcile, Update view model [OTA-01, OTA-05, OTA-06, OTA-10]
+- [x] 42-02-PLAN.md — Firmware pure OTA policy (battery/floor/start, image check, boot outcome, confirm rule) + offer validators [OTA-02, OTA-03, OTA-05, OTA-06]
+- [x] 42-03-PLAN.md — Rollback + signed-app Kconfig confirmed in the pinned container, no-eFuse CI guard, release-tag PROJECT_VER, floor, SIGNING.md [OTA-03, OTA-04, OTA-05, OTA-10]
+- [x] 42-04-PLAN.md — UPDATING hold screen: render.py composition, generated mask, shared on-device renderer [OTA-07]
+- [x] 42-05-PLAN.md — Let's Encrypt chain guard: offline-tested checker + scheduled workflow [OTA-11]
+- [x] 42-06-PLAN.md — Device credentials out of the image into the secret partition (enables CI-built releases) [OTA-10]
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 42-07-PLAN.md — byos: firmware offer in /device/v1/display, /fw/<sha>.bin, device report [OTA-01, OTA-06, OTA-08]
-- [ ] 42-08-PLAN.md — Firmware OTA engine: esp_https_ota, read-back hash, boot check, confirm; offer parsing and X-Ota-Result [OTA-02, OTA-03, OTA-05, OTA-06]
-- [ ] 42-09-PLAN.md — Companion Update page (nav, status, rollback warning, history) EN/FR [OTA-08]
-- [ ] 42-10-PLAN.md — Poll-cycle reconcile + EN/FR installed/failed notifications [OTA-06, OTA-09]
-- [ ] 42-11-PLAN.md — Tag-triggered build/sign/verify/publish workflow + generated release manifest [OTA-04, OTA-10]
-- [ ] 42-12-PLAN.md — Signing key ceremony (human checkpoint), public key committed [OTA-04]
+- [x] 42-07-PLAN.md — byos: firmware offer in /device/v1/display, /fw/<sha>.bin, device report [OTA-01, OTA-06, OTA-08]
+- [x] 42-08-PLAN.md — Firmware OTA engine: esp_https_ota, read-back hash, boot check, confirm; offer parsing and X-Ota-Result [OTA-02, OTA-03, OTA-05, OTA-06]
+- [x] 42-09-PLAN.md — Companion Update page (nav, status, rollback warning, history) EN/FR [OTA-08]
+- [x] 42-10-PLAN.md — Poll-cycle reconcile + EN/FR installed/failed notifications [OTA-06, OTA-09]
+- [x] 42-11-PLAN.md — Tag-triggered build/sign/verify/publish workflow + generated release manifest [OTA-04, OTA-10]
+- [x] 42-12-PLAN.md — Signing key ceremony (human checkpoint), public key committed [OTA-04]
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 42-13-PLAN.md — Wake wiring: OTA before hash-skip, UPDATING screen, confirm before deep sleep, OTA wake budget, VENDOR.md [OTA-02, OTA-03, OTA-06, OTA-07]
-- [ ] 42-14-PLAN.md — Companion Install (two-step confirm, no-JS) and Cancel; browser and mobile-fit proof [OTA-08]
-- [ ] 42-15-PLAN.md — Gated deploy imports releases into the state dir; firmware_cli; backup allow-list; README [OTA-10]
+- [x] 42-13-PLAN.md — Wake wiring: OTA before hash-skip, UPDATING screen, confirm before deep sleep, OTA wake budget, VENDOR.md [OTA-02, OTA-03, OTA-06, OTA-07]
+- [x] 42-14-PLAN.md — Companion Install (two-step confirm, no-JS) and Cancel; browser and mobile-fit proof [OTA-08]
+- [x] 42-15-PLAN.md — Gated deploy imports releases into the state dir; firmware_cli; backup allow-list; README [OTA-10]
 
 **Wave 4** *(blocked on Wave 3 completion)*
 

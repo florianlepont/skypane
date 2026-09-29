@@ -41,6 +41,7 @@
 #include "nvs_boot.h"
 #include "nvs_schema.h"
 #include "nvs_util.h"
+#include "ota.h"
 #include "panel.h"
 #include "reset_reason.h"
 #include "sleep_decision.h"
@@ -296,6 +297,14 @@ void app_main(void)
         nvs_fail_and_sleep("nvs", err);
     }
 
+    /* As early as NVS is usable, before the reset-reason failure exit
+     * below: a crash-induced rollback must be classified even on the
+     * wake that routes straight to a failure sleep without ever
+     * reaching fp_poll_once() - otherwise the server never learns the
+     * update failed until some later, unrelated wake happens to poll
+     * successfully. */
+    fp_ota_boot_check();
+
     nvs_handle_t nvs;
     err = nvs_open(FP_NVS_NAMESPACE, NVS_READWRITE, &nvs);
     if (err != ESP_OK) {
@@ -375,5 +384,14 @@ void app_main(void)
     ESP_LOGI(TAG, "poll ok sleep_s=%" PRIu32 " hash_skip=%u",
              plan.sleep_s, hash_skip);
     log_wake_timing();
+    /* The rollback-safety call site: a trial image is confirmed only
+     * after this wake's poll has already succeeded and only right
+     * before this same wake's deep sleep. A deep-sleep wake re-enters
+     * the bootloader's own pending-verify check on its next boot, so
+     * deferring this call to any later wake would let a perfectly
+     * healthy update be rolled back the very next time this device
+     * wakes. Every failure exit above (fail_and_sleep, the deadline/
+     * reset/json exits) never reaches this line. */
+    fp_ota_confirm_if_pending();
     enter_deep_sleep(plan.sleep_s);
 }

@@ -37,7 +37,9 @@ to show the issue exists; running the stack locally
 ## Secrets
 
 No credentials are committed to this repository. Real values live only
-in gitignored files (`deploy/skypane.env`, `firmware/main/secrets.h`) and
-in GitHub Actions secrets; the tracked `*.example` files hold
-placeholders. If you ever spot something that looks like a real secret,
-please report it as above.
+in a gitignored file (`deploy/skypane.env`), in GitHub Actions secrets,
+and — for the device's own Wi-Fi password, API base and enrolment
+secret — in its `secret` NVS partition, written directly by
+`firmware/provision.sh` over USB and never compiled into a firmware
+image; the tracked `*.example` files hold placeholders. If you ever spot
+something that looks like a real secret, please report it as above.

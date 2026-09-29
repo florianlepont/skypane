@@ -276,4 +276,38 @@ def test_body_for_lang_returns_french_or_falls_back_to_english():
         )
 
 
+def test_firmware_notification_bodies_are_the_expected_english_source_strings():
+    assert notify.FIRMWARE_INSTALLED_BODY == "Firmware %s installed", (
+        "unexpected FIRMWARE_INSTALLED_BODY: %r" % (notify.FIRMWARE_INSTALLED_BODY,)
+    )
+    assert notify.FIRMWARE_FAILED_BODY == "Update failed, back on %s", (
+        "unexpected FIRMWARE_FAILED_BODY: %r" % (notify.FIRMWARE_FAILED_BODY,)
+    )
+
+
+def test_firmware_installed_body_for_lang_fr():
+    got = notify.body_for_lang(notify.FIRMWARE_INSTALLED_BODY, "fr") % "fw-v1.4.0"
+    expected = "Micrologiciel fw-v1.4.0 installé"
+    assert got == expected, "body_for_lang(FIRMWARE_INSTALLED_BODY, 'fr') percent-formatted returned %r, expected %r" % (got, expected)
+
+
+def test_firmware_failed_body_for_lang_fr():
+    got = notify.body_for_lang(notify.FIRMWARE_FAILED_BODY, "fr") % "fw-v1.3.0"
+    expected = "Échec de la mise à jour, retour à fw-v1.3.0"
+    assert got == expected, "body_for_lang(FIRMWARE_FAILED_BODY, 'fr') percent-formatted returned %r, expected %r" % (got, expected)
+
+
+def test_firmware_body_for_lang_en_returns_english_unchanged():
+    got_installed = notify.body_for_lang(notify.FIRMWARE_INSTALLED_BODY, "en")
+    assert got_installed == notify.FIRMWARE_INSTALLED_BODY, (
+        "body_for_lang(FIRMWARE_INSTALLED_BODY, 'en') returned %r, expected the English source unchanged"
+        % (got_installed,)
+    )
+    got_failed = notify.body_for_lang(notify.FIRMWARE_FAILED_BODY, "en")
+    assert got_failed == notify.FIRMWARE_FAILED_BODY, (
+        "body_for_lang(FIRMWARE_FAILED_BODY, 'en') returned %r, expected the English source unchanged"
+        % (got_failed,)
+    )
+
+
 

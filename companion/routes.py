@@ -19,7 +19,8 @@ pre-session access; the only routes with it are GET/POST /login and the
 import collections
 
 from companion import layout, static_files, theme_preview
-from companion.pages import airlines_page, config_page, health_page, history_page, home_page
+from companion.pages import (
+    airlines_page, config_page, health_page, history_page, home_page, update_page)
 
 Exact = collections.namedtuple("Exact", "path")
 PrefixSuffix = collections.namedtuple("PrefixSuffix", "prefix suffix")
@@ -41,13 +42,14 @@ LOGOUT_ROUTE = "/logout"
 GALLERY_ROUTE_PREFIX = "/gallery/"
 ILLUSTRATION_IMAGE_ROUTE_PREFIX = "/illustration/"
 
-# The six live tabs, rebound from layout.py's own single definition site.
+# The seven live tabs, rebound from layout.py's own single definition site.
 HOME_ROUTE = layout.HOME_ROUTE
 DISPLAY_ROUTE = layout.DISPLAY_ROUTE
 FLIGHTS_ROUTE = layout.FLIGHTS_ROUTE
 AIRLINES_ROUTE = layout.AIRLINES_ROUTE
 HEALTH_ROUTE = layout.HEALTH_ROUTE
 DEVICE_ROUTE = layout.DEVICE_ROUTE
+UPDATE_ROUTE = layout.UPDATE_ROUTE
 
 SETTINGS_ROUTE = config_page.SETTINGS_ROUTE
 RUNWAY_IMAGE_ROUTE_PREFIX = config_page.RUNWAY_IMAGE_ROUTE_PREFIX
@@ -57,6 +59,8 @@ RULES_DELETE_ROUTE_SUFFIX = config_page.RULES_DELETE_ROUTE_SUFFIX
 CALENDAR_DISCONNECT_ROUTE = config_page.CALENDAR_DISCONNECT_ROUTE
 CALENDAR_CONNECT_ROUTE = config_page.CALENDAR_CONNECT_ROUTE
 NOTIFICATIONS_TEST_ROUTE = config_page.NOTIFICATIONS_TEST_ROUTE
+UPDATE_INSTALL_ROUTE = update_page.INSTALL_ROUTE
+UPDATE_CANCEL_ROUTE = update_page.CANCEL_ROUTE
 
 THEME_PREVIEW_ROUTE_PREFIX = theme_preview.THEME_PREVIEW_ROUTE_PREFIX
 
@@ -105,6 +109,9 @@ _GET_ROUTES = (
         Route(
             "GET", Exact(AIRLINES_ROUTE),
             lambda h, m: h._render_tab(AIRLINES_ROUTE, airlines_page.render), True),
+        Route(
+            "GET", Exact(UPDATE_ROUTE),
+            lambda h, m: h._render_tab(UPDATE_ROUTE, update_page.render), True),
         # The pre-refactor page routes survive as fixed 303s so a stale
         # bookmark or link still lands somewhere useful. The targets are
         # literals, never derived from any request value.
@@ -171,6 +178,12 @@ _POST_ROUTES = (
     Route(
         "POST", Exact(NOTIFICATIONS_TEST_ROUTE),
         lambda h, m: h._handle_notifications_test_post(), True),
+    Route(
+        "POST", Exact(UPDATE_INSTALL_ROUTE),
+        lambda h, m: h._handle_update_install_post(), True),
+    Route(
+        "POST", Exact(UPDATE_CANCEL_ROUTE),
+        lambda h, m: h._handle_update_cancel_post(), True),
     Route(
         "POST", PrefixSuffix(RULES_DELETE_ROUTE_PREFIX, RULES_DELETE_ROUTE_SUFFIX),
         lambda h, m: h._handle_rule_delete_post(m.captured), True),

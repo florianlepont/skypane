@@ -81,6 +81,43 @@ bool fp_sleep_s_parse(double value, uint32_t *out)
     return true;
 }
 
+bool fp_fw_version_valid(const char *v)
+{
+    if (!v) {
+        return false;
+    }
+    size_t len = strlen(v);
+    if (len < 1 || len > FP_FW_VERSION_BUF - 1) {
+        return false;
+    }
+    for (size_t i = 0; i < len; i++) {
+        char c = v[i];
+        bool ok = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                  (c >= '0' && c <= '9') || c == '.' || c == '_' || c == '-';
+        if (!ok) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool fp_fw_size_parse(double value, uint32_t *out)
+{
+    if (value != value) {
+        return false; /* NaN never equals itself */
+    }
+    if (value < 1.0 || value > (double)FP_FW_MAX_IMAGE_BYTES) {
+        return false;
+    }
+    if (value != (double)(uint32_t)value) {
+        return false; /* not an exact integer */
+    }
+    if (out) {
+        *out = (uint32_t)value;
+    }
+    return true;
+}
+
 bool fp_led_enabled_resolve(bool is_bool, bool value)
 {
     return !is_bool || value;

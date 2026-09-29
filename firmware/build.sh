@@ -9,6 +9,7 @@
 # Usage: ./build.sh [idf.py-subcommand]
 #   SKYPANE_PROFILE=dev ./build.sh              # dev build, http allowed
 #   SKYPANE_PROFILE=dev SKYPANE_FAULT=panic ./build.sh   # bench fault hook
+#   SKYPANE_RELEASE_TAG=fw-v1.0.0 ./build.sh    # tagged release build
 #
 # SKYPANE_PROFILE: prod (default) | dev. dev uses its own build directory
 # and layers sdkconfig.dev.defaults (CONFIG_SKYPANE_ALLOW_HTTP=y), so a
@@ -17,6 +18,16 @@
 # SKYPANE_FAULT: none (default) | panic | task_wdt | int_wdt | slow_wake |
 # nvs -- selects one fault-injection Kconfig choice for bench verification.
 # Refused outside SKYPANE_PROFILE=dev; a production image can never carry one.
+#
+# SKYPANE_RELEASE_TAG: unset (default) | a release tag matching fw-vX.Y.Z.
+# When set, HEAD must already carry exactly that tag on a clean tree, and
+# the reported version is the tag itself, not a git-describe string -- a
+# release build's version can never drift from the tag that names it.
+#
+# SKYPANE_VERSION_LABEL: unset (default) | a short lowercase/digit label,
+# for example "unsigned". Appends "-<label>" to a release version for a
+# bench image built from a release tag (fw-v1.0.1-unsigned); the release
+# CI job never sets this.
 #
 # Works from any working directory: resolves its own location first.
 
@@ -50,6 +61,25 @@ if [ "${SKYPANE_PROFILE}" = "prod" ] && [ "${SKYPANE_FAULT}" != "none" ]; then
     exit 2
 fi
 
+SKYPANE_RELEASE_TAG="${SKYPANE_RELEASE_TAG:-}"
+SKYPANE_VERSION_LABEL="${SKYPANE_VERSION_LABEL:-}"
+
+# Checked before anything touches Docker: a malformed tag or label is a
+# usage error, not a build failure worth waiting on a container for.
+if [ -n "${SKYPANE_RELEASE_TAG}" ]; then
+    if ! printf '%s' "${SKYPANE_RELEASE_TAG}" \
+        | grep -Eq '^fw-v(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,3})$'; then
+        echo "ERROR: SKYPANE_RELEASE_TAG '${SKYPANE_RELEASE_TAG}' does not match fw-vMAJOR.MINOR.PATCH" >&2
+        exit 2
+    fi
+fi
+if [ -n "${SKYPANE_VERSION_LABEL}" ]; then
+    if ! printf '%s' "${SKYPANE_VERSION_LABEL}" | grep -Eq '^[a-z0-9]{1,12}$'; then
+        echo "ERROR: SKYPANE_VERSION_LABEL '${SKYPANE_VERSION_LABEL}' must match [a-z0-9]{1,12}" >&2
+        exit 2
+    fi
+fi
+
 if [ "${SKYPANE_PROFILE}" = "dev" ]; then
     BUILD_DIR="build-ee02-dev"
     SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.ee02.defaults;sdkconfig.dev.defaults"
@@ -71,11 +101,35 @@ if [ "${ACTION}" = "build" ]; then
     rm -f "${SCRIPT_DIR}/${BUILD_DIR}/sdkconfig"
 fi
 
-VER=$(git -C "${SCRIPT_DIR}" describe --tags --always --dirty 2>/dev/null || true)
-[ -z "${VER}" ] && VER="0.0.0-nogit"
-[ "${SKYPANE_PROFILE}" = "dev" ] && VER="${VER}-dev"
-[ "${SKYPANE_FAULT}" != "none" ] && VER="${VER}-${SKYPANE_FAULT}"
-VER=$(printf '%s' "${VER}" | cut -c1-31)
+if [ -n "${SKYPANE_RELEASE_TAG}" ]; then
+    # A release build's version can only ever be the tag that names it:
+    # require HEAD to already carry exactly that tag (not an ancestor, not
+    # a later commit) on a tree with nothing uncommitted, so the built
+    # image and the tagged source are provably the same thing.
+    HEAD_TAG=$(git -C "${SCRIPT_DIR}" describe --tags --exact-match --match 'fw-v*' HEAD 2>/dev/null || true)
+    if [ "${HEAD_TAG}" != "${SKYPANE_RELEASE_TAG}" ]; then
+        echo "ERROR: HEAD is not tagged ${SKYPANE_RELEASE_TAG} (git describe --exact-match reports '${HEAD_TAG:-<none>}')" >&2
+        exit 2
+    fi
+    if [ -n "$(git -C "${SCRIPT_DIR}" status --porcelain)" ]; then
+        echo "ERROR: working tree is not clean; a release build must match its tag exactly" >&2
+        exit 2
+    fi
+    VER="${SKYPANE_RELEASE_TAG}"
+    [ -n "${SKYPANE_VERSION_LABEL}" ] && VER="${VER}-${SKYPANE_VERSION_LABEL}"
+    VER=$(printf '%s' "${VER}" | cut -c1-31)
+    echo "Release: ${SKYPANE_RELEASE_TAG}"
+else
+    # --match restricts describe to release tags, so an untagged or
+    # dirty build can never print a bare release tag: it is always a
+    # commit hash or fw-vX.Y.Z-N-g<hash>[-dirty], distinguishable from
+    # a real release version at a glance.
+    VER=$(git -C "${SCRIPT_DIR}" describe --tags --always --dirty --match 'fw-v*' 2>/dev/null || true)
+    [ -z "${VER}" ] && VER="0.0.0-nogit"
+    [ "${SKYPANE_PROFILE}" = "dev" ] && VER="${VER}-dev"
+    [ "${SKYPANE_FAULT}" != "none" ] && VER="${VER}-${SKYPANE_FAULT}"
+    VER=$(printf '%s' "${VER}" | cut -c1-31)
+fi
 
 echo "Firmware version: ${VER}"
 echo "Profile: ${SKYPANE_PROFILE} fault=${SKYPANE_FAULT}"

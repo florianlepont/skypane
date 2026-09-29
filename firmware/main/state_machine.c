@@ -10,14 +10,20 @@
 
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "esp_system.h"
 #include "esp_timer.h"
+#include "sdkconfig.h"
 
 #include "api_client.h"
+#include "battery.h"
 #include "fault_inject.h"
 #include "led.h"
 #include "nvs_schema.h"
 #include "nvs_util.h"
+#include "ota.h"
+#include "ota_policy.h"
 #include "panel.h"
+#include "updating_screen.h"
 #include "wake_guard.h"
 #include "wifi.h"
 
@@ -55,6 +61,43 @@ static uint32_t elapsed_ms_since(int64_t start_us)
     return (uint32_t)((esp_timer_get_time() - start_us) / 1000);
 }
 
+/* Draws the on-device UPDATING hold screen for an OTA attempt that is
+ * about to start, modelled on app_main.c's maybe_draw_fault_screen():
+ * radio down before the panel (fp_api_release() is safe/idempotent with
+ * no open session), a PSRAM framebuffer, the shared hold-screen
+ * renderer, and the blit itself, which may legitimately wait out the
+ * panel guard's spacing - accepted here exactly as it is on the healthy
+ * poll path below. The image-hash sentinel is written whatever the draw
+ * result (drawn, deferred, or skipped for no PSRAM): this screen is
+ * shown regardless of quiet hours or display-off, and writing a
+ * sentinel that can never match a real server hash guarantees the next
+ * successful poll always redraws the current mode's picture rather than
+ * treating this screen as already on glass. */
+static void draw_updating_screen(void)
+{
+    fp_api_release();
+    fp_wifi_stop();
+
+    uint8_t *buf = heap_caps_malloc(FP_UPDATING_SCREEN_BYTES,
+                                    MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!buf) {
+        ESP_LOGW(TAG, "ota updating screen skipped: no PSRAM");
+    } else {
+        fp_updating_screen_render(buf, fp_wake_feed);
+        esp_err_t err = fp_panel_draw(buf);
+        heap_caps_free(buf);
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "ota updating screen drawn");
+        } else if (err == ESP_ERR_TIMEOUT || err == ESP_ERR_INVALID_STATE) {
+            ESP_LOGI(TAG, "ota updating screen deferred err=%s", esp_err_to_name(err));
+        } else {
+            ESP_LOGW(TAG, "ota updating screen failed err=%s", esp_err_to_name(err));
+        }
+    }
+
+    fp_nvs_set_str(FP_NVS_IMAGE_HASH, FP_UPDATING_SCREEN_HASH);
+}
+
 fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
                               const char **fail_step_out,
                               fp_poll_timing_t *timing_out)
@@ -69,7 +112,13 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
         timing_out->wifi_ms = elapsed_ms_since(t_wifi);
     }
     if (wifi_err != ESP_OK) {
-        *fail_step_out = "wifi";
+        /* fp_wifi_connect() returns FP_ERR_CONFIG, with no radio activity
+         * at all, when the provisioned credentials are missing or
+         * invalid (wifi.h). That is a provisioning defect, not a radio
+         * or AP problem, and the Log Line Contract's "wifi" token points
+         * an operator at the wrong fix (radio/AP) instead of the right
+         * one (provision.sh) if the two are conflated here. */
+        *fail_step_out = wifi_err == FP_ERR_CONFIG ? "config" : "wifi";
         return FP_POLL_FAILED;
     }
     fp_wake_checkpoint();
@@ -115,6 +164,78 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
      * for it. */
     if (!disp.led_enabled) {
         fp_led_off();
+    }
+
+    /* OTA before the hash-skip below: an offer must land even on a wake
+     * where the picture is unchanged. Every branch either falls through
+     * to continue this wake's normal poll (skip/refuse) or ends the
+     * wake itself (a real reboot into the trial image, or a failure
+     * through the single failure exit with step token "ota"). Neither
+     * a battery nor a floor refusal is a failure - both mean "try again
+     * later", not backoff-worthy. */
+    if (disp.fw.present) {
+        fp_ota_decision_t decision = fp_ota_decide(
+            disp.fw.version, fp_ota_running_version(),
+            CONFIG_SKYPANE_OTA_FLOOR_VERSION, fp_battery_mv(),
+            fp_ota_trial_pending());
+        switch (decision) {
+        case FP_OTA_SKIP_SAME_VERSION:
+            break;
+        case FP_OTA_REFUSE_TRIAL_PENDING:
+            /* Never touch FP_NVS_OTA_RESULT here: fp_ota_boot_check()
+             * may have just recorded "trial;<running>" earlier this same
+             * wake, still waiting to be reported, and overwriting it
+             * with anything else would lose that report. */
+            ESP_LOGI(TAG, "ota refused reason=trial_pending");
+            break;
+        case FP_OTA_REFUSE_BATTERY:
+            fp_ota_record_result(FP_OTA_RESULT_DEFERRED_BATTERY, disp.fw.version);
+            ESP_LOGI(TAG, "ota refused reason=battery");
+            break;
+        case FP_OTA_REFUSE_FLOOR:
+            fp_ota_record_result(FP_OTA_RESULT_FAIL_FLOOR, disp.fw.version);
+            ESP_LOGI(TAG, "ota refused reason=floor");
+            break;
+        case FP_OTA_START: {
+            fp_ota_mark_try(disp.fw.version);
+            draw_updating_screen();
+            fp_wake_checkpoint();
+
+            esp_err_t ota_wifi_err = fp_wifi_connect(15000);
+            if (ota_wifi_err != ESP_OK) {
+                fp_ota_record_result(FP_OTA_RESULT_FAIL_DOWNLOAD, disp.fw.version);
+                fp_nvs_erase_key(FP_NVS_OTA_TRY); /* attempt fully classified */
+                *fail_step_out = "ota";
+                return FP_POLL_FAILED;
+            }
+            fp_wake_checkpoint();
+
+            fp_ota_result_t ota_fail;
+            esp_err_t apply_err = fp_ota_apply(&disp.fw, &ota_fail);
+            if (apply_err == ESP_OK) {
+                ESP_LOGI(TAG, "ota switched version=%s restarting", disp.fw.version);
+                /* esp_restart() is a soft reset, not deep sleep: ESP-IDF
+                 * re-runs the C runtime init for the .rtc.data segment on
+                 * this kind of reset, so panel.c's RTC_DATA_ATTR guard
+                 * counter always reads back as 0 on the trial wake below,
+                 * whatever it holds here. Waiting out any spacing still
+                 * owed right now - radio already down
+                 * (draw_updating_screen() called fp_wifi_stop()), panel
+                 * already powered off after its own blit - means the
+                 * spacing is honoured in real elapsed time instead of
+                 * relying on a counter that cannot survive this reset. */
+                uint32_t guard_wait_s = fp_panel_wait_seconds();
+                if (guard_wait_s > 0) {
+                    fp_wake_light_sleep_s(guard_wait_s);
+                }
+                esp_restart();
+            }
+            fp_ota_record_result(ota_fail, disp.fw.version);
+            fp_nvs_erase_key(FP_NVS_OTA_TRY); /* attempt fully classified */
+            *fail_step_out = "ota";
+            return FP_POLL_FAILED;
+        }
+        }
     }
 
     /* Hash-skip: if the returned image_hash equals the NVS copy, do not

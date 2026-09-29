@@ -46,6 +46,64 @@ def _write_ssh_stub(bindir, log_path):
     script.chmod(0o755)
 
 
+def _write_ssh_stub_capturing_firmware(bindir, log_path, code_capture, firmware_capture):
+    """Like _write_ssh_stub, but for a run where deploy.sh streams two
+    tar archives over ssh (the code tree, then firmware releases): the
+    firmware-releases install/tar call is told apart from the code one
+    by its remote command containing "firmware-releases", so each
+    stream's stdin is captured into its own file.
+    """
+    script = bindir / "ssh"
+    script.write_text(
+        "#!/usr/bin/env python3\n"
+        "import os\n"
+        "import sys\n"
+        f"_LOG = {str(log_path)!r}\n"
+        "_args = sys.argv[1:]\n"
+        "with open(_LOG, 'a') as f:\n"
+        "    f.write('ssh ' + ' '.join(_args) + chr(10))\n"
+        "_remote = _args[-1] if _args else ''\n"
+        "if 'tar -x' in _remote and 'firmware-releases' in _remote:\n"
+        "    data = sys.stdin.buffer.read()\n"
+        f"    with open({str(firmware_capture)!r}, 'wb') as tf:\n"
+        "        tf.write(data)\n"
+        "    sys.exit(0)\n"
+        "if 'tar -x' in _remote:\n"
+        "    data = sys.stdin.buffer.read()\n"
+        f"    with open({str(code_capture)!r}, 'wb') as tf:\n"
+        "        tf.write(data)\n"
+        "    sys.exit(0)\n"
+        "if 'activate.sh' in _remote:\n"
+        "    sys.exit(int(os.environ.get('FAKE_SSH_ACTIVATE_RC', '0')))\n"
+        "sys.exit(0)\n"
+    )
+    script.chmod(0o755)
+
+
+def _run_deploy_with_firmware(tmp_path, firmware_dir):
+    bindir = tmp_path / "sshbin"
+    bindir.mkdir()
+    log_path = tmp_path / "ssh-calls.log"
+    log_path.write_text("")
+    code_capture = tmp_path / "captured-code.tar"
+    firmware_capture = tmp_path / "captured-firmware.tar"
+    _write_ssh_stub_capturing_firmware(bindir, log_path, code_capture, firmware_capture)
+
+    env = dict(os.environ)
+    env["PATH"] = str(bindir) + os.pathsep + env.get("PATH", "")
+    env["SKYPANE_FIRMWARE_DIR"] = str(firmware_dir)
+
+    result = subprocess.run(
+        ["bash", str(_DEPLOY_SH), "ubuntu@203.0.113.10"],
+        cwd=str(_REPO_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    return result, log_path, code_capture, firmware_capture
+
+
 def _run_deploy(tmp_path, args=("ubuntu@203.0.113.10",), extra_env=None):
     bindir = tmp_path / "sshbin"
     bindir.mkdir()
@@ -133,3 +191,51 @@ def test_no_rsync_or_sha256sum_in_deploy_sh():
     text = _DEPLOY_SH.read_text()
     assert "rsync" not in text
     assert "sha256sum" not in text
+
+
+# --- SKYPANE_FIRMWARE_DIR: second tar stream for published releases --------
+
+
+def test_firmware_dir_set_streams_second_tar_and_leaves_code_stream_unchanged(tmp_path):
+    firmware_dir = tmp_path / "firmware-out"
+    (firmware_dir / "fw-v1.0.0").mkdir(parents=True)
+    (firmware_dir / "fw-v1.0.0" / "skypane-fw-v1.0.0.bin").write_bytes(b"image")
+    (firmware_dir / "fw-v1.0.0" / "release.json").write_text("{}")
+
+    result, log_path, code_capture, firmware_capture = _run_deploy_with_firmware(tmp_path, firmware_dir)
+    assert result.returncode == 0, result.stderr
+
+    calls = [line for line in log_path.read_text().splitlines() if line.strip()]
+    assert len(calls) == 3, calls
+    assert "firmware-releases" not in calls[0]
+    assert "tar -x" in calls[0]
+    assert "firmware-releases" in calls[1]
+    assert "tar -x" in calls[1]
+    assert "activate.sh" in calls[2]
+
+    with tarfile.open(str(firmware_capture), "r:") as tar:
+        firmware_names = tar.getnames()
+    assert "./fw-v1.0.0/skypane-fw-v1.0.0.bin" in firmware_names
+    assert "./fw-v1.0.0/release.json" in firmware_names
+
+    with tarfile.open(str(code_capture), "r:") as tar:
+        code_names = tar.getnames()
+    assert "deploy/activate.sh" in code_names
+    assert not any(n.startswith("fw-v1.0.0") for n in code_names)
+
+
+def test_firmware_dir_unset_streams_only_the_code_archive(tmp_path):
+    result, log_path, tar_capture = _run_deploy(tmp_path)
+    assert result.returncode == 0, result.stderr
+    calls = [line for line in log_path.read_text().splitlines() if line.strip()]
+    assert len(calls) == 2, calls
+    assert not any("firmware-releases" in call for call in calls)
+
+
+def test_firmware_dir_set_but_not_a_directory_exits_1_before_any_ssh_call(tmp_path):
+    missing = tmp_path / "does-not-exist"
+    result, log_path, _ = _run_deploy(tmp_path, extra_env={"SKYPANE_FIRMWARE_DIR": str(missing)})
+    assert result.returncode != 0
+    assert "SKYPANE_FIRMWARE_DIR" in result.stderr
+    calls = [line for line in log_path.read_text().splitlines() if line.strip()]
+    assert calls == []

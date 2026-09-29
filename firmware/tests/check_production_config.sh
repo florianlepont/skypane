@@ -39,12 +39,15 @@ fail() {
 check_static() {
     defaults="${FIRMWARE_DIR}/sdkconfig.defaults"
     ee02="${FIRMWARE_DIR}/sdkconfig.ee02.defaults"
+    dev="${FIRMWARE_DIR}/sdkconfig.dev.defaults"
     partitions="${FIRMWARE_DIR}/partitions.csv"
     certs_dir="${FIRMWARE_DIR}/main/certs"
 
     # Dev-only opt-ins must never appear enabled in a production defaults
     # file. Comment lines (leading '#', including Kconfig's own
     # "# CONFIG_X is not set" convention) are not a violation.
+    # sdkconfig.dev.defaults is deliberately excluded from this loop: its
+    # whole purpose is turning CONFIG_SKYPANE_ALLOW_HTTP on for the bench.
     for f in "${defaults}" "${ee02}"; do
         if grep -vE '^[[:space:]]*#' "${f}" | grep -qE '^CONFIG_SKYPANE_ALLOW_HTTP=y'; then
             fail "${f} enables CONFIG_SKYPANE_ALLOW_HTTP"
@@ -54,9 +57,24 @@ check_static() {
         fi
     done
 
+    # No committed defaults file -- including the dev overlay, which is
+    # USB-flashed together with its own bootloader -- may ever turn on an
+    # eFuse-burning option: hardware secure boot, flash/NVS encryption,
+    # anti-rollback or build-time signing are all forbidden; the
+    # signed-app-without-secure-boot chain this project uses instead
+    # burns no eFuse, confirmed in firmware/SIGNING.md.
+    for f in "${defaults}" "${ee02}" "${dev}"; do
+        if grep -vE '^[[:space:]]*#' "${f}" | grep -qE '^CONFIG_(SECURE_BOOT|SECURE_FLASH_ENC_ENABLED|FLASH_ENCRYPTION_ENABLED|NVS_ENCRYPTION|BOOTLOADER_APP_ANTI_ROLLBACK|SECURE_BOOT_BUILD_SIGNED_BINARIES|EFUSE_VIRTUAL)=y'; then
+            fail "${f} enables an eFuse-burning option (forbidden)"
+        fi
+    done
+
     # Every production-hardening line landed in sdkconfig.defaults.
     for line in \
-        'CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=n' \
+        'CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y' \
+        'CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y' \
+        'CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y' \
+        '# CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES is not set' \
         'CONFIG_ESP_TASK_WDT_PANIC=y' \
         'CONFIG_ESP_TASK_WDT_TIMEOUT_S=60' \
         'CONFIG_SPIRAM_MEMTEST=n' \
@@ -136,11 +154,24 @@ check_built() {
         'CONFIG_ESP_TASK_WDT_PANIC=y' \
         '# CONFIG_SPIRAM_MEMTEST is not set' \
         'CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_NONE=y' \
+        'CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y' \
+        'CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT=y' \
+        '# CONFIG_SECURE_BOOT is not set' \
+        '# CONFIG_SECURE_FLASH_ENC_ENABLED is not set' \
+        '# CONFIG_NVS_ENCRYPTION is not set' \
+        '# CONFIG_BOOTLOADER_APP_ANTI_ROLLBACK is not set' \
+        '# CONFIG_EFUSE_VIRTUAL is not set' \
     ; do
         if ! grep -qF "${line}" "${sdkconfig}"; then
             fail "built sdkconfig is missing: ${line}"
         fi
     done
+
+    # The resolved OTA/signing chain, logged for auditability -- this is
+    # what actually shipped in the image, not just what the committed
+    # defaults asked for.
+    echo "Resolved OTA/signing configuration:"
+    grep -E '^(# )?CONFIG_(SECURE_|BOOTLOADER_APP_ROLLBACK|BOOTLOADER_APP_ANTI_ROLLBACK|FLASH_ENCRYPTION|NVS_ENCRYPTION|EFUSE_VIRTUAL)' "${sdkconfig}" || true
 
     # The fault-injection module logs this marker only when compiled in;
     # a production build must not contain it at all.

@@ -46,6 +46,7 @@ INCLUDE_FILES = (
 INCLUDE_DIRS = (
     "illustration_overrides",
     "gallery",
+    "firmware",
 )
 
 # Known-regenerable/transient entries this job deliberately never
@@ -99,6 +100,20 @@ def _no_symlinks(tarinfo):
     # files/directories under the target directory, never follow a link
     # captured from the source host.
     if tarinfo.issym() or tarinfo.islnk():
+        return None
+    return tarinfo
+
+
+def _no_symlinks_or_known_excluded(tarinfo):
+    # Same symlink guard as _no_symlinks, plus KNOWN_EXCLUDED applied to
+    # every entry's own basename -- an INCLUDE_DIRS directory is added
+    # recursively (tarfile.add() walks it), so without this a
+    # regenerable or transient file nested inside one (for example
+    # firmware/registry.lock) would be archived just because its parent
+    # directory is on the allow-list.
+    if tarinfo.issym() or tarinfo.islnk():
+        return None
+    if _is_known_excluded(os.path.basename(tarinfo.name)):
         return None
     return tarinfo
 
@@ -198,7 +213,7 @@ def backup(state_dir, archive_dir, keep):
                 for dirname in INCLUDE_DIRS:
                     path = os.path.join(state_dir, dirname)
                     if os.path.isdir(path):
-                        tar.add(path, arcname=dirname, filter=_no_symlinks)
+                        tar.add(path, arcname=dirname, filter=_no_symlinks_or_known_excluded)
         except Exception as exc:
             try:
                 os.remove(partial_path)

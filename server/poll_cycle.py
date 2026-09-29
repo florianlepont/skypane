@@ -38,6 +38,7 @@ from datetime import datetime, timezone
 import server.atomic_io as atomic_io
 import server.device_config as device_config
 import server.device_policy as device_policy
+import server.firmware_registry as firmware_registry
 import server.history_db as history_db
 import server.notify as notify
 import server.panel_format as panel_format
@@ -384,6 +385,47 @@ def _notify_silence_transition(state_dir, poll_state, conn, device_cfg, sender=N
             "poll_loop: _notify_silence_transition failed: %s" % type(exc).__name__,
             file=sys.stderr,
         )
+
+
+def _reconcile_firmware(state_dir, device_cfg, now, sender=None):
+    """Fold every device-reported OTA outcome into the release registry,
+    once per cycle, called before the hold decision so a battery-hold,
+    quiet-hours or display-off cycle still closes out an install,
+    rollback or failure exactly like a live cycle would. Sends the
+    resulting notifications (installed/failed) through the same
+    group-present/topic-present gate `_notify_battery_transition` checks
+    first, with the language from the same notifications group. Never
+    raises: any exception is logged by type name only, and the cycle
+    continues untouched - a reconcile failure must never break polling.
+    """
+    try:
+        notifications = firmware_registry.apply_reconcile(state_dir, now)
+    except Exception as exc:
+        print(
+            "poll_loop: firmware reconcile failed: %s" % type(exc).__name__,
+            file=sys.stderr,
+        )
+        return
+    if not notifications:
+        return
+    group = _notifications_group(device_cfg)
+    if group is None:
+        return
+    topic_url = group.get("topic_url")
+    if not topic_url:
+        return
+    lang = group.get("lang")
+    send = sender or notify.send_notification
+    for kind, version, back_on in notifications:
+        if kind == "installed":
+            body = notify.body_for_lang(notify.FIRMWARE_INSTALLED_BODY, lang) % version
+        elif kind == "failed":
+            body = notify.body_for_lang(notify.FIRMWARE_FAILED_BODY, lang) % back_on
+        else:
+            continue
+        # ALERT_TITLE, not TEST_NOTIFICATION_TITLE: this is a real
+        # outcome push, not the test button.
+        send(topic_url, notify.ALERT_TITLE, body)
 
 
 def write_panel_atomic(state_dir, rendered):
@@ -1542,6 +1584,12 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_
     is keyed on the displayed aircraft, never on this cycle's raw
     detection.
 
+    Before any hold decision, `_reconcile_firmware()` folds every
+    device-reported OTA outcome into the release registry and fires at
+    most one install/failure notification per event, unconditionally -
+    a battery-hold, quiet-hours or display-off cycle still closes out a
+    pending update exactly like a live cycle would.
+
     Hold states: a quiet-hours window and the manual display-off toggle
     both gate through one shared `poll_state["hold_state"]` latch
     (`state_store.hold_state()`), decided by `decide_hold()`. Either
@@ -1564,6 +1612,10 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_
     with poll_cycle_lock(state_dir, lock_timeout_s):
         with history_db.connection_scope(state_dir):
             ctx = load_cycle_context(snapshot, state_dir, geofence, caddy_log)
+            # Before the hold decision, so a battery-hold, quiet-hours or
+            # display-off cycle still reconciles device-reported OTA
+            # outcomes exactly like a live cycle would.
+            _reconcile_firmware(ctx.state_dir, ctx.device_cfg, history_db.utc_now_iso())
             ctx.hold_kind = decide_hold(ctx.battery_critical, ctx.display_enabled, ctx.quiet_remaining)
             if ctx.hold_kind is not None:
                 return run_hold_cycle(ctx)

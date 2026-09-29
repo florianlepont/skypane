@@ -1948,6 +1948,14 @@ table.data-table--registry .cell-inline-sep {
   display: none;
 }
 
+/* The Action column (Install/"Not installable"/quiet label) is the one
+ * thing on this row a desktop reader must always be able to reach
+ * without scrolling — never let the prose Notes column push it onto a
+ * second line or crop it. */
+table.data-table--firmware-history td:last-child {
+  white-space: nowrap;
+}
+
 .flight-detail-row td {
   background: color-mix(in srgb, var(--color-text) 3%, transparent);
   padding: var(--space-md);

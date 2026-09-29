@@ -125,6 +125,37 @@ def _build_no_connection_canvas(flat=False):
     )
 
 
+def _build_updating_canvas(flat=False):
+    """Build the UPDATING hold canvas via `_build_hold_canvas()`, the same
+    shared composition `_build_no_connection_canvas()` uses. Never reached
+    by `layout.build_canvas()`: the device draws this screen entirely on
+    its own in firmware, from a generated ink mask
+    (`firmware/tools/gen_fault_screen.py --screen updating` ->
+    `firmware/main/updating_screen_mask.h`); this function is that mask's
+    one source of truth on the Python side, the same relationship
+    `_build_no_connection_canvas()` has to the NO CONNECTION mask.
+
+    `flat=True` (used only by `gen_fault_screen.py`) returns a flat
+    two-colour canvas with no dither noise, so its ink-mask extraction
+    (`pixel == IDX_WHITE`) is exact - see `_build_no_connection_canvas()`'s
+    own docstring for why.
+
+    No `source_fault`/`battery_low` badges: an update never starts while
+    the battery-low alert is active, so `battery_low` is structurally
+    always False here, and `source_fault` (ADS-B corroboration) is
+    orthogonal to a firmware update and would confuse the reader mid-update.
+    """
+    return _build_hold_canvas(
+        glyphs.draw_updating_icon,
+        glyphs.UPDATING_ICON_DIAMETER_PX,
+        style.UPDATING_HEADING_TEXT,
+        style.UPDATING_BODY_LINES,
+        style.DIMMED_FIELD_IDX,
+        style.DIMMED_INK,
+        not flat,
+    )
+
+
 def _build_hold_canvas(glyph_draw, glyph_height, label_text, sentences, field_idx, ink, dithered, source_fault=False, battery_low=False):
     """Shared hold-screen composition: a field (`field_idx` dithered
     toward White when `dithered`, else flat) with a vertically-centred

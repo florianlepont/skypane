@@ -473,30 +473,30 @@ def test_sidebar_nav_escapes_hostile_active():
 
 
 def test_nav_tabs_shrunk_to_four_settled_order():
-    """layout.NAV_TABS holds exactly 6 entries, in order home/display/flights/airlines/health/device"""
+    """layout.NAV_TABS holds exactly 7 entries, in order home/display/flights/airlines/health/device/update"""
     # 06.6.4.1-08 : NAV_TABS shrinks from five entries to four -
     # Preview is retired, its whole content absorbed into History
     # (06.6.4.1-05). Order matters: every nav renderer walks NAV_TABS in
-    # this exact order. : six tabs in two groups - the everyday
-    # four, then the two under the "Advanced" label - flattened in that
-    # order.
-    assert len(layout.NAV_TABS) == 6
-    expected_routes = ("/", "/display", "/flights", "/airlines", "/health", "/device")
+    # this exact order. : seven tabs in two groups - the everyday
+    # four, then the three under the "Advanced" label (Update joined
+    # Health/Device) - flattened in that order.
+    assert len(layout.NAV_TABS) == 7
+    expected_routes = ("/", "/display", "/flights", "/airlines", "/health", "/device", "/update")
     actual_routes = tuple(route for route, _ in layout.NAV_TABS)
     assert actual_routes == expected_routes
 
 
 def test_sidebar_and_tab_bar_render_exactly_six_links_one_active_each():
-    """a rendered authenticated page contains exactly six sidebar nav links and exactly six
+    """a rendered authenticated page contains exactly seven sidebar nav links and exactly seven
     tab-bar links, with exactly one marked active in each, and the hamburger dropdown holds
     zero destination links"""
     # The sub-960px dropdown now holds preferences, not destinations, and
-    # the tab bar holds all six destination links instead. The count and
-    # the exactly-one-active assertion are unchanged; what they are
-    # counted over moved.
+    # the tab bar holds all seven destination links instead (Update
+    # joined Health/Device). The count and the exactly-one-active
+    # assertion are unchanged; what they are counted over moved.
     sidebar_markup = layout.sidebar_nav("flights")
     sidebar_link_count = sidebar_markup.count('<a class="sidebar-link')
-    assert sidebar_link_count == 6
+    assert sidebar_link_count == 7
     assert sidebar_markup.count("sidebar-link--active") == 1
 
     doc = layout.page_shell(
@@ -507,7 +507,7 @@ def test_sidebar_and_tab_bar_render_exactly_six_links_one_active_each():
     bar_link_count = (
         bar.count('<a class="tab-bar__link')
         + bar.count('<a class="mobile-nav__link'))
-    assert bar_link_count == 6
+    assert bar_link_count == 7
     assert bar.count("tab-bar__link--active") == 1
 
     # And the dropdown now holds ZERO destination links - this is the
@@ -636,19 +636,20 @@ def test_page_shell_escapes_hostile_body():
 
 
 def test_icon_sprite_integrity():
-    """layout.ICON_IDS has exactly twenty-three unique members, each a symbol id in
+    """layout.ICON_IDS has exactly twenty-four unique members, each a symbol id in
     ICON_DEFS_HTML and vice versa"""
     # The whitelist grew from ten to fourteen members
     # (icon-check/icon-copy/icon-refresh/icon-search), then to fifteen
     # (icon-upload, the Airlines lightbox replace zone's glyph), then to
     # twenty-two (icon-more, the bottom tab bar's "More" cell), then to
-    # 23 (icon-gear, #site-nav-toggle's new glyph).
-    assert len(layout.ICON_IDS) == 23
-    assert len(set(layout.ICON_IDS)) == 23, "expected ICON_IDS to have no duplicates"
+    # 23 (icon-gear, #site-nav-toggle's new glyph), then to 24
+    # (icon-nav-update, the Update nav destination's glyph).
+    assert len(layout.ICON_IDS) == 24
+    assert len(set(layout.ICON_IDS)) == 24, "expected ICON_IDS to have no duplicates"
     symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
     assert sorted(symbol_ids) == sorted(layout.ICON_IDS), (
         "sprite symbol ids %r do not match ICON_IDS %r" % (symbol_ids, layout.ICON_IDS))
-    assert layout.ICON_DEFS_HTML.count("<symbol") == 23
+    assert layout.ICON_DEFS_HTML.count("<symbol") == 24
     assert 'stroke="currentColor"' in layout.ICON_DEFS_HTML
     assert 'fill="#' not in layout.ICON_DEFS_HTML, "a hard-coded hex fill would defeat the per-status tint"
 
@@ -683,13 +684,13 @@ def test_stat_tile_backcompat_and_icon_slot():
 
 
 def test_page_shell_emits_sprite_once_no_inline_styles():
-    """page_shell() emits exactly one sprite (one <defs, twenty-three <symbol) before
+    """page_shell() emits exactly one sprite (one <defs, twenty-four <symbol) before
     dashboard-shell, no inline styles"""
     doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     assert doc.count("<defs") == 1
     # Task 1 : twenty-one -> twenty-two
-    # (icon-more). : 22 -> 23 (icon-gear).
-    assert doc.count("<symbol") == 23
+    # (icon-more). : 22 -> 23 (icon-gear). : 23 -> 24 (icon-nav-update).
+    assert doc.count("<symbol") == 24
     assert doc.index("icon-defs") < doc.index("dashboard-shell"), (
         "expected the sprite to precede the dashboard-shell div")
     assert ' style="' not in doc, "page_shell() must emit no inline styles"
