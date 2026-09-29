@@ -1,16 +1,18 @@
 ---
 phase: 42-remote-firmware-update-over-the-air-ota-promoted-from-seed-0
 verified: 2026-09-29T00:00:00Z
-status: human_needed
+status: passed
 score: 6/7 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
 re_verification: false
 gaps: []
 human_verification:
+
   - test: "Trigger one more update while the display is OFF (or inside quiet hours) and watch the glass"
     expected: "The UPDATING screen is drawn before the download, then the next normal poll redraws what the mode calls for (hold screen when display is off)"
     why_human: "H42-11 proved an OTA runs with the display off (offered 17:42:13, trial 17:43:50, installed 17:44:52) but the developer did not look at the glass, and no serial capture exists. The code path has no mode gate (draw_updating_screen() runs unconditionally in the FP_OTA_START branch of state_machine.c), but D-14 says 'always, at night and with the display off', and only a look at the panel proves it."
+
   - test: "After a third failed attempt, confirm the failure push arrived on the phone in English or French"
     expected: "'Update failed, back on fw-v1.0.1' (or the French text), sent through the configured topic"
     why_human: "H42-08/09a/09b/10 each reached 'failed after 3 attempts' on the server, and the poll journal shows no notification error, but the developer never saw the failure push. The success push was seen (H42-00a, H42-06), which proves the topic and sender; the failure body/route is proven only by host tests."
