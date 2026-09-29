@@ -3,7 +3,7 @@ status: testing
 phase: 42-remote-firmware-update-over-the-air-ota-promoted-from-seed-0
 source: [42-VERIFICATION.md]
 started: 2026-09-29T18:00:57Z
-updated: 2026-09-29T18:00:57Z
+updated: 2026-09-29T18:03:26Z
 ---
 
 ## Current Test
@@ -24,14 +24,15 @@ result: [pending]
 
 ### 2. The "update failed" push reaches the phone
 expected: The phone's notification history holds "Échec de la mise à jour, retour à fw-v1.0.1" (or the English form) from 2026-09-29, sent when the unsigned, tampered, wrong-key and crash bench releases reached Failed. The poll journal shows no send error.
-result: [pending]
+result: pass
+reported: "C'est bon, je vois l'ensemble des notifications" (developer, 2026-09-29). All the failure pushes are in the phone's notification history.
 
 ## Summary
 
 total: 2
-passed: 0
+passed: 1
 issues: 0
-pending: 2
+pending: 1
 skipped: 0
 blocked: 0
 
