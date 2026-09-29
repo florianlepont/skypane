@@ -383,8 +383,19 @@ and `gallery/` (see "Backups" below) — each archive grows by roughly
 List what is published on the VPS directly:
 
 ```bash
-ssh ubuntu@<vps-ip> "sudo -u skypane /opt/skypane/venv/bin/python3 -m server.firmware_cli --state-dir /opt/skypane/state list"
+ssh ubuntu@<vps-ip> "sudo -u skypane /bin/sh -c 'cd /opt/skypane/current && exec /opt/skypane/venv/bin/python3 -m server.firmware_cli --state-dir /opt/skypane/state list'"
 ```
+
+`-m server.firmware_cli` only resolves from the release directory, and
+the `ubuntu` user cannot `cd` into `/opt/skypane/current`, so the `cd`
+has to run inside the `skypane` user's shell, as above.
+
+Two different hostnames are involved when you check the firmware by
+hand. The device-protocol (byos) hostname, `<public-host>`, serves the
+display endpoint and `GET /fw/<sha256>.bin`; the companion hostname,
+`<companion-host>`, serves the Update page. They are different names, so
+a device-side check such as fetching a firmware image goes to
+`<public-host>`, never to the companion name.
 
 `import-bench --file <bin> --version <v>` publishes one locally-built
 bench image (marked `bench=True`, with a generated

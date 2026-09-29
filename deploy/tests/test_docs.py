@@ -82,3 +82,32 @@ def test_documents_shared_host_caddyfile_layout_and_migration():
     # The revert path copies the backup back and reloads.
     assert "sudo cp /etc/caddy/Caddyfile.pre37 /etc/caddy/Caddyfile" in text
     assert "cortege.algernon.ovh" in text
+
+
+def _firmware_section():
+    text = _text()
+    start = text.index("## Firmware releases (OTA)")
+    end = text.index("\n## ", start + 1)
+    return text[start:end]
+
+
+def test_firmware_cli_runs_from_the_release_dir_as_the_skypane_user():
+    """`ubuntu` cannot cd into /opt/skypane/current, so every firmware_cli command example
+    (inside a code fence) must run its cd inside the sudo -u skypane shell, before the exec
+    of the module"""
+    section = _firmware_section()
+    fenced_blocks = section.split("```")[1::2]
+    command_lines = [
+        line for block in fenced_blocks for line in block.splitlines()
+        if "server.firmware_cli" in line]
+    assert command_lines, "expected at least one firmware_cli command example"
+    for line in command_lines:
+        assert "sudo -u skypane /bin/sh -c 'cd /opt/skypane/current && exec " in line, line
+        assert line.index("cd /opt/skypane/current") < line.index("-m server.firmware_cli"), line
+
+
+def test_firmware_section_names_both_hosts_with_placeholders_only():
+    section = _firmware_section()
+    assert "<public-host>" in section
+    assert "<companion-host>" in section
+    assert ".ovh" not in section
