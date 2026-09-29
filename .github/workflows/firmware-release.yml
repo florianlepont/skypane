@@ -46,6 +46,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Fetch every tag and main
         # actions/checkout leaves HEAD at the pushed tag; the guard step
@@ -85,6 +86,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Build the release firmware image
         # Same containerised build a developer runs locally; the tag
@@ -105,7 +107,13 @@ jobs:
         # into shell syntax. It is written to a 0600 temp file outside
         # the workspace (so it is never picked up by a later artifact
         # upload or checked-out tree) and the always-run step below
-        # removes it whatever happens next.
+        # removes it whatever happens next. The image is pinned by
+        # digest, not the mutable `v5.3.1` tag, so a re-point or a
+        # compromise of that tag on Docker Hub cannot swap in a
+        # container image capable of exfiltrating the mounted key; the
+        # signing container is also given no network, so even a
+        # compromised (but still digest-matching) image cannot phone the
+        # key out.
         env:
           FW_SIGNING_KEY: ${{ secrets.FW_SIGNING_KEY }}
         run: |
@@ -118,10 +126,11 @@ jobs:
             exit 1
           fi
           docker run --rm \
+            --network none \
             -v "$PWD/firmware:/project" \
             -v "$KEY_PATH:/key.pem:ro" \
             -u "$(id -u):$(id -g)" \
-            espressif/idf:v5.3.1 \
+            espressif/idf@sha256:55ab243e87584859c9af3acc124b0b9423a9d8b44fc99a5d5055d7bd7312722d \
             espsecure.py sign_data --version 2 --keyfile /key.pem \
               --output /project/build-ee02/skypane-signed.bin \
               /project/build-ee02/skypane.bin
@@ -147,9 +156,10 @@ jobs:
             exit 1
           fi
           docker run --rm \
+            --network none \
             -v "$PWD/firmware:/project" \
             -u "$(id -u):$(id -g)" \
-            espressif/idf:v5.3.1 \
+            espressif/idf@sha256:55ab243e87584859c9af3acc124b0b9423a9d8b44fc99a5d5055d7bd7312722d \
             espsecure.py verify_signature --version 2 \
               --keyfile /project/signing/skypane-signing-pubkey.pem \
               /project/build-ee02/skypane-signed.bin
