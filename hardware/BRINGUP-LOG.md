@@ -1129,3 +1129,601 @@ DEVICE-04) recorded 2026-08-28, plan `05-03` Task 3 — sense circuit
 confirmed on the first flash attempt, no code correction needed; icon
 confirmed on real glass across two passes (original and 30%-shrunk
 geometry).*
+
+## OTA hardware session
+
+The one hardware session for remote firmware updates (OTA) on the real
+EE02 frame. It proves what no host test can: the bootloader's rollback
+state, the signature check on a real image, the interaction with deep
+sleep, and the real GitHub tag, signing and deploy path. Every expectation
+below was written before the session, against the code as merged at
+`c9acfb51`. The developer runs the session; the "Result" and "Observed"
+columns are filled in afterwards and the expectations are never edited to
+match what happened. A row that does not match its expectation is a FAIL,
+recorded honestly.
+
+Row IDs `H42-00a` .. `H42-12` are this session's own labels. `H42-01` ..
+`H42-12` follow the phase's plan in order; `H42-00a` and `H42-00b` are two
+extra bench checks that must run before the first release tag exists.
+
+**Every `espefuse.py burn_*` command is forbidden in this session, and nothing here runs one: the only eFuse command is the read-only `espefuse.py summary`, run before and after (H42-02, H42-12) and compared.**
+
+### Preflight (checked 2026-09-29, before the session)
+
+- All fifteen earlier plan summaries of the phase exist.
+- The phase code is on `main` at `c9acfb51` (the phase PR plus the deploy
+  fix that passes `--state-dir` where `firmware_cli` accepts it). The
+  production deploy of that commit succeeded: firmware import ran, the
+  release swap happened, the probes passed.
+- The companion's `/update` route exists: an unauthenticated request is
+  answered with a 303 redirect to `/login`.
+- The 13 hardware-free firmware suites (`sh firmware/tests/run_host_tests.sh`)
+  pass on this checkout. The full pytest suite and the firmware host tests
+  were green in CI on the merged code; they were not re-run for this sheet.
+- The signing key exists only as the `FW_SIGNING_KEY` secret of the
+  `firmware-signing` GitHub environment (required reviewer, `fw-v*` tags
+  only) and as a gpg-encrypted offline backup. The public half is
+  `firmware/signing/skypane-signing-pubkey.pem`. The `PRODUCTION_HOST`
+  secret is set.
+- No `fw-v*` tag exists on `origin` yet.
+
+### Ground rules
+
+- **Placeholders only.** Commands use `$PORT`, `$SSID`, `$HOST` and
+  `$VPS`. No secret, password or token is ever typed into a command line,
+  a capture or this file. The Wi-Fi password is entered at
+  `provision.sh`'s no-echo prompt.
+- **The developer runs every VPS step** (`ssh`, `sudo -u skypane ...`,
+  `journalctl`). `sudo systemctl` over SSH is blocked for Claude sessions;
+  this session needs no service restart, and Claude runs none of it.
+- **The private key never enters the repository.** Every step that needs
+  it (H42-09a, H42-10) uses the "Signing with the offline key" recipe
+  below: gpg decrypt into a private temporary directory outside the repo,
+  sign in a container with `--network none`, `rm -P`, all in one command.
+  H42-09b uses a throwaway key that is generated and destroyed inside the
+  row.
+- **Builds run in a clean detached checkout, never in the working
+  tree that holds the captures.** `firmware/build.sh` refuses
+  `SKYPANE_RELEASE_TAG` unless HEAD carries exactly that tag on a tree
+  with nothing uncommitted, and untracked capture files count as
+  uncommitted. Every tagged build below runs from `$BW`; captures are
+  written into `hardware/logs/phase42/` of the working checkout.
+- **Serial captures.** `firmware/monitor.sh "$PORT" <file>` tees the
+  console. The USB console loses the first ~0.5 s of every boot while the
+  host re-enumerates the port, and the port disappears during deep sleep
+  and returns at each wake, which ends `monitor.sh`. Start it again
+  before the next wake, into a new numbered file (`-01`, `-02`, ...). If a
+  line that a row needs fell into the lost window, record "not observed"
+  for that line rather than inferring it. Re-check `ls /dev/cu.*` for the
+  port before every flash (the connection has dropped before).
+- **Battery.** Every OTA needs the frame's own battery reading above 3500
+  mV (below that the device refuses, and the server withholds the offer
+  while the battery-low alert is active). Charge the LiPo first.
+- **Wake interval.** The companion's wake interval sets how long each row
+  takes. Note the current value, shorten it for the session, restore it
+  afterwards. Rows that end in a refused or crashing image go through the
+  normal failure path, so expect backoff sleeps (300, 600, 1200 s) between
+  the three attempts; check `sleep enter sleep_s=` in the capture. A full
+  power cycle (USB and battery) clears the backoff counter, which lives in
+  RTC memory; using it is acceptable if recorded as a deviation.
+- **Redaction.** Nothing is committed until the record-and-close step
+  scans `hardware/logs/phase42/`. Do not save `provision.sh`'s `Registry
+  line`, its printed `ssh` command or any bearer token or Wi-Fi password;
+  SHA-256 digests of images are expected and allowed.
+
+### Session setup
+
+Run every command from the repository root.
+
+```
+PORT=<serial-port>          # ls /dev/cu.* before and after plugging in
+SSID=<wifi-ssid>
+HOST=<byos-host>            # the device host, no scheme
+VPS=ubuntu@<vps-ip>
+WORK=~/skypane-ota-session  # scratch outside the repo: release assets, bench images
+BW="$WORK/build-tree"       # clean detached checkout for every tagged build
+FWCLI="cd /opt/skypane/current && sudo -u skypane /opt/skypane/venv/bin/python3 -m server.firmware_cli --state-dir /opt/skypane/state"
+mkdir -p "$WORK" hardware/logs/phase42
+
+# Publish one locally built bench image on the VPS (H42-00a, H42-08..H42-10).
+bench_import() {            # bench_import <local .bin> <version>
+    scp "$1" "$VPS:/tmp/bench.bin" &&
+    ssh "$VPS" "$FWCLI import-bench --file /tmp/bench.bin --version $2 --commit $(git -C "$BW" rev-parse HEAD)"
+    ssh "$VPS" "rm -f /tmp/bench.bin"
+}
+```
+
+`import-bench` refuses a bare release tag as a version: a bench version
+must carry a suffix, and it must be exactly the `Firmware version:` line
+that `build.sh` printed, because the device checks the image's own
+descriptor version against the offered one.
+
+### Signing with the offline key (H42-09a, H42-10)
+
+Set `IN` and `OUT` to the paths, relative to `$BW/firmware`, of the
+unsigned image and the signed output (`build-ee02/skypane.bin` and
+`build-ee02/skypane-signed.bin` for a production build;
+`build-ee02-dev/...` for the dev-profile crash image). The passphrase is
+typed at gpg's own prompt, never on a command line.
+
+```
+IN=build-ee02/skypane.bin
+OUT=build-ee02/skypane-signed.bin
+KEYDIR=$(mktemp -d)        # mode 0700 under $TMPDIR, never inside the repo
+(
+    umask 077
+    trap 'rm -P "$KEYDIR/key.pem" 2>/dev/null; rmdir "$KEYDIR"' EXIT
+    gpg --output "$KEYDIR/key.pem" \
+        --decrypt ~/skypane-signing/skypane-signing-key.pem.gpg &&
+    docker run --rm --network none \
+        -v "$KEYDIR/key.pem:/key.pem:ro" \
+        -v "$BW/firmware:/project" \
+        -u "$(id -u):$(id -g)" \
+        espressif/idf@sha256:55ab243e87584859c9af3acc124b0b9423a9d8b44fc99a5d5055d7bd7312722d \
+        espsecure.py sign_data --version 2 --keyfile /key.pem \
+            --output "/project/$OUT" "/project/$IN"
+)
+[ ! -e "$KEYDIR" ] && echo "decrypted key removed"
+espsecure.py verify_signature --version 2 \
+    --keyfile firmware/signing/skypane-signing-pubkey.pem "$BW/firmware/$OUT"
+```
+
+The container image is the same digest the release workflow signs with.
+The container sees the key read-only and has no network. The last two
+lines must print `decrypted key removed` and a successful verification.
+Only the signed image lands under `$BW`; the key exists only inside
+`$KEYDIR` and is overwritten and deleted when the subshell exits, even if
+a step failed.
+
+### Run order
+
+1. **H42-02 first**: the read-only eFuse baseline, before anything is
+   flashed.
+2. **H42-00a and H42-00b** next: bench checks on a dev build over USB.
+   They come first because they can stop the whole session. The Wi-Fi
+   stop-then-connect fix has never run on hardware, and an abort on the
+   OTA path would otherwise show up only after `fw-v1.0.0` has been
+   tagged, signed and flashed into `factory`, and every release is kept
+   forever. `H42-00b` shares `H42-00a`'s captures.
+3. **H42-01** (tag and release), then **H42-03** through **H42-12** in
+   order.
+
+### Results
+
+| ID | Requirement | Pass when | Result | Evidence |
+|---|---|---|---|---|
+| H42-00a | OTA-02, OTA-07 | Wi-Fi stopped for the UPDATING screen, restarted, HTTPS request succeeds, all in one wake, with no `assert` or abort | pending | `hardware/logs/phase42/H42-00a-*.log` |
+| H42-00b | OTA-02 | Main-task stack high-water mark recorded during an OTA download | N/A: not measurable without a code change (the firmware logs no stack high-water mark) | `hardware/logs/phase42/H42-00a-*.log`, `H42-06-*.log` (indirect: no stack fault) |
+| H42-01 | OTA-10 | `fw-v1.0.0` released through the gated pipeline, present in the store and in the companion with generated notes | pending | `hardware/logs/phase42/H42-01-release.txt` |
+| H42-02 | OTA-04 | Baseline eFuse summary saved | pending | `hardware/logs/phase42/efuse-before.txt` |
+| H42-03 | OTA-12 | Frame provisioned, secret registered on the VPS | pending | `hardware/logs/phase42/H42-03-provision.txt` |
+| H42-04 | OTA-04, OTA-12 | Signed `fw-v1.0.0` flashed once into `factory` and `ota_0`; first boot polls as `fw-v1.0.0`, `ota boot outcome=none` | pending | `hardware/logs/phase42/H42-04-first-boot.log` |
+| H42-05 | OTA-11 | "Firmware CA chain guard" dispatch run is green | pending | `hardware/logs/phase42/H42-05-chain-guard.txt` |
+| H42-06 | OTA-02, OTA-03, OTA-07, OTA-09 | `fw-v1.0.1` installs; UPDATING screen on glass; `ota confirmed` before `sleep enter` in the same wake | pending | `hardware/logs/phase42/H42-06-*.log` |
+| H42-07 | OTA-03 | The next wake still runs `fw-v1.0.1`, reset reason `deepsleep`, `ota boot outcome=none` | pending | `hardware/logs/phase42/H42-07-*.log` |
+| H42-08 | OTA-04, OTA-06 | Unsigned image refused at `step=finish`, never booted, release reaches Failed after three attempts | pending | `hardware/logs/phase42/H42-08-*.log` |
+| H42-09a | OTA-04 | Tampered signed image refused at `step=finish`, Failed after three attempts | pending | `hardware/logs/phase42/H42-09a-*.log` |
+| H42-09b | OTA-04 | Intact image signed with the wrong key refused at `step=finish`, Failed after three attempts | pending | `hardware/logs/phase42/H42-09b-*.log` |
+| H42-10 | OTA-03, OTA-07 | Crash on the trial image rolls back to `fw-v1.0.1`; rollback banner in the companion; UPDATING screen also with quiet hours or display off | pending | `hardware/logs/phase42/H42-10-*.log` |
+| H42-11 | OTA-12 | Erased `otadata` boots `factory` (`fw-v1.0.0`); installing `fw-v1.0.1` from there works | pending | `hardware/logs/phase42/H42-11-*.log` |
+| H42-12 | OTA-04 | `efuse-after.txt` identical to `efuse-before.txt` | pending | `hardware/logs/phase42/efuse-after.txt` |
+
+### Measured facts (filled in after the session)
+
+| Fact | Value |
+|---|---|
+| Commit under test (`git rev-parse origin/main` at H42-01) | pending |
+| Device MAC | pending |
+| Date of the session | pending |
+| OTA wake duration (uptime at `ota switched` plus `wake timing total_ms` on the trial boot) | pending |
+| Battery mV before the OTA wake and on the next wake (`X-Battery-Mv`) | pending |
+| Free heap during or after an OTA wake | not logged by the firmware (no heap figure is printed anywhere) |
+| Main-task stack high-water mark | not measurable without a code change |
+| eFuse before/after `diff` | pending |
+| Wake interval before the session, and restored to | pending |
+
+### Deviations and not observed
+
+None recorded yet.
+
+### Procedures
+
+#### H42-00a: bench check of the Wi-Fi stop-then-connect fix
+
+The OTA path draws the UPDATING screen, which stops Wi-Fi, then reconnects
+Wi-Fi and makes an HTTPS request, all within one wake. The fix that makes
+the second connect safe compiles and its logic is reviewed, but no host
+test can run it.
+
+There is no dev hook that forces this path. `SKYPANE_FAULT` offers only
+`panic`, `task_wdt`, `int_wdt`, `slow_wake` and `nvs`, none of which
+touches OTA, and no dev-profile option starts an update. The nearest
+honest procedure is to let a real offer drive the path: publish a bench
+image with `import-bench`, schedule it from the companion, and watch the
+wake that follows.
+
+Two constraints shape it. The server offers only to a frame whose
+reported version parses as `fw-vX.Y.Z` at or above the floor, and
+`build.sh` produces such a version only from an exact tag on a clean tree.
+So both the running image and the offered image need a throwaway local
+tag, created and deleted around each build, never pushed. Both images are
+unsigned dev builds, so the final `step=finish` is expected to fail; the
+row is about everything before it.
+
+1. Run H42-02 now, if not already done.
+2. Clean build tree and the running image (unsigned, dev profile):
+
+   ```
+   git fetch origin main
+   git worktree add --detach "$BW" origin/main
+   git -C "$BW" tag fw-v9.9.8
+   ( cd "$BW" && SKYPANE_PROFILE=dev SKYPANE_RELEASE_TAG=fw-v9.9.8 SKYPANE_VERSION_LABEL=bench ./firmware/build.sh )
+   git -C "$BW" tag -d fw-v9.9.8
+   ( cd "$BW" && SKYPANE_PROFILE=dev ./firmware/flash.sh "$PORT" )
+   ```
+
+   `flash.sh` prints `flash.sh: SUCCESS` after its byte-for-byte read-back.
+   The dev profile is exempt from the signed-image check.
+3. Provision the frame, then register it. Provisioning asks for the Wi-Fi
+   password at a no-echo prompt and prints the MAC and a registry line.
+   Run the `devices_cli.py ... add ... --replace` command it prints on the
+   VPS yourself:
+
+   ```
+   firmware/provision.sh "$PORT" --wifi-ssid "$SSID" --api-base "https://$HOST"
+   ```
+
+4. Build the image to be offered (a different version from the running
+   one), publish it, and check no tag was left behind:
+
+   ```
+   git -C "$BW" tag fw-v9.9.9
+   ( cd "$BW" && SKYPANE_PROFILE=dev SKYPANE_RELEASE_TAG=fw-v9.9.9 SKYPANE_VERSION_LABEL=bench ./firmware/build.sh )
+   git -C "$BW" tag -d fw-v9.9.9
+   cp "$BW/firmware/build-ee02-dev/skypane.bin" "$WORK/bench-offered.bin"
+   git tag --list 'fw-v*'          # must print nothing
+   bench_import "$WORK/bench-offered.bin" fw-v9.9.9-bench
+   ```
+
+5. Let the frame poll once so the companion shows it running
+   `fw-v9.9.8-bench`. In the Update page, Install `fw-v9.9.9-bench`.
+6. Capture the wake that follows:
+   `firmware/monitor.sh "$PORT" hardware/logs/phase42/H42-00a-bench-cycle-01.log`.
+   Each attempt is one more stop-then-connect cycle; capture all three
+   (`-02`, `-03`). The release stays scheduled and the frame keeps
+   retrying, so wait until the companion shows it Failed, and expect a
+   "failed" push, before going on: otherwise the frame would still be
+   offered this bench image after it is reflashed in H42-04.
+
+**Pass when**, on one wake, the capture shows in order: `ota updating
+screen drawn` (or `... deferred err=...`), a fresh Wi-Fi connect after it
+(a `sta ip:` line), then `ota step=begin result=ok`, `ota step=desc
+result=ok`, `ota step=download result=ok` and `ota step=hash result=ok`.
+`ota step=finish result=fail` and `poll fail step=ota` afterwards are
+expected here. **Fail if** any capture shows `assert failed`, `abort()
+was called`, `Guru Meditation Error`, a next boot with `reset
+reason=panic`, or `ota step=begin result=fail` (the HTTPS request after
+the restart did not work). A fail stops the session: do not tag
+`fw-v1.0.0`.
+
+#### H42-00b: stack headroom during an OTA wake
+
+`uxTaskGetStackHighWaterMark` is not called or logged anywhere in
+`firmware/main`, so the main task's headroom during an OTA download is
+**not measurable without a code change**, and this row is marked that way
+in the table. The main task's stack is 12288 bytes
+(`CONFIG_ESP_MAIN_TASK_STACK_SIZE`), and the OTA hash buffer was moved off
+the stack for this reason. The only evidence available is indirect: read
+the H42-00a captures (download and hash steps) and the H42-06 capture
+(which also runs the RSA signature check, the heaviest stack path) and
+record whether any stack-overflow fault appears. No code change is made
+for this session.
+
+#### H42-01: release `fw-v1.0.0` through the gated pipeline
+
+After H42-00a has passed:
+
+```
+git fetch origin main
+git tag fw-v1.0.0 origin/main
+git push origin fw-v1.0.0
+```
+
+1. In GitHub Actions, approve the `firmware-signing` environment for the
+   "Firmware release" run. It builds, signs, verifies against the
+   committed public key and publishes the GitHub Release.
+2. That run dispatches `ci.yml` on `main`; approve its `production`
+   deployment. The `Download firmware releases` step and `activate.sh`
+   import the release into the VPS store.
+3. Confirm the release has five assets, download them, and check the
+   image against its manifest and public key:
+
+   ```
+   gh release download fw-v1.0.0 --dir "$WORK/rel-fw-v1.0.0"
+   ls "$WORK/rel-fw-v1.0.0"
+   shasum -a 256 "$WORK/rel-fw-v1.0.0/skypane-fw-v1.0.0.bin"
+   python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['sha256'])" "$WORK/rel-fw-v1.0.0/release.json"
+   ```
+
+   Then, from the repository:
+   `espsecure.py verify_signature --version 2 --keyfile firmware/signing/skypane-signing-pubkey.pem "$WORK/rel-fw-v1.0.0/skypane-fw-v1.0.0.bin"`.
+4. On the VPS: `ssh "$VPS" "$FWCLI list"` prints a `fw-v1.0.0` line.
+5. In the companion Update page, `fw-v1.0.0` appears as available with
+   generated notes.
+
+**Pass when** the assets are `skypane-fw-v1.0.0.bin`, `release.json`,
+`bootloader-fw-v1.0.0.bin`, `partition-table-fw-v1.0.0.bin` and
+`ota_data_initial-fw-v1.0.0.bin`; the two SHA-256 values match (ignoring
+a `sha256:` prefix); the signature verifies; and the store and the
+companion both list `fw-v1.0.0`. Save the run URLs, the `list` line and
+the two digests in `hardware/logs/phase42/H42-01-release.txt`.
+
+#### H42-02: eFuse baseline
+
+```
+espefuse.py --port "$PORT" summary > hardware/logs/phase42/efuse-before.txt
+```
+
+**Pass when** the file exists and is non-empty. Read-only.
+
+#### H42-03: provision the frame and register it
+
+Re-provision even if H42-00a already did, with the main `nvs` partition
+erased so no bench-run state (image hash, OTA markers, bearer token)
+survives. A new secret is generated, so the registry entry is replaced.
+
+```
+firmware/provision.sh "$PORT" --wifi-ssid "$SSID" --api-base "https://$HOST" --reset-device-state
+```
+
+Run the `devices_cli.py ... add --mac <mac> --secret-sha256 <hash>
+--replace` command it prints, on the VPS, yourself, then
+`devices_cli.py --state-dir /opt/skypane/state list`.
+
+**Pass when** the script ends with `Secret partition verified
+byte-for-byte.` and `Provisioned <mac>`, and `list` shows the MAC. Save
+only those two lines and the MAC line of `list` (hash truncated) in
+`hardware/logs/phase42/H42-03-provision.txt`.
+
+#### H42-04: one-time USB flash of the signed release
+
+This is the only USB flash of the signed image, into `factory` and
+`ota_0`. Offsets come from `firmware/partitions.csv`: `otadata` 0xf000,
+`factory` 0x20000 (size 0x250000), and `ota_0` with no fixed offset, which
+follows `factory` at 0x270000. The bootloader (0x0), partition table
+(0x8000) and app offsets are the ones in a build's `flasher_args.json`.
+Re-derive them if the partition table has changed since this sheet was
+written:
+
+```
+awk -F, '/^[a-z_0-9]+,/ {gsub(/ /,""); print $1, $4, $5}' firmware/partitions.csv
+```
+
+```
+REL="$WORK/rel-fw-v1.0.0"
+esptool --chip esp32s3 --port "$PORT" write-flash \
+    --flash-mode dio --flash-freq 80m --flash-size keep \
+    0x0     "$REL/bootloader-fw-v1.0.0.bin" \
+    0x8000  "$REL/partition-table-fw-v1.0.0.bin" \
+    0xf000  "$REL/ota_data_initial-fw-v1.0.0.bin" \
+    0x20000 "$REL/skypane-fw-v1.0.0.bin" \
+    0x270000 "$REL/skypane-fw-v1.0.0.bin"
+
+SIZE=$(stat -f%z "$REL/skypane-fw-v1.0.0.bin")
+for OFF in 0x20000 0x270000; do
+    esptool --chip esp32s3 --port "$PORT" --after no-reset read-flash $OFF $SIZE "$WORK/readback.bin" &&
+    cmp "$WORK/readback.bin" "$REL/skypane-fw-v1.0.0.bin" && echo "$OFF matches"
+done
+esptool --chip esp32s3 --port "$PORT" --after hard-reset read-mac
+```
+
+Start `firmware/monitor.sh "$PORT" hardware/logs/phase42/H42-04-first-boot.log`
+right after the reset. **Pass when** both read-backs print `matches`, the
+first boot polls successfully, the companion (or the byos `telemetry:`
+line) shows `X-Fw-Version` `fw-v1.0.0`, and the capture shows `ota boot
+outcome=none`. The firmware prints no heap figure, so free heap is recorded
+as not logged.
+
+#### H42-05: chain guard
+
+```
+gh workflow run firmware-chain-check.yml
+gh run list --workflow firmware-chain-check.yml --limit 1
+```
+
+**Pass when** that run concludes `success`. Save the `gh run list` output
+in `hardware/logs/phase42/H42-05-chain-guard.txt`.
+
+#### H42-06: a signed update installs and survives the confirm
+
+1. Get a firmware change onto `main` through a normal pull request (any
+   harmless change under `firmware/`, so the release notes list a firmware
+   commit), then:
+
+   ```
+   git fetch origin main
+   git tag fw-v1.0.1 origin/main
+   git push origin fw-v1.0.1
+   ```
+
+   Approve both gates as in H42-01, and check `ssh "$VPS" "$FWCLI list"`
+   shows `fw-v1.0.1`.
+2. In the companion Update page click Install on `fw-v1.0.1`, read the
+   confirmation page, confirm. Status says Scheduled with the next wake
+   time and a Cancel button.
+3. Note the battery mV of the last wake before the OTA (companion or the
+   byos `telemetry:` line), then capture the OTA wake:
+   `firmware/monitor.sh "$PORT" hardware/logs/phase42/H42-06-ota-wake-01.log`
+   (restart it for the trial boot into `-02` if the port dropped).
+
+**Pass when**, in order: the UPDATING screen is on the glass; the capture
+shows `ota step=begin`, `desc`, `download`, `hash`, `finish` each with
+`result=ok`, then `ota switched version=fw-v1.0.1 restarting`; the trial
+boot logs `ota boot outcome=trial` and a successful poll; `ota confirmed
+version=fw-v1.0.1` appears **before** the `sleep enter` line of that same
+boot. The companion shows In progress, then Installed, and the "Firmware
+fw-v1.0.1 installed" push arrives; the installed result is recorded at the
+confirm and reported by the next poll at the latest (H42-07's wake), so
+record on which wake each arrived. Record the OTA wake duration (uptime at
+`ota switched` plus the trial boot's `wake timing total_ms`) and the
+battery mV before and after.
+
+#### H42-07: the update survives deep sleep
+
+Capture the next scheduled wake:
+`firmware/monitor.sh "$PORT" hardware/logs/phase42/H42-07-next-wake.log`.
+
+**Pass when** it still runs `fw-v1.0.1` (companion Running version,
+`X-Fw-Version`), logs `reset reason=deepsleep` and `ota boot
+outcome=none`. A healthy update is not rolled back by the bootloader on
+the following wake.
+
+#### H42-08: an unsigned image is refused
+
+Build an unsigned production image from the `fw-v1.0.1` tag in the clean
+tree, publish it as a bench version, install it:
+
+```
+git -C "$BW" switch --detach fw-v1.0.1
+( cd "$BW" && SKYPANE_RELEASE_TAG=fw-v1.0.1 SKYPANE_VERSION_LABEL=unsigned ./firmware/build.sh )
+cp "$BW/firmware/build-ee02/skypane.bin" "$WORK/bench-unsigned.bin"
+bench_import "$WORK/bench-unsigned.bin" fw-v1.0.1-unsigned
+```
+
+Use the version `build.sh` printed if it differs. In the companion, Install
+`fw-v1.0.1-unsigned`. Capture into `hardware/logs/phase42/H42-08-*.log`.
+
+**Pass when**, at each attempt, the capture shows `ota step=finish
+result=fail` and no `ota switched`; the frame keeps running `fw-v1.0.1`;
+the companion shows the failed attempt count rising; after three attempts
+the release is Failed and the "Update failed, back on fw-v1.0.1" push
+arrives. Cancel is gone once the first offer was served, by design, so
+wait the attempts out. Wait for Failed before the next row.
+
+#### H42-09a: a tampered signed image is refused
+
+Uses the private key: follow "Signing with the offline key" exactly.
+
+```
+( cd "$BW" && SKYPANE_RELEASE_TAG=fw-v1.0.1 SKYPANE_VERSION_LABEL=tampered ./firmware/build.sh )
+# IN=build-ee02/skypane.bin  OUT=build-ee02/skypane-signed.bin  -> sign as above
+cp "$BW/firmware/build-ee02/skypane-signed.bin" "$WORK/bench-tampered.bin"
+printf '\x55' | dd of="$WORK/bench-tampered.bin" bs=1 seek=65536 conv=notrunc
+espsecure.py verify_signature --version 2 \
+    --keyfile firmware/signing/skypane-signing-pubkey.pem "$WORK/bench-tampered.bin"
+bench_import "$WORK/bench-tampered.bin" fw-v1.0.1-tampered
+```
+
+The verification after the flip must now **fail**. If it still succeeds,
+the flipped byte was already `0x55` or fell outside the signed region:
+choose another `seek` offset. Because the image's hash is computed from
+the tampered file, the SHA-256 gate passes and only the signature check
+can refuse it. Install it and capture into
+`hardware/logs/phase42/H42-09a-*.log`.
+
+**Pass when** each attempt shows `ota step=hash result=ok` then `ota
+step=finish result=fail`, the frame stays on `fw-v1.0.1`, and after three
+attempts the release is Failed. Wait for Failed before the next row.
+
+#### H42-09b: an image signed with the wrong key is refused
+
+Does not use the real key. The image is intact; only the signature check
+can refuse it.
+
+```
+( cd "$BW" && SKYPANE_RELEASE_TAG=fw-v1.0.1 SKYPANE_VERSION_LABEL=wrongkey ./firmware/build.sh )
+TK=$(mktemp -d)
+docker run --rm --network none -v "$TK:/work" -u "$(id -u):$(id -g)" \
+    espressif/idf@sha256:55ab243e87584859c9af3acc124b0b9423a9d8b44fc99a5d5055d7bd7312722d \
+    espsecure.py generate_signing_key --version 2 --scheme rsa3072 /work/throwaway.pem
+docker run --rm --network none \
+    -v "$TK/throwaway.pem:/key.pem:ro" -v "$BW/firmware:/project" -u "$(id -u):$(id -g)" \
+    espressif/idf@sha256:55ab243e87584859c9af3acc124b0b9423a9d8b44fc99a5d5055d7bd7312722d \
+    espsecure.py sign_data --version 2 --keyfile /key.pem \
+        --output /project/build-ee02/skypane-signed.bin /project/build-ee02/skypane.bin
+rm -P "$TK/throwaway.pem"; rmdir "$TK"
+cp "$BW/firmware/build-ee02/skypane-signed.bin" "$WORK/bench-wrongkey.bin"
+espsecure.py verify_signature --version 2 \
+    --keyfile firmware/signing/skypane-signing-pubkey.pem "$WORK/bench-wrongkey.bin"   # must FAIL
+bench_import "$WORK/bench-wrongkey.bin" fw-v1.0.1-wrongkey
+```
+
+Install it and capture into `hardware/logs/phase42/H42-09b-*.log`.
+
+**Pass when** each attempt shows `ota step=hash result=ok` then `ota
+step=finish result=fail`, the frame stays on `fw-v1.0.1`, and after three
+attempts the release is Failed. Wait for Failed before the next row.
+
+#### H42-10: a crash on the trial image rolls back
+
+Build a dev-profile image that panics right after Wi-Fi connects, sign it
+with the offline key (`IN=build-ee02-dev/skypane.bin`,
+`OUT=build-ee02-dev/skypane-signed.bin`, following "Signing with the
+offline key" exactly), publish it and install it:
+
+```
+( cd "$BW" && SKYPANE_PROFILE=dev SKYPANE_FAULT=panic SKYPANE_RELEASE_TAG=fw-v1.0.1 SKYPANE_VERSION_LABEL=crash ./firmware/build.sh )
+# sign as above with IN/OUT under build-ee02-dev
+cp "$BW/firmware/build-ee02-dev/skypane-signed.bin" "$WORK/bench-crash.bin"
+bench_import "$WORK/bench-crash.bin" fw-v1.0.1-crash
+```
+
+The version to publish is exactly the one `build.sh` printed
+(`fw-v1.0.1-crash`). Capture into `hardware/logs/phase42/H42-10-*.log`.
+
+Quiet hours: before installing, turn the display off (or set quiet hours
+to cover the next wake) in the companion, so the UPDATING screen is
+checked under that condition. This can instead be done in H42-06; record
+which row covered it.
+
+**Pass when** the device switches and restarts, logs `SKYPANE-FAULT-INJECT
+panic` before its first poll, and the bootloader rolls back; the boot
+after the crash runs `fw-v1.0.1` and logs `ota boot outcome=rollback` (it
+may also log `reset reason=panic` and a `poll fail step=reset` backoff, as
+in the earlier fault runs); the companion shows the rollback warning
+banner; and the UPDATING screen is seen on the glass with quiet hours or
+display off active. A rollback counts as a failed attempt, so the crash
+image is offered again until three attempts are used, each with a longer
+backoff; the release then reaches Failed.
+
+#### H42-11: recovery from `factory`
+
+Restore the display setting changed in H42-10 first. Then erase only
+`otadata`:
+
+```
+esptool --chip esp32s3 --port "$PORT" erase-region 0xf000 0x2000
+```
+
+The frame resets, boots `factory` (`fw-v1.0.0`) and polls. Capture into
+`hardware/logs/phase42/H42-11-*.log`.
+
+**Pass when** the capture shows the frame booting and polling, and the
+companion shows `fw-v1.0.0` running. Then, in the companion, Install
+`fw-v1.0.1`: this returns the frame to the latest release and also
+exercises installing from `factory`; it should behave as in H42-06 (trial,
+confirm before sleep, Installed).
+
+#### H42-12: eFuse unchanged
+
+```
+espefuse.py --port "$PORT" summary > hardware/logs/phase42/efuse-after.txt
+diff hardware/logs/phase42/efuse-before.txt hardware/logs/phase42/efuse-after.txt
+```
+
+**Pass when** `diff` prints nothing. If it prints only the connection
+banner lines that precede the summary table (chip detection, port), compare
+from the summary table onward and record that; any difference inside the
+table is a FAIL.
+
+### After the session
+
+- Restore the companion's wake interval and display settings.
+- `git worktree remove --force "$BW"` and check `git tag --list 'fw-v*'`
+  shows only the real releases. No local throwaway tag (`fw-v9.9.8`,
+  `fw-v9.9.9`) may remain, and none was ever pushed.
+- Delete the bench images under `$WORK`. The bench entries stay in the
+  VPS store and the companion's release list, marked bench, because every
+  release is kept.
+- Record results, evidence and the measured facts above, and scan
+  `hardware/logs/phase42/` for secrets before committing anything.
