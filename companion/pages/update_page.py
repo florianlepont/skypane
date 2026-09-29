@@ -74,6 +74,12 @@ ROLLBACK_SENTENCE_TEMPLATE = i18n.msg(
 CANCEL_BUTTON_TEXT = i18n.msg("update.cancel", "Cancel")
 INSTALL_BUTTON_TEXT = i18n.msg("update.install", "Install")
 NOT_INSTALLABLE_TEXT = i18n.msg("update.not_installable", "Not installable")
+# publish_release(..., bench=True) admits a non-tag version such as
+# fw-v1.2.0-bench1; the only other hint is that suffix, which the
+# operator has to already know the convention for. The badge composes
+# .banner__pill (settings/rules.py's own "<scope>__kind banner__pill"
+# pattern), no new CSS.
+BENCH_BADGE_TEXT = i18n.msg("update.bench", "Bench")
 INSTALL_CONFIRM_QUESTION_TEMPLATE = i18n.msg(
     "update.install_s_now",
     "Install %s now? It will apply at the next wake.")
@@ -95,6 +101,8 @@ INSTALL_CONFIRM_SENTENCE_HELD_TEMPLATE = i18n.msg(
     "The frame will download and install this version when quiet "
     "hours end, around %s. It will keep the update after one "
     "successful check-in — otherwise it rolls back automatically.")
+BENCH_CONFIRM_NOTE_TEXT = i18n.msg(
+    "update.this_is_a_bench_build", "This is a bench build.")
 
 # The flash keys companion/app.py's install/cancel handlers redirect to
 # on a non-"scheduled"/non-cancellable outcome or an exception -- the
@@ -290,6 +298,17 @@ def _release_row(release, running_version, target_version, installs_blocked, now
     renders an Install form while that holds.
     """
     version = release.get("version")
+    version_html = '<span class="mono">%s</span>' % escape_html(version)
+    if release.get("bench"):
+        # A non-tag version (fw-v1.2.0-bench1) admitted by
+        # publish_release(bench=True) -- the version's own suffix is the
+        # only other hint, and an operator has to already know that
+        # convention. .banner__pill is settings/rules.py's own
+        # "<scope>__kind banner__pill" label-voice chip, reused rather
+        # than a new component.
+        version_html += (
+            ' <span class="update-history__bench-badge banner__pill">%s</span>'
+            % escape_html(i18n.t(BENCH_BADGE_TEXT)))
     date_html = layout.concise_timestamp_html(release.get("released_at"), now)
     notes = release.get("notes") or []
     notes_text = "; ".join(notes)
@@ -325,7 +344,7 @@ def _release_row(release, running_version, target_version, installs_blocked, now
         action_html = (
             '<span class="text-label">%s</span>'
             % escape_html(i18n.t(NOT_INSTALLABLE_TEXT)))
-    return (version, date_html, notes_text, installed_html, action_html)
+    return (version_html, date_html, notes_text, installed_html, action_html)
 
 
 def _release_card_html(row):
@@ -341,15 +360,15 @@ def _release_card_html(row):
     `.data-cards ~ .data-table-wrap` rule -- no table-specific CSS is
     needed for the toggle itself.
     """
-    version, date_html, notes_text, installed_html, action_html = row
+    version_html, date_html, notes_text, installed_html, action_html = row
     primary_html = (
         '<div class="data-card__primary">'
-        '<span class="cell-primary mono">%s</span>'
+        '<span class="cell-primary">%s</span>'
         '<span class="data-card__value">'
         '<span class="data-card__label">%s</span> %s'
         "</span>"
         "</div>"
-    ) % (escape_html(version), escape_html(i18n.t(TABLE_HEADER_DATE_TEXT)), date_html)
+    ) % (version_html, escape_html(i18n.t(TABLE_HEADER_DATE_TEXT)), date_html)
     desc_html = (
         '<p class="data-card__desc">%s</p>' % escape_html(notes_text)) if notes_text else ""
     installed_row_html = (
@@ -387,7 +406,7 @@ def _history_card_html(ctx, view):
             i18n.t(TABLE_HEADER_VERSION_TEXT), i18n.t(TABLE_HEADER_DATE_TEXT),
             i18n.t(TABLE_HEADER_NOTES_TEXT), i18n.t(TABLE_HEADER_INSTALLED_TEXT), "")
         table_html = layout.data_table(
-            headers, rows, mono_columns=(0,), raw_columns=(1, 3, 4),
+            headers, rows, raw_columns=(0, 1, 3, 4),
             desc_columns=(2,), prose=True, modifier="firmware-history")
         # Cards must render before the table: style.css's
         # `.data-cards ~ .data-table-wrap` sibling-combinator toggle
@@ -412,7 +431,7 @@ def _install_confirm_form_html(version):
     ) % (INSTALL_ROUTE, escape_html(version), escape_html(i18n.t(INSTALL_BUTTON_TEXT)))
 
 
-def update_install_confirm_page(ctx, version, next_wake_text, wake_held=False):
+def update_install_confirm_page(ctx, version, next_wake_text, wake_held=False, is_bench=False):
     """Two-step install confirmation: rendered whenever the posted
     `confirm` field is not exactly "yes", including a bare POST with
     none. This page is the actual security control -- it works with
@@ -426,7 +445,10 @@ def update_install_confirm_page(ctx, version, next_wake_text, wake_held=False):
     reached; still escaped here, defence in depth. `ctx` is accepted but
     unused, matching every other confirm-page builder's signature.
     `wake_held` selects the quiet-hours wording, matching
-    `compute_next_wake_text()`'s own resolved state.
+    `compute_next_wake_text()`'s own resolved state. `is_bench` adds one
+    extra sentence naming the release as a bench build -- the version
+    tag alone (e.g. "fw-v1.2.0-bench1") is the only other hint, and an
+    operator has to already know that convention.
     """
     ctx = page_context.coerce(ctx)
     resolved_wake_text = next_wake_text or i18n.t(UNKNOWN_TIME_TEXT)
@@ -435,9 +457,13 @@ def update_install_confirm_page(ctx, version, next_wake_text, wake_held=False):
         INSTALL_CONFIRM_SENTENCE_HELD_TEMPLATE if wake_held
         else INSTALL_CONFIRM_SENTENCE_TEMPLATE)
     sentence = i18n.t(template) % resolved_wake_text
+    bench_note_html = (
+        '<p class="text-label">%s</p>' % escape_html(i18n.t(BENCH_CONFIRM_NOTE_TEXT))
+    ) if is_bench else ""
     return (
         layout.page_header(heading)
         + '<p class="text-body">%s</p>' % escape_html(sentence)
+        + bench_note_html
         + _install_confirm_form_html(version)
         + '<p><a class="text-label" href="%s">%s</a></p>'
         % (layout.UPDATE_ROUTE, escape_html(i18n.t(CANCEL_BUTTON_TEXT)))

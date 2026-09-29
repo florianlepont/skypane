@@ -320,6 +320,32 @@ def test_confirm_page_renders_in_french(server, cookie):
     assert expected_heading in body.decode("utf-8")
 
 
+def test_confirm_page_shows_bench_note_for_a_bench_release(server, cookie):
+    """POST /update/install (no confirm) against a real server shows the bench note when the
+    posted version was published with bench=True, proving the handler's own registry lookup
+    (not just the page module's own rendering) wires the flag through"""
+    bench_version = "fw-v1.2.0-bench1"
+    image_path = os.path.join(server.state_dir, bench_version + ".bin")
+    image_bytes = ("fake-firmware-" + bench_version).encode()
+    with open(image_path, "wb") as fh:
+        fh.write(image_bytes)
+    manifest = {
+        "version": bench_version, "sha256": hashlib.sha256(image_bytes).hexdigest(),
+        "size": len(image_bytes), "released_at": _NOW, "commit": "a" * 40, "notes": [],
+    }
+    fr.publish_release(server.state_dir, manifest, image_path, bench=True, now=_NOW)
+
+    status, _headers, body = _post(
+        server, update_page.INSTALL_ROUTE, cookie, {"version": bench_version})
+    assert status == 200
+    assert i18n.t(update_page.BENCH_CONFIRM_NOTE_TEXT) in body.decode("utf-8")
+
+    status, _headers, body = _post(
+        server, update_page.INSTALL_ROUTE, cookie, {"version": _DOWNGRADE_VERSION})
+    assert status == 200
+    assert i18n.t(update_page.BENCH_CONFIRM_NOTE_TEXT) not in body.decode("utf-8")
+
+
 def test_schedule_failed_flash_renders_in_french(server, cookie):
     fr_cookie = cookie + "; %s=fr" % auth.UI_LANG_COOKIE_NAME
     status, headers, _body = _post(

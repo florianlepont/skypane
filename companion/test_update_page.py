@@ -195,6 +195,35 @@ def test_below_floor_release_shows_not_installable_text_no_form():
     assert "<button" not in row, "a below-floor row must render plain text, never a button"
 
 
+def test_bench_release_carries_a_bench_badge_an_untagged_one_does_not():
+    """a release published with bench=True renders the "Bench" label-voice badge next to its
+    version, on both the desktop row and the mobile card; a normal tagged release does not"""
+    view = _view(releases=[
+        _release("fw-v1.1.0-bench1", bench=True),
+        _release("fw-v1.2.0", bench=False),
+    ])
+    html = update_page.update_page(_ctx(), view, "")
+    bench_row = html[html.index("fw-v1.1.0-bench1"):html.index("fw-v1.2.0")]
+    assert i18n.t(update_page.BENCH_BADGE_TEXT) in bench_row
+    assert "banner__pill" in bench_row
+    normal_row = html[html.index("fw-v1.2.0"):]
+    assert i18n.t(update_page.BENCH_BADGE_TEXT) not in normal_row.split("</tr>", 1)[0]
+    # The mobile card carries the same badge as its paired desktop row.
+    bench_card = html[html.index('<li class="data-card">'):html.index("</li>")]
+    assert i18n.t(update_page.BENCH_BADGE_TEXT) in bench_card
+
+
+def test_bench_install_confirm_page_shows_bench_note():
+    """the confirm page adds a "This is a bench build" note when is_bench=True, and omits it
+    otherwise"""
+    with_note = update_page.update_install_confirm_page(
+        _ctx(), "fw-v1.1.0-bench1", "08:14", is_bench=True)
+    assert i18n.t(update_page.BENCH_CONFIRM_NOTE_TEXT) in with_note
+    without_note = update_page.update_install_confirm_page(
+        _ctx(), "fw-v1.2.0", "08:14", is_bench=False)
+    assert i18n.t(update_page.BENCH_CONFIRM_NOTE_TEXT) not in without_note
+
+
 _STATE_DOT_CLASSES = {
     "available": "dot--off", "scheduled": "dot--off", "in_progress": "dot--warn",
     "installed": "dot--ok", "failed": "dot--error",
@@ -357,13 +386,13 @@ def test_rollback_outcome_shows_the_warn_alert_banner():
 
 
 def test_notes_render_as_escaped_text_and_version_tags_are_monospace():
-    """an HTML-hostile note renders escaped, and the version tag renders in a monospace cell"""
+    """an HTML-hostile note renders escaped, and the version tag renders in a monospace span"""
     hostile = "<script>alert(1)</script>"
     view = _view(releases=[_release("fw-v1.0.0", notes=[hostile])])
     html = update_page.update_page(_ctx(), view, "")
     assert hostile not in html
     assert "&lt;script&gt;" in html
-    assert '<td class="mono">fw-v1.0.0</td>' in html
+    assert '<span class="mono">fw-v1.0.0</span>' in html
 
 
 def test_french_render_translates_every_new_string():

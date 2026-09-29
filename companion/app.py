@@ -1162,8 +1162,15 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         if form.get("confirm") != "yes":
             ctx = self.page_context()
             next_wake_text, wake_held = update_page.compute_next_wake_text(ctx)
+            confirm_view = firmware_registry.update_view(
+                firmware_registry.load_registry(self.args.state_dir),
+                firmware_registry.load_device_report(self.args.state_dir),
+                history_db.utc_now_iso())
+            is_bench = any(
+                release.get("version") == version and release.get("bench")
+                for release in confirm_view.get("releases") or [])
             body = update_page.update_install_confirm_page(
-                ctx, version, next_wake_text, wake_held=wake_held)
+                ctx, version, next_wake_text, wake_held=wake_held, is_bench=is_bench)
             return self.send_html(200, self._page_shell_for(UPDATE_ROUTE, body, ctx))
         state_dir = self.args.state_dir
         now = history_db.utc_now_iso()

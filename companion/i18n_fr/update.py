@@ -71,4 +71,7 @@ MESSAGES = {
     "update.publish_a_release":
         "Publiez une version en poussant un tag fw-v*. Elle apparaîtra ici "
         "une fois que la CI aura terminé la construction et la signature.",
+
+    "update.bench": "Banc d’essai",
+    "update.this_is_a_bench_build": "Il s’agit d’une version de banc d’essai.",
 }
