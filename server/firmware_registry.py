@@ -910,5 +910,10 @@ def update_view(registry, device_report, now):
         "state_at": state_at,
         "cancellable": cancellable,
         "rollback": rollback,
+        # The version the current schedule targets, or None with no
+        # schedule -- so the Update page can say WHICH release is
+        # scheduled/in progress/failed and tag its history row, without
+        # re-deriving the schedule's own rule.
+        "target_version": schedule.get("version") if schedule is not None else None,
         "releases": releases,
     }

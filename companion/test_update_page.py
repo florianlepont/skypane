@@ -212,6 +212,30 @@ def test_scheduled_state_shows_next_wake_sentence_and_cancel_form():
     assert 'class="calendar-disconnect-btn"' in html
 
 
+def test_scheduled_state_names_the_target_version_and_tags_its_row():
+    """the Status card's state row names which version is scheduled, and that release's own
+    history row shows a quiet "Scheduled" label instead of an Install button; an unrelated
+    installable release still gets one"""
+    view = _view(
+        releases=[_release("fw-v1.0.0"), _release("fw-v1.2.0")],
+        schedule={
+            "id": "s1", "version": "fw-v1.0.0", "sha256": "a" * 64,
+            "scheduled_at": _NOW, "state": "scheduled", "attempts": 0,
+            "failed_at": None, "last_result": None,
+        })
+    assert view["target_version"] == "fw-v1.0.0"
+    html = update_page.update_page(_ctx(), view, "08:14")
+    state_section = html[html.index('<section class="page-section">'):html.index("</section>")]
+    assert "fw-v1.0.0" in state_section, "expected the state row to name the target version"
+
+    table_html = html[html.index("<table"):]
+    target_row = table_html[table_html.index("fw-v1.0.0"):table_html.index("fw-v1.2.0")]
+    assert update_page.INSTALL_ROUTE not in target_row
+    assert i18n.t(update_page.STATE_LABELS["scheduled"]) in target_row
+    other_row = table_html[table_html.index("fw-v1.2.0"):]
+    assert update_page.INSTALL_ROUTE in other_row
+
+
 def test_in_progress_offered_state_shows_no_cancel_form_anywhere():
     """once the device has acknowledged the offer (in progress), no Cancel form renders
     anywhere on the page"""
@@ -262,9 +286,11 @@ def test_notes_render_as_escaped_text_and_version_tags_are_monospace():
 
 
 def test_french_render_translates_every_new_string():
-    """under lang="fr" every new state/copy string reads in French"""
+    """under lang="fr" every new state/copy string reads in French -- the scheduled
+    release's own row shows the quiet "Planifiée" label, and an unrelated release still
+    offers "Installer" """
     view = _view(
-        releases=[_release("fw-v1.0.0")],
+        releases=[_release("fw-v1.0.0"), _release("fw-v1.2.0")],
         schedule={
             "id": "s1", "version": "fw-v1.0.0", "sha256": "a" * 64,
             "scheduled_at": _NOW, "state": "scheduled", "attempts": 0,

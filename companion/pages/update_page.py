@@ -154,15 +154,36 @@ def _timestamp_detail_html(ts, now):
     return '<div class="widget-detail">%s</div>' % timestamp_html
 
 
+# The states where "target_version" names a real, in-flight schedule --
+# "available"/"installed" carry no schedule, so view["target_version"]
+# is always None for them (server.firmware_registry.update_view()'s own
+# contract); this tuple exists only for readability at the call site.
+_STATES_WITH_A_TARGET_VERSION = ("scheduled", "in_progress", "failed")
+
+
+def _target_version_html(view):
+    """A mono span naming the version `view["target_version"]` points at,
+    or "" with no schedule -- so the Scheduled/In progress/Failed state
+    always says WHICH release, never just the bare state word. Reads the
+    view's own field; re-derives no schedule rule.
+    """
+    state = view.get("state")
+    target_version = view.get("target_version")
+    if not target_version or state not in _STATES_WITH_A_TARGET_VERSION:
+        return ""
+    return ' <span class="mono">%s</span>' % escape_html(target_version)
+
+
 def _status_state_row_html(ctx, view):
     state = view.get("state")
     state_label = i18n.t(STATE_LABELS.get(state, STATE_LABELS["available"]))
     dot_token = _STATE_DOT_TOKENS.get(state, "off")
+    label_html = layout.status_dot(dot_token, state_label) + _target_version_html(view)
     detail_html = _timestamp_detail_html(view.get("state_at"), ctx.now)
     return (
         '<p class="text-body widget-verdict">%s</p>'
         "%s"
-    ) % (layout.status_dot(dot_token, state_label), detail_html)
+    ) % (label_html, detail_html)
 
 
 def _scheduled_sentence_html(view, next_wake_text):
@@ -226,11 +247,17 @@ def _install_form_html(version):
     )
 
 
-def _release_row(release, running_version, now):
+def _release_row(release, running_version, target_version, now):
     """One `layout.data_table()` row for `release`: version (mono, plain
     text), date/installed/action (raw, already-safe markup), notes
     (plain text, escaped by data_table() itself since it is not in
     raw_columns -- CI-generated commit summaries are untrusted input).
+
+    `target_version` is `view["target_version"]` -- the release a
+    schedule already targets renders a quiet "Scheduled" label instead
+    of a second, identical-looking Install button: the Status card's
+    own state row already names this schedule's outcome, so an Install
+    button on this row would only offer to schedule it again.
     """
     version = release.get("version")
     date_html = layout.concise_timestamp_html(release.get("released_at"), now)
@@ -243,7 +270,11 @@ def _release_row(release, running_version, now):
             + layout.concise_timestamp_html(installed_at[-1], now))
     else:
         installed_html = ""
-    if release.get("installable"):
+    if release.get("installable") and target_version and version == target_version:
+        action_html = (
+            '<span class="text-label">%s</span>'
+            % escape_html(i18n.t(STATE_LABELS["scheduled"])))
+    elif release.get("installable"):
         action_html = _install_form_html(version)
     elif version == running_version:
         # The row for the currently running release: no button, no
@@ -265,7 +296,8 @@ def _history_card_html(ctx, view):
             i18n.t(EMPTY_RELEASES_HEADING_TEXT), i18n.t(EMPTY_RELEASES_BODY_TEXT))
     else:
         rows = [
-            _release_row(release, view.get("running_version"), ctx.now)
+            _release_row(
+                release, view.get("running_version"), view.get("target_version"), ctx.now)
             for release in releases]
         headers = (
             i18n.t(TABLE_HEADER_VERSION_TEXT), i18n.t(TABLE_HEADER_DATE_TEXT),

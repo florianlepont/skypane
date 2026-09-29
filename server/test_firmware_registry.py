@@ -830,6 +830,7 @@ def test_update_view_available_state():
     assert view["running_version"] == RUNNING_VERSION
     assert view["cancellable"] is False
     assert view["rollback"] is None
+    assert view["target_version"] is None
     assert view["releases"][0]["installable"] is True
 
 
@@ -845,6 +846,7 @@ def test_update_view_scheduled_state_is_cancellable():
     assert view["state"] == "scheduled"
     assert view["state_at"] == NOW
     assert view["cancellable"] is True
+    assert view["target_version"] == NEXT_VERSION
 
 
 def test_update_view_in_progress_state_not_cancellable():
@@ -861,6 +863,7 @@ def test_update_view_in_progress_state_not_cancellable():
     assert view["state"] == "in_progress"
     assert view["state_at"] == LATER
     assert view["cancellable"] is False
+    assert view["target_version"] == NEXT_VERSION
 
 
 def test_update_view_failed_state():
@@ -874,6 +877,7 @@ def test_update_view_failed_state():
     view = registry_mod.update_view(registry, device_report, LATER)
     assert view["state"] == "failed"
     assert view["state_at"] == LATER
+    assert view["target_version"] == NEXT_VERSION
 
 
 def test_update_view_installed_state():
@@ -883,6 +887,7 @@ def test_update_view_installed_state():
     view = registry_mod.update_view(registry, device_report, LATER)
     assert view["state"] == "installed"
     assert view["state_at"] == NOW
+    assert view["target_version"] is None
 
 
 def test_update_view_rollback_field():
