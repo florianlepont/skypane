@@ -66,12 +66,14 @@ resolved sdkconfig (not even present as a commented-out
 `SECURE_SIGNED_ON_BOOT` returns nothing). Practically: the bootloader
 does not re-verify the app's signature on every boot, only
 `esp_ota_ops`/`esp_https_ota` verify it on the way in during an OTA
-update (`CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT`). A USB-flashed
-unsigned dev image still boots normally (nothing checks it), but that
-same unsigned image, if it were ever the *running* app, could never
-verify a subsequent OTA update, since there would be no public key
-embedded in its signature block to check the next image against -- every
-device must run a signed image before its first OTA.
+update (`CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT`). That same
+option also makes the running app check its own signature block at
+startup: an **unsigned image does not boot at all**. It logs
+`secure_boot_v2: No signatures were found for the running app`, calls
+`abort()` and reboots in a loop until it is reflashed (observed on the
+real frame on 2026-09-29). The running app's embedded public key is also
+what every later OTA image is checked against, so every image a device
+runs -- release or bench -- must be signed.
 
 **No eFuse-burning option is on.** `CONFIG_SECURE_BOOT`,
 `CONFIG_SECURE_FLASH_ENC_ENABLED`, `CONFIG_NVS_ENCRYPTION`,
@@ -183,28 +185,28 @@ Delete the decrypted key file immediately afterward. `SKYPANE_VERSION_LABEL`
 (for example `unsigned`) marks a bench image that has not gone through
 this step, so it is never mistaken for a real release artifact.
 
-## flash.sh refuses an unsigned production image
+## flash.sh refuses an unsigned image
 
-`firmware/flash.sh`'s `prod` profile (the default; `SKYPANE_PROFILE=prod`)
-runs `espsecure.py verify_signature --version 2 --keyfile
-firmware/signing/skypane-signing-pubkey.pem <build-dir>/skypane.bin` before
-writing anything to the device, and refuses to flash if that check fails.
-This only proves a signature block is present and matches the committed
-public key -- it does not touch or need the private key -- but it is
-exactly the property that matters here: a device that ever boots an
-unsigned or wrongly-signed image can never verify a subsequent OTA update
-(see "What is signed and why" above), and USB is then the only recovery
-path.
+`firmware/flash.sh` runs `espsecure.py verify_signature --version 2` on
+`<build-dir>/skypane.bin` before writing anything to the device, and
+refuses to flash if that check fails. The check needs only a public key,
+never the private one. It guards exactly the property that matters: an
+unsigned image aborts at every boot, and a wrongly-signed one can never
+verify a subsequent OTA update (see "What is signed and why" above), with
+USB as the only recovery path.
 
 Practical effect:
-- `SKYPANE_PROFILE=prod firmware/flash.sh <port>` (the default) refuses to
-  flash `build-ee02/skypane.bin` unless it has already been signed, either
-  by CI (a tagged release, downloaded from its GitHub Release asset) or
-  locally per "Local signing for bench images" above.
-- `SKYPANE_PROFILE=dev firmware/flash.sh <port>` is exempt: dev-profile
-  images are bench-only, never expected to run an OTA update themselves,
-  and `sdkconfig.dev.defaults` is layered in specifically so they can be
-  built and flashed without a signing step.
+- `SKYPANE_PROFILE=prod firmware/flash.sh <port>` (the default) verifies
+  against `firmware/signing/skypane-signing-pubkey.pem`. It refuses
+  `build-ee02/skypane.bin` unless that file was signed with the release
+  key, by CI (a tagged release, downloaded from its GitHub Release asset)
+  or locally per "Local signing for bench images" above.
+- `SKYPANE_PROFILE=dev firmware/flash.sh <port>` verifies against
+  `SKYPANE_BENCH_PUBKEY` when it is set (the public or private PEM of a
+  throwaway bench key kept outside the repository), and against the
+  release public key otherwise. A device running a bench-key image only
+  accepts OTA images signed with that same bench key, until a
+  release-signed image is flashed over USB again.
 - `espsecure.py` (from the `esptool` PyPI package) must be on `PATH` for
   the `prod` profile; `flash.sh` fails closed with a clear message if it
   is missing rather than skipping the check.
