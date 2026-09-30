@@ -1,178 +1,120 @@
-# Feature Research
+# Feature Landscape: SkyPane v1.1
 
-**Domain:** Battery-powered e-ink departure board / ambient smart frame (flight + transit info)
-**Researched:** 2026-08-04
-**Confidence:** MEDIUM (cross-checked web sources on RATP/SIEL, airport FIDS standards, TRMNL, ESP32 power patterns, FlightPortrait's own marketing; no primary vendor docs or code inspected — treat exact numeric claims like battery-life figures as directional, not guaranteed)
+**Domain:** Battery-powered e-ink flight frame and its bilingual companion web app  
+**Milestone:** v1.1 Battery and Companion!  
+**Researched:** 2026-09-30  
+**Confidence:** MEDIUM — the product evidence is strong and local, but the second discharge result and the fresh companion walkthrough do not exist yet.
 
-## Feature Landscape
+## Scope Boundary
 
-### Table Stakes (Users Expect These)
+V1.1 is an evidence-to-decision milestone. It must turn the first field discharge result into a defensible operating policy, then remove the highest-value friction found in a fresh companion walkthrough. It is not a second implementation of the frame, a transit-view expansion, or a general companion rewrite.
 
-Features users assume exist. Missing these = product feels incomplete or unreliable for a daily-glance tool.
+The baseline is already substantial:
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Flight number + destination on plane view | Every real-world FIDS (airport board) and consumer flight tracker leads with these two fields — without them a departure entry is unidentifiable | LOW | ORY departures API gives IATA flight number + destination airport/city name directly |
-| Scheduled departure time | Baseline field on every airport board; without it "next flights" has no ordering the user trusts | LOW | Sort list by this field |
-| Delay / status indicator (on-time, delayed, cancelled, boarding) | Real FIDS boards always separate "scheduled" from "estimated/actual" and show status text — this is the single most-glanced-at field at an airport ("am I delayed?") | MEDIUM | Needs estimated/actual time from API, not just schedule; delta between scheduled and estimated is the "delay" the user cares about |
-| RER line + destination + minutes-until-departure | SIEL (RATP's real platform display system) is the direct UX precedent — riders orient by line + destination + countdown, not by clock time | LOW-MEDIUM | RATP open data (`prim.iledefrance-mobilites.fr`) exposes next-departure times; convert absolute time → "in N min" at render time |
-| Physical button that switches view AND forces a fresh poll | Explicit MVP requirement; matches TRMNL's own "button = refresh + advance" precedent, so it's a well-worn interaction users already understand from that product category | LOW-MEDIUM | Button on ESP32 wakes device from deep sleep, polls server, server must actually re-fetch (not serve a stale cached image) or the "genuinely useful" value proposition breaks |
-| Clear "data as of HH:MM" / freshness indicator | Because the device polls on a schedule (not live-streaming), a stale board with no timestamp is actively misleading for a "will I make my train" decision | LOW | One small line of text on the rendered image; airport/RATP boards are always live so they don't need this, but a poll-based ambient device does |
-| Wake → poll → display → deep-sleep cycle with backoff | Direct requirement from the flightportrait reference architecture; this is what makes multi-month battery life possible at all | HIGH | Already scoped as an explicit requirement; complexity lives in firmware, not in "features" per se |
-| Graceful "no data" / server unreachable state | Devices that poll over WiFi will occasionally fail to reach the server (WiFi drop, VPS blip); silently showing stale data without indication erodes trust fast | LOW-MEDIUM | Show last-known-good data with a visibly stale timestamp, or a small "couldn't refresh" glyph — never a blank/broken screen |
-| Legible at-a-glance typography sized for the viewing distance | This is a wall/desk object glanced at from a few feet away, not a phone screen read up close — real departure boards use very large, high-contrast type for exactly this reason | LOW | Design decision more than a "feature," but it gates whether the device is actually useful vs decorative |
+- The first discharge run depleted a nominal 3000 mAh pack after 12.34 days at a configured 300-second sleep interval. It observed 3,252 normal hash-skip cycles and calculated 0.923 mAh per observed cycle.
+- That run deliberately cannot say how much of the drain belongs to each wake versus the time spent asleep. Its 3,600-second projection therefore spans 12.34 to 148.08 days.
+- The deployed companion already owns wake-interval configuration, quiet hours, battery state, a responsive sidebar/bottom-tab navigation system, bilingual copy, theme choice, and keyboard/no-JavaScript resilience tests.
 
-### Differentiators (Competitive Advantage)
+The required user outcome is consequently precise: the frame should run at a deliberately chosen field cadence on a deliberately retained or replaced pack, and the companion should feel coherent and easy to use in the actual routes and states the owner visits.
 
-Features that set the product apart from generic e-ink dashboards (TRMNL-style) or from FlightPortrait. Not required, but align tightly with the stated Core Value ("tells you whether you'll make the next RER").
+## Table Stakes
 
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| "Will I make it?" framing — combine next-RER countdown with an implicit walk/prep buffer | This is the actual daily decision the user described in PROJECT.md motivation, not just "list of times" — a highlighted "leave by" cue is more useful than a raw timetable | LOW-MEDIUM | Pure render-layer logic on the server (fixed walk-time offset), no new data source needed; big UX win for little engineering cost |
-| Disruption/incident banner on RER view (mirroring SIEL's yellow banner) | RATP's own SIEL system treats disruption messaging as a first-class element, not an afterthought — matching that convention makes the transit view feel authentically "real departure board," not a toy | MEDIUM | RATP open data includes traffic/disruption info feeds separate from next-departure feeds; only worth the API-integration cost if disruptions are common enough on this RER line to matter |
-| Color use for status/delay severity (e.g., E Ink Spectra 6 color) | Reference hardware (13.3" Spectra 6) supports color — a red/amber accent on a delayed or cancelled flight, or a red RER disruption banner, reads instantly at a glance the way monochrome text can't | LOW | Already have color-capable hardware per PROJECT.md reference design; just a rendering choice, no new engineering |
-| Per-view independent poll/backoff state | Only the currently-displayed view needs fresh data; when the device wakes for a scheduled flight-view refresh, don't also force an RER fetch (or vice versa) | MEDIUM | Saves server load and keeps device power budget tight; the button-press view-switch is the one place a fresh poll for the *other* view is deliberately triggered |
-| Companion-app pushed message overlay (v2) | Turns the frame from read-only signage into a two-way ambient object (e.g., "running 5 min late" note to household) — genuinely differentiates from every departure-board clone | HIGH | Already scoped as v2/later; requires the server to accept authenticated pushes and the device's poll protocol to surface a "message pending" state — significant addition, correctly deferred |
-| Ambient-first visual design (paper-like typography/layout, no chrome, no UI decoration) | This is the single biggest differentiator vs. generic "gadget" IoT dashboards — FlightPortrait's whole positioning is "reads as paper, not a screen"; matching that bar is what keeps this from looking like a Raspberry Pi project stuck to the wall | MEDIUM | Design/layout work, not code complexity — treat as a design requirement, not an engineering one |
+| Feature | User-facing outcome | Why expected in v1.1 | Complexity | Delivery notes |
+|---|---|---|---|---|
+| Second controlled field discharge at a meaningfully different cadence | The owner can trust that “wake cost” and “standing drain” are not being confused when deciding how often the frame updates. | One cadence is one equation with two unknowns; the existing 3,600-second projection is too broad to support a purchase or production-cadence decision. | Medium | Reuse the established full-charge, unplugged, server-observed protocol and `history.db` channel. Record the actual sleep value the device received, both battery endpoints, outage/gap evidence, and observed cycle count. A long candidate interval such as 3,600 seconds is appropriate because it separates the time term from the wake term. |
+| Decision-ready two-run battery model | The owner receives one documented model with a per-wake term, a time/leakage term, uncertainty, and a plain-language conclusion. | Raw logs and a single mAh/cycle headline are not a usable operating decision. | Low–Medium | Fit the two real run totals only after both runs pass the agreed evidence checks. Carry the first run’s known caveat: its 0.915 nominal coverage reflects roughly 28 seconds of wake overhead, so calculations must use observed cycles and elapsed time, not assume that `sleep_s` equals a complete cycle. Treat image-download/e-paper-refresh cost separately because the first run stayed on the hash-skip path. |
+| Production cadence and pack decision record | The owner can answer: “How fresh is the frame, how long will it run, and do I keep the 3000 mAh pack?” | This is the stated milestone outcome and closes the decision SEED-008 was created to preserve. | Low | Define decision criteria before seeing the second result: acceptable freshness for a glanceable flight display, desired autonomy, physical fit, connector/polarity, charge-time acceptability, and the remaining hardware budget. Select one interval inside the existing 60–3,600 second configuration bounds, or explicitly record why a bounds change is necessary. Do not silently leave the development value in place. |
+| Applied-policy confirmation in the companion | After saving, the owner can see the configured normal cadence and understand when quiet hours alter it. | A correct decision that is hard to inspect or accidentally overwritten is not a production configuration. | Low | Keep the companion as the control plane. The chosen cadence must round-trip through the Settings form and device poll response; the Home/Health wording must not imply that a quiet-hours hold is a failed check-in. Any new pack-related text must be factual, not a fabricated percentage estimate. |
+| Fresh, task-based companion walkthrough | The owner can complete everyday checks and changes without hunting, ambiguity, clipped controls, or contradictory status language. | SEED-010 intentionally declined to invent a defect list before looking at the finished v1.0 companion. | Medium | Walk the authenticated routes — Home, Display, Flights, Airlines, Health, Device, Update — in French and English, desktop and narrow mobile layouts. Include normal, empty, stale/warning, and pending/confirmation states where available. Capture each finding as keep, fix now, or defer, with an observable trigger and evidence. |
+| Focused polish of walkthrough findings | The companion becomes clearer while preserving its existing reliable workflows. | A review with no resolved user-visible findings would not improve day-to-day use. | Medium | Prioritize navigation orientation, scan hierarchy, status/state clarity, form labels and save feedback, touch/keyboard operation, responsive spacing, and visual consistency. Make the smallest changes that resolve the confirmed findings; reuse the Phase 40 route/page/template/i18n boundaries and tokenized stylesheet. |
+| Bilingual parity for every changed surface | English and French users receive the same action, status, and error meaning. | The companion is intentionally bilingual; v1.0’s stable message IDs prevent English wording changes from silently dropping French. | Low | Put all English source text, code comments, artifacts, and message identifiers in English. Add French translation through the existing catalogues and run the i18n/route tests. French is appropriate for the owner conversation, not for project artifacts. |
 
-### Anti-Features (Commonly Requested, Often Problematic)
+## Differentiators
 
-Features that seem good but create problems for this specific "ambient object first, gadget never" device.
+| Feature | Value proposition | Complexity | Notes |
+|---|---|---|---|
+| Measured autonomy–freshness policy, rather than a guessed interval | SkyPane’s ambient value remains useful without turning the device into a frequently-charged gadget. | Medium | The policy should present the selected cadence as a product choice backed by field data, not as an engineering default. A longer cadence is valuable only if it still meets the owner’s real “glance before leaving” need. |
+| Transparent model assumptions | Future changes can distinguish normal drift from a change in real power behavior. | Low | Record capacity assumption, run dates, cadence, cycle/wall-clock interpretation, hash-skip limitation, and confidence interval. This is a project decision artifact, not necessarily a permanent customer-facing dashboard. |
+| Companion polish driven by a complete owner journey | The app preserves its hand-built, calm identity while feeling deliberately finished rather than uniformly “redesigned.” | Medium | The companion already has responsive navigation, status dots, live relative times, dark/light themes, and strong no-JS/keyboard tests. V1.1 should make their behavior more immediately legible, not replace them with a framework or a generic dashboard. |
+| Evidence-backed acceptance of the current pack | “Keep the 3000 mAh pack” is a successful outcome if it meets the agreed service target. | Low | Avoid equating more capacity with a better product. A larger pack adds fit, charge-time, and chemistry/percentage-calibration work and must buy a meaningful user benefit. |
 
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|------------------|-------------|
-| Live/streaming updates (constant refresh, "always current to the second") | Feels more "real-time" and impressive | Kills battery life (defeats the entire wake/poll/deep-sleep architecture), and forces frequent full e-ink refreshes which cause visible flash/ghosting-cleanup cycles — the opposite of calm ambient art | Scheduled poll + backoff (already scoped) + button-triggered on-demand refresh for the moment it's actually needed |
-| Partial-refresh-only updates to avoid the visible flash | Full refresh flash looks "jarring" for a wall-art object | E-ink accumulates ghosting without periodic full refreshes; skipping them degrades image quality and eventually looks worse, not calmer, than an occasional clean flash | Full refresh on every scheduled wake (which is infrequent by design — hours apart), so the flash itself becomes a rare, expected "the board just updated" cue rather than a jarring frequent event |
-| Status LEDs / blinking indicators for "updating," "low battery," "WiFi connected" etc. | Feels like useful diagnostic feedback, common in IoT gear | Directly conflicts with the "ambient art, not obviously a gadget" goal — any light source on a wall-mounted piece (especially anywhere near a bedroom/living space) reads as tech, not art, and is exactly the kind of thing PROJECT.md explicitly wants to avoid | Communicate state entirely through the e-ink content itself (freshness timestamp, "couldn't refresh" glyph on the image) — no separate light source at all |
-| On-device settings UI / multi-button menu navigation | Feels flexible — configure refresh interval, add more views, etc. on-device | Adds visible "chrome" (menus, icons, nav affordances) to what should read as printed information; also complicates a single-button interaction that's meant to be dead simple | Push all configuration to the server/companion app (v2); the physical device keeps exactly one interaction: press button → switch view + refresh |
-| Gate numbers / detailed airport-operations fields (terminal, check-in desk, baggage belt) | Real FIDS boards show these, so it "feels complete" to include them | ORY departures aren't something the household is walking through security for — gate/terminal is operationally useful to a *traveler at the airport*, not to someone glancing at a wall in their home deciding whether to leave for the RER; adds visual clutter for zero decision value in this use case | Show only decision-relevant fields: flight #, destination, scheduled/estimated time, delay/cancelled status. Drop gate/terminal/check-in entirely |
-| Push notifications / alerts (buzz phone when a flight is delayed) | Feels "smart," proactive | This is an ambient *glance* device by design — introducing push/alerting turns it into an attention-demanding gadget and duplicates what a phone app already does well; also out of scope (no phone app until v2, and even then it's push-to-frame, not frame-to-phone) | Keep it purely pull/glance-based: the information is there when you look, and says nothing when you don't |
-| Animations / transitions between views | Feels more polished, "app-like" | E-ink can't do smooth animation cheaply, and any attempt reads as a slideshow gadget rather than as art; also burns power redrawing | Instant cut on button press (single refresh cycle for the new view) — matches how a printed sign "changes" (it doesn't, until someone swaps it) |
-| Weather / news / other TRMNL-style bolt-on widgets alongside flights/RER | TRMNL-class devices thrive on "one display, many plugins"; tempting to add value | Dilutes the single clear purpose stated in PROJECT.md's Core Value ("will I make the next RER") and turns a focused tool into a generic dashboard, the exact category this project is deliberately differentiating from | Stay two-view only (plane, RER) for v1; if more views are wanted later, treat each as a deliberate, evaluated addition, not a default "why not" |
+## Companion Walkthrough Coverage
+
+The walkthrough is a discovery feature with a fixed method, not a vague visual pass. It should produce an English finding log that gives the planner a concrete, bounded implementation list.
+
+| Journey | What to inspect | Evidence of success |
+|---|---|---|
+| Orient and inspect | Sign in, identify the current frame state, current picture, next expected check-in, battery state, and the route to details. | Home presents one clear answer to “is the frame healthy and what is it showing?” without requiring a second page to decode an ordinary status. |
+| Change an operating setting | Locate wake interval/quiet hours, understand valid limits and consequences, make a safe change, and verify the saved result. | Labels, constraints, confirmation, dirty-state behavior, and the resulting device behavior agree in both languages. |
+| Diagnose an exception | Follow a warning from the navigation or Home to Health/Device and identify the next action. | Warnings are distinct from intentional quiet-hours sleep; a stale value includes a clear time and an actionable destination. |
+| Review data | Scan Flights and Airlines, use filtering/reveals where present, and return to the current frame. | Long lists, cards/tables, empty states, and mobile equivalents remain understandable without hidden navigation or layout collision. |
+| Maintain the device | Visit Device and Update, inspect a pending action, cancel or confirm it safely, and recover after refresh/navigation. | Destructive or long-running actions communicate their state, do not double-submit, and preserve focus and form state. |
+| Use the companion on a phone and keyboard | Repeat the high-frequency Home, Settings, and Health journeys at the supported narrow width and without pointer-only assumptions. | Bottom navigation and More sheet expose every route; controls have usable targets, visible focus, no clipping/overlap, and no duplicate landmarks. |
+
+The walkthrough must retain findings that say **keep**: a stable part of the v1.0 interface is evidence against unnecessary redesign. It must also separate a visual preference from a reproducible problem. A “fix now” finding needs its affected route/state/viewport, user consequence, proposed acceptance criterion, and whether it is a translation, markup, CSS, or behavior issue.
+
+## Anti-Features
+
+| Anti-feature | Why avoid it | Do instead |
+|---|---|---|
+| A third battery test before analysing the second | It postpones the decision while accumulating data with no stated discrimination purpose. | Pre-register the second cadence and decision thresholds; fit and review the two-run model before adding more measurement. Add another run only to resolve a documented uncertainty, such as image-refresh energy. |
+| Declaring an exact lifetime from datasheet or nominal interval alone | Board peripherals, Wi-Fi, wake duration, protected-cell cutoff, and real wall-clock wake overhead make chip-level figures insufficient. | Use SkyPane’s whole-device field runs and express a range/confidence where uncertainty remains. Espressif’s measurement guidance likewise distinguishes deep-sleep and active consumption rather than treating them as one value. |
+| Buying a larger pack before the model and target are defined | It may add size and charging friction while failing to improve the update cadence that matters. | Keep the current protected 3.7 V 1S JST-PH 2.0 mm pack unless measured projections miss the agreed target. Evaluate replacements against connector polarity, physical fit, charge time, budget, and percentage-curve validity. |
+| Turning the companion into a battery analytics product | Permanent dashboards, arbitrary reports, and manual calibration controls distract from the one owner decision. | Keep the decision report in planning/hardware artifacts and add companion UI only where it makes the applied configuration or immediate state clearer. |
+| A wholesale visual redesign | Phase 40 deliberately consolidated route, page, template, i18n, and stylesheet boundaries; a redesign without specific findings risks regressions in tested workflows. | Use the walkthrough to target high-frequency friction and preserve the established design tokens, navigation, themes, and accessible semantic controls. |
+| Adding routes, data domains, notifications, or an on-device menu | RER, additional widgets, phone notifications, and gadget-like device controls are already out of scope and would obscure the battery and polish decisions. | Keep V1.1 to the existing single flight view, battery field policy, and companion clarity. |
+| Treating French text as an afterthought | A language switch that changes meaning or leaves untranslated new UI destroys trust in a private companion. | Use existing stable message IDs and complete the English/French pair in the same change. |
 
 ## Feature Dependencies
 
-```
-Wake/poll/deep-sleep architecture (already required)
-    └──requires──> Server poll protocol (3-endpoint HTTPS, per flightportrait reference)
-                       └──requires──> Server-side data fetch (ORY flight API + RATP RER API)
+```text
+Second field discharge run
+  -> comparable observed-cycle and elapsed-time evidence
+  -> two-run wake-versus-standing-drain model
+  -> agreed freshness and autonomy targets
+  -> production cadence decision
+  -> retain current pack OR assess compatible larger pack
+  -> apply and verify production configuration in companion/device poll
 
-Physical button (view switch + forced poll)
-    └──requires──> Wake/poll/deep-sleep architecture (button-triggered wake is a variant of the scheduled wake)
-    └──requires──> Per-view poll/backoff state (so a button press only re-fetches the relevant view)
-
-Delay/status indicator (plane view)
-    └──requires──> Scheduled time AND estimated/actual time both present in the flight data source
-    └──enhances──> "Will I make it?" framing differentiator
-
-Disruption banner (RER view)
-    └──requires──> RATP disruption/traffic data feed (separate from next-departure feed)
-
-Color-coded delay/disruption severity
-    └──enhances──> Delay/status indicator
-    └──enhances──> Disruption banner
-    └──requires──> Color-capable hardware (already selected: E Ink Spectra 6)
-
-Companion app push message (v2)
-    └──requires──> Server accepts authenticated inbound pushes
-    └──requires──> Device poll protocol surfaces a "message pending" flag
-    └──conflicts with──> Pure poll-only / no-open-ports security model (needs care: device still only *polls*, message is just data waiting to be pulled, not a push to the device)
-
-Freshness timestamp / "couldn't refresh" glyph
-    └──requires──> Nothing else — pure render-layer addition, no data dependency
-
-Status LEDs / on-device settings UI (anti-features)
-    └──conflicts with──> Ambient-first visual design differentiator
-    └──conflicts with──> Single-button-only interaction model
+Fresh companion walkthrough
+  -> evidence-tagged finding log (keep / fix now / defer)
+  -> scoped polish requirements
+  -> English source copy + French catalogue parity
+  -> route, browser, accessibility, and responsive regression checks
 ```
 
 ### Dependency Notes
 
-- **Physical button requires per-view poll/backoff state:** without tracking backoff state independently per view (plane vs RER), a button press to switch views could either force an unnecessary refetch of the view you're leaving, or fail to refresh the view you're switching to if the global backoff timer hasn't elapsed. This should be designed into the polling protocol from the start, not retrofitted.
-- **Delay/status indicator requires both scheduled AND estimated/actual time:** many flight-data APIs only return a schedule unless you pay for or specifically request live/estimated data — confirm the chosen ORY data source actually returns an estimated/actual field before committing to this as table stakes; if it doesn't, the "delay" feature degrades to "scheduled time only," which is a materially weaker product.
-- **Disruption banner conflicts (in priority, not architecture) with MVP scope:** RATP's SIEL disruption handling is a real UX precedent worth matching, but pulling a second RATP data feed (disruptions, separate from next-departures) adds integration surface. Treat as a fast-follow differentiator, not core MVP, unless disruptions on this specific RER line are frequent enough to matter for the "will I make it" use case.
-- **Companion-app push (v2) must not violate the poll-only security posture:** PROJECT.md's reference architecture explicitly never accepts incoming connections to the device. A pushed message should land on the server and simply be picked up on the device's next scheduled or button-triggered poll — "push" is a server-side concept, not a device-side one.
+- The cadence decision depends on the model, not merely on a successful second run. The model must preserve observed wake overhead and distinguish the unmeasured image-download/e-paper-refresh cost from the hash-skip baseline.
+- A pack substitution depends on the decision criteria and hardware verification. The existing voltage-to-percentage curve was fitted to the 3000 mAh pack; a different chemistry or discharge curve requires a review before its percentage is presented as truthful.
+- The walkthrough can begin before the battery run finishes, but implementation should wait until its findings are ranked. This allows interface polish and the long-running discharge observation to proceed independently without inventing UX scope.
+- Companion polish depends on the Phase 40 architecture remaining intact: routes dispatch through the route table, pages receive typed context, templates are named, and all strings pass stable i18n IDs.
 
-## MVP Definition
+## MVP Recommendation
 
-### Launch With (v1)
+Prioritize the milestone in this order:
 
-Minimum viable product — what's needed to validate the concept (already mirrors PROJECT.md's Active requirements, mapped to specific fields/behaviors).
+1. **Run the second, pre-registered discharge study.** It addresses the only uncertainty that prevents an honest production policy.
+2. **Produce and approve the operating decision.** Select the normal wake interval and retain or replace the pack against explicit freshness/autonomy/fit criteria; apply and verify the selected setting.
+3. **Perform the companion walkthrough and implement its bounded findings.** Start the review while the battery run is observing, then ship only reproducible, high-value improvements with bilingual parity.
 
-- [ ] Plane view: flight number, destination, scheduled time, delay/cancelled status — the minimum FIDS-equivalent field set for a decision-useful board
-- [ ] RER view: line, destination, minutes-until-next (at least 2 upcoming departures) — mirrors SIEL's minimum useful set
-- [ ] Physical single-button: switch view + force fresh poll for that view
-- [ ] Freshness indicator ("as of HH:MM") on both views
-- [ ] Graceful stale/unreachable-server state (show last-known-good data, marked stale — never blank)
-- [ ] Wake/poll/display/deep-sleep with exponential backoff (already scoped)
-- [ ] Ambient-first, chrome-free visual layout (no status icons beyond the necessary freshness/stale glyph)
+Defer:
 
-### Add After Validation (v1.x)
-
-Features to add once core is working and real usage (does the user actually check it daily, does battery life hold up) validates the concept.
-
-- [ ] "Leave by" / walk-time-buffer framing on RER view — trigger: once real usage confirms the raw countdown is being used to make the "should I leave now" decision, make that decision one glance easier
-- [ ] Color-coded severity for delays/disruptions — trigger: once monochrome status text is confirmed legible/sufficient at a glance, layer in color as a polish pass rather than an MVP dependency
-- [ ] Low-battery on-device indication (dedicated screen state) — trigger: once real battery-life data exists (a stated project goal) and a genuine low-battery threshold can be set with confidence
-
-### Future Consideration (v2+)
-
-Features to defer until the core two-view device has been validated as genuinely useful day-to-day.
-
-- [ ] RER disruption banner (separate RATP data feed) — defer until it's clear disruptions are frequent enough on this line to justify the extra integration
-- [ ] Companion phone app pushing short messages onto the frame — already explicitly scoped as v2 in PROJECT.md
-- [ ] Additional views beyond plane/RER (weather, other transit lines, etc.) — explicitly resist per the anti-feature analysis above unless a specific validated need emerges
-
-## Feature Prioritization Matrix
-
-| Feature | User Value | Implementation Cost | Priority |
-|---------|------------|---------------------|----------|
-| Flight number/destination/time/status (plane view) | HIGH | LOW | P1 |
-| RER line/destination/minutes (transit view) | HIGH | LOW | P1 |
-| Physical button view-switch + forced poll | HIGH | MEDIUM | P1 |
-| Freshness timestamp | HIGH | LOW | P1 |
-| Graceful stale/offline state | MEDIUM | LOW | P1 |
-| Wake/poll/deep-sleep + backoff | HIGH | HIGH | P1 (already required) |
-| Ambient-first visual design (no chrome/LEDs) | HIGH | MEDIUM | P1 |
-| "Leave by" buffer framing | MEDIUM-HIGH | LOW | P2 |
-| Color-coded delay/disruption severity | MEDIUM | LOW | P2 |
-| Low-battery on-device indicator | MEDIUM | LOW-MEDIUM | P2 |
-| RER disruption banner (SIEL-style) | MEDIUM | MEDIUM | P2/P3 |
-| Companion app push message | MEDIUM | HIGH | P3 (v2, already scoped) |
-| Gate/terminal/check-in fields | LOW | LOW | Do not build (anti-feature) |
-| Status LEDs | LOW | LOW | Do not build (anti-feature) |
-| On-device settings/menu UI | LOW | MEDIUM | Do not build (anti-feature) |
-| Push notifications to phone | LOW (for this device's purpose) | MEDIUM | Do not build (anti-feature) |
-| Additional dashboard widgets (weather/news) | LOW (dilutes focus) | MEDIUM | Do not build (anti-feature) |
-
-**Priority key:**
-- P1: Must have for launch
-- P2: Should have, add when possible
-- P3: Nice to have, future consideration
-
-## Competitor / Precedent Feature Analysis
-
-| Feature | FlightPortrait (direct reference) | TRMNL (general e-ink dashboard) | RATP SIEL (real transit board) | Our Approach |
-|---------|-----------------------------------|----------------------------------|----------------------------------|--------------|
-| Core content | Overhead planes crossing your sky (ADS-B derived), art-first | Any of 850+ plugins: calendar, weather, news, etc. | Next 2-4 train times + destination per platform | Two fixed, purpose-built views: ORY departures + Orly-Ville RER — narrower and more decision-useful than either precedent |
-| Physical button | Not documented on marketing site (may not have one) | Button = refresh + advance to next playlist screen, but may show stale cached content on manual press | N/A (fixed public display, no user interaction) | Button = switch view + force genuinely fresh poll (server must re-fetch, not serve cache) — a deliberate improvement on TRMNL's documented caveat |
-| Status/disruption handling | N/A (art content, no "delay" concept) | Plugin-dependent | Dedicated yellow disruption banner + train-position-instead-of-time during incidents | Borrow SIEL's disruption-banner pattern as a P2/P3 differentiator for the RER view; borrow FIDS status conventions for the plane view |
-| Power/refresh model | Charges "every few months," positioned as near-zero-maintenance art | 2-6 months per charge depending on refresh interval | Mains-powered, always-on, real-time | Battery-only per PROJECT.md constraint; scheduled wake/poll/backoff (hours-scale) rather than TRMNL's more frequent typical intervals, to protect battery life given no solar/wall power |
-| Visual identity | Explicitly "reads as paper, not a screen" — zero UI chrome | Widget/dashboard aesthetic, more visibly "smart display" | Institutional signage — functional, not art-directed | Aim closer to FlightPortrait's paper-like restraint than to TRMNL's dashboard aesthetic, while keeping FIDS/SIEL's information discipline (right fields, no more) |
+- A third run unless the two-run analysis names a remaining decision-blocking uncertainty.
+- A general telemetry or battery-analytics interface.
+- Solar, wall power, additional display views, RER work, on-device settings, phone alerts, and the deferred comment-history guard.
 
 ## Sources
 
-- [FlightPortrait — flightportrait.com](https://flightportrait.com/) — direct reference project's own positioning, battery life, display philosophy (MEDIUM confidence, single-source vendor claims)
-- [TRMNL on-demand plugin refresh — help.trmnl.com](https://help.trmnl.com/en/articles/15123293-on-demand-plugin-refresh) — button-triggered refresh behavior and its cached-content caveat
-- [TRMNL X review — the-gadgeteer.com](https://the-gadgeteer.com/2025/07/21/trmnl-e-ink-dashboard-display-review-better-than-onscreen-widgets/) and [TechBloat TRMNL X review](https://www.techbloat.com/trmnl-x-e-ink-display-review-2026.html) — battery life figures (2-6 months), zero-flicker refresh
-- [SIEL (RER d'Île-de-France) — Wikipédia](https://fr.wikipedia.org/wiki/SIEL_(RER_d'%C3%8Ele-de-France)) and [SIEL (métro de Paris) — Wikipédia](https://fr.wikipedia.org/wiki/SIEL_(m%C3%A9tro_de_Paris)) — real RATP platform display behavior: wait times for next 2-4 trains, disruption banner, position-based fallback during incidents
-- [RATP — real-time arrival/departure info](https://www.ratp.fr/en/where-can-i-find-arrival-and-departure-times-real-time) — official channel confirmation
-- [Flight Information Display System (FIDS) — airlabs.co](https://airlabs.co/flight-information-display-system) and [linsnled.com FIDS guide](https://www.linsnled.com/flight-information-display.html) — canonical FIDS field set (airline, flight number, destination, gate, terminal, scheduled/estimated time, status, delay)
-- [ESP32 Deep Sleep Guide — SolderHub](https://solderhub.com/articles/esp32-deep-sleep-battery-life-guide) and [Zbotic ESP32 deep sleep](https://zbotic.in/esp32-deep-sleep-long-battery-life-for-remote-sensors/) — battery life estimates by wake interval, low-battery display handling pattern
-- [E-Paper Refresh Technology — Geniatech](https://www.geniatech.com/solution/e-paper-refresh-technology/) and [Core Electronics forum on e-ink ghosting](https://forum.core-electronics.com.au/t/e-ink-display-integration-ghosting-and-refresh-challenges/23151) — full vs. partial refresh tradeoffs, ghosting causes
-- [Calm Technology — calmtech.com](https://calmtech.com/) and [Calm Tech: A New Era in HCI Philosophy — numberanalytics.com](https://www.numberanalytics.com/blog/calm-tech-hci-philosophy) — ambient/peripheral-attention design principles underlying the anti-features analysis
-- General web search on smart-display bedroom/LED criticism — informs the anti-feature stance against status LEDs (LOW confidence, general commentary rather than a specific study)
+### Project evidence (HIGH confidence)
 
----
-*Feature research for: battery-powered e-ink departure board (flights + RER transit)*
-*Researched: 2026-08-04*
+- `hardware/BATTERY-RUN.md` — first run protocol, verdict, 0.923 mAh/cycle result, 3,600-second projection band, real wake-overhead diagnosis, hash-skip limitation, current-pack charge observations, and follow-up decision boundary.
+- `hardware/BOM.md` — 3000 mAh pack, 3.7 V 1S protection, JST-PH 2.0 mm connector/polarity, budget ceiling, and replacement constraints.
+- `.planning/seeds/SEED-007-second-discharge-run-separate-wake-vs-leakage-energy.md` and `SEED-008-choose-real-field-wake-interval.md` — intended measurement and decision scope.
+- `.planning/seeds/SEED-010-companion-interface-polish.md`, `companion/ui_base.py`, `companion/ui_nav.py`, `companion/pages/home_page.py`, and `companion/static/style.css` — current companion scope and its existing navigation, accessibility, i18n, and token-system contracts.
+
+### External references (MEDIUM confidence)
+
+- [Espressif current-consumption measurement guidance](https://docs.espressif.com/projects/esp-idf/en/stable/esp32h2/api-guides/current-consumption-measurement-modules.html) — active and deep-sleep consumption are distinct measurements; used here for method rationale, not as an ESP32-S3 board-level power claim.
+- [W3C WCAG 2.2](https://www.w3.org/TR/wcag/) and [W3C focus-appearance guidance](https://www.w3.org/WAI/WCAG22/Understanding/focus-appearance) — visible, sufficiently distinct focus and operable controls inform the companion walkthrough criteria.
+- [Seeed XIAO ESP32-S3 series battery documentation](https://wiki.seeedstudio.com/xiao_esp32s3_getting_started/) — battery operation and USB charging context; exact replacement compatibility remains governed by the verified SkyPane BOM.
