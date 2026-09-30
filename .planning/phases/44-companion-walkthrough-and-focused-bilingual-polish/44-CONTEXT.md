@@ -32,6 +32,13 @@ the frame's battery policy.
 - **D-04:** Prioritize clarity of current frame state, navigation orientation,
   warning versus intentional sleep status, setting feedback, readable density,
   and responsive touch/keyboard operation.
+- **D-10:** Design for a person with little technical knowledge. Present one
+  clear current state and one clear next action; remove repeated, internal, or
+  context-free information instead of asking the person to reconcile it.
+- **D-11:** Treat the owner's captured Home, navigation, and Display feedback
+  as the design brief for the next proposal. Record it faithfully first, then
+  present a coherent desktop and mobile proposal for approval before changing
+  production code.
 - **D-05:** Fix only confirmed, high-value walkthrough findings. Preserve the
   established calm editorial design; do not perform a wholesale restyle,
   introduce a UI framework, or duplicate application state.
