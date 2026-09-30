@@ -50,6 +50,7 @@ requirements-completed: [DEVICE-06]
 
 duration: ~30min
 completed: 2026-09-24
+status: complete
 ---
 
 # Quick Task 260924-u7n: DEVICE-06 Local NO CONNECTION Fault Screen Summary

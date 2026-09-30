@@ -1,5 +1,5 @@
 ---
-status: partial
+status: superseded
 phase: 20-companion-suggestions-from-the-audit-french-localisation-liv
 source: [20-VERIFICATION.md]
 started: 2026-09-12T04:38:39+00:00
@@ -8,7 +8,8 @@ updated: 2026-09-12T04:38:39+00:00
 
 ## Current Test
 
-[awaiting human testing]
+Superseded during v1.0 close-out: the notification feature was retired and
+later companion phases replaced the affected UI flows.
 
 ## Tests
 

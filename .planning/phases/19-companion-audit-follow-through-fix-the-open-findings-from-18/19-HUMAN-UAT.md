@@ -1,5 +1,5 @@
 ---
-status: partial
+status: passed
 phase: 19-companion-audit-follow-through-fix-the-open-findings-from-18
 source: [19-VERIFICATION.md]
 started: 2026-09-11T17:12:08+00:00
@@ -8,7 +8,8 @@ updated: 2026-09-11T17:12:08+00:00
 
 ## Current Test
 
-[awaiting human testing]
+Completed during v1.0 close-out on 2026-09-30; developer confirmed all ten
+scenarios passed.
 
 ## Tests
 

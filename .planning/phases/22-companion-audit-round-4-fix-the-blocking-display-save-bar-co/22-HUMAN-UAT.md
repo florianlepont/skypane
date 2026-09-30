@@ -1,5 +1,5 @@
 ---
-status: partial
+status: superseded
 phase: 22-companion-audit-round-4-fix-the-blocking-display-save-bar-co
 source: [22-AUDIT.md, 22-VALIDATION.md, 22-01..22-16-SUMMARY.md]
 started: 2026-09-13T08:19:00+00:00
@@ -8,7 +8,8 @@ updated: 2026-09-13T08:19:00+00:00
 
 ## Current Test
 
-Tests 2, 3, 4, 7 pass. Test 1 failed — see I2. Tests 5 and 6 deferred (developer not in front of the frame).
+Superseded during v1.0 close-out. The documented overflow was fixed by later
+quick tasks and the associated hardware checks have since passed.
 
 ## Automated visual sweep (done by Claude, not pending)
 

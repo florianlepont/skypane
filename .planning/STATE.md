@@ -1420,7 +1420,11 @@ Items acknowledged and carried forward from previous milestone close:
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| *(none — first milestone)* | | | |
+| historical UAT | Phase 19 browser scenarios | Passed; results recorded 2026-09-30 | 2026-09-30 |
+| historical UAT | Phases 20–22 checklists | Superseded by retired functionality and later UI phases | 2026-09-30 |
+| debug | knowledge-base | Resolved-debug reference, not active work | 2026-09-30 |
+| todo | comment-history guard residue | Deferred maintenance work | 2026-09-30 |
+| seed | SEED-007 / SEED-008 | Retained for v1.1 battery work | 2026-09-30 |
 
 ## Session Continuity
 
