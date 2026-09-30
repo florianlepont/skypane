@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 43
-status: human_needed
-stopped_at: "Phase 43 automated close-out complete (2026-09-30): requirements reconciled, retired screen_id and orphan production APIs removed, retrospective verification records added, focused xdist suite 484 + final browser-inclusive suite 232 passed. Milestone audit is human_needed for the explicit 06.4/10/19/31/32/36 checks before archive/tag."
+status: phase_complete
+stopped_at: "Phase 43 complete (2026-09-30): the developer confirmed the remaining 06.4/10/19/31/32/36 human checks. The v1.0 milestone audit is passed; archival awaits resolution or acknowledgement of unrelated legacy open artifacts reported by the close-out audit."
 last_updated: "2026-09-29T21:52:45.401Z"
 last_activity: 2026-09-29
 last_activity_desc: Phase 42 complete

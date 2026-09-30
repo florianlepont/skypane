@@ -20,7 +20,10 @@ human_verification:
 
 **Phase Goal:** Reduce the CI "test" job's wall-clock time by making `companion/test_browser_ux.py` run in true parallel instead of as one sequential ~300s+ script, without losing coverage or introducing flakiness (per ROADMAP.md's Phase 31 entry).
 **Verified:** 2026-09-22
-**Status:** human_needed
+**Status:** passed
+
+**Human result (2026-09-30):** The developer confirmed the real CI timing and
+reliability checks passed.
 **Re-verification:** No — initial verification
 
 ## Note on requirement-ID sourcing

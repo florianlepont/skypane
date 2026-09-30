@@ -2047,11 +2047,11 @@ Plans:
 **Out of scope:** the notification retry on a failed send (audit W2): the developer is deleting that function on another branch, and it lands on `main` once its CI series passes. Re-check after that merge. The five requirements left unticked by decision (CFG-37, 42, 50, 65, 74), whose reasons are recorded in the traceability table.
 **Requirements**: TBD
 **Depends on:** Phase 42
-**Plans:** 3/4 plans complete
+**Plans:** 4/4 plans complete
 
 Plans:
 
 - [x] 43-01-PLAN.md — Requirements reconciliation
 - [x] 43-02-PLAN.md — Code cleanup
 - [x] 43-03-PLAN.md — Retrospective verification
-- [ ] 43-04-PLAN.md — Final checks and milestone close
+- [x] 43-04-PLAN.md — Final checks and milestone close

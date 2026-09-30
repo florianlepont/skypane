@@ -1,7 +1,7 @@
 ---
 phase: 19-companion-audit-follow-through-fix-the-open-findings-from-18
 verified: 2026-09-11T17:00:39Z
-status: human_needed
+status: passed
 score: 23/23 must-haves verified (plus 5/5 requirement IDs satisfied)
 overrides_applied: 0
 human_verification:
@@ -41,7 +41,12 @@ human_verification:
 
 **Phase Goal:** Close every defect still open in 18-AUDIT.md (A-19 through A-39, plus the remainder of A-40) and the two small suggestions that belong with them (S-02 next-wake countdown, S-04 quiet-hours presets), keeping the everyday pages plain-language and the design contract intact — see 19-CONTEXT.md D-01..D-23.
 **Verified:** 2026-09-11T17:00:39Z
-**Status:** human_needed
+**Status:** passed
+
+**Human result (2026-09-30):** The developer confirmed the ten deferred
+real-browser, accessibility and interaction checks passed. The later Phase 43
+cleanup retired the single-valued screen selector described by this historical
+record; it is therefore no longer a live user-facing control.
 **Re-verification:** No — initial verification
 
 ## Goal Achievement
