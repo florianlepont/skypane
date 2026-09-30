@@ -1,20 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: MVP
-current_phase: 0
-status: milestone_complete
-stopped_at: "V1.0 archived on 2026-09-30. Start the next milestone with /gsd-new-milestone."
-last_updated: "2026-09-30T07:59:19.275Z"
+milestone: v1.1
+milestone_name: Battery and Companion!
+status: planning
+last_updated: "2026-09-30T09:14:16.164Z"
 last_activity: 2026-09-30
-last_activity_desc: Milestone v1.0 completed and archived
 progress:
-  total_phases: 55
-  completed_phases: 55
-  total_plans: 446
-  completed_plans: 446
-  percent: 100
-current_phase_name: planning-next-milestone
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -59,10 +55,10 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: Milestone v1.0 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-09-30 — Milestone v1.0 completed and archived
+Status: Defining requirements
+Last activity: 2026-09-30 — Milestone v1.1 started
 
 ## Position History (superseded entries, kept for the record)
 
