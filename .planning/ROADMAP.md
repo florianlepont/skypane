@@ -16,6 +16,7 @@ The following retained seeds are candidates for **v1.1**:
 
 - **SEED-007** — run a second battery-discharge study to distinguish wake energy use from deep-sleep leakage.
 - **SEED-008** — select the field wake interval and battery pack from the two discharge runs.
+- **SEED-010** — polish the companion interface after a fresh usability and visual walkthrough.
 
 The comment-history guard is deferred for later consideration. The historic RER view and physical-button ideas remain outside V1.0 scope.
 
