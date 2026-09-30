@@ -88,7 +88,7 @@ _NO_OFFBOX_BACKUP_IN_3_DAYS_TEXT = i18n.msg(
     "health.no_off_box_backup_in_the_last_3_days",
     "No off-box backup in the last 3 days.")
 
-# collect_anomalies()'s seven fixed anomaly sentences.
+# collect_anomalies()'s actionable anomaly sentences.
 _DEVICE_CHECK_IN_STALE_TEXT = i18n.msg(
     "health.device_check_in_is_stale", "Device check-in is stale.")
 _FLIGHT_DATA_STALE_TEXT = i18n.msg("health.flight_data_is_stale", "Flight data is stale.")
@@ -335,8 +335,6 @@ def collect_anomalies(
         anomalies.append(i18n.t(_BATTERY_DROPPED_ABNORMALLY_TEXT))
     if disagreement_warn:
         anomalies.append(i18n.t(_DATA_SOURCES_DISAGREED_RECENTLY_TEXT))
-    if coverage_state != "ok":
-        anomalies.append(i18n.t(_SOME_AIRLINES_ARE_UNIDENTIFIED_TEXT))
     if source_fault:
         anomalies.append(i18n.t(_ALL_DATA_SOURCES_FAILED_TEXT))
     offbox_text = _offbox_anomaly_text(offbox)
@@ -354,8 +352,10 @@ def overall_severity(
     wins outright, every ADS-B source failed so severity is "error"
     regardless of anything else; (2) otherwise "error" if any of the
     three states equals "error"; (3) otherwise "warn" if any state is
-    "warn", or `disagreement_warn`, `coverage_state`, or `offbox_state`
-    is "warn"; (4) otherwise "ok". `offbox_state` can never reach
+    "warn", or `disagreement_warn` or `offbox_state` is "warn"; (4)
+    otherwise "ok". `coverage_state` remains part of the snapshot for
+    the informational airline-coverage section, but never promotes the
+    page or navigation to a warning. `offbox_state` can never reach
     "error" here: a stale off-box backup is a warning, not a page-wide
     error. "off" (held frame / pipeline never run) is treated as
     healthy, so it can never light the nav notification dot.
@@ -365,10 +365,7 @@ def overall_severity(
     states = (device_state, pipeline_state, battery_state)
     if "error" in states:
         return "error"
-    if (
-        "warn" in states or disagreement_warn or coverage_state == "warn"
-        or offbox_state == "warn"
-    ):
+    if "warn" in states or disagreement_warn or offbox_state == "warn":
         return "warn"
     return "ok"
 
