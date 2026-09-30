@@ -290,20 +290,17 @@ RETURN_TO_FIELD_NAME = "return_to"
 # page module may not import a page-independent shell module's private
 # constants, so the id is redeclared here rather than imported.
 DISPLAY_PAGE_TITLE = i18n.msg("nav.display", "Display")
-DISPLAY_PAGE_PURPOSE = i18n.msg(
-    "display.everything_about_what_the_frame_shows_and_when",
-    "Everything about what the frame shows and when.")
 DEVICE_PAGE_TITLE = i18n.msg("nav.device", "Device")
 DEVICE_PAGE_PURPOSE = i18n.msg(
     "display.hardware_data_and_diagnostics_for_the_frame",
     "Hardware, data and diagnostics for the frame.")
 SCREEN_CAPTION_TEMPLATE = i18n.msg("display.screen", "Screen: %s")
 
-# The three headed supersections Display's own groups render under, in
-# this locked order. Each heading/intro pair renders through the shared
-# section-intro helper in layout.py.
+# Display has one appearance flow. The base sources come first; flight
+# rules are an optional override inside that flow, followed by the two
+# separate scheduling controls below it.
 DISPLAY_LOOK_SECTION_ID = "display-look"
-DISPLAY_LOOK_HEADING = i18n.msg("display.look", "Look")
+DISPLAY_LOOK_HEADING = i18n.msg("display.look", "What appears")
 DISPLAY_LOOK_INTRO = i18n.msg(
     "display.the_theme_flight_colours_and_calendar_that",
     "— the theme, flight colours and calendar that decide how the "
@@ -491,35 +488,19 @@ def _nested_wrapper_html(html_fragment, base_class, nested_class):
 
 
 def _display_groups_html(builders, groups):
-    """Display scope's two headed supersections: "What it watches"
-    (Runway) and "When it is on" (Quiet hours) — each card gets the
-    `--nested` modifier (`_nested_wrapper_html()`). Returns
-    `(watches_html, on_html)`.
+    """Display scope's independent Runway and Quiet hours cards.
 
-    Both cards render as siblings of the settings `<form>`, not inside
-    it: their own inputs cross-submit via `form="{SETTINGS_FORM_ID}"`,
-    since their instant-switch controls would otherwise need to nest a
-    `<form>` inside another `<form>`, which HTML forbids.
+    The cards carry their own headings, so the former supersection
+    headings repeated the same information. Both are siblings of the
+    settings form and keep their fields associated with it via `form=`.
     """
     runway_html = (
-        _nested_wrapper_html(builders[screens.GROUP_RUNWAY](), "theme-status", "theme-status--nested")
+        builders[screens.GROUP_RUNWAY]()
         if screens.GROUP_RUNWAY in groups else "")
-    watches_supersection_html = (
-        layout.section_intro_html(
-            DISPLAY_WATCHES_SECTION_ID, i18n.t(DISPLAY_WATCHES_HEADING),
-            i18n.t(DISPLAY_WATCHES_INTRO))
-        + runway_html
-    )
     quiet_hours_html = (
-        _nested_wrapper_html(
-            builders[screens.GROUP_QUIET_HOURS](), "theme-status", "theme-status--nested")
+        builders[screens.GROUP_QUIET_HOURS]()
         if screens.GROUP_QUIET_HOURS in groups else "")
-    on_supersection_html = (
-        layout.section_intro_html(
-            DISPLAY_ON_SECTION_ID, i18n.t(DISPLAY_ON_HEADING), i18n.t(DISPLAY_ON_INTRO))
-        + quiet_hours_html
-    )
-    return watches_supersection_html, on_supersection_html
+    return runway_html, quiet_hours_html
 
 
 def _device_groups_html(builders, groups):
@@ -664,9 +645,8 @@ def _group_builders(ctx, values, errors, submitted, next_wake_clock):
 
 
 def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, submitted, values, calendar_status, next_wake_iso):
-    """Display scope's own header, Frame strip, hidden scope fields and
-    the two headed supersections (Aspect card and Watches/On, via
-    `_display_groups_html()`). `groups_html` stays empty: every saved
+    """Display scope's own header, hidden scope fields, appearance flow,
+    and scheduling cards. `groups_html` stays empty: every saved
     control here cross-submits from outside the physical form via
     `form="{SETTINGS_FORM_ID}"`, exactly like Runway/Calendar's own
     cards already do.
@@ -676,17 +656,11 @@ def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, subm
     together (always both true or both false today). A future screen
     type with only one of the two must split this gate.
     """
-    # The strip and this freshness line are the only elements this page
-    # declares swappable (layout.REFRESH_SWAP_SELECTORS_BY_PAGE);
-    # everything else here is a <form>, and a swap mid-edit would
-    # corrupt it. The refresh loop also stands down while the save bar
-    # reports unsaved edits.
+    # Appearance controls are form-backed, so the refresh loop must not
+    # replace this page while a visitor is editing them.
     header = layout.page_header(
-        i18n.t(DISPLAY_PAGE_TITLE), purpose=i18n.t(DISPLAY_PAGE_PURPOSE),
-        freshness_html=layout.freshness_line_html(ctx.now),
-        action_html=_screen_caption_html(screen))
-    frame_strip_section_html = layout.frame_strip_html(
-        ctx, return_to=layout.DISPLAY_ROUTE, next_wake_iso=next_wake_iso)
+        i18n.t(DISPLAY_PAGE_TITLE), freshness_html=layout.freshness_line_html(ctx.now))
+    frame_strip_section_html = ""
     if screens.GROUP_THEME in groups:
         # departures_safe_theme_id() is resolved once here (Calendar's
         # own usage row needs it for its "same as departures" swatch
@@ -702,14 +676,20 @@ def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, subm
             errors=errors, submitted=submitted, state_dir=ctx.state_dir)
         rules_row_html = rules_usage_row_html(ctx)
         aspect_section_html = (
-            layout.section_intro_html(
-                DISPLAY_LOOK_SECTION_ID, i18n.t(DISPLAY_LOOK_HEADING), i18n.t(DISPLAY_LOOK_INTRO))
+            '<section class="display-appearance" aria-labelledby="%s">'
+            '<h2 id="%s" class="text-heading">%s</h2>'
             + _nested_wrapper_html(
                 _aspect_card_html(
                     values["theme_id"], values["theme_arriving"],
                     calendar_row_html, calendar_disconnect_form_html, rules_row_html,
                     errors=errors, submitted=submitted, state_dir=ctx.state_dir),
-                "page-section aspect-card", "page-section--nested"))
+                "page-section aspect-card", "page-section--nested")
+            + "</section>"
+        ) % (
+            escape_html(DISPLAY_LOOK_SECTION_ID),
+            escape_html(DISPLAY_LOOK_SECTION_ID),
+            escape_html(i18n.t(DISPLAY_LOOK_HEADING)),
+        )
     else:
         aspect_section_html = ""
     display_watches_html, display_on_html = _display_groups_html(builders, groups)

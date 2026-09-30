@@ -34,8 +34,6 @@ restoring these.
 
 MESSAGES = {
     # --- Display/Device page shells -------------------------------------
-    "display.everything_about_what_the_frame_shows_and_when":
-        "Tout ce que le cadre affiche, et quand.",
     "display.hardware_data_and_diagnostics_for_the_frame":
         "Matériel, données et diagnostics du cadre.",
     "display.settings": "Réglages",
@@ -45,7 +43,7 @@ MESSAGES = {
     "display.current": "Actuel",
 
     # --- Display's three supersections ----------------------------
-    "display.look": "Aspect",
+    "display.look": "Ce qui s’affiche",
     "display.the_theme_flight_colours_and_calendar_that":
         "— le thème, les couleurs de vol et le calendrier qui "
         "décident de l’apparence de l’image.",
@@ -75,11 +73,11 @@ MESSAGES = {
     # FR-completeness harness fails an untranslated id regardless of
     # the two words being the same. A different id from "display.look"
     # above (Display's supersection heading), not a duplicate of it.
-    "display.aspect": "Aspect",
+    "display.aspect": "Choisir l’apparence",
     "display.departures": "Départs",
     "display.arrivals": "Arrivées",
     "display.calendar_flights": "Vols du calendrier",
-    "display.per_flight_rules": "Règles par vol",
+    "display.per_flight_rules": "Règles par vol facultatives",
     "display.same_as_departures": "Comme les départs",
     "display.1_rule": "1 règle",
     "display.rules": "%d règles",

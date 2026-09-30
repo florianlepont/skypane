@@ -85,7 +85,7 @@ def _theme_label_message(theme_id):
 # branch keys), never submitted to handle_post() — distinct from the
 # three saved field names (theme/theme_arriving/calendar_theme_id)
 # each row's own palette posts through via form="settings-form".
-ASPECT_HEADING = i18n.msg("display.aspect", "Aspect")
+ASPECT_HEADING = i18n.msg("display.aspect", "Choose an appearance")
 ASPECT_HEADING_ID = "aspect-heading"
 COLOUR_USAGE_DEPARTURES = "departures"
 COLOUR_USAGE_ARRIVALS = "arrivals"
@@ -101,7 +101,8 @@ FRAME_COLOURS_ROW_LABELS = {
     COLOUR_USAGE_DEPARTURES: i18n.msg("display.departures", "Departures"),
     COLOUR_USAGE_ARRIVALS: i18n.msg("display.arrivals", "Arrivals"),
     COLOUR_USAGE_CALENDAR: i18n.msg("display.calendar_flights", "Calendar flights"),
-    COLOUR_USAGE_RULES: i18n.msg("display.per_flight_rules", "Per-flight rules"),
+    COLOUR_USAGE_RULES: i18n.msg(
+        "display.per_flight_rules", "Optional per-flight rules"),
 }
 
 ASPECT_ROWS_GROUP_NAME = "aspect-rows"
