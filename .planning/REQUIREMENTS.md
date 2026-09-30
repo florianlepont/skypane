@@ -58,17 +58,17 @@
 
 | Requirement | Phase | Status |
 |---|---|---|
-| BAT-01 | Phase 44 | Pending |
-| BAT-02 | Phase 44 | Pending |
-| BAT-03 | Phase 45 | Pending |
-| BAT-04 | Phase 45 | Pending |
-| POL-01 | Phase 45 | Pending |
-| POL-02 | Phase 45 | Pending |
-| POL-03 | Phase 45 | Pending |
-| CMP-01 | Phase 46 | Pending |
-| CMP-02 | Phase 46 | Pending |
-| CMP-03 | Phase 46 | Pending |
-| CMP-04 | Phase 46 | Pending |
+| BAT-01 | Phase 45 | Pending |
+| BAT-02 | Phase 45 | Pending |
+| BAT-03 | Phase 46 | Pending |
+| BAT-04 | Phase 46 | Pending |
+| POL-01 | Phase 46 | Pending |
+| POL-02 | Phase 46 | Pending |
+| POL-03 | Phase 46 | Pending |
+| CMP-01 | Phase 44 | Pending |
+| CMP-02 | Phase 44 | Pending |
+| CMP-03 | Phase 44 | Pending |
+| CMP-04 | Phase 44 | Pending |
 | VAL-01 | Phase 47 | Pending |
 | VAL-02 | Phase 47 | Pending |
 
@@ -79,4 +79,4 @@
 
 ---
 *Requirements defined: 2026-09-30*
-*Last updated: 2026-09-30 after V1.1 roadmap creation*
+*Last updated: 2026-09-30 after V1.1 roadmap order change*

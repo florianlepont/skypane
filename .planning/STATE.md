@@ -2,11 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Battery and Companion!
-status: planning
 current_phase: 44
-current_phase_name: controlled-second-discharge-study
-last_updated: "2026-09-30T13:19:36Z"
+current_phase_name: Companion Walkthrough and Focused Bilingual Polish
+status: planning
+stopped_at: "Completed 42-16-PLAN.md (OTA hardware session on the real frame: all H42 rows PASS except H42-00b N/A; four defects recorded, unsigned-image boot abort fixed in PR #159; validation record closed). Plan 16 of 16 done; Phase 42 ready for verification. REQUIREMENTS.md is marked by the orchestrator at phase close."
+last_updated: "2026-09-30T14:15:30.417Z"
 last_activity: 2026-09-30
+last_activity_desc: "V1.1 roadmap reordered: companion polish comes first"
 progress:
   total_phases: 4
   completed_phases: 0
@@ -53,14 +55,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-30)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 44 — Controlled Second Discharge Study
+**Current focus:** Phase 44 — Companion Walkthrough and Focused Bilingual Polish
 
 ## Current Position
 
-Phase: 44 of 47 (Controlled Second Discharge Study)
+Phase: 44 of 47 (Companion Walkthrough and Focused Bilingual Polish)
 Plan: —
 Status: Ready to plan
-Last activity: 2026-09-30 — V1.1 roadmap created from the research synthesis
+Last activity: 2026-09-30 — V1.1 roadmap reordered: companion polish comes first
 
 ## Position History (superseded entries, kept for the record)
 
@@ -598,6 +600,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 - Phase 29 added (2026-09-21): Companion review feedback round 3 — the developer's own tour of the deployed app (eight cases, screenshots), six in scope (CFG-79..CFG-84), plus three leftovers of the measured 2026-09-17 audit chosen by the developer (Compagnies label truncation + gallery order, Vols paginated, État title); the 44 px tap-target item was not selected. Five one-line fixes from the tour ship ahead as quick task Lot A.
 - Phase 30 added (2026-09-21): Aspect rebuilt — one tile, three rows, one palette, the calendar absorbed (CFG-85, CFG-86); a `/gsd-sketch` round (accordion vs. segments) precedes planning; depends on Phase 29 so Display is not reworked twice.
 - Ops note (2026-09-21), not a phase: the companion's address `config-<ip>.nip.io` is to be replaced by a real domain the developer will buy (companion only; the device hostname stays on nip.io to avoid re-provisioning the frame). Recipe already in `deploy/Caddyfile`'s header: A record → VPS IP, the second site block's address, `SKYPANE_COMPANION_PUBLIC_HOST` in the env, `systemctl reload caddy`.
+- Phase 44 reordered: Companion walkthrough and focused bilingual polish moved ahead of the battery study by developer decision.
 
 ### Decisions
 
