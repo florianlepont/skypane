@@ -39,6 +39,10 @@ the frame's battery policy.
   as the design brief for the next proposal. Record it faithfully first, then
   present a coherent desktop and mobile proposal for approval before changing
   production code.
+- **D-12:** Use the approved Display flow: what appears, choose its accurate
+  appearance, optionally override it per flight, then configure Quiet hours.
+- **D-13:** On Airlines, visibly separate source information from owner
+  changes and provide a discoverable selector for every known aircraft type.
 - **D-05:** Fix only confirmed, high-value walkthrough findings. Preserve the
   established calm editorial design; do not perform a wholesale restyle,
   introduce a UI framework, or duplicate application state.

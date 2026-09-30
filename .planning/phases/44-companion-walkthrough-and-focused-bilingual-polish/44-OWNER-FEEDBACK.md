@@ -16,6 +16,10 @@ decision, and make the next action obvious.
 - The owner selected Direction B, "The frame signal", as the General-page
   baseline: a concise current frame state first, with recent flights following
   it and the actual image accessible as supporting detail.
+- The owner approved the Display configuration model: what appears → choose
+  its appearance → optional per-flight rule override → Quiet hours.
+- The owner approved the Airlines source-information and owner-changes
+  distinction, including a discoverable aircraft-type selector.
 
 ## Navigation
 

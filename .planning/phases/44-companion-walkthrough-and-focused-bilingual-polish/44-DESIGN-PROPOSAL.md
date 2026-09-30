@@ -73,6 +73,9 @@ cadence in one plain sentence only when it helps understand a delay.
 
 ## Display
 
+**Owner decision:** The configuration model is approved: what appears → choose
+its appearance → optional per-flight rule override → Quiet hours.
+
 Display is a three-part configuration flow, with a single live frame preview:
 
 1. **What appears** — Departures, arrivals, and calendar flights each expose
@@ -96,6 +99,9 @@ intro. Filtering can remain available only when it has a concrete user need,
 without tutorial copy occupying the page.
 
 ## Airlines
+
+**Owner decision:** The source-information and owner-changes distinction,
+including the discoverable aircraft-type selector, is approved.
 
 Airlines becomes an explicit two-level editor:
 
@@ -156,10 +162,10 @@ and one explicit install action.
    and **Advanced settings**.
 2. **Approved:** Use the General page's frame-signal-first desktop split and
    mobile sequence from Direction B.
-3. Approve the Display configuration model: source → accurate appearance →
-   optional rule override → schedule.
-4. Approve the Airlines distinction between source information and owner
-   changes, including the aircraft-type selector.
+3. **Approved:** Use the Display configuration model: what appears → accurate
+   appearance → optional rule override → Quiet hours.
+4. **Approved:** Separate source information from owner changes and provide a
+   discoverable aircraft-type selector on Airlines.
 
 After these decisions, focused plans will be created only for the accepted
 seams and files.
