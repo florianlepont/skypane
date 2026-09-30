@@ -4,6 +4,8 @@
 
 An e-ink wall/desk frame that shows real-time departure info for flights taking off from Paris-Orly (ORY) runway 3. Built on the same "wake → poll → display → deep sleep" architecture as the flightportrait reference project, running on battery power, with a small always-on cloud server generating the display images. v1 ships as a single-view (plane-only) device; the next RER trains from Orly-Ville station and the physical button to switch between views are deferred to v2 (2026-08-11 scope decision — see Key Decisions).
 
+**Milestone status (2026-09-30):** V1.0 (MVP) is complete and archived. The next milestone has not yet been scoped; the two retained battery studies (SEED-007 and SEED-008) are candidates for V1.1.
+
 ## Core Value
 
 Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
