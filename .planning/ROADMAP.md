@@ -3,23 +3,73 @@
 ## Milestones
 
 - [x] **v1.0 — MVP** — shipped and archived on 2026-09-30. The complete phase plan and its evidence are in [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md), [milestones/v1.0-REQUIREMENTS.md](milestones/v1.0-REQUIREMENTS.md), and [milestones/v1.0-MILESTONE-AUDIT.md](milestones/v1.0-MILESTONE-AUDIT.md).
+- [ ] **v1.1 — Battery and Companion!** — Phases 44–47. Measure real battery behaviour, set a field operating policy, polish the companion from observed use, and validate the result on the frame.
 
-## Current status
+## Overview
 
-V1.0 is complete. The frame’s flight display, companion application, deployment, power controls, and signed OTA update path have all passed their automated and recorded human checks. The v1.0 tag identifies the completed release.
+V1.1 turns the existing field telemetry into an operating decision. A second controlled discharge study provides the missing evidence to separate wake consumption from deep-sleep leakage; the two-run analysis then determines the normal wake interval and whether the current battery pack remains appropriate. In parallel with the measurement, the companion receives a task-based bilingual usability review and only the highest-value confirmed fixes. The milestone closes when the selected policy is observed on the real frame and recorded as the new operating baseline.
 
-## Next milestone
+## Phases
 
-No scope has been selected yet. Start it with `/gsd-new-milestone` when ready.
+**Phase Numbering:**
+- Integer phases are planned milestone work.
+- Decimal phases are urgent insertions created only when needed.
 
-The following retained seeds are candidates for **v1.1**:
+- [ ] **Phase 44: Controlled Second Discharge Study** - Produce reproducible, comparable alternate-cadence battery evidence.
+- [ ] **Phase 45: Two-Run Battery Analysis and Operating Decision** - Derive the model and select the field cadence and pack policy.
+- [ ] **Phase 46: Companion Walkthrough and Focused Bilingual Polish** - Resolve the highest-value observed companion friction without a redesign.
+- [ ] **Phase 47: Integrated Field Validation and Decision Record** - Confirm the policy on the real frame and publish the operating baseline.
 
-- **SEED-007** — run a second battery-discharge study to distinguish wake energy use from deep-sleep leakage.
-- **SEED-008** — select the field wake interval and battery pack from the two discharge runs.
-- **SEED-010** — polish the companion interface after a fresh usability and visual walkthrough.
+## Phase Details
 
-The comment-history guard is deferred for later consideration. The historic RER view and physical-button ideas remain outside V1.0 scope.
+### Phase 44: Controlled Second Discharge Study
+**Goal**: The owner can reproduce a second battery-discharge study whose evidence is comparable to the first study and usable for a two-run model.
+**Depends on**: Phase 43
+**Requirements**: BAT-01, BAT-02
+**Success Criteria** (what must be TRUE):
+  1. The owner can run the current pack through a second controlled discharge at a materially different effective wake cadence while retaining a comparable normal poll workload.
+  2. The recorded study identifies its actual cadence, firmware and server baseline, observation window, battery endpoints, and raw observation export.
+  3. The owner can inspect separate continuity and voltage-validity evidence for the completed observation window.
+**Plans**: TBD
 
-## Archived milestone
+### Phase 45: Two-Run Battery Analysis and Operating Decision
+**Goal**: The owner can use two observed battery runs to choose and apply one defensible field operating policy.
+**Depends on**: Phase 44
+**Requirements**: BAT-03, BAT-04, POL-01, POL-02, POL-03
+**Success Criteria** (what must be TRUE):
+  1. The owner can reproduce a two-run model from observed elapsed time and cycle counts that separates per-wake energy from standing deep-sleep consumption.
+  2. The model states its assumptions, uncertainty, and the fact that the baseline workload does not measure image-download or display-refresh energy.
+  3. The owner can document one normal wake interval with its freshness and autonomy rationale, plus a retain-or-replace battery-pack decision against compatibility and calibration criteria.
+  4. The selected interval saves through Companion Device settings and reaches a healthy frame as `sleep_s` while battery-critical and display-off safety policies retain precedence.
+**Plans**: TBD
 
-The original V1.0 roadmap is preserved without truncation at [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md). It is the authoritative historical record for phases 1–43 and the earlier decimal phases.
+### Phase 46: Companion Walkthrough and Focused Bilingual Polish
+**Goal**: The owner can complete the companion's daily flows with walkthrough-proven usability fixes in English and French.
+**Depends on**: Phase 43 (the walkthrough may run while Phase 44 is observing)
+**Requirements**: CMP-01, CMP-02, CMP-03, CMP-04
+**Success Criteria** (what must be TRUE):
+  1. The owner can complete and review a recorded task-based walkthrough of Home, Display, Flights, Airlines, Health, Device, and Update in English and French at desktop and narrow-mobile widths.
+  2. Every observed walkthrough issue has a reproducible trigger, user-impact assessment, and a recorded keep, fix-now, or defer decision.
+  3. The owner can use every V1.1-changed companion flow with matching English and French meaning, responsive layout, semantic controls, visible keyboard focus, and clear saved or error feedback.
+  4. Confirmed high-value findings are resolved through the established route, page-context, template, static-asset, and i18n boundaries.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 47: Integrated Field Validation and Decision Record
+**Goal**: The selected field policy is confirmed on the real frame and recorded as the current operating baseline.
+**Depends on**: Phase 45, Phase 46
+**Requirements**: VAL-01, VAL-02
+**Success Criteria** (what must be TRUE):
+  1. The owner can confirm on the real frame that the selected cadence produces the expected healthy check-in behaviour.
+  2. The real-frame validation confirms that battery-critical and display-off safety overrides still take precedence over the normal cadence.
+  3. The project records the final wake-interval decision, its evidence-based rationale, and the validation status of any battery-pack change.
+**Plans**: TBD
+
+## Progress
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 44. Controlled Second Discharge Study | v1.1 | 0/TBD | Not started | - |
+| 45. Two-Run Battery Analysis and Operating Decision | v1.1 | 0/TBD | Not started | - |
+| 46. Companion Walkthrough and Focused Bilingual Polish | v1.1 | 0/TBD | Not started | - |
+| 47. Integrated Field Validation and Decision Record | v1.1 | 0/TBD | Not started | - |

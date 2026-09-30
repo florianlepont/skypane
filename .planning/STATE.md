@@ -3,10 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Battery and Companion!
 status: planning
-last_updated: "2026-09-30T09:14:16.164Z"
+current_phase: 44
+current_phase_name: controlled-second-discharge-study
+last_updated: "2026-09-30T13:19:36Z"
 last_activity: 2026-09-30
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -48,17 +50,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-08-04)
+See: .planning/PROJECT.md (updated 2026-09-30)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 42 — remote-firmware-update-over-the-air-ota-promoted-from-seed-0
+**Current focus:** Phase 44 — Controlled Second Discharge Study
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 44 of 47 (Controlled Second Discharge Study)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-09-30 — Milestone v1.1 started
+Status: Ready to plan
+Last activity: 2026-09-30 — V1.1 roadmap created from the research synthesis
 
 ## Position History (superseded entries, kept for the record)
 
