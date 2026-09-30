@@ -88,6 +88,35 @@ decision, and make the next action obvious.
   changes, understand which company- and aircraft-type-level actions exist,
   and find those actions without guessing.
 
+## Health
+
+- Remove the freshness line and the page-description sentence that combines
+  frame state with server-data quality; neither helps the owner act.
+- Do not treat an unidentified airline as a warning. There will always be
+  unknown companies, so this is informational background rather than an
+  actionable problem.
+- Constrain wide desktop status cards to a readable content width. The current
+  full-width tiles leave an unattractive, uninformative empty area.
+- Remove the physical-frame explanatory subtitle. Add a short, plain-language
+  explanation next to "last device connection" so the meaning of that status
+  is clear where it is needed.
+- Remove the "three months" battery range label and any explanation of that
+  scale; it creates noise rather than helping the owner.
+- Let the battery chart switch between percentage and voltage readings.
+- Reduce the visual weight of the "view the 20 readings" control.
+- Remove the expanded battery-details toggle and its technical explanatory
+  text.
+- Replace the repeated and unclear last-aircraft-detected wording with one
+  understandable status.
+- Replace the large source-comparison explanation toggle with a compact
+  information icon and hover/focus help that explains the result when wanted.
+- Remove the repeated instruction explaining that each "Resolve" link opens
+  Airlines.
+- Correct the visual hierarchy throughout: a healthy-server result with a
+  green status mark must be more prominent than its secondary detail text.
+- Replace "Our ability to identify flights" with a plainer, more useful
+  section title; the exact wording remains a proposal decision.
+
 ## Deferred review
 
 The owner will provide feedback for the remaining companion pages before a
