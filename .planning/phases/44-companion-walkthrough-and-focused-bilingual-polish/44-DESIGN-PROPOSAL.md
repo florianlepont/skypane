@@ -47,8 +47,9 @@ non-interactive freshness state. It must never overflow at 360 px.
 
 ## General
 
-General becomes an editorial overview of the frame rather than a diagnostics
-dashboard.
+**Owner decision:** Direction B, "The frame signal", is approved as the
+baseline. General becomes a concise overview of the frame rather than a
+diagnostics dashboard.
 
 ```text
 Desktop
@@ -61,12 +62,14 @@ Desktop
 [Battery: 94%]              [Actionable warning, only if one exists]
 ```
 
-The large frame image is the visual anchor. Recent flights remain adjacent on
-desktop and follow the image on mobile. Battery stays as a compact, readable
-fact. Connection, data-source, and schedule tiles disappear while healthy;
-an actionable problem becomes a short linked status instead. The daily activity
-band moves to Status. The next-refresh state explains the cadence in one plain
-sentence only when it helps understand a delay.
+The current frame signal is the visual anchor: latest flight, route, generated
+time, and a compact normal-or-action-needed state. Recent flights remain
+adjacent on desktop and follow this signal on mobile. The actual frame image is
+available from the signal rather than competing with it. Battery stays as a
+compact, readable fact. Connection, data-source, and schedule tiles disappear
+while healthy; an actionable problem becomes a short linked status instead.
+The daily activity band moves to Status. The next-refresh state explains the
+cadence in one plain sentence only when it helps understand a delay.
 
 ## Display
 
@@ -151,7 +154,8 @@ and one explicit install action.
 
 1. Approve or change the navigation labels, particularly **General**, **Status**,
    and **Advanced settings**.
-2. Approve the General page's image-first desktop split and mobile sequence.
+2. **Approved:** Use the General page's frame-signal-first desktop split and
+   mobile sequence from Direction B.
 3. Approve the Display configuration model: source → accurate appearance →
    optional rule override → schedule.
 4. Approve the Airlines distinction between source information and owner

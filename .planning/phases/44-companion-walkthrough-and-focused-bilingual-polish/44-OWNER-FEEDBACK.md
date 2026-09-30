@@ -11,6 +11,12 @@ technical knowledge. It should show the current state in plain language,
 remove repeated information, explain only what is needed at the moment of a
 decision, and make the next action obvious.
 
+## Approved direction
+
+- The owner selected Direction B, "The frame signal", as the General-page
+  baseline: a concise current frame state first, with recent flights following
+  it and the actual image accessible as supporting detail.
+
 ## Navigation
 
 - Remove the "screen on" and "quiet hours enabled" status text from its
