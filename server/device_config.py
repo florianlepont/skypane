@@ -221,7 +221,7 @@ def normalise_wake_interval_s(value):
 def load_device_config(state_dir):
     """Read device_config.json; a missing/unreadable/malformed/non-dict
     file falls back to an empty dict, never raises. Always returns all
-    eleven keys with valid values via the normalise_*() functions above,
+    ten keys with valid values via the normalise_*() functions above,
     so a hostile or stale value on disk never reaches a caller.
     `theme_arriving`, `calendar_theme_id` are read with
     `.get()` so an older file missing them resolves to their documented
