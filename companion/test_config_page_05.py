@@ -30,7 +30,7 @@ import companion.layout as layout
 import companion.prefs as prefs
 import companion.test_config_page_helpers as cp
 from companion import app as companion_app
-from companion import battery, frame_state
+from companion import battery
 from companion.layout import escape_html
 from companion.pages import config_page
 from companion.settings import form_post, wake_interval
@@ -112,8 +112,8 @@ _FLOOR_CTX = {
 }
 # Minimums pinned a little below the observed figures - re-derived by RUNNING this exact
 # fixture through this exact selector.
-_FLOOR_MIN_MEASURED = {"display": 10, "device": 6}
-_FLOOR_EXPECTED_SKIPS = {"display": len(config_page.ASPECT_CAPTION_EXEMPTIONS), "device": 0}
+_FLOOR_MIN_MEASURED = {"display": 5, "device": 6}
+_FLOOR_EXPECTED_SKIPS = {"display": 1, "device": 0}
 
 
 def _measured_section_captions(rendered):
@@ -136,12 +136,8 @@ def _measured_section_captions(rendered):
 def test_settings_pages_editorial_floor_render_level_both_languages():
     """the settings-pages editorial floor, measured on the RENDERED page (never a source scan):
     every non-exempt .section-caption element on /display and /device is at most 12
-    whitespace-split words in both languages; ASPECT_CAPTION_EXEMPTIONS is skipped exactly 4
-    times on /display and exactly 0 times on /device (proving the exemption reachable and not
-    silently over-broad); and the apply-timing sentence - read from frame_state.py's own
-    DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN constants - never renders outside the Frame strip's own
-    markup slice, proven to actually fire inside it at least once so the assertion is not
-    vacuous"""
+    whitespace-split words in both languages; ASPECT_CAPTION_EXEMPTIONS is skipped exactly once
+    on /display for the protected calendar privacy explanation and never on /device"""
     exempt_by_lang = {
         lang: {
             cp.caption_word_count_text(i18n.t_lang(text, lang))
@@ -149,10 +145,6 @@ def test_settings_pages_editorial_floor_render_level_both_languages():
         }
         for lang in ("en", "fr")
     }
-    apply_timing_templates = (
-        frame_state.DELAY_DUE, frame_state.DELAY_HELD, frame_state.DELAY_UNKNOWN)
-
-    any_inside_strip = False
     for page_name, scope in (
             ("display", config_page.SCOPE_DISPLAY), ("device", config_page.SCOPE_DEVICE)):
         for lang in ("en", "fr"):
@@ -180,37 +172,6 @@ def test_settings_pages_editorial_floor_render_level_both_languages():
             assert skip_count == _FLOOR_EXPECTED_SKIPS[page_name], (
                 "%s/%s: expected exactly %d Aspect-exemption skip(s), got %d"
                 % (page_name, lang, _FLOOR_EXPECTED_SKIPS[page_name], skip_count))
-
-            strip_start = rendered.find(
-                '<div class="frame-strip stat-tile stat-tile--accent"')
-            strip_end = (
-                rendered.find('<form class="config-form"', strip_start)
-                if strip_start != -1 else -1)
-            outside_matches = []
-            for start, _end, fragment in captions:
-                text = cp.caption_word_count_text(fragment)
-                for template in apply_timing_templates:
-                    translated = i18n.t_lang(template, lang)
-                    if "%s" in translated:
-                        pattern = re.escape(translated).replace(re.escape("%s"), r".+?")
-                    else:
-                        pattern = re.escape(translated)
-                    if not re.search(pattern, text):
-                        continue
-                    if strip_start != -1 and strip_start <= start < strip_end:
-                        any_inside_strip = True
-                    else:
-                        outside_matches.append(
-                            "%s/%s at offset %d (%r): %r"
-                            % (page_name, lang, start, text[:80], text))
-                    break
-            assert not outside_matches, (
-                "the apply-timing sentence rendered outside the Frame strip's own slice: %s"
-                % ("; ".join(outside_matches),))
-    assert any_inside_strip, (
-        "the apply-timing relationship never matched INSIDE the Frame strip either - this "
-        "assertion is vacuous unless it is proven to fire on the strip's own, untouched "
-        "markup at least once")
 
 
 # ======================================================================
@@ -510,6 +471,58 @@ def test_control_with_both_hint_and_error_carries_both_ids_in_order():
 # ======================================================================
 # Section 6: the live theme preview.
 # ======================================================================
+
+@pytest.mark.parametrize(
+    ("lang", "what_appears", "choose_appearance", "optional_rules"),
+    [
+        ("en", "What appears", "Choose an appearance", "Optional per-flight rules"),
+        ("fr", "Ce qui s’affiche", "Choisir l’apparence", "Règles par vol facultatives"),
+    ],
+)
+def test_display_uses_one_bilingual_appearance_flow_without_duplicate_framing(
+        lang, what_appears, choose_appearance, optional_rules):
+    """the served Display page starts with one base-appearance flow, places the optional
+    per-flight override after its three base sources, and keeps its native settings form while
+    omitting the retired screen/status framing in both languages"""
+    prefs.set_request_prefs(lang=lang)
+    try:
+        rendered = config_page.render(
+            {
+                "device_config": {"theme": "blue", "tracked_runway": "3"},
+                "colour_rules": {},
+                "poll_cooldown_remaining": 0,
+            },
+            scope=config_page.SCOPE_DISPLAY,
+        )
+    finally:
+        prefs.set_request_prefs(lang="en")
+
+    appearance_heading = '<h2 id="%s" class="text-heading">%s</h2>' % (
+        config_page.DISPLAY_LOOK_SECTION_ID, escape_html(what_appears))
+    card_heading = '<h2 class="text-heading" id="%s">%s</h2>' % (
+        config_page.ASPECT_HEADING_ID, escape_html(choose_appearance))
+    assert rendered.count('class="theme-live-preview aspect-card__preview"') == 1
+    assert appearance_heading in rendered and card_heading in rendered
+    assert rendered.index(appearance_heading) < rendered.index(card_heading)
+    base_positions = [
+        rendered.index('data-usage="%s"' % usage)
+        for usage in (
+            config_page.COLOUR_USAGE_DEPARTURES,
+            config_page.COLOUR_USAGE_ARRIVALS,
+            config_page.COLOUR_USAGE_CALENDAR,
+        )
+    ]
+    rules_position = rendered.index('data-usage="%s"' % config_page.COLOUR_USAGE_RULES)
+    assert base_positions == sorted(base_positions) and base_positions[-1] < rules_position
+    assert optional_rules in rendered
+    assert 'class="page-header__screen' not in rendered
+    assert 'class="page-header__purpose' not in rendered
+    assert 'class="frame-strip' not in rendered
+    assert '<form class="config-form" id="%s"' % config_page.SETTINGS_FORM_ID in rendered
+    for field_name in ("theme", "theme_arriving", "calendar_theme_id"):
+        assert 'name="%s"' % field_name in rendered
+        assert 'name="%s"' % field_name in rendered and 'form="%s"' % config_page.SETTINGS_FORM_ID in rendered
+
 
 def test_aspect_display_render_has_exactly_one_live_preview_figure_eager_with_dimensions():
     """a Display render contains exactly one .theme-live-preview.aspect-card__preview figure
