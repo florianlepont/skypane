@@ -456,10 +456,10 @@ def latest_device_health(conn):
     return dict(row) if row is not None else None
 
 
-def _instant_or_none(ts):
+def instant_or_none(ts):
     """Parse a stored `device_health.ts` string into a timezone-aware UTC
     `datetime`, or `None` if it doesn't parse. A naive `ts` is taken as
-    UTC. The one parse path in this module - `_paris_day_or_none()` and
+    UTC. The one parse path in this module - `paris_day_or_none()` and
     `check_in_gaps()` both go through it, so a day-bucketing and an
     interval-dating decision can never disagree. `ts` is attacker-
     influenceable (see `tail_caddy_battery_log()`); every caller handles
@@ -474,12 +474,12 @@ def _instant_or_none(ts):
     return parsed
 
 
-def _paris_day_or_none(ts):
+def paris_day_or_none(ts):
     """A stored `device_health.ts` string's Europe/Paris calendar `date`,
     or `None` if it doesn't parse - e.g. `2026-09-02T01:30:00+02:00`
     buckets to `2026-09-02` in Paris, not `2026-09-01` in UTC.
     """
-    parsed = _instant_or_none(ts)
+    parsed = instant_or_none(ts)
     if parsed is None:
         return None
     return parsed.astimezone(ZoneInfo("Europe/Paris")).date()
@@ -529,14 +529,14 @@ def check_in_gaps(conn, since=None):
 
     gaps = []
     for earlier, later in zip(series, series[1:]):
-        start = _instant_or_none(earlier["ts"])
-        end = _instant_or_none(later["ts"])
+        start = instant_or_none(earlier["ts"])
+        end = instant_or_none(later["ts"])
         if start is None or end is None:
             gap_s = None
         else:
             delta = (end - start).total_seconds()
             gap_s = int(round(delta)) if delta >= 0 else None
-        day = _paris_day_or_none(later["ts"])
+        day = paris_day_or_none(later["ts"])
         gaps.append({
             "ts": later["ts"],
             "from_ts": earlier["ts"],
@@ -553,7 +553,7 @@ def daily_battery_averages(conn, since=None):
     these rows are structurally interchangeable with
     `recent_device_health()`'s for `battery_sparkline_svg()`.
 
-    Bucketing happens in Python via `_paris_day_or_none()`, not SQL:
+    Bucketing happens in Python via `paris_day_or_none()`, not SQL:
     there's no SQL fixed-offset modifier that's DST-correct for
     Europe/Paris, but `ZoneInfo` resolves the fold correctly across both
     transitions. A row whose `ts` doesn't parse forms no bucket, rather
@@ -575,7 +575,7 @@ def daily_battery_averages(conn, since=None):
 
     buckets = {}
     for row in rows:
-        day = _paris_day_or_none(row["ts"])
+        day = paris_day_or_none(row["ts"])
         if day is None:
             continue
         total, count = buckets.get(day, (0, 0))
@@ -751,17 +751,3 @@ def apply_caddy_battery_log(conn, readings, new_offset):
         )
     set_meta(conn, META_CADDY_LOG_OFFSET, str(new_offset))
     return inserted
-
-
-def ingest_caddy_battery_log(conn, log_path):
-    """Read and apply in one call - `read_caddy_battery_log()` followed by
-    `apply_caddy_battery_log()` - for a caller with no reason to split the
-    file read from the DB write (a script, a test, or any writer not
-    itself inside a shared multi-write transaction). Returns rows
-    actually inserted; 0 for a missing log file.
-    """
-    result = read_caddy_battery_log(conn, log_path)
-    if result is None:
-        return 0
-    readings, new_offset = result
-    return apply_caddy_battery_log(conn, readings, new_offset)

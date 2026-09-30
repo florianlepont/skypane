@@ -54,7 +54,7 @@ GALLERY_DEFAULT_LIMIT = 30
 # build_page_context(). Order matches companion/pages/__init__.py's own
 # contract docstring.
 EAGER_FIELDS = (
-    "state_dir", "ui_theme", "lang", "device_config", "screen_id",
+    "state_dir", "ui_theme", "lang", "device_config",
     "last_checkin_ts", "battery_critical", "wake_interval_env_default",
     "flash", "flash_role", "runway_images", "now", "resolve_prefix",
     "flights_limit",
@@ -346,7 +346,7 @@ def build_page_context(handler):
     # ContextVar defaults to English, so setting the language late
     # would build health markup in the wrong language.
     prefs.set_request_prefs(lang=handler._lang_from_request())
-    # Loaded once, reused for both "device_config" and "screen_id".
+    # Loaded once for all settings used by this request.
     device_cfg = device_config.load_device_config(state_dir)
     # Reused by resolve_flash_text()'s FLASH_KEY_SAVED special case.
     last_checkin_ts = _safe_last_checkin_ts(state_dir)
@@ -369,12 +369,6 @@ def build_page_context(handler):
             "ui_theme": handler._resolved_ui_theme(),
             "lang": prefs.current_lang(),
             "device_config": device_cfg,
-            # The persisted screen_id, read from the same
-            # device_config dict already loaded above — consumed via
-            # companion.screens.current_screen_id(ctx), which already
-            # falls back to DEFAULT_SCREEN_ID for a missing/unknown
-            # value.
-            "screen_id": device_cfg.get("screen_id"),
             # Data only; the page module formats it, matching
             # wake.py's no-view-dependency rule.
             "last_checkin_ts": last_checkin_ts,

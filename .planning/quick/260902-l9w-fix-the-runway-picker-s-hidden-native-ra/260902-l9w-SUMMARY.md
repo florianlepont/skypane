@@ -27,10 +27,13 @@ decisions: []
 metrics:
   duration: "~1h10m"
   completed: "2026-09-02"
-status: incomplete
+status: complete
 ---
 
 # Quick Task 260902-l9w: Fix the Runway picker's hidden native radio touch-target leak Summary
+
+**Close-out result (2026-09-30):** The developer confirmed the mobile runway
+picker behaves correctly; the stale `incomplete` status is closed.
 
 One-liner: cleared the site-wide 44px WCAG 2.5.5 touch-target floor off `.visually-hidden` form controls with a new `input.visually-hidden, select.visually-hidden` rule, so the three Runway-picker radios shrink to their intended 1x1px off-screen box instead of painting a real 44x44px native radio dot on mobile browsers.
 

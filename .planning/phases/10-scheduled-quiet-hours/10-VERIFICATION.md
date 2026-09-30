@@ -21,7 +21,10 @@ human_verification:
 **Phase Goal:** The frame sleeps through a configurable daily quiet-hours window instead of waking to poll. One recurring Europe/Paris start/end window plus an independent enabled flag (D-03/D-04) is set on the companion Settings page; the server extends the device's `sleep_s` past the window's end so it never wakes, connects or polls during it (D-01); and the panel shows a one-time "QUIET HOURS / Back at HH:MM" screen at window entry (D-05/D-06), with no symmetric screen at exit (D-07).
 
 **Verified:** 2026-09-03T22:45:00Z
-**Status:** human_needed
+**Status:** passed
+
+**Human result (2026-09-30):** The developer confirmed both deferred visual and
+real-browser quiet-hours checks passed.
 **Re-verification:** No — initial verification
 
 ## Goal Achievement

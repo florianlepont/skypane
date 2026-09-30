@@ -110,13 +110,6 @@ def resolve_theme(form, errors):
     return {"theme": submitted_theme}
 
 
-def resolve_screen(form, errors):
-    """Screen group: the submitted screen_id's membership check."""
-    submitted_screen_id = form.get("screen_id")
-    if submitted_screen_id is not None and submitted_screen_id not in screens.SCREEN_IDS:
-        _note_error(errors, "screen_id", ERROR_INVALID_CHOICE)
-        return FAILED
-    return {"screen_id": submitted_screen_id}
 
 
 def resolve_calendar_signal(calendar_signal, errors):

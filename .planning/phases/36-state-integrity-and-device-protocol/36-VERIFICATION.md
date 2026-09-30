@@ -1,7 +1,7 @@
 ---
 phase: 36-state-integrity-and-device-protocol
 verified: 2026-09-26T11:23:28Z
-status: human_needed
+status: passed
 score: 14/14 must-haves verified
 overrides_applied: 0
 human_verification:
@@ -17,7 +17,11 @@ human_verification:
 
 **Phase Goal:** No shared file can be torn or lose an update, the device always downloads the image it was told about, and no single bad input or slow upstream can hang or fail a cycle.
 **Verified:** 2026-09-26T11:23:28Z
-**Status:** human_needed
+**Status:** passed
+
+**Human result (2026-09-30):** The developer confirmed the optional on-frame
+panel-swap check passed. The deployed poll-unit timeout had already passed on
+2026-09-26.
 **Re-verification:** No — initial verification
 
 ## Goal Achievement

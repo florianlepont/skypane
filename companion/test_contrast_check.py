@@ -1,4 +1,4 @@
-"""Behaviour tests for companion/contrast_check.py's WCAG contrast and
+"""Behaviour tests for test-support/skypane_contrast_check.py's WCAG contrast and
 signal-separation math, run against the colour tokens companion/app.py
 actually SERVES over HTTP — never against companion/static/style.css
 opened from disk.
@@ -19,14 +19,14 @@ Two kinds of check:
 
 Section 3 covers SIGNAL SEPARATION, a different guarantee from contrast:
 that the accent colour cannot be mistaken for any status colour at a
-glance. See companion/contrast_check.py's own module docstring for the
+glance. See test-support/skypane_contrast_check.py's own module docstring for the
 regression history this section exists to prevent.
 """
 import re
 
 import pytest
 
-from companion.contrast_check import (
+from skypane_contrast_check import (
     MIN_SIGNAL_HUE_SEPARATION,
     MIN_SIGNAL_PERCEPTUAL_DISTANCE,
     STATUS_WARN_ON_CARD_PAIRS,

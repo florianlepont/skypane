@@ -335,7 +335,6 @@ DEVICE_POLL_HEADING = i18n.msg("display.when_you_can_t_wait", "When you can't wa
 DEVICE_POLL_INTRO = i18n.msg(
     "display.fetch_a_new_picture_right_now", "— fetch a new picture right now.")
 # An element id, not a class, since its own <label> targets it via for=.
-SCREEN_SELECTOR_ID = "screen-id-selector"
 SCREEN_SELECTOR_LABEL_TEXT = i18n.msg("display.screen_type", "Screen type")
 
 
@@ -685,7 +684,7 @@ def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, subm
     header = layout.page_header(
         i18n.t(DISPLAY_PAGE_TITLE), purpose=i18n.t(DISPLAY_PAGE_PURPOSE),
         freshness_html=layout.freshness_line_html(ctx.now),
-        action_html=_screen_caption_html(screen) + _screen_selector_html(screen_id, errors=errors))
+        action_html=_screen_caption_html(screen))
     frame_strip_section_html = layout.frame_strip_html(
         ctx, return_to=layout.DISPLAY_ROUTE, next_wake_iso=next_wake_iso)
     if screens.GROUP_THEME in groups:
@@ -732,7 +731,7 @@ def _render_device_scope(screen, screen_id, groups, builders, errors, next_wake_
     header = layout.page_header(
         i18n.t(DEVICE_PAGE_TITLE), purpose=i18n.t(DEVICE_PAGE_PURPOSE),
         action_html=(
-            _screen_caption_html(screen) + _screen_selector_html(screen_id, errors=errors)
+            _screen_caption_html(screen)
             + _next_wake_caption_html(next_wake_clock)))
     return {
         "header": header, "frame_strip_section_html": "",
@@ -951,39 +950,6 @@ def _next_wake_caption_html(next_wake_clock):
                 i18n.t(NEXT_WAKE_HEADER_VALUE_TEMPLATE) % next_wake_clock)))
 
 
-def _screen_selector_html(current_screen_id, errors=None):
-    """A `<select name="screen_id">` for switching which registered
-    screen type this settings page edits. Returns "" when only one
-    screen type is registered, since a one-option choice has no real
-    decision value.
-
-    Rendered inside `page_header()`'s action slot, visually before
-    `<form id="{SETTINGS_FORM_ID}">` opens, but must still submit with
-    it — the `form="{SETTINGS_FORM_ID}"` attribute makes that possible.
-
-    `errors` renders a rejected `screen_id` message; no `submitted`
-    repopulation is needed, since `current_screen_id` already reflects
-    any rejected submission.
-    """
-    if len(screens.SCREEN_IDS) <= 1:
-        return ""
-    options = []
-    for screen_id in screens.SCREEN_IDS:
-        selected = " selected" if screen_id == current_screen_id else ""
-        label = screens.screen_type(screen_id)["label"]
-        options.append(
-            '<option value="%s"%s>%s</option>'
-            % (escape_html(screen_id), selected, escape_html(label)))
-    error_html = _field_error_html(errors, "screen_id", SCREEN_SELECTOR_ID)
-    return (
-        '<label class="visually-hidden" for="%s">%s</label>'
-        '<select name="screen_id" id="%s" form="%s">%s</select>'
-        "%s"
-    ) % (
-        SCREEN_SELECTOR_ID, escape_html(i18n.t(SCREEN_SELECTOR_LABEL_TEXT)),
-        SCREEN_SELECTOR_ID, SETTINGS_FORM_ID, "".join(options),
-        error_html,
-    )
 
 
 def _scope_fields_html(scope, return_route):
@@ -1072,7 +1038,6 @@ def handle_post(form, ctx, errors=None):
     # behaviour change this split must not introduce.
     steps = (
         lambda: form_post.resolve_theme(form, errors),
-        lambda: form_post.resolve_screen(form, errors),
         lambda: form_post.resolve_calendar_signal(calendar_signal, errors),
         lambda: form_post.resolve_calendar_theme_id(form, errors),
         lambda: form_post.resolve_theme_arriving(form, in_scope, errors),

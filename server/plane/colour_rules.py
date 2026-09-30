@@ -4,7 +4,7 @@ resolution function every render of a displayed flight goes through.
 
 Imports `server.device_config` plus stdlib only - must never import
 `enrich`/`detect`/`illustrations`/`manual_resolutions`/`render`/
-`calendar_rules`, since `poll_loop.py` already imports all of those plus
+`calendar_rules`, since `poll_cycle.py` already imports all of those plus
 this module (the reverse direction would cycle). Its callsign/prefix
 normalisers duplicate small primitives from `enrich.py`/
 `manual_resolutions.py` rather than import them, for the same reason.
@@ -336,7 +336,7 @@ def resolve_effective_theme_id(
     intentionally beats even an exact-callsign rule: a calendar entry
     designates one specific flight, and that is the point of the feature.
 
-    `calendar_theme_id` is computed by the caller (`poll_loop.py`, via
+    `calendar_theme_id` is computed by the caller (`poll_cycle.py`, via
     `calendar_rules.match_calendar_theme()`), preserving this module's
     leaf-import contract.
 

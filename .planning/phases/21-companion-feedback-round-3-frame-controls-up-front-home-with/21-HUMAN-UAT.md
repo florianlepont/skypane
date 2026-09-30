@@ -1,5 +1,5 @@
 ---
-status: partial
+status: superseded
 phase: 21-companion-feedback-round-3-frame-controls-up-front-home-with
 source: [21-VERIFICATION.md, 21-REVIEW.md]
 started: 2026-09-12T12:57:48+00:00
@@ -8,7 +8,8 @@ updated: 2026-09-12T12:57:48+00:00
 
 ## Current Test
 
-[awaiting human testing]
+Superseded during v1.0 close-out by the later companion architecture and UI
+phases. The scenarios remain as historical evidence, not current UAT work.
 
 ## Tests
 

@@ -62,10 +62,13 @@ coverage:
 
 duration: ~50min
 completed: 2026-09-02
-status: incomplete
+status: complete
 ---
 
 # Quick Task 260902-req-02: Companion Airlines gallery illustration normalization Summary
+
+**Close-out result (2026-09-30):** The developer confirmed the illustration
+gallery is centred correctly on the real device; the visual checkpoint passed.
 
 **Server-side aircraft-illustration normalization for the companion Airlines gallery, cropping each vendored PNG to its opaque bbox (imported from `server/plane/render.py`, not reimplemented) and re-centring it into a shared 900x263 frame, with the two `type="auto"` tasks committed and the plan's blocking `checkpoint:human-verify` still open.**
 

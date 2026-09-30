@@ -15,6 +15,7 @@ import sqlite3
 import sys
 
 import pytest
+from skypane_history_helpers import ingest_caddy_battery_log
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
@@ -54,7 +55,7 @@ def test_missing_state_dir_yields_defaults(tmp_path):
     tmpdir = tmp_path
     missing = os.path.join(tmpdir, "does-not-exist")
     config = device_config.load_device_config(missing)
-    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
+    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
         pytest.fail("expected defaults, got %r" % (config,))
 
 
@@ -66,7 +67,7 @@ def test_malformed_file_yields_defaults(tmp_path):
         with open(path, "w") as fh:
             fh.write(bad_content)
         config = device_config.load_device_config(tmpdir)
-        if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
+        if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
             pytest.fail("content %r produced %r, expected defaults" % (bad_content, config))
 
 
@@ -77,7 +78,7 @@ def test_hostile_values_yield_defaults(tmp_path):
     with open(path, "w") as fh:
         fh.write('{"theme": "../../etc/passwd", "tracked_runway": 7}')
     config = device_config.load_device_config(tmpdir)
-    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
+    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
         pytest.fail("hostile input produced %r, expected defaults for both keys" % (config,))
 
 
@@ -86,7 +87,7 @@ def test_save_then_load_round_trips(tmp_path):
     tmpdir = tmp_path
     device_config.save_device_config(tmpdir, theme="black", tracked_runway="02-20")
     config = device_config.load_device_config(tmpdir)
-    if config != {"theme": "black", "theme_arriving": None, "tracked_runway": "02-20", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
+    if config != {"theme": "black", "theme_arriving": None, "tracked_runway": "02-20", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
         pytest.fail("round-trip produced %r" % (config,))
 
 
@@ -123,7 +124,7 @@ def test_hostile_hand_edit_after_a_real_save_still_yields_defaults(tmp_path):
     with open(path, "w") as fh:
         fh.write('{"theme": "black/../x", "tracked_runway": "3; DROP TABLE"}')
     config = device_config.load_device_config(tmpdir)
-    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
+    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
         pytest.fail("hand-edited hostile file produced %r, expected defaults for both keys" % (config,))
 
 
@@ -144,7 +145,7 @@ def test_save_led_enabled_false_round_trips(tmp_path):
     tmpdir = tmp_path
     device_config.save_device_config(tmpdir, led_enabled=False)
     config = device_config.load_device_config(tmpdir)
-    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
+    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
         pytest.fail("round-trip produced %r" % (config,))
 
 
@@ -463,7 +464,7 @@ def test_save_quiet_hours_round_trips(tmp_path):
     if config != {
         "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
         "quiet_hours_enabled": True, "quiet_hours_start": "22:30", "quiet_hours_end": "06:15",
-        "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame",
+        "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None,
     }:
         pytest.fail("round-trip produced %r" % (config,))
 
@@ -609,7 +610,7 @@ def test_save_wake_interval_s_round_trips(tmp_path):
     if config != {
         "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
         "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
-        "wake_interval_s": 120, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame",
+        "wake_interval_s": 120, "display_enabled": True, "calendar_theme_id": None,
     }:
         pytest.fail("round-trip produced %r" % (config,))
 
@@ -812,7 +813,7 @@ def test_save_display_enabled_false_round_trips_and_carries_forward(tmp_path):
     if config != {
         "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
         "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
-        "wake_interval_s": None, "display_enabled": False, "calendar_theme_id": None, "screen_id": "plane-frame",
+        "wake_interval_s": None, "display_enabled": False, "calendar_theme_id": None,
     }:
         pytest.fail("round-trip produced %r" % (config,))
     device_config.save_device_config(tmpdir, theme="black")
@@ -975,73 +976,12 @@ def test_calendar_theme_id_independent_of_theme_arriving(tmp_path):
         pytest.fail("clearing theme_arriving disturbed the unrelated calendar_theme_id, got %r" % (config["calendar_theme_id"],))
 
 
-def test_normalise_screen_id_degrades_hostile_values_to_default():
-    """normalise_screen_id() degrades a hostile/unknown/None/non-string value to DEFAULT_SCREEN_ID and passes a real member through unchanged"""
-    for value in ("nope", "../../etc/passwd", 7, None, True, [], {}):
-        got = device_config.normalise_screen_id(value)
-        if got != device_config.DEFAULT_SCREEN_ID:
-            pytest.fail("normalise_screen_id(%r) returned %r, expected %r" % (
-                value, got, device_config.DEFAULT_SCREEN_ID))
-    if device_config.normalise_screen_id("plane-frame") != "plane-frame":
-        pytest.fail("normalise_screen_id() did not pass through a real member unchanged")
 
 
-def test_save_device_config_rejects_unknown_screen_id_without_touching_file(tmp_path):
-    """save_device_config(screen_id='nope') raises ValueError naming SCREEN_IDS and leaves a pre-existing file byte-identical"""
-    tmpdir = tmp_path
-    device_config.save_device_config(tmpdir, theme="black")
-    path = device_config.device_config_path(tmpdir)
-    with open(path, "rb") as fh:
-        before = fh.read()
-    try:
-        device_config.save_device_config(tmpdir, screen_id="nope")
-    except ValueError:
-        pass
-    else:
-        pytest.fail("save_device_config(screen_id='nope') did not raise ValueError")
-    with open(path, "rb") as fh:
-        after = fh.read()
-    if before != after:
-        pytest.fail("a rejected screen_id write disturbed the pre-existing file on disk")
 
 
-def test_screen_id_absent_from_disk_resolves_to_default_with_no_migration(tmp_path):
-    """a device_config.json written with no screen_id key loads with DEFAULT_SCREEN_ID and is never rewritten on read"""
-    # Mirrors theme_arriving's own no-migration precedent above: a
-    # device_config.json written before screen_id existed - one that has
-    # never carried that key at all - resolves it to DEFAULT_SCREEN_ID
-    # and load_device_config() never rewrites the file to add the new
-    # key.
-    tmpdir = tmp_path
-    path = device_config.device_config_path(tmpdir)
-    pre_d23_doc = {
-        "theme": "white", "tracked_runway": "3", "led_enabled": True,
-        "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
-        "wake_interval_s": None, "display_enabled": True,
-    }
-    with open(path, "w") as fh:
-        json.dump(pre_d23_doc, fh)
-    with open(path, "rb") as fh:
-        before = fh.read()
-    config = device_config.load_device_config(tmpdir)
-    if config["screen_id"] != device_config.DEFAULT_SCREEN_ID:
-        pytest.fail("a file with no screen_id key produced %r, expected %r" % (
-            config["screen_id"], device_config.DEFAULT_SCREEN_ID))
-    with open(path, "rb") as fh:
-        after = fh.read()
-    if before != after:
-        pytest.fail("load_device_config() rewrote a pre-D-23 file on disk - no migration is permitted")
 
 
-def test_screen_id_registry_agrees_with_companion_screens():
-    """device_config.SCREEN_IDS/DEFAULT_SCREEN_ID stay pinned equal to companion.screens's own duplicated-not-imported values"""
-    import companion.screens as screens
-    if device_config.SCREEN_IDS != screens.SCREEN_IDS:
-        pytest.fail("device_config.SCREEN_IDS %r != companion.screens.SCREEN_IDS %r" % (
-            device_config.SCREEN_IDS, screens.SCREEN_IDS))
-    if device_config.DEFAULT_SCREEN_ID != screens.DEFAULT_SCREEN_ID:
-        pytest.fail("device_config.DEFAULT_SCREEN_ID %r != companion.screens.DEFAULT_SCREEN_ID %r" % (
-            device_config.DEFAULT_SCREEN_ID, screens.DEFAULT_SCREEN_ID))
 
 
 def test_connect_creates_db_with_wal_and_tables(tmp_path):
@@ -1165,9 +1105,9 @@ def test_ingest_caddy_battery_log_is_idempotent(tmp_path):
         fh.write("\n".join(lines) + "\n")
 
     with history_db.open_db(tmpdir) as conn:
-        first_count = history_db.ingest_caddy_battery_log(conn, log_path)
+        first_count = ingest_caddy_battery_log(conn, log_path)
         rows_after_first = history_db.recent_device_health(conn, limit=10)
-        second_count = history_db.ingest_caddy_battery_log(conn, log_path)
+        second_count = ingest_caddy_battery_log(conn, log_path)
         rows_after_second = history_db.recent_device_health(conn, limit=10)
 
     if first_count != 2:
@@ -1740,3 +1680,19 @@ def test_next_wake_status_battery_critical_pins_3600s():
         pytest.fail("next_wake_status(battery_critical=True)'s next_wake_iso = %r, expected %r (check-in + 3600s)"
             % (next_iso, expected_next))
 
+
+
+@pytest.mark.parametrize("legacy", ["plane-frame", "unknown", None, [], {}])
+def test_retired_screen_setting_is_ignored_and_removed_on_next_save(tmp_path, legacy):
+    path = tmp_path / "device_config.json"
+    path.write_text(json.dumps({"theme": "black", "screen_id": legacy}))
+    before = path.read_bytes()
+    config = device_config.load_device_config(str(tmp_path))
+    assert "screen_id" not in config
+    assert config["theme"] == "black"
+    assert path.read_bytes() == before
+    device_config.save_device_config(str(tmp_path), led_enabled=False)
+    saved = json.loads(path.read_text())
+    assert "screen_id" not in saved
+    assert saved["theme"] == "black"
+    assert saved["led_enabled"] is False

@@ -53,10 +53,6 @@ Every page module exposes:
         - colour_rules: the full colour-rules registry, read fresh per
           request for the same reason; a companion-side save must be
           visible on the very next request, not just the next poll cycle
-        - screen_id: the persisted screen id, read from the same
-          device_config dict already loaded above; every consumer reads
-          it through `companion.screens.current_screen_id(ctx)`, which
-          membership-tests it and falls back to a default
         - last_checkin_ts: the device's last check-in timestamp, or
           None; read fresh per request as data only, never formatted
           here — each consumer formats it itself via

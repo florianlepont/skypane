@@ -166,7 +166,7 @@ def test_filter_in_geofence_drops_out_of_bbox_and_positionless(geofence):
 def test_select_runway3_aircraft_picks_lowest_altitude(geofence):
     """select_runway3_aircraft picks 39d300 (450ft beats 800ft)"""
     fixture = load_fixture("geofence_multi_aircraft.json")
-    winner = detect.select_runway3_aircraft(fixture["ac"], geofence)
+    winner = detect.select_aircraft_for_runway(fixture["ac"], geofence)
     assert winner is not None, "expected a winner, got None"
     assert winner["hex"] == "39d300", "expected hex 39d300 (450ft), got %r" % (winner["hex"],)
 
@@ -174,7 +174,7 @@ def test_select_runway3_aircraft_picks_lowest_altitude(geofence):
 def test_select_runway3_aircraft_on_ground_beats_airborne(geofence):
     """select_runway3_aircraft: on-ground beats 800ft airborne"""
     fixture = load_fixture("geofence_on_ground.json")
-    winner = detect.select_runway3_aircraft(fixture["ac"], geofence)
+    winner = detect.select_aircraft_for_runway(fixture["ac"], geofence)
     assert winner is not None, "expected a winner, got None"
     assert winner["hex"] == "3985a7", "expected hex 3985a7 (on-ground), got %r" % (winner["hex"],)
 
@@ -182,14 +182,14 @@ def test_select_runway3_aircraft_on_ground_beats_airborne(geofence):
 def test_select_runway3_aircraft_empty_returns_none(geofence):
     """select_runway3_aircraft returns None for an empty snapshot"""
     fixture = load_fixture("geofence_empty.json")
-    winner = detect.select_runway3_aircraft(fixture["ac"], geofence)
+    winner = detect.select_aircraft_for_runway(fixture["ac"], geofence)
     assert winner is None, "expected None for an empty geofence snapshot, got %r" % (winner,)
 
 
 def test_selected_record_callsign_is_stripped(geofence):
     """selected record's callsign is stripped of trailing padding"""
     fixture = load_fixture("geofence_multi_aircraft.json")
-    winner = detect.select_runway3_aircraft(fixture["ac"], geofence)
+    winner = detect.select_aircraft_for_runway(fixture["ac"], geofence)
     assert winner is not None, "expected a winner"
     assert winner.get("callsign") == "TVF23WV", "expected stripped callsign 'TVF23WV', got %r" % (winner.get("callsign"),)
 
@@ -198,10 +198,10 @@ def test_select_runway3_aircraft_deterministic_under_shuffle(geofence):
     """select_runway3_aircraft is deterministic under input reordering"""
     fixture = load_fixture("geofence_multi_aircraft.json")
     aircraft = list(fixture["ac"])
-    first = detect.select_runway3_aircraft(aircraft, geofence)
+    first = detect.select_aircraft_for_runway(aircraft, geofence)
     shuffled = list(aircraft)
     random.Random(1234).shuffle(shuffled)
-    second = detect.select_runway3_aircraft(shuffled, geofence)
+    second = detect.select_aircraft_for_runway(shuffled, geofence)
     assert first is not None and second is not None, "expected both selections to return a winner"
     assert first["hex"] == second["hex"], "selection changed under shuffled input ordering: %r vs %r" % (
         first["hex"], second["hex"],
@@ -211,7 +211,7 @@ def test_select_runway3_aircraft_deterministic_under_shuffle(geofence):
 def test_multi_aircraft_winner_has_aircraft_type(geofence):
     """select_runway3_aircraft: multi-aircraft winner's aircraft_type is B738"""
     fixture = load_fixture("geofence_multi_aircraft.json")
-    winner = detect.select_runway3_aircraft(fixture["ac"], geofence)
+    winner = detect.select_aircraft_for_runway(fixture["ac"], geofence)
     assert winner is not None, "expected a winner"
     assert winner.get("aircraft_type") == "B738", "expected aircraft_type 'B738', got %r" % (winner.get("aircraft_type"),)
 
@@ -219,7 +219,7 @@ def test_multi_aircraft_winner_has_aircraft_type(geofence):
 def test_on_ground_winner_has_aircraft_type(geofence):
     """select_runway3_aircraft: on-ground winner's aircraft_type is A320"""
     fixture = load_fixture("geofence_on_ground.json")
-    winner = detect.select_runway3_aircraft(fixture["ac"], geofence)
+    winner = detect.select_aircraft_for_runway(fixture["ac"], geofence)
     assert winner is not None, "expected a winner"
     assert winner.get("aircraft_type") == "A320", "expected aircraft_type 'A320', got %r" % (winner.get("aircraft_type"),)
 
@@ -230,7 +230,7 @@ def test_no_type_key_yields_none(geofence):
     winner_record = next(ac for ac in fixture["ac"] if ac["hex"] == "39d300")
     no_type_record = dict(winner_record)
     no_type_record.pop("t", None)
-    winner = detect.select_runway3_aircraft([no_type_record], geofence)
+    winner = detect.select_aircraft_for_runway([no_type_record], geofence)
     assert winner is not None, "expected a winner"
     assert winner.get("aircraft_type") is None, (
         "expected aircraft_type None for a record with no t key, got %r" % (winner.get("aircraft_type"),)
@@ -245,7 +245,7 @@ def test_malformed_type_values_never_raise(geofence):
     for bad_value in malformed_values:
         record = dict(winner_record)
         record["t"] = bad_value
-        winner = detect.select_runway3_aircraft([record], geofence)
+        winner = detect.select_aircraft_for_runway([record], geofence)
         assert winner is not None, "expected a winner for malformed t=%r" % (bad_value,)
         assert winner.get("aircraft_type") is None, (
             "expected aircraft_type None for malformed t=%r, got %r" % (bad_value, winner.get("aircraft_type"))
@@ -281,7 +281,7 @@ def test_wrong_runway_is_rejected(geofence):
     # was actually departing runway 20 - climbing +2304 ft/min on track
     # 197.67, 750m off runway 3's centreline. It must now be rejected,
     # leaving nothing selected for that snapshot.
-    winner = detect.select_runway3_aircraft(_wrong_runway_record(), geofence)
+    winner = detect.select_aircraft_for_runway(_wrong_runway_record(), geofence)
     assert winner is None, "the real runway-20 departure 39de4a was still selected as runway 3: %r" % (winner,)
 
 
@@ -290,7 +290,7 @@ def test_real_runway3_arrival_is_still_selected(geofence):
     # The counter-example: the gate must not have been tightened into
     # rejecting genuine runway-3 traffic. hex 347288 (IBE05DP) was
     # captured in the same live window on final to runway 25.
-    winner = detect.select_runway3_aircraft(_runway3_record(), geofence)
+    winner = detect.select_aircraft_for_runway(_runway3_record(), geofence)
     assert winner is not None, "the real runway-25 arrival 347288 is no longer selected"
     assert winner["hex"] == "347288" and winner["callsign"] == "IBE05DP", (
         "expected 347288/IBE05DP, got %r/%r" % (winner["hex"], winner.get("callsign"))
@@ -303,7 +303,7 @@ def test_wrong_runway_loses_to_real_one(geofence):
     tagged = {ac["hex"]: ac for ac in detect.filter_in_geofence(combined, geofence)}
     assert not tagged["39de4a"].get("on_runway3"), "39de4a was still tagged on_runway3"
     assert tagged["347288"].get("on_runway3"), "347288 was not tagged on_runway3"
-    winner = detect.select_runway3_aircraft(combined, geofence)
+    winner = detect.select_aircraft_for_runway(combined, geofence)
     assert winner is not None and winner["hex"] == "347288", "expected 347288 to win, got %r" % (winner and winner["hex"],)
 
 
@@ -655,7 +655,7 @@ def test_disagreeing_providers_yield_nothing(geofence, stubbed_query_provider):
     other["lat"] = 48.719398   # real threshold 07, the far end of runway 3
     other["lon"] = 2.358590
     other["track"] = 74.41
-    assert detect.select_runway3_aircraft([other], geofence) is not None, (
+    assert detect.select_aircraft_for_runway([other], geofence) is not None, (
         "premise broken: the stand-in aircraft is not itself on runway 3"
     )
     stubbed_query_provider({"airplaneslive": _runway3_record(), "adsbfi": [other]})
@@ -723,7 +723,7 @@ def test_default_order_disagreement_yields_nothing(geofence, stubbed_query_provi
     other["lat"] = 48.719398   # real threshold 07, the far end of runway 3
     other["lon"] = 2.358590
     other["track"] = 74.41
-    assert detect.select_runway3_aircraft([other], geofence) is not None, (
+    assert detect.select_aircraft_for_runway([other], geofence) is not None, (
         "premise broken: the stand-in aircraft is not itself on runway 3"
     )
     stubbed_query_provider({"adsbfi": _runway3_record(), "adsblol": [other]})
@@ -921,7 +921,7 @@ def test_taxiing_aircraft_no_longer_masks_real_runway3_traffic(geofence):
     )
     assert not tagged["3985a7"].get("on_runway3"), "the taxiing aircraft at 180m offset was still tagged on_runway3"
     assert tagged["347288"].get("on_runway3"), "the real runway-3 arrival stopped being tagged on_runway3"
-    winner = detect.select_runway3_aircraft(snapshot, geofence)
+    winner = detect.select_aircraft_for_runway(snapshot, geofence)
     assert winner is not None, "expected the real runway-3 arrival to be selected, got None"
     assert winner["hex"] == "347288", (
         "the taxiing aircraft still masked the real runway-3 arrival: selected %r (alt %r) instead of 347288" % (
@@ -1017,8 +1017,8 @@ def test_selection_is_provider_independent(geofence):
     # value whose spread between these two feeds is measured in
     # adsb-test/RESULTS.md at tens of seconds - so the feeds picked
     # different hexes purely from staleness noise.
-    fi = detect.select_runway3_aircraft(_pavement("adsbfi"), geofence)
-    lol = detect.select_runway3_aircraft(_pavement("adsblol"), geofence)
+    fi = detect.select_aircraft_for_runway(_pavement("adsbfi"), geofence)
+    lol = detect.select_aircraft_for_runway(_pavement("adsblol"), geofence)
     assert fi is not None and lol is not None, "expected both feeds to select an aircraft, got %r / %r" % (fi, lol)
     assert fi["hex"] == lol["hex"], (
         "the same two aircraft at the same positions selected differently per feed (%s vs %s) - the sort key "
@@ -1064,8 +1064,8 @@ def test_asymmetric_sets_corroborate_the_common_aircraft(geofence, stubbed_query
     lol_records = [r for r in _pavement("adsblol") if r["hex"] != "000003"]
 
     # (a) determinism alone is provably insufficient here.
-    fi_pick = detect.select_runway3_aircraft(fi_records, geofence)
-    lol_pick = detect.select_runway3_aircraft(lol_records, geofence)
+    fi_pick = detect.select_aircraft_for_runway(fi_records, geofence)
+    lol_pick = detect.select_aircraft_for_runway(lol_records, geofence)
     assert fi_pick is not None and lol_pick is not None, "premise broken: both feeds must still select something"
     assert fi_pick["hex"] != lol_pick["hex"], (
         "premise broken: the two feeds' own deterministic picks now agree, so this check no longer proves "
@@ -1110,8 +1110,8 @@ def _disjoint_snapshot():
 
 def _disjoint_poll(geofence, stubbed_query_provider):
     fi_records, lol_records = _disjoint_snapshot()
-    fi_hexes = {ac.get("hex") for ac in detect.runway3_candidates(fi_records, geofence)}
-    lol_hexes = {ac.get("hex") for ac in detect.runway3_candidates(lol_records, geofence)}
+    fi_hexes = {ac.get("hex") for ac in detect.runway_candidates(fi_records, geofence)}
+    lol_hexes = {ac.get("hex") for ac in detect.runway_candidates(lol_records, geofence)}
     stubbed_query_provider({"adsbfi": fi_records, "adsblol": lol_records})
     captured = io.StringIO()
     with contextlib.redirect_stderr(captured):
@@ -1278,7 +1278,7 @@ def test_positive_tracking_on_neighbouring_runways(geofence):
         assert own_selection.get("selected_runway") == runway_id, (
             "%s: selected_runway was %r" % (runway_id, own_selection.get("selected_runway"))
         )
-        default_selection = detect.select_runway3_aircraft([record], geofence)
+        default_selection = detect.select_aircraft_for_runway([record], geofence)
         assert default_selection is None, "%s: the same record was also selected as runway 3" % runway_id
 
 
@@ -1289,7 +1289,7 @@ def test_real_runway3_fixture_excluded_from_06_24(geofence):
     # runway_id="06-24" - the gate is exclusive both ways, not merely
     # permissive.
     record = _runway3_record()
-    assert detect.select_runway3_aircraft(record, geofence) is not None, (
+    assert detect.select_aircraft_for_runway(record, geofence) is not None, (
         "premise broken: the real runway-3 fixture is no longer selected by default"
     )
     assert detect.select_aircraft_for_runway(record, geofence, runway_id="06-24") is None, (

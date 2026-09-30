@@ -698,41 +698,8 @@ def test_handle_post_scope_carries_out_of_scope_checkboxes_forward(tmp_path):
         % (cfg["display_enabled"],))
 
 
-def test_screen_selector_empty_for_the_real_single_member_registry():
-    """_screen_selector_html() returns the empty string for the real single-member screens
-    registry"""
-    rendered = config_page._screen_selector_html("plane-frame")
-    assert rendered == "", "expected the empty string for today's single-member registry, got %r" % (rendered,)
 
 
-def test_screen_selector_renders_for_a_multi_member_registry():
-    """_screen_selector_html() emits exactly one <select name="screen_id"> with one <option> per
-    registered screen type, the current one selected, and a non-empty accessible name once a
-    second screen type is registered"""
-    from companion import screens
-    saved_types, saved_ids = dict(screens.SCREEN_TYPES), screens.SCREEN_IDS
-    try:
-        screens.SCREEN_TYPES["rer-board"] = {
-            "label": "RER board", "description": "d",
-            "everyday_groups": (), "advanced_groups": (),
-            "has_colour_rules": False, "has_manual_poll": False,
-        }
-        screens.SCREEN_IDS = tuple(screens.SCREEN_TYPES)
-        rendered = config_page._screen_selector_html("plane-frame")
-        assert '<select name="screen_id"' in rendered, (
-            "expected a <select name=\"screen_id\"> once a second screen type is registered")
-        assert rendered.count("<option") == 2, "expected exactly one <option> per registered screen type, got %r" % (
-            rendered,)
-        assert 'value="plane-frame" selected' in rendered, (
-            "expected the current screen id's option to carry the selected attribute")
-        assert 'value="rer-board" selected' not in rendered, (
-            "expected only the current screen id's option to carry selected")
-        assert "<label" in rendered and 'for="screen-id-selector"' in rendered, (
-            "expected a <label for=...> supplying the control's accessible name")
-    finally:
-        screens.SCREEN_TYPES.clear()
-        screens.SCREEN_TYPES.update(saved_types)
-        screens.SCREEN_IDS = saved_ids
 
 
 def test_render_carries_no_screen_selector_today():
@@ -745,56 +712,10 @@ def test_render_carries_no_screen_selector_today():
         "expected no screen selector with today's single-member registry")
 
 
-def test_handle_post_rejects_a_crafted_screen_id(tmp_path):
-    """handle_post() rejects a crafted screen_id with FLASH_SAVE_FAILED, notes a field error, and
-    writes nothing (all-or-nothing)"""
-    tmp = str(tmp_path)
-    device_config.save_device_config(tmp, theme="white")
-    errors = {}
-    key = config_page.handle_post(
-        {"theme": "black", "screen_id": "not-a-real-screen"}, {"state_dir": tmp}, errors=errors)
-    assert key == config_page.FLASH_SAVE_FAILED, "expected FLASH_SAVE_FAILED for a crafted screen_id, got %r" % (key,)
-    assert "screen_id" in errors, "expected a field error noted for screen_id"
-    cfg = device_config.load_device_config(tmp)
-    assert cfg["theme"] == "white", "expected the whole save rejected - theme must not have changed to 'black'"
 
 
-def test_valid_screen_id_round_trips(tmp_path):
-    """a valid screen_id round-trips through save_device_config()"""
-    tmp = str(tmp_path)
-    key = config_page.handle_post({"screen_id": "plane-frame"}, {"state_dir": tmp})
-    assert key == config_page.FLASH_SAVED, "expected FLASH_SAVED for a valid screen_id, got %r" % (key,)
-    cfg = device_config.load_device_config(tmp)
-    assert cfg["screen_id"] == "plane-frame", "expected screen_id='plane-frame' to round-trip, got %r" % (
-        cfg["screen_id"],)
 
 
-def test_screen_selector_renders_the_field_error_message():
-    """_screen_selector_html() renders the screen_id field-level error message exactly once when
-    errors carries one
-
-    _screen_selector_html() is the only render call site for screen_id and, unlike every sibling
-    field this plan touches, used to never render its own _field_error_html() message. Only
-    reachable through a multi-member registry, same as the sibling checks above.
-    """
-    from companion import screens
-    saved_types, saved_ids = dict(screens.SCREEN_TYPES), screens.SCREEN_IDS
-    try:
-        screens.SCREEN_TYPES["rer-board"] = {
-            "label": "RER board", "description": "d",
-            "everyday_groups": (), "advanced_groups": (),
-            "has_colour_rules": False, "has_manual_poll": False,
-        }
-        screens.SCREEN_IDS = tuple(screens.SCREEN_TYPES)
-        errors = {"screen_id": config_page.ERROR_INVALID_CHOICE}
-        rendered = config_page._screen_selector_html("plane-frame", errors=errors)
-        expected = escape_html(config_page.ERROR_INVALID_CHOICE)
-        assert rendered.count(expected) == 1, (
-            "expected the screen_id field-error message to appear exactly once, got %r" % (rendered,))
-    finally:
-        screens.SCREEN_TYPES.clear()
-        screens.SCREEN_TYPES.update(saved_types)
-        screens.SCREEN_IDS = saved_ids
 
 
 def test_neither_scope_renders_an_edit_artwork_link():
@@ -973,3 +894,15 @@ def test_quiet_hours_caption_and_flash_agree_on_the_unknown_branch():
     flash = companion_app._resolve_flash_text(companion_app.FLASH_KEY_SAVED, STATE_DIR)
     assert flash == "Saved — applies the next time the frame wakes up.", "expected the UNKNOWN flash text, got %r" % (
         flash,)
+
+
+def test_retired_screen_field_cannot_block_a_valid_settings_save(tmp_path):
+    errors = {}
+    outcome = config_page.handle_post(
+        {"theme": "black", "screen_id": "unknown"},
+        {"state_dir": str(tmp_path)}, errors=errors)
+    assert outcome == config_page.FLASH_SAVED
+    assert errors == {}
+    saved = device_config.load_device_config(str(tmp_path))
+    assert saved["theme"] == "black"
+    assert "screen_id" not in saved

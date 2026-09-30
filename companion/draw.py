@@ -400,30 +400,6 @@ def unit_circle_dash_array(fraction, radius):
     return "%.4f %.4f" % (drawn, circumference - drawn)
 
 
-def unit_point_on_circle(fraction, centre_x, centre_y, radius):
-    """The (x, y) user-unit point at `fraction` of the way clockwise
-    around a circle, starting at twelve o'clock. `fraction` is clamped
-    into [0, 1]. Never raises.
-
-    For an endpoint marker or tick on a radial drawing, not the arc
-    itself (see unit_circle_dash_array() above). Starts at twelve
-    o'clock, not SVG's own three-o'clock zero, matching how a radial
-    gauge is normally read.
-    """
-    if not is_number(radius):
-        radius = 0.0
-    if not is_number(centre_x):
-        centre_x = 0.0
-    if not is_number(centre_y):
-        centre_y = 0.0
-    if not is_number(fraction):
-        fraction = 0.0
-    fraction = max(0.0, min(1.0, fraction))
-    angle = 2 * math.pi * fraction
-    # Sine on x and negative cosine on y put fraction 0 at the top and
-    # send it clockwise, in SVG's downward-growing y direction.
-    return (centre_x + radius * math.sin(angle),
-            centre_y - radius * math.cos(angle))
 
 
 # --- shape emitters ---------------------------------------------------

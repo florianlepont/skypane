@@ -1453,7 +1453,6 @@ def test_the_native_submit_is_emitted_unconditionally_on_every_render(tmp_path):
 # to observe the FULL order rather than just the first entry.
 _FULLY_INVALID_SETTINGS_ORDER = (
     ("theme", "That is not one of the available choices."),
-    ("screen_id", "That is not one of the available choices."),
     ("calendar_url", "That link is too long, or conflicts with the disconnect option below."),
     ("calendar_theme_id", "That is not one of the available choices."),
     ("theme_arriving", "That is not one of the available choices."),
@@ -1479,7 +1478,6 @@ def test_handle_post_errors_keep_their_order_for_a_fully_invalid_submission(tmp_
     cleared - the exact behaviour of the unmodified, pre-split handle_post()."""
     form = {
         "theme": "not-a-theme",
-        "screen_id": "not-a-screen",
         "calendar_disconnect": "bogus-disconnect",
         "calendar_theme_id": "not-a-theme",
         "theme_arriving": "not-a-theme",
@@ -1527,16 +1525,6 @@ _GROUP_SHAPES = (
             "absent": ("saved", {}),
             "empty": ("save_failed", {}),
             "valid": ("saved", {"theme": "black"}),
-            "invalid": ("save_failed", {}),
-        },
-    ),
-    (
-        "screen",
-        {}, {"screen_id": ""}, {"screen_id": "plane-frame"}, {"screen_id": "not-a-screen"},
-        {
-            "absent": ("saved", {}),
-            "empty": ("save_failed", {}),
-            "valid": ("saved", {}),
             "invalid": ("save_failed", {}),
         },
     ),

@@ -27,7 +27,7 @@ import server.state_store as state_store  # noqa: E402
 _LEGACY_TOPIC_URL = "https://push.example/secret-topic"
 _LEGACY_GROUP = {
     "topic_url": _LEGACY_TOPIC_URL, "battery_low": True, "frame_silent": True, "lang": "fr"}
-_REMAINING_CONFIG_KEYS = 11
+_REMAINING_CONFIG_KEYS = 10
 RUNNING_VERSION = "fw-v1.0.0"
 NEXT_VERSION = "fw-v1.1.0"
 NOW = "2026-09-28T12:00:00+00:00"
@@ -55,12 +55,12 @@ def _read_poll_state(state_dir):
 
 @pytest.mark.parametrize("legacy_value", [_LEGACY_GROUP, "a-string", ["a", "list"], 7, None])
 def test_a_legacy_device_config_loads_without_surfacing_the_retired_group(tmp_path, legacy_value):
-    """a device_config.json still holding a legacy alert value loads with only the eleven
+    """a device_config.json still holding a legacy alert value loads with only the ten
     remaining keys, every other stored value intact"""
     _write_config(str(tmp_path), legacy_value)
     cfg = device_config.load_device_config(str(tmp_path))
     assert "notifications" not in cfg, "the legacy group must never reach a caller, got %r" % (cfg,)
-    assert len(cfg) == _REMAINING_CONFIG_KEYS, "expected eleven keys, got %r" % (sorted(cfg),)
+    assert len(cfg) == _REMAINING_CONFIG_KEYS, "expected ten keys, got %r" % (sorted(cfg),)
     assert cfg["theme"] == "black"
     assert cfg["led_enabled"] is False
 

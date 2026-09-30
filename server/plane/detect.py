@@ -573,11 +573,6 @@ def runway_candidates(aircraft, geofence, runway_id=DEFAULT_RUNWAY_ID):
     ]
 
 
-def runway3_candidates(aircraft, geofence):
-    """Back-compat wrapper pinned to the default runway (id "3"), for
-    pre-multi-runway callers.
-    """
-    return runway_candidates(aircraft, geofence, runway_id=DEFAULT_RUNWAY_ID)
 
 
 def _normalise_selection(winner, selected_runway=DEFAULT_RUNWAY_ID):
@@ -666,12 +661,6 @@ def select_aircraft_for_runway(aircraft, geofence, runway_id=DEFAULT_RUNWAY_ID):
     )
 
 
-def select_runway3_aircraft(aircraft, geofence):
-    """Back-compat wrapper pinned to the default runway (id "3"), for
-    pre-multi-runway callers - `poll_loop.py`, the CLI, and the existing
-    checks in `server/test_plane_detection.py`.
-    """
-    return select_aircraft_for_runway(aircraft, geofence, runway_id=DEFAULT_RUNWAY_ID)
 
 
 def _spaced_query(name, center, radius_nm, timeout, last_call_at, lock, clock, sleep):

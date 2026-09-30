@@ -288,9 +288,8 @@ def _write_preview(preview_path, screen="no-connection"):
     """Write the firmware-equivalent image side by side with the server's
     own dithered canvas for `screen`, following this project's
     side-by-side preview convention (server preview left, firmware
-    reproduction right, joined via server.panel_preview's decode path for
-    the server side so the comparison uses the same colour conversion the
-    companion's own preview route uses).
+    reproduction right). Both images are composed directly from the
+    server's hold-screen renderer, with dithering on the firmware side.
     """
     cfg = _SCREENS[screen]
     server_canvas = cfg["preview_canvas_fn"]()

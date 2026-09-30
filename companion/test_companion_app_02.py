@@ -1326,7 +1326,6 @@ def test_draw_module_scales_clamp_and_never_raise():
         draw.percent_y(hostile, 3000, 4200, hostile)
         draw.percent_attr(hostile)
         draw.unit_circle_dash_array(hostile, hostile)
-        draw.unit_point_on_circle(hostile, hostile, hostile, hostile)
         draw.escape(hostile)
         draw.is_number(hostile)
 

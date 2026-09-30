@@ -530,7 +530,7 @@ def _paris_day_bounds(now):
     through, so the band and the row beneath it cannot disagree about
     which day it is.
     """
-    parsed = history_db._instant_or_none(now)
+    parsed = history_db.instant_or_none(now)
     if parsed is None:
         return None
     day = parsed.astimezone(layout.LOCAL_TZ).date()
@@ -543,7 +543,7 @@ def _day_band_instants(rows, day):
     """The epoch seconds of every row in `rows` whose stored `ts` falls
     on the Europe/Paris calendar day `day`.
 
-    Bucketed through `history_db._paris_day_or_none()`, the same date
+    Bucketed through `history_db.paris_day_or_none()`, the same date
     path `check_in_gaps()` and `daily_battery_averages()` use, so a mark
     on this band and a row in Health's own day-bucketed data can never
     disagree about which day a check-in belongs to. This is a real
@@ -555,9 +555,9 @@ def _day_band_instants(rows, day):
     instants = []
     for row in rows or ():
         ts = row.get("ts") if isinstance(row, dict) else None
-        if history_db._paris_day_or_none(ts) != day:
+        if history_db.paris_day_or_none(ts) != day:
             continue
-        parsed = history_db._instant_or_none(ts)
+        parsed = history_db.instant_or_none(ts)
         if parsed is not None:
             instants.append(parsed.timestamp())
     return instants
