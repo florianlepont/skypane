@@ -60,6 +60,34 @@ decision, and make the next action obvious.
 - Improve the quiet-hours time selector so it is more approachable than the
   current clock-wheel presentation.
 
+## Flights
+
+- Remove the freshness line, the "last 50 aircraft" explanation, and the
+  callsign/hex filtering hint. They do not help the owner complete the core
+  task.
+- Remove the corroboration column.
+- Remove the expanded technical-detail toggle and its hex code, full timestamp,
+  and runway details; this information has no user value in this view.
+- Put the action to display a flight image directly on each flight row.
+
+## Airlines
+
+- Establish one clear rule for aircraft types. A type must either be presented
+  consistently for every airline, or omitted consistently; the current
+  inconsistent badges are confusing.
+- Make every known aircraft type for an airline discoverable. For example, the
+  owner must be able to see both Transavia aircraft types rather than only one.
+- Remove the "Air France illustration" label.
+- Replace the "crop preview" explanatory sentence with a self-evident framed
+  drag-and-drop crop area.
+- Explain or remove the "replaced" badge; it currently has no understandable
+  purpose.
+- Clarify the purpose of the delete control for manually added images and add
+  an understandable path to edit flight or airline information.
+- Restructure the page so a person can distinguish source data from their own
+  changes, understand which company- and aircraft-type-level actions exist,
+  and find those actions without guessing.
+
 ## Deferred review
 
 The owner will provide feedback for the remaining companion pages before a
