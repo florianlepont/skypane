@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SkyPane — General page directions</title>
+  <style>
+    :root { --paper:#f7f4ee; --ink:#17202e; --muted:#647080; --line:#d9d4ca; --blue:#19528d; --blue-dark:#0d315b; --green:#159954; --orange:#bd4215; --white:#fffdfa; --serif: Georgia, serif; --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:#e8e3da; color:var(--ink); font-family:var(--sans); }
+    .intro { max-width:1120px; margin:0 auto; padding:34px 28px 26px; }
+    .intro h1 { font: 400 clamp(2rem, 4vw, 3.6rem)/1 var(--serif); margin:0 0 12px; }
+    .intro p { color:#4e5967; max-width:65ch; margin:0; line-height:1.55; }
+    .directions { display:grid; gap:28px; padding:0 18px 46px; max-width:1500px; margin:auto; }
+    .direction { border:1px solid #cfc8bb; background:#fcfaf6; box-shadow:0 14px 30px rgba(31,42,59,.08); overflow:hidden; }
+    .caption { display:flex; align-items:baseline; gap:12px; padding:18px 24px; border-bottom:1px solid var(--line); }
+    .caption strong { font-size:1rem; } .caption span { color:var(--muted); font-size:.9rem; }
+    .app { min-height:740px; background:var(--paper); padding:0 0 84px; position:relative; }
+    .top { max-width:1180px; margin:auto; padding:24px 34px 15px; display:flex; justify-content:space-between; align-items:center; }
+    .brand { font:400 1.55rem var(--serif); letter-spacing:-.04em; } .fresh { display:flex; align-items:center; gap:8px; color:#4d5b67; font-size:.88rem; } .dot { width:9px; height:9px; border-radius:50%; background:var(--green); }
+    .content { max-width:1180px; margin:auto; padding:14px 34px; }
+    .title-row { display:flex; justify-content:space-between; align-items:end; margin:18px 0 24px; }
+    .title-row h2 { font:400 3rem/1 var(--serif); margin:0; letter-spacing:-.05em; }
+    .battery { color:#344557; font-weight:650; font-size:.92rem; }
+    .split { display:grid; grid-template-columns:minmax(0,1.12fr) minmax(310px,.88fr); gap:28px; align-items:start; }
+    .frame { margin:0; } .art { border-radius:20px; overflow:hidden; aspect-ratio:1.1; background:var(--blue-dark); position:relative; color:white; }
+    .art:before { content:""; position:absolute; inset:-20% 33% -25% -6%; background:#2b70ac; transform:skew(-20deg); }
+    .art:after { content:""; position:absolute; height:7px; inset:auto 10% 17%; background:rgba(255,255,255,.45); transform:rotate(-18deg); }
+    .flight-code { position:absolute; z-index:1; left:9%; bottom:12%; font:400 clamp(2rem, 4vw, 4rem) var(--serif); }
+    .flight-route { position:absolute; z-index:1; left:9%; bottom:7%; font-size:.88rem; letter-spacing:.08em; }
+    .plane { position:absolute; z-index:2; width:66%; top:39%; left:18%; filter:drop-shadow(0 15px 12px rgba(0,0,0,.3)); }
+    figcaption { padding:14px 2px 0; font-size:.95rem; } figcaption strong { display:block; font-size:1.1rem; }
+    .recent { background:var(--white); border:1px solid var(--line); border-radius:16px; padding:24px; }
+    .recent h3 { margin:0 0 15px; font:400 2rem var(--serif); letter-spacing:-.04em; }
+    .row { display:grid; grid-template-columns:40px 1fr auto; gap:12px; align-items:center; padding:15px 0; border-top:1px solid var(--line); }
+    .thumb { width:40px; height:30px; border:1px solid #d1d7de; border-radius:7px; background:linear-gradient(145deg,#eef4fa 47%,#366ca0 48% 59%,#f5f6f4 60%); }
+    .row strong { display:block; } .row small { display:block; color:var(--muted); margin-top:3px; } .row time { color:#536273; font-size:.85rem; }
+    .link { color:var(--orange); text-decoration:underline; text-underline-offset:3px; background:none; border:0; font:inherit; cursor:pointer; padding:12px 0 0; }
+    .quiet-status { margin-top:28px; border-top:1px solid var(--line); padding-top:17px; display:flex; gap:12px; align-items:center; font-size:.94rem; color:#46586a; } .quiet-status .dot { background:var(--green); }
+    .bottom { position:absolute; left:0; right:0; bottom:0; border-top:1px solid var(--line); background:rgba(255,253,250,.94); display:flex; justify-content:center; gap:7px; padding:13px 14px; }
+    .bottom a { text-decoration:none; color:#617080; padding:8px 11px; font-size:.82rem; border-radius:8px; } .bottom a.active { background:#e5edf4; color:var(--blue-dark); font-weight:700; }
+    .board { display:grid; grid-template-columns:1.35fr .65fr; gap:28px; } .signal { background:var(--blue-dark); color:white; border-radius:17px; padding:30px; min-height:275px; position:relative; overflow:hidden; } .signal:after { content:""; position:absolute; width:350px; height:350px; right:-180px; top:-190px; border:1px solid rgba(255,255,255,.25); border-radius:50%; box-shadow:0 0 0 35px rgba(255,255,255,.04), 0 0 0 70px rgba(255,255,255,.03); } .signal p { margin:0; color:#b8d2e9; } .signal h3 { font:400 clamp(2rem,4vw,4.5rem)/.95 var(--serif); margin:28px 0 9px; letter-spacing:-.05em; max-width:8ch; } .signal small { position:absolute; bottom:28px; color:#cfe3f3; }
+    .facts { border-left:1px solid var(--line); padding-left:28px; display:grid; gap:20px; align-content:start; } .fact { padding-bottom:19px; border-bottom:1px solid var(--line); } .fact span { display:block; color:var(--muted); font-size:.85rem; margin-bottom:5px; } .fact strong { font-size:1.35rem; }
+    .flight-strip { margin-top:28px; padding-top:22px; border-top:1px solid var(--line); } .flight-strip h3 { font:400 1.8rem var(--serif); margin:0 0 13px; }
+    @media (max-width:700px) { .intro { padding:25px 20px 20px; } .directions { padding:0 0 28px; gap:22px; } .caption { padding:15px 18px; flex-direction:column; gap:5px; } .app { min-height:780px; } .top { padding:18px 19px 8px; } .content { padding:8px 19px; } .title-row { margin:16px 0 19px; } .title-row h2 { font-size:2.45rem; } .split,.board { grid-template-columns:1fr; gap:20px; } .art { aspect-ratio:1.18; border-radius:15px; } .recent { padding:19px; } .recent h3 { font-size:1.7rem; } .row { grid-template-columns:36px 1fr; } .row time { grid-column:2; } .bottom { justify-content:flex-start; overflow:auto; } .bottom a { white-space:nowrap; } .facts { border-left:0; border-top:1px solid var(--line); padding:20px 0 0; grid-template-columns:1fr 1fr; } .signal { min-height:235px; } }
+  </style>
+</head>
+<body>
+  <header class="intro">
+    <h1>Deux directions pour Général</h1>
+    <p>Maquettes exploratoires : elles retirent le diagnostic de la première lecture et donnent la priorité à l’image réellement affichée et aux vols récents.</p>
+  </header>
+  <main class="directions">
+    <section class="direction">
+      <div class="caption"><strong>Direction A — L’image puis l’activité</strong><span>La frame est le point d’entrée ; les vols sont son contexte immédiat.</span></div>
+      <div class="app">
+        <div class="top"><div class="brand">SkyPane</div><div class="fresh"><i class="dot"></i> À jour</div></div>
+        <div class="content"><div class="title-row"><h2>Général</h2><div class="battery">Batterie&nbsp; 94&nbsp;%</div></div>
+          <div class="split"><figure class="frame"><div class="art"><svg class="plane" viewBox="0 0 400 140" fill="none" aria-hidden="true"><path d="M30 76 169 58l66-38 13 4-38 39 141 9 19 12-20 7-140-4 37 35-14 3-71-39-117 7-19-7 4-9Z" fill="#f8f6f0"/><path d="m178 58 54 4-25 8-35-1Z" fill="#bfd7e9"/></svg><div class="flight-code">TVF40PY</div><div class="flight-route">Transavia · OPO → ORY</div></div><figcaption><strong>Dernière image affichée</strong>Générée à 17:01</figcaption></figure>
+            <aside class="recent"><h3>Vols récents</h3><div class="row"><i class="thumb"></i><div><strong>EJU845Y</strong><small>easyJet · TLS → ORY</small></div><time>17:01</time></div><div class="row"><i class="thumb"></i><div><strong>CCM688W</strong><small>Air Corsica · AJA → ORY</small></div><time>16:53</time></div><div class="row"><i class="thumb"></i><div><strong>TVF87AW</strong><small>Transavia · OPO → ORY</small></div><time>16:51</time></div><button class="link">Voir tous les vols</button></aside></div>
+          <div class="quiet-status"><i class="dot"></i><span>Tout fonctionne normalement</span></div></div>
+        <nav class="bottom" aria-label="Navigation"><a class="active" href="#">Général</a><a href="#">Affichage</a><a href="#">Vols</a><a href="#">Compagnies</a><a href="#">État</a><a href="#">Réglages</a></nav>
+      </div>
+    </section>
+    <section class="direction">
+      <div class="caption"><strong>Direction B — Le signal de la frame</strong><span>Une lecture plus synthétique, avec l’image conservée comme détail de l’activité.</span></div>
+      <div class="app">
+        <div class="top"><div class="brand">SkyPane</div><div class="fresh"><i class="dot"></i> À jour</div></div>
+        <div class="content"><div class="title-row"><h2>Général</h2><div class="battery">Batterie&nbsp; 94&nbsp;%</div></div>
+          <div class="board"><section class="signal"><p>Dernière image affichée</p><h3>TVF40PY</h3><p>Transavia · OPO → ORY</p><small>Générée à 17:01</small></section><aside class="facts"><div class="fact"><span>État de la frame</span><strong><i class="dot" style="display:inline-block"></i> Tout va bien</strong></div><div class="fact"><span>Prochaine image</span><strong>dans 4 min</strong></div><div class="fact"><span>Image récente</span><strong>Voir l’aperçu</strong></div></aside></div>
+          <section class="flight-strip"><h3>Vols récents</h3><div class="row"><i class="thumb"></i><div><strong>EJU845Y</strong><small>easyJet · TLS → ORY</small></div><time>17:01</time></div><div class="row"><i class="thumb"></i><div><strong>CCM688W</strong><small>Air Corsica · AJA → ORY</small></div><time>16:53</time></div></section></div>
+        <nav class="bottom" aria-label="Navigation"><a class="active" href="#">Général</a><a href="#">Affichage</a><a href="#">Vols</a><a href="#">Compagnies</a><a href="#">État</a><a href="#">Réglages</a></nav>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
