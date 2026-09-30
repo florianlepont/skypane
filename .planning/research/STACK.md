@@ -1,6 +1,6 @@
 # Technical Stack: SkyPane v1.1
 
-**Researched:** 2026-09-30  
+**Researched:** 2026-09-30
 **Confidence:** High for existing integration; medium for field-autonomy estimates until the second run completes.
 
 ## Recommendation

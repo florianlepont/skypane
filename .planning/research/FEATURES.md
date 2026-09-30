@@ -1,8 +1,8 @@
 # Feature Landscape: SkyPane v1.1
 
-**Domain:** Battery-powered e-ink flight frame and its bilingual companion web app  
-**Milestone:** v1.1 Battery and Companion!  
-**Researched:** 2026-09-30  
+**Domain:** Battery-powered e-ink flight frame and its bilingual companion web app
+**Milestone:** v1.1 Battery and Companion!
+**Researched:** 2026-09-30
 **Confidence:** MEDIUM — the product evidence is strong and local, but the second discharge result and the fresh companion walkthrough do not exist yet.
 
 ## Scope Boundary

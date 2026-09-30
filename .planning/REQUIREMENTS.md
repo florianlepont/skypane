@@ -1,7 +1,7 @@
 # Requirements: SkyPane
 
-**Defined:** 2026-09-30  
-**Milestone:** v1.1 Battery and Companion!  
+**Defined:** 2026-09-30
+**Milestone:** v1.1 Battery and Companion!
 **Core Value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
 
 ## v1.1 Requirements
