@@ -52,8 +52,9 @@ phase requirements for responsive and keyboard use.
 
 ## Claude's Discretion
 
-- Choose the concrete walkthrough fixture, finding-log format, and order of
-  narrow repairs from observed companion behaviour.
+- Choose the concrete walkthrough fixture and finding-log format from observed
+  companion behaviour. The owner selects the findings to turn into fixes
+  before any follow-up plan or production-code change.
 
 ## Deferred Ideas
 

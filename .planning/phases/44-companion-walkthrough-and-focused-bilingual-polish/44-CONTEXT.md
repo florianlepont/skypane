@@ -45,12 +45,15 @@ the frame's battery policy.
   regression checks after the fixes.
 - **D-08:** Preserve the 360 px minimum supported width while retaining
   existing 320 px assertions when they already pass.
+- **D-09:** After the walkthrough, present the evidence and proposed
+  improvements to the owner before planning or changing production code. The
+  owner chooses which findings to retain, adjust, defer, or reject; only
+  approved findings may receive focused follow-up plans.
 
 ### Claude's Discretion
-- Select the exact walkthrough fixtures, finding-log structure, and narrow
-  implementation order from the live companion behaviour. Defer findings that
-  require a separate capability or would expand the phase beyond product
-  polish.
+- Select the exact walkthrough fixtures and finding-log structure from the
+  live companion behaviour. Defer findings that require a separate capability
+  or would expand the phase beyond product polish.
 
 </decisions>
 
