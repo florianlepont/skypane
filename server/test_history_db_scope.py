@@ -1,3 +1,4 @@
+from skypane_history_helpers import ingest_caddy_battery_log
 #!/usr/bin/env python3
 """Contract tests for server/history_db.py's connection scope, schema-once
 file identity, and write batching -- the machinery that lets a whole
@@ -307,7 +308,7 @@ def test_ingest_caddy_battery_log_inside_write_batch_commits_once(tmp_path):
     with efficiency_probe.count_db() as counts:
         with history_db.open_db(state_dir) as conn:
             with history_db.write_batch(conn):
-                inserted = history_db.ingest_caddy_battery_log(conn, log_path)
+                inserted = ingest_caddy_battery_log(conn, log_path)
     assert inserted == 2
     assert counts.commits == 1
 

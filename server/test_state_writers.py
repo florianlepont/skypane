@@ -68,8 +68,6 @@ def _field_plans():
             [i % 2 == 0 for i in range(20)], False),
         "calendar_theme_id": (
             ["" if i % 2 == 0 else "green" for i in range(20)], "green"),
-        "screen_id": (
-            [device_config.DEFAULT_SCREEN_ID for _ in range(20)], device_config.DEFAULT_SCREEN_ID),
     }
 
 
@@ -80,8 +78,7 @@ def test_concurrent_save_device_config_loses_no_field(tmp_path):
         "theme", "theme_arriving", "tracked_runway", "led_enabled",
         "quiet_hours_enabled", "quiet_hours_start", "quiet_hours_end",
         "wake_interval_s", "display_enabled", "calendar_theme_id",
-        "screen_id",
-    }, "test setup: expected exactly the eleven save_device_config() keywords"
+    }, "test setup: expected exactly the ten save_device_config() keywords"
 
     errors = []
 

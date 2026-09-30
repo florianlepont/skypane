@@ -79,8 +79,9 @@ pack.
 
 The primary observation channel for this run is `history.db`'s
 `device_health` table at `/opt/skypane/state/history.db` on the VPS.
-`skypane-poll.timer` runs `poll_loop.run_once()` every 30 seconds, which
-calls `history_db.ingest_caddy_battery_log()`, which tails Caddy's
+`skypane-poll.timer` runs `poll_cycle.run_once()` every 30 seconds, which
+reads Caddy's log via `history_db.read_caddy_battery_log()` and applies
+readings via `history_db.apply_caddy_battery_log()`. It tails Caddy's
 durable rolled JSON access log (`SKYPANE_CADDY_ACCESS_LOG`,
 `/opt/skypane/state/caddy-access.log`) and inserts every `X-Battery-Mv`
 reading via `record_device_health()`. This has been running in

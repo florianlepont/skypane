@@ -2033,3 +2033,25 @@ Plans:
 **Wave 4** *(blocked on Wave 3 completion)*
 
 - [x] 42-16-PLAN.md — Hardware session (human checkpoint): one USB flash, signed install, unsigned/tampered/wrong-key refusal, crash rollback, factory recovery, eFuse unchanged [OTA-02, OTA-03, OTA-04, OTA-07, OTA-10, OTA-11, OTA-12]
+
+### Phase 43: Close the v1.0 milestone audit debt: requirements bookkeeping, retroactive verifications, dead code, stale comments, screen_id, flaky OTA test
+
+**Goal:** Every finding of `.planning/v1.0-MILESTONE-AUDIT.md` that code and documents can close is closed before the milestone is completed, so `/gsd-complete-milestone v1.0` archives a clean state.
+**Scope (developer decisions, 2026-09-30):**
+- Requirements bookkeeping: the 9 stale "Pending" rows (CFG-04..06, 08..11, CFG-85, CFG-86), the 5 checklist/row contradictions (CFG-28, 31, 34, 39, 52), and DEVICE-06's missing row.
+- Retroactive `VERIFICATION.md` files, from code and tests, for the phases that have none (05, 06.6.3, 06.6.4.1, 06.6.4.1.1, 07, 12, 17, 18, 22-25, 27, 28; 26 was abandoned). They state plainly that no human check was made.
+- Dead code (`server/panel_preview.py` and the production-orphan exports), stale comments, and `home_page.py` calls to private `history_db` helpers.
+- Remove `device_config["screen_id"]` and `SCREEN_IDS` end to end (the developer approved removal).
+- The flaky `stub-server/test_ota_offer.py::test_malformed_ota_headers_are_ignored`.
+- A closing human-checkpoint plan (same shape as 42-16) for the checks that need a person: 06.4 (runway-3 diagram asset appears on `/config`), 19 (ten real-browser checks), 10 (QUIET HOURS screen distinct from the empty state, native time picker follows the theme override), 31 and 32 (a real GitHub Actions run on `main`, its result read back), 36 (optional on-frame panel swap). Claude prepares an ordered checklist with the exact action and expected result for each, triggers and reads the CI run, then updates the matching `VERIFICATION.md` from `human_needed` to `passed` or to the gaps found.
+**Out of scope:** the notification retry on a failed send (audit W2): the developer is deleting that function on another branch, and it lands on `main` once its CI series passes. Re-check after that merge. The five requirements left unticked by decision (CFG-37, 42, 50, 65, 74), whose reasons are recorded in the traceability table.
+**Requirements**: TBD
+**Depends on:** Phase 42
+**Plans:** 3/4 plans complete
+
+Plans:
+
+- [x] 43-01-PLAN.md — Requirements reconciliation
+- [x] 43-02-PLAN.md — Code cleanup
+- [x] 43-03-PLAN.md — Retrospective verification
+- [ ] 43-04-PLAN.md — Final checks and milestone close

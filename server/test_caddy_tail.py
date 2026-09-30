@@ -1,3 +1,4 @@
+from skypane_history_helpers import ingest_caddy_battery_log
 #!/usr/bin/env python3
 """Contract tests for server/history_db.py's Caddy access-log battery
 tailer: complete-lines-only reading (a partial last line is never parsed
@@ -109,7 +110,7 @@ def test_bad_stored_offset_resets_to_zero_without_raising(tmp_path, stored):
 
     with history_db.open_db(tmp_path) as conn:
         history_db.set_meta(conn, history_db.META_CADDY_LOG_OFFSET, stored)
-        inserted = history_db.ingest_caddy_battery_log(conn, log_path)
+        inserted = ingest_caddy_battery_log(conn, log_path)
 
     assert inserted == 1, (
         "a bad stored offset (%r) must reset to 0 and still ingest the whole file, got %d rows" % (stored, inserted)
@@ -179,7 +180,7 @@ def test_shrunk_file_still_resets_offset_to_zero(tmp_path):
         fh.write(long_line + "\n")
 
     with history_db.open_db(tmp_path) as conn:
-        first = history_db.ingest_caddy_battery_log(conn, log_path)
+        first = ingest_caddy_battery_log(conn, log_path)
         assert first == 1
 
         # Caddy rotated: the file is replaced by something shorter than
@@ -190,7 +191,7 @@ def test_shrunk_file_still_resets_offset_to_zero(tmp_path):
         with open(log_path, "w") as fh:
             fh.write(short_line + "\n")
 
-        second = history_db.ingest_caddy_battery_log(conn, log_path)
+        second = ingest_caddy_battery_log(conn, log_path)
         assert second == 1, (
             "a rotated (shrunk) file must reset the offset to 0 and re-ingest from the start, got %d rows" % second
         )

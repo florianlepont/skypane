@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from companion import auth, draw, layout
-from companion.contrast_check import (
+from skypane_contrast_check import (
     MIN_SIGNAL_PERCEPTUAL_DISTANCE, WCAG_AA_UI_COMPONENT, contrast_ratio,
     perceptual_distance,
 )

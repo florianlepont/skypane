@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 42
-status: phase_complete
-stopped_at: "Phase 42 complete (2026-09-29): 16/16 plans, verification passed, UAT 2/2 (failure push seen on the phone; UPDATING drawn with the display off and in quiet hours during the fw-v1.0.2 install), security 74/74 threats closed. Follow-ups shipped in PR #161. Phase 42 is the last roadmap phase; the only open v1.0 item is milestone close-out."
+current_phase: 43
+status: human_needed
+stopped_at: "Phase 43 automated close-out complete (2026-09-30): requirements reconciled, retired screen_id and orphan production APIs removed, retrospective verification records added, focused xdist suite 484 + final browser-inclusive suite 232 passed. Milestone audit is human_needed for the explicit 06.4/10/19/31/32/36 checks before archive/tag."
 last_updated: "2026-09-29T21:52:45.401Z"
 last_activity: 2026-09-29
 last_activity_desc: Phase 42 complete

@@ -7,7 +7,6 @@ Today there is exactly one screen type and one physical device, so
 this stays small — it changes how pages are composed, not where
 values live. Plain data plus one lookup helper; nothing renders.
 """
-import companion.page_context as page_context
 
 # Settings-group identifiers. config_page.py's builders are keyed on
 # these exact strings (see config_page.GROUP_BUILDERS). Adding a group
@@ -52,7 +51,6 @@ SCREEN_TYPES = {
     },
 }
 
-SCREEN_IDS = tuple(SCREEN_TYPES)
 
 
 def screen_type(screen_id=None):
@@ -68,16 +66,8 @@ def screen_type(screen_id=None):
     return SCREEN_TYPES[DEFAULT_SCREEN_ID]
 
 
+
+
 def current_screen_id(ctx=None):
-    """The screen the companion is currently configuring. Single-device
-    today, so always DEFAULT_SCREEN_ID; reads `ctx.screen_id` first so
-    the request layer can start threading a selection through without
-    this function's callers changing. `ctx=None` (no caller passes it
-    today) skips coerce() entirely, since an empty mapping would coerce
-    to the same DEFAULT_SCREEN_ID outcome anyway.
-    """
-    if ctx is not None:
-        ctx = page_context.coerce(ctx)
-        if ctx.screen_id in SCREEN_TYPES:
-            return ctx.screen_id
+    """The single frame type configured by the companion."""
     return DEFAULT_SCREEN_ID

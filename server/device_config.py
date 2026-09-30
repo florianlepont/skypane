@@ -112,14 +112,6 @@ RUNWAYS = {
 
 RUNWAY_IDS = tuple(RUNWAYS)
 
-# --- Screen-id seam --------------------------------------------------------
-#
-# Duplicate (not import) of companion/screens.py's SCREEN_IDS/
-# DEFAULT_SCREEN_ID - server/ must never import companion/.
-# server/test_config_history.py pins the two equal.
-DEFAULT_SCREEN_ID = "plane-frame"
-SCREEN_IDS = ("plane-frame",)
-
 DEVICE_CONFIG_FILENAME = "device_config.json"
 
 # Lock file name for the cross-process guard around save_device_config()'s
@@ -182,12 +174,6 @@ def normalise_runway_id(value):
     return DEFAULT_RUNWAY_ID
 
 
-def normalise_screen_id(value):
-    """`value` unchanged if it's a string member of `SCREEN_IDS`, else
-    `DEFAULT_SCREEN_ID`. Never raises."""
-    if isinstance(value, str) and value in SCREEN_IDS:
-        return value
-    return DEFAULT_SCREEN_ID
 
 
 def normalise_led_enabled(value):
@@ -237,7 +223,7 @@ def load_device_config(state_dir):
     file falls back to an empty dict, never raises. Always returns all
     eleven keys with valid values via the normalise_*() functions above,
     so a hostile or stale value on disk never reaches a caller.
-    `theme_arriving`, `calendar_theme_id`, `screen_id` are read with
+    `theme_arriving`, `calendar_theme_id` are read with
     `.get()` so an older file missing them resolves to their documented
     default. `wake_interval_s`, `theme_arriving`, `calendar_theme_id` are
     the three keys whose valid value set includes `None`.
@@ -265,7 +251,6 @@ def load_device_config(state_dir):
         "quiet_hours_end": normalise_quiet_hours_time(data.get("quiet_hours_end"), DEFAULT_QUIET_HOURS_END),
         "wake_interval_s": normalise_wake_interval_s(data.get("wake_interval_s")),
         "display_enabled": normalise_display_enabled(data.get("display_enabled")),
-        "screen_id": normalise_screen_id(data.get("screen_id")),
     }
 
 
@@ -286,14 +271,12 @@ def _validate_theme_fields(theme, theme_arriving, calendar_theme_id):
         raise ValueError("unknown calendar_theme_id %r (expected None, the empty string, or one of %r)" % (calendar_theme_id, THEME_IDS))
 
 
-def _validate_runway_and_flags(tracked_runway, led_enabled, display_enabled, screen_id):
-    """`tracked_runway`/`screen_id`/`led_enabled`/`display_enabled`'s own
+def _validate_runway_and_flags(tracked_runway, led_enabled, display_enabled):
+    """`tracked_runway`/`led_enabled`/`display_enabled`'s own
     validation, extracted from `save_device_config()` verbatim.
     """
     if tracked_runway is not None and tracked_runway not in RUNWAYS:
         raise ValueError("unknown tracked_runway id %r (expected one of %r)" % (tracked_runway, RUNWAY_IDS))
-    if screen_id is not None and screen_id not in SCREEN_IDS:
-        raise ValueError("unknown screen_id %r (expected one of %r)" % (screen_id, SCREEN_IDS))
     if led_enabled is not None and not isinstance(led_enabled, bool):
         raise ValueError("led_enabled must be a bool, got %r" % (led_enabled,))
     if display_enabled is not None and not isinstance(display_enabled, bool):
@@ -330,9 +313,9 @@ def _validate_wake_interval(wake_interval_s):
 def _merged_config(
     current, theme=None, theme_arriving=None, calendar_theme_id=None, tracked_runway=None,
     led_enabled=None, quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
-    wake_interval_s=None, display_enabled=None, screen_id=None,
+    wake_interval_s=None, display_enabled=None,
 ):
-    """The eleven-key dict `save_device_config()` writes: every supplied
+    """The ten-key dict `save_device_config()` writes: every supplied
     (non-`None`) field wins, everything else carries `current`'s value
     forward. `theme_arriving`'s three-state contract (sentinel clears,
     non-None sets, None carries forward) is unchanged from before the
@@ -355,7 +338,6 @@ def _merged_config(
         "quiet_hours_end": quiet_hours_end if quiet_hours_end is not None else current["quiet_hours_end"],
         "wake_interval_s": wake_interval_s if wake_interval_s is not None else current["wake_interval_s"],
         "display_enabled": display_enabled if display_enabled is not None else current["display_enabled"],
-        "screen_id": screen_id if screen_id is not None else current["screen_id"],
     }
 
 
@@ -363,7 +345,6 @@ def save_device_config(
     state_dir, theme=None, theme_arriving=None, tracked_runway=None, led_enabled=None,
     quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
     wake_interval_s=None, display_enabled=None, calendar_theme_id=None,
-    screen_id=None,
 ):
     """Validate and persist any subset of the device settings; `None`
     means "not supplied, carry the current on-disk value forward" for
@@ -392,7 +373,7 @@ def save_device_config(
     name and leaves no leftover file on failure.
     """
     _validate_theme_fields(theme, theme_arriving, calendar_theme_id)
-    _validate_runway_and_flags(tracked_runway, led_enabled, display_enabled, screen_id)
+    _validate_runway_and_flags(tracked_runway, led_enabled, display_enabled)
     _validate_quiet_hours(quiet_hours_enabled, quiet_hours_start, quiet_hours_end)
     _validate_wake_interval(wake_interval_s)
 
@@ -409,7 +390,6 @@ def save_device_config(
                 led_enabled=led_enabled, quiet_hours_enabled=quiet_hours_enabled,
                 quiet_hours_start=quiet_hours_start, quiet_hours_end=quiet_hours_end,
                 wake_interval_s=wake_interval_s, display_enabled=display_enabled,
-                screen_id=screen_id,
             )
             atomic_io.atomic_write(device_config_path(state_dir), json.dumps(new_config, indent=1))
 

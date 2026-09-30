@@ -19,7 +19,7 @@ select = ["E4", "E7", "E9", "F"]
 
 # E402 (import not at top) suppressed, not fixed: every finding is a
 # documented sys.path bootstrap (server/device_config.py,
-# server/panel_preview.py, server/plane/detect.py, server/plane/enrich.py,
+# server/plane/detect.py, server/plane/enrich.py,
 # server/themes.py, stub-server/byos_server.py), needed so
 # `server/.venv/bin/python3 server/poll_loop.py` (server/README.md's own
 # invocation) resolves its `server.*` imports when run as a direct script.

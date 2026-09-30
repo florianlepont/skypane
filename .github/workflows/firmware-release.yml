@@ -200,9 +200,7 @@ jobs:
             --verify-tag
 
       - name: Trigger the reviewer-gated production deploy
-        # ci.yml gains a workflow_dispatch trigger in a later plan; until
-        # then this step fails loudly, which is acceptable since no
-        # release tag is pushed before the hardware session.
+        # Dispatch ci.yml on main; its production environment requires review.
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
