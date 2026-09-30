@@ -117,6 +117,32 @@ decision, and make the next action obvious.
 - Replace "Our ability to identify flights" with a plainer, more useful
   section title; the exact wording remains a proposal decision.
 
+## Device
+
+- Evaluate renaming "Device" to a clearer term such as "Advanced features";
+  this remains an open naming decision.
+- Remove the non-actionable screen type, next-wake status, and the
+  "hardware, data, and diagnostics" page-description sentence.
+- Rename the wake-up section to "Wake interval".
+- Remove the explanatory text claiming an aircraft appears within five
+  minutes, the insufficient battery-history note, and the repeated wake-up
+  cadence explanation; they do not help configure the setting.
+- Rename the frame-light section to "Diagnostic LED".
+- Replace the current LED sentence and next-wake note with a concise
+  explanation of the LED's observable purpose and behaviour.
+- Replace the "When you cannot wait" title with a direct action name for
+  refreshing now, and add an understandable confirmation of what happened.
+
+## Update
+
+- Clarify the installed-version status so current version, installation state,
+  and relevant time are not repeated or competing for attention.
+- Remove bench/test firmware images from the installable release list.
+- Present each real firmware release with a clearer visual version label or
+  small identifying icon.
+- Redesign the page's overall hierarchy so updates feel approachable rather
+  than like a raw release table.
+
 ## Deferred review
 
 The owner will provide feedback for the remaining companion pages before a
