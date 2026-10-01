@@ -157,6 +157,7 @@ def _classes_inside_svg(markup, opening_class):
 
 # --- Home's fully-seeded French render ----------
 
+@pytest.mark.skip(reason="Phase 44 replaces the retired Home status labels with frame-signal copy.")
 def test_home_full_seeded_render_localises_to_french_without_leaking_english(tmp_path):
     """a fully-seeded Home render under lang='fr' shows the French page title, section
     headings, status-row labels and next-update headline with no English string leaking in
@@ -207,6 +208,7 @@ def test_home_full_seeded_render_localises_to_french_without_leaking_english(tmp
             "expected the English %r in the default-language Home render" % (needle,))
 
 
+@pytest.mark.skip(reason="The Home status card is retired; Health owns detailed state timestamps.")
 def test_home_status_card_localises_real_health_state_timestamps_under_french(tmp_path):
     """Home's status card, fed a REAL health_page.compute_health_state() result computed under
     lang='fr', fully localises the Frame/Flight-data rows' timestamps (no English month
@@ -253,6 +255,7 @@ def test_home_status_card_localises_real_health_state_timestamps_under_french(tm
         "Home's Flight-data row — Home renders its OWN verdict only (B2)")
 
 
+@pytest.mark.skip(reason="Quiet-hours state is no longer duplicated on Home.")
 def test_home_frame_tile_matches_strip_for_the_nightly_held_regression(tmp_path):
     """the nightly regression (quiet hours 23:00-07:00, check-in 22:58, clock 02:00
     Europe/Paris): Home's Frame tile and the strip render the SAME clock string, and zero
@@ -285,6 +288,7 @@ def test_home_frame_tile_matches_strip_for_the_nightly_held_regression(tmp_path)
         "expected the held Frame tile's own neutral verdict text")
 
 
+@pytest.mark.skip(reason="Frame timing detail is no longer duplicated on Home.")
 def test_home_frame_tile_flips_to_late_together_with_the_strip(tmp_path):
     """a late frame flips the strip to 'Expected since'/dot--warn and Home's Frame tile to its
     own late verdict/stat-tile--warn together, at the same threshold — they cannot disagree
@@ -303,6 +307,7 @@ def test_home_frame_tile_flips_to_late_together_with_the_strip(tmp_path):
     assert "stat-tile stat-tile--warn" in rendered, "expected the Frame tile's own warn border class"
 
 
+@pytest.mark.skip(reason="The Home flight-data tile is retired in favour of an actionable link.")
 def test_home_flight_data_tile_one_verdict_verdict_free_detail(tmp_path):
     """Home's Flight-data tile renders exactly one verdict (its own DATA_STATE_TEXT) with
     Health's verdict-free pipeline_detail_html beneath it, never Health's own
@@ -345,6 +350,7 @@ def test_home_recent_flights_use_display_airline_name_matching_flights(tmp_path)
     assert "CCM Airlines" not in rendered, "expected the raw upstream airline string not to leak onto Home"
 
 
+@pytest.mark.skip(reason="The shared Frame strip is retired from Home.")
 def test_home_exactly_one_element_named_frame(tmp_path):
     """exactly one element on a rendered Home page is named 'Frame' (the shared strip's own
     heading) — Home's tile caption is renamed to resolve the X4 collision"""
@@ -464,6 +470,7 @@ def test_home_catalog_keys_all_present_in_merged_catalog():
     assert not missing_ids, "ids missing from the merged BY_ID: %r" % (missing_ids,)
 
 
+@pytest.mark.skip(reason="Home no longer renders quick controls or healthy diagnostic tiles.")
 def test_home_full_render_has_quick_action_only_inside_strip_and_three_tiles(tmp_path):
     """a rendered Home page carries no status-card__rows/home-hero markup, quick-action markup
     only inside .frame-strip (exactly two cells) and nowhere else, exactly three stat-tile
@@ -831,6 +838,7 @@ def test_day_band_emits_only_registered_classes_and_no_colour():
 
 # --- Task 2 : the day band on Home ----------------
 
+@pytest.mark.skip(reason="The daily activity band moves from Home to Health in Phase 44.")
 def test_home_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
     """Home's day band draws one mark per check-in at its PARIS clock position, captions the
     Paris day it shows and states the count as text; a day with no check-ins still renders the
@@ -936,6 +944,7 @@ def test_home_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
         "device made no check-ins when nothing was read")
 
 
+@pytest.mark.skip(reason="The daily activity band moves from Home to Health in Phase 44.")
 def test_home_day_band_shades_quiet_hours_only_when_configured(tmp_path):
     """Home's day band shades the CONFIGURED quiet-hours window — the default 23:00-07:00
     wrapping night window as two spans covering its eight hours, named in the caption — and
@@ -986,6 +995,7 @@ def test_home_day_band_shades_quiet_hours_only_when_configured(tmp_path):
     assert _home_band_marks(off_section), "expected the check-in marks to survive quiet hours being off"
 
 
+@pytest.mark.skip(reason="The daily activity band moves from Home to Health in Phase 44.")
 def test_home_day_band_buckets_by_paris_day_and_costs_one_read(tmp_path):
     """Home's day band buckets check-ins by the PARIS day — a 22:30Z check-in (Paris 00:30
     today) is on the band and a 2026-08-27T22:30Z one (Paris 00:30 tomorrow) is not, since
@@ -1061,6 +1071,7 @@ def test_home_day_band_buckets_by_paris_day_and_costs_one_read(tmp_path):
 
 # --- Task 1 : D4's hero, assembled from calls -----
 
+@pytest.mark.skip(reason="The former Home dashboard composition is replaced by Direction B.")
 def test_home_top_is_one_composition_holding_the_ring_and_the_band(tmp_path):
     """Home's top is ONE composition: a single hero container holds the shared Frame strip
     (rendered once, unforked), the three status tiles carrying the battery ring, and the day
@@ -1154,6 +1165,7 @@ def test_home_top_is_one_composition_holding_the_ring_and_the_band(tmp_path):
 
 # --- Task 2 : "fed by", proven --------------------
 
+@pytest.mark.skip(reason="Home no longer draws the battery ring or the activity band.")
 def test_the_heros_ring_is_the_emitter_healths_ring_is(tmp_path):
     """the hero's battery ring is the same emitter Health's ring is — the two pages' rings
     carry one class vocabulary, computed from the markup rather than listed; the hero's day
@@ -1221,6 +1233,7 @@ def test_the_heros_ring_is_the_emitter_healths_ring_is(tmp_path):
                 "a class the shared module does not own came from somewhere else" % (token,))
 
 
+@pytest.mark.skip(reason="Home no longer draws the battery ring or the activity band.")
 def test_breaking_a_shared_emitter_breaks_the_hero_with_the_page_it_borrowed_it_from(tmp_path):
     """breaking a shared emitter breaks the hero WITH the page it borrowed it from: one class
     constant inside companion/draw.py's ring emitter is replaced at check time and both Home's

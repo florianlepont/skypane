@@ -30,7 +30,7 @@ from server.plane import illustrations
 from server.plane import render as panel_render
 
 PAGE_TITLE = i18n.msg("nav.home", "Home")
-PAGE_PURPOSE = i18n.msg("home.your_frame_at_a_glance", "Your frame at a glance.")
+CURRENT_FRAME_HEADING = i18n.msg("home.current_frame", "Current frame")
 
 RECENT_FLIGHTS_LIMIT = 5
 RECENT_FLIGHTS_HEADING = i18n.msg("home.recent_flights", "Recent flights")
@@ -101,6 +101,10 @@ FRAME_ROW_LABEL = i18n.msg("home.check_ins", "Check-ins")
 BATTERY_ROW_LABEL = i18n.msg("home.battery", "Battery")
 DATA_ROW_LABEL = i18n.msg("home.flight_data", "Flight data")
 HEALTH_LINK_TEXT = i18n.msg("home.see_details_on_health", "See details on Health")
+BATTERY_FACT_TEMPLATE = i18n.msg("home.battery_fact", "Battery · %s")
+BATTERY_FACT_EMPTY = i18n.msg("home.battery_fact_empty", "Battery · No reading yet")
+ACTION_NEEDED_TEXT = i18n.msg("home.action_needed", "Something needs attention")
+ACTION_NEEDED_LINK_TEXT = i18n.msg("home.review_status", "Review status")
 
 # Stays byte-identical to health_page.DEVICE_STATE_TEXT's own values —
 # see companion/i18n_fr/home.py's comment for why the two dicts must
@@ -681,12 +685,56 @@ def _hero_html(*parts):
     return '<div class="%s">%s</div>' % (HERO_CLASS, "".join(parts))
 
 
+def _battery_fact_html(ctx):
+    """A compact battery fact for the normal Home path.
+
+    Home reads only the latest stored reading already owned by PageContext's
+    state directory.  It deliberately does not reintroduce the old battery
+    dashboard tile: the number is useful when all is well, but it should not
+    compete with the image the frame last received.
+    """
+    reading = _safe_query(ctx.state_dir, _latest_battery)
+    if not reading or not reading.get("battery_mv"):
+        text = i18n.t(BATTERY_FACT_EMPTY)
+    else:
+        percent = battery.battery_percent(reading["battery_mv"])
+        value = "≈ %d%%" % percent if percent is not None else "%s mV" % reading["battery_mv"]
+        text = i18n.t(BATTERY_FACT_TEMPLATE) % value
+    return '<p class="home-fact text-label">%s</p>' % escape_html(text)
+
+
+def _needs_attention(ctx):
+    """Whether Home should point the owner to the detailed Health page.
+
+    Quiet-hours sleep is intentional and therefore excluded.  Every other
+    warn/error state already belongs to the shared, server-derived health
+    snapshot; Home only decides whether that snapshot warrants a link.
+    """
+    health = ctx.health_state or {}
+    return any(health.get(name) in ("warn", "error") for name in (
+        "device_state", "pipeline_state", "battery_state"))
+
+
+def _action_needed_html(ctx):
+    if not _needs_attention(ctx):
+        return ""
+    return (
+        '<p class="home-action"><span class="dot dot--warn"></span>%s '
+        '<a href="/health">%s</a></p>'
+    ) % (
+        escape_html(i18n.t(ACTION_NEEDED_TEXT)),
+        escape_html(i18n.t(ACTION_NEEDED_LINK_TEXT)),
+    )
+
+
 def render(ctx):
-    """Strip, then three tiles, then a two-column picture/recent-flights
-    row. The first three are handed to `_hero_html()` as one
-    composition; the DOM order, and every region
-    `layout.REFRESH_SWAP_SELECTORS_BY_PAGE` declares for this page, are
-    unchanged by that wrapping.
+    """Render the approved frame-signal-first Home composition.
+
+    The generated picture and its flight line are the primary signal. Recent
+    flights follow beside it on desktop and after it on a phone; battery is a
+    compact fact and only an actionable shared health state adds a Health
+    link.  Home does not duplicate the screen, quiet-hours, next-wake, or
+    daily-activity information that belongs to configuration and Health.
     """
     ctx = page_context.coerce(ctx)
     now = ctx.now
@@ -695,26 +743,20 @@ def render(ctx):
     # two independent queries for the same data.
     rows = _safe_query(ctx.state_dir, _recent_flights)
     current_flight_row = rows[0] if rows else None
-    # The day band's own single read, made here and passed down so a
-    # builder that queried for itself would not make the page's cost
-    # depend on how many sections happen to want the data.
-    checkin_rows = _safe_query(ctx.state_dir, _day_checkins)
-    header = layout.page_header(
-        i18n.t(PAGE_TITLE), purpose=i18n.t(PAGE_PURPOSE),
-        freshness_html=layout.freshness_line_html(now))
-    # _status_tiles_html() below makes its own fresh call to the same
-    # wake accessor against the same ctx fields, so the two can never
-    # disagree.
-    next_wake_iso = wake.next_wake_status(ctx.last_checkin_ts, ctx.device_config)[0]
+    header = layout.page_header(i18n.t(PAGE_TITLE))
     return (
         header
-        + _hero_html(
-            layout.frame_strip_html(
-                ctx, return_to=layout.HOME_ROUTE, next_wake_iso=next_wake_iso),
-            _status_tiles_html(ctx),
-            _day_band_html(ctx, checkin_rows))
-        + '<div class="home-columns home-picture-row">'
+        + '<div class="home-columns home-picture-row home-signal-grid">'
+        + '<section class="page-section home-section home-current-frame" '
+        'aria-labelledby="home-current-frame">'
+        + '<h2 class="text-heading" id="home-current-frame">%s</h2>'
+        % escape_html(i18n.t(CURRENT_FRAME_HEADING))
         + _current_picture_html(ctx, current_flight_row)
+        + '</section>'
         + _recent_flights_html(rows, now, ctx.state_dir)
+        + "</div>"
+        + '<div class="home-facts">'
+        + _battery_fact_html(ctx)
+        + _action_needed_html(ctx)
         + "</div>"
     )

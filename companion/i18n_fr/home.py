@@ -17,7 +17,7 @@ never a straight quote), and a non-breaking space (U+00A0) before
 """
 
 MESSAGES = {
-    "home.your_frame_at_a_glance": "Votre cadre en un coup d’œil.",
+    "home.current_frame": "Dernière image envoyée au cadre",
 
     "home.rendered": "Généré %s",
     "home.the_picture_currently_on_the_frame":
@@ -66,6 +66,10 @@ MESSAGES = {
     "home.no_reading_yet": "Aucune mesure pour l’instant",
 
     "home.see_details_on_health": "Voir les détails dans État",
+    "home.battery_fact": "Batterie · %s",
+    "home.battery_fact_empty": "Batterie · Aucune mesure pour l’instant",
+    "home.action_needed": "Un élément demande votre attention",
+    "home.review_status": "Voir l’état",
 
     "home.recent_flights": "Vols récents",
     "home.see_all_flights": "Voir tous les vols",

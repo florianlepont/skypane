@@ -98,8 +98,8 @@ def _visible_text_outside_title_attributes(markup):
 # ==========================================================================
 
 
-def test_23_06_the_freshness_line_stays_off_healths_primary_status_scan(tmp_path):
-    """Home keeps the shared freshness builder while Health starts with its status."""
+def test_23_06_page_headers_stay_free_of_redundant_freshness_lines(tmp_path):
+    """Health and the signal-first Home omit the redundant freshness line."""
     now_iso = shp.iso(shp.now())
     built = layout.freshness_line_html(now_iso)
     health = health_page.render(shp.ctx(str(tmp_path / "h"), now_iso))
@@ -107,27 +107,13 @@ def test_23_06_the_freshness_line_stays_off_healths_primary_status_scan(tmp_path
     assert built not in health
     assert "data-loaded-at" not in health
     assert "data-refresh-pill" not in health
-    assert built in home
-    assert home.count("data-loaded-at") == 1
-    assert home.count("data-refresh-pill") == 1
-    positions = [
-        built.index(layout.REFRESH_LIVE_DOT_ATTR),
-        built.index(layout.escape_html(health_page.i18n.t(layout.FRESHNESS_PREFIX_TEXT))),
-        built.index("data-refresh-clock"),
-        built.index("data-refresh-pill"),
-    ]
-    assert positions == sorted(positions), (
-        "expected dot, prefix, clock, pill in that source order, got %r in %r"
-        % (positions, built))
-    assert built.count("data-relative") == 1
+    assert built not in home
+    assert "data-loaded-at" not in home
+    assert "data-refresh-pill" not in home
 
 
 def test_23_06_home_declares_the_regions_it_actually_renders(tmp_path):
-    """Home declares the four regions that actually change between polls (the strip, the
-    status tiles, the picture, the recent-flights list) plus its freshness line, every
-    literal in every one of its selectors appears in the rendered page, and the Display
-    scope declares exactly the strip and the freshness line — everything else there is a
-    form"""
+    """Home swaps only its current frame, flight list, and compact facts."""
     now_iso = shp.iso(shp.now())
     rendered = home_page.render(_home_ctx(str(tmp_path), now_iso))
     registry = layout.REFRESH_SWAP_SELECTORS_BY_PAGE
@@ -144,10 +130,12 @@ def test_23_06_home_declares_the_regions_it_actually_renders(tmp_path):
         "Home declares regions it does not render: %r — a selector that matches nothing is "
         "a region that silently never refreshes" % (missing,))
     home_list = registry[layout.REFRESH_PAGE_HOME]
-    for needle in ("frame-strip", "home-status-grid", "preview-frame", "home-flights"):
+    for needle in ("preview-frame", "home-flights", "home-facts"):
         assert any(needle in selector for selector in home_list), (
             "expected Home's swap regions to cover %r, got %r" % (needle, home_list))
-    assert ".page-header__freshness" in home_list
+    for retired in ("frame-strip", "home-status-grid", "page-header__freshness"):
+        assert not any(retired in selector for selector in home_list), (
+            "expected retired Home region %r to stay out of the refresh registry" % retired)
     # DISPLAY IS DELIBERATELY CONSERVATIVE. Everything else on that page is
     # a form, and a form is the one thing a swap must never touch.
     display_list = registry[layout.REFRESH_PAGE_DISPLAY]

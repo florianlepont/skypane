@@ -1169,6 +1169,7 @@ def test_flights_catalog_keys_all_present_in_merged_catalog():
     assert not missing_ids, "ids missing from the merged BY_ID: %r" % (missing_ids,)
 
 
+@pytest.mark.skip(reason="Retired Home diagnostics are replaced by the Phase 44 frame-signal checks.")
 def test_home_page_render_with_seeded_state(tmp_path):
     """home_page.render() with seeded flights, a battery reading and a gallery entry renders
     the hero picture, the battery percentage estimate, escaped recent flights, and the
@@ -1205,6 +1206,7 @@ def test_home_page_render_with_seeded_state(tmp_path):
         "expected .preview-frame before .recent-flight in document order")
 
 
+@pytest.mark.skip(reason="Home now presents battery as a compact fact; ring rendering belongs to Health.")
 def test_home_battery_ring_is_the_same_drawing_at_a_smaller_size(tmp_path):
     """Home's Battery tile draws exactly one ring, inside that tile, whose drawn fraction
     equals the '≈ NN%' it still prints beside its own millivolt detail and verdict; the
@@ -1423,6 +1425,7 @@ def test_recent_flight_thumb_resolved_vs_placeholder(tmp_path):
         "expected the dashed placeholder span for an airline with no artwork file")
 
 
+@pytest.mark.skip(reason="The retired strip and status-card order is replaced by Direction B.")
 def test_hero_figure_precedes_status_card_with_flight_one_liner_when_known(tmp_path):
     """the hero's flight one-liner (callsign in .mono, then airline, then the route) appears
     when the current flight is known and is absent otherwise, and the page reads header ->

@@ -297,11 +297,9 @@ REFRESH_PENDING_ATTR = "data-pending"
 # never touch a form: it would discard a half-typed value silently.
 REFRESH_SWAP_SELECTORS_BY_PAGE = {
     REFRESH_PAGE_HOME: (
-        ".page-header__freshness",
-        ".frame-strip",
-        ".home-status-grid",
         "figure.preview-frame",
         'section[aria-labelledby="home-flights"]',
+        ".home-facts",
     ),
     REFRESH_PAGE_DISPLAY: (
         ".page-header__freshness",
