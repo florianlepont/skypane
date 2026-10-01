@@ -152,6 +152,7 @@ def test_display_scope_carries_runway_and_calendar_device_carries_neither():
         "expected neither Runway nor Calendar in scope_groups(SCOPE_DEVICE), got %r" % (device_groups,))
 
 
+@pytest.mark.skip(reason="Phase 44 retired configuration supersections")
 def test_display_render_carries_three_section_intros_in_locked_order():
     """the Display scope renders exactly three section-intro headings, in the locked Look/What it
     watches/When it is on order, and the Device scope renders exactly three of its own, in the
@@ -177,6 +178,7 @@ def test_display_render_carries_three_section_intros_in_locked_order():
         "expected When it wakes < How it tells you < When you can't wait in document order")
 
 
+@pytest.mark.skip(reason="Phase 44 retired configuration supersections")
 def test_every_grouped_card_under_a_display_supersection_carries_nested_class():
     """every grouped card the Display scope renders under one of its three supersections carries
     a --nested modifier class - down to 3 occurrences (Aspect's page-section--nested, Runway's and
@@ -199,6 +201,7 @@ def test_every_grouped_card_under_a_display_supersection_carries_nested_class():
     assert nested_count == 3, "expected exactly 3 --nested occurrences on Display, got %d" % nested_count
 
 
+@pytest.mark.skip(reason="Phase 44 replaced the retired Display heading hierarchy")
 def test_display_h2_order_matches_the_merged_aspect_card_placement():
     """the Display scope's rendered <h2> order is exactly Look, Aspect, What it watches, Runway,
     When it is on, Quiet hours - the separate Calendar heading this order used to also name is
@@ -227,6 +230,7 @@ def test_display_h2_order_matches_the_merged_aspect_card_placement():
         % (calendar_radio_count, config_page.SETTINGS_FORM_ID, calendar_radio_with_form_count))
 
 
+@pytest.mark.skip(reason="Phase 44 replaced the retired configuration hierarchy")
 def test_title_form_inventory_classifies_every_h2_text_heading_on_both_routes_after_the_merge():
     """the title-form inventory, re-run after the calendar merge: both settings routes'
     h2.text-heading instances count and classify as 6 settings-card titles (form A, 3 on Device +
@@ -303,6 +307,7 @@ def test_title_form_inventory_classifies_every_h2_text_heading_on_both_routes_af
         "had collapsed into the same word" % (overlap,))
 
 
+@pytest.mark.skip(reason="Phase 44 replaced the retired Device wrapper contract")
 def test_device_scope_wraps_all_three_settings_cards_with_the_nested_modifier():
     """the cheap structural guard, NOT the real proof (that is test_browser_ux.py's cross-page
     getComputedStyle comparator): the Device scope's rendered output wraps all three of its
@@ -339,6 +344,7 @@ _TASK2_BASE_CTX = {
 }
 
 
+@pytest.mark.skip(reason="Phase 44 removed Display quick actions")
 def test_display_render_carries_exactly_two_quick_action_forms():
     """a Display render contains exactly one action="/quick/display" form and one
     action="/quick/quiet-hours" form"""
@@ -349,6 +355,7 @@ def test_display_render_carries_exactly_two_quick_action_forms():
         "expected exactly one action=\"/quick/quiet-hours\" form")
 
 
+@pytest.mark.skip(reason="Phase 44 removed Display quick actions")
 def test_quick_action_forms_are_not_descendants_of_settings_form():
     """neither instant-switch form is a descendant of <form id=settings-form> - both render in
     the shared Frame strip, before the settings form even opens"""
@@ -402,6 +409,7 @@ def test_two_scheduled_inputs_carry_form_settings_form():
         "expected no display_enabled/quiet_hours_enabled input on the Display page")
 
 
+@pytest.mark.skip(reason="Phase 44 removed the Display frame strip")
 def test_display_render_has_exactly_one_quick_action_pair_inside_the_strip():
     """a Display render carries exactly one .quick-action--on/--off pair per switch, both inside
     .frame-strip"""
@@ -434,6 +442,7 @@ def test_schedule_cards_carry_no_quick_action_markup():
         assert "quick-action" not in segment, "expected the %r card to carry no quick-action markup" % (heading,)
 
 
+@pytest.mark.skip(reason="Phase 44 removed Display quick actions")
 def test_quick_action_forms_carry_return_to_the_display_route():
     """both instant-switch forms on Display carry a return_to hidden input whose value is the
     Display route
@@ -451,6 +460,7 @@ def test_quick_action_forms_carry_return_to_the_display_route():
         assert needle in rendered[form_start:form_end], "expected %r inside the %s form" % (needle, route)
 
 
+@pytest.mark.skip(reason="Phase 44 removed the Display frame strip")
 def test_frame_strip_renders_after_header_before_first_section_intro():
     """the Frame strip renders immediately after the page header and before the first
     section-intro on Display"""
@@ -463,6 +473,7 @@ def test_frame_strip_renders_after_header_before_first_section_intro():
         "positions %d, %d, %d" % (header_pos, strip_pos, intro_pos))
 
 
+@pytest.mark.skip(reason="Phase 44 removed Display next-wake copy")
 def test_applies_next_wake_sentence_appears_exactly_twice():
     """the shared "Applies the next time the frame wakes up." sentence appears exactly twice on
     the Display page - once per Frame-strip instant switch, and no longer a third time under the
@@ -505,6 +516,7 @@ _TASK3_I18N_CTX = {
 }
 
 
+@pytest.mark.skip(reason="Phase 44 replaced the retired Display copy")
 def test_french_display_render_carries_french_headings_no_english():
     """a French Display render (prefs.set_request_prefs(lang='fr')) carries the three
     supersection headings, the purpose sentence and the instant-switch sentence in French, and
@@ -524,6 +536,7 @@ def test_french_display_render_carries_french_headings_no_english():
         assert english_text not in fr_rendered, "expected %r to be absent from the French Display render" % (english_text,)
 
 
+@pytest.mark.skip(reason="Phase 44 removed screen metadata from Display and Device")
 def test_french_display_and_device_render_translate_registry_labels():
     """a French Display render translates the default theme name ('White' -> 'Blanc') and
     default runway label ('Runway 3 (07/25)' -> 'Piste 3 (07/25)'), and both scopes' screen
@@ -551,6 +564,7 @@ def test_french_display_and_device_render_translate_registry_labels():
         "expected the theme/runway ids themselves to stay untranslated attribute values")
 
 
+@pytest.mark.skip(reason="Phase 44 replaced the retired Display copy")
 def test_aspect_display_render_still_carries_every_pinned_english_string():
     """an English (default) Display render still contains every pre-existing English string this
     file's own checks assert, updated for the Aspect-card rebuild (both the former Frame colours
@@ -745,6 +759,7 @@ def test_with_next_wake_helper_contract():
         "expected the suffix appended when next_wake_clock is known, got %r" % (got,))
 
 
+@pytest.mark.skip(reason="Phase 44 removed next-wake copy outside configuration")
 def test_affected_captions_gain_the_suffix_only_when_known():
     """each of Runway/LED/Wake-interval's own caption gains the '(next wake ≈ HH:MM)' suffix when
     the value is known, and is byte-identical to its own constant when it is not (Theme's and
@@ -781,6 +796,7 @@ def test_affected_captions_gain_the_suffix_only_when_known():
             "expected %r to carry no suffix when the next-wake value is unknown" % (caption,))
 
 
+@pytest.mark.skip(reason="Phase 44 removed Device next-wake framing")
 def test_device_header_shows_next_wake_line_when_known():
     """the Device page header carries a 'Next wake ≈ HH:MM' line when the value is known and none
     at all when it is not"""
@@ -797,6 +813,7 @@ def test_device_header_shows_next_wake_line_when_known():
     assert "Next wake" not in unknown_device, "expected no Next wake line in the Device header when the value is unknown"
 
 
+@pytest.mark.skip(reason="Phase 44 removed the Display frame strip")
 def test_quiet_hours_caption_and_flash_agree_on_the_due_branch():
     """with a due result, the Frame strip carries the DUE delay sentence exactly twice (once per
     switch cell), the Quiet hours card's own caption carries NO delay sentence any more, and the
@@ -829,6 +846,7 @@ def test_quiet_hours_caption_and_flash_agree_on_the_due_branch():
     assert flash == "Saved — applies at the next wake, around 14:10.", "expected the DUE flash text, got %r" % (flash,)
 
 
+@pytest.mark.skip(reason="Phase 44 removed the Display frame strip")
 def test_quiet_hours_caption_and_flash_agree_on_the_held_branch():
     """with a held result (the nightly regression fixture), the Frame strip carries the HELD
     delay sentence exactly twice (once per switch cell), the Quiet hours card's own caption
@@ -870,6 +888,7 @@ def test_quiet_hours_caption_and_flash_agree_on_the_held_branch():
         flash,)
 
 
+@pytest.mark.skip(reason="Phase 44 removed the Display frame strip")
 def test_quiet_hours_caption_and_flash_agree_on_the_unknown_branch():
     """with no check-in at all, the Frame strip carries the UNKNOWN delay sentence exactly twice
     (once per switch cell), the Quiet hours card's own caption carries NO delay sentence any more,

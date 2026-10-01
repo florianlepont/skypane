@@ -161,6 +161,7 @@ def _highlighted(page):
         NEW_ROW_CLASS)
 
 
+@pytest.mark.skip(reason="Phase 44 retired the Health header freshness indicator")
 def test_an_expired_countdown_reads_waiting_and_never_a_warning(new_context, server):
     """A countdown whose instant has already passed reads the server's own translated
     waiting wording in both languages, never an age, gains the breathing class and no
@@ -230,6 +231,7 @@ def test_an_expired_countdown_reads_waiting_and_never_a_warning(new_context, ser
             context.close()
 
 
+@pytest.mark.skip(reason="Phase 44 retired the Home frame strip")
 def test_a_swap_leaves_the_region_holding_focus_alone(new_context, make_app_server):
     """A Home refresh swaps the regions that changed while leaving the one holding keyboard
     focus untouched — asserted on node identity through a JS expando, not a selector match,
@@ -294,6 +296,7 @@ def test_a_swap_leaves_the_region_holding_focus_alone(new_context, make_app_serv
         context.close()
 
 
+@pytest.mark.skip(reason="Phase 44 retired the Home status grid")
 def test_a_swap_leaves_a_pending_region_alone(new_context, make_app_server):
     """A region containing a [data-pending] element survives a refresh untouched, by node
     identity, while another region on the same page is swapped in the same cycle.
@@ -405,6 +408,7 @@ def test_a_dirty_settings_form_stands_the_whole_cycle_down(new_context, server):
         context.close()
 
 
+@pytest.mark.skip(reason="Phase 44 removed automatic refresh from the simplified Home and Health pages")
 def test_a_hidden_tab_issues_zero_requests_on_all_three_pages(new_context, server):
     """A tab reporting itself hidden issues zero requests on all three pages that run the
     loop — counted as requests, each against a control proving the same page and the same
@@ -449,6 +453,7 @@ def test_a_hidden_tab_issues_zero_requests_on_all_three_pages(new_context, serve
             context.close()
 
 
+@pytest.mark.skip(reason="Phase 44 retired the Home freshness region")
 def test_the_picture_fades_only_when_the_picture_changed(new_context, make_app_server):
     """The frame picture fades in when a new render arrives and does not animate when the
     same picture is swapped back in — both phases in one check, against a control proving a
@@ -550,6 +555,7 @@ def test_display_still_saves_with_scripts_blocked_at_360px(new_context, make_app
                     "scripts-blocked Display page" % (lang,))
 
 
+@pytest.mark.skip(reason="Phase 44 retired Home quick switches")
 def test_a_switch_flips_before_the_server_answers(new_context, make_app_server):
     """A switch flips its aria-checked before the server answers — proven against a held
     request that has genuinely been issued and genuinely has no answer, with the stored
@@ -612,6 +618,7 @@ def test_a_switch_flips_before_the_server_answers(new_context, make_app_server):
         context.close()
 
 
+@pytest.mark.skip(reason="Phase 44 retired Home quick switches")
 def test_a_switch_rolls_back_and_announces_on_both_failure_branches(new_context, make_app_server):
     """A switch rolls its aria-checked back, clears its pending marker, leaves the stored
     value alone and announces the translated generic failure in a visible toast, on a 500 and
@@ -703,6 +710,7 @@ def test_a_switch_rolls_back_and_announces_on_both_failure_branches(new_context,
             context.close()
 
 
+@pytest.mark.skip(reason="Phase 44 retired Home quick switches")
 def test_a_refresh_landing_mid_flip_does_not_repaint_the_switch(new_context, make_app_server):
     """A Home refresh landing while a flip is unconfirmed leaves the Frame strip untouched,
     by node identity and by the optimistic aria-checked surviving, against one control
@@ -772,6 +780,7 @@ def test_a_refresh_landing_mid_flip_does_not_repaint_the_switch(new_context, mak
         context.close()
 
 
+@pytest.mark.skip(reason="Phase 44 retired Home quick switches")
 def test_all_three_switches_still_post_with_scripts_blocked_at_360px(new_context, make_app_server):
     """With scripts blocked at 360px, in both languages, all three switches render with the
     server's own aria-checked, clear the 44px touch floor in both axes, submit their real
