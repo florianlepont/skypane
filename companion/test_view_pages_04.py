@@ -350,6 +350,22 @@ def test_home_recent_flights_use_display_airline_name_matching_flights(tmp_path)
     assert "CCM Airlines" not in rendered, "expected the raw upstream airline string not to leak onto Home"
 
 
+def test_home_health_action_is_reserved_for_actionable_state(tmp_path):
+    """Home keeps normal operation compact, but makes a real warning a direct Health action."""
+    base = {
+        "device_config": {}, "state_dir": str(tmp_path / "absent" / "nested"),
+        "now": "2026-08-27T12:00:00+00:00", "gallery_entries": [],
+    }
+    healthy = home_page.render(dict(base, health_state={
+        "device_state": "ok", "pipeline_state": "ok", "battery_state": "ok"}))
+    warning = home_page.render(dict(base, health_state={
+        "device_state": "ok", "pipeline_state": "warn", "battery_state": "ok"}))
+    assert 'class="home-action"' not in healthy
+    assert 'href="/health"' not in healthy
+    assert 'class="home-action"' in warning
+    assert 'href="/health"' in warning
+
+
 @pytest.mark.skip(reason="The shared Frame strip is retired from Home.")
 def test_home_exactly_one_element_named_frame(tmp_path):
     """exactly one element on a rendered Home page is named 'Frame' (the shared strip's own
