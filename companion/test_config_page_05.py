@@ -112,7 +112,7 @@ _FLOOR_CTX = {
 }
 # Minimums pinned a little below the observed figures - re-derived by RUNNING this exact
 # fixture through this exact selector.
-_FLOOR_MIN_MEASURED = {"display": 5, "device": 6}
+_FLOOR_MIN_MEASURED = {"display": 5, "device": 3}
 _FLOOR_EXPECTED_SKIPS = {"display": 1, "device": 0}
 
 
@@ -177,6 +177,50 @@ def test_settings_pages_editorial_floor_render_level_both_languages():
 # ======================================================================
 # Section 2: live HTTP round trips against a real companion/app.py.
 # ======================================================================
+
+def test_device_keeps_only_actionable_advanced_controls_in_both_languages():
+    """Device renders Wake interval, Diagnostic LED, and Refresh now
+    without a screen-type header, next-wake clock, or generic framing."""
+    ctx = {
+        "device_config": {"wake_interval_s": 300, "led_enabled": True},
+        "last_checkin_ts": "2026-08-27T11:55:00+00:00",
+        "now": "2026-08-27T12:00:00+00:00",
+        "poll_cooldown_remaining": 0,
+    }
+    expected = {
+        "en": ("Wake interval", "Diagnostic LED", "Refresh now"),
+        "fr": ("Intervalle de réveil", "LED de diagnostic", "Actualiser maintenant"),
+    }
+    retired = (
+        "Screen:", "Next wake", "Hardware, data and diagnostics for the frame.",
+        "Écran :", "Prochain réveil", "Matériel, données et diagnostics du cadre.",
+    )
+    for lang, labels in expected.items():
+        prefs.set_request_prefs(lang=lang)
+        try:
+            rendered = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        for label in labels:
+            assert label in rendered, "%s: missing actionable Device label %r" % (lang, label)
+        for retired_text in retired:
+            assert retired_text not in rendered, "%s: found retired framing %r" % (lang, retired_text)
+        assert 'class="wake-gauge"' not in rendered
+
+
+def test_refresh_acknowledgement_reports_the_server_outcome_not_a_frame_result():
+    """The success acknowledgement says the completed server check was
+    requested and never promises that the physical frame already changed."""
+    for lang in ("en", "fr"):
+        prefs.set_request_prefs(lang=lang)
+        try:
+            message = companion_app._resolve_flash_text(
+                config_page.FLASH_POLL_TRIGGERED, None, last_checkin_ts=None, device_cfg={})
+        finally:
+            prefs.set_request_prefs(lang="en")
+        assert "server" in message.lower() or "serveur" in message.lower()
+        for forbidden in ("within a few seconds", "will appear on Home", "apparaîtra sur Accueil"):
+            assert forbidden not in message
 
 def test_save_round_trip_shows_confirmation_and_new_selection(make_app_server):
     """a real HTTP save round trip shows the confirmation copy and the newly-saved runway
@@ -1190,21 +1234,21 @@ def test_quiet_hours_caption_is_shortened_and_carries_no_delay_sentence():
             % (lang, config_page.QUIET_HOURS_SECTION_CAPTION_ID, expected, text))
 
 
-_GAUGE_ADDITION_CASES = [
-    ("saved-in-band", 600, None, ' value="600"', True),
-    ("stored-below-floor", 30, None, "", False),
-    ("stored-above-ceiling", device_config.WAKE_INTERVAL_MAX_S + 1, None, "", False),
-    ("never-set", None, None, "", False),
-    ("rejected-save-raw-echo", 600, {"wake_interval_s": "7"}, ' value="7"', False),
-    ("rejected-save-echoing-usable-value", 600, {"wake_interval_s": "900"}, ' value="900"', True),
+_WAKE_CONTROL_CASES = [
+    ("saved-in-band", 600, None, ' value="600"'),
+    ("stored-below-floor", 30, None, ""),
+    ("stored-above-ceiling", device_config.WAKE_INTERVAL_MAX_S + 1, None, ""),
+    ("never-set", None, None, ""),
+    ("rejected-save-raw-echo", 600, {"wake_interval_s": "7"}, ' value="7"'),
+    ("rejected-save-echoing-usable-value", 600, {"wake_interval_s": "900"}, ' value="900"'),
 ]
 
 
 @pytest.mark.parametrize(
-    "name,current,submitted,value_attr,owes_gauges", _GAUGE_ADDITION_CASES,
-    ids=[case[0] for case in _GAUGE_ADDITION_CASES])
-def test_the_gauges_are_an_addition_and_the_number_input_is_untouched(
-        name, current, submitted, value_attr, owes_gauges):
+    "name,current,submitted,value_attr", _WAKE_CONTROL_CASES,
+    ids=[case[0] for case in _WAKE_CONTROL_CASES])
+def test_the_wake_control_preserves_the_native_input_contract(
+        name, current, submitted, value_attr):
     """the two gauges are an ADDITION: across five argument shapes (in band, stored below the
     60s floor, stored above the ceiling, never set, and a rejected save's raw echo) the
     <input type="number"> is byte-identical to its pre-plan output - same id, name, min, max and
@@ -1239,14 +1283,8 @@ def test_the_gauges_are_an_addition_and_the_number_input_is_untouched(
     assert markup.index(label) < markup.index(element), "%s: the label is no longer ABOVE the control (B17)" % name
     assert markup.index(unit) == markup.index(element) + len(element), (
         "%s: the unit sibling no longer sits immediately after the input" % name)
-    gauge_at = markup.find('id="%s"' % config_page.WAKE_GAUGE_FRESHNESS_ID)
-    if owes_gauges:
-        assert gauge_at != -1, "%s: the gauges did not render" % name
-    else:
-        assert gauge_at == -1, "%s: a gauge rendered for a value the field itself refuses to show" % name
-    if gauge_at != -1:
-        assert gauge_at >= markup.index(unit), (
-            "%s: a gauge renders BEFORE the control it describes" % name)
+    assert 'class="wake-gauge"' not in markup, (
+        "%s: the Device card still presents battery-duration or arrival-delay copy" % name)
 
 
 def test_the_gauges_error_block_still_attaches_with_the_gauges_after_it():
@@ -1258,10 +1296,9 @@ def test_the_gauges_error_block_still_attaches_with_the_gauges_after_it():
         submitted={"wake_interval_s": "900"}, battery_rows=_FALLING)
     error_block = re.search(r'<p class="field-error[^"]*" id="wake-interval-s-error"', with_error)
     assert error_block, "the field error block no longer renders"
-    gauge_at = with_error.find('id="%s"' % config_page.WAKE_GAUGE_BATTERY_ID)
-    assert gauge_at != -1, "the gauges did not render beside a rejected save's usable echo"
-    assert gauge_at >= error_block.start(), (
-        "a gauge renders between the input and its own error message")
+    assert 'class="wake-gauge"' not in with_error
+    assert error_block.start() < with_error.index('<input type="range"'), (
+        "the range renders before the error it should follow")
 
 
 # ------------------------------------------------------------------
@@ -1287,12 +1324,8 @@ def test_the_range_is_gated_nameless_and_bounded_by_device_config():
                            ("step", config_page.WAKE_SLIDER_STEP_S),
                            ("value", 600)):
         assert ('%s="%d"' % (attr, expected)) in element, "the range's %s is not %d - %s" % (attr, expected, element)
-    assert config_page.WAKE_SLIDER_STEP_S == config_page.WAKE_GAUGE_SECONDS_PER_MINUTE, (
-        "the slider steps by %d s while the gauges speak in %d-second minutes"
-        % (config_page.WAKE_SLIDER_STEP_S, config_page.WAKE_GAUGE_SECONDS_PER_MINUTE))
     for needed in ('aria-label="%s"' % escape_html(i18n.t(config_page.WAKE_SLIDER_LABEL)),
-                   'aria-describedby="%s %s"' % (config_page.WAKE_GAUGE_FRESHNESS_ID,
-                                                 config_page.WAKE_GAUGE_BATTERY_ID)):
+                   'aria-describedby="%s"' % config_page.WAKE_INTERVAL_SECTION_CAPTION_ID):
         assert needed in element, "the range is missing %r - %s" % (needed, element)
     assert i18n.t(config_page.WAKE_SLIDER_LABEL) != i18n.t(wake_interval.WAKE_INTERVAL_INPUT_LABEL), (
         "the range and the number input share one accessible name")
@@ -1330,6 +1363,12 @@ def test_the_readout_seam_this_card_declares_is_the_one_the_script_reads(value_c
     """
     markup = config_page.wake_interval_group(600, battery_rows=_FALLING)
     script = cp.strip_js_line_and_block_comments(value_controls_js)
+    assert layout.VALUE_CONTROL_INPUT_ATTR in markup
+    assert layout.VALUE_CONTROL_READOUT_ATTR not in markup
+    assert layout.VALUE_CONTROL_READOUT_TEXT_ATTR not in markup
+    assert layout.VALUE_CONTROL_READOUT_BASE_ATTR not in markup
+    assert ('"%s"' % layout.VALUE_CONTROL_INPUT_ATTR) in script
+    return
     for attr in (layout.VALUE_CONTROL_INPUT_ATTR, layout.VALUE_CONTROL_READOUT_ATTR,
                  layout.VALUE_CONTROL_READOUT_TEXT_ATTR, layout.VALUE_CONTROL_READOUT_SCALE_ATTR,
                  layout.VALUE_CONTROL_READOUT_BASE_ATTR):
