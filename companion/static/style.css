@@ -3811,6 +3811,45 @@ a.airline-card {
   }
 }
 
+/* The latest frame is the Home page's anchor.  The image remains bounded by
+ * the existing preview rules; this grid only gives it the reading priority
+ * the owner selected, with the recent list immediately alongside on desktop
+ * and directly after it on a phone. */
+.home-current-frame {
+  min-width: 0;
+}
+
+.home-current-frame .preview-frame__image {
+  width: 100%;
+}
+
+.home-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm) var(--space-lg);
+  margin-top: var(--space-lg);
+}
+
+.home-facts > * {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: 0;
+}
+
+.home-fact {
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-canvas);
+  font-weight: var(--weight-semibold);
+}
+
+.home-action {
+  font-weight: var(--weight-semibold);
+}
+
 .quick-actions {
   display: flex;
   flex-direction: column;

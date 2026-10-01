@@ -874,6 +874,49 @@ def test_home_paints_nothing_outside_the_viewport_or_its_cards(new_context, serv
         context.close()
 
 
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("width", [360, 390, 1280])
+def test_home_prioritises_the_frame_signal_and_keeps_its_actions_usable(
+        new_context, server, width, lang):
+    """The approved Direction B sequence is current frame, recent flights, then compact
+    facts at every supported delivery width.  Retired healthy dashboard blocks and the day
+    band never return, and every retained Home link can receive a visible keyboard focus."""
+    context = new_context(viewport={"width": width, "height": 844})
+    try:
+        page = context.new_page()
+        base_url = server.base_url()
+        _login(page, base_url)
+        context.add_cookies([{
+            "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
+        page.goto(base_url + "/")
+        page.locator(".home-current-frame").wait_for(state="visible")
+        hierarchy = page.evaluate(
+            "() => ({"
+            " current: document.querySelector('.home-current-frame').getBoundingClientRect().top,"
+            " flights: document.querySelector('#home-flights').getBoundingClientRect().top,"
+            " facts: document.querySelector('.home-facts').getBoundingClientRect().top,"
+            " strip: !!document.querySelector('.frame-strip'),"
+            " tiles: !!document.querySelector('.home-status-grid'),"
+            " band: !!document.querySelector('.day-band'),"
+            " scrollWidth: document.documentElement.scrollWidth"
+            "})")
+        assert hierarchy["current"] < hierarchy["flights"] < hierarchy["facts"], (
+            "expected current frame -> recent flights -> compact facts at %dpx/%s, got %r"
+            % (width, lang, hierarchy))
+        assert not hierarchy["strip"] and not hierarchy["tiles"] and not hierarchy["band"], (
+            "retired Home diagnostics returned at %dpx/%s: %r" % (width, lang, hierarchy))
+        assert hierarchy["scrollWidth"] <= width, (
+            "Direction B Home scrolls horizontally at %dpx/%s: %r" % (width, lang, hierarchy))
+        for action in page.locator("main a").all():
+            action.focus()
+            focused = action.evaluate(
+                "el => document.activeElement === el && "
+                "getComputedStyle(el).outlineStyle !== 'none'")
+            assert focused, "Home action lost visible keyboard focus at %dpx/%s" % (width, lang)
+    finally:
+        context.close()
+
+
 # The recent-flight callsign column must never be starved by the time column beside it.
 # Independently asserted per width/language with no cross-comparison, so parametrized on both
 # axes rather than looped.
