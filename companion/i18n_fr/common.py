@@ -77,9 +77,9 @@ MESSAGES = {
         "Impossible d’enregistrer les réglages — réessayez. Si le "
         "problème persiste, consultez les journaux du service "
         "companion.",
-    "common.refreshing_the_frame_s_new_picture_will_appear":
-        "Actualisation en cours — la nouvelle image du cadre "
-        "apparaîtra sur Accueil dans quelques secondes.",
+    "common.refresh_requested_server_check_completed":
+        "Actualisation demandée — le serveur a fini de vérifier les nouvelles données de vol. "
+        "Le cadre peut se mettre à jour lors d’un prochain réveil.",
     "common.poll_trigger_failed_please_try_again_if_this":
         "Échec du déclenchement de la vérification — réessayez. Si le "
         "problème persiste, consultez les journaux du service "

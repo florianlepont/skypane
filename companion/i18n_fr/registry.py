@@ -50,5 +50,4 @@ MESSAGES = {
     # --- Screen label (companion/screens.py's per-screen "label"); the
     #     Message is companion/pages/config_page.py's own
     #     _SCREEN_LABEL_MESSAGES -------------------------------------
-    "registry.plane_frame": "Cadre avion",
 }
