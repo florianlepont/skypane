@@ -820,6 +820,7 @@ select.visually-hidden {
 .theme-form {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: 2px;
   padding: 2px;
   border: 1px solid var(--color-border);
@@ -834,8 +835,10 @@ select.visually-hidden {
   height: 28px;
   /* Without flex: 1 1 auto the three intrinsic-width buttons pack to
    * the left instead of filling the bordered container as one control. */
-  flex: 1 1 auto;
-  padding: 0 12px;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 8px;
+  white-space: nowrap;
   background: transparent;
   border: none;
   box-shadow: none;
@@ -1024,41 +1027,6 @@ select.visually-hidden {
 .dot-label {
   font-size: var(--font-label-size);
   vertical-align: middle;
-}
-
-/* Full-strength --color-text on the sidebar surface — pinned in
- * test_contrast_check.py. Each state is its own segment with
- * white-space: nowrap inside a wrapping flex row, so a line may break
- * BETWEEN states but never mid-phrase (measured: used to wrap mid-word
- * at 207x48px). */
-.nav-status {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  /* Column gap only: a row gap would be paid on top of the two wrapped
-   * lines in the 240px sidebar (measured 52px against a 48px ceiling,
-   * 48px with this one). */
-  gap: 0 var(--space-xs);
-  padding: 0 var(--space-sm) var(--space-sm);
-  color: var(--color-text);
-  text-decoration: none;
-}
-
-.nav-status__segment {
-  white-space: nowrap;
-  /* inline-flex, not a bare inline run: the dot's vertical-align: middle
-   * grows the line box past the text's own leading, measured at 48.19px
-   * against a 48px ceiling — fixed by aligning the dot as a flex item. */
-  display: inline-flex;
-  align-items: center;
-}
-
-a.nav-status:hover {
-  text-decoration: underline;
-}
-
-.nav-status__sep {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* A near-neutral card surface, a hairline border and a 3px coloured

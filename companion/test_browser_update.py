@@ -382,6 +382,11 @@ def test_more_sheet_fits_health_device_update_at_phone_widths(
 
         header_dropdown = page.locator("#%s" % layout.MOBILE_NAV_ID)
         assert header_dropdown.locator('a[href="%s"]' % layout.UPDATE_ROUTE).count() == 0
+        assert header_dropdown.locator(".nav-status").count() == 0
+        assert page.locator(".dashboard-sidebar .nav-status").count() == 0
+        assert page.locator(
+            '%s[href="%s"][aria-current="page"]'
+            % (_MORE_SHEET_LINK_SELECTOR, layout.UPDATE_ROUTE)).count() == 1
 
         print(
             "D-02 mobile-fit: %dpx/%s More-sheet link heights=%r (floor 44px)"

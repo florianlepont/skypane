@@ -174,12 +174,6 @@ from companion.ui_time import (
     relative_time_html,
 )
 from companion.ui_nav import (
-    NAV_QUIET_OFF_TEXT,
-    NAV_QUIET_ON_TEXT,
-    NAV_SCREEN_OFF_TEXT,
-    NAV_SCREEN_ON_TEXT,
-    NAV_STATUS_ARIA_LABEL_TEXT,
-    NAV_STATUS_SEPARATOR_TEXT,
     REFRESH_NEW_ROW_CLASS,
     REFRESH_PAGE_ATTR,
     REFRESH_PAGE_DISPLAY,
@@ -206,7 +200,6 @@ from companion.ui_nav import (
     _tab_bar_cell_body,
     _tab_bar_html,
     _theme_form_html,
-    nav_status_html,
     sidebar_nav,
     ui_theme_from_cookie,
 )
@@ -274,12 +267,6 @@ __all__ = (
     "NAV_GROUPS",
     "NAV_ICON_IDS",
     "NAV_NOTIFICATION_CLASS",
-    "NAV_QUIET_OFF_TEXT",
-    "NAV_QUIET_ON_TEXT",
-    "NAV_SCREEN_OFF_TEXT",
-    "NAV_SCREEN_ON_TEXT",
-    "NAV_STATUS_ARIA_LABEL_TEXT",
-    "NAV_STATUS_SEPARATOR_TEXT",
     "NAV_TABS",
     "NAV_TOGGLE_ID",
     "NAV_TOGGLE_LABEL",
@@ -423,7 +410,6 @@ __all__ = (
     "local_clock_text",
     "month_abbr",
     "nav_slug",
-    "nav_status_html",
     "page_header",
     "parse_iso",
     "quick_switch_html",
@@ -443,4 +429,3 @@ __all__ = (
     "login_shell",
     "page_shell",
 )
-

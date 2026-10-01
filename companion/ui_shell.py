@@ -291,8 +291,8 @@ def page_shell(
     threaded to sidebar_nav() and _mobile_nav_html(); a caller with no request
     context (login, 404, preview-image errors) draws no dot. `lang` defaults to
     `None`, resolved through prefs.current_lang(). `device_config` defaults to
-    `None`, the same no-context degrade, threaded to both nav renderers via
-    nav_status_html().
+    `None`, the same no-context degrade, threaded to both nav renderers for
+    their shared request context.
 
     `scripts` is this page's own extra `*_SCRIPT_SRC` constants, on top of
     GLOBAL_PAGE_SCRIPTS (present regardless). Emitted in SHELL_SCRIPT_ORDER's

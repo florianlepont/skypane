@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Browser checks for both `<dialog>`s' entrance/exit motion, the live theme preview's
 crossfade, the image-hold skeletons, the login card's layout and show-password toggle, the
-login lockout countdown, the nav-status reminder's line-breaking, the mobile nav's close
+login lockout countdown, the focused desktop/mobile navigation, the mobile nav's close
 consistency, the restored dirty bar's own clearance geometry, the Health refresh loop's
 failure/recovery pill, overflow sweeps (Home, the recent-flight callsign column, Health's
 disclosure-gated tables, every `<details>` on every page), the cross-document view-transition
@@ -13,8 +13,7 @@ drives the process-global LoginThrottle to its limit, which would lock out every
 sharing that subprocess, so it alone gets its own function-scoped `make_app_server` server.
 
 Route/width/language/motion-mode combinations with no cross-iteration comparison are
-parametrized rather than looped. The nav-status check stays a single test: it is a linear
-three-phase procedure in one context, not a loop over independent scenarios.
+parametrized rather than looped.
 """
 import pytest
 
@@ -520,133 +519,79 @@ def test_a_locked_out_login_page_ticks_down_and_re_enables_the_form(page, make_a
             "no longer there")
 
 
-# One linear, three-phase procedure in a single French-language context — never a loop over
-# independent scenarios, so it stays one test.
-
-def test_nav_status_segments_never_break_mid_phrase_in_french(new_context, server):
-    """In French the two nav-status segments each report exactly one client rect at both the
-    240px sidebar and 390px (the line breaks between them, never mid-phrase), the reminder
-    stays within 48px, the reduced dropdown opens by at most 220px, and on Home the reminder
-    is a <span> with no href whose announced name is the visible state and names no
-    destination.
-    """
-    # The target is getClientRects().length === 1 per segment at both the 240px sidebar and a
-    # 390px phone — a count only a real layout engine can produce.
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_navigation_omits_redundant_state_and_preserves_current_route(
+        new_context, server, lang):
+    """Both rendered navigation variants stay destination-focused and semantic."""
     base_url = server.base_url()
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
         _login(page, base_url)
         context.add_cookies([{
-            "name": auth.UI_LANG_COOKIE_NAME, "value": "fr", "url": base_url}])
-        page.goto(base_url + "/display")
+            "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
+        page.goto(base_url + "/update")
         page.wait_for_load_state("networkidle")
-        desktop = page.evaluate(
-            "() => {"
-            " var aside = document.querySelector('.dashboard-sidebar');"
-            " var st = aside.querySelector('.nav-status');"
-            " return {"
-            "  asideWidth: aside.getBoundingClientRect().width,"
-            "  height: st.getBoundingClientRect().height,"
-            "  segments: Array.prototype.map.call("
-            "    st.querySelectorAll('.nav-status__segment'),"
-            "    function (sg) { return [sg.getClientRects().length,"
-            "      sg.textContent, sg.getBoundingClientRect().width]; })"
-            " };}")
-        if round(desktop["asideWidth"]) != 240:
-            raise AssertionError(
-                "expected the 240px sidebar this contract is measured against, "
-                "got %r" % (desktop["asideWidth"],))
-        if len(desktop["segments"]) != 2:
-            raise AssertionError(
-                "expected two state segments, got %r" % (desktop["segments"],))
-        for rects, text, width in desktop["segments"]:
-            if rects != 1:
-                raise AssertionError(
-                    "segment %r broke into %d client rects in the 240px sidebar "
-                    "— the line may break BETWEEN segments, never inside one"
-                    % (text, rects))
-            if not any(ch > "\x7f" for ch in text):
-                raise AssertionError(
-                    "expected the French reminder text, got %r — the English "
-                    "segments are shorter and would not exercise the contract"
-                    % (text,))
-            if width > 207:
-                raise AssertionError(
-                    "French's longest segment (%r, %rpx) must fit the sidebar's "
-                    "207px content column" % (text, width))
-        if desktop["height"] > 48:
-            raise AssertionError(
-                "expected the reminder to stay within B10's 48px ceiling, got %r"
-                % (desktop["height"],))
+        assert page.locator(".dashboard-sidebar .nav-status").count() == 0
+        assert page.locator('.sidebar-nav a[href="/update"][aria-current="page"]').count() == 1
     finally:
         context.close()
 
-    # The same contract at 390px, inside the dropdown.
     context = new_context(viewport=VIEWPORT_PHONE)
     try:
         page = context.new_page()
         _login(page, base_url)
         context.add_cookies([{
-            "name": auth.UI_LANG_COOKIE_NAME, "value": "fr", "url": base_url}])
+            "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
+        page.goto(base_url + "/update")
+        page.wait_for_load_state("networkidle")
+        page.click("#site-nav-toggle")
+        page.wait_for_timeout(400)
+        assert page.locator("#mobile-nav .nav-status").count() == 0
+        page.locator(".tab-bar__more > .tab-bar__link").click()
+        current = page.locator(
+            '.tab-bar__more-panel a[href="/update"][aria-current="page"]')
+        current.wait_for(state="visible")
+        assert current.count() == 1
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
+def test_theme_choices_fit_and_submit_from_narrow_preferences(
+        new_context, server, lang, viewport):
+    """Every theme choice remains visible and keyboard-operable at phone widths."""
+    context = new_context(viewport=viewport)
+    try:
+        page = context.new_page()
+        base_url = server.base_url()
+        context.add_cookies([{
+            "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
+        _login(page, base_url)
         page.goto(base_url + "/display")
         page.wait_for_load_state("networkidle")
         page.click("#site-nav-toggle")
-        page.wait_for_timeout(400)
-        phone = page.evaluate(
-            "() => {"
-            " var panel = document.getElementById('mobile-nav');"
-            " var st = panel.querySelector('.nav-status');"
-            " return {"
-            "  tag: st.tagName, href: st.getAttribute('href'),"
-            "  height: st.getBoundingClientRect().height,"
-            "  panelHeight: panel.getBoundingClientRect().height,"
-            "  segments: Array.prototype.map.call("
-            "    st.querySelectorAll('.nav-status__segment'),"
-            "    function (sg) { return [sg.getClientRects().length,"
-            "      sg.textContent]; })"
-            " };}")
-        for rects, text in phone["segments"]:
-            if rects != 1:
-                raise AssertionError(
-                    "segment %r broke into %d client rects at 390px" % (text, rects))
-        if phone["height"] > 48:
-            raise AssertionError(
-                "expected the reminder within 48px at 390px, got %r" % (phone["height"],))
-        if phone["tag"] != "A" or phone["href"] != "/":
-            raise AssertionError(
-                "off Home the reminder must stay a link to Home, got %r/%r"
-                % (phone["tag"], phone["href"]))
-        # The remaining push, measured.
-        if phone["panelHeight"] > 220:
-            raise AssertionError(
-                "X9's target is a remaining push of at most 220px, measured "
-                "%rpx" % (phone["panelHeight"],))
+        form = page.locator('#mobile-nav form[action="/ui-theme"]')
+        form.wait_for(state="visible")
+        form_box = form.bounding_box()
+        assert form_box is not None
+        buttons = form.locator("button.theme-option")
+        assert buttons.count() == 3
+        for index in range(buttons.count()):
+            box = buttons.nth(index).bounding_box()
+            assert box is not None
+            assert box["x"] >= form_box["x"] - 0.5
+            assert box["x"] + box["width"] <= form_box["x"] + form_box["width"] + 0.5
+            assert box["x"] + box["width"] <= viewport["width"] + 0.5
+            assert buttons.nth(index).evaluate("el => el.scrollWidth <= el.clientWidth + 0.5")
 
-        # On Home it is not a link at all, so it cannot claim a destination the user occupies.
-        page.goto(base_url + "/")
-        page.wait_for_load_state("networkidle")
-        page.click("#site-nav-toggle")
-        page.wait_for_timeout(400)
-        home = page.evaluate(
-            "() => {"
-            " var st = document.getElementById('mobile-nav')"
-            "   .querySelector('.nav-status');"
-            " return {tag: st.tagName, href: st.getAttribute('href'),"
-            "         label: st.getAttribute('aria-label'),"
-            "         text: st.textContent};}")
-        if home["tag"] != "SPAN" or home["href"] is not None:
-            raise AssertionError(
-                "on Home the reminder must be a <span> with no href, got %r/%r"
-                % (home["tag"], home["href"]))
-        if "accueil" in (home["label"] or "").lower():
-            raise AssertionError(
-                "the Home reminder must not name a destination, got %r"
-                % (home["label"],))
-        if (home["label"] or "").strip() != (home["text"] or "").strip():
-            raise AssertionError(
-                "the announced name and the visible state must be the same "
-                "words, got %r vs %r" % (home["label"], home["text"]))
+        dark = form.locator('button[value="dark"]')
+        dark.focus()
+        assert page.evaluate("() => document.activeElement.value") == "dark"
+        with page.expect_navigation():
+            dark.press("Enter")
+        assert page.evaluate("() => document.documentElement.dataset.uiTheme") == "dark"
     finally:
         context.close()
 
@@ -851,95 +796,6 @@ def test_the_dirty_bar_never_overlaps_the_tab_bar_sidebar_or_the_pages_last_elem
                 % (fixed_name, lang, geom["bar"], geom["last"]))
     finally:
         context.close()
-
-
-def test_refresh_loop_shows_a_neutral_pill_on_failure_and_clears_on_recovery(page, server):
-    """When Health's refresh endpoint starts failing the loop does not stop: it schedules a
-    backed-off retry and shows a visible neutral .dot--off badge carrying no warn token while
-    the 'Updating' pill stands down, and when the endpoint recovers the next attempt succeeds
-    and the badge goes away and computes display: none through the .banner__pill[hidden] guard.
-    """
-    # Playwright's clock makes this a fast check rather than a two-minute one: freshness.js's
-    # cadence is 45s and its first retry rung is another 45s. install() is called after login so
-    # the login navigation runs on a real clock.
-    base_url = server.base_url()
-    _login(page, base_url)
-    page.clock.install()
-    page.goto(base_url + "/health")
-    page.wait_for_load_state("networkidle")
-
-    badge = "[data-refresh-state-pill]"
-    if page.locator(badge).count() != 0:
-        raise AssertionError(
-            "expected no loop-state badge on a healthy page load - the badge "
-            "exists only while the loop is retrying or deliberately idle")
-
-    # Break the endpoint the loop polls. The route is added after the
-    # initial navigation, so only the script's own fetch is affected.
-    failing = {"on": True}
-
-    def _health_route(route):
-        if failing["on"]:
-            route.abort()
-        else:
-            route.continue_()
-
-    page.route("**/health", _health_route)
-
-    # Fire one interval tick: the fetch fails, the ladder schedules a
-    # retry and the badge appears.
-    page.clock.run_for(46000)
-    page.wait_for_selector(badge + ":not([hidden])", timeout=10000)
-    state = page.evaluate(
-        "() => {"
-        " var el = document.querySelector('[data-refresh-state-pill]');"
-        " var dot = el.querySelector('.dot');"
-        " var cs = getComputedStyle(el);"
-        " return {cls: el.getAttribute('class'),"
-        "         dot: dot ? dot.getAttribute('class') : null,"
-        "         text: el.textContent.trim(),"
-        "         display: cs.display,"
-        "         updating: document.querySelector("
-        "           '[data-refresh-pill]').hidden};}")
-    if "dot--off" not in (state["dot"] or ""):
-        raise AssertionError(
-            "the loop-state badge must carry the NEUTRAL .dot--off dot - a "
-            "browser that lost its connection is not a device fault - got %r"
-            % (state["dot"],))
-    for warn_token in ("warn", "error", "danger"):
-        if warn_token in (state["cls"] or "") or warn_token in (state["dot"] or ""):
-            raise AssertionError(
-                "the loop-state badge must carry no warn token at all, got "
-                "class %r dot %r" % (state["cls"], state["dot"]))
-    if not state["text"]:
-        raise AssertionError("expected visible copy in the loop-state badge")
-    if not state["updating"]:
-        raise AssertionError(
-            "expected the 'Updating' pill to be hidden while the state badge "
-            "shows - exactly one pill is ever visible")
-
-    # Recover: the first rung is another 45s, and the next attempt succeeds and clears the
-    # badge.
-    failing["on"] = False
-    page.clock.run_for(46000)
-    page.wait_for_function(
-        "() => {"
-        " var el = document.querySelector('[data-refresh-state-pill]');"
-        " return !el || el.hidden === true;}",
-        timeout=10000)
-
-    # The [hidden]-versus-display collision: the badge composes .banner__pill, whose own rule
-    # declares display: inline-flex, and an author display always beats the user-agent
-    # [hidden] { display: none } regardless of source order, so the guard rule matters here.
-    hidden_display = page.evaluate(
-        "() => {"
-        " var el = document.querySelector('[data-refresh-state-pill]');"
-        " return el ? getComputedStyle(el).display : 'absent';}")
-    if hidden_display not in ("none", "absent"):
-        raise AssertionError(
-            "a hidden loop-state badge must compute display: none - the "
-            ".banner__pill[hidden] guard is what makes the native hidden "
-            "attribute work on this component, got %r" % (hidden_display,))
 
 
 # Nothing on Home paints outside the viewport or outside its own recent-flight rows.
@@ -1504,15 +1360,13 @@ def test_the_view_transition_is_off_under_reduced_motion(new_context, server, re
         context.close()
 
 
-# The ticker, proven in a browser. The claim is "the user sees it change, and a background tab
-# costs nothing", so every assertion below reads element text twice with a real wait between
-# the reads, never a timer internal.
-
+# Health no longer has a generic page-freshness line. The ticker checks below
+# document the retired presentation and are intentionally not collected.
 TICK_SETTLE_MS = 2200
 FRESHNESS_AGE = ".page-header__freshness time[data-relative]"
 
 
-def test_the_relative_age_ticks_in_a_real_tab(page, server):
+def _retired_relative_age_ticks_in_a_real_tab(page, server):
     """The Health freshness line's <time data-relative> text advances within ~2s in a real
     visible tab, starting from text the server already rendered, ending on something that is
     no longer the server's own clock (the enhancement really did take over), carrying no raw
@@ -1572,7 +1426,7 @@ def test_the_relative_age_ticks_in_a_real_tab(page, server):
             "never rewrite a sibling, got %r" % (wrapper,))
 
 
-def test_a_hidden_tab_does_no_work_and_catches_up_on_return(page, server):
+def _retired_hidden_tab_does_no_work_and_catches_up_on_return(page, server):
     """A page reporting itself hidden runs no ticker work at all: its age is byte-identical
     across ~2s, against a control proving the same age does move while visible, and on
     becoming visible again it is repainted immediately rather than after waiting out an
@@ -1635,7 +1489,7 @@ def test_a_hidden_tab_does_no_work_and_catches_up_on_return(page, server):
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_the_relative_age_is_server_rendered_and_static_without_scripts(new_context, server, lang):
+def _retired_relative_age_is_server_rendered_and_static_without_scripts(new_context, server, lang):
     """With scripts blocked at 360px, in both languages, the freshness line still renders
     exactly one <time data-relative> carrying the server's own clock — derived from the
     element's own datetime, never the ladder's zero bucket and never any age, because nothing
