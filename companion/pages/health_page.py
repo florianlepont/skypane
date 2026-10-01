@@ -145,6 +145,9 @@ _SEVERITY_BANNER_NOUNS = {
 _SEVERITY_BANNER_ISSUE_TEXT = i18n.msg("health.issue", "issue")
 
 DEVICE_FRESHNESS_LABEL = i18n.msg("health.device_last_checked_in", "Device last checked in")
+DEVICE_CONNECTION_HELP_TEXT = i18n.msg(
+    "health.device_connection_help",
+    "This is when the frame last contacted the server.")
 # Plain-language visible label; the technical term stays one hover away
 # via `caption_title` at the tile's stat_tile() call site below.
 PIPELINE_FRESHNESS_LABEL = i18n.msg(
@@ -155,6 +158,8 @@ PIPELINE_FRESHNESS_TITLE = i18n.msg(
 CORROBORATION_TILE_LABEL = i18n.msg(
     "health.do_the_two_data_sources_agree", "Do the two data sources agree?")
 CORROBORATION_TILE_TITLE = i18n.msg("health.corroboration", "Corroboration")
+CORROBORATION_HELP_TEXT = i18n.msg(
+    "health.source_comparison_help", "What this result means")
 
 LAST_DETECTION_LABEL = i18n.msg("health.last_aircraft_detected", "Last aircraft detected")
 
@@ -626,6 +631,8 @@ def _device_section(
         # the Emphasis shape used on the Frame strip's own headline):
         # this tile already carries a verdict in the Emphasis role above.
         detail = '<span class="time-value">%s</span>' % escape_html(next_wake_clock)
+    detail += '<p class="section-caption">%s</p>' % escape_html(
+        i18n.t(DEVICE_CONNECTION_HELP_TEXT))
     # No status dot: stat_tile()'s own caption already names the signal
     # (DEVICE_FRESHNESS_LABEL), so a body-row dot label would repeat it.
     # The status-coloured border and icon tint still come from `state`,
@@ -679,22 +686,11 @@ def _pipeline_section(pipeline_ts, last_detection, now):
         return _tile_body(verdict_html, detail), state
     verdict = escape_html(
         i18n.t(PIPELINE_STATE_TEXT.get(state, PIPELINE_STATE_TEXT["warn"])))
-    detail = _pipeline_timestamp_only(pipeline_ts, last_detection, now)
-    # last_detection is read inside the same atomic snapshot pipeline_ts
-    # comes from. Rendered unconditionally here (pipeline_ts is truthy):
-    # concise_timestamp_html() falls back to "no reading yet" when
-    # last_detection is falsy, giving an honest line either way. Not
-    # .battery-readout__detail: two regression guards assert that class
-    # is absent whenever there is no battery reading, and this tile
-    # renders unconditionally.
     detection_detail = layout.concise_timestamp_html(last_detection, now)
-    detail_row = (
+    detail = (
         '<p class="stat-tile__meta text-label section-caption">%s %s</p>'
         % (escape_html(_label_colon(i18n.t(LAST_DETECTION_LABEL))), detection_detail))
-    # Both lines live inside the one detail slot: the tile anatomy has
-    # exactly one detail slot, so line count is the slot's content, not
-    # the tile's shape.
-    return _tile_body(verdict, detail + detail_row), state
+    return _tile_body(verdict, detail), state
 
 
 # _latest_numeric_battery_reading() lives in companion/health_signals.py
@@ -779,17 +775,15 @@ def _battery_trend_section_html(battery_html, state, caption=None):
     """
     modifier = layout.card_status_class(BATTERY_SECTION_CLASS, state)
     section_class = BATTERY_SECTION_CLASS + ((" " + modifier) if modifier else "")
-    caption_text = caption if caption is not None else (i18n.t(_LATEST_READINGS_TEMPLATE) % BATTERY_TREND_LIMIT)
     heading_text = i18n.t(BATTERY_SECTION_HEADING_TEMPLATE) % (BATTERY_TREND_WINDOW_DAYS // 30)
     return (
         '<section class="%s">'
         '<h2 class="text-heading">%s</h2>'
-        '<p class="text-label section-caption">%s</p>'
         "%s"
         "</section>"
     ) % (
         section_class,
-        escape_html(heading_text), escape_html(caption_text), battery_html)
+        escape_html(heading_text), battery_html)
 
 
 def _battery_section(trend_rows, daily_rows=None):
@@ -814,27 +808,6 @@ def _battery_section(trend_rows, daily_rows=None):
     # input reading identically from the same two early-exit cases.
     state = _battery_state(trend_rows, daily_rows)
     now = history_db.utc_now_iso()
-    # The Timestamp column is already-safe raw HTML (a concise
-    # Europe/Paris span with the full timestamp demoted to `title`), so
-    # raw_columns=(0,) tells data_table() not to re-escape it.
-    table_rows = [
-        (layout.concise_timestamp_html(row.get("ts"), now, fallback=""), row.get("battery_mv"))
-        for row in trend_rows
-    ]
-    # modifier="readings" scopes the stylesheet rule that releases this
-    # table from .data-table's min-width: max-content no-crop floor: at
-    # 390px the floor sized this two-column table wider than its wrap.
-    table_html = layout.data_table(
-        [i18n.t(_TIMESTAMP_TEXT), i18n.t(_BATTERY_MV_TEXT)], table_rows,
-        mono_columns=(1,), raw_columns=(0,), modifier="readings")
-    # Collapsed behind a closed-by-default native <details> disclosure —
-    # no custom JS toggler needed.
-    disclosure_html = (
-        '<details class="readings-disclosure"><summary>%s</summary>%s</details>'
-        % (
-            escape_html(i18n.t(_VIEW_READING_TEMPLATE) % (
-                len(trend_rows), "" if len(trend_rows) == 1 else "s")),
-            table_html))
     # One predicate decides both the series and the label mode passed to
     # battery_sparkline_svg(), so they can never disagree.
     plot_daily = _battery_daily_series_usable(daily_rows)
@@ -844,30 +817,29 @@ def _battery_section(trend_rows, daily_rows=None):
         if len(plot_rows) >= 2 else "")
     # Script tag and readout emit only when a chart exists, keeping
     # "exactly one script tag, zero on the empty path" testable.
-    chart_block = ""
+    latest_reading = _latest_numeric_battery_reading(trend_rows)
+    chart_block = _battery_readout_row_html(latest_reading, now, state)
     if sparkline_html:
-        latest_reading = _latest_numeric_battery_reading(trend_rows)
         chart_block = (
-            _battery_readout_row_html(latest_reading, now, state)
-            + sparkline_html
+            chart_block + sparkline_html
             + '<script src="%s" defer></script>' % BATTERY_TREND_SCRIPT_SRC)
-    # The chart, when present, comes before the collapsed table in both
-    # DOM and visual order.
-    return chart_block + disclosure_html, state
+    return chart_block, state
 
 
 def _corroboration_details_html():
-    """A collapsed `<details class="readings-disclosure">` block holding
-    each `_CORROBORATION_ROWS` entry's full explanation, closed by
-    default: the same idiom the battery readings table already uses.
-    """
+    """An optional, native help control for source-comparison wording."""
     dl_items = "".join(
         "<dt>%s</dt><dd>%s</dd>" % (escape_html(i18n.t(label)), escape_html(i18n.t(explanation)))
         for _key, label, _status, explanation in _CORROBORATION_ROWS
     )
     return (
-        '<details class="readings-disclosure"><summary>%s</summary>'
-        "<dl>%s</dl></details>" % (escape_html(i18n.t(_MORE_DETAILS_TEXT)), dl_items)
+        '<details class="status-help"><summary aria-label="%s">'
+        '<span aria-hidden="true">i</span><span class="visually-hidden">%s</span>'
+        '</summary>'
+        "<dl>%s</dl></details>" % (
+            escape_html(i18n.t(CORROBORATION_HELP_TEXT)),
+            escape_html(i18n.t(CORROBORATION_HELP_TEXT)),
+            dl_items)
     )
 
 
@@ -1080,14 +1052,11 @@ def render(ctx):
             caption_title=i18n.t(RESOLUTION_RATE_TITLE))
     )
 
-    freshness_html = layout.freshness_line_html(now)
-
     # Screen wraps the Device tile in its own dashboard-grid for the
     # margin-bottom a bare stat-tile lacks. Server & data holds the
     # three-tile grid plus the migrated full-width cards.
     screen_section_html = (
-        layout.section_intro_html(
-            SCREEN_SECTION_ID, i18n.t(SCREEN_SECTION_HEADING), i18n.t(SCREEN_SECTION_DESCRIPTION))
+        layout.section_intro_html(SCREEN_SECTION_ID, i18n.t(SCREEN_SECTION_HEADING), "")
         + '<div class="dashboard-grid">' + device_tile_html + '</div>'
         + _battery_trend_section_html(battery_html, battery_state, battery_caption)
         # The regularity grid belongs to Screen, not Server & data: it
@@ -1095,13 +1064,9 @@ def render(ctx):
         # whose definition of "late" it shares.
         + _check_in_regularity_section_html(regularity_rows, wake_interval_s, now)
     )
-    registry_modifier = layout.card_status_class("page-section", coverage_status(registry_rows))
-    registry_class = "page-section page-section--nested" + (
-        (" " + registry_modifier) if registry_modifier else "")
+    registry_class = "page-section page-section--nested"
     server_data_section_html = (
-        layout.section_intro_html(
-            SERVER_DATA_SECTION_ID, i18n.t(SERVER_DATA_SECTION_HEADING),
-            i18n.t(SERVER_DATA_SECTION_DESCRIPTION))
+        layout.section_intro_html(SERVER_DATA_SECTION_ID, i18n.t(SERVER_DATA_SECTION_HEADING), "")
         + '<div class="dashboard-grid">' + server_data_tiles_html + '</div>'
         + '<section class="%s"><h2 class="text-heading">%s</h2>%s</section>' % (
             registry_class, escape_html(i18n.t(UNRESOLVED_SECTION_HEADING)),
@@ -1111,8 +1076,7 @@ def render(ctx):
     )
 
     return (
-        layout.page_header(
-            i18n.t(_NAV_HEALTH_TEXT), purpose=i18n.t(PAGE_PURPOSE_TEXT), freshness_html=freshness_html)
+        layout.page_header(i18n.t(_NAV_HEALTH_TEXT))
         + _source_fault_block(source_fault_raw)
         + banner_html
         + screen_section_html

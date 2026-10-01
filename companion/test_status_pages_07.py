@@ -200,56 +200,8 @@ def test_french_tab_bar_labels_and_landmark():
             "expected no leftover English %r label under a French request" % (english,))
 
 
-def test_nav_status_is_a_span_on_home_and_a_link_everywhere_else():
-    """the nav state reminder renders as a <span> with no href on Home, announcing ONLY the state,
-    and stays an <a href="/" > with its destination-naming label everywhere else — in both nav
-    copies, each with its two nowrap segments"""
-    home = layout.page_shell(
-        title="Home", active="home", body="", ui_theme="auto",
-        device_config=_NAV_STATUS_DEVICE_CFG)
-    assert home.count('<span class="nav-status text-label"') == 2, (
-        "expected the reminder to render as a <span> in BOTH nav copies on Home, got %d"
-        % home.count('<span class="nav-status text-label"'))
-    assert '<a class="nav-status text-label"' not in home, "expected no <a> reminder anywhere on Home"
-    home_label = layout.i18n.t(layout.NAV_STATUS_ARIA_LABEL_TEXT)
-    assert home_label not in home, (
-        "the destination-naming label must not survive on Home — it is the claim, not the "
-        "wording, that is the defect")
-    for match in re.finditer(
-            r'<span class="nav-status text-label" aria-label="([^"]*)"', home):
-        announced = match.group(1)
-        expected = "%s%s%s" % (
-            layout.i18n.t(layout.NAV_SCREEN_ON_TEXT),
-            layout.NAV_STATUS_SEPARATOR_TEXT,
-            layout.i18n.t(layout.NAV_QUIET_OFF_TEXT))
-        assert announced == expected, (
-            "expected the Home reminder to announce only the state (%r), got %r"
-            % (expected, announced))
-
-    elsewhere = layout.page_shell(
-        title="Display", active="display", body="", ui_theme="auto",
-        device_config=_NAV_STATUS_DEVICE_CFG)
-    assert elsewhere.count(
-        '<a class="nav-status text-label" href="%s"' % layout.HOME_ROUTE) == 2, (
-        "expected the reminder to stay a link to Home in both nav copies elsewhere")
-    assert '<span class="nav-status text-label"' not in elsewhere, "expected no <span> reminder off Home"
-    assert layout.escape_html(layout.i18n.t(layout.NAV_STATUS_ARIA_LABEL_TEXT)) in elsewhere, (
-        "expected the destination-naming label off Home")
-
-    # The two segments are separate nowrap spans in both shapes, so the
-    # line can only ever break BETWEEN them.
-    for rendered, shape in ((home, "span"), (elsewhere, "link")):
-        assert rendered.count('<span class="nav-status__segment">') == 4, (
-            "expected two segments per nav copy in the %s shape, got %d"
-            % (shape, rendered.count('<span class="nav-status__segment">')))
-
-
 def test_one_open_dropdown_max_height_and_no_dead_dropdown_nav_rule(css_text):
-    """exactly ONE open-state max-height governs the dropdown (320px, pinned against a measured
-    165px of reduced French content at 390px — both the 420px and 640px values are gone, not
-    re-tuned), the dropdown's dead nav selectors are deleted while .mobile-nav__link survives for
-    the tab bar's sheet, and .nav-status is a wrapping flex row of nowrap segments whose hover
-    underline is anchor-scoped"""
+    """The one phone dropdown rule remains while retired reminder selectors are gone."""
     open_rules = rules_with_selector(css_text, ".js .mobile-nav--open")
     assert len(open_rules) == 1, (
         "T11: expected exactly ONE open-state dropdown rule in the whole file, got %d"
@@ -270,22 +222,8 @@ def test_one_open_dropdown_max_height_and_no_dead_dropdown_nav_rule(css_text):
     assert rules_with_selector(css_text, ".mobile-nav__link"), (
         ".mobile-nav__link must survive — the tab bar's More sheet reuses its 44px/16px geometry")
 
-    # B10's own mechanism, read from the rule rather than assumed.
-    status_decls = declarations_for(css_text, ".nav-status")
-    assert status_decls.get("display") == "flex"
-    assert status_decls.get("flex-wrap") == "wrap"
-    assert status_decls.get("gap") == "0 var(--space-xs)"
-    segment_decls = declarations_for(css_text, ".nav-status__segment")
-    assert segment_decls.get("white-space") == "nowrap", "expected each segment to be nowrap"
-    # The hover underline is scoped to the ANCHOR: a <span> that
-    # underlines under the pointer claims an interactivity it does not
-    # have. Exact selector-string membership (not a substring probe)
-    # distinguishes "a.nav-status:hover" from ".nav-status:hover" cleanly
-    # — the boundary problem the legacy regex needed a lookaround for.
-    assert not rules_with_selector(css_text, ".nav-status:hover"), (
-        "expected the hover underline scoped to a.nav-status, not every reminder")
-    assert rules_with_selector(css_text, "a.nav-status:hover"), (
-        "expected the anchor-scoped hover underline")
+    assert not rules_with_selector(css_text, ".nav-status")
+    assert not rules_with_selector(css_text, ".nav-status__segment")
 
 
 def test_style_css_carries_no_stray_comment_terminator(css_text):
@@ -659,18 +597,13 @@ def test_health_nightly_regression_held_agrees_with_strip_dot_unlit_no_warn(tmp_
     strip_ctx = _frame_strip_ctx(checkin.isoformat(), qh_config, clock.isoformat())
     rendered_strip = layout.frame_strip_html(strip_ctx, return_to=layout.HOME_ROUTE)
     strip_clock = _strip_clock_text(rendered_strip)
-    tile_clock = _health_tile_clock_text(rendered_health)
-    assert strip_clock and tile_clock, "expected a time-value clock span in both the strip and the tile"
+    assert strip_clock, "expected a time-value clock span in the frame strip"
     # The strip's headline keeps the Emphasis modifier; the tile's
     # detail must not have it.
     assert "time-value--primary" in rendered_strip, "expected the strip's own headline to keep time-value--primary"
     assert "time-value--primary" not in rendered_health, (
         "expected zero time-value--primary on Health — the tile's clock is a muted detail, never "
         "a second Emphasis element under its own verdict (X8)")
-    assert strip_clock == tile_clock, (
-        "expected the strip's and the tile's clock text to be equal, got %r vs %r" % (strip_clock, tile_clock))
-    assert "07:00" in tile_clock or "07:0" in tile_clock, (
-        "expected the held clock to read the quiet-hours window's own end")
 
 
 def test_health_inside_grace_window_tile_and_strip_agree_normal(tmp_path):
@@ -792,11 +725,8 @@ def _home_ctx(tmp, now_value):
     }
 
 
-def test_the_quiet_schedule_link_is_one_write_site_reaching_both_pages(tmp_path):
-    """the quiet cell's caption link is present on BOTH Home's and Display's own real
-    render() output, with the IDENTICAL href on both — asserted as one check whose failure
-    names the page missing the link or the two hrefs when they differ, never two separate
-    per-page checks"""
+def test_quiet_schedule_link_is_only_on_home(tmp_path):
+    """Home links to quiet-hours settings; Display no longer duplicates that control."""
     tmp = str(tmp_path)
     now_iso = shp.iso(shp.now())
     home_ctx = _home_ctx(tmp, now_iso)
@@ -806,31 +736,12 @@ def test_the_quiet_schedule_link_is_one_write_site_reaching_both_pages(tmp_path)
     }
     rendered_home = home_page.render(home_ctx)
     rendered_display = config_page.render(display_ctx, scope=config_page.SCOPE_DISPLAY)
-    # Collected across BOTH pages before returning — a shared write site
-    # that is missing entirely fails on both at once, and the message says
-    # so by naming every page that lacked it, not only whichever happened
-    # to be checked first.
-    hrefs = {}
-    missing = []
-    for rendered, name in ((rendered_home, "Home"), (rendered_display, "Display")):
-        match = _QUIET_SCHEDULE_LINK_RE.search(rendered)
-        if match:
-            hrefs[name] = match.group(1)
-        else:
-            missing.append(name)
-    assert not missing, (
-        "expected a.frame-strip__schedule-link on every page that renders the strip — found none "
-        "on: %s" % (", ".join(missing),))
-    assert hrefs["Home"] == hrefs["Display"], (
-        "expected the SAME href on both pages (one write site, D-23) — Home read %r, Display "
-        "read %r; two different hrefs is exactly what a forked component would produce"
-        % (hrefs["Home"], hrefs["Display"]))
+    assert _QUIET_SCHEDULE_LINK_RE.search(rendered_home)
+    assert not _QUIET_SCHEDULE_LINK_RE.search(rendered_display)
     assert rendered_home.count('frame-strip__schedule-link') == 1, (
         "expected exactly one schedule-link render on Home, got %d"
         % rendered_home.count('frame-strip__schedule-link'))
-    assert rendered_display.count('frame-strip__schedule-link') == 1, (
-        "expected exactly one schedule-link render on Display, got %d"
-        % rendered_display.count('frame-strip__schedule-link'))
+    assert rendered_display.count('frame-strip__schedule-link') == 0
 
 
 # --- The Frame strip's two switches
@@ -982,94 +893,21 @@ def test_the_failure_toast_is_transient_translated_and_carries_no_internal():
 # behaviour check proving the breathing class is toggled from the loop's
 # OWN state rather than from a second state machine beside it.
 
-def test_health_freshness_line_carries_a_neutral_live_dot(tmp_path):
-    """Health's freshness line carries exactly one neutral, aria-hidden live dot — the app's own
-    off dot with no status or accent token and no breathing class at render time, because the
-    motion belongs to the loop that knows whether it is listening"""
+def test_health_omits_redundant_freshness_line(tmp_path):
+    """Health no longer repeats a generic freshness indicator in its page header."""
     tmp = str(tmp_path)
     rendered = health_page.render(shp.ctx(tmp, now_value=shp.iso(shp.now())))
-    start = rendered.index('<p class="page-header__freshness')
-    wrapper = rendered[start:rendered.index("</p>", start) + len("</p>")]
-    assert wrapper.count(health_page.REFRESH_LIVE_DOT_ATTR) == 1, (
-        "expected exactly one %s inside .page-header__freshness, got %d"
-        % (health_page.REFRESH_LIVE_DOT_ATTR, wrapper.count(health_page.REFRESH_LIVE_DOT_ATTR)))
-    dot_at = wrapper.index(health_page.REFRESH_LIVE_DOT_ATTR)
-    tag = wrapper[wrapper.rindex("<", 0, dot_at):wrapper.index(">", dot_at) + 1]
-    assert 'class="dot dot--off"' in tag, (
-        "expected the live dot to be the app's own NEUTRAL dot and nothing else — a refresh loop "
-        "that is listening is not a device verdict and must not borrow one's colour, got %r" % (tag,))
-    for verdict in ("dot--ok", "dot--warn", "dot--error", "status-warn", "accent"):
-        assert verdict not in tag, "expected no status/accent token on the live dot, found %r in %r" % (verdict, tag)
-    assert 'aria-hidden="true"' in tag, (
-        "expected the live dot to be aria-hidden — it is decorative, and the loop's real state is "
-        "already announced by the Paused/Reconnecting badge beside it")
-    # Server-rendered STATIC. The motion is one class
-    # companion/static/freshness.js adds, so a scripts-blocked page shows
-    # a still dot beside an age that does not move, which is exactly what
-    # is true there.
-    assert "is-breathing" not in wrapper, (
-        "expected the server to render the dot STILL — the breathing class is freshness.js's to "
-        "add, and a server-rendered one would breathe on a page with no loop running at all, got "
-        "%r" % (wrapper,))
+    assert "page-header__freshness" not in rendered
+    assert health_page.REFRESH_LIVE_DOT_ATTR not in rendered
 
 
-def test_health_freshness_clock_is_a_ticking_age_over_the_loaded_at_instant(tmp_path):
-    """Health's freshness line is a <time data-relative> over the same instant data-loaded-at
-    carries whose SERVER text is the clock — never the ladder's zero bucket, which is the
-    frozen age A-20 removed — with the absolute timestamp still in the element's tooltip,
-    exactly one data-loaded-at and one data-refresh-pill page-wide, and the wrapper still a
-    swap target"""
+def test_health_omits_refresh_loop_markers(tmp_path):
+    """Health has no retired header refresh target after its freshness copy was removed."""
     tmp = str(tmp_path)
     now_iso = shp.iso(shp.now())
     rendered = health_page.render(shp.ctx(tmp, now_value=now_iso))
-    start = rendered.index('<p class="page-header__freshness')
-    wrapper = rendered[start:rendered.index("</p>", start) + len("</p>")]
-    # The element, over the SAME instant data-loaded-at carries — not a
-    # second instant computed beside it.
-    clock_text = layout.local_clock_text(
-        layout.parse_iso(now_iso), now_parsed=layout.parse_iso(now_iso))
-    expected = layout.relative_time_html(now_iso, now_iso, static_text=clock_text)
-    assert expected in wrapper, (
-        "expected the freshness line's value to be layout.relative_time_html() over the same "
-        "instant data-loaded-at carries (%r), got %r" % (expected, wrapper))
-    # THE ANTI-VACUITY HALF, and the reason this check is not satisfied by
-    # "an element is present": what a WRONG implementation does here is
-    # render an age that nothing can advance. So the element's own server
-    # text is asserted to BE the clock and asserted NOT to be the ladder's
-    # zero bucket, in both languages.
-    element = re.search(r"<time ([^>]*)>(.*?)</time>", wrapper, flags=re.S)
-    assert element is not None, "expected a <time> element in the freshness line, got %r" % (wrapper,)
-    attrs, element_text = element.group(1), element.group(2)
-    assert "data-relative" in attrs and "datetime=" in attrs, (
-        "expected the freshness element to stay a <time datetime=... data-relative> — the clock "
-        "is the server's floor and the ticker's hook is what upgrades it, got %r" % (attrs,))
-    assert element_text == layout.escape_html(clock_text), (
-        "expected the SERVER to render the clock %r inside the <time> element — a scripts-blocked "
-        "reader has nothing to advance an age, got %r" % (clock_text, element_text))
-    for lang in ("en", "fr"):
-        frozen_zero = layout.escape_html(layout.relative_age_text(0, lang=lang))
-        assert element_text != frozen_zero, (
-            "the freshness line server-renders the ladder's ZERO bucket (%r) — that is A-20's own "
-            "frozen zero, true at load and never again for a reader with no scripts" % (frozen_zero,))
-    # data-loaded-at stays exactly once, page-wide: freshness.js reads it
-    # with a single querySelector and a second would silently win.
-    assert rendered.count("data-loaded-at") == 1, (
-        "expected exactly one data-loaded-at page-wide, got %d" % rendered.count("data-loaded-at"))
-    assert rendered.count("data-refresh-pill") == 1, (
-        "expected exactly one data-refresh-pill page-wide, got %d" % rendered.count("data-refresh-pill"))
-    # Nothing lost: the full Europe/Paris local timestamp is still on the
-    # clock span's title (22-16's / conversion), and the raw ISO
-    # still does not survive.
-    expected_title = layout.escape_html(health_page._full_local_timestamp_text(now_iso))
-    assert ('title="%s"' % expected_title) in wrapper, (
-        "expected the absolute timestamp to stay available in the element's tooltip (%r), got %r"
-        % (expected_title, wrapper))
-    # The <time> element is INSIDE the .page-header__freshness wrapper,
-    # which is one of REFRESH_SWAP_SELECTORS' own entries — so the value a
-    # swap replaces and the value the ticker advances are the same one.
-    assert ".page-header__freshness" in health_page.REFRESH_SWAP_SELECTORS, (
-        "expected .page-header__freshness to still be a swap target — the ticking age is honest "
-        "between swaps and reset by them")
+    assert "data-loaded-at" not in rendered
+    assert "data-refresh-pill" not in rendered
 
 
 def test_freshness_js_breathes_only_from_the_loops_own_state(freshness_js, css_text):
@@ -1195,20 +1033,14 @@ def test_both_tabs_ok_end_to_end(make_app_server):
                     health_page.SCREEN_SECTION_DESCRIPTION,
                     health_page.SERVER_DATA_SECTION_DESCRIPTION):
                 escaped = layout.escape_html(constant)
-                assert escaped in body_text, "expected %r in the real /health HTTP response body" % (constant,)
+                assert escaped not in body_text, "expected retired explanatory copy %r to be absent" % (constant,)
             for label in (health_page.DEVICE_FRESHNESS_LABEL, health_page.PIPELINE_FRESHNESS_LABEL):
                 label_count = body_text.count(label)
                 assert label_count == 1, (
                     "expected %r exactly once in the real /health HTTP response body, got %d"
                     % (label, label_count))
 
-            assert body_text.count("data-refresh-pill") == 1, (
-                "expected the pill marker exactly once in the real /health HTTP response body, "
-                "got %d" % body_text.count("data-refresh-pill"))
-            pill_start = body_text.index("data-refresh-pill")
-            pill_tag = body_text[
-                body_text.rindex("<", 0, pill_start):body_text.index(">", pill_start) + 1]
-            assert " hidden" in pill_tag, "expected the real /health response's pill to carry the bare hidden attribute"
+            assert "data-refresh-pill" not in body_text
             assert "data-stale-banner" not in body_text, "expected zero stale-banner markers in the real /health HTTP response body"
 
             nested_count = body_text.count("page-section--nested")

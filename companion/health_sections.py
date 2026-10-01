@@ -130,7 +130,7 @@ CHECK_IN_GRID_LABEL = i18n.msg(
 UNRESOLVED_SECTION_HEADING = i18n.msg(
     "health.airlines_we_could_not_name", "Airlines we could not name")
 STATS_SECTION_HEADING = i18n.msg(
-    "health.how_well_we_name_flights", "How well we name flights")
+    "health.how_well_we_name_flights", "Flight identification")
 
 
 _NO_GAPS_HEADING = i18n.msg("health.no_coverage_gaps", "No coverage gaps.")
@@ -518,21 +518,8 @@ def _registry_cards_html(rows, now):
 
 
 def _registry_section(rows, now):
-    # No status dot in the card-title row: coverage_status() paints the
-    # card's own top edge instead, composed at this function's call site.
-    # section-caption composes onto text-body (Body size, matching the
-    # sibling prose in this region), not text-label. _READ_ONLY_NOTE is
-    # the short visible sentence; _READ_ONLY_NOTE_DETAIL moves into the
-    # <details> disclosure below, the same idiom the battery readings
-    # table and _corroboration_details_html() use.
-    header_html = (
-        '<p class="text-body section-caption">%s</p>'
-        '<details class="readings-disclosure"><summary>%s</summary><p>%s</p></details>'
-    ) % (
-        escape_html(i18n.t(_READ_ONLY_NOTE)),
-        escape_html(i18n.t(_MORE_DETAILS_TEXT)),
-        escape_html(i18n.t(_READ_ONLY_NOTE_DETAIL)),
-    )
+    header_html = '<p class="text-body section-caption">%s</p>' % escape_html(
+        i18n.t(_READ_ONLY_NOTE))
 
     if not rows:
         return header_html + layout.empty_state(i18n.t(_NO_GAPS_HEADING), i18n.t(_NO_GAPS_BODY))
@@ -764,4 +751,3 @@ def _stats_section_html(stats):
     # card carries no pass/fail state — a neutral hairline is correct.
     return '<section class="page-section page-section--nested"><h2 class="text-heading">%s</h2>%s</section>' % (
         escape_html(i18n.t(STATS_SECTION_HEADING)), _stats_table_html(stats))
-
