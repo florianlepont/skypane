@@ -267,11 +267,9 @@
   // also documents what each page deliberately excludes and why.
   var SWAP_SELECTORS_BY_PAGE = {
     "home": [
-      ".page-header__freshness",
-      ".frame-strip",
-      ".home-status-grid",
       "figure.preview-frame",
-      'section[aria-labelledby="home-flights"]'
+      'section[aria-labelledby="home-flights"]',
+      ".home-facts"
     ],
     "display": [
       ".page-header__freshness",

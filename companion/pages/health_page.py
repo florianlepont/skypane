@@ -659,7 +659,10 @@ def _pipeline_timestamp_only(pipeline_ts, last_detection, now):
         return _unavailable_block()
     if _pipeline_never_ran(pipeline_ts, last_detection):
         return escape_html(i18n.t(PIPELINE_NEVER_RAN_DETAIL_TEXT))
-    return layout.concise_timestamp_html(pipeline_ts, now)
+    detection_detail = layout.concise_timestamp_html(last_detection, now)
+    return (
+        '<p class="stat-tile__meta text-label section-caption">%s %s</p>'
+        % (escape_html(_label_colon(i18n.t(LAST_DETECTION_LABEL))), detection_detail))
 
 
 def _pipeline_section(pipeline_ts, last_detection, now):
@@ -686,10 +689,7 @@ def _pipeline_section(pipeline_ts, last_detection, now):
         return _tile_body(verdict_html, detail), state
     verdict = escape_html(
         i18n.t(PIPELINE_STATE_TEXT.get(state, PIPELINE_STATE_TEXT["warn"])))
-    detection_detail = layout.concise_timestamp_html(last_detection, now)
-    detail = (
-        '<p class="stat-tile__meta text-label section-caption">%s %s</p>'
-        % (escape_html(_label_colon(i18n.t(LAST_DETECTION_LABEL))), detection_detail))
+    detail = _pipeline_timestamp_only(pipeline_ts, last_detection, now)
     return _tile_body(verdict, detail), state
 
 
@@ -808,6 +808,25 @@ def _battery_section(trend_rows, daily_rows=None):
     # input reading identically from the same two early-exit cases.
     state = _battery_state(trend_rows, daily_rows)
     now = history_db.utc_now_iso()
+    # The Timestamp column is already-safe raw HTML (a concise
+    # Europe/Paris span with the full timestamp demoted to `title`), so
+    # raw_columns=(0,) tells data_table() not to re-escape it.
+    table_rows = [
+        (layout.concise_timestamp_html(row.get("ts"), now, fallback=""), row.get("battery_mv"))
+        for row in trend_rows
+    ]
+    # modifier="readings" scopes the stylesheet rule that releases this
+    # table from .data-table's min-width: max-content no-crop floor.
+    table_html = layout.data_table(
+        [i18n.t(_TIMESTAMP_TEXT), i18n.t(_BATTERY_MV_TEXT)], table_rows,
+        mono_columns=(1,), raw_columns=(0,), modifier="readings")
+    # Collapsed behind a closed-by-default native <details> disclosure.
+    disclosure_html = (
+        '<details class="readings-disclosure"><summary>%s</summary>%s</details>'
+        % (
+            escape_html(i18n.t(_VIEW_READING_TEMPLATE) % (
+                len(trend_rows), "" if len(trend_rows) == 1 else "s")),
+            table_html))
     # One predicate decides both the series and the label mode passed to
     # battery_sparkline_svg(), so they can never disagree.
     plot_daily = _battery_daily_series_usable(daily_rows)
@@ -823,7 +842,9 @@ def _battery_section(trend_rows, daily_rows=None):
         chart_block = (
             chart_block + sparkline_html
             + '<script src="%s" defer></script>' % BATTERY_TREND_SCRIPT_SRC)
-    return chart_block, state
+    # The chart, when present, comes before the collapsed table in both
+    # DOM and visual order.
+    return chart_block + disclosure_html, state
 
 
 def _corroboration_details_html():
