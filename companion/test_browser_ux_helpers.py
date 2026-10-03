@@ -8,6 +8,8 @@ Every helper that opens a browser context takes a `make_context` factory instead
 installs the loopback-only route guard.
 """
 import contextlib
+import hashlib
+import json
 import math
 import os
 import re
@@ -34,6 +36,39 @@ from server import device_config, history_db  # noqa: E402
 from server.plane import colour_rules, manual_resolutions  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
 import server.state_store as state_store  # noqa: E402
+from server import atomic_io  # noqa: E402
+from server import firmware_registry as fr  # noqa: E402
+
+RELEASE_SEED_NOW = "2026-09-28T12:00:00+00:00"
+RELEASE_SEED_RUNNING_VERSION = "fw-v1.0.0"
+RELEASE_SEED_AVAILABLE_VERSION = "fw-v1.1.0"
+
+
+def seed_two_releases(state_dir):
+    """Two published releases (fw-v1.0.0 running, fw-v1.1.0 available)
+    through firmware_registry's own write API, plus a hand-written
+    device_report.json -- byos-owned in production, matching
+    companion/test_update_page.py's own _seed_update_state().
+    """
+    os.makedirs(str(state_dir), exist_ok=True)
+    for version in (RELEASE_SEED_RUNNING_VERSION, RELEASE_SEED_AVAILABLE_VERSION):
+        image_path = os.path.join(str(state_dir), version + ".bin")
+        image_bytes = ("fake-firmware-" + version).encode()
+        with open(image_path, "wb") as fh:
+            fh.write(image_bytes)
+        manifest = {
+            "version": version, "sha256": hashlib.sha256(image_bytes).hexdigest(),
+            "size": len(image_bytes), "released_at": RELEASE_SEED_NOW, "commit": "a" * 40,
+            "notes": ["release " + version],
+        }
+        fr.publish_release(str(state_dir), manifest, image_path, now=RELEASE_SEED_NOW)
+    device_report = {
+        "schema": 1, "next_seq": 1,
+        "devices": {
+            "dev1": {"fw_version": RELEASE_SEED_RUNNING_VERSION, "reported_at": RELEASE_SEED_NOW, "events": []}},
+    }
+    atomic_io.atomic_write(fr.device_report_path(str(state_dir)), json.dumps(device_report))
+
 
 VIEW_TRANSITION_ROUTES = ("/", "/display", "/flights", "/airlines", "/health", "/device")
 VIEW_TRANSITION_NAMES = {
@@ -446,22 +481,6 @@ _RING_INK_PROBE = (
     "  });"
     "  return {viewBox: [vb.width, vb.height], shapes: shapes};"
     "}")
-
-# Each Home status tile's own box, the height its CONTENT actually needs
-# (the union of its children's rects, which `.dashboard-grid`'s stretch
-# cannot inflate), and whether it holds a ring.
-_TILE_CONTENT_PROBE = (
-    "() => [...document.querySelectorAll('.home-status-grid .stat-tile')].map(t => {"
-    "  const r = t.getBoundingClientRect();"
-    "  let min = Infinity, max = -Infinity;"
-    "  [...t.children].forEach(c => {"
-    "    const k = c.getBoundingClientRect();"
-    "    min = Math.min(min, k.top); max = Math.max(max, k.bottom);"
-    "  });"
-    "  return {height: r.height, contentH: max - min,"
-    "          hasRing: t.querySelectorAll('.drawing-ring-value').length};"
-    "})")
-
 
 def _assert_no_page_overflow(page, where, expected_width=None):
     """Whether the page itself scrolls horizontally. Returns "" when it does not, and a

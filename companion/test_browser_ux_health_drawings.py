@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Browser checks for the SVG-drawing scenario group: the battery ring (Home + Health), the
-battery chart's area/line/threshold, the day band, the check-in regularity grid, and the
-Home hero that composes the ring and the band together.
+"""Browser checks for the SVG-drawing scenario group: the battery ring, the battery chart's
+area/line/threshold, the day band and the check-in regularity grid, all on Health.
 
 Three module-scoped, read-only servers are shared across these checks: `server` (the shared
 battery ring/chart fixture), `band_server` (one day's worth of seeded check-ins, shared by
-the day-band and hero checks), and `grid_server` (three seeded days with distinct
+the day-band checks), and `grid_server` (three seeded days with distinct
 on-cadence/late/missing verdicts, shared by the two regularity-grid checks). None of the
 tests below POSTs or otherwise mutates server state, so sharing a server per group is safe
 under xdist.
@@ -21,11 +20,11 @@ from skypane_contrast_check import (
     MIN_SIGNAL_PERCEPTUAL_DISTANCE, WCAG_AA_UI_COMPONENT, contrast_ratio,
     perceptual_distance,
 )
-from companion.pages import health_page, home_page
+from companion.pages import health_page
 from server import device_config, history_db
 from companion.test_browser_ux_helpers import (
     UI_THEMES_EXPLICIT, VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED,
-    VIEWPORT_WIDTH_NARROW, _RING_INK_PROBE, _TILE_CONTENT_PROBE,
+    VIEWPORT_WIDTH_NARROW, _RING_INK_PROBE,
     _assert_no_page_overflow, _computed_paint, _login, _no_js_page,
     _set_ui_theme, seed_state_dir,
 )
@@ -38,7 +37,7 @@ pytestmark = pytest.mark.browser
 RING_FIGURE = "svg.drawing__figure"
 RING_VALUE = "svg.drawing__figure .drawing-ring-value"
 RING_TRACK = "svg.drawing__figure .drawing-ring-track"
-RING_PAGES = (("Home", "/"), ("Health", "/health"))
+RING_PAGES = (("Health", "/health"),)
 
 
 @pytest.fixture(scope="module")
@@ -148,19 +147,10 @@ def test_the_rings_viewbox_contains_its_own_stroked_geometry(new_context, server
 
 
 def test_the_ring_costs_no_width_no_height_and_no_script(new_context, server):
-    """At the 360px floor the ring costs nothing it must not: neither page's body scrolls
-    sideways, Home's Battery tile stays exactly as tall as the Frame tile beside it, and
-    both rings still render, and still paint a dark-mode token, with scripts blocked
-    through _no_js_page().
+    """At the 360px floor the ring costs nothing it must not: the page's body does not scroll
+    sideways, and the ring still renders, and still paints a dark-mode token, with scripts
+    blocked through _no_js_page().
     """
-    # The tile assertion is deliberately not "all three tiles are equal height": at 360px
-    # `.dashboard-grid` collapses to one column, so each tile is its own grid row at its own
-    # intrinsic height and a taller Data tile (its detail wraps to a second line) would make
-    # an "all equal" assertion false; at 1280px, where the three do share a row,
-    # `align-items: stretch` makes them equal regardless, so it would be vacuous there
-    # instead. What it owes is that the ring added no height, measured against the tile the
-    # ring did not touch: the Frame tile carries the same two text lines in the same box, so
-    # Battery's own content height must still equal it exactly.
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
     try:
         page = context.new_page()
@@ -175,31 +165,6 @@ def test_the_ring_costs_no_width_no_height_and_no_script(new_context, server):
                 page, label, VIEWPORT_MIN_SUPPORTED["width"])
             if message:
                 raise AssertionError(message)
-
-        page.goto(server.base_url() + "/")
-        tiles = page.evaluate(_TILE_CONTENT_PROBE)
-        if len(tiles) != 3:
-            raise AssertionError(
-                "expected Home's three status tiles, got %d — with another "
-                "number this check is measuring the wrong row" % (len(tiles),))
-        frame_tile, battery_tile = tiles[0], tiles[1]
-        if battery_tile["hasRing"] != 1 or frame_tile["hasRing"] != 0:
-            raise AssertionError(
-                "expected the ring in the SECOND tile (Battery) and nowhere else "
-                "in the row, got ring counts %r"
-                % ([t["hasRing"] for t in tiles],))
-        if abs(battery_tile["contentH"] - frame_tile["contentH"]) > 0.5:
-            raise AssertionError(
-                "Home's Battery tile's own content is %.2fpx tall against its "
-                "Frame neighbour's %.2fpx at 360px — the ring pushed the tile "
-                "down, and `.dashboard-grid`'s stretch would push the whole row "
-                "with it" % (battery_tile["contentH"], frame_tile["contentH"]))
-        if abs(battery_tile["height"] - frame_tile["height"]) > 0.5:
-            raise AssertionError(
-                "Home's Battery tile is %.2fpx tall against its Frame "
-                "neighbour's %.2fpx at 360px, where the two are separate grid "
-                "rows carrying the same two text lines"
-                % (battery_tile["height"], frame_tile["height"]))
 
         # The ring is complete markup in the first response, so it must arrive whole with
         # scripts blocked; asking through _no_js_page() composes with the existing no-JS
@@ -570,7 +535,7 @@ def test_the_day_bands_frame_span_and_marks_paint_real_tokens_in_both_themes(pag
     asserted to produce one, clears 4.5:1 over it.
     """
     _login(page, band_server.base_url())
-    page.goto(band_server.base_url() + layout.HOME_ROUTE)
+    page.goto(band_server.base_url() + layout.HEALTH_ROUTE)
     page.wait_for_selector(BAND_SECTION)
     if page.locator(BAND_MARK).count() != len(BAND_SEED_PARIS_HOURS):
         raise AssertionError(
@@ -678,10 +643,10 @@ def test_the_day_band_is_a_real_drawing_at_360px_in_both_languages_without_scrip
             _login(page, base_url)
             context.add_cookies([{
                 "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
-            page.goto(base_url + layout.HOME_ROUTE)
+            page.goto(base_url + layout.HEALTH_ROUTE)
             page.wait_for_selector(BAND_SECTION)
             message = _assert_no_page_overflow(
-                page, "%s in %s" % (layout.HOME_ROUTE, lang),
+                page, "%s in %s" % (layout.HEALTH_ROUTE, lang),
                 VIEWPORT_MIN_SUPPORTED["width"])
             if message:
                 raise AssertionError(message)
@@ -792,7 +757,7 @@ def test_the_day_band_is_a_real_drawing_at_360px_in_both_languages_without_scrip
 
     # Server-rendered SVG owes nothing to a script, measured in the theme+no-JS combination
     # most likely to be wrong.
-    with _no_js_page(new_context, base_url, layout.HOME_ROUTE,
+    with _no_js_page(new_context, base_url, layout.HEALTH_ROUTE,
                      viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
         for label, selector, expected in (
                 ("frame", BAND_FRAME, 1),
@@ -1240,355 +1205,3 @@ def test_the_grid_is_a_real_drawing_at_360px_in_both_languages_without_script(ne
                     % (width, seen["svg"]["w"], seen["svg"]["h"], rendered_ratio, box_w / box_h))
         finally:
             context.close()
-
-
-# The hero.
-#
-# Reuses `band_server` rather than a server of its own: it is the only fixture in this group
-# that seeds check-ins on the band's own Paris day, which is what makes the hero's band a
-# real drawing instead of an empty frame, and it seeds a battery reading with them so the
-# ring renders too. A hero measured over an empty band would pass every stacking assertion
-# below while showing nothing.
-#
-# "The hero stacks at 360px with its parts at full size" is a sentence about rendered boxes:
-# the markup is identical whether the ring measures 36px or has been scaled to 12 by a flex
-# context, and "fits by shrinking its parts" is a page that passes an overflow check and
-# fails the requirement. The ring's box is the <svg> the emitter sized, never the value arc
-# inside it: the arc's own bounding rectangle is its diameter, a true number about the wrong
-# element that reads as a shrunken ring. The arc selector is kept for the paint measurement,
-# where the arc is the subject.
-
-HERO_RING_FIGURE = " svg.drawing__figure"
-HERO_RING = " .drawing-ring-value"
-HERO_BAND_CANVAS = " .day-band .drawing__canvas"
-HERO_BAND_MARK = " .drawing-band-mark"
-HERO_AFTER = ".home-columns.home-picture-row"
-# The two sizes the hero must not change, each chosen from the 360px floor by the plan that
-# emitted the drawing: the small ring (home_page.BATTERY_RING_SIZE) and the measured 278px
-# band canvas.
-#
-# 278 is pinned here as an equality and not as a floor: draw.DAY_BAND_MIN_MARK_SPACING_PERCENT
-# was re-derived from this exact number, so a hero that narrowed the band would leave two
-# check-in marks closer than the 4px that derivation bought while overflowing nothing and
-# moving no other measurement in this file.
-HERO_BAND_CANVAS_WIDTH_PX = 278.0
-# The composition, as two numbers. The parts sit one --space-md apart inside the container
-# and the container sits one --space-lg above what follows it: bound tighter than they are
-# separated, which is the whole of the claim that Home's top is one thing. Both are CSS-only
-# values with no Python constant behind them, invisible to every source scan until a mutation
-# went looking.
-HERO_INNER_GAP_PX = 16.0
-HERO_OUTER_GAP_PX = 24.0
-
-
-def _hero_boxes(page, hero_selector):
-    """The hero's own box, its children's, the status tiles', the ring's,
-    the band canvas's and the box of whatever follows the hero — one
-    probe, so the two checks below measure the same things the same way.
-    """
-    return page.evaluate(
-        "args => {"
-        "  const r = el => { const b = el.getBoundingClientRect();"
-        "    return {l: b.left, t: b.top, r: b.right, bo: b.bottom,"
-        "            w: b.width, h: b.height}; };"
-        "  const one = s => { const e = document.querySelector(s);"
-        "    return e ? r(e) : null; };"
-        "  const hero = document.querySelector(args.hero);"
-        "  if (!hero) return null;"
-        "  return {hero: r(hero),"
-        "          children: [...hero.children].map(r),"
-        "          tiles: [...document.querySelectorAll("
-        "            args.hero + ' .home-status-grid .stat-tile')].map(r),"
-        "          ring: one(args.hero + args.ring),"
-        "          band: one(args.hero + args.band),"
-        "          marks: [...document.querySelectorAll("
-        "            args.hero + args.mark)].map(r),"
-        "          after: one(args.after)};"
-        "}",
-        {"hero": hero_selector, "ring": HERO_RING_FIGURE,
-         "band": HERO_BAND_CANVAS, "mark": HERO_BAND_MARK,
-         "after": HERO_AFTER})
-
-
-def _hero_stack_failure(seen, where):
-    """"" when the hero's children share one column with the declared gap between them, or
-    a finished sentence naming the measurement that says otherwise.
-
-    One column is three properties, not one: equal lefts alone are satisfied by three boxes
-    drawn on top of each other, equal widths alone by a row, so the vertical order is
-    asserted too, and the gap between consecutive children is asserted as an equality rather
-    than a minimum, since a larger gap is what a hero whose children kept their own bottom
-    margins would render and would pass every "at least" a reader would think to write.
-    """
-    children = seen["children"]
-    if len(children) < 3:
-        return ("%s: the hero holds %d children — the strip, the tiles and the "
-                "band are three, and a hero measured with a part missing "
-                "measures nothing" % (where, len(children)))
-    first = children[0]
-    for index, box in enumerate(children[1:], start=1):
-        if abs(box["l"] - first["l"]) > 0.51:
-            return ("%s: hero child %d starts at %.2f against the first child's "
-                    "%.2f — the hero is not one column"
-                    % (where, index, box["l"], first["l"]))
-        if abs(box["w"] - first["w"]) > 0.51:
-            return ("%s: hero child %d is %.2fpx wide against the first child's "
-                    "%.2f — the hero is not one column"
-                    % (where, index, box["w"], first["w"]))
-    for index in range(len(children) - 1):
-        gap = children[index + 1]["t"] - children[index]["bo"]
-        if abs(gap - HERO_INNER_GAP_PX) > 0.51:
-            return ("%s: the hero's parts %d and %d sit %.2fpx apart, not the "
-                    "%.0fpx one --space-md declares. 40px is what three parts "
-                    "that kept their own bottom margins render, and it reads as "
-                    "three stacked blocks rather than one composition"
-                    % (where, index, index + 1, gap, HERO_INNER_GAP_PX))
-    if seen["after"] is None:
-        return "%s: found nothing after the hero to measure its own gap against" % (where,)
-    outer = seen["after"]["t"] - seen["hero"]["bo"]
-    if abs(outer - HERO_OUTER_GAP_PX) > 0.51:
-        return ("%s: the hero sits %.2fpx above the picture row, not the %.0fpx "
-                "one --space-lg declares — the group has to be separated from "
-                "what follows it by MORE than its parts are separated from each "
-                "other, or the grouping says nothing"
-                % (where, outer, HERO_OUTER_GAP_PX))
-    if outer <= HERO_INNER_GAP_PX:
-        return ("%s: the hero's inner gap (%.0fpx) is not smaller than its outer "
-                "one (%.2fpx)" % (where, HERO_INNER_GAP_PX, outer))
-    return ""
-
-
-def test_the_hero_stacks_at_360px_with_its_parts_at_the_size_their_own_plans_chose(new_context, band_server):
-    """At the 360px floor the hero stacks rather than shrinks, in both languages: its three
-    parts share one column with exactly the 16px one --space-md declares between them and
-    24px below the group (bound tighter than it is separated, asserted as equalities), the
-    battery ring still renders at the 36px home_page.BATTERY_RING_SIZE declares and the day
-    band's canvas at the 278px draw.py's mark spacing was derived from, all five seeded
-    check-ins still draw, the page body does not scroll sideways, the hero is the same width
-    in both languages, and the ring and the band paint real inverting tokens in both themes
-    through selectors scoped inside the hero.
-    """
-    hero_selector = "." + home_page.HERO_CLASS
-    base_url = band_server.base_url()
-    widths = {}
-    for lang in ("en", "fr"):
-        context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
-        try:
-            page = context.new_page()
-            _login(page, base_url)
-            context.add_cookies([{
-                "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
-            page.goto(base_url + layout.HOME_ROUTE)
-            page.wait_for_selector(hero_selector)
-            message = _assert_no_page_overflow(
-                page, "%s in %s" % (layout.HOME_ROUTE, lang), VIEWPORT_MIN_SUPPORTED["width"])
-            if message:
-                raise AssertionError(message)
-            seen = _hero_boxes(page, hero_selector)
-            if seen is None:
-                raise AssertionError("in %s there is no hero on Home" % (lang,))
-            message = _hero_stack_failure(
-                seen, "in %s at %dpx" % (lang, VIEWPORT_MIN_SUPPORTED["width"]))
-            if message:
-                raise AssertionError(message)
-            widths[lang] = seen["hero"]["w"]
-
-            # The parts at full size: a composition that fits by scaling its parts down has
-            # passed the overflow check above and failed the requirement. `ring` is the
-            # emitter's own <svg> box, not the value arc (see HERO_RING_FIGURE above).
-            if seen["ring"] is None:
-                raise AssertionError(
-                    "in %s the hero draws no battery ring at %dpx"
-                    % (lang, VIEWPORT_MIN_SUPPORTED["width"]))
-            for axis, label in (("w", "wide"), ("h", "tall")):
-                if abs(seen["ring"][axis] - float(home_page.BATTERY_RING_SIZE)) > 0.51:
-                    raise AssertionError(
-                        "in %s the hero's ring renders %.2fpx %s, not the "
-                        "%dpx home_page.BATTERY_RING_SIZE declares — a hero "
-                        "that fits by shrinking its parts has passed an "
-                        "overflow check and failed CFG-44"
-                        % (lang, seen["ring"][axis], label, home_page.BATTERY_RING_SIZE))
-            if seen["band"] is None:
-                raise AssertionError(
-                    "in %s the hero draws no day band at %dpx"
-                    % (lang, VIEWPORT_MIN_SUPPORTED["width"]))
-            if abs(seen["band"]["w"] - HERO_BAND_CANVAS_WIDTH_PX) > 0.51:
-                raise AssertionError(
-                    "in %s the hero's band canvas measures %.2fpx, not the "
-                    "%.2fpx 24-06 measured and derived draw.py's %.2f%% "
-                    "minimum mark spacing from — narrowing the band inside "
-                    "the hero silently invalidates that derivation"
-                    % (lang, seen["band"]["w"], HERO_BAND_CANVAS_WIDTH_PX,
-                       draw.DAY_BAND_MIN_MARK_SPACING_PERCENT))
-            if abs(seen["band"]["h"] - BAND_CANVAS_HEIGHT_PX) > 0.51:
-                raise AssertionError(
-                    "in %s the hero's band canvas is %.2fpx tall, not the "
-                    "%.2fpx .day-band declares" % (lang, seen["band"]["h"], BAND_CANVAS_HEIGHT_PX))
-            if len(seen["marks"]) != len(BAND_SEED_PARIS_HOURS):
-                raise AssertionError(
-                    "in %s the hero's band draws %d marks, not the %d "
-                    "check-ins seeded on its day — a band inside a hero is "
-                    "still a drawing of the day"
-                    % (lang, len(seen["marks"]), len(BAND_SEED_PARIS_HOURS)))
-
-            # Both themes, scoped inside the hero: these selectors only match if the
-            # drawings really are the hero's children in a real DOM, which no string
-            # containment in a source scan can establish.
-            painted = {}
-            for theme in UI_THEMES_EXPLICIT:
-                _set_ui_theme(page, theme)
-                for label, selector, prop in (
-                        ("ring value arc", hero_selector + HERO_RING, "stroke"),
-                        ("band mark", hero_selector + HERO_BAND_MARK, "fill")):
-                    paint = _computed_paint(page, selector, ("fill", "stroke"))
-                    if prop in paint["svg_default"]:
-                        raise AssertionError(
-                            "in %s, %s: the hero's %s resolves %s to the "
-                            "SVG default — a drawing correct in one theme "
-                            "only is a defect"
-                            % (lang, theme, label, prop))
-                    painted.setdefault(label, []).append(paint[prop])
-            for label, values in painted.items():
-                if len(set(values)) != len(values):
-                    raise AssertionError(
-                        "in %s the hero's %s paints %r in every theme — "
-                        "either the token does not invert or this "
-                        "measurement is comparing a value with itself"
-                        % (lang, label, values[0]))
-        finally:
-            context.close()
-    if abs(widths["en"] - widths["fr"]) > 0.01:
-        raise AssertionError(
-            "the hero measures %.2fpx in English and %.2fpx in French — the "
-            "composition's width must not depend on the copy inside it"
-            % (widths["en"], widths["fr"]))
-
-
-def test_the_heros_grouping_holds_at_both_widths_and_owes_nothing_to_a_script(new_context, band_server):
-    """The hero's grouping is the same composition at 360px and at 1280px: one column with
-    the same 16px inside and 24px below at both, no page overflow at either, while the three
-    status tiles inside it stack at the floor and share one row on the desktop, so the stack
-    is a floor behaviour rather than the only one; the band gets more room as the viewport
-    grows, never less; every one of Home's declared refresh-swap selectors still matches a
-    real element through the browser's own selector engine (a stale one stops the live
-    refresh silently); and with scripts blocked the hero's children keep their lefts, widths
-    and gaps and both drawings keep their boxes.
-    """
-    hero_selector = "." + home_page.HERO_CLASS
-    home_regions = layout.REFRESH_SWAP_SELECTORS_BY_PAGE[layout.REFRESH_PAGE_HOME]
-    base_url = band_server.base_url()
-    measured = {}
-    for viewport in (VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP):
-        width = viewport["width"]
-        context = new_context(viewport=viewport)
-        try:
-            page = context.new_page()
-            _login(page, base_url)
-            page.goto(base_url + layout.HOME_ROUTE)
-            page.wait_for_selector(hero_selector)
-            message = _assert_no_page_overflow(
-                page, "%s at %dpx" % (layout.HOME_ROUTE, width), width)
-            if message:
-                raise AssertionError(message)
-            seen = _hero_boxes(page, hero_selector)
-            if seen is None:
-                raise AssertionError("no hero on Home at %dpx" % (width,))
-            message = _hero_stack_failure(seen, "at %dpx" % (width,))
-            if message:
-                raise AssertionError(message)
-            measured[width] = seen
-
-            # The registry, through a real selector engine: freshness.js reads these five
-            # selectors and swaps what they match, and one that matches nothing fails
-            # silently (the page simply stops refreshing), which restructuring Home's DOM is
-            # exactly how that happens.
-            if not home_regions:
-                raise AssertionError(
-                    "Home declares no refresh regions at all — with none, this measures nothing")
-            missing = page.evaluate(
-                "sels => sels.filter(s => document.querySelectorAll(s).length === 0)",
-                list(home_regions))
-            if missing:
-                raise AssertionError(
-                    "at %dpx these declared Home refresh regions match "
-                    "nothing in the rendered page: %r — a stale swap "
-                    "selector stops the live refresh and says nothing"
-                    % (width, missing))
-        finally:
-            context.close()
-
-    # The stack is a floor, not the only behaviour: the hero itself is one column at every
-    # width by design. What changes with the viewport is the parts: the three status tiles
-    # stack at the floor and share one row on the desktop.
-    floor_tiles = measured[VIEWPORT_MIN_SUPPORTED["width"]]["tiles"]
-    desk_tiles = measured[VIEWPORT_DESKTOP["width"]]["tiles"]
-    if len(floor_tiles) != 3 or len(desk_tiles) != 3:
-        raise AssertionError(
-            "expected three status tiles inside the hero at both widths, "
-            "got %d and %d" % (len(floor_tiles), len(desk_tiles)))
-    if len({round(box["t"], 1) for box in floor_tiles}) != 3:
-        raise AssertionError(
-            "at %dpx the hero's three tiles do not each take their own row "
-            "— the floor behaviour is a stack" % (VIEWPORT_MIN_SUPPORTED["width"],))
-    if len({round(box["t"], 1) for box in desk_tiles}) != 1:
-        raise AssertionError(
-            "at %dpx the hero's three tiles sit on %d rows — the stack is "
-            "the FLOOR behaviour, not the only one"
-            % (VIEWPORT_DESKTOP["width"], len({round(box["t"], 1) for box in desk_tiles})))
-    floor_band = measured[VIEWPORT_MIN_SUPPORTED["width"]]["band"]
-    desk_band = measured[VIEWPORT_DESKTOP["width"]]["band"]
-    if floor_band is None or desk_band is None:
-        raise AssertionError("the hero drew no band at one of the two widths")
-    if desk_band["w"] <= floor_band["w"]:
-        raise AssertionError(
-            "the hero's band measures %.2fpx at %dpx and %.2fpx at %dpx — "
-            "a composition that gives a drawing LESS room as the viewport "
-            "grows has put it in a column of its own"
-            % (floor_band["w"], VIEWPORT_MIN_SUPPORTED["width"],
-               desk_band["w"], VIEWPORT_DESKTOP["width"]))
-
-    # The hero is server-rendered markup, so with scripts blocked it is not merely present,
-    # it is laid out identically. Compared as the hero's own geometry (each child's left,
-    # width and the gap to the next) rather than as absolute page positions, since the
-    # freshness line and the relative-time ticker above it are scripted and may legitimately
-    # reflow the header by a pixel.
-    with _no_js_page(new_context, base_url, layout.HOME_ROUTE,
-                     viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
-        blocked_seen = _hero_boxes(blocked, hero_selector)
-        if blocked_seen is None:
-            raise AssertionError("with scripts blocked there is no hero on Home")
-        message = _hero_stack_failure(blocked_seen, "with scripts blocked")
-        if message:
-            raise AssertionError(message)
-        scripted = measured[VIEWPORT_MIN_SUPPORTED["width"]]
-        if len(blocked_seen["children"]) != len(scripted["children"]):
-            raise AssertionError(
-                "with scripts blocked the hero holds %d children against "
-                "%d with scripts"
-                % (len(blocked_seen["children"]), len(scripted["children"])))
-        for index, (was, now_box) in enumerate(
-                zip(scripted["children"], blocked_seen["children"])):
-            for axis in ("l", "w"):
-                if abs(was[axis] - now_box[axis]) > 0.51:
-                    raise AssertionError(
-                        "with scripts blocked hero child %d differs on %r: "
-                        "%.2f against %.2f — nothing here may depend on a "
-                        "script having measured something"
-                        % (index, axis, now_box[axis], was[axis]))
-        for label, was, now_box in (
-                ("ring", scripted["ring"], blocked_seen["ring"]),
-                ("band", scripted["band"], blocked_seen["band"])):
-            if was is None or now_box is None:
-                raise AssertionError("the hero's %s is missing from one of the two runs" % (label,))
-            if abs(was["w"] - now_box["w"]) > 0.51 or abs(was["h"] - now_box["h"]) > 0.51:
-                raise AssertionError(
-                    "with scripts blocked the hero's %s measures %.2fx%.2f "
-                    "against %.2fx%.2f with scripts"
-                    % (label, now_box["w"], now_box["h"], was["w"], was["h"]))
-        missing = blocked.evaluate(
-            "sels => sels.filter(s => document.querySelectorAll(s).length === 0)",
-            list(home_regions))
-        if missing:
-            raise AssertionError(
-                "with scripts blocked these declared Home refresh regions "
-                "match nothing: %r" % (missing,))

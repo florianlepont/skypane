@@ -26,7 +26,9 @@ import pytest
 from companion import auth, layout
 from companion.pages import update_page
 from companion.test_browser_ux_helpers import (
+    RELEASE_SEED_AVAILABLE_VERSION, RELEASE_SEED_NOW, RELEASE_SEED_RUNNING_VERSION,
     VIEWPORT_DESKTOP, VIEWPORT_PHONE, _assert_hit_target, _login, _no_js_page,
+    seed_two_releases as _seed_two_releases,
 )
 from server import atomic_io
 from server import firmware_registry as fr
@@ -40,35 +42,9 @@ pytestmark = pytest.mark.browser
 # reusing VIEWPORT_MIN_SUPPORTED, which is a different, narrower viewport.
 VIEWPORT_375 = {"width": 375, "height": 812}
 
-_NOW = "2026-09-28T12:00:00+00:00"
-_RUNNING_VERSION = "fw-v1.0.0"
-_AVAILABLE_VERSION = "fw-v1.1.0"
-
-
-def _seed_two_releases(state_dir):
-    """Two published releases (fw-v1.0.0 running, fw-v1.1.0 available)
-    through firmware_registry's own write API, plus a hand-written
-    device_report.json -- byos-owned in production, matching
-    companion/test_update_page.py's own _seed_update_state().
-    """
-    os.makedirs(str(state_dir), exist_ok=True)
-    for version in (_RUNNING_VERSION, _AVAILABLE_VERSION):
-        image_path = os.path.join(str(state_dir), version + ".bin")
-        image_bytes = ("fake-firmware-" + version).encode()
-        with open(image_path, "wb") as fh:
-            fh.write(image_bytes)
-        manifest = {
-            "version": version, "sha256": hashlib.sha256(image_bytes).hexdigest(),
-            "size": len(image_bytes), "released_at": _NOW, "commit": "a" * 40,
-            "notes": ["release " + version],
-        }
-        fr.publish_release(str(state_dir), manifest, image_path, now=_NOW)
-    device_report = {
-        "schema": 1, "next_seq": 1,
-        "devices": {
-            "dev1": {"fw_version": _RUNNING_VERSION, "reported_at": _NOW, "events": []}},
-    }
-    atomic_io.atomic_write(fr.device_report_path(str(state_dir)), json.dumps(device_report))
+_NOW = RELEASE_SEED_NOW
+_RUNNING_VERSION = RELEASE_SEED_RUNNING_VERSION
+_AVAILABLE_VERSION = RELEASE_SEED_AVAILABLE_VERSION
 
 
 _THIRD_VERSION = "fw-v1.2.0"

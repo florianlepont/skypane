@@ -6,7 +6,6 @@ experience that the owner will review before authorising any focused polish.
 import pytest
 
 from companion import auth, layout
-from companion.test_browser_update import _seed_two_releases
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP,
     VIEWPORT_MIN_SUPPORTED,
@@ -17,6 +16,7 @@ from companion.test_browser_ux_helpers import (
     _save_via_bar,
     _wait_for_bar,
     seed_state_dir,
+    seed_two_releases,
 )
 from server import device_config, state_store
 
@@ -42,7 +42,7 @@ VIEWPORTS = (
 
 def _seed_walkthrough_state(state_dir):
     seed_state_dir(state_dir)
-    _seed_two_releases(state_dir)
+    seed_two_releases(state_dir)
 
 
 def _seed_intentional_sleep_state(state_dir):
