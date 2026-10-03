@@ -1170,7 +1170,7 @@ def test_frame_strip_nightly_regression_held_is_neutral_never_warn():
     """the nightly regression (quiet hours 23:00-07:00, check-in 22:58,
     clock 02:00 Europe/Paris): the Frame strip renders the held copy with
     the neutral dot--off and zero warn/error tokens anywhere, including no
-    'Expected since'/'Attendu depuis' (X2)"""
+    'Update overdue'/'Mise à jour en retard' (X2)"""
     paris = timezone(timedelta(hours=1))
     qh_config = {
         "wake_interval_s": 900, "display_enabled": True,
@@ -1186,7 +1186,7 @@ def test_frame_strip_nightly_regression_held_is_neutral_never_warn():
     assert "dot--off" in cell
     for warn_token in (
             "dot--warn", "stat-tile--warn", "status-card__headline--warn",
-            "Expected since", "Attendu depuis"):
+            "Update overdue", "Mise à jour en retard"):
         assert warn_token not in rendered
     assert "Next wake around" in cell
 
@@ -1220,13 +1220,13 @@ def test_frame_strip_due_is_identical_inside_and_outside_the_grace_window():
         assert layout.RELATIVE_COUNTDOWN_ATTR in element.group(2)
     assert instants[0] == instants[1]
     for rendered in (rendered_before, rendered_inside_grace):
-        for token in ("warn", "late", "overdue", "Expected since"):
+        for token in ("warn", "late", "overdue", "Update overdue"):
             assert token not in rendered
     assert "dot--ok" in rendered_before
 
 
 def test_frame_strip_late_result_carries_warn_dot_and_plain_text_colour_class():
-    """a late result renders the warn dot and 'Expected since HH:MM', with
+    """a late result renders the warn dot and 'Update overdue · expected at HH:MM', with
     the headline's own text-colour class staying the plain
     status-card__headline--warn hook (never a status colour as text,
      §3.3 rule 2)"""
@@ -1236,7 +1236,7 @@ def test_frame_strip_late_result_carries_warn_dot_and_plain_text_colour_class():
     cell = _frame_strip_update_cell_slice(rendered)
     assert cell is not None
     assert "dot--warn" in cell
-    assert "Expected since" in cell
+    assert "Update overdue" in cell
     assert 'status-card__headline status-card__headline--warn' in cell
 
 
@@ -1259,7 +1259,7 @@ def test_frame_strip_parked_suppresses_late_state():
     parked_rendered = layout.frame_strip_html(parked_ctx, return_to=layout.HOME_ROUTE)
     parked_cell = _frame_strip_update_cell_slice(parked_rendered)
     if parked_cell is not None:
-        for token in ("dot--warn", "Expected since", "status-card__headline--warn"):
+        for token in ("dot--warn", "Update overdue", "status-card__headline--warn"):
             assert token not in parked_cell
 
 

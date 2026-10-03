@@ -5,6 +5,7 @@ served markup (a direct render for the state matrix, a real server for the
 POST round trips)."""
 import re
 import urllib.parse
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -69,7 +70,8 @@ def test_screen_on_state_wording_and_both_switches(tmp_path):
     card = _render(tmp_path, cfg={"quiet_hours_enabled": True})
     assert "Screen on" in card
     assert "Next update ≈" in card and "data-relative-countdown" in card
-    assert "wakes about every 15 min, so it does not refresh continuously" in card
+    assert "Updates about every 15 min" in card
+    assert "wakes about every" not in card
     assert "23:00 – 07:00" in card
     assert _checked(card, "/quick/display") == "true"
     assert _checked(card, "/quick/quiet-hours") == "true"
@@ -142,6 +144,7 @@ def test_french_status_header(tmp_path):
     """the header reads in French: hidden heading, state, cadence, switch labels and state words"""
     card = _render(tmp_path, lang="fr", cfg={"quiet_hours_enabled": True})
     for text in ("État du cadre", "Écran allumé", "Prochaine mise à jour ≈",
+                 "Mise à jour environ toutes les 15 min",
                  "il ne se rafraîchit donc pas en continu", "Heures calmes", "Écran",
                  "Allumé", "Commandes du cadre"):
         assert text in card, text
@@ -196,6 +199,80 @@ def test_battery_block_in_french(tmp_path):
         prefs.set_request_prefs(lang="en")
     assert 'aria-label="Batterie à environ ≈ 8%, faible"' in card
     assert ">Batterie</span>" in card and ">Faible</span>" in card
+
+
+def test_cadence_is_one_short_line_with_the_reason_in_a_native_disclosure(tmp_path):
+    """the cadence reads as a short muted summary; the reason sits in the same <details>, which
+    needs no script, and neither the long sentence nor the interval clause remains"""
+    card = _render(tmp_path)
+    match = re.search(r"<details[^>]*home-state__cadence[^>]*><summary>(.*?)</summary><p>(.*?)</p>",
+                      card, re.S)
+    assert match is not None, "no cadence disclosure"
+    assert match.group(1) == "Updates about every 15 min"
+    assert "does not refresh continuously" in match.group(2)
+    assert "To save its battery, the frame sleeps between updates and wakes" not in card
+    card = _render(tmp_path, lang="fr")
+    assert "<summary>Mise à jour environ toutes les 15 min</summary>" in card
+
+
+def _late_ctx(tmp_path, minutes_since_checkin):
+    """The default 900 s interval: the expected wake is 15 min after the check-in and the frame
+    counts as late 30 min after that, long overdue past 45 min after it."""
+    checkin = datetime.fromisoformat(NOW) - timedelta(minutes=minutes_since_checkin)
+    return _render(tmp_path, last_checkin_ts=checkin.isoformat())
+
+
+def test_a_short_delay_keeps_the_neutral_next_update_wording(tmp_path):
+    """a few minutes past the expected wake is normal: the usual next-update line, green dot, no
+    overdue wording and no Health link"""
+    card = _late_ctx(tmp_path, 20)
+    assert "Next update ≈" in card and "Update overdue" not in card
+    assert "dot--ok" in card and "dot--warn" not in card and 'href="/health"' not in card
+
+
+@pytest.mark.parametrize("lang,text", [
+    ("en", "Update overdue · expected at <span"),
+    ("fr", "Mise à jour en retard · attendue à <span"),
+])
+def test_overdue_frame_says_so_without_the_amber_dot_or_countdown(tmp_path, lang, text):
+    """past the grace window the line names the expected time as overdue, drops the countdown,
+    and stays neutral (green dot, no Health link) until the delay is long"""
+    card = _render(
+        tmp_path, lang=lang,
+        last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(minutes=50)).isoformat())
+    assert text in card
+    assert "Expected since" not in card and "Attendu depuis" not in card
+    assert "data-relative-countdown" not in card
+    assert "dot--ok" in card and "dot--warn" not in card and 'href="/health"' not in card
+
+
+@pytest.mark.parametrize("lang,link", [("en", "See Health"), ("fr", "Voir la santé")])
+def test_long_overdue_turns_the_dot_amber_and_links_to_health(tmp_path, lang, link):
+    """more than three intervals past the expected wake: amber dot and one link to Health"""
+    card = _render(
+        tmp_path, lang=lang,
+        last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(minutes=90)).isoformat())
+    assert "dot--warn" in card and "dot--ok" not in card
+    assert re.findall(r'<a [^>]*href="/health"[^>]*>%s</a>' % link, card)
+
+
+def test_overdue_date_appears_only_when_not_today(tmp_path):
+    """an expected time on an earlier day carries its date, one on the same day does not"""
+    same_day = _render(
+        tmp_path, last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(minutes=50)).isoformat())
+    assert re.search(r"expected at <span class=\"time-value\">\d\d:\d\d</span>", same_day)
+    earlier = _render(
+        tmp_path, last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(days=3)).isoformat())
+    assert re.search(r"expected at <span class=\"time-value\">\d+ \w+\.? \d\d:\d\d</span>", earlier)
+
+
+def test_a_quiet_hours_hold_is_never_overdue(tmp_path):
+    """the quiet-hours hold keeps its own wording however long since the last check-in"""
+    window = {"quiet_hours_enabled": True, "quiet_hours_start": "00:00", "quiet_hours_end": "23:59"}
+    card = _render(
+        tmp_path, cfg=window,
+        last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(days=2)).isoformat())
+    assert "Update overdue" not in card and 'href="/health"' not in card and "dot--warn" not in card
 
 
 def _lang_cookie(cookie, lang):

@@ -277,7 +277,7 @@ def test_status_error_meets_ui_component_contrast_on_every_surface(theme, theme_
 
 
 # ==========================================================================
-# The warn-coloured "Expected since" headline's own contrast gate. Unlike
+# The warn-coloured "Update overdue" headline's own contrast gate. Unlike
 # the live pairs above (every one required to PASS), this pair's own
 # per-theme checks assert the ACTUAL measured verdict — dark clears WCAG
 # AA, light does not — because that asymmetry is exactly what justifies
