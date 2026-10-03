@@ -271,7 +271,7 @@ def test_home_catalog_keys_all_present_in_merged_catalog():
 
 def test_home_status_card_headline_next_update_or_expected_since(tmp_path):
     """the Frame strip's headline reads 'Next update ≈ HH:MM' for a future next-update,
-    'Expected since HH:MM' in the warn treatment for a past one, and renders no headline at all
+    'Update overdue · expected at HH:MM' in the warn treatment for a past one, and renders no headline at all
     when either the check-in or the wake interval is unknown (moved from the deleted
     _status_card_html())"""
     base_ctx = {
@@ -300,7 +300,7 @@ def test_home_status_card_headline_next_update_or_expected_since(tmp_path):
     rendered_past = _strip_html(past_ctx)
     # 11:00 UTC + 15 minutes = 11:15 UTC, already BEFORE the 12:00 UTC
     # "now" — the overdue, warn-treatment branch.
-    assert "Expected since" in rendered_past, "expected the overdue headline wording"
+    assert "Update overdue" in rendered_past, "expected the overdue headline wording"
     assert "status-card__headline--warn" in rendered_past, "expected the warn modifier for an overdue next-update"
 
     missing_checkin = dict(base_ctx, last_checkin_ts=None, now="2026-08-27T12:00:00+00:00")
@@ -1148,7 +1148,7 @@ def test_frame_state_is_view_free_and_localises_its_own_copy():
     headline_pairs = (
         (frame_state.HEADLINE_DUE, "Prochaine mise à jour ≈ %s"),
         (frame_state.HEADLINE_HELD, "Prochain réveil vers %s · heures calmes"),
-        (frame_state.HEADLINE_LATE, "Attendu depuis %s"),
+        (frame_state.HEADLINE_LATE, "Mise à jour en retard · attendue à %s"),
     )
     for english, french in headline_pairs:
         assert i18n.t_lang(english, "en") == english, "expected %r unchanged under lang='en'" % (english,)

@@ -528,7 +528,7 @@ def test_health_nightly_regression_held_agrees_with_strip_dot_unlit_no_warn(tmp_
     Paris), pinned as ONE named check: the strip renders the held copy with the neutral dot,
     Health's Frame tile renders the SAME clock time, the nav notification dot is unlit, and
     the rendered Health HTML carries zero warn/error dots, zero warn tile/headline modifiers
-    and neither 'Expected since' nor 'Attendu depuis'"""
+    and neither 'Update overdue' nor 'Mise à jour en retard'"""
     qh_config = {
         "wake_interval_s": 900, "display_enabled": True,
         "quiet_hours_enabled": True,
@@ -549,7 +549,7 @@ def test_health_nightly_regression_held_agrees_with_strip_dot_unlit_no_warn(tmp_
     rendered_health = health_page.render(shp.ctx(tmp, now_value=clock.isoformat()))
     for warn_token in (
             "dot--warn", "dot--error", "stat-tile--warn",
-            "status-card__headline--warn", "Expected since", "Attendu depuis"):
+            "status-card__headline--warn", "Update overdue", "Mise à jour en retard"):
         assert warn_token not in rendered_health, "expected zero %r in a held Health render" % (warn_token,)
     # The live nav-tab severity path app.py's page_context() calls
     # (health_page.safe_health_state()), which fails closed to "ok" for
@@ -606,7 +606,7 @@ def test_health_past_grace_window_both_report_late_dot_lights(tmp_path):
     assert state["severity"] != "ok", "expected the nav notification dot to light past the grace window"
     strip_ctx = _frame_strip_ctx(checkin_iso, device_cfg, now_iso)
     rendered_strip = layout.frame_strip_html(strip_ctx, return_to=layout.HOME_ROUTE)
-    assert "Expected since" in rendered_strip, "expected the strip to report the late copy past the grace window"
+    assert "Update overdue" in rendered_strip, "expected the strip to report the late copy past the grace window"
 
 
 def test_health_held_window_ended_and_grace_elapsed_both_report_late(tmp_path):
@@ -637,7 +637,7 @@ def test_health_held_window_ended_and_grace_elapsed_both_report_late(tmp_path):
         "got %r" % (state["device_state"],))
     strip_ctx = _frame_strip_ctx(checkin_iso, device_cfg, now_iso)
     rendered_strip = layout.frame_strip_html(strip_ctx, return_to=layout.HOME_ROUTE)
-    assert "Expected since" in rendered_strip, "expected the strip to also report late for the same fixture"
+    assert "Update overdue" in rendered_strip, "expected the strip to also report late for the same fixture"
 
 
 def test_dot_modifier_classes_are_exactly_four_no_new_class_added(css_text):
