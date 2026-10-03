@@ -99,7 +99,8 @@ def _visible_text_outside_title_attributes(markup):
 
 
 def test_23_06_page_headers_stay_free_of_redundant_freshness_lines(tmp_path):
-    """Health and the signal-first Home omit the redundant freshness line."""
+    """Health omits the redundant freshness line entirely; Home shows no visible freshness line
+    either and keeps only the silent hidden refresh marker that carries data-loaded-at."""
     now_iso = shp.iso(shp.now())
     built = layout.freshness_line_html(now_iso)
     health = health_page.render(shp.ctx(str(tmp_path / "h"), now_iso))
@@ -108,12 +109,14 @@ def test_23_06_page_headers_stay_free_of_redundant_freshness_lines(tmp_path):
     assert "data-loaded-at" not in health
     assert "data-refresh-pill" not in health
     assert built not in home
-    assert "data-loaded-at" not in home
-    assert "data-refresh-pill" not in home
+    assert 'data-loaded-at="%s"' % now_iso in home
+    assert "page-header__freshness--silent" in home
+    assert re.search(r"<span class=\"refresh-pill\"[^>]* hidden>", home)
 
 
 def test_23_06_home_declares_the_regions_it_actually_renders(tmp_path):
-    """Home swaps only its current frame, flight list, and compact facts."""
+    """Home swaps its silent refresh marker, current frame, flight list, frame-state card and
+    compact facts."""
     now_iso = shp.iso(shp.now())
     rendered = home_page.render(_home_ctx(str(tmp_path), now_iso))
     registry = layout.REFRESH_SWAP_SELECTORS_BY_PAGE
@@ -130,10 +133,12 @@ def test_23_06_home_declares_the_regions_it_actually_renders(tmp_path):
         "Home declares regions it does not render: %r — a selector that matches nothing is "
         "a region that silently never refreshes" % (missing,))
     home_list = registry[layout.REFRESH_PAGE_HOME]
-    for needle in ("preview-frame", "home-flights", "home-facts"):
+    for needle in (
+            "preview-frame", "home-flights", "home-facts", "home-frame-state",
+            "page-header__freshness"):
         assert any(needle in selector for selector in home_list), (
             "expected Home's swap regions to cover %r, got %r" % (needle, home_list))
-    for retired in ("frame-strip", "home-status-grid", "page-header__freshness"):
+    for retired in ("frame-strip", "home-status-grid"):
         assert not any(retired in selector for selector in home_list), (
             "expected retired Home region %r to stay out of the refresh registry" % retired)
     # DISPLAY IS DELIBERATELY CONSERVATIVE. Everything else on that page is
