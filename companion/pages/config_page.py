@@ -25,14 +25,12 @@ from companion.settings.form import (
     CURRENT_BADGE_ATTR as CURRENT_BADGE_ATTR,
     CURRENT_BADGE_LABEL as CURRENT_BADGE_LABEL,
     DIRTY_SECTION_ATTR as DIRTY_SECTION_ATTR,
-    NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE as NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE,
     SETTINGS_FORM_ID as SETTINGS_FORM_ID,
     _describedby_attr as _describedby_attr,
     _field_error_attrs as _field_error_attrs,
     _field_error_html as _field_error_html,
     _submitted_checkbox_checked as _submitted_checkbox_checked,
-    _submitted_or_current as _submitted_or_current,
-    _with_next_wake as _with_next_wake)
+    _submitted_or_current as _submitted_or_current)
 from companion.settings.theme import (
     ASPECT_HEADING as ASPECT_HEADING,
     ASPECT_HEADING_ID as ASPECT_HEADING_ID,
@@ -546,7 +544,7 @@ def _group_builders(ctx, values, errors, submitted, next_wake_clock):
     return {
         screens.GROUP_RUNWAY: lambda: runway_fieldset(
             values["runway_id"], ctx.runway_images or (),
-            errors=errors, submitted=submitted, next_wake_clock=next_wake_clock),
+            errors=errors, submitted=submitted),
         screens.GROUP_LED: lambda: led_group(
             values["led_enabled"], errors=errors, submitted=submitted,
             next_wake_clock=next_wake_clock),

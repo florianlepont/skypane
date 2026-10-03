@@ -35,7 +35,6 @@ from companion.layout import escape_html
 from companion.pages import config_page
 from companion import theme_preview
 from companion.settings import form_post, look, wake_interval
-from companion.settings import theme as theme_settings
 from companion_app_server import get, http_request, login, served_asset, served_stylesheet
 from companion_markup import (
     css_rules, declarations_for, flash_toast, flash_toast_title_detail, parse_html)
@@ -115,7 +114,7 @@ _FLOOR_CTX = {
 }
 # Minimums pinned a little below the observed figures - re-derived by RUNNING this exact
 # fixture through this exact selector.
-_FLOOR_MIN_MEASURED = {"display": 5, "device": 3}
+_FLOOR_MIN_MEASURED = {"display": 4, "device": 3}
 _FLOOR_EXPECTED_SKIPS = {"display": 1, "device": 0}
 
 
@@ -609,34 +608,34 @@ def test_every_chip_carries_data_preview_src_ending_in_live_1_chips_stay_lazy():
         assert "<img" not in table
 
 
-def test_live_preview_caption_names_seeded_callsign_and_falls_back_to_sample(tmp_path):
-    """the pictures always render the fixed sample scene, and the card says so, whether or not
-    the runway has recorded a flight"""
+def test_look_card_has_no_caption_or_sample_flight_pill(tmp_path):
+    """the look card heading is followed directly by the pictures: no "one flight at a time"
+    sentence and no "previews use a sample flight" pill, in either language, whether or not the
+    runway has recorded a flight; the pictures stay the fixed sample scene"""
     state_dir = str(tmp_path)
     with history_db.open_db(state_dir) as conn:
         history_db.record_runway_event(
             conn, ts="2026-09-07T09:00:00+00:00", hex="3944F2", callsign="AFR1380")
-    for ctx_state_dir in (state_dir, None):
-        rendered = config_page.render(
-            {
-                "device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0,
-                "state_dir": ctx_state_dir,
-            },
-            scope=config_page.SCOPE_DISPLAY)
-        assert escape_html(i18n.t(theme_settings.LOOK_SAMPLE_HINT)) in rendered
-        assert "?live=1" not in rendered
-
-
-def test_french_display_render_shows_live_preview_caption_with_flight(tmp_path):
-    """a French Display render says the pictures use a sample flight"""
-    prefs.set_request_prefs(lang="fr")
-    try:
-        rendered = config_page.render(
-            {"device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0, "state_dir": None},
-            scope=config_page.SCOPE_DISPLAY)
-    finally:
-        prefs.set_request_prefs(lang="en")
-    assert escape_html("Aperçus avec un vol d’exemple") in rendered
+    banned = {
+        "en": ("The frame shows one flight at a time", "Previews use a sample flight"),
+        "fr": ("Le cadre montre un vol à la fois", "Aperçus avec un vol d’exemple"),
+    }
+    for lang in ("en", "fr"):
+        prefs.set_request_prefs(lang=lang)
+        try:
+            for ctx_state_dir in (state_dir, None):
+                rendered = config_page.render(
+                    {
+                        "device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0,
+                        "state_dir": ctx_state_dir,
+                    },
+                    scope=config_page.SCOPE_DISPLAY)
+                for text in banned[lang]:
+                    assert escape_html(text) not in rendered and text not in rendered, text
+                assert "look-card__head" not in rendered and "look-card__hint" not in rendered
+                assert "?live=1" not in rendered
+        finally:
+            prefs.set_request_prefs(lang="en")
 
 
 # --- the compact chip grid, the swatch legend and the palette grids ----
@@ -1634,3 +1633,20 @@ def test_handle_post_saves_the_same_config_for_every_group_shape(tmp_path, group
             assert calendar_rules.calendar_is_configured(str(case_dir)) == expected_configured, (
                 "%s/%s: expected calendar_is_configured() == %r"
                 % (group_name, shape_name, expected_configured))
+
+
+def test_runway_caption_names_no_next_wake_time():
+    """the Runway section's caption is the bare sentence in both languages, with no
+    "(next wake ≈ …)" clause even when a next wake clock is known to the page"""
+    expected = {"en": "Which Orly runway the device watches.",
+                "fr": "Quelle piste d’Orly l’appareil surveille."}
+    for lang, sentence in expected.items():
+        prefs.set_request_prefs(lang=lang)
+        try:
+            rendered = config_page.runway_fieldset("3")
+        finally:
+            prefs.set_request_prefs(lang="en")
+        caption = re.search(
+            r'<p class="text-label section-caption" id="%s">(.*?)</p>'
+            % re.escape(config_page.RUNWAY_SECTION_CAPTION_ID), rendered)
+        assert caption is not None and caption.group(1) == sentence, (lang, caption)

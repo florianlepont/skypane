@@ -188,7 +188,6 @@ MESSAGES = {
 
     # --- Save --------------------------------------------------------
     "display.save_settings": "Enregistrer les réglages",
-    "display.next_wake_2": " (prochain réveil ≈ %s)",
     # Symbolic notation ("≈" plus a placeholder already localized by its
     # caller), identical in both languages — not a missed translation,
     # listed in test_i18n.py's _UNCHANGED_IN_FRENCH cognate set.

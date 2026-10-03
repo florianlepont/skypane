@@ -460,3 +460,27 @@ def test_served_home_page_carries_no_inline_style(make_app_server):
     html = page.decode("utf-8")
     assert status == 200 and 'class="%s"' % draw.DRAWING_ARC_VALUE_CLASS in html
     assert not re.search(r"<[^>]+\sstyle=", html)
+
+
+@pytest.mark.parametrize("lang,name", [
+    ("en", "Edit quiet hours (23:00 – 07:00)"),
+    ("fr", "Modifier les heures calmes (23:00 – 07:00)"),
+])
+def test_quiet_hours_window_is_a_link_to_the_display_section_outside_the_switch(
+        tmp_path, lang, name):
+    """the window beside the Quiet hours label links to the Quiet hours section on Display with
+    an accessible name that repeats the visible window; the link sits in the pill row but
+    outside the switch's <button>, which stays the single role="switch" control"""
+    card = _render(tmp_path, lang=lang, cfg={"quiet_hours_enabled": True})
+    link = re.search(r'<a class="home-switch__window[^"]*" href="([^"]+)" aria-label="([^"]+)">'
+                     r"(.*?)</a>", card)
+    assert link is not None, "no quiet hours window link"
+    assert link.group(1) == "/display#quiet-hours-group-heading"
+    assert link.group(2) == name and link.group(3) == "23:00 – 07:00"
+    row = re.search(r'<div class="home-switch home-switch--(?:on|off)">'
+                    r'(?:(?!<div class="home-switch ).)*?home-switch__window.*?</form></div>',
+                    card, re.S).group(0)
+    assert row.count('role="switch"') == 1
+    button = re.search(r"<button[^>]*role=\"switch\".*?</button>", row, re.S).group(0)
+    assert "<a " not in button
+    assert row.index("home-switch__window") < row.index('role="switch"')

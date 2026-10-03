@@ -411,18 +411,6 @@ def test_neither_scope_renders_an_edit_artwork_link():
         "expected _edit_artwork_link_html() to be deleted outright (D-36)")
 
 
-def test_with_next_wake_helper_contract():
-    """_with_next_wake() returns the caption byte-identical for a falsy clock and appends '(next
-    wake ≈ HH:MM)' when the clock is known"""
-    assert config_page._with_next_wake("caption.", None) == "caption.", (
-        "expected the caption unchanged for a falsy next_wake_clock")
-    assert config_page._with_next_wake("caption.", "") == "caption.", (
-        "expected the caption unchanged for an empty-string next_wake_clock")
-    got = config_page._with_next_wake("caption.", "14:10")
-    assert got == "caption. (next wake ≈ 14:10)", (
-        "expected the suffix appended when next_wake_clock is known, got %r" % (got,))
-
-
 def test_retired_screen_field_cannot_block_a_valid_settings_save(tmp_path):
     errors = {}
     outcome = config_page.handle_post(

@@ -106,6 +106,8 @@ CADENCE_INFO_ID = "home-cadence-info"
 SEE_HEALTH_TEXT = i18n.msg("home.see_health", "See Health")
 HEALTH_ROUTE = "/health"
 SWITCHES_LABEL = i18n.msg("home.switches", "Frame controls")
+EDIT_QUIET_HOURS_LABEL = i18n.msg(
+    "home.edit_quiet_hours", "Edit quiet hours (%s)")
 DEFAULT_QUIET_START = "23:00"
 DEFAULT_QUIET_END = "07:00"
 
@@ -425,9 +427,15 @@ def _switch_row_html(spec, is_on, detail_html):
 def _switches_html(cfg):
     screen_on = cfg.get("display_enabled") is not False
     quiet_on = cfg.get("quiet_hours_enabled") is True
+    # A link beside the switch's label, outside its <button>: the window
+    # opens the Quiet hours section on Display. The accessible name repeats
+    # the visible window so it is never out of step with it.
+    window_text = _quiet_window_text(cfg)
     window = (
-        ' · <span class="home-switch__window time-value">%s</span>'
-        % escape_html(_quiet_window_text(cfg)))
+        ' · <a class="home-switch__window time-value" href="%s#%s" aria-label="%s">%s</a>'
+        % (layout.DISPLAY_ROUTE, layout._FRAME_QUIET_SCHEDULE_TARGET_ID,
+           escape_html(i18n.t(EDIT_QUIET_HOURS_LABEL) % window_text),
+           escape_html(window_text)))
     return (
         '<div class="home-state__switches" role="group" aria-label="%s">%s%s</div>'
     ) % (

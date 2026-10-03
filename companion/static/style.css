@@ -4266,6 +4266,9 @@ button.airline-card__action {
  * reads at a glance without relying on colour alone: the words beside it
  * carry the meaning. */
 .home-state__dot {
+  position: relative;
+  --dot-halo-scale: 2.8;
+  --dot-halo-alpha: 0.5;
   flex: none;
   width: 14px;
   height: 14px;
@@ -4284,12 +4287,6 @@ button.airline-card__action {
  * resting frame (quiet hours, screen off) carries no pulse class. The
  * amber ring is gentler (smaller, fainter) through two custom properties,
  * never a second duration. */
-.home-state__dot {
-  position: relative;
-  --dot-halo-scale: 2.8;
-  --dot-halo-alpha: 0.5;
-}
-
 .home-state--warn .home-state__dot {
   --dot-halo-scale: 2.2;
   --dot-halo-alpha: 0.35;
@@ -4607,7 +4604,25 @@ button.airline-card__action {
 }
 
 .home-switch__window {
+  /* Above the switch's row-wide ::after so the link takes its own click;
+   * the padding and the matching negative margin give a 44px target
+   * without moving the line. */
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  padding: 13px 6px;
+  margin: -13px -6px;
   white-space: nowrap;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--color-text) 35%, transparent);
+  text-underline-offset: 3px;
+  border-radius: var(--radius-control);
+}
+
+.home-switch__window:hover {
+  color: var(--color-text);
+  text-decoration-color: currentColor;
 }
 
 .home-switch__detail .home-switch__state {
@@ -5332,27 +5347,6 @@ a.calendar-disconnect-btn:focus-visible {
  * Two framed live pictures (Departures, Arrivals) and the Special looks
  * list. Every saved control is a native radio inside a colour x style
  * table (.look-table); theme-preview.js layers the look sheet over it. */
-
-.look-card__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm) var(--space-md);
-  margin-bottom: var(--space-lg);
-}
-
-.look-card__head .section-caption {
-  margin: 0;
-}
-
-.look-card__hint {
-  margin: 0;
-  padding: 6px 12px;
-  border-radius: 16px;
-  background: var(--color-secondary);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
 
 .look-card__grid {
   display: grid;

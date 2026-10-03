@@ -16,8 +16,6 @@ a straight quote), and a non-breaking space (U+00A0) before
 
 MESSAGES = {
     # --- Card -----------------------------------------------------------
-    "look.the_frame_shows_one_flight_at_a_time": "Le cadre montre un vol à la fois.",
-    "look.previews_use_a_sample_flight": "Aperçus avec un vol d’exemple",
     "look.departures_look": "Allure des départs",
     "look.arrivals_look": "Allure des arrivées",
     "look.calendar_flights_look": "Allure des vols du calendrier",
