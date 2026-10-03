@@ -519,11 +519,6 @@ def test_sidebar_and_tab_bar_render_exactly_six_links_one_active_each():
     assert "mobile-nav__nav" not in panel, (
         "expected the dropdown's own navigation landmark to be removed, not emptied")
     for route, _label in layout.NAV_TABS:
-        if route == layout.HOME_ROUTE:
-            # The state reminder is still a link to Home on a non-Home
-            # page - that is nav_status_html()'s own contract, not a
-            # destination menu entry.
-            continue
         assert ('href="%s"' % route) not in panel, (
             "expected no destination href (%r) left in the dropdown panel" % route)
 

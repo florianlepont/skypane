@@ -129,75 +129,6 @@ def _health_alert_markup(severity):
     ) % (dot_class, NAV_NOTIFICATION_CLASS, escape_html(i18n.t(HEALTH_ALERT_SUFFIX_TEXT)))
 
 
-NAV_SCREEN_ON_TEXT = i18n.msg("nav.screen_on", "Screen on")
-NAV_SCREEN_OFF_TEXT = i18n.msg("nav.screen_off", "Screen off")
-NAV_QUIET_ON_TEXT = i18n.msg("nav.quiet_hours_on", "Quiet hours on")
-NAV_QUIET_OFF_TEXT = i18n.msg("nav.quiet_hours_off", "Quiet hours off")
-NAV_STATUS_ARIA_LABEL_TEXT = i18n.msg(
-    "nav.screen_and_quiet_hours_status_go_to_home",
-    "Screen and quiet hours status — go to Home")
-# The middle dot that separates the two state segments, promoted to a
-# named constant because the two segments are `white-space: nowrap`
-# spans inside a wrapping flex row (the line may break BETWEEN them,
-# never inside one), so the separator is a sibling of both rather than
-# punctuation embedded in one.
-NAV_STATUS_SEPARATOR_TEXT = " · "
-
-
-def nav_status_html(device_config, active=None):
-    """The nav's state-only reminder: one shared body, called by both
-    sidebar_nav() and _mobile_nav_html(), reading the same `device_config`
-    fields frame_strip_html() reads, so all three can never disagree.
-    Returns "" when `device_config` is falsy.
-
-    A plain `<a href="/">` — no form, no button, no script. Its
-    `aria-label` states where it goes, since the two dot+word segments
-    alone do not read as a destination; every value crosses
-    escape_html(), every string crosses i18n.t().
-
-    `active`: on Home's own slug, renders a `<span>` with no `href`
-    instead, since a link there would promise navigation to the page
-    already occupied; its `aria-label` reuses the same translated
-    strings the segments show, so the two cannot drift.
-    """
-    if not device_config:
-        return ""
-    display_enabled = device_config.get("display_enabled", True)
-    is_display_on = display_enabled is not False
-    quiet_enabled = device_config.get("quiet_hours_enabled", False)
-    is_quiet_on = quiet_enabled is True
-    screen_dot_class = "dot--ok" if is_display_on else "dot--off"
-    screen_text = i18n.t(NAV_SCREEN_ON_TEXT if is_display_on else NAV_SCREEN_OFF_TEXT)
-    quiet_dot_class = "dot--ok" if is_quiet_on else "dot--off"
-    quiet_text = i18n.t(NAV_QUIET_ON_TEXT if is_quiet_on else NAV_QUIET_OFF_TEXT)
-    segments = (
-        '<span class="nav-status__segment">'
-        '<span class="dot %s"></span><span class="dot-label">%s</span>'
-        "</span>"
-        '<span class="nav-status__sep">%s</span>'
-        '<span class="nav-status__segment">'
-        '<span class="dot %s"></span><span class="dot-label">%s</span>'
-        "</span>"
-    ) % (
-        screen_dot_class, escape_html(screen_text),
-        escape_html(NAV_STATUS_SEPARATOR_TEXT),
-        quiet_dot_class, escape_html(quiet_text),
-    )
-    if active == nav_slug(HOME_ROUTE):
-        return (
-            '<span class="nav-status text-label" aria-label="%s">%s</span>'
-        ) % (
-            escape_html(
-                screen_text + NAV_STATUS_SEPARATOR_TEXT + quiet_text),
-            segments,
-        )
-    return (
-        '<a class="nav-status text-label" href="%s" aria-label="%s">%s</a>'
-    ) % (
-        HOME_ROUTE, escape_html(i18n.t(NAV_STATUS_ARIA_LABEL_TEXT)), segments,
-    )
-
-
 def sidebar_nav(active, health_alert=None, device_config=None):
     """The vertical Primary-navigation landmark shown by page_shell()'s
     dashboard sidebar column at desktop width. Renders NAV_TABS via the
@@ -210,8 +141,9 @@ def sidebar_nav(active, health_alert=None, device_config=None):
     interpolated verbatim as already-built safe HTML. The active link's
     `<a>` carries `aria-current="page"` — never the inactive links.
 
-    `device_config` threads to nav_status_html(), whose reminder markup
-    is prepended before this function's `<nav>`; `None` renders none.
+    `device_config` remains accepted because page_shell() provides one shared
+    rendering context to both navigation variants; the compact navigation no
+    longer repeats its screen or quiet-hours state.
     """
     parts = []
     for group_label, group_links in _nav_groups(active):
@@ -242,14 +174,8 @@ def sidebar_nav(active, health_alert=None, device_config=None):
         else:
             parts.append("".join(links))
     return (
-        "%s"
         '<nav class="sidebar-nav" aria-label="%s">%s</nav>'
     ) % (
-        # `active` is threaded through so the reminder can drop its href on
-        # Home — one shared body, two call sites, one active-route argument, so
-        # the sidebar and the dropdown can still never disagree about its shape
-        # either.
-        nav_status_html(device_config, active=active),
         # "Primary navigation" is the one nav landmark exposed to the
         # accessibility tree at any given viewport width (see this module's own
         # comment above _mobile_nav_html()).
@@ -371,11 +297,9 @@ REFRESH_PENDING_ATTR = "data-pending"
 # never touch a form: it would discard a half-typed value silently.
 REFRESH_SWAP_SELECTORS_BY_PAGE = {
     REFRESH_PAGE_HOME: (
-        ".page-header__freshness",
-        ".frame-strip",
-        ".home-status-grid",
         "figure.preview-frame",
         'section[aria-labelledby="home-flights"]',
+        ".home-facts",
     ),
     REFRESH_PAGE_DISPLAY: (
         ".page-header__freshness",
@@ -576,9 +500,7 @@ def _mobile_nav_html(
     panel_html = (
         '<div id="%s" class="mobile-nav">'
         "%s"
-        "%s"
         "</div>"
     ) % (
-        MOBILE_NAV_ID, nav_status_html(device_config, active=active),
-        footer_html)
+        MOBILE_NAV_ID, footer_html)
     return toggle_html + panel_html

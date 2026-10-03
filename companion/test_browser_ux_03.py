@@ -22,7 +22,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from companion import auth, i18n, layout
+from companion import auth, layout
 from companion.pages import config_page, history_page
 from server import device_config, history_db, state_store
 from server.plane import calendar_rules
@@ -80,59 +80,8 @@ def _count_document_requests(page, url):
     return lambda: len(seen)
 
 
-def _mark(page, selector, name):
-    """Tag a live node with a JS expando — the only handle that proves
-    NODE IDENTITY across a swap."""
-    page.eval_on_selector(
-        selector, "el => { el.__skypaneProbe = %r; }" % name)
-
-
-def _marked(page, selector, name):
-    return page.eval_on_selector(
-        selector, "el => el.__skypaneProbe === %r" % name)
-
-
-def _dirty_the_region(page, selector):
-    """Make a live region DIFFER from its freshly-fetched counterpart, so
-    the "this region did not change" skip cannot be what leaves it
-    alone."""
-    page.eval_on_selector(
-        selector, "el => el.setAttribute('data-probe-dirty', '1')")
-
-
-def _hold_fetch(page):
-    """Wrap window.fetch so the next POST hangs until _release_fetch() is
-    called. POSTs ONLY: freshness.js's own refresh loop is a GET through
-    the same window.fetch, and holding it too would stop the very
-    refresh some of these checks need to land."""
-    page.evaluate(
-        "() => {"
-        "  var realFetch = window.fetch;"
-        "  window.__skypaneHeld = null;"
-        "  window.fetch = function (url, opts) {"
-        "    if (!opts || opts.method !== 'POST') {"
-        "      return realFetch(url, opts);"
-        "    }"
-        "    return new Promise(function (resolve, reject) {"
-        "      window.__skypaneHeld = function () {"
-        "        realFetch(url, opts).then(resolve, reject);"
-        "      };"
-        "    });"
-        "  };"
-        "}")
-
-
-def _fetch_was_issued(page):
-    return page.evaluate("() => !!window.__skypaneHeld")
-
-
 def _release_fetch(page):
     page.evaluate("() => { window.__skypaneHeld(); }")
-
-
-def _switch_state(page, selector=None):
-    return page.eval_on_selector(
-        selector or SWITCH_SEL, "el => el.getAttribute('aria-checked')")
 
 
 def _record_a_new_detection(state_dir, callsign, hex_value, ts):
@@ -159,202 +108,6 @@ def _highlighted(page):
     return page.evaluate(
         "(cls) => [...document.querySelectorAll('.' + cls)].length",
         NEW_ROW_CLASS)
-
-
-def test_an_expired_countdown_reads_waiting_and_never_a_warning(new_context, server):
-    """A countdown whose instant has already passed reads the server's own translated
-    waiting wording in both languages, never an age, gains the breathing class and no
-    warn/error/alert class at all, and that class resolves to the one animation the
-    stylesheet defines.
-    """
-    tick_settle_ms = 2200
-    freshness_age = ".page-header__freshness time[data-relative]"
-    base_url = server.base_url()
-    for lang in ("en", "fr"):
-        context = new_context()
-        try:
-            context.add_cookies([{
-                "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
-            page = context.new_page()
-            _login(page, base_url)
-            page.goto(base_url + "/health")
-            page.locator(freshness_age).first.wait_for(state="attached")
-            page.evaluate(
-                "() => {"
-                "  var el = document.createElement('time');"
-                "  el.setAttribute('id', 'seeded-countdown');"
-                "  el.setAttribute('data-relative', '');"
-                "  el.setAttribute('data-relative-countdown', '');"
-                "  el.setAttribute('datetime',"
-                "    new Date(Date.now() - 120000).toISOString());"
-                "  el.textContent = 'seeded';"
-                "  document.querySelector('main').appendChild(el);"
-                "}")
-            page.wait_for_timeout(tick_settle_ms)
-            seen = page.eval_on_selector(
-                "#seeded-countdown",
-                "el => [el.textContent, el.getAttribute('class') || '']")
-            text, klass = seen[0], seen[1]
-            expected = page.eval_on_selector(
-                "body", "el => el.getAttribute('data-relative-waiting')")
-            if not expected:
-                raise AssertionError(
-                    "lang=%s: the page renders no waiting wording on <body> for "
-                    "the script to read" % lang)
-            if text != expected:
-                raise AssertionError(
-                    "lang=%s: expected a countdown whose instant has passed to "
-                    "read the server's own waiting wording %r, got %r — it must "
-                    "not turn itself into an age"
-                    % (lang, expected, text))
-            if " ago" in text or "il y a" in text:
-                raise AssertionError(
-                    "lang=%s: an expired countdown became an age: %r" % (lang, text))
-            if "is-breathing" not in klass.split():
-                raise AssertionError(
-                    "lang=%s: expected an expired countdown to breathe, got "
-                    "class=%r" % (lang, klass))
-            for verdict in ("warn", "error", "alert", "danger", "late"):
-                if verdict in klass:
-                    raise AssertionError(
-                        "lang=%s: an expired countdown carries NO warn class — "
-                        "a wake that has not happened yet is not a fault (the "
-                        "false alarm X2 removed), got class=%r" % (lang, klass))
-            animation = page.eval_on_selector(
-                "#seeded-countdown", "el => getComputedStyle(el).animationName")
-            if animation != "skypane-pulse":
-                raise AssertionError(
-                    "lang=%s: expected the breathing class to resolve to the "
-                    "stylesheet's one animation, got %r" % (lang, animation))
-        finally:
-            context.close()
-
-
-def test_a_swap_leaves_the_region_holding_focus_alone(new_context, make_app_server):
-    """A Home refresh swaps the regions that changed while leaving the one holding keyboard
-    focus untouched — asserted on node identity through a JS expando, not a selector match,
-    since a replaced node matching the same selector is exactly the defect — against a
-    control proving another region really was swapped in the same cycle.
-
-    Its own dedicated server (never the shared read-only `server` fixture): each half seeds a
-    genuine new detection so the freshness token actually changes and the tick gets a real 200
-    to swap, rather than the light freshness check's own 304 - unlike the shared fixture, this
-    server's history.db is never read by another test.
-    """
-    server = make_app_server(seed=seed_state_dir, fake_providers=True)
-    context = new_context(viewport=VIEWPORT_DESKTOP)
-    try:
-        page = context.new_page()
-        base_url = server.base_url()
-        _login(page, base_url)
-        page.goto(base_url + "/")
-        page.wait_for_load_state("networkidle")
-        region = ".frame-strip"
-        focus_target = ".frame-strip button[type=\"submit\"]"
-        page.eval_on_selector(focus_target, "el => el.focus()")
-        _mark(page, region, "focused-region")
-        _mark(page, focus_target, "focused")
-        _dirty_the_region(page, region)
-        _mark(page, ".page-header__freshness", "elsewhere")
-        _record_a_new_detection(
-            server.tmpdir, "FOCUS01", "39f001", "2026-08-01T23:31:00+00:00")
-        with page.expect_response(lambda r: r.url.split("?")[0] == base_url + "/"):
-            _force_refresh(page)
-        page.wait_for_timeout(REFRESH_SETTLE_MS)
-        if _marked(page, ".page-header__freshness", "elsewhere"):
-            raise AssertionError(
-                "control: no region was swapped at all, so the focus assertion "
-                "below would prove nothing — the freshness line's own node "
-                "survived a refresh it should not have")
-        if not _marked(page, region, "focused-region"):
-            raise AssertionError(
-                "the region holding keyboard focus was REPLACED — a refresh that "
-                "silently moves focus to the top of the document while someone "
-                "is tabbing through a card is A-20's own harm, smaller (D1)")
-        active = page.evaluate(
-            "() => document.activeElement.__skypaneProbe === 'focused'")
-        if not active:
-            raise AssertionError(
-                "focus left the element the user was in: document.activeElement "
-                "is no longer that node")
-        page.evaluate("() => document.activeElement.blur()")
-        _mark(page, region, "unfocused-region")
-        _dirty_the_region(page, region)
-        _record_a_new_detection(
-            server.tmpdir, "FOCUS02", "39f002", "2026-08-01T23:32:00+00:00")
-        with page.expect_response(lambda r: r.url.split("?")[0] == base_url + "/"):
-            _force_refresh(page)
-        page.wait_for_timeout(REFRESH_SETTLE_MS)
-        if _marked(page, region, "unfocused-region"):
-            raise AssertionError(
-                "control: the same changed region survived with NOTHING focused "
-                "inside it, so the assertion above was not measuring the focus "
-                "rule at all")
-    finally:
-        context.close()
-
-
-def test_a_swap_leaves_a_pending_region_alone(new_context, make_app_server):
-    """A region containing a [data-pending] element survives a refresh untouched, by node
-    identity, while another region on the same page is swapped in the same cycle.
-
-    Its own dedicated server: each half seeds a genuine new detection so the freshness token
-    actually changes and the tick gets a real 200 to swap, rather than the light freshness
-    check's own 304.
-    """
-    server = make_app_server(seed=seed_state_dir, fake_providers=True)
-    context = new_context(viewport=VIEWPORT_DESKTOP)
-    try:
-        page = context.new_page()
-        base_url = server.base_url()
-        _login(page, base_url)
-        page.goto(base_url + "/")
-        page.wait_for_load_state("networkidle")
-        region = ".home-status-grid"
-        page.eval_on_selector(
-            region,
-            "el => { var probe = document.createElement('span');"
-            "  probe.setAttribute('data-pending', '');"
-            "  el.appendChild(probe); el.__skypaneProbe = 'pending'; }")
-        _mark(page, ".page-header__freshness", "elsewhere")
-        _record_a_new_detection(
-            server.tmpdir, "PEND01", "39f003", "2026-08-01T23:33:00+00:00")
-        with page.expect_response(lambda r: r.url.split("?")[0] == base_url + "/"):
-            _force_refresh(page)
-        page.wait_for_timeout(REFRESH_SETTLE_MS)
-        if _marked(page, ".page-header__freshness", "elsewhere"):
-            raise AssertionError(
-                "control: no region was swapped at all, so the pending assertion "
-                "below would prove nothing")
-        if not _marked(page, region, "pending"):
-            raise AssertionError(
-                "a region holding an element marked data-pending was replaced — "
-                "that repaints an optimistic control with the server's older "
-                "answer and makes it bounce back under the user's finger "
-                "(T-23-21, the D1-races-D2 rule plan 23-07 depends on)")
-        still_there = page.eval_on_selector_all(
-            region + " [data-pending]", "els => els.length")
-        if still_there != 1:
-            raise AssertionError(
-                "expected the pending marker itself to survive the cycle, found "
-                "%d" % (still_there,))
-        page.eval_on_selector(
-            region,
-            "el => { el.querySelector('[data-pending]').removeAttribute("
-            "  'data-pending');"
-            "  el.__skypaneProbe = 'unmarked'; }")
-        _record_a_new_detection(
-            server.tmpdir, "PEND02", "39f004", "2026-08-01T23:34:00+00:00")
-        with page.expect_response(lambda r: r.url.split("?")[0] == base_url + "/"):
-            _force_refresh(page)
-        page.wait_for_timeout(REFRESH_SETTLE_MS)
-        if _marked(page, region, "unmarked"):
-            raise AssertionError(
-                "control: the same changed region survived with the marker "
-                "REMOVED, so the assertion above was not measuring the pending "
-                "rule at all")
-    finally:
-        context.close()
 
 
 def test_a_dirty_settings_form_stands_the_whole_cycle_down(new_context, server):
@@ -405,109 +158,6 @@ def test_a_dirty_settings_form_stands_the_whole_cycle_down(new_context, server):
         context.close()
 
 
-def test_a_hidden_tab_issues_zero_requests_on_all_three_pages(new_context, server):
-    """A tab reporting itself hidden issues zero requests on all three pages that run the
-    loop — counted as requests, each against a control proving the same page and the same
-    trigger do fetch while visible.
-    """
-    base_url = server.base_url()
-    for route in ("/", "/display", "/health"):
-        context = new_context(viewport=VIEWPORT_DESKTOP)
-        try:
-            page = context.new_page()
-            _login(page, base_url)
-            page.goto(base_url + route)
-            page.wait_for_load_state("networkidle")
-            count = _count_document_requests(page, base_url + route)
-            _force_refresh(page)
-            page.wait_for_timeout(REFRESH_SETTLE_MS)
-            if count() < 1:
-                raise AssertionError(
-                    "control: %s issued no request when visible (%d), so the "
-                    "hidden-tab assertion below would measure nothing — this "
-                    "page is not running the loop at all"
-                    % (route, count()))
-            page.evaluate(
-                "() => {"
-                "  Object.defineProperty(document, 'hidden',"
-                "    {configurable: true, get: () => true});"
-                "  Object.defineProperty(document, 'visibilityState',"
-                "    {configurable: true, get: () => 'hidden'});"
-                "}")
-            before = count()
-            _force_refresh(page)
-            page.wait_for_timeout(REFRESH_SETTLE_MS)
-            hidden_requests = count() - before
-            if hidden_requests != 0:
-                raise AssertionError(
-                    "%s issued %d request(s) while reporting itself hidden — "
-                    "zero from a backgrounded tab is the number D-12 was written "
-                    "to protect, and three pages polling instead of one is only "
-                    "acceptable because of it (T-23-20)"
-                    % (route, hidden_requests))
-        finally:
-            context.close()
-
-
-def test_the_picture_fades_only_when_the_picture_changed(new_context, make_app_server):
-    """The frame picture fades in when a new render arrives and does not animate when the
-    same picture is swapped back in — both phases in one check, against a control proving a
-    swap happened at all, with the class proven to resolve to the stylesheet's own fade-in
-    block.
-
-    Its own dedicated server: each half seeds a genuine new detection (which changes Home's
-    recent-flights list and its freshness token, but never the panel/preview-frame image
-    itself, which a raw runway_events row does not touch) so the tick gets a real 200 to swap
-    from, rather than the light freshness check's own 304.
-    """
-    server = make_app_server(seed=seed_state_dir, fake_providers=True)
-    context = new_context(viewport=VIEWPORT_DESKTOP)
-    try:
-        page = context.new_page()
-        base_url = server.base_url()
-        _login(page, base_url)
-        page.goto(base_url + "/")
-        page.wait_for_load_state("networkidle")
-        image = ".preview-frame__image"
-        _mark(page, ".page-header__freshness", "elsewhere")
-        _record_a_new_detection(
-            server.tmpdir, "FADE01", "39f005", "2026-08-01T23:35:00+00:00")
-        with page.expect_response(lambda r: r.url.split("?")[0] == base_url + "/"):
-            _force_refresh(page)
-        page.wait_for_timeout(REFRESH_SETTLE_MS)
-        if _marked(page, ".page-header__freshness", "elsewhere"):
-            raise AssertionError(
-                "control: nothing was swapped, so 'it did not fade' below would "
-                "prove nothing")
-        klass = page.eval_on_selector(image, "el => el.getAttribute('class') || ''")
-        if "is-fading-in" in klass.split():
-            raise AssertionError(
-                "the picture faded in on a cycle that brought back the SAME "
-                "picture (class=%r) — a flash every 45 seconds for no "
-                "information is worse than no fade at all" % (klass,))
-        page.eval_on_selector(
-            image, "el => { el.setAttribute('src', el.getAttribute('src')"
-                   " + '?stale=1'); }")
-        _record_a_new_detection(
-            server.tmpdir, "FADE02", "39f006", "2026-08-01T23:36:00+00:00")
-        with page.expect_response(lambda r: r.url.split("?")[0] == base_url + "/"):
-            _force_refresh(page)
-        page.wait_for_timeout(REFRESH_SETTLE_MS)
-        klass = page.eval_on_selector(image, "el => el.getAttribute('class') || ''")
-        if "is-fading-in" not in klass.split():
-            raise AssertionError(
-                "a NEW picture arrived and did not fade in (class=%r) — the fade "
-                "is the only thing that says a render happened" % (klass,))
-        animation = page.eval_on_selector(
-            image, "el => getComputedStyle(el).animationName")
-        if animation != "skypane-fade-in":
-            raise AssertionError(
-                "expected the fade class to resolve to the stylesheet's own "
-                "fade-in block, got %r" % (animation,))
-    finally:
-        context.close()
-
-
 def test_display_still_saves_with_scripts_blocked_at_360px(new_context, make_app_server):
     """With scripts blocked at 360px, in both languages, a Display setting still saves
     through the fallback Save and persists to disk, with the freshness line rendering
@@ -548,292 +198,6 @@ def test_display_still_saves_with_scripts_blocked_at_360px(new_context, make_app
                 raise AssertionError(
                     "lang=%s: expected exactly one freshness line on a "
                     "scripts-blocked Display page" % (lang,))
-
-
-def test_a_switch_flips_before_the_server_answers(new_context, make_app_server):
-    """A switch flips its aria-checked before the server answers — proven against a held
-    request that has genuinely been issued and genuinely has no answer, with the stored
-    value still unchanged at that instant — marks exactly one region pending while in
-    flight, and on a 204 keeps the flip and clears the marker.
-    """
-    server = make_app_server(seed=seed_state_dir, fake_providers=True)
-    context = new_context(viewport=VIEWPORT_DESKTOP)
-    try:
-        page = context.new_page()
-        base_url = server.base_url()
-        _login(page, base_url)
-        page.goto(base_url + "/")
-        page.wait_for_load_state("networkidle")
-        before = _switch_state(page)
-        if before not in ("true", "false"):
-            raise AssertionError(
-                "expected a server-rendered aria-checked on the Screen switch, "
-                "got %r" % (before,))
-        on_disk_before = device_config.load_device_config(server.tmpdir)["display_enabled"]
-        _hold_fetch(page)
-        page.click(SWITCH_SEL)
-        if not _fetch_was_issued(page):
-            raise AssertionError(
-                "control: no fetch was issued at all, so the assertion below "
-                "would prove nothing about ORDER")
-        during = _switch_state(page)
-        if during == before:
-            raise AssertionError(
-                "aria-checked was still %r while the request had no answer — the "
-                "flip is not optimistic, it is waiting for the server, which is "
-                "the whole of what D2 asks for (23-07-PLAN.md Task 3)" % (during,))
-        if device_config.load_device_config(
-                server.tmpdir)["display_enabled"] is not on_disk_before:
-            raise AssertionError(
-                "the stored value changed before the held request was released — "
-                "the hold is not holding and this check is measuring nothing")
-        pending = page.eval_on_selector_all(
-            ".frame-strip [data-pending]", "els => els.length")
-        if pending != 1:
-            raise AssertionError(
-                "expected exactly one pending-marked region while the request is "
-                "in flight, found %d — this is the marker 23-06's swap skips and "
-                "the only thing this plan owes that contract" % (pending,))
-        _release_fetch(page)
-        page.wait_for_timeout(600)
-        if _switch_state(page) != during:
-            raise AssertionError(
-                "a CONFIRMED flip must stay where it was put, got %r"
-                % _switch_state(page))
-        if page.eval_on_selector_all(
-                ".frame-strip [data-pending]", "els => els.length") != 0:
-            raise AssertionError(
-                "the pending marker survived a successful answer — a region whose "
-                "control is settled must go back to being refreshable")
-        if device_config.load_device_config(
-                server.tmpdir)["display_enabled"] is on_disk_before:
-            raise AssertionError("expected the confirmed flip to have persisted to disk")
-    finally:
-        context.close()
-
-
-def test_a_switch_rolls_back_and_announces_on_both_failure_branches(new_context, make_app_server):
-    """A switch rolls its aria-checked back, clears its pending marker, leaves the stored
-    value alone and announces the translated generic failure in a visible toast, on a 500 and
-    on a network-level failure, in English and in French, each against a control phase
-    proving the same switch does flip and does not announce on a working request.
-    """
-    server = make_app_server(seed=seed_state_dir, fake_providers=True)
-    base_url = server.base_url()
-    for lang, failure_copy in (
-            ("en", layout.QUICK_SWITCH_FAILED_TEXT),
-            ("fr", i18n.t_lang(layout.QUICK_SWITCH_FAILED_TEXT, "fr"))):
-        context = new_context(viewport=VIEWPORT_DESKTOP)
-        try:
-            page = context.new_page()
-            _login(page, base_url)
-            context.add_cookies([{
-                "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
-            page.goto(base_url + "/")
-            page.wait_for_load_state("networkidle")
-            start = _switch_state(page)
-            page.click(SWITCH_SEL)
-            page.wait_for_timeout(600)
-            landed = _switch_state(page)
-            if landed == start:
-                raise AssertionError(
-                    "lang=%s control: the switch did not move on a WORKING "
-                    "request, so the rollback assertions below would pass on a "
-                    "control that simply never flips" % (lang,))
-            toast_sel = "[%s]" % layout.QUICK_TOAST_ATTR
-            if page.eval_on_selector(toast_sel, "el => el.textContent") != "":
-                raise AssertionError(
-                    "lang=%s control: the toast announced something on a "
-                    "SUCCESSFUL flip — it is a failure announcement only"
-                    % (lang,))
-            for branch, handler in (
-                    ("a 500 from the server",
-                     lambda route: route.fulfill(status=500, body="")),
-                    ("a network-level failure",
-                     lambda route: route.abort())):
-                page.goto(base_url + "/")
-                page.wait_for_load_state("networkidle")
-                page.route("**/quick/display", handler)
-                try:
-                    known = _switch_state(page)
-                    stored = device_config.load_device_config(
-                        server.tmpdir)["display_enabled"]
-                    page.click(SWITCH_SEL)
-                    page.wait_for_timeout(800)
-                    if _switch_state(page) != known:
-                        raise AssertionError(
-                            "lang=%s, %s: aria-checked stayed at %r instead of "
-                            "rolling back to %r — an optimistic switch that keeps "
-                            "a state the server never accepted is a switch that "
-                            "lies (T-23-26)"
-                            % (lang, branch, _switch_state(page), known))
-                    if page.eval_on_selector_all(
-                            ".frame-strip [data-pending]", "els => els.length") != 0:
-                        raise AssertionError(
-                            "lang=%s, %s: the pending marker was left behind — a "
-                            "region whose control never confirmed would hold "
-                            "itself stale forever" % (lang, branch))
-                    if device_config.load_device_config(
-                            server.tmpdir)["display_enabled"] is not stored:
-                        raise AssertionError(
-                            "lang=%s, %s: the stored value moved on a failed "
-                            "request" % (lang, branch))
-                    announced = page.eval_on_selector(toast_sel, "el => el.textContent")
-                    if announced != failure_copy:
-                        raise AssertionError(
-                            "lang=%s, %s: expected the translated failure copy "
-                            "%r in the toast, got %r"
-                            % (lang, branch, failure_copy, announced))
-                    for internal in ("500", "http", "/quick/", "TypeError"):
-                        if internal in announced:
-                            raise AssertionError(
-                                "lang=%s, %s: the toast carries %r — a user-facing "
-                                "failure names no status code, no URL and no "
-                                "server internal" % (lang, branch, internal))
-                    visible = page.eval_on_selector(
-                        toast_sel, "el => getComputedStyle(el).opacity")
-                    if visible == "0":
-                        raise AssertionError(
-                            "lang=%s, %s: the toast carries the right words but "
-                            "is not visible — a live region nobody can see is "
-                            "half an announcement" % (lang, branch))
-                finally:
-                    page.unroute("**/quick/display")
-        finally:
-            context.close()
-
-
-def test_a_refresh_landing_mid_flip_does_not_repaint_the_switch(new_context, make_app_server):
-    """A Home refresh landing while a flip is unconfirmed leaves the Frame strip untouched,
-    by node identity and by the optimistic aria-checked surviving, against one control
-    proving another region really was swapped in the same cycle and a second proving the
-    same changed strip is replaced once the marker has cleared, with focus deliberately
-    moved off the strip so the focus skip cannot be what satisfies it.
-    """
-    server = make_app_server(seed=seed_state_dir, fake_providers=True)
-    context = new_context(viewport=VIEWPORT_DESKTOP)
-    try:
-        page = context.new_page()
-        base_url = server.base_url()
-        _login(page, base_url)
-        page.goto(base_url + "/")
-        page.wait_for_load_state("networkidle")
-        before = _switch_state(page)
-        _hold_fetch(page)
-        page.click(SWITCH_SEL)
-        if not _fetch_was_issued(page):
-            raise AssertionError("control: no fetch was issued, so nothing is in flight")
-        optimistic = _switch_state(page)
-        if optimistic == before:
-            raise AssertionError("control: the switch did not flip, so nothing is pending")
-        page.evaluate("() => document.activeElement.blur()")
-        _mark(page, ".frame-strip", "strip")
-        _mark(page, ".page-header__freshness", "elsewhere")
-        # The held POST has not landed yet, so device_config itself has not
-        # changed - seed an unrelated genuine detection so the freshness
-        # token still changes and this tick gets a real 200 to swap from,
-        # rather than the light freshness check's own 304.
-        _record_a_new_detection(
-            server.tmpdir, "MIDFLIP1", "39f007", "2026-08-01T23:37:00+00:00")
-        with page.expect_response(lambda r: r.url.split("?")[0] == base_url + "/"):
-            _force_refresh(page)
-        page.wait_for_timeout(REFRESH_SETTLE_MS)
-        if _marked(page, ".page-header__freshness", "elsewhere"):
-            raise AssertionError(
-                "control: no region was swapped at all, so the assertions below "
-                "would prove nothing")
-        if not _marked(page, ".frame-strip", "strip"):
-            raise AssertionError(
-                "the strip was REPLACED while a flip was unconfirmed — the "
-                "fetched document still carries the server's older state, so the "
-                "switch would bounce back under the user's finger (T-23-26, the "
-                "D1-races-D2 rule)")
-        if _switch_state(page) != optimistic:
-            raise AssertionError(
-                "the optimistic state was repainted by a refresh: expected %r, "
-                "got %r" % (optimistic, _switch_state(page)))
-        _release_fetch(page)
-        page.wait_for_timeout(600)
-        if page.eval_on_selector_all(
-                ".frame-strip [data-pending]", "els => els.length") != 0:
-            raise AssertionError("expected the marker to clear once the answer arrived")
-        _mark(page, ".frame-strip", "settled-strip")
-        _dirty_the_region(page, ".frame-strip")
-        _record_a_new_detection(
-            server.tmpdir, "MIDFLIP2", "39f008", "2026-08-01T23:38:00+00:00")
-        with page.expect_response(lambda r: r.url.split("?")[0] == base_url + "/"):
-            _force_refresh(page)
-        page.wait_for_timeout(REFRESH_SETTLE_MS)
-        if _marked(page, ".frame-strip", "settled-strip"):
-            raise AssertionError(
-                "control: the same changed strip survived with NO marker on it, "
-                "so the assertion above was not measuring the pending rule at all")
-    finally:
-        context.close()
-
-
-def test_all_three_switches_still_post_with_scripts_blocked_at_360px(new_context, make_app_server):
-    """With scripts blocked at 360px, in both languages, all three switches render with the
-    server's own aria-checked, clear the 44px touch floor in both axes, submit their real
-    form and persist to disk.
-    """
-    server = make_app_server(seed=seed_state_dir, fake_providers=True)
-    base_url = server.base_url()
-    switches = (
-        ("/", "display_enabled", 'form[action="/quick/display"] button[role="switch"]'),
-        ("/", "quiet_hours_enabled",
-         'form[action="/quick/quiet-hours"] button[role="switch"]'),
-        ("/device", "led_enabled",
-         'button[role="switch"][form="%s"]' % config_page.QUICK_LED_FORM_ID),
-    )
-    for lang in ("en", "fr"):
-        for route, field, selector in switches:
-            with _no_js_page(new_context, base_url, route,
-                             viewport=VIEWPORT_MIN_SUPPORTED) as page:
-                page.context.add_cookies([{
-                    "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
-                page.goto(base_url + route)
-                if page.viewport_size["width"] != VIEWPORT_MIN_SUPPORTED["width"]:
-                    raise AssertionError("expected the 360px contract floor")
-                control = page.query_selector(selector)
-                if control is None:
-                    raise AssertionError(
-                        "lang=%s, %s: the %s switch does not render at all with "
-                        "scripts blocked" % (lang, route, field))
-                stored = device_config.load_device_config(server.tmpdir)[field]
-                rendered = control.get_attribute("aria-checked")
-                if rendered != ("true" if stored is True else "false"):
-                    raise AssertionError(
-                        "lang=%s, %s: the scripts-blocked page claims "
-                        "aria-checked=%r for a stored %r — role=switch is a "
-                        "description of what the button does, not a promise the "
-                        "script keeps" % (lang, field, rendered, stored))
-                page.eval_on_selector(
-                    selector, "el => el.scrollIntoView({block: 'center'})")
-                box = control.bounding_box()
-                if box["width"] < 44 or box["height"] < 44:
-                    raise AssertionError(
-                        "lang=%s, %s: the switch measures %sx%s at 360px, under "
-                        "the 44px touch floor"
-                        % (lang, field, box["width"], box["height"]))
-                with page.expect_navigation():
-                    control.click()
-                after = device_config.load_device_config(server.tmpdir)[field]
-                if after is stored:
-                    raise AssertionError(
-                        "lang=%s, %s: the switch did NOT persist with scripts "
-                        "blocked — it rendered and did nothing, which is the "
-                        "exact defect Phase 22 found on the login page (CFG-38)"
-                        % (lang, field))
-                if page.locator("[%s]" % layout.QUICK_TOAST_ATTR).count() != 1:
-                    raise AssertionError(
-                        "lang=%s, %s: expected the toast region to still render "
-                        "(inert) with scripts blocked" % (lang, field))
-                if page.eval_on_selector(
-                        "[%s]" % layout.QUICK_TOAST_ATTR, "el => el.textContent") != "":
-                    raise AssertionError(
-                        "lang=%s, %s: the toast announced something on a page "
-                        "with no script at all" % (lang, field))
 
 
 def test_a_new_detection_is_highlighted_and_an_existing_row_is_not(new_context, make_app_server):
@@ -940,12 +304,11 @@ def test_a_new_detection_is_highlighted_and_an_existing_row_is_not(new_context, 
         context.close()
 
 
-def test_a_refresh_neither_unfolds_the_table_nor_closes_what_you_opened(new_context, make_app_server):
-    """A refresh neither unfolds the Flights table nor closes the row you opened: with focus
-    deliberately blurred off the toggle (so the loop's focus skip cannot be what passes this)
-    and a new detection renumbering every row below it, exactly the row that was opened is
-    still open — by event identity, not by position — and exactly one toggle still
-    announces it.
+def test_a_refresh_keeps_every_picture_action_working(new_context, make_app_server):
+    """A refresh keeps the Flights picture action on every row: after a new detection lands
+    and the loop swaps the list in, every desktop row and phone card still carries exactly one
+    picture link, the new flight at the top has its own, and a link in the swapped markup
+    still opens the shared lightbox (the click handler is delegated, so it survives the swap).
     """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     context = new_context(viewport=VIEWPORT_DESKTOP)
@@ -955,16 +318,7 @@ def test_a_refresh_neither_unfolds_the_table_nor_closes_what_you_opened(new_cont
         _login(page, base_url)
         page.goto(base_url + "/flights")
         page.wait_for_load_state("networkidle")
-
-        toggle = page.locator("[data-row-toggle]").first
-        toggle.wait_for(state="visible")
-        opened_id = page.eval_on_selector(
-            "#" + toggle.get_attribute("aria-controls"),
-            "(el, attr) => el.getAttribute(attr)", FLIGHT_ID_ATTR)
-        if not opened_id:
-            raise AssertionError("expected the detail row to carry its event identity")
-        toggle.click()
-        page.evaluate("() => document.activeElement.blur()")
+        before = page.locator("tr[data-flight-row]").count()
 
         _record_a_new_detection(
             server.tmpdir, "OPENSRV", "39fffe", "2026-08-02T00:15:00+00:00")
@@ -972,40 +326,28 @@ def test_a_refresh_neither_unfolds_the_table_nor_closes_what_you_opened(new_cont
         page.wait_for_timeout(REFRESH_SETTLE_MS)
 
         seen = page.evaluate(
-            "([idAttr, openId]) => {"
-            "  const details = [...document.querySelectorAll("
-            "    'tr.flight-detail-row')];"
-            "  const open = details.filter(el =>"
-            "    el.className.indexOf('flight-detail-row--collapsed') === -1);"
-            "  return {total: details.length,"
-            "          open: open.map(el => el.getAttribute(idAttr)),"
-            "          expanded: [...document.querySelectorAll("
-            "            '[data-row-toggle][aria-expanded=\\\"true\\\"]')].length,"
-            "          stillThere: !!document.querySelector("
-            "            'tr.flight-detail-row[' + idAttr + '=\\\"' + openId"
-            "            + '\\\"]')};"
-            "}", [FLIGHT_ID_ATTR, opened_id])
-        if seen["total"] < 2:
+            "() => ({rows: document.querySelectorAll('tr[data-flight-row]').length,"
+            "        cards: document.querySelectorAll('li.history-card').length,"
+            "        rowLinks: document.querySelectorAll("
+            "          'tr[data-flight-row] a[data-view-panel-src]').length,"
+            "        cardLinks: document.querySelectorAll("
+            "          'li.history-card a[data-view-panel-src]').length,"
+            "        topName: document.querySelector("
+            "          'tr[data-flight-row] a[data-view-panel-src]').getAttribute('aria-label')})")
+        if seen["rows"] != before:
             raise AssertionError(
-                "expected the swapped list to still render its detail rows, got "
-                "%d — with fewer this check measures nothing" % seen["total"])
-        if not seen["stillThere"]:
+                "expected the swapped list to keep its page size (%d rows before, %d after)"
+                % (before, seen["rows"]))
+        if seen["rowLinks"] != seen["rows"] or seen["cardLinks"] != seen["cards"]:
             raise AssertionError(
-                "the row that was opened is no longer in the list at all, so "
-                "nothing below is a statement about it")
-        if seen["open"] != [opened_id]:
+                "expected one picture link per row and per card after the swap, got %r" % (seen,))
+        if seen["topName"] != "View picture of OPENSRV":
             raise AssertionError(
-                "after a refresh %d of %d detail rows are open (%r), expected "
-                "exactly the one that was opened (%r). Every row open is the "
-                "server's own markup arriving un-collapsed; the WRONG row open "
-                "is a record keyed to a position that just renumbered"
-                % (len(seen["open"]), seen["total"], seen["open"], opened_id))
-        if seen["expanded"] != 1:
-            raise AssertionError(
-                "expected exactly one toggle to report aria-expanded=true after "
-                "the refresh, got %d — the class and the announced state are "
-                "written in one place precisely so they cannot drift"
-                % seen["expanded"])
+                "expected the newest flight to head the list with its own picture link, got %r"
+                % (seen["topName"],))
+        page.locator("tr[data-flight-row] a[data-view-panel-src]").first.click()
+        if not page.locator("#panel-lookup-dialog").evaluate("el => el.open"):
+            raise AssertionError("expected a swapped-in picture link to open the lightbox")
     finally:
         context.close()
 
@@ -1082,159 +424,6 @@ def test_a_refresh_never_interrupts_or_undoes_the_filter(new_context, server):
     finally:
         context.close()
 
-
-def test_a_collapsed_detail_row_cannot_be_reached_by_keyboard(new_context, server):
-    """A collapsed Flights detail row lets none of its own controls take focus — the
-    deliberate display:none end state, asked as the keyboard question directly — against a
-    control phase proving the same controls are reachable once the row is open, and the
-    opening really animates grid-template-rows on a grid wrapper at --motion-fast.
-    """
-    context = new_context(viewport=VIEWPORT_DESKTOP)
-    try:
-        page = context.new_page()
-        base_url = server.base_url()
-        _login(page, base_url)
-        page.goto(base_url + "/flights")
-        toggle = page.locator("[data-row-toggle]").first
-        toggle.wait_for(state="visible")
-        detail_id = toggle.get_attribute("aria-controls")
-
-        probe = (
-            "(id) => {"
-            "  const row = document.getElementById(id);"
-            "  const kids = [...row.querySelectorAll("
-            "    'a[href], button, input, select, textarea, [tabindex]')];"
-            "  const reached = [];"
-            "  kids.forEach(el => { el.focus();"
-            "    if (document.activeElement === el) reached.push("
-            "      el.tagName + '.' + (el.className || ''));"
-            "    el.blur(); });"
-            "  return {kids: kids.length, reached: reached};"
-            "}")
-        seen = page.evaluate(probe, detail_id)
-        if not seen["kids"]:
-            raise AssertionError(
-                "expected the seeded detail row to contain focusable controls "
-                "(its copy buttons) — with none, this check measures nothing")
-        if seen["reached"]:
-            raise AssertionError(
-                "a COLLAPSED detail row let %d of its %d controls take focus "
-                "(%r) — a row held present at zero height is still in the tab "
-                "order and still in the accessibility tree, so a keyboard user "
-                "walks into a row nobody can see (T-23-32)"
-                % (len(seen["reached"]), seen["kids"], seen["reached"]))
-
-        toggle.click()
-        seen = page.evaluate(probe, detail_id)
-        if not seen["reached"]:
-            raise AssertionError(
-                "control: an OPEN detail row's %d controls were still "
-                "unreachable — so the assertion above is about the page being "
-                "empty, not about the row being closed" % seen["kids"])
-
-        style = page.eval_on_selector(
-            "#" + detail_id + " .flight-detail-row__reveal",
-            "el => [getComputedStyle(el).display,"
-            " getComputedStyle(el).transitionProperty,"
-            " getComputedStyle(el).transitionDuration]")
-        if style[0] != "grid":
-            raise AssertionError(
-                "expected the reveal wrapper to be a grid, got %r" % (style[0],))
-        if "grid-template-rows" not in style[1]:
-            raise AssertionError(
-                "expected grid-template-rows to be the transitioned property, "
-                "got %r — a guessed max-height either clips tall content or "
-                "animates through empty space, and interpolate-size is "
-                "Chromium-only" % (style[1],))
-        if style[2] != "0.18s":
-            raise AssertionError(
-                "expected the reveal to spend --motion-fast (180ms), got %r"
-                % (style[2],))
-    finally:
-        context.close()
-
-
-def test_a_phone_card_opens_from_a_tap_anywhere_with_and_without_scripts(new_context, server):
-    """A phone card at 360px opens from a tap on its own face away from every control,
-    through the native disclosure it already contained, with its summary box covering the
-    whole card and no control nested inside it — and it does the same with scripts
-    blocked, where no detail row is collapsed and the live-script class the height
-    animation is keyed on is absent.
-    """
-    base_url = server.base_url()
-    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
-    try:
-        page = context.new_page()
-        _login(page, base_url)
-        page.goto(base_url + "/flights")
-        card = page.locator("li.history-card").first
-        card.wait_for(state="visible")
-        details = card.locator("details.history-card__details")
-        if details.evaluate("el => el.open"):
-            raise AssertionError(
-                "expected the card to start closed — with it open this check "
-                "cannot tell a tap that worked from a card that was never shut")
-        boxes = page.evaluate(
-            "() => {"
-            "  const li = document.querySelector('li.history-card');"
-            "  const s = li.querySelector('summary.history-card__summary');"
-            "  const a = li.getBoundingClientRect();"
-            "  const b = s.getBoundingClientRect();"
-            "  return [a.width, b.width, a.top, b.top];"
-            "}")
-        if boxes[1] < boxes[0] - 2.5:
-            raise AssertionError(
-                "the card's summary is %spx wide inside a %spx card — a tap on "
-                "the rim between them lands on nothing, which reads as a broken "
-                "control rather than as a boundary" % (boxes[1], boxes[0]))
-        card.locator(".history-card__secondary").click()
-        if not details.evaluate("el => el.open"):
-            raise AssertionError(
-                "a tap on the card's own face away from every control did not "
-                "open it — D7 asks for a card you tap anywhere, through the "
-                "native disclosure it already contained")
-        nested = page.eval_on_selector(
-            "summary.history-card__summary",
-            "el => el.querySelectorAll('a[href], button').length")
-        if nested:
-            raise AssertionError(
-                "expected no control nested inside the card's summary, found %d"
-                % nested)
-    finally:
-        context.close()
-
-    with _no_js_page(new_context, base_url, "/flights",
-                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
-        card = page.locator("li.history-card").first
-        card.wait_for(state="visible")
-        details = card.locator("details.history-card__details")
-        if details.evaluate("el => el.open"):
-            raise AssertionError("expected the scripts-blocked card to start closed too")
-        card.locator(".history-card__secondary").click()
-        if not details.evaluate("el => el.open"):
-            raise AssertionError(
-                "the phone card did not open with scripts blocked — the whole "
-                "point of building this on the <details> the card already had is "
-                "that it needs no script (CFG-38)")
-        collapsed = page.evaluate(
-            "() => document.querySelectorAll("
-            "'.flight-detail-row--collapsed').length")
-        if collapsed:
-            raise AssertionError(
-                "%d detail row(s) are collapsed on a page with no script — the "
-                "collapsing class has exactly one writer and it cannot run here "
-                "(D-15, locked)" % collapsed)
-        live = page.evaluate(
-            "() => document.documentElement.className.indexOf("
-            "'flight-rows-live') !== -1")
-        if live:
-            raise AssertionError(
-                "the live-script class is on <html> with no script running — the "
-                "height animation is keyed on it precisely so a scripts-blocked "
-                "page animates nothing")
-
-
-# The save bar's own dirty-count, its every-field save, and its scripts-blocked fallback.
 
 def test_the_dirty_count_arrives_and_moves_only_when_the_word_does(new_context, server):
     """[data-dirty-count] arrives rather than appearing, and stays silent for anything that
@@ -1906,5 +1095,125 @@ def test_cfg34_live_age_ticks_at_each_converted_site(
                 "%s: expected the age to ADVANCE to the next bucket after the "
                 "clock ran forward %dms, still reads %r — a dead element would "
                 "read exactly this way" % (name, _TICK_ADVANCE_MS, before))
+    finally:
+        context.close()
+
+
+# Display polish: faithful swatches, an uncropped live preview, and the saved confirmation.
+
+SWATCH_VIEWPORTS = (
+    ("desktop", VIEWPORT_DESKTOP), ("phone", VIEWPORT_PHONE),
+    ("min", VIEWPORT_MIN_SUPPORTED))
+SAVED_WORD = {"en": "Saved", "fr": "Enregistr"}
+
+
+def _lang_cookie(base_url, lang):
+    return [{"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}]
+
+
+def test_swatches_tell_solid_light_and_band_themes_apart(new_context, server):
+    """Every theme's swatch is drawn from its own metadata: a light (dithered) theme paints a
+    stipple its solid sibling does not, and a band theme paints a band the plain fields lack.
+    """
+    context = new_context(viewport=VIEWPORT_DESKTOP)
+    try:
+        page = context.new_page()
+        base_url = server.base_url()
+        _login(page, base_url)
+        page.goto(base_url + "/display")
+        page.wait_for_load_state("networkidle")
+        painted = page.evaluate(
+            "() => { var out = {};"
+            " document.querySelectorAll("
+            "'details[data-usage=\"departures\"] label.palette-chip').forEach(function (chip) {"
+            "  var swatch = chip.querySelector('.palette-swatch');"
+            "  var band = swatch.querySelector('.palette-swatch__band');"
+            "  out[chip.querySelector('input').value] = {"
+            "   field: getComputedStyle(swatch).backgroundImage,"
+            "   band: band ? getComputedStyle(band).backgroundImage : null,"
+            "   fill: getComputedStyle(swatch).backgroundColor};"
+            " }); return out; }")
+        for solid, light in (
+                ("yellow", "yellow_light"), ("red", "red_light"),
+                ("green", "green_light"), ("blue", "blue_light")):
+            if painted[solid]["field"] != "none" or painted[light]["field"] == "none":
+                raise AssertionError(
+                    "%s must paint solid and %s must paint a stipple: %r / %r"
+                    % (solid, light, painted[solid], painted[light]))
+            if painted[solid]["fill"] != painted[light]["fill"]:
+                raise AssertionError("%s and %s share one ink colour" % (solid, light))
+        if painted["band_blue"]["band"] != "none":
+            raise AssertionError("a solid band must not be stippled: %r" % painted["band_blue"])
+        if painted["band_blue_light"]["band"] in (None, "none"):
+            raise AssertionError("a light band must be stippled: %r" % painted["band_blue_light"])
+        if painted["band_blue_field"]["band"] != "none" or \
+                painted["band_blue_field"]["field"] == "none":
+            raise AssertionError(
+                "a band-field theme stipples its field around a solid band: %r"
+                % painted["band_blue_field"])
+        if painted["white"]["band"] is not None:
+            raise AssertionError("a plain theme carries no band")
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ("en", "fr"))
+@pytest.mark.parametrize("label,viewport", SWATCH_VIEWPORTS)
+def test_the_live_preview_is_contained_keyed_focusable_and_saves(
+        new_context, make_app_server, label, viewport, lang):
+    """At 1280, 390 and 360 px in both languages the live preview image sits whole inside its
+    figure and the page, arrow-keying a swatch moves it with a visible focus ring, and the
+    native save lands on the persisted theme with the saved confirmation.
+    """
+    server = make_app_server(seed=seed_state_dir, fake_providers=True)
+    base_url = server.base_url()
+    context = new_context(viewport=viewport)
+    try:
+        context.add_cookies(_lang_cookie(base_url, lang))
+        page = context.new_page()
+        _login(page, base_url)
+        page.goto(base_url + "/display")
+        page.wait_for_load_state("networkidle")
+        box = page.evaluate(
+            "() => { var img = document.querySelector('%s');"
+            " var fig = img.closest('figure'); var i = img.getBoundingClientRect();"
+            " var f = fig.getBoundingClientRect();"
+            " return {iw: i.width, ih: i.height, il: i.left, ir: i.right,"
+            "  fl: f.left, fr: f.right, ft: f.top, fb: f.bottom, it: i.top, ib: i.bottom,"
+            "  vw: document.documentElement.clientWidth,"
+            "  natural: img.complete && img.naturalWidth > 0,"
+            "  fit: getComputedStyle(img).objectFit}; }" % THEME_PREVIEW_SEL)
+        if not box["natural"] or box["iw"] <= 0 or box["ih"] <= 0:
+            raise AssertionError("%s: the live preview did not render: %r" % (label, box))
+        if box["il"] < box["fl"] - 0.5 or box["ir"] > box["fr"] + 0.5 or \
+                box["it"] < box["ft"] - 0.5 or box["ib"] > box["fb"] + 0.5 or \
+                box["il"] < 0 or box["ir"] > box["vw"]:
+            raise AssertionError("%s: the preview is clipped: %r" % (label, box))
+        if box["fit"] != "contain":
+            raise AssertionError("%s: the preview must never crop its picture: %r" % (label, box))
+        problem = _assert_no_page_overflow(page, "display %s %s" % (label, lang))
+        if problem:
+            raise AssertionError(problem)
+
+        selector = 'details.usage-row[data-usage="departures"] input[name="theme"]'
+        start = page.eval_on_selector(selector + ":checked", "el => el.value")
+        page.focus(selector + ':checked')
+        page.keyboard.press("ArrowRight")
+        moved = page.eval_on_selector(selector + ":checked", "el => el.value")
+        if moved == start:
+            raise AssertionError("%s: arrow keys did not move the swatch selection" % label)
+        ring = page.eval_on_selector(
+            selector + ":checked",
+            "el => { var chip = el.closest('.palette-chip');"
+            " var cs = getComputedStyle(chip);"
+            " return cs.outlineStyle + '|' + cs.outlineWidth + '|' + cs.boxShadow; }")
+        if ring.startswith("none|") and ring.endswith("none") or ring.startswith("none|0px|none"):
+            raise AssertionError("%s: the focused swatch shows no focus ring: %r" % (label, ring))
+        _save_via_bar(page)
+        stored = device_config.load_device_config(server.tmpdir)["theme"]
+        if stored != moved:
+            raise AssertionError("%s: saved %r but disk reads %r" % (label, moved, stored))
+        if SAVED_WORD[lang].lower() not in page.inner_text("body").lower():
+            raise AssertionError("%s/%s: no saved confirmation after the save" % (label, lang))
     finally:
         context.close()

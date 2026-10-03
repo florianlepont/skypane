@@ -42,15 +42,6 @@ MESSAGES = {
     "nav.account_and_preferences": "Compte et préférences",
     "nav.attention_needed": " — attention requise",
 
-    # Fully French. "Activées"/"désactivées" matches this app's
-    # existing "Activer"/"Désactiver" verb pair.
-    "nav.screen_on": "Écran allumé",
-    "nav.screen_off": "Écran éteint",
-    "nav.quiet_hours_on": "Heures calmes activées",
-    "nav.quiet_hours_off": "Heures calmes désactivées",
-    "nav.screen_and_quiet_hours_status_go_to_home":
-        "État de l’écran et des heures calmes — aller à l’accueil",
-
     "nav.primary_navigation": "Navigation principale",
 
     "nav.auto": "Automatique",

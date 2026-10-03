@@ -558,29 +558,28 @@ def test_rejected_settings_save_rerenders_200_with_input_and_error_persists_noth
 
 
 def test_home_page_renders_widgets(app04_server, session_cookie):
-    """authenticated GET / renders the rebuilt Home page with the Frame strip's
-    two switch forms, three stat-tile elements, the picture/recent-flights row, and the
-    recent-flights list under the grouped Advanced navigation, carrying none of the retired
-    Quick-actions card or Poll form"""
+    """authenticated GET / renders the approved frame-signal-first Home page:
+    its current image precedes recent flights and one compact battery fact, while retired
+    configuration, healthy diagnostics, and activity-band dashboard material stay absent."""
     status, _headers, body = http_request(app04_server.base_url() + "/", cookie=session_cookie)
     assert status == 200, "expected 200 for GET /, got %d" % status
     text = body.decode("utf-8", errors="replace")
     for needle in (
             '<h1 class="page-title">Home</h1>',
-            'class="frame-strip stat-tile stat-tile--accent"',
-            'class="dashboard-grid home-status-grid"',
-            'class="home-columns home-picture-row"',
+            'class="home-columns home-picture-row home-signal-grid"',
+            'id="home-current-frame"',
             "Recent flights", 'href="/flights"',
+            'class="home-fact text-label"',
             'class="nav-group nav-group--advanced"'):
         assert needle in text, "expected %r in the Home page" % needle
     assert 'class="preview-frame"' in text or "Nothing rendered yet." in text, (
         "expected either the preview-frame figure or its empty state on Home")
-    assert 'action="%s"' % app_module.QUICK_DISPLAY_ROUTE in text, (
-        "expected the Frame strip's Screen switch form on Home (D-01)")
-    assert 'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE in text, (
-        "expected the Frame strip's Quiet hours switch form on Home (D-01)")
     for absent in (
-            "Quick actions", "On the frame now", "status-card__rows", "home-hero",
+            "Your frame at a glance.", "Quick actions", "On the frame now",
+            "status-card__rows", "home-hero", 'class="frame-strip',
+            'class="dashboard-grid home-status-grid"', 'class="day-band',
+            'action="%s"' % app_module.QUICK_DISPLAY_ROUTE,
+            'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE,
             'action="%s"' % app_module.POLL_ROUTE):
         assert absent not in text, (
             "expected %r to be absent from the rebuilt Home page (D-04)" % absent)
@@ -874,7 +873,7 @@ def test_scoped_settings_save_carries_other_page_forward(make_app_server):
 
 def test_display_and_device_pages_split_the_groups(app04_server, session_cookie):
     """GET /display and GET /device split the settings groups per companion/screens.py each carrying its hidden
-    scope/return_to fields and the screen-type caption; Manual refresh lives on Device only"""
+    scope/return_to fields; Refresh now lives on Device only."""
     base = app04_server.base_url()
     _s, _h, display_body = http_request(base + "/display", cookie=session_cookie)
     _s, _h, device_body = http_request(base + "/device", cookie=session_cookie)
@@ -900,8 +899,9 @@ def test_display_and_device_pages_split_the_groups(app04_server, session_cookie)
             "expected the %s page to carry its hidden scope field" % scope)
         assert '<input type="hidden" name="return_to" value="%s">' % route in text, (
             "expected the %s page to carry its hidden return_to field" % scope)
-        assert "Screen: Plane frame" in text, "expected the %s page to name its screen type" % scope
-    assert "Manual refresh" in device_text, "expected the Device page to carry Manual refresh"
+        assert "Screen: Plane frame" not in text, (
+            "expected the retired screen-type caption to stay off the %s page" % scope)
+    assert "Refresh now" in device_text, "expected the Device page to carry the Refresh now action"
     rules_panel_marker = 'data-usage="rules"'
     assert rules_panel_marker not in device_text, (
         "expected the Device page NOT to carry the rules editor (moved to Display, 20-07/D-10)")

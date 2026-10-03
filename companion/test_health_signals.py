@@ -131,6 +131,46 @@ def test_health_signals_severity_and_anomalies_match_compute_health_state(tmp_pa
         "scenario %r, got %r vs %r" % (name, signals["anomalies"], state["anomalies"]))
 
 
+def test_unidentified_airlines_are_informational_not_an_actionable_warning(tmp_path):
+    """A healthy frame keeps its OK state when its airline registry has gaps."""
+    now = shp.now()
+    state_dir = str(tmp_path / "unresolved_airlines")
+    _seed_unresolved_registry(state_dir, now)
+
+    signals = health_signals.health_signals(state_dir, now=shp.iso(now))
+
+    assert signals["coverage_state"] == "warn", "fixture must still retain coverage facts"
+    assert signals["severity"] == "ok"
+    assert health_signals._SOME_AIRLINES_ARE_UNIDENTIFIED_TEXT not in signals["anomalies"]
+
+
+@pytest.mark.parametrize(
+    "kwargs, expected",
+    (
+        ({"device_state": "warn"}, "warn"),
+        ({"pipeline_state": "error"}, "error"),
+        ({"battery_state": "warn"}, "warn"),
+        ({"disagreement_warn": True}, "warn"),
+        ({"source_fault": True}, "error"),
+        ({"offbox_state": "warn"}, "warn"),
+    ),
+)
+def test_real_operational_faults_keep_precedence_when_coverage_is_informational(kwargs, expected):
+    """Coverage gaps must not hide a genuine device, data, battery, or backup fault."""
+    values = {
+        "device_state": "ok",
+        "pipeline_state": "ok",
+        "battery_state": "ok",
+        "disagreement_warn": False,
+        "coverage_state": "warn",
+        "source_fault": False,
+        "offbox_state": "ok",
+    }
+    values.update(kwargs)
+
+    assert health_signals.overall_severity(**values) == expected
+
+
 # --- No-markup guarantee ----------------------------------------------------
 
 def _assert_no_markup(value, path):

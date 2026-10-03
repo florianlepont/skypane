@@ -7,6 +7,10 @@
  * companion/app.py's SCRIPT_ROUTE. Never a network call, a timer, or
  * persistent state: reads attributes already in the DOM and writes
  * text via textContent, never an HTML-writing sink.
+ *
+ * Also switches the chart between its server-rendered Percentage and
+ * Voltage views: both are already in the DOM, the script only shows one
+ * and hides the other, and never converts a unit itself.
  */
 (function () {
   "use strict";
@@ -22,9 +26,27 @@
   var readoutValue = readout.querySelector(".battery-readout__value");
   var readoutDetail = readout.querySelector(".battery-readout__detail");
 
-  var points = document.querySelectorAll(".sparkline-hit");
-  if (points.length === 0) {
+  var allPoints = document.querySelectorAll(".sparkline-hit");
+  if (allPoints.length === 0) {
     return;
+  }
+
+  // The hit targets of the view currently shown; reassigned on a unit
+  // switch. A hidden view's targets are never in the tab order.
+  var points = allPoints;
+  var views = document.querySelectorAll(".battery-chart__view");
+  var activeIndex = -1;
+
+  function viewPoints(view) {
+    return view.querySelectorAll(".sparkline-hit");
+  }
+
+  if (views.length > 0) {
+    for (var v = 0; v < views.length; v++) {
+      if (!views[v].hasAttribute("hidden")) {
+        points = viewPoints(views[v]);
+      }
+    }
   }
 
   function reveal(point) {
@@ -43,15 +65,19 @@
     // itself, so it needs no date-formatting logic of its own. `when`
     // is a full local timestamp, used for both the visible text and
     // `title`, so a user never sees the raw ISO ts.
+    // data-reading carries the server-computed text for a non-voltage
+    // view (the percentage estimate); voltage points have none.
+    var reading = point.getAttribute("data-reading");
+    var valueText = reading !== null ? reading : mv + " mV";
     if (when !== null && readoutValue && readoutDetail) {
-      readoutValue.textContent = mv + " mV";
+      readoutValue.textContent = valueText;
       readoutDetail.textContent = " — " + when;
       readoutDetail.setAttribute("title", when);
     } else {
       // A missing data-when attribute or span (this script can ship one
       // wave ahead of the markup that references it) degrades to the
       // bare value with no time at all, never the raw ISO ts.
-      readout.textContent = mv + " mV";
+      readout.textContent = valueText;
     }
 
     // Mark exactly one point as active: the one just revealed, toggled on;
@@ -59,6 +85,7 @@
     for (var j = 0; j < points.length; j++) {
       _toggleActive(points[j], points[j] === point);
     }
+    activeIndex = Array.prototype.indexOf.call(points, point);
   }
 
   function _toggleActive(el, isActive) {
@@ -102,7 +129,9 @@
   }
 
   // Per-iteration closure (an inner IIFE), for the ES5-safe subset.
-  for (var i = 0; i < points.length; i++) {
+  // Listeners go on every view's targets; each handler works against
+  // whichever view is shown when it fires.
+  for (var i = 0; i < allPoints.length; i++) {
     (function (point) {
       point.addEventListener("click", function () {
         // A tap synthesises a click in every mobile browser this
@@ -142,7 +171,47 @@
           moveFocusTo(points.length - 1);
         }
       });
-    })(points[i]);
+    })(allPoints[i]);
+  }
+
+  // Percentage / Voltage control. Native buttons give Enter, Space,
+  // pointer and touch operation and a visible focus ring; the selected
+  // state is aria-pressed. The control ships `hidden` and is revealed
+  // here, so without this script only the default view is offered.
+  var unitGroup = document.querySelector(".battery-unit");
+  if (unitGroup && views.length > 0) {
+    var buttons = unitGroup.querySelectorAll(".battery-unit__option");
+
+    var selectUnit = function (unit) {
+      for (var b = 0; b < buttons.length; b++) {
+        buttons[b].setAttribute(
+          "aria-pressed", buttons[b].getAttribute("data-unit") === unit ? "true" : "false");
+      }
+      for (var w = 0; w < views.length; w++) {
+        if (views[w].getAttribute("data-unit") === unit) {
+          views[w].removeAttribute("hidden");
+          points = viewPoints(views[w]);
+        } else {
+          views[w].setAttribute("hidden", "");
+        }
+      }
+      // Carry the revealed reading across: the same position in the new
+      // view, or its latest point when none had been revealed.
+      for (var t = 0; t < points.length; t++) {
+        _toggleActive(points[t], false);
+      }
+      reveal(points[activeIndex >= 0 && activeIndex < points.length
+        ? activeIndex : points.length - 1]);
+    };
+
+    for (var k = 0; k < buttons.length; k++) {
+      (function (button) {
+        button.addEventListener("click", function () {
+          selectUnit(button.getAttribute("data-unit"));
+        });
+      })(buttons[k]);
+    }
+    unitGroup.removeAttribute("hidden");
   }
 
   // No DOMContentLoaded wrapper needed: the <script> tag carries defer,

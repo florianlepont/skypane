@@ -12,13 +12,13 @@ module.
 import companion.i18n as i18n
 import companion.prefs as prefs
 from companion.ui_base import (
+    AIRLINE_TYPES_SCRIPT_SRC,
     CONFIRM_SUBMIT_SCRIPT_SRC,
     COPY_BUTTON_SCRIPT_SRC,
     DIRTY_STATE_SCRIPT_SRC,
     FAVICON_LINK_HTML,
     FLASH_CLEANUP_SCRIPT_SRC,
     FLASH_SLOT_MARKER,
-    FLIGHT_ROWS_SCRIPT_SRC,
     FRESHNESS_SCRIPT_SRC,
     ICON_DEFS_HTML,
     LIST_FILTER_SCRIPT_SRC,
@@ -128,7 +128,7 @@ SHELL_SCRIPT_ORDER = (
     POLL_COOLDOWN_SCRIPT_SRC,
     CONFIRM_SUBMIT_SCRIPT_SRC,
     THEME_PREVIEW_SCRIPT_SRC,
-    FLIGHT_ROWS_SCRIPT_SRC,
+    AIRLINE_TYPES_SCRIPT_SRC,
     SUBMIT_GUARD_SCRIPT_SRC,
     RELATIVE_TIME_SCRIPT_SRC,
     QUICK_SWITCH_SCRIPT_SRC,
@@ -291,8 +291,8 @@ def page_shell(
     threaded to sidebar_nav() and _mobile_nav_html(); a caller with no request
     context (login, 404, preview-image errors) draws no dot. `lang` defaults to
     `None`, resolved through prefs.current_lang(). `device_config` defaults to
-    `None`, the same no-context degrade, threaded to both nav renderers via
-    nav_status_html().
+    `None`, the same no-context degrade, threaded to both nav renderers for
+    their shared request context.
 
     `scripts` is this page's own extra `*_SCRIPT_SRC` constants, on top of
     GLOBAL_PAGE_SCRIPTS (present regardless). Emitted in SHELL_SCRIPT_ORDER's

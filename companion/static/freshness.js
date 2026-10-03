@@ -74,8 +74,8 @@
   var NEW_ROW_CLASS = "is-new-row";
 
   // Dispatched on document after a successful swap so a listener needs
-  // no reference to any element this file touches; list-filter.js and
-  // flight-rows.js re-derive their own row state from it.
+  // no reference to any element this file touches; list-filter.js
+  // re-derives its own row state from it.
   var SWAPPED_EVENT = "skypane-regions-swapped";
 
   // The DOM value is never trusted unvalidated: only a plain hex string
@@ -267,11 +267,9 @@
   // also documents what each page deliberately excludes and why.
   var SWAP_SELECTORS_BY_PAGE = {
     "home": [
-      ".page-header__freshness",
-      ".frame-strip",
-      ".home-status-grid",
       "figure.preview-frame",
-      'section[aria-labelledby="home-flights"]'
+      'section[aria-labelledby="home-flights"]',
+      ".home-facts"
     ],
     "display": [
       ".page-header__freshness",

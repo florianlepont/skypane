@@ -91,10 +91,13 @@ MESSAGES = {
 
     # --- Device / Pipeline / Corroboration tiles ------------------------
     "health.device_last_checked_in": "Dernière connexion de l’appareil",
+    "health.device_connection_help":
+        "Moment où le cadre a contacté le serveur pour la dernière fois.",
     "health.flight_data_last_updated": "Dernière mise à jour des données de vol",
     "health.ads_b_pipeline_last_ran": "Dernière exécution du pipeline ADS-B",
     "health.do_the_two_data_sources_agree": "Les deux sources de données concordent-elles ?",
     "health.corroboration": "Corroboration",
+    "health.source_comparison_help": "Comprendre ce résultat",
     "health.last_aircraft_detected": "Dernier avion détecté",
     "health.checking_in_normally": "Se connecte normalement",
     "health.has_not_checked_in_for_a_while": "N’a pas répondu depuis un moment",
@@ -140,7 +143,11 @@ MESSAGES = {
     "health.over_the_last_days_event": "au cours des %d derniers jours, %d événement",
 
     # --- Battery trend section -------------------------------------------
-    "health.battery_months": "Batterie · %d mois",
+    "health.battery": "Batterie",
+    "health.low_battery_pct": "Batterie faible \u2014 %d\u00a0%%",
+    "health.battery_unit_group": "Unité du graphique de batterie",
+    "health.battery_unit_percent": "Pourcentage",
+    "health.battery_unit_voltage": "Tension",
     "health.last_3_months_daily_average": "3 derniers mois, moyenne quotidienne",
     "health.daily_average_reading": "%s — moyenne quotidienne (%d relevé)",
     "health.daily_average_readings": "%s — moyenne quotidienne (%d relevés)",
@@ -200,7 +207,7 @@ MESSAGES = {
     "health.resolve_this_prefix": "Résoudre ce préfixe",
 
     # --- Resolution-statistics table --------------------------------------
-    "health.how_well_we_name_flights": "Notre capacité à identifier les vols",
+    "health.how_well_we_name_flights": "Identification des vols",
     # Kept as an unformatted "%d" template, exactly like the English
     # source constant.
     "health.no_flights_in_the_last_days": "Aucun vol depuis %d jours",

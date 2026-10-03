@@ -154,9 +154,9 @@ CONFIRM_SUBMIT_SCRIPT_SRC = "/static/confirm-submit.js"
 # contract as above.
 THEME_PREVIEW_SCRIPT_SRC = "/static/theme-preview.js"
 
-# Must equal companion/app.py's FLIGHT_ROWS_SCRIPT_ROUTE exactly, same
+# Must equal companion/app.py's AIRLINE_TYPES_SCRIPT_ROUTE exactly, same
 # contract as above.
-FLIGHT_ROWS_SCRIPT_SRC = "/static/flight-rows.js"
+AIRLINE_TYPES_SCRIPT_SRC = "/static/airline-types.js"
 
 # Must equal companion/app.py's LOGIN_CARD_SCRIPT_ROUTE exactly, same
 # contract as above. Emitted by login_shell() alone — the only static
@@ -366,11 +366,8 @@ QUICK_ACTION_APPLIES_SENTENCE = i18n.msg(
     "display.applies_the_next_time_the_frame_wakes_up",
     "Applies the next time the frame wakes up.")
 
-# The strip's own heading, byte-identical to home_page.FRAME_ROW_LABEL
-# ("Frame") — both resolve through the same stable id, owned by
-# home.py (untouched by this plan). A second, separately named
-# constant is required because layout.py may never import a page
-# module.
+# The strip's own heading; resolves through a stable id so layout code never
+# imports a page module.
 FRAME_STRIP_HEADING = i18n.msg("home.frame", "Frame")
 
 # frame_state.py's HEADLINE_DUE/HEADLINE_HELD/HEADLINE_LATE are the

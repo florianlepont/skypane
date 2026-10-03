@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Browser checks for the Flights detail-row toggle, the Flights/Airlines/Health filter-bar
+"""Browser checks for the Flights row-level picture action, the Flights/Airlines/Health filter-bar
 meta rows, the Airlines two-per-row grid, Health's registry table and no-JS floor, the settings
 pages' reveal/persist/leave-guard family, the Frame strip switch, and the runway
 cards/theme-chip selection signal.
@@ -14,9 +14,8 @@ from companion import auth
 from server import device_config
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE,
-    _assert_hit_target, _bar_text, _click_control, _commit_field,
-    _guard_armed, _login, _no_js_page, _save_via_bar, _set_ui_theme,
-    _wait_for_bar, _wait_for_bar_hidden, seed_state_dir,
+    _bar_text, _click_control, _commit_field,
+    _guard_armed, _login, _no_js_page, _save_via_bar, _wait_for_bar, _wait_for_bar_hidden, seed_state_dir,
 )
 
 pytestmark = pytest.mark.browser
@@ -30,210 +29,141 @@ def server(module_app_server_factory):
     return module_app_server_factory(seed=seed_state_dir, fake_providers=True)
 
 
-def test_flights_detail_row_expands_and_collapses(page, server):
-    """A Flights detail row expands and collapses from an icon-only toggle with no visible
-    text, a >=44x44 synthesized hit area, and an accessible name that swaps with the state;
-    a click on a non-interactive cell of the same row also expands it.
+LIGHTBOX = "#panel-lookup-dialog"
+
+
+def _tab_to(page, selector, limit=80):
+    """Press Tab from the top of the page until `selector` holds focus, or fail."""
+    page.evaluate("() => document.activeElement && document.activeElement.blur()")
+    for _ in range(limit):
+        page.keyboard.press("Tab")
+        if page.evaluate("(sel) => document.activeElement === document.querySelector(sel)", selector):
+            return
+    raise AssertionError("expected Tab to reach %r within %d presses" % (selector, limit))
+
+
+def test_flights_picture_action_opens_by_keyboard_and_pointer(new_context, server):
+    """Every Flights row carries one direct "View picture" link: it takes visible keyboard
+    focus, Enter opens the shared lightbox dialog with that row's own picture, Escape closes
+    it and returns focus to the link, and a pointer click does the same.
     """
-    _login(page, server.base_url())
-    page.goto(server.base_url() + "/flights")
-    toggle = page.locator("[data-row-toggle]").first
-    toggle.wait_for(state="visible")
-    if toggle.get_attribute("aria-expanded") != "false":
-        raise AssertionError(
-            "expected the first row-toggle to start collapsed (aria-expanded=false)")
-    controls_id = toggle.get_attribute("aria-controls")
-    if not controls_id:
-        raise AssertionError("expected the row-toggle to carry aria-controls")
-    detail_row = page.locator("#" + controls_id)
-    if "flight-detail-row--collapsed" not in (detail_row.get_attribute("class") or ""):
-        raise AssertionError("expected the detail row to start collapsed")
-
-    # Icon-only: no visible text, a real accessible name. The decorative chevron glyph is the
-    # icon, not a label; any alphanumeric character here would be a visible text label.
-    label_text = toggle.inner_text().strip()
-    if any(ch.isalnum() for ch in label_text):
-        raise AssertionError(
-            "expected the toggle to render no visible text label, got %r"
-            % (label_text,))
-    collapsed_name = toggle.get_attribute("aria-label")
-    if not collapsed_name:
-        raise AssertionError("expected the icon-only toggle to carry an aria-label")
-
-    # The real hit area: a 22x22 visual box plus the ::before's negative 11px inset on every
-    # side.
-    hit = toggle.evaluate(
-        "el => { var r = el.getBoundingClientRect();"
-        " var s = getComputedStyle(el, '::before');"
-        " return [r.width - parseFloat(s.left) - parseFloat(s.right),"
-        " r.height - parseFloat(s.top) - parseFloat(s.bottom)]; }")
-    if not hit or hit[0] < 44 or hit[1] < 44:
-        raise AssertionError(
-            "expected the toggle's hit area to measure at least 44x44 in "
-            "both axes, measured %r" % (hit,))
-
-    toggle.click()
-    if toggle.get_attribute("aria-expanded") != "true":
-        raise AssertionError("expected aria-expanded to flip to true after a click")
-    if "flight-detail-row--collapsed" in (detail_row.get_attribute("class") or ""):
-        raise AssertionError(
-            "expected the detail row's collapsed class to be removed after expanding")
-    expanded_name = toggle.get_attribute("aria-label")
-    if expanded_name == collapsed_name:
-        raise AssertionError(
-            "expected the accessible name to change with the state, it stayed %r"
-            % (collapsed_name,))
-    # A click on the toggle must toggle exactly once: the row's delegated handler returns
-    # early for an interactive target, so an unguarded handler would double-toggle.
-    if not expanded_name:
-        raise AssertionError("expected an aria-label in the expanded state too")
-
-    toggle.click()
-    if toggle.get_attribute("aria-expanded") != "false":
-        raise AssertionError(
-            "expected aria-expanded to flip back to false after a second click")
-    if "flight-detail-row--collapsed" not in (detail_row.get_attribute("class") or ""):
-        raise AssertionError(
-            "expected the detail row's collapsed class to return after collapsing")
-    if toggle.get_attribute("aria-label") != collapsed_name:
-        raise AssertionError("expected the collapsed accessible name to return")
-
-    # The whole row is clickable: a click on a plain, non-interactive cell expands it.
-    row = page.locator("[data-flight-row]").first
-    if "flight-row--clickable" not in (row.get_attribute("class") or ""):
-        raise AssertionError(
-            "expected flight-rows.js to add its own clickable marker class "
-            "to each summary row at load")
-    row.locator("td").nth(2).click()
-    if toggle.get_attribute("aria-expanded") != "true":
-        raise AssertionError("expected a click on a non-interactive cell to expand the row")
-
-
-# The link sits in a dense strip cell beside a switch, the same geometry that already produced
-# this file's tight pager/handle hit-target measurements.
-
-def test_the_quiet_schedule_link_meets_the_hit_target_floor_at_360px(new_context, server):
-    """The Quiet hours caption's schedule link clears the 44px hit-target floor by real
-    hit-testing, in both themes, at the 360px floor, on both Home and Display, with neither
-    page gaining horizontal scroll from the addition.
-    """
-    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+    context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
         _login(page, server.base_url())
-        recorded = {}
-        for route in ("/", "/display"):
-            page.goto(server.base_url() + route)
-            overflow = page.evaluate(
-                "document.documentElement.scrollWidth > "
-                "document.documentElement.clientWidth")
-            if overflow:
-                raise AssertionError(
-                    "%s: expected no horizontal page scroll at 360px with the "
-                    "schedule link in the strip — the link is a FLOOR addition, "
-                    "not one that pushes the strip past the viewport" % (route,))
-        page.goto(server.base_url() + "/")
-        for theme in ("light", "dark"):
-            _set_ui_theme(page, theme)
-            seen = _assert_hit_target(
-                page, "a.frame-strip__schedule-link",
-                "the Quiet hours caption's schedule link, in its own frame-strip "
-                "cell, %s theme" % theme)
-            recorded[theme] = (seen["visual"], seen["hit"])
-        if recorded["light"][1][0] < 44 or recorded["light"][1][1] < 44:
+        page.goto(server.base_url() + "/flights")
+        rows = page.locator("table.data-table--flights tr[data-flight-row]")
+        links = page.locator("table.data-table--flights a[data-view-panel-src]")
+        rows.first.wait_for(state="visible")
+        if links.count() != rows.count() or rows.count() < 2:
             raise AssertionError(
-                "expected the light-theme hit area to clear 44px, got %r" % (
-                    recorded["light"][1],))
-        if recorded["dark"][1][0] < 44 or recorded["dark"][1][1] < 44:
-            raise AssertionError(
-                "expected the dark-theme hit area to clear 44px, got %r" % (
-                    recorded["dark"][1],))
+                "expected one picture link per rendered flight row, got %d links for %d rows"
+                % (links.count(), rows.count()))
+        for retired in ("[data-row-toggle]", "tr.flight-detail-row", "[data-copy-value]",
+                        ".data-table-wrap [aria-expanded]"):
+            if page.locator(retired).count():
+                raise AssertionError("did not expect %r on the simplified Flights page" % retired)
+
+        first_selector = "table.data-table--flights tr[data-flight-row] a[data-view-panel-src]"
+        link = links.first
+        expected_src = link.get_attribute("data-view-panel-src")
+        name = link.get_attribute("aria-label")
+        if not name or not name.startswith("View picture of "):
+            raise AssertionError("expected the link to name its flight, got %r" % (name,))
+
+        _tab_to(page, first_selector)
+        outline = link.evaluate(
+            "el => [getComputedStyle(el).outlineStyle, parseFloat(getComputedStyle(el).outlineWidth)]")
+        if outline[0] == "none" or outline[1] < 1:
+            raise AssertionError("expected a visible focus outline on the picture link, got %r" % (outline,))
+        page.keyboard.press("Enter")
+        dialog = page.locator(LIGHTBOX)
+        dialog.wait_for(state="visible")
+        if dialog.evaluate("el => el.open") is not True:
+            raise AssertionError("expected Enter on the picture link to open the dialog")
+        if not dialog.get_attribute("aria-label"):
+            raise AssertionError("expected the dialog to carry an accessible name")
+        shown = dialog.locator("img.lightbox__image").get_attribute("src")
+        if shown != expected_src:
+            raise AssertionError("expected the dialog to show %r, got %r" % (expected_src, shown))
+        page.keyboard.press("Escape")
+        if dialog.evaluate("el => el.open"):
+            raise AssertionError("expected Escape to close the dialog")
+        if not page.evaluate("(sel) => document.activeElement === document.querySelector(sel)", first_selector):
+            raise AssertionError("expected focus to return to the picture link after closing")
+
+        links.nth(1).click()
+        if not dialog.evaluate("el => el.open"):
+            raise AssertionError("expected a pointer click on the picture link to open the dialog")
+        if page.url.endswith(".png") or "/gallery/" in page.url:
+            raise AssertionError("expected the script to keep the page in place, not follow the link")
     finally:
         context.close()
 
 
-# `.copy-btn` and `.row-toggle` are measured together, in their own containers, since
-# `.row-toggle` reuses `.copy-btn`'s values verbatim. `.row-toggle` and the desktop `.copy-btn`
-# trio only render in `.data-table-wrap`, hidden below 960px in favour of `.history-cards`, so
-# they are measured at 960px instead; the mobile `.copy-btn` trio does render at 360px and is
-# measured there, closing the literal 360px case too.
-
-def test_copy_btn_and_row_toggle_resolve_to_the_floor_in_their_own_containers(new_context, server):
-    """Every icon control in the .copy-btn/.row-toggle family resolves to the 44px hit-target
-    floor in its own container, by real hit-testing rather than a declared value: the desktop
-    Flights detail row's three .copy-btn and .row-toggle at 960px, and the mobile <details>
-    card's own three .copy-btn at the 360px floor, both in both themes.
+def test_flights_mobile_cards_each_carry_a_picture_action_at_390_and_360(new_context, server):
+    """At 390 and 360 px every phone card shows its picture link inside the card, at the 44px
+    tap floor, with no horizontal page scroll, in English and in French.
     """
-    recorded = {}
+    for lang, label in (("en", "View picture"), ("fr", "Voir l\u2019image")):
+        for viewport in (VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED):
+            context = new_context(viewport=viewport)
+            try:
+                context.add_cookies([{
+                    "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
+                page = context.new_page()
+                _login(page, server.base_url())
+                page.goto(server.base_url() + "/flights")
+                cards = page.locator("li.history-card")
+                cards.first.wait_for(state="visible")
+                where = "%s at %dpx" % (lang, viewport["width"])
+                if not cards.count():
+                    raise AssertionError("expected phone cards (%s)" % where)
+                measured = page.evaluate(
+                    "() => [...document.querySelectorAll('li.history-card')].map(li => {"
+                    "  const a = li.querySelector('a[data-view-panel-src]');"
+                    "  if (!a) return null;"
+                    "  const r = a.getBoundingClientRect(), c = li.getBoundingClientRect();"
+                    "  return {text: a.textContent.trim(), w: r.width, h: r.height,"
+                    "          inside: r.left >= c.left - 0.5 && r.right <= c.right + 0.5,"
+                    "          label: a.getAttribute('aria-label')};"
+                    "})")
+                for index, item in enumerate(measured):
+                    if item is None:
+                        raise AssertionError("card %d has no picture link (%s)" % (index, where))
+                    if item["text"] != label or not item["label"].startswith(label):
+                        raise AssertionError(
+                            "card %d link reads %r / %r, expected %r (%s)"
+                            % (index, item["text"], item["label"], label, where))
+                    if not item["inside"] or item["h"] < 44:
+                        raise AssertionError(
+                            "card %d link is clipped or under 44px tall: %r (%s)"
+                            % (index, item, where))
+                if page.evaluate(
+                        "document.documentElement.scrollWidth > document.documentElement.clientWidth"):
+                    raise AssertionError("expected no horizontal page scroll (%s)" % where)
+                if page.locator("li.history-card details, li.history-card summary").count():
+                    raise AssertionError("did not expect a card disclosure (%s)" % where)
+                cards.first.locator("a[data-view-panel-src]").click()
+                if not page.locator(LIGHTBOX).evaluate("el => el.open"):
+                    raise AssertionError("expected a tap on the card link to open the dialog (%s)" % where)
+            finally:
+                context.close()
 
-    def _measure_desktop(page):
-        toggle = page.locator("[data-row-toggle]").first
-        toggle.wait_for(state="visible")
-        controls_id = toggle.get_attribute("aria-controls")
-        if toggle.get_attribute("aria-expanded") != "true":
-            toggle.click()
-        page.wait_for_timeout(50)
-        detail_sel = "#" + controls_id
-        page.locator(detail_sel).hover()
-        seen = _assert_hit_target(
-            page, "[data-row-toggle]",
-            "the Flights list's own row-toggle, in ITS OWN container (the "
-            "summary row, not the detail row's grid)")
-        recorded["row-toggle/desktop"] = (seen["visual"], seen["hit"])
-        for label, value in (
-                ("hex", "399023"), ("timestamp", "2026-08-01T22:31:40+00:00"),
-                ("callsign", "AFR135")):
-            sel = '%s [data-copy-value="%s"]' % (detail_sel, value)
-            page.locator(sel).focus()
-            seen = _assert_hit_target(
-                page, sel,
-                "the %s .copy-btn, in ITS OWN container (the Flights detail "
-                "row's grid, hovered/focused so its opacity/pointer-events "
-                "reveal fires)" % (label,))
-            recorded["copy-btn/desktop/%s" % label] = (seen["visual"], seen["hit"])
 
-    def _measure_mobile(page):
-        card = page.locator(".history-card").first
-        card.wait_for(state="visible")
-        card.locator("summary").first.click()
-        for label, value in (
-                ("hex", "399023"), ("timestamp", "2026-08-01T22:31:40+00:00"),
-                ("callsign", "AFR135")):
-            sel = '.history-card [data-copy-value="%s"]' % (value,)
-            seen = _assert_hit_target(
-                page, sel,
-                "the mobile %s .copy-btn, in ITS OWN container (the "
-                "<details> card, not the desktop grid)" % (label,))
-            recorded["copy-btn/mobile/%s" % label] = (seen["visual"], seen["hit"])
-
-    context_desktop = new_context(viewport={"width": 960, "height": 900})
-    try:
-        page = context_desktop.new_page()
-        _login(page, server.base_url())
-        for theme in ("light", "dark"):
-            page.goto(server.base_url() + "/flights")
-            _set_ui_theme(page, theme)
-            _measure_desktop(page)
-    finally:
-        context_desktop.close()
-
-    context_mobile = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
-    try:
-        page = context_mobile.new_page()
-        _login(page, server.base_url())
-        for theme in ("light", "dark"):
-            page.goto(server.base_url() + "/flights")
-            _set_ui_theme(page, theme)
-            _measure_mobile(page)
-    finally:
-        context_mobile.close()
-
-    for key, (visual, hit) in recorded.items():
-        if hit[0] < 44 or hit[1] < 44:
-            raise AssertionError(
-                "%s: expected a resolved hit area >=44x44, got %r (visual box "
-                "%r) — a declared 44 is not a resolved 44"
-                % (key, hit, visual))
+def test_flights_picture_link_works_without_scripts(new_context, server):
+    """With scripts blocked the picture action is still a real link: following it serves the
+    archived render, not a script-only path.
+    """
+    with _no_js_page(new_context, server.base_url(), "/flights") as page:
+        link = page.locator("table.data-table--flights a[data-view-panel-src]").first
+        link.wait_for(state="visible")
+        href = link.get_attribute("href")
+        if not href or not href.startswith("/gallery/"):
+            raise AssertionError("expected a real /gallery/ href, got %r" % (href,))
+        response = page.goto(server.base_url() + href)
+        if response is None or response.status != 200 or "image/png" not in response.headers.get("content-type", ""):
+            raise AssertionError("expected the link to serve the archived PNG, got %r" % (response,))
 
 
 def test_flights_filter_count_and_clear_share_one_line_at_390px(new_context, server):
@@ -326,11 +256,12 @@ def test_airlines_grid_renders_two_cards_per_row_at_390px(new_context, server):
                 "expected each card near the 159px the contract predicts, got %r"
                 % (widest_row[0]["width"],))
         # A working two-per-row grid roughly halves the height a one-per-row collapse would
-        # produce. The 3800px ceiling carries headroom over the measured baseline for the
+        # produce. The 6600px ceiling carries headroom over the measured baseline (about
+        # 6200px with every card showing its source and owner rows plus its action) for the
         # current airline count, so this fails on a regression rather than on a pixel, and
         # moves again deliberately whenever the airline count legitimately changes.
         height = page.evaluate("document.documentElement.scrollHeight")
-        if height > 3800:
+        if height > 6600:
             raise AssertionError(
                 "expected the two-per-row grid to roughly halve the audit's 5800px "
                 "page, measured %r" % (height,))
@@ -438,49 +369,6 @@ def test_health_registry_table_fits_1280px(new_context, server, lang):
                 % (lang, box["headClipped"]))
         if page.viewport_size["width"] != 1280:
             raise AssertionError("expected the measurement to be taken at 1280px")
-    finally:
-        context.close()
-
-
-def test_health_filter_count_and_clear_share_one_line_at_390px(new_context, server):
-    """At 390px on Health the filter count and the Clear control report the same
-    bounding-box top, both inside the one shared .filter-bar__meta group, and the page
-    header's Updated clock carries .time-value, never .mono.
-    """
-    context = new_context(viewport=VIEWPORT_PHONE)
-    try:
-        page = context.new_page()
-        _login(page, server.base_url())
-        page.goto(server.base_url() + "/health")
-        count = page.locator("[data-filter-count]").first
-        clear = page.locator("[data-filter-clear]").first
-        count.wait_for(state="visible")
-        clear.wait_for(state="visible")
-        count_box = count.bounding_box()
-        clear_box = clear.bounding_box()
-        if count_box is None or clear_box is None:
-            raise AssertionError("expected both the count and Clear to have a box at 390px")
-        if round(count_box["y"]) != round(clear_box["y"]):
-            raise AssertionError(
-                "expected the Health filter count and Clear to report the same "
-                "top at 390px (A-18 regressing a third time), got %r and %r"
-                % (count_box["y"], clear_box["y"]))
-        in_group = page.eval_on_selector_all(
-            ".filter-bar__meta",
-            "els => els.map(el => [!!el.querySelector('[data-filter-count]'),"
-            " !!el.querySelector('[data-filter-clear]')])")
-        if in_group != [[True, True]]:
-            raise AssertionError(
-                "expected exactly one .filter-bar__meta group on Health holding "
-                "both controls, got %r" % (in_group,))
-        # The page header's own clock left the monospace family for the one time-value role.
-        clock_class = page.eval_on_selector("[data-refresh-clock]", "el => el.className")
-        if "mono" in clock_class.split() or "time-value" not in clock_class.split():
-            raise AssertionError(
-                "expected the page header's Updated clock on .time-value and not "
-                "on .mono, got %r" % (clock_class,))
-        if page.viewport_size["width"] != 390:
-            raise AssertionError("expected the measurement to be taken at 390px")
     finally:
         context.close()
 
@@ -802,90 +690,6 @@ def test_the_leave_guard_re_arms_after_a_new_edit_following_cancel(page, server)
     _wait_for_bar_hidden(page)
     if _guard_armed(page):
         raise AssertionError("expected the leave-guard to disarm on a SECOND Annuler too")
-
-
-def test_strip_switch_applies_without_the_leave_guard_while_other_navigation_still_warns(
-        page, make_app_server):
-    """Activating a Frame strip switch with unsaved Display edits present applies over fetch
-    without navigating, leaves the leave-guard armed for the edit still in the form and the
-    switch still pressable, and raises no dialog, while a plain nav-link navigation with the
-    same unsaved edit still raises one.
-    """
-    # A real browser proof, not a read of dirty-state.js's private suppressGuard variable:
-    # Chromium surfaces a beforeunload guard's preventDefault() as a real `dialog` event of
-    # type "beforeunload", so listening for that event is a genuine behavioural probe.
-    #
-    # This check flips a real setting (display_enabled) through the strip's own quick-switch
-    # endpoint, so it gets its own function-scoped server.
-    server = make_app_server(seed=seed_state_dir, fake_providers=True)
-    base_url = server.base_url()
-    _login(page, base_url)
-    page.goto(base_url + "/display")
-    dialogs = []
-    page.on("dialog", lambda d: (dialogs.append(d.type), d.accept()))
-
-    # The switch flip lands under the finger and the POST goes out over fetch, so there is no
-    # unload at all. What matters is that after the switch has applied, the leave-guard must
-    # still be armed for the unsaved edit still sitting in the form: dirty-state.js disarms its
-    # guard for any [data-quick-switch] submit, and on a page whose form was already dirty
-    # nothing would ever re-arm it, so quick-switch.js listens in the capture phase and stops
-    # propagation precisely so that listener never runs for a submission that is not happening.
-    #
-    # A radio commits (fires change) the instant it is clicked, which would auto-save and
-    # disarm the guard before the assertion runs; focusing and typing would not survive either,
-    # since clicking the switch button blurs the field and fires the commit first. The guard's
-    # own predicate reads the field's live value against the load-time snapshot and needs no
-    # event at all, so the value is set directly with no focus taken and no event dispatched.
-    quiet_sel = 'input[name="quiet_hours_start"]'
-    page.eval_on_selector(quiet_sel, "el => { el.value = '04:44'; }")
-    if not _guard_armed(page):
-        raise AssertionError(
-            "control: the leave-guard was not armed before the switch was "
-            "touched, so the assertion below would prove nothing")
-    before = device_config.load_device_config(server.tmpdir)["display_enabled"]
-    switch_sel = 'form[action="/quick/display"] button[type="submit"]'
-    with page.expect_response(
-            lambda r: r.url.split("?")[0] == base_url + "/quick/display"):
-        page.click(switch_sel)
-    page.wait_for_timeout(400)
-    if dialogs:
-        raise AssertionError(
-            "expected NO beforeunload dialog when activating the strip's own "
-            "switch with unsaved edits present, got %r" % (dialogs,))
-    after = device_config.load_device_config(server.tmpdir)["display_enabled"]
-    if after == before:
-        raise AssertionError("expected the strip switch's own change to persist")
-    if page.url.split("?")[0] != base_url + "/display":
-        raise AssertionError(
-            "expected the switch to apply WITHOUT navigating (D2), but the "
-            "page moved to %r" % (page.url,))
-    if not _guard_armed(page):
-        raise AssertionError(
-            "the leave-guard was left DISARMED after a switch applied on a "
-            "page that still holds an unsaved edit — dirty-state.js disarms "
-            "for any [data-quick-switch] submit and re-arms only on the next "
-            "edit, so a form that was already dirty would lose its guard for "
-            "the rest of the page's life (D2/CFG-36, 23-07-PLAN.md Task 1)")
-    # The switch must also still be pressable: a submit-guard that disabled it on the way out
-    # would leave a dead control on a page that never reloads.
-    if page.eval_on_selector(switch_sel, "el => el.disabled"):
-        raise AssertionError(
-            "the switch was left disabled after applying — with no navigation "
-            "to replace the page, a disabled switch stays disabled forever")
-
-    # Reset: reload, make the same kind of unsaved edit again, then navigate away by a plain
-    # nav link, and the guard must still warn. Same focus-free value set as above: clicking the
-    # nav link would blur a focused field and commit it before the navigation's beforeunload
-    # check ever runs.
-    page.goto(base_url + "/display")
-    dialogs[:] = []
-    page.eval_on_selector(quiet_sel, "el => { el.value = '05:55'; }")
-    with page.expect_navigation():
-        page.click('a[href="/"]')
-    if "beforeunload" not in dialogs:
-        raise AssertionError(
-            "expected a PLAIN navigation with the same unsaved edit to still "
-            "raise the beforeunload dialog, got %r" % (dialogs,))
 
 
 def test_three_runway_cards_share_one_line_at_390px(new_context, server):

@@ -4,11 +4,20 @@
 
 An e-ink wall/desk frame that shows real-time departure info for flights taking off from Paris-Orly (ORY) runway 3. Built on the same "wake → poll → display → deep sleep" architecture as the flightportrait reference project, running on battery power, with a small always-on cloud server generating the display images. v1 ships as a single-view (plane-only) device; the next RER trains from Orly-Ville station and the physical button to switch between views are deferred to v2 (2026-08-11 scope decision — see Key Decisions).
 
-**Milestone status (2026-09-30):** V1.0 (MVP) is complete and archived. The next milestone has not yet been scoped; the two retained battery studies (SEED-007 and SEED-008) are candidates for V1.1.
+**Milestone status (2026-09-30):** V1.0 (MVP) is complete and archived. V1.1 is now being scoped around field battery viability and companion interface polish.
 
 ## Core Value
 
 Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
+
+## Current Milestone: v1.1 Battery and Companion!
+
+**Goal:** Make the battery-powered frame viable for daily field use and refine the companion's day-to-day experience.
+
+**Target features:**
+- Measure and model the split between per-wake consumption and deep-sleep leakage.
+- Choose a production wake interval and determine whether a higher-capacity battery pack is warranted.
+- Polish the companion interface through a focused usability and visual-consistency walkthrough.
 
 ## Requirements
 
@@ -24,6 +33,9 @@ Glancing at the frame tells you, in real time, whether you'll make the next RER 
 
 ### Active
 
+- [ ] (v1.1) Device battery consumption is measured well enough to distinguish per-wake energy from deep-sleep leakage.
+- [ ] (v1.1) The production wake interval and battery-pack decision are documented from measured field data.
+- [ ] (v1.1) The companion interface is improved from a focused usability and visual-consistency walkthrough.
 - [ ] (v2/later) User can see line, destination, and minutes-until-departure for the next 2+ RER trains from Orly-Ville
 - [ ] (v2/later) User can see a "leave by" cue combining the next RER train's countdown with a fixed walk-time buffer
 - [ ] (v2/later) User can see a disruption banner on the RER view during a service disruption on the line
@@ -111,6 +123,7 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 *Last updated: 2026-09-27, after Phase 40 (Companion architecture: routes, pages, templates, i18n keys) closed at 16/16 plans with verification passed (12/12 must-haves). An audit-remediation phase (CMP-01..09, plus developer-confirmed CFG-34/CFG-39/CFG-52), not a v1 user-facing requirement, so this document's Requirements section is unchanged. The companion now dispatches every route through one table (`companion/routes.py`) proven by a session-gating test against a committed pre-refactor baseline; static files are served through one `{route: path}` allowlist; every page reads a typed, lazy `PageContext`; `page_shell()` fills named templates instead of positional `%s`; no companion file sits over the file-length guard and no function over 80 code lines; CSS has zero duplicated selectors and zero hard-coded colours outside tokens; and every UI string is looked up by a stable message ID that can never silently drop its French translation on an English reword (`i18n.t()` now rejects a plain string outright). The battery chart draws through the shared `draw.py` module (CFG-39); the artwork drop zone's keyboard operability is measured, not assumed (CFG-52); and three ages on screen (Flights' "When" cell, Calendar's "refreshed Xm ago", Health's unresolved-prefix cells) now tick live via `<time data-relative>` (CFG-34) — the battery-trend tooltip is the one documented exception. Full suite: 3211 passed, 94.86% coverage.*
+*Last updated: 2026-09-30, after starting milestone v1.1 Battery and Companion! The active scope is the two retained field-battery studies (SEED-007 and SEED-008) and companion interface polish (SEED-010).*
 *Last updated: 2026-09-27, after Phase 38 (Efficiency: companion, poll cycle, storage) closed at 13/13 plans with verification passed. It was an audit-remediation phase (EFF-01..EFF-06), not a v1 user-facing requirement, so this document's Requirements section is unchanged. The companion now serves zstd-compressed, revalidatable static files (confirmed live: style.css 140 KB to 39 KB, 304 on revalidation) and each page loads only its own scripts. Each page request and each poll cycle uses one SQLite connection. The freshness tick answers 304 without rendering, `poll_state.json` is written once per cycle and only when it changed, and the fixed 1.1 s sleep between providers is gone. The before/after record is in `38-EFF-BASELINE.md`.*
 *Last updated: 2026-09-22, after Phase 31 (CI test suite — parallelize `companion/test_browser_ux.py`) closed at 5/5 plans and merged to `main` as PR #78 (squash commit `8c6788a`). Test-infrastructure phase, not a v1 user-facing requirement — REQUIREMENTS.md and this document's Requirements section are unaffected. The one Key Decisions row added records the measured (not assumed) D-05 wall-time verdict, confirmed on both the local proxy and the real CI run that followed. Phase 30 (Aspect rebuilt) merged independently right after, as PR #79 — the two landed back-to-back on `main` from separate sessions; this PR carries only phase 31's own real-CI-confirmation follow-up (the original branch was squash-merged before that follow-up could land, so it is re-applied here fresh against current `main`). The v1.0 milestone's one still-open item this document knows of remains `DEVICE-05`, the unattended multi-day battery discharge run, deliberately deferred to "end of project" — worth revisiting now that the highest-numbered phase has closed.*
 *Last updated: 2026-09-06, close-out pass after Phases 12 and 13 both landed on `main` (PRs #49/#50 and #51). Requirements list reconciled for the first time since Phase 2: four lines that had sat un-ticked under Active despite the phases delivering them (Phases 1, 2, 5) moved to Validated with their evidence; the original server line was split so its "fetches RER data" clause stays Active as v2 rather than being ticked along with the delivered ADS-B/render/serve half. The battery line is validated as a constraint held in daily use, explicitly not as the measured viability DEVICE-05 still owes. Phase 13's own footer facts stand: unmapped phase promoted from SEED-005, 14/14 must-haves in `13-VERIFICATION.md`, two review blockers fixed and 11 non-blocking warnings open in `13-REVIEW.md`. Phase 12 closed on glass 2026-09-06 with all three hold screens redesigned on the panel (recorded in `12-CONTEXT.md` D-03 and `hardware/BRINGUP-LOG.md`). The stale claim carried by an earlier footer — that `06.6.4.1-09-PLAN.md` was never executed — is reconciled: STATE.md and `06.6.4.1-09-SUMMARY.md` record that phase closed at 9/9 with its 28-item developer checklist passed. The v1.0 milestone's one genuinely open item remains `DEVICE-05`, the unattended multi-day battery discharge run.*

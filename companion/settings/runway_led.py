@@ -19,8 +19,8 @@ RUNWAY_IMAGE_ALT_TEMPLATE = i18n.msg("display.airport_diagram_for", "Airport dia
 RUNWAY_SECTION_CAPTION = i18n.msg(
     "display.which_orly_runway_the_device_watches", "Which Orly runway the device watches.")
 LED_SECTION_CAPTION = i18n.msg(
-    "display.lit_only_during_the_device_s_brief_wake_window",
-    "Lit only during the device's brief wake window.")
+    "display.lights_briefly_while_the_frame_checks_for_flights",
+    "Lights briefly while the frame checks for new flight data.")
 
 # server.device_config.runway_label()'s registry text, wrapped as a
 # stable-id Message at this display site — the SAME ids
@@ -159,7 +159,7 @@ def led_group(current_led_enabled, errors=None, submitted=None, next_wake_clock=
         layout.QUICK_SWITCH_REGION_ATTR,
         escape_html(QUICK_LED_LABEL_ID), escape_html(i18n.t(LED_SECTION_HEADING)),
         escape_html(LED_SECTION_CAPTION_ID),
-        escape_html(_with_next_wake(i18n.t(LED_SECTION_CAPTION), next_wake_clock)),
+        escape_html(i18n.t(LED_SECTION_CAPTION)),
         layout.quick_switch_state_html(
             QUICK_LED_STATE_ID,
             i18n.t(layout.QUICK_ACTION_ON_TEXT), i18n.t(layout.QUICK_ACTION_OFF_TEXT), is_on),

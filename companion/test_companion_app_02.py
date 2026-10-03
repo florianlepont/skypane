@@ -190,8 +190,8 @@ def test_toggle_aria_contract_and_fixed_label():
 
 
 def test_dropdown_contents_and_order():
-    """the dropdown panel holds the state reminder, then the language and theme switches and
-    Sign out, in that order — and zero destination links"""
+    """the dropdown panel holds the language and theme switches and Sign out, in that order, no
+    screen/quiet-hours state reminder — and zero destination links"""
     doc = layout.page_shell(
         title="T", active="health", body="<p>b</p>",
         device_config={"display_enabled": True, "quiet_hours_enabled": False})
@@ -205,15 +205,16 @@ def test_dropdown_contents_and_order():
     assert "mobile-nav__link" not in panel, "expected zero dropdown destination links"
     order = []
     for needle, name in (
-            ('class="nav-status', "the state reminder"),
             ('action="/ui-lang"', "the language switch"),
             ('action="/ui-theme"', "the theme switch"),
             ('action="/logout"', "Sign out")):
         index = panel.find(needle)
         assert index != -1, "expected %s inside the dropdown" % name
         order.append((index, name))
+    assert 'class="nav-status' not in panel, (
+        "expected the retired screen/quiet-hours state reminder to stay out of the dropdown")
     assert order == sorted(order), (
-        "expected the reminder, then language, theme and Sign out, in that order; got %r"
+        "expected language, theme and Sign out, in that order; got %r"
         % (order,))
     assert panel.count('class="mobile-nav__footer"') == 1, (
         "expected exactly one footer region in the dropdown")

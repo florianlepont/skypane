@@ -8,7 +8,6 @@ save, so each gets its own function-scoped
 across mutating tests would make xdist's distribution order-dependent.
 """
 import json
-import re
 
 import pytest
 
@@ -951,6 +950,7 @@ WAKE_RANGE_SEL = ".wake-slider__input"
 WAKE_NUMBER_SEL = 'input[name="wake_interval_s"]'
 WAKE_FRESHNESS_SEL = "#" + config_page.WAKE_GAUGE_FRESHNESS_ID
 WAKE_BATTERY_SEL = "#" + config_page.WAKE_GAUGE_BATTERY_ID
+WAKE_CAPTION_SEL = "#" + config_page.WAKE_INTERVAL_SECTION_CAPTION_ID
 
 
 def _wake_interval_on_disk(state_dir):
@@ -958,9 +958,12 @@ def _wake_interval_on_disk(state_dir):
     return config.get("wake_interval_s")
 
 
-def _gauge_texts(page):
-    return (page.locator(WAKE_FRESHNESS_SEL).inner_text(),
-            page.locator(WAKE_BATTERY_SEL).inner_text())
+def _assert_no_gauge_sentences(page):
+    """The aircraft-delay and battery-history sentences are retired from the wake card."""
+    present = page.locator("%s, %s" % (WAKE_FRESHNESS_SEL, WAKE_BATTERY_SEL)).count()
+    if present:
+        raise AssertionError(
+            "the wake interval card rendered %d retired gauge sentence(s)" % present)
 
 
 # Set the interval through the real UI and save, so every arrangement measured below is
@@ -986,12 +989,6 @@ def _set_interval(page, base_url, state_dir, seconds):
             "setting the interval to %r through the UI stored %r"
             % (seconds, stored))
     page.goto(base_url + "/device")
-
-
-# A days figure in EITHER shipped language, which is what
-# the battery gauge may not print unless this frame's own
-# observed history supports one.
-_DAYS_FIGURE_RE = re.compile(r"\d+\s*(?:day|jour)", re.I)
 
 
 def test_the_dial_handle_stays_on_its_ring_for_the_whole_of_a_held_press(new_context, server):
@@ -1190,11 +1187,11 @@ def test_the_wake_interval_still_saves_with_scripts_blocked_through_the_slider(n
     natively, submitted through the real form, re-read from disk after a fresh GET and
     restored the same way, at 360px and in both shipped languages; the gated range has
     zero height and no keyboard can reach into it with scripts blocked while it occupies
-    space with them; both gauges are measured (not counted) present on the scripts-blocked
-    page, asserted after the save so neither can stand in for it; and the out-of-range trap
-    is re-proven end to end: with 30 s on disk the number input carries no value attribute,
-    no range and no gauge render at all, and the whole Settings form still saves a
-    corrected value.
+    space with them; the scripts-blocked page still renders exactly one number input with
+    its unit and the saved value, asserted after the save so they cannot stand in for it;
+    and the out-of-range trap is re-proven end to end: with 30 s on disk the number input
+    carries no value attribute, no range renders at all, and the whole Settings form still
+    saves a corrected value.
     """
     base_url = server.base_url()
     before = _wake_interval_on_disk(server.tmpdir)
@@ -1204,7 +1201,7 @@ def test_the_wake_interval_still_saves_with_scripts_blocked_through_the_slider(n
         return _wake_interval_on_disk(server.tmpdir)
 
     # It still reaches disk with scripts blocked, at 360px and in both shipped languages.
-    # The gauges are asserted present only after the save, so they can never stand in for it.
+    # The page's own controls are asserted only after the save, so they can never stand in for it.
     saved = {}
     for lang in ("en", "fr"):
         cookies = [{"name": auth.UI_LANG_COOKIE_NAME,
@@ -1234,30 +1231,12 @@ def test_the_wake_interval_still_saves_with_scripts_blocked_through_the_slider(n
         viewport=VIEWPORT_MIN_SUPPORTED)
     recorded["gate"] = gate
 
-    # Both gauges are there without a script, which is what makes this card's fallback a
-    # feature rather than an absence. Measured, not counted: locator.count() counts
-    # elements whatever their box is, so it would pass against a gauge moved behind the gate.
     with _no_js_page(new_context, base_url, "/device",
                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
-        boxes = {}
-        texts = {}
-        for name, sel in (("freshness", WAKE_FRESHNESS_SEL),
-                          ("battery", WAKE_BATTERY_SEL)):
-            locator = page.locator(sel)
-            boxes[name] = locator.bounding_box() if locator.count() else None
-            texts[name] = locator.inner_text() if locator.count() else None
         blocked_number = page.locator(WAKE_NUMBER_SEL).count()
         blocked_unit = page.locator(".field-inline-value").count()
         blocked_value = page.get_attribute(WAKE_NUMBER_SEL, "value")
-    recorded["blocked_boxes"] = boxes
-    recorded["blocked_texts"] = texts
-    for name in ("freshness", "battery"):
-        box = boxes[name]
-        if not box or box["width"] <= 0 or box["height"] <= 0:
-            raise AssertionError(
-                "the %s gauge occupies no space with scripts blocked (%r) — "
-                "rendered is not read, and a gauge behind the gate is the "
-                "refactor this clause exists to notice" % (name, box))
+        _assert_no_gauge_sentences(page)
     if blocked_number != 1 or blocked_unit < 1:
         raise AssertionError(
             "with scripts blocked the card renders %d number input(s) and %d "
@@ -1267,11 +1246,6 @@ def test_the_wake_interval_still_saves_with_scripts_blocked_through_the_slider(n
         raise AssertionError(
             "with scripts blocked the number input shows %r, not the saved %r"
             % (blocked_value, before))
-    if "at most" not in texts["freshness"] and "au plus" not in texts["freshness"]:
-        raise AssertionError(
-            "the scripts-blocked freshness gauge reads %r — the bound has to be "
-            "legible without a script" % texts["freshness"])
-
     # 4. THE OUT-OF-RANGE TRAP, END TO END, and it is the
     #    one defect on this card that takes down the
     #    WHOLE page rather than one field: an
@@ -1300,19 +1274,18 @@ def test_the_wake_interval_still_saves_with_scripts_blocked_through_the_slider(n
                          viewport=VIEWPORT_MIN_SUPPORTED) as page:
             below_value = page.get_attribute(WAKE_NUMBER_SEL, "value")
             below_ranges = page.locator(WAKE_RANGE_SEL).count()
-            below_gauges = page.locator(WAKE_FRESHNESS_SEL).count()
-        recorded["below_floor"] = (below_value, below_ranges, below_gauges)
+        recorded["below_floor"] = (below_value, below_ranges)
         if below_value is not None:
             raise AssertionError(
                 "with 30 s stored the number input carries value=%r — an "
                 "out-of-range value fails HTML5 constraint validation and "
                 "blocks submission of the ENTIRE Settings form" % below_value)
-        if below_ranges or below_gauges:
+        if below_ranges:
             raise AssertionError(
-                "with 30 s stored the card rendered %d range(s) and %d gauge(s) "
+                "with 30 s stored the card rendered %d range(s) "
                 "— a range with no usable value sits at the midpoint of its own "
                 "band, which is a number nobody chose"
-                % (below_ranges, below_gauges))
+                % (below_ranges,))
         # AND THE WHOLE FORM STILL SUBMITS. This is the
         # half that matters: the page is still usable
         # with a below-floor value on disk.
@@ -1337,14 +1310,11 @@ def test_the_wake_interval_still_saves_with_scripts_blocked_through_the_slider(n
 
 def test_dragging_and_keying_the_wake_range_reach_disk(new_context, server):
     """Dragging the wake-interval range moves the native <input type="number"> the form
-    posts, moves both gauge sentences with it, reveals the bar and persists to disk once
-    Enregistrer is clicked, with the script's own wording asserted equal to the server's
-    for the same two cadences, so the script provably carries no copy of its own; one
+    posts, reveals the bar and persists to disk once Enregistrer is clicked; one
     ArrowRight moves exactly one stated step and End/Home reach device_config's own
     ceiling and floor with zero pointer events fired and the recorder proving itself;
-    typing into the number input moves the range back; and at no position, dragged, keyed,
-    at the floor or at the ceiling, does the battery gauge produce a days figure from this
-    fixture's rising series.
+    typing into the number input moves the range back; and the retired aircraft-delay and
+    battery-history sentences never render beside the control.
     """
     base_url = server.base_url()
     before = _wake_interval_on_disk(server.tmpdir)
@@ -1355,15 +1325,12 @@ def test_dragging_and_keying_the_wake_range_reach_disk(new_context, server):
         page = context.new_page()
         _login(page, base_url)
         _set_interval(page, base_url, server.tmpdir, 600)
-        started = _gauge_texts(page)
-        recorded["at_600"] = started
+        _assert_no_gauge_sentences(page)
 
         # The drag: aimed at a point well along the track rather than at a value computed
         # from the thumb geometry, since a native range maps its value across (width -
         # thumbWidth), an engine detail this check has no business predicting. What it
-        # asserts is that the number input and both gauge sentences moved together, and
-        # that what the script rendered is what the server would have rendered for the
-        # same value.
+        # asserts is that the number input moved to a whole number of stated steps.
         #
         # Scrolled to the middle of the viewport first: at 360px this page is long and its
         # tab bar is fixed to the bottom, so a coordinate gesture taken wherever the page
@@ -1390,39 +1357,6 @@ def test_dragging_and_keying_the_wake_range_reach_disk(new_context, server):
             raise AssertionError(
                 "a drag produced %r, which is not a whole number of the stated "
                 "%d-second steps" % (dragged, config_page.WAKE_SLIDER_STEP_S))
-        moved = _gauge_texts(page)
-        recorded["after_drag"] = moved
-        if moved[0] == started[0]:
-            raise AssertionError(
-                "the freshness gauge still reads %r after the value moved from "
-                "600 to %s — a gauge that does not move is a gauge that is "
-                "wrong from the first drag" % (moved[0], dragged))
-        if moved[1] == started[1]:
-            raise AssertionError(
-                "the battery gauge still reads %r after the value moved from "
-                "600 to %s" % (moved[1], dragged))
-        # What the script says is what the server would have said: the relative clause has
-        # exactly one definition in Python, which is what makes "the script carries no copy
-        # of its own" a measurement rather than a claim.
-        expected_clause = config_page.wake_battery_relative_text(dragged_s, 600)
-        recorded["expected_clause"] = expected_clause
-        if not expected_clause or expected_clause not in moved[1]:
-            raise AssertionError(
-                "the battery gauge reads %r; the server's own wording for the "
-                "same two cadences is %r" % (moved[1], expected_clause))
-        expected_bound = config_page.wake_freshness_text(dragged_s)
-        if moved[0] != expected_bound:
-            raise AssertionError(
-                "the freshness gauge reads %r; the server's own wording for %s "
-                "seconds is %r" % (moved[0], dragged, expected_bound))
-        # The honesty clause, in the browser: this fixture's battery series is rising (the
-        # device was charged), so companion/battery.py refuses a figure, and no drag
-        # position may produce one.
-        if _DAYS_FIGURE_RE.search(moved[1]):
-            raise AssertionError(
-                "the battery gauge produced a days figure (%r) from a rising "
-                "series — the per-wake energy cost has never been measured and "
-                "the script has no template that could state one" % moved[1])
         # value-controls.js's notify() is the same real `change` event the bar's own
         # document-level listener reacts to, so the drag revealing the bar is the proof
         # the event fired; the edit only reaches disk once Enregistrer is clicked.
@@ -1463,30 +1397,12 @@ def test_dragging_and_keying_the_wake_range_reach_disk(new_context, server):
             raise AssertionError(
                 "End put %r into the field; the band's ceiling is %d"
                 % (recorded["after_end"], device_config.WAKE_INTERVAL_MAX_S))
-        recorded["at_max"] = _gauge_texts(page)
         page.keyboard.press("Home")
         recorded["after_home"] = page.input_value(WAKE_NUMBER_SEL)
         if int(recorded["after_home"]) != device_config.WAKE_INTERVAL_MIN_S:
             raise AssertionError(
                 "Home put %r into the field; the band's floor is %d"
                 % (recorded["after_home"], device_config.WAKE_INTERVAL_MIN_S))
-        recorded["at_min"] = _gauge_texts(page)
-        # The floor and the ceiling both read true, and neither produces a days figure.
-        for where, texts, seconds in (
-                ("the band's floor", recorded["at_min"],
-                 device_config.WAKE_INTERVAL_MIN_S),
-                ("the band's ceiling", recorded["at_max"],
-                 device_config.WAKE_INTERVAL_MAX_S)):
-            if texts[0] != config_page.wake_freshness_text(seconds):
-                raise AssertionError(
-                    "at %s the freshness gauge reads %r, not the server's own "
-                    "%r" % (where, texts[0],
-                            config_page.wake_freshness_text(seconds)))
-            if _DAYS_FIGURE_RE.search(texts[1]):
-                raise AssertionError(
-                    "at %s the battery gauge produced a days figure: %r"
-                    % (where, texts[1]))
-
         # Typing in the number input moves the range, the direction a repaint has to cover
         # and the one a drag test is blind to.
         _set_interval(page, base_url, server.tmpdir, 600)
@@ -1524,9 +1440,9 @@ def test_the_wake_slider_meets_its_floors_at_360px_in_both_themes(new_context, s
     measures wider than the number input it steers and no wider than the card holding it
     by getBoundingClientRect rather than clientWidth, its wrapper keeps a real top margin
     off the field's own row, the Device page does not scroll sideways at that width (its
-    own baseline, not the Display page's), and the paint is a floor not a ceiling: both
-    gauge sentences and the control's own accent and surface all differ between the two
-    themes and neither sentence is painted in the canvas colour.
+    own baseline, not the Display page's), and the paint is a floor not a ceiling: the
+    card's caption and the control's own accent and surface all differ between the two
+    themes and the caption is not painted in the canvas colour.
     """
     base_url = server.base_url()
     before = _wake_interval_on_disk(server.tmpdir)
@@ -1605,8 +1521,8 @@ def test_the_wake_slider_meets_its_floors_at_360px_in_both_themes(new_context, s
                 "control is the most likely cause and this is its own page's "
                 "baseline, not the Display page's" % (width_at_360,))
 
-        # The paint, in both themes, as a floor rather than a ceiling: a gauge is only a
-        # gauge if it can be read, so both sentences and the control's own accent have to
+        # The paint, in both themes, as a floor rather than a ceiling: a caption is only a
+        # caption if it can be read, so it and the control's own accent have to
         # change with the theme, or one of the two modes is showing ink on ink.
         #
         # The theme switch starts a transition, and the read has to wait for the browser's
@@ -1617,7 +1533,7 @@ def test_the_wake_slider_meets_its_floors_at_360px_in_both_themes(new_context, s
         _SETTLE_SLIDER = (
             "async () => {"
             "  const els = [...document.querySelectorAll("
-            "    '.wake-slider, .wake-slider *, .wake-gauge, body')];"
+            "    '.wake-slider, .wake-slider *, .section-caption, body')];"
             "  await Promise.all(els.flatMap("
             "    e => e.getAnimations().map("
             "      a => a.finished.catch(() => {}))));"
@@ -1632,29 +1548,26 @@ def test_the_wake_slider_meets_its_floors_at_360px_in_both_themes(new_context, s
                 "  const read = (s, p) =>"
                 "    getComputedStyle(document.querySelector(s))"
                 "      .getPropertyValue(p).trim();"
-                "  return {freshness: read(sels.freshness, 'color'),"
-                "          battery: read(sels.battery, 'color'),"
+                "  return {caption: read(sels.caption, 'color'),"
                 "          accent: read(sels.range, 'accent-color'),"
                 "          surface: read(sels.range, 'background-color'),"
                 "          canvas: getComputedStyle(document.body)"
                 "            .backgroundColor};"
-                "}", {"freshness": WAKE_FRESHNESS_SEL,
-                      "battery": WAKE_BATTERY_SEL,
+                "}", {"caption": WAKE_CAPTION_SEL,
                       "range": WAKE_RANGE_SEL})
         recorded["paints"] = paints
         light, dark = paints["light"], paints["dark"]
-        for key in ("freshness", "battery", "accent", "surface"):
+        for key in ("caption", "accent", "surface"):
             if light[key] == dark[key]:
                 raise AssertionError(
                     "the slider card's %s paints identically in both themes "
                     "(%r) — a token that does not invert is a literal, and one "
                     "of the two modes is wrong" % (key, light[key]))
         for theme, sampled in paints.items():
-            for key in ("freshness", "battery"):
-                if sampled[key] == sampled["canvas"]:
-                    raise AssertionError(
-                        "%s: the %s gauge's text is the canvas colour (%r) — it "
-                        "is not legible at all" % (theme, key, sampled[key]))
+            if sampled["caption"] == sampled["canvas"]:
+                raise AssertionError(
+                    "%s: the caption's text is the canvas colour (%r) — it "
+                    "is not legible at all" % (theme, sampled["caption"]))
         _set_ui_theme(page, "light")
         if _wake_interval_on_disk(server.tmpdir) != before:
             raise AssertionError(

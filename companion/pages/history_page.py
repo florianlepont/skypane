@@ -1,15 +1,14 @@
-"""The Flights page: a flight-history log built from
-`server.history_db.recent_runway_events()`, reusing
+"""The Flights page: a compact log of the latest aircraft the frame has
+shown, built from `server.history_db.recent_runway_events()`, reusing
 `server.plane.render`'s presentation-only mappings
 (`display_airline_name()`, `_TYPE_DISPLAY_LABELS`) so this page and the
 physical panel describe the same flight with the same words.
 
 Every database access goes through `_safe_query()`, so a missing or
 locked database degrades to the unavailable copy instead of raising.
-`layout.data_table()` cannot host the Corroboration column's
-`status_dot()` markup (it escapes every cell value), so this module
-builds its own table markup, matching `data_table()`'s CSS classes for
-visual consistency and escaping every other cell through
+`layout.data_table()` escapes every cell value and cannot host the
+row-level picture link, so this module builds its own table markup,
+matching `data_table()`'s CSS classes and escaping every cell through
 `escape_html()`.
 """
 import re
@@ -22,7 +21,6 @@ from companion.layout import escape_html
 import companion.layout as layout
 import companion.page_context as page_context
 import companion.prefs as prefs
-from server import device_config
 from server import history_db
 from server.plane import illustrations
 from server.plane import manual_resolutions
@@ -45,9 +43,6 @@ FLIGHTS_PAGE_SIZE = 15
 FLIGHTS_LIMIT_QUERY_PARAM = "limit"
 
 PAGE_TITLE = i18n.msg("nav.flights", "Flights")
-PAGE_PURPOSE_TEMPLATE = i18n.msg(
-    "flights.the_latest_aircraft_the_frame_has_shown",
-    "The latest %d aircraft the frame has shown.")
 LIGHTBOX_ARIA_LABEL = i18n.msg(
     "flights.picture_shown_on_the_frame", "Picture shown on the frame")
 
@@ -102,70 +97,35 @@ _HISTORY_UNAVAILABLE_TEXT = i18n.msg(
     "flights.the_flight_list_is_temporarily_unavailable_try",
     "The flight list is temporarily unavailable — try again in a minute.")
 
-# Five columns: "When" and "Flight" are two-line cell-primary/secondary
-# pairs (_merged_cell(), stacked rather than inline); the hex, full ISO
-# timestamp, runway and copy buttons move into a sibling expandable
-# detail <tr>. Corroboration keeps its dot but hides its label
-# (status_dot(visually_hide_label=True)): a ~90px label would blow the
-# column's content-width budget.
+# Four data columns plus a picture column. "When" and "Flight" are
+# two-part cell-primary/secondary cells (_merged_cell()); the picture
+# column's header is visually hidden, since the link names itself.
 #
-# "Flight" is owned by companion/i18n_fr/rules.py, "Corroboration" by
-# companion/i18n_fr/health.py — declared here since this page reads
-# them, with the id each catalogue's own migration will independently
-# derive for the same English text (msg() is idempotent on a repeat
-# (id, English) pair).
+# "Flight" is owned by companion/i18n_fr/rules.py — declared here since
+# this page reads it, with the id that catalogue's own migration derives
+# for the same English text (msg() is idempotent on a repeat (id,
+# English) pair).
 _HEADER_WHEN_TEXT = i18n.msg("flights.when", "When")
 _HEADER_FLIGHT_TEXT = i18n.msg("rules.flight", "Flight")
 _HEADER_ROUTE_TEXT = i18n.msg("flights.route", "Route")
 _HEADER_STATE_TEXT = i18n.msg("flights.state", "State")
-_HEADER_CORROBORATION_TEXT = i18n.msg("health.corroboration", "Corroboration")
 _HEADERS = (
     _HEADER_WHEN_TEXT, _HEADER_FLIGHT_TEXT, _HEADER_ROUTE_TEXT,
-    _HEADER_STATE_TEXT, _HEADER_CORROBORATION_TEXT,
+    _HEADER_STATE_TEXT,
 )
+_TABLE_COLUMN_COUNT = len(_HEADERS) + 1
 
-# The sixth, non-data <th>: a visually-hidden "Details" label naming
-# the row-toggle column for a screen-reader user, never emitted through
-# the _HEADERS/i18n.t(h) loop (no column of formatted data behind it).
-_DETAILS_HEADER_TEXT = i18n.msg("flights.details", "Details")
+# The visually-hidden header naming the picture column.
+_PICTURE_HEADER_TEXT = i18n.msg("flights.picture", "Picture")
 
-# The row toggle is icon-only: each button carries a translated
-# aria-label that swaps with its state, wider than the base "Show/Hide
-# flight details" wording since the panel-picture control lives inside
-# that detail row too and a name saying only "details" would hide it.
-_TOGGLE_SHOW_LABEL = i18n.msg(
-    "flights.show_flight_details_and_picture", "Show flight details and picture")
-_TOGGLE_HIDE_LABEL = i18n.msg(
-    "flights.hide_flight_details_and_picture", "Hide flight details and picture")
+# "%s" is the row's callsign (or fallback): a page of ~50 identical
+# "View picture" links would otherwise share one accessible name.
+_VIEW_PICTURE_OF_TEMPLATE = i18n.msg("flights.view_picture_of", "View picture of %s")
 
-# The detail row/mobile card's own dt labels. "Hex"/"Full timestamp" are
-# owned by companion/i18n_fr/flights.py; "Runway" by
-# companion/i18n_fr/display.py, "Callsign" by
-# companion/i18n_fr/display.py, "Aircraft" by companion/i18n_fr/rules.py,
-# "More details" by companion/i18n_fr/health.py, "%d of %d shown" and
-# "Clear" also by companion/i18n_fr/health.py — declared here since this
-# page reads them, with the id each catalogue's own migration will
-# independently derive for the same English text.
-_HEX_LABEL_TEXT = i18n.msg("flights.hex", "Hex")
-_FULL_TIMESTAMP_LABEL_TEXT = i18n.msg("flights.full_timestamp", "Full timestamp")
-_RUNWAY_LABEL_TEXT = i18n.msg("display.runway", "Runway")
-_CALLSIGN_LABEL_TEXT = i18n.msg("display.callsign", "Callsign")
-_AIRCRAFT_LABEL_TEXT = i18n.msg("rules.aircraft", "Aircraft")
-_MORE_DETAILS_TEXT = i18n.msg("health.more_details", "More details")
+# "Callsign" and "Clear" are owned by other catalogues; declared here
+# since this page reads them.
 _FILTER_COUNT_TEMPLATE = i18n.msg("health.of_shown", "%d of %d shown")
 _CLEAR_TEXT = i18n.msg("health.clear", "Clear")
-
-# A decorative glyph inside an aria-hidden span, so the button's
-# accessible name is the aria-label above alone. Rendered server-side,
-# not through a CSS `content:` string (not translatable) or
-# layout.icon_html() (the sprite has no chevron symbol).
-_TOGGLE_GLYPH = "▾"
-
-# The two attribute names flight-rows.js reads the swapped accessible
-# name from — duplicated, not imported (a page module has no import
-# path to a static script), pinned against that file's source.
-_TOGGLE_SHOW_LABEL_ATTR = "data-show-label"
-_TOGGLE_HIDE_LABEL_ATTR = "data-hide-label"
 
 # Names the .data-table-wrap scroller for keyboard users: tabindex="0"
 # plus this label turn the wrapper into a focusable, named region a
@@ -184,38 +144,6 @@ CELL_SEPARATOR_CLASS = "cell-inline-sep"
 # call site and a middle dot at another.
 CELL_SEPARATOR_TEXT = "·"
 
-# history_db's stored corroborated column mapped to the same three
-# (status, label) pairs health_page._CORROBORATION_ROWS uses, so the
-# two pages read consistently. An unrecognised/legacy value falls back
-# to the warning class rather than a fabricated label.
-# "Both agree"/"They disagree"/"Only one saw it" are owned by
-# companion/i18n_fr/health.py, not flights.py — the same ids
-# health_page.py's own corroboration copy uses.
-_CORROBORATION_LABELS = {
-    "True": ("ok", i18n.msg("health.both_agree", "Both agree")),
-    # Shortened from "Single-source (uncorroborated)": the parenthetical
-    # made this column overlong. The long form survives as a tooltip via
-    # _CORROBORATION_TITLES; health_page keeps the long form as its own
-    # visible label — the two pages are allowed to diverge in copy.
-    "None": ("ok", i18n.msg("flights.single_source", "Single-source")),
-    "False": ("warn", i18n.msg("health.they_disagree", "They disagree")),
-}
-_DEFAULT_CORROBORATION = ("warn", i18n.msg("flights.unknown", "Unknown"))
-
-# Keys absent from this dict resolve to no tooltip at all (True/False
-# need none). Kept equal to health_page's own "None" visible label.
-_CORROBORATION_TITLES = {
-    "None": i18n.msg("health.only_one_saw_it", "Only one saw it"),
-}
-
-
-def _corroboration_title_text(corroborated_key):
-    """The long-form tooltip text for the "None" (single-source) state,
-    translated; "" for True/False and any other key, which need none —
-    never passed to i18n.t(), which only accepts a Message."""
-    message = _CORROBORATION_TITLES.get(corroborated_key)
-    return i18n.t(message) if message is not None else ""
-
 _DB_UNAVAILABLE = object()  # Same sentinel discipline as health_page.py:
 # distinguishes "query raised" from "query succeeded, legitimately empty".
 
@@ -227,7 +155,7 @@ _DB_UNAVAILABLE = object()  # Same sentinel discipline as health_page.py:
 # specifically.
 _FILTER_INPUT_ID = "history_filter_input"
 _FILTER_LABEL_TEXT = i18n.msg(
-    "flights.filter_by_callsign_or_hex", "Filter by callsign or hex")
+    "flights.filter_flights", "Filter flights")
 _FILTER_EMPTY_HEADING = i18n.msg("flights.no_matching_flights", "No matching flights")
 _FILTER_EMPTY_BODY_TEMPLATE = i18n.msg(
     "flights.try_a_different_search_or_clear_filter_to_see",
@@ -245,32 +173,25 @@ _FILTER_EMPTY_BODY_LIMITED_TEMPLATE = i18n.msg(
 SHOW_MORE_TEMPLATE = i18n.msg(
     "flights.show_more_remaining", "Show more (%d remaining)")
 
-# Each is a %s template naming the row (callsign, or a hex/
-# NO_CALLSIGN_NOTE_TEXT fallback via _row_copy_name()), so a page's ~50
-# copy buttons don't share one identical accessible name.
-_COPY_CALLSIGN_LABEL = i18n.msg("flights.copy_callsign", "Copy callsign %s")
-_COPY_HEX_LABEL = i18n.msg("flights.copy_hex_id_for", "Copy hex ID for %s")
-_COPY_TIMESTAMP_LABEL = i18n.msg("flights.copy_timestamp_for", "Copy timestamp for %s")
-
 # The presentational note shown beside a promoted hex when a row has no
 # callsign: a module-level constant so the desktop cell and the mobile
 # card can't drift onto two different wordings.
 NO_CALLSIGN_NOTE_TEXT = i18n.msg("flights.no_callsign", "no callsign")
 
 
-def _row_copy_name(callsign, hex_value):
-    """The value substituted for the `%s` in each `_COPY_*_LABEL`
-    template: the row's callsign, falling back to its hex and finally
-    to `NO_CALLSIGN_NOTE_TEXT`, so a row with neither never leaves the
-    accessible name with a dangling "for ".
+def _row_name(callsign, hex_value):
+    """The value substituted for the `%s` in `_VIEW_PICTURE_OF_TEMPLATE`:
+    the row's callsign, falling back to its hex and finally to
+    `NO_CALLSIGN_NOTE_TEXT`, so a row with neither never leaves the
+    accessible name with a dangling "of ".
     """
     return callsign or hex_value or i18n.t(NO_CALLSIGN_NOTE_TEXT)
 
 
 # The stable identity of the event a row describes, rendered into
-# layout.REFRESH_ROW_ID_ATTR on all three of this page's row elements.
+# layout.REFRESH_ROW_ID_ATTR on both of this page's row elements.
 # `runway_events.id` is assigned once and never reused, unlike the loop
-# counter (`flight-detail-{n}`), which renumbers whenever a newer
+# counter, which renumbers whenever a newer
 # detection arrives at the top. The `e` prefix keeps the value an
 # opaque token, read back by freshness.js as an object key. Degrades,
 # never raises: a row with no integer id falls back to its timestamp
@@ -283,8 +204,6 @@ def _row_identity(row):
     return "t%s-%s" % (row.get("raw_ts") or "", row.get("hex") or "")
 
 
-VIEW_PANEL_LABEL = i18n.msg(
-    "flights.view_panel_near_this_time", "View panel near this time")
 LIGHTBOX_DIALOG_ID = "panel-lookup-dialog"
 LIGHTBOX_CAPTION_TEMPLATE = i18n.msg("flights.picture_from", "Picture from %s")
 # LIGHTBOX_DIALOG_ID and the three data-view-panel-* attribute names
@@ -363,31 +282,6 @@ def _confirmed_state_label(raw):
     return raw.replace("_", " ").title()
 
 
-# server/device_config.py's RUNWAYS registry text, translated at this
-# display site the same way config_page.py's own runway picker does;
-# the French lives in companion/i18n_fr/registry.py, owned by that
-# module rather than by this page.
-_RUNWAY_LABEL_MESSAGES = {
-    "Runway 3 (07/25)": i18n.msg("registry.runway_3_07_25", "Runway 3 (07/25)"),
-    "Runway 4 (06/24)": i18n.msg("registry.runway_4_06_24", "Runway 4 (06/24)"),
-    "Runway 2 (02/20)": i18n.msg("registry.runway_2_02_20", "Runway 2 (02/20)"),
-}
-
-
-def _runway_label(raw):
-    """Maps a runway_events.tracked_runway raw id to
-    `server.device_config.runway_label()`'s human label, e.g. "3" ->
-    "Runway 3 (07/25)". Only looks the id up when it is a real
-    `RUNWAY_IDS` member; an unrecognised id (a stale/foreign value on an
-    old row) degrades to the raw id unchanged rather than raising.
-    """
-    if raw and raw in device_config.RUNWAY_IDS:
-        label = device_config.runway_label(raw)
-        message = _RUNWAY_LABEL_MESSAGES.get(label)
-        return i18n.t(message) if message is not None else label
-    return raw or ""
-
-
 def nearest_gallery_entry(entries, row_ts):
     """Returns the `(filename, iso)` pair from `entries` whose
     filename-recovered timestamp is the latest one at or before
@@ -425,6 +319,28 @@ def nearest_gallery_entry(entries, row_ts):
     return best
 
 
+def earliest_gallery_entry(entries):
+    """The `(filename, iso)` pair with the earliest recoverable
+    timestamp in `entries`, or `None`. The fallback for a flight older
+    than every archived render, so each flight can still open a picture
+    whenever the gallery holds one.
+    """
+    best = None
+    best_dt = None
+    for name in entries or []:
+        iso = _gallery_name_to_iso(name)
+        if iso is None:
+            continue
+        try:
+            entry_dt = datetime.fromisoformat(iso)
+        except ValueError:
+            continue
+        if best_dt is None or entry_dt < best_dt:
+            best = (name, iso)
+            best_dt = entry_dt
+    return best
+
+
 def lightbox_caption_text(iso):
     """The lightbox caption for a gallery entry's ISO timestamp: a
     humanised local-time form ("Picture from 3 Sep 23:38"), falling
@@ -444,27 +360,27 @@ def lightbox_caption_text(iso):
     return i18n.t(LIGHTBOX_CAPTION_TEMPLATE) % when
 
 
-def _view_panel_button_html(name, iso):
-    """A "View panel near this time" trigger button, one per row that
-    has a nearest render, living inside the expanded detail row beside
-    the hex/timestamp/copy buttons the picture belongs with. Reuses
-    `.calendar-disconnect-btn`'s small, de-emphasised secondary-action
-    treatment. The visible label is the accessible name (no `aria-label`
-    duplicate); `VIEW_PANEL_LABEL` survives as the `title` tooltip.
-    `name` becomes the trigger source attribute; `iso` is formatted
-    through `LIGHTBOX_CAPTION_TEMPLATE` into the caption attribute,
-    which `panel-lookup.js` copies verbatim into the lightbox caption
-    on open (no client-side templating).
+def _view_panel_link_html(name, iso, row_name):
+    """The row's "View picture" action: a real link to the archived
+    render, so it works without script. panel-lookup.js, when present,
+    intercepts the click and shows the same image in the shared
+    lightbox instead. `name` becomes the link target and the trigger
+    source attribute; `iso` is formatted through
+    `LIGHTBOX_CAPTION_TEMPLATE` into the caption attribute, which
+    `panel-lookup.js` copies verbatim into the lightbox caption on open.
+    The visible text is contained in the accessible name, which adds the
+    row's callsign.
     """
     src = "%s%s" % (_GALLERY_ROUTE_PREFIX, escape_html(name))
     caption = lightbox_caption_text(iso)
     return (
-        '<button type="button" class="calendar-disconnect-btn" %s="%s" %s="%s" '
-        'title="%s">%s</button>'
+        '<a class="calendar-disconnect-btn flight-picture-link" href="%s" %s="%s" %s="%s" '
+        'aria-label="%s">%s</a>'
     ) % (
+        src,
         _VIEW_PANEL_SRC_ATTR, src,
         _VIEW_PANEL_CAPTION_ATTR, escape_html(caption),
-        escape_html(i18n.t(VIEW_PANEL_LABEL)),
+        escape_html(i18n.t(_VIEW_PICTURE_OF_TEMPLATE) % row_name),
         escape_html(i18n.t(VIEW_PICTURE_LABEL)),
     )
 
@@ -565,10 +481,6 @@ def format_event_row(row, now=None):
         "%s → %s" % (origin, destination) if origin and destination
         else i18n.t(ROUTE_FALLBACK_TEXT))
 
-    corroboration_status, corroboration_label = _CORROBORATION_LABELS.get(
-        row.get("corroborated"), _DEFAULT_CORROBORATION)
-    corroboration_label = i18n.t(corroboration_label)
-
     return {
         # The runway_events row's own integer primary key, so
         # _row_identity() can name the event rather than its position
@@ -591,12 +503,6 @@ def format_event_row(row, now=None):
         "airline_raw": row.get("airline") or "",
         "route_label": route_label,
         "confirmed_state": _confirmed_state_label(row.get("confirmed_state")),
-        "corroboration_status": corroboration_status,
-        "corroboration_label": corroboration_label,
-        # The long form for the "None" (single-source) state, rendered
-        # as status_dot()'s tooltip; "" for True/False, which need none.
-        "corroboration_title": _corroboration_title_text(row.get("corroborated")),
-        "tracked_runway": _runway_label(row.get("tracked_runway")),
     }
 
 
@@ -625,32 +531,6 @@ def _filter_text_attr(row):
     """
     combined = ("%s %s" % (row["callsign"], row["hex"])).strip().lower()
     return escape_html(combined)
-
-
-_COPIED_TEXT = i18n.msg("flights.copied", "Copied")
-
-
-def _copy_button_html(value, label):
-    """A copy-to-clipboard button plus its `data-copy-feedback` sibling
-    span, the exact shape `companion/static/copy-button.js` requires
-    (the feedback element must be the button's immediate next sibling).
-    The button's SVG icon sits in an `aria-hidden` span, with an empty
-    label span as its sibling: copy-button.js writes the transient
-    success text into that label span's `textContent` only, never into
-    the button itself, which would destroy the icon. `data-copied-text`
-    carries the translated success text, read at click time.
-    """
-    return (
-        '<button type="button" class="copy-btn" data-copy-value="%s" '
-        'aria-label="%s" data-copied-text="%s">'
-        '<span class="copy-btn__icon" aria-hidden="true">%s</span>'
-        '<span class="copy-btn__label"></span>'
-        '</button>'
-        '<span class="visually-hidden" data-copy-feedback role="status" '
-        'aria-live="polite"></span>'
-    ) % (
-        escape_html(value), escape_html(label), escape_html(i18n.t(_COPIED_TEXT)),
-        layout.icon_html("icon-copy"))
 
 
 def resolve_prefix_for_callsign(callsign):
@@ -814,9 +694,7 @@ def _when_cell_html(raw_ts, now):
     """The desktop table's When column cell: two stacked lines via
     `_merged_cell()`, never an inline suffix. A local clock primary line
     ("HH:MM", or "D Mon HH:MM" once the row is no longer from today) and
-    a relative-age secondary line. The full ISO timestamp lives in the
-    detail row's "Full timestamp" pair instead of a `title` attribute
-    here. Degrades gracefully: a falsy `raw_ts` renders the fallback
+    a relative-age secondary line. Degrades gracefully: a falsy `raw_ts` renders the fallback
     text with no secondary; an unparseable one renders the raw value the
     same way. Never raises.
 
@@ -853,70 +731,6 @@ def _when_cell_html(raw_ts, now):
     return html
 
 
-def full_local_time_text(raw_ts):
-    """The visible form of a stored timestamp inside a detail row or
-    card disclosure: a day-qualified Europe/Paris local clock
-    ("27 Aug 10:00"), never the raw ISO string and never monospace —
-    mono stays reserved for identifiers, and the raw ISO survives only
-    behind the copy control's `data-copy-value`. Built from
-    `layout.local_clock_text()`, forced onto its cross-day branch via
-    the same sentinel `concise_timestamp_html()`'s `title` uses.
-    Degrades to the raw value, unchanged, when it cannot be parsed.
-    """
-    parsed = layout.parse_iso(raw_ts)
-    if parsed is None:
-        return raw_ts
-    return layout.local_clock_text(parsed, layout._FULL_TIMESTAMP_SENTINEL_NOW)
-
-
-def _flight_detail_row_html(row, index):
-    """The sibling detail `<tr>` immediately following the summary row
-    of the same `index`. Content: Hex/Full timestamp/Runway, each
-    `<dt>`/`<dd>` pair omitted when its value is absent, never a
-    fabricated "—", plus a standalone copy-name button for the
-    callsign (already visible on the summary row).
-
-    No `hidden` attribute and no inline style: the no-JS floor is a
-    fully visible detail row; flight-rows.js adds the collapsing class
-    at load. The cell's content is wrapped in a two-element grid
-    reveal because a `<tr>` cannot be a grid container (`display:
-    table-row` is discrete, so nothing on the row box can animate) —
-    the wrapper moves the animation into the cell instead.
-    """
-    row_name = _row_copy_name(row["callsign"], row["hex"])
-    parts = []
-    if row["hex"]:
-        parts.append(
-            '<div><dt class="text-label">%s</dt><dd class="mono">%s</dd>%s</div>'
-            % (
-                escape_html(i18n.t(_HEX_LABEL_TEXT)), escape_html(row["hex"]),
-                _copy_button_html(row["hex"], i18n.t(_COPY_HEX_LABEL) % row_name)))
-    if row["raw_ts"]:
-        parts.append(
-            '<div><dt class="text-label">%s</dt><dd class="time-value">%s</dd>%s</div>'
-            % (
-                escape_html(i18n.t(_FULL_TIMESTAMP_LABEL_TEXT)),
-                escape_html(full_local_time_text(row["raw_ts"])),
-                _copy_button_html(row["raw_ts"], i18n.t(_COPY_TIMESTAMP_LABEL) % row_name)))
-    if row["tracked_runway"]:
-        parts.append(
-            '<div><dt class="text-label">%s</dt><dd>%s</dd></div>'
-            % (escape_html(i18n.t(_RUNWAY_LABEL_TEXT)), escape_html(row["tracked_runway"])))
-    copy_name_button = (
-        _copy_button_html(row["callsign"], i18n.t(_COPY_CALLSIGN_LABEL) % row_name)
-        if row["callsign"] else "")
-    return (
-        '<tr class="flight-detail-row" id="flight-detail-%d" data-row-detail %s="%s">'
-        '<td colspan="6">'
-        '<div class="flight-detail-row__reveal">'
-        '<div class="flight-detail-row__reveal-inner">'
-        '<dl class="flight-detail-row__grid">%s</dl>%s%s'
-        "</div></div></td>"
-        "</tr>"
-    ) % (index, layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)),
-         "".join(parts), copy_name_button, row.get("view_panel_html", ""))
-
-
 def _day_separator_row_html(day, today):
     """One day-separator row: a real table row spanning the table as a
     `<th scope="colgroup">`, carrying the day's label. Deliberately not
@@ -924,21 +738,21 @@ def _day_separator_row_html(day, today):
     """
     return (
         '<tr class="flight-day-row">'
-        '<th scope="colgroup" colspan="6" class="text-label">%s</th>'
+        '<th scope="colgroup" colspan="%d" class="text-label">%s</th>'
         "</tr>"
-    ) % escape_html(day_label(day, today))
+    ) % (_TABLE_COLUMN_COUNT, escape_html(day_label(day, today)))
 
 
 def _history_table_html(formatted_rows, now=None):
     if not formatted_rows:
         return layout.empty_state(i18n.t(_NO_FLIGHTS_HEADING), i18n.t(_NO_FLIGHTS_BODY))
 
-    # The sixth <th> is the visually-hidden "Details" toggle-column
-    # header: no data column behind it, so built directly here rather
-    # than through the _HEADERS/i18n.t(h) loop.
+    # The last <th> is the visually-hidden "Picture" header: no data
+    # column behind it, so built directly here rather than through the
+    # _HEADERS/i18n.t(h) loop.
     header_cells = "".join("<th>%s</th>" % escape_html(i18n.t(h)) for h in _HEADERS)
     header_cells += '<th><span class="visually-hidden">%s</span></th>' % escape_html(
-        i18n.t(_DETAILS_HEADER_TEXT))
+        i18n.t(_PICTURE_HEADER_TEXT))
 
     # `today` is the page's reference instant as a Europe/Paris calendar
     # date, so "Today"/"Yesterday" mean what a reader in Paris means.
@@ -963,47 +777,20 @@ def _history_table_html(formatted_rows, now=None):
             _flight_cell_html(row),
             "<td>%s</td>" % escape_html(row["route_label"]),
             "<td>%s</td>" % escape_html(row["confirmed_state"]),
-            "<td>%s</td>" % layout.status_dot(
-                row["corroboration_status"], row["corroboration_label"],
-                row["corroboration_title"], visually_hide_label=True),
+            "<td>%s</td>" % row.get("view_panel_html", ""),
         )
         # data-filter-group carries this row's loop index, shared with
         # the <li> at the same index in _history_cards_html(), so
         # list-filter.js counts logical rows once, not once per
-        # representation. The row-toggle button matches the
-        # visually-hidden "Details" header; data-row-toggle/
-        # aria-controls/aria-expanded are flight-rows.js's own contract
-        # (a click flips aria-expanded and the matching detail row's
-        # collapsed class). The no-JS floor means the sibling detail row
-        # is already fully visible without script, so this button is
-        # inert chrome in that case. Icon-only: the button's accessible
-        # name carries the meaning, via the two data-*-label attributes
-        # flight-rows.js writes into aria-label.
-        toggle_cell = (
-            '<td><button type="button" class="row-toggle" data-row-toggle '
-            'aria-expanded="false" aria-controls="flight-detail-%d" '
-            'aria-label="%s" %s="%s" %s="%s">'
-            '<span class="row-toggle__glyph" aria-hidden="true">%s</span>'
-            "</button></td>"
-        ) % (
-            index,
-            escape_html(i18n.t(_TOGGLE_SHOW_LABEL)),
-            _TOGGLE_SHOW_LABEL_ATTR, escape_html(i18n.t(_TOGGLE_SHOW_LABEL)),
-            _TOGGLE_HIDE_LABEL_ATTR, escape_html(i18n.t(_TOGGLE_HIDE_LABEL)),
-            escape_html(_TOGGLE_GLYPH),
-        )
-        # data-flight-row is the hook flight-rows.js's delegated
-        # whole-row click reads. data-filter-group is the loop index
-        # (pairs this render's two representations); the stable event
-        # identity arrives beside it as its own attribute — one
-        # renumbers when a detection lands, the other must not.
+        # representation; the stable event identity arrives beside it as
+        # its own attribute — one renumbers when a detection lands, the
+        # other must not.
         body_rows.append(
             '<tr class="%s" data-flight-row data-filter-text="%s" '
-            'data-filter-group="%d" %s="%s" title="%s">%s%s</tr>'
+            'data-filter-group="%d" %s="%s">%s</tr>'
             % (row_class, _filter_text_attr(row), index,
                layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)),
-               escape_html(row["tracked_runway"]), "".join(cells), toggle_cell))
-        body_rows.append(_flight_detail_row_html(row, index))
+               "".join(cells)))
 
     return (
         '<div class="data-table-wrap" tabindex="0" role="region" '
@@ -1038,8 +825,7 @@ def _card_thumb_html(airline_raw, state_dir):
 
 def _history_card_primary_html(row, now):
     """The card's primary line: callsign (or bare-hex fallback) plus the
-    concise local time. Mirrors `_callsign_hex_cell()`'s desktop
-    hex-only branch: when a row has no callsign but has a hex, the
+    concise local time. When a row has no callsign but has a hex, the
     primary slot carries the hex (never blank) with a NO_CALLSIGN_NOTE_TEXT
     note.
     """
@@ -1084,12 +870,7 @@ def _history_card_secondary_html(row):
 
 
 def _history_card_airline_line_html(row):
-    """The card's airline line. The airline and artwork sit on the
-    card's own face, outside the `<details>` disclosure; the resolve
-    link sits outside it too (see the card assembly in
-    `_history_cards_html()`), so the mobile card carries the same
-    affordances as the desktop cell.
-    """
+    """The card's airline line: artwork thumbnail and airline name."""
     is_unresolved = row["airline_label"] == AIRLINE_FALLBACK_TEXT
     airline_display = i18n.t(row["airline_label"]) if is_unresolved else row["airline_label"]
     return (
@@ -1102,89 +883,38 @@ def _history_card_airline_line_html(row):
     )
 
 
-def _history_card_details_html(row, primary, secondary, airline_line):
-    """The `<details>` disclosure: the three face blocks as its
-    `<summary>`, then the remaining fields in a `<dl>`. All three
-    mobile copy buttons (callsign, hex, full timestamp) live inside
-    this disclosure, including the callsign one already visible on the
-    primary line, so the copy affordance has a home alongside its
-    siblings.
-    """
-    row_name = _row_copy_name(row["callsign"], row["hex"])
-    return (
-        '<details class="history-card__details">'
-        '<summary class="history-card__summary">'
-        '<div class="history-card__face">%s%s%s</div>'
-        '<span class="visually-hidden">%s</span>'
-        "</summary>"
-        "<dl>"
-        '<dt>%s</dt><dd class="mono">%s%s</dd>'
-        "<dt>%s</dt><dd>%s</dd>"
-        "<dt>%s</dt><dd>%s</dd>"
-        "<dt>%s</dt><dd>%s</dd>"
-        '<dt>%s</dt><dd class="mono">%s%s</dd>'
-        '<dt>%s</dt><dd class="time-value">%s%s</dd>'
-        "</dl>%s"
-        "</details>"
-    ) % (
-        primary, secondary, airline_line,
-        escape_html(i18n.t(_MORE_DETAILS_TEXT)),
-        escape_html(i18n.t(_CALLSIGN_LABEL_TEXT)),
-        escape_html(row["callsign"]),
-        _copy_button_html(row["callsign"], i18n.t(_COPY_CALLSIGN_LABEL) % row_name),
-        escape_html(i18n.t(_AIRCRAFT_LABEL_TEXT)),
-        escape_html(row["aircraft_type_label"]),
-        escape_html(i18n.t(_HEADER_CORROBORATION_TEXT)),
-        layout.status_dot(
-            row["corroboration_status"], row["corroboration_label"],
-            row["corroboration_title"]),
-        escape_html(i18n.t(_RUNWAY_LABEL_TEXT)),
-        escape_html(row["tracked_runway"]),
-        escape_html(i18n.t(_HEX_LABEL_TEXT)),
-        escape_html(row["hex"]),
-        _copy_button_html(row["hex"], i18n.t(_COPY_HEX_LABEL) % row_name),
-        # The visible timestamp is the Paris local clock; the raw
-        # ISO survives only in the copy control's data-copy-value.
-        escape_html(i18n.t(_FULL_TIMESTAMP_LABEL_TEXT)),
-        escape_html(full_local_time_text(row["raw_ts"])),
-        _copy_button_html(row["raw_ts"], i18n.t(_COPY_TIMESTAMP_LABEL) % row_name),
-        row.get("view_panel_html", ""),
-    )
-
-
 def _history_cards_html(formatted_rows, now=None):
     """Mobile compact-card representation, one `<li>` per row, built
     from the same `formatted_rows` list `_history_table_html()`
     consumes. Returns "" for an empty list. Must render as a DOM
     sibling immediately before the desktop table: style.css's
     `.history-cards ~ .data-table-wrap` breakpoint toggle depends on
-    this order. Primary/secondary lines carry callsign/time/route/
-    state; a nested `<details>` disclosure carries the rest.
+    this order. Each card shows callsign/time/route/direction/airline,
+    then the resolve link when the airline is unnamed, then the row's
+    picture link.
     """
     if not formatted_rows:
         return ""
     items = []
     for index, row in enumerate(formatted_rows):
-        primary = _history_card_primary_html(row, now)
-        secondary = _history_card_secondary_html(row)
-        airline_line = _history_card_airline_line_html(row)
-        details = _history_card_details_html(row, primary, secondary, airline_line)
-        # The card's three face blocks sit inside <details> as its
-        # <summary>, so a tap anywhere opens it through the native
-        # disclosure, no script needed. The resolve link stays out of
-        # the summary deliberately: inside it, it would join the
-        # disclosure's accessible name and compete for activation. It
-        # keeps a visible home on the card face, after the disclosure.
+        face = (
+            _history_card_primary_html(row, now)
+            + _history_card_secondary_html(row)
+            + _history_card_airline_line_html(row))
         resolve_link = _row_resolve_link_html(row)
         resolve_html = (
             '<div class="history-card__resolve">%s</div>' % resolve_link
             if resolve_link else "")
+        action_html = (
+            '<div class="history-card__action">%s</div>' % row["view_panel_html"]
+            if row.get("view_panel_html") else "")
         items.append(
             '<li class="history-card" data-filter-text="%s" '
-            'data-filter-group="%d" %s="%s">%s%s</li>'
+            'data-filter-group="%d" %s="%s">'
+            '<div class="history-card__face">%s</div>%s%s</li>'
             % (_filter_text_attr(row), index,
                layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)),
-               details, resolve_html))
+               face, resolve_html, action_html))
     return '<ul class="history-cards">%s</ul>' % "".join(items)
 
 
@@ -1222,12 +952,12 @@ def render(ctx):
     now = ctx.now or history_db.utc_now_iso()
     rows = _safe_query(state_dir, history_rows)
 
-    # Flights sits on the same self-refreshing loop the other pages use:
-    # freshness.js returns at its first guard on any page with no
-    # [data-loaded-at], so this line is what keeps it on the loop.
+    # Flights stays on the self-refreshing loop without showing a
+    # freshness line: freshness.js returns at its first guard on any page
+    # with no [data-loaded-at], so the silent marker is what keeps it on
+    # the loop.
     header = layout.page_header(
-        i18n.t(PAGE_TITLE), purpose=i18n.t(PAGE_PURPOSE_TEMPLATE) % HISTORY_ROW_LIMIT,
-        freshness_html=layout.freshness_line_html(now))
+        i18n.t(PAGE_TITLE), freshness_html=layout.refresh_marker_html(now))
 
     # gallery_entries_list is the input to nearest_gallery_entry() below,
     # which every per-row "View panel near this time" trigger depends on.
@@ -1250,9 +980,13 @@ def render(ctx):
         # onto the row dict both renderers share. A row with no match
         # carries the empty string, never a disabled/broken control.
         for row in visible_rows:
-            match = nearest_gallery_entry(gallery_entries_list, row["raw_ts"])
+            match = (
+                nearest_gallery_entry(gallery_entries_list, row["raw_ts"])
+                or earliest_gallery_entry(gallery_entries_list))
             row["view_panel_html"] = (
-                _view_panel_button_html(match[0], match[1]) if match else "")
+                _view_panel_link_html(
+                    match[0], match[1], _row_name(row["callsign"], row["hex"]))
+                if match else "")
             # The phone card's artwork thumbnail, resolved once per row
             # for the same reason as the view-panel match. The desktop
             # table does not render it: no room in its width budget.

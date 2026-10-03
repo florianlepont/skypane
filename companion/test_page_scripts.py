@@ -18,9 +18,7 @@ from companion_app_server import get, login
 from companion_markup import parse_html
 from server.plane import calendar_rules
 
-# Selector -> the one script whose own guard clause is keyed on it. Two
-# entries share FLIGHT_ROWS_SCRIPT_SRC (flight-rows.js drives both the
-# toggle button and the detail row it reveals).
+# Selector -> the one script whose own guard clause is keyed on it.
 HOOKS = (
     ("#site-nav-toggle", layout.NAV_DROPDOWN_SCRIPT_SRC),
     ("form[data-dirty-form]", layout.DIRTY_STATE_SCRIPT_SRC),
@@ -32,8 +30,6 @@ HOOKS = (
     ("#poll-trigger-btn", layout.POLL_COOLDOWN_SCRIPT_SRC),
     ("form[data-confirm]", layout.CONFIRM_SUBMIT_SCRIPT_SRC),
     (".theme-live-preview__image", layout.THEME_PREVIEW_SCRIPT_SRC),
-    ("[data-row-toggle]", layout.FLIGHT_ROWS_SCRIPT_SRC),
-    (".flight-detail-row", layout.FLIGHT_ROWS_SCRIPT_SRC),
     ("form", layout.SUBMIT_GUARD_SCRIPT_SRC),
     ("time[data-relative]", layout.RELATIVE_TIME_SCRIPT_SRC),
     ("form[data-quick-switch]", layout.QUICK_SWITCH_SCRIPT_SRC),

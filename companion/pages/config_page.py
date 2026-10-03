@@ -265,9 +265,8 @@ SETTINGS_ROUTE = "/settings"
 
 # The one settings form renders as two pages sharing the same POST
 # route and the same handle_post(): the everyday "Display" page (theme,
-# quiet hours, screen on/off) and the advanced "Device" page (runway,
-# diagnostic LED, wake interval, calendar, colour rules, manual
-# refresh). Which groups land on which page is declared per screen type
+# quiet hours, screen on/off) and the advanced "Device" page (diagnostic
+# LED, wake interval and manual refresh). Which groups land on which page is declared per screen type
 # in companion/screens.py, not hard-coded here.
 #
 # `render(ctx)` with no scope renders the whole legacy page, every
@@ -290,20 +289,13 @@ RETURN_TO_FIELD_NAME = "return_to"
 # page module may not import a page-independent shell module's private
 # constants, so the id is redeclared here rather than imported.
 DISPLAY_PAGE_TITLE = i18n.msg("nav.display", "Display")
-DISPLAY_PAGE_PURPOSE = i18n.msg(
-    "display.everything_about_what_the_frame_shows_and_when",
-    "Everything about what the frame shows and when.")
 DEVICE_PAGE_TITLE = i18n.msg("nav.device", "Device")
-DEVICE_PAGE_PURPOSE = i18n.msg(
-    "display.hardware_data_and_diagnostics_for_the_frame",
-    "Hardware, data and diagnostics for the frame.")
-SCREEN_CAPTION_TEMPLATE = i18n.msg("display.screen", "Screen: %s")
 
-# The three headed supersections Display's own groups render under, in
-# this locked order. Each heading/intro pair renders through the shared
-# section-intro helper in layout.py.
+# Display has one appearance flow. The base sources come first; flight
+# rules are an optional override inside that flow, followed by the two
+# separate scheduling controls below it.
 DISPLAY_LOOK_SECTION_ID = "display-look"
-DISPLAY_LOOK_HEADING = i18n.msg("display.look", "Look")
+DISPLAY_LOOK_HEADING = i18n.msg("display.look", "What appears")
 DISPLAY_LOOK_INTRO = i18n.msg(
     "display.the_theme_flight_colours_and_calendar_that",
     "— the theme, flight colours and calendar that decide how the "
@@ -318,24 +310,6 @@ DISPLAY_ON_HEADING = i18n.msg("display.when_it_is_on", "When it is on")
 DISPLAY_ON_INTRO = i18n.msg(
     "display.when_the_screen_is_lit_and_when_it_stays_quiet",
     "— when the screen is lit and when it stays quiet.")
-# Device's own two supersections, the same section_intro_html() shape
-# as the three above. "How it tells you" holds the Diagnostic LED card,
-# the frame's own signalling channel.
-DEVICE_WAKES_SECTION_ID = "device-wakes"
-DEVICE_WAKES_HEADING = i18n.msg("display.when_it_wakes", "When it wakes")
-DEVICE_WAKES_INTRO = i18n.msg(
-    "display.how_often_the_frame_wakes_up_to_fetch_a_new",
-    "— how often the frame wakes up to fetch a new picture.")
-DEVICE_TELLS_SECTION_ID = "device-tells"
-DEVICE_TELLS_HEADING = i18n.msg("display.how_it_tells_you", "How it tells you")
-DEVICE_TELLS_INTRO = i18n.msg(
-    "display.the_light_on_the_frame", "— the light on the frame.")
-DEVICE_POLL_SECTION_ID = "device-poll"
-DEVICE_POLL_HEADING = i18n.msg("display.when_you_can_t_wait", "When you can't wait")
-DEVICE_POLL_INTRO = i18n.msg(
-    "display.fetch_a_new_picture_right_now", "— fetch a new picture right now.")
-# An element id, not a class, since its own <label> targets it via for=.
-SCREEN_SELECTOR_LABEL_TEXT = i18n.msg("display.screen_type", "Screen type")
 
 
 def scope_groups(scope, screen_id=None):
@@ -380,7 +354,7 @@ def submitted_return_route(form):
     return layout.DISPLAY_ROUTE
 
 
-POLL_SECTION_HEADING = i18n.msg("display.manual_refresh", "Manual refresh")
+POLL_SECTION_HEADING = i18n.msg("display.refresh_now", "Refresh now")
 
 
 # The Screen on/off and Quiet hours routes the Frame strip's switches
@@ -491,68 +465,31 @@ def _nested_wrapper_html(html_fragment, base_class, nested_class):
 
 
 def _display_groups_html(builders, groups):
-    """Display scope's two headed supersections: "What it watches"
-    (Runway) and "When it is on" (Quiet hours) — each card gets the
-    `--nested` modifier (`_nested_wrapper_html()`). Returns
-    `(watches_html, on_html)`.
+    """Display scope's independent Runway and Quiet hours cards.
 
-    Both cards render as siblings of the settings `<form>`, not inside
-    it: their own inputs cross-submit via `form="{SETTINGS_FORM_ID}"`,
-    since their instant-switch controls would otherwise need to nest a
-    `<form>` inside another `<form>`, which HTML forbids.
+    The cards carry their own headings, so the former supersection
+    headings repeated the same information. Both are siblings of the
+    settings form and keep their fields associated with it via `form=`.
     """
     runway_html = (
-        _nested_wrapper_html(builders[screens.GROUP_RUNWAY](), "theme-status", "theme-status--nested")
+        builders[screens.GROUP_RUNWAY]()
         if screens.GROUP_RUNWAY in groups else "")
-    watches_supersection_html = (
-        layout.section_intro_html(
-            DISPLAY_WATCHES_SECTION_ID, i18n.t(DISPLAY_WATCHES_HEADING),
-            i18n.t(DISPLAY_WATCHES_INTRO))
-        + runway_html
-    )
     quiet_hours_html = (
-        _nested_wrapper_html(
-            builders[screens.GROUP_QUIET_HOURS](), "theme-status", "theme-status--nested")
+        builders[screens.GROUP_QUIET_HOURS]()
         if screens.GROUP_QUIET_HOURS in groups else "")
-    on_supersection_html = (
-        layout.section_intro_html(
-            DISPLAY_ON_SECTION_ID, i18n.t(DISPLAY_ON_HEADING), i18n.t(DISPLAY_ON_INTRO))
-        + quiet_hours_html
-    )
-    return watches_supersection_html, on_supersection_html
+    return runway_html, quiet_hours_html
 
 
 def _device_groups_html(builders, groups):
-    """Device scope's two headed supersections: "When it wakes" (Wake
-    interval alone) and "How it tells you" (the Diagnostic LED
-    card).
+    """Device shows only the controls that change its behaviour.
 
-    Unlike `_display_groups_html()`, a supersection's heading is
-    omitted entirely when every card under it is absent — an intro
-    sentence introducing nothing is worse than no heading at all.
+    Each card names its own task, so intermediate headings would only
+    repeat information a person needs to scan and act on.
     """
-    wake_interval_html = (
-        _nested_wrapper_html(
-            builders[screens.GROUP_WAKE_INTERVAL](), "theme-status", "theme-status--nested")
-        if screens.GROUP_WAKE_INTERVAL in groups and screens.GROUP_WAKE_INTERVAL in builders
-        else "")
-    wakes_supersection_html = (
-        (layout.section_intro_html(
-            DEVICE_WAKES_SECTION_ID, i18n.t(DEVICE_WAKES_HEADING), i18n.t(DEVICE_WAKES_INTRO))
-         + wake_interval_html)
-        if wake_interval_html else "")
-
-    led_html = (
-        _nested_wrapper_html(
-            builders[screens.GROUP_LED](), "theme-status", "theme-status--nested")
-        if screens.GROUP_LED in groups and screens.GROUP_LED in builders else "")
-    tells_supersection_html = (
-        (layout.section_intro_html(
-            DEVICE_TELLS_SECTION_ID, i18n.t(DEVICE_TELLS_HEADING), i18n.t(DEVICE_TELLS_INTRO))
-         + led_html)
-        if led_html else "")
-
-    return wakes_supersection_html + tells_supersection_html
+    return "".join(
+        builders[group]()
+        for group in (screens.GROUP_WAKE_INTERVAL, screens.GROUP_LED)
+        if group in groups and group in builders)
 
 
 def _render_current_values(ctx):
@@ -664,9 +601,8 @@ def _group_builders(ctx, values, errors, submitted, next_wake_clock):
 
 
 def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, submitted, values, calendar_status, next_wake_iso):
-    """Display scope's own header, Frame strip, hidden scope fields and
-    the two headed supersections (Aspect card and Watches/On, via
-    `_display_groups_html()`). `groups_html` stays empty: every saved
+    """Display scope's own header, hidden scope fields, appearance flow,
+    and scheduling cards. `groups_html` stays empty: every saved
     control here cross-submits from outside the physical form via
     `form="{SETTINGS_FORM_ID}"`, exactly like Runway/Calendar's own
     cards already do.
@@ -676,17 +612,11 @@ def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, subm
     together (always both true or both false today). A future screen
     type with only one of the two must split this gate.
     """
-    # The strip and this freshness line are the only elements this page
-    # declares swappable (layout.REFRESH_SWAP_SELECTORS_BY_PAGE);
-    # everything else here is a <form>, and a swap mid-edit would
-    # corrupt it. The refresh loop also stands down while the save bar
-    # reports unsaved edits.
+    # Appearance controls are form-backed, so the refresh loop must not
+    # replace this page while a visitor is editing them.
     header = layout.page_header(
-        i18n.t(DISPLAY_PAGE_TITLE), purpose=i18n.t(DISPLAY_PAGE_PURPOSE),
-        freshness_html=layout.freshness_line_html(ctx.now),
-        action_html=_screen_caption_html(screen))
-    frame_strip_section_html = layout.frame_strip_html(
-        ctx, return_to=layout.DISPLAY_ROUTE, next_wake_iso=next_wake_iso)
+        i18n.t(DISPLAY_PAGE_TITLE), freshness_html=layout.freshness_line_html(ctx.now))
+    frame_strip_section_html = ""
     if screens.GROUP_THEME in groups:
         # departures_safe_theme_id() is resolved once here (Calendar's
         # own usage row needs it for its "same as departures" swatch
@@ -702,14 +632,20 @@ def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, subm
             errors=errors, submitted=submitted, state_dir=ctx.state_dir)
         rules_row_html = rules_usage_row_html(ctx)
         aspect_section_html = (
-            layout.section_intro_html(
-                DISPLAY_LOOK_SECTION_ID, i18n.t(DISPLAY_LOOK_HEADING), i18n.t(DISPLAY_LOOK_INTRO))
+            '<section class="display-appearance" aria-labelledby="%s">'
+            '<h2 id="%s" class="text-heading">%s</h2>'
             + _nested_wrapper_html(
                 _aspect_card_html(
                     values["theme_id"], values["theme_arriving"],
                     calendar_row_html, calendar_disconnect_form_html, rules_row_html,
                     errors=errors, submitted=submitted, state_dir=ctx.state_dir),
-                "page-section aspect-card", "page-section--nested"))
+                "page-section aspect-card", "page-section--nested")
+            + "</section>"
+        ) % (
+            escape_html(DISPLAY_LOOK_SECTION_ID),
+            escape_html(DISPLAY_LOOK_SECTION_ID),
+            escape_html(i18n.t(DISPLAY_LOOK_HEADING)),
+        )
     else:
         aspect_section_html = ""
     display_watches_html, display_on_html = _display_groups_html(builders, groups)
@@ -724,15 +660,8 @@ def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, subm
 
 
 def _render_device_scope(screen, screen_id, groups, builders, errors, next_wake_clock):
-    """Device scope's own header (Screen caption, selector and the
-    "Next wake" line), hidden scope fields and its groups_html — the
-    Frame strip renders only on Home and Display, never here.
-    """
-    header = layout.page_header(
-        i18n.t(DEVICE_PAGE_TITLE), purpose=i18n.t(DEVICE_PAGE_PURPOSE),
-        action_html=(
-            _screen_caption_html(screen)
-            + _next_wake_caption_html(next_wake_clock)))
+    """Device's focused advanced controls and native form wiring."""
+    header = layout.page_header(i18n.t(DEVICE_PAGE_TITLE))
     return {
         "header": header, "frame_strip_section_html": "",
         "hidden_html": _scope_fields_html(SCOPE_DEVICE, layout.DEVICE_ROUTE),
@@ -762,21 +691,14 @@ def _render_all_scope(groups, builders):
 
 
 def _poll_html_for_scope(scope, show_poll, cooldown_remaining):
-    """The Poll card's own HTML, wrapped in its "When you can't wait"
-    supersection on Device scope alone (Display/SCOPE_ALL never set
-    `show_poll`, so both return "" there).
-    """
+    """The native refresh action, with no redundant Device framing."""
     poll_section_html = (
         '<section class="page-section">'
         '<h2 class="text-heading">%s</h2>'
         "%s"
         "</section>" % (escape_html(i18n.t(POLL_SECTION_HEADING)), poll_trigger_section(cooldown_remaining))
         if show_poll else "")
-    if scope != SCOPE_DEVICE or not poll_section_html:
-        return poll_section_html
-    return (
-        layout.section_intro_html(DEVICE_POLL_SECTION_ID, i18n.t(DEVICE_POLL_HEADING), i18n.t(DEVICE_POLL_INTRO))
-        + _nested_wrapper_html(poll_section_html, "page-section", "page-section--nested"))
+    return poll_section_html
 
 
 # The dirty-save-bar's own two button labels.
@@ -894,62 +816,6 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
 
     poll_html = _poll_html_for_scope(scope, pieces["show_poll"], calendar_status["cooldown_remaining"])
     return _settings_page_html(pieces, quick_led_html, poll_html, dirty_strings)
-
-
-# companion/screens.py's own SCREEN_TYPES["label"] values, wrapped as
-# stable-id Messages at this display site — companion/i18n_fr/registry.py
-# still carries this one entry as a legacy English-keyed CATALOG
-# (unconverted until a later plan finishes that module, alongside its
-# eighteen theme names).
-_SCREEN_LABEL_MESSAGES = {
-    "Plane frame": i18n.msg("registry.plane_frame", "Plane frame"),
-}
-
-
-def _screen_caption_html(screen):
-    """The small "Screen: Plane frame" line under a scoped page's title —
-    the visible end of the companion/screens.py seam. Rendered as an
-    already-safe block for page_header()'s `action_html` slot.
-    """
-    # screen["label"] is translated at this display site (i18n.t()),
-    # unless it is a label this table does not (yet) know — the id
-    # itself never changes, and an unrecognised raw label was never in
-    # any catalogue, so it is not passed to i18n.t().
-    raw_label = screen["label"]
-    label_message = _SCREEN_LABEL_MESSAGES.get(raw_label)
-    label_text = i18n.t(label_message) if label_message is not None else raw_label
-    return (
-        '<p class="page-header__screen text-label">%s</p>'
-        % escape_html(i18n.t(SCREEN_CAPTION_TEMPLATE) % label_text))
-
-
-NEXT_WAKE_HEADER_LABEL = i18n.msg("display.next_wake", "Next wake")
-# No existing catalogue id fits: slug_for() reduces "≈ %s" to an empty
-# slug (the only two characters are a symbol and a placeholder, and
-# both are stripped before the alnum-run collapse), so this id is
-# named by hand rather than derived. Registers with no
-# companion/i18n_fr/display.py MESSAGES entry yet — resolves through
-# the legacy-CATALOG-miss fallback to the unchanged English "≈ %s",
-# exactly like the pre-migration plain-string call site did (this
-# template was never in display.py's own CATALOG either).
-NEXT_WAKE_HEADER_VALUE_TEMPLATE = i18n.msg("display.next_wake_approx", "≈ %s")
-
-
-def _next_wake_caption_html(next_wake_clock):
-    """The Device page header's "Next wake ≈ HH:MM" line (Home's own
-    copy lives in `home_page.py`). Returns "" when `next_wake_clock` is
-    falsy — no placeholder, no "unknown".
-    """
-    if not next_wake_clock:
-        return ""
-    return (
-        '<p class="page-header__screen text-label">%s</p>'
-        % escape_html(
-            "%s %s" % (
-                i18n.t(NEXT_WAKE_HEADER_LABEL),
-                i18n.t(NEXT_WAKE_HEADER_VALUE_TEMPLATE) % next_wake_clock)))
-
-
 
 
 def _scope_fields_html(scope, return_route):

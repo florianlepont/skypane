@@ -10,14 +10,13 @@ import companion.layout as layout
 from server import device_config, history_db
 
 from companion.settings.form import (
-    DIRTY_SECTION_ATTR, SETTINGS_FORM_ID, _field_error_attrs, _field_error_html,
-    _with_next_wake)
+    DIRTY_SECTION_ATTR, SETTINGS_FORM_ID, _field_error_attrs, _field_error_html)
 
 
 WAKE_INTERVAL_SECTION_HEADING = i18n.msg("display.wake_interval", "Wake interval")
 WAKE_INTERVAL_SECTION_CAPTION = i18n.msg(
-    "display.shorter_fresher_data_more_battery_drain",
-    "Shorter: fresher data, more battery drain.")
+    "display.choose_how_often_the_frame_checks",
+    "Choose how often the frame checks for new flight data.")
 WAKE_INTERVAL_PLACEHOLDER_TEXT = i18n.msg("display.uses_server_default", "Uses server default")
 # The number input's own visible label, distinct from
 # WAKE_SLIDER_LABEL below (the paired range control's own name).
@@ -313,7 +312,7 @@ def wake_slider_html(interval_s):
     return (
         '<div class="%s %s" %s %s="%s" %s="%s" %s="%d" %s="%d" %s="%d">'
         '<input type="range" class="%s" %s value="%d" min="%d" max="%d" step="%d"'
-        ' aria-label="%s" aria-describedby="%s %s">'
+        ' aria-label="%s" aria-describedby="%s">'
         "</div>"
     ) % (
         escape_html(WAKE_SLIDER_CLASS), escape_html(layout.JS_GATE_CLASS),
@@ -328,7 +327,7 @@ def wake_slider_html(interval_s):
         device_config.WAKE_INTERVAL_MIN_S, device_config.WAKE_INTERVAL_MAX_S,
         WAKE_SLIDER_STEP_S,
         escape_html(i18n.t(WAKE_SLIDER_LABEL)),
-        escape_html(WAKE_GAUGE_FRESHNESS_ID), escape_html(WAKE_GAUGE_BATTERY_ID),
+        escape_html(WAKE_INTERVAL_SECTION_CAPTION_ID),
     )
 
 
@@ -344,8 +343,9 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
     out-of-range `value` fails HTML5 constraint validation and blocks
     the whole form's submission. On a rejected save the raw submitted
     string is echoed back verbatim instead, bypassing that guard so the
-    user sees what they typed. `battery_rows` feeds the battery gauge,
-    which appends after the error block.
+    user sees what they typed. `battery_rows` remains accepted for
+    callers built before the Device simplification; this control does
+    not claim a battery duration.
     """
     if submitted is not None and "wake_interval_s" in submitted:
         raw_submitted = submitted["wake_interval_s"]
@@ -361,8 +361,8 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
     error_attrs = _field_error_attrs(
         errors, "wake_interval_s", "wake-interval-s", hint_id=WAKE_INTERVAL_SECTION_CAPTION_ID)
     error_html = _field_error_html(errors, "wake_interval_s", "wake-interval-s")
-    # One resolution of the gauges' and the slider's subject, so the
-    # three can never describe different values.
+    # One resolution of the slider's subject, so it stays aligned with
+    # the persisted numeric control.
     gauge_interval_s = wake_gauge_interval_s(current_wake_interval_s, submitted)
     return (
         '<div class="theme-status" %s="%s">'
@@ -379,17 +379,15 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
         # names the unit, so repeating it would announce the fact twice.
         '<span class="text-label field-inline-value" aria-hidden="true">%s</span>'
         "%s"
-        # The slider sits after the error message, not between it and
-        # the field, so the error stays adjacent to the control it is
-        # about. The gauges come last, since they describe what the
-        # setting means, after the control that sets it.
-        "%s%s"
+        # The slider sits after the error message, so the error stays
+        # adjacent to the control it describes.
+        "%s"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html(i18n.t(WAKE_INTERVAL_SECTION_HEADING)),
         escape_html(i18n.t(WAKE_INTERVAL_SECTION_HEADING)),
         escape_html(WAKE_INTERVAL_SECTION_CAPTION_ID),
-        escape_html(_with_next_wake(i18n.t(WAKE_INTERVAL_SECTION_CAPTION), next_wake_clock)),
+        escape_html(i18n.t(WAKE_INTERVAL_SECTION_CAPTION)),
         escape_html(WAKE_INTERVAL_INPUT_ID), escape_html(i18n.t(WAKE_INTERVAL_INPUT_LABEL)),
         escape_html(WAKE_INTERVAL_INPUT_ID),
         device_config.WAKE_INTERVAL_MIN_S, device_config.WAKE_INTERVAL_MAX_S,
@@ -398,5 +396,4 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
         escape_html(WAKE_INTERVAL_UNIT_LABEL),
         error_html,
         wake_slider_html(gauge_interval_s),
-        wake_gauges_html(gauge_interval_s, battery_rows),
     )

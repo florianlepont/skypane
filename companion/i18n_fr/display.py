@@ -34,18 +34,12 @@ restoring these.
 
 MESSAGES = {
     # --- Display/Device page shells -------------------------------------
-    "display.everything_about_what_the_frame_shows_and_when":
-        "Tout ce que le cadre affiche, et quand.",
-    "display.hardware_data_and_diagnostics_for_the_frame":
-        "Matériel, données et diagnostics du cadre.",
     "display.settings": "Réglages",
-    "display.screen": "Écran : %s",
-    "display.screen_type": "Type d’écran",
     "display.selected": "Sélectionné",
     "display.current": "Actuel",
 
     # --- Display's three supersections ----------------------------
-    "display.look": "Aspect",
+    "display.look": "Ce qui s’affiche",
     "display.the_theme_flight_colours_and_calendar_that":
         "— le thème, les couleurs de vol et le calendrier qui "
         "décident de l’apparence de l’image.",
@@ -58,28 +52,16 @@ MESSAGES = {
     "display.applies_the_next_time_the_frame_wakes_up":
         "S’applique au prochain réveil du cadre.",
 
-    # --- Device's own two supersections plus the Poll card's own
-    #     one-card supersection -------------------------------------
-    "display.when_it_wakes": "Quand il se réveille",
-    "display.how_often_the_frame_wakes_up_to_fetch_a_new":
-        "— à quelle fréquence le cadre se réveille pour récupérer une "
-        "nouvelle image.",
-    "display.how_it_tells_you": "Comment il vous prévient",
-    "display.the_light_on_the_frame": "— le voyant du cadre.",
-    "display.when_you_can_t_wait": "Quand vous ne pouvez pas attendre",
-    "display.fetch_a_new_picture_right_now":
-        "— récupère une nouvelle image tout de suite.",
-
     # --- Aspect card ---------------------------------------------------
     # This identity translation is required, not optional: the
     # FR-completeness harness fails an untranslated id regardless of
     # the two words being the same. A different id from "display.look"
     # above (Display's supersection heading), not a duplicate of it.
-    "display.aspect": "Aspect",
+    "display.aspect": "Choisir l’apparence",
     "display.departures": "Départs",
     "display.arrivals": "Arrivées",
     "display.calendar_flights": "Vols du calendrier",
-    "display.per_flight_rules": "Règles par vol",
+    "display.per_flight_rules": "Règles par vol facultatives",
     "display.same_as_departures": "Comme les départs",
     "display.1_rule": "1 règle",
     "display.rules": "%d règles",
@@ -142,7 +124,6 @@ MESSAGES = {
     "display.callsign": "Indicatif",
     "display.icao24_hex": "Code hexadécimal ICAO24",
     "display.callsign_prefix": "Préfixe d’indicatif",
-    "display.delete": "Supprimer",
 
     # --- Quiet hours card ------------------------------------------------
     "display.quiet_hours": "Heures calmes",
@@ -175,11 +156,11 @@ MESSAGES = {
 
     # --- Device-only groups ----------------------------------------------
     "display.diagnostic_led": "LED de diagnostic",
-    "display.lit_only_during_the_device_s_brief_wake_window":
-        "Allumée seulement pendant la brève période de réveil.",
+    "display.lights_briefly_while_the_frame_checks_for_flights":
+        "S’allume brièvement lorsque le cadre vérifie de nouvelles données de vol.",
     "display.wake_interval": "Intervalle de réveil",
-    "display.shorter_fresher_data_more_battery_drain":
-        "Plus court, données plus fraîches, batterie sollicitée.",
+    "display.choose_how_often_the_frame_checks":
+        "Choisissez à quelle fréquence le cadre vérifie les nouvelles données de vol.",
     "display.wake_interval_seconds": "Intervalle de réveil (secondes)",
     # The range input's own accessible name, distinct from the number
     # input's label above — two controls sharing one accessible name is
@@ -213,22 +194,19 @@ MESSAGES = {
         "Ce réglage réveille le cadre toutes les # min au lieu de toutes "
         "les %d min.",
     "display.uses_server_default": "Utilise la valeur par défaut du serveur",
-    "display.manual_refresh": "Actualisation manuelle",
-    "display.trigger_an_immediate_poll_cycle":
-        "Déclenchez un cycle de vérification immédiat.",
-    "display.trigger_poll_now": "Déclencher une vérification maintenant",
+    "display.refresh_now": "Actualiser maintenant",
+    "display.request_a_server_check_for_new_flight_data":
+        "Demandez au serveur de vérifier maintenant les nouvelles données de vol.",
     "display.polling": "Vérification en cours…",
     "display.poll_triggered_recently_try_again_in_n_s":
         "Vérification déclenchée récemment — réessayez dans {n} s.",
 
     # --- Save --------------------------------------------------------
     "display.save_settings": "Enregistrer les réglages",
-    "display.next_wake": "Prochain réveil",
     "display.next_wake_2": " (prochain réveil ≈ %s)",
     # Symbolic notation ("≈" plus a placeholder already localized by its
     # caller), identical in both languages — not a missed translation,
     # listed in test_i18n.py's _UNCHANGED_IN_FRENCH cognate set.
-    "display.next_wake_approx": "≈ %s",
 
     # The restored dirty-save-bar's connector/progress words and the
     # "Saving…" progressive, sharing the "Enregistrer les réglages"

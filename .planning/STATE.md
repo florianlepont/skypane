@@ -1,20 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: MVP
-current_phase: 0
-status: milestone_complete
-stopped_at: "V1.0 archived on 2026-09-30. Start the next milestone with /gsd-new-milestone."
-last_updated: "2026-09-30T07:59:19.275Z"
-last_activity: 2026-09-30
-last_activity_desc: Milestone v1.0 completed and archived
+milestone: v1.1
+milestone_name: Battery and Companion!
+status: executing
+stopped_at: Phase 44 context gathered
+last_updated: "2026-10-03T09:22:20.430Z"
+last_activity: "2026-10-03 — 44-11 complete: Update installed-software summary and owner-only release list"
 progress:
-  total_phases: 55
-  completed_phases: 55
-  total_plans: 446
-  completed_plans: 446
-  percent: 100
-current_phase_name: planning-next-milestone
+  total_phases: 4
+  completed_phases: 0
+  total_plans: 12
+  completed_plans: 11
+  percent: 0
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -41,7 +38,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [█████████░] 94%
+  [████████░░] 75%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -52,17 +49,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-08-04)
+See: .planning/PROJECT.md (updated 2026-09-30)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 42 — remote-firmware-update-over-the-air-ota-promoted-from-seed-0
+**Current focus:** Phase 44 — Companion Walkthrough and Focused Bilingual Polish
 
 ## Current Position
 
-Phase: Milestone v1.0 complete
-Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-09-30 — Milestone v1.0 completed and archived
+Phase: 44 of 47 (Companion Walkthrough and Focused Bilingual Polish)
+Plan: 11 of 12 complete (latest: 44-11, Update installed summary and owner-only releases)
+Status: Executing
+Last activity: 2026-10-03 — 44-11 complete: Update installed-software summary and owner-only release list
 
 ## Position History (superseded entries, kept for the record)
 
@@ -600,6 +597,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 - Phase 29 added (2026-09-21): Companion review feedback round 3 — the developer's own tour of the deployed app (eight cases, screenshots), six in scope (CFG-79..CFG-84), plus three leftovers of the measured 2026-09-17 audit chosen by the developer (Compagnies label truncation + gallery order, Vols paginated, État title); the 44 px tap-target item was not selected. Five one-line fixes from the tour ship ahead as quick task Lot A.
 - Phase 30 added (2026-09-21): Aspect rebuilt — one tile, three rows, one palette, the calendar absorbed (CFG-85, CFG-86); a `/gsd-sketch` round (accordion vs. segments) precedes planning; depends on Phase 29 so Display is not reworked twice.
 - Ops note (2026-09-21), not a phase: the companion's address `config-<ip>.nip.io` is to be replaced by a real domain the developer will buy (companion only; the device hostname stays on nip.io to avoid re-provisioning the frame). Recipe already in `deploy/Caddyfile`'s header: A record → VPS IP, the second site block's address, `SKYPANE_COMPANION_PUBLIC_HOST` in the env, `systemctl reload caddy`.
+- Phase 44 reordered: Companion walkthrough and focused bilingual polish moved ahead of the battery study by developer decision.
 
 ### Decisions
 
@@ -1327,8 +1325,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-29T17:56:31.486Z
-Stopped at: Completed 42-16-PLAN.md (OTA hardware session on the real frame: all H42 rows PASS except H42-00b N/A; four defects recorded, unsigned-image boot abort fixed in PR #159; validation record closed). Plan 16 of 16 done; Phase 42 ready for verification. REQUIREMENTS.md is marked by the orchestrator at phase close.
+Last session: 2026-10-03T09:22:20.354Z
+Stopped at: Phase 44 context gathered
 
 Resume file: 
 

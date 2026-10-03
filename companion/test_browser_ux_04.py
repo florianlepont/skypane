@@ -29,7 +29,7 @@ from companion.pages import airlines_page, config_page
 from server import device_config
 from server.plane import illustrations, manual_resolutions
 from companion.test_browser_ux_helpers import (
-    UI_THEMES_EXPLICIT, VIEWPORT_MIN_SUPPORTED,
+    UI_THEMES_EXPLICIT, VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE,
     _assert_hit_target, _assert_js_gate, _assert_no_page_overflow,
     _assert_surfaces_agree, _await_upload_zone, _bar_text, _click_control,
     _commit_field, _drop_files, _handle_sel, _in_both_themes, _login,
@@ -797,7 +797,8 @@ def _settings_card_title_probe(page):
         "sel => Array.from(document.querySelectorAll(sel)).map(h => {"
         "  var s = getComputedStyle(h);"
         "  return {text: h.textContent, fontSize: s.fontSize,"
-        "          fontWeight: s.fontWeight, fontFamily: s.fontFamily};"
+        "          fontWeight: s.fontWeight, fontFamily: s.fontFamily,"
+        "          underSectionHeading: !!h.closest('.display-appearance')};"
         "})", _SETTINGS_CARD_TITLE_SELECTOR)
 
 
@@ -812,7 +813,11 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
     ones; the failure message names the offending page, the offending title's text and both
     triples. Supersection intro headings (.section-intro > h2) are excluded structurally,
     deliberately: a different, generically-worded tier, not an inconsistency this check
-    should assert away. Both themes exercised via _set_ui_theme(), at the 360px floor.
+    should assert away. The one card that sits under its own section heading (the Display
+    appearance card under "What appears") is the nested card-title tier by design: it is
+    excluded from the cardinality set structurally, and the section heading above it must
+    instead render the same triple as every top-level card title. Both themes exercised via
+    _set_ui_theme(), at the 360px floor.
     """
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
     try:
@@ -823,12 +828,16 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
         # Every (page, theme) combination this app can paint a settings-card title in, all
         # folded into one combined set below.
         entries = []
+        nested_titles = []
         by_page = {"/display": [], "/device": []}
         for theme in UI_THEMES_EXPLICIT:
             for route in ("/display", "/device"):
                 page.goto(base_url + route)
                 _set_ui_theme(page, theme)
                 for title in _settings_card_title_probe(page):
+                    if title["underSectionHeading"]:
+                        nested_titles.append(title["text"])
+                        continue
                     triple = (
                         title["fontSize"], title["fontWeight"], title["fontFamily"])
                     entry = {
@@ -866,6 +875,12 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
                 "would pass this check while leaving CFG-72 unmet on a card the developer "
                 "can see" % config_page.POLL_SECTION_HEADING)
 
+        # The only card under a section heading is the Display appearance card.
+        if set(nested_titles) != {config_page.ASPECT_HEADING}:
+            raise AssertionError(
+                "expected the Display appearance card to be the only settings card under a "
+                "section heading, got %r" % (sorted(set(nested_titles)),))
+
         # The combined set's own cardinality is 1.
         triples = sorted({e["triple"] for e in entries})
         if len(triples) != 1:
@@ -880,6 +895,17 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
                 "- %r on %s (theme=%s) renders %r, while the rest render %r"
                 % (len(triples), offender["text"], offender["page"], offender["theme"],
                    offender["triple"], majority))
+
+        # The section heading above the nested appearance card sits on the top-level rung.
+        page.goto(base_url + "/display")
+        section_heading = page.evaluate(
+            "() => { var h = document.querySelector('.display-appearance > h2');"
+            " var s = getComputedStyle(h);"
+            " return [s.fontSize, s.fontWeight, s.fontFamily]; }")
+        if tuple(section_heading) != triples[0]:
+            raise AssertionError(
+                "expected the Display section heading to render the top-level card-title "
+                "triple %r, got %r" % (triples[0], tuple(section_heading)))
     finally:
         context.close()
 
@@ -1543,4 +1569,185 @@ def test_the_artwork_drop_zone_is_operable_from_the_keyboard_alone(
                 "second transform crept in" % (theme, decoded.size))
     finally:
         _clear_stored_artwork(server)
+        context.close()
+
+
+# Quiet hours: native fields and presets are the primary controls, the ring is secondary.
+
+def test_quiet_hours_fields_and_presets_lead_the_ring_and_save(new_context, make_app_server):
+    """The presets and both native time fields sit above the ring at every supported width,
+    the Night preset writes the fields, and a keyboard-edited time saves to disk.
+    """
+    from companion import auth
+    from companion.test_browser_ux_helpers import (
+        VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE, _assert_no_page_overflow,
+        _login, _save_via_bar, _wait_for_bar, seed_state_dir)
+    from server import device_config
+    for viewport in (VIEWPORT_DESKTOP, VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED):
+        for lang in ("en", "fr"):
+            server = make_app_server(seed=seed_state_dir, fake_providers=True)
+            base_url = server.base_url()
+            context = new_context(viewport=viewport)
+            try:
+                context.add_cookies([{
+                    "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
+                page = context.new_page()
+                _login(page, base_url)
+                page.goto(base_url + "/display")
+                page.wait_for_load_state("networkidle")
+                tops = page.evaluate(
+                    "() => { function top(s) {"
+                    " return document.querySelector(s).getBoundingClientRect().top; }"
+                    " return {preset: top('.quiet-preset-row'),"
+                    " start: top('input[name=quiet_hours_start]'),"
+                    " end: top('input[name=quiet_hours_end]'),"
+                    " dial: top('.quiet-dial-summary')}; }")
+                if not (tops["preset"] < tops["start"] < tops["dial"]
+                        and tops["end"] < tops["dial"]):
+                    raise AssertionError(
+                        "%s: presets and fields must lead the ring: %r"
+                        % (viewport["width"], tops))
+                problem = _assert_no_page_overflow(page, "quiet hours")
+                if problem:
+                    raise AssertionError(problem)
+                page.click("[data-quiet-preset][data-preset-start='08:00']")
+                if page.input_value("input[name=quiet_hours_start]") != "08:00":
+                    raise AssertionError("the Day preset did not write the start field")
+                page.focus("input[name=quiet_hours_end]")
+                page.fill("input[name=quiet_hours_end]", "19:30")
+                _wait_for_bar(page)
+                _save_via_bar(page)
+                cfg = device_config.load_device_config(server.tmpdir)
+                if (cfg["quiet_hours_start"], cfg["quiet_hours_end"]) != ("08:00", "19:30"):
+                    raise AssertionError("quiet hours did not persist: %r" % (cfg,))
+            finally:
+                context.close()
+
+
+# Airlines: the aircraft-type selector and the framed artwork surface.
+
+TYPES_CARD = "Transavia France"
+
+
+def _types_card(page):
+    return page.locator(".airline-card").filter(
+        has=page.locator(".airline-card__name", has_text=TYPES_CARD))
+
+
+def _visible_type_ids(page):
+    return _types_card(page).evaluate(
+        "card => [...card.querySelectorAll('section[data-airline-type]')]"
+        ".filter(s => s.getClientRects().length > 0)"
+        ".map(s => s.getAttribute('data-airline-type'))")
+
+
+def test_the_type_selector_changes_the_selected_type_from_the_keyboard(new_context, server):
+    """At 1280, 390 and 360 px in English and French, the aircraft-type selector of a
+    two-type airline is a labelled native select at the 44px floor; ArrowDown on the focused
+    select shows the second type's section alone (its title is the second option), its
+    add/replace action stays at the 44px floor, nothing overflows horizontally, and the
+    framed drop surface of the replace form carries no explanatory framing sentence."""
+    for lang, option_label in (("en", "Any aircraft"), ("fr", "Tout appareil")):
+        for viewport in (VIEWPORT_DESKTOP, VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED):
+            where = "%s at %dpx" % (lang, viewport["width"])
+            context = new_context(viewport=viewport)
+            try:
+                context.add_cookies([{
+                    "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
+                page = context.new_page()
+                _login(page, server.base_url())
+                page.goto(server.base_url() + "/airlines")
+                select = _types_card(page).locator("select[data-airline-type-select]")
+                select.wait_for(state="visible")
+                if _visible_type_ids(page) != ["any"]:
+                    raise AssertionError("expected only the first type visible (%s): %r"
+                                         % (where, _visible_type_ids(page)))
+                label = _types_card(page).locator("label[for='%s']" % select.get_attribute("id"))
+                if not label.count():
+                    raise AssertionError("expected a label for the selector (%s)" % where)
+                if select.bounding_box()["height"] < 44:
+                    raise AssertionError("selector under 44px tall (%s)" % where)
+                options = select.locator("option").all_text_contents()
+                if len(options) != 2 or options[0] != option_label or options[1] != "A320":
+                    raise AssertionError("unexpected options %r (%s)" % (options, where))
+
+                select.focus()
+                page.keyboard.press("ArrowDown")
+                _types_card(page).locator("section[data-airline-type=a320]").wait_for(
+                    state="visible")
+                if _visible_type_ids(page) != ["a320"]:
+                    raise AssertionError("expected only the A320 section visible (%s): %r"
+                                         % (where, _visible_type_ids(page)))
+                action = _types_card(page).locator(
+                    "section[data-airline-type=a320] .airline-card__action")
+                box = action.bounding_box()
+                if box is None or box["height"] < 44:
+                    raise AssertionError("type action missing or under 44px (%s): %r" % (where, box))
+                if action.get_attribute("data-view-panel-replace-action") != (
+                        "/illustration/transavia-france-a320.png"):
+                    raise AssertionError("action targets the wrong artwork (%s)" % where)
+                problem = _assert_no_page_overflow(page, "airlines " + where)
+                if problem:
+                    raise AssertionError(problem)
+
+                action.click()
+                dialog = page.locator("#panel-lookup-dialog")
+                if not dialog.evaluate("el => el.open"):
+                    raise AssertionError("expected the action to open the artwork dialog (%s)" % where)
+                if page.locator("#panel-lookup-dialog .upload-drop__preview figcaption").first \
+                        .text_content().strip() == "":
+                    raise AssertionError("expected the drop frame to carry its hint (%s)" % where)
+                if "how it will be framed" in dialog.text_content():
+                    raise AssertionError("framing sentence still present (%s)" % where)
+            finally:
+                context.close()
+
+
+def test_every_type_stays_visible_without_scripts(new_context, server):
+    """With scripts blocked an airline's selector is absent and every type section stays
+    visible in source order, each with its own title, so no type is hidden."""
+    with _no_js_page(new_context, server.base_url(), "/airlines",
+                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
+        shown = _types_card(page).evaluate(
+            "card => [...card.querySelectorAll('section[data-airline-type]')]"
+            ".map(s => [s.getAttribute('data-airline-type'), s.getClientRects().length > 0,"
+            " s.querySelector('.airline-type__title').getClientRects().length > 0])")
+        if shown != [["any", True, True], ["a320", True, True]]:
+            raise AssertionError("expected both Transavia types visible: %r" % (shown,))
+        if _types_card(page).locator("select").is_visible():
+            raise AssertionError("expected the selector hidden without scripts")
+        problem = _assert_no_page_overflow(page, "airlines without scripts")
+        if problem:
+            raise AssertionError(problem)
+
+
+def test_deleting_a_manual_name_states_its_outcome_and_removes_the_entry(
+        new_context, make_app_server):
+    """The delete control of a hand-named airline says what it does (flights become
+    unidentified again, artwork stays), and submitting it removes the manual entry on disk and
+    returns to the gallery."""
+    server = make_app_server(seed=_seed_with_needs_artwork_entry, fake_providers=True)
+    context = new_context(viewport=VIEWPORT_PHONE)
+    try:
+        page = context.new_page()
+        _login(page, server.base_url())
+        page.goto(server.base_url() + "/airlines")
+        page.locator('a.airline-card__zoom[data-view-panel-resolve-prefix="%s"]'
+                     % ARTWORK_PREFIX).click()
+        dialog = page.locator("#panel-lookup-dialog")
+        delete_form = dialog.locator("form.lightbox__delete")
+        delete_form.wait_for(state="visible")
+        if "become unidentified again" not in delete_form.text_content():
+            raise AssertionError("delete form does not state its outcome: %r"
+                                 % delete_form.text_content())
+        button = delete_form.locator("button")
+        if button.text_content().strip() != "Delete my name":
+            raise AssertionError("unexpected delete button: %r" % button.text_content())
+        with page.expect_navigation():
+            button.click()
+        if manual_resolutions.load_manual_resolutions(server.tmpdir).get(ARTWORK_PREFIX):
+            raise AssertionError("the manual entry was not removed")
+        if not page.url.rstrip("/").endswith("/airlines"):
+            raise AssertionError("expected to land on the gallery, got %r" % page.url)
+    finally:
         context.close()

@@ -411,6 +411,11 @@ h3 {
   margin: 0 0 var(--space-xs);
 }
 
+/* Holds only the hidden refresh pill, so it reserves no space. */
+.page-header__freshness--silent {
+  margin: 0;
+}
+
 /* Establishes a containing block for the out-of-flow pill further down.
  * The pill used to be an inline-level child stranded between block
  * siblings, forcing an anonymous block box whose line box was consumed
@@ -820,6 +825,7 @@ select.visually-hidden {
 .theme-form {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: 2px;
   padding: 2px;
   border: 1px solid var(--color-border);
@@ -834,8 +840,10 @@ select.visually-hidden {
   height: 28px;
   /* Without flex: 1 1 auto the three intrinsic-width buttons pack to
    * the left instead of filling the bordered container as one control. */
-  flex: 1 1 auto;
-  padding: 0 12px;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 8px;
+  white-space: nowrap;
   background: transparent;
   border: none;
   box-shadow: none;
@@ -1024,41 +1032,6 @@ select.visually-hidden {
 .dot-label {
   font-size: var(--font-label-size);
   vertical-align: middle;
-}
-
-/* Full-strength --color-text on the sidebar surface — pinned in
- * test_contrast_check.py. Each state is its own segment with
- * white-space: nowrap inside a wrapping flex row, so a line may break
- * BETWEEN states but never mid-phrase (measured: used to wrap mid-word
- * at 207x48px). */
-.nav-status {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  /* Column gap only: a row gap would be paid on top of the two wrapped
-   * lines in the 240px sidebar (measured 52px against a 48px ceiling,
-   * 48px with this one). */
-  gap: 0 var(--space-xs);
-  padding: 0 var(--space-sm) var(--space-sm);
-  color: var(--color-text);
-  text-decoration: none;
-}
-
-.nav-status__segment {
-  white-space: nowrap;
-  /* inline-flex, not a bare inline run: the dot's vertical-align: middle
-   * grows the line box past the text's own leading, measured at 48.19px
-   * against a 48px ceiling — fixed by aligning the dot as a flex item. */
-  display: inline-flex;
-  align-items: center;
-}
-
-a.nav-status:hover {
-  text-decoration: underline;
-}
-
-.nav-status__sep {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* A near-neutral card surface, a hairline border and a 3px coloured
@@ -1423,6 +1396,11 @@ button:disabled {
  * two 144px time inputs (.config-form input[type="time"]'s own
  * min-width) plus a gap need more width than this card's own 280px
  * inner content at the 360px contract floor. */
+.quiet-dial-summary {
+  margin-top: var(--space-md);
+  text-align: center;
+}
+
 .quiet-times-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1948,6 +1926,34 @@ table.data-table--registry .cell-inline-sep {
   display: none;
 }
 
+/* The installed-software summary: the icon sits beside the running
+ * version line so the one headline reads as "what the frame runs". */
+.update-summary__headline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The small icon before each release version labels it as a firmware
+ * release rather than a bare number in a table. */
+table.data-table--firmware-history .cell-primary,
+.data-cards .cell-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+/* Install is a safety-relevant action, so it keeps the full touch target
+ * on every layout instead of the compact in-table button height. */
+table.data-table--firmware-history form button[type="submit"],
+.data-cards .data-card__action form button[type="submit"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
 /* The Action column (Install/"Not installable"/quiet label) is the one
  * thing on this row a desktop reader must always be able to reach
  * without scrolling — never let the prose Notes column push it onto a
@@ -1972,102 +1978,6 @@ table.data-table--firmware-history td:last-child {
   overflow-wrap: anywhere;
 }
 
-.flight-detail-row td {
-  background: color-mix(in srgb, var(--color-text) 3%, transparent);
-  padding: var(--space-md);
-}
-
-/* var(--space-lg) reopens a real gap between this grid's own trailing
- * copy button and the next control's synthesized 44x44 hit area — a 0
- * margin measured only 4px of clearance between their two 11px reaches
- * (22px needed). */
-.flight-detail-row__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: var(--space-sm) var(--space-md);
-  margin: 0 0 var(--space-lg);
-}
-
-.flight-detail-row__grid dt {
-  margin: 0;
-}
-
-.flight-detail-row__grid dd {
-  margin: 0 0 var(--space-xs);
-}
-
-/* display: none, not transition-behavior: allow-discrete: the
- * alternative keeps the row's controls in the tab order and a11y tree
- * for the whole close transition (forever, in unsupported browsers).
- * Asserted by test_view_pages.py and test_browser_ux.py. */
-.flight-detail-row--collapsed {
-  display: none;
-}
-
-/* grid-template-rows 0fr -> 1fr on a wrapper <td>: a <tr> cannot be a
- * grid container and display cannot interpolate. Not max-height (row
- * content varies) and not interpolate-size/calc-size() (Chromium-only).
- * min-height: 0 is load-bearing — without it the track never reaches 0fr. */
-.flight-rows-live .flight-detail-row__reveal {
-  display: grid;
-  grid-template-rows: 1fr;
-  transition: grid-template-rows var(--motion-fast) ease-out;
-}
-
-@starting-style {
-  .flight-rows-live .flight-detail-row__reveal {
-    grid-template-rows: 0fr;
-  }
-}
-
-/* padding-left lives on THIS element, not .flight-detail-row td above:
- * that rule's own padding is shadowed by table.data-table--flights td's
- * higher-specificity padding. Clears the 11px reach of the copy
- * button's synthesized hit area, which overflow: hidden would clip. */
-.flight-detail-row__reveal-inner {
-  overflow: hidden;
-  min-height: 0;
-  padding-left: var(--space-md);
-}
-
-/* Every value below is .copy-btn's own, reused verbatim: the 22x22 box,
- * the ::before -11px inset synthesizing a 44x44 hit area, the 7% hover
- * wash. transform (not all) animates only the rotation; the global
- * reduced-motion block already covers it, so no per-rule block is added. */
-.row-toggle {
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-}
-
-.row-toggle::before {
-  content: "";
-  position: absolute;
-  inset: -11px;
-}
-
-.row-toggle:hover {
-  background: color-mix(in srgb, var(--color-text) 7%, transparent);
-}
-
-.row-toggle__glyph {
-  display: inline-block;
-  font-size: 14px;
-  line-height: 1;
-  transition: transform var(--motion-fast) ease;
-}
-
-.row-toggle[aria-expanded="true"] .row-toggle__glyph {
-  transform: rotate(180deg);
-}
-
 .flight-day-row th {
   background: var(--color-canvas);
   text-align: left;
@@ -2075,10 +1985,6 @@ table.data-table--firmware-history td:last-child {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.flight-row--clickable {
-  cursor: pointer;
 }
 
 /* 70% muted strength, matching .section-caption/.data-table th. color,
@@ -2196,39 +2102,10 @@ table.data-table--firmware-history td:last-child {
   white-space: nowrap;
 }
 
-.history-card__details {
-  margin-top: 0;
-}
-
-/* The negative margin cancels .history-card's own padding so the tap
- * area is the card's whole face, not just its inner content box.
- * color: inherit overrides the global summary accent — this text is
- * flight data, not a label; the chevron below keeps the accent instead. */
-.history-card__summary {
-  margin: calc(var(--space-md) * -1);
-  padding: var(--space-md);
-  align-items: center;
-  color: inherit;
-  min-height: 0;
-}
-
-.history-card__summary::before {
-  order: 1;
-  margin-right: 0;
-  margin-left: var(--space-md);
-  color: var(--color-accent);
-}
-
 /* min-width: 0 is the usual flex-item floor: without it a long
- * callsign or route would refuse to shrink and push the chevron off
- * the card. */
+ * callsign or route would refuse to shrink past the card width. */
 .history-card__face {
-  flex: 1 1 auto;
   min-width: 0;
-}
-
-.history-card__details > dl {
-  margin-top: var(--space-md);
 }
 
 .history-card__resolve {
@@ -2237,6 +2114,20 @@ table.data-table--firmware-history td:last-child {
 
 .history-card__resolve .cell-unresolved-link {
   margin-left: 0;
+}
+
+.history-card__action {
+  margin-top: var(--space-sm);
+}
+
+/* The row-level picture action on the card and in the table: the
+ * secondary-button look it inherits from .calendar-disconnect-btn, with
+ * the 44px tap floor and no wrapping inside the narrow picture column. */
+a.calendar-disconnect-btn.flight-picture-link {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
 }
 
 /* .flights-more is always rendered (empty when nothing remains), so
@@ -2870,6 +2761,95 @@ a.airline-card {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+/* One aircraft type's view inside an airline card. The type sections
+ * set no display of their own, so the `hidden` attribute that
+ * airline-types.js toggles always wins; with no script every section is
+ * visible in source order and each shows its own title. */
+.airline-card__types {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.airline-type {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.airline-type[hidden] {
+  display: none;
+}
+
+/* With the selector in charge, the section title would only repeat the
+ * selected option. */
+[data-airline-types-ready] .airline-type__title {
+  display: none;
+}
+
+.airline-type__title {
+  margin: 0;
+}
+
+.airline-type-picker {
+  --js-gate-display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.airline-type-picker select {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Source facts and the owner's changes are two labelled rows of one
+ * list, so they read as different things at a glance. */
+.airline-type__facts {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+}
+
+.airline-type__facts dt {
+  margin-top: var(--space-xs);
+  font-size: 11px;
+}
+
+.airline-type__facts dd {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.airline-card__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-secondary);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+button.airline-card__action {
+  height: auto;
+}
+
+.airline-card__action:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 /* Interactive battery-trend chart hit targets and readout line. */
 
 /* auto first column: the browser measures the real rendered width of
@@ -3227,6 +3207,67 @@ a.airline-card {
   font-weight: var(--weight-semibold);
   min-height: 1.4em;
   margin: 0 0 var(--space-sm);
+}
+
+/* Percentage / Voltage control above the battery chart: a two-button
+ * group of native buttons. The selected one is marked by weight, a
+ * stronger border and a tinted wash, never by colour alone. Shipped
+ * [hidden] and revealed by battery-trend.js, so the explicit [hidden]
+ * rule is required: this display would otherwise beat the UA rule. */
+.battery-unit {
+  display: inline-flex;
+  gap: var(--space-xs);
+  margin: 0 0 var(--space-sm);
+}
+
+.battery-unit[hidden],
+.battery-chart__view[hidden] {
+  display: none;
+}
+
+.battery-unit__option {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  font-weight: var(--weight-regular);
+}
+
+.battery-unit__option[aria-pressed="true"] {
+  font-weight: var(--weight-semibold);
+  border-color: var(--color-text);
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+}
+
+/* The raw-readings action is secondary: muted, regular weight and
+ * label-sized, still a full-height native summary. */
+.readings-disclosure > summary {
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-regular);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* Status tiles, banners and the chart keep a readable measure on wide
+ * screens; narrower viewports fill their column as before. Nested
+ * sections hold multi-column tables that need the full column. */
+.status-page {
+  max-width: 100%;
+}
+
+/* The current result leads: larger and semibold, with the supporting
+ * timestamp or explanation muted and small beneath it. */
+.status-page .stat-tile .widget-verdict {
+  font-size: var(--font-heading-size);
+  line-height: 1.25;
+}
+
+.status-page .stat-tile .widget-detail {
+  font-size: var(--font-label-size);
+}
+
+@media (min-width: 960px) {
+  .status-page > :not(.page-section--nested) {
+    max-width: 760px;
+  }
 }
 
 /* Desktop dashboard shell, this file's second and last breakpoint.
@@ -3658,6 +3699,7 @@ a.airline-card {
  * deliberately NO fallback value — a fallback would mask the inline
  * property's own disappearance instead of surfacing it. */
 .upload-drop__preview {
+  position: relative;
   margin: 0;
   width: 100%;
   aspect-ratio: var(--upload-preview-ratio);
@@ -3679,6 +3721,22 @@ a.airline-card {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+/* The hint lives inside the frame, centred, until a chosen image
+ * fills it. */
+.upload-drop__preview .upload-drop__note {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-sm);
+  text-align: center;
+}
+
+.upload-drop__image:not([hidden]) ~ .upload-drop__note {
+  display: none;
 }
 
 .upload-drop__message {
@@ -3841,6 +3899,45 @@ a.airline-card {
      * elsewhere. Grid treats flex-start as an alias, same effect. */
     align-items: flex-start;
   }
+}
+
+/* The latest frame is the Home page's anchor.  The image remains bounded by
+ * the existing preview rules; this grid only gives it the reading priority
+ * the owner selected, with the recent list immediately alongside on desktop
+ * and directly after it on a phone. */
+.home-current-frame {
+  min-width: 0;
+}
+
+.home-current-frame .preview-frame__image {
+  width: 100%;
+}
+
+.home-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm) var(--space-lg);
+  margin-top: var(--space-lg);
+}
+
+.home-facts > * {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: 0;
+}
+
+.home-fact {
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-canvas);
+  font-weight: var(--weight-semibold);
+}
+
+.home-action {
+  font-weight: var(--weight-semibold);
 }
 
 .quick-actions {
@@ -4509,6 +4606,7 @@ a.calendar-disconnect-btn:focus-visible {
   display: block;
   width: 100%;
   height: auto;
+  object-fit: contain;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   /* Declared on the base rule so the crossfade runs symmetrically in both
@@ -4628,6 +4726,16 @@ a.calendar-disconnect-btn:focus-visible {
   position: relative;
   overflow: hidden;
   border-radius: var(--radius-control);
+  /* The structural hairline keeps a white swatch visible on a white card. */
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
+
+/* A dithered field or band is the panel's stipple of its colour on
+ * white: a checkerboard of the inline paper colour over the inline fill. */
+.palette-swatch--dithered {
+  background-image: repeating-conic-gradient(
+    var(--swatch-paper) 0% 25%, transparent 0% 50%);
+  background-size: 6px 6px;
 }
 
 .palette-swatch__band {

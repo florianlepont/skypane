@@ -20,7 +20,8 @@ from companion.settings.theme import (
 # catalogue — the Poll card's copy lives beside the rest of Device's
 # own display.py strings.
 POLL_SECTION_CAPTION = i18n.msg(
-    "display.trigger_an_immediate_poll_cycle", "Trigger an immediate poll cycle.")
+    "display.request_a_server_check_for_new_flight_data",
+    "Ask the server to check for new flight data now.")
 
 
 
@@ -46,7 +47,7 @@ POLL_SUBMIT_PENDING_TEXT = i18n.msg("display.polling", "Polling…")
 
 # The manual-poll button's own label, shared by both the enabled and
 # cooldown branches of poll_trigger_section() below.
-POLL_TRIGGER_BUTTON_TEXT = i18n.msg("display.trigger_poll_now", "Trigger poll now")
+POLL_TRIGGER_BUTTON_TEXT = i18n.msg("display.refresh_now", "Refresh now")
 
 # The placeholder the client substitutes the live second count into, so
 # the ticking copy stays word-identical to the static, server-rendered

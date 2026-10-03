@@ -41,24 +41,22 @@ def _write_legacy_config(state_dir):
         }, fh)
 
 
-@pytest.mark.parametrize("lang, send_test_text, intro", [
-    ("en", "Send a test", "— the light on the frame."),
-    ("fr", "Envoyer un test", "— le voyant du cadre."),
+@pytest.mark.parametrize("lang, send_test_text, led_caption", [
+    ("en", "Send a test", "Lights briefly while the frame checks for new flight data."),
+    ("fr", "Envoyer un test", "S’allume brièvement lorsque le cadre vérifie de nouvelles données de vol."),
 ])
-def test_device_page_has_no_push_alert_card(app_server_in_process, lang, send_test_text, intro):
+def test_device_page_has_no_push_alert_card(app_server_in_process, lang, send_test_text, led_caption):
     """the Device page carries no topic-URL field, no send-a-test form and no
-    push-topic wording, and its 'How it tells you' section introduces only the
-    frame's light while still holding the Diagnostic LED card"""
+    push-topic wording, while still keeping the Diagnostic LED card's
+    observable behaviour explanation."""
     server = app_server_in_process
     rendered = _device_page(server, login(server), lang)
     assert 'id="notifications-topic-url"' not in rendered
     assert _RETIRED_ROUTE not in rendered
     assert "Push topic URL" not in rendered
     assert send_test_text not in rendered
-    assert 'id="%s"' % config_page.DEVICE_TELLS_SECTION_ID in rendered
-    assert intro in rendered
-    assert "phone" not in rendered.split('id="%s"' % config_page.DEVICE_TELLS_SECTION_ID, 1)[1].split(
-        'id="%s"' % config_page.DEVICE_POLL_SECTION_ID, 1)[0]
+    assert led_caption in rendered
+    assert "phone" not in rendered
     assert config_page.QUICK_LED_STATE_ID in rendered
 
 

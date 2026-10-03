@@ -12,7 +12,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 
 import companion.test_status_pages_helpers as shp
-from companion import draw, layout
+from companion import draw, layout, prefs
 from companion.pages import health_page
 import companion.wake as wake
 from companion_markup import parse_html
@@ -185,8 +185,8 @@ def test_independent_thresholds_one_warn_one_ok(tmp_path):
 def test_device_pipeline_tiles_have_no_duplicated_label(tmp_path):
     """the Device and Pipeline tiles carry their freshness label exactly once
     (caption only) plus exactly one Emphasis-role verdict and exactly one muted
-    detail slot holding the mono timestamp, with zero stat-tile__value and no
-    leftover dot-label"""
+    detail slot (the Device tile's mono check-in timestamp; the Pipeline tile's single
+    last-aircraft status line), with zero stat-tile__value and no leftover dot-label"""
     now = shp.now()
     shp.seed_device_health(str(tmp_path), [(shp.iso(now), 4200)])
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
@@ -206,8 +206,14 @@ def test_device_pipeline_tiles_have_no_duplicated_label(tmp_path):
         details = tile_slice.count('class="%s"' % health_page._TILE_DETAIL_CLASS)
         assert details == 1, "%r's tile must carry exactly one detail slot, got %d" % (label, details)
         detail_at = tile_slice.index('class="%s"' % health_page._TILE_DETAIL_CLASS)
-        assert 'class="mono"' in tile_slice[detail_at:], (
-            "%r's tile must carry its mono timestamp span INSIDE the detail slot" % label)
+        if label == health_page.DEVICE_FRESHNESS_LABEL:
+            assert 'class="mono"' in tile_slice[detail_at:], (
+                "%r's tile must carry its mono timestamp span INSIDE the detail slot" % label)
+        else:
+            assert tile_slice.count(health_page.LAST_DETECTION_LABEL) == 1, (
+                "%r's tile must carry the last-aircraft status exactly once" % label)
+            assert health_page.LAST_DETECTION_LABEL in tile_slice[detail_at:], (
+                "%r's last-aircraft status must sit INSIDE the detail slot" % label)
         assert "dot-label" not in tile_slice, (
             "%r's tile must carry no dot-label — the redundant body dot was removed" % label)
 
@@ -298,6 +304,12 @@ def test_battery_ring_agrees_with_its_own_readout(tmp_path):
             "checked in" % (cls,))
 
 
+def _voltage_view(doc):
+    """The server-rendered default (voltage) chart view: the page also
+    carries a hidden percentage twin of the same series."""
+    return doc.find("div", cls="battery-chart__view", attrs={"data-unit": "mv"})
+
+
 def test_battery_trend_shows_all_readings_and_one_sparkline(tmp_path):
     """three battery rows render the full trend (not just the latest value) and
     exactly one <svg> with exactly n - 1 trend-line segments (retargeted from the
@@ -313,10 +325,54 @@ def test_battery_trend_shows_all_readings_and_one_sparkline(tmp_path):
     for _ts, mv in readings:
         assert str(mv) in rendered, "expected battery_mv=%d to appear (a trend, not just the latest)" % mv
     doc = parse_html(rendered)
-    canvases = doc.find_all("svg", cls="sparkline__canvas")
-    assert len(canvases) == 1, "expected exactly one sparkline canvas, got %d" % len(canvases)
-    lines = doc.find_all("line", cls=health_page.SPARKLINE_LINE_CLASS)
+    canvases = _voltage_view(doc).find_all("svg", cls="sparkline__canvas")
+    assert len(canvases) == 1, "expected exactly one sparkline canvas per view, got %d" % len(canvases)
+    assert len(doc.find_all("svg", cls="sparkline__canvas")) == 2, (
+        "expected the voltage view plus its percentage twin")
+    lines = _voltage_view(doc).find_all("line", cls=health_page.SPARKLINE_LINE_CLASS)
     assert len(lines) == 2, "expected exactly 2 trend-line segments (n - 1 for 3 points), got %d" % len(lines)
+
+
+def test_battery_chart_ships_a_percentage_twin_calculated_by_the_server(tmp_path):
+    """the page carries the voltage chart visibly and a hidden percentage twin whose readings are the
+    server's own battery estimate, with a Percentage/Voltage control hidden until the script runs"""
+    from companion import battery
+    base = shp.now().replace(hour=12, minute=0, second=0, microsecond=0)
+    readings = [
+        (shp.iso(base - timedelta(minutes=2)), 4200),
+        (shp.iso(base - timedelta(minutes=1)), 3800),
+        (shp.iso(base), 3600),
+    ]
+    shp.seed_device_health(str(tmp_path), readings)
+    doc = parse_html(health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(base))))
+    voltage = _voltage_view(doc)
+    percent = doc.find("div", cls="battery-chart__view", attrs={"data-unit": "percent"})
+    assert "hidden" not in voltage.attrs and "hidden" in percent.attrs
+    group = doc.find("div", cls="battery-unit")
+    assert "hidden" in group.attrs, "the control needs the script, so it ships hidden"
+    buttons = group.find_all("button")
+    assert [b.attrs["data-unit"] for b in buttons] == ["percent", "mv"]
+    assert [b.attrs["aria-pressed"] for b in buttons] == ["false", "true"]
+    hits = percent.find_all("circle", cls=health_page.SPARKLINE_HIT_CLASS)
+    assert len(hits) == 3
+    for hit in hits:
+        expected = "≈ %d%%" % battery.battery_percent(int(hit.attrs["data-mv"]))
+        assert hit.attrs["data-reading"] == expected
+    assert not voltage.find_all(attrs={"data-reading": "≈ 0%"})
+
+
+def test_battery_unit_control_is_localised(tmp_path):
+    """the Percentage/Voltage control and its group label render in French on a French request"""
+    base = shp.now().replace(hour=12, minute=0, second=0, microsecond=0)
+    shp.seed_device_health(str(tmp_path), [
+        (shp.iso(base - timedelta(minutes=1)), 3900), (shp.iso(base), 3800)])
+    try:
+        prefs.set_request_prefs(lang="fr")
+        rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(base)))
+    finally:
+        prefs.set_request_prefs(lang="en")
+    assert ">Pourcentage</button>" in rendered and ">Tension</button>" in rendered
+    assert 'aria-label="Unité du graphique de batterie"' in rendered
 
 
 def test_battery_trend_timestamps_show_concise_format(tmp_path):
@@ -364,17 +420,19 @@ def test_battery_readings_collapsed_behind_closed_disclosure_after_chart(tmp_pat
     assert svg_index < details_index, "expected the chart to precede the collapsed readings table"
 
 
-def test_battery_trend_heading_shows_d10_window_label(tmp_path):
-    """the Battery trend heading shows the default 3-month window framing on an
-    empty render"""
+def test_battery_trend_heading_names_only_the_subject(tmp_path):
+    """the Battery heading carries no window label and the retired "Last 3 months" range
+    caption does not render on an empty render"""
     rendered = health_page.render(shp.ctx(str(tmp_path)))
-    assert "Last 3 months" in rendered
+    assert '<h2 class="text-heading">Battery</h2>' in rendered
+    assert "3 months" not in rendered
+    assert "Last 3 months" not in rendered
 
 
 def test_battery_chart_plots_daily_averages_not_raw_readings(tmp_path):
     """a multi-day seeded render plots the three DAILY AVERAGES (never any raw
     reading value) as points, keeps every raw reading visible in the disclosure
-    table, and names the 3-month window"""
+    table, with no range caption"""
     base = datetime(2026, 9, 2, 12, 0, 0, tzinfo=timezone.utc)
     readings = []
     day_values = [[4000, 4100, 4200], [4001, 4101, 4201], [4002, 4102, 4202]]
@@ -391,18 +449,18 @@ def test_battery_chart_plots_daily_averages_not_raw_readings(tmp_path):
     for raw in (4000, 4001, 4002, 4200, 4201, 4202):
         assert not doc.find_all(attrs={"data-mv": str(raw)}), (
             "raw reading %d must not be a plotted point once the chart is aggregated" % raw)
-    lines = doc.find_all("line", cls=health_page.SPARKLINE_LINE_CLASS)
+    lines = _voltage_view(doc).find_all("line", cls=health_page.SPARKLINE_LINE_CLASS)
     assert len(lines) == 2, "three daily points means two trend-line segments, got %d" % len(lines)
     for _ts, mv in readings:
         assert str(mv) in rendered, "raw reading %d missing from the disclosure table" % mv
-    assert "Last 3 months" in rendered, "expected the 3-month caption when the daily series is on screen"
+    assert "Last 3 months" not in rendered, "the retired range caption must stay off the page"
     assert health_page.BATTERY_READOUT_ID in rendered, "the latest computed reading must still be on the page"
 
 
 def test_battery_chart_falls_back_to_raw_series_on_day_one(tmp_path):
     """a same-day (fewer than two calendar days) seeded render still produces a
-    chart and a readout, captioned honestly as readings rather than the 3-month
-    window — the day-1 regression guard"""
+    chart and a readout, with the disclosure naming the real reading count and no
+    range caption — the day-1 regression guard"""
     base = shp.now().replace(hour=12, minute=0, second=0, microsecond=0)
     readings = [
         (shp.iso(base - timedelta(minutes=2)), 4200),
@@ -412,11 +470,13 @@ def test_battery_chart_falls_back_to_raw_series_on_day_one(tmp_path):
     shp.seed_device_health(str(tmp_path), readings)
     rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(base)))
     doc = parse_html(rendered)
-    lines = doc.find_all("line", cls=health_page.SPARKLINE_LINE_CLASS)
+    lines = _voltage_view(doc).find_all("line", cls=health_page.SPARKLINE_LINE_CLASS)
     assert len(lines) == 2, "a same-day device must still get its raw-readings chart, got %d segments" % len(lines)
     assert health_page.BATTERY_READOUT_ID in rendered, (
         "the readout must not disappear on a device younger than two calendar days")
-    assert ("Latest %d readings" % len(readings)) in rendered
+    assert ("View %d readings" % len(readings)) in rendered, (
+        "the readings disclosure must name the real reading count")
+    assert ("Latest %d readings" % len(readings)) not in rendered
     assert "Last 3 months" not in rendered, (
         "the caption must never describe a window the chart is not actually showing")
 
@@ -472,9 +532,9 @@ def test_anomaly_active_never_raises_on_hostile_inputs(tmp_path):
 
 
 def test_battery_caption_is_mode_honest_across_renders(tmp_path):
-    """the Battery trend caption is mode-honest across three renders — empty
-    (3-month default), multi-day (3-month, daily average), and same-day (readings
-    count)"""
+    """the Battery trend renders no range caption in any of three modes — empty, multi-day
+    (daily average) and same-day (raw readings) — while the same-day readings disclosure
+    still names the real count"""
     empty_dir = tmp_path / "empty"
     multiday_dir = tmp_path / "multiday"
     sameday_dir = tmp_path / "sameday"
@@ -483,7 +543,7 @@ def test_battery_caption_is_mode_honest_across_renders(tmp_path):
     base = shp.now()
 
     empty_rendered = health_page.render(shp.ctx(str(empty_dir), now_value=shp.iso(base)))
-    assert "Last 3 months" in empty_rendered, "expected the default 3-month framing on an empty render"
+    assert "Last 3 months" not in empty_rendered, "expected no range caption on an empty render"
 
     multiday_readings = [
         (shp.iso(base - timedelta(days=1)), 4100),
@@ -491,7 +551,7 @@ def test_battery_caption_is_mode_honest_across_renders(tmp_path):
     ]
     shp.seed_device_health(str(multiday_dir), multiday_readings)
     multiday_rendered = health_page.render(shp.ctx(str(multiday_dir), now_value=shp.iso(base)))
-    assert "Last 3 months" in multiday_rendered, "expected the 3-month framing when the daily series is on screen"
+    assert "Last 3 months" not in multiday_rendered, "expected no range caption when the daily series is on screen"
 
     sameday_readings = [
         (shp.iso(base - timedelta(minutes=1)), 4200),
@@ -499,8 +559,9 @@ def test_battery_caption_is_mode_honest_across_renders(tmp_path):
     ]
     shp.seed_device_health(str(sameday_dir), sameday_readings)
     sameday_rendered = health_page.render(shp.ctx(str(sameday_dir), now_value=shp.iso(base)))
-    assert ("Latest %d readings" % len(sameday_readings)) in sameday_rendered, (
-        "expected the readings-count framing on the same-day fallback")
+    assert ("View %d readings" % len(sameday_readings)) in sameday_rendered, (
+        "expected the readings disclosure to name the real count on the same-day fallback")
+    assert ("Latest %d readings" % len(sameday_readings)) not in sameday_rendered
     assert "Last 3 months" not in sameday_rendered, (
         "the same-day fallback must not claim the 3-month framing")
 
@@ -654,28 +715,29 @@ def test_corroboration_copy_has_no_decision_id_leak():
 
 
 def test_device_and_pipeline_rows_use_concise_timestamp_format(tmp_path):
-    """the Device check-in and ADS-B pipeline rows render via the concise
-    timestamp format"""
+    """the Device check-in row and the Pipeline tile's last-aircraft line render via the
+    concise timestamp format"""
     now = shp.now()
     shp.seed_device_health(str(tmp_path), [(shp.iso(now), 4200)])
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
+    shp.seed_runway_events(str(tmp_path), [
+        {"ts": shp.iso(now), "hex": "abc123", "corroborated": True}])
     rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
     assert rendered.count('<span class="mono" title=') >= 2, (
-        "expected at least two concise_timestamp_html() spans (Device + Pipeline rows)")
+        "expected at least two concise_timestamp_html() spans (Device row + last aircraft)")
 
 
 def test_health_pill_reversal_guard(tmp_path):
-    """Health's manual Refresh link and stale-view banner are reversed: a live
-    data-loaded-at timestamp survives, page_header() is called exactly once, and
-    both retired markers are gone from the rendered page and the module itself"""
+    """Health's manual Refresh link and stale-view banner stay retired, and its freshness
+    line (and the data-loaded-at marker it carried) is gone too; page_header() is called
+    exactly once"""
     # Pins the reversal's own rendered result and positively asserts both
     # retired literals are truly gone, so a later refactor cannot silently
     # bring them back.
     now_iso = shp.iso(shp.now())
     rendered = health_page.render(shp.ctx(str(tmp_path), now_value=now_iso))
-    assert rendered.count("data-loaded-at") == 1, "expected exactly one data-loaded-at attribute"
-    assert ('data-loaded-at="%s"' % now_iso) in rendered, (
-        "expected data-loaded-at to carry the real, request-scoped now ISO value")
+    assert "data-loaded-at" not in rendered, "expected the retired freshness line to be gone"
+    assert "page-header__freshness" not in rendered
     assert rendered.count('<h1 class="page-title"') == 1, "expected page_header() to be called exactly once"
     assert "data-stale-banner" not in rendered, (
         "expected the retired stale-view banner marker to be gone from the rendered page")

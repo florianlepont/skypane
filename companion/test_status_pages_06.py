@@ -145,8 +145,8 @@ def test_cache_buster_absent_with_no_state_dir_and_keyed_on_mtime_with_an_overri
     zoom_srcs = re.findall(r'data-view-panel-src="([^"]+)"', rendered)
     replace_actions = re.findall(r'data-view-panel-replace-action="([^"]+)"', rendered)
     assert img_srcs.count(expected_busted_url) == 1
-    assert zoom_srcs.count(expected_busted_url) == 1
-    assert replace_actions.count(expected_unbusted_url) == 1
+    assert zoom_srcs.count(expected_busted_url) == 2, "image trigger plus the replace-artwork action"
+    assert replace_actions.count(expected_unbusted_url) == 2
     for src in img_srcs:
         assert src == expected_busted_url or "?v=" not in src
     for src in zoom_srcs:
@@ -668,7 +668,7 @@ def test_airline_card_html_superseded_shows_built_in_state_never_operator_upload
     """a superseded card never shows the operator's own orphaned upload:
     data-view-panel-src points at the built-in Air France illustration key
     (never a key derived from the entry's own stored name), the
-    Superseded chip renders, and the manual-note interpolates the prefix,
+    owner row says the built-in name is used instead, and the manual-note interpolates the prefix,
     the built-in name, AND the operator's own originally-stored name (not
     the built-in name a second time)"""
     tmp = str(tmp_path)
@@ -676,7 +676,7 @@ def test_airline_card_html_superseded_shows_built_in_state_never_operator_upload
     rendered = airlines_page.render(shp.ctx(tmp))
     card = _card_slice(rendered, "Air France")
     assert 'data-view-panel-manual="superseded"' in card
-    assert ('<span class="airline-card__chip">%s</span>' % airlines_page.SUPERSEDED_MARKER_TEXT) in card
+    assert ('<span class="airline-card__chip">%s</span>' % airlines_page.OWNER_SUPERSEDED_TEXT) in card
     src_match = re.search(r'data-view-panel-src="([^"]*)"', card)
     assert src_match and src_match.group(1).startswith("/illustration/air-france.png")
     assert "some-other-airline" not in card.lower()
@@ -946,18 +946,18 @@ def test_manual_summary_line_replaces_retired_management_table_copy(tmp_path):
 
 
 def test_manual_section_supersession_symbols_retired_and_chip_still_renders(tmp_path):
-    """the retired supersession machinery's own symbols
-    (SUPERSEDED_MARKER_TITLE, SUPERSEDED_CAPTION, SUPERSEDED_STATUS_CLASS)
-    are gone, and the Superseded chip itself still renders end to end via
-    render() - the card-level attribute/note contract is Task 1's own
-    check's job, not re-tested here"""
-    for name in ("SUPERSEDED_MARKER_TITLE", "SUPERSEDED_CAPTION", "SUPERSEDED_STATUS_CLASS"):
+    """the retired supersession machinery's own symbols, including the bare
+    "Superseded" badge, are gone, and the superseded state still renders end to
+    end via render() as the explained owner-row chip"""
+    for name in ("SUPERSEDED_MARKER_TITLE", "SUPERSEDED_CAPTION", "SUPERSEDED_STATUS_CLASS",
+                 "SUPERSEDED_MARKER_TEXT"):
         assert not hasattr(airlines_page, name), "expected airlines_page to no longer expose %r" % (name,)
     tmp = str(tmp_path)
     manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
     rendered = airlines_page.render(shp.ctx(tmp))
-    expected_chip = '<span class="airline-card__chip">%s</span>' % airlines_page.SUPERSEDED_MARKER_TEXT
+    expected_chip = '<span class="airline-card__chip">%s</span>' % airlines_page.OWNER_SUPERSEDED_TEXT
     assert expected_chip in rendered
+    assert ">Superseded<" not in rendered
 
 
 def test_retired_management_table_symbols_are_gone():
@@ -1477,3 +1477,24 @@ def test_tab_bar_css_geometry_surface_and_active_idiom(css_text):
     for needle in ("56px", "env(safe-area-inset-bottom, 0px)"):
         assert needle in padding_bottom
     assert layout.TAB_BAR_BODY_CLASS == "has-tab-bar"
+
+
+def test_airlines_page_drops_decorative_labels_and_explains_owner_actions(tmp_path):
+    """the Airlines page serves no page-description sentence, no "<name> illustration" label
+    and no framing-preview sentence; each type section keeps the source row and the owner's
+    changes row apart; and the delete form says what it does to flights and artwork"""
+    tmp = str(tmp_path)
+    manual_resolutions.add_entry(tmp, "XQZ", "Totally Novel Airline", now="2026-01-01T00:00:00+00:00")
+    rendered = airlines_page.render(shp.ctx(tmp))
+    assert "Illustration reference for every airline" not in rendered
+    assert 'alt="Air France illustration"' not in rendered
+    assert 'data-view-panel-caption="Air France illustration"' not in rendered
+    assert "how it will be framed" not in rendered
+    card = _card_slice(rendered, "Air France")
+    assert '<dt class="text-label">From SkyPane</dt><dd class="airline-type__source">Built-in artwork</dd>' in card
+    assert '<dt class="text-label">Your changes</dt>' in card
+    assert ">Replace artwork</" in card
+    novel = _card_slice(rendered, "Totally Novel Airline")
+    assert ">Add artwork</" in novel
+    assert "Flights with this prefix become unidentified again. Your artwork stays." in rendered
+    assert ">Delete my name</button>" in rendered

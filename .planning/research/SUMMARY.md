@@ -1,164 +1,218 @@
 # Project Research Summary
 
-**Project:** Ink Frame (e-ink Orly departure/RER board)
-**Domain:** Battery-powered e-ink IoT ambient display (ESP32-S3 device + cloud render server + external flight/transit APIs)
-**Researched:** 2026-08-04
+**Project:** SkyPane
+**Domain:** Battery-powered e-ink flight frame and bilingual companion web application
+**Milestone:** v1.1 Battery and Companion!
+**Researched:** 2026-09-30
 **Confidence:** MEDIUM
 
 ## Executive Summary
 
-Ink Frame is a battery-powered, wall-mounted e-ink "departure board" that shows Orly (ORY) flight departures and Orly-Ville RER-B next-departures, switching between two views on a physical button press. The domain has a strong direct precedent — flightportrait's open-source `frame` project — which supplies a proven hardware target (Seeed XIAO ESP32-S3 Plus + 13.3" E Ink Spectra 6 panel), a battle-tested device↔server poll protocol (3 HTTPS endpoints, SHA-256 image verification, exponential backoff, device-initiated-only connections), and a "device blits, server renders" architectural split that keeps firmware simple and puts all layout/rendering/color-quantization logic in a Python server. Recommended stack: ESP-IDF (not Arduino) firmware, Python + FastAPI/Flask + Pillow render server, AeroDataBox for ORY flight data ($5/mo Pro tier), IDFM's PRIM SIRI Lite API for RER-B next-departures (free), and a small always-on Hetzner CX22 VPS (~€4.35/mo) — all comfortably inside the stated €300 hardware / low-monthly-cost budget.
+V1.1 is an evidence-to-decision milestone. SkyPane already has the telemetry,
+durable history, configuration path, and companion architecture it needs: the
+frame reports battery voltage during its authenticated poll, the server stores
+the observations in SQLite, and the companion persists the normal wake
+interval returned to the device as `sleep_s`. The recommended approach is to
+reuse those seams for one controlled second discharge study, model the two
+runs from observed time and cycles, then make and validate one operational
+cadence and battery-pack decision.
 
-The single biggest risk across all four research areas is **battery-life estimation**: naive "deep sleep current only" math overstates battery life by 5-10x, because active WiFi/TLS/e-ink-refresh time dominates the real energy budget. This must be measured on real hardware early and used to set the wake/poll interval (recommended: 15-30 min scheduled poll + button-triggered on-demand refresh), not assumed. Secondary risks cluster around external API fragility: cheap flight/transit APIs have real rate limits and staleness windows that can make the device confidently show wrong information (a cancelled flight as on-time, a disrupted RER line as normal) unless the server enforces an explicit data-staleness gate and a "last known good, marked stale" fallback — never a silent stale display and never a blank/broken one.
+The main technical risk is false certainty. The first 300-second, hash-skip
+run measured 12.34 days and 0.923 mAh per observed cycle, but cannot separate
+active wake cost from standing deep-sleep drain. The second run must keep the
+same pack and workload, use a materially different cadence, retain raw data,
+and report uncertainty and the unmeasured display-refresh cost. A larger pack
+is warranted only if the resulting autonomy/freshness policy misses agreed
+targets after connector, fit, charging, and voltage-curve constraints are
+checked.
 
-The recommended architecture cleanly separates concerns: independent scheduled fetchers (flight, transit) write into a render cache; a stateless poll API serves only from that cache (never calling upstream APIs synchronously in response to a device request); and the device itself never accepts inbound connections, only polls out. This split lets device firmware and server backend be built and tested almost entirely in parallel, using `docs/PROTOCOL.md` as the sole contract between them — a structural decision with direct implications for phase sequencing (see below).
+Companion polish should proceed as a task-based discovery and focused repair
+effort, not as a redesign. Walk the owner journeys on every authenticated
+route, in English and French, at desktop and narrow-mobile widths; rank each
+finding as keep, fix now, or defer. Implement only reproducible high-value
+findings through the Phase 40 route, page-context, template, CSS, JavaScript,
+and stable-i18n boundaries, with accessibility and responsive regression
+coverage.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The stack mirrors flightportrait's reference implementation closely, deliberately, so its firmware/server code can be studied or adapted rather than re-derived from scratch.
+No new runtime framework, cloud service, telemetry store, firmware protocol,
+or companion dependency is needed. Existing whole-device field evidence is
+more useful than attempting to infer the product's battery life from component
+datasheets or a development-board ammeter. If the current tools cannot express
+the calculation reproducibly, add only a pure, fixture-tested two-run analysis
+command to `hardware/logtools.py`.
 
 **Core technologies:**
-- **ESP-IDF (C), ≥5.3** on Seeed XIAO ESP32-S3 Plus + 13.3" Spectra 6 (EE02 kit, ~€152) — matches the reference firmware exactly, gives full control over sleep-current tuning (the top risk factor); avoid the Arduino framework for shipped firmware.
-- **ESP-IDF `wifi_provisioning` (BLE, Security 2)** — built-in, audited provisioning stack; don't roll a custom one.
-- **Python 3.12 + FastAPI/Flask + Pillow** — server render pipeline; Pillow handles 6-color quantization/dithering (Floyd-Steinberg; validate output against real hardware — LOW confidence on dithering quality).
-- **APScheduler (or cron)** — decoupled scheduled fetch/render jobs, independent of device poll requests.
-- **AeroDataBox (Pro, $5/mo)** — ORY flight FIDS data; reject OpenSky (no scheduled-flight data), AviationStack/FlightAware (too expensive for a single-airport hobby use case).
-- **IDFM PRIM SIRI Lite API (free)** — RER-B Orly-Ville next-departures; official RATP/IDFM-endorsed source.
-- **Hetzner CX22 VPS (~€4.35/mo)** — always-on hosting; explicitly avoid scale-to-zero platforms (Fly.io free tier) since the project requires the server to always be reachable.
+
+- Firmware `X-Battery-Mv` telemetry — comparable pre-Wi-Fi battery samples on every poll.
+- Caddy access logs and `history.db.device_health` — the sole durable observation channel.
+- `hardware/logtools.py` and `hardware/BATTERY-RUN.md` — raw-data normalization, experiment gates, model, and evidence record.
+- `wake_interval_s`, `wake.effective_wake_interval_s()`, and response `sleep_s` — the existing reversible normal-cadence control plane.
+- Companion route table, typed page context, named templates, tokenized CSS, stable i18n IDs, and Playwright coverage — seams for narrow UI changes.
 
 ### Expected Features
 
-**Must have (table stakes) — v1:**
-- Plane view: flight number, destination, scheduled time, delay/cancelled status
-- RER view: line, destination, minutes-until-next (≥2 upcoming departures)
-- Physical single-button: switch view + force a genuinely fresh poll (not stale cache)
-- Freshness indicator ("as of HH:MM") on both views
-- Graceful stale/unreachable-server state — never blank, never silently stale
-- Wake/poll/display/deep-sleep cycle with exponential backoff
-- Ambient-first, chrome-free visual layout (no status LEDs, no menus)
+**Must have (table stakes):**
 
-**Should have (differentiators) — v1.x:**
-- "Will I make it?" framing — countdown + fixed walk-time buffer (pure render-layer logic, high value/low cost)
-- Color-coded delay/disruption severity (hardware already supports 6-color)
-- Per-view independent poll/backoff state (so a button press doesn't force-refetch the view being left)
+- A second controlled discharge run at a materially different effective cadence.
+- A two-run wake-cost versus standing-drain model using observed elapsed time and cycle count.
+- A documented production cadence and retain-or-replace battery-pack decision.
+- Confirmation that the applied cadence round-trips through companion settings and a healthy device poll.
+- A fresh task-based companion walkthrough followed by focused, bilingual fixes.
+
+**Should have (differentiators):**
+
+- A transparent autonomy/freshness policy with explicit assumptions and uncertainty.
+- A calm, coherent companion experience whose improvements are tied to real owner journeys.
+- An evidence-backed decision to keep the current 3000 mAh pack when it meets the target.
 
 **Defer (v2+):**
-- RER disruption banner (separate RATP traffic-info feed) — only if disruptions on this specific line prove frequent enough to matter
-- Companion phone-app push messaging — must respect poll-only security model (message waits in cache, device pulls it, never pushed to device)
-- Additional views (weather, other lines) — explicitly resist; stay two-view to preserve focus
-- Anti-features to actively avoid: live/streaming updates, partial-refresh-only, status LEDs, on-device settings UI, gate/terminal fields, push notifications, animations
+
+- A third discharge run unless the second run leaves a documented decision-blocking uncertainty.
+- A battery analytics dashboard, parallel telemetry, or cloud analytics.
+- Solar or wall power, RER and additional panel views, on-device settings, phone notifications, and the comment-history guard.
 
 ### Architecture Approach
 
-Device and server are fully independent codebases connected only by a shared `PROTOCOL.md` contract, enabling parallel build tracks. The device is poll-only and outbound-only (no listening socket); it downloads a pre-rendered, pre-quantized bitmap, verifies SHA-256 + exact size, blits it via full refresh, and returns to deep sleep for a server-specified interval. The server never renders synchronously in response to a device poll — independent scheduled fetchers (flight, transit) populate a render cache on their own cadences, and the poll API is a pure cache reader. A button press is not a separate protocol path: it just sets `active_view` in NVS and immediately triggers the same poll flow outside the timer schedule.
+The device remains poll-only. The companion writes `wake_interval_s` to the
+existing device configuration; `wake.effective_wake_interval_s()` applies the
+normal policy underneath battery-critical and display-off overrides; the next
+poll delivers `sleep_s`; firmware validates it before deep sleep. The second
+experiment should be an operational artifact beside the existing battery-run
+record, not a new subsystem. Companion changes must remain in their owning
+modules and preserve shared state, refresh, and accessibility contracts.
 
 **Major components:**
-1. **Device state machine** (ESP-IDF) — wake dispatch, poll orchestration, backoff, NVS-persisted view/hash state
-2. **Server poll API** — stateless, cache-only HTTP handler for the 3 device endpoints (setup/display/log)
-3. **Server fetchers** (flight, transit) — independent scheduled jobs, normalize external API data, trigger re-render
-4. **Server render pipeline** — layout → 6-color quantize → pack to device binary format, shared packer across both views
+
+1. Firmware battery and API client — sample before Wi-Fi and emit comparable telemetry.
+2. Device API, Caddy, poll cycle, and SQLite history — persist idempotent field observations.
+3. `hardware/logtools.py` and battery evidence files — validate runs and derive reproducible analysis.
+4. Device configuration and wake policy — save the chosen normal interval while preserving safety precedence.
+5. Companion routes, pages, layout, assets, and i18n — host walkthrough-backed usability improvements.
 
 ### Critical Pitfalls
 
-1. **Battery-life estimates 5-10x optimistic if based on deep-sleep current alone** — active WiFi/TLS/refresh time dominates; must bench-measure mAh/wake-cycle and size wake interval + battery from real numbers, not datasheet sleep current.
-2. **E-ink refresh current spikes cause brownouts on battery**, especially at low charge — must test refresh reliability under battery load at low state of charge, not just bench power; add adequate decoupling capacitance and a firmware refresh-completion check.
-3. **Flight/RER data staleness can show confidently wrong information** (cancelled flight as on-time, disrupted line as normal) — enforce an explicit staleness budget in the render pipeline before publishing any image; never render from data older than a defined threshold.
-4. **PRIM/IDFM quota can be blown through fast with naive fixed-interval polling** — cache with TTL tied to actual device wake frequency, monitor the quota dashboard from day one, don't hardcode assumptions from tutorials.
-5. **Ghosting and multi-second refresh flash have direct UX consequences** for a "glance and go" device — decide full-refresh-only vs. partial+periodic-full explicitly, and design the button-press interaction around real refresh latency (12-30s) rather than assuming near-instant feedback.
+1. **Changing pack and cadence together** — keep the charged 3000 mAh pack and hash-skip workload fixed across the two runs.
+2. **Using requested sleep as full-cycle duration** — compute from actual timestamps and observed check-ins; wake work is measurable overhead.
+3. **Treating missing voltage as a missed wake** — use all health rows for continuity and validate voltage separately.
+4. **Claiming exact autonomy from two noisy runs** — publish assumptions, uncertainty, and the hash-skip limitation; validate the selected policy in normal use.
+5. **Bypassing cadence precedence or redesigning on taste** — use the stored setting and safety order; make only walkthrough-proven, bilingual, accessible fixes.
 
 ## Implications for Roadmap
 
-Based on research, suggested phase structure:
+### Phase 1: Battery Experiment Protocol and Second Discharge Study
 
-### Phase 1: Device/Server Protocol + Hardware Bring-up
-**Rationale:** The device↔server protocol is the sole coupling point between two otherwise-independent subsystems; establishing it first (mirroring flightportrait's `PROTOCOL.md`) unblocks fully parallel work afterward. Hardware bring-up (display driver, deep sleep, battery measurement) must start immediately because Pitfall 1 (battery life) is foundational and shapes every later UX/interval decision.
-**Delivers:** Working display driver + deep sleep + wake-poll-sleep cycle against a minimal stub server; bench-measured mAh/wake-cycle number.
-**Addresses:** Wake/poll/deep-sleep architecture (table stakes)
-**Avoids:** Pitfall 1 (battery estimation gap), Pitfall 2 (refresh brownout) — both require early hardware validation before committing to a battery/interval choice.
+**Rationale:** The production policy cannot be credible until the two unknown
+consumption terms are separated with comparable evidence.
 
-### Phase 2: Server Data Pipeline (Flight + Transit Fetchers)
-**Rationale:** Fetch/render/cache logic is independent of device firmware once the protocol contract exists; building it in parallel with Phase 1's later stages minimizes idle time. This phase also carries the highest external-integration risk (API selection, quotas, staleness).
-**Delivers:** Independent scheduled fetchers for AeroDataBox (ORY) and PRIM (RER-B), normalized data models, render cache with staleness gating.
-**Uses:** Python/FastAPI/Pillow/APScheduler from STACK.md
-**Implements:** Fetcher → render cache → poll-API-reads-cache pattern (Architecture Pattern 3)
-**Avoids:** Pitfall 4 (flight staleness), Pitfall 5 (PRIM quota exhaustion), Pitfall 6 (disruption gaps deferred but staleness gate must exist from the start)
+**Delivers:** A pre-registered alternate cadence, frozen comparable conditions,
+effective `sleep_s` confirmation, bounded raw export, and completed second-run
+continuity, voltage, and depletion gates.
 
-### Phase 3: Rendering + Device Display Integration
-**Rationale:** Once both the device poll client and server render cache exist independently, join them: implement the actual plane/RER view layouts, 6-color quantization, and validate the full loop end-to-end on real hardware (not a stub).
-**Delivers:** Two working views (plane, RER) rendered server-side, packed, verified, and blitted on-device; freshness timestamp; graceful stale/offline states.
-**Addresses:** Table-stakes feature set (flight/RER fields, freshness indicator, graceful degradation)
-**Avoids:** Pitfall 3 (ghosting/refresh-latency UX) — decide full-refresh-only strategy here.
+**Addresses:** Controlled second discharge and reproducible evidence.
 
-### Phase 4: Button Interaction + Backoff Hardening
-**Rationale:** Button-triggered view switch + forced poll is architecturally "the same flow, forced" (Pattern 2) — building it after the base poll loop is proven avoids creating a second, divergent code path. Backoff/security hardening (token rotation, image-hash verification enforcement, no plaintext fallback) belongs here as a pre-ship gate.
-**Delivers:** Physical button wired to view-switch + forced poll; exponential backoff fully wired; security checklist closed (hash verification, HTTPS-only release builds, token rotation).
-**Addresses:** Physical button (table stakes), per-view backoff state (differentiator)
-**Avoids:** Pitfall Anti-Pattern 3 (button bypassing backoff state); security mistakes table (hash verification, token rotation, no logged secrets)
+**Avoids:** Pack/cadence confounding, nominal-cycle arithmetic, and hidden
+missing-header failures.
 
-### Phase 5: Polish / Differentiators (v1.x)
-**Rationale:** Deferred until the core two-view loop is validated as genuinely useful day-to-day, per the MVP-then-validate structure in FEATURES.md.
-**Delivers:** "Leave by" walk-buffer framing, color-coded delay/disruption severity, low-battery on-device indication (once real battery data exists).
+### Phase 2: Two-Run Analysis and Field Operating Decision
+
+**Rationale:** The run is input, not the outcome. The model must drive one
+explicit freshness/autonomy/pack decision before configuration or procurement.
+
+**Delivers:** A documented wake-energy and standing-drain model with
+assumptions and uncertainty; selected normal wake interval; retain-current-pack
+or compatible-pack rationale; applied-policy verification through the
+companion and device response.
+
+**Uses:** `hardware/logtools.py`, `hardware/BATTERY-RUN.md`, `hardware/BOM.md`,
+and the existing `wake_interval_s` to `sleep_s` path.
+
+**Avoids:** Precision theater, premature battery procurement, and bypassing
+battery-critical or display-off precedence.
+
+### Phase 3: Companion Walkthrough and Focused Polish
+
+**Rationale:** Discovery can run while the battery study observes, but UI
+implementation should follow a ranked finding log and the final battery
+decision where Device or Health copy depends on it.
+
+**Delivers:** An English walkthrough finding log covering Home, Display,
+Flights, Airlines, Health, Device, and Update; targeted fixes for confirmed
+friction; English/French parity; responsive, keyboard, and browser validation.
+
+**Implements:** Phase 40's route, page context, template, stylesheet,
+per-page-script, and stable-i18n boundaries.
+
+**Avoids:** A wholesale redesign, duplicate state reads, stale French copy,
+lost keyboard focus, and mobile layout regressions.
+
+### Phase 4: Integrated Field Validation and Decision Record
+
+**Rationale:** The selected cadence only becomes a production policy once it
+is observed on glass and documented as the current operating baseline.
+
+**Delivers:** Frame check-in confirmation, expected `sleep_s`, safety override
+checks, companion state clarity, and final decision/BOM documentation.
+
+**Avoids:** Leaving a development environment default in production or
+presenting a pack percentage curve as valid after an unverified pack change.
 
 ### Phase Ordering Rationale
 
-- Hardware/protocol bring-up must come first because battery-life and refresh-reliability findings (Pitfalls 1-2) are foundational constraints that shape the wake-interval and UX decisions every later phase depends on.
-- Server data pipeline and device firmware can run largely in parallel once the protocol contract (`PROTOCOL.md`) is fixed in Phase 1 — this mirrors the architecture's explicit design intent (device/server as independent codebases).
-- Rendering/display integration is sequenced after both halves exist independently, since it's the join point requiring both a working device poll client and a working server render cache.
-- Button interaction is deliberately sequenced after the base poll loop is proven, since research warns against building it as a divergent second code path (Anti-Pattern 3).
-- Differentiators are explicitly deferred to a v1.x phase per FEATURES.md's "add after validation" structure — this avoids scope creep into the MVP.
+- Phase 1 precedes Phase 2 because one cadence cannot separate per-wake cost from time-based drain.
+- Phase 3 discovery may overlap the long-running measurement, but only ranked findings should become implementation work.
+- The final decision must use the existing stored setting so it remains visible in the companion and yields to safety overrides.
+- A pack replacement is conditional after the model; if it is selected, its fit, connector polarity, charge time, budget, and voltage curve need validation before final field confirmation.
 
 ### Research Flags
 
 Phases likely needing deeper research during planning:
-- **Phase 2 (Server Data Pipeline):** AeroDataBox exact per-endpoint unit cost/tier and PRIM's exact quota figures were not independently confirmed (both flagged MEDIUM confidence) — verify against live account dashboards before finalizing poll cadence.
-- **Phase 3 (Rendering):** Spectra 6 dual-chip display driver has no confirmed off-the-shelf library for the ESP-IDF path (flightportrait uses a custom driver, not GxEPD2) — budget research/dev time to port or hand-roll this.
-- **Phase 1 (Hardware Bring-up):** No publicly confirmed enclosure design exists yet for the EE02 kit — budget design time or research alternatives.
 
-Phases with standard patterns (skip research-phase):
-- **Phase 4 (Button Interaction):** Well-documented pattern directly from flightportrait's reference protocol (Pattern 2) — implementation is largely "follow the reference."
+- **Phase 1:** Confirm the concrete run protocol, target alternative cadence, evidence gates, and current device/server observation state before disconnecting USB.
+- **Phase 2:** Validate the two-run inference, uncertainty treatment, and replacement-pack constraints against actual second-run data.
+- **Phase 3:** Perform the prescribed UX walkthrough before planning fixes; its finding log is the scope source of truth.
+
+Phases with standard patterns:
+
+- **Phase 4:** Existing poll, Device settings, safety precedence, browser-test, and bilingual-i18n patterns are established; use targeted verification rather than exploratory architecture work.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | MEDIUM | Cross-checked web sources; hardware pricing/VAT and the Spectra 6 dual-chip driver situation are LOW-confidence sub-points needing verification before purchase/commit |
-| Features | MEDIUM | Cross-checked against TRMNL, RATP SIEL, and airport FIDS precedent, plus flightportrait's own marketing (single-source for some claims) |
-| Architecture | HIGH (device/server protocol, power model) / MEDIUM (transit API specifics) | Primary source is flightportrait's own `docs/PROTOCOL.md`, fetched directly — strongest evidence in the whole research set |
-| Pitfalls | MEDIUM | Primary source (flightportrait PROTOCOL.md) is strong; most other findings are cross-checked community/vendor sources, individually LOW but corroborated across 2+ sources |
+| Stack | HIGH | Existing integration seams and current protocol are directly verified in the repository. |
+| Features | MEDIUM | Scope is clear, but the second-run result and walkthrough findings do not yet exist. |
+| Architecture | HIGH | The telemetry, configuration, and Phase 40 companion boundaries are documented and implemented. |
+| Pitfalls | HIGH | Risks derive from the measured first-run limitations and established accessibility/configuration contracts. |
 
 **Overall confidence:** MEDIUM
 
 ### Gaps to Address
 
-- **AeroDataBox exact endpoint tier/unit cost for ORY FIDS:** not confirmed against live docs — verify before finalizing poll frequency in Phase 2.
-- **PRIM/IDFM exact quota figures:** community-sourced, not independently confirmed from the authoritative per-API quota table — sign up and check the account dashboard before finalizing RER poll interval.
-- **Spectra 6 dual-chip ESP-IDF driver:** no confirmed off-the-shelf library exists for the production (non-Arduino) firmware path — flag as a Phase 1/3 research spike.
-- **Enclosure design for the DIY EE02 kit:** unverified to exist publicly — budget design time in Phase 1.
-- **Battery-life real-world figure for this exact hardware combo:** must be bench-measured in Phase 1, not assumed from datasheet or precedent (Inkplate 13SPECTRA's 40-50 days is a directional comparable, not a guarantee for this specific build).
+- **Second-run data:** Do not choose a production cadence or procure a pack until comparable actual observations are available.
+- **Decision thresholds:** State acceptable display freshness, target autonomy, and replacement-pack constraints before interpreting the model.
+- **Display-refresh energy:** The first run used a hash-skip workload; label the resulting model as baseline wake/leakage evidence rather than universal display-update lifetime.
+- **Companion findings:** Do not infer a defect list from architecture review. The fresh English/French, desktop/mobile, keyboard task walkthrough determines what qualifies for V1.1 polish.
+- **Pack substitution:** If selected, verify the replacement's 1S chemistry, protection, JST-PH 2.0 polarity, physical fit, charge time, budget, and voltage-to-percentage calibration before treating it as production-ready.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- flightportrait/frame `docs/PROTOCOL.md` (GitHub, direct fetch) — device↔server protocol, backoff, verification, OTA design
-- flightportrait/frame repo overview (GitHub, direct fetch) — firmware module layout, reference server structure
-- Espressif ESP-IDF official docs (sleep modes, wifi_provisioning) — deep sleep current, wake sources, provisioning stack
+
+- `hardware/BATTERY-RUN.md` — first-run protocol, measurements, limitations, and follow-up boundary.
+- `hardware/BOM.md` — current pack and replacement constraints.
+- `.planning/seeds/SEED-007-second-discharge-run-separate-wake-vs-leakage-energy.md`, `SEED-008-choose-real-field-wake-interval.md`, and `SEED-010-companion-interface-polish.md` — V1.1 scope.
+- `firmware/main/battery.c`, `api_client.c`, `sleep_decision.c`, `server/history_db.py`, `poll_cycle.py`, `device_config.py`, and `wake.py` — telemetry and cadence contracts.
+- `companion/routes.py`, `page_context.py`, `pages/config_page.py`, `pages/health_page.py`, and Phase 40 artifacts — companion boundaries.
 
 ### Secondary (MEDIUM confidence)
-- AeroDataBox pricing page (aerodatabox.com, direct fetch) — tier pricing
-- PRIM API catalog pages (prim.iledefrance-mobilites.fr) — SIRI Lite scope, quota structure (page fetch partially blocked, community-sourced quota figures)
-- Seeed Studio product pages (XIAO ePaper DIY Kit EE02, reTerminal E1004) — hardware pricing/specs
-- TRMNL help docs + reviews — button refresh behavior, battery life precedent
-- RATP/SIEL Wikipedia + official RATP site — real transit-board UX precedent
-- Hetzner pricing roundups — VPS cost
 
-### Tertiary (LOW confidence)
-- GxEPD2 GitHub + community forum threads — Spectra 6 dual-chip driver specifics not independently confirmed
-- ESP32 deep-sleep/battery community threads (Zbotic, deepbluembedded, lastminuteengineers) — cross-checked but community-sourced
-- Inkplate 13SPECTRA real-world battery data — directional comparable only, not this exact hardware
-- General smart-display/LED bedroom criticism — informs anti-feature stance, general commentary not a specific study
+- [Espressif current-consumption measurement guidance](https://docs.espressif.com/projects/esp-idf/en/v5.2/esp32s3/api-guides/current-consumption-measurement-modules.html) — separate active and deep-sleep measurement rationale.
+- [W3C WCAG 2.2](https://www.w3.org/TR/wcag/) and [MDN keyboard accessibility guidance](https://developer.mozilla.org/en-US/docs/Web/Accessibility/Guides/Understanding_WCAG/Operable) — visible focus and operable companion controls.
 
 ---
-*Research completed: 2026-08-04*
+*Research completed: 2026-09-30*
 *Ready for roadmap: yes*

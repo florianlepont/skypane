@@ -20,6 +20,7 @@ from companion.auth import UI_THEME_COOKIE_NAME
 
 from companion.ui_base import (
     ADVANCED_GROUP_LABEL,
+    AIRLINE_TYPES_SCRIPT_SRC,
     AIRLINES_ROUTE,
     CONFIRM_SUBMIT_SCRIPT_SRC,
     COPY_BUTTON_SCRIPT_SRC,
@@ -30,7 +31,6 @@ from companion.ui_base import (
     FLASH_CLEANUP_SCRIPT_SRC,
     FLASH_SLOT_MARKER,
     FLIGHTS_ROUTE,
-    FLIGHT_ROWS_SCRIPT_SRC,
     FRAME_STRIP_HEADING,
     FRESHNESS_SCRIPT_SRC,
     HEALTH_ALERT_SUFFIX_TEXT,
@@ -164,6 +164,7 @@ from companion.ui_time import (
     concise_timestamp_html,
     duration_text,
     freshness_line_html,
+    refresh_marker_html,
     full_local_timestamp_text,
     local_clock_text,
     month_abbr,
@@ -174,12 +175,6 @@ from companion.ui_time import (
     relative_time_html,
 )
 from companion.ui_nav import (
-    NAV_QUIET_OFF_TEXT,
-    NAV_QUIET_ON_TEXT,
-    NAV_SCREEN_OFF_TEXT,
-    NAV_SCREEN_ON_TEXT,
-    NAV_STATUS_ARIA_LABEL_TEXT,
-    NAV_STATUS_SEPARATOR_TEXT,
     REFRESH_NEW_ROW_CLASS,
     REFRESH_PAGE_ATTR,
     REFRESH_PAGE_DISPLAY,
@@ -206,7 +201,6 @@ from companion.ui_nav import (
     _tab_bar_cell_body,
     _tab_bar_html,
     _theme_form_html,
-    nav_status_html,
     sidebar_nav,
     ui_theme_from_cookie,
 )
@@ -237,6 +231,7 @@ from companion.ui_shell import (
 __all__ = (
     "i18n",
     "ADVANCED_GROUP_LABEL",
+    "AIRLINE_TYPES_SCRIPT_SRC",
     "AIRLINES_ROUTE",
     "CONFIRM_SUBMIT_SCRIPT_SRC",
     "COPY_BUTTON_SCRIPT_SRC",
@@ -252,7 +247,6 @@ __all__ = (
     "FLASH_CLEANUP_SCRIPT_SRC",
     "FLASH_SLOT_MARKER",
     "FLIGHTS_ROUTE",
-    "FLIGHT_ROWS_SCRIPT_SRC",
     "FRAME_STRIP_HEADING",
     "FRESHNESS_PREFIX_TEXT",
     "FRESHNESS_SCRIPT_SRC",
@@ -274,12 +268,6 @@ __all__ = (
     "NAV_GROUPS",
     "NAV_ICON_IDS",
     "NAV_NOTIFICATION_CLASS",
-    "NAV_QUIET_OFF_TEXT",
-    "NAV_QUIET_ON_TEXT",
-    "NAV_SCREEN_OFF_TEXT",
-    "NAV_SCREEN_ON_TEXT",
-    "NAV_STATUS_ARIA_LABEL_TEXT",
-    "NAV_STATUS_SEPARATOR_TEXT",
     "NAV_TABS",
     "NAV_TOGGLE_ID",
     "NAV_TOGGLE_LABEL",
@@ -418,12 +406,12 @@ __all__ = (
     "flash_banner",
     "frame_strip_html",
     "freshness_line_html",
+    "refresh_marker_html",
     "full_local_timestamp_text",
     "icon_html",
     "local_clock_text",
     "month_abbr",
     "nav_slug",
-    "nav_status_html",
     "page_header",
     "parse_iso",
     "quick_switch_html",
@@ -443,4 +431,3 @@ __all__ = (
     "login_shell",
     "page_shell",
 )
-

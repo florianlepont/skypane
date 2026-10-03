@@ -26,7 +26,9 @@ import pytest
 from companion import auth, layout
 from companion.pages import update_page
 from companion.test_browser_ux_helpers import (
-    VIEWPORT_DESKTOP, VIEWPORT_PHONE, _assert_hit_target, _login, _no_js_page,
+    RELEASE_SEED_AVAILABLE_VERSION, RELEASE_SEED_NOW, RELEASE_SEED_RUNNING_VERSION,
+    VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE, _assert_hit_target, _login, _no_js_page,
+    seed_two_releases as _seed_two_releases,
 )
 from server import atomic_io
 from server import firmware_registry as fr
@@ -40,35 +42,9 @@ pytestmark = pytest.mark.browser
 # reusing VIEWPORT_MIN_SUPPORTED, which is a different, narrower viewport.
 VIEWPORT_375 = {"width": 375, "height": 812}
 
-_NOW = "2026-09-28T12:00:00+00:00"
-_RUNNING_VERSION = "fw-v1.0.0"
-_AVAILABLE_VERSION = "fw-v1.1.0"
-
-
-def _seed_two_releases(state_dir):
-    """Two published releases (fw-v1.0.0 running, fw-v1.1.0 available)
-    through firmware_registry's own write API, plus a hand-written
-    device_report.json -- byos-owned in production, matching
-    companion/test_update_page.py's own _seed_update_state().
-    """
-    os.makedirs(str(state_dir), exist_ok=True)
-    for version in (_RUNNING_VERSION, _AVAILABLE_VERSION):
-        image_path = os.path.join(str(state_dir), version + ".bin")
-        image_bytes = ("fake-firmware-" + version).encode()
-        with open(image_path, "wb") as fh:
-            fh.write(image_bytes)
-        manifest = {
-            "version": version, "sha256": hashlib.sha256(image_bytes).hexdigest(),
-            "size": len(image_bytes), "released_at": _NOW, "commit": "a" * 40,
-            "notes": ["release " + version],
-        }
-        fr.publish_release(str(state_dir), manifest, image_path, now=_NOW)
-    device_report = {
-        "schema": 1, "next_seq": 1,
-        "devices": {
-            "dev1": {"fw_version": _RUNNING_VERSION, "reported_at": _NOW, "events": []}},
-    }
-    atomic_io.atomic_write(fr.device_report_path(str(state_dir)), json.dumps(device_report))
+_NOW = RELEASE_SEED_NOW
+_RUNNING_VERSION = RELEASE_SEED_RUNNING_VERSION
+_AVAILABLE_VERSION = RELEASE_SEED_AVAILABLE_VERSION
 
 
 _THIRD_VERSION = "fw-v1.2.0"
@@ -116,8 +92,8 @@ _BENCH_VERSION = "fw-v1.0.5-bench1"
 
 def _seed_running_bench_and_newer(state_dir):
     """The real-hardware shape: fw-v1.0.0 running with about 30 notes, a
-    bench build installed over the air earlier today (so it is history,
-    not running), and a newer installable fw-v1.1.0. Published through
+    bench build published (and once installed over the air) that the owner
+    must never be offered, and a newer installable fw-v1.1.0. Published through
     firmware_registry's write API; the bench install time is set on the
     saved registry because only a device result appends to it.
     """
@@ -382,6 +358,11 @@ def test_more_sheet_fits_health_device_update_at_phone_widths(
 
         header_dropdown = page.locator("#%s" % layout.MOBILE_NAV_ID)
         assert header_dropdown.locator('a[href="%s"]' % layout.UPDATE_ROUTE).count() == 0
+        assert header_dropdown.locator(".nav-status").count() == 0
+        assert page.locator(".dashboard-sidebar .nav-status").count() == 0
+        assert page.locator(
+            '%s[href="%s"][aria-current="page"]'
+            % (_MORE_SHEET_LINK_SELECTOR, layout.UPDATE_ROUTE)).count() == 1
 
         print(
             "D-02 mobile-fit: %dpx/%s More-sheet link heights=%r (floor 44px)"
@@ -509,6 +490,69 @@ def test_running_badge_and_collapsed_notes_work_at_phone_and_desktop_widths(
         assert install_box["x"] + install_box["width"] <= viewport["width"] + 0.5
         if phone:
             assert page.locator("p.data-card__desc").first.is_visible()
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize(
+    "viewport", [VIEWPORT_DESKTOP, VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED],
+    ids=["1280", "390", "360"])
+def test_summary_and_eligible_releases_at_every_width(
+        new_context, make_app_server, viewport, lang):
+    """At 1280, 390 and 360px in English and French, with a bench build published beside
+    real releases: the installed-software summary names the running version once, the bench
+    version is nowhere on the page, nothing overflows, the eligible Install button is a
+    full-size target with a visible focus ring, and activating it reaches the server
+    confirmation page whose Cancel link returns to Update with nothing scheduled.
+    """
+    server = make_app_server(seed=_seed_running_bench_and_newer)
+    context = new_context(viewport=viewport)
+    try:
+        page = context.new_page()
+        base_url = server.base_url()
+        context.add_cookies([{
+            "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
+        _login(page, base_url)
+        page.goto(base_url + layout.UPDATE_ROUTE)
+        where = "%dpx/%s" % (viewport["width"], lang)
+
+        summary = page.locator("section.update-summary")
+        assert summary.count() == 1 and summary.is_visible()
+        headline = summary.locator(".update-summary__headline")
+        assert _RUNNING_VERSION in headline.inner_text()
+        assert headline.locator("svg").count() == 1
+        assert summary.locator("time").count() == 1, "one relevant time at %s" % where
+        assert "bench" not in page.locator("main").inner_text().lower(), (
+            "a bench build must not be shown to the owner at %s" % where)
+        assert page.locator('input[name="version"][value="%s"]' % _BENCH_VERSION).count() == 0
+
+        assert page.evaluate(
+            "() => document.documentElement.scrollWidth <= "
+            "document.documentElement.clientWidth + 0.5"), "overflow at %s" % where
+
+        container = (
+            "ul.data-cards" if viewport["width"] < 960 else "table.data-table--firmware-history")
+        selector = '%s form[action="%s"] button[type="submit"]' % (
+            container, update_page.INSTALL_ROUTE)
+        install = page.locator(selector).first
+        _assert_hit_target(page, selector, where)
+        install.focus()
+        outline = install.evaluate(
+            "el => { const s = getComputedStyle(el);"
+            " return [s.outlineStyle, parseFloat(s.outlineWidth)]; }")
+        assert outline[0] != "none" and outline[1] >= 2, "no focus ring at %s: %r" % (where, outline)
+
+        page.on("dialog", lambda dialog: dialog.accept())
+        with page.expect_navigation():
+            install.click()
+        assert update_page.INSTALL_ROUTE in page.url
+        cancel = page.locator('main a[href="%s"]' % layout.UPDATE_ROUTE)
+        with page.expect_navigation():
+            cancel.click()
+        assert page.url.endswith(layout.UPDATE_ROUTE)
+        assert page.locator('form[action="%s"]' % update_page.CANCEL_ROUTE).count() == 0, (
+            "cancelling at the confirmation page must leave nothing scheduled at %s" % where)
     finally:
         context.close()
 

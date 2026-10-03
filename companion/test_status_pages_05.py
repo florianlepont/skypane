@@ -98,39 +98,22 @@ def _visible_text_outside_title_attributes(markup):
 # ==========================================================================
 
 
-def test_23_06_the_freshness_line_has_one_builder_and_three_call_sites(tmp_path):
-    """Health's and Home's freshness lines are layout.freshness_line_html()'s own output
-    verbatim — ONE definition site — each page renders exactly one data-loaded-at and one
-    data-refresh-pill, and the builder emits the dot, the prefix, the clock element and the
-    pill in that order with exactly one <time data-relative>"""
+def test_23_06_page_headers_stay_free_of_redundant_freshness_lines(tmp_path):
+    """Health and the signal-first Home omit the redundant freshness line."""
     now_iso = shp.iso(shp.now())
     built = layout.freshness_line_html(now_iso)
     health = health_page.render(shp.ctx(str(tmp_path / "h"), now_iso))
     home = home_page.render(_home_ctx(str(tmp_path / "o"), now_iso))
-    for rendered, name in ((health, "Health"), (home, "Home")):
-        assert built in rendered, (
-            "expected %s's freshness line to be layout.freshness_line_html()'s own output "
-            "verbatim" % (name,))
-        assert rendered.count("data-loaded-at") == 1
-        assert rendered.count("data-refresh-pill") == 1
-    positions = [
-        built.index(layout.REFRESH_LIVE_DOT_ATTR),
-        built.index(layout.escape_html(health_page.i18n.t(layout.FRESHNESS_PREFIX_TEXT))),
-        built.index("data-refresh-clock"),
-        built.index("data-refresh-pill"),
-    ]
-    assert positions == sorted(positions), (
-        "expected dot, prefix, clock, pill in that source order, got %r in %r"
-        % (positions, built))
-    assert built.count("data-relative") == 1
+    assert built not in health
+    assert "data-loaded-at" not in health
+    assert "data-refresh-pill" not in health
+    assert built not in home
+    assert "data-loaded-at" not in home
+    assert "data-refresh-pill" not in home
 
 
 def test_23_06_home_declares_the_regions_it_actually_renders(tmp_path):
-    """Home declares the four regions that actually change between polls (the strip, the
-    status tiles, the picture, the recent-flights list) plus its freshness line, every
-    literal in every one of its selectors appears in the rendered page, and the Display
-    scope declares exactly the strip and the freshness line — everything else there is a
-    form"""
+    """Home swaps only its current frame, flight list, and compact facts."""
     now_iso = shp.iso(shp.now())
     rendered = home_page.render(_home_ctx(str(tmp_path), now_iso))
     registry = layout.REFRESH_SWAP_SELECTORS_BY_PAGE
@@ -147,10 +130,12 @@ def test_23_06_home_declares_the_regions_it_actually_renders(tmp_path):
         "Home declares regions it does not render: %r — a selector that matches nothing is "
         "a region that silently never refreshes" % (missing,))
     home_list = registry[layout.REFRESH_PAGE_HOME]
-    for needle in ("frame-strip", "home-status-grid", "preview-frame", "home-flights"):
+    for needle in ("preview-frame", "home-flights", "home-facts"):
         assert any(needle in selector for selector in home_list), (
             "expected Home's swap regions to cover %r, got %r" % (needle, home_list))
-    assert ".page-header__freshness" in home_list
+    for retired in ("frame-strip", "home-status-grid", "page-header__freshness"):
+        assert not any(retired in selector for selector in home_list), (
+            "expected retired Home region %r to stay out of the refresh registry" % retired)
     # DISPLAY IS DELIBERATELY CONSERVATIVE. Everything else on that page is
     # a form, and a form is the one thing a swap must never touch.
     display_list = registry[layout.REFRESH_PAGE_DISPLAY]
@@ -308,6 +293,46 @@ def test_health_tiles_and_rows_read_in_plain_language(tmp_path):
         assert expected_attr in caption_tag, (
             "expected the %r tile's caption element to carry %s, got %r"
             % (label, expected_attr, caption_tag))
+
+
+@pytest.mark.parametrize(
+    ("lang", "connection_help", "comparison_help", "identification_heading"),
+    (
+        ("en", "This is when the frame last contacted the server.",
+         "What this result means", "Flight identification"),
+        ("fr", "Moment où le cadre a contacté le serveur pour la dernière fois.",
+         "Comprendre ce résultat", "Identification des vols"),
+    ),
+)
+def test_health_keeps_status_primary_and_explains_details_on_request(
+        tmp_path, lang, connection_help, comparison_help, identification_heading):
+    """Health keeps optional technical explanations out of the primary scan."""
+    state_dir = str(tmp_path)
+    now = shp.now()
+    shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
+    from server import history_db
+    shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
+    shp.seed_runway_events(state_dir, [
+        {"ts": shp.iso(now), "hex": "abc123", "corroborated": True},
+    ])
+    try:
+        prefs.set_request_prefs(lang=lang)
+        rendered = health_page.render(shp.ctx(state_dir, shp.iso(now)))
+    finally:
+        prefs.set_request_prefs(lang="en")
+
+    assert "data-loaded-at" not in rendered
+    assert "data-refresh-pill" not in rendered
+    assert connection_help in rendered
+    assert identification_heading in rendered
+    assert 'class="status-help"' in rendered
+    assert 'aria-label="%s"' % layout.escape_html(comparison_help) in rendered
+    battery_start = rendered.index(health_page.BATTERY_SECTION_CLASS)
+    battery_end = rendered.index("</section>", battery_start)
+    assert "readings-disclosure" in rendered[battery_start:battery_end], (
+        "the raw-readings action stays available inside the Battery section, closed by default")
+    assert "readings-disclosure\" open" not in rendered
+    assert "page-section--warn" not in rendered
 
 
 def test_health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id(tmp_path):
@@ -494,86 +519,17 @@ def test_advanced_group_always_renders_in_both_nav_copies():
 
 
 # ==========================================================================
-# The nav state reminder
+# Navigation stays destination-focused
 # ==========================================================================
 
-_NAV_STATUS_DEVICE_CFG = {"display_enabled": True, "quiet_hours_enabled": False}
-
-
-def test_nav_status_appears_once_in_each_nav_copy_after_the_brand():
-    """the sidebar and the mobile dropdown each contain exactly one .nav-status link, with no
-    <form> or <button> inside it, sitting after the brand and before the primary nav list in
-    document order"""
+def test_navigation_omits_the_redundant_state_reminder():
+    """The shared shell carries routes and preferences without repeating frame state."""
     rendered = layout.page_shell(
         title="Home", active="home", body="", ui_theme="auto",
-        device_config=_NAV_STATUS_DEVICE_CFG)
-    assert rendered.count('class="nav-status text-label"') == 2, (
-        "expected exactly one .nav-status reminder in the sidebar and one in the mobile "
-        "dropdown, got %d" % rendered.count('class="nav-status text-label"'))
-    assert rendered.count('<nav class="tab-bar"') == 1
-    bar_start = rendered.index('<nav class="tab-bar"')
-    assert "nav-status" not in rendered[bar_start:rendered.index("</nav>", bar_start)]
-    for match in re.finditer(r'<a class="nav-status text-label"[^>]*>(.*?)</a>', rendered):
-        segment = match.group(0)
-        assert "<form" not in segment and "<button" not in segment
-    brand_pos = rendered.index('<span class="site-title sidebar-title">')
-    sidebar_nav_status_pos = rendered.index('class="nav-status text-label"', brand_pos)
-    sidebar_nav_list_pos = rendered.index('<nav class="sidebar-nav"', brand_pos)
-    assert brand_pos < sidebar_nav_status_pos < sidebar_nav_list_pos
-    mobile_panel_pos = rendered.index('<div id="%s" class="mobile-nav">' % layout.MOBILE_NAV_ID)
-    mobile_nav_status_pos = rendered.index('class="nav-status text-label"', mobile_panel_pos)
-    mobile_footer_pos = rendered.index('class="mobile-nav__footer"', mobile_panel_pos)
-    assert mobile_panel_pos < mobile_nav_status_pos < mobile_footer_pos, (
-        "expected the mobile dropdown's nav-status to be its first child, before its footer")
-
-
-def test_nav_status_dot_classes_follow_the_four_on_off_combinations():
-    """nav_status_html()'s two dots follow all four Screen/Quiet-hours on/off combinations
-    (dot--ok for on, dot--off for off)"""
-    for display_enabled, quiet_hours_enabled, screen_dot, quiet_dot in (
-            (True, False, "dot--ok", "dot--off"),
-            (False, False, "dot--off", "dot--off"),
-            (True, True, "dot--ok", "dot--ok"),
-            (False, True, "dot--off", "dot--ok")):
-        rendered = layout.nav_status_html(
-            {"display_enabled": display_enabled, "quiet_hours_enabled": quiet_hours_enabled})
-        first_dot = re.search(r'<span class="dot ([^"]+)"></span>', rendered).group(1)
-        second_dot = re.findall(r'<span class="dot ([^"]+)"></span>', rendered)[1]
-        assert (first_dot, second_dot) == (screen_dot, quiet_dot), (
-            "display_enabled=%r quiet_hours_enabled=%r: expected dots (%r, %r), got (%r, %r)"
-            % (display_enabled, quiet_hours_enabled, screen_dot, quiet_dot, first_dot, second_dot))
-
-
-def test_french_nav_status_reads_ecran_allume_heures_calmes_desactivees():
-    """under lang='fr' the reminder reads 'Écran allumé' and 'Heures calmes désactivées' —
-    fully French, never 'Heures calmes off' (R-04)"""
-    try:
-        prefs.set_request_prefs(lang="fr")
-        rendered = layout.nav_status_html(_NAV_STATUS_DEVICE_CFG)
-    finally:
-        prefs.set_request_prefs(lang="en")
-    assert "Écran allumé" in rendered and "Heures calmes désactivées" in rendered
-    labels = re.findall(r'<span class="dot-label">([^<]*)</span>', rendered)
-    for label in labels:
-        assert "off" not in label.lower(), (
-            "expected no leftover English 'off' in a visible label, got %r" % (label,))
-
-
-def test_nav_status_html_none_or_falsy_device_config_renders_nothing():
-    """nav_status_html(None) and nav_status_html({}) both return '', and page_shell(...,
-    device_config=None) — the default, used by login/404/error pages — renders no
-    .nav-status at all"""
-    assert layout.nav_status_html(None) == ""
-    assert layout.nav_status_html({}) == ""
-    rendered = layout.page_shell(title="Home", active="home", body="", ui_theme="auto")
+        device_config={"display_enabled": True, "quiet_hours_enabled": False})
     assert "nav-status" not in rendered
-
-
-def test_login_shell_carries_no_nav_status_and_is_unchanged():
-    """login_shell() — which never takes a device_config parameter — carries no .nav-status
-    markup, unchanged by this task"""
-    rendered = layout.login_shell("", ui_theme="auto")
-    assert "nav-status" not in rendered
+    assert '<nav class="sidebar-nav"' in rendered
+    assert 'class="mobile-nav__footer"' in rendered
 
 
 # ==========================================================================

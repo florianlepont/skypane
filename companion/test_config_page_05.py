@@ -30,7 +30,7 @@ import companion.layout as layout
 import companion.prefs as prefs
 import companion.test_config_page_helpers as cp
 from companion import app as companion_app
-from companion import battery, frame_state
+from companion import battery
 from companion.layout import escape_html
 from companion.pages import config_page
 from companion.settings import form_post, wake_interval
@@ -112,8 +112,8 @@ _FLOOR_CTX = {
 }
 # Minimums pinned a little below the observed figures - re-derived by RUNNING this exact
 # fixture through this exact selector.
-_FLOOR_MIN_MEASURED = {"display": 10, "device": 6}
-_FLOOR_EXPECTED_SKIPS = {"display": len(config_page.ASPECT_CAPTION_EXEMPTIONS), "device": 0}
+_FLOOR_MIN_MEASURED = {"display": 5, "device": 3}
+_FLOOR_EXPECTED_SKIPS = {"display": 1, "device": 0}
 
 
 def _measured_section_captions(rendered):
@@ -136,12 +136,8 @@ def _measured_section_captions(rendered):
 def test_settings_pages_editorial_floor_render_level_both_languages():
     """the settings-pages editorial floor, measured on the RENDERED page (never a source scan):
     every non-exempt .section-caption element on /display and /device is at most 12
-    whitespace-split words in both languages; ASPECT_CAPTION_EXEMPTIONS is skipped exactly 4
-    times on /display and exactly 0 times on /device (proving the exemption reachable and not
-    silently over-broad); and the apply-timing sentence - read from frame_state.py's own
-    DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN constants - never renders outside the Frame strip's own
-    markup slice, proven to actually fire inside it at least once so the assertion is not
-    vacuous"""
+    whitespace-split words in both languages; ASPECT_CAPTION_EXEMPTIONS is skipped exactly once
+    on /display for the protected calendar privacy explanation and never on /device"""
     exempt_by_lang = {
         lang: {
             cp.caption_word_count_text(i18n.t_lang(text, lang))
@@ -149,10 +145,6 @@ def test_settings_pages_editorial_floor_render_level_both_languages():
         }
         for lang in ("en", "fr")
     }
-    apply_timing_templates = (
-        frame_state.DELAY_DUE, frame_state.DELAY_HELD, frame_state.DELAY_UNKNOWN)
-
-    any_inside_strip = False
     for page_name, scope in (
             ("display", config_page.SCOPE_DISPLAY), ("device", config_page.SCOPE_DEVICE)):
         for lang in ("en", "fr"):
@@ -181,41 +173,54 @@ def test_settings_pages_editorial_floor_render_level_both_languages():
                 "%s/%s: expected exactly %d Aspect-exemption skip(s), got %d"
                 % (page_name, lang, _FLOOR_EXPECTED_SKIPS[page_name], skip_count))
 
-            strip_start = rendered.find(
-                '<div class="frame-strip stat-tile stat-tile--accent"')
-            strip_end = (
-                rendered.find('<form class="config-form"', strip_start)
-                if strip_start != -1 else -1)
-            outside_matches = []
-            for start, _end, fragment in captions:
-                text = cp.caption_word_count_text(fragment)
-                for template in apply_timing_templates:
-                    translated = i18n.t_lang(template, lang)
-                    if "%s" in translated:
-                        pattern = re.escape(translated).replace(re.escape("%s"), r".+?")
-                    else:
-                        pattern = re.escape(translated)
-                    if not re.search(pattern, text):
-                        continue
-                    if strip_start != -1 and strip_start <= start < strip_end:
-                        any_inside_strip = True
-                    else:
-                        outside_matches.append(
-                            "%s/%s at offset %d (%r): %r"
-                            % (page_name, lang, start, text[:80], text))
-                    break
-            assert not outside_matches, (
-                "the apply-timing sentence rendered outside the Frame strip's own slice: %s"
-                % ("; ".join(outside_matches),))
-    assert any_inside_strip, (
-        "the apply-timing relationship never matched INSIDE the Frame strip either - this "
-        "assertion is vacuous unless it is proven to fire on the strip's own, untouched "
-        "markup at least once")
-
 
 # ======================================================================
 # Section 2: live HTTP round trips against a real companion/app.py.
 # ======================================================================
+
+def test_device_keeps_only_actionable_advanced_controls_in_both_languages():
+    """Device renders Wake interval, Diagnostic LED, and Refresh now
+    without a screen-type header, next-wake clock, or generic framing."""
+    ctx = {
+        "device_config": {"wake_interval_s": 300, "led_enabled": True},
+        "last_checkin_ts": "2026-08-27T11:55:00+00:00",
+        "now": "2026-08-27T12:00:00+00:00",
+        "poll_cooldown_remaining": 0,
+    }
+    expected = {
+        "en": ("Wake interval", "Diagnostic LED", "Refresh now"),
+        "fr": ("Intervalle de réveil", "LED de diagnostic", "Actualiser maintenant"),
+    }
+    retired = (
+        "Screen:", "Next wake", "Hardware, data and diagnostics for the frame.",
+        "Écran :", "Prochain réveil", "Matériel, données et diagnostics du cadre.",
+    )
+    for lang, labels in expected.items():
+        prefs.set_request_prefs(lang=lang)
+        try:
+            rendered = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        for label in labels:
+            assert label in rendered, "%s: missing actionable Device label %r" % (lang, label)
+        for retired_text in retired:
+            assert retired_text not in rendered, "%s: found retired framing %r" % (lang, retired_text)
+        assert 'class="wake-gauge"' not in rendered
+
+
+def test_refresh_acknowledgement_reports_the_server_outcome_not_a_frame_result():
+    """The success acknowledgement says the completed server check was
+    requested and never promises that the physical frame already changed."""
+    for lang in ("en", "fr"):
+        prefs.set_request_prefs(lang=lang)
+        try:
+            message = companion_app._resolve_flash_text(
+                config_page.FLASH_POLL_TRIGGERED, None, last_checkin_ts=None, device_cfg={})
+        finally:
+            prefs.set_request_prefs(lang="en")
+        assert "server" in message.lower() or "serveur" in message.lower()
+        for forbidden in ("within a few seconds", "will appear on Home", "apparaîtra sur Accueil"):
+            assert forbidden not in message
 
 def test_save_round_trip_shows_confirmation_and_new_selection(make_app_server):
     """a real HTTP save round trip shows the confirmation copy and the newly-saved runway
@@ -510,6 +515,58 @@ def test_control_with_both_hint_and_error_carries_both_ids_in_order():
 # ======================================================================
 # Section 6: the live theme preview.
 # ======================================================================
+
+@pytest.mark.parametrize(
+    ("lang", "what_appears", "choose_appearance", "optional_rules"),
+    [
+        ("en", "What appears", "Choose an appearance", "Optional per-flight rules"),
+        ("fr", "Ce qui s’affiche", "Choisir l’apparence", "Règles par vol facultatives"),
+    ],
+)
+def test_display_uses_one_bilingual_appearance_flow_without_duplicate_framing(
+        lang, what_appears, choose_appearance, optional_rules):
+    """the served Display page starts with one base-appearance flow, places the optional
+    per-flight override after its three base sources, and keeps its native settings form while
+    omitting the retired screen/status framing in both languages"""
+    prefs.set_request_prefs(lang=lang)
+    try:
+        rendered = config_page.render(
+            {
+                "device_config": {"theme": "blue", "tracked_runway": "3"},
+                "colour_rules": {},
+                "poll_cooldown_remaining": 0,
+            },
+            scope=config_page.SCOPE_DISPLAY,
+        )
+    finally:
+        prefs.set_request_prefs(lang="en")
+
+    appearance_heading = '<h2 id="%s" class="text-heading">%s</h2>' % (
+        config_page.DISPLAY_LOOK_SECTION_ID, escape_html(what_appears))
+    card_heading = '<h2 class="text-heading" id="%s">%s</h2>' % (
+        config_page.ASPECT_HEADING_ID, escape_html(choose_appearance))
+    assert rendered.count('class="theme-live-preview aspect-card__preview"') == 1
+    assert appearance_heading in rendered and card_heading in rendered
+    assert rendered.index(appearance_heading) < rendered.index(card_heading)
+    base_positions = [
+        rendered.index('data-usage="%s"' % usage)
+        for usage in (
+            config_page.COLOUR_USAGE_DEPARTURES,
+            config_page.COLOUR_USAGE_ARRIVALS,
+            config_page.COLOUR_USAGE_CALENDAR,
+        )
+    ]
+    rules_position = rendered.index('data-usage="%s"' % config_page.COLOUR_USAGE_RULES)
+    assert base_positions == sorted(base_positions) and base_positions[-1] < rules_position
+    assert optional_rules in rendered
+    assert 'class="page-header__screen' not in rendered
+    assert 'class="page-header__purpose' not in rendered
+    assert 'class="frame-strip' not in rendered
+    assert '<form class="config-form" id="%s"' % config_page.SETTINGS_FORM_ID in rendered
+    for field_name in ("theme", "theme_arriving", "calendar_theme_id"):
+        assert 'name="%s"' % field_name in rendered
+        assert 'name="%s"' % field_name in rendered and 'form="%s"' % config_page.SETTINGS_FORM_ID in rendered
+
 
 def test_aspect_display_render_has_exactly_one_live_preview_figure_eager_with_dimensions():
     """a Display render contains exactly one .theme-live-preview.aspect-card__preview figure
@@ -1177,21 +1234,21 @@ def test_quiet_hours_caption_is_shortened_and_carries_no_delay_sentence():
             % (lang, config_page.QUIET_HOURS_SECTION_CAPTION_ID, expected, text))
 
 
-_GAUGE_ADDITION_CASES = [
-    ("saved-in-band", 600, None, ' value="600"', True),
-    ("stored-below-floor", 30, None, "", False),
-    ("stored-above-ceiling", device_config.WAKE_INTERVAL_MAX_S + 1, None, "", False),
-    ("never-set", None, None, "", False),
-    ("rejected-save-raw-echo", 600, {"wake_interval_s": "7"}, ' value="7"', False),
-    ("rejected-save-echoing-usable-value", 600, {"wake_interval_s": "900"}, ' value="900"', True),
+_WAKE_CONTROL_CASES = [
+    ("saved-in-band", 600, None, ' value="600"'),
+    ("stored-below-floor", 30, None, ""),
+    ("stored-above-ceiling", device_config.WAKE_INTERVAL_MAX_S + 1, None, ""),
+    ("never-set", None, None, ""),
+    ("rejected-save-raw-echo", 600, {"wake_interval_s": "7"}, ' value="7"'),
+    ("rejected-save-echoing-usable-value", 600, {"wake_interval_s": "900"}, ' value="900"'),
 ]
 
 
 @pytest.mark.parametrize(
-    "name,current,submitted,value_attr,owes_gauges", _GAUGE_ADDITION_CASES,
-    ids=[case[0] for case in _GAUGE_ADDITION_CASES])
-def test_the_gauges_are_an_addition_and_the_number_input_is_untouched(
-        name, current, submitted, value_attr, owes_gauges):
+    "name,current,submitted,value_attr", _WAKE_CONTROL_CASES,
+    ids=[case[0] for case in _WAKE_CONTROL_CASES])
+def test_the_wake_control_preserves_the_native_input_contract(
+        name, current, submitted, value_attr):
     """the two gauges are an ADDITION: across five argument shapes (in band, stored below the
     60s floor, stored above the ceiling, never set, and a rejected save's raw echo) the
     <input type="number"> is byte-identical to its pre-plan output - same id, name, min, max and
@@ -1226,14 +1283,8 @@ def test_the_gauges_are_an_addition_and_the_number_input_is_untouched(
     assert markup.index(label) < markup.index(element), "%s: the label is no longer ABOVE the control (B17)" % name
     assert markup.index(unit) == markup.index(element) + len(element), (
         "%s: the unit sibling no longer sits immediately after the input" % name)
-    gauge_at = markup.find('id="%s"' % config_page.WAKE_GAUGE_FRESHNESS_ID)
-    if owes_gauges:
-        assert gauge_at != -1, "%s: the gauges did not render" % name
-    else:
-        assert gauge_at == -1, "%s: a gauge rendered for a value the field itself refuses to show" % name
-    if gauge_at != -1:
-        assert gauge_at >= markup.index(unit), (
-            "%s: a gauge renders BEFORE the control it describes" % name)
+    assert 'class="wake-gauge"' not in markup, (
+        "%s: the Device card still presents battery-duration or arrival-delay copy" % name)
 
 
 def test_the_gauges_error_block_still_attaches_with_the_gauges_after_it():
@@ -1245,10 +1296,9 @@ def test_the_gauges_error_block_still_attaches_with_the_gauges_after_it():
         submitted={"wake_interval_s": "900"}, battery_rows=_FALLING)
     error_block = re.search(r'<p class="field-error[^"]*" id="wake-interval-s-error"', with_error)
     assert error_block, "the field error block no longer renders"
-    gauge_at = with_error.find('id="%s"' % config_page.WAKE_GAUGE_BATTERY_ID)
-    assert gauge_at != -1, "the gauges did not render beside a rejected save's usable echo"
-    assert gauge_at >= error_block.start(), (
-        "a gauge renders between the input and its own error message")
+    assert 'class="wake-gauge"' not in with_error
+    assert error_block.start() < with_error.index('<input type="range"'), (
+        "the range renders before the error it should follow")
 
 
 # ------------------------------------------------------------------
@@ -1274,12 +1324,8 @@ def test_the_range_is_gated_nameless_and_bounded_by_device_config():
                            ("step", config_page.WAKE_SLIDER_STEP_S),
                            ("value", 600)):
         assert ('%s="%d"' % (attr, expected)) in element, "the range's %s is not %d - %s" % (attr, expected, element)
-    assert config_page.WAKE_SLIDER_STEP_S == config_page.WAKE_GAUGE_SECONDS_PER_MINUTE, (
-        "the slider steps by %d s while the gauges speak in %d-second minutes"
-        % (config_page.WAKE_SLIDER_STEP_S, config_page.WAKE_GAUGE_SECONDS_PER_MINUTE))
     for needed in ('aria-label="%s"' % escape_html(i18n.t(config_page.WAKE_SLIDER_LABEL)),
-                   'aria-describedby="%s %s"' % (config_page.WAKE_GAUGE_FRESHNESS_ID,
-                                                 config_page.WAKE_GAUGE_BATTERY_ID)):
+                   'aria-describedby="%s"' % config_page.WAKE_INTERVAL_SECTION_CAPTION_ID):
         assert needed in element, "the range is missing %r - %s" % (needed, element)
     assert i18n.t(config_page.WAKE_SLIDER_LABEL) != i18n.t(wake_interval.WAKE_INTERVAL_INPUT_LABEL), (
         "the range and the number input share one accessible name")
@@ -1317,6 +1363,12 @@ def test_the_readout_seam_this_card_declares_is_the_one_the_script_reads(value_c
     """
     markup = config_page.wake_interval_group(600, battery_rows=_FALLING)
     script = cp.strip_js_line_and_block_comments(value_controls_js)
+    assert layout.VALUE_CONTROL_INPUT_ATTR in markup
+    assert layout.VALUE_CONTROL_READOUT_ATTR not in markup
+    assert layout.VALUE_CONTROL_READOUT_TEXT_ATTR not in markup
+    assert layout.VALUE_CONTROL_READOUT_BASE_ATTR not in markup
+    assert ('"%s"' % layout.VALUE_CONTROL_INPUT_ATTR) in script
+    return
     for attr in (layout.VALUE_CONTROL_INPUT_ATTR, layout.VALUE_CONTROL_READOUT_ATTR,
                  layout.VALUE_CONTROL_READOUT_TEXT_ATTR, layout.VALUE_CONTROL_READOUT_SCALE_ATTR,
                  layout.VALUE_CONTROL_READOUT_BASE_ATTR):

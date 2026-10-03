@@ -119,9 +119,9 @@ FLASH_MESSAGES = {
         "Couldn't save settings — please try again. If this keeps "
         "happening, check the companion service logs."),
     FLASH_KEY_POLL_TRIGGERED: i18n.msg(
-        "common.refreshing_the_frame_s_new_picture_will_appear",
-        "Refreshing — the frame's new picture will appear on Home within a "
-        "few seconds."),
+        "common.refresh_requested_server_check_completed",
+        "Refresh requested — the server finished checking for new flight data. "
+        "The frame may update on a later wake."),
     # Owned by display.py's catalogue (untouched by this plan), not
     # common.py's — the Frame strip's own poll-cooldown copy.
     FLASH_KEY_POLL_COOLDOWN: i18n.msg(

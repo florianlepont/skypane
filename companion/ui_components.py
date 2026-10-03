@@ -475,7 +475,8 @@ def status_row(label, verdict, detail, state):
 
 def section_intro_html(section_id, heading, description):
     """A `<div class="section-intro">` wrapping one id-anchored `<h2>` plus a
-    muted one-sentence description on the same baseline.
+    muted one-sentence description on the same baseline (omitted when
+    `description` is empty).
 
     Shared across page modules since `companion/pages/__init__.py` forbids
     one page module importing another. The `<h2 id="..." class="text-heading">`
@@ -488,12 +489,15 @@ def section_intro_html(section_id, heading, description):
     passes a fixed module constant, but this helper is shared going forward
     and must not be the one place a caller is trusted.
     """
+    description_html = (
+        '<p class="text-label section-caption">%s</p>' % escape_html(description)
+        if description else "")
     return (
         '<div class="section-intro">'
         '<h2 id="%s" class="text-heading">%s</h2>'
-        '<p class="text-label section-caption">%s</p>'
+        "%s"
         "</div>"
-    ) % (escape_html(section_id), escape_html(heading), escape_html(description))
+    ) % (escape_html(section_id), escape_html(heading), description_html)
 
 
 def empty_state(heading, body, compact=False):

@@ -413,7 +413,7 @@ def test_the_ring_is_an_addition_and_the_four_controls_are_untouched():
     renders beside each, the three presets keep the data attributes dirty-state.js writes
     through, the one section caption is EXACTLY QUIET_HOURS_SECTION_CAPTION with no
     appended delay sentence, the card's order is
-    caption → ring → presets → Start → End with the four controls' own order and adjacency
+    caption → presets → Start → End → ring with the four controls' own order and adjacency
     untouched and no side-by-side row, and the arc echoes the SUBMITTED window on a
     rejected save rather than the stored one
 
@@ -514,18 +514,17 @@ def test_the_ring_is_an_addition_and_the_four_controls_are_untouched():
         # when it actually rendered.
         positions = [
             ("caption", markup.index('class="text-label section-caption"')),
-            ("dial", markup.index('class="%s"' % config_page.QUIET_DIAL_CLASS)),
             ("presets", markup.index('class="%s"' % config_page.QUIET_PRESET_ROW_CLASS)),
             ("times_row", markup.index('class="%s"' % config_page.QUIET_TIMES_ROW_CLASS)),
+            ("dial", markup.index('class="%s"' % config_page.QUIET_DIAL_CLASS)),
         ]
-        expected_order = ["caption", "dial", "presets", "times_row"]
+        expected_order = ["caption", "presets", "times_row", "dial"]
         if config_page.QUIET_DIAL_READOUT_CLASS in markup:
-            positions.insert(2, ("readout", markup.index(config_page.QUIET_DIAL_READOUT_CLASS)))
-            expected_order = ["caption", "dial", "readout", "presets", "times_row"]
+            positions.append(("readout", markup.index(config_page.QUIET_DIAL_READOUT_CLASS)))
+            expected_order = ["caption", "presets", "times_row", "dial", "readout"]
         assert [name for name, _ in sorted(positions, key=lambda pair: pair[1])] == expected_order, (
-            "%r→%r: the card's order is %r — CFG-80 locks caption, dial, readout, "
-            "presets, then the Start/End times row, and the ring is an addition between "
-            "the caption and the presets, never a reordering"
+            "%r→%r: the card's order is %r — the caption, presets and Start/End "
+            "times row lead, and the ring and its readout follow as a secondary picture"
             % (start, end, sorted(positions, key=lambda pair: pair[1])))
         # Start still precedes End INSIDE the times row, in document
         # order — the wrapper changed the LAYOUT, never the order.
@@ -1621,7 +1620,7 @@ def test_poll_trigger_enabled_at_zero_cooldown():
     button_tag = re.search(r"<button\b[^>]*>", rendered)
     assert button_tag, "expected a <button> tag to extract"
     assert "disabled" not in button_tag.group(0), "expected no disabled attribute at zero cooldown"
-    assert "Trigger poll now" in rendered, "expected the Trigger poll now button copy"
+    assert "Refresh now</button>" in rendered, "expected the Refresh now button copy"
 
 
 def test_poll_trigger_disabled_with_remaining_seconds():
@@ -1734,7 +1733,7 @@ def test_poll_trigger_zero_cooldown_ships_submit_affordance_script():
     attribute set instead.
     """
     rendered = config_page.poll_trigger_section(0)
-    assert "Trigger poll now" in rendered, "expected the Trigger poll now button copy"
+    assert "Refresh now</button>" in rendered, "expected the Refresh now button copy"
     # Scoped to the <button ...> tag, not a bare substring search —
     # poll-cooldown.js's own body legitimately contains "disabled" as a
     # JS property name, though that never reaches this render() output.

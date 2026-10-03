@@ -13,10 +13,9 @@ import pytest
 import companion.layout as layout
 import companion.prefs as prefs
 import companion.test_view_pages_helpers as vp
-from companion.pages import health_page, history_page
+from companion.pages import history_page
 from companion_app_server import served_stylesheet
 from companion_markup import css_rules, declarations_for, parse_html
-from server import device_config
 from server.plane import render as panel_render
 
 
@@ -51,10 +50,9 @@ def test_three_events_render_newest_first(tmp_path):
     vp.seed_runway_events(tmp_path, events)
     rendered = history_page.render(vp.history_ctx(tmp_path))
     doc = parse_html(rendered)
-    # Each summary row carries a sibling .flight-detail-row <tr> - 1
-    # header + 3 summary + 3 detail = 7, +1 day-separator row - all
-    # three fixture events fall on the same Europe/Paris day: 7 + 1 = 8.
-    assert len(doc.select("tr")) == 8
+    # 1 header + 3 flight rows, +1 day-separator row - all three fixture
+    # events fall on the same Europe/Paris day: 4 + 1 = 5.
+    assert len(doc.select("tr")) == 5
     assert len(doc.select('[class="flight-day-row"]')) == 1
     idx3, idx2, idx1 = rendered.find("FLT3"), rendered.find("FLT2"), rendered.find("FLT1")
     assert idx3 < idx2 < idx1, "expected newest-first ordering (FLT3, FLT2, FLT1)"
@@ -146,8 +144,8 @@ def test_history_opens_with_shared_page_header(tmp_path):
     assert not doc.select('[class="text-heading"]')
 
 
-def test_history_table_wrapped_for_horizontal_scroll_dot_survives(tmp_path):
-    """History's flight table gains the .data-table-wrap horizontal-scroll wrapper Airlines/Health already have, without disturbing the Corroboration status dot"""
+def test_history_table_is_wrapped_for_horizontal_scroll(tmp_path):
+    """History's flight table sits in the .data-table-wrap horizontal-scroll wrapper Airlines/Health also use"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "d5", "callsign": "WRAP1"},
     ])
@@ -155,52 +153,55 @@ def test_history_table_wrapped_for_horizontal_scroll_dot_survives(tmp_path):
     doc = parse_html(rendered)
     assert doc.select('[class="data-table-wrap"]')
     # The scoped data-table--flights modifier: find_all()'s attrs= does
-    # an exact-string match without the
-    # selector-syntax tokenizer, which would otherwise split this
-    # attribute value on its embedded space.
+    # an exact-string match without the selector-syntax tokenizer, which
+    # would otherwise split this attribute value on its embedded space.
     assert doc.find_all("table", attrs={"class": "data-table data-table--flights"})
-    assert any("dot--" in (n.attrs.get("class") or "") for n in doc.select("*"))
 
 
-def test_six_columns_named_and_ordered(tmp_path):
-    """History renders exactly the 5 data headers in history_page._HEADERS plus a sixth, visually-hidden 'Details' toggle-column header, all in order, with no standalone Hex/Airline/Runway/Type/Callsign/Timestamp column"""
+def test_five_columns_named_and_ordered(tmp_path):
+    """History renders exactly the 4 data headers in history_page._HEADERS plus a fifth, visually-hidden 'Picture' column header, in order, with no Corroboration, Hex, Runway or Details column"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "d6", "callsign": "SEVEN1"},
     ])
     rendered = history_page.render(vp.history_ctx(tmp_path))
     doc = parse_html(rendered)
     # A bare <th> (no attributes) only - the day-separator row's own
-    # <th scope="colgroup" colspan="6"> is a different column-header kind
-    # entirely (a whole-row caption, not a data/toggle column) and must
-    # not be counted here, exactly as the original's literal "<th>"
-    # substring match never matched it either.
+    # <th scope="colgroup"> is a whole-row caption, not a column header.
     ths = [th for th in doc.select("th") if not th.attrs]
-    assert len(ths) == 6, "expected exactly 6 <th> cells (5 data + 1 toggle)"
-    for th, header in zip(ths[:5], history_page._HEADERS):
+    assert len(ths) == 5, "expected exactly 5 <th> cells (4 data + 1 picture)"
+    for th, header in zip(ths[:4], history_page._HEADERS):
         assert th.text() == header
-    details_th = ths[5]
-    assert details_th.select('[class="visually-hidden"]')
-    assert details_th.text() == "Details"
+    picture_th = ths[4]
+    assert picture_th.select('[class="visually-hidden"]')
+    assert picture_th.text() == "Picture"
+    header_text = " ".join(th.text() for th in ths)
+    for retired in ("Corroboration", "Hex", "Runway", "Details"):
+        assert retired not in header_text
 
 
-def test_runway_survives_in_row_title_and_mobile_details(tmp_path):
-    """the runway value the dropped desktop Runway column used to show survives in the <tr title="..."> attribute and, unchanged, in the mobile card's More details (A-36)"""
+def test_technical_details_are_not_rendered(tmp_path):
+    """the hex, runway, full timestamp, corroboration and copy controls the owner retired appear in neither the desktop row nor the mobile card"""
     vp.seed_runway_events(tmp_path, [
         {
             "ts": "2026-08-27T10:00:00+00:00", "hex": "rwt01",
-            "callsign": "RWTITLE", "tracked_runway": "3",
+            "callsign": "RWTITLE", "tracked_runway": "3", "corroborated": "True",
         },
     ])
     rendered = history_page.render(vp.history_ctx(tmp_path))
-    runway_label = device_config.runway_label("3")
     tr_block = vp.row_block(rendered, "tr", 0)
     li_block = vp.row_block(rendered, "li", 0)
     assert tr_block is not None and li_block is not None
-    assert tr_block.attrs.get("title") == runway_label
-    dts = li_block.select("dt")
-    dds = li_block.select("dd")
-    idx = next(i for i, dt in enumerate(dts) if dt.text() == "Runway")
-    assert dds[idx].text() == runway_label
+    assert "title" not in tr_block.attrs
+    for block in (tr_block, li_block):
+        text = block.text()
+        for retired in ("rwt01", "Runway", "Both agree", "Full timestamp"):
+            assert retired not in text
+        assert not block.select("[data-copy-value]")
+        assert not block.select("details")
+        assert not block.select("dl")
+    assert "dot--" not in rendered
+    assert "flight-detail-row" not in rendered
+    assert "data-row-toggle" not in rendered
 
 
 def test_scroller_focusable_and_named(tmp_path):
@@ -350,13 +351,12 @@ def test_history_timestamps_carry_a_relative_time_element(tmp_path):
     ])
     rendered = history_page.render(vp.history_ctx(tmp_path, now=three_min_later))
     doc = parse_html(rendered)
-    # Flights joined the refresh loop, so the header now carries its
-    # own <time data-relative> freshness clock - narrow the search to
-    # the card list so this check keeps measuring the ROW's own age,
-    # not the header's render-instant clock.
-    assert doc.select("[data-refresh-clock]")
+    # The page stays on the refresh loop through a silent marker, with no
+    # visible freshness clock or description in the header.
+    assert doc.select("[data-loaded-at]")
+    assert not doc.select("[data-refresh-clock]")
+    assert "page-header__purpose" not in rendered
     cards = doc.select_one('[class="history-cards"]')
-    assert not cards.select("[data-refresh-clock]")
     times = cards.select("time[data-relative]")
     assert times, "expected a <time data-relative> element in the rendered History row list"
     match = times[0]
@@ -364,37 +364,6 @@ def test_history_timestamps_carry_a_relative_time_element(tmp_path):
     assert match.text() == layout.relative_age_text(
         layout.age_seconds(seeded_ts, three_min_later))
     assert layout.age_seconds(match.attrs.get("datetime"), three_min_later) == 180
-
-
-def test_corroboration_copy_agrees_with_health_page():
-    """history_page._CORROBORATION_LABELS agrees with health_page._CORROBORATION_ROWS on status key-by-key and on visible label for True/False; History's shortened 'None' label is the documented short form and its _CORROBORATION_TITLES tooltip equals Health's own full label exactly; the single-source 'None' state is pinned by name on each side (History 'ok', Health the neutral 'off'), is never a failure in either table, and carries a visible label distinct from 'Both agree'"""
-    health_rows = {
-        stored: (status, label)
-        for stored, label, status, _explanation in health_page._CORROBORATION_ROWS
-    }
-    history_labels = history_page._CORROBORATION_LABELS
-    history_titles = history_page._CORROBORATION_TITLES
-
-    assert set(health_rows) == {"True", "None", "False"}
-    assert set(history_labels) == {"True", "None", "False"}
-
-    # Statuses must agree key-by-key for True and False - History's
-    # desktop table deliberately keeps "ok" for None, while Health's
-    # None moved to the neutral "off" token, so that key is pinned by
-    # name below instead.
-    for key in ("True", "False"):
-        assert history_labels[key][0] == health_rows[key][0]
-        assert history_labels[key][1] == health_rows[key][1]
-
-    assert history_labels["None"][1] == "Single-source"
-    assert history_titles.get("None") == health_rows["None"][1]
-
-    assert history_labels["None"][0] == "ok"
-    assert health_rows["None"][0] == "off"
-    for status in (history_labels["None"][0], health_rows["None"][0]):
-        assert status not in ("warn", "error")
-    # X8's own safety clause: colour is not the only signal.
-    assert health_rows["None"][1] != health_rows["True"][1]
 
 
 def test_status_dot_title_backward_compatible_and_escaped():
@@ -420,43 +389,6 @@ def test_status_dot_visually_hide_label_defaults_false_byte_identical():
     assert 'class="dot-label visually-hidden"' in hidden
     assert 'title="A tooltip"' in hidden
     assert ">All good<" in hidden
-
-
-def test_corroboration_none_row_shows_short_label_with_tooltip(tmp_path):
-    """a 'None' (single-source) row's Corroboration cell shows the short visible label with the long form only in a title attribute, in both the desktop and mobile renderings"""
-    vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-08-27T10:00:00+00:00", "hex": "cn01", "callsign": "CORNONE",
-         "corroborated": None},
-    ])
-    rendered = history_page.render(vp.history_ctx(tmp_path))
-    tr_block = vp.row_block(rendered, "tr", 0)
-    li_block = vp.row_block(rendered, "li", 0)
-    assert tr_block is not None and li_block is not None
-    long_form = history_page._CORROBORATION_TITLES["None"]
-    for block in (tr_block, li_block):
-        # find_all(cls=...) does token membership, so this matches the
-        # desktop span's "dot-label visually-hidden" as well as the
-        # mobile card's plain "dot-label".
-        label_node = block.find_all("span", cls="dot-label")[0]
-        assert label_node.text() == "Single-source"
-        assert any(n.attrs.get("title") == long_form for n in block.select("*"))
-        assert "(uncorroborated)" not in block.text()
-
-
-def test_desktop_corroboration_cell_dot_only_no_visible_word(tmp_path):
-    """the desktop Corroboration cell renders the dot only, with the visible word hidden via visually-hidden (not deleted); the mobile card's own Corroboration <dd> still shows the word"""
-    vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-08-27T10:00:00+00:00", "hex": "cdo01", "callsign": "CDOTONLY",
-         "corroborated": "True"},
-    ])
-    rendered = history_page.render(vp.history_ctx(tmp_path))
-    tr_block = vp.row_block(rendered, "tr", 0)
-    li_block = vp.row_block(rendered, "li", 0)
-    assert tr_block is not None and li_block is not None
-    assert tr_block.find_all(attrs={"class": "dot-label visually-hidden"})
-    assert "Both agree" in tr_block.text()
-    assert not li_block.find_all(attrs={"class": "dot-label visually-hidden"})
-    assert "Both agree" in li_block.text()
 
 
 def test_when_and_flight_cells_each_carry_one_primary_one_secondary(tmp_path):
@@ -611,20 +543,25 @@ def test_desktop_flight_cell_carries_no_copy_buttons(tmp_path):
     assert not flight_td.select("[data-copy-value]")
 
 
-def test_detail_row_pairs_with_summary_row_by_aria_controls_and_id(tmp_path):
-    """each summary row gets exactly one sibling detail row, matched by aria-controls/id, with no hidden attribute and no inline style (the no-JS floor), and every row-toggle starts aria-expanded='false'"""
+def test_each_flight_has_one_picture_link_on_desktop_and_card(tmp_path):
+    """with a recorded render available, every flight row and every mobile card carries exactly one labelled picture link, a real href to the archived render, and no disclosure control"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "dr01", "callsign": "DETAIL1"},
         {"ts": "2026-08-27T10:01:00+00:00", "hex": "dr02", "callsign": "DETAIL2"},
     ])
-    rendered = history_page.render(vp.history_ctx(tmp_path))
+    entries = ["2026-08-27T11-30-00+02-00.png"]
+    rendered = history_page.render(vp.history_ctx(tmp_path, gallery_entries=entries))
+    for index, callsign in ((0, "DETAIL2"), (1, "DETAIL1")):
+        for tag in ("tr", "li"):
+            block = vp.row_block(rendered, tag, index)
+            links = block.select("a[data-view-panel-src]")
+            assert len(links) == 1
+            link = links[0]
+            assert link.attrs["href"] == "/gallery/" + entries[0]
+            assert link.text() == "View picture"
+            assert link.attrs["aria-label"] == "View picture of " + callsign
     doc = parse_html(rendered)
-    detail_trs = doc.select('tr[class="flight-detail-row"]')
-    assert len(detail_trs) == 2, "expected exactly 2 detail rows (one per summary row)"
-    for index in (0, 1):
-        assert doc.select('[aria-controls="flight-detail-%d"]' % index)
-        assert doc.select('[id="flight-detail-%d"]' % index)
-    for tag in detail_trs:
-        assert "hidden" not in tag.attrs
-        assert "style" not in tag.attrs
-    assert len(doc.select('[aria-expanded="false"]')) >= 2
+    assert not doc.select("[aria-expanded]")
+    assert not doc.select("summary")
+
+

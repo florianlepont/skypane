@@ -38,13 +38,31 @@ ILLUSTRATION_ROUTE_PREFIX = "/illustration/"
 # nav tab label uses.
 _NAV_AIRLINES_TEXT = i18n.msg("nav.airlines", "Airlines")
 
-GALLERY_PURPOSE_TEXT = i18n.msg(
-    "airlines.illustration_reference_for_every_airline_this",
-    "Illustration reference for every airline this frame can recognize.")
+# Stable identifier of the airline-level (any aircraft) type section; the
+# other sections use their fleet-variant shape as identifier.
+ANY_TYPE_ID = "any"
+TYPE_LABEL_TEXT = i18n.msg("airlines.aircraft_type", "Aircraft type")
+TYPE_ANY_TEXT = i18n.msg("airlines.any_aircraft", "Any aircraft")
 
-# Owned by companion/i18n_fr/home.py, not airlines.py — the same id
-# home_page.py's own thumbnail alt text uses.
-CARD_IMAGE_ALT_TEMPLATE = i18n.msg("home.illustration", "%s illustration")
+# The two rows every type section keeps apart: what SkyPane ships, and
+# what the owner has changed on top of it.
+SOURCE_HEADING_TEXT = i18n.msg("airlines.from_skypane", "From SkyPane")
+SOURCE_BUILTIN_TEXT = i18n.msg("airlines.built_in_artwork", "Built-in artwork")
+SOURCE_NONE_TEXT = i18n.msg("airlines.no_built_in_artwork", "No built-in artwork")
+OWNER_HEADING_TEXT = i18n.msg("airlines.your_changes", "Your changes")
+OWNER_NONE_TEXT = i18n.msg("airlines.no_changes", "No changes")
+OWNER_OVERRIDE_TEXT = i18n.msg(
+    "airlines.your_artwork_is_shown_instead", "Your artwork is shown instead")
+OWNER_OWN_ARTWORK_TEXT = i18n.msg("airlines.your_artwork", "Your artwork")
+OWNER_NO_ARTWORK_TEXT = i18n.msg("airlines.no_artwork_yet", "No artwork yet")
+OWNER_SUPERSEDED_TEXT = i18n.msg(
+    "airlines.built_in_name_used_instead", "Built-in name used instead of yours")
+
+# Outcome-first action labels; ACTION_LABEL_TEMPLATE takes the action then
+# the airline/type title for the accessible name.
+REPLACE_ACTION_TEXT = i18n.msg("airlines.replace_artwork", "Replace artwork")
+ADD_ACTION_TEXT = i18n.msg("airlines.add_artwork", "Add artwork")
+ACTION_LABEL_TEMPLATE = i18n.msg("airlines.action_for", "%s: %s")
 
 GAP_STRIP_HEADING = i18n.msg("airlines.unidentified_airlines", "Unidentified airlines")
 GAP_STRIP_BODY = i18n.msg(
@@ -151,10 +169,7 @@ UPLOAD_DROP_MESSAGE_CLASS = "upload-drop__message"
 # occupy; the server may still crop differently and is the only
 # authority on that.
 UPLOAD_DROP_HINT_TEXT = i18n.msg(
-    "airlines.or_drag_an_image_onto_this_card", "Or drag an image onto this card.")
-UPLOAD_PREVIEW_CAPTION_TEXT = i18n.msg(
-    "airlines.framing_preview_how_it_will_be_framed",
-    "Framing preview — how it will be framed.")
+    "airlines.drop_an_image_in_the_frame", "Drop an image in the frame, or choose one.")
 UPLOAD_PREVIEW_ALT_TEXT = i18n.msg(
     "airlines.framing_preview_of_the_image_you_chose",
     "Framing preview of the image you chose")
@@ -278,19 +293,15 @@ MANUAL_UPLOAD_INPUT_ID = "manual-illustration-input"
 MANUAL_UPLOAD_FORM_ID = "manual-illustration-form"
 MANUAL_DATALIST_ID = "known-airlines"
 
-# SUPERSEDED_MARKER_TEXT and DELETE_BUTTON_TEXT are still consumed by
-# _airline_card_html()'s chip and _manual_delete_form_html()'s shared
-# form. "Delete" is owned by companion/i18n_fr/display.py, not
-# airlines.py — the same id config_page.py's own rule-delete button uses.
-SUPERSEDED_MARKER_TEXT = i18n.msg("airlines.superseded", "Superseded")
-DELETE_BUTTON_TEXT = i18n.msg("display.delete", "Delete")
+# Names the shared manual-name delete form's button after its outcome.
+DELETE_BUTTON_TEXT = i18n.msg("airlines.delete_manual_name", "Delete my name")
 
 GAP_CARD_ARIA_TEMPLATE = i18n.msg(
     "airlines.resolve_prefix_example_callsign", "Resolve prefix %s — example callsign %s")
 MANUAL_CHIP_ACTIVE_TEXT = i18n.msg("airlines.resolved_by_hand", "Resolved by hand")
 MANUAL_DELETE_CAPTION = i18n.msg(
-    "airlines.deleting_removes_this_manual_name_any_uploaded",
-    "Deleting removes this manual name — any uploaded artwork stays in place.")
+    "airlines.deleting_removes_the_name_you_gave_this_prefix",
+    "Flights with this prefix become unidentified again. Your artwork stays.")
 # %s arity: prefix, built-in name, operator's own name, built-in name
 # again. A status message about a real naming conflict, not a caption
 # — LIGHTBOX_MANUAL_NOTE_CLASS never composes with the site-wide
@@ -322,7 +333,7 @@ MANUAL_SUMMARY_TEMPLATE_NONE_SINGULAR = i18n.msg(
 
 # No revert-to-original control is in scope for this feature.
 REPLACE_LABEL_TEXT = i18n.msg(
-    "airlines.replace_this_illustration", "Replace this illustration")
+    "airlines.replace_this_illustration", "Replace this artwork")
 REPLACE_BUTTON_TEXT = i18n.msg("airlines.upload", "Upload")
 # A single static id: exactly one file input exists on the page, so
 # there's nothing to disambiguate.
@@ -405,7 +416,7 @@ def _max_upload_bytes():
 
 
 def _upload_drop_html(input_id):
-    """Drag-and-drop affordance and framing preview for the file input
+    """Drag-and-drop frame and framing preview for the file input
     `input_id`, wrapped in `layout.JS_GATE_CLASS` so a blocked-script
     visitor sees exactly today's form. One definition, three call sites,
     so drop zones cannot render differently in two places.
@@ -420,11 +431,10 @@ def _upload_drop_html(input_id):
     size_message = i18n.t(UPLOAD_DROP_SIZE_ERROR_TEMPLATE) % (max_bytes // (1024 * 1024))
     return (
         '<section class="%s %s" %s %s="%s" %s="%d" %s="%s" %s="%s" %s="%s">'
-        '<p class="%s">%s</p>'
         '<figure class="%s" style="--upload-preview-ratio: %d / %d">'
         '<img class="%s" alt="%s" hidden>'
+        '<figcaption class="%s">%s</figcaption>'
         "</figure>"
-        '<p class="%s">%s</p>'
         '<p class="%s" role="status"></p>'
         "</section>"
     ) % (
@@ -435,11 +445,10 @@ def _upload_drop_html(input_id):
         UPLOAD_DROP_TYPE_ERROR_ATTR, escape_html(i18n.t(UPLOAD_DROP_TYPE_ERROR_TEXT)),
         UPLOAD_DROP_SIZE_ERROR_ATTR, escape_html(size_message),
         UPLOAD_DROP_MULTIPLE_ERROR_ATTR, escape_html(i18n.t(UPLOAD_DROP_MULTIPLE_ERROR_TEXT)),
-        UPLOAD_DROP_NOTE_CLASS, escape_html(i18n.t(UPLOAD_DROP_HINT_TEXT)),
         UPLOAD_DROP_PREVIEW_CLASS,
         ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT,
         UPLOAD_DROP_IMAGE_CLASS, escape_html(i18n.t(UPLOAD_PREVIEW_ALT_TEXT)),
-        UPLOAD_DROP_NOTE_CLASS, escape_html(i18n.t(UPLOAD_PREVIEW_CAPTION_TEXT)),
+        UPLOAD_DROP_NOTE_CLASS, escape_html(i18n.t(UPLOAD_DROP_HINT_TEXT)),
         UPLOAD_DROP_MESSAGE_CLASS,
     )
 
@@ -570,10 +579,11 @@ def _airline_card_manual_fields(manual_info, airline_name, key, state_dir, now):
     )
 
 
-def _airline_card_zoom_html(airline_name, mode, image_html, busted_image_url, image_url,
+def _airline_card_zoom_html(caption_text, mode, image_html, busted_image_url, image_url,
                             manual_value, resolve_prefix_value, heading_value,
                             upload_action_value, delete_action_value, manual_note_value,
-                            first_seen_value, last_seen_value, count_value):
+                            first_seen_value, last_seen_value, count_value,
+                            aria_label, css_class="airline-card__zoom"):
     """The click-to-enlarge trigger. A real `<button>`, not the `<img>`,
     is the click target for keyboard focus; panel-lookup.js's delegation
     still resolves an image click to it. Every trigger carries the full
@@ -590,11 +600,11 @@ def _airline_card_zoom_html(airline_name, mode, image_html, busted_image_url, im
     scope_value = ""
 
     if resolve_prefix_value:
-        opening_tag = '<a href="%s?%s=%s" class="airline-card__zoom" ' % (
-            AIRLINES_ROUTE, RESOLVE_QUERY_PARAM, resolve_prefix_value)
+        opening_tag = '<a href="%s?%s=%s" class="%s" ' % (
+            AIRLINES_ROUTE, RESOLVE_QUERY_PARAM, resolve_prefix_value, css_class)
         closing_tag = "</a>"
     else:
-        opening_tag = '<button type="button" class="airline-card__zoom" '
+        opening_tag = '<button type="button" class="%s" ' % css_class
         closing_tag = "</button>"
     panel_attrs = (
         '%s="%s" %s="%s" %s="%s" %s="%s" '
@@ -603,7 +613,7 @@ def _airline_card_zoom_html(airline_name, mode, image_html, busted_image_url, im
         '%s="%s" %s="%s" '
     ) % (
         _VIEW_PANEL_SRC_ATTR, busted_image_url,
-        _VIEW_PANEL_CAPTION_ATTR, escape_html(i18n.t(CARD_IMAGE_ALT_TEMPLATE) % airline_name),
+        _VIEW_PANEL_CAPTION_ATTR, escape_html(caption_text),
         _VIEW_PANEL_MODE_ATTR, mode,
         _VIEW_PANEL_REPLACE_ACTION_ATTR, image_url,
         _VIEW_PANEL_HEADING_ATTR, heading_value,
@@ -620,81 +630,184 @@ def _airline_card_zoom_html(airline_name, mode, image_html, busted_image_url, im
     return (
         opening_tag + panel_attrs + 'aria-label="%s">%s%s'
     ) % (
-        escape_html(i18n.t(ZOOM_LABEL_TEMPLATE) % airline_name),
+        escape_html(aria_label),
         image_html,
         closing_tag,
     )
 
 
+def _artwork_files(type_key, state_dir):
+    """`(has_builtin, has_override)` for the illustration `type_key`: the
+    vendored file and the owner's uploaded replacement, each checked as a
+    real file. Never raises.
+    """
+    builtin = illustrations.illustration_path_for_key(type_key)
+    override = illustrations.override_path_for_key(type_key, state_dir)
+    return (
+        bool(builtin) and os.path.isfile(builtin),
+        bool(override) and os.path.isfile(override),
+    )
+
+
+def _type_fields(card, type_key, type_title, is_base, has_art):
+    """The twelve per-trigger values for one type section, in
+    `_airline_card_manual_fields()`'s order. Only the airline-level
+    (base) section carries the manual-resolution values; a type with no
+    artwork at all switches its trigger to the add-artwork mode.
+    """
+    if is_base:
+        fields = list(card["manual_fields"])
+    else:
+        fields = [_VIEW_PANEL_MODE_ART, False, False, "", "", "", "", "", "", "", "", ""]
+    if not has_art and fields[0] == _VIEW_PANEL_MODE_ART:
+        fields[0] = _VIEW_PANEL_MODE_NEEDS_ARTWORK
+        fields[5] = i18n.t(STEP_B_HEADING_TEMPLATE) % escape_html(type_title)
+        fields[6] = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(type_key))
+    return fields
+
+
+def _owner_changes_html(card, is_base, has_builtin, has_override):
+    """The "Your changes" value: what the owner has changed for this
+    type, as plain text plus the manual-name chip where it applies.
+    """
+    if has_override and has_builtin:
+        text = i18n.t(OWNER_OVERRIDE_TEXT)
+    elif has_override:
+        text = i18n.t(OWNER_OWN_ARTWORK_TEXT)
+    elif has_builtin:
+        text = i18n.t(OWNER_NONE_TEXT)
+    else:
+        text = i18n.t(OWNER_NO_ARTWORK_TEXT)
+    parts = [escape_html(text)]
+    if is_base and card["has_manual"]:
+        parts.append(
+            '<span class="airline-card__chip">%s</span>' % escape_html(
+                i18n.t(OWNER_SUPERSEDED_TEXT) if card["superseded"]
+                else i18n.t(MANUAL_CHIP_ACTIVE_TEXT)))
+    return "".join(parts)
+
+
+def _type_section_html(card, type_id, type_label, type_key):
+    """One aircraft type's view: its artwork behind the enlarge trigger,
+    the source facts and the owner's changes kept in separate labelled
+    rows, and the visible add/replace-artwork action. `type_id` is the
+    stable identifier the selector option points at.
+    """
+    is_base = type_id == ANY_TYPE_ID
+    has_builtin, has_override = _artwork_files(type_key, card["state_dir"])
+    has_art = has_builtin or has_override
+    title = card["name"] if is_base else "%s, %s" % (card["name"], type_label)
+    (mode, _has_manual, _superseded, manual_value, resolve_prefix_value, heading_value,
+     upload_action_value, delete_action_value, manual_note_value, first_seen_value,
+     last_seen_value, count_value) = _type_fields(card, type_key, title, is_base, has_art)
+    image_url = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(type_key))
+    busted_image_url = image_url + _illustration_cache_buster(type_key, card["state_dir"])
+    if mode == _VIEW_PANEL_MODE_NEEDS_ARTWORK or not has_art:
+        image_html = '<span class="airline-card__placeholder" aria-hidden="true"></span>'
+        busted_image_url = ""
+    else:
+        image_html = (
+            '<img class="airline-card__image" src="%s" width="%d" height="%d" '
+            'loading="lazy" decoding="async" alt="%s">'
+        ) % (busted_image_url, ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT,
+             escape_html(title))
+    shared = (
+        mode, image_html, busted_image_url, image_url, manual_value, resolve_prefix_value,
+        heading_value, upload_action_value, delete_action_value, manual_note_value,
+        first_seen_value, last_seen_value, count_value)
+    zoom_html = _airline_card_zoom_html(
+        title, shared[0], shared[1], shared[2], shared[3], *shared[4:],
+        aria_label=i18n.t(ZOOM_LABEL_TEMPLATE) % title)
+    action_text = i18n.t(
+        REPLACE_ACTION_TEXT if has_art else ADD_ACTION_TEXT)
+    action_html = _airline_card_zoom_html(
+        title, shared[0], escape_html(action_text), shared[2], shared[3], *shared[4:],
+        aria_label=i18n.t(ACTION_LABEL_TEMPLATE) % (action_text, title),
+        css_class="airline-card__action")
+    title_html = (
+        '<h3 class="airline-type__title text-label">%s</h3>' % escape_html(type_label)
+        if card["multiple"] else "")
+    source_text = i18n.t(SOURCE_BUILTIN_TEXT if has_builtin else SOURCE_NONE_TEXT)
+    return (
+        '<section class="airline-type" data-airline-type="%s">'
+        "%s%s"
+        '<dl class="airline-type__facts">'
+        '<dt class="text-label">%s</dt><dd class="airline-type__source">%s</dd>'
+        '<dt class="text-label">%s</dt><dd class="airline-type__owner">%s</dd>'
+        "</dl>"
+        "%s"
+        "</section>"
+    ) % (
+        escape_html(type_id), title_html, zoom_html,
+        escape_html(i18n.t(SOURCE_HEADING_TEXT)), escape_html(source_text),
+        escape_html(i18n.t(OWNER_HEADING_TEXT)),
+        _owner_changes_html(card, is_base, has_builtin, has_override),
+        action_html,
+    )
+
+
+def _type_picker_html(index, options):
+    """The labelled native selector over an airline's known aircraft
+    types, one `<option>` per `(type_id, label)`. Gated on script: it only
+    changes which section is visible, and without script every section is
+    already shown in source order.
+    """
+    select_id = "airline-types-%d" % index
+    option_html = "".join(
+        '<option value="%s">%s</option>' % (escape_html(type_id), escape_html(label))
+        for type_id, label in options)
+    return (
+        '<div class="airline-type-picker %s">'
+        '<label class="text-label" for="%s">%s</label>'
+        '<select id="%s" data-airline-type-select>%s</select>'
+        "</div>"
+    ) % (layout.JS_GATE_CLASS, select_id, escape_html(i18n.t(TYPE_LABEL_TEXT)),
+         select_id, option_html)
+
+
 def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=None,
                        now=None):
-    """One `.airline-card`: an image behind a click-to-enlarge trigger, the
-    airline's name, and one chip per fleet-type variant. Every value is
-    escaped exactly once, at its point of interpolation. Returns `""` for
-    an airline whose normalised key is falsy.
+    """One `.airline-card`: the airline's name and a section per known
+    aircraft type, each with its artwork behind a click-to-enlarge
+    trigger, source facts, the owner's changes and the add/replace
+    action. An airline with several types also gets a native selector
+    that shows one section at a time. Every value is escaped exactly once,
+    at its point of interpolation. Returns `""` for an airline whose
+    normalised key is falsy.
 
     `index` becomes `data-filter-group`; `state_dir` resolves the
     illustration cache buster. `manual_info`, when present, is the
     `(prefix, superseded, needs_artwork)` triple sliced by the caller,
-    turning the trigger into a resolve link with the manual-state chip.
+    turning the airline-level trigger into a resolve link.
     """
     key = illustrations.normalise_airline_key(airline_name)
     if not key:
         return ""
-    # Built once and reused for both the <img src> and the zoom
-    # trigger's data-view-panel-src, plus the cache-busting suffix, so
-    # the two cannot point at different images.
-    image_url = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
-    # The replace-action attribute deliberately uses the un-busted
-    # image_url — a query string on a POST target is pointless. Already
-    # escaped once above; do not escape it again here.
-    busted_image_url = image_url + _illustration_cache_buster(key, state_dir)
-    image_html = (
-        '<img class="airline-card__image" src="%s" '
-        'width="%d" height="%d" '
-        'loading="lazy" decoding="async" alt="%s">'
-    ) % (
-        busted_image_url,
-        ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT,
-        escape_html(i18n.t(CARD_IMAGE_ALT_TEMPLATE) % airline_name),
-    )
-    (mode, has_manual, superseded, manual_value, resolve_prefix_value,
-     heading_value, upload_action_value, delete_action_value,
-     manual_note_value, first_seen_value, last_seen_value, count_value) = (
-        _airline_card_manual_fields(manual_info, airline_name, key, state_dir, now))
-    # A manually-resolved airline with no artwork yet would otherwise
-    # render an <img> whose src 404s; use the same dashed placeholder a
-    # gap card uses, and an empty src so the dialog hides its image too.
-    if mode == _VIEW_PANEL_MODE_NEEDS_ARTWORK:
-        image_html = '<span class="airline-card__placeholder" aria-hidden="true"></span>'
-        busted_image_url = ""
-    zoom_html = _airline_card_zoom_html(
-        airline_name, mode, image_html, busted_image_url, image_url,
-        manual_value, resolve_prefix_value, heading_value,
-        upload_action_value, delete_action_value, manual_note_value,
-        first_seen_value, last_seen_value, count_value)
-    chip_parts = []
-    if shapes:
-        chip_parts.extend(
-            '<span class="airline-card__chip">%s</span>' % escape_html(variant_chip_label(shape))
-            for shape in shapes
-        )
-    if has_manual:
-        chip_text = i18n.t(SUPERSEDED_MARKER_TEXT) if superseded else i18n.t(MANUAL_CHIP_ACTIVE_TEXT)
-        chip_parts.append('<span class="airline-card__chip">%s</span>' % escape_html(chip_text))
-    chips_html = '<div class="airline-card__chips">%s</div>' % "".join(chip_parts) if chip_parts else ""
+    manual_fields = _airline_card_manual_fields(manual_info, airline_name, key, state_dir, now)
+    has_manual, superseded = manual_fields[1], manual_fields[2]
+    types = [(ANY_TYPE_ID, i18n.t(TYPE_ANY_TEXT), key)]
+    types.extend(
+        (shape, variant_chip_label(shape), "%s-%s" % (key, shape)) for shape in shapes or [])
+    card = {
+        "name": airline_name, "state_dir": state_dir, "manual_fields": manual_fields,
+        "has_manual": has_manual, "superseded": superseded, "multiple": len(types) > 1,
+    }
+    sections = "".join(
+        _type_section_html(card, type_id, label, type_key) for type_id, label, type_key in types)
+    picker_html = (
+        _type_picker_html(index, [(type_id, label) for type_id, label, _key in types])
+        if card["multiple"] else "")
     base_filter_text = (
         airline_name.lower() if isinstance(airline_name, str) else str(airline_name).lower())
     if has_manual:
         base_filter_text += " superseded manual" if superseded else " resolved by hand manual"
-    filter_text = escape_html(base_filter_text)
     return (
         '<div class="airline-card" data-filter-text="%s" data-filter-group="%d">'
-        "%s"
         '<p class="airline-card__name">%s</p>'
-        "%s"
+        '<div class="airline-card__types"%s>%s%s</div>'
         "</div>"
-    ) % (filter_text, index, zoom_html, escape_html(airline_name), chips_html)
+    ) % (escape_html(base_filter_text), index, escape_html(airline_name),
+         " data-airline-types" if card["multiple"] else "", picker_html, sections)
 
 
 def _gallery_grid_html(pairs, state_dir=None, gap_cards_html="", manual_info_by_name=None,
@@ -1374,7 +1487,7 @@ def render(ctx):
     summary_html = _manual_summary_html(manual_rows)
     filter_html = _filter_bar_html(total, summary_html) if (pairs or gap_shown) else ""
     return (
-        layout.page_header(i18n.t(_NAV_AIRLINES_TEXT), purpose=i18n.t(GALLERY_PURPOSE_TEXT))
+        layout.page_header(i18n.t(_NAV_AIRLINES_TEXT))
         + filter_html
         + _gallery_grid_html(
             pairs, state_dir, manual_info_by_name=manual_info_by_name, now=now)

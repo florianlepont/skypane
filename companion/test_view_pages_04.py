@@ -20,7 +20,6 @@ import companion.draw as draw
 import companion.frame_state as frame_state
 import companion.i18n as i18n
 import companion.layout as layout
-import companion.prefs as prefs
 import companion.test_view_pages_helpers as vp
 import companion.wake as wake
 from companion.pages import airlines_page, health_page, history_page, home_page
@@ -107,41 +106,17 @@ def _home_band_spans(section):
     return re.findall(r'<rect class="drawing-band-span"[^>]*/>', section)
 
 
-def _home_band_ctx(state_dir, now, checkins, config=None):
+def _health_band_ctx(state_dir, now, checkins, config=None):
     with history_db.open_db(state_dir) as conn:
         for ts in checkins:
             history_db.record_device_health(conn, ts, battery_mv=3750)
     return {
         "state_dir": str(state_dir), "now": now,
-        "last_checkin_ts": checkins[-1] if checkins else None,
         "device_config": config or {"wake_interval_s": 900, "display_enabled": True},
-        "health_state": {"device_state": "ok", "pipeline_state": "ok",
-                         "battery_state": "ok", "device_detail_html": "",
-                         "pipeline_html": ""},
     }
 
 
 # --- the hero composition's own containment helper ----------------------
-
-def _home_hero_inner(rendered):
-    """The hero container's own inner markup, or None when the page
-    renders no hero at all.
-
-    A BALANCED SCAN, never `rendered.index("</div>")`: the hero holds
-    sections that hold divs of their own, so the first closing tag after
-    the opening one belongs to a descendant.
-    """
-    opened = re.search(
-        r'<div class="[^"]*\b%s\b[^"]*">' % re.escape(home_page.HERO_CLASS), rendered)
-    if opened is None:
-        return None
-    depth = 0
-    for token in re.finditer(r"<div\b|</div>", rendered[opened.start():]):
-        depth += 1 if token.group(0) == "<div" else -1
-        if depth == 0:
-            return rendered[opened.end():opened.start() + token.start()]
-    return None
-
 
 def _classes_inside_svg(markup, opening_class):
     """The set of class attributes emitted INSIDE the first <svg> whose
@@ -156,176 +131,6 @@ def _classes_inside_svg(markup, opening_class):
 
 
 # --- Home's fully-seeded French render ----------
-
-def test_home_full_seeded_render_localises_to_french_without_leaking_english(tmp_path):
-    """a fully-seeded Home render under lang='fr' shows the French page title, section
-    headings, status-row labels and next-update headline with no English string leaking in
-    (while the callsign/airline data stays untranslated), and the identical seeded render
-    under the default language still carries every pre-existing English needle"""
-    now = "2026-08-27T12:00:00+00:00"
-    vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-08-27T11:50:00+00:00", "hex": "3c6444", "callsign": "AFR1380",
-         "airline": "Air France", "origin": "ORY", "destination": "TLS",
-         "confirmed_state": "departing"},
-    ])
-    with history_db.open_db(tmp_path) as conn:
-        history_db.record_device_health(conn, "2026-08-27T11:55:00+00:00", battery_mv=3750)
-    ctx = {
-        "state_dir": str(tmp_path), "now": now,
-        "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
-        "last_checkin_ts": "2026-08-27T11:55:00+00:00",
-        "device_config": {"wake_interval_s": 900, "display_enabled": True},
-        "health_state": {"device_state": "ok", "pipeline_state": "warn",
-                         "battery_state": "ok",
-                         "device_detail_html": '<span class="mono">14:00 (5m ago)</span>',
-                         "pipeline_html": "<p>A little stale</p>"},
-    }
-    prefs.set_request_prefs(lang="fr")
-    try:
-        rendered_fr = home_page.render(ctx)
-    finally:
-        prefs.set_request_prefs(lang="en")
-    for needle in (
-            ">Accueil<", "Vols récents", "Voir tous les vols", "Cadre", "Batterie",
-            "Données de vol", "Au départ"):
-        assert needle in rendered_fr, "expected the French %r in the French Home render" % (needle,)
-    assert "Prochaine mise à jour" in rendered_fr or "Attendue depuis" in rendered_fr, (
-        "expected either French next-update headline wording")
-    for english_only in (
-            "Recent flights", "See all flights", ">Frame<", ">Battery<", "Departing"):
-        assert english_only not in rendered_fr, (
-            "expected no English %r leaking into the French render" % (english_only,))
-    assert "AFR1380" in rendered_fr and "Air France" in rendered_fr, (
-        "expected the callsign/airline data to stay untranslated in French")
-
-    rendered_en = home_page.render(ctx)
-    for needle in (
-            '<h1 class="page-title">Home</h1>', "Recent flights", "See all flights",
-            home_page.FRAME_ROW_LABEL, home_page.BATTERY_ROW_LABEL,
-            home_page.DATA_ROW_LABEL, "Next update ≈"):
-        assert needle in rendered_en, (
-            "expected the English %r in the default-language Home render" % (needle,))
-
-
-def test_home_status_card_localises_real_health_state_timestamps_under_french(tmp_path):
-    """Home's status card, fed a REAL health_page.compute_health_state() result computed under
-    lang='fr', fully localises the Frame/Flight-data rows' timestamps (no English month
-    abbreviation or ' ago' survives) and the Flight-data row's detail is now a single,
-    verdict-free clause — never joined with ' · ', never repeating Health's own verdict
-    wording"""
-    now = "2026-09-12T00:00:00+00:00"
-    device_ts = "2026-09-10T23:58:00+00:00"
-    with history_db.open_db(tmp_path) as conn:
-        history_db.record_device_health(conn, device_ts, battery_mv=3800)
-        history_db.set_meta(conn, history_db.META_LAST_PIPELINE_RUN, device_ts)
-        history_db.set_meta(conn, history_db.META_LAST_DETECTION, device_ts)
-    prefs.set_request_prefs(lang="fr")
-    try:
-        health_state = health_page.compute_health_state(str(tmp_path), now=now)
-        ctx = {
-            "state_dir": str(tmp_path), "now": now, "gallery_entries": [],
-            "last_checkin_ts": device_ts,
-            "device_config": {"wake_interval_s": 900, "display_enabled": True},
-            "health_state": health_state,
-        }
-        rendered = home_page.render(ctx)
-    finally:
-        prefs.set_request_prefs(lang="en")
-    assert "sept." in rendered, "expected the French month abbreviation 'sept.' in the Home render"
-    assert " ago" not in rendered, "expected no English ' ago' in the Home render"
-    for english_month in (
-            "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
-            "Oct", "Nov", "Dec"):
-        assert english_month not in rendered, (
-            "expected no English month abbreviation %r in the Home render" % (english_month,))
-    # "Données de vol" is companion/i18n_fr/home.py's own French
-    # translation of DATA_ROW_LABEL ("Flight data") — the label itself is
-    # French text by this point in the render, so the anchor must be too.
-    data_row_start = rendered.index("Données de vol")
-    data_row_end = rendered.index("</div>", data_row_start)
-    data_row = rendered[data_row_start:data_row_end]
-    assert data_row.count(" · ") == 0, (
-        "expected NO ' · '-joined multi-clause detail in the Flight-data row — the "
-        "verdict-free, single-clause pipeline_detail_html replaced the re-embedded 3-clause "
-        "pipeline_html (got %r)" % (data_row,))
-    assert health_page.PIPELINE_STATE_TEXT["error"] not in data_row, (
-        "expected Health's own PIPELINE_STATE_TEXT verdict wording NOT to appear inside "
-        "Home's Flight-data row — Home renders its OWN verdict only (B2)")
-
-
-def test_home_frame_tile_matches_strip_for_the_nightly_held_regression(tmp_path):
-    """the nightly regression (quiet hours 23:00-07:00, check-in 22:58, clock 02:00
-    Europe/Paris): Home's Frame tile and the strip render the SAME clock string, and zero
-    warn/error tokens appear anywhere on the page (X2)"""
-    paris = timezone(timedelta(hours=1))
-    device_cfg = {
-        "wake_interval_s": 900, "display_enabled": True,
-        "quiet_hours_enabled": True,
-        "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
-    }
-    checkin = datetime(2026, 1, 15, 22, 58, 0, tzinfo=paris)
-    clock = datetime(2026, 1, 16, 2, 0, 0, tzinfo=paris)
-    ctx = {
-        "last_checkin_ts": checkin.isoformat(), "device_config": device_cfg,
-        "now": clock.isoformat(), "gallery_entries": [],
-        "health_state": {"battery_state": "ok", "pipeline_state": "ok"},
-        "state_dir": str(tmp_path / "absent" / "nested"),
-    }
-    rendered = home_page.render(ctx)
-    for warn_token in ("dot--warn", "dot--error", "stat-tile--warn", "stat-tile--error"):
-        assert warn_token not in rendered, (
-            "expected zero %r in a held Home render, found it" % (warn_token,))
-    strip_match = re.search(r'time-value time-value--primary">([^<]+)</span>', rendered)
-    tile_match = re.search(r'<span class="time-value">([^<]+)</span>', rendered)
-    assert strip_match and tile_match, "expected both the strip and the Frame tile to render a clock value"
-    assert strip_match.group(1) == tile_match.group(1), (
-        "expected the SAME clock string in the strip and the Frame tile, got %r vs %r"
-        % (strip_match.group(1), tile_match.group(1)))
-    assert home_page.FRAME_STATE_TEXT["off"] in rendered, (
-        "expected the held Frame tile's own neutral verdict text")
-
-
-def test_home_frame_tile_flips_to_late_together_with_the_strip(tmp_path):
-    """a late frame flips the strip to 'Expected since'/dot--warn and Home's Frame tile to its
-    own late verdict/stat-tile--warn together, at the same threshold — they cannot disagree
-    because neither computes anything the other does not (X2)"""
-    device_cfg = {"wake_interval_s": 900, "display_enabled": True}
-    ctx = {
-        "last_checkin_ts": "2026-08-27T11:00:00+00:00", "device_config": device_cfg,
-        "now": "2026-08-27T12:00:00+00:00", "gallery_entries": [],
-        "health_state": {"battery_state": "ok", "pipeline_state": "ok"},
-        "state_dir": str(tmp_path / "absent" / "nested"),
-    }
-    rendered = home_page.render(ctx)
-    assert "Expected since" in rendered, "expected the strip's own late headline"
-    assert "dot--warn" in rendered, "expected the strip's own warn dot for a late frame"
-    assert home_page.FRAME_STATE_TEXT["warn"] in rendered, "expected the Frame tile's own late verdict text"
-    assert "stat-tile stat-tile--warn" in rendered, "expected the Frame tile's own warn border class"
-
-
-def test_home_flight_data_tile_one_verdict_verdict_free_detail(tmp_path):
-    """Home's Flight-data tile renders exactly one verdict (its own DATA_STATE_TEXT) with
-    Health's verdict-free pipeline_detail_html beneath it, never Health's own
-    PIPELINE_STATE_TEXT verdict sentence a second time (B2)"""
-    ctx = {
-        "health_state": {
-            "device_state": "ok", "pipeline_state": "warn", "battery_state": "ok",
-            "device_detail_html": '<span class="mono">14:00 (5m ago)</span>',
-            "pipeline_html": (
-                '<p>%s</p><p>10 Sep 23:58 (1d ago)</p>' % health_page.PIPELINE_STATE_TEXT["warn"]),
-            "pipeline_detail_html": '<span class="mono">10 Sep 23:58 (1d ago)</span>',
-        },
-        "device_config": {}, "state_dir": str(tmp_path / "absent" / "nested"),
-        "now": "2026-08-27T12:00:00+00:00", "gallery_entries": [],
-    }
-    rendered = home_page.render(ctx)
-    assert rendered.count(home_page.DATA_STATE_TEXT["warn"]) == 1, (
-        "expected Home's own Flight-data verdict exactly once")
-    assert health_page.PIPELINE_STATE_TEXT["warn"] not in rendered, (
-        "expected Health's own pipeline verdict text NOT to appear on Home — re-embedding it "
-        "is the exact double-verdict stacking B2 removes")
-    assert "10 Sep 23:58" in rendered, "expected the verdict-free pipeline_detail_html's own timestamp to render"
-
 
 def test_home_recent_flights_use_display_airline_name_matching_flights(tmp_path):
     """a recent-flight row whose stored airline is an alias ("CCM Airlines") renders the SAME
@@ -345,20 +150,20 @@ def test_home_recent_flights_use_display_airline_name_matching_flights(tmp_path)
     assert "CCM Airlines" not in rendered, "expected the raw upstream airline string not to leak onto Home"
 
 
-def test_home_exactly_one_element_named_frame(tmp_path):
-    """exactly one element on a rendered Home page is named 'Frame' (the shared strip's own
-    heading) — Home's tile caption is renamed to resolve the X4 collision"""
-    ctx = {
-        "health_state": {}, "device_config": {}, "state_dir": str(tmp_path / "absent" / "nested"),
+def test_home_health_action_is_reserved_for_actionable_state(tmp_path):
+    """Home keeps normal operation compact, but makes a real warning a direct Health action."""
+    base = {
+        "device_config": {}, "state_dir": str(tmp_path / "absent" / "nested"),
         "now": "2026-08-27T12:00:00+00:00", "gallery_entries": [],
     }
-    rendered = home_page.render(ctx)
-    assert rendered.count(">Frame<") == 1, (
-        "expected exactly one element named 'Frame' (the strip's own heading), got %d"
-        % (rendered.count(">Frame<"),))
-    assert home_page.FRAME_ROW_LABEL != "Frame", (
-        "expected the tile caption to be renamed away from 'Frame' (X4 collision)")
-    assert home_page.FRAME_ROW_LABEL in rendered, "expected the renamed tile caption to still render"
+    healthy = home_page.render(dict(base, health_state={
+        "device_state": "ok", "pipeline_state": "ok", "battery_state": "ok"}))
+    warning = home_page.render(dict(base, health_state={
+        "device_state": "ok", "pipeline_state": "warn", "battery_state": "ok"}))
+    assert 'class="home-action"' not in healthy
+    assert 'href="/health"' not in healthy
+    assert 'class="home-action"' in warning
+    assert 'href="/health"' in warning
 
 
 def test_home_recent_flight_time_one_line_no_mono_class(tmp_path):
@@ -464,35 +269,6 @@ def test_home_catalog_keys_all_present_in_merged_catalog():
     assert not missing_ids, "ids missing from the merged BY_ID: %r" % (missing_ids,)
 
 
-def test_home_full_render_has_quick_action_only_inside_strip_and_three_tiles(tmp_path):
-    """a rendered Home page carries no status-card__rows/home-hero markup, quick-action markup
-    only inside .frame-strip (exactly two cells) and nowhere else, exactly three stat-tile
-    elements labelled Frame/Battery/Flight data, and the Frame verdict sentence exactly once
-    """
-    ctx = {
-        "health_state": {"device_state": "ok", "pipeline_state": "ok", "battery_state": "ok"},
-        "device_config": {}, "state_dir": str(tmp_path / "absent" / "nested"),
-        "now": "2026-08-27T12:00:00+00:00",
-    }
-    rendered = home_page.render(ctx)
-    assert "status-card__rows" not in rendered and "home-hero" not in rendered, (
-        "expected no status-card__rows or home-hero markup on the rebuilt Home page")
-    strip_start = rendered.index('class="frame-strip stat-tile stat-tile--accent"')
-    tiles_start = rendered.index('class="dashboard-grid home-status-grid"')
-    outside_strip = rendered[:strip_start] + rendered[tiles_start:]
-    assert "quick-action" not in outside_strip, "expected no quick-action markup anywhere outside .frame-strip"
-    strip_segment = rendered[strip_start:tiles_start]
-    on_off_count = strip_segment.count("quick-action--on") + strip_segment.count("quick-action--off")
-    assert on_off_count == 2, (
-        "expected exactly two quick-action--on/off cells inside .frame-strip, got %d" % on_off_count)
-    assert rendered.count('class="stat-tile ') == 3, (
-        "expected exactly three stat-tile elements, got %d" % (rendered.count('class="stat-tile '),))
-    for label in (home_page.FRAME_ROW_LABEL, home_page.BATTERY_ROW_LABEL, home_page.DATA_ROW_LABEL):
-        assert label in rendered, "expected the %r tile label" % (label,)
-    assert rendered.count(home_page.FRAME_STATE_TEXT["ok"]) == 1, (
-        "expected the Frame state sentence to appear exactly once — the duplicated-verdict regression test")
-
-
 def test_home_status_card_headline_next_update_or_expected_since(tmp_path):
     """the Frame strip's headline reads 'Next update ≈ HH:MM' for a future next-update,
     'Expected since HH:MM' in the warn treatment for a past one, and renders no headline at all
@@ -535,17 +311,6 @@ def test_home_status_card_headline_next_update_or_expected_since(tmp_path):
         now="2026-08-27T12:00:00+00:00")
     assert "status-card__headline" not in _strip_html(missing_interval), (
         "expected no headline at all when the wake interval is unknown")
-
-
-def test_home_status_card_always_shows_health_link(tmp_path):
-    """a default Home render always carries the status tiles section's 'See details on Health'
-    link (moved to _status_tiles_html() after _status_card_html()'s deletion)"""
-    ctx = {
-        "health_state": {}, "device_config": {},
-        "state_dir": str(tmp_path / "absent" / "nested"), "now": "2026-08-27T12:00:00+00:00",
-    }
-    rendered = home_page._status_tiles_html(ctx)
-    assert home_page.HEALTH_LINK_TEXT in rendered, "expected the Health link to always render (D-17)"
 
 
 def test_home_page_render_degrades_with_nothing():
@@ -829,10 +594,10 @@ def test_day_band_emits_only_registered_classes_and_no_colour():
     assert 'aria-hidden="true"' in unlabelled, "expected an unlabelled band to be hidden rather than an unnamed group"
 
 
-# --- Task 2 : the day band on Home ----------------
+# --- The day band on Health ----------------
 
-def test_home_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
-    """Home's day band draws one mark per check-in at its PARIS clock position, captions the
+def test_health_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
+    """Health's day band draws one mark per check-in at its PARIS clock position, captions the
     Paris day it shows and states the count as text; a day with no check-ins still renders the
     band and its frame with a caption naming the day (an absent section would read as an
     unbuilt feature, an empty band reads as no activity); and with history.db unreadable the
@@ -844,14 +609,14 @@ def test_home_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
     # 08:00, 12:00 and 13:00 Paris — two of them an hour apart, so the
     # time scale's own property is visible on the real page and not only
     # in the unit check above.
-    ctx = _home_band_ctx(tmp_path / "day", now, [
+    ctx = _health_band_ctx(tmp_path / "day", now, [
         "2026-08-27T06:00:00+00:00",
         "2026-08-27T10:00:00+00:00",
         "2026-08-27T11:00:00+00:00",
     ])
-    rendered = home_page.render(ctx)
+    rendered = health_page.render(ctx)
     section = _home_day_band_section(rendered)
-    assert section is not None, "expected a day-band section on Home, got none"
+    assert section is not None, "expected a day-band section on Health, got none"
     marks = _home_band_marks(section)
     assert len(marks) == 3, "expected one mark per check-in (3), got %d" % (len(marks),)
     xs = sorted(float(re.search(r'x="([\d.]+)%"', el).group(1)) for el in marks)
@@ -867,13 +632,13 @@ def test_home_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
     assert "3" in re.sub(r"<[^>]*>", " ", section), "expected the caption to state the check-in count as text"
 
     # THE EMPTY DAY IS A STATE, NOT AN ABSENCE.
-    empty_ctx = _home_band_ctx(tmp_path / "empty", now, [])
+    empty_ctx = _health_band_ctx(tmp_path / "empty", now, [])
     # A check-in on a DIFFERENT day, so the table is not empty and the
     # emptiness is the band's bucketing rather than an unreadable
     # database.
     with history_db.open_db(tmp_path / "empty") as conn:
         history_db.record_device_health(conn, "2026-08-20T10:00:00+00:00", battery_mv=3700)
-    rendered_empty = home_page.render(empty_ctx)
+    rendered_empty = health_page.render(empty_ctx)
     empty_section = _home_day_band_section(rendered_empty)
     assert empty_section is not None, (
         "expected the band section to survive a day with no check-ins — an absent section "
@@ -891,19 +656,19 @@ def test_home_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
     # because at that density the band genuinely cannot show each
     # check-in separately and a reader counting marks would otherwise
     # conclude it lost some.
-    assert home_page.DAY_BAND_COLLAPSED_TEXT not in section, (
+    assert health_page.DAY_BAND_COLLAPSED_TEXT not in section, (
         "the band collapsed nothing (3 marks for 3 check-ins) yet its caption said marks were "
         "merged — a caption that always admits a collapse tells the reader nothing and is "
         "untrue on every sparse day")
     minutes = ["2026-08-27T%02d:%02d:00+00:00" % (6 + i // 60, i % 60) for i in range(300)]
-    dense_ctx = _home_band_ctx(tmp_path / "dense", now, minutes)
-    dense_section = _home_day_band_section(home_page.render(dense_ctx))
+    dense_ctx = _health_band_ctx(tmp_path / "dense", now, minutes)
+    dense_section = _home_day_band_section(health_page.render(dense_ctx))
     assert dense_section is not None, "expected a band on a dense day"
     dense_marks = _home_band_marks(dense_section)
     assert len(dense_marks) < len(minutes), (
         "expected a one-minute cadence to collapse (300 check-ins cannot be 300 distinguishable "
         "marks in ~330px), got %d marks" % (len(dense_marks),))
-    assert home_page.DAY_BAND_COLLAPSED_TEXT in dense_section, (
+    assert health_page.DAY_BAND_COLLAPSED_TEXT in dense_section, (
         "the band drew %d marks for %d check-ins and its caption did not say they were merged "
         "— the drawing dropping marks silently and the caption printing a total are the two "
         "halves of one lie (T-24-06-B)" % (len(dense_marks), len(minutes)))
@@ -921,7 +686,7 @@ def test_home_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
     # cannot open a directory whoever you are, so this check measures the
     # same degradation in both environments.
     absent = tmp_path / "nodb"
-    absent_ctx = _home_band_ctx(absent, now, [])
+    absent_ctx = _health_band_ctx(absent, now, [])
     for name in os.listdir(str(absent)):
         path = os.path.join(str(absent), name)
         if os.path.isdir(path):
@@ -929,15 +694,15 @@ def test_home_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
         else:
             os.remove(path)
     os.mkdir(os.path.join(str(absent), "history.db"))
-    rendered_absent = home_page.render(absent_ctx)
-    assert '<h1 class="page-title">' in rendered_absent, "expected Home to render with history.db absent"
+    rendered_absent = health_page.render(absent_ctx)
+    assert '<h1 class="page-title">' in rendered_absent, "expected Health to render with history.db absent"
     assert _home_day_band_section(rendered_absent) is None, (
         "expected NO band with history.db unreadable — an empty band there would claim the "
         "device made no check-ins when nothing was read")
 
 
-def test_home_day_band_shades_quiet_hours_only_when_configured(tmp_path):
-    """Home's day band shades the CONFIGURED quiet-hours window — the default 23:00-07:00
+def test_health_day_band_shades_quiet_hours_only_when_configured(tmp_path):
+    """Health's day band shades the CONFIGURED quiet-hours window — the default 23:00-07:00
     wrapping night window as two spans covering its eight hours, named in the caption — and
     with quiet hours disabled shades nothing and says nothing about them, while still drawing
     the day's check-ins"""
@@ -946,13 +711,13 @@ def test_home_day_band_shades_quiet_hours_only_when_configured(tmp_path):
     hour = 100.0 / 24
     # The DEFAULT night window, and the case a naive span renders
     # inverted: 23:00-07:00 wraps midnight.
-    ctx = _home_band_ctx(tmp_path / "on", now, checkins, config={
+    ctx = _health_band_ctx(tmp_path / "on", now, checkins, config={
         "wake_interval_s": 900, "display_enabled": True,
         "quiet_hours_enabled": True,
         "quiet_hours_start": device_config.DEFAULT_QUIET_HOURS_START,
         "quiet_hours_end": device_config.DEFAULT_QUIET_HOURS_END,
     })
-    section = _home_day_band_section(home_page.render(ctx))
+    section = _home_day_band_section(health_page.render(ctx))
     assert section is not None, "expected a day-band section"
     spans = _home_band_spans(section)
     assert len(spans) == 2, (
@@ -968,13 +733,13 @@ def test_home_day_band_shades_quiet_hours_only_when_configured(tmp_path):
 
     # DISABLED: nothing shaded, and the caption does not mention a
     # window the device is not honouring.
-    off_ctx = _home_band_ctx(tmp_path / "off", now, checkins, config={
+    off_ctx = _health_band_ctx(tmp_path / "off", now, checkins, config={
         "wake_interval_s": 900, "display_enabled": True,
         "quiet_hours_enabled": False,
         "quiet_hours_start": device_config.DEFAULT_QUIET_HOURS_START,
         "quiet_hours_end": device_config.DEFAULT_QUIET_HOURS_END,
     })
-    off_section = _home_day_band_section(home_page.render(off_ctx))
+    off_section = _home_day_band_section(health_page.render(off_ctx))
     assert off_section is not None, "expected the band to render with quiet hours disabled"
     assert not _home_band_spans(off_section), (
         "expected zero shaded spans with quiet hours disabled, got %r" % (_home_band_spans(off_section),))
@@ -986,24 +751,23 @@ def test_home_day_band_shades_quiet_hours_only_when_configured(tmp_path):
     assert _home_band_marks(off_section), "expected the check-in marks to survive quiet hours being off"
 
 
-def test_home_day_band_buckets_by_paris_day_and_costs_one_read(tmp_path):
-    """Home's day band buckets check-ins by the PARIS day — a 22:30Z check-in (Paris 00:30
+def test_health_day_band_buckets_by_paris_day_and_costs_one_read(tmp_path):
+    """Health's day band buckets check-ins by the PARIS day — a 22:30Z check-in (Paris 00:30
     today) is on the band and a 2026-08-27T22:30Z one (Paris 00:30 tomorrow) is not, since
     Paris is never behind UTC — and spans a real 25-hour Paris day so midday lands at 52.00%
     rather than the 54.17% a hardcoded 86400 would give; it costs render() exactly one
-    history.db read more than the two it made before, measured, and the frame verdict still
-    appears exactly once"""
+    bounded history.db read, measured"""
     now = "2026-08-27T12:00:00+00:00"
     # THE BOUNDARY THIS BREAKS AT IF IT BREAKS. Paris is UTC+1/+2 and so
     # never BEHIND UTC. 00:30 Paris is 22:30 UTC on the PREVIOUS day, so
     # a band bucketed by the UTC date drops it from today and picks up
     # tomorrow's 00:30 instead. Both directions below.
-    ctx = _home_band_ctx(tmp_path / "boundary", now, [
+    ctx = _health_band_ctx(tmp_path / "boundary", now, [
         "2026-08-26T21:30:00+00:00",  # Paris 2026-08-26 23:30 — yesterday
         "2026-08-26T22:30:00+00:00",  # Paris 2026-08-27 00:30 — TODAY
         "2026-08-27T22:30:00+00:00",  # Paris 2026-08-28 00:30 — tomorrow
     ])
-    section = _home_day_band_section(home_page.render(ctx))
+    section = _home_day_band_section(health_page.render(ctx))
     assert section is not None, "expected a day-band section"
     marks = _home_band_marks(section)
     assert len(marks) == 1, (
@@ -1018,9 +782,9 @@ def test_home_day_band_buckets_by_paris_day_and_costs_one_read(tmp_path):
     # A 25-HOUR PARIS DAY. 2026-10-25 is the EU autumn transition, so the
     # band is 25 hours wide and midday sits at 52.00%, not at the 54.17%
     # a hardcoded 86400 would put it at.
-    dst_ctx = _home_band_ctx(
+    dst_ctx = _health_band_ctx(
         tmp_path / "dst", "2026-10-25T12:00:00+00:00", ["2026-10-25T11:00:00+00:00"])
-    dst_section = _home_day_band_section(home_page.render(dst_ctx))
+    dst_section = _home_day_band_section(health_page.render(dst_ctx))
     dst_marks = _home_band_marks(dst_section or "")
     assert len(dst_marks) == 1, "expected one mark on the DST band, got %d" % (len(dst_marks),)
     dst_got = float(re.search(r'x="([\d.]+)%"', dst_marks[0]).group(1))
@@ -1029,146 +793,56 @@ def test_home_day_band_buckets_by_paris_day_and_costs_one_read(tmp_path):
         "band, got %.2f%% — a hardcoded 86400 puts it at 54.17%% and leaves an hour of the "
         "band unreachable" % (dst_got,))
 
-    # ONE READ, REUSED, MEASURED. render() made two history.db
-    # reads before this change; the band adds exactly one, and a band
-    # that re-queried per section would show up here as three or more.
-    read_ctx = _home_band_ctx(tmp_path / "reads", now, ["2026-08-27T10:00:00+00:00"])
-    opened = []
-    real_open = history_db.open_db
+    # ONE BOUNDED READ, MEASURED. The band's rows come from exactly one
+    # recent_device_health() call carrying the band's own row limit; a band
+    # that re-queried per section would show up here as two or more.
+    read_ctx = _health_band_ctx(tmp_path / "reads", now, ["2026-08-27T10:00:00+00:00"])
+    limits = []
+    real_recent = history_db.recent_device_health
 
-    def _counting_open(state_dir):
-        opened.append(state_dir)
-        return real_open(state_dir)
+    def _recording_recent(conn, *args, **kwargs):
+        limits.append(kwargs.get("limit"))
+        return real_recent(conn, *args, **kwargs)
 
-    history_db.open_db = _counting_open
+    history_db.recent_device_health = _recording_recent
     try:
-        rendered = home_page.render(read_ctx)
+        health_page.render(read_ctx)
     finally:
-        history_db.open_db = real_open
-    assert len(opened) == 3, (
-        "expected render() to make exactly 3 history.db reads — the 2 it made before this "
-        "change (recent flights, latest battery) plus the band's one — got %d. 'One read, "
-        "reused' is measured here, not assumed" % (len(opened),))
-    # The frame verdict still appears exactly once on the page
-    # (_status_tiles_html()'s own recorded property, which a new section
-    # carrying a state word could quietly break).
-    verdicts = [v for v in home_page.FRAME_STATE_TEXT.values() if rendered.count(v)]
-    for verdict in verdicts:
-        assert rendered.count(verdict) == 1, (
-            "expected the frame verdict %r exactly once on Home, got %d" % (verdict, rendered.count(verdict)))
-    assert len(verdicts) == 1, "expected exactly one frame verdict rendered on Home, got %r" % (verdicts,)
+        history_db.recent_device_health = real_recent
+    assert limits.count(health_page.DAY_BAND_ROW_LIMIT) == 1, (
+        "expected exactly one bounded day-band read (limit %d), got limits %r"
+        % (health_page.DAY_BAND_ROW_LIMIT, limits))
 
 
-# --- Task 1 : D4's hero, assembled from calls -----
+# --- Health's drawings are the shared emitters' ---
 
-def test_home_top_is_one_composition_holding_the_ring_and_the_band(tmp_path):
-    """Home's top is ONE composition: a single hero container holds the shared Frame strip
-    (rendered once, unforked), the three status tiles carrying the battery ring, and the day
-    band — the picture row stays outside it, the ring and the band each appear exactly once
-    and both inside the hero, and the frame verdict still appears exactly once in BOTH
-    languages
-
-    The legacy check also walked companion/pages/home_page.py's own source with
-    inspect.getsource() to prove it names no battery-arithmetic literal and no bare
-    battery_percent( call — banned outright by guard G2 (no ast/inspect/tokenize over
-    production source), and with no directly observable HTTP/DOM consequence beyond what is
-    already proven behaviourally: test_battery_percent_moved_out_of_home_page above proves
-    home_page carries no local battery_percent() at all, and
-    test_breaking_a_shared_emitter_breaks_the_hero_with_the_page_it_borrowed_it_from below
-    proves — by mutating the shared emitter's own class constant and watching both pages move
-    together — that the hero's ring/band are genuinely CALLS into companion/draw.py rather
-    than a forked copy of its markup. That mutation proof is strictly stronger than a source
-    scan for suspicious literals, so the literal-scan clause is dropped rather than ported
-    (rubric S: "no observable consequence beyond what is already covered")."""
+def test_health_carries_one_ring_and_one_band_and_home_carries_neither(tmp_path):
+    """Health holds exactly one battery ring and one day band, both inside the page body, and
+    Home draws neither: the ring and the activity band moved off Home with the
+    frame-signal-first redesign, so a drawing returning there is a regression"""
     now = "2026-08-27T12:00:00+00:00"
-    ctx = _home_band_ctx(tmp_path / "hero", now, [
+    ctx = _health_band_ctx(tmp_path / "health", now, [
         "2026-08-27T06:00:00+00:00",
         "2026-08-27T10:00:00+00:00",
     ])
-    ctx["gallery_entries"] = ["2026-08-27T11-50-00+00-00.png"]
-    rendered = home_page.render(ctx)
-
-    # ONE hero. Two containers would be an earlier naming collision back
-    # in a new costume — a second thing called "Frame" had to be
-    # renamed on this very page.
-    opens = len(re.findall(
-        r'<div class="[^"]*\b%s\b[^"]*">' % re.escape(home_page.HERO_CLASS), rendered))
-    assert opens == 1, "expected exactly one hero container on Home, got %d" % (opens,)
-    inner = _home_hero_inner(rendered)
-    assert inner is not None, "expected the hero container to open and close"
-
-    # Its three parts, each still rendered by the builder that owns it.
-    # The strip is matched on the class the SHARED helper emits, so a
-    # hero that inlined a second rendering of it would have to reproduce
-    # that class to pass — and would then fail the count below.
-    for label, pattern in (
-            ("the shared Frame strip", r'class="frame-strip stat-tile stat-tile--accent"'),
-            ("the three status tiles", r'class="dashboard-grid home-status-grid"'),
-            ("the day band", r'<section class="[^"]*\bday-band\b')):
-        assert re.search(pattern, inner) is not None, (
-            "expected %s inside the hero — a composition that does not contain its parts is a "
-            "wrapper, not a hero (looked for %r)" % (label, pattern))
-    assert rendered.count('class="frame-strip stat-tile stat-tile--accent"') == 1, (
-        "expected the shared Frame strip rendered exactly once — the hero wraps the shared "
-        "component, it never inlines a second rendering of it")
-
-    # What the hero is NOT. The picture row is the page's own second half
-    # and sits after it; a hero that swallowed it would make every
-    # stacking measurement below about the whole page instead of the
-    # composition.
-    for absent in ("home-picture-row", "preview-frame", "recent-flight"):
-        assert absent not in inner, (
-            "expected %r outside the hero — the hero is Home's TOP, not its whole body" % (absent,))
-    assert rendered.index('class="home-columns home-picture-row"') > rendered.index(
-        '<div class="%s"' % home_page.HERO_CLASS), "expected the hero to precede the picture row"
-
-    # EXACTLY ONE RING AND EXACTLY ONE BAND, both the hero's. The needles
-    # are whole class ATTRIBUTES rather than bare class names: the band
-    # frame's own name is a prefix of the span's and the mark's, so a
-    # substring test would count three things as the frame.
+    health_rendered = health_page.render(ctx)
     for label, needle in (
             ("battery ring value arc", 'class="%s"' % draw.DRAWING_RING_VALUE_CLASS),
             ("day band frame", 'class="%s"' % draw.DRAWING_BAND_CLASS)):
-        assert rendered.count(needle) == 1, (
-            "expected exactly one %s on Home, got %d" % (label, rendered.count(needle)))
-        assert needle in inner, (
-            "expected the %s INSIDE the hero — CFG-44's hero is the composition the drawings "
-            "feed, not a container beside them" % (label,))
-
-    # THE RECORDED FIXED BUG (Pitfall 3), re-asked in BOTH
-    # languages because a hero is precisely the shape that reintroduces
-    # it and French is a separate string table that could disagree.
-    for lang in ("en", "fr"):
-        prefs.set_request_prefs(lang=lang)
-        try:
-            page = home_page.render(ctx)
-            seen = [i18n.t(v) for v in home_page.FRAME_STATE_TEXT.values() if page.count(i18n.t(v))]
-            assert len(seen) == 1, "in %s expected exactly one frame verdict on Home, got %r" % (lang, seen)
-            assert page.count(seen[0]) == 1, (
-                "in %s expected the frame verdict %r exactly once on Home, got %d — the "
-                "duplicated verdict fix removed a whole status-card builder to remove"
-                % (lang, seen[0], page.count(seen[0])))
-        finally:
-            prefs.set_request_prefs(lang="en")
+        assert health_rendered.count(needle) == 1, (
+            "expected exactly one %s on Health, got %d" % (label, health_rendered.count(needle)))
+    home_ctx = dict(ctx, gallery_entries=["2026-08-27T11-50-00+00-00.png"])
+    home_rendered = home_page.render(home_ctx)
+    for needle in (draw.DRAWING_FIGURE_CLASS, draw.DRAWING_CANVAS_CLASS, "day-band"):
+        assert needle not in home_rendered, "Home must not draw %r any more" % (needle,)
 
 
-# --- Task 2 : "fed by", proven --------------------
-
-def test_the_heros_ring_is_the_emitter_healths_ring_is(tmp_path):
-    """the hero's battery ring is the same emitter Health's ring is — the two pages' rings
-    carry one class vocabulary, computed from the markup rather than listed; the hero's day
-    band draws three different shapes and not one; and every class either of them emits is a
-    constant companion/draw.py itself names
-
-    The legacy check also walked home_page.py's OWN source (and this check's own source) with
-    ast.parse()/inspect.getsource() looking for a restated drawing-class string literal —
-    banned outright by guard G2. test_breaking_a_shared_emitter_breaks_the_hero_with_the_page_
-    it_borrowed_it_from below proves the same "no restated copy" property strictly more
-    strongly: it mutates the shared emitter's class constant at runtime and shows BOTH pages
-    move together, which a page carrying its own copy of the string could not do. The
-    source-literal scan is dropped rather than ported (rubric S)."""
+def test_health_drawings_use_only_the_shared_emitters_classes(tmp_path):
+    """the classes Health's battery ring and day band emit are computed from the markup rather
+    than listed; every one is a constant companion/draw.py itself names, and the band draws at
+    least three different shapes (its frame, the shaded quiet-hours span and the marks)"""
     now = "2026-08-27T12:00:00+00:00"
-    ctx = _home_band_ctx(tmp_path / "hero", now, [
+    ctx = _health_band_ctx(tmp_path / "health", now, [
         "2026-08-27T06:00:00+00:00",
         "2026-08-27T10:00:00+00:00",
     ], config={
@@ -1177,73 +851,40 @@ def test_the_heros_ring_is_the_emitter_healths_ring_is(tmp_path):
         "quiet_hours_start": device_config.DEFAULT_QUIET_HOURS_START,
         "quiet_hours_end": device_config.DEFAULT_QUIET_HOURS_END,
     })
-    rendered = home_page.render(ctx)
-    hero = _home_hero_inner(rendered)
-    assert hero is not None, "expected a hero container on Home"
-    health_tmp = tmp_path / "health"
-    with history_db.open_db(health_tmp) as conn:
-        for minute, mv in ((50, 3600), (55, 3690)):
-            history_db.record_device_health(conn, "2026-08-27T11:%d:00+00:00" % minute, battery_mv=mv)
-    health_rendered = health_page.render({"state_dir": str(health_tmp), "now": now})
-
-    # ONE RING, TWO PAGES. The two rings' class vocabularies are
-    # COMPUTED from the markup rather than listed here, so this cannot
-    # drift into a hand-maintained copy of the emitter's own list.
-    hero_ring = _classes_inside_svg(hero, draw.DRAWING_FIGURE_CLASS)
-    health_ring = _classes_inside_svg(health_rendered, draw.DRAWING_FIGURE_CLASS)
-    assert hero_ring, "found no ring inside Home's hero"
-    assert health_ring, "found no ring on Health"
-    assert hero_ring == health_ring, (
-        "the hero's ring and Health's carry different class vocabularies (%r against %r) — "
-        "one drawing at two sizes emits one vocabulary; two vocabularies means two components"
-        % (sorted(hero_ring), sorted(health_ring)))
-
-    # THE BAND, AND ITS FLOOR. "Every class is one of the shared module's
-    # own" is satisfied by a band that drew nothing but its frame, so the
-    # distinct-element floor is asserted alongside it: the frame, the
-    # shaded quiet-hours span and the check-in marks are three different
-    # shapes, and a band that lost two of them would still pass the
-    # vocabulary half on its own.
-    hero_band = _classes_inside_svg(hero, draw.DRAWING_CANVAS_CLASS)
-    assert hero_band, "found no day band inside Home's hero"
-    assert len(hero_band) >= 3, (
-        "the hero's band draws only %d kind(s) of shape (%r) — with a quiet-hours window "
+    rendered = health_page.render(ctx)
+    ring = _classes_inside_svg(rendered, draw.DRAWING_FIGURE_CLASS)
+    band = _classes_inside_svg(rendered, draw.DRAWING_CANVAS_CLASS)
+    assert ring, "found no ring on Health"
+    assert band, "found no day band on Health"
+    assert len(band) >= 3, (
+        "Health's band draws only %d kind(s) of shape (%r) — with a quiet-hours window "
         "configured and two check-ins on the day it owes three: its own frame, the shaded "
-        "span and the marks" % (len(hero_band), sorted(hero_band)))
-
-    # EVERY ONE OF THEM A NAMED CONSTANT OF THE SHARED MODULE. A forked
-    # copy is free to emit any string it likes; this is what refuses the
-    # ones draw.py does not own.
-    for class_name in sorted(hero_ring | hero_band):
+        "span and the marks" % (len(band), sorted(band)))
+    for class_name in sorted(ring | band):
         for token in class_name.split():
             assert token in draw.DRAWING_CLASSES, (
-                "the hero emits the drawing class %r, which companion/draw.py does not name — "
+                "Health emits the drawing class %r, which companion/draw.py does not name — "
                 "a class the shared module does not own came from somewhere else" % (token,))
 
 
-def test_breaking_a_shared_emitter_breaks_the_hero_with_the_page_it_borrowed_it_from(tmp_path):
-    """breaking a shared emitter breaks the hero WITH the page it borrowed it from: one class
-    constant inside companion/draw.py's ring emitter is replaced at check time and both Home's
-    hero and Health's readout change, neither keeping the original string (a hero built from
-    its own copy would); the band emitter's own mutation reaches the hero and leaves Health
-    byte-identical, proving the mutation is targeted rather than a global perturbation; and
-    both pages return to their pre-mutation markup"""
+def test_breaking_a_shared_emitter_breaks_health_and_leaves_home_untouched(tmp_path):
+    """breaking a shared emitter breaks Health's drawing: one class constant inside
+    companion/draw.py's ring emitter, then its band-mark emitter, is replaced at check time and
+    Health changes each time, neither keeping the original string (a page built from its own
+    copy would); Home draws neither and stays byte-identical, proving the mutation is targeted
+    rather than a global perturbation; and both pages return to their pre-mutation markup"""
     now = "2026-08-27T12:00:00+00:00"
-    ctx = _home_band_ctx(tmp_path / "link", now, [
+    health_ctx = _health_band_ctx(tmp_path / "health", now, [
         "2026-08-27T06:00:00+00:00",
         "2026-08-27T10:00:00+00:00",
     ])
-    health_tmp = tmp_path / "link-health"
+    home_ctx = {"state_dir": str(tmp_path / "health"), "now": now}
     # Not a member of DRAWING_CLASSES and not a substring of one, so "the
     # sentinel arrived" and "the original left" are two independent
     # readings rather than one.
     sentinel = "skypane-emitter-under-mutation"
-    with history_db.open_db(health_tmp) as conn:
-        for minute, mv in ((50, 3600), (55, 3690)):
-            history_db.record_device_health(conn, "2026-08-27T11:%d:00+00:00" % minute, battery_mv=mv)
-    health_ctx = {"state_dir": str(health_tmp), "now": now}
-    home_before = home_page.render(ctx)
     health_before = health_page.render(health_ctx)
+    home_before = home_page.render(home_ctx)
 
     def _mutated(attr):
         """Both pages rendered with one of draw.py's class constants
@@ -1251,40 +892,28 @@ def test_breaking_a_shared_emitter_breaks_the_hero_with_the_page_it_borrowed_it_
         original = getattr(draw, attr)
         setattr(draw, attr, sentinel)
         try:
-            return original, home_page.render(ctx), health_page.render(health_ctx)
+            return original, health_page.render(health_ctx), home_page.render(home_ctx)
         finally:
             setattr(draw, attr, original)
 
-    # THE RING: one definition, two pages. A hero built from its own
-    # copy would still carry the ORIGINAL class here while Health carried
-    # the sentinel — which is exactly the drift is about, and is
-    # invisible to any check that only looks at the markup as shipped.
-    original, home_after, health_after = _mutated("DRAWING_RING_VALUE_CLASS")
-    for label, before, after in (("the hero", home_before, home_after), ("Health", health_before, health_after)):
-        assert sentinel in after, "a change inside the shared ring emitter did not reach %s — it draws its own ring, not the shared one" % (label,)
-        assert 'class="%s"' % original not in after, (
-            "%s still carries the ring's original class after the emitter was changed — part "
-            "of that drawing is a copy" % (label,))
-        assert after != before, "%s rendered identically under the mutation" % (label,)
-
-    # THE MUTATION WAS TARGETED, not a global perturbation: the band is
-    # Home's alone, so changing it must move the hero and leave Health
-    # BYTE-IDENTICAL. Without this, "both pages changed" above would be
-    # worth much less.
-    original, home_after, health_after = _mutated("DRAWING_BAND_MARK_CLASS")
-    assert sentinel in home_after, "a change inside the shared band emitter did not reach the hero — its band is a copy"
-    assert 'class="%s"' % original not in home_after, (
-        "the hero still carries the band mark's original class after the emitter was changed "
-        "— part of that drawing is a copy")
-    assert health_after == health_before, (
-        "changing the band emitter also changed Health, which draws no band — the mutation is "
-        "not measuring what it names")
+    for attr in ("DRAWING_RING_VALUE_CLASS", "DRAWING_BAND_MARK_CLASS"):
+        original, health_after, home_after = _mutated(attr)
+        assert sentinel in health_after, (
+            "a change inside the shared %s emitter did not reach Health — it draws its own "
+            "copy, not the shared one" % (attr,))
+        assert 'class="%s"' % original not in health_after, (
+            "Health still carries %s's original class after the emitter was changed — part "
+            "of that drawing is a copy" % (attr,))
+        assert health_after != health_before, "Health rendered identically under the mutation"
+        assert home_after == home_before, (
+            "changing the %s emitter also changed Home, which draws neither — the mutation is "
+            "not measuring what it names" % (attr,))
 
     # THE RESTORE IS PART OF THE CHECK. A mutation left behind would make
     # every later check in this file measure a sabotaged module, and the
     # failure would land somewhere else entirely.
-    assert home_page.render(ctx) == home_before, "Home did not return to its pre-mutation markup"
     assert health_page.render(health_ctx) == health_before, "Health did not return to its pre-mutation markup"
+    assert home_page.render(home_ctx) == home_before, "Home did not return to its pre-mutation markup"
 
 
 # --- Task 3 (S-02): the "Next wake ≈ HH:MM" figure ---

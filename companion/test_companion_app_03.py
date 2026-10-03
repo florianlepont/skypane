@@ -412,80 +412,13 @@ def test_theme_preview_script_tag_exactly_once_and_no_bare_inline_script():
         pytest.fail("expected no inline <script> without a src, found %r" % match.group(0))
 
 
-# ==========================================================================
-# flight-rows.js 
-# ==========================================================================
-
-
-def test_flight_rows_script_public(app03_server):
-    """GET /static/flight-rows.js succeeds without a session and returns a shared-cacheable
-    JavaScript content type"""
-    status, headers, body = http_request(app03_server.base_url() + "/static/flight-rows.js")
-    assert status == 200, "expected 200, got %d" % status
-    assert "text/javascript" in headers.get("Content-Type", ""), (
-        "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
-    assert body, "expected a non-empty script body"
-    assert "no-cache" in headers.get("Cache-Control", ""), (
-        "expected Cache-Control no-cache, got %r" % headers.get("Cache-Control", ""))
-
-
-def test_flight_rows_script_es5_safe_and_no_html_write(app03_server):
-    """flight-rows.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/
-    innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/timers), and carries the
-    detail-row toggle contract (addEventListener/querySelectorAll/data-row-toggle/
-    flight-detail-row--collapsed/aria-expanded/aria-controls all present)"""
-    src = served_asset(app03_server, "/static/flight-rows.js")
-    assert src.count('"use strict"') == 1, (
-        "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
-    banned = (
-        "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
-        "insertAdjacentHTML", "document.write", "eval(", "fetch(",
-        "XMLHttpRequest", "setTimeout(", "setInterval(")
-    for token in banned:
-        assert token not in src, "flight-rows.js must not contain %r" % token
-    required = (
-        "addEventListener", "querySelectorAll", "data-row-toggle",
-        "flight-detail-row--collapsed", "aria-expanded", "aria-controls")
-    for token in required:
-        assert token in src, "expected %r in flight-rows.js" % token
-
-
-def test_flight_rows_script_route_src_agree():
-    """layout.FLIGHT_ROWS_SCRIPT_SRC equals companion.app.FLIGHT_ROWS_SCRIPT_ROUTE"""
-    assert layout.FLIGHT_ROWS_SCRIPT_SRC == app_module.FLIGHT_ROWS_SCRIPT_ROUTE
-
-
-def test_flight_rows_script_tag_exactly_once_and_no_bare_inline_script():
-    """a rendered authenticated page contains exactly one flight-rows.js <script> tag and no
-    inline <script> without a src"""
-    # Per-page scripts: this src is opt-in via `scripts=` now, not global.
-    doc = layout.page_shell(
-        title="T", active="health", body="<p>b</p>",
-        scripts=(layout.FLIGHT_ROWS_SCRIPT_SRC,))
-    expected_tag = '<script src="%s" defer></script>' % layout.FLIGHT_ROWS_SCRIPT_SRC
-    assert doc.count(expected_tag) == 1, (
-        "expected exactly one %r, got %d" % (expected_tag, doc.count(expected_tag)))
-    for match in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>", doc):
-        pytest.fail("expected no inline <script> without a src, found %r" % match.group(0))
-
-
-def test_real_get_flight_rows_route_serves_expected_body(app03_server):
-    """a real GET of /static/flight-rows.js returns 200 with data-row-toggle and
-    flight-detail-row--collapsed present, and none of innerHTML/document.write/=>/ let / const"""
-    text = served_asset(app03_server, "/static/flight-rows.js")
-    for token in ("data-row-toggle", "flight-detail-row--collapsed"):
-        assert token in text, "expected %r in the served flight-rows.js body" % token
-    for banned in ("innerHTML", "document.write", "=>", " let ", " const "):
-        assert banned not in text, "did not expect %r in the served flight-rows.js body" % banned
-
-
 def test_fifteen_deferred_scripts_before_closing_body():
     """Per-page scripts: a bare page_shell() call emits only
     GLOBAL_PAGE_SCRIPTS' 4 tags before the closing body tag; asking for
     every other SHELL_SCRIPT_ORDER script via `scripts=` still emits all
     fifteen together, including panel-lookup.js, flash-cleanup.js,
-    poll-cooldown.js, confirm-submit.js, theme-preview.js, flight-rows.js,
-    submit-guard.js, relative-time.js, quick-switch.js and
+    poll-cooldown.js, confirm-submit.js, theme-preview.js,
+    airline-types.js, submit-guard.js, relative-time.js, quick-switch.js and
     value-controls.js — and NOT login-card.js, which login_shell() alone
     emits, nor submit-guard.js/relative-time.js/quick-switch.js/value-controls.js on that login
     shell, which still emits exactly one"""
@@ -508,7 +441,7 @@ def test_fifteen_deferred_scripts_before_closing_body():
     for src_const in (
             layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
             layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC,
-            layout.THEME_PREVIEW_SCRIPT_SRC, layout.FLIGHT_ROWS_SCRIPT_SRC,
+            layout.THEME_PREVIEW_SCRIPT_SRC, layout.AIRLINE_TYPES_SCRIPT_SRC,
             layout.SUBMIT_GUARD_SCRIPT_SRC, layout.RELATIVE_TIME_SCRIPT_SRC,
             layout.QUICK_SWITCH_SCRIPT_SRC, layout.VALUE_CONTROLS_SCRIPT_SRC):
         expected_tag = '<script src="%s" defer></script>' % src_const

@@ -5,8 +5,7 @@ English constant already lives (companion/pages/airlines_page.py),
 never here — this module only carries each id's French translation.
 
 Some ids are deliberately absent here and reused from a sibling module
-instead ("Airlines", "%s illustration", "Delete", the resolve-context
-labels, the filter-bar copy) — the auto-merge package raises ValueError
+instead ("Airlines", the resolve-context labels, the filter-bar copy) — the auto-merge package raises ValueError
 on a duplicate id across sibling modules.
 
 Copy follows sentence case, the typographic apostrophe (U+2019, never a
@@ -16,13 +15,23 @@ non-breaking space (U+00A0) before ":" ";" "?" "!".
 
 MESSAGES = {
     # --- Page header, gallery, cards --------------------------------
-    "airlines.illustration_reference_for_every_airline_this":
-        "Référence des illustrations pour chaque compagnie que le cadre "
-        "peut reconnaître.",
+    "airlines.aircraft_type": "Type d’appareil",
+    "airlines.any_aircraft": "Tout appareil",
+    "airlines.from_skypane": "Fourni par SkyPane",
+    "airlines.built_in_artwork": "Illustration intégrée",
+    "airlines.no_built_in_artwork": "Aucune illustration intégrée",
+    "airlines.your_changes": "Vos modifications",
+    "airlines.no_changes": "Aucune modification",
+    "airlines.your_artwork_is_shown_instead": "Votre illustration est affichée à la place",
+    "airlines.your_artwork": "Votre illustration",
+    "airlines.no_artwork_yet": "Pas encore d’illustration",
+    "airlines.built_in_name_used_instead": "Nom intégré utilisé à la place du vôtre",
+    "airlines.replace_artwork": "Remplacer l’illustration",
+    "airlines.add_artwork": "Ajouter une illustration",
+    "airlines.action_for": "%s : %s",
     "airlines.enlarge_illustration": "Agrandir l’illustration %s",
     "airlines.airline_illustration": "Illustration de la compagnie",
     "airlines.close": "Fermer",
-    "airlines.superseded": "Remplacée",
     "airlines.resolved_by_hand": "Résolue à la main",
     "airlines.skypane_s_built_in_list_now_recognizes_prefix":
         "La liste intégrée de SkyPane reconnaît maintenant le préfixe %s "
@@ -77,8 +86,10 @@ MESSAGES = {
         "%s est déjà nommée pour ce préfixe et a une image — rien de "
         "plus à faire ici.",
     "airlines.choose_an_image": "Choisir une image",
-    "airlines.deleting_removes_this_manual_name_any_uploaded":
-        "La suppression retire ce nom manuel — l’image reste en place.",
+    "airlines.deleting_removes_the_name_you_gave_this_prefix":
+        "Les vols de ce préfixe redeviennent non identifiés. "
+        "L’illustration reste.",
+    "airlines.delete_manual_name": "Supprimer mon nom",
 
     # --- The replace/upload forms' shared copy ------------------------
     "airlines.replace_this_illustration": "Remplacer cette illustration",
@@ -90,10 +101,8 @@ MESSAGES = {
     # "cadrée", never "à quoi elle ressemblera": the preview shows the
     # frame the image will occupy; the server alone decides the final
     # crop, the same distinction the English copy makes.
-    "airlines.or_drag_an_image_onto_this_card":
-        "Ou glissez une image sur cette carte.",
-    "airlines.framing_preview_how_it_will_be_framed":
-        "Aperçu du cadrage — comment elle sera cadrée.",
+    "airlines.drop_an_image_in_the_frame":
+        "Déposez une image dans le cadre, ou choisissez-en une.",
     "airlines.framing_preview_of_the_image_you_chose":
         "Aperçu du cadrage de l’image choisie",
     "airlines.only_png_images_can_be_dropped_here":

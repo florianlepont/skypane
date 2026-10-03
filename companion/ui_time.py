@@ -558,3 +558,21 @@ def freshness_line_html(now, lang=None):
         % (dot_html, escape_html(i18n.t(FRESHNESS_PREFIX_TEXT)),
            clock_html, pill_html))
     return freshness_html
+
+
+def refresh_marker_html(now):
+    """The silent counterpart of `freshness_line_html()`: the hidden
+    "Updating…" pill carrying `data-loaded-at`, inside the same
+    `.page-header__freshness` swap target, with no visible clock or dot.
+
+    A page that keeps companion/static/freshness.js's background refresh
+    but shows no freshness line uses this; the pill only appears for the
+    moment a refresh is in flight. Returns "" when `now` is falsy.
+    """
+    if not now:
+        return ""
+    return (
+        '<p class="page-header__freshness page-header__freshness--silent">'
+        '<span class="refresh-pill" data-refresh-pill data-loaded-at="%s" hidden>%s%s</span>'
+        "</p>"
+    ) % (escape_html(now), icon_html("icon-refresh"), escape_html(i18n.t(REFRESH_PILL_TEXT)))
