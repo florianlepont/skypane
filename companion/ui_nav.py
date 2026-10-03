@@ -274,9 +274,11 @@ REFRESH_PENDING_ATTR = "data-pending"
 # the severity dot only exists in the DOM for "warn"/"error", so a
 # dot-only selector would have nothing to replace when severity clears.
 
-# HOME: the regions that change between polls, plus the freshness line.
-# The recent-flights SECTION, not its <ul>, is the target so the
-# empty-state-to-list transition is covered too. Not nested.
+# HOME: the regions that change between polls, plus the silent refresh
+# marker. The recent-flights SECTION, not its <ul>, is the target so the
+# empty-state-to-list transition is covered too. The frame-state card is
+# swapped whole: its two buttons are plain POST forms with no half-typed
+# value to lose. Not nested.
 
 # FLIGHTS: both renderings of the list (phone cards, desktop table) plus
 # the count and freshness line — a swap replacing only one would leave
@@ -297,8 +299,10 @@ REFRESH_PENDING_ATTR = "data-pending"
 # never touch a form: it would discard a half-typed value silently.
 REFRESH_SWAP_SELECTORS_BY_PAGE = {
     REFRESH_PAGE_HOME: (
+        ".page-header__freshness",
         "figure.preview-frame",
         'section[aria-labelledby="home-flights"]',
+        'section[aria-labelledby="home-frame-state"]',
         ".home-facts",
     ),
     REFRESH_PAGE_DISPLAY: (
