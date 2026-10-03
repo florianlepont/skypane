@@ -2733,6 +2733,94 @@ a.airline-card {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+/* One aircraft type's view inside an airline card. The type sections
+ * set no display of their own, so the `hidden` attribute that
+ * airline-types.js toggles always wins; with no script every section is
+ * visible in source order and each shows its own title. */
+.airline-card__types {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.airline-type {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.airline-type[hidden] {
+  display: none;
+}
+
+/* With the selector in charge, the section title would only repeat the
+ * selected option. */
+[data-airline-types-ready] .airline-type__title {
+  display: none;
+}
+
+.airline-type__title {
+  margin: 0;
+}
+
+.airline-type-picker {
+  --js-gate-display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.airline-type-picker select {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Source facts and the owner's changes are two labelled rows of one
+ * list, so they read as different things at a glance. */
+.airline-type__facts {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+}
+
+.airline-type__facts dt {
+  margin-top: var(--space-xs);
+}
+
+.airline-type__facts dd {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-body-size);
+  overflow-wrap: anywhere;
+}
+
+.airline-card__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-secondary);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+button.airline-card__action {
+  height: auto;
+}
+
+.airline-card__action:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 /* Interactive battery-trend chart hit targets and readout line. */
 
 /* auto first column: the browser measures the real rendered width of
@@ -3521,6 +3609,7 @@ a.airline-card {
  * deliberately NO fallback value — a fallback would mask the inline
  * property's own disappearance instead of surfacing it. */
 .upload-drop__preview {
+  position: relative;
   margin: 0;
   width: 100%;
   aspect-ratio: var(--upload-preview-ratio);
@@ -3542,6 +3631,22 @@ a.airline-card {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+/* The hint lives inside the frame, centred, until a chosen image
+ * fills it. */
+.upload-drop__preview .upload-drop__note {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-sm);
+  text-align: center;
+}
+
+.upload-drop__image:not([hidden]) ~ .upload-drop__note {
+  display: none;
 }
 
 .upload-drop__message {

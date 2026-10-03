@@ -124,7 +124,6 @@ MESSAGES = {
     "display.callsign": "Indicatif",
     "display.icao24_hex": "Code hexadécimal ICAO24",
     "display.callsign_prefix": "Préfixe d’indicatif",
-    "display.delete": "Supprimer",
 
     # --- Quiet hours card ------------------------------------------------
     "display.quiet_hours": "Heures calmes",

@@ -412,13 +412,13 @@ def test_theme_preview_script_tag_exactly_once_and_no_bare_inline_script():
         pytest.fail("expected no inline <script> without a src, found %r" % match.group(0))
 
 
-def test_fourteen_deferred_scripts_before_closing_body():
+def test_fifteen_deferred_scripts_before_closing_body():
     """Per-page scripts: a bare page_shell() call emits only
     GLOBAL_PAGE_SCRIPTS' 4 tags before the closing body tag; asking for
     every other SHELL_SCRIPT_ORDER script via `scripts=` still emits all
-    fourteen together, including panel-lookup.js, flash-cleanup.js,
+    fifteen together, including panel-lookup.js, flash-cleanup.js,
     poll-cooldown.js, confirm-submit.js, theme-preview.js,
-    submit-guard.js, relative-time.js, quick-switch.js and
+    airline-types.js, submit-guard.js, relative-time.js, quick-switch.js and
     value-controls.js — and NOT login-card.js, which login_shell() alone
     emits, nor submit-guard.js/relative-time.js/quick-switch.js/value-controls.js on that login
     shell, which still emits exactly one"""
@@ -437,11 +437,11 @@ def test_fourteen_deferred_scripts_before_closing_body():
     body_close = doc.index("</body>")
     head = doc[:body_close]
     count = head.count('<script src=')
-    assert count == 14, "expected exactly 14 deferred <script src= tags before </body>, got %d" % count
+    assert count == 15, "expected exactly 15 deferred <script src= tags before </body>, got %d" % count
     for src_const in (
             layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
             layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC,
-            layout.THEME_PREVIEW_SCRIPT_SRC,
+            layout.THEME_PREVIEW_SCRIPT_SRC, layout.AIRLINE_TYPES_SCRIPT_SRC,
             layout.SUBMIT_GUARD_SCRIPT_SRC, layout.RELATIVE_TIME_SCRIPT_SRC,
             layout.QUICK_SWITCH_SCRIPT_SRC, layout.VALUE_CONTROLS_SCRIPT_SRC):
         expected_tag = '<script src="%s" defer></script>' % src_const

@@ -20,6 +20,7 @@ from companion.auth import UI_THEME_COOKIE_NAME
 
 from companion.ui_base import (
     ADVANCED_GROUP_LABEL,
+    AIRLINE_TYPES_SCRIPT_SRC,
     AIRLINES_ROUTE,
     CONFIRM_SUBMIT_SCRIPT_SRC,
     COPY_BUTTON_SCRIPT_SRC,
@@ -230,6 +231,7 @@ from companion.ui_shell import (
 __all__ = (
     "i18n",
     "ADVANCED_GROUP_LABEL",
+    "AIRLINE_TYPES_SCRIPT_SRC",
     "AIRLINES_ROUTE",
     "CONFIRM_SUBMIT_SCRIPT_SRC",
     "COPY_BUTTON_SCRIPT_SRC",
