@@ -5,12 +5,12 @@ milestone_name: Battery and Companion!
 status: executing
 stopped_at: Phase 44 context gathered
 last_updated: "2026-10-03T09:22:20.430Z"
-last_activity: "2026-10-03 — 44-09 complete: Status percentage/voltage chart switch and readable layout"
+last_activity: "2026-10-03 — 44-11 complete: Update installed-software summary and owner-only release list"
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 12
-  completed_plans: 10
+  completed_plans: 11
   percent: 0
 ---
 
@@ -57,9 +57,9 @@ See: .planning/PROJECT.md (updated 2026-09-30)
 ## Current Position
 
 Phase: 44 of 47 (Companion Walkthrough and Focused Bilingual Polish)
-Plan: 10 of 12 complete (latest: 44-09, Status battery units and readable layout)
+Plan: 11 of 12 complete (latest: 44-11, Update installed summary and owner-only releases)
 Status: Executing
-Last activity: 2026-10-03 — 44-09 complete: Status percentage/voltage chart switch and readable layout
+Last activity: 2026-10-03 — 44-11 complete: Update installed-software summary and owner-only release list
 
 ## Position History (superseded entries, kept for the record)
 
