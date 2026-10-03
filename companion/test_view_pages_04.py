@@ -160,10 +160,15 @@ def test_home_health_action_is_reserved_for_actionable_state(tmp_path):
         "device_state": "ok", "pipeline_state": "ok", "battery_state": "ok"}))
     warning = home_page.render(dict(base, health_state={
         "device_state": "ok", "pipeline_state": "warn", "battery_state": "ok"}))
-    assert 'class="home-action"' not in healthy
+    assert not parse_html(healthy).select(".home-action")
     assert 'href="/health"' not in healthy
-    assert 'class="home-action"' in warning
-    assert 'href="/health"' in warning
+    action = parse_html(warning).select_one(".toast.toast--docked.home-action")
+    assert "toast--warning" in action.attrs["class"].split()
+    assert action.select_one("a.toast__action").attrs.get("href") == "/health"
+    assert "role" not in action.attrs, "a persistent state must not announce itself on refresh"
+    errored = home_page.render(dict(base, health_state={
+        "device_state": "error", "pipeline_state": "ok", "battery_state": "ok"}))
+    assert "toast--error" in parse_html(errored).select_one(".home-action").attrs["class"].split()
 
 
 def test_home_recent_flight_time_one_line_no_mono_class(tmp_path):

@@ -42,6 +42,9 @@ __all__ = [
     "keyframes",
     "at_rule_blocks",
     "custom_properties",
+    "flash_toast",
+    "flash_toast_title_detail",
+    "toast_title_detail",
     "strip_js_comments_and_strings",
 ]
 
@@ -554,6 +557,33 @@ def custom_properties(css_text, selector=":root", at_rules=()):
     except KeyError:
         return {}
     return {prop: value for prop, value in decls.items() if prop.startswith("--")}
+
+
+# --- Toasts ------------------------------------------------------------
+
+def flash_toast(html_text):
+    """The served page's flash toast `Node` (the one inside the flash
+    region, never the quick-switch failure toast's <template>), or None.
+    """
+    found = parse_html(html_text).select(".toast-region--flash .toast")
+    return found[0] if found else None
+
+
+def toast_title_detail(node):
+    """`(title, detail)` as a toast `Node` shows them: the visible title
+    and detail text, the visually-hidden tone prefix excluded. `detail`
+    is None for a title-only toast.
+    """
+    title = node.select_one(".toast__title").text()
+    details = node.select(".toast__detail")
+    return title, (details[0].text() if details else None)
+
+
+def flash_toast_title_detail(html_text):
+    """`toast_title_detail()` of the served page's flash toast, or None
+    when the page carries no flash toast."""
+    node = flash_toast(html_text)
+    return toast_title_detail(node) if node is not None else None
 
 
 # --- JS ---------------------------------------------------------------

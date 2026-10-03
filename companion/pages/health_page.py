@@ -527,30 +527,34 @@ def _anomaly_category_labels(anomalies):
     return [anomaly.rstrip(".") for anomaly in anomalies]
 
 
+HEALTH_ANOMALY_CLASS = layout.HEALTH_ANOMALY_CLASS
+HEALTH_SOURCE_FAULT_CLASS = layout.HEALTH_SOURCE_FAULT_CLASS
+
+
 def _anomaly_banner_html(severity, anomalies):
-    """Builds the anomaly banner directly rather than through
-    `layout.anomaly_banner()`, which escapes its message as one
-    plain-text string, incompatible with a `<span class="banner__pill">`
-    per failing category. Emits a count-and-noun label, one pill per
-    category, and a `<span class="visually-hidden">` tail carrying the
-    original comma-joined sentence, so a screen reader gets one coherent
-    sentence rather than disconnected pills.
+    """The anomaly state as a docked toast (persistent, never dismissed):
+    a count-and-noun title, one pill per failing category, and a
+    `<span class="visually-hidden">` tail carrying the original
+    comma-joined sentence, so a screen reader gets one coherent sentence
+    rather than disconnected pills. The error state announces
+    assertively, a warning-only state politely.
     """
-    css_class = "banner--anomaly" if severity == "error" else "banner--warn"
+    tone = layout.TOAST_TONE_ERROR if severity == "error" else layout.TOAST_TONE_WARNING
     role = "alert" if severity == "error" else "status"
     noun = i18n.t(_SEVERITY_BANNER_NOUNS.get(severity, _SEVERITY_BANNER_ISSUE_TEXT))
     count = len(anomalies)
     plural = "" if count == 1 else "s"
-    lead_html = '<span class="banner__label">%s</span>' % escape_html(
-        _label_colon("%d %s%s" % (count, noun, plural)))
+    title = _label_colon("%d %s%s" % (count, noun, plural))
     pills_html = "".join(
-        '<span class="banner__pill">%s</span>' % escape_html(label)
+        '<span class="toast__pill">%s</span>' % escape_html(label)
         for label in _anomaly_category_labels(anomalies)
     )
     tail_text = "%s — %s" % (_anomaly_category_text(anomalies), i18n.t(ANOMALY_BANNER_TEXT))
-    tail_html = '<span class="visually-hidden">%s</span>' % escape_html(tail_text)
-    return '<div class="banner %s" role="%s">%s%s%s</div>' % (
-        css_class, role, lead_html, pills_html, tail_html)
+    extra_html = '<span class="toast__pills">%s</span><span class="visually-hidden">%s</span>' % (
+        pills_html, escape_html(tail_text))
+    return layout.toast_html(
+        title, tone=tone, role=role, extra_html=extra_html, docked=True,
+        extra_class=HEALTH_ANOMALY_CLASS)
 
 
 
@@ -910,13 +914,19 @@ def _source_fault_block(source_fault_raw):
         return ""
     if not _meta_flag_true(source_fault_raw):
         return ""
+    # A docked error toast that is also a section with its own heading,
+    # so the page outline still lists the outage.
     body = i18n.t(SOURCE_FAULT_BODY_TEMPLATE) % ", ".join(_ADSB_PROVIDER_NAMES)
     return (
-        '<section class="page-section banner banner--anomaly">'
-        '<h2 class="text-heading">%s</h2>'
-        '<p class="text-body">%s</p>'
+        '<section class="toast toast--error toast--docked toast--section %s">'
+        "%s"
+        '<div class="toast__text">'
+        '<h2 class="toast__title">%s</h2>'
+        '<p class="toast__detail">%s</p>'
+        "</div>"
         "</section>"
-    ) % (escape_html(i18n.t(SOURCE_FAULT_HEADING)), escape_html(body))
+    ) % (HEALTH_SOURCE_FAULT_CLASS, layout.toast_icon_html(layout.TOAST_TONE_ERROR),
+         escape_html(i18n.t(SOURCE_FAULT_HEADING)), escape_html(body))
 
 
 # The unresolved-prefix registry read goes through

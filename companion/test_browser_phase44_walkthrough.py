@@ -125,7 +125,7 @@ def test_display_setting_saves_and_reports_a_keyboard_focusable_control(
         after = device_config.load_device_config(server.tmpdir)
         if after["tracked_runway"] != target:
             raise AssertionError("%s: served save feedback did not persist the selected runway" % lang)
-        if page.locator('.banner--flash[role="status"]').count() != 1:
+        if page.locator('.toast-region--flash .toast[role="status"]').count() != 1:
             raise AssertionError("%s: successful save did not render its served confirmation" % lang)
     finally:
         context.close()

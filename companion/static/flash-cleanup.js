@@ -2,7 +2,7 @@
  * SkyPane companion service — flash-cleanup.js.
  *
  * Strips the consumed "flash"/"rule" query parameters from the address
- * bar once the flash banner they produced has rendered, so a reload or
+ * bar once the flash toast they produced has rendered, so a reload or
  * re-shared URL never replays a confirmation. Keeps every other query
  * parameter and the fragment. No build step, ES5-safe subset. Served
  * by companion/app.py's FLASH_CLEANUP_SCRIPT_ROUTE. Writes only via
@@ -11,7 +11,7 @@
 (function () {
   "use strict";
 
-  if (!document.querySelector(".banner--flash")) {
+  if (!document.querySelector(".toast-region--flash")) {
     return;
   }
   if (location.search.indexOf("flash=") === -1) {

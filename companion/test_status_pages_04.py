@@ -16,7 +16,7 @@ from companion.i18n_fr import health as i18n_fr_health
 from companion.pages import airlines_page, config_page, health_page, history_page
 import companion.test_status_pages_helpers as shp
 from companion_app_server import served_asset, served_stylesheet
-from companion_markup import css_rules, declarations_for, rules_with_selector
+from companion_markup import css_rules, declarations_for, parse_html, rules_with_selector
 from server import history_db
 
 
@@ -655,11 +655,16 @@ def test_health_tile_icons_are_tile_only_and_no_heading_carries_a_glyph(tmp_path
         assert "#icon-battery" not in rendered, (
             "the retired icon-battery glyph must not be referenced anywhere in the page body")
 
+    def _non_toast_uses(rendered):
+        # The anomaly toast's own tone glyph is the toast's, not a tile's
+        # or a heading's, so it is left out of the counts below.
+        return rendered.count("<use") - rendered.count("toast__glyph")
+
     state_dir = str(tmp_path)
     empty_rendered = health_page.render(shp.ctx(state_dir))
-    assert empty_rendered.count("<use") == 3, (
-        "expected exactly three <use occurrences on the empty render (the three tile icons; "
-        "Health carries no auto-refresh pill any more)")
+    assert _non_toast_uses(empty_rendered) == 3, (
+        "expected exactly three non-toast <use occurrences on the empty render (the three tile "
+        "icons; Health carries no auto-refresh pill any more)")
     for icon_id in three:
         assert empty_rendered.count("#" + icon_id) == 1
     assert empty_rendered.count(layout.STAT_TILE_ICON_CLASS) == 3, (
@@ -672,9 +677,9 @@ def test_health_tile_icons_are_tile_only_and_no_heading_carries_a_glyph(tmp_path
                 "example_callsign": "ABC123"},
     })
     seeded_rendered = health_page.render(shp.ctx(state_dir, shp.iso(now)))
-    assert seeded_rendered.count("<use") == 4, (
-        "expected exactly four <use occurrences on a seeded render (the same three plus "
-        "icon-search in the unresolved-prefixes filter bar)")
+    assert _non_toast_uses(seeded_rendered) == 4, (
+        "expected exactly four non-toast <use occurrences on a seeded render (the same three "
+        "plus icon-search in the unresolved-prefixes filter bar)")
     _headings_carry_no_glyph(seeded_rendered, 6)
 
 
@@ -940,18 +945,15 @@ def test_health_header_renders_the_persistent_freshness_note(tmp_path):
 
 
 def test_uir_03_07_12_13_one_line_fixes_hold_together(tmp_path, css_text):
-    """The four one-line fixes hold together: .banner wraps with a nowrap
-    .banner__label rendered on the anomaly banner's lead span, .banner__pill gains min-width: 0
+    """The four one-line fixes hold together: the anomaly toast's pills wrap and its
+    count-and-noun lead is the toast's title, .banner__pill gains min-width: 0
     while keeping flex: none and its source position before .refresh-pill, .airline-card__image
     gains height: auto alongside its surviving aspect-ratio, the .data-table--prose first-column
     nowrap rule exists after the base rule, and the rendered Battery trend heading's sibling
     caption follows immediately with no leading em dash of its own"""
-    banner_decls = declarations_for(css_text, ".banner")
-    assert banner_decls.get("flex-wrap") == "wrap", "expected .banner to declare flex-wrap: wrap"
-
-    label_decls = declarations_for(css_text, ".banner__label")
-    assert label_decls.get("white-space") == "nowrap", (
-        "expected .banner__label to declare white-space: nowrap")
+    pills_decls = declarations_for(css_text, ".toast__pills")
+    assert pills_decls.get("flex-wrap") == "wrap", (
+        "expected the anomaly toast's pill row to declare flex-wrap: wrap")
 
     pill_decls = declarations_for(css_text, ".banner__pill")
     assert pill_decls.get("min-width") == "0", "expected .banner__pill to declare min-width: 0"
@@ -979,19 +981,12 @@ def test_uir_03_07_12_13_one_line_fixes_hold_together(tmp_path, css_text):
     banner_dir = tmp_path / "banner"
     banner_dir.mkdir()
     rendered = health_page.render(shp.ctx(str(banner_dir)))
-    assert ('class="banner banner--warn"' in rendered
-            or 'class="banner banner--anomaly"' in rendered), (
-        "expected a fresh empty state dir to render an anomaly banner")
-    banner_at = rendered.index('<div class="banner ')
-    assert 'class="banner__label"' in rendered[banner_at:], (
-        "expected the banner's lead span to carry class=\"banner__label\"")
-    label_open = rendered.index('<span class="banner__label">', banner_at)
-    label_close = rendered.index("</span>", label_open)
-    label_text = rendered[label_open:label_close]
-    assert re.search(r">\d+ (warning|error)s?:\Z", label_text), (
-        "expected the count-and-noun lead text inside the banner__label span")
-    assert rendered.find("<span>", banner_at, label_open) == -1, (
-        "expected no bare <span> lead ahead of the banner__label span")
+    banners = parse_html(rendered).select(".toast." + health_page.HEALTH_ANOMALY_CLASS)
+    assert len(banners) == 1, "expected a fresh empty state dir to render an anomaly toast"
+    label_text = banners[0].select_one(".toast__title").text()
+    assert re.search(r"\A\d+ (warning|error)s?:\Z", label_text), (
+        "expected the count-and-noun lead text as the anomaly toast's title, got %r"
+        % label_text)
 
     caption_dir = tmp_path / "caption"
     caption_dir.mkdir()
@@ -1133,8 +1128,8 @@ def test_swap_registry_has_one_definition_site_and_one_key_set(freshness_js):
         "copy of it — a copy is a second definition site with extra steps")
     assert health_page.REFRESH_SWAP_SELECTORS == (
         ".dashboard-grid",
-        "div.banner--anomaly, div.banner--warn",
-        "section.banner",
+        "div.health-anomaly",
+        "section.health-source-fault",
         ".page-header__freshness",
         'a[href="/health"]'), (
         "Health's five regions, in their existing order, are unchanged by the move")

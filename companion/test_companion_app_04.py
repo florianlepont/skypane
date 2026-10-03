@@ -32,7 +32,7 @@ from companion import auth
 from companion.pages import config_page
 from companion_app_server import (
     TEST_PASSWORD, http_request, login, served_asset, served_stylesheet)
-from companion_markup import at_rule_blocks, css_rules, rules_with_selector
+from companion_markup import at_rule_blocks, css_rules, custom_properties, rules_with_selector
 from server import device_config
 
 import companion.app as app_module
@@ -40,6 +40,14 @@ import companion.app as app_module
 # --- The motion budget's own pinned counts. ---------------------------
 _EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 2
 _EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 1
+
+# The two motion durations, plus the one documented exception: the
+# toast's dwell (how long a success/info toast stays), which is a wait,
+# not a movement speed. It may only drive the toast timer hairline.
+_MOTION_TOKENS = ("--motion-fast", "--motion-slow")
+_MOTION_EXCEPTION_TOKEN = "--motion-toast-dwell"
+_MOTION_EXCEPTION_KEYFRAMES = "skypane-toast-dwell"
+_MOTION_EXCEPTION_SELECTOR = ".toast[data-toast-armed] .toast__timer"
 
 _ANIMATION_VALUE_KEYWORDS = frozenset((
     "var", "none", "infinite", "normal", "reverse", "alternate", "alternate-reverse",
@@ -154,6 +162,34 @@ def test_style_css_honours_the_motion_budget(served_css):
                 assert banned not in prop and banned not in value, (
                     "the served stylesheet declares %r in %r — Chromium-only and Baseline "
                     "limited, use grid-template-rows: 0fr -> 1fr instead" % (banned, rule.selectors))
+
+
+def test_motion_tokens_are_two_durations_plus_the_one_toast_dwell_exception(served_css):
+    """the served :root declares exactly --motion-fast, --motion-slow and the one documented
+    exception --motion-toast-dwell; the exception is spent by exactly one live declaration,
+    the armed toast timer hairline's skypane-toast-dwell animation, and nowhere else (not even
+    a transition), so it can never become a third general-purpose motion speed"""
+    root = custom_properties(served_css, ":root")
+    declared = sorted(name for name in root if name.startswith("--motion-"))
+    assert declared == sorted(_MOTION_TOKENS + (_MOTION_EXCEPTION_TOKEN,)), (
+        "expected the motion budget's two tokens plus the toast-dwell exception, got %r"
+        % (declared,))
+    spenders = [
+        (rule.selectors, prop, value)
+        for rule in css_rules(served_css)
+        for prop, value in rule.declarations
+        if "var(%s)" % _MOTION_EXCEPTION_TOKEN in value and not prop.startswith("--")
+    ]
+    assert len(spenders) == 1, (
+        "expected exactly one declaration spending %s, got %r"
+        % (_MOTION_EXCEPTION_TOKEN, spenders))
+    selectors, prop, value = spenders[0]
+    assert selectors == (_MOTION_EXCEPTION_SELECTOR,), (
+        "expected only %r to spend the toast dwell, got %r"
+        % (_MOTION_EXCEPTION_SELECTOR, selectors))
+    assert prop == "animation" and _MOTION_EXCEPTION_KEYFRAMES in value, (
+        "expected the toast dwell to drive the %s animation, got `%s: %s`"
+        % (_MOTION_EXCEPTION_KEYFRAMES, prop, value))
 
 
 # ==========================================================================
@@ -546,8 +582,8 @@ def test_rejected_settings_save_rerenders_200_with_input_and_error_persists_noth
         "expected the just-picked theme (black) to render checked - nothing discarded")
     assert config_page.ERROR_QUIET_HOURS_TIME_SHAPE in body_text, (
         "expected the quiet_hours_start field-level error message in the response body")
-    assert "banner--flash" not in body_text, (
-        "expected no top-of-page flash banner on a field-level rejection (D-07)")
+    assert "toast-region--flash" not in body_text, (
+        "expected no top-of-page flash toast on a field-level rejection (D-07)")
     after = device_config.load_device_config(server.state_dir)
     assert after == before, "expected nothing to be persisted on a rejected save, got %r (was %r)" % (after, before)
 
