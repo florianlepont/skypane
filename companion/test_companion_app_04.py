@@ -873,7 +873,7 @@ def test_scoped_settings_save_carries_other_page_forward(make_app_server):
 
 def test_display_and_device_pages_split_the_groups(app04_server, session_cookie):
     """GET /display and GET /device split the settings groups per companion/screens.py each carrying its hidden
-    scope/return_to fields; Manual refresh lives on Device only."""
+    scope/return_to fields; Refresh now lives on Device only."""
     base = app04_server.base_url()
     _s, _h, display_body = http_request(base + "/display", cookie=session_cookie)
     _s, _h, device_body = http_request(base + "/device", cookie=session_cookie)
@@ -901,7 +901,7 @@ def test_display_and_device_pages_split_the_groups(app04_server, session_cookie)
             "expected the %s page to carry its hidden return_to field" % scope)
         assert "Screen: Plane frame" not in text, (
             "expected the retired screen-type caption to stay off the %s page" % scope)
-    assert "Manual refresh" in device_text, "expected the Device page to carry Manual refresh"
+    assert "Refresh now" in device_text, "expected the Device page to carry the Refresh now action"
     rules_panel_marker = 'data-usage="rules"'
     assert rules_panel_marker not in device_text, (
         "expected the Device page NOT to carry the rules editor (moved to Display, 20-07/D-10)")

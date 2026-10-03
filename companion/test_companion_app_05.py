@@ -1389,30 +1389,17 @@ def _measured_section_captions(rendered):
     return out
 
 
-def _frame_strip_slice(rendered):
-    marker = '<div class="frame-strip stat-tile stat-tile--accent"'
-    start = rendered.find(marker)
-    if start == -1:
-        return None
-    depth = 0
-    for token in re.finditer(r"<div\b[^>]*>|</div>", rendered[start:]):
-        depth += 1 if token.group(0) != "</div>" else -1
-        if depth == 0:
-            return start, start + token.end()
-    raise AssertionError("unbalanced frame-strip <div> markup")
-
-
 def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server):
     """the site-wide editorial floor : every non-exempt.section-caption element on all
     six authenticated routes, in both English and French, over a real running server, is at most
     12 whitespace-split words; the route list is proven equal to
     test_browser_ux_helpers.VIEW_TRANSITION_ROUTES (a plain import, never a source-text read);
     CAPTION_FLOOR_EXEMPTIONS (config_page.ASPECT_CAPTION_EXEMPTIONS, imported not re-listed) is
-    skipped exactly its own length per language across the whole site; per-route and site-wide
-    caption-count minimums guard against a narrowed selector passing vacuously; and the
+    skipped exactly once per language across the whole site (the calendar privacy
+    explanation); per-route and site-wide caption-count minimums guard against a narrowed selector passing vacuously; and the
     apply-timing sentence (read from frame_state.py's own DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN
-    constants) never renders outside the Frame strip's own markup slice, proven to fire inside it
-    at least once"""
+    constants) never renders in any caption on any route (the Frame strip that carried it is
+    retired), proven able to match by rendering the constants themselves through the same pattern"""
     import companion.test_browser_ux_helpers as browser_ux_helpers
 
     server = make_app_server(fake_providers=True)
@@ -1458,15 +1445,14 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
     # Minimums re-derived by RUNNING this exact selector against a real
     # render of each route.
     per_route_min = {
-        layout.HOME_ROUTE: 1, layout.DISPLAY_ROUTE: 9, layout.FLIGHTS_ROUTE: 0,
-        layout.AIRLINES_ROUTE: 1, layout.HEALTH_ROUTE: 3, layout.DEVICE_ROUTE: 6,
+        layout.HOME_ROUTE: 0, layout.DISPLAY_ROUTE: 5, layout.FLIGHTS_ROUTE: 0,
+        layout.AIRLINES_ROUTE: 2, layout.HEALTH_ROUTE: 4, layout.DEVICE_ROUTE: 3,
     }
-    site_total_min = 47
+    site_total_min = 28
 
     skip_counts = {"en": 0, "fr": 0}
     site_total_captions = 0
     outside_matches = []
-    any_inside_strip = False
     for route in site_routes:
         for lang in ("en", "fr"):
             rendered = rendered_by[(route, lang)]
@@ -1477,8 +1463,6 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
                     "%d — a narrowed selector could pass over an empty set"
                     % (route, lang, len(captions), per_route_min[route]))
             site_total_captions += len(captions)
-
-            strip_bounds = _frame_strip_slice(rendered)
 
             for start, _end, fragment in captions:
                 text = caption_word_count_text(fragment)
@@ -1498,18 +1482,17 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
                         pattern = re.escape(translated)
                     if not re.search(pattern, text):
                         continue
-                    if strip_bounds is not None and strip_bounds[0] <= start < strip_bounds[1]:
-                        any_inside_strip = True
-                    else:
-                        outside_matches.append(
-                            "%s/%s at offset %d (%r): %r" % (route, lang, start, text[:80], text))
+                    outside_matches.append(
+                        "%s/%s at offset %d (%r): %r" % (route, lang, start, text[:80], text))
                     break
 
     assert site_total_captions >= site_total_min, (
         "site-wide total: only %d .section-caption element(s) measured across all six "
         "routes/both languages, expected at least %d" % (site_total_captions, site_total_min))
 
-    expected_skip_count = len(CAPTION_FLOOR_EXEMPTIONS)
+    # Only the calendar privacy explanation (on Display) is still rendered; the
+    # look-section intro the other exemption names no longer renders anywhere.
+    expected_skip_count = 1
     for lang in ("en", "fr"):
         assert skip_counts[lang] == expected_skip_count, (
             "%s: expected exactly %d CAPTION_FLOOR_EXEMPTIONS skip(s) across the whole site, "
@@ -1517,9 +1500,11 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
             "should not have" % (lang, expected_skip_count, skip_counts[lang]))
 
     assert not outside_matches, (
-        "the apply-timing sentence rendered outside the Frame strip's own slice — CFG-79 "
-        "confines it to exactly one place per page: %s" % "; ".join(outside_matches))
-    assert any_inside_strip, (
-        "the apply-timing relationship never matched INSIDE the Frame strip either — this "
-        "assertion is vacuous unless it is proven to fire on the strip's own, untouched markup "
-        "at least once")
+        "the retired apply-timing sentence rendered in a caption: %s" % "; ".join(outside_matches))
+    for template in apply_timing_templates:
+        translated = i18n_module.t_lang(template, "en")
+        pattern = re.escape(translated).replace(re.escape("%s"), r".+?")
+        assert re.search(pattern, translated % ("10:00",) if "%s" in translated else translated), (
+            "the apply-timing pattern must be able to match its own wording: %r" % translated)
+
+

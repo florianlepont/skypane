@@ -725,8 +725,9 @@ def _home_ctx(tmp, now_value):
     }
 
 
-def test_quiet_schedule_link_is_only_on_home(tmp_path):
-    """Home links to quiet-hours settings; Display no longer duplicates that control."""
+def test_quiet_schedule_link_is_on_neither_home_nor_display(tmp_path):
+    """Home no longer carries the configuration strip, so the quiet-hours schedule link is on
+    neither Home nor Display: Display owns the Quiet hours control itself."""
     tmp = str(tmp_path)
     now_iso = shp.iso(shp.now())
     home_ctx = _home_ctx(tmp, now_iso)
@@ -736,12 +737,12 @@ def test_quiet_schedule_link_is_only_on_home(tmp_path):
     }
     rendered_home = home_page.render(home_ctx)
     rendered_display = config_page.render(display_ctx, scope=config_page.SCOPE_DISPLAY)
-    assert _QUIET_SCHEDULE_LINK_RE.search(rendered_home)
+    assert not _QUIET_SCHEDULE_LINK_RE.search(rendered_home)
     assert not _QUIET_SCHEDULE_LINK_RE.search(rendered_display)
-    assert rendered_home.count('frame-strip__schedule-link') == 1, (
-        "expected exactly one schedule-link render on Home, got %d"
-        % rendered_home.count('frame-strip__schedule-link'))
+    assert rendered_home.count('frame-strip__schedule-link') == 0
     assert rendered_display.count('frame-strip__schedule-link') == 0
+    assert 'name="quiet_hours_start"' in rendered_display, (
+        "expected the Display page to carry the Quiet hours schedule control")
 
 
 # --- The Frame strip's two switches
