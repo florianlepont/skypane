@@ -35,7 +35,7 @@ MESSAGES = {
     # live — grammatical agreement matches that shared context, not
     # a re-derivation of this page's own former wording.
     "home.next_update": "Prochaine mise à jour ≈ %s",
-    "home.expected_since": "Attendu depuis %s",
+    "home.expected_since": "Mise à jour en retard · attendue à %s",
 
     # companion/layout.py's own frame_strip_html(), keyed here for
     # the same shared-catalogue reason as the entry above.
@@ -51,10 +51,8 @@ MESSAGES = {
         "Heures calmes — l’écran se repose jusqu’à %s",
     "home.state_battery_resting":
         "Batterie très faible — le cadre se repose jusqu’à sa recharge",
-    "home.cadence":
-        "Pour économiser sa batterie, le cadre dort entre deux mises à jour "
-        "et se réveille environ toutes les %s\u00a0: il ne se rafraîchit donc pas "
-        "en continu.",
+    "home.cadence": "Mise à jour environ toutes les %s",
+    "home.see_health": "Voir la santé",
     "home.cadence_no_interval":
         "Pour économiser sa batterie, le cadre dort entre deux mises à jour\u00a0: "
         "il ne se rafraîchit donc pas en continu.",

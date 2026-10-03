@@ -387,7 +387,8 @@ _FRAME_HEADLINE_DUE_TEXT = i18n.msg("home.next_update", "Next update ≈ %s")
 _FRAME_HEADLINE_HELD_TEXT = i18n.msg(
     "frame_state.next_wake_around_quiet_hours",
     "Next wake around %s · quiet hours")
-_FRAME_HEADLINE_LATE_TEXT = i18n.msg("home.expected_since", "Expected since %s")
+_FRAME_HEADLINE_LATE_TEXT = i18n.msg(
+    "home.expected_since", "Update overdue · expected at %s")
 _FRAME_DELAY_DUE_TEXT = i18n.msg(
     "frame_state.applies_at_the_next_wake_around",
     "Applies at the next wake, around %s.")

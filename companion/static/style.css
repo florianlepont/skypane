@@ -3948,9 +3948,9 @@ button.airline-card__action {
 
 @media (min-width: 840px) {
   .home-state {
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+    grid-template-columns: minmax(240px, 1fr) auto minmax(250px, 300px);
     align-items: center;
-    gap: var(--space-xl);
+    gap: var(--space-lg);
   }
 }
 
@@ -4000,19 +4000,54 @@ button.airline-card__action {
   color: var(--color-text);
 }
 
+/* An overdue line reads in the warning treatment through its weight, the
+ * wording carries the meaning; the amber dot above appears only once the
+ * delay is long enough to act on. */
+.home-state__next--overdue {
+  font-weight: var(--weight-semibold);
+}
+
+.home-state__next .time-value {
+  white-space: nowrap;
+}
+
+.home-state__health-link {
+  display: block;
+  width: fit-content;
+  margin-top: var(--space-xs);
+  font-weight: var(--weight-semibold);
+}
+
+/* The battery block: the frame's one number that needs watching, so it
+ * gets its own bordered tile with a large figure and a wide level bar. */
 .home-battery {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  border-radius: 999px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin: 0;
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-control);
   background: var(--color-canvas);
   border: 1px solid var(--color-border);
 }
 
+.home-battery__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.home-battery__reading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
 .home-battery__value {
   font-weight: var(--weight-semibold);
-  font-size: var(--font-body-size);
+  font-size: 2rem;
+  line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
 
@@ -4028,6 +4063,7 @@ button.airline-card__action {
 .home-battery__body {
   fill: none;
   stroke: currentColor;
+  stroke-width: 2;
 }
 
 .home-battery__nub {
@@ -4050,8 +4086,6 @@ button.airline-card__action {
  * never the only signal; the border echoes the state quietly. */
 .home-battery__state {
   font-weight: var(--weight-semibold);
-  padding-left: var(--space-sm);
-  border-left: 1px solid var(--color-border);
 }
 
 .home-battery--low {
@@ -4062,9 +4096,25 @@ button.airline-card__action {
   border-color: var(--color-status-error);
 }
 
+.home-battery--none {
+  padding: var(--space-sm) var(--space-md);
+}
+
+/* One muted line; the reason behind it opens from the summary, with the
+ * keyboard or a tap, and needs no script. */
 .home-state__cadence {
   max-width: 46ch;
+  margin: 0;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.home-state__cadence summary {
+  cursor: pointer;
+  width: fit-content;
+}
+
+.home-state__cadence p {
+  margin: var(--space-xs) 0 0;
 }
 
 .home-state__switches {
