@@ -39,7 +39,6 @@ MESSAGES = {
     "display.current": "Actuel",
 
     # --- Display's three supersections ----------------------------
-    "display.look": "Ce qui s’affiche",
     "display.the_theme_flight_colours_and_calendar_that":
         "— le thème, les couleurs de vol et le calendrier qui "
         "décident de l’apparence de l’image.",
@@ -55,8 +54,7 @@ MESSAGES = {
     # --- Aspect card ---------------------------------------------------
     # This identity translation is required, not optional: the
     # FR-completeness harness fails an untranslated id regardless of
-    # the two words being the same. A different id from "display.look"
-    # above (Display's supersection heading), not a duplicate of it.
+    # the two words being the same.
     "display.aspect": "Choisir l’apparence",
     "display.departures": "Départs",
     "display.arrivals": "Arrivées",
