@@ -51,8 +51,6 @@ MESSAGES = {
         "Heures calmes — l’écran se repose jusqu’à %s",
     "home.state_battery_resting":
         "Batterie très faible — le cadre se repose jusqu’à sa recharge",
-    "home.quiet_schedule_on": "Les heures calmes sont activées, de %s à %s",
-    "home.quiet_schedule_off": "Les heures calmes sont désactivées",
     "home.cadence":
         "Pour économiser sa batterie, le cadre dort entre deux mises à jour "
         "et se réveille environ toutes les %s\u00a0: il ne se rafraîchit donc pas "
@@ -60,11 +58,11 @@ MESSAGES = {
     "home.cadence_no_interval":
         "Pour économiser sa batterie, le cadre dort entre deux mises à jour\u00a0: "
         "il ne se rafraîchit donc pas en continu.",
-    "home.turn_screen_on": "Allumer l’écran",
-    "home.turn_screen_off": "Éteindre l’écran",
-    "home.turn_quiet_hours_on": "Activer les heures calmes",
-    "home.turn_quiet_hours_off": "Désactiver les heures calmes",
-    "home.battery_fact": "Batterie · %s",
+    "home.switches": "Commandes du cadre",
+    "home.battery_label": "Batterie",
+    "home.battery_aria": "Batterie à environ %s",
+    "home.battery_low": "Faible",
+    "home.battery_critical": "Très faible",
     "home.battery_fact_empty": "Batterie · Aucune mesure pour l’instant",
     "home.action_needed": "Un élément demande votre attention",
     "home.review_status": "Voir l’état",

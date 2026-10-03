@@ -1,10 +1,10 @@
 """The Home page: answers whether the frame is alive, what it is
 showing, and what it has shown recently.
 
-Renders the current picture beside the recent flights, then one merged
-frame-state card (screen / quiet hours / next update, with the two native
-POST controls) and a compact battery fact and, only when attention is
-needed, a link to Health. A recent-flight row gets a
+Opens with one status header (frame state, next update, battery and the
+two native-POST switches for screen and quiet hours), then the current
+picture beside the recent flights and, only when attention is needed, a
+link to Health. A recent-flight row gets a
 thumbnail only when a real illustration file resolves for that
 airline, since a recognised name with no artwork file would otherwise
 404 as a broken image. The recent-flight rows and the current
@@ -58,15 +58,18 @@ GALLERY_ROUTE_PREFIX = "/gallery/"
 DIRECTION_DEPARTING_TEXT = i18n.msg("home.departing", "Departing")
 DIRECTION_ARRIVING_TEXT = i18n.msg("home.arriving", "Arriving")
 
-BATTERY_FACT_TEMPLATE = i18n.msg("home.battery_fact", "Battery · %s")
+BATTERY_LABEL = i18n.msg("home.battery_label", "Battery")
+BATTERY_ARIA_TEMPLATE = i18n.msg("home.battery_aria", "Battery about %s")
+BATTERY_LOW_TEXT = i18n.msg("home.battery_low", "Low")
+BATTERY_CRITICAL_TEXT = i18n.msg("home.battery_critical", "Very low")
 BATTERY_FACT_EMPTY = i18n.msg("home.battery_fact_empty", "Battery · No reading yet")
 ACTION_NEEDED_TEXT = i18n.msg("home.action_needed", "Something needs attention")
 ACTION_NEEDED_LINK_TEXT = i18n.msg("home.review_status", "Review status")
 
 NO_READING_TEXT = i18n.msg("home.no_reading_yet", "No reading yet")
 
-# The merged frame-state card. The quick routes are the same two
-# server-validated POST endpoints the retired Frame strip posted to.
+# The status header. The quick routes are the same two server-validated
+# POST endpoints the retired Frame strip posted to.
 FRAME_STATE_HEADING = i18n.msg("home.frame_state", "Frame state")
 QUICK_DISPLAY_ACTION = "/quick/display"
 QUICK_QUIET_HOURS_ACTION = "/quick/quiet-hours"
@@ -78,10 +81,6 @@ STATE_QUIET_TEXT = i18n.msg(
 STATE_BATTERY_TEXT = i18n.msg(
     "home.state_battery_resting",
     "Battery very low — the frame is resting until it is recharged")
-QUIET_SCHEDULE_ON_TEXT = i18n.msg(
-    "home.quiet_schedule_on", "Quiet hours are on, %s to %s")
-QUIET_SCHEDULE_OFF_TEXT = i18n.msg(
-    "home.quiet_schedule_off", "Quiet hours are turned off")
 CADENCE_TEXT = i18n.msg(
     "home.cadence",
     "To save its battery, the frame sleeps between updates and wakes about "
@@ -90,10 +89,7 @@ CADENCE_NO_INTERVAL_TEXT = i18n.msg(
     "home.cadence_no_interval",
     "To save its battery, the frame sleeps between updates, so it does not "
     "refresh continuously.")
-SCREEN_TURN_ON_BUTTON = i18n.msg("home.turn_screen_on", "Turn screen on")
-SCREEN_TURN_OFF_BUTTON = i18n.msg("home.turn_screen_off", "Turn screen off")
-QUIET_TURN_ON_BUTTON = i18n.msg("home.turn_quiet_hours_on", "Turn quiet hours on")
-QUIET_TURN_OFF_BUTTON = i18n.msg("home.turn_quiet_hours_off", "Turn quiet hours off")
+SWITCHES_LABEL = i18n.msg("home.switches", "Frame controls")
 DEFAULT_QUIET_START = "23:00"
 DEFAULT_QUIET_END = "07:00"
 
@@ -354,79 +350,148 @@ def _next_update_html(next_iso, interval_s, hold_reason, now):
          layout.relative_time_html(next_iso, now, countdown=True))
 
 
-def _quiet_schedule_text(cfg):
-    if cfg.get("quiet_hours_enabled") is True:
-        return i18n.t(QUIET_SCHEDULE_ON_TEXT) % (
-            cfg.get("quiet_hours_start") or DEFAULT_QUIET_START,
-            cfg.get("quiet_hours_end") or DEFAULT_QUIET_END)
-    return i18n.t(QUIET_SCHEDULE_OFF_TEXT)
+def _quiet_window_text(cfg):
+    """The configured quiet window as "23:30 – 06:00", shown whether or not
+    the schedule is on, so the switch's detail says what it would cover."""
+    return "%s – %s" % (
+        cfg.get("quiet_hours_start") or DEFAULT_QUIET_START,
+        cfg.get("quiet_hours_end") or DEFAULT_QUIET_END)
 
 
-def _state_form_html(action, turn_on, on_label, off_label):
-    """One native POST form: the button posts the OPPOSITE of the current
-    state, so it works with scripts blocked. `return_to` is one of the
-    server-side whitelist's values."""
+def _switch_row_html(spec, is_on, detail_html):
+    """One labelled switch row. The control is the shared `role="switch"`
+    form from `layout.quick_switch_html()`: a native POST that works with
+    scripts blocked.
+
+    The row deliberately carries no `data-quick-region`, so quick-switch.js
+    leaves the submit alone and the browser follows the server's redirect:
+    flipping either switch changes the headline and the next-update line
+    too, so the page must be re-rendered rather than optimistically
+    patched. `return_to` is one of the server-side whitelist's values.
+    """
+    action, slug, label = spec
+    label_id = "home-switch-%s-label" % slug
+    state_id = "home-switch-%s-state" % slug
     return (
-        '<form method="post" action="%s" class="home-state__form">'
-        '<input type="hidden" name="%s" value="%s">'
-        '<input type="hidden" name="return_to" value="%s">'
-        '<button type="submit" class="home-state__button">%s</button>'
-        "</form>"
+        '<div class="home-switch home-switch--%s">'
+        '<div class="home-switch__text">'
+        '<span class="home-switch__label" id="%s">%s</span>'
+        '<span class="home-switch__detail text-label">%s%s</span>'
+        "</div>%s</div>"
     ) % (
-        action, layout.QUICK_STATE_FIELD,
-        layout.QUICK_STATE_ON if turn_on else layout.QUICK_STATE_OFF,
-        layout.HOME_ROUTE, escape_html(i18n.t(on_label if turn_on else off_label)))
+        "on" if is_on else "off", label_id, escape_html(i18n.t(label)),
+        layout.quick_switch_state_html(
+            state_id, i18n.t(layout.QUICK_ACTION_ON_TEXT),
+            i18n.t(layout.QUICK_ACTION_OFF_TEXT), is_on, extra_class="home-switch__state"),
+        detail_html,
+        layout.quick_switch_html(action, layout.HOME_ROUTE, is_on, label_id, state_id))
+
+
+def _switches_html(cfg):
+    screen_on = cfg.get("display_enabled") is not False
+    quiet_on = cfg.get("quiet_hours_enabled") is True
+    window = (
+        ' · <span class="home-switch__window time-value">%s</span>'
+        % escape_html(_quiet_window_text(cfg)))
+    return (
+        '<div class="home-state__switches" role="group" aria-label="%s">%s%s</div>'
+    ) % (
+        escape_html(i18n.t(SWITCHES_LABEL)),
+        _switch_row_html(
+            (QUICK_DISPLAY_ACTION, "screen", layout.QUICK_ACTION_SCREEN_LABEL),
+            screen_on, ""),
+        _switch_row_html(
+            (QUICK_QUIET_HOURS_ACTION, "quiet", layout.QUICK_ACTION_QUIET_LABEL),
+            quiet_on, window))
+
+
+# The battery glyph's drawing, in SVG user units: an outline body, a
+# terminal nub and a fill whose width is the charge fraction. SVG
+# attributes rather than inline style, which the page's CSP forbids.
+BATTERY_METER_FILL_WIDTH = 26
+
+
+def _battery_meter_svg(percent):
+    fill = max(1, int(round(BATTERY_METER_FILL_WIDTH * percent / 100.0))) if percent > 0 else 0
+    return (
+        '<svg class="home-battery__glyph" width="36" height="18" viewBox="0 0 36 18" '
+        'aria-hidden="true" focusable="false">'
+        '<rect class="home-battery__body" x="0.75" y="0.75" width="31" height="16.5" rx="4"/>'
+        '<rect class="home-battery__nub" x="33.25" y="5.5" width="2.5" height="7" rx="1.25"/>'
+        '<rect class="home-battery__fill" x="3" y="3" width="%d" height="12" rx="2"/>'
+        "</svg>"
+    ) % fill
+
+
+def _battery_level(ctx, percent):
+    """"critical" for the battery-empty hold or an error health state,
+    "low" at or under the shared low-battery percentage or on a warning
+    health state, else "ok"."""
+    health = ctx.health_state or {}
+    if ctx.battery_critical is True or health.get("battery_state") == "error":
+        return "critical"
+    if health.get("battery_state") == "warn" or (
+            percent is not None and percent <= battery.LOW_BATTERY_DISPLAY_PERCENT):
+        return "low"
+    return "ok"
+
+
+def _battery_pill_html(ctx):
+    """The battery as a small panel block: a glyph filled to the charge, the
+    percentage in semibold, and for a low or critical level a word as well,
+    so the state never rests on colour alone. Reads only the latest stored
+    reading from PageContext's state directory; the percentage is the
+    shared piecewise estimate. A missing reading shows words only, never an
+    invented meter. The whole block is one named image for screen readers."""
+    reading = _safe_query(ctx.state_dir, _latest_battery)
+    if not reading or not reading.get("battery_mv"):
+        return '<p class="home-battery home-battery--none text-label">%s</p>' % escape_html(
+            i18n.t(BATTERY_FACT_EMPTY))
+    percent = battery.battery_percent(reading["battery_mv"])
+    value = "%d%%" % percent if percent is not None else "%s mV" % reading["battery_mv"]
+    level = _battery_level(ctx, percent)
+    word = {"low": BATTERY_LOW_TEXT, "critical": BATTERY_CRITICAL_TEXT}.get(level)
+    aria = i18n.t(BATTERY_ARIA_TEMPLATE) % (
+        ("≈ " if percent is not None else "") + value)
+    if word:
+        aria = "%s, %s" % (aria, i18n.t(word).lower())
+    return (
+        '<p class="home-battery home-battery--%s" role="img" aria-label="%s">'
+        "%s"
+        '<span class="home-battery__value">%s</span>'
+        '<span class="home-battery__label text-label">%s</span>%s</p>'
+    ) % (
+        level, escape_html(aria),
+        _battery_meter_svg(percent) if percent is not None else "",
+        escape_html(value), escape_html(i18n.t(BATTERY_LABEL)),
+        ('<span class="home-battery__state text-label">%s</span>' % escape_html(i18n.t(word)))
+        if word else "")
 
 
 def _frame_state_html(ctx):
-    """The one merged frame-state card: current state in plain language,
-    the next update, one sentence on why updates are not continuous, and
-    the screen / quiet-hours buttons. Everything comes from the page
-    context; the buttons reuse the Frame strip's quick routes."""
+    """The status header: current state in plain language with a coloured
+    dot, the next update, the battery pill and one muted sentence on why
+    updates are not continuous, beside the screen and quiet-hours
+    switches. Everything comes from the page context."""
     cfg = ctx.device_config or {}
     (dot, headline), (next_iso, interval_s, hold_reason), base_interval_s = (
         _frame_state_summary(ctx))
     cadence = (
         i18n.t(CADENCE_TEXT) % _interval_text(base_interval_s)
         if base_interval_s else i18n.t(CADENCE_NO_INTERVAL_TEXT))
-    screen_on = cfg.get("display_enabled") is not False
-    quiet_on = cfg.get("quiet_hours_enabled") is True
     return (
-        '<section class="page-section home-section home-state" '
-        'aria-labelledby="home-frame-state">'
-        '<h2 class="text-heading" id="home-frame-state">%s</h2>'
-        '<p class="home-state__headline"><span class="dot dot--%s"></span>%s</p>'
-        "%s"
-        '<p class="home-state__quiet text-label">%s</p>'
-        '<p class="home-state__cadence text-label section-caption">%s</p>'
-        '<div class="home-state__actions">%s%s</div>'
-        "</section>"
+        '<section class="home-state" aria-labelledby="home-frame-state">'
+        '<h2 class="visually-hidden" id="home-frame-state">%s</h2>'
+        '<div class="home-state__status">'
+        '<p class="home-state__headline"><span class="home-state__dot dot dot--%s" '
+        'aria-hidden="true"></span><span>%s</span></p>'
+        "%s%s"
+        '<p class="home-state__cadence text-label">%s</p>'
+        "</div>%s</section>"
     ) % (
         escape_html(i18n.t(FRAME_STATE_HEADING)), dot, escape_html(headline),
         _next_update_html(next_iso, interval_s, hold_reason, ctx.now),
-        escape_html(_quiet_schedule_text(cfg)), escape_html(cadence),
-        _state_form_html(
-            QUICK_DISPLAY_ACTION, not screen_on, SCREEN_TURN_ON_BUTTON, SCREEN_TURN_OFF_BUTTON),
-        _state_form_html(
-            QUICK_QUIET_HOURS_ACTION, not quiet_on, QUIET_TURN_ON_BUTTON, QUIET_TURN_OFF_BUTTON))
-
-
-def _battery_fact_html(ctx):
-    """A compact battery fact for the normal Home path.
-
-    Home reads only the latest stored reading already owned by PageContext's
-    state directory.  It deliberately does not reintroduce the old battery
-    dashboard tile: the number is useful when all is well, but it should not
-    compete with the image the frame last received.
-    """
-    reading = _safe_query(ctx.state_dir, _latest_battery)
-    if not reading or not reading.get("battery_mv"):
-        text = i18n.t(BATTERY_FACT_EMPTY)
-    else:
-        percent = battery.battery_percent(reading["battery_mv"])
-        value = "≈ %d%%" % percent if percent is not None else "%s mV" % reading["battery_mv"]
-        text = i18n.t(BATTERY_FACT_TEMPLATE) % value
-    return '<p class="home-fact text-label">%s</p>' % escape_html(text)
+        _battery_pill_html(ctx), escape_html(cadence), _switches_html(cfg))
 
 
 def _needs_attention(ctx):
@@ -454,14 +519,11 @@ def _action_needed_html(ctx):
 
 
 def render(ctx):
-    """Render the approved frame-signal-first Home composition.
-
-    The generated picture and its flight line are the primary signal. Recent
-    flights follow beside it on desktop and after it on a phone; battery is a
-    compact fact and only an actionable shared health state adds a Health
-    link.  Screen, quiet hours and the next update are ONE merged card with
-    the controls beside the state they change; daily activity belongs to
-    Health.
+    """Render Home: the status header (state, next update, battery and the
+    two switches) first, then the generated picture and its flight line,
+    with the recent flights beside it on desktop and after it on a phone.
+    Only an actionable shared health state adds a Health link; daily
+    activity belongs to Health.
     """
     ctx = page_context.coerce(ctx)
     now = ctx.now
@@ -476,6 +538,7 @@ def render(ctx):
         i18n.t(PAGE_TITLE), freshness_html=layout.refresh_marker_html(now))
     return (
         header
+        + _frame_state_html(ctx)
         + '<div class="home-columns home-picture-row home-signal-grid">'
         + '<section class="page-section home-section home-current-frame" '
         'aria-labelledby="home-current-frame">'
@@ -485,9 +548,7 @@ def render(ctx):
         + '</section>'
         + _recent_flights_html(rows, now, ctx.state_dir)
         + "</div>"
-        + _frame_state_html(ctx)
         + '<div class="home-facts">'
-        + _battery_fact_html(ctx)
         + _action_needed_html(ctx)
         + "</div>"
     )

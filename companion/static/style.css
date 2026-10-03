@@ -3913,80 +3913,221 @@ button.airline-card__action {
   width: 100%;
 }
 
+/* The actionable-warning link only; the container is empty (and takes no
+ * space) while every health state is fine. */
 .home-facts {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-sm) var(--space-lg);
-  margin-top: var(--space-lg);
+  margin: 0 0 var(--space-lg);
+}
+
+.home-facts:empty {
+  display: none;
 }
 
 .home-facts > * {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: var(--space-xs);
   margin: 0;
 }
 
-/* The merged frame-state card: one state, one next-update line, one
- * cadence sentence and the two native POST controls. Buttons keep a 44px
- * hit area and are quiet-styled like the other control surfaces; the
- * doubled class outranks button[type="submit"]'s accent fill. */
+/* The status header at the top of Home: one rounded panel, the frame's
+ * state and next update on the left, the two switches on the right,
+ * stacked on a phone. Surface, border and radius are the shared tokens,
+ * so both themes follow the palette. */
 .home-state {
-  margin-top: var(--space-lg);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
-.home-state > p {
-  margin: 0 0 var(--space-xs);
+@media (min-width: 840px) {
+  .home-state {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+    align-items: center;
+    gap: var(--space-xl);
+  }
+}
+
+.home-state__status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.home-state__status > p {
+  margin: 0;
 }
 
 .home-state__headline {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-md);
+  font-size: var(--font-heading-size);
   font-weight: var(--weight-semibold);
+  line-height: 1.25;
 }
 
-.home-state__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  margin-top: var(--space-md);
+/* A solid dot inside a soft ring of the same status colour, so the state
+ * reads at a glance without relying on colour alone: the words beside it
+ * carry the meaning. */
+.home-state__dot {
+  --home-dot: var(--color-status-ok);
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin: 0 var(--space-xs);
+  background: var(--home-dot);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--home-dot) 22%, transparent);
 }
 
-.home-state__form {
-  margin: 0;
+.home-state__dot.dot--warn {
+  --home-dot: var(--color-status-warn);
 }
 
-.home-state .home-state__button {
-  height: auto;
-  min-height: 44px;
-  padding: 0 var(--space-md);
-  font-size: var(--font-body-size);
-  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
-  box-shadow: none;
+.home-state__dot.dot--off {
+  --home-dot: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+
+.home-state__next {
   color: var(--color-text);
 }
 
-.home-state .home-state__button:hover {
-  background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
-  border-color: color-mix(in srgb, var(--color-text) 14%, transparent);
+.home-battery {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: 999px;
+  background: var(--color-canvas);
+  border: 1px solid var(--color-border);
 }
 
-@media (max-width: 480px) {
-  .home-state__form,
-  .home-state .home-state__button {
-    width: 100%;
-  }
+.home-battery__value {
+  font-weight: var(--weight-semibold);
+  font-size: var(--font-body-size);
+  font-variant-numeric: tabular-nums;
 }
 
-.home-fact {
-  padding: var(--space-xs) var(--space-sm);
+.home-battery__label {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.home-battery__glyph {
+  flex: none;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+.home-battery__body {
+  fill: none;
+  stroke: currentColor;
+}
+
+.home-battery__nub {
+  fill: currentColor;
+}
+
+.home-battery__fill {
+  fill: var(--color-status-ok);
+}
+
+.home-battery--low .home-battery__fill {
+  fill: var(--color-status-warn);
+}
+
+.home-battery--critical .home-battery__fill {
+  fill: var(--color-status-error);
+}
+
+/* The level word is always present for low and critical, so colour is
+ * never the only signal; the border echoes the state quietly. */
+.home-battery__state {
+  font-weight: var(--weight-semibold);
+  padding-left: var(--space-sm);
+  border-left: 1px solid var(--color-border);
+}
+
+.home-battery--low {
+  border-color: var(--color-status-warn);
+}
+
+.home-battery--critical {
+  border-color: var(--color-status-error);
+}
+
+.home-state__cadence {
+  max-width: 46ch;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.home-state__switches {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+/* Each row is one big tap target: the native switch button stretches its
+ * ::after over the whole row, so the control keeps its role, state and
+ * focus behaviour while the finger gets a 56px-tall target. */
+.home-switch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  min-height: 56px;
+  padding: var(--space-xs) var(--space-sm) var(--space-xs) var(--space-md);
+  background: var(--color-canvas);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
-  background: var(--color-canvas);
+}
+
+.home-switch:hover {
+  border-color: color-mix(in srgb, var(--color-text) 25%, transparent);
+}
+
+.home-switch .switch,
+.home-switch .switch:hover,
+.home-switch .switch:active {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  /* A transform would make the button the ::after's containing block and
+   * shrink the row-wide target to the button mid-press. */
+  transform: none;
+}
+
+.home-switch .switch::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-control);
+}
+
+.home-switch__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.home-switch__label {
   font-weight: var(--weight-semibold);
+}
+
+.home-switch__detail {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.home-switch .quick-action__form {
+  flex: none;
 }
 
 .home-action {
