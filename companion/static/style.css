@@ -1926,6 +1926,34 @@ table.data-table--registry .cell-inline-sep {
   display: none;
 }
 
+/* The installed-software summary: the icon sits beside the running
+ * version line so the one headline reads as "what the frame runs". */
+.update-summary__headline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The small icon before each release version labels it as a firmware
+ * release rather than a bare number in a table. */
+table.data-table--firmware-history .cell-primary,
+.data-cards .cell-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+/* Install is a safety-relevant action, so it keeps the full touch target
+ * on every layout instead of the compact in-table button height. */
+table.data-table--firmware-history form button[type="submit"],
+.data-cards .data-card__action form button[type="submit"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
 /* The Action column (Install/"Not installable"/quiet label) is the one
  * thing on this row a desktop reader must always be able to reach
  * without scrolling — never let the prose Notes column push it onto a
