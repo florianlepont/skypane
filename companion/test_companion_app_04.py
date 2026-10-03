@@ -559,7 +559,8 @@ def test_rejected_settings_save_rerenders_200_with_input_and_error_persists_noth
 
 def test_home_page_renders_widgets(app04_server, session_cookie):
     """authenticated GET / renders the approved frame-signal-first Home page:
-    its current image precedes recent flights and one compact battery fact, while retired
+    its current image precedes recent flights, then ONE merged frame-state card carrying the
+    screen and quiet-hours POST controls, and one compact battery fact, while retired
     configuration, healthy diagnostics, and activity-band dashboard material stay absent."""
     status, _headers, body = http_request(app04_server.base_url() + "/", cookie=session_cookie)
     assert status == 200, "expected 200 for GET /, got %d" % status
@@ -570,16 +571,19 @@ def test_home_page_renders_widgets(app04_server, session_cookie):
             'id="home-current-frame"',
             "Recent flights", 'href="/flights"',
             'class="home-fact text-label"',
-            'class="nav-group nav-group--advanced"'):
+            'class="nav-group nav-group--advanced"',
+            'aria-labelledby="home-frame-state"',
+            'action="%s"' % app_module.QUICK_DISPLAY_ROUTE,
+            'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE,
+            "data-loaded-at="):
         assert needle in text, "expected %r in the Home page" % needle
+    assert text.count("Frame state") == 1, "expected exactly one merged frame-state card"
     assert 'class="preview-frame"' in text or "Nothing rendered yet." in text, (
         "expected either the preview-frame figure or its empty state on Home")
     for absent in (
             "Your frame at a glance.", "Quick actions", "On the frame now",
             "status-card__rows", "home-hero", 'class="frame-strip',
             'class="dashboard-grid home-status-grid"', 'class="day-band',
-            'action="%s"' % app_module.QUICK_DISPLAY_ROUTE,
-            'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE,
             'action="%s"' % app_module.POLL_ROUTE):
         assert absent not in text, (
             "expected %r to be absent from the rebuilt Home page (D-04)" % absent)

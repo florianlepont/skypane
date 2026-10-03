@@ -46,15 +46,6 @@ PAGE_TITLE = i18n.msg("nav.flights", "Flights")
 LIGHTBOX_ARIA_LABEL = i18n.msg(
     "flights.picture_shown_on_the_frame", "Picture shown on the frame")
 
-# The render gallery's colours are nominal render-internal swatches, not
-# colour-accurate against real Spectra 6 glass — without this caveat a
-# user could mistake an expected render/glass mismatch for a hardware
-# fault.
-COLOUR_CAVEAT = i18n.msg(
-    "flights.colours_are_nominal_render_internal_swatches",
-    "Colours are nominal render-internal swatches, not colour-accurate "
-    "against real Spectra 6 glass.")
-
 _GALLERY_ROUTE_PREFIX = "/gallery/"
 
 # server/poll_loop.py's _save_to_gallery() names each gallery file
@@ -210,11 +201,6 @@ LIGHTBOX_CAPTION_TEMPLATE = i18n.msg("flights.picture_from", "Picture from %s")
 # below must equal panel-lookup.js's own literals exactly (duplicated,
 # not imported: a page module has no import path to a static script),
 # pinned by test_view_pages.py's three-file DOM-contract guard.
-LIGHTBOX_NOTE = i18n.msg(
-    "flights.this_is_the_nearest_recorded_render_not",
-    "This is the nearest recorded render, not necessarily from this "
-    "exact flight — the panel updates on its own wake/poll cycle. "
-    + COLOUR_CAVEAT)
 _VIEW_PANEL_SRC_ATTR = "data-view-panel-src"
 _VIEW_PANEL_CAPTION_ATTR = "data-view-panel-caption"
 _VIEW_PANEL_CLOSE_ATTR = "data-view-panel-close"
@@ -395,17 +381,16 @@ def _lightbox_html():
     `render()`, only when at least one row carries a trigger button.
     Its image src/alt and caption text are written by
     `panel-lookup.js` on trigger click; this function only emits the
-    static note.
+    empty shell and the close button.
     """
     return (
         '<dialog class="lightbox" id="%s" aria-label="%s">'
         '<img class="lightbox__image" alt="">'
         '<p class="lightbox__caption text-label mono"></p>'
-        '<p class="lightbox__note text-body">%s</p>'
         '<button type="button" %s>%s</button>'
         "</dialog>"
     ) % (LIGHTBOX_DIALOG_ID, escape_html(i18n.t(LIGHTBOX_ARIA_LABEL)),
-         escape_html(i18n.t(LIGHTBOX_NOTE)), _VIEW_PANEL_CLOSE_ATTR, escape_html(i18n.t(_CLOSE_TEXT)))
+         _VIEW_PANEL_CLOSE_ATTR, escape_html(i18n.t(_CLOSE_TEXT)))
 
 
 def _safe_query(state_dir, fn):

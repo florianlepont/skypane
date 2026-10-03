@@ -206,13 +206,14 @@ def test_panel_lookup_drop_handling_writes_the_forms_own_input_and_no_canvas(app
 
 
 def test_panel_lookup_optional_replace_lookup_stays_outside_mandatory_guard(app03_server):
-    """the mandatory three-element guard appears exactly once and never mentions the optional
+    """the mandatory two-element guard (image and caption; the lightbox note is no longer
+    required) appears exactly once and never mentions the optional
     replace-form lookup on its own line, that lookup's first occurrence in the source comes
     after the guard's, it appears exactly once, and the action-attribute setAttribute write
     appears exactly 3 times — pinning the
     single line that keeps History's lightbox alive"""
     src = served_asset(app03_server, "/static/panel-lookup.js")
-    guard_needle = "if (!image || !caption || !note)"
+    guard_needle = "if (!image || !caption)"
     assert src.count(guard_needle) == 1, (
         "expected the mandatory guard line exactly once, got %d" % src.count(guard_needle))
     guard_line = [line for line in src.splitlines() if guard_needle in line][0]

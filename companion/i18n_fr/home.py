@@ -44,6 +44,26 @@ MESSAGES = {
     "home.frame": "Cadre",
     "home.no_reading_yet": "Aucune mesure pour l’instant",
 
+    "home.frame_state": "État du cadre",
+    "home.state_screen_on": "Écran allumé",
+    "home.state_screen_off": "Écran éteint — le cadre reste vide",
+    "home.state_quiet_hours":
+        "Heures calmes — l’écran se repose jusqu’à %s",
+    "home.state_battery_resting":
+        "Batterie très faible — le cadre se repose jusqu’à sa recharge",
+    "home.quiet_schedule_on": "Les heures calmes sont activées, de %s à %s",
+    "home.quiet_schedule_off": "Les heures calmes sont désactivées",
+    "home.cadence":
+        "Pour économiser sa batterie, le cadre dort entre deux mises à jour "
+        "et se réveille environ toutes les %s\u00a0: il ne se rafraîchit donc pas "
+        "en continu.",
+    "home.cadence_no_interval":
+        "Pour économiser sa batterie, le cadre dort entre deux mises à jour\u00a0: "
+        "il ne se rafraîchit donc pas en continu.",
+    "home.turn_screen_on": "Allumer l’écran",
+    "home.turn_screen_off": "Éteindre l’écran",
+    "home.turn_quiet_hours_on": "Activer les heures calmes",
+    "home.turn_quiet_hours_off": "Désactiver les heures calmes",
     "home.battery_fact": "Batterie · %s",
     "home.battery_fact_empty": "Batterie · Aucune mesure pour l’instant",
     "home.action_needed": "Un élément demande votre attention",
