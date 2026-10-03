@@ -6,9 +6,8 @@ English constant already lives (companion/pages/history_page.py),
 never here — this module only carries each id's French translation.
 
 Several ids are deliberately absent here and reused from sibling
-modules instead ("Flights", "Timestamp", "Corroboration", "Callsign",
-"Runway", the corroboration/filter-bar copy, "Close", "Departing",
-"Arriving", "Flight") — the auto-merge package raises ValueError on a
+modules instead ("Flights", "Timestamp", "Flight", the filter-bar copy, "Close",
+"Departing", "Arriving") — the auto-merge package raises ValueError on a
 duplicate id across sibling modules.
 
 Copy follows sentence case, the typographic apostrophe (U+2019, never
@@ -18,8 +17,6 @@ a straight quote), and a non-breaking space (U+00A0) before
 
 MESSAGES = {
     # --- Page header, empty/unavailable states --------------------------
-    "flights.the_latest_aircraft_the_frame_has_shown":
-        "Les %d derniers avions que le cadre a affichés.",
     "flights.no_flights_detected_yet_check_back_after_the":
         "Aucun vol détecté pour l’instant — revenez après le prochain "
         "cycle de vérification.",
@@ -27,29 +24,14 @@ MESSAGES = {
         "La liste des vols est temporairement indisponible — réessayez "
         "dans une minute.",
 
-    # --- Table/column headers and the mobile card's dt labels -----------
+    # --- Table column headers ---------------------------------------------
     "flights.when": "Quand",
-    # Visually-hidden header naming the row-toggle button's column.
-    "flights.details": "Détails",
-    # The row-toggle button's swapped accessible name, read by
-    # flight-rows.js — names the picture too, since that control lives
-    # inside the same detail row.
-    "flights.show_flight_details_and_picture":
-        "Afficher les détails du vol et l’image",
-    "flights.hide_flight_details_and_picture":
-        "Masquer les détails du vol et l’image",
     "flights.route": "Trajet",
     "flights.state": "Sens",
-    "flights.hex": "Code hex",
-    "flights.full_timestamp": "Horodatage complet",
     "flights.recent_flights_table_scrollable": "Tableau des vols récents, défilable",
 
-    # --- Corroboration's own two remaining, not-yet-shared labels --------
-    "flights.single_source": "Source unique",
-    "flights.unknown": "Inconnu",
-
     # --- The table's filter bar -----------------------------------------
-    "flights.filter_by_callsign_or_hex": "Filtrer par indicatif ou code hex",
+    "flights.filter_flights": "Filtrer les vols",
     "flights.no_matching_flights": "Aucun vol correspondant",
     "flights.try_a_different_search_or_clear_filter_to_see":
         "Essayez une autre recherche, ou effacez le filtre pour voir "
@@ -61,17 +43,12 @@ MESSAGES = {
         "cherchés.",
 
     # --- Copy-to-clipboard accessible names -------------------------------
-    "flights.copy_callsign": "Copier l’indicatif %s",
-    "flights.copy_hex_id_for": "Copier le code hex pour %s",
-    "flights.copy_timestamp_for": "Copier l’horodatage pour %s",
     "flights.no_callsign": "aucun indicatif",
     "flights.no_reading_yet": "aucune mesure pour l’instant",
     # copy-button.js's on-success feedback text, server-rendered via
     # each button's data-copied-text attribute.
-    "flights.copied": "Copié",
 
     # --- The per-row "View panel near this time" lightbox ---------------
-    "flights.view_panel_near_this_time": "Voir le panneau proche de cette heure",
     "flights.picture_shown_on_the_frame": "Image affichée sur le cadre",
     "flights.picture_from": "Image du %s",
     # A key of its own: the completeness harness needs an entry even
@@ -99,8 +76,11 @@ MESSAGES = {
     "flights.today": "Aujourd’hui",
     "flights.yesterday": "Hier",
 
-    # The panel-picture control's visible label.
+    # The row-level picture link: visible label, hidden column header and
+    # the per-row accessible name.
     "flights.view_picture": "Voir l’image",
+    "flights.picture": "Image",
+    "flights.view_picture_of": "Voir l’image de %s",
 
     "flights.show_more_remaining": "Afficher plus (%d restants)",
 }

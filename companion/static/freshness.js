@@ -74,8 +74,8 @@
   var NEW_ROW_CLASS = "is-new-row";
 
   // Dispatched on document after a successful swap so a listener needs
-  // no reference to any element this file touches; list-filter.js and
-  // flight-rows.js re-derive their own row state from it.
+  // no reference to any element this file touches; list-filter.js
+  // re-derives its own row state from it.
   var SWAPPED_EVENT = "skypane-regions-swapped";
 
   // The DOM value is never trusted unvalidated: only a plain hex string

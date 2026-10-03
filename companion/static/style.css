@@ -411,6 +411,11 @@ h3 {
   margin: 0 0 var(--space-xs);
 }
 
+/* Holds only the hidden refresh pill, so it reserves no space. */
+.page-header__freshness--silent {
+  margin: 0;
+}
+
 /* Establishes a containing block for the out-of-flow pill further down.
  * The pill used to be an inline-level child stranded between block
  * siblings, forcing an anonymous block box whose line box was consumed
@@ -1945,102 +1950,6 @@ table.data-table--firmware-history td:last-child {
   overflow-wrap: anywhere;
 }
 
-.flight-detail-row td {
-  background: color-mix(in srgb, var(--color-text) 3%, transparent);
-  padding: var(--space-md);
-}
-
-/* var(--space-lg) reopens a real gap between this grid's own trailing
- * copy button and the next control's synthesized 44x44 hit area — a 0
- * margin measured only 4px of clearance between their two 11px reaches
- * (22px needed). */
-.flight-detail-row__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: var(--space-sm) var(--space-md);
-  margin: 0 0 var(--space-lg);
-}
-
-.flight-detail-row__grid dt {
-  margin: 0;
-}
-
-.flight-detail-row__grid dd {
-  margin: 0 0 var(--space-xs);
-}
-
-/* display: none, not transition-behavior: allow-discrete: the
- * alternative keeps the row's controls in the tab order and a11y tree
- * for the whole close transition (forever, in unsupported browsers).
- * Asserted by test_view_pages.py and test_browser_ux.py. */
-.flight-detail-row--collapsed {
-  display: none;
-}
-
-/* grid-template-rows 0fr -> 1fr on a wrapper <td>: a <tr> cannot be a
- * grid container and display cannot interpolate. Not max-height (row
- * content varies) and not interpolate-size/calc-size() (Chromium-only).
- * min-height: 0 is load-bearing — without it the track never reaches 0fr. */
-.flight-rows-live .flight-detail-row__reveal {
-  display: grid;
-  grid-template-rows: 1fr;
-  transition: grid-template-rows var(--motion-fast) ease-out;
-}
-
-@starting-style {
-  .flight-rows-live .flight-detail-row__reveal {
-    grid-template-rows: 0fr;
-  }
-}
-
-/* padding-left lives on THIS element, not .flight-detail-row td above:
- * that rule's own padding is shadowed by table.data-table--flights td's
- * higher-specificity padding. Clears the 11px reach of the copy
- * button's synthesized hit area, which overflow: hidden would clip. */
-.flight-detail-row__reveal-inner {
-  overflow: hidden;
-  min-height: 0;
-  padding-left: var(--space-md);
-}
-
-/* Every value below is .copy-btn's own, reused verbatim: the 22x22 box,
- * the ::before -11px inset synthesizing a 44x44 hit area, the 7% hover
- * wash. transform (not all) animates only the rotation; the global
- * reduced-motion block already covers it, so no per-rule block is added. */
-.row-toggle {
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-}
-
-.row-toggle::before {
-  content: "";
-  position: absolute;
-  inset: -11px;
-}
-
-.row-toggle:hover {
-  background: color-mix(in srgb, var(--color-text) 7%, transparent);
-}
-
-.row-toggle__glyph {
-  display: inline-block;
-  font-size: 14px;
-  line-height: 1;
-  transition: transform var(--motion-fast) ease;
-}
-
-.row-toggle[aria-expanded="true"] .row-toggle__glyph {
-  transform: rotate(180deg);
-}
-
 .flight-day-row th {
   background: var(--color-canvas);
   text-align: left;
@@ -2048,10 +1957,6 @@ table.data-table--firmware-history td:last-child {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.flight-row--clickable {
-  cursor: pointer;
 }
 
 /* 70% muted strength, matching .section-caption/.data-table th. color,
@@ -2169,39 +2074,10 @@ table.data-table--firmware-history td:last-child {
   white-space: nowrap;
 }
 
-.history-card__details {
-  margin-top: 0;
-}
-
-/* The negative margin cancels .history-card's own padding so the tap
- * area is the card's whole face, not just its inner content box.
- * color: inherit overrides the global summary accent — this text is
- * flight data, not a label; the chevron below keeps the accent instead. */
-.history-card__summary {
-  margin: calc(var(--space-md) * -1);
-  padding: var(--space-md);
-  align-items: center;
-  color: inherit;
-  min-height: 0;
-}
-
-.history-card__summary::before {
-  order: 1;
-  margin-right: 0;
-  margin-left: var(--space-md);
-  color: var(--color-accent);
-}
-
 /* min-width: 0 is the usual flex-item floor: without it a long
- * callsign or route would refuse to shrink and push the chevron off
- * the card. */
+ * callsign or route would refuse to shrink past the card width. */
 .history-card__face {
-  flex: 1 1 auto;
   min-width: 0;
-}
-
-.history-card__details > dl {
-  margin-top: var(--space-md);
 }
 
 .history-card__resolve {
@@ -2210,6 +2086,20 @@ table.data-table--firmware-history td:last-child {
 
 .history-card__resolve .cell-unresolved-link {
   margin-left: 0;
+}
+
+.history-card__action {
+  margin-top: var(--space-sm);
+}
+
+/* The row-level picture action on the card and in the table: the
+ * secondary-button look it inherits from .calendar-disconnect-btn, with
+ * the 44px tap floor and no wrapping inside the narrow picture column. */
+a.calendar-disconnect-btn.flight-picture-link {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
 }
 
 /* .flights-more is always rendered (empty when nothing remains), so

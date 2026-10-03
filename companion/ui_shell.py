@@ -18,7 +18,6 @@ from companion.ui_base import (
     FAVICON_LINK_HTML,
     FLASH_CLEANUP_SCRIPT_SRC,
     FLASH_SLOT_MARKER,
-    FLIGHT_ROWS_SCRIPT_SRC,
     FRESHNESS_SCRIPT_SRC,
     ICON_DEFS_HTML,
     LIST_FILTER_SCRIPT_SRC,
@@ -113,7 +112,7 @@ def login_shell(body, ui_theme="auto", lang=None):
     })
 
 
-# The shell's own 15 script srcs, in the fixed relative order they are
+# The shell's own 14 script srcs, in the fixed relative order they are
 # emitted whenever present - the one place that order is declared.
 # page_shell()'s `scripts` argument only ever widens or narrows which of
 # these are present; it never reorders them.
@@ -128,7 +127,6 @@ SHELL_SCRIPT_ORDER = (
     POLL_COOLDOWN_SCRIPT_SRC,
     CONFIRM_SUBMIT_SCRIPT_SRC,
     THEME_PREVIEW_SCRIPT_SRC,
-    FLIGHT_ROWS_SCRIPT_SRC,
     SUBMIT_GUARD_SCRIPT_SRC,
     RELATIVE_TIME_SCRIPT_SRC,
     QUICK_SWITCH_SCRIPT_SRC,

@@ -154,10 +154,6 @@ CONFIRM_SUBMIT_SCRIPT_SRC = "/static/confirm-submit.js"
 # contract as above.
 THEME_PREVIEW_SCRIPT_SRC = "/static/theme-preview.js"
 
-# Must equal companion/app.py's FLIGHT_ROWS_SCRIPT_ROUTE exactly, same
-# contract as above.
-FLIGHT_ROWS_SCRIPT_SRC = "/static/flight-rows.js"
-
 # Must equal companion/app.py's LOGIN_CARD_SCRIPT_ROUTE exactly, same
 # contract as above. Emitted by login_shell() alone — the only static
 # script loaded on the pre-auth page; page_shell() never emits it.
