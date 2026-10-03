@@ -18,7 +18,6 @@ parametrized rather than looped.
 import pytest
 
 from companion import auth, layout
-from companion.pages import history_page
 from companion_app_server import TEST_PASSWORD
 from server import device_config
 from companion.test_browser_ux_helpers import (
@@ -1170,11 +1169,10 @@ def test_every_disclosure_on_every_page_opens_without_overflow(new_context, serv
     #
     # (route, minimum <details> the page must render), every authenticated page in nav order.
     # Each route's own floor is its page-specific disclosure count plus the one shared
-    # `<details class="tab-bar__more">` every authenticated page renders. /flights' floor is
-    # derived from history_page.FLIGHTS_PAGE_SIZE, the page's own default page size, not the
-    # seeded fixture's own flight count, since Vols is paginated.
+    # `<details class="tab-bar__more">` every authenticated page renders. /flights carries no
+    # disclosure of its own: its rows expose a direct picture action instead.
     pages = (("/", 1), ("/display", 3),
-             ("/flights", history_page.FLIGHTS_PAGE_SIZE + 1),
+             ("/flights", 1),
              ("/airlines", 1), ("/health", 4), ("/device", 1))
     base_url = server.base_url()
     context = new_context(

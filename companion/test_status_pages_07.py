@@ -283,17 +283,6 @@ def test_every_disclosure_has_a_marker_and_no_header_claims_to_stick(css_text):
         "long label would otherwise shrink it to a sliver (T3)")
     assert "rotate(" in marker.get("transform", ""), "expected the closed-state marker to be a rotated box (T3)"
 
-    # And the card summary REUSES that marker rather than drawing a
-    # second one. A rule of its own that redeclared the geometry would be
-    # two chevrons to keep in step, which is the thing the single shared
-    # rule exists to prevent.
-    card_marker = declarations_for(css_text, ".history-card__summary::before")
-    for redeclared in ("content", "width", "height", "border-right", "border-bottom"):
-        assert redeclared not in card_marker, (
-            "expected the card summary's marker override to change only WHERE the shared "
-            "chevron sits, not to redraw it (found %r in %r) — two chevrons is two things to "
-            "keep in step (T3)" % (redeclared, card_marker))
-
     open_marker = declarations_for(css_text, "details[open] > summary::before")
     assert "rotate(" in open_marker.get("transform", ""), "expected the open state to rotate the marker (T3)"
     assert not rules_with_selector(css_text, "details[open] summary::before"), (
@@ -440,31 +429,6 @@ def test_resolve_context_hidden_guard_present_after_base_rule(css_text):
 
     guard_decls = declarations_for(css_text, ".resolve-context[hidden]")
     assert guard_decls.get("display") == "none", "expected .resolve-context[hidden] to hide by display: none"
-
-
-def test_flight_detail_row_grid_margin_never_shrinks_below_cfg70_floor(css_text):
-    """style.css's .flight-detail-row__grid margin-bottom is at least 2x .copy-btn::before's own
-    inset magnitude — the measured 22px hit-target floor made executable rather than a
-    comment; this is the check that would have failed had this task's own source data's
-    'reduce to var(--space-md)' suggestion been taken"""
-    tokens = custom_properties(css_text, ":root")
-    grid_decls = declarations_for(css_text, ".flight-detail-row__grid")
-    margin_value = grid_decls.get("margin")
-    margin_match = re.search(r"0\s+0\s+var\(--(space-[a-z]+)\)", margin_value or "")
-    assert margin_match, "could not parse .flight-detail-row__grid's margin shorthand: %r" % (margin_value,)
-    margin_bottom = int(tokens["--" + margin_match.group(1)][:-2])
-
-    before_decls = declarations_for(css_text, ".copy-btn::before")
-    inset_match = re.search(r"inset:\s*-(\d+)px", "inset: %s" % before_decls.get("inset", ""))
-    assert inset_match, "could not parse .copy-btn::before's inset: %r" % (before_decls,)
-    reach = int(inset_match.group(1))
-
-    assert margin_bottom >= 2 * reach, (
-        "CFG-70 floor violated: two adjacent synthesized 44x44 pointer targets need their owners' "
-        "visual boxes at least 2x%dpx apart; CFG-70 measured the earlier control at 34x26 when "
-        "they were not, and .flight-detail-row__grid's margin-bottom is only %dpx — a smaller "
-        "margin here silently shrinks a hit target nothing else in the suite would catch"
-        % (reach, margin_bottom))
 
 
 def test_nav_toggle_label_now_describes_the_preferences_panel():

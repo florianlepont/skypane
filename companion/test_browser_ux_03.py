@@ -949,12 +949,11 @@ def test_a_new_detection_is_highlighted_and_an_existing_row_is_not(new_context, 
         context.close()
 
 
-def test_a_refresh_neither_unfolds_the_table_nor_closes_what_you_opened(new_context, make_app_server):
-    """A refresh neither unfolds the Flights table nor closes the row you opened: with focus
-    deliberately blurred off the toggle (so the loop's focus skip cannot be what passes this)
-    and a new detection renumbering every row below it, exactly the row that was opened is
-    still open — by event identity, not by position — and exactly one toggle still
-    announces it.
+def test_a_refresh_keeps_every_picture_action_working(new_context, make_app_server):
+    """A refresh keeps the Flights picture action on every row: after a new detection lands
+    and the loop swaps the list in, every desktop row and phone card still carries exactly one
+    picture link, the new flight at the top has its own, and a link in the swapped markup
+    still opens the shared lightbox (the click handler is delegated, so it survives the swap).
     """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     context = new_context(viewport=VIEWPORT_DESKTOP)
@@ -964,16 +963,7 @@ def test_a_refresh_neither_unfolds_the_table_nor_closes_what_you_opened(new_cont
         _login(page, base_url)
         page.goto(base_url + "/flights")
         page.wait_for_load_state("networkidle")
-
-        toggle = page.locator("[data-row-toggle]").first
-        toggle.wait_for(state="visible")
-        opened_id = page.eval_on_selector(
-            "#" + toggle.get_attribute("aria-controls"),
-            "(el, attr) => el.getAttribute(attr)", FLIGHT_ID_ATTR)
-        if not opened_id:
-            raise AssertionError("expected the detail row to carry its event identity")
-        toggle.click()
-        page.evaluate("() => document.activeElement.blur()")
+        before = page.locator("tr[data-flight-row]").count()
 
         _record_a_new_detection(
             server.tmpdir, "OPENSRV", "39fffe", "2026-08-02T00:15:00+00:00")
@@ -981,40 +971,28 @@ def test_a_refresh_neither_unfolds_the_table_nor_closes_what_you_opened(new_cont
         page.wait_for_timeout(REFRESH_SETTLE_MS)
 
         seen = page.evaluate(
-            "([idAttr, openId]) => {"
-            "  const details = [...document.querySelectorAll("
-            "    'tr.flight-detail-row')];"
-            "  const open = details.filter(el =>"
-            "    el.className.indexOf('flight-detail-row--collapsed') === -1);"
-            "  return {total: details.length,"
-            "          open: open.map(el => el.getAttribute(idAttr)),"
-            "          expanded: [...document.querySelectorAll("
-            "            '[data-row-toggle][aria-expanded=\\\"true\\\"]')].length,"
-            "          stillThere: !!document.querySelector("
-            "            'tr.flight-detail-row[' + idAttr + '=\\\"' + openId"
-            "            + '\\\"]')};"
-            "}", [FLIGHT_ID_ATTR, opened_id])
-        if seen["total"] < 2:
+            "() => ({rows: document.querySelectorAll('tr[data-flight-row]').length,"
+            "        cards: document.querySelectorAll('li.history-card').length,"
+            "        rowLinks: document.querySelectorAll("
+            "          'tr[data-flight-row] a[data-view-panel-src]').length,"
+            "        cardLinks: document.querySelectorAll("
+            "          'li.history-card a[data-view-panel-src]').length,"
+            "        topName: document.querySelector("
+            "          'tr[data-flight-row] a[data-view-panel-src]').getAttribute('aria-label')})")
+        if seen["rows"] != before:
             raise AssertionError(
-                "expected the swapped list to still render its detail rows, got "
-                "%d — with fewer this check measures nothing" % seen["total"])
-        if not seen["stillThere"]:
+                "expected the swapped list to keep its page size (%d rows before, %d after)"
+                % (before, seen["rows"]))
+        if seen["rowLinks"] != seen["rows"] or seen["cardLinks"] != seen["cards"]:
             raise AssertionError(
-                "the row that was opened is no longer in the list at all, so "
-                "nothing below is a statement about it")
-        if seen["open"] != [opened_id]:
+                "expected one picture link per row and per card after the swap, got %r" % (seen,))
+        if seen["topName"] != "View picture of OPENSRV":
             raise AssertionError(
-                "after a refresh %d of %d detail rows are open (%r), expected "
-                "exactly the one that was opened (%r). Every row open is the "
-                "server's own markup arriving un-collapsed; the WRONG row open "
-                "is a record keyed to a position that just renumbered"
-                % (len(seen["open"]), seen["total"], seen["open"], opened_id))
-        if seen["expanded"] != 1:
-            raise AssertionError(
-                "expected exactly one toggle to report aria-expanded=true after "
-                "the refresh, got %d — the class and the announced state are "
-                "written in one place precisely so they cannot drift"
-                % seen["expanded"])
+                "expected the newest flight to head the list with its own picture link, got %r"
+                % (seen["topName"],))
+        page.locator("tr[data-flight-row] a[data-view-panel-src]").first.click()
+        if not page.locator("#panel-lookup-dialog").evaluate("el => el.open"):
+            raise AssertionError("expected a swapped-in picture link to open the lightbox")
     finally:
         context.close()
 
@@ -1091,159 +1069,6 @@ def test_a_refresh_never_interrupts_or_undoes_the_filter(new_context, server):
     finally:
         context.close()
 
-
-def test_a_collapsed_detail_row_cannot_be_reached_by_keyboard(new_context, server):
-    """A collapsed Flights detail row lets none of its own controls take focus — the
-    deliberate display:none end state, asked as the keyboard question directly — against a
-    control phase proving the same controls are reachable once the row is open, and the
-    opening really animates grid-template-rows on a grid wrapper at --motion-fast.
-    """
-    context = new_context(viewport=VIEWPORT_DESKTOP)
-    try:
-        page = context.new_page()
-        base_url = server.base_url()
-        _login(page, base_url)
-        page.goto(base_url + "/flights")
-        toggle = page.locator("[data-row-toggle]").first
-        toggle.wait_for(state="visible")
-        detail_id = toggle.get_attribute("aria-controls")
-
-        probe = (
-            "(id) => {"
-            "  const row = document.getElementById(id);"
-            "  const kids = [...row.querySelectorAll("
-            "    'a[href], button, input, select, textarea, [tabindex]')];"
-            "  const reached = [];"
-            "  kids.forEach(el => { el.focus();"
-            "    if (document.activeElement === el) reached.push("
-            "      el.tagName + '.' + (el.className || ''));"
-            "    el.blur(); });"
-            "  return {kids: kids.length, reached: reached};"
-            "}")
-        seen = page.evaluate(probe, detail_id)
-        if not seen["kids"]:
-            raise AssertionError(
-                "expected the seeded detail row to contain focusable controls "
-                "(its copy buttons) — with none, this check measures nothing")
-        if seen["reached"]:
-            raise AssertionError(
-                "a COLLAPSED detail row let %d of its %d controls take focus "
-                "(%r) — a row held present at zero height is still in the tab "
-                "order and still in the accessibility tree, so a keyboard user "
-                "walks into a row nobody can see (T-23-32)"
-                % (len(seen["reached"]), seen["kids"], seen["reached"]))
-
-        toggle.click()
-        seen = page.evaluate(probe, detail_id)
-        if not seen["reached"]:
-            raise AssertionError(
-                "control: an OPEN detail row's %d controls were still "
-                "unreachable — so the assertion above is about the page being "
-                "empty, not about the row being closed" % seen["kids"])
-
-        style = page.eval_on_selector(
-            "#" + detail_id + " .flight-detail-row__reveal",
-            "el => [getComputedStyle(el).display,"
-            " getComputedStyle(el).transitionProperty,"
-            " getComputedStyle(el).transitionDuration]")
-        if style[0] != "grid":
-            raise AssertionError(
-                "expected the reveal wrapper to be a grid, got %r" % (style[0],))
-        if "grid-template-rows" not in style[1]:
-            raise AssertionError(
-                "expected grid-template-rows to be the transitioned property, "
-                "got %r — a guessed max-height either clips tall content or "
-                "animates through empty space, and interpolate-size is "
-                "Chromium-only" % (style[1],))
-        if style[2] != "0.18s":
-            raise AssertionError(
-                "expected the reveal to spend --motion-fast (180ms), got %r"
-                % (style[2],))
-    finally:
-        context.close()
-
-
-def test_a_phone_card_opens_from_a_tap_anywhere_with_and_without_scripts(new_context, server):
-    """A phone card at 360px opens from a tap on its own face away from every control,
-    through the native disclosure it already contained, with its summary box covering the
-    whole card and no control nested inside it — and it does the same with scripts
-    blocked, where no detail row is collapsed and the live-script class the height
-    animation is keyed on is absent.
-    """
-    base_url = server.base_url()
-    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
-    try:
-        page = context.new_page()
-        _login(page, base_url)
-        page.goto(base_url + "/flights")
-        card = page.locator("li.history-card").first
-        card.wait_for(state="visible")
-        details = card.locator("details.history-card__details")
-        if details.evaluate("el => el.open"):
-            raise AssertionError(
-                "expected the card to start closed — with it open this check "
-                "cannot tell a tap that worked from a card that was never shut")
-        boxes = page.evaluate(
-            "() => {"
-            "  const li = document.querySelector('li.history-card');"
-            "  const s = li.querySelector('summary.history-card__summary');"
-            "  const a = li.getBoundingClientRect();"
-            "  const b = s.getBoundingClientRect();"
-            "  return [a.width, b.width, a.top, b.top];"
-            "}")
-        if boxes[1] < boxes[0] - 2.5:
-            raise AssertionError(
-                "the card's summary is %spx wide inside a %spx card — a tap on "
-                "the rim between them lands on nothing, which reads as a broken "
-                "control rather than as a boundary" % (boxes[1], boxes[0]))
-        card.locator(".history-card__secondary").click()
-        if not details.evaluate("el => el.open"):
-            raise AssertionError(
-                "a tap on the card's own face away from every control did not "
-                "open it — D7 asks for a card you tap anywhere, through the "
-                "native disclosure it already contained")
-        nested = page.eval_on_selector(
-            "summary.history-card__summary",
-            "el => el.querySelectorAll('a[href], button').length")
-        if nested:
-            raise AssertionError(
-                "expected no control nested inside the card's summary, found %d"
-                % nested)
-    finally:
-        context.close()
-
-    with _no_js_page(new_context, base_url, "/flights",
-                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
-        card = page.locator("li.history-card").first
-        card.wait_for(state="visible")
-        details = card.locator("details.history-card__details")
-        if details.evaluate("el => el.open"):
-            raise AssertionError("expected the scripts-blocked card to start closed too")
-        card.locator(".history-card__secondary").click()
-        if not details.evaluate("el => el.open"):
-            raise AssertionError(
-                "the phone card did not open with scripts blocked — the whole "
-                "point of building this on the <details> the card already had is "
-                "that it needs no script (CFG-38)")
-        collapsed = page.evaluate(
-            "() => document.querySelectorAll("
-            "'.flight-detail-row--collapsed').length")
-        if collapsed:
-            raise AssertionError(
-                "%d detail row(s) are collapsed on a page with no script — the "
-                "collapsing class has exactly one writer and it cannot run here "
-                "(D-15, locked)" % collapsed)
-        live = page.evaluate(
-            "() => document.documentElement.className.indexOf("
-            "'flight-rows-live') !== -1")
-        if live:
-            raise AssertionError(
-                "the live-script class is on <html> with no script running — the "
-                "height animation is keyed on it precisely so a scripts-blocked "
-                "page animates nothing")
-
-
-# The save bar's own dirty-count, its every-field save, and its scripts-blocked fallback.
 
 def test_the_dirty_count_arrives_and_moves_only_when_the_word_does(new_context, server):
     """[data-dirty-count] arrives rather than appearing, and stays silent for anything that

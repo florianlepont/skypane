@@ -1,5 +1,5 @@
 """Companion view-page tests: most of the JS-source contracts
-(panel-lookup.js, flight-rows.js, list-filter.js, freshness.js), the
+(panel-lookup.js, list-filter.js, freshness.js), the
 Airlines resolve-dialog action row and unresolved-airline link, Flights'
 refresh-region/row-identity/detail-reveal/Show-more contracts, and Home's
 battery ring, relative-age elements and French render.
@@ -21,7 +21,7 @@ import companion.prefs as prefs
 import companion.test_view_pages_helpers as vp
 from companion.pages import airlines_page, health_page, history_page, home_page
 from companion_app_server import served_asset, served_stylesheet
-from companion_markup import at_rule_blocks, css_rules, declarations_for, rules_with_selector
+from companion_markup import css_rules, declarations_for, rules_with_selector
 from server import history_db
 from server.plane import illustrations
 
@@ -470,7 +470,7 @@ def test_day_separators_group_rows_by_europe_paris_calendar_day(tmp_path):
     }
     for lang, rendered in (("en", rendered_en), ("fr", rendered_fr)):
         rows = re.findall(
-            r'<tr class="flight-day-row"><th scope="colgroup" colspan="6"'
+            r'<tr class="flight-day-row"><th scope="colgroup" colspan="5"'
             r' class="text-label">(.*?)</th></tr>', rendered)
         assert rows == expected[lang], (
             "expected the %s separators to read %r, got %r" % (lang, expected[lang], rows))
@@ -538,9 +538,9 @@ def test_every_flights_row_carries_a_stable_event_identity(tmp_path):
 
     tr_ids = _ids(before, "tr")
     li_ids = _ids(before, "li")
-    assert len(tr_ids) == 4, (
-        "expected both the summary row and its sibling detail row to carry %r in the "
-        "desktop table (4 for 2 events), found %r" % (attr, tr_ids))
+    assert len(tr_ids) == 2, (
+        "expected every desktop table row to carry %r (2 for 2 events), found %r"
+        % (attr, tr_ids))
     assert len(li_ids) == 2, "expected every phone card to carry %r, found %r" % (attr, li_ids)
     assert all(tr_ids + li_ids), "expected every identity attribute to be non-empty"
     assert sorted(set(tr_ids)) == sorted(set(li_ids)), (
@@ -591,79 +591,10 @@ def test_flights_declares_its_refresh_regions_and_never_the_filter_input(tmp_pat
             "load, so replacing it leaves the filter permanently dead" % (selector,))
 
 
-def test_detail_row_height_animates_and_a_closed_row_is_unreachable(tmp_path, served_css, app):
-    """the Flights detail row animates open through a grid reveal wrapper inside its own <td>
-    (grid-template-rows 0fr, var(--motion-fast), an @starting-style entry, scoped to the
-    class flight-rows.js adds to <html>), neither interpolate-size nor calc-size() appears,
-    and the collapsed end state is still display: none — the one state that takes a closed
-    row out of both the tab order and the accessibility tree (D3/,
-    Task 2)"""
-    entry = declarations_for(
-        served_css, ".flight-rows-live .flight-detail-row__reveal", at_rules=("@starting-style",))
-    assert entry.get("grid-template-rows") == "0fr", (
-        "expected the detail row's height to animate from grid-template-rows: 0fr in an "
-        "@starting-style entry for the reveal wrapper, got %r" % (entry,))
-    for rule in css_rules(served_css):
-        for prop, value in rule.declarations:
-            for banned in ("interpolate-size", "calc-size("):
-                assert banned not in prop and banned not in value, (
-                    "companion/static/style.css declares %r in %r — Chromium-only, banned by "
-                    "23-01's own guard" % (banned, rule.selectors))
-
-    vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-08-27T10:00:00+00:00", "hex": "rv01", "callsign": "REVEAL"},
-    ])
-    rendered = history_page.render(vp.history_ctx(tmp_path))
-    detail = vp.detail_row_block(rendered, 0)
-    assert detail is not None, "expected a server-rendered detail row"
-    assert "flight-detail-row__reveal" in detail, (
-        "expected the detail cell's content to sit inside the grid reveal wrapper")
-    assert detail.index("flight-detail-row__reveal") < detail.index("flight-detail-row__grid"), (
-        "expected the reveal wrapper to WRAP the detail grid, not to follow it")
-
-    js = vp.strip_js_line_and_block_comments(served_asset(app, "/static/flight-rows.js"))
-    assert "flight-rows-live" in js, (
-        "expected flight-rows.js to add its own live-script class")
-    reveal = declarations_for(
-        served_css, ".flight-rows-live .flight-detail-row__reveal")
-    assert reveal.get("display") == "grid" and "grid-template-rows" in reveal, (
-        "expected the reveal wrapper to be a grid whose row track is what animates, got %r"
-        % (reveal,))
-    assert reveal.get("transition", "").find("var(--motion-fast)") != -1, (
-        "expected the reveal transition to spend var(--motion-fast), got %r" % (reveal,))
-
-    collapsed = declarations_for(served_css, ".flight-detail-row--collapsed")
-    assert collapsed.get("display") == "none", (
-        "expected the collapsed detail row to resolve to display: none, got %r" % (collapsed,))
-
-
-def test_the_chevron_turns_and_carries_no_reduced_motion_block_of_its_own(served_css):
-    """the row-toggle chevron transitions TRANSFORM on var(--motion-fast) and adds no per-rule
-    reduced-motion block — the global override already covers a plain transform for free,
-    and the stylesheet's live prefers-reduced-motion count is unmoved at 3 (D3/,
-    references/control-density.md:78, Task 2)"""
-    glyph = declarations_for(served_css, ".row-toggle__glyph")
-    assert glyph, "expected a .row-toggle__glyph rule"
-    transition = glyph.get("transition", "")
-    assert transition, (
-        "expected the chevron to take a transition of its own, got %r" % (glyph,))
-    assert "var(--motion-fast)" in transition, (
-        "expected the chevron transition to spend var(--motion-fast), got %r" % (transition,))
-    assert "transform" in transition, (
-        "expected the chevron to transition TRANSFORM specifically, got %r" % (transition,))
-    reduced_motion = [block for block in at_rule_blocks(served_css)
-                      if "prefers-reduced-motion" in block]
-    assert len(reduced_motion) == 3, (
-        "expected companion/static/style.css to carry exactly 3 prefers-reduced-motion blocks, "
-        "got %r" % (reduced_motion,))
-
-
-def test_the_phone_cards_own_face_is_its_disclosure_summary(tmp_path):
-    """the phone card's own face IS the native disclosure's <summary> — the primary line, the
-    secondary line, the time and the thumbnail and airline name all inside it, so a tap
-    anywhere opens the card with no script at all — while the one-hop resolve link stays on
-    the card and OUT of the summary, and the disclosure body still holds exactly the three
-    copy buttons"""
+def test_the_phone_card_is_a_flat_face_with_resolve_and_picture_actions(tmp_path):
+    """the phone card is one flat face — the primary line, the secondary line, the time, the
+    thumbnail and the airline name — followed by the one-hop resolve link (only for an
+    unnamed airline) and the picture link, with no disclosure, summary or copy control"""
     from PIL import Image
 
     key = illustrations.normalise_airline_key("Air France")
@@ -675,36 +606,27 @@ def test_the_phone_cards_own_face_is_its_disclosure_summary(tmp_path):
          "airline": "Air France"},
         {"ts": "2026-08-27T09:00:00+00:00", "hex": "fc02", "callsign": "FACETWO"},
     ])
-    rendered = history_page.render(vp.history_ctx(tmp_path))
+    names = ["2026-08-27T08-00-00+00-00.png"]
+    rendered = history_page.render(vp.history_ctx(tmp_path, gallery_entries=names))
     li = _row_block(rendered, "li", 0)
     assert li is not None, "could not locate the phone card"
-    summary = re.search(r'<summary class="history-card__summary">(.*?)</summary>', li, re.S)
-    assert summary is not None, (
-        "expected the card's own face to BE the disclosure's <summary>, got %r" % (li[:300],))
-    face = summary.group(1)
+    assert "<details" not in li and "<summary" not in li and "data-copy-value" not in li
+    face = re.search(r'<div class="history-card__face">(.*?)</div>(?=<div class="history-card__action"|</li>)', li, re.S)
+    assert face is not None, "expected the card's flat face, got %r" % (li[:300],)
     for part in ("history-card__primary", "history-card__secondary",
                  "history-card__airline", "history-card__thumb",
                  "history-card__airline-name", "history-card__time"):
-        assert part in face, "expected %r to be part of the card's tappable face" % (part,)
+        assert part in face.group(1), "expected %r on the card's face" % (part,)
+    assert 'class="history-card__action"' in li and "data-view-panel-src" in li
+    assert history_page.RESOLVE_LINK_TEXT not in li, (
+        "did not expect a resolve link for a named airline")
 
     li_unresolved = _row_block(rendered, "li", 1)
     assert li_unresolved is not None, "could not locate the unresolved-airline card"
     assert history_page.RESOLVE_LINK_TEXT in li_unresolved, (
-        "expected the unresolved card to still carry its one-hop resolve link somewhere")
-    unresolved_summary = re.search(
-        r'<summary class="history-card__summary">(.*?)</summary>', li_unresolved, re.S)
-    assert unresolved_summary is not None, "expected the unresolved card to have a face summary too"
-    assert history_page.RESOLVE_LINK_TEXT not in unresolved_summary.group(1), (
-        "did not expect the resolve LINK inside the summary")
-    assert "<a " not in unresolved_summary.group(1) and "<button" not in unresolved_summary.group(1), (
-        "did not expect any nested control inside the card's summary")
-
-    assert li.count("<details") == 1 and li.count("</details>") == 1, (
-        "expected exactly one <details> per card")
-    body = li[li.index("</summary>"):]
-    assert body.count("data-copy-value") == 3, (
-        "expected the disclosure body to still hold exactly the three copy buttons, got %d"
-        % body.count("data-copy-value"))
+        "expected the unresolved card to carry its one-hop resolve link")
+    assert history_page.RESOLVE_LINK_TEXT not in face.group(1)
+    assert "data-view-panel-src" in li_unresolved
 
 
 def test_history_card_primary_grid_pins_the_timestamp_track(tmp_path, served_css):
@@ -812,7 +734,7 @@ def test_flights_reveal_state_reproduces_from_the_url_alone(tmp_path, app):
 def test_flights_reveal_control_is_a_plain_anchor_no_script_mentions(tmp_path, app):
     """the Show-more anchor renders with an href and no onclick/data- attribute and is never a
     <button> or <form>, and zero companion/static/*.js files mention its 'flights-more'
-    class (scanned-route floor >= 17, printed on failure) — a no-JS control proof, not merely
+    class (scanned-route floor >= 16, printed on failure) — a no-JS control proof, not merely
     a render"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-09-%02dT10:00:00+00:00" % i, "hex": "nj%02d" % i, "callsign": "NOJS%02d" % i}
@@ -831,8 +753,8 @@ def test_flights_reveal_control_is_a_plain_anchor_no_script_mentions(tmp_path, a
         "did not expect a data-prefixed attribute on the Show-more anchor")
 
     routes = _all_static_script_routes()
-    assert len(routes) >= 17, (
-        "FLOOR TRIPPED: expected at least 17 companion static JS routes, found %d: %r"
+    assert len(routes) >= 16, (
+        "FLOOR TRIPPED: expected at least 16 companion static JS routes, found %d: %r"
         % (len(routes), routes))
     hits_by_route = {}
     for route in routes:
@@ -1004,26 +926,17 @@ def test_phone_card_route_and_state_carry_the_existing_middle_dot(tmp_path):
         "separator, got %r" % (match.group(1),))
 
 
-def test_raw_iso_survives_only_behind_the_copy_control(tmp_path):
-    """the raw ISO timestamp appears only inside a data-copy-value attribute, while the visible
-    full timestamp is the Europe/Paris local clock in the .time-value role on both the
-    desktop detail row and the phone card"""
+def test_raw_iso_timestamp_is_never_rendered(tmp_path):
+    """neither the raw ISO timestamp nor a full-timestamp label appears anywhere in the Flights
+    page: the owner-facing time is the concise local clock plus relative age"""
     raw_ts = "2026-08-27T10:00:00+00:00"
     vp.seed_runway_events(tmp_path, [
         {"ts": raw_ts, "hex": "iso01", "callsign": "ISOROW"},
     ])
     rendered = history_page.render(vp.history_ctx(tmp_path))
-    assert ('data-copy-value="%s"' % raw_ts) in rendered, (
-        "expected the raw ISO to survive as the copy control's value")
-    stripped = re.sub(r'data-copy-value="[^"]*"', "", rendered)
-    assert raw_ts not in stripped, (
-        "expected the raw ISO timestamp to appear ONLY inside a data-copy-value attribute")
-    visible = history_page.full_local_time_text(raw_ts)
-    assert visible != raw_ts, "expected a formatted local clock, not the raw ISO"
-    assert ('<dd class="time-value">%s</dd>' % visible) in rendered, (
-        "expected the visible full timestamp to read %r" % (visible,))
-    assert ('<dd class="mono">%s' % raw_ts) not in rendered, (
-        "did not expect the raw ISO in a monospace dd")
+    assert "ISOROW" in rendered
+    assert raw_ts not in rendered.replace('datetime="%s"' % raw_ts, "")
+    assert "Full timestamp" not in rendered
 
 
 def test_phone_cards_carry_the_airline_name_and_artwork_thumbnail(tmp_path, served_css):
@@ -1104,16 +1017,16 @@ def test_flights_french_render_translates_headings_not_data(tmp_path):
     finally:
         prefs.set_request_prefs(lang="en")
     for needle in (
-            ">Vols<", ">Quand<", ">Trajet<", ">Sens<", "Indicatif",
-            "Filtrer par indicatif ou code hex"):
+            ">Vols<", ">Quand<", ">Trajet<", ">Sens<", "Image",
+            "Filtrer les vols"):
         assert needle in rendered, "expected the French %r in a French Flights render" % (needle,)
     assert "FLT1" in rendered, "expected the seeded callsign 'FLT1' to stay untranslated data"
 
 
 def test_flights_full_seeded_render_french_end_to_end(tmp_path):
     """a fully-seeded Flights render under lang='fr' shows every new French string (column
-    headers, direction words, the unresolved-airline fallback, the no-callsign note, the
-    disclosure summary and the filter's Clear button) with no English leaking in, the seeded
+    headers, direction words, the unresolved-airline fallback, the no-callsign note and the
+    filter's Clear button) with no English leaking in, the seeded
     callsign stays untranslated data, and the identical seeded render under the default
     language still carries every pre-existing English needle"""
     vp.seed_runway_events(tmp_path, [
@@ -1130,7 +1043,7 @@ def test_flights_full_seeded_render_french_end_to_end(tmp_path):
     for needle in (
             ">Vols<", "Compagnie inconnue", "aucun indicatif",
             "Au départ", "À l’arrivée", ">Quand<", ">Vol<", ">Trajet<", ">Sens<",
-            "Plus de détails", "Effacer"):
+            "Effacer",):
         assert needle in rendered_fr, "expected the French %r in the French Flights render" % (needle,)
     for english_only in (
             "Airline unknown", "no callsign", "Departing", "Arriving",
