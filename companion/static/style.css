@@ -2784,6 +2784,7 @@ a.airline-card {
 
 .airline-type__facts dt {
   margin-top: var(--space-xs);
+  font-size: 11px;
 }
 
 .airline-type__facts dd {
@@ -2792,7 +2793,7 @@ a.airline-card {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-xs);
-  font-size: var(--font-body-size);
+  font-size: 13px;
   overflow-wrap: anywhere;
 }
 

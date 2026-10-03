@@ -29,7 +29,7 @@ from companion.pages import airlines_page, config_page
 from server import device_config
 from server.plane import illustrations, manual_resolutions
 from companion.test_browser_ux_helpers import (
-    UI_THEMES_EXPLICIT, VIEWPORT_MIN_SUPPORTED,
+    UI_THEMES_EXPLICIT, VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE,
     _assert_hit_target, _assert_js_gate, _assert_no_page_overflow,
     _assert_surfaces_agree, _await_upload_zone, _bar_text, _click_control,
     _commit_field, _drop_files, _handle_sel, _in_both_themes, _login,
@@ -1622,3 +1622,132 @@ def test_quiet_hours_fields_and_presets_lead_the_ring_and_save(new_context, make
                     raise AssertionError("quiet hours did not persist: %r" % (cfg,))
             finally:
                 context.close()
+
+
+# Airlines: the aircraft-type selector and the framed artwork surface.
+
+TYPES_CARD = "Transavia France"
+
+
+def _types_card(page):
+    return page.locator(".airline-card").filter(
+        has=page.locator(".airline-card__name", has_text=TYPES_CARD))
+
+
+def _visible_type_ids(page):
+    return _types_card(page).evaluate(
+        "card => [...card.querySelectorAll('section[data-airline-type]')]"
+        ".filter(s => s.getClientRects().length > 0)"
+        ".map(s => s.getAttribute('data-airline-type'))")
+
+
+def test_the_type_selector_changes_the_selected_type_from_the_keyboard(new_context, server):
+    """At 1280, 390 and 360 px in English and French, the aircraft-type selector of a
+    two-type airline is a labelled native select at the 44px floor; ArrowDown on the focused
+    select shows the second type's section alone (its title is the second option), its
+    add/replace action stays at the 44px floor, nothing overflows horizontally, and the
+    framed drop surface of the replace form carries no explanatory framing sentence."""
+    for lang, option_label in (("en", "Any aircraft"), ("fr", "Tout appareil")):
+        for viewport in (VIEWPORT_DESKTOP, VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED):
+            where = "%s at %dpx" % (lang, viewport["width"])
+            context = new_context(viewport=viewport)
+            try:
+                context.add_cookies([{
+                    "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
+                page = context.new_page()
+                _login(page, server.base_url())
+                page.goto(server.base_url() + "/airlines")
+                select = _types_card(page).locator("select[data-airline-type-select]")
+                select.wait_for(state="visible")
+                if _visible_type_ids(page) != ["any"]:
+                    raise AssertionError("expected only the first type visible (%s): %r"
+                                         % (where, _visible_type_ids(page)))
+                label = _types_card(page).locator("label[for='%s']" % select.get_attribute("id"))
+                if not label.count():
+                    raise AssertionError("expected a label for the selector (%s)" % where)
+                if select.bounding_box()["height"] < 44:
+                    raise AssertionError("selector under 44px tall (%s)" % where)
+                options = select.locator("option").all_text_contents()
+                if len(options) != 2 or options[0] != option_label or options[1] != "A320":
+                    raise AssertionError("unexpected options %r (%s)" % (options, where))
+
+                select.focus()
+                page.keyboard.press("ArrowDown")
+                _types_card(page).locator("section[data-airline-type=a320]").wait_for(
+                    state="visible")
+                if _visible_type_ids(page) != ["a320"]:
+                    raise AssertionError("expected only the A320 section visible (%s): %r"
+                                         % (where, _visible_type_ids(page)))
+                action = _types_card(page).locator(
+                    "section[data-airline-type=a320] .airline-card__action")
+                box = action.bounding_box()
+                if box is None or box["height"] < 44:
+                    raise AssertionError("type action missing or under 44px (%s): %r" % (where, box))
+                if action.get_attribute("data-view-panel-replace-action") != (
+                        "/illustration/transavia-france-a320.png"):
+                    raise AssertionError("action targets the wrong artwork (%s)" % where)
+                problem = _assert_no_page_overflow(page, "airlines " + where)
+                if problem:
+                    raise AssertionError(problem)
+
+                action.click()
+                dialog = page.locator("#panel-lookup-dialog")
+                if not dialog.evaluate("el => el.open"):
+                    raise AssertionError("expected the action to open the artwork dialog (%s)" % where)
+                if page.locator("#panel-lookup-dialog .upload-drop__preview figcaption").first \
+                        .text_content().strip() == "":
+                    raise AssertionError("expected the drop frame to carry its hint (%s)" % where)
+                if "how it will be framed" in dialog.text_content():
+                    raise AssertionError("framing sentence still present (%s)" % where)
+            finally:
+                context.close()
+
+
+def test_every_type_stays_visible_without_scripts(new_context, server):
+    """With scripts blocked an airline's selector is absent and every type section stays
+    visible in source order, each with its own title, so no type is hidden."""
+    with _no_js_page(new_context, server.base_url(), "/airlines",
+                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
+        shown = _types_card(page).evaluate(
+            "card => [...card.querySelectorAll('section[data-airline-type]')]"
+            ".map(s => [s.getAttribute('data-airline-type'), s.getClientRects().length > 0,"
+            " s.querySelector('.airline-type__title').getClientRects().length > 0])")
+        if shown != [["any", True, True], ["a320", True, True]]:
+            raise AssertionError("expected both Transavia types visible: %r" % (shown,))
+        if _types_card(page).locator("select").is_visible():
+            raise AssertionError("expected the selector hidden without scripts")
+        problem = _assert_no_page_overflow(page, "airlines without scripts")
+        if problem:
+            raise AssertionError(problem)
+
+
+def test_deleting_a_manual_name_states_its_outcome_and_removes_the_entry(
+        new_context, make_app_server):
+    """The delete control of a hand-named airline says what it does (flights become
+    unidentified again, artwork stays), and submitting it removes the manual entry on disk and
+    returns to the gallery."""
+    server = make_app_server(seed=_seed_with_needs_artwork_entry, fake_providers=True)
+    context = new_context(viewport=VIEWPORT_PHONE)
+    try:
+        page = context.new_page()
+        _login(page, server.base_url())
+        page.goto(server.base_url() + "/airlines")
+        page.locator('a.airline-card__zoom[data-view-panel-resolve-prefix="%s"]'
+                     % ARTWORK_PREFIX).click()
+        dialog = page.locator("#panel-lookup-dialog")
+        delete_form = dialog.locator("form.lightbox__delete")
+        delete_form.wait_for(state="visible")
+        if "become unidentified again" not in delete_form.text_content():
+            raise AssertionError("delete form does not state its outcome: %r"
+                                 % delete_form.text_content())
+        button = delete_form.locator("button")
+        if button.text_content().strip() != "Delete my name":
+            raise AssertionError("unexpected delete button: %r" % button.text_content())
+        with page.expect_navigation():
+            button.click()
+        if manual_resolutions.load_manual_resolutions(server.tmpdir).get(ARTWORK_PREFIX):
+            raise AssertionError("the manual entry was not removed")
+        if not page.url.rstrip("/").endswith("/airlines"):
+            raise AssertionError("expected to land on the gallery, got %r" % page.url)
+    finally:
+        context.close()
