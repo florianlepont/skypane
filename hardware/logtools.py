@@ -63,6 +63,17 @@ Subcommands:
                  must never fail a developer's routine glance just
                  because the run has not finished yet.
 
+  run-report     Turn raw device_health JSON-Lines rows plus an owner-supplied
+                 params file (--params) into a JSON report (--out) and a
+                 human summary. Three verdicts stay separate - continuity,
+                 voltage_validity, baseline - and the cycle count is
+                 reconciled three ways (nominal, observed polls, device
+                 boot-counter delta). Thresholds are the fixed
+                 pre-registered values, with no flags to retune them.
+                 Refuses with exit 2, writing no report, when a required
+                 param is missing, no usable row exists, rows are out of
+                 order, or rows predate the pre-registration time.
+
   selftest       Run check-backoff against the three fixtures under
                  hardware/fixtures/, and check-battery against five
                  more (including a from-journal-converted one and a
@@ -72,15 +83,16 @@ Subcommands:
                  bad ones are rejected. A checker that has never been
                  shown a bad log has not been tested.
 
-Only argparse, datetime, json, os, re, subprocess and sys are imported —
-no pip install, matching this phase's zero-external-install property.
-json is the sole addition beyond the original six, needed to parse
-from-history-db's JSON-Lines input; sqlite3 is deliberately not
+Only argparse, datetime, hashlib, json, os, re, subprocess and sys are
+imported - no pip install, matching this phase's zero-external-install
+property. json parses from-history-db's JSON-Lines input and hashlib
+fingerprints the raw export in run-report; sqlite3 is deliberately not
 imported here — history.db lives on the VPS and is read over SSH, never
 opened directly by this file.
 """
 import argparse
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -391,6 +403,23 @@ class BatteryPoll(object):
         self.line = line
 
 
+def parse_battery_lines(lines):
+    """Return (all_matches, polls) for an iterable of log lines, with the
+    same meaning as load_battery_polls() has for a set of files.
+    """
+    all_matches = 0
+    polls = []
+    for line in lines:
+        m = BATTERY_MV_RE.search(line)
+        if not m:
+            continue
+        all_matches += 1
+        ts = parse_timestamp(line)
+        if ts is not None:
+            polls.append(BatteryPoll(ts, int(m.group(1)), line))
+    return all_matches, polls
+
+
 def load_battery_polls(paths):
     """Return (all_matches, polls): all_matches is the count of lines
     carrying an X-Battery-Mv token regardless of whether they also carry
@@ -405,14 +434,9 @@ def load_battery_polls(paths):
     polls = []
     for path in paths:
         with open(path, "r", errors="replace") as fh:
-            for line in fh:
-                m = BATTERY_MV_RE.search(line)
-                if not m:
-                    continue
-                all_matches += 1
-                ts = parse_timestamp(line)
-                if ts is not None:
-                    polls.append(BatteryPoll(ts, int(m.group(1)), line))
+            file_matches, file_polls = parse_battery_lines(fh)
+        all_matches += file_matches
+        polls.extend(file_polls)
     return all_matches, polls
 
 
@@ -699,6 +723,39 @@ def cmd_from_journal(args):
 # with a uniqueness constraint on the insert. No rotation-triggered
 # repair path is needed or provided here; this is a genuine
 # simplification relative to from-journal, not an omission.
+def history_row_to_line(row):
+    """Return the bracketed [ISO-8601] telemetry line for one parsed
+    device_health row, or None when the row carries no usable measurement:
+    it is not an object, has no non-empty string `ts`, its `battery_mv`
+    cannot be coerced to int, or the assembled line fails
+    parse_timestamp().
+    """
+    if not isinstance(row, dict):
+        return None
+    ts_raw = row.get("ts")
+    if not isinstance(ts_raw, str) or not ts_raw:
+        return None
+    try:
+        battery_mv = int(row.get("battery_mv"))
+    except (TypeError, ValueError):
+        return None
+
+    tokens = []
+    for header, value in (
+        ("X-Fw-Version", row.get("fw_version")),
+        ("X-Boot-Reason", row.get("boot_reason")),
+        ("X-Rssi", row.get("rssi")),
+        ("X-Battery-Mv", battery_mv),
+    ):
+        if value is None or value == "":
+            continue
+        tokens.append("%s=%s" % (header, value))
+    out = "[%s]   telemetry: %s" % (normalize_journal_timestamp(ts_raw), " ".join(tokens))
+    if parse_timestamp(out) is None:
+        return None
+    return out
+
+
 def cmd_from_history_db(args):
     """Convert JSON-Lines `device_health` rows (one JSON object per line,
     as printed by the canonical remote query documented above) into the
@@ -749,32 +806,8 @@ def cmd_from_history_db(args):
         if not isinstance(row, dict):
             dropped += 1
             continue
-        ts_raw = row.get("ts")
-        if not isinstance(ts_raw, str) or not ts_raw:
-            dropped += 1
-            continue
-        try:
-            battery_mv = int(row.get("battery_mv"))
-        except (TypeError, ValueError):
-            dropped += 1
-            continue
-
-        ts_norm = normalize_journal_timestamp(ts_raw)
-
-        tokens = []
-        for header, value in (
-            ("X-Fw-Version", row.get("fw_version")),
-            ("X-Boot-Reason", row.get("boot_reason")),
-            ("X-Rssi", row.get("rssi")),
-            ("X-Battery-Mv", battery_mv),
-        ):
-            if value is None or value == "":
-                continue
-            tokens.append("%s=%s" % (header, value))
-        message = "  telemetry: " + " ".join(tokens)
-
-        out = "[%s] %s" % (ts_norm, message)
-        if parse_timestamp(out) is None:
+        out = history_row_to_line(row)
+        if out is None:
             dropped += 1
             continue
         sys.stdout.write(out + "\n")
@@ -862,6 +895,394 @@ def cmd_check_battery(args):
     print_battery_derived(stats, args.interval_s)
 
     ok = all(r.status != "FAIL" for r in results)
+    return 0 if ok else 1
+
+
+# --- run-report: second-discharge evidence from the raw export ---------
+#
+# The thresholds below are fixed in advance of any run and are never
+# tuned from the data: run-report offers no flags to change them.
+
+RUN_THRESHOLDS = {
+    "min_days": 1,
+    "min_coverage": 0.95,
+    "max_gap_intervals": 3,
+    "min_mv_drop": 100,
+    "cutoff_mv": 3400,
+}
+RUN_REQUIRED_PARAMS = (
+    "capacity_mah", "interval_s", "protocol_confirmed_utc",
+    "disconnect_time_utc", "end_reason", "firmware_version",
+    "server_revision",
+)
+DEFAULT_PARK_MV = 3300
+
+
+class RunReportError(Exception):
+    """Input that run-report refuses to turn into evidence."""
+
+
+def _aware_timestamp(value, label):
+    if not isinstance(value, str) or not value:
+        raise RunReportError("%s must be an ISO-8601 timestamp string" % label)
+    try:
+        ts = datetime.datetime.fromisoformat(normalize_journal_timestamp(value))
+    except ValueError:
+        raise RunReportError("%s is not a valid ISO-8601 timestamp: %r" % (label, value))
+    if ts.tzinfo is None:
+        raise RunReportError("%s must carry a timezone offset: %r" % (label, value))
+    return ts
+
+
+def _int_param(params, key, minimum, default=None):
+    value = params.get(key)
+    if value is None:
+        return default
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise RunReportError("param %s must be an integer" % key)
+    if value < minimum:
+        raise RunReportError("param %s must be at least %d" % (key, minimum))
+    return value
+
+
+def validate_run_params(params):
+    """Return a normalised copy of the owner-supplied params, or raise
+    RunReportError naming the first problem. Required keys must be present
+    and non-null so a schema example can never be mistaken for evidence.
+    """
+    if not isinstance(params, dict):
+        raise RunReportError("params file must contain a JSON object")
+    for key in RUN_REQUIRED_PARAMS:
+        if params.get(key) is None or params.get(key) == "":
+            raise RunReportError("missing required param: %s" % key)
+    out = {
+        "capacity_mah": _int_param(params, "capacity_mah", 1),
+        "interval_s": _int_param(params, "interval_s", 1),
+        "park_mv": _int_param(params, "park_mv", 0, DEFAULT_PARK_MV),
+        "boot_count_start": _int_param(params, "boot_count_start", 0),
+        "boot_count_end": _int_param(params, "boot_count_end", 0),
+        "production_interval_before_s": _int_param(
+            params, "production_interval_before_s", 1),
+        "production_interval_restored_s": _int_param(
+            params, "production_interval_restored_s", 1),
+        "protocol_confirmed": _aware_timestamp(
+            params["protocol_confirmed_utc"], "protocol_confirmed_utc"),
+        "disconnect_time": _aware_timestamp(
+            params["disconnect_time_utc"], "disconnect_time_utc"),
+        "end_time": None,
+    }
+    if params.get("end_time_utc") is not None:
+        out["end_time"] = _aware_timestamp(params["end_time_utc"], "end_time_utc")
+    if params["end_reason"] not in ("depleted", "ceiling"):
+        raise RunReportError("param end_reason must be 'depleted' or 'ceiling'")
+    out["end_reason"] = params["end_reason"]
+    for key in ("firmware_version", "server_revision"):
+        if not isinstance(params[key], str):
+            raise RunReportError("param %s must be a string" % key)
+        out[key] = params[key]
+    days = params.get("ceiling_days")
+    if days is not None and (isinstance(days, bool)
+                             or not isinstance(days, (int, float)) or days <= 0):
+        raise RunReportError("param ceiling_days must be a positive number")
+    if out["end_reason"] == "ceiling" and days is None:
+        raise RunReportError("missing required param: ceiling_days (end_reason is ceiling)")
+    out["ceiling_days"] = days
+    start, end = out["boot_count_start"], out["boot_count_end"]
+    if start is not None and end is not None and end < start:
+        raise RunReportError("boot_count_end is below boot_count_start")
+    return out
+
+
+def _load_export_rows(raw_text):
+    """Split a JSON-Lines export into (rows, lines, dropped): the parsed
+    rows that carry a usable reading, their bracketed telemetry lines (same
+    order), and the count of non-empty lines that were dropped.
+    """
+    rows, lines, dropped = [], [], 0
+    for raw_line in raw_text.splitlines():
+        if not raw_line.strip():
+            continue
+        try:
+            row = json.loads(raw_line)
+        except ValueError:
+            dropped += 1
+            continue
+        line = history_row_to_line(row)
+        if line is None:
+            dropped += 1
+            continue
+        rows.append(row)
+        lines.append(line)
+    return rows, lines, dropped
+
+
+def _require_fresh_ordered(polls, params):
+    if any(p.ts.tzinfo is None for p in polls):
+        raise RunReportError("row timestamps must carry a timezone offset")
+    for a, b in zip(polls, polls[1:]):
+        if b.ts < a.ts:
+            raise RunReportError(
+                "rows are not in chronological order (%s follows %s)" %
+                (b.ts.isoformat(), a.ts.isoformat()))
+    if polls[0].ts < params["protocol_confirmed"]:
+        raise RunReportError(
+            "export predates the pre-registration: first row %s is before "
+            "protocol_confirmed_utc %s" %
+            (polls[0].ts.isoformat(), params["protocol_confirmed"].isoformat()))
+    if params["end_time"] is not None and polls[-1].ts > params["end_time"]:
+        raise RunReportError(
+            "last row %s is after end_time_utc %s" %
+            (polls[-1].ts.isoformat(), params["end_time"].isoformat()))
+
+
+def _verdict(results):
+    status = "FAIL" if any(r.status == "FAIL" for r in results) else "PASS"
+    return {"status": status,
+            "checks": [{"name": r.name, "status": r.status, "reason": r.reason}
+                       for r in results]}
+
+
+def _continuity_verdict(polls, normal, normal_stats, params, th):
+    results = [check_timestamps_and_min_polls(len(normal), normal)]
+    if results[0].status == "PASS":
+        results.append(check_span(normal_stats, th["min_days"]))
+        results.append(check_coverage(normal_stats, th["min_coverage"]))
+        results.append(check_max_gap(normal_stats, th["max_gap_intervals"]))
+    ceiling = params["ceiling_days"]
+    name = "span does not exceed the ceiling by more than one interval"
+    if ceiling is None:
+        results.append(CheckResult(name, "SKIP", "no ceiling_days given"))
+    else:
+        span_days = (polls[-1].ts - polls[0].ts).total_seconds() / 86400.0
+        limit = ceiling + params["interval_s"] / 86400.0
+        if span_days <= limit:
+            results.append(CheckResult(name, "PASS"))
+        else:
+            results.append(CheckResult(
+                name, "FAIL", "span is %.3f day(s), ceiling is %g day(s) "
+                "plus one interval" % (span_days, ceiling)))
+    return results
+
+
+def _voltage_verdict(full_stats, params, th):
+    results = [check_mv_drop(full_stats, th["min_mv_drop"])]
+    if params["end_reason"] == "depleted":
+        results.append(check_depleted(full_stats, th["cutoff_mv"]))
+    else:
+        results.append(CheckResult(
+            "last observed millivolt reading is at or below the %d mV cutoff"
+            % th["cutoff_mv"], "SKIP",
+            "run ended at the ceiling, so the result is a bound, not a depletion"))
+    return results
+
+
+def _baseline_verdict(rows, params):
+    seen = sorted({str(r["fw_version"]) for r in rows
+                   if r.get("fw_version") not in (None, "")})
+    name = "firmware versions in the export equal the recorded baseline"
+    if not seen:
+        result = CheckResult(name, "FAIL",
+            "no row carries fw_version, so the baseline cannot be verified")
+    elif seen == [params["firmware_version"]]:
+        result = CheckResult(name, "PASS")
+    else:
+        result = CheckResult(name, "FAIL",
+            "export carries %s, recorded baseline is %s" %
+            (seen, params["firmware_version"]))
+    return result, seen
+
+
+def _relative_difference(value, reference):
+    if value is None or not reference:
+        return None
+    return (value - reference) / float(reference)
+
+
+def _boot_witness(params, full_stats, normal_stats, th, observed_full):
+    start, end = params["boot_count_start"], params["boot_count_end"]
+    delta = None
+    status = "computable"
+    if start is None or end is None:
+        missing = [k for k, v in (("boot_count_start", start),
+                                  ("boot_count_end", end)) if v is None]
+        status = "not computable: %s not recorded" % " and ".join(missing)
+    else:
+        delta = end - start
+    return {
+        "nominal": normal_stats["nominal"],
+        "observed_normal": normal_stats["observed"],
+        "observed_full": observed_full,
+        "parked_polls": observed_full - normal_stats["observed"],
+        "boot_delta": delta,
+        "boot_delta_status": status,
+        "nominal_vs_observed_normal": _relative_difference(
+            normal_stats["observed"], normal_stats["nominal"]),
+        "boot_vs_observed_full": _relative_difference(delta, observed_full),
+    }
+
+
+def build_run_report(raw, params, thresholds=None):
+    """Return the run report as a plain dict from the raw JSON-Lines export
+    (bytes) and the owner-supplied params, or raise RunReportError.
+
+    Continuity and coverage are judged on the normal-cadence window, which
+    ends at the first reading at or below park_mv; voltage validity and the
+    boot-counter reconciliation use the full window.
+    """
+    th = dict(RUN_THRESHOLDS)
+    th.update(thresholds or {})
+    p = validate_run_params(params)
+    rows, lines, dropped = _load_export_rows(raw.decode("utf-8", errors="replace"))
+    if not lines:
+        raise RunReportError("no usable rows in the export")
+    all_matches, polls = parse_battery_lines(lines)
+    if len(polls) != len(rows):
+        raise RunReportError("rows could not all be timestamped")
+    _require_fresh_ordered(polls, p)
+
+    end_idx = next((i for i, q in enumerate(polls) if q.mv <= p["park_mv"]),
+                   len(polls) - 1)
+    normal = polls[:end_idx + 1]
+    interval = p["interval_s"]
+    full_stats = compute_battery_stats(
+        polls, interval, p["capacity_mah"], p["boot_count_start"], p["boot_count_end"])
+    normal_stats = compute_battery_stats(
+        normal, interval, p["capacity_mah"], None, None)
+
+    continuity = _continuity_verdict(polls, normal, normal_stats, p, th)
+    reconciliation = _boot_witness(p, full_stats, normal_stats, th, len(polls))
+    if reconciliation["boot_delta"] is not None:
+        continuity.append(check_boot_reconciliation(full_stats, th["min_coverage"]))
+    baseline_result, fw_seen = _baseline_verdict(rows, p)
+
+    reasons = {}
+    for row in rows:
+        key = row.get("boot_reason") or "(none)"
+        reasons[key] = reasons.get(key, 0) + 1
+    gaps = [(b.ts - a.ts).total_seconds() for a, b in zip(normal, normal[1:])]
+
+    return {
+        "verdicts": {
+            "continuity": _verdict(continuity),
+            "voltage_validity": _verdict(_voltage_verdict(full_stats, p, th)),
+            "baseline": _verdict([baseline_result]),
+        },
+        "thresholds": th,
+        "reconciliation": reconciliation,
+        "cadence": {
+            "configured_interval_s": interval,
+            "effective_mean_gap_s": (sum(gaps) / len(gaps)) if gaps else None,
+            "max_gap_s": max(gaps) if gaps else None,
+        },
+        "window": {
+            "first_ts": polls[0].ts.isoformat(),
+            "last_ts": polls[-1].ts.isoformat(),
+            "span_days": full_stats["span_days"],
+            "normal_window_end_ts": normal[-1].ts.isoformat(),
+            "disconnect_time_utc": p["disconnect_time"].isoformat(),
+        },
+        "endpoints": {
+            "first_mv": polls[0].mv,
+            "open_mv": full_stats["open_mv"],
+            "close_mv": full_stats["close_mv"],
+            "drop_mv": full_stats["drop_mv"],
+            "last_mv": full_stats["last_mv"],
+            "last_poll_mv": normal[-1].mv,
+        },
+        "baseline": {
+            "firmware_version": p["firmware_version"],
+            "server_revision": p["server_revision"],
+            "fw_versions_seen": fw_seen,
+            "boot_reason_counts": reasons,
+        },
+        "restore": {
+            "production_interval_before_s": p["production_interval_before_s"],
+            "production_interval_restored_s": p["production_interval_restored_s"],
+            "recorded": (p["production_interval_before_s"] is not None
+                         and p["production_interval_restored_s"] is not None),
+        },
+        "export": {
+            "row_count": len(rows),
+            "dropped_rows": dropped,
+            "sha256": hashlib.sha256(raw).hexdigest(),
+        },
+        "energy_normal_window": {
+            "basis": "observed poll count in the normal-cadence window",
+            "mah_per_cycle": normal_stats["mah_per_cycle"],
+            "mah_per_day": normal_stats["mah_per_day"],
+        },
+    }
+
+
+def print_run_summary(report):
+    for name in ("continuity", "voltage_validity", "baseline"):
+        verdict = report["verdicts"][name]
+        print("%s: %s" % (name, verdict["status"]))
+        for check in verdict["checks"]:
+            if check["status"] == "PASS":
+                print("  PASS %s" % check["name"])
+            else:
+                print("  %s %s - %s" % (check["status"], check["name"], check["reason"]))
+    rec = report["reconciliation"]
+    print("cycle reconciliation: nominal=%.2f observed(normal)=%d "
+          "observed(full)=%d parked=%d boot-delta=%s" %
+          (rec["nominal"], rec["observed_normal"], rec["observed_full"],
+           rec["parked_polls"],
+           rec["boot_delta"] if rec["boot_delta"] is not None
+           else rec["boot_delta_status"]))
+    cad = report["cadence"]
+    if cad["effective_mean_gap_s"] is not None:
+        print("cadence: configured=%ds effective mean gap=%.1fs max gap=%.0fs" %
+              (cad["configured_interval_s"], cad["effective_mean_gap_s"],
+               cad["max_gap_s"]))
+    win, end = report["window"], report["endpoints"]
+    print("window: %s to %s (%.3f day(s)), normal cadence ends %s" %
+          (win["first_ts"], win["last_ts"], win["span_days"],
+           win["normal_window_end_ts"]))
+    print("endpoints mV: first=%d open=%.1f close=%.1f drop=%.1f last=%d" %
+          (end["first_mv"], end["open_mv"], end["close_mv"], end["drop_mv"],
+           end["last_mv"]))
+    base = report["baseline"]
+    print("baseline: firmware=%s server=%s seen=%s" %
+          (base["firmware_version"], base["server_revision"],
+           ",".join(base["fw_versions_seen"]) or "none"))
+    rest = report["restore"]
+    print("restore: before=%s restored=%s recorded=%s" %
+          (rest["production_interval_before_s"],
+           rest["production_interval_restored_s"], rest["recorded"]))
+    exp = report["export"]
+    print("export: rows=%d dropped=%d sha256=%s" %
+          (exp["row_count"], exp["dropped_rows"], exp["sha256"]))
+
+
+def cmd_run_report(args):
+    """Build and print the run report, writing --out only on success.
+    Exit 0 when all three verdicts pass, 1 when any fails, 2 when the
+    inputs are refused.
+    """
+    try:
+        try:
+            with open(args.params, "r") as fh:
+                params = json.load(fh)
+        except (OSError, ValueError) as exc:
+            raise RunReportError("cannot read params file: %s" % exc)
+        try:
+            if args.rows:
+                with open(args.rows, "rb") as fh:
+                    raw = fh.read()
+            else:
+                raw = sys.stdin.buffer.read()
+        except OSError as exc:
+            raise RunReportError("cannot read rows: %s" % exc)
+        report = build_run_report(raw, params)
+    except RunReportError as exc:
+        sys.stderr.write("run-report: refused: %s\n" % exc)
+        return 2
+    if args.out:
+        with open(args.out, "w") as fh:
+            fh.write(json.dumps(report, sort_keys=True, indent=2) + "\n")
+    print_run_summary(report)
+    ok = all(v["status"] == "PASS" for v in report["verdicts"].values())
     return 0 if ok else 1
 
 
@@ -1055,6 +1476,17 @@ def build_parser():
         help="ungated daily check-in: print derived figures only, no "
              "PASS/FAIL gating, always exits 0")
 
+    rr = sub.add_parser("run-report",
+        help="turn raw device_health JSON-Lines rows plus a params file "
+             "into a report with separate continuity, voltage-validity "
+             "and baseline verdicts")
+    rr.add_argument("rows", nargs="?", default=None,
+        help="JSON-Lines rows file; reads stdin when omitted")
+    rr.add_argument("--params", required=True,
+        help="owner-supplied params JSON (see run2-params.example.json)")
+    rr.add_argument("--out", default=None,
+        help="write the JSON report here (only on a non-refused run)")
+
     sub.add_parser("selftest",
         help="run check-backoff and check-battery against "
              "hardware/fixtures/*.log and assert outcomes")
@@ -1075,6 +1507,8 @@ def main(argv=None):
         return cmd_check_backoff(args)
     if args.command == "check-battery":
         return cmd_check_battery(args)
+    if args.command == "run-report":
+        return cmd_run_report(args)
     if args.command == "selftest":
         return cmd_selftest(args)
     return 1  # pragma: no cover — argparse enforces `required=True` above
