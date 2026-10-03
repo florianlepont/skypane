@@ -1391,6 +1391,11 @@ button:disabled {
  * two 144px time inputs (.config-form input[type="time"]'s own
  * min-width) plus a gap need more width than this card's own 280px
  * inner content at the 360px contract floor. */
+.quiet-dial-summary {
+  margin-top: var(--space-md);
+  text-align: center;
+}
+
 .quiet-times-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4516,6 +4521,7 @@ a.calendar-disconnect-btn:focus-visible {
   display: block;
   width: 100%;
   height: auto;
+  object-fit: contain;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   /* Declared on the base rule so the crossfade runs symmetrically in both
@@ -4635,6 +4641,16 @@ a.calendar-disconnect-btn:focus-visible {
   position: relative;
   overflow: hidden;
   border-radius: var(--radius-control);
+  /* The structural hairline keeps a white swatch visible on a white card. */
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
+
+/* A dithered field or band is the panel's stipple of its colour on
+ * white: a checkerboard of the inline paper colour over the inline fill. */
+.palette-swatch--dithered {
+  background-image: repeating-conic-gradient(
+    var(--swatch-paper) 0% 25%, transparent 0% 50%);
+  background-size: 6px 6px;
 }
 
 .palette-swatch__band {

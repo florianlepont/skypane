@@ -1570,3 +1570,55 @@ def test_the_artwork_drop_zone_is_operable_from_the_keyboard_alone(
     finally:
         _clear_stored_artwork(server)
         context.close()
+
+
+# Quiet hours: native fields and presets are the primary controls, the ring is secondary.
+
+def test_quiet_hours_fields_and_presets_lead_the_ring_and_save(new_context, make_app_server):
+    """The presets and both native time fields sit above the ring at every supported width,
+    the Night preset writes the fields, and a keyboard-edited time saves to disk.
+    """
+    from companion import auth
+    from companion.test_browser_ux_helpers import (
+        VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE, _assert_no_page_overflow,
+        _login, _save_via_bar, _wait_for_bar, seed_state_dir)
+    from server import device_config
+    for viewport in (VIEWPORT_DESKTOP, VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED):
+        for lang in ("en", "fr"):
+            server = make_app_server(seed=seed_state_dir, fake_providers=True)
+            base_url = server.base_url()
+            context = new_context(viewport=viewport)
+            try:
+                context.add_cookies([{
+                    "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
+                page = context.new_page()
+                _login(page, base_url)
+                page.goto(base_url + "/display")
+                page.wait_for_load_state("networkidle")
+                tops = page.evaluate(
+                    "() => { function top(s) {"
+                    " return document.querySelector(s).getBoundingClientRect().top; }"
+                    " return {preset: top('.quiet-preset-row'),"
+                    " start: top('input[name=quiet_hours_start]'),"
+                    " end: top('input[name=quiet_hours_end]'),"
+                    " dial: top('.quiet-dial-summary')}; }")
+                if not (tops["preset"] < tops["start"] < tops["dial"]
+                        and tops["end"] < tops["dial"]):
+                    raise AssertionError(
+                        "%s: presets and fields must lead the ring: %r"
+                        % (viewport["width"], tops))
+                problem = _assert_no_page_overflow(page, "quiet hours")
+                if problem:
+                    raise AssertionError(problem)
+                page.click("[data-quiet-preset][data-preset-start='08:00']")
+                if page.input_value("input[name=quiet_hours_start]") != "08:00":
+                    raise AssertionError("the Day preset did not write the start field")
+                page.focus("input[name=quiet_hours_end]")
+                page.fill("input[name=quiet_hours_end]", "19:30")
+                _wait_for_bar(page)
+                _save_via_bar(page)
+                cfg = device_config.load_device_config(server.tmpdir)
+                if (cfg["quiet_hours_start"], cfg["quiet_hours_end"]) != ("08:00", "19:30"):
+                    raise AssertionError("quiet hours did not persist: %r" % (cfg,))
+            finally:
+                context.close()

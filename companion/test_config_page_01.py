@@ -506,25 +506,31 @@ def test_palette_swatch_html_matches_the_live_registry_band_facts():
         theme_id for theme_id in device_config.THEME_IDS
         if "palette-swatch__band" in config_page._palette_swatch_html(theme_id)
     ]
+    # A band is drawn when it differs from the field in colour or in dithering.
     expect_banded = [
         theme_id for theme_id in device_config.THEME_IDS
         if "band_index" in device_config.THEMES[theme_id]
-        and device_config.THEMES[theme_id]["band_index"] != device_config.THEMES[theme_id]["departing_index"]
+        and (device_config.THEMES[theme_id]["band_index"] != device_config.THEMES[theme_id]["departing_index"]
+             or bool(device_config.THEMES[theme_id]["band_dithered"])
+             != bool(device_config.THEMES[theme_id]["dithered"]))
     ]
     assert banded == expect_banded
     white_html = config_page._palette_swatch_html("white")
     assert white_html.count("<span") == 1
+    assert "palette-swatch--dithered" not in white_html
     grey_html = config_page._palette_swatch_html("grey")
     assert "opacity" not in grey_html, (
         "expected a dithered theme's swatch to carry NO opacity style (the swatch rendering "
         "contract)")
+    assert "palette-swatch--dithered" in grey_html, (
+        "a dithered theme's swatch must be marked so it reads differently from a solid one")
     assert 'class="palette-swatch"' in white_html
     extra_html = config_page._palette_swatch_html("white", extra_class="usage-row__swatch")
     assert 'class="palette-swatch usage-row__swatch"' in extra_html
     field_html = config_page._palette_swatch_html("band_blue_field")
-    assert "palette-swatch__band" not in field_html, (
-        "band_blue_field has departing_index == band_index in the live registry and must "
-        "render SOLID, not banded")
+    assert field_html.count("palette-swatch--dithered") == 1 and "palette-swatch__band" in field_html, (
+        "band_blue_field stipples its field around a solid band of the same ink, so the "
+        "band is drawn and only the field is marked dithered")
 
 
 def test_palette_grid_html_renders_one_chip_per_registered_theme_in_order_no_photo():
@@ -538,7 +544,7 @@ def test_palette_grid_html_renders_one_chip_per_registered_theme_in_order_no_pho
     # Count the OUTER swatch wrapper specifically (aria-hidden="true") —
     # the literal "palette-swatch" alone would double-count a banded
     # chip's own band-child class.
-    outer_swatch_count = g.count('aria-hidden="true" style="background:')
+    outer_swatch_count = g.count('aria-hidden="true" style="background-color:')
     assert outer_swatch_count == len(device_config.THEME_IDS)
     preview_src_count = g.count('data-preview-src="%s' % config_page.THEME_PREVIEW_ROUTE_PREFIX)
     assert preview_src_count == len(device_config.THEME_IDS)

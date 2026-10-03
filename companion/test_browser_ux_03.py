@@ -1917,3 +1917,123 @@ def test_cfg34_live_age_ticks_at_each_converted_site(
                 "read exactly this way" % (name, _TICK_ADVANCE_MS, before))
     finally:
         context.close()
+
+
+# Display polish: faithful swatches, an uncropped live preview, and the saved confirmation.
+
+SWATCH_VIEWPORTS = (
+    ("desktop", VIEWPORT_DESKTOP), ("phone", VIEWPORT_PHONE),
+    ("min", VIEWPORT_MIN_SUPPORTED))
+SAVED_WORD = {"en": "Saved", "fr": "Enregistr"}
+
+
+def _lang_cookie(base_url, lang):
+    return [{"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}]
+
+
+def test_swatches_tell_solid_light_and_band_themes_apart(new_context, server):
+    """Every theme's swatch is drawn from its own metadata: a light (dithered) theme paints a
+    stipple its solid sibling does not, and a band theme paints a band the plain fields lack.
+    """
+    context = new_context(viewport=VIEWPORT_DESKTOP)
+    try:
+        page = context.new_page()
+        base_url = server.base_url()
+        _login(page, base_url)
+        page.goto(base_url + "/display")
+        page.wait_for_load_state("networkidle")
+        painted = page.evaluate(
+            "() => { var out = {};"
+            " document.querySelectorAll("
+            "'details[data-usage=\"departures\"] label.palette-chip').forEach(function (chip) {"
+            "  var swatch = chip.querySelector('.palette-swatch');"
+            "  var band = swatch.querySelector('.palette-swatch__band');"
+            "  out[chip.querySelector('input').value] = {"
+            "   field: getComputedStyle(swatch).backgroundImage,"
+            "   band: band ? getComputedStyle(band).backgroundImage : null,"
+            "   fill: getComputedStyle(swatch).backgroundColor};"
+            " }); return out; }")
+        for solid, light in (
+                ("yellow", "yellow_light"), ("red", "red_light"),
+                ("green", "green_light"), ("blue", "blue_light")):
+            if painted[solid]["field"] != "none" or painted[light]["field"] == "none":
+                raise AssertionError(
+                    "%s must paint solid and %s must paint a stipple: %r / %r"
+                    % (solid, light, painted[solid], painted[light]))
+            if painted[solid]["fill"] != painted[light]["fill"]:
+                raise AssertionError("%s and %s share one ink colour" % (solid, light))
+        if painted["band_blue"]["band"] != "none":
+            raise AssertionError("a solid band must not be stippled: %r" % painted["band_blue"])
+        if painted["band_blue_light"]["band"] in (None, "none"):
+            raise AssertionError("a light band must be stippled: %r" % painted["band_blue_light"])
+        if painted["band_blue_field"]["band"] != "none" or \
+                painted["band_blue_field"]["field"] == "none":
+            raise AssertionError(
+                "a band-field theme stipples its field around a solid band: %r"
+                % painted["band_blue_field"])
+        if painted["white"]["band"] is not None:
+            raise AssertionError("a plain theme carries no band")
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ("en", "fr"))
+@pytest.mark.parametrize("label,viewport", SWATCH_VIEWPORTS)
+def test_the_live_preview_is_contained_keyed_focusable_and_saves(
+        new_context, make_app_server, label, viewport, lang):
+    """At 1280, 390 and 360 px in both languages the live preview image sits whole inside its
+    figure and the page, arrow-keying a swatch moves it with a visible focus ring, and the
+    native save lands on the persisted theme with the saved confirmation.
+    """
+    server = make_app_server(seed=seed_state_dir, fake_providers=True)
+    base_url = server.base_url()
+    context = new_context(viewport=viewport)
+    try:
+        context.add_cookies(_lang_cookie(base_url, lang))
+        page = context.new_page()
+        _login(page, base_url)
+        page.goto(base_url + "/display")
+        page.wait_for_load_state("networkidle")
+        box = page.evaluate(
+            "() => { var img = document.querySelector('%s');"
+            " var fig = img.closest('figure'); var i = img.getBoundingClientRect();"
+            " var f = fig.getBoundingClientRect();"
+            " return {iw: i.width, ih: i.height, il: i.left, ir: i.right,"
+            "  fl: f.left, fr: f.right, ft: f.top, fb: f.bottom, it: i.top, ib: i.bottom,"
+            "  vw: document.documentElement.clientWidth,"
+            "  natural: img.complete && img.naturalWidth > 0,"
+            "  fit: getComputedStyle(img).objectFit}; }" % THEME_PREVIEW_SEL)
+        if not box["natural"] or box["iw"] <= 0 or box["ih"] <= 0:
+            raise AssertionError("%s: the live preview did not render: %r" % (label, box))
+        if box["il"] < box["fl"] - 0.5 or box["ir"] > box["fr"] + 0.5 or \
+                box["it"] < box["ft"] - 0.5 or box["ib"] > box["fb"] + 0.5 or \
+                box["il"] < 0 or box["ir"] > box["vw"]:
+            raise AssertionError("%s: the preview is clipped: %r" % (label, box))
+        if box["fit"] != "contain":
+            raise AssertionError("%s: the preview must never crop its picture: %r" % (label, box))
+        problem = _assert_no_page_overflow(page, "display %s %s" % (label, lang))
+        if problem:
+            raise AssertionError(problem)
+
+        selector = 'details.usage-row[data-usage="departures"] input[name="theme"]'
+        start = page.eval_on_selector(selector + ":checked", "el => el.value")
+        page.focus(selector + ':checked')
+        page.keyboard.press("ArrowRight")
+        moved = page.eval_on_selector(selector + ":checked", "el => el.value")
+        if moved == start:
+            raise AssertionError("%s: arrow keys did not move the swatch selection" % label)
+        ring = page.eval_on_selector(
+            selector + ":checked",
+            "el => { var chip = el.closest('.palette-chip');"
+            " var cs = getComputedStyle(chip);"
+            " return cs.outlineStyle + '|' + cs.outlineWidth + '|' + cs.boxShadow; }")
+        if ring.startswith("none|") and ring.endswith("none") or ring.startswith("none|0px|none"):
+            raise AssertionError("%s: the focused swatch shows no focus ring: %r" % (label, ring))
+        _save_via_bar(page)
+        stored = device_config.load_device_config(server.tmpdir)["theme"]
+        if stored != moved:
+            raise AssertionError("%s: saved %r but disk reads %r" % (label, moved, stored))
+        if SAVED_WORD[lang].lower() not in page.inner_text("body").lower():
+            raise AssertionError("%s/%s: no saved confirmation after the save" % (label, lang))
+    finally:
+        context.close()

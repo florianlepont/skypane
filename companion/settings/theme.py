@@ -132,22 +132,37 @@ def _palette_swatch_html(theme_id, extra_class=""):
     """A CSS-drawn, non-photographic themed swatch: one outer
     `<span class="palette-swatch">` filled with
     `_palette_hex(departing_index)`, plus an optional child band span
-    carrying `_palette_hex(band_index)` when it differs from
-    `departing_index` — keeping a same-index theme's band solid rather
-    than faking a two-tone band the real panel paints as one colour.
-    Its geometry is a stylesheet rule; only the two colours compute here.
+    carrying `_palette_hex(band_index)`.
+
+    A dithered field or band is what the panel prints as a stipple of
+    its colour on white, so it gets a `--dithered` class (the stylesheet
+    draws the stipple over the same fill) rather than looking identical
+    to its solid sibling. A band is emitted whenever it differs from the
+    field in colour or in dithering. Geometry is a stylesheet rule; only
+    the colours compute here.
     """
     theme = device_config.THEMES[theme_id]
     hex_fill = _palette_hex(theme["departing_index"])
+    paper = _palette_hex(panel_format.IDX_WHITE)
     css_class = "palette-swatch"
     if extra_class:
         css_class += " " + extra_class
+    if theme.get("dithered"):
+        css_class += " palette-swatch--dithered"
     band_html = ""
-    if "band_index" in theme and theme["band_index"] != theme["departing_index"]:
-        band_html = '<span class="palette-swatch__band" style="background:%s"></span>' % (
-            escape_html(_palette_hex(theme["band_index"])))
-    return '<span class="%s" aria-hidden="true" style="background:%s">%s</span>' % (
-        escape_html(css_class), escape_html(hex_fill), band_html)
+    band_dithered = bool(theme.get("band_dithered"))
+    if "band_index" in theme and (
+            theme["band_index"] != theme["departing_index"]
+            or band_dithered != bool(theme.get("dithered"))):
+        band_class = "palette-swatch__band"
+        if band_dithered:
+            band_class += " palette-swatch--dithered"
+        band_html = '<span class="%s" style="background-color:%s;--swatch-paper:%s"></span>' % (
+            band_class, escape_html(_palette_hex(theme["band_index"])), escape_html(paper))
+    return (
+        '<span class="%s" aria-hidden="true" '
+        'style="background-color:%s;--swatch-paper:%s">%s</span>'
+    ) % (escape_html(css_class), escape_html(hex_fill), escape_html(paper), band_html)
 
 
 def _palette_chip_html(field_name, theme_id, selected, radio_form_id=None):
