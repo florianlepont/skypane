@@ -12,6 +12,7 @@ picture's flight line share one `history_db` read.
 """
 
 import companion.battery as battery
+import companion.draw as draw
 import companion.frame_state as frame_state
 import companion.i18n as i18n
 import companion.layout as layout
@@ -73,14 +74,19 @@ NO_READING_TEXT = i18n.msg("home.no_reading_yet", "No reading yet")
 FRAME_STATE_HEADING = i18n.msg("home.frame_state", "Frame state")
 QUICK_DISPLAY_ACTION = "/quick/display"
 QUICK_QUIET_HOURS_ACTION = "/quick/quiet-hours"
+# Each state is a short title, set in the display face, plus for the
+# held states a plain sentence under it saying what the frame does.
 STATE_SCREEN_ON_TEXT = i18n.msg("home.state_screen_on", "Screen on")
-STATE_SCREEN_OFF_TEXT = i18n.msg(
-    "home.state_screen_off", "Screen off — the frame stays blank")
-STATE_QUIET_TEXT = i18n.msg(
-    "home.state_quiet_hours", "Quiet hours — the screen rests until %s")
-STATE_BATTERY_TEXT = i18n.msg(
-    "home.state_battery_resting",
-    "Battery very low — the frame is resting until it is recharged")
+STATE_SCREEN_OFF_TEXT = i18n.msg("home.state_title_screen_off", "Screen off")
+STATE_SCREEN_OFF_DETAIL = i18n.msg(
+    "home.state_detail_screen_off", "The frame stays blank")
+STATE_QUIET_TEXT = i18n.msg("home.state_title_quiet_hours", "Quiet hours")
+STATE_QUIET_DETAIL = i18n.msg(
+    "home.state_detail_quiet_hours", "The screen rests until %s")
+STATE_BATTERY_TEXT = i18n.msg("home.state_title_battery", "Battery very low")
+STATE_BATTERY_DETAIL = i18n.msg(
+    "home.state_detail_battery",
+    "The frame is resting until it is recharged")
 CADENCE_TEXT = i18n.msg("home.cadence", "Updates about every %s")
 # The short reason behind the cadence, folded into a disclosure.
 CADENCE_WHY_TEXT = i18n.msg(
@@ -161,12 +167,10 @@ def _gallery_name_to_iso(name):
     return candidate if layout.parse_iso(candidate) is not None else None
 
 
-# The small ring's box side, in CSS pixels — half health_page.py's own
-# large ring, kept under the height of the two text lines it sits
-# beside, since stat_tile()'s box is shared by three tiles and a taller
-# Battery tile would make the row ragged. The shared emitter,
-# draw.ring_gauge(), lives in draw.py so a change there moves both pages.
-BATTERY_RING_SIZE = 36
+# The battery dial's box side in CSS pixels. Drawn once at this size;
+# style.css scales the box down on a phone, and the SVG scales with it
+# because it carries a viewBox.
+BATTERY_ARC_SIZE = 132
 
 
 def _current_picture_html(ctx, current_flight_row):
@@ -308,7 +312,7 @@ def _interval_text(interval_s):
 
 def _frame_state_summary(ctx):
     """Everything the card shows, derived once from the page context:
-    the headline `(kind, text)`, the next-update triple and the base wake
+    the headline `(kind, title, detail)`, the next-update triple and the base wake
     interval. Precedence mirrors `wake.effective_wake_interval_s()`: a
     battery-empty hold beats the display switch, which beats quiet hours.
     """
@@ -320,25 +324,25 @@ def _frame_state_summary(ctx):
         quiet_remaining, quiet_end = device_config.quiet_hours_status(
             cfg, now_parsed.timestamp())
     if critical:
-        headline = ("warn", i18n.t(STATE_BATTERY_TEXT))
+        headline = ("warn", i18n.t(STATE_BATTERY_TEXT), i18n.t(STATE_BATTERY_DETAIL))
     elif cfg.get("display_enabled") is False:
-        headline = ("off", i18n.t(STATE_SCREEN_OFF_TEXT))
+        headline = ("off", i18n.t(STATE_SCREEN_OFF_TEXT), i18n.t(STATE_SCREEN_OFF_DETAIL))
     elif quiet_remaining is not None:
-        headline = ("off", i18n.t(STATE_QUIET_TEXT) % quiet_end)
+        headline = ("off", i18n.t(STATE_QUIET_TEXT), i18n.t(STATE_QUIET_DETAIL) % quiet_end)
     else:
-        headline = ("ok", i18n.t(STATE_SCREEN_ON_TEXT))
+        headline = ("ok", i18n.t(STATE_SCREEN_ON_TEXT), "")
     return headline, wake.next_wake_status(
         ctx.last_checkin_ts, cfg, battery_critical=critical
     ), wake.effective_wake_interval_s(cfg, battery_critical=critical)
 
 
 def _next_update_html(next_iso, interval_s, hold_reason, now):
-    """The "Next update ≈ HH:MM · in 5 min" line, or "" without a check-in.
-    The wording template comes from frame_state, the single due/held/late
-    decision shared with every other consumer. An overdue frame reads
-    "Update overdue · expected at HH:MM" with no countdown; once it is
-    long overdue the line also links to Health, the page that says why.
-    Returns `(html, long_overdue)`."""
+    """The "Next update ≈ HH:MM · in 5 min" line, led by a clock, or ""
+    without a check-in. The wording template comes from frame_state, the
+    single due/held/late decision shared with every other consumer. An
+    overdue frame reads "Update overdue · expected at HH:MM" behind a
+    warning sign, with no countdown. Returns `(html, long_overdue)`; a
+    long-overdue frame also gets the Health link, placed by the caller."""
     parsed = layout.parse_iso(next_iso) if next_iso else None
     if parsed is None:
         return "", False
@@ -350,16 +354,22 @@ def _next_update_html(next_iso, interval_s, hold_reason, now):
         escape_html(before), escape_html(clock), escape_html(after))
     long_overdue = frame_state.is_long_overdue(next_iso, interval_s, hold_reason, now)
     if state == frame_state.STATE_LATE:
-        modifier = " home-state__next--overdue"
-        tail = (
-            '<a class="home-state__health-link" href="%s">%s</a>'
-            % (HEALTH_ROUTE, escape_html(i18n.t(SEE_HEALTH_TEXT)))) if long_overdue else ""
+        modifier, icon_id, tail = " home-state__next--overdue", "icon-warning", ""
     else:
-        modifier = ""
-        tail = " · " + layout.relative_time_html(next_iso, now, countdown=True)
+        modifier, icon_id = "", "icon-nav-history"
+        tail = '<span class="home-state__countdown"> · %s</span>' % (
+            layout.relative_time_html(next_iso, now, countdown=True))
     return (
-        '<p class="home-state__next text-label%s">%s%s</p>' % (modifier, text, tail)
+        '<p class="home-state__next%s">%s<span>%s%s</span></p>' % (
+            modifier, layout.icon_html(icon_id, 18, "home-state__next-icon"), text, tail)
     ), long_overdue
+
+
+def _health_link_html():
+    """The "See Health" pill shown once the frame is long overdue."""
+    return '<a class="home-state__health-link" href="%s">%s%s</a>' % (
+        HEALTH_ROUTE, escape_html(i18n.t(SEE_HEALTH_TEXT)),
+        layout.icon_html("icon-chevron-right", 16))
 
 
 def _quiet_window_text(cfg):
@@ -381,17 +391,19 @@ def _switch_row_html(spec, is_on, detail_html):
     too, so the page must be re-rendered rather than optimistically
     patched. `return_to` is one of the server-side whitelist's values.
     """
-    action, slug, label = spec
+    action, slug, label, icon_id = spec
     label_id = "home-switch-%s-label" % slug
     state_id = "home-switch-%s-state" % slug
     return (
         '<div class="home-switch home-switch--%s">'
+        '<span class="home-switch__icon">%s</span>'
         '<div class="home-switch__text">'
         '<span class="home-switch__label" id="%s">%s</span>'
         '<span class="home-switch__detail text-label">%s%s</span>'
         "</div>%s</div>"
     ) % (
-        "on" if is_on else "off", label_id, escape_html(i18n.t(label)),
+        "on" if is_on else "off", layout.icon_html(icon_id, 18), label_id,
+        escape_html(i18n.t(label)),
         layout.quick_switch_state_html(
             state_id, i18n.t(layout.QUICK_ACTION_ON_TEXT),
             i18n.t(layout.QUICK_ACTION_OFF_TEXT), is_on, extra_class="home-switch__state"),
@@ -410,29 +422,13 @@ def _switches_html(cfg):
     ) % (
         escape_html(i18n.t(SWITCHES_LABEL)),
         _switch_row_html(
-            (QUICK_DISPLAY_ACTION, "screen", layout.QUICK_ACTION_SCREEN_LABEL),
+            (QUICK_DISPLAY_ACTION, "screen", layout.QUICK_ACTION_SCREEN_LABEL,
+             "icon-nav-display"),
             screen_on, ""),
         _switch_row_html(
-            (QUICK_QUIET_HOURS_ACTION, "quiet", layout.QUICK_ACTION_QUIET_LABEL),
+            (QUICK_QUIET_HOURS_ACTION, "quiet", layout.QUICK_ACTION_QUIET_LABEL,
+             "icon-moon"),
             quiet_on, window))
-
-
-# The battery glyph's drawing, in SVG user units: an outline body, a
-# terminal nub and a fill whose width is the charge fraction. SVG
-# attributes rather than inline style, which the page's CSP forbids.
-BATTERY_METER_FILL_WIDTH = 60
-
-
-def _battery_meter_svg(percent):
-    fill = max(2, int(round(BATTERY_METER_FILL_WIDTH * percent / 100.0))) if percent > 0 else 0
-    return (
-        '<svg class="home-battery__glyph" width="72" height="32" viewBox="0 0 72 32" '
-        'aria-hidden="true" focusable="false">'
-        '<rect class="home-battery__body" x="1" y="1" width="64" height="30" rx="7"/>'
-        '<rect class="home-battery__nub" x="67" y="10" width="4" height="12" rx="2"/>'
-        '<rect class="home-battery__fill" x="4" y="4" width="%d" height="24" rx="4"/>'
-        "</svg>"
-    ) % fill
 
 
 def _battery_level(ctx, percent):
@@ -449,12 +445,13 @@ def _battery_level(ctx, percent):
 
 
 def _battery_pill_html(ctx):
-    """The battery as a small panel block: a glyph filled to the charge, the
-    percentage in semibold, and for a low or critical level a word as well,
-    so the state never rests on colour alone. Reads only the latest stored
-    reading from PageContext's state directory; the percentage is the
-    shared piecewise estimate. A missing reading shows words only, never an
-    invented meter. The whole block is one named image for screen readers."""
+    """The battery dial: an open arc filled to the charge and coloured by
+    level, the percentage and the word "Battery" in its middle, and for a
+    low or critical level a word in the arc's gap as well, so the state
+    never rests on colour alone. Reads only the latest stored reading from
+    PageContext's state directory; the percentage is the shared piecewise
+    estimate. A missing reading shows words only, never an invented dial.
+    The whole block is one named image for screen readers."""
     reading = _safe_query(ctx.state_dir, _latest_battery)
     if not reading or not reading.get("battery_mv"):
         return '<p class="home-battery home-battery--none text-label">%s</p>' % escape_html(
@@ -467,18 +464,21 @@ def _battery_pill_html(ctx):
         ("≈ " if percent is not None else "") + value)
     if word:
         aria = "%s, %s" % (aria, i18n.t(word).lower())
+    if percent is not None:
+        value_html = '%d<span class="home-battery__unit">%%</span>' % percent
+        status = {"ok": "ok", "low": "warn", "critical": "error"}[level]
+        dial = draw.arc_gauge(percent / 100.0, BATTERY_ARC_SIZE, draw.status_class(status))
+    else:
+        value_html, dial = escape_html(value), ""
     return (
-        '<p class="home-battery home-battery--%s" role="img" aria-label="%s">'
-        '<span class="home-battery__head">'
-        '<span class="home-battery__label text-label">%s</span>%s</span>'
+        '<p class="home-battery home-battery--%s" role="img" aria-label="%s">%s'
         '<span class="home-battery__reading">'
-        '<span class="home-battery__value">%s</span>%s</span></p>'
+        '<span class="home-battery__value">%s</span>'
+        '<span class="home-battery__label">%s</span></span>%s</p>'
     ) % (
-        level, escape_html(aria), escape_html(i18n.t(BATTERY_LABEL)),
-        ('<span class="home-battery__state text-label">%s</span>' % escape_html(i18n.t(word)))
-        if word else "",
-        escape_html(value),
-        _battery_meter_svg(percent) if percent is not None else "")
+        level, escape_html(aria), dial, value_html, escape_html(i18n.t(BATTERY_LABEL)),
+        ('<span class="home-battery__state">%s</span>' % escape_html(i18n.t(word)))
+        if word else "")
 
 
 def _cadence_html(base_interval_s):
@@ -495,26 +495,32 @@ def _cadence_html(base_interval_s):
 
 
 def _frame_state_html(ctx):
-    """The status header: current state in plain language with a coloured
-    dot, the next update, a compact cadence line, the battery block and the
-    screen and quiet-hours switches. A long-overdue frame turns the dot
-    amber. Everything comes from the page context."""
+    """The status header: a "Frame state" label, the current state as a
+    short title beside a haloed dot (plus a sentence for a held state), the
+    next update, the cadence and, once long overdue, a Health link; then
+    the battery dial and the screen and quiet-hours switches. The dot's
+    tone also tints the card (green on, amber long overdue or battery
+    hold, neutral when resting). Everything comes from the page context."""
     cfg = ctx.device_config or {}
-    (dot, headline), (next_iso, interval_s, hold_reason), base_interval_s = (
+    (tone, title, detail), (next_iso, interval_s, hold_reason), base_interval_s = (
         _frame_state_summary(ctx))
     next_html, long_overdue = _next_update_html(next_iso, interval_s, hold_reason, ctx.now)
     if long_overdue:
-        dot = "warn"
+        tone = "warn"
+    detail_html = (
+        '<p class="home-state__detail">%s</p>' % escape_html(detail)) if detail else ""
     return (
-        '<section class="home-state" aria-labelledby="home-frame-state">'
-        '<h2 class="visually-hidden" id="home-frame-state">%s</h2>'
-        '<div class="home-state__status">'
+        '<section class="home-state home-state--%s" aria-labelledby="home-frame-state">'
+        '<div class="home-state__body"><div class="home-state__status">'
+        '<h2 class="home-state__eyebrow" id="home-frame-state">%s%s</h2>'
         '<p class="home-state__headline"><span class="home-state__dot dot dot--%s" '
-        'aria-hidden="true"></span><span>%s</span></p>'
-        "%s%s</div>%s%s</section>"
+        'aria-hidden="true"></span><span class="home-state__title">%s</span></p>'
+        '%s%s<div class="home-state__meta">%s%s</div></div>%s%s</div></section>'
     ) % (
-        escape_html(i18n.t(FRAME_STATE_HEADING)), dot, escape_html(headline),
-        next_html, _cadence_html(base_interval_s),
+        tone, layout.icon_html("icon-nav-display", 16),
+        escape_html(i18n.t(FRAME_STATE_HEADING)), tone, escape_html(title),
+        detail_html, next_html, _cadence_html(base_interval_s),
+        _health_link_html() if long_overdue else "",
         _battery_pill_html(ctx), _switches_html(cfg))
 
 
