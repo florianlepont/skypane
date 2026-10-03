@@ -45,10 +45,8 @@ def battery_trend_js(_module_server):
 def _battery_section_heading(lang="en"):
     """The battery-trend heading's own rendered text, computed the SAME
     way `_battery_trend_section_html()` computes it — a relationship
-    against `BATTERY_SECTION_HEADING_TEMPLATE`/`BATTERY_TREND_WINDOW_DAYS`,
-    never a typed literal."""
-    return i18n.t_lang(health_page.BATTERY_SECTION_HEADING_TEMPLATE, lang) % (
-        health_page.BATTERY_TREND_WINDOW_DAYS // 30)
+    against `BATTERY_SECTION_HEADING`, never a typed literal."""
+    return i18n.t_lang(health_page.BATTERY_SECTION_HEADING, lang)
 
 
 def _tile_slice_by_caption(rendered, caption):
@@ -1107,14 +1105,9 @@ def test_battery_heading_is_short_and_followed_by_content_not_a_range_caption(tm
         '<details class="readings-disclosure"'), "expected the readout to precede the readings disclosure"
 
 
-def test_battery_heading_equals_template_times_window_in_both_languages(tmp_path):
-    """the battery-trend heading's rendered text equals i18n.t_lang(BATTERY_SECTION_HEADING_TEMPLATE,
-    lang) % (BATTERY_TREND_WINDOW_DAYS // 30) in both English and French — a relationship against
-    the real constants, not a typed literal"""
-    # A RELATIONSHIP against the real constants, never a typed
-    # "Batterie · 3 mois" literal, proven in both languages so a future
-    # edit to either the template or BATTERY_TREND_WINDOW_DAYS is caught
-    # here rather than only in English.
+def test_battery_heading_is_the_bare_subject_in_both_languages(tmp_path):
+    """the battery-trend heading is the catalogue's subject text alone, with no month count or range
+    qualifier, in both English and French"""
     state_dir = str(tmp_path)
     for lang in ("en", "fr"):
         try:
@@ -1122,12 +1115,12 @@ def test_battery_heading_equals_template_times_window_in_both_languages(tmp_path
             rendered = health_page.render(shp.ctx(state_dir))
         finally:
             prefs.set_request_prefs(lang="en")
-        expected = i18n.t_lang(health_page.BATTERY_SECTION_HEADING_TEMPLATE, lang) % (
-            health_page.BATTERY_TREND_WINDOW_DAYS // 30)
+        expected = i18n.t_lang(health_page.BATTERY_SECTION_HEADING, lang)
         marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(expected)
-        assert marker in rendered, (
-            "%s: expected the heading to equal i18n.t_lang(BATTERY_SECTION_HEADING_TEMPLATE, lang) "
-            "%% (BATTERY_TREND_WINDOW_DAYS // 30) == %r, marker %r not found" % (lang, expected, marker))
+        assert marker in rendered, "%s: expected the heading %r, marker %r not found" % (
+            lang, expected, marker)
+        assert "3 months" not in rendered and "3 mois" not in rendered, (
+            "%s: the retired range label must not render" % lang)
 
 
 def test_battery_trend_renders_no_range_caption_in_any_of_three_branches(tmp_path):

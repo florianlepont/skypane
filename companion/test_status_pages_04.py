@@ -47,8 +47,7 @@ def battery_trend_js(_module_server):
 def _battery_section_heading(lang="en"):
     """The battery-trend heading's own rendered text, computed the SAME
     way `_battery_trend_section_html()` computes it."""
-    return i18n.t_lang(health_page.BATTERY_SECTION_HEADING_TEMPLATE, lang) % (
-        health_page.BATTERY_TREND_WINDOW_DAYS // 30)
+    return i18n.t_lang(health_page.BATTERY_SECTION_HEADING, lang)
 
 
 def _rule_index(rules, selector, at_rules=()):
@@ -535,8 +534,8 @@ def test_humanised_battery_readout_end_to_end(tmp_path, battery_trend_js):
     assert title_match.group(1) in visible, (
         "expected the title to equal the readout's own visible text")
 
-    assert section_html.count("data-when=") == 3, (
-        "expected one data-when attribute per chart hit target")
+    assert section_html.count("data-when=") == 6, (
+        "expected one data-when attribute per hit target in each of the two chart views")
 
     for token in ("data-when", "battery-readout__value", "battery-readout__detail"):
         assert token in battery_trend_js, "expected battery-trend.js to reference %r" % token

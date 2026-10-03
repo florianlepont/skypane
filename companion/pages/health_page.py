@@ -253,13 +253,9 @@ SPARKLINE_LEGEND_SWATCH_CLASS = battery_chart.SPARKLINE_LEGEND_SWATCH_CLASS
 # circular). The test harness asserts the two stay equal.
 BATTERY_TREND_SCRIPT_SRC = "/static/battery-trend.js"
 
-# "%d" is interpolated with BATTERY_TREND_WINDOW_DAYS // 30 at the one
-# call site below, never a typed literal, so the heading cannot silently
-# drift from the window the chart plots. Both constants live in
-# companion/battery_chart.py, since the chart's own <svg aria-label>
-# interpolates the exact same two values and the two headings must never
-# disagree.
-BATTERY_SECTION_HEADING_TEMPLATE = battery_chart.BATTERY_SECTION_HEADING_TEMPLATE
+# The visible heading and the chart's accessible name share this text, which
+# lives in companion/battery_chart.py.
+BATTERY_SECTION_HEADING = battery_chart.BATTERY_SECTION_HEADING
 # Contract value shared with style.css's .battery-trend-section rule,
 # guarded against silent drift by a cross-file check.
 BATTERY_SECTION_CLASS = "battery-trend-section"
@@ -775,7 +771,7 @@ def _battery_trend_section_html(battery_html, state, caption=None):
     """
     modifier = layout.card_status_class(BATTERY_SECTION_CLASS, state)
     section_class = BATTERY_SECTION_CLASS + ((" " + modifier) if modifier else "")
-    heading_text = i18n.t(BATTERY_SECTION_HEADING_TEMPLATE) % (BATTERY_TREND_WINDOW_DAYS // 30)
+    heading_text = i18n.t(BATTERY_SECTION_HEADING)
     return (
         '<section class="%s">'
         '<h2 class="text-heading">%s</h2>'
@@ -832,7 +828,7 @@ def _battery_section(trend_rows, daily_rows=None):
     plot_daily = _battery_daily_series_usable(daily_rows)
     plot_rows = daily_rows if plot_daily else trend_rows
     sparkline_html = (
-        battery_sparkline_svg(plot_rows, now=now, daily=plot_daily)
+        battery_chart.battery_unit_chart(plot_rows, now=now, daily=plot_daily)
         if len(plot_rows) >= 2 else "")
     # Script tag and readout emit only when a chart exists, keeping
     # "exactly one script tag, zero on the empty path" testable.
@@ -1106,9 +1102,11 @@ def render(ctx):
     )
 
     return (
-        layout.page_header(i18n.t(_NAV_HEALTH_TEXT))
+        '<div class="status-page">'
+        + layout.page_header(i18n.t(_NAV_HEALTH_TEXT))
         + _source_fault_block(source_fault_raw)
         + banner_html
         + screen_section_html
         + server_data_section_html
+        + "</div>"
     )

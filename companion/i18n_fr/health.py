@@ -143,7 +143,11 @@ MESSAGES = {
     "health.over_the_last_days_event": "au cours des %d derniers jours, %d événement",
 
     # --- Battery trend section -------------------------------------------
-    "health.battery_months": "Batterie · %d mois",
+    "health.battery": "Batterie",
+    "health.low_battery_pct": "Batterie faible \u2014 %d\u00a0%%",
+    "health.battery_unit_group": "Unité du graphique de batterie",
+    "health.battery_unit_percent": "Pourcentage",
+    "health.battery_unit_voltage": "Tension",
     "health.last_3_months_daily_average": "3 derniers mois, moyenne quotidienne",
     "health.daily_average_reading": "%s — moyenne quotidienne (%d relevé)",
     "health.daily_average_readings": "%s — moyenne quotidienne (%d relevés)",

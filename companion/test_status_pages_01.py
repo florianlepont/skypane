@@ -12,7 +12,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 
 import companion.test_status_pages_helpers as shp
-from companion import draw, layout
+from companion import draw, layout, prefs
 from companion.pages import health_page
 import companion.wake as wake
 from companion_markup import parse_html
@@ -304,6 +304,12 @@ def test_battery_ring_agrees_with_its_own_readout(tmp_path):
             "checked in" % (cls,))
 
 
+def _voltage_view(doc):
+    """The server-rendered default (voltage) chart view: the page also
+    carries a hidden percentage twin of the same series."""
+    return doc.find("div", cls="battery-chart__view", attrs={"data-unit": "mv"})
+
+
 def test_battery_trend_shows_all_readings_and_one_sparkline(tmp_path):
     """three battery rows render the full trend (not just the latest value) and
     exactly one <svg> with exactly n - 1 trend-line segments (retargeted from the
@@ -319,10 +325,54 @@ def test_battery_trend_shows_all_readings_and_one_sparkline(tmp_path):
     for _ts, mv in readings:
         assert str(mv) in rendered, "expected battery_mv=%d to appear (a trend, not just the latest)" % mv
     doc = parse_html(rendered)
-    canvases = doc.find_all("svg", cls="sparkline__canvas")
-    assert len(canvases) == 1, "expected exactly one sparkline canvas, got %d" % len(canvases)
-    lines = doc.find_all("line", cls=health_page.SPARKLINE_LINE_CLASS)
+    canvases = _voltage_view(doc).find_all("svg", cls="sparkline__canvas")
+    assert len(canvases) == 1, "expected exactly one sparkline canvas per view, got %d" % len(canvases)
+    assert len(doc.find_all("svg", cls="sparkline__canvas")) == 2, (
+        "expected the voltage view plus its percentage twin")
+    lines = _voltage_view(doc).find_all("line", cls=health_page.SPARKLINE_LINE_CLASS)
     assert len(lines) == 2, "expected exactly 2 trend-line segments (n - 1 for 3 points), got %d" % len(lines)
+
+
+def test_battery_chart_ships_a_percentage_twin_calculated_by_the_server(tmp_path):
+    """the page carries the voltage chart visibly and a hidden percentage twin whose readings are the
+    server's own battery estimate, with a Percentage/Voltage control hidden until the script runs"""
+    from companion import battery
+    base = shp.now().replace(hour=12, minute=0, second=0, microsecond=0)
+    readings = [
+        (shp.iso(base - timedelta(minutes=2)), 4200),
+        (shp.iso(base - timedelta(minutes=1)), 3800),
+        (shp.iso(base), 3600),
+    ]
+    shp.seed_device_health(str(tmp_path), readings)
+    doc = parse_html(health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(base))))
+    voltage = _voltage_view(doc)
+    percent = doc.find("div", cls="battery-chart__view", attrs={"data-unit": "percent"})
+    assert "hidden" not in voltage.attrs and "hidden" in percent.attrs
+    group = doc.find("div", cls="battery-unit")
+    assert "hidden" in group.attrs, "the control needs the script, so it ships hidden"
+    buttons = group.find_all("button")
+    assert [b.attrs["data-unit"] for b in buttons] == ["percent", "mv"]
+    assert [b.attrs["aria-pressed"] for b in buttons] == ["false", "true"]
+    hits = percent.find_all("circle", cls=health_page.SPARKLINE_HIT_CLASS)
+    assert len(hits) == 3
+    for hit in hits:
+        expected = "≈ %d%%" % battery.battery_percent(int(hit.attrs["data-mv"]))
+        assert hit.attrs["data-reading"] == expected
+    assert not voltage.find_all(attrs={"data-reading": "≈ 0%"})
+
+
+def test_battery_unit_control_is_localised(tmp_path):
+    """the Percentage/Voltage control and its group label render in French on a French request"""
+    base = shp.now().replace(hour=12, minute=0, second=0, microsecond=0)
+    shp.seed_device_health(str(tmp_path), [
+        (shp.iso(base - timedelta(minutes=1)), 3900), (shp.iso(base), 3800)])
+    try:
+        prefs.set_request_prefs(lang="fr")
+        rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(base)))
+    finally:
+        prefs.set_request_prefs(lang="en")
+    assert ">Pourcentage</button>" in rendered and ">Tension</button>" in rendered
+    assert 'aria-label="Unité du graphique de batterie"' in rendered
 
 
 def test_battery_trend_timestamps_show_concise_format(tmp_path):
@@ -370,11 +420,12 @@ def test_battery_readings_collapsed_behind_closed_disclosure_after_chart(tmp_pat
     assert svg_index < details_index, "expected the chart to precede the collapsed readings table"
 
 
-def test_battery_trend_heading_shows_d10_window_label(tmp_path):
-    """the Battery trend heading names its window and the retired "Last 3 months" range
+def test_battery_trend_heading_names_only_the_subject(tmp_path):
+    """the Battery heading carries no window label and the retired "Last 3 months" range
     caption does not render on an empty render"""
     rendered = health_page.render(shp.ctx(str(tmp_path)))
-    assert "Battery · 3 months" in rendered
+    assert '<h2 class="text-heading">Battery</h2>' in rendered
+    assert "3 months" not in rendered
     assert "Last 3 months" not in rendered
 
 
@@ -398,7 +449,7 @@ def test_battery_chart_plots_daily_averages_not_raw_readings(tmp_path):
     for raw in (4000, 4001, 4002, 4200, 4201, 4202):
         assert not doc.find_all(attrs={"data-mv": str(raw)}), (
             "raw reading %d must not be a plotted point once the chart is aggregated" % raw)
-    lines = doc.find_all("line", cls=health_page.SPARKLINE_LINE_CLASS)
+    lines = _voltage_view(doc).find_all("line", cls=health_page.SPARKLINE_LINE_CLASS)
     assert len(lines) == 2, "three daily points means two trend-line segments, got %d" % len(lines)
     for _ts, mv in readings:
         assert str(mv) in rendered, "raw reading %d missing from the disclosure table" % mv
@@ -419,7 +470,7 @@ def test_battery_chart_falls_back_to_raw_series_on_day_one(tmp_path):
     shp.seed_device_health(str(tmp_path), readings)
     rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(base)))
     doc = parse_html(rendered)
-    lines = doc.find_all("line", cls=health_page.SPARKLINE_LINE_CLASS)
+    lines = _voltage_view(doc).find_all("line", cls=health_page.SPARKLINE_LINE_CLASS)
     assert len(lines) == 2, "a same-day device must still get its raw-readings chart, got %d segments" % len(lines)
     assert health_page.BATTERY_READOUT_ID in rendered, (
         "the readout must not disappear on a device younger than two calendar days")

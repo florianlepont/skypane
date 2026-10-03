@@ -42,8 +42,7 @@ def css_text(_module_server):
 def _battery_section_heading(lang="en"):
     """The battery-trend heading's own rendered text, computed the SAME way
     _battery_trend_section_html() computes it."""
-    return i18n.t_lang(health_page.BATTERY_SECTION_HEADING_TEMPLATE, lang) % (
-        health_page.BATTERY_TREND_WINDOW_DAYS // 30)
+    return i18n.t_lang(health_page.BATTERY_SECTION_HEADING, lang)
 
 
 def _card_slice(rendered, airline_name):
