@@ -3181,6 +3181,67 @@ button.airline-card__action {
   margin: 0 0 var(--space-sm);
 }
 
+/* Percentage / Voltage control above the battery chart: a two-button
+ * group of native buttons. The selected one is marked by weight, a
+ * stronger border and a tinted wash, never by colour alone. Shipped
+ * [hidden] and revealed by battery-trend.js, so the explicit [hidden]
+ * rule is required: this display would otherwise beat the UA rule. */
+.battery-unit {
+  display: inline-flex;
+  gap: var(--space-xs);
+  margin: 0 0 var(--space-sm);
+}
+
+.battery-unit[hidden],
+.battery-chart__view[hidden] {
+  display: none;
+}
+
+.battery-unit__option {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  font-weight: var(--weight-regular);
+}
+
+.battery-unit__option[aria-pressed="true"] {
+  font-weight: var(--weight-semibold);
+  border-color: var(--color-text);
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+}
+
+/* The raw-readings action is secondary: muted, regular weight and
+ * label-sized, still a full-height native summary. */
+.readings-disclosure > summary {
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-regular);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* Status tiles, banners and the chart keep a readable measure on wide
+ * screens; narrower viewports fill their column as before. Nested
+ * sections hold multi-column tables that need the full column. */
+.status-page {
+  max-width: 100%;
+}
+
+/* The current result leads: larger and semibold, with the supporting
+ * timestamp or explanation muted and small beneath it. */
+.status-page .stat-tile .widget-verdict {
+  font-size: var(--font-heading-size);
+  line-height: 1.25;
+}
+
+.status-page .stat-tile .widget-detail {
+  font-size: var(--font-label-size);
+}
+
+@media (min-width: 960px) {
+  .status-page > :not(.page-section--nested) {
+    max-width: 760px;
+  }
+}
+
 /* Desktop dashboard shell, this file's second and last breakpoint.
  * layout.py renders both nav copies (mobile dropdown + sidebar) into
  * every response since a stdlib server has no viewport info; display:

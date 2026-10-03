@@ -31,6 +31,8 @@ from companion.test_browser_ux_helpers import (
 
 pytestmark = pytest.mark.browser
 
+VISIBLE_VIEW = ".battery-chart__view:not([hidden])"
+
 # The battery ring, measured where it actually has to be correct: a real browser, both
 # themes, the narrowest supported screen, and with scripts off.
 
@@ -352,7 +354,8 @@ def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(
                 "          grid: r(document.querySelector('.sparkline')),"
                 "          canvas: r(document.querySelector('.sparkline__canvas')),"
                 "          mark: r(document.querySelector('.sparkline-mark')),"
-                "          axis: [...document.querySelectorAll('.sparkline-axis-label')]"
+                "          axis: [...document.querySelectorAll("
+                "            '.battery-chart__view:not([hidden]) .sparkline-axis-label')]"
                 "                  .map(r)};}")
             if len(boxes["axis"]) != 4:
                 raise AssertionError(
@@ -430,10 +433,12 @@ def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(
         for label, selector in (("area", CHART_AREA), ("mark", CHART_MARK),
                                 ("threshold", CHART_THRESHOLD),
                                 ("legend", CHART_LEGEND)):
-            if blocked.locator(selector).count() != 1:
+            # The hidden percentage twin carries its own copy of each drawing.
+            shown = blocked.locator(VISIBLE_VIEW + " " + selector)
+            if shown.count() != 1:
                 raise AssertionError(
                     "with scripts blocked: expected exactly one %s, got %d"
-                    % (label, blocked.locator(selector).count()))
+                    % (label, shown.count()))
         _set_ui_theme(blocked, UI_THEMES_EXPLICIT[1])
         for label, selector, props in (
                 ("area", CHART_AREA, ("fill",)),
@@ -1205,3 +1210,148 @@ def test_the_grid_is_a_real_drawing_at_360px_in_both_languages_without_script(ne
                     % (width, seen["svg"]["w"], seen["svg"]["h"], rendered_ratio, box_w / box_h))
         finally:
             context.close()
+
+
+# --- Status: percentage / voltage switch, readable width, hierarchy ----------------------
+
+UNIT_VIEWPORTS = (
+    ("1280", VIEWPORT_DESKTOP),
+    ("390", {"width": 390, "height": 844}),
+    ("360", VIEWPORT_MIN_SUPPORTED),
+)
+
+
+def _open_status(context, base_url, lang):
+    page = context.new_page()
+    _login(page, base_url)
+    context.add_cookies([{"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
+    page.goto(base_url + "/health")
+    page.wait_for_selector(".battery-unit:not([hidden])")
+    return page
+
+
+def _shown_unit(page):
+    return page.evaluate(
+        "() => document.querySelector('%s').getAttribute('data-unit')" % VISIBLE_VIEW)
+
+
+def _pressed_units(page):
+    return page.evaluate(
+        "() => [...document.querySelectorAll('.battery-unit__option')]"
+        ".filter(b => b.getAttribute('aria-pressed') === 'true')"
+        ".map(b => b.getAttribute('data-unit'))")
+
+
+def _readout_value(page):
+    return page.inner_text(".battery-readout__value").strip()
+
+
+def _active_reading(page):
+    return page.evaluate(
+        "() => { const a = document.querySelector('%s .sparkline-hit--active');"
+        " return a ? a.getAttribute('data-reading') || (a.getAttribute('data-mv') + ' mV')"
+        " : null; }" % VISIBLE_VIEW)
+
+
+@pytest.mark.parametrize("width_label,viewport", UNIT_VIEWPORTS, ids=[v[0] for v in UNIT_VIEWPORTS])
+@pytest.mark.parametrize("lang", ("en", "fr"))
+def test_the_battery_unit_switch_changes_chart_and_readout_by_keyboard_and_pointer(
+        new_context, server, width_label, viewport, lang):
+    """The Percentage/Voltage control is revealed once the script runs, starts on the
+    server-rendered voltage view, and switches the chart and its readout together by pointer,
+    Enter and Space with a visible focus ring and an explicit pressed state; the readout always
+    equals the active point's server-computed text. The page never scrolls sideways, today's
+    activity sits on this page, and below the desktop breakpoint the bottom tab bar stays
+    visible.
+    """
+    context = new_context(viewport=viewport)
+    try:
+        page = _open_status(context, server.base_url(), lang)
+        assert _shown_unit(page) == "mv" and _pressed_units(page) == ["mv"]
+        assert page.is_hidden('.battery-chart__view[data-unit="percent"]')
+
+        page.click('.battery-unit__option[data-unit="percent"]')
+        assert _shown_unit(page) == "percent" and _pressed_units(page) == ["percent"]
+        assert page.is_hidden('.battery-chart__view[data-unit="mv"]')
+        value = _readout_value(page)
+        assert re.fullmatch(r"≈ \d+\s?%", value) or re.fullmatch(r"≈ \d+%", value), value
+        assert value == _active_reading(page), "readout and chart point disagree"
+
+        page.focus('.battery-unit__option[data-unit="mv"]')
+        page.keyboard.press("Enter")
+        assert _shown_unit(page) == "mv" and _pressed_units(page) == ["mv"]
+        assert re.fullmatch(r"\d+ mV", _readout_value(page)), _readout_value(page)
+        assert _readout_value(page) == _active_reading(page)
+
+        page.focus('.battery-unit__option[data-unit="percent"]')
+        page.keyboard.press("Space")
+        assert _shown_unit(page) == "percent"
+        outline = page.evaluate(
+            "() => { const s = getComputedStyle(document.activeElement);"
+            " return [s.outlineStyle, parseFloat(s.outlineWidth)]; }")
+        assert outline[0] != "none" and outline[1] >= 2, "no visible focus ring: %r" % (outline,)
+
+        # The chart's own roving-tabindex keyboard path still works in the shown view.
+        page.focus(VISIBLE_VIEW + " .sparkline-hit[tabindex='0']")
+        page.keyboard.press("ArrowLeft")
+        assert _readout_value(page) == _active_reading(page)
+
+        message = _assert_no_page_overflow(
+            page, "/health unit switch %s %s" % (width_label, lang), viewport["width"])
+        if message:
+            raise AssertionError(message)
+        assert page.locator(".day-band").count() == 1
+        assert page.locator(".battery-trend-section .day-band").count() == 0
+        assert "3 months" not in page.inner_text("main") and "3 mois" not in page.inner_text("main")
+        if viewport["width"] < 960:
+            box = page.locator(".tab-bar").bounding_box()
+            assert box is not None and box["height"] > 0
+            assert page.evaluate(
+                "() => getComputedStyle(document.querySelector('.tab-bar')).visibility") == "visible"
+    finally:
+        context.close()
+
+
+def test_the_battery_unit_switch_works_by_touch(new_context, server):
+    """A tap on the Percentage button switches the chart view."""
+    context = new_context(viewport={"width": 390, "height": 844}, has_touch=True)
+    try:
+        page = _open_status(context, server.base_url(), "en")
+        page.tap('.battery-unit__option[data-unit="percent"]')
+        assert _shown_unit(page) == "percent" and _pressed_units(page) == ["percent"]
+        page.tap('.battery-unit__option[data-unit="mv"]')
+        assert _shown_unit(page) == "mv"
+    finally:
+        context.close()
+
+
+def test_the_battery_chart_stays_on_voltage_without_script(new_context, server):
+    """With scripts blocked the control is not offered and the voltage chart stays visible."""
+    with _no_js_page(new_context, server.base_url(), "/health") as page:
+        assert page.is_hidden(".battery-unit")
+        assert page.is_visible('.battery-chart__view[data-unit="mv"] .sparkline__canvas')
+        assert page.is_hidden('.battery-chart__view[data-unit="percent"]')
+
+
+@pytest.mark.parametrize("lang", ("en", "fr"))
+def test_status_keeps_a_readable_width_and_leads_with_the_result(new_context, server, lang):
+    """On a wide screen the Status content stays within a readable measure, and a tile's
+    current result is set larger and heavier than its supporting detail."""
+    context = new_context(viewport=VIEWPORT_DESKTOP)
+    try:
+        page = _open_status(context, server.base_url(), lang)
+        measure = page.evaluate(
+            "() => { const w = document.querySelector('.status-page .dashboard-grid')"
+            ".getBoundingClientRect().width;"
+            " const c = document.querySelector('.battery-trend-section').getBoundingClientRect().width;"
+            " const m = document.querySelector('.dashboard-main').getBoundingClientRect().width;"
+            " return [w, c, m]; }")
+        assert measure[0] <= 760.5 and measure[1] <= 760.5 and measure[0] < measure[2]
+        sizes = page.evaluate(
+            "() => { const v = document.querySelector('.status-page .stat-tile .widget-verdict');"
+            " const d = document.querySelector('.status-page .stat-tile .widget-detail');"
+            " return [parseFloat(getComputedStyle(v).fontSize), parseFloat(getComputedStyle(d).fontSize),"
+            " parseInt(getComputedStyle(v).fontWeight, 10)]; }")
+        assert sizes[0] > sizes[1] and sizes[2] >= 600
+    finally:
+        context.close()
