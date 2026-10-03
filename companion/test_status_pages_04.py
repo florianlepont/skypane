@@ -665,7 +665,7 @@ def test_health_tile_icons_are_tile_only_and_no_heading_carries_a_glyph(tmp_path
         assert empty_rendered.count("#" + icon_id) == 1
     assert empty_rendered.count(layout.STAT_TILE_ICON_CLASS) == 3, (
         "expected exactly three glyphs to carry the tile tint class")
-    _headings_carry_no_glyph(empty_rendered, 5)
+    _headings_carry_no_glyph(empty_rendered, 6)
 
     now = shp.now()
     shp.seed_unresolved_prefixes(state_dir, {
@@ -676,7 +676,7 @@ def test_health_tile_icons_are_tile_only_and_no_heading_carries_a_glyph(tmp_path
     assert seeded_rendered.count("<use") == 4, (
         "expected exactly four <use occurrences on a seeded render (the same three plus "
         "icon-search in the unresolved-prefixes filter bar)")
-    _headings_carry_no_glyph(seeded_rendered, 5)
+    _headings_carry_no_glyph(seeded_rendered, 6)
 
 
 # ==========================================================================

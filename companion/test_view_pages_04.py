@@ -107,17 +107,13 @@ def _home_band_spans(section):
     return re.findall(r'<rect class="drawing-band-span"[^>]*/>', section)
 
 
-def _home_band_ctx(state_dir, now, checkins, config=None):
+def _health_band_ctx(state_dir, now, checkins, config=None):
     with history_db.open_db(state_dir) as conn:
         for ts in checkins:
             history_db.record_device_health(conn, ts, battery_mv=3750)
     return {
         "state_dir": str(state_dir), "now": now,
-        "last_checkin_ts": checkins[-1] if checkins else None,
         "device_config": config or {"wake_interval_s": 900, "display_enabled": True},
-        "health_state": {"device_state": "ok", "pipeline_state": "ok",
-                         "battery_state": "ok", "device_detail_html": "",
-                         "pipeline_html": ""},
     }
 
 
@@ -852,11 +848,10 @@ def test_day_band_emits_only_registered_classes_and_no_colour():
     assert 'aria-hidden="true"' in unlabelled, "expected an unlabelled band to be hidden rather than an unnamed group"
 
 
-# --- Task 2 : the day band on Home ----------------
+# --- The day band on Health ----------------
 
-@pytest.mark.skip(reason="The daily activity band moves from Home to Health in Phase 44.")
-def test_home_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
-    """Home's day band draws one mark per check-in at its PARIS clock position, captions the
+def test_health_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
+    """Health's day band draws one mark per check-in at its PARIS clock position, captions the
     Paris day it shows and states the count as text; a day with no check-ins still renders the
     band and its frame with a caption naming the day (an absent section would read as an
     unbuilt feature, an empty band reads as no activity); and with history.db unreadable the
@@ -868,14 +863,14 @@ def test_home_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
     # 08:00, 12:00 and 13:00 Paris — two of them an hour apart, so the
     # time scale's own property is visible on the real page and not only
     # in the unit check above.
-    ctx = _home_band_ctx(tmp_path / "day", now, [
+    ctx = _health_band_ctx(tmp_path / "day", now, [
         "2026-08-27T06:00:00+00:00",
         "2026-08-27T10:00:00+00:00",
         "2026-08-27T11:00:00+00:00",
     ])
-    rendered = home_page.render(ctx)
+    rendered = health_page.render(ctx)
     section = _home_day_band_section(rendered)
-    assert section is not None, "expected a day-band section on Home, got none"
+    assert section is not None, "expected a day-band section on Health, got none"
     marks = _home_band_marks(section)
     assert len(marks) == 3, "expected one mark per check-in (3), got %d" % (len(marks),)
     xs = sorted(float(re.search(r'x="([\d.]+)%"', el).group(1)) for el in marks)
@@ -891,13 +886,13 @@ def test_home_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
     assert "3" in re.sub(r"<[^>]*>", " ", section), "expected the caption to state the check-in count as text"
 
     # THE EMPTY DAY IS A STATE, NOT AN ABSENCE.
-    empty_ctx = _home_band_ctx(tmp_path / "empty", now, [])
+    empty_ctx = _health_band_ctx(tmp_path / "empty", now, [])
     # A check-in on a DIFFERENT day, so the table is not empty and the
     # emptiness is the band's bucketing rather than an unreadable
     # database.
     with history_db.open_db(tmp_path / "empty") as conn:
         history_db.record_device_health(conn, "2026-08-20T10:00:00+00:00", battery_mv=3700)
-    rendered_empty = home_page.render(empty_ctx)
+    rendered_empty = health_page.render(empty_ctx)
     empty_section = _home_day_band_section(rendered_empty)
     assert empty_section is not None, (
         "expected the band section to survive a day with no check-ins — an absent section "
@@ -915,19 +910,19 @@ def test_home_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
     # because at that density the band genuinely cannot show each
     # check-in separately and a reader counting marks would otherwise
     # conclude it lost some.
-    assert home_page.DAY_BAND_COLLAPSED_TEXT not in section, (
+    assert health_page.DAY_BAND_COLLAPSED_TEXT not in section, (
         "the band collapsed nothing (3 marks for 3 check-ins) yet its caption said marks were "
         "merged — a caption that always admits a collapse tells the reader nothing and is "
         "untrue on every sparse day")
     minutes = ["2026-08-27T%02d:%02d:00+00:00" % (6 + i // 60, i % 60) for i in range(300)]
-    dense_ctx = _home_band_ctx(tmp_path / "dense", now, minutes)
-    dense_section = _home_day_band_section(home_page.render(dense_ctx))
+    dense_ctx = _health_band_ctx(tmp_path / "dense", now, minutes)
+    dense_section = _home_day_band_section(health_page.render(dense_ctx))
     assert dense_section is not None, "expected a band on a dense day"
     dense_marks = _home_band_marks(dense_section)
     assert len(dense_marks) < len(minutes), (
         "expected a one-minute cadence to collapse (300 check-ins cannot be 300 distinguishable "
         "marks in ~330px), got %d marks" % (len(dense_marks),))
-    assert home_page.DAY_BAND_COLLAPSED_TEXT in dense_section, (
+    assert health_page.DAY_BAND_COLLAPSED_TEXT in dense_section, (
         "the band drew %d marks for %d check-ins and its caption did not say they were merged "
         "— the drawing dropping marks silently and the caption printing a total are the two "
         "halves of one lie (T-24-06-B)" % (len(dense_marks), len(minutes)))
@@ -945,7 +940,7 @@ def test_home_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
     # cannot open a directory whoever you are, so this check measures the
     # same degradation in both environments.
     absent = tmp_path / "nodb"
-    absent_ctx = _home_band_ctx(absent, now, [])
+    absent_ctx = _health_band_ctx(absent, now, [])
     for name in os.listdir(str(absent)):
         path = os.path.join(str(absent), name)
         if os.path.isdir(path):
@@ -953,16 +948,15 @@ def test_home_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
         else:
             os.remove(path)
     os.mkdir(os.path.join(str(absent), "history.db"))
-    rendered_absent = home_page.render(absent_ctx)
-    assert '<h1 class="page-title">' in rendered_absent, "expected Home to render with history.db absent"
+    rendered_absent = health_page.render(absent_ctx)
+    assert '<h1 class="page-title">' in rendered_absent, "expected Health to render with history.db absent"
     assert _home_day_band_section(rendered_absent) is None, (
         "expected NO band with history.db unreadable — an empty band there would claim the "
         "device made no check-ins when nothing was read")
 
 
-@pytest.mark.skip(reason="The daily activity band moves from Home to Health in Phase 44.")
-def test_home_day_band_shades_quiet_hours_only_when_configured(tmp_path):
-    """Home's day band shades the CONFIGURED quiet-hours window — the default 23:00-07:00
+def test_health_day_band_shades_quiet_hours_only_when_configured(tmp_path):
+    """Health's day band shades the CONFIGURED quiet-hours window — the default 23:00-07:00
     wrapping night window as two spans covering its eight hours, named in the caption — and
     with quiet hours disabled shades nothing and says nothing about them, while still drawing
     the day's check-ins"""
@@ -971,13 +965,13 @@ def test_home_day_band_shades_quiet_hours_only_when_configured(tmp_path):
     hour = 100.0 / 24
     # The DEFAULT night window, and the case a naive span renders
     # inverted: 23:00-07:00 wraps midnight.
-    ctx = _home_band_ctx(tmp_path / "on", now, checkins, config={
+    ctx = _health_band_ctx(tmp_path / "on", now, checkins, config={
         "wake_interval_s": 900, "display_enabled": True,
         "quiet_hours_enabled": True,
         "quiet_hours_start": device_config.DEFAULT_QUIET_HOURS_START,
         "quiet_hours_end": device_config.DEFAULT_QUIET_HOURS_END,
     })
-    section = _home_day_band_section(home_page.render(ctx))
+    section = _home_day_band_section(health_page.render(ctx))
     assert section is not None, "expected a day-band section"
     spans = _home_band_spans(section)
     assert len(spans) == 2, (
@@ -993,13 +987,13 @@ def test_home_day_band_shades_quiet_hours_only_when_configured(tmp_path):
 
     # DISABLED: nothing shaded, and the caption does not mention a
     # window the device is not honouring.
-    off_ctx = _home_band_ctx(tmp_path / "off", now, checkins, config={
+    off_ctx = _health_band_ctx(tmp_path / "off", now, checkins, config={
         "wake_interval_s": 900, "display_enabled": True,
         "quiet_hours_enabled": False,
         "quiet_hours_start": device_config.DEFAULT_QUIET_HOURS_START,
         "quiet_hours_end": device_config.DEFAULT_QUIET_HOURS_END,
     })
-    off_section = _home_day_band_section(home_page.render(off_ctx))
+    off_section = _home_day_band_section(health_page.render(off_ctx))
     assert off_section is not None, "expected the band to render with quiet hours disabled"
     assert not _home_band_spans(off_section), (
         "expected zero shaded spans with quiet hours disabled, got %r" % (_home_band_spans(off_section),))
@@ -1011,25 +1005,23 @@ def test_home_day_band_shades_quiet_hours_only_when_configured(tmp_path):
     assert _home_band_marks(off_section), "expected the check-in marks to survive quiet hours being off"
 
 
-@pytest.mark.skip(reason="The daily activity band moves from Home to Health in Phase 44.")
-def test_home_day_band_buckets_by_paris_day_and_costs_one_read(tmp_path):
-    """Home's day band buckets check-ins by the PARIS day — a 22:30Z check-in (Paris 00:30
+def test_health_day_band_buckets_by_paris_day_and_costs_one_read(tmp_path):
+    """Health's day band buckets check-ins by the PARIS day — a 22:30Z check-in (Paris 00:30
     today) is on the band and a 2026-08-27T22:30Z one (Paris 00:30 tomorrow) is not, since
     Paris is never behind UTC — and spans a real 25-hour Paris day so midday lands at 52.00%
     rather than the 54.17% a hardcoded 86400 would give; it costs render() exactly one
-    history.db read more than the two it made before, measured, and the frame verdict still
-    appears exactly once"""
+    bounded history.db read, measured"""
     now = "2026-08-27T12:00:00+00:00"
     # THE BOUNDARY THIS BREAKS AT IF IT BREAKS. Paris is UTC+1/+2 and so
     # never BEHIND UTC. 00:30 Paris is 22:30 UTC on the PREVIOUS day, so
     # a band bucketed by the UTC date drops it from today and picks up
     # tomorrow's 00:30 instead. Both directions below.
-    ctx = _home_band_ctx(tmp_path / "boundary", now, [
+    ctx = _health_band_ctx(tmp_path / "boundary", now, [
         "2026-08-26T21:30:00+00:00",  # Paris 2026-08-26 23:30 — yesterday
         "2026-08-26T22:30:00+00:00",  # Paris 2026-08-27 00:30 — TODAY
         "2026-08-27T22:30:00+00:00",  # Paris 2026-08-28 00:30 — tomorrow
     ])
-    section = _home_day_band_section(home_page.render(ctx))
+    section = _home_day_band_section(health_page.render(ctx))
     assert section is not None, "expected a day-band section"
     marks = _home_band_marks(section)
     assert len(marks) == 1, (
@@ -1044,9 +1036,9 @@ def test_home_day_band_buckets_by_paris_day_and_costs_one_read(tmp_path):
     # A 25-HOUR PARIS DAY. 2026-10-25 is the EU autumn transition, so the
     # band is 25 hours wide and midday sits at 52.00%, not at the 54.17%
     # a hardcoded 86400 would put it at.
-    dst_ctx = _home_band_ctx(
+    dst_ctx = _health_band_ctx(
         tmp_path / "dst", "2026-10-25T12:00:00+00:00", ["2026-10-25T11:00:00+00:00"])
-    dst_section = _home_day_band_section(home_page.render(dst_ctx))
+    dst_section = _home_day_band_section(health_page.render(dst_ctx))
     dst_marks = _home_band_marks(dst_section or "")
     assert len(dst_marks) == 1, "expected one mark on the DST band, got %d" % (len(dst_marks),)
     dst_got = float(re.search(r'x="([\d.]+)%"', dst_marks[0]).group(1))
@@ -1055,148 +1047,56 @@ def test_home_day_band_buckets_by_paris_day_and_costs_one_read(tmp_path):
         "band, got %.2f%% — a hardcoded 86400 puts it at 54.17%% and leaves an hour of the "
         "band unreachable" % (dst_got,))
 
-    # ONE READ, REUSED, MEASURED. render() made two history.db
-    # reads before this change; the band adds exactly one, and a band
-    # that re-queried per section would show up here as three or more.
-    read_ctx = _home_band_ctx(tmp_path / "reads", now, ["2026-08-27T10:00:00+00:00"])
-    opened = []
-    real_open = history_db.open_db
+    # ONE BOUNDED READ, MEASURED. The band's rows come from exactly one
+    # recent_device_health() call carrying the band's own row limit; a band
+    # that re-queried per section would show up here as two or more.
+    read_ctx = _health_band_ctx(tmp_path / "reads", now, ["2026-08-27T10:00:00+00:00"])
+    limits = []
+    real_recent = history_db.recent_device_health
 
-    def _counting_open(state_dir):
-        opened.append(state_dir)
-        return real_open(state_dir)
+    def _recording_recent(conn, *args, **kwargs):
+        limits.append(kwargs.get("limit"))
+        return real_recent(conn, *args, **kwargs)
 
-    history_db.open_db = _counting_open
+    history_db.recent_device_health = _recording_recent
     try:
-        rendered = home_page.render(read_ctx)
+        health_page.render(read_ctx)
     finally:
-        history_db.open_db = real_open
-    assert len(opened) == 3, (
-        "expected render() to make exactly 3 history.db reads — the 2 it made before this "
-        "change (recent flights, latest battery) plus the band's one — got %d. 'One read, "
-        "reused' is measured here, not assumed" % (len(opened),))
-    # The frame verdict still appears exactly once on the page
-    # (_status_tiles_html()'s own recorded property, which a new section
-    # carrying a state word could quietly break).
-    verdicts = [v for v in home_page.FRAME_STATE_TEXT.values() if rendered.count(v)]
-    for verdict in verdicts:
-        assert rendered.count(verdict) == 1, (
-            "expected the frame verdict %r exactly once on Home, got %d" % (verdict, rendered.count(verdict)))
-    assert len(verdicts) == 1, "expected exactly one frame verdict rendered on Home, got %r" % (verdicts,)
+        history_db.recent_device_health = real_recent
+    assert limits.count(health_page.DAY_BAND_ROW_LIMIT) == 1, (
+        "expected exactly one bounded day-band read (limit %d), got limits %r"
+        % (health_page.DAY_BAND_ROW_LIMIT, limits))
 
 
-# --- Task 1 : D4's hero, assembled from calls -----
+# --- Health's drawings are the shared emitters' ---
 
-@pytest.mark.skip(reason="The former Home dashboard composition is replaced by Direction B.")
-def test_home_top_is_one_composition_holding_the_ring_and_the_band(tmp_path):
-    """Home's top is ONE composition: a single hero container holds the shared Frame strip
-    (rendered once, unforked), the three status tiles carrying the battery ring, and the day
-    band — the picture row stays outside it, the ring and the band each appear exactly once
-    and both inside the hero, and the frame verdict still appears exactly once in BOTH
-    languages
-
-    The legacy check also walked companion/pages/home_page.py's own source with
-    inspect.getsource() to prove it names no battery-arithmetic literal and no bare
-    battery_percent( call — banned outright by guard G2 (no ast/inspect/tokenize over
-    production source), and with no directly observable HTTP/DOM consequence beyond what is
-    already proven behaviourally: test_battery_percent_moved_out_of_home_page above proves
-    home_page carries no local battery_percent() at all, and
-    test_breaking_a_shared_emitter_breaks_the_hero_with_the_page_it_borrowed_it_from below
-    proves — by mutating the shared emitter's own class constant and watching both pages move
-    together — that the hero's ring/band are genuinely CALLS into companion/draw.py rather
-    than a forked copy of its markup. That mutation proof is strictly stronger than a source
-    scan for suspicious literals, so the literal-scan clause is dropped rather than ported
-    (rubric S: "no observable consequence beyond what is already covered")."""
+def test_health_carries_one_ring_and_one_band_and_home_carries_neither(tmp_path):
+    """Health holds exactly one battery ring and one day band, both inside the page body, and
+    Home draws neither: the ring and the activity band moved off Home with the
+    frame-signal-first redesign, so a drawing returning there is a regression"""
     now = "2026-08-27T12:00:00+00:00"
-    ctx = _home_band_ctx(tmp_path / "hero", now, [
+    ctx = _health_band_ctx(tmp_path / "health", now, [
         "2026-08-27T06:00:00+00:00",
         "2026-08-27T10:00:00+00:00",
     ])
-    ctx["gallery_entries"] = ["2026-08-27T11-50-00+00-00.png"]
-    rendered = home_page.render(ctx)
-
-    # ONE hero. Two containers would be an earlier naming collision back
-    # in a new costume — a second thing called "Frame" had to be
-    # renamed on this very page.
-    opens = len(re.findall(
-        r'<div class="[^"]*\b%s\b[^"]*">' % re.escape(home_page.HERO_CLASS), rendered))
-    assert opens == 1, "expected exactly one hero container on Home, got %d" % (opens,)
-    inner = _home_hero_inner(rendered)
-    assert inner is not None, "expected the hero container to open and close"
-
-    # Its three parts, each still rendered by the builder that owns it.
-    # The strip is matched on the class the SHARED helper emits, so a
-    # hero that inlined a second rendering of it would have to reproduce
-    # that class to pass — and would then fail the count below.
-    for label, pattern in (
-            ("the shared Frame strip", r'class="frame-strip stat-tile stat-tile--accent"'),
-            ("the three status tiles", r'class="dashboard-grid home-status-grid"'),
-            ("the day band", r'<section class="[^"]*\bday-band\b')):
-        assert re.search(pattern, inner) is not None, (
-            "expected %s inside the hero — a composition that does not contain its parts is a "
-            "wrapper, not a hero (looked for %r)" % (label, pattern))
-    assert rendered.count('class="frame-strip stat-tile stat-tile--accent"') == 1, (
-        "expected the shared Frame strip rendered exactly once — the hero wraps the shared "
-        "component, it never inlines a second rendering of it")
-
-    # What the hero is NOT. The picture row is the page's own second half
-    # and sits after it; a hero that swallowed it would make every
-    # stacking measurement below about the whole page instead of the
-    # composition.
-    for absent in ("home-picture-row", "preview-frame", "recent-flight"):
-        assert absent not in inner, (
-            "expected %r outside the hero — the hero is Home's TOP, not its whole body" % (absent,))
-    assert rendered.index('class="home-columns home-picture-row"') > rendered.index(
-        '<div class="%s"' % home_page.HERO_CLASS), "expected the hero to precede the picture row"
-
-    # EXACTLY ONE RING AND EXACTLY ONE BAND, both the hero's. The needles
-    # are whole class ATTRIBUTES rather than bare class names: the band
-    # frame's own name is a prefix of the span's and the mark's, so a
-    # substring test would count three things as the frame.
+    health_rendered = health_page.render(ctx)
     for label, needle in (
             ("battery ring value arc", 'class="%s"' % draw.DRAWING_RING_VALUE_CLASS),
             ("day band frame", 'class="%s"' % draw.DRAWING_BAND_CLASS)):
-        assert rendered.count(needle) == 1, (
-            "expected exactly one %s on Home, got %d" % (label, rendered.count(needle)))
-        assert needle in inner, (
-            "expected the %s INSIDE the hero — CFG-44's hero is the composition the drawings "
-            "feed, not a container beside them" % (label,))
-
-    # THE RECORDED FIXED BUG (Pitfall 3), re-asked in BOTH
-    # languages because a hero is precisely the shape that reintroduces
-    # it and French is a separate string table that could disagree.
-    for lang in ("en", "fr"):
-        prefs.set_request_prefs(lang=lang)
-        try:
-            page = home_page.render(ctx)
-            seen = [i18n.t(v) for v in home_page.FRAME_STATE_TEXT.values() if page.count(i18n.t(v))]
-            assert len(seen) == 1, "in %s expected exactly one frame verdict on Home, got %r" % (lang, seen)
-            assert page.count(seen[0]) == 1, (
-                "in %s expected the frame verdict %r exactly once on Home, got %d — the "
-                "duplicated verdict fix removed a whole status-card builder to remove"
-                % (lang, seen[0], page.count(seen[0])))
-        finally:
-            prefs.set_request_prefs(lang="en")
+        assert health_rendered.count(needle) == 1, (
+            "expected exactly one %s on Health, got %d" % (label, health_rendered.count(needle)))
+    home_ctx = dict(ctx, gallery_entries=["2026-08-27T11-50-00+00-00.png"])
+    home_rendered = home_page.render(home_ctx)
+    for needle in (draw.DRAWING_FIGURE_CLASS, draw.DRAWING_CANVAS_CLASS, "day-band"):
+        assert needle not in home_rendered, "Home must not draw %r any more" % (needle,)
 
 
-# --- Task 2 : "fed by", proven --------------------
-
-@pytest.mark.skip(reason="Home no longer draws the battery ring or the activity band.")
-def test_the_heros_ring_is_the_emitter_healths_ring_is(tmp_path):
-    """the hero's battery ring is the same emitter Health's ring is — the two pages' rings
-    carry one class vocabulary, computed from the markup rather than listed; the hero's day
-    band draws three different shapes and not one; and every class either of them emits is a
-    constant companion/draw.py itself names
-
-    The legacy check also walked home_page.py's OWN source (and this check's own source) with
-    ast.parse()/inspect.getsource() looking for a restated drawing-class string literal —
-    banned outright by guard G2. test_breaking_a_shared_emitter_breaks_the_hero_with_the_page_
-    it_borrowed_it_from below proves the same "no restated copy" property strictly more
-    strongly: it mutates the shared emitter's class constant at runtime and shows BOTH pages
-    move together, which a page carrying its own copy of the string could not do. The
-    source-literal scan is dropped rather than ported (rubric S)."""
+def test_health_drawings_use_only_the_shared_emitters_classes(tmp_path):
+    """the classes Health's battery ring and day band emit are computed from the markup rather
+    than listed; every one is a constant companion/draw.py itself names, and the band draws at
+    least three different shapes (its frame, the shaded quiet-hours span and the marks)"""
     now = "2026-08-27T12:00:00+00:00"
-    ctx = _home_band_ctx(tmp_path / "hero", now, [
+    ctx = _health_band_ctx(tmp_path / "health", now, [
         "2026-08-27T06:00:00+00:00",
         "2026-08-27T10:00:00+00:00",
     ], config={
@@ -1205,74 +1105,40 @@ def test_the_heros_ring_is_the_emitter_healths_ring_is(tmp_path):
         "quiet_hours_start": device_config.DEFAULT_QUIET_HOURS_START,
         "quiet_hours_end": device_config.DEFAULT_QUIET_HOURS_END,
     })
-    rendered = home_page.render(ctx)
-    hero = _home_hero_inner(rendered)
-    assert hero is not None, "expected a hero container on Home"
-    health_tmp = tmp_path / "health"
-    with history_db.open_db(health_tmp) as conn:
-        for minute, mv in ((50, 3600), (55, 3690)):
-            history_db.record_device_health(conn, "2026-08-27T11:%d:00+00:00" % minute, battery_mv=mv)
-    health_rendered = health_page.render({"state_dir": str(health_tmp), "now": now})
-
-    # ONE RING, TWO PAGES. The two rings' class vocabularies are
-    # COMPUTED from the markup rather than listed here, so this cannot
-    # drift into a hand-maintained copy of the emitter's own list.
-    hero_ring = _classes_inside_svg(hero, draw.DRAWING_FIGURE_CLASS)
-    health_ring = _classes_inside_svg(health_rendered, draw.DRAWING_FIGURE_CLASS)
-    assert hero_ring, "found no ring inside Home's hero"
-    assert health_ring, "found no ring on Health"
-    assert hero_ring == health_ring, (
-        "the hero's ring and Health's carry different class vocabularies (%r against %r) — "
-        "one drawing at two sizes emits one vocabulary; two vocabularies means two components"
-        % (sorted(hero_ring), sorted(health_ring)))
-
-    # THE BAND, AND ITS FLOOR. "Every class is one of the shared module's
-    # own" is satisfied by a band that drew nothing but its frame, so the
-    # distinct-element floor is asserted alongside it: the frame, the
-    # shaded quiet-hours span and the check-in marks are three different
-    # shapes, and a band that lost two of them would still pass the
-    # vocabulary half on its own.
-    hero_band = _classes_inside_svg(hero, draw.DRAWING_CANVAS_CLASS)
-    assert hero_band, "found no day band inside Home's hero"
-    assert len(hero_band) >= 3, (
-        "the hero's band draws only %d kind(s) of shape (%r) — with a quiet-hours window "
+    rendered = health_page.render(ctx)
+    ring = _classes_inside_svg(rendered, draw.DRAWING_FIGURE_CLASS)
+    band = _classes_inside_svg(rendered, draw.DRAWING_CANVAS_CLASS)
+    assert ring, "found no ring on Health"
+    assert band, "found no day band on Health"
+    assert len(band) >= 3, (
+        "Health's band draws only %d kind(s) of shape (%r) — with a quiet-hours window "
         "configured and two check-ins on the day it owes three: its own frame, the shaded "
-        "span and the marks" % (len(hero_band), sorted(hero_band)))
-
-    # EVERY ONE OF THEM A NAMED CONSTANT OF THE SHARED MODULE. A forked
-    # copy is free to emit any string it likes; this is what refuses the
-    # ones draw.py does not own.
-    for class_name in sorted(hero_ring | hero_band):
+        "span and the marks" % (len(band), sorted(band)))
+    for class_name in sorted(ring | band):
         for token in class_name.split():
             assert token in draw.DRAWING_CLASSES, (
-                "the hero emits the drawing class %r, which companion/draw.py does not name — "
+                "Health emits the drawing class %r, which companion/draw.py does not name — "
                 "a class the shared module does not own came from somewhere else" % (token,))
 
 
-@pytest.mark.skip(reason="Home no longer draws the battery ring or the activity band.")
-def test_breaking_a_shared_emitter_breaks_the_hero_with_the_page_it_borrowed_it_from(tmp_path):
-    """breaking a shared emitter breaks the hero WITH the page it borrowed it from: one class
-    constant inside companion/draw.py's ring emitter is replaced at check time and both Home's
-    hero and Health's readout change, neither keeping the original string (a hero built from
-    its own copy would); the band emitter's own mutation reaches the hero and leaves Health
-    byte-identical, proving the mutation is targeted rather than a global perturbation; and
-    both pages return to their pre-mutation markup"""
+def test_breaking_a_shared_emitter_breaks_health_and_leaves_home_untouched(tmp_path):
+    """breaking a shared emitter breaks Health's drawing: one class constant inside
+    companion/draw.py's ring emitter, then its band-mark emitter, is replaced at check time and
+    Health changes each time, neither keeping the original string (a page built from its own
+    copy would); Home draws neither and stays byte-identical, proving the mutation is targeted
+    rather than a global perturbation; and both pages return to their pre-mutation markup"""
     now = "2026-08-27T12:00:00+00:00"
-    ctx = _home_band_ctx(tmp_path / "link", now, [
+    health_ctx = _health_band_ctx(tmp_path / "health", now, [
         "2026-08-27T06:00:00+00:00",
         "2026-08-27T10:00:00+00:00",
     ])
-    health_tmp = tmp_path / "link-health"
+    home_ctx = {"state_dir": str(tmp_path / "health"), "now": now}
     # Not a member of DRAWING_CLASSES and not a substring of one, so "the
     # sentinel arrived" and "the original left" are two independent
     # readings rather than one.
     sentinel = "skypane-emitter-under-mutation"
-    with history_db.open_db(health_tmp) as conn:
-        for minute, mv in ((50, 3600), (55, 3690)):
-            history_db.record_device_health(conn, "2026-08-27T11:%d:00+00:00" % minute, battery_mv=mv)
-    health_ctx = {"state_dir": str(health_tmp), "now": now}
-    home_before = home_page.render(ctx)
     health_before = health_page.render(health_ctx)
+    home_before = home_page.render(home_ctx)
 
     def _mutated(attr):
         """Both pages rendered with one of draw.py's class constants
@@ -1280,40 +1146,28 @@ def test_breaking_a_shared_emitter_breaks_the_hero_with_the_page_it_borrowed_it_
         original = getattr(draw, attr)
         setattr(draw, attr, sentinel)
         try:
-            return original, home_page.render(ctx), health_page.render(health_ctx)
+            return original, health_page.render(health_ctx), home_page.render(home_ctx)
         finally:
             setattr(draw, attr, original)
 
-    # THE RING: one definition, two pages. A hero built from its own
-    # copy would still carry the ORIGINAL class here while Health carried
-    # the sentinel — which is exactly the drift is about, and is
-    # invisible to any check that only looks at the markup as shipped.
-    original, home_after, health_after = _mutated("DRAWING_RING_VALUE_CLASS")
-    for label, before, after in (("the hero", home_before, home_after), ("Health", health_before, health_after)):
-        assert sentinel in after, "a change inside the shared ring emitter did not reach %s — it draws its own ring, not the shared one" % (label,)
-        assert 'class="%s"' % original not in after, (
-            "%s still carries the ring's original class after the emitter was changed — part "
-            "of that drawing is a copy" % (label,))
-        assert after != before, "%s rendered identically under the mutation" % (label,)
-
-    # THE MUTATION WAS TARGETED, not a global perturbation: the band is
-    # Home's alone, so changing it must move the hero and leave Health
-    # BYTE-IDENTICAL. Without this, "both pages changed" above would be
-    # worth much less.
-    original, home_after, health_after = _mutated("DRAWING_BAND_MARK_CLASS")
-    assert sentinel in home_after, "a change inside the shared band emitter did not reach the hero — its band is a copy"
-    assert 'class="%s"' % original not in home_after, (
-        "the hero still carries the band mark's original class after the emitter was changed "
-        "— part of that drawing is a copy")
-    assert health_after == health_before, (
-        "changing the band emitter also changed Health, which draws no band — the mutation is "
-        "not measuring what it names")
+    for attr in ("DRAWING_RING_VALUE_CLASS", "DRAWING_BAND_MARK_CLASS"):
+        original, health_after, home_after = _mutated(attr)
+        assert sentinel in health_after, (
+            "a change inside the shared %s emitter did not reach Health — it draws its own "
+            "copy, not the shared one" % (attr,))
+        assert 'class="%s"' % original not in health_after, (
+            "Health still carries %s's original class after the emitter was changed — part "
+            "of that drawing is a copy" % (attr,))
+        assert health_after != health_before, "Health rendered identically under the mutation"
+        assert home_after == home_before, (
+            "changing the %s emitter also changed Home, which draws neither — the mutation is "
+            "not measuring what it names" % (attr,))
 
     # THE RESTORE IS PART OF THE CHECK. A mutation left behind would make
     # every later check in this file measure a sabotaged module, and the
     # failure would land somewhere else entirely.
-    assert home_page.render(ctx) == home_before, "Home did not return to its pre-mutation markup"
     assert health_page.render(health_ctx) == health_before, "Health did not return to its pre-mutation markup"
+    assert home_page.render(home_ctx) == home_before, "Home did not return to its pre-mutation markup"
 
 
 # --- Task 3 (S-02): the "Next wake ≈ HH:MM" figure ---
