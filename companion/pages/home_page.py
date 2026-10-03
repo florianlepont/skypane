@@ -81,14 +81,14 @@ STATE_QUIET_TEXT = i18n.msg(
 STATE_BATTERY_TEXT = i18n.msg(
     "home.state_battery_resting",
     "Battery very low — the frame is resting until it is recharged")
-CADENCE_TEXT = i18n.msg(
-    "home.cadence",
-    "To save its battery, the frame sleeps between updates and wakes about "
-    "every %s, so it does not refresh continuously.")
-CADENCE_NO_INTERVAL_TEXT = i18n.msg(
+CADENCE_TEXT = i18n.msg("home.cadence", "Updates about every %s")
+# The short reason behind the cadence, folded into a disclosure.
+CADENCE_WHY_TEXT = i18n.msg(
     "home.cadence_no_interval",
     "To save its battery, the frame sleeps between updates, so it does not "
     "refresh continuously.")
+SEE_HEALTH_TEXT = i18n.msg("home.see_health", "See Health")
+HEALTH_ROUTE = "/health"
 SWITCHES_LABEL = i18n.msg("home.switches", "Frame controls")
 DEFAULT_QUIET_START = "23:00"
 DEFAULT_QUIET_END = "07:00"
@@ -335,19 +335,31 @@ def _frame_state_summary(ctx):
 def _next_update_html(next_iso, interval_s, hold_reason, now):
     """The "Next update ≈ HH:MM · in 5 min" line, or "" without a check-in.
     The wording template comes from frame_state, the single due/held/late
-    decision shared with every other consumer."""
+    decision shared with every other consumer. An overdue frame reads
+    "Update overdue · expected at HH:MM" with no countdown; once it is
+    long overdue the line also links to Health, the page that says why.
+    Returns `(html, long_overdue)`."""
     parsed = layout.parse_iso(next_iso) if next_iso else None
     if parsed is None:
-        return ""
+        return "", False
     state = frame_state.resolve_state(next_iso, interval_s, hold_reason, now)
     template = frame_state.headline_template(state)
     before, after = i18n.t(template).split("%s", 1)
     clock = layout.local_clock_text(parsed, now_parsed=layout.parse_iso(now))
+    text = '%s<span class="time-value">%s</span>%s' % (
+        escape_html(before), escape_html(clock), escape_html(after))
+    long_overdue = frame_state.is_long_overdue(next_iso, interval_s, hold_reason, now)
+    if state == frame_state.STATE_LATE:
+        modifier = " home-state__next--overdue"
+        tail = (
+            '<a class="home-state__health-link" href="%s">%s</a>'
+            % (HEALTH_ROUTE, escape_html(i18n.t(SEE_HEALTH_TEXT)))) if long_overdue else ""
+    else:
+        modifier = ""
+        tail = " · " + layout.relative_time_html(next_iso, now, countdown=True)
     return (
-        '<p class="home-state__next text-label">%s'
-        '<span class="time-value">%s</span>%s · %s</p>'
-    ) % (escape_html(before), escape_html(clock), escape_html(after),
-         layout.relative_time_html(next_iso, now, countdown=True))
+        '<p class="home-state__next text-label%s">%s%s</p>' % (modifier, text, tail)
+    ), long_overdue
 
 
 def _quiet_window_text(cfg):
@@ -408,17 +420,17 @@ def _switches_html(cfg):
 # The battery glyph's drawing, in SVG user units: an outline body, a
 # terminal nub and a fill whose width is the charge fraction. SVG
 # attributes rather than inline style, which the page's CSP forbids.
-BATTERY_METER_FILL_WIDTH = 26
+BATTERY_METER_FILL_WIDTH = 60
 
 
 def _battery_meter_svg(percent):
-    fill = max(1, int(round(BATTERY_METER_FILL_WIDTH * percent / 100.0))) if percent > 0 else 0
+    fill = max(2, int(round(BATTERY_METER_FILL_WIDTH * percent / 100.0))) if percent > 0 else 0
     return (
-        '<svg class="home-battery__glyph" width="36" height="18" viewBox="0 0 36 18" '
+        '<svg class="home-battery__glyph" width="72" height="32" viewBox="0 0 72 32" '
         'aria-hidden="true" focusable="false">'
-        '<rect class="home-battery__body" x="0.75" y="0.75" width="31" height="16.5" rx="4"/>'
-        '<rect class="home-battery__nub" x="33.25" y="5.5" width="2.5" height="7" rx="1.25"/>'
-        '<rect class="home-battery__fill" x="3" y="3" width="%d" height="12" rx="2"/>'
+        '<rect class="home-battery__body" x="1" y="1" width="64" height="30" rx="7"/>'
+        '<rect class="home-battery__nub" x="67" y="10" width="4" height="12" rx="2"/>'
+        '<rect class="home-battery__fill" x="4" y="4" width="%d" height="24" rx="4"/>'
         "</svg>"
     ) % fill
 
@@ -457,41 +469,53 @@ def _battery_pill_html(ctx):
         aria = "%s, %s" % (aria, i18n.t(word).lower())
     return (
         '<p class="home-battery home-battery--%s" role="img" aria-label="%s">'
-        "%s"
-        '<span class="home-battery__value">%s</span>'
-        '<span class="home-battery__label text-label">%s</span>%s</p>'
+        '<span class="home-battery__head">'
+        '<span class="home-battery__label text-label">%s</span>%s</span>'
+        '<span class="home-battery__reading">'
+        '<span class="home-battery__value">%s</span>%s</span></p>'
     ) % (
-        level, escape_html(aria),
-        _battery_meter_svg(percent) if percent is not None else "",
-        escape_html(value), escape_html(i18n.t(BATTERY_LABEL)),
+        level, escape_html(aria), escape_html(i18n.t(BATTERY_LABEL)),
         ('<span class="home-battery__state text-label">%s</span>' % escape_html(i18n.t(word)))
-        if word else "")
+        if word else "",
+        escape_html(value),
+        _battery_meter_svg(percent) if percent is not None else "")
+
+
+def _cadence_html(base_interval_s):
+    """The muted "Updates about every 5 min" line. The reason behind it sits
+    in a native disclosure, which opens from the keyboard and without
+    scripts; with no known interval only the reason is shown."""
+    why = escape_html(i18n.t(CADENCE_WHY_TEXT))
+    if not base_interval_s:
+        return '<p class="home-state__cadence text-label">%s</p>' % why
+    return (
+        '<details class="home-state__cadence text-label">'
+        "<summary>%s</summary><p>%s</p></details>"
+    ) % (escape_html(i18n.t(CADENCE_TEXT) % _interval_text(base_interval_s)), why)
 
 
 def _frame_state_html(ctx):
     """The status header: current state in plain language with a coloured
-    dot, the next update, the battery pill and one muted sentence on why
-    updates are not continuous, beside the screen and quiet-hours
-    switches. Everything comes from the page context."""
+    dot, the next update, a compact cadence line, the battery block and the
+    screen and quiet-hours switches. A long-overdue frame turns the dot
+    amber. Everything comes from the page context."""
     cfg = ctx.device_config or {}
     (dot, headline), (next_iso, interval_s, hold_reason), base_interval_s = (
         _frame_state_summary(ctx))
-    cadence = (
-        i18n.t(CADENCE_TEXT) % _interval_text(base_interval_s)
-        if base_interval_s else i18n.t(CADENCE_NO_INTERVAL_TEXT))
+    next_html, long_overdue = _next_update_html(next_iso, interval_s, hold_reason, ctx.now)
+    if long_overdue:
+        dot = "warn"
     return (
         '<section class="home-state" aria-labelledby="home-frame-state">'
         '<h2 class="visually-hidden" id="home-frame-state">%s</h2>'
         '<div class="home-state__status">'
         '<p class="home-state__headline"><span class="home-state__dot dot dot--%s" '
         'aria-hidden="true"></span><span>%s</span></p>'
-        "%s%s"
-        '<p class="home-state__cadence text-label">%s</p>'
-        "</div>%s</section>"
+        "%s%s</div>%s%s</section>"
     ) % (
         escape_html(i18n.t(FRAME_STATE_HEADING)), dot, escape_html(headline),
-        _next_update_html(next_iso, interval_s, hold_reason, ctx.now),
-        _battery_pill_html(ctx), escape_html(cadence), _switches_html(cfg))
+        next_html, _cadence_html(base_interval_s),
+        _battery_pill_html(ctx), _switches_html(cfg))
 
 
 def _needs_attention(ctx):
