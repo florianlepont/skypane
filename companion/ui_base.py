@@ -502,6 +502,13 @@ ICON_IDS = ICON_IDS + (
     "icon-upload",
 )
 
+# Two more, for Home's status header: a warning triangle leading an
+# overdue line and a chevron closing the "See Health" pill.
+ICON_IDS = ICON_IDS + (
+    "icon-warning",
+    "icon-chevron-right",
+)
+
 # One more icon, for the bottom tab bar's "More" cell. Appended, not
 # merged, for the same reason above.
 ICON_IDS = ICON_IDS + (
@@ -685,6 +692,14 @@ ICON_DEFS_HTML = (
     'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" '
     'stroke-linejoin="round">'
     '<path d="M4.5 10h.01M10 10h.01M15.5 10h.01"/>'
+    "</symbol>"
+    '<symbol id="icon-warning" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M10 3 2.5 16.5h15z"/><path d="M10 8.5v3.5M10 14.3v.01"/>'
+    "</symbol>"
+    '<symbol id="icon-chevron-right" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M8 5l5 5-5 5"/>'
     "</symbol>"
     "</defs>"
     "</svg>"
