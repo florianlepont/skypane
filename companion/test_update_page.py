@@ -200,22 +200,66 @@ def test_below_floor_release_shows_not_installable_text_no_form():
     assert "<button" not in row, "a below-floor row must render plain text, never a button"
 
 
-def test_bench_release_carries_a_bench_badge_an_untagged_one_does_not():
-    """a release published with bench=True renders the "Bench" label-voice badge next to its
-    version, on both the desktop row and the mobile card; a normal tagged release does not"""
+def test_bench_releases_are_never_offered_but_a_running_bench_build_is_named():
+    """a bench release is absent from the owner's release list (row and card, no Install
+    form for it) while a normal release stays; when the frame runs the bench build the
+    summary still names it with the Bench badge"""
     view = _view(releases=[
         _release("fw-v1.1.0-bench1", bench=True),
         _release("fw-v1.2.0", bench=False),
     ])
     html = update_page.update_page(_ctx(), view, "")
-    bench_row = html[html.index("fw-v1.1.0-bench1"):html.index("fw-v1.2.0")]
-    assert i18n.t(update_page.BENCH_BADGE_TEXT) in bench_row
-    assert "banner__pill" in bench_row
-    normal_row = html[html.index("fw-v1.2.0"):]
-    assert i18n.t(update_page.BENCH_BADGE_TEXT) not in normal_row.split("</tr>", 1)[0]
-    # The mobile card carries the same badge as its paired desktop row.
-    bench_card = html[html.index('<li class="data-card">'):html.index("</li>")]
-    assert i18n.t(update_page.BENCH_BADGE_TEXT) in bench_card
+    assert "fw-v1.1.0-bench1" not in html
+    assert 'value="fw-v1.1.0-bench1"' not in html
+    assert "fw-v1.2.0" in html
+    assert i18n.t(update_page.BENCH_BADGE_TEXT) not in html
+
+    running = _view(
+        releases=[_release("fw-v1.1.0-bench1", bench=True), _release("fw-v1.2.0")],
+        device_entry={"fw_version": "fw-v1.1.0-bench1", "reported_at": _NOW, "events": []})
+    running_html = update_page.update_page(_ctx(), running, "")
+    summary = running_html[running_html.index("<section"):running_html.index("</section>")]
+    assert "fw-v1.1.0-bench1" in summary
+    assert i18n.t(update_page.BENCH_BADGE_TEXT) in summary
+    assert "<table" in running_html and "fw-v1.1.0-bench1" not in running_html.split("<table")[1]
+
+
+def test_scheduled_bench_build_is_named_truthfully_but_not_offered():
+    """a scheduled bench release keeps its Scheduled state and target version in the summary
+    and still never appears as a release choice"""
+    view = _view(
+        releases=[_release("fw-v1.1.0-bench1", bench=True), _release("fw-v1.2.0")],
+        schedule={
+            "id": "s1", "version": "fw-v1.1.0-bench1", "sha256": "a" * 64,
+            "scheduled_at": _NOW, "state": "scheduled", "attempts": 0,
+            "failed_at": None, "last_result": None,
+        })
+    html = update_page.update_page(_ctx(), view, "08:14")
+    summary = html[html.index("<section"):html.index("</section>")]
+    assert "fw-v1.1.0-bench1" in summary
+    assert i18n.t(update_page.STATE_LABELS["scheduled"]) in summary
+    assert "fw-v1.1.0-bench1" not in html.split("<table")[1]
+
+
+def test_summary_carries_exactly_one_timestamp():
+    """the installed-software summary shows one relevant time, never the reported time and
+    the state time together, in every update state"""
+    view = _view(
+        releases=[_release("fw-v1.0.0")],
+        schedule={
+            "id": "s1", "version": "fw-v1.0.0", "sha256": "a" * 64,
+            "scheduled_at": _NOW, "state": "scheduled", "attempts": 0,
+            "failed_at": None, "last_result": None,
+        },
+        device_entry={"fw_version": "fw-v0.9.0", "reported_at": _NOW, "events": []})
+    html = update_page.update_page(_ctx(), view, "08:14")
+    summary = html[html.index("<section"):html.index("</section>")]
+    assert summary.count("<time") == 1
+    available = update_page.update_page(
+        _ctx(), _view(device_entry={"fw_version": "fw-v0.9.0", "reported_at": _NOW, "events": []}),
+        "")
+    summary = available[available.index("<section"):available.index("</section>")]
+    assert summary.count("<time") == 1
 
 
 def test_bench_install_confirm_page_shows_bench_note():
@@ -236,10 +280,9 @@ _STATE_DOT_CLASSES = {
 
 
 def test_each_state_renders_its_word_and_dot_class_with_a_timestamp():
-    """each of the five update states renders its own word, the UI contract's dot class, and a
+    """each in-flight update state (the quiet "available" state names no word) renders its own word, the UI contract's dot class, and a
     timestamp element inside the Status section (not just the history table's date cells)"""
     cases = {
-        "available": _view(releases=[_release("fw-v1.0.0")]),
         "scheduled": _view(
             releases=[_release("fw-v1.0.0")],
             schedule={
@@ -317,7 +360,7 @@ def test_scheduled_state_names_the_target_version_and_tags_its_row():
         })
     assert view["target_version"] == "fw-v1.0.0"
     html = update_page.update_page(_ctx(), view, "08:14")
-    state_section = html[html.index('<section class="page-section">'):html.index("</section>")]
+    state_section = html[html.index('<section class="page-section update-summary">'):html.index("</section>")]
     assert "fw-v1.0.0" in state_section, "expected the state row to name the target version"
 
     table_html = html[html.index("<table"):]
@@ -421,7 +464,7 @@ def test_french_render_translates_every_new_string():
         prefs.set_request_prefs(lang="en")
     assert "Planifiée" in html
     assert "Annuler" in html
-    assert "Historique des versions" in html
+    assert "Versions disponibles" in html
     assert "Installer" in html
     assert "%s" not in html, "expected no leftover, unfilled %%s placeholder"
 
@@ -492,15 +535,6 @@ def test_running_badge_reads_en_cours_in_french():
     assert "Running" not in html.split("<table", 1)[1].split("</table>", 1)[0]
 
 
-def test_running_and_bench_badges_share_one_row():
-    view = _view(
-        releases=[_release("fw-v1.2.0-bench1", bench=True)],
-        device_entry={"fw_version": "fw-v1.2.0-bench1", "reported_at": _NOW, "events": []})
-    row = _rows(update_page.update_page(_ctx(), view, ""))["fw-v1.2.0-bench1"]
-    assert "update-history__running-badge" in row
-    assert "update-history__bench-badge" in row
-
-
 def test_running_release_installed_cell_has_check_hidden_label_and_ota_time():
     """the running release, newest OTA install: check mark, a visually-hidden Running label
     and the concise install timestamp, in the table and in the card's labelled Installed line"""
@@ -518,11 +552,11 @@ def test_running_release_installed_cell_has_check_hidden_label_and_ota_time():
 
 
 def test_usb_flashed_running_release_shows_check_without_a_time():
-    """bench installed over the air later than the running release's own install: the bench
+    """a release installed over the air later than the running release's own install: that
     row shows history text and no check; the running row keeps the check with no time"""
     bench_install = "2026-09-29T15:27:00+00:00"
     view = _running_view(
-        [_release("fw-v9.9.9-bench", installed_at=[bench_install], bench=True,
+        [_release("fw-v9.9.9", installed_at=[bench_install],
                   published_at="2026-09-29T09:00:00+00:00")],
         installed_at=["2026-09-01T09:00:00+00:00"])
     html = update_page.update_page(_ctx("2026-09-29T16:00:00+00:00"), view, "")
@@ -530,13 +564,13 @@ def test_usb_flashed_running_release_shows_check_without_a_time():
     running_cell = rows["fw-v1.0.0"].split("</td>")[3]
     assert "icon-check" in running_cell
     assert "<time" not in running_cell and "Last installed" not in running_cell
-    bench_cell = rows["fw-v9.9.9-bench"].split("</td>")[3]
+    bench_cell = rows["fw-v9.9.9"].split("</td>")[3]
     assert "icon-check" not in bench_cell
     assert "Last installed" in bench_cell and "<time" in bench_cell
     cards = _cards(html)
-    assert "icon-check" not in cards["fw-v9.9.9-bench"]
-    assert "Last installed" in cards["fw-v9.9.9-bench"]
-    assert 'data-card__label">Installed</span>' not in cards["fw-v9.9.9-bench"]
+    assert "icon-check" not in cards["fw-v9.9.9"]
+    assert "Last installed" in cards["fw-v9.9.9"]
+    assert 'data-card__label">Installed</span>' not in cards["fw-v9.9.9"]
 
 
 def test_never_installed_release_has_an_empty_installed_cell_and_no_card_line():

@@ -31,8 +31,8 @@ CANCEL_ROUTE = "/update/cancel"
 # <h1> heading must read exactly what the nav calls it.
 _NAV_UPDATE_TEXT = i18n.msg("nav.update", "Update")
 
-STATUS_HEADING_TEXT = i18n.msg("update.status", "Status")
-HISTORY_HEADING_TEXT = i18n.msg("update.version_history", "Version history")
+STATUS_HEADING_TEXT = i18n.msg("update.installed_software", "Installed software")
+HISTORY_HEADING_TEXT = i18n.msg("update.version_history", "Available versions")
 
 RUNNING_LABEL_TEMPLATE = i18n.msg("update.running_s", "Running %s")
 NO_VERSION_REPORTED_TEXT = i18n.msg(
@@ -77,10 +77,10 @@ CANCEL_BUTTON_TEXT = i18n.msg("update.cancel", "Cancel")
 INSTALL_BUTTON_TEXT = i18n.msg("update.install", "Install")
 NOT_INSTALLABLE_TEXT = i18n.msg("update.not_installable", "Not installable")
 # publish_release(..., bench=True) admits a non-tag version such as
-# fw-v1.2.0-bench1; the only other hint is that suffix, which the
-# operator has to already know the convention for. The badge composes
-# .banner__pill (settings/rules.py's own "<scope>__kind banner__pill"
-# pattern), no new CSS.
+# fw-v1.2.0-bench1. It is never listed for installation; the badge
+# marks it only when it is the release the frame currently runs. It
+# composes .banner__pill (settings/rules.py's own
+# "<scope>__kind banner__pill" pattern).
 BENCH_BADGE_TEXT = i18n.msg("update.bench", "Bench")
 # The running release's own badge, and the same word as the
 # visually-hidden label beside the Installed check mark, so the two can
@@ -155,26 +155,37 @@ EMPTY_RELEASES_BODY_TEXT = i18n.msg(
 _QUIET_BUTTON_CLASS = "calendar-disconnect-btn"
 
 
-def _status_verdict_block_html(ctx, view):
-    """The running-version verdict/detail pair, the top half of Card 1.
+def _status_verdict_block_html(view):
+    """The running-version line, the headline of the installed-software
+    summary.
 
     RUNNING_LABEL_TEMPLATE ("Running %s") carries its own placeholder;
     the version itself renders as a separate `<span class="mono">`
     element rather than baked into the escaped sentence, matching the
     rest of this app's "interpolate the templated value as its own
     element" convention (see e.g. health_page.py's headline builders).
+    The summary's single time is rendered by `_status_state_row_html()`.
     """
+    icon_html = layout.icon_html("icon-nav-update", size=24)
     running_version = view.get("running_version")
     if not running_version:
         return (
-            '<p class="text-body widget-verdict text-label">%s</p>'
-            % escape_html(i18n.t(NO_VERSION_REPORTED_TEXT)))
+            '<p class="text-body widget-verdict text-label update-summary__headline">'
+            "%s%s</p>"
+        ) % (icon_html, escape_html(i18n.t(NO_VERSION_REPORTED_TEXT)))
     prefix_text = i18n.t(RUNNING_LABEL_TEMPLATE).split("%s", 1)[0]
-    verdict_html = (
-        '<p class="text-body widget-verdict">%s<span class="mono">%s</span></p>'
-    ) % (escape_html(prefix_text), escape_html(running_version))
-    detail_html = _timestamp_detail_html(view.get("reported_at"), ctx.now)
-    return verdict_html + detail_html
+    running_is_bench = any(
+        release.get("bench") and release.get("version") == running_version
+        for release in view.get("releases") or [])
+    # A bench build is hidden from the owner's release list but is still
+    # what the frame runs, so the summary names it plainly.
+    bench_html = (
+        ' <span class="update-summary__bench banner__pill">%s</span>'
+        % escape_html(i18n.t(BENCH_BADGE_TEXT))) if running_is_bench else ""
+    return (
+        '<p class="text-body widget-verdict update-summary__headline">'
+        '%s<span>%s<span class="mono">%s</span>%s</span></p>'
+    ) % (icon_html, escape_html(prefix_text), escape_html(running_version), bench_html)
 
 
 def _timestamp_detail_html(ts, now):
@@ -218,7 +229,16 @@ def _target_version_html(view):
 
 
 def _status_state_row_html(ctx, view):
+    """The state and its one relevant time.
+
+    Nothing is in flight while the state is "available", so the row is
+    just the time the frame last reported; every other state names itself
+    (and the release it concerns) beside the time that state began. The
+    summary therefore never carries two competing timestamps.
+    """
     state = view.get("state")
+    if state == "available":
+        return _timestamp_detail_html(view.get("reported_at"), ctx.now)
     state_label = i18n.t(STATE_LABELS.get(state, STATE_LABELS["available"]))
     dot_token = _STATE_DOT_TOKENS.get(state, "off")
     label_html = layout.status_dot(dot_token, state_label) + _target_version_html(view)
@@ -264,14 +284,14 @@ def _rollback_banner_html(view):
 
 def _status_card_html(ctx, view, next_wake_text, wake_held=False):
     return (
-        '<section class="page-section">'
+        '<section class="page-section update-summary">'
         '<h2 class="text-heading">%s</h2>'
         "%s%s%s%s%s"
         "</section>"
     ) % (
         escape_html(i18n.t(STATUS_HEADING_TEXT)),
         _rollback_banner_html(view),
-        _status_verdict_block_html(ctx, view),
+        _status_verdict_block_html(view),
         _status_state_row_html(ctx, view),
         _scheduled_sentence_html(view, next_wake_text, wake_held),
         _cancel_form_html(view),
@@ -395,21 +415,13 @@ def _release_row(release, running_version, target_version, installs_blocked, now
     renders an Install form while that holds.
     """
     version = release.get("version")
-    version_html = '<span class="mono">%s</span>' % escape_html(version)
+    version_html = (
+        layout.icon_html("icon-nav-update", size=16)
+        + '<span class="mono">%s</span>' % escape_html(version))
     if release.get("running"):
         version_html += (
             ' <span class="update-history__running-badge banner__pill">%s</span>'
             % escape_html(i18n.t(RUNNING_BADGE_TEXT)))
-    if release.get("bench"):
-        # A non-tag version (fw-v1.2.0-bench1) admitted by
-        # publish_release(bench=True) -- the version's own suffix is the
-        # only other hint, and an operator has to already know that
-        # convention. .banner__pill is settings/rules.py's own
-        # "<scope>__kind banner__pill" label-voice chip, reused rather
-        # than a new component.
-        version_html += (
-            ' <span class="update-history__bench-badge banner__pill">%s</span>'
-            % escape_html(i18n.t(BENCH_BADGE_TEXT)))
     date_html = layout.concise_timestamp_html(release.get("released_at"), now)
     excerpt_html, details_html = _notes_html(release.get("notes") or [])
     installed_html, installed_kind = _installed_cell(release, now)
@@ -501,8 +513,20 @@ def _history_cards_html(rows):
     return '<ul class="data-cards">%s</ul>' % "".join(_release_card_html(row) for row in rows)
 
 
+def _owner_releases(view):
+    """The releases the owner is shown: real releases only.
+
+    Bench builds are a development aid and never an owner choice, so they
+    are dropped here at the page boundary; a bench build that is running
+    or scheduled still surfaces truthfully in the summary above, which
+    reads `running_version`/`target_version` rather than this list. The
+    registry's own classification and installability are untouched.
+    """
+    return [release for release in (view.get("releases") or []) if not release.get("bench")]
+
+
 def _history_card_html(ctx, view):
-    releases = view.get("releases") or []
+    releases = _owner_releases(view)
     if not releases:
         body_html = layout.empty_state(
             i18n.t(EMPTY_RELEASES_HEADING_TEXT), i18n.t(EMPTY_RELEASES_BODY_TEXT))

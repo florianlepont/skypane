@@ -18,8 +18,8 @@ the app's other nav labels.
 """
 
 MESSAGES = {
-    "update.status": "État",
-    "update.version_history": "Historique des versions",
+    "update.installed_software": "Logiciel installé",
+    "update.version_history": "Versions disponibles",
     "update.running_s": "Version en cours : %s",
     "update.no_version_reported_yet": "Aucune version signalée pour le moment",
 
