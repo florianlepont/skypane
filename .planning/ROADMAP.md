@@ -69,7 +69,7 @@ V1.1 begins by improving the companion through a task-based bilingual usability 
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 44. Companion Walkthrough and Focused Bilingual Polish | v1.1 | 9/12 | In Progress|  |
+| 44. Companion Walkthrough and Focused Bilingual Polish | v1.1 | 10/12 | In Progress|  |
 | 45. Controlled Second Discharge Study | v1.1 | 0/TBD | Not started | - |
 | 46. Two-Run Battery Analysis and Operating Decision | v1.1 | 0/TBD | Not started | - |
 | 47. Integrated Field Validation and Decision Record | v1.1 | 0/TBD | Not started | - |

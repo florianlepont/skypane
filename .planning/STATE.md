@@ -4,13 +4,13 @@ milestone: v1.1
 milestone_name: Battery and Companion!
 status: executing
 stopped_at: Phase 44 context gathered
-last_updated: "2026-10-03T09:08:26.992Z"
-last_activity: "2026-10-03 — 44-07 complete: Airlines type selector with source and owner rows"
+last_updated: "2026-10-03T09:22:20.430Z"
+last_activity: "2026-10-03 — 44-09 complete: Status percentage/voltage chart switch and readable layout"
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 12
-  completed_plans: 9
+  completed_plans: 10
   percent: 0
 ---
 
@@ -57,9 +57,9 @@ See: .planning/PROJECT.md (updated 2026-09-30)
 ## Current Position
 
 Phase: 44 of 47 (Companion Walkthrough and Focused Bilingual Polish)
-Plan: 9 of 12 complete (latest: 44-07, Airlines types and source-versus-owner clarity)
+Plan: 10 of 12 complete (latest: 44-09, Status battery units and readable layout)
 Status: Executing
-Last activity: 2026-10-03 — 44-07 complete: Airlines type selector with source and owner rows
+Last activity: 2026-10-03 — 44-09 complete: Status percentage/voltage chart switch and readable layout
 
 ## Position History (superseded entries, kept for the record)
 
@@ -1325,7 +1325,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-10-03T09:08:26.934Z
+Last session: 2026-10-03T09:22:20.354Z
 Stopped at: Phase 44 context gathered
 
 Resume file: 
