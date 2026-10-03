@@ -1,6 +1,6 @@
 ---
 phase: 44-companion-walkthrough-and-focused-bilingual-polish
-status: planned
+status: awaiting owner verification
 nyquist_compliant: false
 created: 2026-09-30
 ---
@@ -46,20 +46,64 @@ created: 2026-09-30
 | 44-09 | Status drawing/browser tests | Percentage/Voltage switch and activity band behave responsively. |
 | 44-10 | Device settings and poll browser tests | Native persistence and truthful Refresh now feedback. |
 | 44-11 | Update served/browser tests | Bench builds absent from offers; confirmation/cancellation retained. |
-| 44-12 | Full focused browser aggregate, full suite, owner verification | Phase evidence and visible product judgement are complete. |
+| 44-12 | Full focused browser aggregate, full suite, owner verification | Aggregate 338 passed, full suite 3481 passed; owner verification pending. |
 
 ## Automated Results
 
-- [ ] Focused browser aggregate passed with Chromium required.
-- [ ] Affected served-page, i18n, route, page-context, stylesheet, health, and update tests passed.
-- [ ] Full `./scripts/run-all-tests.sh` passed, or an independently reproduced non-phase exception is recorded here.
+Run 2026-10-03 on the Phase 44 working tree (base `0d05a73a` plus the
+retired-test cleanup in the closing commit), Chromium required.
+
+- [x] Focused browser aggregate passed with Chromium required.
+  `SKYPANE_REQUIRE_BROWSER=1 ./scripts/run-all-tests.sh -- companion/test_browser_phase44_walkthrough.py companion/test_browser_ux_01.py companion/test_browser_ux_02.py companion/test_browser_ux_03.py companion/test_browser_ux_04.py companion/test_browser_ux_health_drawings.py companion/test_browser_update.py companion/test_i18n.py companion/test_route_table.py companion/test_page_context.py companion/test_stylesheet_structure.py companion/test_health_signals.py companion/test_update_page.py`
+  gave **338 passed**. This includes the 42-case English/French 1280/390/360
+  route matrix, keyboard/focus, scripts-blocked settings, image, chart and
+  update flows.
+- [x] Affected served-page, i18n, route, page-context, stylesheet, health, and
+  update tests passed (same 338-test run).
+- [x] Full `SKYPANE_REQUIRE_BROWSER=1 ./scripts/run-all-tests.sh`: **3481
+  passed, 8 skipped**, coverage 95.12% (floor 93.0%). The 8 skips are
+  environment-only (root ignores permission bits: 6; local openssl cannot
+  backdate a certificate: 1; root ignores directory permission bits: 1). No
+  retired-contract skip remains.
+- [x] `ruff check .`, `mypy`, `scripts/check_comment_history.py check`, and
+  `scripts/check_function_size.py check --max 80 server stub-server` all green.
+- Browser tests ran against a scratch `PLAYWRIGHT_BROWSERS_PATH`; no browser
+  install was performed by this plan.
+
+## Retired-contract test cleanup
+
+41 skipped tests for retired Home, Display, Flights and Health contracts
+were deleted from `test_config_page_04b.py` (19), `test_browser_ux_03.py` (9),
+`test_view_pages_04.py` (7), `test_browser_ux_01.py` (3) and
+`test_view_pages_03.py` (3), together with their now-unused helpers. Dead Home
+code (`_status_tiles_html`, `_hero_html`, their copy constants, and orphaned
+French catalogue entries) was removed. Delivered behaviour is covered by the
+Direction B, Display, Flights, Health and Update tests listed in the map above.
+The Frame strip component, `quick-switch.js` and `/quick/display` were left in
+place and are recorded as an open decision in 44-WALKTHROUGH.md.
 
 ## Owner Visual Verification
+
+Owner visual verification status: **awaiting owner verification**. None of the following has been
+reviewed by the owner; nothing below is approved.
 
 - [ ] Owner reviewed the final authenticated companion in French and English at desktop and phone widths.
 - [ ] Owner confirmed Direction B Home, Display, Flights, Airlines, Health, Device, Updates, and navigation are understandable.
 - [ ] Owner completed keyboard/focus checks or recorded reproducible follow-up findings.
 
+Checklist for the owner (do not install production firmware for this review):
+
+1. Log in in French, then switch to English; repeat at desktop and 360-390 px.
+2. Home: frame signal and recent flights are the first useful reading; open a row image.
+3. Display: change an appearance and Quiet hours, save; preview, swatches and saved result are clear.
+4. Flights and Airlines: direct "View picture" action, aircraft-type selector (Transavia shows both types), "From SkyPane" versus "Your changes", artwork action wording.
+5. Health: healthy result reads stronger than detail text, Percentage/Voltage switch, unidentified airlines do not look like an alarm, plain section title wording.
+6. Device and Updates: Wake interval, Diagnostic LED, Refresh now feedback; installed-version summary and release list hierarchy.
+7. Tab through every changed action: visible focus indicator, reachable.
+8. Decide the open items listed in 44-WALKTHROUGH.md.
+
 ## Final Disposition
 
-**Status:** Pending execution and owner verification.
+**Status:** Awaiting owner verification. The phase is not closed; it closes
+only after the owner approves or supplies reproducible issues for a bounded
+follow-up plan.
