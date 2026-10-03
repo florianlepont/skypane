@@ -4,13 +4,13 @@ milestone: v1.1
 milestone_name: Battery and Companion!
 status: executing
 stopped_at: Phase 44 context gathered
-last_updated: "2026-10-03T08:39:25.852Z"
-last_activity: "2026-09-30 — V1.1 roadmap reordered: companion polish comes first"
+last_updated: "2026-10-03T09:08:26.992Z"
+last_activity: "2026-10-03 — 44-07 complete: Airlines type selector with source and owner rows"
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 12
-  completed_plans: 8
+  completed_plans: 9
   percent: 0
 ---
 
@@ -38,7 +38,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [███████░░░] 67%
+  [████████░░] 75%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -57,9 +57,9 @@ See: .planning/PROJECT.md (updated 2026-09-30)
 ## Current Position
 
 Phase: 44 of 47 (Companion Walkthrough and Focused Bilingual Polish)
-Plan: 8 of 12 complete (latest: 44-06, Flights direct picture action)
+Plan: 9 of 12 complete (latest: 44-07, Airlines types and source-versus-owner clarity)
 Status: Executing
-Last activity: 2026-10-03 — 44-06 complete: Flights reduced to scannable rows with a direct picture link
+Last activity: 2026-10-03 — 44-07 complete: Airlines type selector with source and owner rows
 
 ## Position History (superseded entries, kept for the record)
 
@@ -1325,7 +1325,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-10-03T08:39:25.768Z
+Last session: 2026-10-03T09:08:26.934Z
 Stopped at: Phase 44 context gathered
 
 Resume file: 
