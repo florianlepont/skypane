@@ -129,7 +129,11 @@ def test_status_header_layout_targets_and_keyboard(
 
         page.locator(SCREEN_BUTTON).focus()
         page.keyboard.press("Tab")
+        assert _has_visible_focus_indicator(page, ".home-switch__window"), (
+            "no focus ring on the quiet-hours window link")
+        page.keyboard.press("Tab")
         assert _has_visible_focus_indicator(page, QUIET_BUTTON), "no focus ring on the quiet switch"
+        page.keyboard.press("Shift+Tab")
         page.keyboard.press("Shift+Tab")
         assert _has_visible_focus_indicator(page, SCREEN_BUTTON), "no focus ring on the screen switch"
         with page.expect_navigation():

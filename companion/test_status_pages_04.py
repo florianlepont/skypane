@@ -773,7 +773,7 @@ def test_auto_refresh_pill_markup_contract_holds_seeded_and_fresh(tmp_path):
             "%s state: expected exactly one data-loaded-at, page-wide" % label)
         assert layout.REFRESH_PILL_TEXT in rendered, (
             "%s state: expected the pill copy constant's own value in the rendered page" % label)
-        header_start = rendered.index('<div class="page-header">')
+        header_start = re.search(r'<div class="page-header(?: page-header--tabbed)?">', rendered).start()
         header_end = rendered.index("</div>", header_start) + len("</div>")
         assert "data-refresh-pill" in rendered[header_start:header_end], (
             "%s state: expected the pill inside the .page-header div" % label)
@@ -919,7 +919,7 @@ def test_health_header_renders_the_persistent_freshness_note(tmp_path):
     assert prefix_at < clock_at < wrapper_slice.index("data-refresh-pill"), (
         "expected prefix, then clock, then pill in that source order")
 
-    header_start = rendered.index('<div class="page-header">')
+    header_start = re.search(r'<div class="page-header(?: page-header--tabbed)?">', rendered).start()
     header_end = rendered.index("</div>", header_start) + len("</div>")
     assert wrapper_start >= header_start and wrapper_end <= header_end, (
         "expected the freshness wrapper inside the .page-header div")
