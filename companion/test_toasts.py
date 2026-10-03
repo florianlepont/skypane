@@ -37,7 +37,7 @@ _EXPECTED_ROLE = {
     _SUCCESS: "status", _INFO: "status", _PENDING: "status",
     _WARNING: "alert", _ERROR: "alert",
 }
-_STICKY_TONES = (_WARNING, _ERROR, _PENDING)
+_STICKY_TONES = (_WARNING, _ERROR)
 
 
 @pytest.fixture(scope="module")
@@ -106,8 +106,8 @@ def test_served_flash_toast_carries_its_tone_role_glyph_and_dismiss_link(
         server, session, tone, route, key):
     """a real redirect target renders the flash as one toast in the flash region with its
     tone class, its role, its own tone glyph, a spoken tone prefix and a dismiss link back to
-    the same page without the flash; only success and info are marked to auto-hide and carry
-    the timer hairline"""
+    the same page without the flash; success, info and pending are marked to auto-hide and carry
+    the timer hairline, pending with the long dwell"""
     body = _page(server, session, "%s?flash=%s&keep=1" % (route, key))
     toast = flash_toast(body)
     assert toast is not None, "expected a flash toast for %s" % key
@@ -135,6 +135,10 @@ def test_served_flash_toast_carries_its_tone_role_glyph_and_dismiss_link(
     else:
         assert autohide and has_timer, (
             "a %s toast is marked to auto-hide and carries its timer hairline" % tone)
+        expected = layout.TOAST_AUTOHIDE_LONG_VALUE if tone == _PENDING else ""
+        assert (toast.attrs.get(layout.TOAST_AUTOHIDE_ATTR) or "") == expected, (
+            "expected %s's dwell marker %r, got %r"
+            % (tone, expected, toast.attrs.get(layout.TOAST_AUTOHIDE_ATTR)))
 
 
 @pytest.mark.parametrize("lang", ("en", "fr"))
@@ -168,6 +172,27 @@ def test_saved_flash_shows_the_next_wake_sentence_as_its_detail(server, session)
     assert title == "Saved", "expected the title 'Saved', got %r" % title
     assert detail and detail[0].isupper(), "expected a capitalised detail sentence, got %r" % detail
     assert "toast--pending" in _classes(toast)
+
+
+@pytest.mark.parametrize("lang", ("en", "fr"))
+def test_pending_toasts_autohide_with_the_long_dwell_and_sticky_ones_do_not(
+        server, session, lang):
+    """in both languages every pending flash key renders data-toast-autohide="long" with a
+    timer hairline, while every warning and error flash key renders neither"""
+    for key, tone in sorted(flash.FLASH_TONES.items()):
+        if tone not in (_PENDING, _WARNING, _ERROR):
+            continue
+        toast = flash_toast(_page(
+            server, session, "%s?flash=%s" % (layout.DISPLAY_ROUTE, key), lang=lang))
+        assert toast is not None, "%s/%s: expected a flash toast" % (lang, key)
+        if tone == _PENDING:
+            assert toast.attrs.get(layout.TOAST_AUTOHIDE_ATTR) == "long", (
+                "%s/%s: expected the long dwell marker" % (lang, key))
+            assert toast.select(".toast__timer"), "%s/%s: expected a timer hairline" % (lang, key)
+        else:
+            assert layout.TOAST_AUTOHIDE_ATTR not in toast.attrs, (
+                "%s/%s: a %s toast must not auto-hide" % (lang, key, tone))
+            assert not toast.select(".toast__timer")
 
 
 def test_french_toast_speaks_its_tone_and_labels_its_controls_in_french(server, session):
@@ -279,7 +304,7 @@ def test_toast_script_public_es5_and_hook_names(server):
                   "document.write", "eval(", "fetch(", "XMLHttpRequest", "location.href"):
         assert token not in src, "toast.js must not contain %r" % token
     for hook in (layout.TOAST_ATTR, layout.TOAST_AUTOHIDE_ATTR, layout.TOAST_DISMISS_ATTR,
-                 "--motion-toast-dwell", layout.SKIP_LINK_TARGET_ID):
+                 "--motion-toast-dwell", "--motion-toast-dwell-long", layout.SKIP_LINK_TARGET_ID):
         assert re.search(r'"%s"' % re.escape(hook), src), "toast.js must name %r" % hook
 
 

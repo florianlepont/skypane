@@ -282,7 +282,7 @@ _PENDING = layout.TOAST_TONE_PENDING
 
 # Every FLASH_KEY_* -> the tone its toast takes, so a failure and a
 # success never look alike. "pending" is a change that is saved but
-# only reaches the frame on its next wake; it never hides on its own.
+# only reaches the frame on its next wake; it hides after the long dwell.
 FLASH_TONES = {
     FLASH_KEY_SAVED: _PENDING,
     FLASH_KEY_SAVE_FAILED: _ERROR,

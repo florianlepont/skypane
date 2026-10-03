@@ -75,10 +75,14 @@ TOAST_ROLES = {
     TOAST_TONE_ERROR: "alert",
 }
 # Only these tones may hide on their own (toast.js, an enhancement).
-# Warnings and errors need reading and acting on, and a pending note
-# says something will still happen later, so those three stay until
-# dismissed.
-TOAST_AUTOHIDE_TONES = (TOAST_TONE_SUCCESS, TOAST_TONE_INFO)
+# Warnings and errors need reading and acting on, so they stay until
+# dismissed. A pending note hides too, but after the longer dwell: it
+# says something will still happen later, so it is worth more time.
+TOAST_AUTOHIDE_TONES = (TOAST_TONE_SUCCESS, TOAST_TONE_INFO, TOAST_TONE_PENDING)
+TOAST_AUTOHIDE_LONG_TONES = (TOAST_TONE_PENDING,)
+# The data-toast-autohide value that selects the longer dwell; the short
+# dwell is the bare attribute.
+TOAST_AUTOHIDE_LONG_VALUE = "long"
 
 TOAST_GLYPHS = {tone: "icon-toast-" + tone for tone in TOAST_TONES}
 TOAST_GLYPH_TRASH = "icon-toast-trash"
@@ -99,9 +103,9 @@ TOAST_UNDO_TEXT = i18n.msg("common.undo", "Undo")
 # lets each language decide where its own title ends.
 TOAST_SPLIT = " — "
 
-# The hooks toast.js reads. The dwell itself lives in style.css's
-# --motion-toast-dwell token, read by the script, so the hairline and the
-# timer can never disagree.
+# The hooks toast.js reads. The dwells themselves live in style.css's
+# --motion-toast-dwell and --motion-toast-dwell-long tokens, read by the
+# script, so the hairline and the timer can never disagree.
 TOAST_ATTR = "data-toast"
 TOAST_AUTOHIDE_ATTR = "data-toast-autohide"
 TOAST_DISMISS_ATTR = "data-toast-dismiss"
@@ -212,6 +216,8 @@ def toast_html(
         attrs += " " + TOAST_ATTR
         if autohide:
             attrs += " " + TOAST_AUTOHIDE_ATTR
+            if tone in TOAST_AUTOHIDE_LONG_TONES:
+                attrs += '="%s"' % TOAST_AUTOHIDE_LONG_VALUE
     dismiss_html = ""
     if dismiss_href is True and not docked:
         dismiss_html = toast_dismiss_button_html()
