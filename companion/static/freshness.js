@@ -279,8 +279,8 @@
     ],
     "health": [
       ".dashboard-grid",
-      "div.banner--anomaly, div.banner--warn",
-      "section.banner",
+      "div.health-anomaly",
+      "section.health-source-fault",
       ".page-header__freshness",
       'a[href="/health"]'
     ],

@@ -35,9 +35,9 @@ from server.plane import calendar_rules, colour_rules, manual_resolutions
 NAV_ROUTES = tuple(route for route, _label in layout.NAV_TABS)
 
 _NAV_DOT_RE = re.compile(rb'class="dot (dot--\w+) nav-notification"')
-_BANNER_RE = re.compile(rb'class="banner (banner--\w+)"')
+_BANNER_RE = re.compile(rb'class="toast (toast--\w+) toast--docked health-anomaly"')
 _DOT_TO_SEVERITY = {b"dot--warn": "warn", b"dot--error": "error"}
-_BANNER_TO_SEVERITY = {b"banner--warn": "warn", b"banner--anomaly": "error"}
+_BANNER_TO_SEVERITY = {b"toast--warning": "warn", b"toast--error": "error"}
 
 
 def _seed_warn_scenario(state_dir):

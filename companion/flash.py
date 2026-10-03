@@ -4,8 +4,10 @@ once in `companion/pages/config_page.py`, `companion/pages/airlines_page.py`
 or `companion/pages/update_page.py`, re-exported here under its
 historical name so every existing call site —
 and every test assertion against the literal query-string value — stays
-unchanged), the FLASH_MESSAGES/FLASH_ROLES tables built from them, and
-resolve_flash_text(). poll_cooldown_remaining() lives here too: it is
+unchanged), the FLASH_MESSAGES/FLASH_TONES/FLASH_ROLES tables built
+from them, resolve_flash_text(), and flash_toast_html(), which turns a
+resolved flash into its toast (tone, role, glyph, optional action and
+the no-script dismiss link). poll_cooldown_remaining() lives here too: it is
 resolve_flash_text()'s own FLASH_KEY_POLL_COOLDOWN branch's only
 in-module caller; `companion/app.py` rebinds it under its historical
 name for its other two call sites (the poll-trigger route and the
@@ -15,8 +17,9 @@ Never imports `companion.app` (that would be a cycle — app.py imports
 this module).
 """
 import time
+from urllib.parse import parse_qsl, urlencode, urlsplit
 
-from companion import frame_state, i18n, layout, wake
+from companion import frame_state, i18n, layout, routes, wake
 from companion.pages import airlines_page, config_page, update_page
 from server import history_db
 from server.plane import calendar_rules, colour_rules
@@ -271,57 +274,131 @@ FLASH_MESSAGES = {
     FLASH_KEY_UPDATE_BUSY: update_page.FLASH_UPDATE_BUSY_TEXT,
 }
 
-# Every FLASH_KEY_* -> the ARIA role its rendered flash banner should
-# carry — "alert" (assertive) for a genuine failure, "status" (polite)
-# for everything else. build_page_context() resolves this into
-# ctx.flash_role, threaded into every layout.flash_banner(role=...)
-# call site below.
-FLASH_ROLES = {
-    FLASH_KEY_SAVED: "status",
-    FLASH_KEY_SAVE_FAILED: "alert",
-    FLASH_KEY_POLL_TRIGGERED: "status",
-    FLASH_KEY_POLL_COOLDOWN: "status",
-    FLASH_KEY_POLL_FAILED: "alert",
-    # Informational, not itself a failure — a different session/tab is
+_SUCCESS = layout.TOAST_TONE_SUCCESS
+_INFO = layout.TOAST_TONE_INFO
+_WARNING = layout.TOAST_TONE_WARNING
+_ERROR = layout.TOAST_TONE_ERROR
+_PENDING = layout.TOAST_TONE_PENDING
+
+# Every FLASH_KEY_* -> the tone its toast takes, so a failure and a
+# success never look alike. "pending" is a change that is saved but
+# only reaches the frame on its next wake; it never hides on its own.
+FLASH_TONES = {
+    FLASH_KEY_SAVED: _PENDING,
+    FLASH_KEY_SAVE_FAILED: _ERROR,
+    FLASH_KEY_POLL_TRIGGERED: _INFO,
+    FLASH_KEY_POLL_COOLDOWN: _INFO,
+    FLASH_KEY_POLL_FAILED: _ERROR,
+    # Informational, not itself a failure: a different session/tab is
     # already legitimately running a poll.
-    FLASH_KEY_POLL_ALREADY_RUNNING: "status",
-    # Success and rejection are both user-facing outcomes of a normal
-    # upload flow (polite "status"); an unexpected server-side failure
-    # takes the assertive "alert" role, matching FLASH_KEY_SAVE_FAILED's
-    # own treatment above.
-    FLASH_KEY_ILLUSTRATION_REPLACED: "status",
-    FLASH_KEY_ILLUSTRATION_REJECTED: "status",
-    FLASH_KEY_ILLUSTRATION_REPLACE_FAILED: "alert",
-    # Success is "status"; every rejection or failure is "alert".
-    FLASH_KEY_MANUAL_RESOLVED: "status",
-    FLASH_KEY_MANUAL_NAME_EMPTY: "alert",
-    FLASH_KEY_MANUAL_NAME_TOO_LONG: "alert",
-    FLASH_KEY_MANUAL_NAME_RESERVED: "alert",
-    FLASH_KEY_MANUAL_PREFIX_STALE: "alert",
-    FLASH_KEY_MANUAL_REGISTRY_FULL: "alert",
-    FLASH_KEY_MANUAL_SAVE_FAILED: "alert",
-    FLASH_KEY_MANUAL_DELETE_FAILED: "alert",
-    FLASH_KEY_MANUAL_NAME_UNUSABLE: "alert",
-    # Added/replaced/deleted are "status" (an outcome of a normal
-    # add/delete flow); key-invalid/registry-full/save-failed/
-    # delete-failed are "alert" (a rejection or a genuine failure).
-    FLASH_KEY_RULE_ADDED: "status",
-    FLASH_KEY_RULE_REPLACED: "status",
-    FLASH_KEY_RULE_KEY_INVALID: "alert",
-    FLASH_KEY_RULE_REGISTRY_FULL: "alert",
-    FLASH_KEY_RULE_SAVE_FAILED: "alert",
-    FLASH_KEY_RULE_DELETED: "status",
-    FLASH_KEY_RULE_DELETE_FAILED: "alert",
-    FLASH_KEY_CALENDAR_CONNECTED: "status",
-    FLASH_KEY_CALENDAR_SYNC_FAILED: "alert",
-    FLASH_KEY_CALENDAR_DISCONNECTED: "status",
-    FLASH_KEY_CALENDAR_SYNC_DEFERRED: "status",
-    FLASH_KEY_CALENDAR_CONNECT_OK: "status",
-    FLASH_KEY_CALENDAR_CONNECT_INVALID: "alert",
-    FLASH_KEY_UPDATE_SCHEDULE_FAILED: "alert",
-    FLASH_KEY_UPDATE_CANCEL_FAILED: "alert",
-    FLASH_KEY_UPDATE_BUSY: "status",
+    FLASH_KEY_POLL_ALREADY_RUNNING: _INFO,
+    FLASH_KEY_ILLUSTRATION_REPLACED: _PENDING,
+    # The file the user picked was refused: their input needs changing.
+    FLASH_KEY_ILLUSTRATION_REJECTED: _ERROR,
+    FLASH_KEY_ILLUSTRATION_REPLACE_FAILED: _ERROR,
+    FLASH_KEY_MANUAL_RESOLVED: _PENDING,
+    FLASH_KEY_MANUAL_NAME_EMPTY: _ERROR,
+    FLASH_KEY_MANUAL_NAME_TOO_LONG: _ERROR,
+    FLASH_KEY_MANUAL_NAME_RESERVED: _ERROR,
+    # Nothing was wrong with the input; the gap simply closed meanwhile.
+    FLASH_KEY_MANUAL_PREFIX_STALE: _WARNING,
+    FLASH_KEY_MANUAL_REGISTRY_FULL: _WARNING,
+    FLASH_KEY_MANUAL_SAVE_FAILED: _ERROR,
+    FLASH_KEY_MANUAL_DELETE_FAILED: _ERROR,
+    FLASH_KEY_MANUAL_NAME_UNUSABLE: _ERROR,
+    FLASH_KEY_RULE_ADDED: _PENDING,
+    FLASH_KEY_RULE_REPLACED: _PENDING,
+    FLASH_KEY_RULE_KEY_INVALID: _ERROR,
+    FLASH_KEY_RULE_REGISTRY_FULL: _WARNING,
+    FLASH_KEY_RULE_SAVE_FAILED: _ERROR,
+    FLASH_KEY_RULE_DELETED: _PENDING,
+    FLASH_KEY_RULE_DELETE_FAILED: _ERROR,
+    FLASH_KEY_CALENDAR_CONNECTED: _SUCCESS,
+    # Half done: the URL is saved, the sync is not.
+    FLASH_KEY_CALENDAR_SYNC_FAILED: _WARNING,
+    FLASH_KEY_CALENDAR_DISCONNECTED: _SUCCESS,
+    FLASH_KEY_CALENDAR_SYNC_DEFERRED: _INFO,
+    FLASH_KEY_CALENDAR_CONNECT_OK: _SUCCESS,
+    FLASH_KEY_CALENDAR_CONNECT_INVALID: _ERROR,
+    FLASH_KEY_UPDATE_SCHEDULE_FAILED: _ERROR,
+    FLASH_KEY_UPDATE_CANCEL_FAILED: _ERROR,
+    FLASH_KEY_UPDATE_BUSY: _INFO,
+    # The screen switch reaches the frame within about five minutes, at
+    # its next wake; quiet hours and the LED wait for the next wake too.
+    FLASH_KEY_DISPLAY_ON: _PENDING,
+    FLASH_KEY_DISPLAY_OFF: _PENDING,
+    FLASH_KEY_QUIET_ON: _PENDING,
+    FLASH_KEY_QUIET_OFF: _PENDING,
+    FLASH_KEY_LED_ON: _PENDING,
+    FLASH_KEY_LED_OFF: _PENDING,
+    FLASH_KEY_QUICK_FAILED: _ERROR,
 }
+
+# Every FLASH_KEY_* -> its toast's ARIA role, derived from its tone:
+# "alert" (assertive) for a warning or error, "status" (polite)
+# otherwise. build_page_context() resolves this into ctx.flash_role.
+FLASH_ROLES = {key: layout.TOAST_ROLES[tone] for key, tone in FLASH_TONES.items()}
+
+# A confirmed deletion keeps its success tone but shows a bin, so it does
+# not read like something was added.
+_FLASH_GLYPHS = {FLASH_KEY_CALENDAR_DISCONNECTED: layout.TOAST_GLYPH_TRASH}
+
+# The three instant switches' outcomes offer an Undo: a real POST of the
+# opposite state to the same route, so it works with scripts blocked.
+_FLASH_UNDO = {
+    FLASH_KEY_DISPLAY_ON: (routes.QUICK_DISPLAY_ROUTE, layout.QUICK_STATE_OFF),
+    FLASH_KEY_DISPLAY_OFF: (routes.QUICK_DISPLAY_ROUTE, layout.QUICK_STATE_ON),
+    FLASH_KEY_QUIET_ON: (routes.QUICK_QUIET_HOURS_ROUTE, layout.QUICK_STATE_OFF),
+    FLASH_KEY_QUIET_OFF: (routes.QUICK_QUIET_HOURS_ROUTE, layout.QUICK_STATE_ON),
+    FLASH_KEY_LED_ON: (routes.QUICK_LED_ROUTE, layout.QUICK_STATE_OFF),
+    FLASH_KEY_LED_OFF: (routes.QUICK_LED_ROUTE, layout.QUICK_STATE_ON),
+}
+
+SEE_HEALTH_TEXT = i18n.msg("common.see_health", "See Health")
+_FLASH_LINKS = {FLASH_KEY_MANUAL_PREFIX_STALE: (layout.HEALTH_ROUTE, SEE_HEALTH_TEXT)}
+
+# The query parameters a flash rides on; the dismiss link drops them.
+_FLASH_QUERY_PARAMS = ("flash", "rule")
+
+
+def flash_dismiss_href(request_path):
+    """The same page without its flash: the request's own path with every
+    other query parameter kept (`?resolve=` survives). A path that is not
+    a plain local path (e.g. `//host`) falls back to "/", so the link can
+    never leave this site.
+    """
+    parsed = urlsplit(request_path or "/")
+    path = parsed.path if parsed.path.startswith("/") and not parsed.path.startswith("//") else "/"
+    kept = [(name, value) for name, value in parse_qsl(parsed.query, keep_blank_values=True)
+            if name not in _FLASH_QUERY_PARAMS]
+    return path + ("?" + urlencode(kept) if kept else "")
+
+
+def _flash_action_html(flash_key, return_to):
+    if flash_key in _FLASH_UNDO:
+        route, state = _FLASH_UNDO[flash_key]
+        return layout.toast_post_action_html(
+            route, ((layout.QUICK_STATE_FIELD, state), ("return_to", return_to)),
+            i18n.t(layout.TOAST_UNDO_TEXT))
+    if flash_key in _FLASH_LINKS:
+        href, label = _FLASH_LINKS[flash_key]
+        return layout.toast_link_action_html(href, i18n.t(label))
+    return ""
+
+
+def flash_toast_html(flash_key, text, request_path):
+    """The rendered flash toast for one resolved flash, or None when there
+    is no text. `flash_key` picks tone, role, glyph and action; an
+    unknown key degrades to an info toast with no action.
+    """
+    if not text:
+        return None
+    dismiss_href = flash_dismiss_href(request_path)
+    return layout.flash_banner(
+        text, role=FLASH_ROLES.get(flash_key), tone=FLASH_TONES.get(flash_key, _INFO),
+        dismiss_href=dismiss_href,
+        action_html=_flash_action_html(flash_key, urlsplit(dismiss_href).path),
+        glyph=_FLASH_GLYPHS.get(flash_key))
 
 
 def poll_cooldown_remaining(state_dir):
@@ -373,12 +450,8 @@ def resolve_flash_text(
                 if next_wake_parsed is not None else None)
             delay_text = (
                 delay_text % clock if clock else i18n.t(frame_state.DELAY_UNKNOWN))
-        # Lower-cased so the computed clause reads naturally after
-        # "Saved — " (every frame_state sentence is written to stand
-        # alone, capitalised, as a settings-caption's own second
-        # sentence — not as a flash banner's trailing clause).
-        if delay_text:
-            delay_text = delay_text[:1].lower() + delay_text[1:]
+        # Kept capitalised: the toast shows it as its own detail line
+        # under the "Saved" title, a standalone sentence.
         return template % delay_text
     if flash_key == FLASH_KEY_POLL_COOLDOWN:
         return template.format(n=poll_cooldown_remaining(state_dir))

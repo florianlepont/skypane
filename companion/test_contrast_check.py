@@ -156,6 +156,14 @@ _LIVE_PAIRS = (
     ("dark", "body text on card surface", "--color-text", "--color-dominant"),
     ("light", "body text on secondary/sidebar surface", "--color-text", "--color-secondary"),
     ("dark", "body text on secondary/sidebar surface", "--color-text", "--color-secondary"),
+) + tuple(
+    # The toast's inverse surface: its text, and each tone ink used as the
+    # action's text colour (and, swapped, as the glyph disc behind the
+    # surface-coloured glyph, which is the same pair).
+    (theme, "toast %s on toast surface" % fg.rsplit("-", 1)[-1], fg, "--color-toast-bg")
+    for theme in ("light", "dark")
+    for fg in ("--color-toast-fg", "--color-toast-success", "--color-toast-info",
+               "--color-toast-warning", "--color-toast-error", "--color-toast-pending")
 )
 
 
@@ -185,6 +193,21 @@ def test_muted_detail_text_on_card_surface_meets_wcag_aa_normal_text(theme, them
     assert ratio >= WCAG_AA_NORMAL_TEXT, (
         "%s: contrast_ratio(%r, %r) = %.2f, below WCAG_AA_NORMAL_TEXT (%.1f)"
         % (theme, composited, card, ratio, WCAG_AA_NORMAL_TEXT))
+
+
+@pytest.mark.parametrize("selector", (".toast__detail", ".toast__pill"))
+@pytest.mark.parametrize("theme", ("light", "dark"))
+def test_muted_toast_text_on_toast_surface_meets_wcag_aa_normal_text(
+        theme, selector, theme_tokens, served_css):
+    """the toast's muted detail and its pill text (each a `color-mix()` of --color-toast-fg)
+    still clear WCAG AA once composited over the toast surface"""
+    percentage = _color_mix_percentage(declarations_for(served_css, selector)["color"])
+    surface = theme_tokens[theme]["--color-toast-bg"]
+    composited = _alpha_composite(theme_tokens[theme]["--color-toast-fg"], percentage, surface)
+    ratio = contrast_ratio(composited, surface)
+    assert ratio >= WCAG_AA_NORMAL_TEXT, (
+        "%s %s: contrast_ratio(%r, %r) = %.2f, below WCAG_AA_NORMAL_TEXT (%.1f)"
+        % (theme, selector, composited, surface, ratio, WCAG_AA_NORMAL_TEXT))
 
 
 # ==========================================================================

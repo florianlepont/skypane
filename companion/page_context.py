@@ -49,14 +49,14 @@ _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 GALLERY_DIRNAME = "gallery"
 GALLERY_DEFAULT_LIMIT = 30
 
-# The 14 values every request needs regardless of which tab it renders (or
+# The values every request needs regardless of which tab it renders (or
 # a later eager value here depends on one) — computed once, eagerly, in
 # build_page_context(). Order matches companion/pages/__init__.py's own
 # contract docstring.
 EAGER_FIELDS = (
     "state_dir", "ui_theme", "lang", "device_config",
     "last_checkin_ts", "battery_critical", "wake_interval_env_default",
-    "flash", "flash_role", "runway_images", "now", "resolve_prefix",
+    "flash", "flash_role", "flash_key", "runway_images", "now", "resolve_prefix",
     "flights_limit",
 )
 
@@ -382,6 +382,9 @@ def build_page_context(handler):
                 last_checkin_ts=last_checkin_ts, device_cfg=device_cfg,
                 battery_critical=battery_critical),
             "flash_role": flash.FLASH_ROLES.get(flash_key, "status"),
+            # Only a key from the fixed vocabulary, never the raw query
+            # value: it picks the toast's tone, glyph and action.
+            "flash_key": flash_key if flash_key in flash.FLASH_MESSAGES else None,
             "runway_images": runway_images_available(),
             "now": now,
             # Deliberately unvalidated: validation belongs to

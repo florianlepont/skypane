@@ -94,6 +94,7 @@ COPY_BUTTON_SCRIPT_ROUTE = static_files.COPY_BUTTON_SCRIPT_ROUTE
 FRESHNESS_SCRIPT_ROUTE = static_files.FRESHNESS_SCRIPT_ROUTE
 PANEL_LOOKUP_SCRIPT_ROUTE = static_files.PANEL_LOOKUP_SCRIPT_ROUTE
 FLASH_CLEANUP_SCRIPT_ROUTE = static_files.FLASH_CLEANUP_SCRIPT_ROUTE
+TOAST_SCRIPT_ROUTE = static_files.TOAST_SCRIPT_ROUTE
 POLL_COOLDOWN_SCRIPT_ROUTE = static_files.POLL_COOLDOWN_SCRIPT_ROUTE
 CONFIRM_SUBMIT_SCRIPT_ROUTE = static_files.CONFIRM_SUBMIT_SCRIPT_ROUTE
 THEME_PREVIEW_SCRIPT_ROUTE = static_files.THEME_PREVIEW_SCRIPT_ROUTE
@@ -217,6 +218,7 @@ FLASH_KEY_LED_ON = flash.FLASH_KEY_LED_ON
 FLASH_KEY_LED_OFF = flash.FLASH_KEY_LED_OFF
 FLASH_MESSAGES = flash.FLASH_MESSAGES
 FLASH_ROLES = flash.FLASH_ROLES
+FLASH_TONES = flash.FLASH_TONES
 
 # Moved to companion/static_files.py; rebound under their historical
 # names so every existing call site, and every existing test monkeypatch
@@ -834,9 +836,7 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         carries one) forwards straight to `layout.page_shell()`, which
         renders it onto `<body>` only when given.
         """
-        flash_html = (
-            layout.flash_banner(ctx.flash, role=ctx.flash_role)
-            if ctx.flash else None)
+        flash_html = flash.flash_toast_html(ctx.flash_key, ctx.flash, self.path)
         return layout.page_shell(
             title=i18n.t(_PAGE_TITLES[route]), active=layout.nav_slug(route),
             body=body,

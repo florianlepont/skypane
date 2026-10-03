@@ -66,7 +66,7 @@ def _assert_zone_arrangement(geometry, label):
         assert zone["right"] <= geometry["panel"]["right"] + 1, label
 SCREEN_BUTTON = 'form[action="/quick/display"] button[role="switch"]'
 QUIET_BUTTON = 'form[action="/quick/quiet-hours"] button[role="switch"]'
-FLASH = '.banner--flash[role="status"]'
+FLASH = '.toast-region--flash .toast[role="status"]'
 
 
 def _seed(state_dir):
@@ -134,7 +134,7 @@ def test_status_header_layout_targets_and_keyboard(
         assert _has_visible_focus_indicator(page, SCREEN_BUTTON), "no focus ring on the screen switch"
         with page.expect_navigation():
             page.keyboard.press("Space")
-        # flash-cleanup.js drops the query string once the banner is shown.
+        # flash-cleanup.js drops the query string once the toast is shown.
         assert urlsplit(page.url).path == layout.HOME_ROUTE
         assert page.locator(FLASH).count() == 1
         assert device_config.load_device_config(server.state_dir)["display_enabled"] is False

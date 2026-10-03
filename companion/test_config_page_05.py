@@ -37,7 +37,8 @@ from companion import theme_preview
 from companion.settings import form_post, look, wake_interval
 from companion.settings import theme as theme_settings
 from companion_app_server import get, http_request, login, served_asset, served_stylesheet
-from companion_markup import css_rules, declarations_for, parse_html
+from companion_markup import (
+    css_rules, declarations_for, flash_toast, flash_toast_title_detail, parse_html)
 from server import device_config, history_db
 from server.plane import calendar_rules
 
@@ -237,11 +238,12 @@ def test_save_round_trip_shows_confirmation_and_new_selection(make_app_server):
     assert "flash=saved" in location, "expected the saved flash key in the redirect, got %r" % location
     redirect_status, _redirect_headers, body = get(server, location, cookie=session_cookie)
     assert redirect_status == 200, "expected 200 following the save redirect, got %d" % redirect_status
-    confirmation = escape_html(
+    confirmation = layout.split_toast_message(
         companion_app._resolve_flash_text(
             companion_app.FLASH_KEY_SAVED, server.state_dir,
             last_checkin_ts=None, device_cfg={}))
-    assert confirmation.encode() in body, "expected D-07's exact confirmation copy in the response body"
+    assert flash_toast_title_detail(body.decode("utf-8")) == confirmation, (
+        "expected D-07's exact confirmation copy in the response's flash toast")
     _s, _h, body = get(server, companion_app.DISPLAY_ROUTE, cookie=session_cookie)
     assert (
         b'value="06-24" class="visually-hidden" form="%s" checked'
@@ -267,7 +269,8 @@ def test_settings_save_redirect_carries_flash_banner_and_cleanup_script(make_app
     redirect_status, _redirect_headers, body = get(server, location, cookie=session_cookie)
     assert redirect_status == 200, "expected 200 following the save redirect, got %d" % redirect_status
     body_text = body.decode("utf-8", errors="replace")
-    assert "banner--flash" in body_text, "expected the rendered redirect target to carry the flash banner"
+    assert flash_toast(body_text) is not None, (
+        "expected the rendered redirect target to carry the flash toast")
     expected_script_tag = (
         '<script src="%s" defer></script>' % companion_app.FLASH_CLEANUP_SCRIPT_ROUTE)
     assert expected_script_tag in body_text, (
