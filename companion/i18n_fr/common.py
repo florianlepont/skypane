@@ -48,6 +48,17 @@ MESSAGES = {
     # --- Shared footer control -----------------------------------------
     "common.sign_out": "Se déconnecter",
 
+    # --- Toasts (shared by every flash and persistent alert) --------
+    # Spoken before each toast's title, never shown.
+    "common.toast_tone_success": "Succès :",
+    "common.toast_tone_info": "Information :",
+    "common.toast_tone_warning": "Avertissement :",
+    "common.toast_tone_error": "Erreur :",
+    "common.toast_tone_pending": "En attente :",
+    "common.dismiss_this_message": "Masquer ce message",
+    "common.undo": "Annuler",
+    "common.see_health": "Voir l’état",
+
     # --- Flash banners ---------------------------------------------
     "common.screen_switched_on_the_frame_will_wake_up_and":
         "Écran allumé — le cadre va se réveiller et afficher une image "

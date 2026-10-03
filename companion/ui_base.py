@@ -142,6 +142,10 @@ PANEL_LOOKUP_SCRIPT_SRC = "/static/panel-lookup.js"
 # contract as above.
 FLASH_CLEANUP_SCRIPT_SRC = "/static/flash-cleanup.js"
 
+# Must equal companion/app.py's TOAST_SCRIPT_ROUTE exactly, same contract
+# as above: dismiss and auto-hide for every toast.
+TOAST_SCRIPT_SRC = "/static/toast.js"
+
 # Must equal companion/app.py's POLL_COOLDOWN_SCRIPT_ROUTE exactly, same
 # contract as above.
 POLL_COOLDOWN_SCRIPT_SRC = "/static/poll-cooldown.js"
@@ -354,8 +358,14 @@ QUICK_SWITCH_QUIET_STATE_ID = "quick-switch-quiet-state"
 QUICK_SWITCH_FAILED_TEXT = i18n.msg(
     "common.couldn_t_change_that_please_try_again",
     "Couldn't change that — please try again.")
-QUICK_SWITCH_FAILED_ATTR = "data-quick-failed-text"
+# Hooks on Health's two docked state toasts, named once so the page that
+# renders them and the refresh registry that swaps them agree.
+HEALTH_ANOMALY_CLASS = "health-anomaly"
+HEALTH_SOURCE_FAULT_CLASS = "health-source-fault"
+# The empty live region quick-switch.js announces a failure in, and the
+# server-rendered, translated error toast it clones into that region.
 QUICK_TOAST_ATTR = "data-quick-toast"
+QUICK_TOAST_TEMPLATE_ATTR = "data-quick-toast-template"
 # No longer used by frame_strip_html(): the one computed delay
 # sentence below (frame_state.py's DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN)
 # replaces this old static caption. It survives as DELAY_UNKNOWN's own
@@ -513,6 +523,19 @@ ICON_IDS = ICON_IDS + (
 # merged, for the same reason above.
 ICON_IDS = ICON_IDS + (
     "icon-more",
+)
+
+# The toast family's glyphs: one per tone, a bin for a confirmed
+# deletion, the dismiss cross and the Undo arrow.
+ICON_IDS = ICON_IDS + (
+    "icon-toast-success",
+    "icon-toast-info",
+    "icon-toast-warning",
+    "icon-toast-error",
+    "icon-toast-pending",
+    "icon-toast-trash",
+    "icon-close",
+    "icon-undo",
 )
 
 # One more icon, for the mobile #site-nav-toggle: the panel it opens
@@ -700,6 +723,42 @@ ICON_DEFS_HTML = (
     '<symbol id="icon-chevron-right" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M8 5l5 5-5 5"/>'
+    "</symbol>"
+    # The toast family's tone glyphs, drawn inside a filled disc, so each
+    # shape alone tells the tones apart (tick, "i", "!", cross, clock with
+    # a return arrow) without relying on the disc's colour.
+    '<symbol id="icon-toast-success" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M5 10.4l3.2 3.2L15 6.6"/>'
+    "</symbol>"
+    '<symbol id="icon-toast-info" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M10 9v5.2"/><path d="M10 5.9v.01"/>'
+    "</symbol>"
+    '<symbol id="icon-toast-warning" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M10 5.2v6"/><path d="M10 14.6v.01"/>'
+    "</symbol>"
+    '<symbol id="icon-toast-error" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M6.6 6.6l6.8 6.8M13.4 6.6l-6.8 6.8"/>'
+    "</symbol>"
+    '<symbol id="icon-toast-pending" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M10 6.2V10l2.6 1.7"/><path d="M15.4 8.2A5.6 5.6 0 1 0 15 12.6"/>'
+    '<path d="M15.8 5.2v3.2h-3.2"/>'
+    "</symbol>"
+    '<symbol id="icon-toast-trash" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M4.5 6h11M8 6V4.5h4V6M6 6l.7 9.5h6.6L14 6"/>'
+    "</symbol>"
+    '<symbol id="icon-close" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.7" stroke-linecap="round">'
+    '<path d="M5.5 5.5l9 9M14.5 5.5l-9 9"/>'
+    "</symbol>"
+    '<symbol id="icon-undo" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M7.5 5L4 8.5 7.5 12"/><path d="M4 8.5h7.5a4 4 0 0 1 0 8H9"/>'
     "</symbol>"
     "</defs>"
     "</svg>"

@@ -66,14 +66,25 @@
   --shadow-control: inset 0 1px 0 rgba(255, 255, 255, .14), 0 1px 2px rgba(18, 21, 27, .14);
   --shadow-control-hover: inset 0 1px 0 rgba(255, 255, 255, .16), 0 2px 5px rgba(18, 21, 27, .18);
   --color-shadow-strong: rgba(18, 21, 27, 0.16);
+  /* The toast's two elevations: barely lifted when docked in flow, and a
+   * deep drop shadow when it floats over the page. */
+  --shadow-toast-docked: 0 1px 2px rgba(10, 12, 18, 0.12);
+  --shadow-toast-float: 0 22px 44px -16px rgba(10, 12, 18, 0.5), 0 4px 10px -2px rgba(10, 12, 18, 0.22);
 
-  /* The app's entire motion budget: two durations only, enforced by
-   * companion/test_companion_app.py (no bare literals, no third token).
+  /* The app's entire motion budget: two durations, plus ONE documented
+   * exception, enforced by companion/test_companion_app_04.py (no bare
+   * literals, no other token).
    * --motion-fast (180ms) is for a REACTION the user is watching
    * confirm; --motion-slow (2s) is for an AMBIENT loop nobody watches
-   * (e.g. a breathing status dot) — reaction speed would strobe. */
+   * (e.g. a breathing status dot) — reaction speed would strobe.
+   * Exception: --motion-toast-dwell (6s) is not a movement speed but how
+   * long a success/info toast stays before it hides itself. Only the
+   * toast's timer hairline animates on it, and toast.js reads the same
+   * token for its timer, so the two always agree. Never reuse it for
+   * anything else. */
   --motion-fast: 180ms;
   --motion-slow: 2s;
+  --motion-toast-dwell: 6s;
 
   /* Light mode (default) */
   --color-canvas: #F7F4EF;
@@ -103,6 +114,17 @@
    * so an unchecked thumb stays visible on its dark track. */
   --color-switch-thumb: #FFFFFF;
 
+  /* The toast's inverse surface (dark slab on light pages, light slab on
+   * dark pages) and its five tone inks, each chosen for contrast on that
+   * surface rather than on the page. */
+  --color-toast-bg: #1D2028;
+  --color-toast-fg: #F4F1EC;
+  --color-toast-success: #4ADE80;
+  --color-toast-info: #C3C9D4;
+  --color-toast-warning: #FBBF24;
+  --color-toast-error: #FB7185;
+  --color-toast-pending: #FF9A70;
+
   /* Without color-scheme, the browser paints native form-control chrome
    * (e.g. <input type="time">) using its own light/dark heuristic
    * instead of following the OS scheme this default case follows. */
@@ -128,6 +150,13 @@
      * than the accent-vs-warn gap); now dE76 32.2/25.6°. */
     --color-status-error: #FB7185;
     --color-switch-thumb: #E6E9EE;
+    --color-toast-bg: #E9ECF1;
+    --color-toast-fg: #151922;
+    --color-toast-success: #166534;
+    --color-toast-info: #4A505D;
+    --color-toast-warning: #92400E;
+    --color-toast-error: #BE123C;
+    --color-toast-pending: #B13F16;
   }
 }
 
@@ -147,6 +176,13 @@ html[data-ui-theme="light"] {
   --color-status-warn: #D97706;
   --color-status-error: #BE123C;
   --color-switch-thumb: #FFFFFF;
+  --color-toast-bg: #1D2028;
+  --color-toast-fg: #F4F1EC;
+  --color-toast-success: #4ADE80;
+  --color-toast-info: #C3C9D4;
+  --color-toast-warning: #FBBF24;
+  --color-toast-error: #FB7185;
+  --color-toast-pending: #FF9A70;
   color-scheme: light;
 }
 
@@ -165,6 +201,13 @@ html[data-ui-theme="dark"] {
   --color-status-warn: #FBBF24;
   --color-status-error: #FB7185;
   --color-switch-thumb: #E6E9EE;
+  --color-toast-bg: #E9ECF1;
+  --color-toast-fg: #151922;
+  --color-toast-success: #166534;
+  --color-toast-info: #4A505D;
+  --color-toast-warning: #92400E;
+  --color-toast-error: #BE123C;
+  --color-toast-pending: #B13F16;
   color-scheme: dark;
 }
 
@@ -286,6 +329,32 @@ html[data-ui-theme="dark"] {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* A floating toast's entrance: a short drop and fade, on --motion-fast.
+ * Under reduced motion the global override zeroes it, so the toast just
+ * appears. */
+@keyframes skypane-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The auto-hide hairline draining over --motion-toast-dwell. Under
+ * reduced motion the global override drains it at once, so no countdown
+ * moves; the toast still hides on toast.js's timer. */
+@keyframes skypane-toast-dwell {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
   }
 }
 
@@ -1040,62 +1109,360 @@ select.visually-hidden {
   vertical-align: middle;
 }
 
-/* A near-neutral card surface, a hairline border and a 3px coloured
- * left edge plus a small ::before dot carry the severity signal — never
- * a tinted background region. Body-text contrast on this surface is
- * pinned by an automated check (test_contrast_check.py's live_pairs). */
-.banner {
+/* Toasts: every alert in the app, one component on the inverse surface
+ * (--color-toast-bg/-fg, which flip with the theme). A tone sets one
+ * ink, --toast-tone, used by the glyph disc, the action and the timer
+ * hairline; the tone is never carried by that colour alone (each tone
+ * has its own glyph and a spoken prefix). Flash toasts float only under
+ * `@media (scripting: enabled)` below; everything else here is the
+ * in-flow form, which is also what a no-script visitor sees. Text and
+ * action contrast on this surface are pinned by test_contrast_check.py. */
+.toast {
+  --toast-tone: var(--color-toast-info);
+  position: relative;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: var(--space-sm) var(--space-md);
+  gap: 12px;
+  min-height: 48px;
+  margin: 0;
+  padding: 2px 2px 2px 10px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--color-toast-bg);
+  color: var(--color-toast-fg);
+  box-shadow: var(--shadow-toast-docked);
+  font-size: var(--font-label-size);
+  line-height: 1.4;
+}
+
+.toast--success {
+  --toast-tone: var(--color-toast-success);
+}
+
+.toast--warning {
+  --toast-tone: var(--color-toast-warning);
+}
+
+.toast--error {
+  --toast-tone: var(--color-toast-error);
+}
+
+.toast--pending {
+  --toast-tone: var(--color-toast-pending);
+}
+
+/* A docked toast is a persistent state: in flow, full width, no timer
+ * and no dismiss. Its right padding replaces the missing 44px control. */
+.toast--docked {
   margin-bottom: var(--space-lg);
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
-  border-left: 3px solid var(--color-accent);
-  font-size: var(--font-body-size);
+  padding-right: var(--space-md);
 }
 
-.banner::before {
-  content: "";
+.toast__icon {
+  display: grid;
+  place-items: center;
   flex: none;
-  width: 6px;
-  height: 6px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: var(--color-accent);
+  background: var(--toast-tone);
+  color: var(--color-toast-bg);
 }
 
-.banner--anomaly {
-  border-left-color: var(--color-status-error);
+.toast__icon .toast__glyph {
+  width: 18px;
+  height: 18px;
 }
 
-.banner--anomaly::before {
-  background: var(--color-status-error);
+.toast__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 6px 0;
+  overflow-wrap: anywhere;
 }
 
-.banner--warn {
-  border-left-color: var(--color-status-warn);
+/* The section form (Health's source outage) keeps its <h2> for the page
+ * outline but reads as the toast's title. */
+.toast__title {
+  margin: 0;
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: var(--weight-semibold);
+  line-height: inherit;
+  letter-spacing: normal;
 }
 
-.banner--warn::before {
-  background: var(--color-status-warn);
+.toast__detail {
+  margin: 0;
+  color: color-mix(in srgb, var(--color-toast-fg) 76%, transparent);
 }
 
-/* Kept rather than deleted as redundant, so all three severities are
- * visibly enumerated in one place. */
-.banner--flash {
-  border-left-color: var(--color-accent);
+/* The visible middle dot between title and detail; silent for assistive
+ * technology, which reads the visually-hidden dash instead. */
+.toast__title + .visually-hidden + .toast__detail::before {
+  content: "\00a0\00b7\00a0" / "";
+  color: color-mix(in srgb, var(--color-toast-fg) 45%, transparent);
 }
 
-.banner--flash::before {
-  background: var(--color-accent);
+.toast--section .toast__text {
+  display: flex;
+  flex-direction: column;
 }
 
-/* Deliberately neutral-tinted, not severity-tinted: the banner's own
- * left edge and dot already carry the severity signal. Diverges from
- * .airline-card__chip by one declaration (min-width: 0): this pill
- * lives in a wrapping flex row that must survive a 375px viewport. */
+.toast__action-form {
+  display: flex;
+  flex: none;
+  margin: 0;
+}
+
+/* (0,2,0) beats the base button and button[type="submit"] rules, so an
+ * Undo button and a link action look the same: tone-coloured text
+ * behind a hairline divider, with a 44px target. */
+.toast .toast__action {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: auto;
+  min-height: 44px;
+  padding: 0 12px 0 16px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--toast-tone);
+  font: inherit;
+  font-weight: var(--weight-semibold);
+  letter-spacing: normal;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.toast .toast__action::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 1px;
+  background: color-mix(in srgb, var(--color-toast-fg) 20%, transparent);
+}
+
+.toast .toast__action:hover {
+  background: color-mix(in srgb, var(--color-toast-fg) 8%, transparent);
+  color: var(--toast-tone);
+}
+
+.toast .toast__action-glyph {
+  width: 16px;
+  height: 16px;
+}
+
+.toast .toast__dismiss {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  box-shadow: none;
+  color: color-mix(in srgb, var(--color-toast-fg) 72%, transparent);
+}
+
+.toast .toast__dismiss:hover {
+  background: color-mix(in srgb, var(--color-toast-fg) 10%, transparent);
+  color: var(--color-toast-fg);
+}
+
+.toast .toast__action:focus-visible,
+.toast .toast__dismiss:focus-visible,
+.toast a:focus-visible {
+  outline: 2px solid var(--toast-tone);
+  outline-offset: -2px;
+}
+
+/* The auto-hide hairline, drawn only once toast.js has armed the timer
+ * (data-toast-armed), so a no-script toast never shows a countdown that
+ * cannot happen. Paused together with the timer. */
+.toast__timer {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--toast-tone);
+  transform-origin: left center;
+}
+
+.toast[data-toast-armed] .toast__timer {
+  display: block;
+  animation: skypane-toast-dwell var(--motion-toast-dwell) linear forwards;
+}
+
+.toast.is-paused .toast__timer {
+  animation-play-state: paused;
+}
+
+.toast__pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: var(--space-sm);
+  vertical-align: middle;
+}
+
+.toast__pill {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--color-toast-fg) 12%, transparent);
+  color: color-mix(in srgb, var(--color-toast-fg) 88%, transparent);
+}
+
+/* The flash region: in flow under the page title by default. */
+.toast-region--flash {
+  margin: 0 0 var(--space-lg);
+}
+
+/* Phone width: the action drops under the text and the dismiss control
+ * stays top right, so a long message never squeezes the title. */
+@media (max-width: 699.98px) {
+  .toast {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) 44px;
+    column-gap: 12px;
+    padding: var(--space-sm) 2px var(--space-sm) 12px;
+  }
+
+  /* Each cell pins itself to the top (align-self, not the toast's own
+   * align-items), so a multi-line message never re-centres the glyph. */
+  .toast__icon {
+    align-self: start;
+    margin-top: var(--space-xs);
+  }
+
+  .toast__text {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+    padding: var(--space-xs) 0 2px;
+  }
+
+  .toast--docked .toast__text {
+    grid-column: 2 / 4;
+  }
+
+  .toast .toast__dismiss {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: start;
+  }
+
+  .toast__title,
+  .toast__detail {
+    display: block;
+  }
+
+  .toast__pills {
+    display: flex;
+    margin: var(--space-xs) 0 0;
+  }
+
+  .toast__title + .visually-hidden + .toast__detail::before {
+    content: none;
+  }
+
+  .toast > .toast__action,
+  .toast > .toast__action-form {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+  }
+
+  .toast .toast__action {
+    min-height: 40px;
+    margin: -6px 0 0 -10px;
+    padding: 0 10px;
+  }
+
+  .toast .toast__action::before {
+    content: none;
+  }
+}
+
+/* With scripts running (a media query, not the .js class, so the toast
+ * floats from the very first paint and never shifts the page): the flash
+ * toast and the quick-switch failure toast float, out of flow, top
+ * centre over the content column; on a phone, above the tab bar within
+ * thumb reach. The region itself lets clicks through; only the toast
+ * takes them. */
+@media (scripting: enabled) {
+  .toast-region--flash,
+  .toast-region--live {
+    position: fixed;
+    top: var(--space-sm);
+    left: 0;
+    right: 0;
+    z-index: 40;
+    display: flex;
+    justify-content: center;
+    margin: 0;
+    padding: 0 var(--space-md);
+    pointer-events: none;
+  }
+
+  .toast-region--flash .toast,
+  .toast-region--live .toast {
+    width: max-content;
+    max-width: min(680px, 100%);
+    border-radius: 16px;
+    box-shadow: var(--shadow-toast-float);
+    pointer-events: auto;
+    animation: skypane-toast-in var(--motion-fast) ease-out;
+  }
+}
+
+@media (scripting: enabled) and (min-width: 960px) {
+  .toast-region--flash,
+  .toast-region--live {
+    left: calc(240px + var(--space-xl));
+  }
+}
+
+@media (scripting: enabled) and (max-width: 959.98px) {
+  .toast-region--flash,
+  .toast-region--live {
+    top: auto;
+    bottom: var(--space-sm);
+  }
+
+  .has-tab-bar .toast-region--flash,
+  .has-tab-bar .toast-region--live {
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px) + var(--space-sm));
+  }
+
+  .toast-region--flash .toast,
+  .toast-region--live .toast {
+    width: 100%;
+  }
+}
+
+/* Neutral-tinted, not severity-tinted: a row/badge pill outside the
+ * toast family. Diverges from .airline-card__chip by one declaration
+ * (min-width: 0): this pill lives in a wrapping flex row that must
+ * survive a 375px viewport. */
 .banner__pill {
   display: inline-flex;
   align-items: center;
@@ -1120,10 +1487,6 @@ select.visually-hidden {
  * space at all when hidden, in-flow. */
 .banner__pill[hidden] {
   display: none;
-}
-
-.banner__label {
-  white-space: nowrap;
 }
 
 .refresh-pill {
@@ -2629,21 +2992,6 @@ details[open] > summary::before {
   margin: 0 0 var(--space-sm);
 }
 
-/* (0,2,0) restores the left border/width/background deterministically
- * over .page-section's own shorthand and .banner--anomaly's own rule —
- * at equal (0,1,0) specificity the later one would otherwise win by
- * accident. display: block and ::before: none opt out of the base
- * .banner's row-plus-dot treatment: this is a card, not banner text. */
-.page-section.banner--anomaly {
-  display: block;
-  border-left: 3px solid var(--color-status-error);
-  background: var(--color-dominant);
-}
-
-.page-section.banner--anomaly::before {
-  display: none;
-}
-
 /* Airlines illustration gallery: an auto-fill grid with a 200px column
  * floor, collapsing to fewer columns automatically with no extra
  * breakpoints. */
@@ -3937,7 +4285,7 @@ button.airline-card__action {
   width: 100%;
 }
 
-/* The actionable-warning link only; the container is empty (and takes no
+/* The docked attention toast only; the container is empty (and takes no
  * space) while every health state is fine. */
 .home-facts {
   margin: 0 0 var(--space-lg);
@@ -3947,11 +4295,8 @@ button.airline-card__action {
   display: none;
 }
 
-.home-facts > * {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  margin: 0;
+.home-facts > .toast--docked {
+  margin-bottom: 0;
 }
 
 /* The status header at the top of Home: one hero card in three zones, the
@@ -4401,10 +4746,6 @@ button.airline-card__action {
   }
 }
 
-.home-action {
-  font-weight: var(--weight-semibold);
-}
-
 .quick-actions {
   display: flex;
   flex-direction: column;
@@ -4519,30 +4860,6 @@ button.airline-card__action {
  * it, so a pending control is never repainted mid-request. */
 [data-pending] .switch__track {
   opacity: 0.7;
-}
-
-.quick-toast {
-  position: fixed;
-  top: var(--space-md);
-  left: 50%;
-  z-index: 40;
-  max-width: calc(100vw - 2 * var(--space-lg));
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-control);
-  background: var(--color-text);
-  color: var(--color-canvas);
-  box-shadow: var(--shadow-card-hover);
-  font-size: 13px;
-  font-weight: var(--weight-semibold);
-  opacity: 0;
-  pointer-events: none;
-  transform: translate(-50%, -8px);
-  transition: opacity var(--motion-fast) ease, transform var(--motion-fast) ease;
-}
-
-.quick-toast.is-visible {
-  opacity: 1;
-  transform: translate(-50%, 0);
 }
 
 .frame-strip__cell {

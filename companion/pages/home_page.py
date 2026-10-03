@@ -537,15 +537,20 @@ def _needs_attention(ctx):
 
 
 def _action_needed_html(ctx):
+    """The attention row as a docked toast: a persistent state, so no
+    dismiss and no live-region role (it refreshes in place). Its tone
+    follows the worst shared health state."""
     if not _needs_attention(ctx):
         return ""
-    return (
-        '<p class="home-action"><span class="dot dot--warn"></span>%s '
-        '<a href="/health">%s</a></p>'
-    ) % (
-        escape_html(i18n.t(ACTION_NEEDED_TEXT)),
-        escape_html(i18n.t(ACTION_NEEDED_LINK_TEXT)),
-    )
+    health = ctx.health_state or {}
+    worst_is_error = any(health.get(name) == "error" for name in (
+        "device_state", "pipeline_state", "battery_state"))
+    return layout.toast_html(
+        i18n.t(ACTION_NEEDED_TEXT),
+        tone=layout.TOAST_TONE_ERROR if worst_is_error else layout.TOAST_TONE_WARNING,
+        role="", docked=True, extra_class="home-action",
+        action_html=layout.toast_link_action_html(
+            layout.HEALTH_ROUTE, i18n.t(ACTION_NEEDED_LINK_TEXT)))
 
 
 def render(ctx):
