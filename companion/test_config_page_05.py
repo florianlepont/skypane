@@ -541,13 +541,14 @@ def test_display_uses_one_bilingual_appearance_flow_without_duplicate_framing(
     finally:
         prefs.set_request_prefs(lang="en")
 
-    appearance_heading = '<h2 id="%s" class="text-heading">%s</h2>' % (
-        config_page.DISPLAY_LOOK_SECTION_ID, escape_html(what_appears))
+    appearance_section = '<section id="%s" class="display-appearance" aria-labelledby="%s">' % (
+        config_page.DISPLAY_LOOK_SECTION_ID, config_page.ASPECT_HEADING_ID)
     card_heading = '<h2 class="text-heading" id="%s">%s</h2>' % (
         config_page.ASPECT_HEADING_ID, escape_html(choose_appearance))
     assert rendered.count('class="theme-live-preview aspect-card__preview"') == 1
-    assert appearance_heading in rendered and card_heading in rendered
-    assert rendered.index(appearance_heading) < rendered.index(card_heading)
+    assert appearance_section in rendered and card_heading in rendered
+    assert rendered.index(appearance_section) < rendered.index(card_heading)
+    assert what_appears not in rendered
     base_positions = [
         rendered.index('data-usage="%s"' % usage)
         for usage in (

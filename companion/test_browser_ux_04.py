@@ -813,10 +813,9 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
     ones; the failure message names the offending page, the offending title's text and both
     triples. Supersection intro headings (.section-intro > h2) are excluded structurally,
     deliberately: a different, generically-worded tier, not an inconsistency this check
-    should assert away. The one card that sits under its own section heading (the Display
-    appearance card under "What appears") is the nested card-title tier by design: it is
-    excluded from the cardinality set structurally, and the section heading above it must
-    instead render the same triple as every top-level card title. Both themes exercised via
+    should assert away. The Display appearance card sits inside its own labelled section and
+    is the nested card-title tier by design: it is excluded from the cardinality set
+    structurally. Both themes exercised via
     _set_ui_theme(), at the 360px floor.
     """
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
@@ -875,11 +874,11 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
                 "would pass this check while leaving CFG-72 unmet on a card the developer "
                 "can see" % config_page.POLL_SECTION_HEADING)
 
-        # The only card under a section heading is the Display appearance card.
+        # The only nested settings card is the Display appearance card.
         if set(nested_titles) != {config_page.ASPECT_HEADING}:
             raise AssertionError(
-                "expected the Display appearance card to be the only settings card under a "
-                "section heading, got %r" % (sorted(set(nested_titles)),))
+                "expected the Display appearance card to be the only nested settings card, "
+                "got %r" % (sorted(set(nested_titles)),))
 
         # The combined set's own cardinality is 1.
         triples = sorted({e["triple"] for e in entries})
@@ -895,17 +894,6 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
                 "- %r on %s (theme=%s) renders %r, while the rest render %r"
                 % (len(triples), offender["text"], offender["page"], offender["theme"],
                    offender["triple"], majority))
-
-        # The section heading above the nested appearance card sits on the top-level rung.
-        page.goto(base_url + "/display")
-        section_heading = page.evaluate(
-            "() => { var h = document.querySelector('.display-appearance > h2');"
-            " var s = getComputedStyle(h);"
-            " return [s.fontSize, s.fontWeight, s.fontFamily]; }")
-        if tuple(section_heading) != triples[0]:
-            raise AssertionError(
-                "expected the Display section heading to render the top-level card-title "
-                "triple %r, got %r" % (triples[0], tuple(section_heading)))
     finally:
         context.close()
 
