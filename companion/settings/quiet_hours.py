@@ -475,9 +475,9 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
     # `_normalised_time_html()` is the fallback that holds when a
     # browser ignores it.
     #
-    # The ring reads before the controls that change it (a picture of
-    # what is set, then how to change it), so it renders between the
-    # caption and the presets rather than after the fields.
+    # The presets and the native time fields are the primary controls and
+    # come first; the ring is a secondary picture of the saved window and
+    # renders after them.
     #
     # Drawn from the same effective values the two inputs are populated
     # from, never from `current_start`/`current_end` directly, so on a
@@ -497,7 +497,6 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading" id="%s">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
-        "%s%s"
         "%s"
         '<div class="%s">'
         '<div><label>%s <input type="time" name="quiet_hours_start" value="%s" required'
@@ -505,6 +504,7 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
         '<div><label>%s <input type="time" name="quiet_hours_end" value="%s" required'
         ' lang="%s" form="%s"%s>%s</label>%s</div>'
         "</div>"
+        '<div class="quiet-dial-summary">%s%s</div>'
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html(i18n.t(QUIET_HOURS_SECTION_HEADING)),
@@ -512,7 +512,6 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
         escape_html(i18n.t(QUIET_HOURS_SECTION_HEADING)),
         escape_html(QUIET_HOURS_SECTION_CAPTION_ID),
         escape_html(caption_html),
-        dial_html, readout_html,
         preset_row_html,
         QUIET_TIMES_ROW_CLASS,
         escape_html(i18n.t(QUIET_HOURS_START_FIELD_LABEL)),
@@ -523,4 +522,5 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
         escape_html(effective_end), escape_html(site_lang), SETTINGS_FORM_ID, end_error_attrs,
         _normalised_time_html(effective_end),
         end_error_html,
+        dial_html, readout_html,
     )
