@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 import pytest
 
 import companion.battery as battery
+import companion.draw as draw
 import companion.layout as layout
 import companion.prefs as prefs
 import companion.wake as wake
@@ -34,7 +35,7 @@ def _ctx(tmp_path, cfg=None, battery_critical=False, last_checkin_ts=CHECKIN):
 
 
 def _card(rendered):
-    start = rendered.index('<section class="home-state"')
+    start = rendered.index('<section class="home-state ')
     return rendered[start:rendered.index("</section>", start)]
 
 
@@ -106,12 +107,14 @@ def test_screen_off_state_flips_the_screen_switch(tmp_path):
 
 
 def test_quiet_hours_state_names_the_end_time_and_the_window(tmp_path):
-    """inside the quiet window the headline reads "until HH:MM" and the switch is checked; with
-    the schedule disabled the same clock reads "Screen on", the switch is unchecked and the
-    window stays visible beside it"""
+    """inside the quiet window the title reads "Quiet hours" with "rests until HH:MM" under it
+    and the switch is checked; with the schedule disabled the same clock reads "Screen on", the
+    switch is unchecked and the window stays visible beside it"""
     window = {"quiet_hours_enabled": True, "quiet_hours_start": "00:00", "quiet_hours_end": "23:59"}
     card = _render(tmp_path, cfg=window)
-    assert "Quiet hours — the screen rests until 23:59" in card
+    assert '<span class="home-state__title">Quiet hours</span>' in card
+    assert '<p class="home-state__detail">The screen rests until 23:59</p>' in card
+    assert 'class="home-state home-state--off"' in card
     assert _checked(card, "/quick/quiet-hours") == "true"
     assert "00:00 – 23:59" in card
     window["quiet_hours_enabled"] = False
@@ -174,18 +177,19 @@ def test_battery_block_level_word_and_accessible_name(tmp_path, mv, level, state
     card = _card(home_page.render(ctx))
     assert 'class="home-battery home-battery--%s"' % level in card
     assert 'role="img" aria-label="Battery about ≈ %d%%' % percent in card
-    assert '<span class="home-battery__value">%d%%</span>' % percent in card
-    assert 'class="home-battery__glyph"' in card
+    assert ('<span class="home-battery__value">%d<span class="home-battery__unit">%%</span></span>'
+            % percent) in card
+    assert 'class="%s"' % draw.DRAWING_ARC_TRACK_CLASS in card
     assert ("home-battery__state" in card) == (state_word is not None)
     if state_word:
         assert ">%s</span>" % state_word in card and "%s" % state_word.lower() in card
 
 
 def test_battery_block_without_a_reading_is_words_only(tmp_path):
-    """no stored reading: a words-only block, no invented glyph or percentage"""
+    """no stored reading: a words-only block, no invented dial or percentage"""
     card = _render(tmp_path)
     assert "home-battery--none" in card and "No reading yet" in card
-    assert "home-battery__glyph" not in card and "role=\"img\"" not in card
+    assert "drawing-arc" not in card and "<svg class=\"drawing" not in card and "role=\"img\"" not in card
 
 
 def test_battery_block_in_french(tmp_path):
@@ -253,7 +257,9 @@ def test_long_overdue_turns_the_dot_amber_and_links_to_health(tmp_path, lang, li
         tmp_path, lang=lang,
         last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(minutes=90)).isoformat())
     assert "dot--warn" in card and "dot--ok" not in card
-    assert re.findall(r'<a [^>]*href="/health"[^>]*>%s</a>' % link, card)
+    assert len(re.findall(r'<a [^>]*href="/health"[^>]*>%s<svg[^>]*aria-hidden="true"' % link,
+                          card)) == 1
+    assert 'class="home-state home-state--warn"' in card and "#icon-warning" in card
 
 
 def test_overdue_date_appears_only_when_not_today(tmp_path):
@@ -330,3 +336,113 @@ def test_a_rejected_state_value_changes_nothing(make_app_server):
         server.base_url() + "/quick/display", method="POST", cookie=cookie, data=body)
     assert status == 303 and headers.get("Location") == "/?flash=quick_failed"
     assert device_config.load_device_config(server.state_dir) == before
+
+
+def _dash(svg, class_name):
+    match = re.search(
+        r'<circle class="%s"[^>]*stroke-dasharray="([\d.]+) ([\d.]+)"' % class_name, svg)
+    return (float(match.group(1)), float(match.group(2))) if match else None
+
+
+def test_arc_gauge_sweeps_three_quarters_and_fills_by_fraction():
+    """the dial's track covers 270 of 360 degrees with its gap centred at the bottom, the value
+    ink (dash plus the two half round caps) is the reading's share of the visible track, an
+    empty reading draws no value stroke, and every input is clamped rather than raised"""
+    full_track, circumference = _dash(draw.arc_gauge(0.5, 132), draw.DRAWING_ARC_TRACK_CLASS)
+    assert abs(full_track / circumference - 0.75) < 1e-3
+    assert 'transform="rotate(135.00 66.00 66.00)"' in draw.arc_gauge(0.5, 132)
+    stroke = float(re.search(r'stroke-width="([\d.]+)"', draw.arc_gauge(0.5, 132)).group(1))
+    for fraction in (0.2, 0.5, 0.9, 1.0):
+        value, _ = _dash(draw.arc_gauge(fraction, 132), draw.DRAWING_ARC_VALUE_CLASS)
+        assert abs((value + stroke) / (full_track + stroke) - fraction) < 1e-3, fraction
+    assert _dash(draw.arc_gauge(0.0, 132), draw.DRAWING_ARC_VALUE_CLASS) is None
+    assert draw.arc_gauge(1.7, 132) == draw.arc_gauge(1.0, 132)
+    assert draw.arc_gauge("x", 132) == draw.arc_gauge(0.0, 132)
+    assert 'aria-hidden="true"' in draw.arc_gauge(0.5, 132)
+    assert "style" not in draw.arc_gauge(0.5, "big")
+
+
+@pytest.mark.parametrize("mv,health,status_class", [
+    (4000, "ok", draw.DRAWING_STATUS_OK_CLASS),
+    (3381, "ok", draw.DRAWING_STATUS_WARN_CLASS),
+    (3600, "warn", draw.DRAWING_STATUS_WARN_CLASS),
+    (3500, "error", draw.DRAWING_STATUS_ERROR_CLASS),
+])
+def test_battery_dial_colour_follows_the_level_thresholds(tmp_path, mv, health, status_class):
+    """the dial is coloured by the same ok / low / critical level as before (the shared
+    low-battery percentage or the health verdict), drawn as SVG attributes with no style
+    attribute, and sits inside the one named battery image"""
+    _seed_battery(tmp_path, mv)
+    ctx = _ctx(tmp_path)
+    ctx["health_state"]["battery_state"] = health
+    prefs.set_request_prefs(lang="en")
+    card = _card(home_page.render(ctx))
+    block = re.search(r'<p class="home-battery [^"]*" role="img" aria-label="Battery about[^"]*">'
+                      r'(.*?)</p>', card, re.S)
+    assert block is not None
+    assert '<svg class="%s %s"' % (draw.DRAWING_FIGURE_CLASS, status_class) in block.group(1)
+    value, _ = _dash(block.group(1), draw.DRAWING_ARC_VALUE_CLASS)
+    track, _ = _dash(block.group(1), draw.DRAWING_ARC_TRACK_CLASS)
+    assert 0 < value <= track
+    assert " style=" not in card
+
+
+@pytest.mark.parametrize("lang,title,detail,cfg,critical", [
+    ("en", "Screen off", "The frame stays blank", {"display_enabled": False}, False),
+    ("fr", "Écran éteint", "Le cadre reste vide", {"display_enabled": False}, False),
+    ("en", "Battery very low", "The frame is resting until it is recharged", {}, True),
+    ("fr", "Batterie très faible", "Le cadre se repose jusqu’à sa recharge", {}, True),
+])
+def test_held_states_read_a_short_title_and_a_sentence(tmp_path, lang, title, detail, cfg,
+                                                       critical):
+    """a held state shows a short title beside the dot and a sentence under it, and tints the
+    card neutral (screen off) or amber (battery hold); "Screen on" has no sentence"""
+    card = _render(tmp_path, lang=lang, cfg=cfg, battery_critical=critical)
+    assert '<span class="home-state__title">%s</span>' % title in card
+    assert '<p class="home-state__detail">%s</p>' % detail in card
+    assert 'class="home-state home-state--%s"' % ("warn" if critical else "off") in card
+    plain = _render(tmp_path)
+    assert "home-state__detail" not in plain and 'class="home-state home-state--ok"' in plain
+
+
+def test_the_header_label_is_a_visible_heading_and_the_next_line_has_an_icon(tmp_path):
+    """the "Frame state" label is the section's visible h2, and the next-update line leads
+    with a decorative clock (a warning sign once overdue)"""
+    card = _render(tmp_path)
+    assert re.search(r'<h2 class="home-state__eyebrow" id="home-frame-state"><svg[^>]*'
+                     r'aria-hidden="true"[^>]*>.*?</svg>Frame state</h2>', card)
+    assert "visually-hidden" not in card
+    assert "#icon-nav-history" in card and "#icon-warning" not in card
+    late = _render(
+        tmp_path, last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(minutes=50)).isoformat())
+    assert "#icon-warning" in late and "home-state--ok" in late
+
+
+def test_switch_pills_keep_the_native_switch_semantics(tmp_path):
+    """each pill carries a decorative leading icon and still wraps exactly one native POST form
+    whose submit button is the role="switch" control named by the visible label"""
+    card = _render(tmp_path)
+    for action, slug, icon in (("/quick/display", "screen", "icon-nav-display"),
+                               ("/quick/quiet-hours", "quiet", "icon-moon")):
+        row = re.search(
+            r'<div class="home-switch home-switch--(?:on|off)"><span class="home-switch__icon">'
+            r'<svg[^>]*aria-hidden="true"[^>]*><use href="#%s"></use></svg></span>(.*?)</form></div>'
+            % icon, card, re.S)
+        assert row is not None, slug
+        assert row.group(1).count("<form") == 1 and row.group(1).count('role="switch"') == 1
+        button = _switch(card, action)
+        assert 'type="submit"' in button and "aria-label=" not in button
+        assert 'aria-labelledby="home-switch-%s-label"' % slug in button
+
+
+def test_served_home_page_carries_no_inline_style(make_app_server):
+    """the Home page served to a signed-in reader, battery dial included, has no style
+    attribute anywhere: the CSP forbids inline styles"""
+    def seed(state_dir):
+        _seed_battery(state_dir, 3700)
+    server = make_app_server(seed=seed, fake_providers=True)
+    cookie = login(server)
+    status, _headers, page = http_request(server.base_url() + "/", cookie=cookie)
+    html = page.decode("utf-8")
+    assert status == 200 and 'class="%s"' % draw.DRAWING_ARC_VALUE_CLASS in html
+    assert not re.search(r"<[^>]+\sstyle=", html)

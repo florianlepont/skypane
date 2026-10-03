@@ -817,9 +817,9 @@ def test_health_day_band_buckets_by_paris_day_and_costs_one_read(tmp_path):
 # --- Health's drawings are the shared emitters' ---
 
 def test_health_carries_one_ring_and_one_band_and_home_carries_neither(tmp_path):
-    """Health holds exactly one battery ring and one day band, both inside the page body, and
-    Home draws neither: the ring and the activity band moved off Home with the
-    frame-signal-first redesign, so a drawing returning there is a regression"""
+    """Health holds exactly one battery ring and one day band, both inside the page body; Home
+    draws neither (its one drawing is the battery's open arc dial, not the ring) and no
+    activity band"""
     now = "2026-08-27T12:00:00+00:00"
     ctx = _health_band_ctx(tmp_path / "health", now, [
         "2026-08-27T06:00:00+00:00",
@@ -833,8 +833,11 @@ def test_health_carries_one_ring_and_one_band_and_home_carries_neither(tmp_path)
             "expected exactly one %s on Health, got %d" % (label, health_rendered.count(needle)))
     home_ctx = dict(ctx, gallery_entries=["2026-08-27T11-50-00+00-00.png"])
     home_rendered = home_page.render(home_ctx)
-    for needle in (draw.DRAWING_FIGURE_CLASS, draw.DRAWING_CANVAS_CLASS, "day-band"):
-        assert needle not in home_rendered, "Home must not draw %r any more" % (needle,)
+    for needle in (draw.DRAWING_RING_VALUE_CLASS, draw.DRAWING_RING_TRACK_CLASS,
+                   draw.DRAWING_CANVAS_CLASS, "day-band"):
+        assert needle not in home_rendered, "Home must not draw %r" % (needle,)
+    assert home_rendered.count(draw.DRAWING_FIGURE_CLASS) == 1
+    assert home_rendered.count('class="%s"' % draw.DRAWING_ARC_TRACK_CLASS) == 1
 
 
 def test_health_drawings_use_only_the_shared_emitters_classes(tmp_path):

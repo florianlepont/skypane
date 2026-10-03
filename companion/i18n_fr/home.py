@@ -46,11 +46,12 @@ MESSAGES = {
 
     "home.frame_state": "État du cadre",
     "home.state_screen_on": "Écran allumé",
-    "home.state_screen_off": "Écran éteint — le cadre reste vide",
-    "home.state_quiet_hours":
-        "Heures calmes — l’écran se repose jusqu’à %s",
-    "home.state_battery_resting":
-        "Batterie très faible — le cadre se repose jusqu’à sa recharge",
+    "home.state_title_screen_off": "Écran éteint",
+    "home.state_detail_screen_off": "Le cadre reste vide",
+    "home.state_title_quiet_hours": "Heures calmes",
+    "home.state_detail_quiet_hours": "L’écran se repose jusqu’à %s",
+    "home.state_title_battery": "Batterie très faible",
+    "home.state_detail_battery": "Le cadre se repose jusqu’à sa recharge",
     "home.cadence": "Mise à jour environ toutes les %s",
     "home.see_health": "Voir la santé",
     "home.cadence_no_interval":

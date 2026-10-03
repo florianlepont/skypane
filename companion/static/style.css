@@ -99,6 +99,9 @@
    * its worst-case contrast on light surfaces is 5.16:1 (up from 3.96),
    * safe as text. Enforced by test_contrast_check.py's separation section. */
   --color-status-error: #BE123C;
+  /* The switch thumb: white on light surfaces, a light grey on dark ones
+   * so an unchecked thumb stays visible on its dark track. */
+  --color-switch-thumb: #FFFFFF;
 
   /* Without color-scheme, the browser paints native form-control chrome
    * (e.g. <input type="time">) using its own light/dark heuristic
@@ -124,6 +127,7 @@
      * dark. Was too close to the dark accent (dE76 22.3/16.9°, worse
      * than the accent-vs-warn gap); now dE76 32.2/25.6°. */
     --color-status-error: #FB7185;
+    --color-switch-thumb: #E6E9EE;
   }
 }
 
@@ -142,6 +146,7 @@ html[data-ui-theme="light"] {
   --color-status-ok: #16A34A;
   --color-status-warn: #D97706;
   --color-status-error: #BE123C;
+  --color-switch-thumb: #FFFFFF;
   color-scheme: light;
 }
 
@@ -159,6 +164,7 @@ html[data-ui-theme="dark"] {
   --color-status-ok: #4ADE80;
   --color-status-warn: #FBBF24;
   --color-status-error: #FB7185;
+  --color-switch-thumb: #E6E9EE;
   color-scheme: dark;
 }
 
@@ -3174,6 +3180,24 @@ button.airline-card__action {
   stroke-linecap: butt;
 }
 
+/* The arc gauge (draw.arc_gauge()). Round caps on both strokes: the
+ * emitter shortens the value dash by one stroke width to pay for them.
+ * The track is a faint wash of the text colour rather than the border
+ * token, which disappears on the tinted header in the dark theme. Like
+ * the ring, no stroke-width here: it is a per-size presentation
+ * attribute. */
+.drawing-arc-track {
+  fill: none;
+  stroke: color-mix(in srgb, var(--color-text) 10%, transparent);
+  stroke-linecap: round;
+}
+
+.drawing-arc-value {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+}
+
 /* width/height: auto restores draw.unit_canvas()'s own intrinsic
  * attributes over the chart's own svg:not(.icon) sizing rule.
  * :not(.icon) filters nothing here — it exists only to add a class so
@@ -3930,15 +3954,22 @@ button.airline-card__action {
   margin: 0;
 }
 
-/* The status header at the top of Home: one rounded panel, the frame's
- * state and next update on the left, the two switches on the right,
- * stacked on a phone. Surface, border and radius are the shared tokens,
- * so both themes follow the palette. */
+/* The status header at the top of Home: one hero card in three zones, the
+ * frame's state, the battery dial and a recessed panel holding the two
+ * switches. Mobile first: the zones stack, separated by hairlines. The
+ * arrangement follows the card's own width (a container query), not the
+ * viewport's, because the desktop sidebar makes the column narrower at
+ * 1024px than at 840px: from 520px of card the dial moves beside the
+ * state with the switches below, from 600px the switches sit side by
+ * side, and from 840px of card (a wide window, sidebar included) the
+ * three zones become columns. Surface, border and
+ * radius are the shared tokens, so both themes follow the palette. */
 .home-state {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-lg);
-  padding: var(--space-lg);
+  --home-tone: var(--color-status-ok);
+  container-type: inline-size;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   margin-bottom: var(--space-lg);
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
@@ -3946,12 +3977,33 @@ button.airline-card__action {
   box-shadow: var(--shadow-card);
 }
 
-@media (min-width: 840px) {
-  .home-state {
-    grid-template-columns: minmax(240px, 1fr) auto minmax(250px, 300px);
-    align-items: center;
-    gap: var(--space-lg);
-  }
+.home-state--warn {
+  --home-tone: var(--color-status-warn);
+}
+
+.home-state--off {
+  --home-tone: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+
+/* The state tint: a faint, static glow from the top-left corner in the
+ * dot's colour. Subtle on purpose (13%, fading out before mid-card), the
+ * wording and the dot carry the meaning; nothing moves, so reduced
+ * motion needs nothing more. */
+.home-state::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    90% 130% at 0% 0%,
+    color-mix(in srgb, var(--home-tone) 13%, transparent),
+    transparent 62%);
+}
+
+.home-state__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .home-state__status {
@@ -3960,144 +4012,111 @@ button.airline-card__action {
   align-items: flex-start;
   gap: var(--space-sm);
   min-width: 0;
+  padding: var(--space-lg);
 }
 
 .home-state__status > p {
   margin: 0;
 }
 
-.home-state__headline {
+/* The micro-label voice the quick-action labels already use (12px
+ * uppercase, the sub-scale exception tier). */
+.home-state__eyebrow {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
-  font-size: var(--font-heading-size);
+  gap: var(--space-xs);
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 12px;
   font-weight: var(--weight-semibold);
-  line-height: 1.25;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* A solid dot inside a soft ring of the same status colour, so the state
+.home-state__eyebrow .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* The state title takes the page-title size in the serif face: the
+ * header's one display line, so it reads from across the room. */
+.home-state__headline {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  font-family: var(--font-serif);
+  font-size: var(--font-page-title-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+}
+
+/* A solid dot inside a soft halo of the same status colour, so the state
  * reads at a glance without relying on colour alone: the words beside it
  * carry the meaning. */
 .home-state__dot {
-  --home-dot: var(--color-status-ok);
   flex: none;
   width: 14px;
   height: 14px;
-  margin: 0 var(--space-xs);
-  background: var(--home-dot);
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--home-dot) 22%, transparent);
+  /* Centred on the first line, so a title that wraps on a phone keeps
+   * its dot beside the first word. */
+  margin: calc((1.15em - 14px) / 2) var(--space-xs) 0;
+  background: var(--home-tone);
+  box-shadow:
+    0 0 0 5px color-mix(in srgb, var(--home-tone) 20%, transparent),
+    0 0 18px 4px color-mix(in srgb, var(--home-tone) 30%, transparent);
 }
 
-.home-state__dot.dot--warn {
-  --home-dot: var(--color-status-warn);
-}
-
-.home-state__dot.dot--off {
-  --home-dot: color-mix(in srgb, var(--color-text) 45%, transparent);
+.home-state__detail {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .home-state__next {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
   color: var(--color-text);
 }
 
-/* An overdue line reads in the warning treatment through its weight, the
- * wording carries the meaning; the amber dot above appears only once the
- * delay is long enough to act on. */
+.home-state__next .icon {
+  width: 18px;
+  height: 18px;
+  /* Centres the 18px glyph on the first 24px line of the text. */
+  margin-top: 3px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* An overdue line reads in the warning treatment through its weight and
+ * the warning sign; the amber tint appears only once the delay is long
+ * enough to act on. */
 .home-state__next--overdue {
   font-weight: var(--weight-semibold);
 }
 
+.home-state--warn .home-state__next--overdue .icon {
+  color: var(--color-status-warn);
+}
+
 .home-state__next .time-value {
+  font-weight: var(--weight-semibold);
   white-space: nowrap;
 }
 
-.home-state__health-link {
-  display: block;
-  width: fit-content;
-  margin-top: var(--space-xs);
-  font-weight: var(--weight-semibold);
-}
-
-/* The battery block: the frame's one number that needs watching, so it
- * gets its own bordered tile with a large figure and a wide level bar. */
-.home-battery {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  margin: 0;
-  padding: var(--space-md) var(--space-lg);
-  border-radius: var(--radius-control);
-  background: var(--color-canvas);
-  border: 1px solid var(--color-border);
-}
-
-.home-battery__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-}
-
-.home-battery__reading {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-}
-
-.home-battery__value {
-  font-weight: var(--weight-semibold);
-  font-size: 2rem;
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-}
-
-.home-battery__label {
+.home-state__countdown {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.home-battery__glyph {
-  flex: none;
-  color: color-mix(in srgb, var(--color-text) 55%, transparent);
-}
-
-.home-battery__body {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-}
-
-.home-battery__nub {
-  fill: currentColor;
-}
-
-.home-battery__fill {
-  fill: var(--color-status-ok);
-}
-
-.home-battery--low .home-battery__fill {
-  fill: var(--color-status-warn);
-}
-
-.home-battery--critical .home-battery__fill {
-  fill: var(--color-status-error);
-}
-
-/* The level word is always present for low and critical, so colour is
- * never the only signal; the border echoes the state quietly. */
-.home-battery__state {
-  font-weight: var(--weight-semibold);
-}
-
-.home-battery--low {
-  border-color: var(--color-status-warn);
-}
-
-.home-battery--critical {
-  border-color: var(--color-status-error);
-}
-
-.home-battery--none {
-  padding: var(--space-sm) var(--space-md);
+/* The negative top margin takes back the empty band above the 44px-tall
+ * summary text, so the line keeps the header's 8px rhythm while its tap
+ * target stays full height. */
+.home-state__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-md);
+  margin-top: calc(-1 * var(--space-sm));
 }
 
 /* One muted line; the reason behind it opens from the summary, with the
@@ -4108,40 +4127,178 @@ button.airline-card__action {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+/* Muted rather than the accent every other disclosure uses: in the
+ * header it is a footnote, and the accent stays on the one action. */
 .home-state__cadence summary {
   cursor: pointer;
   width: fit-content;
+  color: inherit;
 }
 
 .home-state__cadence p {
   margin: var(--space-xs) 0 0;
 }
 
-.home-state__switches {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  min-width: 0;
+/* The Health link as a soft accent pill; 44px tall so it is a full tap
+ * target on a phone. */
+.home-state__health-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: 44px;
+  padding: 0 var(--space-sm) 0 var(--space-md);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
 }
 
-/* Each row is one big tap target: the native switch button stretches its
- * ::after over the whole row, so the control keeps its role, state and
- * focus behaviour while the finger gets a 56px-tall target. */
+.home-state__health-link:hover {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+.home-state__health-link .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* The battery dial: the open arc drawn by draw.arc_gauge() with the
+ * reading stacked in its middle and the level word in the arc's gap. All
+ * three share the one grid cell (grid-area: 1 / 1 on each). */
+.home-battery {
+  display: grid;
+  justify-content: center;
+  align-items: center;
+  justify-items: center;
+  margin: 0;
+  padding: var(--space-lg) var(--space-lg) var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+/* The 132px drawing shown at 120px on a narrow card; its viewBox scales
+ * the arc and its stroke together. */
+.home-battery > svg {
+  grid-area: 1 / 1;
+  width: 120px;
+  height: 120px;
+}
+
+.home-battery__reading {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  padding-top: var(--space-xs);
+}
+
+.home-battery__value {
+  font-size: var(--font-page-title-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-battery__unit {
+  margin-left: 1px;
+  font-size: var(--font-body-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* Same micro-label voice as the header's "Frame state". */
+.home-battery__label {
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The level word is always present for low and critical, so colour is
+ * never the only signal. It sits in the arc's gap; text is the status
+ * colour mixed toward the text colour, readable on its tinted pill in
+ * both themes. */
+.home-battery__state {
+  grid-area: 1 / 1;
+  align-self: end;
+  /* Drops the pill clear of the arc's round end caps; the zone's bottom
+   * padding has room for it. */
+  transform: translateY(6px);
+  padding: 2px var(--space-sm);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  line-height: 1.4;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--color-status-warn) 55%, var(--color-text));
+  background: color-mix(in srgb, var(--color-status-warn) 18%, var(--color-dominant));
+}
+
+.home-battery--critical .home-battery__state {
+  color: color-mix(in srgb, var(--color-status-error) 70%, var(--color-text));
+  background: color-mix(in srgb, var(--color-status-error) 16%, var(--color-dominant));
+}
+
+.home-battery--none {
+  justify-content: start;
+  padding: var(--space-md) var(--space-lg);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The recessed panel: a step down from the card surface toward the
+ * canvas. */
+.home-state__switches {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  padding: var(--space-md);
+  border-top: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-canvas) 55%, transparent);
+}
+
+/* Each row is a pill and one big tap target: the native switch button
+ * stretches its ::after over the whole pill, so the control keeps its
+ * role, state and focus behaviour while the finger gets a 56px-tall
+ * target. */
 .home-switch {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
+  gap: var(--space-sm);
   min-height: 56px;
-  padding: var(--space-xs) var(--space-sm) var(--space-xs) var(--space-md);
-  background: var(--color-canvas);
+  padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-sm);
+  background: var(--color-dominant);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
+  border-radius: 999px;
 }
 
 .home-switch:hover {
   border-color: color-mix(in srgb, var(--color-text) 25%, transparent);
+}
+
+.home-switch__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-secondary);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.home-switch--on .home-switch__icon {
+  color: var(--color-text);
+}
+
+.home-switch__icon .icon {
+  width: 18px;
+  height: 18px;
 }
 
 .home-switch .switch,
@@ -4159,13 +4316,15 @@ button.airline-card__action {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: var(--radius-control);
+  border-radius: 999px;
 }
 
 .home-switch__text {
   display: flex;
+  flex: 1;
   flex-direction: column;
   min-width: 0;
+  line-height: 1.3;
 }
 
 .home-switch__label {
@@ -4174,10 +4333,72 @@ button.airline-card__action {
 
 .home-switch__detail {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+.home-switch__window {
+  white-space: nowrap;
+}
+
+.home-switch__detail .home-switch__state {
+  font-size: var(--font-label-size);
 }
 
 .home-switch .quick-action__form {
   flex: none;
+}
+
+@container (min-width: 520px) {
+  .home-state__body {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .home-battery {
+    align-self: stretch;
+    align-content: center;
+    padding: var(--space-lg) var(--space-xl);
+    border-top: 0;
+    border-left: 1px solid var(--color-border);
+  }
+
+  .home-battery > svg {
+    width: 132px;
+    height: 132px;
+  }
+
+  .home-state__switches {
+    grid-column: 1 / -1;
+  }
+}
+
+@container (min-width: 600px) {
+  .home-state__switches {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (min-width: 840px) {
+  .home-state__body {
+    grid-template-columns: minmax(0, 1fr) auto minmax(260px, 320px);
+  }
+
+  .home-state__status {
+    justify-content: center;
+    padding: var(--space-xl);
+  }
+
+  /* A pointer-sized pill once the header is this wide. */
+  .home-state__health-link {
+    min-height: 32px;
+  }
+
+  .home-state__switches {
+    grid-column: auto;
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--space-lg) var(--space-md);
+    border-top: 0;
+    border-left: 1px solid var(--color-border);
+  }
 }
 
 .home-action {
@@ -4272,8 +4493,8 @@ button.airline-card__action {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: var(--color-dominant);
-  box-shadow: var(--shadow-card);
+  background: var(--color-switch-thumb);
+  box-shadow: 0 1px 3px var(--color-shadow-strong);
   transition: transform var(--motion-fast) ease;
 }
 

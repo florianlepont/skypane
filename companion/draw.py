@@ -60,6 +60,12 @@ DRAWING_BAND_MARK_CLASS = "drawing-band-mark"
 DRAWING_RING_TRACK_CLASS = "drawing-ring-track"
 DRAWING_RING_VALUE_CLASS = "drawing-ring-value"
 
+# The arc gauge's two strokes: the same track/value split as the ring,
+# as separate classes because the arc draws round caps and a different
+# track ink (see arc_gauge() below and its rules in style.css).
+DRAWING_ARC_TRACK_CLASS = "drawing-arc-track"
+DRAWING_ARC_VALUE_CLASS = "drawing-arc-value"
+
 # The check-in regularity grid's cells: a base class plus four state
 # modifiers — the fourth ("no observation") is a different kind of
 # statement from the three verdicts. The modifiers set `color` only, so
@@ -124,6 +130,8 @@ DRAWING_CLASSES = (
     DRAWING_BAND_MARK_CLASS,
     DRAWING_RING_TRACK_CLASS,
     DRAWING_RING_VALUE_CLASS,
+    DRAWING_ARC_TRACK_CLASS,
+    DRAWING_ARC_VALUE_CLASS,
     DRAWING_CELL_CLASS,
     DRAWING_CELL_ON_CADENCE_CLASS,
     DRAWING_CELL_LATE_CLASS,
@@ -549,6 +557,61 @@ def ring_gauge(fraction, size, status_class=None):
             value_attrs["stroke-dasharray"] = unit_circle_dash_array(fraction, radius)
         shapes.append(circle(
             DRAWING_RING_VALUE_CLASS, centre, centre, radius, attrs=value_attrs))
+
+    class_name = DRAWING_FIGURE_CLASS
+    if status_class in DRAWING_STATUS_CLASSES:
+        class_name += " " + status_class
+    return unit_canvas(class_name, shapes, size, size, hidden=True)
+
+
+# --- the arc gauge: an open dial with a gap at the bottom -------------
+# The same dashed-circle technique as the ring, with a sweep shorter than
+# a full turn so the gap can hold a short caption under the reading.
+
+# The sweep in degrees and the stroke as a fraction of the box side.
+ARC_SWEEP_DEGREES = 270
+ARC_STROKE_RATIO = 0.08
+
+
+def arc_gauge(fraction, size, status_class=None):
+    """An open dial `size` CSS pixels square: a track sweeping
+    ARC_SWEEP_DEGREES clockwise from the lower left, with its gap centred
+    at six o'clock, and a value stroke over `fraction` of it. Never
+    raises; `fraction` is clamped as in ring_gauge().
+
+    Geometry is presentation attributes only (`stroke-dasharray`,
+    `transform`), never a style attribute, which the page's CSP forbids.
+    Both strokes have round caps, which add half a stroke of ink at each
+    end; the value dash is shortened by one stroke width and the visible
+    proportion is taken over the track's own capped length, so the ink
+    shown is `fraction` of the visible track. An empty reading omits the
+    value stroke. `aria-hidden`, since the reading is printed beside it.
+    """
+    if not is_number(size) or size < RING_MIN_SIZE:
+        size = RING_MIN_SIZE
+    if not is_number(fraction):
+        fraction = 0.0
+    fraction = max(0.0, min(1.0, fraction))
+
+    centre = round(size / 2.0, 2)
+    stroke = round(size * ARC_STROKE_RATIO, 2)
+    radius = round(size * (0.5 - ARC_STROKE_RATIO / 2.0 - RING_CLEARANCE_RATIO), 2)
+    circumference = 2 * math.pi * radius
+    sweep = circumference * ARC_SWEEP_DEGREES / 360.0
+    # Rotating by 90 degrees plus half the gap moves the circle's
+    # three o'clock start to the lower left end of the open arc.
+    rotate = "rotate(%s %s %s)" % (
+        _number(90 + (360 - ARC_SWEEP_DEGREES) / 2.0), _number(centre), _number(centre))
+    base = {"fill": "none", "stroke-width": _number(stroke), "transform": rotate}
+
+    shapes = [circle(DRAWING_ARC_TRACK_CLASS, centre, centre, radius, attrs=dict(
+        base, **{"stroke-dasharray": "%.4f %.4f" % (sweep, circumference)}))]
+    if fraction > 0:
+        # A dash of 0.01, never 0: a zero-length dash under a round cap
+        # is not drawn by every engine.
+        dash = max(0.01, fraction * (sweep + stroke) - stroke)
+        shapes.append(circle(DRAWING_ARC_VALUE_CLASS, centre, centre, radius, attrs=dict(
+            base, **{"stroke-dasharray": "%.4f %.4f" % (dash, circumference)})))
 
     class_name = DRAWING_FIGURE_CLASS
     if status_class in DRAWING_STATUS_CLASSES:
