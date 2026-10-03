@@ -580,7 +580,7 @@ def render(ctx):
     # The silent marker keeps Home on freshness.js's background refresh
     # without a visible freshness line.
     header = layout.page_header(
-        i18n.t(PAGE_TITLE), freshness_html=layout.refresh_marker_html(now), tabbed=True)
+        i18n.t(PAGE_TITLE), freshness_html=layout.refresh_marker_html(now))
     return (
         header
         + _frame_state_html(ctx)

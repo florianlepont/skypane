@@ -706,7 +706,7 @@ def empty_state(heading, body, compact=False):
     ) % (escape_html(heading), escape_html(body))
 
 
-def page_header(title, purpose=None, freshness_html=None, action_html=None, tabbed=False):
+def page_header(title, purpose=None, freshness_html=None, action_html=None):
     """The shared page-header component every authenticated page's
     render() opens with, in place of a bare <h1>. This exact signature
     and parameter order is called across many page modules — do not
@@ -716,12 +716,6 @@ def page_header(title, purpose=None, freshness_html=None, action_html=None, tabb
     when truthy, are the caller's own already-safe markup, interpolated
     verbatim with no escape_html() call — callers must escape any
     user-influenced data before passing it through either parameter.
-
-    `tabbed` marks a page that has its own cell in the phone's bottom tab
-    bar: there the tab bar already names the page, so style.css hides the
-    <h1> visually (it stays in the document for screen readers and the
-    heading outline) and reclaims its space. Pages reached through the
-    "More" cell leave it off, since the bar does not name them.
 
     Blocks concatenate title, then freshness/action, then purpose last.
     The returned string ends with FLASH_SLOT_MARKER, which page_shell()
@@ -733,13 +727,13 @@ def page_header(title, purpose=None, freshness_html=None, action_html=None, tabb
     freshness_block = freshness_html if freshness_html else ""
     action_block = action_html if action_html else ""
     return (
-        '<div class="page-header%s">'
+        '<div class="page-header">'
         '<h1 class="page-title">%s</h1>'
         "%s%s%s"
         "</div>"
         "%s"
     ) % (
-        " page-header--tabbed" if tabbed else "", escape_html(title), freshness_block, action_block, purpose_html,
+        escape_html(title), freshness_block, action_block, purpose_html,
         FLASH_SLOT_MARKER,
     )
 

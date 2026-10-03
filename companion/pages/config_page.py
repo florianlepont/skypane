@@ -575,8 +575,7 @@ def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, subm
     # Appearance controls are form-backed, so the refresh loop must not
     # replace this page while a visitor is editing them.
     header = layout.page_header(
-        i18n.t(DISPLAY_PAGE_TITLE), freshness_html=layout.freshness_line_html(ctx.now),
-        tabbed=True)
+        i18n.t(DISPLAY_PAGE_TITLE), freshness_html=layout.freshness_line_html(ctx.now))
     frame_strip_section_html = ""
     if screens.GROUP_THEME in groups:
         # Resolved once here and shared: the calendar row falls back to

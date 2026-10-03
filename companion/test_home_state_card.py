@@ -485,12 +485,3 @@ def test_quiet_hours_window_is_a_link_to_the_display_section_outside_the_switch(
     assert "<a " not in button
     assert row.index("home-switch__window") < row.index('role="switch"')
 
-
-def test_page_header_marks_tabbed_pages_and_keeps_the_h1_in_the_document(tmp_path):
-    """Home's header carries the tabbed modifier (phones hide its title visually) while its h1
-    stays in the markup; an unmarked header, like the pages behind "More", does not"""
-    home = home_page.render(_ctx(tmp_path))
-    assert '<div class="page-header page-header--tabbed"><h1 class="page-title">Home</h1>' in home
-    plain = layout.page_header("Health")
-    assert plain.startswith('<div class="page-header"><h1 class="page-title">Health</h1>')
-    assert "page-header--tabbed" not in plain

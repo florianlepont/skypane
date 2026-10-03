@@ -942,7 +942,7 @@ def render(ctx):
     # with no [data-loaded-at], so the silent marker is what keeps it on
     # the loop.
     header = layout.page_header(
-        i18n.t(PAGE_TITLE), freshness_html=layout.refresh_marker_html(now), tabbed=True)
+        i18n.t(PAGE_TITLE), freshness_html=layout.refresh_marker_html(now))
 
     # gallery_entries_list is the input to nearest_gallery_entry() below,
     # which every per-row "View panel near this time" trigger depends on.

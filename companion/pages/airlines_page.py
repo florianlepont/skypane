@@ -1487,7 +1487,7 @@ def render(ctx):
     summary_html = _manual_summary_html(manual_rows)
     filter_html = _filter_bar_html(total, summary_html) if (pairs or gap_shown) else ""
     return (
-        layout.page_header(i18n.t(_NAV_AIRLINES_TEXT), tabbed=True)
+        layout.page_header(i18n.t(_NAV_AIRLINES_TEXT))
         + filter_html
         + _gallery_grid_html(
             pairs, state_dir, manual_info_by_name=manual_info_by_name, now=now)
