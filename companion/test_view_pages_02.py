@@ -59,7 +59,6 @@ _LIGHTBOX_SHARED_TOKENS = (
     "data-view-panel-caption",
     "lightbox__image",
     "lightbox__caption",
-    "lightbox__note",
     "data-view-panel-close",
 )
 
@@ -323,20 +322,28 @@ def test_view_panel_trigger_is_a_labelled_link_naming_its_row(tmp_path):
         assert link.attrs["href"] == "/gallery/%s" % names[0]
 
 
-def test_colour_caveat_rehomed_into_lightbox_note(tmp_path):
-    """the colour caveat sentence appears exactly once in the rendered page, and that single
-    occurrence lies inside the lightbox__note element (the caveat's new, and only, home
-    after the render-gallery section's removal)"""
+def test_lightbox_carries_no_nearest_render_disclaimer(tmp_path):
+    """the Flights picture lightbox renders only its image, its caption and the close button:
+    neither the nearest-render sentence nor the nominal-colours caveat appears, in English or
+    French, and the dated picture caption is still produced by the page's trigger markup"""
     names = ["2026-08-27T10-00-00+00-00.png"]
     vp.seed_gallery(tmp_path, names)
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:01:00+00:00", "hex": "cvt001", "callsign": "CAVEAT"},
     ])
-    rendered = history_page.render(vp.history_ctx(tmp_path, gallery_entries=names))
-    assert rendered.count(history_page.COLOUR_CAVEAT) == 1
-    note_match = re.search(r'<p class="lightbox__note text-body">(.*?)</p>', rendered, re.S)
-    assert note_match is not None, "could not locate the lightbox__note element"
-    assert history_page.COLOUR_CAVEAT in note_match.group(1)
+    for lang in ("en", "fr"):
+        prefs.set_request_prefs(lang=lang)
+        try:
+            rendered = history_page.render(vp.history_ctx(tmp_path, gallery_entries=names))
+        finally:
+            prefs.set_request_prefs(lang="en")
+        dialog = re.search(r'<dialog class="lightbox".*?</dialog>', rendered, re.S)
+        assert dialog is not None, "could not locate the lightbox dialog"
+        assert "lightbox__caption" in dialog.group(0)
+        assert "lightbox__note" not in dialog.group(0)
+        for sentence in ("nearest recorded render", "nominal render-internal",
+                         "rendu enregistré le plus proche", "teintes internes de rendu"):
+            assert sentence not in rendered
 
 
 def test_render_gallery_no_preview_apparatus_even_with_panel_file(tmp_path):

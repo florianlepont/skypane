@@ -51,18 +51,6 @@ MESSAGES = {
     # --- The per-row "View panel near this time" lightbox ---------------
     "flights.picture_shown_on_the_frame": "Image affichée sur le cadre",
     "flights.picture_from": "Image du %s",
-    # A key of its own: the completeness harness needs an entry even
-    # though this text is also folded into the composed note below.
-    "flights.colours_are_nominal_render_internal_swatches":
-        "Les couleurs sont des teintes internes de rendu, pas une "
-        "reproduction fidèle du vrai verre Spectra 6.",
-    "flights.this_is_the_nearest_recorded_render_not":
-        "Ceci est le rendu enregistré le plus proche, pas nécessairement "
-        "celui de ce vol exact — le panneau se met à jour selon son "
-        "propre cycle de réveil et de vérification. Les couleurs sont "
-        "des teintes internes de rendu, pas une reproduction fidèle du "
-        "vrai verre Spectra 6.",
-
     # --- The unresolved-airline link -------------------------------------
     # Links straight to the Airlines resolve view for this flight's own
     # prefix, naming the action it performs.

@@ -233,13 +233,12 @@
 
   var image = dialog.querySelector(".lightbox__image");
   var caption = dialog.querySelector(".lightbox__caption");
-  var note = dialog.querySelector(".lightbox__note");
-  if (!image || !caption || !note) {
+  if (!image || !caption) {
     return;
   }
 
   // Everything below is looked up optionally, outside the mandatory
-  // image/caption/note guard above, and guarded independently at its
+  // image/caption guard above, and guarded independently at its
   // own point of use: History's dialog renders none of these
   // Airlines-only resolve/replace/delete elements. resolveSubmit's
   // visibility is mirrored from resolveNameForm's own hidden state
