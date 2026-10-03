@@ -358,7 +358,7 @@ def _frame_update_cell_html(
     from `_frame_resolved_state()` above; relative-time.js advances the
     duration without re-deciding due/held/late. `countdown=True` keeps it
     a countdown after its instant passes, reading the waiting wording
-    rather than silently becoming an age: "Expected since 14:32 /
+    rather than silently becoming an age: "Update overdue · expected at 14:32 /
     waiting…", never "2m ago" — a second, quieter lateness claim beside
     the headline's.
     """

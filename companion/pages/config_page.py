@@ -295,7 +295,6 @@ DEVICE_PAGE_TITLE = i18n.msg("nav.device", "Device")
 # rules are an optional override inside that flow, followed by the two
 # separate scheduling controls below it.
 DISPLAY_LOOK_SECTION_ID = "display-look"
-DISPLAY_LOOK_HEADING = i18n.msg("display.look", "What appears")
 DISPLAY_LOOK_INTRO = i18n.msg(
     "display.the_theme_flight_colours_and_calendar_that",
     "— the theme, flight colours and calendar that decide how the "
@@ -632,8 +631,7 @@ def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, subm
             errors=errors, submitted=submitted, state_dir=ctx.state_dir)
         rules_row_html = rules_usage_row_html(ctx)
         aspect_section_html = (
-            '<section class="display-appearance" aria-labelledby="%s">'
-            '<h2 id="%s" class="text-heading">%s</h2>'
+            '<section id="%s" class="display-appearance" aria-labelledby="%s">'
             + _nested_wrapper_html(
                 _aspect_card_html(
                     values["theme_id"], values["theme_arriving"],
@@ -643,8 +641,7 @@ def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, subm
             + "</section>"
         ) % (
             escape_html(DISPLAY_LOOK_SECTION_ID),
-            escape_html(DISPLAY_LOOK_SECTION_ID),
-            escape_html(i18n.t(DISPLAY_LOOK_HEADING)),
+            escape_html(ASPECT_HEADING_ID),
         )
     else:
         aspect_section_html = ""
