@@ -1,0 +1,16 @@
+{
+  "_note": "Schema example only: every required field is null, so run-report refuses this file. Copy it, fill in the owner-supplied values, and keep the copy next to the raw export.",
+  "capacity_mah": null,
+  "interval_s": null,
+  "protocol_confirmed_utc": null,
+  "disconnect_time_utc": null,
+  "end_reason": null,
+  "ceiling_days": null,
+  "firmware_version": null,
+  "server_revision": null,
+  "park_mv": 3300,
+  "boot_count_start": null,
+  "boot_count_end": null,
+  "production_interval_before_s": null,
+  "production_interval_restored_s": null
+}

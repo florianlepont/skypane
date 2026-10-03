@@ -614,3 +614,117 @@ device has yet reached 3300 mV against this code, so the park's timing,
 the screen's legibility at the panel's actual e-ink refresh rate, and the
 one-hour parked check-in cadence are all confirmed only by the harnesses
 listed in `260923-fr4-SUMMARY.md`, not by a physical device.
+
+## Run 2 Protocol (pre-registered)
+
+Status: PROPOSED - awaiting owner confirmation; the pack must not be connected until this reads CONFIRMED
+
+This section is written before the pack is connected and before any run-two
+measurement exists. Nothing below is a result. The cadence, ceiling,
+park-window rule (D-10), baseline rule and restore rule are proposals; the
+owner confirms or amends them, and only then does the status line change.
+Run one's sections above are unchanged.
+
+### 1. Purpose and comparability
+
+Same Kubii 3000 mAh 1S pack, same firmware family and server poll workload
+as run one (D-01). The workload is the hash-skip case with no image change,
+so there is no download and no panel refresh, exactly as in run one. Only the
+effective wake cadence differs. That is what lets Phase 46 fit per-wake
+energy against standing deep-sleep consumption from two runs.
+
+### 2. Cadence (D-04, D-05)
+
+Configured wake interval: **900 s** (3x run one), set through the companion
+Device wake-interval setting with no SSH edit, inside the accepted 60..3600 s
+range. The value actually in force is recorded as `interval_s` and is the
+value given to the tooling, never a remembered constant. The actual cadence
+is also recorded as the mean poll-to-poll gap measured from the raw export,
+because run one's real gap was 328 s against a 300 s setting.
+
+### 3. Ceiling (D-06)
+
+**45 days.** A run still alive at the ceiling is a valid bound result, exactly
+as run one defined it.
+
+### 4. Thresholds (D-03)
+
+Run one's values, unchanged, each judged against the configured interval:
+
+| Flag | Value |
+|------|-------|
+| `--min-coverage` | 0.95 |
+| `--max-gap-intervals` | 3 |
+| `--min-mv-drop` | 100 |
+| `--cutoff-mv` | 3400 |
+
+A gate that fails is reported as failed and diagnosed, never retuned, as run
+one did with coverage.
+
+### 5. Park window rule (proposed D-10)
+
+The BATTERY EMPTY park at 3300 mV (`park_mv`) changes the real cadence to
+hourly. Continuity and coverage are judged on the normal-cadence window,
+which ends at the first reading at or below 3300 mV. The full window,
+including parked polls, is also reported as informational figures. The
+boot-counter witness covers the full run and is compared with the
+full-window observed count; nominal is compared with observed on the
+normal-cadence window only. Run one had no park, so Phase 46 must compare
+like windows.
+
+### 6. Pre-run conditions that would silently override the cadence
+
+- The display is enabled and no quiet-hours or display-off state is active
+  during the run: display-off cadence outranks the configured interval.
+- The production wake interval in force before the study is written down as
+  `production_interval_before_s`.
+
+### 7. Baseline (D-07)
+
+Firmware version and server revision are recorded at start. If firmware
+changes mid-run the run is invalid and restarts. The report tool checks that
+the distinct `fw_version` values in the export equal the recorded baseline.
+
+### 8. Hypotheses with numeric predictions (predictions, not results)
+
+- Wake-dominated drain: roughly 3250 cycles whatever the interval, so about
+  34 to 35 days at an effective gap near 928 s.
+- Leakage-dominated drain: roughly 243 mAh/day regardless of cadence, so
+  about 11 to 12 days.
+- Anything between is a mixed split.
+- A 900 s run that is not depleted at 45 days is a bound, not a failure.
+
+Both are separable from run one. The model is not fitted here; that is
+Phase 46 (BAT-03).
+
+### 9. Cycle-count reconciliation (D-08)
+
+Three witnesses: nominal from the elapsed span over `interval_s`, observed
+polls in the exported `device_health` rows, and the NVS `boot_count=` delta.
+`boot_count_start` MUST be read off the console wake line before the cable
+comes out: run one failed to capture it and lost the third witness. If it is
+not captured, the witness is reported as not computable and never estimated.
+
+### 10. Physical preconditions (unchanged from run one)
+
+Pack fully charged; polarity re-checked against `hardware/BOM.md` immediately
+before connection; protection circuit confirmed; pack inspected before any
+recharge after depletion.
+
+### 11. Restore production (D-09)
+
+After the run the production wake interval is restored to
+`production_interval_before_s` through the Device setting, and the restored
+value is recorded as `production_interval_restored_s`.
+
+### 12. Observation channel (D-03)
+
+history.db `device_health`, read with the run-one read-only remote query
+bounded by the disconnect time, then `hardware/logtools.py run-report`, which
+produces the raw-export hash, separate continuity / voltage-validity /
+baseline verdicts and the three-way reconciliation.
+
+### 13. Results
+
+Results go in a separate `Run 2 Results` section, filled only from the
+owner-supplied export. No result is written before then.

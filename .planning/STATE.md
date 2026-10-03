@@ -60,6 +60,7 @@ Phase: 44 of 47 (Companion Walkthrough and Focused Bilingual Polish)
 Plan: 11 of 12 complete (latest: 44-11, Update installed summary and owner-only releases)
 Status: Executing
 Last activity: 2026-10-03 — 44-11 complete: Update installed-software summary and owner-only release list
+Phase 45 (parallel branch claude/phase-45-discharge-study): 45-02 complete (logtools run-report); 45-01 Run 2 Protocol written as PROPOSED, blocked on owner confirmation (cadence, ceiling, park-window rule D-10); 45-03/45-04 not started.
 
 ## Position History (superseded entries, kept for the record)
 
