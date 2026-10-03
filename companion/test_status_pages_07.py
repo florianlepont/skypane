@@ -19,7 +19,9 @@ import companion.test_status_pages_helpers as shp
 from companion import illustration_normalize, layout, prefs
 from companion.pages import airlines_page, config_page, health_page, home_page
 from companion_app_server import get, login, served_asset, served_stylesheet
-from companion_markup import css_rules, custom_properties, declarations_for, rules_with_selector
+from companion_markup import (
+    css_rules, custom_properties, declarations_for, parse_html, rules_with_selector,
+    toast_title_detail)
 from server import device_config, history_db
 from server.plane import illustrations
 
@@ -812,21 +814,34 @@ def test_the_strip_renders_two_server_rendered_switches():
             % (layout.QUICK_SWITCH_REGION_ATTR, rendered.count(layout.QUICK_SWITCH_REGION_ATTR)))
 
 
-def test_the_failure_toast_is_transient_translated_and_carries_no_internal():
-    """the optimistic switch's failure copy is the app's own generic flash sentence, translated
-    on <body> in both languages and carrying no status code, URL or server internal, and the
-    shell renders exactly one EMPTY assertive live region for it — a transient toast, never
-    a permanent banner"""
+def test_the_failure_toast_is_translated_sticky_and_carries_no_internal():
+    """the optimistic switch's failure copy is the app's own generic flash sentence, rendered
+    translated in both languages as an error toast inside a <template> (cloned by
+    quick-switch.js), carrying no status code, URL or server internal, and the shell renders
+    exactly one EMPTY assertive live region for it. As an error toast it never auto-hides and
+    carries its own dismiss button"""
     try:
         for lang in ("en", "fr"):
             prefs.set_request_prefs(lang=lang)
             expected = layout.i18n.t(layout.QUICK_SWITCH_FAILED_TEXT)
             doc = layout.page_shell(title="T", active="home", body="<p>b</p>", lang=lang)
-            body_tag = doc[doc.index("<body"):doc.index(">", doc.index("<body")) + 1]
-            marker = '%s="%s"' % (layout.QUICK_SWITCH_FAILED_ATTR, layout.escape_html(expected))
-            assert marker in body_tag, (
-                "lang=%s: expected the translated failure copy on the rendered <body> tag (%r), "
-                "got %r" % (lang, marker, body_tag))
+            tree = parse_html(doc)
+            templates = tree.select("template[%s]" % layout.QUICK_TOAST_TEMPLATE_ATTR)
+            assert len(templates) == 1, (
+                "lang=%s: expected exactly one quick-toast template, got %d"
+                % (lang, len(templates)))
+            toast = templates[0].select_one(".toast")
+            assert toast_title_detail(toast) == layout.split_toast_message(expected), (
+                "lang=%s: expected the translated failure copy as the template toast's title "
+                "and detail" % lang)
+            classes = toast.attrs["class"].split()
+            assert "toast--error" in classes, "expected the error tone, got %r" % classes
+            assert layout.TOAST_AUTOHIDE_ATTR not in toast.attrs, (
+                "an error toast must never auto-hide")
+            assert "role" not in toast.attrs, (
+                "the toast itself carries no role: the live region it is cloned into announces it")
+            dismiss = toast.select_one("button.toast__dismiss")
+            assert layout.TOAST_DISMISS_ATTR in dismiss.attrs and dismiss.attrs.get("aria-label")
             if lang == "fr":
                 assert expected != layout.QUICK_SWITCH_FAILED_TEXT, (
                     "the failure copy is untranslated — it reads %r in both languages" % (expected,))
@@ -837,18 +852,17 @@ def test_the_failure_toast_is_transient_translated_and_carries_no_internal():
                 assert internal not in expected, (
                     "lang=%s: the failure copy carries %r — a user-facing failure message names "
                     "no status code, no URL and no server internal (V7, T-23-27)" % (lang, internal))
-            # A transient toast, never a permanent banner. The live region
-            # is rendered EMPTY and stays in the accessibility tree,
-            # because a region added to the tree at announce time is a
-            # region screen readers routinely miss.
-            toast = '<div class="quick-toast" %s role="alert"></div>' % layout.QUICK_TOAST_ATTR
-            assert toast in doc, (
-                "lang=%s: expected exactly the empty assertive live region %r in the shell — D2 "
-                "asks for a transient toast rather than the permanent banner this app uses for a "
-                "flash" % (lang, toast))
-            assert doc.count(layout.QUICK_TOAST_ATTR) == 1, (
+            # The live region is rendered EMPTY and stays in the
+            # accessibility tree, because a region added to the tree at
+            # announce time is a region screen readers routinely miss.
+            regions = tree.select("[%s]" % layout.QUICK_TOAST_ATTR)
+            assert len(regions) == 1, (
                 "lang=%s: expected exactly one toast region per document, got %d — a second one "
-                "is a second place a failure could be announced" % (lang, doc.count(layout.QUICK_TOAST_ATTR)))
+                "is a second place a failure could be announced" % (lang, len(regions)))
+            region = regions[0]
+            assert region.attrs.get("role") == "alert" and not region.children, (
+                "lang=%s: expected the empty assertive live region, got %r" % (lang, region))
+            assert "toast-region--live" in region.attrs.get("class", "").split()
     finally:
         prefs.set_request_prefs(lang="en")
 

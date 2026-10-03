@@ -384,8 +384,8 @@ def test_flash_banner_spliced_below_page_header_marker_never_leaks():
         title="X", active="settings", body=body, flash=flash_markup)
     assert layout.FLASH_SLOT_MARKER not in no_flash
     assert layout.FLASH_SLOT_MARKER not in with_flash
-    assert "banner--flash" not in no_flash
-    assert with_flash.index("banner--flash") > with_flash.index("page-header"), (
+    assert "toast-region--flash" not in no_flash
+    assert with_flash.index("toast-region--flash") > with_flash.index("page-header"), (
         "expected the flash banner to render after the page header, not before it")
     assert with_flash.replace(flash_markup, "", 1) == no_flash, (
         "expected the flash-present and flash-absent documents to differ only by the "
@@ -402,9 +402,9 @@ def test_flash_banner_fallback_slot_when_body_has_no_marker():
     flash_markup = layout.flash_banner("Saved")
     rendered = layout.page_shell(
         title="X", active="settings", body=bare_body, flash=flash_markup)
-    assert "banner--flash" in rendered, "expected the flash banner in the fallback (before-body) slot"
+    assert "toast-region--flash" in rendered, "expected the flash banner in the fallback (before-body) slot"
     assert layout.FLASH_SLOT_MARKER not in rendered
-    assert rendered.index("banner--flash") < rendered.index("bare content"), (
+    assert rendered.index("toast-region--flash") < rendered.index("bare content"), (
         "expected the fallback flash banner to render before the marker-less body")
 
 
@@ -414,9 +414,9 @@ def test_anomaly_banner_unaffected_by_the_flash_slot_move():
     body = layout.page_header("Title") + "<p>body content</p>"
     rendered = layout.page_shell(
         title="X", active="settings", body=body, banner=layout.anomaly_banner("Uh oh"))
-    assert "banner--anomaly" in rendered
-    assert "banner--flash" not in rendered
-    assert rendered.index("banner--anomaly") < rendered.index("page-header"), (
+    assert "toast--docked" in rendered
+    assert "toast-region--flash" not in rendered
+    assert rendered.index("toast--docked") < rendered.index("page-header"), (
         "expected the anomaly banner to keep rendering before the page header")
 
 
@@ -631,7 +631,7 @@ def test_page_shell_escapes_hostile_body():
 
 
 def test_icon_sprite_integrity():
-    """layout.ICON_IDS has exactly twenty-six unique members, each a symbol id in
+    """layout.ICON_IDS has exactly thirty-four unique members, each a symbol id in
     ICON_DEFS_HTML and vice versa"""
     # The whitelist grew from ten to fourteen members
     # (icon-check/icon-copy/icon-refresh/icon-search), then to fifteen
@@ -639,13 +639,14 @@ def test_icon_sprite_integrity():
     # twenty-two (icon-more, the bottom tab bar's "More" cell), then to
     # 23 (icon-gear, #site-nav-toggle's new glyph), then to 24
     # (icon-nav-update, the Update nav destination's glyph), then to 26
-    # (icon-warning and icon-chevron-right, Home's status header).
-    assert len(layout.ICON_IDS) == 26
-    assert len(set(layout.ICON_IDS)) == 26, "expected ICON_IDS to have no duplicates"
+    # (icon-warning and icon-chevron-right, Home's status header), then to
+    # 34 (the toast family: five tone glyphs, a bin, close and undo).
+    assert len(layout.ICON_IDS) == 34
+    assert len(set(layout.ICON_IDS)) == 34, "expected ICON_IDS to have no duplicates"
     symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
     assert sorted(symbol_ids) == sorted(layout.ICON_IDS), (
         "sprite symbol ids %r do not match ICON_IDS %r" % (symbol_ids, layout.ICON_IDS))
-    assert layout.ICON_DEFS_HTML.count("<symbol") == 26
+    assert layout.ICON_DEFS_HTML.count("<symbol") == 34
     assert 'stroke="currentColor"' in layout.ICON_DEFS_HTML
     assert 'fill="#' not in layout.ICON_DEFS_HTML, "a hard-coded hex fill would defeat the per-status tint"
 
@@ -680,14 +681,14 @@ def test_stat_tile_backcompat_and_icon_slot():
 
 
 def test_page_shell_emits_sprite_once_no_inline_styles():
-    """page_shell() emits exactly one sprite (one <defs, twenty-six <symbol) before
+    """page_shell() emits exactly one sprite (one <defs, thirty-four <symbol) before
     dashboard-shell, no inline styles"""
     doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     assert doc.count("<defs") == 1
     # Task 1 : twenty-one -> twenty-two
     # (icon-more). : 22 -> 23 (icon-gear). : 23 -> 24 (icon-nav-update).
-    # 24 -> 26 (icon-warning, icon-chevron-right).
-    assert doc.count("<symbol") == 26
+    # 24 -> 26 (icon-warning, icon-chevron-right). 26 -> 34 (the toasts).
+    assert doc.count("<symbol") == 34
     assert doc.index("icon-defs") < doc.index("dashboard-shell"), (
         "expected the sprite to precede the dashboard-shell div")
     assert ' style="' not in doc, "page_shell() must emit no inline styles"

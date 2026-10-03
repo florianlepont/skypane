@@ -413,11 +413,11 @@ def test_theme_preview_script_tag_exactly_once_and_no_bare_inline_script():
         pytest.fail("expected no inline <script> without a src, found %r" % match.group(0))
 
 
-def test_fifteen_deferred_scripts_before_closing_body():
+def test_sixteen_deferred_scripts_before_closing_body():
     """Per-page scripts: a bare page_shell() call emits only
-    GLOBAL_PAGE_SCRIPTS' 4 tags before the closing body tag; asking for
+    GLOBAL_PAGE_SCRIPTS' 5 tags before the closing body tag; asking for
     every other SHELL_SCRIPT_ORDER script via `scripts=` still emits all
-    fifteen together, including panel-lookup.js, flash-cleanup.js,
+    sixteen together, including panel-lookup.js, flash-cleanup.js, toast.js,
     poll-cooldown.js, confirm-submit.js, theme-preview.js,
     airline-types.js, submit-guard.js, relative-time.js, quick-switch.js and
     value-controls.js — and NOT login-card.js, which login_shell() alone
@@ -438,9 +438,10 @@ def test_fifteen_deferred_scripts_before_closing_body():
     body_close = doc.index("</body>")
     head = doc[:body_close]
     count = head.count('<script src=')
-    assert count == 15, "expected exactly 15 deferred <script src= tags before </body>, got %d" % count
+    assert count == 16, "expected exactly 16 deferred <script src= tags before </body>, got %d" % count
     for src_const in (
             layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
+            layout.TOAST_SCRIPT_SRC,
             layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC,
             layout.THEME_PREVIEW_SCRIPT_SRC, layout.AIRLINE_TYPES_SCRIPT_SRC,
             layout.SUBMIT_GUARD_SCRIPT_SRC, layout.RELATIVE_TIME_SCRIPT_SRC,
@@ -780,7 +781,7 @@ def test_quick_switch_script_es5_safe_and_no_html_write(app03_server):
     """quick-switch.js stays ES5-safe and sink-free (no let/const/arrow/backtick/innerHTML/
     outerHTML/insertAdjacentHTML/document.write/eval/XHR/setInterval and no URL-taking
     navigation), carries the optimistic-switch contract (aria-checked, preventDefault,
-    stopPropagation, textContent, credentials same-origin, redirect manual, X-Requested-With,
+    stopPropagation, cloneNode, credentials same-origin, redirect manual, X-Requested-With,
     encodeURIComponent) and reaches its rollback from BOTH terminal branches through the
     ES3-safe bracket form"""
     src = served_asset(app03_server, "/static/quick-switch.js")
@@ -794,7 +795,7 @@ def test_quick_switch_script_es5_safe_and_no_html_write(app03_server):
     for token in banned:
         assert token not in src, "quick-switch.js must not contain %r" % token
     required = (
-        "aria-checked", "preventDefault", "stopPropagation", "textContent",
+        "aria-checked", "preventDefault", "stopPropagation", "cloneNode",
         "credentials", "same-origin", "redirect", "manual",
         "X-Requested-With", "encodeURIComponent")
     for token in required:
@@ -828,7 +829,8 @@ def test_quick_switch_script_tag_exactly_once_and_no_bare_inline_script():
 
 def test_real_get_quick_switch_route_serves_the_optimistic_switch(app03_server):
     """a real GET of /static/quick-switch.js returns 200 with the served optimistic-switch body —
-    layout.REFRESH_PENDING_ATTR and layout.QUICK_SWITCH_FAILED_ATTR both named, and none of
+    layout.REFRESH_PENDING_ATTR, layout.QUICK_TOAST_ATTR and layout.QUICK_TOAST_TEMPLATE_ATTR
+    all named, and none of
     innerHTML/document.write/=>/ let / const"""
     text = served_asset(app03_server, "/static/quick-switch.js")
     for banned in ("innerHTML", "insertAdjacentHTML", "document.write", "eval(",
@@ -837,9 +839,10 @@ def test_real_get_quick_switch_route_serves_the_optimistic_switch(app03_server):
     assert '"%s"' % layout.REFRESH_PENDING_ATTR in text, (
         "expected the served body to name layout.REFRESH_PENDING_ATTR (%r)"
         % layout.REFRESH_PENDING_ATTR)
-    assert '"%s"' % layout.QUICK_SWITCH_FAILED_ATTR in text, (
-        "expected the served body to read the translated failure copy off <body> (%r)"
-        % layout.QUICK_SWITCH_FAILED_ATTR)
+    for attr in (layout.QUICK_TOAST_ATTR, layout.QUICK_TOAST_TEMPLATE_ATTR):
+        assert '"%s"' % attr in text, (
+            "expected the served body to name the live region / translated toast template "
+            "hook %r" % attr)
 
 
 def test_quick_switch_pending_marker_is_layouts_own_name(app03_server):

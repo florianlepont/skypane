@@ -589,7 +589,8 @@ def test_server_data_grid_holds_three_tiles_migrated_cards_outside_grid(tmp_path
     # carry the nested modifier — checked unconditionally against the
     # whole page, since the modifier-bearing count assertion above already
     # proves no OTHER page-section carries it either.
-    assert 'class="page-section banner banner--anomaly page-section--nested"' not in rendered, (
+    assert not parse_html(rendered).select(
+        ".%s.page-section--nested" % health_page.HEALTH_SOURCE_FAULT_CLASS), (
         "the source-fault block must never carry the nested modifier")
 
 
@@ -1476,9 +1477,10 @@ def test_nested_heading_tier_promoted_to_sans_semibold_emphasis_role(tmp_path, c
             "expected the <section> carrying %r to declare page-section--nested, got %r"
             % (heading, section_tag))
 
-    assert '<section class="page-section banner banner--anomaly">' in rendered, (
-        "expected the source-fault block itself to render for this fixture")
-    assert 'class="page-section banner banner--anomaly page-section--nested"' not in rendered, (
+    fault = parse_html(rendered).select(
+        "section.toast." + health_page.HEALTH_SOURCE_FAULT_CLASS)
+    assert len(fault) == 1, "expected the source-fault block itself to render for this fixture"
+    assert "page-section--nested" not in fault[0].attrs["class"].split(), (
         "the source-fault block must never carry page-section--nested")
 
     for section_id, heading in (

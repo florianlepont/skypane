@@ -583,8 +583,8 @@ def test_anomaly_banner_names_real_categories_not_generic_only(tmp_path):
     assert "Data sources disagreed" in rendered, "expected the anomaly banner to name the real failing category"
     assert health_page.ANOMALY_BANNER_TEXT in rendered, (
         "expected ANOMALY_BANNER_TEXT to remain present as the banner's fallback tail")
-    assert 'class="banner__pill"' in rendered, (
-        "expected the anomaly banner to render banner__pill markup for the pill-based category naming")
+    assert 'class="toast__pill"' in rendered, (
+        "expected the anomaly toast to render toast__pill markup for the pill-based category naming")
 
 
 def test_anomaly_categories_never_lowercase_a_leading_acronym():
@@ -634,17 +634,25 @@ def test_anomaly_category_labels_are_pill_text_not_full_sentences():
 
 def test_anomaly_banner_html_matches_layout_anomaly_banner_severity_mapping():
     """_anomaly_banner_html() reproduces layout.anomaly_banner()'s exact
-    severity-to-class/role mapping, and carries one banner__pill per anomaly plus
-    the accessible ANOMALY_BANNER_TEXT tail"""
+    severity-to-tone/role mapping (both docked, persistent toasts), and carries one
+    toast__pill per anomaly plus the accessible ANOMALY_BANNER_TEXT tail"""
     anomalies = ["Device check-in is stale."]
-    error_banner = health_page._anomaly_banner_html("error", anomalies)
-    assert 'class="banner banner--anomaly"' in error_banner and 'role="alert"' in error_banner, (
-        "expected error severity to render banner--anomaly + role=\"alert\"")
+    for severity, tone, role in (("error", "toast--error", "alert"),
+                                 ("warn", "toast--warning", "status")):
+        own = parse_html(health_page._anomaly_banner_html(severity, anomalies)).select_one(".toast")
+        shared = parse_html(layout.anomaly_banner("x", severity=severity)).select_one(".toast")
+        for node in (own, shared):
+            classes = node.attrs["class"].split()
+            assert tone in classes and "toast--docked" in classes, (
+                "expected %s severity to render a docked %s toast, got %r"
+                % (severity, tone, classes))
+            assert node.attrs.get("role") == role, (
+                "expected %s severity to carry role=%r, got %r"
+                % (severity, role, node.attrs.get("role")))
+            assert not node.select(".toast__dismiss"), "a persistent state is never dismissable"
     warn_banner = health_page._anomaly_banner_html("warn", anomalies)
-    assert 'class="banner banner--warn"' in warn_banner and 'role="status"' in warn_banner, (
-        "expected warn severity to render banner--warn + role=\"status\"")
-    assert warn_banner.count('class="banner__pill"') == 1, (
-        "expected exactly one banner__pill for a single-anomaly fixture")
+    assert warn_banner.count('class="toast__pill"') == 1, (
+        "expected exactly one toast__pill for a single-anomaly fixture")
     assert health_page.ANOMALY_BANNER_TEXT in warn_banner, (
         "expected ANOMALY_BANNER_TEXT to remain present as the banner's accessible tail")
 
@@ -657,10 +665,12 @@ def test_anomaly_banner_renders_one_pill_per_anomaly_on_the_page(tmp_path):
     shp.seed_meta(str(tmp_path), **{
         history_db.META_LAST_PIPELINE_RUN: shp.ago(health_page.STALE_PIPELINE_ERROR_S + 60)})
     rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
-    assert rendered.count('<div class="banner ') == 1, "expected exactly one banner element"
-    assert rendered.count('class="banner__pill"') == 2, (
-        "expected exactly two banner__pill elements for this two-anomaly fixture "
-        "(stale device + stale pipeline), got %d" % rendered.count('class="banner__pill"'))
+    toasts = parse_html(rendered).select(".toast." + health_page.HEALTH_ANOMALY_CLASS)
+    assert len(toasts) == 1, "expected exactly one anomaly toast"
+    pills = toasts[0].select(".toast__pill")
+    assert len(pills) == 2, (
+        "expected exactly two toast__pill elements for this two-anomaly fixture "
+        "(stale device + stale pipeline), got %d" % len(pills))
 
 
 # ==========================================================================
@@ -850,11 +860,9 @@ def test_anomaly_detail_list_markup_is_gone(tmp_path):
     shp.seed_device_health(str(tmp_path), [(shp.ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
     rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
-    banner_at = rendered.index('<div class="banner ')
-    banner_end = rendered.index("</div>", banner_at) + len("</div>")
-    banner_slice = rendered[banner_at:banner_end]
-    assert banner_slice.count("<ul") == 0, "expected zero <ul occurrences inside the anomaly banner"
-    assert banner_slice.count("<li") == 0, "expected zero <li occurrences inside the anomaly banner"
+    banner = parse_html(rendered).select_one(".toast." + health_page.HEALTH_ANOMALY_CLASS)
+    assert not banner.select("ul"), "expected zero <ul elements inside the anomaly toast"
+    assert not banner.select("li"), "expected zero <li elements inside the anomaly toast"
     count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
     assert count == 1, "expected the anomaly banner copy exactly once, found %d" % count
 
