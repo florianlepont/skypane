@@ -570,7 +570,7 @@ def test_home_page_renders_widgets(app04_server, session_cookie):
             'class="home-columns home-picture-row home-signal-grid"',
             'id="home-current-frame"',
             "Recent flights", 'href="/flights"',
-            'class="home-fact text-label"',
+            'class="home-battery ',
             'class="nav-group nav-group--advanced"',
             'aria-labelledby="home-frame-state"',
             'action="%s"' % app_module.QUICK_DISPLAY_ROUTE,
