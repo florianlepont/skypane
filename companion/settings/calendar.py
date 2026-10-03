@@ -1,8 +1,8 @@
 """The Calendar settings group: the connection status block, the
 connect/replace/disconnect forms, the two-step disconnect confirmation
-page, and the full Calendar usage row of the Aspect card (built here so
-`companion.settings.theme` stays independent of this module — see that
-module's own docstring for why).
+page, and the calendar row of the look card's Special looks list (built
+here so `companion.settings.theme` stays independent of this module —
+see that module's own docstring for why).
 """
 from urllib.parse import urlsplit
 
@@ -13,13 +13,14 @@ import companion.page_context as page_context
 from server import device_config
 from server.plane import calendar_rules
 
+from companion import theme_preview
+from companion.settings import look
 from companion.settings.form import (
-    CALENDAR_HOW_IT_WORKS_SUMMARY, SETTINGS_FORM_ID, _field_error_attrs, _field_error_html,
+    CALENDAR_HOW_IT_WORKS_SUMMARY, _field_error_attrs, _field_error_html,
     _submitted_or_current)
 from companion.settings.theme import (
-    ASPECT_HEADING_ID, COLOUR_USAGE_CALENDAR, SAME_AS_DEPARTURES_LABEL,
-    _palette_grid_html, _same_as_departures_chip_html, _theme_label_message,
-    _usage_row_html, _usage_row_summary_html)
+    COLOUR_USAGE_CALENDAR, FRAME_COLOURS_ROW_LABELS, LOOK_CHANGE_ARIA_TEMPLATE,
+    LOOK_SHEET_TITLES, SAME_AS_DEPARTURES_LABEL, look_edit_html, look_target_attrs)
 
 
 # An immediate, session-gated POST outside SETTINGS_ROUTE and the
@@ -72,7 +73,7 @@ CALENDAR_REPLACE_BUTTON_TEXT = i18n.msg("calendar_group.replace", "Replace")
 # cannot keep. The file the URL is stored in is never named below.
 # Owned by companion/i18n_fr/display.py, not this module's own
 # calendar_group.py — the Display page's Calendar row shares this field
-# label/hint with the rest of the Aspect card's own display.py copy.
+# label/hint with the rest of the look card's own display.py copy.
 CALENDAR_URL_FIELD_LABEL = i18n.msg("display.calendar_feed_url", "Calendar feed URL")
 CALENDAR_URL_HINT = i18n.msg(
     "display.your_calendar_s_private_ical_link_stored_on_the",
@@ -262,7 +263,7 @@ def _calendar_url_field_html(errors=None):
 def _calendar_connection_html(
         configured, drift, last_synced_at, last_attempt_at, now, entry_count,
         errors=None, submitted=None, state_dir=None):
-    """Calendar's connection block inside the Aspect card's Calendar
+    """Calendar's connection block inside the look card's Calendar
     row: status, connect/replace form or masked URL, and the cross-DOM
     Disconnect button. Returns `(row_body_html, disconnect_form_html)`
     separately, since HTML forbids nesting the disconnect form inside
@@ -384,48 +385,84 @@ def calendar_disconnect_confirm_page(ctx):
     )
 
 
-def calendar_usage_row_html(
+CALENDAR_TAG = i18n.msg("look.calendar", "Calendar")
+CALENDAR_ROW_TITLE = i18n.msg("look.flights_in_your_calendar", "Flights in your calendar")
+CALENDAR_CONNECTION_SUMMARY = i18n.msg("look.calendar_connection", "Calendar connection")
+
+
+def special_mini_html(theme_id, opener_label=None):
+    """The small framed render every Special looks row leads with. With
+    `opener_label`, a script-revealed button over it opens the look
+    sheet for that row.
+    """
+    width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[theme_preview.FRAME_PREVIEW_SIZE_SMALL]
+    opener_html = ""
+    if opener_label is not None:
+        opener_html = (
+            '<button type="button" class="look-frame__open" data-look-open hidden '
+            'aria-haspopup="dialog" aria-label="%s"></button>' % escape_html(opener_label))
+    return (
+        '<span class="special-row__mini">'
+        '<img class="special-row__image" data-look-image src="%s" width="%d" height="%d" alt="">'
+        "%s</span>"
+    ) % (
+        escape_html(theme_preview.frame_preview_src(
+            theme_id, theme_preview.FRAME_PREVIEW_STATE_DEPARTING,
+            theme_preview.FRAME_PREVIEW_SIZE_SMALL)),
+        width, height, opener_html)
+
+
+def calendar_special_row_html(
         departures_safe_id, current_calendar_theme_id, configured, drift,
         last_synced_at, last_attempt_at, now, entry_count,
         errors=None, submitted=None, state_dir=None):
-    """The complete Calendar usage row for the Aspect card: the
-    theme-selection palette (falling back to `departures_safe_id` when
-    unset, exactly like `_aspect_card_html()`'s own Arrivals row) plus
-    the connection status block `_calendar_connection_html()` builds.
-    Returns `(row_html, disconnect_form_html)` — the disconnect form is
-    a sibling fragment of the whole Aspect card, never nested inside
-    this row; `companion.settings.theme._aspect_card_html()` appends it
-    after the card itself, unchanged from before this split.
+    """The calendar row of the Special looks list: a mini render of the
+    look calendar flights get, its read-back and connection verdict, the
+    "Change" control (the colour x style table, with "Same as
+    departures" first), and the connection block in its own disclosure.
+    Returns `(row_html, disconnect_form_html)`: the disconnect form is a
+    sibling of the whole look card, never nested in this row.
     """
     effective_calendar = _submitted_or_current(
         submitted, "calendar_theme_id", current_calendar_theme_id)
-    calendar_same_checked = not effective_calendar
-    calendar_leading = _same_as_departures_chip_html(
-        "calendar_theme_id", calendar_same_checked, radio_form_id=SETTINGS_FORM_ID)
-    if calendar_same_checked:
-        calendar_meta = i18n.t(SAME_AS_DEPARTURES_LABEL)
-        calendar_swatch_id = departures_safe_id
-    else:
-        calendar_safe_id = (
-            effective_calendar if effective_calendar in device_config.THEMES
-            else departures_safe_id)
-        calendar_meta = _theme_label_message(calendar_safe_id)
-        calendar_swatch_id = calendar_safe_id
-    # The calendar's connection block nests directly beneath this row's
-    # palette and field error. The disconnect form returned alongside
-    # it is not part of the row body: it is a sibling fragment of the
-    # whole .aspect-card div, concatenated onto the caller's own return
-    # value.
-    calendar_connection_row_html, calendar_disconnect_form_html = _calendar_connection_html(
+    same_checked = not effective_calendar
+    picture_id = (
+        departures_safe_id if same_checked or effective_calendar not in device_config.THEMES
+        else effective_calendar)
+    sentence = i18n.t(SAME_AS_DEPARTURES_LABEL) if same_checked else look.look_sentence(picture_id)
+    usage_label = i18n.t(FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_CALENDAR])
+    small = theme_preview.FRAME_PREVIEW_SIZE_SMALL
+    table_html = look.look_table_html(
+        "calendar_theme_id", "" if same_checked else effective_calendar, usage_label,
+        lambda theme_id: theme_preview.frame_preview_src(
+            theme_id, theme_preview.FRAME_PREVIEW_STATE_DEPARTING, small),
+        leading_html=look.same_option_html(
+            "calendar_theme_id", same_checked, i18n.t(SAME_AS_DEPARTURES_LABEL)))
+    connection_html, disconnect_form_html = _calendar_connection_html(
         configured, drift, last_synced_at, last_attempt_at, now, entry_count,
         errors=errors, submitted=submitted, state_dir=state_dir)
-    calendar_row = _usage_row_html(
-        COLOUR_USAGE_CALENDAR,
-        _usage_row_summary_html(
-            COLOUR_USAGE_CALENDAR, calendar_swatch_id, meta_text=calendar_meta),
-        _palette_grid_html(
-            "calendar_theme_id", effective_calendar, radio_form_id=SETTINGS_FORM_ID,
-            leading_html=calendar_leading, labelled_by=ASPECT_HEADING_ID)
-        + _field_error_html(errors, "calendar_theme_id", "calendar-theme")
-        + calendar_connection_row_html)
-    return calendar_row, calendar_disconnect_form_html
+    verdict = i18n.t(
+        CALENDAR_STATUS_CONNECTED_VERDICT if configured and not drift
+        else CALENDAR_STATUS_NOT_CONNECTED_VERDICT)
+    row_html = (
+        '<li class="special-row special-row--calendar" data-look-anchor%s>'
+        '<div class="special-row__main">%s'
+        '<div class="special-row__text">'
+        '<p class="special-row__title"><span class="special-row__tag">%s</span>%s</p>'
+        '<p class="special-row__meta"><span data-look-sentence>%s</span> · %s</p>'
+        "</div>%s</div>%s"
+        '<details class="calendar-connection"><summary>%s</summary>'
+        '<div class="calendar-connection__body">%s</div></details>'
+        "</li>"
+    ) % (
+        look_target_attrs(
+            COLOUR_USAGE_CALENDAR, "calendar_theme_id", theme_preview.FRAME_PREVIEW_STATE_DEPARTING,
+            small, True, title=i18n.t(LOOK_SHEET_TITLES[COLOUR_USAGE_CALENDAR])),
+        special_mini_html(picture_id, opener_label=i18n.t(LOOK_CHANGE_ARIA_TEMPLATE) % usage_label),
+        escape_html(i18n.t(CALENDAR_TAG)), escape_html(i18n.t(CALENDAR_ROW_TITLE)),
+        escape_html(sentence), escape_html(verdict),
+        look_edit_html(COLOUR_USAGE_CALENDAR, table_html, icon_only=True),
+        _field_error_html(errors, "calendar_theme_id", "calendar-theme"),
+        escape_html(i18n.t(CALENDAR_CONNECTION_SUMMARY)), connection_html,
+    )
+    return row_html, disconnect_form_html

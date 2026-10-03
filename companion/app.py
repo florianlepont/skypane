@@ -161,6 +161,7 @@ ILLUSTRATION_IMAGE_ROUTE_PREFIX = "/illustration/"
 # not a page module, owns this prefix since it is also used from
 # config_page.py's own theme-picker markup.
 THEME_PREVIEW_ROUTE_PREFIX = theme_preview.THEME_PREVIEW_ROUTE_PREFIX
+FRAME_PREVIEW_ROUTE_PREFIX = theme_preview.FRAME_PREVIEW_ROUTE_PREFIX
 RULES_ADD_ROUTE = config_page.RULES_ADD_ROUTE
 RULES_DELETE_ROUTE_PREFIX = config_page.RULES_DELETE_ROUTE_PREFIX
 RULES_DELETE_ROUTE_SUFFIX = config_page.RULES_DELETE_ROUTE_SUFFIX
@@ -782,6 +783,28 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
                 self.args.state_dir, theme_id, live_event=live_event)
         except OSError:
             return self.send_html(404, self._not_found_page())
+        except Exception:
+            return self.send_html(404, self._not_found_page())
+        if payload is None:
+            return self.send_html(404, self._not_found_page())
+        return self.send_bytes(200, "image/png", payload, cache_seconds=300)
+
+    def _serve_frame_preview_image(self, theme_id):
+        # Every part is an allow-list member before it reaches the cache
+        # path: the theme id from the registry, state and size from
+        # theme_preview's own tuples. A missing parameter takes the
+        # default; an unknown one is a 404, never a guess.
+        if theme_id not in device_config.THEMES:
+            return self.send_html(404, self._not_found_page())
+        query = parse_qs(urlsplit(self.path).query)
+        state = query.get("state", [theme_preview.FRAME_PREVIEW_STATE_DEPARTING])[0]
+        size = query.get("size", [theme_preview.FRAME_PREVIEW_SIZE_LARGE])[0]
+        if (state not in theme_preview.FRAME_PREVIEW_STATES
+                or size not in theme_preview.FRAME_PREVIEW_SIZES):
+            return self.send_html(404, self._not_found_page())
+        try:
+            payload = theme_preview.cached_frame_preview_bytes(
+                self.args.state_dir, theme_id, state, size)
         except Exception:
             return self.send_html(404, self._not_found_page())
         if payload is None:

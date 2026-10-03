@@ -62,6 +62,7 @@ UPDATE_INSTALL_ROUTE = update_page.INSTALL_ROUTE
 UPDATE_CANCEL_ROUTE = update_page.CANCEL_ROUTE
 
 THEME_PREVIEW_ROUTE_PREFIX = theme_preview.THEME_PREVIEW_ROUTE_PREFIX
+FRAME_PREVIEW_ROUTE_PREFIX = theme_preview.FRAME_PREVIEW_ROUTE_PREFIX
 
 
 def _static_get_routes():
@@ -129,6 +130,9 @@ _GET_ROUTES = (
         Route(
             "GET", PrefixSuffix(THEME_PREVIEW_ROUTE_PREFIX, ".png"),
             lambda h, m: h._serve_theme_preview_image(m.captured), True),
+        Route(
+            "GET", PrefixSuffix(FRAME_PREVIEW_ROUTE_PREFIX, ".png"),
+            lambda h, m: h._serve_frame_preview_image(m.captured), True),
     )
 )
 

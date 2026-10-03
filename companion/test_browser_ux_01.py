@@ -787,11 +787,11 @@ def test_three_runway_cards_share_one_line_at_390px(new_context, server):
 
 
 def test_selecting_a_theme_chip_answers_and_moves_no_layout_box(new_context, server):
-    """At 390px selecting a palette chip answers — the chip's border-colour changes to the
-    accent, an inset accent ring (box-shadow) appears, and the .palette-chip__name wash
-    changes — while its own layout box, the grid's own box, and every chip's position inside
-    it are plain-equal before and after, so a selected card can never be a different size from
-    its siblings through the selection signal.
+    """At 390px selecting a cell of the departures look table answers — the cell's border-colour
+    changes to the accent, an inset accent ring (box-shadow) appears, and its wash changes —
+    while its own layout box, the table's own box, and every cell's position inside it are
+    plain-equal before and after, so a selected cell can never be a different size from its
+    siblings through the selection signal.
     """
     # Selection paints instantly via border/box-shadow/wash and carries no transform or
     # transition on this component, so the box is read through offsetWidth/offsetHeight/
@@ -812,23 +812,26 @@ def test_selecting_a_theme_chip_answers_and_moves_no_layout_box(new_context, ser
         _login(page, server.base_url())
         page.goto(server.base_url() + "/display")
         page.wait_for_load_state("networkidle")
+        # The table is the no-script control; open its disclosure directly, since with scripts
+        # its summary opens the look sheet instead.
+        page.eval_on_selector(
+            '[data-look-usage="departures"] details.look-edit', "d => { d.open = true; }")
 
         probe = (
             "() => {"
             "const row = document.querySelector("
-            "'details.usage-row[data-usage=\"departures\"]');"
-            "if (!row) return {error: 'no departures row'};"
-            "const chips = [...row.querySelectorAll('label.palette-chip')]"
+            "'[data-look-usage=\"departures\"] details.look-edit');"
+            "if (!row) return {error: 'no departures table'};"
+            "const chips = [...row.querySelectorAll('label.look-cell')]"
             ".filter(c => c.querySelector('input[type=radio]'));"
             "if (chips.length < 2) return {error: 'chips: ' + chips.length};"
             "const target = chips.find("
             "c => !c.querySelector('input[type=radio]').checked);"
             "if (!target) return {error: 'every chip is already checked'};"
-            "const grid = target.closest('.palette');"
-            "if (!grid) return {error: 'no .palette'};"
+            "const grid = target.closest('.look-table');"
+            "if (!grid) return {error: 'no .look-table'};"
             "const read = e => { const s = getComputedStyle(e);"
-            "const name = e.querySelector('.palette-chip__name');"
-            "const ns = name ? getComputedStyle(name) : null;"
+            "const ns = s;"
             "return {w: e.offsetWidth, h: e.offsetHeight,"
             " left: e.offsetLeft - grid.offsetLeft,"
             " top: e.offsetTop - grid.offsetTop,"
@@ -843,12 +846,12 @@ def test_selecting_a_theme_chip_answers_and_moves_no_layout_box(new_context, ser
         before = page.evaluate(probe)
         if before.get("error"):
             raise AssertionError(
-                "could not find an unchecked palette chip: %s" % (before["error"],))
+                "could not find an unchecked table cell: %s" % (before["error"],))
         value = before["value"]
         _click_control(
             page,
-            'details.usage-row[data-usage="departures"] '
-            'label.palette-chip input[type=radio][value="%s"]' % value)
+            '[data-look-usage="departures"] details.look-edit '
+            'label.look-cell input[type=radio][value="%s"]' % value)
         # No transition to wait out any more (see the comment above) - a
         # short settle for the change event/repaint is still cheap
         # insurance.
@@ -866,7 +869,7 @@ def test_selecting_a_theme_chip_answers_and_moves_no_layout_box(new_context, ser
         # --- 1. the answer is real -------------------
         if before["chip"]["boxShadow"] not in ("none", ""):
             raise AssertionError(
-                "expected an UNSELECTED palette chip to carry no box-shadow, got "
+                "expected an UNSELECTED table cell to carry no box-shadow, got "
                 "%r" % (before["chip"]["boxShadow"],))
         if after["chip"]["boxShadow"] in ("none", ""):
             raise AssertionError(
@@ -880,7 +883,7 @@ def test_selecting_a_theme_chip_answers_and_moves_no_layout_box(new_context, ser
                 "accent, both read %r" % (after["chip"]["borderColor"],))
         if before["chip"]["wash"] == after["chip"]["wash"]:
             raise AssertionError(
-                "expected the selected chip's .palette-chip__name wash to change "
+                "expected the selected cell's wash to change "
                 "on selection, both read %r" % (after["chip"]["wash"],))
 
         # --- 2. and nothing moved --------------------

@@ -140,95 +140,48 @@ def test_both_dialogs_fade_in_and_leave_nothing_behind(new_context, server, rout
 
 
 def test_the_live_preview_crossfade_settles_correct_through_its_own_listener(new_context, server):
-    """The live theme preview crossfades — proven by the opacity transition the browser
-    creates on the preview image, caught as a transitionrun event rather than sampled at a
-    guessed instant — and settles on the theme that was actually selected, fully opaque rather
-    than stuck mid-fade, driven entirely by theme-preview.js's own delegated listener with no
-    save and no dirty-state.js involvement at all.
+    """The departures picture follows a change to the departures look and settles on the theme
+    that was actually selected - its src is that radio's own data-preview-src, the new image
+    really loads and the picture stays fully opaque - driven entirely by theme-preview.js's own
+    delegated listener with no save and no dirty-state.js involvement at all.
     """
-    # This asserts the settled state after the transition, never a frame during it. The live
-    # preview follows a chip selection through theme-preview.js's own delegated listener on the
-    # card, with dirty-state.js never in the loop — this check drives no Cancel and no save.
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + "/display")
         page.wait_for_load_state("networkidle")
-        read = (
-            "() => { const i ="
-            " document.querySelector('.theme-live-preview__image');"
-            "return {src: i.getAttribute('src'),"
-            " opacity: parseFloat(getComputedStyle(i).opacity)}; }")
-        page.evaluate(read)  # pre-click baseline, not compared below
         target = page.evaluate(
             "() => { const row = document.querySelector("
-            "'details.usage-row[data-usage=\"departures\"]');"
-            "const chip = [...row.querySelectorAll('label.palette-chip')].find("
+            "'[data-look-usage=\"departures\"] details.look-edit');"
+            "const cell = [...row.querySelectorAll('label.look-cell')].find("
             "c => c.getAttribute('data-preview-src')"
             " && !c.querySelector('input[type=radio]').checked);"
-            "return chip ? {value: chip.querySelector("
-            "'input[type=radio]').value,"
-            " src: chip.getAttribute('data-preview-src')} : null; }")
+            "return cell ? {value: cell.querySelector('input[type=radio]').value,"
+            " src: cell.getAttribute('data-preview-src')} : null; }")
         if not target:
-            raise AssertionError("found no unchecked departures palette chip to click")
-        # Click, then wait for the transition itself to be created rather than sampling at a
-        # guessed instant: `transitionrun` fires when the browser creates the transition,
-        # before any delay or the first painted step, independent of frame timing. The listener
-        # is on `document` in the capture phase because the crossfade swaps layer elements, so
-        # a listener bound to whichever image existed before the click could watch the wrong one.
-        mid = page.evaluate(
-            "sel => new Promise(resolve => {"
-            "let ran = null;"
-            "const onRun = e => {"
-            "if (ran) return;"
-            "if (e.propertyName !== 'opacity') return;"
-            "if (!(e.target instanceof Element)) return;"
-            "if (!e.target.matches('.theme-live-preview__image')) return;"
-            "const s = getComputedStyle(e.target);"
-            "ran = {opacity: parseFloat(s.opacity), dur: s.transitionDuration,"
-            " props: s.transitionProperty};"
-            "};"
-            "document.addEventListener('transitionrun', onRun, true);"
-            "document.querySelector(sel).click();"
-            "setTimeout(() => {"
-            "document.removeEventListener('transitionrun', onRun, true);"
-            "const i = document.querySelector('.theme-live-preview__image');"
-            "const s = i ? getComputedStyle(i) : null;"
-            "resolve({ran: ran, dur: s && s.transitionDuration,"
-            " props: s && s.transitionProperty});"
-            "}, 400);"
-            "})",
-            'details.usage-row[data-usage="departures"] '
-            'label.palette-chip input[type=radio][value="%s"]' % target["value"])
-        if not mid["ran"]:
-            raise AssertionError(
-                "expected the live preview to CROSSFADE — no opacity transition "
-                "was created on .theme-live-preview__image within 400ms of the "
-                "chip being selected (the preview's own computed transition is "
-                "%r on %r) — a preview that changes with no transition at all is "
-                "the CUT this plan replaces, and every other assertion in this "
-                "check is satisfied by that cut"
-                % (mid["dur"], mid["props"]))
-        page.wait_for_timeout(900)
-        settled = page.evaluate(read)
-        if settled["src"] != target["src"]:
-            raise AssertionError(
-                "the crossfade settled on the WRONG theme: the preview reads %r "
-                "after selecting the chip whose own data-preview-src is %r "
-                "(T-23-38)" % (settled["src"], target["src"]))
-        if settled["opacity"] != 1:
-            raise AssertionError(
-                "the crossfade settled INVISIBLE (opacity %r) — a fade-out with "
-                "no fade back in is worse than the cut it replaced"
-                % (settled["opacity"],))
+            raise AssertionError("found no unchecked departures table cell to select")
+        _click_control(
+            page,
+            '[data-look-usage="departures"] details.look-edit '
+            'label.look-cell input[type=radio][value="%s"]' % target["value"])
+        page.wait_for_function(
+            "src => { const i = document.querySelector("
+            "'[data-look-usage=\"departures\"] img.look-frame__image');"
+            " return i.getAttribute('src') === src && i.complete && i.naturalWidth > 0; }",
+            arg=target["src"], timeout=10000)
+        opacity = page.evaluate(
+            "() => parseFloat(getComputedStyle(document.querySelector("
+            "'[data-look-usage=\"departures\"] img.look-frame__image')).opacity)")
+        if opacity != 1:
+            raise AssertionError("the picture settled at opacity %r, not fully visible" % (opacity,))
     finally:
         context.close()
 
 
 def test_images_hold_their_place_before_they_arrive(new_context, server):
-    """Home's frame picture and a theme chip's preview band each reserve their final box
-    before their image arrives: the real request is held, the real box is measured unloaded
+    """Home's frame picture and the Display page's departures picture each reserve their final
+    box before their image arrives: the real request is held, the real box is measured unloaded
     (and asserted to be a real box, not a collapsed one, with a skeleton painted in it), the
     request is let through, and the box after the decoded image lands is plain-equal to the
     box before it, at the 360px contract floor and at 1280px.
@@ -239,15 +192,11 @@ def test_images_hold_their_place_before_they_arrive(new_context, server):
     # on a fast machine and proves nothing.
     surfaces = (
         ("/", ".preview-frame", ".preview-frame__image", "**/gallery/**", 100, ()),
-        # The accordion's own .palette-chip renders no <img> (a CSS-drawn shape only), so the
-        # one surviving .theme-chip/.theme-chip__preview pair on Display lives inside the rules
-        # row's own nested, closed-by-default rule-add disclosure — opened here before
-        # measuring. 30 because that chip is the compact variant, whose band is 36px rather
-        # than the base 56px — measured, not assumed.
-        ("/display", ".theme-chip", ".theme-chip__preview",
-         "**/theme-preview/**", 30,
-         ('details.usage-row[data-usage="rules"] > summary',
-          '.rule-add > summary')),
+        # 150: at 360px each of the two pictures is about 140px wide, so a 3:4 box is ~190px
+        # tall - measured, not assumed.
+        ("/display", '[data-look-usage="departures"] .look-frame__picture',
+         '[data-look-usage="departures"] .look-frame__image',
+         "**/frame-preview/**", 150, ()),
     )
     for width in (VIEWPORT_MIN_SUPPORTED["width"], VIEWPORT_DESKTOP["width"]):
         for route_path, box_sel, img_sel, url_glob, floor, openers in surfaces:
@@ -303,7 +252,7 @@ def test_images_hold_their_place_before_they_arrive(new_context, server):
                 page.wait_for_function(
                     "sel => { const i = document.querySelector(sel);"
                     " return i.complete && i.naturalWidth > 0; }",
-                    arg=img_sel, timeout=5000)
+                    arg=img_sel, timeout=10000)
                 page.wait_for_timeout(200)
                 after = page.evaluate(read, [box_sel, img_sel])
                 if before["box"] != after["box"]:

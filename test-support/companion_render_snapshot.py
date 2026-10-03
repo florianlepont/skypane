@@ -136,6 +136,7 @@ _UNAUTH_GET_REQUESTS = (
     companion_app.RUNWAY_IMAGE_ROUTE_PREFIX + "09.png",
     companion_app.ILLUSTRATION_IMAGE_ROUTE_PREFIX + "air-france.png",
     companion_app.THEME_PREVIEW_ROUTE_PREFIX + "midnight.png",
+    companion_app.FRAME_PREVIEW_ROUTE_PREFIX + "white.png",
     _NOT_FOUND_PATH,
 )
 

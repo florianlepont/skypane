@@ -942,7 +942,7 @@ def test_display_and_device_pages_split_the_groups(app04_server, session_cookie)
         assert "Screen: Plane frame" not in text, (
             "expected the retired screen-type caption to stay off the %s page" % scope)
     assert "Refresh now" in device_text, "expected the Device page to carry the Refresh now action"
-    rules_panel_marker = 'data-usage="rules"'
+    rules_panel_marker = 'data-look-usage="rules"'
     assert rules_panel_marker not in device_text, (
         "expected the Device page NOT to carry the rules editor (moved to Display, 20-07/D-10)")
     assert rules_panel_marker in display_text, (
