@@ -63,6 +63,17 @@ Subcommands:
                  must never fail a developer's routine glance just
                  because the run has not finished yet.
 
+  run-report     Turn raw device_health JSON-Lines rows plus an owner-supplied
+                 params file (--params) into a JSON report (--out) and a
+                 human summary. Three verdicts stay separate - continuity,
+                 voltage_validity, baseline - and the cycle count is
+                 reconciled three ways (nominal, observed polls, device
+                 boot-counter delta). Thresholds are the fixed
+                 pre-registered values, with no flags to retune them.
+                 Refuses with exit 2, writing no report, when a required
+                 param is missing, no usable row exists, rows are out of
+                 order, or rows predate the pre-registration time.
+
   selftest       Run check-backoff against the three fixtures under
                  hardware/fixtures/, and check-battery against five
                  more (including a from-journal-converted one and a
@@ -72,15 +83,16 @@ Subcommands:
                  bad ones are rejected. A checker that has never been
                  shown a bad log has not been tested.
 
-Only argparse, datetime, json, os, re, subprocess and sys are imported —
-no pip install, matching this phase's zero-external-install property.
-json is the sole addition beyond the original six, needed to parse
-from-history-db's JSON-Lines input; sqlite3 is deliberately not
+Only argparse, datetime, hashlib, json, os, re, subprocess and sys are
+imported - no pip install, matching this phase's zero-external-install
+property. json parses from-history-db's JSON-Lines input and hashlib
+fingerprints the raw export in run-report; sqlite3 is deliberately not
 imported here — history.db lives on the VPS and is read over SSH, never
 opened directly by this file.
 """
 import argparse
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -391,6 +403,23 @@ class BatteryPoll(object):
         self.line = line
 
 
+def parse_battery_lines(lines):
+    """Return (all_matches, polls) for an iterable of log lines, with the
+    same meaning as load_battery_polls() has for a set of files.
+    """
+    all_matches = 0
+    polls = []
+    for line in lines:
+        m = BATTERY_MV_RE.search(line)
+        if not m:
+            continue
+        all_matches += 1
+        ts = parse_timestamp(line)
+        if ts is not None:
+            polls.append(BatteryPoll(ts, int(m.group(1)), line))
+    return all_matches, polls
+
+
 def load_battery_polls(paths):
     """Return (all_matches, polls): all_matches is the count of lines
     carrying an X-Battery-Mv token regardless of whether they also carry
@@ -405,14 +434,9 @@ def load_battery_polls(paths):
     polls = []
     for path in paths:
         with open(path, "r", errors="replace") as fh:
-            for line in fh:
-                m = BATTERY_MV_RE.search(line)
-                if not m:
-                    continue
-                all_matches += 1
-                ts = parse_timestamp(line)
-                if ts is not None:
-                    polls.append(BatteryPoll(ts, int(m.group(1)), line))
+            file_matches, file_polls = parse_battery_lines(fh)
+        all_matches += file_matches
+        polls.extend(file_polls)
     return all_matches, polls
 
 
@@ -699,6 +723,39 @@ def cmd_from_journal(args):
 # with a uniqueness constraint on the insert. No rotation-triggered
 # repair path is needed or provided here; this is a genuine
 # simplification relative to from-journal, not an omission.
+def history_row_to_line(row):
+    """Return the bracketed [ISO-8601] telemetry line for one parsed
+    device_health row, or None when the row carries no usable measurement:
+    it is not an object, has no non-empty string `ts`, its `battery_mv`
+    cannot be coerced to int, or the assembled line fails
+    parse_timestamp().
+    """
+    if not isinstance(row, dict):
+        return None
+    ts_raw = row.get("ts")
+    if not isinstance(ts_raw, str) or not ts_raw:
+        return None
+    try:
+        battery_mv = int(row.get("battery_mv"))
+    except (TypeError, ValueError):
+        return None
+
+    tokens = []
+    for header, value in (
+        ("X-Fw-Version", row.get("fw_version")),
+        ("X-Boot-Reason", row.get("boot_reason")),
+        ("X-Rssi", row.get("rssi")),
+        ("X-Battery-Mv", battery_mv),
+    ):
+        if value is None or value == "":
+            continue
+        tokens.append("%s=%s" % (header, value))
+    out = "[%s]   telemetry: %s" % (normalize_journal_timestamp(ts_raw), " ".join(tokens))
+    if parse_timestamp(out) is None:
+        return None
+    return out
+
+
 def cmd_from_history_db(args):
     """Convert JSON-Lines `device_health` rows (one JSON object per line,
     as printed by the canonical remote query documented above) into the
@@ -749,32 +806,8 @@ def cmd_from_history_db(args):
         if not isinstance(row, dict):
             dropped += 1
             continue
-        ts_raw = row.get("ts")
-        if not isinstance(ts_raw, str) or not ts_raw:
-            dropped += 1
-            continue
-        try:
-            battery_mv = int(row.get("battery_mv"))
-        except (TypeError, ValueError):
-            dropped += 1
-            continue
-
-        ts_norm = normalize_journal_timestamp(ts_raw)
-
-        tokens = []
-        for header, value in (
-            ("X-Fw-Version", row.get("fw_version")),
-            ("X-Boot-Reason", row.get("boot_reason")),
-            ("X-Rssi", row.get("rssi")),
-            ("X-Battery-Mv", battery_mv),
-        ):
-            if value is None or value == "":
-                continue
-            tokens.append("%s=%s" % (header, value))
-        message = "  telemetry: " + " ".join(tokens)
-
-        out = "[%s] %s" % (ts_norm, message)
-        if parse_timestamp(out) is None:
+        out = history_row_to_line(row)
+        if out is None:
             dropped += 1
             continue
         sys.stdout.write(out + "\n")
