@@ -1446,9 +1446,9 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
     # render of each route.
     per_route_min = {
         layout.HOME_ROUTE: 0, layout.DISPLAY_ROUTE: 5, layout.FLIGHTS_ROUTE: 0,
-        layout.AIRLINES_ROUTE: 2, layout.HEALTH_ROUTE: 4, layout.DEVICE_ROUTE: 3,
+        layout.AIRLINES_ROUTE: 2, layout.HEALTH_ROUTE: 2, layout.DEVICE_ROUTE: 3,
     }
-    site_total_min = 28
+    site_total_min = 24
 
     skip_counts = {"en": 0, "fr": 0}
     site_total_captions = 0

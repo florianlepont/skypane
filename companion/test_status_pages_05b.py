@@ -255,7 +255,6 @@ def test_health_page_renders_in_french(tmp_path):
     for french_text in ("Écran", "Serveur et données", "Se connecte normalement"):
         assert french_text in rendered, "expected the French string %r in the rendered page" % (french_text,)
     for english_text in (
-            "Screen status and server data quality, in one place.",
             _battery_section_heading("en"), "Checking in normally", "Server & data"):
         assert english_text not in rendered, (
             "expected no English source string %r to leak into the French render" % (english_text,))
@@ -273,7 +272,7 @@ def test_health_page_renders_byte_identical_in_english(tmp_path):
     finally:
         prefs.set_request_prefs(lang="en")
     for english_text in (
-            health_page.PAGE_PURPOSE_TEXT, health_page.SCREEN_SECTION_HEADING,
+            health_page.SCREEN_SECTION_HEADING,
             layout.escape_html(health_page.SERVER_DATA_SECTION_HEADING),
             _battery_section_heading(), health_page.DEVICE_STATE_TEXT["ok"], "Health"):
         assert english_text in rendered, "expected the unchanged English string %r under lang='en'" % (

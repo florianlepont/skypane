@@ -13,7 +13,7 @@ import pytest
 
 from companion import i18n, illustration_normalize, layout
 from companion.i18n_fr import health as i18n_fr_health
-from companion.pages import airlines_page, health_page, history_page
+from companion.pages import airlines_page, config_page, health_page, history_page
 import companion.test_status_pages_helpers as shp
 from companion_app_server import served_asset, served_stylesheet
 from companion_markup import css_rules, declarations_for, rules_with_selector
@@ -658,9 +658,9 @@ def test_health_tile_icons_are_tile_only_and_no_heading_carries_a_glyph(tmp_path
 
     state_dir = str(tmp_path)
     empty_rendered = health_page.render(shp.ctx(state_dir))
-    assert empty_rendered.count("<use") == 4, (
-        "expected exactly four <use occurrences on the empty render (three tile icons plus "
-        "the auto-refresh pill icon)")
+    assert empty_rendered.count("<use") == 3, (
+        "expected exactly three <use occurrences on the empty render (the three tile icons; "
+        "Health carries no auto-refresh pill any more)")
     for icon_id in three:
         assert empty_rendered.count("#" + icon_id) == 1
     assert empty_rendered.count(layout.STAT_TILE_ICON_CLASS) == 3, (
@@ -673,8 +673,8 @@ def test_health_tile_icons_are_tile_only_and_no_heading_carries_a_glyph(tmp_path
                 "example_callsign": "ABC123"},
     })
     seeded_rendered = health_page.render(shp.ctx(state_dir, shp.iso(now)))
-    assert seeded_rendered.count("<use") == 5, (
-        "expected exactly five <use occurrences on a seeded render (the same four plus "
+    assert seeded_rendered.count("<use") == 4, (
+        "expected exactly four <use occurrences on a seeded render (the same three plus "
         "icon-search in the unresolved-prefixes filter bar)")
     _headings_carry_no_glyph(seeded_rendered, 5)
 
@@ -718,12 +718,31 @@ def test_freshness_js_carries_the_refresh_loop_contract(freshness_js):
         assert required in js, "expected %r to be present in freshness.js" % required
 
 
+def _display_render(state_dir, now_iso):
+    """Display still carries the page-header freshness line and its refresh pill."""
+    return config_page.render(
+        {"device_config": {}, "state_dir": state_dir, "poll_cooldown_remaining": 0, "now": now_iso},
+        scope=config_page.SCOPE_DISPLAY)
+
+
+def test_health_carries_no_auto_refresh_pill_or_freshness_line(tmp_path):
+    """Health's header no longer renders the refresh pill, the data-loaded-at marker or the
+    freshness line, seeded or on a fresh state directory"""
+    for seed_readings in (True, False):
+        state_dir = tmp_path / ("seeded" if seed_readings else "fresh")
+        state_dir.mkdir()
+        if seed_readings:
+            shp.seed_device_health(str(state_dir), [(shp.iso(shp.now()), 4190)])
+        rendered = health_page.render(shp.ctx(str(state_dir), shp.iso(shp.now())))
+        for needle in ("data-refresh-pill", "data-loaded-at", "page-header__freshness"):
+            assert needle not in rendered, "expected %r to be gone from the Health page" % needle
+
+
 def test_auto_refresh_pill_markup_contract_holds_seeded_and_fresh(tmp_path):
     """The auto-refresh pill's markup contract (marker attribute, inline element, hidden-by-
     default, live data-loaded-at exactly once page-wide, the pill-copy constant's own value,
-    inside .page-header, preceding the purpose sentence) holds on a real render both seeded and on
-    a fresh state directory with no readings at all — proven unconditional, not coupled to the
-    battery chart's own render branch"""
+    inside .page-header) holds on a real Display render (the page that keeps the freshness line)
+    both seeded and on a fresh state directory with no readings at all"""
     for label, seed_readings in (("seeded", True), ("fresh/no-readings", False)):
         state_dir = tmp_path / ("seeded" if seed_readings else "fresh")
         state_dir.mkdir()
@@ -735,7 +754,7 @@ def test_auto_refresh_pill_markup_contract_holds_seeded_and_fresh(tmp_path):
                 (shp.iso(now), 4190),
             ])
         now_iso = shp.iso(now)
-        rendered = health_page.render(shp.ctx(state_dir, now_iso))
+        rendered = _display_render(state_dir, now_iso)
         assert rendered.count("data-refresh-pill") == 1, (
             "%s state: expected exactly one pill marker attribute" % label)
         start = rendered.index("data-refresh-pill")
@@ -748,15 +767,13 @@ def test_auto_refresh_pill_markup_contract_holds_seeded_and_fresh(tmp_path):
             "%s state: expected data-loaded-at to carry the real now value" % label)
         assert rendered.count("data-loaded-at") == 1, (
             "%s state: expected exactly one data-loaded-at, page-wide" % label)
-        assert health_page.REFRESH_PILL_TEXT in rendered, (
+        assert layout.REFRESH_PILL_TEXT in rendered, (
             "%s state: expected the pill copy constant's own value in the rendered page" % label)
         header_start = rendered.index('<div class="page-header">')
         header_end = rendered.index("</div>", header_start) + len("</div>")
         assert "data-refresh-pill" in rendered[header_start:header_end], (
             "%s state: expected the pill inside the .page-header div" % label)
-        purpose_at = rendered.index(layout.escape_html(health_page.PAGE_PURPOSE_TEXT))
-        assert start < purpose_at, (
-            "%s state: expected the pill to precede the purpose sentence" % label)
+        assert layout.escape_html(health_page.PAGE_PURPOSE_TEXT) not in rendered
 
 
 def test_refresh_pill_stylesheet_contract(css_text):
@@ -840,7 +857,7 @@ def test_pipeline_tile_second_line_falls_back_honestly_when_no_detection(tmp_pat
 
 
 def test_health_header_renders_the_persistent_freshness_note(tmp_path):
-    """Health's header renders an honest 'Updated HH:MM' clock — server-rendered as the text of a
+    """Display's header (the page that keeps the freshness line) renders an honest 'Updated HH:MM' clock — server-rendered as the text of a
     <time data-relative> element, never the ladder's zero bucket, so the value is true with
     scripts blocked and live with them (no relative-age suffix, the full Europe/Paris local
     timestamp — never the raw ISO — in the clock span's title) beside the unchanged hidden refresh
@@ -849,11 +866,11 @@ def test_health_header_renders_the_persistent_freshness_note(tmp_path):
     .page-header's next child right after the <h1>, in prefix/clock/pill source order"""
     state_dir = str(tmp_path)
     now_iso = shp.iso(shp.now())
-    rendered = health_page.render(shp.ctx(state_dir, now_iso))
+    rendered = _display_render(state_dir, now_iso)
 
-    prefix = layout.escape_html(health_page.FRESHNESS_PREFIX_TEXT)
+    prefix = layout.escape_html(layout.FRESHNESS_PREFIX_TEXT)
     assert prefix in rendered, "expected the honest 'Updated ' prefix text in the rendered page"
-    assert health_page.FRESHNESS_PREFIX_TEXT == "Updated "
+    assert layout.FRESHNESS_PREFIX_TEXT == "Updated "
 
     assert '<p class="page-header__freshness' in rendered, (
         "expected a block-level .page-header__freshness wrapper")
@@ -983,12 +1000,9 @@ def test_uir_03_07_12_13_one_line_fixes_hold_together(tmp_path, css_text):
     heading_marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(
         _battery_section_heading())
     after_heading = rendered2[rendered2.index(heading_marker) + len(heading_marker):]
-    caption_open = '<p class="text-label section-caption">'
-    assert after_heading.startswith(caption_open), (
-        "expected the battery heading's sibling caption <p> to follow </h2> immediately")
-    caption_text_start = after_heading[len(caption_open):]
-    assert not caption_text_start.startswith("—") and not caption_text_start.startswith(" —"), (
-        "expected the sibling caption to carry no leading em dash of its own")
+    assert not after_heading.startswith('<p class="text-label section-caption">'), (
+        "expected no range caption <p> after the battery </h2>")
+    assert "Last 3 months" not in rendered2
 
 
 def test_dashboard_grid_and_battery_trend_section_keep_their_two_role_spacing_split(css_text):

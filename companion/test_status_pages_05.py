@@ -329,7 +329,9 @@ def test_health_keeps_status_primary_and_explains_details_on_request(
     assert 'aria-label="%s"' % layout.escape_html(comparison_help) in rendered
     battery_start = rendered.index(health_page.BATTERY_SECTION_CLASS)
     battery_end = rendered.index("</section>", battery_start)
-    assert "readings-disclosure" not in rendered[battery_start:battery_end]
+    assert "readings-disclosure" in rendered[battery_start:battery_end], (
+        "the raw-readings action stays available inside the Battery section, closed by default")
+    assert "readings-disclosure\" open" not in rendered
     assert "page-section--warn" not in rendered
 
 

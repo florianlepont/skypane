@@ -105,9 +105,9 @@ def test_collect_anomalies_and_overall_severity_treat_pipeline_off_as_healthy():
 # ==========================================================================
 
 
-def test_single_reading_still_no_chart_no_readout_no_script(tmp_path):
-    """battery_sparkline_svg() still returns '' for fewer than two numeric readings, and the page emits neither
-    a readout element nor a chart script tag (regression guard)"""
+def test_single_reading_still_no_chart_no_script_but_server_seeded_readout(tmp_path):
+    """battery_sparkline_svg() still returns '' for fewer than two numeric readings, and the page emits
+    no chart script tag or trend line; the latest reading is still shown in the server-rendered readout"""
     assert health_page.battery_sparkline_svg([{"ts": "t1", "battery_mv": 4200}]) == "", (
         "expected battery_sparkline_svg() to return '' for a single-row input")
     state_dir = str(tmp_path)
@@ -115,8 +115,9 @@ def test_single_reading_still_no_chart_no_readout_no_script(tmp_path):
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
     rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     assert "<script" not in rendered, "did not expect a <script tag with only one battery reading"
-    assert health_page.BATTERY_READOUT_ID not in rendered, (
-        "did not expect the readout element id with only one battery reading")
+    assert health_page.BATTERY_READOUT_ID in rendered, (
+        "expected the server-seeded readout to show the single latest battery reading")
+    assert "4200 mV" in rendered, "expected the readout to carry the single reading's value"
     assert health_page.SPARKLINE_LINE_CLASS not in rendered, (
         "did not expect a sparkline trend-line segment with only one battery reading")
 
@@ -221,8 +222,8 @@ def test_battery_drop_flags_anomaly_gentle_decline_does_not():
 
 def test_overall_severity_widened_precedence_table():
     """overall_severity()'s widened 6-input precedence table: source_fault wins outright, error states
-    win next, then warn states/disagreement_warn/coverage_state=='warn', with the 4-argument call
-    staying byte-for-byte backward compatible"""
+    win next, then warn states/disagreement_warn, with the 4-argument call staying byte-for-byte
+    backward compatible; coverage_state is informational and never raises severity"""
     # The full 6-input precedence table, including the 4-argument
     # backward-compatible call (the two new keyword parameters both
     # default, so an existing 4-argument caller's behaviour is
@@ -235,8 +236,8 @@ def test_overall_severity_widened_precedence_table():
         "expected any error state to produce error")
     assert health_page.overall_severity("ok", "ok", "ok", True) == "warn", (
         "expected disagreement_warn alone to produce warn")
-    assert health_page.overall_severity("ok", "ok", "ok", False, coverage_state="warn") == "warn", (
-        "expected coverage_state='warn' alone to produce warn")
+    assert health_page.overall_severity("ok", "ok", "ok", False, coverage_state="warn") == "ok", (
+        "expected coverage_state='warn' alone to stay ok: unidentified airlines are informational")
     assert health_page.overall_severity("ok", "ok", "ok", False, source_fault=True) == "error", (
         "expected source_fault=True alone to produce error")
     assert health_page.overall_severity(
@@ -248,7 +249,7 @@ def test_overall_severity_widened_precedence_table():
 
 
 def test_overall_severity_acceptance_criteria_literal():
-    """overall_severity()'s plan-cited acceptance triple: ('ok', 'error', 'warn')"""
+    """overall_severity()'s acceptance triple: ('ok', 'error', 'ok') — a coverage warning alone is informational"""
     # The plan's own acceptance-criteria one-liner, run as a check rather
     # than only a shell command.
     results = (
@@ -256,12 +257,12 @@ def test_overall_severity_acceptance_criteria_literal():
         health_page.overall_severity("ok", "ok", "ok", False, source_fault=True),
         health_page.overall_severity("ok", "ok", "ok", False, coverage_state="warn"),
     )
-    assert results == ("ok", "error", "warn"), "expected ('ok', 'error', 'warn'), got %r" % (results,)
+    assert results == ("ok", "error", "ok"), "expected ('ok', 'error', 'ok'), got %r" % (results,)
 
 
 def test_source_fault_alone_produces_error_registry_alone_produces_warn(tmp_path):
-    """compute_health_state() folds an active source_fault_raw alone into error severity, a non-empty
-    registry alone into warn severity, and stays ok when both are clear"""
+    """compute_health_state() folds an active source_fault_raw alone into error severity, while a
+    non-empty unresolved-airline registry alone stays ok (informational), as does a fully healthy state"""
     now = shp.now()
 
     state_dir = str(tmp_path / "source-fault-alone")
@@ -283,8 +284,11 @@ def test_source_fault_alone_produces_error_registry_alone_produces_warn(tmp_path
                 "example_callsign": "ABC123"},
     })
     state2 = health_page.compute_health_state(state_dir2, now=shp.iso(now))
-    assert state2["severity"] == "warn", (
-        "expected a non-empty registry alone to produce warn severity, got %r" % (state2["severity"],))
+    assert state2["severity"] == "ok", (
+        "expected a non-empty registry alone to stay ok, got %r" % (state2["severity"],))
+    assert health_page.collect_anomalies(
+        "ok", "ok", "ok", False, coverage_state="warn") == [], (
+        "expected an unidentified-airline registry never to be an anomaly")
 
     state_dir3 = str(tmp_path / "fully-healthy")
     shp.seed_device_health(state_dir3, [(shp.iso(now), 4200)])
@@ -296,14 +300,15 @@ def test_source_fault_alone_produces_error_registry_alone_produces_warn(tmp_path
 
 
 def test_collect_anomalies_two_new_items():
-    """collect_anomalies()'s two new items (source_fault, coverage_state) appear only when their own
-    input is unhealthy, and a fully healthy 4-argument call still returns none"""
+    """collect_anomalies()'s source_fault item appears only when its input is unhealthy, the
+    coverage_state item is retired (unidentified airlines are informational), and a fully healthy
+    4-argument call still returns none"""
     assert "All data sources failed." in health_page.collect_anomalies(
         "ok", "ok", "ok", False, source_fault=True), (
         "expected the source_fault item to appear when source_fault=True")
-    assert "Some airlines are unidentified." in health_page.collect_anomalies(
+    assert "Some airlines are unidentified." not in health_page.collect_anomalies(
         "ok", "ok", "ok", False, coverage_state="warn"), (
-        "expected the coverage item to appear when coverage_state='warn'")
+        "expected no coverage anomaly even when coverage_state='warn'")
     assert health_page.collect_anomalies("ok", "ok", "ok", False) == [], (
         "expected a fully healthy 4-argument call to still return no anomalies")
 
@@ -430,33 +435,21 @@ def test_health_page_opens_with_shared_page_header(tmp_path):
         "expected no bare <h1 class=\"text-heading\"> heading")
 
 
-def test_health_page_purpose_sentence_present_after_refresh(tmp_path):
-    """Health's .page-header carries a one-sentence purpose after the auto-refresh pill"""
-    # PAGE_PURPOSE_TEXT reaches layout.page_header()'s `purpose`
-    # parameter, renders inside .page-header, and follows the Refresh
-    # link, matching the validated sketch's own DOM order.
+def test_health_page_header_carries_no_purpose_sentence_or_freshness_line(tmp_path):
+    """Health's .page-header holds only the title: the page-description sentence and the
+    freshness line are retired"""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
     rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
-    escaped_purpose = layout.escape_html(health_page.PAGE_PURPOSE_TEXT)
-    assert rendered.count(escaped_purpose) == 1, (
-        "expected the escaped page-purpose sentence exactly once, got %d"
-        % rendered.count(escaped_purpose))
+    assert layout.escape_html(health_page.PAGE_PURPOSE_TEXT) not in rendered, (
+        "expected the page-purpose sentence to stay off the page")
     header_start = rendered.index('<div class="page-header">')
     header_end = rendered.index("</div>", header_start) + len("</div>")
-    header_slice = rendered[header_start:header_end]
-    assert escaped_purpose in header_slice, (
-        "expected the purpose sentence inside the .page-header div, not elsewhere on the page")
-    # Retargeted from the retired "freshness-refresh" link class onto the
-    # pill's own marker attribute — the ordering property this check
-    # tests (the header's action slot precedes the purpose sentence) is
-    # unchanged by that reversal.
-    refresh_at = rendered.index("data-refresh-pill")
-    purpose_at = rendered.index(escaped_purpose)
-    assert refresh_at < purpose_at, (
-        "expected the purpose sentence to follow the pill, matching the validated sketch's own "
-        "DOM order")
+    assert rendered[header_start:header_end] == (
+        '<div class="page-header"><h1 class="page-title">Health</h1></div>'), (
+        "expected the page header to carry the title only")
+    assert "data-refresh-pill" not in rendered
 
 
 def test_health_page_two_id_anchored_sections_correct_order_no_overview(tmp_path):
@@ -494,12 +487,9 @@ def test_health_page_two_id_anchored_sections_correct_order_no_overview(tmp_path
         "expected the battery-trend section to stay inside the Screen section, before Server & data")
 
 
-def test_health_page_section_intros_pair_heading_with_description(tmp_path):
-    """each of Health's two section headings is paired, in its own baseline-aligned .section-intro wrapper,
-    with its own muted description"""
-    # Slices each wrapper individually (rather than searching the whole
-    # page) so the check cannot pass by finding the right description
-    # next to the wrong heading.
+def test_health_page_section_intros_hold_heading_without_description(tmp_path):
+    """each of Health's two section headings sits alone in its own .section-intro wrapper:
+    the per-section description sentences are retired and no empty caption element remains"""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
@@ -512,14 +502,6 @@ def test_health_page_section_intros_pair_heading_with_description(tmp_path):
         health_page.SCREEN_SECTION_ID, layout.escape_html(health_page.SCREEN_SECTION_HEADING))
     server_data_heading = '<h2 id="%s" class="text-heading">%s</h2>' % (
         health_page.SERVER_DATA_SECTION_ID, layout.escape_html(health_page.SERVER_DATA_SECTION_HEADING))
-    # Every expected substring is built through escape_html() — never
-    # re-typed as a raw literal. The Screen description contains an
-    # apostrophe ("how's the battery"), which escape_html(..., quote=True)
-    # encodes; a raw-constant comparison would fail here for a reason that
-    # has nothing to do with the markup being wrong.
-    screen_description = layout.escape_html(health_page.SCREEN_SECTION_DESCRIPTION)
-    server_data_description = layout.escape_html(health_page.SERVER_DATA_SECTION_DESCRIPTION)
-
     first_open = rendered.index('<div class="section-intro">')
     first_close = rendered.index("</div>", first_open) + len("</div>")
     first_wrapper = rendered[first_open:first_close]
@@ -527,15 +509,14 @@ def test_health_page_section_intros_pair_heading_with_description(tmp_path):
     second_close = rendered.index("</div>", second_open) + len("</div>")
     second_wrapper = rendered[second_open:second_close]
 
-    assert screen_heading in first_wrapper and screen_description in first_wrapper, (
-        "expected the first section-intro wrapper to hold the Screen heading and description")
-    assert first_wrapper.index(screen_heading) < first_wrapper.index(screen_description), (
-        "expected the Screen heading to precede its own description")
-
-    assert server_data_heading in second_wrapper and server_data_description in second_wrapper, (
-        "expected the second section-intro wrapper to hold the Server & data heading and description")
-    assert second_wrapper.index(server_data_heading) < second_wrapper.index(server_data_description), (
-        "expected the Server & data heading to precede its own description")
+    assert first_wrapper == '<div class="section-intro">%s</div>' % screen_heading, (
+        "expected the first section-intro wrapper to hold the Screen heading alone, got %r"
+        % first_wrapper)
+    assert second_wrapper == '<div class="section-intro">%s</div>' % server_data_heading, (
+        "expected the second section-intro wrapper to hold the Server & data heading alone, got %r"
+        % second_wrapper)
+    assert layout.escape_html(health_page.SCREEN_SECTION_DESCRIPTION) not in rendered
+    assert layout.escape_html(health_page.SERVER_DATA_SECTION_DESCRIPTION) not in rendered
 
 
 def test_server_data_grid_holds_three_tiles_migrated_cards_outside_grid(tmp_path):
@@ -729,11 +710,8 @@ def test_read_only_note_reworded_to_point_at_airlines_not_the_runbook(tmp_path):
     visible_marker = '<p class="text-body section-caption">%s</p>' % layout.escape_html(expected_visible)
     assert visible_marker in rendered, (
         "expected the rendered page to contain the visible note verbatim (escaped)")
-    detail_marker = (
-        '<details class="readings-disclosure"><summary>%s</summary><p>%s</p></details>'
-        % (layout.escape_html(i18n.t(health_page._MORE_DETAILS_TEXT)), layout.escape_html(expected_detail)))
-    assert detail_marker in rendered, (
-        "expected the moved instruction verbatim (escaped) inside a readings-disclosure")
+    assert layout.escape_html(expected_detail) not in rendered, (
+        "expected the repeated Resolve-opens-Airlines instruction to be gone from the page")
     assert old_note_closing_phrase not in rendered, (
         "expected the old runbook-pointing phrase to be fully gone from the render")
 
@@ -991,9 +969,8 @@ def test_health_still_has_no_form_and_no_button_in_any_state(tmp_path, state_nam
 
 
 def test_quick_260902_gjj_muted_captions_compose_section_caption(tmp_path, css_text):
-    """the battery heading's sibling caption <p> (retargeted from the retired trailing <span>)
-    and the Unresolved-prefixes read-only note both compose
-    section-caption with their existing sizing class, and style.css's .section-caption still declares
+    """the battery heading carries no sibling range caption, the Unresolved-prefixes read-only note
+    composes section-caption with its sizing class, and style.css's .section-caption still declares
     exactly one property at the file's single 70% muted strength"""
     # Pins the markup pair AND the single muted strength together, so a
     # future edit cannot satisfy one half while forking the other. The
@@ -1004,9 +981,9 @@ def test_quick_260902_gjj_muted_captions_compose_section_caption(tmp_path, css_t
     heading_marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(_battery_section_heading())
     heading_at = rendered.index(heading_marker)
     after_heading = rendered[heading_at + len(heading_marker):]
-    assert after_heading.startswith('<p class="text-label section-caption">'), (
-        "expected the battery heading's sibling caption <p> to compose text-label with "
-        "section-caption immediately after </h2>, got %r" % after_heading[:80])
+    assert not after_heading.startswith('<p class="text-label section-caption">'), (
+        "expected no range caption <p> immediately after the battery </h2>, got %r"
+        % after_heading[:80])
 
     # phase 13 (): the reworded note contains apostrophes, which
     # escape_html() renders as &#x27; — locate the escaped form, not the
@@ -1108,15 +1085,9 @@ def test_battery_section_keeps_everything_after_the_move(tmp_path):
     assert "stat-tile" not in section_html, "the battery-trend section must carry no stat-tile class"
 
 
-def test_battery_heading_is_short_and_precision_lives_in_a_sibling_caption(tmp_path):
-    """the battery-trend heading carries ONLY its short fixed text (no inline precision span),
-    immediately followed by a sibling <p class="text-label section-caption"> carrying
-    _battery_trend_caption()'s own text, itself followed by the chart/table body —
-    index(h2) < index(caption) < index(body)"""
-    # The <h2> must carry ONLY its short, fixed, window-derived text (no
-    # inline precision span); the precision _battery_trend_caption()
-    # computes lives in a SIBLING <p class="text-label section-caption">
-    # immediately after </h2>, itself followed by the chart/table body.
+def test_battery_heading_is_short_and_followed_by_content_not_a_range_caption(tmp_path):
+    """the battery-trend heading carries only its short fixed text and is followed directly by the
+    readout and chart, then the collapsed readings disclosure — no sibling range caption in between"""
     state_dir = str(tmp_path)
     base = shp.now()
     readings = [
@@ -1126,29 +1097,14 @@ def test_battery_heading_is_short_and_precision_lives_in_a_sibling_caption(tmp_p
     shp.seed_device_health(state_dir, readings)
     rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(base)))
 
-    heading_text = _battery_section_heading()
-    precision_text = health_page._battery_trend_caption(
-        [{"ts": shp.iso(base - timedelta(minutes=1)), "battery_mv": 4200},
-         {"ts": shp.iso(base), "battery_mv": 4190}],
-        None)
-    heading_marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(heading_text)
+    heading_marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(_battery_section_heading())
     assert heading_marker in rendered, "expected the fixed heading marker %r, got none" % (heading_marker,)
-    assert layout.escape_html(precision_text) not in rendered[
-        rendered.index(heading_marker):rendered.index(heading_marker) + len(heading_marker)], (
-        "the heading itself must not carry the precision text")
-
     heading_at = rendered.index(heading_marker)
-    caption_marker = '<p class="text-label section-caption">%s</p>' % layout.escape_html(precision_text)
-    caption_at = rendered.index(caption_marker)
-    assert heading_at < caption_at, "expected the heading to precede its sibling caption"
-    assert not rendered[heading_at + len(heading_marker):caption_at].strip(), (
-        "expected the caption <p> to sit IMMEDIATELY after </h2>, found intervening markup %r"
-        % rendered[heading_at + len(heading_marker):caption_at])
-
-    # The chart/table body (the <details class="readings-disclosure"> that
-    # always renders, chart or no chart) follows the caption.
-    body_at = rendered.index('<details class="readings-disclosure"', caption_at)
-    assert caption_at < body_at, "expected the caption to precede the chart/table body"
+    section_end = rendered.index("</section>", heading_at)
+    section_body = rendered[heading_at + len(heading_marker):section_end]
+    assert "section-caption" not in section_body, "expected no caption paragraph inside the battery section"
+    assert section_body.index(health_page.BATTERY_READOUT_ID) < section_body.index(
+        '<details class="readings-disclosure"'), "expected the readout to precede the readings disclosure"
 
 
 def test_battery_heading_equals_template_times_window_in_both_languages(tmp_path):
@@ -1174,41 +1130,20 @@ def test_battery_heading_equals_template_times_window_in_both_languages(tmp_path
             "%% (BATTERY_TREND_WINDOW_DAYS // 30) == %r, marker %r not found" % (lang, expected, marker))
 
 
-def test_battery_trend_caption_all_three_branches_render_in_sibling_caption(tmp_path):
-    """all three _battery_trend_caption() branches (usable daily series, no rows at all, sub-two-day
-    raw series) render their own exact text inside the sibling caption <p>, never inside the
-    heading"""
+def test_battery_trend_renders_no_range_caption_in_any_of_three_branches(tmp_path):
+    """a usable daily series, no rows at all, and a sub-two-day raw series each render the battery
+    heading with no sibling range caption; only the readings disclosure carries the real count"""
     base = datetime(2026, 9, 10, 12, 0, 0, tzinfo=timezone.utc)
+    heading_marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(_battery_section_heading())
 
-    def _caption_paragraph(rendered):
-        heading_text = _battery_section_heading()
-        heading_marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(heading_text)
+    def _section_body(rendered):
         after = rendered[rendered.index(heading_marker) + len(heading_marker):]
-        m = re.match(r'<p class="text-label section-caption">(.*?)</p>', after)
-        assert m is not None, "expected a sibling caption <p> immediately after </h2>"
-        return m.group(1)
+        return after[:after.index("</section>")]
 
-    # Branch 1: a usable daily series (>= 2 Paris-day buckets) — the
-    # 3-month/daily-average framing.
     daily_dir = str(tmp_path / "daily")
-    readings = []
-    for day, mv in enumerate((4000, 4100, 4200)):
-        readings.append((shp.iso(base - timedelta(days=day)), mv))
-    shp.seed_device_health(daily_dir, readings)
-    rendered = health_page.render(shp.ctx(daily_dir, now_value=shp.iso(base)))
-    expected = layout.escape_html(i18n.t(health_signals._LAST_3_MONTHS_DAILY_AVERAGE_TEXT))
-    assert _caption_paragraph(rendered) == expected, (
-        "daily-series branch: expected caption %r" % expected)
-
-    # Branch 2: no rows at all (and the DB-unavailable case, which shares
-    # the same 3-month framing) — an empty state dir.
+    shp.seed_device_health(daily_dir, [
+        (shp.iso(base - timedelta(days=day)), mv) for day, mv in enumerate((4000, 4100, 4200))])
     empty_dir = str(tmp_path / "empty")
-    rendered = health_page.render(shp.ctx(empty_dir, now_value=shp.iso(base)))
-    expected = layout.escape_html(i18n.t(health_signals._LAST_3_MONTHS_DAILY_AVERAGE_TEXT))
-    assert _caption_paragraph(rendered) == expected, "no-rows branch: expected caption %r" % expected
-
-    # Branch 3: a sub-two-day raw series (the day-1 fallback) — the real
-    # reading count, never BATTERY_TREND_LIMIT.
     sameday_dir = str(tmp_path / "sameday")
     sameday_readings = [
         (shp.iso(base - timedelta(minutes=2)), 4200),
@@ -1216,9 +1151,16 @@ def test_battery_trend_caption_all_three_branches_render_in_sibling_caption(tmp_
         (shp.iso(base), 4180),
     ]
     shp.seed_device_health(sameday_dir, sameday_readings)
-    rendered = health_page.render(shp.ctx(sameday_dir, now_value=shp.iso(base)))
-    expected = layout.escape_html(i18n.t(health_signals._LATEST_READINGS_TEMPLATE) % len(sameday_readings))
-    assert _caption_paragraph(rendered) == expected, "sub-two-day branch: expected caption %r" % expected
+
+    for branch, state_dir in (("daily", daily_dir), ("no-rows", empty_dir), ("sameday", sameday_dir)):
+        body = _section_body(health_page.render(shp.ctx(state_dir, now_value=shp.iso(base))))
+        assert not body.startswith('<p class="text-label section-caption">'), (
+            "%s branch: expected no sibling range caption after the battery heading" % branch)
+        assert "Last 3 months" not in body and "Latest " not in body, (
+            "%s branch: expected no range wording in the battery section" % branch)
+    sameday_body = _section_body(health_page.render(shp.ctx(sameday_dir, now_value=shp.iso(base))))
+    assert "View %d readings" % len(sameday_readings) in sameday_body, (
+        "sameday branch: expected the disclosure to name the real reading count")
 
 
 def test_battery_readout_precedes_chart_class_list_and_live_region(tmp_path, battery_trend_js):
@@ -1314,16 +1256,13 @@ def test_quick_260902_gjj_card_status_borders_render_correct_modifiers(tmp_path,
         % (expected_battery_modifier, battery_tag))
 
     coverage_state = health_page.coverage_status([("ABC", 1, "", "", "")])
-    assert coverage_state == "warn", "expected the seeded registry fixture to compute a warn verdict"
+    assert coverage_state == "warn", "expected the seeded registry fixture to still compute a warn coverage verdict"
     registry_heading_at = rendered.index(">%s</h2>" % health_page.UNRESOLVED_SECTION_HEADING)
     registry_open = rendered.rindex('<section class="', 0, registry_heading_at)
     registry_tag = rendered[registry_open:rendered.index(">", registry_open) + 1]
-    expected_registry_modifier = layout.card_status_class("page-section", coverage_state)
-    assert expected_registry_modifier in registry_tag, (
-        "expected the Unresolved-prefixes section's own tag to carry %r, got %r"
-        % (expected_registry_modifier, registry_tag))
-    assert "page-section--nested" in registry_tag, (
-        "expected the registry card to keep its pre-existing nested modifier")
+    assert registry_tag == '<section class="page-section page-section--nested">', (
+        "expected the Unresolved-prefixes section to carry no status modifier: unidentified airlines "
+        "are informational, got %r" % registry_tag)
 
     stats_heading_at = rendered.index(">%s</h2>" % health_page.STATS_SECTION_HEADING)
     stats_open = rendered.rindex('<section class="', 0, stats_heading_at)

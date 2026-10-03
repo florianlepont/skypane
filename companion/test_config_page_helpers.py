@@ -39,11 +39,18 @@ ASPECT_RETIRED_MARKUP_TOKENS = (
 )
 
 
+def runway_section_start(rendered, after=0):
+    """Offset of the opening tag of the Runway section (the card that follows the Aspect card),
+    found from its id-anchored heading so it does not depend on the card's wrapper class."""
+    heading = rendered.index('id="%s"' % config_page.RUNWAY_GROUP_HEADING_ID, after)
+    return rendered.rindex("<div", after, heading)
+
+
 def aspect_usage_row_bounds(rendered, usage):
     """The `[start, end)` slice of `rendered` covering exactly one Aspect
     accordion row: its own `<details data-usage="{usage}">` through the
-    next row's opening tag, or, for the last row, through the "What it
-    watches" section's own id-anchored heading — a landmark every
+    next row's opening tag, or, for the last row, through the Runway
+    section's own id-anchored heading — a landmark every
     Display-scope render carries regardless of whether Runway is
     present, unlike a page-section wrapper class other Display-scope
     cards (Runway, Quiet hours) do not share.
@@ -54,7 +61,7 @@ def aspect_usage_row_bounds(rendered, usage):
     if idx + 1 < len(usages):
         end = rendered.index('data-usage="%s"' % usages[idx + 1], start)
     else:
-        end = rendered.index('id="%s"' % config_page.DISPLAY_WATCHES_SECTION_ID, start)
+        end = runway_section_start(rendered, start)
     return start, end
 
 
