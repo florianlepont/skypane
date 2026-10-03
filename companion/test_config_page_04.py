@@ -593,7 +593,7 @@ def test_look_supersection_carries_exactly_one_dirty_section_named_aspect():
         ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=configured, calendar_last_synced_at=None)
         rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
         look_start = rendered.index('id="%s"' % config_page.DISPLAY_LOOK_SECTION_ID)
-        look_end = rendered.index('id="%s"' % config_page.DISPLAY_WATCHES_SECTION_ID, look_start)
+        look_end = cp.runway_section_start(rendered, look_start)
         look_segment = rendered[look_start:look_end]
         count = look_segment.count(config_page.DIRTY_SECTION_ATTR + "=")
         assert count == 1, (

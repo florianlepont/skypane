@@ -1621,7 +1621,7 @@ def test_poll_trigger_enabled_at_zero_cooldown():
     button_tag = re.search(r"<button\b[^>]*>", rendered)
     assert button_tag, "expected a <button> tag to extract"
     assert "disabled" not in button_tag.group(0), "expected no disabled attribute at zero cooldown"
-    assert "Trigger poll now" in rendered, "expected the Trigger poll now button copy"
+    assert "Refresh now</button>" in rendered, "expected the Refresh now button copy"
 
 
 def test_poll_trigger_disabled_with_remaining_seconds():
@@ -1734,7 +1734,7 @@ def test_poll_trigger_zero_cooldown_ships_submit_affordance_script():
     attribute set instead.
     """
     rendered = config_page.poll_trigger_section(0)
-    assert "Trigger poll now" in rendered, "expected the Trigger poll now button copy"
+    assert "Refresh now</button>" in rendered, "expected the Refresh now button copy"
     # Scoped to the <button ...> tag, not a bare substring search —
     # poll-cooldown.js's own body legitimately contains "disabled" as a
     # JS property name, though that never reaches this render() output.

@@ -1621,17 +1621,17 @@ def test_aspect_rules_copy_appears_escaped_verbatim():
 
 
 def test_aspect_rules_row_label_locked_verbatim():
-    """the rules row label equals the locked "Per-flight rules" text exactly, and its
+    """the rules row label equals the locked "Optional per-flight rules" text exactly, and its
     empty-state meta reads FRAME_COLOURS_RULES_EMPTY_META's real value, never ROADMAP's own
     paraphrase
 
     Keeps the original lock - FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_RULES] is still exactly
-    "Per-flight rules" - and adds a second lock: the rules row's empty-state meta must read
+    "Optional per-flight rules" - and adds a second lock: the rules row's empty-state meta must read
     FRAME_COLOURS_RULES_EMPTY_META's real value ("No rules yet"), never a plausible-sounding
     paraphrase.
     """
-    assert config_page.FRAME_COLOURS_ROW_LABELS[config_page.COLOUR_USAGE_RULES] == "Per-flight rules", (
-        "expected the rules row label to equal the locked \"Per-flight rules\" text exactly, "
+    assert config_page.FRAME_COLOURS_ROW_LABELS[config_page.COLOUR_USAGE_RULES] == "Optional per-flight rules", (
+        "expected the rules row label to equal the locked \"Optional per-flight rules\" text exactly, "
         "got %r" % (config_page.FRAME_COLOURS_ROW_LABELS[config_page.COLOUR_USAGE_RULES],))
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
