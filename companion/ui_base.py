@@ -531,6 +531,14 @@ ICON_IDS = ICON_IDS + (
     "icon-nav-update",
 )
 
+# Three more, for the Display page's look picker: the "Change" pencil,
+# the look sheet's close cross and the "Add a special look" plus.
+ICON_IDS = ICON_IDS + (
+    "icon-pencil",
+    "icon-close",
+    "icon-plus",
+)
+
 # One shared inline sprite, emitted once per document by page_shell().
 # This sprite must never move inside a conditionally rendered region: a
 # <use> referencing a symbol that isn't in the DOM at all (not merely
@@ -700,6 +708,18 @@ ICON_DEFS_HTML = (
     '<symbol id="icon-chevron-right" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M8 5l5 5-5 5"/>'
+    "</symbol>"
+    '<symbol id="icon-pencil" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M13.5 3.5l3 3L7 16H4v-3z"/><path d="M11.5 5.5l3 3"/>'
+    "</symbol>"
+    '<symbol id="icon-close" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M5 5l10 10M15 5L5 15"/>'
+    "</symbol>"
+    '<symbol id="icon-plus" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M10 4v12M4 10h12"/>'
     "</symbol>"
     "</defs>"
     "</svg>"

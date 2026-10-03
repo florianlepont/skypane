@@ -55,25 +55,12 @@ MESSAGES = {
     # This identity translation is required, not optional: the
     # FR-completeness harness fails an untranslated id regardless of
     # the two words being the same.
-    "display.aspect": "Choisir l’apparence",
+    "display.aspect": "L’allure de votre cadre",
     "display.departures": "Départs",
     "display.arrivals": "Arrivées",
     "display.calendar_flights": "Vols du calendrier",
-    "display.per_flight_rules": "Règles par vol facultatives",
     "display.same_as_departures": "Comme les départs",
-    "display.1_rule": "1 règle",
-    "display.rules": "%d règles",
-    "display.no_rules_yet": "Aucune règle pour l’instant",
-    # The one-line legend under the rule-add form's compact chip grid,
-    # naming the two swatch dots as departures/arrivals, joined into
-    # one phrase with no separator.
-    "display.departures_arrivals": "Départs et arrivées",
 
-    # --- The live theme preview above the chip grid -----------------
-    "display.live_preview_of_the_theme": "Aperçu en direct du thème %s",
-    "display.preview_with_your_last_flight":
-        "Aperçu avec votre dernier vol : %s",
-    "display.preview_with_a_sample_flight": "Aperçu avec un vol d’exemple",
     # The theme chip grid's per-chip image alt text (companion/theme_
     # preview.py). Never translated before this id existed either — kept
     # identical to the English so the render stays byte-for-byte
@@ -116,9 +103,9 @@ MESSAGES = {
     "display.cancel": "Annuler",
 
     # --- Flight colours / per-flight rules ------------------------------
-    "display.match_by": "Correspondance par",
+    "display.match_by": "S’applique à",
     "display.value": "Valeur",
-    "display.add_rule": "Ajouter la règle",
+    "display.add_rule": "Ajouter l’allure",
     "display.callsign": "Indicatif",
     "display.icao24_hex": "Code hexadécimal ICAO24",
     "display.callsign_prefix": "Préfixe d’indicatif",

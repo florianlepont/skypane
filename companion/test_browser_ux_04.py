@@ -43,7 +43,7 @@ pytestmark = pytest.mark.browser
 
 # Also defined in companion/test_browser_ux_03.py, since that module's own checks read it too;
 # kept local to each module rather than promoted into the shared helpers file.
-THEME_PREVIEW_SEL = ".theme-live-preview__image"
+THEME_PREVIEW_SEL = '[data-look-usage="departures"] img.look-frame__image'
 
 
 @pytest.fixture(scope="module")
@@ -144,14 +144,13 @@ def _clear_stored_artwork(server):
 
 
 def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, make_app_server):
-    """With scripts blocked, in both languages, at 360px: all 4 usage rows carry their own
+    """With scripts blocked, in both languages, at 360px: each of the four looks (departures,
+    arrivals, calendar flights, a new special look) carries its own native <details> with a
     <summary>; every registry theme's radio (theme/theme_arriving/calendar_theme_id/
-    rule_theme_id) is present in the DOM at full registry size regardless of which row is
-    open; a real pointer click on a closed row's own <summary> opens it and closes the
-    previously-open sibling (the native grouped <details name="aspect-rows"> mechanism); and
-    a palette selection made inside the row the visitor just opened themselves reaches disk,
-    read back via device_config.load_device_config(), with the restore leg putting the old
-    value back.
+    rule_theme_id) is present in the DOM at full registry size whether or not its disclosure is
+    open; a real pointer click on the calendar row's own <summary> opens its table; and a
+    selection made inside it reaches disk, read back via device_config.load_device_config(),
+    with the restore leg putting the old value back.
     """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     base_url = server.base_url()
@@ -167,14 +166,16 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
                 "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
             page.goto(base_url + "/display")
 
-            rows = page.query_selector_all("details.usage-row")
-            if len(rows) != 4:
+            disclosures = page.query_selector_all("details.look-edit, details.special-add")
+            if len(disclosures) != 4:
                 raise AssertionError(
-                    "lang=%s: expected 4 usage rows, found %d" % (lang, len(rows)))
-            for row in rows:
-                if row.query_selector("summary") is None:
+                    "lang=%s: expected 4 look disclosures, found %d" % (lang, len(disclosures)))
+            for disclosure in disclosures:
+                if disclosure.query_selector("summary") is None:
                     raise AssertionError(
-                        "lang=%s: a usage row carries no <summary>" % (lang,))
+                        "lang=%s: a look disclosure carries no <summary>" % (lang,))
+                if disclosure.get_attribute("open") is not None:
+                    raise AssertionError("lang=%s: expected every look closed at load" % (lang,))
 
             for field, expected in (
                     ("theme", n_themes),
@@ -185,29 +186,15 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
                     'input[name="%s"]' % field, "els => els.length")
                 if count != expected:
                     raise AssertionError(
-                        "lang=%s: expected %d radios named %r in the DOM regardless of "
-                        "which row is open, found %d" % (lang, expected, field, count))
+                        "lang=%s: expected %d radios named %r in the DOM whether or not its "
+                        "disclosure is open, found %d" % (lang, expected, field, count))
 
-            calendar_row = page.query_selector(
-                'details.usage-row[data-usage="calendar"]')
-            departures_row = page.query_selector(
-                'details.usage-row[data-usage="departures"]')
-            if calendar_row.get_attribute("open") is not None:
+            calendar = page.query_selector('[data-look-usage="calendar"] details.look-edit')
+            calendar.query_selector("summary").click()
+            if calendar.get_attribute("open") is None:
                 raise AssertionError(
-                    "lang=%s: expected the calendar row closed at load" % (lang,))
-            if departures_row.get_attribute("open") is None:
-                raise AssertionError(
-                    "lang=%s: expected the departures row open at load" % (lang,))
-            calendar_row.query_selector("summary").click()
-            if calendar_row.get_attribute("open") is None:
-                raise AssertionError(
-                    "lang=%s: a real pointer click on a closed row's own <summary> did "
+                    "lang=%s: a real pointer click on the calendar look's own <summary> did "
                     "not open it, with scripts blocked" % (lang,))
-            if departures_row.get_attribute("open") is not None:
-                raise AssertionError(
-                    "lang=%s: opening the calendar row did not close its previously-open "
-                    "sibling - the native grouped-<details> behaviour CFG-85's zero-script "
-                    "floor rests on" % (lang,))
 
             before = read_back()
             target = next(t for t in device_config.THEME_IDS if t != before)
@@ -219,15 +206,14 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
                 raise AssertionError(
                     "lang=%s: the browser refused to check calendar_theme_id=%r with "
                     "scripts blocked" % (lang, target))
-            with page.expect_navigation():
+            with page.expect_navigation(timeout=30000):
                 via = page.evaluate(_SUBMIT_PROBE, {"field": "calendar_theme_id"})
 
         stored = read_back()
         if str(stored) != str(target):
             raise AssertionError(
-                "lang=%s: a selection made inside a row the visitor opened themselves "
-                "(via the %s) did NOT reach disk - expected %r, got %r"
-                % (lang, via, target, stored))
+                "lang=%s: a selection made inside the calendar look's table (via the %s) did "
+                "NOT reach disk - expected %r, got %r" % (lang, via, target, stored))
 
         device_config.save_device_config(
             server.tmpdir, calendar_theme_id=before if before is not None else "")
@@ -240,12 +226,11 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
 
 def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, server):
     """The Touch Targets floor, measured (never declared) in each control's own container,
-    in both UI themes, at the 360px contract floor: the open row's first and last
-    .palette-chip, the usage-row's own <summary>, the arrivals row's leading "Same as
-    departures" option, and the nested rule-add disclosure's own <summary> all clear 44px;
-    the palette grid never scrolls horizontally, the page itself never overflows sideways,
-    and the swatch paints visibly distinct from its own surrounding chip surface in both
-    themes.
+    in both UI themes, at the 360px contract floor: the departures table's first and last
+    cell, its "Change" <summary>, the arrivals table's leading "Same as departures" option, the
+    picture openers and the "Add a special look" <summary> all clear 44px; no table scrolls
+    horizontally, the page itself never overflows sideways, and a swatch paints visibly
+    distinct from its own cell surface in both themes.
     """
     base_url = server.base_url()
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
@@ -253,101 +238,63 @@ def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, serve
         page = context.new_page()
         _login(page, base_url)
         page.goto(base_url + "/display")
-
-        def open_row(usage):
-            # Idempotent, deliberately: a grouped <details name="aspect-rows"> summary click
-            # toggles, so clicking an already-open row would close it rather than leave it open.
-            row = page.query_selector(
-                'details.usage-row[data-usage="%s"]' % usage)
-            if row.get_attribute("open") is None:
-                row.query_selector("summary").click()
+        # With scripts the "Change" summaries open the look sheet; the tables they hold are the
+        # no-script controls, opened here directly so they can be measured.
+        page.eval_on_selector_all("details.look-edit", "ds => ds.forEach(d => { d.open = true; })")
 
         recorded = {}
         for theme in UI_THEMES_EXPLICIT:
             _set_ui_theme(page, theme)
             theme_record = {}
-
-            open_row("departures")
-            chip_count = page.eval_on_selector_all(
-                'details.usage-row[data-usage="departures"] label.palette-chip',
-                "els => els.length")
-            if chip_count < 2:
-                raise AssertionError(
-                    "theme=%s: expected at least 2 .palette-chip in the open departures "
-                    "row, found %d" % (theme, chip_count))
-            theme_record["chip_first"] = _assert_hit_target(
-                page,
-                'details.usage-row[data-usage="departures"] '
-                'label.palette-chip:first-of-type',
-                "theme=%s: the FIRST palette-chip in the open departures row" % theme)
-            theme_record["chip_last"] = _assert_hit_target(
-                page,
-                'details.usage-row[data-usage="departures"] '
-                'label.palette-chip:last-of-type',
-                "theme=%s: the LAST palette-chip in the open departures row" % theme)
-
-            theme_record["row_summary"] = _assert_hit_target(
-                page, 'details.usage-row[data-usage="departures"] > summary',
-                "theme=%s: the departures row's own <summary>" % theme)
-
-            open_row("arrivals")
+            cells = '[data-look-usage="departures"] label.look-cell'
+            if page.eval_on_selector_all(cells, "els => els.length") < 2:
+                raise AssertionError("theme=%s: expected the departures table's cells" % theme)
+            theme_record["cell_first"] = _assert_hit_target(
+                page, '[data-look-usage="departures"] tbody tr:first-child td:first-of-type label',
+                "theme=%s: the FIRST cell of the departures table" % theme)
+            theme_record["cell_last"] = _assert_hit_target(
+                page, '[data-look-usage="departures"] tbody tr:last-child td:last-of-type label',
+                "theme=%s: the LAST cell of the departures table" % theme)
+            theme_record["summary"] = _assert_hit_target(
+                page, '[data-look-usage="departures"] summary.look-edit__summary',
+                "theme=%s: the departures look's own <summary>" % theme)
             theme_record["leading_option"] = _assert_hit_target(
-                page, 'details.usage-row[data-usage="arrivals"] .leading-option',
-                "theme=%s: the arrivals row's \"Same as departures\" leading option"
-                % theme)
+                page, '[data-look-usage="arrivals"] label.look-option:has(input[value=""])',
+                "theme=%s: the arrivals \"Same as departures\" option" % theme)
+            theme_record["opener"] = _assert_hit_target(
+                page, '[data-look-usage="arrivals"] button.look-frame__open',
+                "theme=%s: the arrivals picture's opener" % theme)
+            theme_record["add_summary"] = _assert_hit_target(
+                page, ".special-add__summary",
+                "theme=%s: the \"Add a special look\" <summary>" % theme)
 
-            open_row("rules")
-            theme_record["rule_add_summary"] = _assert_hit_target(
-                page, ".rule-add > summary",
-                "theme=%s: the nested \"+ Add rule\" disclosure's own <summary>" % theme)
-
-            for usage in ("departures", "arrivals"):
-                open_row(usage)
-                grid = page.eval_on_selector(
-                    'details.usage-row[data-usage="%s"] .palette' % usage,
-                    "el => ({scrollWidth: el.scrollWidth, clientWidth: el.clientWidth})")
-                if grid["scrollWidth"] > grid["clientWidth"]:
-                    raise AssertionError(
-                        "theme=%s: the %s row's own .palette grid scrolls horizontally - "
-                        "scrollWidth %r > clientWidth %r, exactly the strip CFG-85 retires"
-                        % (theme, usage, grid["scrollWidth"], grid["clientWidth"]))
-
+            scrolling = page.eval_on_selector_all(
+                ".look-table__scroll",
+                "els => els.filter(e => e.getClientRects().length"
+                " && e.scrollWidth > e.clientWidth).length")
+            if scrolling:
+                raise AssertionError(
+                    "theme=%s: %d look table(s) scroll horizontally at 360px" % (theme, scrolling))
             msg = _assert_no_page_overflow(
-                page, "the Aspect card on /display (theme=%s)" % theme,
+                page, "the look card on /display (theme=%s)" % theme,
                 VIEWPORT_MIN_SUPPORTED["width"])
             if msg:
                 raise AssertionError(msg)
 
-            # Deliberately the "black" theme, not the FIRST chip: THEME_IDS[0]
-            # is "white" (a solid #FFFFFF fill), and --color-dominant is
-            # ALSO #FFFFFF in light mode — a white swatch on a white card
-            # surface is a real, correct product fact, never the "invisible
-            # swatch" defect this clause exists to catch.
-            open_row("departures")
+            # Deliberately the "black" cell: a white swatch on a white card surface is a real,
+            # correct product fact, never the "invisible swatch" defect this clause catches.
             paint = page.eval_on_selector(
-                'details.usage-row[data-usage="departures"] '
-                'label.palette-chip:has(input[type=radio][value="black"])',
-                "el => { var swatch = el.querySelector('.palette-swatch');"
-                " var chip = getComputedStyle(el);"
-                " return {swatch: getComputedStyle(swatch).backgroundColor,"
-                " chipSurface: chip.backgroundColor}; }")
-            if paint["swatch"] == paint["chipSurface"]:
+                '[data-look-usage="departures"] label.look-cell:has(input[value="black"])',
+                "el => { var rects = el.querySelectorAll('svg.look-swatch rect');"
+                " var cell = getComputedStyle(el);"
+                " return {swatch: getComputedStyle(rects[rects.length - 1]).fill,"
+                " cellSurface: cell.backgroundColor}; }")
+            if paint["swatch"] == paint["cellSurface"]:
                 raise AssertionError(
-                    "theme=%s: the 'black' palette-chip's own swatch paints IDENTICALLY "
-                    "to its surrounding chip surface (%r) - a swatch invisible against "
-                    "its own card is the defect a hit-target measurement cannot see"
-                    % (theme, paint["swatch"]))
+                    "theme=%s: the 'black' cell's swatch paints IDENTICALLY to its own cell "
+                    "surface (%r)" % (theme, paint["swatch"]))
             theme_record["paint"] = paint
             recorded[theme] = theme_record
-
-        for theme, rec in recorded.items():
-            for control in (
-                    "chip_first", "chip_last", "row_summary", "leading_option",
-                    "rule_add_summary"):
-                seen = rec[control]
-                print(
-                    "        [30-08 T2] theme=%s %s: hit=%r visual=%r"
-                    % (theme, control, seen["hit"], seen["visual"]))
     finally:
         context.close()
 
@@ -685,13 +632,13 @@ def test_cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_d
             t for t in device_config.THEME_IDS if t != original_theme)
         target_preview_src = page.eval_on_selector(
             'input[name="theme"][value="%s"]' % target_theme,
-            "el => el.closest('.palette-chip').getAttribute('data-preview-src')")
+            "el => el.parentNode.getAttribute('data-preview-src')")
 
         current_start = page.input_value(
             'input[name="quiet_hours_start"]')
         target_start = "05:00" if current_start != "05:00" else "06:00"
 
-        # Edit: a different theme via a palette chip, and a different quiet-hours window.
+        # Edit: a different theme via a look-table radio, and a different quiet-hours window.
         # Confirm both surfaces actually moved before Cancel — a no-op edit would make every
         # assertion below vacuous.
         _click_control(
@@ -718,7 +665,7 @@ def test_cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_d
         page.click("[data-dirty-cancel]")
         _wait_for_bar_hidden(page)
 
-        # The theme chip's checked state is back to the original.
+        # The theme radio's checked state is back to the original.
         try:
             page.wait_for_function(
                 "args => {"

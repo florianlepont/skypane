@@ -6,6 +6,7 @@ Tests needing a real `companion/app.py` server get one from
 `companion.pages.config_page`'s own functions directly, in-process,
 against a `tmp_path`-backed state directory.
 """
+import contextlib
 import html
 import json
 import os
@@ -47,29 +48,31 @@ def runway_section_start(rendered, after=0):
 
 
 def aspect_usage_row_bounds(rendered, usage):
-    """The `[start, end)` slice of `rendered` covering exactly one Aspect
-    accordion row: its own `<details data-usage="{usage}">` through the
-    next row's opening tag, or, for the last row, through the Runway
-    section's own id-anchored heading — a landmark every
-    Display-scope render carries regardless of whether Runway is
-    present, unlike a page-section wrapper class other Display-scope
-    cards (Runway, Quiet hours) do not share.
+    """The `[start, end)` slice of `rendered` covering exactly one look on
+    the look card: Departures and Arrivals are the two framed pictures,
+    Calendar flights the first Special looks row, and the rules the rest
+    of the Special looks list (rule rows plus the "Add a special look"
+    form) up to the Runway section's own id-anchored heading.
     """
-    usages = list(config_page.COLOUR_USAGES)
-    idx = usages.index(usage)
-    start = rendered.index('data-usage="%s"' % usage)
-    if idx + 1 < len(usages):
-        end = rendered.index('data-usage="%s"' % usages[idx + 1], start)
+    if usage == config_page.COLOUR_USAGE_RULES:
+        start = rendered.index(
+            '<li class="special-row', rendered.index('data-look-usage="calendar"'))
+        return start, runway_section_start(rendered, start)
+    start = rendered.rindex("<", 0, rendered.index('data-look-usage="%s"' % usage))
+    following = {
+        config_page.COLOUR_USAGE_DEPARTURES: 'data-look-usage="arrivals"',
+        config_page.COLOUR_USAGE_ARRIVALS: 'class="special-looks"',
+    }
+    if usage in following:
+        end = rendered.index(following[usage], start)
     else:
-        end = runway_section_start(rendered, start)
+        end = rendered.index('<li class="special-row', start + 1)
     return start, end
 
 
 def rules_row_segment(rendered):
-    """The rules row's own segment of `rendered` (see
-    `aspect_usage_row_bounds()`). Locates the row via its own `data-usage`
-    attribute, the same attribute `theme-preview.js`'s
-    `openRow()`/`departuresRow()` already key off.
+    """The per-flight rules' own segment of `rendered` (see
+    `aspect_usage_row_bounds()`): every rule row and the add form.
     """
     start, end = aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_RULES)
     return rendered[start:end]
@@ -113,3 +116,14 @@ def caption_word_count_text(fragment):
     if text.startswith("— "):
         text = text[2:]
     return re.sub(r"\s+", " ", text).strip()
+
+
+@contextlib.contextmanager
+def i18n_lang(lang):
+    """Render under `lang` for the body of the `with`, then restore English."""
+    from companion import prefs
+    prefs.set_request_prefs(lang=lang)
+    try:
+        yield
+    finally:
+        prefs.set_request_prefs(lang="en")

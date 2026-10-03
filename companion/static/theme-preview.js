@@ -1,247 +1,559 @@
 /*
  * SkyPane companion service — theme-preview.js.
  *
- * Keeps the Aspect card's live preview <img> in sync with whichever
- * theme/palette chip is checked (or hovered/focused). The accordion
- * itself needs no script: a native <details name="aspect-rows">
- * group is mutually exclusive in the browser by construction. No
- * build step, ES5-safe subset. Inert on a page with no .aspect-card
- * (today only Display). Served by companion/app.py's
- * THEME_PREVIEW_SCRIPT_ROUTE. Never a network call, a timer, or an
- * HTML-writing DOM sink: the only writes are one <img>'s src
- * (always from a server-rendered data-preview-src attribute) and a
- * class-list toggle for the crossfade.
+ * The Display page's look picker. Every look on the page (Departures,
+ * Arrivals, Calendar flights, and a new special look) is a group of
+ * native radios carrying real theme ids, inside a [data-look-target]
+ * element; that table works with no script at all. This file adds:
  *
- * No-JS floor: row visibility is native <details> state this file
- * never writes. A closed row's radios stay in the DOM and participate
- * in form submission, and <summary> is natively activatable with
- * scripts blocked, so every row keeps working with this script absent.
+ * - live pictures: each target's [data-look-image] follows its checked
+ *   radio, built from the server-rendered data-preview-src-template;
+ * - the look sheet: clicking a picture or its "Change" control opens one
+ *   shared dialog with three choices (colour, background, diagonal
+ *   stripe). The server's data-look-model says which combinations are
+ *   real themes and why the others are not; this file never decides
+ *   that itself. A choice checks the matching theme radio and fires a
+ *   change event, so dirty-state.js sees it like a click;
+ * - the "Add a special look" disclosure as a dialog with the same three
+ *   choices and recent-key suggestions.
+ *
+ * No build step, ES5-safe subset. Never a network call, a timer, or an
+ * HTML-writing DOM sink: writes are an <img> src/alt (from server
+ * attributes), textContent, SVG fill attributes, classes, the hidden flag,
+ * checked/disabled, and moving the sheet element.
  *
  * Exposes window.SkyPaneLivePreview.refresh(): dirty-state.js's Cancel
- * handler calls it after form.reset(), which restores every radio's
- * checked property natively but fires no change event, so this file's
- * own delegated listener never hears about the reverted selection.
+ * handler calls it after form.reset(), which restores every radio
+ * natively but fires no change event.
  */
 (function () {
   "use strict";
 
-  var card = document.querySelector(".aspect-card");
-  if (!card) {
+  var sheet = document.querySelector("[data-look-sheet]");
+  if (!sheet) {
     return;
   }
-  var preview = card.querySelector(".theme-live-preview__image");
-  if (!preview) {
+  var model;
+  try {
+    model = JSON.parse(sheet.getAttribute("data-look-model"));
+  } catch (err) {
     return;
   }
+  var scrim = document.querySelector("[data-look-scrim]");
+  var targets = document.querySelectorAll("[data-look-target]");
+  var THEME_TOKEN = "__THEME__";
+  var SENTENCE_TOKEN = "__LOOK__";
+  // Matches style.css's phone breakpoint, where the sheet is a bottom sheet.
+  var PHONE_QUERY = "(max-width: 699.98px)";
 
-  // Every swap goes through applyPreviewSrc(): fade out, replace src
-  // while invisible, fade back in. pendingSrc is compared by every
-  // handler, so a click mid-fade settles on the most recently requested
-  // theme. No timer: transitionend and the image's load/error are the
-  // real signals. Class and duration are declared in style.css.
-  var FADE_CLASS = "theme-live-preview__image--swapping";
-  var pendingSrc = preview.getAttribute("src");
-
-  function isFading() {
-    return preview.className.indexOf(FADE_CLASS) !== -1;
-  }
-
-  function startFade() {
-    if (!isFading()) {
-      preview.className += " " + FADE_CLASS;
+  function addClass(el, name) {
+    if ((" " + el.className + " ").indexOf(" " + name + " ") === -1) {
+      el.className = (el.className ? el.className + " " : "") + name;
     }
   }
 
-  function endFade() {
-    if (isFading()) {
-      preview.className = preview.className.replace(
-        new RegExp("\\s*" + FADE_CLASS), "");
-    }
+  function removeClass(el, name) {
+    el.className = (" " + el.className + " ").replace(" " + name + " ", " ")
+      .replace(/^\s+|\s+$/g, "");
   }
 
-  // Swap only while invisible, and only ever to the latest request.
-  function swapIfNeeded() {
-    if (pendingSrc && preview.getAttribute("src") !== pendingSrc) {
-      preview.setAttribute("src", pendingSrc);
-      return true;
-    }
-    return false;
-  }
-
-  function applyPreviewSrc(src) {
-    if (!src) {
-      return;
-    }
-    pendingSrc = src;
-    if (preview.getAttribute("src") === src) {
-      // Already showing it: nothing to cross-fade to.
-      endFade();
-      return;
-    }
-    startFade();
-    // Everything below waits on the fade-out's own transitionend, which
-    // only arrives if a transition actually ran. It does not when the
-    // image is already invisible (a previous swap is still fading, or
-    // the class was removed and re-added with no style recalculation in
-    // between), so if opacity is already 0 the swap happens now instead
-    // of waiting forever.
-    if (parseFloat(getComputedStyle(preview).opacity) === 0) {
-      swapIfNeeded();
-    }
-  }
-
-  // Fade-out finished; if nothing is left to swap to, fade back in.
-  preview.addEventListener("transitionend", function (evt) {
-    if (evt.propertyName !== "opacity" || !isFading()) {
-      return;
-    }
-    if (!swapIfNeeded()) {
-      endFade();
-    }
-  });
-
-  // New frame arrived; if a newer one was requested meanwhile, go
-  // straight on to it rather than fading in a stale frame.
-  function onSettled() {
-    if (preview.getAttribute("src") === pendingSrc) {
-      endFade();
-    } else {
-      swapIfNeeded();
-    }
-  }
-  preview.addEventListener("load", onSettled);
-  // A preview that fails to load must not leave the element stranded at
-  // opacity 0 - an invisible preview is worse than a stale one.
-  preview.addEventListener("error", onSettled);
-
-  // The currently-effective live-preview source for one scope: the
-  // first checked radio inside it that is actually a theme/palette chip
-  // (carries data-preview-src) — never the first checked radio overall,
-  // since other checked radios in the card (the rules row's "Match by"
-  // control, the value input) carry no preview of their own.
-  function checkedChipSrc(scope) {
-    if (!scope) {
-      return null;
-    }
-    var checked = scope.querySelectorAll('input[type="radio"]:checked');
-    var i;
-    for (i = 0; i < checked.length; i++) {
-      var chip = checked[i].parentNode;
-      if (chip && chip.getAttribute) {
-        var src = chip.getAttribute("data-preview-src");
-        if (src) {
-          return src;
-        }
-      }
-    }
-    return null;
-  }
-
-  // The departures row, by its own locked data-usage value. Arrivals'/
-  // calendar's own leading "Same as departures" option carries no
-  // data-preview-src, so this is also the fallback source whenever a
-  // scope's own checked chip has none.
-  function departuresRow() {
-    return card.querySelector('details.usage-row[data-usage="departures"]');
-  }
-
-  // The card's currently-open row. A visitor can legitimately close the
-  // one open row, leaving none open, so this falls back to departures
-  // (the server's own default).
-  function openRow() {
-    return card.querySelector("details.usage-row[open]") || departuresRow();
-  }
-
-  // Re-derives the open row's own checked chip and re-applies its
-  // preview src from the current DOM state — the entry point
-  // dirty-state.js's Cancel handler calls after form.reset(), since
-  // reset() restores every radio's checked property natively but fires
-  // no change event.
-  function refreshFromCurrentState() {
-    applyPreviewSrc(checkedChipSrc(openRow()) || checkedChipSrc(departuresRow()));
-  }
-  window.SkyPaneLivePreview = { refresh: refreshFromCurrentState };
-
-  // Settle the preview on the saved theme at first paint, so it agrees
-  // with whichever row/chip the server rendered as checked.
-  refreshFromCurrentState();
-
-  // One delegated listener on the card container, never one per radio
-  // or per chip, since a single row can carry a full palette of chips.
-  card.addEventListener("change", function (evt) {
-    var input = evt.target;
-    if (!input || input.type !== "radio") {
-      return;
-    }
-    // The server wraps each real chip's radio directly in its own
-    // label, where data-preview-src is rendered — the input's own
-    // parentNode is that label. A checked radio whose parentNode
-    // carries neither chip class (the "Match by" segmented control,
-    // whose radio and label are siblings, not parent/child) is never
-    // treated as a chip click here.
-    var chip = input.parentNode;
-    if (!chip || !chip.getAttribute) {
-      return;
-    }
-    var className = chip.className || "";
-    var isChip = (
-      className.indexOf("theme-chip") !== -1
-      || className.indexOf("palette-chip") !== -1);
-    var src = chip.getAttribute("data-preview-src");
-    if (!src && isChip) {
-      // "Same as departures" carries no src of its own.
-      src = checkedChipSrc(departuresRow());
-    }
-    applyPreviewSrc(src);
-  });
-
-  // Hover/focus preview, delegated on the card. mouseover/mouseout, not
-  // mouseenter/mouseleave, since the latter do not bubble and a
-  // delegated listener could never see them. Walks up from the event
-  // target to the card; a walk that finds no data-preview-src means
-  // "not a chip", not an error.
-  function resolveChipPreviewSrc(node) {
-    while (node && node !== card) {
-      if (node.getAttribute) {
-        var src = node.getAttribute("data-preview-src");
-        if (src) {
-          return src;
-        }
+  function ancestorWith(node, attr, stop) {
+    while (node && node !== stop && node.getAttribute) {
+      if (node.hasAttribute(attr)) {
+        return node;
       }
       node = node.parentNode;
     }
     return null;
   }
 
-  // Resolving to no chip is a no-op: hovering the summary chevron or
-  // empty grid padding must not disturb the preview.
-  function previewHoveredOrFocusedChip(evt) {
-    var src = resolveChipPreviewSrc(evt.target);
-    if (src) {
-      applyPreviewSrc(src);
+  function targetFor(usage) {
+    var i;
+    for (i = 0; i < targets.length; i++) {
+      if (targets[i].getAttribute("data-look-usage") === usage) {
+        return targets[i];
+      }
+    }
+    return null;
+  }
+
+  function fieldRadios(target) {
+    var field = target.getAttribute("data-look-field");
+    var all = target.querySelectorAll('input[type="radio"]');
+    var out = [];
+    var i;
+    for (i = 0; i < all.length; i++) {
+      if (all[i].name === field) {
+        out.push(all[i]);
+      }
+    }
+    return out;
+  }
+
+  function checkedValue(target) {
+    var radios = fieldRadios(target);
+    var i;
+    for (i = 0; i < radios.length; i++) {
+      if (radios[i].checked) {
+        return radios[i].value;
+      }
+    }
+    return null;
+  }
+
+  // The theme a target's picture shows: its own checked theme, or the
+  // look it follows ("same as departures") when its value is empty.
+  function effectiveTheme(target) {
+    var value = checkedValue(target);
+    if (value && model.axes[value]) {
+      return value;
+    }
+    var follows = target.getAttribute("data-look-follows");
+    var other = follows ? targetFor(follows) : null;
+    return other ? effectiveTheme(other) : null;
+  }
+
+  function renderTarget(target) {
+    var theme = effectiveTheme(target);
+    if (!theme) {
+      return;
+    }
+    var value = checkedValue(target);
+    var sentence = (value === "" && target.getAttribute("data-look-same-label"))
+      || model.sentences[theme];
+    var src = target.getAttribute("data-preview-src-template").split(THEME_TOKEN).join(theme);
+    var images = target.querySelectorAll("[data-look-image]");
+    var i;
+    for (i = 0; i < images.length; i++) {
+      if (images[i].getAttribute("src") !== src) {
+        images[i].setAttribute("src", src);
+      }
+      var altTemplate = images[i].getAttribute("data-look-alt-template");
+      if (altTemplate) {
+        images[i].setAttribute("alt", altTemplate.split(SENTENCE_TOKEN).join(sentence));
+      }
+    }
+    var sentences = target.querySelectorAll("[data-look-sentence]");
+    for (i = 0; i < sentences.length; i++) {
+      sentences[i].textContent = sentence;
     }
   }
 
-  // Reverts to the open row's own checked chip, computed fresh on every
-  // revert since the checked selection changes under this script's
-  // feet. Only reverts when evt.relatedTarget resolves to no chip of
-  // its own, so hovering from one chip straight to a sibling previews
-  // the sibling without flashing back to the checked selection first.
-  function revertUnlessMovingToAnotherChip(evt) {
-    if (!resolveChipPreviewSrc(evt.target)) {
-      return;
+  function renderAll() {
+    var i;
+    for (i = 0; i < targets.length; i++) {
+      renderTarget(targets[i]);
     }
-    if (resolveChipPreviewSrc(evt.relatedTarget)) {
-      return;
-    }
-    applyPreviewSrc(checkedChipSrc(openRow()) || checkedChipSrc(departuresRow()));
   }
 
-  card.addEventListener("mouseover", previewHoveredOrFocusedChip);
-  card.addEventListener("focusin", previewHoveredOrFocusedChip);
-  card.addEventListener("mouseout", revertUnlessMovingToAnotherChip);
-  card.addEventListener("focusout", revertUnlessMovingToAnotherChip);
+  function fireChange(input) {
+    var evt = document.createEvent("HTMLEvents");
+    evt.initEvent("change", true, false);
+    input.dispatchEvent(evt);
+  }
 
-  // No DOMContentLoaded wrapper needed: the <script> tag carries defer,
-  // so this file only ever runs after parsing.
+  // Checks the target's radio for value and announces it the way a
+  // click would, so the save bar and every picture follow.
+  function setValue(target, value) {
+    var radios = fieldRadios(target);
+    var i;
+    for (i = 0; i < radios.length; i++) {
+      if (radios[i].value === value && !radios[i].checked) {
+        radios[i].checked = true;
+        fireChange(radios[i]);
+        return;
+      }
+    }
+    renderAll();
+  }
+
+  function cellKey(colour, background, stripe) {
+    return colour + "|" + background + "|" + stripe;
+  }
+
+  // One set of the three choices, bound to whichever target getTarget()
+  // returns. Stripe options with no theme are disabled, never hidden,
+  // and the reason is written beside them.
+  function bindAxes(container, getTarget) {
+    var state = { colour: "black", background: "paper", stripe: "none" };
+    var why = container.querySelector("[data-look-why]");
+    var colourName = container.querySelector("[data-look-colour-name]");
+
+    function radios(axis) {
+      return container.querySelectorAll('input[data-look-axis="' + axis + '"]');
+    }
+
+    function paintAxis(axis) {
+      var list = radios(axis);
+      var i;
+      for (i = 0; i < list.length; i++) {
+        list[i].checked = list[i].value === state[axis];
+      }
+    }
+
+    function paintStripes() {
+      var list = radios("stripe");
+      var reasons = [];
+      var i;
+      for (i = 0; i < list.length; i++) {
+        var key = cellKey(state.colour, state.background, list[i].value);
+        var missing = !model.cells[key];
+        list[i].disabled = missing;
+        if (missing) {
+          addClass(list[i].parentNode, "is-disabled");
+          if (reasons.indexOf(model.reasons[key]) === -1) {
+            reasons.push(model.reasons[key]);
+          }
+        } else {
+          removeClass(list[i].parentNode, "is-disabled");
+        }
+      }
+      why.textContent = reasons.join(" ");
+    }
+
+    function paintIcons() {
+      var icons = container.querySelectorAll("[data-look-bg-icon]");
+      var i;
+      for (i = 0; i < icons.length; i++) {
+        var kind = icons[i].getAttribute("data-look-bg-icon");
+        icons[i].setAttribute("fill", kind === "paper" ? model.paper : model.colours[state.colour]);
+        icons[i].setAttribute("fill-opacity", kind === "soft" ? model.softOpacity : "1");
+      }
+    }
+
+    function paint() {
+      paintAxis("colour");
+      paintAxis("background");
+      paintAxis("stripe");
+      paintStripes();
+      paintIcons();
+      var plain = state.background === "paper" && state.stripe === "none";
+      colourName.textContent = plain ? "" : model.colourNames[state.colour];
+    }
+
+    function load(theme) {
+      var axes = model.axes[theme];
+      if (!axes) {
+        return;
+      }
+      if (axes[0]) {
+        state.colour = axes[0];
+      }
+      state.background = axes[1];
+      state.stripe = axes[2];
+      paint();
+    }
+
+    container.addEventListener("change", function (evt) {
+      var input = evt.target;
+      var axis = input && input.getAttribute ? input.getAttribute("data-look-axis") : null;
+      if (!axis) {
+        return;
+      }
+      state[axis] = input.value;
+      // Plain paper has no colour; picking one means "use this colour".
+      if (axis === "colour" && state.background === "paper" && state.stripe === "none") {
+        state.background = "full";
+      }
+      if (!model.cells[cellKey(state.colour, state.background, state.stripe)]) {
+        state.stripe = "none";
+      }
+      paint();
+      var target = getTarget();
+      if (target) {
+        setValue(target, model.cells[cellKey(state.colour, state.background, state.stripe)]);
+      }
+    });
+
+    return { load: load };
+  }
+
+  function focusables(root) {
+    var all = root.querySelectorAll("button, input, summary, [href]");
+    var out = [];
+    var i;
+    for (i = 0; i < all.length; i++) {
+      if (!all[i].disabled && all[i].getClientRects().length) {
+        out.push(all[i]);
+      }
+    }
+    return out;
+  }
+
+  // Tab and Shift+Tab wrap inside an open dialog.
+  function trapTab(evt, root) {
+    if (evt.key !== "Tab") {
+      return;
+    }
+    var list = focusables(root);
+    if (!list.length) {
+      return;
+    }
+    var first = list[0];
+    var last = list[list.length - 1];
+    if (evt.shiftKey && document.activeElement === first) {
+      evt.preventDefault();
+      last.focus();
+    } else if (!evt.shiftKey && document.activeElement === last) {
+      evt.preventDefault();
+      first.focus();
+    }
+  }
+
+  // --- The look sheet ---------------------------------------------------
+
+  var current = null;
+  var opener = null;
+  var initialValue = null;
+  var sheetTitle = sheet.querySelector("[data-look-sheet-title]");
+  var sameRow = sheet.querySelector("[data-look-same-row]");
+  var same = sheet.querySelector("[data-look-same]");
+  var sheetAxesBox = sheet.querySelector("[data-look-axes]");
+  var sheetAxes = bindAxes(sheetAxesBox, function () { return current; });
+
+  function setAxesDisabled(disabled) {
+    var sets = sheetAxesBox.querySelectorAll("fieldset");
+    var i;
+    for (i = 0; i < sets.length; i++) {
+      sets[i].disabled = disabled;
+    }
+  }
+
+  function syncSheet() {
+    if (!current) {
+      return;
+    }
+    var follows = current.getAttribute("data-look-follows");
+    var following = !!follows && checkedValue(current) === "";
+    same.setAttribute("aria-checked", following ? "true" : "false");
+    setAxesDisabled(following);
+    sheetAxes.load(effectiveTheme(current));
+  }
+
+  function closeSheet(restoreFocus) {
+    if (!current) {
+      return;
+    }
+    sheet.hidden = true;
+    scrim.hidden = true;
+    removeClass(current, "is-editing");
+    var from = opener;
+    current = null;
+    opener = null;
+    if (restoreFocus && from) {
+      from.focus();
+    }
+  }
+
+  function openSheet(target, from) {
+    closeSheet(false);
+    current = target;
+    opener = from;
+    initialValue = checkedValue(target);
+    sheetTitle.textContent = target.getAttribute("data-look-title");
+    sameRow.hidden = !target.getAttribute("data-look-follows");
+    var anchor = target.hasAttribute("data-look-anchor")
+      ? target : target.querySelector("[data-look-anchor]");
+    anchor.appendChild(sheet);
+    sheet.className = "look-sheet look-sheet--" + target.getAttribute("data-look-usage");
+    addClass(target, "is-editing");
+    syncSheet();
+    sheet.hidden = false;
+    scrim.hidden = false;
+    // On a phone the sheet covers the lower half of the screen: bring the
+    // picture it changes to the top, so every choice is seen to land.
+    if (window.matchMedia && window.matchMedia(PHONE_QUERY).matches) {
+      var picture = target.querySelector("[data-look-image]");
+      if (picture && picture.scrollIntoView) {
+        picture.scrollIntoView({ block: "start" });
+      }
+    }
+    var start = sheet.querySelector('input[data-look-axis="colour"]:checked:not(:disabled)')
+      || sheet.querySelector("[data-look-close]");
+    start.focus({ preventScroll: true });
+  }
+
+  function sameIsOn() {
+    return same.getAttribute("aria-checked") === "true";
+  }
+
+  same.addEventListener("click", function () {
+    if (!current) {
+      return;
+    }
+    if (!sameIsOn()) {
+      setValue(current, "");
+    } else {
+      setValue(current, effectiveTheme(current));
+    }
+    syncSheet();
+  });
+
+  sheet.querySelector("[data-look-reset]").addEventListener("click", function () {
+    if (current && initialValue !== null) {
+      setValue(current, initialValue);
+      syncSheet();
+    }
+  });
+  sheet.querySelector("[data-look-done]").addEventListener("click", function () {
+    closeSheet(true);
+  });
+  sheet.querySelector("[data-look-close]").addEventListener("click", function () {
+    closeSheet(true);
+  });
+  sheet.addEventListener("keydown", function (evt) {
+    if (evt.key === "Escape") {
+      evt.preventDefault();
+      closeSheet(true);
+      return;
+    }
+    trapTab(evt, sheet);
+  });
+
+  // A picture's overlay button and its "Change" summary both open the
+  // sheet; preventing the summary's default keeps its table closed.
+  document.addEventListener("click", function (evt) {
+    var trigger = ancestorWith(evt.target, "data-look-open", null);
+    if (!trigger) {
+      return;
+    }
+    var target = ancestorWith(trigger, "data-look-target", null);
+    if (!target) {
+      return;
+    }
+    evt.preventDefault();
+    openSheet(target, trigger);
+  });
+
+  // --- Add a special look -------------------------------------------------
+
+  var add = document.querySelector("[data-special-add]");
+  var addForm = add ? add.querySelector("[data-look-target]") : null;
+
+  function closeAdd() {
+    if (add && add.open) {
+      add.open = false;
+    }
+  }
+
+  function showSuggestions() {
+    var box = addForm.querySelector("[data-rule-suggestions]");
+    if (!box) {
+      return;
+    }
+    var kind = addForm.querySelector('input[name="rule_kind"]:checked');
+    var groups = box.querySelectorAll(".rule-suggestions__group");
+    var any = false;
+    var i;
+    for (i = 0; i < groups.length; i++) {
+      groups[i].hidden = !kind || groups[i].getAttribute("data-kind") !== kind.value;
+      any = any || !groups[i].hidden;
+    }
+    box.hidden = !any;
+  }
+
+  if (add && addForm) {
+    var panel = add.querySelector(".special-add__panel");
+    var summary = add.querySelector("summary");
+    var axesHost = addForm.querySelector("[data-look-axes-host]");
+    var tableHost = addForm.querySelector("[data-look-table-host]");
+    var addAxes = bindAxes(axesHost.querySelector("[data-look-axes]"), function () { return addForm; });
+    var reveal = addForm.querySelectorAll("[data-special-add-close], [data-special-add-cancel]");
+    var r;
+    for (r = 0; r < reveal.length; r++) {
+      reveal[r].hidden = false;
+      reveal[r].addEventListener("click", closeAdd);
+    }
+    axesHost.hidden = false;
+    tableHost.hidden = true;
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
+    addClass(add, "is-enhanced");
+    addAxes.load(effectiveTheme(addForm));
+    showSuggestions();
+
+    add.addEventListener("toggle", function () {
+      if (add.open) {
+        closeSheet(false);
+        scrim.hidden = false;
+        var start = addForm.querySelector('input[name="rule_kind"]:checked')
+          || addForm.querySelector("input");
+        start.focus();
+      } else {
+        scrim.hidden = true;
+        if (add.contains(document.activeElement)) {
+          summary.focus();
+        }
+      }
+    });
+    panel.addEventListener("keydown", function (evt) {
+      if (evt.key === "Escape") {
+        evt.preventDefault();
+        closeAdd();
+        summary.focus();
+        return;
+      }
+      trapTab(evt, panel);
+    });
+    addForm.addEventListener("change", function (evt) {
+      if (evt.target && evt.target.name === "rule_kind") {
+        showSuggestions();
+      }
+    });
+    addForm.addEventListener("click", function (evt) {
+      var chip = ancestorWith(evt.target, "data-value", addForm);
+      if (!chip) {
+        return;
+      }
+      var key = addForm.querySelector('input[name="rule_key"]');
+      key.value = chip.getAttribute("data-value");
+      key.focus();
+    });
+  }
+
+  // --- Shared wiring ------------------------------------------------------
+
+  scrim.addEventListener("click", function () {
+    closeSheet(true);
+    closeAdd();
+  });
+
+  // Focus that leaves an open dialog (a click elsewhere, an assistive
+  // technology jump) is brought back into it.
+  document.addEventListener("focusin", function (evt) {
+    if (current && !sheet.contains(evt.target)) {
+      var list = focusables(sheet);
+      if (list.length) {
+        list[0].focus();
+      }
+    }
+  });
+
+  document.addEventListener("change", function (evt) {
+    var input = evt.target;
+    if (input && input.type === "radio" && ancestorWith(input, "data-look-target", null)) {
+      renderAll();
+      if (current && current.contains(input)) {
+        syncSheet();
+      }
+    }
+  });
+
+  var openers = document.querySelectorAll("button[data-look-open]");
+  var o;
+  for (o = 0; o < openers.length; o++) {
+    openers[o].hidden = false;
+  }
+
+  window.SkyPaneLivePreview = {
+    refresh: function () {
+      renderAll();
+      syncSheet();
+      if (addForm) {
+        addAxes.load(effectiveTheme(addForm));
+      }
+    }
+  };
+
+  renderAll();
 })();

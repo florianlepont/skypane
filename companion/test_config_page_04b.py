@@ -293,7 +293,7 @@ def test_submitted_scope_and_return_route_are_allowlisted():
 
 def test_aspect_scoped_render_carries_hidden_fields_and_omits_other_groups():
     """render(scope=display/device) carries the matching hidden fields and only its own groups,
-    including locating the rules row (inside the Aspect card) by its own data-usage attribute;
+    including locating the rules row (inside the Aspect card) by its own data-look-usage attribute;
     the legacy render(ctx) carries no scope field; a hostile scope never reaches the markup"""
     ctx = {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0}
     display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
@@ -311,7 +311,7 @@ def test_aspect_scoped_render_carries_hidden_fields_and_omits_other_groups():
     assert display.count('<h1 class="page-title">Display</h1>') == 1, "expected the Display page title"
     assert device.count('<h1 class="page-title">Device</h1>') == 1, "expected the Device page title"
     assert config_page.POLL_SECTION_HEADING not in display, "expected the manual-refresh section off the Display page"
-    rules_row_marker = 'data-usage="%s"' % config_page.COLOUR_USAGE_RULES
+    rules_row_marker = 'data-look-usage="%s"' % config_page.COLOUR_USAGE_RULES
     assert rules_row_marker in display, "expected the rules row, inside the Aspect card, on the Display page (D-11)"
     assert config_page.POLL_SECTION_HEADING in device, "expected the manual-refresh section on the Device page"
     assert rules_row_marker not in device, "expected the rules row off the Device page (D-11)"
