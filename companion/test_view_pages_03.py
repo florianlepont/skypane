@@ -1117,38 +1117,30 @@ def test_home_recent_flight_age_is_an_element_reading_exactly_as_before(tmp_path
             prefs.set_request_prefs(lang="en")
 
 
-def test_home_rendered_caption_carries_the_element_through_the_template(tmp_path):
-    """Home's rendered-picture caption carries concise_timestamp_html()'s <time data-relative>
-    element THROUGH its i18n template's own %s — as markup, never double-escaped — with the
-    caption's wording and the age's text unchanged in both languages (23-03, D14)"""
+def test_home_latest_image_has_no_caption_and_its_alt_names_the_flight(tmp_path):
+    """Home prints nothing under the latest image: no <figcaption>, no "Rendered"/"Généré"
+    line and no flight line; the image's alt text still identifies the current flight, in both
+    languages"""
     now = "2026-08-27T12:00:00+00:00"
     flight_ts = "2026-08-27T11:50:00+00:00"
-    gallery_iso = "2026-08-27T11:50:00+00:00"
     for lang in ("en", "fr"):
         sub = tmp_path / lang
         prefs.set_request_prefs(lang=lang)
         try:
             rendered = home_page.render(_home_seeded_ctx(sub, now, flight_ts))
-            caption = re.search(
-                r'<figcaption class="preview-frame__caption text-label">(.*?)</figcaption>',
-                rendered, re.S)
-            assert caption is not None, "lang=%s: expected the rendered-picture caption" % (lang,)
-            expected_caption = i18n.t_lang(
-                home_page.RENDERED_CAPTION_TEMPLATE, lang) % layout.concise_timestamp_html(
-                    gallery_iso, now, lang=lang)
-            assert caption.group(1).startswith(expected_caption), (
-                "lang=%s: expected the caption to be its unchanged wording around "
-                "concise_timestamp_html()'s own output %r, got %r"
-                % (lang, expected_caption, caption.group(1)))
-            element = _HOME_RELATIVE_ELEMENT_RE.search(caption.group(1))
-            assert element is not None, (
-                "lang=%s: expected the caption's relative half to be a <time data-relative> "
-                "element, got %r" % (lang, caption.group(1)))
-            assert element.group(2) == layout.relative_age_text(600, lang=lang), (
-                "lang=%s: expected the caption's age to read exactly what it reads today"
-                % (lang,))
-            assert "&lt;time" not in caption.group(1), (
-                "lang=%s: the caption template double-escaped the element" % (lang,))
+            figure = re.search(r'<figure class="preview-frame">(.*?)</figure>', rendered, re.S)
+            assert figure is not None, "lang=%s: expected the picture figure" % (lang,)
+            assert "<figcaption" not in figure.group(1), "lang=%s: found a caption" % (lang,)
+            assert "preview-frame__caption" not in rendered and "preview-frame__flight" not in rendered
+            for banned in ("Rendered", "Généré"):
+                assert banned not in rendered, "lang=%s: found %r" % (lang, banned)
+            alt = re.search(r'<img class="preview-frame__image"[^>]* alt="([^"]*)"', rendered)
+            assert alt is not None, "lang=%s: expected the picture's alt text" % (lang,)
+            lead = ("The picture currently on the frame: " if lang == "en"
+                    else "L’image actuellement affichée sur le cadre\u00a0: ")
+            assert alt.group(1).startswith(lead) and len(alt.group(1)) > len(lead), (
+                "lang=%s: expected the alt text to carry the flight line, got %r"
+                % (lang, alt.group(1)))
         finally:
             prefs.set_request_prefs(lang="en")
 

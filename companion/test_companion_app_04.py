@@ -49,6 +49,12 @@ _MOTION_EXCEPTION_TOKEN = "--motion-toast-dwell"
 _MOTION_EXCEPTION_KEYFRAMES = "skypane-toast-dwell"
 _MOTION_EXCEPTION_SELECTOR = ".toast[data-toast-armed] .toast__timer"
 
+# The second documented exception: the period of the soft halo around
+# Home's status dot. Only the dot halo rule may spend it.
+_DOT_PULSE_TOKEN = "--motion-dot-pulse"
+_DOT_PULSE_KEYFRAMES = "skypane-dot-halo"
+_DOT_PULSE_SELECTOR = ".home-state__dot--pulse::after"
+
 _ANIMATION_VALUE_KEYWORDS = frozenset((
     "var", "none", "infinite", "normal", "reverse", "alternate", "alternate-reverse",
     "forwards", "backwards", "both", "running", "paused", "auto",
@@ -164,32 +170,39 @@ def test_style_css_honours_the_motion_budget(served_css):
                     "limited, use grid-template-rows: 0fr -> 1fr instead" % (banned, rule.selectors))
 
 
-def test_motion_tokens_are_two_durations_plus_the_one_toast_dwell_exception(served_css):
-    """the served :root declares exactly --motion-fast, --motion-slow and the one documented
-    exception --motion-toast-dwell; the exception is spent by exactly one live declaration,
-    the armed toast timer hairline's skypane-toast-dwell animation, and nowhere else (not even
-    a transition), so it can never become a third general-purpose motion speed"""
-    root = custom_properties(served_css, ":root")
-    declared = sorted(name for name in root if name.startswith("--motion-"))
-    assert declared == sorted(_MOTION_TOKENS + (_MOTION_EXCEPTION_TOKEN,)), (
-        "expected the motion budget's two tokens plus the toast-dwell exception, got %r"
-        % (declared,))
-    spenders = [
+def _spenders(served_css, token):
+    return [
         (rule.selectors, prop, value)
         for rule in css_rules(served_css)
         for prop, value in rule.declarations
-        if "var(%s)" % _MOTION_EXCEPTION_TOKEN in value and not prop.startswith("--")
+        if "var(%s)" % token in value and not prop.startswith("--")
     ]
-    assert len(spenders) == 1, (
-        "expected exactly one declaration spending %s, got %r"
-        % (_MOTION_EXCEPTION_TOKEN, spenders))
-    selectors, prop, value = spenders[0]
-    assert selectors == (_MOTION_EXCEPTION_SELECTOR,), (
-        "expected only %r to spend the toast dwell, got %r"
-        % (_MOTION_EXCEPTION_SELECTOR, selectors))
-    assert prop == "animation" and _MOTION_EXCEPTION_KEYFRAMES in value, (
-        "expected the toast dwell to drive the %s animation, got `%s: %s`"
-        % (_MOTION_EXCEPTION_KEYFRAMES, prop, value))
+
+
+def test_motion_tokens_are_two_durations_plus_the_two_documented_exceptions(served_css):
+    """the served :root declares exactly --motion-fast, --motion-slow and the two documented
+    exceptions --motion-toast-dwell and --motion-dot-pulse; each exception is spent by exactly
+    one live declaration (the armed toast timer hairline's skypane-toast-dwell animation, the
+    status dot halo's skypane-dot-halo animation) and nowhere else, not even a transition, so
+    neither can become a third general-purpose motion speed"""
+    root = custom_properties(served_css, ":root")
+    declared = sorted(name for name in root if name.startswith("--motion-"))
+    assert declared == sorted(
+        _MOTION_TOKENS + (_MOTION_EXCEPTION_TOKEN, _DOT_PULSE_TOKEN)), (
+        "expected the motion budget's two tokens plus the two documented exceptions, got %r"
+        % (declared,))
+    for token, selector, keyframes in (
+            (_MOTION_EXCEPTION_TOKEN, _MOTION_EXCEPTION_SELECTOR, _MOTION_EXCEPTION_KEYFRAMES),
+            (_DOT_PULSE_TOKEN, _DOT_PULSE_SELECTOR, _DOT_PULSE_KEYFRAMES)):
+        spenders = _spenders(served_css, token)
+        assert len(spenders) == 1, (
+            "expected exactly one declaration spending %s, got %r" % (token, spenders))
+        selectors, prop, value = spenders[0]
+        assert selectors == (selector,), (
+            "expected only %r to spend %s, got %r" % (selector, token, selectors))
+        assert prop == "animation" and keyframes in value, (
+            "expected %s to drive the %s animation, got `%s: %s`"
+            % (token, keyframes, prop, value))
 
 
 # ==========================================================================

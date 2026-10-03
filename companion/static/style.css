@@ -71,8 +71,8 @@
   --shadow-toast-docked: 0 1px 2px rgba(10, 12, 18, 0.12);
   --shadow-toast-float: 0 22px 44px -16px rgba(10, 12, 18, 0.5), 0 4px 10px -2px rgba(10, 12, 18, 0.22);
 
-  /* The app's entire motion budget: two durations, plus ONE documented
-   * exception, enforced by companion/test_companion_app_04.py (no bare
+  /* The app's entire motion budget: two durations, plus TWO documented
+   * exceptions, enforced by companion/test_companion_app_04.py (no bare
    * literals, no other token).
    * --motion-fast (180ms) is for a REACTION the user is watching
    * confirm; --motion-slow (2s) is for an AMBIENT loop nobody watches
@@ -81,10 +81,17 @@
    * long a success/info toast stays before it hides itself. Only the
    * toast's timer hairline animates on it, and toast.js reads the same
    * token for its timer, so the two always agree. Never reuse it for
-   * anything else. */
+   * anything else.
+   * Exception: --motion-dot-pulse (3.2s) is the period of the soft halo
+   * that expands and fades around Home's status dot. It is slower than
+   * --motion-slow on purpose: the dot is read from across a room, where a
+   * 2s loop would look anxious. Only the dot halo rule
+   * (.home-state__dot--pulse::after) may spend it; reduced motion turns
+   * that animation off outright. Never reuse it for anything else. */
   --motion-fast: 180ms;
   --motion-slow: 2s;
   --motion-toast-dwell: 6s;
+  --motion-dot-pulse: 3.2s;
 
   /* Light mode (default) */
   --color-canvas: #F7F4EF;
@@ -300,6 +307,20 @@ html[data-ui-theme="dark"] {
   }
   50% {
     opacity: 0.35;
+  }
+}
+
+/* The status dot's halo: from the dot's own size and a soft fill out to a
+ * larger ring that has faded away; the last third rests so the loop
+ * breathes rather than strobes. */
+@keyframes skypane-dot-halo {
+  0% {
+    transform: scale(1);
+    opacity: var(--dot-halo-alpha);
+  }
+  70%, 100% {
+    transform: scale(var(--dot-halo-scale));
+    opacity: 0;
   }
 }
 
@@ -617,6 +638,12 @@ a:hover {
 @media (prefers-reduced-motion: reduce) {
   .js .mobile-nav {
     transition: none;
+  }
+
+  /* The global override would leave a 0.01ms loop running; the halo is
+   * switched off instead, so reduced motion shows no animation at all. */
+  .home-state__dot.home-state__dot--pulse::after {
+    animation: none;
   }
 }
 
@@ -4151,7 +4178,6 @@ button.airline-card__action {
   container-type: inline-size;
   position: relative;
   isolation: isolate;
-  overflow: hidden;
   margin-bottom: var(--space-lg);
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
@@ -4177,6 +4203,7 @@ button.airline-card__action {
   inset: 0;
   z-index: -1;
   pointer-events: none;
+  border-radius: inherit;
   background: radial-gradient(
     90% 130% at 0% 0%,
     color-mix(in srgb, var(--home-tone) 13%, transparent),
@@ -4251,6 +4278,33 @@ button.airline-card__action {
     0 0 18px 4px color-mix(in srgb, var(--home-tone) 30%, transparent);
 }
 
+/* The halo: a ring of the dot's own tone that expands and fades, drawn on
+ * a pseudo-element so only a transform and opacity move. Green when the
+ * screen is on, amber when overdue or the battery holds the frame; a
+ * resting frame (quiet hours, screen off) carries no pulse class. The
+ * amber ring is gentler (smaller, fainter) through two custom properties,
+ * never a second duration. */
+.home-state__dot {
+  position: relative;
+  --dot-halo-scale: 2.8;
+  --dot-halo-alpha: 0.5;
+}
+
+.home-state--warn .home-state__dot {
+  --dot-halo-scale: 2.2;
+  --dot-halo-alpha: 0.35;
+}
+
+.home-state__dot--pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--home-tone);
+  pointer-events: none;
+  animation: skypane-dot-halo var(--motion-dot-pulse) ease-out infinite;
+}
+
 .home-state__detail {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
@@ -4290,35 +4344,66 @@ button.airline-card__action {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* The negative top margin takes back the empty band above the 44px-tall
- * summary text, so the line keeps the header's 8px rhythm while its tap
- * target stays full height. */
-.home-state__meta {
+/* The next-update line and its info button share one row. The row is the
+ * positioning context of the tooltip, so the bubble wraps within the
+ * status zone instead of the button's own width. */
+.home-state__next-row {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0 var(--space-md);
-  margin-top: calc(-1 * var(--space-sm));
+  align-items: flex-start;
+  align-self: stretch;
+  gap: var(--space-xs);
 }
 
-/* One muted line; the reason behind it opens from the summary, with the
- * keyboard or a tap, and needs no script. */
-.home-state__cadence {
-  max-width: 46ch;
-  margin: 0;
+/* A 44px tap target around an 18px glyph; the negative margins hand the
+ * extra height back so the row keeps the line's own height. */
+.info-tip__button {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -10px -10px -10px -8px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  cursor: help;
 }
 
-/* Muted rather than the accent every other disclosure uses: in the
- * header it is a footnote, and the accent stays on the one action. */
-.home-state__cadence summary {
-  cursor: pointer;
-  width: fit-content;
-  color: inherit;
+.info-tip__button:hover,
+.info-tip:focus-within .info-tip__button {
+  color: var(--color-text);
 }
 
-.home-state__cadence p {
-  margin: var(--space-xs) 0 0;
+/* Shown on hover and on focus (a tap focuses the button) with no script.
+ * Hidden with visibility, not display, so the text stays available to
+ * aria-describedby. */
+.info-tip__bubble {
+  position: absolute;
+  top: calc(100% + var(--space-xs));
+  left: 0;
+  z-index: 3;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(36ch, 100%);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-dominant);
+  box-shadow: var(--shadow-toast-float);
+  color: var(--color-text);
+  font-weight: var(--weight-regular);
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity var(--motion-fast) ease-out;
+}
+
+.info-tip:hover .info-tip__bubble,
+.info-tip:focus-within .info-tip__bubble {
+  visibility: visible;
+  opacity: 1;
 }
 
 /* The Health link as a soft accent pill; 44px tall so it is a full tap
@@ -4440,6 +4525,9 @@ button.airline-card__action {
   min-width: 0;
   padding: var(--space-md);
   border-top: 1px solid var(--color-border);
+  /* The card no longer clips (the info tooltip may reach past it), so the
+   * recessed panel rounds its own outer corners. */
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
   background: color-mix(in srgb, var(--color-canvas) 55%, transparent);
 }
 
@@ -4580,6 +4668,7 @@ button.airline-card__action {
     padding: var(--space-lg) var(--space-md);
     border-top: 0;
     border-left: 1px solid var(--color-border);
+    border-radius: 0 var(--radius-card) var(--radius-card) 0;
   }
 }
 
@@ -4961,17 +5050,6 @@ a.airline-card__zoom {
     max-height: 60vh;
     margin: 0 auto;
   }
-}
-
-.preview-frame__caption {
-  margin-top: var(--space-sm);
-  text-align: center;
-}
-
-/* 2px matches this file's hairline-adjacent spacing exception tier. */
-.preview-frame__flight {
-  display: block;
-  margin-top: 2px;
 }
 
 .status-card__headline {

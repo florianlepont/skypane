@@ -19,9 +19,10 @@ never a straight quote), and a non-breaking space (U+00A0) before
 MESSAGES = {
     "home.current_frame": "Dernière image envoyée au cadre",
 
-    "home.rendered": "Généré %s",
     "home.the_picture_currently_on_the_frame":
         "L’image actuellement affichée sur le cadre",
+    "home.the_picture_currently_on_the_frame_flight":
+        "L’image actuellement affichée sur le cadre\u00a0: %s",
     "home.nothing_rendered_yet": "Rien n’a encore été généré.",
     "home.the_server_saves_a_copy_of_each_picture_it":
         "Le serveur conserve une copie de chaque image envoyée au cadre ; "
@@ -34,7 +35,7 @@ MESSAGES = {
     # consumer (companion/layout.py's frame_strip_html()) renders
     # live — grammatical agreement matches that shared context, not
     # a re-derivation of this page's own former wording.
-    "home.next_update": "Prochaine mise à jour ≈ %s",
+    "home.next_update": "Prochaine mise à jour %s",
     "home.expected_since": "Mise à jour en retard · attendue à %s",
 
     # companion/layout.py's own frame_strip_html(), keyed here for
@@ -52,7 +53,10 @@ MESSAGES = {
     "home.state_detail_quiet_hours": "L’écran se repose jusqu’à %s",
     "home.state_title_battery": "Batterie très faible",
     "home.state_detail_battery": "Le cadre se repose jusqu’à sa recharge",
-    "home.cadence": "Mise à jour environ toutes les %s",
+    "home.cadence_info":
+        "Le cadre dort entre deux mises à jour pour économiser sa batterie\u00a0: "
+        "il se réveille environ toutes les %s, il ne se rafraîchit donc pas en continu.",
+    "home.cadence_info_label": "À propos des mises à jour",
     "home.see_health": "Voir la santé",
     "home.cadence_no_interval":
         "Pour économiser sa batterie, le cadre dort entre deux mises à jour\u00a0: "
