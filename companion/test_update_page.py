@@ -23,6 +23,7 @@ import companion.page_context as page_context
 import companion.prefs as prefs
 from companion.pages import update_page
 from companion_app_server import get, login
+from companion_markup import parse_html, toast_title_detail
 from server import atomic_io
 from server import firmware_registry as fr
 
@@ -429,11 +430,13 @@ def test_rollback_outcome_shows_the_warn_alert_banner():
         device_entry={"fw_version": "fw-v1.3.0", "reported_at": _NOW, "events": []})
     html = update_page.update_page(_ctx(), view, "")
     expected = i18n.t(update_page.ROLLBACK_SENTENCE_TEMPLATE) % ("fw-v1.4.0", "fw-v1.3.0")
-    assert expected in html
-    banner_start = html.index('role="alert"')
-    banner_tag_start = html.rfind("<div", 0, banner_start)
-    banner_tag_end = html.index(">", banner_start)
-    assert "banner--warn" in html[banner_tag_start:banner_tag_end]
+    toast = parse_html(html).select_one(".toast." + update_page.ROLLBACK_TOAST_CLASS)
+    assert toast_title_detail(toast) == layout.split_toast_message(expected)
+    assert toast.attrs.get("role") == "alert"
+    classes = toast.attrs["class"].split()
+    assert "toast--warning" in classes and "toast--docked" in classes, (
+        "expected a docked warning toast (a persistent state, never the error tone), got %r"
+        % classes)
 
 
 def test_notes_render_as_escaped_text_and_version_tags_are_monospace():

@@ -72,6 +72,8 @@ ROLLBACK_SENTENCE_TEMPLATE = i18n.msg(
     "update.firmware_rolled_back",
     "Firmware rolled back — the update to %s failed on trial boot; "
     "the frame is back on %s.")
+# The rollback's docked toast, a persistent state rather than a flash.
+ROLLBACK_TOAST_CLASS = "update-rollback"
 
 CANCEL_BUTTON_TEXT = i18n.msg("update.cancel", "Cancel")
 INSTALL_BUTTON_TEXT = i18n.msg("update.install", "Install")
@@ -279,7 +281,10 @@ def _rollback_banner_html(view):
     version = rollback.get("version") or "?"
     back_on = rollback.get("back_on") or "?"
     text = i18n.t(ROLLBACK_SENTENCE_TEMPLATE) % (version, back_on)
-    return '<div class="banner banner--warn" role="alert">%s</div>' % escape_html(text)
+    title, detail = layout.split_toast_message(text)
+    return layout.toast_html(
+        title, detail, tone=layout.TOAST_TONE_WARNING, role="alert", docked=True,
+        extra_class=ROLLBACK_TOAST_CLASS)
 
 
 def _status_card_html(ctx, view, next_wake_text, wake_held=False):

@@ -35,6 +35,7 @@ COPY_BUTTON_SCRIPT_ROUTE = "/static/copy-button.js"
 FRESHNESS_SCRIPT_ROUTE = "/static/freshness.js"
 PANEL_LOOKUP_SCRIPT_ROUTE = "/static/panel-lookup.js"
 FLASH_CLEANUP_SCRIPT_ROUTE = "/static/flash-cleanup.js"
+TOAST_SCRIPT_ROUTE = "/static/toast.js"
 POLL_COOLDOWN_SCRIPT_ROUTE = "/static/poll-cooldown.js"
 CONFIRM_SUBMIT_SCRIPT_ROUTE = "/static/confirm-submit.js"
 THEME_PREVIEW_SCRIPT_ROUTE = "/static/theme-preview.js"
@@ -54,6 +55,7 @@ _COPY_BUTTON_JS_PATH = os.path.join(STATIC_DIR, "copy-button.js")
 _FRESHNESS_JS_PATH = os.path.join(STATIC_DIR, "freshness.js")
 _PANEL_LOOKUP_JS_PATH = os.path.join(STATIC_DIR, "panel-lookup.js")
 _FLASH_CLEANUP_JS_PATH = os.path.join(STATIC_DIR, "flash-cleanup.js")
+_TOAST_JS_PATH = os.path.join(STATIC_DIR, "toast.js")
 _POLL_COOLDOWN_JS_PATH = os.path.join(STATIC_DIR, "poll-cooldown.js")
 _CONFIRM_SUBMIT_JS_PATH = os.path.join(STATIC_DIR, "confirm-submit.js")
 _THEME_PREVIEW_JS_PATH = os.path.join(STATIC_DIR, "theme-preview.js")
@@ -100,6 +102,7 @@ STATIC_ROUTES = {
     FRESHNESS_SCRIPT_ROUTE: StaticAsset(_FRESHNESS_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     PANEL_LOOKUP_SCRIPT_ROUTE: StaticAsset(_PANEL_LOOKUP_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     FLASH_CLEANUP_SCRIPT_ROUTE: StaticAsset(_FLASH_CLEANUP_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
+    TOAST_SCRIPT_ROUTE: StaticAsset(_TOAST_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     POLL_COOLDOWN_SCRIPT_ROUTE: StaticAsset(_POLL_COOLDOWN_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     CONFIRM_SUBMIT_SCRIPT_ROUTE: StaticAsset(_CONFIRM_SUBMIT_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     THEME_PREVIEW_SCRIPT_ROUTE: StaticAsset(_THEME_PREVIEW_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),

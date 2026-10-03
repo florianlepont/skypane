@@ -30,24 +30,16 @@
   var PENDING_ATTR = "data-pending";
   var STATE_ON_ATTR = "data-quick-state-on";
   var STATE_OFF_ATTR = "data-quick-state-off";
+  // Must equal companion/ui_base.py's QUICK_TOAST_ATTR and
+  // QUICK_TOAST_TEMPLATE_ATTR.
   var TOAST_ATTR = "data-quick-toast";
-  var FAILED_TEXT_ATTR = "data-quick-failed-text";
+  var TEMPLATE_ATTR = "data-quick-toast-template";
 
   // The value companion/app.py's _wants_no_content() tests the
   // X-Requested-With header against to pick a 204 over its 303. A
   // browser form post sends nothing of the sort, keeping the
   // scripts-blocked path unchanged.
   var FETCH_HEADER_VALUE = "quick-switch";
-
-  // Fallback only, for a page whose <body> carries no translated copy.
-  var FAILED_TEXT = "Couldn't change that — please try again.";
-
-  // How long the toast stays: long enough to read twice, short enough
-  // to be gone before the next action. A transient announcement, not a
-  // banner — the switch itself has already rolled back to the truth.
-  var TOAST_DISMISS_MS = 6000;
-
-  var toastTimer = null;
 
   function ancestorWith(el, attr) {
     var node = el;
@@ -114,26 +106,20 @@
     }
   }
 
+  // Clones the server-rendered, translated error toast into the live
+  // region, which announces it. An error never hides on its own; its
+  // dismiss button is handled by toast.js. One region, one toast: a
+  // second failure replaces the first rather than stacking under it.
   function announceFailure() {
-    var toast = document.querySelector("[" + TOAST_ATTR + "]");
-    if (!toast) {
+    var region = document.querySelector("[" + TOAST_ATTR + "]");
+    var template = document.querySelector("[" + TEMPLATE_ATTR + "]");
+    if (!region || !template || !template.content) {
       return;
     }
-    var copy = document.body ? document.body.getAttribute(FAILED_TEXT_ATTR) : null;
-    toast.textContent = copy || FAILED_TEXT;
-    toast.className = "quick-toast is-visible";
-    // One region, one timer: a second failure replaces the first rather
-    // than stacking a second box under it.
-    if (toastTimer !== null) {
-      window.clearTimeout(toastTimer);
+    while (region.firstChild) {
+      region.removeChild(region.firstChild);
     }
-    toastTimer = window.setTimeout(function () {
-      toast.className = "quick-toast";
-      // Emptied as well as hidden, so a later mutation does not
-      // re-announce a stale sentence.
-      toast.textContent = "";
-      toastTimer = null;
-    }, TOAST_DISMISS_MS);
+    region.appendChild(template.content.cloneNode(true));
   }
 
   function rollBack(control, region, form, wasOn) {
