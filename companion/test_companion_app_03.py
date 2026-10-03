@@ -377,7 +377,7 @@ def test_theme_preview_script_es5_safe_and_no_html_write(app03_server):
     """theme-preview.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/
     innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/timers/a page-wide
     single-grid lookup), and carries the row->chip src-swap contract (addEventListener/
-    querySelector/getAttribute/data-preview-src/data-usage all present)"""
+    querySelector/getAttribute/data-preview-src/data-look-usage all present)"""
     src = served_asset(app03_server, "/static/theme-preview.js")
     assert src.count('"use strict"') == 1, (
         "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
@@ -389,7 +389,7 @@ def test_theme_preview_script_es5_safe_and_no_html_write(app03_server):
     for token in banned:
         assert token not in src, "theme-preview.js must not contain %r" % token
     required = (
-        "addEventListener", "querySelector", "getAttribute", "data-preview-src", "data-usage")
+        "addEventListener", "querySelector", "getAttribute", "data-preview-src", "data-look-usage")
     for token in required:
         assert token in src, "expected %r in theme-preview.js" % token
 

@@ -657,7 +657,7 @@ def test_the_map_is_gone_the_radios_and_photographs_remain_and_meet_their_floor(
         context.close()
 
 
-THEME_PREVIEW_SEL = ".theme-live-preview__image"
+THEME_PREVIEW_SEL = '[data-look-usage="departures"] img.look-frame__image'
 
 
 def test_displays_page_height_is_recorded_at_both_phone_widths(new_context, server):
@@ -813,11 +813,10 @@ def test_arrivals_still_saves_with_scripts_blocked(new_context, make_app_server)
 # carousel was rebuilt into.
 
 def test_keying_the_palette_moves_the_preview(new_context, server):
-    """Arrow-keying the departures palette's native radiogroup (no click at all) still
-    moves the checked selection, and the live preview still follows it via
-    theme-preview.js's own delegated change listener, settled fully opaque — the same
-    property a prior scrolling-strip check proved, now shown to survive a static wrapping
-    grid with no strip/scroll/pager to key through.
+    """Arrow-keying the look sheet's colour radiogroup (no click at all, the sheet itself opened
+    from the keyboard) moves the departures look to a real theme of the next colour, and the
+    departures picture follows it through theme-preview.js's own delegated change listener,
+    settled on that theme's own preview and fully opaque.
     """
     context = new_context(viewport=VIEWPORT_PHONE)
     try:
@@ -826,26 +825,21 @@ def test_keying_the_palette_moves_the_preview(new_context, server):
         _login(page, base_url)
         page.goto(base_url + "/display")
         page.wait_for_load_state("networkidle")
-
-        checked_value = page.eval_on_selector(
-            'details.usage-row[data-usage="departures"] '
-            'input[name="theme"]:checked', "el => el.value")
-        page.focus(
-            'details.usage-row[data-usage="departures"] '
-            'input[name="theme"][value="%s"]' % checked_value)
-        page.keyboard.press("ArrowDown")
+        checked = 'input[name="theme"]:checked'
+        checked_value = page.eval_on_selector(checked, "el => el.value")
+        page.focus('[data-look-usage="departures"] summary.look-edit__summary')
+        page.keyboard.press("Enter")
+        page.locator("[data-look-sheet]").wait_for(state="visible")
+        page.keyboard.press("ArrowRight")
         page.wait_for_timeout(200)
-        new_value = page.eval_on_selector(
-            'details.usage-row[data-usage="departures"] '
-            'input[name="theme"]:checked', "el => el.value")
+        new_value = page.eval_on_selector(checked, "el => el.value")
         if new_value == checked_value:
             raise AssertionError(
-                "ArrowDown inside the departures palette's native radiogroup "
-                "did not move the checked selection off %r" % (checked_value,))
+                "ArrowRight inside the look sheet's colour radiogroup did not move the "
+                "departures look off %r" % (checked_value,))
         expected_src = page.eval_on_selector(
-            'details.usage-row[data-usage="departures"] '
             'input[name="theme"][value="%s"]' % new_value,
-            "el => el.closest('.palette-chip').getAttribute('data-preview-src')")
+            "el => el.parentNode.getAttribute('data-preview-src')")
         try:
             page.wait_for_function(
                 "args => { var img = document.querySelector(args.sel);"
@@ -857,21 +851,18 @@ def test_keying_the_palette_moves_the_preview(new_context, server):
             live_src = page.eval_on_selector(
                 THEME_PREVIEW_SEL, "el => el.getAttribute('src')")
             raise AssertionError(
-                "expected the live preview to settle on %r (the newly "
-                "ArrowDown-selected chip's own data-preview-src), fully opaque, "
-                "after keying the palette with no click at all - it reads %r"
-                % (expected_src, live_src))
+                "expected the departures picture to settle on %r (the newly selected theme's "
+                "own preview), fully opaque, after keying the sheet with no click at all - it "
+                "reads %r" % (expected_src, live_src))
     finally:
         context.close()
 
 
 def test_the_preview_follows_hover_and_focus_and_selects_nothing(new_context, server):
-    """Hovering or keyboard-focusing an unchecked palette chip previews that chip's own
-    theme in the one live preview, writing no radio's checked state and no value on disk;
-    moving the pointer/focus away reverts the preview to the checked chip's own src; hovering
-    straight from chip A to chip B never passes through the checked selection's own src in
-    between (observed via a live MutationObserver on the preview's src attribute), settling
-    on B; and the value on disk is unchanged start to finish.
+    """Hovering and keyboard-focusing the pictures and the look sheet's choices select nothing:
+    opening the sheet, moving focus through its choices with Tab and closing it again leaves
+    the checked departures radio, the picture's src and the value on disk exactly as they were;
+    only a real choice changes the look.
     """
     context = new_context(viewport=VIEWPORT_PHONE)
     try:
@@ -881,109 +872,29 @@ def test_the_preview_follows_hover_and_focus_and_selects_nothing(new_context, se
         page.goto(base_url + "/display")
         page.wait_for_load_state("networkidle")
 
-        def read_back():
-            return device_config.load_device_config(server.tmpdir)["theme"]
+        def state():
+            return {
+                "disk": device_config.load_device_config(server.tmpdir)["theme"],
+                "checked": page.eval_on_selector('input[name="theme"]:checked', "el => el.value"),
+                "src": page.eval_on_selector(THEME_PREVIEW_SEL, "el => el.getAttribute('src')"),
+            }
 
-        def preview_src():
-            return page.eval_on_selector(THEME_PREVIEW_SEL, "el => el.getAttribute('src')")
-
-        def checked_value():
-            return page.eval_on_selector(
-                'details.usage-row[data-usage="departures"] '
-                'input[name="theme"]:checked', "el => el.value")
-
-        def chip_label_selector(value):
-            return (
-                'details.usage-row[data-usage="departures"] '
-                'label.palette-chip:has('
-                'input[type=radio][value="%s"])' % value)
-
-        def chip_selector(value):
-            return (
-                'details.usage-row[data-usage="departures"] '
-                'label.palette-chip input[type=radio][value="%s"]' % value)
-
-        def wait_for_src(expected):
-            page.wait_for_function(
-                "args => { var img = document.querySelector(args.sel);"
-                " return !!img && img.getAttribute('src') === args.expected; }",
-                arg={"sel": THEME_PREVIEW_SEL, "expected": expected},
-                timeout=3000)
-
-        before_disk = read_back()
-        chips = page.evaluate(
-            "() => [...document.querySelectorAll("
-            "'details.usage-row[data-usage=\"departures\"] "
-            "label.palette-chip')]"
-            ".map(c => ({value: c.querySelector('input[type=radio]').value,"
-            " checked: c.querySelector('input[type=radio]').checked,"
-            " src: c.getAttribute('data-preview-src')}))")
-        checked_chip = next((c for c in chips if c["checked"]), None)
-        unchecked = [c for c in chips if not c["checked"]]
-        if checked_chip is None or len(unchecked) < 2:
+        before = state()
+        page.hover('[data-look-usage="arrivals"] button.look-frame__open')
+        page.hover('[data-look-usage="departures"] button.look-frame__open')
+        page.focus('[data-look-usage="departures"] summary.look-edit__summary')
+        page.keyboard.press("Enter")
+        page.locator("[data-look-sheet]").wait_for(state="visible")
+        for _ in range(6):
+            page.keyboard.press("Tab")
+        page.hover('[data-look-sheet] .look-dot:has(input[value="green"])')
+        page.keyboard.press("Escape")
+        page.locator("[data-look-sheet]").wait_for(state="hidden")
+        after = state()
+        if after != before:
             raise AssertionError(
-                "expected one checked departures chip and at least 2 unchecked "
-                "siblings to hover, got checked=%r unchecked=%d"
-                % (checked_chip, len(unchecked)))
-        chip_a, chip_b = unchecked[0], unchecked[1]
-
-        page.hover(chip_label_selector(chip_a["value"]))
-        wait_for_src(chip_a["src"])
-        if checked_value() != checked_chip["value"]:
-            raise AssertionError(
-                "hovering an unchecked chip changed the CHECKED radio from %r "
-                "to %r - a preview must never become a selection"
-                % (checked_chip["value"], checked_value()))
-        if read_back() != before_disk:
-            raise AssertionError("hovering an unchecked chip changed the value ON DISK")
-
-        page.hover("body", position={"x": 2, "y": 2})
-        wait_for_src(checked_chip["src"])
-
-        page.focus(chip_selector(chip_a["value"]))
-        wait_for_src(chip_a["src"])
-        if checked_value() != checked_chip["value"]:
-            raise AssertionError(
-                "keyboard-focusing an unchecked chip changed the CHECKED radio "
-                "from %r to %r" % (checked_chip["value"], checked_value()))
-        page.eval_on_selector(chip_selector(chip_a["value"]), "el => el.blur()")
-        wait_for_src(checked_chip["src"])
-
-        page.hover(chip_label_selector(chip_a["value"]))
-        wait_for_src(chip_a["src"])
-        page.evaluate(
-            "sel => { var img = document.querySelector(sel);"
-            " window.__paletteHoverFrames = [];"
-            " window.__paletteHoverObserver = new MutationObserver("
-            "   function () {"
-            "     window.__paletteHoverFrames.push(img.getAttribute('src'));"
-            "   });"
-            " window.__paletteHoverObserver.observe("
-            "   img, {attributes: true, attributeFilter: ['src']}); }",
-            THEME_PREVIEW_SEL)
-        page.hover(chip_label_selector(chip_b["value"]))
-        wait_for_src(chip_b["src"])
-        page.wait_for_timeout(200)
-        frames = page.evaluate(
-            "() => { window.__paletteHoverObserver.disconnect();"
-            " return window.__paletteHoverFrames; }")
-        if checked_chip["src"] in frames:
-            raise AssertionError(
-                "hovering directly from chip A to chip B passed THROUGH the "
-                "checked selection's own src %r before settling on chip B's own "
-                "%r - frames observed: %r"
-                % (checked_chip["src"], chip_b["src"], frames))
-        final_src = preview_src()
-        if final_src != chip_b["src"]:
-            raise AssertionError(
-                "expected the preview to end on chip B's own src %r after "
-                "hovering straight from chip A to chip B, got %r"
-                % (chip_b["src"], final_src))
-
-        if read_back() != before_disk:
-            raise AssertionError(
-                "the value on disk changed over the course of this check - "
-                "hovering/focusing must never write a selection")
+                "opening the sheet and moving through its choices without choosing changed "
+                "the look: %r -> %r" % (before, after))
     finally:
         context.close()
 
@@ -1043,7 +954,7 @@ _TICKER_SITES = (
      'table.data-table--flights tr[data-filter-group="0"] time[data-relative]',
      _seed_flights_ticker),
     ("display-calendar", "/display",
-     'details.usage-row[data-usage="calendar"] time[data-relative]',
+     '[data-look-usage="calendar"] time[data-relative]',
      _seed_calendar_ticker),
     ("health-registry", "/health",
      '.data-table--registry tr[data-filter-group="0"] time[data-relative]',
@@ -1112,8 +1023,9 @@ def _lang_cookie(base_url, lang):
 
 
 def test_swatches_tell_solid_light_and_band_themes_apart(new_context, server):
-    """Every theme's swatch is drawn from its own metadata: a light (dithered) theme paints a
-    stipple its solid sibling does not, and a band theme paints a band the plain fields lack.
+    """Every theme's swatch in the departures table is drawn from its own metadata: a light
+    (dithered) theme paints its ink translucent over paper where its solid sibling paints it
+    opaque in the same colour, and a band theme paints a band the plain fields lack.
     """
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
@@ -1125,31 +1037,34 @@ def test_swatches_tell_solid_light_and_band_themes_apart(new_context, server):
         painted = page.evaluate(
             "() => { var out = {};"
             " document.querySelectorAll("
-            "'details[data-usage=\"departures\"] label.palette-chip').forEach(function (chip) {"
-            "  var swatch = chip.querySelector('.palette-swatch');"
-            "  var band = swatch.querySelector('.palette-swatch__band');"
-            "  out[chip.querySelector('input').value] = {"
-            "   field: getComputedStyle(swatch).backgroundImage,"
-            "   band: band ? getComputedStyle(band).backgroundImage : null,"
-            "   fill: getComputedStyle(swatch).backgroundColor};"
+            "'[data-look-usage=\"departures\"] .look-table-block label').forEach(function (cell) {"
+            "  var svg = cell.querySelector('svg.look-swatch');"
+            "  if (!svg) return;"
+            "  var rects = svg.querySelectorAll('rect');"
+            "  var field = rects[rects.length - 1];"
+            "  var band = svg.querySelector('polygon');"
+            "  out[cell.querySelector('input').value] = {"
+            "   fill: getComputedStyle(field).fill,"
+            "   field: getComputedStyle(field).fillOpacity,"
+            "   band: band ? getComputedStyle(band).fillOpacity : null};"
             " }); return out; }")
+        assert len(painted) == len(device_config.THEME_IDS), sorted(painted)
         for solid, light in (
                 ("yellow", "yellow_light"), ("red", "red_light"),
                 ("green", "green_light"), ("blue", "blue_light")):
-            if painted[solid]["field"] != "none" or painted[light]["field"] == "none":
+            if painted[solid]["field"] != "1" or painted[light]["field"] == "1":
                 raise AssertionError(
-                    "%s must paint solid and %s must paint a stipple: %r / %r"
+                    "%s must paint solid and %s must paint translucent: %r / %r"
                     % (solid, light, painted[solid], painted[light]))
             if painted[solid]["fill"] != painted[light]["fill"]:
-                raise AssertionError("%s and %s share one ink colour" % (solid, light))
-        if painted["band_blue"]["band"] != "none":
-            raise AssertionError("a solid band must not be stippled: %r" % painted["band_blue"])
-        if painted["band_blue_light"]["band"] in (None, "none"):
-            raise AssertionError("a light band must be stippled: %r" % painted["band_blue_light"])
-        if painted["band_blue_field"]["band"] != "none" or \
-                painted["band_blue_field"]["field"] == "none":
+                raise AssertionError("%s and %s must share one ink colour" % (solid, light))
+        if painted["band_blue"]["band"] != "1":
+            raise AssertionError("a solid band must be opaque: %r" % painted["band_blue"])
+        if painted["band_blue_light"]["band"] in (None, "1"):
+            raise AssertionError("a light band must be translucent: %r" % painted["band_blue_light"])
+        if painted["band_blue_field"]["band"] != "1" or painted["band_blue_field"]["field"] == "1":
             raise AssertionError(
-                "a band-field theme stipples its field around a solid band: %r"
+                "a band-field theme tints its field around a solid band: %r"
                 % painted["band_blue_field"])
         if painted["white"]["band"] is not None:
             raise AssertionError("a plain theme carries no band")
@@ -1161,9 +1076,10 @@ def test_swatches_tell_solid_light_and_band_themes_apart(new_context, server):
 @pytest.mark.parametrize("label,viewport", SWATCH_VIEWPORTS)
 def test_the_live_preview_is_contained_keyed_focusable_and_saves(
         new_context, make_app_server, label, viewport, lang):
-    """At 1280, 390 and 360 px in both languages the live preview image sits whole inside its
-    figure and the page, arrow-keying a swatch moves it with a visible focus ring, and the
-    native save lands on the persisted theme with the saved confirmation.
+    """At 1280, 390 and 360 px in both languages the departures picture sits whole inside its
+    frame and the page, the look sheet opened from the keyboard moves the look with the arrow
+    keys behind a visible focus ring, and the native save lands on the persisted theme with the
+    saved confirmation.
     """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     base_url = server.base_url()
@@ -1176,7 +1092,7 @@ def test_the_live_preview_is_contained_keyed_focusable_and_saves(
         page.wait_for_load_state("networkidle")
         box = page.evaluate(
             "() => { var img = document.querySelector('%s');"
-            " var fig = img.closest('figure'); var i = img.getBoundingClientRect();"
+            " var fig = img.closest('.look-frame__picture'); var i = img.getBoundingClientRect();"
             " var f = fig.getBoundingClientRect();"
             " return {iw: i.width, ih: i.height, il: i.left, ir: i.right,"
             "  fl: f.left, fr: f.right, ft: f.top, fb: f.bottom, it: i.top, ib: i.bottom,"
@@ -1184,32 +1100,34 @@ def test_the_live_preview_is_contained_keyed_focusable_and_saves(
             "  natural: img.complete && img.naturalWidth > 0,"
             "  fit: getComputedStyle(img).objectFit}; }" % THEME_PREVIEW_SEL)
         if not box["natural"] or box["iw"] <= 0 or box["ih"] <= 0:
-            raise AssertionError("%s: the live preview did not render: %r" % (label, box))
+            raise AssertionError("%s: the picture did not render: %r" % (label, box))
         if box["il"] < box["fl"] - 0.5 or box["ir"] > box["fr"] + 0.5 or \
                 box["it"] < box["ft"] - 0.5 or box["ib"] > box["fb"] + 0.5 or \
                 box["il"] < 0 or box["ir"] > box["vw"]:
-            raise AssertionError("%s: the preview is clipped: %r" % (label, box))
+            raise AssertionError("%s: the picture is clipped: %r" % (label, box))
         if box["fit"] != "contain":
-            raise AssertionError("%s: the preview must never crop its picture: %r" % (label, box))
+            raise AssertionError("%s: the picture must never crop its render: %r" % (label, box))
         problem = _assert_no_page_overflow(page, "display %s %s" % (label, lang))
         if problem:
             raise AssertionError(problem)
 
-        selector = 'details.usage-row[data-usage="departures"] input[name="theme"]'
+        selector = 'input[name="theme"]'
         start = page.eval_on_selector(selector + ":checked", "el => el.value")
-        page.focus(selector + ':checked')
+        page.focus('[data-look-usage="departures"] summary.look-edit__summary')
+        page.keyboard.press("Enter")
+        page.locator("[data-look-sheet]").wait_for(state="visible")
         page.keyboard.press("ArrowRight")
         moved = page.eval_on_selector(selector + ":checked", "el => el.value")
         if moved == start:
-            raise AssertionError("%s: arrow keys did not move the swatch selection" % label)
-        ring = page.eval_on_selector(
-            selector + ":checked",
-            "el => { var chip = el.closest('.palette-chip');"
-            " var cs = getComputedStyle(chip);"
-            " return cs.outlineStyle + '|' + cs.outlineWidth + '|' + cs.boxShadow; }")
-        if ring.startswith("none|") and ring.endswith("none") or ring.startswith("none|0px|none"):
-            raise AssertionError("%s: the focused swatch shows no focus ring: %r" % (label, ring))
-        _save_via_bar(page)
+            raise AssertionError("%s: arrow keys did not move the look" % label)
+        ring = page.evaluate(
+            "() => { var dot = document.activeElement.closest('.look-dot');"
+            " var cs = getComputedStyle(dot);"
+            " return cs.outlineStyle + '|' + cs.outlineWidth; }")
+        if ring.startswith("none|") or ring.endswith("|0px"):
+            raise AssertionError("%s: the focused colour shows no focus ring: %r" % (label, ring))
+        page.keyboard.press("Escape")
+        _save_via_bar(page, timeout=30000)
         stored = device_config.load_device_config(server.tmpdir)["theme"]
         if stored != moved:
             raise AssertionError("%s: saved %r but disk reads %r" % (label, moved, stored))
@@ -1217,3 +1135,5 @@ def test_the_live_preview_is_contained_keyed_focusable_and_saves(
             raise AssertionError("%s/%s: no saved confirmation after the save" % (label, lang))
     finally:
         context.close()
+
+

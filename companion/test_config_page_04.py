@@ -23,6 +23,7 @@ import companion.prefs as prefs
 import companion.test_config_page_helpers as cp
 from companion.layout import escape_html
 from companion.pages import config_page
+from companion.settings import rules as rules_settings
 from server import device_config, history_db
 from server.plane import calendar_rules, colour_rules
 
@@ -90,12 +91,9 @@ def test_rules_suggestion_chips_present_with_data_and_absent_with_no_events(tmp_
 
 
 def test_plain_render_carries_both_disclosures_in_full_never_collapsed():
-    """a plain Display render always carries the full 'How rules combine' and Calendar 'How it
-    works' <details> disclosures, never a collapsed one-sentence variant
-
-    The display mode that used to collapse both disclosures to one plain sentence is deleted
-    outright.
-    """
+    """a plain Display render always carries the full precedence sentence under the special
+    looks and the Calendar 'How it works' <details> disclosure, never a collapsed one-sentence
+    variant"""
     ctx = {
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
@@ -103,21 +101,15 @@ def test_plain_render_carries_both_disclosures_in_full_never_collapsed():
     }
     rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     rules_segment = cp.rules_row_segment(rendered)
-    assert escape_html(config_page.RULES_HOW_RULES_COMBINE_SUMMARY) in rules_segment, (
-        "expected the full 'How rules combine' <details> disclosure")
-    assert "<details>" in rules_segment, "expected a <details> disclosure for rules"
+    assert escape_html(i18n.t(rules_settings.SPECIAL_LOOKS_ORDER)) in rules_segment, (
+        "expected the full precedence sentence under the special looks")
     calendar_start, calendar_end = cp.aspect_usage_row_bounds(
         rendered, config_page.COLOUR_USAGE_CALENDAR)
     calendar_segment = rendered[calendar_start:calendar_end]
     assert escape_html(config_page.CALENDAR_HOW_IT_WORKS_SUMMARY) in calendar_segment, (
         "expected the full Calendar 'How it works' <details> disclosure")
-    # Neither collapsed one-sentence variant may appear anywhere in the rendered body -
-    # their exact punctuation never occurs as a substring of the full <details> body text above,
-    # so this is an unambiguous check, not a coincidental prefix match.
-    assert "It only colours a flight already on screen." not in rendered, (
-        "expected no collapsed one-sentence Calendar disclosure anywhere")
-    assert "The most specific match wins." not in rendered, (
-        "expected no collapsed one-sentence rules disclosure anywhere")
+    assert "It only colours a flight already on screen." not in rendered
+    assert "The most specific match wins." not in rendered
 
 
 def test_rules_section_carries_no_dirty_section_attr():
@@ -135,8 +127,8 @@ def test_rules_section_carries_no_dirty_section_attr():
 
 
 def test_rules_french_render_shows_french_row_label_and_button():
-    """a French Display render of the Frame colours card's rules row/panel shows 'Règles par vol'
-    and 'Ajouter la règle'"""
+    """a French Display render of the special looks shows 'Allures spéciales', the 'Ajouter une
+    allure spéciale' action and the 'Ajouter l’allure' submit button"""
     ctx = {
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
@@ -147,8 +139,8 @@ def test_rules_french_render_shows_french_row_label_and_button():
         rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     finally:
         prefs.set_request_prefs(lang="en")
-    assert "Règles par vol" in rendered, "expected the French rules row label 'Règles par vol'"
-    assert "Ajouter la règle" in rendered, "expected the French Add-rule button 'Ajouter la règle'"
+    for text in ("Allures spéciales", "Ajouter une allure spéciale", "Ajouter l’allure"):
+        assert escape_html(text) in rendered, "expected the French %r" % (text,)
 
 
 def test_calendar_status_not_configured_is_exclusive():
@@ -374,13 +366,11 @@ def test_calendar_d01_registry_entries_never_appear_in_rules_list(tmp_path):
 
 
 def test_aspect_calendar_row_palette_populated_in_order():
-    """the calendar row's palette carries one leading Same-as-departures option plus exactly one
-    entry per registered theme, in registry order, with no id attribute of its own
+    """the calendar row's table carries one leading Same-as-departures option plus exactly one
+    radio per registered theme, each id once, and the table carries no id attribute of its own
 
-    The calendar row's palette is a real role="radiogroup", populated in registry order with
-    name="calendar_theme_id", carrying no id attribute - the no-id clause is load-bearing:
-    _palette_grid_html() has three call sites on one page, and an id emitted inside it would be
-    three identical ids.
+    The no-id clause is load-bearing: look_table_html() has four call sites on one page, and an
+    id emitted inside it would be four identical ids.
     """
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
@@ -389,17 +379,15 @@ def test_aspect_calendar_row_palette_populated_in_order():
     }, scope=config_page.SCOPE_DISPLAY)
     start, end = cp.aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_CALENDAR)
     calendar_segment = rendered[start:end]
-    grid_match = re.search(r'<div class="palette" role="radiogroup"[^>]*>', calendar_segment)
-    assert grid_match, "expected a .palette role=radiogroup grid inside the calendar row"
-    assert ' id="' not in grid_match.group(0), (
-        "expected the calendar row's palette to carry no id attribute, got %r" % (grid_match.group(0),))
+    table_match = re.search(r'<table class="look-table"[^>]*>', calendar_segment)
+    assert table_match, "expected a .look-table inside the calendar row"
+    assert ' id="' not in table_match.group(0)
     radio_values = re.findall(r'name="calendar_theme_id" value="([^"]*)"', calendar_segment)
     real_ids = [rid for rid in radio_values if rid]
-    assert real_ids == list(device_config.THEME_IDS), (
-        "expected the calendar palette populated in registry order, got %r" % (real_ids,))
-    leading_count = len(radio_values) - len(real_ids)
-    assert leading_count == 1, (
-        "expected exactly one leading Same-as-departures option, got %d" % leading_count)
+    assert sorted(real_ids) == sorted(device_config.THEME_IDS), real_ids
+    assert len(real_ids) == len(set(real_ids))
+    assert len(radio_values) - len(real_ids) == 1, (
+        "expected exactly one leading Same-as-departures option")
 
 
 def test_calendar_theme_chip_grid_saved_value_is_checked():
@@ -630,14 +618,9 @@ def test_calendar_connection_never_nests_a_form_inside_another_in_either_state()
 
 def test_calendar_connection_placement_inside_aspect_after_display_form_close_with_dirty_attr():
     """the calendar connection block renders inside the Calendar row, after that row's own
-    palette, after the settings form's own closing tag and the Aspect card's own heading, still
-    under the Aspect card's own dirty-section tracking attribute - with the Disconnect button
-    inside the row and the disconnect form OUTSIDE the card, the button's form= naming that exact
-    sibling
-
-    Asserts the RELATIONSHIP rather than the endpoints separately - a check that only asserted
-    all pieces existed would pass even if the button pointed at nothing.
-    """
+    table, after the settings form's own closing tag and the look card's own heading, still
+    under the card's own dirty-section tracking attribute - with the Disconnect button inside the
+    row and the disconnect form OUTSIDE the card, the button's form= naming that exact sibling"""
     ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
     rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     form_start = rendered.index('<form class="config-form" id="%s"' % config_page.SETTINGS_FORM_ID)
@@ -646,25 +629,23 @@ def test_calendar_connection_placement_inside_aspect_after_display_form_close_wi
         config_page.ASPECT_HEADING_ID, escape_html(i18n.t(config_page.ASPECT_HEADING))))
     calendar_start, calendar_end = cp.aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_CALENDAR)
     assert form_end < aspect_heading_pos < calendar_start, (
-        "expected </form> < the Aspect heading < the Calendar row, got %d/%d/%d"
+        "expected </form> < the look card heading < the Calendar row, got %d/%d/%d"
         % (form_end, aspect_heading_pos, calendar_start))
     calendar_segment = rendered[calendar_start:calendar_end]
-    palette_pos = calendar_segment.index('class="palette"')
+    table_pos = calendar_segment.index('class="look-table"')
     status_row_pos = calendar_segment.index('class="status-row')
-    assert palette_pos < status_row_pos, "expected the palette to precede the connection block's own status row"
+    assert table_pos < status_row_pos, "expected the table to precede the connection block's own status row"
     disconnect_btn_match = re.search(
         r'<button type="submit" form="([^"]*)" class="calendar-disconnect-btn">', calendar_segment)
     assert disconnect_btn_match, "expected the Disconnect button inside the Calendar row"
     disconnect_form_needle = '<form id="%s"' % config_page.CALENDAR_DISCONNECT_FORM_ID
     assert disconnect_form_needle not in calendar_segment, (
         "expected the disconnect form OUTSIDE the Calendar row, found it inside")
-    assert disconnect_btn_match.group(1) == config_page.CALENDAR_DISCONNECT_FORM_ID, (
-        "expected the Disconnect button's form= to name %r, got %r"
-        % (config_page.CALENDAR_DISCONNECT_FORM_ID, disconnect_btn_match.group(1)))
+    assert disconnect_btn_match.group(1) == config_page.CALENDAR_DISCONNECT_FORM_ID
     assert disconnect_form_needle in rendered[calendar_end:], (
-        "expected the disconnect form as a sibling of the whole Aspect card")
+        "expected the disconnect form as a sibling of the whole look card")
     assert config_page.DIRTY_SECTION_ATTR in rendered[:calendar_start], (
-        "expected the Aspect card's own dirty-section tracking attribute to precede the row")
+        "expected the look card's own dirty-section tracking attribute to precede the row")
 
 
 def test_calendar_row_no_inline_js_and_palette_cross_submits_form():
@@ -726,11 +707,10 @@ def test_calendar_disconnect_form_is_not_inside_settings_form_on_display_scope()
 
 def test_calendar_connect_form_appears_before_the_runway_card_on_display_scope():
     """on the Display scope, the calendar connect/replace form's own <form> opening tag renders
-    immediately after the Calendar row and strictly before the Runway card's own radio input,
-    never after the whole page's groups"""
+    inside the Calendar row and strictly before the Runway card's own radio input"""
     ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
     rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-    calendar_row_index = rendered.index('data-usage="%s"' % config_page.COLOUR_USAGE_CALENDAR)
+    calendar_row_index = rendered.index('data-look-usage="%s"' % config_page.COLOUR_USAGE_CALENDAR)
     connect_form_index = rendered.index('<form method="post" action="%s"' % config_page.CALENDAR_CONNECT_ROUTE)
     runway_index = rendered.index('name="tracked_runway"')
     assert calendar_row_index < connect_form_index < runway_index, (

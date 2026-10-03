@@ -33,7 +33,9 @@ from companion import app as companion_app
 from companion import battery
 from companion.layout import escape_html
 from companion.pages import config_page
-from companion.settings import form_post, wake_interval
+from companion import theme_preview
+from companion.settings import form_post, look, wake_interval
+from companion.settings import theme as theme_settings
 from companion_app_server import get, http_request, login, served_asset, served_stylesheet
 from companion_markup import css_rules, declarations_for, parse_html
 from server import device_config, history_db
@@ -447,14 +449,17 @@ _TASK3_BASE_CTX = {
 
 
 def test_display_scope_has_three_radiogroups_device_has_none():
-    """the Display scope renders at least three role="radiogroup" elements (Theme's departures
-    and arrivals chip grids, plus the Runway row) and the Device scope renders none"""
+    """the Display scope renders at least two role="radiogroup" elements (the Runway row and the
+    special look form's "Applies to" control; the look tables are native same-name radio groups
+    labelled by their own table caption) and the Device scope renders none"""
     display_rendered = config_page.render(_TASK3_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
     device_rendered = config_page.render(_TASK3_BASE_CTX, scope=config_page.SCOPE_DEVICE)
     display_count = display_rendered.count('role="radiogroup"')
-    assert display_count >= 3, (
-        "expected at least three role=\"radiogroup\" occurrences on the Display scope, got %d"
+    assert display_count >= 2, (
+        "expected at least two role=\"radiogroup\" occurrences on the Display scope, got %d"
         % display_count)
+    assert display_rendered.count('<caption class="visually-hidden">') == 4, (
+        "expected each of the four look tables to carry its own caption")
     device_count = device_rendered.count('role="radiogroup"')
     assert device_count == 0, (
         "expected no role=\"radiogroup\" occurrence on the Device scope, got %d" % device_count)
@@ -517,17 +522,17 @@ def test_control_with_both_hint_and_error_carries_both_ids_in_order():
 # ======================================================================
 
 @pytest.mark.parametrize(
-    ("lang", "what_appears", "choose_appearance", "optional_rules"),
+    ("lang", "what_appears", "card_title", "special_looks"),
     [
-        ("en", "What appears", "Choose an appearance", "Optional per-flight rules"),
-        ("fr", "Ce qui s’affiche", "Choisir l’apparence", "Règles par vol facultatives"),
+        ("en", "What appears", "How your frame looks", "Special looks"),
+        ("fr", "Ce qui s’affiche", "L’allure de votre cadre", "Allures spéciales"),
     ],
 )
 def test_display_uses_one_bilingual_appearance_flow_without_duplicate_framing(
-        lang, what_appears, choose_appearance, optional_rules):
-    """the served Display page starts with one base-appearance flow, places the optional
-    per-flight override after its three base sources, and keeps its native settings form while
-    omitting the retired screen/status framing in both languages"""
+        lang, what_appears, card_title, special_looks):
+    """the served Display page starts with one look card: the Departures and Arrivals pictures,
+    then the Special looks list (calendar row before the per-flight rules), and keeps its native
+    settings form while omitting the retired screen/status framing in both languages"""
     prefs.set_request_prefs(lang=lang)
     try:
         rendered = config_page.render(
@@ -544,22 +549,21 @@ def test_display_uses_one_bilingual_appearance_flow_without_duplicate_framing(
     appearance_section = '<section id="%s" class="display-appearance" aria-labelledby="%s">' % (
         config_page.DISPLAY_LOOK_SECTION_ID, config_page.ASPECT_HEADING_ID)
     card_heading = '<h2 class="text-heading" id="%s">%s</h2>' % (
-        config_page.ASPECT_HEADING_ID, escape_html(choose_appearance))
-    assert rendered.count('class="theme-live-preview aspect-card__preview"') == 1
+        config_page.ASPECT_HEADING_ID, escape_html(card_title))
     assert appearance_section in rendered and card_heading in rendered
     assert rendered.index(appearance_section) < rendered.index(card_heading)
     assert what_appears not in rendered
-    base_positions = [
-        rendered.index('data-usage="%s"' % usage)
+    positions = [
+        rendered.index('data-look-usage="%s"' % usage)
         for usage in (
             config_page.COLOUR_USAGE_DEPARTURES,
             config_page.COLOUR_USAGE_ARRIVALS,
             config_page.COLOUR_USAGE_CALENDAR,
+            config_page.COLOUR_USAGE_RULES,
         )
     ]
-    rules_position = rendered.index('data-usage="%s"' % config_page.COLOUR_USAGE_RULES)
-    assert base_positions == sorted(base_positions) and base_positions[-1] < rules_position
-    assert optional_rules in rendered
+    assert positions == sorted(positions)
+    assert rendered.index(escape_html(special_looks)) < positions[2]
     assert 'class="page-header__screen' not in rendered
     assert 'class="page-header__purpose' not in rendered
     assert 'class="frame-strip' not in rendered
@@ -570,153 +574,104 @@ def test_display_uses_one_bilingual_appearance_flow_without_duplicate_framing(
 
 
 def test_aspect_display_render_has_exactly_one_live_preview_figure_eager_with_dimensions():
-    """a Display render contains exactly one .theme-live-preview.aspect-card__preview figure
-    whose <img> src ends in the saved theme's ?live=1 URL, carries loading="eager" and explicit
-    width/height, positioned ABOVE the first accordion row"""
+    """a Display render carries exactly two large framed pictures, departures then arrivals,
+    each an <img> of the saved look's full-frame preview in its own state with explicit width and
+    height from the render pipeline's real served size, and loading left eager (the default)"""
     rendered = config_page.render(
         {"device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0},
         scope=config_page.SCOPE_DISPLAY)
-    figure_needle = 'class="theme-live-preview aspect-card__preview"'
-    assert rendered.count(figure_needle) == 1, (
-        "expected exactly one .theme-live-preview.aspect-card__preview figure, got %d"
-        % rendered.count(figure_needle))
-    figure_pos = rendered.index(figure_needle)
-    first_row_pos = rendered.index('name="%s"' % config_page.ASPECT_ROWS_GROUP_NAME)
-    assert figure_pos < first_row_pos, "expected the live preview figure ABOVE the first accordion row"
-    match = re.search(r'<img class="theme-live-preview__image"[^>]*>', rendered)
-    assert match, "expected the live preview's own <img> element"
-    tag = match.group(0)
-    assert 'src="%sblue.png?live=1"' % config_page.THEME_PREVIEW_ROUTE_PREFIX in tag
-    assert 'loading="eager"' in tag
-    assert 'width="%d"' % config_page.THEME_LIVE_PREVIEW_WIDTH in tag
-    assert 'height="%d"' % config_page.THEME_LIVE_PREVIEW_HEIGHT in tag
+    images = re.findall(r'<img class="look-frame__image"[^>]*>', rendered)
+    assert len(images) == 2, images
+    width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[theme_preview.FRAME_PREVIEW_SIZE_LARGE]
+    for tag, state in zip(images, ("departing", "arriving")):
+        assert 'src="%s"' % escape_html(
+            "%sblue.png?state=%s&size=large" % (config_page.FRAME_PREVIEW_ROUTE_PREFIX, state)) in tag
+        assert 'width="%d"' % width in tag and 'height="%d"' % height in tag
+        assert 'loading="lazy"' not in tag
 
 
 def test_every_chip_carries_data_preview_src_ending_in_live_1_chips_stay_lazy():
-    """every chip's own <label> carries a data-preview-src ending in .png?live=1, while each
-    chip's own <img> keeps loading="lazy" and the fixed, non-live src"""
+    """every look-table option's own <label> carries a data-preview-src naming its own theme's
+    full-frame preview in its look's state and size, while the table itself loads no image at
+    all (its swatches are inline SVG)"""
     rendered = config_page.render(
         {"device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0},
         scope=config_page.SCOPE_DISPLAY)
-    labels = re.findall(r'<label class="theme-chip[^>]*data-preview-src="([^"]+)"', rendered)
-    assert len(labels) >= len(device_config.THEME_IDS), (
-        "expected at least one data-preview-src per registered theme, got %d" % len(labels))
-    for src in labels:
-        assert src.endswith(".png?live=1"), "expected every data-preview-src to end in .png?live=1, got %r" % (src,)
-    chip_images = re.findall(r'<img class="theme-chip__preview"[^>]*>', rendered)
-    assert chip_images, "expected at least one chip <img>"
-    for tag in chip_images:
-        assert 'loading="lazy"' in tag, 'expected every chip <img> to keep loading="lazy"'
-        assert "?live=1" not in tag, "expected the chip's own <img> src to stay the fixed, non-live preview"
+    sources = re.findall(r'<label class="look-(?:cell|option)[^"]*" data-preview-src="([^"]*)"', rendered)
+    real = [src for src in sources if src]
+    assert len(real) >= 4 * len(device_config.THEME_IDS), len(real)
+    for src in real:
+        assert src.startswith(config_page.FRAME_PREVIEW_ROUTE_PREFIX), src
+    for table in re.findall(r'<table class="look-table">.*?</table>', rendered, re.S):
+        assert "<img" not in table
 
 
 def test_live_preview_caption_names_seeded_callsign_and_falls_back_to_sample(tmp_path):
-    """the live preview's caption names the seeded event's callsign, and falls back to the
-    sample-flight wording with no events"""
+    """the pictures always render the fixed sample scene, and the card says so, whether or not
+    the runway has recorded a flight"""
     state_dir = str(tmp_path)
     with history_db.open_db(state_dir) as conn:
         history_db.record_runway_event(
             conn, ts="2026-09-07T09:00:00+00:00", hex="3944F2", callsign="AFR1380")
-    with_event = config_page.render(
-        {
-            "device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0,
-            "state_dir": state_dir,
-        },
-        scope=config_page.SCOPE_DISPLAY)
-    expected_caption = (
-        config_page.THEME_LIVE_PREVIEW_CAPTION_WITH_FLIGHT_TEMPLATE % "AFR1380")
-    assert escape_html(expected_caption) in with_event, "expected the caption to name the seeded event's callsign"
-
-    without_event = config_page.render(
-        {
-            "device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0,
-            "state_dir": None,
-        },
-        scope=config_page.SCOPE_DISPLAY)
-    assert escape_html(config_page.THEME_LIVE_PREVIEW_CAPTION_SAMPLE) in without_event, (
-        "expected the sample-flight caption with no events/no state_dir")
-
-
-def test_french_display_render_shows_live_preview_caption_with_flight(tmp_path):
-    """a French Display render's live preview shows the "Aperçu avec votre dernier vol"
-    caption followed by the seeded event's callsign"""
-    state_dir = str(tmp_path)
-    with history_db.open_db(state_dir) as conn:
-        history_db.record_runway_event(
-            conn, ts="2026-09-07T09:00:00+00:00", hex="3944F2", callsign="AFR1380")
-    prefs.set_request_prefs(lang="fr")
-    try:
+    for ctx_state_dir in (state_dir, None):
         rendered = config_page.render(
             {
                 "device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0,
-                "state_dir": state_dir,
+                "state_dir": ctx_state_dir,
             },
+            scope=config_page.SCOPE_DISPLAY)
+        assert escape_html(i18n.t(theme_settings.LOOK_SAMPLE_HINT)) in rendered
+        assert "?live=1" not in rendered
+
+
+def test_french_display_render_shows_live_preview_caption_with_flight(tmp_path):
+    """a French Display render says the pictures use a sample flight"""
+    prefs.set_request_prefs(lang="fr")
+    try:
+        rendered = config_page.render(
+            {"device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0, "state_dir": None},
             scope=config_page.SCOPE_DISPLAY)
     finally:
         prefs.set_request_prefs(lang="en")
-    assert "Aperçu avec votre dernier vol : AFR1380" in rendered, (
-        "expected the French live-preview caption naming the seeded callsign")
+    assert escape_html("Aperçus avec un vol d’exemple") in rendered
 
 
 # --- the compact chip grid, the swatch legend and the palette grids ----
 
 def test_display_renders_one_compact_chip_grid_and_three_palettes_with_one_swatch_legend():
-    """Display renders exactly one .theme-chip-grid (the rule-add form's own compact grid),
-    followed by exactly one swatch legend in .text-label section-caption's
-    own declaration set outside the radiogroup, and exactly 3 .palette grids
-    (departures/arrivals/calendar) carrying no legend at all"""
+    """Display renders exactly four look tables (departures, arrivals, calendar, a new special
+    look), each with one radio per registered theme and its gap notes listed after the table,
+    never inside it"""
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
-
-    grid_classes = re.findall(r'<div class="(theme-chip-grid[^"]*)"', rendered)
-    assert len(grid_classes) == 1, (
-        "expected exactly one .theme-chip-grid on Display, got %d" % len(grid_classes))
-    assert "theme-chip-grid--compact" in grid_classes[0]
-
-    theme_count = len(device_config.THEME_IDS)
-    chip_classes = re.findall(r'<label class="(theme-chip[^"]*)"', rendered)
-    assert len(chip_classes) == theme_count, (
-        "expected %d .theme-chip labels, got %d" % (theme_count, len(chip_classes)))
-    for cls in chip_classes:
-        assert "theme-chip--compact" in cls, "expected every remaining chip to carry the compact modifier, got %r" % (cls,)
-
-    palette_count = rendered.count('class="palette" role="radiogroup"')
-    assert palette_count == 3, "expected exactly 3 .palette grids, got %d" % palette_count
-    palette_chip_count = rendered.count('class="palette-chip"')
-    expected_palette_chips = theme_count * 3
-    assert palette_chip_count == expected_palette_chips, (
-        "expected %d .palette-chip entries, got %d" % (expected_palette_chips, palette_chip_count))
-
-    legend = escape_html(config_page.THEME_CHIP_SWATCH_LEGEND)
-    assert rendered.count(legend) == 1, (
-        "expected the swatch legend exactly once, got %d" % rendered.count(legend))
-    legend_html = '<p class="text-label section-caption">%s</p>' % legend
-    assert legend_html in rendered
-    assert ("</label></div>" + legend_html) in rendered, (
-        "expected the legend to render as a sibling AFTER the grid, not inside it")
+    root = parse_html(rendered)
+    blocks = root.find_all("div", cls="look-table-block")
+    assert len(blocks) == 4
+    for block in blocks:
+        values = [
+            node.attrs["value"] for node in block.find_all("input")
+            if node.attrs.get("value")]
+        assert sorted(values) == sorted(device_config.THEME_IDS)
+        notes = block.find("ul", cls="look-table__notes")
+        assert notes.find_all("li")
+        assert not block.find("table").find_all("ul")
 
 
 def test_the_swatch_legend_names_as_many_things_as_the_registry_carries():
-    """the chip swatch legend names exactly as many things as the registry gives EVERY theme -
-    computed from _palette_hex(departing_index)/_palette_hex(arriving_index) at check time,
-    never a restated literal, so a future theme that DOES give departures and arrivals different
-    inks would make this check demand two labels on its own"""
-    legend = config_page.THEME_CHIP_SWATCH_LEGEND
-    labels = [part.strip() for part in legend.split("·") if part.strip()]
-    label_count = len(labels)
-    for theme_id in device_config.THEME_IDS:
-        theme = device_config.THEMES[theme_id]
-        colours = {
-            config_page._palette_hex(theme["departing_index"]),
-            config_page._palette_hex(theme["arriving_index"]),
-        }
-        expected = len(colours)
-        assert label_count == expected, (
-            "theme=%r: the registry gives this theme %d distinct swatch colour(s) but the "
-            "shared legend %r names %d label(s)"
-            % (theme_id, expected, legend, label_count))
+    """the gap notes name exactly the reasons the registry's real gaps have - computed from
+    look.gap_reason() over every grid cell at check time, never a restated list"""
+    rendered = look.look_table_html("theme", "white", "Departures", lambda theme_id: "")
+    expected = {
+        look.gap_reason(colour, background, stripe)
+        for colour in look.COLOURS for background, stripe in look.STYLE_COLUMNS
+        if look.resolve(colour, background, stripe) is None}
+    notes = parse_html(rendered).find("ul", cls="look-table__notes").find_all("li")
+    assert len(notes) == len(expected)
+    texts = [note.text() for note in notes]
+    for reason in expected:
+        assert any(i18n.t(look.REASON_MESSAGES[reason]) in text for text in texts), reason
 
 
 def test_the_current_badge_reads_a_server_rendered_translated_attribute():
@@ -779,19 +734,16 @@ def test_segmented_control_resets_label_margin_and_panel_legend_retired(served_c
 
 
 def test_the_rules_add_form_is_one_left_aligned_centre_aligned_row(served_css):
-    """the rules add-form renders as one left-aligned, centre-aligned flex ROW - the
-    flex-direction: column it never reset, not an auto margin, is what pushed 'Add rule' to the
-    far right"""
-    decls = declarations_for(served_css, ".rule-add-form--inline")
-    assert decls.get("flex-direction") == "row", (
-        "'.rule-add-form--inline' must reset .rule-add-form's own flex-direction: column, got %r"
-        % (decls,))
-    assert decls.get("align-items") == "center", (
-        "'.rule-add-form--inline' must centre-align its four separate controls (C4), got %r"
-        % (decls,))
-    joined = " ".join(decls.values())
-    assert "flex-end" not in joined, "'.rule-add-form--inline' must not keep the flex-end cross-axis alignment"
-    assert decls.get("margin-left") != "auto", "'.rule-add-form--inline' must declare no auto left margin"
+    """the special look form lays its two halves side by side from 700px when enhanced (who it
+    applies to, then the look), stacks them on phones, and centre-aligns its action row"""
+    stacked = declarations_for(served_css, ".special-add__cols")
+    assert stacked.get("grid-template-columns") == "minmax(0, 1fr)"
+    wide = declarations_for(
+        served_css, ".special-add.is-enhanced .special-add__cols", at_rules=("@media (min-width: 700px)",))
+    assert wide.get("grid-template-columns") == "minmax(0, 1fr) minmax(0, 1fr)"
+    foot = declarations_for(served_css, ".special-add__foot")
+    assert foot.get("align-items") == "center"
+    assert foot.get("margin-left") != "auto"
 
 
 # --- the time-input site-language sibling, the runway/calendar/segment
@@ -850,7 +802,7 @@ def test_style_css_carries_b9_b15_and_b7_geometry_rules(served_css):
         ".runway-row must keep flex-wrap: wrap - quiet_hours_group()'s preset row shares this "
         "class and must still be allowed to wrap")
 
-    b15 = declarations_for(css, '.rule-add-form:not(.rule-add-form--inline) > button[type="submit"]')
+    b15 = declarations_for(css, '.rule-add-form > button[type="submit"]')
     assert b15.get("align-self") == "flex-start", "the calendar button must opt out of the column's stretch (B15)"
     assert b15.get("width") == "auto", "the calendar button must declare an automatic width (B15)"
     joined_b15 = " ".join(b15.values())
