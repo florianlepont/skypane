@@ -54,7 +54,7 @@ addopts = [
     "--allow-unix-socket",
     "--allow-hosts=127.0.0.1,::1,localhost",
 ]
-testpaths = ["server", "stub-server", "companion", "test-support", "deploy"]
+testpaths = ["server", "stub-server", "companion", "test-support", "deploy", "hardware"]
 # test-support/ holds shared contracts imported as `skypane_test_support`;
 # both repo root and test-support/ must be on sys.path before collection.
 pythonpath = [".", "test-support"]
