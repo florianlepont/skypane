@@ -366,11 +366,8 @@ QUICK_ACTION_APPLIES_SENTENCE = i18n.msg(
     "display.applies_the_next_time_the_frame_wakes_up",
     "Applies the next time the frame wakes up.")
 
-# The strip's own heading, byte-identical to home_page.FRAME_ROW_LABEL
-# ("Frame") — both resolve through the same stable id, owned by
-# home.py (untouched by this plan). A second, separately named
-# constant is required because layout.py may never import a page
-# module.
+# The strip's own heading; resolves through a stable id so layout code never
+# imports a page module.
 FRAME_STRIP_HEADING = i18n.msg("home.frame", "Frame")
 
 # frame_state.py's HEADLINE_DUE/HEADLINE_HELD/HEADLINE_LATE are the

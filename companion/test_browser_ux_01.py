@@ -14,9 +14,8 @@ from companion import auth
 from server import device_config
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE,
-    _assert_hit_target, _bar_text, _click_control, _commit_field,
-    _guard_armed, _login, _no_js_page, _save_via_bar, _set_ui_theme,
-    _wait_for_bar, _wait_for_bar_hidden, seed_state_dir,
+    _bar_text, _click_control, _commit_field,
+    _guard_armed, _login, _no_js_page, _save_via_bar, _wait_for_bar, _wait_for_bar_hidden, seed_state_dir,
 )
 
 pytestmark = pytest.mark.browser
@@ -165,47 +164,6 @@ def test_flights_picture_link_works_without_scripts(new_context, server):
         response = page.goto(server.base_url() + href)
         if response is None or response.status != 200 or "image/png" not in response.headers.get("content-type", ""):
             raise AssertionError("expected the link to serve the archived PNG, got %r" % (response,))
-
-
-@pytest.mark.skip(reason="Phase 44 retired the Home frame strip")
-def test_the_quiet_schedule_link_meets_the_hit_target_floor_at_360px(new_context, server):
-    """The Quiet hours caption's schedule link clears the 44px hit-target floor by real
-    hit-testing, in both themes, at the 360px floor, on both Home and Display, with neither
-    page gaining horizontal scroll from the addition.
-    """
-    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
-    try:
-        page = context.new_page()
-        _login(page, server.base_url())
-        recorded = {}
-        for route in ("/", "/display"):
-            page.goto(server.base_url() + route)
-            overflow = page.evaluate(
-                "document.documentElement.scrollWidth > "
-                "document.documentElement.clientWidth")
-            if overflow:
-                raise AssertionError(
-                    "%s: expected no horizontal page scroll at 360px with the "
-                    "schedule link in the strip — the link is a FLOOR addition, "
-                    "not one that pushes the strip past the viewport" % (route,))
-        page.goto(server.base_url() + "/")
-        for theme in ("light", "dark"):
-            _set_ui_theme(page, theme)
-            seen = _assert_hit_target(
-                page, "a.frame-strip__schedule-link",
-                "the Quiet hours caption's schedule link, in its own frame-strip "
-                "cell, %s theme" % theme)
-            recorded[theme] = (seen["visual"], seen["hit"])
-        if recorded["light"][1][0] < 44 or recorded["light"][1][1] < 44:
-            raise AssertionError(
-                "expected the light-theme hit area to clear 44px, got %r" % (
-                    recorded["light"][1],))
-        if recorded["dark"][1][0] < 44 or recorded["dark"][1][1] < 44:
-            raise AssertionError(
-                "expected the dark-theme hit area to clear 44px, got %r" % (
-                    recorded["dark"][1],))
-    finally:
-        context.close()
 
 
 def test_flights_filter_count_and_clear_share_one_line_at_390px(new_context, server):
@@ -411,50 +369,6 @@ def test_health_registry_table_fits_1280px(new_context, server, lang):
                 % (lang, box["headClipped"]))
         if page.viewport_size["width"] != 1280:
             raise AssertionError("expected the measurement to be taken at 1280px")
-    finally:
-        context.close()
-
-
-@pytest.mark.skip(reason="Phase 44 retired the Health header freshness clock")
-def test_health_filter_count_and_clear_share_one_line_at_390px(new_context, server):
-    """At 390px on Health the filter count and the Clear control report the same
-    bounding-box top, both inside the one shared .filter-bar__meta group, and the page
-    header's Updated clock carries .time-value, never .mono.
-    """
-    context = new_context(viewport=VIEWPORT_PHONE)
-    try:
-        page = context.new_page()
-        _login(page, server.base_url())
-        page.goto(server.base_url() + "/health")
-        count = page.locator("[data-filter-count]").first
-        clear = page.locator("[data-filter-clear]").first
-        count.wait_for(state="visible")
-        clear.wait_for(state="visible")
-        count_box = count.bounding_box()
-        clear_box = clear.bounding_box()
-        if count_box is None or clear_box is None:
-            raise AssertionError("expected both the count and Clear to have a box at 390px")
-        if round(count_box["y"]) != round(clear_box["y"]):
-            raise AssertionError(
-                "expected the Health filter count and Clear to report the same "
-                "top at 390px (A-18 regressing a third time), got %r and %r"
-                % (count_box["y"], clear_box["y"]))
-        in_group = page.eval_on_selector_all(
-            ".filter-bar__meta",
-            "els => els.map(el => [!!el.querySelector('[data-filter-count]'),"
-            " !!el.querySelector('[data-filter-clear]')])")
-        if in_group != [[True, True]]:
-            raise AssertionError(
-                "expected exactly one .filter-bar__meta group on Health holding "
-                "both controls, got %r" % (in_group,))
-        # The page header's own clock left the monospace family for the one time-value role.
-        clock_class = page.eval_on_selector("[data-refresh-clock]", "el => el.className")
-        if "mono" in clock_class.split() or "time-value" not in clock_class.split():
-            raise AssertionError(
-                "expected the page header's Updated clock on .time-value and not "
-                "on .mono, got %r" % (clock_class,))
-        if page.viewport_size["width"] != 390:
-            raise AssertionError("expected the measurement to be taken at 390px")
     finally:
         context.close()
 
@@ -776,91 +690,6 @@ def test_the_leave_guard_re_arms_after_a_new_edit_following_cancel(page, server)
     _wait_for_bar_hidden(page)
     if _guard_armed(page):
         raise AssertionError("expected the leave-guard to disarm on a SECOND Annuler too")
-
-
-@pytest.mark.skip(reason="Phase 44 retired Display quick switches")
-def test_strip_switch_applies_without_the_leave_guard_while_other_navigation_still_warns(
-        page, make_app_server):
-    """Activating a Frame strip switch with unsaved Display edits present applies over fetch
-    without navigating, leaves the leave-guard armed for the edit still in the form and the
-    switch still pressable, and raises no dialog, while a plain nav-link navigation with the
-    same unsaved edit still raises one.
-    """
-    # A real browser proof, not a read of dirty-state.js's private suppressGuard variable:
-    # Chromium surfaces a beforeunload guard's preventDefault() as a real `dialog` event of
-    # type "beforeunload", so listening for that event is a genuine behavioural probe.
-    #
-    # This check flips a real setting (display_enabled) through the strip's own quick-switch
-    # endpoint, so it gets its own function-scoped server.
-    server = make_app_server(seed=seed_state_dir, fake_providers=True)
-    base_url = server.base_url()
-    _login(page, base_url)
-    page.goto(base_url + "/display")
-    dialogs = []
-    page.on("dialog", lambda d: (dialogs.append(d.type), d.accept()))
-
-    # The switch flip lands under the finger and the POST goes out over fetch, so there is no
-    # unload at all. What matters is that after the switch has applied, the leave-guard must
-    # still be armed for the unsaved edit still sitting in the form: dirty-state.js disarms its
-    # guard for any [data-quick-switch] submit, and on a page whose form was already dirty
-    # nothing would ever re-arm it, so quick-switch.js listens in the capture phase and stops
-    # propagation precisely so that listener never runs for a submission that is not happening.
-    #
-    # A radio commits (fires change) the instant it is clicked, which would auto-save and
-    # disarm the guard before the assertion runs; focusing and typing would not survive either,
-    # since clicking the switch button blurs the field and fires the commit first. The guard's
-    # own predicate reads the field's live value against the load-time snapshot and needs no
-    # event at all, so the value is set directly with no focus taken and no event dispatched.
-    quiet_sel = 'input[name="quiet_hours_start"]'
-    page.eval_on_selector(quiet_sel, "el => { el.value = '04:44'; }")
-    if not _guard_armed(page):
-        raise AssertionError(
-            "control: the leave-guard was not armed before the switch was "
-            "touched, so the assertion below would prove nothing")
-    before = device_config.load_device_config(server.tmpdir)["display_enabled"]
-    switch_sel = 'form[action="/quick/display"] button[type="submit"]'
-    with page.expect_response(
-            lambda r: r.url.split("?")[0] == base_url + "/quick/display"):
-        page.click(switch_sel)
-    page.wait_for_timeout(400)
-    if dialogs:
-        raise AssertionError(
-            "expected NO beforeunload dialog when activating the strip's own "
-            "switch with unsaved edits present, got %r" % (dialogs,))
-    after = device_config.load_device_config(server.tmpdir)["display_enabled"]
-    if after == before:
-        raise AssertionError("expected the strip switch's own change to persist")
-    if page.url.split("?")[0] != base_url + "/display":
-        raise AssertionError(
-            "expected the switch to apply WITHOUT navigating (D2), but the "
-            "page moved to %r" % (page.url,))
-    if not _guard_armed(page):
-        raise AssertionError(
-            "the leave-guard was left DISARMED after a switch applied on a "
-            "page that still holds an unsaved edit — dirty-state.js disarms "
-            "for any [data-quick-switch] submit and re-arms only on the next "
-            "edit, so a form that was already dirty would lose its guard for "
-            "the rest of the page's life (D2/CFG-36, 23-07-PLAN.md Task 1)")
-    # The switch must also still be pressable: a submit-guard that disabled it on the way out
-    # would leave a dead control on a page that never reloads.
-    if page.eval_on_selector(switch_sel, "el => el.disabled"):
-        raise AssertionError(
-            "the switch was left disabled after applying — with no navigation "
-            "to replace the page, a disabled switch stays disabled forever")
-
-    # Reset: reload, make the same kind of unsaved edit again, then navigate away by a plain
-    # nav link, and the guard must still warn. Same focus-free value set as above: clicking the
-    # nav link would blur a focused field and commit it before the navigation's beforeunload
-    # check ever runs.
-    page.goto(base_url + "/display")
-    dialogs[:] = []
-    page.eval_on_selector(quiet_sel, "el => { el.value = '05:55'; }")
-    with page.expect_navigation():
-        page.click('a[href="/"]')
-    if "beforeunload" not in dialogs:
-        raise AssertionError(
-            "expected a PLAIN navigation with the same unsaved edit to still "
-            "raise the beforeunload dialog, got %r" % (dialogs,))
 
 
 def test_three_runway_cards_share_one_line_at_390px(new_context, server):

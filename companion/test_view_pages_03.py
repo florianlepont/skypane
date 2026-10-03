@@ -7,14 +7,12 @@ battery ring, relative-age elements and French render.
 CSS/JS checks fetch served bytes from a running `companion/app.py`;
 everything else calls `*_page.render()` directly, in-process.
 """
-import math
 import os
 import re
 
 import pytest
 
 import companion.app as app_module
-import companion.draw as draw
 import companion.i18n as i18n
 import companion.layout as layout
 import companion.prefs as prefs
@@ -1082,135 +1080,6 @@ def test_flights_catalog_keys_all_present_in_merged_catalog():
     assert not missing_ids, "ids missing from the merged BY_ID: %r" % (missing_ids,)
 
 
-@pytest.mark.skip(reason="Retired Home diagnostics are replaced by the Phase 44 frame-signal checks.")
-def test_home_page_render_with_seeded_state(tmp_path):
-    """home_page.render() with seeded flights, a battery reading and a gallery entry renders
-    the hero picture, the battery percentage estimate, escaped recent flights, and the
-    Next-update headline, with .preview-frame before .recent-flight in document order"""
-    now = "2026-08-27T12:00:00+00:00"
-    vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-08-27T11:50:00+00:00", "hex": "3c6444", "callsign": "AFR1380",
-         "airline": "Air France", "origin": "ORY", "destination": "TLS",
-         "confirmed_state": "departing"},
-        {"ts": "2026-08-27T11:40:00+00:00", "hex": "4b1a72", "callsign": "<XYZ>"},
-    ])
-    with history_db.open_db(tmp_path) as conn:
-        history_db.record_device_health(conn, "2026-08-27T11:55:00+00:00", battery_mv=3750)
-    ctx = {
-        "state_dir": str(tmp_path), "now": now,
-        "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
-        "last_checkin_ts": "2026-08-27T11:55:00+00:00",
-        "device_config": {"wake_interval_s": 900, "display_enabled": True},
-        "health_state": {"device_state": "ok", "pipeline_state": "warn",
-                         "battery_state": "ok",
-                         "device_detail_html": '<span class="mono">14:00 (5m ago)</span>',
-                         "pipeline_html": "<p>A little stale</p>"},
-    }
-    rendered = home_page.render(ctx)
-    for needle in (
-            '<h1 class="page-title">Home</h1>', "AFR1380", "Air France", "ORY → TLS",
-            'src="/gallery/2026-08-27T11-50-00+00-00.png"', "3750 mV",
-            "≈ 38%", "Next update ≈"):
-        assert needle in rendered, "expected %r in the Home page" % (needle,)
-    assert "<XYZ>" not in rendered and "&lt;XYZ&gt;" in rendered, (
-        "expected the hostile callsign to be escaped")
-    assert rendered.count('class="recent-flight"') == 2, "expected exactly two recent-flight rows"
-    assert rendered.index('<figure class="preview-frame">') < rendered.index('class="recent-flight"'), (
-        "expected .preview-frame before .recent-flight in document order")
-
-
-@pytest.mark.skip(reason="Home now presents battery as a compact fact; ring rendering belongs to Health.")
-def test_home_battery_ring_is_the_same_drawing_at_a_smaller_size(tmp_path):
-    """Home's Battery tile draws exactly one ring, inside that tile, whose drawn fraction
-    equals the '≈ NN%' it still prints beside its own millivolt detail and verdict; the
-    ring is SMALLER than Health's yet identical to it in radius-over-box and
-    stroke-over-box, proving one emitter at two sizes rather than two components; the
-    frame verdict still appears exactly once; and a device with no reading draws no ring
-    at all"""
-    now = "2026-08-27T12:00:00+00:00"
-    home_dir = tmp_path / "home"
-    blank_dir = tmp_path / "blank"
-    with history_db.open_db(home_dir) as conn:
-        history_db.record_device_health(conn, "2026-08-27T11:55:00+00:00", battery_mv=3690)
-    health_state = {"device_state": "ok", "pipeline_state": "ok",
-                    "battery_state": "ok",
-                    "device_detail_html": '<span class="mono">14:00 (5m ago)</span>',
-                    "pipeline_html": "<p>Fresh</p>"}
-    ctx = {"state_dir": str(home_dir), "now": now, "gallery_entries": [],
-           "last_checkin_ts": "2026-08-27T11:55:00+00:00",
-           "device_config": {"wake_interval_s": 900, "display_enabled": True},
-           "health_state": health_state}
-    rendered = home_page.render(ctx)
-
-    def _rings(markup):
-        return (re.findall(r'<circle class="%s"[^>]*/>' % re.escape(draw.DRAWING_RING_TRACK_CLASS), markup),
-                re.findall(r'<circle class="%s"[^>]*/>' % re.escape(draw.DRAWING_RING_VALUE_CLASS), markup))
-
-    tracks, values = _rings(rendered)
-    assert len(tracks) == 1 and len(values) == 1, (
-        "expected exactly one ring on Home, got %d track(s) and %d value arc(s)"
-        % (len(tracks), len(values)))
-
-    battery_at = rendered.index(home_page.BATTERY_ROW_LABEL)
-    data_at = rendered.index(home_page.DATA_ROW_LABEL)
-    ring_at = rendered.index(draw.DRAWING_RING_TRACK_CLASS)
-    assert battery_at < ring_at < data_at, (
-        "the ring is not inside the Battery tile — battery caption at %d, ring at %d, next "
-        "tile's caption at %d" % (battery_at, ring_at, data_at))
-
-    tile = rendered[battery_at:data_at]
-    for needle in ("≈ 32%", "3690 mV"):
-        assert needle in tile, "expected the Battery tile to still print %r" % (needle,)
-    assert 'class="text-body widget-verdict"' in tile, "expected the Battery tile to still print its verdict"
-
-    radius = float(re.search(r' r="([0-9.]+)"', values[0]).group(1))
-    dash = re.search(r'stroke-dasharray="([0-9.]+) ', values[0])
-    drawn = float(dash.group(1)) if dash else 2 * math.pi * radius
-    drawn_fraction = drawn / (2 * math.pi * radius)
-    assert abs(drawn_fraction - 0.32) <= 0.0005, (
-        "Home's ring draws %.4f of its circumference while the tile prints '≈ 32%%' beside "
-        "it (CFG-40, SEED-006 curve)" % (drawn_fraction,))
-
-    health_dir = tmp_path / "home-ring-health"
-    with history_db.open_db(health_dir) as conn:
-        for minute, mv in ((50, 3600), (55, 3690)):
-            history_db.record_device_health(conn, "2026-08-27T11:%d:00+00:00" % minute, battery_mv=mv)
-    health_rendered = health_page.render({"state_dir": str(health_dir), "now": now})
-
-    def _geometry(markup, where):
-        svg = re.search(
-            r'<svg class="%s[^"]*" viewBox="0 0 ([0-9.]+) [0-9.]+"' % re.escape(draw.DRAWING_FIGURE_CLASS),
-            markup)
-        assert svg is not None, "found no ring figure on %s" % where
-        side = float(svg.group(1))
-        arc = _rings(markup)[1][0]
-        return (side, float(re.search(r' r="([0-9.]+)"', arc).group(1)),
-                float(re.search(r'stroke-width="([0-9.]+)"', arc).group(1)))
-
-    home_geom = _geometry(rendered, "Home")
-    health_geom = _geometry(health_rendered, "Health")
-    assert home_geom[0] < health_geom[0], (
-        "Home's ring is not SMALLER than Health's — %r against %r"
-        % (home_geom[0], health_geom[0]))
-    for index, label in ((1, "radius"), (2, "stroke width")):
-        home_ratio = home_geom[index] / home_geom[0]
-        health_ratio = health_geom[index] / health_geom[0]
-        assert abs(home_ratio - health_ratio) <= 0.001, (
-            "the two rings disagree about %s as a proportion of their own box: Home %.4f, "
-            "Health %.4f" % (label, home_ratio, health_ratio))
-
-    verdicts = [text for text in home_page.FRAME_STATE_TEXT.values() if rendered.count(text)]
-    for text in verdicts:
-        assert rendered.count(text) == 1, (
-            "expected the frame verdict %r exactly once on Home, got %d" % (text, rendered.count(text)))
-
-    blank_ctx = dict(ctx, state_dir=str(blank_dir))
-    blank_rendered = home_page.render(blank_ctx)
-    for class_name in (draw.DRAWING_RING_TRACK_CLASS, draw.DRAWING_RING_VALUE_CLASS):
-        assert class_name not in blank_rendered, (
-            "a device with no battery reading rendered %r on Home" % (class_name,))
-
-
 def test_home_recent_flight_age_is_an_element_reading_exactly_as_before(tmp_path):
     """Home's recent-flight relative age is a <time data-relative> element carrying the ROW's
     own instant, reading exactly what it reads today in both languages, with C5's
@@ -1336,46 +1205,6 @@ def test_recent_flight_thumb_resolved_vs_placeholder(tmp_path):
         "expected no <img> for an airline whose normalised key resolves to no file on disk")
     assert "recent-flight__thumb--placeholder" in thumb_no_artwork, (
         "expected the dashed placeholder span for an airline with no artwork file")
-
-
-@pytest.mark.skip(reason="The retired strip and status-card order is replaced by Direction B.")
-def test_hero_figure_precedes_status_card_with_flight_one_liner_when_known(tmp_path):
-    """the hero's flight one-liner (callsign in .mono, then airline, then the route) appears
-    when the current flight is known and is absent otherwise, and the page reads header ->
-    .frame-strip -> .home-status-grid -> .home-picture-row (.preview-frame before
-    .recent-flight inside it)"""
-    no_state_dir = str(tmp_path / "absent" / "nested")
-    hero_ctx = {
-        "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
-        "now": "2026-08-27T12:00:00+00:00",
-    }
-    current_flight_row = {
-        "callsign": "AFR1380", "airline": "Air France", "origin": "ORY",
-        "destination": "TLS", "confirmed_state": "departing",
-    }
-    hero_with_flight = home_page._current_picture_html(hero_ctx, current_flight_row)
-    assert "preview-frame__flight" in hero_with_flight, (
-        "expected the flight one-liner when the current flight is known")
-    assert '<span class="mono">AFR1380</span> · Air France · ORY → TLS' in hero_with_flight
-    hero_without_flight = home_page._current_picture_html(hero_ctx, None)
-    assert "preview-frame__flight" not in hero_without_flight, (
-        "expected no flight one-liner when there is no current flight")
-
-    full_ctx = {
-        "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
-        "now": "2026-08-27T12:00:00+00:00", "health_state": {}, "device_config": {},
-        "state_dir": no_state_dir,
-    }
-    rendered = home_page.render(full_ctx)
-    header_pos = rendered.index('<h1 class="page-title">')
-    strip_pos = rendered.index('class="frame-strip stat-tile stat-tile--accent"')
-    tiles_pos = rendered.index('class="dashboard-grid home-status-grid"')
-    picture_row_pos = rendered.index('class="home-columns home-picture-row"')
-    assert header_pos < strip_pos < tiles_pos < picture_row_pos, (
-        "expected header -> .frame-strip -> .home-status-grid -> .home-picture-row, got "
-        "positions %d, %d, %d, %d" % (header_pos, strip_pos, tiles_pos, picture_row_pos))
-    assert rendered.index('<figure class="preview-frame">') < rendered.index('id="home-flights"'), (
-        "expected .preview-frame before the recent-flights section inside .home-picture-row")
 
 
 def test_home_page_french_render_translates_headings_and_alt_text_not_data(tmp_path):

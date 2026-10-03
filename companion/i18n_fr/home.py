@@ -41,31 +41,9 @@ MESSAGES = {
     # the same shared-catalogue reason as the entry above.
     "home.change_the_schedule": "Modifier l’horaire",
 
-    "home.status": "Statut",
-
-    # The strip's own <h2> heading (companion/ui_base.py's
-    # FRAME_STRIP_HEADING, a different constant) keeps "Frame"/
-    # "Cadre", so that entry stays even though home_page.py no
-    # longer reads it directly.
-    "home.check_ins": "Connexions",
     "home.frame": "Cadre",
-    "home.battery": "Batterie",
-    "home.flight_data": "Données de vol",
-
-    # Byte-identical to health_page.DEVICE_STATE_TEXT's own values —
-    # the two dicts must never be edited to differ, since they
-    # describe the same states identically on both pages. The "off"
-    # keys ("Asleep for quiet hours", "No detection yet") reuse
-    # companion/i18n_fr/health.py's own entries for the identical
-    # English strings rather than redefining them here.
-    "home.up_to_date": "À jour",
-    "home.a_little_stale": "Un peu daté",
-    "home.stale_the_server_may_be_down": "Données anciennes — le serveur est peut-être en panne",
-    "home.healthy": "Bonne",
-    "home.dropping_quickly": "Baisse rapidement",
     "home.no_reading_yet": "Aucune mesure pour l’instant",
 
-    "home.see_details_on_health": "Voir les détails dans État",
     "home.battery_fact": "Batterie · %s",
     "home.battery_fact_empty": "Batterie · Aucune mesure pour l’instant",
     "home.action_needed": "Un élément demande votre attention",

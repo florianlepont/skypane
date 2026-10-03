@@ -20,7 +20,6 @@ import companion.draw as draw
 import companion.frame_state as frame_state
 import companion.i18n as i18n
 import companion.layout as layout
-import companion.prefs as prefs
 import companion.test_view_pages_helpers as vp
 import companion.wake as wake
 from companion.pages import airlines_page, health_page, history_page, home_page
@@ -119,26 +118,6 @@ def _health_band_ctx(state_dir, now, checkins, config=None):
 
 # --- the hero composition's own containment helper ----------------------
 
-def _home_hero_inner(rendered):
-    """The hero container's own inner markup, or None when the page
-    renders no hero at all.
-
-    A BALANCED SCAN, never `rendered.index("</div>")`: the hero holds
-    sections that hold divs of their own, so the first closing tag after
-    the opening one belongs to a descendant.
-    """
-    opened = re.search(
-        r'<div class="[^"]*\b%s\b[^"]*">' % re.escape(home_page.HERO_CLASS), rendered)
-    if opened is None:
-        return None
-    depth = 0
-    for token in re.finditer(r"<div\b|</div>", rendered[opened.start():]):
-        depth += 1 if token.group(0) == "<div" else -1
-        if depth == 0:
-            return rendered[opened.end():opened.start() + token.start()]
-    return None
-
-
 def _classes_inside_svg(markup, opening_class):
     """The set of class attributes emitted INSIDE the first <svg> whose
     own class begins with `opening_class`, or None when there is no such
@@ -152,181 +131,6 @@ def _classes_inside_svg(markup, opening_class):
 
 
 # --- Home's fully-seeded French render ----------
-
-@pytest.mark.skip(reason="Phase 44 replaces the retired Home status labels with frame-signal copy.")
-def test_home_full_seeded_render_localises_to_french_without_leaking_english(tmp_path):
-    """a fully-seeded Home render under lang='fr' shows the French page title, section
-    headings, status-row labels and next-update headline with no English string leaking in
-    (while the callsign/airline data stays untranslated), and the identical seeded render
-    under the default language still carries every pre-existing English needle"""
-    now = "2026-08-27T12:00:00+00:00"
-    vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-08-27T11:50:00+00:00", "hex": "3c6444", "callsign": "AFR1380",
-         "airline": "Air France", "origin": "ORY", "destination": "TLS",
-         "confirmed_state": "departing"},
-    ])
-    with history_db.open_db(tmp_path) as conn:
-        history_db.record_device_health(conn, "2026-08-27T11:55:00+00:00", battery_mv=3750)
-    ctx = {
-        "state_dir": str(tmp_path), "now": now,
-        "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
-        "last_checkin_ts": "2026-08-27T11:55:00+00:00",
-        "device_config": {"wake_interval_s": 900, "display_enabled": True},
-        "health_state": {"device_state": "ok", "pipeline_state": "warn",
-                         "battery_state": "ok",
-                         "device_detail_html": '<span class="mono">14:00 (5m ago)</span>',
-                         "pipeline_html": "<p>A little stale</p>"},
-    }
-    prefs.set_request_prefs(lang="fr")
-    try:
-        rendered_fr = home_page.render(ctx)
-    finally:
-        prefs.set_request_prefs(lang="en")
-    for needle in (
-            ">Accueil<", "Vols récents", "Voir tous les vols", "Cadre", "Batterie",
-            "Données de vol", "Au départ"):
-        assert needle in rendered_fr, "expected the French %r in the French Home render" % (needle,)
-    assert "Prochaine mise à jour" in rendered_fr or "Attendue depuis" in rendered_fr, (
-        "expected either French next-update headline wording")
-    for english_only in (
-            "Recent flights", "See all flights", ">Frame<", ">Battery<", "Departing"):
-        assert english_only not in rendered_fr, (
-            "expected no English %r leaking into the French render" % (english_only,))
-    assert "AFR1380" in rendered_fr and "Air France" in rendered_fr, (
-        "expected the callsign/airline data to stay untranslated in French")
-
-    rendered_en = home_page.render(ctx)
-    for needle in (
-            '<h1 class="page-title">Home</h1>', "Recent flights", "See all flights",
-            home_page.FRAME_ROW_LABEL, home_page.BATTERY_ROW_LABEL,
-            home_page.DATA_ROW_LABEL, "Next update ≈"):
-        assert needle in rendered_en, (
-            "expected the English %r in the default-language Home render" % (needle,))
-
-
-@pytest.mark.skip(reason="The Home status card is retired; Health owns detailed state timestamps.")
-def test_home_status_card_localises_real_health_state_timestamps_under_french(tmp_path):
-    """Home's status card, fed a REAL health_page.compute_health_state() result computed under
-    lang='fr', fully localises the Frame/Flight-data rows' timestamps (no English month
-    abbreviation or ' ago' survives) and the Flight-data row's detail is now a single,
-    verdict-free clause — never joined with ' · ', never repeating Health's own verdict
-    wording"""
-    now = "2026-09-12T00:00:00+00:00"
-    device_ts = "2026-09-10T23:58:00+00:00"
-    with history_db.open_db(tmp_path) as conn:
-        history_db.record_device_health(conn, device_ts, battery_mv=3800)
-        history_db.set_meta(conn, history_db.META_LAST_PIPELINE_RUN, device_ts)
-        history_db.set_meta(conn, history_db.META_LAST_DETECTION, device_ts)
-    prefs.set_request_prefs(lang="fr")
-    try:
-        health_state = health_page.compute_health_state(str(tmp_path), now=now)
-        ctx = {
-            "state_dir": str(tmp_path), "now": now, "gallery_entries": [],
-            "last_checkin_ts": device_ts,
-            "device_config": {"wake_interval_s": 900, "display_enabled": True},
-            "health_state": health_state,
-        }
-        rendered = home_page.render(ctx)
-    finally:
-        prefs.set_request_prefs(lang="en")
-    assert "sept." in rendered, "expected the French month abbreviation 'sept.' in the Home render"
-    assert " ago" not in rendered, "expected no English ' ago' in the Home render"
-    for english_month in (
-            "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
-            "Oct", "Nov", "Dec"):
-        assert english_month not in rendered, (
-            "expected no English month abbreviation %r in the Home render" % (english_month,))
-    # "Données de vol" is companion/i18n_fr/home.py's own French
-    # translation of DATA_ROW_LABEL ("Flight data") — the label itself is
-    # French text by this point in the render, so the anchor must be too.
-    data_row_start = rendered.index("Données de vol")
-    data_row_end = rendered.index("</div>", data_row_start)
-    data_row = rendered[data_row_start:data_row_end]
-    assert data_row.count(" · ") == 0, (
-        "expected NO ' · '-joined multi-clause detail in the Flight-data row — the "
-        "verdict-free, single-clause pipeline_detail_html replaced the re-embedded 3-clause "
-        "pipeline_html (got %r)" % (data_row,))
-    assert health_page.PIPELINE_STATE_TEXT["error"] not in data_row, (
-        "expected Health's own PIPELINE_STATE_TEXT verdict wording NOT to appear inside "
-        "Home's Flight-data row — Home renders its OWN verdict only (B2)")
-
-
-@pytest.mark.skip(reason="Quiet-hours state is no longer duplicated on Home.")
-def test_home_frame_tile_matches_strip_for_the_nightly_held_regression(tmp_path):
-    """the nightly regression (quiet hours 23:00-07:00, check-in 22:58, clock 02:00
-    Europe/Paris): Home's Frame tile and the strip render the SAME clock string, and zero
-    warn/error tokens appear anywhere on the page (X2)"""
-    paris = timezone(timedelta(hours=1))
-    device_cfg = {
-        "wake_interval_s": 900, "display_enabled": True,
-        "quiet_hours_enabled": True,
-        "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
-    }
-    checkin = datetime(2026, 1, 15, 22, 58, 0, tzinfo=paris)
-    clock = datetime(2026, 1, 16, 2, 0, 0, tzinfo=paris)
-    ctx = {
-        "last_checkin_ts": checkin.isoformat(), "device_config": device_cfg,
-        "now": clock.isoformat(), "gallery_entries": [],
-        "health_state": {"battery_state": "ok", "pipeline_state": "ok"},
-        "state_dir": str(tmp_path / "absent" / "nested"),
-    }
-    rendered = home_page.render(ctx)
-    for warn_token in ("dot--warn", "dot--error", "stat-tile--warn", "stat-tile--error"):
-        assert warn_token not in rendered, (
-            "expected zero %r in a held Home render, found it" % (warn_token,))
-    strip_match = re.search(r'time-value time-value--primary">([^<]+)</span>', rendered)
-    tile_match = re.search(r'<span class="time-value">([^<]+)</span>', rendered)
-    assert strip_match and tile_match, "expected both the strip and the Frame tile to render a clock value"
-    assert strip_match.group(1) == tile_match.group(1), (
-        "expected the SAME clock string in the strip and the Frame tile, got %r vs %r"
-        % (strip_match.group(1), tile_match.group(1)))
-    assert home_page.FRAME_STATE_TEXT["off"] in rendered, (
-        "expected the held Frame tile's own neutral verdict text")
-
-
-@pytest.mark.skip(reason="Frame timing detail is no longer duplicated on Home.")
-def test_home_frame_tile_flips_to_late_together_with_the_strip(tmp_path):
-    """a late frame flips the strip to 'Expected since'/dot--warn and Home's Frame tile to its
-    own late verdict/stat-tile--warn together, at the same threshold — they cannot disagree
-    because neither computes anything the other does not (X2)"""
-    device_cfg = {"wake_interval_s": 900, "display_enabled": True}
-    ctx = {
-        "last_checkin_ts": "2026-08-27T11:00:00+00:00", "device_config": device_cfg,
-        "now": "2026-08-27T12:00:00+00:00", "gallery_entries": [],
-        "health_state": {"battery_state": "ok", "pipeline_state": "ok"},
-        "state_dir": str(tmp_path / "absent" / "nested"),
-    }
-    rendered = home_page.render(ctx)
-    assert "Expected since" in rendered, "expected the strip's own late headline"
-    assert "dot--warn" in rendered, "expected the strip's own warn dot for a late frame"
-    assert home_page.FRAME_STATE_TEXT["warn"] in rendered, "expected the Frame tile's own late verdict text"
-    assert "stat-tile stat-tile--warn" in rendered, "expected the Frame tile's own warn border class"
-
-
-@pytest.mark.skip(reason="The Home flight-data tile is retired in favour of an actionable link.")
-def test_home_flight_data_tile_one_verdict_verdict_free_detail(tmp_path):
-    """Home's Flight-data tile renders exactly one verdict (its own DATA_STATE_TEXT) with
-    Health's verdict-free pipeline_detail_html beneath it, never Health's own
-    PIPELINE_STATE_TEXT verdict sentence a second time (B2)"""
-    ctx = {
-        "health_state": {
-            "device_state": "ok", "pipeline_state": "warn", "battery_state": "ok",
-            "device_detail_html": '<span class="mono">14:00 (5m ago)</span>',
-            "pipeline_html": (
-                '<p>%s</p><p>10 Sep 23:58 (1d ago)</p>' % health_page.PIPELINE_STATE_TEXT["warn"]),
-            "pipeline_detail_html": '<span class="mono">10 Sep 23:58 (1d ago)</span>',
-        },
-        "device_config": {}, "state_dir": str(tmp_path / "absent" / "nested"),
-        "now": "2026-08-27T12:00:00+00:00", "gallery_entries": [],
-    }
-    rendered = home_page.render(ctx)
-    assert rendered.count(home_page.DATA_STATE_TEXT["warn"]) == 1, (
-        "expected Home's own Flight-data verdict exactly once")
-    assert health_page.PIPELINE_STATE_TEXT["warn"] not in rendered, (
-        "expected Health's own pipeline verdict text NOT to appear on Home — re-embedding it "
-        "is the exact double-verdict stacking B2 removes")
-    assert "10 Sep 23:58" in rendered, "expected the verdict-free pipeline_detail_html's own timestamp to render"
-
 
 def test_home_recent_flights_use_display_airline_name_matching_flights(tmp_path):
     """a recent-flight row whose stored airline is an alias ("CCM Airlines") renders the SAME
@@ -360,23 +164,6 @@ def test_home_health_action_is_reserved_for_actionable_state(tmp_path):
     assert 'href="/health"' not in healthy
     assert 'class="home-action"' in warning
     assert 'href="/health"' in warning
-
-
-@pytest.mark.skip(reason="The shared Frame strip is retired from Home.")
-def test_home_exactly_one_element_named_frame(tmp_path):
-    """exactly one element on a rendered Home page is named 'Frame' (the shared strip's own
-    heading) — Home's tile caption is renamed to resolve the X4 collision"""
-    ctx = {
-        "health_state": {}, "device_config": {}, "state_dir": str(tmp_path / "absent" / "nested"),
-        "now": "2026-08-27T12:00:00+00:00", "gallery_entries": [],
-    }
-    rendered = home_page.render(ctx)
-    assert rendered.count(">Frame<") == 1, (
-        "expected exactly one element named 'Frame' (the strip's own heading), got %d"
-        % (rendered.count(">Frame<"),))
-    assert home_page.FRAME_ROW_LABEL != "Frame", (
-        "expected the tile caption to be renamed away from 'Frame' (X4 collision)")
-    assert home_page.FRAME_ROW_LABEL in rendered, "expected the renamed tile caption to still render"
 
 
 def test_home_recent_flight_time_one_line_no_mono_class(tmp_path):
@@ -482,36 +269,6 @@ def test_home_catalog_keys_all_present_in_merged_catalog():
     assert not missing_ids, "ids missing from the merged BY_ID: %r" % (missing_ids,)
 
 
-@pytest.mark.skip(reason="Home no longer renders quick controls or healthy diagnostic tiles.")
-def test_home_full_render_has_quick_action_only_inside_strip_and_three_tiles(tmp_path):
-    """a rendered Home page carries no status-card__rows/home-hero markup, quick-action markup
-    only inside .frame-strip (exactly two cells) and nowhere else, exactly three stat-tile
-    elements labelled Frame/Battery/Flight data, and the Frame verdict sentence exactly once
-    """
-    ctx = {
-        "health_state": {"device_state": "ok", "pipeline_state": "ok", "battery_state": "ok"},
-        "device_config": {}, "state_dir": str(tmp_path / "absent" / "nested"),
-        "now": "2026-08-27T12:00:00+00:00",
-    }
-    rendered = home_page.render(ctx)
-    assert "status-card__rows" not in rendered and "home-hero" not in rendered, (
-        "expected no status-card__rows or home-hero markup on the rebuilt Home page")
-    strip_start = rendered.index('class="frame-strip stat-tile stat-tile--accent"')
-    tiles_start = rendered.index('class="dashboard-grid home-status-grid"')
-    outside_strip = rendered[:strip_start] + rendered[tiles_start:]
-    assert "quick-action" not in outside_strip, "expected no quick-action markup anywhere outside .frame-strip"
-    strip_segment = rendered[strip_start:tiles_start]
-    on_off_count = strip_segment.count("quick-action--on") + strip_segment.count("quick-action--off")
-    assert on_off_count == 2, (
-        "expected exactly two quick-action--on/off cells inside .frame-strip, got %d" % on_off_count)
-    assert rendered.count('class="stat-tile ') == 3, (
-        "expected exactly three stat-tile elements, got %d" % (rendered.count('class="stat-tile '),))
-    for label in (home_page.FRAME_ROW_LABEL, home_page.BATTERY_ROW_LABEL, home_page.DATA_ROW_LABEL):
-        assert label in rendered, "expected the %r tile label" % (label,)
-    assert rendered.count(home_page.FRAME_STATE_TEXT["ok"]) == 1, (
-        "expected the Frame state sentence to appear exactly once — the duplicated-verdict regression test")
-
-
 def test_home_status_card_headline_next_update_or_expected_since(tmp_path):
     """the Frame strip's headline reads 'Next update ≈ HH:MM' for a future next-update,
     'Expected since HH:MM' in the warn treatment for a past one, and renders no headline at all
@@ -554,17 +311,6 @@ def test_home_status_card_headline_next_update_or_expected_since(tmp_path):
         now="2026-08-27T12:00:00+00:00")
     assert "status-card__headline" not in _strip_html(missing_interval), (
         "expected no headline at all when the wake interval is unknown")
-
-
-def test_home_status_card_always_shows_health_link(tmp_path):
-    """a default Home render always carries the status tiles section's 'See details on Health'
-    link (moved to _status_tiles_html() after _status_card_html()'s deletion)"""
-    ctx = {
-        "health_state": {}, "device_config": {},
-        "state_dir": str(tmp_path / "absent" / "nested"), "now": "2026-08-27T12:00:00+00:00",
-    }
-    rendered = home_page._status_tiles_html(ctx)
-    assert home_page.HEALTH_LINK_TEXT in rendered, "expected the Health link to always render (D-17)"
 
 
 def test_home_page_render_degrades_with_nothing():

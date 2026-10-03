@@ -1,24 +1,18 @@
 """The Home page: answers whether the frame is alive, what it is
 showing, and what it has shown recently.
 
-Renders the shared Frame strip, three status tiles in a
-`.dashboard-grid.home-status-grid`, then a two-column row holding the
-current picture beside the recent flights. A recent-flight row gets a
+Renders the current picture beside the recent flights, then a compact
+battery fact and, only when attention is needed, a link to Health. A recent-flight row gets a
 thumbnail only when a real illustration file resolves for that
 airline, since a recognised name with no artwork file would otherwise
 404 as a broken image. The recent-flight rows and the current
 picture's flight line share one `history_db` read.
 """
-import html
-import re
 
 import companion.battery as battery
-import companion.draw as draw
-import companion.frame_state as frame_state
 import companion.i18n as i18n
 import companion.layout as layout
 import companion.page_context as page_context
-import companion.wake as wake
 from companion.layout import escape_html
 from server import history_db
 from server.plane import illustrations
@@ -60,103 +54,12 @@ GALLERY_ROUTE_PREFIX = "/gallery/"
 DIRECTION_DEPARTING_TEXT = i18n.msg("home.departing", "Departing")
 DIRECTION_ARRIVING_TEXT = i18n.msg("home.arriving", "Arriving")
 
-# The screen/quiet-hours switches and the next-update headline render
-# once in the shared Frame strip helper (see render() below); Refresh-now
-# lives on Device's own Manual refresh section instead.
-
-STATUS_HEADING = i18n.msg("home.status", "Status")
-# "Frame" is reserved for the shared Frame strip's own <h2> heading,
-# rendered directly above this tile; only this tile's caption moves.
-FRAME_ROW_LABEL = i18n.msg("home.check_ins", "Check-ins")
-BATTERY_ROW_LABEL = i18n.msg("home.battery", "Battery")
-DATA_ROW_LABEL = i18n.msg("home.flight_data", "Flight data")
-HEALTH_LINK_TEXT = i18n.msg("home.see_details_on_health", "See details on Health")
 BATTERY_FACT_TEMPLATE = i18n.msg("home.battery_fact", "Battery · %s")
 BATTERY_FACT_EMPTY = i18n.msg("home.battery_fact_empty", "Battery · No reading yet")
 ACTION_NEEDED_TEXT = i18n.msg("home.action_needed", "Something needs attention")
 ACTION_NEEDED_LINK_TEXT = i18n.msg("home.review_status", "Review status")
 
-# Stays byte-identical to health_page.DEVICE_STATE_TEXT's own values —
-# see companion/i18n_fr/home.py's comment for why the two dicts must
-# never be edited to differ. "off" is a held (quiet-hours) frame, a
-# genuine fourth state, reusing health_page.py's own neutral wording.
-# Owned by companion/i18n_fr/health.py, not home.py — the ids match
-# health_page.py's own DEVICE_STATE_TEXT declarations exactly.
-FRAME_STATE_TEXT = {
-    "ok": i18n.msg("health.checking_in_normally", "Checking in normally"),
-    "warn": i18n.msg(
-        "health.has_not_checked_in_for_a_while", "Has not checked in for a while"),
-    "error": i18n.msg(
-        "health.has_not_checked_in_for_a_long_time",
-        "Has not checked in for a long time"),
-    "off": i18n.msg("health.asleep_for_quiet_hours", "Asleep for quiet hours"),
-}
-# The one mapping from frame_state's three real states to this tile's
-# vocabulary — byte-identical in shape to
-# health_page._FRAME_STATE_TO_DEVICE_STATE. STATE_UNKNOWN is absent
-# deliberately: _status_tiles_html() falls back to the health-state
-# value instead, the one case frame_state.py cannot resolve.
-_FRAME_STATE_TO_TILE_STATE = {
-    frame_state.STATE_DUE: "ok",
-    frame_state.STATE_HELD: "off",
-    frame_state.STATE_LATE: "warn",
-}
-DATA_STATE_TEXT = {
-    "ok": i18n.msg("home.up_to_date", "Up to date"),
-    "warn": i18n.msg("home.a_little_stale", "A little stale"),
-    "error": i18n.msg(
-        "home.stale_the_server_may_be_down", "Stale — the server may be down"),
-    # Byte-identical to health_page.PIPELINE_STATE_TEXT["off"]: a
-    # pipeline that has never run is the same neutral fact on both
-    # pages, never Home's "A little stale" wording. Owned by
-    # companion/i18n_fr/health.py, not home.py.
-    "off": i18n.msg("health.no_detection_yet", "No detection yet"),
-}
-_BATTERY_DROPPING_QUICKLY_TEXT = i18n.msg("home.dropping_quickly", "Dropping quickly")
-BATTERY_STATE_TEXT = {
-    "ok": i18n.msg("home.healthy", "Healthy"),
-    "warn": _BATTERY_DROPPING_QUICKLY_TEXT,
-    "error": _BATTERY_DROPPING_QUICKLY_TEXT,
-}
 NO_READING_TEXT = i18n.msg("home.no_reading_yet", "No reading yet")
-
-_TAG_RE = re.compile(r"<[^>]+>")
-# health_page.py's pipeline_html fragment is two or three stacked
-# <p>...</p> blocks; device_detail_html is a single bare <span> with no
-# <p> wrapper. _BLOCK_RE finds each block's inner markup so
-# _plain_text_from_markup() can join separate sentences with " · "
-# instead of running them together with no punctuation between them.
-_BLOCK_RE = re.compile(r"<p[^>]*>(.*?)</p>", re.DOTALL)
-
-
-def _plain_text_from_markup(fragment):
-    """Strip tags and reverse HTML-entity escaping from a pre-built,
-    already-escaped markup fragment — health_page's detail-only
-    health-state fields, which produce raw markup the same way
-    `layout.concise_timestamp_html()` does (callers interpolate the
-    return value verbatim, never re-escape it).
-
-    The shared status-row primitive escapes its `detail` parameter, so
-    passing the fragment straight through would turn its own tags into
-    visible text. Strip the tags, then reverse the entity escaping the
-    fragment's own builder already applied, so the row primitive
-    re-encodes the text exactly once, not twice. Two or more top-level
-    `<p>` blocks are joined with " · "; a fragment with no `<p>` blocks
-    falls back to the original single-block behaviour.
-    """
-    if not fragment:
-        return ""
-    blocks = _BLOCK_RE.findall(fragment)
-    if not blocks:
-        spaced = _TAG_RE.sub(" ", fragment)
-        return " ".join(html.unescape(spaced).split())
-    parts = []
-    for block in blocks:
-        spaced = _TAG_RE.sub(" ", block)
-        text = " ".join(html.unescape(spaced).split())
-        if text:
-            parts.append(text)
-    return " · ".join(parts)
 
 
 def _safe_query(state_dir, fn):
@@ -226,139 +129,12 @@ def _gallery_name_to_iso(name):
     return candidate if layout.parse_iso(candidate) is not None else None
 
 
-def _tile_content_html(verdict, detail, detail_class=None):
-    """The verdict-plus-detail composition every one of the three tiles
-    below shares — one write site rather than three near-identical
-    inline literals. `detail` is omitted entirely (no placeholder) when
-    falsy.
-
-    `detail_class` optionally wraps the escaped `detail` text in its own
-    inner `<span>` — the Frame tile's next-wake clock adopts
-    `.time-value` here, the one role defined for a clock/countdown value
-    site-wide, without making `detail` a second raw-markup injection
-    point: the text is still escaped exactly once, only the wrapping
-    changes.
-    """
-    verdict_html = '<p class="text-body widget-verdict">%s</p>' % escape_html(verdict)
-    if not detail:
-        return verdict_html
-    detail_text = escape_html(detail)
-    if detail_class:
-        detail_text = '<span class="%s">%s</span>' % (detail_class, detail_text)
-    return verdict_html + '<p class="text-label widget-detail">%s</p>' % detail_text
-
-
 # The small ring's box side, in CSS pixels — half health_page.py's own
 # large ring, kept under the height of the two text lines it sits
 # beside, since stat_tile()'s box is shared by three tiles and a taller
 # Battery tile would make the row ragged. The shared emitter,
 # draw.ring_gauge(), lives in draw.py so a change there moves both pages.
 BATTERY_RING_SIZE = 36
-
-
-def _battery_tile_content_html(verdict, detail, ring_html):
-    """`_tile_content_html()`'s output with the battery ring beside it.
-
-    With no ring, returns that markup unwrapped, so a device with no
-    reading renders byte-identically to before the ring existed. The
-    ring sits beside the text rather than above it: stat_tile()'s box is
-    shared by three tiles in one row, and stacking the ring would push
-    this tile taller than its neighbours.
-    """
-    content_html = _tile_content_html(verdict, detail)
-    if not ring_html:
-        return content_html
-    return (
-        '<div class="stat-tile__gauge">%s'
-        '<div class="stat-tile__gauge-text">%s</div></div>'
-    ) % (ring_html, content_html)
-
-
-def _status_tiles_html(ctx):
-    """Renders the `.dashboard-grid.home-status-grid` of three
-    `stat_tile()` calls (Frame/Battery/Flight data) plus the "See
-    details on Health" link below the grid. Each tile's verdict comes
-    from this module's own *_STATE_TEXT dicts, and each detail is the
-    health state's own verdict-free field, reduced to plain text by
-    `_plain_text_from_markup()` — never the combined device-summary
-    field, which would carry the Frame verdict a second time.
-
-    The Frame tile calls `wake.next_wake_status()`/
-    `frame_state.resolve_state()` fresh, against the same ctx fields the
-    strip above it already used, so the two can never disagree. The
-    health-state-derived value is kept only as the fallback for
-    `frame_state.STATE_UNKNOWN` (no check-in recorded at all), the one
-    case frame_state.py cannot resolve.
-
-    The Flight-data tile reads `pipeline_detail_html`, the verdict-free
-    sibling of `pipeline_html` — Home renders its own verdict above it,
-    never Health's second copy of the same judgement.
-    """
-    ctx = page_context.coerce(ctx)
-    health = ctx.health_state or {}
-    pipeline_state = health.get("pipeline_state") or "warn"
-    battery_state = health.get("battery_state") or "warn"
-
-    next_wake_iso, effective_interval_s, hold_reason = wake.next_wake_status(
-        ctx.last_checkin_ts, ctx.device_config)
-    resolved_frame_state = frame_state.resolve_state(
-        next_wake_iso, effective_interval_s, hold_reason, ctx.now)
-    if resolved_frame_state == frame_state.STATE_UNKNOWN:
-        device_state = health.get("device_state") or "warn"
-        frame_detail = _plain_text_from_markup(health.get("device_detail_html"))
-        frame_detail_class = None
-    else:
-        device_state = _FRAME_STATE_TO_TILE_STATE[resolved_frame_state]
-        next_wake_parsed = layout.parse_iso(next_wake_iso)
-        frame_detail = layout.local_clock_text(
-            next_wake_parsed, now_parsed=layout.parse_iso(ctx.now))
-        frame_detail_class = "time-value"
-    frame_verdict = i18n.t(FRAME_STATE_TEXT.get(device_state, FRAME_STATE_TEXT["warn"]))
-    frame_html = _tile_content_html(frame_verdict, frame_detail, detail_class=frame_detail_class)
-
-    reading = _safe_query(ctx.state_dir, _latest_battery)
-    battery_ring_html = ""
-    if reading and reading.get("battery_mv"):
-        pct = battery.battery_percent(reading["battery_mv"])
-        pct_text = ("≈ %d%%" % pct) if pct is not None else ""
-        mv_text = "%s mV" % reading["battery_mv"]
-        battery_verdict = i18n.t(BATTERY_STATE_TEXT.get(battery_state, BATTERY_STATE_TEXT["warn"]))
-        battery_detail = "%s · %s" % (pct_text, mv_text) if pct_text else mv_text
-        if pct is not None:
-            # The ring draws the same `pct` printed beside it, not a
-            # second, finer-grained estimate off the same millivolt
-            # value, so the picture and the number cannot round to
-            # different stories.
-            battery_ring_html = draw.ring_gauge(
-                pct / 100.0, BATTERY_RING_SIZE, draw.status_class(battery_state))
-    else:
-        battery_verdict = i18n.t(NO_READING_TEXT)
-        battery_detail = ""
-    battery_html = _battery_tile_content_html(
-        battery_verdict, battery_detail, battery_ring_html)
-
-    data_verdict = i18n.t(DATA_STATE_TEXT.get(pipeline_state, DATA_STATE_TEXT["warn"]))
-    data_detail = _plain_text_from_markup(health.get("pipeline_detail_html"))
-    data_html = _tile_content_html(data_verdict, data_detail)
-
-    tiles = (
-        layout.stat_tile(i18n.t(FRAME_ROW_LABEL), frame_html, device_state, icon="icon-device")
-        + layout.stat_tile(
-            i18n.t(BATTERY_ROW_LABEL), battery_html, battery_state, icon="icon-battery")
-        + layout.stat_tile(i18n.t(DATA_ROW_LABEL), data_html, pipeline_state, icon="icon-pipeline")
-    )
-
-    health_link_html = (
-        '<p class="text-label"><a href="/health">%s</a></p>'
-    ) % escape_html(i18n.t(HEALTH_LINK_TEXT))
-
-    return (
-        '<section class="home-section" aria-labelledby="home-status">'
-        '<h2 class="text-heading" id="home-status">%s</h2>'
-        '<div class="dashboard-grid home-status-grid">%s</div>'
-        "%s"
-        "</section>"
-    ) % (escape_html(i18n.t(STATUS_HEADING)), tiles, health_link_html)
 
 
 def _current_picture_html(ctx, current_flight_row):
@@ -486,31 +262,6 @@ def _recent_flights_html(rows, now, state_dir):
     ) % (
         escape_html(i18n.t(RECENT_FLIGHTS_HEADING)), body,
         FLIGHTS_ROUTE, escape_html(i18n.t(RECENT_FLIGHTS_LINK_TEXT)))
-
-
-# The class is `home-overview`, deliberately not `home-hero`: that name
-# belonged to a retired hero row, and standing checks assert that markup
-# never comes back to this page.
-HERO_CLASS = "home-overview"
-
-
-def _hero_html(*parts):
-    """Home's top as one composition — the shared Frame strip, the three
-    status tiles carrying the battery ring, and the day band — wrapped in
-    a single container that owns the rhythm between them.
-
-    Assembled from calls only: every part arrives already built by the
-    function that owns it, so nothing here can drift from those
-    originals. A bare `<div>` with no role or name of its own — the
-    three parts keep their own `<h2>`s, so a screen reader reads this
-    page exactly as before the container existed. The wrapper is
-    unconditional even though the hero's contents vary with the data
-    (`_day_band_html()` can return `""`, the battery ring can be
-    omitted), since a container that also came and went would move
-    everything below it depending on whether a query happened to
-    succeed.
-    """
-    return '<div class="%s">%s</div>' % (HERO_CLASS, "".join(parts))
 
 
 def _battery_fact_html(ctx):

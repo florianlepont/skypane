@@ -9,17 +9,14 @@ caption suffix plus the one computed Quiet-hours delay sentence across
 its DUE/HELD/UNKNOWN branches. No running companion/app.py server is
 needed for this slice.
 """
-import re
 import sys
 
 import pytest
 
 import companion.layout as layout
 import companion.prefs as prefs
-from companion import app as companion_app
 from companion import i18n_fr
 from companion.i18n_fr import display as i18n_fr_display
-from companion.layout import escape_html
 from companion.pages import config_page
 from server import device_config
 from server.plane import colour_rules
@@ -152,189 +149,6 @@ def test_display_scope_carries_runway_and_calendar_device_carries_neither():
         "expected neither Runway nor Calendar in scope_groups(SCOPE_DEVICE), got %r" % (device_groups,))
 
 
-@pytest.mark.skip(reason="Phase 44 retired configuration supersections")
-def test_display_render_carries_three_section_intros_in_locked_order():
-    """the Display scope renders exactly three section-intro headings, in the locked Look/What it
-    watches/When it is on order, and the Device scope renders exactly three of its own, in the
-    locked When it wakes/How it tells you/When you can't wait order"""
-    ctx = {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0}
-    display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-    device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
-    assert display.count("section-intro") == 3, (
-        "expected exactly three section-intro occurrences on Display, got %d" % display.count("section-intro"))
-    look_pos = display.find('id="%s"' % config_page.DISPLAY_LOOK_SECTION_ID)
-    watches_pos = display.find('id="%s"' % config_page.DISPLAY_WATCHES_SECTION_ID)
-    on_pos = display.find('id="%s"' % config_page.DISPLAY_ON_SECTION_ID)
-    assert -1 not in (look_pos, watches_pos, on_pos), "expected all three supersection heading ids to be present"
-    assert look_pos < watches_pos < on_pos, "expected Look < What it watches < When it is on in document order"
-    assert device.count("section-intro") == 3, (
-        "expected exactly three section-intro occurrences on Device, got %d" % device.count("section-intro"))
-    wakes_pos = device.find('id="%s"' % config_page.DEVICE_WAKES_SECTION_ID)
-    tells_pos = device.find('id="%s"' % config_page.DEVICE_TELLS_SECTION_ID)
-    poll_pos = device.find('id="%s"' % config_page.DEVICE_POLL_SECTION_ID)
-    assert -1 not in (wakes_pos, tells_pos, poll_pos), (
-        "expected all three Device supersection heading ids to be present")
-    assert wakes_pos < tells_pos < poll_pos, (
-        "expected When it wakes < How it tells you < When you can't wait in document order")
-
-
-@pytest.mark.skip(reason="Phase 44 retired configuration supersections")
-def test_every_grouped_card_under_a_display_supersection_carries_nested_class():
-    """every grouped card the Display scope renders under one of its three supersections carries
-    a --nested modifier class - down to 3 occurrences (Aspect's page-section--nested, Runway's and
-    Quiet hours' theme-status--nested) now that the Calendar card's own separate
-    page-section--nested wrapper is retired"""
-    ctx = {
-        "device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0,
-        "calendar_configured": True, "calendar_last_synced_at": None,
-        "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-    }
-    display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-    for needle in (
-            "theme-status theme-status--nested",
-            'class="page-section aspect-card page-section--nested"'):
-        assert needle in display, "expected %r on the Display scope" % (needle,)
-    assert display.count('class="page-section page-section--nested"') == 0, (
-        "expected no bare page-section page-section--nested wrapper on Display - the Calendar "
-        "card that used to emit it is retired")
-    nested_count = display.count("theme-status--nested") + display.count("page-section--nested")
-    assert nested_count == 3, "expected exactly 3 --nested occurrences on Display, got %d" % nested_count
-
-
-@pytest.mark.skip(reason="Phase 44 replaced the retired Display heading hierarchy")
-def test_display_h2_order_matches_the_merged_aspect_card_placement():
-    """the Display scope's rendered <h2> order is exactly Look, Aspect, What it watches, Runway,
-    When it is on, Quiet hours - the separate Calendar heading this order used to also name is
-    retired outright now that its connection block folds into the Aspect card's own Calendar row
-    - and every calendar_theme_id radio still carries a form="settings-form" attribute"""
-    ctx = {
-        "device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0,
-        "calendar_configured": True, "calendar_last_synced_at": None,
-        "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-    }
-    display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-    headings = re.findall(r'<h2[^>]*>(.*?)</h2>', display)
-    expected = [
-        layout.FRAME_STRIP_HEADING,
-        config_page.DISPLAY_LOOK_HEADING, config_page.ASPECT_HEADING,
-        config_page.DISPLAY_WATCHES_HEADING,
-        "Runway", config_page.DISPLAY_ON_HEADING,
-        config_page.QUIET_HOURS_SECTION_HEADING,
-    ]
-    assert headings == expected, "expected <h2> order %r, got %r" % (expected, headings)
-    calendar_radio_count = display.count('name="calendar_theme_id"')
-    calendar_radio_with_form_count = len(
-        re.findall(r'name="calendar_theme_id"[^>]*form="%s"' % config_page.SETTINGS_FORM_ID, display))
-    assert calendar_radio_count > 0 and calendar_radio_with_form_count == calendar_radio_count, (
-        "expected every one of the %d calendar_theme_id radios to carry form=\"%s\", got %d"
-        % (calendar_radio_count, config_page.SETTINGS_FORM_ID, calendar_radio_with_form_count))
-
-
-@pytest.mark.skip(reason="Phase 44 replaced the retired configuration hierarchy")
-def test_title_form_inventory_classifies_every_h2_text_heading_on_both_routes_after_the_merge():
-    """the title-form inventory, re-run after the calendar merge: both settings routes'
-    h2.text-heading instances count and classify as 6 settings-card titles (form A, 3 on Device +
-    3 on Display, down from 4 now that Calendar's own separate heading is retired) + 3
-    supersection intros (form B) + 2 unrelated headings, with the counts re-derived by RUNNING
-    rather than restated as the pre-merge 8/4/3/1 literal, and the two label vocabularies still
-    never overlapping"""
-    ctx_display = {
-        "device_config": {"theme": "white", "tracked_runway": "3"},
-        "state_dir": STATE_DIR, "poll_cooldown_remaining": 0,
-        "calendar_configured": True, "calendar_last_synced_at": None,
-        "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-    }
-    ctx_device = {
-        "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
-        "state_dir": STATE_DIR, "poll_cooldown_remaining": 5,
-    }
-    display = config_page.render(ctx_display, scope=config_page.SCOPE_DISPLAY)
-    device = config_page.render(ctx_device, scope=config_page.SCOPE_DEVICE)
-
-    counts = {}
-    for label, rendered in (("display", display), ("device", device)):
-        total = rendered.count('class="text-heading"')
-        form_a = rendered.count('%s="' % config_page.DIRTY_SECTION_ATTR)
-        form_b = rendered.count("section-intro")
-        counts[label] = (total, form_a, form_b, total - form_a - form_b)
-    # RE-DERIVED BY RUNNING: Display's own tuple moves from
-    # (8, 4, 3, 1) to (7, 3, 3, 1) - one fewer h2.text-heading instance and one fewer form-A card
-    # title, both for the identical reason (the Calendar card's own separate heading is retired).
-    # Device's own tuple drops one h2.text-heading instance and one form-A card title with the
-    # removed push-alert card.
-    expected = {"display": (7, 3, 3, 1), "device": (6, 2, 3, 1)}
-    assert counts == expected, (
-        "expected {route: (total h2.text-heading, form-A card titles, form-B supersection "
-        "intros, unclassified)} == %r, measured %r by running" % (expected, counts))
-
-    card_title_headings = {
-        "display": (config_page.ASPECT_HEADING, "Runway", config_page.QUIET_HOURS_SECTION_HEADING),
-        "device": (
-            config_page.LED_SECTION_HEADING, config_page.WAKE_INTERVAL_SECTION_HEADING),
-    }
-    for route, rendered in (("display", display), ("device", device)):
-        for heading in card_title_headings[route]:
-            needle = ">%s</h2>" % escape_html(heading)
-            assert needle in rendered, (
-                "expected the settings-card heading %r to render inside its own [data-dirty-section] "
-                "tile on the %s scope, and it did not" % (heading, route))
-        assert len(card_title_headings[route]) == counts[route][1], (
-            "expected exactly %d form-A card titles named on %s, the allowlist names %d"
-            % (counts[route][1], route, len(card_title_headings[route])))
-
-    # The two unclassified instances, identified by name - neither is a settings card or a
-    # supersection intro. Unchanged by the merge (both survive it untouched).
-    frame_strip_needle = ">%s</h2>" % escape_html(layout.FRAME_STRIP_HEADING)
-    assert frame_strip_needle in display and frame_strip_needle not in device, (
-        "expected the Frame strip's own <h2> (Display's unclassified instance) to render on "
-        "Display and never on Device")
-    poll_needle = '<h2 class="text-heading">%s</h2>' % escape_html(config_page.POLL_SECTION_HEADING)
-    assert poll_needle in device and poll_needle not in display, (
-        "expected Poll's own <h2> (Device's unclassified instance) to render on Device and never "
-        "on Display (Display never renders Poll)")
-
-    # OUTCOME 2 still holds: the two label vocabularies never overlap.
-    overlap = (
-        set(card_title_headings["display"]) | set(card_title_headings["device"])
-    ) & {
-        config_page.DISPLAY_LOOK_HEADING, config_page.DISPLAY_WATCHES_HEADING,
-        config_page.DISPLAY_ON_HEADING, config_page.DEVICE_WAKES_HEADING,
-        config_page.DEVICE_TELLS_HEADING, config_page.DEVICE_POLL_HEADING,
-    }
-    assert not overlap, (
-        "expected the settings-card vocabulary and the supersection-label vocabulary to share no "
-        "text - found %r in both, which would mean a card's own identity and a group's own label "
-        "had collapsed into the same word" % (overlap,))
-
-
-@pytest.mark.skip(reason="Phase 44 replaced the retired Device wrapper contract")
-def test_device_scope_wraps_all_three_settings_cards_with_the_nested_modifier():
-    """the cheap structural guard, NOT the real proof (that is test_browser_ux.py's cross-page
-    getComputedStyle comparator): the Device scope's rendered output wraps all three of its
-    settings cards with the --nested modifier (two theme-status--nested, one
-    page-section--nested) and carries zero unmodified settings-card wrappers of either base
-    class"""
-    ctx = {
-        "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
-        "state_dir": STATE_DIR, "poll_cooldown_remaining": 0,
-    }
-    device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
-    nested_theme_status = device.count('class="theme-status theme-status--nested"')
-    assert nested_theme_status == 2, (
-        "expected exactly 2 theme-status--nested settings-card wrappers on Device (LED, wake "
-        "interval), got %d" % nested_theme_status)
-    nested_page_section = device.count('class="page-section page-section--nested"')
-    assert nested_page_section == 1, (
-        "expected exactly 1 page-section--nested settings-card wrapper on Device (Poll), got %d"
-        % nested_page_section)
-    assert device.count('class="theme-status"') == 0, (
-        "expected zero unmodified .theme-status settings-card wrappers on Device, got %d"
-        % device.count('class="theme-status"'))
-    assert device.count('class="page-section"') == 0, (
-        "expected zero unmodified .page-section settings-card wrappers on Device, got %d"
-        % device.count('class="page-section"'))
-
-
 _TASK2_BASE_CTX = {
     "device_config": {
         "display_enabled": True, "quiet_hours_enabled": True,
@@ -342,30 +156,6 @@ _TASK2_BASE_CTX = {
     },
     "state_dir": None, "poll_cooldown_remaining": 0,
 }
-
-
-@pytest.mark.skip(reason="Phase 44 removed Display quick actions")
-def test_display_render_carries_exactly_two_quick_action_forms():
-    """a Display render contains exactly one action="/quick/display" form and one
-    action="/quick/quiet-hours" form"""
-    rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
-    assert rendered.count('action="%s"' % config_page.QUICK_DISPLAY_ROUTE) == 1, (
-        "expected exactly one action=\"/quick/display\" form")
-    assert rendered.count('action="%s"' % config_page.QUICK_QUIET_HOURS_ROUTE) == 1, (
-        "expected exactly one action=\"/quick/quiet-hours\" form")
-
-
-@pytest.mark.skip(reason="Phase 44 removed Display quick actions")
-def test_quick_action_forms_are_not_descendants_of_settings_form():
-    """neither instant-switch form is a descendant of <form id=settings-form> - both render in
-    the shared Frame strip, before the settings form even opens"""
-    rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
-    settings_form_open = rendered.index('<form class="config-form"')
-    for route in (config_page.QUICK_DISPLAY_ROUTE, config_page.QUICK_QUIET_HOURS_ROUTE):
-        quick_form_pos = rendered.index('action="%s"' % route)
-        assert quick_form_pos < settings_form_open, (
-            "expected the %s instant-switch form to appear in the Frame strip, before the "
-            "settings form even opens, not nested inside it" % route)
 
 
 def test_display_render_carries_no_form_nested_inside_a_form():
@@ -409,25 +199,6 @@ def test_two_scheduled_inputs_carry_form_settings_form():
         "expected no display_enabled/quiet_hours_enabled input on the Display page")
 
 
-@pytest.mark.skip(reason="Phase 44 removed the Display frame strip")
-def test_display_render_has_exactly_one_quick_action_pair_inside_the_strip():
-    """a Display render carries exactly one .quick-action--on/--off pair per switch, both inside
-    .frame-strip"""
-    rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
-    on_off_count = (
-        rendered.count('quick-action quick-action--on')
-        + rendered.count('quick-action quick-action--off'))
-    assert on_off_count == 2, (
-        "expected exactly two .quick-action--on/--off cells (Screen + Quiet hours), got %d" % (on_off_count,))
-    strip_start = rendered.index('<div class="frame-strip stat-tile stat-tile--accent"')
-    strip_end = rendered.index('<form class="config-form"', strip_start)
-    strip_segment = rendered[strip_start:strip_end]
-    assert (
-        strip_segment.count('quick-action quick-action--on')
-        + strip_segment.count('quick-action quick-action--off') == 2
-    ), "expected both quick-action cells to sit inside .frame-strip"
-
-
 def test_schedule_cards_carry_no_quick_action_markup():
     """the Quiet hours card carries no quick-action markup any more - its switch moved into the
     shared Frame strip; the Screen on/off card this check used to also cover is
@@ -440,49 +211,6 @@ def test_schedule_cards_carry_no_quick_action_markup():
         next_heading = rendered.find('<h2 class="text-heading"', start + 1)
         segment = rendered[start:next_heading] if next_heading != -1 else rendered[start:]
         assert "quick-action" not in segment, "expected the %r card to carry no quick-action markup" % (heading,)
-
-
-@pytest.mark.skip(reason="Phase 44 removed Display quick actions")
-def test_quick_action_forms_carry_return_to_the_display_route():
-    """both instant-switch forms on Display carry a return_to hidden input whose value is the
-    Display route
-
-    A DIFFERENT, pre-existing "return_to" hidden field also lives inside <form id="settings-form">
-    itself (a scope-aware save-and-return-to-the-same-page mechanism) - same field NAME,
-    different form, different route, no collision. Scoped to each quick-action <form>...</form>
-    block specifically, not a whole-page substring count.
-    """
-    rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
-    needle = '<input type="hidden" name="return_to" value="%s">' % layout.DISPLAY_ROUTE
-    for route in (config_page.QUICK_DISPLAY_ROUTE, config_page.QUICK_QUIET_HOURS_ROUTE):
-        form_start = rendered.index('action="%s"' % route)
-        form_end = rendered.index("</form>", form_start)
-        assert needle in rendered[form_start:form_end], "expected %r inside the %s form" % (needle, route)
-
-
-@pytest.mark.skip(reason="Phase 44 removed the Display frame strip")
-def test_frame_strip_renders_after_header_before_first_section_intro():
-    """the Frame strip renders immediately after the page header and before the first
-    section-intro on Display"""
-    rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
-    header_pos = rendered.index('<h1 class="page-title">')
-    strip_pos = rendered.index('<div class="frame-strip stat-tile stat-tile--accent"')
-    intro_pos = rendered.index('class="section-intro"')
-    assert header_pos < strip_pos < intro_pos, (
-        "expected the page header, then the Frame strip, then the first section-intro, got "
-        "positions %d, %d, %d" % (header_pos, strip_pos, intro_pos))
-
-
-@pytest.mark.skip(reason="Phase 44 removed Display next-wake copy")
-def test_applies_next_wake_sentence_appears_exactly_twice():
-    """the shared "Applies the next time the frame wakes up." sentence appears exactly twice on
-    the Display page - once per Frame-strip instant switch, and no longer a third time under the
-    Quiet hours card's own caption, which confines it to one place per page"""
-    rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
-    count = rendered.count(escape_html(layout.QUICK_ACTION_APPLIES_SENTENCE))
-    assert count == 2, (
-        "expected the shared instant-switch delay sentence to appear exactly twice (once per "
-        "Frame-strip switch cell, and nowhere under the Quiet hours card any more), got %d" % count)
 
 
 def test_handle_post_same_field_set_after_restructure_saves_the_same_config(tmp_path):
@@ -514,70 +242,6 @@ _TASK3_I18N_CTX = {
     "calendar_configured": True, "calendar_last_synced_at": None,
     "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
 }
-
-
-@pytest.mark.skip(reason="Phase 44 replaced the retired Display copy")
-def test_french_display_render_carries_french_headings_no_english():
-    """a French Display render (prefs.set_request_prefs(lang='fr')) carries the three
-    supersection headings, the purpose sentence and the instant-switch sentence in French, and
-    none of their English counterparts"""
-    try:
-        prefs.set_request_prefs(lang="fr")
-        fr_rendered = config_page.render(_TASK3_I18N_CTX, scope=config_page.SCOPE_DISPLAY)
-    finally:
-        prefs.set_request_prefs(lang="en")
-    for french_text in ("Aspect", "Ce qu’il surveille", "Quand il est allumé",
-                         "Tout ce que le cadre affiche, et quand.",
-                         "S’applique au prochain réveil du cadre."):
-        assert french_text in fr_rendered, "expected %r in the French Display render" % (french_text,)
-    for english_text in ("Look", "What it watches", "When it is on",
-                          "Everything about what the frame shows and when.",
-                          "Applies the next time the frame wakes up."):
-        assert english_text not in fr_rendered, "expected %r to be absent from the French Display render" % (english_text,)
-
-
-@pytest.mark.skip(reason="Phase 44 removed screen metadata from Display and Device")
-def test_french_display_and_device_render_translate_registry_labels():
-    """a French Display render translates the default theme name ('White' -> 'Blanc') and
-    default runway label ('Runway 3 (07/25)' -> 'Piste 3 (07/25)'), and both scopes' screen
-    caption translates 'Plane frame' -> 'Cadre avion', while the theme/runway ids stay
-    untranslated attribute values
-
-    device_config.theme_label()/runway_label()'s registry text and screens.py's screen label are
-    translated at their config_page.py display sites via i18n.t(), backed by
-    companion/i18n_fr/registry.py - the default theme ("white" -> "White"/"Blanc") and default
-    runway ("3" -> "Runway 3 (07/25)"/"Piste 3 (07/25)") both apply here since _TASK3_I18N_CTX's
-    device_config carries neither key.
-    """
-    try:
-        prefs.set_request_prefs(lang="fr")
-        fr_display = config_page.render(_TASK3_I18N_CTX, scope=config_page.SCOPE_DISPLAY)
-        fr_device = config_page.render(_TASK3_I18N_CTX, scope=config_page.SCOPE_DEVICE)
-    finally:
-        prefs.set_request_prefs(lang="en")
-    for french_text in ("Blanc", "Piste 3 (07/25)", "Cadre avion"):
-        assert french_text in fr_display, "expected the French %r in the French Display render" % (french_text,)
-    assert "Cadre avion" in fr_device, "expected the French screen label in the French Device render"
-    assert "Runway 3 (07/25)" not in fr_display, "expected %r to be absent from the French Display render" % (
-        "Runway 3 (07/25)",)
-    assert 'value="white"' in fr_display and 'value="3"' in fr_display, (
-        "expected the theme/runway ids themselves to stay untranslated attribute values")
-
-
-@pytest.mark.skip(reason="Phase 44 replaced the retired Display copy")
-def test_aspect_display_render_still_carries_every_pinned_english_string():
-    """an English (default) Display render still contains every pre-existing English string this
-    file's own checks assert, updated for the Aspect-card rebuild (both the former Frame colours
-    card's and the calendar connection block's own caption constants dropped, ASPECT_HEADING
-    gained, everything else kept) - t() never touches the default-language render"""
-    rendered = config_page.render(_TASK3_I18N_CTX, scope=config_page.SCOPE_DISPLAY)
-    for english_text in (
-            config_page.DISPLAY_LOOK_HEADING, config_page.DISPLAY_WATCHES_HEADING,
-            config_page.DISPLAY_ON_HEADING, config_page.DISPLAY_PAGE_PURPOSE,
-            layout.QUICK_ACTION_APPLIES_SENTENCE, config_page.ASPECT_HEADING,
-            config_page.RUNWAY_SECTION_CAPTION, config_page.CALENDAR_HOW_IT_WORKS_SUMMARY):
-        assert escape_html(english_text) in rendered, "expected the English constant %r to still render verbatim" % (
-            english_text,)
 
 
 def test_device_render_carries_no_edit_artwork_markup_in_either_language():
@@ -757,162 +421,6 @@ def test_with_next_wake_helper_contract():
     got = config_page._with_next_wake("caption.", "14:10")
     assert got == "caption. (next wake ≈ 14:10)", (
         "expected the suffix appended when next_wake_clock is known, got %r" % (got,))
-
-
-@pytest.mark.skip(reason="Phase 44 removed next-wake copy outside configuration")
-def test_affected_captions_gain_the_suffix_only_when_known():
-    """each of Runway/LED/Wake-interval's own caption gains the '(next wake ≈ HH:MM)' suffix when
-    the value is known, and is byte-identical to its own constant when it is not (Theme's and
-    Quiet hours' own captions are retired from this list - Quiet hours' own caption moved to its
-    own computed delay sentence instead - and the Frame colours card's own caption never gains
-    this suffix either)"""
-    known_ctx = {
-        "device_config": {"wake_interval_s": 900, "display_enabled": True},
-        "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
-        "state_dir": STATE_DIR, "poll_cooldown_remaining": 0,
-    }
-    unknown_ctx = {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0}
-    known_display = config_page.render(known_ctx, scope=config_page.SCOPE_DISPLAY)
-    known_device = config_page.render(known_ctx, scope=config_page.SCOPE_DEVICE)
-    unknown_display = config_page.render(unknown_ctx, scope=config_page.SCOPE_DISPLAY)
-    unknown_device = config_page.render(unknown_ctx, scope=config_page.SCOPE_DEVICE)
-    # THEME_SECTION_CAPTION/QUIET_HOURS_SECTION_CAPTION are deliberately NOT in this list any
-    # more - both are retired from this suffix contract.
-    for caption in (
-            config_page.RUNWAY_SECTION_CAPTION,
-            config_page.LED_SECTION_CAPTION,
-            config_page.WAKE_INTERVAL_SECTION_CAPTION):
-        # escape_html() is what the render pipeline actually applies - several of these captions
-        # carry an apostrophe, so the RAW constant never appears verbatim in the rendered HTML.
-        escaped_caption = escape_html(caption)
-        escaped_suffix = config_page.NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE % "14:10"
-        assert (
-            (escaped_caption + escaped_suffix) in known_display
-            or (escaped_caption + escaped_suffix) in known_device
-        ), "expected %r to gain the suffix when the next-wake value is known" % (caption,)
-        assert escaped_caption in (unknown_display + unknown_device), (
-            "expected %r to render byte-identical to its own constant when unknown" % (caption,))
-        assert (escaped_caption + " (next wake") not in (unknown_display + unknown_device), (
-            "expected %r to carry no suffix when the next-wake value is unknown" % (caption,))
-
-
-@pytest.mark.skip(reason="Phase 44 removed Device next-wake framing")
-def test_device_header_shows_next_wake_line_when_known():
-    """the Device page header carries a 'Next wake ≈ HH:MM' line when the value is known and none
-    at all when it is not"""
-    known_ctx = {
-        "device_config": {"wake_interval_s": 900, "display_enabled": True},
-        "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
-        "state_dir": STATE_DIR, "poll_cooldown_remaining": 0,
-    }
-    unknown_ctx = {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0}
-    known_device = config_page.render(known_ctx, scope=config_page.SCOPE_DEVICE)
-    assert "Next wake" in known_device and "≈ 14:10" in known_device, (
-        "expected the Device header to carry a Next wake ≈ HH:MM line when known")
-    unknown_device = config_page.render(unknown_ctx, scope=config_page.SCOPE_DEVICE)
-    assert "Next wake" not in unknown_device, "expected no Next wake line in the Device header when the value is unknown"
-
-
-@pytest.mark.skip(reason="Phase 44 removed the Display frame strip")
-def test_quiet_hours_caption_and_flash_agree_on_the_due_branch():
-    """with a due result, the Frame strip carries the DUE delay sentence exactly twice (once per
-    switch cell), the Quiet hours card's own caption carries NO delay sentence any more, and the
-    post-save flash still reads the DUE delay sentence naming the same computed time, unaffected
-    by the caption change"""
-    ctx = {
-        "device_config": {"wake_interval_s": 900, "quiet_hours_enabled": False},
-        "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
-        "state_dir": STATE_DIR, "poll_cooldown_remaining": 0,
-    }
-    display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-    expected_delay_fragment = escape_html("Applies at the next wake, around 14:10.")
-    strip_start = display.index('<div class="frame-strip stat-tile stat-tile--accent"')
-    strip_end = display.index('<form class="config-form"', strip_start)
-    assert display.count(expected_delay_fragment) == 2, (
-        "expected the DUE delay sentence to appear exactly twice (once per Frame-strip switch "
-        "cell), got %d in %r" % (display.count(expected_delay_fragment), display))
-    assert expected_delay_fragment in display[strip_start:strip_end], (
-        "expected the DUE delay sentence inside the Frame strip's own slice")
-    caption = re.search(
-        r'<p class="text-label section-caption" id="%s">([^<]*)</p>'
-        % re.escape(config_page.QUIET_HOURS_SECTION_CAPTION_ID), display)
-    assert caption, "the Quiet hours card's own caption is gone"
-    assert expected_delay_fragment not in caption.group(1), (
-        "expected the Quiet hours card's OWN caption to carry NO delay sentence any more (CFG-79) "
-        "- found it in %r" % (caption.group(1),))
-    flash = companion_app._resolve_flash_text(
-        companion_app.FLASH_KEY_SAVED, STATE_DIR,
-        last_checkin_ts=ctx["last_checkin_ts"], device_cfg=ctx["device_config"])
-    assert flash == "Saved — applies at the next wake, around 14:10.", "expected the DUE flash text, got %r" % (flash,)
-
-
-@pytest.mark.skip(reason="Phase 44 removed the Display frame strip")
-def test_quiet_hours_caption_and_flash_agree_on_the_held_branch():
-    """with a held result (the nightly regression fixture), the Frame strip carries the HELD
-    delay sentence exactly twice (once per switch cell), the Quiet hours card's own caption
-    carries NO delay sentence any more, and the post-save flash
-    still reads the HELD delay sentence naming the window's own end, never the generic due wording
-
-    The nightly regression fixture: quiet hours 23:00-07:00 Europe/Paris, last check-in 22:58,
-    clock 02:00 the next morning (a non-DST January date) - held, never late.
-    """
-    device_cfg = {
-        "wake_interval_s": 900, "quiet_hours_enabled": True,
-        "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
-    }
-    ctx = {
-        "device_config": device_cfg,
-        "last_checkin_ts": "2026-01-15T22:58:00+01:00", "now": "2026-01-16T02:00:00+01:00",
-        "state_dir": STATE_DIR, "poll_cooldown_remaining": 0,
-    }
-    display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-    expected_delay_fragment = escape_html("Applies when quiet hours end, around 07:00.")
-    strip_start = display.index('<div class="frame-strip stat-tile stat-tile--accent"')
-    strip_end = display.index('<form class="config-form"', strip_start)
-    assert display.count(expected_delay_fragment) == 2, (
-        "expected the HELD delay sentence to appear exactly twice (once per Frame-strip switch "
-        "cell), got %d in %r" % (display.count(expected_delay_fragment), display))
-    assert expected_delay_fragment in display[strip_start:strip_end], (
-        "expected the HELD delay sentence inside the Frame strip's own slice")
-    caption = re.search(
-        r'<p class="text-label section-caption" id="%s">([^<]*)</p>'
-        % re.escape(config_page.QUIET_HOURS_SECTION_CAPTION_ID), display)
-    assert caption, "the Quiet hours card's own caption is gone"
-    assert expected_delay_fragment not in caption.group(1), (
-        "expected the Quiet hours card's OWN caption to carry NO delay sentence any more (CFG-79) "
-        "- found it in %r" % (caption.group(1),))
-    flash = companion_app._resolve_flash_text(
-        companion_app.FLASH_KEY_SAVED, STATE_DIR,
-        last_checkin_ts=ctx["last_checkin_ts"], device_cfg=device_cfg)
-    assert flash == "Saved — applies when quiet hours end, around 07:00.", "expected the HELD flash text, got %r" % (
-        flash,)
-
-
-@pytest.mark.skip(reason="Phase 44 removed the Display frame strip")
-def test_quiet_hours_caption_and_flash_agree_on_the_unknown_branch():
-    """with no check-in at all, the Frame strip carries the UNKNOWN delay sentence exactly twice
-    (once per switch cell), the Quiet hours card's own caption carries NO delay sentence any more,
-    and the post-save flash still reads the UNKNOWN delay sentence, which names no time"""
-    ctx = {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0}
-    display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-    expected_delay_fragment = escape_html("Applies the next time the frame wakes up.")
-    strip_start = display.index('<div class="frame-strip stat-tile stat-tile--accent"')
-    strip_end = display.index('<form class="config-form"', strip_start)
-    assert display.count(expected_delay_fragment) == 2, (
-        "expected the UNKNOWN delay sentence to appear exactly twice (once per Frame-strip switch "
-        "cell), got %d in %r" % (display.count(expected_delay_fragment), display))
-    assert expected_delay_fragment in display[strip_start:strip_end], (
-        "expected the UNKNOWN delay sentence inside the Frame strip's own slice")
-    caption = re.search(
-        r'<p class="text-label section-caption" id="%s">([^<]*)</p>'
-        % re.escape(config_page.QUIET_HOURS_SECTION_CAPTION_ID), display)
-    assert caption, "the Quiet hours card's own caption is gone"
-    assert expected_delay_fragment not in caption.group(1), (
-        "expected the Quiet hours card's OWN caption to carry NO delay sentence any more (CFG-79) "
-        "- found it in %r" % (caption.group(1),))
-    flash = companion_app._resolve_flash_text(companion_app.FLASH_KEY_SAVED, STATE_DIR)
-    assert flash == "Saved — applies the next time the frame wakes up.", "expected the UNKNOWN flash text, got %r" % (
-        flash,)
 
 
 def test_retired_screen_field_cannot_block_a_valid_settings_save(tmp_path):
