@@ -948,6 +948,9 @@ _registry_section = health_sections_module._registry_section
 _stats_section_html = health_sections_module._stats_section_html
 _check_in_regularity_cells = health_sections_module._check_in_regularity_cells
 _check_in_regularity_section_html = health_sections_module._check_in_regularity_section_html
+_day_band_html = health_sections_module._day_band_html
+DAY_BAND_ROW_LIMIT = health_sections_module.DAY_BAND_ROW_LIMIT
+DAY_BAND_COLLAPSED_TEXT = health_sections_module.DAY_BAND_COLLAPSED_TEXT
 _resolution_rate_tile_html = health_sections_module._resolution_rate_tile_html
 
 
@@ -1044,6 +1047,11 @@ def render(ctx):
         state_dir,
         lambda conn: history_db.check_in_gaps(
             conn, since=_cutoff_iso(now, CHECK_IN_WINDOW_DAYS + 1)))
+    # The Today band's own bounded read: newest rows first, so a limit
+    # below a day's check-ins would silently shorten the day.
+    day_rows = _safe_query(
+        state_dir,
+        lambda conn: history_db.recent_device_health(conn, limit=DAY_BAND_ROW_LIMIT))
     # Membership, not .get() with a default: None is a legitimate value
     # here (cadence cannot be determined).
     if "wake_interval_s" in state:
@@ -1084,6 +1092,7 @@ def render(ctx):
         # reflects the frame's own check-ins, under the Device tile
         # whose definition of "late" it shares.
         + _check_in_regularity_section_html(regularity_rows, wake_interval_s, now)
+        + _day_band_html(day_rows, now, ctx.device_config)
     )
     registry_class = "page-section page-section--nested"
     server_data_section_html = (
