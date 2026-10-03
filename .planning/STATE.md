@@ -2,18 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Battery and Companion!
-current_phase: 44
-current_phase_name: Companion Walkthrough and Focused Bilingual Polish
-status: planning
+status: executing
 stopped_at: Phase 44 context gathered
-last_updated: "2026-09-30T14:17:48.095Z"
-last_activity: 2026-09-30
-last_activity_desc: "V1.1 roadmap reordered: companion polish comes first"
+last_updated: "2026-10-03T08:18:48.380Z"
+last_activity: "2026-09-30 — V1.1 roadmap reordered: companion polish comes first"
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 12
+  completed_plans: 7
   percent: 0
 ---
 
@@ -41,7 +38,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [█████████░] 94%
+  [██████░░░░] 58%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -1328,12 +1325,12 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-30T14:17:48.061Z
+Last session: 2026-10-03T08:18:48.314Z
 Stopped at: Phase 44 context gathered
 
 Resume file: 
 
-.planning/phases/44-companion-walkthrough-and-focused-bilingual-polish/44-CONTEXT.md
+None
 
 - `33-22-SUMMARY.md` written (`d8bf280`) documenting the container-restart interruption and the re-verification rather than re-migration.
 - Progress counters: `gsd-sdk query state.advance-plan --phase 33` and `state.update-progress --phase 33` both reproduced the documented SDK bug this session — the first returned `completed_plans: 325, percent: 77` (a drop from the pre-existing `321/93`), and the second additionally rewrote the demoted 2026-09-04 historical frontmatter block's own progress bar (`92%` -> `94%`), which must never be touched since it is frozen historical data. Both mutation results were discarded; the file was restored from a pre-call backup and the frontmatter was corrected by hand instead: `completed_plans: 322` (321 + 1 for this plan), `percent: 93` (322/347). The `Plan: N of 33` body line was advanced by hand from 23 to 24 (matching the one sane field the `state.advance-plan` response returned, `current_plan: 24`), independent of the corrupted frontmatter fields.

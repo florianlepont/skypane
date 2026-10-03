@@ -23,8 +23,8 @@
 
 - [ ] **CMP-01**: The owner can complete a recorded task-based walkthrough of Home, Display, Flights, Airlines, Health, Device, and Update in English and French on desktop and narrow mobile layouts.
 - [ ] **CMP-02**: The walkthrough records each observed issue as keep, fix now, or defer, with its user impact and reproducible trigger.
-- [ ] **CMP-03**: The owner can use every companion flow changed by V1.1 with consistent English/French meaning, responsive layout, semantic controls, visible keyboard focus, and clear saved or error feedback.
-- [ ] **CMP-04**: The highest-value confirmed walkthrough findings are resolved through the existing route, page-context, template, static-asset, and i18n boundaries without a companion rewrite.
+- [x] **CMP-03**: The owner can use every companion flow changed by V1.1 with consistent English/French meaning, responsive layout, semantic controls, visible keyboard focus, and clear saved or error feedback.
+- [x] **CMP-04**: The highest-value confirmed walkthrough findings are resolved through the existing route, page-context, template, static-asset, and i18n boundaries without a companion rewrite.
 
 ### Integrated Validation
 
@@ -67,8 +67,8 @@
 | POL-03 | Phase 46 | Pending |
 | CMP-01 | Phase 44 | Pending |
 | CMP-02 | Phase 44 | Pending |
-| CMP-03 | Phase 44 | Pending |
-| CMP-04 | Phase 44 | Pending |
+| CMP-03 | Phase 44 | Complete |
+| CMP-04 | Phase 44 | Complete |
 | VAL-01 | Phase 47 | Pending |
 | VAL-02 | Phase 47 | Pending |
 
