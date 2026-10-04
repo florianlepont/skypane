@@ -141,6 +141,41 @@ def test_filter_hides_cards_and_updates_the_count(new_context, server):
         context.close()
 
 
+@pytest.fixture(scope="module")
+def folded_server(module_app_server_factory):
+    """Variety seed plus a stored-twice copy of its first flight, as the poll loop writes."""
+    return module_app_server_factory(seed=vp.seed_home_tile_variety, fake_providers=True)
+
+
+_COUNTS_VS_CARDS = (
+    "() => ({chips: Object.fromEntries([...document.querySelectorAll('.filter-chip')].map(l =>"
+    " [l.querySelector('input').value || 'all',"
+    "  Number(l.querySelector('[data-filter-chip-count]').textContent)])),"
+    " cards: [...document.querySelectorAll('li.history-card')].filter(li => li.offsetParent)"
+    "   .map(li => li.dataset.filterKind),"
+    " days: [...document.querySelectorAll('li.history-cards__day')]"
+    "   .filter(li => li.offsetParent).length})")
+
+
+def test_chip_counts_match_the_visible_cards_after_folding(new_context, folded_server):
+    """a pass stored twice shows as one card, and each chip's count equals the cards the page
+    then shows under that chip"""
+    context, page = _open_flights(new_context, folded_server, VIEWPORT_PHONE)
+    try:
+        for chip, kind in (("All", None), ("Departures", "departing"), ("Arrivals", "arriving")):
+            page.locator(".filter-chip", has_text=chip).click()
+            state = page.evaluate(_COUNTS_VS_CARDS)
+            shown = [k for k in state["cards"] if kind in (None, k)]
+            expected = state["chips"]["all" if kind is None else kind]
+            if len(state["cards"]) != len(shown) or len(shown) != expected:
+                raise AssertionError("expected %s chip count to match the cards, got %r"
+                                     % (chip, state))
+        if page.evaluate(_COUNTS_VS_CARDS)["chips"] != {"all": 5, "departing": 4, "arriving": 1}:
+            raise AssertionError("expected folded 5/4/1 counts")
+    finally:
+        context.close()
+
+
 def test_tear_line_notches_follow_the_page_colour(new_context, server):
     """The stub's two notches paint in the page canvas colour in both themes, so they read as
     cut-outs rather than discs."""

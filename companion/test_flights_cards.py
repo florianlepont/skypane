@@ -150,3 +150,81 @@ def test_the_card_list_carries_no_inline_style(pictured):
     doc = _flights_doc(pictured)
     card_list = doc.select_one("ul.history-cards")
     assert not card_list.select("[style]")
+
+
+def _event(ts, callsign="TVF49NS", state="departing", hex_="4b0001", corroborated=True):
+    return {"ts": ts, "hex": hex_, "callsign": callsign, "airline": "Transavia France",
+            "origin": "ORY", "destination": "BRI", "confirmed_state": state,
+            "corroborated": corroborated}
+
+
+def _doc_for(make_app_server, events, path="/flights"):
+    server = make_app_server(seed=lambda d: vp.seed_runway_events(d, events))
+    status, _, body = get(server, path, cookie=login(server))
+    assert status == 200
+    return parse_html(body.decode("utf-8"))
+
+
+def _chip_counts(doc):
+    return {
+        chip.select_one("input").attrs["value"] or "all":
+            chip.select_one("[data-filter-chip-count]").text()
+        for chip in doc.select(".filter-chip")}
+
+
+@pytest.mark.parametrize("older_ts,older_state,cards", [
+    ("2026-09-03T20:54:01+00:00", "departing", 1),
+    ("2026-09-03T20:53:30+00:00", "departing", 2),
+    ("2026-09-03T20:54:50+00:00", "arriving", 2),
+])
+def test_a_repeated_pass_inside_a_minute_is_one_flight(
+        make_app_server, older_ts, older_state, cards):
+    """a same-pass repeat 59 s apart is folded on Flights as on Home; one 90 s apart, or one
+    whose direction changed, is a different reading and stays; the desktop table follows"""
+    doc = _doc_for(make_app_server, [
+        _event("2026-09-03T20:55:00+00:00"),
+        _event(older_ts, state=older_state, corroborated=None)])
+    assert len(doc.select("ul.history-cards > li.history-card")) == cards
+    assert len(doc.select("tr[data-flight-row]")) == cards
+    assert _chip_counts(doc)["all"] == str(cards)
+
+
+def test_chip_counts_and_day_headers_follow_the_folded_list(make_app_server):
+    """the chip counts, the status count and the day headers count flights, not stored events:
+    a pass stored twice adds nothing to any of them"""
+    doc = _doc_for(make_app_server, [
+        _event("2026-09-03T20:55:00+00:00"),
+        _event("2026-09-03T20:54:30+00:00", corroborated=None),
+        _event("2026-09-03T20:40:00+00:00", callsign="AFR6152", state="arriving", hex_="3c0002"),
+        _event("2026-09-02T09:00:00+00:00", callsign="SMR42", hex_="4b0003"),
+        _event("2026-09-02T08:59:40+00:00", callsign="SMR42", hex_="4b0003", corroborated=None)])
+    assert _chip_counts(doc) == {"all": "3", "departing": "2", "arriving": "1"}
+    assert len(doc.select("ul.history-cards > li.history-card")) == 3
+    assert len(doc.select("li.history-cards__day")) == 2
+    assert len(doc.select("tr.flight-day-row")) == 2
+    assert doc.select_one("[data-filter-count]").text() == "3 of 3 shown"
+
+
+def test_a_pass_straddling_midnight_folds_into_the_newer_day(make_app_server):
+    """two events 20 s apart across Paris midnight are one flight listed under the later day,
+    with no empty or duplicate day header for the earlier one"""
+    doc = _doc_for(make_app_server, [
+        _event("2026-09-03T22:00:10+00:00"),
+        _event("2026-09-03T21:59:50+00:00", corroborated=None)])
+    assert len(doc.select("ul.history-cards > li.history-card")) == 1
+    heads = [li.text() for li in doc.select("li.history-cards__day")]
+    assert len(heads) == 1 and "4 Sep" in heads[0]
+
+
+def test_show_more_counts_folded_flights(make_app_server):
+    """with 17 distinct flights and one stored twice, 15 show and the reveal link reports the
+    2 flights left, not the 3 stored events"""
+    events = [
+        _event("2026-09-03T%02d:%02d:00+00:00" % (8 + i // 6, (i % 6) * 10),
+               callsign="TVF%02d" % i, hex_="4b%04x" % i)
+        for i in range(17)]
+    events.append(_event("2026-09-03T08:00:20+00:00", callsign="TVF00", hex_="4b0000",
+                         corroborated=None))
+    doc = _doc_for(make_app_server, events)
+    assert len(doc.select("ul.history-cards > li.history-card")) == 15
+    assert doc.select_one(".flights-more a").text() == "Show more (2 remaining)"
