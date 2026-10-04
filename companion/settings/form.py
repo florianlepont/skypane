@@ -73,27 +73,6 @@ def _describedby_attr(*ids):
     return ' aria-describedby="%s"' % escape_html(" ".join(present))
 
 
-# The suffix appended to a caption's own apply-timing clause when the
-# next-wake value is known — never baked into the caption constant
-# itself, so the caption reads unchanged when the value is not known.
-NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE = i18n.msg("display.next_wake_2", " (next wake ≈ %s)")
-
-
-def _with_next_wake(caption, next_wake_clock):
-    """`caption` unchanged when `next_wake_clock` is falsy — no
-    placeholder, no "unknown" — otherwise `caption` plus
-    `NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE % next_wake_clock`. The single
-    implementation every caption site below uses.
-
-    `caption` is translated by the caller; this function only
-    translates its own suffix template, before substituting
-    `next_wake_clock` into it.
-    """
-    if not next_wake_clock:
-        return caption
-    return caption + (i18n.t(NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE) % next_wake_clock)
-
-
 def _field_error_attrs(errors, field, control_id, hint_id=None):
     """The ARIA attribute fragment for the control `_field_error_html()`
     built an error anchor for, folding in an optional `hint_id` via

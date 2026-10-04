@@ -28,7 +28,8 @@ STATE_UNKNOWN = "unknown"
 # migrated later); HEADLINE_HELD is owned by this module's own
 # companion/i18n_fr/frame_state.py catalogue, migrated alongside it.
 
-HEADLINE_DUE = i18n.msg("home.next_update", "Next update ≈ %s")
+# The `%s` of HEADLINE_DUE is a relative countdown ("in 4 min"), not a clock.
+HEADLINE_DUE = i18n.msg("home.next_update", "Next update %s")
 HEADLINE_HELD = i18n.msg(
     "frame_state.next_wake_around_quiet_hours",
     "Next wake around %s · quiet hours")

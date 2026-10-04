@@ -129,7 +129,11 @@ def test_status_header_layout_targets_and_keyboard(
 
         page.locator(SCREEN_BUTTON).focus()
         page.keyboard.press("Tab")
+        assert _has_visible_focus_indicator(page, ".home-switch__window"), (
+            "no focus ring on the quiet-hours window link")
+        page.keyboard.press("Tab")
         assert _has_visible_focus_indicator(page, QUIET_BUTTON), "no focus ring on the quiet switch"
+        page.keyboard.press("Shift+Tab")
         page.keyboard.press("Shift+Tab")
         assert _has_visible_focus_indicator(page, SCREEN_BUTTON), "no focus ring on the screen switch"
         with page.expect_navigation():
@@ -235,7 +239,7 @@ def _seed_checkin(minutes_ago, battery_mv):
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("viewport_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 @pytest.mark.parametrize("minutes_ago,battery_mv,wording,amber", [
-    (2, 4100, "Next update ≈", False),
+    (2, 4100, "Next update in", False),
     (16, 3700, "Update overdue · expected at", False),
     (30, 3381, "Update overdue · expected at", True),
 ])
@@ -273,19 +277,137 @@ def test_late_states_and_battery_fit_every_viewport(
         context.close()
 
 
-def test_cadence_disclosure_opens_from_the_keyboard(new_context, make_app_server):
-    """the cadence summary is a tab stop; Enter reveals the reason and shows it in the viewport"""
+INFO_BUTTON = ".home-state .info-tip__button"
+INFO_BUBBLE = ".home-state .info-tip__bubble"
+
+
+def _assert_bubble_inside_viewport(page, viewport_width):
+    box = page.locator(INFO_BUBBLE).bounding_box()
+    assert box is not None
+    assert box["x"] >= 0 and box["x"] + box["width"] <= viewport_width, box
+    panel = page.locator(".home-state").bounding_box()
+    assert box["x"] >= panel["x"] - 1 and box["x"] + box["width"] <= panel["x"] + panel["width"] + 1
+
+
+@pytest.mark.parametrize("lang,sentence", [
+    ("en", "it wakes about every 5 min, so it does not refresh continuously."),
+    ("fr", "il se réveille environ toutes les 5 min, il ne se rafraîchit donc pas en continu."),
+])
+@pytest.mark.parametrize("viewport_name,viewport", [VIEWPORTS[0], VIEWPORTS[-2], VIEWPORTS[-1]],
+                         ids=["1280", "390", "360"])
+def test_cadence_tooltip_opens_on_hover_and_keyboard_focus(
+        new_context, make_app_server, lang, sentence, viewport_name, viewport):
+    """the info button has a 44px hit area; the tooltip is hidden at rest, shows on hover and on
+    keyboard focus with the interval sentence, stays inside the viewport and the status card
+    (including at 360px) and the page does not overflow while it is open"""
     server = make_app_server(seed=_seed_checkin(2, 4100), fake_providers=True)
+    context, page = _open_home(new_context, server.base_url(), lang, viewport)
+    try:
+        button, bubble = page.locator(INFO_BUTTON), page.locator(INFO_BUBBLE)
+        box = button.bounding_box()
+        assert box["width"] >= 44 and box["height"] >= 44, box
+        assert not bubble.is_visible()
+        button.hover()
+        assert bubble.is_visible() and sentence in bubble.inner_text()
+        _assert_bubble_inside_viewport(page, viewport["width"])
+        assert not _assert_no_page_overflow(page, "tooltip/%s" % viewport_name, viewport["width"])
+        page.mouse.move(0, 0)
+        assert not bubble.is_visible()
+        page.locator(".home-state__eyebrow").click()
+        page.keyboard.press("Tab")
+        assert page.evaluate("document.activeElement.classList.contains('info-tip__button')")
+        assert bubble.is_visible() and sentence in bubble.inner_text()
+        _assert_bubble_inside_viewport(page, viewport["width"])
+        assert _has_visible_focus_indicator(page, INFO_BUTTON)
+        described = button.get_attribute("aria-describedby")
+        assert page.locator("#" + described).get_attribute("role") == "tooltip"
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_cadence_tooltip_is_legible_in_both_themes(new_context, make_app_server, scheme):
+    """the open tooltip's text reads against its own background in light and dark"""
+    server = make_app_server(seed=_seed_checkin(2, 4100), fake_providers=True)
+    context = new_context(viewport=VIEWPORT_PHONE, color_scheme=scheme)
+    try:
+        page = context.new_page()
+        _login(page, server.base_url())
+        page.goto(server.base_url() + layout.HOME_ROUTE)
+        page.locator(INFO_BUTTON).focus()
+        assert page.locator(INFO_BUBBLE).is_visible()
+        ratio = page.evaluate(
+            """() => {
+                const el = document.querySelector('.home-state .info-tip__bubble');
+                const style = getComputedStyle(el);
+                const lum = css => {
+                    const c = css.match(/[\\d.]+/g).map(Number).slice(0, 3).map(v => {
+                        v /= 255;
+                        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+                    });
+                    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+                };
+                const [x, y] = [lum(style.color), lum(style.backgroundColor)].sort((p, q) => q - p);
+                return (x + 0.05) / (y + 0.05);
+            }""")
+        assert ratio >= 4.5, ratio
+    finally:
+        context.close()
+
+
+def _dot_animation(page):
+    return page.evaluate(
+        """() => {
+            const style = getComputedStyle(
+                document.querySelector('.home-state__dot'), '::after');
+            return {name: style.animationName, duration: style.animationDuration};
+        }""")
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_status_dot_halo_pulses_and_reduced_motion_stops_it(new_context, make_app_server, scheme):
+    """a healthy screen-on dot carries a halo animation on the --motion-dot-pulse period whose
+    frames differ a moment apart; under prefers-reduced-motion the computed animation is none"""
+    server = make_app_server(seed=_seed_checkin(2, 4100), fake_providers=True)
+    context = new_context(viewport=VIEWPORT_PHONE, color_scheme=scheme)
+    try:
+        page = context.new_page()
+        _login(page, server.base_url())
+        page.goto(server.base_url() + layout.HOME_ROUTE)
+        page.locator(".home-state__dot").wait_for(state="visible")
+        animation = _dot_animation(page)
+        assert animation["name"] == "skypane-dot-halo" and animation["duration"] == "3.2s", animation
+        frames = []
+        for _ in range(2):
+            frames.append(page.evaluate(
+                "getComputedStyle(document.querySelector('.home-state__dot'), '::after').transform"))
+            page.wait_for_timeout(700)
+        assert frames[0] != frames[1], frames
+    finally:
+        context.close()
+    context = new_context(viewport=VIEWPORT_PHONE, color_scheme=scheme, reduced_motion="reduce")
+    try:
+        page = context.new_page()
+        _login(page, server.base_url())
+        page.goto(server.base_url() + layout.HOME_ROUTE)
+        page.locator(".home-state__dot").wait_for(state="visible")
+        assert _dot_animation(page)["name"] == "none"
+    finally:
+        context.close()
+
+
+def test_resting_dot_does_not_pulse(new_context, make_app_server):
+    """quiet hours and a switched-off screen carry the neutral dot with no halo animation"""
+    fresh = _seed_checkin(2, 4100)
+
+    def seed(state_dir):
+        fresh(state_dir)
+        device_config.save_device_config(state_dir, display_enabled=False)
+    server = make_app_server(seed=seed, fake_providers=True)
     context, page = _open_home(new_context, server.base_url(), "en", VIEWPORT_PHONE)
     try:
-        summary = page.locator(".home-state__cadence summary")
-        assert summary.inner_text() == "Updates about every 5 min"
-        reason = page.locator(".home-state__cadence p")
-        assert not reason.is_visible()
-        summary.focus()
-        page.keyboard.press("Enter")
-        assert reason.is_visible()
-        assert "does not refresh continuously" in reason.inner_text()
+        assert page.locator(".home-state__dot.dot--off").count() == 1
+        assert _dot_animation(page)["name"] == "none"
     finally:
         context.close()
 
@@ -320,5 +442,35 @@ def test_dark_theme_unchecked_switch_thumb_stands_out_from_its_track(new_context
         assert page.locator(QUIET_BUTTON).get_attribute("aria-checked") == "false"
         ratio = _contrast(page, QUIET_BUTTON + " .switch__thumb", QUIET_BUTTON + " .switch__track")
         assert ratio >= 3, ratio
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("viewport_name,viewport", [VIEWPORTS[0], VIEWPORTS[-2]], ids=["1280", "390"])
+def test_quiet_hours_window_link_opens_the_display_section_without_toggling(
+        new_context, make_app_server, viewport_name, viewport):
+    """the quiet-hours window is a keyboard-focusable link with a 44px target; clicking it lands
+    on Display with the Quiet hours heading in view and leaves the switch untouched, while a tap
+    elsewhere on the row still flips the switch"""
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page = _open_home(new_context, server.base_url(), "en", viewport)
+    try:
+        link = page.locator(".home-switch__window")
+        box = link.bounding_box()
+        assert box["height"] >= 44, box
+        link.focus()
+        assert _has_visible_focus_indicator(page, ".home-switch__window")
+        link.click()
+        page.wait_for_url("**/display#quiet-hours-group-heading")
+        heading = page.locator("#quiet-hours-group-heading")
+        heading.wait_for(state="visible")
+        top = heading.bounding_box()["y"]
+        assert 0 <= top < viewport["height"], top
+        assert device_config.load_device_config(server.state_dir)["quiet_hours_enabled"] is False
+        page.goto(server.base_url() + layout.HOME_ROUTE)
+        label = page.locator("#home-switch-quiet-label").bounding_box()
+        page.mouse.click(label["x"] + 4, label["y"] + 4)
+        page.locator(QUIET_BUTTON + '[aria-checked="true"]').wait_for()
+        assert device_config.load_device_config(server.state_dir)["quiet_hours_enabled"] is True
     finally:
         context.close()

@@ -190,6 +190,10 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
                         "disclosure is open, found %d" % (lang, expected, field, count))
 
             calendar = page.query_selector('[data-look-usage="calendar"] details.look-edit')
+            # Centred first: left to itself the scroll can park the summary under the
+            # fixed bottom tab bar, which then swallows the click.
+            calendar.query_selector("summary").evaluate(
+                "el => el.scrollIntoView({block: 'center'})")
             calendar.query_selector("summary").click()
             if calendar.get_attribute("open") is None:
                 raise AssertionError(

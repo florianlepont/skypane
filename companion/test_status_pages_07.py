@@ -588,7 +588,7 @@ def test_health_inside_grace_window_tile_and_strip_agree_normal(tmp_path):
         "expected the tile to report 'ok' inside the grace window, got %r" % (state["device_state"],))
     strip_ctx = _frame_strip_ctx(checkin_iso, device_cfg, now_iso)
     rendered_strip = layout.frame_strip_html(strip_ctx, return_to=layout.HOME_ROUTE)
-    assert "Next update ≈" in rendered_strip, "expected the strip to report the due copy inside the grace window"
+    assert "Next update <time" in rendered_strip, "expected the strip to report the due copy inside the grace window"
     assert "status-card__headline--warn" not in rendered_strip, "expected no warn modifier inside the grace window"
 
 

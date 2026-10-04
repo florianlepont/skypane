@@ -28,10 +28,6 @@ FRAME_PREVIEW_ROUTE_PREFIX = theme_preview.FRAME_PREVIEW_ROUTE_PREFIX
 
 ASPECT_HEADING = i18n.msg("display.aspect", "How your frame looks")
 ASPECT_HEADING_ID = "aspect-heading"
-LOOK_CAPTION = i18n.msg(
-    "look.the_frame_shows_one_flight_at_a_time", "The frame shows one flight at a time.")
-LOOK_SAMPLE_HINT = i18n.msg(
-    "look.previews_use_a_sample_flight", "Previews use a sample flight")
 
 # The three looks a person sets on this card. The usage names are
 # presentational (a data attribute and this module's own keys); the
@@ -247,17 +243,12 @@ def look_card_html(
     card_html = (
         '<div class="page-section aspect-card look-card" %s="%s">'
         '<h2 class="text-heading" id="%s">%s</h2>'
-        '<div class="look-card__head">'
-        '<p class="text-label section-caption">%s</p>'
-        '<p class="look-card__hint text-label">%s</p></div>'
         '<div class="look-card__grid">%s%s%s</div>'
         "%s"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html(i18n.t(ASPECT_HEADING)),
         escape_html(ASPECT_HEADING_ID), escape_html(i18n.t(ASPECT_HEADING)),
-        escape_html(i18n.t(LOOK_CAPTION)),
-        escape_html(i18n.t(LOOK_SAMPLE_HINT)),
         departures_html, arrivals_html, special_looks_html,
         look_sheet_html(),
     )

@@ -54,6 +54,12 @@ _MOTION_EXCEPTION_SELECTORS = {
         '.toast[data-toast-armed][data-toast-autohide="long"] .toast__timer',),
 }
 
+# The second documented exception: the period of the soft halo around
+# Home's status dot. Only the dot halo rule may spend it.
+_DOT_PULSE_TOKEN = "--motion-dot-pulse"
+_DOT_PULSE_KEYFRAMES = "skypane-dot-halo"
+_DOT_PULSE_SELECTOR = ".home-state__dot--pulse::after"
+
 _ANIMATION_VALUE_KEYWORDS = frozenset((
     "var", "none", "infinite", "normal", "reverse", "alternate", "alternate-reverse",
     "forwards", "backwards", "both", "running", "paused", "auto",
@@ -169,33 +175,41 @@ def test_style_css_honours_the_motion_budget(served_css):
                     "limited, use grid-template-rows: 0fr -> 1fr instead" % (banned, rule.selectors))
 
 
-def test_motion_tokens_are_two_durations_plus_the_two_toast_dwell_exceptions(served_css):
-    """the served :root declares exactly --motion-fast, --motion-slow and the two documented
-    exceptions --motion-toast-dwell and --motion-toast-dwell-long; each exception is spent by
-    exactly one live declaration, its own armed toast timer hairline's skypane-toast-dwell
-    animation, and nowhere else (not even a transition), so neither can become a third
-    general-purpose motion speed"""
+def _spenders(served_css, token):
+    return [
+        (rule.selectors, prop, value)
+        for rule in css_rules(served_css)
+        for prop, value in rule.declarations
+        if "var(%s)" % token in value and not prop.startswith("--")
+    ]
+
+
+def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_css):
+    """the served :root declares exactly --motion-fast, --motion-slow and the documented
+    exceptions (the two toast dwells and the status dot pulse); each exception is spent by
+    exactly one live declaration (an armed toast timer hairline's skypane-toast-dwell
+    animation, the status dot halo's skypane-dot-halo animation) and nowhere else, not even a
+    transition, so none can become a general-purpose motion speed"""
     root = custom_properties(served_css, ":root")
     declared = sorted(name for name in root if name.startswith("--motion-"))
-    assert declared == sorted(_MOTION_TOKENS + _MOTION_EXCEPTION_TOKENS), (
-        "expected the motion budget's two tokens plus the toast-dwell exceptions, got %r"
+    assert declared == sorted(
+        _MOTION_TOKENS + _MOTION_EXCEPTION_TOKENS + (_DOT_PULSE_TOKEN,)), (
+        "expected the motion budget's two tokens plus the documented exceptions, got %r"
         % (declared,))
-    for token in _MOTION_EXCEPTION_TOKENS:
-        spenders = [
-            (rule.selectors, prop, value)
-            for rule in css_rules(served_css)
-            for prop, value in rule.declarations
-            if "var(%s)" % token in value and not prop.startswith("--")
-        ]
+    expected = [
+        (token, _MOTION_EXCEPTION_SELECTORS[token], _MOTION_EXCEPTION_KEYFRAMES)
+        for token in _MOTION_EXCEPTION_TOKENS
+    ] + [(_DOT_PULSE_TOKEN, (_DOT_PULSE_SELECTOR,), _DOT_PULSE_KEYFRAMES)]
+    for token, selectors_expected, keyframes in expected:
+        spenders = _spenders(served_css, token)
         assert len(spenders) == 1, (
             "expected exactly one declaration spending %s, got %r" % (token, spenders))
         selectors, prop, value = spenders[0]
-        assert selectors == _MOTION_EXCEPTION_SELECTORS[token], (
-            "expected only %r to spend %s, got %r"
-            % (_MOTION_EXCEPTION_SELECTORS[token], token, selectors))
-        assert prop == "animation" and _MOTION_EXCEPTION_KEYFRAMES in value, (
+        assert selectors == selectors_expected, (
+            "expected only %r to spend %s, got %r" % (selectors_expected, token, selectors))
+        assert prop == "animation" and keyframes in value, (
             "expected %s to drive the %s animation, got `%s: %s`"
-            % (token, _MOTION_EXCEPTION_KEYFRAMES, prop, value))
+            % (token, keyframes, prop, value))
 
 
 # ==========================================================================

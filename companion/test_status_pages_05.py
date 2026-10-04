@@ -179,7 +179,7 @@ def test_23_06_the_strip_countdown_formats_and_never_decides(_module_server):
     assert text == expected_text
     # And the state word is untouched by it: the headline still carries
     # frame_state's own template, rendered whole.
-    assert "Next update ≈" in strip, (
+    assert "Next update <time" in strip, (
         "expected the state word to stay frame_state.resolve_state()'s own — the countdown "
         "formats a duration and decides nothing (D-03/CFG-26)")
     # No served script anywhere computes a frame state.

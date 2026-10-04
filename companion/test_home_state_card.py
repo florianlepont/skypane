@@ -66,13 +66,13 @@ def _checked(card, action):
 
 
 def test_screen_on_state_wording_and_both_switches(tmp_path):
-    """the default state reads "Screen on", names the next update and the cadence, and offers
-    two native POST switches that are checked, each posting the opposite state"""
+    """the default state reads "Screen on", names the next update as a countdown with no clock
+    and offers two native POST switches that are checked, each posting the opposite state"""
     card = _render(tmp_path, cfg={"quiet_hours_enabled": True})
     assert "Screen on" in card
-    assert "Next update ≈" in card and "data-relative-countdown" in card
-    assert "Updates about every 15 min" in card
-    assert "wakes about every" not in card
+    line = re.search(r'<p class="home-state__next">.*?</p>', card, re.S).group(0)
+    assert "Next update <time" in line and "data-relative-countdown" in line
+    assert "≈" not in line and "time-value" not in line
     assert "23:00 – 07:00" in card
     assert _checked(card, "/quick/display") == "true"
     assert _checked(card, "/quick/quiet-hours") == "true"
@@ -136,19 +136,21 @@ def test_battery_empty_hold_outranks_the_display_switch(tmp_path):
 
 
 def test_without_a_check_in_there_is_no_next_update_but_the_switches_remain(tmp_path):
-    """no check-in: no invented next-update line, the cadence sentence and both switches stay"""
+    """no check-in: no invented next-update line and nothing to explain, both switches stay"""
     card = _render(tmp_path, last_checkin_ts=None)
     assert "Next update" not in card and "home-state__next" not in card
-    assert "does not refresh continuously" in card
+    assert "info-tip" not in card
     assert "/quick/display" in card and "/quick/quiet-hours" in card
 
 
 def test_french_status_header(tmp_path):
-    """the header reads in French: hidden heading, state, cadence, switch labels and state words"""
+    """the header reads in French: hidden heading, state, next update, info tooltip, switch
+    labels and state words"""
     card = _render(tmp_path, lang="fr", cfg={"quiet_hours_enabled": True})
-    for text in ("État du cadre", "Écran allumé", "Prochaine mise à jour ≈",
-                 "Mise à jour environ toutes les 15 min",
-                 "il ne se rafraîchit donc pas en continu", "Heures calmes", "Écran",
+    for text in ("État du cadre", "Écran allumé", "Prochaine mise à jour <time",
+                 "il se réveille environ toutes les 15 min",
+                 "il ne se rafraîchit donc pas en continu", "À propos des mises à jour",
+                 "Heures calmes", "Écran",
                  "Allumé", "Commandes du cadre"):
         assert text in card, text
     assert "Screen on" not in card and ">Quiet hours<" not in card
@@ -205,18 +207,30 @@ def test_battery_block_in_french(tmp_path):
     assert ">Batterie</span>" in card and ">Faible</span>" in card
 
 
-def test_cadence_is_one_short_line_with_the_reason_in_a_native_disclosure(tmp_path):
-    """the cadence reads as a short muted summary; the reason sits in the same <details>, which
-    needs no script, and neither the long sentence nor the interval clause remains"""
-    card = _render(tmp_path)
-    match = re.search(r"<details[^>]*home-state__cadence[^>]*><summary>(.*?)</summary><p>(.*?)</p>",
-                      card, re.S)
-    assert match is not None, "no cadence disclosure"
-    assert match.group(1) == "Updates about every 15 min"
-    assert "does not refresh continuously" in match.group(2)
-    assert "To save its battery, the frame sleeps between updates and wakes" not in card
-    card = _render(tmp_path, lang="fr")
-    assert "<summary>Mise à jour environ toutes les 15 min</summary>" in card
+def _info_tip(card):
+    return re.search(r'<span class="info-tip">.*?</span></span>', card, re.S).group(0)
+
+
+@pytest.mark.parametrize("lang,label,sentence", [
+    ("en", "About updates",
+     "The frame sleeps between updates to save its battery; it wakes about every 15 min, "
+     "so it does not refresh continuously."),
+    ("fr", "À propos des mises à jour",
+     "Le cadre dort entre deux mises à jour pour économiser sa batterie\u00a0: il se réveille "
+     "environ toutes les 15 min, il ne se rafraîchit donc pas en continu."),
+])
+def test_cadence_is_an_info_button_describing_a_tooltip(tmp_path, lang, label, sentence):
+    """the cadence lives behind a focusable "i" button whose aria-describedby names a
+    role="tooltip" element holding the sentence with the interval; the old muted disclosure and
+    its summary line are gone"""
+    card = _render(tmp_path, lang=lang)
+    tip = _info_tip(card)
+    assert '<button type="button" class="info-tip__button" aria-label="%s" ' % label in tip
+    described = re.search(r'aria-describedby="([^"]+)"', tip).group(1)
+    assert 'role="tooltip" id="%s">%s</span>' % (described, sentence) in tip
+    assert "icon-info" in tip
+    assert "<details" not in card and "home-state__cadence" not in card
+    assert "Updates about every" not in card and "Mise à jour environ toutes" not in card
 
 
 def _late_ctx(tmp_path, minutes_since_checkin):
@@ -230,7 +244,7 @@ def test_a_short_delay_keeps_the_neutral_next_update_wording(tmp_path):
     """a few minutes past the expected wake is normal: the usual next-update line, green dot, no
     overdue wording and no Health link"""
     card = _late_ctx(tmp_path, 20)
-    assert "Next update ≈" in card and "Update overdue" not in card
+    assert "Next update <time" in card and "Update overdue" not in card
     assert "dot--ok" in card and "dot--warn" not in card and 'href="/health"' not in card
 
 
@@ -446,3 +460,28 @@ def test_served_home_page_carries_no_inline_style(make_app_server):
     html = page.decode("utf-8")
     assert status == 200 and 'class="%s"' % draw.DRAWING_ARC_VALUE_CLASS in html
     assert not re.search(r"<[^>]+\sstyle=", html)
+
+
+@pytest.mark.parametrize("lang,name", [
+    ("en", "Edit quiet hours (23:00 – 07:00)"),
+    ("fr", "Modifier les heures calmes (23:00 – 07:00)"),
+])
+def test_quiet_hours_window_is_a_link_to_the_display_section_outside_the_switch(
+        tmp_path, lang, name):
+    """the window beside the Quiet hours label links to the Quiet hours section on Display with
+    an accessible name that repeats the visible window; the link sits in the pill row but
+    outside the switch's <button>, which stays the single role="switch" control"""
+    card = _render(tmp_path, lang=lang, cfg={"quiet_hours_enabled": True})
+    link = re.search(r'<a class="home-switch__window[^"]*" href="([^"]+)" aria-label="([^"]+)">'
+                     r"(.*?)</a>", card)
+    assert link is not None, "no quiet hours window link"
+    assert link.group(1) == "/display#quiet-hours-group-heading"
+    assert link.group(2) == name and link.group(3) == "23:00 – 07:00"
+    row = re.search(r'<div class="home-switch home-switch--(?:on|off)">'
+                    r'(?:(?!<div class="home-switch ).)*?home-switch__window.*?</form></div>',
+                    card, re.S).group(0)
+    assert row.count('role="switch"') == 1
+    button = re.search(r"<button[^>]*role=\"switch\".*?</button>", row, re.S).group(0)
+    assert "<a " not in button
+    assert row.index("home-switch__window") < row.index('role="switch"')
+

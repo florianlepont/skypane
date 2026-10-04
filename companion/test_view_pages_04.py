@@ -275,7 +275,7 @@ def test_home_catalog_keys_all_present_in_merged_catalog():
 
 
 def test_home_status_card_headline_next_update_or_expected_since(tmp_path):
-    """the Frame strip's headline reads 'Next update ≈ HH:MM' for a future next-update,
+    """the Frame strip's headline reads 'Next update in N min' (a live countdown, no clock) for a future next-update,
     'Update overdue · expected at HH:MM' in the warn treatment for a past one, and renders no headline at all
     when either the check-in or the wake interval is unknown (moved from the deleted
     _status_card_html())"""
@@ -293,11 +293,11 @@ def test_home_status_card_headline_next_update_or_expected_since(tmp_path):
     rendered_future = _strip_html(future_ctx)
     # 11:55 UTC + 15 minutes = 12:10 UTC = 14:10 Europe/Paris (CEST,
     # UTC+2, in effect in late August) — still AFTER the 12:00 UTC "now",
-    # so this is the not-yet-due branch. The clock is its own
-    # <span class="time-value time-value--primary"> element, so "Next
-    # update ≈ 14:10" is not one contiguous substring — checked as two.
-    assert "Next update ≈" in rendered_future and "14:10" in rendered_future, (
-        "expected the future next-update headline")
+    # so this is the not-yet-due branch: a countdown element, no clock.
+    assert "Next update <time" in rendered_future and "in 10m" in rendered_future, (
+        "expected the future next-update headline as a countdown")
+    assert "time-value--primary" not in rendered_future and "≈" not in rendered_future, (
+        "expected no clock and no approximation sign on the on-time headline")
     assert "status-card__headline--warn" not in rendered_future, "expected no warn modifier for a future next-update"
 
     past_ctx = dict(
@@ -320,7 +320,7 @@ def test_home_status_card_headline_next_update_or_expected_since(tmp_path):
 
 def test_home_page_render_degrades_with_nothing():
     """home_page.render({}) degrades to its empty states without raising, battery.battery_percent()
-    clamps and rejects bad input, and the gallery filename parser round-trips or returns None"""
+    clamps and rejects bad input, """
     rendered = home_page.render({})
     for needle in (home_page.NO_FLIGHTS_HEADING, home_page.NO_PANEL_HEADING, home_page.NO_READING_TEXT):
         assert needle in rendered, "expected %r for an empty ctx" % needle
@@ -333,10 +333,6 @@ def test_home_page_render_degrades_with_nothing():
         "BATTERY_EMPTY_MV/2900 -> 0 (SEED-006 curve endpoints)")
     assert battery.battery_percent("x") is None and battery.battery_percent(0) is None, (
         "expected a non-numeric or zero reading to yield None")
-    assert home_page._gallery_name_to_iso("2026-09-10T21-38-48+00-00.png") == "2026-09-10T21:38:48+00:00", (
-        "expected the gallery filename to round-trip to its ISO timestamp")
-    assert home_page._gallery_name_to_iso("junk.png") is None and home_page._gallery_name_to_iso(None) is None, (
-        "expected an unparseable gallery name to yield None")
 
 
 def test_battery_percent_moved_out_of_home_page():
@@ -1154,7 +1150,7 @@ def test_frame_state_is_view_free_and_localises_its_own_copy():
     # new entries, or the pre-existing entries for the two deliberate
     # collisions) and renders unchanged in English.
     headline_pairs = (
-        (frame_state.HEADLINE_DUE, "Prochaine mise à jour ≈ %s"),
+        (frame_state.HEADLINE_DUE, "Prochaine mise à jour %s"),
         (frame_state.HEADLINE_HELD, "Prochain réveil vers %s · heures calmes"),
         (frame_state.HEADLINE_LATE, "Mise à jour en retard · attendue à %s"),
     )

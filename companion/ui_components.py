@@ -531,7 +531,8 @@ def _frame_update_cell_html(
     `.dot--off`, late `.dot--warn`, the warn signal carried by wording and
     dot, never text colour.
 
-    The countdown sits beside — never inside — the headline. It is
+    The held and late countdown sits beside — never inside — the headline;
+    on time it is the headline's own value. It is
     formatting and decides nothing: the instant and state word both come
     from `_frame_resolved_state()` above; relative-time.js advances the
     duration without re-deciding due/held/late. `countdown=True` keeps it
@@ -551,24 +552,29 @@ def _frame_update_cell_html(
         headline_i18n_source = _FRAME_HEADLINE_HELD_TEXT
     else:
         headline_i18n_source = _FRAME_HEADLINE_DUE_TEXT
-    # The clock value is its own `.time-value` element, not baked into the
-    # sentence's escaped text: each headline template carries exactly one
-    # "%s", so the leading text, the clock span and the trailing text are
-    # escaped separately at their own interpolation sites.
+    countdown_html = relative_time_html(resolved_next_wake_iso, now_value, countdown=True)
     headline_before, headline_after = i18n.t(headline_i18n_source).split("%s", 1)
+    if headline_i18n_source is _FRAME_HEADLINE_DUE_TEXT:
+        # On time the sentence itself carries the countdown ("Next update in
+        # 4 min"); there is no clock and no second line.
+        value_html = countdown_html
+        caption_html = ""
+    else:
+        # The clock value is its own `.time-value` element, not baked into
+        # the sentence's escaped text: each headline template carries
+        # exactly one "%s", so the leading text, the clock span and the
+        # trailing text are escaped separately at their own interpolation
+        # sites.
+        value_html = '<span class="time-value time-value--primary">%s</span>' % (
+            escape_html(next_wake_clock))
+        caption_html = '<p class="text-label section-caption">%s</p>' % countdown_html
     headline_text = "%s%s%s" % (
-        escape_html(headline_before),
-        '<span class="time-value time-value--primary">%s</span>' % escape_html(next_wake_clock),
-        escape_html(headline_after),
-    )
+        escape_html(headline_before), value_html, escape_html(headline_after))
     update_state_row_html = (
         '<p class="%s"><span class="dot %s"></span>%s</p>'
     ) % (headline_class, dot_class, headline_text)
-    countdown_html = (
-        '<p class="text-label section-caption">%s</p>'
-        % relative_time_html(resolved_next_wake_iso, now_value, countdown=True))
     return _frame_strip_cell_html(
-        "frame-strip__cell--update", "", update_state_row_html, countdown_html)
+        "frame-strip__cell--update", "", update_state_row_html, caption_html)
 
 
 def frame_strip_html(ctx, return_to, next_wake_iso=None):

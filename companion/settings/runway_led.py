@@ -10,7 +10,7 @@ from server import device_config
 from companion.settings.form import (
     CURRENT_BADGE_ATTR, CURRENT_BADGE_LABEL, DIRTY_SECTION_ATTR,
     SELECTED_LABEL, SETTINGS_FORM_ID, _describedby_attr, _field_error_html,
-    _submitted_or_current, _with_next_wake)
+    _submitted_or_current)
 
 
 RUNWAY_IMAGE_ROUTE_PREFIX = "/runway-image/"
@@ -51,8 +51,7 @@ LED_SECTION_HEADING = i18n.msg("display.diagnostic_led", "Diagnostic LED")
 
 
 def runway_fieldset(
-        current_runway_id, images_available=(), errors=None, submitted=None,
-        next_wake_clock=None):
+        current_runway_id, images_available=(), errors=None, submitted=None):
     """One selectable `.runway-card` per `device_config.RUNWAYS` entry.
     The entire card (`<label>`) is the hit target, wrapping a
     visually-hidden (never `display:none`) native radio so keyboard/
@@ -122,7 +121,7 @@ def runway_fieldset(
         escape_html(RUNWAY_GROUP_HEADING_ID),
         escape_html(i18n.t(RUNWAY_HEADING_TEXT)),
         escape_html(RUNWAY_SECTION_CAPTION_ID),
-        escape_html(_with_next_wake(i18n.t(RUNWAY_SECTION_CAPTION), next_wake_clock)),
+        escape_html(i18n.t(RUNWAY_SECTION_CAPTION)),
         row_attr,
         "".join(cards),
         runway_error_html,

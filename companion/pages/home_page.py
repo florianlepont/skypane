@@ -45,7 +45,6 @@ FLIGHTS_ROUTE = "/flights"
 ILLUSTRATION_ROUTE_PREFIX = "/illustration/"
 THUMBNAIL_ALT_TEMPLATE = i18n.msg("home.illustration", "%s illustration")
 
-RENDERED_CAPTION_TEMPLATE = i18n.msg("home.rendered", "Rendered %s")
 NO_PANEL_HEADING = i18n.msg("home.nothing_rendered_yet", "Nothing rendered yet.")
 NO_PANEL_BODY = i18n.msg(
     "home.the_server_saves_a_copy_of_each_picture_it",
@@ -54,6 +53,11 @@ NO_PANEL_BODY = i18n.msg(
 PANEL_ALT_TEXT = i18n.msg(
     "home.the_picture_currently_on_the_frame",
     "The picture currently on the frame")
+# The alt text when the current flight is known: the picture's accessible
+# name carries the flight line the page no longer prints under it.
+PANEL_FLIGHT_ALT_TEMPLATE = i18n.msg(
+    "home.the_picture_currently_on_the_frame_flight",
+    "The picture currently on the frame: %s")
 GALLERY_ROUTE_PREFIX = "/gallery/"
 
 DIRECTION_DEPARTING_TEXT = i18n.msg("home.departing", "Departing")
@@ -87,15 +91,23 @@ STATE_BATTERY_TEXT = i18n.msg("home.state_title_battery", "Battery very low")
 STATE_BATTERY_DETAIL = i18n.msg(
     "home.state_detail_battery",
     "The frame is resting until it is recharged")
-CADENCE_TEXT = i18n.msg("home.cadence", "Updates about every %s")
-# The short reason behind the cadence, folded into a disclosure.
-CADENCE_WHY_TEXT = i18n.msg(
+# The info tooltip beside the next-update line. The first wording names
+# the wake interval; the second is the fallback when none is known.
+CADENCE_INFO_TEXT = i18n.msg(
+    "home.cadence_info",
+    "The frame sleeps between updates to save its battery; it wakes about "
+    "every %s, so it does not refresh continuously.")
+CADENCE_INFO_NO_INTERVAL_TEXT = i18n.msg(
     "home.cadence_no_interval",
     "To save its battery, the frame sleeps between updates, so it does not "
     "refresh continuously.")
+CADENCE_INFO_LABEL = i18n.msg("home.cadence_info_label", "About updates")
+CADENCE_INFO_ID = "home-cadence-info"
 SEE_HEALTH_TEXT = i18n.msg("home.see_health", "See Health")
 HEALTH_ROUTE = "/health"
 SWITCHES_LABEL = i18n.msg("home.switches", "Frame controls")
+EDIT_QUIET_HOURS_LABEL = i18n.msg(
+    "home.edit_quiet_hours", "Edit quiet hours (%s)")
 DEFAULT_QUIET_START = "23:00"
 DEFAULT_QUIET_END = "07:00"
 
@@ -150,23 +162,6 @@ def _flight_secondary_text(row):
     return " · ".join(part for part in (airline, route, direction) if part)
 
 
-def _gallery_name_to_iso(name):
-    """Mirror of history_page's filename convention: the gallery saves
-    `<iso with ':' -> '-'>.png`. Returns the ISO string or None."""
-    if not isinstance(name, str) or not name.endswith(".png"):
-        return None
-    stem = name[:-len(".png")]
-    if len(stem) < 19 or stem[10] != "T":
-        return None
-    date_part, time_part = stem[:10], stem[11:]
-    time_part = time_part.replace("-", ":", 2)
-    if len(time_part) > 8:
-        # "+00-00" offset suffix -> "+00:00"
-        time_part = time_part[:8] + time_part[8:].replace("-", ":")
-    candidate = "%sT%s" % (date_part, time_part)
-    return candidate if layout.parse_iso(candidate) is not None else None
-
-
 # The battery dial's box side in CSS pixels. Drawn once at this size;
 # style.css scales the box down on a phone, and the SVG scales with it
 # because it carries a viewBox.
@@ -174,41 +169,30 @@ BATTERY_ARC_SIZE = 132
 
 
 def _current_picture_html(ctx, current_flight_row):
-    """The picture column: the current picture, its "Rendered HH:MM"
-    caption and, when the current flight is known, a one-line
-    "AFR1380 · Air France · ORY → TLS" reusing the same recent-flights
-    query result — no second query for the current flight.
+    """The picture column: the current picture alone. When the current
+    flight is known (the first recent-flights row, reused here rather than
+    queried again) its one-line "AFR1380 · Air France · ORY → TLS" becomes
+    part of the image's alt text, since nothing is printed under it.
     """
     ctx = page_context.coerce(ctx)
     entries = ctx.gallery_entries or []
-    now = ctx.now
     newest = entries[0] if entries else None
     if not newest:
         return layout.empty_state(i18n.t(NO_PANEL_HEADING), i18n.t(NO_PANEL_BODY))
 
-    iso = _gallery_name_to_iso(newest)
-    caption = (
-        i18n.t(RENDERED_CAPTION_TEMPLATE) % layout.concise_timestamp_html(iso, now)
-        if iso else "")
-    flight_html = ""
+    alt = i18n.t(PANEL_ALT_TEXT)
     if current_flight_row:
         callsign = current_flight_row.get("callsign") or current_flight_row.get("hex") or "—"
         secondary = _flight_secondary_text(current_flight_row)
-        flight_html = (
-            '<span class="preview-frame__flight"><span class="mono">%s</span>%s</span>'
-        ) % (
-            escape_html(callsign),
-            (" · " + escape_html(secondary)) if secondary else "")
+        flight = callsign + ((" · " + secondary) if secondary else "")
+        alt = i18n.t(PANEL_FLIGHT_ALT_TEMPLATE) % flight
 
     return (
         '<figure class="preview-frame">'
         '<img class="preview-frame__image" src="%s%s" alt="%s" '
         'width="600" height="800" decoding="async">'
-        '<figcaption class="preview-frame__caption text-label">%s%s</figcaption>'
         "</figure>"
-    ) % (
-        GALLERY_ROUTE_PREFIX, escape_html(newest), escape_html(i18n.t(PANEL_ALT_TEXT)),
-        caption, flight_html)
+    ) % (GALLERY_ROUTE_PREFIX, escape_html(newest), escape_html(alt))
 
 
 def _recent_flight_thumb_html(row, state_dir):
@@ -336,32 +320,61 @@ def _frame_state_summary(ctx):
     ), wake.effective_wake_interval_s(cfg, battery_critical=critical)
 
 
-def _next_update_html(next_iso, interval_s, hold_reason, now):
-    """The "Next update ≈ HH:MM · in 5 min" line, led by a clock, or ""
-    without a check-in. The wording template comes from frame_state, the
-    single due/held/late decision shared with every other consumer. An
-    overdue frame reads "Update overdue · expected at HH:MM" behind a
-    warning sign, with no countdown. Returns `(html, long_overdue)`; a
-    long-overdue frame also gets the Health link, placed by the caller."""
+def _cadence_info_html(base_interval_s):
+    """The "i" button beside the next-update line and the tooltip it
+    describes. The button is a real focusable control, so the tooltip opens
+    on hover, on keyboard focus and on a tap with no script (style.css);
+    `aria-describedby` hands the same text to a screen reader.
+    """
+    if base_interval_s:
+        text = i18n.t(CADENCE_INFO_TEXT) % _interval_text(base_interval_s)
+    else:
+        text = i18n.t(CADENCE_INFO_NO_INTERVAL_TEXT)
+    return (
+        '<span class="info-tip">'
+        '<button type="button" class="info-tip__button" aria-label="%s" '
+        'aria-describedby="%s">%s</button>'
+        '<span class="info-tip__bubble text-label" role="tooltip" id="%s">%s</span>'
+        "</span>"
+    ) % (
+        escape_html(i18n.t(CADENCE_INFO_LABEL)), CADENCE_INFO_ID,
+        layout.icon_html("icon-info", 18), CADENCE_INFO_ID, escape_html(text))
+
+
+def _next_update_html(next_iso, interval_s, hold_reason, now, base_interval_s):
+    """The next-update row, or "" without a check-in. The wording template
+    comes from frame_state, the single due/held/late decision shared with
+    every other consumer. On time it reads "Next update in 5 min" (a live
+    countdown, no clock); a held frame names the wake clock and a countdown;
+    an overdue frame reads "Update overdue · expected at HH:MM" behind a
+    warning sign, with no countdown. The cadence info button follows the
+    line. Returns `(html, long_overdue)`; a long-overdue frame also gets the
+    Health link, placed by the caller."""
     parsed = layout.parse_iso(next_iso) if next_iso else None
     if parsed is None:
         return "", False
     state = frame_state.resolve_state(next_iso, interval_s, hold_reason, now)
     template = frame_state.headline_template(state)
     before, after = i18n.t(template).split("%s", 1)
-    clock = layout.local_clock_text(parsed, now_parsed=layout.parse_iso(now))
-    text = '%s<span class="time-value">%s</span>%s' % (
-        escape_html(before), escape_html(clock), escape_html(after))
     long_overdue = frame_state.is_long_overdue(next_iso, interval_s, hold_reason, now)
-    if state == frame_state.STATE_LATE:
-        modifier, icon_id, tail = " home-state__next--overdue", "icon-warning", ""
+    countdown = layout.relative_time_html(next_iso, now, countdown=True)
+    if state == frame_state.STATE_DUE or state == frame_state.STATE_UNKNOWN:
+        modifier, icon_id, tail = "", "icon-nav-history", ""
+        value = countdown
     else:
-        modifier, icon_id = "", "icon-nav-history"
-        tail = '<span class="home-state__countdown"> · %s</span>' % (
-            layout.relative_time_html(next_iso, now, countdown=True))
+        value = '<span class="time-value">%s</span>' % escape_html(
+            layout.local_clock_text(parsed, now_parsed=layout.parse_iso(now)))
+        if state == frame_state.STATE_LATE:
+            modifier, icon_id, tail = " home-state__next--overdue", "icon-warning", ""
+        else:
+            modifier, icon_id = "", "icon-nav-history"
+            tail = '<span class="home-state__countdown"> · %s</span>' % countdown
+    text = "%s%s%s" % (escape_html(before), value, escape_html(after))
     return (
-        '<p class="home-state__next%s">%s<span>%s%s</span></p>' % (
-            modifier, layout.icon_html(icon_id, 18, "home-state__next-icon"), text, tail)
+        '<div class="home-state__next-row">'
+        '<p class="home-state__next%s">%s<span>%s%s</span></p>%s</div>' % (
+            modifier, layout.icon_html(icon_id, 18, "home-state__next-icon"), text, tail,
+            _cadence_info_html(base_interval_s))
     ), long_overdue
 
 
@@ -414,9 +427,15 @@ def _switch_row_html(spec, is_on, detail_html):
 def _switches_html(cfg):
     screen_on = cfg.get("display_enabled") is not False
     quiet_on = cfg.get("quiet_hours_enabled") is True
+    # A link beside the switch's label, outside its <button>: the window
+    # opens the Quiet hours section on Display. The accessible name repeats
+    # the visible window so it is never out of step with it.
+    window_text = _quiet_window_text(cfg)
     window = (
-        ' · <span class="home-switch__window time-value">%s</span>'
-        % escape_html(_quiet_window_text(cfg)))
+        ' · <a class="home-switch__window time-value" href="%s#%s" aria-label="%s">%s</a>'
+        % (layout.DISPLAY_ROUTE, layout._FRAME_QUIET_SCHEDULE_TARGET_ID,
+           escape_html(i18n.t(EDIT_QUIET_HOURS_LABEL) % window_text),
+           escape_html(window_text)))
     return (
         '<div class="home-state__switches" role="group" aria-label="%s">%s%s</div>'
     ) % (
@@ -481,30 +500,20 @@ def _battery_pill_html(ctx):
         if word else "")
 
 
-def _cadence_html(base_interval_s):
-    """The muted "Updates about every 5 min" line. The reason behind it sits
-    in a native disclosure, which opens from the keyboard and without
-    scripts; with no known interval only the reason is shown."""
-    why = escape_html(i18n.t(CADENCE_WHY_TEXT))
-    if not base_interval_s:
-        return '<p class="home-state__cadence text-label">%s</p>' % why
-    return (
-        '<details class="home-state__cadence text-label">'
-        "<summary>%s</summary><p>%s</p></details>"
-    ) % (escape_html(i18n.t(CADENCE_TEXT) % _interval_text(base_interval_s)), why)
-
-
 def _frame_state_html(ctx):
     """The status header: a "Frame state" label, the current state as a
     short title beside a haloed dot (plus a sentence for a held state), the
-    next update, the cadence and, once long overdue, a Health link; then
-    the battery dial and the screen and quiet-hours switches. The dot's
-    tone also tints the card (green on, amber long overdue or battery
-    hold, neutral when resting). Everything comes from the page context."""
+    next update (with its cadence info) and, once long overdue, a Health
+    link; then the battery dial and the screen and quiet-hours switches.
+    The dot's tone also tints the card (green on, amber long overdue or
+    battery hold, neutral when resting); a green or amber dot pulses a soft
+    halo, a resting one stays still. Everything comes from the page
+    context."""
     cfg = ctx.device_config or {}
     (tone, title, detail), (next_iso, interval_s, hold_reason), base_interval_s = (
         _frame_state_summary(ctx))
-    next_html, long_overdue = _next_update_html(next_iso, interval_s, hold_reason, ctx.now)
+    next_html, long_overdue = _next_update_html(
+        next_iso, interval_s, hold_reason, ctx.now, base_interval_s)
     if long_overdue:
         tone = "warn"
     detail_html = (
@@ -513,13 +522,14 @@ def _frame_state_html(ctx):
         '<section class="home-state home-state--%s" aria-labelledby="home-frame-state">'
         '<div class="home-state__body"><div class="home-state__status">'
         '<h2 class="home-state__eyebrow" id="home-frame-state">%s%s</h2>'
-        '<p class="home-state__headline"><span class="home-state__dot dot dot--%s" '
+        '<p class="home-state__headline"><span class="home-state__dot dot dot--%s%s" '
         'aria-hidden="true"></span><span class="home-state__title">%s</span></p>'
-        '%s%s<div class="home-state__meta">%s%s</div></div>%s%s</div></section>'
+        '%s%s%s</div>%s%s</div></section>'
     ) % (
         tone, layout.icon_html("icon-nav-display", 16),
-        escape_html(i18n.t(FRAME_STATE_HEADING)), tone, escape_html(title),
-        detail_html, next_html, _cadence_html(base_interval_s),
+        escape_html(i18n.t(FRAME_STATE_HEADING)), tone,
+        "" if tone == "off" else " home-state__dot--pulse", escape_html(title),
+        detail_html, next_html,
         _health_link_html() if long_overdue else "",
         _battery_pill_html(ctx), _switches_html(cfg))
 
