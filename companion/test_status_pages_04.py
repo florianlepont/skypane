@@ -11,7 +11,7 @@ from datetime import timedelta
 
 import pytest
 
-from companion import i18n, illustration_normalize, layout
+from companion import i18n, illustration_normalize, layout, prefs
 from companion.i18n_fr import health as i18n_fr_health
 from companion.pages import airlines_page, config_page, health_page, history_page
 import companion.test_status_pages_helpers as shp
@@ -723,7 +723,7 @@ def test_freshness_js_carries_the_refresh_loop_contract(freshness_js):
 
 
 def _display_render(state_dir, now_iso):
-    """Display still carries the page-header freshness line and its refresh pill."""
+    """Display's body, carrying the silent page-header refresh marker."""
     return config_page.render(
         {"device_config": {}, "state_dir": state_dir, "poll_cooldown_remaining": 0, "now": now_iso},
         scope=config_page.SCOPE_DISPLAY)
@@ -860,82 +860,40 @@ def test_pipeline_tile_second_line_falls_back_honestly_when_no_detection(tmp_pat
         "expected the second line's label to still render alongside the fallback")
 
 
-def test_health_header_renders_the_persistent_freshness_note(tmp_path):
-    """Display's header (the page that keeps the freshness line) renders an honest 'Updated HH:MM' clock — server-rendered as the text of a
-    <time data-relative> element, never the ladder's zero bucket, so the value is true with
-    scripts blocked and live with them (no relative-age suffix, the full Europe/Paris local
-    timestamp — never the raw ISO — in the clock span's title) beside the unchanged hidden refresh
-    pill and NO Pause/Resume toggle (zero data-refresh-toggle/data-pause-text/data-resume-text,
-    zero <button>), all inside one block-level .page-header__freshness wrapper that is the
-    .page-header's next child right after the <h1>, in prefix/clock/pill source order"""
+def test_display_header_carries_only_the_silent_refresh_marker(tmp_path):
+    """Display's header shows no visible freshness line (no "Updated" prefix, no live dot, no
+    clock, no relative age, no Pause/Resume control) and keeps only the silent marker: one
+    block-level .page-header__freshness--silent wrapper, the .page-header's next child right
+    after the <h1>, holding the hidden refresh pill that carries the real data-loaded-at
+    instant, in English and in French"""
     state_dir = str(tmp_path)
     now_iso = shp.iso(shp.now())
-    rendered = _display_render(state_dir, now_iso)
-
-    prefix = layout.escape_html(layout.FRESHNESS_PREFIX_TEXT)
-    assert prefix in rendered, "expected the honest 'Updated ' prefix text in the rendered page"
-    assert layout.FRESHNESS_PREFIX_TEXT == "Updated "
-
-    assert '<p class="page-header__freshness' in rendered, (
-        "expected a block-level .page-header__freshness wrapper")
-    wrapper_start = rendered.index('<p class="page-header__freshness')
-    wrapper_end = rendered.index("</p>", wrapper_start) + len("</p>")
-    wrapper_slice = rendered[wrapper_start:wrapper_end]
-    assert "data-refresh-pill" in wrapper_slice, (
-        "expected the hidden refresh pill inside the freshness wrapper")
-
-    outside = re.sub(r"<time [^>]*data-relative[^>]*>.*?</time>", "", wrapper_slice, flags=re.S)
-    assert " ago" not in outside and "il y a" not in outside, (
-        "expected every relative age inside .page-header__freshness to be a live "
-        "<time data-relative> element")
-    assert wrapper_slice.count("data-relative") == 1, (
-        "expected exactly one <time data-relative> element inside .page-header__freshness")
-
-    inside = re.search(r"<time [^>]*data-relative[^>]*>(.*?)</time>", wrapper_slice, flags=re.S)
-    assert inside is not None, "expected the freshness value to BE a <time data-relative> element"
     for lang in ("en", "fr"):
-        assert inside.group(1) != layout.escape_html(layout.relative_age_text(0, lang=lang)), (
-            "the server must not render the ladder's zero bucket as this element's own text")
-    assert " ago" not in inside.group(1) and "il y a" not in inside.group(1), (
-        "the server renders a relative age where the no-JS floor needs a value that stays true")
-
-    assert wrapper_slice.count("data-refresh-clock") == 1, (
-        "expected exactly one data-refresh-clock span")
-    clock_at = wrapper_slice.index("data-refresh-clock")
-    clock_tag = wrapper_slice[
-        wrapper_slice.rindex("<", 0, clock_at):wrapper_slice.index(">", clock_at) + 1]
-    expected_title = layout.escape_html(health_page._full_local_timestamp_text(now_iso))
-    assert ('title="%s"' % expected_title) in clock_tag, (
-        "expected the clock span's title to carry the full Europe/Paris local timestamp")
-    assert now_iso not in clock_tag, (
-        "expected the raw ISO instant NOT to survive verbatim in the clock span's title")
-
-    for needle in ("data-refresh-toggle", "data-pause-text", "data-resume-text"):
-        assert needle not in wrapper_slice, (
-            "expected zero occurrences of %r inside .page-header__freshness" % needle)
-    assert "<button" not in wrapper_slice, "expected no <button> inside .page-header__freshness"
-
-    prefix_at = wrapper_slice.index(prefix)
-    assert prefix_at < clock_at < wrapper_slice.index("data-refresh-pill"), (
-        "expected prefix, then clock, then pill in that source order")
-
-    header_start = rendered.index('<div class="page-header">')
-    header_end = rendered.index("</div>", header_start) + len("</div>")
-    assert wrapper_start >= header_start and wrapper_end <= header_end, (
-        "expected the freshness wrapper inside the .page-header div")
-    header_slice = rendered[header_start:header_end]
-    title_end = header_slice.index("</h1>") + len("</h1>")
-    between = header_slice[title_end:]
-    assert between.startswith('<p class="page-header__freshness'), (
-        "expected the freshness wrapper to be .page-header's next block-level child right "
-        "after the <h1>")
-
-    pill_at = rendered.index("data-refresh-pill")
-    pill_tag = rendered[rendered.rindex("<", 0, pill_at):rendered.index(">", pill_at) + 1]
-    assert pill_tag.startswith("<span"), "expected the pill to still be an inline <span>"
-    assert " hidden" in pill_tag, "expected the pill to still carry the bare hidden attribute"
-    assert ('data-loaded-at="%s"' % now_iso) in rendered, (
-        "expected data-loaded-at to still carry the real now value")
+        prefs.set_request_prefs(lang=lang)
+        try:
+            rendered = _display_render(state_dir, now_iso)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        header_start = rendered.index('<div class="page-header">')
+        header_end = rendered.index("</div>", header_start) + len("</div>")
+        header_slice = rendered[header_start:header_end]
+        title_end = header_slice.index("</h1>") + len("</h1>")
+        between = header_slice[title_end:]
+        assert between.startswith('<p class="page-header__freshness page-header__freshness--silent">'), (
+            "expected the silent marker to be .page-header's next child after the <h1> (%s)" % lang)
+        wrapper_slice = between[:between.index("</p>") + len("</p>")]
+        for needle in ("data-refresh-clock", "data-refresh-live-dot", "data-relative",
+                       "data-refresh-toggle", "<button", "Updated", "Mis à jour "):
+            assert needle not in wrapper_slice, (
+                "expected no visible freshness piece %r in Display's header (%s)" % (needle, lang))
+        pill_at = wrapper_slice.index("data-refresh-pill")
+        pill_tag = wrapper_slice[wrapper_slice.rindex("<", 0, pill_at):wrapper_slice.index(">", pill_at) + 1]
+        assert pill_tag.startswith("<span") and " hidden" in pill_tag, (
+            "expected the refresh pill to stay a hidden inline <span>")
+        assert ('data-loaded-at="%s"' % now_iso) in pill_tag, (
+            "expected data-loaded-at to carry the real now value")
+        assert rendered.count('<p class="page-header__freshness') == 1, (
+            "expected exactly one freshness wrapper on Display")
 
 
 # ==========================================================================

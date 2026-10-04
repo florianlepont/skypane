@@ -16,13 +16,13 @@ import sqlite3
 import urllib.parse
 from datetime import datetime, timezone
 
+import companion.flight_card as flight_card
 import companion.i18n as i18n
 from companion.layout import escape_html
 import companion.layout as layout
 import companion.page_context as page_context
 import companion.prefs as prefs
 from server import history_db
-from server.plane import illustrations
 from server.plane import manual_resolutions
 from server.plane import render as panel_render
 
@@ -220,25 +220,15 @@ _DAY_YESTERDAY_LABEL = i18n.msg("flights.yesterday", "Yesterday")
 
 VIEW_PICTURE_LABEL = i18n.msg("flights.view_picture", "View picture")
 
-# The phone card's dashed placeholder where an airline has no artwork.
-NO_ILLUSTRATION_TEXT = i18n.msg("flights.no_illustration", "No illustration")
-
-# Same values home_page.py's own recent-flight thumbnail holds,
-# duplicated rather than imported (page modules cannot import each
-# other). "%s illustration" is owned by companion/i18n_fr/home.py, not
-# flights.py.
-ILLUSTRATION_ROUTE_PREFIX = "/illustration/"
-_THUMBNAIL_ALT_TEMPLATE = i18n.msg("home.illustration", "%s illustration")
+# The phone card's artwork, route and time pieces are shared with Home's
+# recent-flight tiles through companion/flight_card.py.
+ILLUSTRATION_ROUTE_PREFIX = flight_card.ILLUSTRATION_ROUTE_PREFIX
+ROUTE_FALLBACK_TEXT = flight_card.ROUTE_FALLBACK_TEXT
 
 # A missing airline gets its own fallback text, distinct from
 # panel_render.ROUTE_FALLBACK_TEXT, so the same phrase doesn't appear
 # twice in one unresolved row (Type+Airline cell and Route cell).
 AIRLINE_FALLBACK_TEXT = i18n.msg("flights.airline_unknown", "Airline unknown")
-# Held as a local literal so the French catalogue can carry it; kept
-# equal to panel_render.ROUTE_FALLBACK_TEXT by construction so the
-# wording never drifts between the panel and the companion.
-ROUTE_FALLBACK_TEXT = i18n.msg("flights.route_unavailable", "Route unavailable")
-assert ROUTE_FALLBACK_TEXT == panel_render.ROUTE_FALLBACK_TEXT
 
 # server/plane/runway_config.py's infer_runway_config(), the only
 # writer of confirmed_state, only ever produces "departing" or
@@ -504,7 +494,7 @@ def format_event_row(row, now=None):
         "airline_label": airline_label,
         # The raw stored airline string, kept beside the display label
         # because the phone card's thumbnail keys on it:
-        # illustrations.normalise_airline_key() resolves on the raw
+        # flight_card.art_html() resolves on the raw
         # value, never the aliased display name.
         "airline_raw": row.get("airline") or "",
         "route_label": route_label,
@@ -815,26 +805,6 @@ def _history_table_html(formatted_rows, now=None):
     ) % (escape_html(i18n.t(SCROLLER_ARIA_LABEL)), header_cells, "".join(body_rows))
 
 
-def _card_thumb_html(airline_raw, state_dir):
-    """The phone card's artwork plate, or "" when the airline resolves to
-    no artwork file on disk. The same two-call seam
-    `home_page._recent_flight_thumb_html()` uses:
-    `illustrations.normalise_airline_key()` for the key (resolved from
-    the raw stored airline, never the display alias) and
-    `illustrations.resolved_illustration_path()` for the "is there
-    really a file" test. Never an unconditional `<img>`: a key with no
-    file behind it would 404 and render as a broken-image icon.
-    """
-    key = illustrations.normalise_airline_key(airline_raw)
-    if not key or illustrations.resolved_illustration_path(key, state_dir) is None:
-        return ""
-    alt_text = i18n.t(_THUMBNAIL_ALT_TEMPLATE) % panel_render.display_airline_name(airline_raw)
-    return (
-        '<img class="history-card__art" loading="lazy" decoding="async" '
-        'src="%s%s.png" alt="%s">'
-    ) % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key), escape_html(alt_text))
-
-
 def _card_identity_html(row):
     """The card header's left column: the callsign in the identifier
     voice, then the airline. A row with no callsign promotes its hex
@@ -866,69 +836,12 @@ def _card_identity_html(row):
     ) % (ident, airline_html)
 
 
-def _card_route_html(row):
-    """The card's route line: origin, a dashed track carrying the plane
-    glyph with the direction label tucked under it, destination.
-    The home end (the origin of a departure, the destination of an
-    arrival) is muted so the far airport reads first. A row with no
-    route shows the shared "Route unavailable" fallback in the origin
-    slot instead of two codes.
-    """
-    origin, destination = row.get("origin") or "", row.get("destination") or ""
-    state = row.get("state_raw") or ""
-    if origin and destination:
-        home_class = " history-card__code--home"
-        codes = (
-            '<span class="history-card__code history-card__code--from%s">%s</span>'
-            '<span class="history-card__code history-card__code--to%s">%s</span>'
-        ) % (home_class if state == "departing" else "", escape_html(origin),
-             home_class if state == "arriving" else "", escape_html(destination))
-    else:
-        codes = (
-            '<span class="history-card__code history-card__code--from '
-            'history-card__code--none">%s</span>' % escape_html(i18n.t(ROUTE_FALLBACK_TEXT)))
-    direction = (
-        '<span class="history-card__dir">%s</span>' % escape_html(row["confirmed_state"])
-        if row["confirmed_state"] else "")
-    return (
-        '<div class="history-card__route">%s'
-        '<span class="history-card__track">%s</span>%s</div>'
-    ) % (codes, layout.icon_html("icon-plane", 16, "history-card__plane"), direction)
-
-
-def _card_when_html(raw_ts, now):
-    """The stub's right column: the local clock time (HH:MM, since the
-    day header above carries the date) over its live relative age.
-    Degrades like the table's When cell: a falsy timestamp shows the
-    fallback text, an unparseable one shows the raw value, never raising.
-    """
-    parsed = layout.parse_iso(raw_ts) if raw_ts else None
-    if parsed is None:
-        clock = raw_ts or i18n.t(_CLOCK_CELL_FALLBACK)
-        return (
-            '<span class="history-card__when">'
-            '<span class="time-value time-value--primary">%s</span></span>'
-        ) % escape_html(clock)
-    age_html = ""
-    if layout.age_seconds(raw_ts, now) is not None:
-        age_html = '<span class="time-value time-value__age">%s</span>' % (
-            layout.relative_time_html(raw_ts, now))
-    return (
-        '<span class="history-card__when">'
-        '<span class="time-value time-value--primary">%s</span>%s</span>'
-    ) % (escape_html(layout.local_clock_text(parsed, None)), age_html)
-
-
 def _card_stub_html(row, now):
     """The card's stub, below the tear line: the airline artwork as a
     wide plate (or a quiet dashed placeholder when there is none) and,
     on the same row, the time and age.
     """
-    art = row.get("thumb_html") or (
-        '<span class="history-card__art history-card__art--empty">%s</span>'
-        % escape_html(i18n.t(NO_ILLUSTRATION_TEXT)))
-    return '<div class="history-card__stub">%s%s</div>' % (
-        art, _card_when_html(row["raw_ts"], now))
+    return flight_card.stub_html(row.get("thumb_html"), row["raw_ts"], now)
 
 
 def card_day_label(day, today):
@@ -956,7 +869,9 @@ def _history_card_html(row, index, now):
     ) % (_filter_text_attr(row), index,
          layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)),
          _card_identity_html(row), row.get("view_panel_icon_html", ""),
-         _card_route_html(row), _card_stub_html(row, now))
+         flight_card.route_html(row.get("origin"), row.get("destination"),
+                                row.get("state_raw"), row["confirmed_state"]),
+         _card_stub_html(row, now))
 
 
 def _history_cards_html(formatted_rows, now=None):
@@ -1057,7 +972,7 @@ def render(ctx):
             # The phone card's artwork thumbnail, resolved once per row
             # for the same reason as the view-panel match. The desktop
             # table does not render it: no room in its width budget.
-            row["thumb_html"] = _card_thumb_html(row["airline_raw"], state_dir)
+            row["thumb_html"] = flight_card.art_html(row["airline_raw"], state_dir)
         # The shared lightbox is emitted once per page, only when at
         # least one row carries a trigger button.
         has_view_panel_button = any(

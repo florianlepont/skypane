@@ -194,9 +194,9 @@ def test_display_still_saves_with_scripts_blocked_at_360px(new_context, make_app
                     "lang=%s: a Display save did not persist with scripts blocked "
                     "at 360px — expected theme %r, got %r. This is the P0 Phase "
                     "22 existed to fix" % (lang, other, saved))
-            if page.locator(".page-header__freshness").count() != 1:
+            if page.locator(".page-header__freshness--silent").count() != 1:
                 raise AssertionError(
-                    "lang=%s: expected exactly one freshness line on a "
+                    "lang=%s: expected exactly one silent refresh marker on a "
                     "scripts-blocked Display page" % (lang,))
 
 

@@ -3,7 +3,7 @@ time renderers — the "s/m/h/d" age-bucket ladder (`_age_bucket`) and its
 three readings (age, future, duration), the `<time data-relative>` element
 `relative_time_html()` builds for companion/static/relative-time.js's
 client-side ticker, the absolute-plus-relative timestamp formats, and the
-page-header freshness line. Depends only on companion.ui_base (escape_html,
+page-header refresh marker. Depends only on companion.ui_base (escape_html,
 icon_html, LOCAL_TZ, the month-abbreviation tables) plus companion.i18n/
 companion.prefs; no import from ui_nav, ui_components, ui_shell or a page
 module.
@@ -468,19 +468,18 @@ def local_clock_text(parsed, now_parsed=None, lang=None):
         return clock
     except (ValueError, OverflowError, AttributeError):
         return parsed.strftime("%H:%M") if hasattr(parsed, "strftime") else ""
-# The freshness line: one definition site with three call sites, so markup
-# read by two scripts and pinned by test harnesses cannot drift between
-# copies. companion/pages/health_page.py imports these names from here rather
-# than redefining them. Both Messages below are owned by health.py's
-# catalogue (untouched by this plan; migrated later).
+
+
+# The refresh marker's pieces: one definition site, so markup read by
+# freshness.js and pinned by test harnesses cannot drift between copies.
+# companion/pages/health_page.py imports these names from here rather than
+# redefining them. The Message below is owned by health.py's catalogue.
 REFRESH_PILL_TEXT = i18n.msg("health.updating", "Updating…")
 
 # The hook companion/static/freshness.js toggles its breathing class on.
 # Duplicated rather than imported, since freshness.js is a static asset, not a
 # Python module.
 REFRESH_LIVE_DOT_ATTR = "data-refresh-live-dot"
-
-FRESHNESS_PREFIX_TEXT = i18n.msg("health.updated", "Updated ")
 
 # A `now_parsed` guaranteed to fall on a different Europe/Paris calendar day
 # than any real device reading, forcing local_clock_text()'s cross-day
@@ -500,74 +499,15 @@ def full_local_timestamp_text(ts):
     return local_clock_text(parsed, now_parsed=FULL_TIMESTAMP_SENTINEL_NOW)
 
 
-def freshness_line_html(now, lang=None):
-    """The page-header freshness line: a neutral live dot, the "Updated " prefix,
-    the clock and the hidden "Updating…" pill (carrying `data-loaded-at`),
-    inside one block-level wrapper.
-
-    Returns "" when `now` is falsy, so there is no honest instant to render;
-    with no `data-loaded-at` marker, companion/static/freshness.js's loop never
-    starts.
-
-    Callers interpolate the return value verbatim (RAW markup); every piece is
-    already escaped internally via escape_html().
-    """
-    if not now:
-        return ""
-    # escape_html() is required on `now`: i18n.t(REFRESH_PILL_TEXT) is not
-    # pre-escaped.
-
-    # No ARIA role on the pill: a live region announces on content
-    # mutation, not visibility. Known gap: a reload while a screen
-    # reader has focus resets its virtual cursor.
-    pill_html = (
-        '<span class="refresh-pill" data-refresh-pill data-loaded-at="%s" hidden>%s%s</span>'
-        % (escape_html(now), icon_html("icon-refresh"), escape_html(i18n.t(REFRESH_PILL_TEXT))))
-    # Server-rendered static and neutral; the breathing motion is a class
-    # freshness.js adds/removes, so a scripts-blocked page shows a still
-    # dot beside a static age. `.dot--off` carries no verdict colour —
-    # a loop's live/paused state is not a device verdict.
-    dot_html = (
-        '<span class="dot dot--off" %s aria-hidden="true"></span>'
-        % REFRESH_LIVE_DOT_ATTR)
-    # The clock is local_clock_text() with `now_parsed` set to the same
-    # instant, forcing its same-day "HH:MM" branch. `data-loaded-at` on
-    # the pill carries the machine-readable instant freshness.js reads;
-    # the `title` is tooltip only.
-
-    # `.time-value`, not `.mono`: monospace is reserved for identifiers,
-    # not a wall-clock time; `.time-value` keeps tabular numerals so the
-    # digits hold their column as the clock ticks.
-    _now_parsed = parse_iso(now)
-    _clock_text = (
-        local_clock_text(_now_parsed, now_parsed=_now_parsed)
-        if _now_parsed is not None else now)
-    clock_html = (
-        '<span class="time-value" data-refresh-clock title="%s">%s</span>'
-        % (escape_html(full_local_timestamp_text(now)),
-           relative_time_html(now, now, static_text=_clock_text)))
-    # One block-level wrapper for prefix+clock+pill: `.page-header` is a
-    # block box, and a bare inline pill span would force an anonymous
-    # block box, producing an extra gap.
-
-    # This element is a REFRESH_SWAP_SELECTORS_BY_PAGE entry: freshness.js
-    # replaces it wholesale, so a render-time value is honest only until
-    # the next swap.
-    freshness_html = (
-        '<p class="page-header__freshness text-label">%s%s%s%s</p>'
-        % (dot_html, escape_html(i18n.t(FRESHNESS_PREFIX_TEXT)),
-           clock_html, pill_html))
-    return freshness_html
-
-
 def refresh_marker_html(now):
-    """The silent counterpart of `freshness_line_html()`: the hidden
-    "Updating…" pill carrying `data-loaded-at`, inside the same
-    `.page-header__freshness` swap target, with no visible clock or dot.
+    """The page-header refresh marker: the hidden "Updating…" pill
+    carrying `data-loaded-at`, inside the `.page-header__freshness` swap
+    target, with no visible clock or dot.
 
-    A page that keeps companion/static/freshness.js's background refresh
-    but shows no freshness line uses this; the pill only appears for the
-    moment a refresh is in flight. Returns "" when `now` is falsy.
+    Every page on companion/static/freshness.js's background refresh
+    renders this; the pill only appears for the moment a refresh is in
+    flight. Returns "" when `now` is falsy, so there is no honest instant
+    to render and freshness.js's loop never starts.
     """
     if not now:
         return ""
