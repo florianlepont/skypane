@@ -57,6 +57,41 @@ byte-identical: the render baseline shows no /flights change.
 
 At 360 px the "before" rows reached 127 px because of wrapping, against 70 px now.
 
+## Rework after owner review on PR #178: the same ticket shape as Flights
+
+The owner expected the Flights boarding-pass ticket shape rather than hairline rows. Each
+Home phone entry is now `li.history-card.history-card--compact`: the same element and bands
+as a Flights card. That means the same bordered, rounded box and the same three bands
+(head, route line, then a stub behind the dashed tear line with its two half-disc notches).
+The stub holds the artwork plate and the time column.
+
+**Shared code.** The stub is now a shared `flight_card.stub_html()`, which Flights uses too
+(its markup is unchanged). The compact modifier only changes sizes:
+- the airline sits beside the callsign on one line;
+- the codes are 18 px;
+- the plate is 96x26;
+- the clock and age sit on one row;
+- the paddings are smaller.
+
+**Notches.** Home's cards sit on the section's white or dark surface, not the page canvas.
+The notch fill is therefore a custom property: `--history-card-notch`, which defaults to the
+canvas on Flights and is set to the section surface on Home.
+
+**Size.** A card is 91 px against Flights' 159 px, with a 98.5 px pitch. At 390x844, with the
+heading at the top of the screen, all 5 cards, the heading and the "See all flights" link fit
+above the tab bar. There is room for about 6 cards, but only 5 are shown.
+
+**Tests.** The served-HTML and browser checks now assert the Flights card structure: the
+box, the tear line, the notches, 96 px or less, the plate sharing a row with the time. The
+768 px "time costs no line" check now measures the time against the plate in the card's
+stub. The baseline diff covers only the four Home keys.
+
+**Screenshots** are in `shots-cb5/`:
+- `cards-before-*`: the hairline version;
+- `cards-v1-*` and `cards-v2-*`: iterations;
+- `cards-after-*`: 390/360, light/dark, EN/FR, plus 1280;
+- `cards-compare-flights-vs-home-*`: a Flights card beside a Home card, cropped side by side.
+
 ## The duplicate TVF49NS row
 
 Home's query is a plain `SELECT * FROM runway_events ORDER BY ts DESC, id DESC LIMIT 5`,
