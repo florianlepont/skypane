@@ -13,6 +13,10 @@ from companion.layout import escape_html
 from server.plane import illustrations
 from server.plane import render as panel_render
 
+# Two stored events for the same pass within this many seconds read as one
+# flight on Home and Flights.
+DUPLICATE_WINDOW_S = 60
+
 ILLUSTRATION_ROUTE_PREFIX = "/illustration/"
 # "%s illustration" is owned by companion/i18n_fr/home.py.
 THUMBNAIL_ALT_TEMPLATE = i18n.msg("home.illustration", "%s illustration")
@@ -109,3 +113,47 @@ def when_html(raw_ts, now, clock_now=None):
         '<span class="history-card__when">'
         '<span class="time-value time-value--primary">%s</span>%s</span>'
     ) % (escape_html(layout.local_clock_text(parsed, now_parsed)), age_html)
+
+
+def _pass_key(row):
+    """What makes two stored events the same pass on screen: same
+    aircraft, callsign, route and direction."""
+    return tuple(row.get(name) for name in (
+        "hex", "callsign", "origin", "destination", "confirmed_state"))
+
+
+def _seconds_between(newer_ts, older_ts):
+    """Absolute seconds between two stored timestamps, or None when
+    either does not parse."""
+    newer, older = layout.parse_iso(newer_ts), layout.parse_iso(older_ts)
+    if newer is None or older is None:
+        return None
+    try:
+        return abs((newer - older).total_seconds())
+    except TypeError:
+        return None
+
+
+def fold_repeated_passes(rows, limit=None):
+    """`rows` (newest first) with repeated passes folded away, stopping at
+    `limit` kept rows when given. The poll loop stores a new event whenever
+    the corroboration flag changes (one feed missing a cycle turns True
+    into None), so a single pass can be stored twice 30 s apart. A row is
+    dropped when it has the same pass key as the row just before it and
+    the two timestamps are under `DUPLICATE_WINDOW_S` apart; the newest one
+    stays. Storage is untouched. Home and Flights share this fold so both
+    pages list the same flights.
+    """
+    kept = []
+    previous = None
+    for row in rows:
+        if previous is not None and _pass_key(row) == _pass_key(previous):
+            gap = _seconds_between(previous.get("ts"), row.get("ts"))
+            if gap is not None and gap < DUPLICATE_WINDOW_S:
+                previous = row
+                continue
+        previous = row
+        kept.append(row)
+        if limit is not None and len(kept) >= limit:
+            break
+    return kept
