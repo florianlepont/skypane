@@ -223,48 +223,28 @@ def test_airlines_cards_carry_no_badge_or_per_card_control_but_full_vocabulary()
         % (expected_count, counts))
 
 
-def test_airlines_manual_count_is_a_filter_control_in_the_filter_bar(tmp_path, served_css):
-    """the manual-resolution count renders as a real filter control INSIDE the Airlines filter
-    bar wearing .airline-card__chip's label voice — the 12px bare link and its copied
-    [data-filter-clear] property list are retired, leaving only a hover-additive rule — and
-    one entry reads '1 manual resolution' (FR '1 resolution manuelle') while two read
-    '2 manual resolutions' (X7 + /B16, Task 2)"""
+def test_airlines_filter_bar_has_no_manual_resolution_control(tmp_path, served_css):
+    """the Airlines filter bar is the plain search pill: no "N manual resolutions" summary
+    control in either language, no style rule for it, while the per-card "Resolved by hand"
+    chip still renders (the retired count was owner feedback)"""
     registry = {"QQQ": {"airline_name": "Air France",
                         "created_at": "2026-09-01T10:00:00+00:00"}}
-    rendered = airlines_page.render({"state_dir": str(tmp_path), "manual_resolutions": registry})
-    two = airlines_page.render({"state_dir": str(tmp_path), "manual_resolutions": dict(
-        registry, RRR={"airline_name": "KLM", "created_at": "2026-09-02T10:00:00+00:00"})})
+    ctx = {"state_dir": str(tmp_path), "manual_resolutions": registry}
+    rendered = airlines_page.render(ctx)
     prefs.set_request_prefs(lang="fr")
     try:
-        rendered_fr = airlines_page.render(
-            {"state_dir": str(tmp_path), "manual_resolutions": registry})
+        rendered_fr = airlines_page.render(ctx)
     finally:
         prefs.set_request_prefs(lang="en")
-
-    bar = re.search(r'<div class="filter-bar">(.*?)<div class="empty-state ',
-                    rendered, re.S)
-    assert bar is not None, "expected to locate the rendered filter bar"
-    assert "data-filter-set=\"manual\"" in bar.group(1), (
-        "expected the manual-resolution control INSIDE the filter bar, not as loose prose below it")
-    assert 'class="airline-card__chip manual-summary"' in bar.group(1), (
-        "expected the control to reuse the card-chip label voice verbatim")
-    assert rendered.count('data-filter-set="manual"') == 1
-
-    assert not rules_with_selector(served_css, ".manual-summary"), (
-        "expected the .manual-summary base rule block to be gone — the chip class now carries "
-        "the whole treatment, and a surviving copy is a fork")
-    assert rules_with_selector(served_css, ".manual-summary:hover"), (
-        "expected .manual-summary to survive as the hover-only additive rule")
-
-    assert "1 manual resolution<" in rendered, (
-        "expected the singular form for exactly one manual resolution, got %r"
-        % (re.findall(r'data-filter-set="manual">([^<]*)<', rendered),))
-    assert "2 manual resolutions<" in two, (
-        "expected the plural form for two manual resolutions, got %r"
-        % (re.findall(r'data-filter-set="manual">([^<]*)<', two),))
-    assert "1 résolution manuelle<" in rendered_fr, (
-        "expected the French singular, got %r"
-        % (re.findall(r'data-filter-set="manual">([^<]*)<', rendered_fr),))
+    for page in (rendered, rendered_fr):
+        bar = re.search(r'<div class="filter-bar">(.*?)<div class="empty-state ', page, re.S)
+        assert bar is not None, "expected to locate the rendered filter bar"
+        assert "manual" not in bar.group(1).lower() and "manuelle" not in bar.group(1).lower()
+        assert "data-filter-set" not in page
+    assert not rules_with_selector(served_css, ".manual-summary")
+    assert not rules_with_selector(served_css, ".manual-summary:hover")
+    assert '<span class="airline-card__chip">Resolved by hand</span>' in rendered
+    assert '<span class="airline-card__chip">Résolue à la main</span>' in rendered_fr
 
 
 def test_airlines_grid_is_two_fixed_columns_below_960px(served_css):

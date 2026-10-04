@@ -361,44 +361,53 @@ def test_every_card_image_source_passes_route_membership_test(tmp_path):
         assert filename in targets, "%r is not a member of illustrations.target_filenames()" % (filename,)
 
 
-def test_air_caraibes_selector_offers_every_known_type_upper_cased(tmp_path):
-    """the Air Caraïbes card offers its airline-level type plus A330, A350-1000 and ATR72 in
-    one labelled native selector — the A350-1000 shape-slug-validation trap is not fallen into
-    — and renders one section per option, so no type is reachable only through script"""
+def test_air_caraibes_carousel_offers_every_known_type_upper_cased(tmp_path):
+    """the Air Caraïbes card renders one slide per type — its airline-level type plus A330,
+    A350-1000 and ATR72, so the A350-1000 shape-slug-validation trap is not fallen into — in
+    one scroll-snap track with the type name under each image, plus one named pagination dot
+    per slide; no native selector remains and no slide is hidden"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     card_slice = _card_slice(rendered, "Air Caraïbes")
-    options = re.findall(r'<option value="([^"]+)">([^<]+)</option>', card_slice)
-    assert options == [
+    dots = re.findall(
+        r'<button type="button" class="airline-card__dot" data-airline-type-dot="([^"]+)" '
+        r'aria-label="([^"]+)"', card_slice)
+    assert dots == [
         ("any", "Any aircraft"), ("a330", "A330"), ("a350-1000", "A350-1000"),
         ("atr72", "ATR72")]
-    select_id = re.search(r'<select id="([^"]+)" data-airline-type-select>', card_slice).group(1)
-    assert '<label class="text-label" for="%s">Aircraft type</label>' % select_id in card_slice
+    assert 'role="group" aria-label="Aircraft type"' in card_slice
     sections = re.findall(r'<section class="airline-type" data-airline-type="([^"]+)">', card_slice)
-    assert sections == [value for value, _label in options]
-    assert " hidden" not in re.sub(r"<option[^>]*>", "", card_slice).replace("hidden>", "")
+    assert sections == [value for value, _label in dots]
+    titles = re.findall(r'<h3 class="airline-type__title text-label">([^<]+)</h3>', card_slice)
+    assert titles == [label for _value, label in dots]
+    assert 'class="airline-card__track"' in card_slice
+    assert "<select" not in card_slice and "data-airline-type-select" not in card_slice
+    assert " hidden" not in card_slice
 
 
 def test_every_airline_with_several_types_lists_each_of_them(tmp_path):
     """every airline whose curated entries name more than one type (both Transavia France
-    types among them) gets one selector option and one section per type; an airline with a
-    single type renders no selector at all"""
+    types among them) gets one slide and one pagination dot per type; an airline with a single
+    type renders no dots at all"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     for airline_name, shapes in illustrations.target_variants_by_airline():
         card_slice = _card_slice(rendered, airline_name)
         sections = re.findall(r'<section class="airline-type" data-airline-type="', card_slice)
         assert len(sections) == 1 + len(shapes), airline_name
-        assert ("data-airline-type-select" in card_slice) == bool(shapes), airline_name
+        assert card_slice.count("data-airline-type-dot=") == (1 + len(shapes) if shapes else 0), (
+            airline_name)
+        assert ("data-airline-types" in card_slice) == bool(shapes), airline_name
     transavia = _card_slice(rendered, "Transavia France")
-    assert re.findall(r'<option value="[^"]+">([^<]+)</option>', transavia) == [
+    assert re.findall(r'data-airline-type-dot="[^"]+" aria-label="([^"]+)"', transavia) == [
         "Any aircraft", "A320"]
 
 
-def test_primary_only_airline_renders_no_selector(tmp_path):
-    """an airline with no variant entries (Air France) renders no type selector, no type
-    title and no variant chips"""
+def test_primary_only_airline_renders_no_dots(tmp_path):
+    """an airline with no variant entries (Air France) renders no pagination dots, no type
+    title and no badge row: a default tile is its name and artwork"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     card_slice = _card_slice(rendered, "Air France")
-    for absent in ("data-airline-type-select", "airline-type__title", "airline-card__chips"):
+    for absent in ("data-airline-type-dot", "airline-card__dots", "airline-type__title",
+                   "airline-type__meta", "airline-card__chip", "data-airline-types"):
         assert absent not in card_slice
 
 
