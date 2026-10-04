@@ -677,9 +677,10 @@ def test_health_tile_icons_are_tile_only_and_no_heading_carries_a_glyph(tmp_path
                 "example_callsign": "ABC123"},
     })
     seeded_rendered = health_page.render(shp.ctx(state_dir, shp.iso(now)))
-    assert _non_toast_uses(seeded_rendered) == 4, (
-        "expected exactly four non-toast <use occurrences on a seeded render (the same three "
-        "plus icon-search in the unresolved-prefixes filter bar)")
+    assert _non_toast_uses(seeded_rendered) == 6, (
+        "expected exactly six non-toast <use occurrences on a seeded render (the same three "
+        "plus the unresolved-prefixes filter bar's search glyph, its inline-clear cross and "
+        "its empty state's search glyph)")
     _headings_carry_no_glyph(seeded_rendered, 6)
 
 

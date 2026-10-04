@@ -938,7 +938,7 @@ def test_manual_summary_line_replaces_retired_management_table_copy(tmp_path):
     rendered = airlines_page.render(shp.ctx(tmp))
     summary_count = rendered.count(summary_open)
     assert summary_count == 1
-    bar = re.search(r'<div class="filter-bar">(.*?)</div>\s*<div class="empty-state"', rendered, re.S)
+    bar = re.search(r'<div class="filter-bar">(.*?)<div class="empty-state ', rendered, re.S)
     assert bar is not None and summary_open in bar.group(1)
     expected_text = airlines_page.MANUAL_SUMMARY_TEMPLATE % (2, 1)
     expected_button = "%s%s</button>" % (summary_open, expected_text)

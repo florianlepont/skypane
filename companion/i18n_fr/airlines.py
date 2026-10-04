@@ -58,6 +58,7 @@ MESSAGES = {
 
     # --- The gallery's filter bar ------------------------------------
     "airlines.filter_by_airline_or_callsign": "Filtrer par compagnie ou indicatif",
+    "airlines.search_placeholder": "Compagnie ou indicatif…",
     "airlines.no_matching_airlines": "Aucune compagnie correspondante",
     "airlines.try_a_different_search_or_clear_filter_to_see":
         "Essayez une autre recherche, ou effacez le filtre pour voir les "

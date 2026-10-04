@@ -15,6 +15,9 @@ modules.
 """
 
 MESSAGES = {
+    # --- The shared filter bar (companion/ui_filter.py) -------------------
+    "common.clear_search": "Effacer la recherche",
+
     # --- Login page ------------------------------------------------
     "common.sign_in_to_manage_this_device_s_settings":
         "Connectez-vous pour gérer les réglages de cet appareil.",

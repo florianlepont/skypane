@@ -432,18 +432,25 @@ def test_every_card_image_carries_matching_intrinsic_dimensions(tmp_path):
 
 
 def test_gallery_filter_bar_carries_all_four_contract_markers_exactly_once(tmp_path):
-    """the gallery filter bar carries exactly one each of
-    data-filter-input/-count/-clear/-empty"""
+    """the gallery filter bar carries exactly one each of data-filter-input/-count/-empty and
+    two data-filter-clear buttons (the inline clear and the empty state's own)"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
-    for marker in ("data-filter-input", "data-filter-count", "data-filter-clear", "data-filter-empty"):
+    for marker in ("data-filter-input", "data-filter-count ", "data-filter-empty"):
         assert rendered.count(marker) == 1, "expected exactly one %r marker, got %d" % (
             marker, rendered.count(marker))
+    assert rendered.count("data-filter-clear") == 3, (
+        "expected two Clear buttons, the second one also carrying data-filter-clear-all")
+    assert 'data-filter-clear-all' in rendered
+    assert "filter-chip" not in rendered, "expected the plain search pill, no chips, on Airlines"
 
 
-def test_gallery_filter_clear_control_is_a_real_button(tmp_path):
-    """the gallery filter bar's Clear control is a real <button type="button"> (retired)"""
+def test_gallery_filter_clear_controls_are_real_buttons(tmp_path):
+    """both of the gallery filter bar's Clear controls are real <button type="button">s: the
+    inline one named "Clear search" and the empty state's one reading "Clear"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
-    assert '<button type="button" data-filter-clear>Clear</button>' in rendered
+    assert ('<button type="button" class="filter-bar__clear" data-filter-clear '
+            'aria-label="Clear search">') in rendered
+    assert '<button type="button" data-filter-clear data-filter-clear-all>Clear</button>' in rendered
 
 
 def test_gallery_filter_label_for_matches_input_id(tmp_path):
@@ -454,9 +461,10 @@ def test_gallery_filter_label_for_matches_input_id(tmp_path):
     assert airlines_page._FILTER_INPUT_ID == "airlines_gallery_filter_input", (
         "expected the hyphen-free input id pinned by quick task 260921-p2w Task 1, got %r"
         % (airlines_page._FILTER_INPUT_ID,))
-    expected_label = '<label class="text-label" for="%s">' % airlines_page._FILTER_INPUT_ID
+    expected_label = '<label class="visually-hidden" for="%s">' % airlines_page._FILTER_INPUT_ID
     assert expected_label in rendered
-    assert ('<input type="search" id="%s" autocomplete="off" spellcheck="false" '
+    assert ('<input type="search" id="%s" placeholder="Airline or callsign…" '
+            'autocomplete="off" spellcheck="false" '
             'autocapitalize="characters" data-filter-input>' % airlines_page._FILTER_INPUT_ID
             in rendered)
 

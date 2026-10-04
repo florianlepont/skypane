@@ -187,6 +187,7 @@ MESSAGES = {
         "Le lien Résoudre de chaque ligne ouvre la page Compagnies pour "
         "nommer cette compagnie (et ajouter une image, si besoin).",
     "health.filter_by_prefix": "Filtrer par préfixe",
+    "health.search_placeholder": "Préfixe…",
     "health.no_matching_prefixes": "Aucun préfixe correspondant",
     "health.try_a_different_search_or_clear_filter_to_see":
         "Essayez une autre recherche, ou effacez le filtre pour voir "

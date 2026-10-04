@@ -619,9 +619,9 @@ def test_resolution_rate_tile_renders_percentage_and_window(tmp_path):
         "expected the no-stats empty-state heading with zero resolution history")
 
 
-def test_registry_card_keeps_filter_bar_note_and_non_button_clear(tmp_path):
-    """the migrated Unresolved-prefixes card keeps its filter bar, read-only note, and non-button Clear
-    control"""
+def test_registry_card_keeps_filter_bar_note_and_button_clear(tmp_path):
+    """the migrated Unresolved-prefixes card keeps its filter bar, read-only note, and Clear
+    controls (real type=button buttons, never a submit)"""
     state_dir = str(tmp_path)
     registry = {
         "ABC": {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "ABC123"},
@@ -640,8 +640,11 @@ def test_registry_card_keeps_filter_bar_note_and_non_button_clear(tmp_path):
     section_start = rendered.index(
         '<h2 class="text-heading">%s</h2>' % health_page.UNRESOLVED_SECTION_HEADING)
     section_slice = rendered[section_start:section_start + 4000]
-    assert "<button" not in section_slice, (
-        "the migrated registry card's Clear control must not be a <button>")
+    buttons = re.findall(r"<button[^>]*>", section_slice)
+    assert buttons and all(
+        'type="button"' in b and "data-filter-clear" in b for b in buttons), (
+        "the read-only registry card's only buttons are the filter bar's two Clear controls "
+        "(type=button, never a submit): %r" % (buttons,))
 
 
 def test_registry_seen_cells_age_is_a_live_time_element(tmp_path):

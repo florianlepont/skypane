@@ -1031,7 +1031,8 @@ _FILTER_EMPTY_BODY_TEMPLATE = i18n.msg(
 # "%d of %d shown" and "Clear" are owned by companion/i18n_fr/health.py,
 # not airlines.py — the same ids health_page.py's own filter bar uses.
 _FILTER_COUNT_TEMPLATE = i18n.msg("health.of_shown", "%d of %d shown")
-_CLEAR_TEXT = i18n.msg("health.clear", "Clear")
+_FILTER_PLACEHOLDER_TEXT = i18n.msg(
+    "airlines.search_placeholder", "Airline or callsign…")
 _CLOSE_TEXT = i18n.msg("airlines.close", "Close")
 _CHOOSE_AN_IMAGE_TEXT = i18n.msg("airlines.choose_an_image", "Choose an image")
 
@@ -1039,45 +1040,18 @@ _CHOOSE_AN_IMAGE_TEXT = i18n.msg("airlines.choose_an_image", "Choose an image")
 def _filter_bar_html(total, summary_html=""):
     """Filter bar over the gallery, entirely inert without JS —
     list-filter.js's early-return guard leaves the full unfiltered grid
-    usable if the script never loads.
+    usable if the script never loads. The plain search pill: no chips,
+    since no row carries a second dimension worth segmenting.
 
     `summary_html` (`_manual_summary_html()`'s rendered control, or `""`)
     sits inside this bar because it's a filter control: clicking it sets
-    the bar's own input and reruns `applyFilter()`. The count and Clear
-    control are siblings inside one `.filter-bar__meta` group so they wrap
-    as a unit rather than separately.
+    the bar's own input and reruns `applyFilter()`.
     """
-    count_text = i18n.t(_FILTER_COUNT_TEMPLATE) % (total, total)
-    empty_body = i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total
-    return (
-        '<div class="filter-bar">'
-        '<label class="text-label" for="%s">%s</label>'
-        '<div class="filter-bar__field">'
-        "%s"
-        # Same Safari contact-autofill fix as history_page.py's
-        # _filter_bar_html() — see that file for the attribute explanation.
-        '<input type="search" id="%s" autocomplete="off" spellcheck="false" autocapitalize="characters" data-filter-input>'
-        "</div>"
-        "%s"
-        '<div class="filter-bar__meta">'
-        '<span class="filter-bar__count" data-filter-count>%s</span>'
-        '<button type="button" data-filter-clear>%s</button>'
-        "</div>"
-        "</div>"
-        '<div class="empty-state" data-filter-empty hidden>'
-        '<p class="empty-state__heading text-heading">%s</p>'
-        '<p class="empty-state__body text-body">%s</p>'
-        "</div>"
-    ) % (
-        _FILTER_INPUT_ID, escape_html(i18n.t(_FILTER_LABEL_TEXT)),
-        layout.icon_html("icon-search"),
-        _FILTER_INPUT_ID,
-        summary_html,
-        escape_html(count_text),
-        escape_html(i18n.t(_CLEAR_TEXT)),
-        escape_html(i18n.t(_FILTER_EMPTY_HEADING)),
-        escape_html(empty_body),
-    )
+    return layout.filter_bar_html(
+        _FILTER_INPUT_ID, i18n.t(_FILTER_LABEL_TEXT),
+        i18n.t(_FILTER_PLACEHOLDER_TEXT), i18n.t(_FILTER_COUNT_TEMPLATE),
+        total, total, i18n.t(_FILTER_EMPTY_HEADING),
+        i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total, extra_html=summary_html)
 
 
 def unresolved_row_for_prefix(state_dir, prefix):
