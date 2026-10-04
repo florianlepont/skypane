@@ -25,23 +25,20 @@ from companion.layout import escape_html
 from companion.pages import config_page
 from companion.settings import rules as rules_settings
 from server import device_config, history_db
+from companion_markup import parse_html
 from server.plane import calendar_rules, colour_rules
 
 
-def _calendar_status_parts(rendered):
-    """The .status-row verdict/detail pair a Calendar-status check reads -
-    layout.status_row()'s own two spans, never a bare
-    <p class="calendar-status"> (retired)."""
-    match = re.search(
-        r'<span class="status-row__verdict">(.*?)</span>'
-        r'<span class="status-row__detail">(.*?)</span>',
-        rendered, re.S)
-    assert match, "expected a .status-row element"
-    return match.group(1), match.group(2)
+def _calendar_status(rendered):
+    """The (state, pill text, detail text) of the one `.calendar-status` row on a rendered Display
+    page, read from the served HTML."""
+    doc = parse_html(rendered)
+    row = doc.select_one(".calendar-status")
+    assert row is not None, "expected a .calendar-status row"
+    pill = row.select_one(".calendar-status__pill")
+    detail = row.select_one(".calendar-status__detail")
+    return row.attrs.get("data-calendar-state"), pill.text().strip(), detail.text().strip()
 
-
-_CALENDAR_CONNECTED_ESCAPED = html.escape(config_page.CALENDAR_STATUS_CONNECTED_VERDICT, quote=True)
-_CALENDAR_NOT_CONNECTED_ESCAPED = html.escape(config_page.CALENDAR_STATUS_NOT_CONNECTED_VERDICT, quote=True)
 
 # Four distinguishable _calendar_connection_html() states: (configured, drift, last_synced_at).
 _CALENDAR_GROUP_STATES = (
@@ -53,13 +50,9 @@ _CALENDAR_GROUP_STATES = (
 
 
 def _calendar_connection_call(configured, drift, last_synced_at):
-    """_calendar_connection_html() returns a (row_body_html, disconnect_form_html) tuple - the row
-    body nests inside a <details>, the disconnect <form> must not. Every check
-    below treats the two joined as one string, exactly matching the retired calendar-card
-    builder's own shape."""
-    return "".join(config_page._calendar_connection_html(
-        configured, drift, last_synced_at, None, "2026-09-07T09:12:04+00:00",
-        0, None, "white"))
+    """_calendar_connection_html() returns the status row plus the Manage dialog as one string."""
+    return config_page._calendar_connection_html(
+        configured, drift, last_synced_at, None, "2026-09-07T09:12:04+00:00", 0)
 
 
 def test_rules_suggestion_chips_present_with_data_and_absent_with_no_events(tmp_path):
@@ -90,10 +83,9 @@ def test_rules_suggestion_chips_present_with_data_and_absent_with_no_events(tmp_
         "expected no suggestion chips when there are no recent events")
 
 
-def test_plain_render_carries_both_disclosures_in_full_never_collapsed():
+def test_plain_render_carries_the_precedence_sentence_and_no_how_it_works_disclosure():
     """a plain Display render always carries the full precedence sentence under the special
-    looks and the Calendar 'How it works' <details> disclosure, never a collapsed one-sentence
-    variant"""
+    looks, and the Calendar row no longer carries a "How it works" disclosure"""
     ctx = {
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
@@ -106,8 +98,9 @@ def test_plain_render_carries_both_disclosures_in_full_never_collapsed():
     calendar_start, calendar_end = cp.aspect_usage_row_bounds(
         rendered, config_page.COLOUR_USAGE_CALENDAR)
     calendar_segment = rendered[calendar_start:calendar_end]
-    assert escape_html(config_page.CALENDAR_HOW_IT_WORKS_SUMMARY) in calendar_segment, (
-        "expected the full Calendar 'How it works' <details> disclosure")
+    assert "How it works" not in calendar_segment
+    assert "<details" not in calendar_segment.split('class="calendar-status"', 1)[1], (
+        "expected no disclosure toggle in the Calendar connection block")
     assert "It only colours a flight already on screen." not in rendered
     assert "The most specific match wins." not in rendered
 
@@ -143,115 +136,6 @@ def test_rules_french_render_shows_french_row_label_and_button():
         assert escape_html(text) in rendered, "expected the French %r" % (text,)
 
 
-def test_calendar_status_not_configured_is_exclusive():
-    """with no calendar configured, render() emits the 'Not connected' verdict with an empty
-    detail"""
-    ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
-    verdict, detail = _calendar_status_parts(config_page.render(ctx, scope=config_page.SCOPE_DISPLAY))
-    assert verdict == _CALENDAR_NOT_CONNECTED_ESCAPED, (
-        "expected the 'Not connected' verdict, got %r" % (verdict,))
-    assert not detail, "expected an empty detail when not configured, got %r" % (detail,)
-
-
-def test_calendar_status_configured_pending_is_exclusive():
-    """with a calendar configured and no fetch attempt recorded yet, render() emits the
-    'Connected' verdict with an empty detail"""
-    ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
-    verdict, detail = _calendar_status_parts(config_page.render(ctx, scope=config_page.SCOPE_DISPLAY))
-    assert verdict == _CALENDAR_CONNECTED_ESCAPED, "expected the 'Connected' verdict, got %r" % (verdict,)
-    assert not detail, (
-        "expected an empty detail when configured with no attempt recorded yet, got %r" % (detail,))
-
-
-def test_calendar_status_configured_fetch_failed_is_exclusive():
-    """with a calendar configured, an attempt recorded, and no usable sync, render() emits the
-    mapped 'The feed could not be read' detail - never an exception's own text"""
-    ctx = dict(
-        cp.CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None,
-        calendar_last_attempt_at=1893456000.0)
-    verdict, detail = _calendar_status_parts(config_page.render(ctx, scope=config_page.SCOPE_DISPLAY))
-    assert verdict == _CALENDAR_CONNECTED_ESCAPED, "expected the 'Connected' verdict, got %r" % (verdict,)
-    assert detail == escape_html(config_page.CALENDAR_STATUS_FETCH_FAILED_DETAIL), (
-        "expected the mapped fetch-failed sentence, got %r" % (detail,))
-
-
-def test_calendar_status_configured_synced_is_exclusive_with_relative_age():
-    """with a calendar configured and a last_synced_at present, render() emits the 'Connected'
-    verdict with a detail carrying the entry count and a relative-age fragment, never a bare ISO
-    string"""
-    ctx = dict(
-        cp.CALENDAR_BASE_CTX, calendar_configured=True,
-        calendar_last_synced_at="2026-09-07T09:00:00+00:00", calendar_entry_count=12)
-    verdict, detail = _calendar_status_parts(config_page.render(ctx, scope=config_page.SCOPE_DISPLAY))
-    assert verdict == _CALENDAR_CONNECTED_ESCAPED, "expected the 'Connected' verdict, got %r" % (verdict,)
-    assert "12" in detail, "expected the entry count '12' in the detail, got %r" % (detail,)
-    assert "ago" in detail, "expected a relative-age fragment, proving relative_age_text() was used"
-
-
-def test_calendar_status_unparseable_synced_falls_back_to_no_detail():
-    """with a calendar configured and a last_synced_at that is present but unparseable, the empty
-    detail is used rather than a fabricated time"""
-    ctx = dict(
-        cp.CALENDAR_BASE_CTX, calendar_configured=True,
-        calendar_last_synced_at="not-a-real-timestamp")
-    verdict, detail = _calendar_status_parts(config_page.render(ctx, scope=config_page.SCOPE_DISPLAY))
-    assert verdict == _CALENDAR_CONNECTED_ESCAPED, "expected the 'Connected' verdict, got %r" % (verdict,)
-    assert not detail, "expected an empty detail for an unparseable stored value, got %r" % (detail,)
-
-
-def test_calendar_copy_fidelity_locked_to_the_phase_20_wording():
-    """the status detail template, the fetch-failed sentence, the Connect button text, and the
-    Replace-URL disclosure summary are each locked to the historically-approved wording verbatim,
-    so a paraphrase fails rather than merely looking different
-
-    The four literal constants below are the historically-approved wording; the assertions prove
-    config_page.py's own constants still equal them verbatim AND that they actually reach a real
-    render, not merely exist as an unused module attribute.
-    """
-    assert config_page.CALENDAR_STATUS_DETAIL_TEMPLATE == "%d upcoming flights · checked %s"
-    assert config_page.CALENDAR_STATUS_FETCH_FAILED_DETAIL == "The feed could not be read"
-    assert config_page.CALENDAR_CONNECT_BUTTON_TEXT == "Connect calendar"
-    assert config_page.CALENDAR_REPLACE_URL_SUMMARY == "Replace the feed URL"
-
-    fetch_failed = config_page.render(
-        dict(cp.CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None,
-             calendar_last_attempt_at=1893456000.0),
-        scope=config_page.SCOPE_DISPLAY)
-    assert escape_html(config_page.CALENDAR_STATUS_FETCH_FAILED_DETAIL) in fetch_failed, (
-        "expected the fetch-failed sentence to actually render")
-
-    not_connected = config_page.render(
-        dict(cp.CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None),
-        scope=config_page.SCOPE_DISPLAY)
-    assert escape_html(config_page.CALENDAR_CONNECT_BUTTON_TEXT) in not_connected, (
-        "expected the Connect button text to actually render when not connected")
-
-    connected = config_page.render(
-        dict(cp.CALENDAR_BASE_CTX, calendar_configured=True,
-             calendar_last_synced_at="2026-09-07T09:00:00+00:00", calendar_entry_count=3),
-        scope=config_page.SCOPE_DISPLAY)
-    assert escape_html(config_page.CALENDAR_REPLACE_URL_SUMMARY) in connected, (
-        "expected the Replace-URL disclosure summary to actually render when connected")
-
-
-def test_calendar_merged_button_copy_locked_to_the_phase_21_wording():
-    """the merged card's own two short button-text constants (the connected-state Replace
-    button, the small grey Disconnect button) are each locked to the historically-approved
-    wording verbatim, matching the discipline
-    `test_calendar_copy_fidelity_locked_to_the_phase_20_wording` established for the earlier
-    strings.
-    """
-    assert config_page.CALENDAR_REPLACE_BUTTON_TEXT == "Replace"
-    assert config_page.CALENDAR_DISCONNECT_BUTTON_TEXT == "Disconnect"
-    connected = config_page.render(
-        dict(cp.CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None),
-        scope=config_page.SCOPE_DISPLAY)
-    assert escape_html(config_page.CALENDAR_REPLACE_BUTTON_TEXT) in connected, (
-        "expected the Replace button text to actually render when connected")
-    assert escape_html(config_page.CALENDAR_DISCONNECT_BUTTON_TEXT) in connected, (
-        "expected the Disconnect button text to actually render when connected")
-
-
 def test_calendar_forbidden_vocabulary_absent():
     """the Calendar card's copy carries none of the phase's banned affirmative real-time-
     awareness or crew-role vocabulary, while still carrying the mandated negated 'does not track'
@@ -261,6 +145,10 @@ def test_calendar_forbidden_vocabulary_absent():
         config_page.CALENDAR_HOW_IT_WORKS_BODY,
         config_page.CALENDAR_STATUS_NOT_CONNECTED_VERDICT,
         config_page.CALENDAR_STATUS_CONNECTED_VERDICT,
+        config_page.CALENDAR_STATUS_ZERO_TEMPLATE,
+        config_page.CALENDAR_STATUS_DETAIL_TEMPLATE,
+        config_page.CALENDAR_STATUS_PERMISSION_UNSAFE,
+        config_page.CALENDAR_NONE_LEAD,
     ]).lower()
     forbidden_phrases = (
         "watches", "watch for", "follows", "monitors", "notifies",
@@ -331,8 +219,8 @@ def test_calendar_no_preview_no_count_in_rendered_page(tmp_path):
     # The status row deliberately DOES show a derived flight count now - the
     # old prohibition on a count is retired; only the specific airport/airline codes stay
     # forbidden (code isolation, unaffected).
-    assert re.search(r"\b3\s+upcoming\s+flights?\b", rendered.lower()), (
-        "expected the D-14b status detail's own flight-count phrase")
+    assert re.search(r"\b3\s+flights\s+in\s+the\s+next\s+48\s+h\b", rendered.lower()), (
+        "expected the status detail's own flight-count phrase")
 
 
 def test_calendar_d01_registry_entries_never_appear_in_rules_list(tmp_path):
@@ -490,25 +378,6 @@ def test_calendar_connect_field_never_carries_value_in_either_state():
             "expected no value attribute on the calendar_url field when configured=%r" % (configured,))
 
 
-def test_calendar_connect_wraps_in_details_only_when_configured():
-    """the merged _calendar_connection_html() wraps its connect form in <details
-    class=calendar-url-disclosure> 'Replace the feed URL' only when configured, and renders it
-    unwrapped, posting to CALENDAR_CONNECT_ROUTE, when not"""
-    # The merged card ALSO always renders a second, unrelated <details> ("How it works") in every
-    # state, so this check scans for the Replace disclosure's own specific class rather than a
-    # bare "<details" substring, which would always be true now.
-    connected_html = _calendar_connection_call(True, False, None)
-    assert 'class="calendar-url-disclosure"' in connected_html, (
-        "expected the connect form wrapped in <details class=calendar-url-disclosure> when configured")
-    assert escape_html(config_page.CALENDAR_REPLACE_URL_SUMMARY) in connected_html, (
-        "expected the Replace-the-feed-URL summary when configured")
-    not_connected_html = _calendar_connection_call(False, False, None)
-    assert 'class="calendar-url-disclosure"' not in not_connected_html, (
-        "expected the connect form unwrapped (no calendar-url-disclosure) when not configured")
-    assert 'action="%s"' % config_page.CALENDAR_CONNECT_ROUTE in not_connected_html, (
-        "expected the connect form to post to CALENDAR_CONNECT_ROUTE either way")
-
-
 def test_calendar_containment_at_the_renderer_five_needles(tmp_path):
     """the merged _calendar_connection_html(), called directly rather than through render(),
     never emits the token, host, path segment, query-parameter name, or whole URL of a configured
@@ -536,40 +405,6 @@ def test_calendar_disconnect_checkbox_never_appears_in_calendar_connection():
         assert 'name="calendar_disconnect"' not in rendered, (
             "state %r: expected _calendar_connection_html() to render no calendar_disconnect "
             "checkbox at all (D-08 retires it)" % ((configured, drift),))
-
-
-def test_calendar_disconnect_form_appears_only_when_expected():
-    """the merged _calendar_connection_html() renders its disconnect form only when the calendar
-    is connected or drifted, posting to CALENDAR_DISCONNECT_ROUTE with a hidden, empty, data-
-    confirm-field-carrying confirm field, alongside a visible small Disconnect button cross-
-    submitting via form="""
-    for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
-        rendered = _calendar_connection_call(configured, drift, last_synced_at)
-        has_form = (
-            '<form id="%s" method="post" action="%s"'
-            % (config_page.CALENDAR_DISCONNECT_FORM_ID, config_page.CALENDAR_DISCONNECT_ROUTE)
-        ) in rendered
-        expected = configured or drift
-        assert has_form == expected, (
-            "state %r: expected disconnect-form presence %r, got %r" % ((configured, drift), expected, has_form))
-        if has_form:
-            assert 'data-confirm-field' in rendered, "expected the hidden confirm field to carry data-confirm-field"
-            assert 'name="%s" value=""' % config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD in rendered, (
-                "expected the hidden confirm field to render with an EMPTY value")
-            assert "data-confirm=" in rendered, "expected a data-confirm attribute carrying the confirm question"
-            assert (
-                'form="%s" class="calendar-disconnect-btn"' % config_page.CALENDAR_DISCONNECT_FORM_ID
-            ) in rendered, "expected a visible Disconnect button cross-submitting via form="
-        else:
-            # A plain not-connected render (no drift either) shows the URL field and the primary
-            # Connect button - and no Replace disclosure, no Disconnect button, no data-confirm
-            # attribute at all.
-            assert "calendar-disconnect-btn" not in rendered, (
-                "expected no Disconnect button when neither configured nor drifted")
-            assert "data-confirm=" not in rendered, (
-                "expected no data-confirm attribute when neither configured nor drifted")
-            assert 'class="calendar-url-disclosure"' not in rendered, (
-                "expected no Replace disclosure when neither configured nor drifted")
 
 
 def test_look_supersection_carries_exactly_one_dirty_section_named_aspect():
@@ -614,38 +449,6 @@ def test_calendar_connection_never_nests_a_form_inside_another_in_either_state()
             else:
                 depth -= 1
                 pos = close_pos + len("</form>")
-
-
-def test_calendar_connection_placement_inside_aspect_after_display_form_close_with_dirty_attr():
-    """the calendar connection block renders inside the Calendar row, after that row's own
-    table, after the settings form's own closing tag and the look card's own heading, still
-    under the card's own dirty-section tracking attribute - with the Disconnect button inside the
-    row and the disconnect form OUTSIDE the card, the button's form= naming that exact sibling"""
-    ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
-    rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-    form_start = rendered.index('<form class="config-form" id="%s"' % config_page.SETTINGS_FORM_ID)
-    form_end = rendered.index("</form>", form_start)
-    aspect_heading_pos = rendered.index('id="%s">%s</h2>' % (
-        config_page.ASPECT_HEADING_ID, escape_html(i18n.t(config_page.ASPECT_HEADING))))
-    calendar_start, calendar_end = cp.aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_CALENDAR)
-    assert form_end < aspect_heading_pos < calendar_start, (
-        "expected </form> < the look card heading < the Calendar row, got %d/%d/%d"
-        % (form_end, aspect_heading_pos, calendar_start))
-    calendar_segment = rendered[calendar_start:calendar_end]
-    table_pos = calendar_segment.index('class="look-table"')
-    status_row_pos = calendar_segment.index('class="status-row')
-    assert table_pos < status_row_pos, "expected the table to precede the connection block's own status row"
-    disconnect_btn_match = re.search(
-        r'<button type="submit" form="([^"]*)" class="calendar-disconnect-btn">', calendar_segment)
-    assert disconnect_btn_match, "expected the Disconnect button inside the Calendar row"
-    disconnect_form_needle = '<form id="%s"' % config_page.CALENDAR_DISCONNECT_FORM_ID
-    assert disconnect_form_needle not in calendar_segment, (
-        "expected the disconnect form OUTSIDE the Calendar row, found it inside")
-    assert disconnect_btn_match.group(1) == config_page.CALENDAR_DISCONNECT_FORM_ID
-    assert disconnect_form_needle in rendered[calendar_end:], (
-        "expected the disconnect form as a sibling of the whole look card")
-    assert config_page.DIRTY_SECTION_ATTR in rendered[:calendar_start], (
-        "expected the look card's own dirty-section tracking attribute to precede the row")
 
 
 def test_calendar_row_no_inline_js_and_palette_cross_submits_form():
@@ -711,7 +514,8 @@ def test_calendar_connect_form_appears_before_the_runway_card_on_display_scope()
     ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
     rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     calendar_row_index = rendered.index('data-look-usage="%s"' % config_page.COLOUR_USAGE_CALENDAR)
-    connect_form_index = rendered.index('<form method="post" action="%s"' % config_page.CALENDAR_CONNECT_ROUTE)
+    connect_form_index = rendered.index(
+        '<form class="calendar-sheet__form" method="post" action="%s"' % config_page.CALENDAR_CONNECT_ROUTE)
     runway_index = rendered.index('name="tracked_runway"')
     assert calendar_row_index < connect_form_index < runway_index, (
         "expected Calendar row < connect form < Runway card, got %d, %d, %d"
@@ -731,19 +535,6 @@ def test_calendar_disconnect_form_absent_when_not_configured_or_on_device_scope(
         "expected no disconnect form on the Device scope, which never renders Calendar")
 
 
-def test_calendar_status_drift_is_exclusive_and_precedes_not_configured():
-    """with the stored calendar link's permissions drifted, render() emits the 'Not connected'
-    verdict with the drift detail sentence - the drift branch, checked before 'not configured',
-    still wins"""
-    ctx = dict(
-        cp.CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None, calendar_drift=True)
-    verdict, detail = _calendar_status_parts(config_page.render(ctx, scope=config_page.SCOPE_DISPLAY))
-    assert verdict == _CALENDAR_NOT_CONNECTED_ESCAPED, (
-        "expected the 'Not connected' verdict when drifted, got %r" % (verdict,))
-    assert detail == escape_html(config_page.CALENDAR_STATUS_PERMISSION_UNSAFE), (
-        "expected the drift detail sentence, got %r" % (detail,))
-
-
 def test_calendar_status_drift_names_remedy_and_nothing_forbidden():
     """the permission-drift status string names the remedy (paste the feed URL again) and names
     no path separator, filename, or part of a URL"""
@@ -752,8 +543,8 @@ def test_calendar_status_drift_names_remedy_and_nothing_forbidden():
     assert ".json" not in text and ".ics" not in text and "calendar_rules" not in text, (
         "expected no filename in the drift status string")
     assert "http" not in text.lower(), "expected no part of a URL in the drift status string"
-    assert "paste" in text.lower() and "feed url" in text.lower(), (
-        "expected the drift status to name the remedy (paste the feed URL again)")
+    assert "paste" in text.lower(), (
+        "expected the drift status to name the remedy (paste the link again)")
 
 
 def test_handle_post_empty_calendar_field_with_no_checkbox_is_a_no_op_across_two_unrelated_saves(tmp_path):

@@ -70,7 +70,6 @@ MESSAGES = {
         "Ajouter une clé déjà présente remplace son allure.",
     "look.calendar": "Calendrier",
     "look.flights_in_your_calendar": "Vols de votre calendrier",
-    "look.calendar_connection": "Connexion du calendrier",
     "look.add_a_special_look": "Ajouter une allure spéciale",
     "look.new_special_look": "Nouvelle allure spéciale",
     "look.look": "Allure",

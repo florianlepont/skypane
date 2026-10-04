@@ -195,6 +195,8 @@ MESSAGES = {
         "programmée du cadre.",
     "common.calendar_connected_n_flights_found":
         "Calendrier connecté — {n} vols trouvés.",
+    "common.couldn_t_read_that_calendar_nothing_was_changed":
+        "Impossible de lire ce calendrier — rien n’a été modifié.",
     "common.paste_a_valid_calendar_feed_url_to_connect_one":
         "Collez une URL de flux de calendrier valide pour en "
         "connecter un.",

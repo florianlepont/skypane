@@ -27,17 +27,6 @@ CURRENT_BADGE_ATTR = "data-current-label"
 # nothing from this module, so the two must be kept equal by hand.
 DIRTY_SECTION_ATTR = "data-dirty-section"
 
-# This feature can only colour a flight that happens to be the one
-# currently on screen — it does not track, watch, follow, monitor,
-# notify, or know a flight is happening independently of what is on
-# screen, and no string below (nor its sibling
-# `companion.settings.calendar.CALENDAR_HOW_IT_WORKS_BODY`) may imply
-# otherwise.
-# Owned by companion/i18n_fr/calendar_group.py, not this module's own
-# display.py — the Calendar row's own connection block is where this
-# label's French sibling lives.
-CALENDAR_HOW_IT_WORKS_SUMMARY = i18n.msg("calendar_group.how_it_works", "How it works")
-
 # The "Selected" visually-hidden text beside a chosen palette/runway
 # chip's check icon — shared by companion.settings.theme and
 # companion.settings.runway_led, declared once here so the two never

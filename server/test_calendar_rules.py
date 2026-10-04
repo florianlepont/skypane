@@ -2626,3 +2626,79 @@ def test_save_calendar_url_stores_the_normalised_form(tmp_path):
     if cr.configured_calendar_url(tmp) != "https://example.invalid/feed.ics":
         pytest.fail("expected configured_calendar_url() to return the normalised https:// form")
 
+
+
+# --- connect_calendar_url(): fetch first, save on success -------------------
+
+
+def _public_host(monkeypatch, *hosts):
+    """Resolve every name in `hosts` to a public address (the SSRF gate's own accepted range)."""
+    real_getaddrinfo = socket.getaddrinfo
+
+    def fake_getaddrinfo(hostname, port=None, *a, **k):
+        if hostname in hosts:
+            return [(2, 1, 6, "", (PUBLIC_IP, 443))]
+        return real_getaddrinfo(hostname, port, *a, **k)
+
+    monkeypatch.setattr(socket, "getaddrinfo", fake_getaddrinfo)
+
+
+def test_connect_calendar_url_reads_before_saving_and_replaces_the_flights(monkeypatch, tmp_path):
+    """the candidate is fetched while the previous secret and registry are still in place; on
+    success the new link is stored and the registry holds the new feed's flights"""
+    _public_host(monkeypatch, "old.example", "new.example")
+    now = _mid_fixture_now()
+    _write_calendar_secret(tmp_path, "https://old.example/a.ics")
+    code, _reg = cr.refresh_calendar_registry(
+        tmp_path, now, transport=make_calendar_transport(status_code=200, body=fixture_text.encode()))
+    assert code == cr.FETCH_OK
+    before = cr.load_calendar_registry(tmp_path, now)
+    assert before["entries"]
+    seen = []
+    inner = make_calendar_transport(status_code=200, body=b"BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n")
+
+    def spying(url, timeout):
+        seen.append(cr.configured_calendar_url(tmp_path))
+        return inner(url, timeout)
+
+    assert cr.connect_calendar_url(tmp_path, "https://new.example/b.ics", now, transport=spying) == cr.FETCH_OK
+    assert seen == ["https://old.example/a.ics"]
+    assert cr.configured_calendar_url(tmp_path) == "https://new.example/b.ics"
+    after = cr.load_calendar_registry(tmp_path, now)
+    assert after["entries"] == [] and after["last_synced_at"]
+
+
+def test_connect_calendar_url_failure_changes_nothing(monkeypatch, tmp_path):
+    """an unreachable, non-200 or refused candidate leaves the stored link and registry exactly as
+    they were"""
+    _public_host(monkeypatch, "old.example", "new.example")
+    now = _mid_fixture_now()
+    _write_calendar_secret(tmp_path, "https://old.example/a.ics")
+    cr.refresh_calendar_registry(
+        tmp_path, now, transport=make_calendar_transport(status_code=200, body=fixture_text.encode()))
+    registry = cr.load_calendar_registry(tmp_path, now)
+    for url, transport, expected in (
+            ("https://new.example/b.ics", make_calendar_transport(raise_exc=OSError("x")), cr.FETCH_FAILED),
+            ("https://new.example/b.ics", make_calendar_transport(status_code=403), cr.FETCH_FAILED),
+            ("http://new.example/b.ics", make_calendar_transport(status_code=200, body=b""),
+             cr.FETCH_REJECTED_URL),
+            ("   ", make_calendar_transport(status_code=200, body=b""), cr.FETCH_REJECTED_URL)):
+        assert cr.connect_calendar_url(tmp_path, url, now, transport=transport) == expected, url
+        assert cr.configured_calendar_url(tmp_path) == "https://old.example/a.ics"
+        assert cr.load_calendar_registry(tmp_path, now) == registry
+
+
+def test_connect_calendar_url_reports_a_secret_that_cannot_be_stored(monkeypatch, tmp_path):
+    """when the candidate answered but the secret cannot be written, the code says so and the
+    previous connection is untouched"""
+    _public_host(monkeypatch, "new.example")
+    monkeypatch.setattr(cr, "save_calendar_url", lambda *a, **k: False)
+    code = cr.connect_calendar_url(
+        tmp_path, "https://new.example/b.ics", 1000.0,
+        transport=make_calendar_transport(status_code=200, body=b"BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n"))
+    assert code == cr.FETCH_SAVE_FAILED
+
+
+def test_the_stale_threshold_is_four_fetch_intervals():
+    """a connected feed is out of date once its last success is older than four fetch intervals"""
+    assert cr.CALENDAR_STALE_AFTER_S == 4 * cr.CALENDAR_FETCH_INTERVAL_S

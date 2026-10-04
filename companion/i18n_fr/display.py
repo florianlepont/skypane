@@ -79,21 +79,8 @@ MESSAGES = {
     # --- Calendar row's connection block --------------------------------
     # The confirmation-page strings below (with a question mark, or
     # naming "calendar"/"calendar?" alone) belong to
-    # calendar_disconnect_confirm_page(); the merged card's own small
-    # Disconnect button reads the shorter "Disconnect" instead
-    # (companion/i18n_fr/calendar_group.py).
-    "display.connected_but_ignored_its_saved_link_on_the":
-        "Connecté, mais ignoré — son lien enregistré sur le serveur "
-        "est devenu lisible au-delà de ce cadre. Collez à nouveau "
-        "l’URL du flux ci-dessous pour le stocker en sécurité.",
-    "display.calendar_feed_url": "URL du flux du calendrier",
-    "display.your_calendar_s_private_ical_link_stored_on_the":
-        "Le lien iCal privé de votre calendrier. Stocké sur le serveur "
-        "et jamais réaffiché ici — en coller un nouveau remplace "
-        "l’ancien.",
-    "display.disconnect_this_calendar_and_delete_the_flights":
-        "Déconnecter ce calendrier et supprimer les vols qu’il a "
-        "fournis ?",
+    # calendar_disconnect_confirm_page(); the Manage sheet's own strings
+    # live in companion/i18n_fr/calendar_group.py.
     "display.disconnect_calendar": "Déconnecter le calendrier ?",
     "display.this_disconnects_your_calendar_and_deletes_the":
         "Ceci déconnecte votre calendrier et supprime du serveur les "

@@ -57,7 +57,7 @@ EAGER_FIELDS = (
     "state_dir", "ui_theme", "lang", "device_config",
     "last_checkin_ts", "battery_critical", "wake_interval_env_default",
     "flash", "flash_role", "flash_key", "runway_images", "now", "resolve_prefix",
-    "sheet_key",
+    "sheet_key", "calendar_sheet", "calendar_sheet_error",
 )
 
 # The expensive values, resolved at most once, only if a route's own
@@ -332,7 +332,7 @@ def build_page_context(handler):
     page's own banner in agreement.
     """
     from companion import flash
-    from companion.pages import airlines_page, health_page
+    from companion.pages import airlines_page, config_page, health_page
 
     parsed = urlsplit(handler.path)
     params = parse_qs(parsed.query)
@@ -395,6 +395,17 @@ def build_page_context(handler):
             # Deliberately unvalidated: the Airlines page only ever
             # compares it against the artwork keys it rendered itself.
             "sheet_key": params.get(airlines_page.SHEET_QUERY_PARAM, [None])[0],
+            # The calendar sheet's no-script address and its refusal
+            # code. Only members of the fixed vocabulary survive: the
+            # query is client-supplied and picks nothing but a branch.
+            "calendar_sheet": (
+                params.get(config_page.CALENDAR_SHEET_PARAM, [None])[0]
+                == config_page.CALENDAR_SHEET_MANAGE),
+            "calendar_sheet_error": (
+                params.get(config_page.CALENDAR_ERROR_PARAM, [None])[0]
+                if params.get(config_page.CALENDAR_ERROR_PARAM, [None])[0]
+                in (config_page.CALENDAR_ERROR_INVALID,
+                    config_page.CALENDAR_ERROR_UNREACHABLE) else None),
         },
         {
             # The severity/anomaly snapshot every tab's nav dot needs,

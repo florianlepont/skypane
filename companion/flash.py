@@ -70,6 +70,7 @@ FLASH_KEY_CALENDAR_DISCONNECTED = config_page.FLASH_CALENDAR_DISCONNECTED
 FLASH_KEY_CALENDAR_SYNC_DEFERRED = config_page.FLASH_CALENDAR_SYNC_DEFERRED
 FLASH_KEY_CALENDAR_CONNECT_OK = config_page.FLASH_CALENDAR_CONNECT_OK
 FLASH_KEY_CALENDAR_CONNECT_INVALID = config_page.FLASH_CALENDAR_CONNECT_INVALID
+FLASH_KEY_CALENDAR_CONNECT_FAILED = config_page.FLASH_CALENDAR_CONNECT_FAILED
 FLASH_KEY_UPDATE_SCHEDULE_FAILED = update_page.FLASH_UPDATE_SCHEDULE_FAILED
 FLASH_KEY_UPDATE_CANCEL_FAILED = update_page.FLASH_UPDATE_CANCEL_FAILED
 FLASH_KEY_UPDATE_BUSY = update_page.FLASH_UPDATE_BUSY
@@ -285,6 +286,10 @@ FLASH_MESSAGES = {
     FLASH_KEY_CALENDAR_CONNECT_OK: i18n.msg(
         "common.calendar_connected_n_flights_found",
         "Calendar connected — {n} flights found."),
+    # Fetch-first: the pasted link was read before anything was saved.
+    FLASH_KEY_CALENDAR_CONNECT_FAILED: i18n.msg(
+        "common.couldn_t_read_that_calendar_nothing_was_changed",
+        "Couldn't read that calendar — nothing was changed."),
     FLASH_KEY_CALENDAR_CONNECT_INVALID: i18n.msg(
         "common.paste_a_valid_calendar_feed_url_to_connect_one",
         "Paste a valid calendar feed URL to connect one."),
@@ -349,6 +354,7 @@ FLASH_TONES = {
     FLASH_KEY_CALENDAR_SYNC_DEFERRED: _INFO,
     FLASH_KEY_CALENDAR_CONNECT_OK: _SUCCESS,
     FLASH_KEY_CALENDAR_CONNECT_INVALID: _ERROR,
+    FLASH_KEY_CALENDAR_CONNECT_FAILED: _ERROR,
     FLASH_KEY_UPDATE_SCHEDULE_FAILED: _ERROR,
     FLASH_KEY_UPDATE_CANCEL_FAILED: _ERROR,
     FLASH_KEY_UPDATE_BUSY: _INFO,

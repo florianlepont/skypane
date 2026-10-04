@@ -5720,17 +5720,6 @@ a.airline-card__zoom {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.calendar-actions {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-md);
-  margin: var(--space-sm) 0 0;
-}
-.calendar-actions--solo {
-  justify-content: flex-end;
-}
-
 /* Equal (0,1,1) specificity to button[type="submit"], but later in
  * source order, so this wins without needing a :where() wrapper (which
  * would drop to (0,0,0) and lose to every other rule). box-shadow: none
@@ -5777,6 +5766,291 @@ a.calendar-disconnect-btn:focus-visible {
 .calendar-masked-url {
   font-family: var(--font-mono);
   margin: var(--space-sm) 0 0;
+}
+
+/* Calendar connection: one status row on the page (provider tile, status
+ * pill, one-line detail, one button) and the Manage sheet, a <dialog>
+ * that holds every control. The row carries its verdict in words; the
+ * pill's dot is never green beside a failing or stale verdict (the server
+ * picks the tone per state). */
+.calendar-status {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: var(--space-sm);
+  padding: var(--space-sm) 4px 0;
+}
+
+.calendar-status__tile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-control);
+  background: var(--color-secondary);
+  border: 1px solid var(--color-border);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.calendar-status__tile--empty {
+  background: transparent;
+  border-style: dashed;
+}
+
+.calendar-status__main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.calendar-status__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.calendar-status__title b {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.calendar-status__pill .dot {
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+}
+
+.calendar-status__detail {
+  margin: 2px 0 0;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* From 960px the look card is three columns and the special row's column
+ * is narrow, so the button drops under the text instead of squeezing it. */
+@media (min-width: 960px) {
+  .calendar-status {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    align-items: flex-start;
+  }
+
+  a.calendar-manage {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+a.calendar-manage {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 12px;
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  text-decoration: none;
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+  border-radius: var(--radius-control);
+}
+
+a.calendar-manage:hover {
+  background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
+}
+
+/* The section's one primary action while nothing is connected. */
+a.calendar-manage--primary {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-color: transparent;
+}
+
+a.calendar-manage--primary:hover {
+  background: var(--color-accent-hover);
+}
+
+/* box-shadow at rest is this file's hairline-at-rest exception for a
+ * floating modal, as for .lightbox. color is explicit because a <dialog>
+ * promoted by showModal() does not reliably inherit it. No entrance
+ * animation: the motion budget is spent elsewhere. */
+.calendar-sheet {
+  box-sizing: border-box;
+  width: calc(100% - var(--space-lg) * 2);
+  max-width: 440px;
+  max-height: calc(100vh - var(--space-lg) * 2);
+  overflow-y: auto;
+  padding: var(--space-lg);
+  background: var(--color-dominant);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* The dialog is a container, not a control: arriving at it by its
+ * fragment must not draw a heavy ring round the whole card. Every control
+ * inside keeps the global focus ring. */
+.calendar-sheet:focus {
+  outline: none;
+}
+
+/* Scripts blocked: the open dialog is an in-page card, not a modal. */
+.calendar-sheet[open]:not(:modal) {
+  position: static;
+  width: auto;
+  max-width: none;
+  margin: var(--space-md) 0 0;
+  box-shadow: none;
+}
+
+.calendar-sheet::backdrop {
+  background: var(--color-scrim);
+}
+
+.calendar-sheet > * + * {
+  margin-top: var(--space-md);
+}
+
+.calendar-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.calendar-sheet__title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: var(--font-heading-size);
+  font-weight: var(--weight-regular);
+}
+
+a.calendar-sheet__close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin-right: calc(var(--space-sm) * -1);
+  font-size: 24px;
+  line-height: 1;
+  color: var(--color-text);
+  text-decoration: none;
+  border-radius: var(--radius-control);
+}
+
+a.calendar-sheet__close:hover {
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+}
+
+.calendar-sheet__label {
+  margin: 0;
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+}
+
+.calendar-sheet__link .calendar-masked-url {
+  margin-top: var(--space-xs);
+}
+
+.calendar-sheet input[type="text"] {
+  width: 100%;
+}
+
+.calendar-sheet__note {
+  margin: var(--space-sm) 0 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.calendar-sheet__field .section-caption {
+  margin: var(--space-xs) 0 0;
+}
+
+.calendar-sheet__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.calendar-sheet button {
+  height: auto;
+  min-height: 44px;
+}
+
+a.calendar-sheet__cancel {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  font-size: var(--font-label-size);
+  color: var(--color-text);
+  text-decoration: none;
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
+  border-radius: var(--radius-control);
+}
+
+.calendar-sheet__disconnect {
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+/* The quiet destructive action: error-coloured text, no fill. Equal
+ * (0,1,1) specificity to button[type="submit"], later in source, so it
+ * wins on position and clears the primary fill and its shadow. */
+button.calendar-danger {
+  padding: 0 4px;
+  color: var(--color-status-error);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+button.calendar-danger:hover {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  text-decoration: underline;
+}
+
+button.calendar-danger--solid {
+  padding: 0 12px;
+  border-color: var(--color-status-error);
+}
+
+.calendar-sheet__confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid var(--color-status-error);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-status-error) 6%, transparent);
+}
+
+/* An author display beats the UA [hidden] rule, so restate it. */
+.calendar-sheet__confirm[hidden] {
+  display: none;
+}
+
+.calendar-sheet__confirm-heading {
+  margin: 0;
+  font-weight: var(--weight-semibold);
+}
+
+.calendar-sheet__confirm .text-body {
+  margin: 0;
+}
+
+.calendar-sheet__confirm .calendar-sheet__foot {
+  margin-top: var(--space-xs);
 }
 
 .text-link {
@@ -6565,22 +6839,6 @@ button.special-row__remove {
 
 button.special-row__remove:hover {
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
-}
-
-.calendar-connection > summary {
-  display: flex;
-  align-items: center;
-  min-height: 44px;
-  font-size: var(--font-label-size);
-  color: var(--color-accent);
-  cursor: pointer;
-}
-
-.calendar-connection__body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  padding-bottom: var(--space-sm);
 }
 
 .special-looks__order {

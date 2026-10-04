@@ -59,12 +59,15 @@ from .registry import (  # noqa: F401
     CALENDAR_REGISTRY_LOCK_FILENAME,
     CALENDAR_REGISTRY_LOCK_TIMEOUT_S,
     CALENDAR_RULES_FILENAME,
+    CALENDAR_STALE_AFTER_S,
     CALENDAR_SECRET_FILENAME,
     CALENDAR_WINDOW_FORWARD_S,
     CLEAR_CALENDAR_URL,
     FETCH_FAILED,
     FETCH_OK,
     FETCH_REJECTED_URL,
+    FETCH_SAVE_FAILED,
+    FETCH_SAVED_UNREAD,
     FETCH_SKIPPED_THROTTLED,
     FETCH_SKIPPED_UNCONFIGURED,
     FETCH_SUPERSEDED,
@@ -408,3 +411,40 @@ def refresh_calendar_registry(state_dir, now, transport=None, min_interval_s=Non
         # Defence in depth only - see the comment above. Fall back to
         # whatever is durably on disk rather than propagate.
         return FETCH_FAILED, load_calendar_registry(state_dir, now)
+
+
+# --- Connect or replace: fetch first, save only on success -----------------
+
+
+def connect_calendar_url(state_dir, url, now, transport=None):
+    """Validate a candidate calendar URL by reading it, and only when it
+    answers store it and replace the registry with what it supplied.
+    Returns a `FETCH_*` code, never raises.
+
+    The reverse of saving first: `save_calendar_url()` erases the working
+    link's registry before anything is fetched, so a mistyped replacement
+    would destroy a working connection. Here the candidate is fetched and
+    parsed with no state touched; on `FETCH_REJECTED_URL` (not https, or
+    an address the SSRF gate refuses) or `FETCH_FAILED` (no usable body)
+    the stored link and its flights are exactly as they were.
+
+    On success: the secret is stored (its registry erase happens inside
+    `save_calendar_url()`), then the windowed entries are written with
+    `last_synced_at` derived from `now`. `FETCH_SAVE_FAILED` means the
+    secret could not be stored (nothing changed);
+    `FETCH_SAVED_UNREAD` means it was stored but the first registry write
+    failed, so the poll loop reads the feed on its next cycle.
+    """
+    candidate = url.strip() if isinstance(url, str) else ""
+    if not candidate or not safe_fetch.url_is_safe(_normalise_calendar_url(candidate)):
+        return FETCH_REJECTED_URL
+    body = fetch_ics(candidate, transport=transport)
+    if body is None:
+        return FETCH_FAILED
+    windowed = select_window_entries(parse_ics_events(body), now)
+    if not save_calendar_url(state_dir, candidate, now=now):
+        return FETCH_SAVE_FAILED
+    last_synced_at = datetime.fromtimestamp(now, timezone.utc).isoformat(timespec="seconds")
+    if not write_calendar_registry(state_dir, windowed, now, last_synced_at, now=now):
+        return FETCH_SAVED_UNREAD
+    return FETCH_OK
