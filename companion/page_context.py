@@ -57,7 +57,7 @@ EAGER_FIELDS = (
     "state_dir", "ui_theme", "lang", "device_config",
     "last_checkin_ts", "battery_critical", "wake_interval_env_default",
     "flash", "flash_role", "flash_key", "runway_images", "now", "resolve_prefix",
-    "sheet_key", "flights_limit",
+    "sheet_key",
 )
 
 # The expensive values, resolved at most once, only if a route's own
@@ -332,7 +332,7 @@ def build_page_context(handler):
     page's own banner in agreement.
     """
     from companion import flash
-    from companion.pages import airlines_page, health_page, history_page
+    from companion.pages import airlines_page, health_page
 
     parsed = urlsplit(handler.path)
     params = parse_qs(parsed.query)
@@ -395,10 +395,6 @@ def build_page_context(handler):
             # Deliberately unvalidated: the Airlines page only ever
             # compares it against the artwork keys it rendered itself.
             "sheet_key": params.get(airlines_page.SHEET_QUERY_PARAM, [None])[0],
-            # Deliberately unvalidated: validation belongs to
-            # history_page.flights_limit(). Presentation-only.
-            "flights_limit": params.get(
-                history_page.FLIGHTS_LIMIT_QUERY_PARAM, [None])[0],
         },
         {
             # The severity/anomaly snapshot every tab's nav dot needs,

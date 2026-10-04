@@ -216,15 +216,49 @@ def test_a_pass_straddling_midnight_folds_into_the_newer_day(make_app_server):
     assert len(heads) == 1 and "4 Sep" in heads[0]
 
 
-def test_show_more_counts_folded_flights(make_app_server):
-    """with 17 distinct flights and one stored twice, 15 show and the reveal link reports the
-    2 flights left, not the 3 stored events"""
-    events = [
-        _event("2026-09-03T%02d:%02d:00+00:00" % (8 + i // 6, (i % 6) * 10),
-               callsign="TVF%02d" % i, hex_="4b%04x" % i)
-        for i in range(17)]
-    events.append(_event("2026-09-03T08:00:20+00:00", callsign="TVF00", hex_="4b0000",
-                         corroborated=None))
+def _fifty_events(count=50, **extra):
+    """`count` distinct flights, one every 10 minutes, newest last in the list"""
+    return [
+        _event("2026-09-%02dT%02d:%02d:00+00:00" % (1 + i // 24, (i % 24) // 6 + 6, (i % 6) * 10),
+               callsign="TVF%02d" % i, hex_="4b%04x" % i,
+               state="arriving" if i % 5 == 0 else "departing", **extra)
+        for i in range(count)]
+
+
+def test_all_fifty_flights_are_in_the_first_response_with_no_paging_step(make_app_server):
+    """50 distinct flights render as 50 cards and 50 table rows in the first response, with no
+    Show-more control, and the chips and the status count cover all 50"""
+    doc = _doc_for(make_app_server, _fifty_events())
+    assert len(doc.select("ul.history-cards > li.history-card")) == 50
+    assert len(doc.select("tr[data-flight-row]")) == 50
+    assert not doc.select(".flights-more")
+    assert "show more" not in doc.text().lower()
+    assert not [a for a in doc.select("a") if "limit=" in a.attrs.get("href", "")]
+    assert _chip_counts(doc) == {"all": "50", "departing": "40", "arriving": "10"}
+    assert doc.select_one("[data-filter-count]").text() == "50 of 50 shown"
+    assert "all 50 flights" in doc.text()
+
+
+def test_a_legacy_limit_query_is_ignored(make_app_server):
+    """a hand-typed ?limit= changes nothing: the page is identical to the one without it"""
+    server = make_app_server(seed=lambda d: vp.seed_runway_events(d, _fifty_events()))
+    cookie = login(server)
+    plain = get(server, "/flights", cookie=cookie)
+    for query in ("?limit=5", "?limit=30", "?limit=abc", "?limit=-1", "?limit=999999"):
+        status, _, body = get(server, "/flights" + query, cookie=cookie)
+        assert status == 200, query
+        doc = parse_html(body.decode("utf-8"))
+        assert len(doc.select("ul.history-cards > li.history-card")) == 50, query
+        assert not doc.select(".flights-more"), query
+        assert _chip_counts(doc)["all"] == "50", query
+    assert plain[0] == 200
+
+
+def test_folded_duplicates_still_reduce_the_full_list(make_app_server):
+    """a pass stored twice among the newest 50 events is one flight: 49 cards, 49 in the chips"""
+    events = _fifty_events(49)
+    events.append(_event("2026-09-01T06:00:20+00:00", callsign="TVF00", hex_="4b0000",
+                         state="arriving", corroborated=None))
     doc = _doc_for(make_app_server, events)
-    assert len(doc.select("ul.history-cards > li.history-card")) == 15
-    assert doc.select_one(".flights-more a").text() == "Show more (2 remaining)"
+    assert len(doc.select("ul.history-cards > li.history-card")) == 49
+    assert _chip_counts(doc)["all"] == "49"

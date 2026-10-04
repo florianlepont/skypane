@@ -556,7 +556,6 @@ def test_flights_declares_its_refresh_regions_and_never_the_filter_input(tmp_pat
         "ul.history-cards": '<ul class="history-cards"',
         ".data-table-wrap": 'class="data-table-wrap"',
         "[data-filter-count]": "data-filter-count ",
-        ".flights-more": 'class="flights-more"',
     }
     assert sorted(witnesses) == sorted(selectors), (
         "Flights' registry entry is %r, and this check knows how to witness %r"
@@ -638,41 +637,9 @@ def test_phone_card_identity_branches_and_time_never_wrap(tmp_path, served_css):
         assert len(identity.select(".history-card__airline")) == 1, name
 
 
-def test_flights_reveal_state_reproduces_from_the_url_alone(tmp_path, app):
-    """two renders of a 36-row fixture at the SAME ?limit= value produce byte-identical
-    pagination state (standing in for freshness.js's own re-fetch of the unchanged
-    window.location.href), '.flights-more' is a declared swap region, and freshness.js
-    carries exactly one fetch( call targeting window.location.href verbatim — the
-    structural half of the refresh-survival property this harness can prove without a
-    browser"""
-    vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-09-%02dT10:00:00+00:00" % i, "hex": "rv%02d" % i, "callsign": "REV%02d" % i}
-        for i in range(1, 37)
-    ])
-    ctx = vp.history_ctx(tmp_path, flights_limit="30")
-    first = history_page.render(ctx)
-    second = history_page.render(ctx)
-    for label, rendered in (("first", first), ("second", second)):
-        card_count = rendered.count('<li class="history-card"')
-        assert card_count == 30, "%s render: expected 30 cards, got %d" % (label, card_count)
-        nav_match = re.search(r'<nav class="flights-more">(.*?)</nav>', rendered, re.S)
-        assert nav_match is not None, "%s render: expected a non-empty Show-more nav" % label
-        href_match = re.search(r'href="([^"]+)"', nav_match.group(1))
-        assert href_match is not None and href_match.group(1) == "/flights?limit=45", (
-            "%s render: expected the Show-more anchor's href to be /flights?limit=45, got %r"
-            % (label, href_match.group(1) if href_match else None))
-    first_cards_match = re.search(r'<ul class="history-cards">(.*?)</ul>', first, re.S)
-    second_cards_match = re.search(r'<ul class="history-cards">(.*?)</ul>', second, re.S)
-    assert first_cards_match is not None and second_cards_match is not None
-    assert first_cards_match.group(1) == second_cards_match.group(1), (
-        "expected two renders of the SAME ?limit= ctx to produce byte-identical "
-        "ul.history-cards markup")
-
-    selectors = layout.REFRESH_SWAP_SELECTORS_BY_PAGE[layout.REFRESH_PAGE_FLIGHTS]
-    assert ".flights-more" in selectors, (
-        "expected '.flights-more' to be a declared REFRESH_SWAP_SELECTORS_BY_PAGE region, "
-        "got %r" % (selectors,))
-
+def test_freshness_refetches_the_current_url_verbatim(app):
+    """freshness.js carries exactly one fetch( call and it targets window.location.href
+    verbatim, so a background refresh of Flights re-requests whatever URL the visitor is on"""
     js_source = vp.strip_js_line_and_block_comments(served_asset(app, "/static/freshness.js"))
     fetch_calls = re.findall(r"fetch\(\s*([^,)]+)", js_source)
     assert len(fetch_calls) == 1, (
@@ -681,153 +648,6 @@ def test_flights_reveal_state_reproduces_from_the_url_alone(tmp_path, app):
     assert fetch_calls[0].strip() == "window.location.href", (
         "expected freshness.js's one fetch( call to target window.location.href, got %r"
         % (fetch_calls[0].strip(),))
-
-
-def test_flights_reveal_control_is_a_plain_anchor_no_script_mentions(tmp_path, app):
-    """the Show-more anchor renders with an href and no onclick/data- attribute and is never a
-    <button> or <form>, and zero companion/static/*.js files mention its 'flights-more'
-    class (scanned-route floor >= 16, printed on failure) — a no-JS control proof, not merely
-    a render"""
-    vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-09-%02dT10:00:00+00:00" % i, "hex": "nj%02d" % i, "callsign": "NOJS%02d" % i}
-        for i in range(1, 21)
-    ])
-    rendered = history_page.render(vp.history_ctx(tmp_path))
-    nav_match = re.search(r'<nav class="flights-more">(.*?)</nav>', rendered, re.S)
-    assert nav_match is not None, "expected a non-empty <nav class=\"flights-more\"> in a 20-row render"
-    nav_html = nav_match.group(1)
-    assert nav_html.startswith("<a ") and nav_html.count("<a ") == 1, (
-        "expected the Show-more nav's one child to be a plain <a>, got %r" % (nav_html,))
-    assert "<button" not in nav_html and "<form" not in nav_html
-    assert "href=" in nav_html, "expected the Show-more anchor to carry an href"
-    assert "onclick" not in nav_html
-    assert not re.search(r'\sdata-[a-z-]+=', nav_html), (
-        "did not expect a data-prefixed attribute on the Show-more anchor")
-
-    routes = _all_static_script_routes()
-    assert len(routes) >= 16, (
-        "FLOOR TRIPPED: expected at least 16 companion static JS routes, found %d: %r"
-        % (len(routes), routes))
-    hits_by_route = {}
-    for route in routes:
-        stripped = vp.strip_js_line_and_block_comments(served_asset(app, route))
-        lines_with_hit = [ln for ln in stripped.splitlines() if "flights-more" in ln]
-        if lines_with_hit:
-            hits_by_route[route] = lines_with_hit
-    unsanctioned = {
-        route: lines for route, lines in hits_by_route.items() if route != "/static/freshness.js"}
-    assert not unsanctioned, (
-        "expected only freshness.js's own generic swap-registry mirror to mention "
-        "'flights-more' — found it in %r too (scanned %d routes)"
-        % (sorted(unsanctioned), len(routes)))
-    if "/static/freshness.js" in hits_by_route:
-        targeted = [
-            ln for ln in hits_by_route["/static/freshness.js"]
-            if re.search(r'querySelector\(|addEventListener|\.click\(|\.href', ln)]
-        assert not targeted, (
-            "expected freshness.js's 'flights-more' mention(s) to be plain swap-registry "
-            "array entries, found a targeted reference: %r" % (targeted,))
-
-
-def test_flights_reveal_anchor_has_a_matching_css_selector(tmp_path, served_css):
-    """the Show-more anchor's rendered tag agrees with a REAL CSS selector match (rightmost
-    compound's tag qualifier, if any) — not merely a class-string substring shared between
-    the markup and style.css"""
-    vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-09-%02dT10:00:00+00:00" % i, "hex": "cm%02d" % i, "callsign": "CSSM%02d" % i}
-        for i in range(1, 21)
-    ])
-    rendered = history_page.render(vp.history_ctx(tmp_path))
-    nav_match = re.search(r'<nav class="flights-more">(.*?)</nav>', rendered, re.S)
-    assert nav_match is not None, "expected a non-empty <nav class=\"flights-more\"> in a 20-row render"
-    tag_match = re.search(r'<(\w+)\b[^>]*\bclass="([^"]*)"', nav_match.group(1))
-    assert tag_match is not None, "expected the Show-more nav's child to carry a class attribute"
-    tag, classes = tag_match.group(1), tag_match.group(2).split()
-    assert "calendar-disconnect-btn" in classes, (
-        "expected the Show-more control to carry calendar-disconnect-btn, got classes %r"
-        % (classes,))
-
-    candidate_selectors = []
-    for rule in css_rules(served_css):
-        for sel in rule.selectors:
-            if ".calendar-disconnect-btn" in sel:
-                candidate_selectors.append(sel)
-    assert candidate_selectors, (
-        "expected at least one CSS rule selector mentioning .calendar-disconnect-btn")
-
-    reachable = False
-    for sel in candidate_selectors:
-        compounds = sel.split()
-        subject = compounds[-1]
-        qualifier_match = re.match(r'^([a-zA-Z][a-zA-Z0-9-]*)?\.calendar-disconnect-btn$', subject)
-        if qualifier_match is None:
-            continue
-        qualifier_tag = qualifier_match.group(1)
-        if len(compounds) == 1 and (qualifier_tag is None or qualifier_tag.lower() == tag.lower()):
-            reachable = True
-            break
-    assert reachable, (
-        "expected a CSS selector whose rightmost compound has no tag qualifier or matches "
-        "the rendered <%s>, with no ancestor compound to its left — found only %r, none of "
-        "which actually paints <%s class=\"calendar-disconnect-btn\">"
-        % (tag, candidate_selectors, tag))
-
-
-_FLIGHTS_LIMIT_HOSTILE_INPUTS = (
-    None, "", " ", "abc", "1.5", "-1", "0", "14", "15", "50", "51",
-    "999999999", "1e9", "0x10", True, False, [], {}, object(),
-)
-
-# Stable, worker-independent ids: repr(object()) embeds the object's own
-# memory address, which differs between xdist worker processes and makes
-# pytest-xdist refuse to run ("Different tests were collected between
-# gw0 and gwN") - an id derived from each input's own index is stable.
-_FLIGHTS_LIMIT_HOSTILE_INPUT_IDS = [
-    repr(value) if type(value) is not object else "opaque-object-%d" % i
-    for i, value in enumerate(_FLIGHTS_LIMIT_HOSTILE_INPUTS)
-]
-
-
-@pytest.mark.parametrize(
-    "raw", _FLIGHTS_LIMIT_HOSTILE_INPUTS, ids=_FLIGHTS_LIMIT_HOSTILE_INPUT_IDS)
-def test_flights_limit_clamps_every_hostile_input_into_bounds(raw):
-    """history_page.flights_limit() clamps all 19 hostile inputs into [15, 50] without
-    raising"""
-    result = history_page.flights_limit({"flights_limit": raw})
-    assert isinstance(result, int) and not isinstance(result, bool), (
-        "flights_limit(%r) returned %r, expected a plain int" % (raw, result))
-    assert history_page.FLIGHTS_PAGE_SIZE <= result <= history_page.HISTORY_ROW_LIMIT, (
-        "flights_limit(%r) returned %r, outside [%d, %d]"
-        % (raw, result, history_page.FLIGHTS_PAGE_SIZE, history_page.HISTORY_ROW_LIMIT))
-
-
-def test_flights_render_defers_entirely_to_flights_limit_for_hostile_ctx_values(tmp_path):
-    """history_page.render() clamps a hostile ctx['flights_limit'] value into exactly the
-    card count flights_limit() itself computes — the behavioural proof that render() has no
-    second, unvalidated arithmetic path of its own on the raw threaded value, and
-    HISTORY_ROW_LIMIT is the ceiling a huge hostile value clamps to
-
-    A source/AST introspection proof that render() calls flights_limit() exactly once, never
-    reads ctx['flights_limit'] directly, and performs no arithmetic of its own on the raw
-    threaded value is dropped in favour of stronger behavioural evidence: if render() had any
-    second path onto the raw value (its own arithmetic, a different default, a raise), the
-    observed card count below would diverge from flights_limit()'s own clamp for at least
-    one of these hostile inputs.
-    """
-    vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-09-01T%02d:00:00+00:00" % (i % 24), "hex": "cl%03d" % i,
-         "callsign": "CLAMP%03d" % i}
-        for i in range(60)
-    ])
-    for raw in ("abc", "-1", "0", "999999999", "1e9", None, "", " ", True, [], {}):
-        expected = history_page.flights_limit({"flights_limit": raw})
-        rendered = history_page.render(vp.history_ctx(tmp_path, flights_limit=raw))
-        card_count = rendered.count('<li class="history-card"')
-        assert card_count == min(expected, 60), (
-            "flights_limit=%r: expected render() to defer to flights_limit()'s own clamp "
-            "(%d cards, seeded 60), got %d" % (raw, min(expected, 60), card_count))
-    assert history_page.flights_limit({"flights_limit": "999999999"}) == history_page.HISTORY_ROW_LIMIT, (
-        "expected a huge hostile value to clamp AT HISTORY_ROW_LIMIT, not below it")
 
 
 def test_the_count_animates_without_its_text_production_moving(app):
