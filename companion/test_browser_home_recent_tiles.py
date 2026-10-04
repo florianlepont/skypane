@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Browser checks for Home's recent-flight tiles (the phone list below 960 px): no horizontal
-overflow at 390 and 360 px in both themes and both languages, each tile two rows tall with its
-content inside it, the airline ellipsised on one line, all five flights fitting in one 390x844
+"""Browser checks for Home's recent-flight cards (the phone list below 960 px): no horizontal
+overflow at 390 and 360 px in both themes and both languages, each card the Flights boarding
+pass at a compact height with its content inside it, the airline ellipsised on one line, all five flights fitting in one 390x844
 screen with the section heading at the top, the tiles working with scripts blocked, and the
 desktop list unchanged at 1280 px. Also checks that Display, like the other pages, shows no
 visible freshness line while keeping its hidden refresh marker.
@@ -17,7 +17,7 @@ from companion.test_browser_ux_helpers import (
 
 pytestmark = pytest.mark.browser
 
-TILE = "li.recent-tile"
+TILE = "ul.recent-flight-tiles li.history-card"
 SECTION = 'section[aria-labelledby="home-flights"]'
 
 
@@ -39,22 +39,29 @@ def _open_home(new_context, server, viewport, lang="en"):
 
 
 _TILE_PROBE = (
-    "() => [...document.querySelectorAll('li.recent-tile')].map(li => {"
+    "() => [...document.querySelectorAll('ul.recent-flight-tiles li.history-card')].map(li => {"
     "  const c = li.getBoundingClientRect();"
     "  const inside = [...li.querySelectorAll('*')].every(el => {"
     "    const r = el.getBoundingClientRect();"
     "    return r.width === 0 || (r.left >= c.left - 0.5 && r.right <= c.right + 0.5"
     "      && r.top >= c.top - 0.5 && r.bottom <= c.bottom + 0.5);"
     "  });"
-    "  const top = sel => li.querySelector(sel).getBoundingClientRect();"
-    "  const id = top('.recent-tile__id'), art = top('.history-card__art'),"
-    "        route = top('.history-card__route');"
+    "  const box = sel => li.querySelector(sel).getBoundingClientRect();"
+    "  const head = box('.history-card__head'), route = box('.history-card__route'),"
+    "        stub = box('.history-card__stub'), art = box('.history-card__art'),"
+    "        when = box('.history-card__when');"
     "  const airline = li.querySelector('.history-card__airline');"
     "  const codes = [...li.querySelectorAll('.history-card__code')]"
     "    .map(el => el.getBoundingClientRect().top);"
+    "  const cs = getComputedStyle(li), st = getComputedStyle(li.querySelector('.history-card__stub'));"
+    "  const notch = getComputedStyle(li.querySelector('.history-card__stub'), '::before');"
     "  return {callsign: li.querySelector('.history-card__callsign').textContent,"
     "          inside, height: c.height,"
-    "          twoRows: id.bottom <= art.top + 0.5 && Math.abs(art.top - route.top) < 8,"
+    "          bands: head.bottom <= route.top + 0.5 && route.bottom <= stub.top + 0.5,"
+    "          stubOneRow: art.top < when.bottom && when.top < art.bottom,"
+    "          boxed: cs.borderTopStyle === 'solid' && parseFloat(cs.borderTopLeftRadius) > 0,"
+    "          tearLine: st.borderTopStyle === 'dashed',"
+    "          notch: notch.content !== 'none' && notch.borderTopLeftRadius === '50%',"
     "          airlineOneLine: airline.getBoundingClientRect().height < 24,"
     "          airlineClipped: airline.scrollWidth > airline.clientWidth,"
     "          codesOneRow: codes.every(t => Math.abs(t - codes[0]) < 1)};"
@@ -65,9 +72,10 @@ _TILE_PROBE = (
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED], ids=["390", "360"])
 def test_tiles_fit_the_phone_in_both_themes(new_context, server, viewport, lang):
     """At 390 and 360 px, in English and French, light and dark: the page never scrolls
-    sideways, every tile keeps its content inside its own box on two rows (identity, then the
-    plate beside the route) no taller than 80 px, the route codes sit on one row, and the
-    long operator name is cut with an ellipsis on one line rather than wrapping."""
+    sideways, and every card is the Flights boarding pass (a bordered rounded box, head over
+    route over a stub behind a dashed tear line with its half-disc notches, the plate sharing a
+    row with the time) no taller than 96 px, with its content inside its own box, the route
+    codes on one row and the long operator name cut with an ellipsis on one line."""
     context, page = _open_home(new_context, server, viewport, lang)
     try:
         for theme in _in_both_themes(page):
@@ -78,8 +86,10 @@ def test_tiles_fit_the_phone_in_both_themes(new_context, server, viewport, lang)
             tiles = page.evaluate(_TILE_PROBE)
             assert len(tiles) == 5, "%s: expected 5 tiles, got %d" % (where, len(tiles))
             for tile in tiles:
-                ok = (tile["inside"] and tile["twoRows"] and tile["codesOneRow"]
-                      and tile["airlineOneLine"] and tile["height"] <= 80)
+                ok = (tile["inside"] and tile["bands"] and tile["stubOneRow"]
+                      and tile["boxed"] and tile["tearLine"] and tile["notch"]
+                      and tile["codesOneRow"] and tile["airlineOneLine"]
+                      and tile["height"] <= 96)
                 if not ok:
                     raise AssertionError("%s: tile %r is broken: %r" % (where, tile["callsign"], tile))
             long_name = [t for t in tiles if t["callsign"] == "XYZ9"][0]
@@ -101,7 +111,7 @@ def test_five_flights_fit_one_phone_screen(new_context, server):
             "  const tab = [...document.querySelectorAll('.tab-bar')]"
             "    .find(t => getComputedStyle(t).display !== 'none');"
             "  const floor = tab ? tab.getBoundingClientRect().top : innerHeight;"
-            "  const tiles = [...s.querySelectorAll('li.recent-tile')]"
+            "  const tiles = [...s.querySelectorAll('li.history-card')]"
             "    .map(li => li.getBoundingClientRect().bottom - top);"
             "  return {fit: tiles.filter(b => b <= floor).length, floor, tiles};"
             "}" % SECTION)

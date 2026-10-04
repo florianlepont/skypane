@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Behaviour checks for Home's recent-flight tiles (the phone list below 960 px), read from
-the page the companion app serves: one slim tile per flight with its identity, artwork plate,
-route line and time; the unresolved-airline, no-artwork, arrival and no-route variants in
+"""Behaviour checks for Home's recent-flight cards (the phone list below 960 px), read from
+the page the companion app serves: one compact Flights boarding-pass card per flight with its
+head, route line and stub; the unresolved-airline, no-artwork, arrival and no-route variants in
 English and French; no action of any kind inside a tile; the desktop list kept beside it; no
 inline style attribute; and a pass stored twice within a minute shown once.
 """
@@ -36,26 +36,30 @@ def _home_section(server, lang="en"):
 def _tiles(section):
     return {
         tile.select_one(".history-card__callsign").text(): tile
-        for tile in section.select("ul.recent-flight-tiles > li.recent-tile")}
+        for tile in section.select("ul.recent-flight-tiles > li.history-card")}
 
 
-def test_every_recent_flight_is_one_tile_with_identity_art_route_and_time(server):
-    """each of the five newest distinct flights renders as one tile whose parts are identity,
-    artwork plate, route line and time in that order, newest first; the time is the clock over
-    a live relative age"""
+def test_every_recent_flight_is_one_compact_boarding_pass_card(server):
+    """each of the five newest distinct flights renders as one Flights boarding-pass card (the
+    same history-card bands: head with the identity, route line, stub with the artwork plate
+    then the time) carrying the compact modifier, newest first; the time is the clock beside a
+    live relative age"""
     section = _home_section(server)
-    tiles = section.select("ul.recent-flight-tiles > li.recent-tile")
+    tiles = section.select("ul.recent-flight-tiles > li.history-card")
     assert [t.select_one(".history-card__callsign").text() for t in tiles] == [
         f[0] for f in _FLIGHTS]
     for tile in tiles:
-        parts = [child.attrs.get("class", "").split()[0]
-                 for child in tile.children if not isinstance(child, str)]
-        assert parts == ["recent-tile__id", "history-card__art", "history-card__route",
-                         "history-card__when"], parts
-        callsign = tile.select_one(".recent-tile__id .history-card__callsign")
+        assert tile.attrs["class"].split() == ["history-card", "history-card--compact"]
+        bands = [child.attrs.get("class") for child in tile.children if not isinstance(child, str)]
+        assert bands == ["history-card__head", "history-card__route", "history-card__stub"], bands
+        callsign = tile.select_one(".history-card__head .history-card__id .history-card__callsign")
         assert "mono" in callsign.attrs["class"].split()
-        assert tile.select_one(".recent-tile__id .history-card__airline").text()
-        when = tile.select_one(".history-card__when")
+        assert tile.select_one(".history-card__head .history-card__airline").text()
+        stub = [child for child in tile.select_one(".history-card__stub").children
+                if not isinstance(child, str)]
+        assert "history-card__art" in stub[0].attrs["class"].split()
+        assert stub[1].attrs["class"] == "history-card__when"
+        when = tile.select_one(".history-card__stub .history-card__when")
         assert when.select_one(".time-value--primary").text()
         assert when.select_one("time[data-relative]") is not None
 
@@ -67,7 +71,7 @@ def test_the_tiles_render_before_the_unchanged_desktop_list(server):
     lists = [child for child in section.children
              if not isinstance(child, str) and child.tag == "ul"]
     assert [ul.attrs["class"] for ul in lists] == ["recent-flight-tiles", "recent-flights"]
-    assert len(lists[1].select("li.recent-flight")) == len(lists[0].select("li.recent-tile"))
+    assert len(lists[1].select("li.recent-flight")) == len(lists[0].select("li.history-card"))
     links = section.select("a")
     assert len(links) == 1 and links[0].attrs["href"] == "/flights"
 
@@ -76,7 +80,7 @@ def test_a_tile_carries_no_action_and_no_inline_style(server):
     """Home's rows have never been links, so a tile holds no link, button or focusable
     control; nothing in the section carries a style attribute (strict CSP)"""
     section = _home_section(server)
-    for tile in section.select("li.recent-tile"):
+    for tile in section.select("li.history-card"):
         for selector in ("a", "button", "[tabindex]", "[onclick]"):
             assert tile.select(selector) == [], selector
     assert section.select("[style]") == []
@@ -129,7 +133,7 @@ def test_a_pass_stored_twice_within_a_minute_shows_once(server):
     """the seeded duplicate (same hex, callsign, route and direction, 30 s apart) is folded
     into one tile and one desktop row, and the list still shows five distinct flights"""
     section = _home_section(server)
-    tile_callsigns = [t.text() for t in section.select("li.recent-tile .history-card__callsign")]
+    tile_callsigns = [t.text() for t in section.select("li.history-card .history-card__callsign")]
     row_callsigns = [r.text() for r in section.select("li.recent-flight .recent-flight__callsign")]
     for callsigns in (tile_callsigns, row_callsigns):
         assert callsigns.count("TVF72YL") == 1
@@ -160,5 +164,5 @@ def test_only_a_same_pass_repeat_inside_a_minute_is_folded(
     different reading and stays"""
     server = make_app_server(seed=_pair_seed(second_ts, second_state))
     section = _home_section(server)
-    assert len(section.select("li.recent-tile")) == expected
+    assert len(section.select("li.history-card")) == expected
     assert len(section.select("li.recent-flight")) == expected
