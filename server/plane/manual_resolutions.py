@@ -163,8 +163,41 @@ def illustration_key_for_name(airline_name):
     return slug
 
 
+def check_name(airline_name):
+    """Validate a free-typed airline name for storage. Returns
+    `(name, None)` for a usable one, otherwise `(None, ADD_REJECTED_*)`
+    naming why: empty, too long, reserved (the generic artwork's own
+    stem), or unusable (a path-shaped name or one whose slug collapses to
+    nothing, reported as empty since the remedy is identical). Never
+    raises.
+    """
+    name = normalise_manual_airline_name(airline_name)
+    if name is None:
+        if isinstance(airline_name, str) and len(airline_name.strip()) > MANUAL_AIRLINE_NAME_MAX_LEN:
+            return None, ADD_REJECTED_NAME_TOO_LONG
+        return None, ADD_REJECTED_NAME_EMPTY
+    if illustration_key_for_name(name) is None:
+        slug = illustrations.normalise_airline_key(name)
+        if slug is not None and _SAFE_KEY_RE.match(slug) and (
+            slug.startswith(RESERVED_KEY_PREFIX) or slug == _GENERIC_FALLBACK_KEY
+        ):
+            return None, ADD_REJECTED_NAME_RESERVED
+        return None, ADD_REJECTED_NAME_EMPTY
+    return name, None
+
+
 def load_manual_resolutions(state_dir):
-    """Read `{state_dir}/manual_resolutions.json`; never raises.
+    """Read `{state_dir}/manual_resolutions.json`; never raises. See
+    `load_registry_file()` for the validation applied.
+    """
+    return load_registry_file(manual_resolutions_path(state_dir))
+
+
+def load_registry_file(path):
+    """Read a `{prefix: {"airline_name", "created_at"}}` registry file at
+    `path`; never raises. Shared by every registry with this shape (the
+    manual resolutions and the owner's name overrides), so one allowlist
+    guards them all.
 
     A missing/unreadable/invalid/non-dict file yields `{}`. Otherwise
     entries are visited in sorted key order and each is rebuilt from
@@ -190,7 +223,7 @@ def load_manual_resolutions(state_dir):
     Returns `{prefix: {"airline_name": name, "created_at": created_at}}`.
     """
     try:
-        with open(manual_resolutions_path(state_dir)) as fh:
+        with open(path) as fh:
             data = json.load(fh)
     except (OSError, ValueError):
         data = {}
@@ -231,7 +264,7 @@ def load_manual_resolutions(state_dir):
         print(
             "manual_resolutions: %d entry/entries will be dropped from %s on the next write "
             "(malformed/unsafe, or beyond the %d-entry cap)"
-            % (dropped, manual_resolutions_path(state_dir), MANUAL_RESOLUTION_MAX_ENTRIES))
+            % (dropped, path, MANUAL_RESOLUTION_MAX_ENTRIES))
 
     return registry
 
@@ -271,22 +304,9 @@ def add_entry(state_dir, prefix, airline_name, now=None):
     if normalised_prefix is None:
         return ADD_REJECTED_PREFIX
 
-    name = normalise_manual_airline_name(airline_name)
-    if name is None:
-        if isinstance(airline_name, str) and len(airline_name.strip()) > MANUAL_AIRLINE_NAME_MAX_LEN:
-            return ADD_REJECTED_NAME_TOO_LONG
-        return ADD_REJECTED_NAME_EMPTY
-
-    key = illustration_key_for_name(name)
-    if key is None:
-        # Distinguish "reserved" from "collapsed to nothing usable" so the
-        # operator gets an accurate reason.
-        slug = illustrations.normalise_airline_key(name)
-        if slug is not None and _SAFE_KEY_RE.match(slug) and (
-            slug.startswith(RESERVED_KEY_PREFIX) or slug == _GENERIC_FALLBACK_KEY
-        ):
-            return ADD_REJECTED_NAME_RESERVED
-        return ADD_REJECTED_NAME_EMPTY
+    name, rejection = check_name(airline_name)
+    if rejection is not None:
+        return rejection
 
     with _WRITE_LOCK:
         registry = load_manual_resolutions(state_dir)

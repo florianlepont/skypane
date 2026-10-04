@@ -40,7 +40,7 @@ from companion.pages import (  # noqa: E402
     update_page,
 )
 from server import device_config, firmware_registry, history_db  # noqa: E402
-from server.plane import calendar_rules, illustrations  # noqa: E402
+from server.plane import calendar_rules, illustrations, name_overrides  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
 import server.state_store as state_store  # noqa: E402
 
@@ -373,7 +373,10 @@ def _safe_latest_runway_event(state_dir):
     """
     try:
         with history_db.open_db(state_dir) as conn:
-            rows = history_db.recent_runway_events(conn, limit=1)
+            rows = history_db.recent_runway_events(
+                conn, limit=1,
+                airline_names=name_overrides.names_by_prefix(
+                    name_overrides.load_name_overrides(state_dir)))
     except Exception:
         return None
     return rows[0] if rows else None

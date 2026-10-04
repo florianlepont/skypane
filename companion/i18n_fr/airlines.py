@@ -99,4 +99,18 @@ MESSAGES = {
     "airlines.drop_one_image_at_a_time": "Déposez une seule image à la fois.",
     "airlines.that_image_is_larger_than_the_mb_limit":
         "Cette image dépasse la limite de %d Mo.",
+
+    # --- The airline sheet (pencil on a tile) ---------------------------
+    "airlines.edit_airline": "Modifier %s",
+    "airlines.new_flights_use_this_name":
+        "Affiché sur tous les vols de ces préfixes, passés et à venir.",
+    "airlines.save_name": "Enregistrer le nom",
+    "airlines.callsign_prefixes": "Préfixes d’indicatif",
+    "airlines.built_in_prefixes_are_fixed":
+        "Intégrés à SkyPane : ils ne peuvent pas être modifiés ici.",
+    "airlines.reset_to_skypane_s_name": "Rétablir le nom de SkyPane",
+    "airlines.skypane_s_own_name_for_this_airline":
+        "Le nom de SkyPane pour cette compagnie est « %s ».",
+    "airlines.artwork": "Illustration",
+    "airlines.renamed": "Renommée",
 }

@@ -21,7 +21,7 @@ import companion.page_context as page_context
 import companion.wake as wake
 from companion.layout import escape_html
 from server import device_config, history_db
-from server.plane import illustrations
+from server.plane import illustrations, name_overrides
 # The same presentation-only airline alias Flights applies via
 # history_page.py's panel_render.display_airline_name() call.
 # illustrations.normalise_airline_key() still resolves on the raw
@@ -131,9 +131,10 @@ def _safe_query(state_dir, fn):
         return None
 
 
-def _recent_flights(conn):
+def _recent_flights(conn, airline_names=None):
     return _distinct_flights(
-        history_db.recent_runway_events(conn, limit=RECENT_FLIGHTS_FETCH),
+        history_db.recent_runway_events(
+            conn, limit=RECENT_FLIGHTS_FETCH, airline_names=airline_names),
         RECENT_FLIGHTS_LIMIT)
 
 
@@ -681,7 +682,8 @@ def render(ctx):
     # One read, reused for both the hero's flight one-liner (its first
     # row is "the current flight") and the recent-flights list — never
     # two independent queries for the same data.
-    rows = _safe_query(ctx.state_dir, _recent_flights)
+    names = name_overrides.names_by_prefix(ctx.name_overrides)
+    rows = _safe_query(ctx.state_dir, lambda conn: _recent_flights(conn, names))
     current_flight_row = rows[0] if rows else None
     # The silent marker keeps Home on freshness.js's background refresh
     # without a visible freshness line.

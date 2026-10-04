@@ -45,6 +45,7 @@ import server.plane.colour_rules as colour_rules
 import server.plane.detect as detect
 import server.plane.enrich as enrich
 import server.plane.manual_resolutions as manual_resolutions
+import server.plane.name_overrides as name_overrides
 import server.plane.render as render
 import server.plane.runway_config as runway_config
 import server.state_store as state_store
@@ -597,6 +598,7 @@ class CycleContext:
     calendar_registry: dict = field(default_factory=dict)
     colour_rules_registry: dict = field(default_factory=dict)
     manual_registry: dict = field(default_factory=dict)
+    name_overrides: dict = field(default_factory=dict)
 
     # State: poll_state.json's read-once contents, and the hysteresis
     # flags derived from it before the hold decision.
@@ -672,6 +674,7 @@ def load_cycle_context(snapshot, state_dir, geofence, caddy_log):
     os.makedirs(state_dir, exist_ok=True)
 
     manual_registry = manual_resolutions.load_manual_resolutions(state_dir)
+    name_overrides_registry = name_overrides.load_name_overrides(state_dir)
     colour_rules_registry = colour_rules.load_colour_rules(state_dir)
     _, calendar_registry = calendar_rules.refresh_calendar_registry(state_dir, now_s())
 
@@ -718,7 +721,7 @@ def load_cycle_context(snapshot, state_dir, geofence, caddy_log):
         display_enabled=display_enabled, effective_wake_interval_s=effective_wake_interval_s,
         quiet_remaining=quiet_remaining, quiet_until=quiet_until,
         calendar_registry=calendar_registry, colour_rules_registry=colour_rules_registry,
-        manual_registry=manual_registry,
+        manual_registry=manual_registry, name_overrides=name_overrides_registry,
         poll_state=poll_state, poll_state_baseline=poll_state_baseline,
         battery_mv=battery_mv, battery_critical=battery_critical,
         # Default assignment, not a resolution: render_state/current_flight
@@ -1044,7 +1047,8 @@ def _enrich_current_flight(ctx):
     # when the static table has no entry - it wins on a collision);
     # "miss" resolved nothing.
     route, route_source = enrich.resolve_route(
-        current_flight.get("callsign"), cache, now=now_s(), manual_registry=ctx.manual_registry)
+        current_flight.get("callsign"), cache, now=now_s(), manual_registry=ctx.manual_registry,
+        name_overrides=ctx.name_overrides)
     enrich.trim_cache(cache)
     poll_state["enrichment_cache"] = cache
     # A "miss" is an unrecognized ICAO prefix - recorded so the finding

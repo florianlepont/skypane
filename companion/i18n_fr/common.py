@@ -115,6 +115,23 @@ MESSAGES = {
     "common.airline_name_saved_the_frame_will_pick_it_up":
         "Nom de compagnie enregistré — le cadre le récupérera à son "
         "prochain réveil et à sa prochaine vérification.",
+    "common.airline_renamed_new_flights_will_use_it":
+        "Nom de compagnie enregistré — Vols et Accueil l’affichent dès "
+        "maintenant, et le cadre l’utilisera à son prochain réveil et à "
+        "sa prochaine vérification.",
+    "common.airline_name_reset_to_skypane_s_name":
+        "Nom de SkyPane rétabli — Vols et Accueil l’affichent dès "
+        "maintenant, et le cadre l’utilisera à son prochain réveil et à "
+        "sa prochaine vérification.",
+    "common.that_airline_can_t_be_renamed_anymore":
+        "Cette compagnie ne peut plus être renommée ici — rechargez la "
+        "page Compagnies et réessayez.",
+    "common.the_renamed_airlines_list_is_full_200_entries":
+        "La liste des compagnies renommées est pleine (200 entrées) — "
+        "rétablissez-en une avant d’en renommer une autre.",
+    "common.couldn_t_save_that_airline_name":
+        "Impossible d’enregistrer ce nom de compagnie — le dossier d’état "
+        "du cadre n’est peut-être pas accessible en écriture.",
     "common.enter_an_airline_name_before_saving":
         "Saisissez un nom de compagnie avant d’enregistrer.",
     "common.that_name_s_too_long_airline_names_top_out_at":

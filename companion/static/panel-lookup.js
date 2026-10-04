@@ -260,6 +260,14 @@
   var contextLastSeen = dialog.querySelector(".resolve-context__last-seen");
   var contextCount = dialog.querySelector(".resolve-context__count");
   var contextCallsign = dialog.querySelector(".resolve-context__callsign");
+  // The airline sheet (name, prefixes, reset). Optional like the rest:
+  // History's dialog has none of it.
+  var sheet = dialog.querySelector(".airline-sheet");
+  var sheetNameInput = sheet ? sheet.querySelector('input[name="airline_name"]') : null;
+  var sheetAirlineInputs = sheet ? sheet.querySelectorAll('input[name="airline"]') : [];
+  var sheetChips = sheet ? sheet.querySelector(".airline-sheet__chips") : null;
+  var sheetReset = sheet ? sheet.querySelector(".airline-sheet__reset") : null;
+  var sheetResetCaption = sheetReset ? sheetReset.querySelector("[data-sheet-reset-template]") : null;
 
   // ES5-safe manual ancestor walk (no Element.closest) for the nearest
   // ancestor of target (inclusive) carrying data-view-panel-src.
@@ -272,6 +280,54 @@
       node = node.parentNode;
     }
     return null;
+  }
+
+  // Fills the airline sheet from the trigger's data-view-panel-airline-*
+  // attributes, written on every open like everything else here. A
+  // trigger with no airline attribute has no sheet: the whole section is
+  // hidden. Text goes in through textContent/value only; the chips are
+  // built with createElement, never markup.
+  function populateSheet(trigger, headingText) {
+    if (!sheet) {
+      return;
+    }
+    var airline = trigger.getAttribute("data-view-panel-airline") || "";
+    sheet.hidden = (airline === "");
+    var renamed = trigger.getAttribute("data-view-panel-renamed") || "";
+    var name = trigger.getAttribute("data-view-panel-airline-name") || "";
+    var prefixes = (trigger.getAttribute("data-view-panel-airline-prefixes") || "").split(" ");
+    for (var a = 0; a < sheetAirlineInputs.length; a += 1) {
+      sheetAirlineInputs[a].value = airline;
+    }
+    if (sheetNameInput) {
+      sheetNameInput.value = name;
+    }
+    if (sheetChips) {
+      while (sheetChips.firstChild) {
+        sheetChips.removeChild(sheetChips.firstChild);
+      }
+      for (var p = 0; p < prefixes.length; p += 1) {
+        if (prefixes[p]) {
+          var chip = document.createElement("li");
+          chip.className = "airline-card__chip mono";
+          chip.textContent = prefixes[p];
+          sheetChips.appendChild(chip);
+        }
+      }
+    }
+    if (sheetReset) {
+      sheetReset.hidden = (renamed === "");
+      if (sheetResetCaption) {
+        var template = sheetResetCaption.getAttribute("data-sheet-reset-template") || "";
+        sheetResetCaption.textContent = template.replace("#", airline);
+      }
+    }
+    // The sheet names the airline in the dialog's own heading unless the
+    // trigger already supplied one.
+    if (heading && airline && !headingText) {
+      var titleTemplate = sheet.getAttribute("data-sheet-title-template") || "";
+      heading.textContent = titleTemplate.replace("#", name);
+    }
   }
 
   // Every read/write to populate and open the dialog lives here once —
@@ -373,6 +429,8 @@
       contextCallsign.textContent = count ? captionText : "";
     }
 
+    populateSheet(trigger, headingText);
+
     // setAttribute rather than the form.action property, which resolves
     // to an absolute URL and is shadowable by a same-named form control.
     if (replaceForm) {
@@ -434,12 +492,12 @@
 
   // ES5-safe extraction of a single query-string key's decoded value,
   // or "" when absent.
-  function resolveParamFromSearch(search) {
+  function paramFromSearch(search, name) {
     var query = search.charAt(0) === "?" ? search.slice(1) : search;
     var pairs = query ? query.split("&") : [];
     for (var i = 0; i < pairs.length; i += 1) {
       var pair = pairs[i].split("=");
-      if (pair[0] === "resolve") {
+      if (pair[0] === name) {
         try {
           return decodeURIComponent(pair[1] || "");
         } catch (err) {
@@ -460,7 +518,8 @@
   // of the attribute-selector string and matching an unintended
   // element; the try/catch degrades to autoTrigger = null if
   // CSS.escape is ever unavailable.
-  var resolveValue = resolveParamFromSearch(location.search);
+  var pageSearch = location.search;
+  var resolveValue = paramFromSearch(pageSearch, "resolve");
   if (resolveValue) {
     var autoTrigger = null;
     try {
@@ -476,6 +535,27 @@
       var fallback = document.querySelector("[data-resolve-fallback]");
       if (fallback) {
         fallback.hidden = true;
+      }
+    }
+  }
+
+  // The same auto-open for ?sheet={artwork key}: the airline sheet's
+  // no-script address. Matched on the trigger's own sheet-key attribute,
+  // escaped for the selector, so a hostile value matches nothing.
+  var sheetValue = paramFromSearch(pageSearch, "sheet");
+  if (sheetValue && !resolveValue) {
+    var sheetTrigger = null;
+    try {
+      sheetTrigger = document.querySelector(
+        '[data-view-panel-sheet-key="' + CSS.escape(sheetValue) + '"]');
+    } catch (err) {
+      sheetTrigger = null;
+    }
+    if (sheetTrigger) {
+      openFromTrigger(sheetTrigger);
+      var sheetFallback = document.querySelector("[data-sheet-fallback]");
+      if (sheetFallback) {
+        sheetFallback.hidden = true;
       }
     }
   }

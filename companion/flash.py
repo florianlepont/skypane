@@ -52,6 +52,11 @@ FLASH_KEY_MANUAL_DELETE_FAILED = airlines_page.FLASH_MANUAL_DELETE_FAILED
 # Distinguishes a name the operator genuinely typed but that
 # add_entry() can't use, from a genuinely empty field.
 FLASH_KEY_MANUAL_NAME_UNUSABLE = airlines_page.FLASH_MANUAL_NAME_UNUSABLE
+FLASH_KEY_RENAMED = airlines_page.FLASH_RENAMED
+FLASH_KEY_RENAME_RESET = airlines_page.FLASH_RENAME_RESET
+FLASH_KEY_RENAME_STALE = airlines_page.FLASH_RENAME_STALE
+FLASH_KEY_RENAME_FULL = airlines_page.FLASH_RENAME_FULL
+FLASH_KEY_RENAME_SAVE_FAILED = airlines_page.FLASH_RENAME_SAVE_FAILED
 FLASH_KEY_RULE_ADDED = config_page.FLASH_RULE_ADDED
 FLASH_KEY_RULE_REPLACED = config_page.FLASH_RULE_REPLACED
 FLASH_KEY_RULE_KEY_INVALID = config_page.FLASH_RULE_KEY_INVALID
@@ -193,6 +198,25 @@ FLASH_MESSAGES = {
         "common.that_name_can_t_be_used_for_an_illustration_try",
         "That name can't be used for an illustration — try a different "
         "spelling, or a name with letters and numbers."),
+    FLASH_KEY_RENAMED: i18n.msg(
+        "common.airline_renamed_new_flights_will_use_it",
+        "Airline name saved — Flights and Home show it now, and the frame "
+        "will use it once it next wakes and polls."),
+    FLASH_KEY_RENAME_RESET: i18n.msg(
+        "common.airline_name_reset_to_skypane_s_name",
+        "Back to SkyPane’s name — Flights and Home show it now, and the "
+        "frame will use it once it next wakes and polls."),
+    FLASH_KEY_RENAME_STALE: i18n.msg(
+        "common.that_airline_can_t_be_renamed_anymore",
+        "That airline can’t be renamed here — reload the Airlines page and try again."),
+    FLASH_KEY_RENAME_FULL: i18n.msg(
+        "common.the_renamed_airlines_list_is_full_200_entries",
+        "The renamed-airlines list is full (200 entries) — reset one before "
+        "renaming another."),
+    FLASH_KEY_RENAME_SAVE_FAILED: i18n.msg(
+        "common.couldn_t_save_that_airline_name",
+        "Couldn’t save that airline name — the frame’s state directory may "
+        "not be writable."),
     # rule_replaced's copy is a template: the {key} placeholder is filled
     # in by resolve_flash_text()'s own second special case below, never
     # interpolated here.
@@ -306,6 +330,11 @@ FLASH_TONES = {
     FLASH_KEY_MANUAL_SAVE_FAILED: _ERROR,
     FLASH_KEY_MANUAL_DELETE_FAILED: _ERROR,
     FLASH_KEY_MANUAL_NAME_UNUSABLE: _ERROR,
+    FLASH_KEY_RENAMED: _PENDING,
+    FLASH_KEY_RENAME_RESET: _PENDING,
+    FLASH_KEY_RENAME_STALE: _WARNING,
+    FLASH_KEY_RENAME_FULL: _WARNING,
+    FLASH_KEY_RENAME_SAVE_FAILED: _ERROR,
     FLASH_KEY_RULE_ADDED: _PENDING,
     FLASH_KEY_RULE_REPLACED: _PENDING,
     FLASH_KEY_RULE_KEY_INVALID: _ERROR,
