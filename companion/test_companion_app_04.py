@@ -42,12 +42,17 @@ _EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 2
 _EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 1
 
 # The two motion durations, plus the one documented exception: the
-# toast's dwell (how long a success/info toast stays), which is a wait,
-# not a movement speed. It may only drive the toast timer hairline.
+# toast's two dwells (how long a success/info toast and a pending toast
+# stay), which are waits, not movement speeds. Each may only drive its
+# own armed toast timer hairline.
 _MOTION_TOKENS = ("--motion-fast", "--motion-slow")
-_MOTION_EXCEPTION_TOKEN = "--motion-toast-dwell"
+_MOTION_EXCEPTION_TOKENS = ("--motion-toast-dwell", "--motion-toast-dwell-long")
 _MOTION_EXCEPTION_KEYFRAMES = "skypane-toast-dwell"
-_MOTION_EXCEPTION_SELECTOR = ".toast[data-toast-armed] .toast__timer"
+_MOTION_EXCEPTION_SELECTORS = {
+    "--motion-toast-dwell": (".toast[data-toast-armed] .toast__timer",),
+    "--motion-toast-dwell-long": (
+        '.toast[data-toast-armed][data-toast-autohide="long"] .toast__timer',),
+}
 
 # The second documented exception: the period of the soft halo around
 # Home's status dot. Only the dot halo rule may spend it.
@@ -179,27 +184,29 @@ def _spenders(served_css, token):
     ]
 
 
-def test_motion_tokens_are_two_durations_plus_the_two_documented_exceptions(served_css):
-    """the served :root declares exactly --motion-fast, --motion-slow and the two documented
-    exceptions --motion-toast-dwell and --motion-dot-pulse; each exception is spent by exactly
-    one live declaration (the armed toast timer hairline's skypane-toast-dwell animation, the
-    status dot halo's skypane-dot-halo animation) and nowhere else, not even a transition, so
-    neither can become a third general-purpose motion speed"""
+def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_css):
+    """the served :root declares exactly --motion-fast, --motion-slow and the documented
+    exceptions (the two toast dwells and the status dot pulse); each exception is spent by
+    exactly one live declaration (an armed toast timer hairline's skypane-toast-dwell
+    animation, the status dot halo's skypane-dot-halo animation) and nowhere else, not even a
+    transition, so none can become a general-purpose motion speed"""
     root = custom_properties(served_css, ":root")
     declared = sorted(name for name in root if name.startswith("--motion-"))
     assert declared == sorted(
-        _MOTION_TOKENS + (_MOTION_EXCEPTION_TOKEN, _DOT_PULSE_TOKEN)), (
-        "expected the motion budget's two tokens plus the two documented exceptions, got %r"
+        _MOTION_TOKENS + _MOTION_EXCEPTION_TOKENS + (_DOT_PULSE_TOKEN,)), (
+        "expected the motion budget's two tokens plus the documented exceptions, got %r"
         % (declared,))
-    for token, selector, keyframes in (
-            (_MOTION_EXCEPTION_TOKEN, _MOTION_EXCEPTION_SELECTOR, _MOTION_EXCEPTION_KEYFRAMES),
-            (_DOT_PULSE_TOKEN, _DOT_PULSE_SELECTOR, _DOT_PULSE_KEYFRAMES)):
+    expected = [
+        (token, _MOTION_EXCEPTION_SELECTORS[token], _MOTION_EXCEPTION_KEYFRAMES)
+        for token in _MOTION_EXCEPTION_TOKENS
+    ] + [(_DOT_PULSE_TOKEN, (_DOT_PULSE_SELECTOR,), _DOT_PULSE_KEYFRAMES)]
+    for token, selectors_expected, keyframes in expected:
         spenders = _spenders(served_css, token)
         assert len(spenders) == 1, (
             "expected exactly one declaration spending %s, got %r" % (token, spenders))
         selectors, prop, value = spenders[0]
-        assert selectors == (selector,), (
-            "expected only %r to spend %s, got %r" % (selector, token, selectors))
+        assert selectors == selectors_expected, (
+            "expected only %r to spend %s, got %r" % (selectors_expected, token, selectors))
         assert prop == "animation" and keyframes in value, (
             "expected %s to drive the %s animation, got `%s: %s`"
             % (token, keyframes, prop, value))
