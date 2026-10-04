@@ -41,6 +41,7 @@ from companion.flash import (
     FLASH_KEY_MANUAL_RESOLVED,
     FLASH_KEY_MANUAL_SAVE_FAILED,
     FLASH_KEY_RENAME_FULL,
+    FLASH_KEY_RENAME_TAKEN,
     FLASH_KEY_RENAME_RESET,
     FLASH_KEY_RENAME_SAVE_FAILED,
     FLASH_KEY_RENAME_STALE,
@@ -144,6 +145,7 @@ _RENAME_FLASH_BY_RESULT = {
     manual_resolutions.ADD_REJECTED_NAME_RESERVED: FLASH_KEY_MANUAL_NAME_RESERVED,
     manual_resolutions.ADD_REJECTED_PREFIX: FLASH_KEY_RENAME_STALE,
     manual_resolutions.ADD_REJECTED_FULL: FLASH_KEY_RENAME_FULL,
+    name_overrides.SET_NAME_TAKEN: FLASH_KEY_RENAME_TAKEN,
 }
 
 
@@ -371,7 +373,8 @@ class SettingsActionsMixin:
         name, rejection = manual_resolutions.check_name(raw_name)
         if rejection is None and name == built_in:
             return self._reset_airline_name(state_dir, prefixes, sheet_key)
-        result = name_overrides.set_names(state_dir, prefixes, raw_name) if rejection is None else rejection
+        result = name_overrides.set_names(
+            state_dir, prefixes, raw_name, own_builtin_name=built_in) if rejection is None else rejection
         if result == name_overrides.SET_OK:
             _carry_artwork_to_new_name(
                 state_dir, sheet["name"], name, airline_sheet.artwork_shapes(built_in))

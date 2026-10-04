@@ -31,13 +31,15 @@ import threading
 from datetime import datetime, timezone
 
 from server import atomic_io
-from server.plane import manual_resolutions
+from server.plane import illustrations, manual_resolutions
 
 NAME_OVERRIDES_FILENAME = "airline_name_overrides.json"
 
 # Result constants are `manual_resolutions`' own ADD_* values, so a caller
 # maps one vocabulary onto its flash keys.
 SET_OK = manual_resolutions.ADD_OK
+# The name's artwork key already belongs to another airline.
+SET_NAME_TAKEN = "name_taken"
 
 # One process-wide lock around the load-modify-write cycle, for the same
 # reason as `manual_resolutions._WRITE_LOCK`.
@@ -78,12 +80,33 @@ def _write(state_dir, registry):
     atomic_io.atomic_write(name_overrides_path(state_dir), json.dumps(registry, indent=1))
 
 
-def set_names(state_dir, prefixes, airline_name, now=None):
+def _name_is_taken(name, own_builtin_name, clean_prefixes, registry):
+    """Whether `name` collides, by `illustrations.normalise_airline_key`
+    (so case, accents and spacing never hide a clash), with another
+    airline: a built-in curated airline name other than `own_builtin_name`
+    (every one when it is `None`), or the override of any prefix outside
+    `clean_prefixes`. The airline's own built-in name and its own prefixes'
+    overrides never count, so re-saving a name works."""
+    key = illustrations.normalise_airline_key(name)
+    for builtin, _shapes in illustrations.target_variants_by_airline():
+        if builtin != own_builtin_name and illustrations.normalise_airline_key(builtin) == key:
+            return True
+    for prefix, other in names_by_prefix(registry).items():
+        if prefix not in clean_prefixes and illustrations.normalise_airline_key(other) == key:
+            return True
+    return False
+
+
+def set_names(state_dir, prefixes, airline_name, now=None, own_builtin_name=None):
     """Store `airline_name` as the override for every prefix in
-    `prefixes` in one write. Returns a `manual_resolutions.ADD_*` value;
-    never raises. Nothing is written unless every check passes: at least
-    one well-formed prefix, a usable name (`check_name()`), and room under
-    the registry cap for the prefixes that are new.
+    `prefixes` in one write. Returns a `manual_resolutions.ADD_*` value
+    or `SET_NAME_TAKEN`; never raises. Nothing is written unless every
+    check passes: at least one well-formed prefix, a usable name
+    (`check_name()`), a name no other airline already carries
+    (`_name_is_taken()`; `own_builtin_name` is the airline's own built-in
+    name, which it may keep) and room under the registry cap for the
+    prefixes that are new. The collision check runs under the same lock as
+    the write, against the registry as it is then.
     """
     clean = sorted({p for p in (manual_resolutions.normalise_prefix(x) for x in prefixes or ()) if p})
     if not clean:
@@ -93,6 +116,8 @@ def set_names(state_dir, prefixes, airline_name, now=None):
         return rejection
     with _WRITE_LOCK:
         registry = load_name_overrides(state_dir)
+        if _name_is_taken(name, own_builtin_name, set(clean), registry):
+            return SET_NAME_TAKEN
         added = [p for p in clean if p not in registry]
         if len(registry) + len(added) > manual_resolutions.MANUAL_RESOLUTION_MAX_ENTRIES:
             return manual_resolutions.ADD_REJECTED_FULL

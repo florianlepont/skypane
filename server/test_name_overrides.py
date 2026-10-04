@@ -136,3 +136,22 @@ def test_reading_with_overrides_on_an_empty_history_is_empty(tmp_path):
     with history_db.open_db(str(tmp_path)) as conn:
         assert history_db.recent_runway_events(conn, airline_names={"AFR": "X"}) == []
     assert no.names_by_prefix(None) == {} and no.names_by_prefix({"AFR": 3}) == {}
+
+
+def test_set_names_refuses_a_name_another_airline_carries_and_writes_nothing(tmp_path):
+    """a built-in airline's name, or another prefix's override, collides by artwork key (case,
+    accents, spacing) and is refused; the airline's own built-in name and its own overrides do
+    not collide; with no own airline given every built-in name is reserved"""
+    state = str(tmp_path)
+    assert no.set_names(state, ["AFR"], "Transavia France", own_builtin_name="Air France") == no.SET_NAME_TAKEN
+    assert no.set_names(state, ["AFR"], "tränsavia  FRANCE", own_builtin_name="Air France") == no.SET_NAME_TAKEN
+    assert no.set_names(state, ["AFR"], "Air France", own_builtin_name="Transavia France") == no.SET_NAME_TAKEN
+    assert no.set_names(state, ["AFR"], "Air France") == no.SET_NAME_TAKEN
+    assert no.load_name_overrides(state) == {}
+    assert no.set_names(state, ["AFR"], "AIR FRANCE", own_builtin_name="Air France") == no.SET_OK
+    assert no.set_names(state, ["TVF"], "air-france", own_builtin_name="Transavia France") == no.SET_NAME_TAKEN
+    assert no.set_names(state, ["TVF", "TFV"], "Skyline", own_builtin_name="Transavia France") == no.SET_OK
+    assert no.set_names(state, ["TVF", "TFV"], "skyline", own_builtin_name="Transavia France") == no.SET_OK
+    assert no.set_names(state, ["XYZ"], "Skyline") == no.SET_NAME_TAKEN
+    assert {p: e["airline_name"] for p, e in no.load_name_overrides(state).items()} == {
+        "AFR": "AIR FRANCE", "TFV": "skyline", "TVF": "skyline"}
