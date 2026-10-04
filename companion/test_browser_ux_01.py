@@ -102,10 +102,11 @@ def test_flights_picture_action_opens_by_keyboard_and_pointer(new_context, serve
 
 
 def test_flights_mobile_cards_each_carry_a_picture_action_at_390_and_360(new_context, server):
-    """At 390 and 360 px every phone card shows its picture link inside the card, at the 44px
-    tap floor, with no horizontal page scroll, in English and in French.
+    """At 390 and 360 px every phone card shows its icon-only picture link inside the card's
+    head, as a 44px square, named for its flight, with no horizontal page scroll, in English
+    and in French.
     """
-    for lang, label in (("en", "View picture"), ("fr", "Voir l\u2019image")):
+    for lang, label in (("en", "View picture of "), ("fr", "Voir l\u2019image de ")):
         for viewport in (VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED):
             context = new_context(viewport=viewport)
             try:
@@ -121,23 +122,24 @@ def test_flights_mobile_cards_each_carry_a_picture_action_at_390_and_360(new_con
                     raise AssertionError("expected phone cards (%s)" % where)
                 measured = page.evaluate(
                     "() => [...document.querySelectorAll('li.history-card')].map(li => {"
-                    "  const a = li.querySelector('a[data-view-panel-src]');"
+                    "  const a = li.querySelector('.history-card__head > a[data-view-panel-src]');"
                     "  if (!a) return null;"
                     "  const r = a.getBoundingClientRect(), c = li.getBoundingClientRect();"
                     "  return {text: a.textContent.trim(), w: r.width, h: r.height,"
                     "          inside: r.left >= c.left - 0.5 && r.right <= c.right + 0.5,"
-                    "          label: a.getAttribute('aria-label')};"
+                    "          label: a.getAttribute('aria-label'),"
+                    "          callsign: li.querySelector('.history-card__callsign').textContent};"
                     "})")
                 for index, item in enumerate(measured):
                     if item is None:
                         raise AssertionError("card %d has no picture link (%s)" % (index, where))
-                    if item["text"] != label or not item["label"].startswith(label):
+                    if item["text"] or item["label"] != label + item["callsign"]:
                         raise AssertionError(
-                            "card %d link reads %r / %r, expected %r (%s)"
-                            % (index, item["text"], item["label"], label, where))
-                    if not item["inside"] or item["h"] < 44:
+                            "card %d link reads %r / %r, expected an icon named %r (%s)"
+                            % (index, item["text"], item["label"], label + item["callsign"], where))
+                    if not item["inside"] or item["h"] < 44 or item["w"] < 44:
                         raise AssertionError(
-                            "card %d link is clipped or under 44px tall: %r (%s)"
+                            "card %d link is clipped or under 44px: %r (%s)"
                             % (index, item, where))
                 if page.evaluate(
                         "document.documentElement.scrollWidth > document.documentElement.clientWidth"):
