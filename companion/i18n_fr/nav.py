@@ -44,7 +44,8 @@ MESSAGES = {
 
     "nav.primary_navigation": "Navigation principale",
 
-    "nav.auto": "Automatique",
+    "nav.auto": "Auto",
+    "nav.auto_full": "Auto (suit le système)",
     "nav.light": "Clair",
     "nav.dark": "Sombre",
 }

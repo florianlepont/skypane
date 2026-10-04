@@ -203,6 +203,9 @@ _UNCHANGED_IN_FRENCH = frozenset({
     # to their English source — real cognates for the Update page's
     # compact table-header nouns, not a missed translation.
     "update.version", "update.date",
+    # "Auto" is the usual French abbreviation of "Automatique" on a
+    # narrow segmented control.
+    "nav.auto",
 })
 
 

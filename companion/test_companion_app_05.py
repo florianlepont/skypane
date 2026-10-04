@@ -1338,7 +1338,7 @@ def test_flash_and_title_strings_round_trip_to_french_and_back():
 
 def test_nav_and_theme_labels_round_trip_to_french_and_back():
     """the nav landmark's aria-label ("Primary navigation") and the theme picker's three segment
-    labels ("Auto"/"Light"/"Dark") round-trip to French under i18n.t_lang(..., 'fr') and to their
+    labels ("Auto"/"Light"/"Dark") round-trip to French ("Auto" stays "Auto") under i18n.t_lang(..., 'fr') and to their
     original English text under i18n.t_lang(..., 'en')"""
     for text in (
             ui_nav._PRIMARY_NAVIGATION_TEXT, ui_nav._THEME_LABEL_TEXT["auto"],
@@ -1348,6 +1348,10 @@ def test_nav_and_theme_labels_round_trip_to_french_and_back():
             "expected t_lang(%r, 'en') to be byte-identical to the English source, got %r"
             % (text, en_result))
         fr_result = i18n_module.t_lang(text, "fr")
+        if text == ui_nav._THEME_LABEL_TEXT["auto"]:
+            # French abbreviates the same way, so the label is spelled identically.
+            assert fr_result == "Auto"
+            continue
         assert fr_result != text, (
             "expected t_lang(%r, 'fr') to be a real French translation, got the English source "
             "back unchanged" % (text,))
