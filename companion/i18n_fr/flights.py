@@ -41,11 +41,6 @@ MESSAGES = {
     "flights.try_a_different_search_or_clear_filter_to_see":
         "Essayez une autre recherche, ou effacez le filtre pour voir "
         "les %d vols.",
-    # The empty-state body used only while a limit is in force and rows
-    # remain unloaded.
-    "flights.try_a_different_search_this_only_searches_the":
-        "Essayez une autre recherche — seuls les %d vols affichés sont "
-        "cherchés.",
 
     # --- Copy-to-clipboard accessible names -------------------------------
     "flights.no_callsign": "aucun indicatif",
@@ -76,6 +71,4 @@ MESSAGES = {
     "flights.view_picture_of": "Voir l’image de %s",
     # The phone card's placeholder where an airline has no artwork.
     "flights.no_illustration": "Pas d’illustration",
-
-    "flights.show_more_remaining": "Afficher plus (%d restants)",
 }

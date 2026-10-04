@@ -72,14 +72,13 @@ def seed_home_tile_variety(state_dir):
         "confirmed_state": state, "corroborated": None}])
 
 
-def history_ctx(state_dir, now=None, gallery_entries=None, flights_limit=None):
+def history_ctx(state_dir, now=None, gallery_entries=None):
     """The `ctx` dict `companion.pages.history_page.render()` expects,
     mirroring `companion/app.py`'s own ctx keys exactly."""
     return {
         "state_dir": str(state_dir),
         "now": now or history_db.utc_now_iso(),
         "gallery_entries": gallery_entries or [],
-        "flights_limit": flights_limit,
     }
 
 

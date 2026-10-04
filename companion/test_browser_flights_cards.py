@@ -176,6 +176,46 @@ def test_chip_counts_match_the_visible_cards_after_folding(new_context, folded_s
         context.close()
 
 
+@pytest.fixture(scope="module")
+def full_server(module_app_server_factory):
+    """Fifty distinct flights, the most the Flights page ever lists."""
+    def seed(state_dir):
+        vp.seed_runway_events(state_dir, [
+            {"ts": "2026-09-%02dT%02d:%02d:00+00:00" % (1 + i // 24, (i % 24) // 6 + 6, (i % 6) * 10),
+             "hex": "4b%04x" % i, "callsign": "TVF%02d" % i, "airline": "Transavia France",
+             "origin": "ORY", "destination": "BRI",
+             "confirmed_state": "arriving" if i % 5 == 0 else "departing", "corroborated": True}
+            for i in range(50)])
+    return module_app_server_factory(seed=seed, fake_providers=True)
+
+
+def test_chip_counts_equal_the_visible_cards_with_all_fifty_loaded(new_context, full_server):
+    """with 50 flights loaded at once, each chip's count equals the cards visible under it, the
+    live count reads 50 of 50, and there is no Show-more control"""
+    context, page = _open_flights(new_context, full_server, VIEWPORT_PHONE)
+    try:
+        if page.locator(CARD).count() != 50 or page.locator(".flights-more").count():
+            raise AssertionError("expected 50 cards and no Show-more control")
+        for chip, kind in (("All", None), ("Departures", "departing"), ("Arrivals", "arriving")):
+            page.locator(".filter-chip", has_text=chip).click()
+            state = page.evaluate(_COUNTS_VS_CARDS)
+            expected = state["chips"]["all" if kind is None else kind]
+            if len(state["cards"]) != expected or any(kind not in (None, k) for k in state["cards"]):
+                raise AssertionError("expected %s chip count to match the cards, got %r"
+                                     % (chip, state))
+        page.locator(".filter-chip", has_text="All").click()
+        if page.evaluate(_COUNTS_VS_CARDS)["chips"] != {"all": 50, "departing": 40, "arriving": 10}:
+            raise AssertionError("expected 50/40/10 chip counts")
+        count = page.locator("[data-filter-count]").text_content()
+        if count != "50 of 50 shown":
+            raise AssertionError("expected '50 of 50 shown', got %r" % (count,))
+        failure = _assert_no_page_overflow(page, "50 flights", expected_width=VIEWPORT_PHONE["width"])
+        if failure:
+            raise AssertionError(failure)
+    finally:
+        context.close()
+
+
 def test_tear_line_notches_follow_the_page_colour(new_context, server):
     """The stub's two notches paint in the page canvas colour in both themes, so they read as
     cut-outs rather than discs."""

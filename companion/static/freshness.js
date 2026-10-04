@@ -288,8 +288,7 @@
       ".page-header__freshness",
       "ul.history-cards",
       ".data-table-wrap",
-      "[data-filter-count]",
-      ".flights-more"
+      "[data-filter-count]"
     ]
   };
 

@@ -23,7 +23,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from companion import auth, layout
-from companion.pages import config_page, history_page
+from companion.pages import config_page
 from server import device_config, history_db, state_store
 from server.plane import calendar_rules
 from companion.test_browser_ux_helpers import (
@@ -246,15 +246,13 @@ def test_a_new_detection_is_highlighted_and_an_existing_row_is_not(new_context, 
         page.wait_for_timeout(REFRESH_SETTLE_MS)
 
         after_ids = _row_ids(page)
-        want_after = min(len(before_ids) + 1, history_page.FLIGHTS_PAGE_SIZE)
+        want_after = len(before_ids) + 1
         if len(after_ids) != want_after:
             raise AssertionError(
                 "expected the swap to bring the new detection into the live "
-                "list: %d rows before, %d after, wanted %d (min(before+1, "
-                "FLIGHTS_PAGE_SIZE=%d)) — with no new row this check "
-                "would be asserting a highlight on nothing"
-                % (len(before_ids), len(after_ids), want_after,
-                   history_page.FLIGHTS_PAGE_SIZE))
+                "list: %d rows before, %d after, wanted %d — with no new row "
+                "this check would be asserting a highlight on nothing"
+                % (len(before_ids), len(after_ids), want_after))
         arrived = [rid for rid in after_ids if rid not in before_ids]
         if len(arrived) != 1:
             raise AssertionError(
@@ -334,9 +332,9 @@ def test_a_refresh_keeps_every_picture_action_working(new_context, make_app_serv
             "          'li.history-card a[data-view-panel-src]').length,"
             "        topName: document.querySelector("
             "          'tr[data-flight-row] a[data-view-panel-src]').getAttribute('aria-label')})")
-        if seen["rows"] != before:
+        if seen["rows"] != before + 1:
             raise AssertionError(
-                "expected the swapped list to keep its page size (%d rows before, %d after)"
+                "expected the swapped list to gain the new flight (%d rows before, %d after)"
                 % (before, seen["rows"]))
         if seen["rowLinks"] != seen["rows"] or seen["cardLinks"] != seen["cards"]:
             raise AssertionError(

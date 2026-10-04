@@ -30,18 +30,6 @@ from server.plane import render as panel_render
 # not a retention policy.
 HISTORY_ROW_LIMIT = 50
 
-# The number of flights the first screen shows, before "Show more" is
-# clicked. 15 is the top of the locked 10-15 band, and HISTORY_ROW_LIMIT
-# (50) divides into it as 15/30/45/50, the last short by 5, which
-# SHOW_MORE_TEMPLATE's remaining-count handles without overclaiming.
-FLIGHTS_PAGE_SIZE = 15
-
-# freshness.js's fetch(window.location.href) re-requests whatever URL
-# the browser is on, so once a visitor clicks "?limit=30", every later
-# background refresh keeps requesting that URL automatically — the
-# reveal state is the URL, no script change needed to survive refresh.
-FLIGHTS_LIMIT_QUERY_PARAM = "limit"
-
 PAGE_TITLE = i18n.msg("nav.flights", "Flights")
 LIGHTBOX_ARIA_LABEL = i18n.msg(
     "flights.picture_shown_on_the_frame", "Picture shown on the frame")
@@ -157,18 +145,6 @@ _FILTER_EMPTY_HEADING = i18n.msg("flights.no_matching_flights", "No matching fli
 _FILTER_EMPTY_BODY_TEMPLATE = i18n.msg(
     "flights.try_a_different_search_or_clear_filter_to_see",
     "Try a different search, or Clear filter to see all %d flights.")
-
-# A second empty-state body, used only while a limit is in force and
-# rows remain unloaded: list-filter.js filters the DOM it has, never
-# the database, so a search under a limit only covers the loaded rows.
-_FILTER_EMPTY_BODY_LIMITED_TEMPLATE = i18n.msg(
-    "flights.try_a_different_search_this_only_searches_the",
-    "Try a different search — this only searches the %d flights shown.")
-
-# `%d` is filled with the remaining count, not the next page size, so
-# the control never overclaims on the last, short page.
-SHOW_MORE_TEMPLATE = i18n.msg(
-    "flights.show_more_remaining", "Show more (%d remaining)")
 
 # The presentational note shown beside a promoted hex when a row has no
 # callsign: a module-level constant so the desktop cell and the mobile
@@ -422,39 +398,12 @@ def history_rows(conn, airline_names=None):
     """The most recent `HISTORY_ROW_LIMIT` `runway_events` rows, newest
     first (matches `history_db.recent_runway_events()`'s own ordering),
     with a pass stored twice folded into one row — the same fold Home
-    applies, so chip counts, day headers and "Show more" all count
+    applies, so chip counts and day headers count
     flights, not stored events. Storage keeps every event.
     """
     return flight_card.fold_repeated_passes(
         history_db.recent_runway_events(
             conn, limit=HISTORY_ROW_LIMIT, airline_names=airline_names))
-
-
-def flights_limit(ctx):
-    """The number of flights this render should show, an int inside
-    `[FLIGHTS_PAGE_SIZE, HISTORY_ROW_LIMIT]`. Reads the raw, unvalidated
-    `?limit=` value from `ctx.flights_limit` and clamps rather than
-    rejects an out-of-range result to `None`: a hand-edited URL should
-    render a page, not an error, and `HISTORY_ROW_LIMIT` is already the
-    hard ceiling `history_rows()` fetches, so clamping upward can never
-    ask for a row the query would not return anyway. Total by
-    construction: no input, however malformed, ever raises.
-    """
-    ctx = page_context.coerce(ctx)
-    raw = ctx.flights_limit
-    if isinstance(raw, bool):
-        # bool is an int subclass; rejected explicitly before str()/int()
-        # rather than relying on int(str(True)) failing by accident.
-        return FLIGHTS_PAGE_SIZE
-    try:
-        candidate = int(str(raw).strip())
-    except (TypeError, ValueError):
-        return FLIGHTS_PAGE_SIZE
-    if candidate < FLIGHTS_PAGE_SIZE:
-        return FLIGHTS_PAGE_SIZE
-    if candidate > HISTORY_ROW_LIMIT:
-        return HISTORY_ROW_LIMIT
-    return candidate
 
 
 def format_event_row(row, now=None):
@@ -656,25 +605,20 @@ def _flight_cell_html(row):
     return html
 
 
-def _filter_bar_html(visible_rows, total_available):
+def _filter_bar_html(rows):
     """The Flights filter bar: the shared search field plus a direction
     chip group (All / Departures / Arrivals) whose counts come from the
-    rows' own `state_raw`. `visible_rows` is the list this render shows;
-    the live count and empty-state body read its length honestly, never
-    claiming a search coverage the filter does not have when a `?limit=`
-    leaves rows unloaded (list-filter.js filters the DOM it has).
+    rows' own `state_raw`. `rows` is every flight the page renders, so
+    the live count and empty-state body read its length.
     """
-    shown = len(visible_rows)
-    if shown < total_available:
-        empty_body = i18n.t(_FILTER_EMPTY_BODY_LIMITED_TEMPLATE) % shown
-    else:
-        empty_body = i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % shown
+    shown = len(rows)
+    empty_body = i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % shown
     chips = (
         ("", i18n.t(_CHIP_ALL_TEXT), shown),
         ("departing", i18n.t(_CHIP_DEPARTURES_TEXT),
-         sum(1 for r in visible_rows if _filter_kind_attr(r) == "departing")),
+         sum(1 for r in rows if _filter_kind_attr(r) == "departing")),
         ("arriving", i18n.t(_CHIP_ARRIVALS_TEXT),
-         sum(1 for r in visible_rows if _filter_kind_attr(r) == "arriving")),
+         sum(1 for r in rows if _filter_kind_attr(r) == "arriving")),
     )
     return layout.filter_bar_html(
         _FILTER_INPUT_ID, i18n.t(_FILTER_LABEL_TEXT),
@@ -897,34 +841,6 @@ def _history_cards_html(formatted_rows, now=None):
     return '<ul class="history-cards">%s</ul>' % "".join(items)
 
 
-def _show_more_html(shown, total_available):
-    """The "Show more" reveal. Returns `<nav class="flights-more">...
-    </nav>`, empty once every row is on the page — the nav element is
-    always rendered, even empty, since `.flights-more` is a declared
-    swap target that must be findable on every render;
-    `.flights-more:empty { display: none; }` keeps it from costing
-    layout. The one child, when present, is a plain `<a>`, matching the
-    app's no-JS control contract. The href is built entirely
-    server-side from `FLIGHTS_LIMIT_QUERY_PARAM` and a clamped int,
-    never from the raw query string a visitor supplied, so a crafted
-    `?limit=` value can never be reflected back into this link. The
-    label's `%d` is the remaining count, not the next page size, so the
-    control never overclaims on the last, short page.
-    """
-    if shown >= total_available:
-        return '<nav class="flights-more"></nav>'
-    next_limit = min(shown + FLIGHTS_PAGE_SIZE, HISTORY_ROW_LIMIT)
-    remaining = total_available - shown
-    label = i18n.t(SHOW_MORE_TEMPLATE) % remaining
-    anchor = (
-        '<a class="calendar-disconnect-btn" href="%s?%s=%d">%s</a>'
-    ) % (
-        layout.FLIGHTS_ROUTE, FLIGHTS_LIMIT_QUERY_PARAM, next_limit,
-        escape_html(label),
-    )
-    return '<nav class="flights-more">%s</nav>' % anchor
-
-
 def render(ctx):
     ctx = page_context.coerce(ctx)
     state_dir = ctx.state_dir
@@ -948,14 +864,10 @@ def render(ctx):
         lightbox_html = ""
     else:
         formatted_rows = [format_event_row(row, now) for row in rows]
-        # Sliced before the per-row enrichment loop below, so that loop's
-        # gallery lookup and thumbnail render run only for rows this
-        # render actually shows. visible_rows is the one list both
-        # _history_cards_html() and _history_table_html() render from,
-        # so the two can never disagree about which flights exist.
-        limit = flights_limit(ctx)
-        total_available = len(formatted_rows)
-        visible_rows = formatted_rows[:limit]
+        # formatted_rows is the one list both _history_cards_html() and
+        # _history_table_html() render from, so the two can never
+        # disagree about which flights exist.
+        visible_rows = formatted_rows
         # The nearest-render match is computed once per row and stored
         # onto the row dict both renderers share. A row with no match
         # carries the empty string, never a disabled/broken control.
@@ -983,11 +895,10 @@ def render(ctx):
         else:
             # Cards render before the table: style.css's
             # `.history-cards ~ .data-table-wrap` sibling-combinator
-            # toggle depends on this DOM order. Show-more renders last.
+            # toggle depends on this DOM order.
             body = (
-                _filter_bar_html(visible_rows, total_available)
+                _filter_bar_html(visible_rows)
                 + _history_cards_html(visible_rows, now)
-                + _history_table_html(visible_rows, now)
-                + _show_more_html(len(visible_rows), total_available))
+                + _history_table_html(visible_rows, now))
 
     return header + body + lightbox_html

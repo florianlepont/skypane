@@ -2587,19 +2587,6 @@ a.calendar-disconnect-btn.flight-picture-link {
   white-space: nowrap;
 }
 
-/* .flights-more is always rendered (empty when nothing remains), so
- * :empty is what keeps a page with nothing left to reveal from paying
- * for this rule's own top margin. */
-.flights-more {
-  display: flex;
-  justify-content: center;
-  margin-top: var(--space-md);
-}
-
-.flights-more:empty {
-  display: none;
-}
-
 /* Renders INSIDE an existing .page-section card, unlike .history-card
  * which sits on the page background — so .data-card carries no fill,
  * radius or shadow, only the row-hairline .data-table td already uses.

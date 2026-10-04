@@ -323,12 +323,6 @@ REFRESH_SWAP_SELECTORS_BY_PAGE = {
         "ul.history-cards",
         ".data-table-wrap",
         "[data-filter-count]",
-        # The Show-more nav's own `href` advances by one page on every
-        # render; a skipped refresh would leave a stale href on screen.
-        # Declaring it here is also why _show_more_html() renders an
-        # empty <nav> rather than nothing: the registry-witness check
-        # requires every declared region findable in every rendered page.
-        ".flights-more",
     ),
 }
 

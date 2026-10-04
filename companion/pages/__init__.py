@@ -45,9 +45,6 @@ Every page module exposes:
           every use via `unresolved_row_for_prefix()`, the same
           membership test the write path re-runs, so the two can never
           diverge
-        - flights_limit: the raw `?limit=` query value, or None,
-          deliberately unvalidated — history_page.py clamps it on every
-          use via `flights_limit(ctx)`, shared by every representation
         - manual_resolutions: the full manual-resolutions registry, read
           fresh per request — never the process-scoped cache, which
           exists only for the poll cycle's own once-per-cycle read
