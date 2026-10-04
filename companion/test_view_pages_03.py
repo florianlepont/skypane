@@ -403,10 +403,11 @@ def test_hex_only_row_promotes_hex_to_primary(tmp_path):
         "expected zero copy buttons in the hex-only desktop row, got %d"
         % tr_block.count("data-copy-value"))
 
-    assert '<span class="cell-primary mono">34560d</span>' in li_block, (
-        "expected the mobile card's primary line to carry the hex")
-    assert ('<span class="cell-secondary">%s</span>' % history_page.NO_CALLSIGN_NOTE_TEXT) in li_block, (
-        "expected the mobile card's primary line to carry the no-callsign note")
+    ident = vp.row_block(rendered, "li", 0).select_one(".history-card__callsign")
+    assert ident.text() == "34560d %s" % history_page.NO_CALLSIGN_NOTE_TEXT, (
+        "expected the mobile card's identity slot to carry the hex and the no-callsign note")
+    assert ident.select_one(".history-card__note").text() == history_page.NO_CALLSIGN_NOTE_TEXT
+    assert "data-copy-value" not in li_block
 
     tr_block_1 = _row_block(rendered, "tr", 1)
     assert tr_block_1 is not None, "could not locate row block for the both-falsy row"
@@ -589,10 +590,10 @@ def test_flights_declares_its_refresh_regions_and_never_the_filter_input(tmp_pat
             "load, so replacing it leaves the filter permanently dead" % (selector,))
 
 
-def test_the_phone_card_is_a_flat_face_with_resolve_and_picture_actions(tmp_path):
-    """the phone card is one flat face — the primary line, the secondary line, the time, the
-    thumbnail and the airline name — followed by the one-hop resolve link (only for an
-    unnamed airline) and the picture link, with no disclosure, summary or copy control"""
+def test_the_phone_card_is_a_boarding_pass_with_resolve_and_picture_actions(tmp_path):
+    """the phone card reads head (identity + picture action), route line, then stub (artwork +
+    time), carries the one-hop resolve link only for an unnamed airline, and has no
+    disclosure, summary or copy control"""
     from PIL import Image
 
     key = illustrations.normalise_airline_key("Air France")
@@ -606,82 +607,55 @@ def test_the_phone_card_is_a_flat_face_with_resolve_and_picture_actions(tmp_path
     ])
     names = ["2026-08-27T08-00-00+00-00.png"]
     rendered = history_page.render(vp.history_ctx(tmp_path, gallery_entries=names))
-    li = _row_block(rendered, "li", 0)
+    li = vp.row_block(rendered, "li", 0)
     assert li is not None, "could not locate the phone card"
-    assert "<details" not in li and "<summary" not in li and "data-copy-value" not in li
-    face = re.search(r'<div class="history-card__face">(.*?)</div>(?=<div class="history-card__action"|</li>)', li, re.S)
-    assert face is not None, "expected the card's flat face, got %r" % (li[:300],)
-    for part in ("history-card__primary", "history-card__secondary",
-                 "history-card__airline", "history-card__thumb",
-                 "history-card__airline-name", "history-card__time"):
-        assert part in face.group(1), "expected %r on the card's face" % (part,)
-    assert 'class="history-card__action"' in li and "data-view-panel-src" in li
-    assert history_page.RESOLVE_LINK_TEXT not in li, (
+    assert not li.select("details") and not li.select("summary")
+    assert not li.select("[data-copy-value]")
+    bands = [child.attrs.get("class") for child in li.children if not isinstance(child, str)]
+    assert bands == ["history-card__head", "history-card__route", "history-card__stub"]
+    head = li.select_one(".history-card__head")
+    assert head.select_one(".history-card__callsign").text() == "FACEONE"
+    assert head.select_one(".history-card__airline").text() == "Air France"
+    assert head.select_one("a.history-card__picture[data-view-panel-src]") is not None
+    assert li.select_one(".history-card__stub img.history-card__art") is not None
+    assert li.select_one(".history-card__stub .history-card__when") is not None
+    assert history_page.RESOLVE_LINK_TEXT not in li.text(), (
         "did not expect a resolve link for a named airline")
 
-    li_unresolved = _row_block(rendered, "li", 1)
-    assert li_unresolved is not None, "could not locate the unresolved-airline card"
-    assert history_page.RESOLVE_LINK_TEXT in li_unresolved, (
-        "expected the unresolved card to carry its one-hop resolve link")
-    assert history_page.RESOLVE_LINK_TEXT not in face.group(1)
-    assert "data-view-panel-src" in li_unresolved
+    unresolved = vp.row_block(rendered, "li", 1)
+    assert unresolved is not None, "could not locate the unresolved-airline card"
+    identity = unresolved.select_one(".history-card__head .history-card__id")
+    assert identity.select_one(".history-card__airline--unknown").text() == "Airline unknown"
+    assert identity.select_one(".history-card__resolve a").text() == history_page.RESOLVE_LINK_TEXT
+    assert unresolved.select("a[data-view-panel-src]")
 
 
-def test_history_card_primary_grid_pins_the_timestamp_track(tmp_path, served_css):
-    """the phone summary card's .history-card__primary line is a two-track CSS grid
-    (minmax(0, 1fr) then auto, no justify-content) with a non-wrapping .history-card__time
-    (white-space: nowrap, no margin-left: auto), and all three primary_value_html branches —
-    callsign, hex-plus-note, empty — produce a child set the grid can place with no third,
-    unclassified top-level child (2026-09-17 audit P1, Task 2)"""
-    primary_block = declarations_for(served_css, ".history-card__primary")
-    assert primary_block, "could not locate the .history-card__primary rule block"
-    assert primary_block.get("display") == "grid", (
-        "expected .history-card__primary to declare display: grid, got %r" % (primary_block,))
-    tracks = primary_block.get("grid-template-columns", "").strip()
-    assert re.match(r"^minmax\(\s*0\s*,\s*1fr\s*\)\s+auto$", tracks), (
-        "expected grid-template-columns to declare exactly two tracks, got %r" % (tracks,))
-    assert "justify-content" not in primary_block, (
-        "expected justify-content ABSENT from .history-card__primary, found it in %r"
-        % (primary_block,))
-
-    time_block = declarations_for(served_css, ".history-card__time")
-    assert time_block, "could not locate the .history-card__time rule block"
-    assert time_block.get("white-space") == "nowrap", (
-        "expected .history-card__time to declare white-space: nowrap, got %r" % (time_block,))
-    assert "margin-left" not in time_block, (
-        "expected .history-card__time to declare no margin-left, found %r" % (time_block,))
+def test_phone_card_identity_branches_and_time_never_wrap(tmp_path, served_css):
+    """every identity branch (callsign, hex plus note, neither) renders one callsign slot and one
+    airline line in the card head, the stub's time column never wraps, and the airline line
+    ellipsises rather than growing the card"""
+    when_block = declarations_for(served_css, ".history-card__when")
+    assert when_block.get("white-space") == "nowrap"
+    airline_block = declarations_for(served_css, ".history-card__airline")
+    assert airline_block.get("white-space") == "nowrap"
+    assert airline_block.get("text-overflow") == "ellipsis"
 
     branches = (
-        ("callsign", {"ts": "2026-09-21T10:00:00+00:00", "callsign": "GRD01"}),
-        ("hex-plus-note", {"ts": "2026-09-21T10:00:00+00:00", "hex": "abc123"}),
-        ("empty", {"ts": "2026-09-21T10:00:00+00:00"}),
+        ("callsign", {"ts": "2026-09-21T10:00:00+00:00", "callsign": "GRD01"}, "GRD01"),
+        ("hex-plus-note", {"ts": "2026-09-21T10:00:00+00:00", "hex": "abc123"},
+         "abc123 " + history_page.NO_CALLSIGN_NOTE_TEXT),
+        ("empty", {"ts": "2026-09-21T10:00:00+00:00"}, ""),
     )
-    for name, fields in branches:
+    for name, fields, expected in branches:
         sub = tmp_path / name
         vp.seed_runway_events(sub, [fields])
         rendered = history_page.render(vp.history_ctx(sub))
-        li_block = _row_block(rendered, "li", 0)
-        assert li_block is not None, "%s branch: could not locate the rendered card" % name
-        primary_match = re.search(
-            r'<div class="history-card__primary">(.*?)</div>', li_block, re.S)
-        assert primary_match is not None, (
-            "%s branch: could not locate .history-card__primary markup" % name)
-        primary_markup = primary_match.group(1)
-        assert primary_markup.count('<span class="history-card__time">') == 1, (
-            "%s branch: expected exactly one history-card__time (track-2) child" % name)
-        track2_start = primary_markup.index('<span class="history-card__time">')
-        track1_markup = primary_markup[:track2_start]
-        track1_children = re.findall(
-            r'<span class="(cell-primary|cell-secondary)[^"]*"', track1_markup)
-        assert track1_children, (
-            "%s branch: expected at least one track-1 child before the timestamp span" % name)
-        unclassified = re.sub(
-            r'<span class="cell-(?:primary|secondary)[^"]*">.*?</span>', "",
-            track1_markup, flags=re.S).strip()
-        assert not unclassified, (
-            "%s branch: expected every child before the timestamp span to be a classified "
-            "track-1 child, found leftover unclassified markup %r"
-            % (name, unclassified))
+        li = vp.row_block(rendered, "li", 0)
+        assert li is not None, "%s branch: could not locate the rendered card" % name
+        identity = li.select_one(".history-card__head .history-card__id")
+        assert len(identity.select(".history-card__callsign")) == 1, name
+        assert identity.select_one(".history-card__callsign").text() == expected, name
+        assert len(identity.select(".history-card__airline")) == 1, name
 
 
 def test_flights_reveal_state_reproduces_from_the_url_alone(tmp_path, app):
@@ -903,25 +877,31 @@ def test_the_count_animates_without_its_text_production_moving(app):
         "expected the animation to fire only when the rendered text actually differs")
 
 
-def test_phone_card_route_and_state_carry_the_existing_middle_dot(tmp_path):
-    """the phone card's "ORY → JFK Departing" line carries the module's EXISTING
-    cell-inline-sep middle dot between the route and the state, reused rather than
-    reinvented"""
+def test_phone_card_route_line_mutes_the_home_end_and_names_the_direction(tmp_path):
+    """the phone card's route line carries origin and destination as two codes with the plane
+    glyph and the direction label between them; the home end (the origin of a departure, the
+    destination of an arrival) is muted; a row with no route reads the shared fallback"""
     vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-08-27T10:00:00+00:00", "hex": "sep01", "callsign": "SEPCARD",
-         "origin": "LFPO", "destination": "KJFK", "confirmed_state": "departing"},
+        {"ts": "2026-08-27T10:00:00+00:00", "hex": "rt01", "callsign": "DEPCARD",
+         "origin": "ORY", "destination": "KEF", "confirmed_state": "departing"},
+        {"ts": "2026-08-27T09:00:00+00:00", "hex": "rt02", "callsign": "ARRCARD",
+         "origin": "NCE", "destination": "ORY", "confirmed_state": "arriving"},
+        {"ts": "2026-08-27T08:00:00+00:00", "hex": "rt03", "callsign": "NOROUTE",
+         "confirmed_state": "departing"},
     ])
     rendered = history_page.render(vp.history_ctx(tmp_path))
-    match = re.search(r'<div class="history-card__secondary">(.*?)</div>', rendered, re.S)
-    assert match is not None, "could not locate the phone card's secondary line"
-    expected = (
-        "<span>LFPO → KJFK</span>"
-        '<span class="%s">%s</span>'
-        "<span>Departing</span>"
-    ) % (history_page.CELL_SEPARATOR_CLASS, layout.escape_html(history_page.CELL_SEPARATOR_TEXT))
-    assert match.group(1) == expected, (
-        "expected the route and state to be joined by the module's existing middle-dot "
-        "separator, got %r" % (match.group(1),))
+    for index, origin, destination, home, direction in (
+            (0, "ORY", "KEF", "from", "Departing"), (1, "NCE", "ORY", "to", "Arriving")):
+        route = vp.row_block(rendered, "li", index).select_one(".history-card__route")
+        assert route.select_one(".history-card__code--from").text() == origin
+        assert route.select_one(".history-card__code--to").text() == destination
+        homes = route.select(".history-card__code--home")
+        assert len(homes) == 1 and "history-card__code--%s" % home in homes[0].attrs["class"]
+        assert route.select_one(".history-card__track svg use").attrs["href"] == "#icon-plane"
+        assert route.select_one(".history-card__dir").text() == direction
+    route = vp.row_block(rendered, "li", 2).select_one(".history-card__route")
+    assert route.select_one(".history-card__code--none").text() == history_page.ROUTE_FALLBACK_TEXT
+    assert not route.select(".history-card__code--to")
 
 
 def test_raw_iso_timestamp_is_never_rendered(tmp_path):
@@ -937,11 +917,10 @@ def test_raw_iso_timestamp_is_never_rendered(tmp_path):
     assert "Full timestamp" not in rendered
 
 
-def test_phone_cards_carry_the_airline_name_and_artwork_thumbnail(tmp_path, served_css):
+def test_phone_cards_carry_the_airline_name_and_artwork_plate(tmp_path, served_css):
     """a phone card carries the airline name and, when real artwork exists for it, the Airlines
-    gallery's own served frame as a thumbnail joining the shared white-backing/hairline/
-    radius rule in a contain-fitted 56px box — and no <img> at all when no artwork file
-    exists"""
+    gallery's own served frame as a contain-fitted plate on the shared white image backdrop —
+    and, when no artwork file exists, a dashed "No illustration" placeholder, never an <img>"""
     from PIL import Image
 
     key = illustrations.normalise_airline_key("Air France")
@@ -955,37 +934,25 @@ def test_phone_cards_carry_the_airline_name_and_artwork_thumbnail(tmp_path, serv
          "airline": "Totally Unknown Air"},
     ])
     rendered = history_page.render(vp.history_ctx(tmp_path))
-    li_thumbed = _row_block(rendered, "li", 0)
-    li_noart = _row_block(rendered, "li", 1)
+    li_thumbed = vp.row_block(rendered, "li", 0)
+    li_noart = vp.row_block(rendered, "li", 1)
     assert li_thumbed is not None and li_noart is not None, "could not locate both phone cards"
-    assert 'class="history-card__airline-name">Air France<' in li_thumbed, (
-        "expected the phone card to carry the airline name on its own face")
-    expected_img = (
-        '<img class="history-card__thumb" loading="lazy" decoding="async" src="%s%s.png"'
-        % (history_page.ILLUSTRATION_ROUTE_PREFIX, key))
-    assert expected_img in li_thumbed, (
-        "expected the phone card to carry the artwork thumbnail, got %r" % (li_thumbed[:200],))
-    assert "history-card__thumb" not in li_noart, (
-        "did not expect a thumbnail for an airline with no artwork file")
-    assert "history-card__airline-name" in li_noart, (
-        "expected every card to name its airline, artwork or not")
+    assert li_thumbed.select_one(".history-card__airline").text() == "Air France"
+    img = li_thumbed.select_one(".history-card__stub img.history-card__art")
+    assert img.attrs["src"] == "%s%s.png" % (history_page.ILLUSTRATION_ROUTE_PREFIX, key)
+    assert img.attrs["alt"] == "Air France illustration"
+    assert img.attrs["loading"] == "lazy"
+    assert not li_noart.select("img"), (
+        "did not expect an <img> for an airline with no artwork file")
+    placeholder = li_noart.select_one(".history-card__stub .history-card__art--empty")
+    assert placeholder.text() == "No illustration"
+    assert li_noart.select_one(".history-card__airline").text() == "Totally Unknown Air"
 
-    # Every one of .now-showing__image / .preview-frame__image / img.recent-flight__thumb
-    # / img.history-card__thumb now has its own single rule (one rule per selector per
-    # at-rule context, no shared-group site any more), so the shared white-backing/
-    # hairline/radius treatment is asserted as three equal resolved declarations rather
-    # than as selector-list membership in one shared rule.
-    thumb_decls = declarations_for(served_css, "img.history-card__thumb")
-    for shared_selector in (".now-showing__image", ".preview-frame__image"):
-        shared_decls = declarations_for(served_css, shared_selector)
-        for prop in ("border", "border-radius", "background"):
-            assert thumb_decls.get(prop) == shared_decls.get(prop), (
-                "expected img.history-card__thumb's %r to match %r's shared white-backing/"
-                "hairline/radius treatment, got %r vs %r"
-                % (prop, shared_selector, thumb_decls.get(prop), shared_decls.get(prop)))
-    assert thumb_decls.get("height") == "56px" and thumb_decls.get("object-fit") == "contain", (
-        "expected img.history-card__thumb's own rule to declare a fixed 56px-tall box with "
-        "contain fitting")
+    plate = declarations_for(served_css, "img.history-card__art")
+    shared = declarations_for(served_css, ".now-showing__image")
+    assert plate.get("background") == shared.get("background")
+    assert plate.get("object-fit") == "contain"
+    assert declarations_for(served_css, ".history-card__art--empty").get("border-style") == "dashed"
 
 
 def test_no_prefix_registry_duplicated_on_history(tmp_path):

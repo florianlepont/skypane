@@ -567,6 +567,14 @@ ICON_IDS = ICON_IDS + (
     "icon-info",
 )
 
+# Two more, for the Flights phone card: a framed-picture glyph for its
+# icon-only "View picture" link, and a filled side-view plane that sits
+# on the card's route track.
+ICON_IDS = ICON_IDS + (
+    "icon-picture",
+    "icon-plane",
+)
+
 # One shared inline sprite, emitted once per document by page_shell().
 # This sprite must never move inside a conditionally rendered region: a
 # <use> referencing a symbol that isn't in the DOM at all (not merely
@@ -780,6 +788,16 @@ ICON_DEFS_HTML = (
     '<symbol id="icon-close" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.7" stroke-linecap="round">'
     '<path d="M5.5 5.5l9 9M14.5 5.5l-9 9"/>'
+    "</symbol>"
+    '<symbol id="icon-picture" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<rect x="2.5" y="3.5" width="15" height="13" rx="2"/><circle cx="7.5" cy="8.5" r="1.5"/>'
+    '<path d="M17.5 13.5l-4.5-4.5-8 7.5"/>'
+    "</symbol>"
+    # Points right (east), the direction the route line reads in.
+    '<symbol id="icon-plane" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="0">'
+    '<path fill="currentColor" d="M18.5 10c0-.7-.6-1.2-1.3-1.2h-4.4L8.6 2.5H6.9l2 6.3H4.6L3 6.8H1.6'
+    'l1 3.2-1 3.2H3l1.6-2h4.3l-2 6.3h1.7l4.2-6.3h4.4c.7 0 1.3-.5 1.3-1.2z"/>'
     "</symbol>"
     '<symbol id="icon-undo" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'

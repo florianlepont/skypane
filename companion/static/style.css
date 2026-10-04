@@ -2288,6 +2288,8 @@ table.data-table--firmware-history td:last-child {
  * toggle to History's own pair only — Airlines/Health also reuse
  * .data-table-wrap but never render a sibling .history-cards. */
 .history-cards {
+  display: grid;
+  gap: var(--space-sm);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -2297,82 +2299,276 @@ table.data-table--firmware-history td:last-child {
   display: none;
 }
 
+/* The phone boarding-pass card. No padding on the card itself: each
+ * band carries its own, so the stub's tear line can run edge to edge
+ * and its notches can sit on the card's border. */
 .history-card {
+  position: relative;
   background: var(--color-dominant);
   /* Same hairline-at-rest contract as .runway-card above. */
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  box-shadow: none;
-  padding: var(--space-md);
-  margin-bottom: var(--space-sm);
+  border-radius: var(--radius-card);
 }
 
-.history-card:hover,
-.history-card:focus-within {
-  border-color: transparent;
-  box-shadow: var(--shadow-card-hover);
+/* A slim day header between cards, in the label voice with a trailing
+ * hairline. Not a filter row: it carries no data-filter-text. */
+.history-cards__day {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* A two-track grid, not flex: the timestamp's track pins to its own
- * content width (auto) so it can never be squeezed by the callsign/hex
- * track (minmax(0, 1fr)). white-space: nowrap below is what stops the
- * timestamp wrapping internally within its own pinned track. */
-.history-card__primary {
+.history-cards__day:first-child {
+  margin-top: 0;
+}
+
+.history-cards__day::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+/* Identity on the left in a shrinkable track, the 44px picture action
+ * pinned to its own content width on the right. */
+.history-card__head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
   gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-sm) 0 var(--space-md);
 }
 
-/* Both cell-primary/cell-secondary must land in the grid's first track,
- * scoped to this one parent — the desktop table's own bare cells use
- * these same classes with no grid to conflict with. */
-.history-card__primary > .cell-primary,
-.history-card__primary > .cell-secondary {
-  grid-column: 1;
-}
-
-.history-card__secondary {
-  display: flex;
-  opacity: 0.7;
-  margin-top: var(--space-xs);
-}
-
-.history-card__airline {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-top: var(--space-xs);
-}
-
-.history-card__airline-name {
-  font-size: var(--font-label-size);
-}
-
-/* white-space: nowrap is necessary even with the track pinned to auto:
- * pinning the track's WIDTH does not stop the text inside it wrapping
- * onto a second line. */
-.history-card__time {
-  font-size: var(--font-label-size);
-  white-space: nowrap;
-}
-
-/* min-width: 0 is the usual flex-item floor: without it a long
- * callsign or route would refuse to shrink past the card width. */
-.history-card__face {
+.history-card__id {
   min-width: 0;
+  padding-top: var(--space-xs);
+}
+
+.history-card__callsign {
+  display: block;
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.03em;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.history-card__note {
+  font-family: var(--font-ui);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-regular);
+  letter-spacing: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* One line, ellipsised: a long operator name never pushes the card
+ * taller or the picture action out of its track. */
+.history-card__airline {
+  display: block;
+  font-size: var(--font-label-size);
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-card__airline--unknown {
+  font-style: italic;
 }
 
 .history-card__resolve {
-  margin-top: var(--space-sm);
+  display: block;
 }
 
 .history-card__resolve .cell-unresolved-link {
   margin-left: 0;
 }
 
-.history-card__action {
-  margin-top: var(--space-sm);
+/* An icon-only link with a real 44px box, not a padded glyph. */
+.history-card__picture {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+  color: var(--color-text);
+}
+
+.history-card__picture:hover {
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+
+/* origin | track | destination: the codes span both grid rows and pin
+ * to the top, and the first row is exactly one code tall, so the
+ * dashed track runs through the codes' middle while the direction
+ * label tucks under the plane beside them rather than on a row of its
+ * own. */
+.history-card__route {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: var(--font-heading-size) auto;
+  grid-template-areas:
+    "from track to"
+    "from dir to";
+  column-gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-md) var(--space-sm);
+}
+
+.history-card__code {
+  font-size: var(--font-heading-size);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.history-card__code--from {
+  grid-area: from;
+  align-self: start;
+}
+
+.history-card__code--to {
+  grid-area: to;
+  align-self: start;
+}
+
+.history-card__code--home {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.history-card__code--none {
+  line-height: var(--font-heading-size);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-regular);
+  letter-spacing: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.history-card__track {
+  grid-area: track;
+  align-self: center;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* The dashed track behind the plane, through the glyph's middle. */
+.history-card__track::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px dashed color-mix(in srgb, var(--color-text) 30%, transparent);
+}
+
+/* The dominant-surface pad masks the dashes under the glyph. */
+.icon.history-card__plane {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  padding: 0 var(--space-xs);
+  box-sizing: content-box;
+  background: var(--color-dominant);
+  color: var(--color-text);
+}
+
+.history-card__dir {
+  grid-area: dir;
+  justify-self: center;
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The stub below the tear line: artwork plate and time on one row.
+ * The two notches are half-discs in the page colour sitting on the
+ * card's side borders, so they follow the canvas in both themes. */
+.history-card__stub {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-top: 1px dashed var(--color-border);
+}
+
+.history-card__stub::before {
+  content: "";
+  position: absolute;
+  top: -8px;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-canvas);
+  left: -8px;
+  clip-path: inset(0 0 0 50%);
+}
+
+.history-card__stub::after {
+  content: "";
+  position: absolute;
+  top: -8px;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-canvas);
+  right: -8px;
+  clip-path: inset(0 50% 0 0);
+}
+
+/* A fixed 40px-tall plate; the artwork keeps its aspect inside it on
+ * the image backdrop, the same backing every artwork thumbnail uses. */
+.history-card__art {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 200px;
+  height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+img.history-card__art {
+  background: var(--color-image-backdrop);
+  object-fit: contain;
+}
+
+.history-card__art--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-sm);
+  border-style: dashed;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-card__when {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.3;
+  white-space: nowrap;
 }
 
 /* The row-level picture action on the card and in the table: the
@@ -4888,17 +5084,6 @@ button.airline-card__action {
   background: var(--color-image-backdrop);
   max-width: 360px;
   margin: 0 auto var(--space-sm);
-}
-
-img.history-card__thumb {
-  display: block;
-  width: auto;
-  height: 56px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-image-backdrop);
-  max-width: 100%;
-  object-fit: contain;
 }
 
 .now-showing__caption {
