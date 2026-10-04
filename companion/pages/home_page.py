@@ -313,8 +313,8 @@ def _recent_flight_time_html(ts, now):
     return cell_html
 
 
-def _recent_tile_identity_html(row):
-    """The tile's first line: the callsign in the identifier voice and the
+def _recent_card_identity_html(row):
+    """The card head: the callsign in the identifier voice and the
     airline muted beside it. A row with no callsign shows its hex with the
     "no callsign" note; an unknown airline reads "Airline unknown" in
     italics, with no link (Home's rows carry no actions)."""
@@ -335,39 +335,37 @@ def _recent_tile_identity_html(row):
             '<span class="history-card__airline history-card__airline--unknown">%s</span>'
             % escape_html(i18n.t(AIRLINE_UNKNOWN_TEXT)))
     return (
-        '<div class="recent-tile__id">'
-        '<span class="history-card__callsign mono">%s</span>%s</div>'
+        '<div class="history-card__head"><div class="history-card__id">'
+        '<span class="history-card__callsign mono">%s</span>%s</div></div>'
     ) % (ident, airline_html)
 
 
-def _recent_tile_html(row, now, state_dir):
-    """One slim phone tile in the Flights card voice: identity on the
-    first line, the artwork plate and the compact route line on the
-    second, the clock over its live age on the right. No link and no
-    button: the tile is information only, like the desktop row."""
+def _recent_card_html(row, now, state_dir):
+    """One compact boarding-pass card, the Flights card's own bands
+    (head, route line, stub below the tear line) at a smaller size. No
+    link and no button: the card is information only, like the desktop
+    row."""
     direction_raw = _direction_text(row.get("confirmed_state"))
-    return (
-        '<li class="recent-tile">%s%s%s%s</li>'
-    ) % (
-        _recent_tile_identity_html(row),
-        flight_card.art_or_placeholder_html(
-            flight_card.art_html(row.get("airline"), state_dir)),
+    return '<li class="history-card history-card--compact">%s%s%s</li>' % (
+        _recent_card_identity_html(row),
         flight_card.route_html(
             row.get("origin") or "", row.get("destination") or "",
             row.get("confirmed_state") or "",
             i18n.t(direction_raw) if direction_raw else ""),
-        flight_card.when_html(row.get("ts"), now, clock_now=now))
+        flight_card.stub_html(
+            flight_card.art_html(row.get("airline"), state_dir), row.get("ts"), now,
+            clock_now=now))
 
 
 def _recent_flights_html(rows, now, state_dir):
-    """The recent-flights section. A phone gets the slim tiles; a desktop
-    keeps the thumbnail list. Both render, tiles first: style.css's
-    `.recent-flight-tiles ~ .recent-flights` toggle at 960 px depends on
-    this order."""
+    """The recent-flights section. A phone gets compact boarding-pass
+    cards; a desktop keeps the thumbnail list. Both render, cards first:
+    style.css's `.recent-flight-tiles ~ .recent-flights` toggle at 960 px
+    depends on this order."""
     if not rows:
         body = layout.empty_state(i18n.t(NO_FLIGHTS_HEADING), i18n.t(NO_FLIGHTS_BODY))
     else:
-        tiles = "".join(_recent_tile_html(row, now, state_dir) for row in rows)
+        tiles = "".join(_recent_card_html(row, now, state_dir) for row in rows)
         items = []
         for row in rows:
             callsign = row.get("callsign") or row.get("hex") or "—"

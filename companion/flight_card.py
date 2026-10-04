@@ -49,6 +49,14 @@ def art_or_placeholder_html(art):
         % escape_html(i18n.t(NO_ILLUSTRATION_TEXT)))
 
 
+def stub_html(art, raw_ts, now, clock_now=None):
+    """The card's stub, below the tear line: the artwork plate (`art`
+    from `art_html()`, or the dashed placeholder when it is "") and, on
+    the same row, the time column from `when_html()`."""
+    return '<div class="history-card__stub">%s%s</div>' % (
+        art_or_placeholder_html(art), when_html(raw_ts, now, clock_now))
+
+
 def route_html(origin, destination, state_raw, direction_label):
     """The route line: origin, a dashed track carrying the plane glyph
     with the direction label under it, then destination. The home end

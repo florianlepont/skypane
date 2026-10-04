@@ -2515,7 +2515,7 @@ table.data-table--firmware-history td:last-child {
   height: 14px;
   border: 1px solid var(--color-border);
   border-radius: 50%;
-  background: var(--color-canvas);
+  background: var(--history-card-notch, var(--color-canvas));
   left: -8px;
   clip-path: inset(0 0 0 50%);
 }
@@ -2528,7 +2528,7 @@ table.data-table--firmware-history td:last-child {
   height: 14px;
   border: 1px solid var(--color-border);
   border-radius: 50%;
-  background: var(--color-canvas);
+  background: var(--history-card-notch, var(--color-canvas));
   right: -8px;
   clip-path: inset(0 50% 0 0);
 }
@@ -5164,20 +5164,17 @@ img.recent-flight__thumb {
   background: var(--color-canvas);
 }
 
-/* Home's phone list: one slim tile per recent flight in the Flights
- * card voice (the history-card__* pieces inside it), separated by
- * hairlines rather than boxed, since the section is already a card.
- * Rendered before the desktop list; the pair toggles at 960px.
- *   row 1: callsign + airline              | clock
- *   row 2: artwork plate + ORY ┄✈┄ IBZ      | age   */
-/* The tiles share one set of columns (subgrid), so the plates, the
- * route lines and the times line up from tile to tile whatever the
- * width of each age. */
+/* Home's phone list: the Flights boarding-pass card (.history-card and
+ * its bands) at a compact size, one per recent flight. The cards sit on
+ * the section's own surface, so the tear-line notches take that colour
+ * instead of the page canvas. Rendered before the desktop list; the pair
+ * toggles at 960px. */
 .recent-flight-tiles {
+  --history-card-notch: var(--color-dominant);
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-sm);
   list-style: none;
-  margin: 0 0 var(--space-sm);
+  margin: 0 0 var(--space-md);
   padding: 0;
 }
 
@@ -5185,98 +5182,81 @@ img.recent-flight__thumb {
   display: none;
 }
 
-.recent-tile {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: subgrid;
-  grid-template-areas:
-    "id id when"
-    "art route when";
-  align-items: center;
-  gap: var(--space-xs) var(--space-sm);
-  padding: var(--space-sm) 0;
-  border-bottom: 1px solid var(--color-border);
+/* The head is one line: callsign, then the airline taking what is left
+ * and ellipsised, so a long operator name never wraps the card. */
+.history-card--compact .history-card__head {
+  padding: var(--space-xs) var(--space-sm) 0 var(--space-sm);
 }
 
-.recent-tile:first-child {
-  padding-top: 0;
-}
-
-.recent-tile:last-child {
-  border-bottom: 0;
-}
-
-/* Callsign at its own width, the airline taking what is left and
- * ellipsised, so a long operator name never wraps the line. */
-.recent-tile__id {
-  grid-area: id;
+.history-card--compact .history-card__id {
   display: flex;
   align-items: baseline;
   gap: var(--space-sm);
-  min-width: 0;
+  padding-top: 0;
 }
 
-.recent-tile__id .history-card__callsign {
+.history-card--compact .history-card__callsign {
   flex: none;
+  font-size: var(--font-label-size);
   overflow-wrap: normal;
 }
 
-.recent-tile__id .history-card__airline {
+.history-card--compact .history-card__airline {
   min-width: 0;
+  font-size: 13px;
 }
 
-/* A short wide plate; the artwork keeps its aspect inside it. */
-.recent-tile .history-card__art {
-  grid-area: art;
-  width: 64px;
-  height: 28px;
-  max-width: none;
+.history-card--compact .history-card__route {
+  grid-template-rows: 18px auto;
+  padding: 0 var(--space-sm) 3px;
 }
 
-/* Too narrow for the "No illustration" words: the dashed outline says
- * it, and the text stays in the markup for a screen reader. */
-.recent-tile .history-card__art--empty {
-  padding: 0;
-  font-size: 0;
+.history-card--compact .history-card__code {
+  font-size: 18px;
 }
 
-.recent-tile .history-card__route {
-  grid-area: route;
-  grid-template-rows: 16px auto;
-  min-width: 0;
-  padding: 0;
-}
-
-.recent-tile .history-card__code {
-  font-size: var(--font-body-size);
-}
-
-.recent-tile .history-card__code--none {
-  line-height: 16px;
+.history-card--compact .history-card__code--none {
+  line-height: 18px;
   font-size: 12px;
 }
 
-.recent-tile .icon.history-card__plane {
+.history-card--compact .icon.history-card__plane {
   width: 14px;
   height: 14px;
 }
 
-.recent-tile .history-card__dir {
+.history-card--compact .history-card__dir {
   font-size: 10px;
-  line-height: 1.3;
+  line-height: 1.1;
 }
 
-.recent-tile .history-card__when {
-  grid-area: when;
-  align-self: stretch;
-  justify-content: space-between;
+.history-card--compact .history-card__stub {
+  padding: 3px var(--space-sm);
 }
 
-.recent-tile .time-value--primary {
+.history-card--compact .history-card__art {
+  width: 96px;
+  height: 26px;
+}
+
+/* Too narrow for the "No illustration" words: the dashed outline says
+ * it, and the text stays in the markup for a screen reader. */
+.history-card--compact .history-card__art--empty {
+  padding: 0;
+  font-size: 0;
+}
+
+.history-card--compact .history-card__when {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-sm);
+}
+
+.history-card--compact .time-value--primary {
   font-size: var(--font-label-size);
 }
 
-.recent-tile .time-value__age {
+.history-card--compact .time-value__age {
   font-size: 12px;
 }
 

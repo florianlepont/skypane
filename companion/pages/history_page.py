@@ -841,9 +841,7 @@ def _card_stub_html(row, now):
     wide plate (or a quiet dashed placeholder when there is none) and,
     on the same row, the time and age.
     """
-    return '<div class="history-card__stub">%s%s</div>' % (
-        flight_card.art_or_placeholder_html(row.get("thumb_html")),
-        flight_card.when_html(row["raw_ts"], now))
+    return flight_card.stub_html(row.get("thumb_html"), row["raw_ts"], now)
 
 
 def card_day_label(day, today):
