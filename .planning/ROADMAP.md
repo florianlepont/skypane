@@ -15,7 +15,7 @@ V1.1 begins by improving the companion through a task-based bilingual usability 
 - Integer phases are planned milestone work.
 - Decimal phases are urgent insertions created only when needed.
 
-- [ ] **Phase 44: Companion Walkthrough and Focused Bilingual Polish** - Resolve the highest-value observed companion friction without a redesign.
+- [x] **Phase 44: Companion Walkthrough and Focused Bilingual Polish** - Resolve the highest-value observed companion friction without a redesign. (completed 2026-10-04, owner-validated)
 - [ ] **Phase 45: Controlled Second Discharge Study** - Produce reproducible, comparable alternate-cadence battery evidence.
 - [ ] **Phase 46: Two-Run Battery Analysis and Operating Decision** - Derive the model and select the field cadence and pack policy.
 - [ ] **Phase 47: Integrated Field Validation and Decision Record** - Confirm the policy on the real frame and publish the operating baseline.
@@ -31,7 +31,7 @@ V1.1 begins by improving the companion through a task-based bilingual usability 
   2. Every observed walkthrough issue has a reproducible trigger, user-impact assessment, and a recorded keep, fix-now, or defer decision.
   3. The owner can use every V1.1-changed companion flow with matching English and French meaning, responsive layout, semantic controls, visible keyboard focus, and clear saved or error feedback.
   4. Confirmed high-value findings are resolved through the established route, page-context, template, static-asset, and i18n boundaries.
-**Plans**: TBD
+**Plans**: 12/12 plans complete (completed 2026-10-04: automated evidence green, owner validated the deployed companion by their own statement)
 **UI hint**: yes
 
 ### Phase 45: Controlled Second Discharge Study
@@ -75,7 +75,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 44. Companion Walkthrough and Focused Bilingual Polish | v1.1 | 11/12 | In Progress|  |
+| 44. Companion Walkthrough and Focused Bilingual Polish | v1.1 | 12/12 | Complete | 2026-10-04 |
 | 45. Controlled Second Discharge Study | v1.1 | 1/4 | In Progress (45-01 awaiting owner) | - |
 | 46. Two-Run Battery Analysis and Operating Decision | v1.1 | 0/TBD | Not started | - |
 | 47. Integrated Field Validation and Decision Record | v1.1 | 0/TBD | Not started | - |

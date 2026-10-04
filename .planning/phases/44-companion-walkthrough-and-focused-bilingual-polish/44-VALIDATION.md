@@ -1,6 +1,6 @@
 ---
 phase: 44-companion-walkthrough-and-focused-bilingual-polish
-status: awaiting owner verification
+status: validated (owner confirmation, 2026-10-04)
 nyquist_compliant: false
 created: 2026-09-30
 ---
@@ -84,14 +84,27 @@ place and are recorded as an open decision in 44-WALKTHROUGH.md.
 
 ## Owner Visual Verification
 
-Owner visual verification status: **awaiting owner verification**. None of the following has been
-reviewed by the owner; nothing below is approved.
+Owner visual verification status: **validated by the owner on 2026-10-04**.
 
-- [ ] Owner reviewed the final authenticated companion in French and English at desktop and phone widths.
-- [ ] Owner confirmed Direction B Home, Display, Flights, Airlines, Health, Device, Updates, and navigation are understandable.
-- [ ] Owner completed keyboard/focus checks or recorded reproducible follow-up findings.
+On 2026-10-04 the owner stated that they had tested the deployed companion
+themselves before this closing step ("tu peux la valider, j'ai testé avant")
+and asked for Phase 44 to be marked validated. That statement is the only
+evidence for this section: no per-item notes, screenshots or recordings of the
+owner's session exist, and none are claimed here.
 
-Checklist for the owner (do not install production firmware for this review):
+The checklist below was written on 2026-10-03 for the Phase 44 working tree.
+Later companion redesigns (Flights boarding-pass cards and filter chips, Home
+recent-flight tiles, Airlines tiles, toasts and the Display look card) have
+since changed several of the screens it names, so it no longer describes the
+deployed result item by item. The owner validated the deployed result, not
+this checklist. The boxes are therefore ticked on the strength of that
+statement alone, not as separate observations.
+
+- [x] Owner reviewed the final authenticated companion in French and English at desktop and phone widths (owner statement, 2026-10-04).
+- [x] Owner confirmed Direction B Home, Display, Flights, Airlines, Health, Device, Updates, and navigation are understandable (owner statement, 2026-10-04).
+- [x] Owner completed keyboard/focus checks or recorded reproducible follow-up findings (owner statement, 2026-10-04; no follow-up findings were supplied).
+
+Original checklist for the owner (kept for the record; do not install production firmware for this review):
 
 1. Log in in French, then switch to English; repeat at desktop and 360-390 px.
 2. Home: frame signal and recent flights are the first useful reading; open a row image.
@@ -102,8 +115,15 @@ Checklist for the owner (do not install production firmware for this review):
 7. Tab through every changed action: visible focus indicator, reachable.
 8. Decide the open items listed in 44-WALKTHROUGH.md.
 
+Item 8 is not covered by the owner's statement: the open decisions listed in
+44-WALKTHROUGH.md (navigation labels, Airlines metadata editor, shared
+freshness indicator, update-cadence explanation, and the unrendered Frame
+strip / quick-switch / `/quick/display`) stay open and are carried forward, not
+decided by this closing.
+
 ## Final Disposition
 
-**Status:** Awaiting owner verification. The phase is not closed; it closes
-only after the owner approves or supplies reproducible issues for a bounded
-follow-up plan.
+**Status:** Validated on the owner's confirmation of 2026-10-04. Phase 44 is
+closed: 12/12 plans, automated evidence above, owner validation as described.
+`nyquist_compliant` stays `false`: the owner step is a single statement, not a
+per-requirement observation record.

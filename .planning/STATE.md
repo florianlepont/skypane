@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Battery and Companion!
-status: executing
-stopped_at: Phase 44 context gathered
-last_updated: "2026-10-03T09:22:20.430Z"
-last_activity: "2026-10-03 — 44-11 complete: Update installed-software summary and owner-only release list"
+status: phase_complete
+stopped_at: "Phase 44 complete (2026-10-04): 12/12 plans; owner validated the deployed companion by their own statement. Next: Phase 45 (controlled second discharge study), awaiting owner confirmation of the Run 2 protocol."
+last_updated: "2026-10-04T12:00:00.000Z"
+last_activity: "2026-10-04 — Phase 44 closed on the owner's validation of the deployed companion"
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 12
-  completed_plans: 11
-  percent: 0
+  completed_plans: 12
+  percent: 25
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -52,14 +52,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-30)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 44 — Companion Walkthrough and Focused Bilingual Polish
+**Current focus:** Phase 45 — Controlled Second Discharge Study (Phase 44 complete)
 
 ## Current Position
 
-Phase: 44 of 47 (Companion Walkthrough and Focused Bilingual Polish)
-Plan: 11 of 12 complete (latest: 44-11, Update installed summary and owner-only releases)
-Status: Executing
-Last activity: 2026-10-03 — 44-11 complete: Update installed-software summary and owner-only release list
+Phase: 44 of 47 (Companion Walkthrough and Focused Bilingual Polish) — COMPLETE (12/12 plans, 2026-10-04; CMP-01..CMP-04 closed). The owner validated the deployed companion themselves and confirmed it on 2026-10-04; the original 44-VALIDATION checklist predates later redesigns, so that statement, not per-item evidence, is the record. Open decisions in 44-WALKTHROUGH.md stay open.
+Plan: Not started (next: Phase 45)
+Status: Phase 44 complete; Phase 45 next
+Last activity: 2026-10-04 — Phase 44 closed on the owner's validation of the deployed companion
 Phase 45 (parallel branch claude/phase-45-discharge-study): 45-02 complete (logtools run-report); 45-01 Run 2 Protocol written as PROPOSED, blocked on owner confirmation (cadence, ceiling, park-window rule D-10); 45-03/45-04 not started.
 
 ## Position History (superseded entries, kept for the record)
@@ -1325,6 +1325,7 @@ None yet.
 | 261004-fc1 | Filter bar rebuilt as owner-approved sketch C: one shared component (`companion/ui_filter.py`) for Flights, Airlines and Health's prefix list — a 16px/48px search with an inline clear, collapsing to an icon beside the chips on phones; Flights adds All / Departures / Arrivals chips with live counts (the only honest dimension, `confirmed_state`); search now also matches airline name, route codes and aircraft type; soft empty state with its own Clear; every Clear button is wired in `list-filter.js`; day headers hide when empty. Tests retargeted, new served-HTML and browser checks, render baseline regenerated; full suite 3771 passed. | 2026-10-04 | see git log | [261004-fc1-flights-filter-chips](./quick/261004-fc1-flights-filter-chips/) |
 | 261004-cb5 | Home "Recent flights" on phones rebuilt as compact Flights boarding-pass cards (same history-card box, head, route line and notched stub, 91 px vs 159 px, after owner review replaced a first hairline-row version; no actions); the Flights plate/route/time helpers moved to companion/flight_card.py and are shared (Flights markup unchanged); desktop list unchanged. Row pitch 103 -> 98.5 px at 390x844, all five cards plus heading and link fit one screen. Duplicate TVF49NS explained: two stored events 30 s apart from a corroboration-flag flip, folded on Home only (same hex/callsign/route/direction under 60 s); Flights still lists both (owner decision). Extra: Display drops its visible freshness line (silent marker kept, freshness_line_html and "health.updated" removed). | 2026-10-04 | 90c4ecab, 0e9e03a2, 828c3b88, 104399c5 | [261004-cb5-home-recent-flights-cards](./quick/261004-cb5-home-recent-flights-cards/) |
 | 261004-at1 | Airlines tiles cleaned up (stacked on the filter-chips branch): the "N manual resolutions, N superseded" summary control removed with its strings, rule and the `[data-filter-set]` hook; the four per-tile text lines replaced by one small badge shown only when notable; the large Replace/Add artwork button replaced by a round pencil on the artwork corner (44px hit area, same `data-view-panel-*` contract); the "Aircraft type" select replaced by a native scroll-snap carousel with type names and script-gated pagination dots. Single-type tile at 390px: about 238px to 95px. Tests retargeted, new Playwright checks (scroll, dots, reduced motion, no-JS), render baseline regenerated; full suite 3771 passed. | 2026-10-04 | see git log | [261004-at1-airlines-tiles-cleanup](./quick/261004-at1-airlines-tiles-cleanup/) |
+| 261004-p44 | Phase 44 closed on the owner's statement (2026-10-04) that they validated the deployed companion themselves: 44-VALIDATION records that statement as the only evidence and notes the original checklist predates later redesigns; ROADMAP, REQUIREMENTS (CMP-01, CMP-02) and STATE updated; open walkthrough decisions stay open; phases 45-47 untouched. Docs only. | 2026-10-04 | (this PR) | [261004-p44-close-phase-44](./quick/261004-p44-close-phase-44/) |
 | 261004-ffd | Flights folds a repeated pass the way Home does: one shared `flight_card.fold_repeated_passes()` (same hex, callsign, route and direction, under 60 s apart, newest kept) replaces Home's private de-dup, and Flights applies it before the limit slice and the day grouping, so chip counts, the status count, day headers and "Show more (N remaining)" count flights, not stored events. Storage unchanged. | 2026-10-04 | (this PR) | [261004-ffd-flights-fold-duplicates](./quick/261004-ffd-flights-fold-duplicates/) |
 
 ## Deferred Items
@@ -1341,8 +1342,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-10-03T09:22:20.354Z
-Stopped at: Phase 44 context gathered
+Last session: 2026-10-04T12:00:00.000Z
+Stopped at: Phase 44 complete; Phase 45 next
 
 Resume file: 
 
