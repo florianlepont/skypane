@@ -40,6 +40,11 @@ from companion.flash import (
     FLASH_KEY_MANUAL_REGISTRY_FULL,
     FLASH_KEY_MANUAL_RESOLVED,
     FLASH_KEY_MANUAL_SAVE_FAILED,
+    FLASH_KEY_RENAME_FULL,
+    FLASH_KEY_RENAME_RESET,
+    FLASH_KEY_RENAME_SAVE_FAILED,
+    FLASH_KEY_RENAME_STALE,
+    FLASH_KEY_RENAMED,
     FLASH_KEY_RULE_ADDED,
     FLASH_KEY_RULE_DELETE_FAILED,
     FLASH_KEY_RULE_DELETED,
@@ -48,10 +53,12 @@ from companion.flash import (
     FLASH_KEY_RULE_REPLACED,
     FLASH_KEY_RULE_SAVE_FAILED,
 )
-from companion.pages import airlines_page, config_page
+from companion.pages import airline_sheet, airlines_page, config_page
 from companion.pages.airlines_page import unresolved_row_for_prefix
 from server import atomic_io
-from server.plane import calendar_rules, colour_rules, illustrations, manual_resolutions
+from server.plane import (
+    calendar_rules, colour_rules, enrich, illustrations, manual_resolutions, name_overrides,
+)
 import server.poll_cycle as poll_cycle
 
 # Bounds peak memory per upload to a few MB. Enforced by the caller
@@ -84,7 +91,60 @@ def _illustration_filenames(state_dir=None):
             key = manual_resolutions.illustration_key_for_name(entry["airline_name"])
             if key:
                 filenames.add(key + ".png")
+        filenames |= _renamed_illustration_filenames(state_dir)
     return frozenset(filenames)
+
+
+def _renamed_illustration_filenames(state_dir):
+    """The artwork filenames of airlines the owner renamed: the new name's
+    own key, plus one per aircraft-type variant the built-in airline has,
+    so a renamed airline can be given artwork exactly as before."""
+    filenames = set()
+    for prefix, entry in name_overrides.load_name_overrides(state_dir).items():
+        key = manual_resolutions.illustration_key_for_name(entry["airline_name"])
+        if not key:
+            continue
+        filenames.add(key + ".png")
+        built_in = enrich.static_airline_name_for_prefix(prefix)
+        for shape in airline_sheet.artwork_shapes(built_in):
+            filenames.add("%s-%s.png" % (key, shape))
+    return filenames
+
+
+def _carry_artwork_to_new_name(state_dir, from_name, to_name, shapes):
+    """Best-effort copy of the artwork flights use under `from_name` to the
+    key `to_name` resolves to, so renaming does not blank the airline's
+    pictures on new flights. Copies, never moves, and only when `to_name`
+    has no artwork at all (it may be another airline's name); the old
+    key's files stay, so a reset (and every older picture) still finds them.
+    """
+    from_key = illustrations.normalise_airline_key(from_name)
+    to_key = illustrations.normalise_airline_key(to_name)
+    if not from_key or not to_key or from_key == to_key:
+        return
+    suffixes = [""] + ["-" + shape for shape in shapes]
+    if any(illustrations.resolved_illustration_path(to_key + suffix, state_dir) for suffix in suffixes):
+        return
+    for suffix in suffixes:
+        source = illustrations.resolved_illustration_path(from_key + suffix, state_dir)
+        target = illustrations.override_path_for_key(to_key + suffix, state_dir)
+        if source is None or target is None:
+            continue
+        try:
+            with open(source, "rb") as fh:
+                data = fh.read()
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            atomic_io.atomic_write(target, data)
+        except OSError as exc:
+            print("airline rename: could not carry artwork %s: %s" % (suffix or "base", exc))
+
+
+_RENAME_FLASH_BY_RESULT = {
+    manual_resolutions.ADD_REJECTED_NAME_TOO_LONG: FLASH_KEY_MANUAL_NAME_TOO_LONG,
+    manual_resolutions.ADD_REJECTED_NAME_RESERVED: FLASH_KEY_MANUAL_NAME_RESERVED,
+    manual_resolutions.ADD_REJECTED_PREFIX: FLASH_KEY_RENAME_STALE,
+    manual_resolutions.ADD_REJECTED_FULL: FLASH_KEY_RENAME_FULL,
+}
 
 
 def parse_single_uploaded_file(content_type, body):
@@ -281,6 +341,62 @@ class SettingsActionsMixin:
         return self.redirect(
             "%s?resolve=%s&flash=%s"
             % (airlines_page.AIRLINES_ROUTE, quote(prefix, safe=""), quote(flash_key)))
+
+    def _rename_redirect(self, flash_key, sheet_key=None):
+        """Back to /airlines with `flash_key`; a refusal reopens the sheet."""
+        query = "flash=%s" % quote(flash_key)
+        if sheet_key:
+            query = "%s=%s&%s" % (airline_sheet.SHEET_QUERY_PARAM, quote(sheet_key, safe=""), query)
+        return self.redirect("%s?%s" % (airlines_page.AIRLINES_ROUTE, query))
+
+    def _handle_airline_rename_post(self):
+        """POST /airlines/rename — set the owner's name for a built-in
+        airline. `airline` is the built-in name and is re-validated against
+        the built-in prefix table, never trusted: the prefixes the name
+        applies to come from there. A name equal to the built-in one is a
+        reset. The new name applies to flights stored from now on; history
+        rows are untouched. No CSRF token: SameSite=Strict, like every
+        other state-changing route.
+        """
+        form = self.read_form()
+        state_dir = self.args.state_dir
+        built_in = form.get("airline")
+        prefixes = enrich.static_prefixes_for_name(built_in)
+        if not prefixes:
+            return self._rename_redirect(FLASH_KEY_RENAME_STALE)
+        overrides = name_overrides.load_name_overrides(state_dir)
+        sheet = airline_sheet.card_sheet(built_in, overrides)
+        sheet_key = illustrations.normalise_airline_key(sheet["name"])
+        raw_name = form.get("airline_name")
+        name, rejection = manual_resolutions.check_name(raw_name)
+        if rejection is None and name == built_in:
+            return self._reset_airline_name(state_dir, prefixes, sheet_key)
+        result = name_overrides.set_names(state_dir, prefixes, raw_name) if rejection is None else rejection
+        if result == name_overrides.SET_OK:
+            _carry_artwork_to_new_name(
+                state_dir, sheet["name"], name, airline_sheet.artwork_shapes(built_in))
+            return self._rename_redirect(FLASH_KEY_RENAMED)
+        if result == manual_resolutions.ADD_REJECTED_NAME_EMPTY:
+            flash_key = (
+                FLASH_KEY_MANUAL_NAME_UNUSABLE if isinstance(raw_name, str) and raw_name.strip()
+                else FLASH_KEY_MANUAL_NAME_EMPTY)
+        else:
+            flash_key = _RENAME_FLASH_BY_RESULT.get(result, FLASH_KEY_RENAME_SAVE_FAILED)
+        return self._rename_redirect(flash_key, sheet_key)
+
+    def _handle_airline_rename_reset_post(self):
+        """POST /airlines/rename/reset — drop the owner's name for a
+        built-in airline so new flights use SkyPane's name again."""
+        form = self.read_form()
+        prefixes = enrich.static_prefixes_for_name(form.get("airline"))
+        if not prefixes:
+            return self._rename_redirect(FLASH_KEY_RENAME_STALE)
+        return self._reset_airline_name(self.args.state_dir, prefixes, None)
+
+    def _reset_airline_name(self, state_dir, prefixes, sheet_key):
+        if name_overrides.clear_names(state_dir, prefixes):
+            return self._rename_redirect(FLASH_KEY_RENAME_RESET)
+        return self._rename_redirect(FLASH_KEY_RENAME_SAVE_FAILED, sheet_key)
 
     def _handle_manual_resolution_delete(self, key):
         """POST /airlines/manual-resolutions/{prefix}/delete. `key` is

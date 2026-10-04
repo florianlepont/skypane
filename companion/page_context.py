@@ -41,7 +41,7 @@ from urllib.parse import parse_qs, urlsplit
 import companion.prefs as prefs
 import companion.wake as wake
 from server import device_config, history_db
-from server.plane import calendar_rules, colour_rules, manual_resolutions
+from server.plane import calendar_rules, colour_rules, manual_resolutions, name_overrides
 
 _HERE = os.path.dirname(os.path.abspath(__file__))  # companion/
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
@@ -57,7 +57,7 @@ EAGER_FIELDS = (
     "state_dir", "ui_theme", "lang", "device_config",
     "last_checkin_ts", "battery_critical", "wake_interval_env_default",
     "flash", "flash_role", "flash_key", "runway_images", "now", "resolve_prefix",
-    "flights_limit",
+    "sheet_key", "flights_limit",
 )
 
 # The expensive values, resolved at most once, only if a route's own
@@ -67,7 +67,7 @@ EAGER_FIELDS = (
 # them, never read directly by a page module.
 LAZY_FIELDS = (
     "_health_signals", "health_state", "health_severity", "gallery_entries",
-    "manual_resolutions", "colour_rules", "calendar_configured",
+    "manual_resolutions", "name_overrides", "colour_rules", "calendar_configured",
     "_calendar_registry", "calendar_last_synced_at",
     "calendar_last_attempt_at", "calendar_entry_count", "calendar_drift",
     "poll_cooldown_remaining",
@@ -392,6 +392,9 @@ def build_page_context(handler):
             # membership test shared by the render and write paths.
             "resolve_prefix": params.get(
                 airlines_page.RESOLVE_QUERY_PARAM, [None])[0],
+            # Deliberately unvalidated: the Airlines page only ever
+            # compares it against the artwork keys it rendered itself.
+            "sheet_key": params.get(airlines_page.SHEET_QUERY_PARAM, [None])[0],
             # Deliberately unvalidated: validation belongs to
             # history_page.flights_limit(). Presentation-only.
             "flights_limit": params.get(
@@ -422,6 +425,8 @@ def build_page_context(handler):
             # server.
             "manual_resolutions": lambda: manual_resolutions.load_manual_resolutions(
                 state_dir),
+            # Read fresh per request for the same reason.
+            "name_overrides": lambda: name_overrides.load_name_overrides(state_dir),
             # Read fresh per request for the same reason.
             "colour_rules": lambda: colour_rules.load_colour_rules(state_dir),
             # A status line only needs presence, not the value: the

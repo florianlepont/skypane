@@ -165,6 +165,12 @@ _POST_ROUTES = (
         "POST", Exact(airlines_page.RESOLVE_ROUTE),
         lambda h, m: h._handle_manual_resolve_post(), True),
     Route(
+        "POST", Exact(airlines_page.RENAME_ROUTE),
+        lambda h, m: h._handle_airline_rename_post(), True),
+    Route(
+        "POST", Exact(airlines_page.RENAME_RESET_ROUTE),
+        lambda h, m: h._handle_airline_rename_reset_post(), True),
+    Route(
         "POST",
         PrefixSuffix(airlines_page.MANUAL_DELETE_ROUTE_PREFIX, airlines_page.MANUAL_DELETE_ROUTE_SUFFIX),
         lambda h, m: h._handle_manual_resolution_delete(m.captured), True),

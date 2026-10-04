@@ -23,7 +23,7 @@ import companion.layout as layout
 import companion.page_context as page_context
 import companion.prefs as prefs
 from server import history_db
-from server.plane import manual_resolutions
+from server.plane import manual_resolutions, name_overrides
 from server.plane import render as panel_render
 
 # history is kept forever; this is a display limit for readability,
@@ -418,7 +418,7 @@ def _safe_query(state_dir, fn):
         return _DB_UNAVAILABLE
 
 
-def history_rows(conn):
+def history_rows(conn, airline_names=None):
     """The most recent `HISTORY_ROW_LIMIT` `runway_events` rows, newest
     first (matches `history_db.recent_runway_events()`'s own ordering),
     with a pass stored twice folded into one row — the same fold Home
@@ -426,7 +426,8 @@ def history_rows(conn):
     flights, not stored events. Storage keeps every event.
     """
     return flight_card.fold_repeated_passes(
-        history_db.recent_runway_events(conn, limit=HISTORY_ROW_LIMIT))
+        history_db.recent_runway_events(
+            conn, limit=HISTORY_ROW_LIMIT, airline_names=airline_names))
 
 
 def flights_limit(ctx):
@@ -928,7 +929,8 @@ def render(ctx):
     ctx = page_context.coerce(ctx)
     state_dir = ctx.state_dir
     now = ctx.now or history_db.utc_now_iso()
-    rows = _safe_query(state_dir, history_rows)
+    names = name_overrides.names_by_prefix(ctx.name_overrides)
+    rows = _safe_query(state_dir, lambda conn: history_rows(conn, names))
 
     # Flights stays on the self-refreshing loop without showing a
     # freshness line: freshness.js returns at its first guard on any page

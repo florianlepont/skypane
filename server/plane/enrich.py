@@ -39,7 +39,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from server import http_fetch
-from server.plane import manual_resolutions, runway_config
+from server.plane import manual_resolutions, name_overrides, runway_config
 
 ADSBDB_URL = "https://api.adsbdb.com/v0/callsign/{callsign}"
 
@@ -573,6 +573,36 @@ def static_airline_name_for_prefix(prefix):
     return _ICAO_AIRLINE_PREFIXES.get(prefix)
 
 
+def static_prefixes_for_name(airline_name):
+    """The built-in 3-letter prefixes whose built-in name is exactly
+    `airline_name`, sorted; `[]` for anything else. Never raises."""
+    if not isinstance(airline_name, str):
+        return []
+    return sorted(p for p, name in _ICAO_AIRLINE_PREFIXES.items() if name == airline_name)
+
+
+def apply_name_override(callsign, route, overrides):
+    """Return `route` with its `airline_name` replaced by the owner's
+    override for `callsign`'s ICAO prefix, or `route` unchanged when there
+    is none. The override wins over adsbdb's name and the built-in table;
+    it never changes the other route fields or the route's source. Gated
+    like `airline_from_callsign()`: the only new string that can appear is
+    a validated registry name, never one derived from the callsign.
+    Returns a non-dict `route` unchanged. Never raises.
+    """
+    if not isinstance(route, dict) or not overrides:
+        return route
+    normalised = normalise_callsign(callsign)
+    if normalised is None or not _AIRLINE_PREFIX_SHAPE_RE.match(normalised):
+        return route
+    name = name_overrides.name_for_prefix(normalised[:3], overrides)
+    if not name or route.get("airline_name") == name:
+        return route
+    renamed = dict(route)
+    renamed["airline_name"] = name
+    return renamed
+
+
 def airline_source_from_callsign(callsign, manual_registry=None):
     """Return `(airline_name, source)` for `callsign`'s ICAO prefix,
     where `source` is `"static"`, `"manual"`, or `None`.
@@ -655,7 +685,8 @@ def airline_only_route(airline_name):
     }
 
 
-def resolve_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT, now=None, manual_registry=None):
+def resolve_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT, now=None, manual_registry=None,
+                  name_overrides=None):
     """Single resolution seam: classify `callsign`'s enrichment outcome
     into one of five sources and return `(route, source)`.
 
@@ -689,10 +720,24 @@ def resolve_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT, now=
     the static and manual tables on every call, cheaper than a second
     cache. `manual_registry` is the registry the caller loaded once this
     cycle via `manual_resolutions.load_manual_resolutions(state_dir)`;
-    `None` means the empty registry. Never raises.
+    `None` means the empty registry.
+
+    `name_overrides` is the owner's registry from
+    `name_overrides.load_name_overrides(state_dir)`; its name for the
+    prefix replaces the resolved route's `airline_name` whatever the
+    source (the source itself is unchanged), so a rename reaches the
+    stored flight, the panel and every page reading the stored name.
+    `None` means no overrides. Never raises.
     """
     if now is None:
         now = time.time()
+    route, source = _resolve_route_unrenamed(
+        callsign, cache, transport, timeout, now, manual_registry)
+    return apply_name_override(callsign, route, name_overrides), source
+
+
+def _resolve_route_unrenamed(callsign, cache, transport, timeout, now, manual_registry):
+    """`resolve_route()` before the owner's name override is applied."""
     route, from_cache = _lookup(callsign, cache, transport, timeout, now)
     if route is not None:
         corrected = apply_airline_name_correction(normalise_callsign(callsign), route)

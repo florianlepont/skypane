@@ -1205,3 +1205,61 @@ def test_v9c_eleven_new_prefixes_and_djt_correction_and_exclusions():
     got_qem = enrich.airline_from_callsign("QEM123")
     assert got_qem is None, "airline_from_callsign('QEM123') = %r, expected None (QT-v9c-D-06 guard)" % (got_qem,)
 
+
+
+def _override(prefix, name):
+    return {prefix: {"airline_name": name, "created_at": "2026-01-01T00:00:00+00:00"}}
+
+
+def test_owner_override_wins_over_the_static_name_and_keeps_the_source():
+    """a name override replaces the built-in name on an airline-only route
+    without changing its source or its other route fields"""
+    route, source = enrich.resolve_route(
+        "AFR123", {}, transport=make_transport(404, {}), now=1.0,
+        name_overrides=_override("AFR", "Skyline Air"))
+    assert source == "airline_only"
+    assert route["airline_name"] == "Skyline Air"
+    assert route["origin_iata"] is None
+
+
+def test_owner_override_wins_over_the_adsbdb_name_and_the_cached_route(hit_body):
+    """an override replaces the name adsbdb returned, on a fresh hit and on
+    a later cache hit, while the cache itself still holds adsbdb's name"""
+    cache = {}
+    overrides = _override("TVF", "Transavia")
+    transport = make_transport(200, hit_body)
+    route1, source1 = enrich.resolve_route(
+        "TVF16VB", cache, transport=transport, now=1000.0, name_overrides=overrides)
+    route2, source2 = enrich.resolve_route(
+        "TVF16VB", cache, transport=transport, now=1001.0, name_overrides=overrides)
+    assert (source1, source2) == ("fresh_hit", "cache_hit")
+    assert route1["airline_name"] == route2["airline_name"] == "Transavia"
+    assert cache["TVF16VB"]["airline_name"] != "Transavia"
+
+
+def test_owner_override_applies_only_to_its_own_prefix_and_none_means_unchanged():
+    """a callsign under another prefix, no overrides at all, or a registry
+    that is not a dict leave the resolved name untouched"""
+    for overrides in (_override("AFR", "X"), None, {}, "not a dict"):
+        route, _source = enrich.resolve_route(
+            "TVF16VB", {}, transport=make_transport(404, {}), now=1.0, name_overrides=overrides)
+        assert route["airline_name"] == "Transavia France"
+
+
+def test_owner_override_beats_the_manual_resolution_for_the_same_prefix():
+    """the owner's override outranks a manual resolution on a prefix the
+    built-in table does not know"""
+    route, source = enrich.resolve_route(
+        "XQZ123", {}, transport=make_transport(404, {}), now=1.0,
+        manual_registry=_override("XQZ", "Manual Name"),
+        name_overrides=_override("XQZ", "Owner Name"))
+    assert source == "manual"
+    assert route["airline_name"] == "Owner Name"
+
+
+def test_static_prefixes_for_name_lists_every_prefix_of_a_built_in_airline():
+    """a built-in airline name maps back to its sorted prefixes; an
+    unknown name or a non-string maps to none"""
+    assert enrich.static_prefixes_for_name("Air France") == ["AFR"]
+    assert enrich.static_prefixes_for_name("Nobody Air") == []
+    assert enrich.static_prefixes_for_name(None) == []

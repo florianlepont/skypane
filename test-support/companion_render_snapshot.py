@@ -151,6 +151,8 @@ _UNAUTH_POST_REQUESTS = (
     companion_app.LANG_ROUTE,
     companion_app.LOGOUT_ROUTE,
     airlines_page.RESOLVE_ROUTE,
+    airlines_page.RENAME_ROUTE,
+    airlines_page.RENAME_RESET_ROUTE,
     airlines_page.MANUAL_DELETE_ROUTE_PREFIX + "RYR" + airlines_page.MANUAL_DELETE_ROUTE_SUFFIX,
     companion_app.ILLUSTRATION_IMAGE_ROUTE_PREFIX + "air-france.png",
     companion_app.RULES_ADD_ROUTE,

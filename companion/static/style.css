@@ -4277,6 +4277,10 @@ a.airline-card {
   background: var(--color-scrim);
 }
 
+.lightbox__actions button {
+  min-height: 44px;
+}
+
 .lightbox__actions {
   display: flex;
   align-items: center;
@@ -4310,6 +4314,65 @@ a.airline-card {
   display: block;
   padding-top: var(--space-md);
   min-width: 0;
+}
+
+/* The airline sheet (pencil on an Airlines tile): name field, read-only
+ * prefix chips, reset form, then the artwork upload that follows it. The
+ * :not([hidden]) form lets panel-lookup.js hide the whole section, or
+ * just the reset form, for a card that has no name to edit or reset. The
+ * chips reuse .airline-card__chip; they are display only, so they are
+ * not touch targets. */
+.airline-sheet:not([hidden]) {
+  display: block;
+  padding-top: var(--space-md);
+  min-width: 0;
+}
+
+.airline-sheet__name input[type="text"] {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* The sheet's own buttons meet the 44px floor directly, at every width,
+ * rather than taking the 30px/36px compact button geometry. */
+.airline-sheet__name button,
+.airline-sheet__reset button {
+  margin-top: var(--space-sm);
+  min-height: 44px;
+}
+
+.airline-sheet__prefixes {
+  margin-top: var(--space-md);
+}
+
+.airline-sheet__prefixes p {
+  margin: 0 0 var(--space-xs);
+}
+
+.airline-sheet__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin: 0 0 var(--space-xs);
+  padding: 0;
+  list-style: none;
+}
+
+.airline-sheet__reset:not([hidden]) {
+  display: block;
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.airline-sheet__reset p {
+  margin: 0;
+}
+
+.airline-sheet__artwork-label {
+  margin: var(--space-md) 0 0;
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
 }
 
 .lightbox__replace-zone:not([hidden]),

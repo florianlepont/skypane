@@ -9,7 +9,7 @@ from companion import theme_preview
 import companion.layout as layout
 from companion.layout import escape_html
 from server import device_config, history_db
-from server.plane import colour_rules, enrich
+from server.plane import colour_rules, enrich, name_overrides
 
 from companion.settings import look
 from companion.settings.calendar import special_mini_html
@@ -346,7 +346,10 @@ def _rule_suggestion_chips_html(state_dir):
     """
     try:
         with history_db.open_db(state_dir) as conn:
-            rows = history_db.recent_runway_events(conn, limit=50)
+            rows = history_db.recent_runway_events(
+                conn, limit=50,
+                airline_names=name_overrides.names_by_prefix(
+                    name_overrides.load_name_overrides(state_dir)))
     except Exception:
         return ""
     keys = _recent_rule_keys(rows)
