@@ -369,14 +369,14 @@ def test_render_gallery_no_preview_apparatus_even_with_panel_file(tmp_path):
 def test_now_showing_no_preview_freshness_apparatus(tmp_path):
     """the rendered History page carries no data-stale-banner and no Refresh link —
     retired apparatus stays retired — while carrying exactly one data-loaded-at marker,
-    built by layout.freshness_line_html(), because this page is on the refresh loop and
+    built by layout.refresh_marker_html(), because this page is on the refresh loop and
     freshness.js returns at its first guard without one"""
     rendered = history_page.render(vp.history_ctx(tmp_path))
     assert "data-stale-banner" not in rendered
     assert rendered.count("data-loaded-at") == 1, (
         "expected exactly one data-loaded-at marker on the History page, found %d"
         % rendered.count("data-loaded-at"))
-    built = layout.freshness_line_html(vp.history_ctx(tmp_path)["now"])
+    built = layout.refresh_marker_html(vp.history_ctx(tmp_path)["now"])
     assert "data-loaded-at" in built
     marker_at = rendered.index("data-loaded-at")
     around = rendered[max(0, marker_at - 400):marker_at]

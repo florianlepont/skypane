@@ -55,6 +55,23 @@ def seed_flight_card_variety(state_dir, with_gallery=True):
             os.path.join(gallery, FLIGHT_CARD_GALLERY_NAME), format="PNG")
 
 
+# The repeated pass Home folds away: FLIGHT_CARD_FLIGHTS' first flight
+# stored a second time 30 s earlier (same hex, callsign, route and
+# direction), as the poll loop does when the corroboration flag changes.
+HOME_DUPLICATE_TS = "2026-09-03T20:54:30+00:00"
+
+
+def seed_home_tile_variety(state_dir):
+    """`FLIGHT_CARD_FLIGHTS` (no gallery) plus the duplicate of its first
+    flight at `HOME_DUPLICATE_TS`."""
+    seed_flight_card_variety(state_dir, with_gallery=False)
+    callsign, airline, origin, destination, state, _ = FLIGHT_CARD_FLIGHTS[0]
+    seed_runway_events(state_dir, [{
+        "ts": HOME_DUPLICATE_TS, "hex": "4b%04x" % 0, "callsign": callsign,
+        "airline": airline, "origin": origin, "destination": destination,
+        "confirmed_state": state, "corroborated": None}])
+
+
 def history_ctx(state_dir, now=None, gallery_entries=None, flights_limit=None):
     """The `ctx` dict `companion.pages.history_page.render()` expects,
     mirroring `companion/app.py`'s own ctx keys exactly."""
