@@ -215,10 +215,6 @@ REFRESH_PILL_TEXT = layout.REFRESH_PILL_TEXT
 # imported: freshness.js is a static asset, not a Python module.
 REFRESH_LIVE_DOT_ATTR = layout.REFRESH_LIVE_DOT_ATTR
 
-# No relative-age suffix: `now` is computed once per request and fed
-# back into itself, so a "(0s ago)" suffix would always read zero.
-FRESHNESS_PREFIX_TEXT = layout.FRESHNESS_PREFIX_TEXT
-
 # freshness.js always runs unconditionally, with no client-side pause
 # state to label.
 
