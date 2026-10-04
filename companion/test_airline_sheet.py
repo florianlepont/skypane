@@ -74,14 +74,16 @@ def test_every_trigger_on_the_page_carries_all_five_sheet_attributes(tmp_path):
 
 def test_the_shared_dialog_holds_the_sheet_forms_with_fixed_post_actions(tmp_path):
     """the dialog carries the name form, the chip list, the reset form and the artwork label,
-    their actions fixed server-side and the name field a 16px-safe text input on the known-airlines
-    datalist"""
+    their actions fixed server-side and the name field a plain required text input with no
+    datalist (suggesting other airlines would only invite refused renames) and no autofocus"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     dialog = rendered[rendered.index('<dialog'):]
     assert 'class="airline-sheet"' in dialog
     assert 'method="post" action="/airlines/rename"' in dialog
     assert 'method="post" action="/airlines/rename/reset"' in dialog
-    assert 'name="airline_name" list="known-airlines-dialog" maxlength="100" required' in dialog
+    sheet = dialog[dialog.index('class="airline-sheet"'):dialog.index('class="airline-sheet__prefixes"')]
+    assert 'name="airline_name" maxlength="100" required' in sheet
+    assert "list=" not in sheet and "autofocus" not in sheet
     assert 'id="known-airlines-dialog"' in dialog
     assert "Reset to SkyPane’s name" in dialog
 
@@ -168,12 +170,17 @@ def test_rename_post_stores_every_prefix_and_carries_the_artwork(make_app_server
 
 
 def test_rename_post_never_overwrites_artwork_the_new_name_already_has(make_app_server):
-    """renaming onto a name that already has artwork copies nothing"""
+    """renaming onto a name whose key already holds owner artwork copies nothing over it"""
     server = make_app_server(fake_providers=True)
     session = login(server)
-    _post(server, session, "/airlines/rename", airline="Transavia France", airline_name="Air France")
-    assert not os.path.exists(os.path.join(server.state_dir, "illustration_overrides", "air-france.png"))
-    assert name_overrides.load_name_overrides(server.state_dir)["TVF"]["airline_name"] == "Air France"
+    existing = illustrations.override_path_for_key("skyline-air", server.state_dir)
+    os.makedirs(os.path.dirname(existing), exist_ok=True)
+    with open(existing, "wb") as fh:
+        fh.write(b"owner-art")
+    _post(server, session, "/airlines/rename", airline="Transavia France", airline_name="Skyline Air")
+    with open(existing, "rb") as fh:
+        assert fh.read() == b"owner-art"
+    assert name_overrides.load_name_overrides(server.state_dir)["TVF"]["airline_name"] == "Skyline Air"
 
 
 def test_rename_post_refusals_reopen_the_sheet_and_write_nothing(make_app_server):
@@ -250,7 +257,7 @@ def test_the_sheet_flash_messages_exist_in_both_languages(tmp_path):
     from companion import flash
     keys = (airline_sheet.FLASH_RENAMED, airline_sheet.FLASH_RENAME_RESET,
             airline_sheet.FLASH_RENAME_STALE, airline_sheet.FLASH_RENAME_FULL,
-            airline_sheet.FLASH_RENAME_SAVE_FAILED)
+            airline_sheet.FLASH_RENAME_SAVE_FAILED, airline_sheet.FLASH_RENAME_TAKEN)
     try:
         for key in keys:
             prefs.set_request_prefs(lang="en")
@@ -289,3 +296,91 @@ def test_flights_and_home_show_stored_flights_under_the_new_name_and_reset_resto
     _post(server, session, "/airlines/rename/reset", airline="Air France")
     for page in pages():
         assert "Skyline Air" not in page and "Air France" in page
+
+
+def _stored_names(server):
+    return {p: e["airline_name"] for p, e in name_overrides.load_name_overrides(server.state_dir).items()}
+
+
+def test_rename_onto_another_airlines_builtin_name_is_refused_in_any_spelling(make_app_server):
+    """a name whose artwork key equals another curated airline's (case, accents, spacing,
+    punctuation variants) is refused with the taken flash, the sheet reopens on the same airline
+    and nothing is written"""
+    server = make_app_server(fake_providers=True)
+    session = login(server)
+    for name in ("Transavia France", "transavia  france", "TRANSAVIA-FRANCE", "Tränsavia France", "Air Algérie"):
+        status, headers, _ = _post(
+            server, session, "/airlines/rename", airline="Air France", airline_name=name)
+        query = _flash(headers)
+        assert status == 303, name
+        assert query["flash"] == [airline_sheet.FLASH_RENAME_TAKEN], (name, headers["Location"])
+        assert query["sheet"] == ["air-france"]
+    assert _stored_names(server) == {}
+    assert not os.path.exists(os.path.join(server.state_dir, "illustration_overrides", "transavia-france.png"))
+
+
+def test_rename_onto_another_airlines_override_is_refused(make_app_server):
+    """once Air France is called Skyline Air, no other airline can take that name in any
+    spelling, and Air France's own stored name is untouched"""
+    server = make_app_server(fake_providers=True)
+    session = login(server)
+    _post(server, session, "/airlines/rename", airline="Air France", airline_name="Skyline Air")
+    for name in ("Skyline Air", "SKYLINE air", "skyline-air"):
+        _, headers, _ = _post(
+            server, session, "/airlines/rename", airline="Transavia France", airline_name=name)
+        query = _flash(headers)
+        assert query["flash"] == [airline_sheet.FLASH_RENAME_TAKEN], name
+        assert query["sheet"] == ["transavia-france"]
+    assert _stored_names(server) == {"AFR": "Skyline Air"}
+
+
+def test_resaving_the_same_name_and_resetting_by_own_name_are_not_collisions(make_app_server):
+    """an airline keeps its own override name (same or respelled) and posting its own built-in
+    name is still the reset, never a collision with itself"""
+    server = make_app_server(fake_providers=True)
+    session = login(server)
+    _post(server, session, "/airlines/rename", airline="Air France", airline_name="Skyline Air")
+    for name in ("Skyline Air", "skyline air", "Skyline Air Two"):
+        _, headers, _ = _post(
+            server, session, "/airlines/rename", airline="Air France", airline_name=name)
+        assert _flash(headers)["flash"] == [airline_sheet.FLASH_RENAMED], name
+    assert _stored_names(server) == {"AFR": "Skyline Air Two"}
+    _, headers, _ = _post(
+        server, session, "/airlines/rename", airline="Air France", airline_name="Air France")
+    assert _flash(headers)["flash"] == [airline_sheet.FLASH_RENAME_RESET]
+    assert _stored_names(server) == {}
+
+
+def test_a_multi_prefix_airline_keeps_its_own_name_across_prefixes(make_app_server):
+    """Transavia France's two prefixes share one override; re-saving it does not collide with
+    its own other prefix"""
+    server = make_app_server(fake_providers=True)
+    session = login(server)
+    for _ in range(2):
+        _, headers, _ = _post(
+            server, session, "/airlines/rename", airline="Transavia France", airline_name="Transavia")
+        assert _flash(headers)["flash"] == [airline_sheet.FLASH_RENAMED]
+    assert _stored_names(server) == {"TFV": "Transavia", "TVF": "Transavia"}
+
+
+def test_the_sheet_name_field_has_no_datalist_and_a_taken_refusal_focuses_it_without_scripts(tmp_path):
+    """the name field offers no suggestions; the no-script sheet autofocuses the name only when
+    the page was reached after a name refusal (taken included), never from the pencil link"""
+    tmp = str(tmp_path)
+    plain = airlines_page.render(shp.ctx(tmp) | {"sheet_key": "air-france"})
+    section = plain[plain.index("data-sheet-fallback"):]
+    assert "autofocus" not in section and "data-sheet-focus-name" not in plain
+    assert "list=" not in section[:section.index("airline-sheet__prefixes")]
+    for key in (airline_sheet.FLASH_RENAME_TAKEN, "manual_name_too_long"):
+        refused = airlines_page.render(shp.ctx(tmp) | {"sheet_key": "air-france", "flash_key": key})
+        assert "data-sheet-focus-name" in refused
+        field = re.search(r'<input type="text" id="airline-sheet-name-edit"[^>]*>', refused).group(0)
+        assert " autofocus" in field
+    reset = airlines_page.render(shp.ctx(tmp) | {"sheet_key": "air-france", "flash_key": "airline_renamed"})
+    assert "data-sheet-focus-name" not in reset
+
+
+def test_the_taken_flash_is_an_error_toast(tmp_path):
+    """the taken refusal is an error-toned flash like the other name refusals"""
+    from companion import flash
+    assert flash.FLASH_ROLES[airline_sheet.FLASH_RENAME_TAKEN] == flash.FLASH_ROLES["manual_name_too_long"]

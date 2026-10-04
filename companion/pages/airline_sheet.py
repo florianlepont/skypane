@@ -39,7 +39,14 @@ FLASH_RENAMED = "airline_renamed"
 FLASH_RENAME_RESET = "airline_rename_reset"
 FLASH_RENAME_STALE = "airline_rename_stale"
 FLASH_RENAME_FULL = "airline_rename_full"
+FLASH_RENAME_TAKEN = "airline_rename_taken"
 FLASH_RENAME_SAVE_FAILED = "airline_rename_save_failed"
+# The refusals a reopened sheet answers with focus on the name field: the
+# owner has to change what they typed.
+NAME_REFUSAL_FLASHES = (
+    "manual_name_empty", "manual_name_too_long", "manual_name_reserved",
+    "manual_name_unusable", FLASH_RENAME_TAKEN,
+)
 
 SHEET_HEADING_TEMPLATE = i18n.msg("airlines.edit_airline", "Edit %s")
 SHEET_NAME_HINT = i18n.msg(
@@ -109,17 +116,22 @@ SHEET_RENAME_FORM_ID = "airline-rename-form"
 SHEET_CLASS = "airline-sheet"
 
 
-def sheet_html(values, id_suffix, datalist_id, name_label, in_dialog):
+def sheet_html(values, id_suffix, name_label, in_dialog, focus_name=False):
     """The airline sheet: name form, read-only prefix chips, the reset form
     and the artwork label that heads the upload form after it. One
     definition, two call sites: the shared dialog (`in_dialog`, values all
     empty, panel-lookup.js fills every field per click) and the no-script
     in-page section (values real, the reset form only when renamed).
 
-    `values` is `attr_values()`'s tuple; `name_label` is the already-translated
-    label of the name field and `datalist_id` the id of a datalist in the page. The prefix chips and
-    the reset caption are real text here; in the dialog the script rewrites
-    them with `textContent` from the trigger's attributes.
+    `values` is `attr_values()`'s tuple and `name_label` the already-translated
+    label of the name field. The name field offers no datalist: suggesting
+    other airlines' names would only invite a refused rename. The prefix
+    chips and the reset caption are real text here; in the dialog the
+    script rewrites them with `textContent` from the trigger's attributes.
+
+    Opening the sheet must not raise the phone keyboard, so the field is
+    never `autofocus`ed, except in the no-script copy when `focus_name`
+    says a refused rename reopened it (the owner has to fix the name).
     """
     builtin, name, prefixes, renamed, _sheet_key = values
     name_id = SHEET_NAME_INPUT_ID + id_suffix
@@ -146,8 +158,8 @@ def sheet_html(values, id_suffix, datalist_id, name_label, in_dialog):
         '<form class="airline-sheet__name" id="%s" method="post" action="%s">'
         '<input type="hidden" name="airline" value="%s">'
         '<label for="%s">%s</label>'
-        '<input type="text" id="%s" name="airline_name" list="%s" maxlength="100" '
-        'required autocomplete="off" value="%s">'
+        '<input type="text" id="%s" name="airline_name" maxlength="100" '
+        'required autocomplete="off"%s value="%s">'
         '<p class="text-label section-caption">%s</p>'
         '<button type="submit">%s</button>'
         "</form>"
@@ -163,7 +175,7 @@ def sheet_html(values, id_suffix, datalist_id, name_label, in_dialog):
         SHEET_RENAME_FORM_ID + id_suffix, RENAME_ROUTE,
         escape_html(builtin),
         name_id, name_label,
-        name_id, datalist_id, escape_html(name),
+        name_id, " autofocus" if focus_name and not in_dialog else "", escape_html(name),
         i18n.t(SHEET_NAME_HINT),
         i18n.t(SHEET_SAVE_TEXT),
         i18n.t(SHEET_PREFIXES_LABEL), chips,
