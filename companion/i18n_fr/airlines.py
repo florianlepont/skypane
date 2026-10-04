@@ -17,12 +17,7 @@ MESSAGES = {
     # --- Page header, gallery, cards --------------------------------
     "airlines.aircraft_type": "Type d’appareil",
     "airlines.any_aircraft": "Tout appareil",
-    "airlines.from_skypane": "Fourni par SkyPane",
-    "airlines.built_in_artwork": "Illustration intégrée",
-    "airlines.no_built_in_artwork": "Aucune illustration intégrée",
-    "airlines.your_changes": "Vos modifications",
-    "airlines.no_changes": "Aucune modification",
-    "airlines.your_artwork_is_shown_instead": "Votre illustration est affichée à la place",
+    "airlines.replaced_artwork": "Illustration remplacée",
     "airlines.your_artwork": "Votre illustration",
     "airlines.no_artwork_yet": "Pas encore d’illustration",
     "airlines.built_in_name_used_instead": "Nom intégré utilisé à la place du vôtre",
@@ -48,13 +43,6 @@ MESSAGES = {
         "Identifier le préfixe %s — exemple d’indicatif %s",
     "airlines.other_unresolved_prefixes": "%d autres préfixes non résolus — ",
     "airlines.see_the_full_list": "voir la liste complète",
-    "airlines.manual_resolutions_superseded": "%d résolutions manuelles, %d remplacées",
-    "airlines.manual_resolutions": "%d résolutions manuelles",
-    # The singular halves: French and English agree on where this
-    # boundary falls, but each language still owns its own string
-    # rather than sharing a runtime rule.
-    "airlines.manual_resolution_superseded": "%d résolution manuelle, %d remplacée",
-    "airlines.manual_resolution": "%d résolution manuelle",
 
     # --- The gallery's filter bar ------------------------------------
     "airlines.filter_by_airline_or_callsign": "Filtrer par compagnie ou indicatif",

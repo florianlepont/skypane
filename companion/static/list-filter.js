@@ -36,7 +36,6 @@
   var SWAPPED_EVENT = "skypane-regions-swapped";
   var emptyEl = document.querySelector("[data-filter-empty]");
   var clearButtons = document.querySelectorAll("[data-filter-clear]");
-  var setButtons = document.querySelectorAll("[data-filter-set]");
   // Optional segmented chips: radios whose value is a row's
   // data-filter-kind ("" is every row). Absent on a plain search bar.
   var chipInputs = document.querySelectorAll("[data-filter-chip]");
@@ -241,17 +240,6 @@
         }
       });
     })(clearButtons[bi]);
-  }
-
-  // querySelectorAll (plural): more than one summary-line-style
-  // element could legitimately exist on a page.
-  for (var si = 0; si < setButtons.length; si++) {
-    (function (setBtn) {
-      setBtn.addEventListener("click", function () {
-        input.value = setBtn.getAttribute("data-filter-set") || "";
-        applyFilter();
-      });
-    })(setButtons[si]);
   }
 
   // Re-apply the filter after the refresh loop has swapped the list in.

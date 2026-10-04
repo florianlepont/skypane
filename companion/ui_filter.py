@@ -52,8 +52,7 @@ def _chips_html(chips, legend):
 
 def filter_bar_html(
         input_id, label, placeholder, count_template, count_total,
-        shown, empty_heading, empty_body, chips=None, chips_legend="",
-        extra_html=""):
+        shown, empty_heading, empty_body, chips=None, chips_legend=""):
     """The filter bar plus its empty state, as one markup string.
 
     `chips` (optional) adds the segmented group and switches the search
@@ -61,9 +60,7 @@ def filter_bar_html(
     `count_total` and `shown` seed the live count the script rewrites
     from `count_template` ("%d of %d shown", already translated; served
     to the script with `#` for each `%d`).
-    `extra_html` is the caller's own already-safe markup, placed in the
-    bar's trailing meta group beside the count. Every other argument is
-    escaped here, never by the caller.
+    Every argument is escaped here, never by the caller.
 
     The input has no `name` (never submitted by a form) and carries the
     autofill-suppression attributes the WebKit contacts heuristic needs
@@ -88,7 +85,6 @@ def filter_bar_html(
         '<div class="filter-bar__meta">'
         '<span class="filter-bar__count" data-filter-count role="status" '
         'data-filter-count-template="%s">%s</span>'
-        "%s"
         "</div>"
         "</div>"
         '<div class="empty-state empty-state--filter" data-filter-empty hidden>'
@@ -104,7 +100,7 @@ def filter_bar_html(
         escape_html(i18n.t(FILTER_CLEAR_LABEL)), icon_html("icon-close", 14),
         chips_markup,
         escape_html(count_template.replace("%d", COUNT_PLACEHOLDER)),
-        escape_html(count_text), extra_html,
+        escape_html(count_text),
         icon_html("icon-search", 22),
         escape_html(empty_heading), escape_html(empty_body),
         escape_html(i18n.t(FILTER_CLEAR_TEXT)),
