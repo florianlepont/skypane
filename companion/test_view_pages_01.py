@@ -89,17 +89,17 @@ def test_no_airline_no_route_matches_render_fallback(tmp_path):
 
 
 def test_mono_columns_present(tmp_path):
-    """timestamp, callsign and hex columns carry monospace CSS classes"""
+    """the callsign reads in the monospace identifier voice in the table and on the phone card"""
     # The merged Callsign+Hex cell's monospace treatment lives on the
-    # cell-primary/cell-secondary span classes (both mono in style.css),
-    # not on a td[class="mono"] attribute - Timestamp is the one
-    # remaining exact class="mono" cell.
+    # cell-primary/cell-secondary span classes (both mono in style.css);
+    # the phone card's callsign carries the shared .mono class.
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "abc123", "callsign": "MONO1"},
     ])
     rendered = history_page.render(vp.history_ctx(tmp_path))
     doc = parse_html(rendered)
-    assert len(doc.select('[class="mono"]')) >= 1
+    callsigns = doc.select("li.history-card .history-card__callsign.mono")
+    assert [node.text() for node in callsigns] == ["MONO1"]
     assert doc.select('[class="%s"]' % history_page.CELL_PRIMARY_CLASS)
     assert doc.select('[class="%s"]' % history_page.CELL_SECONDARY_CLASS)
 
@@ -313,15 +313,18 @@ def test_merged_cell_classes_agree_with_stylesheet(tmp_path, served_css):
 
 
 def test_timestamp_column_absolute_and_relative(tmp_path):
-    """History's Timestamp column/mobile primary line read through layout.concise_timestamp_html(), format_event_row() degrades gracefully with one argument or a missing timestamp, and render() falls back when ctx carries no 'now' key"""
+    """the phone card shows the local clock time over its live relative age, format_event_row() degrades gracefully with one argument or a missing timestamp, and render() falls back when ctx carries no 'now' key"""
     seeded_ts = "2026-08-28T13:58:02+00:00"
     three_min_later = "2026-08-28T14:01:02+00:00"
     vp.seed_runway_events(tmp_path, [
         {"ts": seeded_ts, "hex": "d9", "callsign": "TS1"},
     ])
     rendered = history_page.render(vp.history_ctx(tmp_path, now=three_min_later))
-    expected = layout.concise_timestamp_html(seeded_ts, three_min_later)
-    assert expected in rendered
+    when = parse_html(rendered).select_one("li.history-card .history-card__when")
+    assert when.select_one(".time-value--primary").text() == "15:58"
+    age = when.select_one("time[data-relative]")
+    assert age.text() == "3m ago"
+    assert layout.age_seconds(age.attrs.get("datetime"), three_min_later) == 180
 
     # A one-argument format_event_row() call degrades to the raw stored
     # timestamp, unchanged.
@@ -558,7 +561,9 @@ def test_each_flight_has_one_picture_link_on_desktop_and_card(tmp_path):
             assert len(links) == 1
             link = links[0]
             assert link.attrs["href"] == "/gallery/" + entries[0]
-            assert link.text() == "View picture"
+            # The table link shows its label; the card's is icon-only and
+            # named by its aria-label alone.
+            assert link.text() == ("View picture" if tag == "tr" else "")
             assert link.attrs["aria-label"] == "View picture of " + callsign
     doc = parse_html(rendered)
     assert not doc.select("[aria-expanded]")

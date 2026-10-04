@@ -23,6 +23,38 @@ def seed_runway_events(state_dir, events):
             history_db.record_runway_event(conn, **fields)
 
 
+# A Flights fixture covering every phone-card variant: a resolved airline
+# with artwork, one with no artwork file, an unresolved airline, an
+# arrival, and a long operator name with no route, over two Paris days.
+# (callsign, airline, origin, destination, state, ts)
+FLIGHT_CARD_FLIGHTS = (
+    ("TVF72YL", "Transavia France", "ORY", "KEF", "departing", "2026-09-03T20:55:00+00:00"),
+    ("SMR42", "Totally Unknown Air", "ORY", "TFS", "departing", "2026-09-03T20:31:00+00:00"),
+    ("OBS412", None, "ORY", "OPO", "departing", "2026-09-03T19:48:00+00:00"),
+    ("AFR6152", "Air France", "NCE", "ORY", "arriving", "2026-09-02T21:12:00+00:00"),
+    ("XYZ9", "Some Very Long Charter Operator Name Limited", None, None, "departing",
+     "2026-09-02T20:00:00+00:00"),
+)
+FLIGHT_CARD_GALLERY_NAME = "2026-09-01T08-00-00+00-00.png"
+
+
+def seed_flight_card_variety(state_dir, with_gallery=True):
+    """Seed `FLIGHT_CARD_FLIGHTS` and, when `with_gallery`, one archived
+    render older than all of them, so every flight can open a picture."""
+    seed_runway_events(state_dir, [
+        {"ts": ts, "hex": "4b%04x" % index, "callsign": callsign, "airline": airline,
+         "origin": origin, "destination": destination, "confirmed_state": state}
+        for index, (callsign, airline, origin, destination, state, ts)
+        in enumerate(FLIGHT_CARD_FLIGHTS)
+    ])
+    if with_gallery:
+        from PIL import Image
+        gallery = os.path.join(str(state_dir), "gallery")
+        os.makedirs(gallery, exist_ok=True)
+        Image.new("RGB", (60, 80), "white").save(
+            os.path.join(gallery, FLIGHT_CARD_GALLERY_NAME), format="PNG")
+
+
 def history_ctx(state_dir, now=None, gallery_entries=None, flights_limit=None):
     """The `ctx` dict `companion.pages.history_page.render()` expects,
     mirroring `companion/app.py`'s own ctx keys exactly."""
