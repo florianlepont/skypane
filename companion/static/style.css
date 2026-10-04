@@ -4256,6 +4256,12 @@ a.airline-card {
   display: none;
 }
 
+/* The sheet's heading takes the dialog's initial focus (tabindex -1, set by
+   panel-lookup.js); it is not a control, so it carries no ring. */
+.lightbox__heading:focus {
+  outline: none;
+}
+
 .lightbox__manual-note:empty {
   display: none;
 }

@@ -129,6 +129,8 @@ MESSAGES = {
     "common.the_renamed_airlines_list_is_full_200_entries":
         "La liste des compagnies renommées est pleine (200 entrées) — "
         "rétablissez-en une avant d’en renommer une autre.",
+    "common.another_airline_already_uses_that_name":
+        "Une autre compagnie utilise déjà ce nom — essayez-en un autre.",
     "common.couldn_t_save_that_airline_name":
         "Impossible d’enregistrer ce nom de compagnie — le dossier d’état "
         "du cadre n’est peut-être pas accessible en écriture.",

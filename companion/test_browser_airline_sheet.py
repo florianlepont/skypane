@@ -14,6 +14,8 @@ from companion.test_browser_ux_helpers import (
 
 pytestmark = pytest.mark.browser
 
+FOCUSED = "() => { var e = document.activeElement; return e.id || e.className || e.tagName; }"
+
 DIALOG = "#panel-lookup-dialog"
 SHEET = DIALOG + " .airline-sheet"
 NAME_INPUT = SHEET + ' input[name="airline_name"]'
@@ -139,6 +141,7 @@ def test_a_refused_name_reopens_the_sheet_with_the_error(new_context, make_app_s
         page.locator(DIALOG + "[open]").wait_for()
         assert page.locator(".toast").first.is_visible()
         assert page.locator(NAME_INPUT).input_value() == "Air France"
+        assert page.evaluate(FOCUSED) == "airline-sheet-name-dialog"
     finally:
         context.close()
 
@@ -165,3 +168,86 @@ def test_without_scripts_the_pencil_is_a_link_to_an_in_page_sheet(new_context, m
         page.locator("[data-sheet-fallback] form.airline-sheet__reset button").evaluate("e => e.click()")
         page.wait_for_url("**/airlines?flash=airline_rename_reset")
         assert page.locator('.airline-card__name:text-is("Air France")').count() == 1
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
+def test_opening_the_sheet_leaves_focus_off_the_name_field(new_context, server, viewport, lang):
+    """opening the sheet from the pencil, from the zoom picture and from its URL puts focus on the
+    dialog's heading, never the name field (no phone keyboard), and the first Tab then reaches a
+    control inside the dialog; in light and dark"""
+    context, page = _open_airlines(new_context, server, viewport, lang)
+    try:
+        for how in ("pencil", "url"):
+            if how == "pencil":
+                page.locator(FRANCE_PENCIL).click()
+            else:
+                page.goto(server.base_url() + "/airlines?sheet=air-france")
+            page.locator(DIALOG + "[open]").wait_for()
+            assert page.evaluate(FOCUSED) == "lightbox__heading", (how, page.evaluate(FOCUSED))
+            assert page.locator(DIALOG + " .lightbox__heading").inner_text().strip()
+            for theme in _in_both_themes(page):
+                assert page.evaluate(FOCUSED) == "lightbox__heading", theme
+            page.keyboard.press("Tab")
+            assert page.evaluate("() => !!document.activeElement.closest('#panel-lookup-dialog')")
+            assert page.evaluate(FOCUSED) != "lightbox__heading"
+            page.keyboard.press("Escape")
+            page.locator(DIALOG + "[open]").wait_for(state="detached")
+    finally:
+        context.close()
+
+
+def test_a_taken_name_reopens_the_sheet_with_focus_on_the_name_field(new_context, make_app_server):
+    """renaming onto another airline's name is refused with the taken toast, the sheet reopens
+    on the same airline and the name field has focus so the owner can fix it"""
+    server = make_app_server(fake_providers=True)
+    context, page = _open_airlines(new_context, server, VIEWPORT_PHONE)
+    try:
+        page.locator(FRANCE_PENCIL).click()
+        page.locator(DIALOG + "[open]").wait_for()
+        page.fill(NAME_INPUT, "Transavia France")
+        page.click(SHEET + " .airline-sheet__name button")
+        page.wait_for_url("**sheet=air-france&flash=airline_rename_taken")
+        page.locator(DIALOG + "[open]").wait_for()
+        assert "Another airline already uses that name" in page.locator(".toast").first.inner_text()
+        assert page.evaluate(FOCUSED) == "airline-sheet-name-dialog"
+        assert page.locator(NAME_INPUT).input_value() == "Air France"
+        assert page.locator('.airline-card__name:text-is("Air France")').count() == 1
+    finally:
+        context.close()
+
+
+def test_a_taken_name_without_scripts_focuses_the_in_page_name_field(new_context, make_app_server):
+    """with scripts blocked the refusal reopens the in-page sheet with the name field focused,
+    while the plain pencil link leaves it unfocused"""
+    server = make_app_server(fake_providers=True)
+    with _no_js_page(new_context, server.base_url(), "/airlines", viewport=VIEWPORT_PHONE) as page:
+        page.locator(FRANCE_PENCIL).click()
+        page.wait_for_url("**/airlines?sheet=air-france#airline-sheet")
+        field = page.locator('[data-sheet-fallback] input[name="airline_name"]')
+        assert page.evaluate(FOCUSED) != "airline-sheet-name-edit"
+        field.fill("Transavia France")
+        page.locator("[data-sheet-fallback] .airline-sheet__name button").click()
+        page.wait_for_url("**sheet=air-france&flash=airline_rename_taken")
+        assert page.evaluate(FOCUSED) == "airline-sheet-name-edit"
+
+
+def test_the_resolve_dialog_still_focuses_its_name_field(new_context, make_app_server):
+    """the unidentified-flight dialog keeps its own name-field focus, unchanged by the sheet's"""
+    from server import state_store
+    server = make_app_server(
+        fake_providers=True,
+        seed=lambda state_dir: state_store.save_poll_state(state_dir, {"unresolved_prefixes": {
+            "XYZ": {"count": 3, "first_seen": "2026-01-01T00:00:00+00:00",
+                    "last_seen": "2026-01-01T00:00:00+00:00", "example_callsign": "XYZ123"}}}))
+    context, page = _open_airlines(new_context, server, VIEWPORT_PHONE)
+    try:
+        page.locator('a.airline-card[href="/airlines?resolve=XYZ"]').click()
+        page.locator(DIALOG + "[open]").wait_for()
+        assert page.evaluate(FOCUSED) == "manual-airline-name-dialog"
+        page.keyboard.press("Escape")
+        page.locator(FRANCE_PENCIL).click()
+        page.locator(DIALOG + "[open]").wait_for()
+        assert page.evaluate(FOCUSED) == "lightbox__heading"
+    finally:
+        context.close()

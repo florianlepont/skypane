@@ -56,6 +56,7 @@ FLASH_KEY_RENAMED = airlines_page.FLASH_RENAMED
 FLASH_KEY_RENAME_RESET = airlines_page.FLASH_RENAME_RESET
 FLASH_KEY_RENAME_STALE = airlines_page.FLASH_RENAME_STALE
 FLASH_KEY_RENAME_FULL = airlines_page.FLASH_RENAME_FULL
+FLASH_KEY_RENAME_TAKEN = airlines_page.FLASH_RENAME_TAKEN
 FLASH_KEY_RENAME_SAVE_FAILED = airlines_page.FLASH_RENAME_SAVE_FAILED
 FLASH_KEY_RULE_ADDED = config_page.FLASH_RULE_ADDED
 FLASH_KEY_RULE_REPLACED = config_page.FLASH_RULE_REPLACED
@@ -214,6 +215,9 @@ FLASH_MESSAGES = {
         "common.the_renamed_airlines_list_is_full_200_entries",
         "The renamed-airlines list is full (200 entries) — reset one before "
         "renaming another."),
+    FLASH_KEY_RENAME_TAKEN: i18n.msg(
+        "common.another_airline_already_uses_that_name",
+        "Another airline already uses that name — try a different one."),
     FLASH_KEY_RENAME_SAVE_FAILED: i18n.msg(
         "common.couldn_t_save_that_airline_name",
         "Couldn’t save that airline name — the frame’s state directory may "
@@ -339,6 +343,8 @@ FLASH_TONES = {
     FLASH_KEY_RENAME_RESET: _PENDING,
     FLASH_KEY_RENAME_STALE: _WARNING,
     FLASH_KEY_RENAME_FULL: _WARNING,
+    # The owner typed a name that cannot be used: their input needs changing.
+    FLASH_KEY_RENAME_TAKEN: _ERROR,
     FLASH_KEY_RENAME_SAVE_FAILED: _ERROR,
     FLASH_KEY_RULE_ADDED: _PENDING,
     FLASH_KEY_RULE_REPLACED: _PENDING,
