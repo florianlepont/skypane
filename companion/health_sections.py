@@ -231,6 +231,7 @@ _STATS_HEADERS = (
 # explanation.
 _FILTER_INPUT_ID = "airlines_filter_input"
 _FILTER_LABEL_TEXT = i18n.msg("health.filter_by_prefix", "Filter by prefix")
+_FILTER_PLACEHOLDER_TEXT = i18n.msg("health.search_placeholder", "Prefix…")
 _FILTER_EMPTY_HEADING = i18n.msg("health.no_matching_prefixes", "No matching prefixes")
 _FILTER_EMPTY_BODY_TEMPLATE = i18n.msg(
     "health.try_a_different_search_or_clear_filter_to_see",
@@ -241,7 +242,6 @@ _MORE_DETAILS_TEXT = i18n.msg("health.more_details", "More details")
 
 
 _FILTER_COUNT_TEMPLATE = i18n.msg("health.of_shown", "%d of %d shown")
-_CLEAR_TEXT = i18n.msg("health.clear", "Clear")
 _RESOLVED_PCT_TEMPLATE = i18n.msg("health.1f_resolved", "%.1f%% resolved")
 
 
@@ -289,43 +289,14 @@ def resolution_stats(conn, window_days=RESOLUTION_WINDOW_DAYS, now=None):
 
 def _registry_filter_bar_html(total):
     """Filter bar over the unresolved-prefix registry, only rendered when
-    there is data to filter. The count and Clear control share one
-    `.filter-bar__meta` flex item, since two `nowrap` siblings in a
-    `flex-wrap: wrap` container can still break apart from each other.
-    The clear control is a plain link (no `<button>` on this page)
-    pointing at the filter input's id, which both scrolls to and focuses
-    it via fragment navigation.
+    there is data to filter: the plain search pill, no chips (a prefix
+    row carries no second dimension).
     """
-    count_text = i18n.t(_FILTER_COUNT_TEMPLATE) % (total, total)
-    empty_body = i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total
-    return (
-        '<div class="filter-bar">'
-        '<label class="text-label" for="%s">%s</label>'
-        '<div class="filter-bar__field">'
-        "%s"
-        # autocomplete/spellcheck/autocapitalize: same Safari
-        # contact-autofill fix as history_page.py's _filter_bar_html().
-        '<input type="search" id="%s" autocomplete="off" spellcheck="false" autocapitalize="characters" data-filter-input>'
-        "</div>"
-        '<div class="filter-bar__meta">'
-        '<span class="filter-bar__count" data-filter-count>%s</span>'
-        '<a href="#%s" data-filter-clear>%s</a>'
-        "</div>"
-        "</div>"
-        '<div class="empty-state" data-filter-empty hidden>'
-        '<p class="empty-state__heading text-heading">%s</p>'
-        '<p class="empty-state__body text-body">%s</p>'
-        "</div>"
-    ) % (
-        _FILTER_INPUT_ID, escape_html(i18n.t(_FILTER_LABEL_TEXT)),
-        layout.icon_html("icon-search"),
-        _FILTER_INPUT_ID,
-        escape_html(count_text),
-        _FILTER_INPUT_ID,
-        escape_html(i18n.t(_CLEAR_TEXT)),
-        escape_html(i18n.t(_FILTER_EMPTY_HEADING)),
-        escape_html(empty_body),
-    )
+    return layout.filter_bar_html(
+        _FILTER_INPUT_ID, i18n.t(_FILTER_LABEL_TEXT),
+        i18n.t(_FILTER_PLACEHOLDER_TEXT), i18n.t(_FILTER_COUNT_TEMPLATE),
+        total, total, i18n.t(_FILTER_EMPTY_HEADING),
+        i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total)
 
 
 # Single-sourced so the table builder and the mobile card builder can't

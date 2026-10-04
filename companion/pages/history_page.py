@@ -116,7 +116,6 @@ _VIEW_PICTURE_OF_TEMPLATE = i18n.msg("flights.view_picture_of", "View picture of
 # "Callsign" and "Clear" are owned by other catalogues; declared here
 # since this page reads them.
 _FILTER_COUNT_TEMPLATE = i18n.msg("health.of_shown", "%d of %d shown")
-_CLEAR_TEXT = i18n.msg("health.clear", "Clear")
 
 # Names the .data-table-wrap scroller for keyboard users: tabindex="0"
 # plus this label turn the wrapper into a focusable, named region a
@@ -145,6 +144,13 @@ _DB_UNAVAILABLE = object()  # Same sentinel discipline as health_page.py:
 # form is safe since the documented trigger is the hyphen character
 # specifically.
 _FILTER_INPUT_ID = "history_filter_input"
+_FILTER_PLACEHOLDER_TEXT = i18n.msg(
+    "flights.search_placeholder", "Callsign, airline, airport…")
+_FILTER_KINDS = ("departing", "arriving")
+_FILTER_CHIPS_LEGEND = i18n.msg("flights.filter_direction", "Filter by direction")
+_CHIP_ALL_TEXT = i18n.msg("flights.chip_all", "All")
+_CHIP_DEPARTURES_TEXT = i18n.msg("flights.chip_departures", "Departures")
+_CHIP_ARRIVALS_TEXT = i18n.msg("flights.chip_arrivals", "Arrivals")
 _FILTER_LABEL_TEXT = i18n.msg(
     "flights.filter_flights", "Filter flights")
 _FILTER_EMPTY_HEADING = i18n.msg("flights.no_matching_flights", "No matching flights")
@@ -537,12 +543,28 @@ def _merged_cell(primary, secondary):
 
 
 def _filter_text_attr(row):
-    """The escaped, lowercased "{callsign} {hex}" pair for a row's
-    `data-filter-text` attribute, computed once per row and reused by
-    both the desktop `<tr>` and the mobile `<li>` for the same flight.
+    """The escaped, lowercased haystack for a row's `data-filter-text`
+    attribute, computed once per row and reused by both the desktop
+    `<tr>` and the mobile `<li>` for the same flight: callsign, hex,
+    resolved airline name, both route codes and the aircraft type, so a
+    search for "Transavia", "KEF" or "A320" finds the row. The
+    unresolved-airline fallback wording is never searchable.
     """
-    combined = ("%s %s" % (row["callsign"], row["hex"])).strip().lower()
-    return escape_html(combined)
+    airline = "" if row["airline_label"] == AIRLINE_FALLBACK_TEXT else row["airline_label"]
+    parts = (
+        row["callsign"], row["hex"], airline, row.get("origin", ""),
+        row.get("destination", ""), row["aircraft_type_label"])
+    return escape_html(" ".join(p for p in parts if p).lower())
+
+
+def _filter_kind_attr(row):
+    """The row's `data-filter-kind` attribute, the dimension the chip
+    group filters on: the runway direction the detector confirmed. Only
+    the two values the detector writes count; anything else belongs to
+    "All" alone, so a chip never claims a row it cannot name.
+    """
+    state = row.get("state_raw") or ""
+    return state if state in _FILTER_KINDS else ""
 
 
 def resolve_prefix_for_callsign(callsign):
@@ -639,60 +661,31 @@ def _flight_cell_html(row):
     return html
 
 
-def _filter_bar_html(shown, total_available):
-    """The filter bar: a `<label>` + search input, a live
-    `<span data-filter-count>`, a Clear control, and a hidden-by-default
-    empty-state block. Entirely inert without JS: list-filter.js's early
-    return leaves the full unfiltered list usable if the script never
-    loads. `data-filter-count-template` carries the same translated
-    template `count_text` is built from, unformatted, so
-    list-filter.js can re-render the count on every keystroke without
-    hardcoding English words. `shown` and `total_available` differ once
-    a `?limit=` is in force: the live count and empty-state body read
-    `shown` honestly, never claiming a search coverage the filter
-    doesn't have.
+def _filter_bar_html(visible_rows, total_available):
+    """The Flights filter bar: the shared search field plus a direction
+    chip group (All / Departures / Arrivals) whose counts come from the
+    rows' own `state_raw`. `visible_rows` is the list this render shows;
+    the live count and empty-state body read its length honestly, never
+    claiming a search coverage the filter does not have when a `?limit=`
+    leaves rows unloaded (list-filter.js filters the DOM it has).
     """
-    count_template = i18n.t(_FILTER_COUNT_TEMPLATE)
-    count_text = count_template % (shown, shown)
+    shown = len(visible_rows)
     if shown < total_available:
         empty_body = i18n.t(_FILTER_EMPTY_BODY_LIMITED_TEMPLATE) % shown
     else:
         empty_body = i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % shown
-    return (
-        '<div class="filter-bar">'
-        '<label class="text-label" for="%s">%s</label>'
-        '<div class="filter-bar__field">'
-        "%s"
-        # autocomplete="off"/spellcheck="false" suppress Safari's
-        # contact/phone-number autofill heuristic on a bare search
-        # input with no name; autocapitalize="characters" matches the
-        # upper-case tokens (callsigns, hex codes) this filter searches.
-        # Safe for matching: list-filter.js compares lower-cased values,
-        # so the keyboard's shift state never affects the result. No
-        # `name` attribute: never submitted by a form, read by
-        # attribute selector instead.
-        '<input type="search" id="%s" autocomplete="off" spellcheck="false" autocapitalize="characters" data-filter-input>'
-        "</div>"
-        '<div class="filter-bar__meta">'
-        '<span class="filter-bar__count" data-filter-count '
-        'data-filter-count-template="%s">%s</span>'
-        '<button type="button" data-filter-clear>%s</button>'
-        "</div>"
-        "</div>"
-        '<div class="empty-state" data-filter-empty hidden>'
-        '<p class="empty-state__heading text-heading">%s</p>'
-        '<p class="empty-state__body text-body">%s</p>'
-        "</div>"
-    ) % (
-        _FILTER_INPUT_ID, escape_html(i18n.t(_FILTER_LABEL_TEXT)),
-        layout.icon_html("icon-search"),
-        _FILTER_INPUT_ID,
-        escape_html(count_template),
-        escape_html(count_text),
-        escape_html(i18n.t(_CLEAR_TEXT)),
-        escape_html(i18n.t(_FILTER_EMPTY_HEADING)),
-        escape_html(empty_body),
+    chips = (
+        ("", i18n.t(_CHIP_ALL_TEXT), shown),
+        ("departing", i18n.t(_CHIP_DEPARTURES_TEXT),
+         sum(1 for r in visible_rows if _filter_kind_attr(r) == "departing")),
+        ("arriving", i18n.t(_CHIP_ARRIVALS_TEXT),
+         sum(1 for r in visible_rows if _filter_kind_attr(r) == "arriving")),
     )
+    return layout.filter_bar_html(
+        _FILTER_INPUT_ID, i18n.t(_FILTER_LABEL_TEXT),
+        i18n.t(_FILTER_PLACEHOLDER_TEXT), i18n.t(_FILTER_COUNT_TEMPLATE),
+        shown, shown, i18n.t(_FILTER_EMPTY_HEADING), empty_body,
+        chips=chips, chips_legend=i18n.t(_FILTER_CHIPS_LEGEND))
 
 
 # Mirrors layout.concise_timestamp_html()'s own default fallback string
@@ -749,7 +742,7 @@ def _day_separator_row_html(day, today):
     sticky: this function introduces no positioning of any kind.
     """
     return (
-        '<tr class="flight-day-row">'
+        '<tr class="flight-day-row" data-filter-day>'
         '<th scope="colgroup" colspan="%d" class="text-label">%s</th>'
         "</tr>"
     ) % (_TABLE_COLUMN_COUNT, escape_html(day_label(day, today)))
@@ -799,8 +792,8 @@ def _history_table_html(formatted_rows, now=None):
         # other must not.
         body_rows.append(
             '<tr class="%s" data-flight-row data-filter-text="%s" '
-            'data-filter-group="%d" %s="%s">%s</tr>'
-            % (row_class, _filter_text_attr(row), index,
+            'data-filter-kind="%s" data-filter-group="%d" %s="%s">%s</tr>'
+            % (row_class, _filter_text_attr(row), _filter_kind_attr(row), index,
                layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)),
                "".join(cells)))
 
@@ -951,9 +944,9 @@ def _history_card_html(row, index, now):
     """
     return (
         '<li class="history-card" data-filter-text="%s" '
-        'data-filter-group="%d" %s="%s">'
+        'data-filter-kind="%s" data-filter-group="%d" %s="%s">'
         '<div class="history-card__head">%s%s</div>%s%s</li>'
-    ) % (_filter_text_attr(row), index,
+    ) % (_filter_text_attr(row), _filter_kind_attr(row), index,
          layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)),
          _card_identity_html(row), row.get("view_panel_icon_html", ""),
          _card_route_html(row), _card_stub_html(row, now))
@@ -978,7 +971,7 @@ def _history_cards_html(formatted_rows, now=None):
         day = paris_day(row["raw_ts"])
         if day is not None and day != current_day:
             current_day = day
-            items.append('<li class="history-cards__day">%s</li>' % escape_html(
+            items.append('<li class="history-cards__day" data-filter-day>%s</li>' % escape_html(
                 card_day_label(day, today)))
         items.append(_history_card_html(row, index, now))
     return '<ul class="history-cards">%s</ul>' % "".join(items)
@@ -1071,7 +1064,7 @@ def render(ctx):
             # `.history-cards ~ .data-table-wrap` sibling-combinator
             # toggle depends on this DOM order. Show-more renders last.
             body = (
-                _filter_bar_html(len(visible_rows), total_available)
+                _filter_bar_html(visible_rows, total_available)
                 + _history_cards_html(visible_rows, now)
                 + _history_table_html(visible_rows, now)
                 + _show_more_html(len(visible_rows), total_available))

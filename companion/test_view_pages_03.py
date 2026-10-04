@@ -241,7 +241,7 @@ def test_airlines_manual_count_is_a_filter_control_in_the_filter_bar(tmp_path, s
     finally:
         prefs.set_request_prefs(lang="en")
 
-    bar = re.search(r'<div class="filter-bar">(.*?)</div>\s*<div class="empty-state"',
+    bar = re.search(r'<div class="filter-bar">(.*?)<div class="empty-state ',
                     rendered, re.S)
     assert bar is not None, "expected to locate the rendered filter bar"
     assert "data-filter-set=\"manual\"" in bar.group(1), (
@@ -469,7 +469,7 @@ def test_day_separators_group_rows_by_europe_paris_calendar_day(tmp_path):
     }
     for lang, rendered in (("en", rendered_en), ("fr", rendered_fr)):
         rows = re.findall(
-            r'<tr class="flight-day-row"><th scope="colgroup" colspan="5"'
+            r'<tr class="flight-day-row" data-filter-day><th scope="colgroup" colspan="5"'
             r' class="text-label">(.*?)</th></tr>', rendered)
         assert rows == expected[lang], (
             "expected the %s separators to read %r, got %r" % (lang, expected[lang], rows))
@@ -857,8 +857,8 @@ def test_the_count_animates_without_its_text_production_moving(app):
     fires only when the rendered value actually differs"""
     js = vp.strip_js_line_and_block_comments(served_asset(app, "/static/list-filter.js"))
     for token in ('getAttribute("data-filter-count-template")',
-                  '.replace("%d", String(visibleCount))',
-                  '.replace("%d", String(totalCount))'):
+                  '.replace("#", String(visibleCount))',
+                  '.replace("#", String(totalCount))'):
         assert token in js, (
             "expected the count's text production to be unchanged (%r)" % (token,))
     assert "is-fading-in" in js, (

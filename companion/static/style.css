@@ -2328,6 +2328,12 @@ table.data-table--firmware-history td:last-child {
   margin-top: 0;
 }
 
+/* [hidden]-vs-author-display collision: the filter hides a day header
+ * with no visible row under it. */
+.history-cards__day[hidden] {
+  display: none;
+}
+
 .history-cards__day::after {
   content: "";
   flex: 1;
@@ -2686,8 +2692,11 @@ a.calendar-disconnect-btn.flight-picture-link {
   margin-top: var(--space-xs);
 }
 
-/* Shared by History and Airlines, driven by list-filter.js; inert
- * without JS — the full unfiltered list stays completely usable. */
+/* The shared filter bar (Flights, Airlines, Health's prefix list),
+ * driven by list-filter.js; inert without JS — the full unfiltered list
+ * stays completely usable. A search field with an inline clear, an
+ * optional segmented chip group carrying live counts, and a quiet
+ * count. Reuses existing tokens only. */
 .filter-bar {
   display: flex;
   gap: var(--space-sm);
@@ -2696,41 +2705,91 @@ a.calendar-disconnect-btn.flight-picture-link {
   flex-wrap: wrap;
 }
 
-.filter-bar__field {
+.filter-bar__search {
   position: relative;
+  flex: 1 1 280px;
+  max-width: 560px;
+  min-width: 0;
 }
 
-/* 14px, not .icon's 20px default: positioned 8px from the left edge, it
- * ends at 22px, leaving a clean 4px gap before the input's own 26px
- * left padding. Outranks the base .icon rule and the icon builder's own
- * inline width/height attributes, so no Python change is needed. */
-.filter-bar__field .icon {
+/* 16px text: iOS Safari zooms the page on focus for anything smaller.
+ * 48px tall clears the 44px target floor. height wins over the global
+ * input rule's min-height because 48 > 44. */
+.filter-bar__search input {
+  width: 100%;
+  height: 48px;
+  padding: 0 52px 0 46px;
+  font-size: var(--font-body-size);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* The native cancel glyph would double up with the inline clear. */
+.filter-bar__search input:placeholder-shown {
+  padding-right: var(--space-md);
+}
+
+.filter-bar__search input::-webkit-search-cancel-button,
+.filter-bar__search input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.filter-bar__search input:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.filter-bar__search .icon {
   position: absolute;
-  left: var(--space-sm);
+  left: 14px;
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
-  opacity: 0.6;
-  width: 14px;
-  height: 14px;
 }
 
-/* min-height: 0 is load-bearing: the global input rule's 44px min-height
- * outranks a plain height declaration regardless of specificity — a
- * browser never lets a lower min-height shrink an element below a
- * higher one from another rule unless the higher one is cleared. */
-.filter-bar__field input {
-  height: 32px;
+/* Reset of every base-button property that would box the glyph; the
+ * 44px square is the hit target, the glyph inside it is 14px. (0,2,0)
+ * outranks button, button[type="submit"] and the hover/active rules. */
+.filter-bar .filter-bar__clear {
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  width: 44px;
+  height: 44px;
+  min-width: 0;
   min-height: 0;
-  padding: 0 10px 0 26px;
-  font-size: 13px;
-  background: transparent;
-  border: 1px solid var(--color-border);
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 50%;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  cursor: pointer;
 }
 
-.filter-bar__field input:focus {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
+.filter-bar .filter-bar__clear:hover {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+  color: var(--color-text);
+}
+
+/* Shown only while the field holds text; no script involved. */
+.filter-bar__search input:placeholder-shown ~ .filter-bar__clear {
+  display: none;
+}
+
+.filter-bar__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  white-space: nowrap;
+  margin-left: auto;
 }
 
 .filter-bar__count {
@@ -2742,38 +2801,195 @@ a.calendar-disconnect-btn.flight-picture-link {
   white-space: nowrap;
 }
 
-/* Targets the [data-filter-clear] attribute both history_page.py's
- * <button> and airlines_page.py's <a> already emit, rather than a new
- * shared class needing edits to both page modules. Every declaration
- * below undoes a specific base-button property so the button and link
- * variants render pixel-identical. */
-.filter-bar [data-filter-clear] {
-  height: auto;
-  min-height: 0;
-  min-width: 0;
+/* With chips the segments carry the counts, so the count sentence stays
+ * only for assistive technology (role="status"): the visually-hidden
+ * recipe, never display: none. */
+.filter-bar--chips .filter-bar__meta {
+  position: absolute;
+  width: 1px;
+  height: 1px;
   padding: 0;
-  background: none;
-  border: none;
-  box-shadow: none;
-  border-radius: 0;
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: var(--weight-regular);
-  /* line-height: inherit is necessary too: a <button> takes the UA's
-   * line-height: normal while the <a> variant inherits the body's 1.5 —
-   * measured 4px apart in height without this, misaligning Clear
-   * against the count beside it. */
-  line-height: inherit;
-  letter-spacing: normal;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
-.filter-bar [data-filter-clear]:hover {
+/* Segmented chips. The group is hidden by .js-gate without a script
+ * (they cannot filter anything then); --js-gate-display lets the gate
+ * reveal it as a flex row. */
+.filter-bar__chips {
+  --js-gate-display: flex;
+  flex: 1 1 200px;
+  min-width: 0;
+  gap: 2px;
+  margin: 0;
+  padding: 3px;
+  border: none;
+  border-radius: var(--radius-card);
+  background: var(--color-secondary);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
+
+.filter-chip {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.filter-chip__box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-control);
+  transition: background var(--motion-fast), box-shadow var(--motion-fast);
+}
+
+.filter-chip__count {
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.filter-chip__text {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.filter-chip:hover .filter-chip__box {
+  background: color-mix(in srgb, var(--color-dominant) 55%, transparent);
+}
+
+.filter-chip input:checked + .filter-chip__box {
+  background: var(--color-dominant);
+  box-shadow: inset 0 0 0 1px var(--color-border), var(--shadow-card);
+}
+
+.filter-chip input:checked + .filter-chip__box .filter-chip__count,
+.filter-chip input:checked + .filter-chip__box .filter-chip__text {
   color: var(--color-text);
+}
+
+.filter-chip input:focus-visible + .filter-chip__box {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.filter-chip.is-zero .filter-chip__count {
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+/* Phone, scripts on: the search collapses to a 48px icon button beside
+ * the chips and opens over the whole row on focus or while it holds
+ * text (list-filter.js sets data-filter-active), pushing the chips to
+ * the next line. Without a script the plain full-width field applies. */
+@media (max-width: 959.98px) {
+  .js .filter-bar--chips .filter-bar__search {
+    flex: 0 0 48px;
+    order: 2;
+  }
+
+  .js .filter-bar--chips .filter-bar__search input {
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .js .filter-bar--chips .filter-bar__search input::placeholder {
+    color: transparent;
+  }
+
+  .js .filter-bar--chips .filter-bar__search:focus-within,
+  .js .filter-bar--chips[data-filter-active] .filter-bar__search {
+    flex: 1 0 100%;
+    order: 0;
+    max-width: none;
+    /* Declared on the open state only: a transition runs with the
+     * destination state's property, so opening animates while the
+     * collapse the script's own .js class causes at load does not. */
+    transition: flex-basis var(--motion-fast) ease;
+  }
+
+  .js .filter-bar--chips .filter-bar__search:focus-within input,
+  .js .filter-bar--chips[data-filter-active] .filter-bar__search input {
+    padding: 0 52px 0 46px;
+    cursor: text;
+  }
+
+  .js .filter-bar--chips .filter-bar__search:focus-within input::placeholder,
+  .js .filter-bar--chips[data-filter-active] .filter-bar__search input::placeholder {
+    color: color-mix(in srgb, var(--color-text) 55%, transparent);
+  }
+}
+
+@media (min-width: 960px) {
+  .filter-bar--chips {
+    flex-wrap: nowrap;
+    gap: var(--space-md);
+  }
+
+  .filter-bar--chips .filter-bar__chips {
+    flex: 0 0 auto;
+  }
+
+  .filter-bar--chips .filter-chip {
+    flex: 0 0 auto;
+  }
+
+  .filter-bar--chips .filter-chip__box {
+    flex-direction: row-reverse;
+    gap: var(--space-sm);
+    min-height: 42px;
+    padding: 0 var(--space-md);
+  }
+
+  .filter-bar--chips .filter-bar__search {
+    flex: 0 1 380px;
+    margin-left: auto;
+    order: 2;
+  }
+}
+
+/* The empty state: a soft card with a search glyph in a halo and its
+ * own Clear action. Sets no display, so [hidden] still hides it. */
+.empty-state--filter {
+  padding: var(--space-lg) var(--space-md);
+  border-radius: var(--radius-card);
+  background: var(--color-secondary);
+}
+
+.empty-state--filter p {
+  margin: 0 auto var(--space-xs);
+  max-width: 36ch;
+}
+
+.empty-state--filter button {
+  margin-top: var(--space-sm);
+}
+
+.empty-state__halo {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto var(--space-sm);
+  border-radius: 50%;
+  background: var(--color-dominant);
+  box-shadow: var(--shadow-card);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* .manual-summary:hover (0,2,0) outranks the base button:hover
@@ -5190,14 +5406,6 @@ img.recent-flight__thumb {
 .config-form input[name="wake_interval_s"] {
   width: 8ch;
   min-width: 96px;
-}
-
-.filter-bar__meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  white-space: nowrap;
-  margin-left: auto;
 }
 
 a.airline-card__zoom {

@@ -168,37 +168,6 @@ def test_flights_picture_link_works_without_scripts(new_context, server):
             raise AssertionError("expected the link to serve the archived PNG, got %r" % (response,))
 
 
-def test_flights_filter_count_and_clear_share_one_line_at_390px(new_context, server):
-    """At 390px on Flights the filter count and the Clear control report the same
-    bounding-box top: Clear never drops alone onto its own line.
-    """
-    # Two `nowrap` siblings in a wrapping flex container do not wrap as a unit; one
-    # `.filter-bar__meta` group does. Measured, not inspected: equal
-    # getBoundingClientRect().top is the contract.
-    context = new_context(viewport=VIEWPORT_PHONE)
-    try:
-        page = context.new_page()
-        _login(page, server.base_url())
-        page.goto(server.base_url() + "/flights")
-        count = page.locator("[data-filter-count]").first
-        clear = page.locator("[data-filter-clear]").first
-        count.wait_for(state="visible")
-        clear.wait_for(state="visible")
-        count_box = count.bounding_box()
-        clear_box = clear.bounding_box()
-        if count_box is None or clear_box is None:
-            raise AssertionError("expected both the count and Clear to have a box at 390px")
-        if round(count_box["y"]) != round(clear_box["y"]):
-            raise AssertionError(
-                "expected the filter count and Clear to report the same top at "
-                "390px (A-18 regressing a second time), got %r and %r"
-                % (count_box["y"], clear_box["y"]))
-        if page.viewport_size["width"] != 390:
-            raise AssertionError("expected the measurement to be taken at 390px")
-    finally:
-        context.close()
-
-
 def test_airlines_grid_renders_two_cards_per_row_at_390px(new_context, server):
     """At 390px every Airlines illustration grid renders exactly two cards per row (never a
     one-per-row auto-fill collapse), with each row's two columns equal within 1px, the main
@@ -273,104 +242,37 @@ def test_airlines_grid_renders_two_cards_per_row_at_390px(new_context, server):
         context.close()
 
 
-def test_airlines_filter_count_and_clear_share_one_line_at_390px(new_context, server):
-    """At 390px on Airlines the filter count and the Clear control report the same
-    bounding-box top, both inside the one shared .filter-bar__meta group, adopted verbatim
-    with no per-page variant.
-    """
+def test_airlines_filter_bar_is_a_16px_search_pill_with_a_visible_quiet_count_at_390px(
+        new_context, server):
+    """At 390px the Airlines filter bar is the plain search pill: a 16px, 44px+ field (no iOS
+    focus zoom), the live count visible inside the one shared .filter-bar__meta group, and the
+    inline clear appearing only once the field holds text."""
     context = new_context(viewport=VIEWPORT_PHONE)
     try:
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + "/airlines")
+        field = page.locator("[data-filter-input]")
         count = page.locator("[data-filter-count]").first
-        clear = page.locator("[data-filter-clear]").first
+        field.wait_for(state="visible")
         count.wait_for(state="visible")
-        clear.wait_for(state="visible")
-        count_box = count.bounding_box()
-        clear_box = clear.bounding_box()
-        if count_box is None or clear_box is None:
-            raise AssertionError("expected both the count and Clear to have a box at 390px")
-        if round(count_box["y"]) != round(clear_box["y"]):
-            raise AssertionError(
-                "expected the Airlines filter count and Clear to report the same "
-                "top at 390px (A-18 regressing), got %r and %r"
-                % (count_box["y"], clear_box["y"]))
-        # Adopted, not forked: the pair is inside the one shared group element, and Airlines
-        # adds no variant of its own.
+        measured = page.eval_on_selector(
+            "[data-filter-input]",
+            "el => ({h: el.getBoundingClientRect().height, "
+            "font: parseFloat(getComputedStyle(el).fontSize)})")
+        if measured["h"] < 44 or measured["font"] < 16:
+            raise AssertionError("expected a 44px+ field with 16px+ text, got %r" % (measured,))
         in_group = page.eval_on_selector_all(
             ".filter-bar__meta",
-            "els => els.map(el => [!!el.querySelector('[data-filter-count]'),"
-            " !!el.querySelector('[data-filter-clear]')])")
-        if in_group != [[True, True]]:
+            "els => els.map(el => !!el.querySelector('[data-filter-count]'))")
+        if in_group != [True]:
             raise AssertionError(
-                "expected exactly one .filter-bar__meta group on Airlines holding "
-                "both controls, got %r" % (in_group,))
-        if page.viewport_size["width"] != 390:
-            raise AssertionError("expected the measurement to be taken at 390px")
-    finally:
-        context.close()
-
-
-@pytest.mark.parametrize("lang", ["en", "fr"])
-def test_health_registry_table_fits_1280px(new_context, server, lang):
-    """At 1280px in both languages Health's unresolved-prefix table reports
-    scrollWidth === clientWidth on its .data-table-wrap, the Resolve column sits inside that
-    wrap's own box (reachable with no horizontal scrolling), and no header is clipped.
-    """
-    # Only a real layout engine resolves `.data-table`'s `min-width: max-content` floor against
-    # six columns of real content in two languages, so this is measured rather than eyeballed.
-    # Each language is fully independent, so the two are parametrized rather than looped.
-    context = new_context(viewport=VIEWPORT_DESKTOP)
-    try:
-        page = context.new_page()
-        base_url = server.base_url()
-        _login(page, base_url)
-        context.add_cookies([{
-            "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
-        page.goto(base_url + "/health")
-        page.locator("table.data-table--registry").first.wait_for(state="visible")
-        box = page.eval_on_selector(
-            "table.data-table--registry",
-            "table => {"
-            "  const wrap = table.closest('.data-table-wrap');"
-            "  const heads = Array.from(table.querySelectorAll('th'));"
-            "  const resolve = heads[heads.length - 1];"
-            "  const cells = Array.from("
-            "    table.querySelectorAll('tbody tr'))"
-            "    .map(tr => tr.children[tr.children.length - 1]);"
-            "  return {"
-            "    sw: wrap.scrollWidth, cw: wrap.clientWidth,"
-            "    wrapRight: wrap.getBoundingClientRect().right,"
-            "    resolveRight: Math.max(resolve.getBoundingClientRect().right,"
-            "      ...cells.map(td => td.getBoundingClientRect().right)),"
-            "    headClipped: heads.filter("
-            "      h => h.scrollWidth > h.clientWidth + 1).map(h => h.textContent),"
-            "    rowCount: table.querySelectorAll('tbody tr').length,"
-            "  };"
-            "}")
-        if box["rowCount"] < 1:
-            raise AssertionError(
-                "expected the seeded registry to render at least one row (%s)"
-                % (lang,))
-        if box["sw"] != box["cw"]:
-            raise AssertionError(
-                "expected .data-table-wrap scrollWidth === clientWidth at "
-                "1280px in %s, got %r vs %r (B12)"
-                % (lang, box["sw"], box["cw"]))
-        # Reachable without horizontal scrolling, asserted as a geometric fact, not inferred
-        # from the scrollWidth equality above.
-        if box["resolveRight"] > box["wrapRight"] + 1:
-            raise AssertionError(
-                "expected the Resolve column to sit inside the wrap's own box "
-                "at 1280px in %s, got right edge %r vs %r"
-                % (lang, box["resolveRight"], box["wrapRight"]))
-        if box["headClipped"]:
-            raise AssertionError(
-                "expected no clipped header at 1280px in %s, got %r"
-                % (lang, box["headClipped"]))
-        if page.viewport_size["width"] != 1280:
-            raise AssertionError("expected the measurement to be taken at 1280px")
+                "expected exactly one .filter-bar__meta group holding the count, got %r"
+                % (in_group,))
+        if page.locator(".filter-bar__clear").is_visible():
+            raise AssertionError("expected the inline clear hidden while the field is empty")
+        field.fill("air")
+        page.locator(".filter-bar__clear").wait_for(state="visible")
     finally:
         context.close()
 

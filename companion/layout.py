@@ -247,6 +247,7 @@ from companion.ui_components import (
     status_dot,
     status_row,
 )
+from companion.ui_filter import filter_bar_html
 from companion.ui_shell import (
     GLOBAL_PAGE_SCRIPTS,
     SHELL_SCRIPT_ORDER,
@@ -455,6 +456,7 @@ __all__ = (
     "duration_text",
     "empty_state",
     "escape_html",
+    "filter_bar_html",
     "flash_banner",
     "frame_strip_html",
     "freshness_line_html",

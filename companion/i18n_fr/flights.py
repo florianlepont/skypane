@@ -32,6 +32,11 @@ MESSAGES = {
 
     # --- The table's filter bar -----------------------------------------
     "flights.filter_flights": "Filtrer les vols",
+    "flights.search_placeholder": "Indicatif, compagnie, aéroport…",
+    "flights.filter_direction": "Filtrer par sens",
+    "flights.chip_all": "Tous",
+    "flights.chip_departures": "Départs",
+    "flights.chip_arrivals": "Arrivées",
     "flights.no_matching_flights": "Aucun vol correspondant",
     "flights.try_a_different_search_or_clear_filter_to_see":
         "Essayez une autre recherche, ou effacez le filtre pour voir "
