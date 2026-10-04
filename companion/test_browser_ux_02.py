@@ -746,6 +746,12 @@ def test_the_dirty_bar_never_overlaps_the_tab_bar_sidebar_or_the_pages_last_elem
         context.close()
 
 
+def _recent_row_selector(width):
+    """Home's recent-flight row at `width`: the slim tile on a phone, the thumbnail row from
+    960px up (style.css toggles the two lists there)."""
+    return ".recent-flight" if width >= 960 else ".recent-tile"
+
+
 # Nothing on Home paints outside the viewport or outside its own recent-flight rows.
 # Independently asserted per width/language with no cross-comparison, so parametrized on both
 # axes rather than looped.
@@ -772,7 +778,9 @@ def test_home_paints_nothing_outside_the_viewport_or_its_cards(new_context, serv
         "    if (r.width > 0 && r.right > vw + 0.5)"
         "      escaped.push(el.className.toString() || el.tagName);"
         "  });"
-        "  document.querySelectorAll('.recent-flight').forEach(row => {"
+        "  const rows = [...document.querySelectorAll('.recent-flight, .recent-tile')]"
+        "    .filter(row => row.offsetParent !== null);"
+        "  rows.forEach(row => {"
         "    const rr = row.getBoundingClientRect();"
         "    row.querySelectorAll('*').forEach(el => {"
         "      const r = el.getBoundingClientRect();"
@@ -782,7 +790,7 @@ def test_home_paints_nothing_outside_the_viewport_or_its_cards(new_context, serv
         "  });"
         "  return {sw: document.documentElement.scrollWidth,"
         "          cw: document.documentElement.clientWidth,"
-        "          rows: document.querySelectorAll('.recent-flight').length,"
+        "          rows: rows.length,"
         "          escaped: [...new Set(escaped)],"
         "          spilled: [...new Set(spilled)]};"
         "}")
@@ -794,7 +802,7 @@ def test_home_paints_nothing_outside_the_viewport_or_its_cards(new_context, serv
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         page.goto(base_url + "/")
-        page.locator(".recent-flight").first.wait_for(state="visible")
+        page.locator(_recent_row_selector(width)).first.wait_for(state="visible")
         seen = page.evaluate(probe)
         if page.viewport_size["width"] != width:
             raise AssertionError("expected the measurement to be taken at %dpx" % (width,))
@@ -887,12 +895,13 @@ def test_recent_flight_callsigns_are_never_starved(new_context, server, width, l
     # one day — that is the fix working, not failing.
     probe = (
         "() => {"
-        "  const rows = document.querySelectorAll('.recent-flight');"
+        "  const rows = [...document.querySelectorAll('.recent-flight, .recent-tile')]"
+        "    .filter(row => row.offsetParent !== null);"
         "  const starved = [];"
         "  let cells = 0, sameLine = 0, twoLine = 0;"
         "  rows.forEach(row => {"
-        "    const cs = row.querySelector('.recent-flight__callsign');"
-        "    const tm = row.querySelector('.recent-flight__time');"
+        "    const cs = row.querySelector('.recent-flight__callsign, .history-card__callsign');"
+        "    const tm = row.querySelector('.recent-flight__time, .history-card__when');"
         "    if (!cs) return;"
         "    cells += 1;"
         "    const box = cs.getBoundingClientRect().width;"
@@ -926,7 +935,7 @@ def test_recent_flight_callsigns_are_never_starved(new_context, server, width, l
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         page.goto(base_url + "/")
-        page.locator(".recent-flight").first.wait_for(state="visible")
+        page.locator(_recent_row_selector(width)).first.wait_for(state="visible")
         seen = page.evaluate(probe)
         if page.viewport_size["width"] != width:
             raise AssertionError("expected the measurement to be taken at %dpx" % (width,))
