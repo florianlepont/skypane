@@ -44,22 +44,17 @@ ANY_TYPE_ID = "any"
 TYPE_LABEL_TEXT = i18n.msg("airlines.aircraft_type", "Aircraft type")
 TYPE_ANY_TEXT = i18n.msg("airlines.any_aircraft", "Any aircraft")
 
-# The two rows every type section keeps apart: what SkyPane ships, and
-# what the owner has changed on top of it.
-SOURCE_HEADING_TEXT = i18n.msg("airlines.from_skypane", "From SkyPane")
-SOURCE_BUILTIN_TEXT = i18n.msg("airlines.built_in_artwork", "Built-in artwork")
-SOURCE_NONE_TEXT = i18n.msg("airlines.no_built_in_artwork", "No built-in artwork")
-OWNER_HEADING_TEXT = i18n.msg("airlines.your_changes", "Your changes")
-OWNER_NONE_TEXT = i18n.msg("airlines.no_changes", "No changes")
-OWNER_OVERRIDE_TEXT = i18n.msg(
-    "airlines.your_artwork_is_shown_instead", "Your artwork is shown instead")
-OWNER_OWN_ARTWORK_TEXT = i18n.msg("airlines.your_artwork", "Your artwork")
+# The one small badge a type slide shows, only when something is notable:
+# a hand-made name, a missing picture or an owner-supplied one. A default
+# tile carries none.
 OWNER_NO_ARTWORK_TEXT = i18n.msg("airlines.no_artwork_yet", "No artwork yet")
+OWNER_REPLACED_TEXT = i18n.msg("airlines.replaced_artwork", "Replaced artwork")
+OWNER_OWN_ARTWORK_TEXT = i18n.msg("airlines.your_artwork", "Your artwork")
 OWNER_SUPERSEDED_TEXT = i18n.msg(
     "airlines.built_in_name_used_instead", "Built-in name used instead of yours")
 
-# Outcome-first action labels; ACTION_LABEL_TEMPLATE takes the action then
-# the airline/type title for the accessible name.
+# The round edit button is icon-only, so these are its only names:
+# ACTION_LABEL_TEMPLATE takes the action then the airline/type title.
 REPLACE_ACTION_TEXT = i18n.msg("airlines.replace_artwork", "Replace artwork")
 ADD_ACTION_TEXT = i18n.msg("airlines.add_artwork", "Add artwork")
 ACTION_LABEL_TEMPLATE = i18n.msg("airlines.action_for", "%s: %s")
@@ -317,20 +312,6 @@ MANUAL_SUPERSEDED_NOTE_TEMPLATE = i18n.msg(
 MANUAL_OVERFLOW_TEMPLATE = i18n.msg(
     "airlines.other_unresolved_prefixes", "%d other unresolved prefixes — ")
 MANUAL_OVERFLOW_LINK_TEXT = i18n.msg("airlines.see_the_full_list", "see the full list")
-# With-superseded and no-superseded forms; %d arity is manual count
-# then superseded count.
-MANUAL_SUMMARY_TEMPLATE = i18n.msg(
-    "airlines.manual_resolutions_superseded", "%d manual resolutions, %d superseded")
-MANUAL_SUMMARY_TEMPLATE_NONE = i18n.msg(
-    "airlines.manual_resolutions", "%d manual resolutions")
-# Singular variants avoid "1 manual resolutions" — French and English
-# don't agree on the plural boundary, so each language's catalogue
-# owns its own singular string.
-MANUAL_SUMMARY_TEMPLATE_SINGULAR = i18n.msg(
-    "airlines.manual_resolution_superseded", "%d manual resolution, %d superseded")
-MANUAL_SUMMARY_TEMPLATE_NONE_SINGULAR = i18n.msg(
-    "airlines.manual_resolution", "%d manual resolution")
-
 # No revert-to-original control is in scope for this feature.
 REPLACE_LABEL_TEXT = i18n.msg(
     "airlines.replace_this_illustration", "Replace this artwork")
@@ -666,32 +647,27 @@ def _type_fields(card, type_key, type_title, is_base, has_art):
     return fields
 
 
-def _owner_changes_html(card, is_base, has_builtin, has_override):
-    """The "Your changes" value: what the owner has changed for this
-    type, as plain text plus the manual-name chip where it applies.
+def _type_badge_html(card, is_base, has_builtin, has_override):
+    """The one small badge a type slide may carry, or "" for a default
+    slide. Priority: the manual name (airline level only), then a missing
+    picture, then an owner-supplied one.
     """
-    if has_override and has_builtin:
-        text = i18n.t(OWNER_OVERRIDE_TEXT)
-    elif has_override:
-        text = i18n.t(OWNER_OWN_ARTWORK_TEXT)
-    elif has_builtin:
-        text = i18n.t(OWNER_NONE_TEXT)
-    else:
-        text = i18n.t(OWNER_NO_ARTWORK_TEXT)
-    parts = [escape_html(text)]
     if is_base and card["has_manual"]:
-        parts.append(
-            '<span class="airline-card__chip">%s</span>' % escape_html(
-                i18n.t(OWNER_SUPERSEDED_TEXT) if card["superseded"]
-                else i18n.t(MANUAL_CHIP_ACTIVE_TEXT)))
-    return "".join(parts)
+        text = i18n.t(OWNER_SUPERSEDED_TEXT if card["superseded"] else MANUAL_CHIP_ACTIVE_TEXT)
+    elif not (has_builtin or has_override):
+        text = i18n.t(OWNER_NO_ARTWORK_TEXT)
+    elif has_override:
+        text = i18n.t(OWNER_REPLACED_TEXT if has_builtin else OWNER_OWN_ARTWORK_TEXT)
+    else:
+        return ""
+    return '<span class="airline-card__chip">%s</span>' % escape_html(text)
 
 
 def _type_section_html(card, type_id, type_label, type_key):
-    """One aircraft type's view: its artwork behind the enlarge trigger,
-    the source facts and the owner's changes kept in separate labelled
-    rows, and the visible add/replace-artwork action. `type_id` is the
-    stable identifier the selector option points at.
+    """One aircraft type's slide: its artwork behind the enlarge trigger
+    with a round edit button on its corner, then, only when notable, the
+    type name (several types) and one badge. `type_id` is the stable
+    identifier the pagination dot points at.
     """
     is_base = type_id == ANY_TYPE_ID
     has_builtin, has_override = _artwork_files(type_key, card["state_dir"])
@@ -720,60 +696,50 @@ def _type_section_html(card, type_id, type_label, type_key):
         aria_label=i18n.t(ZOOM_LABEL_TEMPLATE) % title)
     action_text = i18n.t(
         REPLACE_ACTION_TEXT if has_art else ADD_ACTION_TEXT)
-    action_html = _airline_card_zoom_html(
-        title, shared[0], escape_html(action_text), shared[2], shared[3], *shared[4:],
+    edit_html = _airline_card_zoom_html(
+        title, shared[0], layout.icon_html("icon-pencil", 16), shared[2], shared[3], *shared[4:],
         aria_label=i18n.t(ACTION_LABEL_TEMPLATE) % (action_text, title),
-        css_class="airline-card__action")
+        css_class="airline-card__edit")
     title_html = (
         '<h3 class="airline-type__title text-label">%s</h3>' % escape_html(type_label)
         if card["multiple"] else "")
-    source_text = i18n.t(SOURCE_BUILTIN_TEXT if has_builtin else SOURCE_NONE_TEXT)
+    badge_html = _type_badge_html(card, is_base, has_builtin, has_override)
+    meta_html = (
+        '<div class="airline-type__meta">%s%s</div>' % (title_html, badge_html)
+        if (title_html or badge_html) else "")
     return (
         '<section class="airline-type" data-airline-type="%s">'
-        "%s%s"
-        '<dl class="airline-type__facts">'
-        '<dt class="text-label">%s</dt><dd class="airline-type__source">%s</dd>'
-        '<dt class="text-label">%s</dt><dd class="airline-type__owner">%s</dd>'
-        "</dl>"
-        "%s"
+        '<div class="airline-type__frame">%s%s</div>%s'
         "</section>"
-    ) % (
-        escape_html(type_id), title_html, zoom_html,
-        escape_html(i18n.t(SOURCE_HEADING_TEXT)), escape_html(source_text),
-        escape_html(i18n.t(OWNER_HEADING_TEXT)),
-        _owner_changes_html(card, is_base, has_builtin, has_override),
-        action_html,
-    )
+    ) % (escape_html(type_id), zoom_html, edit_html, meta_html)
 
 
-def _type_picker_html(index, options):
-    """The labelled native selector over an airline's known aircraft
-    types, one `<option>` per `(type_id, label)`. Gated on script: it only
-    changes which section is visible, and without script every section is
-    already shown in source order.
+def _type_dots_html(options):
+    """The pagination dots under a multi-type airline's slides, one real
+    button per `(type_id, label)`, named by the type. Gated on script:
+    they only scroll the slide strip, which swipes and scrolls natively
+    without one. The first dot starts current; airline-types.js keeps the
+    marker in step with the scroll position.
     """
-    select_id = "airline-types-%d" % index
-    option_html = "".join(
-        '<option value="%s">%s</option>' % (escape_html(type_id), escape_html(label))
-        for type_id, label in options)
+    dots = "".join(
+        '<button type="button" class="airline-card__dot" data-airline-type-dot="%s" '
+        'aria-label="%s"%s></button>' % (
+            escape_html(type_id), escape_html(label),
+            ' aria-current="true"' if position == 0 else "")
+        for position, (type_id, label) in enumerate(options))
     return (
-        '<div class="airline-type-picker %s">'
-        '<label class="text-label" for="%s">%s</label>'
-        '<select id="%s" data-airline-type-select>%s</select>'
-        "</div>"
-    ) % (layout.JS_GATE_CLASS, select_id, escape_html(i18n.t(TYPE_LABEL_TEXT)),
-         select_id, option_html)
+        '<div class="airline-card__dots %s" role="group" aria-label="%s">%s</div>'
+    ) % (layout.JS_GATE_CLASS, escape_html(i18n.t(TYPE_LABEL_TEXT)), dots)
 
 
 def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=None,
                        now=None):
-    """One `.airline-card`: the airline's name and a section per known
-    aircraft type, each with its artwork behind a click-to-enlarge
-    trigger, source facts, the owner's changes and the add/replace
-    action. An airline with several types also gets a native selector
-    that shows one section at a time. Every value is escaped exactly once,
-    at its point of interpolation. Returns `""` for an airline whose
-    normalised key is falsy.
+    """One `.airline-card`: the airline's name and a horizontal
+    scroll-snap strip with one slide per known aircraft type, each with
+    its artwork behind a click-to-enlarge trigger and a round edit button.
+    An airline with several types also gets pagination dots. Every value
+    is escaped exactly once, at its point of interpolation. Returns `""`
+    for an airline whose normalised key is falsy.
 
     `index` becomes `data-filter-group`; `state_dir` resolves the
     illustration cache buster. `manual_info`, when present, is the
@@ -794,8 +760,8 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
     }
     sections = "".join(
         _type_section_html(card, type_id, label, type_key) for type_id, label, type_key in types)
-    picker_html = (
-        _type_picker_html(index, [(type_id, label) for type_id, label, _key in types])
+    dots_html = (
+        _type_dots_html([(type_id, label) for type_id, label, _key in types])
         if card["multiple"] else "")
     base_filter_text = (
         airline_name.lower() if isinstance(airline_name, str) else str(airline_name).lower())
@@ -804,10 +770,10 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
     return (
         '<div class="airline-card" data-filter-text="%s" data-filter-group="%d">'
         '<p class="airline-card__name">%s</p>'
-        '<div class="airline-card__types"%s>%s%s</div>'
+        '<div class="airline-card__types"%s><div class="airline-card__track">%s</div>%s</div>'
         "</div>"
     ) % (escape_html(base_filter_text), index, escape_html(airline_name),
-         " data-airline-types" if card["multiple"] else "", picker_html, sections)
+         " data-airline-types" if card["multiple"] else "", sections, dots_html)
 
 
 def _gallery_grid_html(pairs, state_dir=None, gap_cards_html="", manual_info_by_name=None,
@@ -1037,21 +1003,17 @@ _CLOSE_TEXT = i18n.msg("airlines.close", "Close")
 _CHOOSE_AN_IMAGE_TEXT = i18n.msg("airlines.choose_an_image", "Choose an image")
 
 
-def _filter_bar_html(total, summary_html=""):
+def _filter_bar_html(total):
     """Filter bar over the gallery, entirely inert without JS —
     list-filter.js's early-return guard leaves the full unfiltered grid
     usable if the script never loads. The plain search pill: no chips,
     since no row carries a second dimension worth segmenting.
-
-    `summary_html` (`_manual_summary_html()`'s rendered control, or `""`)
-    sits inside this bar because it's a filter control: clicking it sets
-    the bar's own input and reruns `applyFilter()`.
     """
     return layout.filter_bar_html(
         _FILTER_INPUT_ID, i18n.t(_FILTER_LABEL_TEXT),
         i18n.t(_FILTER_PLACEHOLDER_TEXT), i18n.t(_FILTER_COUNT_TEMPLATE),
         total, total, i18n.t(_FILTER_EMPTY_HEADING),
-        i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total, extra_html=summary_html)
+        i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total)
 
 
 def unresolved_row_for_prefix(state_dir, prefix):
@@ -1365,41 +1327,8 @@ def _manual_resolution_rows(state_dir, registry):
     return rows
 
 
-def _manual_summary_html(manual_rows):
-    """The summary that replaces the retired standalone management table:
-    `""` when `manual_rows` is empty, otherwise a single clickable button
-    naming the total count and, if any entry is superseded, the
-    superseded count too.
-
-    `manual_rows` is `_manual_resolution_rows()`'s own tuples, passed in by
-    `render()`, never recomputed here. `data-filter-set="manual"` is read
-    by list-filter.js's `[data-filter-set]` hook: clicking sets the filter
-    input to `"manual"` and reruns the existing filter function.
-    """
-    if not manual_rows:
-        return ""
-    total = len(manual_rows)
-    superseded_count = sum(1 for row in manual_rows if row[3])
-    # The singular is chosen off `total`, the only count whose noun
-    # inflects here — "%d superseded" is an adjective and reads correctly
-    # at every value in both languages.
-    singular = (total == 1)
-    if superseded_count:
-        template = (
-            MANUAL_SUMMARY_TEMPLATE_SINGULAR if singular else MANUAL_SUMMARY_TEMPLATE)
-        summary_text = i18n.t(template) % (total, superseded_count)
-    else:
-        template = (
-            MANUAL_SUMMARY_TEMPLATE_NONE_SINGULAR if singular else MANUAL_SUMMARY_TEMPLATE_NONE)
-        summary_text = i18n.t(template) % total
-    return (
-        '<button type="button" class="airline-card__chip manual-summary" '
-        'data-filter-set="manual">%s</button>') % summary_text
-
-
 def render(ctx):
-    """The Airlines page: page header, then the filter bar (carrying the
-    manual-resolutions summary), one card per airline in
+    """The Airlines page: page header, then the filter bar, one card per airline in
     `illustrations.target_variants_by_airline()` order plus any injected
     manual-only card, the "Unidentified airlines" gap strip, the shared
     lightbox dialog, and the conditional resolve section.
@@ -1407,8 +1336,7 @@ def render(ctx):
     Reads `state_dir`, `now`, `resolve_prefix` and `manual_resolutions`
     from the coerced `ctx` by plain attribute access — `render({})` must
     still render the plain gallery. Opens no database; the filter bar and
-    lightbox render whenever at least one card exists, and the manual
-    summary has its own independent empty-registry gate.
+    lightbox render whenever at least one card exists.
     """
     # coerce(): test_view_pages.py calls render({}) with a literal empty
     # dict, and every real caller supplies state_dir.
@@ -1458,8 +1386,7 @@ def render(ctx):
 
     total = len(gap_shown) + len(pairs)
     lightbox_html = _lightbox_html() if (pairs or gap_shown) else ""
-    summary_html = _manual_summary_html(manual_rows)
-    filter_html = _filter_bar_html(total, summary_html) if (pairs or gap_shown) else ""
+    filter_html = _filter_bar_html(total) if (pairs or gap_shown) else ""
     return (
         layout.page_header(i18n.t(_NAV_AIRLINES_TEXT))
         + filter_html

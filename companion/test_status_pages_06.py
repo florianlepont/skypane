@@ -12,11 +12,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-import companion.app as app
 import companion.test_status_pages_helpers as shp
 from companion import illustration_normalize, layout
 from companion.pages import airlines_page, health_page
-from companion_app_server import served_asset, served_stylesheet
+from companion_app_server import served_stylesheet
 from companion_markup import css_rules, declarations_for, rules_with_selector
 from server.plane import illustrations, manual_resolutions
 
@@ -907,42 +906,35 @@ def test_page_composition_order_matches_ui_spec(tmp_path):
 # The manual-resolutions management list
 # =============================================================================
 
-def test_manual_summary_line_replaces_retired_management_table_copy(tmp_path):
-    """with an empty manual-resolutions registry, render() emits no
-    .manual-summary element and none of the retired management table's own
-    copy; with two entries seeded (one superseded, one active),
-    .manual-summary renders exactly once with text matching
-    MANUAL_SUMMARY_TEMPLATE's total/superseded count (
-    Task 2 item 1)"""
+def test_airlines_page_carries_no_manual_resolution_summary_control(tmp_path):
+    """render() emits no manual-resolutions summary control and none of the retired management
+    table's own copy, with or without manual entries; each hand-resolved airline keeps its
+    own per-card "Resolved by hand" chip instead"""
     tmp = str(tmp_path)
+    retired = (
+        "manual-summary", "data-filter-set", "Manually resolved prefixes",
+        "Airlines you’ve named by hand for a prefix the frame couldn’t "
+        "otherwise identify.",
+        "No manual resolutions yet.",
+        "Resolve an unidentified flight from Health’s coverage-gap list "
+        "to add one here.",
+        "The frame’s built-in airline list now also recognizes this "
+        "prefix — its entry wins, and this manual name is no longer used.",
+        "manual-resolution__status--superseded",
+    )
     rendered = airlines_page.render(shp.ctx(tmp))
-    summary_open = (
-        '<button type="button" class="airline-card__chip manual-summary" '
-        'data-filter-set="manual">')
-    assert "manual-summary" not in rendered
-    for retired_copy in (
-            "Manually resolved prefixes",
-            "Airlines you’ve named by hand for a prefix the frame couldn’t "
-            "otherwise identify.",
-            "No manual resolutions yet.",
-            "Resolve an unidentified flight from Health’s coverage-gap list "
-            "to add one here.",
-            "The frame’s built-in airline list now also recognizes this "
-            "prefix — its entry wins, and this manual name is no longer used.",
-            "manual-resolution__status--superseded",
-    ):
+    for retired_copy in retired:
         assert retired_copy not in rendered
 
     manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
     manual_resolutions.add_entry(tmp, "ZZZ", "Brand New Air", now="2026-01-02T00:00:00+00:00")
     rendered = airlines_page.render(shp.ctx(tmp))
-    summary_count = rendered.count(summary_open)
-    assert summary_count == 1
-    bar = re.search(r'<div class="filter-bar">(.*?)<div class="empty-state ', rendered, re.S)
-    assert bar is not None and summary_open in bar.group(1)
-    expected_text = airlines_page.MANUAL_SUMMARY_TEMPLATE % (2, 1)
-    expected_button = "%s%s</button>" % (summary_open, expected_text)
-    assert expected_button in rendered
+    for retired_copy in retired:
+        assert retired_copy not in rendered
+    assert not re.search(r"\d+ manual resolutions?", rendered)
+    assert rendered.count('<span class="airline-card__chip">Resolved by hand</span>') == 1
+    assert rendered.count(
+        '<span class="airline-card__chip">%s</span>' % airlines_page.OWNER_SUPERSEDED_TEXT) == 1
 
 
 def test_manual_section_supersession_symbols_retired_and_chip_still_renders(tmp_path):
@@ -1039,35 +1031,6 @@ def test_manual_delete_form_renders_in_both_dialog_and_no_js_fallback(tmp_path):
 
 
 # =============================================================================
-# list-filter.js's new [data-filter-set] hook
-# =============================================================================
-
-def test_list_filter_js_gains_data_filter_set_hook(_module_server):
-    """companion/static/list-filter.js gains an optional, guarded
-    [data-filter-set] lookup whose click handler sets the filter input's
-    value from the clicked element's own attribute and calls the file's
-    one existing applyFilter() - the file still has exactly one
-    [data-filter-text] query, stays ES5-safe, and introduces no network
-    call or timer (phase 14 Task 1, RESEARCH.md Pitfall 5,
-     summary-line mechanism)"""
-    js_source = served_asset(_module_server, app.LIST_FILTER_SCRIPT_ROUTE)
-    assert "data-filter-set" in js_source
-
-    non_comment_source = shp.strip_js_line_and_block_comments(js_source)
-    assert "[data-filter-set]" in non_comment_source
-
-    handler_slice = non_comment_source[non_comment_source.index("[data-filter-set]"):]
-    assert "applyFilter()" in handler_slice
-    assert 'getAttribute("data-filter-set")' in handler_slice
-
-    text_query_count = non_comment_source.count("[data-filter-text]")
-    assert text_query_count == 1
-
-    assert not re.search(r'(^|[^A-Za-z_])(let|const) |=>', js_source)
-    assert not re.search(r'fetch\(|XMLHttpRequest|setTimeout|setInterval', non_comment_source)
-
-
-# =============================================================================
 # The style.css DOM-contract guard for every new/extended selector the
 # UI-SPEC's Component Inventory names
 # =============================================================================
@@ -1076,9 +1039,8 @@ def test_phase14_task2_new_css_selectors_exhaustive(css_text):
     """style.css declares the new/extended selectors UI-SPEC's Component
     Inventory enumerates (a.airline-card, .airline-card__placeholder,
     .lightbox__heading:empty, .lightbox__manual-note:empty) with their
-    exact declaration values, .manual-summary's own base rule is GONE with
-    only its hover surviving on the chip's own 12% wash (X7,
-    Task 2), .airline-card__placeholder's aspect-ratio string-equals
+    exact declaration values, .manual-summary is gone entirely along with its summary
+    control, .airline-card__placeholder's aspect-ratio string-equals
     .airline-card__image's, .lightbox__replace's selector is extended to a
     three-way group with .lightbox__resolve-name/.lightbox__delete in
     exactly one declaration block (never duplicated), none of the new/
@@ -1112,12 +1074,8 @@ def test_phase14_task2_new_css_selectors_exhaustive(css_text):
             assert expected_declaration in rendered_decls, (
                 "expected %r's declarations to include %r, got %r" % (selector, expected_declaration, rendered_decls))
 
-    # The `.manual-summary` base rule must be GONE (X7): only its own
-    # :hover survives.
     assert not rules_with_selector(css_text, ".manual-summary")
-    hover_decls = declarations_for(css_text, ".manual-summary:hover")
-    assert hover_decls.get("color") == "var(--color-text)"
-    assert hover_decls.get("background") == "color-mix(in srgb, var(--color-text) 12%, transparent)"
+    assert not rules_with_selector(css_text, ".manual-summary:hover")
     chip_decls = declarations_for(css_text, ".airline-card__chip")
     assert chip_decls.get("font-size") == "12px"
     assert chip_decls.get("text-transform") == "uppercase"
@@ -1150,7 +1108,7 @@ def test_phase14_task2_new_css_selectors_exhaustive(css_text):
 
     for selector in (
             "a.airline-card", ".airline-card__placeholder", ".lightbox__heading:empty",
-            ".lightbox__manual-note:empty", ".manual-summary:hover"):
+            ".lightbox__manual-note:empty"):
         decls = declarations_for(css_text, selector)
         assert not any(prop.startswith("--") for prop in decls), (
             "expected %r's declarations to declare no new custom property" % (selector,))
@@ -1481,8 +1439,9 @@ def test_tab_bar_css_geometry_surface_and_active_idiom(css_text):
 
 def test_airlines_page_drops_decorative_labels_and_explains_owner_actions(tmp_path):
     """the Airlines page serves no page-description sentence, no "<name> illustration" label
-    and no framing-preview sentence; each type section keeps the source row and the owner's
-    changes row apart; and the delete form says what it does to flights and artwork"""
+    and no framing-preview sentence; a tile carries none of the four former source/changes text
+    lines, its round edit button keeps the add/replace-artwork wording as its accessible name
+    only, and the delete form says what it does to flights and artwork"""
     tmp = str(tmp_path)
     manual_resolutions.add_entry(tmp, "XQZ", "Totally Novel Airline", now="2026-01-01T00:00:00+00:00")
     rendered = airlines_page.render(shp.ctx(tmp))
@@ -1491,10 +1450,17 @@ def test_airlines_page_drops_decorative_labels_and_explains_owner_actions(tmp_pa
     assert 'data-view-panel-caption="Air France illustration"' not in rendered
     assert "how it will be framed" not in rendered
     card = _card_slice(rendered, "Air France")
-    assert '<dt class="text-label">From SkyPane</dt><dd class="airline-type__source">Built-in artwork</dd>' in card
-    assert '<dt class="text-label">Your changes</dt>' in card
-    assert ">Replace artwork</" in card
+    for retired in ("From SkyPane", "Built-in artwork", "Your changes", "No changes",
+                    "airline-type__facts", "airline-type__source", "airline-type__owner"):
+        assert retired not in rendered
+    assert 'class="airline-card__edit"' in card
+    assert 'aria-label="Replace artwork: Air France"' in card
+    assert ">Replace artwork</" not in card
     novel = _card_slice(rendered, "Totally Novel Airline")
-    assert ">Add artwork</" in novel
+    assert 'aria-label="Add artwork: Totally Novel Airline"' in novel
+    assert 'class="airline-card__placeholder"' in novel
+    assert novel.count('class="airline-card__chip"') == 1, "expected the one badge, the manual-name chip"
+    assert '<span class="airline-card__chip">Resolved by hand</span>' in novel
+    assert ">Add artwork</" not in novel
     assert "Flights with this prefix become unidentified again. Your artwork stays." in rendered
     assert ">Delete my name</button>" in rendered
