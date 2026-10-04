@@ -239,6 +239,7 @@ FLASH_RENAMED = airline_sheet.FLASH_RENAMED
 FLASH_RENAME_RESET = airline_sheet.FLASH_RENAME_RESET
 FLASH_RENAME_STALE = airline_sheet.FLASH_RENAME_STALE
 FLASH_RENAME_FULL = airline_sheet.FLASH_RENAME_FULL
+FLASH_RENAME_TAKEN = airline_sheet.FLASH_RENAME_TAKEN
 FLASH_RENAME_SAVE_FAILED = airline_sheet.FLASH_RENAME_SAVE_FAILED
 
 # A prefix needs at least GAP_BLOCK_THRESHOLD sightings to earn a gap
@@ -991,8 +992,7 @@ def _lightbox_html():
     resolve_name_html = _resolve_name_form_html("", "-dialog", include_submit=False)
     resolve_upload_html = _resolve_upload_form_html("", "-dialog")
     sheet_html = airline_sheet.sheet_html(
-        airline_sheet.EMPTY_ATTR_VALUES, "-dialog", MANUAL_DATALIST_ID + "-dialog",
-        i18n.t(NAME_LABEL_TEXT), True)
+        airline_sheet.EMPTY_ATTR_VALUES, "-dialog", i18n.t(NAME_LABEL_TEXT), True)
     # Both forms are always in the document; panel-lookup.js decides
     # which one a given open shows — see this function's own docstring.
     replace_html = _lightbox_replace_form_html()
@@ -1373,14 +1373,15 @@ def _sheet_section_html(ctx, sheets_by_name, pairs):
             AIRLINES_ROUTE, i18n.t(RESOLVE_BACK_LINK_TEXT))
         heading = '<h2 class="text-heading">%s</h2>' % (
             i18n.t(airline_sheet.SHEET_HEADING_TEMPLATE) % escape_html(sheet["name"]))
-        datalist = _known_airlines_datalist_html("-edit")
+        focus_name = ctx.flash_key in airline_sheet.NAME_REFUSAL_FLASHES
         upload = _resolve_upload_form_html(
             "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(sheet_key)), "-edit")
         return (
-            '<div class="page-section" id="%s" data-sheet-fallback>%s%s%s%s%s</div>'
-            % (airline_sheet.SHEET_ANCHOR_ID, back_link, heading,
+            '<div class="page-section" id="%s" data-sheet-fallback%s>%s%s%s%s</div>'
+            % (airline_sheet.SHEET_ANCHOR_ID, " data-sheet-focus-name" if focus_name else "",
+               back_link, heading,
                airline_sheet.sheet_html(
-                   values, "-edit", MANUAL_DATALIST_ID + "-edit", i18n.t(NAME_LABEL_TEXT), False), datalist, upload))
+                   values, "-edit", i18n.t(NAME_LABEL_TEXT), False, focus_name), upload))
     return ""
 
 

@@ -333,6 +333,38 @@
   // Every read/write to populate and open the dialog lives here once —
   // the single place both the click listener and the load-time
   // auto-open below call. Never duplicate this logic at a second site.
+  // Chooses what showModal() focuses for an airline sheet, by marking it
+  // the autofocus attribute beforehand (the dialog's focus steps honour it, so the
+  // phone keyboard never rises for a name field nobody tapped): the
+  // heading, made focusable with tabindex -1, or the name field when a
+  // refused rename reopened the sheet. Other opens (resolve, upload,
+  // delete) keep the browser's default placement.
+  // Set only by the load-time sheet auto-open after a refused rename.
+  var focusNameOnOpen = false;
+
+  function chooseInitialFocus(trigger) {
+    var focusName = focusNameOnOpen;
+    var isSheet = !!sheet && !sheet.hidden && !!trigger.getAttribute("data-view-panel-airline");
+    var target = null;
+    if (isSheet) {
+      target = focusName ? sheetNameInput : (heading && heading.textContent ? heading : closeButton);
+      if (target === heading) {
+        heading.setAttribute("tabindex", "-1");
+      }
+    }
+    if (heading && target !== heading) {
+      heading.removeAttribute("autofocus");
+      heading.removeAttribute("tabindex");
+    }
+    if (sheetNameInput && target !== sheetNameInput) {
+      sheetNameInput.removeAttribute("autofocus");
+    }
+    if (target) {
+      target.setAttribute("autofocus", "");
+    }
+    return target;
+  }
+
   function openFromTrigger(trigger) {
     var src = trigger.getAttribute("data-view-panel-src") || "";
     var captionText = trigger.getAttribute("data-view-panel-caption") || "";
@@ -449,7 +481,11 @@
       deleteForm.setAttribute("action", deleteAction);
     }
 
+    var focusTarget = chooseInitialFocus(trigger);
     dialog.showModal();
+    if (focusTarget && document.activeElement !== focusTarget) {
+      focusTarget.focus({ preventScroll: true });
+    }
   }
 
   document.addEventListener("click", function (evt) {
@@ -552,7 +588,9 @@
       sheetTrigger = null;
     }
     if (sheetTrigger) {
+      focusNameOnOpen = !!document.querySelector("[data-sheet-focus-name]");
       openFromTrigger(sheetTrigger);
+      focusNameOnOpen = false;
       var sheetFallback = document.querySelector("[data-sheet-fallback]");
       if (sheetFallback) {
         sheetFallback.hidden = true;
