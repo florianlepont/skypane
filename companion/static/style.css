@@ -2340,7 +2340,6 @@ table.data-table--firmware-history td:last-child {
 .history-card__head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-sm) 0 var(--space-md);
 }
@@ -2508,7 +2507,19 @@ table.data-table--firmware-history td:last-child {
   border-top: 1px dashed var(--color-border);
 }
 
-.history-card__stub::before,
+.history-card__stub::before {
+  content: "";
+  position: absolute;
+  top: -8px;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-canvas);
+  left: -8px;
+  clip-path: inset(0 0 0 50%);
+}
+
 .history-card__stub::after {
   content: "";
   position: absolute;
@@ -2518,14 +2529,6 @@ table.data-table--firmware-history td:last-child {
   border: 1px solid var(--color-border);
   border-radius: 50%;
   background: var(--color-canvas);
-}
-
-.history-card__stub::before {
-  left: -8px;
-  clip-path: inset(0 0 0 50%);
-}
-
-.history-card__stub::after {
   right: -8px;
   clip-path: inset(0 50% 0 0);
 }
