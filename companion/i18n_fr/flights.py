@@ -69,6 +69,8 @@ MESSAGES = {
     "flights.view_picture": "Voir l’image",
     "flights.picture": "Image",
     "flights.view_picture_of": "Voir l’image de %s",
+    # The phone card's placeholder where an airline has no artwork.
+    "flights.no_illustration": "Pas d’illustration",
 
     "flights.show_more_remaining": "Afficher plus (%d restants)",
 }
