@@ -9,8 +9,9 @@
  * - Dismiss: the toast's own dismiss control (a link or a button)
  *   removes it in place; Escape does the same while focus is inside it.
  * - Auto-hide: only a toast the server marked data-toast-autohide
- *   (success and info). Warning, error and pending toasts are never
- *   marked, so they stay until dismissed. The timer pauses while the
+ *   (success, info and pending; pending carries the value "long" for the
+ *   longer dwell). Warning and error toasts are never marked, so they
+ *   stay until dismissed. The timer pauses while the
  *   pointer is over the toast, while focus is inside it and while the
  *   document is hidden, and resumes with the time that was left.
  * - Never moves focus to a toast; announcement is the server-rendered
@@ -32,11 +33,15 @@
   // its CSS animation) when a hide is really scheduled.
   var ARMED_ATTR = "data-toast-armed";
   var PAUSED_CLASS = "is-paused";
-  // The stylesheet's own dwell token, so the hairline and the timer
+  // The attribute value that selects the long dwell.
+  var LONG_VALUE = "long";
+  // The stylesheet's own dwell tokens, so the hairline and the timer
   // share one number.
   var DWELL_PROPERTY = "--motion-toast-dwell";
-  // Fallback only, for a stylesheet that failed to load.
+  var DWELL_LONG_PROPERTY = "--motion-toast-dwell-long";
+  // Fallbacks only, for a stylesheet that failed to load.
   var FALLBACK_DWELL_MS = 6000;
+  var FALLBACK_DWELL_LONG_MS = 12000;
   var MAIN_ID = "main-content";
 
   function closestToast(node) {
@@ -49,15 +54,17 @@
     return null;
   }
 
-  function dwellMs() {
+  function dwellMs(toast) {
+    var isLong = toast.getAttribute(AUTOHIDE_ATTR) === LONG_VALUE;
+    var property = isLong ? DWELL_LONG_PROPERTY : DWELL_PROPERTY;
     var raw = "";
     if (window.getComputedStyle) {
       raw = window.getComputedStyle(document.documentElement)
-        .getPropertyValue(DWELL_PROPERTY);
+        .getPropertyValue(property);
     }
     var match = /^\s*(\d+(?:\.\d+)?)(ms|s)\s*$/.exec(raw || "");
     if (!match) {
-      return FALLBACK_DWELL_MS;
+      return isLong ? FALLBACK_DWELL_LONG_MS : FALLBACK_DWELL_MS;
     }
     var value = parseFloat(match[1]);
     return match[2] === "s" ? value * 1000 : value;
@@ -140,7 +147,7 @@
   var timers = [];
 
   function armAutohide(toast) {
-    var timer = new Timer(toast, dwellMs());
+    var timer = new Timer(toast, dwellMs(toast));
     toast._skypaneTimer = timer;
     timers.push(timer);
     toast.setAttribute(ARMED_ATTR, "");

@@ -42,12 +42,17 @@ _EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 2
 _EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 1
 
 # The two motion durations, plus the one documented exception: the
-# toast's dwell (how long a success/info toast stays), which is a wait,
-# not a movement speed. It may only drive the toast timer hairline.
+# toast's two dwells (how long a success/info toast and a pending toast
+# stay), which are waits, not movement speeds. Each may only drive its
+# own armed toast timer hairline.
 _MOTION_TOKENS = ("--motion-fast", "--motion-slow")
-_MOTION_EXCEPTION_TOKEN = "--motion-toast-dwell"
+_MOTION_EXCEPTION_TOKENS = ("--motion-toast-dwell", "--motion-toast-dwell-long")
 _MOTION_EXCEPTION_KEYFRAMES = "skypane-toast-dwell"
-_MOTION_EXCEPTION_SELECTOR = ".toast[data-toast-armed] .toast__timer"
+_MOTION_EXCEPTION_SELECTORS = {
+    "--motion-toast-dwell": (".toast[data-toast-armed] .toast__timer",),
+    "--motion-toast-dwell-long": (
+        '.toast[data-toast-armed][data-toast-autohide="long"] .toast__timer',),
+}
 
 _ANIMATION_VALUE_KEYWORDS = frozenset((
     "var", "none", "infinite", "normal", "reverse", "alternate", "alternate-reverse",
@@ -164,32 +169,33 @@ def test_style_css_honours_the_motion_budget(served_css):
                     "limited, use grid-template-rows: 0fr -> 1fr instead" % (banned, rule.selectors))
 
 
-def test_motion_tokens_are_two_durations_plus_the_one_toast_dwell_exception(served_css):
-    """the served :root declares exactly --motion-fast, --motion-slow and the one documented
-    exception --motion-toast-dwell; the exception is spent by exactly one live declaration,
-    the armed toast timer hairline's skypane-toast-dwell animation, and nowhere else (not even
-    a transition), so it can never become a third general-purpose motion speed"""
+def test_motion_tokens_are_two_durations_plus_the_two_toast_dwell_exceptions(served_css):
+    """the served :root declares exactly --motion-fast, --motion-slow and the two documented
+    exceptions --motion-toast-dwell and --motion-toast-dwell-long; each exception is spent by
+    exactly one live declaration, its own armed toast timer hairline's skypane-toast-dwell
+    animation, and nowhere else (not even a transition), so neither can become a third
+    general-purpose motion speed"""
     root = custom_properties(served_css, ":root")
     declared = sorted(name for name in root if name.startswith("--motion-"))
-    assert declared == sorted(_MOTION_TOKENS + (_MOTION_EXCEPTION_TOKEN,)), (
-        "expected the motion budget's two tokens plus the toast-dwell exception, got %r"
+    assert declared == sorted(_MOTION_TOKENS + _MOTION_EXCEPTION_TOKENS), (
+        "expected the motion budget's two tokens plus the toast-dwell exceptions, got %r"
         % (declared,))
-    spenders = [
-        (rule.selectors, prop, value)
-        for rule in css_rules(served_css)
-        for prop, value in rule.declarations
-        if "var(%s)" % _MOTION_EXCEPTION_TOKEN in value and not prop.startswith("--")
-    ]
-    assert len(spenders) == 1, (
-        "expected exactly one declaration spending %s, got %r"
-        % (_MOTION_EXCEPTION_TOKEN, spenders))
-    selectors, prop, value = spenders[0]
-    assert selectors == (_MOTION_EXCEPTION_SELECTOR,), (
-        "expected only %r to spend the toast dwell, got %r"
-        % (_MOTION_EXCEPTION_SELECTOR, selectors))
-    assert prop == "animation" and _MOTION_EXCEPTION_KEYFRAMES in value, (
-        "expected the toast dwell to drive the %s animation, got `%s: %s`"
-        % (_MOTION_EXCEPTION_KEYFRAMES, prop, value))
+    for token in _MOTION_EXCEPTION_TOKENS:
+        spenders = [
+            (rule.selectors, prop, value)
+            for rule in css_rules(served_css)
+            for prop, value in rule.declarations
+            if "var(%s)" % token in value and not prop.startswith("--")
+        ]
+        assert len(spenders) == 1, (
+            "expected exactly one declaration spending %s, got %r" % (token, spenders))
+        selectors, prop, value = spenders[0]
+        assert selectors == _MOTION_EXCEPTION_SELECTORS[token], (
+            "expected only %r to spend %s, got %r"
+            % (_MOTION_EXCEPTION_SELECTORS[token], token, selectors))
+        assert prop == "animation" and _MOTION_EXCEPTION_KEYFRAMES in value, (
+            "expected %s to drive the %s animation, got `%s: %s`"
+            % (token, _MOTION_EXCEPTION_KEYFRAMES, prop, value))
 
 
 # ==========================================================================

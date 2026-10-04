@@ -1,9 +1,9 @@
 """Real-browser checks of the toast family: with scripts a flash toast floats
 top centre over the content column on desktop and above the tab bar on a
 phone without moving the page; success and info hide on their own after the
-dwell, paused while hovered, focused or while the document is hidden; error
-and pending toasts never hide on their own; reduced motion drops the slide
-and the countdown; the dismiss control works from the keyboard and never
+dwell and pending ones after 12 s, paused while hovered, focused or while the
+document is hidden; error and warning toasts never hide on their own; reduced
+motion drops the slide and the countdown; the dismiss control works from the keyboard and never
 leaves focus stranded; the quick-switch failure is the same error toast; and
 with scripts blocked the same toast sits in flow and its dismiss link
 reloads the page without the flash."""
@@ -25,6 +25,7 @@ pytestmark = pytest.mark.browser
 TOAST = ".toast-region--flash .toast"
 LIVE_TOAST = ".toast-region--live .toast"
 DWELL_MS = 6000
+LONG_DWELL_MS = 12000
 
 _SUCCESS_FLASH = (layout.DISPLAY_ROUTE, flash.FLASH_KEY_CALENDAR_CONNECT_OK)
 _INFO_FLASH = (layout.HOME_ROUTE, flash.FLASH_KEY_POLL_ALREADY_RUNNING)
@@ -162,9 +163,50 @@ def test_auto_hide_pauses_on_hover_focus_and_hidden_document(new_context, server
         context.close()
 
 
-@pytest.mark.parametrize("route,key", (_ERROR_FLASH, _PENDING_FLASH), ids=("error", "pending"))
-def test_error_and_pending_never_hide_on_their_own(new_context, server, route, key):
-    """an error or pending toast is still there long after the dwell and draws no countdown"""
+def test_pending_hides_after_the_long_dwell(new_context, server):
+    """a pending toast is still there at the short dwell and just before 12 s, and gone just
+    after it, with its hairline drawn while it counts down"""
+    context, page = _open(new_context, server, clock=True)
+    try:
+        route, key = _PENDING_FLASH
+        _goto(page, server, route, key)
+        assert page.locator(TOAST + " .toast__timer").is_visible()
+        page.clock.run_for(DWELL_MS + 500)
+        assert _toast_count(page) == 1, "a pending toast must outlive the short dwell"
+        page.clock.run_for(LONG_DWELL_MS - DWELL_MS - 1000)
+        assert _toast_count(page) == 1, "hid too early"
+        page.clock.run_for(1500)
+        assert _toast_count(page) == 0, "expected the toast gone after the long dwell"
+    finally:
+        context.close()
+
+
+def test_pending_pauses_on_hover_and_focus(new_context, server):
+    """hovering a pending toast, or focusing a control inside it, pauses its countdown"""
+    context, page = _open(new_context, server, clock=True)
+    try:
+        route, key = _PENDING_FLASH
+        _goto(page, server, route, key)
+        page.clock.run_for(2000)
+        page.hover(TOAST)
+        page.clock.run_for(60000)
+        assert _toast_count(page) == 1, "hover must pause the countdown"
+        page.mouse.move(5, 5)
+        page.focus(TOAST + " .toast__dismiss")
+        page.clock.run_for(60000)
+        assert _toast_count(page) == 1, "focus inside the toast must pause the countdown"
+        page.evaluate("document.activeElement.blur()")
+        page.clock.run_for(LONG_DWELL_MS)
+        assert _toast_count(page) == 0, "expected the toast gone once nothing pauses it"
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("route,key", (_ERROR_FLASH, (layout.DISPLAY_ROUTE,
+                                       flash.FLASH_KEY_CALENDAR_SYNC_FAILED)),
+                         ids=("error", "warning"))
+def test_error_and_warning_never_hide_on_their_own(new_context, server, route, key):
+    """an error or warning toast is still there long after both dwells and draws no countdown"""
     context, page = _open(new_context, server, clock=True)
     try:
         _goto(page, server, route, key)

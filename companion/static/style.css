@@ -77,14 +77,16 @@
    * --motion-fast (180ms) is for a REACTION the user is watching
    * confirm; --motion-slow (2s) is for an AMBIENT loop nobody watches
    * (e.g. a breathing status dot) — reaction speed would strobe.
-   * Exception: --motion-toast-dwell (6s) is not a movement speed but how
-   * long a success/info toast stays before it hides itself. Only the
-   * toast's timer hairline animates on it, and toast.js reads the same
-   * token for its timer, so the two always agree. Never reuse it for
+   * Exception: --motion-toast-dwell (6s, success/info) and
+   * --motion-toast-dwell-long (12s, pending) are not movement speeds but
+   * how long a toast stays before it hides itself. Only the toast's
+   * timer hairline animates on them, and toast.js reads the same tokens
+   * for its timer, so the two always agree. Never reuse them for
    * anything else. */
   --motion-fast: 180ms;
   --motion-slow: 2s;
   --motion-toast-dwell: 6s;
+  --motion-toast-dwell-long: 12s;
 
   /* Light mode (default) */
   --color-canvas: #F7F4EF;
@@ -360,7 +362,7 @@ html[data-ui-theme="dark"] {
   }
 }
 
-/* The auto-hide hairline draining over --motion-toast-dwell. Under
+/* The auto-hide hairline draining over --motion-toast-dwell (or the long one). Under
  * reduced motion the global override drains it at once, so no countdown
  * moves; the toast still hides on toast.js's timer. */
 @keyframes skypane-toast-dwell {
@@ -1314,6 +1316,10 @@ select.visually-hidden {
 .toast[data-toast-armed] .toast__timer {
   display: block;
   animation: skypane-toast-dwell var(--motion-toast-dwell) linear forwards;
+}
+
+.toast[data-toast-armed][data-toast-autohide="long"] .toast__timer {
+  animation: skypane-toast-dwell var(--motion-toast-dwell-long) linear forwards;
 }
 
 .toast.is-paused .toast__timer {
