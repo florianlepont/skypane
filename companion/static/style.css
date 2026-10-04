@@ -957,8 +957,12 @@ select.visually-hidden {
    * the left instead of filling the bordered container as one control. */
   flex: 1 1 0;
   min-width: 0;
-  padding: 0 8px;
+  padding: 0 4px;
   white-space: nowrap;
+  /* A label wider than its equal-width segment is clipped with an
+   * ellipsis inside its own box; it can never paint over a neighbour. */
+  overflow: hidden;
+  text-overflow: ellipsis;
   background: transparent;
   border: none;
   box-shadow: none;

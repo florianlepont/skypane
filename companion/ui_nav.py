@@ -407,6 +407,12 @@ def _tab_bar_cell_body(icon_id, label, extra_html=""):
         icon_html(icon_id, extra_class="tab-bar__icon"), label, extra_html)
 
 
+# Longer accessible names for segments whose visible label is a short
+# abbreviation; each begins with the visible text (label-in-name).
+_THEME_ACCESSIBLE_TEXT = {
+    "auto": i18n.msg("nav.auto_full", "Auto (follows the system)"),
+}
+
 _THEME_LABEL_TEXT = {
     "auto": i18n.msg("nav.auto", "Auto"),
     "light": i18n.msg("nav.light", "Light"),
@@ -421,9 +427,13 @@ def _theme_form_html(resolved_theme):
         css_class = (
             "theme-option theme-option--active"
             if is_active else "theme-option")
+        accessible = _THEME_ACCESSIBLE_TEXT.get(choice)
+        aria_label = (
+            ' aria-label="%s"' % escape_html(i18n.t(accessible))
+            if accessible else "")
         options.append(
-            '<button type="submit" name="ui_theme" value="%s" class="%s" aria-pressed="%s">%s</button>'
-            % (escape_html(choice), css_class, "true" if is_active else "false",
+            '<button type="submit" name="ui_theme" value="%s" class="%s" aria-pressed="%s"%s>%s</button>'
+            % (escape_html(choice), css_class, "true" if is_active else "false", aria_label,
                # `choice` ("auto"/"light"/"dark") is the form's own value and stays an
                # untranslated identifier; only the rendered label text goes through i18n.t().
                escape_html(i18n.t(_THEME_LABEL_TEXT[choice]))))
