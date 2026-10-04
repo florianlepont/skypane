@@ -924,15 +924,15 @@ def _display_ctx(tmp_path, now=None):
 
 
 def test_the_display_scope_refreshes_itself_from_the_same_builder(tmp_path):
-    """the Display scope renders layout.freshness_line_html()'s own output verbatim with
+    """the Display scope renders layout.refresh_marker_html()'s own silent marker verbatim with
     exactly one data-loaded-at and one data-refresh-pill, declares its own swap regions, carries
     its page key on <body>, and renders no freshness marker at all when the caller has no render
     instant"""
     now = "2026-08-27T12:00:00+00:00"
     rendered = config_page.render(_display_ctx(tmp_path, now), scope=config_page.SCOPE_DISPLAY)
-    built = layout.freshness_line_html(now)
+    built = layout.refresh_marker_html(now)
     assert built in rendered, (
-        "expected the Display scope's freshness line to be layout.freshness_line_html()'s own "
+        "expected the Display scope's refresh marker to be layout.refresh_marker_html()'s own "
         "output verbatim")
     for attr, want in (("data-loaded-at", 1), ("data-refresh-pill", 1)):
         assert rendered.count(attr) == want, (

@@ -13,6 +13,7 @@ picture's flight line share one `history_db` read.
 
 import companion.battery as battery
 import companion.draw as draw
+import companion.flight_card as flight_card
 import companion.frame_state as frame_state
 import companion.i18n as i18n
 import companion.layout as layout
@@ -31,6 +32,12 @@ PAGE_TITLE = i18n.msg("nav.home", "Home")
 CURRENT_FRAME_HEADING = i18n.msg("home.current_frame", "Current frame")
 
 RECENT_FLIGHTS_LIMIT = 5
+# Rows read before de-duplication, so five distinct flights still show
+# when a pass was stored more than once.
+RECENT_FLIGHTS_FETCH = RECENT_FLIGHTS_LIMIT * 3
+# Two stored events for the same pass within this many seconds read as
+# one flight on Home.
+DUPLICATE_WINDOW_S = 60
 RECENT_FLIGHTS_HEADING = i18n.msg("home.recent_flights", "Recent flights")
 RECENT_FLIGHTS_LINK_TEXT = i18n.msg("home.see_all_flights", "See all flights")
 NO_FLIGHTS_HEADING = i18n.msg("home.no_flights_yet", "No flights yet.")
@@ -62,6 +69,10 @@ GALLERY_ROUTE_PREFIX = "/gallery/"
 
 DIRECTION_DEPARTING_TEXT = i18n.msg("home.departing", "Departing")
 DIRECTION_ARRIVING_TEXT = i18n.msg("home.arriving", "Arriving")
+# Owned by companion/i18n_fr/flights.py: the same wording the Flights
+# card uses for a missing callsign or airline.
+NO_CALLSIGN_NOTE_TEXT = i18n.msg("flights.no_callsign", "no callsign")
+AIRLINE_UNKNOWN_TEXT = i18n.msg("flights.airline_unknown", "Airline unknown")
 
 BATTERY_LABEL = i18n.msg("home.battery_label", "Battery")
 BATTERY_ARIA_TEMPLATE = i18n.msg("home.battery_aria", "Battery about %s")
@@ -121,7 +132,52 @@ def _safe_query(state_dir, fn):
 
 
 def _recent_flights(conn):
-    return history_db.recent_runway_events(conn, limit=RECENT_FLIGHTS_LIMIT)
+    return _distinct_flights(
+        history_db.recent_runway_events(conn, limit=RECENT_FLIGHTS_FETCH),
+        RECENT_FLIGHTS_LIMIT)
+
+
+def _pass_key(row):
+    """What makes two stored events the same pass on screen: same
+    aircraft, callsign, route and direction."""
+    return tuple(row.get(name) for name in (
+        "hex", "callsign", "origin", "destination", "confirmed_state"))
+
+
+def _distinct_flights(rows, limit):
+    """The newest `limit` rows with repeated passes folded away. The poll
+    loop stores a new event whenever the corroboration flag changes (one
+    feed missing a cycle turns True into None), so a single pass can be
+    stored twice 30 s apart. A row is dropped when it has the same pass
+    key as the row just before it (newest first) and the two timestamps
+    are under `DUPLICATE_WINDOW_S` apart; the newest one stays. Storage
+    is untouched; Flights still lists every stored event.
+    """
+    kept = []
+    previous = None
+    for row in rows:
+        if previous is not None and _pass_key(row) == _pass_key(previous):
+            gap = _seconds_between(previous.get("ts"), row.get("ts"))
+            if gap is not None and gap < DUPLICATE_WINDOW_S:
+                previous = row
+                continue
+        previous = row
+        kept.append(row)
+        if len(kept) >= limit:
+            break
+    return kept
+
+
+def _seconds_between(newer_ts, older_ts):
+    """Absolute seconds between two stored timestamps, or None when
+    either does not parse."""
+    newer, older = layout.parse_iso(newer_ts), layout.parse_iso(older_ts)
+    if newer is None or older is None:
+        return None
+    try:
+        return abs((newer - older).total_seconds())
+    except TypeError:
+        return None
 
 
 def _latest_battery(conn):
@@ -257,10 +313,59 @@ def _recent_flight_time_html(ts, now):
     return cell_html
 
 
+def _recent_card_identity_html(row):
+    """The card head: the callsign in the identifier voice and the
+    airline muted beside it. A row with no callsign shows its hex with the
+    "no callsign" note; an unknown airline reads "Airline unknown" in
+    italics, with no link (Home's rows carry no actions)."""
+    callsign = row.get("callsign") or ""
+    hex_value = row.get("hex") or ""
+    if callsign:
+        ident = escape_html(callsign)
+    elif hex_value:
+        ident = '%s <span class="history-card__note">%s</span>' % (
+            escape_html(hex_value), escape_html(i18n.t(NO_CALLSIGN_NOTE_TEXT)))
+    else:
+        ident = "—"
+    airline = panel_render.display_airline_name(row.get("airline")) or ""
+    if airline:
+        airline_html = '<span class="history-card__airline">%s</span>' % escape_html(airline)
+    else:
+        airline_html = (
+            '<span class="history-card__airline history-card__airline--unknown">%s</span>'
+            % escape_html(i18n.t(AIRLINE_UNKNOWN_TEXT)))
+    return (
+        '<div class="history-card__head"><div class="history-card__id">'
+        '<span class="history-card__callsign mono">%s</span>%s</div></div>'
+    ) % (ident, airline_html)
+
+
+def _recent_card_html(row, now, state_dir):
+    """One compact boarding-pass card, the Flights card's own bands
+    (head, route line, stub below the tear line) at a smaller size. No
+    link and no button: the card is information only, like the desktop
+    row."""
+    direction_raw = _direction_text(row.get("confirmed_state"))
+    return '<li class="history-card history-card--compact">%s%s%s</li>' % (
+        _recent_card_identity_html(row),
+        flight_card.route_html(
+            row.get("origin") or "", row.get("destination") or "",
+            row.get("confirmed_state") or "",
+            i18n.t(direction_raw) if direction_raw else ""),
+        flight_card.stub_html(
+            flight_card.art_html(row.get("airline"), state_dir), row.get("ts"), now,
+            clock_now=now))
+
+
 def _recent_flights_html(rows, now, state_dir):
+    """The recent-flights section. A phone gets compact boarding-pass
+    cards; a desktop keeps the thumbnail list. Both render, cards first:
+    style.css's `.recent-flight-tiles ~ .recent-flights` toggle at 960 px
+    depends on this order."""
     if not rows:
         body = layout.empty_state(i18n.t(NO_FLIGHTS_HEADING), i18n.t(NO_FLIGHTS_BODY))
     else:
+        tiles = "".join(_recent_card_html(row, now, state_dir) for row in rows)
         items = []
         for row in rows:
             callsign = row.get("callsign") or row.get("hex") or "—"
@@ -273,7 +378,8 @@ def _recent_flights_html(rows, now, state_dir):
                 "</li>"
                 % (_recent_flight_thumb_html(row, state_dir), escape_html(callsign),
                    escape_html(secondary), _recent_flight_time_html(row.get("ts"), now)))
-        body = '<ul class="recent-flights">%s</ul>' % "".join(items)
+        body = '<ul class="recent-flight-tiles">%s</ul><ul class="recent-flights">%s</ul>' % (
+            tiles, "".join(items))
     return (
         '<section class="page-section home-section" aria-labelledby="home-flights">'
         '<h2 class="text-heading" id="home-flights">%s</h2>%s'

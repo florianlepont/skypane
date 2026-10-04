@@ -573,9 +573,11 @@ def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, subm
     type with only one of the two must split this gate.
     """
     # Appearance controls are form-backed, so the refresh loop must not
-    # replace this page while a visitor is editing them.
+    # replace this page while a visitor is editing them. The silent marker
+    # keeps the frame strip on freshness.js's background refresh without a
+    # visible freshness line, as on Home and Flights.
     header = layout.page_header(
-        i18n.t(DISPLAY_PAGE_TITLE), freshness_html=layout.freshness_line_html(ctx.now))
+        i18n.t(DISPLAY_PAGE_TITLE), freshness_html=layout.refresh_marker_html(ctx.now))
     frame_strip_section_html = ""
     if screens.GROUP_THEME in groups:
         # Resolved once here and shared: the calendar row falls back to

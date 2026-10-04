@@ -102,13 +102,15 @@ def test_23_06_page_headers_stay_free_of_redundant_freshness_lines(tmp_path):
     """Health omits the redundant freshness line entirely; Home shows no visible freshness line
     either and keeps only the silent hidden refresh marker that carries data-loaded-at."""
     now_iso = shp.iso(shp.now())
-    built = layout.freshness_line_html(now_iso)
+    built = layout.refresh_marker_html(now_iso)
     health = health_page.render(shp.ctx(str(tmp_path / "h"), now_iso))
     home = home_page.render(_home_ctx(str(tmp_path / "o"), now_iso))
-    assert built not in health
     assert "data-loaded-at" not in health
     assert "data-refresh-pill" not in health
-    assert built not in home
+    assert "page-header__freshness" not in health
+    assert built in home
+    for visible in ("data-refresh-clock", "data-refresh-live-dot"):
+        assert visible not in home
     assert 'data-loaded-at="%s"' % now_iso in home
     assert "page-header__freshness--silent" in home
     assert re.search(r"<span class=\"refresh-pill\"[^>]* hidden>", home)

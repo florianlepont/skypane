@@ -65,7 +65,6 @@ MESSAGES = {
     "health.screen_status_and_server_data_quality_in_one":
         "L’état de l’écran et la qualité des données du serveur, au même endroit.",
     "health.updating": "Mise à jour…",
-    "health.updated": "Mis à jour ",
 
     # --- Anomaly banner --------------------------------------------
     "health.something_needs_attention_check_the_tiles_below":

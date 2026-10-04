@@ -746,6 +746,12 @@ def test_the_dirty_bar_never_overlaps_the_tab_bar_sidebar_or_the_pages_last_elem
         context.close()
 
 
+def _recent_row_selector(width):
+    """Home's recent-flight row at `width`: the compact boarding-pass card on a phone, the thumbnail row from
+    960px up (style.css toggles the two lists there)."""
+    return ".recent-flight" if width >= 960 else ".recent-flight-tiles .history-card"
+
+
 # Nothing on Home paints outside the viewport or outside its own recent-flight rows.
 # Independently asserted per width/language with no cross-comparison, so parametrized on both
 # axes rather than looped.
@@ -772,7 +778,9 @@ def test_home_paints_nothing_outside_the_viewport_or_its_cards(new_context, serv
         "    if (r.width > 0 && r.right > vw + 0.5)"
         "      escaped.push(el.className.toString() || el.tagName);"
         "  });"
-        "  document.querySelectorAll('.recent-flight').forEach(row => {"
+        "  const rows = [...document.querySelectorAll('.recent-flight, .recent-flight-tiles .history-card')]"
+        "    .filter(row => row.offsetParent !== null);"
+        "  rows.forEach(row => {"
         "    const rr = row.getBoundingClientRect();"
         "    row.querySelectorAll('*').forEach(el => {"
         "      const r = el.getBoundingClientRect();"
@@ -782,7 +790,7 @@ def test_home_paints_nothing_outside_the_viewport_or_its_cards(new_context, serv
         "  });"
         "  return {sw: document.documentElement.scrollWidth,"
         "          cw: document.documentElement.clientWidth,"
-        "          rows: document.querySelectorAll('.recent-flight').length,"
+        "          rows: rows.length,"
         "          escaped: [...new Set(escaped)],"
         "          spilled: [...new Set(spilled)]};"
         "}")
@@ -794,7 +802,7 @@ def test_home_paints_nothing_outside_the_viewport_or_its_cards(new_context, serv
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         page.goto(base_url + "/")
-        page.locator(".recent-flight").first.wait_for(state="visible")
+        page.locator(_recent_row_selector(width)).first.wait_for(state="visible")
         seen = page.evaluate(probe)
         if page.viewport_size["width"] != width:
             raise AssertionError("expected the measurement to be taken at %dpx" % (width,))
@@ -874,25 +882,31 @@ def test_home_prioritises_the_frame_signal_and_keeps_its_actions_usable(
 def test_recent_flight_callsigns_are_never_starved(new_context, server, width, lang):
     """No recent-flight callsign is ever starved by the time column: its box is never
     narrower than its own text at 320, 360, 390, 768 or 1280px in either language, Home still
-    never scrolls sideways at any of them, and at 768px the callsign and the time still share
-    one line.
+    never scrolls sideways at any of them, and at 768px the time still costs no line of its
+    own (on the phone card it shares the stub row with the artwork plate).
     """
     # This check is structurally different from the Home overflow check above: a starved
     # element's own box stays well inside the row — it is the box itself that collapses, and
     # the text paints out of it, straight over the time beside it.
     #
     # The 768px assertion stops the fix being "give the time its own line everywhere": with
-    # 686px of row there, the callsign and the time must still share the first line. It is
+    # 686px of row there, the time must still share a line with what leads it (the callsign
+    # on the desktop row, the artwork plate in the phone card's stub). It is
     # deliberately not asserted at 1280px, where the growing age string will legitimately wrap
     # one day — that is the fix working, not failing.
     probe = (
         "() => {"
-        "  const rows = document.querySelectorAll('.recent-flight');"
+        "  const rows = [...document.querySelectorAll('.recent-flight, .recent-flight-tiles .history-card')]"
+        "    .filter(row => row.offsetParent !== null);"
         "  const starved = [];"
         "  let cells = 0, sameLine = 0, twoLine = 0;"
         "  rows.forEach(row => {"
-        "    const cs = row.querySelector('.recent-flight__callsign');"
-        "    const tm = row.querySelector('.recent-flight__time');"
+        "    const cs = row.querySelector('.recent-flight__callsign, .history-card__callsign');"
+        # On a phone card the time column lives in the stub beside the artwork plate (the
+        # Flights boarding-pass layout), so the line it must not cost is the plate's.
+        "    const card = row.classList.contains('history-card');"
+        "    const lead = card ? row.querySelector('.history-card__art') : cs;"
+        "    const tm = row.querySelector('.recent-flight__time, .history-card__when');"
         "    if (!cs) return;"
         "    cells += 1;"
         "    const box = cs.getBoundingClientRect().width;"
@@ -907,7 +921,7 @@ def test_recent_flight_callsigns_are_never_starved(new_context, server, width, l
         # VERTICALLY. Equal tops would be the wrong test: the row is
         # baseline-aligned and the time renders at the smaller label
         # size, so the two tops differ by 3px on the SAME line.
-        "      const a = cs.getBoundingClientRect();"
+        "      const a = lead.getBoundingClientRect();"
         "      const b = tm.getBoundingClientRect();"
         "      if (a.bottom > b.top + 0.5 && b.bottom > a.top + 0.5) sameLine += 1;"
         "      else twoLine += 1;"
@@ -926,7 +940,7 @@ def test_recent_flight_callsigns_are_never_starved(new_context, server, width, l
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         page.goto(base_url + "/")
-        page.locator(".recent-flight").first.wait_for(state="visible")
+        page.locator(_recent_row_selector(width)).first.wait_for(state="visible")
         seen = page.evaluate(probe)
         if page.viewport_size["width"] != width:
             raise AssertionError("expected the measurement to be taken at %dpx" % (width,))
@@ -951,8 +965,8 @@ def test_recent_flight_callsigns_are_never_starved(new_context, server, width, l
                 % (width, lang, seen["sw"], seen["cw"]))
         if width == 768 and (seen["twoLine"] or not seen["sameLine"]):
             raise AssertionError(
-                "expected the callsign and the time to share the first "
-                "line at 768px/%s, where the row is 686px wide, but %d "
+                "expected the time to share a line with what leads it "
+                "at 768px/%s, where the row is 686px wide, but %d "
                 "of %d rows put the time on its own line — the fix must "
                 "not cost a line where there is room"
                 % (lang, seen["twoLine"], seen["cells"]))

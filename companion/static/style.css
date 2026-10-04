@@ -2521,7 +2521,7 @@ table.data-table--firmware-history td:last-child {
   height: 14px;
   border: 1px solid var(--color-border);
   border-radius: 50%;
-  background: var(--color-canvas);
+  background: var(--history-card-notch, var(--color-canvas));
   left: -8px;
   clip-path: inset(0 0 0 50%);
 }
@@ -2534,7 +2534,7 @@ table.data-table--firmware-history td:last-child {
   height: 14px;
   border: 1px solid var(--color-border);
   border-radius: 50%;
-  background: var(--color-canvas);
+  background: var(--history-card-notch, var(--color-canvas));
   right: -8px;
   clip-path: inset(0 50% 0 0);
 }
@@ -5439,9 +5439,113 @@ img.recent-flight__thumb {
   background: var(--color-canvas);
 }
 
+/* Home's phone list: the Flights boarding-pass card (.history-card and
+ * its bands) at a compact size, one per recent flight. The cards sit on
+ * the section's own surface, so the tear-line notches take that colour
+ * instead of the page canvas. Rendered before the desktop list; the pair
+ * toggles at 960px. */
+.recent-flight-tiles {
+  --history-card-notch: var(--color-dominant);
+  display: grid;
+  gap: var(--space-sm);
+  list-style: none;
+  margin: 0 0 var(--space-md);
+  padding: 0;
+}
+
+.recent-flight-tiles ~ .recent-flights {
+  display: none;
+}
+
+/* The head is one line: callsign, then the airline taking what is left
+ * and ellipsised, so a long operator name never wraps the card. */
+.history-card--compact .history-card__head {
+  padding: var(--space-xs) var(--space-sm) 0 var(--space-sm);
+}
+
+.history-card--compact .history-card__id {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  padding-top: 0;
+}
+
+.history-card--compact .history-card__callsign {
+  flex: none;
+  font-size: var(--font-label-size);
+  overflow-wrap: normal;
+}
+
+.history-card--compact .history-card__airline {
+  min-width: 0;
+  font-size: 13px;
+}
+
+.history-card--compact .history-card__route {
+  grid-template-rows: 18px auto;
+  padding: 0 var(--space-sm) 3px;
+}
+
+.history-card--compact .history-card__code {
+  font-size: 18px;
+}
+
+.history-card--compact .history-card__code--none {
+  line-height: 18px;
+  font-size: 12px;
+}
+
+.history-card--compact .icon.history-card__plane {
+  width: 14px;
+  height: 14px;
+}
+
+.history-card--compact .history-card__dir {
+  font-size: 10px;
+  line-height: 1.1;
+}
+
+.history-card--compact .history-card__stub {
+  padding: 3px var(--space-sm);
+}
+
+.history-card--compact .history-card__art {
+  width: 96px;
+  height: 26px;
+}
+
+/* Too narrow for the "No illustration" words: the dashed outline says
+ * it, and the text stays in the markup for a screen reader. */
+.history-card--compact .history-card__art--empty {
+  padding: 0;
+  font-size: 0;
+}
+
+.history-card--compact .history-card__when {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-sm);
+}
+
+.history-card--compact .time-value--primary {
+  font-size: var(--font-label-size);
+}
+
+.history-card--compact .time-value__age {
+  font-size: 12px;
+}
+
 @media (min-width: 960px) {
   .home-columns {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .recent-flight-tiles {
+    display: none;
+  }
+
+  .recent-flight-tiles ~ .recent-flights {
+    display: block;
   }
 }
 
