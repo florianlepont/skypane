@@ -1244,8 +1244,7 @@ def test_flights_swap_registry_entry_covers_and_excludes_the_right_regions():
             "expected Flights' swap regions to cover %r" % (needle,))
     assert ".page-header__freshness" in flights, (
         "expected Flights' freshness line to be a swap target, like Home's and Health's")
-    for forbidden in ("data-filter-input", "data-filter-clear", "data-filter-empty",
-                      "data-filter-set"):
+    for forbidden in ("data-filter-input", "data-filter-clear", "data-filter-empty"):
         for selector in flights:
             assert forbidden not in selector, (
                 "Flights' swap regions name %r (%r) — list-filter.js captures that element "

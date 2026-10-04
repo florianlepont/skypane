@@ -30,7 +30,7 @@ from server import device_config
 from server.plane import illustrations, manual_resolutions
 from companion.test_browser_ux_helpers import (
     UI_THEMES_EXPLICIT, VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE,
-    _assert_hit_target, _assert_js_gate, _assert_no_page_overflow,
+    _assert_hit_target, _assert_js_gate, _hit_area, _assert_no_page_overflow,
     _assert_surfaces_agree, _await_upload_zone, _bar_text, _click_control,
     _commit_field, _drop_files, _handle_sel, _in_both_themes, _login,
     _no_js_page, _persist_without_js, _POINTER_RECORDER_ARM,
@@ -1573,19 +1573,27 @@ def _types_card(page):
         has=page.locator(".airline-card__name", has_text=TYPES_CARD))
 
 
-def _visible_type_ids(page):
-    return _types_card(page).evaluate(
-        "card => [...card.querySelectorAll('section[data-airline-type]')]"
-        ".filter(s => s.getClientRects().length > 0)"
-        ".map(s => s.getAttribute('data-airline-type'))")
+_TRACK_PROBE = (
+    "card => { const t = card.querySelector('.airline-card__track');"
+    " const a = card.querySelector('section[data-airline-type=a320]');"
+    " const tr = t.getBoundingClientRect(); const ar = a.getBoundingClientRect();"
+    " const cur = card.querySelector('[data-airline-type-dot][aria-current]');"
+    " return {scrolls: t.scrollWidth > t.clientWidth + 1, left: t.scrollLeft,"
+    "  offset: Math.round(ar.left - tr.left),"
+    "  current: cur ? cur.getAttribute('data-airline-type-dot') : null,"
+    "  height: Math.round(card.getBoundingClientRect().height)}; }")
+_A320_EDIT = (
+    '.airline-card__edit[data-view-panel-replace-action='
+    '"/illustration/transavia-france-a320.png"]')
 
 
-def test_the_type_selector_changes_the_selected_type_from_the_keyboard(new_context, server):
-    """At 1280, 390 and 360 px in English and French, the aircraft-type selector of a
-    two-type airline is a labelled native select at the 44px floor; ArrowDown on the focused
-    select shows the second type's section alone (its title is the second option), its
-    add/replace action stays at the 44px floor, nothing overflows horizontally, and the
-    framed drop surface of the replace form carries no explanatory framing sentence."""
+def test_the_type_carousel_scrolls_pages_and_keeps_its_targets(new_context, server):
+    """At 1280, 390 and 360 px in English and French, a two-type airline is a horizontal
+    scroll-snap strip with the type name under each image; pressing the A320 pagination dot
+    scrolls the second slide into place and moves the current dot; the dots (28 x 44px, past the 24px AA floor) and the round edit
+    button (44px+) resolve to real hit targets; the edit button keeps its add/replace wording as its
+    accessible name and still opens the artwork dialog with the drop frame's own hint; nothing
+    overflows horizontally; and the tile stays far shorter than the old 475px one."""
     for lang, option_label in (("en", "Any aircraft"), ("fr", "Tout appareil")):
         for viewport in (VIEWPORT_DESKTOP, VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED):
             where = "%s at %dpx" % (lang, viewport["width"])
@@ -1596,43 +1604,56 @@ def test_the_type_selector_changes_the_selected_type_from_the_keyboard(new_conte
                 page = context.new_page()
                 _login(page, server.base_url())
                 page.goto(server.base_url() + "/airlines")
-                select = _types_card(page).locator("select[data-airline-type-select]")
-                select.wait_for(state="visible")
-                if _visible_type_ids(page) != ["any"]:
-                    raise AssertionError("expected only the first type visible (%s): %r"
-                                         % (where, _visible_type_ids(page)))
-                label = _types_card(page).locator("label[for='%s']" % select.get_attribute("id"))
-                if not label.count():
-                    raise AssertionError("expected a label for the selector (%s)" % where)
-                if select.bounding_box()["height"] < 44:
-                    raise AssertionError("selector under 44px tall (%s)" % where)
-                options = select.locator("option").all_text_contents()
-                if len(options) != 2 or options[0] != option_label or options[1] != "A320":
-                    raise AssertionError("unexpected options %r (%s)" % (options, where))
-
-                select.focus()
-                page.keyboard.press("ArrowDown")
-                _types_card(page).locator("section[data-airline-type=a320]").wait_for(
-                    state="visible")
-                if _visible_type_ids(page) != ["a320"]:
-                    raise AssertionError("expected only the A320 section visible (%s): %r"
-                                         % (where, _visible_type_ids(page)))
-                action = _types_card(page).locator(
-                    "section[data-airline-type=a320] .airline-card__action")
-                box = action.bounding_box()
-                if box is None or box["height"] < 44:
-                    raise AssertionError("type action missing or under 44px (%s): %r" % (where, box))
-                if action.get_attribute("data-view-panel-replace-action") != (
+                dots = _types_card(page).locator("[data-airline-type-dot]")
+                dots.first.wait_for(state="visible")
+                titles = _types_card(page).locator(".airline-type__title").all_text_contents()
+                if titles != [option_label, "A320"]:
+                    raise AssertionError("unexpected type names %r (%s)" % (titles, where))
+                before = _types_card(page).evaluate(_TRACK_PROBE)
+                if not before["scrolls"] or before["current"] != "any" or before["offset"] <= 0:
+                    raise AssertionError("expected a scrollable strip on the first slide (%s): %r"
+                                         % (where, before))
+                if before["height"] > 260:
+                    raise AssertionError("expected a short tile, got %r (%s)" % (before, where))
+                # Wider than 44px would not fit four dots in a phone tile: the 24px AA floor
+                # is the contract on the x axis, the 44px floor on the y axis.
+                dot = _hit_area(page, '.airline-card__dot[data-airline-type-dot="a320"]')
+                if dot["hit"][0] < 24 or dot["hit"][1] < 44:
+                    raise AssertionError("pagination dot hit area %r too small (%s)"
+                                         % (dot["hit"], where))
+                dots.nth(1).click()
+                page.wait_for_function(
+                    "() => document.querySelector("
+                    "'.airline-card__dot[data-airline-type-dot=\"a320\"][aria-current]')")
+                page.wait_for_function(
+                    "() => { const s = document.querySelector("
+                    "'section[data-airline-type=a320]'); const t = s.parentElement;"
+                    " return Math.abs(s.getBoundingClientRect().left"
+                    " - t.getBoundingClientRect().left) < 2; }")
+                after = _types_card(page).evaluate(_TRACK_PROBE)
+                if abs(after["offset"]) > 2 or after["current"] != "a320":
+                    raise AssertionError("expected the A320 slide in place (%s): %r"
+                                         % (where, after))
+                _assert_hit_target(page, _A320_EDIT, "edit button " + where)
+                edit = _types_card(page).locator(_A320_EDIT)
+                if edit.get_attribute("aria-label").replace("\xa0", " ") not in (
+                        "Add artwork: Transavia France, A320",
+                        "Replace artwork: Transavia France, A320",
+                        "Ajouter une illustration : Transavia France, A320",
+                        "Remplacer l’illustration : Transavia France, A320"):
+                    raise AssertionError("edit button lost its name (%s): %r" % (
+                        where, edit.get_attribute("aria-label")))
+                if edit.get_attribute("data-view-panel-replace-action") != (
                         "/illustration/transavia-france-a320.png"):
-                    raise AssertionError("action targets the wrong artwork (%s)" % where)
+                    raise AssertionError("edit targets the wrong artwork (%s)" % where)
                 problem = _assert_no_page_overflow(page, "airlines " + where)
                 if problem:
                     raise AssertionError(problem)
 
-                action.click()
+                edit.click()
                 dialog = page.locator("#panel-lookup-dialog")
                 if not dialog.evaluate("el => el.open"):
-                    raise AssertionError("expected the action to open the artwork dialog (%s)" % where)
+                    raise AssertionError("expected the edit button to open the artwork dialog (%s)" % where)
                 if page.locator("#panel-lookup-dialog .upload-drop__preview figcaption").first \
                         .text_content().strip() == "":
                     raise AssertionError("expected the drop frame to carry its hint (%s)" % where)
@@ -1642,19 +1663,59 @@ def test_the_type_selector_changes_the_selected_type_from_the_keyboard(new_conte
                 context.close()
 
 
-def test_every_type_stays_visible_without_scripts(new_context, server):
-    """With scripts blocked an airline's selector is absent and every type section stays
-    visible in source order, each with its own title, so no type is hidden."""
+def test_the_carousel_jumps_without_animation_under_reduced_motion(new_context, server):
+    """With the reduce-motion preference a pagination dot moves the strip at once: the very
+    next frame already rests on the target slide, where the smooth scroll would still be
+    travelling."""
+    context = new_context(viewport=VIEWPORT_PHONE, reduced_motion="reduce")
+    try:
+        page = context.new_page()
+        _login(page, server.base_url())
+        page.goto(server.base_url() + "/airlines")
+        dots = _types_card(page).locator("[data-airline-type-dot]")
+        dots.first.wait_for(state="visible")
+        offset = _types_card(page).evaluate(
+            "card => { const t = card.querySelector('.airline-card__track');"
+            " card.querySelectorAll('[data-airline-type-dot]')[1].click();"
+            " return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() =>"
+            "  r(Math.round(card.querySelector('section[data-airline-type=a320]')"
+            ".getBoundingClientRect().left - t.getBoundingClientRect().left))))); }")
+        if abs(offset) > 2:
+            raise AssertionError("expected an instant jump under reduced motion, got %r" % (offset,))
+    finally:
+        context.close()
+
+
+def test_every_type_stays_reachable_by_native_scroll_without_scripts(new_context, server):
+    """With scripts blocked the pagination dots are absent, both type slides stay in the DOM
+    in source order with their own names, and the strip scrolls natively to the second slide;
+    a single-type airline has neither dots nor a scrolling strip."""
     with _no_js_page(new_context, server.base_url(), "/airlines",
                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
         shown = _types_card(page).evaluate(
             "card => [...card.querySelectorAll('section[data-airline-type]')]"
-            ".map(s => [s.getAttribute('data-airline-type'), s.getClientRects().length > 0,"
-            " s.querySelector('.airline-type__title').getClientRects().length > 0])")
-        if shown != [["any", True, True], ["a320", True, True]]:
-            raise AssertionError("expected both Transavia types visible: %r" % (shown,))
-        if _types_card(page).locator("select").is_visible():
-            raise AssertionError("expected the selector hidden without scripts")
+            ".map(s => [s.getAttribute('data-airline-type'),"
+            " s.querySelector('.airline-type__title').textContent])")
+        if shown != [["any", "Any aircraft"], ["a320", "A320"]]:
+            raise AssertionError("expected both Transavia types in order: %r" % (shown,))
+        if _types_card(page).locator("[data-airline-type-dot]").first.is_visible():
+            raise AssertionError("expected the dots hidden without scripts")
+        moved = _types_card(page).evaluate(
+            "card => { const t = card.querySelector('.airline-card__track');"
+            " t.scrollLeft = t.scrollWidth;"
+            " const a = card.querySelector('section[data-airline-type=a320]');"
+            " return [t.scrollWidth > t.clientWidth + 1,"
+            "  Math.abs(a.getBoundingClientRect().left - t.getBoundingClientRect().left) < 3]; }")
+        if moved != [True, True]:
+            raise AssertionError("expected native scrolling to reach the A320 slide: %r" % (moved,))
+        single = page.locator(".airline-card").filter(
+            has=page.locator(".airline-card__name", has_text="Air France")).first
+        if single.locator("[data-airline-type-dot]").count():
+            raise AssertionError("expected a single-type airline to carry no dots")
+        if single.evaluate(
+                "c => { const t = c.querySelector('.airline-card__track');"
+                " return t.scrollWidth > t.clientWidth + 1; }"):
+            raise AssertionError("expected a single-type airline's strip not to scroll")
         problem = _assert_no_page_overflow(page, "airlines without scripts")
         if problem:
             raise AssertionError(problem)

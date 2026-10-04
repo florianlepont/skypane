@@ -2992,14 +2992,6 @@ a.calendar-disconnect-btn.flight-picture-link {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* .manual-summary:hover (0,2,0) outranks the base button:hover
- * (0,1,1), so the chip wash deepens on hover instead of the base
- * button's own wash. Reuses the chip's own 6% -> 12% wash pair. */
-.manual-summary:hover {
-  background: color-mix(in srgb, var(--color-text) 12%, transparent);
-  color: var(--color-text);
-}
-
 /* Empty state */
 .empty-state {
   padding: var(--space-lg);
@@ -3411,93 +3403,160 @@ a.airline-card {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* One aircraft type's view inside an airline card. The type sections
- * set no display of their own, so the `hidden` attribute that
- * airline-types.js toggles always wins; with no script every section is
- * visible in source order and each shows its own title. */
+/* The aircraft types of one airline: a horizontal scroll-snap strip with
+ * one full-width slide per type, so the strip swipes and scrolls
+ * natively with no script. airline-types.js only adds the pagination
+ * dots' behaviour, and hides the scrollbar the dots replace. */
 .airline-card__types {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.airline-type {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.airline-type[hidden] {
-  display: none;
-}
-
-/* With the selector in charge, the section title would only repeat the
- * selected option. */
-[data-airline-types-ready] .airline-type__title {
-  display: none;
-}
-
-.airline-type__title {
-  margin: 0;
-}
-
-.airline-type-picker {
-  --js-gate-display: flex;
   flex-direction: column;
   gap: var(--space-xs);
 }
 
-.airline-type-picker select {
-  width: 100%;
+.airline-card__track {
+  display: flex;
+  position: relative;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+}
+
+/* One slide has nothing to scroll to; leaving it visible also keeps a
+ * sub-pixel rounding of the slide's width from raising a scrollbar. */
+.airline-card__types:not([data-airline-types]) .airline-card__track {
+  overflow: visible;
+}
+
+.js .airline-card__track {
+  scrollbar-width: none;
+}
+
+.js .airline-card__track::-webkit-scrollbar {
+  display: none;
+}
+
+.airline-type {
+  flex: 0 0 100%;
   min-width: 0;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
 }
 
-/* Source facts and the owner's changes are two labelled rows of one
- * list, so they read as different things at a glance. */
-.airline-type__facts {
-  display: grid;
-  gap: 2px;
-  margin: 0;
+/* min-height 48px so the edit button's 44px hit area (with 2px to spare
+ * for pixel-grid rounding) stays inside the frame and is never clipped by
+ * the strip's own overflow. */
+.airline-type__frame {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 48px;
 }
 
-.airline-type__facts dt {
-  margin-top: var(--space-xs);
-  font-size: 11px;
-}
-
-.airline-type__facts dd {
-  margin: 0;
+.airline-type__meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-xs);
-  font-size: 13px;
-  overflow-wrap: anywhere;
 }
 
-.airline-card__action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 0 var(--space-sm);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-secondary);
-  color: var(--color-text);
-  font-size: 13px;
+/* The type name under the artwork, in the label voice: sans, not the
+ * serif an h3 would otherwise inherit. */
+/* A long badge ("Resolved by hand" in French) wraps inside a narrow phone
+ * tile instead of overflowing the chip's fixed 20px height. */
+.airline-type__meta .airline-card__chip {
+  height: auto;
+  min-height: 20px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  line-height: 1.25;
+}
+
+.airline-type__title {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 12px;
   font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The round edit button on the artwork's corner: a 32px visual disc whose
+ * ::before synthesizes the 44px hit area (32 + 6 + 6, so the disc sits 8px
+ * in from the frame's edges and the area ends 2px short of them), the same idiom
+ * .copy-btn uses. Its accessible name is the add/replace-artwork wording,
+ * since it carries only a glyph. (0,2,0) outranks button and
+ * button:hover/:active. */
+.airline-type__frame .airline-card__edit {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-dominant);
+  box-shadow: var(--shadow-card);
+  color: var(--color-text);
   text-decoration: none;
   cursor: pointer;
 }
 
-button.airline-card__action {
-  height: auto;
+.airline-type__frame .airline-card__edit:hover {
+  background: var(--color-secondary);
 }
 
-.airline-card__action:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+/* -7px, not -6px: the inset is measured from the padding box, inside the
+ * 1px border, so -7 reaches 6px past the 32px disc's outer edge. */
+.airline-type__frame .airline-card__edit::before {
+  content: "";
+  position: absolute;
+  inset: -7px;
+}
+
+.airline-card__dots {
+  --js-gate-display: flex;
+  justify-content: center;
+}
+
+/* A 28px-wide, 44px-tall target around an 8px dot. The width is the
+ * deliberate trade: four dots at 44px would not fit a 143px phone tile,
+ * and 28px clears WCAG 2.5.8's 24px floor; adjacent dots touch but never
+ * overlap. */
+.airline-card__dots .airline-card__dot {
+  position: relative;
+  width: 28px;
+  height: 44px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.airline-card__dots .airline-card__dot::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-text) 30%, transparent);
+}
+
+.airline-card__dots .airline-card__dot[aria-current="true"]::before {
+  background: var(--color-text);
 }
 
 /* Interactive battery-trend chart hit targets and readout line. */
