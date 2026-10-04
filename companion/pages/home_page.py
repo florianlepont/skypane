@@ -35,9 +35,6 @@ RECENT_FLIGHTS_LIMIT = 5
 # Rows read before de-duplication, so five distinct flights still show
 # when a pass was stored more than once.
 RECENT_FLIGHTS_FETCH = RECENT_FLIGHTS_LIMIT * 3
-# Two stored events for the same pass within this many seconds read as
-# one flight on Home.
-DUPLICATE_WINDOW_S = 60
 RECENT_FLIGHTS_HEADING = i18n.msg("home.recent_flights", "Recent flights")
 RECENT_FLIGHTS_LINK_TEXT = i18n.msg("home.see_all_flights", "See all flights")
 NO_FLIGHTS_HEADING = i18n.msg("home.no_flights_yet", "No flights yet.")
@@ -132,53 +129,10 @@ def _safe_query(state_dir, fn):
 
 
 def _recent_flights(conn, airline_names=None):
-    return _distinct_flights(
+    return flight_card.fold_repeated_passes(
         history_db.recent_runway_events(
             conn, limit=RECENT_FLIGHTS_FETCH, airline_names=airline_names),
         RECENT_FLIGHTS_LIMIT)
-
-
-def _pass_key(row):
-    """What makes two stored events the same pass on screen: same
-    aircraft, callsign, route and direction."""
-    return tuple(row.get(name) for name in (
-        "hex", "callsign", "origin", "destination", "confirmed_state"))
-
-
-def _distinct_flights(rows, limit):
-    """The newest `limit` rows with repeated passes folded away. The poll
-    loop stores a new event whenever the corroboration flag changes (one
-    feed missing a cycle turns True into None), so a single pass can be
-    stored twice 30 s apart. A row is dropped when it has the same pass
-    key as the row just before it (newest first) and the two timestamps
-    are under `DUPLICATE_WINDOW_S` apart; the newest one stays. Storage
-    is untouched; Flights still lists every stored event.
-    """
-    kept = []
-    previous = None
-    for row in rows:
-        if previous is not None and _pass_key(row) == _pass_key(previous):
-            gap = _seconds_between(previous.get("ts"), row.get("ts"))
-            if gap is not None and gap < DUPLICATE_WINDOW_S:
-                previous = row
-                continue
-        previous = row
-        kept.append(row)
-        if len(kept) >= limit:
-            break
-    return kept
-
-
-def _seconds_between(newer_ts, older_ts):
-    """Absolute seconds between two stored timestamps, or None when
-    either does not parse."""
-    newer, older = layout.parse_iso(newer_ts), layout.parse_iso(older_ts)
-    if newer is None or older is None:
-        return None
-    try:
-        return abs((newer - older).total_seconds())
-    except TypeError:
-        return None
 
 
 def _latest_battery(conn):

@@ -420,10 +420,14 @@ def _safe_query(state_dir, fn):
 
 def history_rows(conn, airline_names=None):
     """The most recent `HISTORY_ROW_LIMIT` `runway_events` rows, newest
-    first (matches `history_db.recent_runway_events()`'s own ordering).
+    first (matches `history_db.recent_runway_events()`'s own ordering),
+    with a pass stored twice folded into one row — the same fold Home
+    applies, so chip counts, day headers and "Show more" all count
+    flights, not stored events. Storage keeps every event.
     """
-    return history_db.recent_runway_events(
-        conn, limit=HISTORY_ROW_LIMIT, airline_names=airline_names)
+    return flight_card.fold_repeated_passes(
+        history_db.recent_runway_events(
+            conn, limit=HISTORY_ROW_LIMIT, airline_names=airline_names))
 
 
 def flights_limit(ctx):
