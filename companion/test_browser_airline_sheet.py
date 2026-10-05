@@ -19,6 +19,7 @@ FOCUSED = "() => { var e = document.activeElement; return e.id || e.className ||
 DIALOG = "#panel-lookup-dialog"
 SHEET = DIALOG + " .airline-sheet"
 NAME_INPUT = SHEET + ' input[name="airline_name"]'
+SAVE_NAME_IN_PAGE = "[data-sheet-fallback] .airline-sheet__name button"
 FRANCE_PENCIL = '.airline-card__edit[data-view-panel-sheet-key="air-france"]'
 
 
@@ -36,6 +37,22 @@ def _open_airlines(new_context, server, viewport, lang="en"):
     page.goto(server.base_url() + "/airlines")
     page.locator(FRANCE_PENCIL).wait_for(state="visible")
     return context, page
+
+
+def _click_centred(page, selector):
+    """Click `selector` after centring it in the viewport, so the fixed bottom tab bar (phone
+    widths) can never sit over the target while the click's own scroll-into-view retries."""
+    target = page.locator(selector).first
+    target.wait_for(state="visible")
+    target.evaluate("el => el.scrollIntoView({block: 'center'})")
+    target.click()
+
+
+def _open_in_page_sheet(page):
+    """Scripts blocked: follow the France pencil to the in-page sheet and let the page settle."""
+    _click_centred(page, FRANCE_PENCIL)
+    page.wait_for_url("**/airlines?sheet=air-france#airline-sheet")
+    page.wait_for_load_state("load")
 
 
 def _chips(page):
@@ -151,8 +168,7 @@ def test_without_scripts_the_pencil_is_a_link_to_an_in_page_sheet(new_context, m
     with the same fields, saving redirects back with the confirmation and the tile is renamed"""
     server = make_app_server(fake_providers=True)
     with _no_js_page(new_context, server.base_url(), "/airlines", viewport=VIEWPORT_PHONE) as page:
-        page.locator(FRANCE_PENCIL).click()
-        page.wait_for_url("**/airlines?sheet=air-france#airline-sheet")
+        _open_in_page_sheet(page)
         fallback = page.locator("[data-sheet-fallback]")
         assert fallback.is_visible()
         assert fallback.locator('input[name="airline_name"]').input_value() == "Air France"
@@ -160,12 +176,12 @@ def test_without_scripts_the_pencil_is_a_link_to_an_in_page_sheet(new_context, m
         assert fallback.locator("form.airline-sheet__reset").count() == 0
         assert fallback.locator('form[action="/illustration/air-france.png"]').count() == 1
         fallback.locator('input[name="airline_name"]').fill("Skyline Air")
-        fallback.locator(".airline-sheet__name button").click()
+        _click_centred(page, SAVE_NAME_IN_PAGE)
         page.wait_for_url("**/airlines?flash=airline_renamed")
         assert page.locator('.airline-card__name:text-is("Skyline Air")').count() == 1
-        page.locator('.airline-card__edit[data-view-panel-sheet-key="skyline-air"]').click()
+        _click_centred(page, '.airline-card__edit[data-view-panel-sheet-key="skyline-air"]')
         page.wait_for_url("**sheet=skyline-air**")
-        page.locator("[data-sheet-fallback] form.airline-sheet__reset button").evaluate("e => e.click()")
+        _click_centred(page, "[data-sheet-fallback] form.airline-sheet__reset button")
         page.wait_for_url("**/airlines?flash=airline_rename_reset")
         assert page.locator('.airline-card__name:text-is("Air France")').count() == 1
 
@@ -217,17 +233,38 @@ def test_a_taken_name_reopens_the_sheet_with_focus_on_the_name_field(new_context
         context.close()
 
 
+@pytest.mark.parametrize("height", [600, 700, 844])
+def test_without_scripts_the_anchor_jump_leaves_save_clear_of_the_tab_bar(
+        new_context, make_app_server, height):
+    """following the pencil link to #airline-sheet (and landing again after a refusal) leaves
+    the Save button inside the viewport and above the fixed tab bar, whatever the phone height"""
+    server = make_app_server(fake_providers=True)
+    viewport = {"width": VIEWPORT_PHONE["width"], "height": height}
+    with _no_js_page(new_context, server.base_url(), "/airlines", viewport=viewport) as page:
+        page.locator(FRANCE_PENCIL).evaluate("e => e.click()")
+        page.wait_for_url("**/airlines?sheet=air-france#airline-sheet")
+        page.wait_for_load_state("load")
+        for stage in ("pencil", "refused"):
+            if stage == "refused":
+                page.goto(server.base_url()
+                          + "/airlines?sheet=air-france&flash=airline_rename_taken#airline-sheet")
+                page.wait_for_load_state("load")
+            save = page.locator(SAVE_NAME_IN_PAGE).bounding_box()
+            bar = page.locator(".tab-bar").bounding_box()
+            assert save["y"] >= 0, (stage, save)
+            assert save["y"] + save["height"] <= bar["y"], (stage, save, bar)
+
+
 def test_a_taken_name_without_scripts_focuses_the_in_page_name_field(new_context, make_app_server):
     """with scripts blocked the refusal reopens the in-page sheet with the name field focused,
     while the plain pencil link leaves it unfocused"""
     server = make_app_server(fake_providers=True)
     with _no_js_page(new_context, server.base_url(), "/airlines", viewport=VIEWPORT_PHONE) as page:
-        page.locator(FRANCE_PENCIL).click()
-        page.wait_for_url("**/airlines?sheet=air-france#airline-sheet")
+        _open_in_page_sheet(page)
         field = page.locator('[data-sheet-fallback] input[name="airline_name"]')
         assert page.evaluate(FOCUSED) != "airline-sheet-name-edit"
         field.fill("Transavia France")
-        page.locator("[data-sheet-fallback] .airline-sheet__name button").click()
+        _click_centred(page, SAVE_NAME_IN_PAGE)
         page.wait_for_url("**sheet=air-france&flash=airline_rename_taken")
         assert page.evaluate(FOCUSED) == "airline-sheet-name-edit"
 
