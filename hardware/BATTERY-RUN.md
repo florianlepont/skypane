@@ -1028,7 +1028,7 @@ value, and no verdict exists. Raw values live in
 | `server_revision` | `b2b08e9b89183db1fa3c5789f2134b94c311483e` (short `b2b08e9b`) | looked up on the owner's delegation from GitHub Actions: the last commit whose "Deploy to production" job succeeded (run 37310309362, deploy completed 2026-10-05T12:40:51Z) |
 | `park_mv` | 3300 | as the plan and Protocol say |
 | `ceiling_days` | 21 | the confirmed Protocol |
-| `protocol_confirmed_utc` | null | the owner confirmed the protocol on 2026-10-05; the exact time was not captured (time not captured). The params validator requires a timezone-aware timestamp and refuses a date-only string, so the field stays null rather than invent a time |
+| `protocol_confirmed_utc` | 2026-10-05T00:00:00Z (labelled placeholder) | the owner confirmed the protocol on 2026-10-05; the exact time was not captured. The params validator requires a timezone-aware timestamp and refuses a date-only string, so on the owner's choice (2026-10-05) the field carries midnight UTC of the confirmation date as a labelled placeholder, not a measured time; midnight cannot reject any real poll, since every poll is later than it |
 | `boot_count_start` | null | not captured: no console in this study, as accepted in the Protocol |
 | `end_reason`, `boot_count_end`, `production_interval_restored_s`, `production_quiet_hours_restored`, `reference_interval_*` | null | set later: the run has not ended and the 48 h reference-interval freeze has not happened |
 

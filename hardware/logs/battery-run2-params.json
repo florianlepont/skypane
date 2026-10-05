@@ -1,7 +1,7 @@
 {
   "capacity_mah": 3000,
   "interval_s": 60,
-  "protocol_confirmed_utc": null,
+  "protocol_confirmed_utc": "2026-10-05T00:00:00Z",
   "disconnect_time_utc": "2026-10-05T14:08:00Z",
   "end_reason": null,
   "ceiling_days": 21,
