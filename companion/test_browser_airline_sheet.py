@@ -167,7 +167,7 @@ def test_without_scripts_the_pencil_is_a_link_to_an_in_page_sheet(new_context, m
     """with scripts blocked the pencil navigates to ?sheet=, the page shows the sheet in place
     with the same fields, saving redirects back with the confirmation and the tile is renamed"""
     server = make_app_server(fake_providers=True)
-    with _no_js_page(new_context, server.base_url(), "/airlines", viewport=VIEWPORT_PHONE) as page:
+    with _no_js_page(new_context, server.base_url(), "/airlines", viewport=VIEWPORT_PHONE, reduced_motion="reduce") as page:
         _open_in_page_sheet(page)
         fallback = page.locator("[data-sheet-fallback]")
         assert fallback.is_visible()
@@ -240,7 +240,7 @@ def test_without_scripts_the_anchor_jump_leaves_save_clear_of_the_tab_bar(
     the Save button inside the viewport and above the fixed tab bar, whatever the phone height"""
     server = make_app_server(fake_providers=True)
     viewport = {"width": VIEWPORT_PHONE["width"], "height": height}
-    with _no_js_page(new_context, server.base_url(), "/airlines", viewport=viewport) as page:
+    with _no_js_page(new_context, server.base_url(), "/airlines", viewport=viewport, reduced_motion="reduce") as page:
         page.locator(FRANCE_PENCIL).evaluate("e => e.click()")
         page.wait_for_url("**/airlines?sheet=air-france#airline-sheet")
         page.wait_for_load_state("load")
@@ -259,7 +259,7 @@ def test_a_taken_name_without_scripts_focuses_the_in_page_name_field(new_context
     """with scripts blocked the refusal reopens the in-page sheet with the name field focused,
     while the plain pencil link leaves it unfocused"""
     server = make_app_server(fake_providers=True)
-    with _no_js_page(new_context, server.base_url(), "/airlines", viewport=VIEWPORT_PHONE) as page:
+    with _no_js_page(new_context, server.base_url(), "/airlines", viewport=VIEWPORT_PHONE, reduced_motion="reduce") as page:
         _open_in_page_sheet(page)
         field = page.locator('[data-sheet-fallback] input[name="airline_name"]')
         assert page.evaluate(FOCUSED) != "airline-sheet-name-edit"
