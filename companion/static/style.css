@@ -5838,7 +5838,7 @@ a.calendar-disconnect-btn:focus-visible {
 .calendar-status {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   margin-top: var(--space-sm);
   padding: var(--space-sm) 4px 0;
 }
@@ -5861,7 +5861,7 @@ a.calendar-disconnect-btn:focus-visible {
 }
 
 .calendar-status__main {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-width: 0;
 }
 
@@ -5875,7 +5875,11 @@ a.calendar-disconnect-btn:focus-visible {
 
 .calendar-status__title b {
   font-weight: var(--weight-semibold);
-  overflow-wrap: anywhere;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .calendar-status__pill .dot {
@@ -5890,28 +5894,16 @@ a.calendar-disconnect-btn:focus-visible {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* From 960px the look card is three columns and the special row's column
- * is narrow, so the button drops under the text instead of squeezing it. */
-@media (min-width: 960px) {
-  .calendar-status {
-    display: grid;
-    grid-template-columns: 40px minmax(0, 1fr);
-    align-items: flex-start;
-  }
-
-  a.calendar-manage {
-    grid-column: 2;
-    justify-self: start;
-  }
-}
-
+/* The button stays on the right of the row at every width, vertically
+ * centred; in a narrow column the text side wraps instead. */
 a.calendar-manage {
   display: inline-flex;
   flex: none;
+  white-space: nowrap;
   align-items: center;
   justify-content: center;
   min-height: 44px;
-  padding: 0 12px;
+  padding: 0 10px;
   font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
   color: var(--color-text);
