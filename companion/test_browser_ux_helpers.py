@@ -280,7 +280,7 @@ def _bar_text(page):
     return page.eval_on_selector("[data-dirty-count]", "el => el.textContent")
 
 
-def _save_via_bar(page, timeout=5000):
+def _save_via_bar(page, timeout=15000):
     """Clicks the bar's own Save (`[data-static-save-fallback]`, `form="settings-form"`) and
     waits for the real navigation it causes, never a same-page DOM update: a successful save
     redirects to the scoped page's GET route, a rejected one re-renders the same page at 200
@@ -291,6 +291,9 @@ def _save_via_bar(page, timeout=5000):
     # expect_navigation()'s clock starts, so an actionability poll here cannot eat the
     # navigation wait's budget too.
     page.wait_for_selector("[%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR, state="visible")
+    # The default budget covers the redirected page's `load` event, which on /display waits for the
+    # server-rendered look previews: a slow or busy machine needs more than a few seconds for them
+    # even though the save itself already happened.
     with page.expect_navigation(timeout=timeout):
         page.click("[%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR)
 
