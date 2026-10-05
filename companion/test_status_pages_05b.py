@@ -375,14 +375,14 @@ def test_every_card_image_source_passes_route_membership_test(tmp_path):
 
 
 def test_air_caraibes_row_lists_every_known_type(tmp_path):
-    """the Air Caraïbes row names the airframe of its airline-level picture (A350-900, never
+    """the Air Caraïbes row names the airframe of its airline-level picture (A350, never
     an any-aircraft label) and every secondary type, so the A350-1000 is not lost: the row
     shows the first two and +2, its title and the sheet's type switcher carry all four, and
     each type has its own trigger (the hidden ones for the switcher)"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     card_slice = _card_slice(rendered, "Air Caraïbes")
-    assert _types_line(card_slice) == "A350-900 · A330 · +2"
-    assert 'title="A350-900 · A330 · A350-1000 · ATR72"' in card_slice
+    assert _types_line(card_slice) == "A350 · A330 · +2"
+    assert 'title="A350 · A330 · A350-1000 · ATR72"' in card_slice
     triggers = _row_triggers(card_slice)
     assert len(triggers) == 4
     assert [" hidden " in tag for tag in triggers] == [False, True, True, True]
@@ -390,7 +390,7 @@ def test_air_caraibes_row_lists_every_known_type(tmp_path):
     assert keys == ["air-caraibes", "air-caraibes-a330", "air-caraibes-a350-1000",
                     "air-caraibes-atr72"]
     types = re.search(r'data-view-panel-airline-types="([^"]+)"', triggers[2]).group(1)
-    assert types == ("air-caraibes:A350-900|air-caraibes-a330:A330|"
+    assert types == ("air-caraibes:A350|air-caraibes-a330:A330|"
                      "*air-caraibes-a350-1000:A350-1000|air-caraibes-atr72:ATR72")
     assert "Any aircraft" not in card_slice
 
@@ -648,7 +648,7 @@ def test_airline_row_trigger_attrs_match_expected(tmp_path):
     row's own <img src>, whose caption is the airline name, whose heading (the dialog's one
     title) is the airline name and whose aria-label is the edit wording plus every type"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
-    for airline_name, types in (("Air Caraïbes", "A350-900 · A330 · A350-1000 · ATR72"),
+    for airline_name, types in (("Air Caraïbes", "A350 · A330 · A350-1000 · ATR72"),
                                 ("Air France", "A320")):
         card_slice = _card_slice(rendered, airline_name)
         row_tag = _row_triggers(card_slice)[0]

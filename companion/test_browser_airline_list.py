@@ -121,7 +121,7 @@ def test_rows_name_the_aircraft_and_carry_no_status_label(new_context, server, l
         expected = {
             "Transavia France": "B737 · A320", "Air France": "A320",
             "Royal Air Maroc": "B737 · E190", "Amelia": "A320 · E145",
-            "Air Caraïbes": "A350-900 · A330 · +2", "TAP Air Portugal": "A321",
+            "Air Caraïbes": "A350 · A330 · +2", "TAP Air Portugal": "A321",
             "Lufthansa": all_types, "Jet2": all_types, "Iberia Airlines": "A320",
             "Air France Hop": "E190 · ATR72",
         }
@@ -227,7 +227,7 @@ def test_a_four_type_sheet_fits_in_both_themes(new_context, server, viewport, la
             "() => getComputedStyle(document.getElementById('panel-lookup-dialog'))"
             ".transform === 'none'")
         tabs = dialog.locator("a.airline-sheet__type")
-        assert tabs.all_text_contents() == ["A350-900", "A330", "A350-1000", "ATR72"]
+        assert tabs.all_text_contents() == ["A350", "A330", "A350-1000", "ATR72"]
         tabs.nth(2).click()
         assert dialog.locator(".lightbox__image").get_attribute("src").startswith(
             "/illustration/air-caraibes-a350-1000.png")
