@@ -73,6 +73,20 @@ Subcommands:
                  Refuses with exit 2, writing no report, when a required
                  param is missing, no usable row exists, rows are out of
                  order, or rows predate the pre-registration time.
+                 An optional reference_interval_s param (frozen from the
+                 first 48 hours, see reference-interval) replaces the
+                 configured interval as the unit of the coverage and gap
+                 gates; the figures against the configured interval are
+                 always reported alongside, as information.
+
+  reference-interval  Compute the proposed reference interval from a raw
+                 export: the mean poll-to-poll gap over the first 48 hours
+                 after the first row, excluding gaps above 3 times the
+                 configured interval, rounded half-up to whole seconds.
+                 Prints the value, the gaps used and excluded and the
+                 export's sha256. Refuses (exit 2) when the export covers
+                 less than 48 hours or leaves too few gaps. Only the first
+                 48 hours are ever read.
 
   selftest       Run check-backoff against the three fixtures under
                  hardware/fixtures/, and check-battery against five
@@ -533,8 +547,8 @@ def check_span(stats, min_days):
         (stats["span_days"], stats["span_s"], min_days))
 
 
-def check_coverage(stats, min_coverage):
-    name = "coverage is at least %.2f" % min_coverage
+def check_coverage(stats, min_coverage, basis=""):
+    name = "coverage is at least %.2f%s" % (min_coverage, basis)
     if stats["coverage"] >= min_coverage:
         return CheckResult(name, "PASS")
     return CheckResult(name, "FAIL",
@@ -545,8 +559,9 @@ def check_coverage(stats, min_coverage):
         (stats["coverage"], stats["observed"], stats["nominal"], min_coverage))
 
 
-def check_max_gap(stats, max_gap_intervals):
-    name = "no gap between consecutive polls exceeds %g interval(s)" % max_gap_intervals
+def check_max_gap(stats, max_gap_intervals, basis=""):
+    name = "no gap between consecutive polls exceeds %g interval(s)%s" % (
+        max_gap_intervals, basis)
     if stats["max_gap"] <= max_gap_intervals:
         return CheckResult(name, "PASS")
     return CheckResult(name, "FAIL",
@@ -916,6 +931,9 @@ RUN_REQUIRED_PARAMS = (
     "server_revision",
 )
 DEFAULT_PARK_MV = 3300
+REFERENCE_WINDOW_S = 48 * 3600
+REFERENCE_GAP_FACTOR = 3  # gaps above this many configured intervals are excluded
+REFERENCE_MIN_GAPS = 100
 
 
 class RunReportError(Exception):
@@ -990,7 +1008,43 @@ def validate_run_params(params):
     start, end = out["boot_count_start"], out["boot_count_end"]
     if start is not None and end is not None and end < start:
         raise RunReportError("boot_count_end is below boot_count_start")
+    _validate_reference_params(params, out)
     return out
+
+
+def _validate_reference_params(params, out):
+    """Add the optional frozen reference interval to the normalised params.
+    The value is bounded to [interval_s, REFERENCE_GAP_FACTOR x interval_s]:
+    the helper never yields more, because it excludes larger gaps. A value
+    needs a non-empty source note, and a source without a value is refused,
+    so a half-filled freeze is never read as a decision either way.
+    """
+    interval = out["interval_s"]
+    value = _int_param(params, "reference_interval_s", interval)
+    source = params.get("reference_interval_source")
+    digest = params.get("reference_interval_export_sha256")
+    if value is None:
+        if source not in (None, "") or digest not in (None, ""):
+            raise RunReportError(
+                "reference_interval_source / reference_interval_export_sha256 "
+                "given without reference_interval_s")
+        out.update(reference_interval=None, reference_source=None,
+                   reference_export_sha256=None)
+        return
+    ceiling = REFERENCE_GAP_FACTOR * interval
+    if value > ceiling:
+        raise RunReportError(
+            "param reference_interval_s must be at most %d (%d x interval_s)"
+            % (ceiling, REFERENCE_GAP_FACTOR))
+    if not isinstance(source, str) or not source.strip():
+        raise RunReportError(
+            "param reference_interval_source is required with reference_interval_s")
+    if digest not in (None, "") and not (
+            isinstance(digest, str) and re.fullmatch(r"[0-9a-f]{64}", digest)):
+        raise RunReportError(
+            "param reference_interval_export_sha256 must be 64 lowercase hex digits")
+    out.update(reference_interval=value, reference_source=source.strip(),
+               reference_export_sha256=digest or None)
 
 
 def _load_export_rows(raw_text):
@@ -1035,6 +1089,75 @@ def _require_fresh_ordered(polls, params):
             (polls[-1].ts.isoformat(), params["end_time"].isoformat()))
 
 
+def compute_reference_interval(polls, interval_s):
+    """Return the proposed reference interval computed from the first 48
+    hours of `polls` (chronological BatteryPoll list), or raise
+    RunReportError. Gaps between consecutive polls inside
+    [first, first + 48 h] are averaged after dropping gaps above
+    REFERENCE_GAP_FACTOR x interval_s; the mean is rounded half-up to whole
+    seconds. Later rows are never read, so the value cannot depend on how
+    the run ended.
+    """
+    if len(polls) < 2:
+        raise RunReportError("export has fewer than two rows")
+    first = polls[0].ts
+    if (polls[-1].ts - first).total_seconds() < REFERENCE_WINDOW_S:
+        raise RunReportError(
+            "export covers %.1f h, less than the 48 h the reference interval "
+            "is measured over" % ((polls[-1].ts - first).total_seconds() / 3600.0))
+    cutoff = first + datetime.timedelta(seconds=REFERENCE_WINDOW_S)
+    window = [p for p in polls if p.ts <= cutoff]
+    gaps = [(b.ts - a.ts).total_seconds() for a, b in zip(window, window[1:])]
+    limit = REFERENCE_GAP_FACTOR * interval_s
+    used = [g for g in gaps if g <= limit]
+    if len(used) < REFERENCE_MIN_GAPS:
+        raise RunReportError(
+            "only %d gap(s) of %d in the first 48 h are at most %d s; need at "
+            "least %d" % (len(used), len(gaps), limit, REFERENCE_MIN_GAPS))
+    mean = sum(used) / len(used)
+    return {
+        "reference_interval_s": int(mean + 0.5),
+        "mean_gap_s": mean,
+        "gaps_used": len(used),
+        "gaps_excluded": len(gaps) - len(used),
+        "exclusion_limit_s": limit,
+        "window_start": first.isoformat(),
+        "window_end": window[-1].ts.isoformat(),
+    }
+
+
+def _rows_to_ordered_polls(raw):
+    rows, lines, _ = _load_export_rows(raw.decode("utf-8", errors="replace"))
+    if not lines:
+        raise RunReportError("no usable rows in the export")
+    _, polls = parse_battery_lines(lines)
+    if len(polls) != len(rows):
+        raise RunReportError("rows could not all be timestamped")
+    if any(p.ts.tzinfo is None for p in polls):
+        raise RunReportError("row timestamps must carry a timezone offset")
+    for a, b in zip(polls, polls[1:]):
+        if b.ts < a.ts:
+            raise RunReportError(
+                "rows are not in chronological order (%s follows %s)" %
+                (b.ts.isoformat(), a.ts.isoformat()))
+    return polls
+
+
+def _reference_interval_check(polls, p):
+    """Continuity check: the frozen value must be what the first 48 hours of
+    this very export give, so it cannot have been derived from later data."""
+    name = "frozen reference interval equals the value recomputed from the first 48 h"
+    try:
+        again = compute_reference_interval(polls, p["interval_s"])
+    except RunReportError as exc:
+        return CheckResult(name, "FAIL", "cannot recompute: %s" % exc), None
+    if again["reference_interval_s"] != p["reference_interval"]:
+        return CheckResult(name, "FAIL",
+            "params carry %d s, the first 48 h of the export give %d s" %
+            (p["reference_interval"], again["reference_interval_s"])), again
+    return CheckResult(name, "PASS"), again
+
+
 def _verdict(results):
     status = "FAIL" if any(r.status == "FAIL" for r in results) else "PASS"
     return {"status": status,
@@ -1044,10 +1167,13 @@ def _verdict(results):
 
 def _continuity_verdict(polls, normal, normal_stats, params, th):
     results = [check_timestamps_and_min_polls(len(normal), normal)]
+    basis = ""
+    if params["reference_interval"] is not None:
+        basis = " (against the %d s reference interval)" % params["reference_interval"]
     if results[0].status == "PASS":
         results.append(check_span(normal_stats, th["min_days"]))
-        results.append(check_coverage(normal_stats, th["min_coverage"]))
-        results.append(check_max_gap(normal_stats, th["max_gap_intervals"]))
+        results.append(check_coverage(normal_stats, th["min_coverage"], basis))
+        results.append(check_max_gap(normal_stats, th["max_gap_intervals"], basis))
     ceiling = params["ceiling_days"]
     name = "span does not exceed the ceiling by more than one interval"
     if ceiling is None:
@@ -1121,6 +1247,24 @@ def _boot_witness(params, full_stats, normal_stats, th, observed_full):
     }
 
 
+def _boot_reason_counts(rows):
+    counts = {}
+    for row in rows:
+        key = row.get("boot_reason") or "(none)"
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def _restore_section(p):
+    before = p["production_interval_before_s"]
+    restored = p["production_interval_restored_s"]
+    return {
+        "production_interval_before_s": before,
+        "production_interval_restored_s": restored,
+        "recorded": before is not None and restored is not None,
+    }
+
+
 def build_run_report(raw, params, thresholds=None):
     """Return the run report as a plain dict from the raw JSON-Lines export
     (bytes) and the owner-supplied params, or raise RunReportError.
@@ -1144,24 +1288,23 @@ def build_run_report(raw, params, thresholds=None):
                    len(polls) - 1)
     normal = polls[:end_idx + 1]
     interval = p["interval_s"]
+    judged = p["reference_interval"] or interval
     full_stats = compute_battery_stats(
         polls, interval, p["capacity_mah"], p["boot_count_start"], p["boot_count_end"])
     normal_stats = compute_battery_stats(
-        normal, interval, p["capacity_mah"], None, None)
+        normal, judged, p["capacity_mah"], None, None)
 
     continuity = _continuity_verdict(polls, normal, normal_stats, p, th)
+    reference = _reference_outcome(polls, normal, p, continuity)
     reconciliation = _boot_witness(p, full_stats, normal_stats, th, len(polls))
     if reconciliation["boot_delta"] is not None:
         continuity.append(check_boot_reconciliation(full_stats, th["min_coverage"]))
     baseline_result, fw_seen = _baseline_verdict(rows, p)
 
-    reasons = {}
-    for row in rows:
-        key = row.get("boot_reason") or "(none)"
-        reasons[key] = reasons.get(key, 0) + 1
+    reasons = _boot_reason_counts(rows)
     gaps = [(b.ts - a.ts).total_seconds() for a, b in zip(normal, normal[1:])]
 
-    return {
+    report = {
         "verdicts": {
             "continuity": _verdict(continuity),
             "voltage_validity": _verdict(_voltage_verdict(full_stats, p, th)),
@@ -1195,12 +1338,7 @@ def build_run_report(raw, params, thresholds=None):
             "fw_versions_seen": fw_seen,
             "boot_reason_counts": reasons,
         },
-        "restore": {
-            "production_interval_before_s": p["production_interval_before_s"],
-            "production_interval_restored_s": p["production_interval_restored_s"],
-            "recorded": (p["production_interval_before_s"] is not None
-                         and p["production_interval_restored_s"] is not None),
-        },
+        "restore": _restore_section(p),
         "export": {
             "row_count": len(rows),
             "dropped_rows": dropped,
@@ -1212,6 +1350,68 @@ def build_run_report(raw, params, thresholds=None):
             "mah_per_day": normal_stats["mah_per_day"],
         },
     }
+    if reference is not None:
+        report["reference_interval"] = reference
+    return report
+
+
+def _reference_outcome(polls, normal, p, continuity):
+    """Append the frozen-value check to `continuity` and return the report
+    block, or return None when no reference interval is in use."""
+    if p["reference_interval"] is None:
+        return None
+    check, recomputed = _reference_interval_check(polls, p)
+    continuity.append(check)
+    return _reference_section(p, normal, recomputed)
+
+
+def _reference_section(p, normal, recomputed):
+    """Report block present only when a frozen reference interval is used:
+    which interval each continuity gate was judged against and why, plus
+    the same figures against the configured interval as information that
+    never drives a verdict.
+    """
+    configured = compute_battery_stats(
+        normal, p["interval_s"], p["capacity_mah"], None, None)
+    gaps = [(b.ts - a.ts).total_seconds() for a, b in zip(normal, normal[1:])]
+    mean_gap = (sum(gaps) / len(gaps)) if gaps else None
+    ref = p["reference_interval"]
+    return {
+        "reference_interval_s": ref,
+        "reference_interval_source": p["reference_source"],
+        "reference_interval_export_sha256": p["reference_export_sha256"],
+        "recomputed_from_first_48h": recomputed,
+        "judged_against": {
+            "coverage": "reference_interval_s",
+            "max_gap_intervals": "reference_interval_s",
+            "nominal_cycles": "reference_interval_s",
+            "span_ceiling": "configured_interval_s",
+        },
+        "informational_vs_configured": {
+            "configured_interval_s": p["interval_s"],
+            "coverage": configured["coverage"],
+            "nominal": configured["nominal"],
+            "max_gap_intervals": configured["max_gap"],
+        },
+        "normal_window_mean_gap_s": mean_gap,
+        "normal_window_mean_gap_vs_reference": _relative_difference(mean_gap, ref),
+    }
+
+
+def _print_reference_summary(ref):
+    if ref is None:
+        return
+    info = ref["informational_vs_configured"]
+    print("reference interval: continuity gates judged against %d s (frozen, "
+          "source: %s); informational only, against the configured %d s: "
+          "coverage=%.3f max gap=%.2f interval(s)" %
+          (ref["reference_interval_s"], ref["reference_interval_source"],
+           info["configured_interval_s"], info["coverage"],
+           info["max_gap_intervals"]))
+    drift = ref["normal_window_mean_gap_vs_reference"]
+    if drift is not None:
+        print("reference interval: normal-window mean gap is %+.1f%% against "
+              "the frozen value" % (drift * 100.0))
 
 
 def print_run_summary(report):
@@ -1223,6 +1423,7 @@ def print_run_summary(report):
                 print("  PASS %s" % check["name"])
             else:
                 print("  %s %s - %s" % (check["status"], check["name"], check["reason"]))
+    _print_reference_summary(report.get("reference_interval"))
     rec = report["reconciliation"]
     print("cycle reconciliation: nominal=%.2f observed(normal)=%d "
           "observed(full)=%d parked=%d boot-delta=%s" %
@@ -1284,6 +1485,36 @@ def cmd_run_report(args):
     print_run_summary(report)
     ok = all(v["status"] == "PASS" for v in report["verdicts"].values())
     return 0 if ok else 1
+
+
+def cmd_reference_interval(args):
+    """Print the proposed reference interval for the continuity gates,
+    computed from the first 48 hours of the export. Exit 0 with the value,
+    2 when the export cannot support it.
+    """
+    try:
+        if args.interval_s < 1:
+            raise RunReportError("--interval-s must be at least 1")
+        try:
+            if args.rows:
+                with open(args.rows, "rb") as fh:
+                    raw = fh.read()
+            else:
+                raw = sys.stdin.buffer.read()
+        except OSError as exc:
+            raise RunReportError("cannot read rows: %s" % exc)
+        result = compute_reference_interval(_rows_to_ordered_polls(raw), args.interval_s)
+    except RunReportError as exc:
+        sys.stderr.write("reference-interval: refused: %s\n" % exc)
+        return 2
+    print("reference_interval_s: %d" % result["reference_interval_s"])
+    print("window: %s to %s (first 48 h only)" %
+          (result["window_start"], result["window_end"]))
+    print("gaps used: %d, excluded (above %d s): %d, unrounded mean %.3f s" %
+          (result["gaps_used"], result["exclusion_limit_s"],
+           result["gaps_excluded"], result["mean_gap_s"]))
+    print("export_sha256: %s" % hashlib.sha256(raw).hexdigest())
+    return 0
 
 
 def _telemetry_messages(path):
@@ -1404,6 +1635,28 @@ def cmd_selftest(_args):
 # --- CLI ------------------------------------------------------------------
 
 
+def _add_run_report_parsers(sub):
+    rr = sub.add_parser("run-report",
+        help="turn raw device_health JSON-Lines rows plus a params file "
+             "into a report with separate continuity, voltage-validity "
+             "and baseline verdicts")
+    rr.add_argument("rows", nargs="?", default=None,
+        help="JSON-Lines rows file; reads stdin when omitted")
+    rr.add_argument("--params", required=True,
+        help="owner-supplied params JSON (see run2-params.example.json)")
+    rr.add_argument("--out", default=None,
+        help="write the JSON report here (only on a non-refused run)")
+
+    ri = sub.add_parser("reference-interval",
+        help="compute the proposed continuity reference interval from the "
+             "first 48 hours of a raw device_health export")
+    ri.add_argument("rows", nargs="?", default=None,
+        help="JSON-Lines rows file; reads stdin when omitted")
+    ri.add_argument("--interval-s", type=int, required=True,
+        help="the configured wake interval in seconds (gaps above 3x it "
+             "are excluded)")
+
+
 def build_parser():
     p = argparse.ArgumentParser(
         prog="logtools.py",
@@ -1476,16 +1729,7 @@ def build_parser():
         help="ungated daily check-in: print derived figures only, no "
              "PASS/FAIL gating, always exits 0")
 
-    rr = sub.add_parser("run-report",
-        help="turn raw device_health JSON-Lines rows plus a params file "
-             "into a report with separate continuity, voltage-validity "
-             "and baseline verdicts")
-    rr.add_argument("rows", nargs="?", default=None,
-        help="JSON-Lines rows file; reads stdin when omitted")
-    rr.add_argument("--params", required=True,
-        help="owner-supplied params JSON (see run2-params.example.json)")
-    rr.add_argument("--out", default=None,
-        help="write the JSON report here (only on a non-refused run)")
+    _add_run_report_parsers(sub)
 
     sub.add_parser("selftest",
         help="run check-backoff and check-battery against "
@@ -1509,6 +1753,8 @@ def main(argv=None):
         return cmd_check_battery(args)
     if args.command == "run-report":
         return cmd_run_report(args)
+    if args.command == "reference-interval":
+        return cmd_reference_interval(args)
     if args.command == "selftest":
         return cmd_selftest(args)
     return 1  # pragma: no cover — argparse enforces `required=True` above
