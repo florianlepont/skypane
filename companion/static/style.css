@@ -3,8 +3,26 @@
  * no framework, no web/icon fonts, no external references (no url(),
  * no @font-face, no remote asset).
  *
- * Accent is reserved to selection/primary-action/wayfinding affordances
- * only. Border is structural only (dividers, table lines, card edges)
+ * Accent is reserved to selection, primary-action and wayfinding
+ * affordances, plus one brand element. The list below is exhaustive; an
+ * accent consumer not named here does not belong in this file:
+ *   - links (a, .text-link, summary and its disclosure marker,
+ *     .special-add__summary, button.look-sheet__reset)
+ *   - the focus ring (every :focus-visible outline, the focused search
+ *     input and filter-chip box, the sparkline hit target, the look
+ *     frame/open button) and the native accent-color of input/select
+ *   - primary actions (button[type="submit"], a.calendar-manage--primary,
+ *     button.look-sheet__done, the skip link)
+ *   - current location / selection (.sidebar-link--active,
+ *     .mobile-nav__link--active, .tab-bar__link--active and its pill,
+ *     .site-nav-toggle[aria-expanded="true"], the active theme option,
+ *     the checked runway/look cards and look dot, the editing look frame)
+ *   - switch-on state (.switch[aria-checked="true"])
+ *   - stat tiles (the top rule and icon of .stat-tile)
+ *   - the Home "See Health" pill (.home-state__health-link) and the
+ *     special-look add button's dashed plus
+ *   - the logo mark's flick (.logo-accent)
+ * Border is structural only (dividers, table lines, card edges)
  * and never substitutes for accent or status colour.
  *
  * Theming: :root plus a prefers-color-scheme block hold both palettes;
@@ -537,6 +555,40 @@ h3 {
 .page-header {
   position: relative;
   margin-bottom: var(--space-lg);
+}
+
+/* The brand lockup: the logo mark beside the live site-title text. The
+ * 28px mark sits inside the title's 28.8px line box, so the lockup is
+ * exactly as tall as the bare title used to be and nothing shifts. The
+ * mark is decorative (aria-hidden); the text is the accessible name. */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.icon.logo-mark,
+.logo-mark {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  color: var(--color-text);
+}
+
+/* The one accent element of the mark: the flick leaving the pane. Bound
+ * here, not in the symbol, so the sprite and the login page's inline
+ * copy follow the theme from the same rule. */
+.logo-accent {
+  stroke: var(--color-accent);
+}
+
+/* The login card's mark, centred above the heading. */
+.login-card .logo-mark {
+  display: block;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto var(--space-md);
 }
 
 .site-title {

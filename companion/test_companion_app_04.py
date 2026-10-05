@@ -418,10 +418,12 @@ def test_login_clean_render_carries_no_error_association(app04_server, served_cs
     for needed in ('class="login-form"', 'class="login-form__input"'):
         assert needed in text, "expected %r in the login card markup" % needed
     assert '<h1 class="page-title">SkyPane</h1>' in text, (
-        "expected the bare page-title brand mark with no glyph beside it")
-    assert "<svg" not in text and "icon-defs" not in text, (
-        "the login card must add no icon/brand glyph — login_shell() deliberately emits no "
-        "ICON_DEFS_HTML sprite")
+        "expected the page-title wordmark to stay live text")
+    # The one glyph is the decorative brand mark, inlined because login_shell() deliberately
+    # emits no ICON_DEFS_HTML sprite.
+    assert text.count("<svg") == 1 and 'class="logo-mark"' in text and 'aria-hidden="true"' in text, (
+        "the login card carries exactly one decorative inline brand mark")
+    assert "icon-defs" not in text and "<use" not in text, "no sprite on the login page"
     for selector in (
             ".login-form__input", '.login-form__input[aria-invalid="true"]',
             '.login-card button[type="submit"]'):
@@ -485,7 +487,9 @@ def test_login_lockout_render_shares_the_one_error_voice(make_app_server):
         "window itself")
     for needed in ('data-lockout-template="', 'data-lockout-token="'):
         assert needed in text, "expected %r on the locked-out form" % needed
-    assert "LOGIN_FAILURE_LIMIT" not in text and str(auth.LOGIN_FAILURE_LIMIT) + '"' not in text, (
+    # The brand mark's path data is numeric noise that can end in the limit's digit by chance.
+    without_mark = re.sub(r"<svg\b.*?</svg>", "", text, flags=re.DOTALL)
+    assert "LOGIN_FAILURE_LIMIT" not in without_mark and str(auth.LOGIN_FAILURE_LIMIT) + '"' not in without_mark, (
         "no throttling constant may be rendered into the page")
     field_tag = text[text.index("<input type=\"password\""):]
     field_tag = field_tag[:field_tag.index(">") + 1]
