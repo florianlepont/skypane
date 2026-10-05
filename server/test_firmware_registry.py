@@ -930,6 +930,23 @@ def _view_release(version, installed_at=(), published_at=NOW, bench=False):
     }
 
 
+def test_update_view_orders_each_release_against_the_running_one():
+    releases = [
+        _view_release("fw-v1.0.0"), _view_release("fw-v1.1.0"), _view_release("fw-v1.2.0"),
+        _view_release("fw-v1.1.0-bench1", bench=True)]
+    registry = _view_registry(releases=releases)
+    view = registry_mod.update_view(registry, _view_device_report(fw_version="fw-v1.1.0"), NOW)
+    directions = {r["version"]: r["direction"] for r in view["releases"]}
+    assert directions == {
+        "fw-v1.0.0": "older", "fw-v1.1.0": None, "fw-v1.2.0": "newer", "fw-v1.1.0-bench1": None}
+
+
+def test_update_view_direction_is_none_when_nothing_is_running():
+    registry = _view_registry(releases=[_view_release("fw-v1.0.0")])
+    view = registry_mod.update_view(registry, _make_device_report([], fw_version=None), NOW)
+    assert view["releases"][0]["direction"] is None
+
+
 def _release_by_version(view):
     return {r["version"]: r for r in view["releases"]}
 

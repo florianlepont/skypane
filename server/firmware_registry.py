@@ -847,6 +847,19 @@ def _newest_release_published_at(registry):
     return max(published_ats) if published_ats else None
 
 
+def _direction_from_running(version, running_version):
+    """"newer" or "older" when `version` orders above or below the running
+    release, None when they tie on (major, minor, patch) or either side
+    does not parse -- so the Update page words a lower version as a
+    rollback and never guesses when it cannot compare.
+    """
+    candidate = parse_version(version)
+    running = parse_version(running_version)
+    if candidate is None or running is None or candidate == running:
+        return None
+    return "newer" if candidate > running else "older"
+
+
 def _release_views(registry, running_version):
     """The Update page's per-release rows, newest published first.
 
@@ -865,6 +878,9 @@ def _release_views(registry, running_version):
     does. A failed or rolled-back attempt never appends to
     `installed_at`, so it cannot move this. It is None on every
     non-running row.
+
+    `direction` orders the release against the running one: "newer",
+    "older", or None (running itself, equal, or not comparable).
     """
     floor_version = registry.get("floor_version", FLOOR_VERSION)
     releases = sorted(
@@ -887,6 +903,7 @@ def _release_views(registry, running_version):
             "bench": release.get("bench", False),
             "running": running,
             "installed_now_at": installed_now_at,
+            "direction": _direction_from_running(version, running_version),
             "installable": (
                 at_or_above_floor(version, floor_version) and version != running_version
             ),

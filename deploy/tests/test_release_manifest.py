@@ -90,7 +90,7 @@ def test_second_release_notes_are_firmware_only_newest_first_no_merges(two_relea
     result = _run_cli("fw-v1.1.0", image, out, two_release_repo)
     assert result.returncode == 0, result.stderr
     manifest = json.loads(out.read_text())
-    assert manifest["notes"] == ["add ota", "fix panel"]
+    assert manifest["notes"] == ["Add ota", "Fix panel"]
     assert manifest["version"] == "fw-v1.1.0"
 
 
@@ -102,7 +102,7 @@ def test_first_release_notes_list_firmware_commits_up_to_it(two_release_repo, tm
     manifest = json.loads(out.read_text())
     # Only firmware/x.c ("add x") is a firmware/ commit reachable from
     # the first tag -- server/y.py is excluded.
-    assert manifest["notes"] == ["add x"]
+    assert manifest["notes"] == ["Add x"]
 
 
 def test_manifest_fields_match_image_and_commit(two_release_repo, tmp_path):
@@ -144,7 +144,7 @@ def test_oversized_image_exits_2(two_release_repo, tmp_path):
 
 def test_long_subject_is_truncated_to_200_chars(tmp_path):
     repo = _init_repo(tmp_path / "repo")
-    long_subject = "x" * 250
+    long_subject = "X" * 250
     _commit(repo, "firmware/x.c", "int x;\n", long_subject)
     _tag(repo, "fw-v1.0.0")
     image = _make_image(tmp_path / "skypane.bin")
@@ -190,7 +190,7 @@ def test_more_than_60_firmware_commits_are_capped_with_a_summary_entry(tmp_path)
     manifest = json.loads(out.read_text())
     assert len(manifest["notes"]) == 60
     # Newest first: "commit 64" is the very last commit made.
-    assert manifest["notes"][0] == "commit 64"
+    assert manifest["notes"][0] == "Commit 64"
     assert manifest["notes"][-1] == "and 6 earlier commits"
 
 
@@ -202,8 +202,8 @@ def test_notes_md_is_a_heading_plus_bullet_list(two_release_repo, tmp_path):
     assert result.returncode == 0, result.stderr
     text = notes_md.read_text()
     assert text.startswith("## fw-v1.1.0\n")
-    assert "- add ota" in text
-    assert "- fix panel" in text
+    assert "- Add ota" in text
+    assert "- Fix panel" in text
 
 
 def test_manifest_round_trips_through_firmware_registry_publish_release(two_release_repo, tmp_path):
@@ -221,7 +221,97 @@ def test_manifest_round_trips_through_firmware_registry_publish_release(two_rele
     release = registry["releases"][0]
     assert release["version"] == "fw-v1.1.0"
     assert release["sha256"] == manifest["sha256"]
-    assert release["notes"] == ["add ota", "fix panel"]
+    assert release["notes"] == ["Add ota", "Fix panel"]
+
+
+@pytest.mark.parametrize("subject, expected", [
+    ("fix(firmware): refuse to USB-flash an unsigned image (#159)",
+     "Refuse to USB-flash an unsigned image"),
+    ("feat(firmware): report the Wi-Fi RSSI with every check-in (#168)",
+     "Report the Wi-Fi RSSI with every check-in"),
+    ("feat!: drop the legacy poll endpoint", "Drop the legacy poll endpoint"),
+    ("fix(34): point the hardware-session commands at the release layout (#119)",
+     "Point the hardware-session commands at the release layout"),
+    ("Phase 42: Remote firmware update over the air (OTA) (#157)",
+     "Remote firmware update over the air (OTA)"),
+    ("Phase 42.1 - Tighten the retry loop", "Tighten the retry loop"),
+    ("fix(firmware): Phase 42: keep the rail off", "Keep the rail off"),
+    ("Sleep a fixed 300 s on an unusable NVS (#135) (#136)",
+     "Sleep a fixed 300 s on an unusable NVS"),
+    ("already a plain sentence", "Already a plain sentence"),
+    ("Firmware: sleep on a bad NVS", "Sleep on a bad NVS"),
+    ("  fix(firmware):   spaced out  ", "Spaced out"),
+])
+def test_clean_note_strips_prefixes_and_pr_references(subject, expected):
+    import scripts.fw_release_manifest as fw_release_manifest
+
+    assert fw_release_manifest.clean_note(subject) == expected
+
+
+@pytest.mark.parametrize("subject", [
+    "", "   ", "fix(firmware):", "Phase 42:", "(#12)",
+    "chore: close v1.0 milestone (#164)", "docs(firmware): flashing guide",
+    "ci: pin the build container", "test(firmware): host tests", "style: format",
+    "build(deps): bump esp-idf", "Merge branch 'main' into feature",
+    "WIP half done", "fixup! earlier commit",
+])
+def test_clean_note_drops_empty_merge_and_housekeeping_subjects(subject):
+    import scripts.fw_release_manifest as fw_release_manifest
+
+    assert fw_release_manifest.clean_note(subject) is None
+
+
+def test_clean_notes_keeps_order_drops_repeats_and_truncates():
+    import scripts.fw_release_manifest as fw_release_manifest
+
+    notes = fw_release_manifest.clean_notes([
+        "fix(firmware): keep the rail off (#1)", "chore: noise",
+        "Keep the rail off", "feat(firmware): " + "y" * 300, "Second note"])
+    assert notes == ["Keep the rail off", "Y" + "y" * 199, "Second note"]
+    assert fw_release_manifest.clean_notes([]) == []
+    assert fw_release_manifest.clean_notes(["fix(firmware):", "chore: x"]) == []
+
+
+def test_clean_note_is_deterministic():
+    import scripts.fw_release_manifest as fw_release_manifest
+
+    subject = "fix(firmware): keep the rail off (#9)"
+    assert [fw_release_manifest.clean_note(subject) for _ in range(3)] == ["Keep the rail off"] * 3
+
+
+def test_cli_notes_are_cleaned_but_manifest_identity_is_untouched(tmp_path):
+    """Only the display notes change: the version, hash, size and commit
+    in the manifest, which are what the registry and the frame verify,
+    come out exactly as they would without any cleaning."""
+    repo = _init_repo(tmp_path / "repo")
+    _commit(repo, "firmware/a.c", "int a;\n", "fix(firmware): keep the rail off (#7)")
+    _commit(repo, "firmware/b.c", "int b;\n", "chore(firmware): housekeeping (#8)")
+    _commit(repo, "firmware/c.c", "int c;\n", "Phase 42: honest Update page (#9)")
+    _tag(repo, "fw-v1.0.0")
+    image = _make_image(tmp_path / "skypane.bin", size=512, fill=b"\x5a")
+    out = tmp_path / "release.json"
+    notes_md = tmp_path / "notes.md"
+    result = _run_cli("fw-v1.0.0", image, out, repo, notes_md=notes_md)
+    assert result.returncode == 0, result.stderr
+    manifest = json.loads(out.read_text())
+    assert manifest["notes"] == ["Honest Update page", "Keep the rail off"]
+    assert manifest["sha256"] == hashlib.sha256(image.read_bytes()).hexdigest()
+    assert manifest["size"] == 512 and manifest["version"] == "fw-v1.0.0"
+    assert "- Honest Update page" in notes_md.read_text()
+    assert firmware_registry.publish_release(
+        str(tmp_path / "state"), manifest, str(image)) == "added"
+
+
+def test_a_release_whose_commits_are_all_housekeeping_has_no_notes(tmp_path):
+    repo = _init_repo(tmp_path / "repo")
+    _commit(repo, "firmware/a.c", "int a;\n", "chore(firmware): bump (#1)")
+    _tag(repo, "fw-v1.0.0")
+    image = _make_image(tmp_path / "skypane.bin")
+    out = tmp_path / "release.json"
+    notes_md = tmp_path / "notes.md"
+    assert _run_cli("fw-v1.0.0", image, out, repo, notes_md=notes_md).returncode == 0
+    assert json.loads(out.read_text())["notes"] == []
+    assert "No firmware/ changes recorded" in notes_md.read_text()
 
 
 def test_no_shell_true_in_the_script():
