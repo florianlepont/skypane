@@ -78,21 +78,4 @@ MESSAGES = {
         "Le premier avion détecté par le cadre sur la piste surveillée "
         "apparaîtra ici.",
     "home.illustration": "Illustration %s",
-
-    # "heures calmes" and "réveil" are both pre-existing terms in
-    # this catalogue's vocabulary, reused rather than re-coined, so
-    # the band names the same event the frame strip above it names.
-    # "Today" is not redefined here: companion/i18n_fr/flights.py
-    # already owns that id.
-    "home.the_frame_s_check_ins_through_the_day_midnight":
-        "Les réveils du cadre au fil de la journée, de minuit à minuit",
-    "home.no_check_ins_recorded_on": "Aucun réveil enregistré le %s.",
-    "home.1_check_in_on": "1 réveil le %s.",
-    # The placeholders stay in the English order: both languages say the number first.
-    "home.check_ins_on": "%s réveils le %s.",
-    "home.some_marks_are_merged_check_ins_closer_together":
-        "Certaines marques sont fusionnées : les réveils trop rapprochés pour "
-        "que la bande puisse les séparer sont dessinés comme un seul.",
-    "home.shaded_quiet_hours_to":
-        "Zone grisée : heures calmes, de %s à %s.",
 }

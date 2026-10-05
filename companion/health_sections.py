@@ -17,7 +17,7 @@ one importing health_page.py back (that would be circular, since
 health_page.py imports this module at load time).
 """
 
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from companion.layout import escape_html
 import companion.battery_chart as battery_chart
@@ -27,7 +27,7 @@ import companion.i18n as i18n
 import companion.layout as layout
 import companion.wake as wake
 import companion.resolve_dialog as resolve_dialog
-from server import device_config, history_db
+from server import history_db
 
 # Re-read under their own bare names purely for this module's own
 # internal use (never re-exported back to health_page.py under these
@@ -243,14 +243,10 @@ _MORE_DETAILS_TEXT = i18n.msg("health.more_details", "More details")
 
 
 _FILTER_COUNT_TEMPLATE = i18n.msg("health.of_shown", "%d of %d shown")
-_RESOLVED_PCT_TEMPLATE = i18n.msg("health.1f_resolved", "%.1f%% resolved")
 
 
 def _unavailable_block():
     return '<p class="text-body">%s</p>' % escape_html(i18n.t(HEALTH_UNAVAILABLE_TEXT))
-
-
-_TILE_DETAIL_CLASS = "text-label widget-detail"
 
 
 def resolution_stats(conn, window_days=RESOLUTION_WINDOW_DAYS, now=None):
@@ -559,38 +555,6 @@ def _stats_table_html(stats):
         desc_columns=(1,), prose=True)
 
 
-def _resolution_rate_tile_html(stats):
-    """The Resolution-rate stat_tile's content: a two-line figure inside
-    the tile card.
-    """
-    if stats is _DB_UNAVAILABLE:
-        return _unavailable_block()
-    if stats["total"] == 0:
-        # Translate the heading first, then interpolate, so the "%d"
-        # placeholder survives translation. Compact variant: this block
-        # lands inside a .stat-tile, whose 12px caption inverts under the
-        # default form's 22px heading. No .widget-verdict here — this
-        # tile makes no pass/fail judgement (status=None, no status
-        # function exists for it).
-        return layout.empty_state(
-            i18n.t(_NO_STATS_HEADING) % RESOLUTION_WINDOW_DAYS,
-            i18n.t(_NO_STATS_BODY), compact=True)
-    # The Emphasis slot holds the figure (.stat-tile__value), not a
-    # verdict word, since this tile carries no pass/fail judgement.
-    detail_template = (
-        _RESOLUTION_DETAIL_SINGULAR_TEMPLATE if stats["total"] == 1
-        else _RESOLUTION_DETAIL_TEMPLATE)
-    return (
-        '<p class="stat-tile__value">%s</p>'
-        '<div class="%s">%s</div>'
-    ) % (
-        escape_html(i18n.t(_RESOLVED_PCT_TEMPLATE) % stats["resolved_pct"]),
-        _TILE_DETAIL_CLASS,
-        escape_html(i18n.t(detail_template) % (
-            RESOLUTION_WINDOW_DAYS, stats["total"])),
-    )
-
-
 def _check_in_regularity_cells(gap_rows, wake_interval_s, now):
     """`(cells, counts, day_labels)` for the check-in regularity grid:
     one entry per Europe/Paris calendar day, oldest first. Every
@@ -640,69 +604,71 @@ def _check_in_regularity_cells(gap_rows, wake_interval_s, now):
     return cells, counts, labels
 
 
-def _check_in_regularity_section_html(gap_rows, wake_interval_s, now):
-    """The "Check-in regularity" card: heading, visible caption plus its
-    disclosure, the grid, its date labels and the four-state key.
+def _check_in_regularity_html(gap_rows, wake_interval_s, now):
+    """The check-in regularity block for the Frame connection row's
+    details: a small heading, the visible caption plus its disclosure,
+    the grid, its date labels and the four-state key.
     `wake_interval_s` of `None` degrades to
     `device_staleness_thresholds()`'s bare floors, and the caption names
     those floors rather than a cadence nobody configured. Only
     `CHECK_IN_CAPTION_OBSERVED` is visible; every other clause moves
     into a `<details>` disclosure, the same idiom `_battery_section()`
-    and `_corroboration_details_html()` use.
+    uses. Not a card of its own: the row that holds it is the container.
     """
     if gap_rows is _DB_UNAVAILABLE:
         body = _unavailable_block()
     else:
-        cells, counts, labels = _check_in_regularity_cells(
-            gap_rows, wake_interval_s, now)
-        observed = sum(
-            counts.get(state, 0) for state in (
-                wake.CHECK_IN_ON_CADENCE, wake.CHECK_IN_LATE, wake.CHECK_IN_MISSING))
-        grid_html, dropped = draw.regularity_grid(
-            cells,
-            label=i18n.t(CHECK_IN_GRID_LABEL) % (
-                CHECK_IN_WINDOW_DAYS,
-                counts.get(wake.CHECK_IN_ON_CADENCE, 0),
-                counts.get(wake.CHECK_IN_LATE, 0),
-                counts.get(wake.CHECK_IN_MISSING, 0),
-                counts.get(wake.CHECK_IN_UNKNOWN, 0)))
-        # Read past anything the drawing dropped, so the two labels can
-        # only ever name cells that are on screen.
-        oldest = labels[dropped] if dropped < len(labels) else labels[-1]
-        visible_caption = i18n.t(CHECK_IN_CAPTION_OBSERVED)
-        disclosure_clauses = []
-        if not observed:
-            disclosure_clauses.append(i18n.t(CHECK_IN_CAPTION_EMPTY))
-        if draw.is_number(wake_interval_s) and wake_interval_s > 0:
-            disclosure_clauses.append(
-                i18n.t(CHECK_IN_CAPTION_CADENCE) % layout.duration_text(wake_interval_s))
-        else:
-            disclosure_clauses.append(i18n.t(CHECK_IN_CAPTION_CADENCE_FALLBACK))
-        disclosure_clauses.append(i18n.t(CHECK_IN_CAPTION_NOT_PROOF))
-        disclosure_html = (
-            '<details class="readings-disclosure"><summary>%s</summary><p>%s</p></details>'
-        ) % (
-            escape_html(i18n.t(_MORE_DETAILS_TEXT)),
-            escape_html(" ".join(disclosure_clauses)))
-        body = (
-            '<p class="text-label section-caption">%s</p>'
-            '%s'
-            '<div class="%s">%s<div class="%s">%s%s</div></div>'
-            '%s'
-        ) % (
-            escape_html(visible_caption),
-            disclosure_html,
-            escape_html(CHECK_IN_GRID_CLASS), grid_html,
-            escape_html(CHECK_IN_SCALE_CLASS),
-            draw.label_span(oldest, hidden=False),
-            draw.label_span(labels[-1], hidden=False),
-            _check_in_key_html())
-    # Plain .page-section, not page-section--nested: that modifier is
-    # reserved for the two cards migrated into Server & data.
+        body = _check_in_regularity_body(gap_rows, wake_interval_s, now)
     return (
-        '<section class="page-section">'
-        '<h2 class="text-heading">%s</h2>%s</section>'
+        '<div class="health-row__section">'
+        '<p class="health-row__subhead">%s</p>%s</div>'
     ) % (escape_html(i18n.t(CHECK_IN_SECTION_HEADING)), body)
+
+
+def _check_in_regularity_body(gap_rows, wake_interval_s, now):
+    cells, counts, labels = _check_in_regularity_cells(
+        gap_rows, wake_interval_s, now)
+    observed = sum(
+        counts.get(state, 0) for state in (
+            wake.CHECK_IN_ON_CADENCE, wake.CHECK_IN_LATE, wake.CHECK_IN_MISSING))
+    grid_html, dropped = draw.regularity_grid(
+        cells,
+        label=i18n.t(CHECK_IN_GRID_LABEL) % (
+            CHECK_IN_WINDOW_DAYS,
+            counts.get(wake.CHECK_IN_ON_CADENCE, 0),
+            counts.get(wake.CHECK_IN_LATE, 0),
+            counts.get(wake.CHECK_IN_MISSING, 0),
+            counts.get(wake.CHECK_IN_UNKNOWN, 0)))
+    # Read past anything the drawing dropped, so the two labels can
+    # only ever name cells that are on screen.
+    oldest = labels[dropped] if dropped < len(labels) else labels[-1]
+    disclosure_clauses = []
+    if not observed:
+        disclosure_clauses.append(i18n.t(CHECK_IN_CAPTION_EMPTY))
+    if draw.is_number(wake_interval_s) and wake_interval_s > 0:
+        disclosure_clauses.append(
+            i18n.t(CHECK_IN_CAPTION_CADENCE) % layout.duration_text(wake_interval_s))
+    else:
+        disclosure_clauses.append(i18n.t(CHECK_IN_CAPTION_CADENCE_FALLBACK))
+    disclosure_clauses.append(i18n.t(CHECK_IN_CAPTION_NOT_PROOF))
+    disclosure_html = (
+        '<details class="readings-disclosure"><summary>%s</summary><p>%s</p></details>'
+    ) % (
+        escape_html(i18n.t(_MORE_DETAILS_TEXT)),
+        escape_html(" ".join(disclosure_clauses)))
+    return (
+        '<p class="text-label section-caption">%s</p>'
+        '%s'
+        '<div class="%s">%s<div class="%s">%s%s</div></div>'
+        '%s'
+    ) % (
+        escape_html(i18n.t(CHECK_IN_CAPTION_OBSERVED)),
+        disclosure_html,
+        escape_html(CHECK_IN_GRID_CLASS), grid_html,
+        escape_html(CHECK_IN_SCALE_CLASS),
+        draw.label_span(oldest, hidden=False),
+        draw.label_span(labels[-1], hidden=False),
+        _check_in_key_html())
 
 
 def _check_in_key_html():
@@ -723,186 +689,3 @@ def _check_in_key_html():
                escape_html(i18n.t(CHECK_IN_STATE_TEXT[state]))))
     return '<div class="%s">%s</div>' % (
         escape_html(CHECK_IN_KEY_CLASS), "".join(items))
-
-
-def _stats_section_html(stats):
-    """The "How well we name flights" nested page-section, or the empty
-    string when the window is genuinely empty (`stats["total"] == 0`).
-    A DB-unavailable `stats` still renders: that is a different failure
-    mode from an empty window.
-    """
-    if stats is not _DB_UNAVAILABLE and stats["total"] == 0:
-        return ""
-    # No status modifier: resolution_stats() returns no verdict, so this
-    # card carries no pass/fail state — a neutral hairline is correct.
-    return '<section class="page-section page-section--nested"><h2 class="text-heading">%s</h2>%s</section>' % (
-        escape_html(i18n.t(STATS_SECTION_HEADING)), _stats_table_html(stats))
-
-
-# The Today band: one Paris day of device check-ins.
-# The read is bounded as a correctness constraint, not a performance one:
-# recent_device_health() returns the newest N rows, so a limit smaller
-# than a day's check-ins would silently hand the band a few hours and
-# caption them as the whole day. _day_band_html() below also detects a
-# truncated read and stops the caption claiming a total.
-DAY_BAND_ROW_LIMIT = 3000
-
-# "Today" is owned by companion/i18n_fr/flights.py, not home.py — the
-# same id history_page.py's own day-separator heading uses.
-DAY_BAND_HEADING = i18n.msg("flights.today", "Today")
-# The canvas's accessible name; a named group rather than aria-hidden,
-# since the band is the only statement of this data.
-DAY_BAND_LABEL = i18n.msg(
-    "home.the_frame_s_check_ins_through_the_day_midnight",
-    "The frame's check-ins through the day, midnight to midnight")
-DAY_BAND_HOUR_LABELS = ("00:00", "12:00", "24:00")
-DAY_BAND_EMPTY_TEXT = i18n.msg(
-    "home.no_check_ins_recorded_on", "No check-ins recorded on %s.")
-DAY_BAND_ONE_TEXT = i18n.msg("home.1_check_in_on", "1 check-in on %s.")
-DAY_BAND_COUNT_TEXT = i18n.msg("home.check_ins_on", "%s check-ins on %s.")
-# Appended only when draw.day_band() reports a collapse, so a reader who
-# counts the marks and gets fewer is not left thinking the band lost some.
-DAY_BAND_COLLAPSED_TEXT = i18n.msg(
-    "home.some_marks_are_merged_check_ins_closer_together",
-    "Some marks are merged — check-ins closer together than the band can "
-    "separate are drawn as one.")
-DAY_BAND_QUIET_TEXT = i18n.msg(
-    "home.shaded_quiet_hours_to", "Shaded: quiet hours, %s to %s.")
-
-
-def _paris_day_bounds(now):
-    """`(day, day_start_epoch, day_seconds)` for the Europe/Paris day
-    `now` falls in, or None when `now` does not parse.
-
-    `day_seconds` is measured between two real Paris midnights and never
-    assumed to be 86400: a Europe/Paris day is 23 or 25 hours twice a
-    year, and a band assuming 86400 would misplace midday and leave an
-    hour of its own width unreachable. `layout.LOCAL_TZ` is the one
-    timezone constant every timestamp on this page already formats
-    through, so the band and the row beneath it cannot disagree about
-    which day it is.
-    """
-    parsed = history_db.instant_or_none(now)
-    if parsed is None:
-        return None
-    day = parsed.astimezone(layout.LOCAL_TZ).date()
-    start = datetime.combine(day, time(0), tzinfo=layout.LOCAL_TZ)
-    end = datetime.combine(day + timedelta(days=1), time(0), tzinfo=layout.LOCAL_TZ)
-    return day, start.timestamp(), end.timestamp() - start.timestamp()
-
-
-def _day_band_instants(rows, day):
-    """The epoch seconds of every row in `rows` whose stored `ts` falls
-    on the Europe/Paris calendar day `day`.
-
-    Bucketed through `history_db.paris_day_or_none()`, the same date
-    path `check_in_gaps()` and `daily_battery_averages()` use, so a mark
-    on this band and a row in Health's own day-bucketed data can never
-    disagree about which day a check-in belongs to. This is a real
-    bucketing, not a filter: Paris is UTC+1 or UTC+2, so a check-in at
-    00:30 Paris is stored as 22:30 UTC on the previous date, and
-    comparing UTC dates directly would silently attribute it to the
-    wrong day.
-    """
-    instants = []
-    for row in rows or ():
-        ts = row.get("ts") if isinstance(row, dict) else None
-        if history_db.paris_day_or_none(ts) != day:
-            continue
-        parsed = history_db.instant_or_none(ts)
-        if parsed is not None:
-            instants.append(parsed.timestamp())
-    return instants
-
-
-def _quiet_hours_window(config, day_start, day_seconds):
-    """`((start_epoch, end_epoch), start_hm, end_hm)` for the configured
-    quiet-hours window placed on the band's own day, or `(None, None,
-    None)` when quiet hours are not enabled or the config is unusable.
-
-    The enabled test is `is True`, not truthiness, matching
-    `device_config.quiet_hours_status()`; both time strings go through
-    `device_config.normalise_quiet_hours_time()` so a hand-edited config
-    cannot put an unvalidated string into the arithmetic.
-    `quiet_hours_status()` itself answers an activity question
-    (seconds remaining and when it ends), not the window's two absolute
-    ends regardless of activity, so this function derives them directly
-    instead. The end may precede the start for a night window;
-    `draw.day_band()` is where that becomes two spans.
-    """
-    if not isinstance(config, dict) or config.get("quiet_hours_enabled") is not True:
-        return None, None, None
-    try:
-        start_hm = device_config.normalise_quiet_hours_time(
-            config.get("quiet_hours_start"), device_config.DEFAULT_QUIET_HOURS_START)
-        end_hm = device_config.normalise_quiet_hours_time(
-            config.get("quiet_hours_end"), device_config.DEFAULT_QUIET_HOURS_END)
-        start = day_start + _hm_seconds(start_hm)
-        end = day_start + _hm_seconds(end_hm)
-    except (TypeError, ValueError):
-        return None, None, None
-    if start > day_start + day_seconds or end > day_start + day_seconds:
-        # A DST day is 23 or 25 hours long, so an "HH:MM" offset counted
-        # from midnight can land past the band's own right edge. Rather
-        # than clamp — which would silently redraw the window the user
-        # configured — the shading is dropped and the caption with it.
-        return None, None, None
-    return (start, end), start_hm, end_hm
-
-
-def _hm_seconds(hm):
-    """Seconds from midnight for a normalised "HH:MM" string."""
-    hours, _, minutes = hm.partition(":")
-    return int(hours) * 3600 + int(minutes) * 60
-
-
-def _day_band_html(rows, now, config):
-    """The day band's <section>, or "" when there is no day to draw.
-
-    `rows` is the device_health read Health's render() makes; this
-    function re-queries nothing. An unreadable history.db arrives as
-    `_DB_UNAVAILABLE` and renders nothing at all, since an empty band
-    would falsely say "no check-ins today" for a failed read. A day that genuinely
-    holds no check-ins renders the band empty instead, matching this
-    page's "no chrome with no data" rule.
-    """
-    if rows is _DB_UNAVAILABLE or rows is None:
-        return ""
-    bounds = _paris_day_bounds(now)
-    if bounds is None:
-        return ""
-    day, day_start, day_seconds = bounds
-    instants = _day_band_instants(rows, day)
-    window, start_hm, end_hm = _quiet_hours_window(
-        config, day_start, day_seconds)
-    canvas, collapsed = draw.day_band(
-        day_start, day_seconds, instants, window=window,
-        label=i18n.t(DAY_BAND_LABEL))
-    day_text = day.isoformat()
-
-    # The caption is written from `collapsed`, not from the row count
-    # alone: when the band merged anything it says so, so a reader who
-    # counts the marks and gets fewer is not told the drawing lost some.
-    total = len(instants)
-    if not total:
-        caption = i18n.t(DAY_BAND_EMPTY_TEXT) % (day_text,)
-    elif total == 1:
-        caption = i18n.t(DAY_BAND_ONE_TEXT) % (day_text,)
-    else:
-        caption = i18n.t(DAY_BAND_COUNT_TEXT) % (total, day_text)
-    sentences = [escape_html(caption)]
-    if collapsed or len(rows) >= DAY_BAND_ROW_LIMIT:
-        sentences.append(escape_html(i18n.t(DAY_BAND_COLLAPSED_TEXT)))
-    if window is not None:
-        sentences.append(escape_html(i18n.t(DAY_BAND_QUIET_TEXT) % (start_hm, end_hm)))
-    hours = "".join(
-        "<span>%s</span>" % escape_html(label) for label in DAY_BAND_HOUR_LABELS)
-    return (
-        '<section class="page-section day-band" '
-        'aria-labelledby="health-day-band">'
-        '<h2 class="text-heading" id="health-day-band">%s</h2>'
-        '%s'
-        '<p class="day-band__hours text-label mono">%s</p>'
-        '<p class="text-label">%s</p>'
-        "</section>"
-    ) % (escape_html(i18n.t(DAY_BAND_HEADING)), canvas, hours, " ".join(sentences))

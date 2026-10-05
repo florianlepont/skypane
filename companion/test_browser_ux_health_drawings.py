@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Browser checks for the SVG-drawing scenario group: the battery ring, the battery chart's
-area/line/threshold, the day band and the check-in regularity grid, all on Health.
+area/line/threshold and the check-in regularity grid, all on Health, plus the rows card's
+alignment and width.
 
-Three module-scoped, read-only servers are shared across these checks: `server` (the shared
-battery ring/chart fixture), `band_server` (one day's worth of seeded check-ins, shared by
-the day-band checks), and `grid_server` (three seeded days with distinct
+The drawings live inside the Health rows' details, so each check opens the rows first (by
+keyboard, the native disclosure, which also works with scripts blocked) before it measures.
+
+Two module-scoped, read-only servers are shared across these checks: `server` (the shared
+battery ring/chart fixture) and `grid_server` (three seeded days with distinct
 on-cadence/late/missing verdicts, shared by the two regularity-grid checks). None of the
 tests below POSTs or otherwise mutates server state, so sharing a server per group is safe
 under xdist.
@@ -26,7 +29,7 @@ from companion.test_browser_ux_helpers import (
     UI_THEMES_EXPLICIT, VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED,
     VIEWPORT_WIDTH_NARROW, _RING_INK_PROBE,
     _assert_no_page_overflow, _computed_paint, _login, _no_js_page,
-    _set_ui_theme, seed_state_dir,
+    _open_health_rows, _set_ui_theme, seed_state_dir,
 )
 
 pytestmark = pytest.mark.browser
@@ -36,9 +39,11 @@ VISIBLE_VIEW = ".battery-chart__view:not([hidden])"
 # The battery ring, measured where it actually has to be correct: a real browser, both
 # themes, the narrowest supported screen, and with scripts off.
 
-RING_FIGURE = "svg.drawing__figure"
-RING_VALUE = "svg.drawing__figure .drawing-ring-value"
-RING_TRACK = "svg.drawing__figure .drawing-ring-track"
+# Scoped to the Battery row: the Identification row carries a second, smaller ring and the
+# Frame connection row's regularity grid is also an aspect-locked figure.
+RING_FIGURE = "#health-row-battery svg.drawing__figure"
+RING_VALUE = "#health-row-battery svg.drawing__figure .drawing-ring-value"
+RING_TRACK = "#health-row-battery svg.drawing__figure .drawing-ring-track"
 RING_PAGES = (("Health", "/health"),)
 
 
@@ -67,6 +72,7 @@ def test_the_ring_paints_a_theme_token_in_both_themes(new_context, server, label
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + route)
+        _open_health_rows(page)
         seen = {}
         for theme in UI_THEMES_EXPLICIT:
             _set_ui_theme(page, theme)
@@ -120,6 +126,7 @@ def test_the_rings_viewbox_contains_its_own_stroked_geometry(new_context, server
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + route)
+        _open_health_rows(page)
         box = page.evaluate(_RING_INK_PROBE, {"selector": RING_FIGURE})
         if box is None:
             raise AssertionError(
@@ -159,6 +166,7 @@ def test_the_ring_costs_no_width_no_height_and_no_script(new_context, server):
         _login(page, server.base_url())
         for label, route in RING_PAGES:
             page.goto(server.base_url() + route)
+            _open_health_rows(page)
             if page.locator(RING_VALUE).count() != 1:
                 raise AssertionError(
                     "%s: expected exactly one ring value arc at 360px, got %d"
@@ -174,6 +182,7 @@ def test_the_ring_costs_no_width_no_height_and_no_script(new_context, server):
         for label, route in RING_PAGES:
             with _no_js_page(new_context, server.base_url(), route,
                              viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
+                _open_health_rows(blocked)
                 if blocked.locator(RING_VALUE).count() != 1:
                     raise AssertionError(
                         "%s with scripts blocked: expected exactly one ring "
@@ -243,6 +252,7 @@ def test_the_charts_area_mark_and_threshold_paint_real_tokens_in_both_themes(pag
     # judgement nobody can see; and every one of them must move when the theme does.
     _login(page, server.base_url())
     page.goto(server.base_url() + "/health")
+    _open_health_rows(page)
     page.wait_for_selector(CHART_AREA)
     seen = {}
     for theme in UI_THEMES_EXPLICIT:
@@ -254,9 +264,11 @@ def test_the_charts_area_mark_and_threshold_paint_real_tokens_in_both_themes(pag
         swatch = page.evaluate(
             "s => getComputedStyle(document.querySelector(s)).backgroundColor",
             CHART_SWATCH)
+        # The chart sits in a card-less wrapper inside a row, so the surface it is composited
+        # over is the rows card's own.
         card = page.evaluate(
             "() => getComputedStyle(document.querySelector("
-            "'.battery-trend-section')).backgroundColor")
+            "'.health-rows')).backgroundColor")
         for name, paint, prop in (
                 ("area", area, "fill"), ("line", line, "stroke"),
                 ("mark", mark, "fill"), ("threshold", threshold, "fill")):
@@ -334,6 +346,7 @@ def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(
             context.add_cookies([{
                 "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
             page.goto(base_url + "/health")
+            _open_health_rows(page)
             page.wait_for_selector(CHART_LEGEND)
             message = _assert_no_page_overflow(
                 page, "/health in %s" % lang, VIEWPORT_MIN_SUPPORTED["width"])
@@ -350,7 +363,7 @@ def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(
                 "          text: legend.textContent.trim(),"
                 "          font: getComputedStyle(legend).fontSize,"
                 "          swatch: r(document.querySelector('.sparkline-swatch')),"
-                "          card: r(document.querySelector('.battery-trend-section')),"
+                "          card: r(document.querySelector('#health-row-battery .health-row__body')),"
                 "          grid: r(document.querySelector('.sparkline')),"
                 "          canvas: r(document.querySelector('.sparkline__canvas')),"
                 "          mark: r(document.querySelector('.sparkline-mark')),"
@@ -430,6 +443,7 @@ def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(
     # the theme+no-JS combination most likely to be wrong.
     with _no_js_page(new_context, server.base_url(), "/health",
                      viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
+        _open_health_rows(blocked)
         for label, selector in (("area", CHART_AREA), ("mark", CHART_MARK),
                                 ("threshold", CHART_THRESHOLD),
                                 ("legend", CHART_LEGEND)):
@@ -451,41 +465,7 @@ def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(
                     "default" % (UI_THEMES_EXPLICIT[1], label, paint["svg_default"]))
 
 
-# The day band.
-#
-# This group owns its own server, the only reason it costs a second subprocess: the shared
-# `server` fixture's device_health rows are all before SEED_BASE_TS, so on any real wall
-# clock the band's own Paris day holds nothing to measure, and seeding today's rows into
-# `server` itself would hand the battery chart's checks an unexpected extra day bucket.
-#
-# The seeded hours are fixed Paris clock positions, deliberately including some in the
-# future relative to the wall clock when this runs: the band is a picture of a day, midnight
-# to midnight, and seeding by "hours before now" would make the mark count depend on when
-# the suite happened to run.
-
-BAND_SEED_PARIS_HOURS = (2, 8, 12, 18, 22)
-BAND_MARK = ".drawing-band-mark"
-BAND_FRAME = ".drawing-band"
-BAND_SPAN = ".drawing-band-span"
-BAND_SECTION = ".day-band"
-# The shaded span and the band's own surface are the same token at two strengths, so this
-# floor is what says the shaded share in style.css is doing something rather than sitting
-# under everything decoratively.
-BAND_SPAN_MIN_CONTRAST = 1.15
-# The band's own frame against the card behind it. Faint by design (it is the day, not the
-# data), but a frame nobody can see is a band with no extent.
-BAND_FRAME_MIN_CONTRAST = 1.05
-# A mark crossing the shaded span is where most of a night's check-ins land, and currentColor
-# is what is meant to keep it readable there; the shipped ratio is far above this floor, so
-# it asserts a property rather than a coincidence.
-BAND_MARK_MIN_CONTRAST = 4.5
-# The height .day-band declares: a CSS-only value with no Python constant behind it, which
-# made it invisible to earlier checks until a mutation found it. Removing
-# `--drawing-canvas-height: 24px` does not overflow, move a mark or change a colour — the
-# canvas simply takes .drawing__canvas's 160px default and the day renders as a much taller
-# block, so this asserts the height directly.
-BAND_CANVAS_HEIGHT_PX = 24.0
-
+# Colour helpers shared by the grid check below.
 
 def _band_rgba(text):
     """(r, g, b) 0-255 and alpha, from either of the two forms Chromium answers with.
@@ -512,281 +492,11 @@ def _band_over(fg_text, bg_text):
         int(round(alpha * f + (1 - alpha) * b)) for f, b in zip(fg, bg))
 
 
-def _seed_band(state_dir):
-    seed_state_dir(state_dir)
-    today = datetime.now(layout.LOCAL_TZ).date()
-    midnight = datetime.combine(today, datetime.min.time(), tzinfo=layout.LOCAL_TZ)
-    with history_db.open_db(state_dir) as conn:
-        for hour in BAND_SEED_PARIS_HOURS:
-            history_db.record_device_health(
-                conn, (midnight + timedelta(hours=hour)).isoformat(), battery_mv=3800)
-
-
-@pytest.fixture(scope="module")
-def band_server(module_app_server_factory):
-    """One Paris day's worth of seeded check-ins, shared read-only by the day-band checks
-    and the hero checks.
-    """
-    return module_app_server_factory(seed=_seed_band, fake_providers=True)
-
-
-def test_the_day_bands_frame_span_and_marks_paint_real_tokens_in_both_themes(page, band_server):
-    """The day band's frame, shaded span and check-in marks each resolve to a real theme
-    token in both themes and never the SVG default, all three move when the theme does, the
-    span clears a 1.15:1 floor against the band's own surface (they are one token at two
-    strengths, so "not the default" says nothing about whether they can be told apart), the
-    frame clears 1.05:1 against its card so an empty day is not literally nothing, and a
-    mark crossing the span, which is where a night's check-ins land and the fixture is
-    asserted to produce one, clears 4.5:1 over it.
-    """
-    _login(page, band_server.base_url())
-    page.goto(band_server.base_url() + layout.HEALTH_ROUTE)
-    page.wait_for_selector(BAND_SECTION)
-    if page.locator(BAND_MARK).count() != len(BAND_SEED_PARIS_HOURS):
-        raise AssertionError(
-            "expected %d marks from the seeded day, got %d — with a "
-            "different number every paint read below is measuring "
-            "something other than what was seeded"
-            % (len(BAND_SEED_PARIS_HOURS), page.locator(BAND_MARK).count()))
-    if page.locator(BAND_SPAN).count() != 2:
-        raise AssertionError(
-            "expected the fixture's 23:00-07:00 quiet hours as TWO spans, "
-            "got %d" % (page.locator(BAND_SPAN).count(),))
-    seen = {}
-    for theme in UI_THEMES_EXPLICIT:
-        _set_ui_theme(page, theme)
-        frame = _computed_paint(page, BAND_FRAME, ("fill",))
-        span = _computed_paint(page, BAND_SPAN, ("fill",))
-        mark = _computed_paint(page, BAND_MARK, ("fill",))
-        card = page.evaluate(
-            "s => getComputedStyle(document.querySelector(s))"
-            ".backgroundColor", BAND_SECTION)
-        for name, paint in (("frame", frame), ("span", span), ("mark", mark)):
-            if paint["svg_default"]:
-                raise AssertionError(
-                    "in %s the band's %s resolves %r to the SVG default "
-                    "(%r) — it inherited no colour at all and is black in "
-                    "both themes" % (theme, name, paint["svg_default"], paint["fill"]))
-        frame_hex = _band_over(frame["fill"], card)
-        span_hex = _band_over(span["fill"], card)
-        mark_hex = _band_over(mark["fill"], card)
-        card_hex = _band_over(card, card)
-        # THE THREE STATEMENTS MUST BE THREE. The frame is the day, the
-        # span is a window the device honours, a mark is something that
-        # happened — and the first two are the same token at two
-        # strengths, so "not the default" says nothing at all about
-        # whether they are distinguishable.
-        frame_ratio = contrast_ratio(frame_hex, card_hex)
-        if frame_ratio < BAND_FRAME_MIN_CONTRAST:
-            raise AssertionError(
-                "in %s the band's frame composites to %s over the card's "
-                "%s for %.3f:1, under this check's %.2f:1 floor — a frame "
-                "nobody can see gives the band no extent, and an empty "
-                "day would render as literally nothing"
-                % (theme, frame_hex, card_hex, frame_ratio, BAND_FRAME_MIN_CONTRAST))
-        span_ratio = contrast_ratio(span_hex, frame_hex)
-        if span_ratio < BAND_SPAN_MIN_CONTRAST:
-            raise AssertionError(
-                "in %s the shaded span (%s) and the band's own surface "
-                "(%s) differ by only %.3f:1, under this check's %.2f:1 "
-                "floor — quiet hours would be shaded and invisible, which "
-                "is the whole of what the span is for"
-                % (theme, span_hex, frame_hex, span_ratio, BAND_SPAN_MIN_CONTRAST))
-        mark_ratio = contrast_ratio(mark_hex, span_hex)
-        if mark_ratio < BAND_MARK_MIN_CONTRAST:
-            raise AssertionError(
-                "in %s a mark (%s) over the shaded span (%s) is %.3f:1, "
-                "under this check's %.2f:1 floor — most of a night's "
-                "check-ins land inside that span, and currentColor is "
-                "what is meant to keep them readable there"
-                % (theme, mark_hex, span_hex, mark_ratio, BAND_MARK_MIN_CONTRAST))
-        seen[theme] = {"frame": frame["fill"], "span": span["fill"],
-                       "mark": mark["fill"], "card": card,
-                       "frame_ratio": frame_ratio, "span_ratio": span_ratio,
-                       "mark_ratio": mark_ratio}
-    first, second = UI_THEMES_EXPLICIT
-    for name in ("frame", "span", "mark", "card"):
-        if seen[first][name] == seen[second][name]:
-            raise AssertionError(
-                "the band's %s resolves to %r in BOTH %s and %s — the "
-                "theme token is not reaching it, and every assertion "
-                "above has been comparing a value to itself"
-                % (name, seen[first][name], first, second))
-    # A mark really does cross a span in this fixture, so the contrast
-    # assertion above is about a case that occurs rather than a
-    # hypothetical one.
-    crossing = page.evaluate(
-        "() => { const r = el => el.getBoundingClientRect();"
-        "  const spans = [...document.querySelectorAll('%s')].map(r);"
-        "  return [...document.querySelectorAll('%s')].map(r).filter("
-        "    m => spans.some(s => m.left >= s.left && m.right <= s.right)"
-        "  ).length; }" % (BAND_SPAN, BAND_MARK))
-    if not crossing:
-        raise AssertionError(
-            "no seeded mark falls inside a shaded span, so the "
-            "mark-over-span contrast assertion above measured a case "
-            "this fixture never produces — seed a check-in inside the "
-            "23:00-07:00 window")
-
-
-def test_the_day_band_is_a_real_drawing_at_360px_in_both_languages_without_script(new_context, band_server):
-    """At the 360px floor the day band is a real drawing in both languages: the page body
-    does not scroll sideways, every mark renders at least the 2px draw.py declares (a mark
-    emitted in absolute pixels into a CSS-sized canvas has nothing in the markup guaranteeing
-    it survives to paint), every mark and span stays inside the canvas, the minimum mark
-    spacing re-derived from the canvas's measured width still buys the 4px its comment
-    claims, the three hour labels sit at the band's own left edge, midpoint and right edge,
-    the canvas is the same width in both languages, and the whole band plus its two shaded
-    spans still render and still paint dark-mode tokens with scripts blocked.
-    """
-    base_url = band_server.base_url()
-    widths = {}
-    for lang in ("en", "fr"):
-        context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
-        try:
-            page = context.new_page()
-            _login(page, base_url)
-            context.add_cookies([{
-                "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
-            page.goto(base_url + layout.HEALTH_ROUTE)
-            page.wait_for_selector(BAND_SECTION)
-            message = _assert_no_page_overflow(
-                page, "%s in %s" % (layout.HEALTH_ROUTE, lang),
-                VIEWPORT_MIN_SUPPORTED["width"])
-            if message:
-                raise AssertionError(message)
-            boxes = page.evaluate(
-                "() => { const r = el => { const b ="
-                " el.getBoundingClientRect(); return {l: b.left, t: b.top,"
-                " r: b.right, b: b.bottom, w: b.width, h: b.height}; };"
-                "  return {canvas: r(document.querySelector("
-                "'%s .drawing__canvas')),"
-                "          section: r(document.querySelector('%s')),"
-                "          hours: [...document.querySelectorAll("
-                "'.day-band__hours span')].map(r),"
-                "          marks: [...document.querySelectorAll('%s')].map(r),"
-                "          spans: [...document.querySelectorAll('%s')].map(r)"
-                "  }; }" % (BAND_SECTION, BAND_SECTION, BAND_MARK, BAND_SPAN))
-            canvas = boxes["canvas"]
-            widths[lang] = canvas["w"]
-            if abs(canvas["h"] - BAND_CANVAS_HEIGHT_PX) > 0.5:
-                raise AssertionError(
-                    "in %s the band's canvas is %.2fpx tall, not the %.2fpx "
-                    ".day-band declares — at .drawing__canvas's own 160px "
-                    "default the day renders as a block rather than a band, "
-                    "which overflows nothing and shows up nowhere else"
-                    % (lang, canvas["h"], BAND_CANVAS_HEIGHT_PX))
-
-            # The measurement unique to this drawing, catching a band that is structurally
-            # perfect and visually empty: a mark is emitted with an absolute pixel width into
-            # a canvas sized by CSS, so nothing in the markup guarantees it survives to paint.
-            if len(boxes["marks"]) != len(BAND_SEED_PARIS_HOURS):
-                raise AssertionError(
-                    "in %s expected %d marks, got %d"
-                    % (lang, len(BAND_SEED_PARIS_HOURS), len(boxes["marks"])))
-            for index, mark in enumerate(boxes["marks"]):
-                if mark["w"] < draw.DAY_BAND_MARK_WIDTH_PX - 0.01:
-                    raise AssertionError(
-                        "in %s at 360px mark %d renders %.2fpx wide, under "
-                        "the %dpx draw.py declares — a mark thinner than the "
-                        "ink it asks for is a mark the reader cannot see"
-                        % (lang, index, mark["w"], draw.DAY_BAND_MARK_WIDTH_PX))
-                if mark["h"] < 1:
-                    raise AssertionError(
-                        "in %s at 360px mark %d is %.2fpx tall" % (lang, index, mark["h"]))
-                if (mark["l"] < canvas["l"] - 0.01
-                        or mark["r"] > canvas["r"] + 0.01):
-                    raise AssertionError(
-                        "in %s at 360px mark %d (%.2f..%.2f) escapes the "
-                        "canvas (%.2f..%.2f) — the marks are centred on "
-                        "their instants precisely so a 23:5x check-in's ink "
-                        "stays on the band"
-                        % (lang, index, mark["l"], mark["r"], canvas["l"], canvas["r"]))
-            for index, span in enumerate(boxes["spans"]):
-                if (span["l"] < canvas["l"] - 0.01
-                        or span["r"] > canvas["r"] + 0.01):
-                    raise AssertionError(
-                        "in %s at 360px shaded span %d (%.2f..%.2f) escapes "
-                        "the canvas (%.2f..%.2f)"
-                        % (lang, index, span["l"], span["r"], canvas["l"], canvas["r"]))
-
-            # The spacing constant, re-derived from the real width: draw.py's own comment
-            # records an arithmetic of 4px centre to centre, so two 2px marks keep clear
-            # ground between them. This is the assertion that stops the estimate and the
-            # layout drifting apart: whatever the canvas measures, the minimum spacing must
-            # still buy the 4px.
-            spacing_px = (draw.DAY_BAND_MIN_MARK_SPACING_PERCENT / 100.0 * canvas["w"])
-            if spacing_px < 2 * draw.DAY_BAND_MARK_WIDTH_PX:
-                raise AssertionError(
-                    "in %s the canvas measures %.2fpx, so draw.py's %.2f%% "
-                    "minimum spacing is %.2fpx centre to centre — under the "
-                    "%dpx two %dpx marks need to keep a clear pixel between "
-                    "them. The constant's derivation and this layout have "
-                    "drifted apart"
-                    % (lang, canvas["w"], draw.DAY_BAND_MIN_MARK_SPACING_PERCENT,
-                       spacing_px, 2 * draw.DAY_BAND_MARK_WIDTH_PX,
-                       draw.DAY_BAND_MARK_WIDTH_PX))
-
-            # The hour labels are placed by the same scale the marks are: first flush left,
-            # last flush right, middle centred. A row that lost its flex context would stack
-            # them at the left and silently mislabel the whole band.
-            hours = boxes["hours"]
-            if len(hours) != 3:
-                raise AssertionError(
-                    "in %s expected three hour labels, got %d" % (lang, len(hours)))
-            if abs(hours[0]["l"] - canvas["l"]) > 1.5:
-                raise AssertionError(
-                    "in %s the 00:00 label starts at %.2f, not the canvas's "
-                    "own left edge %.2f" % (lang, hours[0]["l"], canvas["l"]))
-            if abs(hours[2]["r"] - canvas["r"]) > 1.5:
-                raise AssertionError(
-                    "in %s the 24:00 label ends at %.2f, not the canvas's "
-                    "own right edge %.2f" % (lang, hours[2]["r"], canvas["r"]))
-            middle = (hours[1]["l"] + hours[1]["r"]) / 2
-            centre = (canvas["l"] + canvas["r"]) / 2
-            if abs(middle - centre) > 2.0:
-                raise AssertionError(
-                    "in %s the 12:00 label centres at %.2f, not the band's "
-                    "own midpoint %.2f — the labels and the marks are placed "
-                    "by two different scales" % (lang, middle, centre))
-            if hours[0]["l"] < boxes["section"]["l"] or (
-                    hours[2]["r"] > boxes["section"]["r"]):
-                raise AssertionError("in %s the hour labels escape their own section" % (lang,))
-        finally:
-            context.close()
-    if abs(widths["en"] - widths["fr"]) > 0.01:
-        raise AssertionError(
-            "the band's canvas measures %.2fpx in English and %.2fpx in "
-            "French — the drawing's width must not depend on the copy beside "
-            "it" % (widths["en"], widths["fr"]))
-
-    # Server-rendered SVG owes nothing to a script, measured in the theme+no-JS combination
-    # most likely to be wrong.
-    with _no_js_page(new_context, base_url, layout.HEALTH_ROUTE,
-                     viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
-        for label, selector, expected in (
-                ("frame", BAND_FRAME, 1),
-                ("shaded span", BAND_SPAN, 2),
-                ("mark", BAND_MARK, len(BAND_SEED_PARIS_HOURS))):
-            if blocked.locator(selector).count() != expected:
-                raise AssertionError(
-                    "with scripts blocked: expected %d %s, got %d"
-                    % (expected, label, blocked.locator(selector).count()))
-        _set_ui_theme(blocked, UI_THEMES_EXPLICIT[1])
-        for label, selector in (("frame", BAND_FRAME), ("span", BAND_SPAN), ("mark", BAND_MARK)):
-            paint = _computed_paint(blocked, selector, ("fill",))
-            if paint["svg_default"]:
-                raise AssertionError(
-                    "with scripts blocked, in %s: the band's %s resolves %r "
-                    "to the SVG default"
-                    % (UI_THEMES_EXPLICIT[1], label, paint["svg_default"]))
-
-
 # The regularity grid.
 #
-# Its own server, for the day band's reason and one more: the shared `server` fixture's
-# newest device_health row is 40 days before SEED_BASE_TS, so on any real wall clock the
-# grid's 30-day window would hold nothing and every cell would be the no-observation state.
+# Its own server: the shared `server` fixture's newest device_health row is 40 days before
+# SEED_BASE_TS, so on any real wall clock the grid's 30-day window would hold nothing and every
+# cell would be the no-observation state.
 #
 # The fixture has to be dense, a property of the drawing rather than a convenience: a day is
 # judged by its longest observed gap, so a day cannot read "on cadence" unless it is covered
@@ -877,6 +587,7 @@ def test_the_grids_four_states_stay_four_states_in_both_themes(page, grid_server
     """
     _login(page, grid_server.base_url())
     page.goto(grid_server.base_url() + "/health")
+    _open_health_rows(page)
     page.wait_for_selector(GRID_SELECTOR)
     counts = {cls: page.locator(".%s" % cls).count() for cls in GRID_STATE_CLASSES}
     # Every one of the four states must actually be on this page, or the measurements below
@@ -894,7 +605,7 @@ def test_the_grids_four_states_stay_four_states_in_both_themes(page, grid_server
         _set_ui_theme(page, theme)
         card = page.evaluate(
             "s => getComputedStyle(document.querySelector(s)"
-            ".closest('section')).backgroundColor", GRID_SELECTOR)
+            ".closest('.health-rows')).backgroundColor", GRID_SELECTOR)
         resolved = {}
         for cls in GRID_STATE_CLASSES:
             cell = _computed_paint(page, "rect.%s" % cls, ("fill",))
@@ -976,7 +687,7 @@ def test_the_grid_is_a_real_drawing_at_360px_in_both_languages_without_script(ne
         "  const wrap = document.querySelector('%s');"
         "  const svg = wrap.querySelector('svg');"
         "  const vb = svg.viewBox.baseVal;"
-        "  const card = wrap.closest('section');"
+        "  const card = wrap.closest('.health-row__body');"
         "  const cs = getComputedStyle(card);"
         "  return {"
         "    wrap: r(wrap), svg: r(svg), card: r(card),"
@@ -1002,6 +713,7 @@ def test_the_grid_is_a_real_drawing_at_360px_in_both_languages_without_script(ne
             context.add_cookies([{
                 "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
             page.goto(base_url + "/health")
+            _open_health_rows(page)
             page.wait_for_selector(GRID_SELECTOR)
             message = _assert_no_page_overflow(
                 page, "/health in %s" % lang, VIEWPORT_MIN_SUPPORTED["width"])
@@ -1014,7 +726,7 @@ def test_the_grid_is_a_real_drawing_at_360px_in_both_languages_without_script(ne
             # measurement and the constant are compared here rather than trusted in parallel.
             if abs(seen["cardInner"] - draw.CARD_DRAWING_WIDTH_PX) > 0.51:
                 raise AssertionError(
-                    "in %s a Health card's content box measures %.2fpx at "
+                    "in %s a Health row body's content box measures %.2fpx at "
                     "the 360px floor, against the %dpx "
                     "draw.CARD_DRAWING_WIDTH_PX records — every cell size "
                     "derived from that constant is derived from a number "
@@ -1135,6 +847,7 @@ def test_the_grid_is_a_real_drawing_at_360px_in_both_languages_without_script(ne
     # complete, so this is the same drawing with the same colours and not a reduced one.
     with _no_js_page(new_context, base_url, "/health",
                      viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
+        _open_health_rows(blocked)
         blocked.wait_for_selector(GRID_SELECTOR)
         _set_ui_theme(blocked, UI_THEMES_EXPLICIT[1])
         if blocked.locator(GRID_CELL).count() != health_page.CHECK_IN_WINDOW_DAYS:
@@ -1169,6 +882,7 @@ def test_the_grid_is_a_real_drawing_at_360px_in_both_languages_without_script(ne
             page = context.new_page()
             _login(page, base_url)
             page.goto(base_url + "/health")
+            _open_health_rows(page)
             page.wait_for_selector(GRID_SELECTOR)
             message = _assert_no_page_overflow(page, "/health at %dpx" % width, width)
             if message:
@@ -1190,7 +904,7 @@ def test_the_grid_is_a_real_drawing_at_360px_in_both_languages_without_script(ne
                 if len(tops) != 1:
                     raise AssertionError(
                         "at %dpx the key's four items sit on %d lines (%r) "
-                        "— there is 830px of card and nothing to wrap for"
+                        "— there is 700px of row body and nothing to wrap for"
                         % (width, len(tops), sorted(tops)))
                 for word, swatch in zip(seen["keyLabels"], seen["swatches"][1:]):
                     gap = swatch["l"] - word["r"]
@@ -1226,6 +940,7 @@ def _open_status(context, base_url, lang):
     _login(page, base_url)
     context.add_cookies([{"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
     page.goto(base_url + "/health")
+    _open_health_rows(page)
     page.wait_for_selector(".battery-unit:not([hidden])")
     return page
 
@@ -1300,8 +1015,7 @@ def test_the_battery_unit_switch_changes_chart_and_readout_by_keyboard_and_point
             page, "/health unit switch %s %s" % (width_label, lang), viewport["width"])
         if message:
             raise AssertionError(message)
-        assert page.locator(".day-band").count() == 1
-        assert page.locator(".battery-trend-section .day-band").count() == 0
+        assert page.locator(".day-band").count() == 0, "Health carries no day band"
         assert "3 months" not in page.inner_text("main") and "3 mois" not in page.inner_text("main")
         if viewport["width"] < 960:
             box = page.locator(".tab-bar").bounding_box()
@@ -1328,30 +1042,68 @@ def test_the_battery_unit_switch_works_by_touch(new_context, server):
 def test_the_battery_chart_stays_on_voltage_without_script(new_context, server):
     """With scripts blocked the control is not offered and the voltage chart stays visible."""
     with _no_js_page(new_context, server.base_url(), "/health") as page:
+        _open_health_rows(page)
         assert page.is_hidden(".battery-unit")
         assert page.is_visible('.battery-chart__view[data-unit="mv"] .sparkline__canvas')
         assert page.is_hidden('.battery-chart__view[data-unit="percent"]')
 
 
-@pytest.mark.parametrize("lang", ("en", "fr"))
-def test_status_keeps_a_readable_width_and_leads_with_the_result(new_context, server, lang):
-    """On a wide screen the Status content stays within a readable measure, and a tile's
-    current result is set larger and heavier than its supporting detail."""
-    context = new_context(viewport=VIEWPORT_DESKTOP)
+@pytest.mark.parametrize("width", (1280, 1024, 960, 700, 390, 360))
+def test_health_cards_share_one_width_and_every_row_aligns(new_context, server, width):
+    """Every card on Health spans the same column: the rows card, the unresolved-prefix card and the
+    docked toast share their left and right edges at every viewport (no per-element width cap), the
+    group bands span their card, and every row's icon, name, verdict and value columns line up
+    from one row to the next, with nothing overflowing sideways."""
+    context = new_context(viewport={"width": width, "height": 900})
     try:
-        page = _open_status(context, server.base_url(), lang)
-        measure = page.evaluate(
-            "() => { const w = document.querySelector('.status-page .dashboard-grid')"
-            ".getBoundingClientRect().width;"
-            " const c = document.querySelector('.battery-trend-section').getBoundingClientRect().width;"
-            " const m = document.querySelector('.dashboard-main').getBoundingClientRect().width;"
-            " return [w, c, m]; }")
-        assert measure[0] <= 760.5 and measure[1] <= 760.5 and measure[0] < measure[2]
-        sizes = page.evaluate(
-            "() => { const v = document.querySelector('.status-page .stat-tile .widget-verdict');"
-            " const d = document.querySelector('.status-page .stat-tile .widget-detail');"
-            " return [parseFloat(getComputedStyle(v).fontSize), parseFloat(getComputedStyle(d).fontSize),"
-            " parseInt(getComputedStyle(v).fontWeight, 10)]; }")
-        assert sizes[0] > sizes[1] and sizes[2] >= 600
+        page = _open_status(context, server.base_url(), "fr")
+        edges = page.evaluate(
+            "() => { const e = s => { const b = document.querySelector(s).getBoundingClientRect();"
+            " return [Math.round(b.left * 10) / 10, Math.round(b.right * 10) / 10]; };"
+            " return {rows: e('.health-rows'), registry: e('#unresolved-prefixes'),"
+            " page: e('.status-page'),"
+            " bands: [...document.querySelectorAll('.health-rows__group')].map("
+            "   g => { const b = g.getBoundingClientRect();"
+            "     return [Math.round(b.left * 10) / 10, Math.round(b.right * 10) / 10]; }),"
+            " toasts: [...document.querySelectorAll('.status-page > .toast')].map("
+            "   t => { const b = t.getBoundingClientRect();"
+            "     return [Math.round(b.left * 10) / 10, Math.round(b.right * 10) / 10]; })}; }")
+        assert edges["rows"] == edges["registry"] == edges["page"], (
+            "the rows card, the registry card and the page column must share one width, got %r" % (edges,))
+        inner = [edges["rows"][0] + 1, edges["rows"][1] - 1]  # inside the card's 1px hairline
+        for band in edges["bands"]:
+            assert band == inner, "a group band must span its card, got %r vs %r" % (band, inner)
+        for toast in edges["toasts"]:
+            assert toast == edges["rows"], "a toast must share the card width, got %r" % (toast,)
+        columns = page.evaluate(
+            "() => [...document.querySelectorAll('.health-row__summary')].map(s => {"
+            " const r = c => { const el = s.querySelector(c);"
+            "   const b = el.getBoundingClientRect();"
+            "   return [Math.round(b.left * 10) / 10, Math.round(b.right * 10) / 10,"
+            "           Math.round(b.top * 10) / 10]; };"
+            " return {icon: r('.health-row__icon'), name: r('.health-row__name'),"
+            "   verdict: r('.health-row__verdict'), value: r('.health-row__value'),"
+            "   nameHeight: s.querySelector('.health-row__name').getBoundingClientRect().height,"
+            "   box: s.getBoundingClientRect().height}; })")
+        assert len(columns) >= 5
+        # The value column is right-aligned on the wide layout, so only its right edge is shared.
+        left_aligned = ("icon", "name", "verdict") if width >= 700 else ("icon", "name", "verdict", "value")
+        for key in left_aligned:
+            lefts = {row[key][0] for row in columns}
+            assert len(lefts) == 1, "the %s column's left edge differs from row to row: %r" % (key, lefts)
+        if width >= 700:
+            rights = {row["value"][1] for row in columns}
+            assert len(rights) == 1, "the value column's right edge differs from row to row: %r" % (rights,)
+        else:
+            for row in columns:
+                assert row["name"][2] < row["verdict"][2] < row["value"][2], (
+                    "on a phone the name, verdict and value stack in that order, got %r" % (row,))
+        for row in columns:
+            assert row["nameHeight"] <= 20, (
+                "a row name wraps onto a second line (%.1fpx tall) at %dpx" % (row["nameHeight"], width))
+            assert row["box"] >= 64 - 0.5, "a row is at least 64px tall (8px grid), got %.1f" % row["box"]
+        message = _assert_no_page_overflow(page, "/health rows at %dpx" % width, width)
+        if message:
+            raise AssertionError(message)
     finally:
         context.close()

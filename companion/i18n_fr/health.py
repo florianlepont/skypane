@@ -62,13 +62,11 @@ MESSAGES = {
     "health.waiting": "en attente…",
 
     # --- Page header / purpose / freshness (health_page.py) -----------
-    "health.screen_status_and_server_data_quality_in_one":
-        "L’état de l’écran et la qualité des données du serveur, au même endroit.",
     "health.updating": "Mise à jour…",
 
     # --- Anomaly banner --------------------------------------------
     "health.something_needs_attention_check_the_tiles_below":
-        "Quelque chose nécessite votre attention — consultez les tuiles ci-dessous.",
+        "Quelque chose nécessite votre attention — consultez les lignes ci-dessous.",
     "health.warning": "avertissement",
     "health.error": "erreur",
     "health.issue": "problème",
@@ -88,15 +86,9 @@ MESSAGES = {
         "configurée (%s) n’a répondu lors du dernier passage du pipeline — "
         "il s’agit d’une panne de source de données, pas d’un problème matériel.",
 
-    # --- Device / Pipeline / Corroboration tiles ------------------------
-    "health.device_last_checked_in": "Dernière connexion de l’appareil",
+    # --- Frame connection / flight data / sources rows ------------------
     "health.device_connection_help":
         "Moment où le cadre a contacté le serveur pour la dernière fois.",
-    "health.flight_data_last_updated": "Dernière mise à jour des données de vol",
-    "health.ads_b_pipeline_last_ran": "Dernière exécution du pipeline ADS-B",
-    "health.do_the_two_data_sources_agree": "Les deux sources de données concordent-elles ?",
-    "health.corroboration": "Corroboration",
-    "health.source_comparison_help": "Comprendre ce résultat",
     "health.last_aircraft_detected": "Dernier avion détecté",
     "health.checking_in_normally": "Se connecte normalement",
     "health.has_not_checked_in_for_a_while": "N’a pas répondu depuis un moment",
@@ -113,7 +105,7 @@ MESSAGES = {
         "Le cadre n’a signalé aucun vol depuis son démarrage.",
     "health.sources_agree": "Les sources concordent",
     "health.sources_disagreed_recently": "Les sources se sont contredites récemment",
-    "health.nothing_to_compare_yet": "Rien à comparer pour l’instant.",
+    "health.nothing_to_compare_yet": "Rien à comparer pour l’instant",
     "health.this_appears_once_the_frame_has_recorded_at":
         "Ceci apparaît une fois que le cadre a enregistré au moins un vol.",
     "health.more_details": "Plus de détails",
@@ -130,10 +122,7 @@ MESSAGES = {
         "Les deux sources ont identifié des avions différents, donc rien "
         "n’a été affiché ce cycle — l’écran a conservé l’image précédente.",
 
-    # --- Resolution-rate tile --------------------------------------------
-    "health.flights_we_could_name": "Vols que nous avons pu identifier",
-    "health.route_resolution_rate": "Taux de résolution des trajets",
-    "health.1f_resolved": "%.1f %% résolus",
+    # --- Flight identification row ---------------------------------------
     "health.over_the_last_days_events": "au cours des %d derniers jours, %d événements",
     # The singular sibling of the line above. A window holding
     # exactly one detection reads "1 events" in English and
@@ -165,14 +154,39 @@ MESSAGES = {
     "health.battery_mv": "Batterie (mV)",
     "health.view_reading": "Voir %d relevé%s",
 
-    # --- Screen / Server & data section intros ---------------------------
+    # --- Health rows (companion/health_rows.py, health_page.py) ----------
+    # The four state words are spoken, never shown: each row's icon shape
+    # carries the state visually.
+    "health.row_state_ok": "Normal",
+    "health.row_state_warn": "À surveiller",
+    "health.row_state_error": "Problème",
+    "health.row_state_off": "Neutre",
+    "health.row_connection": "Connexion du cadre",
+    "health.row_battery": "Batterie",
+    "health.row_flight_data": "Données de vol",
+    "health.row_sources": "Sources de données",
+    "health.row_battery_ok": "Niveau normal",
+    "health.row_battery_warn": "Baisse plus rapide que prévu",
+    "health.row_backup_ok": "À jour",
+    "health.row_backup_warn": "En retard",
+    "health.row_no_readings": "Aucun relevé pour l’instant",
+    "health.row_no_check_in": "Aucune connexion pour l’instant",
+    "health.row_unavailable": "Indisponible",
+    "health.row_last_check_in": "Dernière connexion",
+    "health.row_next_wake": "Prochain réveil",
+    "health.row_last_run": "Dernière exécution",
+    # Real U+00A0 between each figure and its unit or sign.
+    "health.row_battery_value": "%d\u00a0%% · %d\u00a0mV",
+    "health.row_no_disagreement": "Aucun désaccord",
+    "health.row_one_disagreement": "1\u00a0désaccord",
+    "health.row_n_disagreements": "%d\u00a0désaccords",
+    "health.row_identified": "%s\u00a0%% des vols identifiés",
+    "health.row_to_resolve": "%d à résoudre",
+    "health.row_nothing_to_resolve": "Rien à résoudre",
+
+    # --- Screen / Server & data group headings ---------------------------
     "health.screen": "Écran",
-    "health.the_physical_frame_is_it_checking_in_and_how_s":
-        "— le cadre physique : se connecte-t-il, et comment va la batterie.",
     "health.server_data": "Serveur et données",
-    "health.the_ads_b_pipeline_and_route_resolution_is_the":
-        "— le pipeline ADS-B et la résolution des trajets : "
-        "données fiables ?",
 
     # --- Unresolved-prefix registry / filter bar --------------------------
     "health.airlines_we_could_not_name": "Compagnies non identifiées",
@@ -287,8 +301,6 @@ MESSAGES = {
 
     # --- Off-box backup card --------------------------------------
     "health.off_box_backup": "Sauvegarde hors serveur",
-    "health.off_box_backup_up_to_date": "Sauvegarde hors serveur à jour",
-    "health.off_box_backup_overdue": "Sauvegarde hors serveur en retard",
     "health.last_off_box_backup": "Dernière sauvegarde hors serveur",
     # A real U+00A0 between the number and "jours".
     "health.no_off_box_backup_in_the_last_3_days":

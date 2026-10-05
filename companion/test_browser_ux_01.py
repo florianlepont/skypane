@@ -15,7 +15,8 @@ from server import device_config
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE,
     _bar_text, _click_control, _commit_field,
-    _guard_armed, _login, _no_js_page, _save_via_bar, _wait_for_bar, _wait_for_bar_hidden, seed_state_dir,
+    _guard_armed, _login, _no_js_page, _open_health_rows, _save_via_bar, _wait_for_bar,
+    _wait_for_bar_hidden, seed_state_dir,
 )
 
 pytestmark = pytest.mark.browser
@@ -278,34 +279,42 @@ def test_airlines_filter_bar_is_a_16px_search_pill_with_a_visible_quiet_count_at
 
 
 def test_the_no_js_floor_holds_for_health(new_context, server):
-    """With scripts blocked Health renders in full: all four tiles with their
-    label/verdict/detail slots each exactly once, the registry filter bar and Clear, the
-    unresolved-prefix rows, and a per-row Resolve action that actually navigates to the
-    Airlines resolve surface.
+    """With scripts blocked Health renders in full: all five rows with their icon/name/verdict/value
+    slots each exactly once and their evidence reachable through the native disclosure, the
+    registry filter bar and Clear, the unresolved-prefix rows, and a per-row Resolve action that
+    actually navigates to the Airlines resolve surface.
     """
     with _no_js_page(new_context, server.base_url(), "/health") as page:
-        tiles = page.eval_on_selector_all(".stat-tile", "els => els.length")
-        if tiles != 4:
+        rows = page.eval_on_selector_all("details.health-row", "els => els.length")
+        if rows != 5:
             raise AssertionError(
-                "expected all four Health tiles to render with scripts blocked, "
-                "got %d" % (tiles,))
-        # Every tile must be complete, not merely present.
+                "expected all five Health rows to render with scripts blocked, "
+                "got %d" % (rows,))
+        # Every row must be complete, not merely present.
         slots = page.eval_on_selector_all(
-            ".stat-tile",
+            "details.health-row",
             "els => els.map(el => ["
-            "  el.querySelectorAll(':scope > .stat-tile__caption').length,"
-            "  el.querySelectorAll("
-            "    ':scope > .widget-verdict, :scope > .stat-tile__value,"
-            "     :scope > .empty-state > .empty-state__heading').length,"
-            "  el.querySelectorAll("
-            "    ':scope > .widget-detail, :scope > .empty-state >"
-            "     .empty-state__body').length])")
+            "  el.querySelectorAll(':scope > summary > .health-row__icon').length,"
+            "  el.querySelectorAll(':scope > summary > .health-row__name').length,"
+            "  el.querySelectorAll(':scope > summary > .health-row__verdict').length,"
+            "  el.querySelectorAll(':scope > summary > .health-row__value').length,"
+            "  el.querySelectorAll(':scope > .health-row__body').length])")
         for index, slot in enumerate(slots):
-            if slot != [1, 1, 1]:
+            if slot != [1, 1, 1, 1, 1]:
                 raise AssertionError(
-                    "expected tile %d to render its label/verdict/detail slots "
+                    "expected row %d to render its icon/name/verdict/value/body slots "
                     "exactly once each with scripts blocked, got %r"
                     % (index, slot))
+        # The disclosure is the browser's own: a closed row's evidence appears when its summary
+        # is activated from the keyboard, with no script involved.
+        _open_health_rows(page)
+        hidden = page.eval_on_selector_all(
+            ".health-row__body",
+            "els => els.filter(el => el.getBoundingClientRect().height === 0).length")
+        if hidden:
+            raise AssertionError(
+                "expected every row body to be visible once its summary was activated with "
+                "scripts blocked, %d stayed empty" % (hidden,))
         if not page.query_selector(".filter-bar [data-filter-input]"):
             raise AssertionError("expected the registry filter bar with scripts blocked")
         if not page.query_selector("[data-filter-clear]"):

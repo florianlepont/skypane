@@ -4080,19 +4080,6 @@ a.airline-card {
   fill: currentColor;
 }
 
-/* 24px is a band, not a chart: it carries no y axis, every mark spans
- * its full height. Overrides --drawing-canvas-height's own default via
- * the wrapper, rather than a second specificity-fighting rule. */
-.day-band {
-  --drawing-canvas-height: 24px;
-}
-
-.day-band__hours {
-  display: flex;
-  justify-content: space-between;
-  margin-top: var(--space-xs);
-}
-
 /* A fourth state (--none), beyond the ok/warn/error trio: it carries
  * the ABSENCE of a measured interval, never a verdict, so it uses the
  * structural --color-border token rather than borrow a verdict colour.
@@ -4269,27 +4256,264 @@ a.airline-card {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* Status tiles, banners and the chart keep a readable measure on wide
- * screens; narrower viewports fill their column as before. Nested
- * sections hold multi-column tables that need the full column. */
-.status-page {
-  max-width: 100%;
+/* Health rows: one hairline card, a group band per section, one native
+ * <details> row per subsystem. The card is one width at every viewport
+ * (no max-width cap), and nothing on it lifts: the rows are read-only, so
+ * the only pointer response is a faint wash on the summary, which is the
+ * one control a row has. Colour comes from the three status tokens and
+ * never carries the state alone (each state has its own icon shape and a
+ * visually hidden word). The grid is on the 8px scale: a 32px icon, a
+ * 16px gutter, a 208px name column, a 64px row. */
+.health-rows {
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  margin-bottom: var(--space-lg);
 }
 
-/* The current result leads: larger and semibold, with the supporting
- * timestamp or explanation muted and small beneath it. */
-.status-page .stat-tile .widget-verdict {
-  font-size: var(--font-heading-size);
-  line-height: 1.25;
+/* The h2 keeps the page outline's two sections and the #screen /
+ * #server-data link targets; this rule gives it the label voice and takes
+ * it off the shared serif heading rule. */
+.health-rows__group {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-secondary);
+  border-bottom: 1px solid var(--color-border);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.status-page .stat-tile .widget-detail {
+.health-rows__group:first-child {
+  border-radius: calc(var(--radius-control) - 1px) calc(var(--radius-control) - 1px) 0 0;
+}
+
+.health-row {
+  --row-tone: color-mix(in srgb, var(--color-text) 50%, transparent);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.health-row:last-child {
+  border-bottom: 0;
+}
+
+.health-row[data-state="ok"] {
+  --row-tone: var(--color-status-ok);
+}
+
+.health-row[data-state="warn"] {
+  --row-tone: var(--color-status-warn);
+}
+
+.health-row[data-state="error"] {
+  --row-tone: var(--color-status-error);
+}
+
+/* A phone row stacks name over verdict over value beside the icon; the
+ * chevron is the shared summary marker, moved to the trailing edge. */
+.health-row__summary {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 16px;
+  grid-template-areas:
+    "icon name chevron"
+    "icon verdict chevron"
+    "icon value chevron";
+  column-gap: var(--space-md);
+  row-gap: var(--space-xs);
+  align-items: center;
+  min-height: 64px;
+  padding: var(--space-md);
+  color: var(--color-text);
+  font-weight: var(--weight-regular);
+}
+
+.health-row__summary::before {
+  grid-area: chevron;
+  justify-self: end;
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+}
+
+.health-row__summary:hover {
+  background: color-mix(in srgb, var(--color-text) 3.5%, transparent);
+}
+
+.health-row__summary:focus-visible {
+  outline-offset: -2px;
+}
+
+.health-row:last-child:not([open]) > .health-row__summary {
+  border-radius: 0 0 calc(var(--radius-control) - 1px) calc(var(--radius-control) - 1px);
+}
+
+.health-row__icon {
+  grid-area: icon;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--row-tone) 16%, transparent);
+  color: var(--row-tone);
+}
+
+.health-row__name {
+  grid-area: name;
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.health-row__verdict {
+  grid-area: verdict;
+  min-width: 0;
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+}
+
+.health-row__value {
+  grid-area: value;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
   font-size: var(--font-label-size);
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-@media (min-width: 960px) {
-  .status-page > :not(.page-section--nested) {
-    max-width: 760px;
+.health-row__ring {
+  display: inline-grid;
+  flex: none;
+  color: var(--color-text);
+}
+
+.health-row__body {
+  display: grid;
+  gap: var(--space-md);
+  min-width: 0;
+  padding: 0 var(--space-md) var(--space-md);
+}
+
+/* min-width: 0 on every direct child: a grid item's automatic minimum is
+ * its content's, and a table or chart inside would otherwise stretch the
+ * row past the card. */
+.health-row__body > * {
+  min-width: 0;
+  margin: 0;
+}
+
+.health-row__facts {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.health-row__facts > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.health-row__facts dt {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.health-row__facts dd {
+  margin: 0;
+}
+
+.health-row__note {
+  margin: 0;
+  font-size: var(--font-label-size);
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.health-row__subhead {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+}
+
+.health-row__outcomes {
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.health-row__outcome {
+  display: flex;
+  align-items: center;
+  margin: 0;
+}
+
+.health-row__outcome .mono {
+  margin-left: var(--space-sm);
+  font-weight: var(--weight-semibold);
+}
+
+/* The battery chart's wrapper keeps its class (the chart rules and
+ * battery-trend.js key off it) but is not a card here: the row is the
+ * container. Declared after the card's own hover rule at equal
+ * specificity, so it wins by position. */
+.battery-trend-section.battery-trend-section--embedded,
+.battery-trend-section.battery-trend-section--embedded:hover,
+.battery-trend-section.battery-trend-section--embedded:focus-within {
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* One elevation rule on this page: a hairline at rest and nothing else.
+ * The unresolved-prefix card keeps its filter and links, but the
+ * hover reveal that suits a browsable card is noise on a status page,
+ * and it made neighbouring cards look inconsistent. */
+.status-page .page-section:hover,
+.status-page .page-section:focus-within {
+  border-color: var(--color-border);
+  box-shadow: none;
+}
+
+@media (min-width: 700px) {
+  .health-row__summary {
+    grid-template-columns: 32px 208px minmax(0, 1fr) auto 16px;
+    grid-template-areas: "icon name verdict value chevron";
+    padding: 0 var(--space-lg);
+  }
+
+  .health-rows__group {
+    padding: var(--space-sm) var(--space-lg);
+  }
+
+  .health-row__value {
+    justify-content: flex-end;
+    text-align: right;
+  }
+
+  /* Indented to the name column, so the evidence reads as belonging to
+   * the row's text and not to its icon. */
+  .health-row__body {
+    padding: 0 var(--space-lg) var(--space-lg)
+      calc(var(--space-lg) + 32px + var(--space-md));
+  }
+
+  .health-row__facts > div {
+    grid-template-columns: 160px minmax(0, 1fr);
+    column-gap: var(--space-md);
+    align-items: baseline;
   }
 }
 

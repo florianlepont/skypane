@@ -221,6 +221,20 @@ def _no_js_page(make_context, base_url, route, viewport=None, sign_in=True,
         context.close()
 
 
+def _open_health_rows(page):
+    """Open every collapsed Health row the way a keyboard visitor does: focus its summary and
+    press Enter, the native disclosure. Needs no script, so it works on a scripts-blocked page.
+    Rows in a warn or error state render open already and are left alone. Raises if a row stays
+    shut, so a later measurement is never taken on content a visitor could not see."""
+    summaries = page.locator("details.health-row:not([open]) > summary")
+    for _attempt in range(16):
+        if not summaries.count():
+            return
+        summaries.first.focus()
+        page.keyboard.press("Enter")
+    raise AssertionError("a Health row would not open from its summary")
+
+
 def _click_control(page, selector):
     """Click a checkbox/radio input through the DOM's native .click(), not Playwright's
     coordinate-based click.
