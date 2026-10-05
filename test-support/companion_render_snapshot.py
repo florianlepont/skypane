@@ -116,7 +116,6 @@ _UNAUTH_GET_REQUESTS = (
     companion_app.POLL_COOLDOWN_SCRIPT_ROUTE,
     companion_app.CONFIRM_SUBMIT_SCRIPT_ROUTE,
     companion_app.THEME_PREVIEW_SCRIPT_ROUTE,
-    companion_app.AIRLINE_TYPES_SCRIPT_ROUTE,
     companion_app.LOGIN_CARD_SCRIPT_ROUTE,
     companion_app.SUBMIT_GUARD_SCRIPT_ROUTE,
     companion_app.RELATIVE_TIME_SCRIPT_ROUTE,
