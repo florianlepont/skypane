@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Battery and Companion!
 status: phase_complete
-stopped_at: "Phase 44 complete (2026-10-04): 12/12 plans; owner validated the deployed companion by their own statement. Next: Phase 45 (controlled second discharge study), awaiting owner confirmation of the Run 2 protocol."
+stopped_at: "Phase 44 complete (2026-10-04): 12/12 plans; owner validated the deployed companion by their own statement. Next: Phase 45 (controlled second discharge study); Run 2 Protocol confirmed 2026-10-05 on branch claude/phase-45-protocol, awaiting the owner answer on the reference interval (O-1) and the physical run (45-03)."
 last_updated: "2026-10-04T12:00:00.000Z"
 last_activity: "2026-10-04 — Phase 44 closed on the owner's validation of the deployed companion"
 progress:
@@ -60,7 +60,7 @@ Phase: 44 of 47 (Companion Walkthrough and Focused Bilingual Polish) — COMPLET
 Plan: Not started (next: Phase 45)
 Status: Phase 44 complete; Phase 45 next
 Last activity: 2026-10-04 — Phase 44 closed on the owner's validation of the deployed companion
-Phase 45 (parallel branch claude/phase-45-discharge-study): 45-02 complete (logtools run-report); 45-01 Run 2 Protocol written as PROPOSED, blocked on owner confirmation (cadence, ceiling, park-window rule D-10); 45-03/45-04 not started.
+Phase 45 (parallel branch claude/phase-45-protocol, not merged): 45-01 and 45-02 complete. Run 2 Protocol CONFIRMED by the owner 2026-10-05 (cadence 60 s, ceiling 21 days, D-07/D-09/D-10); one item PROPOSED, the reference interval for the continuity gates (O-1, protocol section 4a: at 60 s coverage against the configured interval fails the 0.95 gate structurally). 45-03 (physical discharge, owner action) not started and blocked on the owner's O-1 answer; 45-04 blocked on 45-03.
 
 ## Position History (superseded entries, kept for the record)
 
