@@ -256,6 +256,15 @@ def _dom_click(page, selector):
     page.eval_on_selector(selector, "el => el.click()")
 
 
+def _click_centred(page, selector):
+    """Click `selector` after centring it in the viewport, so the fixed bottom tab bar (phone
+    widths) can never sit over the target while the click's own scroll-into-view retries."""
+    target = page.locator(selector).first
+    target.wait_for(state="visible")
+    target.evaluate("el => el.scrollIntoView({block: 'center'})")
+    target.click()
+
+
 def _no_js_login_and_goto(new_context, server, route):
     return _no_js_page(new_context, server.base_url(), route, viewport=VIEWPORT_PHONE)
 
@@ -267,8 +276,9 @@ def test_with_scripts_blocked_manage_is_a_link_to_an_in_page_sheet_that_replaces
     through the server's own confirmation page"""
     _connect_old(server)
     with _no_js_login_and_goto(new_context, server, "/display") as page:
-        page.locator(OPENER).click()
+        _click_centred(page, OPENER)
         page.wait_for_url("**calendar=manage**")
+        page.wait_for_load_state("load")
         assert page.locator(DIALOG).evaluate("e => e.open && !e.matches(':modal')")
         assert page.locator(URL_INPUT).is_visible()
         page.fill(URL_INPUT, NEW_URL)
@@ -289,7 +299,8 @@ def test_with_scripts_blocked_manage_is_a_link_to_an_in_page_sheet_that_replaces
         _dom_click(page, DISCONNECT)
         assert page.locator("h1").inner_text() == "Disconnect calendar?"
         assert calendar_rules.calendar_is_configured(server.state_dir)
-        page.click('form[action="/settings/calendar/disconnect"] button[type=submit]')
+        page.wait_for_load_state("load")
+        _click_centred(page, 'form[action="/settings/calendar/disconnect"] button[type=submit]')
         page.wait_for_url("**flash=calendar_disconnected")
         assert not calendar_rules.calendar_is_configured(server.state_dir)
 
