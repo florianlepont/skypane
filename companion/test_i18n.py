@@ -199,10 +199,10 @@ _UNCHANGED_IN_FRENCH = frozenset({
     "display.sample_panel_rendered_in_the_theme",
     # A bare "%s — %s" join: no translatable words of its own.
     "health.day_dash_verdict",
-    # "Version" and "Date" are genuine French words, spelled identically
-    # to their English source — real cognates for the Update page's
-    # compact table-header nouns, not a missed translation.
-    "update.version", "update.date",
+    # "Versions" is a genuine French word, spelled identically to its
+    # English source — a real cognate for the Update page's list heading,
+    # not a missed translation.
+    "update.version_history",
     # "Auto" is the usual French abbreviation of "Automatique" on a
     # narrow segmented control.
     "nav.auto",

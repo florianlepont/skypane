@@ -1,14 +1,12 @@
 # -*- coding: utf-8 -*-
-"""French strings for the Update page: the running version, the update
-state words, the rollback banner, the scheduled/install sentences and
-the version-history table.
+"""French strings for the Update page: the call-to-action card, the
+update state words, the rollback banner, the scheduled/install sentences
+and the version list.
 
 Copy follows sentence case, the typographic apostrophe (U+2019, never
 a straight quote), and a non-breaking space (U+00A0) before ":" ";"
-"?" "!". "Version" and "Date" are genuine French words, spelled
-identically to their English source (see test_i18n.py's
-_UNCHANGED_IN_FRENCH cognate list) -- kept as the plain, compact
-table-header nouns rather than a longer, distinct phrase.
+"?" "!". "Versions" is a genuine French word, spelled identically to its
+English source (see test_i18n.py's _UNCHANGED_IN_FRENCH cognate list).
 
 Every entry is migrated onto a stable message id: the source-side
 Message is declared in companion/pages/update_page.py, never here --
@@ -18,16 +16,28 @@ the app's other nav labels.
 """
 
 MESSAGES = {
-    "update.installed_software": "Logiciel installé",
-    "update.version_history": "Versions disponibles",
-    "update.running_s": "Version en cours : %s",
+    "update.version_history": "Versions",
     "update.no_version_reported_yet": "Aucune version signalée pour le moment",
 
-    "update.available": "Disponible",
     "update.scheduled": "Planifiée",
     "update.in_progress": "En cours",
-    "update.installed": "Installée",
-    "update.failed": "Échec",
+
+    "update.cta_up_to_date": "Le cadre est à jour",
+    "update.cta_available": "Mise à jour disponible",
+    "update.cta_scheduled": "Mise à jour planifiée",
+    "update.cta_installing": "Installation en cours",
+    "update.cta_failed": "Échec de l’installation",
+    "update.cta_installing_body":
+        "%s est en cours d’installation. Le cadre la conservera après un "
+        "premier contact réussi\u00a0; sinon, il revient en arrière.",
+    "update.cta_failed_body": "%s n’a pas pu être installée.",
+    "update.cta_stays_on": "Le cadre reste sur %s.",
+    "update.on_the_frame_s": "Sur le cadre\u00a0: %s",
+    "update.installed_ago_s": "Installée %s",
+    "update.installed_on_s": "Installée le %s",
+    "update.released_ago_s": "Sortie %s",
+    "update.released_on_s": "Sortie le %s",
+    "update.last_installed_s": "Dernière installation\u00a0: %s",
 
     "update.unknown_time": "une heure inconnue",
     "update.scheduled_installs_at_the_next_wake_around_s":
@@ -40,6 +50,8 @@ MESSAGES = {
 
     "update.cancel": "Annuler",
     "update.install": "Installer",
+    "update.install_version_s": "Installer %s",
+    "update.roll_back_to_s": "Revenir à %s",
     "update.not_installable": "Non installable",
     "update.install_firmware_s": "Installer le firmware %s ?",
     "update.the_frame_will_download_and_install_this":
@@ -62,10 +74,6 @@ MESSAGES = {
     "update.install_s_now":
         "Installer %s maintenant ? Elle s’appliquera au prochain réveil.",
 
-    "update.version": "Version",
-    "update.date": "Date",
-    "update.notes": "Remarques",
-    "update.installed_column": "Installée",
 
     "update.no_releases_yet": "Aucune version publiée pour le moment",
     "update.publish_a_release":
@@ -73,8 +81,6 @@ MESSAGES = {
         "une fois que la CI aura terminé la construction et la signature.",
 
     "update.running_badge": "En cours",
-    "update.last_installed_s": "Dernière installation\u00a0: %s",
-    "update.show_notes": "Afficher les notes",
 
     "update.bench": "Banc d’essai",
     "update.this_is_a_bench_build": "Il s’agit d’une version de banc d’essai.",

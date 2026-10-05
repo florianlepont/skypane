@@ -30,6 +30,18 @@ NOTE_MAX_LEN = 200
 
 _GIT_TIMEOUT_S = 30
 
+# A conventional-commit prefix: "fix(firmware): ", "feat!: ", "docs: ".
+_CONVENTIONAL_PREFIX_RE = re.compile(r"\A([A-Za-z]+)(?:\([^()]*\))?!?:\s*")
+# Types that describe repository upkeep rather than a change the frame's
+# owner could notice; a subject carrying one never becomes a note.
+_HOUSEKEEPING_TYPES = frozenset({"chore", "ci", "build", "test", "tests", "style", "docs"})
+# A planning-phase prefix: the word "Phase", a number, then a colon or dash.
+_PHASE_PREFIX_RE = re.compile(r"\Aphase\s+\d+(?:\.\d+)*\s*[:–—-]\s*", re.IGNORECASE)
+# One or more trailing pull-request references: " (#161)", " (#12) (#13)".
+_TRAILING_PR_REF_RE = re.compile(r"(?:\s*\(#\d+\))+\s*\Z")
+# Subjects that carry no information for the reader.
+_NOISE_SUBJECT_RE = re.compile(r"\A(?:merge\b|wip\b|fixup!|squash!)", re.IGNORECASE)
+
 
 def _version_tuple(tag):
     """(major, minor, patch) for a valid release tag, else None."""
@@ -78,17 +90,58 @@ def previous_tag(repo, tag):
     return best_tag
 
 
+def clean_note(subject):
+    """One commit subject as a plain, sentence-case release note, or None
+    when the subject is not worth showing.
+
+    Pure and deterministic: strips trailing "(#123)" pull-request
+    references, a conventional-commit "type(scope): " prefix and a
+    "Phase NN: " planning prefix, then upper-cases the first letter. A
+    subject that is empty after stripping, a merge/WIP/fixup line, or a
+    housekeeping type (chore, ci, build, test, style, docs) yields None.
+    """
+    text = _TRAILING_PR_REF_RE.sub("", subject.strip()).strip()
+    prefix = _CONVENTIONAL_PREFIX_RE.match(text)
+    if prefix is not None:
+        if prefix.group(1).lower() in _HOUSEKEEPING_TYPES:
+            return None
+        text = text[prefix.end():]
+    text = _PHASE_PREFIX_RE.sub("", text.strip()).strip()
+    if not text or _NOISE_SUBJECT_RE.match(text):
+        return None
+    return text[0].upper() + text[1:]
+
+
+def clean_notes(subjects):
+    """`clean_note()` over `subjects`, order kept, empties dropped and
+    repeats removed (two commits can reduce to the same sentence), each
+    truncated to NOTE_MAX_LEN characters.
+    """
+    notes = []
+    for subject in subjects:
+        note = clean_note(subject)
+        if note is None:
+            continue
+        note = note[:NOTE_MAX_LEN]
+        if note not in notes:
+            notes.append(note)
+    return notes
+
+
 def commit_notes(repo, prev_tag, tag):
     """Newest-first `firmware/` commit subjects strictly after
     `prev_tag` up to and including `tag` (all of them, for the first
-    release), no merges, each truncated to NOTE_MAX_LEN characters.
-    Capped at MAX_NOTES entries; when more exist, the last kept entry
-    is replaced by "and N earlier commits" naming the true remaining
-    count.
+    release), no merges, each cleaned by `clean_notes()` (so each is at
+    most NOTE_MAX_LEN characters). Capped at MAX_NOTES entries; when
+    more exist, the last kept entry is replaced by "and N earlier
+    commits" naming the true remaining count.
+
+    The notes are display text only: the frame verifies the signed image
+    and its sha256, never this list.
     """
     range_arg = "%s..%s" % (prev_tag, tag) if prev_tag else tag
     raw = _git(repo, ["log", "--no-merges", "--format=%s", range_arg, "--", "firmware/"])
-    subjects = [line[:NOTE_MAX_LEN] for line in raw.splitlines() if line.strip()]
+    subjects = clean_notes(raw.splitlines())
     if len(subjects) <= MAX_NOTES:
         return subjects
     kept = subjects[: MAX_NOTES - 1]

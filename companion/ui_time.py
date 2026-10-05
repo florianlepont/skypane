@@ -326,7 +326,7 @@ def _machine_instant(parsed):
 
 
 def relative_time_html(ts, now_ts, fallback="no reading yet", lang=None,
-                       countdown=False, static_text=None):
+                       countdown=False, static_text=None, with_title=False):
     """`<time datetime="<instant>" data-relative><relative age></time>` — the
     app's one relative-time element. Callers interpolate the return value
     verbatim, never re-escaping it (already escaped here); the no-JS
@@ -338,6 +338,9 @@ def relative_time_html(ts, now_ts, fallback="no reading yet", lang=None,
     `static_text` renders fixed text instead of the ladder's output, for
     the one case where the server rendering must stay true with no
     ticker (e.g. an absolute clock rather than a duration).
+
+    `with_title` adds a `title` attribute carrying the full local
+    timestamp, so a relative age keeps its absolute date one hover away.
     """
     if not ts:
         return escape_html(fallback)
@@ -359,8 +362,28 @@ def relative_time_html(ts, now_ts, fallback="no reading yet", lang=None,
     else:
         text = relative_age_text(age, lang=lang)
     marker = " " + RELATIVE_COUNTDOWN_ATTR if countdown else ""
+    if with_title:
+        marker += ' title="%s"' % escape_html(
+            local_clock_text(parsed, _FULL_TIMESTAMP_SENTINEL_NOW, lang=lang))
     return '<time datetime="%s" data-relative%s>%s</time>' % (
         escape_html(instant), marker, escape_html(text))
+
+
+def absolute_time_html(ts, fallback="", lang=None):
+    """`<time datetime="<instant>">D Mon HH:MM</time>` — a stored instant
+    as a full local date and time that never ticks (no `data-relative`),
+    for the line that sits beside a relative age. Returns the escaped
+    `fallback` when `ts` is falsy and escaped `ts` on parse failure.
+    """
+    if not ts:
+        return escape_html(fallback)
+    parsed = parse_iso(ts)
+    instant = _machine_instant(parsed) if parsed is not None else ""
+    if not instant:
+        return escape_html(ts)
+    return '<time datetime="%s">%s</time>' % (
+        escape_html(instant),
+        escape_html(local_clock_text(parsed, _FULL_TIMESTAMP_SENTINEL_NOW, lang=lang)))
 
 
 def absolute_and_relative(ts, now_ts, fallback="no reading yet", lang=None):
