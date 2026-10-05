@@ -976,7 +976,7 @@ def _gap_strip_html(gap_cards_html, overflow_html):
     )
 
 
-def _lightbox_html():
+def _lightbox_html(name_form_hidden_html=""):
     """The single shared click-to-enlarge `<dialog>`, emitted once per page
     when at least one card carries a zoom trigger. Mirrors
     `history_page._lightbox_html()`'s element order and classes, plus
@@ -989,7 +989,8 @@ def _lightbox_html():
     attributes, never here.
     """
     resolve_context_html = _resolve_context_html(None, None, id_suffix="-dialog")
-    resolve_name_html = _resolve_name_form_html("", "-dialog", include_submit=False)
+    resolve_name_html = _resolve_name_form_html(
+        "", "-dialog", include_submit=False, hidden_html=name_form_hidden_html)
     resolve_upload_html = _resolve_upload_form_html("", "-dialog")
     sheet_html = airline_sheet.sheet_html(
         airline_sheet.EMPTY_ATTR_VALUES, "-dialog", i18n.t(NAME_LABEL_TEXT), True)
@@ -1161,7 +1162,7 @@ def _known_airlines_datalist_html(id_suffix=""):
     return '<datalist id="%s">%s</datalist>' % (MANUAL_DATALIST_ID + id_suffix, options)
 
 
-def _resolve_name_form_html(prefix_value, id_suffix, include_submit=True):
+def _resolve_name_form_html(prefix_value, id_suffix, include_submit=True, hidden_html=""):
     """Step A's name-entry form — one definition, two call sites: the no-JS
     fallback calls this with the real prefix and `id_suffix=""`; the
     dialog calls it with `prefix_value=""` and `id_suffix="-dialog"`, since
@@ -1194,6 +1195,7 @@ def _resolve_name_form_html(prefix_value, id_suffix, include_submit=True):
     return (
         '<form class="%s" id="%s" method="post" action="%s">'
         '<input type="hidden" name="prefix" value="%s">'
+        "%s"
         '<p class="lightbox__resolve-scope"></p>'
         "%s"
         "%s"
@@ -1203,6 +1205,7 @@ def _resolve_name_form_html(prefix_value, id_suffix, include_submit=True):
     ) % (
         LIGHTBOX_RESOLVE_NAME_CLASS, MANUAL_RESOLVE_FORM_ID + id_suffix, RESOLVE_ROUTE,
         escape_html(prefix_value),
+        hidden_html,
         name_field,
         submit_html,
     )

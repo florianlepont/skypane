@@ -17,7 +17,7 @@ import io
 import os
 import tempfile
 import threading
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote, urlsplit
 
 from PIL import Image
 
@@ -55,6 +55,7 @@ from companion.flash import (
     FLASH_KEY_RULE_REPLACED,
     FLASH_KEY_RULE_SAVE_FAILED,
 )
+from companion import resolve_dialog
 from companion.pages import airline_sheet, airlines_page, config_page
 from companion.pages.airlines_page import unresolved_row_for_prefix
 from server import atomic_io
@@ -218,6 +219,10 @@ class SettingsActionsMixin:
         stored. No CSRF token: relies on SameSite=Strict, like every
         other state-changing POST.
         """
+        # Airlines unless the action URL names an allow-listed page that
+        # opened the dialog (Health).
+        back = resolve_dialog.return_route(
+            parse_qs(urlsplit(self.path).query).get(resolve_dialog.RETURN_FIELD, [None])[0])
         filename = key + ".png"
         if filename not in _illustration_filenames(self.args.state_dir):
             return self.send_html(404, self._not_found_page())
@@ -225,12 +230,12 @@ class SettingsActionsMixin:
         raw = self._read_upload_body()
         if raw is None:
             return self.redirect(
-                "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
+                back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
 
         payload = parse_single_uploaded_file(self.headers.get("Content-Type"), raw)
         if payload is None or len(payload) > MAX_ILLUSTRATION_UPLOAD_BYTES:
             return self.redirect(
-                "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
+                back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
 
         state_dir = self.args.state_dir
         override_dir = illustrations.override_dir_for_state_dir(state_dir)
@@ -238,7 +243,7 @@ class SettingsActionsMixin:
             os.makedirs(override_dir, exist_ok=True)
         except OSError:
             return self.redirect(
-                "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED))
+                back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED))
 
         # The raw upload's temp lives in override_dir (mkstemp: a unique
         # name, so two concurrent uploads of the same key can never
@@ -263,7 +268,7 @@ class SettingsActionsMixin:
                 for problem in problems:
                     print("illustration replace rejected for %r: %s" % (key, problem))
                 return self.redirect(
-                    "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
+                    back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
 
             with Image.open(raw_tmp_path) as img:
                 rgba = img.convert("RGBA")
@@ -273,10 +278,10 @@ class SettingsActionsMixin:
             override_path = illustrations.override_path_for_key(key, state_dir)
             atomic_io.atomic_write(override_path, buffer.getvalue())
             return self.redirect(
-                "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACED))
+                back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACED))
         except Exception:
             return self.redirect(
-                "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED))
+                back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED))
         finally:
             if raw_tmp_path is not None:
                 try:
@@ -295,12 +300,14 @@ class SettingsActionsMixin:
         """
         form = self.read_form()
         state_dir = self.args.state_dir
+        # Airlines unless the form names an allow-listed page that
+        # started the flow (the dialog on Health).
+        back = resolve_dialog.return_route(form.get(resolve_dialog.RETURN_FIELD))
 
         row = unresolved_row_for_prefix(state_dir, form.get("prefix"))
         if row is None:
             return self.redirect(
-                "%s?flash=%s"
-                % (airlines_page.AIRLINES_ROUTE, quote(FLASH_KEY_MANUAL_PREFIX_STALE)))
+                "%s?flash=%s" % (back, quote(FLASH_KEY_MANUAL_PREFIX_STALE)))
         prefix = row[0]
 
         result = manual_resolutions.add_entry(state_dir, prefix, form.get("airline_name"))
@@ -311,12 +318,10 @@ class SettingsActionsMixin:
             key = manual_resolutions.illustration_key_for_name(entry.get("airline_name"))
             if key and illustrations.resolved_illustration_path(key, state_dir) is not None:
                 return self.redirect(
-                    "%s?flash=%s"
-                    % (airlines_page.AIRLINES_ROUTE, quote(FLASH_KEY_MANUAL_RESOLVED)))
+                    "%s?flash=%s" % (back, quote(FLASH_KEY_MANUAL_RESOLVED)))
             return self.redirect(
                 "%s?resolve=%s&flash=%s"
-                % (airlines_page.AIRLINES_ROUTE, quote(prefix, safe=""),
-                   quote(FLASH_KEY_MANUAL_RESOLVED)))
+                % (back, quote(prefix, safe=""), quote(FLASH_KEY_MANUAL_RESOLVED)))
 
         if result == manual_resolutions.ADD_REJECTED_PREFIX:
             flash_key = FLASH_KEY_MANUAL_NAME_EMPTY
@@ -343,7 +348,7 @@ class SettingsActionsMixin:
             flash_key = FLASH_KEY_MANUAL_SAVE_FAILED
         return self.redirect(
             "%s?resolve=%s&flash=%s"
-            % (airlines_page.AIRLINES_ROUTE, quote(prefix, safe=""), quote(flash_key)))
+            % (back, quote(prefix, safe=""), quote(flash_key)))
 
     def _rename_redirect(self, flash_key, sheet_key=None):
         """Back to /airlines with `flash_key`; a refusal reopens the sheet."""

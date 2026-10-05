@@ -26,6 +26,7 @@ import companion.health_signals as health_signals_module
 import companion.i18n as i18n
 import companion.layout as layout
 import companion.wake as wake
+import companion.resolve_dialog as resolve_dialog
 from server import device_config, history_db
 
 # Re-read under their own bare names purely for this module's own
@@ -373,12 +374,20 @@ def _registry_seen_cell_html(raw_ts, now):
     return html
 
 
+def _resolve_trigger_attrs(row, now):
+    """The attributes that turn a Resolve link into a trigger for the
+    shared resolve dialog on this page. The link keeps its `href` to the
+    Airlines page, which is what a visitor without script follows."""
+    return resolve_dialog.trigger_attrs_html(row, now, resolve_dialog.RETURN_HEALTH)
+
+
 def _registry_row_html(index, prefix, count, first_seen, last_seen, example_callsign, now):
     """One `<tr>` for the unresolved-prefix registry table. First
     seen/Last seen return already-safe markup, interpolated verbatim,
-    never re-escaped. Appends a sixth `<td>`: a plain `<a>` navigating
-    to `/airlines?resolve={prefix}`, never a submit-type control, so
-    Health stays read-only.
+    never re-escaped. Appends a sixth `<td>`: a plain `<a>` to
+    `/airlines?resolve={prefix}`, never a submit-type control, that
+    also carries the trigger attributes opening the resolve dialog in
+    place when script runs.
     """
     row_class = "row-alt" if index % 2 else "row"
     # The desktop table's timestamp cells are stacked (see
@@ -391,14 +400,16 @@ def _registry_row_html(index, prefix, count, first_seen, last_seen, example_call
     escaped_prefix = escape_html(prefix)
     resolve_href = RESOLVE_LINK_HREF_TEMPLATE % escaped_prefix
     resolve_aria = escape_html(i18n.t(RESOLVE_LINK_ARIA_TEMPLATE)) % escaped_prefix
+    trigger_attrs = _resolve_trigger_attrs(
+        (prefix, count, first_seen, last_seen, example_callsign), now)
     cells = (
         '<td class="mono">%s</td>' % escaped_prefix,
         "<td>%s</td>" % escape_html(count),
         "<td>%s</td>" % first_seen_html,
         "<td>%s</td>" % last_seen_html,
         '<td class="mono">%s</td>' % escape_html(example_callsign),
-        '<td><a href="%s" aria-label="%s">%s</a></td>' % (
-            resolve_href, resolve_aria, escape_html(i18n.t(RESOLVE_LINK_TEXT))),
+        '<td><a href="%s" %saria-label="%s">%s</a></td>' % (
+            resolve_href, trigger_attrs, resolve_aria, escape_html(i18n.t(RESOLVE_LINK_TEXT))),
     )
     filter_text = _registry_filter_text(prefix)
     # data-filter-group must match the paired mobile card's value exactly:
@@ -464,9 +475,13 @@ def _registry_cards_html(rows, now):
         resolve_aria = escape_html(i18n.t(RESOLVE_LINK_ARIA_TEMPLATE)) % escaped_prefix
         action = (
             '<div class="data-card__action">'
-            '<a href="%s" aria-label="%s">%s</a>'
+            '<a href="%s" %saria-label="%s">%s</a>'
             "</div>"
-        ) % (resolve_href, resolve_aria, escape_html(i18n.t(RESOLVE_CARD_LINK_TEXT)))
+        ) % (
+            resolve_href,
+            _resolve_trigger_attrs(
+                (prefix, count, first_seen, last_seen, example_callsign), now),
+            resolve_aria, escape_html(i18n.t(RESOLVE_CARD_LINK_TEXT)))
         details = (
             '<details class="data-card__details">'
             "<summary>%s</summary>"

@@ -255,6 +255,11 @@
   var resolvePrefixInput = resolveNameForm
     ? resolveNameForm.querySelector('input[name="prefix"]')
     : null;
+  // Present only where the page can finish the flow somewhere other than
+  // Airlines (Health); filled from the trigger on every open.
+  var resolveReturnInput = resolveNameForm
+    ? resolveNameForm.querySelector('input[name="return"]')
+    : null;
   var contextPrefix = dialog.querySelector(".resolve-context__prefix");
   var contextFirstSeen = dialog.querySelector(".resolve-context__first-seen");
   var contextLastSeen = dialog.querySelector(".resolve-context__last-seen");
@@ -440,6 +445,9 @@
     if (resolvePrefixInput) {
       resolvePrefixInput.value = resolvePrefix;
     }
+    if (resolveReturnInput) {
+      resolveReturnInput.value = trigger.getAttribute("data-view-panel-return") || "";
+    }
     if (contextPrefix) {
       contextPrefix.textContent = resolvePrefix;
     }
@@ -494,7 +502,8 @@
       return;
     }
     // A gap/manual/needs-artwork trigger is a real
-    // <a href="/airlines?resolve={prefix}">, not a <button>, so this
+    // <a href="/airlines?resolve={prefix}"> (Health's Resolve links too,
+    // which then open this dialog in place), not a <button>, so this
     // navigation must never happen once JS is running the show.
     evt.preventDefault();
     openFromTrigger(trigger);

@@ -25,6 +25,7 @@ import companion.health_signals as health_signals_module
 import companion.i18n as i18n
 import companion.layout as layout
 import companion.page_context as page_context
+import companion.resolve_dialog as resolve_dialog
 import companion.prefs as prefs  # for the resolved language directly:
 # French requires a real U+00A0 before the colon (_label_colon() below),
 # not merely a translated label.
@@ -35,6 +36,7 @@ import companion.frame_state as frame_state  # the one frame-state
 # device_staleness_thresholds() alone.
 from server import device_config
 from server import history_db
+from server.plane import manual_resolutions
 
 # The registry ("Airlines we could not name"), the resolution-statistics
 # breakdown ("How well we name flights") and the check-in regularity grid
@@ -1012,6 +1014,22 @@ def _offbox_section_html(offbox, now):
 # server-side only — the timer reveals a pill and reloads, nothing else.
 
 
+def _resolve_dialog_html(ctx, registry_rows):
+    """The shared resolve dialog, emitted once and only when something can
+    open it: a Resolve link in the table, or the hidden step-B trigger
+    that reopens it after a name was saved. `?resolve=` is acted on only
+    when it names a prefix still in the table (step A, whose own link
+    opens the dialog) or one just named that still lacks artwork (step
+    B); any other value renders nothing extra."""
+    step_b_html = (
+        resolve_dialog.step_b_trigger_html(
+            ctx.state_dir, ctx.resolve_prefix, resolve_dialog.RETURN_HEALTH)
+        if ctx.resolve_prefix and ctx.state_dir else "")
+    if not registry_rows and not step_b_html:
+        return ""
+    return resolve_dialog.dialog_html() + step_b_html
+
+
 def render(ctx):
     ctx = page_context.coerce(ctx)
     state_dir = ctx.state_dir
@@ -1096,6 +1114,10 @@ def render(ctx):
         + _check_in_regularity_section_html(regularity_rows, wake_interval_s, now)
         + _day_band_html(day_rows, now, ctx.device_config)
     )
+    # A prefix the owner has just named leaves the table at once, rather
+    # than lingering until the next poll prunes the registry.
+    named_prefixes = manual_resolutions.load_manual_resolutions(state_dir) if state_dir else {}
+    registry_rows = [row for row in registry_rows if row[0] not in named_prefixes]
     registry_class = "page-section page-section--nested"
     server_data_section_html = (
         layout.section_intro_html(SERVER_DATA_SECTION_ID, i18n.t(SERVER_DATA_SECTION_HEADING), "")
@@ -1114,5 +1136,6 @@ def render(ctx):
         + banner_html
         + screen_section_html
         + server_data_section_html
+        + _resolve_dialog_html(ctx, registry_rows)
         + "</div>"
     )
