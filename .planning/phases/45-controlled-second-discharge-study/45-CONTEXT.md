@@ -1,7 +1,7 @@
 # Phase 45: Controlled Second Discharge Study - Context
 
 **Gathered:** 2026-10-03
-**Status:** Ready for planning — decisions marked **PROPOSED** need owner confirmation before the physical run starts
+**Status:** Cadence, ceiling and rules CONFIRMED by the owner 2026-10-05; one item (O-1, reference interval for the continuity gates) still PROPOSED and must be answered before the physical run starts
 **Mode:** Drafted from SEED-007, SEED-008, `hardware/BATTERY-RUN.md` and REQUIREMENTS BAT-01/BAT-02 (no interactive discussion was held)
 
 <domain>
@@ -29,12 +29,17 @@ changes, image-download/display-refresh energy measurement.
 - **D-03** Reuse run one's observation channel (`history.db`, `hardware/logtools.py check-battery`, `from-history-db`) and its validity gates (`--min-coverage 0.95`, `--max-gap-intervals 3`, `--min-mv-drop 100`, `--cutoff-mv 3400`), pre-registered before the pack is connected.
 - **D-04** The interval is set through the companion Device wake-interval setting (no SSH edit); the value actually in force is recorded and is what the checker is given.
 
-### PROPOSED — owner to confirm before the run
-- **D-05 Cadence: 900 s** (3x run one). Per-cycle cost is E_wake + I_sleep x T, so a wake-dominated pack lasts about 3250 cycles whatever T is (about 34 days at 900 s) and a leakage-dominated one about 11 days; both outcomes are separable from run one. 1800 s was considered and rejected as default: it could last about 67 days if wake-dominated.
-- **D-06 Ceiling: 45 days** instead of run one's 21, because a 900 s run that is wake-dominated would otherwise end undepleted and yield only a bound. An undepleted run at the ceiling is still a valid (bound) result, as in run one.
-- **D-07** Post-Phase-34 firmware (DHCP, TLS reuse, battery sampling) is the baseline; the firmware version and server revision are recorded at start. If firmware changes mid-run the run is invalid and restarts.
-- **D-08** Cycle count is reconciled three ways as in run one: nominal from elapsed span, observed polls in the server log, and the device NVS boot-counter delta.
-- **D-09** After the run the production wake interval is restored to the value in force before the study, and the restore is recorded.
+### CONFIRMED by the owner on 2026-10-05 (in chat)
+- **D-05 Cadence: 60 s** (CONFIRMED 2026-10-05). Changed from the proposed 900 s. Rationale (owner): the real field wake interval is close to 60 s or even 30 s, so the second run must sit near real use, in the wake-dominated regime, not far from it. The two-run fit then interpolates toward the field interval instead of extrapolating from 300 s and 900 s. Alternatives considered: 900 s (the original proposal: far from the field interval, and a 34-day run), 1800 s (rejected: could last about 67 days if wake-dominated), 600 s (between the two, still far from the field interval), 30 s (left out, see Deferred). 60 s is the minimum the Device setting accepts (`WAKE_INTERVAL_MIN_S`). The effective cadence is the measured mean poll-to-poll gap, not 60 s: the wake itself adds time (see the Run 2 Protocol, section 2).
+- **D-06 Ceiling: 21 days** (CONFIRMED 2026-10-05), the same as run one. Changed from the proposed 45 days. An undepleted run at the ceiling is still a valid bound result. At 60 s a depletion is expected well inside the ceiling under every hypothesis (see the Protocol predictions).
+- **D-07** (CONFIRMED 2026-10-05) Post-Phase-34 firmware (DHCP, TLS reuse, battery sampling) is the baseline; firmware version and server revision are recorded at start. The firmware is frozen during the run; if it changes the run is invalid and restarts. Same pack and firmware family as run one.
+- **D-08** (CONFIRMED 2026-10-05) Cycle count is reconciled three ways as in run one: nominal from elapsed span, observed polls in the server log, and the device NVS boot-counter delta. `boot_count_start` is recorded before the cable comes out.
+- **D-09** (CONFIRMED 2026-10-05) After the run the production wake interval is restored to the value in force before the study, and the restore is recorded. The display stays enabled with no quiet hours during the run.
+- **D-10 Park-window rule** (CONFIRMED 2026-10-05, raised by the planner). The BATTERY EMPTY park at 3300 mV changes the real cadence to hourly. Continuity and coverage are judged on the normal-cadence window, which ends at the first reading at or below 3300 mV; the full window is reported as informational; the boot-counter witness covers the full window.
+- Thresholds unchanged (D-03): 0.95 / 3 / 100 mV / 3400 mV.
+
+### OPEN - needs the owner's answer before the pack is connected
+- **O-1 Reference interval for the continuity gates.** The gates in `logtools.py run-report` judge coverage and gap against the configured `interval_s`. At 60 s the wake overhead makes the real gap about 62 to 100 s, so coverage against 60 s is about 0.60 to 0.97 and fails the 0.95 gate structurally for most plausible workloads, whatever the pack does. The rule for which interval the gates use is PROPOSED in the Run 2 Protocol (section 4a) and is the one item that is not confirmed. Thresholds are not part of this question.
 
 ### Claude's discretion
 - Shape of the evidence export and any helper added to `hardware/logtools.py`, provided the three reconciliations and separate continuity / voltage-validity verdicts are produced from the raw export.
@@ -64,4 +69,5 @@ changes, image-download/display-refresh energy measurement.
 
 - Solar-charging reconsideration (gated on Phase 46's result).
 - Measuring image-download / display-refresh energy (explicit limitation of the baseline workload, BAT-04).
+- **A 30 s cadence run.** The owner named 30 s as possibly the true field interval. It is left out of this phase: the Device wake-interval setting's minimum is 60 s (`WAKE_INTERVAL_MIN_S` in `server/device_policy.py`), and lowering it is a production cadence change outside this phase. At 30 s the device would also be awake almost permanently, given about 28 s of wake overhead measured in run one. The reasoning that makes this acceptable: the two-run fit (Phase 46) is a model of per-wake energy plus standing consumption, so a 60 s run and a 300 s run constrain it at the field interval by interpolation, and 30 s is a short extrapolation beyond the 60 s end, not a leap.
 </deferred>
