@@ -39,20 +39,12 @@ from server import history_db
 from server.plane import manual_resolutions
 
 # The registry ("Airlines we could not name"), the resolution-statistics
-# breakdown ("How well we name flights") and the check-in regularity grid
-# all live in companion/health_sections.py now (moved out to keep this
+# breakdown ("How well we name flights") all live in companion/health_sections.py now (moved out to keep this
 # file under the companion app's own file-size ceiling) — imported and
 # re-exported below under their historical names, since render() and a
 # number of tests still reach them as `health_page.X`.
 HEALTH_UNAVAILABLE_TEXT = health_sections_module.HEALTH_UNAVAILABLE_TEXT
 _unavailable_block = health_sections_module._unavailable_block
-CHECK_IN_SECTION_HEADING = health_sections_module.CHECK_IN_SECTION_HEADING
-CHECK_IN_WINDOW_DAYS = health_sections_module.CHECK_IN_WINDOW_DAYS
-CHECK_IN_CAPTION_OBSERVED = health_sections_module.CHECK_IN_CAPTION_OBSERVED
-CHECK_IN_CAPTION_CADENCE = health_sections_module.CHECK_IN_CAPTION_CADENCE
-CHECK_IN_CAPTION_CADENCE_FALLBACK = health_sections_module.CHECK_IN_CAPTION_CADENCE_FALLBACK
-CHECK_IN_CAPTION_NOT_PROOF = health_sections_module.CHECK_IN_CAPTION_NOT_PROOF
-CHECK_IN_CAPTION_EMPTY = health_sections_module.CHECK_IN_CAPTION_EMPTY
 UNRESOLVED_SECTION_HEADING = health_sections_module.UNRESOLVED_SECTION_HEADING
 STATS_SECTION_HEADING = health_sections_module.STATS_SECTION_HEADING
 RESOLUTION_WINDOW_DAYS = health_sections_module.RESOLUTION_WINDOW_DAYS
@@ -432,10 +424,6 @@ def health_state_from_signals(signals):
         # render() reuses this rather than reading the marker a second
         # time per request.
         "offbox": signals["offbox"],
-        # The cadence the connection row's thresholds were derived from,
-        # published so render()'s regularity grid judges its cells
-        # against the same value and can name it.
-        "wake_interval_s": signals["wake_interval_s"],
         # The raw reads the rows render their values and evidence from,
         # so a row can never show a reading the states above were not
         # judged on.
@@ -773,17 +761,13 @@ def _source_fault_block(source_fault_raw):
 unresolved_rows = health_signals_module.unresolved_rows
 coverage_status = health_signals_module.coverage_status
 
-# resolution_stats() and the registry/stats/check-in-regularity markup
-# builders (_registry_section(), _stats_section_html(),
-# _check_in_regularity_section_html() and _check_in_regularity_cells(),
-# the last of which a test reads directly) all live in
+# resolution_stats() and the registry/stats markup
+# builders (_registry_section(), _stats_section_html()) all live in
 # companion/health_sections.py now — re-exported here since render()
 # below calls each of these as a bare name.
 resolution_stats = health_sections_module.resolution_stats
 _registry_section = health_sections_module._registry_section
 _stats_table_html = health_sections_module._stats_table_html
-_check_in_regularity_cells = health_sections_module._check_in_regularity_cells
-_check_in_regularity_html = health_sections_module._check_in_regularity_html
 
 
 
@@ -825,7 +809,7 @@ def _age_html(ts, now, fallback=_NEVER_TEXT):
     return layout.relative_time_html(ts, now, fallback=i18n.t(fallback))
 
 
-def _connection_row(state, now, regularity_rows):
+def _connection_row(state, now):
     name = i18n.t(ROW_CONNECTION_NAME)
     device_health = state["inputs"]["device_health"]
     if device_health is _DB_UNAVAILABLE:
@@ -840,8 +824,7 @@ def _connection_row(state, now, regularity_rows):
             '<span class="time-value">%s</span>' % escape_html(state["next_wake_clock"])))
     body = (
         health_rows.facts_html(facts)
-        + health_rows.note_html(i18n.t(DEVICE_CONNECTION_HELP_TEXT))
-        + _check_in_regularity_html(regularity_rows, state["wake_interval_s"], now))
+        + health_rows.note_html(i18n.t(DEVICE_CONNECTION_HELP_TEXT)))
     return health_rows.row_html(
         "connection", device_state, name,
         i18n.t(DEVICE_STATE_TEXT.get(device_state, DEVICE_STATE_TEXT["warn"])),
@@ -1035,16 +1018,8 @@ def render(ctx):
     named_prefixes = manual_resolutions.load_manual_resolutions(state_dir) if state_dir else {}
     registry_rows = [row for row in registry_rows if row[0] not in named_prefixes]
 
-    # Window is one day wider than the grid draws: `since` compares a
-    # UTC-ish `ts` against Europe/Paris day buckets, and a Paris day
-    # begins before the UTC one.
-    regularity_rows = _safe_query(
-        state_dir,
-        lambda conn: history_db.check_in_gaps(
-            conn, since=_cutoff_iso(now, CHECK_IN_WINDOW_DAYS + 1)))
-
     screen_rows = (
-        _connection_row(state, now, regularity_rows) + _battery_row(state))
+        _connection_row(state, now) + _battery_row(state))
     server_rows = (
         _flight_data_row(state, now) + _sources_row(state)
         + _identification_row(stats, len(registry_rows))

@@ -1,12 +1,12 @@
 """Companion status-page tests: battery_sparkline_svg()'s axis/label/density
-contract, the check-in regularity grid, row verdicts, and Paris-local-time
+contract, the shared regularity-grid drawing, row verdicts, and Paris-local-time
 and resolution-rate copy.
 
 CSS/JS checks fetch served bytes from a running companion/app.py; everything
 else calls health_page/draw/wake/layout directly, in-process.
 """
 import re
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import pytest
 
@@ -16,7 +16,7 @@ import companion.test_status_pages_helpers as shp
 import companion.wake as wake
 from companion_app_server import served_asset, served_stylesheet
 from companion_markup import css_rules, declarations_for, parse_html, rules_with_selector
-from server import device_config, history_db
+from server import history_db
 
 _DEFAULT_DEVICE_WARN_S, _DEFAULT_DEVICE_ERROR_S = wake.device_staleness_thresholds(None)
 
@@ -47,38 +47,6 @@ def _extract_point_ys(svg):
     independently."""
     return [float(m.group(1)) for m in re.finditer(
         r'<circle class="%s"[^>]*cy="([0-9.]+)%%"' % health_page.SPARKLINE_HIT_CLASS, svg)]
-
-
-# --- shared helpers for the check-in regularity section (this part only) ---
-
-_CELL_RE = re.compile(
-    r'<rect class="drawing-cell ([^"]+)"[^>]*><title>([^<]*)</title></rect>')
-
-
-def _check_in_cells(rendered):
-    """[(state class, title), ...] in document order."""
-    return [(m.group(1), m.group(2)) for m in _CELL_RE.finditer(rendered)]
-
-
-def _seeded_regularity_page(state_dir, now, wake_interval_s=300):
-    """Seed a device_config cadence plus two days of check-ins whose
-    gaps land on three different verdicts, and render Health."""
-    if wake_interval_s is not None:
-        device_config.save_device_config(state_dir, wake_interval_s=wake_interval_s)
-    today = now.astimezone(layout.LOCAL_TZ).replace(
-        hour=1, minute=0, second=0, microsecond=0)
-    yesterday = today - timedelta(days=1)
-    shp.seed_device_health(state_dir, [
-        # Yesterday: a 20-minute gap. At a 300s cadence that is past warn
-        # (900s) and short of error (3600s) — late.
-        (shp.iso(yesterday), 4200),
-        (shp.iso(yesterday + timedelta(minutes=20)), 4190),
-        # Today: a 10-minute gap, then a 6-hour one.
-        (shp.iso(today), 4180),
-        (shp.iso(today + timedelta(minutes=10)), 4170),
-        (shp.iso(today + timedelta(hours=6)), 4160),
-    ])
-    return health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
 
 
 # --- shared helper for the row-anatomy sweep (used from Task 2 onward) ----
@@ -711,274 +679,39 @@ def test_draw_cell_vocabulary_is_the_classifiers_own():
         "observation at all" % (sorted(draw.CELL_STATE_CLASSES), sorted(vocabulary)))
 
 
-# --- the Health section's regularity caption --------------------------
-#
-# THE CAPTION'S THREE CLAUSES GET THREE TESTS, one each, because they are
-# three separate claims and a later editor will be tempted to trim the
-# third as noise. A single test over the whole caption would go green on
-# two clauses out of three.
+# --- Health carries no check-in regularity grid ------------------------
 
 
-def test_the_caption_says_what_the_grid_shows(tmp_path):
-    """CLAUSE 1 — Health's regularity caption says what the grid SHOWS: one
-    cell is one day of OBSERVED check-in regularity"""
-    rendered = _seeded_regularity_page(str(tmp_path), shp.now())
-    clause = layout.escape_html(i18n.t(health_page.CHECK_IN_CAPTION_OBSERVED))
-    assert clause in rendered, (
-        "the caption does not carry its first clause %r — a grid whose reader cannot tell what "
-        "one cell means is a texture" % (clause,))
-    assert health_page.CHECK_IN_SECTION_HEADING.lower() != "wake punctuality", (
-        "the heading is the roadmap's own superseded phrasing")
-
-
-def test_the_caption_names_the_cadence_it_judged_against_and_says_it_is_todays(tmp_path):
-    """CLAUSE 2 — Health's regularity caption names the cadence the grid was
-    judged against, by its value and in this app's own duration form, and
-    says that cadence is the one configured NOW rather than the one in
-    force on an earlier day"""
-    now = shp.now()
-    rendered = _seeded_regularity_page(str(tmp_path), now, wake_interval_s=300)
-    # The VALUE, formatted the one way this app formats a length of time —
-    # never re-derived here as "5 minutes".
-    expected = layout.escape_html(i18n.t(health_page.CHECK_IN_CAPTION_CADENCE) % layout.duration_text(300))
-    assert expected in rendered, "the caption does not name the cadence it judged against: expected %r" % expected
-    assert "5m" in rendered or "5 min" in rendered, "the configured 300s cadence is not named by its value anywhere"
-
-
-def test_the_caption_says_a_gap_is_not_proof_of_a_missed_wake(tmp_path):
-    """CLAUSE 3 — Health's regularity caption says a day with no record is
-    NOT proof the frame did not wake, naming the log rotation that leaves
-    the same gap"""
-    # This is the clause a later editor trims as noise, and it is the
-    # difference between reporting an observation and accusing the
-    # device: the record cannot tell a missed wake from a log range the
-    # ingest lost.
-    rendered = _seeded_regularity_page(str(tmp_path), shp.now())
-    clause = layout.escape_html(i18n.t(health_page.CHECK_IN_CAPTION_NOT_PROOF))
-    assert clause in rendered, (
-        "the caption does not carry its third clause %r — without it the grid accuses the device "
-        "of missing wakes the record cannot show it missed" % (clause,))
-
-
-def test_with_no_determinable_cadence_the_caption_names_the_floors(tmp_path, monkeypatch):
-    """with a config yielding no cadence at all, Health's regularity caption
-    says the grid is judged against the fallback staleness floors and does
-    NOT name a configured value"""
-    monkeypatch.delenv(wake.SLEEP_ENV_VAR, raising=False)
-    now = shp.now()
-    # No device_config.json and no SKYPANE_SLEEP_S: exactly the
-    # freshly-provisioned deployment device_staleness_thresholds() degrades
-    # to its bare floors for.
-    rendered = _seeded_regularity_page(str(tmp_path), now, wake_interval_s=None)
-    assert wake.effective_wake_interval_s(None) is None, "the fixture still resolves a cadence — this check measures nothing"
-    floors = layout.escape_html(i18n.t(health_page.CHECK_IN_CAPTION_CADENCE_FALLBACK))
-    assert floors in rendered, "with no determinable cadence the caption must name the fallback floors: expected %r" % floors
-    configured = layout.escape_html(i18n.t(health_page.CHECK_IN_CAPTION_CADENCE).split("%s")[0])
-    assert configured not in rendered, (
-        "the caption still claims a CONFIGURED cadence (%r) for a deployment that has none — a "
-        "silently assumed default is the one thing this clause exists to prevent" % (configured,))
-
-
-def test_every_cell_verdict_is_the_classifiers_own_output(tmp_path):
-    """every cell's verdict equals wake.classify_check_in_gap()'s own output
-    for that day's longest observed gap — computed in this check from the
-    classifier, never hard-coded — every unobserved day carries the
-    no-observation class, and the page's own regularity builders call the
-    classifier while referencing no threshold constant of their own"""
-    now = shp.now()
+@pytest.mark.parametrize("lang", ("en", "fr"))
+def test_health_renders_no_check_in_regularity_grid(tmp_path, lang):
+    """Even with check-in history seeded, Health draws no regularity grid,
+    legend or caption, and the connection row still carries its plain
+    facts: the last check-in and the one-line explanation."""
     state_dir = str(tmp_path)
-    rendered = _seeded_regularity_page(state_dir, now, wake_interval_s=300)
-    cells = _check_in_cells(rendered)
-    assert len(cells) == health_page.CHECK_IN_WINDOW_DAYS, (
-        "expected one cell per day of the %d-day window, got %d" % (health_page.CHECK_IN_WINDOW_DAYS, len(cells)))
-    # The expectation is COMPUTED from the classifier over the reader's own
-    # rows — never a hard-coded colour.
-    with history_db.open_db(state_dir) as conn:
-        rows = history_db.check_in_gaps(conn)
-    worst = {}
-    for row in rows:
-        day, gap = row["day"], row["gap_s"]
-        if day is None or gap is None:
-            continue
-        worst[day] = max(gap, worst.get(day, gap))
-    assert len(worst) == 2, (
-        "the fixture seeded gaps on %d Paris days, expected 2 — this check would be measuring "
-        "something other than what it seeded" % (len(worst),))
-    expected = {}
-    for day, gap in worst.items():
-        state = wake.classify_check_in_gap(gap, 300)
-        parsed_day = datetime.strptime(day, "%Y-%m-%d")
-        expected["%d %s" % (parsed_day.day, layout.month_abbr(parsed_day.month))] = state
-    assert set(expected.values()) == {wake.CHECK_IN_LATE, wake.CHECK_IN_MISSING}, (
-        "the fixture's own verdicts are %r — it must exercise more than one verdict or the "
-        "mapping below is untested" % (sorted(expected.values()),))
-    seen = 0
-    for class_name, title in cells:
-        for label, state in expected.items():
-            if title.startswith(label):
-                seen += 1
-                assert class_name == draw.cell_class(state), (
-                    "the cell titled %r carries %r; the classifier says %r for its own longest "
-                    "observed gap, which is %r" % (title, class_name, state, draw.cell_class(state)))
-                break
-        else:
-            assert class_name == draw.cell_class(wake.CHECK_IN_UNKNOWN), (
-                "the cell titled %r carries %r for a day the record says nothing about — it must "
-                "carry the no-observation class %r" % (title, class_name, draw.cell_class(wake.CHECK_IN_UNKNOWN)))
-    assert seen == len(expected), "found %d of the %d seeded days in the grid" % (seen, len(expected))
-    # AND THE PAGE COMPUTES NO INTERVAL OF ITS OWN. Read off the compiled
-    # functions' own referenced names, never their source text, so a
-    # docstring can neither pass nor fail this.
-    builders = [health_page._check_in_regularity_cells, health_page._check_in_regularity_html]
-    names = set()
-    for fn in builders:
-        names |= set(fn.__code__.co_names)
-    assert "classify_check_in_gap" in names, (
-        "no regularity builder calls wake.classify_check_in_gap() — the verdicts are coming from "
-        "somewhere other than the one definition of 'late'")
-    for forbidden in ("device_staleness_thresholds", "MISSED_WAKES_WARN", "MISSED_WAKES_ERROR",
-                      "STALE_WARN_FLOOR_S", "STALE_ERROR_FLOOR_S"):
-        assert forbidden not in names, (
-            "a regularity builder references %r — this page consumes verdicts and derives no "
-            "threshold of its own" % (forbidden,))
-
-
-def test_with_no_observations_the_section_still_renders_its_grid(tmp_path):
-    """with no observations at all the regularity section still renders — a
-    full grid of no-observation cells, none of them on-cadence or missing,
-    under its own caption saying there is nothing recorded yet"""
     now = shp.now()
-    state_dir = str(tmp_path)
-    device_config.save_device_config(state_dir, wake_interval_s=300)
-    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
-    heading = layout.escape_html(i18n.t(health_page.CHECK_IN_SECTION_HEADING))
-    assert heading in rendered, (
-        "a deployment with no check-ins renders no regularity section at all — an absent section "
-        "is a worse answer than an honest empty one")
-    cells = _check_in_cells(rendered)
-    assert len(cells) == health_page.CHECK_IN_WINDOW_DAYS, (
-        "expected a full %d-cell grid of no-observation cells, got %d" % (health_page.CHECK_IN_WINDOW_DAYS, len(cells)))
-    none_class = draw.cell_class(wake.CHECK_IN_UNKNOWN)
-    wrong = [c for c, _ in cells if c != none_class]
-    assert not wrong, (
-        "a deployment with no check-ins painted %r — with no observations there is nothing to be "
-        "on cadence about and nothing to be missing" % (set(wrong),))
-    empty = layout.escape_html(i18n.t(health_page.CHECK_IN_CAPTION_EMPTY))
-    assert empty in rendered, "the empty grid carries no caption of its own saying so: expected %r" % (empty,)
-
-
-def test_the_rendered_page_never_claims_punctuality_in_either_language(tmp_path):
-    """the rendered Health page contains neither 'honoured' nor 'punctual'
-    (nor 'punctualité') in EITHER language while carrying the full grid in
-    both, and the section heading has a real French sibling rather than an
-    English string inside a French page"""
-    # The roadmap's own phrasing for this drawing was "wake punctuality",
-    # and the expected interval is not recoverable, so a page using that
-    # word would assert something this deployment cannot observe. The
-    # blunt grep is the point — it is re-runnable from a terminal by
-    # anyone, with no parser to trust.
-    now = shp.now()
-    state_dir = str(tmp_path)
-    device_config.save_device_config(state_dir, wake_interval_s=300)
+    today = now.astimezone(layout.LOCAL_TZ).replace(hour=1, minute=0, second=0, microsecond=0)
+    shp.seed_device_health(state_dir, [
+        (shp.iso(today - timedelta(days=1)), 4200),
+        (shp.iso(today), 4180),
+        (shp.iso(today + timedelta(hours=6)), 4160),
+    ])
     try:
-        prefs.set_request_prefs(lang="en")
-        en_rendered = _seeded_regularity_page(state_dir, now)
-        prefs.set_request_prefs(lang="fr")
-        fr_rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+        prefs.set_request_prefs(lang=lang)
+        rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     finally:
         prefs.set_request_prefs(lang="en")
-    for lang_name, rendered in (("EN", en_rendered), ("FR", fr_rendered)):
-        lowered = rendered.lower()
-        for banned in ("honoured", "punctual", "punctualité", "ponctual"):
-            assert banned not in lowered, (
-                "the %s-rendered Health page contains %r — this grid reports an OBSERVATION, and "
-                "no name in this app may call it a rate of wakes the device kept" % (lang_name, banned))
-        assert len(_check_in_cells(rendered)) == health_page.CHECK_IN_WINDOW_DAYS, (
-            "the %s render carries no regularity grid, so this check is scanning a page without "
-            "the drawing it is about" % (lang_name,))
-    fr_heading = health_page.i18n.t_lang(health_page.CHECK_IN_SECTION_HEADING, "fr")
-    assert fr_heading != health_page.CHECK_IN_SECTION_HEADING, (
-        "the section heading has no French sibling — it would render in English inside a French page")
-    assert layout.escape_html(fr_heading) in fr_rendered, "the French render does not carry the French heading"
-
-
-_DISCLOSURE_CASES = [
-    ("observed, cadence known", True, 300),
-    ("observed, cadence unknown", True, None),
-    ("not observed, cadence known", False, 300),
-    ("not observed, cadence unknown", False, None),
-]
-
-
-def _section_slice(rendered):
-    """The regularity block inside the Frame connection row: from its subhead to
-    the start of the next row."""
-    heading_marker = '<p class="health-row__subhead">%s</p>' % layout.escape_html(
-        i18n.t(health_page.CHECK_IN_SECTION_HEADING))
-    start = rendered.index(heading_marker)
-    end = rendered.find('<details class="health-row"', start)
-    return rendered[start:end if end != -1 else len(rendered)]
-
-
-def _visible_caption(section_html):
-    m = re.search(r'<p class="text-label section-caption">(.*?)</p>', section_html)
-    assert m is not None, "expected a visible caption <p> in the check-in card"
-    return m.group(1)
-
-
-def _disclosure_body(section_html):
-    m = re.search(
-        r'<details class="readings-disclosure"><summary>[^<]*</summary><p>(.*?)</p></details>',
-        section_html)
-    assert m is not None, "expected a readings-disclosure <details> in the check-in card"
-    return m.group(1)
-
-
-@pytest.mark.parametrize(
-    ("case_name", "observed", "wake_interval_s"), _DISCLOSURE_CASES,
-    ids=[case[0] for case in _DISCLOSURE_CASES])
-def test_check_in_disclosure_moved_clauses_render_across_all_four_cases(
-        tmp_path, monkeypatch, case_name, observed, wake_interval_s):
-    """for all four check-in-card cases (observed x cadence-known), the
-    visible caption carries EXACTLY CHECK_IN_CAPTION_OBSERVED and every
-    other clause that case renders moves, byte-identical, into the card's
-    own <details class="readings-disclosure"> — 'moved, not cut' proven as
-    a relationship, case and clause named on failure"""
-    monkeypatch.delenv(wake.SLEEP_ENV_VAR, raising=False)
-    if wake_interval_s is None:
-        assert wake.effective_wake_interval_s(None) is None, (
-            "%s: the environment still resolves a cadence — this case measures nothing" % (case_name,))
-    state_dir = str(tmp_path)
-    now = shp.now()
-    if observed:
-        rendered = _seeded_regularity_page(state_dir, now, wake_interval_s=wake_interval_s)
-    else:
-        if wake_interval_s is not None:
-            device_config.save_device_config(state_dir, wake_interval_s=wake_interval_s)
-        rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
-    section_html = _section_slice(rendered)
-    visible = _visible_caption(section_html)
-    expected_visible = layout.escape_html(i18n.t(health_page.CHECK_IN_CAPTION_OBSERVED))
-    assert visible == expected_visible, (
-        "%s: expected the visible caption to be EXACTLY %r, got %r" % (case_name, expected_visible, visible))
-
-    disclosure = _disclosure_body(section_html)
-    expected_disclosure_clauses = []
-    if not observed:
-        expected_disclosure_clauses.append(layout.escape_html(i18n.t(health_page.CHECK_IN_CAPTION_EMPTY)))
-    if wake_interval_s is not None:
-        expected_disclosure_clauses.append(layout.escape_html(
-            i18n.t(health_page.CHECK_IN_CAPTION_CADENCE) % layout.duration_text(wake_interval_s)))
-    else:
-        expected_disclosure_clauses.append(layout.escape_html(i18n.t(health_page.CHECK_IN_CAPTION_CADENCE_FALLBACK)))
-    expected_disclosure_clauses.append(layout.escape_html(i18n.t(health_page.CHECK_IN_CAPTION_NOT_PROOF)))
-    for clause in expected_disclosure_clauses:
-        assert clause in disclosure, (
-            "%s: expected clause %r inside the disclosure — missing (the 'moved, not cut' "
-            "guarantee is broken)" % (case_name, clause))
-        assert clause not in visible, (
-            "%s: expected clause %r to be MOVED out of the visible caption, still found there"
-            % (case_name, clause))
+    doc = parse_html(rendered)
+    assert not doc.select(".check-in-grid"), "Health must not draw the regularity grid"
+    assert not doc.select(".drawing-cell"), "Health must not draw regularity cells"
+    assert not doc.select(".check-in-key"), "Health must not draw the regularity key"
+    row = shp.health_row(rendered, "connection")
+    assert row.select_one("summary .health-row__verdict") is not None
+    assert row.select_one(".health-row__body .health-row__facts") is not None
+    assert row.select_one(".health-row__body .health-row__note") is not None
+    # Health reports observations, never a rate of wakes the frame kept.
+    lowered = rendered.lower()
+    for banned in ("honoured", "punctual", "punctualité", "ponctual"):
+        assert banned not in lowered, "Health contains %r" % (banned,)
 
 
 def test_sparkline_axis_chrome_present():

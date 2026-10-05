@@ -545,9 +545,7 @@ def health_signals(state_dir, now=None):
         now = history_db.utc_now_iso()
     inputs = _read_health_inputs(state_dir, now)
     # The device's effective wake cadence resolves to its staleness
-    # thresholds, computed once here. The regularity grid judges its
-    # cells against this same cadence and names it in its caption, so it
-    # is held in a local rather than recomputed inline.
+    # thresholds, computed once here.
     wake_interval_s = wake.effective_wake_interval_s(inputs["device_config"])
     warn_s, error_s = wake.device_staleness_thresholds(wake_interval_s)
     # The same triple companion/layout.py's frame_strip_html() consumes,
