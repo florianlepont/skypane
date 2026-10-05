@@ -45,10 +45,10 @@ V1.1 begins by improving the companion through a task-based bilingual usability 
 **Plans**: 4 plans
 
 Plans:
-- [x] 45-01-PLAN.md — Run 2 Protocol pre-registered and CONFIRMED by the owner 2026-10-05 (60 s cadence, 21-day ceiling, park-window rule); one item (reference interval for the continuity gates, O-1) still PROPOSED
+- [x] 45-01-PLAN.md — Run 2 Protocol pre-registered and CONFIRMED by the owner 2026-10-05 (60 s cadence, 21-day ceiling, park-window rule); the reference interval for the continuity gates (D-11) also CONFIRMED 2026-10-05
 - [x] 45-02-PLAN.md — logtools `run-report`: raw export, separate continuity / voltage-validity / baseline verdicts, three-way cycle reconciliation, with tests
 - [ ] 45-03-PLAN.md — Owner runs the physical discharge; start/end values and production-interval restore recorded (human-action checkpoints)
-- [ ] 45-04-PLAN.md — Run report on owner-supplied export and record `## Run 2 Results` (blocked unless real data is supplied)
+- [ ] 45-04-PLAN.md — Run report on owner-supplied export and record `## Run 2 Results` (blocked unless real data is supplied); its Task 0 (frozen `reference_interval_s` in run-report plus the `reference-interval` 48 h helper) is already implemented
 
 ### Phase 46: Two-Run Battery Analysis and Operating Decision
 **Goal**: The owner can use two observed battery runs to choose and apply one defensible field operating policy.
@@ -76,6 +76,6 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 44. Companion Walkthrough and Focused Bilingual Polish | v1.1 | 12/12 | Complete | 2026-10-04 |
-| 45. Controlled Second Discharge Study | v1.1 | 2/4 | In Progress (45-03 physical run pending; O-1 open) | - |
+| 45. Controlled Second Discharge Study | v1.1 | 2/4 | In Progress (45-03 physical run pending) | - |
 | 46. Two-Run Battery Analysis and Operating Decision | v1.1 | 0/TBD | Not started | - |
 | 47. Integrated Field Validation and Decision Record | v1.1 | 0/TBD | Not started | - |

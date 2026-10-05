@@ -46,3 +46,7 @@ O-1, the interval the continuity gates are judged against (Protocol section 4a).
 The plan's proposed 900 s / 45 days were replaced by the owner's 60 s / 21 days. The plan's Task 3 verify strings were adjusted to the owner's wording of the status line. One item (O-1) deliberately remains PROPOSED.
 
 ## Self-Check: PASSED
+
+## Update 2026-10-05 (after the owner's decisions on O-1)
+
+O-1 is closed: the owner confirmed option 3 (D-11) and accepted the two comparability limitations (D-12). Protocol section 4a is CONFIRMED with the exact rule, the helper command and where the value is recorded, and the limitations sit under "Known limitations carried to Phase 46". The tool change (45-04 Task 0) was implemented ahead of the run, with tests on synthetic data only. The "What stays PROPOSED" section above is the record as of this plan's execution.

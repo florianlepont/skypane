@@ -12,5 +12,9 @@
   "boot_count_start": null,
   "boot_count_end": null,
   "production_interval_before_s": null,
-  "production_interval_restored_s": null
+  "production_interval_restored_s": null,
+  "_reference_interval_note": "Optional, set once at the 48 h freeze and committed before any continuity verdict: reference_interval_s is the whole-second value printed by `logtools.py reference-interval <export> --interval-s <interval_s>`, between interval_s and 3 x interval_s; reference_interval_source says where it came from (required with the value); reference_interval_export_sha256 is the export_sha256 line that command printed. Leave all three null to judge against interval_s.",
+  "reference_interval_s": null,
+  "reference_interval_source": null,
+  "reference_interval_export_sha256": null
 }
