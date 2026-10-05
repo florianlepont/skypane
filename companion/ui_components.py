@@ -1,5 +1,5 @@
 """companion/ui_components.py: the shared, escaped HTML component library —
-banners, status dots/rows, stat tiles, the quick-switch control pair, the
+toasts (flash outcomes and persistent alerts), status dots/rows, stat tiles, the quick-switch control pair, the
 Frame strip (home_page.py's and config_page.py's shared Display summary),
 the page header and the generic data table. Depends on companion.ui_base
 for escaping/icon lookup and the quick-action/frame-strip constant tables,
@@ -51,36 +51,214 @@ from companion.ui_base import (
 )
 from companion.ui_time import local_clock_text, parse_iso, relative_time_html
 
-_FLASH_ROLES = {"status", "alert"}
+# The toast family: one component for every alert this app shows. A flash
+# (one request's outcome) floats when scripts run and stays in flow when
+# they do not; a persistent state (Health, Update, Home) is always
+# docked in flow. Tone is never carried by colour alone: each tone has
+# its own glyph shape and a visually-hidden spoken prefix.
+TOAST_TONE_SUCCESS = "success"
+TOAST_TONE_INFO = "info"
+TOAST_TONE_WARNING = "warning"
+TOAST_TONE_ERROR = "error"
+# The change is saved but only reaches the frame on its next wake.
+TOAST_TONE_PENDING = "pending"
+TOAST_TONES = (
+    TOAST_TONE_SUCCESS, TOAST_TONE_INFO, TOAST_TONE_WARNING,
+    TOAST_TONE_ERROR, TOAST_TONE_PENDING,
+)
+# Polite for an outcome the user simply reads, assertive for a problem.
+TOAST_ROLES = {
+    TOAST_TONE_SUCCESS: "status",
+    TOAST_TONE_INFO: "status",
+    TOAST_TONE_PENDING: "status",
+    TOAST_TONE_WARNING: "alert",
+    TOAST_TONE_ERROR: "alert",
+}
+# Only these tones may hide on their own (toast.js, an enhancement).
+# Warnings and errors need reading and acting on, so they stay until
+# dismissed. A pending note hides too, but after the longer dwell: it
+# says something will still happen later, so it is worth more time.
+TOAST_AUTOHIDE_TONES = (TOAST_TONE_SUCCESS, TOAST_TONE_INFO, TOAST_TONE_PENDING)
+TOAST_AUTOHIDE_LONG_TONES = (TOAST_TONE_PENDING,)
+# The data-toast-autohide value that selects the longer dwell; the short
+# dwell is the bare attribute.
+TOAST_AUTOHIDE_LONG_VALUE = "long"
+
+TOAST_GLYPHS = {tone: "icon-toast-" + tone for tone in TOAST_TONES}
+TOAST_GLYPH_TRASH = "icon-toast-trash"
+
+# Spoken before the title, never shown.
+TOAST_TONE_PREFIX_TEXT = {
+    TOAST_TONE_SUCCESS: i18n.msg("common.toast_tone_success", "Success:"),
+    TOAST_TONE_INFO: i18n.msg("common.toast_tone_info", "Information:"),
+    TOAST_TONE_WARNING: i18n.msg("common.toast_tone_warning", "Warning:"),
+    TOAST_TONE_ERROR: i18n.msg("common.toast_tone_error", "Error:"),
+    TOAST_TONE_PENDING: i18n.msg("common.toast_tone_pending", "Pending:"),
+}
+TOAST_DISMISS_TEXT = i18n.msg("common.dismiss_this_message", "Dismiss this message")
+TOAST_UNDO_TEXT = i18n.msg("common.undo", "Undo")
+
+# The separator a message's title and detail are written around, in
+# both languages. Splitting the translated text (not the English source)
+# lets each language decide where its own title ends.
+TOAST_SPLIT = " — "
+
+# The hooks toast.js reads. The dwells themselves live in style.css's
+# --motion-toast-dwell and --motion-toast-dwell-long tokens, read by the
+# script, so the hairline and the timer can never disagree.
+TOAST_ATTR = "data-toast"
+TOAST_AUTOHIDE_ATTR = "data-toast-autohide"
+TOAST_DISMISS_ATTR = "data-toast-dismiss"
 
 
-def flash_banner(message, role="status"):
-    """An accent-bordered confirmation block for a save confirmation.
-
-    `role` is validated against `_FLASH_ROLES` (falling back to "status"),
-    rendered as the `<div>`'s ARIA role: `role="alert"` (assertive) for a
-    save/poll failure, `role="status"` (polite) otherwise, chosen by the
-    caller's severity.
+def split_toast_message(text):
+    """`(title, detail)` from one already-translated message, split at its
+    first TOAST_SPLIT; `detail` is None when there is no separator. The
+    detail gets a capital first letter because it starts its own line on
+    a phone.
     """
-    resolved_role = role if role in _FLASH_ROLES else "status"
+    title, separator, detail = text.partition(TOAST_SPLIT)
+    detail = detail.strip()
+    if not separator or not detail:
+        return text, None
+    return title.strip(), detail[:1].upper() + detail[1:]
+
+
+def toast_icon_html(tone, glyph=None):
+    """The tone disc with its glyph. Decorative: the tone is spoken by the
+    visually-hidden prefix instead."""
+    return '<span class="toast__icon" aria-hidden="true">%s</span>' % icon_html(
+        glyph or TOAST_GLYPHS.get(tone, TOAST_GLYPHS[TOAST_TONE_INFO]), 18,
+        extra_class="toast__glyph")
+
+
+def toast_text_html(tone, title, detail=None, extra_html=""):
+    """The `<p>` holding the spoken tone prefix, the bold title and the
+    muted detail. A visually-hidden dash keeps the two halves one sentence
+    for a screen reader; the visible middle dot is CSS-generated and
+    silent. `extra_html` is pre-escaped markup appended after the detail.
+    """
+    prefix = TOAST_TONE_PREFIX_TEXT.get(tone, TOAST_TONE_PREFIX_TEXT[TOAST_TONE_INFO])
+    detail_html = (
+        '<span class="visually-hidden">%s</span><span class="toast__detail">%s</span>'
+        % (TOAST_SPLIT, escape_html(detail)) if detail else "")
     return (
-        '<div class="banner banner--flash" role="%s">%s</div>'
-        % (resolved_role, escape_html(message)))
+        '<p class="toast__text"><span class="visually-hidden">%s </span>'
+        '<strong class="toast__title">%s</strong>%s%s</p>'
+    ) % (escape_html(i18n.t(prefix)), escape_html(title), detail_html, extra_html)
+
+
+def toast_link_action_html(href, label):
+    """A toast action that navigates: a plain link styled as the action."""
+    return '<a class="toast__action" href="%s">%s%s</a>' % (
+        escape_html(href), escape_html(label),
+        icon_html("icon-chevron-right", 16, extra_class="toast__action-glyph"))
+
+
+def toast_post_action_html(action, fields, label, glyph="icon-undo"):
+    """A toast action that changes something: a real POST form, so it works
+    with scripts blocked. `fields` is a sequence of (name, value) pairs
+    rendered as hidden inputs; every value is escaped here.
+    """
+    hidden = "".join(
+        '<input type="hidden" name="%s" value="%s">' % (escape_html(name), escape_html(value))
+        for name, value in fields)
+    return (
+        '<form class="toast__action-form" method="post" action="%s">%s'
+        '<button type="submit" class="toast__action">%s%s</button></form>'
+    ) % (escape_html(action), hidden, escape_html(label),
+         icon_html(glyph, 16, extra_class="toast__action-glyph"))
+
+
+def toast_dismiss_html(href):
+    """The dismiss control: a link back to the same page without the flash
+    query, so it works with scripts blocked; toast.js removes the toast
+    in place instead."""
+    return (
+        '<a class="toast__dismiss" href="%s" aria-label="%s" %s>%s</a>'
+    ) % (escape_html(href), escape_html(i18n.t(TOAST_DISMISS_TEXT)),
+         TOAST_DISMISS_ATTR, icon_html("icon-close", 18))
+
+
+def toast_dismiss_button_html():
+    """The dismiss control of a toast that only ever exists with scripts
+    running (the quick-switch failure): a plain button for toast.js."""
+    return (
+        '<button type="button" class="toast__dismiss" aria-label="%s" %s>%s</button>'
+    ) % (escape_html(i18n.t(TOAST_DISMISS_TEXT)), TOAST_DISMISS_ATTR,
+         icon_html("icon-close", 18))
+
+
+def toast_html(
+        title, detail=None, tone=TOAST_TONE_INFO, role=None, dismiss_href=None,
+        action_html="", extra_html="", glyph=None, docked=False, extra_class=""):
+    """One toast. `role` defaults to the tone's own (TOAST_ROLES); pass ""
+    when an enclosing live region already announces it, or for a docked
+    state surface that should not announce itself. A docked toast is a
+    persistent state: always in flow, never auto-hidden, never
+    dismissable. `dismiss_href` is the no-script dismiss link's target,
+    or True for a script-only dismiss button. `action_html`/`extra_html`
+    are pre-escaped markup.
+    """
+    if tone not in TOAST_TONES:
+        tone = TOAST_TONE_INFO
+    resolved_role = TOAST_ROLES[tone] if role is None else role
+    classes = "toast toast--%s" % tone
+    if docked:
+        classes += " toast--docked"
+    if extra_class:
+        classes += " " + extra_class
+    attrs = ' class="%s"' % classes
+    if resolved_role in ("status", "alert"):
+        attrs += ' role="%s"' % resolved_role
+    autohide = not docked and tone in TOAST_AUTOHIDE_TONES
+    if not docked:
+        attrs += " " + TOAST_ATTR
+        if autohide:
+            attrs += " " + TOAST_AUTOHIDE_ATTR
+            if tone in TOAST_AUTOHIDE_LONG_TONES:
+                attrs += '="%s"' % TOAST_AUTOHIDE_LONG_VALUE
+    dismiss_html = ""
+    if dismiss_href is True and not docked:
+        dismiss_html = toast_dismiss_button_html()
+    elif dismiss_href and not docked:
+        dismiss_html = toast_dismiss_html(dismiss_href)
+    return "<div%s>%s%s%s%s%s</div>" % (
+        attrs,
+        toast_icon_html(tone, glyph),
+        toast_text_html(tone, title, detail, extra_html),
+        action_html,
+        dismiss_html,
+        '<span class="toast__timer" aria-hidden="true"></span>' if autohide else "",
+    )
+
+
+def flash_banner(
+        message, role=None, tone=TOAST_TONE_INFO, dismiss_href=None,
+        action_html="", glyph=None):
+    """One request's outcome as a toast, inside the flash region that
+    floats it when scripts run and keeps it in flow when they do not.
+
+    `message` is already-translated text, split into title and detail at
+    TOAST_SPLIT. `role` is validated, falling back to the tone's own.
+    """
+    title, detail = split_toast_message(message)
+    resolved_role = role if role in ("status", "alert") else None
+    return '<div class="toast-region toast-region--flash">%s</div>' % toast_html(
+        title, detail, tone=tone, role=resolved_role, dismiss_href=dismiss_href,
+        action_html=action_html, glyph=glyph)
 
 
 def anomaly_banner(message, severity="error"):
-    """A warning/destructive-bordered block for anomaly flagging.
-
-    `severity` chooses both the CSS class and ARIA role: `"error"` (default)
-    renders `banner--anomaly`/`role="alert"`; `"warn"` renders
-    `banner--warn`/`role="status"` — a warning-only state announces politely,
-    not as an assertive interruption.
+    """A persistent, docked state surface. `severity` `"error"` (default)
+    renders the error tone with `role="alert"`; `"warn"` renders the
+    warning tone with `role="status"`: a warning-only state announces
+    politely, not as an assertive interruption.
     """
-    css_class = "banner--anomaly" if severity == "error" else "banner--warn"
-    role = "alert" if severity == "error" else "status"
-    return (
-        '<div class="banner %s" role="%s">%s</div>'
-        % (css_class, role, escape_html(message)))
+    title, detail = split_toast_message(message)
+    if severity == "error":
+        return toast_html(title, detail, tone=TOAST_TONE_ERROR, role="alert", docked=True)
+    return toast_html(title, detail, tone=TOAST_TONE_WARNING, role="status", docked=True)
 
 
 def status_dot(state, label, title=None, visually_hide_label=False):
@@ -353,12 +531,13 @@ def _frame_update_cell_html(
     `.dot--off`, late `.dot--warn`, the warn signal carried by wording and
     dot, never text colour.
 
-    The countdown sits beside — never inside — the headline. It is
+    The held and late countdown sits beside — never inside — the headline;
+    on time it is the headline's own value. It is
     formatting and decides nothing: the instant and state word both come
     from `_frame_resolved_state()` above; relative-time.js advances the
     duration without re-deciding due/held/late. `countdown=True` keeps it
     a countdown after its instant passes, reading the waiting wording
-    rather than silently becoming an age: "Expected since 14:32 /
+    rather than silently becoming an age: "Update overdue · expected at 14:32 /
     waiting…", never "2m ago" — a second, quieter lateness claim beside
     the headline's.
     """
@@ -373,24 +552,29 @@ def _frame_update_cell_html(
         headline_i18n_source = _FRAME_HEADLINE_HELD_TEXT
     else:
         headline_i18n_source = _FRAME_HEADLINE_DUE_TEXT
-    # The clock value is its own `.time-value` element, not baked into the
-    # sentence's escaped text: each headline template carries exactly one
-    # "%s", so the leading text, the clock span and the trailing text are
-    # escaped separately at their own interpolation sites.
+    countdown_html = relative_time_html(resolved_next_wake_iso, now_value, countdown=True)
     headline_before, headline_after = i18n.t(headline_i18n_source).split("%s", 1)
+    if headline_i18n_source is _FRAME_HEADLINE_DUE_TEXT:
+        # On time the sentence itself carries the countdown ("Next update in
+        # 4 min"); there is no clock and no second line.
+        value_html = countdown_html
+        caption_html = ""
+    else:
+        # The clock value is its own `.time-value` element, not baked into
+        # the sentence's escaped text: each headline template carries
+        # exactly one "%s", so the leading text, the clock span and the
+        # trailing text are escaped separately at their own interpolation
+        # sites.
+        value_html = '<span class="time-value time-value--primary">%s</span>' % (
+            escape_html(next_wake_clock))
+        caption_html = '<p class="text-label section-caption">%s</p>' % countdown_html
     headline_text = "%s%s%s" % (
-        escape_html(headline_before),
-        '<span class="time-value time-value--primary">%s</span>' % escape_html(next_wake_clock),
-        escape_html(headline_after),
-    )
+        escape_html(headline_before), value_html, escape_html(headline_after))
     update_state_row_html = (
         '<p class="%s"><span class="dot %s"></span>%s</p>'
     ) % (headline_class, dot_class, headline_text)
-    countdown_html = (
-        '<p class="text-label section-caption">%s</p>'
-        % relative_time_html(resolved_next_wake_iso, now_value, countdown=True))
     return _frame_strip_cell_html(
-        "frame-strip__cell--update", "", update_state_row_html, countdown_html)
+        "frame-strip__cell--update", "", update_state_row_html, caption_html)
 
 
 def frame_strip_html(ctx, return_to, next_wake_iso=None):

@@ -1,19 +1,22 @@
-"""The colour-rules settings group: the per-flight colour-rules editor
-(add form, suggestion chips, per-row delete) and the manual "Trigger
-poll now" control, plus the full Rules usage row of the Aspect card
-(built here so `companion.settings.theme` stays independent of this
-module — see that module's own docstring for why).
+"""The colour-rules settings group: the per-flight rules shown as the
+look card's "Special looks" list (rows, per-row delete, and the "Add a
+special look" form with recent suggestions), plus the manual "Trigger
+poll now" control. Built here so `companion.settings.theme` stays
+independent of this module — see that module's own docstring for why.
 """
 from companion import i18n
+from companion import theme_preview
+import companion.layout as layout
 from companion.layout import escape_html
 from server import device_config, history_db
-from server.plane import colour_rules
+from server.plane import colour_rules, enrich, name_overrides
 
+from companion.settings import look
+from companion.settings.calendar import special_mini_html
 from companion.settings.form import (
     _field_error_attrs, _field_error_html, _submitted_or_current)
 from companion.settings.theme import (
-    COLOUR_USAGE_RULES, _palette_hex, _theme_chip_grid_html, _theme_label_message,
-    _usage_row_html, _usage_row_summary_html)
+    COLOUR_USAGE_RULES, LOOK_CLOSE_LABEL, look_target_attrs)
 
 
 # Owned by companion/i18n_fr/display.py, not this module's own rules.py
@@ -65,21 +68,27 @@ RULES_DELETE_ROUTE_PREFIX = "/settings/rules/"
 RULES_DELETE_ROUTE_SUFFIX = "/delete"
 
 
+SPECIAL_LOOKS_HEADING = i18n.msg("look.special_looks", "Special looks")
 RULES_SECTION_CAPTION = i18n.msg(
-    "rules.give_one_flight_one_aircraft_or_one_airline_its",
-    "Give one flight, one aircraft or one airline its own theme.")
-RULES_HOW_RULES_COMBINE_SUMMARY = i18n.msg("rules.how_rules_combine", "How rules combine")
-RULES_HOW_RULES_COMBINE_BODY = i18n.msg(
-    "rules.the_most_specific_match_wins_a_flight_rule",
-    "The most specific match wins — a flight rule beats an aircraft "
-    "rule, which beats an airline rule — and adding a key that's "
-    "already in use replaces the existing rule for it.")
+    "look.override_the_look_for_one_airline_flight_or_aircraft",
+    "Override the look for one airline, flight or aircraft.")
+SPECIAL_LOOKS_ORDER = i18n.msg(
+    "look.most_specific_wins",
+    "Most specific wins: calendar, then flight, aircraft, airline. "
+    "Adding a key already in the list replaces its look.")
+ADD_SPECIAL_LOOK_LABEL = i18n.msg("look.add_a_special_look", "Add a special look")
+NEW_SPECIAL_LOOK_HEADING = i18n.msg("look.new_special_look", "New special look")
+RULE_PREVIEW_TEXT = i18n.msg(
+    "look.matching_flights_will_look_like_this",
+    "Matching flights will look like this, unless a more specific look applies.")
+RULE_LOOK_LABEL = i18n.msg("look.look", "Look")
 # Owned by companion/i18n_fr/display.py, not this module's own
 # rules.py catalogue — shared segmented-control copy that predates the
 # per-flight rules feature.
-RULE_KIND_FIELD_LABEL = i18n.msg("display.match_by", "Match by")
+RULE_KIND_FIELD_LABEL = i18n.msg("display.match_by", "Applies to")
 RULE_VALUE_FIELD_LABEL = i18n.msg("display.value", "Value")
-RULE_ADD_BUTTON_TEXT = i18n.msg("display.add_rule", "Add rule")
+RULE_ADD_BUTTON_TEXT = i18n.msg("display.add_rule", "Add special look")
+RULE_CANCEL_TEXT = i18n.msg("display.cancel", "Cancel")
 # The plain-language segment labels, used by both the add form's
 # segment text and the rule-row kind badge, so the two can never
 # disagree.
@@ -106,10 +115,6 @@ RULE_KIND_TITLES = {
     colour_rules.RULE_KIND_PREFIX: i18n.msg("display.callsign_prefix", "Callsign prefix"),
 }
 RULE_VALUE_PLACEHOLDER = "AFR1234"
-RULES_EMPTY_HEADING = i18n.msg("rules.no_flight_colours_yet", "No flight colours yet.")
-RULES_EMPTY_BODY = i18n.msg(
-    "rules.add_one_above_to_give_a_flight_aircraft_or",
-    "Add one above to give a flight, aircraft or airline its own theme.")
 RULE_REMOVE_BUTTON_TEXT = i18n.msg("rules.remove", "Remove")
 # The suggestion chips' own label prefix; the joined callsign list
 # itself is data, never translated.
@@ -118,16 +123,8 @@ RULE_SUGGESTIONS_LABEL = i18n.msg("rules.recent", "Recent:")
 RULE_KIND_HEADING_ID = "rule-kind-heading"
 RULE_THEME_HEADING_ID = "rule-theme-heading"
 RULE_REMOVE_CONFIRM_QUESTION = i18n.msg("rules.remove_this_rule", "Remove this rule?")
-# "Theme" is nav.py's own tab label (companion/ui_nav.py declares the
-# Message); redeclared here with the identical (id, English) pair —
-# msg() is idempotent on a repeat declaration — since a settings module
-# never imports a page/nav module directly.
-RULE_THEME_FIELD_LABEL = i18n.msg("nav.theme", "Theme")
-
-
-FRAME_COLOURS_RULES_COUNT_SINGULAR = i18n.msg("display.1_rule", "1 rule")
-FRAME_COLOURS_RULES_COUNT_PLURAL_TEMPLATE = i18n.msg("display.rules", "%d rules")
-FRAME_COLOURS_RULES_EMPTY_META = i18n.msg("display.no_rules_yet", "No rules yet")
+# Recent suggestions offered per kind, newest first.
+RULE_SUGGESTIONS_PER_KIND = 5
 
 
 def poll_trigger_section(cooldown_remaining):
@@ -222,124 +219,173 @@ def _rule_kind_radio_html(kind, checked):
     )
 
 
-def _rule_add_form_html(errors=None, submitted=None):
-    """The one-line add-rule form: a `role="radiogroup"` of native
-    radios styled as a segmented control, a value input, a compact
-    theme-chip grid and an "Add rule" button, one `<form>` targeting
-    `RULES_ADD_ROUTE`.
-
-    No per-segment placeholder swap on selection (no script wires it):
-    one static placeholder covers the always-valid default kind only.
-    Validation errors render under the field, keeping the typed value.
-    """
-    selected_kind = _submitted_or_current(
-        submitted, "rule_kind", colour_rules.RULE_KIND_CALLSIGN)
+def _rule_kind_segment_html(selected_kind, errors):
+    """The "Applies to" segmented control: native radios styled as one
+    control, labelled by its visible heading."""
     kind_radios = "".join(
         _rule_kind_radio_html(kind, kind == selected_kind)
         for kind in colour_rules.RULE_KINDS)
-    kind_error_html = _field_error_html(errors, "rule_kind", "rule-kind")
-
-    submitted_value = submitted.get("rule_key", "") if submitted is not None else ""
-    value_error_attrs = _field_error_attrs(errors, "rule_key", "rule-key")
-    value_error_html = _field_error_html(errors, "rule_key", "rule-key")
-
-    selected_theme_id = _submitted_or_current(
-        submitted, "rule_theme_id", device_config.THEME_IDS[0])
-    theme_error_html = _field_error_html(errors, "rule_theme_id", "rule-theme")
-    chip_grid_html = _theme_chip_grid_html(
-        "rule_theme_id", selected_theme_id,
-        extra_class="theme-chip-grid--compact", chip_extra_class="theme-chip--compact",
-        extra_attr='role="radiogroup" aria-labelledby="%s"' % escape_html(RULE_THEME_HEADING_ID))
-
     return (
-        '<form method="post" action="%s" class="rule-add-form rule-add-form--inline">'
+        '<p class="look-axis__label" id="%s">%s</p>'
         '<div class="rule-add-form__field rule-add-form__field--kind" role="radiogroup" '
-        'aria-labelledby="%s">'
-        '<span id="%s" class="visually-hidden">%s</span>'
-        '<div class="theme-form">%s</div>'
-        "%s"
-        "</div>"
+        'aria-labelledby="%s"><div class="theme-form">%s</div>%s</div>'
+    ) % (
+        escape_html(RULE_KIND_HEADING_ID), escape_html(i18n.t(RULE_KIND_FIELD_LABEL)),
+        escape_html(RULE_KIND_HEADING_ID), kind_radios,
+        _field_error_html(errors, "rule_kind", "rule-kind"))
+
+
+def _rule_value_field_html(submitted_value, errors):
+    return (
         '<div class="rule-add-form__field">'
         '<label for="rule-key" class="visually-hidden">%s</label>'
         '<input type="text" id="rule-key" name="rule_key" maxlength="8" '
-        'required autocomplete="off" placeholder="%s" value="%s"%s>'
-        "%s"
-        "</div>"
-        '<div class="rule-add-form__field">'
-        '<span id="%s" class="visually-hidden">%s</span>'
-        "%s"
-        "%s"
-        "</div>"
-        '<button type="submit">%s</button>'
+        'required autocomplete="off" spellcheck="false" placeholder="%s" value="%s"%s>'
+        "%s</div>"
+    ) % (
+        escape_html(i18n.t(RULE_VALUE_FIELD_LABEL)),
+        escape_html(RULE_VALUE_PLACEHOLDER), escape_html(submitted_value),
+        _field_error_attrs(errors, "rule_key", "rule-key"),
+        _field_error_html(errors, "rule_key", "rule-key"))
+
+
+def _rule_add_form_html(errors=None, submitted=None, suggestions_html=""):
+    """The "New special look" form, one `<form>` posting to
+    `RULES_ADD_ROUTE` with the unchanged `rule_kind`/`rule_key`/
+    `rule_theme_id` fields. Its look is the same colour x style table of
+    native radios the pictures use (scripts swap in the three-choice
+    picker over it); a mini render shows the chosen look.
+
+    Validation errors render under each field, keeping the typed value.
+    """
+    selected_kind = _submitted_or_current(
+        submitted, "rule_kind", colour_rules.RULE_KIND_CALLSIGN)
+    submitted_value = submitted.get("rule_key", "") if submitted is not None else ""
+    selected_theme_id = _submitted_or_current(
+        submitted, "rule_theme_id", device_config.THEME_IDS[0])
+    picture_id = (
+        selected_theme_id if selected_theme_id in device_config.THEMES
+        else device_config.DEFAULT_THEME_ID)
+    small = theme_preview.FRAME_PREVIEW_SIZE_SMALL
+    table_html = look.look_table_html(
+        "rule_theme_id", selected_theme_id, i18n.t(NEW_SPECIAL_LOOK_HEADING),
+        lambda theme_id: theme_preview.frame_preview_src(
+            theme_id, theme_preview.FRAME_PREVIEW_STATE_DEPARTING, small),
+        form_id=None)
+    return (
+        '<form method="post" action="%s" class="rule-add-form special-add__form"%s>'
+        '<div class="special-add__head">'
+        '<h3 class="special-add__title" id="special-add-title">%s</h3>'
+        '<button type="button" class="look-sheet__close" data-special-add-close hidden '
+        'aria-label="%s">%s</button></div>'
+        '<div class="special-add__cols"><div class="special-add__who">%s%s%s'
+        '<div class="special-add__preview">%s<p class="text-label">%s</p></div></div>'
+        '<div class="special-add__look">'
+        '<p class="look-axis__label special-add__look-label" id="%s">%s</p>'
+        '<div data-look-axes-host hidden>%s</div>'
+        '<div data-look-table-host>%s</div>%s</div></div>'
+        '<div class="special-add__foot">'
+        '<button type="button" class="look-sheet__reset" data-special-add-cancel hidden>%s</button>'
+        '<button type="submit">%s</button></div>'
         "</form>"
     ) % (
         RULES_ADD_ROUTE,
-        escape_html(RULE_KIND_HEADING_ID),
-        escape_html(RULE_KIND_HEADING_ID), escape_html(i18n.t(RULE_KIND_FIELD_LABEL)),
-        kind_radios,
-        kind_error_html,
-        escape_html(i18n.t(RULE_VALUE_FIELD_LABEL)),
-        escape_html(RULE_VALUE_PLACEHOLDER), escape_html(submitted_value), value_error_attrs,
-        value_error_html,
-        escape_html(RULE_THEME_HEADING_ID), escape_html(i18n.t(RULE_THEME_FIELD_LABEL)),
-        chip_grid_html,
-        theme_error_html,
+        look_target_attrs(
+            COLOUR_USAGE_RULES, "rule_theme_id", theme_preview.FRAME_PREVIEW_STATE_DEPARTING,
+            small, False),
+        escape_html(i18n.t(NEW_SPECIAL_LOOK_HEADING)),
+        escape_html(i18n.t(LOOK_CLOSE_LABEL)), layout.icon_html("icon-close"),
+        _rule_kind_segment_html(selected_kind, errors),
+        _rule_value_field_html(submitted_value, errors),
+        suggestions_html,
+        special_mini_html(picture_id), escape_html(i18n.t(RULE_PREVIEW_TEXT)),
+        escape_html(RULE_THEME_HEADING_ID), escape_html(i18n.t(RULE_LOOK_LABEL)),
+        look.axes_html("rule_look"),
+        table_html,
+        _field_error_html(errors, "rule_theme_id", "rule-theme"),
+        escape_html(i18n.t(RULE_CANCEL_TEXT)),
         escape_html(i18n.t(RULE_ADD_BUTTON_TEXT)),
     )
 
 
+def _recent_rule_keys(rows):
+    """Up to `RULE_SUGGESTIONS_PER_KIND` distinct recent keys per rule
+    kind, as `{kind: [(value, label), ...]}`: callsigns, aircraft hex
+    codes, and airline prefixes labelled with the airline's name when
+    the built-in table knows it. Every value is re-normalised by the
+    rule normaliser, so only a key the add route would accept is offered.
+    """
+    keys = {kind: [] for kind in colour_rules.RULE_KINDS}
+    for row in rows:
+        callsign = row.get("callsign")
+        candidates = (
+            (colour_rules.RULE_KIND_CALLSIGN, callsign, None),
+            (colour_rules.RULE_KIND_HEX, row.get("hex"), None),
+            (colour_rules.RULE_KIND_PREFIX, (callsign or "")[:3], row.get("airline")),
+        )
+        for kind, raw, airline in candidates:
+            value = colour_rules.normalise_rule_value(kind, raw)
+            if not value or len(keys[kind]) >= RULE_SUGGESTIONS_PER_KIND:
+                continue
+            if value in [existing for existing, _label in keys[kind]]:
+                continue
+            name = airline or enrich.static_airline_name_for_prefix(value)
+            label = "%s · %s" % (value, name) if kind == colour_rules.RULE_KIND_PREFIX and name else value
+            keys[kind].append((value, label))
+    return keys
+
+
 def _rule_suggestion_chips_html(state_dir):
-    """Up to five distinct recent callsigns as suggestion chips, from
-    `history_db.recent_runway_events()` (a second, independent call to
-    the same shared helper `home_page._recent_flights()` uses, since
-    page modules never import each other directly). The `<button
-    type="button">` chips ship with no script to wire them in this
-    phase, so they degrade to inert, never to invisible.
+    """Recent keys as suggestion chips, one group per rule kind, from
+    `history_db.recent_runway_events()`. The chips only fill in the form,
+    so the whole block ships `hidden` and the script reveals the group
+    matching the selected kind; without scripts nothing inert shows.
 
     Returns "" when there are no recent events, or on any read failure
     — never raises.
     """
     try:
         with history_db.open_db(state_dir) as conn:
-            rows = history_db.recent_runway_events(conn, limit=20)
+            rows = history_db.recent_runway_events(
+                conn, limit=50,
+                airline_names=name_overrides.names_by_prefix(
+                    name_overrides.load_name_overrides(state_dir)))
     except Exception:
         return ""
-    seen = []
-    for row in rows:
-        callsign = row.get("callsign")
-        if callsign and callsign not in seen:
-            seen.append(callsign)
-        if len(seen) >= 5:
-            break
-    if not seen:
+    keys = _recent_rule_keys(rows)
+    if not any(keys.values()):
         return ""
-    chips = " · ".join(
-        '<button type="button" class="rule-suggestion-chip" data-kind="callsign" '
-        'data-value="%s">%s</button>' % (escape_html(cs), escape_html(cs))
-        for cs in seen)
-    return '<p class="text-label rule-suggestions">%s %s</p>' % (
-        escape_html(i18n.t(RULE_SUGGESTIONS_LABEL)), chips)
+    groups = "".join(
+        '<div class="rule-suggestions__group" data-kind="%s">%s</div>' % (
+            escape_html(kind), "".join(
+                '<button type="button" class="rule-suggestion-chip" data-kind="%s" '
+                'data-value="%s">%s</button>' % (
+                    escape_html(kind), escape_html(value), escape_html(label))
+                for value, label in keys[kind]))
+        for kind in colour_rules.RULE_KINDS if keys[kind])
+    return '<div class="rule-suggestions" data-rule-suggestions hidden><p class="text-label">%s</p>%s</div>' % (
+        escape_html(i18n.t(RULE_SUGGESTIONS_LABEL)), groups)
+
+
+def _rule_title_html(kind, value):
+    """A rule's key, led by the airline's name for an airline rule when
+    the built-in table knows it ("Transavia TVF")."""
+    name = enrich.static_airline_name_for_prefix(value) if kind == colour_rules.RULE_KIND_PREFIX else None
+    key_html = '<span class="rule-row__key mono">%s</span>' % escape_html(value)
+    return "%s %s" % (escape_html(name), key_html) if name else key_html
 
 
 def _rule_row_html(kind, value, theme_id):
-    """One `<li class="rule-row">`: the theme's two palette dots, the
-    key, a kind badge, the theme's display name, and a Remove form.
+    """One `<li class="special-row rule-row">`: a mini render of the
+    rule's look, its kind tag, key and read-back, and a Remove form.
 
     The Remove form's `data-confirm` is a misclick guard only: deleting
     a rule is immediately reversible (re-adding the same key restores
     it), and the server-side handler requires no confirm value.
     """
-    departing_hex = _palette_hex(device_config.THEMES[theme_id]["departing_index"])
-    arriving_hex = _palette_hex(device_config.THEMES[theme_id]["arriving_index"])
-    swatch_html = (
-        '<span class="rule-row__swatch theme-chip__swatches" aria-hidden="true">'
-        '<span class="theme-chip__dot" style="background:%s"></span>'
-        '<span class="theme-chip__dot" style="background:%s"></span>'
-        "</span>"
-    ) % (escape_html(departing_hex), escape_html(arriving_hex))
     delete_form = (
         '<form method="post" action="%s" data-confirm="%s">'
-        '<button type="submit">%s</button>'
+        '<button type="submit" class="special-row__remove">%s</button>'
         "</form>"
     ) % (
         _rule_delete_action(kind, value),
@@ -347,81 +393,58 @@ def _rule_row_html(kind, value, theme_id):
         escape_html(i18n.t(RULE_REMOVE_BUTTON_TEXT)),
     )
     return (
-        '<li class="rule-row">'
-        "%s"
-        '<span class="rule-row__key mono">%s</span>'
-        '<span class="rule-row__kind banner__pill">%s</span>'
-        '<span class="rule-row__theme">%s</span>'
-        "%s"
-        "</li>"
+        '<li class="special-row rule-row"><div class="special-row__main">%s'
+        '<div class="special-row__text">'
+        '<p class="special-row__title"><span class="special-row__tag rule-row__kind">%s</span>%s</p>'
+        '<p class="special-row__meta rule-row__theme">%s</p></div>'
+        "%s</div></li>"
     ) % (
-        swatch_html,
-        escape_html(value),
+        special_mini_html(theme_id),
         escape_html(_rule_kind_label_text(kind)),
-        escape_html(_theme_label_message(theme_id)),
+        _rule_title_html(kind, value),
+        escape_html(look.look_sentence(theme_id)),
         delete_form,
     )
 
 
 def _rule_list_html(rows):
-    """`<ul class="rule-list">`, one `.rule-row` per row.
-    `colour_rules.rule_rows()` already orders rows most-specific first
-    (callsign, then hex, then prefix) and alphabetically within each
-    kind, so no re-sort is needed here. Returns "" for an empty list;
-    the caller renders its own empty state in that case.
+    """One `.rule-row` per rule. `colour_rules.rule_rows()` already
+    orders rows most-specific first (callsign, then hex, then prefix)
+    and alphabetically within each kind, so no re-sort is needed here.
+    Returns "" for an empty list.
     """
-    if not rows:
-        return ""
-    items = "".join(
+    return "".join(
         _rule_row_html(kind, value, theme_id)
         for kind, value, theme_id, _created_at in rows)
-    return '<ul class="rule-list">%s</ul>' % items
 
 
-def rules_usage_row_html(ctx):
-    """The complete Rules usage row for the Aspect card: the rule list
-    (or empty state), the add form and suggestion chips inside a nested
-    `<details class="rule-add">` disclosure, and "How rules combine"
-    outside it, since it explains the list, not the form. Built here
-    (not in `companion.settings.theme`) so that module stays independent
-    of this one — see its own docstring for why. `ctx` arrives already a
-    `PageContext`, coerced once by config_page.render() itself.
+def special_looks_html(ctx, calendar_row_html):
+    """The look card's Special looks column: the calendar row, one row
+    per per-flight rule, and the "Add a special look" disclosure holding
+    the add form. `ctx` arrives already a `PageContext`.
     """
     registry = ctx.colour_rules
     if not isinstance(registry, dict):
         registry = {kind: {} for kind in colour_rules.RULE_KINDS}
-    rule_rows = colour_rules.rule_rows(registry)
-    rules_caption_html = '<p class="text-label section-caption">%s</p>' % escape_html(
-        i18n.t(RULES_SECTION_CAPTION))
-    rules_how_combine_html = (
-        '<details><summary>%s</summary><p class="text-body">%s</p></details>'
+    add_html = (
+        '<li class="special-row special-row--add">'
+        '<details class="special-add" data-special-add>'
+        '<summary class="special-add__summary">'
+        '<span class="special-add__plus">%s</span><span>%s</span></summary>'
+        '<div class="special-add__panel" aria-labelledby="special-add-title">%s</div>'
+        "</details></li>"
     ) % (
-        escape_html(i18n.t(RULES_HOW_RULES_COMBINE_SUMMARY)),
-        escape_html(i18n.t(RULES_HOW_RULES_COMBINE_BODY)),
-    )
-    if not rule_rows:
-        rules_list_html = (
-            '<div class="empty-state-plain"><p class="text-label">%s %s</p></div>'
-        ) % (escape_html(i18n.t(RULES_EMPTY_HEADING)), escape_html(i18n.t(RULES_EMPTY_BODY)))
-        rules_meta = i18n.t(FRAME_COLOURS_RULES_EMPTY_META)
-    else:
-        rules_list_html = _rule_list_html(rule_rows)
-        rule_count = len(rule_rows)
-        if rule_count == 1:
-            rules_meta = i18n.t(FRAME_COLOURS_RULES_COUNT_SINGULAR)
-        else:
-            rules_meta = i18n.t(FRAME_COLOURS_RULES_COUNT_PLURAL_TEMPLATE) % rule_count
-    # The rule-add disclosure's <summary> reuses RULE_ADD_BUTTON_TEXT
-    # rather than inventing a new summary string.
-    rule_add_html = (
-        '<details class="rule-add"><summary>%s</summary>%s%s</details>'
+        layout.icon_html("icon-plus"), escape_html(i18n.t(ADD_SPECIAL_LOOK_LABEL)),
+        _rule_add_form_html(suggestions_html=_rule_suggestion_chips_html(ctx.state_dir)))
+    return (
+        '<div class="special-looks">'
+        '<h3 class="special-looks__title">%s</h3>'
+        '<p class="text-label section-caption">%s</p>'
+        '<ul class="special-list">%s%s%s</ul>'
+        '<p class="text-label special-looks__order">%s</p>'
+        "</div>"
     ) % (
-        escape_html(i18n.t(RULE_ADD_BUTTON_TEXT)),
-        _rule_add_form_html(),
-        _rule_suggestion_chips_html(ctx.state_dir),
+        escape_html(i18n.t(SPECIAL_LOOKS_HEADING)), escape_html(i18n.t(RULES_SECTION_CAPTION)),
+        calendar_row_html, _rule_list_html(colour_rules.rule_rows(registry)), add_html,
+        escape_html(i18n.t(SPECIAL_LOOKS_ORDER)),
     )
-    return _usage_row_html(
-        COLOUR_USAGE_RULES,
-        _usage_row_summary_html(COLOUR_USAGE_RULES, None, meta_text=rules_meta),
-        rules_caption_html + rules_list_html + rule_add_html + rules_how_combine_html,
-        extra_class="usage-row--secondary")

@@ -16,44 +16,23 @@ import sqlite3
 import urllib.parse
 from datetime import datetime, timezone
 
+import companion.flight_card as flight_card
 import companion.i18n as i18n
 from companion.layout import escape_html
 import companion.layout as layout
 import companion.page_context as page_context
 import companion.prefs as prefs
 from server import history_db
-from server.plane import illustrations
-from server.plane import manual_resolutions
+from server.plane import manual_resolutions, name_overrides
 from server.plane import render as panel_render
 
 # history is kept forever; this is a display limit for readability,
 # not a retention policy.
 HISTORY_ROW_LIMIT = 50
 
-# The number of flights the first screen shows, before "Show more" is
-# clicked. 15 is the top of the locked 10-15 band, and HISTORY_ROW_LIMIT
-# (50) divides into it as 15/30/45/50, the last short by 5, which
-# SHOW_MORE_TEMPLATE's remaining-count handles without overclaiming.
-FLIGHTS_PAGE_SIZE = 15
-
-# freshness.js's fetch(window.location.href) re-requests whatever URL
-# the browser is on, so once a visitor clicks "?limit=30", every later
-# background refresh keeps requesting that URL automatically — the
-# reveal state is the URL, no script change needed to survive refresh.
-FLIGHTS_LIMIT_QUERY_PARAM = "limit"
-
 PAGE_TITLE = i18n.msg("nav.flights", "Flights")
 LIGHTBOX_ARIA_LABEL = i18n.msg(
     "flights.picture_shown_on_the_frame", "Picture shown on the frame")
-
-# The render gallery's colours are nominal render-internal swatches, not
-# colour-accurate against real Spectra 6 glass — without this caveat a
-# user could mistake an expected render/glass mismatch for a hardware
-# fault.
-COLOUR_CAVEAT = i18n.msg(
-    "flights.colours_are_nominal_render_internal_swatches",
-    "Colours are nominal render-internal swatches, not colour-accurate "
-    "against real Spectra 6 glass.")
 
 _GALLERY_ROUTE_PREFIX = "/gallery/"
 
@@ -125,7 +104,6 @@ _VIEW_PICTURE_OF_TEMPLATE = i18n.msg("flights.view_picture_of", "View picture of
 # "Callsign" and "Clear" are owned by other catalogues; declared here
 # since this page reads them.
 _FILTER_COUNT_TEMPLATE = i18n.msg("health.of_shown", "%d of %d shown")
-_CLEAR_TEXT = i18n.msg("health.clear", "Clear")
 
 # Names the .data-table-wrap scroller for keyboard users: tabindex="0"
 # plus this label turn the wrapper into a focusable, named region a
@@ -154,24 +132,19 @@ _DB_UNAVAILABLE = object()  # Same sentinel discipline as health_page.py:
 # form is safe since the documented trigger is the hyphen character
 # specifically.
 _FILTER_INPUT_ID = "history_filter_input"
+_FILTER_PLACEHOLDER_TEXT = i18n.msg(
+    "flights.search_placeholder", "Callsign, airline, airport…")
+_FILTER_KINDS = ("departing", "arriving")
+_FILTER_CHIPS_LEGEND = i18n.msg("flights.filter_direction", "Filter by direction")
+_CHIP_ALL_TEXT = i18n.msg("flights.chip_all", "All")
+_CHIP_DEPARTURES_TEXT = i18n.msg("flights.chip_departures", "Departures")
+_CHIP_ARRIVALS_TEXT = i18n.msg("flights.chip_arrivals", "Arrivals")
 _FILTER_LABEL_TEXT = i18n.msg(
     "flights.filter_flights", "Filter flights")
 _FILTER_EMPTY_HEADING = i18n.msg("flights.no_matching_flights", "No matching flights")
 _FILTER_EMPTY_BODY_TEMPLATE = i18n.msg(
     "flights.try_a_different_search_or_clear_filter_to_see",
     "Try a different search, or Clear filter to see all %d flights.")
-
-# A second empty-state body, used only while a limit is in force and
-# rows remain unloaded: list-filter.js filters the DOM it has, never
-# the database, so a search under a limit only covers the loaded rows.
-_FILTER_EMPTY_BODY_LIMITED_TEMPLATE = i18n.msg(
-    "flights.try_a_different_search_this_only_searches_the",
-    "Try a different search — this only searches the %d flights shown.")
-
-# `%d` is filled with the remaining count, not the next page size, so
-# the control never overclaims on the last, short page.
-SHOW_MORE_TEMPLATE = i18n.msg(
-    "flights.show_more_remaining", "Show more (%d remaining)")
 
 # The presentational note shown beside a promoted hex when a row has no
 # callsign: a module-level constant so the desktop cell and the mobile
@@ -210,11 +183,6 @@ LIGHTBOX_CAPTION_TEMPLATE = i18n.msg("flights.picture_from", "Picture from %s")
 # below must equal panel-lookup.js's own literals exactly (duplicated,
 # not imported: a page module has no import path to a static script),
 # pinned by test_view_pages.py's three-file DOM-contract guard.
-LIGHTBOX_NOTE = i18n.msg(
-    "flights.this_is_the_nearest_recorded_render_not",
-    "This is the nearest recorded render, not necessarily from this "
-    "exact flight — the panel updates on its own wake/poll cycle. "
-    + COLOUR_CAVEAT)
 _VIEW_PANEL_SRC_ATTR = "data-view-panel-src"
 _VIEW_PANEL_CAPTION_ATTR = "data-view-panel-caption"
 _VIEW_PANEL_CLOSE_ATTR = "data-view-panel-close"
@@ -234,22 +202,15 @@ _DAY_YESTERDAY_LABEL = i18n.msg("flights.yesterday", "Yesterday")
 
 VIEW_PICTURE_LABEL = i18n.msg("flights.view_picture", "View picture")
 
-# Same values home_page.py's own recent-flight thumbnail holds,
-# duplicated rather than imported (page modules cannot import each
-# other). "%s illustration" is owned by companion/i18n_fr/home.py, not
-# flights.py.
-ILLUSTRATION_ROUTE_PREFIX = "/illustration/"
-_THUMBNAIL_ALT_TEMPLATE = i18n.msg("home.illustration", "%s illustration")
+# The phone card's artwork, route and time pieces are shared with Home's
+# recent-flight tiles through companion/flight_card.py.
+ILLUSTRATION_ROUTE_PREFIX = flight_card.ILLUSTRATION_ROUTE_PREFIX
+ROUTE_FALLBACK_TEXT = flight_card.ROUTE_FALLBACK_TEXT
 
 # A missing airline gets its own fallback text, distinct from
 # panel_render.ROUTE_FALLBACK_TEXT, so the same phrase doesn't appear
 # twice in one unresolved row (Type+Airline cell and Route cell).
 AIRLINE_FALLBACK_TEXT = i18n.msg("flights.airline_unknown", "Airline unknown")
-# Held as a local literal so the French catalogue can carry it; kept
-# equal to panel_render.ROUTE_FALLBACK_TEXT by construction so the
-# wording never drifts between the panel and the companion.
-ROUTE_FALLBACK_TEXT = i18n.msg("flights.route_unavailable", "Route unavailable")
-assert ROUTE_FALLBACK_TEXT == panel_render.ROUTE_FALLBACK_TEXT
 
 # server/plane/runway_config.py's infer_runway_config(), the only
 # writer of confirmed_state, only ever produces "departing" or
@@ -360,8 +321,23 @@ def lightbox_caption_text(iso):
     return i18n.t(LIGHTBOX_CAPTION_TEMPLATE) % when
 
 
+def _view_panel_attrs(name, iso, row_name):
+    """The attributes both picture-link variants share: the real
+    `/gallery/` href, the two `data-view-panel-*` trigger attributes
+    panel-lookup.js reads, and the per-row accessible name.
+    """
+    src = "%s%s" % (_GALLERY_ROUTE_PREFIX, escape_html(name))
+    caption = lightbox_caption_text(iso)
+    return 'href="%s" %s="%s" %s="%s" aria-label="%s"' % (
+        src,
+        _VIEW_PANEL_SRC_ATTR, src,
+        _VIEW_PANEL_CAPTION_ATTR, escape_html(caption),
+        escape_html(i18n.t(_VIEW_PICTURE_OF_TEMPLATE) % row_name),
+    )
+
+
 def _view_panel_link_html(name, iso, row_name):
-    """The row's "View picture" action: a real link to the archived
+    """The table row's "View picture" action: a real link to the archived
     render, so it works without script. panel-lookup.js, when present,
     intercepts the click and shows the same image in the shared
     lightbox instead. `name` becomes the link target and the trigger
@@ -371,17 +347,20 @@ def _view_panel_link_html(name, iso, row_name):
     The visible text is contained in the accessible name, which adds the
     row's callsign.
     """
-    src = "%s%s" % (_GALLERY_ROUTE_PREFIX, escape_html(name))
-    caption = lightbox_caption_text(iso)
-    return (
-        '<a class="calendar-disconnect-btn flight-picture-link" href="%s" %s="%s" %s="%s" '
-        'aria-label="%s">%s</a>'
-    ) % (
-        src,
-        _VIEW_PANEL_SRC_ATTR, src,
-        _VIEW_PANEL_CAPTION_ATTR, escape_html(caption),
-        escape_html(i18n.t(_VIEW_PICTURE_OF_TEMPLATE) % row_name),
+    return '<a class="calendar-disconnect-btn flight-picture-link" %s>%s</a>' % (
+        _view_panel_attrs(name, iso, row_name),
         escape_html(i18n.t(VIEW_PICTURE_LABEL)),
+    )
+
+
+def _view_panel_icon_link_html(name, iso, row_name):
+    """The phone card's picture action: the same real link and trigger
+    attributes as `_view_panel_link_html()`, drawn as a 44px icon
+    button. The glyph is aria-hidden, so the `aria-label` alone names it.
+    """
+    return '<a class="history-card__picture" %s>%s</a>' % (
+        _view_panel_attrs(name, iso, row_name),
+        layout.icon_html("icon-picture", 20),
     )
 
 
@@ -395,17 +374,16 @@ def _lightbox_html():
     `render()`, only when at least one row carries a trigger button.
     Its image src/alt and caption text are written by
     `panel-lookup.js` on trigger click; this function only emits the
-    static note.
+    empty shell and the close button.
     """
     return (
         '<dialog class="lightbox" id="%s" aria-label="%s">'
         '<img class="lightbox__image" alt="">'
         '<p class="lightbox__caption text-label mono"></p>'
-        '<p class="lightbox__note text-body">%s</p>'
         '<button type="button" %s>%s</button>'
         "</dialog>"
     ) % (LIGHTBOX_DIALOG_ID, escape_html(i18n.t(LIGHTBOX_ARIA_LABEL)),
-         escape_html(i18n.t(LIGHTBOX_NOTE)), _VIEW_PANEL_CLOSE_ATTR, escape_html(i18n.t(_CLOSE_TEXT)))
+         _VIEW_PANEL_CLOSE_ATTR, escape_html(i18n.t(_CLOSE_TEXT)))
 
 
 def _safe_query(state_dir, fn):
@@ -416,38 +394,16 @@ def _safe_query(state_dir, fn):
         return _DB_UNAVAILABLE
 
 
-def history_rows(conn):
+def history_rows(conn, airline_names=None):
     """The most recent `HISTORY_ROW_LIMIT` `runway_events` rows, newest
-    first (matches `history_db.recent_runway_events()`'s own ordering).
+    first (matches `history_db.recent_runway_events()`'s own ordering),
+    with a pass stored twice folded into one row — the same fold Home
+    applies, so chip counts and day headers count
+    flights, not stored events. Storage keeps every event.
     """
-    return history_db.recent_runway_events(conn, limit=HISTORY_ROW_LIMIT)
-
-
-def flights_limit(ctx):
-    """The number of flights this render should show, an int inside
-    `[FLIGHTS_PAGE_SIZE, HISTORY_ROW_LIMIT]`. Reads the raw, unvalidated
-    `?limit=` value from `ctx.flights_limit` and clamps rather than
-    rejects an out-of-range result to `None`: a hand-edited URL should
-    render a page, not an error, and `HISTORY_ROW_LIMIT` is already the
-    hard ceiling `history_rows()` fetches, so clamping upward can never
-    ask for a row the query would not return anyway. Total by
-    construction: no input, however malformed, ever raises.
-    """
-    ctx = page_context.coerce(ctx)
-    raw = ctx.flights_limit
-    if isinstance(raw, bool):
-        # bool is an int subclass; rejected explicitly before str()/int()
-        # rather than relying on int(str(True)) failing by accident.
-        return FLIGHTS_PAGE_SIZE
-    try:
-        candidate = int(str(raw).strip())
-    except (TypeError, ValueError):
-        return FLIGHTS_PAGE_SIZE
-    if candidate < FLIGHTS_PAGE_SIZE:
-        return FLIGHTS_PAGE_SIZE
-    if candidate > HISTORY_ROW_LIMIT:
-        return HISTORY_ROW_LIMIT
-    return candidate
+    return flight_card.fold_repeated_passes(
+        history_db.recent_runway_events(
+            conn, limit=HISTORY_ROW_LIMIT, airline_names=airline_names))
 
 
 def format_event_row(row, now=None):
@@ -498,11 +454,17 @@ def format_event_row(row, now=None):
         "airline_label": airline_label,
         # The raw stored airline string, kept beside the display label
         # because the phone card's thumbnail keys on it:
-        # illustrations.normalise_airline_key() resolves on the raw
+        # flight_card.art_html() resolves on the raw
         # value, never the aliased display name.
         "airline_raw": row.get("airline") or "",
         "route_label": route_label,
+        # The two codes on their own, for the phone card's route line.
+        "origin": origin or "",
+        "destination": destination or "",
         "confirmed_state": _confirmed_state_label(row.get("confirmed_state")),
+        # The raw stored state, so the phone card can tell which end of
+        # the route is the home airport without comparing translations.
+        "state_raw": row.get("confirmed_state") or "",
     }
 
 
@@ -525,12 +487,28 @@ def _merged_cell(primary, secondary):
 
 
 def _filter_text_attr(row):
-    """The escaped, lowercased "{callsign} {hex}" pair for a row's
-    `data-filter-text` attribute, computed once per row and reused by
-    both the desktop `<tr>` and the mobile `<li>` for the same flight.
+    """The escaped, lowercased haystack for a row's `data-filter-text`
+    attribute, computed once per row and reused by both the desktop
+    `<tr>` and the mobile `<li>` for the same flight: callsign, hex,
+    resolved airline name, both route codes and the aircraft type, so a
+    search for "Transavia", "KEF" or "A320" finds the row. The
+    unresolved-airline fallback wording is never searchable.
     """
-    combined = ("%s %s" % (row["callsign"], row["hex"])).strip().lower()
-    return escape_html(combined)
+    airline = "" if row["airline_label"] == AIRLINE_FALLBACK_TEXT else row["airline_label"]
+    parts = (
+        row["callsign"], row["hex"], airline, row.get("origin", ""),
+        row.get("destination", ""), row["aircraft_type_label"])
+    return escape_html(" ".join(p for p in parts if p).lower())
+
+
+def _filter_kind_attr(row):
+    """The row's `data-filter-kind` attribute, the dimension the chip
+    group filters on: the runway direction the detector confirmed. Only
+    the two values the detector writes count; anything else belongs to
+    "All" alone, so a chip never claims a row it cannot name.
+    """
+    state = row.get("state_raw") or ""
+    return state if state in _FILTER_KINDS else ""
 
 
 def resolve_prefix_for_callsign(callsign):
@@ -627,60 +605,26 @@ def _flight_cell_html(row):
     return html
 
 
-def _filter_bar_html(shown, total_available):
-    """The filter bar: a `<label>` + search input, a live
-    `<span data-filter-count>`, a Clear control, and a hidden-by-default
-    empty-state block. Entirely inert without JS: list-filter.js's early
-    return leaves the full unfiltered list usable if the script never
-    loads. `data-filter-count-template` carries the same translated
-    template `count_text` is built from, unformatted, so
-    list-filter.js can re-render the count on every keystroke without
-    hardcoding English words. `shown` and `total_available` differ once
-    a `?limit=` is in force: the live count and empty-state body read
-    `shown` honestly, never claiming a search coverage the filter
-    doesn't have.
+def _filter_bar_html(rows):
+    """The Flights filter bar: the shared search field plus a direction
+    chip group (All / Departures / Arrivals) whose counts come from the
+    rows' own `state_raw`. `rows` is every flight the page renders, so
+    the live count and empty-state body read its length.
     """
-    count_template = i18n.t(_FILTER_COUNT_TEMPLATE)
-    count_text = count_template % (shown, shown)
-    if shown < total_available:
-        empty_body = i18n.t(_FILTER_EMPTY_BODY_LIMITED_TEMPLATE) % shown
-    else:
-        empty_body = i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % shown
-    return (
-        '<div class="filter-bar">'
-        '<label class="text-label" for="%s">%s</label>'
-        '<div class="filter-bar__field">'
-        "%s"
-        # autocomplete="off"/spellcheck="false" suppress Safari's
-        # contact/phone-number autofill heuristic on a bare search
-        # input with no name; autocapitalize="characters" matches the
-        # upper-case tokens (callsigns, hex codes) this filter searches.
-        # Safe for matching: list-filter.js compares lower-cased values,
-        # so the keyboard's shift state never affects the result. No
-        # `name` attribute: never submitted by a form, read by
-        # attribute selector instead.
-        '<input type="search" id="%s" autocomplete="off" spellcheck="false" autocapitalize="characters" data-filter-input>'
-        "</div>"
-        '<div class="filter-bar__meta">'
-        '<span class="filter-bar__count" data-filter-count '
-        'data-filter-count-template="%s">%s</span>'
-        '<button type="button" data-filter-clear>%s</button>'
-        "</div>"
-        "</div>"
-        '<div class="empty-state" data-filter-empty hidden>'
-        '<p class="empty-state__heading text-heading">%s</p>'
-        '<p class="empty-state__body text-body">%s</p>'
-        "</div>"
-    ) % (
-        _FILTER_INPUT_ID, escape_html(i18n.t(_FILTER_LABEL_TEXT)),
-        layout.icon_html("icon-search"),
-        _FILTER_INPUT_ID,
-        escape_html(count_template),
-        escape_html(count_text),
-        escape_html(i18n.t(_CLEAR_TEXT)),
-        escape_html(i18n.t(_FILTER_EMPTY_HEADING)),
-        escape_html(empty_body),
+    shown = len(rows)
+    empty_body = i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % shown
+    chips = (
+        ("", i18n.t(_CHIP_ALL_TEXT), shown),
+        ("departing", i18n.t(_CHIP_DEPARTURES_TEXT),
+         sum(1 for r in rows if _filter_kind_attr(r) == "departing")),
+        ("arriving", i18n.t(_CHIP_ARRIVALS_TEXT),
+         sum(1 for r in rows if _filter_kind_attr(r) == "arriving")),
     )
+    return layout.filter_bar_html(
+        _FILTER_INPUT_ID, i18n.t(_FILTER_LABEL_TEXT),
+        i18n.t(_FILTER_PLACEHOLDER_TEXT), i18n.t(_FILTER_COUNT_TEMPLATE),
+        shown, shown, i18n.t(_FILTER_EMPTY_HEADING), empty_body,
+        chips=chips, chips_legend=i18n.t(_FILTER_CHIPS_LEGEND))
 
 
 # Mirrors layout.concise_timestamp_html()'s own default fallback string
@@ -737,7 +681,7 @@ def _day_separator_row_html(day, today):
     sticky: this function introduces no positioning of any kind.
     """
     return (
-        '<tr class="flight-day-row">'
+        '<tr class="flight-day-row" data-filter-day>'
         '<th scope="colgroup" colspan="%d" class="text-label">%s</th>'
         "</tr>"
     ) % (_TABLE_COLUMN_COUNT, escape_html(day_label(day, today)))
@@ -787,8 +731,8 @@ def _history_table_html(formatted_rows, now=None):
         # other must not.
         body_rows.append(
             '<tr class="%s" data-flight-row data-filter-text="%s" '
-            'data-filter-group="%d" %s="%s">%s</tr>'
-            % (row_class, _filter_text_attr(row), index,
+            'data-filter-kind="%s" data-filter-group="%d" %s="%s">%s</tr>'
+            % (row_class, _filter_text_attr(row), _filter_kind_attr(row), index,
                layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)),
                "".join(cells)))
 
@@ -803,154 +747,106 @@ def _history_table_html(formatted_rows, now=None):
     ) % (escape_html(i18n.t(SCROLLER_ARIA_LABEL)), header_cells, "".join(body_rows))
 
 
-def _card_thumb_html(airline_raw, state_dir):
-    """The phone card's artwork thumbnail, or "" when the airline
-    resolves to no artwork file on disk. The same two-call seam
-    `home_page._recent_flight_thumb_html()` uses:
-    `illustrations.normalise_airline_key()` for the key (resolved from
-    the raw stored airline, never the display alias) and
-    `illustrations.resolved_illustration_path()` for the "is there
-    really a file" test. Never an unconditional `<img>`: a key with no
-    file behind it would 404 and render as a broken-image icon.
-    """
-    key = illustrations.normalise_airline_key(airline_raw)
-    if not key or illustrations.resolved_illustration_path(key, state_dir) is None:
-        return ""
-    alt_text = i18n.t(_THUMBNAIL_ALT_TEMPLATE) % panel_render.display_airline_name(airline_raw)
-    return (
-        '<img class="history-card__thumb" loading="lazy" decoding="async" '
-        'src="%s%s.png" alt="%s">'
-    ) % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key), escape_html(alt_text))
-
-
-def _history_card_primary_html(row, now):
-    """The card's primary line: callsign (or bare-hex fallback) plus the
-    concise local time. When a row has no callsign but has a hex, the
-    primary slot carries the hex (never blank) with a NO_CALLSIGN_NOTE_TEXT
-    note.
+def _card_identity_html(row):
+    """The card header's left column: the callsign in the identifier
+    voice, then the airline. A row with no callsign promotes its hex
+    with the NO_CALLSIGN_NOTE_TEXT note, so the slot is never blank. An
+    unresolved airline reads "Airline unknown" and carries the resolve
+    link under it.
     """
     if row["callsign"]:
-        primary_value_html = (
-            '<span class="cell-primary mono">%s</span>'
-            % escape_html(row["callsign"]))
+        ident = escape_html(row["callsign"])
     elif row["hex"]:
-        primary_value_html = (
-            '<span class="cell-primary mono">%s</span>'
-            '<span class="cell-secondary">%s</span>'
-        ) % (escape_html(row["hex"]), escape_html(i18n.t(NO_CALLSIGN_NOTE_TEXT)))
+        ident = '%s <span class="history-card__note">%s</span>' % (
+            escape_html(row["hex"]), escape_html(i18n.t(NO_CALLSIGN_NOTE_TEXT)))
     else:
-        primary_value_html = '<span class="cell-primary mono"></span>'
+        ident = ""
+    is_unresolved = row["airline_label"] == AIRLINE_FALLBACK_TEXT
+    if is_unresolved:
+        airline_html = (
+            '<span class="history-card__airline history-card__airline--unknown">%s</span>'
+            % escape_html(i18n.t(AIRLINE_FALLBACK_TEXT)))
+        resolve_link = _row_resolve_link_html(row)
+        if resolve_link:
+            airline_html += '<span class="history-card__resolve">%s</span>' % resolve_link
+    else:
+        airline_html = '<span class="history-card__airline">%s</span>' % escape_html(
+            row["airline_label"])
     return (
-        '<div class="history-card__primary">'
-        "%s"
-        '<span class="history-card__time">%s</span>'
-        "</div>"
-    ) % (
-        primary_value_html,
-        layout.concise_timestamp_html(row["raw_ts"], now),
-    )
+        '<div class="history-card__id">'
+        '<span class="history-card__callsign mono">%s</span>%s</div>'
+    ) % (ident, airline_html)
 
 
-def _history_card_secondary_html(row):
-    """The card's secondary line: route, the module's existing middle
-    dot (CELL_SEPARATOR_TEXT/CLASS) that `_merged_cell()` also emits on
-    the desktop side, and the confirmed state.
+def _card_stub_html(row, now):
+    """The card's stub, below the tear line: the airline artwork as a
+    wide plate (or a quiet dashed placeholder when there is none) and,
+    on the same row, the time and age.
+    """
+    return flight_card.stub_html(row.get("thumb_html"), row["raw_ts"], now)
+
+
+def card_day_label(day, today):
+    """The phone list's slim day header: `day_label()`, plus the short
+    date after "Today"/"Yesterday" so the header reads "Today · 3 Oct".
+    An absolute label is already a date and gains nothing.
+    """
+    label = day_label(day, today)
+    absolute = "%d %s" % (day.day, layout.month_abbr(day.month))
+    if label == absolute:
+        return label
+    return "%s %s %s" % (label, CELL_SEPARATOR_TEXT, absolute)
+
+
+def _history_card_html(row, index, now):
+    """One boarding-pass card: header (identity + picture action), route
+    line, then the stub. `data-filter-group` is the row's loop index,
+    shared with the desktop `<tr>` at the same index so list-filter.js
+    counts one flight once.
     """
     return (
-        '<div class="history-card__secondary">'
-        "<span>%s</span>"
-        '<span class="%s">%s</span>'
-        "<span>%s</span>"
-        "</div>"
-    ) % (
-        escape_html(row["route_label"]),
-        CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
-        escape_html(row["confirmed_state"]),
-    )
-
-
-def _history_card_airline_line_html(row):
-    """The card's airline line: artwork thumbnail and airline name."""
-    is_unresolved = row["airline_label"] == AIRLINE_FALLBACK_TEXT
-    airline_display = i18n.t(row["airline_label"]) if is_unresolved else row["airline_label"]
-    return (
-        '<div class="history-card__airline">%s'
-        '<span class="history-card__airline-name">%s</span>'
-        "</div>"
-    ) % (
-        row.get("thumb_html", ""),
-        escape_html(airline_display),
-    )
+        '<li class="history-card" data-filter-text="%s" '
+        'data-filter-kind="%s" data-filter-group="%d" %s="%s">'
+        '<div class="history-card__head">%s%s</div>%s%s</li>'
+    ) % (_filter_text_attr(row), _filter_kind_attr(row), index,
+         layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)),
+         _card_identity_html(row), row.get("view_panel_icon_html", ""),
+         flight_card.route_html(row.get("origin"), row.get("destination"),
+                                row.get("state_raw"), row["confirmed_state"]),
+         _card_stub_html(row, now))
 
 
 def _history_cards_html(formatted_rows, now=None):
-    """Mobile compact-card representation, one `<li>` per row, built
+    """Mobile boarding-pass representation, one `<li>` per row, built
     from the same `formatted_rows` list `_history_table_html()`
-    consumes. Returns "" for an empty list. Must render as a DOM
-    sibling immediately before the desktop table: style.css's
+    consumes, with a slim day-header `<li>` wherever the Paris calendar
+    day changes (the same grouping the table's separator rows use).
+    Returns "" for an empty list. Must render as a DOM sibling
+    immediately before the desktop table: style.css's
     `.history-cards ~ .data-table-wrap` breakpoint toggle depends on
-    this order. Each card shows callsign/time/route/direction/airline,
-    then the resolve link when the airline is unnamed, then the row's
-    picture link.
+    this order.
     """
     if not formatted_rows:
         return ""
+    today = paris_day(now)
+    current_day = None
     items = []
     for index, row in enumerate(formatted_rows):
-        face = (
-            _history_card_primary_html(row, now)
-            + _history_card_secondary_html(row)
-            + _history_card_airline_line_html(row))
-        resolve_link = _row_resolve_link_html(row)
-        resolve_html = (
-            '<div class="history-card__resolve">%s</div>' % resolve_link
-            if resolve_link else "")
-        action_html = (
-            '<div class="history-card__action">%s</div>' % row["view_panel_html"]
-            if row.get("view_panel_html") else "")
-        items.append(
-            '<li class="history-card" data-filter-text="%s" '
-            'data-filter-group="%d" %s="%s">'
-            '<div class="history-card__face">%s</div>%s%s</li>'
-            % (_filter_text_attr(row), index,
-               layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)),
-               face, resolve_html, action_html))
+        day = paris_day(row["raw_ts"])
+        if day is not None and day != current_day:
+            current_day = day
+            items.append('<li class="history-cards__day" data-filter-day>%s</li>' % escape_html(
+                card_day_label(day, today)))
+        items.append(_history_card_html(row, index, now))
     return '<ul class="history-cards">%s</ul>' % "".join(items)
-
-
-def _show_more_html(shown, total_available):
-    """The "Show more" reveal. Returns `<nav class="flights-more">...
-    </nav>`, empty once every row is on the page — the nav element is
-    always rendered, even empty, since `.flights-more` is a declared
-    swap target that must be findable on every render;
-    `.flights-more:empty { display: none; }` keeps it from costing
-    layout. The one child, when present, is a plain `<a>`, matching the
-    app's no-JS control contract. The href is built entirely
-    server-side from `FLIGHTS_LIMIT_QUERY_PARAM` and a clamped int,
-    never from the raw query string a visitor supplied, so a crafted
-    `?limit=` value can never be reflected back into this link. The
-    label's `%d` is the remaining count, not the next page size, so the
-    control never overclaims on the last, short page.
-    """
-    if shown >= total_available:
-        return '<nav class="flights-more"></nav>'
-    next_limit = min(shown + FLIGHTS_PAGE_SIZE, HISTORY_ROW_LIMIT)
-    remaining = total_available - shown
-    label = i18n.t(SHOW_MORE_TEMPLATE) % remaining
-    anchor = (
-        '<a class="calendar-disconnect-btn" href="%s?%s=%d">%s</a>'
-    ) % (
-        layout.FLIGHTS_ROUTE, FLIGHTS_LIMIT_QUERY_PARAM, next_limit,
-        escape_html(label),
-    )
-    return '<nav class="flights-more">%s</nav>' % anchor
 
 
 def render(ctx):
     ctx = page_context.coerce(ctx)
     state_dir = ctx.state_dir
     now = ctx.now or history_db.utc_now_iso()
-    rows = _safe_query(state_dir, history_rows)
+    names = name_overrides.names_by_prefix(ctx.name_overrides)
+    rows = _safe_query(state_dir, lambda conn: history_rows(conn, names))
 
     # Flights stays on the self-refreshing loop without showing a
     # freshness line: freshness.js returns at its first guard on any page
@@ -968,14 +864,10 @@ def render(ctx):
         lightbox_html = ""
     else:
         formatted_rows = [format_event_row(row, now) for row in rows]
-        # Sliced before the per-row enrichment loop below, so that loop's
-        # gallery lookup and thumbnail render run only for rows this
-        # render actually shows. visible_rows is the one list both
-        # _history_cards_html() and _history_table_html() render from,
-        # so the two can never disagree about which flights exist.
-        limit = flights_limit(ctx)
-        total_available = len(formatted_rows)
-        visible_rows = formatted_rows[:limit]
+        # formatted_rows is the one list both _history_cards_html() and
+        # _history_table_html() render from, so the two can never
+        # disagree about which flights exist.
+        visible_rows = formatted_rows
         # The nearest-render match is computed once per row and stored
         # onto the row dict both renderers share. A row with no match
         # carries the empty string, never a disabled/broken control.
@@ -983,14 +875,15 @@ def render(ctx):
             match = (
                 nearest_gallery_entry(gallery_entries_list, row["raw_ts"])
                 or earliest_gallery_entry(gallery_entries_list))
+            row_name = _row_name(row["callsign"], row["hex"])
             row["view_panel_html"] = (
-                _view_panel_link_html(
-                    match[0], match[1], _row_name(row["callsign"], row["hex"]))
-                if match else "")
+                _view_panel_link_html(match[0], match[1], row_name) if match else "")
+            row["view_panel_icon_html"] = (
+                _view_panel_icon_link_html(match[0], match[1], row_name) if match else "")
             # The phone card's artwork thumbnail, resolved once per row
             # for the same reason as the view-panel match. The desktop
             # table does not render it: no room in its width budget.
-            row["thumb_html"] = _card_thumb_html(row["airline_raw"], state_dir)
+            row["thumb_html"] = flight_card.art_html(row["airline_raw"], state_dir)
         # The shared lightbox is emitted once per page, only when at
         # least one row carries a trigger button.
         has_view_panel_button = any(
@@ -1002,11 +895,10 @@ def render(ctx):
         else:
             # Cards render before the table: style.css's
             # `.history-cards ~ .data-table-wrap` sibling-combinator
-            # toggle depends on this DOM order. Show-more renders last.
+            # toggle depends on this DOM order.
             body = (
-                _filter_bar_html(len(visible_rows), total_available)
+                _filter_bar_html(visible_rows)
                 + _history_cards_html(visible_rows, now)
-                + _history_table_html(visible_rows, now)
-                + _show_more_html(len(visible_rows), total_available))
+                + _history_table_html(visible_rows, now))
 
     return header + body + lightbox_html

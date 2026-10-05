@@ -20,6 +20,7 @@ import companion.layout as layout
 import companion.prefs as prefs
 from companion.pages import update_page
 from companion_app_server import get, http_request, login
+from companion_markup import flash_toast_title_detail
 from server import atomic_io
 from server import firmware_registry as fr
 
@@ -374,4 +375,5 @@ def test_schedule_failed_flash_renders_in_french(server, cookie):
         expected_flash = i18n.t(update_page.FLASH_UPDATE_SCHEDULE_FAILED_TEXT)
     finally:
         prefs.set_request_prefs(lang="en")
-    assert expected_flash in body.decode("utf-8")
+    assert flash_toast_title_detail(body.decode("utf-8")) == (
+        layout.split_toast_message(expected_flash))

@@ -41,6 +41,7 @@ from companion.test_config_page_helpers import caption_word_count_text
 from companion import auth, frame_state
 from companion.pages import config_page
 from companion_app_server import http_request, login
+from companion_markup import flash_toast_title_detail
 from server import device_config
 import server.state_store as state_store
 from server.plane import calendar_rules, colour_rules, manual_resolutions
@@ -874,16 +875,14 @@ def test_calendar_sync_failure_reports_generic_message_and_still_saves(app_serve
         "expected the single calendar_sync_failed flash key, got %r" % location)
     assert calendar_rules.calendar_is_configured(server.state_dir), (
         "the URL must be saved regardless of whether the immediate fetch succeeded")
-    # escape_html() rewrites this copy's apostrophe to "&#x27;" on render
-    # (17-02's own recorded surprise for CALENDAR_STATUS_NOT_CONFIGURED) -
-    # the rendered page is therefore compared against the ESCAPED form,
-    # never the raw FLASH_MESSAGES source string.
-    expected_text = layout.escape_html(
-        app_module.FLASH_MESSAGES[app_module.FLASH_KEY_CALENDAR_SYNC_FAILED])
+    # The toast shows the copy split at its dash into a title and a
+    # detail; compared as parsed text, never as raw escaped bytes.
+    expected = layout.split_toast_message(
+        str(app_module.FLASH_MESSAGES[app_module.FLASH_KEY_CALENDAR_SYNC_FAILED]))
     status2, _h2, page_body = http_request(server.base_url() + location, cookie=session)
-    assert expected_text.encode() in page_body, (
-        "expected the single generic failure copy verbatim (HTML-escaped) in the rendered "
-        "banner, got %r" % (page_body,))
+    assert flash_toast_title_detail(page_body.decode("utf-8")) == expected, (
+        "expected the single generic failure copy, split into title and detail, in the "
+        "rendered toast, got %r" % (page_body,))
 
 
 def test_calendar_sync_failure_never_leaks_the_url(app_server_in_process):
@@ -1339,7 +1338,7 @@ def test_flash_and_title_strings_round_trip_to_french_and_back():
 
 def test_nav_and_theme_labels_round_trip_to_french_and_back():
     """the nav landmark's aria-label ("Primary navigation") and the theme picker's three segment
-    labels ("Auto"/"Light"/"Dark") round-trip to French under i18n.t_lang(..., 'fr') and to their
+    labels ("Auto"/"Light"/"Dark") round-trip to French ("Auto" stays "Auto") under i18n.t_lang(..., 'fr') and to their
     original English text under i18n.t_lang(..., 'en')"""
     for text in (
             ui_nav._PRIMARY_NAVIGATION_TEXT, ui_nav._THEME_LABEL_TEXT["auto"],
@@ -1349,6 +1348,10 @@ def test_nav_and_theme_labels_round_trip_to_french_and_back():
             "expected t_lang(%r, 'en') to be byte-identical to the English source, got %r"
             % (text, en_result))
         fr_result = i18n_module.t_lang(text, "fr")
+        if text == ui_nav._THEME_LABEL_TEXT["auto"]:
+            # French abbreviates the same way, so the label is spelled identically.
+            assert fr_result == "Auto"
+            continue
         assert fr_result != text, (
             "expected t_lang(%r, 'fr') to be a real French translation, got the English source "
             "back unchanged" % (text,))
@@ -1445,10 +1448,10 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
     # Minimums re-derived by RUNNING this exact selector against a real
     # render of each route.
     per_route_min = {
-        layout.HOME_ROUTE: 0, layout.DISPLAY_ROUTE: 5, layout.FLIGHTS_ROUTE: 0,
-        layout.AIRLINES_ROUTE: 2, layout.HEALTH_ROUTE: 2, layout.DEVICE_ROUTE: 3,
+        layout.HOME_ROUTE: 0, layout.DISPLAY_ROUTE: 4, layout.FLIGHTS_ROUTE: 0,
+        layout.AIRLINES_ROUTE: 2, layout.HEALTH_ROUTE: 0, layout.DEVICE_ROUTE: 3,
     }
-    site_total_min = 24
+    site_total_min = 20
 
     skip_counts = {"en": 0, "fr": 0}
     site_total_captions = 0

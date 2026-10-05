@@ -293,7 +293,7 @@ def test_submitted_scope_and_return_route_are_allowlisted():
 
 def test_aspect_scoped_render_carries_hidden_fields_and_omits_other_groups():
     """render(scope=display/device) carries the matching hidden fields and only its own groups,
-    including locating the rules row (inside the Aspect card) by its own data-usage attribute;
+    including locating the rules row (inside the Aspect card) by its own data-look-usage attribute;
     the legacy render(ctx) carries no scope field; a hostile scope never reaches the markup"""
     ctx = {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0}
     display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
@@ -311,7 +311,7 @@ def test_aspect_scoped_render_carries_hidden_fields_and_omits_other_groups():
     assert display.count('<h1 class="page-title">Display</h1>') == 1, "expected the Display page title"
     assert device.count('<h1 class="page-title">Device</h1>') == 1, "expected the Device page title"
     assert config_page.POLL_SECTION_HEADING not in display, "expected the manual-refresh section off the Display page"
-    rules_row_marker = 'data-usage="%s"' % config_page.COLOUR_USAGE_RULES
+    rules_row_marker = 'data-look-usage="%s"' % config_page.COLOUR_USAGE_RULES
     assert rules_row_marker in display, "expected the rules row, inside the Aspect card, on the Display page (D-11)"
     assert config_page.POLL_SECTION_HEADING in device, "expected the manual-refresh section on the Device page"
     assert rules_row_marker not in device, "expected the rules row off the Device page (D-11)"
@@ -409,18 +409,6 @@ def test_neither_scope_renders_an_edit_artwork_link():
         "expected no edit-artwork markup on either scope (D-36)")
     assert "_edit_artwork_link_html" not in dir(config_page), (
         "expected _edit_artwork_link_html() to be deleted outright (D-36)")
-
-
-def test_with_next_wake_helper_contract():
-    """_with_next_wake() returns the caption byte-identical for a falsy clock and appends '(next
-    wake ≈ HH:MM)' when the clock is known"""
-    assert config_page._with_next_wake("caption.", None) == "caption.", (
-        "expected the caption unchanged for a falsy next_wake_clock")
-    assert config_page._with_next_wake("caption.", "") == "caption.", (
-        "expected the caption unchanged for an empty-string next_wake_clock")
-    got = config_page._with_next_wake("caption.", "14:10")
-    assert got == "caption. (next wake ≈ 14:10)", (
-        "expected the suffix appended when next_wake_clock is known, got %r" % (got,))
 
 
 def test_retired_screen_field_cannot_block_a_valid_settings_save(tmp_path):

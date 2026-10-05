@@ -515,21 +515,6 @@ def test_theme_cookie_changes_the_token(app_server_in_process):
     assert after != before, "expected the theme cookie to change the token"
 
 
-def test_flights_limit_query_changes_the_token(app_server_in_process):
-    server = app_server_in_process
-    session = login(server)
-    status, headers, body = _get(server, layout.FLIGHTS_ROUTE, session)
-    assert status == 200
-    before = _TOKEN_ATTR_RE.search(body.decode("utf-8")).group(1)
-
-    status2, headers2, body2 = _get(
-        server, layout.FLIGHTS_ROUTE + "?" + history_page.FLIGHTS_LIMIT_QUERY_PARAM + "=5",
-        session)
-    assert status2 == 200
-    after = _TOKEN_ATTR_RE.search(body2.decode("utf-8")).group(1)
-    assert after != before, "expected the ?limit= query string to change the token"
-
-
 # ==========================================================================
 # Browser: freshness.js's own token round trip, through a real Chromium
 # session.

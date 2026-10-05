@@ -12,11 +12,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-import companion.app as app
 import companion.test_status_pages_helpers as shp
 from companion import illustration_normalize, layout
 from companion.pages import airlines_page, health_page
-from companion_app_server import served_asset, served_stylesheet
+from companion_app_server import served_stylesheet
 from companion_markup import css_rules, declarations_for, rules_with_selector
 from server.plane import illustrations, manual_resolutions
 
@@ -36,16 +35,14 @@ def css_text(_module_server):
 # --- shared helpers, local to this part -------------------------------------
 
 def _card_slice(rendered, airline_name):
-    """The one `.airline-card` block for `airline_name`, bounded by the next
-    card's opening tag (or end of string)."""
-    name_index = rendered.index(">%s<" % airline_name)
-    card_start = rendered.rindex('<div class="airline-card"', 0, name_index)
-    next_start = rendered.find('<div class="airline-card"', card_start + 1)
-    return rendered[card_start:] if next_start == -1 else rendered[card_start:next_start]
+    """The one `<li class="airline-list__item">` row for `airline_name`."""
+    name_index = rendered.index('class="airline-row__name" title="%s"' % airline_name)
+    card_start = rendered.rindex('<li class="airline-list__item"', 0, name_index)
+    return rendered[card_start:rendered.index("</li>", card_start)]
 
 
 def _grid_section(rendered):
-    grid_start = rendered.index('class="illustration-grid"')
+    grid_start = rendered.index('class="airline-list"')
     dialog_start = rendered.index('id="%s"' % airlines_page.LIGHTBOX_DIALOG_ID, grid_start)
     return rendered[grid_start:dialog_start]
 
@@ -123,7 +120,7 @@ def test_cache_buster_absent_with_no_state_dir_and_keyed_on_mtime_with_an_overri
     """render() with no effective state_dir produces no cache-busting query
     string anywhere; with a state_dir whose override directory holds Air
     France's override file, exactly one URL is busted, keyed on that file's
-    own mtime, identically in both the <img src> and the zoom trigger's
+    own mtime, identically in both the <img src> and the row trigger's
     data-view-panel-src, every other card's URL stays unbusted, and Air
     France's own data-view-panel-replace-action stays the UN-busted URL
     while no replace-action value anywhere carries a cache buster"""
@@ -141,12 +138,12 @@ def test_cache_buster_absent_with_no_state_dir_and_keyed_on_mtime_with_an_overri
     rendered = airlines_page.render(shp.ctx(tmp))
     expected_busted_url = "%s%s.png?v=%d" % (airlines_page.ILLUSTRATION_ROUTE_PREFIX, key, mtime)
     expected_unbusted_url = "%s%s.png" % (airlines_page.ILLUSTRATION_ROUTE_PREFIX, key)
-    img_srcs = re.findall(r'<img class="airline-card__image" src="([^"]+)"', rendered)
+    img_srcs = re.findall(r'<img class="airline-row__image" src="([^"]+)"', rendered)
     zoom_srcs = re.findall(r'data-view-panel-src="([^"]+)"', rendered)
     replace_actions = re.findall(r'data-view-panel-replace-action="([^"]+)"', rendered)
     assert img_srcs.count(expected_busted_url) == 1
-    assert zoom_srcs.count(expected_busted_url) == 2, "image trigger plus the replace-artwork action"
-    assert replace_actions.count(expected_unbusted_url) == 2
+    assert zoom_srcs.count(expected_busted_url) == 1, "the row trigger"
+    assert replace_actions.count(expected_unbusted_url) == 1
     for src in img_srcs:
         assert src == expected_busted_url or "?v=" not in src
     for src in zoom_srcs:
@@ -583,17 +580,17 @@ def test_gap_card_escapes_hostile_example_callsign():
 # grid-injection step
 # =============================================================================
 
-def test_airline_card_html_manual_info_none_matches_todays_plain_card_and_keeps_button(tmp_path):
-    """_airline_card_html(index, airline_name, shapes, state_dir,
+def test_airline_row_html_manual_info_none_matches_the_plain_row_and_keeps_a_button(tmp_path):
+    """_airline_row_html(index, airline_name, shapes, state_dir,
     manual_info=None) renders byte-identically to the default-omitted
-    call, and a plain curated card with no manual history still wraps a
+    call, and a plain row with no sheet and no manual history still wraps a
     real <button> (never an <a>), with mode="art" and every manual/
-    resolve-prefix attribute empty"""
+    resolve-prefix attribute empty and no status chip"""
     tmp = str(tmp_path)
-    card_none = airlines_page._airline_card_html(0, "Air France", [], tmp, None)
-    card_omitted = airlines_page._airline_card_html(0, "Air France", [], tmp)
+    card_none = airlines_page._airline_row_html(0, "Air France", [], tmp, None)
+    card_omitted = airlines_page._airline_row_html(0, "Air France", [], tmp)
     assert card_none == card_omitted
-    assert '<button type="button" class="airline-card__zoom"' in card_none
+    assert '<button type="button" class="airline-row"' in card_none
     assert "<a href=" not in card_none
     assert 'data-view-panel-mode="art"' in card_none
     assert 'data-view-panel-manual=""' in card_none
@@ -601,15 +598,15 @@ def test_airline_card_html_manual_info_none_matches_todays_plain_card_and_keeps_
     assert "airline-card__chip" not in card_none
 
 
-def test_airline_card_html_active_manual_states_render_expected_attributes_and_chip(tmp_path):
+def test_airline_row_html_active_manual_states_render_expected_attributes_and_no_chip(tmp_path):
     """an active manual_info triple renders the real <a href> trigger, the
     correct mode/heading/upload-action for both the has-artwork and
     needs-artwork cases, the delete-action attribute from
-    _manual_delete_action(), an empty manual-note, and the 'Resolved by
-    hand' chip"""
+    _manual_delete_action(), an empty manual-note, and no 'Resolved by
+    hand' chip (the state is the sheet's, not the row's)"""
     tmp = str(tmp_path)
-    card_art = airlines_page._airline_card_html(0, "Air France", [], tmp, ("ZZZ", False, False))
-    expected_open = '<a href="%s?%s=ZZZ" class="airline-card__zoom"' % (
+    card_art = airlines_page._airline_row_html(0, "Air France", [], tmp, ("ZZZ", False, False))
+    expected_open = '<a href="%s?%s=ZZZ" class="airline-row"' % (
         airlines_page.AIRLINES_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
     assert expected_open in card_art
     assert 'data-view-panel-mode="art"' in card_art
@@ -618,18 +615,20 @@ def test_airline_card_html_active_manual_states_render_expected_attributes_and_c
     expected_delete_action = airlines_page._manual_delete_action("ZZZ")
     assert ('data-view-panel-delete-action="%s"' % expected_delete_action) in card_art
     assert 'data-view-panel-manual-note=""' in card_art
-    assert ('<span class="airline-card__chip">%s</span>' % airlines_page.MANUAL_CHIP_ACTIVE_TEXT) in card_art
+    assert "airline-card__chip" not in card_art
 
-    card_needs = airlines_page._airline_card_html(
+    card_needs = airlines_page._airline_row_html(
         0, "Totally Novel Airline", [], tmp, ("XQZ", False, True))
     assert 'data-view-panel-mode="needs-artwork"' in card_needs
     expected_heading = airlines_page.STEP_B_HEADING_TEMPLATE % "Totally Novel Airline"
     assert ('data-view-panel-heading="%s"' % expected_heading) in card_needs
     assert 'data-view-panel-upload-action="/illustration/totally-novel-airline.png"' in card_needs
-    assert ('<span class="airline-card__chip">%s</span>' % airlines_page.MANUAL_CHIP_ACTIVE_TEXT) in card_needs
+    assert "airline-card__chip" not in card_needs
+    assert 'class="airline-card__placeholder"' in card_needs
+    assert ">All types<" in card_needs
 
 
-def test_airline_card_html_needs_artwork_sighting_context_conditional_on_live_gap(tmp_path):
+def test_airline_row_html_needs_artwork_sighting_context_conditional_on_live_gap(tmp_path):
     """a needs-artwork manual card's first-seen/last-seen/count attributes
     are populated from unresolved_row_for_prefix() only when a live gap
     still exists for that prefix, fall back to empty once the gap clears,
@@ -648,46 +647,44 @@ def test_airline_card_html_needs_artwork_sighting_context_conditional_on_live_ga
         },
     })
     manual_info = ("XQZ", False, True)
-    card_live = airlines_page._airline_card_html(0, "Totally Novel Airline", [], tmp_live, manual_info)
+    card_live = airlines_page._airline_row_html(0, "Totally Novel Airline", [], tmp_live, manual_info)
     assert 'data-view-panel-first-seen="2026-01-01T00:00:00+00:00"' in card_live
     assert 'data-view-panel-last-seen="2026-01-02T00:00:00+00:00"' in card_live
     assert 'data-view-panel-count="5"' in card_live
 
-    card_cleared = airlines_page._airline_card_html(
+    card_cleared = airlines_page._airline_row_html(
         0, "Totally Novel Airline", [], tmp_cleared, manual_info)
     assert 'data-view-panel-first-seen=""' in card_cleared
     assert 'data-view-panel-last-seen=""' in card_cleared
     assert 'data-view-panel-count=""' in card_cleared
 
-    card_art_mode = airlines_page._airline_card_html(
+    card_art_mode = airlines_page._airline_row_html(
         0, "Air France", [], tmp_live, ("ZZZ", False, False))
     assert 'data-view-panel-count=""' in card_art_mode
 
 
-def test_airline_card_html_superseded_shows_built_in_state_never_operator_upload(tmp_path):
-    """a superseded card never shows the operator's own orphaned upload:
+def test_airline_row_html_superseded_shows_built_in_state_never_operator_upload(tmp_path):
+    """a superseded row never shows the operator's own orphaned upload:
     data-view-panel-src points at the built-in Air France illustration key
-    (never a key derived from the entry's own stored name), the
-    owner row says the built-in name is used instead, and the manual-note interpolates the prefix,
-    the built-in name, AND the operator's own originally-stored name (not
-    the built-in name a second time)"""
+    (never a key derived from the entry's own stored name), the row carries
+    no status chip, and the manual-note interpolates the operator's own
+    originally-stored name, the prefix and the built-in name"""
     tmp = str(tmp_path)
     manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
     rendered = airlines_page.render(shp.ctx(tmp))
     card = _card_slice(rendered, "Air France")
     assert 'data-view-panel-manual="superseded"' in card
-    assert ('<span class="airline-card__chip">%s</span>' % airlines_page.OWNER_SUPERSEDED_TEXT) in card
+    assert "airline-card__chip" not in card
     src_match = re.search(r'data-view-panel-src="([^"]*)"', card)
     assert src_match and src_match.group(1).startswith("/illustration/air-france.png")
     assert "some-other-airline" not in card.lower()
     note_match = re.search(r'data-view-panel-manual-note="([^"]*)"', card)
     assert note_match
     note_text = note_match.group(1)
-    assert "AFR" in note_text and "Air France" in note_text
-    assert "Some Other Airline" in note_text
+    assert note_text == "Your name “Some Other Airline” for prefix AFR isn’t used: SkyPane’s built-in name “Air France” wins."
 
 
-def test_render_grid_injection_adds_exactly_one_novel_card_and_none_for_superseded_or_curated(tmp_path):
+def test_render_grid_injection_adds_exactly_one_novel_row_and_none_for_superseded_or_curated(tmp_path):
     """render()'s grid-injection step adds exactly one card for a genuinely
     novel active manual airline name not already among the curated pairs,
     and adds none for a superseded entry or for an active entry whose name
@@ -700,16 +697,16 @@ def test_render_grid_injection_adds_exactly_one_novel_card_and_none_for_supersed
     manual_resolutions.add_entry(tmp_novel, "XQZ", "Totally Novel Airline", now="2026-01-01T00:00:00+00:00")
     rendered_novel = airlines_page.render(shp.ctx(tmp_novel))
     novel_count = _grid_section(rendered_novel).count(
-        '<p class="airline-card__name">Totally Novel Airline</p>')
+        '<span class="airline-row__name" title="Totally Novel Airline">Totally Novel Airline</span>')
     assert novel_count == 1
 
     manual_resolutions.add_entry(tmp_none, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
     manual_resolutions.add_entry(tmp_none, "OLD", "Air France", now="2026-01-01T00:00:00+00:00")
     rendered_none = airlines_page.render(shp.ctx(tmp_none))
     grid_none = _grid_section(rendered_none)
-    af_count = grid_none.count('<p class="airline-card__name">Air France</p>')
+    af_count = grid_none.count('<span class="airline-row__name" title="Air France">Air France</span>')
     assert af_count == 1
-    assert '<p class="airline-card__name">Some Other Airline</p>' not in grid_none
+    assert '<span class="airline-row__name" title="Some Other Airline">Some Other Airline</span>' not in grid_none
 
 
 # =============================================================================
@@ -907,56 +904,51 @@ def test_page_composition_order_matches_ui_spec(tmp_path):
 # The manual-resolutions management list
 # =============================================================================
 
-def test_manual_summary_line_replaces_retired_management_table_copy(tmp_path):
-    """with an empty manual-resolutions registry, render() emits no
-    .manual-summary element and none of the retired management table's own
-    copy; with two entries seeded (one superseded, one active),
-    .manual-summary renders exactly once with text matching
-    MANUAL_SUMMARY_TEMPLATE's total/superseded count (
-    Task 2 item 1)"""
+def test_airlines_page_carries_no_manual_resolution_summary_control(tmp_path):
+    """render() emits no manual-resolutions summary control and none of the retired management
+    table's own copy, with or without manual entries, and no row carries a "Resolved by hand"
+    or built-in-name chip: those states live in the sheet only"""
     tmp = str(tmp_path)
+    retired = (
+        "manual-summary", "data-filter-set", "Manually resolved prefixes",
+        "Airlines you’ve named by hand for a prefix the frame couldn’t "
+        "otherwise identify.",
+        "No manual resolutions yet.",
+        "Resolve an unidentified flight from Health’s coverage-gap list "
+        "to add one here.",
+        "The frame’s built-in airline list now also recognizes this "
+        "prefix — its entry wins, and this manual name is no longer used.",
+        "manual-resolution__status--superseded",
+    )
     rendered = airlines_page.render(shp.ctx(tmp))
-    summary_open = (
-        '<button type="button" class="airline-card__chip manual-summary" '
-        'data-filter-set="manual">')
-    assert "manual-summary" not in rendered
-    for retired_copy in (
-            "Manually resolved prefixes",
-            "Airlines you’ve named by hand for a prefix the frame couldn’t "
-            "otherwise identify.",
-            "No manual resolutions yet.",
-            "Resolve an unidentified flight from Health’s coverage-gap list "
-            "to add one here.",
-            "The frame’s built-in airline list now also recognizes this "
-            "prefix — its entry wins, and this manual name is no longer used.",
-            "manual-resolution__status--superseded",
-    ):
+    for retired_copy in retired:
         assert retired_copy not in rendered
 
     manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
     manual_resolutions.add_entry(tmp, "ZZZ", "Brand New Air", now="2026-01-02T00:00:00+00:00")
     rendered = airlines_page.render(shp.ctx(tmp))
-    summary_count = rendered.count(summary_open)
-    assert summary_count == 1
-    bar = re.search(r'<div class="filter-bar">(.*?)</div>\s*<div class="empty-state"', rendered, re.S)
-    assert bar is not None and summary_open in bar.group(1)
-    expected_text = airlines_page.MANUAL_SUMMARY_TEMPLATE % (2, 1)
-    expected_button = "%s%s</button>" % (summary_open, expected_text)
-    assert expected_button in rendered
+    for retired_copy in retired:
+        assert retired_copy not in rendered
+    assert not re.search(r"\d+ manual resolutions?", rendered)
+    assert "Resolved by hand" not in rendered
+    assert "Built-in name used instead" not in rendered
+    assert "airline-card__chip" not in _grid_section(rendered)
 
 
 def test_manual_section_supersession_symbols_retired_and_chip_still_renders(tmp_path):
     """the retired supersession machinery's own symbols, including the bare
-    "Superseded" badge, are gone, and the superseded state still renders end to
-    end via render() as the explained owner-row chip"""
+    "Superseded" badge and the row chips, are gone, and the superseded state still renders
+    end to end via render() as the sheet's one-sentence manual note"""
     for name in ("SUPERSEDED_MARKER_TITLE", "SUPERSEDED_CAPTION", "SUPERSEDED_STATUS_CLASS",
-                 "SUPERSEDED_MARKER_TEXT"):
+                 "SUPERSEDED_MARKER_TEXT", "OWNER_SUPERSEDED_TEXT", "OWNER_REPLACED_TEXT",
+                 "OWNER_OWN_ARTWORK_TEXT", "OWNER_NO_ARTWORK_TEXT", "MANUAL_CHIP_ACTIVE_TEXT",
+                 "TYPE_ANY_TEXT"):
         assert not hasattr(airlines_page, name), "expected airlines_page to no longer expose %r" % (name,)
     tmp = str(tmp_path)
     manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
     rendered = airlines_page.render(shp.ctx(tmp))
-    expected_chip = '<span class="airline-card__chip">%s</span>' % airlines_page.OWNER_SUPERSEDED_TEXT
-    assert expected_chip in rendered
+    assert 'data-view-panel-manual-note="Your name “Some Other Airline” for prefix AFR' in rendered
+    assert "airline-card__chip" not in _grid_section(rendered)
     assert ">Superseded<" not in rendered
 
 
@@ -1039,35 +1031,6 @@ def test_manual_delete_form_renders_in_both_dialog_and_no_js_fallback(tmp_path):
 
 
 # =============================================================================
-# list-filter.js's new [data-filter-set] hook
-# =============================================================================
-
-def test_list_filter_js_gains_data_filter_set_hook(_module_server):
-    """companion/static/list-filter.js gains an optional, guarded
-    [data-filter-set] lookup whose click handler sets the filter input's
-    value from the clicked element's own attribute and calls the file's
-    one existing applyFilter() - the file still has exactly one
-    [data-filter-text] query, stays ES5-safe, and introduces no network
-    call or timer (phase 14 Task 1, RESEARCH.md Pitfall 5,
-     summary-line mechanism)"""
-    js_source = served_asset(_module_server, app.LIST_FILTER_SCRIPT_ROUTE)
-    assert "data-filter-set" in js_source
-
-    non_comment_source = shp.strip_js_line_and_block_comments(js_source)
-    assert "[data-filter-set]" in non_comment_source
-
-    handler_slice = non_comment_source[non_comment_source.index("[data-filter-set]"):]
-    assert "applyFilter()" in handler_slice
-    assert 'getAttribute("data-filter-set")' in handler_slice
-
-    text_query_count = non_comment_source.count("[data-filter-text]")
-    assert text_query_count == 1
-
-    assert not re.search(r'(^|[^A-Za-z_])(let|const) |=>', js_source)
-    assert not re.search(r'fetch\(|XMLHttpRequest|setTimeout|setInterval', non_comment_source)
-
-
-# =============================================================================
 # The style.css DOM-contract guard for every new/extended selector the
 # UI-SPEC's Component Inventory names
 # =============================================================================
@@ -1076,10 +1039,9 @@ def test_phase14_task2_new_css_selectors_exhaustive(css_text):
     """style.css declares the new/extended selectors UI-SPEC's Component
     Inventory enumerates (a.airline-card, .airline-card__placeholder,
     .lightbox__heading:empty, .lightbox__manual-note:empty) with their
-    exact declaration values, .manual-summary's own base rule is GONE with
-    only its hover surviving on the chip's own 12% wash (X7,
-    Task 2), .airline-card__placeholder's aspect-ratio string-equals
-    .airline-card__image's, .lightbox__replace's selector is extended to a
+    exact declaration values, .manual-summary is gone entirely along with its summary
+    control, .airline-card__placeholder's aspect-ratio string-equals
+    .airline-row__image's, .lightbox__replace's selector is extended to a
     three-way group with .lightbox__resolve-name/.lightbox__delete in
     exactly one declaration block (never duplicated), none of the new/
     extended rule bodies declares a new custom property, and
@@ -1112,18 +1074,14 @@ def test_phase14_task2_new_css_selectors_exhaustive(css_text):
             assert expected_declaration in rendered_decls, (
                 "expected %r's declarations to include %r, got %r" % (selector, expected_declaration, rendered_decls))
 
-    # The `.manual-summary` base rule must be GONE (X7): only its own
-    # :hover survives.
     assert not rules_with_selector(css_text, ".manual-summary")
-    hover_decls = declarations_for(css_text, ".manual-summary:hover")
-    assert hover_decls.get("color") == "var(--color-text)"
-    assert hover_decls.get("background") == "color-mix(in srgb, var(--color-text) 12%, transparent)"
+    assert not rules_with_selector(css_text, ".manual-summary:hover")
     chip_decls = declarations_for(css_text, ".airline-card__chip")
     assert chip_decls.get("font-size") == "12px"
     assert chip_decls.get("text-transform") == "uppercase"
     assert chip_decls.get("border-radius") == "999px"
 
-    image_decls = declarations_for(css_text, ".airline-card__image")
+    image_decls = declarations_for(css_text, ".airline-row__image")
     placeholder_decls = declarations_for(css_text, ".airline-card__placeholder")
     assert image_decls.get("aspect-ratio") is not None
     assert image_decls.get("aspect-ratio") == placeholder_decls.get("aspect-ratio")
@@ -1150,7 +1108,7 @@ def test_phase14_task2_new_css_selectors_exhaustive(css_text):
 
     for selector in (
             "a.airline-card", ".airline-card__placeholder", ".lightbox__heading:empty",
-            ".lightbox__manual-note:empty", ".manual-summary:hover"):
+            ".lightbox__manual-note:empty"):
         decls = declarations_for(css_text, selector)
         assert not any(prop.startswith("--") for prop in decls), (
             "expected %r's declarations to declare no new custom property" % (selector,))
@@ -1170,7 +1128,7 @@ def test_frame_strip_nightly_regression_held_is_neutral_never_warn():
     """the nightly regression (quiet hours 23:00-07:00, check-in 22:58,
     clock 02:00 Europe/Paris): the Frame strip renders the held copy with
     the neutral dot--off and zero warn/error tokens anywhere, including no
-    'Expected since'/'Attendu depuis' (X2)"""
+    'Update overdue'/'Mise à jour en retard' (X2)"""
     paris = timezone(timedelta(hours=1))
     qh_config = {
         "wake_interval_s": 900, "display_enabled": True,
@@ -1186,7 +1144,7 @@ def test_frame_strip_nightly_regression_held_is_neutral_never_warn():
     assert "dot--off" in cell
     for warn_token in (
             "dot--warn", "stat-tile--warn", "status-card__headline--warn",
-            "Expected since", "Attendu depuis"):
+            "Update overdue", "Mise à jour en retard"):
         assert warn_token not in rendered
     assert "Next wake around" in cell
 
@@ -1220,13 +1178,13 @@ def test_frame_strip_due_is_identical_inside_and_outside_the_grace_window():
         assert layout.RELATIVE_COUNTDOWN_ATTR in element.group(2)
     assert instants[0] == instants[1]
     for rendered in (rendered_before, rendered_inside_grace):
-        for token in ("warn", "late", "overdue", "Expected since"):
+        for token in ("warn", "late", "overdue", "Update overdue"):
             assert token not in rendered
     assert "dot--ok" in rendered_before
 
 
 def test_frame_strip_late_result_carries_warn_dot_and_plain_text_colour_class():
-    """a late result renders the warn dot and 'Expected since HH:MM', with
+    """a late result renders the warn dot and 'Update overdue · expected at HH:MM', with
     the headline's own text-colour class staying the plain
     status-card__headline--warn hook (never a status colour as text,
      §3.3 rule 2)"""
@@ -1236,7 +1194,7 @@ def test_frame_strip_late_result_carries_warn_dot_and_plain_text_colour_class():
     cell = _frame_strip_update_cell_slice(rendered)
     assert cell is not None
     assert "dot--warn" in cell
-    assert "Expected since" in cell
+    assert "Update overdue" in cell
     assert 'status-card__headline status-card__headline--warn' in cell
 
 
@@ -1259,7 +1217,7 @@ def test_frame_strip_parked_suppresses_late_state():
     parked_rendered = layout.frame_strip_html(parked_ctx, return_to=layout.HOME_ROUTE)
     parked_cell = _frame_strip_update_cell_slice(parked_rendered)
     if parked_cell is not None:
-        for token in ("dot--warn", "Expected since", "status-card__headline--warn"):
+        for token in ("dot--warn", "Update overdue", "status-card__headline--warn"):
             assert token not in parked_cell
 
 
@@ -1481,8 +1439,9 @@ def test_tab_bar_css_geometry_surface_and_active_idiom(css_text):
 
 def test_airlines_page_drops_decorative_labels_and_explains_owner_actions(tmp_path):
     """the Airlines page serves no page-description sentence, no "<name> illustration" label
-    and no framing-preview sentence; each type section keeps the source row and the owner's
-    changes row apart; and the delete form says what it does to flights and artwork"""
+    and no framing-preview sentence; a row carries none of the former source/changes text
+    lines, its accessible name carries the edit (or add-artwork) wording, and the delete form
+    says what it does to flights and artwork"""
     tmp = str(tmp_path)
     manual_resolutions.add_entry(tmp, "XQZ", "Totally Novel Airline", now="2026-01-01T00:00:00+00:00")
     rendered = airlines_page.render(shp.ctx(tmp))
@@ -1491,10 +1450,16 @@ def test_airlines_page_drops_decorative_labels_and_explains_owner_actions(tmp_pa
     assert 'data-view-panel-caption="Air France illustration"' not in rendered
     assert "how it will be framed" not in rendered
     card = _card_slice(rendered, "Air France")
-    assert '<dt class="text-label">From SkyPane</dt><dd class="airline-type__source">Built-in artwork</dd>' in card
-    assert '<dt class="text-label">Your changes</dt>' in card
-    assert ">Replace artwork</" in card
+    for retired in ("From SkyPane", "Built-in artwork", "Your changes", "No changes",
+                    "airline-type__facts", "airline-type__source", "airline-type__owner"):
+        assert retired not in rendered
+    assert 'aria-label="Edit Air France: A320"' in card
+    assert ">Replace artwork</" not in card
     novel = _card_slice(rendered, "Totally Novel Airline")
-    assert ">Add artwork</" in novel
+    assert 'aria-label="Add artwork: Totally Novel Airline"' in novel
+    assert 'class="airline-card__placeholder"' in novel
+    assert "airline-card__chip" not in novel
+    assert "Resolved by hand" not in novel
+    assert ">Add artwork</" not in novel
     assert "Flights with this prefix become unidentified again. Your artwork stays." in rendered
     assert ">Delete my name</button>" in rendered

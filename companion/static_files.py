@@ -35,6 +35,7 @@ COPY_BUTTON_SCRIPT_ROUTE = "/static/copy-button.js"
 FRESHNESS_SCRIPT_ROUTE = "/static/freshness.js"
 PANEL_LOOKUP_SCRIPT_ROUTE = "/static/panel-lookup.js"
 FLASH_CLEANUP_SCRIPT_ROUTE = "/static/flash-cleanup.js"
+TOAST_SCRIPT_ROUTE = "/static/toast.js"
 POLL_COOLDOWN_SCRIPT_ROUTE = "/static/poll-cooldown.js"
 CONFIRM_SUBMIT_SCRIPT_ROUTE = "/static/confirm-submit.js"
 THEME_PREVIEW_SCRIPT_ROUTE = "/static/theme-preview.js"
@@ -44,6 +45,11 @@ SUBMIT_GUARD_SCRIPT_ROUTE = "/static/submit-guard.js"
 RELATIVE_TIME_SCRIPT_ROUTE = "/static/relative-time.js"
 QUICK_SWITCH_SCRIPT_ROUTE = "/static/quick-switch.js"
 VALUE_CONTROLS_SCRIPT_ROUTE = "/static/value-controls.js"
+CALENDAR_SHEET_SCRIPT_ROUTE = "/static/calendar-sheet.js"
+# Brand icons. Browsers fetch these before any session exists (the login page
+# links them), so they are public like every other static asset.
+FAVICON_ROUTE = "/static/favicon.svg"
+APPLE_TOUCH_ICON_ROUTE = "/static/apple-touch-icon.png"
 
 _STYLE_CSS_PATH = os.path.join(STATIC_DIR, "style.css")
 _BATTERY_TREND_JS_PATH = os.path.join(STATIC_DIR, "battery-trend.js")
@@ -54,6 +60,7 @@ _COPY_BUTTON_JS_PATH = os.path.join(STATIC_DIR, "copy-button.js")
 _FRESHNESS_JS_PATH = os.path.join(STATIC_DIR, "freshness.js")
 _PANEL_LOOKUP_JS_PATH = os.path.join(STATIC_DIR, "panel-lookup.js")
 _FLASH_CLEANUP_JS_PATH = os.path.join(STATIC_DIR, "flash-cleanup.js")
+_TOAST_JS_PATH = os.path.join(STATIC_DIR, "toast.js")
 _POLL_COOLDOWN_JS_PATH = os.path.join(STATIC_DIR, "poll-cooldown.js")
 _CONFIRM_SUBMIT_JS_PATH = os.path.join(STATIC_DIR, "confirm-submit.js")
 _THEME_PREVIEW_JS_PATH = os.path.join(STATIC_DIR, "theme-preview.js")
@@ -63,6 +70,9 @@ _SUBMIT_GUARD_JS_PATH = os.path.join(STATIC_DIR, "submit-guard.js")
 _RELATIVE_TIME_JS_PATH = os.path.join(STATIC_DIR, "relative-time.js")
 _QUICK_SWITCH_JS_PATH = os.path.join(STATIC_DIR, "quick-switch.js")
 _VALUE_CONTROLS_JS_PATH = os.path.join(STATIC_DIR, "value-controls.js")
+_CALENDAR_SHEET_JS_PATH = os.path.join(STATIC_DIR, "calendar-sheet.js")
+_FAVICON_PATH = os.path.join(STATIC_DIR, "favicon.svg")
+_APPLE_TOUCH_ICON_PATH = os.path.join(STATIC_DIR, "apple-touch-icon.png")
 
 # In-memory static-asset cache behind Handler._serve_static() (companion/app.py):
 # populated on first read per process, keyed by absolute path. companion/app.py
@@ -100,6 +110,7 @@ STATIC_ROUTES = {
     FRESHNESS_SCRIPT_ROUTE: StaticAsset(_FRESHNESS_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     PANEL_LOOKUP_SCRIPT_ROUTE: StaticAsset(_PANEL_LOOKUP_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     FLASH_CLEANUP_SCRIPT_ROUTE: StaticAsset(_FLASH_CLEANUP_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
+    TOAST_SCRIPT_ROUTE: StaticAsset(_TOAST_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     POLL_COOLDOWN_SCRIPT_ROUTE: StaticAsset(_POLL_COOLDOWN_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     CONFIRM_SUBMIT_SCRIPT_ROUTE: StaticAsset(_CONFIRM_SUBMIT_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     THEME_PREVIEW_SCRIPT_ROUTE: StaticAsset(_THEME_PREVIEW_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
@@ -109,6 +120,9 @@ STATIC_ROUTES = {
     RELATIVE_TIME_SCRIPT_ROUTE: StaticAsset(_RELATIVE_TIME_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     QUICK_SWITCH_SCRIPT_ROUTE: StaticAsset(_QUICK_SWITCH_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     VALUE_CONTROLS_SCRIPT_ROUTE: StaticAsset(_VALUE_CONTROLS_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
+    CALENDAR_SHEET_SCRIPT_ROUTE: StaticAsset(_CALENDAR_SHEET_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
+    FAVICON_ROUTE: StaticAsset(_FAVICON_PATH, "image/svg+xml", _PUBLIC_NO_CACHE),
+    APPLE_TOUCH_ICON_ROUTE: StaticAsset(_APPLE_TOUCH_ICON_PATH, "image/png", _PUBLIC_NO_CACHE),
 }
 
 

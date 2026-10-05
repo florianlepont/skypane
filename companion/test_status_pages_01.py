@@ -28,11 +28,12 @@ _DEFAULT_DEVICE_WARN_S, _DEFAULT_DEVICE_ERROR_S = wake.device_staleness_threshol
 
 
 def test_render_shows_two_distinct_freshness_labels(tmp_path):
-    """render() shows two distinct, separately-labelled freshness signals"""
+    """render() shows two distinct, separately-named freshness signals, each as its own row"""
     rendered = health_page.render(shp.ctx(str(tmp_path)))
-    assert health_page.DEVICE_FRESHNESS_LABEL in rendered
-    assert health_page.PIPELINE_FRESHNESS_LABEL in rendered
-    assert health_page.DEVICE_FRESHNESS_LABEL != health_page.PIPELINE_FRESHNESS_LABEL
+    assert health_page.ROW_CONNECTION_NAME in rendered
+    assert health_page.ROW_FLIGHT_DATA_NAME in rendered
+    assert health_page.ROW_CONNECTION_NAME != health_page.ROW_FLIGHT_DATA_NAME
+    assert shp.health_row(rendered, "connection") is not shp.health_row(rendered, "flight-data")
 
 
 def test_staleness_status_boundaries():
@@ -155,67 +156,46 @@ def test_health_page_timestamp_helpers_promoted_not_duplicated(tmp_path):
 
 
 def test_independent_thresholds_one_warn_one_ok(tmp_path):
-    """a stale device and a fresh pipeline read as independent per-tile modifiers
-    (error vs ok) on their own wrappers, not a blended verdict, with only the dots
-    that legitimately remain still healthy"""
+    """a stale device and a fresh pipeline read as independent per-row states
+    (error vs ok), not a blended verdict; the error row renders already open and
+    the ok row closed"""
     now = shp.now()
     shp.seed_device_health(str(tmp_path), [(shp.ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
     rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
 
-    device_at = rendered.index(health_page.DEVICE_FRESHNESS_LABEL)
-    device_tile_open = rendered.rindex('<div class="stat-tile ', 0, device_at)
-    device_tile_tag = rendered[device_tile_open:rendered.index(">", device_tile_open)]
-    assert "stat-tile--error" in device_tile_tag, (
-        "expected the Device tile's wrapper to carry the error modifier, got %r"
-        % device_tile_tag)
-
-    pipeline_at = rendered.index(health_page.PIPELINE_FRESHNESS_LABEL)
-    pipeline_tile_open = rendered.rindex('<div class="stat-tile ', 0, pipeline_at)
-    pipeline_tile_tag = rendered[pipeline_tile_open:rendered.index(">", pipeline_tile_open)]
-    assert "stat-tile--ok" in pipeline_tile_tag, (
-        "expected the Pipeline tile's wrapper to carry the ok modifier, got %r"
-        % pipeline_tile_tag)
+    assert shp.health_row_state(rendered, "connection") == ("error", True)
+    assert shp.health_row_state(rendered, "flight-data") == ("ok", False)
 
     assert rendered.count("dot--ok") == 0
     assert "dot--warn" not in rendered
     assert "dot--error" not in rendered
 
 
-def test_device_pipeline_tiles_have_no_duplicated_label(tmp_path):
-    """the Device and Pipeline tiles carry their freshness label exactly once
-    (caption only) plus exactly one Emphasis-role verdict and exactly one muted
-    detail slot (the Device tile's mono check-in timestamp; the Pipeline tile's single
-    last-aircraft status line), with zero stat-tile__value and no leftover dot-label"""
+def test_connection_and_flight_data_rows_have_no_duplicated_label(tmp_path):
+    """the connection and flight-data rows carry their name exactly once, exactly one
+    verdict and one value in the summary, and their evidence (a mono timestamp,
+    the last-aircraft line) only in the body"""
     now = shp.now()
     shp.seed_device_health(str(tmp_path), [(shp.iso(now), 4200)])
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
     rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
-    tiles = shp.stat_tile_slices(rendered)
-    for label in (health_page.DEVICE_FRESHNESS_LABEL, health_page.PIPELINE_FRESHNESS_LABEL):
-        assert rendered.count(label) == 1, (
-            "%r must appear exactly once on the whole rendered page" % label)
-        matching = [tile for tile in tiles if label in tile]
-        assert len(matching) == 1, (
-            "expected exactly one .stat-tile carrying %r, got %d" % (label, len(matching)))
-        tile_slice = matching[0]
-        assert tile_slice.count('class="%s"' % health_page._TILE_VERDICT_CLASS) == 1, (
-            "%r's tile must carry exactly one Emphasis-role verdict element" % label)
-        assert tile_slice.count('class="stat-tile__value"') == 0, (
-            "%r's tile must carry no stat-tile__value paragraph" % label)
-        details = tile_slice.count('class="%s"' % health_page._TILE_DETAIL_CLASS)
-        assert details == 1, "%r's tile must carry exactly one detail slot, got %d" % (label, details)
-        detail_at = tile_slice.index('class="%s"' % health_page._TILE_DETAIL_CLASS)
-        if label == health_page.DEVICE_FRESHNESS_LABEL:
-            assert 'class="mono"' in tile_slice[detail_at:], (
-                "%r's tile must carry its mono timestamp span INSIDE the detail slot" % label)
-        else:
-            assert tile_slice.count(health_page.LAST_DETECTION_LABEL) == 1, (
-                "%r's tile must carry the last-aircraft status exactly once" % label)
-            assert health_page.LAST_DETECTION_LABEL in tile_slice[detail_at:], (
-                "%r's last-aircraft status must sit INSIDE the detail slot" % label)
-        assert "dot-label" not in tile_slice, (
-            "%r's tile must carry no dot-label — the redundant body dot was removed" % label)
+    for row_id, name in (("connection", health_page.ROW_CONNECTION_NAME),
+                         ("flight-data", health_page.ROW_FLIGHT_DATA_NAME)):
+        assert rendered.count(">%s<" % name) == 1, (
+            "%r must appear exactly once on the whole rendered page" % name)
+        row = shp.health_row(rendered, row_id)
+        summary = row.select_one("summary")
+        assert len(summary.select(".health-row__name")) == 1
+        assert len(summary.select(".health-row__verdict")) == 1
+        assert len(summary.select(".health-row__value")) == 1
+        assert not row.select(".stat-tile"), "a row is not a stat tile"
+        assert not row.select(".dot-label"), "the redundant body dot must stay removed"
+        body = row.select_one(".health-row__body")
+        assert body.find_all("span", cls="mono"), (
+            "%r's body must carry its mono timestamp" % name)
+    pipeline_body = shp.health_row(rendered, "flight-data").select_one(".health-row__body")
+    assert pipeline_body.text().count(health_page.LAST_DETECTION_LABEL) == 1
 
 
 # ==========================================================================
@@ -421,10 +401,11 @@ def test_battery_readings_collapsed_behind_closed_disclosure_after_chart(tmp_pat
 
 
 def test_battery_trend_heading_names_only_the_subject(tmp_path):
-    """the Battery heading carries no window label and the retired "Last 3 months" range
-    caption does not render on an empty render"""
+    """the Battery row is named by its bare subject, carries no window label, and the
+    retired "Last 3 months" range caption does not render on an empty render"""
     rendered = health_page.render(shp.ctx(str(tmp_path)))
-    assert '<h2 class="text-heading">Battery</h2>' in rendered
+    name = shp.health_row(rendered, "battery").select_one(".health-row__name")
+    assert name.text() == "Battery"
     assert "3 months" not in rendered
     assert "Last 3 months" not in rendered
 
@@ -583,8 +564,8 @@ def test_anomaly_banner_names_real_categories_not_generic_only(tmp_path):
     assert "Data sources disagreed" in rendered, "expected the anomaly banner to name the real failing category"
     assert health_page.ANOMALY_BANNER_TEXT in rendered, (
         "expected ANOMALY_BANNER_TEXT to remain present as the banner's fallback tail")
-    assert 'class="banner__pill"' in rendered, (
-        "expected the anomaly banner to render banner__pill markup for the pill-based category naming")
+    assert 'class="toast__pill"' in rendered, (
+        "expected the anomaly toast to render toast__pill markup for the pill-based category naming")
 
 
 def test_anomaly_categories_never_lowercase_a_leading_acronym():
@@ -634,17 +615,25 @@ def test_anomaly_category_labels_are_pill_text_not_full_sentences():
 
 def test_anomaly_banner_html_matches_layout_anomaly_banner_severity_mapping():
     """_anomaly_banner_html() reproduces layout.anomaly_banner()'s exact
-    severity-to-class/role mapping, and carries one banner__pill per anomaly plus
-    the accessible ANOMALY_BANNER_TEXT tail"""
+    severity-to-tone/role mapping (both docked, persistent toasts), and carries one
+    toast__pill per anomaly plus the accessible ANOMALY_BANNER_TEXT tail"""
     anomalies = ["Device check-in is stale."]
-    error_banner = health_page._anomaly_banner_html("error", anomalies)
-    assert 'class="banner banner--anomaly"' in error_banner and 'role="alert"' in error_banner, (
-        "expected error severity to render banner--anomaly + role=\"alert\"")
+    for severity, tone, role in (("error", "toast--error", "alert"),
+                                 ("warn", "toast--warning", "status")):
+        own = parse_html(health_page._anomaly_banner_html(severity, anomalies)).select_one(".toast")
+        shared = parse_html(layout.anomaly_banner("x", severity=severity)).select_one(".toast")
+        for node in (own, shared):
+            classes = node.attrs["class"].split()
+            assert tone in classes and "toast--docked" in classes, (
+                "expected %s severity to render a docked %s toast, got %r"
+                % (severity, tone, classes))
+            assert node.attrs.get("role") == role, (
+                "expected %s severity to carry role=%r, got %r"
+                % (severity, role, node.attrs.get("role")))
+            assert not node.select(".toast__dismiss"), "a persistent state is never dismissable"
     warn_banner = health_page._anomaly_banner_html("warn", anomalies)
-    assert 'class="banner banner--warn"' in warn_banner and 'role="status"' in warn_banner, (
-        "expected warn severity to render banner--warn + role=\"status\"")
-    assert warn_banner.count('class="banner__pill"') == 1, (
-        "expected exactly one banner__pill for a single-anomaly fixture")
+    assert warn_banner.count('class="toast__pill"') == 1, (
+        "expected exactly one toast__pill for a single-anomaly fixture")
     assert health_page.ANOMALY_BANNER_TEXT in warn_banner, (
         "expected ANOMALY_BANNER_TEXT to remain present as the banner's accessible tail")
 
@@ -657,10 +646,12 @@ def test_anomaly_banner_renders_one_pill_per_anomaly_on_the_page(tmp_path):
     shp.seed_meta(str(tmp_path), **{
         history_db.META_LAST_PIPELINE_RUN: shp.ago(health_page.STALE_PIPELINE_ERROR_S + 60)})
     rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
-    assert rendered.count('<div class="banner ') == 1, "expected exactly one banner element"
-    assert rendered.count('class="banner__pill"') == 2, (
-        "expected exactly two banner__pill elements for this two-anomaly fixture "
-        "(stale device + stale pipeline), got %d" % rendered.count('class="banner__pill"'))
+    toasts = parse_html(rendered).select(".toast." + health_page.HEALTH_ANOMALY_CLASS)
+    assert len(toasts) == 1, "expected exactly one anomaly toast"
+    pills = toasts[0].select(".toast__pill")
+    assert len(pills) == 2, (
+        "expected exactly two toast__pill elements for this two-anomaly fixture "
+        "(stale device + stale pipeline), got %d" % len(pills))
 
 
 # ==========================================================================
@@ -668,9 +659,9 @@ def test_anomaly_banner_renders_one_pill_per_anomaly_on_the_page(tmp_path):
 # ==========================================================================
 
 
-def test_corroboration_rows_compact_explanations_in_closed_disclosure(tmp_path):
-    """Corroboration's three rows stay compact (dot/label/count only) and their
-    explanations move into a closed-by-default disclosure"""
+def test_sources_row_keeps_the_verdict_in_the_summary_and_explanations_in_the_body(tmp_path):
+    """the Sources row's summary carries only the verdict and the disagreement count; the
+    three outcomes (dot, label, count) and their explanations live in the body"""
     now = shp.now()
     shp.seed_runway_events(str(tmp_path), [
         {"ts": shp.iso(now), "hex": "abc123", "corroborated": True},
@@ -678,28 +669,28 @@ def test_corroboration_rows_compact_explanations_in_closed_disclosure(tmp_path):
         {"ts": shp.iso(now), "hex": "ghi789", "corroborated": False},
     ])
     rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    row = shp.health_row(rendered, "sources")
+    summary_text = row.select_one("summary").text()
+    body = row.select_one(".health-row__body")
+    assert "1 disagreement" in summary_text
     for _key, _label, _status, explanation in health_page._CORROBORATION_ROWS:
-        assert explanation in rendered, "expected explanation %r to survive somewhere in the rendered page" % explanation
-    details_start = rendered.index('<details class="readings-disclosure"')
-    compact_rows_html = rendered[:details_start]
-    for _key, _label, _status, explanation in health_page._CORROBORATION_ROWS:
-        assert explanation not in compact_rows_html, (
-            "expected the compact corroboration rows to no longer carry the explanation "
-            "clause inline: %r" % explanation)
-    details_tag = rendered[details_start:]
-    details_open_tag = details_tag[:details_tag.index(">") + 1]
-    assert " open" not in details_open_tag, "expected the corroboration disclosure to be closed by default"
-    assert "<dl>" in rendered and "<dt>" in rendered and "<dd>" in rendered, (
-        "expected the disclosure's explanations to render as a <dl> of <dt>/<dd> pairs")
+        assert explanation in body.text(), (
+            "expected explanation %r in the Sources row's body" % explanation)
+        assert explanation not in summary_text, (
+            "the summary must not carry the explanation: %r" % explanation)
+    outcomes = body.select(".health-row__outcomes > li")
+    assert len(outcomes) == 3
+    assert [len(item.select(".dot")) for item in outcomes] == [1, 1, 1]
+    # A disagreement is a warning, so the row opens itself.
+    assert shp.health_row_state(rendered, "sources") == ("warn", True)
 
 
-def test_corroboration_section_disagreement_flag_unchanged():
-    """_corroboration_section()'s second return value (the disagreement flag) is
-    unchanged by the disclosure rewrite"""
-    _, has_disagreement = health_page._corroboration_section({"True": 1, "None": 0, "False": 2})
-    assert has_disagreement is True, "expected the disagreement flag to be True when the False bucket is non-zero"
-    _, no_disagreement = health_page._corroboration_section({"True": 1, "None": 2, "False": 0})
-    assert no_disagreement is False, "expected the disagreement flag to be False when the False bucket is zero"
+def test_sources_row_disagreement_flag_unchanged():
+    """the disagreement flag the Sources row keys its state on is unchanged"""
+    assert health_page._disagreement_warn({"True": 1, "None": 0, "False": 2}) is True, (
+        "expected the disagreement flag to be True when the False bucket is non-zero")
+    assert health_page._disagreement_warn({"True": 1, "None": 2, "False": 0}) is False, (
+        "expected the disagreement flag to be False when the False bucket is zero")
 
 
 def test_corroboration_copy_has_no_decision_id_leak():
@@ -754,9 +745,9 @@ def test_health_pill_reversal_guard(tmp_path):
 # ==========================================================================
 
 
-def test_battery_section_healthy_card_border_on_normal_trend(tmp_path):
-    """Battery trend renders a healthy status-coloured card border on a normal
-    trend, in place of the retired status_dot() badge"""
+def test_battery_row_healthy_on_a_normal_trend(tmp_path):
+    """the Battery row reads healthy (and stays closed) on a normal trend, and the
+    other rows carry their own states"""
     now = shp.now()
     readings = [
         (shp.iso(now - timedelta(minutes=1)), 4200),
@@ -765,25 +756,18 @@ def test_battery_section_healthy_card_border_on_normal_trend(tmp_path):
     shp.seed_device_health(str(tmp_path), readings)
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
     rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
-    battery_open = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
-    battery_tag = rendered[battery_open:rendered.index(">", battery_open) + 1]
-    assert "battery-trend-section--ok" in battery_tag, (
-        "expected the battery-trend section's own tag to carry the ok status modifier, got %r"
-        % battery_tag)
+    assert shp.health_row_state(rendered, "battery") == ("ok", False)
     assert rendered.count("dot--ok") == 0 and "dot--warn" not in rendered and "dot--error" not in rendered, (
         "expected zero dot classes of any colour in this fixture")
-    for label, expect_class in (
-            (health_page.DEVICE_FRESHNESS_LABEL, "stat-tile--ok"),
-            (health_page.PIPELINE_FRESHNESS_LABEL, "stat-tile--ok")):
-        at = rendered.index(label)
-        tile_open = rendered.rindex('<div class="stat-tile ', 0, at)
-        tile_tag = rendered[tile_open:rendered.index(">", tile_open)]
-        assert expect_class in tile_tag, (
-            "expected the %r tile's wrapper to carry %r, got %r" % (label, expect_class, tile_tag))
+    for row_id in ("connection", "flight-data"):
+        assert shp.health_row_state(rendered, row_id) == ("ok", False)
+    wrapper = shp.health_row(rendered, "battery").select_one("." + health_page.BATTERY_SECTION_CLASS)
+    assert "battery-trend-section--embedded" in wrapper.attrs["class"].split(), (
+        "the chart's wrapper must be the card-less embedded variant inside a row")
 
 
-def test_battery_empty_history_ok_badge_no_anomaly_banner(tmp_path):
-    """an empty/single-reading battery trend renders an ok badge and no anomaly
+def test_battery_empty_history_is_neutral_with_no_anomaly_banner(tmp_path):
+    """an empty/single-reading battery trend renders a neutral or ok row and no anomaly
     banner (Assumption A1 regression guard)"""
     # The empty-history branch must stay "ok", or a freshly-provisioned
     # device with zero readings would display "A battery reading shows an
@@ -794,6 +778,13 @@ def test_battery_empty_history_ok_badge_no_anomaly_banner(tmp_path):
     assert "dot--error" not in markup and "dot--warn" not in markup and "dot--ok" not in markup, (
         "did not expect any status-dot class in the empty-history markup — the badge is retired")
 
+    # No history at all: a neutral row, never a verdict about a drop.
+    empty_dir = tmp_path / "empty"
+    empty_dir.mkdir()
+    empty = health_page.render(shp.ctx(str(empty_dir)))
+    assert shp.health_row_state(empty, "battery") == ("off", False)
+    assert "Battery dropped abnormally." not in empty
+
     # Page-level proof: a fresh device with one healthy battery reading
     # never surfaces the abnormal-drop anomaly or its banner.
     now = shp.now()
@@ -801,21 +792,17 @@ def test_battery_empty_history_ok_badge_no_anomaly_banner(tmp_path):
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
     rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
     assert "dot--error" not in rendered, "did not expect an error status class with a single battery reading"
-    battery_open = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
-    battery_tag = rendered[battery_open:rendered.index(">", battery_open) + 1]
-    assert "battery-trend-section--ok" in battery_tag, (
-        "expected the battery-trend section's own tag to carry the ok status modifier with a "
-        "single, healthy battery reading, got %r" % battery_tag)
+    assert shp.health_row_state(rendered, "battery") == ("ok", False), (
+        "expected the Battery row to read healthy with a single, healthy battery reading")
     assert health_page.ANOMALY_BANNER_TEXT not in rendered, (
         "did not expect the anomaly banner with a single, healthy battery reading")
     assert "Battery dropped abnormally." not in rendered, (
         "did not expect the abnormal-drop copy with a single battery reading")
 
 
-def test_battery_drop_drives_badge_and_banner_detail_copy_not_rendered(tmp_path):
-    """a real battery drop drives both the card's own error border (retargeted
-    from the retired badge) and the banner; the detail copy is no longer
-    rendered"""
+def test_battery_drop_drives_the_row_and_banner_detail_copy_not_rendered(tmp_path):
+    """a real battery drop drives both the Battery row's warn state (which opens it) and
+    the banner; the detail copy is no longer rendered"""
     now = shp.now()
     readings = [
         (shp.iso(now - timedelta(minutes=1)), 4200),
@@ -824,11 +811,9 @@ def test_battery_drop_drives_badge_and_banner_detail_copy_not_rendered(tmp_path)
     shp.seed_device_health(str(tmp_path), readings)
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
     rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
-    battery_open = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
-    battery_tag = rendered[battery_open:rendered.index(">", battery_open) + 1]
-    assert "battery-trend-section--warn" in battery_tag, (
-        "expected the battery-trend section's own tag to carry the warn status modifier for a "
-        "drop >= BATTERY_DROP_WARN_MV (demoted from error, D-05), got %r" % battery_tag)
+    assert shp.health_row_state(rendered, "battery") == ("warn", True), (
+        "expected the Battery row to read warn and render open for a drop >= "
+        "BATTERY_DROP_WARN_MV (demoted from error, D-05)")
     count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
     assert count == 1, "expected the anomaly banner copy exactly once, found %d" % count
     assert "Battery dropped abnormally." not in rendered, (
@@ -850,11 +835,9 @@ def test_anomaly_detail_list_markup_is_gone(tmp_path):
     shp.seed_device_health(str(tmp_path), [(shp.ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
     rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
-    banner_at = rendered.index('<div class="banner ')
-    banner_end = rendered.index("</div>", banner_at) + len("</div>")
-    banner_slice = rendered[banner_at:banner_end]
-    assert banner_slice.count("<ul") == 0, "expected zero <ul occurrences inside the anomaly banner"
-    assert banner_slice.count("<li") == 0, "expected zero <li occurrences inside the anomaly banner"
+    banner = parse_html(rendered).select_one(".toast." + health_page.HEALTH_ANOMALY_CLASS)
+    assert not banner.select("ul"), "expected zero <ul elements inside the anomaly toast"
+    assert not banner.select("li"), "expected zero <li elements inside the anomaly toast"
     count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
     assert count == 1, "expected the anomaly banner copy exactly once, found %d" % count
 

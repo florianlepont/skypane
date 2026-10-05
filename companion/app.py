@@ -40,7 +40,7 @@ from companion.pages import (  # noqa: E402
     update_page,
 )
 from server import device_config, firmware_registry, history_db  # noqa: E402
-from server.plane import calendar_rules, illustrations  # noqa: E402
+from server.plane import calendar_rules, illustrations, name_overrides  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
 import server.state_store as state_store  # noqa: E402
 
@@ -94,6 +94,7 @@ COPY_BUTTON_SCRIPT_ROUTE = static_files.COPY_BUTTON_SCRIPT_ROUTE
 FRESHNESS_SCRIPT_ROUTE = static_files.FRESHNESS_SCRIPT_ROUTE
 PANEL_LOOKUP_SCRIPT_ROUTE = static_files.PANEL_LOOKUP_SCRIPT_ROUTE
 FLASH_CLEANUP_SCRIPT_ROUTE = static_files.FLASH_CLEANUP_SCRIPT_ROUTE
+TOAST_SCRIPT_ROUTE = static_files.TOAST_SCRIPT_ROUTE
 POLL_COOLDOWN_SCRIPT_ROUTE = static_files.POLL_COOLDOWN_SCRIPT_ROUTE
 CONFIRM_SUBMIT_SCRIPT_ROUTE = static_files.CONFIRM_SUBMIT_SCRIPT_ROUTE
 THEME_PREVIEW_SCRIPT_ROUTE = static_files.THEME_PREVIEW_SCRIPT_ROUTE
@@ -103,6 +104,7 @@ SUBMIT_GUARD_SCRIPT_ROUTE = static_files.SUBMIT_GUARD_SCRIPT_ROUTE
 RELATIVE_TIME_SCRIPT_ROUTE = static_files.RELATIVE_TIME_SCRIPT_ROUTE
 QUICK_SWITCH_SCRIPT_ROUTE = static_files.QUICK_SWITCH_SCRIPT_ROUTE
 VALUE_CONTROLS_SCRIPT_ROUTE = static_files.VALUE_CONTROLS_SCRIPT_ROUTE
+CALENDAR_SHEET_SCRIPT_ROUTE = static_files.CALENDAR_SHEET_SCRIPT_ROUTE
 # Single definition site is companion/pages/config_page.py (app.py imports
 # that module, so the reverse import would be a cycle) — rebound here
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
@@ -160,6 +162,7 @@ ILLUSTRATION_IMAGE_ROUTE_PREFIX = "/illustration/"
 # not a page module, owns this prefix since it is also used from
 # config_page.py's own theme-picker markup.
 THEME_PREVIEW_ROUTE_PREFIX = theme_preview.THEME_PREVIEW_ROUTE_PREFIX
+FRAME_PREVIEW_ROUTE_PREFIX = theme_preview.FRAME_PREVIEW_ROUTE_PREFIX
 RULES_ADD_ROUTE = config_page.RULES_ADD_ROUTE
 RULES_DELETE_ROUTE_PREFIX = config_page.RULES_DELETE_ROUTE_PREFIX
 RULES_DELETE_ROUTE_SUFFIX = config_page.RULES_DELETE_ROUTE_SUFFIX
@@ -204,6 +207,7 @@ FLASH_KEY_CALENDAR_DISCONNECTED = flash.FLASH_KEY_CALENDAR_DISCONNECTED
 FLASH_KEY_CALENDAR_SYNC_DEFERRED = flash.FLASH_KEY_CALENDAR_SYNC_DEFERRED
 FLASH_KEY_CALENDAR_CONNECT_OK = flash.FLASH_KEY_CALENDAR_CONNECT_OK
 FLASH_KEY_CALENDAR_CONNECT_INVALID = flash.FLASH_KEY_CALENDAR_CONNECT_INVALID
+FLASH_KEY_CALENDAR_CONNECT_FAILED = flash.FLASH_KEY_CALENDAR_CONNECT_FAILED
 FLASH_KEY_UPDATE_SCHEDULE_FAILED = flash.FLASH_KEY_UPDATE_SCHEDULE_FAILED
 FLASH_KEY_UPDATE_CANCEL_FAILED = flash.FLASH_KEY_UPDATE_CANCEL_FAILED
 FLASH_KEY_UPDATE_BUSY = flash.FLASH_KEY_UPDATE_BUSY
@@ -216,6 +220,7 @@ FLASH_KEY_LED_ON = flash.FLASH_KEY_LED_ON
 FLASH_KEY_LED_OFF = flash.FLASH_KEY_LED_OFF
 FLASH_MESSAGES = flash.FLASH_MESSAGES
 FLASH_ROLES = flash.FLASH_ROLES
+FLASH_TONES = flash.FLASH_TONES
 
 # Moved to companion/static_files.py; rebound under their historical
 # names so every existing call site, and every existing test monkeypatch
@@ -274,6 +279,7 @@ _PAGE_SCRIPTS = {
         layout.QUICK_SWITCH_SCRIPT_SRC,
     ),
     layout.DISPLAY_ROUTE: (
+        layout.CALENDAR_SHEET_SCRIPT_SRC,
         layout.CONFIRM_SUBMIT_SCRIPT_SRC,
         layout.DIRTY_STATE_SCRIPT_SRC,
         layout.FRESHNESS_SCRIPT_SRC,
@@ -296,6 +302,7 @@ _PAGE_SCRIPTS = {
         layout.COPY_BUTTON_SCRIPT_SRC,
         layout.FRESHNESS_SCRIPT_SRC,
         layout.LIST_FILTER_SCRIPT_SRC,
+        layout.PANEL_LOOKUP_SCRIPT_SRC,
     ),
     layout.AIRLINES_ROUTE: (
         layout.AIRLINE_TYPES_SCRIPT_SRC,
@@ -370,7 +377,10 @@ def _safe_latest_runway_event(state_dir):
     """
     try:
         with history_db.open_db(state_dir) as conn:
-            rows = history_db.recent_runway_events(conn, limit=1)
+            rows = history_db.recent_runway_events(
+                conn, limit=1,
+                airline_names=name_overrides.names_by_prefix(
+                    name_overrides.load_name_overrides(state_dir)))
     except Exception:
         return None
     return rows[0] if rows else None
@@ -786,6 +796,28 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
             return self.send_html(404, self._not_found_page())
         return self.send_bytes(200, "image/png", payload, cache_seconds=300)
 
+    def _serve_frame_preview_image(self, theme_id):
+        # Every part is an allow-list member before it reaches the cache
+        # path: the theme id from the registry, state and size from
+        # theme_preview's own tuples. A missing parameter takes the
+        # default; an unknown one is a 404, never a guess.
+        if theme_id not in device_config.THEMES:
+            return self.send_html(404, self._not_found_page())
+        query = parse_qs(urlsplit(self.path).query)
+        state = query.get("state", [theme_preview.FRAME_PREVIEW_STATE_DEPARTING])[0]
+        size = query.get("size", [theme_preview.FRAME_PREVIEW_SIZE_LARGE])[0]
+        if (state not in theme_preview.FRAME_PREVIEW_STATES
+                or size not in theme_preview.FRAME_PREVIEW_SIZES):
+            return self.send_html(404, self._not_found_page())
+        try:
+            payload = theme_preview.cached_frame_preview_bytes(
+                self.args.state_dir, theme_id, state, size)
+        except Exception:
+            return self.send_html(404, self._not_found_page())
+        if payload is None:
+            return self.send_html(404, self._not_found_page())
+        return self.send_bytes(200, "image/png", payload, cache_seconds=300)
+
     # _handle_illustration_replace(), _handle_manual_resolve_post(),
     # _handle_manual_resolution_delete(), _handle_rule_add_post(),
     # _handle_rule_delete(), _handle_calendar_disconnect_post(),
@@ -811,9 +843,7 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         carries one) forwards straight to `layout.page_shell()`, which
         renders it onto `<body>` only when given.
         """
-        flash_html = (
-            layout.flash_banner(ctx.flash, role=ctx.flash_role)
-            if ctx.flash else None)
+        flash_html = flash.flash_toast_html(ctx.flash_key, ctx.flash, self.path)
         return layout.page_shell(
             title=i18n.t(_PAGE_TITLES[route]), active=layout.nav_slug(route),
             body=body,

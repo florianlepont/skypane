@@ -41,7 +41,7 @@ from urllib.parse import parse_qs, urlsplit
 import companion.prefs as prefs
 import companion.wake as wake
 from server import device_config, history_db
-from server.plane import calendar_rules, colour_rules, manual_resolutions
+from server.plane import calendar_rules, colour_rules, manual_resolutions, name_overrides
 
 _HERE = os.path.dirname(os.path.abspath(__file__))  # companion/
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
@@ -49,15 +49,15 @@ _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 GALLERY_DIRNAME = "gallery"
 GALLERY_DEFAULT_LIMIT = 30
 
-# The 14 values every request needs regardless of which tab it renders (or
+# The values every request needs regardless of which tab it renders (or
 # a later eager value here depends on one) — computed once, eagerly, in
 # build_page_context(). Order matches companion/pages/__init__.py's own
 # contract docstring.
 EAGER_FIELDS = (
     "state_dir", "ui_theme", "lang", "device_config",
     "last_checkin_ts", "battery_critical", "wake_interval_env_default",
-    "flash", "flash_role", "runway_images", "now", "resolve_prefix",
-    "flights_limit",
+    "flash", "flash_role", "flash_key", "runway_images", "now", "resolve_prefix",
+    "sheet_key", "calendar_sheet", "calendar_sheet_error",
 )
 
 # The expensive values, resolved at most once, only if a route's own
@@ -67,7 +67,7 @@ EAGER_FIELDS = (
 # them, never read directly by a page module.
 LAZY_FIELDS = (
     "_health_signals", "health_state", "health_severity", "gallery_entries",
-    "manual_resolutions", "colour_rules", "calendar_configured",
+    "manual_resolutions", "name_overrides", "colour_rules", "calendar_configured",
     "_calendar_registry", "calendar_last_synced_at",
     "calendar_last_attempt_at", "calendar_entry_count", "calendar_drift",
     "poll_cooldown_remaining",
@@ -332,7 +332,7 @@ def build_page_context(handler):
     page's own banner in agreement.
     """
     from companion import flash
-    from companion.pages import airlines_page, health_page, history_page
+    from companion.pages import airlines_page, config_page, health_page
 
     parsed = urlsplit(handler.path)
     params = parse_qs(parsed.query)
@@ -382,6 +382,9 @@ def build_page_context(handler):
                 last_checkin_ts=last_checkin_ts, device_cfg=device_cfg,
                 battery_critical=battery_critical),
             "flash_role": flash.FLASH_ROLES.get(flash_key, "status"),
+            # Only a key from the fixed vocabulary, never the raw query
+            # value: it picks the toast's tone, glyph and action.
+            "flash_key": flash_key if flash_key in flash.FLASH_MESSAGES else None,
             "runway_images": runway_images_available(),
             "now": now,
             # Deliberately unvalidated: validation belongs to
@@ -389,10 +392,20 @@ def build_page_context(handler):
             # membership test shared by the render and write paths.
             "resolve_prefix": params.get(
                 airlines_page.RESOLVE_QUERY_PARAM, [None])[0],
-            # Deliberately unvalidated: validation belongs to
-            # history_page.flights_limit(). Presentation-only.
-            "flights_limit": params.get(
-                history_page.FLIGHTS_LIMIT_QUERY_PARAM, [None])[0],
+            # Deliberately unvalidated: the Airlines page only ever
+            # compares it against the artwork keys it rendered itself.
+            "sheet_key": params.get(airlines_page.SHEET_QUERY_PARAM, [None])[0],
+            # The calendar sheet's no-script address and its refusal
+            # code. Only members of the fixed vocabulary survive: the
+            # query is client-supplied and picks nothing but a branch.
+            "calendar_sheet": (
+                params.get(config_page.CALENDAR_SHEET_PARAM, [None])[0]
+                == config_page.CALENDAR_SHEET_MANAGE),
+            "calendar_sheet_error": (
+                params.get(config_page.CALENDAR_ERROR_PARAM, [None])[0]
+                if params.get(config_page.CALENDAR_ERROR_PARAM, [None])[0]
+                in (config_page.CALENDAR_ERROR_INVALID,
+                    config_page.CALENDAR_ERROR_UNREACHABLE) else None),
         },
         {
             # The severity/anomaly snapshot every tab's nav dot needs,
@@ -419,6 +432,8 @@ def build_page_context(handler):
             # server.
             "manual_resolutions": lambda: manual_resolutions.load_manual_resolutions(
                 state_dir),
+            # Read fresh per request for the same reason.
+            "name_overrides": lambda: name_overrides.load_name_overrides(state_dir),
             # Read fresh per request for the same reason.
             "colour_rules": lambda: colour_rules.load_colour_rules(state_dir),
             # A status line only needs presence, not the value: the

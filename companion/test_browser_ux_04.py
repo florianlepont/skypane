@@ -43,7 +43,7 @@ pytestmark = pytest.mark.browser
 
 # Also defined in companion/test_browser_ux_03.py, since that module's own checks read it too;
 # kept local to each module rather than promoted into the shared helpers file.
-THEME_PREVIEW_SEL = ".theme-live-preview__image"
+THEME_PREVIEW_SEL = '[data-look-usage="departures"] img.look-frame__image'
 
 
 @pytest.fixture(scope="module")
@@ -144,14 +144,13 @@ def _clear_stored_artwork(server):
 
 
 def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, make_app_server):
-    """With scripts blocked, in both languages, at 360px: all 4 usage rows carry their own
+    """With scripts blocked, in both languages, at 360px: each of the four looks (departures,
+    arrivals, calendar flights, a new special look) carries its own native <details> with a
     <summary>; every registry theme's radio (theme/theme_arriving/calendar_theme_id/
-    rule_theme_id) is present in the DOM at full registry size regardless of which row is
-    open; a real pointer click on a closed row's own <summary> opens it and closes the
-    previously-open sibling (the native grouped <details name="aspect-rows"> mechanism); and
-    a palette selection made inside the row the visitor just opened themselves reaches disk,
-    read back via device_config.load_device_config(), with the restore leg putting the old
-    value back.
+    rule_theme_id) is present in the DOM at full registry size whether or not its disclosure is
+    open; a real pointer click on the calendar row's own <summary> opens its table; and a
+    selection made inside it reaches disk, read back via device_config.load_device_config(),
+    with the restore leg putting the old value back.
     """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     base_url = server.base_url()
@@ -167,14 +166,16 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
                 "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
             page.goto(base_url + "/display")
 
-            rows = page.query_selector_all("details.usage-row")
-            if len(rows) != 4:
+            disclosures = page.query_selector_all("details.look-edit, details.special-add")
+            if len(disclosures) != 4:
                 raise AssertionError(
-                    "lang=%s: expected 4 usage rows, found %d" % (lang, len(rows)))
-            for row in rows:
-                if row.query_selector("summary") is None:
+                    "lang=%s: expected 4 look disclosures, found %d" % (lang, len(disclosures)))
+            for disclosure in disclosures:
+                if disclosure.query_selector("summary") is None:
                     raise AssertionError(
-                        "lang=%s: a usage row carries no <summary>" % (lang,))
+                        "lang=%s: a look disclosure carries no <summary>" % (lang,))
+                if disclosure.get_attribute("open") is not None:
+                    raise AssertionError("lang=%s: expected every look closed at load" % (lang,))
 
             for field, expected in (
                     ("theme", n_themes),
@@ -185,29 +186,19 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
                     'input[name="%s"]' % field, "els => els.length")
                 if count != expected:
                     raise AssertionError(
-                        "lang=%s: expected %d radios named %r in the DOM regardless of "
-                        "which row is open, found %d" % (lang, expected, field, count))
+                        "lang=%s: expected %d radios named %r in the DOM whether or not its "
+                        "disclosure is open, found %d" % (lang, expected, field, count))
 
-            calendar_row = page.query_selector(
-                'details.usage-row[data-usage="calendar"]')
-            departures_row = page.query_selector(
-                'details.usage-row[data-usage="departures"]')
-            if calendar_row.get_attribute("open") is not None:
+            calendar = page.query_selector('[data-look-usage="calendar"] details.look-edit')
+            # Centred first: left to itself the scroll can park the summary under the
+            # fixed bottom tab bar, which then swallows the click.
+            calendar.query_selector("summary").evaluate(
+                "el => el.scrollIntoView({block: 'center'})")
+            calendar.query_selector("summary").click()
+            if calendar.get_attribute("open") is None:
                 raise AssertionError(
-                    "lang=%s: expected the calendar row closed at load" % (lang,))
-            if departures_row.get_attribute("open") is None:
-                raise AssertionError(
-                    "lang=%s: expected the departures row open at load" % (lang,))
-            calendar_row.query_selector("summary").click()
-            if calendar_row.get_attribute("open") is None:
-                raise AssertionError(
-                    "lang=%s: a real pointer click on a closed row's own <summary> did "
+                    "lang=%s: a real pointer click on the calendar look's own <summary> did "
                     "not open it, with scripts blocked" % (lang,))
-            if departures_row.get_attribute("open") is not None:
-                raise AssertionError(
-                    "lang=%s: opening the calendar row did not close its previously-open "
-                    "sibling - the native grouped-<details> behaviour CFG-85's zero-script "
-                    "floor rests on" % (lang,))
 
             before = read_back()
             target = next(t for t in device_config.THEME_IDS if t != before)
@@ -219,15 +210,14 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
                 raise AssertionError(
                     "lang=%s: the browser refused to check calendar_theme_id=%r with "
                     "scripts blocked" % (lang, target))
-            with page.expect_navigation():
+            with page.expect_navigation(timeout=30000):
                 via = page.evaluate(_SUBMIT_PROBE, {"field": "calendar_theme_id"})
 
         stored = read_back()
         if str(stored) != str(target):
             raise AssertionError(
-                "lang=%s: a selection made inside a row the visitor opened themselves "
-                "(via the %s) did NOT reach disk - expected %r, got %r"
-                % (lang, via, target, stored))
+                "lang=%s: a selection made inside the calendar look's table (via the %s) did "
+                "NOT reach disk - expected %r, got %r" % (lang, via, target, stored))
 
         device_config.save_device_config(
             server.tmpdir, calendar_theme_id=before if before is not None else "")
@@ -240,12 +230,11 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
 
 def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, server):
     """The Touch Targets floor, measured (never declared) in each control's own container,
-    in both UI themes, at the 360px contract floor: the open row's first and last
-    .palette-chip, the usage-row's own <summary>, the arrivals row's leading "Same as
-    departures" option, and the nested rule-add disclosure's own <summary> all clear 44px;
-    the palette grid never scrolls horizontally, the page itself never overflows sideways,
-    and the swatch paints visibly distinct from its own surrounding chip surface in both
-    themes.
+    in both UI themes, at the 360px contract floor: the departures table's first and last
+    cell, its "Change" <summary>, the arrivals table's leading "Same as departures" option, the
+    picture openers and the "Add a special look" <summary> all clear 44px; no table scrolls
+    horizontally, the page itself never overflows sideways, and a swatch paints visibly
+    distinct from its own cell surface in both themes.
     """
     base_url = server.base_url()
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
@@ -253,101 +242,63 @@ def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, serve
         page = context.new_page()
         _login(page, base_url)
         page.goto(base_url + "/display")
-
-        def open_row(usage):
-            # Idempotent, deliberately: a grouped <details name="aspect-rows"> summary click
-            # toggles, so clicking an already-open row would close it rather than leave it open.
-            row = page.query_selector(
-                'details.usage-row[data-usage="%s"]' % usage)
-            if row.get_attribute("open") is None:
-                row.query_selector("summary").click()
+        # With scripts the "Change" summaries open the look sheet; the tables they hold are the
+        # no-script controls, opened here directly so they can be measured.
+        page.eval_on_selector_all("details.look-edit", "ds => ds.forEach(d => { d.open = true; })")
 
         recorded = {}
         for theme in UI_THEMES_EXPLICIT:
             _set_ui_theme(page, theme)
             theme_record = {}
-
-            open_row("departures")
-            chip_count = page.eval_on_selector_all(
-                'details.usage-row[data-usage="departures"] label.palette-chip',
-                "els => els.length")
-            if chip_count < 2:
-                raise AssertionError(
-                    "theme=%s: expected at least 2 .palette-chip in the open departures "
-                    "row, found %d" % (theme, chip_count))
-            theme_record["chip_first"] = _assert_hit_target(
-                page,
-                'details.usage-row[data-usage="departures"] '
-                'label.palette-chip:first-of-type',
-                "theme=%s: the FIRST palette-chip in the open departures row" % theme)
-            theme_record["chip_last"] = _assert_hit_target(
-                page,
-                'details.usage-row[data-usage="departures"] '
-                'label.palette-chip:last-of-type',
-                "theme=%s: the LAST palette-chip in the open departures row" % theme)
-
-            theme_record["row_summary"] = _assert_hit_target(
-                page, 'details.usage-row[data-usage="departures"] > summary',
-                "theme=%s: the departures row's own <summary>" % theme)
-
-            open_row("arrivals")
+            cells = '[data-look-usage="departures"] label.look-cell'
+            if page.eval_on_selector_all(cells, "els => els.length") < 2:
+                raise AssertionError("theme=%s: expected the departures table's cells" % theme)
+            theme_record["cell_first"] = _assert_hit_target(
+                page, '[data-look-usage="departures"] tbody tr:first-child td:first-of-type label',
+                "theme=%s: the FIRST cell of the departures table" % theme)
+            theme_record["cell_last"] = _assert_hit_target(
+                page, '[data-look-usage="departures"] tbody tr:last-child td:last-of-type label',
+                "theme=%s: the LAST cell of the departures table" % theme)
+            theme_record["summary"] = _assert_hit_target(
+                page, '[data-look-usage="departures"] summary.look-edit__summary',
+                "theme=%s: the departures look's own <summary>" % theme)
             theme_record["leading_option"] = _assert_hit_target(
-                page, 'details.usage-row[data-usage="arrivals"] .leading-option',
-                "theme=%s: the arrivals row's \"Same as departures\" leading option"
-                % theme)
+                page, '[data-look-usage="arrivals"] label.look-option:has(input[value=""])',
+                "theme=%s: the arrivals \"Same as departures\" option" % theme)
+            theme_record["opener"] = _assert_hit_target(
+                page, '[data-look-usage="arrivals"] button.look-frame__open',
+                "theme=%s: the arrivals picture's opener" % theme)
+            theme_record["add_summary"] = _assert_hit_target(
+                page, ".special-add__summary",
+                "theme=%s: the \"Add a special look\" <summary>" % theme)
 
-            open_row("rules")
-            theme_record["rule_add_summary"] = _assert_hit_target(
-                page, ".rule-add > summary",
-                "theme=%s: the nested \"+ Add rule\" disclosure's own <summary>" % theme)
-
-            for usage in ("departures", "arrivals"):
-                open_row(usage)
-                grid = page.eval_on_selector(
-                    'details.usage-row[data-usage="%s"] .palette' % usage,
-                    "el => ({scrollWidth: el.scrollWidth, clientWidth: el.clientWidth})")
-                if grid["scrollWidth"] > grid["clientWidth"]:
-                    raise AssertionError(
-                        "theme=%s: the %s row's own .palette grid scrolls horizontally - "
-                        "scrollWidth %r > clientWidth %r, exactly the strip CFG-85 retires"
-                        % (theme, usage, grid["scrollWidth"], grid["clientWidth"]))
-
+            scrolling = page.eval_on_selector_all(
+                ".look-table__scroll",
+                "els => els.filter(e => e.getClientRects().length"
+                " && e.scrollWidth > e.clientWidth).length")
+            if scrolling:
+                raise AssertionError(
+                    "theme=%s: %d look table(s) scroll horizontally at 360px" % (theme, scrolling))
             msg = _assert_no_page_overflow(
-                page, "the Aspect card on /display (theme=%s)" % theme,
+                page, "the look card on /display (theme=%s)" % theme,
                 VIEWPORT_MIN_SUPPORTED["width"])
             if msg:
                 raise AssertionError(msg)
 
-            # Deliberately the "black" theme, not the FIRST chip: THEME_IDS[0]
-            # is "white" (a solid #FFFFFF fill), and --color-dominant is
-            # ALSO #FFFFFF in light mode — a white swatch on a white card
-            # surface is a real, correct product fact, never the "invisible
-            # swatch" defect this clause exists to catch.
-            open_row("departures")
+            # Deliberately the "black" cell: a white swatch on a white card surface is a real,
+            # correct product fact, never the "invisible swatch" defect this clause catches.
             paint = page.eval_on_selector(
-                'details.usage-row[data-usage="departures"] '
-                'label.palette-chip:has(input[type=radio][value="black"])',
-                "el => { var swatch = el.querySelector('.palette-swatch');"
-                " var chip = getComputedStyle(el);"
-                " return {swatch: getComputedStyle(swatch).backgroundColor,"
-                " chipSurface: chip.backgroundColor}; }")
-            if paint["swatch"] == paint["chipSurface"]:
+                '[data-look-usage="departures"] label.look-cell:has(input[value="black"])',
+                "el => { var rects = el.querySelectorAll('svg.look-swatch rect');"
+                " var cell = getComputedStyle(el);"
+                " return {swatch: getComputedStyle(rects[rects.length - 1]).fill,"
+                " cellSurface: cell.backgroundColor}; }")
+            if paint["swatch"] == paint["cellSurface"]:
                 raise AssertionError(
-                    "theme=%s: the 'black' palette-chip's own swatch paints IDENTICALLY "
-                    "to its surrounding chip surface (%r) - a swatch invisible against "
-                    "its own card is the defect a hit-target measurement cannot see"
-                    % (theme, paint["swatch"]))
+                    "theme=%s: the 'black' cell's swatch paints IDENTICALLY to its own cell "
+                    "surface (%r)" % (theme, paint["swatch"]))
             theme_record["paint"] = paint
             recorded[theme] = theme_record
-
-        for theme, rec in recorded.items():
-            for control in (
-                    "chip_first", "chip_last", "row_summary", "leading_option",
-                    "rule_add_summary"):
-                seen = rec[control]
-                print(
-                    "        [30-08 T2] theme=%s %s: hit=%r visual=%r"
-                    % (theme, control, seen["hit"], seen["visual"]))
     finally:
         context.close()
 
@@ -685,13 +636,13 @@ def test_cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_d
             t for t in device_config.THEME_IDS if t != original_theme)
         target_preview_src = page.eval_on_selector(
             'input[name="theme"][value="%s"]' % target_theme,
-            "el => el.closest('.palette-chip').getAttribute('data-preview-src')")
+            "el => el.parentNode.getAttribute('data-preview-src')")
 
         current_start = page.input_value(
             'input[name="quiet_hours_start"]')
         target_start = "05:00" if current_start != "05:00" else "06:00"
 
-        # Edit: a different theme via a palette chip, and a different quiet-hours window.
+        # Edit: a different theme via a look-table radio, and a different quiet-hours window.
         # Confirm both surfaces actually moved before Cancel — a no-op edit would make every
         # assertion below vacuous.
         _click_control(
@@ -718,7 +669,7 @@ def test_cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_d
         page.click("[data-dirty-cancel]")
         _wait_for_bar_hidden(page)
 
-        # The theme chip's checked state is back to the original.
+        # The theme radio's checked state is back to the original.
         try:
             page.wait_for_function(
                 "args => {"
@@ -813,10 +764,9 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
     ones; the failure message names the offending page, the offending title's text and both
     triples. Supersection intro headings (.section-intro > h2) are excluded structurally,
     deliberately: a different, generically-worded tier, not an inconsistency this check
-    should assert away. The one card that sits under its own section heading (the Display
-    appearance card under "What appears") is the nested card-title tier by design: it is
-    excluded from the cardinality set structurally, and the section heading above it must
-    instead render the same triple as every top-level card title. Both themes exercised via
+    should assert away. The Display appearance card sits inside its own labelled section and
+    is the nested card-title tier by design: it is excluded from the cardinality set
+    structurally. Both themes exercised via
     _set_ui_theme(), at the 360px floor.
     """
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
@@ -875,11 +825,11 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
                 "would pass this check while leaving CFG-72 unmet on a card the developer "
                 "can see" % config_page.POLL_SECTION_HEADING)
 
-        # The only card under a section heading is the Display appearance card.
+        # The only nested settings card is the Display appearance card.
         if set(nested_titles) != {config_page.ASPECT_HEADING}:
             raise AssertionError(
-                "expected the Display appearance card to be the only settings card under a "
-                "section heading, got %r" % (sorted(set(nested_titles)),))
+                "expected the Display appearance card to be the only nested settings card, "
+                "got %r" % (sorted(set(nested_titles)),))
 
         # The combined set's own cardinality is 1.
         triples = sorted({e["triple"] for e in entries})
@@ -895,17 +845,6 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
                 "- %r on %s (theme=%s) renders %r, while the rest render %r"
                 % (len(triples), offender["text"], offender["page"], offender["theme"],
                    offender["triple"], majority))
-
-        # The section heading above the nested appearance card sits on the top-level rung.
-        page.goto(base_url + "/display")
-        section_heading = page.evaluate(
-            "() => { var h = document.querySelector('.display-appearance > h2');"
-            " var s = getComputedStyle(h);"
-            " return [s.fontSize, s.fontWeight, s.fontFamily]; }")
-        if tuple(section_heading) != triples[0]:
-            raise AssertionError(
-                "expected the Display section heading to render the top-level card-title "
-                "triple %r, got %r" % (triples[0], tuple(section_heading)))
     finally:
         context.close()
 
@@ -1624,30 +1563,23 @@ def test_quiet_hours_fields_and_presets_lead_the_ring_and_save(new_context, make
                 context.close()
 
 
-# Airlines: the aircraft-type selector and the framed artwork surface.
+# Airlines: the aircraft types of a row and the sheet's type switcher.
 
 TYPES_CARD = "Transavia France"
 
 
 def _types_card(page):
-    return page.locator(".airline-card").filter(
-        has=page.locator(".airline-card__name", has_text=TYPES_CARD))
+    return page.locator(".airline-list__item").filter(
+        has=page.locator(".airline-row__name", has_text=TYPES_CARD))
 
 
-def _visible_type_ids(page):
-    return _types_card(page).evaluate(
-        "card => [...card.querySelectorAll('section[data-airline-type]')]"
-        ".filter(s => s.getClientRects().length > 0)"
-        ".map(s => s.getAttribute('data-airline-type'))")
-
-
-def test_the_type_selector_changes_the_selected_type_from_the_keyboard(new_context, server):
-    """At 1280, 390 and 360 px in English and French, the aircraft-type selector of a
-    two-type airline is a labelled native select at the 44px floor; ArrowDown on the focused
-    select shows the second type's section alone (its title is the second option), its
-    add/replace action stays at the 44px floor, nothing overflows horizontally, and the
-    framed drop surface of the replace form carries no explanatory framing sentence."""
-    for lang, option_label in (("en", "Any aircraft"), ("fr", "Tout appareil")):
+def test_a_row_lists_its_types_and_the_sheet_switches_between_them(new_context, server):
+    """At 1280, 390 and 360 px in English and French, a two-type airline is one fixed-height row
+    whose line names the airframe of its own picture first (B737, never "Any aircraft"/"Tout
+    appareil") then A320; opening it shows one 44px tab per type, a tab retargets the picture and
+    the upload address and keeps its add/replace wording, the drop frame carries its hint, and
+    nothing overflows horizontally."""
+    for lang, forbidden in (("en", "Any aircraft"), ("fr", "Tout appareil")):
         for viewport in (VIEWPORT_DESKTOP, VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED):
             where = "%s at %dpx" % (lang, viewport["width"])
             context = new_context(viewport=viewport)
@@ -1657,43 +1589,39 @@ def test_the_type_selector_changes_the_selected_type_from_the_keyboard(new_conte
                 page = context.new_page()
                 _login(page, server.base_url())
                 page.goto(server.base_url() + "/airlines")
-                select = _types_card(page).locator("select[data-airline-type-select]")
-                select.wait_for(state="visible")
-                if _visible_type_ids(page) != ["any"]:
-                    raise AssertionError("expected only the first type visible (%s): %r"
-                                         % (where, _visible_type_ids(page)))
-                label = _types_card(page).locator("label[for='%s']" % select.get_attribute("id"))
-                if not label.count():
-                    raise AssertionError("expected a label for the selector (%s)" % where)
-                if select.bounding_box()["height"] < 44:
-                    raise AssertionError("selector under 44px tall (%s)" % where)
-                options = select.locator("option").all_text_contents()
-                if len(options) != 2 or options[0] != option_label or options[1] != "A320":
-                    raise AssertionError("unexpected options %r (%s)" % (options, where))
-
-                select.focus()
-                page.keyboard.press("ArrowDown")
-                _types_card(page).locator("section[data-airline-type=a320]").wait_for(
-                    state="visible")
-                if _visible_type_ids(page) != ["a320"]:
-                    raise AssertionError("expected only the A320 section visible (%s): %r"
-                                         % (where, _visible_type_ids(page)))
-                action = _types_card(page).locator(
-                    "section[data-airline-type=a320] .airline-card__action")
-                box = action.bounding_box()
-                if box is None or box["height"] < 44:
-                    raise AssertionError("type action missing or under 44px (%s): %r" % (where, box))
-                if action.get_attribute("data-view-panel-replace-action") != (
-                        "/illustration/transavia-france-a320.png"):
-                    raise AssertionError("action targets the wrong artwork (%s)" % where)
+                row = _types_card(page).locator(".airline-row")
+                row.wait_for(state="visible")
+                types_line = _types_card(page).locator(".airline-row__types").text_content()
+                if types_line != "B737 · A320":
+                    raise AssertionError("unexpected types line %r (%s)" % (types_line, where))
+                if forbidden in page.content():
+                    raise AssertionError("%r is back on the page (%s)" % (forbidden, where))
+                if round(row.bounding_box()["height"]) != 76:
+                    raise AssertionError("expected the fixed 76px row (%s): %r" % (
+                        where, row.bounding_box()))
+                _assert_hit_target(page, ".airline-row", "airline row " + where)
                 problem = _assert_no_page_overflow(page, "airlines " + where)
                 if problem:
                     raise AssertionError(problem)
 
-                action.click()
+                row.click()
                 dialog = page.locator("#panel-lookup-dialog")
-                if not dialog.evaluate("el => el.open"):
-                    raise AssertionError("expected the action to open the artwork dialog (%s)" % where)
+                dialog.wait_for(state="visible")
+                # The dialog scales in; measure sizes once it has settled.
+                page.wait_for_function(
+                    "() => getComputedStyle(document.getElementById('panel-lookup-dialog'))"
+                    ".transform === 'none'")
+                tabs = dialog.locator("a.airline-sheet__type")
+                if tabs.all_text_contents() != ["B737", "A320"]:
+                    raise AssertionError("unexpected tabs %r (%s)" % (tabs.all_text_contents(), where))
+                for index in (0, 1):
+                    box = tabs.nth(index).bounding_box()
+                    if box["height"] < 44 or box["width"] < 44:
+                        raise AssertionError("tab %d is %r, under 44px (%s)" % (index, box, where))
+                tabs.nth(1).click()
+                action = dialog.locator("form.lightbox__replace").get_attribute("action")
+                if action != "/illustration/transavia-france-a320.png":
+                    raise AssertionError("the A320 tab targets %r (%s)" % (action, where))
                 if page.locator("#panel-lookup-dialog .upload-drop__preview figcaption").first \
                         .text_content().strip() == "":
                     raise AssertionError("expected the drop frame to carry its hint (%s)" % where)
@@ -1703,19 +1631,22 @@ def test_the_type_selector_changes_the_selected_type_from_the_keyboard(new_conte
                 context.close()
 
 
-def test_every_type_stays_visible_without_scripts(new_context, server):
-    """With scripts blocked an airline's selector is absent and every type section stays
-    visible in source order, each with its own title, so no type is hidden."""
+def test_every_type_stays_listed_and_reachable_without_scripts(new_context, server):
+    """With scripts blocked a multi-type row still lists every type as text, is a real link to
+    its in-page sheet, and a row for a single-type airline names its one aircraft, all inside
+    the narrowest supported viewport without overflow."""
     with _no_js_page(new_context, server.base_url(), "/airlines",
-                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
-        shown = _types_card(page).evaluate(
-            "card => [...card.querySelectorAll('section[data-airline-type]')]"
-            ".map(s => [s.getAttribute('data-airline-type'), s.getClientRects().length > 0,"
-            " s.querySelector('.airline-type__title').getClientRects().length > 0])")
-        if shown != [["any", True, True], ["a320", True, True]]:
-            raise AssertionError("expected both Transavia types visible: %r" % (shown,))
-        if _types_card(page).locator("select").is_visible():
-            raise AssertionError("expected the selector hidden without scripts")
+                     viewport=VIEWPORT_MIN_SUPPORTED, reduced_motion="reduce") as page:
+        card = _types_card(page)
+        if card.locator(".airline-row__types").text_content() != "B737 · A320":
+            raise AssertionError("expected both Transavia types as text")
+        href = card.locator("a.airline-row").get_attribute("href")
+        if href != "/airlines?sheet=transavia-france#airline-sheet":
+            raise AssertionError("expected a link to the in-page sheet, got %r" % (href,))
+        single = page.locator(".airline-list__item").filter(
+            has=page.locator(".airline-row__name", has_text="Air France")).first
+        if single.locator(".airline-row__types").text_content() != "A320":
+            raise AssertionError("expected a single-type airline to name its aircraft")
         problem = _assert_no_page_overflow(page, "airlines without scripts")
         if problem:
             raise AssertionError(problem)
@@ -1732,7 +1663,7 @@ def test_deleting_a_manual_name_states_its_outcome_and_removes_the_entry(
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + "/airlines")
-        page.locator('a.airline-card__zoom[data-view-panel-resolve-prefix="%s"]'
+        page.locator('a.airline-row[data-view-panel-resolve-prefix="%s"]'
                      % ARTWORK_PREFIX).click()
         dialog = page.locator("#panel-lookup-dialog")
         delete_form = dialog.locator("form.lightbox__delete")

@@ -3,8 +3,28 @@
  * no framework, no web/icon fonts, no external references (no url(),
  * no @font-face, no remote asset).
  *
- * Accent is reserved to selection/primary-action/wayfinding affordances
- * only. Border is structural only (dividers, table lines, card edges)
+ * Accent is reserved to selection, primary-action and wayfinding
+ * affordances, plus one brand element. The list below is exhaustive; an
+ * accent consumer not named here does not belong in this file:
+ *   - links (a, .text-link, summary and its disclosure marker,
+ *     .special-add__summary, button.look-sheet__reset)
+ *   - the focus ring (every :focus-visible outline, the focused search
+ *     input and filter-chip box, the sparkline hit target, the look
+ *     frame/open button) and the native accent-color of input/select
+ *   - primary actions (button[type="submit"], a.calendar-manage--primary,
+ *     button.look-sheet__done, the skip link)
+ *   - current location / selection (.sidebar-link--active,
+ *     .mobile-nav__link--active, .tab-bar__link--active and its pill,
+ *     .site-nav-toggle[aria-expanded="true"], the active theme option,
+ *     the shown aircraft type of an airline sheet
+ *     (a.airline-sheet__type[aria-current]),
+ *     the checked runway/look cards and look dot, the editing look frame)
+ *   - switch-on state (.switch[aria-checked="true"])
+ *   - stat tiles (the top rule and icon of .stat-tile)
+ *   - the Home "See Health" pill (.home-state__health-link) and the
+ *     special-look add button's dashed plus
+ *   - the logo mark's flick (.logo-accent)
+ * Border is structural only (dividers, table lines, card edges)
  * and never substitutes for accent or status colour.
  *
  * Theming: :root plus a prefers-color-scheme block hold both palettes;
@@ -66,14 +86,34 @@
   --shadow-control: inset 0 1px 0 rgba(255, 255, 255, .14), 0 1px 2px rgba(18, 21, 27, .14);
   --shadow-control-hover: inset 0 1px 0 rgba(255, 255, 255, .16), 0 2px 5px rgba(18, 21, 27, .18);
   --color-shadow-strong: rgba(18, 21, 27, 0.16);
+  /* The toast's two elevations: barely lifted when docked in flow, and a
+   * deep drop shadow when it floats over the page. */
+  --shadow-toast-docked: 0 1px 2px rgba(10, 12, 18, 0.12);
+  --shadow-toast-float: 0 22px 44px -16px rgba(10, 12, 18, 0.5), 0 4px 10px -2px rgba(10, 12, 18, 0.22);
 
-  /* The app's entire motion budget: two durations only, enforced by
-   * companion/test_companion_app.py (no bare literals, no third token).
+  /* The app's entire motion budget: two durations, plus TWO documented
+   * exceptions, enforced by companion/test_companion_app_04.py (no bare
+   * literals, no other token).
    * --motion-fast (180ms) is for a REACTION the user is watching
    * confirm; --motion-slow (2s) is for an AMBIENT loop nobody watches
-   * (e.g. a breathing status dot) — reaction speed would strobe. */
+   * (e.g. a breathing status dot) — reaction speed would strobe.
+   * Exception: --motion-toast-dwell (6s, success/info) and
+   * --motion-toast-dwell-long (12s, pending) are not movement speeds but
+   * how long a toast stays before it hides itself. Only the toast's
+   * timer hairline animates on them, and toast.js reads the same tokens
+   * for its timer, so the two always agree. Never reuse them for
+   * anything else.
+   * Exception: --motion-dot-pulse (3.2s) is the period of the soft halo
+   * that expands and fades around Home's status dot. It is slower than
+   * --motion-slow on purpose: the dot is read from across a room, where a
+   * 2s loop would look anxious. Only the dot halo rule
+   * (.home-state__dot--pulse::after) may spend it; reduced motion turns
+   * that animation off outright. Never reuse it for anything else. */
   --motion-fast: 180ms;
   --motion-slow: 2s;
+  --motion-toast-dwell: 6s;
+  --motion-toast-dwell-long: 12s;
+  --motion-dot-pulse: 3.2s;
 
   /* Light mode (default) */
   --color-canvas: #F7F4EF;
@@ -99,6 +139,25 @@
    * its worst-case contrast on light surfaces is 5.16:1 (up from 3.96),
    * safe as text. Enforced by test_contrast_check.py's separation section. */
   --color-status-error: #BE123C;
+  /* The switch thumb: white on light surfaces, a light grey on dark ones
+   * so an unchecked thumb stays visible on its dark track. */
+  --color-switch-thumb: #FFFFFF;
+  /* The Display page's framed pictures: a wooden-dark bezel and the
+   * lifted shadow of a popover over the page. */
+  --color-frame-bezel: #2A2622;
+  --color-frame-bezel-hi: #4A433C;
+  --shadow-pop: 0 18px 48px rgba(18, 21, 27, 0.18), 0 4px 12px rgba(18, 21, 27, 0.08);
+
+  /* The toast's inverse surface (dark slab on light pages, light slab on
+   * dark pages) and its five tone inks, each chosen for contrast on that
+   * surface rather than on the page. */
+  --color-toast-bg: #1D2028;
+  --color-toast-fg: #F4F1EC;
+  --color-toast-success: #4ADE80;
+  --color-toast-info: #C3C9D4;
+  --color-toast-warning: #FBBF24;
+  --color-toast-error: #FB7185;
+  --color-toast-pending: #FF9A70;
 
   /* Without color-scheme, the browser paints native form-control chrome
    * (e.g. <input type="time">) using its own light/dark heuristic
@@ -124,6 +183,17 @@
      * dark. Was too close to the dark accent (dE76 22.3/16.9°, worse
      * than the accent-vs-warn gap); now dE76 32.2/25.6°. */
     --color-status-error: #FB7185;
+    --color-switch-thumb: #E6E9EE;
+    --color-frame-bezel: #050608;
+    --color-frame-bezel-hi: #2B2F36;
+    --shadow-pop: 0 18px 48px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.35);
+    --color-toast-bg: #E9ECF1;
+    --color-toast-fg: #151922;
+    --color-toast-success: #166534;
+    --color-toast-info: #4A505D;
+    --color-toast-warning: #92400E;
+    --color-toast-error: #BE123C;
+    --color-toast-pending: #B13F16;
   }
 }
 
@@ -142,6 +212,17 @@ html[data-ui-theme="light"] {
   --color-status-ok: #16A34A;
   --color-status-warn: #D97706;
   --color-status-error: #BE123C;
+  --color-switch-thumb: #FFFFFF;
+  --color-frame-bezel: #2A2622;
+  --color-frame-bezel-hi: #4A433C;
+  --shadow-pop: 0 18px 48px rgba(18, 21, 27, 0.18), 0 4px 12px rgba(18, 21, 27, 0.08);
+  --color-toast-bg: #1D2028;
+  --color-toast-fg: #F4F1EC;
+  --color-toast-success: #4ADE80;
+  --color-toast-info: #C3C9D4;
+  --color-toast-warning: #FBBF24;
+  --color-toast-error: #FB7185;
+  --color-toast-pending: #FF9A70;
   color-scheme: light;
 }
 
@@ -159,6 +240,17 @@ html[data-ui-theme="dark"] {
   --color-status-ok: #4ADE80;
   --color-status-warn: #FBBF24;
   --color-status-error: #FB7185;
+  --color-switch-thumb: #E6E9EE;
+  --color-frame-bezel: #050608;
+  --color-frame-bezel-hi: #2B2F36;
+  --shadow-pop: 0 18px 48px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.35);
+  --color-toast-bg: #E9ECF1;
+  --color-toast-fg: #151922;
+  --color-toast-success: #166534;
+  --color-toast-info: #4A505D;
+  --color-toast-warning: #92400E;
+  --color-toast-error: #BE123C;
+  --color-toast-pending: #B13F16;
   color-scheme: dark;
 }
 
@@ -240,6 +332,20 @@ html[data-ui-theme="dark"] {
   }
 }
 
+/* The status dot's halo: from the dot's own size and a soft fill out to a
+ * larger ring that has faded away; the last third rests so the loop
+ * breathes rather than strobes. */
+@keyframes skypane-dot-halo {
+  0% {
+    transform: scale(1);
+    opacity: var(--dot-halo-alpha);
+  }
+  70%, 100% {
+    transform: scale(var(--dot-halo-scale));
+    opacity: 0;
+  }
+}
+
 /* A one-shot 0->1 fade, distinct from the ambient pulse above (which
  * never reaches 0 and loops forever) — reusing it would start a
  * refreshed picture at a third of its weight instead of from nothing. */
@@ -280,6 +386,32 @@ html[data-ui-theme="dark"] {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* A floating toast's entrance: a short drop and fade, on --motion-fast.
+ * Under reduced motion the global override zeroes it, so the toast just
+ * appears. */
+@keyframes skypane-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The auto-hide hairline draining over --motion-toast-dwell (or the long one). Under
+ * reduced motion the global override drains it at once, so no countdown
+ * moves; the toast still hides on toast.js's timer. */
+@keyframes skypane-toast-dwell {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
   }
 }
 
@@ -427,6 +559,40 @@ h3 {
   margin-bottom: var(--space-lg);
 }
 
+/* The brand lockup: the logo mark beside the live site-title text. The
+ * 28px mark sits inside the title's 28.8px line box, so the lockup is
+ * exactly as tall as the bare title used to be and nothing shifts. The
+ * mark is decorative (aria-hidden); the text is the accessible name. */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.icon.logo-mark,
+.logo-mark {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  color: var(--color-text);
+}
+
+/* The one accent element of the mark: the flick leaving the pane. Bound
+ * here, not in the symbol, so the sprite and the login page's inline
+ * copy follow the theme from the same rule. */
+.logo-accent {
+  stroke: var(--color-accent);
+}
+
+/* The login card's mark, centred above the heading. */
+.login-card .logo-mark {
+  display: block;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto var(--space-md);
+}
+
 .site-title {
   font-size: 24px;
   font-weight: var(--weight-semibold);
@@ -466,7 +632,7 @@ a:hover {
   gap: var(--space-lg);
   padding: var(--space-lg);
   background: var(--color-secondary);
-  margin-bottom: var(--space-xl);
+  margin-bottom: var(--space-md);
 }
 
 /* Not type="submit", so the accent-fill rule never reaches it — if a
@@ -528,6 +694,12 @@ a:hover {
 @media (prefers-reduced-motion: reduce) {
   .js .mobile-nav {
     transition: none;
+  }
+
+  /* The global override would leave a 0.01ms loop running; the halo is
+   * switched off instead, so reduced motion shows no animation at all. */
+  .home-state__dot.home-state__dot--pulse::after {
+    animation: none;
   }
 }
 
@@ -733,8 +905,6 @@ a:hover {
   width: 100%;
 }
 
-
-
 .mobile-nav__link {
   display: flex;
   align-items: center;
@@ -770,7 +940,6 @@ a:hover {
   padding: var(--space-sm);
   border-top: 1px solid var(--color-border);
 }
-
 
 .nav-notification {
   width: 8px;
@@ -842,8 +1011,12 @@ select.visually-hidden {
    * the left instead of filling the bordered container as one control. */
   flex: 1 1 0;
   min-width: 0;
-  padding: 0 8px;
+  padding: 0 4px;
   white-space: nowrap;
+  /* A label wider than its equal-width segment is clipped with an
+   * ellipsis inside its own box; it can never paint over a neighbour. */
+  overflow: hidden;
+  text-overflow: ellipsis;
   background: transparent;
   border: none;
   box-shadow: none;
@@ -977,6 +1150,17 @@ select.visually-hidden {
   padding: var(--space-xl) var(--space-lg) var(--space-2xl);
 }
 
+/* Phones: the title sits close under the app bar. The gap from the bar to
+ * the title is the bar's bottom margin (--space-md, set on .site-header)
+ * plus this top padding (--space-md): 32px in total instead of the 64px
+ * the desktop-sized values gave. The breakpoint is the one that shows the
+ * app bar and the tab bar. */
+@media (max-width: 959.98px) {
+  .page-content {
+    padding-top: var(--space-md);
+  }
+}
+
 /* Status dot: a 12px circle plus a Label-size text description */
 .dot {
   display: inline-block;
@@ -1034,62 +1218,364 @@ select.visually-hidden {
   vertical-align: middle;
 }
 
-/* A near-neutral card surface, a hairline border and a 3px coloured
- * left edge plus a small ::before dot carry the severity signal — never
- * a tinted background region. Body-text contrast on this surface is
- * pinned by an automated check (test_contrast_check.py's live_pairs). */
-.banner {
+/* Toasts: every alert in the app, one component on the inverse surface
+ * (--color-toast-bg/-fg, which flip with the theme). A tone sets one
+ * ink, --toast-tone, used by the glyph disc, the action and the timer
+ * hairline; the tone is never carried by that colour alone (each tone
+ * has its own glyph and a spoken prefix). Flash toasts float only under
+ * `@media (scripting: enabled)` below; everything else here is the
+ * in-flow form, which is also what a no-script visitor sees. Text and
+ * action contrast on this surface are pinned by test_contrast_check.py. */
+.toast {
+  --toast-tone: var(--color-toast-info);
+  position: relative;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: var(--space-sm) var(--space-md);
+  gap: 12px;
+  min-height: 48px;
+  margin: 0;
+  padding: 2px 2px 2px 10px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--color-toast-bg);
+  color: var(--color-toast-fg);
+  box-shadow: var(--shadow-toast-docked);
+  font-size: var(--font-label-size);
+  line-height: 1.4;
+}
+
+.toast--success {
+  --toast-tone: var(--color-toast-success);
+}
+
+.toast--warning {
+  --toast-tone: var(--color-toast-warning);
+}
+
+.toast--error {
+  --toast-tone: var(--color-toast-error);
+}
+
+.toast--pending {
+  --toast-tone: var(--color-toast-pending);
+}
+
+/* A docked toast is a persistent state: in flow, full width, no timer
+ * and no dismiss. Its right padding replaces the missing 44px control. */
+.toast--docked {
   margin-bottom: var(--space-lg);
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
-  border-left: 3px solid var(--color-accent);
-  font-size: var(--font-body-size);
+  padding-right: var(--space-md);
 }
 
-.banner::before {
-  content: "";
+.toast__icon {
+  display: grid;
+  place-items: center;
   flex: none;
-  width: 6px;
-  height: 6px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: var(--color-accent);
+  background: var(--toast-tone);
+  color: var(--color-toast-bg);
 }
 
-.banner--anomaly {
-  border-left-color: var(--color-status-error);
+.toast__icon .toast__glyph {
+  width: 18px;
+  height: 18px;
 }
 
-.banner--anomaly::before {
-  background: var(--color-status-error);
+.toast__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 6px 0;
+  overflow-wrap: anywhere;
 }
 
-.banner--warn {
-  border-left-color: var(--color-status-warn);
+/* The section form (Health's source outage) keeps its <h2> for the page
+ * outline but reads as the toast's title. */
+.toast__title {
+  margin: 0;
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: var(--weight-semibold);
+  line-height: inherit;
+  letter-spacing: normal;
 }
 
-.banner--warn::before {
-  background: var(--color-status-warn);
+.toast__detail {
+  margin: 0;
+  color: color-mix(in srgb, var(--color-toast-fg) 76%, transparent);
 }
 
-/* Kept rather than deleted as redundant, so all three severities are
- * visibly enumerated in one place. */
-.banner--flash {
-  border-left-color: var(--color-accent);
+/* The visible middle dot between title and detail; silent for assistive
+ * technology, which reads the visually-hidden dash instead. */
+.toast__title + .visually-hidden + .toast__detail::before {
+  content: "\00a0\00b7\00a0" / "";
+  color: color-mix(in srgb, var(--color-toast-fg) 45%, transparent);
 }
 
-.banner--flash::before {
-  background: var(--color-accent);
+.toast--section .toast__text {
+  display: flex;
+  flex-direction: column;
 }
 
-/* Deliberately neutral-tinted, not severity-tinted: the banner's own
- * left edge and dot already carry the severity signal. Diverges from
- * .airline-card__chip by one declaration (min-width: 0): this pill
- * lives in a wrapping flex row that must survive a 375px viewport. */
+.toast__action-form {
+  display: flex;
+  flex: none;
+  margin: 0;
+}
+
+/* (0,2,0) beats the base button and button[type="submit"] rules, so an
+ * Undo button and a link action look the same: tone-coloured text
+ * behind a hairline divider, with a 44px target. */
+.toast .toast__action {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: auto;
+  min-height: 44px;
+  padding: 0 12px 0 16px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--toast-tone);
+  font: inherit;
+  font-weight: var(--weight-semibold);
+  letter-spacing: normal;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.toast .toast__action::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 1px;
+  background: color-mix(in srgb, var(--color-toast-fg) 20%, transparent);
+}
+
+.toast .toast__action:hover {
+  background: color-mix(in srgb, var(--color-toast-fg) 8%, transparent);
+  color: var(--toast-tone);
+}
+
+.toast .toast__action-glyph {
+  width: 16px;
+  height: 16px;
+}
+
+.toast .toast__dismiss {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  box-shadow: none;
+  color: color-mix(in srgb, var(--color-toast-fg) 72%, transparent);
+}
+
+.toast .toast__dismiss:hover {
+  background: color-mix(in srgb, var(--color-toast-fg) 10%, transparent);
+  color: var(--color-toast-fg);
+}
+
+.toast .toast__action:focus-visible,
+.toast .toast__dismiss:focus-visible,
+.toast a:focus-visible {
+  outline: 2px solid var(--toast-tone);
+  outline-offset: -2px;
+}
+
+/* The auto-hide hairline, drawn only once toast.js has armed the timer
+ * (data-toast-armed), so a no-script toast never shows a countdown that
+ * cannot happen. Paused together with the timer. */
+.toast__timer {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--toast-tone);
+  transform-origin: left center;
+}
+
+.toast[data-toast-armed] .toast__timer {
+  display: block;
+  animation: skypane-toast-dwell var(--motion-toast-dwell) linear forwards;
+}
+
+.toast[data-toast-armed][data-toast-autohide="long"] .toast__timer {
+  animation: skypane-toast-dwell var(--motion-toast-dwell-long) linear forwards;
+}
+
+.toast.is-paused .toast__timer {
+  animation-play-state: paused;
+}
+
+.toast__pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: var(--space-sm);
+  vertical-align: middle;
+}
+
+.toast__pill {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--color-toast-fg) 12%, transparent);
+  color: color-mix(in srgb, var(--color-toast-fg) 88%, transparent);
+}
+
+/* The flash region: in flow under the page title by default. */
+.toast-region--flash {
+  margin: 0 0 var(--space-lg);
+}
+
+/* Phone width: the action drops under the text and the dismiss control
+ * stays top right, so a long message never squeezes the title. */
+@media (max-width: 699.98px) {
+  .toast {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) 44px;
+    column-gap: 12px;
+    padding: var(--space-sm) 2px var(--space-sm) 12px;
+  }
+
+  /* Each cell pins itself to the top (align-self, not the toast's own
+   * align-items), so a multi-line message never re-centres the glyph. */
+  .toast__icon {
+    align-self: start;
+    margin-top: var(--space-xs);
+  }
+
+  .toast__text {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+    padding: var(--space-xs) 0 2px;
+  }
+
+  .toast--docked .toast__text {
+    grid-column: 2 / 4;
+  }
+
+  .toast .toast__dismiss {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: start;
+  }
+
+  .toast__title,
+  .toast__detail {
+    display: block;
+  }
+
+  .toast__pills {
+    display: flex;
+    margin: var(--space-xs) 0 0;
+  }
+
+  .toast__title + .visually-hidden + .toast__detail::before {
+    content: none;
+  }
+
+  .toast > .toast__action,
+  .toast > .toast__action-form {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+  }
+
+  .toast .toast__action {
+    min-height: 40px;
+    margin: -6px 0 0 -10px;
+    padding: 0 10px;
+  }
+
+  .toast .toast__action::before {
+    content: none;
+  }
+}
+
+/* With scripts running (a media query, not the .js class, so the toast
+ * floats from the very first paint and never shifts the page): the flash
+ * toast and the quick-switch failure toast float, out of flow, top
+ * centre over the content column; on a phone, above the tab bar within
+ * thumb reach. The region itself lets clicks through; only the toast
+ * takes them. */
+@media (scripting: enabled) {
+  .toast-region--flash,
+  .toast-region--live {
+    position: fixed;
+    top: var(--space-sm);
+    left: 0;
+    right: 0;
+    z-index: 40;
+    display: flex;
+    justify-content: center;
+    margin: 0;
+    padding: 0 var(--space-md);
+    pointer-events: none;
+  }
+
+  .toast-region--flash .toast,
+  .toast-region--live .toast {
+    width: max-content;
+    max-width: min(680px, 100%);
+    border-radius: 16px;
+    box-shadow: var(--shadow-toast-float);
+    pointer-events: auto;
+    animation: skypane-toast-in var(--motion-fast) ease-out;
+  }
+}
+
+@media (scripting: enabled) and (min-width: 960px) {
+  .toast-region--flash,
+  .toast-region--live {
+    left: calc(240px + var(--space-xl));
+  }
+}
+
+@media (scripting: enabled) and (max-width: 959.98px) {
+  .toast-region--flash,
+  .toast-region--live {
+    top: auto;
+    bottom: var(--space-sm);
+  }
+
+  .has-tab-bar .toast-region--flash,
+  .has-tab-bar .toast-region--live {
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px) + var(--space-sm));
+  }
+
+  .toast-region--flash .toast,
+  .toast-region--live .toast {
+    width: 100%;
+  }
+}
+
+/* Neutral-tinted, not severity-tinted: a row/badge pill outside the
+ * toast family. Diverges from .airline-card__chip by one declaration
+ * (min-width: 0): this pill lives in a wrapping flex row that must
+ * survive a 375px viewport. */
 .banner__pill {
   display: inline-flex;
   align-items: center;
@@ -1114,10 +1600,6 @@ select.visually-hidden {
  * space at all when hidden, in-flow. */
 .banner__pill[hidden] {
   display: none;
-}
-
-.banner__label {
-  white-space: nowrap;
 }
 
 .refresh-pill {
@@ -1486,209 +1968,12 @@ button:disabled {
   display: inline-flex;
 }
 
-.theme-chip-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-}
-
-.theme-chip {
-  display: block;
-  position: relative;
-  width: 160px;
-  /* margin-bottom: 0 and the font-size below are load-bearing overrides
-   * of the global label rule (8px bottom margin, Label-size text). */
-  margin-bottom: 0;
-  font-size: var(--font-body-size);
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  box-shadow: none;
-  /* Clips the preview <img> to the chip's own rounded corners. */
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform var(--motion-fast) ease,
-    border-color var(--motion-fast) ease,
-    box-shadow var(--motion-fast) ease;
-}
-
-/* box-shadow: inherit redraws the chip's own current box-shadow above
- * the full-bleed preview image instead of beneath it (a box-shadow
- * paints under an element's children by default) — one rule that
- * tracks every selected/hover state automatically instead of
- * duplicating each one. */
-.theme-chip::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  box-shadow: inherit;
-}
-
-/* :not(.theme-chip--selected): hovering a selected chip must never be
- * able to clear its accent border, independent of source order. */
-.theme-chip:not(.theme-chip--selected):hover,
-.theme-chip:not(.theme-chip--selected):focus-within {
-  border-color: transparent;
-  box-shadow: var(--shadow-card-hover);
-}
-
-/* .theme-chip is a fixed width: 160px, so a thicker border ate 1px on
- * each side instead of growing the outer box — narrowing the preview
- * band and reflowing the swatch row. Same fix as .runway-card above:
- * an inset ring instead, drawn inside the chip's own clip so it follows
- * the rounded corners. */
-.theme-chip--selected {
-  border-color: var(--color-accent);
-  box-shadow: inset 0 0 0 2px var(--color-accent);
-  transform: scale(1.02);
-}
-
-/* Scoped to .theme-chip__body, not the whole chip: unlike .runway-card
- * this component has a real rendered preview band above the body, and a
- * wash across it would visibly tint the theme's own undithered colours. */
-.theme-chip--selected .theme-chip__body {
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-}
-
-/* 56px is this component's validated band height. object-fit: cover
- * absorbs the small ratio difference between the served PNG and the
- * chip's own box so the band never letterboxes. */
-.theme-chip__preview {
-  display: block;
-  width: 100%;
-  height: 56px;
-  object-fit: cover;
-  background-image: linear-gradient(
-    110deg,
-    color-mix(in srgb, var(--color-text) 4%, transparent) 0 40%,
-    color-mix(in srgb, var(--color-text) 9%, transparent) 50%,
-    color-mix(in srgb, var(--color-text) 4%, transparent) 60% 100%
-  );
-}
-
-.theme-chip__body {
-  display: block;
-  padding: var(--space-sm);
-  transition: background-color var(--motion-fast) ease;
-}
-
-.theme-chip__name {
-  display: block;
-  /* 13px is the documented sub-scale exception tier, not a new content
-   * size. */
-  font-size: 13px;
-  font-weight: var(--weight-semibold);
-  line-height: 1.2;
-  margin-bottom: var(--space-xs);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.theme-chip__swatches {
-  display: flex;
-  gap: var(--space-xs);
-  align-items: center;
-  /* width: fit-content shrinks this row to its actual rendered content:
-   * a block-level flex row otherwise fills .theme-chip__body's full
-   * width, geometrically intersecting the bottom-right "Current" tag's
-   * box even though no visible pixel ever collides (measured). */
-  width: fit-content;
-}
-
-/* The fill is an inline style holding a raw palette colour — the one
- * colour in this file the stylesheet cannot reason about. The
- * structural hairline keeps a white swatch visible on a white card. */
-.theme-chip__dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
-  border: 1px solid var(--color-border);
-  display: inline-block;
-}
-
-/* Shown only on the selected chip, matching .runway-card__check's own
- * mechanism above. */
-.theme-chip__check {
-  position: absolute;
-  top: var(--space-sm);
-  right: var(--space-sm);
-  color: var(--color-accent);
-  display: none;
-}
-
-.theme-chip--selected .theme-chip__check {
-  display: inline-flex;
-}
-
-
 /* Re-keys selection from --selected (server-computed, never updates on
  * a client click) to live :has(input:checked) state, which is (0,2,1)
  * and beats the (0,1,0) fallback. A positive restore rule further down
  * re-wins the existing (0,3,0) hover guard at (0,3,1). A browser
  * without :has() skips this whole block and keeps --selected only. */
 @supports selector(:has(*)) {
-  .theme-chip:has(input:checked) {
-    border-color: var(--color-accent);
-    box-shadow: inset 0 0 0 2px var(--color-accent);
-    transform: scale(1.02);
-  }
-
-  .theme-chip:has(input:checked) .theme-chip__body {
-    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  }
-
-  .theme-chip:has(input:checked) .theme-chip__check {
-    display: inline-flex;
-  }
-
-    /* Positive restore, not box-shadow: none: once selection IS a
-     * box-shadow, none would erase the ring instead of merely suppressing
-     * the hover elevation shadow the (0,3,0) guard above would paint. */
-  .theme-chip:has(input:checked):hover,
-  .theme-chip:has(input:checked):focus-within {
-    border-color: var(--color-accent);
-    box-shadow: inset 0 0 0 2px var(--color-accent);
-  }
-
-  /* box-shadow: none is explicit and load-bearing here too: it must
-   * clear the accent ring the --selected fallback rule paints, which a
-   * border shorthand cannot reach. 1px, not 2px: a chip can be
-   * saved-but-not-live while its neighbour is live-selected, so both
-   * states must stay geometrically free or the grid still shifts. */
-  .theme-chip--selected:not(:has(input:checked)) {
-    border: 1px dashed color-mix(in srgb, var(--color-text) 70%, transparent);
-    box-shadow: none;
-    transform: none;
-  }
-
-  .theme-chip--selected:not(:has(input:checked)) .theme-chip__body {
-    background: transparent;
-  }
-
-  .theme-chip--selected:not(:has(input:checked)) .theme-chip__check {
-    display: none;
-  }
-
-  /* content, not a real <span>: the native radio's own checked state is
-   * already announced; this is a supplementary visual cue only.
-   * attr(data-current-label) reads a translated string the server
-   * renders. A guard in test_status_pages.py pins the file at zero
-   * stray comment terminators — one previously dropped this entire rule
-   * silently, found only by real-browser testing, not string checks. */
-  .theme-chip--selected:not(:has(input:checked))::after {
-    content: attr(data-current-label);
-    position: absolute;
-    bottom: var(--space-sm);
-    right: var(--space-sm);
-    font-size: 12px;
-    font-weight: var(--weight-semibold);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  }
 
   .runway-card:has(input:checked) {
     border-color: var(--color-accent);
@@ -1737,29 +2022,9 @@ button:disabled {
    * selected card was invisible without this. :focus-visible on the
    * radio, not :focus-within on the card, since a mouse click on the
    * label also focuses the radio and a ring on every click would be noise. */
-  .runway-card:has(input:focus-visible),
-  .theme-chip:has(input:focus-visible) {
+  .runway-card:has(input:focus-visible) {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
-  }
-
-  .palette-chip:has(input:checked) {
-    border-color: var(--color-accent);
-    box-shadow: inset 0 0 0 2px var(--color-accent);
-  }
-
-  .palette-chip:has(input:checked) .palette-chip__name {
-    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  }
-
-  .palette-chip:has(input:checked) .palette-chip__check {
-    display: inline-flex;
-  }
-
-  .leading-option:has(input:checked) {
-    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-    color: var(--color-accent);
-    font-weight: var(--weight-semibold);
   }
 
   /* :has() proves the bar exists in the DOM with no script needed, so a
@@ -1779,8 +2044,58 @@ button:disabled {
     padding-bottom: calc(
       var(--space-2xl) + 176px + env(safe-area-inset-bottom, 0px));
   }
-}
 
+  /* The Display look card's live selection states. */
+  .look-cell:has(input:checked),
+  .look-option:has(input:checked) {
+    border-color: var(--color-accent);
+    box-shadow: inset 0 0 0 2px var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  }
+
+  /* The saved look, once another one is picked: a quiet dashed ring,
+   * accent-free, so the page shows both what is saved and what is new. */
+  .look-cell--saved:not(:has(input:checked)),
+  .look-option--saved:not(:has(input:checked)) {
+    border: 1px dashed color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+
+  .look-cell:has(input:focus-visible),
+  .look-option:has(input:focus-visible),
+  .look-dot:has(input:focus-visible),
+  .look-seg__option:has(input:focus-visible) {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  .look-dot:has(input:checked) {
+    box-shadow: 0 0 0 2px var(--color-dominant), 0 0 0 4px var(--color-accent);
+  }
+
+  .look-dot:has(input:checked)::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 10px;
+    height: 10px;
+    margin: auto;
+    border-radius: 50%;
+    background: var(--color-image-backdrop);
+    box-shadow: 0 0 0 1px var(--color-border);
+  }
+
+  .look-seg__option:has(input:checked) {
+    background: var(--color-dominant);
+    color: var(--color-text);
+    box-shadow: 0 0 0 1px var(--color-border), var(--shadow-card);
+  }
+
+  .look-seg__option:has(input:disabled) {
+    opacity: 0.45;
+    text-decoration: line-through;
+    cursor: not-allowed;
+  }
+}
 
 /* summary's own idiom reused verbatim: a centred flex row with a 44px
  * min-height. This relocates the touch-target floor to the label (a
@@ -1889,7 +2204,6 @@ table.data-table--readings {
   border-bottom: 1px solid var(--color-border);
 }
 
-
 .data-table td {
   padding: 13px var(--space-md);
   border-bottom: 1px solid var(--color-border);
@@ -1926,19 +2240,8 @@ table.data-table--registry .cell-inline-sep {
   display: none;
 }
 
-/* The installed-software summary: the icon sits beside the running
- * version line so the one headline reads as "what the frame runs". */
-.update-summary__headline {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
-  overflow-wrap: anywhere;
-}
-
-/* The small icon before each release version labels it as a firmware
- * release rather than a bare number in a table. */
-table.data-table--firmware-history .cell-primary,
+/* A version identifier beside its icon keeps the icon inline with it and
+ * wraps as a unit, never mid-token. */
 .data-cards .cell-primary {
   display: inline-flex;
   align-items: center;
@@ -1946,36 +2249,300 @@ table.data-table--firmware-history .cell-primary,
   flex-wrap: wrap;
 }
 
-/* Install is a safety-relevant action, so it keeps the full touch target
- * on every layout instead of the compact in-table button height. */
-table.data-table--firmware-history form button[type="submit"],
-.data-cards .data-card__action form button[type="submit"] {
-  min-height: 44px;
-  min-width: 44px;
+/* The Update page. Two cards: a call-to-action card (up to date, or the
+ * one newer release to install, or the schedule in flight) and a
+ * "Versions" card of compact one-line rows, each a native <details>
+ * holding every note, the absolute dates and the action, so the page
+ * works with scripts blocked. Status colour only marks state (ok, warn,
+ * error); the accent fill is the global primary button and is spent only
+ * on installing a newer release. */
+.update-cta__top {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
 }
 
-/* The Action column (Install/"Not installable"/quiet label) is the one
- * thing on this row a desktop reader must always be able to reach
- * without scrolling — never let the prose Notes column push it onto a
- * second line or crop it. */
-table.data-table--firmware-history td:last-child {
+.update-cta__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+}
+
+.update-cta--ok .update-cta__icon {
+  color: var(--color-status-ok);
+  background: color-mix(in srgb, var(--color-status-ok) 14%, transparent);
+}
+
+.update-cta--warn .update-cta__icon {
+  color: var(--color-status-warn);
+  background: color-mix(in srgb, var(--color-status-warn) 14%, transparent);
+}
+
+.update-cta--error .update-cta__icon {
+  color: var(--color-status-error);
+  background: color-mix(in srgb, var(--color-status-error) 14%, transparent);
+}
+
+.update-cta__icon .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.update-cta__text {
+  min-width: 0;
+  flex: 1;
+}
+
+/* The card's headline is the nested-card-title voice (16px sans
+ * semibold), the same rung .page-section--nested > h2 uses. */
+.update-cta__title {
+  margin: 0 0 var(--space-xs);
+  font-family: var(--font-ui);
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+  letter-spacing: normal;
+  line-height: 1.3;
+}
+
+.update-cta__detail {
+  margin: 0;
+  font-size: var(--font-label-size);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* A relative age never breaks mid-phrase ("il y a / 1 h"). */
+.update-cta time,
+.update-row__meta time {
   white-space: nowrap;
 }
 
-/* The excerpt and its toggle share one Notes cell (and one phone card),
- * so the toggle needs only a small gap from the excerpt above it. The
- * summary itself keeps the global 44px hit height. */
-.update-history__notes {
-  margin-top: var(--space-xs);
+.update-cta__detail + .update-cta__detail {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.update-cta__note {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.update-cta__on {
+  margin: var(--space-md) 0 0;
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-label-size);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.update-cta .mono {
+  white-space: nowrap;
+}
+
+/* Install is a safety-relevant action: it keeps the full touch target
+ * at every width. Specificity (0,2,1) beats both the global button and
+ * the quiet secondary button's own padding and font size. */
+.update-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.update-actions form {
+  margin: 0;
+}
+
+.update-actions button[type="submit"] {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  font-size: var(--font-label-size);
+  white-space: nowrap;
+}
+
+.update-cta .update-actions {
+  margin-top: var(--space-md);
+}
+
+.update-cta .update-actions form,
+.update-cta .update-actions button[type="submit"] {
+  width: 100%;
+}
+
+.update-versions__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.update-versions__head h2 {
+  margin: 0;
+}
+
+.update-versions__count {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.update-rows {
+  list-style: none;
+  margin: var(--space-sm) 0 0;
+  padding: 0;
+}
+
+.update-rows > li + li {
+  border-top: 1px solid var(--color-border);
+}
+
+/* The one-line row. Phone: version and age on the first line, the first
+ * note on its own ellipsised line below, the chevron spanning both.
+ * Replaces the global summary's flex layout and leading chevron: the row
+ * owns a trailing chevron instead. */
+.update-row > summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 20px;
+  grid-template-areas: "v d c" "s s c";
+  column-gap: var(--space-sm);
+  row-gap: 2px;
+  align-items: center;
+  min-height: 60px;
+  padding: var(--space-sm) 0;
+  color: var(--color-text);
+  list-style: none;
+}
+
+.update-row > summary::before {
+  content: none;
+}
+
+.update-row > summary::-webkit-details-marker {
+  display: none;
+}
+
+.update-row__version {
+  grid-area: v;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+  min-width: 0;
+}
+
+.update-row__version .mono {
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.update-row__when {
+  grid-area: d;
+  font-size: var(--font-label-size);
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.update-row__note {
+  grid-area: s;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.update-row__note:empty,
+.update-row[open] .update-row__note {
+  display: none;
+}
+
+.update-row__chevron {
+  grid-area: c;
+  justify-self: end;
+  transform: rotate(90deg);
+  transition: transform var(--motion-fast) ease;
+}
+
+.update-row[open] > summary .update-row__chevron {
+  transform: rotate(-90deg);
+}
+
+.update-row__body {
+  display: grid;
+  gap: var(--space-sm);
+  padding: 0 0 var(--space-md);
 }
 
 /* Notes are untrusted CI text: overflow-wrap: anywhere lets one long
- * unbroken token wrap instead of widening the card past a 375px
- * viewport; the padding gives the bullets room inside the card. */
-.update-history__notes-list {
+ * unbroken token wrap instead of widening the card past the viewport. */
+.update-row__notes {
   margin: 0;
-  padding: 0 0 var(--space-sm) var(--space-lg);
+  padding: 0 0 0 var(--space-md);
+  font-size: var(--font-label-size);
+  line-height: 1.5;
   overflow-wrap: anywhere;
+}
+
+.update-row__notes li {
+  margin: 0 0 var(--space-xs);
+}
+
+.update-row__meta {
+  margin: 0;
+  font-size: var(--font-label-size);
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The running release: a status-ok wash and rail bleeding to the card's
+ * own edges (the card pads 16px, 24px from 960px). */
+.update-row--running {
+  margin-inline: calc(-1 * var(--space-md));
+  padding-inline: var(--space-md);
+  background: color-mix(in srgb, var(--color-status-ok) 7%, transparent);
+  box-shadow: inset 3px 0 0 var(--color-status-ok);
+}
+
+@media (min-width: 960px) {
+  .update-cta .update-actions form {
+    width: auto;
+  }
+
+  .update-cta .update-actions button[type="submit"] {
+    width: auto;
+    min-width: 200px;
+  }
+
+  .update-row > summary {
+    grid-template-columns: 232px minmax(0, 1fr) 140px 20px;
+    grid-template-areas: "v s d c";
+    column-gap: var(--space-md);
+    min-height: 56px;
+  }
+
+  .update-row__when {
+    text-align: right;
+  }
+
+  .update-row__body {
+    padding-left: 248px;
+    padding-right: var(--space-lg);
+  }
+
+  .update-row--running {
+    margin-inline: calc(-1 * var(--space-lg));
+    padding-inline: var(--space-lg);
+  }
 }
 
 .flight-day-row th {
@@ -2003,7 +2570,6 @@ table.data-table--firmware-history td:last-child {
 .data-table tbody tr:hover {
   background: color-mix(in srgb, var(--color-text) 4%, transparent);
 }
-
 
 /* opacity on --color-text gives a muted read in both themes with no
  * per-theme value to keep in sync — no --color-text-muted token exists
@@ -2033,6 +2599,8 @@ table.data-table--firmware-history td:last-child {
  * toggle to History's own pair only — Airlines/Health also reuse
  * .data-table-wrap but never render a sibling .history-cards. */
 .history-cards {
+  display: grid;
+  gap: var(--space-sm);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -2042,82 +2610,282 @@ table.data-table--firmware-history td:last-child {
   display: none;
 }
 
+/* The phone boarding-pass card. No padding on the card itself: each
+ * band carries its own, so the stub's tear line can run edge to edge
+ * and its notches can sit on the card's border. */
 .history-card {
+  position: relative;
   background: var(--color-dominant);
   /* Same hairline-at-rest contract as .runway-card above. */
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  box-shadow: none;
-  padding: var(--space-md);
-  margin-bottom: var(--space-sm);
+  border-radius: var(--radius-card);
 }
 
-.history-card:hover,
-.history-card:focus-within {
-  border-color: transparent;
-  box-shadow: var(--shadow-card-hover);
+/* A slim day header between cards, in the label voice with a trailing
+ * hairline. Not a filter row: it carries no data-filter-text. */
+.history-cards__day {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* A two-track grid, not flex: the timestamp's track pins to its own
- * content width (auto) so it can never be squeezed by the callsign/hex
- * track (minmax(0, 1fr)). white-space: nowrap below is what stops the
- * timestamp wrapping internally within its own pinned track. */
-.history-card__primary {
+.history-cards__day:first-child {
+  margin-top: 0;
+}
+
+/* [hidden]-vs-author-display collision: the filter hides a day header
+ * with no visible row under it. */
+.history-cards__day[hidden] {
+  display: none;
+}
+
+.history-cards__day::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+/* Identity on the left in a shrinkable track, the 44px picture action
+ * pinned to its own content width on the right. */
+.history-card__head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
   gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-sm) 0 var(--space-md);
 }
 
-/* Both cell-primary/cell-secondary must land in the grid's first track,
- * scoped to this one parent — the desktop table's own bare cells use
- * these same classes with no grid to conflict with. */
-.history-card__primary > .cell-primary,
-.history-card__primary > .cell-secondary {
-  grid-column: 1;
-}
-
-.history-card__secondary {
-  display: flex;
-  opacity: 0.7;
-  margin-top: var(--space-xs);
-}
-
-.history-card__airline {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-top: var(--space-xs);
-}
-
-.history-card__airline-name {
-  font-size: var(--font-label-size);
-}
-
-/* white-space: nowrap is necessary even with the track pinned to auto:
- * pinning the track's WIDTH does not stop the text inside it wrapping
- * onto a second line. */
-.history-card__time {
-  font-size: var(--font-label-size);
-  white-space: nowrap;
-}
-
-/* min-width: 0 is the usual flex-item floor: without it a long
- * callsign or route would refuse to shrink past the card width. */
-.history-card__face {
+.history-card__id {
   min-width: 0;
+  padding-top: var(--space-xs);
+}
+
+.history-card__callsign {
+  display: block;
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.03em;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.history-card__note {
+  font-family: var(--font-ui);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-regular);
+  letter-spacing: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* One line, ellipsised: a long operator name never pushes the card
+ * taller or the picture action out of its track. */
+.history-card__airline {
+  display: block;
+  font-size: var(--font-label-size);
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-card__airline--unknown {
+  font-style: italic;
 }
 
 .history-card__resolve {
-  margin-top: var(--space-sm);
+  display: block;
 }
 
 .history-card__resolve .cell-unresolved-link {
   margin-left: 0;
 }
 
-.history-card__action {
-  margin-top: var(--space-sm);
+/* An icon-only link with a real 44px box, not a padded glyph. */
+.history-card__picture {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+  color: var(--color-text);
+}
+
+.history-card__picture:hover {
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+
+/* origin | track | destination: the codes span both grid rows and pin
+ * to the top, and the first row is exactly one code tall, so the
+ * dashed track runs through the codes' middle while the direction
+ * label tucks under the plane beside them rather than on a row of its
+ * own. */
+.history-card__route {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: var(--font-heading-size) auto;
+  grid-template-areas:
+    "from track to"
+    "from dir to";
+  column-gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-md) var(--space-sm);
+}
+
+.history-card__code {
+  font-size: var(--font-heading-size);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.history-card__code--from {
+  grid-area: from;
+  align-self: start;
+}
+
+.history-card__code--to {
+  grid-area: to;
+  align-self: start;
+}
+
+.history-card__code--home {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.history-card__code--none {
+  line-height: var(--font-heading-size);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-regular);
+  letter-spacing: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.history-card__track {
+  grid-area: track;
+  align-self: center;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* The dashed track behind the plane, through the glyph's middle. */
+.history-card__track::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px dashed color-mix(in srgb, var(--color-text) 30%, transparent);
+}
+
+/* The dominant-surface pad masks the dashes under the glyph. */
+.icon.history-card__plane {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  padding: 0 var(--space-xs);
+  box-sizing: content-box;
+  background: var(--color-dominant);
+  color: var(--color-text);
+}
+
+.history-card__dir {
+  grid-area: dir;
+  justify-self: center;
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The stub below the tear line: artwork plate and time on one row.
+ * The two notches are half-discs in the page colour sitting on the
+ * card's side borders, so they follow the canvas in both themes. */
+.history-card__stub {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-top: 1px dashed var(--color-border);
+}
+
+.history-card__stub::before {
+  content: "";
+  position: absolute;
+  top: -8px;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--history-card-notch, var(--color-canvas));
+  left: -8px;
+  clip-path: inset(0 0 0 50%);
+}
+
+.history-card__stub::after {
+  content: "";
+  position: absolute;
+  top: -8px;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--history-card-notch, var(--color-canvas));
+  right: -8px;
+  clip-path: inset(0 50% 0 0);
+}
+
+/* A fixed 40px-tall plate; the artwork keeps its aspect inside it on
+ * the image backdrop, the same backing every artwork thumbnail uses. */
+.history-card__art {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 200px;
+  height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+img.history-card__art {
+  background: var(--color-image-backdrop);
+  object-fit: contain;
+}
+
+.history-card__art--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-sm);
+  border-style: dashed;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-card__when {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.3;
+  white-space: nowrap;
 }
 
 /* The row-level picture action on the card and in the table: the
@@ -2128,19 +2896,6 @@ a.calendar-disconnect-btn.flight-picture-link {
   display: inline-flex;
   align-items: center;
   white-space: nowrap;
-}
-
-/* .flights-more is always rendered (empty when nothing remains), so
- * :empty is what keeps a page with nothing left to reveal from paying
- * for this rule's own top margin. */
-.flights-more {
-  display: flex;
-  justify-content: center;
-  margin-top: var(--space-md);
-}
-
-.flights-more:empty {
-  display: none;
 }
 
 /* Renders INSIDE an existing .page-section card, unlike .history-card
@@ -2235,8 +2990,11 @@ a.calendar-disconnect-btn.flight-picture-link {
   margin-top: var(--space-xs);
 }
 
-/* Shared by History and Airlines, driven by list-filter.js; inert
- * without JS — the full unfiltered list stays completely usable. */
+/* The shared filter bar (Flights, Airlines, Health's prefix list),
+ * driven by list-filter.js; inert without JS — the full unfiltered list
+ * stays completely usable. A search field with an inline clear, an
+ * optional segmented chip group carrying live counts, and a quiet
+ * count. Reuses existing tokens only. */
 .filter-bar {
   display: flex;
   gap: var(--space-sm);
@@ -2245,41 +3003,91 @@ a.calendar-disconnect-btn.flight-picture-link {
   flex-wrap: wrap;
 }
 
-.filter-bar__field {
+.filter-bar__search {
   position: relative;
+  flex: 1 1 280px;
+  max-width: 560px;
+  min-width: 0;
 }
 
-/* 14px, not .icon's 20px default: positioned 8px from the left edge, it
- * ends at 22px, leaving a clean 4px gap before the input's own 26px
- * left padding. Outranks the base .icon rule and the icon builder's own
- * inline width/height attributes, so no Python change is needed. */
-.filter-bar__field .icon {
+/* 16px text: iOS Safari zooms the page on focus for anything smaller.
+ * 48px tall clears the 44px target floor. height wins over the global
+ * input rule's min-height because 48 > 44. */
+.filter-bar__search input {
+  width: 100%;
+  height: 48px;
+  padding: 0 52px 0 46px;
+  font-size: var(--font-body-size);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* The native cancel glyph would double up with the inline clear. */
+.filter-bar__search input:placeholder-shown {
+  padding-right: var(--space-md);
+}
+
+.filter-bar__search input::-webkit-search-cancel-button,
+.filter-bar__search input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.filter-bar__search input:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.filter-bar__search .icon {
   position: absolute;
-  left: var(--space-sm);
+  left: 14px;
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
-  opacity: 0.6;
-  width: 14px;
-  height: 14px;
 }
 
-/* min-height: 0 is load-bearing: the global input rule's 44px min-height
- * outranks a plain height declaration regardless of specificity — a
- * browser never lets a lower min-height shrink an element below a
- * higher one from another rule unless the higher one is cleared. */
-.filter-bar__field input {
-  height: 32px;
+/* Reset of every base-button property that would box the glyph; the
+ * 44px square is the hit target, the glyph inside it is 14px. (0,2,0)
+ * outranks button, button[type="submit"] and the hover/active rules. */
+.filter-bar .filter-bar__clear {
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  width: 44px;
+  height: 44px;
+  min-width: 0;
   min-height: 0;
-  padding: 0 10px 0 26px;
-  font-size: 13px;
-  background: transparent;
-  border: 1px solid var(--color-border);
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 50%;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  cursor: pointer;
 }
 
-.filter-bar__field input:focus {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
+.filter-bar .filter-bar__clear:hover {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+  color: var(--color-text);
+}
+
+/* Shown only while the field holds text; no script involved. */
+.filter-bar__search input:placeholder-shown ~ .filter-bar__clear {
+  display: none;
+}
+
+.filter-bar__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  white-space: nowrap;
+  margin-left: auto;
 }
 
 .filter-bar__count {
@@ -2291,46 +3099,195 @@ a.calendar-disconnect-btn.flight-picture-link {
   white-space: nowrap;
 }
 
-/* Targets the [data-filter-clear] attribute both history_page.py's
- * <button> and airlines_page.py's <a> already emit, rather than a new
- * shared class needing edits to both page modules. Every declaration
- * below undoes a specific base-button property so the button and link
- * variants render pixel-identical. */
-.filter-bar [data-filter-clear] {
-  height: auto;
-  min-height: 0;
-  min-width: 0;
+/* With chips the segments carry the counts, so the count sentence stays
+ * only for assistive technology (role="status"): the visually-hidden
+ * recipe, never display: none. */
+.filter-bar--chips .filter-bar__meta {
+  position: absolute;
+  width: 1px;
+  height: 1px;
   padding: 0;
-  background: none;
-  border: none;
-  box-shadow: none;
-  border-radius: 0;
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: var(--weight-regular);
-  /* line-height: inherit is necessary too: a <button> takes the UA's
-   * line-height: normal while the <a> variant inherits the body's 1.5 —
-   * measured 4px apart in height without this, misaligning Clear
-   * against the count beside it. */
-  line-height: inherit;
-  letter-spacing: normal;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
-.filter-bar [data-filter-clear]:hover {
+/* Segmented chips. The group is hidden by .js-gate without a script
+ * (they cannot filter anything then); --js-gate-display lets the gate
+ * reveal it as a flex row. */
+.filter-bar__chips {
+  --js-gate-display: flex;
+  flex: 1 1 200px;
+  min-width: 0;
+  gap: 2px;
+  margin: 0;
+  padding: 3px;
+  border: none;
+  border-radius: var(--radius-card);
+  background: var(--color-secondary);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
+
+.filter-chip {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.filter-chip__box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-control);
+  transition: background var(--motion-fast), box-shadow var(--motion-fast);
+}
+
+.filter-chip__count {
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.filter-chip__text {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.filter-chip:hover .filter-chip__box {
+  background: color-mix(in srgb, var(--color-dominant) 55%, transparent);
+}
+
+.filter-chip input:checked + .filter-chip__box {
+  background: var(--color-dominant);
+  box-shadow: inset 0 0 0 1px var(--color-border), var(--shadow-card);
+}
+
+.filter-chip input:checked + .filter-chip__box .filter-chip__count,
+.filter-chip input:checked + .filter-chip__box .filter-chip__text {
   color: var(--color-text);
 }
 
-/* .manual-summary:hover (0,2,0) outranks the base button:hover
- * (0,1,1), so the chip wash deepens on hover instead of the base
- * button's own wash. Reuses the chip's own 6% -> 12% wash pair. */
-.manual-summary:hover {
-  background: color-mix(in srgb, var(--color-text) 12%, transparent);
-  color: var(--color-text);
+.filter-chip input:focus-visible + .filter-chip__box {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.filter-chip.is-zero .filter-chip__count {
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+/* Phone, scripts on: the search collapses to a 48px icon button beside
+ * the chips and opens over the whole row on focus or while it holds
+ * text (list-filter.js sets data-filter-active), pushing the chips to
+ * the next line. Without a script the plain full-width field applies. */
+@media (max-width: 959.98px) {
+  .js .filter-bar--chips .filter-bar__search {
+    flex: 0 0 48px;
+    order: 2;
+  }
+
+  .js .filter-bar--chips .filter-bar__search input {
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .js .filter-bar--chips .filter-bar__search input::placeholder {
+    color: transparent;
+  }
+
+  .js .filter-bar--chips .filter-bar__search:focus-within,
+  .js .filter-bar--chips[data-filter-active] .filter-bar__search {
+    flex: 1 0 100%;
+    order: 0;
+    max-width: none;
+    /* Declared on the open state only: a transition runs with the
+     * destination state's property, so opening animates while the
+     * collapse the script's own .js class causes at load does not. */
+    transition: flex-basis var(--motion-fast) ease;
+  }
+
+  .js .filter-bar--chips .filter-bar__search:focus-within input,
+  .js .filter-bar--chips[data-filter-active] .filter-bar__search input {
+    padding: 0 52px 0 46px;
+    cursor: text;
+  }
+
+  .js .filter-bar--chips .filter-bar__search:focus-within input::placeholder,
+  .js .filter-bar--chips[data-filter-active] .filter-bar__search input::placeholder {
+    color: color-mix(in srgb, var(--color-text) 55%, transparent);
+  }
+}
+
+@media (min-width: 960px) {
+  .filter-bar--chips {
+    flex-wrap: nowrap;
+    gap: var(--space-md);
+  }
+
+  .filter-bar--chips .filter-bar__chips {
+    flex: 0 0 auto;
+  }
+
+  .filter-bar--chips .filter-chip {
+    flex: 0 0 auto;
+  }
+
+  .filter-bar--chips .filter-chip__box {
+    flex-direction: row-reverse;
+    gap: var(--space-sm);
+    min-height: 42px;
+    padding: 0 var(--space-md);
+  }
+
+  .filter-bar--chips .filter-bar__search {
+    flex: 0 1 380px;
+    margin-left: auto;
+    order: 2;
+  }
+}
+
+/* The empty state: a soft card with a search glyph in a halo and its
+ * own Clear action. Sets no display, so [hidden] still hides it. */
+.empty-state--filter {
+  padding: var(--space-lg) var(--space-md);
+  border-radius: var(--radius-card);
+  background: var(--color-secondary);
+}
+
+.empty-state--filter p {
+  margin: 0 auto var(--space-xs);
+  max-width: 36ch;
+}
+
+.empty-state--filter button {
+  margin-top: var(--space-sm);
+}
+
+.empty-state__halo {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto var(--space-sm);
+  border-radius: 50%;
+  background: var(--color-dominant);
+  box-shadow: var(--shadow-card);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* Empty state */
@@ -2554,7 +3511,6 @@ details[open] > summary::before {
   display: block;
 }
 
-
 /* margin-bottom is the section-to-section gap AFTER this whole grid,
  * distinct from the gap above (between this grid's own tiles) and from
  * .page-section's own --space-lg card-to-card gap. A harness check in
@@ -2623,22 +3579,7 @@ details[open] > summary::before {
   margin: 0 0 var(--space-sm);
 }
 
-/* (0,2,0) restores the left border/width/background deterministically
- * over .page-section's own shorthand and .banner--anomaly's own rule —
- * at equal (0,1,0) specificity the later one would otherwise win by
- * accident. display: block and ::before: none opt out of the base
- * .banner's row-plus-dot treatment: this is a card, not banner text. */
-.page-section.banner--anomaly {
-  display: block;
-  border-left: 3px solid var(--color-status-error);
-  background: var(--color-dominant);
-}
-
-.page-section.banner--anomaly::before {
-  display: none;
-}
-
-/* Airlines illustration gallery: an auto-fill grid with a 200px column
+/* The unidentified-airlines strip: an auto-fill grid with a 200px column
  * floor, collapsing to fewer columns automatically with no extra
  * breakpoints. */
 .illustration-grid {
@@ -2648,7 +3589,7 @@ details[open] > summary::before {
 }
 
 /* Below 960px: minmax(0, 1fr) (never bare 1fr) lets a fixed two-column
- * template shrink below the illustration's intrinsic width — the
+ * template shrink below the placeholder's intrinsic width — the
  * auto-fill default collapses to ONE column inside a 342px content
  * column, ballooning page height. */
 @media (max-width: 959.98px) {
@@ -2657,7 +3598,26 @@ details[open] > summary::before {
   }
 }
 
-.illustration-grid + .page-section {
+/* The airline list: one row per airline, every row the same fixed height
+ * whatever its name or number of aircraft types, so the page reads as
+ * one even column (two from 960px). */
+.airline-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 960px) {
+  .airline-list {
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: var(--space-md);
+  }
+}
+
+.airline-list + .page-section {
   margin-top: var(--space-lg);
 }
 
@@ -2682,24 +3642,9 @@ a.airline-card {
   box-shadow: var(--shadow-card-hover);
 }
 
-/* height: auto is load-bearing: the <img> width/height attributes
- * resolve a presentational height, which makes aspect-ratio inert and
- * letterboxes every card. height: auto un-resolves it so aspect-ratio
- * computes from the rendered width instead. */
-.airline-card__image {
-  width: 100%;
-  height: auto;
-  aspect-ratio: 450 / 132;
-  object-fit: contain;
-  display: block;
-  border-radius: var(--radius-control);
-  margin-bottom: var(--space-sm);
-}
-
-/* Values (aspect-ratio, margin-bottom) are string-identical to
- * .airline-card__image's, so grid rows align whether a card holds art
- * or a gap. test_status_pages.py pins this selector's own standalone
- * rule body — do not merge it into a shared selector list. */
+/* The dashed frame standing in for a missing picture: on a gap card, and
+ * on an airline row whose artwork is missing. Its own standalone rule
+ * body — do not merge it into a shared selector list. */
 .airline-card__placeholder {
   aspect-ratio: 450 / 132;
   border: 1px dashed var(--color-border);
@@ -2709,41 +3654,11 @@ a.airline-card {
   display: block;
 }
 
-.airline-card__zoom {
-  display: block;
-  width: 100%;
-  height: auto;
-  padding: 0;
-  border: none;
-  background: none;
-  border-radius: var(--radius-control);
-  cursor: zoom-in;
-}
-
-/* Load-bearing, not redundant: base button:hover/:active are (0,1,1)
- * and would otherwise repaint a wash/press-depress here; these rules
- * match or exceed that specificity and sit later in source, so they win. */
-.airline-card__zoom:hover {
-  background: none;
-  border-color: transparent;
-}
-
-.airline-card__zoom:active {
-  transform: none;
-}
-
-
 /* Emphasis role, not a new type role. */
 .airline-card__name {
   font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
   margin: 0 0 var(--space-xs);
-}
-
-.airline-card__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
 }
 
 .airline-card__chip {
@@ -2761,93 +3676,103 @@ a.airline-card {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* One aircraft type's view inside an airline card. The type sections
- * set no display of their own, so the `hidden` attribute that
- * airline-types.js toggles always wins; with no script every section is
- * visible in source order and each shows its own title. */
-.airline-card__types {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.airline-type {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.airline-type[hidden] {
-  display: none;
-}
-
-/* With the selector in charge, the section title would only repeat the
- * selected option. */
-[data-airline-types-ready] .airline-type__title {
-  display: none;
-}
-
-.airline-type__title {
-  margin: 0;
-}
-
-.airline-type-picker {
-  --js-gate-display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.airline-type-picker select {
-  width: 100%;
-  min-width: 0;
-}
-
-/* Source facts and the owner's changes are two labelled rows of one
- * list, so they read as different things at a glance. */
-.airline-type__facts {
+/* One airline row: picture, name over aircraft types, chevron. A fixed
+ * height (not min-height) is the whole point: two lines of name and one of
+ * types fit inside it, a longer name is clamped, so no row is ever taller
+ * than another. The row is the trigger itself (an anchor or a button), so
+ * it clears the 44px floor by a wide margin. */
+.airline-row {
   display: grid;
-  gap: 2px;
-  margin: 0;
-}
-
-.airline-type__facts dt {
-  margin-top: var(--space-xs);
-  font-size: 11px;
-}
-
-.airline-type__facts dd {
-  margin: 0;
-  display: flex;
-  flex-wrap: wrap;
+  grid-template-columns: 116px minmax(0, 1fr) 20px;
   align-items: center;
-  gap: var(--space-xs);
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
-
-.airline-card__action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 0 var(--space-sm);
+  gap: var(--space-sm) var(--space-md);
+  box-sizing: border-box;
+  width: 100%;
+  height: 76px;
+  min-height: 0;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-dominant);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
-  background: var(--color-secondary);
-  color: var(--color-text);
-  font-size: 13px;
-  font-weight: var(--weight-semibold);
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
   text-decoration: none;
   cursor: pointer;
 }
 
-button.airline-card__action {
-  height: auto;
+/* (0,2,0) so the global button:hover/:active wash and press-scale never
+ * repaint a row that is a <button>, and a hovered row reveals the
+ * card-hover shadow exactly as .airline-card does. */
+.airline-row:hover,
+.airline-row:focus-visible {
+  background: var(--color-dominant);
+  border-color: transparent;
+  box-shadow: var(--shadow-card-hover);
+  transform: none;
 }
 
-.airline-card__action:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+.airline-row:active {
+  transform: none;
+}
+
+.airline-row__art {
+  display: block;
+  min-width: 0;
+}
+
+.airline-row__art .airline-card__placeholder {
+  width: 100%;
+  margin: 0;
+}
+
+.airline-row__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 450 / 132;
+  object-fit: contain;
+}
+
+.airline-row__text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* Emphasis role; at most two lines, the full name stays in the title
+ * attribute and in the sheet. */
+.airline-row__name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.25;
+}
+
+/* Every aircraft type on one line, in the label voice. */
+.airline-row__types {
+  height: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  line-height: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airline-row__chevron {
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
 
 /* Interactive battery-trend chart hit targets and readout line. */
@@ -3075,19 +4000,6 @@ button.airline-card__action {
   fill: currentColor;
 }
 
-/* 24px is a band, not a chart: it carries no y axis, every mark spans
- * its full height. Overrides --drawing-canvas-height's own default via
- * the wrapper, rather than a second specificity-fighting rule. */
-.day-band {
-  --drawing-canvas-height: 24px;
-}
-
-.day-band__hours {
-  display: flex;
-  justify-content: space-between;
-  margin-top: var(--space-xs);
-}
-
 /* A fourth state (--none), beyond the ok/warn/error trio: it carries
  * the ABSENCE of a measured interval, never a verdict, so it uses the
  * structural --color-border token rather than borrow a verdict colour.
@@ -3112,46 +4024,6 @@ button.airline-card__action {
   color: var(--color-border);
 }
 
-/* max-width: 100% + height: auto is a deliberate, scoped exception to
- * .drawing__figure's "declare no width" rule: it prevents a horizontal
- * scrollbar on narrow screens (measured: 238px card at 320px) while
- * staying inert everywhere the drawing already fits its card. */
-.check-in-grid {
-  width: max-content;
-  max-width: 100%;
-}
-
-.check-in-grid .drawing__figure {
-  max-width: 100%;
-  height: auto;
-}
-
-.check-in-grid__scale {
-  display: flex;
-  justify-content: space-between;
-  margin-top: var(--space-xs);
-}
-
-/* Four labelled swatches don't fit on one 278px line in either
- * language (measured), hence the wrap. */
-.check-in-key {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs) var(--space-md);
-  margin-top: var(--space-sm);
-}
-
-.check-in-key__item {
-  display: inline-flex;
-  gap: var(--space-xs);
-}
-
-.check-in-key__swatch {
-  width: 12px;
-  height: 12px;
-  background: currentColor;
-}
-
 /* Neither rule declares stroke-width, r, cx or cy: draw.ring_gauge()
  * emits them as presentation attributes scaled per call site, and a
  * CSS declaration of any specificity beats a presentation attribute —
@@ -3172,6 +4044,24 @@ button.airline-card__action {
   fill: none;
   stroke: currentColor;
   stroke-linecap: butt;
+}
+
+/* The arc gauge (draw.arc_gauge()). Round caps on both strokes: the
+ * emitter shortens the value dash by one stroke width to pay for them.
+ * The track is a faint wash of the text colour rather than the border
+ * token, which disappears on the tinted header in the dark theme. Like
+ * the ring, no stroke-width here: it is a per-size presentation
+ * attribute. */
+.drawing-arc-track {
+  fill: none;
+  stroke: color-mix(in srgb, var(--color-text) 10%, transparent);
+  stroke-linecap: round;
+}
+
+.drawing-arc-value {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
 }
 
 /* width/height: auto restores draw.unit_canvas()'s own intrinsic
@@ -3246,27 +4136,258 @@ button.airline-card__action {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* Status tiles, banners and the chart keep a readable measure on wide
- * screens; narrower viewports fill their column as before. Nested
- * sections hold multi-column tables that need the full column. */
-.status-page {
-  max-width: 100%;
+/* Health rows: one hairline card, a group band per section, one native
+ * <details> row per subsystem. The card is one width at every viewport
+ * (no max-width cap), and nothing on it lifts: the rows are read-only, so
+ * the only pointer response is a faint wash on the summary, which is the
+ * one control a row has. Colour comes from the three status tokens and
+ * never carries the state alone (each state has its own icon shape and a
+ * visually hidden word). The grid is on the 8px scale: a 32px icon, a
+ * 16px gutter, a 208px name column, a 64px row. */
+.health-rows {
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  margin-bottom: var(--space-lg);
 }
 
-/* The current result leads: larger and semibold, with the supporting
- * timestamp or explanation muted and small beneath it. */
-.status-page .stat-tile .widget-verdict {
-  font-size: var(--font-heading-size);
-  line-height: 1.25;
+/* The h2 keeps the page outline's two sections and the #screen /
+ * #server-data link targets; this rule gives it the label voice and takes
+ * it off the shared serif heading rule. */
+.health-rows__group {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-secondary);
+  border-bottom: 1px solid var(--color-border);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.status-page .stat-tile .widget-detail {
+.health-rows__group:first-child {
+  border-radius: calc(var(--radius-control) - 1px) calc(var(--radius-control) - 1px) 0 0;
+}
+
+.health-row {
+  --row-tone: color-mix(in srgb, var(--color-text) 50%, transparent);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.health-row:last-child {
+  border-bottom: 0;
+}
+
+.health-row[data-state="ok"] {
+  --row-tone: var(--color-status-ok);
+}
+
+.health-row[data-state="warn"] {
+  --row-tone: var(--color-status-warn);
+}
+
+.health-row[data-state="error"] {
+  --row-tone: var(--color-status-error);
+}
+
+/* A phone row stacks name over verdict over value beside the icon; the
+ * chevron is the shared summary marker, moved to the trailing edge. */
+.health-row__summary {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 16px;
+  grid-template-areas:
+    "icon name chevron"
+    "icon verdict chevron"
+    "icon value chevron";
+  column-gap: var(--space-md);
+  row-gap: var(--space-xs);
+  align-items: center;
+  min-height: 64px;
+  padding: var(--space-md);
+  color: var(--color-text);
+  font-weight: var(--weight-regular);
+}
+
+.health-row__summary::before {
+  grid-area: chevron;
+  justify-self: end;
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+}
+
+.health-row__summary:hover {
+  background: color-mix(in srgb, var(--color-text) 3.5%, transparent);
+}
+
+.health-row__summary:focus-visible {
+  outline-offset: -2px;
+}
+
+.health-row:last-child:not([open]) > .health-row__summary {
+  border-radius: 0 0 calc(var(--radius-control) - 1px) calc(var(--radius-control) - 1px);
+}
+
+.health-row__icon {
+  grid-area: icon;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--row-tone) 16%, transparent);
+  color: var(--row-tone);
+}
+
+.health-row__name {
+  grid-area: name;
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.health-row__verdict {
+  grid-area: verdict;
+  min-width: 0;
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+}
+
+.health-row__value {
+  grid-area: value;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
   font-size: var(--font-label-size);
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-@media (min-width: 960px) {
-  .status-page > :not(.page-section--nested) {
-    max-width: 760px;
+.health-row__ring {
+  display: inline-grid;
+  flex: none;
+  color: var(--color-text);
+}
+
+.health-row__body {
+  display: grid;
+  gap: var(--space-md);
+  min-width: 0;
+  padding: 0 var(--space-md) var(--space-md);
+}
+
+/* min-width: 0 on every direct child: a grid item's automatic minimum is
+ * its content's, and a table or chart inside would otherwise stretch the
+ * row past the card. */
+.health-row__body > * {
+  min-width: 0;
+  margin: 0;
+}
+
+.health-row__facts {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.health-row__facts > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.health-row__facts dt {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.health-row__facts dd {
+  margin: 0;
+}
+
+.health-row__note {
+  margin: 0;
+  font-size: var(--font-label-size);
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.health-row__outcomes {
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.health-row__outcome {
+  display: flex;
+  align-items: center;
+  margin: 0;
+}
+
+.health-row__outcome .mono {
+  margin-left: var(--space-sm);
+  font-weight: var(--weight-semibold);
+}
+
+/* The battery chart's wrapper keeps its class (the chart rules and
+ * battery-trend.js key off it) but is not a card here: the row is the
+ * container. Declared after the card's own hover rule at equal
+ * specificity, so it wins by position. */
+.battery-trend-section.battery-trend-section--embedded,
+.battery-trend-section.battery-trend-section--embedded:hover,
+.battery-trend-section.battery-trend-section--embedded:focus-within {
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* One elevation rule on this page: a hairline at rest and nothing else.
+ * The unresolved-prefix card keeps its filter and links, but the
+ * hover reveal that suits a browsable card is noise on a status page,
+ * and it made neighbouring cards look inconsistent. */
+.status-page .page-section:hover,
+.status-page .page-section:focus-within {
+  border-color: var(--color-border);
+  box-shadow: none;
+}
+
+@media (min-width: 700px) {
+  .health-row__summary {
+    grid-template-columns: 32px 208px minmax(0, 1fr) auto 16px;
+    grid-template-areas: "icon name verdict value chevron";
+    padding: 0 var(--space-lg);
+  }
+
+  .health-rows__group {
+    padding: var(--space-sm) var(--space-lg);
+  }
+
+  .health-row__value {
+    justify-content: flex-end;
+    text-align: right;
+  }
+
+  /* Indented to the name column, so the evidence reads as belonging to
+   * the row's text and not to its icon. */
+  .health-row__body {
+    padding: 0 var(--space-lg) var(--space-lg)
+      calc(var(--space-lg) + 32px + var(--space-md));
+  }
+
+  .health-row__facts > div {
+    grid-template-columns: 160px minmax(0, 1fr);
+    column-gap: var(--space-md);
+    align-items: baseline;
   }
 }
 
@@ -3317,7 +4438,6 @@ button.airline-card__action {
     margin: 0 auto;
     padding: var(--space-2xl) var(--space-3xl);
   }
-
 
   .dirty-bar {
     position: fixed;
@@ -3543,12 +4663,22 @@ button.airline-card__action {
   display: none;
 }
 
+/* The sheet's heading takes the dialog's initial focus (tabindex -1, set by
+   panel-lookup.js); it is not a control, so it carries no ring. */
+.lightbox__heading:focus {
+  outline: none;
+}
+
 .lightbox__manual-note:empty {
   display: none;
 }
 
 .lightbox::backdrop {
   background: var(--color-scrim);
+}
+
+.lightbox__actions button {
+  min-height: 44px;
 }
 
 .lightbox__actions {
@@ -3584,6 +4714,111 @@ button.airline-card__action {
   display: block;
   padding-top: var(--space-md);
   min-width: 0;
+}
+
+/* The airline sheet (an Airlines row): the name field and, for a renamed
+ * airline, the reset form, below the picture and the upload zone. The
+ * :not([hidden]) form lets panel-lookup.js hide the whole section, or
+ * just the reset form, for a card that has no name to edit or reset. The
+ * prefix chips reuse .airline-card__chip; they are display only, so they
+ * are not touch targets. */
+.airline-sheet:not([hidden]) {
+  display: block;
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+  min-width: 0;
+}
+
+.airline-sheet__name input[type="text"] {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* The sheet's own buttons meet the 44px floor directly, at every width,
+ * rather than taking the 30px/36px compact button geometry. */
+.airline-sheet__name button,
+.airline-sheet__reset button {
+  margin-top: var(--space-sm);
+  min-height: 44px;
+}
+
+/* The sheet's one title: the airline's name with its callsign prefixes as
+ * quiet chips beside it. Nothing here is a touch target. */
+.airline-sheet__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-sm);
+}
+
+.airline-sheet__head > h2 {
+  margin: 0 0 var(--space-sm);
+}
+
+.airline-sheet__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin: 0 0 var(--space-sm);
+  padding: 0;
+  list-style: none;
+}
+
+.airline-sheet__chips:empty {
+  display: none;
+}
+
+/* The aircraft-type switcher: a link per type (a plain label when there
+ * is only one), the shown one marked in the selection idiom. Each link is
+ * its own 44px target. */
+.airline-sheet__types:not([hidden]) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin: var(--space-sm) 0;
+}
+
+.airline-sheet__type {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+a.airline-sheet__type {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  box-sizing: border-box;
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+a.airline-sheet__type[aria-current="true"] {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+}
+
+.airline-sheet__reset:not([hidden]) {
+  display: block;
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.airline-sheet__reset p {
+  margin: 0;
 }
 
 .lightbox__replace-zone:not([hidden]),
@@ -3776,7 +5011,7 @@ button.airline-card__action {
  * default align-items: stretch (which otherwise stretches it full-
  * width); width: auto states the resulting intrinsic size explicitly.
  * Accent fill is kept — this rule is about geometry only. */
-.rule-add-form:not(.rule-add-form--inline) > button[type="submit"] {
+.rule-add-form > button[type="submit"] {
   align-self: flex-start;
   width: auto;
 }
@@ -3789,7 +5024,6 @@ button.airline-card__action {
 .field-inline-value[hidden] {
   display: none;
 }
-
 
 /* Home page audit/refactor: grouped nav, page-header caption, Home
  * widgets, and misc phone-layout fixes appended after the earlier
@@ -3815,7 +5049,6 @@ button.airline-card__action {
   letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
-
 
 /* 2. Page-header screen caption --------------------------------------- */
 .page-header__screen {
@@ -3913,31 +5146,542 @@ button.airline-card__action {
   width: 100%;
 }
 
+/* The docked attention toast only; the container is empty (and takes no
+ * space) while every health state is fine. */
 .home-facts {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-sm) var(--space-lg);
-  margin-top: var(--space-lg);
+  margin: 0 0 var(--space-lg);
 }
 
-.home-facts > * {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
+.home-facts:empty {
+  display: none;
+}
+
+.home-facts > .toast--docked {
+  margin-bottom: 0;
+}
+
+/* The status header at the top of Home: one hero card in three zones, the
+ * frame's state, the battery dial and a recessed panel holding the two
+ * switches. Mobile first: the zones stack, separated by hairlines. The
+ * arrangement follows the card's own width (a container query), not the
+ * viewport's, because the desktop sidebar makes the column narrower at
+ * 1024px than at 840px: from 520px of card the dial moves beside the
+ * state with the switches below, from 600px the switches sit side by
+ * side, and from 840px of card (a wide window, sidebar included) the
+ * three zones become columns. Surface, border and
+ * radius are the shared tokens, so both themes follow the palette. */
+.home-state {
+  --home-tone: var(--color-status-ok);
+  container-type: inline-size;
+  position: relative;
+  isolation: isolate;
+  margin-bottom: var(--space-lg);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.home-state--warn {
+  --home-tone: var(--color-status-warn);
+}
+
+.home-state--off {
+  --home-tone: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+
+/* The state tint: a faint, static glow from the top-left corner in the
+ * dot's colour. Subtle on purpose (13%, fading out before mid-card), the
+ * wording and the dot carry the meaning; nothing moves, so reduced
+ * motion needs nothing more. */
+.home-state::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  background: radial-gradient(
+    90% 130% at 0% 0%,
+    color-mix(in srgb, var(--home-tone) 13%, transparent),
+    transparent 62%);
+}
+
+.home-state__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.home-state__status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  min-width: 0;
+  padding: var(--space-lg);
+}
+
+.home-state__status > p {
   margin: 0;
 }
 
-.home-fact {
-  padding: var(--space-xs) var(--space-sm);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-canvas);
+/* The micro-label voice the quick-action labels already use (12px
+ * uppercase, the sub-scale exception tier). */
+.home-state__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.home-state__eyebrow .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* The state title takes the page-title size in the serif face: the
+ * header's one display line, so it reads from across the room. */
+.home-state__headline {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  font-family: var(--font-serif);
+  font-size: var(--font-page-title-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+}
+
+/* A solid dot inside a soft halo of the same status colour, so the state
+ * reads at a glance without relying on colour alone: the words beside it
+ * carry the meaning. */
+.home-state__dot {
+  position: relative;
+  --dot-halo-scale: 2.8;
+  --dot-halo-alpha: 0.5;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  /* Centred on the first line, so a title that wraps on a phone keeps
+   * its dot beside the first word. */
+  margin: calc((1.15em - 14px) / 2) var(--space-xs) 0;
+  background: var(--home-tone);
+  box-shadow:
+    0 0 0 5px color-mix(in srgb, var(--home-tone) 20%, transparent),
+    0 0 18px 4px color-mix(in srgb, var(--home-tone) 30%, transparent);
+}
+
+/* The halo: a ring of the dot's own tone that expands and fades, drawn on
+ * a pseudo-element so only a transform and opacity move. Green when the
+ * screen is on, amber when overdue or the battery holds the frame; a
+ * resting frame (quiet hours, screen off) carries no pulse class. The
+ * amber ring is gentler (smaller, fainter) through two custom properties,
+ * never a second duration. */
+.home-state--warn .home-state__dot {
+  --dot-halo-scale: 2.2;
+  --dot-halo-alpha: 0.35;
+}
+
+.home-state__dot--pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--home-tone);
+  pointer-events: none;
+  animation: skypane-dot-halo var(--motion-dot-pulse) ease-out infinite;
+}
+
+.home-state__detail {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.home-state__next {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  color: var(--color-text);
+}
+
+.home-state__next .icon {
+  width: 18px;
+  height: 18px;
+  /* Centres the 18px glyph on the first 24px line of the text. */
+  margin-top: 3px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* An overdue line reads in the warning treatment through its weight and
+ * the warning sign; the amber tint appears only once the delay is long
+ * enough to act on. */
+.home-state__next--overdue {
   font-weight: var(--weight-semibold);
 }
 
-.home-action {
+.home-state--warn .home-state__next--overdue .icon {
+  color: var(--color-status-warn);
+}
+
+.home-state__next .time-value {
   font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.home-state__countdown {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The next-update line and its info button share one row. The row is the
+ * positioning context of the tooltip, so the bubble wraps within the
+ * status zone instead of the button's own width. */
+.home-state__next-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  align-self: stretch;
+  gap: var(--space-xs);
+}
+
+/* A 44px tap target around an 18px glyph; the negative margins hand the
+ * extra height back so the row keeps the line's own height. */
+.info-tip__button {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -10px -10px -10px -8px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  cursor: help;
+}
+
+.info-tip__button:hover,
+.info-tip:focus-within .info-tip__button {
+  color: var(--color-text);
+}
+
+/* Shown on hover and on focus (a tap focuses the button) with no script.
+ * Hidden with visibility, not display, so the text stays available to
+ * aria-describedby. */
+.info-tip__bubble {
+  position: absolute;
+  top: calc(100% + var(--space-xs));
+  left: 0;
+  z-index: 3;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(36ch, 100%);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-dominant);
+  box-shadow: var(--shadow-toast-float);
+  color: var(--color-text);
+  font-weight: var(--weight-regular);
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity var(--motion-fast) ease-out;
+}
+
+.info-tip:hover .info-tip__bubble,
+.info-tip:focus-within .info-tip__bubble {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* The Health link as a soft accent pill; 44px tall so it is a full tap
+ * target on a phone. */
+.home-state__health-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: 44px;
+  padding: 0 var(--space-sm) 0 var(--space-md);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+.home-state__health-link:hover {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+.home-state__health-link .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* The battery dial: the open arc drawn by draw.arc_gauge() with the
+ * reading stacked in its middle and the level word in the arc's gap. All
+ * three share the one grid cell (grid-area: 1 / 1 on each). */
+.home-battery {
+  display: grid;
+  justify-content: center;
+  align-items: center;
+  justify-items: center;
+  margin: 0;
+  padding: var(--space-lg) var(--space-lg) var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+/* The 132px drawing shown at 120px on a narrow card; its viewBox scales
+ * the arc and its stroke together. */
+.home-battery > svg {
+  grid-area: 1 / 1;
+  width: 120px;
+  height: 120px;
+}
+
+.home-battery__reading {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  padding-top: var(--space-xs);
+}
+
+.home-battery__value {
+  font-size: var(--font-page-title-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-battery__unit {
+  margin-left: 1px;
+  font-size: var(--font-body-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* Same micro-label voice as the header's "Frame state". */
+.home-battery__label {
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The level word is always present for low and critical, so colour is
+ * never the only signal. It sits in the arc's gap; text is the status
+ * colour mixed toward the text colour, readable on its tinted pill in
+ * both themes. */
+.home-battery__state {
+  grid-area: 1 / 1;
+  align-self: end;
+  /* Drops the pill clear of the arc's round end caps; the zone's bottom
+   * padding has room for it. */
+  transform: translateY(6px);
+  padding: 2px var(--space-sm);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  line-height: 1.4;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--color-status-warn) 55%, var(--color-text));
+  background: color-mix(in srgb, var(--color-status-warn) 18%, var(--color-dominant));
+}
+
+.home-battery--critical .home-battery__state {
+  color: color-mix(in srgb, var(--color-status-error) 70%, var(--color-text));
+  background: color-mix(in srgb, var(--color-status-error) 16%, var(--color-dominant));
+}
+
+.home-battery--none {
+  justify-content: start;
+  padding: var(--space-md) var(--space-lg);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The recessed panel: a step down from the card surface toward the
+ * canvas. */
+.home-state__switches {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  padding: var(--space-md);
+  border-top: 1px solid var(--color-border);
+  /* The card no longer clips (the info tooltip may reach past it), so the
+   * recessed panel rounds its own outer corners. */
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+  background: color-mix(in srgb, var(--color-canvas) 55%, transparent);
+}
+
+/* Each row is a pill and one big tap target: the native switch button
+ * stretches its ::after over the whole pill, so the control keeps its
+ * role, state and focus behaviour while the finger gets a 56px-tall
+ * target. */
+.home-switch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 56px;
+  padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-sm);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+}
+
+.home-switch:hover {
+  border-color: color-mix(in srgb, var(--color-text) 25%, transparent);
+}
+
+.home-switch__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-secondary);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.home-switch--on .home-switch__icon {
+  color: var(--color-text);
+}
+
+.home-switch__icon .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.home-switch .switch,
+.home-switch .switch:hover,
+.home-switch .switch:active {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  /* A transform would make the button the ::after's containing block and
+   * shrink the row-wide target to the button mid-press. */
+  transform: none;
+}
+
+.home-switch .switch::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+}
+
+.home-switch__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.home-switch__label {
+  font-weight: var(--weight-semibold);
+}
+
+.home-switch__detail {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+.home-switch__window {
+  /* Above the switch's row-wide ::after so the link takes its own click;
+   * the padding and the matching negative margin give a 44px target
+   * without moving the line. */
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  padding: 13px 6px;
+  margin: -13px -6px;
+  white-space: nowrap;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--color-text) 35%, transparent);
+  text-underline-offset: 3px;
+  border-radius: var(--radius-control);
+}
+
+.home-switch__window:hover {
+  color: var(--color-text);
+  text-decoration-color: currentColor;
+}
+
+.home-switch__detail .home-switch__state {
+  font-size: var(--font-label-size);
+}
+
+.home-switch .quick-action__form {
+  flex: none;
+}
+
+@container (min-width: 520px) {
+  .home-state__body {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .home-battery {
+    align-self: stretch;
+    align-content: center;
+    padding: var(--space-lg) var(--space-xl);
+    border-top: 0;
+    border-left: 1px solid var(--color-border);
+  }
+
+  .home-battery > svg {
+    width: 132px;
+    height: 132px;
+  }
+
+  .home-state__switches {
+    grid-column: 1 / -1;
+  }
+}
+
+@container (min-width: 600px) {
+  .home-state__switches {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (min-width: 840px) {
+  .home-state__body {
+    grid-template-columns: minmax(0, 1fr) auto minmax(260px, 320px);
+  }
+
+  .home-state__status {
+    justify-content: center;
+    padding: var(--space-xl);
+  }
+
+  /* A pointer-sized pill once the header is this wide. */
+  .home-state__health-link {
+    min-height: 32px;
+  }
+
+  .home-state__switches {
+    grid-column: auto;
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--space-lg) var(--space-md);
+    border-top: 0;
+    border-left: 1px solid var(--color-border);
+    border-radius: 0 var(--radius-card) var(--radius-card) 0;
+  }
 }
 
 .quick-actions {
@@ -4028,8 +5772,8 @@ button.airline-card__action {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: var(--color-dominant);
-  box-shadow: var(--shadow-card);
+  background: var(--color-switch-thumb);
+  box-shadow: 0 1px 3px var(--color-shadow-strong);
   transition: transform var(--motion-fast) ease;
 }
 
@@ -4054,30 +5798,6 @@ button.airline-card__action {
  * it, so a pending control is never repainted mid-request. */
 [data-pending] .switch__track {
   opacity: 0.7;
-}
-
-.quick-toast {
-  position: fixed;
-  top: var(--space-md);
-  left: 50%;
-  z-index: 40;
-  max-width: calc(100vw - 2 * var(--space-lg));
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-control);
-  background: var(--color-text);
-  color: var(--color-canvas);
-  box-shadow: var(--shadow-card-hover);
-  font-size: 13px;
-  font-weight: var(--weight-semibold);
-  opacity: 0;
-  pointer-events: none;
-  transform: translate(-50%, -8px);
-  transition: opacity var(--motion-fast) ease, transform var(--motion-fast) ease;
-}
-
-.quick-toast.is-visible {
-  opacity: 1;
-  transform: translate(-50%, 0);
 }
 
 .frame-strip__cell {
@@ -4148,17 +5868,6 @@ button.airline-card__action {
   background: var(--color-image-backdrop);
   max-width: 360px;
   margin: 0 auto var(--space-sm);
-}
-
-img.history-card__thumb {
-  display: block;
-  width: auto;
-  height: 56px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-image-backdrop);
-  max-width: 100%;
-  object-fit: contain;
 }
 
 .now-showing__caption {
@@ -4239,9 +5948,113 @@ img.recent-flight__thumb {
   background: var(--color-canvas);
 }
 
+/* Home's phone list: the Flights boarding-pass card (.history-card and
+ * its bands) at a compact size, one per recent flight. The cards sit on
+ * the section's own surface, so the tear-line notches take that colour
+ * instead of the page canvas. Rendered before the desktop list; the pair
+ * toggles at 960px. */
+.recent-flight-tiles {
+  --history-card-notch: var(--color-dominant);
+  display: grid;
+  gap: var(--space-sm);
+  list-style: none;
+  margin: 0 0 var(--space-md);
+  padding: 0;
+}
+
+.recent-flight-tiles ~ .recent-flights {
+  display: none;
+}
+
+/* The head is one line: callsign, then the airline taking what is left
+ * and ellipsised, so a long operator name never wraps the card. */
+.history-card--compact .history-card__head {
+  padding: var(--space-xs) var(--space-sm) 0 var(--space-sm);
+}
+
+.history-card--compact .history-card__id {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  padding-top: 0;
+}
+
+.history-card--compact .history-card__callsign {
+  flex: none;
+  font-size: var(--font-label-size);
+  overflow-wrap: normal;
+}
+
+.history-card--compact .history-card__airline {
+  min-width: 0;
+  font-size: 13px;
+}
+
+.history-card--compact .history-card__route {
+  grid-template-rows: 18px auto;
+  padding: 0 var(--space-sm) 3px;
+}
+
+.history-card--compact .history-card__code {
+  font-size: 18px;
+}
+
+.history-card--compact .history-card__code--none {
+  line-height: 18px;
+  font-size: 12px;
+}
+
+.history-card--compact .icon.history-card__plane {
+  width: 14px;
+  height: 14px;
+}
+
+.history-card--compact .history-card__dir {
+  font-size: 10px;
+  line-height: 1.1;
+}
+
+.history-card--compact .history-card__stub {
+  padding: 3px var(--space-sm);
+}
+
+.history-card--compact .history-card__art {
+  width: 96px;
+  height: 26px;
+}
+
+/* Too narrow for the "No illustration" words: the dashed outline says
+ * it, and the text stays in the markup for a screen reader. */
+.history-card--compact .history-card__art--empty {
+  padding: 0;
+  font-size: 0;
+}
+
+.history-card--compact .history-card__when {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-sm);
+}
+
+.history-card--compact .time-value--primary {
+  font-size: var(--font-label-size);
+}
+
+.history-card--compact .time-value__age {
+  font-size: 12px;
+}
+
 @media (min-width: 960px) {
   .home-columns {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .recent-flight-tiles {
+    display: none;
+  }
+
+  .recent-flight-tiles ~ .recent-flights {
+    display: block;
   }
 }
 
@@ -4267,24 +6080,7 @@ img.recent-flight__thumb {
   min-width: 96px;
 }
 
-.filter-bar__meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  white-space: nowrap;
-  margin-left: auto;
-}
-
-a.airline-card__zoom {
-  color: inherit;
-  text-decoration: none;
-}
-
 @media (max-width: 959.98px) {
-  /* Two chips per row on a phone, not a single 36-row column. */
-  .theme-chip {
-    width: calc(50% - var(--space-sm) / 2);
-  }
 
   /* z-index: 30, one value above the tab bar's 20 at every breakpoint:
    * the save bar is the active task and may cover ambient nav chrome,
@@ -4301,8 +6097,6 @@ a.airline-card__zoom {
   }
 
 }
-
-
 
 .status-row {
   display: flex;
@@ -4350,17 +6144,6 @@ a.airline-card__zoom {
   }
 }
 
-.preview-frame__caption {
-  margin-top: var(--space-sm);
-  text-align: center;
-}
-
-/* 2px matches this file's hairline-adjacent spacing exception tier. */
-.preview-frame__flight {
-  display: block;
-  margin-top: 2px;
-}
-
 .status-card__headline {
   font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
@@ -4374,7 +6157,6 @@ a.airline-card__zoom {
 .status-card__headline--warn {
   color: var(--color-text);
 }
-
 
 .time-value {
   font-family: var(--font-ui);
@@ -4390,17 +6172,6 @@ a.airline-card__zoom {
 
 .time-value__age {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.calendar-actions {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-md);
-  margin: var(--space-sm) 0 0;
-}
-.calendar-actions--solo {
-  justify-content: flex-end;
 }
 
 /* Equal (0,1,1) specificity to button[type="submit"], but later in
@@ -4451,6 +6222,283 @@ a.calendar-disconnect-btn:focus-visible {
   margin: var(--space-sm) 0 0;
 }
 
+/* Calendar connection: one status row on the page (provider tile, status
+ * pill, one-line detail, one button) and the Manage sheet, a <dialog>
+ * that holds every control. The row carries its verdict in words; the
+ * pill's dot is never green beside a failing or stale verdict (the server
+ * picks the tone per state). */
+.calendar-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: var(--space-sm);
+  padding: var(--space-sm) 4px 0;
+}
+
+.calendar-status__tile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-control);
+  background: var(--color-secondary);
+  border: 1px solid var(--color-border);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.calendar-status__tile--empty {
+  background: transparent;
+  border-style: dashed;
+}
+
+.calendar-status__main {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.calendar-status__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.calendar-status__title b {
+  font-weight: var(--weight-semibold);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-status__pill .dot {
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+}
+
+.calendar-status__detail {
+  margin: 2px 0 0;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The button stays on the right of the row at every width, vertically
+ * centred; in a narrow column the text side wraps instead. */
+a.calendar-manage {
+  display: inline-flex;
+  flex: none;
+  white-space: nowrap;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 10px;
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  text-decoration: none;
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+  border-radius: var(--radius-control);
+}
+
+a.calendar-manage:hover {
+  background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
+}
+
+/* The section's one primary action while nothing is connected. */
+a.calendar-manage--primary {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-color: transparent;
+}
+
+a.calendar-manage--primary:hover {
+  background: var(--color-accent-hover);
+}
+
+/* box-shadow at rest is this file's hairline-at-rest exception for a
+ * floating modal, as for .lightbox. color is explicit because a <dialog>
+ * promoted by showModal() does not reliably inherit it. No entrance
+ * animation: the motion budget is spent elsewhere. */
+.calendar-sheet {
+  box-sizing: border-box;
+  width: calc(100% - var(--space-lg) * 2);
+  max-width: 440px;
+  max-height: calc(100vh - var(--space-lg) * 2);
+  overflow-y: auto;
+  padding: var(--space-lg);
+  background: var(--color-dominant);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* The dialog is a container, not a control: arriving at it by its
+ * fragment must not draw a heavy ring round the whole card. Every control
+ * inside keeps the global focus ring. */
+.calendar-sheet:focus {
+  outline: none;
+}
+
+/* Scripts blocked: the open dialog is an in-page card, not a modal. */
+.calendar-sheet[open]:not(:modal) {
+  position: static;
+  width: auto;
+  max-width: none;
+  margin: var(--space-md) 0 0;
+  box-shadow: none;
+}
+
+.calendar-sheet::backdrop {
+  background: var(--color-scrim);
+}
+
+.calendar-sheet > * + * {
+  margin-top: var(--space-md);
+}
+
+.calendar-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.calendar-sheet__title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: var(--font-heading-size);
+  font-weight: var(--weight-regular);
+}
+
+a.calendar-sheet__close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin-right: calc(var(--space-sm) * -1);
+  font-size: 24px;
+  line-height: 1;
+  color: var(--color-text);
+  text-decoration: none;
+  border-radius: var(--radius-control);
+}
+
+a.calendar-sheet__close:hover {
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+}
+
+.calendar-sheet__label {
+  margin: 0;
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+}
+
+.calendar-sheet__link .calendar-masked-url {
+  margin-top: var(--space-xs);
+}
+
+.calendar-sheet input[type="text"] {
+  width: 100%;
+}
+
+.calendar-sheet__note {
+  margin: var(--space-sm) 0 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.calendar-sheet__field .section-caption {
+  margin: var(--space-xs) 0 0;
+}
+
+.calendar-sheet__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.calendar-sheet button {
+  height: auto;
+  min-height: 44px;
+}
+
+a.calendar-sheet__cancel {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  font-size: var(--font-label-size);
+  color: var(--color-text);
+  text-decoration: none;
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
+  border-radius: var(--radius-control);
+}
+
+.calendar-sheet__disconnect {
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+/* The quiet destructive action: error-coloured text, no fill. Equal
+ * (0,1,1) specificity to button[type="submit"], later in source, so it
+ * wins on position and clears the primary fill and its shadow. */
+button.calendar-danger {
+  padding: 0 4px;
+  color: var(--color-status-error);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+button.calendar-danger:hover {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  text-decoration: underline;
+}
+
+button.calendar-danger--solid {
+  padding: 0 12px;
+  border-color: var(--color-status-error);
+}
+
+.calendar-sheet__confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid var(--color-status-error);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-status-error) 6%, transparent);
+}
+
+/* An author display beats the UA [hidden] rule, so restate it. */
+.calendar-sheet__confirm[hidden] {
+  display: none;
+}
+
+.calendar-sheet__confirm-heading {
+  margin: 0;
+  font-weight: var(--weight-semibold);
+}
+
+.calendar-sheet__confirm .text-body {
+  margin: 0;
+}
+
+.calendar-sheet__confirm .calendar-sheet__foot {
+  margin-top: var(--space-xs);
+}
+
 .text-link {
   color: var(--color-accent);
   text-decoration: underline;
@@ -4487,319 +6535,6 @@ a.calendar-disconnect-btn:focus-visible {
 .theme-form input[type="radio"]:focus-visible + label {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
-}
-
-.rule-add-form--inline {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-sm);
-}
-
-.rule-add-form--inline .rule-add-form__field--kind {
-  flex: 0 0 auto;
-}
-
-.rule-add-form--inline input[type="text"] {
-  max-width: 140px;
-}
-
-.rule-suggestions {
-  margin: var(--space-sm) 0 0;
-}
-
-.rule-suggestion-chip {
-  height: auto;
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  font: inherit;
-  font-weight: var(--weight-regular);
-  color: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.rule-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.rule-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-dominant);
-}
-
-.rule-row__key {
-  flex: 0 0 auto;
-  min-width: 72px;
-}
-
-
-.rule-row__theme {
-  flex: 1 1 auto;
-}
-
-.rule-row form {
-  flex: none;
-  margin: 0;
-}
-
-.theme-chip--compact {
-  width: 104px;
-}
-
-.theme-chip--compact .theme-chip__preview {
-  height: 36px;
-}
-
-.theme-chip--compact .theme-chip__body {
-  padding: var(--space-xs);
-}
-
-/* Same 2px hairline-adjacent spacing exception as .preview-frame__flight
- * above; .theme-chip__name's no-wrap/ellipsis rule is reused unchanged. */
-.theme-chip--compact .theme-chip__name {
-  font-size: 12px;
-  margin-bottom: 2px;
-}
-
-/* Same 2px spacing exception. */
-.theme-chip--compact .theme-chip__swatches {
-  gap: 2px;
-}
-
-.theme-chip--compact .theme-chip__dot {
-  width: 8px;
-  height: 8px;
-}
-
-.theme-chip--compact .theme-chip__check {
-  top: var(--space-xs);
-  right: var(--space-xs);
-}
-
-.theme-chip--compact .theme-chip__check .icon {
-  width: 14px;
-  height: 14px;
-}
-
-/* 480px matches .lightbox's own max-width — no new dimension token. */
-.theme-live-preview {
-  margin: 0 0 var(--space-md);
-  max-width: 480px;
-}
-
-.theme-live-preview__image {
-  display: block;
-  width: 100%;
-  height: auto;
-  object-fit: contain;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  /* Declared on the base rule so the crossfade runs symmetrically in both
-   * directions from one declaration. Under prefers-reduced-motion the
-   * global override cuts this to 0.01ms; transitionend still fires, so
-   * theme-preview.js's swap logic keeps working. */
-  transition: opacity var(--motion-fast) ease;
-}
-
-/* .theme-live-preview__image--swapping is owned by theme-preview.js;
- * the class name is pinned in companion/test_config_page.py. */
-.theme-live-preview__image--swapping {
-  opacity: 0;
-}
-
-.theme-live-preview figcaption {
-  margin-top: var(--space-sm);
-  text-align: center;
-}
-
-
-/* grid-template-rows names this card's five real children explicitly
- * (heading + four .usage-row rows) so .aspect-card__preview's row-span
- * below always spans exactly those four rows, never a guessed count. */
-@media (min-width: 960px) {
-  .aspect-card {
-    display: grid;
-    grid-template-columns: minmax(360px, 1fr) minmax(0, 1fr);
-    grid-template-rows: auto repeat(4, auto);
-    column-gap: var(--space-lg);
-  }
-
-  .aspect-card > h2 {
-    grid-column: 1 / -1;
-  }
-
-  .aspect-card__preview {
-    grid-column: 1;
-    grid-row: 2 / -1;
-  }
-}
-
-
-.usage-row {
-  border-top: 1px solid var(--color-border);
-}
-
-.usage-row:first-of-type {
-  border-top: none;
-}
-
-.usage-row--secondary .usage-row__name {
-  font-weight: var(--weight-regular);
-}
-
-/* color: inherit overrides the global summary rule's accent colour —
- * this row's own <summary> is not one of this file's accent consumers. */
-.usage-row > summary {
-  color: inherit;
-  gap: var(--space-md);
-  padding: var(--space-md) 0;
-}
-
-.usage-row > summary::before {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.usage-row__name {
-  font-size: var(--font-body-size);
-  font-weight: var(--weight-semibold);
-}
-
-.usage-row__meta {
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-regular);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.usage-row__swatch {
-  width: var(--space-xl);
-  height: var(--space-xl);
-  flex-shrink: 0;
-}
-
-/* The palette grid (rows 1-3), unrelated to the rule-add form's own
- * compact .theme-chip-grid. */
-
-/* 64px is the palette grid's own track-size floor (a size literal, not
- * a spacing value). No overflow-x/scroll-snap/nowrap: the old
- * horizontal-scroll pattern is retired. */
-.palette {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
-  gap: var(--space-sm);
-  padding: var(--space-xs) 0 var(--space-md);
-}
-
-.palette-chip {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-dominant);
-  cursor: pointer;
-  position: relative;
-}
-
-.palette-chip__swatch {
-  width: 100%;
-  aspect-ratio: 1;
-}
-
-.palette-swatch {
-  position: relative;
-  overflow: hidden;
-  border-radius: var(--radius-control);
-  /* The structural hairline keeps a white swatch visible on a white card. */
-  box-shadow: inset 0 0 0 1px var(--color-border);
-}
-
-/* A dithered field or band is the panel's stipple of its colour on
- * white: a checkerboard of the inline paper colour over the inline fill. */
-.palette-swatch--dithered {
-  background-image: repeating-conic-gradient(
-    var(--swatch-paper) 0% 25%, transparent 0% 50%);
-  background-size: 6px 6px;
-}
-
-.palette-swatch__band {
-  position: absolute;
-  top: 33%;
-  height: 34%;
-  left: 0;
-  right: 0;
-}
-
-/* 10px/1.2 matches this file's existing sub-scale exception tier
- * (.sparkline-axis-label, .drawing-axis-label) rather than a new size
- * token. */
-.palette-chip__name {
-  font-size: 10px;
-  line-height: 1.2;
-  text-align: center;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.palette-chip__check {
-  display: none;
-  position: absolute;
-  top: var(--space-xs);
-  right: var(--space-xs);
-  color: var(--color-accent);
-}
-
-/* The "same as departures" leading option (Arrivals/Calendar rows). */
-
-/* grid-column: 1 / -1 is required: this <label> is the palette grid's
- * first child alongside the theme chips, so without an explicit span it
- * would render as one more 64px cell instead of a full-row control. */
-.leading-option {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  min-height: 44px;
-  padding: var(--space-sm) var(--space-md);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  cursor: pointer;
-  position: relative;
-}
-
-.leading-option__name {
-  flex: 1 1 auto;
-}
-
-
-.rule-add {
-  margin-top: var(--space-sm);
-}
-
-.rule-add[open] > summary {
-  margin-bottom: var(--space-sm);
-}
-
-.theme-chip__body--placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 120px;
 }
 
 /* Below 360px three equal columns leave ~73px per card with 32px of
@@ -4949,4 +6684,870 @@ a.calendar-disconnect-btn:focus-visible {
       var(--space-2xl) + 56px + env(safe-area-inset-bottom, 0px));
   }
 
+}
+
+/* Display: the look card ------------------------------------------------
+ * Two framed live pictures (Departures, Arrivals) and the Special looks
+ * list. Every saved control is a native radio inside a colour x style
+ * table (.look-table); theme-preview.js layers the look sheet over it. */
+
+.look-card__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-lg) var(--space-md);
+}
+
+.look-frame {
+  min-width: 0;
+}
+
+/* Without scripts, an open "Change" table needs the whole card width. */
+.look-frame:has(.look-edit[open]) {
+  grid-column: 1 / -1;
+}
+
+.look-frame__anchor {
+  position: relative;
+  max-width: 17rem;
+}
+
+.look-frame__picture {
+  position: relative;
+  padding: 8px;
+  border-radius: 6px;
+  background: linear-gradient(145deg, var(--color-frame-bezel-hi), var(--color-frame-bezel));
+  box-shadow: 0 14px 30px -14px var(--color-shadow-strong);
+}
+
+.look-frame.is-editing .look-frame__picture {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 4px;
+}
+
+/* The box is reserved before the render arrives (3:4, the canvas's own
+ * shape) and painted with the same skeleton sheen as Home's picture. */
+.look-frame__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 4;
+  object-fit: contain;
+  background: var(--color-image-backdrop);
+  background-image: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--color-text) 4%, transparent) 0 40%,
+    color-mix(in srgb, var(--color-text) 9%, transparent) 50%,
+    color-mix(in srgb, var(--color-text) 4%, transparent) 60% 100%
+  );
+}
+
+/* The whole picture is the opener; its accessible name says so. */
+button.look-frame__open {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+button.look-frame__open:hover,
+button.look-frame__open:active {
+  background: transparent;
+  transform: none;
+}
+
+button.look-frame__open:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 4px;
+}
+
+.look-frame__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  max-width: 17rem;
+}
+
+.look-frame:has(.look-edit[open]) .look-frame__meta {
+  max-width: none;
+}
+
+.look-frame__caption {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+}
+
+.look-frame__name,
+.special-row__title {
+  margin: 0;
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.look-frame__sentence,
+.special-row__meta {
+  margin: 0;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.look-edit[open] {
+  flex-basis: 100%;
+  min-width: 0;
+}
+
+.look-edit__summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 22px;
+  background: var(--color-dominant);
+  color: var(--color-text);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+  list-style: none;
+  cursor: pointer;
+}
+
+.look-edit__summary::-webkit-details-marker {
+  display: none;
+}
+
+/* These summaries carry their own icon instead of the global chevron. */
+.look-edit__summary::before,
+.special-add__summary::before {
+  content: none;
+}
+
+.look-edit__summary--icon {
+  justify-content: center;
+  width: 44px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+.look-edit__summary:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+}
+
+.look-edit__summary .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.look-edit__body {
+  margin-top: var(--space-md);
+}
+
+/* The colour x style table ------------------------------------------- */
+
+.look-table__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.look-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 44px;
+  padding: 4px 14px 4px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  font-size: var(--font-label-size);
+  cursor: pointer;
+}
+
+.look-option__name:first-child {
+  padding-left: 8px;
+}
+
+.look-table__scroll {
+  overflow-x: auto;
+}
+
+.look-table {
+  border-collapse: separate;
+  border-spacing: 2px;
+}
+
+.look-table th {
+  padding: 0 4px;
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  text-align: center;
+}
+
+.look-table th[scope="row"] {
+  padding-right: var(--space-sm);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.look-table__ink {
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+
+.look-table td {
+  padding: 0;
+  text-align: center;
+}
+
+.look-cell {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.look-cell:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+}
+
+.look-swatch {
+  display: block;
+  width: 24px;
+  height: 32px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--color-border);
+}
+
+.look-table__gap-mark {
+  display: inline-grid;
+  place-items: start end;
+  width: 24px;
+  height: 32px;
+  padding: 1px 3px;
+  border: 1px dashed var(--color-border);
+  border-radius: 2px;
+  font-size: 12px;
+  line-height: 1;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+.look-table__notes {
+  margin: var(--space-sm) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The look sheet ----------------------------------------------------- */
+
+/* Catches a click outside an open sheet; dims the page on phones. */
+.look-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: transparent;
+}
+
+.look-sheet {
+  position: absolute;
+  top: 0;
+  z-index: 51;
+  width: 22.5rem;
+  max-width: calc(100vw - 2 * var(--space-md));
+  padding: var(--space-md) 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-dominant);
+  box-shadow: var(--shadow-pop);
+}
+
+.look-sheet--departures {
+  left: calc(100% + var(--space-md));
+}
+
+.look-sheet--arrivals {
+  right: calc(100% + var(--space-md));
+}
+
+.look-sheet--calendar {
+  top: 100%;
+  left: 0;
+  margin-top: var(--space-sm);
+}
+
+.look-sheet__head,
+.special-add__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.look-sheet__title,
+.special-add__title,
+.special-looks__title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-weight: var(--weight-regular);
+}
+
+button.look-sheet__close {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+button.look-sheet__close[hidden] {
+  display: none;
+}
+
+.look-sheet__same {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+}
+
+.look-sheet__same[hidden] {
+  display: none;
+}
+
+.look-axis {
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-sm) 0;
+  border: none;
+  border-top: 1px solid var(--color-border);
+}
+
+.look-axis:first-child {
+  border-top: none;
+}
+
+.look-axis:disabled {
+  opacity: 0.5;
+}
+
+.look-axis__label {
+  display: flex;
+  font-family: var(--font-ui);
+  justify-content: space-between;
+  width: 100%;
+  margin: 0 0 var(--space-sm);
+  padding: 0;
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.look-axis__value {
+  letter-spacing: normal;
+  text-transform: none;
+  font-size: var(--font-label-size);
+  color: var(--color-text);
+}
+
+.look-dots {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.look-dot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.look-dot__ink {
+  display: block;
+  width: 34px;
+  height: 34px;
+}
+
+/* A hairline keeps the black ink visible on the dark theme's surface. */
+.look-dot__ink circle {
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+.look-seg {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--color-secondary);
+}
+
+.look-seg__option {
+  display: inline-flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 var(--space-sm);
+  border-radius: 8px;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.look-seg__icon {
+  flex: none;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
+
+.look-axis__why {
+  min-height: 1.4em;
+  margin: var(--space-sm) 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.look-sheet__foot,
+.special-add__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.look-sheet__foot button,
+.special-add__foot button {
+  height: 40px;
+  padding: 0 var(--space-md);
+  font-size: var(--font-label-size);
+}
+
+button.look-sheet__reset {
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-accent);
+}
+
+button.look-sheet__reset[hidden] {
+  display: none;
+}
+
+button.look-sheet__done {
+  border-color: transparent;
+  background: var(--color-accent);
+  box-shadow: var(--shadow-control);
+  color: var(--color-on-accent);
+}
+
+button.look-sheet__done:hover {
+  background: var(--color-accent-hover);
+}
+
+/* Special looks ------------------------------------------------------ */
+
+.special-looks {
+  position: relative;
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.special-looks > .section-caption {
+  margin: var(--space-xs) 0 var(--space-md);
+}
+
+.special-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.special-row {
+  position: relative;
+  padding: var(--space-sm) 4px;
+  border-top: 1px solid var(--color-border);
+}
+
+.special-row:last-child {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.special-row__main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 64px;
+}
+
+.special-row__mini {
+  position: relative;
+  flex: none;
+  padding: 3px;
+  border-radius: 3px;
+  background: var(--color-frame-bezel);
+}
+
+.special-row__image {
+  display: block;
+  width: 48px;
+  height: 64px;
+  background: var(--color-image-backdrop);
+  background-image: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--color-text) 4%, transparent) 0 40%,
+    color-mix(in srgb, var(--color-text) 9%, transparent) 50%,
+    color-mix(in srgb, var(--color-text) 4%, transparent) 60% 100%
+  );
+}
+
+.special-row__text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.special-row__tag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--color-secondary);
+  font-size: 11px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.special-row .look-edit {
+  flex: none;
+}
+
+/* In a row, the open no-script table drops below the row's text. */
+.special-row .look-edit[open] {
+  flex: 1 1 100%;
+}
+
+.special-row__main:has(> .look-edit[open]) {
+  flex-wrap: wrap;
+}
+
+button.special-row__remove {
+  flex: none;
+  height: 36px;
+  border-color: var(--color-border);
+  background: transparent;
+  box-shadow: none;
+  color: var(--color-text);
+}
+
+button.special-row__remove:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+}
+
+.special-looks__order {
+  margin: var(--space-md) 0 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* Add a special look ----------------------------------------------- */
+
+.special-add__summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 64px;
+  font-weight: var(--weight-semibold);
+  color: var(--color-accent);
+  list-style: none;
+  cursor: pointer;
+}
+
+.special-add__summary::-webkit-details-marker {
+  display: none;
+}
+
+.special-add__plus {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 54px;
+  height: 70px;
+  border: 1.5px dashed color-mix(in srgb, var(--color-accent) 55%, transparent);
+  border-radius: 4px;
+}
+
+.special-add[open] > .special-add__summary {
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+.special-add__panel {
+  padding: var(--space-sm) 0 var(--space-md);
+}
+
+.special-add__form {
+  gap: var(--space-md);
+}
+
+.special-add__cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
+}
+
+.special-add__who,
+.special-add__look {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.special-add__who .theme-form {
+  min-height: 44px;
+}
+
+.special-add__who .theme-form input[type="radio"] + label {
+  flex: 1 1 0;
+  height: 38px;
+  font-size: var(--font-label-size);
+}
+
+.special-add__who input[type="text"] {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+}
+
+.special-add__preview {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.special-add__preview .text-label {
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.special-add__look-label {
+  margin: 0;
+}
+
+/* The three choices name themselves; the "Look" heading only stays for
+ * assistive technology once the picker replaces the table. */
+.special-add.is-enhanced .special-add__look-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.rule-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.rule-suggestions[hidden],
+.rule-suggestions__group[hidden] {
+  display: none;
+}
+
+.rule-suggestions > .text-label {
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.rule-suggestions__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+button.rule-suggestion-chip {
+  height: 36px;
+  border-color: transparent;
+  border-radius: 18px;
+  background: var(--color-secondary);
+  font-weight: var(--weight-regular);
+}
+
+/* With scripts, the add form is a dialog anchored beside the list. */
+.special-add.is-enhanced[open] > .special-add__panel {
+  position: absolute;
+  right: calc(100% + var(--space-md));
+  bottom: 0;
+  z-index: 51;
+  width: min(38rem, calc(100vw - 2 * var(--space-md)));
+  padding: var(--space-md) 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-dominant);
+  box-shadow: var(--shadow-pop);
+}
+
+@media (min-width: 700px) {
+  .special-add.is-enhanced .special-add__cols {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-lg);
+  }
+}
+
+@media (min-width: 1200px) {
+  .look-card__grid {
+    grid-template-columns: minmax(0, 15rem) minmax(0, 15rem) minmax(17rem, 1fr);
+    gap: var(--space-xl) var(--space-lg);
+  }
+
+  .special-looks {
+    grid-column: auto;
+  }
+
+  /* Without scripts, an open table or add form needs the card's width. */
+  .special-looks:has(.special-add[open]:not(.is-enhanced)),
+  .special-looks:has(.look-edit[open]) {
+    grid-column: 1 / -1;
+  }
+
+  .look-sheet--calendar {
+    top: 0;
+    right: calc(100% + var(--space-md));
+    left: auto;
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 1199.98px) {
+  .special-add.is-enhanced[open] > .special-add__panel {
+    right: auto;
+    left: 0;
+    top: auto;
+    bottom: calc(100% - 64px);
+  }
+}
+
+/* Phones: both dialogs become bottom sheets over a dimmed page. */
+@media (max-width: 699.98px) {
+  .look-scrim {
+    background: var(--color-scrim);
+  }
+
+  .look-sheet,
+  .special-add.is-enhanced[open] > .special-add__panel {
+    position: fixed;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 51;
+    width: auto;
+    max-width: none;
+    max-height: 88vh;
+    margin: 0;
+    padding: 22px var(--space-md) calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+    border-radius: 18px 18px 0 0;
+  }
+
+  .look-sheet::before,
+  .special-add.is-enhanced[open] > .special-add__panel::before {
+    content: "";
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 40px;
+    height: 4px;
+    margin-left: -20px;
+    border-radius: 2px;
+    background: var(--color-border);
+  }
+
+  .look-card__grid {
+    gap: var(--space-lg) var(--space-sm);
+  }
+
+  .look-frame__meta {
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .look-frame__picture {
+    padding: 5px;
+  }
+
+  /* The colour's name stays for assistive technology; its ink dot names
+   * the row on screen, so five 44px cells fit a 360px phone. */
+  .look-table__colour {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .look-table__ink {
+    margin-right: 0;
+  }
+
+  .look-table th[scope="row"] {
+    padding-right: 2px;
+  }
+
+  .look-table th {
+    padding: 0;
+    font-size: 11px;
+  }
+
+  .look-cell {
+    width: 44px;
+  }
 }

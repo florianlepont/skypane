@@ -19,7 +19,9 @@ import companion.test_status_pages_helpers as shp
 from companion import illustration_normalize, layout, prefs
 from companion.pages import airlines_page, config_page, health_page, home_page
 from companion_app_server import get, login, served_asset, served_stylesheet
-from companion_markup import css_rules, custom_properties, declarations_for, rules_with_selector
+from companion_markup import (
+    css_rules, custom_properties, declarations_for, parse_html, rules_with_selector,
+    toast_title_detail)
 from server import device_config, history_db
 from server.plane import illustrations
 
@@ -528,7 +530,7 @@ def test_health_nightly_regression_held_agrees_with_strip_dot_unlit_no_warn(tmp_
     Paris), pinned as ONE named check: the strip renders the held copy with the neutral dot,
     Health's Frame tile renders the SAME clock time, the nav notification dot is unlit, and
     the rendered Health HTML carries zero warn/error dots, zero warn tile/headline modifiers
-    and neither 'Expected since' nor 'Attendu depuis'"""
+    and neither 'Update overdue' nor 'Mise à jour en retard'"""
     qh_config = {
         "wake_interval_s": 900, "display_enabled": True,
         "quiet_hours_enabled": True,
@@ -549,7 +551,7 @@ def test_health_nightly_regression_held_agrees_with_strip_dot_unlit_no_warn(tmp_
     rendered_health = health_page.render(shp.ctx(tmp, now_value=clock.isoformat()))
     for warn_token in (
             "dot--warn", "dot--error", "stat-tile--warn",
-            "status-card__headline--warn", "Expected since", "Attendu depuis"):
+            "status-card__headline--warn", "Update overdue", "Mise à jour en retard"):
         assert warn_token not in rendered_health, "expected zero %r in a held Health render" % (warn_token,)
     # The live nav-tab severity path app.py's page_context() calls
     # (health_page.safe_health_state()), which fails closed to "ok" for
@@ -586,7 +588,7 @@ def test_health_inside_grace_window_tile_and_strip_agree_normal(tmp_path):
         "expected the tile to report 'ok' inside the grace window, got %r" % (state["device_state"],))
     strip_ctx = _frame_strip_ctx(checkin_iso, device_cfg, now_iso)
     rendered_strip = layout.frame_strip_html(strip_ctx, return_to=layout.HOME_ROUTE)
-    assert "Next update ≈" in rendered_strip, "expected the strip to report the due copy inside the grace window"
+    assert "Next update <time" in rendered_strip, "expected the strip to report the due copy inside the grace window"
     assert "status-card__headline--warn" not in rendered_strip, "expected no warn modifier inside the grace window"
 
 
@@ -606,7 +608,7 @@ def test_health_past_grace_window_both_report_late_dot_lights(tmp_path):
     assert state["severity"] != "ok", "expected the nav notification dot to light past the grace window"
     strip_ctx = _frame_strip_ctx(checkin_iso, device_cfg, now_iso)
     rendered_strip = layout.frame_strip_html(strip_ctx, return_to=layout.HOME_ROUTE)
-    assert "Expected since" in rendered_strip, "expected the strip to report the late copy past the grace window"
+    assert "Update overdue" in rendered_strip, "expected the strip to report the late copy past the grace window"
 
 
 def test_health_held_window_ended_and_grace_elapsed_both_report_late(tmp_path):
@@ -637,7 +639,7 @@ def test_health_held_window_ended_and_grace_elapsed_both_report_late(tmp_path):
         "got %r" % (state["device_state"],))
     strip_ctx = _frame_strip_ctx(checkin_iso, device_cfg, now_iso)
     rendered_strip = layout.frame_strip_html(strip_ctx, return_to=layout.HOME_ROUTE)
-    assert "Expected since" in rendered_strip, "expected the strip to also report late for the same fixture"
+    assert "Update overdue" in rendered_strip, "expected the strip to also report late for the same fixture"
 
 
 def test_dot_modifier_classes_are_exactly_four_no_new_class_added(css_text):
@@ -812,21 +814,34 @@ def test_the_strip_renders_two_server_rendered_switches():
             % (layout.QUICK_SWITCH_REGION_ATTR, rendered.count(layout.QUICK_SWITCH_REGION_ATTR)))
 
 
-def test_the_failure_toast_is_transient_translated_and_carries_no_internal():
-    """the optimistic switch's failure copy is the app's own generic flash sentence, translated
-    on <body> in both languages and carrying no status code, URL or server internal, and the
-    shell renders exactly one EMPTY assertive live region for it — a transient toast, never
-    a permanent banner"""
+def test_the_failure_toast_is_translated_sticky_and_carries_no_internal():
+    """the optimistic switch's failure copy is the app's own generic flash sentence, rendered
+    translated in both languages as an error toast inside a <template> (cloned by
+    quick-switch.js), carrying no status code, URL or server internal, and the shell renders
+    exactly one EMPTY assertive live region for it. As an error toast it never auto-hides and
+    carries its own dismiss button"""
     try:
         for lang in ("en", "fr"):
             prefs.set_request_prefs(lang=lang)
             expected = layout.i18n.t(layout.QUICK_SWITCH_FAILED_TEXT)
             doc = layout.page_shell(title="T", active="home", body="<p>b</p>", lang=lang)
-            body_tag = doc[doc.index("<body"):doc.index(">", doc.index("<body")) + 1]
-            marker = '%s="%s"' % (layout.QUICK_SWITCH_FAILED_ATTR, layout.escape_html(expected))
-            assert marker in body_tag, (
-                "lang=%s: expected the translated failure copy on the rendered <body> tag (%r), "
-                "got %r" % (lang, marker, body_tag))
+            tree = parse_html(doc)
+            templates = tree.select("template[%s]" % layout.QUICK_TOAST_TEMPLATE_ATTR)
+            assert len(templates) == 1, (
+                "lang=%s: expected exactly one quick-toast template, got %d"
+                % (lang, len(templates)))
+            toast = templates[0].select_one(".toast")
+            assert toast_title_detail(toast) == layout.split_toast_message(expected), (
+                "lang=%s: expected the translated failure copy as the template toast's title "
+                "and detail" % lang)
+            classes = toast.attrs["class"].split()
+            assert "toast--error" in classes, "expected the error tone, got %r" % classes
+            assert layout.TOAST_AUTOHIDE_ATTR not in toast.attrs, (
+                "an error toast must never auto-hide")
+            assert "role" not in toast.attrs, (
+                "the toast itself carries no role: the live region it is cloned into announces it")
+            dismiss = toast.select_one("button.toast__dismiss")
+            assert layout.TOAST_DISMISS_ATTR in dismiss.attrs and dismiss.attrs.get("aria-label")
             if lang == "fr":
                 assert expected != layout.QUICK_SWITCH_FAILED_TEXT, (
                     "the failure copy is untranslated — it reads %r in both languages" % (expected,))
@@ -837,18 +852,17 @@ def test_the_failure_toast_is_transient_translated_and_carries_no_internal():
                 assert internal not in expected, (
                     "lang=%s: the failure copy carries %r — a user-facing failure message names "
                     "no status code, no URL and no server internal (V7, T-23-27)" % (lang, internal))
-            # A transient toast, never a permanent banner. The live region
-            # is rendered EMPTY and stays in the accessibility tree,
-            # because a region added to the tree at announce time is a
-            # region screen readers routinely miss.
-            toast = '<div class="quick-toast" %s role="alert"></div>' % layout.QUICK_TOAST_ATTR
-            assert toast in doc, (
-                "lang=%s: expected exactly the empty assertive live region %r in the shell — D2 "
-                "asks for a transient toast rather than the permanent banner this app uses for a "
-                "flash" % (lang, toast))
-            assert doc.count(layout.QUICK_TOAST_ATTR) == 1, (
+            # The live region is rendered EMPTY and stays in the
+            # accessibility tree, because a region added to the tree at
+            # announce time is a region screen readers routinely miss.
+            regions = tree.select("[%s]" % layout.QUICK_TOAST_ATTR)
+            assert len(regions) == 1, (
                 "lang=%s: expected exactly one toast region per document, got %d — a second one "
-                "is a second place a failure could be announced" % (lang, doc.count(layout.QUICK_TOAST_ATTR)))
+                "is a second place a failure could be announced" % (lang, len(regions)))
+            region = regions[0]
+            assert region.attrs.get("role") == "alert" and not region.children, (
+                "lang=%s: expected the empty assertive live region, got %r" % (lang, region))
+            assert "toast-region--live" in region.attrs.get("class", "").split()
     finally:
         prefs.set_request_prefs(lang="en")
 
@@ -993,25 +1007,19 @@ def test_both_tabs_ok_end_to_end(make_app_server):
         assert heading.encode() in body, "expected the %r heading in %s's response body" % (heading, path)
         if path == "/health":
             body_text = body.decode("utf-8", errors="replace")
-            for constant in (
-                    health_page.PAGE_PURPOSE_TEXT,
-                    health_page.SCREEN_SECTION_DESCRIPTION,
-                    health_page.SERVER_DATA_SECTION_DESCRIPTION):
-                escaped = layout.escape_html(constant)
-                assert escaped not in body_text, "expected retired explanatory copy %r to be absent" % (constant,)
-            for label in (health_page.DEVICE_FRESHNESS_LABEL, health_page.PIPELINE_FRESHNESS_LABEL):
-                label_count = body_text.count(label)
-                assert label_count == 1, (
-                    "expected %r exactly once in the real /health HTTP response body, got %d"
-                    % (label, label_count))
+            for name in (health_page.ROW_CONNECTION_NAME, health_page.ROW_FLIGHT_DATA_NAME):
+                name_count = body_text.count(">%s<" % name)
+                assert name_count == 1, (
+                    "expected the row name %r exactly once in the real /health HTTP response body, got %d"
+                    % (name, name_count))
 
             assert "data-refresh-pill" not in body_text
             assert "data-stale-banner" not in body_text, "expected zero stale-banner markers in the real /health HTTP response body"
 
             nested_count = body_text.count("page-section--nested")
-            assert nested_count == 2, (
-                "expected page-section--nested exactly twice in the real /health HTTP response "
-                "body, got %d" % nested_count)
+            assert nested_count == 1, (
+                "expected page-section--nested exactly once (the registry card) in the real "
+                "/health HTTP response body, got %d" % nested_count)
             prose_count = body_text.count("data-table--prose")
             assert prose_count == 1, (
                 "expected data-table--prose exactly once in the real /health HTTP response body, "

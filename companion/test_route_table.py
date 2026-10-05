@@ -22,6 +22,7 @@ _SAMPLE_MIDDLE = {
     routes.PrefixSuffix(routes.RUNWAY_IMAGE_ROUTE_PREFIX, ".png"): "09",
     routes.PrefixSuffix(routes.ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png"): "air-france",
     routes.PrefixSuffix(routes.THEME_PREVIEW_ROUTE_PREFIX, ".png"): "midnight",
+    routes.PrefixSuffix(routes.FRAME_PREVIEW_ROUTE_PREFIX, ".png"): "white",
     routes.PrefixSuffix(
         routes.airlines_page.MANUAL_DELETE_ROUTE_PREFIX,
         routes.airlines_page.MANUAL_DELETE_ROUTE_SUFFIX): "RYR",

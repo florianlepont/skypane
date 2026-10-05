@@ -18,10 +18,12 @@ import companion.test_config_page_helpers as cp
 from companion import app as companion_app
 from companion.layout import escape_html
 from companion.pages import config_page
-from companion.settings import form_post
+from companion.settings import form_post, look
+from companion.settings import rules as rules_settings
 from companion_app_server import served_asset, served_stylesheet
 from companion_markup import (
     at_rule_blocks,
+    parse_html,
     css_rules,
     declarations_for,
     rule_indices,
@@ -273,22 +275,24 @@ def test_render_both_quiet_hours_time_inputs_carry_required():
 
 def test_calendar_connection_url_error_never_echoes_the_submitted_secret():
     """_calendar_connection_html(..., errors={"calendar_url": ERROR_CALENDAR_URL_INVALID}) renders
-    the error message under the field while the write-only field itself still carries no value
-    attribute at all
+    the error message under the field and opens the sheet on it, while the write-only field itself
+    still carries no value attribute at all
 
-    The write-only calendar_url field's own `errors` parameter now lives directly on
+    The write-only calendar_url field's own `errors` parameter lives directly on
     _calendar_connection_html() - it never accepts `submitted` at all (nothing to repopulate:
     the one field it renders is write-only), so there is no submitted URL for it to echo.
     """
     error_message = form_post.ERROR_CALENDAR_URL_INVALID
-    rendered, _disconnect_form_html = config_page._calendar_connection_html(
+    rendered = config_page._calendar_connection_html(
         False, False, None, None, "2026-09-07T09:12:04+00:00", 0,
         errors={"calendar_url": error_message})
-    assert error_message in rendered, "expected the calendar_url error message to render"
+    assert escape_html(error_message) in rendered, "expected the calendar_url error message to render"
     assert 'name="calendar_url"' in rendered, "expected the calendar_url field itself to still render"
     after_name = rendered.split('name="calendar_url"', 1)[1].split(">", 1)[0]
     assert "value=" not in after_name, (
         "expected no value attribute on the calendar_url field even with an error present")
+    assert re.search(r"<dialog[^>]* open[ >]", rendered), (
+        "expected a refused paste to render the sheet open")
 
 
 def test_style_css_styles_field_error(served_css):
@@ -483,70 +487,34 @@ def test_dirty_state_js_delegates_change_and_input_at_document_level_and_has_no_
 
 
 def test_live_preview_crossfades_through_one_class_shared_by_css_and_js(served_css, theme_preview_js):
-    """the live theme preview CROSSFADES rather than cuts: .theme-live-preview__image declares an
-    opacity transition at var(--motion-fast) on its own base rule, a
-    .theme-live-preview__image--swapping class carries the opacity-0 half, theme-preview.js
-    drives that same class literal from transitionend and the image's own load/error (never a
-    timer) while consulting the computed opacity so a swap can never wait on a transition that
-    never runs, and T8's window.SkyPaneLivePreview.refresh() survives
+    """the live pictures follow the checked look without a timer: every look target carries a
+    server-rendered data-preview-src-template the script fills with the theme id, the script
+    swaps an <img> src only from that template, never through a timer, and keeps exposing
+    window.SkyPaneLivePreview.refresh() for dirty-state.js's Cancel handler
 
-    The mechanism must be EVENT-DRIVEN, never timed: a crossfade on a timer is the specific way
-    this goes wrong (the swap and the fade drift apart, and the preview settles on whichever the
-    timer happened to win). `transitionend` is when the fade-out is genuinely over, and the
-    image's own `load`/`error` is when the new frame is genuinely there.
+    The swap must be EVENT-DRIVEN, never timed: a timed swap drifts from the selection it
+    illustrates. `change` is when the selection genuinely changed.
     """
-    fade_class = "theme-live-preview__image--swapping"
-    css = served_css
-    # Comment-stripped structurally, via css_rules()/declarations_for(),
-    # so a comment that merely discusses the timer ban can never satisfy
-    # (or trip) this assertion.
-    base = declarations_for(css, ".theme-live-preview__image")
-    assert "transition" in base, (
-        "expected .theme-live-preview__image to declare the crossfade transition on its own base "
-        "rule, so the fade runs in BOTH directions from one declaration")
-    decl = base["transition"]
-    assert "opacity" in decl, (
-        "expected the live preview's transition to name opacity, got %r" % (decl,))
-    assert "var(--motion-fast)" in decl, (
-        "expected the live preview crossfade to spend var(--motion-fast) - somebody just clicked "
-        "a chip and is watching for the preview to answer, got %r" % (decl,))
-
-    fade_decls = declarations_for(css, ".%s" % fade_class)
-    assert fade_decls.get("opacity") == "0", (
-        "expected .%s to be the opacity-0 half of the crossfade, got %r" % (fade_class, fade_decls))
-
-    # theme-preview.js's own comment/string stripper must NOT erase
-    # string literals: fade_class and the "load"/"error" event names are
-    # all quoted strings this check searches for verbatim.
+    rendered = config_page.render({
+        "device_config": {"theme": "white", "tracked_runway": "3"},
+        "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+        "poll_cooldown_remaining": 0,
+    }, scope=config_page.SCOPE_DISPLAY)
+    templates = re.findall(r'data-preview-src-template="([^"]+)"', rendered)
+    assert len(templates) == 4, (
+        "expected a preview template on each of the four look targets (departures, arrivals, "
+        "calendar, a new special look), got %r" % (templates,))
+    for template in templates:
+        assert template.startswith(config_page.FRAME_PREVIEW_ROUTE_PREFIX + "__THEME__.png?"), template
     js = cp.strip_js_line_and_block_comments(theme_preview_js)
-    assert fade_class in js, (
-        "theme-preview.js must drive the crossfade through the same %r class style.css declares "
-        "- neither file imports the other, and this literal is the only thing keeping them in "
-        "step" % (fade_class,))
-    for token in ("transitionend", '"load"', '"error"'):
-        assert token in js, (
-            "expected theme-preview.js to listen for %s - the crossfade must be driven by the "
-            "events that actually mark the fade-out ending and the new frame arriving, never by "
-            "a timer" % (token,))
-    # The one stall an event-driven crossfade can have, pinned as a
-    # structural fact because its browser-level reproduction is
-    # probabilistic (measured 4 stalls in 14 runs before the fix, 0 in 14
-    # after). A transitionend only arrives if a transition actually RAN.
-    assert "getComputedStyle" in js, (
-        "theme-preview.js must consult the COMPUTED opacity before waiting on transitionend: a "
-        "transition that never runs never ends, and the preview then sits invisible on the "
-        "discarded theme forever (measured: 4 stalls in 14 runs without this)")
+    for token in ("data-preview-src-template", "__THEME__", '"change"'):
+        assert token in js, "expected theme-preview.js to use %r" % (token,)
     for banned in ("setTimeout", "setInterval", "requestAnimationFrame"):
-        assert banned not in js, (
-            "theme-preview.js must stay timer-free (%r found): a timed crossfade lets the swap "
-            "and the fade drift apart, and the preview settles on whichever won" % (banned,))
-    # T8 survives: dirty-state.js's Cancel handler calls this, and a
-    # crossfade that bypassed refresh() would leave Cancel showing the
-    # discarded theme again.
+        assert banned not in js, "theme-preview.js must stay timer-free (%r found)" % (banned,)
     assert "SkyPaneLivePreview" in js and "refresh" in js, (
         "expected theme-preview.js to keep exposing window.SkyPaneLivePreview.refresh() - "
-        "dirty-state.js's Cancel handler calls it after form.reset(), and T8 exists because "
-        "reset() fires no change event")
+        "dirty-state.js's Cancel handler calls it after form.reset(), which fires no change event")
+    assert declarations_for(served_css, ".look-frame__image").get("display") == "block"
 
 
 def test_dirty_state_js_beforeunload_guard_reuses_count_differences(dirty_state_js):
@@ -659,15 +627,9 @@ def test_style_css_carries_no_rule_for_the_retired_save_status_region(served_css
 
 def test_style_css_carries_theme_status_runway_row_and_settings_checkbox_selectors(served_css):
     """style.css declares .theme-status (card-surface token + hover selector), .runway-row (flex
-    display), .settings-checkbox input[type="checkbox"] (cleared min-height), and
-    .theme-chip-grid/.theme-chip/.theme-chip--selected/.theme-chip__preview (flex display, card
-    surface + 160px width, accent border, 56px preview band) - the selectors config_page.py's new
-    markup depends on
-
-    No Python constant carries these class-name literals, so they are asserted directly here,
-    structurally via declarations_for() over the served stylesheet rather than a raw
-    index-plus-window scan.
-    """
+    display), .settings-checkbox input[type="checkbox"] (cleared min-height), and the look
+    card's own selectors: the two-column .look-card__grid, the 48px .look-cell target, and the
+    .look-sheet popover on the card surface with the pop shadow token"""
     css = served_css
 
     theme_status = declarations_for(css, ".theme-status")
@@ -687,26 +649,15 @@ def test_style_css_carries_theme_status_runway_row_and_settings_checkbox_selecto
         "expected .settings-checkbox input[type=\"checkbox\"]'s rule body to clear the global "
         "rule's min-height, got %r" % (checkbox_decls,))
 
-    # A cross-file guard covering the .theme-chip* selectors the chip-grid
-    # markup depends on.
-    chip_grid = declarations_for(css, ".theme-chip-grid")
-    assert chip_grid.get("display") == "flex", (
-        "expected .theme-chip-grid's rule body to set display: flex, got %r" % (chip_grid,))
-
-    chip = declarations_for(css, ".theme-chip")
-    chip_joined = " ".join(chip.values())
-    assert "var(--color-dominant)" in chip_joined, (
-        "expected .theme-chip's rule body to carry the --color-dominant card-surface token")
-    assert chip.get("width") == "160px", (
-        "expected .theme-chip's rule body to set width: 160px, got %r" % (chip,))
-
-    chip_selected = declarations_for(css, ".theme-chip--selected")
-    assert "var(--color-accent)" in " ".join(chip_selected.values()), (
-        "expected .theme-chip--selected's rule body to carry var(--color-accent)")
-
-    chip_preview = declarations_for(css, ".theme-chip__preview")
-    assert chip_preview.get("height") == "56px", (
-        "expected .theme-chip__preview's rule body to set height: 56px, got %r" % (chip_preview,))
+    grid = declarations_for(css, ".look-card__grid")
+    assert grid.get("display") == "grid", grid
+    assert "repeat(2" in grid.get("grid-template-columns", ""), grid
+    cell = declarations_for(css, ".look-cell")
+    assert cell.get("width") == "48px" and cell.get("height") == "48px", (
+        "expected every table cell to be a 48px target (over the 44px floor), got %r" % (cell,))
+    sheet = declarations_for(css, ".look-sheet")
+    assert sheet.get("background") == "var(--color-dominant)", sheet
+    assert sheet.get("box-shadow") == "var(--shadow-pop)", sheet
 
 
 # ======================================================================
@@ -714,53 +665,55 @@ def test_style_css_carries_theme_status_runway_row_and_settings_checkbox_selecto
 # ======================================================================
 
 def test_theme_chip_preview_src_points_at_the_real_route_prefix_for_every_theme():
-    """every theme chip's <img src> points at THEME_PREVIEW_ROUTE_PREFIX + the theme's own
-    registry id, for every entry in device_config.THEME_IDS (06.6.4.1.1-05)"""
-    rendered = config_page._theme_chip_grid_html("theme", "white")
+    """every theme radio in the departures table carries a data-preview-src pointing at
+    FRAME_PREVIEW_ROUTE_PREFIX + its own registry id, departing state and large size, and the
+    big departures picture's <img src> is that same URL for the saved theme"""
+    rendered = config_page.render({
+        "device_config": {"theme": "blue", "tracked_runway": "3"},
+        "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+        "poll_cooldown_remaining": 0,
+    }, scope=config_page.SCOPE_DISPLAY)
+    start, end = cp.aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_DEPARTURES)
+    segment = rendered[start:end]
     for theme_id in device_config.THEME_IDS:
-        expected_src = 'src="%s%s.png"' % (
-            config_page.THEME_PREVIEW_ROUTE_PREFIX, escape_html(theme_id))
-        assert expected_src in rendered, "expected chip %r to carry %r" % (theme_id, expected_src)
+        expected_src = escape_html(
+            "%s%s.png?state=departing&size=large" % (config_page.FRAME_PREVIEW_ROUTE_PREFIX, theme_id))
+        assert 'data-preview-src="%s"' % expected_src in segment, (
+            "expected the %r radio to carry %r" % (theme_id, expected_src))
+    assert 'data-look-image src="%s"' % escape_html(
+        "%sblue.png?state=departing&size=large" % config_page.FRAME_PREVIEW_ROUTE_PREFIX) in segment
 
 
 def test_theme_chip_swatch_dots_carry_real_palette_hex_values():
-    """every theme chip carries exactly two .theme-chip__dot swatches whose inline background
-    values equal _palette_hex() computed from that theme's own departing_index/arriving_index"""
-    rendered = config_page._theme_chip_grid_html("theme", "white")
-    assert rendered.count("theme-chip__dot") == len(device_config.THEME_IDS) * 2, (
-        "expected exactly %d .theme-chip__dot occurrences (2 per theme), got %d"
-        % (len(device_config.THEME_IDS) * 2, rendered.count("theme-chip__dot")))
-    for theme_id in device_config.THEME_IDS:
+    """every table cell's swatch fills carry the panel's own palette values: the theme's field
+    ink, and for a band theme its band ink, each computed from server.panel_format's
+    PALETTE_RGB through look.colour_hex(), never a literal"""
+    rendered = look.look_table_html("theme", "white", "Departures", lambda theme_id: "")
+    root = parse_html(rendered)
+    for cell in root.find_all("label"):
+        radio = cell.find("input")
+        theme_id = radio.attrs["value"]
         theme = device_config.THEMES[theme_id]
-        departing_hex = config_page._palette_hex(theme["departing_index"])
-        arriving_hex = config_page._palette_hex(theme["arriving_index"])
-        assert ('theme-chip__dot" style="background:%s"' % departing_hex) in rendered, (
-            "expected theme %r's departing swatch dot to carry %r" % (theme_id, departing_hex))
-        assert ('theme-chip__dot" style="background:%s"' % arriving_hex) in rendered, (
-            "expected theme %r's arriving swatch dot to carry %r" % (theme_id, arriving_hex))
+        fills = [node.attrs.get("fill") for node in cell.find_all() if node.attrs.get("fill")]
+        expected = {look._palette_hex(theme["departing_index"])}
+        if "band_index" in theme:
+            expected.add(look._palette_hex(theme["band_index"]))
+        assert expected <= set(fills), (theme_id, fills)
 
 
 def test_theme_chip_radio_hidden_and_check_glyph_present_on_every_chip():
-    """every theme chip's radio carries class="visually-hidden" (never display:none) and every
-    chip carries a .theme-chip__check glyph with visually-hidden "Selected" text, present on all
-    chips regardless of selection
-
-    The radio is visually-hidden (never display:none), so keyboard/no-JS selection keeps working
-    natively.
-    """
-    rendered = config_page._theme_chip_grid_html("theme", "white")
-    theme_count = len(device_config.THEME_IDS)
-    assert rendered.count('name="theme" value="') == theme_count, (
-        "expected %d theme radios, got %d" % (theme_count, rendered.count('name="theme" value="')))
-    assert rendered.count('class="visually-hidden"') >= theme_count, (
-        "expected every chip's radio to carry class=\"visually-hidden\"")
-    assert "display:none" not in rendered and "display: none" not in rendered, (
-        "expected the radio hidden via the visually-hidden utility class, never display:none")
-    assert rendered.count('<span class="theme-chip__check">') == theme_count, (
-        "expected exactly %d .theme-chip__check occurrences (one per chip, regardless of "
-        "selection), got %d" % (theme_count, rendered.count('<span class="theme-chip__check">')))
-    assert rendered.count('<span class="visually-hidden">Selected</span>') == theme_count, (
-        "expected every chip's check glyph to carry the visually-hidden \"Selected\" text")
+    """every look table radio carries class="visually-hidden" (never display:none) inside its
+    own <label>, and every grid cell names its look in visually-hidden text, so keyboard and
+    no-script selection keep working natively"""
+    rendered = look.look_table_html("theme", "white", "Departures", lambda theme_id: "")
+    root = parse_html(rendered)
+    radios = [node for node in root.find_all("input") if node.attrs.get("type") == "radio"]
+    assert len(radios) == len(device_config.THEME_IDS)
+    for radio in radios:
+        assert radio.attrs.get("class") == "visually-hidden"
+        assert radio.parent.tag == "label"
+        assert radio.parent.text(), "expected every option to carry a text name"
+    assert "display:none" not in rendered and "display: none" not in rendered
 
 
 # ======================================================================
@@ -769,9 +722,8 @@ def test_theme_chip_radio_hidden_and_check_glyph_present_on_every_chip():
 # ======================================================================
 
 def test_aspect_arrivals_row_carries_leading_option_no_checkbox():
-    """the arrivals row carries a leading Same-as-departures option submitting the empty string
-    (class="leading-option", form=settings-form), and no checkbox-based override control exists
-    anywhere on the page
+    """the arrivals table carries a leading Same-as-departures radio submitting the empty string
+    (form=settings-form), and no checkbox-based override control exists anywhere on the page
 
     This control used to be a checkbox; the empty-string radio is what keeps the clear signal
     honest now.
@@ -781,27 +733,21 @@ def test_aspect_arrivals_row_carries_leading_option_no_checkbox():
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
         "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
-    leading_needle = (
-        '<label class="leading-option">'
-        '<input type="radio" name="theme_arriving" value="" class="visually-hidden" form="%s"'
-        % config_page.SETTINGS_FORM_ID)
-    assert leading_needle in rendered, (
-        "expected the arrivals row's leading option to carry class=\"leading-option\" and "
-        "form=%r" % (config_page.SETTINGS_FORM_ID,))
-    assert 'type="checkbox"' not in rendered, "expected no <input type=\"checkbox\"> anywhere in the Aspect card"
+    root = parse_html(rendered)
+    leading = [
+        node for node in root.find_all("input")
+        if node.attrs.get("name") == "theme_arriving" and node.attrs.get("value") == ""]
+    assert len(leading) == 1
+    assert leading[0].attrs.get("form") == config_page.SETTINGS_FORM_ID
+    assert leading[0].parent.text() == i18n.t(config_page.SAME_AS_DEPARTURES_LABEL)
+    assert 'type="checkbox"' not in rendered, "expected no <input type=\"checkbox\"> anywhere in the look card"
 
 
 def test_aspect_arrivals_override_preselects_the_override_not_same_as_departures():
     """a stored theme_arriving override pre-selects the OVERRIDE (not Same-as-departures, not the
-    departures theme) in the arrivals row, names the override's own label in the row's summary
-    meta, and leaves the calendar row's own Same-as-departures state unaffected in the same
-    render
-
-    Locates the arrivals row by its own data-usage attribute (never
-    COLOUR_USAGE_PANEL_TARGET_ATTR, retired), and asserts the calendar row is unaffected in the
-    same render - that cross-row independence is the relationship this check is really
-    protecting.
-    """
+    departures theme) in the arrivals table, reads the override's own look back under the
+    picture, and leaves the calendar row's own Same-as-departures state unaffected in the same
+    render"""
     rendered = config_page.render({
         "device_config": {
             "theme": "white", "tracked_runway": "3", "theme_arriving": "black"},
@@ -812,20 +758,13 @@ def test_aspect_arrivals_override_preselects_the_override_not_same_as_departures
         rendered, config_page.COLOUR_USAGE_ARRIVALS)
     arrivals_segment = rendered[arrivals_start:arrivals_end]
     assert re.search(r'name="theme_arriving" value="black"[^>]*checked', arrivals_segment), (
-        "expected the arrivals row's checked radio to be the stored override (black)")
+        "expected the arrivals table's checked radio to be the stored override (black)")
     assert not re.search(r'name="theme_arriving" value=""[^>]*checked', arrivals_segment), (
         "expected the leading Same-as-departures option to NOT be checked once an override is set")
     assert not re.search(r'name="theme_arriving" value="white"[^>]*checked', arrivals_segment), (
-        "expected the departures theme (white) to NOT be marked selected in the arrivals row "
-        "once an override is set")
-    summary_segment = arrivals_segment.split("</summary>", 1)[0]
-    override_label = escape_html(device_config.theme_label("black"))
-    assert override_label in summary_segment, (
-        "expected the arrivals row's summary meta to name the override's own label")
-    same_as_label = escape_html(i18n.t(config_page.SAME_AS_DEPARTURES_LABEL))
-    assert same_as_label not in summary_segment, (
-        "expected the arrivals row's summary meta to NOT read Same-as-departures once an "
-        "override is set")
+        "expected the departures theme (white) to NOT be marked selected in the arrivals table")
+    sentence = re.search(r'data-look-sentence>([^<]*)<', arrivals_segment).group(1)
+    assert sentence == escape_html(look.look_sentence("black")), sentence
     calendar_start, calendar_end = cp.aspect_usage_row_bounds(
         rendered, config_page.COLOUR_USAGE_CALENDAR)
     calendar_segment = rendered[calendar_start:calendar_end]
@@ -1021,182 +960,71 @@ def test_settings_page_has_zero_fieldsets_and_four_dirty_sections():
 # ======================================================================
 
 def test_selected_runway_card_and_theme_chip_carry_a_background_wash(served_css):
-    """both .runway-card--selected and .theme-chip--selected .theme-chip__body carry a
-    12%-accent background wash (color-mix), matching .theme-form .theme-option--active's
-    established active-state idiom, added alongside (not replacing) their check glyph and their
-    now-constant 1px border, whose 2px accent signal moved to an inset ring
+    """both .runway-card--selected and a checked look-table cell carry a 12%-accent background
+    wash (color-mix), matching .theme-form .theme-option--active's established active-state
+    idiom, with a constant 1px border whose 2px accent signal is an inset ring
 
     The developer reported that, across the whole site, the selected element was "very hard to
     see" - a border-only + check-glyph treatment was too subtle at density.
     """
     css = served_css
-
     runway = _declared(css, ".runway-card--selected")
-    # T6: the border is constant at 1px and only recolours; the 2px
-    # accent signal moved to an inset ring, which occupies no layout
-    # space at all (a 2px border still widens the OUTER box of a
-    # flex: 1 1 0 card under box-sizing: border-box).
     _assert_constant_border_and_inset_ring(runway, ".runway-card--selected")
     assert runway.get("background") == _ACCENT_WASH, (
         "expected .runway-card--selected to carry the same 12%%-accent background wash "
         ".theme-form .theme-option--active uses, got %r" % (runway,))
-
-    # .theme-chip--selected itself must stay border-only (no background) -
-    # the wash must be scoped to .theme-chip__body only, so it never sits
-    # behind the rendered preview band and tints it.
-    chip_selected = _declared(css, ".theme-chip--selected")
-    assert not {"background", "background-color"} & set(chip_selected), (
-        "expected .theme-chip--selected itself to stay border-only - the wash must be scoped to "
-        ".theme-chip__body, not the whole chip (which would tint the preview band), got %r"
-        % (chip_selected,))
-
-    chip_body = _declared(css, ".theme-chip--selected .theme-chip__body")
-    assert chip_body.get("background") == _ACCENT_WASH, (
-        "expected .theme-chip--selected .theme-chip__body to carry the same 12%%-accent "
-        "background wash .theme-form .theme-option--active uses, got %r" % (chip_body,))
+    for selector in (".look-cell:has(input:checked)", ".look-option:has(input:checked)"):
+        live = _declared(css, selector, at_rules=_HAS_QUERY)
+        _assert_constant_border_and_inset_ring(live, selector)
+        assert live.get("background") == _ACCENT_WASH, (
+            "expected %s to carry the 12%%-accent wash, got %r" % (selector, live))
 
 
 def test_strong_selected_treatment_is_keyed_to_the_live_checked_radio(served_css):
-    """the strong selected-card treatment (border, wash, check glyph, and a hover restore)
-    is keyed to live :has(input:checked) state inside one @supports selector(:has(*)) block, for
-    both .theme-chip and .runway-card, with every pre-existing --selected fallback rule surviving
-    verbatim - and selection ANSWERS: a fast transition naming the transform, the border colour,
-    the shadow and the wash is declared on each selectable surface's BASE rule, the live rules
-    and their --selected fallbacks carry the SAME scale, saved-but-not-live clears it, and the
-    ONE feature-query block declares no transition at all - asserted together so moving one
-    inside fails once
-
-    The strong "this is your selection" treatment used to follow the SAVED config, not the
-    user's LIVE choice, because every selected-state rule keyed off the server-computed
-    --selected class alone. Also proves the hover guard (which would otherwise clear the
-    newly-checked chip's border) is answered with a positive restore rule rather than a
-    re-scoped guard.
-    """
+    """the strong selected treatment (border, wash, check glyph, and a hover restore) is keyed
+    to live :has(input:checked) state inside one @supports selector(:has(*)) block for both
+    .runway-card and the look table's cells and options, with the runway's --selected fallback
+    surviving, its transition declared on the base rule and the feature-query block declaring no
+    transition at all"""
     css = served_css
     _assert_one_has_feature_query_block(css)
 
     def _live(selector):
         return _declared(css, selector, at_rules=_HAS_QUERY)
 
-    _assert_constant_border_and_inset_ring(
-        _live(".theme-chip:has(input:checked)"), ".theme-chip:has(input:checked)")
-    assert _live(".theme-chip:has(input:checked) .theme-chip__body").get("background") == \
-        _ACCENT_WASH, ".theme-chip:has(input:checked) .theme-chip__body must carry the 12%-accent wash"
-    assert _live(".theme-chip:has(input:checked) .theme-chip__check").get("display") == \
-        "inline-flex", ".theme-chip:has(input:checked) .theme-chip__check must be shown"
-
-    # The hover clause used to require `box-shadow: none`, whose only job
-    # was to suppress the hover elevation shadow - once selection IS a
-    # box-shadow, `none` erases the ring the instant a pointer crosses a
-    # selected chip. The restore rule restates the ring instead.
-    for hover_selector in (".theme-chip:has(input:checked):hover",
-                           ".runway-card:has(input:checked):hover"):
-        hover = _live(hover_selector)
-        assert hover.get("border-color") == "var(--color-accent)", (
-            "%s must restore the accent border-color, got %r" % (hover_selector, hover))
-        assert hover.get("box-shadow") == _INSET_RING, (
-            "%s must RESTATE T6's inset ring rather than clearing the shadow, got %r"
-            % (hover_selector, hover))
-
+    hover = _live(".runway-card:has(input:checked):hover")
+    assert hover.get("border-color") == "var(--color-accent)"
+    assert hover.get("box-shadow") == _INSET_RING
     runway_live = _live(".runway-card:has(input:checked)")
     _assert_constant_border_and_inset_ring(runway_live, ".runway-card:has(input:checked)")
-    assert runway_live.get("background") == _ACCENT_WASH, (
-        ".runway-card:has(input:checked) must carry the 12%-accent wash directly (no body wrapper)")
-    assert _live(".runway-card:has(input:checked) .runway-card__check").get("display") == \
-        "inline-flex", ".runway-card:has(input:checked) .runway-card__check must be shown"
-
-    # Fallback intact: every pre-existing server-class rule still exists
-    # outside the feature query.
-    for selector in (
-        ".theme-chip--selected",
-        ".theme-chip--selected .theme-chip__body",
-        ".runway-card--selected",
-        ".theme-chip--selected .theme-chip__check",
-        ".runway-card--selected .runway-card__check",
-    ):
+    assert runway_live.get("background") == _ACCENT_WASH
+    assert _live(".runway-card:has(input:checked) .runway-card__check").get("display") == "inline-flex"
+    for selector in (".look-cell:has(input:checked)", ".look-option:has(input:checked)",
+                     ".look-dot:has(input:checked)", ".look-seg__option:has(input:checked)"):
+        _live(selector)
+    for selector in (".runway-card--selected", ".runway-card--selected .runway-card__check"):
         _declared(css, selector)
-
-    # SELECTION ANSWERS. A `transition` is a property of the
-    # ELEMENT, not of the state: declared on the BASE rule, outside the
-    # feature query, it animates the property however the state is
-    # reached - live `:has(input:checked)` inside the query, and the
-    # server-rendered `--selected` fallback outside it.
-    for selector, properties in (
-        (".theme-chip", ("transform", "border-color", "box-shadow")),
-        (".theme-chip__body", ("background-color",)),
-        (".runway-card", ("transform", "border-color", "box-shadow", "background-color")),
-    ):
-        transition = _declared(css, selector).get("transition")
-        assert transition, (
-            "%s must declare the selection transition on its OWN base rule, outside the "
-            "feature query - a transition declared on the base rule animates the property "
-            "however the state is reached (D3, 23-10-PLAN.md Task 1)" % (selector,))
-        for prop in properties:
-            assert prop in transition, (
-                "%s's transition must name %r - it is one of the properties that actually "
-                "changes on selection, and a property absent from the list switches instantly "
-                "(got %r)" % (selector, prop, transition))
-        assert "var(--motion-fast)" in transition, (
-            "%s's transition must spend var(--motion-fast), the phase's REACTION token (got %r)"
-            % (selector, transition))
-
-    # The scale itself, and the fallback parity that is the whole reason
-    # one transition declaration is enough: the live rule and the
-    # --selected fallback must carry the SAME transform, or a browser
-    # without :has() gets a differently-sized selected card.
-    scales = {}
-    for selector, at_rules in (
-        (".theme-chip:has(input:checked)", _HAS_QUERY),
-        (".theme-chip--selected", ()),
-        (".runway-card:has(input:checked)", _HAS_QUERY),
-        (".runway-card--selected", ()),
-    ):
-        transform = _declared(css, selector, at_rules=at_rules).get("transform", "")
-        match = re.fullmatch(r"scale\(([^)]+)\)", transform)
-        assert match, (
-            "expected %r to carry the selection scale (`transform: scale(...)`), got %r - a "
-            "transform changes no layout box so T6 cannot recur through it" % (selector, transform))
-        scales[selector] = match.group(1).strip()
-    assert len(set(scales.values())) == 1, (
-        "the live :has(input:checked) rules and their --selected fallbacks must carry the SAME "
-        "scale, or a browser without :has() renders a different-sized selected card, got %r"
-        % (scales,))
-
-    # Saved-but-not-live must CLEAR the scale, exactly as it already
-    # clears the accent ring and the wash: two scaled chips would claim
-    # two selections.
-    for selector in (
-        ".theme-chip--selected:not(:has(input:checked))",
-        ".runway-card--selected:not(:has(input:checked))",
-    ):
-        assert _live(selector).get("transform") == "none", (
-            "%s must clear the selection scale with `transform: none` - a saved-but-not-live "
-            "chip that stays scaled claims a selection it does not have" % (selector,))
-
-    # And the block itself carries NO transition: it belongs on each
-    # selectable surface's BASE rule.
+    transition = _declared(css, ".runway-card").get("transition", "")
+    for prop in ("transform", "border-color", "box-shadow", "background-color"):
+        assert prop in transition, (".runway-card", prop, transition)
+    assert "var(--motion-fast)" in transition
+    runway_scale = _declared(css, ".runway-card--selected").get("transform")
+    assert _live(".runway-card:has(input:checked)").get("transform") == runway_scale
+    assert _live(".runway-card--selected:not(:has(input:checked))").get("transform") == "none"
     for rule in css_rules(css):
         if _HAS_QUERY[0] in rule.at_rules:
             for prop, value in rule.declarations:
                 assert "transition" not in prop and "transition" not in value, (
-                    "the ONE @supports selector(:has(*)) block declares a transition on %r - it "
-                    "must not (D3, 23-10-PLAN.md Task 1)" % (rule.selectors,))
+                    "the ONE @supports selector(:has(*)) block declares a transition on %r"
+                    % (rule.selectors,))
 
 
 def test_destructive_disconnect_is_secondary_and_selection_is_free_and_focusable_after_the_accordion_rebuild(served_css):
     """the destructive Disconnect control keeps its secondary, element-qualified specificity AND
-    its source-order relationship against button[type="submit"] (T2/T15, re-proven as a
-    RELATIONSHIP rather than a bare presence check, since the recorded defect was a rule whose
-    every declaration was dead for a phase and a half), and the selected-chip mechanism is
-    re-keyed from the retired 'input:checked + .frame-colours__row' sibling selector to
-    .palette-chip:has(input:checked) inside the file's one @supports selector(:has(*)) block,
-    carrying the accent border, inset ring, 12%% wash and check-glyph declarations"""
+    its source-order relationship against button[type="submit"], and the look table's checked
+    cell is keyed to .look-cell:has(input:checked) inside the file's one @supports
+    selector(:has(*)) block with a visible focus ring on the hidden radio's label"""
     css = served_css
-
-    # (a) T2/T15: button[type="submit"] and button.calendar-disconnect-btn
-    # are both (0,1,1) - equal specificity - so SOURCE ORDER alone decides
-    # which one wins. A bare '.calendar-disconnect-btn' is only (0,1,0)
-    # and would lose regardless of order.
     submit = rule_indices(css, 'button[type="submit"]', at_rules=())
     disconnect = rule_indices(css, "button.calendar-disconnect-btn", at_rules=())
     assert submit, 'expected style.css to declare a top-level button[type="submit"] rule'
@@ -1205,22 +1033,13 @@ def test_destructive_disconnect_is_secondary_and_selection_is_free_and_focusable
         "button.calendar-disconnect-btn rule")
     assert min(disconnect) > max(submit), (
         "expected every button.calendar-disconnect-btn rule to come AFTER every "
-        'button[type="submit"] rule - at equal (0,1,1) specificity the LATER rule wins, and '
-        "this is the exact relationship that let the destructive control render as the page's "
-        "primary accent-filled CTA for a phase and a half")
-
-    # (b) T6, re-keyed: the palette chip's checked-state declarations
-    # live inside the ONE @supports selector(:has(*)) block.
+        'button[type="submit"] rule - at equal (0,1,1) specificity the LATER rule wins')
     _assert_one_has_feature_query_block(css)
-    chip = _declared(css, ".palette-chip:has(input:checked)", at_rules=_HAS_QUERY)
-    assert chip.get("border-color") == "var(--color-accent)", (
-        ".palette-chip:has(input:checked) must recolour its own border to accent")
-    assert chip.get("box-shadow") == _INSET_RING, (
-        ".palette-chip:has(input:checked) must carry the inset accent ring")
-    name = _declared(css, ".palette-chip:has(input:checked) .palette-chip__name", at_rules=_HAS_QUERY)
-    assert name.get("background") == _ACCENT_WASH, "expected the 12% accent wash on .palette-chip__name"
-    check = _declared(css, ".palette-chip:has(input:checked) .palette-chip__check", at_rules=_HAS_QUERY)
-    assert check.get("display") == "inline-flex", "expected the check glyph to switch to inline-flex"
+    cell = _declared(css, ".look-cell:has(input:checked)", at_rules=_HAS_QUERY)
+    assert cell.get("border-color") == "var(--color-accent)"
+    assert cell.get("box-shadow") == _INSET_RING
+    focus = _declared(css, ".look-cell:has(input:focus-visible)", at_rules=_HAS_QUERY)
+    assert focus.get("outline", "").startswith("2px solid var(--color-accent)"), focus
 
 
 def test_calendar_fusion_css_retired_from_the_stylesheet(served_css):
@@ -1240,68 +1059,36 @@ def test_calendar_fusion_css_retired_from_the_stylesheet(served_css):
 
 
 def test_saved_but_unchecked_card_degrades_to_a_quiet_current_marker(served_css):
-    """the saved-but-no-longer-live --selected card degrades to an accent-free dashed 70%-muted
-    ring with its wash/check glyph cleared and a "Current" ::after tag whose text is read from
-    the server-rendered, translated data-current-label attribute (exactly 2 occurrences
-    site-wide, zero hard-coded English declarations, zero French copy in the stylesheet), reusing
-    the established muted-text strength rather than inventing a new one
-
-    The server-rendered --selected class is demoted from driving the strong treatment to an
-    honest, quiet "this is what is saved" marker once it is no longer the live choice.
-    """
+    """the saved-but-no-longer-live --selected runway card degrades to an accent-free dashed
+    70%-muted ring with its check glyph cleared and a "Current" ::after tag read from the
+    server-rendered, translated data-current-label attribute; the saved look-table option keeps
+    an accent-free dashed muted ring of its own once another one is picked"""
     css = served_css
     rules = css_rules(css)
-
-    for selector in (".theme-chip--selected:not(:has(input:checked))",
-                     ".runway-card--selected:not(:has(input:checked))"):
+    for selector in (".runway-card--selected:not(:has(input:checked))",
+                     ".look-cell--saved:not(:has(input:checked))",
+                     ".look-option--saved:not(:has(input:checked))"):
         joined = " ".join(_declared(css, selector, at_rules=_HAS_QUERY).values())
         assert "dashed" in joined, "%r must use a dashed ring, not a solid one" % (selector,)
         assert _MUTED_TEXT in joined, (
             "%r must use the established 70%%-muted-text colour, not a new strength" % (selector,))
         assert "var(--color-accent)" not in joined, (
             "%r must be accent-free - the quiet marker signals 'saved', not 'selected'" % (selector,))
-
-    chip_body = _declared(
-        css, ".theme-chip--selected:not(:has(input:checked)) .theme-chip__body", at_rules=_HAS_QUERY)
-    assert chip_body.get("background") == "transparent", "the quiet marker must clear the wash"
-
-    for check_selector in (
-        ".theme-chip--selected:not(:has(input:checked)) .theme-chip__check",
-        ".runway-card--selected:not(:has(input:checked)) .runway-card__check",
-    ):
-        assert _declared(css, check_selector, at_rules=_HAS_QUERY).get("display") == "none", (
-            "%r must hide the check glyph" % (check_selector,))
-
-    # T10: the badge's text used to be the hard-coded English literal
-    # `content: "Current"`, twice, in an app that ships in two languages.
-    # It is now `content: attr(data-current-label)`, with the translated
-    # string server-rendered onto the element.
+    assert _declared(
+        css, ".runway-card--selected:not(:has(input:checked)) .runway-card__check",
+        at_rules=_HAS_QUERY).get("display") == "none"
     current_value = "attr(%s)" % config_page.CURRENT_BADGE_ATTR
     contents = [(rule.selectors, value) for rule in rules
                 for prop, value in rule.declarations if prop == "content"]
-    from_attr = [selectors for selectors, value in contents if value == current_value]
-    assert len(from_attr) == 2, (
-        "expected exactly 2 `content: %s` declarations, got %r" % (current_value, from_attr))
-    assert not [value for _, value in contents if value.strip("\"'") == "Current"], (
-        "expected zero hard-coded English `content: \"Current\"` declarations - T10 moves the "
-        "badge's text to a server-rendered, translated attribute")
-
-    for after_selector in (
-        ".theme-chip--selected:not(:has(input:checked))::after",
-        ".runway-card--selected:not(:has(input:checked))::after",
-    ):
-        assert _declared(css, after_selector, at_rules=_HAS_QUERY).get("content") == current_value, (
-            "%r must render the translated 'Current' tag" % (after_selector,))
-
+    assert [selectors for selectors, value in contents if value == current_value] == [
+        (".runway-card--selected:not(:has(input:checked))::after",)], contents
+    assert not [value for _, value in contents if value.strip("\"'") == "Current"]
     french = [value for rule in rules for _, value in rule.declarations if "actuel" in value.lower()]
-    assert not french, (
-        "expected zero French copy for 'current' in any declaration, got %r" % (french,))
-
-    muted_count = sum(1 for rule in rules for _, value in rule.declarations if _MUTED_TEXT in value)
-    assert muted_count >= 17, (
-        "expected the established 70%%-muted-text mix in at least 17 declarations (16 "
-        "pre-existing plus the new quiet-marker rules), got %d - a new muted strength must not "
-        "be invented" % (muted_count,))
+    assert not french, "expected zero French copy for 'current' in any declaration, got %r" % (french,)
+    rendered = look.look_table_html("theme", "red", "Departures", lambda theme_id: "")
+    root = parse_html(rendered)
+    saved = root.find_all("label", cls="look-cell--saved")
+    assert len(saved) == 1 and saved[0].find("input").attrs["value"] == "red"
 
 
 def test_style_css_carries_section_caption_and_the_restored_dirty_bar_rules(served_css):
@@ -1420,114 +1207,65 @@ def test_dirty_state_js_is_network_free_again_with_one_named_timer_exception(dir
 # ======================================================================
 
 def test_aspect_card_full_shape_checklist():
-    """the Aspect card's full shape, as a relationship rather than a list of endpoints: one card
-    after the Look section intro, its four accordion rows' data-usage values in COLOUR_USAGES'
-    own locked order, exactly one row open (departures), only the last row secondary, exactly one
-    .palette grid per theme row and none in the rules row, zero occurrences of any retired
-    mechanism's markup, and no section-caption paragraph immediately after the heading"""
-    ctx = {
+    """the Display page's look card carries its full shape: the heading, two framed pictures
+    each with a "Change" disclosure holding the no-script table, the Special looks list with the
+    calendar row, the "Add a special look" disclosure holding the rules add form, the hidden
+    look sheet (a labelled, modal dialog), and none of the retired accordion markup"""
+    rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
         "poll_cooldown_remaining": 0,
-    }
-    rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-
-    # Exactly one Aspect card, positioned after the Look section intro.
-    look_pos = rendered.index('id="%s"' % config_page.DISPLAY_LOOK_SECTION_ID)
-    assert rendered.count('class="page-section aspect-card') == 1, (
-        "expected exactly one .aspect-card, got %d" % rendered.count('class="page-section aspect-card'))
-    aspect_pos = rendered.index('class="page-section aspect-card')
-    assert look_pos < aspect_pos, "expected the Aspect card after the Look section intro"
-
-    # Exactly len(COLOUR_USAGES) accordion rows, data-usage values in
-    # document order equal to COLOUR_USAGES itself.
-    row_pattern = re.compile(
-        r'<details class="([^"]*)" name="%s" data-usage="([^"]*)"( open)?>'
-        % re.escape(config_page.ASPECT_ROWS_GROUP_NAME))
-    rows = row_pattern.findall(rendered)
-    usages_in_order = [usage for _cls, usage, _open in rows]
-    assert usages_in_order == list(config_page.COLOUR_USAGES), (
-        "expected the accordion rows' data-usage values, in document order, to equal "
-        "COLOUR_USAGES exactly, got %r" % (usages_in_order,))
-
-    # Exactly one row carries `open`, and it is departures.
-    open_usages = [usage for _cls, usage, is_open in rows if is_open]
-    assert open_usages == [config_page.COLOUR_USAGE_DEPARTURES], (
-        "expected only the departures row open by default, got %r" % (open_usages,))
-
-    # The last row, and only it, carries usage-row--secondary.
-    secondary_usages = [
-        usage for cls, usage, _open in rows if "usage-row--secondary" in cls.split()]
-    assert secondary_usages == [config_page.COLOUR_USAGES[-1]], (
-        "expected only the last row (%r) to carry usage-row--secondary, got %r"
-        % (config_page.COLOUR_USAGES[-1], secondary_usages))
-
-    # Each of the three theme rows holds exactly one .palette grid; the
-    # rules row holds none.
-    for usage in config_page.COLOUR_USAGES:
-        start, end = cp.aspect_usage_row_bounds(rendered, usage)
-        palette_count = rendered[start:end].count('class="palette" role="radiogroup"')
-        expected = 0 if usage == config_page.COLOUR_USAGE_RULES else 1
-        assert palette_count == expected, (
-            "expected %d .palette grid(s) inside the %r row, got %d" % (expected, usage, palette_count))
-
-    # Zero occurrences of every retired mechanism's own markup, page-wide.
-    for token in cp.ASPECT_RETIRED_MARKUP_TOKENS:
-        count = rendered.count(token)
-        assert count == 0, "expected zero occurrences of the retired token %r, got %d" % (token, count)
-
-    # The <h2> immediately inside the card is ASPECT_HEADING at
-    # ASPECT_HEADING_ID, and the element right after it is NOT a
-    # section-caption paragraph.
-    heading_needle = '<h2 class="text-heading" id="%s">%s</h2>' % (
-        config_page.ASPECT_HEADING_ID, escape_html(i18n.t(config_page.ASPECT_HEADING)))
-    assert heading_needle in rendered, "expected the Aspect <h2> at ASPECT_HEADING_ID"
-    after_heading = rendered[rendered.index(heading_needle) + len(heading_needle):]
-    assert not after_heading.startswith('<p class="text-label section-caption"'), (
-        "expected no section-caption paragraph immediately after the Aspect heading - CFG-85 "
-        "retires the caption")
+    }, scope=config_page.SCOPE_DISPLAY)
+    root = parse_html(rendered)
+    card = root.select_one("div.look-card")
+    assert card.select_one("h2").attrs.get("id") == config_page.ASPECT_HEADING_ID
+    frames = card.select("div.look-frame")
+    assert [frame.attrs.get("data-look-usage") for frame in frames] == ["departures", "arrivals"]
+    for frame in frames:
+        assert frame.select_one("details.look-edit table.look-table")
+        assert frame.select_one("img.look-frame__image")
+    special = card.select_one("div.special-looks")
+    assert special.select_one("li.special-row--calendar").attrs.get("data-look-usage") == "calendar"
+    add_form = special.select_one("details.special-add form")
+    assert add_form.attrs.get("action") == config_page.RULES_ADD_ROUTE
+    sheet = card.select_one("div.look-sheet")
+    assert "hidden" in sheet.attrs
+    assert sheet.attrs.get("role") == "dialog" and sheet.attrs.get("aria-modal") == "true"
+    assert root.select_one("#" + sheet.attrs["aria-labelledby"])
+    for token in cp.ASPECT_RETIRED_MARKUP_TOKENS + ("usage-row", "theme-chip", "palette-chip"):
+        assert token not in rendered, "expected the retired %r markup to be gone" % (token,)
 
 
 def test_rules_row_renders_inside_aspect_after_form():
-    """render() places the Aspect card, holding the rules row, after the settings </form> and
-    before the Calendar card, with every theme/theme_arriving/calendar_theme_id radio still
-    carrying form=settings-form
+    """render() places the look card, holding the special looks, after the settings </form>,
+    with every theme/theme_arriving/calendar_theme_id radio still carrying form=settings-form
 
-    The rules row holds real <form> elements (the add form), and HTML forbids a nested <form>, so
-    the whole Aspect card must be a sibling of #settings-form while every theme radio still
-    reaches it through form="settings-form".
+    The special looks hold real <form> elements (the add form), and HTML forbids a nested
+    <form>, so the whole look card must be a sibling of #settings-form while every theme radio
+    still reaches it through form="settings-form".
     """
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
         "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
-    # The settings form's OWN closing tag - never the bare first
-    # `</form>` in the whole document, which would instead match the
-    # Frame strip's own quick-switch <form>...</form> (it renders BEFORE
-    # <form id="settings-form"> opens) and pass vacuously regardless of
-    # where the real form actually closes.
     form_start = rendered.index('<form class="config-form" id="%s"' % config_page.SETTINGS_FORM_ID)
     form_end = rendered.index("</form>", form_start)
     aspect_pos = rendered.index('class="page-section aspect-card')
     rules_start, rules_end = cp.aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_RULES)
     assert form_end < aspect_pos < rules_start, (
-        "expected </form> < the Aspect card < the rules row, got positions %d/%d/%d"
+        "expected </form> < the look card < the rules, got positions %d/%d/%d"
         % (form_end, aspect_pos, rules_start))
+    root = parse_html(rendered)
     for field in ("theme", "theme_arriving", "calendar_theme_id"):
-        total = rendered.count('name="%s" value="' % field)
-        with_form = len(re.findall(
-            r'name="%s" value="[^"]*" class="visually-hidden"( form="%s")'
-            % (re.escape(field), re.escape(config_page.SETTINGS_FORM_ID)), rendered))
-        assert with_form == total, (
-            "expected every %s radio to carry form=%r, got %d/%d"
-            % (field, config_page.SETTINGS_FORM_ID, with_form, total))
+        radios = [node for node in root.find_all("input") if node.attrs.get("name") == field]
+        assert radios and all(
+            node.attrs.get("form") == config_page.SETTINGS_FORM_ID for node in radios), field
 
 
 def test_rules_section_empty_state_then_list_once_a_rule_exists(tmp_path):
-    """the rules section renders the empty state with no rules, and the empty state is replaced
-    by the .rule-list once a rule exists (D-15c/d, retargeted from the retired
-    cards-then-table shape)"""
+    """with no rules the Special looks list holds only the calendar row and the add row, and a
+    rule row appears, carrying its key, once a rule exists"""
     empty_ctx = {
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
@@ -1535,35 +1273,23 @@ def test_rules_section_empty_state_then_list_once_a_rule_exists(tmp_path):
     }
     rendered = config_page.render(empty_ctx, scope=config_page.SCOPE_DISPLAY)
     rules_segment = cp.rules_row_segment(rendered)
-    assert config_page.RULES_EMPTY_HEADING in rules_segment, "expected the empty-state heading with no rules"
-    # The retired table/card split is gone outright - a plain .rule-list,
-    # never a table.
-    assert "rule-list" not in rules_segment and "<table" not in rules_segment, (
-        "expected no list markup in the empty-state branch")
+    assert "rule-row" not in rules_segment and "<table" not in rules_segment.split("special-add")[0]
 
     result = colour_rules.add_rule(
         str(tmp_path), "callsign", "AFR1234", "white", now="2026-01-01T00:00:00+00:00")
     assert result == colour_rules.ADD_OK_NEW, "test setup failure: add_rule() returned %r" % (result,)
-    registry = colour_rules.load_colour_rules(str(tmp_path))
-
     filled_ctx = dict(empty_ctx)
-    filled_ctx["colour_rules"] = registry
+    filled_ctx["colour_rules"] = colour_rules.load_colour_rules(str(tmp_path))
     filled_ctx["now"] = "2026-01-02T00:00:00+00:00"
     rendered = config_page.render(filled_ctx, scope=config_page.SCOPE_DISPLAY)
     rules_segment = cp.rules_row_segment(rendered)
-    assert config_page.RULES_EMPTY_HEADING not in rules_segment, "expected the empty state to be replaced once a rule exists"
-    assert '<ul class="rule-list">' in rules_segment, "expected the .rule-list once a rule exists"
-    assert "AFR1234" in rules_segment, "expected the seeded rule's key to appear in the rendered list"
+    assert '<li class="special-row rule-row">' in rules_segment
+    assert "AFR1234" in rules_segment
 
 
 def test_rules_list_orders_most_specific_first_then_alphabetically(tmp_path):
     """a seeded set of rules of every kind renders most-specific first (callsign, then hex, then
-    prefix), alphabetically within each kind (D-15c)
-
-    colour_rules.rule_rows() itself already guarantees this order (RULE_KINDS order, then sorted
-    value) - this check pins _rule_list_html()'s own consumption of that order at the
-    rendered-markup level, not just at the data layer.
-    """
+    prefix), alphabetically within each kind"""
     tmpdir = str(tmp_path)
     for kind, value, theme_id in (
         ("prefix", "AFR", "red"),
@@ -1573,16 +1299,13 @@ def test_rules_list_orders_most_specific_first_then_alphabetically(tmp_path):
     ):
         result = colour_rules.add_rule(tmpdir, kind, value, theme_id, now="2026-01-01T00:00:00+00:00")
         assert result == colour_rules.ADD_OK_NEW, "test setup failure: add_rule(%r) returned %r" % (kind, result)
-    registry = colour_rules.load_colour_rules(tmpdir)
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
-        "colour_rules": registry,
+        "colour_rules": colour_rules.load_colour_rules(tmpdir),
         "poll_cooldown_remaining": 0,
         "now": "2026-01-02T00:00:00+00:00",
     }, scope=config_page.SCOPE_DISPLAY)
-    list_match = re.search(r'<ul class="rule-list">(.*?)</ul>', rendered, re.S)
-    assert list_match, "expected a .rule-list"
-    list_segment = list_match.group(1)
+    list_segment = cp.rules_row_segment(rendered)
     expected_order = ["AFR1234", "BAW1234", "3944F2", "AFR"]
     positions = [
         list_segment.index('<span class="rule-row__key mono">%s</span>' % value)
@@ -1593,27 +1316,24 @@ def test_rules_list_orders_most_specific_first_then_alphabetically(tmp_path):
 
 
 def test_aspect_rules_copy_appears_escaped_verbatim():
-    """every rules-editor copy string - heading, caption, field labels, kind labels/titles,
-    empty-state heading/body, and the How-rules-combine disclosure - appears escaped-verbatim,
-    matching the Copywriting Contract byte for byte"""
+    """every special-looks copy string - heading, caption, field labels, kind labels/titles, the
+    add action and the precedence line - appears escaped-verbatim"""
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
         "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
     copy_strings = (
-        config_page.FRAME_COLOURS_ROW_LABELS[config_page.COLOUR_USAGE_RULES],
+        config_page.SPECIAL_LOOKS_HEADING,
         config_page.RULES_SECTION_CAPTION,
         config_page.RULE_KIND_FIELD_LABEL,
         config_page.RULE_VALUE_FIELD_LABEL,
         config_page.RULE_ADD_BUTTON_TEXT,
-        config_page.RULES_EMPTY_HEADING,
-        config_page.RULES_EMPTY_BODY,
-        config_page.RULES_HOW_RULES_COMBINE_SUMMARY,
-        config_page.RULES_HOW_RULES_COMBINE_BODY,
+        rules_settings.ADD_SPECIAL_LOOK_LABEL,
+        rules_settings.SPECIAL_LOOKS_ORDER,
     )
     for text in copy_strings:
-        assert escape_html(text) in rendered, "expected %r to appear escaped-verbatim in the rendered page" % (text,)
+        assert escape_html(i18n.t(text)) in rendered, "expected %r to appear escaped-verbatim in the rendered page" % (text,)
     for kind, label in config_page.RULE_KIND_LABELS.items():
         assert escape_html(label) in rendered, "expected the kind label %r (for %r) to appear escaped-verbatim" % (label, kind)
     for kind, title in config_page.RULE_KIND_TITLES.items():
@@ -1621,100 +1341,68 @@ def test_aspect_rules_copy_appears_escaped_verbatim():
 
 
 def test_aspect_rules_row_label_locked_verbatim():
-    """the rules row label equals the locked "Optional per-flight rules" text exactly, and its
-    empty-state meta reads FRAME_COLOURS_RULES_EMPTY_META's real value, never ROADMAP's own
-    paraphrase
-
-    Keeps the original lock - FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_RULES] is still exactly
-    "Optional per-flight rules" - and adds a second lock: the rules row's empty-state meta must read
-    FRAME_COLOURS_RULES_EMPTY_META's real value ("No rules yet"), never a plausible-sounding
-    paraphrase.
-    """
-    assert config_page.FRAME_COLOURS_ROW_LABELS[config_page.COLOUR_USAGE_RULES] == "Optional per-flight rules", (
-        "expected the rules row label to equal the locked \"Optional per-flight rules\" text exactly, "
-        "got %r" % (config_page.FRAME_COLOURS_ROW_LABELS[config_page.COLOUR_USAGE_RULES],))
-    rendered = config_page.render({
-        "device_config": {"theme": "white", "tracked_runway": "3"},
-        "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-        "poll_cooldown_remaining": 0,
-    }, scope=config_page.SCOPE_DISPLAY)
-    rules_start, rules_end = cp.aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_RULES)
-    summary_segment = rendered[rules_start:rules_end].split("</summary>", 1)[0]
-    empty_meta_needle = escape_html(config_page.FRAME_COLOURS_RULES_EMPTY_META)
-    assert empty_meta_needle in summary_segment, (
-        "expected the rules row's empty-state meta to read FRAME_COLOURS_RULES_EMPTY_META (%r) "
-        "verbatim, not a paraphrase" % (config_page.FRAME_COLOURS_RULES_EMPTY_META,))
-    assert "Aucune règle" not in summary_segment, (
-        "expected the rules row's meta to NEVER read ROADMAP's own paraphrase 'Aucune règle · Ajouter'")
+    """the special looks heading and the precedence line keep their exact wording, which states
+    the resolver's real order: calendar, then flight, aircraft, airline"""
+    assert i18n.t(config_page.SPECIAL_LOOKS_HEADING) == "Special looks"
+    assert i18n.t(rules_settings.SPECIAL_LOOKS_ORDER).startswith(
+        "Most specific wins: calendar, then flight, aircraft, airline.")
 
 
 def test_rules_no_select_and_three_named_radios_one_checked():
-    """the Flight-colours section carries no <select>, and its add form's three rule_kind radios
-    carry the three kind ids and the three technical titles, exactly one checked by default
-    (D-15b)"""
+    """the add form carries no <select>, and its three rule_kind radios carry the three kind ids
+    and the three technical titles, exactly one checked by default"""
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
         "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
     rules_segment = cp.rules_row_segment(rendered)
-    assert "<select" not in rules_segment, "expected no <select> anywhere in the Flight-colours section (D-15b)"
-    radio_count = rules_segment.count('name="rule_kind"')
-    assert radio_count == len(colour_rules.RULE_KINDS), (
-        "expected %d rule_kind radios, got %d" % (len(colour_rules.RULE_KINDS), radio_count))
-    for kind in colour_rules.RULE_KINDS:
-        assert 'id="rule-kind-%s"' % kind in rules_segment, "expected a rule_kind radio with id rule-kind-%s" % kind
-        assert 'title="%s"' % escape_html(config_page.RULE_KIND_TITLES[kind]) in rules_segment, (
-            "expected the %s radio's label to carry the technical title" % kind)
-    # Scoped to just the three rule_kind <input> tags themselves - the
-    # compact theme-chip grid immediately below also uses " checked" for
-    # its own selected chip, which a whole-segment count would wrongly
-    # fold in.
+    assert "<select" not in rules_segment
     kind_inputs = re.findall(r'<input type="radio" name="rule_kind"[^>]*>', rules_segment)
-    assert len(kind_inputs) == len(colour_rules.RULE_KINDS), (
-        "expected %d rule_kind <input> tags, got %d" % (len(colour_rules.RULE_KINDS), len(kind_inputs)))
+    assert len(kind_inputs) == len(colour_rules.RULE_KINDS)
+    for kind in colour_rules.RULE_KINDS:
+        assert 'id="rule-kind-%s"' % kind in rules_segment
+        assert 'title="%s"' % escape_html(config_page.RULE_KIND_TITLES[kind]) in rules_segment
     checked_inputs = [tag for tag in kind_inputs if " checked" in tag]
-    assert len(checked_inputs) == 1, "expected exactly one checked rule_kind radio by default, got %d" % len(checked_inputs)
-    assert 'value="%s"' % colour_rules.RULE_KIND_CALLSIGN in checked_inputs[0], (
-        "expected the callsign/Flight radio to be the one checked by default")
+    assert len(checked_inputs) == 1
+    assert 'value="%s"' % colour_rules.RULE_KIND_CALLSIGN in checked_inputs[0]
 
 
 def test_rules_row_carries_pill_badge_and_confirmed_remove_form(tmp_path):
-    """a rendered rule row carries a .banner__pill kind badge with the plain-language word, a
-    computed _palette_hex() swatch dot, and a data-confirm Remove form (D-15c)"""
+    """a rendered rule row carries a kind tag with the plain-language word, a mini render of its
+    look, its look read back, and a data-confirm Remove form"""
     result = colour_rules.add_rule(
-        str(tmp_path), "callsign", "AFR1234", "white", now="2026-01-01T00:00:00+00:00")
+        str(tmp_path), "callsign", "AFR1234", "green_light", now="2026-01-01T00:00:00+00:00")
     assert result == colour_rules.ADD_OK_NEW, "test setup failure: add_rule() returned %r" % (result,)
-    registry = colour_rules.load_colour_rules(str(tmp_path))
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
-        "colour_rules": registry,
+        "colour_rules": colour_rules.load_colour_rules(str(tmp_path)),
         "poll_cooldown_remaining": 0,
         "now": "2026-01-02T00:00:00+00:00",
     }, scope=config_page.SCOPE_DISPLAY)
-    row_match = re.search(r'<li class="rule-row">(.*?)</li>', rendered, re.S)
-    assert row_match, "expected a .rule-row list item"
-    row = row_match.group(1)
-    assert 'class="rule-row__kind banner__pill"' in row, "expected the kind badge to compose .banner__pill"
-    assert escape_html(config_page.RULE_KIND_LABELS["callsign"]) in row, "expected the plain-language kind word in the badge"
-    assert "data-confirm=" in row, "expected the Remove form to carry data-confirm (D-15c, locked)"
-    assert escape_html(config_page.RULE_REMOVE_BUTTON_TEXT) in row, (
-        "expected the Remove button's own text, not the airlines gallery's Delete")
-    expected_hex = config_page._palette_hex(device_config.THEMES["white"]["departing_index"])
-    assert 'class="theme-chip__dot" style="background:%s"' % escape_html(expected_hex) in row, (
-        "expected the row's swatch dot to carry the real _palette_hex() value")
+    row = parse_html(rendered).select_one("li.rule-row")
+    assert row.select_one("span.rule-row__kind").text() == config_page.RULE_KIND_LABELS["callsign"]
+    assert row.select_one("img.special-row__image").attrs["src"].startswith(
+        config_page.FRAME_PREVIEW_ROUTE_PREFIX + "green_light.png?")
+    assert row.select_one("p.rule-row__theme").text() == look.look_sentence("green_light")
+    form = row.select_one("form")
+    assert "data-confirm" in form.attrs
+    assert form.select_one("button").text() == config_page.RULE_REMOVE_BUTTON_TEXT
 
 
 def test_rules_empty_state_carries_no_heading_element():
-    """the empty state is muted sans copy in .empty-state-plain and carries no <h*> heading
-    element, never the serif empty_state() heading (D-15d)"""
+    """with no rules, the Special looks list carries its own h3 heading and no other heading
+    element, and the add row's summary names the action"""
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
         "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
-    rules_segment = cp.rules_row_segment(rendered)
-    empty_match = re.search(r'<div class="empty-state-plain">(.*?)</div>', rules_segment, re.S)
-    assert empty_match, "expected the .empty-state-plain wrapper"
-    assert "<h" not in empty_match.group(1), "expected the empty state to carry no heading element, muted sans only (D-15d)"
-    assert escape_html(config_page.RULES_EMPTY_HEADING) in empty_match.group(1), "expected the empty-state heading sentence"
+    special = parse_html(rendered).select_one("div.special-looks")
+    headings = [node for node in special.find_all() if re.fullmatch(r"h[1-6]", node.tag)]
+    assert [node.tag for node in headings] == ["h3", "h3"], (
+        "expected only the list heading and the add form's dialog heading")
+    assert special.select_one("summary.special-add__summary").text() == i18n.t(
+        rules_settings.ADD_SPECIAL_LOOK_LABEL)
+
+

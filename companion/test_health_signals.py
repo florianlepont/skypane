@@ -27,11 +27,13 @@ _DEFAULT_DEVICE_WARN_S, _DEFAULT_DEVICE_ERROR_S = wake.device_staleness_threshol
 # from source) so a silent key drop/rename fails this test rather than
 # only a downstream consumer.
 _EXPECTED_KEYS = frozenset((
-    "now", "source_fault_raw", "registry_rows", "offbox", "wake_interval_s",
-    "device_html", "device_state", "device_detail_html",
-    "pipeline_html", "pipeline_state", "pipeline_detail_html",
+    "now", "source_fault_raw", "registry_rows", "offbox",
+    "device_state", "device_detail_html",
+    "pipeline_state", "pipeline_detail_html",
     "battery_html", "battery_state", "battery_caption",
-    "corroboration_html", "disagreement_warn", "anomalies", "severity",
+    "disagreement_warn", "anomalies", "severity",
+    # The raw reads the Health rows render from, and the next-wake clock.
+    "inputs", "next_wake_clock",
 ))
 
 
@@ -187,15 +189,16 @@ def _assert_no_markup(value, path):
 
 
 def test_health_signals_builds_no_markup(tmp_path, monkeypatch):
-    """health_signals() never calls a markup builder: with every _x_section
-    builder and *_timestamp_only helper monkeypatched to raise, it still
+    """health_signals() never calls a markup builder: with every row builder,
+    _battery_section and *_timestamp_only helper monkeypatched to raise, it still
     returns successfully, and none of its values carries a '<' character."""
     def _boom(*_args, **_kwargs):
         raise AssertionError("health_signals() must never call a markup builder")
 
     for name in (
-        "_device_section", "_pipeline_section", "_battery_section",
-        "_corroboration_section", "_device_timestamp_only", "_pipeline_timestamp_only",
+        "_connection_row", "_flight_data_row", "_battery_row", "_sources_row",
+        "_identification_row", "_backup_row", "_battery_section",
+        "_device_timestamp_only", "_pipeline_timestamp_only",
     ):
         monkeypatch.setattr(health_page, name, _boom)
 

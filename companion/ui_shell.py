@@ -5,9 +5,9 @@ page — plus the script-ordering constants (`SHELL_SCRIPT_ORDER`,
 (`str.format_map()` over a dict of descriptive keys) rather than a
 positional `%s` template, so a reordered slot cannot silently swap two
 values. Depends on companion.ui_base for constants/escaping, companion.
-ui_time for the relative-time `<body>` wordings, and companion.ui_nav for
-the sidebar/tab-bar/preferences renderers; nothing here imports a page
-module.
+ui_time for the relative-time `<body>` wordings, companion.ui_nav for
+the sidebar/tab-bar/preferences renderers, and companion.ui_components
+for the quick-switch failure toast; nothing here imports a page module.
 """
 import companion.i18n as i18n
 import companion.prefs as prefs
@@ -18,15 +18,18 @@ from companion.ui_base import (
     DIRTY_STATE_SCRIPT_SRC,
     FAVICON_LINK_HTML,
     FLASH_CLEANUP_SCRIPT_SRC,
+    TOAST_SCRIPT_SRC,
     FLASH_SLOT_MARKER,
     FRESHNESS_SCRIPT_SRC,
     ICON_DEFS_HTML,
+    icon_html,
+    LOGO_MARK_CLASS,
     LIST_FILTER_SCRIPT_SRC,
     LOGIN_CARD_SCRIPT_SRC,
     NAV_DROPDOWN_SCRIPT_SRC,
     PANEL_LOOKUP_SCRIPT_SRC,
     POLL_COOLDOWN_SCRIPT_SRC,
-    QUICK_SWITCH_FAILED_ATTR,
+    QUICK_TOAST_TEMPLATE_ATTR,
     QUICK_SWITCH_FAILED_TEXT,
     QUICK_SWITCH_SCRIPT_SRC,
     QUICK_TOAST_ATTR,
@@ -37,6 +40,7 @@ from companion.ui_base import (
     THEME_PREVIEW_SCRIPT_SRC,
     UI_THEME_CHOICES,
     VALUE_CONTROLS_SCRIPT_SRC,
+    CALENDAR_SHEET_SCRIPT_SRC,
     escape_html,
 )
 from companion.ui_nav import (
@@ -54,6 +58,7 @@ from companion.ui_nav import (
     _theme_form_html,
     sidebar_nav,
 )
+from companion.ui_components import TOAST_TONE_ERROR, split_toast_message, toast_html
 from companion.ui_time import relative_copy_attrs
 
 # The pre-authentication document's <title> — the one inline i18n.t()
@@ -125,6 +130,7 @@ SHELL_SCRIPT_ORDER = (
     FRESHNESS_SCRIPT_SRC,
     PANEL_LOOKUP_SCRIPT_SRC,
     FLASH_CLEANUP_SCRIPT_SRC,
+    TOAST_SCRIPT_SRC,
     POLL_COOLDOWN_SCRIPT_SRC,
     CONFIRM_SUBMIT_SCRIPT_SRC,
     THEME_PREVIEW_SCRIPT_SRC,
@@ -133,15 +139,17 @@ SHELL_SCRIPT_ORDER = (
     RELATIVE_TIME_SCRIPT_SRC,
     QUICK_SWITCH_SCRIPT_SRC,
     VALUE_CONTROLS_SCRIPT_SRC,
+    CALENDAR_SHEET_SCRIPT_SRC,
 )
 
 # Present on every authenticated page_shell() document regardless of its
 # `scripts` argument: the hamburger (every page has the nav), a flash
-# cleanup (any page can carry `?flash=`), every form's submit guard, and
-# the nav status line's relative time.
+# cleanup and the toast behaviour (any page can carry `?flash=`), every
+# form's submit guard, and the nav status line's relative time.
 GLOBAL_PAGE_SCRIPTS = (
     NAV_DROPDOWN_SCRIPT_SRC,
     FLASH_CLEANUP_SCRIPT_SRC,
+    TOAST_SCRIPT_SRC,
     SUBMIT_GUARD_SCRIPT_SRC,
     RELATIVE_TIME_SCRIPT_SRC,
 )
@@ -198,12 +206,6 @@ def _body_attrs_html(active, tab_bar_html, refresh_token):
     if refresh_token is not None:
         body_class_attr += ' %s="%s"' % (
             REFRESH_TOKEN_ATTR, escape_html(refresh_token))
-    # The optimistic switch's user-facing sentence, translated here and read
-    # client-side, on <body> for the same swap-safety reason as the
-    # attributes above — emitted unconditionally; a page with no switch
-    # carries one inert attribute.
-    body_class_attr += ' %s="%s"' % (
-        QUICK_SWITCH_FAILED_ATTR, escape_html(i18n.t(QUICK_SWITCH_FAILED_TEXT)))
     # relative-time.js's nine wordings, on <body> for the same swap-safety
     # reason. Emitted unconditionally; a page with no relative time carries
     # nine inert attributes.
@@ -225,6 +227,15 @@ def _splice_flash(body, flash_html):
     return body, flash_html
 
 
+def _quick_toast_html():
+    """The optimistic switch's failure toast: the error tone, no role of
+    its own (the live region it is cloned into announces it) and a
+    script-only dismiss button. An error never hides on its own."""
+    title, detail = split_toast_message(i18n.t(QUICK_SWITCH_FAILED_TEXT))
+    return toast_html(
+        title, detail, tone=TOAST_TONE_ERROR, role="", dismiss_href=True)
+
+
 # The authenticated document's own named template. Invariants preserved
 # from the pre-template version: the tab bar ({tab_bar}) sits outside
 # .dashboard-shell, a sibling rather than a descendant of the scrolled
@@ -238,10 +249,12 @@ def _splice_flash(body, flash_html):
 # quick-toast live region is rendered empty, once per document, never
 # hidden — a live region added at announce time is one screen readers
 # often miss — with `role="alert"` implying `aria-live="assertive"` for a
-# failure the user awaits; it is the one script-only surface here; with no
-# script there is no fetch, so nothing here can fail beyond what the
-# server's own flash already reports. No literal "{" or "}" appears below
-# other than the named slots themselves.
+# failure the user awaits. quick-switch.js clones the translated error
+# toast held in the <template> beside it into that region. Both are the
+# one script-only surface here; with no script there is no fetch, so
+# nothing here can fail beyond what the server's own flash already
+# reports. No literal "{" or "}" appears below other than the named
+# slots themselves.
 PAGE_SHELL_TEMPLATE = (
     "<!DOCTYPE html>\n"
     '<html lang="{lang}" data-ui-theme="{ui_theme}">\n'
@@ -257,12 +270,12 @@ PAGE_SHELL_TEMPLATE = (
     "{icon_defs}\n"
     '<div class="dashboard-shell">\n'
     '<aside class="dashboard-sidebar">\n'
-    '<span class="site-title sidebar-title">{site_title}</span>\n'
+    '<span class="brand">{brand_mark}<span class="site-title sidebar-title">{site_title}</span></span>\n'
     "{sidebar}\n"
     "{sidebar_footer}\n"
     "</aside>\n"
     '<header class="site-header">\n'
-    '<span class="site-title">{site_title}</span>\n'
+    '<span class="brand">{brand_mark}<span class="site-title">{site_title}</span></span>\n'
     "{mobile_nav}\n"
     "</header>\n"
     '<main class="page-content dashboard-main" id="{main_id}" tabindex="-1">\n'
@@ -270,7 +283,8 @@ PAGE_SHELL_TEMPLATE = (
     "</main>\n"
     "</div>\n"
     "{tab_bar}\n"
-    '<div class="quick-toast" {quick_toast_attr} role="alert"></div>\n'
+    '<div class="toast-region toast-region--live" {quick_toast_attr} role="alert"></div>\n'
+    "<template {quick_toast_template_attr}>{quick_toast}</template>\n"
     "{script_tags}"
     "</body>\n"
     "</html>\n"
@@ -338,6 +352,8 @@ def page_shell(
         "title": escape_html(title),
         "site_title": escaped_site_title,
         "favicon_link": FAVICON_LINK_HTML,
+        # Decorative: the adjacent site-title text stays the accessible name.
+        "brand_mark": icon_html("icon-logo", size=28, extra_class=LOGO_MARK_CLASS),
         "body_attrs": body_attrs,
         "skip_link": skip_link_html,
         "icon_defs": ICON_DEFS_HTML,
@@ -350,5 +366,7 @@ def page_shell(
         "body": body,
         "tab_bar": tab_bar_html,
         "quick_toast_attr": QUICK_TOAST_ATTR,
+        "quick_toast_template_attr": QUICK_TOAST_TEMPLATE_ATTR,
+        "quick_toast": _quick_toast_html(),
         "script_tags": script_tags_html,
     })

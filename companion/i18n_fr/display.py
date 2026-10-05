@@ -39,7 +39,6 @@ MESSAGES = {
     "display.current": "Actuel",
 
     # --- Display's three supersections ----------------------------
-    "display.look": "Ce qui s’affiche",
     "display.the_theme_flight_colours_and_calendar_that":
         "— le thème, les couleurs de vol et le calendrier qui "
         "décident de l’apparence de l’image.",
@@ -55,27 +54,13 @@ MESSAGES = {
     # --- Aspect card ---------------------------------------------------
     # This identity translation is required, not optional: the
     # FR-completeness harness fails an untranslated id regardless of
-    # the two words being the same. A different id from "display.look"
-    # above (Display's supersection heading), not a duplicate of it.
-    "display.aspect": "Choisir l’apparence",
+    # the two words being the same.
+    "display.aspect": "L’allure de votre cadre",
     "display.departures": "Départs",
     "display.arrivals": "Arrivées",
     "display.calendar_flights": "Vols du calendrier",
-    "display.per_flight_rules": "Règles par vol facultatives",
     "display.same_as_departures": "Comme les départs",
-    "display.1_rule": "1 règle",
-    "display.rules": "%d règles",
-    "display.no_rules_yet": "Aucune règle pour l’instant",
-    # The one-line legend under the rule-add form's compact chip grid,
-    # naming the two swatch dots as departures/arrivals, joined into
-    # one phrase with no separator.
-    "display.departures_arrivals": "Départs et arrivées",
 
-    # --- The live theme preview above the chip grid -----------------
-    "display.live_preview_of_the_theme": "Aperçu en direct du thème %s",
-    "display.preview_with_your_last_flight":
-        "Aperçu avec votre dernier vol : %s",
-    "display.preview_with_a_sample_flight": "Aperçu avec un vol d’exemple",
     # The theme chip grid's per-chip image alt text (companion/theme_
     # preview.py). Never translated before this id existed either — kept
     # identical to the English so the render stays byte-for-byte
@@ -94,21 +79,8 @@ MESSAGES = {
     # --- Calendar row's connection block --------------------------------
     # The confirmation-page strings below (with a question mark, or
     # naming "calendar"/"calendar?" alone) belong to
-    # calendar_disconnect_confirm_page(); the merged card's own small
-    # Disconnect button reads the shorter "Disconnect" instead
-    # (companion/i18n_fr/calendar_group.py).
-    "display.connected_but_ignored_its_saved_link_on_the":
-        "Connecté, mais ignoré — son lien enregistré sur le serveur "
-        "est devenu lisible au-delà de ce cadre. Collez à nouveau "
-        "l’URL du flux ci-dessous pour le stocker en sécurité.",
-    "display.calendar_feed_url": "URL du flux du calendrier",
-    "display.your_calendar_s_private_ical_link_stored_on_the":
-        "Le lien iCal privé de votre calendrier. Stocké sur le serveur "
-        "et jamais réaffiché ici — en coller un nouveau remplace "
-        "l’ancien.",
-    "display.disconnect_this_calendar_and_delete_the_flights":
-        "Déconnecter ce calendrier et supprimer les vols qu’il a "
-        "fournis ?",
+    # calendar_disconnect_confirm_page(); the Manage sheet's own strings
+    # live in companion/i18n_fr/calendar_group.py.
     "display.disconnect_calendar": "Déconnecter le calendrier ?",
     "display.this_disconnects_your_calendar_and_deletes_the":
         "Ceci déconnecte votre calendrier et supprime du serveur les "
@@ -118,9 +90,9 @@ MESSAGES = {
     "display.cancel": "Annuler",
 
     # --- Flight colours / per-flight rules ------------------------------
-    "display.match_by": "Correspondance par",
+    "display.match_by": "S’applique à",
     "display.value": "Valeur",
-    "display.add_rule": "Ajouter la règle",
+    "display.add_rule": "Ajouter l’allure",
     "display.callsign": "Indicatif",
     "display.icao24_hex": "Code hexadécimal ICAO24",
     "display.callsign_prefix": "Préfixe d’indicatif",
@@ -203,7 +175,6 @@ MESSAGES = {
 
     # --- Save --------------------------------------------------------
     "display.save_settings": "Enregistrer les réglages",
-    "display.next_wake_2": " (prochain réveil ≈ %s)",
     # Symbolic notation ("≈" plus a placeholder already localized by its
     # caller), identical in both languages — not a missed translation,
     # listed in test_i18n.py's _UNCHANGED_IN_FRENCH cognate set.

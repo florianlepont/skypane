@@ -15,6 +15,9 @@ modules.
 """
 
 MESSAGES = {
+    # --- The shared filter bar (companion/ui_filter.py) -------------------
+    "common.clear_search": "Effacer la recherche",
+
     # --- Login page ------------------------------------------------
     "common.sign_in_to_manage_this_device_s_settings":
         "Connectez-vous pour gérer les réglages de cet appareil.",
@@ -47,6 +50,17 @@ MESSAGES = {
 
     # --- Shared footer control -----------------------------------------
     "common.sign_out": "Se déconnecter",
+
+    # --- Toasts (shared by every flash and persistent alert) --------
+    # Spoken before each toast's title, never shown.
+    "common.toast_tone_success": "Succès :",
+    "common.toast_tone_info": "Information :",
+    "common.toast_tone_warning": "Avertissement :",
+    "common.toast_tone_error": "Erreur :",
+    "common.toast_tone_pending": "En attente :",
+    "common.dismiss_this_message": "Masquer ce message",
+    "common.undo": "Annuler",
+    "common.see_health": "Voir l’état",
 
     # --- Flash banners ---------------------------------------------
     "common.screen_switched_on_the_frame_will_wake_up_and":
@@ -101,6 +115,25 @@ MESSAGES = {
     "common.airline_name_saved_the_frame_will_pick_it_up":
         "Nom de compagnie enregistré — le cadre le récupérera à son "
         "prochain réveil et à sa prochaine vérification.",
+    "common.airline_renamed_new_flights_will_use_it":
+        "Nom de compagnie enregistré — Vols et Accueil l’affichent dès "
+        "maintenant, et le cadre l’utilisera à son prochain réveil et à "
+        "sa prochaine vérification.",
+    "common.airline_name_reset_to_skypane_s_name":
+        "Nom de SkyPane rétabli — Vols et Accueil l’affichent dès "
+        "maintenant, et le cadre l’utilisera à son prochain réveil et à "
+        "sa prochaine vérification.",
+    "common.that_airline_can_t_be_renamed_anymore":
+        "Cette compagnie ne peut plus être renommée ici — rechargez la "
+        "page Compagnies et réessayez.",
+    "common.the_renamed_airlines_list_is_full_200_entries":
+        "La liste des compagnies renommées est pleine (200 entrées) — "
+        "rétablissez-en une avant d’en renommer une autre.",
+    "common.another_airline_already_uses_that_name":
+        "Une autre compagnie utilise déjà ce nom — essayez-en un autre.",
+    "common.couldn_t_save_that_airline_name":
+        "Impossible d’enregistrer ce nom de compagnie — le dossier d’état "
+        "du cadre n’est peut-être pas accessible en écriture.",
     "common.enter_an_airline_name_before_saving":
         "Saisissez un nom de compagnie avant d’enregistrer.",
     "common.that_name_s_too_long_airline_names_top_out_at":
@@ -164,6 +197,8 @@ MESSAGES = {
         "programmée du cadre.",
     "common.calendar_connected_n_flights_found":
         "Calendrier connecté — {n} vols trouvés.",
+    "common.couldn_t_read_that_calendar_nothing_was_changed":
+        "Impossible de lire ce calendrier — rien n’a été modifié.",
     "common.paste_a_valid_calendar_feed_url_to_connect_one":
         "Collez une URL de flux de calendrier valide pour en "
         "connecter un.",

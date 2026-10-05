@@ -267,8 +267,10 @@
   // also documents what each page deliberately excludes and why.
   var SWAP_SELECTORS_BY_PAGE = {
     "home": [
+      ".page-header__freshness",
       "figure.preview-frame",
       'section[aria-labelledby="home-flights"]',
+      'section[aria-labelledby="home-frame-state"]',
       ".home-facts"
     ],
     "display": [
@@ -276,9 +278,9 @@
       ".frame-strip"
     ],
     "health": [
-      ".dashboard-grid",
-      "div.banner--anomaly, div.banner--warn",
-      "section.banner",
+      ".health-row__summary",
+      "div.health-anomaly",
+      "section.health-source-fault",
       ".page-header__freshness",
       'a[href="/health"]'
     ],
@@ -286,8 +288,7 @@
       ".page-header__freshness",
       "ul.history-cards",
       ".data-table-wrap",
-      "[data-filter-count]",
-      ".flights-more"
+      "[data-filter-count]"
     ]
   };
 

@@ -186,11 +186,11 @@ def test_resolve_dialog_save_and_close_share_one_action_row(tmp_path, served_css
     assert not btn_family, "expected no .btn-- family anywhere in style.css, got %r" % (btn_family,)
 
 
-def test_airlines_cards_carry_no_badge_or_per_card_control_but_full_vocabulary():
-    """a normal Airlines render carries no Editing badge and no per-card Replace control
-    anywhere (both deleted outright) — while every airline-card__zoom trigger still
-    carries the SAME full data-view-panel-* vocabulary, its size derived from the module's
-    own _VIEW_PANEL_*_ATTR constants rather than a hardcoded number"""
+def test_airlines_rows_carry_no_badge_or_per_row_control_but_full_vocabulary():
+    """a normal Airlines render carries no Editing badge and no per-row Replace control
+    anywhere — while every airline row trigger (the row itself and its hidden per-type twins)
+    still carries the SAME full data-view-panel-* vocabulary, its size derived from the
+    module's own _VIEW_PANEL_*_ATTR constants rather than a hardcoded number"""
     rendered = airlines_page.render({})
 
     assert "banner__pill" not in rendered, (
@@ -200,9 +200,9 @@ def test_airlines_cards_carry_no_badge_or_per_card_control_but_full_vocabulary()
         "dialog (CFG-81)")
 
     triggers = re.findall(
-        r'<(?:button type="button"|a href="[^"]*") class="airline-card__zoom" .*?</(?:button|a)>',
+        r'<(?:button type="button"|a href="[^"]*") class="airline-row(?:__type-trigger)?" .*?</(?:button|a)>',
         rendered, re.S)
-    assert len(triggers) >= 2, "expected the curated grid to render triggers to count vocabulary against"
+    assert len(triggers) >= 2, "expected the airline list to render triggers to count vocabulary against"
 
     attr_names = {
         getattr(airlines_page, name) for name in dir(airlines_page)
@@ -215,7 +215,7 @@ def test_airlines_cards_carry_no_badge_or_per_card_control_but_full_vocabulary()
     for trigger in triggers:
         found = set(re.findall(r'(data-view-panel-[a-z-]+)=', trigger))
         assert found == attr_names, (
-            "expected every airline-card__zoom trigger to carry the same data-view-panel-* "
+            "expected every airline row trigger to carry the same data-view-panel-* "
             "attribute set %r, got %r" % (sorted(attr_names), sorted(found)))
         counts.add(len(found))
     assert counts == {expected_count}, (
@@ -223,48 +223,28 @@ def test_airlines_cards_carry_no_badge_or_per_card_control_but_full_vocabulary()
         % (expected_count, counts))
 
 
-def test_airlines_manual_count_is_a_filter_control_in_the_filter_bar(tmp_path, served_css):
-    """the manual-resolution count renders as a real filter control INSIDE the Airlines filter
-    bar wearing .airline-card__chip's label voice — the 12px bare link and its copied
-    [data-filter-clear] property list are retired, leaving only a hover-additive rule — and
-    one entry reads '1 manual resolution' (FR '1 resolution manuelle') while two read
-    '2 manual resolutions' (X7 + /B16, Task 2)"""
+def test_airlines_filter_bar_has_no_manual_resolution_control(tmp_path, served_css):
+    """the Airlines filter bar is the plain search pill: no "N manual resolutions" summary
+    control in either language, no style rule for it, and no status chip on the row (the
+    retired count and the chips were owner feedback)"""
     registry = {"QQQ": {"airline_name": "Air France",
                         "created_at": "2026-09-01T10:00:00+00:00"}}
-    rendered = airlines_page.render({"state_dir": str(tmp_path), "manual_resolutions": registry})
-    two = airlines_page.render({"state_dir": str(tmp_path), "manual_resolutions": dict(
-        registry, RRR={"airline_name": "KLM", "created_at": "2026-09-02T10:00:00+00:00"})})
+    ctx = {"state_dir": str(tmp_path), "manual_resolutions": registry}
+    rendered = airlines_page.render(ctx)
     prefs.set_request_prefs(lang="fr")
     try:
-        rendered_fr = airlines_page.render(
-            {"state_dir": str(tmp_path), "manual_resolutions": registry})
+        rendered_fr = airlines_page.render(ctx)
     finally:
         prefs.set_request_prefs(lang="en")
-
-    bar = re.search(r'<div class="filter-bar">(.*?)</div>\s*<div class="empty-state"',
-                    rendered, re.S)
-    assert bar is not None, "expected to locate the rendered filter bar"
-    assert "data-filter-set=\"manual\"" in bar.group(1), (
-        "expected the manual-resolution control INSIDE the filter bar, not as loose prose below it")
-    assert 'class="airline-card__chip manual-summary"' in bar.group(1), (
-        "expected the control to reuse the card-chip label voice verbatim")
-    assert rendered.count('data-filter-set="manual"') == 1
-
-    assert not rules_with_selector(served_css, ".manual-summary"), (
-        "expected the .manual-summary base rule block to be gone — the chip class now carries "
-        "the whole treatment, and a surviving copy is a fork")
-    assert rules_with_selector(served_css, ".manual-summary:hover"), (
-        "expected .manual-summary to survive as the hover-only additive rule")
-
-    assert "1 manual resolution<" in rendered, (
-        "expected the singular form for exactly one manual resolution, got %r"
-        % (re.findall(r'data-filter-set="manual">([^<]*)<', rendered),))
-    assert "2 manual resolutions<" in two, (
-        "expected the plural form for two manual resolutions, got %r"
-        % (re.findall(r'data-filter-set="manual">([^<]*)<', two),))
-    assert "1 résolution manuelle<" in rendered_fr, (
-        "expected the French singular, got %r"
-        % (re.findall(r'data-filter-set="manual">([^<]*)<', rendered_fr),))
+    for page in (rendered, rendered_fr):
+        bar = re.search(r'<div class="filter-bar">(.*?)<div class="empty-state ', page, re.S)
+        assert bar is not None, "expected to locate the rendered filter bar"
+        assert "manual" not in bar.group(1).lower() and "manuelle" not in bar.group(1).lower()
+        assert "data-filter-set" not in page
+    assert not rules_with_selector(served_css, ".manual-summary")
+    assert not rules_with_selector(served_css, ".manual-summary:hover")
+    assert "Resolved by hand" not in rendered and "Résolue à la main" not in rendered_fr
+    assert "airline-card__chip" not in rendered and "airline-card__chip" not in rendered_fr
 
 
 def test_airlines_grid_is_two_fixed_columns_below_960px(served_css):
@@ -403,10 +383,11 @@ def test_hex_only_row_promotes_hex_to_primary(tmp_path):
         "expected zero copy buttons in the hex-only desktop row, got %d"
         % tr_block.count("data-copy-value"))
 
-    assert '<span class="cell-primary mono">34560d</span>' in li_block, (
-        "expected the mobile card's primary line to carry the hex")
-    assert ('<span class="cell-secondary">%s</span>' % history_page.NO_CALLSIGN_NOTE_TEXT) in li_block, (
-        "expected the mobile card's primary line to carry the no-callsign note")
+    ident = vp.row_block(rendered, "li", 0).select_one(".history-card__callsign")
+    assert ident.text() == "34560d %s" % history_page.NO_CALLSIGN_NOTE_TEXT, (
+        "expected the mobile card's identity slot to carry the hex and the no-callsign note")
+    assert ident.select_one(".history-card__note").text() == history_page.NO_CALLSIGN_NOTE_TEXT
+    assert "data-copy-value" not in li_block
 
     tr_block_1 = _row_block(rendered, "tr", 1)
     assert tr_block_1 is not None, "could not locate row block for the both-falsy row"
@@ -468,7 +449,7 @@ def test_day_separators_group_rows_by_europe_paris_calendar_day(tmp_path):
     }
     for lang, rendered in (("en", rendered_en), ("fr", rendered_fr)):
         rows = re.findall(
-            r'<tr class="flight-day-row"><th scope="colgroup" colspan="5"'
+            r'<tr class="flight-day-row" data-filter-day><th scope="colgroup" colspan="5"'
             r' class="text-label">(.*?)</th></tr>', rendered)
         assert rows == expected[lang], (
             "expected the %s separators to read %r, got %r" % (lang, expected[lang], rows))
@@ -575,7 +556,6 @@ def test_flights_declares_its_refresh_regions_and_never_the_filter_input(tmp_pat
         "ul.history-cards": '<ul class="history-cards"',
         ".data-table-wrap": 'class="data-table-wrap"',
         "[data-filter-count]": "data-filter-count ",
-        ".flights-more": 'class="flights-more"',
     }
     assert sorted(witnesses) == sorted(selectors), (
         "Flights' registry entry is %r, and this check knows how to witness %r"
@@ -589,10 +569,10 @@ def test_flights_declares_its_refresh_regions_and_never_the_filter_input(tmp_pat
             "load, so replacing it leaves the filter permanently dead" % (selector,))
 
 
-def test_the_phone_card_is_a_flat_face_with_resolve_and_picture_actions(tmp_path):
-    """the phone card is one flat face — the primary line, the secondary line, the time, the
-    thumbnail and the airline name — followed by the one-hop resolve link (only for an
-    unnamed airline) and the picture link, with no disclosure, summary or copy control"""
+def test_the_phone_card_is_a_boarding_pass_with_resolve_and_picture_actions(tmp_path):
+    """the phone card reads head (identity + picture action), route line, then stub (artwork +
+    time), carries the one-hop resolve link only for an unnamed airline, and has no
+    disclosure, summary or copy control"""
     from PIL import Image
 
     key = illustrations.normalise_airline_key("Air France")
@@ -606,119 +586,60 @@ def test_the_phone_card_is_a_flat_face_with_resolve_and_picture_actions(tmp_path
     ])
     names = ["2026-08-27T08-00-00+00-00.png"]
     rendered = history_page.render(vp.history_ctx(tmp_path, gallery_entries=names))
-    li = _row_block(rendered, "li", 0)
+    li = vp.row_block(rendered, "li", 0)
     assert li is not None, "could not locate the phone card"
-    assert "<details" not in li and "<summary" not in li and "data-copy-value" not in li
-    face = re.search(r'<div class="history-card__face">(.*?)</div>(?=<div class="history-card__action"|</li>)', li, re.S)
-    assert face is not None, "expected the card's flat face, got %r" % (li[:300],)
-    for part in ("history-card__primary", "history-card__secondary",
-                 "history-card__airline", "history-card__thumb",
-                 "history-card__airline-name", "history-card__time"):
-        assert part in face.group(1), "expected %r on the card's face" % (part,)
-    assert 'class="history-card__action"' in li and "data-view-panel-src" in li
-    assert history_page.RESOLVE_LINK_TEXT not in li, (
+    assert not li.select("details") and not li.select("summary")
+    assert not li.select("[data-copy-value]")
+    bands = [child.attrs.get("class") for child in li.children if not isinstance(child, str)]
+    assert bands == ["history-card__head", "history-card__route", "history-card__stub"]
+    head = li.select_one(".history-card__head")
+    assert head.select_one(".history-card__callsign").text() == "FACEONE"
+    assert head.select_one(".history-card__airline").text() == "Air France"
+    assert head.select_one("a.history-card__picture[data-view-panel-src]") is not None
+    assert li.select_one(".history-card__stub img.history-card__art") is not None
+    assert li.select_one(".history-card__stub .history-card__when") is not None
+    assert history_page.RESOLVE_LINK_TEXT not in li.text(), (
         "did not expect a resolve link for a named airline")
 
-    li_unresolved = _row_block(rendered, "li", 1)
-    assert li_unresolved is not None, "could not locate the unresolved-airline card"
-    assert history_page.RESOLVE_LINK_TEXT in li_unresolved, (
-        "expected the unresolved card to carry its one-hop resolve link")
-    assert history_page.RESOLVE_LINK_TEXT not in face.group(1)
-    assert "data-view-panel-src" in li_unresolved
+    unresolved = vp.row_block(rendered, "li", 1)
+    assert unresolved is not None, "could not locate the unresolved-airline card"
+    identity = unresolved.select_one(".history-card__head .history-card__id")
+    assert identity.select_one(".history-card__airline--unknown").text() == "Airline unknown"
+    assert identity.select_one(".history-card__resolve a").text() == history_page.RESOLVE_LINK_TEXT
+    assert unresolved.select("a[data-view-panel-src]")
 
 
-def test_history_card_primary_grid_pins_the_timestamp_track(tmp_path, served_css):
-    """the phone summary card's .history-card__primary line is a two-track CSS grid
-    (minmax(0, 1fr) then auto, no justify-content) with a non-wrapping .history-card__time
-    (white-space: nowrap, no margin-left: auto), and all three primary_value_html branches —
-    callsign, hex-plus-note, empty — produce a child set the grid can place with no third,
-    unclassified top-level child (2026-09-17 audit P1, Task 2)"""
-    primary_block = declarations_for(served_css, ".history-card__primary")
-    assert primary_block, "could not locate the .history-card__primary rule block"
-    assert primary_block.get("display") == "grid", (
-        "expected .history-card__primary to declare display: grid, got %r" % (primary_block,))
-    tracks = primary_block.get("grid-template-columns", "").strip()
-    assert re.match(r"^minmax\(\s*0\s*,\s*1fr\s*\)\s+auto$", tracks), (
-        "expected grid-template-columns to declare exactly two tracks, got %r" % (tracks,))
-    assert "justify-content" not in primary_block, (
-        "expected justify-content ABSENT from .history-card__primary, found it in %r"
-        % (primary_block,))
-
-    time_block = declarations_for(served_css, ".history-card__time")
-    assert time_block, "could not locate the .history-card__time rule block"
-    assert time_block.get("white-space") == "nowrap", (
-        "expected .history-card__time to declare white-space: nowrap, got %r" % (time_block,))
-    assert "margin-left" not in time_block, (
-        "expected .history-card__time to declare no margin-left, found %r" % (time_block,))
+def test_phone_card_identity_branches_and_time_never_wrap(tmp_path, served_css):
+    """every identity branch (callsign, hex plus note, neither) renders one callsign slot and one
+    airline line in the card head, the stub's time column never wraps, and the airline line
+    ellipsises rather than growing the card"""
+    when_block = declarations_for(served_css, ".history-card__when")
+    assert when_block.get("white-space") == "nowrap"
+    airline_block = declarations_for(served_css, ".history-card__airline")
+    assert airline_block.get("white-space") == "nowrap"
+    assert airline_block.get("text-overflow") == "ellipsis"
 
     branches = (
-        ("callsign", {"ts": "2026-09-21T10:00:00+00:00", "callsign": "GRD01"}),
-        ("hex-plus-note", {"ts": "2026-09-21T10:00:00+00:00", "hex": "abc123"}),
-        ("empty", {"ts": "2026-09-21T10:00:00+00:00"}),
+        ("callsign", {"ts": "2026-09-21T10:00:00+00:00", "callsign": "GRD01"}, "GRD01"),
+        ("hex-plus-note", {"ts": "2026-09-21T10:00:00+00:00", "hex": "abc123"},
+         "abc123 " + history_page.NO_CALLSIGN_NOTE_TEXT),
+        ("empty", {"ts": "2026-09-21T10:00:00+00:00"}, ""),
     )
-    for name, fields in branches:
+    for name, fields, expected in branches:
         sub = tmp_path / name
         vp.seed_runway_events(sub, [fields])
         rendered = history_page.render(vp.history_ctx(sub))
-        li_block = _row_block(rendered, "li", 0)
-        assert li_block is not None, "%s branch: could not locate the rendered card" % name
-        primary_match = re.search(
-            r'<div class="history-card__primary">(.*?)</div>', li_block, re.S)
-        assert primary_match is not None, (
-            "%s branch: could not locate .history-card__primary markup" % name)
-        primary_markup = primary_match.group(1)
-        assert primary_markup.count('<span class="history-card__time">') == 1, (
-            "%s branch: expected exactly one history-card__time (track-2) child" % name)
-        track2_start = primary_markup.index('<span class="history-card__time">')
-        track1_markup = primary_markup[:track2_start]
-        track1_children = re.findall(
-            r'<span class="(cell-primary|cell-secondary)[^"]*"', track1_markup)
-        assert track1_children, (
-            "%s branch: expected at least one track-1 child before the timestamp span" % name)
-        unclassified = re.sub(
-            r'<span class="cell-(?:primary|secondary)[^"]*">.*?</span>', "",
-            track1_markup, flags=re.S).strip()
-        assert not unclassified, (
-            "%s branch: expected every child before the timestamp span to be a classified "
-            "track-1 child, found leftover unclassified markup %r"
-            % (name, unclassified))
+        li = vp.row_block(rendered, "li", 0)
+        assert li is not None, "%s branch: could not locate the rendered card" % name
+        identity = li.select_one(".history-card__head .history-card__id")
+        assert len(identity.select(".history-card__callsign")) == 1, name
+        assert identity.select_one(".history-card__callsign").text() == expected, name
+        assert len(identity.select(".history-card__airline")) == 1, name
 
 
-def test_flights_reveal_state_reproduces_from_the_url_alone(tmp_path, app):
-    """two renders of a 36-row fixture at the SAME ?limit= value produce byte-identical
-    pagination state (standing in for freshness.js's own re-fetch of the unchanged
-    window.location.href), '.flights-more' is a declared swap region, and freshness.js
-    carries exactly one fetch( call targeting window.location.href verbatim — the
-    structural half of the refresh-survival property this harness can prove without a
-    browser"""
-    vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-09-%02dT10:00:00+00:00" % i, "hex": "rv%02d" % i, "callsign": "REV%02d" % i}
-        for i in range(1, 37)
-    ])
-    ctx = vp.history_ctx(tmp_path, flights_limit="30")
-    first = history_page.render(ctx)
-    second = history_page.render(ctx)
-    for label, rendered in (("first", first), ("second", second)):
-        card_count = rendered.count('<li class="history-card"')
-        assert card_count == 30, "%s render: expected 30 cards, got %d" % (label, card_count)
-        nav_match = re.search(r'<nav class="flights-more">(.*?)</nav>', rendered, re.S)
-        assert nav_match is not None, "%s render: expected a non-empty Show-more nav" % label
-        href_match = re.search(r'href="([^"]+)"', nav_match.group(1))
-        assert href_match is not None and href_match.group(1) == "/flights?limit=45", (
-            "%s render: expected the Show-more anchor's href to be /flights?limit=45, got %r"
-            % (label, href_match.group(1) if href_match else None))
-    first_cards_match = re.search(r'<ul class="history-cards">(.*?)</ul>', first, re.S)
-    second_cards_match = re.search(r'<ul class="history-cards">(.*?)</ul>', second, re.S)
-    assert first_cards_match is not None and second_cards_match is not None
-    assert first_cards_match.group(1) == second_cards_match.group(1), (
-        "expected two renders of the SAME ?limit= ctx to produce byte-identical "
-        "ul.history-cards markup")
-
-    selectors = layout.REFRESH_SWAP_SELECTORS_BY_PAGE[layout.REFRESH_PAGE_FLIGHTS]
-    assert ".flights-more" in selectors, (
-        "expected '.flights-more' to be a declared REFRESH_SWAP_SELECTORS_BY_PAGE region, "
-        "got %r" % (selectors,))
-
+def test_freshness_refetches_the_current_url_verbatim(app):
+    """freshness.js carries exactly one fetch( call and it targets window.location.href
+    verbatim, so a background refresh of Flights re-requests whatever URL the visitor is on"""
     js_source = vp.strip_js_line_and_block_comments(served_asset(app, "/static/freshness.js"))
     fetch_calls = re.findall(r"fetch\(\s*([^,)]+)", js_source)
     assert len(fetch_calls) == 1, (
@@ -729,153 +650,6 @@ def test_flights_reveal_state_reproduces_from_the_url_alone(tmp_path, app):
         % (fetch_calls[0].strip(),))
 
 
-def test_flights_reveal_control_is_a_plain_anchor_no_script_mentions(tmp_path, app):
-    """the Show-more anchor renders with an href and no onclick/data- attribute and is never a
-    <button> or <form>, and zero companion/static/*.js files mention its 'flights-more'
-    class (scanned-route floor >= 16, printed on failure) — a no-JS control proof, not merely
-    a render"""
-    vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-09-%02dT10:00:00+00:00" % i, "hex": "nj%02d" % i, "callsign": "NOJS%02d" % i}
-        for i in range(1, 21)
-    ])
-    rendered = history_page.render(vp.history_ctx(tmp_path))
-    nav_match = re.search(r'<nav class="flights-more">(.*?)</nav>', rendered, re.S)
-    assert nav_match is not None, "expected a non-empty <nav class=\"flights-more\"> in a 20-row render"
-    nav_html = nav_match.group(1)
-    assert nav_html.startswith("<a ") and nav_html.count("<a ") == 1, (
-        "expected the Show-more nav's one child to be a plain <a>, got %r" % (nav_html,))
-    assert "<button" not in nav_html and "<form" not in nav_html
-    assert "href=" in nav_html, "expected the Show-more anchor to carry an href"
-    assert "onclick" not in nav_html
-    assert not re.search(r'\sdata-[a-z-]+=', nav_html), (
-        "did not expect a data-prefixed attribute on the Show-more anchor")
-
-    routes = _all_static_script_routes()
-    assert len(routes) >= 16, (
-        "FLOOR TRIPPED: expected at least 16 companion static JS routes, found %d: %r"
-        % (len(routes), routes))
-    hits_by_route = {}
-    for route in routes:
-        stripped = vp.strip_js_line_and_block_comments(served_asset(app, route))
-        lines_with_hit = [ln for ln in stripped.splitlines() if "flights-more" in ln]
-        if lines_with_hit:
-            hits_by_route[route] = lines_with_hit
-    unsanctioned = {
-        route: lines for route, lines in hits_by_route.items() if route != "/static/freshness.js"}
-    assert not unsanctioned, (
-        "expected only freshness.js's own generic swap-registry mirror to mention "
-        "'flights-more' — found it in %r too (scanned %d routes)"
-        % (sorted(unsanctioned), len(routes)))
-    if "/static/freshness.js" in hits_by_route:
-        targeted = [
-            ln for ln in hits_by_route["/static/freshness.js"]
-            if re.search(r'querySelector\(|addEventListener|\.click\(|\.href', ln)]
-        assert not targeted, (
-            "expected freshness.js's 'flights-more' mention(s) to be plain swap-registry "
-            "array entries, found a targeted reference: %r" % (targeted,))
-
-
-def test_flights_reveal_anchor_has_a_matching_css_selector(tmp_path, served_css):
-    """the Show-more anchor's rendered tag agrees with a REAL CSS selector match (rightmost
-    compound's tag qualifier, if any) — not merely a class-string substring shared between
-    the markup and style.css"""
-    vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-09-%02dT10:00:00+00:00" % i, "hex": "cm%02d" % i, "callsign": "CSSM%02d" % i}
-        for i in range(1, 21)
-    ])
-    rendered = history_page.render(vp.history_ctx(tmp_path))
-    nav_match = re.search(r'<nav class="flights-more">(.*?)</nav>', rendered, re.S)
-    assert nav_match is not None, "expected a non-empty <nav class=\"flights-more\"> in a 20-row render"
-    tag_match = re.search(r'<(\w+)\b[^>]*\bclass="([^"]*)"', nav_match.group(1))
-    assert tag_match is not None, "expected the Show-more nav's child to carry a class attribute"
-    tag, classes = tag_match.group(1), tag_match.group(2).split()
-    assert "calendar-disconnect-btn" in classes, (
-        "expected the Show-more control to carry calendar-disconnect-btn, got classes %r"
-        % (classes,))
-
-    candidate_selectors = []
-    for rule in css_rules(served_css):
-        for sel in rule.selectors:
-            if ".calendar-disconnect-btn" in sel:
-                candidate_selectors.append(sel)
-    assert candidate_selectors, (
-        "expected at least one CSS rule selector mentioning .calendar-disconnect-btn")
-
-    reachable = False
-    for sel in candidate_selectors:
-        compounds = sel.split()
-        subject = compounds[-1]
-        qualifier_match = re.match(r'^([a-zA-Z][a-zA-Z0-9-]*)?\.calendar-disconnect-btn$', subject)
-        if qualifier_match is None:
-            continue
-        qualifier_tag = qualifier_match.group(1)
-        if len(compounds) == 1 and (qualifier_tag is None or qualifier_tag.lower() == tag.lower()):
-            reachable = True
-            break
-    assert reachable, (
-        "expected a CSS selector whose rightmost compound has no tag qualifier or matches "
-        "the rendered <%s>, with no ancestor compound to its left — found only %r, none of "
-        "which actually paints <%s class=\"calendar-disconnect-btn\">"
-        % (tag, candidate_selectors, tag))
-
-
-_FLIGHTS_LIMIT_HOSTILE_INPUTS = (
-    None, "", " ", "abc", "1.5", "-1", "0", "14", "15", "50", "51",
-    "999999999", "1e9", "0x10", True, False, [], {}, object(),
-)
-
-# Stable, worker-independent ids: repr(object()) embeds the object's own
-# memory address, which differs between xdist worker processes and makes
-# pytest-xdist refuse to run ("Different tests were collected between
-# gw0 and gwN") - an id derived from each input's own index is stable.
-_FLIGHTS_LIMIT_HOSTILE_INPUT_IDS = [
-    repr(value) if type(value) is not object else "opaque-object-%d" % i
-    for i, value in enumerate(_FLIGHTS_LIMIT_HOSTILE_INPUTS)
-]
-
-
-@pytest.mark.parametrize(
-    "raw", _FLIGHTS_LIMIT_HOSTILE_INPUTS, ids=_FLIGHTS_LIMIT_HOSTILE_INPUT_IDS)
-def test_flights_limit_clamps_every_hostile_input_into_bounds(raw):
-    """history_page.flights_limit() clamps all 19 hostile inputs into [15, 50] without
-    raising"""
-    result = history_page.flights_limit({"flights_limit": raw})
-    assert isinstance(result, int) and not isinstance(result, bool), (
-        "flights_limit(%r) returned %r, expected a plain int" % (raw, result))
-    assert history_page.FLIGHTS_PAGE_SIZE <= result <= history_page.HISTORY_ROW_LIMIT, (
-        "flights_limit(%r) returned %r, outside [%d, %d]"
-        % (raw, result, history_page.FLIGHTS_PAGE_SIZE, history_page.HISTORY_ROW_LIMIT))
-
-
-def test_flights_render_defers_entirely_to_flights_limit_for_hostile_ctx_values(tmp_path):
-    """history_page.render() clamps a hostile ctx['flights_limit'] value into exactly the
-    card count flights_limit() itself computes — the behavioural proof that render() has no
-    second, unvalidated arithmetic path of its own on the raw threaded value, and
-    HISTORY_ROW_LIMIT is the ceiling a huge hostile value clamps to
-
-    A source/AST introspection proof that render() calls flights_limit() exactly once, never
-    reads ctx['flights_limit'] directly, and performs no arithmetic of its own on the raw
-    threaded value is dropped in favour of stronger behavioural evidence: if render() had any
-    second path onto the raw value (its own arithmetic, a different default, a raise), the
-    observed card count below would diverge from flights_limit()'s own clamp for at least
-    one of these hostile inputs.
-    """
-    vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-09-01T%02d:00:00+00:00" % (i % 24), "hex": "cl%03d" % i,
-         "callsign": "CLAMP%03d" % i}
-        for i in range(60)
-    ])
-    for raw in ("abc", "-1", "0", "999999999", "1e9", None, "", " ", True, [], {}):
-        expected = history_page.flights_limit({"flights_limit": raw})
-        rendered = history_page.render(vp.history_ctx(tmp_path, flights_limit=raw))
-        card_count = rendered.count('<li class="history-card"')
-        assert card_count == min(expected, 60), (
-            "flights_limit=%r: expected render() to defer to flights_limit()'s own clamp "
-            "(%d cards, seeded 60), got %d" % (raw, min(expected, 60), card_count))
-    assert history_page.flights_limit({"flights_limit": "999999999"}) == history_page.HISTORY_ROW_LIMIT, (
-        "expected a huge hostile value to clamp AT HISTORY_ROW_LIMIT, not below it")
-
-
 def test_the_count_animates_without_its_text_production_moving(app):
     """the filter count animates its ELEMENT and never its number: the template-driven text
     production is untouched, the text is written before the class is added, the class is
@@ -883,8 +657,8 @@ def test_the_count_animates_without_its_text_production_moving(app):
     fires only when the rendered value actually differs"""
     js = vp.strip_js_line_and_block_comments(served_asset(app, "/static/list-filter.js"))
     for token in ('getAttribute("data-filter-count-template")',
-                  '.replace("%d", String(visibleCount))',
-                  '.replace("%d", String(totalCount))'):
+                  '.replace("#", String(visibleCount))',
+                  '.replace("#", String(totalCount))'):
         assert token in js, (
             "expected the count's text production to be unchanged (%r)" % (token,))
     assert "is-fading-in" in js, (
@@ -903,25 +677,31 @@ def test_the_count_animates_without_its_text_production_moving(app):
         "expected the animation to fire only when the rendered text actually differs")
 
 
-def test_phone_card_route_and_state_carry_the_existing_middle_dot(tmp_path):
-    """the phone card's "ORY → JFK Departing" line carries the module's EXISTING
-    cell-inline-sep middle dot between the route and the state, reused rather than
-    reinvented"""
+def test_phone_card_route_line_mutes_the_home_end_and_names_the_direction(tmp_path):
+    """the phone card's route line carries origin and destination as two codes with the plane
+    glyph and the direction label between them; the home end (the origin of a departure, the
+    destination of an arrival) is muted; a row with no route reads the shared fallback"""
     vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-08-27T10:00:00+00:00", "hex": "sep01", "callsign": "SEPCARD",
-         "origin": "LFPO", "destination": "KJFK", "confirmed_state": "departing"},
+        {"ts": "2026-08-27T10:00:00+00:00", "hex": "rt01", "callsign": "DEPCARD",
+         "origin": "ORY", "destination": "KEF", "confirmed_state": "departing"},
+        {"ts": "2026-08-27T09:00:00+00:00", "hex": "rt02", "callsign": "ARRCARD",
+         "origin": "NCE", "destination": "ORY", "confirmed_state": "arriving"},
+        {"ts": "2026-08-27T08:00:00+00:00", "hex": "rt03", "callsign": "NOROUTE",
+         "confirmed_state": "departing"},
     ])
     rendered = history_page.render(vp.history_ctx(tmp_path))
-    match = re.search(r'<div class="history-card__secondary">(.*?)</div>', rendered, re.S)
-    assert match is not None, "could not locate the phone card's secondary line"
-    expected = (
-        "<span>LFPO → KJFK</span>"
-        '<span class="%s">%s</span>'
-        "<span>Departing</span>"
-    ) % (history_page.CELL_SEPARATOR_CLASS, layout.escape_html(history_page.CELL_SEPARATOR_TEXT))
-    assert match.group(1) == expected, (
-        "expected the route and state to be joined by the module's existing middle-dot "
-        "separator, got %r" % (match.group(1),))
+    for index, origin, destination, home, direction in (
+            (0, "ORY", "KEF", "from", "Departing"), (1, "NCE", "ORY", "to", "Arriving")):
+        route = vp.row_block(rendered, "li", index).select_one(".history-card__route")
+        assert route.select_one(".history-card__code--from").text() == origin
+        assert route.select_one(".history-card__code--to").text() == destination
+        homes = route.select(".history-card__code--home")
+        assert len(homes) == 1 and "history-card__code--%s" % home in homes[0].attrs["class"]
+        assert route.select_one(".history-card__track svg use").attrs["href"] == "#icon-plane"
+        assert route.select_one(".history-card__dir").text() == direction
+    route = vp.row_block(rendered, "li", 2).select_one(".history-card__route")
+    assert route.select_one(".history-card__code--none").text() == history_page.ROUTE_FALLBACK_TEXT
+    assert not route.select(".history-card__code--to")
 
 
 def test_raw_iso_timestamp_is_never_rendered(tmp_path):
@@ -937,11 +717,10 @@ def test_raw_iso_timestamp_is_never_rendered(tmp_path):
     assert "Full timestamp" not in rendered
 
 
-def test_phone_cards_carry_the_airline_name_and_artwork_thumbnail(tmp_path, served_css):
+def test_phone_cards_carry_the_airline_name_and_artwork_plate(tmp_path, served_css):
     """a phone card carries the airline name and, when real artwork exists for it, the Airlines
-    gallery's own served frame as a thumbnail joining the shared white-backing/hairline/
-    radius rule in a contain-fitted 56px box — and no <img> at all when no artwork file
-    exists"""
+    gallery's own served frame as a contain-fitted plate on the shared white image backdrop —
+    and, when no artwork file exists, a dashed "No illustration" placeholder, never an <img>"""
     from PIL import Image
 
     key = illustrations.normalise_airline_key("Air France")
@@ -955,37 +734,25 @@ def test_phone_cards_carry_the_airline_name_and_artwork_thumbnail(tmp_path, serv
          "airline": "Totally Unknown Air"},
     ])
     rendered = history_page.render(vp.history_ctx(tmp_path))
-    li_thumbed = _row_block(rendered, "li", 0)
-    li_noart = _row_block(rendered, "li", 1)
+    li_thumbed = vp.row_block(rendered, "li", 0)
+    li_noart = vp.row_block(rendered, "li", 1)
     assert li_thumbed is not None and li_noart is not None, "could not locate both phone cards"
-    assert 'class="history-card__airline-name">Air France<' in li_thumbed, (
-        "expected the phone card to carry the airline name on its own face")
-    expected_img = (
-        '<img class="history-card__thumb" loading="lazy" decoding="async" src="%s%s.png"'
-        % (history_page.ILLUSTRATION_ROUTE_PREFIX, key))
-    assert expected_img in li_thumbed, (
-        "expected the phone card to carry the artwork thumbnail, got %r" % (li_thumbed[:200],))
-    assert "history-card__thumb" not in li_noart, (
-        "did not expect a thumbnail for an airline with no artwork file")
-    assert "history-card__airline-name" in li_noart, (
-        "expected every card to name its airline, artwork or not")
+    assert li_thumbed.select_one(".history-card__airline").text() == "Air France"
+    img = li_thumbed.select_one(".history-card__stub img.history-card__art")
+    assert img.attrs["src"] == "%s%s.png" % (history_page.ILLUSTRATION_ROUTE_PREFIX, key)
+    assert img.attrs["alt"] == "Air France illustration"
+    assert img.attrs["loading"] == "lazy"
+    assert not li_noart.select("img"), (
+        "did not expect an <img> for an airline with no artwork file")
+    placeholder = li_noart.select_one(".history-card__stub .history-card__art--empty")
+    assert placeholder.text() == "No illustration"
+    assert li_noart.select_one(".history-card__airline").text() == "Totally Unknown Air"
 
-    # Every one of .now-showing__image / .preview-frame__image / img.recent-flight__thumb
-    # / img.history-card__thumb now has its own single rule (one rule per selector per
-    # at-rule context, no shared-group site any more), so the shared white-backing/
-    # hairline/radius treatment is asserted as three equal resolved declarations rather
-    # than as selector-list membership in one shared rule.
-    thumb_decls = declarations_for(served_css, "img.history-card__thumb")
-    for shared_selector in (".now-showing__image", ".preview-frame__image"):
-        shared_decls = declarations_for(served_css, shared_selector)
-        for prop in ("border", "border-radius", "background"):
-            assert thumb_decls.get(prop) == shared_decls.get(prop), (
-                "expected img.history-card__thumb's %r to match %r's shared white-backing/"
-                "hairline/radius treatment, got %r vs %r"
-                % (prop, shared_selector, thumb_decls.get(prop), shared_decls.get(prop)))
-    assert thumb_decls.get("height") == "56px" and thumb_decls.get("object-fit") == "contain", (
-        "expected img.history-card__thumb's own rule to declare a fixed 56px-tall box with "
-        "contain fitting")
+    plate = declarations_for(served_css, "img.history-card__art")
+    shared = declarations_for(served_css, ".now-showing__image")
+    assert plate.get("background") == shared.get("background")
+    assert plate.get("object-fit") == "contain"
+    assert declarations_for(served_css, ".history-card__art--empty").get("border-style") == "dashed"
 
 
 def test_no_prefix_registry_duplicated_on_history(tmp_path):
@@ -1117,38 +884,30 @@ def test_home_recent_flight_age_is_an_element_reading_exactly_as_before(tmp_path
             prefs.set_request_prefs(lang="en")
 
 
-def test_home_rendered_caption_carries_the_element_through_the_template(tmp_path):
-    """Home's rendered-picture caption carries concise_timestamp_html()'s <time data-relative>
-    element THROUGH its i18n template's own %s — as markup, never double-escaped — with the
-    caption's wording and the age's text unchanged in both languages (23-03, D14)"""
+def test_home_latest_image_has_no_caption_and_its_alt_names_the_flight(tmp_path):
+    """Home prints nothing under the latest image: no <figcaption>, no "Rendered"/"Généré"
+    line and no flight line; the image's alt text still identifies the current flight, in both
+    languages"""
     now = "2026-08-27T12:00:00+00:00"
     flight_ts = "2026-08-27T11:50:00+00:00"
-    gallery_iso = "2026-08-27T11:50:00+00:00"
     for lang in ("en", "fr"):
         sub = tmp_path / lang
         prefs.set_request_prefs(lang=lang)
         try:
             rendered = home_page.render(_home_seeded_ctx(sub, now, flight_ts))
-            caption = re.search(
-                r'<figcaption class="preview-frame__caption text-label">(.*?)</figcaption>',
-                rendered, re.S)
-            assert caption is not None, "lang=%s: expected the rendered-picture caption" % (lang,)
-            expected_caption = i18n.t_lang(
-                home_page.RENDERED_CAPTION_TEMPLATE, lang) % layout.concise_timestamp_html(
-                    gallery_iso, now, lang=lang)
-            assert caption.group(1).startswith(expected_caption), (
-                "lang=%s: expected the caption to be its unchanged wording around "
-                "concise_timestamp_html()'s own output %r, got %r"
-                % (lang, expected_caption, caption.group(1)))
-            element = _HOME_RELATIVE_ELEMENT_RE.search(caption.group(1))
-            assert element is not None, (
-                "lang=%s: expected the caption's relative half to be a <time data-relative> "
-                "element, got %r" % (lang, caption.group(1)))
-            assert element.group(2) == layout.relative_age_text(600, lang=lang), (
-                "lang=%s: expected the caption's age to read exactly what it reads today"
-                % (lang,))
-            assert "&lt;time" not in caption.group(1), (
-                "lang=%s: the caption template double-escaped the element" % (lang,))
+            figure = re.search(r'<figure class="preview-frame">(.*?)</figure>', rendered, re.S)
+            assert figure is not None, "lang=%s: expected the picture figure" % (lang,)
+            assert "<figcaption" not in figure.group(1), "lang=%s: found a caption" % (lang,)
+            assert "preview-frame__caption" not in rendered and "preview-frame__flight" not in rendered
+            for banned in ("Rendered", "Généré"):
+                assert banned not in rendered, "lang=%s: found %r" % (lang, banned)
+            alt = re.search(r'<img class="preview-frame__image"[^>]* alt="([^"]*)"', rendered)
+            assert alt is not None, "lang=%s: expected the picture's alt text" % (lang,)
+            lead = ("The picture currently on the frame: " if lang == "en"
+                    else "L’image actuellement affichée sur le cadre\u00a0: ")
+            assert alt.group(1).startswith(lead) and len(alt.group(1)) > len(lead), (
+                "lang=%s: expected the alt text to carry the flight line, got %r"
+                % (lang, alt.group(1)))
         finally:
             prefs.set_request_prefs(lang="en")
 

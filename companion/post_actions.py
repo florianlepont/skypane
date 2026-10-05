@@ -17,12 +17,13 @@ import io
 import os
 import tempfile
 import threading
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote, urlsplit
 
 from PIL import Image
 
 from companion import layout
 from companion.flash import (
+    FLASH_KEY_CALENDAR_CONNECT_FAILED,
     FLASH_KEY_CALENDAR_CONNECT_INVALID,
     FLASH_KEY_CALENDAR_CONNECT_OK,
     FLASH_KEY_CALENDAR_DISCONNECTED,
@@ -40,6 +41,12 @@ from companion.flash import (
     FLASH_KEY_MANUAL_REGISTRY_FULL,
     FLASH_KEY_MANUAL_RESOLVED,
     FLASH_KEY_MANUAL_SAVE_FAILED,
+    FLASH_KEY_RENAME_FULL,
+    FLASH_KEY_RENAME_TAKEN,
+    FLASH_KEY_RENAME_RESET,
+    FLASH_KEY_RENAME_SAVE_FAILED,
+    FLASH_KEY_RENAME_STALE,
+    FLASH_KEY_RENAMED,
     FLASH_KEY_RULE_ADDED,
     FLASH_KEY_RULE_DELETE_FAILED,
     FLASH_KEY_RULE_DELETED,
@@ -48,10 +55,13 @@ from companion.flash import (
     FLASH_KEY_RULE_REPLACED,
     FLASH_KEY_RULE_SAVE_FAILED,
 )
-from companion.pages import airlines_page, config_page
+from companion import resolve_dialog
+from companion.pages import airline_sheet, airlines_page, config_page
 from companion.pages.airlines_page import unresolved_row_for_prefix
 from server import atomic_io
-from server.plane import calendar_rules, colour_rules, illustrations, manual_resolutions
+from server.plane import (
+    calendar_rules, colour_rules, enrich, illustrations, manual_resolutions, name_overrides,
+)
 import server.poll_cycle as poll_cycle
 
 # Bounds peak memory per upload to a few MB. Enforced by the caller
@@ -84,7 +94,61 @@ def _illustration_filenames(state_dir=None):
             key = manual_resolutions.illustration_key_for_name(entry["airline_name"])
             if key:
                 filenames.add(key + ".png")
+        filenames |= _renamed_illustration_filenames(state_dir)
     return frozenset(filenames)
+
+
+def _renamed_illustration_filenames(state_dir):
+    """The artwork filenames of airlines the owner renamed: the new name's
+    own key, plus one per aircraft-type variant the built-in airline has,
+    so a renamed airline can be given artwork exactly as before."""
+    filenames = set()
+    for prefix, entry in name_overrides.load_name_overrides(state_dir).items():
+        key = manual_resolutions.illustration_key_for_name(entry["airline_name"])
+        if not key:
+            continue
+        filenames.add(key + ".png")
+        built_in = enrich.static_airline_name_for_prefix(prefix)
+        for shape in airline_sheet.artwork_shapes(built_in):
+            filenames.add("%s-%s.png" % (key, shape))
+    return filenames
+
+
+def _carry_artwork_to_new_name(state_dir, from_name, to_name, shapes):
+    """Best-effort copy of the artwork flights use under `from_name` to the
+    key `to_name` resolves to, so renaming does not blank the airline's
+    pictures on new flights. Copies, never moves, and only when `to_name`
+    has no artwork at all (it may be another airline's name); the old
+    key's files stay, so a reset (and every older picture) still finds them.
+    """
+    from_key = illustrations.normalise_airline_key(from_name)
+    to_key = illustrations.normalise_airline_key(to_name)
+    if not from_key or not to_key or from_key == to_key:
+        return
+    suffixes = [""] + ["-" + shape for shape in shapes]
+    if any(illustrations.resolved_illustration_path(to_key + suffix, state_dir) for suffix in suffixes):
+        return
+    for suffix in suffixes:
+        source = illustrations.resolved_illustration_path(from_key + suffix, state_dir)
+        target = illustrations.override_path_for_key(to_key + suffix, state_dir)
+        if source is None or target is None:
+            continue
+        try:
+            with open(source, "rb") as fh:
+                data = fh.read()
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            atomic_io.atomic_write(target, data)
+        except OSError as exc:
+            print("airline rename: could not carry artwork %s: %s" % (suffix or "base", exc))
+
+
+_RENAME_FLASH_BY_RESULT = {
+    manual_resolutions.ADD_REJECTED_NAME_TOO_LONG: FLASH_KEY_MANUAL_NAME_TOO_LONG,
+    manual_resolutions.ADD_REJECTED_NAME_RESERVED: FLASH_KEY_MANUAL_NAME_RESERVED,
+    manual_resolutions.ADD_REJECTED_PREFIX: FLASH_KEY_RENAME_STALE,
+    manual_resolutions.ADD_REJECTED_FULL: FLASH_KEY_RENAME_FULL,
+    name_overrides.SET_NAME_TAKEN: FLASH_KEY_RENAME_TAKEN,
+}
 
 
 def parse_single_uploaded_file(content_type, body):
@@ -155,6 +219,10 @@ class SettingsActionsMixin:
         stored. No CSRF token: relies on SameSite=Strict, like every
         other state-changing POST.
         """
+        # Airlines unless the action URL names an allow-listed page that
+        # opened the dialog (Health).
+        back = resolve_dialog.return_route(
+            parse_qs(urlsplit(self.path).query).get(resolve_dialog.RETURN_FIELD, [None])[0])
         filename = key + ".png"
         if filename not in _illustration_filenames(self.args.state_dir):
             return self.send_html(404, self._not_found_page())
@@ -162,12 +230,12 @@ class SettingsActionsMixin:
         raw = self._read_upload_body()
         if raw is None:
             return self.redirect(
-                "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
+                back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
 
         payload = parse_single_uploaded_file(self.headers.get("Content-Type"), raw)
         if payload is None or len(payload) > MAX_ILLUSTRATION_UPLOAD_BYTES:
             return self.redirect(
-                "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
+                back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
 
         state_dir = self.args.state_dir
         override_dir = illustrations.override_dir_for_state_dir(state_dir)
@@ -175,7 +243,7 @@ class SettingsActionsMixin:
             os.makedirs(override_dir, exist_ok=True)
         except OSError:
             return self.redirect(
-                "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED))
+                back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED))
 
         # The raw upload's temp lives in override_dir (mkstemp: a unique
         # name, so two concurrent uploads of the same key can never
@@ -200,7 +268,7 @@ class SettingsActionsMixin:
                 for problem in problems:
                     print("illustration replace rejected for %r: %s" % (key, problem))
                 return self.redirect(
-                    "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
+                    back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
 
             with Image.open(raw_tmp_path) as img:
                 rgba = img.convert("RGBA")
@@ -210,10 +278,10 @@ class SettingsActionsMixin:
             override_path = illustrations.override_path_for_key(key, state_dir)
             atomic_io.atomic_write(override_path, buffer.getvalue())
             return self.redirect(
-                "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACED))
+                back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACED))
         except Exception:
             return self.redirect(
-                "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED))
+                back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED))
         finally:
             if raw_tmp_path is not None:
                 try:
@@ -232,12 +300,14 @@ class SettingsActionsMixin:
         """
         form = self.read_form()
         state_dir = self.args.state_dir
+        # Airlines unless the form names an allow-listed page that
+        # started the flow (the dialog on Health).
+        back = resolve_dialog.return_route(form.get(resolve_dialog.RETURN_FIELD))
 
         row = unresolved_row_for_prefix(state_dir, form.get("prefix"))
         if row is None:
             return self.redirect(
-                "%s?flash=%s"
-                % (airlines_page.AIRLINES_ROUTE, quote(FLASH_KEY_MANUAL_PREFIX_STALE)))
+                "%s?flash=%s" % (back, quote(FLASH_KEY_MANUAL_PREFIX_STALE)))
         prefix = row[0]
 
         result = manual_resolutions.add_entry(state_dir, prefix, form.get("airline_name"))
@@ -248,12 +318,10 @@ class SettingsActionsMixin:
             key = manual_resolutions.illustration_key_for_name(entry.get("airline_name"))
             if key and illustrations.resolved_illustration_path(key, state_dir) is not None:
                 return self.redirect(
-                    "%s?flash=%s"
-                    % (airlines_page.AIRLINES_ROUTE, quote(FLASH_KEY_MANUAL_RESOLVED)))
+                    "%s?flash=%s" % (back, quote(FLASH_KEY_MANUAL_RESOLVED)))
             return self.redirect(
                 "%s?resolve=%s&flash=%s"
-                % (airlines_page.AIRLINES_ROUTE, quote(prefix, safe=""),
-                   quote(FLASH_KEY_MANUAL_RESOLVED)))
+                % (back, quote(prefix, safe=""), quote(FLASH_KEY_MANUAL_RESOLVED)))
 
         if result == manual_resolutions.ADD_REJECTED_PREFIX:
             flash_key = FLASH_KEY_MANUAL_NAME_EMPTY
@@ -280,7 +348,64 @@ class SettingsActionsMixin:
             flash_key = FLASH_KEY_MANUAL_SAVE_FAILED
         return self.redirect(
             "%s?resolve=%s&flash=%s"
-            % (airlines_page.AIRLINES_ROUTE, quote(prefix, safe=""), quote(flash_key)))
+            % (back, quote(prefix, safe=""), quote(flash_key)))
+
+    def _rename_redirect(self, flash_key, sheet_key=None):
+        """Back to /airlines with `flash_key`; a refusal reopens the sheet."""
+        query = "flash=%s" % quote(flash_key)
+        if sheet_key:
+            query = "%s=%s&%s" % (airline_sheet.SHEET_QUERY_PARAM, quote(sheet_key, safe=""), query)
+        return self.redirect("%s?%s" % (airlines_page.AIRLINES_ROUTE, query))
+
+    def _handle_airline_rename_post(self):
+        """POST /airlines/rename — set the owner's name for a built-in
+        airline. `airline` is the built-in name and is re-validated against
+        the built-in prefix table, never trusted: the prefixes the name
+        applies to come from there. A name equal to the built-in one is a
+        reset. The new name applies to flights stored from now on; history
+        rows are untouched. No CSRF token: SameSite=Strict, like every
+        other state-changing route.
+        """
+        form = self.read_form()
+        state_dir = self.args.state_dir
+        built_in = form.get("airline")
+        prefixes = enrich.static_prefixes_for_name(built_in)
+        if not prefixes:
+            return self._rename_redirect(FLASH_KEY_RENAME_STALE)
+        overrides = name_overrides.load_name_overrides(state_dir)
+        sheet = airline_sheet.card_sheet(built_in, overrides)
+        sheet_key = illustrations.normalise_airline_key(sheet["name"])
+        raw_name = form.get("airline_name")
+        name, rejection = manual_resolutions.check_name(raw_name)
+        if rejection is None and name == built_in:
+            return self._reset_airline_name(state_dir, prefixes, sheet_key)
+        result = name_overrides.set_names(
+            state_dir, prefixes, raw_name, own_builtin_name=built_in) if rejection is None else rejection
+        if result == name_overrides.SET_OK:
+            _carry_artwork_to_new_name(
+                state_dir, sheet["name"], name, airline_sheet.artwork_shapes(built_in))
+            return self._rename_redirect(FLASH_KEY_RENAMED)
+        if result == manual_resolutions.ADD_REJECTED_NAME_EMPTY:
+            flash_key = (
+                FLASH_KEY_MANUAL_NAME_UNUSABLE if isinstance(raw_name, str) and raw_name.strip()
+                else FLASH_KEY_MANUAL_NAME_EMPTY)
+        else:
+            flash_key = _RENAME_FLASH_BY_RESULT.get(result, FLASH_KEY_RENAME_SAVE_FAILED)
+        return self._rename_redirect(flash_key, sheet_key)
+
+    def _handle_airline_rename_reset_post(self):
+        """POST /airlines/rename/reset — drop the owner's name for a
+        built-in airline so new flights use SkyPane's name again."""
+        form = self.read_form()
+        prefixes = enrich.static_prefixes_for_name(form.get("airline"))
+        if not prefixes:
+            return self._rename_redirect(FLASH_KEY_RENAME_STALE)
+        return self._reset_airline_name(self.args.state_dir, prefixes, None)
+
+    def _reset_airline_name(self, state_dir, prefixes, sheet_key):
+        if name_overrides.clear_names(state_dir, prefixes):
+            return self._rename_redirect(FLASH_KEY_RENAME_RESET)
+        return self._rename_redirect(FLASH_KEY_RENAME_SAVE_FAILED, sheet_key)
 
     def _handle_manual_resolution_delete(self, key):
         """POST /airlines/manual-resolutions/{prefix}/delete. `key` is
@@ -394,38 +519,47 @@ class SettingsActionsMixin:
         return self.redirect(
             "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
 
+    def _calendar_sheet_redirect(self, flash_key, error=None):
+        """Back to Display with the calendar sheet reopened (the script
+        opens it on `?calendar=manage`, a scripts-blocked page renders it
+        in the page), carrying the toast key and, for a refusal, the
+        sheet's own inline error code from a fixed vocabulary."""
+        query = "flash=%s&%s=%s" % (
+            quote(flash_key), config_page.CALENDAR_SHEET_PARAM,
+            config_page.CALENDAR_SHEET_MANAGE)
+        if error:
+            query += "&%s=%s" % (config_page.CALENDAR_ERROR_PARAM, quote(error))
+        return self.redirect("%s?%s#%s" % (
+            layout.DISPLAY_ROUTE, query, config_page.CALENDAR_SHEET_ID))
+
     def _handle_calendar_connect_post(self):
-        """POST /settings/calendar/connect: the Calendar card's own
+        """POST /settings/calendar/connect: the calendar sheet's own
         dedicated route — never the scoped settings handler, since a
         scoped POST carrying only `calendar_url` would read every
-        absent checkbox on Display as an explicit OFF. Writes the URL,
-        then syncs under `_POLL_LOCK` (process-local; see
-        `companion/app.py`'s `_handle_settings_post()` for the
-        cross-process lock).
+        absent checkbox on Display as an explicit OFF.
+
+        Fetch first, save on success: the pasted link is read and parsed
+        before anything is stored (`calendar_rules.connect_calendar_url`),
+        so a refused or unreachable replacement leaves the working link
+        and its flights exactly as they were and reopens the sheet with an
+        explicit error. No caught error's text is ever read: it can
+        contain the calendar URL.
         """
         form = self.read_form()
         signal = config_page.submitted_calendar_signal(form)
-        if signal in (
-                config_page.CALENDAR_URL_SIGNAL_CARRY_FORWARD,
-                config_page.CALENDAR_URL_SIGNAL_INVALID,
-                config_page.CALENDAR_URL_SIGNAL_CLEAR):
-            return self.redirect(
-                "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_CONNECT_INVALID)))
-        state_dir = self.args.state_dir
-        stripped_url = (form.get("calendar_url") or "").strip()
-        if not calendar_rules.save_calendar_url(state_dir, stripped_url):
-            return self.redirect(
-                "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
-        if not _POLL_LOCK.acquire(blocking=False):
-            return self.redirect(
-                "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_DEFERRED)))
-        try:
-            result_code, _registry = calendar_rules.refresh_calendar_registry(
-                state_dir, poll_cycle.now_s(), min_interval_s=0)
-        finally:
-            _POLL_LOCK.release()
+        if signal != config_page.CALENDAR_URL_SIGNAL_SET:
+            return self._calendar_sheet_redirect(
+                FLASH_KEY_CALENDAR_CONNECT_INVALID, config_page.CALENDAR_ERROR_INVALID)
+        result_code = calendar_rules.connect_calendar_url(
+            self.args.state_dir, form.get("calendar_url") or "", poll_cycle.now_s())
         if result_code == calendar_rules.FETCH_OK:
             return self.redirect(
                 "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_CONNECT_OK)))
-        return self.redirect(
-            "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
+        if result_code == calendar_rules.FETCH_SAVED_UNREAD:
+            return self.redirect(
+                "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_DEFERRED)))
+        if result_code == calendar_rules.FETCH_REJECTED_URL:
+            return self._calendar_sheet_redirect(
+                FLASH_KEY_CALENDAR_CONNECT_INVALID, config_page.CALENDAR_ERROR_INVALID)
+        return self._calendar_sheet_redirect(
+            FLASH_KEY_CALENDAR_CONNECT_FAILED, config_page.CALENDAR_ERROR_UNREACHABLE)

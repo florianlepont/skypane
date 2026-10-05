@@ -25,6 +25,7 @@ Every page module exposes:
         - device_config: the already-normalised device-config dict
         - flash: the resolved flash-banner text, or None
         - flash_role: "status"/"alert", the ARIA role for that text
+        - flash_key: the validated flash key that text came from, or None
         - poll_cooldown_remaining: seconds before another POST /poll-now
           is allowed (0 once elapsed)
         - gallery_entries: the newest gallery filenames; every gallery
@@ -44,9 +45,6 @@ Every page module exposes:
           every use via `unresolved_row_for_prefix()`, the same
           membership test the write path re-runs, so the two can never
           diverge
-        - flights_limit: the raw `?limit=` query value, or None,
-          deliberately unvalidated — history_page.py clamps it on every
-          use via `flights_limit(ctx)`, shared by every representation
         - manual_resolutions: the full manual-resolutions registry, read
           fresh per request — never the process-scoped cache, which
           exists only for the poll cycle's own once-per-cycle read

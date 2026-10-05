@@ -14,7 +14,7 @@ import companion.layout as layout
 import companion.prefs as prefs
 import companion.test_view_pages_helpers as vp
 from companion.pages import history_page
-from companion_app_server import served_stylesheet
+from companion_app_server import served_asset, served_stylesheet
 from companion_markup import css_rules, declarations_for, parse_html
 from server.plane import render as panel_render
 
@@ -26,6 +26,12 @@ def served_css(module_app_server_factory):
     instead fetch it once, read-only, from a running server)."""
     server = module_app_server_factory()
     return served_stylesheet(server)
+
+
+@pytest.fixture(scope="module")
+def filter_js(module_app_server_factory):
+    """list-filter.js as the running app serves it."""
+    return served_asset(module_app_server_factory(), "/static/list-filter.js")
 
 
 # ======================================================================
@@ -89,17 +95,17 @@ def test_no_airline_no_route_matches_render_fallback(tmp_path):
 
 
 def test_mono_columns_present(tmp_path):
-    """timestamp, callsign and hex columns carry monospace CSS classes"""
+    """the callsign reads in the monospace identifier voice in the table and on the phone card"""
     # The merged Callsign+Hex cell's monospace treatment lives on the
-    # cell-primary/cell-secondary span classes (both mono in style.css),
-    # not on a td[class="mono"] attribute - Timestamp is the one
-    # remaining exact class="mono" cell.
+    # cell-primary/cell-secondary span classes (both mono in style.css);
+    # the phone card's callsign carries the shared .mono class.
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "abc123", "callsign": "MONO1"},
     ])
     rendered = history_page.render(vp.history_ctx(tmp_path))
     doc = parse_html(rendered)
-    assert len(doc.select('[class="mono"]')) >= 1
+    callsigns = doc.select("li.history-card .history-card__callsign.mono")
+    assert [node.text() for node in callsigns] == ["MONO1"]
     assert doc.select('[class="%s"]' % history_page.CELL_PRIMARY_CLASS)
     assert doc.select('[class="%s"]' % history_page.CELL_SECONDARY_CLASS)
 
@@ -313,15 +319,18 @@ def test_merged_cell_classes_agree_with_stylesheet(tmp_path, served_css):
 
 
 def test_timestamp_column_absolute_and_relative(tmp_path):
-    """History's Timestamp column/mobile primary line read through layout.concise_timestamp_html(), format_event_row() degrades gracefully with one argument or a missing timestamp, and render() falls back when ctx carries no 'now' key"""
+    """the phone card shows the local clock time over its live relative age, format_event_row() degrades gracefully with one argument or a missing timestamp, and render() falls back when ctx carries no 'now' key"""
     seeded_ts = "2026-08-28T13:58:02+00:00"
     three_min_later = "2026-08-28T14:01:02+00:00"
     vp.seed_runway_events(tmp_path, [
         {"ts": seeded_ts, "hex": "d9", "callsign": "TS1"},
     ])
     rendered = history_page.render(vp.history_ctx(tmp_path, now=three_min_later))
-    expected = layout.concise_timestamp_html(seeded_ts, three_min_later)
-    assert expected in rendered
+    when = parse_html(rendered).select_one("li.history-card .history-card__when")
+    assert when.select_one(".time-value--primary").text() == "15:58"
+    age = when.select_one("time[data-relative]")
+    assert age.text() == "3m ago"
+    assert layout.age_seconds(age.attrs.get("datetime"), three_min_later) == 180
 
     # A one-argument format_event_row() call degrades to the raw stored
     # timestamp, unchanged.
@@ -420,16 +429,22 @@ def test_data_table_wrap_scroll_edge_affordance_css(served_css):
 
 
 def test_filter_bar_markers_present_once(tmp_path):
-    """History's filter bar carries exactly one data-filter-input/-count/-clear/-empty marker each"""
+    """Flights' filter bar carries exactly one data-filter-input/-count/-empty marker, and two
+    real-button data-filter-clear markers: the inline clear in the field and the empty state's
+    own Clear (which also resets the chips)"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "fb01", "callsign": "FB1"},
     ])
     rendered = history_page.render(vp.history_ctx(tmp_path))
     doc = parse_html(rendered)
-    for marker in (
-        "data-filter-input", "data-filter-count", "data-filter-clear", "data-filter-empty",
-    ):
+    for marker in ("data-filter-input", "data-filter-count", "data-filter-empty"):
         assert len(doc.select("[%s]" % marker)) == 1, "expected exactly one %r marker" % marker
+    clears = doc.select("[data-filter-clear]")
+    assert len(clears) == 2
+    assert all(c.tag == "button" and c.attrs.get("type") == "button" for c in clears)
+    assert [c for c in clears if "data-filter-clear-all" in c.attrs] == [clears[1]], (
+        "expected only the empty state's Clear to reset the chips")
+    assert clears[0].attrs.get("aria-label") == "Clear search"
 
 
 def test_filter_input_carries_safari_autofill_suppression_attributes(tmp_path):
@@ -446,14 +461,14 @@ def test_filter_input_carries_safari_autofill_suppression_attributes(tmp_path):
 
 
 def test_filter_count_template_attribute_english_and_french(tmp_path):
-    """History's filter bar carries data-filter-count-template="%d of %d shown" under the default language and the French "%d sur %d affichés" under lang='fr'"""
+    """History's filter bar carries data-filter-count-template="# of # shown" (`#` standing for each %d) under the default language and the French "# sur # affichés" under lang='fr'"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "fc01", "callsign": "FC1"},
     ])
     rendered_en = history_page.render(vp.history_ctx(tmp_path))
     doc_en = parse_html(rendered_en)
     template_en = doc_en.select_one("[data-filter-count-template]")
-    assert template_en.attrs.get("data-filter-count-template") == "%d of %d shown"
+    assert template_en.attrs.get("data-filter-count-template") == "# of # shown"
 
     prefs.set_request_prefs(lang="fr")
     try:
@@ -462,11 +477,13 @@ def test_filter_count_template_attribute_english_and_french(tmp_path):
         prefs.set_request_prefs(lang="en")
     doc_fr = parse_html(rendered_fr)
     template_fr = doc_fr.select_one("[data-filter-count-template]")
-    assert template_fr.attrs.get("data-filter-count-template") == "%d sur %d affichés"
+    assert template_fr.attrs.get("data-filter-count-template") == "# sur # affichés"
 
 
-def test_filter_bar_count_and_clear_wrap_as_one_group(tmp_path, served_css):
-    """History's filter count and Clear control render as siblings inside one .filter-bar__meta group whose page-agnostic rule declares flex/centre/nowrap/auto-left-margin, with no page-scoped fork of the converged [data-filter-clear] rule anywhere"""
+def test_filter_bar_count_sits_in_one_meta_group_with_one_page_agnostic_rule(tmp_path, served_css):
+    """Flights' live count renders inside one .filter-bar__meta group whose page-agnostic rule
+    declares flex/centre/nowrap/auto-left-margin, with no page-scoped fork of the shared
+    filter-bar rules anywhere"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "fm01", "callsign": "FILTMETA"},
     ])
@@ -474,8 +491,7 @@ def test_filter_bar_count_and_clear_wrap_as_one_group(tmp_path, served_css):
     doc = parse_html(rendered)
     group = doc.select_one('[class="filter-bar__meta"]')
     assert group.select("[data-filter-count]")
-    assert group.select("[data-filter-clear]")
-    assert len(doc.select("[data-filter-clear]")) == 1
+    assert group.select("[data-filter-count]")[0].attrs.get("role") == "status"
 
     rules = css_rules(served_css)
     meta_rule_count = sum(1 for rule in rules if ".filter-bar__meta" in rule.selectors)
@@ -485,40 +501,73 @@ def test_filter_bar_count_and_clear_wrap_as_one_group(tmp_path, served_css):
     assert decls.get("align-items") == "center"
     assert decls.get("white-space") == "nowrap"
     assert decls.get("margin-left") == "auto"
-    joined = " ".join("%s:%s" % item for item in decls.items())
-    assert "flight" not in joined and "history" not in joined
-
     forks = [
         sel for rule in rules for sel in rule.selectors
-        if "[data-filter-clear]" in sel
+        if ".filter-bar" in sel
         and any(kw in sel for kw in ("flight", "airline", "health", "registry"))
     ]
-    assert not forks, "expected no page-scoped fork of the converged [data-filter-clear] rule, found %r" % (forks,)
+    assert not forks, "expected no page-scoped fork of the shared filter-bar rules, found %r" % (forks,)
 
 
-def test_clear_control_shared_attribute_contract(tmp_path, served_css):
-    """the Clear control's shared [data-filter-clear] contract holds: History renders the attribute, style.css styles it by attribute, and no class-keyed rule competes"""
+def test_clear_control_is_wired_by_the_shared_script_and_styled_once(tmp_path, served_css, filter_js):
+    """every Clear control wears the one shared [data-filter-clear] attribute, list-filter.js
+    wires ALL of them (a loop, never just the first), and the inline clear's reset lives in one
+    class rule, with no other class-keyed Clear rule competing"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "ca01", "callsign": "CA1"},
     ])
-    rendered = history_page.render(vp.history_ctx(tmp_path))
-    doc = parse_html(rendered)
-    assert doc.select("[data-filter-clear]")
+    doc = parse_html(history_page.render(vp.history_ctx(tmp_path)))
+    assert len(doc.select("[data-filter-clear]")) == 2
+
+    js = vp.strip_js_line_and_block_comments(filter_js)
+    assert 'querySelectorAll("[data-filter-clear]")' in js, (
+        "expected every Clear button to be looked up, not only the first")
+    assert 'querySelector("[data-filter-clear]")' not in js
 
     rules = css_rules(served_css)
-    assert any("[data-filter-clear]" in sel for rule in rules for sel in rule.selectors)
+    assert any(".filter-bar__clear" in sel for rule in rules for sel in rule.selectors)
     for rule in rules:
         selector_text = ", ".join(rule.selectors)
-        if "[data-filter-clear]" in selector_text:
-            continue
-        if "clear" in selector_text.lower():
+        if "clear" in selector_text.lower() and "filter-bar__clear" not in selector_text:
             decls_text = " ".join("%s: %s" % (k, v) for k, v in rule.declarations)
-            assert "background: none" not in decls_text, (
-                "found a class-keyed Clear-control rule outside [data-filter-clear]: %r"
-                % (selector_text,))
             assert "text-decoration: underline" not in decls_text, (
-                "found a class-keyed Clear-control rule outside [data-filter-clear]: %r"
-                % (selector_text,))
+                "found a competing Clear-control rule: %r" % (selector_text,))
+
+
+def test_filter_text_covers_airline_airport_and_type_but_not_the_fallback(tmp_path):
+    """a flight's search haystack carries its callsign, hex, resolved airline name, both route
+    codes and aircraft type, so "transavia", "kef" and "a320" find it; an unresolved airline's
+    fallback wording is never searchable"""
+    vp.seed_runway_events(tmp_path, [
+        {"ts": "2026-08-27T10:00:00+00:00", "hex": "3944F0", "callsign": "TVF1",
+         "airline": "Transavia France", "origin": "ORY", "destination": "KEF",
+         "aircraft_type": "A320"},
+        {"ts": "2026-08-27T09:00:00+00:00", "hex": "3944F1", "callsign": "NOAIR"},
+    ])
+    doc = parse_html(history_page.render(vp.history_ctx(tmp_path)))
+    texts = [n.attrs["data-filter-text"] for n in doc.select("li[data-filter-text]")]
+    assert any(all(w in t for w in ("tvf1", "3944f0", "transavia france", "ory", "kef"))
+               for t in texts)
+    assert not any("unknown" in t for t in texts)
+
+
+def test_rows_carry_the_direction_kind_the_chips_filter_on(tmp_path):
+    """each row (desktop <tr> and phone <li>) carries data-filter-kind equal to its confirmed
+    runway direction, only for the two values the detector writes, and the chip counts are
+    taken from those same rows"""
+    vp.seed_runway_events(tmp_path, [
+        {"ts": "2026-08-27T10:00:00+00:00", "hex": "k1", "callsign": "K1", "confirmed_state": "departing"},
+        {"ts": "2026-08-27T09:00:00+00:00", "hex": "k2", "callsign": "K2", "confirmed_state": "departing"},
+        {"ts": "2026-08-27T08:00:00+00:00", "hex": "k3", "callsign": "K3", "confirmed_state": "arriving"},
+        {"ts": "2026-08-27T07:00:00+00:00", "hex": "k4", "callsign": "K4", "confirmed_state": "odd"},
+    ])
+    doc = parse_html(history_page.render(vp.history_ctx(tmp_path)))
+    for tag in ("tr", "li"):
+        kinds = [n.attrs["data-filter-kind"] for n in doc.select("%s[data-filter-kind]" % tag)]
+        assert kinds == ["departing", "departing", "arriving", ""], (tag, kinds)
+    chips = {c.attrs["value"]: c.parent.select_one("[data-filter-chip-count]").text()
+             for c in doc.select("[data-filter-chip]")}
+    assert chips == {"": "4", "departing": "2", "arriving": "1"}
 
 
 def test_filter_text_attribute_on_both_representations(tmp_path):
@@ -558,7 +607,9 @@ def test_each_flight_has_one_picture_link_on_desktop_and_card(tmp_path):
             assert len(links) == 1
             link = links[0]
             assert link.attrs["href"] == "/gallery/" + entries[0]
-            assert link.text() == "View picture"
+            # The table link shows its label; the card's is icon-only and
+            # named by its aria-label alone.
+            assert link.text() == ("View picture" if tag == "tr" else "")
             assert link.attrs["aria-label"] == "View picture of " + callsign
     doc = parse_html(rendered)
     assert not doc.select("[aria-expanded]")

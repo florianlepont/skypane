@@ -233,13 +233,12 @@
 
   var image = dialog.querySelector(".lightbox__image");
   var caption = dialog.querySelector(".lightbox__caption");
-  var note = dialog.querySelector(".lightbox__note");
-  if (!image || !caption || !note) {
+  if (!image || !caption) {
     return;
   }
 
   // Everything below is looked up optionally, outside the mandatory
-  // image/caption/note guard above, and guarded independently at its
+  // image/caption guard above, and guarded independently at its
   // own point of use: History's dialog renders none of these
   // Airlines-only resolve/replace/delete elements. resolveSubmit's
   // visibility is mirrored from resolveNameForm's own hidden state
@@ -256,11 +255,26 @@
   var resolvePrefixInput = resolveNameForm
     ? resolveNameForm.querySelector('input[name="prefix"]')
     : null;
+  // Present only where the page can finish the flow somewhere other than
+  // Airlines (Health); filled from the trigger on every open.
+  var resolveReturnInput = resolveNameForm
+    ? resolveNameForm.querySelector('input[name="return"]')
+    : null;
   var contextPrefix = dialog.querySelector(".resolve-context__prefix");
   var contextFirstSeen = dialog.querySelector(".resolve-context__first-seen");
   var contextLastSeen = dialog.querySelector(".resolve-context__last-seen");
   var contextCount = dialog.querySelector(".resolve-context__count");
   var contextCallsign = dialog.querySelector(".resolve-context__callsign");
+  // The airline sheet (name, reset, prefix chips beside the title, the
+  // aircraft-type switcher). Optional like the rest: History's dialog
+  // has none of it.
+  var sheet = dialog.querySelector(".airline-sheet");
+  var sheetNameInput = sheet ? sheet.querySelector('input[name="airline_name"]') : null;
+  var sheetAirlineInputs = sheet ? sheet.querySelectorAll('input[name="airline"]') : [];
+  var sheetChips = dialog.querySelector(".airline-sheet__chips");
+  var sheetReset = sheet ? sheet.querySelector(".airline-sheet__reset") : null;
+  var typesNav = dialog.querySelector(".airline-sheet__types");
+  var sheetResetCaption = sheetReset ? sheetReset.querySelector("[data-sheet-reset-template]") : null;
 
   // ES5-safe manual ancestor walk (no Element.closest) for the nearest
   // ancestor of target (inclusive) carrying data-view-panel-src.
@@ -275,9 +289,128 @@
     return null;
   }
 
+  // Fills the airline sheet from the trigger's data-view-panel-airline-*
+  // attributes, written on every open like everything else here. A
+  // trigger with no airline attribute has no sheet: the whole section is
+  // hidden. Text goes in through textContent/value only; the chips are
+  // built with createElement, never markup.
+  function populateSheet(trigger, headingText) {
+    if (!sheet) {
+      return;
+    }
+    var airline = trigger.getAttribute("data-view-panel-airline") || "";
+    sheet.hidden = (airline === "");
+    var renamed = trigger.getAttribute("data-view-panel-renamed") || "";
+    var name = trigger.getAttribute("data-view-panel-airline-name") || "";
+    var prefixes = (trigger.getAttribute("data-view-panel-airline-prefixes") || "").split(" ");
+    for (var a = 0; a < sheetAirlineInputs.length; a += 1) {
+      sheetAirlineInputs[a].value = airline;
+    }
+    if (sheetNameInput) {
+      sheetNameInput.value = name;
+    }
+    if (sheetChips) {
+      while (sheetChips.firstChild) {
+        sheetChips.removeChild(sheetChips.firstChild);
+      }
+      for (var p = 0; p < prefixes.length; p += 1) {
+        if (prefixes[p]) {
+          var chip = document.createElement("li");
+          chip.className = "airline-card__chip mono";
+          chip.textContent = prefixes[p];
+          sheetChips.appendChild(chip);
+        }
+      }
+    }
+    if (sheetReset) {
+      sheetReset.hidden = (renamed === "");
+      if (sheetResetCaption) {
+        var template = sheetResetCaption.getAttribute("data-sheet-reset-template") || "";
+        sheetResetCaption.textContent = template.replace("#", airline);
+      }
+    }
+  }
+
+  // The aircraft-type switcher: one link per type of the trigger's
+  // airline (key:label items joined by "|", the shown one marked with a
+  // leading "*"). A single type is a plain label. Each link takes its
+  // address from the hidden twin trigger of that type, which is also what
+  // a click opens.
+  function typeTrigger(key) {
+    try {
+      return document.querySelector(
+        '[data-view-panel-sheet-key="' + CSS.escape(key) + '"]');
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function populateTypes(trigger) {
+    if (!typesNav) {
+      return;
+    }
+    while (typesNav.firstChild) {
+      typesNav.removeChild(typesNav.firstChild);
+    }
+    var raw = trigger.getAttribute("data-view-panel-airline-types") || "";
+    typesNav.hidden = (raw === "");
+    var items = raw ? raw.split("|") : [];
+    for (var t = 0; t < items.length; t += 1) {
+      var current = items[t].charAt(0) === "*";
+      var item = current ? items[t].slice(1) : items[t];
+      var cut = item.indexOf(":");
+      var key = item.slice(0, cut);
+      var label = item.slice(cut + 1);
+      var twin = items.length > 1 ? typeTrigger(key) : null;
+      var node = document.createElement(twin ? "a" : "span");
+      node.className = "airline-sheet__type";
+      node.textContent = label;
+      if (twin) {
+        node.setAttribute("href", twin.getAttribute("href") || "#");
+        node.setAttribute("data-type-key", key);
+      }
+      if (current) {
+        node.setAttribute("aria-current", "true");
+      }
+      typesNav.appendChild(node);
+    }
+  }
+
   // Every read/write to populate and open the dialog lives here once —
   // the single place both the click listener and the load-time
   // auto-open below call. Never duplicate this logic at a second site.
+  // Chooses what showModal() focuses for an airline sheet, by marking it
+  // the autofocus attribute beforehand (the dialog's focus steps honour it, so the
+  // phone keyboard never rises for a name field nobody tapped): the
+  // heading, made focusable with tabindex -1, or the name field when a
+  // refused rename reopened the sheet. Other opens (resolve, upload,
+  // delete) keep the browser's default placement.
+  // Set only by the load-time sheet auto-open after a refused rename.
+  var focusNameOnOpen = false;
+
+  function chooseInitialFocus(trigger) {
+    var focusName = focusNameOnOpen;
+    var isSheet = !!sheet && !sheet.hidden && !!trigger.getAttribute("data-view-panel-airline");
+    var target = null;
+    if (isSheet) {
+      target = focusName ? sheetNameInput : (heading && heading.textContent ? heading : closeButton);
+      if (target === heading) {
+        heading.setAttribute("tabindex", "-1");
+      }
+    }
+    if (heading && target !== heading) {
+      heading.removeAttribute("autofocus");
+      heading.removeAttribute("tabindex");
+    }
+    if (sheetNameInput && target !== sheetNameInput) {
+      sheetNameInput.removeAttribute("autofocus");
+    }
+    if (target) {
+      target.setAttribute("autofocus", "");
+    }
+    return target;
+  }
+
   function openFromTrigger(trigger) {
     var src = trigger.getAttribute("data-view-panel-src") || "";
     var captionText = trigger.getAttribute("data-view-panel-caption") || "";
@@ -308,6 +441,9 @@
     }
 
     var mode = trigger.getAttribute("data-view-panel-mode") || "";
+    // An airline's dialog is titled by its heading alone; the caption
+    // would only repeat it.
+    caption.hidden = (mode === "art" || mode === "needs-artwork");
     // Governed by mode alone, independent of manual below. Every hidden
     // assignment here runs before showModal() further down, since its
     // one-time autofocus placement is synchronous and only ever sees
@@ -353,6 +489,9 @@
     if (resolvePrefixInput) {
       resolvePrefixInput.value = resolvePrefix;
     }
+    if (resolveReturnInput) {
+      resolveReturnInput.value = trigger.getAttribute("data-view-panel-return") || "";
+    }
     if (contextPrefix) {
       contextPrefix.textContent = resolvePrefix;
     }
@@ -374,6 +513,9 @@
       contextCallsign.textContent = count ? captionText : "";
     }
 
+    populateSheet(trigger, headingText);
+    populateTypes(trigger);
+
     // setAttribute rather than the form.action property, which resolves
     // to an absolute URL and is shadowable by a same-named form control.
     if (replaceForm) {
@@ -392,19 +534,58 @@
       deleteForm.setAttribute("action", deleteAction);
     }
 
+    // Switching type inside an open sheet re-fills it in place: the file
+    // chosen for the previous type must not travel to the next one.
+    if (dialog.open) {
+      if (replaceForm) {
+        replaceForm.reset();
+      }
+      clearAllUploadPreviews();
+      return;
+    }
+    var focusTarget = chooseInitialFocus(trigger);
     dialog.showModal();
+    if (focusTarget && document.activeElement !== focusTarget) {
+      focusTarget.focus({ preventScroll: true });
+    }
+  }
+
+  // A type link in the sheet stands for the hidden twin trigger of that
+  // type: the click handler below opens it like any other trigger.
+  function typeLinkTrigger(target) {
+    var node = target;
+    while (typesNav && node && node !== typesNav) {
+      if (node.getAttribute && node.getAttribute("data-type-key")) {
+        return typeTrigger(node.getAttribute("data-type-key"));
+      }
+      node = node.parentNode;
+    }
+    return null;
   }
 
   document.addEventListener("click", function (evt) {
     var trigger = findTriggerAncestor(evt.target);
+    var fromTypeLink = false;
+    if (!trigger) {
+      trigger = typeLinkTrigger(evt.target);
+      fromTypeLink = !!trigger;
+    }
     if (!trigger) {
       return;
     }
     // A gap/manual/needs-artwork trigger is a real
-    // <a href="/airlines?resolve={prefix}">, not a <button>, so this
+    // <a href="/airlines?resolve={prefix}"> (Health's Resolve links too,
+    // which then open this dialog in place), not a <button>, so this
     // navigation must never happen once JS is running the show.
     evt.preventDefault();
     openFromTrigger(trigger);
+    if (fromTypeLink) {
+      // The switcher was rebuilt: keep the keyboard on the shown type.
+      var shown = typesNav.querySelector('[aria-current="true"]');
+      if (shown && shown.focus) {
+        shown.focus({ preventScroll: true });
+      }
+    }
   });
 
   var closeButton = dialog.querySelector("[data-view-panel-close]");
@@ -435,12 +616,12 @@
 
   // ES5-safe extraction of a single query-string key's decoded value,
   // or "" when absent.
-  function resolveParamFromSearch(search) {
+  function paramFromSearch(search, name) {
     var query = search.charAt(0) === "?" ? search.slice(1) : search;
     var pairs = query ? query.split("&") : [];
     for (var i = 0; i < pairs.length; i += 1) {
       var pair = pairs[i].split("=");
-      if (pair[0] === "resolve") {
+      if (pair[0] === name) {
         try {
           return decodeURIComponent(pair[1] || "");
         } catch (err) {
@@ -461,7 +642,8 @@
   // of the attribute-selector string and matching an unintended
   // element; the try/catch degrades to autoTrigger = null if
   // CSS.escape is ever unavailable.
-  var resolveValue = resolveParamFromSearch(location.search);
+  var pageSearch = location.search;
+  var resolveValue = paramFromSearch(pageSearch, "resolve");
   if (resolveValue) {
     var autoTrigger = null;
     try {
@@ -477,6 +659,29 @@
       var fallback = document.querySelector("[data-resolve-fallback]");
       if (fallback) {
         fallback.hidden = true;
+      }
+    }
+  }
+
+  // The same auto-open for ?sheet={artwork key}: the airline sheet's
+  // no-script address. Matched on the trigger's own sheet-key attribute,
+  // escaped for the selector, so a hostile value matches nothing.
+  var sheetValue = paramFromSearch(pageSearch, "sheet");
+  if (sheetValue && !resolveValue) {
+    var sheetTrigger = null;
+    try {
+      sheetTrigger = document.querySelector(
+        '[data-view-panel-sheet-key="' + CSS.escape(sheetValue) + '"]');
+    } catch (err) {
+      sheetTrigger = null;
+    }
+    if (sheetTrigger) {
+      focusNameOnOpen = !!document.querySelector("[data-sheet-focus-name]");
+      openFromTrigger(sheetTrigger);
+      focusNameOnOpen = false;
+      var sheetFallback = document.querySelector("[data-sheet-fallback]");
+      if (sheetFallback) {
+        sheetFallback.hidden = true;
       }
     }
   }

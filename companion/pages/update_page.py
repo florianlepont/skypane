@@ -1,15 +1,14 @@
-"""The Update page: firmware release status, version history, and the
-Install/Cancel action markup.
+"""The Update page: a call-to-action card (up to date, or the one newer
+release to install), the full release list as compact one-line rows, and
+the Install/Cancel action markup.
 
 The running version, the update state, a rollback warning and the
-version history are driven entirely by `server.firmware_registry.
+release list are driven entirely by `server.firmware_registry.
 update_view()` (`update_page()`/`render()`). `update_install_confirm_page()`
 is the real, server-side install-confirmation gate -- `companion/app.py`'s
 `_handle_update_install_post()`/`_handle_update_cancel_post()` are the
 live POST handlers for the forms this module renders.
 """
-import collections
-
 import companion.frame_state as frame_state
 import companion.i18n as i18n
 import companion.layout as layout
@@ -31,30 +30,41 @@ CANCEL_ROUTE = "/update/cancel"
 # <h1> heading must read exactly what the nav calls it.
 _NAV_UPDATE_TEXT = i18n.msg("nav.update", "Update")
 
-STATUS_HEADING_TEXT = i18n.msg("update.installed_software", "Installed software")
-HISTORY_HEADING_TEXT = i18n.msg("update.version_history", "Available versions")
-
-RUNNING_LABEL_TEMPLATE = i18n.msg("update.running_s", "Running %s")
+HISTORY_HEADING_TEXT = i18n.msg("update.version_history", "Versions")
 NO_VERSION_REPORTED_TEXT = i18n.msg(
     "update.no_version_reported_yet", "No version reported yet")
 
-# The five update-state words, mapped through layout._STATUS_DOT_CLASSES'
-# own four tokens (ok/warn/error/off) -- no new colour, per the UI
-# contract's own accent-reservation check.
+# The two state words a release row can show beside a schedule.
 STATE_LABELS = {
-    "available": i18n.msg("update.available", "Available"),
     "scheduled": i18n.msg("update.scheduled", "Scheduled"),
     "in_progress": i18n.msg("update.in_progress", "In progress"),
-    "installed": i18n.msg("update.installed", "Installed"),
-    "failed": i18n.msg("update.failed", "Failed"),
 }
-_STATE_DOT_TOKENS = {
-    "available": "off",
-    "scheduled": "off",
-    "in_progress": "warn",
-    "installed": "ok",
-    "failed": "error",
-}
+
+# The call-to-action card's headline, one per situation.
+CTA_UP_TO_DATE_TEXT = i18n.msg("update.cta_up_to_date", "The frame is up to date")
+CTA_AVAILABLE_TEXT = i18n.msg("update.cta_available", "Update available")
+CTA_SCHEDULED_TEXT = i18n.msg("update.cta_scheduled", "Update scheduled")
+CTA_INSTALLING_TEXT = i18n.msg("update.cta_installing", "Installing")
+CTA_FAILED_TEXT = i18n.msg("update.cta_failed", "Install failed")
+# "%s" is a release version, rendered as its own monospace element.
+CTA_INSTALLING_BODY_TEMPLATE = i18n.msg(
+    "update.cta_installing_body",
+    "%s is installing. The frame keeps it after one successful check-in; "
+    "otherwise it rolls back.")
+CTA_FAILED_BODY_TEMPLATE = i18n.msg(
+    "update.cta_failed_body", "%s could not be installed.")
+CTA_STAYS_ON_TEMPLATE = i18n.msg("update.cta_stays_on", "The frame stays on %s.")
+# The card's footer while something other than "up to date" is shown:
+# "%s" is the version the frame runs now.
+ON_THE_FRAME_TEMPLATE = i18n.msg("update.on_the_frame_s", "On the frame: %s")
+# "%s" is a relative age (`<time data-relative>`) or an absolute local
+# date and time (`<time>`), each its own element.
+INSTALLED_AGO_TEMPLATE = i18n.msg("update.installed_ago_s", "Installed %s")
+INSTALLED_ON_TEMPLATE = i18n.msg("update.installed_on_s", "Installed %s")
+RELEASED_AGO_TEMPLATE = i18n.msg("update.released_ago_s", "Released %s")
+RELEASED_ON_TEMPLATE = i18n.msg("update.released_on_s", "Released %s")
+# "%s" is a past OTA install time of a release the frame no longer runs.
+LAST_INSTALLED_TEMPLATE = i18n.msg("update.last_installed_s", "Last installed %s")
 
 UNKNOWN_TIME_TEXT = i18n.msg("update.unknown_time", "an unknown time")
 SCHEDULED_SENTENCE_TEMPLATE = i18n.msg(
@@ -72,9 +82,15 @@ ROLLBACK_SENTENCE_TEMPLATE = i18n.msg(
     "update.firmware_rolled_back",
     "Firmware rolled back — the update to %s failed on trial boot; "
     "the frame is back on %s.")
+# The rollback's docked toast, a persistent state rather than a flash.
+ROLLBACK_TOAST_CLASS = "update-rollback"
 
 CANCEL_BUTTON_TEXT = i18n.msg("update.cancel", "Cancel")
 INSTALL_BUTTON_TEXT = i18n.msg("update.install", "Install")
+# Visible wording of the call-to-action Install and of an Install on an
+# older release, which is a rollback; "%s" is the release version.
+INSTALL_VERSION_BUTTON_TEMPLATE = i18n.msg("update.install_version_s", "Install %s")
+ROLLBACK_BUTTON_TEMPLATE = i18n.msg("update.roll_back_to_s", "Roll back to %s")
 NOT_INSTALLABLE_TEXT = i18n.msg("update.not_installable", "Not installable")
 # publish_release(..., bench=True) admits a non-tag version such as
 # fw-v1.2.0-bench1. It is never listed for installation; the badge
@@ -82,15 +98,8 @@ NOT_INSTALLABLE_TEXT = i18n.msg("update.not_installable", "Not installable")
 # composes .banner__pill (settings/rules.py's own
 # "<scope>__kind banner__pill" pattern).
 BENCH_BADGE_TEXT = i18n.msg("update.bench", "Bench")
-# The running release's own badge, and the same word as the
-# visually-hidden label beside the Installed check mark, so the two can
-# never name the running release differently.
+# The running release's own badge.
 RUNNING_BADGE_TEXT = i18n.msg("update.running_badge", "Running")
-# "%s" is the concise timestamp of an over-the-air install of a release
-# the frame no longer runs; split around "%s" so the timestamp stays its
-# own <time> element rather than baked into an escaped sentence.
-LAST_INSTALLED_TEMPLATE = i18n.msg("update.last_installed_s", "Last installed %s")
-SHOW_NOTES_TEXT = i18n.msg("update.show_notes", "Show notes")
 INSTALL_CONFIRM_QUESTION_TEMPLATE = i18n.msg(
     "update.install_s_now",
     "Install %s now? It will apply at the next wake.")
@@ -137,11 +146,6 @@ FLASH_UPDATE_BUSY_TEXT = i18n.msg(
     "update.an_update_is_already_installing_wait",
     "An update is already installing — wait for it to finish.")
 
-TABLE_HEADER_VERSION_TEXT = i18n.msg("update.version", "Version")
-TABLE_HEADER_DATE_TEXT = i18n.msg("update.date", "Date")
-TABLE_HEADER_NOTES_TEXT = i18n.msg("update.notes", "Notes")
-TABLE_HEADER_INSTALLED_TEXT = i18n.msg("update.installed_column", "Installed")
-
 EMPTY_RELEASES_HEADING_TEXT = i18n.msg("update.no_releases_yet", "No releases yet")
 EMPTY_RELEASES_BODY_TEXT = i18n.msg(
     "update.publish_a_release",
@@ -150,112 +154,94 @@ EMPTY_RELEASES_BODY_TEXT = i18n.msg(
 
 # The quiet/secondary button treatment companion/pages/history_page.py's
 # Show-more control and the calendar-disconnect form already share --
-# never the accent-styled primary, so Cancel and Install can never both
-# read as the primary action on the same row.
+# never the accent-styled primary. The accent primary is spent only on
+# installing a release newer than the one the frame runs.
 _QUIET_BUTTON_CLASS = "calendar-disconnect-btn"
 
+# Where a release sits against the running one (`view["releases"][n]
+# ["direction"]`): only "older" is worded as a rollback.
+_DIRECTION_NEWER = "newer"
+_DIRECTION_OLDER = "older"
 
-def _status_verdict_block_html(view):
-    """The running-version line, the headline of the installed-software
-    summary.
 
-    RUNNING_LABEL_TEMPLATE ("Running %s") carries its own placeholder;
-    the version itself renders as a separate `<span class="mono">`
-    element rather than baked into the escaped sentence, matching the
-    rest of this app's "interpolate the templated value as its own
-    element" convention (see e.g. health_page.py's headline builders).
-    The summary's single time is rendered by `_status_state_row_html()`.
+def _mono_html(version):
+    return '<span class="mono">%s</span>' % escape_html(version)
+
+
+def _fill_html(template, *pieces_html):
+    """`template` (an i18n Message with one "%s" per piece) with each
+    placeholder replaced by an already-safe markup piece; the literal
+    text around the placeholders is escaped here.
     """
-    icon_html = layout.icon_html("icon-nav-update", size=24)
-    running_version = view.get("running_version")
-    if not running_version:
-        return (
-            '<p class="text-body widget-verdict text-label update-summary__headline">'
-            "%s%s</p>"
-        ) % (icon_html, escape_html(i18n.t(NO_VERSION_REPORTED_TEXT)))
-    prefix_text = i18n.t(RUNNING_LABEL_TEMPLATE).split("%s", 1)[0]
-    running_is_bench = any(
-        release.get("bench") and release.get("version") == running_version
-        for release in view.get("releases") or [])
-    # A bench build is hidden from the owner's release list but is still
-    # what the frame runs, so the summary names it plainly.
-    bench_html = (
-        ' <span class="update-summary__bench banner__pill">%s</span>'
-        % escape_html(i18n.t(BENCH_BADGE_TEXT))) if running_is_bench else ""
+    parts = i18n.t(template).split("%s")
+    html = escape_html(parts[0])
+    for piece_html, literal in zip(pieces_html, parts[1:]):
+        html += piece_html + escape_html(literal)
+    return html
+
+
+def _ago_html(ts, now):
+    """A relative age (`<time data-relative>`) whose `title` is the full
+    local date and time, or "" when `ts` is missing."""
+    return layout.relative_time_html(ts, now, fallback="", with_title=True) if ts else ""
+
+
+def _owner_releases(view):
+    """The releases the owner is shown: real releases only.
+
+    Bench builds are a development aid and never an owner choice, so they
+    are dropped here at the page boundary; a bench build that is running
+    or scheduled still surfaces truthfully in the call-to-action card,
+    which reads `running_version`/`target_version` rather than this list.
+    The registry's own classification and installability are untouched.
+    """
+    return [release for release in (view.get("releases") or []) if not release.get("bench")]
+
+
+def _install_form_html(version, label_template=None, quiet=False):
+    """The Install form for `version`: `data-confirm` misclick guard, the
+    hidden `version` field and no `confirm` field (the server
+    confirmation page is the real gate).
+
+    With no `label_template` the button reads "Install" and carries the
+    version in its accessible name; otherwise the label template names
+    the version itself. `quiet` selects the secondary button treatment.
+    """
+    confirm_question = i18n.t(INSTALL_CONFIRM_QUESTION_TEMPLATE) % version
+    if label_template is None:
+        label = i18n.t(INSTALL_BUTTON_TEXT)
+        aria_html = ' aria-label="%s"' % escape_html(
+            i18n.t(INSTALL_VERSION_BUTTON_TEMPLATE) % version)
+    else:
+        label = i18n.t(label_template) % version
+        aria_html = ""
+    class_html = ' class="%s"' % _QUIET_BUTTON_CLASS if quiet else ""
     return (
-        '<p class="text-body widget-verdict update-summary__headline">'
-        '%s<span>%s<span class="mono">%s</span>%s</span></p>'
-    ) % (icon_html, escape_html(prefix_text), escape_html(running_version), bench_html)
+        '<form method="post" action="%s" data-confirm="%s">'
+        '<input type="hidden" name="version" value="%s">'
+        '<button type="submit"%s%s>%s</button>'
+        "</form>"
+    ) % (
+        INSTALL_ROUTE, escape_html(confirm_question), escape_html(version),
+        class_html, aria_html, escape_html(label),
+    )
 
 
-def _timestamp_detail_html(ts, now):
-    """A `.widget-detail` div for `ts`, or "" when `ts` is falsy.
-
-    `concise_timestamp_html()`'s own default fallback is the hard-coded
-    English literal "no reading yet" (battery-reading vocabulary, not a
-    translated Message) -- wrong under an update state and never
-    translated under French. Passing `fallback=""` and dropping the div
-    entirely when there is nothing to show avoids both: a fresh install
-    with no release published yet, or an in_progress state with no
-    matching event, renders no detail line rather than a leaked English
-    string.
+def _release_install_form_html(release, with_version_label=False):
+    """The Install form for `release`, worded and styled by where it sits
+    against the running release: a newer one is "Install" on the accent
+    primary button; an older one is "Roll back to <version>" on the quiet
+    button; an equal or incomparable one is a quiet "Install".
     """
-    if not ts:
-        return ""
-    timestamp_html = layout.concise_timestamp_html(ts, now, fallback="")
-    if not timestamp_html:
-        return ""
-    return '<div class="widget-detail">%s</div>' % timestamp_html
-
-
-# The states where "target_version" names a real, in-flight schedule --
-# "available"/"installed" carry no schedule, so view["target_version"]
-# is always None for them (server.firmware_registry.update_view()'s own
-# contract); this tuple exists only for readability at the call site.
-_STATES_WITH_A_TARGET_VERSION = ("scheduled", "in_progress", "failed")
-
-
-def _target_version_html(view):
-    """A mono span naming the version `view["target_version"]` points at,
-    or "" with no schedule -- so the Scheduled/In progress/Failed state
-    always says WHICH release, never just the bare state word. Reads the
-    view's own field; re-derives no schedule rule.
-    """
-    state = view.get("state")
-    target_version = view.get("target_version")
-    if not target_version or state not in _STATES_WITH_A_TARGET_VERSION:
-        return ""
-    return ' <span class="mono">%s</span>' % escape_html(target_version)
-
-
-def _status_state_row_html(ctx, view):
-    """The state and its one relevant time.
-
-    Nothing is in flight while the state is "available", so the row is
-    just the time the frame last reported; every other state names itself
-    (and the release it concerns) beside the time that state began. The
-    summary therefore never carries two competing timestamps.
-    """
-    state = view.get("state")
-    if state == "available":
-        return _timestamp_detail_html(view.get("reported_at"), ctx.now)
-    state_label = i18n.t(STATE_LABELS.get(state, STATE_LABELS["available"]))
-    dot_token = _STATE_DOT_TOKENS.get(state, "off")
-    label_html = layout.status_dot(dot_token, state_label) + _target_version_html(view)
-    detail_html = _timestamp_detail_html(view.get("state_at"), ctx.now)
-    return (
-        '<p class="text-body widget-verdict">%s</p>'
-        "%s"
-    ) % (label_html, detail_html)
-
-
-def _scheduled_sentence_html(view, next_wake_text, wake_held=False):
-    if view.get("state") != "scheduled":
-        return ""
-    resolved_text = next_wake_text or i18n.t(UNKNOWN_TIME_TEXT)
-    template = SCHEDULED_SENTENCE_HELD_TEMPLATE if wake_held else SCHEDULED_SENTENCE_TEMPLATE
-    sentence = i18n.t(template) % resolved_text
-    return '<p class="text-label section-caption">%s</p>' % escape_html(sentence)
+    version = release.get("version")
+    direction = release.get("direction")
+    if direction == _DIRECTION_OLDER:
+        return _install_form_html(version, ROLLBACK_BUTTON_TEMPLATE, quiet=True)
+    if direction == _DIRECTION_NEWER:
+        return _install_form_html(
+            version, INSTALL_VERSION_BUTTON_TEMPLATE if with_version_label else None)
+    return _install_form_html(
+        version, INSTALL_VERSION_BUTTON_TEMPLATE if with_version_label else None, quiet=True)
 
 
 def _cancel_form_html(view):
@@ -279,281 +265,227 @@ def _rollback_banner_html(view):
     version = rollback.get("version") or "?"
     back_on = rollback.get("back_on") or "?"
     text = i18n.t(ROLLBACK_SENTENCE_TEMPLATE) % (version, back_on)
-    return '<div class="banner banner--warn" role="alert">%s</div>' % escape_html(text)
+    title, detail = layout.split_toast_message(text)
+    return layout.toast_html(
+        title, detail, tone=layout.TOAST_TONE_WARNING, role="alert", docked=True,
+        extra_class=ROLLBACK_TOAST_CLASS)
 
 
-def _status_card_html(ctx, view, next_wake_text, wake_held=False):
+# --- the call-to-action card ---------------------------------------------
+
+_CTA_TONE_OK = "ok"
+_CTA_TONE_WARN = "warn"
+_CTA_TONE_ERROR = "error"
+_CTA_TONE_NEUTRAL = "neutral"
+_STATES_WITH_A_TARGET_VERSION = ("scheduled", "in_progress", "failed")
+
+
+def _newer_release_to_offer(view, releases):
+    """The newest installable release newer than the running one, or None.
+    Nothing is offered while a schedule is in flight or has failed: the
+    card then reports that schedule instead."""
+    if view.get("state") in _STATES_WITH_A_TARGET_VERSION:
+        return None
+    for release in releases:
+        if release.get("direction") == _DIRECTION_NEWER and release.get("installable"):
+            return release
+    return None
+
+
+def _first_note(release):
+    notes = [str(note) for note in (release.get("notes") or []) if note]
+    return notes[0] if notes else ""
+
+
+def _running_line_html(view):
+    """The running version, its bench badge when it is a bench build."""
+    running_version = view.get("running_version")
+    bench_html = ""
+    if any(release.get("bench") and release.get("version") == running_version
+           for release in view.get("releases") or []):
+        # A bench build is hidden from the owner's release list but is
+        # still what the frame runs, so the card names it plainly.
+        bench_html = ' <span class="update-cta__bench banner__pill">%s</span>' % escape_html(
+            i18n.t(BENCH_BADGE_TEXT))
+    return _mono_html(running_version) + bench_html
+
+
+def _cta_up_to_date(view, now):
+    running_version = view.get("running_version")
+    if not running_version:
+        return (_CTA_TONE_NEUTRAL, "icon-info", NO_VERSION_REPORTED_TEXT, [], "")
+    details = [_running_line_html(view)]
+    running = next((release for release in view.get("releases") or []
+                    if release.get("running")), {})
+    installed_at = running.get("installed_now_at")
+    if installed_at:
+        details.append(_fill_html(INSTALLED_AGO_TEMPLATE, _ago_html(installed_at, now)))
+    return (_CTA_TONE_OK, "icon-check", CTA_UP_TO_DATE_TEXT, details, "")
+
+
+def _cta_available(release, now):
+    details = [
+        _mono_html(release["version"]) + " · "
+        + _fill_html(RELEASED_AGO_TEMPLATE, _ago_html(release.get("released_at"), now))]
+    note = _first_note(release)
+    if note:
+        details.append('<span class="update-cta__note">%s</span>' % escape_html(note))
+    return (_CTA_TONE_NEUTRAL, "icon-upload", CTA_AVAILABLE_TEXT, details,
+            _release_install_form_html(release, with_version_label=True))
+
+
+def _cta_for_state(view, releases, now, next_wake_text, wake_held):
+    """`(tone, icon id, headline Message, detail lines, action html)` for
+    the one situation the frame is in."""
+    state = view.get("state")
+    target = view.get("target_version")
+    state_ago = _ago_html(view.get("state_at"), now)
+    if state == "scheduled" and target:
+        template = SCHEDULED_SENTENCE_HELD_TEMPLATE if wake_held else SCHEDULED_SENTENCE_TEMPLATE
+        sentence = i18n.t(template) % (next_wake_text or i18n.t(UNKNOWN_TIME_TEXT))
+        return (_CTA_TONE_NEUTRAL, "icon-info", CTA_SCHEDULED_TEXT,
+                [_mono_html(target), escape_html(sentence)], _cancel_form_html(view))
+    if state == "in_progress" and target:
+        details = [_fill_html(CTA_INSTALLING_BODY_TEMPLATE, _mono_html(target))]
+        if state_ago:
+            details.append(state_ago)
+        return (_CTA_TONE_WARN, "icon-refresh", CTA_INSTALLING_TEXT, details, "")
+    if state == "failed" and target:
+        details = [_fill_html(CTA_FAILED_BODY_TEMPLATE, _mono_html(target))]
+        if view.get("running_version"):
+            details.append(_fill_html(CTA_STAYS_ON_TEMPLATE, _mono_html(view["running_version"])))
+        if state_ago:
+            details.append(state_ago)
+        retry = next((release for release in releases
+                      if release.get("version") == target and release.get("installable")), None)
+        action_html = _release_install_form_html(retry, with_version_label=True) if retry else ""
+        return (_CTA_TONE_ERROR, "icon-warning", CTA_FAILED_TEXT, details, action_html)
+    newer = _newer_release_to_offer(view, releases)
+    if newer is not None:
+        return _cta_available(newer, now)
+    return _cta_up_to_date(view, now)
+
+
+def _on_the_frame_html(view, now):
+    """The footer naming what the frame runs while the card is about
+    something else (an update on offer, scheduled or installing)."""
+    running = next((release for release in view.get("releases") or []
+                    if release.get("running")), {})
+    line = _fill_html(ON_THE_FRAME_TEMPLATE, _running_line_html(view))
+    if running.get("installed_now_at"):
+        line += " · " + _fill_html(
+            INSTALLED_AGO_TEMPLATE, _ago_html(running["installed_now_at"], now))
+    return '<p class="update-cta__on">%s</p>' % line
+
+
+def _cta_card_html(ctx, view, releases, next_wake_text, wake_held=False):
+    tone, icon_id, headline, details, action_html = _cta_for_state(
+        view, releases, ctx.now, next_wake_text, wake_held)
+    details_html = "".join('<p class="update-cta__detail">%s</p>' % line for line in details)
+    action_block = '<div class="update-actions">%s</div>' % action_html if action_html else ""
+    # "Up to date" and "failed" already name the running release.
+    shows_running = (
+        view.get("running_version") and tone in (_CTA_TONE_NEUTRAL, _CTA_TONE_WARN))
     return (
-        '<section class="page-section update-summary">'
-        '<h2 class="text-heading">%s</h2>'
-        "%s%s%s%s%s"
-        "</section>"
-    ) % (
-        escape_html(i18n.t(STATUS_HEADING_TEXT)),
-        _rollback_banner_html(view),
-        _status_verdict_block_html(view),
-        _status_state_row_html(ctx, view),
-        _scheduled_sentence_html(view, next_wake_text, wake_held),
-        _cancel_form_html(view),
-    )
+        '<section class="page-section update-cta update-cta--%s" aria-labelledby="update-cta-title">'
+        '<div class="update-cta__top">'
+        '<span class="update-cta__icon">%s</span>'
+        '<div class="update-cta__text">'
+        '<h2 class="update-cta__title" id="update-cta-title">%s</h2>%s'
+        "</div></div>%s%s</section>"
+    ) % (tone, layout.icon_html(icon_id, size=22), escape_html(i18n.t(headline)),
+         details_html, action_block,
+         _on_the_frame_html(view, ctx.now) if shows_running else "")
 
 
-def _install_form_html(version):
-    confirm_question = i18n.t(INSTALL_CONFIRM_QUESTION_TEMPLATE) % version
-    return (
-        '<form method="post" action="%s" data-confirm="%s">'
-        '<input type="hidden" name="version" value="%s">'
-        '<button type="submit">%s</button>'
-        "</form>"
-    ) % (
-        INSTALL_ROUTE, escape_html(confirm_question),
-        escape_html(version), escape_html(i18n.t(INSTALL_BUTTON_TEXT)),
-    )
+# --- the version list ----------------------------------------------------
 
 
-# Release notes are CI-generated commit summaries. A single note this
-# short reads fine in place; anything longer or more numerous collapses
-# to an excerpt (about two lines in the desktop Notes column) plus a
-# native <details> holding the full list, so a release with dozens of
-# notes cannot turn the version history into a wall of text.
-NOTES_EXCERPT_LIMIT = 120
-
-# What the Installed cell carries, so the desktop cell and the phone
-# card's Installed line render from one decision.
-_INSTALLED_RUNNING = "running"
-_INSTALLED_PAST = "past"
-
-# One release, built once and rendered twice (desktop table cell tuple,
-# phone card), so the two can never disagree about what a release offers.
-#   notes_excerpt_html / notes_details_html: escaped excerpt and the
-#     closed <details> ("" when the notes fit in place / are absent).
-#   installed_kind: _INSTALLED_RUNNING, _INSTALLED_PAST or None.
-_ReleaseRow = collections.namedtuple("_ReleaseRow", (
-    "version_html", "date_html", "notes_excerpt_html", "notes_details_html",
-    "installed_html", "installed_kind", "action_html"))
-
-
-def _notes_excerpt(text, limit=NOTES_EXCERPT_LIMIT):
-    """`text` cut on a word boundary within `limit` characters and ended
-    with an ellipsis, or `text` itself when it already fits.
-    """
-    if len(text) <= limit:
-        return text
-    cut = text[:limit]
-    if " " in cut and text[limit] != " ":
-        cut = cut.rsplit(" ", 1)[0]
-    return cut.rstrip(" ,;:.-") + "\u2026"
-
-
-def _notes_html(notes):
-    """`(excerpt_html, details_html)` for a release's notes.
-
-    Every note is HTML-escaped here: notes are untrusted CI output, and
-    the Notes column is a raw column of `layout.data_table()`, which
-    interpolates it unescaped. A lone note that fits renders in place
-    with no toggle; otherwise the excerpt is followed by a closed
-    <details> listing every note, which works with scripts blocked.
-    """
-    notes = [str(note) for note in notes if note]
-    if not notes:
-        return "", ""
-    joined = "; ".join(notes)
-    if len(notes) == 1 and len(joined) <= NOTES_EXCERPT_LIMIT:
-        return escape_html(joined), ""
-    items_html = "".join("<li>%s</li>" % escape_html(note) for note in notes)
-    details_html = (
-        '<details class="update-history__notes">'
-        "<summary>%s</summary>"
-        '<ul class="update-history__notes-list">%s</ul>'
-        "</details>"
-    ) % (escape_html(i18n.t(SHOW_NOTES_TEXT)), items_html)
-    return escape_html(_notes_excerpt(joined)), details_html
-
-
-def _installed_cell(release, now):
-    """`(installed_html, installed_kind)` for the Installed column.
-
-    The check mark means "this is the release the frame runs", never
-    "this was once installed": only the running row carries it, with its
-    over-the-air install time beside it when that install is still the
-    newest one (`installed_now_at`; a release reached again by USB flash
-    shows the check alone). A release installed over the air earlier but
-    no longer running shows quiet "Last installed" history text instead.
-    """
-    if release.get("running"):
-        html = (
-            layout.icon_html("icon-check", size=16)
-            + '<span class="visually-hidden">%s</span>'
-            % escape_html(i18n.t(RUNNING_BADGE_TEXT)))
-        if release.get("installed_now_at"):
-            html += layout.concise_timestamp_html(release["installed_now_at"], now)
-        return html, _INSTALLED_RUNNING
-    installed_at = release.get("installed_at") or []
-    if not installed_at:
-        return "", None
-    prefix, _, suffix = i18n.t(LAST_INSTALLED_TEMPLATE).partition("%s")
-    html = '<span class="text-label">%s%s%s</span>' % (
-        escape_html(prefix), layout.concise_timestamp_html(installed_at[-1], now),
-        escape_html(suffix))
-    return html, _INSTALLED_PAST
-
-
-def _release_row(release, running_version, target_version, installs_blocked, now):
-    """One `_ReleaseRow` for `release`: version (mono, plain text),
-    date/installed/action (already-safe markup) and notes (escaped
-    excerpt plus an optional closed <details>; see `_notes_html()`).
-
-    `target_version` is `view["target_version"]` -- the release a
-    schedule already targets renders a quiet "Scheduled" label instead
-    of a second, identical-looking Install button: the Status card's
-    own state row already names this schedule's outcome, so an Install
-    button on this row would only offer to schedule it again.
-
-    `installs_blocked` is `view["state"] == "in_progress"`: the device
-    has already acknowledged an offer, so `schedule_release()` can only
-    return "busy" for every row, the target's own included -- no row
-    renders an Install form while that holds.
-    """
+def _row_action_html(release, view):
+    """What a row's body offers: nothing for the running release, a quiet
+    state label for the schedule's target or while any install runs, the
+    Install form otherwise, and plain text below the firmware floor."""
     version = release.get("version")
-    version_html = (
-        layout.icon_html("icon-nav-update", size=16)
-        + '<span class="mono">%s</span>' % escape_html(version))
+    is_target = bool(view.get("target_version")) and version == view.get("target_version")
     if release.get("running"):
-        version_html += (
-            ' <span class="update-history__running-badge banner__pill">%s</span>'
-            % escape_html(i18n.t(RUNNING_BADGE_TEXT)))
-    date_html = layout.concise_timestamp_html(release.get("released_at"), now)
-    excerpt_html, details_html = _notes_html(release.get("notes") or [])
-    installed_html, installed_kind = _installed_cell(release, now)
-    is_target = bool(target_version) and version == target_version
-    if installs_blocked and is_target:
-        action_html = (
-            '<span class="text-label">%s</span>'
-            % escape_html(i18n.t(STATE_LABELS["in_progress"])))
-    elif installs_blocked:
+        return ""
+    if view.get("state") == "in_progress":
         # A different install is already running: no button, since
         # posting here can only ever come back "busy" too.
-        action_html = ""
-    elif release.get("installable") and is_target:
-        action_html = (
-            '<span class="text-label">%s</span>'
-            % escape_html(i18n.t(STATE_LABELS["scheduled"])))
-    elif release.get("installable"):
-        action_html = _install_form_html(version)
-    elif version == running_version:
-        # The row for the currently running release: no button, no
-        # "Not installable" text -- being the running version is not a
-        # structural fact about the floor, it is simply not offered
-        # since it is already installed.
-        action_html = ""
-    else:
-        action_html = (
-            '<span class="text-label">%s</span>'
-            % escape_html(i18n.t(NOT_INSTALLABLE_TEXT)))
-    return _ReleaseRow(
-        version_html, date_html, excerpt_html, details_html,
-        installed_html, installed_kind, action_html)
-
-
-def _table_cells(row):
-    """The five cells `layout.data_table()` renders for `row`; notes
-    (column 2) and every other cell are already-safe markup.
-    """
-    return (
-        row.version_html, row.date_html, row.notes_excerpt_html + row.notes_details_html,
-        row.installed_html, row.action_html)
-
-
-def _release_card_html(row):
-    """The mobile stacked-card representation of one `_release_row()`
-    result: version/date on one line, the notes excerpt as wrapping
-    prose with its toggle right after it, the Installed line (a
-    labelled cell for the running release, the bare "Last installed"
-    text for a past install, nothing otherwise) and the same action
-    markup the desktop row already built -- built from the identical
-    row, so the two representations can never disagree about what a
-    release is offering. Matches `health_sections.py`'s own
-    `.data-card` pattern (`_registry_cards_html()`/`_stats_cards_html()`)
-    rather than a new one: a `<ul class="data-cards">` sibling toggled
-    against the table below it purely by `companion/static/style.css`'s
-    existing `.data-cards ~ .data-table-wrap` rule -- no table-specific
-    CSS is needed for the toggle itself.
-    """
-    primary_html = (
-        '<div class="data-card__primary">'
-        '<span class="cell-primary">%s</span>'
-        '<span class="data-card__value">'
-        '<span class="data-card__label">%s</span> %s'
-        "</span>"
-        "</div>"
-    ) % (row.version_html, escape_html(i18n.t(TABLE_HEADER_DATE_TEXT)), row.date_html)
-    # The toggle sits after the excerpt paragraph, never inside it: a
-    # <details> is block content and cannot be a child of <p>.
-    desc_html = (
-        '<p class="data-card__desc">%s</p>' % row.notes_excerpt_html
-    ) if row.notes_excerpt_html else ""
-    installed_row_html = ""
-    if row.installed_kind == _INSTALLED_RUNNING:
-        installed_row_html = (
-            '<div class="data-card__secondary">'
-            '<span class="data-card__label">%s</span> %s'
-            "</div>"
-        ) % (escape_html(i18n.t(TABLE_HEADER_INSTALLED_TEXT)), row.installed_html)
-    elif row.installed_kind == _INSTALLED_PAST:
-        installed_row_html = '<div class="data-card__secondary">%s</div>' % row.installed_html
-    action_row_html = (
-        '<div class="data-card__action">%s</div>' % row.action_html) if row.action_html else ""
-    return "<li class=\"data-card\">%s%s%s%s%s</li>" % (
-        primary_html, desc_html, row.notes_details_html, installed_row_html, action_row_html)
-
-
-def _history_cards_html(rows):
-    if not rows:
+        if is_target:
+            return '<span class="text-label">%s</span>' % escape_html(
+                i18n.t(STATE_LABELS["in_progress"]))
         return ""
-    return '<ul class="data-cards">%s</ul>' % "".join(_release_card_html(row) for row in rows)
+    if release.get("installable") and is_target:
+        return '<span class="text-label">%s</span>' % escape_html(
+            i18n.t(STATE_LABELS["scheduled"]))
+    if release.get("installable"):
+        return _release_install_form_html(release)
+    return '<span class="text-label">%s</span>' % escape_html(i18n.t(NOT_INSTALLABLE_TEXT))
 
 
-def _owner_releases(view):
-    """The releases the owner is shown: real releases only.
+def _row_meta_html(release):
+    """The opened row's absolute dates: when it was released and when it
+    was installed (the running release's OTA install time only while that
+    is still honest, otherwise the last OTA install of a past release)."""
+    lines = []
+    if release.get("released_at"):
+        lines.append(_fill_html(
+            RELEASED_ON_TEMPLATE, layout.absolute_time_html(release["released_at"])))
+    if release.get("running"):
+        if release.get("installed_now_at"):
+            lines.append(_fill_html(
+                INSTALLED_ON_TEMPLATE, layout.absolute_time_html(release["installed_now_at"])))
+    elif release.get("installed_at"):
+        lines.append(_fill_html(
+            LAST_INSTALLED_TEMPLATE, layout.absolute_time_html(release["installed_at"][-1])))
+    return "".join('<p class="update-row__meta">%s</p>' % line for line in lines)
 
-    Bench builds are a development aid and never an owner choice, so they
-    are dropped here at the page boundary; a bench build that is running
-    or scheduled still surfaces truthfully in the summary above, which
-    reads `running_version`/`target_version` rather than this list. The
-    registry's own classification and installability are untouched.
-    """
-    return [release for release in (view.get("releases") or []) if not release.get("bench")]
+
+def _row_html(release, view, now):
+    """One release: a native `<details>` whose summary is the one-line row
+    (version, running badge, first note, relative date) and whose body
+    holds every note, the absolute dates and the action -- all without
+    script. Notes are untrusted CI text, escaped here."""
+    version = release.get("version")
+    notes = [str(note) for note in (release.get("notes") or []) if note]
+    badge_html = (
+        ' <span class="update-row__badge banner__pill">%s</span>'
+        % escape_html(i18n.t(RUNNING_BADGE_TEXT))) if release.get("running") else ""
+    notes_html = (
+        '<ul class="update-row__notes">%s</ul>'
+        % "".join("<li>%s</li>" % escape_html(note) for note in notes)) if notes else ""
+    action_html = _row_action_html(release, view)
+    action_block = '<div class="update-actions">%s</div>' % action_html if action_html else ""
+    return (
+        '<li><details class="update-row%s"><summary>'
+        '<span class="update-row__version">%s%s</span>'
+        '<span class="update-row__when">%s</span>'
+        '<span class="update-row__note">%s</span>'
+        "%s</summary>"
+        '<div class="update-row__body">%s%s%s</div></details></li>'
+    ) % (
+        " update-row--running" if release.get("running") else "",
+        _mono_html(version), badge_html, _ago_html(release.get("released_at"), now),
+        escape_html(notes[0]) if notes else "",
+        layout.icon_html("icon-chevron-right", size=16, extra_class="update-row__chevron"),
+        notes_html, _row_meta_html(release), action_block)
 
 
-def _history_card_html(ctx, view):
-    releases = _owner_releases(view)
+def _versions_card_html(ctx, view, releases):
     if not releases:
         body_html = layout.empty_state(
             i18n.t(EMPTY_RELEASES_HEADING_TEXT), i18n.t(EMPTY_RELEASES_BODY_TEXT))
+        count_html = ""
     else:
-        installs_blocked = view.get("state") == "in_progress"
-        rows = [
-            _release_row(
-                release, view.get("running_version"), view.get("target_version"),
-                installs_blocked, ctx.now)
-            for release in releases]
-        headers = (
-            i18n.t(TABLE_HEADER_VERSION_TEXT), i18n.t(TABLE_HEADER_DATE_TEXT),
-            i18n.t(TABLE_HEADER_NOTES_TEXT), i18n.t(TABLE_HEADER_INSTALLED_TEXT), "")
-        table_html = layout.data_table(
-            headers, [_table_cells(row) for row in rows], raw_columns=(0, 1, 2, 3, 4),
-            desc_columns=(2,), prose=True, modifier="firmware-history")
-        # Cards must render before the table: style.css's
-        # `.data-cards ~ .data-table-wrap` sibling-combinator toggle
-        # depends on this DOM order (matching health_sections.py's own
-        # "do not reorder" contract for the identical mechanism).
-        body_html = _history_cards_html(rows) + table_html
+        body_html = '<ul class="update-rows">%s</ul>' % "".join(
+            _row_html(release, view, ctx.now) for release in releases)
+        count_html = '<span class="update-versions__count">%d</span>' % len(releases)
     return (
-        '<section class="page-section">'
-        '<h2 class="text-heading">%s</h2>'
-        "%s"
-        "</section>"
-    ) % (escape_html(i18n.t(HISTORY_HEADING_TEXT)), body_html)
+        '<section class="page-section update-versions" aria-labelledby="update-versions-title">'
+        '<div class="update-versions__head">'
+        '<h2 class="text-heading" id="update-versions-title">%s</h2>%s</div>%s</section>'
+    ) % (escape_html(i18n.t(HISTORY_HEADING_TEXT)), count_html, body_html)
 
 
 def _install_confirm_form_html(version):
@@ -641,19 +573,23 @@ def compute_next_wake_text(ctx):
 
 
 def update_page(ctx, view, next_wake_text, wake_held=False):
-    """The page body: `layout.page_header()`, then the Status card
-    (running version, update state, rollback warning, scheduled
-    sentence, Cancel) and the Version history card, in that order.
+    """The page body: `layout.page_header()`, then the rollback warning
+    (when the last outcome was a rollback), the call-to-action card
+    (running version and its install time, or the newer release to
+    install, or the schedule in flight) and the Versions card holding
+    every release, in that order.
     `view` is `server.firmware_registry.update_view()`'s own return
     value; `next_wake_text` is the caller's own formatted clock string
     (or "" when no next-wake time could be computed); `wake_held`
     selects the quiet-hours wording for that sentence.
     """
     ctx = page_context.coerce(ctx)
+    releases = _owner_releases(view)
     return (
         layout.page_header(i18n.t(_NAV_UPDATE_TEXT))
-        + _status_card_html(ctx, view, next_wake_text, wake_held)
-        + _history_card_html(ctx, view)
+        + _rollback_banner_html(view)
+        + _cta_card_html(ctx, view, releases, next_wake_text, wake_held)
+        + _versions_card_html(ctx, view, releases)
     )
 
 

@@ -1,0 +1,264 @@
+#!/usr/bin/env python3
+"""Behaviour checks for the Flights phone card (the boarding-pass layout below 960 px),
+read from the page the companion app serves: one card per flight with its head, route line
+and stub; the icon-only picture link only when a picture exists, named per flight in English
+and French; the unresolved-airline variant; the no-artwork placeholder; the slim day headers;
+and no inline style attribute anywhere in the card list.
+"""
+import pytest
+
+import companion.test_view_pages_helpers as vp
+from companion import auth
+from companion.pages import history_page
+from companion_app_server import get, login
+from companion_markup import parse_html
+from server.plane import illustrations
+
+_GALLERY = vp.FLIGHT_CARD_GALLERY_NAME
+_FLIGHTS = vp.FLIGHT_CARD_FLIGHTS
+
+
+def _seed(state_dir, with_gallery):
+    vp.seed_flight_card_variety(state_dir, with_gallery)
+
+
+@pytest.fixture(scope="module")
+def pictured(module_app_server_factory):
+    return module_app_server_factory(seed=lambda d: _seed(d, True))
+
+
+@pytest.fixture(scope="module")
+def unpictured(module_app_server_factory):
+    return module_app_server_factory(seed=lambda d: _seed(d, False))
+
+
+def _flights_doc(server, lang="en"):
+    cookie = login(server)
+    if lang != "en":
+        cookie += "; %s=%s" % (auth.UI_LANG_COOKIE_NAME, lang)
+    status, _, body = get(server, "/flights", cookie=cookie)
+    assert status == 200
+    return parse_html(body.decode("utf-8"))
+
+
+def _cards(doc):
+    return {
+        card.select_one(".history-card__callsign").text(): card
+        for card in doc.select("ul.history-cards > li.history-card")}
+
+
+def test_every_flight_is_one_card_with_head_route_and_stub(pictured):
+    """each flight renders as one card whose bands are head, route and stub in that order, and
+    the cards keep the filter contract (one data-filter-text and data-filter-group each)"""
+    cards = _cards(_flights_doc(pictured))
+    assert sorted(cards) == sorted(f[0] for f in _FLIGHTS)
+    for callsign, card in cards.items():
+        bands = [child.attrs.get("class") for child in card.children if not isinstance(child, str)]
+        assert bands == ["history-card__head", "history-card__route", "history-card__stub"], callsign
+        assert callsign.lower() in card.attrs["data-filter-text"]
+        assert card.attrs["data-filter-group"].isdigit()
+        when = card.select_one(".history-card__stub .history-card__when")
+        assert when.select_one(".time-value--primary").text()
+        assert when.select_one("time[data-relative]") is not None
+
+
+@pytest.mark.parametrize("lang,prefix", [("en", "View picture of "), ("fr", "Voir l’image de ")])
+def test_the_picture_action_is_an_icon_link_named_for_its_flight(pictured, lang, prefix):
+    """with a picture available every card head carries one icon-only real /gallery/ link with
+    the lightbox trigger attributes and a per-flight accessible name, in English and French"""
+    for callsign, card in _cards(_flights_doc(pictured, lang)).items():
+        links = card.select("a[data-view-panel-src]")
+        assert len(links) == 1, callsign
+        link = links[0]
+        assert link.parent.attrs.get("class") == "history-card__head"
+        assert link.attrs["href"] == "/gallery/" + _GALLERY
+        assert link.attrs["data-view-panel-src"] == link.attrs["href"]
+        assert link.attrs["data-view-panel-caption"]
+        assert link.attrs["aria-label"] == prefix + callsign
+        assert link.text() == ""
+        assert link.select_one("svg").attrs["aria-hidden"] == "true"
+
+
+def test_a_flight_with_no_picture_shows_no_action(unpictured):
+    """with no archived render there is no picture link on any card, and no lightbox shell"""
+    doc = _flights_doc(unpictured)
+    assert _cards(doc)
+    assert not doc.select("li.history-card a[data-view-panel-src]")
+    assert not doc.select("li.history-card .history-card__picture")
+    assert not doc.select("dialog#panel-lookup-dialog")
+
+
+@pytest.mark.parametrize("lang,unknown,resolve", [
+    ("en", "Airline unknown", "Name this airline"),
+    ("fr", "Compagnie inconnue", "Nommer cette compagnie"),
+])
+def test_an_unresolved_airline_reads_unknown_with_its_resolve_link(pictured, lang, unknown, resolve):
+    """an unresolved airline reads the italic unknown label with the one-hop resolve link under
+    it in the card head; a named airline carries neither"""
+    cards = _cards(_flights_doc(pictured, lang))
+    identity = cards["OBS412"].select_one(".history-card__head .history-card__id")
+    assert identity.select_one(".history-card__airline--unknown").text() == unknown
+    link = identity.select_one(".history-card__resolve a")
+    assert link.text() == resolve
+    assert link.attrs["href"] == "/airlines?resolve=OBS"
+    named = cards["TVF72YL"]
+    assert not named.select(".history-card__airline--unknown")
+    assert not named.select(".history-card__resolve")
+
+
+@pytest.mark.parametrize("lang,placeholder", [("en", "No illustration"), ("fr", "Pas d’illustration")])
+def test_artwork_shows_as_a_plate_or_a_quiet_placeholder(pictured, lang, placeholder):
+    """an airline with an artwork file shows it as the stub's image plate; one without shows the
+    dashed placeholder text and never an <img> that would 404"""
+    cards = _cards(_flights_doc(pictured, lang))
+    key = illustrations.normalise_airline_key("Transavia France")
+    img = cards["TVF72YL"].select_one(".history-card__stub img.history-card__art")
+    assert img.attrs["src"] == "/illustration/%s.png" % key
+    for callsign in ("SMR42", "OBS412", "XYZ9"):
+        stub = cards[callsign].select_one(".history-card__stub")
+        assert not stub.select("img"), callsign
+        assert stub.select_one(".history-card__art--empty").text() == placeholder
+
+
+def test_day_headers_group_the_cards_without_joining_the_filter(pictured):
+    """slim day headers split the list where the Paris day changes; they carry no filter text, so
+    the filter count never counts them"""
+    doc = _flights_doc(pictured)
+    items = doc.select("ul.history-cards > li")
+    headers = [item for item in items if item.attrs.get("class") == "history-cards__day"]
+    assert [h.text() for h in headers] == ["3 Sep", "2 Sep"]
+    assert all("data-filter-text" not in h.attrs for h in headers)
+    order = [item.attrs.get("class") for item in items]
+    assert order[0] == "history-cards__day"
+    assert order.index("history-cards__day", 1) == 4
+
+
+def test_recent_day_headers_read_today_and_yesterday_with_the_date(tmp_path):
+    """the two most recent day headers name the day and add the short date after it"""
+    vp.seed_runway_events(tmp_path, [
+        {"ts": "2026-10-03T20:55:00+00:00", "hex": "d1", "callsign": "TODAY1"},
+        {"ts": "2026-10-02T20:55:00+00:00", "hex": "d2", "callsign": "YDAY1"},
+        {"ts": "2026-09-30T20:55:00+00:00", "hex": "d3", "callsign": "OLDER1"},
+    ])
+    rendered = history_page.render(vp.history_ctx(tmp_path, now="2026-10-03T21:00:00+00:00"))
+    headers = parse_html(rendered).select("ul.history-cards > li.history-cards__day")
+    assert [h.text() for h in headers] == ["Today · 3 Oct", "Yesterday · 2 Oct", "30 Sep"]
+
+
+def test_the_card_list_carries_no_inline_style(pictured):
+    """the card list is styled from the stylesheet alone: no style attribute on any element"""
+    doc = _flights_doc(pictured)
+    card_list = doc.select_one("ul.history-cards")
+    assert not card_list.select("[style]")
+
+
+def _event(ts, callsign="TVF49NS", state="departing", hex_="4b0001", corroborated=True):
+    return {"ts": ts, "hex": hex_, "callsign": callsign, "airline": "Transavia France",
+            "origin": "ORY", "destination": "BRI", "confirmed_state": state,
+            "corroborated": corroborated}
+
+
+def _doc_for(make_app_server, events, path="/flights"):
+    server = make_app_server(seed=lambda d: vp.seed_runway_events(d, events))
+    status, _, body = get(server, path, cookie=login(server))
+    assert status == 200
+    return parse_html(body.decode("utf-8"))
+
+
+def _chip_counts(doc):
+    return {
+        chip.select_one("input").attrs["value"] or "all":
+            chip.select_one("[data-filter-chip-count]").text()
+        for chip in doc.select(".filter-chip")}
+
+
+@pytest.mark.parametrize("older_ts,older_state,cards", [
+    ("2026-09-03T20:54:01+00:00", "departing", 1),
+    ("2026-09-03T20:53:30+00:00", "departing", 2),
+    ("2026-09-03T20:54:50+00:00", "arriving", 2),
+])
+def test_a_repeated_pass_inside_a_minute_is_one_flight(
+        make_app_server, older_ts, older_state, cards):
+    """a same-pass repeat 59 s apart is folded on Flights as on Home; one 90 s apart, or one
+    whose direction changed, is a different reading and stays; the desktop table follows"""
+    doc = _doc_for(make_app_server, [
+        _event("2026-09-03T20:55:00+00:00"),
+        _event(older_ts, state=older_state, corroborated=None)])
+    assert len(doc.select("ul.history-cards > li.history-card")) == cards
+    assert len(doc.select("tr[data-flight-row]")) == cards
+    assert _chip_counts(doc)["all"] == str(cards)
+
+
+def test_chip_counts_and_day_headers_follow_the_folded_list(make_app_server):
+    """the chip counts, the status count and the day headers count flights, not stored events:
+    a pass stored twice adds nothing to any of them"""
+    doc = _doc_for(make_app_server, [
+        _event("2026-09-03T20:55:00+00:00"),
+        _event("2026-09-03T20:54:30+00:00", corroborated=None),
+        _event("2026-09-03T20:40:00+00:00", callsign="AFR6152", state="arriving", hex_="3c0002"),
+        _event("2026-09-02T09:00:00+00:00", callsign="SMR42", hex_="4b0003"),
+        _event("2026-09-02T08:59:40+00:00", callsign="SMR42", hex_="4b0003", corroborated=None)])
+    assert _chip_counts(doc) == {"all": "3", "departing": "2", "arriving": "1"}
+    assert len(doc.select("ul.history-cards > li.history-card")) == 3
+    assert len(doc.select("li.history-cards__day")) == 2
+    assert len(doc.select("tr.flight-day-row")) == 2
+    assert doc.select_one("[data-filter-count]").text() == "3 of 3 shown"
+
+
+def test_a_pass_straddling_midnight_folds_into_the_newer_day(make_app_server):
+    """two events 20 s apart across Paris midnight are one flight listed under the later day,
+    with no empty or duplicate day header for the earlier one"""
+    doc = _doc_for(make_app_server, [
+        _event("2026-09-03T22:00:10+00:00"),
+        _event("2026-09-03T21:59:50+00:00", corroborated=None)])
+    assert len(doc.select("ul.history-cards > li.history-card")) == 1
+    heads = [li.text() for li in doc.select("li.history-cards__day")]
+    assert len(heads) == 1 and "4 Sep" in heads[0]
+
+
+def _fifty_events(count=50, **extra):
+    """`count` distinct flights, one every 10 minutes, newest last in the list"""
+    return [
+        _event("2026-09-%02dT%02d:%02d:00+00:00" % (1 + i // 24, (i % 24) // 6 + 6, (i % 6) * 10),
+               callsign="TVF%02d" % i, hex_="4b%04x" % i,
+               state="arriving" if i % 5 == 0 else "departing", **extra)
+        for i in range(count)]
+
+
+def test_all_fifty_flights_are_in_the_first_response_with_no_paging_step(make_app_server):
+    """50 distinct flights render as 50 cards and 50 table rows in the first response, with no
+    Show-more control, and the chips and the status count cover all 50"""
+    doc = _doc_for(make_app_server, _fifty_events())
+    assert len(doc.select("ul.history-cards > li.history-card")) == 50
+    assert len(doc.select("tr[data-flight-row]")) == 50
+    assert not doc.select(".flights-more")
+    assert "show more" not in doc.text().lower()
+    assert not [a for a in doc.select("a") if "limit=" in a.attrs.get("href", "")]
+    assert _chip_counts(doc) == {"all": "50", "departing": "40", "arriving": "10"}
+    assert doc.select_one("[data-filter-count]").text() == "50 of 50 shown"
+    assert "all 50 flights" in doc.text()
+
+
+def test_a_legacy_limit_query_is_ignored(make_app_server):
+    """a hand-typed ?limit= changes nothing: the page is identical to the one without it"""
+    server = make_app_server(seed=lambda d: vp.seed_runway_events(d, _fifty_events()))
+    cookie = login(server)
+    plain = get(server, "/flights", cookie=cookie)
+    for query in ("?limit=5", "?limit=30", "?limit=abc", "?limit=-1", "?limit=999999"):
+        status, _, body = get(server, "/flights" + query, cookie=cookie)
+        assert status == 200, query
+        doc = parse_html(body.decode("utf-8"))
+        assert len(doc.select("ul.history-cards > li.history-card")) == 50, query
+        assert not doc.select(".flights-more"), query
+        assert _chip_counts(doc)["all"] == "50", query
+    assert plain[0] == 200
+
+
+def test_folded_duplicates_still_reduce_the_full_list(make_app_server):
+    """a pass stored twice among the newest 50 events is one flight: 49 cards, 49 in the chips"""
+    events = _fifty_events(49)
+    events.append(_event("2026-09-01T06:00:20+00:00", callsign="TVF00", hex_="4b0000",
+                         state="arriving", corroborated=None))
+    doc = _doc_for(make_app_server, events)
+    assert len(doc.select("ul.history-cards > li.history-card")) == 49
+    assert _chip_counts(doc)["all"] == "49"

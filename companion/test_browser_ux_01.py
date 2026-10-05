@@ -15,7 +15,8 @@ from server import device_config
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE,
     _bar_text, _click_control, _commit_field,
-    _guard_armed, _login, _no_js_page, _save_via_bar, _wait_for_bar, _wait_for_bar_hidden, seed_state_dir,
+    _guard_armed, _login, _no_js_page, _open_health_rows, _save_via_bar, _wait_for_bar,
+    _wait_for_bar_hidden, seed_state_dir,
 )
 
 pytestmark = pytest.mark.browser
@@ -102,10 +103,11 @@ def test_flights_picture_action_opens_by_keyboard_and_pointer(new_context, serve
 
 
 def test_flights_mobile_cards_each_carry_a_picture_action_at_390_and_360(new_context, server):
-    """At 390 and 360 px every phone card shows its picture link inside the card, at the 44px
-    tap floor, with no horizontal page scroll, in English and in French.
+    """At 390 and 360 px every phone card shows its icon-only picture link inside the card's
+    head, as a 44px square, named for its flight, with no horizontal page scroll, in English
+    and in French.
     """
-    for lang, label in (("en", "View picture"), ("fr", "Voir l\u2019image")):
+    for lang, label in (("en", "View picture of "), ("fr", "Voir l\u2019image de ")):
         for viewport in (VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED):
             context = new_context(viewport=viewport)
             try:
@@ -121,23 +123,24 @@ def test_flights_mobile_cards_each_carry_a_picture_action_at_390_and_360(new_con
                     raise AssertionError("expected phone cards (%s)" % where)
                 measured = page.evaluate(
                     "() => [...document.querySelectorAll('li.history-card')].map(li => {"
-                    "  const a = li.querySelector('a[data-view-panel-src]');"
+                    "  const a = li.querySelector('.history-card__head > a[data-view-panel-src]');"
                     "  if (!a) return null;"
                     "  const r = a.getBoundingClientRect(), c = li.getBoundingClientRect();"
                     "  return {text: a.textContent.trim(), w: r.width, h: r.height,"
                     "          inside: r.left >= c.left - 0.5 && r.right <= c.right + 0.5,"
-                    "          label: a.getAttribute('aria-label')};"
+                    "          label: a.getAttribute('aria-label'),"
+                    "          callsign: li.querySelector('.history-card__callsign').textContent};"
                     "})")
                 for index, item in enumerate(measured):
                     if item is None:
                         raise AssertionError("card %d has no picture link (%s)" % (index, where))
-                    if item["text"] != label or not item["label"].startswith(label):
+                    if item["text"] or item["label"] != label + item["callsign"]:
                         raise AssertionError(
-                            "card %d link reads %r / %r, expected %r (%s)"
-                            % (index, item["text"], item["label"], label, where))
-                    if not item["inside"] or item["h"] < 44:
+                            "card %d link reads %r / %r, expected an icon named %r (%s)"
+                            % (index, item["text"], item["label"], label + item["callsign"], where))
+                    if not item["inside"] or item["h"] < 44 or item["w"] < 44:
                         raise AssertionError(
-                            "card %d link is clipped or under 44px tall: %r (%s)"
+                            "card %d link is clipped or under 44px: %r (%s)"
                             % (index, item, where))
                 if page.evaluate(
                         "document.documentElement.scrollWidth > document.documentElement.clientWidth"):
@@ -166,242 +169,106 @@ def test_flights_picture_link_works_without_scripts(new_context, server):
             raise AssertionError("expected the link to serve the archived PNG, got %r" % (response,))
 
 
-def test_flights_filter_count_and_clear_share_one_line_at_390px(new_context, server):
-    """At 390px on Flights the filter count and the Clear control report the same
-    bounding-box top: Clear never drops alone onto its own line.
-    """
-    # Two `nowrap` siblings in a wrapping flex container do not wrap as a unit; one
-    # `.filter-bar__meta` group does. Measured, not inspected: equal
-    # getBoundingClientRect().top is the contract.
-    context = new_context(viewport=VIEWPORT_PHONE)
-    try:
-        page = context.new_page()
-        _login(page, server.base_url())
-        page.goto(server.base_url() + "/flights")
-        count = page.locator("[data-filter-count]").first
-        clear = page.locator("[data-filter-clear]").first
-        count.wait_for(state="visible")
-        clear.wait_for(state="visible")
-        count_box = count.bounding_box()
-        clear_box = clear.bounding_box()
-        if count_box is None or clear_box is None:
-            raise AssertionError("expected both the count and Clear to have a box at 390px")
-        if round(count_box["y"]) != round(clear_box["y"]):
-            raise AssertionError(
-                "expected the filter count and Clear to report the same top at "
-                "390px (A-18 regressing a second time), got %r and %r"
-                % (count_box["y"], clear_box["y"]))
-        if page.viewport_size["width"] != 390:
-            raise AssertionError("expected the measurement to be taken at 390px")
-    finally:
-        context.close()
-
-
-def test_airlines_grid_renders_two_cards_per_row_at_390px(new_context, server):
-    """At 390px every Airlines illustration grid renders exactly two cards per row (never a
-    one-per-row auto-fill collapse), with each row's two columns equal within 1px, the main
-    grid's cards near the width the contract predicts, and the whole page under a height
-    ceiling.
-    """
-    # `repeat(auto-fill, minmax(200px, 1fr))` can collapse to one column inside a narrow
-    # content column; only a real layout engine resolves auto-fill, so this is measured rather
-    # than asserted off the stylesheet.
+def test_airlines_list_renders_one_full_width_row_per_line_at_390px(new_context, server):
+    """At 390px the Airlines list renders one row per line, every row the same width as the
+    list and the same 76px height (a two-line name never makes one taller), and the whole page
+    stays under a height ceiling that moves deliberately when the airline count changes."""
     context = new_context(viewport=VIEWPORT_PHONE)
     try:
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + "/airlines")
-        # The gap strip carries its own narrower `.illustration-grid--gap`, so each grid is
-        # measured on its own rather than pooling two grids' rows into one histogram.
-        curated = ".illustration-grid:not(.illustration-grid--gap)"
-        page.locator(curated + " .airline-card").first.wait_for(state="visible")
-        grids = page.eval_on_selector_all(
-            ".illustration-grid",
-            "els => els.map(el => Array.from("
-            "  el.querySelectorAll('.airline-card')).map(card => {"
-            "    const r = card.getBoundingClientRect();"
-            "    return {top: Math.round(r.y), width: r.width};"
-            "}))")
-        if len(grids) < 1:
-            raise AssertionError("expected at least one illustration grid on Airlines")
-        widest_row = None
-        for grid_index, cards in enumerate(grids):
-            if not cards:
-                raise AssertionError("expected grid %d to hold cards" % (grid_index,))
-            rows = {}
-            for card in cards:
-                rows.setdefault(card["top"], []).append(card)
-            ordered = [rows[top] for top in sorted(rows)]
-            for index, row in enumerate(ordered):
-                # Every row but a grid's last holds exactly two; the last may hold one when
-                # that grid's card count is odd.
-                if len(row) > 2 or (index < len(ordered) - 1 and len(row) != 2):
-                    raise AssertionError(
-                        "expected exactly two cards per row at 390px, grid %d row "
-                        "%d held %d" % (grid_index, index, len(row)))
-                if len(row) == 2 and abs(row[0]["width"] - row[1]["width"]) > 1:
-                    raise AssertionError(
-                        "expected the two columns to be equal within 1px, got %r "
-                        "and %r" % (row[0]["width"], row[1]["width"]))
-                if len(row) == 2 and (
-                        widest_row is None
-                        or row[0]["width"] > widest_row[0]["width"]):
-                    widest_row = row
-        if widest_row is None:
-            raise AssertionError(
-                "expected at least one full two-card row to measure at 390px")
-        # The page's main content column's own arithmetic: (342 - 24) / 2.
-        if not (150 <= widest_row[0]["width"] <= 170):
-            raise AssertionError(
-                "expected each card near the 159px the contract predicts, got %r"
-                % (widest_row[0]["width"],))
-        # A working two-per-row grid roughly halves the height a one-per-row collapse would
-        # produce. The 6600px ceiling carries headroom over the measured baseline (about
-        # 6200px with every card showing its source and owner rows plus its action) for the
-        # current airline count, so this fails on a regression rather than on a pixel, and
-        # moves again deliberately whenever the airline count legitimately changes.
+        page.locator(".airline-list .airline-row").first.wait_for(state="visible")
+        rows = page.eval_on_selector_all(
+            ".airline-list .airline-row",
+            "els => els.map(el => { const r = el.getBoundingClientRect();"
+            " return {top: Math.round(r.y), width: r.width, height: r.height}; })")
+        if len(rows) < 36:
+            raise AssertionError("expected one row per curated airline, got %d" % len(rows))
+        for row in rows:
+            if abs(row["width"] - rows[0]["width"]) > 1 or row["height"] != 76:
+                raise AssertionError("expected equal 76px-tall full-width rows, got %r" % (row,))
+        if len({row["top"] for row in rows}) != len(rows):
+            raise AssertionError("expected exactly one row per line at 390px")
         height = page.evaluate("document.documentElement.scrollHeight")
-        if height > 6600:
-            raise AssertionError(
-                "expected the two-per-row grid to roughly halve the audit's 5800px "
-                "page, measured %r" % (height,))
-        if page.viewport_size["width"] != 390:
-            raise AssertionError("expected the measurement to be taken at 390px")
+        if height > 3900:
+            raise AssertionError("expected the list page under 3900px, measured %r" % (height,))
     finally:
         context.close()
 
 
-def test_airlines_filter_count_and_clear_share_one_line_at_390px(new_context, server):
-    """At 390px on Airlines the filter count and the Clear control report the same
-    bounding-box top, both inside the one shared .filter-bar__meta group, adopted verbatim
-    with no per-page variant.
-    """
+def test_airlines_filter_bar_is_a_16px_search_pill_with_a_visible_quiet_count_at_390px(
+        new_context, server):
+    """At 390px the Airlines filter bar is the plain search pill: a 16px, 44px+ field (no iOS
+    focus zoom), the live count visible inside the one shared .filter-bar__meta group, and the
+    inline clear appearing only once the field holds text."""
     context = new_context(viewport=VIEWPORT_PHONE)
     try:
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + "/airlines")
+        field = page.locator("[data-filter-input]")
         count = page.locator("[data-filter-count]").first
-        clear = page.locator("[data-filter-clear]").first
+        field.wait_for(state="visible")
         count.wait_for(state="visible")
-        clear.wait_for(state="visible")
-        count_box = count.bounding_box()
-        clear_box = clear.bounding_box()
-        if count_box is None or clear_box is None:
-            raise AssertionError("expected both the count and Clear to have a box at 390px")
-        if round(count_box["y"]) != round(clear_box["y"]):
-            raise AssertionError(
-                "expected the Airlines filter count and Clear to report the same "
-                "top at 390px (A-18 regressing), got %r and %r"
-                % (count_box["y"], clear_box["y"]))
-        # Adopted, not forked: the pair is inside the one shared group element, and Airlines
-        # adds no variant of its own.
+        measured = page.eval_on_selector(
+            "[data-filter-input]",
+            "el => ({h: el.getBoundingClientRect().height, "
+            "font: parseFloat(getComputedStyle(el).fontSize)})")
+        if measured["h"] < 44 or measured["font"] < 16:
+            raise AssertionError("expected a 44px+ field with 16px+ text, got %r" % (measured,))
         in_group = page.eval_on_selector_all(
             ".filter-bar__meta",
-            "els => els.map(el => [!!el.querySelector('[data-filter-count]'),"
-            " !!el.querySelector('[data-filter-clear]')])")
-        if in_group != [[True, True]]:
+            "els => els.map(el => !!el.querySelector('[data-filter-count]'))")
+        if in_group != [True]:
             raise AssertionError(
-                "expected exactly one .filter-bar__meta group on Airlines holding "
-                "both controls, got %r" % (in_group,))
-        if page.viewport_size["width"] != 390:
-            raise AssertionError("expected the measurement to be taken at 390px")
-    finally:
-        context.close()
-
-
-@pytest.mark.parametrize("lang", ["en", "fr"])
-def test_health_registry_table_fits_1280px(new_context, server, lang):
-    """At 1280px in both languages Health's unresolved-prefix table reports
-    scrollWidth === clientWidth on its .data-table-wrap, the Resolve column sits inside that
-    wrap's own box (reachable with no horizontal scrolling), and no header is clipped.
-    """
-    # Only a real layout engine resolves `.data-table`'s `min-width: max-content` floor against
-    # six columns of real content in two languages, so this is measured rather than eyeballed.
-    # Each language is fully independent, so the two are parametrized rather than looped.
-    context = new_context(viewport=VIEWPORT_DESKTOP)
-    try:
-        page = context.new_page()
-        base_url = server.base_url()
-        _login(page, base_url)
-        context.add_cookies([{
-            "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
-        page.goto(base_url + "/health")
-        page.locator("table.data-table--registry").first.wait_for(state="visible")
-        box = page.eval_on_selector(
-            "table.data-table--registry",
-            "table => {"
-            "  const wrap = table.closest('.data-table-wrap');"
-            "  const heads = Array.from(table.querySelectorAll('th'));"
-            "  const resolve = heads[heads.length - 1];"
-            "  const cells = Array.from("
-            "    table.querySelectorAll('tbody tr'))"
-            "    .map(tr => tr.children[tr.children.length - 1]);"
-            "  return {"
-            "    sw: wrap.scrollWidth, cw: wrap.clientWidth,"
-            "    wrapRight: wrap.getBoundingClientRect().right,"
-            "    resolveRight: Math.max(resolve.getBoundingClientRect().right,"
-            "      ...cells.map(td => td.getBoundingClientRect().right)),"
-            "    headClipped: heads.filter("
-            "      h => h.scrollWidth > h.clientWidth + 1).map(h => h.textContent),"
-            "    rowCount: table.querySelectorAll('tbody tr').length,"
-            "  };"
-            "}")
-        if box["rowCount"] < 1:
-            raise AssertionError(
-                "expected the seeded registry to render at least one row (%s)"
-                % (lang,))
-        if box["sw"] != box["cw"]:
-            raise AssertionError(
-                "expected .data-table-wrap scrollWidth === clientWidth at "
-                "1280px in %s, got %r vs %r (B12)"
-                % (lang, box["sw"], box["cw"]))
-        # Reachable without horizontal scrolling, asserted as a geometric fact, not inferred
-        # from the scrollWidth equality above.
-        if box["resolveRight"] > box["wrapRight"] + 1:
-            raise AssertionError(
-                "expected the Resolve column to sit inside the wrap's own box "
-                "at 1280px in %s, got right edge %r vs %r"
-                % (lang, box["resolveRight"], box["wrapRight"]))
-        if box["headClipped"]:
-            raise AssertionError(
-                "expected no clipped header at 1280px in %s, got %r"
-                % (lang, box["headClipped"]))
-        if page.viewport_size["width"] != 1280:
-            raise AssertionError("expected the measurement to be taken at 1280px")
+                "expected exactly one .filter-bar__meta group holding the count, got %r"
+                % (in_group,))
+        if page.locator(".filter-bar__clear").is_visible():
+            raise AssertionError("expected the inline clear hidden while the field is empty")
+        field.fill("air")
+        page.locator(".filter-bar__clear").wait_for(state="visible")
     finally:
         context.close()
 
 
 def test_the_no_js_floor_holds_for_health(new_context, server):
-    """With scripts blocked Health renders in full: all four tiles with their
-    label/verdict/detail slots each exactly once, the registry filter bar and Clear, the
-    unresolved-prefix rows, and a per-row Resolve action that actually navigates to the
-    Airlines resolve surface.
+    """With scripts blocked Health renders in full: all five rows with their icon/name/verdict/value
+    slots each exactly once and their evidence reachable through the native disclosure, the
+    registry filter bar and Clear, the unresolved-prefix rows, and a per-row Resolve action that
+    actually navigates to the Airlines resolve surface.
     """
     with _no_js_page(new_context, server.base_url(), "/health") as page:
-        tiles = page.eval_on_selector_all(".stat-tile", "els => els.length")
-        if tiles != 4:
+        rows = page.eval_on_selector_all("details.health-row", "els => els.length")
+        if rows != 5:
             raise AssertionError(
-                "expected all four Health tiles to render with scripts blocked, "
-                "got %d" % (tiles,))
-        # Every tile must be complete, not merely present.
+                "expected all five Health rows to render with scripts blocked, "
+                "got %d" % (rows,))
+        # Every row must be complete, not merely present.
         slots = page.eval_on_selector_all(
-            ".stat-tile",
+            "details.health-row",
             "els => els.map(el => ["
-            "  el.querySelectorAll(':scope > .stat-tile__caption').length,"
-            "  el.querySelectorAll("
-            "    ':scope > .widget-verdict, :scope > .stat-tile__value,"
-            "     :scope > .empty-state > .empty-state__heading').length,"
-            "  el.querySelectorAll("
-            "    ':scope > .widget-detail, :scope > .empty-state >"
-            "     .empty-state__body').length])")
+            "  el.querySelectorAll(':scope > summary > .health-row__icon').length,"
+            "  el.querySelectorAll(':scope > summary > .health-row__name').length,"
+            "  el.querySelectorAll(':scope > summary > .health-row__verdict').length,"
+            "  el.querySelectorAll(':scope > summary > .health-row__value').length,"
+            "  el.querySelectorAll(':scope > .health-row__body').length])")
         for index, slot in enumerate(slots):
-            if slot != [1, 1, 1]:
+            if slot != [1, 1, 1, 1, 1]:
                 raise AssertionError(
-                    "expected tile %d to render its label/verdict/detail slots "
+                    "expected row %d to render its icon/name/verdict/value/body slots "
                     "exactly once each with scripts blocked, got %r"
                     % (index, slot))
+        # The disclosure is the browser's own: a closed row's evidence appears when its summary
+        # is activated from the keyboard, with no script involved.
+        _open_health_rows(page)
+        hidden = page.eval_on_selector_all(
+            ".health-row__body",
+            "els => els.filter(el => el.getBoundingClientRect().height === 0).length")
+        if hidden:
+            raise AssertionError(
+                "expected every row body to be visible once its summary was activated with "
+                "scripts blocked, %d stayed empty" % (hidden,))
         if not page.query_selector(".filter-bar [data-filter-input]"):
             raise AssertionError("expected the registry filter bar with scripts blocked")
         if not page.query_selector("[data-filter-clear]"):
@@ -787,11 +654,11 @@ def test_three_runway_cards_share_one_line_at_390px(new_context, server):
 
 
 def test_selecting_a_theme_chip_answers_and_moves_no_layout_box(new_context, server):
-    """At 390px selecting a palette chip answers — the chip's border-colour changes to the
-    accent, an inset accent ring (box-shadow) appears, and the .palette-chip__name wash
-    changes — while its own layout box, the grid's own box, and every chip's position inside
-    it are plain-equal before and after, so a selected card can never be a different size from
-    its siblings through the selection signal.
+    """At 390px selecting a cell of the departures look table answers — the cell's border-colour
+    changes to the accent, an inset accent ring (box-shadow) appears, and its wash changes —
+    while its own layout box, the table's own box, and every cell's position inside it are
+    plain-equal before and after, so a selected cell can never be a different size from its
+    siblings through the selection signal.
     """
     # Selection paints instantly via border/box-shadow/wash and carries no transform or
     # transition on this component, so the box is read through offsetWidth/offsetHeight/
@@ -812,23 +679,26 @@ def test_selecting_a_theme_chip_answers_and_moves_no_layout_box(new_context, ser
         _login(page, server.base_url())
         page.goto(server.base_url() + "/display")
         page.wait_for_load_state("networkidle")
+        # The table is the no-script control; open its disclosure directly, since with scripts
+        # its summary opens the look sheet instead.
+        page.eval_on_selector(
+            '[data-look-usage="departures"] details.look-edit', "d => { d.open = true; }")
 
         probe = (
             "() => {"
             "const row = document.querySelector("
-            "'details.usage-row[data-usage=\"departures\"]');"
-            "if (!row) return {error: 'no departures row'};"
-            "const chips = [...row.querySelectorAll('label.palette-chip')]"
+            "'[data-look-usage=\"departures\"] details.look-edit');"
+            "if (!row) return {error: 'no departures table'};"
+            "const chips = [...row.querySelectorAll('label.look-cell')]"
             ".filter(c => c.querySelector('input[type=radio]'));"
             "if (chips.length < 2) return {error: 'chips: ' + chips.length};"
             "const target = chips.find("
             "c => !c.querySelector('input[type=radio]').checked);"
             "if (!target) return {error: 'every chip is already checked'};"
-            "const grid = target.closest('.palette');"
-            "if (!grid) return {error: 'no .palette'};"
+            "const grid = target.closest('.look-table');"
+            "if (!grid) return {error: 'no .look-table'};"
             "const read = e => { const s = getComputedStyle(e);"
-            "const name = e.querySelector('.palette-chip__name');"
-            "const ns = name ? getComputedStyle(name) : null;"
+            "const ns = s;"
             "return {w: e.offsetWidth, h: e.offsetHeight,"
             " left: e.offsetLeft - grid.offsetLeft,"
             " top: e.offsetTop - grid.offsetTop,"
@@ -843,12 +713,12 @@ def test_selecting_a_theme_chip_answers_and_moves_no_layout_box(new_context, ser
         before = page.evaluate(probe)
         if before.get("error"):
             raise AssertionError(
-                "could not find an unchecked palette chip: %s" % (before["error"],))
+                "could not find an unchecked table cell: %s" % (before["error"],))
         value = before["value"]
         _click_control(
             page,
-            'details.usage-row[data-usage="departures"] '
-            'label.palette-chip input[type=radio][value="%s"]' % value)
+            '[data-look-usage="departures"] details.look-edit '
+            'label.look-cell input[type=radio][value="%s"]' % value)
         # No transition to wait out any more (see the comment above) - a
         # short settle for the change event/repaint is still cheap
         # insurance.
@@ -866,7 +736,7 @@ def test_selecting_a_theme_chip_answers_and_moves_no_layout_box(new_context, ser
         # --- 1. the answer is real -------------------
         if before["chip"]["boxShadow"] not in ("none", ""):
             raise AssertionError(
-                "expected an UNSELECTED palette chip to carry no box-shadow, got "
+                "expected an UNSELECTED table cell to carry no box-shadow, got "
                 "%r" % (before["chip"]["boxShadow"],))
         if after["chip"]["boxShadow"] in ("none", ""):
             raise AssertionError(
@@ -880,7 +750,7 @@ def test_selecting_a_theme_chip_answers_and_moves_no_layout_box(new_context, ser
                 "accent, both read %r" % (after["chip"]["borderColor"],))
         if before["chip"]["wash"] == after["chip"]["wash"]:
             raise AssertionError(
-                "expected the selected chip's .palette-chip__name wash to change "
+                "expected the selected cell's wash to change "
                 "on selection, both read %r" % (after["chip"]["wash"],))
 
         # --- 2. and nothing moved --------------------

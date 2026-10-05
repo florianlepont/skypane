@@ -62,6 +62,7 @@ UPDATE_INSTALL_ROUTE = update_page.INSTALL_ROUTE
 UPDATE_CANCEL_ROUTE = update_page.CANCEL_ROUTE
 
 THEME_PREVIEW_ROUTE_PREFIX = theme_preview.THEME_PREVIEW_ROUTE_PREFIX
+FRAME_PREVIEW_ROUTE_PREFIX = theme_preview.FRAME_PREVIEW_ROUTE_PREFIX
 
 
 def _static_get_routes():
@@ -129,6 +130,9 @@ _GET_ROUTES = (
         Route(
             "GET", PrefixSuffix(THEME_PREVIEW_ROUTE_PREFIX, ".png"),
             lambda h, m: h._serve_theme_preview_image(m.captured), True),
+        Route(
+            "GET", PrefixSuffix(FRAME_PREVIEW_ROUTE_PREFIX, ".png"),
+            lambda h, m: h._serve_frame_preview_image(m.captured), True),
     )
 )
 
@@ -160,6 +164,12 @@ _POST_ROUTES = (
     Route(
         "POST", Exact(airlines_page.RESOLVE_ROUTE),
         lambda h, m: h._handle_manual_resolve_post(), True),
+    Route(
+        "POST", Exact(airlines_page.RENAME_ROUTE),
+        lambda h, m: h._handle_airline_rename_post(), True),
+    Route(
+        "POST", Exact(airlines_page.RENAME_RESET_ROUTE),
+        lambda h, m: h._handle_airline_rename_reset_post(), True),
     Route(
         "POST",
         PrefixSuffix(airlines_page.MANUAL_DELETE_ROUTE_PREFIX, airlines_page.MANUAL_DELETE_ROUTE_SUFFIX),

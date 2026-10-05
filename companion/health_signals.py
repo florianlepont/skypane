@@ -58,7 +58,7 @@ BATTERY_DROP_WARN_MV = 100
 _CORROBORATION_WINDOW_DAYS = 7  # A recent window; runway_events rows are
 # written only on a real transition, so even a week's worth stays small.
 
-# Maps frame_state's own three states to the Device tile's device_state
+# Maps frame_state's own three states to the connection row's device_state
 # vocabulary: due -> "ok", held -> neutral "off" (never "warn"/"error",
 # so it can never light the nav dot), late -> "warn". STATE_UNKNOWN is
 # absent: _device_state() falls back to the age-based staleness_status()
@@ -372,9 +372,9 @@ def overall_severity(
 
 def _device_resolved_state(next_wake_iso, effective_interval_s, hold_reason, now):
     """The one `frame_state.resolve_state()` call both `_device_state()`
-    and `_device_section()` (the Health page) key off, so
+    and the Health page's connection row key off, so
     a due/held/late/unknown verdict can never differ between the
-    state-only path and the tile markup.
+    state-only path and the row markup.
     """
     return frame_state.resolve_state(next_wake_iso, effective_interval_s, hold_reason, now)
 
@@ -382,8 +382,8 @@ def _device_resolved_state(next_wake_iso, effective_interval_s, hold_reason, now
 def _device_state(
         device_health, now, warn_s=None, error_s=None,
         next_wake_iso=None, effective_interval_s=None, hold_reason=None):
-    """The Device tile's `"ok"`/`"warn"`/`"error"`/`"off"` verdict alone,
-    with no markup built: the exact state logic `_device_section()` used
+    """The Frame connection row's `"ok"`/`"warn"`/`"error"`/`"off"` verdict alone,
+    with no markup built: the exact state logic the connection tile used
     to compute inline, now shared so `health_signals()` can read it
     without ever calling a markup builder.
     """
@@ -411,8 +411,8 @@ def _pipeline_never_ran(pipeline_ts, last_detection):
 
 
 def _pipeline_state(pipeline_ts, last_detection, now):
-    """The Pipeline tile's verdict alone, with no markup built: the exact
-    state logic `_pipeline_section()` used to compute inline.
+    """The Flight data row's verdict alone, with no markup built: the exact
+    state logic the pipeline tile used to compute inline.
     """
     if pipeline_ts is _DB_UNAVAILABLE:
         return "ok"
@@ -423,7 +423,7 @@ def _pipeline_state(pipeline_ts, last_detection, now):
 
 
 def _battery_state(trend_rows, daily_rows=None):
-    """The Battery tile's verdict alone, with no markup built.
+    """The Battery row's verdict alone, with no markup built.
     `battery_status()` is already pure state logic; this only restates
     the two early-exit cases (`_DB_UNAVAILABLE`, no readings yet)
     `_battery_section()` special-cases before ever reaching it, so a
@@ -440,8 +440,8 @@ def _battery_state(trend_rows, daily_rows=None):
 
 
 def _disagreement_warn(counts):
-    """The Corroboration tile's disagreement flag alone, with no markup
-    built: the exact state logic `_corroboration_section()` used to
+    """The Data sources row's disagreement flag alone, with no markup
+    built: the exact state logic the corroboration tile used to
     compute inline.
     """
     if counts is _DB_UNAVAILABLE:
@@ -545,9 +545,7 @@ def health_signals(state_dir, now=None):
         now = history_db.utc_now_iso()
     inputs = _read_health_inputs(state_dir, now)
     # The device's effective wake cadence resolves to its staleness
-    # thresholds, computed once here. The regularity grid judges its
-    # cells against this same cadence and names it in its caption, so it
-    # is held in a local rather than recomputed inline.
+    # thresholds, computed once here.
     wake_interval_s = wake.effective_wake_interval_s(inputs["device_config"])
     warn_s, error_s = wake.device_staleness_thresholds(wake_interval_s)
     # The same triple companion/layout.py's frame_strip_html() consumes,

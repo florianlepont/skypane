@@ -21,49 +21,30 @@ from companion.settings import form_post
 # never calls itself but companion/app.py and the test suite read as
 # config_page.X) so this split changes no external attribute path.
 from companion.settings.form import (
-    CALENDAR_HOW_IT_WORKS_SUMMARY as CALENDAR_HOW_IT_WORKS_SUMMARY,
     CURRENT_BADGE_ATTR as CURRENT_BADGE_ATTR,
     CURRENT_BADGE_LABEL as CURRENT_BADGE_LABEL,
     DIRTY_SECTION_ATTR as DIRTY_SECTION_ATTR,
-    NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE as NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE,
     SETTINGS_FORM_ID as SETTINGS_FORM_ID,
     _describedby_attr as _describedby_attr,
     _field_error_attrs as _field_error_attrs,
     _field_error_html as _field_error_html,
     _submitted_checkbox_checked as _submitted_checkbox_checked,
-    _submitted_or_current as _submitted_or_current,
-    _with_next_wake as _with_next_wake)
+    _submitted_or_current as _submitted_or_current)
 from companion.settings.theme import (
     ASPECT_HEADING as ASPECT_HEADING,
     ASPECT_HEADING_ID as ASPECT_HEADING_ID,
-    ASPECT_ROWS_GROUP_NAME as ASPECT_ROWS_GROUP_NAME,
-    ASPECT_ROW_SUMMARY_TEMPLATE as ASPECT_ROW_SUMMARY_TEMPLATE,
-    COLOUR_USAGES as COLOUR_USAGES,
     COLOUR_USAGE_ARRIVALS as COLOUR_USAGE_ARRIVALS,
     COLOUR_USAGE_CALENDAR as COLOUR_USAGE_CALENDAR,
     COLOUR_USAGE_DEPARTURES as COLOUR_USAGE_DEPARTURES,
     COLOUR_USAGE_RULES as COLOUR_USAGE_RULES,
     FRAME_COLOURS_ROW_LABELS as FRAME_COLOURS_ROW_LABELS,
+    FRAME_PREVIEW_ROUTE_PREFIX as FRAME_PREVIEW_ROUTE_PREFIX,
+    LOOK_FIELDS as LOOK_FIELDS,
+    LOOK_SHEET_ID as LOOK_SHEET_ID,
     SAME_AS_DEPARTURES_LABEL as SAME_AS_DEPARTURES_LABEL,
-    THEME_CHIP_SWATCH_LEGEND as THEME_CHIP_SWATCH_LEGEND,
-    THEME_LIVE_PREVIEW_ALT_TEMPLATE as THEME_LIVE_PREVIEW_ALT_TEMPLATE,
-    THEME_LIVE_PREVIEW_CAPTION_SAMPLE as THEME_LIVE_PREVIEW_CAPTION_SAMPLE,
-    THEME_LIVE_PREVIEW_CAPTION_WITH_FLIGHT_TEMPLATE as THEME_LIVE_PREVIEW_CAPTION_WITH_FLIGHT_TEMPLATE,
-    THEME_LIVE_PREVIEW_HEIGHT as THEME_LIVE_PREVIEW_HEIGHT,
-    THEME_LIVE_PREVIEW_WIDTH as THEME_LIVE_PREVIEW_WIDTH,
-    THEME_PREVIEW_ALT_TEMPLATE as THEME_PREVIEW_ALT_TEMPLATE,
     THEME_PREVIEW_ROUTE_PREFIX as THEME_PREVIEW_ROUTE_PREFIX,
-    _aspect_card_html as _aspect_card_html,
-    _palette_chip_html as _palette_chip_html,
-    _palette_grid_html as _palette_grid_html,
-    _palette_hex as _palette_hex,
-    _palette_swatch_html as _palette_swatch_html,
-    _same_as_departures_chip_html as _same_as_departures_chip_html,
-    _theme_chip_grid_html as _theme_chip_grid_html,
-    _theme_live_preview_html as _theme_live_preview_html,
-    _usage_row_html as _usage_row_html,
-    _usage_row_summary_html as _usage_row_summary_html,
-    departures_safe_theme_id as departures_safe_theme_id)
+    departures_safe_theme_id as departures_safe_theme_id,
+    look_card_html as look_card_html)
 from companion.settings.runway_led import (
     LED_SECTION_CAPTION as LED_SECTION_CAPTION,
     LED_SECTION_CAPTION_ID as LED_SECTION_CAPTION_ID,
@@ -134,38 +115,40 @@ from companion.settings.quiet_hours import (
     quiet_window_minute_of_day as quiet_window_minute_of_day,
     quiet_window_span as quiet_window_span)
 from companion.settings.calendar import (
+    CALENDAR_CHECKING_TEXT as CALENDAR_CHECKING_TEXT,
     CALENDAR_CONNECT_BUTTON_TEXT as CALENDAR_CONNECT_BUTTON_TEXT,
+    CALENDAR_CONFIRM_BODY as CALENDAR_CONFIRM_BODY,
     CALENDAR_DISCONNECT_BUTTON_TEXT as CALENDAR_DISCONNECT_BUTTON_TEXT,
     CALENDAR_DISCONNECT_CANCEL_TEXT as CALENDAR_DISCONNECT_CANCEL_TEXT,
     CALENDAR_DISCONNECT_CONFIRM_BUTTON_TEXT as CALENDAR_DISCONNECT_CONFIRM_BUTTON_TEXT,
     CALENDAR_DISCONNECT_CONFIRM_FIELD as CALENDAR_DISCONNECT_CONFIRM_FIELD,
     CALENDAR_DISCONNECT_CONFIRM_HEADING as CALENDAR_DISCONNECT_CONFIRM_HEADING,
-    CALENDAR_DISCONNECT_CONFIRM_QUESTION as CALENDAR_DISCONNECT_CONFIRM_QUESTION,
     CALENDAR_DISCONNECT_CONFIRM_SENTENCE as CALENDAR_DISCONNECT_CONFIRM_SENTENCE,
     CALENDAR_DISCONNECT_CONFIRM_VALUE as CALENDAR_DISCONNECT_CONFIRM_VALUE,
     CALENDAR_DISCONNECT_FORM_ID as CALENDAR_DISCONNECT_FORM_ID,
     CALENDAR_DISCONNECT_ROUTE as CALENDAR_DISCONNECT_ROUTE,
     CALENDAR_HOW_IT_WORKS_BODY as CALENDAR_HOW_IT_WORKS_BODY,
+    CALENDAR_MANAGE_TEXT as CALENDAR_MANAGE_TEXT,
+    CALENDAR_NONE_LEAD as CALENDAR_NONE_LEAD,
+    CALENDAR_NONE_TITLE as CALENDAR_NONE_TITLE,
     CALENDAR_REPLACE_BUTTON_TEXT as CALENDAR_REPLACE_BUTTON_TEXT,
-    CALENDAR_REPLACE_URL_SUMMARY as CALENDAR_REPLACE_URL_SUMMARY,
+    CALENDAR_STALE_AFTER_S as CALENDAR_STALE_AFTER_S,
     CALENDAR_STATUS_CONNECTED_VERDICT as CALENDAR_STATUS_CONNECTED_VERDICT,
     CALENDAR_STATUS_DETAIL_SINGULAR_TEMPLATE as CALENDAR_STATUS_DETAIL_SINGULAR_TEMPLATE,
     CALENDAR_STATUS_DETAIL_TEMPLATE as CALENDAR_STATUS_DETAIL_TEMPLATE,
     CALENDAR_STATUS_FETCH_FAILED_DETAIL as CALENDAR_STATUS_FETCH_FAILED_DETAIL,
     CALENDAR_STATUS_NOT_CONNECTED_VERDICT as CALENDAR_STATUS_NOT_CONNECTED_VERDICT,
+    CALENDAR_STATUS_PENDING_DETAIL as CALENDAR_STATUS_PENDING_DETAIL,
     CALENDAR_STATUS_PERMISSION_UNSAFE as CALENDAR_STATUS_PERMISSION_UNSAFE,
-    CALENDAR_URL_FIELD_LABEL as CALENDAR_URL_FIELD_LABEL,
+    CALENDAR_STATUS_ZERO_TEMPLATE as CALENDAR_STATUS_ZERO_TEMPLATE,
     CALENDAR_URL_HINT as CALENDAR_URL_HINT,
-    CALENDAR_URL_HINT_ID as CALENDAR_URL_HINT_ID,
     CALENDAR_URL_MAX_LEN as CALENDAR_URL_MAX_LEN,
     _calendar_connection_html as _calendar_connection_html,
     _masked_calendar_url as _masked_calendar_url,
     calendar_disconnect_confirm_page as calendar_disconnect_confirm_page,
-    calendar_usage_row_html as calendar_usage_row_html)
+    calendar_special_row_html as calendar_special_row_html,
+    calendar_state as calendar_state)
 from companion.settings.rules import (
-    FRAME_COLOURS_RULES_COUNT_PLURAL_TEMPLATE as FRAME_COLOURS_RULES_COUNT_PLURAL_TEMPLATE,
-    FRAME_COLOURS_RULES_COUNT_SINGULAR as FRAME_COLOURS_RULES_COUNT_SINGULAR,
-    FRAME_COLOURS_RULES_EMPTY_META as FRAME_COLOURS_RULES_EMPTY_META,
     POLL_COOLDOWN_HELPER_TEXT as POLL_COOLDOWN_HELPER_TEXT,
     POLL_COOLDOWN_TEMPLATE_TOKEN as POLL_COOLDOWN_TEMPLATE_TOKEN,
     POLL_COOLDOWN_TEXT_ID as POLL_COOLDOWN_TEXT_ID,
@@ -175,10 +158,6 @@ from companion.settings.rules import (
     RULES_ADD_ROUTE as RULES_ADD_ROUTE,
     RULES_DELETE_ROUTE_PREFIX as RULES_DELETE_ROUTE_PREFIX,
     RULES_DELETE_ROUTE_SUFFIX as RULES_DELETE_ROUTE_SUFFIX,
-    RULES_EMPTY_BODY as RULES_EMPTY_BODY,
-    RULES_EMPTY_HEADING as RULES_EMPTY_HEADING,
-    RULES_HOW_RULES_COMBINE_BODY as RULES_HOW_RULES_COMBINE_BODY,
-    RULES_HOW_RULES_COMBINE_SUMMARY as RULES_HOW_RULES_COMBINE_SUMMARY,
     RULES_SECTION_CAPTION as RULES_SECTION_CAPTION,
     RULE_ADD_BUTTON_TEXT as RULE_ADD_BUTTON_TEXT,
     RULE_KIND_FIELD_LABEL as RULE_KIND_FIELD_LABEL,
@@ -191,6 +170,7 @@ from companion.settings.rules import (
     RULE_THEME_HEADING_ID as RULE_THEME_HEADING_ID,
     RULE_VALUE_FIELD_LABEL as RULE_VALUE_FIELD_LABEL,
     RULE_VALUE_PLACEHOLDER as RULE_VALUE_PLACEHOLDER,
+    SPECIAL_LOOKS_HEADING as SPECIAL_LOOKS_HEADING,
     _rule_add_form_html as _rule_add_form_html,
     _rule_delete_action as _rule_delete_action,
     _rule_kind_radio_html as _rule_kind_radio_html,
@@ -198,7 +178,7 @@ from companion.settings.rules import (
     _rule_row_html as _rule_row_html,
     _rule_suggestion_chips_html as _rule_suggestion_chips_html,
     poll_trigger_section as poll_trigger_section,
-    rules_usage_row_html as rules_usage_row_html)
+    special_looks_html as special_looks_html)
 from companion.settings.wake_interval import (
     WAKE_BATTERY_DAYS_TEXT as WAKE_BATTERY_DAYS_TEXT,
     WAKE_BATTERY_DAY_TEXT as WAKE_BATTERY_DAY_TEXT,
@@ -295,7 +275,6 @@ DEVICE_PAGE_TITLE = i18n.msg("nav.device", "Device")
 # rules are an optional override inside that flow, followed by the two
 # separate scheduling controls below it.
 DISPLAY_LOOK_SECTION_ID = "display-look"
-DISPLAY_LOOK_HEADING = i18n.msg("display.look", "What appears")
 DISPLAY_LOOK_INTRO = i18n.msg(
     "display.the_theme_flight_colours_and_calendar_that",
     "— the theme, flight colours and calendar that decide how the "
@@ -426,7 +405,7 @@ FLASH_RULE_DELETE_FAILED = "rule_delete_failed"
 CALENDAR_CONNECT_ROUTE = "/settings/calendar/connect"
 
 
-# The Aspect card's copy floor exempts these two: DISPLAY_LOOK_INTRO
+# The look card's copy floor exempts these two: DISPLAY_LOOK_INTRO
 # (a different card's own intro) and CALENDAR_URL_HINT (its wording is
 # never to be shortened). Kept here, beside the strings they exempt,
 # rather than in a second harness-side list that could drift from this
@@ -447,21 +426,19 @@ FLASH_CALENDAR_SYNC_DEFERRED = "calendar_sync_deferred"
 # third calendar failure message.
 FLASH_CALENDAR_CONNECT_OK = "calendar_connect_ok"
 FLASH_CALENDAR_CONNECT_INVALID = "calendar_connect_invalid"
+# A pasted link that parsed as a calendar URL but did not answer: nothing
+# was saved, the previous connection (if any) is untouched.
+FLASH_CALENDAR_CONNECT_FAILED = "calendar_connect_failed"
 
-
-def _nested_wrapper_html(html_fragment, base_class, nested_class):
-    """Appends a `--nested` modifier class to a group builder's own
-    outer wrapper, so a card rendered under a supersection heading
-    renders one heading rung below it instead of Device's un-nested tier.
-
-    `nested_class` is a literal string at every call site, never
-    derived from `base_class`, so it stays grep-visible. Each builder
-    emits its wrapper class exactly once as `class="{base_class}"`, so a
-    single count-limited `str.replace()` is the whole mechanism.
-    """
-    needle = 'class="%s"' % base_class
-    replacement = 'class="%s %s"' % (base_class, nested_class)
-    return html_fragment.replace(needle, replacement, 1)
+# The calendar sheet's no-script address and its reopen-after-refusal
+# vocabulary: `?calendar=manage#calendar-sheet`, plus an optional
+# `calendar_error` code from the fixed set below (never free text).
+CALENDAR_SHEET_PARAM = "calendar"
+CALENDAR_SHEET_MANAGE = "manage"
+CALENDAR_ERROR_PARAM = "calendar_error"
+CALENDAR_ERROR_INVALID = "invalid"
+CALENDAR_ERROR_UNREACHABLE = "unreachable"
+CALENDAR_SHEET_ID = "calendar-sheet"
 
 
 def _display_groups_html(builders, groups):
@@ -494,7 +471,7 @@ def _device_groups_html(builders, groups):
 
 def _render_current_values(ctx):
     """The device_config-derived "current" values render() threads into
-    every group builder, header slot and the Aspect card — resolved
+    every group builder, header slot and the look card — resolved
     once here from ctx's own device_config snapshot. `ctx` arrives
     already a `PageContext`, coerced once by render() itself.
     """
@@ -523,7 +500,7 @@ def _render_current_values(ctx):
 
 def _render_calendar_and_poll_context(ctx):
     """The calendar-status and poll-cooldown values read straight from
-    `ctx` (not `device_config`) that the Display scope's Aspect card
+    `ctx` (not `device_config`) that the Display scope's look card
     and the Poll section each need.
     """
     return {
@@ -577,14 +554,14 @@ def _dirty_bar_strings():
 def _group_builders(ctx, values, errors, submitted, next_wake_clock):
     """The lazy, scope-independent per-group builder table render()'s
     scope branches read from. screens.GROUP_THEME/GROUP_CALENDAR have
-    no entry here: their own renderer (the Aspect card, built by the
+    no entry here: their own renderer (the look card, built by the
     Display branch) contains real <form> elements that must never
     render as a literal descendant of <form id="{SETTINGS_FORM_ID}">.
     """
     return {
         screens.GROUP_RUNWAY: lambda: runway_fieldset(
             values["runway_id"], ctx.runway_images or (),
-            errors=errors, submitted=submitted, next_wake_clock=next_wake_clock),
+            errors=errors, submitted=submitted),
         screens.GROUP_LED: lambda: led_group(
             values["led_enabled"], errors=errors, submitted=submitted,
             next_wake_clock=next_wake_clock),
@@ -613,39 +590,33 @@ def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, subm
     type with only one of the two must split this gate.
     """
     # Appearance controls are form-backed, so the refresh loop must not
-    # replace this page while a visitor is editing them.
+    # replace this page while a visitor is editing them. The silent marker
+    # keeps the frame strip on freshness.js's background refresh without a
+    # visible freshness line, as on Home and Flights.
     header = layout.page_header(
-        i18n.t(DISPLAY_PAGE_TITLE), freshness_html=layout.freshness_line_html(ctx.now))
+        i18n.t(DISPLAY_PAGE_TITLE), freshness_html=layout.refresh_marker_html(ctx.now))
     frame_strip_section_html = ""
     if screens.GROUP_THEME in groups:
-        # departures_safe_theme_id() is resolved once here (Calendar's
-        # own usage row needs it for its "same as departures" swatch
-        # fallback, the same resolution _aspect_card_html() applies to
-        # its own departures/arrivals rows) and threaded through, rather
-        # than each of the three usage-row builders recomputing it with
-        # slightly different rounding.
+        # Resolved once here and shared: the calendar row falls back to
+        # the departures look for its "same as departures" picture, the
+        # same resolution look_card_html() applies to Arrivals.
         departures_safe_id = departures_safe_theme_id(values["theme_id"], submitted)
-        calendar_row_html, calendar_disconnect_form_html = calendar_usage_row_html(
+        calendar_row_html = calendar_special_row_html(
             departures_safe_id, values["calendar_theme_id"], calendar_status["calendar_configured"],
             calendar_status["calendar_drift"], calendar_status["calendar_last_synced_at"],
             calendar_status["calendar_last_attempt_at"], ctx.now, calendar_status["calendar_entry_count"],
-            errors=errors, submitted=submitted, state_dir=ctx.state_dir)
-        rules_row_html = rules_usage_row_html(ctx)
+            errors=errors, submitted=submitted, state_dir=ctx.state_dir,
+            sheet_open=bool(ctx.calendar_sheet), sheet_error=ctx.calendar_sheet_error)
+        # The section's own opening tag is formatted on its own: the card
+        # carries literal "%s" alt-text templates for the picker script.
         aspect_section_html = (
-            '<section class="display-appearance" aria-labelledby="%s">'
-            '<h2 id="%s" class="text-heading">%s</h2>'
-            + _nested_wrapper_html(
-                _aspect_card_html(
-                    values["theme_id"], values["theme_arriving"],
-                    calendar_row_html, calendar_disconnect_form_html, rules_row_html,
-                    errors=errors, submitted=submitted, state_dir=ctx.state_dir),
-                "page-section aspect-card", "page-section--nested")
-            + "</section>"
-        ) % (
-            escape_html(DISPLAY_LOOK_SECTION_ID),
-            escape_html(DISPLAY_LOOK_SECTION_ID),
-            escape_html(i18n.t(DISPLAY_LOOK_HEADING)),
-        )
+            '<section id="%s" class="display-appearance" aria-labelledby="%s">' % (
+                escape_html(DISPLAY_LOOK_SECTION_ID), escape_html(ASPECT_HEADING_ID))
+            + look_card_html(
+                values["theme_id"], values["theme_arriving"],
+                special_looks_html(ctx, calendar_row_html), "",
+                errors=errors, submitted=submitted)
+            + "</section>")
     else:
         aspect_section_html = ""
     display_watches_html, display_on_html = _display_groups_html(builders, groups)

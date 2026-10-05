@@ -55,6 +55,13 @@ CALENDAR_FETCH_INTERVAL_S = 1800
 # Rolling-window retention width in seconds: today plus 48h forward.
 CALENDAR_WINDOW_FORWARD_S = 172800
 
+# A connected feed whose last successful read is older than this is
+# reported as out of date. Four missed fetch intervals (two hours): one
+# or two failed fetches are a blip the 48h window absorbs without the
+# frame showing anything wrong, four in a row mean the feed or the poll
+# has stopped.
+CALENDAR_STALE_AFTER_S = 4 * CALENDAR_FETCH_INTERVAL_S
+
 # --- Registry file contract -------------------------------------------------
 
 # The exact five-key shape parse_ics_events() emits, declared once so the
@@ -73,6 +80,11 @@ FETCH_SKIPPED_UNCONFIGURED = "fetch_skipped_unconfigured"
 FETCH_SKIPPED_THROTTLED = "fetch_skipped_throttled"
 FETCH_REJECTED_URL = "fetch_rejected_url"
 FETCH_FAILED = "fetch_failed"
+# connect_calendar_url() only: the candidate URL answered but the secret
+# could not be stored (nothing changed), or it was stored but the first
+# registry write failed (the next poll cycle reads the feed).
+FETCH_SAVE_FAILED = "fetch_save_failed"
+FETCH_SAVED_UNREAD = "fetch_saved_unread"
 # A companion save/clear changed the configured URL while this cycle's
 # fetch was in flight (see refresh_calendar_registry()) - the stale
 # fetch result is discarded rather than persisted, since the newer URL

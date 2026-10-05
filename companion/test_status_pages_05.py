@@ -17,10 +17,10 @@ from PIL import Image
 import companion.app as app_module
 import companion.test_status_pages_helpers as shp
 import companion.wake as wake
-from companion import illustration_normalize, layout, prefs
+from companion import i18n, illustration_normalize, layout, prefs
 from companion.pages import health_page, home_page
 from companion_app_server import served_asset, served_stylesheet
-from companion_markup import declarations_for, keyframes
+from companion_markup import declarations_for, keyframes, parse_html
 from server.plane import illustrations
 from server.plane import render as panel_render
 
@@ -99,21 +99,26 @@ def _visible_text_outside_title_attributes(markup):
 
 
 def test_23_06_page_headers_stay_free_of_redundant_freshness_lines(tmp_path):
-    """Health and the signal-first Home omit the redundant freshness line."""
+    """Health omits the redundant freshness line entirely; Home shows no visible freshness line
+    either and keeps only the silent hidden refresh marker that carries data-loaded-at."""
     now_iso = shp.iso(shp.now())
-    built = layout.freshness_line_html(now_iso)
+    built = layout.refresh_marker_html(now_iso)
     health = health_page.render(shp.ctx(str(tmp_path / "h"), now_iso))
     home = home_page.render(_home_ctx(str(tmp_path / "o"), now_iso))
-    assert built not in health
     assert "data-loaded-at" not in health
     assert "data-refresh-pill" not in health
-    assert built not in home
-    assert "data-loaded-at" not in home
-    assert "data-refresh-pill" not in home
+    assert "page-header__freshness" not in health
+    assert built in home
+    for visible in ("data-refresh-clock", "data-refresh-live-dot"):
+        assert visible not in home
+    assert 'data-loaded-at="%s"' % now_iso in home
+    assert "page-header__freshness--silent" in home
+    assert re.search(r"<span class=\"refresh-pill\"[^>]* hidden>", home)
 
 
 def test_23_06_home_declares_the_regions_it_actually_renders(tmp_path):
-    """Home swaps only its current frame, flight list, and compact facts."""
+    """Home swaps its silent refresh marker, current frame, flight list, frame-state card and
+    compact facts."""
     now_iso = shp.iso(shp.now())
     rendered = home_page.render(_home_ctx(str(tmp_path), now_iso))
     registry = layout.REFRESH_SWAP_SELECTORS_BY_PAGE
@@ -130,10 +135,12 @@ def test_23_06_home_declares_the_regions_it_actually_renders(tmp_path):
         "Home declares regions it does not render: %r — a selector that matches nothing is "
         "a region that silently never refreshes" % (missing,))
     home_list = registry[layout.REFRESH_PAGE_HOME]
-    for needle in ("preview-frame", "home-flights", "home-facts"):
+    for needle in (
+            "preview-frame", "home-flights", "home-facts", "home-frame-state",
+            "page-header__freshness"):
         assert any(needle in selector for selector in home_list), (
             "expected Home's swap regions to cover %r, got %r" % (needle, home_list))
-    for retired in ("frame-strip", "home-status-grid", "page-header__freshness"):
+    for retired in ("frame-strip", "home-status-grid"):
         assert not any(retired in selector for selector in home_list), (
             "expected retired Home region %r to stay out of the refresh registry" % retired)
     # DISPLAY IS DELIBERATELY CONSERVATIVE. Everything else on that page is
@@ -174,7 +181,7 @@ def test_23_06_the_strip_countdown_formats_and_never_decides(_module_server):
     assert text == expected_text
     # And the state word is untouched by it: the headline still carries
     # frame_state's own template, rendered whole.
-    assert "Next update ≈" in strip, (
+    assert "Next update <time" in strip, (
         "expected the state word to stay frame_state.resolve_state()'s own — the countdown "
         "formats a duration and decides nothing (D-03/CFG-26)")
     # No served script anywhere computes a frame state.
@@ -262,11 +269,10 @@ def test_stat_tile_caption_title_is_escaped():
 # ==========================================================================
 
 
-def test_health_tiles_and_rows_read_in_plain_language(tmp_path):
-    """Health's stat tiles and corroboration rows read in plain language: 'Corroboration',
-    'Single-source (uncorroborated)' and 'pipeline last ran' are all absent from visible
-    text, and the Pipeline/Corroboration/Resolution-rate tiles' caption elements each carry
-    a title attribute equal to their matching technical constant"""
+def test_health_rows_read_in_plain_language(tmp_path):
+    """Health's rows read in plain language: 'Corroboration', 'Single-source (uncorroborated)',
+    'pipeline last ran' and 'ADS-B pipeline' are all absent from visible text, and every row is
+    named by its plain-language subject"""
     tmp = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(tmp, [(shp.iso(now), 4200)])
@@ -276,37 +282,29 @@ def test_health_tiles_and_rows_read_in_plain_language(tmp_path):
     rendered = health_page.render(shp.ctx(tmp, shp.iso(now)))
 
     visible = _visible_text_outside_title_attributes(rendered)
-    for banned in ("Corroboration", "Single-source (uncorroborated)", "pipeline last ran"):
+    for banned in ("Corroboration", "Single-source (uncorroborated)", "pipeline last ran", "ADS-B pipeline"):
         assert banned not in visible, (
             "expected %r to be absent from visible text (outside a title attribute)" % banned)
 
-    for label, expected_title in (
-            (health_page.PIPELINE_FRESHNESS_LABEL, health_page.PIPELINE_FRESHNESS_TITLE),
-            (health_page.CORROBORATION_TILE_LABEL, health_page.CORROBORATION_TILE_TITLE),
-            (health_page.RESOLUTION_RATE_LABEL, health_page.RESOLUTION_RATE_TITLE)):
-        needle = ">%s<" % layout.escape_html(label)
-        at = rendered.index(needle)
-        caption_open = rendered.rindex('<p class="text-label stat-tile__caption"', 0, at)
-        caption_close = rendered.index(">", caption_open)
-        caption_tag = rendered[caption_open:caption_close]
-        expected_attr = 'title="%s"' % layout.escape_html(expected_title)
-        assert expected_attr in caption_tag, (
-            "expected the %r tile's caption element to carry %s, got %r"
-            % (label, expected_attr, caption_tag))
+    names = [name.text() for name in parse_html(rendered).select(".health-row__name")]
+    assert names == [
+        health_page.ROW_CONNECTION_NAME, health_page.ROW_BATTERY_NAME,
+        health_page.ROW_FLIGHT_DATA_NAME, health_page.ROW_SOURCES_NAME,
+        health_page.STATS_SECTION_HEADING]
 
 
 @pytest.mark.parametrize(
-    ("lang", "connection_help", "comparison_help", "identification_heading"),
+    ("lang", "connection_help", "identification_heading"),
     (
-        ("en", "This is when the frame last contacted the server.",
-         "What this result means", "Flight identification"),
+        ("en", "This is when the frame last contacted the server.", "Flight identification"),
         ("fr", "Moment où le cadre a contacté le serveur pour la dernière fois.",
-         "Comprendre ce résultat", "Identification des vols"),
+         "Identification des vols"),
     ),
 )
 def test_health_keeps_status_primary_and_explains_details_on_request(
-        tmp_path, lang, connection_help, comparison_help, identification_heading):
-    """Health keeps optional technical explanations out of the primary scan."""
+        tmp_path, lang, connection_help, identification_heading):
+    """Health keeps optional technical explanations out of the primary scan: they live in each
+    row's body, behind a row that renders closed while it reads healthy."""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
@@ -323,16 +321,31 @@ def test_health_keeps_status_primary_and_explains_details_on_request(
 
     assert "data-loaded-at" not in rendered
     assert "data-refresh-pill" not in rendered
-    assert connection_help in rendered
-    assert identification_heading in rendered
-    assert 'class="status-help"' in rendered
-    assert 'aria-label="%s"' % layout.escape_html(comparison_help) in rendered
-    battery_start = rendered.index(health_page.BATTERY_SECTION_CLASS)
-    battery_end = rendered.index("</section>", battery_start)
-    assert "readings-disclosure" in rendered[battery_start:battery_end], (
-        "the raw-readings action stays available inside the Battery section, closed by default")
+    doc = parse_html(rendered)
+    connection = doc.select_one("#health-row-connection")
+    assert connection_help in connection.select_one(".health-row__body").text()
+    assert connection_help not in connection.select_one("summary").text()
+    assert identification_heading in doc.select_one("#health-row-identification").select_one(
+        ".health-row__name").text()
+    sources = doc.select_one("#health-row-sources")
+    explanations = [
+        i18n.t_lang(explanation, lang)
+        for _key, _label, _status, explanation in health_page._CORROBORATION_ROWS]
+    for explanation in explanations:
+        assert explanation in sources.select_one(".health-row__body").text()
+        assert explanation not in sources.select_one("summary").text()
+    for row in doc.select("details.health-row"):
+        assert "open" not in row.attrs, (
+            "a healthy page renders every row closed, got %r open" % row.attrs["id"])
+    assert "readings-disclosure" in _battery_row_html(rendered), (
+        "the raw-readings action stays available inside the Battery row, closed by default")
     assert "readings-disclosure\" open" not in rendered
     assert "page-section--warn" not in rendered
+
+
+def _battery_row_html(rendered):
+    start = rendered.index('id="health-row-battery"')
+    return rendered[start:rendered.index('<h2 id="%s"' % health_page.SERVER_DATA_SECTION_ID, start)]
 
 
 def test_health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id(tmp_path):
@@ -356,8 +369,9 @@ def test_health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id(tmp_pat
 
     assert health_page.UNRESOLVED_SECTION_HEADING in rendered and "data-filter-input" in rendered, (
         "fixture gap: expected the registry card to actually render")
-    assert health_page.STATS_SECTION_HEADING in rendered and "% resolved" in rendered, (
-        "fixture gap: expected the resolution-statistics card to actually render")
+    assert health_page.STATS_SECTION_HEADING in rendered and "% of flights identified" in rendered, (
+        "fixture gap: expected the identification row to actually render")
+    assert "data-table--prose" in rendered, "fixture gap: expected the breakdown table to render"
     assert "adsbdb" not in rendered
     visible = _visible_text_outside_title_attributes(rendered)
     assert not re.search(r"CFG-\d", visible), "expected no requirement id (CFG-\\d) in visible text"
@@ -601,24 +615,27 @@ def test_health_page_no_longer_defines_section_intro_html():
 
 def test_device_timestamp_only_carries_no_verdict_text():
     """_device_timestamp_only() emits no widget-verdict class and no DEVICE_STATE_TEXT
-    value, while _device_section() still carries exactly one"""
+    value, while the Frame connection row still carries exactly one"""
     now = shp.iso(shp.now())
     ts = shp.ago(120)
     detail_only = health_page._device_timestamp_only({"ts": ts}, now)
     assert "widget-verdict" not in detail_only
     for verdict_text in health_page.DEVICE_STATE_TEXT.values():
         assert verdict_text not in detail_only
-    full_row, _state = health_page._device_section({"ts": ts}, now)
+    state = {
+        "inputs": {"device_health": {"ts": ts}}, "device_state": "ok",
+        "next_wake_clock": None, "wake_interval_s": None}
+    full_row = health_page._connection_row(state, now)
     verdict_occurrences = sum(
         1 for verdict_text in health_page.DEVICE_STATE_TEXT.values() if verdict_text in full_row)
     assert verdict_occurrences == 1, (
-        "expected _device_section() to still carry exactly one DEVICE_STATE_TEXT verdict, "
+        "expected the connection row to carry exactly one DEVICE_STATE_TEXT verdict, "
         "got %d" % verdict_occurrences)
 
 
 def test_compute_health_state_carries_device_detail_html(tmp_path):
     """compute_health_state()'s returned dict carries a device_detail_html key holding the
-    verdict-free fragment also embedded (once) inside device_html"""
+    verdict-free fragment Home reads for its Frame status line"""
     tmp = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(tmp, [(shp.ago(120), 3800)])
@@ -628,9 +645,7 @@ def test_compute_health_state_carries_device_detail_html(tmp_path):
     assert "widget-verdict" not in detail_only
     for verdict_text in health_page.DEVICE_STATE_TEXT.values():
         assert verdict_text not in detail_only
-    assert detail_only in state["device_html"], (
-        "expected device_detail_html to be the exact verdict-free fragment embedded inside "
-        "device_html")
+    assert "device_html" not in state, "the tile markup the Health rows replaced must not come back"
 
 
 # ==========================================================================

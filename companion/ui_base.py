@@ -142,6 +142,10 @@ PANEL_LOOKUP_SCRIPT_SRC = "/static/panel-lookup.js"
 # contract as above.
 FLASH_CLEANUP_SCRIPT_SRC = "/static/flash-cleanup.js"
 
+# Must equal companion/app.py's TOAST_SCRIPT_ROUTE exactly, same contract
+# as above: dismiss and auto-hide for every toast.
+TOAST_SCRIPT_SRC = "/static/toast.js"
+
 # Must equal companion/app.py's POLL_COOLDOWN_SCRIPT_ROUTE exactly, same
 # contract as above.
 POLL_COOLDOWN_SCRIPT_SRC = "/static/poll-cooldown.js"
@@ -184,6 +188,12 @@ QUICK_SWITCH_SCRIPT_SRC = "/static/quick-switch.js"
 # The only script the value-controls feature needs: five controls share
 # one clamp/round/keyboard model rather than duplicating it per control.
 VALUE_CONTROLS_SCRIPT_SRC = "/static/value-controls.js"
+
+# Must equal companion/app.py's CALENDAR_SHEET_SCRIPT_ROUTE exactly. Opens
+# the Display page's calendar Manage sheet as a modal, labels the pending
+# connect and runs the in-sheet disconnect confirmation; inert on a page
+# with no [data-calendar-sheet] dialog.
+CALENDAR_SHEET_SCRIPT_SRC = "/static/calendar-sheet.js"
 
 # The registration seam value-controls.js reads, defined here so a page
 # module never types the attribute name (a harness asserts the served
@@ -354,8 +364,14 @@ QUICK_SWITCH_QUIET_STATE_ID = "quick-switch-quiet-state"
 QUICK_SWITCH_FAILED_TEXT = i18n.msg(
     "common.couldn_t_change_that_please_try_again",
     "Couldn't change that — please try again.")
-QUICK_SWITCH_FAILED_ATTR = "data-quick-failed-text"
+# Hooks on Health's two docked state toasts, named once so the page that
+# renders them and the refresh registry that swaps them agree.
+HEALTH_ANOMALY_CLASS = "health-anomaly"
+HEALTH_SOURCE_FAULT_CLASS = "health-source-fault"
+# The empty live region quick-switch.js announces a failure in, and the
+# server-rendered, translated error toast it clones into that region.
 QUICK_TOAST_ATTR = "data-quick-toast"
+QUICK_TOAST_TEMPLATE_ATTR = "data-quick-toast-template"
 # No longer used by frame_strip_html(): the one computed delay
 # sentence below (frame_state.py's DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN)
 # replaces this old static caption. It survives as DELAY_UNKNOWN's own
@@ -383,11 +399,12 @@ FRAME_STRIP_HEADING = i18n.msg("home.frame", "Frame")
 # below are owned by home.py's catalogue (untouched by this plan); the
 # held headline and both delay sentences are owned by frame_state.py's
 # own catalogue, migrated later in this same plan.
-_FRAME_HEADLINE_DUE_TEXT = i18n.msg("home.next_update", "Next update ≈ %s")
+_FRAME_HEADLINE_DUE_TEXT = i18n.msg("home.next_update", "Next update %s")
 _FRAME_HEADLINE_HELD_TEXT = i18n.msg(
     "frame_state.next_wake_around_quiet_hours",
     "Next wake around %s · quiet hours")
-_FRAME_HEADLINE_LATE_TEXT = i18n.msg("home.expected_since", "Expected since %s")
+_FRAME_HEADLINE_LATE_TEXT = i18n.msg(
+    "home.expected_since", "Update overdue · expected at %s")
 _FRAME_DELAY_DUE_TEXT = i18n.msg(
     "frame_state.applies_at_the_next_wake_around",
     "Applies at the next wake, around %s.")
@@ -501,10 +518,30 @@ ICON_IDS = ICON_IDS + (
     "icon-upload",
 )
 
+# Two more, for Home's status header: a warning triangle leading an
+# overdue line and a chevron closing the "See Health" pill.
+ICON_IDS = ICON_IDS + (
+    "icon-warning",
+    "icon-chevron-right",
+)
+
 # One more icon, for the bottom tab bar's "More" cell. Appended, not
 # merged, for the same reason above.
 ICON_IDS = ICON_IDS + (
     "icon-more",
+)
+
+# The toast family's glyphs: one per tone, a bin for a confirmed
+# deletion, the dismiss cross and the Undo arrow.
+ICON_IDS = ICON_IDS + (
+    "icon-toast-success",
+    "icon-toast-info",
+    "icon-toast-warning",
+    "icon-toast-error",
+    "icon-toast-pending",
+    "icon-toast-trash",
+    "icon-close",
+    "icon-undo",
 )
 
 # One more icon, for the mobile #site-nav-toggle: the panel it opens
@@ -522,6 +559,53 @@ ICON_IDS = ICON_IDS + (
 ICON_IDS = ICON_IDS + (
     "icon-nav-update",
 )
+
+# Three more, for the Display page's look picker: the "Change" pencil,
+# the look sheet's close cross and the "Add a special look" plus.
+ICON_IDS = ICON_IDS + (
+    "icon-pencil",
+    "icon-plus",
+)
+
+# An outlined "i" in a circle, for the small info buttons that open a
+# hover/focus tooltip.
+ICON_IDS = ICON_IDS + (
+    "icon-info",
+)
+
+# Two more, for the Flights phone card: a framed-picture glyph for its
+# icon-only "View picture" link, and a filled side-view plane that sits
+# on the card's route track.
+ICON_IDS = ICON_IDS + (
+    "icon-picture",
+    "icon-plane",
+)
+
+# The SkyPane brand mark (32x32 viewBox, unlike the 20x20 glyphs): an "S"
+# in a portrait pane whose top-right corner is open, with one accent flick
+# leaving through the gap.
+ICON_IDS = ICON_IDS + (
+    "icon-logo",
+)
+
+# The brand mark's geometry on a 32x32 box, shared by the `icon-logo` sprite
+# symbol and the login page's inline copy (login_shell() carries no sprite).
+# Ink is currentColor; the flick carries LOGO_ACCENT_CLASS, which
+# companion/static/style.css binds to --color-accent. The pane is portrait
+# 20x28 (the panel is 3:4) with its top-right corner left open.
+LOGO_ACCENT_CLASS = "logo-accent"
+LOGO_MARK_BODY = (
+    '<g fill="none" stroke="currentColor" stroke-width="2.2" '
+    'stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M17 2H10A4 4 0 0 0 6 6V26A4 4 0 0 0 10 30H22A4 4 0 0 0 26 26V15"/>'
+    '<path d="M20.6 14.2C20.6 12.2 18.7 11 16 11C13.2 11 11.4 12.3 11.4 14.4'
+    'C11.4 16.6 13.6 17.4 16 18.2C18.8 19.1 20.8 20 20.8 22.3'
+    'C20.8 24.4 18.8 25.6 16 25.6C13.3 25.6 11.4 24.6 11.1 22.4"/>'
+    '<path class="' + LOGO_ACCENT_CLASS + '" d="M20.8 9.2L28.2 1.8"/>'
+    "</g>"
+)
+LOGO_MARK_CLASS = "logo-mark"
+
 
 # One shared inline sprite, emitted once per document by page_shell().
 # This sprite must never move inside a conditionally rendered region: a
@@ -685,9 +769,76 @@ ICON_DEFS_HTML = (
     'stroke-linejoin="round">'
     '<path d="M4.5 10h.01M10 10h.01M15.5 10h.01"/>'
     "</symbol>"
+    '<symbol id="icon-warning" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M10 3 2.5 16.5h15z"/><path d="M10 8.5v3.5M10 14.3v.01"/>'
+    "</symbol>"
+    '<symbol id="icon-chevron-right" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M8 5l5 5-5 5"/>'
+    "</symbol>"
+    '<symbol id="icon-pencil" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M13.5 3.5l3 3L7 16H4v-3z"/><path d="M11.5 5.5l3 3"/>'
+    "</symbol>"
+    '<symbol id="icon-plus" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M10 4v12M4 10h12"/>'
+    "</symbol>"
+    '<symbol id="icon-info" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<circle cx="10" cy="10" r="7.5"/><path d="M10 9v4.5M10 6.4v.01"/>'
+    "</symbol>"
+    # The toast family's tone glyphs, drawn inside a filled disc, so each
+    # shape alone tells the tones apart (tick, "i", "!", cross, clock with
+    # a return arrow) without relying on the disc's colour.
+    '<symbol id="icon-toast-success" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M5 10.4l3.2 3.2L15 6.6"/>'
+    "</symbol>"
+    '<symbol id="icon-toast-info" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M10 9v5.2"/><path d="M10 5.9v.01"/>'
+    "</symbol>"
+    '<symbol id="icon-toast-warning" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M10 5.2v6"/><path d="M10 14.6v.01"/>'
+    "</symbol>"
+    '<symbol id="icon-toast-error" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M6.6 6.6l6.8 6.8M13.4 6.6l-6.8 6.8"/>'
+    "</symbol>"
+    '<symbol id="icon-toast-pending" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M10 6.2V10l2.6 1.7"/><path d="M15.4 8.2A5.6 5.6 0 1 0 15 12.6"/>'
+    '<path d="M15.8 5.2v3.2h-3.2"/>'
+    "</symbol>"
+    '<symbol id="icon-toast-trash" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M4.5 6h11M8 6V4.5h4V6M6 6l.7 9.5h6.6L14 6"/>'
+    "</symbol>"
+    '<symbol id="icon-close" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.7" stroke-linecap="round">'
+    '<path d="M5.5 5.5l9 9M14.5 5.5l-9 9"/>'
+    "</symbol>"
+    '<symbol id="icon-picture" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<rect x="2.5" y="3.5" width="15" height="13" rx="2"/><circle cx="7.5" cy="8.5" r="1.5"/>'
+    '<path d="M17.5 13.5l-4.5-4.5-8 7.5"/>'
+    "</symbol>"
+    # Points right (east), the direction the route line reads in.
+    '<symbol id="icon-plane" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="0">'
+    '<path fill="currentColor" d="M18.5 10c0-.7-.6-1.2-1.3-1.2h-4.4L8.6 2.5H6.9l2 6.3H4.6L3 6.8H1.6'
+    'l1 3.2-1 3.2H3l1.6-2h4.3l-2 6.3h1.7l4.2-6.3h4.4c.7 0 1.3-.5 1.3-1.2z"/>'
+    "</symbol>"
+    '<symbol id="icon-undo" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M7.5 5L4 8.5 7.5 12"/><path d="M4 8.5h7.5a4 4 0 0 1 0 8H9"/>'
+    "</symbol>"
+    '<symbol id="icon-logo" viewBox="0 0 32 32">%s</symbol>'
     "</defs>"
     "</svg>"
-)
+) % LOGO_MARK_BODY
 
 # The tint class stat_tile() adds to its own icon instance. Its
 # counterpart is companion/static/style.css's `.stat-tile__icon` rule —
@@ -723,18 +874,18 @@ NAV_ICON_IDS = {
 # has the two literals drift apart.
 SKIP_LINK_TARGET_ID = "main-content"
 
-# A zero-external-dependency local favicon — a data URI needs neither a
-# new static file nor a new route. #B13F16 is the light-mode
-# --color-accent token. Held as its own module constant so
-# login_shell() can reuse this exact literal without duplicating it.
+# The browser-tab icon is the logo's own tile (accent pane, knocked-out
+# glyph), a fixed file rather than a theme-aware one: Safari ignores
+# prefers-color-scheme inside SVG favicons and the tile must read on any tab
+# strip. The apple-touch-icon is a pre-rendered PNG (iOS rejects SVG).
+# Both routes live in companion/static_files.py. Held as one constant so
+# page_shell() and login_shell() emit exactly the same links.
+FAVICON_ROUTE = "/static/favicon.svg"
+APPLE_TOUCH_ICON_ROUTE = "/static/apple-touch-icon.png"
 FAVICON_LINK_HTML = (
-    '<link rel="icon" href="data:image/svg+xml,'
-    '%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 20 20%27%3E'
-    '%3Crect width=%2720%27 height=%2720%27 rx=%274%27 fill=%27%23B13F16%27/%3E'
-    '%3Ctext x=%2710%27 y=%2714%27 text-anchor=%27middle%27 '
-    'font-family=%27Georgia,serif%27 font-size=%2712%27 fill=%27%23FFFFFF%27'
-    '%3ES%3C/text%3E%3C/svg%3E">'
-)
+    '<link rel="icon" type="image/svg+xml" href="%s">\n'
+    '<link rel="apple-touch-icon" href="%s">'
+) % (FAVICON_ROUTE, APPLE_TOUCH_ICON_ROUTE)
 
 # The dot's own class, layered on top of the existing .dot/.dot--error
 # classes rather than a new colour. Its counterpart is
@@ -752,6 +903,16 @@ HEALTH_ALERT_SUFFIX_TEXT = i18n.msg("nav.attention_needed", " — attention need
 # page_shell() swaps it for the flash banner when present, and strips any
 # leftover occurrence unconditionally before the response is returned.
 FLASH_SLOT_MARKER = "<!--flash-slot-->"
+def logo_mark_html(size=28):
+    """The brand mark as a self-contained decorative `<svg>`, for pages
+    without the icon sprite (the login card). Same geometry as the
+    `icon-logo` symbol."""
+    return (
+        '<svg class="%s" width="%d" height="%d" viewBox="0 0 32 32" '
+        'aria-hidden="true" focusable="false">%s</svg>'
+    ) % (LOGO_MARK_CLASS, size, size, LOGO_MARK_BODY)
+
+
 def icon_html(icon_id, size=20, extra_class=""):
     """A `<svg>` referencing one symbol from ICON_DEFS_HTML via `<use>`, or
     "" when `icon_id` is not a member of ICON_IDS.

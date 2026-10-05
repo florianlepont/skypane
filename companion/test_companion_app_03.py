@@ -206,13 +206,14 @@ def test_panel_lookup_drop_handling_writes_the_forms_own_input_and_no_canvas(app
 
 
 def test_panel_lookup_optional_replace_lookup_stays_outside_mandatory_guard(app03_server):
-    """the mandatory three-element guard appears exactly once and never mentions the optional
+    """the mandatory two-element guard (image and caption; the lightbox note is no longer
+    required) appears exactly once and never mentions the optional
     replace-form lookup on its own line, that lookup's first occurrence in the source comes
     after the guard's, it appears exactly once, and the action-attribute setAttribute write
     appears exactly 3 times — pinning the
     single line that keeps History's lightbox alive"""
     src = served_asset(app03_server, "/static/panel-lookup.js")
-    guard_needle = "if (!image || !caption || !note)"
+    guard_needle = "if (!image || !caption)"
     assert src.count(guard_needle) == 1, (
         "expected the mandatory guard line exactly once, got %d" % src.count(guard_needle))
     guard_line = [line for line in src.splitlines() if guard_needle in line][0]
@@ -376,7 +377,7 @@ def test_theme_preview_script_es5_safe_and_no_html_write(app03_server):
     """theme-preview.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/
     innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/timers/a page-wide
     single-grid lookup), and carries the row->chip src-swap contract (addEventListener/
-    querySelector/getAttribute/data-preview-src/data-usage all present)"""
+    querySelector/getAttribute/data-preview-src/data-look-usage all present)"""
     src = served_asset(app03_server, "/static/theme-preview.js")
     assert src.count('"use strict"') == 1, (
         "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
@@ -388,7 +389,7 @@ def test_theme_preview_script_es5_safe_and_no_html_write(app03_server):
     for token in banned:
         assert token not in src, "theme-preview.js must not contain %r" % token
     required = (
-        "addEventListener", "querySelector", "getAttribute", "data-preview-src", "data-usage")
+        "addEventListener", "querySelector", "getAttribute", "data-preview-src", "data-look-usage")
     for token in required:
         assert token in src, "expected %r in theme-preview.js" % token
 
@@ -412,14 +413,14 @@ def test_theme_preview_script_tag_exactly_once_and_no_bare_inline_script():
         pytest.fail("expected no inline <script> without a src, found %r" % match.group(0))
 
 
-def test_fifteen_deferred_scripts_before_closing_body():
+def test_seventeen_deferred_scripts_before_closing_body():
     """Per-page scripts: a bare page_shell() call emits only
-    GLOBAL_PAGE_SCRIPTS' 4 tags before the closing body tag; asking for
+    GLOBAL_PAGE_SCRIPTS' 5 tags before the closing body tag; asking for
     every other SHELL_SCRIPT_ORDER script via `scripts=` still emits all
-    fifteen together, including panel-lookup.js, flash-cleanup.js,
+    seventeen together, including panel-lookup.js, flash-cleanup.js, toast.js,
     poll-cooldown.js, confirm-submit.js, theme-preview.js,
-    airline-types.js, submit-guard.js, relative-time.js, quick-switch.js and
-    value-controls.js — and NOT login-card.js, which login_shell() alone
+    airline-types.js, submit-guard.js, relative-time.js, quick-switch.js,
+    value-controls.js and calendar-sheet.js — and NOT login-card.js, which login_shell() alone
     emits, nor submit-guard.js/relative-time.js/quick-switch.js/value-controls.js on that login
     shell, which still emits exactly one"""
     bare_doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
@@ -437,13 +438,15 @@ def test_fifteen_deferred_scripts_before_closing_body():
     body_close = doc.index("</body>")
     head = doc[:body_close]
     count = head.count('<script src=')
-    assert count == 15, "expected exactly 15 deferred <script src= tags before </body>, got %d" % count
+    assert count == 17, "expected exactly 17 deferred <script src= tags before </body>, got %d" % count
     for src_const in (
             layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
+            layout.TOAST_SCRIPT_SRC,
             layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC,
             layout.THEME_PREVIEW_SCRIPT_SRC, layout.AIRLINE_TYPES_SCRIPT_SRC,
             layout.SUBMIT_GUARD_SCRIPT_SRC, layout.RELATIVE_TIME_SCRIPT_SRC,
-            layout.QUICK_SWITCH_SCRIPT_SRC, layout.VALUE_CONTROLS_SCRIPT_SRC):
+            layout.QUICK_SWITCH_SCRIPT_SRC, layout.VALUE_CONTROLS_SCRIPT_SRC,
+            layout.CALENDAR_SHEET_SCRIPT_SRC):
         expected_tag = '<script src="%s" defer></script>' % src_const
         assert expected_tag in doc, "expected a deferred <script> tag for %r" % src_const
     assert layout.LOGIN_CARD_SCRIPT_SRC not in doc, (
@@ -453,7 +456,8 @@ def test_fifteen_deferred_scripts_before_closing_body():
     for shell_only in (layout.SUBMIT_GUARD_SCRIPT_SRC,
                        layout.RELATIVE_TIME_SCRIPT_SRC,
                        layout.QUICK_SWITCH_SCRIPT_SRC,
-                       layout.VALUE_CONTROLS_SCRIPT_SRC):
+                       layout.VALUE_CONTROLS_SCRIPT_SRC,
+                       layout.CALENDAR_SHEET_SCRIPT_SRC):
         assert shell_only not in login_doc, (
             "%s is registered on the authenticated shell only — the login shell keeps emitting "
             "exactly one deferred script" % shell_only)
@@ -779,7 +783,7 @@ def test_quick_switch_script_es5_safe_and_no_html_write(app03_server):
     """quick-switch.js stays ES5-safe and sink-free (no let/const/arrow/backtick/innerHTML/
     outerHTML/insertAdjacentHTML/document.write/eval/XHR/setInterval and no URL-taking
     navigation), carries the optimistic-switch contract (aria-checked, preventDefault,
-    stopPropagation, textContent, credentials same-origin, redirect manual, X-Requested-With,
+    stopPropagation, cloneNode, credentials same-origin, redirect manual, X-Requested-With,
     encodeURIComponent) and reaches its rollback from BOTH terminal branches through the
     ES3-safe bracket form"""
     src = served_asset(app03_server, "/static/quick-switch.js")
@@ -793,7 +797,7 @@ def test_quick_switch_script_es5_safe_and_no_html_write(app03_server):
     for token in banned:
         assert token not in src, "quick-switch.js must not contain %r" % token
     required = (
-        "aria-checked", "preventDefault", "stopPropagation", "textContent",
+        "aria-checked", "preventDefault", "stopPropagation", "cloneNode",
         "credentials", "same-origin", "redirect", "manual",
         "X-Requested-With", "encodeURIComponent")
     for token in required:
@@ -827,7 +831,8 @@ def test_quick_switch_script_tag_exactly_once_and_no_bare_inline_script():
 
 def test_real_get_quick_switch_route_serves_the_optimistic_switch(app03_server):
     """a real GET of /static/quick-switch.js returns 200 with the served optimistic-switch body —
-    layout.REFRESH_PENDING_ATTR and layout.QUICK_SWITCH_FAILED_ATTR both named, and none of
+    layout.REFRESH_PENDING_ATTR, layout.QUICK_TOAST_ATTR and layout.QUICK_TOAST_TEMPLATE_ATTR
+    all named, and none of
     innerHTML/document.write/=>/ let / const"""
     text = served_asset(app03_server, "/static/quick-switch.js")
     for banned in ("innerHTML", "insertAdjacentHTML", "document.write", "eval(",
@@ -836,9 +841,10 @@ def test_real_get_quick_switch_route_serves_the_optimistic_switch(app03_server):
     assert '"%s"' % layout.REFRESH_PENDING_ATTR in text, (
         "expected the served body to name layout.REFRESH_PENDING_ATTR (%r)"
         % layout.REFRESH_PENDING_ATTR)
-    assert '"%s"' % layout.QUICK_SWITCH_FAILED_ATTR in text, (
-        "expected the served body to read the translated failure copy off <body> (%r)"
-        % layout.QUICK_SWITCH_FAILED_ATTR)
+    for attr in (layout.QUICK_TOAST_ATTR, layout.QUICK_TOAST_TEMPLATE_ATTR):
+        assert '"%s"' % attr in text, (
+            "expected the served body to name the live region / translated toast template "
+            "hook %r" % attr)
 
 
 def test_quick_switch_pending_marker_is_layouts_own_name(app03_server):

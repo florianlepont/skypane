@@ -27,17 +27,6 @@ CURRENT_BADGE_ATTR = "data-current-label"
 # nothing from this module, so the two must be kept equal by hand.
 DIRTY_SECTION_ATTR = "data-dirty-section"
 
-# This feature can only colour a flight that happens to be the one
-# currently on screen — it does not track, watch, follow, monitor,
-# notify, or know a flight is happening independently of what is on
-# screen, and no string below (nor its sibling
-# `companion.settings.calendar.CALENDAR_HOW_IT_WORKS_BODY`) may imply
-# otherwise.
-# Owned by companion/i18n_fr/calendar_group.py, not this module's own
-# display.py — the Calendar row's own connection block is where this
-# label's French sibling lives.
-CALENDAR_HOW_IT_WORKS_SUMMARY = i18n.msg("calendar_group.how_it_works", "How it works")
-
 # The "Selected" visually-hidden text beside a chosen palette/runway
 # chip's check icon — shared by companion.settings.theme and
 # companion.settings.runway_led, declared once here so the two never
@@ -71,27 +60,6 @@ def _describedby_attr(*ids):
     if not present:
         return ""
     return ' aria-describedby="%s"' % escape_html(" ".join(present))
-
-
-# The suffix appended to a caption's own apply-timing clause when the
-# next-wake value is known — never baked into the caption constant
-# itself, so the caption reads unchanged when the value is not known.
-NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE = i18n.msg("display.next_wake_2", " (next wake ≈ %s)")
-
-
-def _with_next_wake(caption, next_wake_clock):
-    """`caption` unchanged when `next_wake_clock` is falsy — no
-    placeholder, no "unknown" — otherwise `caption` plus
-    `NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE % next_wake_clock`. The single
-    implementation every caption site below uses.
-
-    `caption` is translated by the caller; this function only
-    translates its own suffix template, before substituting
-    `next_wake_clock` into it.
-    """
-    if not next_wake_clock:
-        return caption
-    return caption + (i18n.t(NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE) % next_wake_clock)
 
 
 def _field_error_attrs(errors, field, control_id, hint_id=None):

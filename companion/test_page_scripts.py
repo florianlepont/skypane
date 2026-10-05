@@ -26,7 +26,8 @@ HOOKS = (
     ("[data-copy-value]", layout.COPY_BUTTON_SCRIPT_SRC),
     ("[data-loaded-at]", layout.FRESHNESS_SCRIPT_SRC),
     ("#panel-lookup-dialog", layout.PANEL_LOOKUP_SCRIPT_SRC),
-    (".banner--flash", layout.FLASH_CLEANUP_SCRIPT_SRC),
+    (".toast-region--flash", layout.FLASH_CLEANUP_SCRIPT_SRC),
+    ("[data-toast]", layout.TOAST_SCRIPT_SRC),
     ("#poll-trigger-btn", layout.POLL_COOLDOWN_SCRIPT_SRC),
     ("form[data-confirm]", layout.CONFIRM_SUBMIT_SCRIPT_SRC),
     (".theme-live-preview__image", layout.THEME_PREVIEW_SCRIPT_SRC),
@@ -34,6 +35,7 @@ HOOKS = (
     ("time[data-relative]", layout.RELATIVE_TIME_SCRIPT_SRC),
     ("form[data-quick-switch]", layout.QUICK_SWITCH_SCRIPT_SRC),
     ("[data-value-control]", layout.VALUE_CONTROLS_SCRIPT_SRC),
+    ("[data-calendar-sheet]", layout.CALENDAR_SHEET_SCRIPT_SRC),
 )
 
 # A route's calendar-feed secret, saved directly (no network fetch - see

@@ -112,6 +112,7 @@ _UNAUTH_GET_REQUESTS = (
     companion_app.FRESHNESS_SCRIPT_ROUTE,
     companion_app.PANEL_LOOKUP_SCRIPT_ROUTE,
     companion_app.FLASH_CLEANUP_SCRIPT_ROUTE,
+    companion_app.TOAST_SCRIPT_ROUTE,
     companion_app.POLL_COOLDOWN_SCRIPT_ROUTE,
     companion_app.CONFIRM_SUBMIT_SCRIPT_ROUTE,
     companion_app.THEME_PREVIEW_SCRIPT_ROUTE,
@@ -135,6 +136,7 @@ _UNAUTH_GET_REQUESTS = (
     companion_app.RUNWAY_IMAGE_ROUTE_PREFIX + "09.png",
     companion_app.ILLUSTRATION_IMAGE_ROUTE_PREFIX + "air-france.png",
     companion_app.THEME_PREVIEW_ROUTE_PREFIX + "midnight.png",
+    companion_app.FRAME_PREVIEW_ROUTE_PREFIX + "white.png",
     _NOT_FOUND_PATH,
 )
 
@@ -149,6 +151,8 @@ _UNAUTH_POST_REQUESTS = (
     companion_app.LANG_ROUTE,
     companion_app.LOGOUT_ROUTE,
     airlines_page.RESOLVE_ROUTE,
+    airlines_page.RENAME_ROUTE,
+    airlines_page.RENAME_RESET_ROUTE,
     airlines_page.MANUAL_DELETE_ROUTE_PREFIX + "RYR" + airlines_page.MANUAL_DELETE_ROUTE_SUFFIX,
     companion_app.ILLUSTRATION_IMAGE_ROUTE_PREFIX + "air-france.png",
     companion_app.RULES_ADD_ROUTE,

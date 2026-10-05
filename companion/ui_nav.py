@@ -14,6 +14,8 @@ from companion.ui_base import (
     DISPLAY_ROUTE,
     FLIGHTS_ROUTE,
     HEALTH_ALERT_SUFFIX_TEXT,
+    HEALTH_ANOMALY_CLASS,
+    HEALTH_SOURCE_FAULT_CLASS,
     HEALTH_NAV_SLUG,
     HEALTH_ROUTE,
     HOME_ROUTE,
@@ -266,17 +268,22 @@ REFRESH_PENDING_ATTR = "data-pending"
 # Duplicated rather than imported — freshness.js is a static asset, not
 # a Python module.
 
-# HEALTH: excludes the sparkline, the registry card/filter bar and every
-# <details> — swapping any would leave battery-trend.js's chart or
-# list-filter.js's filter permanently dead (each captures its DOM once).
+# HEALTH: swaps each row's <summary> (state icon, verdict, value) and
+# nothing else inside the rows card. The row's <details> and its body are
+# never replaced: a replaced <details> would close a row the visitor had
+# opened, and a replaced body would leave battery-trend.js's chart
+# permanently dead (it captures its DOM once). The registry card and its
+# filter bar are excluded for list-filter.js's sake.
 
 # `a[href="/health"]`, not a ".dot" selector, is the nav-severity target:
 # the severity dot only exists in the DOM for "warn"/"error", so a
 # dot-only selector would have nothing to replace when severity clears.
 
-# HOME: the regions that change between polls, plus the freshness line.
-# The recent-flights SECTION, not its <ul>, is the target so the
-# empty-state-to-list transition is covered too. Not nested.
+# HOME: the regions that change between polls, plus the silent refresh
+# marker. The recent-flights SECTION, not its <ul>, is the target so the
+# empty-state-to-list transition is covered too. The frame-state card is
+# swapped whole: its two buttons are plain POST forms with no half-typed
+# value to lose. Not nested.
 
 # FLIGHTS: both renderings of the list (phone cards, desktop table) plus
 # the count and freshness line — a swap replacing only one would leave
@@ -297,8 +304,10 @@ REFRESH_PENDING_ATTR = "data-pending"
 # never touch a form: it would discard a half-typed value silently.
 REFRESH_SWAP_SELECTORS_BY_PAGE = {
     REFRESH_PAGE_HOME: (
+        ".page-header__freshness",
         "figure.preview-frame",
         'section[aria-labelledby="home-flights"]',
+        'section[aria-labelledby="home-frame-state"]',
         ".home-facts",
     ),
     REFRESH_PAGE_DISPLAY: (
@@ -306,9 +315,9 @@ REFRESH_SWAP_SELECTORS_BY_PAGE = {
         ".frame-strip",
     ),
     REFRESH_PAGE_HEALTH: (
-        ".dashboard-grid",
-        "div.banner--anomaly, div.banner--warn",
-        "section.banner",
+        ".health-row__summary",
+        "div." + HEALTH_ANOMALY_CLASS,
+        "section." + HEALTH_SOURCE_FAULT_CLASS,
         ".page-header__freshness",
         'a[href="/health"]',
     ),
@@ -317,12 +326,6 @@ REFRESH_SWAP_SELECTORS_BY_PAGE = {
         "ul.history-cards",
         ".data-table-wrap",
         "[data-filter-count]",
-        # The Show-more nav's own `href` advances by one page on every
-        # render; a skipped refresh would leave a stale href on screen.
-        # Declaring it here is also why _show_more_html() renders an
-        # empty <nav> rather than nothing: the registry-witness check
-        # requires every declared region findable in every rendered page.
-        ".flights-more",
     ),
 }
 
@@ -407,6 +410,12 @@ def _tab_bar_cell_body(icon_id, label, extra_html=""):
         icon_html(icon_id, extra_class="tab-bar__icon"), label, extra_html)
 
 
+# Longer accessible names for segments whose visible label is a short
+# abbreviation; each begins with the visible text (label-in-name).
+_THEME_ACCESSIBLE_TEXT = {
+    "auto": i18n.msg("nav.auto_full", "Auto (follows the system)"),
+}
+
 _THEME_LABEL_TEXT = {
     "auto": i18n.msg("nav.auto", "Auto"),
     "light": i18n.msg("nav.light", "Light"),
@@ -421,9 +430,13 @@ def _theme_form_html(resolved_theme):
         css_class = (
             "theme-option theme-option--active"
             if is_active else "theme-option")
+        accessible = _THEME_ACCESSIBLE_TEXT.get(choice)
+        aria_label = (
+            ' aria-label="%s"' % escape_html(i18n.t(accessible))
+            if accessible else "")
         options.append(
-            '<button type="submit" name="ui_theme" value="%s" class="%s" aria-pressed="%s">%s</button>'
-            % (escape_html(choice), css_class, "true" if is_active else "false",
+            '<button type="submit" name="ui_theme" value="%s" class="%s" aria-pressed="%s"%s>%s</button>'
+            % (escape_html(choice), css_class, "true" if is_active else "false", aria_label,
                # `choice` ("auto"/"light"/"dark") is the form's own value and stays an
                # untranslated identifier; only the rendered label text goes through i18n.t().
                escape_html(i18n.t(_THEME_LABEL_TEXT[choice]))))

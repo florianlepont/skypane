@@ -23,6 +23,7 @@ instead of raising "database is locked".
 import contextlib
 import json
 import os
+import re
 import sqlite3
 import sys
 import threading
@@ -398,15 +399,31 @@ def record_wake_epoch(conn, ts, wake_interval_s):
 # --- Readers ---------------------------------------------------------------
 
 
-def recent_runway_events(conn, limit=50):
+_CALLSIGN_PREFIX_RE = re.compile(r"^([A-Z]{3})[A-Z0-9]+$")
+
+
+def recent_runway_events(conn, limit=50, airline_names=None):
     """Newest first (`ts DESC, id DESC`; the tiebreak matters at
     seconds-precision timestamps).
+
+    `airline_names`, a `{3-letter prefix: name}` mapping (the owner's name
+    overrides), replaces each returned row's `airline` for a callsign
+    under one of those prefixes. It is applied to the rows as they are
+    read and never written back: the stored `airline` stays the name the
+    flight was resolved with, so dropping an override restores it with no
+    migration, and the poll loop's writes are untouched.
     """
     rows = conn.execute(
         "SELECT * FROM runway_events ORDER BY ts DESC, id DESC LIMIT ?",
         (limit,),
     ).fetchall()
-    return [dict(row) for row in rows]
+    events = [dict(row) for row in rows]
+    if airline_names:
+        for event in events:
+            match = _CALLSIGN_PREFIX_RE.match(str(event.get("callsign") or "").strip().upper())
+            if match and match.group(1) in airline_names:
+                event["airline"] = airline_names[match.group(1)]
+    return events
 
 
 def route_source_counts(conn, since=None):

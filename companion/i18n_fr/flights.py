@@ -32,15 +32,15 @@ MESSAGES = {
 
     # --- The table's filter bar -----------------------------------------
     "flights.filter_flights": "Filtrer les vols",
+    "flights.search_placeholder": "Indicatif, compagnie, aéroport…",
+    "flights.filter_direction": "Filtrer par sens",
+    "flights.chip_all": "Tous",
+    "flights.chip_departures": "Départs",
+    "flights.chip_arrivals": "Arrivées",
     "flights.no_matching_flights": "Aucun vol correspondant",
     "flights.try_a_different_search_or_clear_filter_to_see":
         "Essayez une autre recherche, ou effacez le filtre pour voir "
         "les %d vols.",
-    # The empty-state body used only while a limit is in force and rows
-    # remain unloaded.
-    "flights.try_a_different_search_this_only_searches_the":
-        "Essayez une autre recherche — seuls les %d vols affichés sont "
-        "cherchés.",
 
     # --- Copy-to-clipboard accessible names -------------------------------
     "flights.no_callsign": "aucun indicatif",
@@ -51,18 +51,6 @@ MESSAGES = {
     # --- The per-row "View panel near this time" lightbox ---------------
     "flights.picture_shown_on_the_frame": "Image affichée sur le cadre",
     "flights.picture_from": "Image du %s",
-    # A key of its own: the completeness harness needs an entry even
-    # though this text is also folded into the composed note below.
-    "flights.colours_are_nominal_render_internal_swatches":
-        "Les couleurs sont des teintes internes de rendu, pas une "
-        "reproduction fidèle du vrai verre Spectra 6.",
-    "flights.this_is_the_nearest_recorded_render_not":
-        "Ceci est le rendu enregistré le plus proche, pas nécessairement "
-        "celui de ce vol exact — le panneau se met à jour selon son "
-        "propre cycle de réveil et de vérification. Les couleurs sont "
-        "des teintes internes de rendu, pas une reproduction fidèle du "
-        "vrai verre Spectra 6.",
-
     # --- The unresolved-airline link -------------------------------------
     # Links straight to the Airlines resolve view for this flight's own
     # prefix, naming the action it performs.
@@ -81,6 +69,6 @@ MESSAGES = {
     "flights.view_picture": "Voir l’image",
     "flights.picture": "Image",
     "flights.view_picture_of": "Voir l’image de %s",
-
-    "flights.show_more_remaining": "Afficher plus (%d restants)",
+    # The phone card's placeholder where an airline has no artwork.
+    "flights.no_illustration": "Pas d’illustration",
 }

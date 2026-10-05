@@ -200,7 +200,7 @@ def cache_path(state_dir, theme_id, live_event_id=None):
     return os.path.join(directory, filename)
 
 
-def _prune_preview_cache(directory, keep_path):
+def _prune_preview_cache(directory, keep_path, max_files=THEME_PREVIEW_CACHE_MAX_FILES):
     """Best-effort cache maintenance after a fresh write to `keep_path`:
     never raises (an `OSError` anywhere below is swallowed - a maintenance
     step must never fail the request the write it follows is serving).
@@ -209,7 +209,7 @@ def _prune_preview_cache(directory, keep_path):
        `<theme>-<event or 'sample'>` prefix but a different 12-hex
        signature is removed (a theme re-tune or a render-geometry bump
        leaves the old image behind otherwise, forever).
-    2. Bound: if more than `THEME_PREVIEW_CACHE_MAX_FILES` `*.png` files
+    2. Bound: if more than `max_files` `*.png` files
        (skipping any dotfile) remain, the oldest by mtime are removed
        until the count is back at the bound. `keep_path` is never removed
        by this step.
@@ -240,7 +240,7 @@ def _prune_preview_cache(directory, keep_path):
                 continue
             entries.append((mtime, candidate))
 
-        overflow = len(entries) - THEME_PREVIEW_CACHE_MAX_FILES
+        overflow = len(entries) - max_files
         if overflow > 0:
             entries.sort(key=lambda entry: entry[0])
             removed = 0
@@ -256,6 +256,119 @@ def _prune_preview_cache(directory, keep_path):
                     pass
     except OSError:
         pass
+
+
+# --- Full-frame previews ---------------------------------------------
+#
+# The Display page's large pictures and the Special looks list's mini
+# renders show the whole 1200x1600 canvas, not the chip grid's band crop.
+# They always render the fixed fictional scene, so the same theme looks
+# the same everywhere on the page: a departing main flight with an
+# arriving previous card, or the mirror image for the arrivals picture.
+FRAME_PREVIEW_ROUTE_PREFIX = "/frame-preview/"
+FRAME_PREVIEW_STATE_DEPARTING = "departing"
+FRAME_PREVIEW_STATE_ARRIVING = "arriving"
+FRAME_PREVIEW_STATES = (FRAME_PREVIEW_STATE_DEPARTING, FRAME_PREVIEW_STATE_ARRIVING)
+FRAME_PREVIEW_SIZE_LARGE = "large"
+FRAME_PREVIEW_SIZE_SMALL = "small"
+# Integer box-reduction factors of the 1200x1600 canvas. A box filter
+# averages the panel's dither into the tint the eye sees from a step
+# away; LANCZOS would ring on the dither instead and triple the PNG size.
+FRAME_PREVIEW_REDUCE_FACTORS = {
+    FRAME_PREVIEW_SIZE_LARGE: 2,
+    FRAME_PREVIEW_SIZE_SMALL: 10,
+}
+FRAME_PREVIEW_SIZES = tuple(FRAME_PREVIEW_REDUCE_FACTORS)
+FRAME_PREVIEW_CANVAS_SIZE = (1200, 1600)
+FRAME_PREVIEW_PIXEL_SIZES = {
+    size: (FRAME_PREVIEW_CANVAS_SIZE[0] // factor, FRAME_PREVIEW_CANVAS_SIZE[1] // factor)
+    for size, factor in FRAME_PREVIEW_REDUCE_FACTORS.items()
+}
+FRAME_PREVIEW_CACHE_DIRNAME = "frame_previews"
+# Every reachable file: 18 themes x 2 states x 2 sizes, with headroom for
+# a registry that grows by a few themes before this bound is revisited.
+FRAME_PREVIEW_CACHE_MAX_FILES = 96
+FRAME_PREVIEW_CACHE_VERSION = 1
+
+
+def frame_preview_png_bytes(theme_id, state, size):
+    """The whole canvas for `theme_id` with the fixed scene's main flight
+    in `state`, box-reduced to `size`, as PNG bytes. The arriving
+    variant swaps the two fixture flights, so each picture shows a
+    flight that really arrives at (or leaves) Orly.
+    """
+    if state == FRAME_PREVIEW_STATE_ARRIVING:
+        main_flight, main_route = THEME_PREVIEW_PREVIOUS_FLIGHT, THEME_PREVIEW_PREVIOUS_ROUTE
+        previous_flight, previous_route = THEME_PREVIEW_FLIGHT, THEME_PREVIEW_ROUTE
+        previous_state = FRAME_PREVIEW_STATE_DEPARTING
+    else:
+        main_flight, main_route = THEME_PREVIEW_FLIGHT, THEME_PREVIEW_ROUTE
+        previous_flight, previous_route = THEME_PREVIEW_PREVIOUS_FLIGHT, THEME_PREVIEW_PREVIOUS_ROUTE
+        previous_state = FRAME_PREVIEW_STATE_ARRIVING
+    canvas = render.build_canvas(
+        main_flight, state, route=main_route,
+        previous_flight=previous_flight, previous_route=previous_route,
+        previous_state=previous_state, theme_id=theme_id,
+    )
+    # RGB before reducing, for the same reason preview_png_bytes() gives.
+    reduced = canvas.convert("RGB").reduce(FRAME_PREVIEW_REDUCE_FACTORS[size])
+    buffer = io.BytesIO()
+    reduced.save(buffer, format="PNG", optimize=True)
+    return buffer.getvalue()
+
+
+def frame_preview_signature(theme_id, state, size):
+    """Like `preview_signature()`, for one full-frame variant."""
+    digest_input = repr((
+        device_config.THEMES[theme_id],
+        panel_format.PALETTE_RGB,
+        state,
+        FRAME_PREVIEW_REDUCE_FACTORS[size],
+        FRAME_PREVIEW_CACHE_VERSION,
+    )).encode("utf-8")
+    return hashlib.sha256(digest_input).hexdigest()[:12]
+
+
+def frame_cache_path(state_dir, theme_id, state, size):
+    """The on-disk cache path for one full-frame variant, or `None` when
+    any of the three values is outside its allow-list or `state_dir` is
+    falsy. Every path component comes from an allow-list member, never
+    from request text.
+    """
+    if (not state_dir or theme_id not in device_config.THEMES
+            or state not in FRAME_PREVIEW_STATES or size not in FRAME_PREVIEW_SIZES):
+        return None
+    filename = "%s-%s-%s-%s.png" % (
+        theme_id, state, size, frame_preview_signature(theme_id, state, size))
+    return os.path.join(state_dir, FRAME_PREVIEW_CACHE_DIRNAME, filename)
+
+
+def cached_frame_preview_bytes(state_dir, theme_id, state, size):
+    """`cached_preview_bytes()`'s contract for one full-frame variant:
+    disk hit, or render, atomic write and prune on a miss. `None` for
+    anything `frame_cache_path()` refuses.
+    """
+    path = frame_cache_path(state_dir, theme_id, state, size)
+    if path is None:
+        return None
+    try:
+        with open(path, "rb") as fh:
+            return fh.read()
+    except FileNotFoundError:
+        pass
+    directory = os.path.dirname(path)
+    os.makedirs(directory, exist_ok=True)
+    payload = frame_preview_png_bytes(theme_id, state, size)
+    atomic_io.atomic_write(path, payload)
+    _prune_preview_cache(directory, path, max_files=FRAME_PREVIEW_CACHE_MAX_FILES)
+    return payload
+
+
+def frame_preview_src(theme_id, state=FRAME_PREVIEW_STATE_DEPARTING, size=FRAME_PREVIEW_SIZE_LARGE):
+    """The page-side URL for one full-frame variant. Callers pass
+    registry ids only; the route re-validates every part anyway.
+    """
+    return "%s%s.png?state=%s&size=%s" % (FRAME_PREVIEW_ROUTE_PREFIX, theme_id, state, size)
 
 
 def cached_preview_bytes(state_dir, theme_id, live_event=None):

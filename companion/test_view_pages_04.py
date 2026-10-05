@@ -1,7 +1,7 @@
 """Companion view-page tests, last slice: Home's French render, the status
 card's localised timestamps, the Frame/Flight-data tile verdicts, Home's
-degrade-with-nothing contracts, the day band's contracts, and the hero
-composition's shared draw.py emitters.
+degrade-with-nothing contracts, the day band's emitter contracts, Health's
+shared drawings, and the hero composition's shared draw.py emitters.
 
 Every check calls `home_page.render()` directly, or drives a real
 `companion/app.py` over HTTP; CSS checks assert on it structurally.
@@ -160,10 +160,15 @@ def test_home_health_action_is_reserved_for_actionable_state(tmp_path):
         "device_state": "ok", "pipeline_state": "ok", "battery_state": "ok"}))
     warning = home_page.render(dict(base, health_state={
         "device_state": "ok", "pipeline_state": "warn", "battery_state": "ok"}))
-    assert 'class="home-action"' not in healthy
+    assert not parse_html(healthy).select(".home-action")
     assert 'href="/health"' not in healthy
-    assert 'class="home-action"' in warning
-    assert 'href="/health"' in warning
+    action = parse_html(warning).select_one(".toast.toast--docked.home-action")
+    assert "toast--warning" in action.attrs["class"].split()
+    assert action.select_one("a.toast__action").attrs.get("href") == "/health"
+    assert "role" not in action.attrs, "a persistent state must not announce itself on refresh"
+    errored = home_page.render(dict(base, health_state={
+        "device_state": "error", "pipeline_state": "ok", "battery_state": "ok"}))
+    assert "toast--error" in parse_html(errored).select_one(".home-action").attrs["class"].split()
 
 
 def test_home_recent_flight_time_one_line_no_mono_class(tmp_path):
@@ -270,8 +275,8 @@ def test_home_catalog_keys_all_present_in_merged_catalog():
 
 
 def test_home_status_card_headline_next_update_or_expected_since(tmp_path):
-    """the Frame strip's headline reads 'Next update ≈ HH:MM' for a future next-update,
-    'Expected since HH:MM' in the warn treatment for a past one, and renders no headline at all
+    """the Frame strip's headline reads 'Next update in N min' (a live countdown, no clock) for a future next-update,
+    'Update overdue · expected at HH:MM' in the warn treatment for a past one, and renders no headline at all
     when either the check-in or the wake interval is unknown (moved from the deleted
     _status_card_html())"""
     base_ctx = {
@@ -288,11 +293,11 @@ def test_home_status_card_headline_next_update_or_expected_since(tmp_path):
     rendered_future = _strip_html(future_ctx)
     # 11:55 UTC + 15 minutes = 12:10 UTC = 14:10 Europe/Paris (CEST,
     # UTC+2, in effect in late August) — still AFTER the 12:00 UTC "now",
-    # so this is the not-yet-due branch. The clock is its own
-    # <span class="time-value time-value--primary"> element, so "Next
-    # update ≈ 14:10" is not one contiguous substring — checked as two.
-    assert "Next update ≈" in rendered_future and "14:10" in rendered_future, (
-        "expected the future next-update headline")
+    # so this is the not-yet-due branch: a countdown element, no clock.
+    assert "Next update <time" in rendered_future and "in 10m" in rendered_future, (
+        "expected the future next-update headline as a countdown")
+    assert "time-value--primary" not in rendered_future and "≈" not in rendered_future, (
+        "expected no clock and no approximation sign on the on-time headline")
     assert "status-card__headline--warn" not in rendered_future, "expected no warn modifier for a future next-update"
 
     past_ctx = dict(
@@ -300,7 +305,7 @@ def test_home_status_card_headline_next_update_or_expected_since(tmp_path):
     rendered_past = _strip_html(past_ctx)
     # 11:00 UTC + 15 minutes = 11:15 UTC, already BEFORE the 12:00 UTC
     # "now" — the overdue, warn-treatment branch.
-    assert "Expected since" in rendered_past, "expected the overdue headline wording"
+    assert "Update overdue" in rendered_past, "expected the overdue headline wording"
     assert "status-card__headline--warn" in rendered_past, "expected the warn modifier for an overdue next-update"
 
     missing_checkin = dict(base_ctx, last_checkin_ts=None, now="2026-08-27T12:00:00+00:00")
@@ -315,7 +320,7 @@ def test_home_status_card_headline_next_update_or_expected_since(tmp_path):
 
 def test_home_page_render_degrades_with_nothing():
     """home_page.render({}) degrades to its empty states without raising, battery.battery_percent()
-    clamps and rejects bad input, and the gallery filename parser round-trips or returns None"""
+    clamps and rejects bad input, """
     rendered = home_page.render({})
     for needle in (home_page.NO_FLIGHTS_HEADING, home_page.NO_PANEL_HEADING, home_page.NO_READING_TEXT):
         assert needle in rendered, "expected %r for an empty ctx" % needle
@@ -328,10 +333,6 @@ def test_home_page_render_degrades_with_nothing():
         "BATTERY_EMPTY_MV/2900 -> 0 (SEED-006 curve endpoints)")
     assert battery.battery_percent("x") is None and battery.battery_percent(0) is None, (
         "expected a non-numeric or zero reading to yield None")
-    assert home_page._gallery_name_to_iso("2026-09-10T21-38-48+00-00.png") == "2026-09-10T21:38:48+00:00", (
-        "expected the gallery filename to round-trip to its ISO timestamp")
-    assert home_page._gallery_name_to_iso("junk.png") is None and home_page._gallery_name_to_iso(None) is None, (
-        "expected an unparseable gallery name to yield None")
 
 
 def test_battery_percent_moved_out_of_home_page():
@@ -594,97 +595,30 @@ def test_day_band_emits_only_registered_classes_and_no_colour():
     assert 'aria-hidden="true"' in unlabelled, "expected an unlabelled band to be hidden rather than an unnamed group"
 
 
-# --- The day band on Health ----------------
+# --- Health carries no day band ----------------
 
-def test_health_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
-    """Health's day band draws one mark per check-in at its PARIS clock position, captions the
-    Paris day it shows and states the count as text; a day with no check-ins still renders the
-    band and its frame with a caption naming the day (an absent section would read as an
-    unbuilt feature, an empty band reads as no activity); and with history.db unreadable the
-    page renders with no band at all rather than an empty one claiming no check-ins (
-    )"""
-    # Paris 14:00 on 2026-08-27 (CEST, UTC+2), so the band's day runs
-    # 2026-08-26T22:00Z .. 2026-08-27T22:00Z.
+def test_health_carries_no_day_band(tmp_path):
+    """Health no longer draws the 24-hour day band or its section (the frame's quiet hours are
+    shown on the Device page's dial), even with check-ins on the day and quiet hours configured,
+    and the page still renders with history.db unreadable"""
     now = "2026-08-27T12:00:00+00:00"
-    # 08:00, 12:00 and 13:00 Paris — two of them an hour apart, so the
-    # time scale's own property is visible on the real page and not only
-    # in the unit check above.
     ctx = _health_band_ctx(tmp_path / "day", now, [
         "2026-08-27T06:00:00+00:00",
         "2026-08-27T10:00:00+00:00",
         "2026-08-27T11:00:00+00:00",
-    ])
+    ], config={
+        "wake_interval_s": 900, "display_enabled": True, "quiet_hours_enabled": True,
+        "quiet_hours_start": device_config.DEFAULT_QUIET_HOURS_START,
+        "quiet_hours_end": device_config.DEFAULT_QUIET_HOURS_END,
+    })
     rendered = health_page.render(ctx)
-    section = _home_day_band_section(rendered)
-    assert section is not None, "expected a day-band section on Health, got none"
-    marks = _home_band_marks(section)
-    assert len(marks) == 3, "expected one mark per check-in (3), got %d" % (len(marks),)
-    xs = sorted(float(re.search(r'x="([\d.]+)%"', el).group(1)) for el in marks)
-    hour = 100.0 / 24
-    for got, want_hour in zip(xs, (8, 12, 13)):
-        assert abs(got - want_hour * hour) <= 0.02, (
-            "expected the %02d:00 Paris check-in at %.2f%%, got %.2f%% — the band's marks are "
-            "placed by the PARIS clock, which is what every other date on this page uses"
-            % (want_hour, want_hour * hour, got))
-    # The caption names the day it is showing. A band captioned only
-    # "today" cannot be checked against the row beneath it.
-    assert "2026-08-27" in section, "expected the caption to name the Paris day it draws, got %r" % (section,)
-    assert "3" in re.sub(r"<[^>]*>", " ", section), "expected the caption to state the check-in count as text"
+    assert _home_day_band_section(rendered) is None
+    for needle in ('class="%s"' % draw.DRAWING_BAND_CLASS, draw.DRAWING_BAND_MARK_CLASS,
+                   draw.DRAWING_BAND_SPAN_CLASS, "day-band"):
+        assert needle not in rendered, "Health must not draw %r" % (needle,)
 
-    # THE EMPTY DAY IS A STATE, NOT AN ABSENCE.
-    empty_ctx = _health_band_ctx(tmp_path / "empty", now, [])
-    # A check-in on a DIFFERENT day, so the table is not empty and the
-    # emptiness is the band's bucketing rather than an unreadable
-    # database.
-    with history_db.open_db(tmp_path / "empty") as conn:
-        history_db.record_device_health(conn, "2026-08-20T10:00:00+00:00", battery_mv=3700)
-    rendered_empty = health_page.render(empty_ctx)
-    empty_section = _home_day_band_section(rendered_empty)
-    assert empty_section is not None, (
-        "expected the band section to survive a day with no check-ins — an absent section "
-        "reads as an unbuilt feature, an empty band reads as no activity, and those are "
-        "different statements")
-    assert not _home_band_marks(empty_section), (
-        "expected no marks on an empty day, got %r" % (_home_band_marks(empty_section),))
-    assert 'class="drawing-band"' in empty_section, "expected the band's own frame to render on an empty day"
-    assert "2026-08-27" in empty_section, "expected the empty band's caption to name the day too"
-
-    # THE COLLAPSE, CAPTIONED . The band above drew three
-    # well-separated marks and must NOT carry the merge sentence — a
-    # caption that always admitted a collapse would be as untrue as one
-    # that never did. A day at a one-minute cadence must carry it,
-    # because at that density the band genuinely cannot show each
-    # check-in separately and a reader counting marks would otherwise
-    # conclude it lost some.
-    assert health_page.DAY_BAND_COLLAPSED_TEXT not in section, (
-        "the band collapsed nothing (3 marks for 3 check-ins) yet its caption said marks were "
-        "merged — a caption that always admits a collapse tells the reader nothing and is "
-        "untrue on every sparse day")
-    minutes = ["2026-08-27T%02d:%02d:00+00:00" % (6 + i // 60, i % 60) for i in range(300)]
-    dense_ctx = _health_band_ctx(tmp_path / "dense", now, minutes)
-    dense_section = _home_day_band_section(health_page.render(dense_ctx))
-    assert dense_section is not None, "expected a band on a dense day"
-    dense_marks = _home_band_marks(dense_section)
-    assert len(dense_marks) < len(minutes), (
-        "expected a one-minute cadence to collapse (300 check-ins cannot be 300 distinguishable "
-        "marks in ~330px), got %d marks" % (len(dense_marks),))
-    assert health_page.DAY_BAND_COLLAPSED_TEXT in dense_section, (
-        "the band drew %d marks for %d check-ins and its caption did not say they were merged "
-        "— the drawing dropping marks silently and the caption printing a total are the two "
-        "halves of one lie (T-24-06-B)" % (len(dense_marks), len(minutes)))
-    dense_text = re.sub(r"<[^>]*>", " ", dense_section)
-    assert str(len(minutes)) in dense_text, (
-        "expected the true total still printed as TEXT beside the merge sentence — the count "
-        "is honest, only the COUNTING of marks is not")
-
-    # NO DATABASE AT ALL: no band, no raise, a page that still renders
-    # .
-    #
-    # The unreadable database is made unreadable by putting a DIRECTORY
-    # where history.db belongs, not by chmod: this harness may run as
-    # root, where a 0o500 state dir is not read-only at all. sqlite
-    # cannot open a directory whoever you are, so this check measures the
-    # same degradation in both environments.
+    # Unreadable history.db: made unreadable by putting a DIRECTORY where
+    # history.db belongs, not by chmod (this harness may run as root).
     absent = tmp_path / "nodb"
     absent_ctx = _health_band_ctx(absent, now, [])
     for name in os.listdir(str(absent)):
@@ -696,106 +630,12 @@ def test_health_day_band_renders_the_day_and_says_what_it_shows(tmp_path):
     os.mkdir(os.path.join(str(absent), "history.db"))
     rendered_absent = health_page.render(absent_ctx)
     assert '<h1 class="page-title">' in rendered_absent, "expected Health to render with history.db absent"
-    assert _home_day_band_section(rendered_absent) is None, (
-        "expected NO band with history.db unreadable — an empty band there would claim the "
-        "device made no check-ins when nothing was read")
 
 
-def test_health_day_band_shades_quiet_hours_only_when_configured(tmp_path):
-    """Health's day band shades the CONFIGURED quiet-hours window — the default 23:00-07:00
-    wrapping night window as two spans covering its eight hours, named in the caption — and
-    with quiet hours disabled shades nothing and says nothing about them, while still drawing
-    the day's check-ins"""
+def test_health_reads_no_per_day_check_in_rows_for_a_band(tmp_path):
+    """the bounded multi-thousand-row device-health read the day band needed is gone: Health's
+    only recent_device_health() read is the battery trend's own, at its own small limit"""
     now = "2026-08-27T12:00:00+00:00"
-    checkins = ["2026-08-27T10:00:00+00:00"]
-    hour = 100.0 / 24
-    # The DEFAULT night window, and the case a naive span renders
-    # inverted: 23:00-07:00 wraps midnight.
-    ctx = _health_band_ctx(tmp_path / "on", now, checkins, config={
-        "wake_interval_s": 900, "display_enabled": True,
-        "quiet_hours_enabled": True,
-        "quiet_hours_start": device_config.DEFAULT_QUIET_HOURS_START,
-        "quiet_hours_end": device_config.DEFAULT_QUIET_HOURS_END,
-    })
-    section = _home_day_band_section(health_page.render(ctx))
-    assert section is not None, "expected a day-band section"
-    spans = _home_band_spans(section)
-    assert len(spans) == 2, (
-        "expected the default 23:00-07:00 quiet hours to shade TWO spans on a one-day band, "
-        "got %d — one span would shade the middle of the DAY and leave the night clear"
-        % (len(spans),))
-    widths = [float(re.search(r'width="([\d.]+)%"', el).group(1)) for el in spans]
-    assert abs(sum(widths) - 8 * hour) <= 0.05, (
-        "expected the shaded spans to cover the window's eight hours (%.2f%%), got %.2f%%"
-        % (8 * hour, sum(widths)))
-    text = re.sub(r"<[^>]*>", " ", section)
-    assert "23:00" in text and "07:00" in text, "expected the caption to name the shaded window's own hours, got %r" % (text,)
-
-    # DISABLED: nothing shaded, and the caption does not mention a
-    # window the device is not honouring.
-    off_ctx = _health_band_ctx(tmp_path / "off", now, checkins, config={
-        "wake_interval_s": 900, "display_enabled": True,
-        "quiet_hours_enabled": False,
-        "quiet_hours_start": device_config.DEFAULT_QUIET_HOURS_START,
-        "quiet_hours_end": device_config.DEFAULT_QUIET_HOURS_END,
-    })
-    off_section = _home_day_band_section(health_page.render(off_ctx))
-    assert off_section is not None, "expected the band to render with quiet hours disabled"
-    assert not _home_band_spans(off_section), (
-        "expected zero shaded spans with quiet hours disabled, got %r" % (_home_band_spans(off_section),))
-    off_text = re.sub(r"<[^>]*>", " ", off_section).lower()
-    assert "quiet" not in off_text and "23:00" not in off_text, (
-        "expected the band's caption to say nothing about quiet hours when they are off — a "
-        "legend for a span that is not drawn describes a band the reader is not looking at. "
-        "Got %r" % (off_text,))
-    assert _home_band_marks(off_section), "expected the check-in marks to survive quiet hours being off"
-
-
-def test_health_day_band_buckets_by_paris_day_and_costs_one_read(tmp_path):
-    """Health's day band buckets check-ins by the PARIS day — a 22:30Z check-in (Paris 00:30
-    today) is on the band and a 2026-08-27T22:30Z one (Paris 00:30 tomorrow) is not, since
-    Paris is never behind UTC — and spans a real 25-hour Paris day so midday lands at 52.00%
-    rather than the 54.17% a hardcoded 86400 would give; it costs render() exactly one
-    bounded history.db read, measured"""
-    now = "2026-08-27T12:00:00+00:00"
-    # THE BOUNDARY THIS BREAKS AT IF IT BREAKS. Paris is UTC+1/+2 and so
-    # never BEHIND UTC. 00:30 Paris is 22:30 UTC on the PREVIOUS day, so
-    # a band bucketed by the UTC date drops it from today and picks up
-    # tomorrow's 00:30 instead. Both directions below.
-    ctx = _health_band_ctx(tmp_path / "boundary", now, [
-        "2026-08-26T21:30:00+00:00",  # Paris 2026-08-26 23:30 — yesterday
-        "2026-08-26T22:30:00+00:00",  # Paris 2026-08-27 00:30 — TODAY
-        "2026-08-27T22:30:00+00:00",  # Paris 2026-08-28 00:30 — tomorrow
-    ])
-    section = _home_day_band_section(health_page.render(ctx))
-    assert section is not None, "expected a day-band section"
-    marks = _home_band_marks(section)
-    assert len(marks) == 1, (
-        "expected exactly ONE of the three check-ins on the 2026-08-27 Paris band, got %d — "
-        "under a UTC date bucket the 22:30Z check-in (Paris 00:30 today) drops off and the "
-        "2026-08-27T22:30Z one (Paris 00:30 TOMORROW) appears instead, which is the same count "
-        "from the wrong rows" % (len(marks),))
-    got = float(re.search(r'x="([\d.]+)%"', marks[0]).group(1))
-    want = 0.5 * (100.0 / 24)  # 00:30 Paris
-    assert abs(got - want) <= 0.02, "expected the 00:30 Paris check-in at %.2f%%, got %.2f%%" % (want, got)
-
-    # A 25-HOUR PARIS DAY. 2026-10-25 is the EU autumn transition, so the
-    # band is 25 hours wide and midday sits at 52.00%, not at the 54.17%
-    # a hardcoded 86400 would put it at.
-    dst_ctx = _health_band_ctx(
-        tmp_path / "dst", "2026-10-25T12:00:00+00:00", ["2026-10-25T11:00:00+00:00"])
-    dst_section = _home_day_band_section(health_page.render(dst_ctx))
-    dst_marks = _home_band_marks(dst_section or "")
-    assert len(dst_marks) == 1, "expected one mark on the DST band, got %d" % (len(dst_marks),)
-    dst_got = float(re.search(r'x="([\d.]+)%"', dst_marks[0]).group(1))
-    assert abs(dst_got - 52.0) <= 0.02, (
-        "on the 25-hour Paris day 2026-10-25 the 12:00 check-in belongs at 52.00%% of the "
-        "band, got %.2f%% — a hardcoded 86400 puts it at 54.17%% and leaves an hour of the "
-        "band unreachable" % (dst_got,))
-
-    # ONE BOUNDED READ, MEASURED. The band's rows come from exactly one
-    # recent_device_health() call carrying the band's own row limit; a band
-    # that re-queried per section would show up here as two or more.
     read_ctx = _health_band_ctx(tmp_path / "reads", now, ["2026-08-27T10:00:00+00:00"])
     limits = []
     real_recent = history_db.recent_device_health
@@ -809,58 +649,52 @@ def test_health_day_band_buckets_by_paris_day_and_costs_one_read(tmp_path):
         health_page.render(read_ctx)
     finally:
         history_db.recent_device_health = real_recent
-    assert limits.count(health_page.DAY_BAND_ROW_LIMIT) == 1, (
-        "expected exactly one bounded day-band read (limit %d), got limits %r"
-        % (health_page.DAY_BAND_ROW_LIMIT, limits))
+    assert limits == [health_page.BATTERY_TREND_LIMIT], (
+        "expected Health's one recent_device_health() read to be the battery trend's, got limits %r"
+        % (limits,))
 
 
 # --- Health's drawings are the shared emitters' ---
 
-def test_health_carries_one_ring_and_one_band_and_home_carries_neither(tmp_path):
-    """Health holds exactly one battery ring and one day band, both inside the page body, and
-    Home draws neither: the ring and the activity band moved off Home with the
-    frame-signal-first redesign, so a drawing returning there is a regression"""
+def test_health_carries_one_ring_and_no_grid_and_home_carries_neither(tmp_path):
+    """Health holds exactly one battery ring and no check-in regularity grid; Home draws neither (its one drawing is the battery's open arc dial, not the ring)
+    and no activity band"""
     now = "2026-08-27T12:00:00+00:00"
     ctx = _health_band_ctx(tmp_path / "health", now, [
         "2026-08-27T06:00:00+00:00",
         "2026-08-27T10:00:00+00:00",
     ])
     health_rendered = health_page.render(ctx)
-    for label, needle in (
-            ("battery ring value arc", 'class="%s"' % draw.DRAWING_RING_VALUE_CLASS),
-            ("day band frame", 'class="%s"' % draw.DRAWING_BAND_CLASS)):
-        assert health_rendered.count(needle) == 1, (
-            "expected exactly one %s on Health, got %d" % (label, health_rendered.count(needle)))
+    assert health_rendered.count('class="%s"' % draw.DRAWING_RING_VALUE_CLASS) == 1, (
+        "expected exactly one battery ring value arc on Health")
+    doc = parse_html(health_rendered)
+    assert not doc.select(".check-in-grid"), "Health must not draw a regularity grid"
+    assert not doc.find_all("rect", cls=draw.DRAWING_CELL_CLASS), "Health must not draw regularity cells"
     home_ctx = dict(ctx, gallery_entries=["2026-08-27T11-50-00+00-00.png"])
     home_rendered = home_page.render(home_ctx)
-    for needle in (draw.DRAWING_FIGURE_CLASS, draw.DRAWING_CANVAS_CLASS, "day-band"):
-        assert needle not in home_rendered, "Home must not draw %r any more" % (needle,)
+    for needle in (draw.DRAWING_RING_VALUE_CLASS, draw.DRAWING_RING_TRACK_CLASS,
+                   draw.DRAWING_CANVAS_CLASS, draw.DRAWING_CELL_CLASS, "day-band"):
+        assert needle not in home_rendered, "Home must not draw %r" % (needle,)
+    assert home_rendered.count(draw.DRAWING_FIGURE_CLASS) == 1
+    assert home_rendered.count('class="%s"' % draw.DRAWING_ARC_TRACK_CLASS) == 1
 
 
 def test_health_drawings_use_only_the_shared_emitters_classes(tmp_path):
-    """the classes Health's battery ring and day band emit are computed from the markup rather
-    than listed; every one is a constant companion/draw.py itself names, and the band draws at
-    least three different shapes (its frame, the shaded quiet-hours span and the marks)"""
+    """the classes Health's battery ring emits are computed from the markup rather than listed;
+    every one is a constant companion/draw.py itself names"""
     now = "2026-08-27T12:00:00+00:00"
     ctx = _health_band_ctx(tmp_path / "health", now, [
         "2026-08-27T06:00:00+00:00",
         "2026-08-27T10:00:00+00:00",
-    ], config={
-        "wake_interval_s": 900, "display_enabled": True,
-        "quiet_hours_enabled": True,
-        "quiet_hours_start": device_config.DEFAULT_QUIET_HOURS_START,
-        "quiet_hours_end": device_config.DEFAULT_QUIET_HOURS_END,
-    })
+    ])
     rendered = health_page.render(ctx)
-    ring = _classes_inside_svg(rendered, draw.DRAWING_FIGURE_CLASS)
-    band = _classes_inside_svg(rendered, draw.DRAWING_CANVAS_CLASS)
+    figures = re.findall(
+        r'<svg class="%s[^"]*"[^>]*>(.*?)</svg>' % re.escape(draw.DRAWING_FIGURE_CLASS), rendered, re.S)
+    assert len(figures) == 1, "expected the ring alone, got %d aspect-locked figures" % len(figures)
+    classes = [set(re.findall(r'class="([^"]*)"', figure)) for figure in figures]
+    ring = next((c for c in classes if draw.DRAWING_RING_TRACK_CLASS in c), None)
     assert ring, "found no ring on Health"
-    assert band, "found no day band on Health"
-    assert len(band) >= 3, (
-        "Health's band draws only %d kind(s) of shape (%r) — with a quiet-hours window "
-        "configured and two check-ins on the day it owes three: its own frame, the shaded "
-        "span and the marks" % (len(band), sorted(band)))
-    for class_name in sorted(ring | band):
+    for class_name in sorted(ring):
         for token in class_name.split():
             assert token in draw.DRAWING_CLASSES, (
                 "Health emits the drawing class %r, which companion/draw.py does not name — "
@@ -868,8 +702,8 @@ def test_health_drawings_use_only_the_shared_emitters_classes(tmp_path):
 
 
 def test_breaking_a_shared_emitter_breaks_health_and_leaves_home_untouched(tmp_path):
-    """breaking a shared emitter breaks Health's drawing: one class constant inside
-    companion/draw.py's ring emitter, then its band-mark emitter, is replaced at check time and
+    """breaking a shared emitter breaks Health's drawing: the class constant inside
+    companion/draw.py's ring emitter is replaced at check time and
     Health changes each time, neither keeping the original string (a page built from its own
     copy would); Home draws neither and stays byte-identical, proving the mutation is targeted
     rather than a global perturbation; and both pages return to their pre-mutation markup"""
@@ -896,12 +730,12 @@ def test_breaking_a_shared_emitter_breaks_health_and_leaves_home_untouched(tmp_p
         finally:
             setattr(draw, attr, original)
 
-    for attr in ("DRAWING_RING_VALUE_CLASS", "DRAWING_BAND_MARK_CLASS"):
+    for attr in ("DRAWING_RING_VALUE_CLASS",):
         original, health_after, home_after = _mutated(attr)
         assert sentinel in health_after, (
             "a change inside the shared %s emitter did not reach Health — it draws its own "
             "copy, not the shared one" % (attr,))
-        assert 'class="%s"' % original not in health_after, (
+        assert 'class="%s"' % original not in health_after and 'class="%s ' % original not in health_after, (
             "Health still carries %s's original class after the emitter was changed — part "
             "of that drawing is a copy" % (attr,))
         assert health_after != health_before, "Health rendered identically under the mutation"
@@ -1146,9 +980,9 @@ def test_frame_state_is_view_free_and_localises_its_own_copy():
     # new entries, or the pre-existing entries for the two deliberate
     # collisions) and renders unchanged in English.
     headline_pairs = (
-        (frame_state.HEADLINE_DUE, "Prochaine mise à jour ≈ %s"),
+        (frame_state.HEADLINE_DUE, "Prochaine mise à jour %s"),
         (frame_state.HEADLINE_HELD, "Prochain réveil vers %s · heures calmes"),
-        (frame_state.HEADLINE_LATE, "Attendu depuis %s"),
+        (frame_state.HEADLINE_LATE, "Mise à jour en retard · attendue à %s"),
     )
     for english, french in headline_pairs:
         assert i18n.t_lang(english, "en") == english, "expected %r unchanged under lang='en'" % (english,)

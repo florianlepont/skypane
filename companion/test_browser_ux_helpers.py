@@ -189,7 +189,7 @@ def _login(page, base_url):
 
 @contextlib.contextmanager
 def _no_js_page(make_context, base_url, route, viewport=None, sign_in=True,
-                cookies=None):
+                cookies=None, reduced_motion=None):
     """A scripts-blocked browser context, signed in, landed on `route`.
 
     `make_context` must be the guarded `new_context` fixture, never a bare `browser` object, so
@@ -197,8 +197,14 @@ def _no_js_page(make_context, base_url, route, viewport=None, sign_in=True,
     `sign_in=False` is for the login card itself, which inspects the unauthenticated page before
     signing in as its last step. `cookies` is applied before the sign-in navigation, the only
     order under which the first rendered document (e.g. a UI-language cookie) already honours it.
+    `reduced_motion="reduce"` opts a test out of the cross-document view transition (style.css only
+    installs it under `no-preference`): right after a navigation the transition's overlay is the
+    hit target (`<html>`), so a coordinate click can time out on a slow machine. Opt in only where the
+    test is about form flows, never where it asserts motion.
     """
     extra = {} if viewport is None else {"viewport": viewport}
+    if reduced_motion is not None:
+        extra["reduced_motion"] = reduced_motion
     context = make_context(java_script_enabled=False, **extra)
     try:
         if cookies:
@@ -213,6 +219,20 @@ def _no_js_page(make_context, base_url, route, viewport=None, sign_in=True,
         yield page
     finally:
         context.close()
+
+
+def _open_health_rows(page):
+    """Open every collapsed Health row the way a keyboard visitor does: focus its summary and
+    press Enter, the native disclosure. Needs no script, so it works on a scripts-blocked page.
+    Rows in a warn or error state render open already and are left alone. Raises if a row stays
+    shut, so a later measurement is never taken on content a visitor could not see."""
+    summaries = page.locator("details.health-row:not([open]) > summary")
+    for _attempt in range(16):
+        if not summaries.count():
+            return
+        summaries.first.focus()
+        page.keyboard.press("Enter")
+    raise AssertionError("a Health row would not open from its summary")
 
 
 def _click_control(page, selector):
@@ -274,7 +294,7 @@ def _bar_text(page):
     return page.eval_on_selector("[data-dirty-count]", "el => el.textContent")
 
 
-def _save_via_bar(page, timeout=5000):
+def _save_via_bar(page, timeout=15000):
     """Clicks the bar's own Save (`[data-static-save-fallback]`, `form="settings-form"`) and
     waits for the real navigation it causes, never a same-page DOM update: a successful save
     redirects to the scoped page's GET route, a rejected one re-renders the same page at 200
@@ -285,6 +305,9 @@ def _save_via_bar(page, timeout=5000):
     # expect_navigation()'s clock starts, so an actionability poll here cannot eat the
     # navigation wait's budget too.
     page.wait_for_selector("[%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR, state="visible")
+    # The default budget covers the redirected page's `load` event, which on /display waits for the
+    # server-rendered look previews: a slow or busy machine needs more than a few seconds for them
+    # even though the save itself already happened.
     with page.expect_navigation(timeout=timeout):
         page.click("[%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR)
 

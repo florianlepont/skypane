@@ -32,7 +32,7 @@ from companion import auth
 from companion.pages import config_page
 from companion_app_server import (
     TEST_PASSWORD, http_request, login, served_asset, served_stylesheet)
-from companion_markup import at_rule_blocks, css_rules, rules_with_selector
+from companion_markup import at_rule_blocks, css_rules, custom_properties, rules_with_selector
 from server import device_config
 
 import companion.app as app_module
@@ -40,6 +40,25 @@ import companion.app as app_module
 # --- The motion budget's own pinned counts. ---------------------------
 _EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 2
 _EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 1
+
+# The two motion durations, plus the one documented exception: the
+# toast's two dwells (how long a success/info toast and a pending toast
+# stay), which are waits, not movement speeds. Each may only drive its
+# own armed toast timer hairline.
+_MOTION_TOKENS = ("--motion-fast", "--motion-slow")
+_MOTION_EXCEPTION_TOKENS = ("--motion-toast-dwell", "--motion-toast-dwell-long")
+_MOTION_EXCEPTION_KEYFRAMES = "skypane-toast-dwell"
+_MOTION_EXCEPTION_SELECTORS = {
+    "--motion-toast-dwell": (".toast[data-toast-armed] .toast__timer",),
+    "--motion-toast-dwell-long": (
+        '.toast[data-toast-armed][data-toast-autohide="long"] .toast__timer',),
+}
+
+# The second documented exception: the period of the soft halo around
+# Home's status dot. Only the dot halo rule may spend it.
+_DOT_PULSE_TOKEN = "--motion-dot-pulse"
+_DOT_PULSE_KEYFRAMES = "skypane-dot-halo"
+_DOT_PULSE_SELECTOR = ".home-state__dot--pulse::after"
 
 _ANIMATION_VALUE_KEYWORDS = frozenset((
     "var", "none", "infinite", "normal", "reverse", "alternate", "alternate-reverse",
@@ -154,6 +173,43 @@ def test_style_css_honours_the_motion_budget(served_css):
                 assert banned not in prop and banned not in value, (
                     "the served stylesheet declares %r in %r — Chromium-only and Baseline "
                     "limited, use grid-template-rows: 0fr -> 1fr instead" % (banned, rule.selectors))
+
+
+def _spenders(served_css, token):
+    return [
+        (rule.selectors, prop, value)
+        for rule in css_rules(served_css)
+        for prop, value in rule.declarations
+        if "var(%s)" % token in value and not prop.startswith("--")
+    ]
+
+
+def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_css):
+    """the served :root declares exactly --motion-fast, --motion-slow and the documented
+    exceptions (the two toast dwells and the status dot pulse); each exception is spent by
+    exactly one live declaration (an armed toast timer hairline's skypane-toast-dwell
+    animation, the status dot halo's skypane-dot-halo animation) and nowhere else, not even a
+    transition, so none can become a general-purpose motion speed"""
+    root = custom_properties(served_css, ":root")
+    declared = sorted(name for name in root if name.startswith("--motion-"))
+    assert declared == sorted(
+        _MOTION_TOKENS + _MOTION_EXCEPTION_TOKENS + (_DOT_PULSE_TOKEN,)), (
+        "expected the motion budget's two tokens plus the documented exceptions, got %r"
+        % (declared,))
+    expected = [
+        (token, _MOTION_EXCEPTION_SELECTORS[token], _MOTION_EXCEPTION_KEYFRAMES)
+        for token in _MOTION_EXCEPTION_TOKENS
+    ] + [(_DOT_PULSE_TOKEN, (_DOT_PULSE_SELECTOR,), _DOT_PULSE_KEYFRAMES)]
+    for token, selectors_expected, keyframes in expected:
+        spenders = _spenders(served_css, token)
+        assert len(spenders) == 1, (
+            "expected exactly one declaration spending %s, got %r" % (token, spenders))
+        selectors, prop, value = spenders[0]
+        assert selectors == selectors_expected, (
+            "expected only %r to spend %s, got %r" % (selectors_expected, token, selectors))
+        assert prop == "animation" and keyframes in value, (
+            "expected %s to drive the %s animation, got `%s: %s`"
+            % (token, keyframes, prop, value))
 
 
 # ==========================================================================
@@ -362,10 +418,12 @@ def test_login_clean_render_carries_no_error_association(app04_server, served_cs
     for needed in ('class="login-form"', 'class="login-form__input"'):
         assert needed in text, "expected %r in the login card markup" % needed
     assert '<h1 class="page-title">SkyPane</h1>' in text, (
-        "expected the bare page-title brand mark with no glyph beside it")
-    assert "<svg" not in text and "icon-defs" not in text, (
-        "the login card must add no icon/brand glyph — login_shell() deliberately emits no "
-        "ICON_DEFS_HTML sprite")
+        "expected the page-title wordmark to stay live text")
+    # The one glyph is the decorative brand mark, inlined because login_shell() deliberately
+    # emits no ICON_DEFS_HTML sprite.
+    assert text.count("<svg") == 1 and 'class="logo-mark"' in text and 'aria-hidden="true"' in text, (
+        "the login card carries exactly one decorative inline brand mark")
+    assert "icon-defs" not in text and "<use" not in text, "no sprite on the login page"
     for selector in (
             ".login-form__input", '.login-form__input[aria-invalid="true"]',
             '.login-card button[type="submit"]'):
@@ -429,7 +487,9 @@ def test_login_lockout_render_shares_the_one_error_voice(make_app_server):
         "window itself")
     for needed in ('data-lockout-template="', 'data-lockout-token="'):
         assert needed in text, "expected %r on the locked-out form" % needed
-    assert "LOGIN_FAILURE_LIMIT" not in text and str(auth.LOGIN_FAILURE_LIMIT) + '"' not in text, (
+    # The brand mark's path data is numeric noise that can end in the limit's digit by chance.
+    without_mark = re.sub(r"<svg\b.*?</svg>", "", text, flags=re.DOTALL)
+    assert "LOGIN_FAILURE_LIMIT" not in without_mark and str(auth.LOGIN_FAILURE_LIMIT) + '"' not in without_mark, (
         "no throttling constant may be rendered into the page")
     field_tag = text[text.index("<input type=\"password\""):]
     field_tag = field_tag[:field_tag.index(">") + 1]
@@ -546,8 +606,8 @@ def test_rejected_settings_save_rerenders_200_with_input_and_error_persists_noth
         "expected the just-picked theme (black) to render checked - nothing discarded")
     assert config_page.ERROR_QUIET_HOURS_TIME_SHAPE in body_text, (
         "expected the quiet_hours_start field-level error message in the response body")
-    assert "banner--flash" not in body_text, (
-        "expected no top-of-page flash banner on a field-level rejection (D-07)")
+    assert "toast-region--flash" not in body_text, (
+        "expected no top-of-page flash toast on a field-level rejection (D-07)")
     after = device_config.load_device_config(server.state_dir)
     assert after == before, "expected nothing to be persisted on a rejected save, got %r (was %r)" % (after, before)
 
@@ -559,7 +619,8 @@ def test_rejected_settings_save_rerenders_200_with_input_and_error_persists_noth
 
 def test_home_page_renders_widgets(app04_server, session_cookie):
     """authenticated GET / renders the approved frame-signal-first Home page:
-    its current image precedes recent flights and one compact battery fact, while retired
+    its current image precedes recent flights, then ONE merged frame-state card carrying the
+    screen and quiet-hours POST controls, and one compact battery fact, while retired
     configuration, healthy diagnostics, and activity-band dashboard material stay absent."""
     status, _headers, body = http_request(app04_server.base_url() + "/", cookie=session_cookie)
     assert status == 200, "expected 200 for GET /, got %d" % status
@@ -569,17 +630,20 @@ def test_home_page_renders_widgets(app04_server, session_cookie):
             'class="home-columns home-picture-row home-signal-grid"',
             'id="home-current-frame"',
             "Recent flights", 'href="/flights"',
-            'class="home-fact text-label"',
-            'class="nav-group nav-group--advanced"'):
+            'class="home-battery ',
+            'class="nav-group nav-group--advanced"',
+            'aria-labelledby="home-frame-state"',
+            'action="%s"' % app_module.QUICK_DISPLAY_ROUTE,
+            'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE,
+            "data-loaded-at="):
         assert needle in text, "expected %r in the Home page" % needle
+    assert text.count("Frame state") == 1, "expected exactly one merged frame-state card"
     assert 'class="preview-frame"' in text or "Nothing rendered yet." in text, (
         "expected either the preview-frame figure or its empty state on Home")
     for absent in (
             "Your frame at a glance.", "Quick actions", "On the frame now",
             "status-card__rows", "home-hero", 'class="frame-strip',
             'class="dashboard-grid home-status-grid"', 'class="day-band',
-            'action="%s"' % app_module.QUICK_DISPLAY_ROUTE,
-            'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE,
             'action="%s"' % app_module.POLL_ROUTE):
         assert absent not in text, (
             "expected %r to be absent from the rebuilt Home page (D-04)" % absent)
@@ -902,7 +966,7 @@ def test_display_and_device_pages_split_the_groups(app04_server, session_cookie)
         assert "Screen: Plane frame" not in text, (
             "expected the retired screen-type caption to stay off the %s page" % scope)
     assert "Refresh now" in device_text, "expected the Device page to carry the Refresh now action"
-    rules_panel_marker = 'data-usage="rules"'
+    rules_panel_marker = 'data-look-usage="rules"'
     assert rules_panel_marker not in device_text, (
         "expected the Device page NOT to carry the rules editor (moved to Display, 20-07/D-10)")
     assert rules_panel_marker in display_text, (

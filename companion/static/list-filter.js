@@ -1,7 +1,8 @@
 /*
  * SkyPane companion service — list-filter.js.
  *
- * One generic client-side filter, reused by History and Airlines. No
+ * One generic client-side filter, reused by Flights, Airlines and
+ * Health's unresolved-prefix list. No
  * build step, ES5-safe subset. Inert on a page with no
  * [data-filter-input]. Served by companion/app.py's
  * LIST_FILTER_SCRIPT_ROUTE. No network call, timer, or persistent
@@ -34,8 +35,88 @@
   // dispatched from here.
   var SWAPPED_EVENT = "skypane-regions-swapped";
   var emptyEl = document.querySelector("[data-filter-empty]");
-  var clearBtn = document.querySelector("[data-filter-clear]");
-  var setButtons = document.querySelectorAll("[data-filter-set]");
+  var clearButtons = document.querySelectorAll("[data-filter-clear]");
+  // Optional segmented chips: radios whose value is a row's
+  // data-filter-kind ("" is every row). Absent on a plain search bar.
+  var chipInputs = document.querySelectorAll("[data-filter-chip]");
+  var CHIP_COUNT_SELECTOR = "[data-filter-chip-count]";
+  var ZERO_CLASS = "is-zero";
+  // Set on the bar while the search holds text, so the collapsed search
+  // stays open without a :has() selector.
+  var ACTIVE_ATTR = "data-filter-active";
+  var bar = input.closest ? input.closest(".filter-bar") : null;
+
+  function selectedKind() {
+    for (var k = 0; k < chipInputs.length; k++) {
+      if (chipInputs[k].checked) {
+        return chipInputs[k].value;
+      }
+    }
+    return "";
+  }
+
+  // Distinct-group tally for one chip: rows matching the query and the
+  // chip's kind, each logical flight counted once.
+  function tallyChip(rows, query, kind) {
+    var seen = {};
+    var n = 0;
+    for (var r = 0; r < rows.length; r++) {
+      var rowKind = rows[r].getAttribute("data-filter-kind") || "";
+      var text = rows[r].getAttribute("data-filter-text") || "";
+      if (kind !== "" && rowKind !== kind) {
+        continue;
+      }
+      if (query !== "" && text.indexOf(query) === -1) {
+        continue;
+      }
+      var rg = rows[r].getAttribute("data-filter-group");
+      var key = "g" + (rg === null ? "i" + r : rg);
+      if (!seen[key]) {
+        seen[key] = true;
+        n++;
+      }
+    }
+    return n;
+  }
+
+  // A day header with no visible row under it would read as an empty
+  // section: hide it until a row of its day shows again. Walks the
+  // siblings up to the next header; a Flights detail row (no
+  // data-filter-text) between rows is skipped.
+  function syncDayHeaders() {
+    var heads = document.querySelectorAll("[data-filter-day]");
+    for (var h = 0; h < heads.length; h++) {
+      var sib = heads[h].nextElementSibling;
+      var any = false;
+      while (sib && !sib.hasAttribute("data-filter-day")) {
+        if (sib.hasAttribute("data-filter-text") && !sib.hidden) {
+          any = true;
+          break;
+        }
+        sib = sib.nextElementSibling;
+      }
+      heads[h].hidden = !any;
+    }
+  }
+
+  function paintChips(rows, query) {
+    for (var c = 0; c < chipInputs.length; c++) {
+      var chip = chipInputs[c];
+      var label = chip.closest ? chip.closest("label") : chip.parentNode;
+      var countEl = label ? label.querySelector(CHIP_COUNT_SELECTOR) : null;
+      var n = tallyChip(rows, query, chip.value);
+      if (countEl) {
+        countEl.textContent = String(n);
+      }
+      if (label && label.classList) {
+        if (n === 0) {
+          label.classList.add(ZERO_CLASS);
+        } else {
+          label.classList.remove(ZERO_CLASS);
+        }
+      }
+    }
+  }
 
   function applyFilter() {
     // Query fresh on every input event: the desktop <tr> and mobile
@@ -44,6 +125,8 @@
     // whichever the current breakpoint is not rendering.
     var rows = document.querySelectorAll("[data-filter-text]");
     var query = input.value.toLowerCase();
+    var kind = selectedKind();
+    var rowKind;
     var total = rows.length;
     var i;
     var row;
@@ -65,7 +148,9 @@
       text = row.getAttribute("data-filter-text") || "";
       rawGroup = row.getAttribute("data-filter-group");
       group = "g" + (rawGroup === null ? "i" + i : rawGroup);
-      matched = (query === "" || text.indexOf(query) !== -1);
+      rowKind = row.getAttribute("data-filter-kind") || "";
+      matched = (query === "" || text.indexOf(query) !== -1)
+        && (kind === "" || rowKind === kind);
       row.hidden = !matched;
       // A Flights summary row's sibling .flight-detail-row is a
       // separate element sharing the same group value via
@@ -90,10 +175,10 @@
     var countEl = document.querySelector(COUNT_SELECTOR);
     if (countEl) {
       var countTemplate = countEl.getAttribute("data-filter-count-template")
-        || "%d of %d shown";
+        || "# of # shown";
       var countText = countTemplate
-        .replace("%d", String(visibleCount))
-        .replace("%d", String(totalCount));
+        .replace("#", String(visibleCount))
+        .replace("#", String(totalCount));
       // Only on a real change: this runs on every keystroke and every
       // swap, and animating an unchanged sentence would be motion with
       // no information.
@@ -109,29 +194,52 @@
         }
       }
     }
+    if (chipInputs.length) {
+      paintChips(rows, query);
+    }
+    syncDayHeaders();
+    if (bar) {
+      if (query !== "") {
+        bar.setAttribute(ACTIVE_ATTR, "");
+      } else {
+        bar.removeAttribute(ACTIVE_ATTR);
+      }
+    }
     if (emptyEl) {
-      emptyEl.hidden = !(query !== "" && visibleCount === 0);
+      emptyEl.hidden = !((query !== "" || kind !== "") && visibleCount === 0);
     }
   }
 
   input.addEventListener("input", applyFilter);
 
-  if (clearBtn) {
-    clearBtn.addEventListener("click", function () {
-      input.value = "";
-      applyFilter();
-    });
+  for (var ci = 0; ci < chipInputs.length; ci++) {
+    chipInputs[ci].addEventListener("change", applyFilter);
   }
 
-  // querySelectorAll (plural): more than one summary-line-style
-  // element could legitimately exist on a page, unlike clearBtn above.
-  for (var si = 0; si < setButtons.length; si++) {
-    (function (setBtn) {
-      setBtn.addEventListener("click", function () {
-        input.value = setBtn.getAttribute("data-filter-set") || "";
+  // querySelectorAll: the inline clear and the empty state's own Clear
+  // button are both [data-filter-clear]. The inline one clears the
+  // search text; the empty state's (also [data-filter-clear-all]) resets
+  // the chips to "All" too, since a chip can be what emptied the list.
+  function resetAllChips() {
+    for (var rc = 0; rc < chipInputs.length; rc++) {
+      chipInputs[rc].checked = (chipInputs[rc].value === "");
+    }
+  }
+  for (var bi = 0; bi < clearButtons.length; bi++) {
+    (function (clearBtn) {
+      clearBtn.addEventListener("click", function () {
+        input.value = "";
+        var clearAll = clearBtn.hasAttribute("data-filter-clear-all");
+        if (clearAll) {
+          resetAllChips();
+        }
         applyFilter();
+        // Keep the keyboard out of the way after the empty state's reset.
+        if (!clearAll) {
+          input.focus();
+        }
       });
-    })(setButtons[si]);
+    })(clearButtons[bi]);
   }
 
   // Re-apply the filter after the refresh loop has swapped the list in.
