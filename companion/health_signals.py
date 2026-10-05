@@ -14,6 +14,7 @@ import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
 
+import companion.battery as battery
 import companion.battery_chart as battery_chart
 import companion.frame_state as frame_state
 import companion.i18n as i18n
@@ -279,6 +280,21 @@ def battery_status(rows):
         if earlier_mv - later_mv >= BATTERY_DROP_WARN_MV:
             return "warn"
     return "ok"
+
+
+def charging_likely(rows, now, device_cfg, battery_critical=False):
+    """Whether the per-wake battery `rows` read as an (estimated) charge
+    right now: `battery.charging_estimate()` at the cadence the device is
+    actually on (`wake.effective_wake_interval_s()`, parked cadence
+    included). The one place Home, Health and the freshness token resolve
+    that cadence, so a "probably charging" claim goes stale at the same
+    instant on all three. Never raises: an unusable `device_cfg` or an
+    undetermined cadence simply means no claim."""
+    interval_s = wake.effective_wake_interval_s(
+        device_cfg if isinstance(device_cfg, dict) else None,
+        battery_critical=battery_critical is True)
+    return battery.charging_estimate(
+        rows, now, interval_s) == battery.CHARGE_LIKELY
 
 
 def corroboration_status(counts):

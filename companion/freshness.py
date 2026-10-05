@@ -16,7 +16,7 @@ import os
 import sqlite3
 from zoneinfo import ZoneInfo
 
-from companion import frame_state, layout
+from companion import battery, frame_state, health_signals, layout
 import companion.page_context as page_context
 from companion.pages import health_page
 from server import device_config, history_db
@@ -135,6 +135,21 @@ def _freshness_db_signal(state_dir, want_pipeline_run):
         return "unavailable"
 
 
+def _freshness_charging(ctx):
+    """Whether the page's "probably charging" pill is showing: the pill
+    ends by the clock (its latest reading going stale) with no new
+    reading to move the watermark above, so the verdict itself is a token
+    input, the same way `frame_state` is."""
+    try:
+        with history_db.open_db(ctx.state_dir) as conn:
+            rows = history_db.recent_device_health(
+                conn, limit=battery.CHARGE_RAMP_WINDOW_WAKES)
+    except (sqlite3.Error, OSError):
+        return "unavailable"
+    return health_signals.charging_likely(
+        rows, ctx.now, ctx.device_config, ctx.battery_critical)
+
+
 def _freshness_paris_date(now):
     """The Europe/Paris calendar date `now` falls on, or `None` when
     `now` fails to parse - the day the next-wake
@@ -210,6 +225,8 @@ def _page_freshness_token(route, ctx, query):
             None if signals is None else frame_state.resolve_state(
                 signals["next_wake_iso"], signals["effective_interval_s"],
                 signals["hold_reason"], now))
+    if slug in (layout.REFRESH_PAGE_HEALTH, layout.REFRESH_PAGE_HOME):
+        parts["charging"] = _freshness_charging(ctx)
     if slug in (layout.REFRESH_PAGE_HEALTH, layout.REFRESH_PAGE_HOME, layout.REFRESH_PAGE_DISPLAY):
         # Home's day band (_day_checkins()) buckets check-ins by this same
         # Paris calendar day, and both Home's and Display's own next-wake

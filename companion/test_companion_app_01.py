@@ -631,7 +631,7 @@ def test_page_shell_escapes_hostile_body():
 
 
 def test_icon_sprite_integrity():
-    """layout.ICON_IDS has exactly forty unique members, each a symbol id in
+    """layout.ICON_IDS has exactly forty-one unique members, each a symbol id in
     ICON_DEFS_HTML and vice versa"""
     # The whitelist grew from ten to fourteen members
     # (icon-check/icon-copy/icon-refresh/icon-search), then to fifteen
@@ -643,13 +643,14 @@ def test_icon_sprite_integrity():
     # 34 (the toast family: five tone glyphs, a bin, close and undo), then
     # to 36 (icon-pencil and icon-plus, Display's look picker), then to 37
     # (icon-info, the info tooltip button), then to 39 (icon-picture and
-    # icon-plane, the Flights phone card), then to 40 (icon-logo, the brand mark).
-    assert len(layout.ICON_IDS) == 40
-    assert len(set(layout.ICON_IDS)) == 40, "expected ICON_IDS to have no duplicates"
+    # icon-plane, the Flights phone card), then to 40 (icon-logo, the brand mark),
+    # then to 41 (icon-bolt, the estimated "probably charging" pill).
+    assert len(layout.ICON_IDS) == 41
+    assert len(set(layout.ICON_IDS)) == 41, "expected ICON_IDS to have no duplicates"
     symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
     assert sorted(symbol_ids) == sorted(layout.ICON_IDS), (
         "sprite symbol ids %r do not match ICON_IDS %r" % (symbol_ids, layout.ICON_IDS))
-    assert layout.ICON_DEFS_HTML.count("<symbol") == 40
+    assert layout.ICON_DEFS_HTML.count("<symbol") == 41
     assert 'stroke="currentColor"' in layout.ICON_DEFS_HTML
     assert 'fill="#' not in layout.ICON_DEFS_HTML, "a hard-coded hex fill would defeat the per-status tint"
 
@@ -684,7 +685,7 @@ def test_stat_tile_backcompat_and_icon_slot():
 
 
 def test_page_shell_emits_sprite_once_no_inline_styles():
-    """page_shell() emits exactly one sprite (one <defs, forty <symbol) before
+    """page_shell() emits exactly one sprite (one <defs, forty-one <symbol) before
     dashboard-shell, no inline styles"""
     doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     assert doc.count("<defs") == 1
@@ -692,7 +693,7 @@ def test_page_shell_emits_sprite_once_no_inline_styles():
     # (icon-more). : 22 -> 23 (icon-gear). : 23 -> 24 (icon-nav-update).
     # 24 -> 26 (icon-warning, icon-chevron-right). 26 -> 34 (the toasts).
     # 34 -> 36 (icon-pencil, icon-plus).
-    assert doc.count("<symbol") == 40
+    assert doc.count("<symbol") == 41
     assert doc.index("icon-defs") < doc.index("dashboard-shell"), (
         "expected the sprite to precede the dashboard-shell div")
     assert ' style="' not in doc, "page_shell() must emit no inline styles"

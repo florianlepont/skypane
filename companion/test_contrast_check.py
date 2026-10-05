@@ -195,6 +195,25 @@ def test_muted_detail_text_on_card_surface_meets_wcag_aa_normal_text(theme, them
         % (theme, composited, card, ratio, WCAG_AA_NORMAL_TEXT))
 
 
+@pytest.mark.parametrize("surface_token", ("--color-dominant", "--color-secondary", "--color-canvas"))
+@pytest.mark.parametrize("theme", ("light", "dark"))
+def test_charging_pill_text_on_its_tint_meets_wcag_aa_normal_text(
+        theme, surface_token, theme_tokens, served_css):
+    """the "Probably charging" pill's text (the ok colour mixed toward the text colour) clears
+    WCAG AA on its own ok-tinted background over each surface it can sit on"""
+    declarations = declarations_for(served_css, ".charging-pill")
+    tokens = theme_tokens[theme]
+    surface = tokens[surface_token]
+    ok = tokens["--color-status-ok"]
+    background = _alpha_composite(ok, _color_mix_percentage(declarations["background"]), surface)
+    text = _alpha_composite(
+        ok, _color_mix_percentage(declarations["color"]), tokens["--color-text"])
+    ratio = contrast_ratio(text, background)
+    assert ratio >= WCAG_AA_NORMAL_TEXT, (
+        "%s on %s: contrast_ratio(%r, %r) = %.2f, below WCAG_AA_NORMAL_TEXT (%.1f)"
+        % (theme, surface_token, text, background, ratio, WCAG_AA_NORMAL_TEXT))
+
+
 @pytest.mark.parametrize("selector", (".toast__detail", ".toast__pill"))
 @pytest.mark.parametrize("theme", ("light", "dark"))
 def test_muted_toast_text_on_toast_surface_meets_wcag_aa_normal_text(

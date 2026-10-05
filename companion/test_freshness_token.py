@@ -435,6 +435,55 @@ def test_staleness_threshold_crossed_changes_health_and_home_tokens(
     assert after_home != before_home, "expected a 2h time jump to change /"
 
 
+def _seed_charging_ramp(state_dir, interval_s=300):
+    """Twelve rising per-wake readings ending a few seconds ago, and the wake interval."""
+    now = datetime.now(timezone.utc)
+    with history_db.open_db(state_dir) as conn:
+        for i in range(12):
+            ts = now - timedelta(seconds=5 + interval_s * (11 - i))
+            history_db.record_device_health(
+                conn, ts=ts.isoformat(timespec="seconds"), battery_mv=3700 + 12 * i,
+                fw_version="1.0.0", boot_reason="timer", rssi="-60")
+    device_config.save_device_config(state_dir, wake_interval_s=interval_s)
+    return now
+
+
+def test_the_charging_verdict_ends_by_the_clock_alone(tmp_path):
+    """with no new reading, the "probably charging" verdict that feeds the freshness token goes
+    from true to false once the latest reading is older than two wakes plus a minute"""
+    from companion import freshness, page_context
+
+    now = _seed_charging_ramp(str(tmp_path))
+
+    def verdict(at):
+        ctx = page_context.coerce({
+            "state_dir": str(tmp_path), "now": at.isoformat(),
+            "device_config": {"wake_interval_s": 300}, "battery_critical": False})
+        return freshness._freshness_charging(ctx)
+
+    assert verdict(now) is True
+    assert verdict(now + timedelta(seconds=2 * 300 + 50)) is True
+    assert verdict(now + timedelta(seconds=2 * 300 + 70)) is False
+
+
+def test_the_charging_pill_going_stale_changes_the_home_and_health_tokens(
+        app_server_in_process, monkeypatch):
+    """a page showing the pill gets a new token when the clock alone makes the reading stale,
+    so the freshness loop removes the pill without a new reading or a reload"""
+    server = app_server_in_process
+    session = login(server)
+    now = _seed_charging_ramp(server.state_dir)
+    before = {route: _token(server, route, session)
+              for route in (layout.HOME_ROUTE, layout.HEALTH_ROUTE)}
+    assert "charging-pill" in _get(server, layout.HOME_ROUTE, session)[2].decode("utf-8")
+
+    later = (now + timedelta(seconds=2 * 300 + 120)).isoformat(timespec="seconds")
+    monkeypatch.setattr(history_db, "utc_now_iso", lambda: later)
+    for route, token in before.items():
+        assert _token(server, route, session) != token, route
+    assert "charging-pill" not in _get(server, layout.HOME_ROUTE, session)[2].decode("utf-8")
+
+
 def test_pipeline_run_meta_advance_changes_health_and_home_tokens(app_server_in_process):
     """META_LAST_PIPELINE_RUN advancing (while the pipeline stays "ok" throughout, so its
     derived pipeline_state category never flips) still changes both Health's own token - the

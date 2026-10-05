@@ -15,6 +15,7 @@ import companion.battery as battery
 import companion.draw as draw
 import companion.flight_card as flight_card
 import companion.frame_state as frame_state
+import companion.health_signals as health_signals
 import companion.i18n as i18n
 import companion.layout as layout
 import companion.page_context as page_context
@@ -137,6 +138,12 @@ def _recent_flights(conn, airline_names=None):
 
 def _latest_battery(conn):
     return history_db.latest_device_health(conn)
+
+
+def _recent_battery(conn):
+    # Exactly the readings charging_estimate() can use: its longest window.
+    return history_db.recent_device_health(
+        conn, limit=battery.CHARGE_RAMP_WINDOW_WAKES)
 
 
 def _direction_text(raw):
@@ -524,6 +531,14 @@ def _battery_level(ctx, percent):
     return "ok"
 
 
+def _charging_likely(ctx):
+    """Whether the recent voltage trend reads as a charge, by the shared
+    estimate at this page's own (hold-aware) cadence."""
+    rows = _safe_query(ctx.state_dir, _recent_battery)
+    return health_signals.charging_likely(
+        rows, ctx.now, ctx.device_config, ctx.battery_critical)
+
+
 def _battery_pill_html(ctx):
     """The battery dial: an open arc filled to the charge and coloured by
     level, the percentage and the word "Battery" in its middle, and for a
@@ -531,7 +546,10 @@ def _battery_pill_html(ctx):
     never rests on colour alone. Reads only the latest stored reading from
     PageContext's state directory; the percentage is the shared piecewise
     estimate. A missing reading shows words only, never an invented dial.
-    The whole block is one named image for screen readers."""
+    When the voltage trend reads as a charge, a hedged "Probably charging"
+    pill sits under the arc (and in the accessible name): an estimate, so
+    never worded as a fact. The whole block is one named image for screen
+    readers."""
     reading = _safe_query(ctx.state_dir, _latest_battery)
     if not reading or not reading.get("battery_mv"):
         return '<p class="home-battery home-battery--none text-label">%s</p>' % escape_html(
@@ -544,6 +562,9 @@ def _battery_pill_html(ctx):
         ("≈ " if percent is not None else "") + value)
     if word:
         aria = "%s, %s" % (aria, i18n.t(word).lower())
+    charging = _charging_likely(ctx)
+    if charging:
+        aria = "%s, %s" % (aria, i18n.t(layout.BATTERY_CHARGING_TEXT).lower())
     if percent is not None:
         value_html = '%d<span class="home-battery__unit">%%</span>' % percent
         status = {"ok": "ok", "low": "warn", "critical": "error"}[level]
@@ -554,11 +575,13 @@ def _battery_pill_html(ctx):
         '<p class="home-battery home-battery--%s" role="img" aria-label="%s">%s'
         '<span class="home-battery__reading">'
         '<span class="home-battery__value">%s</span>'
-        '<span class="home-battery__label">%s</span></span>%s</p>'
+        '<span class="home-battery__label">%s</span></span>%s%s</p>'
     ) % (
         level, escape_html(aria), dial, value_html, escape_html(i18n.t(BATTERY_LABEL)),
         ('<span class="home-battery__state">%s</span>' % escape_html(i18n.t(word)))
-        if word else "")
+        if word else "",
+        layout.battery_charging_pill_html("home-battery__charging")
+        if charging else "")
 
 
 def _frame_state_html(ctx):
