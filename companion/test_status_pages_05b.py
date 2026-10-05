@@ -279,7 +279,7 @@ def test_health_page_renders_byte_identical_in_english(tmp_path):
 
 
 def test_health_page_device_and_pipeline_timestamps_fully_localise_under_french(tmp_path):
-    """compute_health_state()'s device_html/device_detail_html/pipeline_html fields (and
+    """compute_health_state()'s device_detail_html/pipeline_detail_html fields (and
     health_page.render()'s own page) fully localise their timestamps under lang='fr' — no
     English month abbreviation or ' ago' survives — proving the request-language ContextVar
     is resolved at the correct point relative to when this state is computed (Polish fix 2)"""
@@ -295,7 +295,7 @@ def test_health_page_device_and_pipeline_timestamps_fully_localise_under_french(
         rendered = health_page.render(dict(shp.ctx(tmp, now_iso), health_state=state))
     finally:
         prefs.set_request_prefs(lang="en")
-    fragments = (state["device_html"], state["device_detail_html"], state["pipeline_html"], rendered)
+    fragments = (state["device_detail_html"], state["pipeline_detail_html"], rendered)
     for fragment in fragments:
         assert "sept." in fragment, "expected the French month abbreviation 'sept.' in %r" % (fragment,)
         assert " ago" not in fragment, "expected no English ' ago' in %r" % (fragment,)

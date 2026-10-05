@@ -1,5 +1,5 @@
 """Companion status-page tests: battery_sparkline_svg()'s axis/label/density
-contract, the check-in regularity grid, tile verdicts, and Paris-local-time
+contract, the check-in regularity grid, row verdicts, and Paris-local-time
 and resolution-rate copy.
 
 CSS/JS checks fetch served bytes from a running companion/app.py; everything
@@ -15,7 +15,7 @@ from companion.pages import health_page
 import companion.test_status_pages_helpers as shp
 import companion.wake as wake
 from companion_app_server import served_asset, served_stylesheet
-from companion_markup import css_rules, declarations_for, rules_with_selector
+from companion_markup import css_rules, declarations_for, parse_html, rules_with_selector
 from server import device_config, history_db
 
 _DEFAULT_DEVICE_WARN_S, _DEFAULT_DEVICE_ERROR_S = wake.device_staleness_thresholds(None)
@@ -81,14 +81,13 @@ def _seeded_regularity_page(state_dir, now, wake_interval_s=300):
     return health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
 
 
-# --- shared helper for the tile-anatomy sweep (used from Task 2 onward) ----
+# --- shared helper for the row-anatomy sweep (used from Task 2 onward) ----
 
-def _tile_slice_by_caption(rendered, caption):
-    matching = [tile for tile in shp.stat_tile_slices(rendered) if caption in tile]
-    assert len(matching) == 1, (
-        "expected exactly one .stat-tile carrying caption %r, got %d"
-        % (caption, len(matching)))
-    return matching[0]
+def _row_verdict(rendered, row_id):
+    """The row's `(data-state, verdict text)` pair."""
+    row = shp.health_row(rendered, row_id)
+    verdict = row.select_one("summary .health-row__verdict")
+    return row.attrs["data-state"], verdict.text()
 
 
 # ==========================================================================
@@ -830,7 +829,7 @@ def test_every_cell_verdict_is_the_classifiers_own_output(tmp_path):
     # AND THE PAGE COMPUTES NO INTERVAL OF ITS OWN. Read off the compiled
     # functions' own referenced names, never their source text, so a
     # docstring can neither pass nor fail this.
-    builders = [health_page._check_in_regularity_cells, health_page._check_in_regularity_section_html]
+    builders = [health_page._check_in_regularity_cells, health_page._check_in_regularity_html]
     names = set()
     for fn in builders:
         names |= set(fn.__code__.co_names)
@@ -912,11 +911,13 @@ _DISCLOSURE_CASES = [
 
 
 def _section_slice(rendered):
-    heading_marker = '<h2 class="text-heading">%s</h2>' % layout.escape_html(
+    """The regularity block inside the Frame connection row: from its subhead to
+    the start of the next row."""
+    heading_marker = '<p class="health-row__subhead">%s</p>' % layout.escape_html(
         i18n.t(health_page.CHECK_IN_SECTION_HEADING))
     start = rendered.index(heading_marker)
-    end = rendered.index("</section>", start) + len("</section>")
-    return rendered[start:end]
+    end = rendered.find('<details class="health-row"', start)
+    return rendered[start:end if end != -1 else len(rendered)]
 
 
 def _visible_caption(section_html):
@@ -1276,7 +1277,7 @@ def test_seeded_render_shows_both_the_estimate_and_the_millivolt_figure(tmp_path
     assert " mV" in value_html, "expected the millivolt figure inside the readout's value span"
 
 
-# --- Text verdicts on the Device/Pipeline/Corroboration stat tiles --------
+# --- Text verdicts on the connection / flight-data / sources rows ---------
 # (WCAG 1.4.1)
 # ----------------------------------------------------------------------
 
@@ -1285,105 +1286,82 @@ def test_seeded_render_shows_both_the_estimate_and_the_millivolt_figure(tmp_path
     ("age_s", "expected_state"),
     [(0, "ok"), (_DEFAULT_DEVICE_WARN_S + 60, "warn"), (_DEFAULT_DEVICE_ERROR_S + 60, "error")],
     ids=["ok", "warn", "error"])
-def test_device_tile_verdict_matches_state_at_each_severity(tmp_path, age_s, expected_state):
-    """the Device tile's widget-verdict paragraph matches DEVICE_STATE_TEXT
-    at each of the three severities a real health_page.render() call can
-    produce"""
+def test_connection_row_verdict_matches_state_at_each_severity(tmp_path, age_s, expected_state):
+    """the Frame connection row's verdict matches DEVICE_STATE_TEXT at each of the
+    three severities a real health_page.render() call can produce, and its
+    state attribute names the same severity"""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now - timedelta(seconds=age_s)), 4200)])
     shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
     rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
-    expected_verdict_html = '<p class="text-body widget-verdict">%s</p>' % health_page.escape_html(
-        health_page.DEVICE_STATE_TEXT[expected_state])
-    tile_slice = _tile_slice_by_caption(rendered, health_page.DEVICE_FRESHNESS_LABEL)
-    assert expected_verdict_html in tile_slice, (
-        "expected the Device tile's verdict paragraph for state %r, got tile %r" % (expected_state, tile_slice))
+    assert _row_verdict(rendered, "connection") == (
+        expected_state, health_page.DEVICE_STATE_TEXT[expected_state])
 
 
 @pytest.mark.parametrize(
     ("age_s", "expected_state"),
     [(0, "ok"), (health_page.STALE_PIPELINE_WARN_S + 30, "warn"), (health_page.STALE_PIPELINE_ERROR_S + 30, "error")],
     ids=["ok", "warn", "error"])
-def test_pipeline_tile_verdict_matches_state_at_each_severity(tmp_path, age_s, expected_state):
-    """the Pipeline tile's widget-verdict paragraph matches
-    PIPELINE_STATE_TEXT at each of the three severities a real
-    health_page.render() call can produce"""
+def test_flight_data_row_verdict_matches_state_at_each_severity(tmp_path, age_s, expected_state):
+    """the Flight data row's verdict matches PIPELINE_STATE_TEXT at each of the three
+    severities a real health_page.render() call can produce"""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
     shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now - timedelta(seconds=age_s))})
     rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
-    expected_verdict_html = '<p class="text-body widget-verdict">%s</p>' % health_page.escape_html(
-        health_page.PIPELINE_STATE_TEXT[expected_state])
-    tile_slice = _tile_slice_by_caption(rendered, health_page.PIPELINE_FRESHNESS_LABEL)
-    assert expected_verdict_html in tile_slice, (
-        "expected the Pipeline tile's verdict paragraph for state %r, got tile %r" % (expected_state, tile_slice))
+    assert _row_verdict(rendered, "flight-data") == (
+        expected_state, health_page.PIPELINE_STATE_TEXT[expected_state])
 
 
 @pytest.mark.parametrize(
     ("corroborated", "expected_state"), [(True, "ok"), (False, "warn")],
     ids=["agree", "disagree"])
-def test_corroboration_tile_verdict_matches_disagreement_state(tmp_path, corroborated, expected_state):
-    """the Corroboration tile's widget-verdict paragraph matches
-    CORROBORATION_STATE_TEXT for both the agreement and disagreement
-    states a real health_page.render() call can produce"""
+def test_sources_row_verdict_matches_disagreement_state(tmp_path, corroborated, expected_state):
+    """the Sources row's verdict matches CORROBORATION_STATE_TEXT for both the
+    agreement and disagreement states a real health_page.render() call can produce"""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
     shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
     shp.seed_runway_events(state_dir, [{"ts": shp.iso(now), "hex": "abc123", "corroborated": corroborated}])
     rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
-    expected_verdict_html = '<p class="text-body widget-verdict">%s</p>' % health_page.escape_html(
-        health_page.CORROBORATION_STATE_TEXT[expected_state])
-    tile_slice = _tile_slice_by_caption(rendered, "Corroboration")
-    assert expected_verdict_html in tile_slice, (
-        "expected the Corroboration tile's verdict paragraph for state %r, got tile %r" % (expected_state, tile_slice))
+    assert _row_verdict(rendered, "sources") == (
+        expected_state, health_page.CORROBORATION_STATE_TEXT[expected_state])
 
 
-def test_resolution_rate_tile_carries_no_verdict(tmp_path):
-    """the Resolution-rate tile deliberately carries no widget-verdict
-    paragraph"""
-    # The Resolution-rate tile is the one deliberate exception: it is
-    # passed status=None and has no status function of its own, so
-    # inventing a verdict word for it would assert a judgement this page
-    # does not make.
+def test_identification_row_carries_no_judgement(tmp_path):
+    """the Identification row is neutral: it states the rate and the number left to
+    resolve, with no pass/fail state of its own (an "ok" or "warn" row would assert
+    a pass mark this page does not define)"""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
     shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
+    shp.seed_runway_events(state_dir, [
+        {"ts": shp.iso(now), "hex": "abc%03d" % index,
+         "route_source": "miss" if index == 0 else "fresh_hit"}
+        for index in range(4)])
     rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
-    tile_slice = _tile_slice_by_caption(rendered, health_page.RESOLUTION_RATE_LABEL)
-    assert "widget-verdict" not in tile_slice, (
-        "expected the Resolution-rate tile to carry no widget-verdict paragraph, got tile %r" % (tile_slice,))
+    state, verdict = _row_verdict(rendered, "identification")
+    assert state == "off"
+    assert verdict == "75.0% of flights identified"
+    assert shp.health_row_state(rendered, "identification") == ("off", False)
 
 
-# --- One tile anatomy ------------------------------------------------------
+# --- One row anatomy -------------------------------------------------------
 #
-# The Emphasis slot is ONE element per tile, but two class names can
-# legitimately carry it: a verdict word (three tiles) and a figure (the
-# Resolution-rate tile, which carries no verdict of its own).
-# The empty form is a third, and is the compact empty_state()'s own
-# heading. The muted detail slot is the same two-way split.
-_EMPHASIS_SLOT_CLASSES = (
-    'class="%s"' % health_page._TILE_VERDICT_CLASS,
-    'class="stat-tile__value"',
-    'class="empty-state__heading text-body"',
-)
-_DETAIL_SLOT_CLASSES = (
-    'class="%s"' % health_page._TILE_DETAIL_CLASS,
-    'class="empty-state__body text-label section-caption"',
-)
+# Every row renders the same slots, in the same order: an icon (with its
+# spoken state word), a name, a verdict and a value inside the summary,
+# then the evidence in the body.
 
 
 @pytest.mark.parametrize("seed", [True, False], ids=["seeded", "fresh"])
-def test_one_tile_anatomy_across_every_health_tile(tmp_path, seed):
-    """every .stat-tile on a rendered Health page — seeded and on a fresh
-    install alike — carries exactly one label, exactly one Emphasis-role
-    element, exactly one muted detail slot, in that fixed order, and no
-    22px serif heading anywhere inside it"""
-    # Walks EVERY .stat-tile on a rendered page and asserts the four slots
-    # in their fixed order.
+def test_one_row_anatomy_across_every_health_row(tmp_path, seed):
+    """every row on a rendered Health page — seeded and on a fresh install alike —
+    carries exactly one icon, one name, one verdict and one value in its summary, in
+    that fixed order, a body, and no 22px serif heading anywhere inside it"""
     state_dir = str(tmp_path)
     now = shp.now()
     if seed:
@@ -1394,25 +1372,25 @@ def test_one_tile_anatomy_across_every_health_tile(tmp_path, seed):
             {"ts": shp.iso(now), "hex": "abc002", "route_source": "manual", "corroborated": None},
         ])
     rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
-    tiles = shp.stat_tile_slices(rendered)
-    assert len(tiles) == 4, "expected exactly 4 .stat-tile elements on Health, got %d" % len(tiles)
-    for tile in tiles:
-        captions = tile.count('class="text-label stat-tile__caption"')
-        assert captions == 1, "expected exactly one label slot per tile, got %d in %r" % (captions, tile[:200])
-        emphasis = [tile.index(token) for token in _EMPHASIS_SLOT_CLASSES if token in tile]
-        assert len(emphasis) == 1 and sum(tile.count(token) for token in _EMPHASIS_SLOT_CLASSES) == 1, (
-            "expected exactly one Emphasis-role element per tile — the 'double bold verdict' X8 "
-            "removed is two — got %r" % (tile,))
-        detail = [tile.index(token) for token in _DETAIL_SLOT_CLASSES if token in tile]
-        assert len(detail) == 1 and sum(tile.count(token) for token in _DETAIL_SLOT_CLASSES) == 1, (
-            "expected exactly one muted detail slot per tile, got %r" % (tile,))
-        caption_at = tile.index('class="text-label stat-tile__caption"')
-        assert caption_at < emphasis[0] < detail[0], (
-            "expected the label/verdict/detail slots in that fixed order, got offsets %d/%d/%d in %r"
-            % (caption_at, emphasis[0], detail[0], tile))
-        # C1/X8: never a 22px serif heading inside a tile whose own caption
-        # is 12px.
-        assert "text-heading" not in tile, "expected no serif .text-heading inside any .stat-tile, got %r" % (tile,)
+    doc = parse_html(rendered)
+    rows = doc.select("details.health-row")
+    assert [row.attrs["id"] for row in rows] == [
+        "health-row-connection", "health-row-battery", "health-row-flight-data",
+        "health-row-sources", "health-row-identification"], (
+        "expected the five rows in their fixed order (no backup row without a marker)")
+    assert not doc.select(".stat-tile"), "no stat tile may remain on Health"
+    for row in rows:
+        summary = row.select_one("summary")
+        slots = [child.attrs.get("class") for child in summary.children if hasattr(child, "attrs")]
+        assert slots == [
+            "health-row__icon", "health-row__name", "health-row__verdict", "health-row__value"], (
+            "expected the summary's four slots in order, got %r" % (slots,))
+        icon = summary.select_one(".health-row__icon")
+        assert icon.select("svg") and icon.select(".visually-hidden"), (
+            "the state needs an icon shape and a spoken word, never colour alone")
+        assert row.select_one(".health-row__body") is not None
+        assert not row.select(".text-heading"), (
+            "expected no serif .text-heading inside any row, got %r" % (row,))
 
 
 @pytest.mark.parametrize(
@@ -1436,19 +1414,19 @@ def test_only_one_saw_it_is_neutral_and_still_distinct(tmp_path, lang, agree_lab
         rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     finally:
         prefs.set_request_prefs(lang="en")
-    tile = _tile_slice_by_caption(
-        rendered, health_page.CORROBORATION_TILE_LABEL if lang == "en" else "Corroboration")
+    body = shp.health_row(rendered, "sources").select_one(".health-row__body")
+    body_html = rendered[rendered.index('id="health-row-sources"'):rendered.index('id="health-row-identification"')]
     single_row = '<span class="dot dot--off"></span><span class="dot-label">%s</span>' % single_label
-    assert single_row in tile, (
+    assert single_row in body_html, (
         "expected the single-source row to render the neutral dot with its own visible label "
-        "(%s), got tile %r" % (lang, tile))
+        "(%s), got body %r" % (lang, body.text()))
     agree_row = '<span class="dot dot--ok"></span><span class="dot-label">%s</span>' % agree_label
-    assert agree_row in tile, "expected 'Both agree' to keep the ok dot (%s), got tile %r" % (lang, tile)
+    assert agree_row in body_html, "expected 'Both agree' to keep the ok dot (%s)" % (lang,)
     assert agree_label != single_label, "expected the two labels to differ (%s)" % (lang,)
-    assert '<span class="dot dot--ok"></span><span class="dot-label">%s' % single_label not in tile, (
+    assert '<span class="dot dot--ok"></span><span class="dot-label">%s' % single_label not in body_html, (
         "expected the single-source row NEVER to take the ok dot again (%s)" % (lang,))
-    assert "dot--warn" not in tile, (
-        "expected no warn dot in a tile with no disagreement (%s) — a neutral state must not be "
+    assert "dot--warn" not in body_html, (
+        "expected no warn dot in a row with no disagreement (%s) — a neutral state must not be "
         "escalated instead of de-escalated" % (lang,))
 
 
@@ -1495,36 +1473,26 @@ def test_empty_state_default_form_is_byte_identical_and_compact_is_opt_in():
     assert "<b>" not in hostile and "<i>" not in hostile, "expected the compact form to escape both arguments"
 
 
-def test_health_in_tile_empty_states_are_compact_and_card_ones_are_not(tmp_path):
-    """on a fresh install Health's two IN-TILE empty states (Corroboration,
-    Resolution rate) use the compact form while its two full-width card
-    empty states (Battery trend, Unresolved prefixes) keep the default
-    22px serif one"""
-    # The compact form belongs to the two empty states that land INSIDE a
-    # .stat-tile. The two full-width card empty states on the same page
-    # keep the default form — the variant is a tile fix, not a page-wide
-    # restyle.
+def test_health_in_row_empty_state_is_compact_and_the_card_one_is_not(tmp_path):
+    """on a fresh install Health's IN-ROW empty state (Battery) uses the compact form
+    while its full-width card empty state (Unresolved prefixes) keeps the default 22px
+    serif one"""
+    # The compact form belongs to the empty state that lands INSIDE a row,
+    # whose own name is 12px. The full-width card empty state on the same
+    # page keeps the default form — the variant is a row fix, not a
+    # page-wide restyle.
     state_dir = str(tmp_path)
     now = shp.now()
     rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
-    tiles = shp.stat_tile_slices(rendered)
-    in_tile = [tile for tile in tiles if "empty-state" in tile]
-    assert len(in_tile) == 2, (
-        "expected exactly two in-tile empty states on a fresh install (Corroboration and "
-        "Resolution rate), got %d" % (len(in_tile),))
-    for tile in in_tile:
-        assert "empty-state--compact" in tile, "expected every in-tile empty state to use the compact form"
-    # ...and the full-card ones are untouched.
-    outside = rendered
-    for tile in tiles:
-        outside = outside.replace(tile, "")
-    default_blocks = outside.count('<div class="empty-state">')
-    assert default_blocks == 2, (
-        "expected the two full-width card empty states (Battery trend, Unresolved prefixes) to "
-        "keep the default form, got %d" % (default_blocks,))
-    assert "empty-state--compact" not in outside, (
-        "expected no compact empty state outside a .stat-tile — the variant is a tile fix, not a "
-        "page-wide restyle")
+    doc = parse_html(rendered)
+    in_row = [row for row in doc.select("details.health-row") if row.select(".empty-state")]
+    assert [row.attrs["id"] for row in in_row] == ["health-row-battery"], (
+        "expected exactly one in-row empty state on a fresh install (Battery), got %r"
+        % ([row.attrs["id"] for row in in_row],))
+    assert in_row[0].select(".empty-state--compact"), "expected the in-row empty state to use the compact form"
+    registry = doc.select_one("#" + health_page.UNRESOLVED_SECTION_ID)
+    assert registry.select(".empty-state") and not registry.select(".empty-state--compact"), (
+        "expected the full-width card empty state (Unresolved prefixes) to keep the default form")
 
 
 _RESOLUTION_SINGULAR_CASES = [
@@ -1594,9 +1562,9 @@ def test_state_text_dicts_have_expected_key_sets():
 
 def test_pipeline_never_ran_renders_neutral_no_warn_no_banner(tmp_path):
     """a genuinely never-ran pipeline (no META_LAST_PIPELINE_RUN, no
-    META_LAST_DETECTION) renders the neutral verdict with the existing
-    dot--off class, zero dot--warn, zero battery-fallback text, no second
-    detail line, and no anomaly banner when the device is healthy"""
+    META_LAST_DETECTION) renders the neutral verdict on a closed row, zero
+    dot--warn, zero battery-fallback text, no dated facts, and no anomaly banner
+    when the device is healthy"""
     # A pipeline that has genuinely never run renders the neutral "No
     # detection yet" verdict — proven against a real health_page.render()
     # call, with the device seeded healthy so only the pipeline signal is
@@ -1605,25 +1573,22 @@ def test_pipeline_never_ran_renders_neutral_no_warn_no_banner(tmp_path):
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
     rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
-    tile_slice = _tile_slice_by_caption(rendered, health_page.PIPELINE_FRESHNESS_LABEL)
-    expected_verdict_html = (
-        '<p class="text-body widget-verdict">'
-        '<span class="dot dot--off"></span>%s</p>'
-        % health_page.escape_html(health_page.PIPELINE_STATE_TEXT["off"]))
-    assert expected_verdict_html in tile_slice, "expected the never-ran neutral verdict paragraph, got tile %r" % (tile_slice,)
-    assert "dot--warn" not in tile_slice, "expected zero dot--warn occurrences in a never-ran pipeline tile"
-    assert layout.escape_html("no reading yet") not in tile_slice, "expected zero battery-fallback occurrences in a never-ran pipeline tile"
-    assert health_page.LAST_DETECTION_LABEL not in tile_slice, (
-        "expected no second 'Last aircraft detected' line in a never-ran pipeline tile — "
-        "last_detection is falsy by definition here, so that line would always render the "
-        "battery fallback")
+    assert _row_verdict(rendered, "flight-data") == ("off", health_page.PIPELINE_STATE_TEXT["off"])
+    assert shp.health_row_state(rendered, "flight-data") == ("off", False)
+    row = shp.health_row(rendered, "flight-data")
+    row_html = rendered[rendered.index('id="health-row-flight-data"'):rendered.index('id="health-row-sources"')]
+    assert "dot--warn" not in row_html, "expected zero dot--warn occurrences in a never-ran pipeline row"
+    assert layout.escape_html("no reading yet") not in row_html, "expected zero battery-fallback occurrences in a never-ran pipeline row"
+    assert health_page.LAST_DETECTION_LABEL not in row.text(), (
+        "expected no 'Last aircraft detected' fact in a never-ran pipeline row — last_detection is "
+        "falsy by definition here, so the sentence below says so instead of a dated fact")
+    assert health_page.PIPELINE_NEVER_RAN_DETAIL_TEXT in row.select_one(".health-row__body").text()
     assert health_page.ANOMALY_BANNER_TEXT not in rendered, "expected no anomaly banner for a never-ran pipeline with a healthy device"
 
 
 def test_pipeline_never_ran_renders_neutral_in_french(tmp_path):
-    """the same never-ran pipeline tile reads in French — 'Aucune détection
-    pour l’instant.', dot--off, zero dot--warn, zero French battery-
-    fallback text"""
+    """the same never-ran pipeline row reads in French — 'Aucune détection
+    pour l’instant.', zero dot--warn, zero French battery-fallback text"""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
@@ -1632,17 +1597,19 @@ def test_pipeline_never_ran_renders_neutral_in_french(tmp_path):
         rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     finally:
         prefs.set_request_prefs(lang="en")
-    tile_slice = _tile_slice_by_caption(rendered, "Dernière mise à jour des données de vol")
-    assert "Aucune détection pour l’instant." in tile_slice, "expected the French never-ran verdict text in the pipeline tile"
-    assert "dot--warn" not in tile_slice, "expected zero dot--warn occurrences in a never-ran pipeline tile under French"
-    assert "aucune mesure pour l’instant" not in tile_slice, "expected zero French battery-fallback occurrences in a never-ran pipeline tile"
+    row = shp.health_row(rendered, "flight-data")
+    assert row.select_one(".health-row__name").text() == "Données de vol"
+    assert "Aucune détection pour l’instant." in row.text(), "expected the French never-ran verdict text in the flight-data row"
+    row_html = rendered[rendered.index('id="health-row-flight-data"'):rendered.index('id="health-row-sources"')]
+    assert "dot--warn" not in row_html, "expected zero dot--warn occurrences in a never-ran pipeline row under French"
+    assert "aucune mesure pour l’instant" not in row_html, "expected zero French battery-fallback occurrences in a never-ran pipeline row"
 
 
 def test_compute_health_state_carries_pipeline_detail_html_never_ran(tmp_path):
     """compute_health_state()'s pipeline_detail_html key, for a never-ran
     pipeline, is the bare PIPELINE_NEVER_RAN_DETAIL_TEXT sentence — no
-    widget-verdict class, no PIPELINE_STATE_TEXT verdict text — embedded
-    once inside pipeline_html"""
+    widget-verdict class, no PIPELINE_STATE_TEXT verdict text — and the same
+    sentence is what the Flight data row's body shows"""
     state_dir = str(tmp_path)
     now = shp.now()
     state = health_page.compute_health_state(state_dir, now=shp.iso(now))
@@ -1655,5 +1622,6 @@ def test_compute_health_state_carries_pipeline_detail_html_never_ran(tmp_path):
     expected = health_page.escape_html(i18n.t(health_page.PIPELINE_NEVER_RAN_DETAIL_TEXT))
     assert detail_only == expected, (
         "expected pipeline_detail_html to equal the never-ran detail sentence exactly, got %r" % (detail_only,))
-    assert detail_only in state["pipeline_html"], (
-        "expected pipeline_detail_html to be the exact verdict-free fragment embedded inside pipeline_html")
+    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    assert detail_only in rendered, (
+        "expected the Flight data row to show the same verdict-free sentence Home reads")

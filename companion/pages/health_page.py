@@ -12,14 +12,16 @@ nav renderer needs to import a page module.
 The markup-free severity computation (`health_signals()` and everything
 it is built from) lives in companion/health_signals.py, imported below
 and re-exported under its historical names — this module owns only the
-markup half (the `_x_section()` tile builders, `health_state_from_signals()`
+markup half (one `_x_row()` builder per Health row, `health_state_from_signals()`
 and its `compute_health_state()`/`safe_health_state()` wrappers, which
-still need those builders and so stay here).
+still need the shared fragments and so stay here). The generic row
+components live in companion/health_rows.py.
 """
 from companion.layout import escape_html
 import companion.battery as battery
 import companion.battery_chart as battery_chart
 import companion.draw as draw
+import companion.health_rows as health_rows
 import companion.health_sections as health_sections_module
 import companion.health_signals as health_signals_module
 import companion.i18n as i18n
@@ -29,12 +31,10 @@ import companion.resolve_dialog as resolve_dialog
 import companion.prefs as prefs  # for the resolved language directly:
 # French requires a real U+00A0 before the colon (_label_colon() below),
 # not merely a translated label.
-import companion.wake as wake
 import companion.frame_state as frame_state  # the one frame-state
-# resolution — the Frame tile and the nav notification dot both consume
+# resolution — the Frame connection row and the nav notification dot both consume
 # resolve_state(), never re-deriving due/held/late from
 # device_staleness_thresholds() alone.
-from server import device_config
 from server import history_db
 from server.plane import manual_resolutions
 
@@ -46,7 +46,6 @@ from server.plane import manual_resolutions
 # number of tests still reach them as `health_page.X`.
 HEALTH_UNAVAILABLE_TEXT = health_sections_module.HEALTH_UNAVAILABLE_TEXT
 _unavailable_block = health_sections_module._unavailable_block
-_TILE_DETAIL_CLASS = health_sections_module._TILE_DETAIL_CLASS
 CHECK_IN_SECTION_HEADING = health_sections_module.CHECK_IN_SECTION_HEADING
 CHECK_IN_WINDOW_DAYS = health_sections_module.CHECK_IN_WINDOW_DAYS
 CHECK_IN_CAPTION_OBSERVED = health_sections_module.CHECK_IN_CAPTION_OBSERVED
@@ -70,6 +69,7 @@ _READ_ONLY_NOTE_DETAIL = health_sections_module._READ_ONLY_NOTE_DETAIL
 _NO_STATS_HEADING = health_sections_module._NO_STATS_HEADING
 _RESOLUTION_DETAIL_TEMPLATE = health_sections_module._RESOLUTION_DETAIL_TEMPLATE
 _RESOLUTION_DETAIL_SINGULAR_TEMPLATE = health_sections_module._RESOLUTION_DETAIL_SINGULAR_TEMPLATE
+_NO_STATS_BODY = health_sections_module._NO_STATS_BODY
 _SOURCE_ROWS = health_sections_module._SOURCE_ROWS
 _OTHER_SOURCE_LABEL = health_sections_module._OTHER_SOURCE_LABEL
 _FILTER_INPUT_ID = health_sections_module._FILTER_INPUT_ID
@@ -138,7 +138,7 @@ SOURCE_FAULT_BODY = SOURCE_FAULT_BODY_TEMPLATE % ", ".join(_ADSB_PROVIDER_NAMES)
 # this stays a literal substring of whatever renders.
 ANOMALY_BANNER_TEXT = i18n.msg(
     "health.something_needs_attention_check_the_tiles_below",
-    "Something needs attention — check the tiles below.")
+    "Something needs attention — check the rows below.")
 
 _SEVERITY_BANNER_NOUNS = {
     "warn": i18n.msg("health.warning", "warning"),
@@ -146,22 +146,17 @@ _SEVERITY_BANNER_NOUNS = {
 }  # falls back to "issue" for any severity not in this dict.
 _SEVERITY_BANNER_ISSUE_TEXT = i18n.msg("health.issue", "issue")
 
-DEVICE_FRESHNESS_LABEL = i18n.msg("health.device_last_checked_in", "Device last checked in")
 DEVICE_CONNECTION_HELP_TEXT = i18n.msg(
     "health.device_connection_help",
     "This is when the frame last contacted the server.")
-# Plain-language visible label; the technical term stays one hover away
-# via `caption_title` at the tile's stat_tile() call site below.
-PIPELINE_FRESHNESS_LABEL = i18n.msg(
-    "health.flight_data_last_updated", "Flight data last updated")
-PIPELINE_FRESHNESS_TITLE = i18n.msg(
-    "health.ads_b_pipeline_last_ran", "ADS-B pipeline last ran")
 
-CORROBORATION_TILE_LABEL = i18n.msg(
-    "health.do_the_two_data_sources_agree", "Do the two data sources agree?")
-CORROBORATION_TILE_TITLE = i18n.msg("health.corroboration", "Corroboration")
-CORROBORATION_HELP_TEXT = i18n.msg(
-    "health.source_comparison_help", "What this result means")
+# One short name per row. The identification row is named by
+# STATS_SECTION_HEADING and the backup row by _OFFBOX_BACKUP_TEXT, which
+# already say exactly that.
+ROW_CONNECTION_NAME = i18n.msg("health.row_connection", "Frame connection")
+ROW_BATTERY_NAME = i18n.msg("health.row_battery", "Battery")
+ROW_FLIGHT_DATA_NAME = i18n.msg("health.row_flight_data", "Flight data")
+ROW_SOURCES_NAME = i18n.msg("health.row_sources", "Data sources")
 
 LAST_DETECTION_LABEL = i18n.msg("health.last_aircraft_detected", "Last aircraft detected")
 
@@ -172,12 +167,10 @@ PIPELINE_NEVER_RAN_DETAIL_TEXT = i18n.msg(
     "health.the_frame_has_not_reported_a_flight_since_it",
     "The frame has not reported a flight since it started.")
 
-# A short plain-sentence verdict for each stat tile whose caption names
-# a signal but whose border colour alone was the only place the actual
-# verdict lived (WCAG 1.4.1: colour must never be the sole means of
-# conveying information). The Resolution-rate tile deliberately has no
-# sibling dict here — see render()'s own comment at that tile's
-# stat_tile() call.
+# A short plain-sentence verdict for each row whose state would otherwise
+# live only in an icon and its colour (WCAG 1.4.1: colour must never be
+# the sole means of conveying information). The identification row
+# deliberately has no sibling dict here: it makes no pass/fail judgement.
 DEVICE_STATE_TEXT = {
     "ok": i18n.msg("health.checking_in_normally", "Checking in normally"),
     "warn": i18n.msg(
@@ -186,7 +179,7 @@ DEVICE_STATE_TEXT = {
         "health.has_not_checked_in_for_a_long_time",
         "Has not checked in for a long time"),
     # A genuine fourth device state, not merely "hasn't checked in for a
-    # while": a frame the strip/tile both know is quiet-hours-held.
+    # while": a frame the strip and the row both know is quiet-hours-held.
     # Reuses the "off" token the pipeline's never-ran state and the
     # strip's held dot use, a neutral state that is never a problem. A
     # held frame is routed here only when frame_state.resolve_state()
@@ -204,6 +197,31 @@ CORROBORATION_STATE_TEXT = {
     "ok": i18n.msg("health.sources_agree", "Sources agree"),
     "warn": i18n.msg("health.sources_disagreed_recently", "Sources disagreed recently"),
 }
+
+BATTERY_STATE_TEXT = {
+    "ok": i18n.msg("health.row_battery_ok", "Level looks normal"),
+    "warn": i18n.msg("health.row_battery_warn", "Dropping faster than expected"),
+}
+BACKUP_STATE_TEXT = {
+    "ok": i18n.msg("health.row_backup_ok", "Up to date"),
+    "warn": i18n.msg("health.row_backup_warn", "Overdue"),
+}
+_NO_READINGS_VERDICT_TEXT = i18n.msg("health.row_no_readings", "No readings yet")
+_NO_CHECK_IN_TEXT = i18n.msg("health.row_no_check_in", "No check-in yet")
+_ROW_UNAVAILABLE_TEXT = i18n.msg("health.row_unavailable", "Unavailable")
+_LAST_CHECK_IN_TEXT = i18n.msg("health.row_last_check_in", "Last check-in")
+_NEXT_WAKE_TEXT = i18n.msg("health.row_next_wake", "Next wake")
+_LAST_RUN_TEXT = i18n.msg("health.row_last_run", "Last run")
+_BATTERY_VALUE_TEMPLATE = i18n.msg("health.row_battery_value", "%d%% · %d mV")
+_NO_DISAGREEMENT_TEXT = i18n.msg("health.row_no_disagreement", "No disagreement")
+_ONE_DISAGREEMENT_TEXT = i18n.msg("health.row_one_disagreement", "1 disagreement")
+_MANY_DISAGREEMENTS_TEMPLATE = i18n.msg(
+    "health.row_n_disagreements", "%d disagreements")
+_IDENTIFIED_TEMPLATE = i18n.msg(
+    "health.row_identified", "%s%% of flights identified")
+_TO_RESOLVE_TEMPLATE = i18n.msg("health.row_to_resolve", "%d to resolve")
+_NOTHING_TO_RESOLVE_TEXT = i18n.msg(
+    "health.row_nothing_to_resolve", "Nothing to resolve")
 
 # Retired: status_dot() emitted an empty first span with no accessible
 # name, so a screen reader got only the subject label, never the state.
@@ -258,40 +276,15 @@ BATTERY_SECTION_HEADING = battery_chart.BATTERY_SECTION_HEADING
 # guarded against silent drift by a cross-file check.
 BATTERY_SECTION_CLASS = "battery-trend-section"
 
-# One icon id per Health tile signal, each a member of layout.ICON_IDS.
-# The whitelist is what keeps a typo here from becoming a raw-markup
-# injection: icon_html() renders nothing for an unrecognised id, so a
-# separate check asserts each constant is a genuine ICON_IDS member.
-ICON_DEVICE = "icon-device"
-ICON_PIPELINE = "icon-pipeline"
-ICON_CORROBORATION = "icon-corroboration"
-
-# The two id-anchored sections Health's body is split into.
-# SERVER_DATA_SECTION_ID is a cross-page coupling: history_page.py links
-# to this exact anchor (#server-data) — renaming it silently breaks that
-# link.
+# The two id-anchored groups the rows card is split into.
+# SERVER_DATA_SECTION_ID is a cross-page coupling: other pages may link to
+# this exact anchor (#server-data) — renaming it silently breaks that link.
 SCREEN_SECTION_ID = "screen"
 SCREEN_SECTION_HEADING = i18n.msg("health.screen", "Screen")
 SERVER_DATA_SECTION_ID = "server-data"
 SERVER_DATA_SECTION_HEADING = i18n.msg("health.server_data", "Server & data")
-# Plain-language label; the technical term stays reachable via
-# `caption_title` at this tile's stat_tile() call site below.
-RESOLUTION_RATE_LABEL = i18n.msg("health.flights_we_could_name", "Flights we could name")
-RESOLUTION_RATE_TITLE = i18n.msg("health.route_resolution_rate", "Route resolution rate")
-
-# Keep the leading em-dash and the space after it on both descriptions:
-# that is what makes the heading and its description read as one
-# continuous phrase across the baseline-aligned `.section-intro` row.
-PAGE_PURPOSE_TEXT = i18n.msg(
-    "health.screen_status_and_server_data_quality_in_one",
-    "Screen status and server data quality, in one place.")
-SCREEN_SECTION_DESCRIPTION = i18n.msg(
-    "health.the_physical_frame_is_it_checking_in_and_how_s",
-    "— the physical frame: is it checking in, and how's the battery.")
-SERVER_DATA_SECTION_DESCRIPTION = i18n.msg(
-    "health.the_ads_b_pipeline_and_route_resolution_is_the",
-    "— the ADS-B pipeline and route resolution: is the data fresh and "
-    "trustworthy.")
+# The unresolved-prefix card's anchor: the identification row links to it.
+UNRESOLVED_SECTION_ID = "unresolved-prefixes"
 
 
 # Inline literals hoisted from the markup builders below, one constant
@@ -310,13 +303,10 @@ _TIMESTAMP_TEXT = i18n.msg("health.timestamp", "Timestamp")
 _BATTERY_MV_TEXT = i18n.msg("health.battery_mv", "Battery (mV)")
 _VIEW_READING_TEMPLATE = i18n.msg("health.view_reading", "View %d reading%s")
 _NOTHING_TO_COMPARE_YET_TEXT = i18n.msg(
-    "health.nothing_to_compare_yet", "Nothing to compare yet.")
+    "health.nothing_to_compare_yet", "Nothing to compare yet")
 _APPEARS_ONCE_RECORDED_TEXT = i18n.msg(
     "health.this_appears_once_the_frame_has_recorded_at",
     "This appears once the frame has recorded at least one flight.")
-_OFFBOX_UP_TO_DATE_TEXT = i18n.msg(
-    "health.off_box_backup_up_to_date", "Off-box backup up to date")
-_OFFBOX_OVERDUE_TEXT = i18n.msg("health.off_box_backup_overdue", "Off-box backup overdue")
 _LAST_OFFBOX_BACKUP_TEXT = i18n.msg("health.last_off_box_backup", "Last off-box backup")
 _NEVER_TEXT = i18n.msg("health.never", "never")
 _OFFBOX_BACKUP_TEXT = i18n.msg("health.off_box_backup", "Off-box backup")
@@ -399,26 +389,34 @@ health_signals = health_signals_module.health_signals
 safe_health_signals = health_signals_module.safe_health_signals
 
 
+def _next_wake_clock(signals):
+    """The local clock text of the frame's next expected wake, or None
+    when frame_state.resolve_state() cannot place one (no check-in yet,
+    or an unparseable schedule)."""
+    resolved_state = _device_resolved_state(
+        signals["next_wake_iso"], signals["effective_interval_s"],
+        signals["hold_reason"], signals["now"])
+    if resolved_state == frame_state.STATE_UNKNOWN:
+        return None
+    parsed = layout.parse_iso(signals["next_wake_iso"])
+    if parsed is None:
+        return None
+    return layout.local_clock_text(
+        parsed, now_parsed=layout.parse_iso(signals["now"]))
+
+
 def health_state_from_signals(signals):
-    """Builds every `*_html` value and `battery_caption` from
+    """Builds the markup fragments Home and the Health rows share
+    (`*_detail_html`, `battery_html`, `battery_caption`) from
     `signals["inputs"]` (a `health_signals()` snapshot), and returns
-    exactly `compute_health_state()`'s historical key set. Every state,
-    `severity` and `anomalies` value is copied straight from `signals`,
-    never recomputed here — each `_x_section()` builder is still called
-    (for its markup), but its own returned state is discarded in favour
-    of the snapshot's, so the nav-tab dot and this page's own banner can
+    exactly `compute_health_state()`'s key set. Every state, `severity`
+    and `anomalies` value is copied straight from `signals`, never
+    recomputed here, so the nav-tab dot and this page's own banner can
     never disagree.
     """
     now = signals["now"]
     inputs = signals["inputs"]
-    device_html, _device_state_unused = _device_section(
-        inputs["device_health"], now, warn_s=signals["warn_s"], error_s=signals["error_s"],
-        next_wake_iso=signals["next_wake_iso"],
-        effective_interval_s=signals["effective_interval_s"],
-        hold_reason=signals["hold_reason"])
     device_detail_html = _device_timestamp_only(inputs["device_health"], now)
-    pipeline_html, _pipeline_state_unused = _pipeline_section(
-        inputs["pipeline_ts"], inputs["last_detection"], now)
     pipeline_detail_html = _pipeline_timestamp_only(
         inputs["pipeline_ts"], inputs["last_detection"], now)
     battery_html, _battery_state_unused = _battery_section(
@@ -427,8 +425,6 @@ def health_state_from_signals(signals):
     # _battery_section() return value: that function's 2-tuple return is
     # directly unpacked by a pinned harness check.
     battery_caption = _battery_trend_caption(inputs["trend_rows"], inputs["daily_rows"])
-    corroboration_html, _disagreement_warn_unused = _corroboration_section(
-        inputs["corroboration_counts"])
     return {
         "now": now,
         "source_fault_raw": signals["source_fault_raw"],
@@ -436,20 +432,22 @@ def health_state_from_signals(signals):
         # render() reuses this rather than reading the marker a second
         # time per request.
         "offbox": signals["offbox"],
-        # The cadence the Device tile's thresholds were derived from,
+        # The cadence the connection row's thresholds were derived from,
         # published so render()'s regularity grid judges its cells
         # against the same value and can name it.
         "wake_interval_s": signals["wake_interval_s"],
-        "device_html": device_html,
+        # The raw reads the rows render their values and evidence from,
+        # so a row can never show a reading the states above were not
+        # judged on.
+        "inputs": inputs,
+        "next_wake_clock": _next_wake_clock(signals),
         "device_state": signals["device_state"],
         "device_detail_html": device_detail_html,
-        "pipeline_html": pipeline_html,
         "pipeline_state": signals["pipeline_state"],
         "pipeline_detail_html": pipeline_detail_html,
         "battery_html": battery_html,
         "battery_state": signals["battery_state"],
         "battery_caption": battery_caption,
-        "corroboration_html": corroboration_html,
         "disagreement_warn": signals["disagreement_warn"],
         "anomalies": signals["anomalies"],
         "severity": signals["severity"],
@@ -557,31 +555,6 @@ def _anomaly_banner_html(severity, anomalies):
 
 
 
-# Every .stat-tile on this page renders the same four slots, in order:
-# label (stat_tile()'s own caption), verdict (Emphasis role, exactly
-# once), detail (muted, carrying different information from the
-# verdict), optional link. The Resolution-rate tile is the one
-# exception: it makes no pass/fail judgement (status=None, no status
-# function exists), so its Emphasis slot carries the figure instead of
-# a verdict sentence; do not give it a .widget-verdict paragraph.
-_TILE_VERDICT_CLASS = "text-body widget-verdict"
-
-
-def _tile_body(verdict_html, detail_html, link_html=""):
-    """Assembles one Health tile's verdict/detail/link slots in the fixed
-    order above. Both arguments are the caller's own already-safe
-    markup, interpolated verbatim, never re-escaped. The detail is a
-    `<div>`, not a `<p>`: some tiles' detail spans multiple lines or a
-    `<details>` disclosure, and wrapping all of them in one element
-    keeps "exactly one detail slot" a checkable property.
-    """
-    html = '<p class="%s">%s</p>' % (_TILE_VERDICT_CLASS, verdict_html)
-    html += '<div class="%s">%s</div>' % (_TILE_DETAIL_CLASS, detail_html)
-    if link_html:
-        html += '<p class="stat-tile__link">%s</p>' % link_html
-    return html
-
-
 def _device_timestamp_only(device_health, now):
     """The timestamp-only half of `_device_section()`'s return value, no
     verdict paragraph. Published as `"device_detail_html"` on the
@@ -595,53 +568,6 @@ def _device_timestamp_only(device_health, now):
         return _unavailable_block()
     ts = (device_health or {}).get("ts")
     return layout.concise_timestamp_html(ts, now)
-
-
-def _device_section(
-        device_health, now, warn_s=None, error_s=None,
-        next_wake_iso=None, effective_interval_s=None, hold_reason=None):
-    """`warn_s`/`error_s` are the device's cadence-derived staleness
-    thresholds, computed once upstream and threaded through, so the
-    Device tile and the anomaly banner can't disagree on "stale".
-    `next_wake_iso`/`effective_interval_s`/`hold_reason` are
-    `wake.next_wake_status()`'s triple; `frame_state.resolve_state()` is
-    the one decision on due/held/late, with the staleness thresholds
-    kept only as the `STATE_UNKNOWN` fallback. A held frame routes to
-    the neutral "off" state, never lighting the nav dot, bounded since
-    `resolve_state()` reverts to "late" once its grace window elapses.
-    """
-    if device_health is _DB_UNAVAILABLE:
-        return _unavailable_block(), "ok"
-    if warn_s is None or error_s is None:
-        warn_s, error_s = wake.device_staleness_thresholds(None)
-    resolved_state = _device_resolved_state(
-        next_wake_iso, effective_interval_s, hold_reason, now)
-    state = _device_state(
-        device_health, now, warn_s=warn_s, error_s=error_s,
-        next_wake_iso=next_wake_iso, effective_interval_s=effective_interval_s,
-        hold_reason=hold_reason)
-    if resolved_state == frame_state.STATE_UNKNOWN:
-        detail = _device_timestamp_only(device_health, now)
-    else:
-        next_wake_parsed = layout.parse_iso(next_wake_iso)
-        next_wake_clock = layout.local_clock_text(next_wake_parsed, now_parsed=layout.parse_iso(now))
-        # The base .time-value role (not .time-value--primary, which is
-        # the Emphasis shape used on the Frame strip's own headline):
-        # this tile already carries a verdict in the Emphasis role above.
-        detail = '<span class="time-value">%s</span>' % escape_html(next_wake_clock)
-    detail += '<p class="section-caption">%s</p>' % escape_html(
-        i18n.t(DEVICE_CONNECTION_HELP_TEXT))
-    # No status dot: stat_tile()'s own caption already names the signal
-    # (DEVICE_FRESHNESS_LABEL), so a body-row dot label would repeat it.
-    # The status-coloured border and icon tint still come from `state`,
-    # and collect_anomalies() still names a stale device in the banner.
-    #
-    # The widget-verdict paragraph states the judgement on the signal;
-    # the timestamp row gives the raw detail backing it — distinct
-    # rungs, not a repeat of the caption.
-    return _tile_body(
-        escape_html(i18n.t(DEVICE_STATE_TEXT.get(state, DEVICE_STATE_TEXT["warn"]))),
-        detail), state
 
 
 def _pipeline_timestamp_only(pipeline_ts, last_detection, now):
@@ -661,34 +587,6 @@ def _pipeline_timestamp_only(pipeline_ts, last_detection, now):
     return (
         '<p class="stat-tile__meta text-label section-caption">%s %s</p>'
         % (escape_html(_label_colon(i18n.t(LAST_DETECTION_LABEL))), detection_detail))
-
-
-def _pipeline_section(pipeline_ts, last_detection, now):
-    if pipeline_ts is _DB_UNAVAILABLE:
-        return _unavailable_block(), "ok"
-    # Computed once here, through the state-only sibling, so this tile
-    # and the nav-dot severity path can never derive different verdicts
-    # from the same inputs.
-    state = _pipeline_state(pipeline_ts, last_detection, now)
-    if _pipeline_never_ran(pipeline_ts, last_detection):
-        # "off" is the app's existing token for a state that is not a
-        # problem: no "off" entry in _STAT_TILE_BORDER_CLASSES falls
-        # through to the neutral default border, and
-        # collect_anomalies()/overall_severity() treat "off" like "ok".
-        # The dot is hand-built rather than status_dot(): this verdict's
-        # text is the paragraph's own content, not a dot-label span.
-        verdict_html = (
-            '<span class="dot dot--off"></span>%s'
-            % escape_html(i18n.t(PIPELINE_STATE_TEXT["off"])))
-        detail = _pipeline_timestamp_only(pipeline_ts, last_detection, now)
-        # No second "Last aircraft detected" line: last_detection is
-        # falsy by definition here, so PIPELINE_NEVER_RAN_DETAIL_TEXT
-        # above already says so without repeating it.
-        return _tile_body(verdict_html, detail), state
-    verdict = escape_html(
-        i18n.t(PIPELINE_STATE_TEXT.get(state, PIPELINE_STATE_TEXT["warn"])))
-    detail = _pipeline_timestamp_only(pipeline_ts, last_detection, now)
-    return _tile_body(verdict, detail), state
 
 
 # _latest_numeric_battery_reading() lives in companion/health_signals.py
@@ -762,30 +660,21 @@ def _battery_readout_row_html(latest_reading, now, state):
     return '<div class="battery-readout-row">%s%s</div>' % (ring_html, readout_html)
 
 
-def _battery_trend_section_html(battery_html, state, caption=None):
-    """Wraps `_battery_section()`'s already-built markup in the
-    full-width `BATTERY_SECTION_CLASS` card section. `battery_html` is
-    already-safe markup, interpolated verbatim with no `escape_html()`
-    call. The `<h2>` carries only its short, fixed heading text; the
-    caption sits in a sibling `<p>`, so the heading never carries its
-    own qualification. `state` composes onto the section's class, so
-    the card's top edge carries `battery_status()`'s verdict.
+def _battery_body_html(battery_html):
+    """The Battery row's details: `_battery_section()`'s already-built
+    markup (ring, readout, chart, readings disclosure) inside the
+    `BATTERY_SECTION_CLASS` wrapper the chart's rules and its script key
+    off. The wrapper is modified to carry no card chrome of its own: the
+    row is the container. No range caption is rendered: the chart's own
+    axis labels name the span, and a caption beside them was retired.
+    `battery_html` is already-safe markup, interpolated verbatim.
     """
-    modifier = layout.card_status_class(BATTERY_SECTION_CLASS, state)
-    section_class = BATTERY_SECTION_CLASS + ((" " + modifier) if modifier else "")
-    heading_text = i18n.t(BATTERY_SECTION_HEADING)
-    return (
-        '<section class="%s">'
-        '<h2 class="text-heading">%s</h2>'
-        "%s"
-        "</section>"
-    ) % (
-        section_class,
-        escape_html(heading_text), battery_html)
+    return '<div class="%s %s--embedded">%s</div>' % (
+        BATTERY_SECTION_CLASS, BATTERY_SECTION_CLASS, battery_html)
 
 
 def _battery_section(trend_rows, daily_rows=None):
-    """Returns `(markup, state)` for the Battery trend tile. `state`
+    """Returns `(markup, state)` for the Battery row's details. `state`
     drives both the card-edge status modifier and
     `collect_anomalies()`'s abnormal-drop signal. The chart plots
     `daily_rows` when there are enough buckets, else falls back to raw
@@ -798,11 +687,13 @@ def _battery_section(trend_rows, daily_rows=None):
     if trend_rows is _DB_UNAVAILABLE:
         return _unavailable_block(), "ok"
     if not trend_rows:
+        # Compact: this lands inside a row, whose own name is 12px, so the
+        # full-card form's 22px serif heading would invert the hierarchy.
         return layout.empty_state(
             i18n.t(_NO_BATTERY_READINGS_YET_TEXT),
-            i18n.t(_NO_BATTERY_TELEMETRY_RECORDED_TEXT)), "ok"
+            i18n.t(_NO_BATTERY_TELEMETRY_RECORDED_TEXT), compact=True), "ok"
     # Through the state-only sibling, not a bare battery_status() call:
-    # keeps this tile's border colour and health_signals()'s severity
+    # keeps this row's state and health_signals()'s severity
     # input reading identically from the same two early-exit cases.
     state = _battery_state(trend_rows, daily_rows)
     now = history_db.utc_now_iso()
@@ -843,65 +734,6 @@ def _battery_section(trend_rows, daily_rows=None):
     # The chart, when present, comes before the collapsed table in both
     # DOM and visual order.
     return chart_block + disclosure_html, state
-
-
-def _corroboration_details_html():
-    """An optional, native help control for source-comparison wording."""
-    dl_items = "".join(
-        "<dt>%s</dt><dd>%s</dd>" % (escape_html(i18n.t(label)), escape_html(i18n.t(explanation)))
-        for _key, label, _status, explanation in _CORROBORATION_ROWS
-    )
-    return (
-        '<details class="status-help"><summary aria-label="%s">'
-        '<span aria-hidden="true">i</span><span class="visually-hidden">%s</span>'
-        '</summary>'
-        "<dl>%s</dl></details>" % (
-            escape_html(i18n.t(CORROBORATION_HELP_TEXT)),
-            escape_html(i18n.t(CORROBORATION_HELP_TEXT)),
-            dl_items)
-    )
-
-
-def _corroboration_section(counts):
-    """`(tile_body_markup, disagreement_warn)` for the Corroboration tile.
-    Builds the whole tile body, verdict included, since the verdict and
-    the three rows are one composition. `render()` derives the tile's
-    border colour from the returned `disagreement_warn` flag, so word
-    and border are keyed on one value and cannot disagree.
-    """
-    if counts is _DB_UNAVAILABLE:
-        return _unavailable_block(), False
-    counts = counts or {}
-    if not any(counts.values()):
-        # Compact variant: this renders inside a .stat-tile whose 12px
-        # caption inverts under the default form's 22px heading. Not
-        # wrapped in _tile_body() — that would add a second verdict
-        # element; the compact form already emits the same
-        # widget-verdict/widget-detail pair.
-        return layout.empty_state(
-            i18n.t(_NOTHING_TO_COMPARE_YET_TEXT),
-            i18n.t(_APPEARS_ONCE_RECORDED_TEXT),
-            compact=True), False
-
-    statuses = corroboration_status(counts)
-    rows_html = []
-    for key, label, _default_state, _explanation in _CORROBORATION_ROWS:
-        rows_html.append(
-            '<p class="text-body">%s <span class="mono">%d</span></p>'
-            % (
-                layout.status_dot(statuses[key], i18n.t(label)),
-                counts.get(key, 0) or 0,
-            )
-        )
-    # Through the state-only sibling so this tile's flag and
-    # health_signals()'s copy of it can never diverge.
-    disagreement_warn = _disagreement_warn(counts)
-    verdict_state = "warn" if disagreement_warn else "ok"
-    verdict = escape_html(
-        i18n.t(CORROBORATION_STATE_TEXT.get(
-            verdict_state, CORROBORATION_STATE_TEXT["ok"])))
-    body = _tile_body(verdict, "".join(rows_html) + _corroboration_details_html())
-    return body, disagreement_warn
 
 
 def _source_fault_block(source_fault_raw):
@@ -949,13 +781,9 @@ coverage_status = health_signals_module.coverage_status
 # below calls each of these as a bare name.
 resolution_stats = health_sections_module.resolution_stats
 _registry_section = health_sections_module._registry_section
-_stats_section_html = health_sections_module._stats_section_html
+_stats_table_html = health_sections_module._stats_table_html
 _check_in_regularity_cells = health_sections_module._check_in_regularity_cells
-_check_in_regularity_section_html = health_sections_module._check_in_regularity_section_html
-_day_band_html = health_sections_module._day_band_html
-DAY_BAND_ROW_LIMIT = health_sections_module.DAY_BAND_ROW_LIMIT
-DAY_BAND_COLLAPSED_TEXT = health_sections_module.DAY_BAND_COLLAPSED_TEXT
-_resolution_rate_tile_html = health_sections_module._resolution_rate_tile_html
+_check_in_regularity_html = health_sections_module._check_in_regularity_html
 
 
 
@@ -965,47 +793,198 @@ _resolution_rate_tile_html = health_sections_module._resolution_rate_tile_html
 _read_health_inputs = health_signals_module._read_health_inputs
 
 
-def _offbox_section_html(offbox, now):
-    """The "Off-box backup" nested page-section, or the empty string when
-    `offbox` is `None` (SKYPANE_OFFBOX_MARKER unset). `offbox` is the
-    dict `compute_health_state()` already computed via
-    `offbox_backup_status()` — never re-read from the marker here.
-    """
+# One row per subsystem. Each builder returns a complete row, whose state,
+# verdict and value are read from the same snapshot the nav dot and the
+# anomaly toast were judged on (`state` is health_state_from_signals()'s
+# dict), so no row can show a reading its own state was not computed from.
+
+def _available(value):
+    """`value`, or None when the read behind it failed (an unreadable
+    history.db arrives as the `_DB_UNAVAILABLE` sentinel)."""
+    return None if value is _DB_UNAVAILABLE else value
+
+
+def _unavailable_row(row_id, name):
+    """A neutral row for a signal whose read failed: an empty value would
+    read as "nothing recorded", which is a different statement."""
+    return health_rows.row_html(
+        row_id, "off", name, i18n.t(_ROW_UNAVAILABLE_TEXT), "", _unavailable_block())
+
+
+def _fact(label, value_html):
+    return (escape_html(i18n.t(label)), value_html)
+
+
+def _concise(ts, now):
+    return layout.concise_timestamp_html(ts, now, fallback=i18n.t(_NEVER_TEXT))
+
+
+def _age_html(ts, now, fallback=_NEVER_TEXT):
+    """The row's right-hand value for a point in time: a live relative
+    age that is already complete text with scripts blocked."""
+    return layout.relative_time_html(ts, now, fallback=i18n.t(fallback))
+
+
+def _connection_row(state, now, regularity_rows):
+    name = i18n.t(ROW_CONNECTION_NAME)
+    device_health = state["inputs"]["device_health"]
+    if device_health is _DB_UNAVAILABLE:
+        return _unavailable_row("connection", name)
+    ts = (device_health or {}).get("ts")
+    device_state = state["device_state"]
+    facts = [_fact(_LAST_CHECK_IN_TEXT, layout.concise_timestamp_html(
+        ts, now, fallback=i18n.t(_NO_CHECK_IN_TEXT)))]
+    if state["next_wake_clock"]:
+        facts.append(_fact(
+            _NEXT_WAKE_TEXT,
+            '<span class="time-value">%s</span>' % escape_html(state["next_wake_clock"])))
+    body = (
+        health_rows.facts_html(facts)
+        + health_rows.note_html(i18n.t(DEVICE_CONNECTION_HELP_TEXT))
+        + _check_in_regularity_html(regularity_rows, state["wake_interval_s"], now))
+    return health_rows.row_html(
+        "connection", device_state, name,
+        i18n.t(DEVICE_STATE_TEXT.get(device_state, DEVICE_STATE_TEXT["warn"])),
+        _age_html(ts, now, _NO_CHECK_IN_TEXT), body)
+
+
+def _battery_row(state):
+    name = i18n.t(ROW_BATTERY_NAME)
+    trend_rows = state["inputs"]["trend_rows"]
+    if trend_rows is _DB_UNAVAILABLE:
+        return _unavailable_row("battery", name)
+    latest = _latest_numeric_battery_reading(trend_rows)
+    if latest is None:
+        # `battery_html` is the empty state when there is no history.
+        return health_rows.row_html(
+            "battery", "off", name, i18n.t(_NO_READINGS_VERDICT_TEXT), "",
+            state["battery_html"])
+    millivolts, _ts = latest
+    percent = battery.battery_percent(millivolts)
+    value = (
+        i18n.t(_BATTERY_VALUE_TEMPLATE) % (percent, millivolts)
+        if percent is not None else "%d mV" % millivolts)
+    battery_state = state["battery_state"]
+    return health_rows.row_html(
+        "battery", battery_state, name,
+        i18n.t(BATTERY_STATE_TEXT.get(battery_state, BATTERY_STATE_TEXT["warn"])),
+        escape_html(value),
+        _battery_body_html(state["battery_html"]))
+
+
+def _flight_data_row(state, now):
+    name = i18n.t(ROW_FLIGHT_DATA_NAME)
+    inputs = state["inputs"]
+    if inputs["pipeline_ts"] is _DB_UNAVAILABLE:
+        return _unavailable_row("flight-data", name)
+    pipeline_ts = inputs["pipeline_ts"]
+    last_detection = _available(inputs["last_detection"])
+    pipeline_state = state["pipeline_state"]
+    if _pipeline_never_ran(pipeline_ts, last_detection):
+        # Nothing to date: the sentence says so, where two "never" facts
+        # would only repeat it.
+        body = health_rows.note_html(i18n.t(PIPELINE_NEVER_RAN_DETAIL_TEXT))
+    else:
+        body = health_rows.facts_html([
+            _fact(_LAST_RUN_TEXT, _concise(pipeline_ts, now)),
+            _fact(LAST_DETECTION_LABEL, _concise(last_detection, now)),
+        ])
+    return health_rows.row_html(
+        "flight-data", pipeline_state, name,
+        i18n.t(PIPELINE_STATE_TEXT.get(pipeline_state, PIPELINE_STATE_TEXT["warn"])),
+        _age_html(pipeline_ts, now), body)
+
+
+def _disagreements_text(count):
+    if not count:
+        return i18n.t(_NO_DISAGREEMENT_TEXT)
+    if count == 1:
+        return i18n.t(_ONE_DISAGREEMENT_TEXT)
+    return i18n.t(_MANY_DISAGREEMENTS_TEMPLATE) % count
+
+
+def _corroboration_outcomes_html(counts):
+    """The three outcomes a cycle can have, each with its dot, its count
+    and the sentence saying what it means."""
+    statuses = corroboration_status(counts)
+    items = []
+    for key, label, _default_state, explanation in _CORROBORATION_ROWS:
+        items.append(
+            '<li><p class="health-row__outcome">%s'
+            '<span class="mono">%d</span></p>%s</li>' % (
+                layout.status_dot(statuses[key], i18n.t(label)),
+                counts.get(key, 0) or 0,
+                health_rows.note_html(i18n.t(explanation))))
+    return '<ul class="health-row__outcomes">%s</ul>' % "".join(items)
+
+
+def _sources_row(state):
+    name = i18n.t(ROW_SOURCES_NAME)
+    counts = state["inputs"]["corroboration_counts"]
+    if counts is _DB_UNAVAILABLE:
+        return _unavailable_row("sources", name)
+    counts = counts or {}
+    if not any(counts.values()):
+        return health_rows.row_html(
+            "sources", "off", name, i18n.t(_NOTHING_TO_COMPARE_YET_TEXT), "",
+            health_rows.note_html(i18n.t(_APPEARS_ONCE_RECORDED_TEXT)))
+    verdict_state = "warn" if state["disagreement_warn"] else "ok"
+    return health_rows.row_html(
+        "sources", verdict_state, name,
+        i18n.t(CORROBORATION_STATE_TEXT[verdict_state]),
+        escape_html(_disagreements_text(counts.get("False", 0) or 0)),
+        _corroboration_outcomes_html(counts))
+
+
+def _percent_text(percent):
+    """`percent` to one decimal, with the decimal comma in French."""
+    text = "%.1f" % percent
+    return text.replace(".", ",") if prefs.current_lang() == "fr" else text
+
+
+def _identification_row(stats, unresolved_count):
+    name = i18n.t(STATS_SECTION_HEADING)
+    if stats is _DB_UNAVAILABLE:
+        return _unavailable_row("identification", name)
+    to_resolve = escape_html(
+        i18n.t(_TO_RESOLVE_TEMPLATE) % unresolved_count
+        if unresolved_count else i18n.t(_NOTHING_TO_RESOLVE_TEXT))
+    link = '<p class="health-row__note"><a class="text-link" href="#%s">%s</a></p>' % (
+        UNRESOLVED_SECTION_ID, escape_html(i18n.t(UNRESOLVED_SECTION_HEADING)))
+    if stats["total"] == 0:
+        return health_rows.row_html(
+            "identification", "off", name,
+            i18n.t(_NO_STATS_HEADING) % RESOLUTION_WINDOW_DAYS, to_resolve,
+            health_rows.note_html(i18n.t(_NO_STATS_BODY)) + link)
+    template = (
+        _RESOLUTION_DETAIL_SINGULAR_TEMPLATE if stats["total"] == 1
+        else _RESOLUTION_DETAIL_TEMPLATE)
+    percent = stats["resolved_pct"]
+    # The rate is a figure with no pass mark, so its row stays neutral and
+    # its ring is drawn in ink, never in a status colour.
+    return health_rows.row_html(
+        "identification", "off", name,
+        i18n.t(_IDENTIFIED_TEMPLATE) % _percent_text(percent),
+        health_rows.ring_html(percent / 100.0) + to_resolve,
+        health_rows.note_html(
+            i18n.t(template) % (RESOLUTION_WINDOW_DAYS, stats["total"]))
+        + link + _stats_table_html(stats))
+
+
+def _backup_row(offbox, now):
+    """The off-box backup row, or "" when no marker is configured."""
     if offbox is None:
         return ""
-    state = offbox["state"]
-    modifier = layout.card_status_class("page-section", state)
-    card_class = "page-section page-section--nested" + (
-        (" " + modifier) if modifier else "")
-    label = (
-        i18n.t(_OFFBOX_UP_TO_DATE_TEXT) if state == "ok"
-        else i18n.t(_OFFBOX_OVERDUE_TEXT))
-    # concise_timestamp_html() returns pre-escaped markup; wrapping it in
-    # escape_html() again would double-encode it and print raw tags.
-    last_backup_html = (
-        '<p>%s %s</p>'
-        % (
-            escape_html(_label_colon(i18n.t(_LAST_OFFBOX_BACKUP_TEXT))),
-            layout.concise_timestamp_html(
-                offbox["snapshot_ts"], now, fallback=i18n.t(_NEVER_TEXT)),
-        )
-    )
-    warn_html = ""
+    backup_state = offbox["state"]
+    body = health_rows.facts_html([
+        _fact(_LAST_OFFBOX_BACKUP_TEXT, _concise(offbox["snapshot_ts"], now))])
     anomaly_text = _offbox_anomaly_text(offbox)
     if anomaly_text:
-        warn_html = '<p class="text-body">%s</p>' % escape_html(anomaly_text)
-    return (
-        '<section class="%s"><h2 class="text-heading">%s</h2>'
-        '<p class="text-body">%s</p>%s%s</section>'
-    ) % (
-        card_class,
-        escape_html(i18n.t(_OFFBOX_BACKUP_TEXT)),
-        layout.status_dot(state, label),
-        last_backup_html,
-        warn_html,
-    )
-
-
+        body += health_rows.note_html(anomaly_text)
+    return health_rows.row_html(
+        "backup", backup_state, i18n.t(_OFFBOX_BACKUP_TEXT),
+        i18n.t(BACKUP_STATE_TEXT.get(backup_state, BACKUP_STATE_TEXT["warn"])),
+        _age_html(offbox["snapshot_ts"], now), body)
 
 
 # Health refreshes itself on a named-interval, visibility-gated timer (see
@@ -1038,14 +1017,6 @@ def render(ctx):
     # Reuse the state build_page_context() already computed, rather than
     # re-deriving it. Falls back to a fresh compute for a direct caller.
     state = ctx.health_state or compute_health_state(state_dir, now)
-    source_fault_raw = state["source_fault_raw"]
-
-    device_html, device_state = state["device_html"], state["device_state"]
-    pipeline_html, pipeline_state = state["pipeline_html"], state["pipeline_state"]
-    battery_html, battery_state = state["battery_html"], state["battery_state"]
-    battery_caption = state["battery_caption"]
-    corroboration_html, disagreement_warn = (
-        state["corroboration_html"], state["disagreement_warn"])
 
     severity = state["severity"]
     anomalies = state["anomalies"]
@@ -1059,6 +1030,10 @@ def render(ctx):
         registry_rows = unresolved_rows(state_dir)
     stats = _safe_query(
         state_dir, lambda conn: resolution_stats(conn, RESOLUTION_WINDOW_DAYS))
+    # A prefix the owner has just named leaves the table at once, rather
+    # than lingering until the next poll prunes the registry.
+    named_prefixes = manual_resolutions.load_manual_resolutions(state_dir) if state_dir else {}
+    registry_rows = [row for row in registry_rows if row[0] not in named_prefixes]
 
     # Window is one day wider than the grid draws: `since` compares a
     # UTC-ish `ts` against Europe/Paris day buckets, and a Paris day
@@ -1067,75 +1042,33 @@ def render(ctx):
         state_dir,
         lambda conn: history_db.check_in_gaps(
             conn, since=_cutoff_iso(now, CHECK_IN_WINDOW_DAYS + 1)))
-    # The Today band's own bounded read: newest rows first, so a limit
-    # below a day's check-ins would silently shorten the day.
-    day_rows = _safe_query(
-        state_dir,
-        lambda conn: history_db.recent_device_health(conn, limit=DAY_BAND_ROW_LIMIT))
-    # Membership, not .get() with a default: None is a legitimate value
-    # here (cadence cannot be determined).
-    if "wake_interval_s" in state:
-        wake_interval_s = state["wake_interval_s"]
-    else:
-        wake_interval_s = wake.effective_wake_interval_s(
-            device_config.load_device_config(state_dir))
 
-    device_tile_html = layout.stat_tile(
-        i18n.t(DEVICE_FRESHNESS_LABEL), device_html, device_state, icon=ICON_DEVICE)
-
-    # Same expression that keys the Corroboration tile's verdict text,
-    # so word and border colour can't disagree.
-    corroboration_state = "warn" if disagreement_warn else "ok"
-    server_data_tiles_html = (
-        layout.stat_tile(
-            i18n.t(PIPELINE_FRESHNESS_LABEL), pipeline_html, pipeline_state,
-            icon=ICON_PIPELINE, caption_title=i18n.t(PIPELINE_FRESHNESS_TITLE))
-        + layout.stat_tile(
-            i18n.t(CORROBORATION_TILE_LABEL), corroboration_html,
-            corroboration_state, icon=ICON_CORROBORATION,
-            caption_title=i18n.t(CORROBORATION_TILE_TITLE))
-        # Resolution-rate tile passes status=None: no status function
-        # exists for it, so it carries no pass/fail verdict.
-        + layout.stat_tile(
-            i18n.t(RESOLUTION_RATE_LABEL), _resolution_rate_tile_html(stats), None,
-            caption_title=i18n.t(RESOLUTION_RATE_TITLE))
-    )
-
-    # Screen wraps the Device tile in its own dashboard-grid for the
-    # margin-bottom a bare stat-tile lacks. Server & data holds the
-    # three-tile grid plus the migrated full-width cards.
-    screen_section_html = (
-        layout.section_intro_html(SCREEN_SECTION_ID, i18n.t(SCREEN_SECTION_HEADING), "")
-        + '<div class="dashboard-grid">' + device_tile_html + '</div>'
-        + _battery_trend_section_html(battery_html, battery_state, battery_caption)
-        # The regularity grid belongs to Screen, not Server & data: it
-        # reflects the frame's own check-ins, under the Device tile
-        # whose definition of "late" it shares.
-        + _check_in_regularity_section_html(regularity_rows, wake_interval_s, now)
-        + _day_band_html(day_rows, now, ctx.device_config)
-    )
-    # A prefix the owner has just named leaves the table at once, rather
-    # than lingering until the next poll prunes the registry.
-    named_prefixes = manual_resolutions.load_manual_resolutions(state_dir) if state_dir else {}
-    registry_rows = [row for row in registry_rows if row[0] not in named_prefixes]
-    registry_class = "page-section page-section--nested"
-    server_data_section_html = (
-        layout.section_intro_html(SERVER_DATA_SECTION_ID, i18n.t(SERVER_DATA_SECTION_HEADING), "")
-        + '<div class="dashboard-grid">' + server_data_tiles_html + '</div>'
-        + '<section class="%s"><h2 class="text-heading">%s</h2>%s</section>' % (
-            registry_class, escape_html(i18n.t(UNRESOLVED_SECTION_HEADING)),
-            _registry_section(registry_rows, now))
-        + _offbox_section_html(state.get("offbox"), now)
-        + _stats_section_html(stats)
-    )
+    screen_rows = (
+        _connection_row(state, now, regularity_rows) + _battery_row(state))
+    server_rows = (
+        _flight_data_row(state, now) + _sources_row(state)
+        + _identification_row(stats, len(registry_rows))
+        + _backup_row(state.get("offbox"), now))
+    rows_card_html = health_rows.card_html(
+        health_rows.group_html(
+            SCREEN_SECTION_ID, i18n.t(SCREEN_SECTION_HEADING), screen_rows)
+        + health_rows.group_html(
+            SERVER_DATA_SECTION_ID, i18n.t(SERVER_DATA_SECTION_HEADING), server_rows))
+    # The registry sits below the rows card: the table is the long part
+    # of the page, and the verdicts above it are what a glance is for.
+    registry_html = (
+        '<section id="%s" class="page-section page-section--nested">'
+        '<h2 class="text-heading">%s</h2>%s</section>' % (
+            UNRESOLVED_SECTION_ID, escape_html(i18n.t(UNRESOLVED_SECTION_HEADING)),
+            _registry_section(registry_rows, now)))
 
     return (
         '<div class="status-page">'
         + layout.page_header(i18n.t(_NAV_HEALTH_TEXT))
-        + _source_fault_block(source_fault_raw)
+        + _source_fault_block(state["source_fault_raw"])
         + banner_html
-        + screen_section_html
-        + server_data_section_html
+        + rows_card_html
+        + registry_html
         + _resolve_dialog_html(ctx, registry_rows)
         + "</div>"
     )

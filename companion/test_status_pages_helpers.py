@@ -12,7 +12,7 @@ from server import history_db
 from server.plane import manual_resolutions
 import server.state_store as state_store
 from companion_app_server import served_stylesheet
-from companion_markup import css_rules
+from companion_markup import css_rules, parse_html
 
 __test__ = False
 
@@ -105,6 +105,19 @@ def stat_tile_slices(rendered):
         else:
             raise AssertionError("unbalanced .stat-tile markup at offset %d" % (start,))
     return slices
+
+
+def health_row(rendered, row_id):
+    """The parsed `<details>` for one Health row (`connection`, `battery`,
+    `flight-data`, `sources`, `identification`, `backup`), or raises
+    LookupError when the page renders no such row."""
+    return parse_html(rendered).select_one("#health-row-%s" % row_id)
+
+
+def health_row_state(rendered, row_id):
+    """`(data-state, is_open)` for one Health row."""
+    row = health_row(rendered, row_id)
+    return row.attrs["data-state"], "open" in row.attrs
 
 
 def served_css_rules(server):
