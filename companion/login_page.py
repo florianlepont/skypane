@@ -115,6 +115,8 @@ def login_body(error=None, lockout_seconds=None, next_route=None):
     on lockout (the typed value isn't what's wrong).
     """
     parts = [
+        # Decorative: the h1 beside it names the page.
+        layout.logo_mark_html(40),
         '<h1 class="page-title">SkyPane</h1>',
         '<p class="text-body">%s</p>' % layout.escape_html(i18n.t(LOGIN_EXPLANATION_TEXT)),
     ]

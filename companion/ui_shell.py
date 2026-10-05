@@ -22,6 +22,8 @@ from companion.ui_base import (
     FLASH_SLOT_MARKER,
     FRESHNESS_SCRIPT_SRC,
     ICON_DEFS_HTML,
+    icon_html,
+    LOGO_MARK_CLASS,
     LIST_FILTER_SCRIPT_SRC,
     LOGIN_CARD_SCRIPT_SRC,
     NAV_DROPDOWN_SCRIPT_SRC,
@@ -268,12 +270,12 @@ PAGE_SHELL_TEMPLATE = (
     "{icon_defs}\n"
     '<div class="dashboard-shell">\n'
     '<aside class="dashboard-sidebar">\n'
-    '<span class="site-title sidebar-title">{site_title}</span>\n'
+    '<span class="brand">{brand_mark}<span class="site-title sidebar-title">{site_title}</span></span>\n'
     "{sidebar}\n"
     "{sidebar_footer}\n"
     "</aside>\n"
     '<header class="site-header">\n'
-    '<span class="site-title">{site_title}</span>\n'
+    '<span class="brand">{brand_mark}<span class="site-title">{site_title}</span></span>\n'
     "{mobile_nav}\n"
     "</header>\n"
     '<main class="page-content dashboard-main" id="{main_id}" tabindex="-1">\n'
@@ -350,6 +352,8 @@ def page_shell(
         "title": escape_html(title),
         "site_title": escaped_site_title,
         "favicon_link": FAVICON_LINK_HTML,
+        # Decorative: the adjacent site-title text stays the accessible name.
+        "brand_mark": icon_html("icon-logo", size=28, extra_class=LOGO_MARK_CLASS),
         "body_attrs": body_attrs,
         "skip_link": skip_link_html,
         "icon_defs": ICON_DEFS_HTML,

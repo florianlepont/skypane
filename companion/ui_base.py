@@ -581,6 +581,32 @@ ICON_IDS = ICON_IDS + (
     "icon-plane",
 )
 
+# The SkyPane brand mark (32x32 viewBox, unlike the 20x20 glyphs): an "S"
+# in a portrait pane whose top-right corner is open, with one accent flick
+# leaving through the gap.
+ICON_IDS = ICON_IDS + (
+    "icon-logo",
+)
+
+# The brand mark's geometry on a 32x32 box, shared by the `icon-logo` sprite
+# symbol and the login page's inline copy (login_shell() carries no sprite).
+# Ink is currentColor; the flick carries LOGO_ACCENT_CLASS, which
+# companion/static/style.css binds to --color-accent. The pane is portrait
+# 20x28 (the panel is 3:4) with its top-right corner left open.
+LOGO_ACCENT_CLASS = "logo-accent"
+LOGO_MARK_BODY = (
+    '<g fill="none" stroke="currentColor" stroke-width="2.2" '
+    'stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M17 2H10A4 4 0 0 0 6 6V26A4 4 0 0 0 10 30H22A4 4 0 0 0 26 26V15"/>'
+    '<path d="M20.6 14.2C20.6 12.2 18.7 11 16 11C13.2 11 11.4 12.3 11.4 14.4'
+    'C11.4 16.6 13.6 17.4 16 18.2C18.8 19.1 20.8 20 20.8 22.3'
+    'C20.8 24.4 18.8 25.6 16 25.6C13.3 25.6 11.4 24.6 11.1 22.4"/>'
+    '<path class="' + LOGO_ACCENT_CLASS + '" d="M20.8 9.2L28.2 1.8"/>'
+    "</g>"
+)
+LOGO_MARK_CLASS = "logo-mark"
+
+
 # One shared inline sprite, emitted once per document by page_shell().
 # This sprite must never move inside a conditionally rendered region: a
 # <use> referencing a symbol that isn't in the DOM at all (not merely
@@ -809,9 +835,10 @@ ICON_DEFS_HTML = (
     'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M7.5 5L4 8.5 7.5 12"/><path d="M4 8.5h7.5a4 4 0 0 1 0 8H9"/>'
     "</symbol>"
+    '<symbol id="icon-logo" viewBox="0 0 32 32">%s</symbol>'
     "</defs>"
     "</svg>"
-)
+) % LOGO_MARK_BODY
 
 # The tint class stat_tile() adds to its own icon instance. Its
 # counterpart is companion/static/style.css's `.stat-tile__icon` rule —
@@ -847,18 +874,18 @@ NAV_ICON_IDS = {
 # has the two literals drift apart.
 SKIP_LINK_TARGET_ID = "main-content"
 
-# A zero-external-dependency local favicon — a data URI needs neither a
-# new static file nor a new route. #B13F16 is the light-mode
-# --color-accent token. Held as its own module constant so
-# login_shell() can reuse this exact literal without duplicating it.
+# The browser-tab icon is the logo's own tile (accent pane, knocked-out
+# glyph), a fixed file rather than a theme-aware one: Safari ignores
+# prefers-color-scheme inside SVG favicons and the tile must read on any tab
+# strip. The apple-touch-icon is a pre-rendered PNG (iOS rejects SVG).
+# Both routes live in companion/static_files.py. Held as one constant so
+# page_shell() and login_shell() emit exactly the same links.
+FAVICON_ROUTE = "/static/favicon.svg"
+APPLE_TOUCH_ICON_ROUTE = "/static/apple-touch-icon.png"
 FAVICON_LINK_HTML = (
-    '<link rel="icon" href="data:image/svg+xml,'
-    '%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 20 20%27%3E'
-    '%3Crect width=%2720%27 height=%2720%27 rx=%274%27 fill=%27%23B13F16%27/%3E'
-    '%3Ctext x=%2710%27 y=%2714%27 text-anchor=%27middle%27 '
-    'font-family=%27Georgia,serif%27 font-size=%2712%27 fill=%27%23FFFFFF%27'
-    '%3ES%3C/text%3E%3C/svg%3E">'
-)
+    '<link rel="icon" type="image/svg+xml" href="%s">\n'
+    '<link rel="apple-touch-icon" href="%s">'
+) % (FAVICON_ROUTE, APPLE_TOUCH_ICON_ROUTE)
 
 # The dot's own class, layered on top of the existing .dot/.dot--error
 # classes rather than a new colour. Its counterpart is
@@ -876,6 +903,16 @@ HEALTH_ALERT_SUFFIX_TEXT = i18n.msg("nav.attention_needed", " — attention need
 # page_shell() swaps it for the flash banner when present, and strips any
 # leftover occurrence unconditionally before the response is returned.
 FLASH_SLOT_MARKER = "<!--flash-slot-->"
+def logo_mark_html(size=28):
+    """The brand mark as a self-contained decorative `<svg>`, for pages
+    without the icon sprite (the login card). Same geometry as the
+    `icon-logo` symbol."""
+    return (
+        '<svg class="%s" width="%d" height="%d" viewBox="0 0 32 32" '
+        'aria-hidden="true" focusable="false">%s</svg>'
+    ) % (LOGO_MARK_CLASS, size, size, LOGO_MARK_BODY)
+
+
 def icon_html(icon_id, size=20, extra_class=""):
     """A `<svg>` referencing one symbol from ICON_DEFS_HTML via `<use>`, or
     "" when `icon_id` is not a member of ICON_IDS.
