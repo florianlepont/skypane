@@ -630,8 +630,10 @@ the owner on 2026-10-05. Run one's sections above are unchanged.
 
 **Confirmed values:** cadence 60 s; ceiling 21 days; thresholds 0.95 / 3 /
 100 mV / 3400 mV unchanged; same pack and firmware family, firmware frozen
-for the whole run; display enabled and no quiet hours; `boot_count_start`
-recorded before unplugging; production wake interval restored afterwards and
+for the whole run; display enabled and no quiet hours; the frame is never
+connected to a computer during the study, so `boot_count_start` and
+`boot_count_end` are optional (section 9); production wake interval restored
+afterwards and
 recorded; park-window rule as in section 5; continuity gates judged against
 the frozen reference interval of section 4a, not against the bare 60 s.
 
@@ -669,9 +671,30 @@ Both come from `hardware/PHASE34-HARDWARE-SESSION.md`, not from run two:
 Configured wake interval: **60 s** (the Device setting's minimum, 5x faster
 than run one), set through the companion Device wake-interval setting with no
 SSH edit. The value actually in force is recorded as `interval_s`, never a
-remembered constant. After saving, the device only learns the new value at
-its next wake, so the owner confirms on the console that a wake logs
-`sleep_s=60` before unplugging USB.
+remembered constant.
+
+**Confirming that the device took 60 s, with no cable and no console.** The
+device only learns the new value at its next wake, which still happens after
+the old interval. The owner therefore saves 60 s on the Device page while the
+frame is still on USB power, waits one old interval plus a minute, and then
+checks the server history rather than the device: with the run-one read-only
+remote query (the same channel as section 12) the poll timestamps after that
+point must show a poll-to-poll gap of at least 60 s and not much more than
+100 s. The expected range is about 62 s for a wake with no panel refresh and
+up to about 100 s for one with a refresh (section 2 below; mean about 88 s).
+The discriminator is the shortest gap: with 60 s in force no gap can fall
+below 60 s (the sleep alone is 60 s), while the old setting gives gaps near
+its own interval plus the same overhead (for a 30 s production interval,
+about 32 s for a no-change wake). If a gap is still below 60 s after two old
+intervals, or several gaps are near the old interval, the device did not take
+the value: check the Device page and wait one more wake; do not unplug until
+it shows. What the companion itself shows is weaker evidence and is only a
+hint: the Home headline reads "Next update in ..." as a countdown computed
+from the saved interval, and the Health battery chart plots each reading with
+its time; neither displays the poll-to-poll gap, and the chart's time
+resolution at about 88 s was not verified. The server history is the check
+of record. The rows from this check lie before `disconnect_time_utc` and are
+left out of the run export, which starts at the disconnect.
 
 **The effective cadence is not 60 s.** The firmware starts its sleep timer
 after the work, so the poll-to-poll gap is `sleep_s` plus the awake time. Run
@@ -838,6 +861,12 @@ hide them:
    may differ from run one (section 1, second caveat). No static-image
    workaround is used to control it: the study keeps the normal poll
    workload. The gap distribution in the raw export is the only evidence.
+3. **Run two probably has no third cycle-count witness.** The frame stays off
+   the computer, so the NVS boot-counter delta is likely `not computable`
+   (section 9), as in run one. The cycle count rests on two witnesses, nominal
+   from the elapsed span over the reference interval and observed polls, and
+   a model fit must not assume a third one exists. The firmware is not
+   changed to report it (section 9).
 
 ### 5. Park window rule (D-10, confirmed)
 
@@ -909,9 +938,26 @@ Three witnesses: nominal from the elapsed span over the reference interval
 (`reference_interval_s`, frozen as in section 4a; the configured `interval_s`
 is reported beside it), observed
 polls in the exported `device_health` rows, and the NVS `boot_count=` delta.
-`boot_count_start` MUST be read off the console wake line before the cable
-comes out: run one failed to capture it and lost the third witness. If it is
-not captured, the witness is reported as not computable and never estimated.
+
+**The third witness is optional.** The owner does not plug the frame into a
+computer during the study, and `boot_count=` is only visible on the serial
+console. `boot_count_start` and `boot_count_end` are therefore optional
+params: when either is missing the tool reports the boot witness as
+`not computable: <which> not recorded`, adds no boot check to the continuity
+verdict and never estimates the count (the same outcome as run one, which did
+not capture `boot_count_start`). The other two witnesses stand: nominal from
+the elapsed span over the reference interval, and observed polls in the
+server log. A boot count may still be recorded if the owner happens to read
+it, never otherwise.
+
+Why the firmware is not changed to report `boot_count` in the poll headers:
+that would change the frozen firmware baseline (D-07: a different
+`fw_version`, so the run would no longer be on the firmware this protocol
+freezes), require flashing
+the board over USB from a computer, and need a server change as well, since
+`X-Boot-Count` is not among the telemetry headers the history store keeps.
+Reconciliation with two witnesses is the accepted cost.
+
 Scale: about 980 to 1390 cycles per day, so a 3 to 12 day run is about 3000
 to 17000 rows, against 3252 in run one.
 
@@ -920,6 +966,23 @@ to 17000 rows, against 3252 in run one.
 Pack fully charged; polarity re-checked against `hardware/BOM.md` immediately
 before connection; protection circuit confirmed; pack inspected before any
 recharge after depletion.
+
+**Where USB power is still needed.** Only for charging: (1) charging the pack
+fully before the run, with the frame left on USB power until the battery
+reading on the server side shows the charge plateau; (2) recharging after the
+run, after the required inspection. Neither step needs a computer, and the
+frame is never plugged into one during the study. Documented: run one's pack
+was charged on the board through the USB-C cable and reached a stable
+charge plateau of about 4120 mV (4122 mV on the charger) about 2 h 50 min
+after connection, with USB left connected (run one's Run Conditions); that
+plateau, seen in the server's battery readings, is the owner's "fully
+charged" evidence. Assumed, not verified in this repository: that the board's
+charging circuit accepts any USB 5 V source (a wall charger or a power bank),
+not only a computer's port. `hardware/BOM.md` only records that the cable
+carries data and says nothing about the charge source; run one's source is not
+documented. The owner confirms the assumption on the first charge: if the
+battery reading does not rise to the plateau on the chosen charger, use
+another source before connecting the study.
 
 ### 11. Restore production (D-09)
 

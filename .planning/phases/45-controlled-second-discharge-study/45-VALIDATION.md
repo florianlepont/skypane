@@ -22,7 +22,8 @@ created: 2026-10-03
 | CONTEXT | D-05 cadence 60 s (CONFIRMED 2026-10-05) | Covered | 45-01, 45-03 Task 1 |
 | CONTEXT | D-06 ceiling 21 days (CONFIRMED 2026-10-05) | Covered | 45-01, 45-03 Task 3 |
 | CONTEXT | D-07 firmware/server baseline, invalid on change (CONFIRMED) | Covered | 45-01, 45-02 baseline verdict, 45-03 Task 3 |
-| CONTEXT | D-08 three-way cycle reconciliation (CONFIRMED) | Covered | 45-02, 45-03 (boot_count_start), 45-04 |
+| CONTEXT | D-08 three-way cycle reconciliation (CONFIRMED; amended by D-13: the boot witness is optional and expected to be `not computable`) | Covered with two witnesses | 45-02, 45-03, 45-04 |
+| OWNER | D-13 offline owner procedure: no computer during the study; interval confirmed server-side; USB power only for the first charge and the post-inspection recharge | Recorded in the Protocol (sections 2, 9, 10) | 45-01 protocol, 45-03 Task 1/4 |
 | CONTEXT | D-09 restore production interval (CONFIRMED) | Covered | 45-03 Task 4/5 |
 | PLANNER | D-10 park-window rule for the BATTERY EMPTY park at 3300 mV (CONFIRMED 2026-10-05) | Covered | 45-01, 45-02 |
 | PLANNER | D-11 reference interval for the continuity gates at 60 s (was O-1; CONFIRMED 2026-10-05, option 3: mean gap of the first 48 h, gaps above 3x excluded, whole seconds, frozen before the verdict) | Covered; tool implemented, freeze pending the run | 45-01 protocol 4a, 45-03 Task 3 (48 h freeze), 45-04 Task 0 (implemented) |
@@ -52,5 +53,5 @@ Deferred ideas (solar, image-download/refresh energy) are not planned.
 | Behaviour | Why manual |
 |---|---|
 | Physical discharge, charge, polarity, protection, inspection | Real lithium cell |
-| Reading boot_count off the console, reading Device page values, restoring production interval | Device/companion actions |
+| Reading Device page values, confirming the 60 s gaps from the server history, charging, restoring production interval | Device/companion actions; no console reading (boot counts optional) |
 | Saving the VPS history.db export | Executor has no VPS access |

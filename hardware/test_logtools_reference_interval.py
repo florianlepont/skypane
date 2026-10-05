@@ -317,3 +317,19 @@ def test_helper_value_feeds_run_report_unchanged(tmp_path):
     proc, report, _ = run_report(tmp_path, offsets, reference_params(value))
     assert proc.returncode == 0, proc.stdout
     assert by_prefix(report, "frozen reference interval")["status"] == "PASS"
+
+
+def test_missing_boot_counts_are_not_computable_and_never_estimated(tmp_path):
+    params = reference_params(88, boot_count_start=None, boot_count_end=None)
+    proc, report, _ = run_report(tmp_path, steady(88), params)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    rec = report["reconciliation"]
+    assert rec["boot_delta"] is None
+    assert rec["boot_delta_status"] == (
+        "not computable: boot_count_start and boot_count_end not recorded")
+    assert rec["boot_vs_observed_full"] is None
+    assert rec["nominal"] == pytest.approx(5 * DAY / 88, rel=1e-3)
+    assert rec["observed_normal"] == report["export"]["row_count"]
+    assert not [c for c in report["verdicts"]["continuity"]["checks"]
+                if "boot-counter" in c["name"]]
+    assert "boot-delta=not computable" in proc.stdout
