@@ -617,39 +617,81 @@ listed in `260923-fr4-SUMMARY.md`, not by a physical device.
 
 ## Run 2 Protocol (pre-registered)
 
-Status: PROPOSED - awaiting owner confirmation; the pack must not be connected until this reads CONFIRMED
+Status: CONFIRMED by the owner 2026-10-05, except section 4a, which is
+PROPOSED (owner to confirm) and must be answered before the pack is
+connected.
 
 This section is written before the pack is connected and before any run-two
-measurement exists. Nothing below is a result. The cadence, ceiling,
-park-window rule (D-10), baseline rule and restore rule are proposals; the
-owner confirms or amends them, and only then does the status line change.
-Run one's sections above are unchanged.
+measurement exists. Nothing below is a result; every number is labelled a
+prediction or an input. The cadence (60 s), ceiling (21 days), park-window
+rule (D-10), baseline rule (D-07) and restore rule (D-09) were confirmed by
+the owner on 2026-10-05. Run one's sections above are unchanged.
+
+**Confirmed values:** cadence 60 s; ceiling 21 days; thresholds 0.95 / 3 /
+100 mV / 3400 mV unchanged; same pack and firmware family, firmware frozen
+for the whole run; display enabled and no quiet hours; `boot_count_start`
+recorded before unplugging; production wake interval restored afterwards and
+recorded; park-window rule as in section 5.
 
 ### 1. Purpose and comparability
 
 Same Kubii 3000 mAh 1S pack, same firmware family and server poll workload
-as run one (D-01). The workload is the hash-skip case with no image change,
-so there is no download and no panel refresh, exactly as in run one. Only the
-effective wake cadence differs. That is what lets Phase 46 fit per-wake
-energy against standing deep-sleep consumption from two runs.
+as run one (D-01). Only the effective wake cadence differs. That is what lets
+Phase 46 fit per-wake energy against standing deep-sleep consumption from two
+runs. The owner chose 60 s because the real field interval is close to 60 s
+or even 30 s: the second run should sit in the wake-dominated regime near real
+use, not far from it. 30 s is out of scope (the Device setting's minimum is
+60 s; lowering it is a production cadence change).
+
+Two comparability caveats, stated now so they are not discovered in Phase 46.
+Both come from `hardware/PHASE34-HARDWARE-SESSION.md`, not from run two:
+
+- Run one predates the Phase 34 firmware work (2026-09-25). The no-change
+  wake dropped from about 6.3 s to about 1.65 s against the VPS, so the
+  per-wake energy of run two's firmware is not guaranteed to equal run one's.
+  The fit separates the two runs' energies only if per-wake energy is the
+  same in both; the report records the firmware version so Phase 46 can see
+  the difference.
+- The wake workload is not purely hash-skip. Run one's section above says the
+  image never changed, but the Phase 34 session attributes run one's 28 s
+  overhead to about 60 % refresh wakes (panel draw about 31.5 s, 37 to 52 s
+  awake) and 40 % no-change wakes. The two statements disagree and this
+  protocol does not resolve them. The refresh share of run two shifts both the
+  real gap and the energy per wake, and `device_health` rows do not record
+  it. The gap distribution in the raw export (no-change gaps cluster near
+  60 s plus about 2 s, refresh gaps near 60 s plus about 40 s) is the only
+  evidence of it; the Results section reports that distribution.
 
 ### 2. Cadence (D-04, D-05)
 
-Configured wake interval: **900 s** (3x run one), set through the companion
-Device wake-interval setting with no SSH edit, inside the accepted 60..3600 s
-range. The value actually in force is recorded as `interval_s` and is the
-value given to the tooling, never a remembered constant. The actual cadence
-is also recorded as the mean poll-to-poll gap measured from the raw export,
-because run one's real gap was 328 s against a 300 s setting.
+Configured wake interval: **60 s** (the Device setting's minimum, 5x faster
+than run one), set through the companion Device wake-interval setting with no
+SSH edit. The value actually in force is recorded as `interval_s`, never a
+remembered constant. After saving, the device only learns the new value at
+its next wake, so the owner confirms on the console that a wake logs
+`sleep_s=60` before unplugging USB.
+
+**The effective cadence is not 60 s.** The firmware starts its sleep timer
+after the work, so the poll-to-poll gap is `sleep_s` plus the awake time. Run
+one measured a 328.0 s mean gap on a 300 s setting (about 28 s of overhead).
+At 60 s the same overhead gives about 88 s; the Phase 34 timings give 62 s if
+every wake is a no-change wake and about 100 s if every wake refreshes the
+panel. The effective cadence is therefore recorded as the mean poll-to-poll
+gap measured from the raw export, and every per-day and per-cycle figure uses
+it, never 60 s.
 
 ### 3. Ceiling (D-06)
 
-**45 days.** A run still alive at the ceiling is a valid bound result, exactly
-as run one defined it.
+**21 days**, as in run one. A run still alive at the ceiling is a valid bound
+result. Under every hypothesis in section 8 the pack is expected to deplete
+well inside this ceiling (at most about 12.4 days), so the ceiling is a
+safety bound, not an expected end. The ceiling check allows one interval
+(60 s) of overshoot, so the owner records `end_time_utc` and bounds the
+export with it if the run is ended at the ceiling.
 
 ### 4. Thresholds (D-03)
 
-Run one's values, unchanged, each judged against the configured interval:
+Run one's values, unchanged:
 
 | Flag | Value |
 |------|-------|
@@ -659,9 +701,73 @@ Run one's values, unchanged, each judged against the configured interval:
 | `--cutoff-mv` | 3400 |
 
 A gate that fails is reported as failed and diagnosed, never retuned, as run
-one did with coverage.
+one did with coverage. The values are not open. What the continuity gates are
+measured against is (section 4a).
 
-### 5. Park window rule (proposed D-10)
+### 4a. Reference interval for the continuity gates - PROPOSED (owner to confirm)
+
+**Why this is open.** `run-report` computes coverage as `observed polls /
+(span / interval_s)` and the gap gate as `max gap / interval_s`, with
+`interval_s` the configured value. That is `60 / mean gap`. Run one failed
+coverage (0.915) for exactly this reason: 300 / 328. At 60 s the same
+overhead is a much larger share of the interval. Measured with the real tool
+on synthetic exports (5 days each, `interval_s=60`, in a temporary directory):
+
+| Synthetic gap pattern | Mean gap | Coverage vs 60 s | Coverage vs mean gap |
+|---|---|---|---|
+| constant 62 s (all no-change wakes) | 62.0 s | 0.968 PASS | 1.0 |
+| 20 % refresh wakes (62 s / 101 s) | 70.0 s | 0.857 FAIL | 1.0 |
+| constant 88 s (run one's overhead) | 88.0 s | 0.682 FAIL | 1.0 |
+| 60 % refresh wakes (run one's mix) | 85.6 s | 0.701 FAIL | 1.0 |
+
+Coverage against 60 s passes only if the mean gap is at most 63.2 s, i.e. at
+most 3.2 s of overhead. Run one's overhead was 28 s, so the gate would fail
+structurally, whatever the pack does, and the failure would carry no
+information. The gap gate has the same scaling problem: 3 intervals is 180 s
+at 60 s, against 900 s in run one. Run one's worst gap was 665 s; a gap of
+200 s (one slow wake) already fails it at 60 s (measured: 3.33 intervals),
+and a 700 s hiccup is 11.7 intervals.
+
+**Rule options.**
+
+1. Judge against the configured 60 s unchanged. Fully fixed in advance, but
+   it makes the coverage verdict a measurement of wake overhead, not of
+   continuity. Expected result: FAIL, uninformative.
+2. Reference = the mean (or median) gap of the same window. Coverage is then
+   about 1.0 by construction: the gate cannot fail, so it checks nothing.
+   The median of a bimodal gap distribution (no-change versus refresh) is
+   also unstable.
+3. **Reference = configured interval + overhead measured on an early,
+   separate window, frozen before the verdict.** The mean poll-to-poll gap
+   over the first 48 hours of the run, excluding gaps above 3 times the
+   configured interval, rounded to whole seconds, is written as
+   `reference_interval_s` in the params file and in the Start Record, in a
+   commit made before any continuity verdict is computed. `run-report` then
+   judges coverage and the gap gate on the whole normal-cadence window
+   against `reference_interval_s` (3 reference intervals for the gap gate).
+   The coverage against the configured 60 s is still reported, as
+   informational. A pack-independent quantity (cadence) is frozen from data
+   that cannot reveal the outcome (depletion time, voltages); only the
+   denominator moves, never a threshold.
+
+**Trade-off.** A rule fixed before any data (option 1) cannot be accused of
+retuning but is meaningless here. Anything calibrated from data (options 2
+and 3) is a retuning risk; option 3 contains it by using a window that is
+separate from, and earlier than, the outcome, by fixing the procedure in
+advance (48 h, mean, excluding gaps above 3 intervals, whole seconds), and by
+requiring the frozen value in git history before the verdict. Its weakness is
+that the first 48 hours may be unrepresentative (the refresh share varies
+with the departure banks); 48 hours spans at least two daily cycles and the
+mean absorbs most of it, and the informational coverage against 60 s and the
+gap histogram remain in the report.
+
+**Recommendation: option 3.** If confirmed, `run-report` needs a small change
+(an optional `reference_interval_s` param, defaulting to `interval_s`, used
+by the nominal count and the gap gate, with the report naming both). That
+change is planned in 45-04 (Task 0) and is not implemented until the owner
+confirms. Until confirmed, no params file may contain `reference_interval_s`.
+
+### 5. Park window rule (D-10, confirmed)
 
 The BATTERY EMPTY park at 3300 mV (`park_mv`) changes the real cadence to
 hourly. Continuity and coverage are judged on the normal-cadence window,
@@ -675,35 +781,66 @@ like windows.
 ### 6. Pre-run conditions that would silently override the cadence
 
 - The display is enabled and no quiet-hours or display-off state is active
-  during the run: display-off cadence outranks the configured interval.
+  during the run: display-off cadence (300 s) outranks the configured
+  interval, and the BATTERY EMPTY park (3600 s) outranks both (precedence in
+  `server/wake.py`).
 - The production wake interval in force before the study is written down as
-  `production_interval_before_s`.
+  `production_interval_before_s`. If the Device setting shows "Uses server
+  default", the deployed `SKYPANE_SLEEP_S` (30 in `deploy/skypane.env.example`)
+  is in force and is what is recorded; restoring then means clearing the
+  field, not typing a number.
+- Nothing else on the Device page or the server is changed during the run.
 
 ### 7. Baseline (D-07)
 
-Firmware version and server revision are recorded at start. If firmware
-changes mid-run the run is invalid and restarts. The report tool checks that
-the distinct `fw_version` values in the export equal the recorded baseline.
+Firmware version and server revision are recorded at start. The firmware is
+frozen for the run; if firmware changes mid-run the run is invalid and
+restarts. The report tool checks that the distinct `fw_version` values in the
+export equal the recorded baseline.
 
 ### 8. Hypotheses with numeric predictions (predictions, not results)
 
-- Wake-dominated drain: roughly 3250 cycles whatever the interval, so about
-  34 to 35 days at an effective gap near 928 s.
-- Leakage-dominated drain: roughly 243 mAh/day regardless of cadence, so
-  about 11 to 12 days.
-- Anything between is a mixed split.
-- A 900 s run that is not depleted at 45 days is a bound, not a failure.
+Inputs from run one: 3252 observed polls, mean gap 328.0 s (about 28 s over
+the 300 s setting), 0.923 mAh/cycle, 243.10 mAh/day, 12.34 days, 3000 mAh
+rated. Model (a simplification, not fitted here): each cycle costs
+`E_wake + P_sleep x gap`; run one's 0.923 mAh splits as `f x 0.923` for the
+wake and `(1 - f) x 0.923` for standing consumption over its 328 s gap.
 
-Both are separable from run one. The model is not fitted here; that is
-Phase 46 (BAT-03).
+For run two with an effective mean gap `T`:
+
+- charge per cycle = `0.923 x (f + (1 - f) x T / 328)` mAh
+- cycles = `3000 / charge per cycle`; span = cycles x `T` / 86400 days
+
+Predictions at the three plausible effective gaps (62 s all no-change, 88 s
+run one's overhead, 100 s all refresh):
+
+| Hypothesis | T = 62 s | T = 88 s | T = 100 s |
+|---|---|---|---|
+| Wake-dominated (`f = 1`): about 3250 cycles whatever the gap | 2.3 days | 3.3 days | 3.8 days |
+| Mixed `f = 0.5` | 5470 cycles, 3.9 days | 5130 cycles, 5.2 days | 4980 cycles, 5.8 days |
+| Leakage-dominated (`f = 0`): about 243 mAh/day whatever the gap | 12.3 days (about 17200 cycles) | 12.3 days (about 12100 cycles) | 12.3 days (about 10700 cycles) |
+
+Read the 88 s column as the headline: wake-dominated, about 3250 cycles and
+about 3.3 days; leakage-dominated, about 12 days. Anything between is a mixed
+split, which the formula above gives for any `f`. Every prediction lands
+inside the 21-day ceiling. Cycles per day are about 980 at 88 s (about 1390
+at 62 s), against about 263 in run one, which scales the boot-counter and row
+counts in section 9. The model also assumes per-wake energy equal to run
+one's (caveats in section 1); if the firmware or refresh share differs, a
+wake-dominated outcome is expected to differ from 3250 cycles and that
+difference is itself information for Phase 46, not a protocol failure. The
+model is not fitted here; that is Phase 46 (BAT-03).
 
 ### 9. Cycle-count reconciliation (D-08)
 
-Three witnesses: nominal from the elapsed span over `interval_s`, observed
+Three witnesses: nominal from the elapsed span over the reference interval
+(`interval_s`, or `reference_interval_s` if section 4a is confirmed), observed
 polls in the exported `device_health` rows, and the NVS `boot_count=` delta.
 `boot_count_start` MUST be read off the console wake line before the cable
 comes out: run one failed to capture it and lost the third witness. If it is
 not captured, the witness is reported as not computable and never estimated.
+Scale: about 980 to 1390 cycles per day, so a 3 to 12 day run is about 3000
+to 17000 rows, against 3252 in run one.
 
 ### 10. Physical preconditions (unchanged from run one)
 
@@ -714,15 +851,20 @@ recharge after depletion.
 ### 11. Restore production (D-09)
 
 After the run the production wake interval is restored to
-`production_interval_before_s` through the Device setting, and the restored
-value is recorded as `production_interval_restored_s`.
+`production_interval_before_s` through the Device setting (or by clearing the
+field if it was "Uses server default"), and the restored value is recorded as
+`production_interval_restored_s`.
 
 ### 12. Observation channel (D-03)
 
 history.db `device_health`, read with the run-one read-only remote query
-bounded by the disconnect time, then `hardware/logtools.py run-report`, which
-produces the raw-export hash, separate continuity / voltage-validity /
-baseline verdicts and the three-way reconciliation.
+bounded by the disconnect time (and by `end_time_utc` for a ceiling end),
+then `hardware/logtools.py run-report`, which produces the raw-export hash,
+separate continuity / voltage-validity / baseline verdicts and the three-way
+reconciliation. At 60 s the channel is unchanged: the poll timer ingests the
+Caddy log every 30 s regardless of the device cadence, `device_health` is
+keep-forever (at most about 30000 rows over 21 days, a few MB), and the
+provider calls of the poll loop are on its own 30 s timer, not the device's.
 
 ### 13. Results
 
