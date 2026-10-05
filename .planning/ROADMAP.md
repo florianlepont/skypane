@@ -47,7 +47,7 @@ V1.1 begins by improving the companion through a task-based bilingual usability 
 Plans:
 - [x] 45-01-PLAN.md — Run 2 Protocol pre-registered and CONFIRMED by the owner 2026-10-05 (60 s cadence, 21-day ceiling, park-window rule); the reference interval for the continuity gates (D-11) also CONFIRMED 2026-10-05
 - [x] 45-02-PLAN.md — logtools `run-report`: raw export, separate continuity / voltage-validity / baseline verdicts, three-way cycle reconciliation, with tests
-- [ ] 45-03-PLAN.md — Owner runs the physical discharge; start/end values and production-interval restore recorded (human-action checkpoints)
+- [ ] 45-03-PLAN.md — Owner runs the physical discharge; start/end values and production-interval restore recorded (human-action checkpoints). Run started 2026-10-05T14:08Z per the owner; start values recorded; paused at the long-wait checkpoint (not complete)
 - [ ] 45-04-PLAN.md — Run report on owner-supplied export and record `## Run 2 Results` (blocked unless real data is supplied); its Task 0 (frozen `reference_interval_s` in run-report plus the `reference-interval` 48 h helper) is already implemented
 
 ### Phase 46: Two-Run Battery Analysis and Operating Decision

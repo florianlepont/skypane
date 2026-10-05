@@ -1,0 +1,20 @@
+{
+  "capacity_mah": 3000,
+  "interval_s": 60,
+  "protocol_confirmed_utc": "2026-10-05T00:00:00Z",
+  "disconnect_time_utc": "2026-10-05T14:08:00Z",
+  "end_reason": null,
+  "ceiling_days": 21,
+  "firmware_version": "fw-v1.0.2",
+  "server_revision": "b2b08e9b89183db1fa3c5789f2134b94c311483e",
+  "park_mv": 3300,
+  "boot_count_start": null,
+  "boot_count_end": null,
+  "production_interval_before_s": 300,
+  "production_interval_restored_s": null,
+  "production_quiet_hours_before": "enabled 23:30-06:00",
+  "production_quiet_hours_restored": null,
+  "reference_interval_s": null,
+  "reference_interval_source": null,
+  "reference_interval_export_sha256": null
+}

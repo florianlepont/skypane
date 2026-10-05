@@ -1007,3 +1007,67 @@ provider calls of the poll loop are on its own 30 s timer, not the device's.
 
 Results go in a separate `Run 2 Results` section, filled only from the
 owner-supplied export. No result is written before then.
+
+## Run 2 Start Record
+
+Recorded 2026-10-05 from values the owner supplied in chat. Each value is
+written as given; "owner" means the owner reported it, "looked up on the
+owner's delegation" means Claude read it from the named source because the
+owner asked for that lookup. Nothing here is a reading, a result or an end
+value, and no verdict exists. Raw values live in
+`hardware/logs/battery-run2-params.json`.
+
+| Key | Value | Source |
+|---|---|---|
+| `capacity_mah` | 3000 | `hardware/BOM.md` (rated capacity), as the plan says |
+| `interval_s` | 60 | owner: typed 60 in the Device wake-interval setting, saved, and the Device page then showed 60 |
+| `production_interval_before_s` | 300 | owner: the production wake interval before the study |
+| `production_quiet_hours_before` | enabled, 23:30-06:00 | owner: quiet hours were enabled 23:30-06:00 before the study; to be RESTORED at the end (see below) |
+| `disconnect_time_utc` | `2026-10-05T14:08:00Z` | owner said "16h08" (French local time). Conversion by the recorder: Paris time on 2026-10-05, CEST = UTC+2, so 14:08 UTC. Assumes Paris time and today's date; seconds unknown, recorded as :00 |
+| `firmware_version` | `fw-v1.0.2` | looked up on the owner's delegation: the owner's screenshot of the companion Update page on 2026-10-05 ("Version en cours: fw-v1.0.2, installée 29 sept. 23:47"); the latest `fw-v*` tag is fw-v1.0.2, so no OTA could have installed another version |
+| `server_revision` | `b2b08e9b89183db1fa3c5789f2134b94c311483e` (short `b2b08e9b`) | looked up on the owner's delegation from GitHub Actions: the last commit whose "Deploy to production" job succeeded (run 37310309362, deploy completed 2026-10-05T12:40:51Z) |
+| `park_mv` | 3300 | as the plan and Protocol say |
+| `ceiling_days` | 21 | the confirmed Protocol |
+| `protocol_confirmed_utc` | 2026-10-05T00:00:00Z (labelled placeholder) | the owner confirmed the protocol on 2026-10-05; the exact time was not captured. The params validator requires a timezone-aware timestamp and refuses a date-only string, so on the owner's choice (2026-10-05) the field carries midnight UTC of the confirmation date as a labelled placeholder, not a measured time; midnight cannot reject any real poll, since every poll is later than it |
+| `boot_count_start` | null | not captured: no console in this study, as accepted in the Protocol |
+| `end_reason`, `boot_count_end`, `production_interval_restored_s`, `production_quiet_hours_restored`, `reference_interval_*` | null | set later: the run has not ended and the 48 h reference-interval freeze has not happened |
+
+**Battery before disconnect.** The owner read 4110 mV at the end of charging
+(run one's charge plateau was about 4120 mV). This is the owner-reported
+pre-disconnect reading, not a computed value and not part of the export.
+
+**Display and quiet hours.** The display is enabled. Quiet hours were enabled
+(23:30-06:00) before the study and the owner disabled them for the study
+("désactivé maintenant"), so the Protocol precondition of no quiet hours or
+display-off state during the run is met. They must be restored at the end
+together with the wake interval: re-enable quiet hours 23:30-06:00 and report
+the value shown after save. `production_quiet_hours_before` is not a key
+`run-report` reads; `validate_run_params` ignores keys it does not name, so
+the params file carries it without changing `run-report` behaviour.
+
+**Deployed server revision.** A deploy attempt for commit `bc1ed565` (the
+charging-pill merge) started 2026-10-05T13:54:25Z but its first step "Refuse
+to deploy if main has moved on to different shipped code" failed and the
+Deploy step was skipped, so nothing was deployed. Main's later commit
+`e40bd6fc` (dev-lock bump) has a failed CI run and a skipped deploy. The
+deployed server revision at the disconnect time is therefore still
+`b2b08e9b`. This was read from GitHub Actions and could not be verified on
+the VPS itself (no access).
+
+**Cadence verification (Protocol section 2).** The owner reported, after
+checking the server history: "les écarts sont bons, environ 70 s". This is an
+owner-reported approximate value, not a computed figure: poll-to-poll gaps of
+about 70 s, at or above the 60 s floor and consistent with the expected
+62 to 100 s range (the owner's judgement: "les écarts sont bons"). The exact time of the
+check and the exact query output were not supplied (not captured).
+
+**Daily check-ins** are optional and visibility-only
+(`python3 hardware/logtools.py check-battery <log> --interval-s 60 --capacity-mah 3000 --status`);
+the history channel is keep-forever, as in run one.
+
+**TODO for the owner (dated).** About 48 hours after the disconnect, around
+2026-10-07T14:08Z: save the export so far to
+`hardware/logs/battery-run2-export-48h.jsonl` and run
+`python3 hardware/logtools.py reference-interval hardware/logs/battery-run2-export-48h.jsonl --interval-s 60`
+(Protocol section 4a). The value is frozen then, in this record and the
+params file, before any continuity verdict. Nothing has been computed yet.
