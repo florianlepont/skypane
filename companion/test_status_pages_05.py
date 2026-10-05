@@ -625,7 +625,7 @@ def test_device_timestamp_only_carries_no_verdict_text():
     state = {
         "inputs": {"device_health": {"ts": ts}}, "device_state": "ok",
         "next_wake_clock": None, "wake_interval_s": None}
-    full_row = health_page._connection_row(state, now, [])
+    full_row = health_page._connection_row(state, now)
     verdict_occurrences = sum(
         1 for verdict_text in health_page.DEVICE_STATE_TEXT.values() if verdict_text in full_row)
     assert verdict_occurrences == 1, (

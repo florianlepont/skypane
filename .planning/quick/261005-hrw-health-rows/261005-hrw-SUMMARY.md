@@ -16,7 +16,7 @@ branch: claude/health-rows
   anomaly toasts, the rows card, then the unchanged "Compagnies non identifiées" card. The tile
   builders and their `device_html` / `pipeline_html` / `corroboration_html` fragments are gone;
   `compute_health_state()` now also returns the raw `inputs` and `next_wake_clock`.
-- `companion/health_sections.py`: regularity block without its card; day band, resolution-rate
+- `companion/health_sections.py`: regularity block removed (follow-up: grid, key, captions and their messages gone); day band, resolution-rate
   tile and statistics card removed.
 - `companion/static/style.css`: rows card CSS; the 760 px cap and the `.status-page` tile rules
   removed; one elevation rule on the page.

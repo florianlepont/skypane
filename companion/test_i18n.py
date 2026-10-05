@@ -197,8 +197,6 @@ _UNCHANGED_IN_FRENCH = frozenset({
     # Image alt text never translated before this id existed either —
     # kept identical so the render stays byte-for-byte unchanged.
     "display.sample_panel_rendered_in_the_theme",
-    # A bare "%s — %s" join: no translatable words of its own.
-    "health.day_dash_verdict",
     # "Version" and "Date" are genuine French words, spelled identically
     # to their English source — real cognates for the Update page's
     # compact table-header nouns, not a missed translation.
