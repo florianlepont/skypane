@@ -1,7 +1,7 @@
 # Phase 45: Controlled Second Discharge Study - Context
 
 **Gathered:** 2026-10-03
-**Status:** Cadence, ceiling and rules CONFIRMED by the owner 2026-10-05; one item (O-1, reference interval for the continuity gates) still PROPOSED and must be answered before the physical run starts
+**Status:** Cadence, ceiling, rules and the reference-interval rule for the continuity gates (D-11) CONFIRMED by the owner 2026-10-05; comparability limitations accepted (D-12); nothing is open before the physical run starts
 **Mode:** Drafted from SEED-007, SEED-008, `hardware/BATTERY-RUN.md` and REQUIREMENTS BAT-01/BAT-02 (no interactive discussion was held)
 
 <domain>
@@ -37,9 +37,11 @@ changes, image-download/display-refresh energy measurement.
 - **D-09** (CONFIRMED 2026-10-05) After the run the production wake interval is restored to the value in force before the study, and the restore is recorded. The display stays enabled with no quiet hours during the run.
 - **D-10 Park-window rule** (CONFIRMED 2026-10-05, raised by the planner). The BATTERY EMPTY park at 3300 mV changes the real cadence to hourly. Continuity and coverage are judged on the normal-cadence window, which ends at the first reading at or below 3300 mV; the full window is reported as informational; the boot-counter witness covers the full window.
 - Thresholds unchanged (D-03): 0.95 / 3 / 100 mV / 3400 mV.
+- **D-11 Reference interval for the continuity gates** (CONFIRMED 2026-10-05, was O-1). The coverage and largest-gap gates are judged against `reference_interval_s`: the configured interval plus the wake overhead measured over the FIRST 48 HOURS of the run, i.e. the mean poll-to-poll gap over those 48 h excluding gaps above 3x the configured interval, rounded to whole seconds. It is frozen in the params file (with a source note) and committed BEFORE any continuity verdict is computed; coverage against the configured 60 s is still reported, as information only. Only the denominator and gap unit move; the thresholds stay as above. Implemented by `logtools.py reference-interval` and the optional `reference_interval_s` params field of `run-report` (Protocol section 4a).
+- **D-12 Accepted comparability limitations** (owner, 2026-10-05). Run two uses post-Phase-34 firmware while run one predates it, and the share of panel-refresh wakes is unknown and may differ from run one; no static-image workaround. Both are recorded in the Protocol under "Known limitations carried to Phase 46" and Phase 46 must carry them into the model, not hide them.
 
-### OPEN - needs the owner's answer before the pack is connected
-- **O-1 Reference interval for the continuity gates.** The gates in `logtools.py run-report` judge coverage and gap against the configured `interval_s`. At 60 s the wake overhead makes the real gap about 62 to 100 s, so coverage against 60 s is about 0.60 to 0.97 and fails the 0.95 gate structurally for most plausible workloads, whatever the pack does. The rule for which interval the gates use is PROPOSED in the Run 2 Protocol (section 4a) and is the one item that is not confirmed. Thresholds are not part of this question.
+### RESOLVED - was open before the pack could be connected
+- **O-1 Reference interval for the continuity gates** is answered: see D-11. At 60 s the wake overhead makes the real gap about 62 to 100 s, so coverage against the bare 60 s would have failed the 0.95 gate structurally, whatever the pack does; the frozen reference interval removes that without touching a threshold.
 
 ### Claude's discretion
 - Shape of the evidence export and any helper added to `hardware/logtools.py`, provided the three reconciliations and separate continuity / voltage-validity verdicts are produced from the raw export.
