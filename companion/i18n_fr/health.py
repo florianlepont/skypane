@@ -258,47 +258,6 @@ MESSAGES = {
         "L’opérateur a résolu à la main le préfixe de cet indicatif, "
         "depuis l’interface web companion.",
 
-    # "relevé" rather than "réveil" throughout, matching the English:
-    # a check-in is something the server recorded, a wake is something
-    # the frame did, and this grid can only report the first. The
-    # expected interval is not recoverable from the record, so neither
-    # language's heading claims regularity as punctuality.
-    "health.check_in_regularity": "Régularité des relevés",
-    "health.each_cell_is_one_day_of_observed_check_in":
-        "Chaque case représente un jour observé, du plus ancien au "
-        "plus récent.",
-    "health.judged_against_the_cadence_configured_now_a":
-        "Évaluée selon la cadence configurée actuellement — un relevé "
-        "toutes les %s — pas nécessairement celle en vigueur les jours "
-        "précédents.",
-    "health.this_frame_s_cadence_cannot_be_determined_so":
-        "La cadence de ce cadre ne peut pas être déterminée : la grille est "
-        "donc évaluée selon les seuils de repli, et non selon une cadence "
-        "configurée.",
-    "health.a_day_with_no_record_is_not_proof_the_frame_did":
-        "Un jour sans relevé ne prouve pas que le cadre ne s’est pas "
-        "réveillé : une rotation de journal manquée par ce serveur laisse "
-        "exactement le même trou.",
-    "health.no_check_in_intervals_are_recorded_yet_so_every":
-        "Aucun intervalle entre relevés n’est encore enregistré : chaque jour "
-        "ci-dessous est donc un jour sur lequel l’enregistrement ne dit rien.",
-    # The four state words, and the two tooltip shapes they appear
-    # in. "Aucun relevé" is the absence of an observation, never a
-    # verdict.
-    "health.on_cadence": "Dans la cadence",
-    "health.late": "En retard",
-    "health.missing": "Manquant",
-    "health.no_record": "Aucun relevé",
-    "health.longest_observed_gap": "%s — %s : plus long écart observé %s",
-    # A bare "%s — %s" join, no translatable words of its own — the
-    # French entry is the identical template (test_i18n.py’s
-    # _UNCHANGED_IN_FRENCH).
-    "health.day_dash_verdict": "%s — %s",
-    "health.observed_check_in_regularity_one_cell_per_day":
-        "Régularité observée des relevés, une case par jour sur les %d "
-        "derniers jours : %d dans la cadence, %d en retard, %d manquants, "
-        "%d sans relevé.",
-
     # --- Off-box backup card --------------------------------------
     "health.off_box_backup": "Sauvegarde hors serveur",
     "health.last_off_box_backup": "Dernière sauvegarde hors serveur",

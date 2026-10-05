@@ -137,8 +137,8 @@ def _freshness_db_signal(state_dir, want_pipeline_run):
 
 def _freshness_paris_date(now):
     """The Europe/Paris calendar date `now` falls on, or `None` when
-    `now` fails to parse - Health's regularity grid buckets its cells
-    by this same day. A naive `now` (never produced by
+    `now` fails to parse - the day the next-wake
+    "today"/"tomorrow" qualifiers are relative to. A naive `now` (never produced by
     `history_db.utc_now_iso()` in practice) is taken as UTC first,
     matching `health_page._as_paris()`'s own convention, rather than
     the ambiguous "system local time" `astimezone()` would otherwise

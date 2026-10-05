@@ -232,9 +232,9 @@ def test_accent_is_perceptually_separated_from_status(status_name, theme, theme_
 @pytest.mark.parametrize("theme", ("light", "dark"))
 @pytest.mark.parametrize("first, second", (("ok", "warn"), ("ok", "error"), ("warn", "error")))
 def test_status_colours_are_perceptually_separated_from_each_other(first, second, theme, theme_tokens):
-    """The check-in regularity grid paints all three status colours as
-    adjacent cells with nothing but colour between them — the first
-    surface in this app where that pairing matters."""
+    """The status colours are told apart without relying on hue alone
+    wherever they sit next to each other (the shared drawing cells and
+    the row state icons)."""
     a = theme_tokens[theme][_STATUS_TOKENS[first]]
     b = theme_tokens[theme][_STATUS_TOKENS[second]]
     distance = perceptual_distance(a, b)

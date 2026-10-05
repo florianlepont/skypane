@@ -656,9 +656,8 @@ def test_health_reads_no_per_day_check_in_rows_for_a_band(tmp_path):
 
 # --- Health's drawings are the shared emitters' ---
 
-def test_health_carries_one_ring_and_one_grid_and_home_carries_neither(tmp_path):
-    """Health holds exactly one battery ring and one check-in regularity grid, both inside the
-    page body; Home draws neither (its one drawing is the battery's open arc dial, not the ring)
+def test_health_carries_one_ring_and_no_grid_and_home_carries_neither(tmp_path):
+    """Health holds exactly one battery ring and no check-in regularity grid; Home draws neither (its one drawing is the battery's open arc dial, not the ring)
     and no activity band"""
     now = "2026-08-27T12:00:00+00:00"
     ctx = _health_band_ctx(tmp_path / "health", now, [
@@ -669,9 +668,8 @@ def test_health_carries_one_ring_and_one_grid_and_home_carries_neither(tmp_path)
     assert health_rendered.count('class="%s"' % draw.DRAWING_RING_VALUE_CLASS) == 1, (
         "expected exactly one battery ring value arc on Health")
     doc = parse_html(health_rendered)
-    grids = doc.select(".check-in-grid")
-    assert len(grids) == 1, "expected exactly one regularity grid on Health, got %d" % len(grids)
-    assert len(grids[0].find_all("rect", cls=draw.DRAWING_CELL_CLASS)) == health_page.CHECK_IN_WINDOW_DAYS
+    assert not doc.select(".check-in-grid"), "Health must not draw a regularity grid"
+    assert not doc.find_all("rect", cls=draw.DRAWING_CELL_CLASS), "Health must not draw regularity cells"
     home_ctx = dict(ctx, gallery_entries=["2026-08-27T11-50-00+00-00.png"])
     home_rendered = home_page.render(home_ctx)
     for needle in (draw.DRAWING_RING_VALUE_CLASS, draw.DRAWING_RING_TRACK_CLASS,
@@ -682,9 +680,8 @@ def test_health_carries_one_ring_and_one_grid_and_home_carries_neither(tmp_path)
 
 
 def test_health_drawings_use_only_the_shared_emitters_classes(tmp_path):
-    """the classes Health's battery ring and regularity grid emit are computed from the markup rather
-    than listed; every one is a constant companion/draw.py itself names, and the grid draws at
-    least two different cell states"""
+    """the classes Health's battery ring emits are computed from the markup rather than listed;
+    every one is a constant companion/draw.py itself names"""
     now = "2026-08-27T12:00:00+00:00"
     ctx = _health_band_ctx(tmp_path / "health", now, [
         "2026-08-27T06:00:00+00:00",
@@ -693,16 +690,11 @@ def test_health_drawings_use_only_the_shared_emitters_classes(tmp_path):
     rendered = health_page.render(ctx)
     figures = re.findall(
         r'<svg class="%s[^"]*"[^>]*>(.*?)</svg>' % re.escape(draw.DRAWING_FIGURE_CLASS), rendered, re.S)
-    assert len(figures) == 2, "expected the grid and the ring, got %d aspect-locked figures" % len(figures)
+    assert len(figures) == 1, "expected the ring alone, got %d aspect-locked figures" % len(figures)
     classes = [set(re.findall(r'class="([^"]*)"', figure)) for figure in figures]
     ring = next((c for c in classes if draw.DRAWING_RING_TRACK_CLASS in c), None)
-    grid = next((c for c in classes if any(draw.DRAWING_CELL_CLASS in token.split() for token in c)), None)
     assert ring, "found no ring on Health"
-    assert grid, "found no regularity grid on Health"
-    assert len(grid) >= 2, (
-        "Health's grid draws only %d kind(s) of cell (%r) — with two check-ins on the day it owes "
-        "an observed state and the no-record state" % (len(grid), sorted(grid)))
-    for class_name in sorted(ring | grid):
+    for class_name in sorted(ring):
         for token in class_name.split():
             assert token in draw.DRAWING_CLASSES, (
                 "Health emits the drawing class %r, which companion/draw.py does not name — "
@@ -710,8 +702,8 @@ def test_health_drawings_use_only_the_shared_emitters_classes(tmp_path):
 
 
 def test_breaking_a_shared_emitter_breaks_health_and_leaves_home_untouched(tmp_path):
-    """breaking a shared emitter breaks Health's drawing: one class constant inside
-    companion/draw.py's ring emitter, then its grid-cell emitter, is replaced at check time and
+    """breaking a shared emitter breaks Health's drawing: the class constant inside
+    companion/draw.py's ring emitter is replaced at check time and
     Health changes each time, neither keeping the original string (a page built from its own
     copy would); Home draws neither and stays byte-identical, proving the mutation is targeted
     rather than a global perturbation; and both pages return to their pre-mutation markup"""
@@ -738,7 +730,7 @@ def test_breaking_a_shared_emitter_breaks_health_and_leaves_home_untouched(tmp_p
         finally:
             setattr(draw, attr, original)
 
-    for attr in ("DRAWING_RING_VALUE_CLASS", "DRAWING_CELL_CLASS"):
+    for attr in ("DRAWING_RING_VALUE_CLASS",):
         original, health_after, home_after = _mutated(attr)
         assert sentinel in health_after, (
             "a change inside the shared %s emitter did not reach Health — it draws its own "

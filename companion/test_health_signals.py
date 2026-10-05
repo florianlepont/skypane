@@ -27,7 +27,7 @@ _DEFAULT_DEVICE_WARN_S, _DEFAULT_DEVICE_ERROR_S = wake.device_staleness_threshol
 # from source) so a silent key drop/rename fails this test rather than
 # only a downstream consumer.
 _EXPECTED_KEYS = frozenset((
-    "now", "source_fault_raw", "registry_rows", "offbox", "wake_interval_s",
+    "now", "source_fault_raw", "registry_rows", "offbox",
     "device_state", "device_detail_html",
     "pipeline_state", "pipeline_detail_html",
     "battery_html", "battery_state", "battery_caption",

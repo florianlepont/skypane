@@ -1,33 +1,25 @@
 #!/usr/bin/env python3
 """Browser checks for the SVG-drawing scenario group: the battery ring, the battery chart's
-area/line/threshold and the check-in regularity grid, all on Health, plus the rows card's
+area/line/threshold and the absence of a regularity grid, all on Health, plus the rows card's
 alignment and width.
 
 The drawings live inside the Health rows' details, so each check opens the rows first (by
 keyboard, the native disclosure, which also works with scripts blocked) before it measures.
 
-Two module-scoped, read-only servers are shared across these checks: `server` (the shared
-battery ring/chart fixture) and `grid_server` (three seeded days with distinct
-on-cadence/late/missing verdicts, shared by the two regularity-grid checks). None of the
-tests below POSTs or otherwise mutates server state, so sharing a server per group is safe
-under xdist.
+One module-scoped, read-only server (`server`) is shared across these checks. None of the
+tests below POSTs or otherwise mutates server state, so sharing it is safe under xdist.
 """
-import itertools
 import re
-from datetime import datetime, timedelta
 
 import pytest
 
-from companion import auth, draw, layout
+from companion import auth
 from skypane_contrast_check import (
-    MIN_SIGNAL_PERCEPTUAL_DISTANCE, WCAG_AA_UI_COMPONENT, contrast_ratio,
-    perceptual_distance,
+    contrast_ratio,
 )
-from companion.pages import health_page
-from server import device_config, history_db
 from companion.test_browser_ux_helpers import (
     UI_THEMES_EXPLICIT, VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED,
-    VIEWPORT_WIDTH_NARROW, _RING_INK_PROBE,
+    _RING_INK_PROBE,
     _assert_no_page_overflow, _computed_paint, _login, _no_js_page,
     _open_health_rows, _set_ui_theme, seed_state_dir,
 )
@@ -39,8 +31,7 @@ VISIBLE_VIEW = ".battery-chart__view:not([hidden])"
 # The battery ring, measured where it actually has to be correct: a real browser, both
 # themes, the narrowest supported screen, and with scripts off.
 
-# Scoped to the Battery row: the Identification row carries a second, smaller ring and the
-# Frame connection row's regularity grid is also an aspect-locked figure.
+# Scoped to the Battery row: the Identification row carries a second, smaller ring.
 RING_FIGURE = "#health-row-battery svg.drawing__figure"
 RING_VALUE = "#health-row-battery svg.drawing__figure .drawing-ring-value"
 RING_TRACK = "#health-row-battery svg.drawing__figure .drawing-ring-track"
@@ -465,465 +456,47 @@ def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(
                     "default" % (UI_THEMES_EXPLICIT[1], label, paint["svg_default"]))
 
 
-# Colour helpers shared by the grid check below.
+# Health draws no check-in regularity grid: the connection row is plain facts.
 
-def _band_rgba(text):
-    """(r, g, b) 0-255 and alpha, from either of the two forms Chromium answers with.
-
-    `color-mix()` resolves to `color(srgb 0.87 0.84 0.78 / 0.4)` (components 0-1) while a
-    plain token resolves to `rgb(223, 215, 200)`. A single `[\\d.]+` scrape treats 0.87 as
-    0.87/255 of red and silently composites near-black; the prefix is the only thing that
-    says which scale the numbers are on.
-    """
-    numbers = [float(v) for v in re.findall(r"[\d.]+", text)]
-    if len(numbers) < 3:
-        raise AssertionError("not a colour: %r" % (text,))
-    if text.strip().startswith("color("):
-        rgb = [v * 255 for v in numbers[:3]]
-    else:
-        rgb = numbers[:3]
-    return rgb, (numbers[3] if len(numbers) > 3 else 1.0)
-
-
-def _band_over(fg_text, bg_text):
-    fg, alpha = _band_rgba(fg_text)
-    bg, _ = _band_rgba(bg_text)
-    return "#%02X%02X%02X" % tuple(
-        int(round(alpha * f + (1 - alpha) * b)) for f, b in zip(fg, bg))
-
-
-# The regularity grid.
-#
-# Its own server: the shared `server` fixture's newest device_health row is 40 days before
-# SEED_BASE_TS, so on any real wall clock the grid's 30-day window would hold nothing and every
-# cell would be the no-observation state.
-#
-# The fixture has to be dense, a property of the drawing rather than a convenience: a day is
-# judged by its longest observed gap, so a day cannot read "on cadence" unless it is covered
-# end to end. At the fixture's 300s cadence (warn 900s, error 3600s) that means a check-in at
-# least every 15 minutes; 10 is used, a real cadence this device ships with.
-
-GRID_SELECTOR = ".check-in-grid"
-GRID_CELL = ".drawing-cell"
-GRID_SWATCH = ".check-in-key__swatch"
-GRID_SEED_STEP_MINUTES = 10
-# The three seeded days, newest first, each with the verdict its own hole produces. Day 1
-# (yesterday) has a 2-hour hole: past error. Day 2 has a 30-minute hole: past warn, short of
-# error. Day 3 has none.
-GRID_SEED_DAYS = (
-    (1, 120, draw.DRAWING_CELL_MISSING_CLASS),
-    (2, 30, draw.DRAWING_CELL_LATE_CLASS),
-    (3, 0, draw.DRAWING_CELL_ON_CADENCE_CLASS),
-)
-# Today is seeded with nothing, so the fourth state is produced by the same mechanism a real
-# fresh deployment produces it with: an absence, not a special value.
-GRID_STATE_CLASSES = tuple(
-    [c for _, _, c in GRID_SEED_DAYS] + [draw.DRAWING_CELL_NONE_CLASS])
-# The app's own signal-separation floor: four states that collapse to three in dark mode is
-# precisely the "two colours that read as one signal at a glance" defect this constant
-# exists for.
-GRID_MIN_SEPARATION = MIN_SIGNAL_PERCEPTUAL_DISTANCE
-# The three verdicts are non-text graphics carrying meaning, so WCAG_AA_UI_COMPONENT (3.0) is
-# the bar, the same one --color-status-error is already held to on every surface.
-GRID_MIN_VERDICT_CONTRAST = WCAG_AA_UI_COMPONENT
-# The no-observation cell is deliberately below that bar: it is structural ink
-# (--color-border) because it is the absence of a verdict, and a day the record says nothing
-# about must not shout as loudly as one the record faults. It must still be visible at all,
-# hence a floor set just under the shipped ratio. Its meaning is carried in text three ways
-# regardless (the key's own word, the cell's title, the caption), so colour is not the only
-# route to it.
-GRID_MIN_ABSENCE_CONTRAST = 1.25
-GRID_MIN_CELL_PX = draw.CELL_MIN_SIZE_PX
-GRID_SWATCH_PX = 12.0
-# Two CSS-only lengths with no Python constant behind them, asserted here because a mutation
-# proved that without them nothing at all failed. Both are var(--space-xs) = 4px: the clear
-# ground under the canvas before its date labels, and the clear ground between a key swatch
-# and the word it belongs to.
-GRID_SCALE_GAP_PX = 4.0
-GRID_KEY_GAP_PX = 4.0
-# The key's own two gaps: var(--space-sm) = 8px above the whole key, and var(--space-md) =
-# 16px between one labelled swatch and the next. The second is measured at 1280px, where the
-# four items sit on one line; at 360px the key wraps, so a gap read there would be reading a
-# row break half the time.
-GRID_KEY_TOP_GAP_PX = 8.0
-GRID_KEY_ITEM_GAP_PX = 16.0
-
-
-def _seed_grid(state_dir):
-    seed_state_dir(state_dir)
-    device_config.save_device_config(state_dir, wake_interval_s=300)
-    today = datetime.now(layout.LOCAL_TZ).date()
-    midnight = datetime.combine(today, datetime.min.time(), tzinfo=layout.LOCAL_TZ)
-    rows = []
-    for days_ago, hole_minutes, _cls in sorted(GRID_SEED_DAYS, reverse=True):
-        start = midnight - timedelta(days=days_ago)
-        minute = 0
-        while minute < 24 * 60:
-            rows.append(start + timedelta(minutes=minute))
-            # The hole sits mid-morning, well clear of both day boundaries, so it is this
-            # day's own gap and cannot be attributed to its neighbour.
-            minute += (hole_minutes if minute == 8 * 60 and hole_minutes
-                       else GRID_SEED_STEP_MINUTES)
-    with history_db.open_db(state_dir) as conn:
-        for index, ts in enumerate(rows):
-            history_db.record_device_health(conn, ts.isoformat(), battery_mv=3800 + index % 7)
-
-
-@pytest.fixture(scope="module")
-def grid_server(module_app_server_factory):
-    """Three seeded days with distinct on-cadence/late/missing verdicts,
-    shared read-only by the two regularity-grid checks.
-    """
-    return module_app_server_factory(seed=_seed_grid, fake_providers=True)
-
-
-def test_the_grids_four_states_stay_four_states_in_both_themes(page, grid_server):
-    """All four of the regularity grid's cell states paint a real theme token in both themes
-    and never the SVG default, all four move when the theme does, each key swatch composites
-    to exactly the colour of the cell it explains (one `color` declaration, an SVG fill and
-    an HTML background), the three verdicts clear WCAG AA's 3:1 non-text bar against their
-    card while the no-observation state clears its own lower, deliberate 1.25:1 floor, and
-    every one of the six pairs stays past the app's own MIN_SIGNAL_PERCEPTUAL_DISTANCE.
-    """
-    _login(page, grid_server.base_url())
-    page.goto(grid_server.base_url() + "/health")
-    _open_health_rows(page)
-    page.wait_for_selector(GRID_SELECTOR)
-    counts = {cls: page.locator(".%s" % cls).count() for cls in GRID_STATE_CLASSES}
-    # Every one of the four states must actually be on this page, or the measurements below
-    # are of colours the fixture never produced. The swatch in the key carries the same
-    # class, so each state is expected at least twice: one cell and one swatch.
-    missing = [c for c, n in counts.items() if n < 2]
-    if missing:
-        raise AssertionError(
-            "the fixture did not paint every state — %r appear fewer "
-            "than twice (a cell and its key swatch): %r. With one "
-            "missing, every paint assertion below measures a colour "
-            "this page does not use" % (missing, counts))
-    seen = {}
-    for theme in UI_THEMES_EXPLICIT:
-        _set_ui_theme(page, theme)
-        card = page.evaluate(
-            "s => getComputedStyle(document.querySelector(s)"
-            ".closest('.health-rows')).backgroundColor", GRID_SELECTOR)
-        resolved = {}
-        for cls in GRID_STATE_CLASSES:
-            cell = _computed_paint(page, "rect.%s" % cls, ("fill",))
-            if cell["svg_default"]:
-                raise AssertionError(
-                    "in %s the %s cell resolves %r to the SVG default "
-                    "(%r) — it inherited no colour at all and is black "
-                    "in both themes"
-                    % (theme, cls, cell["svg_default"], cell["fill"]))
-            swatch = page.evaluate(
-                "s => getComputedStyle(document.querySelector(s))"
-                ".backgroundColor", "%s.%s" % (GRID_SWATCH, cls))
-            # ONE RULE, TWO KINDS OF ELEMENT. The modifier sets `color`
-            # and nothing else; the cell follows it through fill:
-            # currentColor and the key's swatch through background:
-            # currentColor. A key that could disagree with the cells it
-            # explains is worse than no key, and this is the assertion
-            # that it cannot.
-            if _band_over(swatch, card) != _band_over(cell["fill"], card):
-                raise AssertionError(
-                    "in %s the key's %s swatch paints %r while the cell "
-                    "it explains paints %r — the key and the grid are "
-                    "reading two different declarations"
-                    % (theme, cls, swatch, cell["fill"]))
-            resolved[cls] = _band_over(cell["fill"], card)
-        card_hex = _band_over(card, card)
-        for cls, hex_value in resolved.items():
-            floor = (GRID_MIN_ABSENCE_CONTRAST if cls == draw.DRAWING_CELL_NONE_CLASS
-                     else GRID_MIN_VERDICT_CONTRAST)
-            ratio = contrast_ratio(hex_value, card_hex)
-            if ratio < floor:
-                raise AssertionError(
-                    "in %s the %s cell composites to %s over the card's "
-                    "%s for %.2f:1, under this check's %.2f:1 floor"
-                    % (theme, cls, hex_value, card_hex, ratio, floor))
-        # The four states stay four: "not the default" says nothing about whether two of
-        # them can be told apart, and a grid whose late and missing cells read as one colour
-        # in dark mode is unreadable while every source scan stays green.
-        for first, second in itertools.combinations(GRID_STATE_CLASSES, 2):
-            distance = perceptual_distance(resolved[first], resolved[second])
-            if distance < GRID_MIN_SEPARATION:
-                raise AssertionError(
-                    "in %s the %s cell (%s) and the %s cell (%s) are "
-                    "dE76 %.1f apart, under the app's own "
-                    "MIN_SIGNAL_PERCEPTUAL_DISTANCE (%.1f) — four "
-                    "states that read as three"
-                    % (theme, first, resolved[first], second,
-                       resolved[second], distance, GRID_MIN_SEPARATION))
-        seen[theme] = dict(resolved, card=card_hex)
-    first_theme, second_theme = UI_THEMES_EXPLICIT
-    for cls in GRID_STATE_CLASSES + ("card",):
-        if seen[first_theme][cls] == seen[second_theme][cls]:
-            raise AssertionError(
-                "the %s cell resolves to %r in BOTH %s and %s — the "
-                "theme token is not reaching it, and every assertion "
-                "above has been comparing a value to itself"
-                % (cls, seen[first_theme][cls], first_theme, second_theme))
-
-
-def test_the_grid_is_a_real_drawing_at_360px_in_both_languages_without_script(new_context, grid_server):
-    """The regularity grid is a real drawing at the 360px floor in both languages: the page
-    body does not scroll sideways, a Health card's content box still measures the width
-    draw.CARD_DRAWING_WIDTH_PX records, all 30 cells render as one square at or above the
-    24px floor the bucket count is supposed to come down for, every cell inks inside the
-    viewBox, the wrapper is exactly as wide as the canvas so the two date labels sit on the
-    first and last columns, the four key swatches keep their declared 12px box inside the
-    card, the geometry is identical in both languages, the whole grid still paints dark-mode
-    tokens with scripts blocked, and at 1280px and 320px the wrapper and the canvas still
-    agree with no page overflow and no stretched cell.
-    """
-    base_url = grid_server.base_url()
-    # The probe every width below runs: the grid's own boxes, in CSS pixels, read from the
-    # browser rather than derived from draw.py's constants, since those constants are what is
-    # under test.
-    probe = (
-        "() => { const r = el => { const b = el.getBoundingClientRect();"
-        "  return {l: b.left, t: b.top, r: b.right, b: b.bottom,"
-        "          w: b.width, h: b.height}; };"
-        "  const wrap = document.querySelector('%s');"
-        "  const svg = wrap.querySelector('svg');"
-        "  const vb = svg.viewBox.baseVal;"
-        "  const card = wrap.closest('.health-row__body');"
-        "  const cs = getComputedStyle(card);"
-        "  return {"
-        "    wrap: r(wrap), svg: r(svg), card: r(card),"
-        "    cardInner: card.clientWidth"
-        "      - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),"
-        "    viewBox: [vb.width, vb.height],"
-        "    cells: [...svg.querySelectorAll('%s')].map(r),"
-        "    inked: [...svg.querySelectorAll('%s')].map(el => {"
-        "      const g = el.getBBox();"
-        "      return [g.x, g.y, g.x + g.width, g.y + g.height]; }),"
-        "    labels: [...wrap.querySelectorAll('.drawing-axis-label')].map(r),"
-        "    key: r(document.querySelector('.check-in-key')),"
-        "    keyLabels: [...document.querySelectorAll("
-        "      '.check-in-key .drawing-axis-label')].map(r),"
-        "    swatches: [...document.querySelectorAll('%s')].map(r)"
-        "  }; }" % (GRID_SELECTOR, GRID_CELL, GRID_CELL, GRID_SWATCH))
-    widths = {}
-    for lang in ("en", "fr"):
-        context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
-        try:
-            page = context.new_page()
-            _login(page, base_url)
-            context.add_cookies([{
-                "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
-            page.goto(base_url + "/health")
-            _open_health_rows(page)
-            page.wait_for_selector(GRID_SELECTOR)
-            message = _assert_no_page_overflow(
-                page, "/health in %s" % lang, VIEWPORT_MIN_SUPPORTED["width"])
-            if message:
-                raise AssertionError(message)
-            seen = page.evaluate(probe)
-            widths[lang] = seen["svg"]["w"]
-            # The constant re-derived from the real card, never assumed: draw.py's own
-            # CARD_DRAWING_WIDTH_PX records a measurement of exactly this box, so the
-            # measurement and the constant are compared here rather than trusted in parallel.
-            if abs(seen["cardInner"] - draw.CARD_DRAWING_WIDTH_PX) > 0.51:
-                raise AssertionError(
-                    "in %s a Health row body's content box measures %.2fpx at "
-                    "the 360px floor, against the %dpx "
-                    "draw.CARD_DRAWING_WIDTH_PX records — every cell size "
-                    "derived from that constant is derived from a number "
-                    "the layout no longer has"
-                    % (lang, seen["cardInner"], draw.CARD_DRAWING_WIDTH_PX))
-            cells = seen["cells"]
-            if len(cells) != health_page.CHECK_IN_WINDOW_DAYS:
-                raise AssertionError(
-                    "in %s the grid draws %d cells, not the %d-day window"
-                    % (lang, len(cells), health_page.CHECK_IN_WINDOW_DAYS))
-            smallest = min(min(c["w"], c["h"]) for c in cells)
-            if smallest < GRID_MIN_CELL_PX:
-                raise AssertionError(
-                    "in %s the smallest cell renders %.2fpx at the 360px "
-                    "floor, under the %dpx target-size floor the bucket "
-                    "count is supposed to come down for"
-                    % (lang, smallest, GRID_MIN_CELL_PX))
-            widest = max(c["w"] for c in cells)
-            if abs(widest - smallest) > 0.51:
-                raise AssertionError(
-                    "in %s the cells render between %.2f and %.2fpx — they "
-                    "are meant to be one square" % (lang, smallest, widest))
-            # The viewBox contains its own ink. Labels are HTML spans outside the canvas, so
-            # there is no SVG text to contain, but the cells' own geometry is still measured
-            # here since the grid is aspect-locked and a cell painted past the viewBox clips
-            # in one browser and not another.
-            box_w, box_h = seen["viewBox"]
-            for x0, y0, x1, y1 in seen["inked"]:
-                if x0 < -0.01 or y0 < -0.01 or x1 > box_w + 0.01 or y1 > box_h + 0.01:
-                    raise AssertionError(
-                        "in %s a cell inks (%.2f, %.2f)-(%.2f, %.2f), "
-                        "outside the %.2fx%.2f viewBox"
-                        % (lang, x0, y0, x1, y1, box_w, box_h))
-            # One scale places the cells and the labels: the label row sizes itself from its
-            # wrapper, so the newest day's label only sits under the newest column while the
-            # wrapper is exactly as wide as the canvas.
-            if abs(seen["wrap"]["w"] - seen["svg"]["w"]) > 0.51:
-                raise AssertionError(
-                    "in %s the grid's wrapper is %.2fpx wide against a "
-                    "%.2fpx canvas, so its date labels are spread across a "
-                    "width the cells do not occupy"
-                    % (lang, seen["wrap"]["w"], seen["svg"]["w"]))
-            scale = [b for b in seen["labels"]]
-            if len(scale) != 2:
-                raise AssertionError(
-                    "in %s the grid carries %d date labels, expected the "
-                    "oldest and the newest" % (lang, len(scale)))
-            if abs(scale[0]["l"] - seen["svg"]["l"]) > 1.01:
-                raise AssertionError(
-                    "in %s the oldest date label starts at %.2f against a "
-                    "canvas left edge of %.2f" % (lang, scale[0]["l"], seen["svg"]["l"]))
-            if abs(scale[-1]["r"] - seen["svg"]["r"]) > 1.01:
-                raise AssertionError(
-                    "in %s the newest date label ends at %.2f against a "
-                    "canvas right edge of %.2f — the labels and the cells "
-                    "are placed by two scales"
-                    % (lang, scale[-1]["r"], seen["svg"]["r"]))
-            if abs((scale[0]["t"] - seen["svg"]["b"]) - GRID_SCALE_GAP_PX) > 1.01:
-                raise AssertionError(
-                    "in %s the date labels sit %.2fpx under the canvas, not "
-                    "the %.0fpx of clear ground the scale row declares — a "
-                    "CSS-only length with no Python constant behind it is "
-                    "exactly the kind this phase keeps finding unmeasured"
-                    % (lang, scale[0]["t"] - seen["svg"]["b"], GRID_SCALE_GAP_PX))
-            # The key: four swatches at their declared size, inside the card, wrapped rather
-            # than overflowing.
-            if len(seen["swatches"]) != len(GRID_STATE_CLASSES):
-                raise AssertionError(
-                    "in %s the key carries %d swatches, expected %d"
-                    % (lang, len(seen["swatches"]), len(GRID_STATE_CLASSES)))
-            for swatch in seen["swatches"]:
-                if (abs(swatch["w"] - GRID_SWATCH_PX) > 0.51
-                        or abs(swatch["h"] - GRID_SWATCH_PX) > 0.51):
-                    raise AssertionError(
-                        "in %s a key swatch renders %.2fx%.2f, not the "
-                        "%.0fpx square it declares — a swatch a flex line "
-                        "squeezed to nothing explains nothing"
-                        % (lang, swatch["w"], swatch["h"], GRID_SWATCH_PX))
-                if swatch["r"] > seen["card"]["r"] + 0.51:
-                    raise AssertionError(
-                        "in %s a key swatch reaches %.2f, past its card's "
-                        "own right edge at %.2f" % (lang, swatch["r"], seen["card"]["r"]))
-            if abs((seen["key"]["t"] - seen["wrap"]["b"]) - GRID_KEY_TOP_GAP_PX) > 1.01:
-                raise AssertionError(
-                    "in %s the key sits %.2fpx under the drawing, not the "
-                    "%.0fpx it declares"
-                    % (lang, seen["key"]["t"] - seen["wrap"]["b"], GRID_KEY_TOP_GAP_PX))
-            if len(seen["keyLabels"]) != len(seen["swatches"]):
-                raise AssertionError(
-                    "in %s the key carries %d swatches and %d words"
-                    % (lang, len(seen["swatches"]), len(seen["keyLabels"])))
-            for swatch, word in zip(seen["swatches"], seen["keyLabels"]):
-                if abs((word["l"] - swatch["r"]) - GRID_KEY_GAP_PX) > 1.01:
-                    raise AssertionError(
-                        "in %s a key swatch and its word are %.2fpx apart, "
-                        "not the %.0fpx the key declares — the second of "
-                        "this drawing's two unbacked CSS lengths"
-                        % (lang, word["l"] - swatch["r"], GRID_KEY_GAP_PX))
-                # The swatch carries an explicit height, so the flex default cannot stretch
-                # it and `align-items: center` moves only where it sits on its own line —
-                # a visible property, so it is asserted rather than left implicit.
-                swatch_mid = (swatch["t"] + swatch["b"]) / 2
-                word_mid = (word["t"] + word["b"]) / 2
-                if abs(swatch_mid - word_mid) > 1.01:
-                    raise AssertionError(
-                        "in %s a key swatch's centre sits %.2fpx off its "
-                        "own word's — the two read as a swatch and a "
-                        "caption rather than as one labelled sample"
-                        % (lang, swatch_mid - word_mid))
-        finally:
-            context.close()
-    if abs(widths["en"] - widths["fr"]) > 0.51:
-        raise AssertionError(
-            "the grid is %.2fpx wide in English and %.2fpx in French — its "
-            "geometry must not depend on the copy around it"
-            % (widths["en"], widths["fr"]))
-    # With scripts blocked: the verdicts are computed in Python and the grid arrives
-    # complete, so this is the same drawing with the same colours and not a reduced one.
-    with _no_js_page(new_context, base_url, "/health",
-                     viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
-        _open_health_rows(blocked)
-        blocked.wait_for_selector(GRID_SELECTOR)
-        _set_ui_theme(blocked, UI_THEMES_EXPLICIT[1])
-        if blocked.locator(GRID_CELL).count() != health_page.CHECK_IN_WINDOW_DAYS:
-            raise AssertionError(
-                "with scripts blocked the grid draws %d cells, not the "
-                "%d-day window"
-                % (blocked.locator(GRID_CELL).count(), health_page.CHECK_IN_WINDOW_DAYS))
-        if blocked.locator(GRID_SWATCH).count() != len(GRID_STATE_CLASSES):
-            raise AssertionError(
-                "with scripts blocked the key carries %d swatches, expected "
-                "%d — the reading of the colours is as server-rendered as "
-                "the colours" % (blocked.locator(GRID_SWATCH).count(), len(GRID_STATE_CLASSES)))
-        for cls in GRID_STATE_CLASSES:
-            paint = _computed_paint(blocked, "rect.%s" % cls, ("fill",))
-            if paint["svg_default"]:
-                raise AssertionError(
-                    "with scripts blocked, in %s: the %s cell resolves %r "
-                    "to the SVG default"
-                    % (UI_THEMES_EXPLICIT[1], cls, paint["svg_default"]))
+@pytest.mark.parametrize("lang", ("en", "fr"))
+@pytest.mark.parametrize("viewport", (VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED),
+                         ids=("1280", "360"))
+def test_health_has_no_regularity_grid_and_the_connection_row_still_renders(
+        new_context, server, lang, viewport):
+    """With every row opened, Health holds no regularity grid, cells, key or scale; the
+    connection row still shows its verdict, its last-check-in fact and its one-line
+    explanation inside the card, and the page never scrolls sideways."""
+    context = new_context(viewport=viewport)
+    try:
+        page = context.new_page()
+        _login(page, server.base_url())
+        context.add_cookies([{
+            "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
+        page.goto(server.base_url() + "/health")
+        _open_health_rows(page)
+        for selector in (".check-in-grid", ".check-in-key", ".check-in-grid__scale",
+                         "rect.drawing-cell"):
+            assert page.locator(selector).count() == 0, (
+                "Health still draws %s in %s" % (selector, lang))
+        row = page.locator("#health-row-connection")
+        assert row.count() == 1
+        assert row.locator("summary .health-row__verdict").is_visible()
+        assert row.locator(".health-row__body .health-row__facts").is_visible()
+        assert row.locator(".health-row__body .health-row__note").is_visible()
+        body = page.evaluate(
+            "() => { const b = document.querySelector("
+            "'#health-row-connection .health-row__body');"
+            " const r = b.getBoundingClientRect();"
+            " const c = document.querySelector('.health-rows').getBoundingClientRect();"
+            " return {l: r.left, r: r.right, cl: c.left, cr: c.right}; }")
+        assert body["l"] >= body["cl"] - 0.5 and body["r"] <= body["cr"] + 0.5, (
+            "the connection row body spills out of its card: %r" % (body,))
         message = _assert_no_page_overflow(
-            blocked, "/health with scripts blocked", VIEWPORT_MIN_SUPPORTED["width"])
+            page, "/health in %s" % lang, viewport["width"])
         if message:
             raise AssertionError(message)
-    # The two responsive declarations, each measured at the width where it is the one doing
-    # the work. At 1280 the card is far wider than the drawing, so `width: max-content` is
-    # what keeps the label row on the cells. At 320, out of contract and still measured by
-    # this file, the canvas is wider than the card and `max-width`/`height: auto` are the
-    # only things between this drawing and a horizontal page scrollbar.
-    for width in (VIEWPORT_DESKTOP["width"], VIEWPORT_WIDTH_NARROW):
-        context = new_context(viewport={"width": width, "height": 844})
-        try:
-            page = context.new_page()
-            _login(page, base_url)
-            page.goto(base_url + "/health")
-            _open_health_rows(page)
-            page.wait_for_selector(GRID_SELECTOR)
-            message = _assert_no_page_overflow(page, "/health at %dpx" % width, width)
-            if message:
-                raise AssertionError(message)
-            seen = page.evaluate(probe)
-            if abs(seen["wrap"]["w"] - seen["svg"]["w"]) > 0.51:
-                raise AssertionError(
-                    "at %dpx the grid's wrapper is %.2fpx against a %.2fpx "
-                    "canvas — the label row is spread across a width the "
-                    "cells do not occupy"
-                    % (width, seen["wrap"]["w"], seen["svg"]["w"]))
-            if seen["svg"]["w"] > seen["cardInner"] + 0.51:
-                raise AssertionError(
-                    "at %dpx the canvas is %.2fpx inside a %.2fpx card"
-                    % (width, seen["svg"]["w"], seen["cardInner"]))
-            if width == VIEWPORT_DESKTOP["width"]:
-                # One line, four items, three gaps.
-                tops = {round(b["t"], 1) for b in seen["swatches"]}
-                if len(tops) != 1:
-                    raise AssertionError(
-                        "at %dpx the key's four items sit on %d lines (%r) "
-                        "— there is 700px of row body and nothing to wrap for"
-                        % (width, len(tops), sorted(tops)))
-                for word, swatch in zip(seen["keyLabels"], seen["swatches"][1:]):
-                    gap = swatch["l"] - word["r"]
-                    if abs(gap - GRID_KEY_ITEM_GAP_PX) > 1.01:
-                        raise AssertionError(
-                            "at %dpx two of the key's labelled swatches are "
-                            "%.2fpx apart, not the %.0fpx the key declares "
-                            "— four states running together read as one "
-                            "sentence" % (width, gap, GRID_KEY_ITEM_GAP_PX))
-            box_w, box_h = seen["viewBox"]
-            rendered_ratio = seen["svg"]["w"] / seen["svg"]["h"]
-            if abs(rendered_ratio - box_w / box_h) > 0.02:
-                raise AssertionError(
-                    "at %dpx the canvas renders %.2fx%.2f, an aspect of "
-                    "%.3f against the viewBox's own %.3f — the cells are no "
-                    "longer square"
-                    % (width, seen["svg"]["w"], seen["svg"]["h"], rendered_ratio, box_w / box_h))
-        finally:
-            context.close()
+    finally:
+        context.close()
 
 
 # --- Status: percentage / voltage switch, readable width, hierarchy ----------------------

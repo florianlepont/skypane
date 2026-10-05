@@ -1,6 +1,6 @@
 """Health page markup builders for the registry ("Airlines we could not
 name"), the resolution-statistics breakdown ("How well we name flights")
-and the check-in regularity grid, extracted out of
+extracted out of
 companion/pages/health_page.py to keep that file under the companion
 app's own file-size ceiling (companion/test_structure_guards.py).
 
@@ -17,15 +17,13 @@ one importing health_page.py back (that would be circular, since
 health_page.py imports this module at load time).
 """
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 from companion.layout import escape_html
 import companion.battery_chart as battery_chart
-import companion.draw as draw
 import companion.health_signals as health_signals_module
 import companion.i18n as i18n
 import companion.layout as layout
-import companion.wake as wake
 import companion.resolve_dialog as resolve_dialog
 from server import history_db
 
@@ -43,89 +41,6 @@ HEALTH_UNAVAILABLE_TEXT = i18n.msg(
     "health.health_history_is_temporarily_unavailable_check",
     "Health history is temporarily unavailable — check the companion "
     "service logs.")
-
-
-# The check-in regularity grid reports what is observable — the
-# regularity of the record of check-ins, not the interval the device was
-# expected to keep (nowhere in history, and not even a constant, since
-# wake.effective_wake_interval_s() switches by screen state and quiet
-# hours) — and its caption says so. Every verdict comes from
-# wake.classify_check_in_gap(), derived from the same
-# wake.device_staleness_thresholds() the Frame tile consumes, so this
-# grid and that tile can never disagree about "late".
-CHECK_IN_SECTION_HEADING = i18n.msg("health.check_in_regularity", "Check-in regularity")
-
-# One cell per Europe/Paris calendar day. Inside draw.regularity_grid()'s
-# own bound (ten columns by six rows = 60 cells at the measured card
-# width), so the window can never be what the drawing truncates.
-CHECK_IN_WINDOW_DAYS = 30
-
-CHECK_IN_GRID_CLASS = "check-in-grid"
-CHECK_IN_SCALE_CLASS = "check-in-grid__scale"
-CHECK_IN_KEY_CLASS = "check-in-key"
-CHECK_IN_KEY_ITEM_CLASS = "check-in-key__item"
-CHECK_IN_KEY_SWATCH_CLASS = "check-in-key__swatch"
-
-# The four states' own words, keyed on the classifier's own vocabulary.
-# Colour is not a reading: four squares in four colours need their four
-# names in text beside them, which is what the key below the grid is.
-CHECK_IN_STATE_TEXT = {
-    wake.CHECK_IN_ON_CADENCE: i18n.msg("health.on_cadence", "On cadence"),
-    wake.CHECK_IN_LATE: i18n.msg("health.late", "Late"),
-    wake.CHECK_IN_MISSING: i18n.msg("health.missing", "Missing"),
-    wake.CHECK_IN_UNKNOWN: i18n.msg("health.no_record", "No record"),
-}
-
-# The caption's clauses, one constant each: only CHECK_IN_CAPTION_OBSERVED
-# renders in the card's always-visible caption; every other clause moves
-# into a `<details class="readings-disclosure">` immediately after it
-# (see `_check_in_regularity_section_html()`).
-CHECK_IN_CAPTION_OBSERVED = i18n.msg(
-    "health.each_cell_is_one_day_of_observed_check_in",
-    "Each cell is one day of observed check-in regularity, oldest first.")
-# The cadence actually in force on an earlier day is not recoverable
-# (device_config.json is a current-state file), so naming it without
-# this qualifier would be a claim about the past made from a present value.
-CHECK_IN_CAPTION_CADENCE = i18n.msg(
-    "health.judged_against_the_cadence_configured_now_a",
-    "Judged against the cadence configured now — a check-in every %s — not "
-    "necessarily the cadence in force on an earlier day.")
-# When there is no cadence to name at all: device_staleness_thresholds()'
-# bare floors apply, and the caption must say so rather than print an
-# assumed default.
-CHECK_IN_CAPTION_CADENCE_FALLBACK = i18n.msg(
-    "health.this_frame_s_cadence_cannot_be_determined_so",
-    "This frame's cadence cannot be determined, so the grid is judged against "
-    "the fallback staleness floors rather than against a configured cadence.")
-# What a gap is not: the record cannot tell a wake the frame missed from
-# a log range this server lost, so a grid without this sentence would
-# make a claim its own data cannot support.
-CHECK_IN_CAPTION_NOT_PROOF = i18n.msg(
-    "health.a_day_with_no_record_is_not_proof_the_frame_did",
-    "A day with no record is not proof the frame did not wake: a log rotation "
-    "this server missed leaves exactly the same gap.")
-# The empty deployment: a real case, rendering an honest grid of
-# no-observation cells rather than a missing section.
-CHECK_IN_CAPTION_EMPTY = i18n.msg(
-    "health.no_check_in_intervals_are_recorded_yet_so_every",
-    "No check-in intervals are recorded yet, so every day below is a day the "
-    "record says nothing about.")
-
-# The per-cell tooltip and the grid's own accessible name. The gap is
-# named as a DURATION in the app's own form (layout.duration_text()) and
-# the day as a local date — every visible instant in this app is
-# Europe/Paris and a raw ISO string survives only behind a copy control.
-CHECK_IN_CELL_TITLE = i18n.msg(
-    "health.longest_observed_gap", "%s — %s: longest observed gap %s")
-# A bare "%s — %s" join carries no translatable words of its own — the
-# id exists only so i18n.t() (Message-only) can still be called on it;
-# its French BY_ID entry is the identical template, listed in
-# test_i18n.py's _UNCHANGED_IN_FRENCH.
-CHECK_IN_CELL_TITLE_NONE = i18n.msg("health.day_dash_verdict", "%s — %s")
-CHECK_IN_GRID_LABEL = i18n.msg(
-    "health.observed_check_in_regularity_one_cell_per_day",
-    "Observed check-in regularity, one cell per day over the last %d days: "
-    "%d on cadence, %d late, %d missing, %d with no record.")
 
 
 UNRESOLVED_SECTION_HEADING = i18n.msg(
@@ -553,139 +468,3 @@ def _stats_table_html(stats):
     return _stats_cards_html(stats["rows"]) + layout.data_table(
         [i18n.t(header) for header in _STATS_HEADERS], stats["rows"],
         desc_columns=(1,), prose=True)
-
-
-def _check_in_regularity_cells(gap_rows, wake_interval_s, now):
-    """`(cells, counts, day_labels)` for the check-in regularity grid:
-    one entry per Europe/Paris calendar day, oldest first. Every
-    verdict, including a day with no record, goes through
-    `wake.classify_check_in_gap()`, the same function the Frame tile
-    consumes. A day is judged by its longest observed gap, not an
-    average, so one long hole isn't hidden by an otherwise-ordinary day.
-    Calendar arithmetic is ordinal, correct across a DST boundary where
-    a fixed per-day second count is not. Never raises.
-    """
-    worst = {}
-    for row in gap_rows or ():
-        try:
-            day, gap = row.get("day"), row.get("gap_s")
-        except AttributeError:
-            continue
-        if not isinstance(day, str) or not draw.is_number(gap):
-            continue
-        if day not in worst or gap > worst[day]:
-            worst[day] = gap
-
-    parsed = layout.parse_iso(now)
-    if parsed is None:
-        parsed = datetime.now(timezone.utc)
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    last = parsed.astimezone(layout.LOCAL_TZ).date().toordinal()
-
-    cells = []
-    labels = []
-    counts = dict.fromkeys(CHECK_IN_STATE_TEXT, 0)
-    for ordinal in range(last - CHECK_IN_WINDOW_DAYS + 1, last + 1):
-        day = date.fromordinal(ordinal)
-        gap = worst.get(day.isoformat())
-        state = wake.classify_check_in_gap(gap, wake_interval_s)
-        counts[state] = counts.get(state, 0) + 1
-        day_text = "%d %s" % (day.day, layout.month_abbr(day.month))
-        labels.append(day_text)
-        verdict_text = i18n.t(CHECK_IN_STATE_TEXT.get(
-            state, CHECK_IN_STATE_TEXT[wake.CHECK_IN_UNKNOWN]))
-        if gap is None:
-            title = i18n.t(CHECK_IN_CELL_TITLE_NONE) % (day_text, verdict_text)
-        else:
-            title = i18n.t(CHECK_IN_CELL_TITLE) % (
-                day_text, verdict_text, layout.duration_text(gap))
-        cells.append((state, title))
-    return cells, counts, labels
-
-
-def _check_in_regularity_html(gap_rows, wake_interval_s, now):
-    """The check-in regularity block for the Frame connection row's
-    details: a small heading, the visible caption plus its disclosure,
-    the grid, its date labels and the four-state key.
-    `wake_interval_s` of `None` degrades to
-    `device_staleness_thresholds()`'s bare floors, and the caption names
-    those floors rather than a cadence nobody configured. Only
-    `CHECK_IN_CAPTION_OBSERVED` is visible; every other clause moves
-    into a `<details>` disclosure, the same idiom `_battery_section()`
-    uses. Not a card of its own: the row that holds it is the container.
-    """
-    if gap_rows is _DB_UNAVAILABLE:
-        body = _unavailable_block()
-    else:
-        body = _check_in_regularity_body(gap_rows, wake_interval_s, now)
-    return (
-        '<div class="health-row__section">'
-        '<p class="health-row__subhead">%s</p>%s</div>'
-    ) % (escape_html(i18n.t(CHECK_IN_SECTION_HEADING)), body)
-
-
-def _check_in_regularity_body(gap_rows, wake_interval_s, now):
-    cells, counts, labels = _check_in_regularity_cells(
-        gap_rows, wake_interval_s, now)
-    observed = sum(
-        counts.get(state, 0) for state in (
-            wake.CHECK_IN_ON_CADENCE, wake.CHECK_IN_LATE, wake.CHECK_IN_MISSING))
-    grid_html, dropped = draw.regularity_grid(
-        cells,
-        label=i18n.t(CHECK_IN_GRID_LABEL) % (
-            CHECK_IN_WINDOW_DAYS,
-            counts.get(wake.CHECK_IN_ON_CADENCE, 0),
-            counts.get(wake.CHECK_IN_LATE, 0),
-            counts.get(wake.CHECK_IN_MISSING, 0),
-            counts.get(wake.CHECK_IN_UNKNOWN, 0)))
-    # Read past anything the drawing dropped, so the two labels can
-    # only ever name cells that are on screen.
-    oldest = labels[dropped] if dropped < len(labels) else labels[-1]
-    disclosure_clauses = []
-    if not observed:
-        disclosure_clauses.append(i18n.t(CHECK_IN_CAPTION_EMPTY))
-    if draw.is_number(wake_interval_s) and wake_interval_s > 0:
-        disclosure_clauses.append(
-            i18n.t(CHECK_IN_CAPTION_CADENCE) % layout.duration_text(wake_interval_s))
-    else:
-        disclosure_clauses.append(i18n.t(CHECK_IN_CAPTION_CADENCE_FALLBACK))
-    disclosure_clauses.append(i18n.t(CHECK_IN_CAPTION_NOT_PROOF))
-    disclosure_html = (
-        '<details class="readings-disclosure"><summary>%s</summary><p>%s</p></details>'
-    ) % (
-        escape_html(i18n.t(_MORE_DETAILS_TEXT)),
-        escape_html(" ".join(disclosure_clauses)))
-    return (
-        '<p class="text-label section-caption">%s</p>'
-        '%s'
-        '<div class="%s">%s<div class="%s">%s%s</div></div>'
-        '%s'
-    ) % (
-        escape_html(i18n.t(CHECK_IN_CAPTION_OBSERVED)),
-        disclosure_html,
-        escape_html(CHECK_IN_GRID_CLASS), grid_html,
-        escape_html(CHECK_IN_SCALE_CLASS),
-        draw.label_span(oldest, hidden=False),
-        draw.label_span(labels[-1], hidden=False),
-        _check_in_key_html())
-
-
-def _check_in_key_html():
-    """Legend for the regularity grid, in classifier order (best to worst,
-    then absence). The swatch takes the cell's own class rather than a
-    copied colour, so key and grid share one `currentColor` declaration
-    and cannot disagree. aria-hidden: the label text is the reading.
-    """
-    items = []
-    for state in (wake.CHECK_IN_ON_CADENCE, wake.CHECK_IN_LATE,
-                  wake.CHECK_IN_MISSING, wake.CHECK_IN_UNKNOWN):
-        items.append(
-            '<span class="%s"><span class="%s %s" aria-hidden="true"></span>'
-            '<span class="drawing-axis-label">%s</span></span>'
-            % (escape_html(CHECK_IN_KEY_ITEM_CLASS),
-               escape_html(CHECK_IN_KEY_SWATCH_CLASS),
-               escape_html(draw.cell_class(state)),
-               escape_html(i18n.t(CHECK_IN_STATE_TEXT[state]))))
-    return '<div class="%s">%s</div>' % (
-        escape_html(CHECK_IN_KEY_CLASS), "".join(items))

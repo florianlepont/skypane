@@ -15,9 +15,9 @@ feedback on the tile layout:
 1. Desktop misalignment (tiles stopped at 760 px while the cards ran to 880 px, a third tile
    orphaned by 8 px): one consistent width, the 760 px cap is gone.
 2. The status tile needs a finer, more modern treatment.
-3. "Régularité des relevés" and "Aujourd'hui" were not useful as cards: both are removed. The
-   30-day wake regularity survives only inside the Frame connection row's details; the 24 h band
-   is dropped (quiet hours are shown by the Device page's dial).
+3. "Régularité des relevés" and "Aujourd'hui" were not useful as cards: both are removed, and
+   the 30-day wake-regularity grid goes with them (the owner confirmed it is not useful); the
+   24 h band is dropped (quiet hours are shown by the Device page's dial).
 4. The server and off-server backup signals get a finished treatment and sit above the
    unidentified-airlines table.
 
@@ -31,7 +31,7 @@ feedback on the tile layout:
   visually hidden state word, so colour is never the only signal), the name, a one-line verdict,
   a right-aligned value and the shared chevron. A row whose state is warn or error renders open.
   No script is involved; the identification row carries a small neutral ring and "N to resolve".
-- Row bodies hold the evidence: facts and the wake-regularity grid (connection), the battery
+- Row bodies hold the evidence: facts (connection), the battery
   ring/readout/chart (battery, moved inside its row unchanged), timestamps (flight data), the
   three corroboration outcomes with their explanations (sources), the window sentence, a link to
   the unresolved table and the resolution breakdown table (identification), the last backup.
@@ -49,7 +49,7 @@ feedback on the tile layout:
 ## Tasks
 
 1. `companion/health_rows.py`: generic row / group / card / facts components.
-2. `health_page`: per-row builders, `render()` rewritten; `health_sections`: regularity block
+2. `health_page`: per-row builders, `render()` rewritten; `health_sections`: regularity block (later removed entirely)
    without its card, day band and tile/stat-card builders removed.
 3. `style.css`: rows card CSS, 760 px cap and tile rules removed, one elevation rule.
 4. i18n (EN source, FR catalogue), freshness registry (Python and `freshness.js`).
