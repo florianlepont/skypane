@@ -212,4 +212,10 @@ MESSAGES = {
     # data_table()'s generic empty-rows fallback (companion/ui_components.py).
     "common.no_data_yet": "Aucune donnée pour l’instant.",
     "common.nothing_to_show_here_yet": "Rien à afficher ici pour l’instant.",
+
+    # The estimated-charging pill (companion/ui_components.py): hedged on
+    # purpose, the voltage trend is an inference, never a charge state.
+    "common.battery_charging": "Probablement en charge",
+    "common.battery_charging_title":
+        "La tension monte\u00a0: le cadre est probablement branché",
 }

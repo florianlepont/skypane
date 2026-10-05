@@ -267,7 +267,7 @@ def test_late_states_and_battery_fit_every_viewport(
             assert "home-state--warn" in page.locator(".home-state").get_attribute("class")
         figure = page.locator(".home-battery__value").evaluate(
             "el => parseFloat(getComputedStyle(el).fontSize)")
-        dial = page.locator(".home-battery svg").bounding_box()
+        dial = page.locator(".home-battery > svg").bounding_box()
         assert figure >= 28 and dial["width"] >= 120 and dial["height"] >= 120
         _assert_zone_arrangement(_zone_geometry(page), "%s/%s" % (viewport_name, minutes_ago))
         overflow = _assert_no_page_overflow(

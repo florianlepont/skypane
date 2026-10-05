@@ -548,6 +548,12 @@ ICON_IDS = ICON_IDS + (
     "icon-gear",
 )
 
+# One more icon, for the estimated "probably charging" pill: a lightning
+# bolt, the one glyph that reads as charging without a word.
+ICON_IDS = ICON_IDS + (
+    "icon-bolt",
+)
+
 # One more icon, for the Update nav destination: a two-arrow cycle
 # glyph, distinct from icon-refresh (reserved for the copy-button/
 # manual-refresh family). Appended, not merged, for the same reason
@@ -713,6 +719,10 @@ ICON_DEFS_HTML = (
     '<path d="M10 2.5v2.4M10 15.1v2.4M17.5 10h-2.4M4.9 10H2.5'
     'M15.3 4.7l-1.7 1.7M6.4 13.6l-1.7 1.7M15.3 15.3l-1.7-1.7'
     'M6.4 6.4L4.7 4.7"/>'
+    "</symbol>"
+    '<symbol id="icon-bolt" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M11 2L4.5 11H10l-1 7L15.5 9H10z"/>'
     "</symbol>"
     '<symbol id="icon-check" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '

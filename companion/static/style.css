@@ -4262,8 +4262,9 @@ a.airline-card {
 .health-row__value {
   grid-area: value;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-xs) var(--space-sm);
   min-width: 0;
   font-size: var(--font-label-size);
   font-variant-numeric: tabular-nums;
@@ -5507,6 +5508,38 @@ a.airline-sheet__type[aria-current="true"] {
   justify-content: start;
   padding: var(--space-md) var(--space-lg);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The estimated "Probably charging" pill, shared by Home and Health. The
+ * ok tone, never the accent: it reports a state, it is not an action or a
+ * selection. The bolt and the words carry the meaning, so colour is
+ * never the only signal. */
+.charging-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  max-width: 100%;
+  padding: 2px var(--space-sm);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  line-height: 1.4;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--color-status-ok) 55%, var(--color-text));
+  background: color-mix(in srgb, var(--color-status-ok) 16%, transparent);
+}
+
+.charging-pill .icon {
+  flex: none;
+}
+
+/* A row of its own under the arc, centred, so it never competes with the
+ * level word that sits in the arc's gap for a low battery. */
+.home-battery__charging {
+  grid-area: 2 / 1;
+  justify-self: center;
+  /* Clears the level word, which sits 6px below the arc's gap. */
+  margin-top: var(--space-md);
 }
 
 /* The recessed panel: a step down from the card surface toward the

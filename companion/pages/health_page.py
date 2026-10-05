@@ -831,7 +831,19 @@ def _connection_row(state, now):
         _age_html(ts, now, _NO_CHECK_IN_TEXT), body)
 
 
-def _battery_row(state):
+def _charging_pill_html(state, trend_rows, battery_critical):
+    """The estimated "Probably charging" pill, or "" when the shared
+    estimate does not say so. Judged on the same per-wake readings and the
+    same `now` this row's own verdict was, at the cadence the device is
+    actually on, so a stale reading shows nothing here either."""
+    if not health_signals_module.charging_likely(
+            trend_rows, state["now"], state["inputs"]["device_config"],
+            battery_critical):
+        return ""
+    return layout.battery_charging_pill_html("health-row__charging")
+
+
+def _battery_row(state, battery_critical=False):
     name = i18n.t(ROW_BATTERY_NAME)
     trend_rows = state["inputs"]["trend_rows"]
     if trend_rows is _DB_UNAVAILABLE:
@@ -851,7 +863,7 @@ def _battery_row(state):
     return health_rows.row_html(
         "battery", battery_state, name,
         i18n.t(BATTERY_STATE_TEXT.get(battery_state, BATTERY_STATE_TEXT["warn"])),
-        escape_html(value),
+        escape_html(value) + _charging_pill_html(state, trend_rows, battery_critical),
         _battery_body_html(state["battery_html"]))
 
 
@@ -1019,7 +1031,8 @@ def render(ctx):
     registry_rows = [row for row in registry_rows if row[0] not in named_prefixes]
 
     screen_rows = (
-        _connection_row(state, now) + _battery_row(state))
+        _connection_row(state, now)
+        + _battery_row(state, ctx.battery_critical))
     server_rows = (
         _flight_data_row(state, now) + _sources_row(state)
         + _identification_row(stats, len(registry_rows))

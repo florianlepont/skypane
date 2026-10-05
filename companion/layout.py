@@ -209,6 +209,9 @@ from companion.ui_nav import (
     ui_theme_from_cookie,
 )
 from companion.ui_components import (
+    BATTERY_CHARGING_TEXT,
+    BATTERY_CHARGING_TITLE,
+    battery_charging_pill_html,
     TOAST_ATTR,
     TOAST_AUTOHIDE_ATTR,
     TOAST_AUTOHIDE_LONG_TONES,
@@ -260,6 +263,8 @@ __all__ = (
     "i18n",
     "ADVANCED_GROUP_LABEL",
     "AIRLINES_ROUTE",
+    "BATTERY_CHARGING_TEXT",
+    "BATTERY_CHARGING_TITLE",
     "CONFIRM_SUBMIT_SCRIPT_SRC",
     "COPY_BUTTON_SCRIPT_SRC",
     "DEVICE_ROUTE",
@@ -479,6 +484,7 @@ __all__ = (
     "section_intro_html",
     "sidebar_nav",
     "stat_tile",
+    "battery_charging_pill_html",
     "status_dot",
     "status_row",
     "ui_theme_from_cookie",

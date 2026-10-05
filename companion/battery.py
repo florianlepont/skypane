@@ -204,3 +204,155 @@ def battery_life_estimate(rows, current_wake_interval_s=None,
         soc_drop_per_day = (oldest_fraction - newest_fraction) / span_days
         result["days_remaining"] = int(round(newest_fraction / soc_drop_per_day))
     return result
+
+
+# --- Estimated "probably charging" ------------------------------------
+#
+# The frame reports only a battery voltage at each wake: the EE02 board's
+# charger drives a status LED and nothing readable by the firmware, so
+# "charging" can only be INFERRED from the voltage trend. This is an
+# estimate, never a measurement, and every caller must word it that way.
+#
+# The rule looks at the latest readings counted in WAKES, not seconds, so
+# it reads the same at a 60 s and a 3600 s cadence, and fires on any of:
+#   plateau  the last 3 readings are all at or above CHARGE_PLATEAU_MV;
+#   step     the median of the last 3 readings sits at least
+#            CHARGE_STEP_RISE_MV above the median of the 3 before them
+#            (the level shift of plugging in);
+#   ramp     over the last 12 readings, three blocks of 4 whose medians
+#            each rise by CHARGE_RAMP_BLOCK_RISE_MV and together by
+#            CHARGE_RAMP_TOTAL_RISE_MV (a constant-current charge).
+# step and ramp additionally need the latest reading to be within
+# CHARGE_LATEST_TOLERANCE_MV of the highest of the last 3, so an unplug
+# (a step DOWN) ends the estimate on the first reading after it.
+# Medians, not endpoints: the panel refresh load makes single readings sag
+# and recover by up to ~100 mV, which as an endpoint looks like a rise.
+#
+# Calibration data: one battery, one discharge run (3248 discharge
+# readings at about 342 s spacing, hardware/logs/battery-run-server.log)
+# and one real unplug (4122 mV on USB, 4038 mV on the first wake after).
+# Over every discharge window the plateau rule never fires (highest
+# discharge reading 4040 mV against the 4112-4126 mV seen on USB), the
+# largest 3-vs-3 median rise is 60 mV (against 75), and the ramp rule
+# fires 0 times (the closest windows reach 50 mV total, against 60). Only
+# that one real charge/unplug transition exists: the thresholds are
+# calibrated on discharge noise plus that documented USB plateau, and the
+# charging ramp itself is synthetic. Treat them as an estimate.
+CHARGE_LIKELY = "charging-likely"
+CHARGE_NOT_CHARGING = "not-charging"
+CHARGE_UNKNOWN = "unknown"
+
+CHARGE_MIN_READINGS = 3
+CHARGE_PLATEAU_MV = 4090
+CHARGE_STEP_WINDOW_WAKES = 6
+CHARGE_STEP_RISE_MV = 75
+CHARGE_RAMP_WINDOW_WAKES = 12
+CHARGE_RAMP_BLOCK_RISE_MV = 8
+CHARGE_RAMP_TOTAL_RISE_MV = 60
+CHARGE_LATEST_TOLERANCE_MV = 20
+# One missed wake is tolerated; a "now" claim older than that shows nothing.
+CHARGE_FRESH_WAKES = 2
+CHARGE_FRESH_SLACK_S = 60
+
+
+def _charge_instant_or_none(value):
+    """A timezone-aware UTC datetime for an ISO string or a datetime (a
+    naive one is taken as UTC, as `history_db.instant_or_none()` does),
+    or None. `ts` is unvalidated upstream, so nothing here may raise."""
+    if isinstance(value, datetime.datetime):
+        parsed = value
+    elif isinstance(value, str):
+        try:
+            parsed = datetime.datetime.fromisoformat(value)
+        except ValueError:
+            return None
+    else:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+    return parsed
+
+
+def _charge_readings(rows):
+    """Chronological `(instant, millivolts)` pairs for every usable row.
+    Sorted here rather than trusted: `recent_device_health()` returns
+    newest-first, and a trend read in the wrong order has the wrong sign,
+    which would turn a draining battery into a charging one."""
+    readings = []
+    for row in rows or ():
+        if not isinstance(row, dict):
+            continue
+        instant = _charge_instant_or_none(row.get("ts"))
+        if instant is None:
+            continue
+        mv = row.get("battery_mv")
+        if isinstance(mv, bool) or not isinstance(mv, (int, float)):
+            continue
+        mv = float(mv)
+        if mv != mv or mv in (float("inf"), float("-inf")) or mv <= 0:
+            continue
+        readings.append((instant, mv))
+    readings.sort(key=lambda reading: reading[0])
+    return readings
+
+
+def _median(values):
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    if len(ordered) % 2:
+        return ordered[middle]
+    return (ordered[middle - 1] + ordered[middle]) / 2.0
+
+
+def _charge_trend_says_charging(mvs):
+    """Whether chronological millivolt readings `mvs` (at least
+    CHARGE_MIN_READINGS) read as a charge, by the rule above."""
+    latest = mvs[-3:]
+    if min(latest) >= CHARGE_PLATEAU_MV:
+        return True
+    if mvs[-1] < max(latest) - CHARGE_LATEST_TOLERANCE_MV:
+        return False
+    if len(mvs) >= CHARGE_STEP_WINDOW_WAKES:
+        window = mvs[-CHARGE_STEP_WINDOW_WAKES:]
+        if _median(window[3:]) - _median(window[:3]) >= CHARGE_STEP_RISE_MV:
+            return True
+    if len(mvs) >= CHARGE_RAMP_WINDOW_WAKES:
+        window = mvs[-CHARGE_RAMP_WINDOW_WAKES:]
+        block = CHARGE_RAMP_WINDOW_WAKES // 3
+        first = _median(window[:block])
+        middle = _median(window[block:2 * block])
+        last = _median(window[2 * block:])
+        if (middle - first >= CHARGE_RAMP_BLOCK_RISE_MV
+                and last - middle >= CHARGE_RAMP_BLOCK_RISE_MV
+                and last - first >= CHARGE_RAMP_TOTAL_RISE_MV):
+            return True
+    return False
+
+
+def charging_estimate(rows, now, wake_interval_s):
+    """CHARGE_LIKELY, CHARGE_NOT_CHARGING or CHARGE_UNKNOWN for the
+    per-wake `device_health` `rows` (`ts` and `battery_mv`, any order).
+
+    `now` is an ISO string or a datetime; `wake_interval_s` is the
+    caller-resolved effective cadence (this module may not import
+    server/wake.py). UNKNOWN, which callers render as nothing, covers
+    every case where no honest claim exists: fewer than
+    CHARGE_MIN_READINGS usable rows, a bad `now` or cadence, and a latest
+    reading older than 2 x the cadence + 60 s (or stamped in the future),
+    so a stale "charging" can never show.
+    """
+    interval_s = _life_cadence_or_none(wake_interval_s)
+    now_instant = _charge_instant_or_none(now)
+    if interval_s is None or now_instant is None:
+        return CHARGE_UNKNOWN
+    readings = _charge_readings(rows)
+    if len(readings) < CHARGE_MIN_READINGS:
+        return CHARGE_UNKNOWN
+    age_s = (now_instant - readings[-1][0]).total_seconds()
+    if age_s < -CHARGE_FRESH_SLACK_S or age_s > (
+            CHARGE_FRESH_WAKES * interval_s + CHARGE_FRESH_SLACK_S):
+        return CHARGE_UNKNOWN
+    mvs = [mv for _instant, mv in readings[-CHARGE_RAMP_WINDOW_WAKES:]]
+    if _charge_trend_says_charging(mvs):
+        return CHARGE_LIKELY
+    return CHARGE_NOT_CHARGING

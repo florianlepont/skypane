@@ -290,6 +290,34 @@ def status_dot(state, label, title=None, visually_hide_label=False):
         % (css_class, dot_title, label_class, label_title, escape_html(label)))
 
 
+# The estimated-charging pill's wording. Deliberately hedged: the frame
+# reports only a voltage, so "charging" is inferred from its trend and
+# must never read as a fact (see companion/battery.py's charging_estimate).
+BATTERY_CHARGING_TEXT = i18n.msg("common.battery_charging", "Probably charging")
+BATTERY_CHARGING_TITLE = i18n.msg(
+    "common.battery_charging_title",
+    "The voltage is rising: the frame is probably plugged in")
+BATTERY_CHARGING_PILL_CLASS = "charging-pill"
+
+
+def battery_charging_pill_html(extra_class=""):
+    """The small "Probably charging" pill: a bolt, the hedged words and a
+    `title` saying what the claim rests on. Always the same markup, so
+    Home and Health cannot word the estimate differently; the caller
+    decides WHETHER to show it (battery.charging_estimate()), this only
+    draws it. `extra_class` is a module constant of the caller's, never
+    data."""
+    css_class = BATTERY_CHARGING_PILL_CLASS
+    if extra_class:
+        css_class = "%s %s" % (css_class, extra_class)
+    return (
+        '<span class="%s" title="%s">%s<span class="%s__text">%s</span></span>'
+    ) % (
+        css_class, escape_html(i18n.t(BATTERY_CHARGING_TITLE)),
+        icon_html("icon-bolt", size=14), BATTERY_CHARGING_PILL_CLASS,
+        escape_html(i18n.t(BATTERY_CHARGING_TEXT)))
+
+
 def stat_tile(caption, content_html, status=None, icon=None, caption_title=None):
     """A status-coloured dashboard card wrapping already-built markup.
 
