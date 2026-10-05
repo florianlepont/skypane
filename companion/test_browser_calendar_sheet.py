@@ -266,7 +266,10 @@ def _click_centred(page, selector):
 
 
 def _no_js_login_and_goto(new_context, server, route):
-    return _no_js_page(new_context, server.base_url(), route, viewport=VIEWPORT_PHONE)
+    # Form flows, not motion: without the cross-document view transition, a click made right after
+    # a navigation cannot land on the transition overlay (`<html>`) on a slow machine.
+    return _no_js_page(new_context, server.base_url(), route, viewport=VIEWPORT_PHONE,
+                       reduced_motion="reduce")
 
 
 def test_with_scripts_blocked_manage_is_a_link_to_an_in_page_sheet_that_replaces_and_disconnects(
