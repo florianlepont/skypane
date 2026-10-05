@@ -677,11 +677,13 @@ def test_health_tile_icons_are_tile_only_and_no_heading_carries_a_glyph(tmp_path
                 "example_callsign": "ABC123"},
     })
     seeded_rendered = health_page.render(shp.ctx(state_dir, shp.iso(now)))
-    assert _non_toast_uses(seeded_rendered) == 6, (
-        "expected exactly six non-toast <use occurrences on a seeded render (the same three "
+    assert _non_toast_uses(seeded_rendered) == 8, (
+        "expected exactly eight non-toast <use occurrences on a seeded render (the same three "
         "plus the unresolved-prefixes filter bar's search glyph, its inline-clear cross and "
-        "its empty state's search glyph)")
-    _headings_carry_no_glyph(seeded_rendered, 6)
+        "its empty state's search glyph, plus the two upload glyphs of the resolve dialog the "
+        "table's Resolve links open)")
+    # The seventh heading is the resolve dialog's own, empty until a Resolve link fills it.
+    _headings_carry_no_glyph(seeded_rendered, 7)
 
 
 # ==========================================================================

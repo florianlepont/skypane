@@ -302,6 +302,7 @@ _PAGE_SCRIPTS = {
         layout.COPY_BUTTON_SCRIPT_SRC,
         layout.FRESHNESS_SCRIPT_SRC,
         layout.LIST_FILTER_SCRIPT_SRC,
+        layout.PANEL_LOOKUP_SCRIPT_SRC,
     ),
     layout.AIRLINES_ROUTE: (
         layout.AIRLINE_TYPES_SCRIPT_SRC,
