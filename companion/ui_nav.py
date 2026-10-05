@@ -268,9 +268,12 @@ REFRESH_PENDING_ATTR = "data-pending"
 # Duplicated rather than imported — freshness.js is a static asset, not
 # a Python module.
 
-# HEALTH: excludes the sparkline, the registry card/filter bar and every
-# <details> — swapping any would leave battery-trend.js's chart or
-# list-filter.js's filter permanently dead (each captures its DOM once).
+# HEALTH: swaps each row's <summary> (state icon, verdict, value) and
+# nothing else inside the rows card. The row's <details> and its body are
+# never replaced: a replaced <details> would close a row the visitor had
+# opened, and a replaced body would leave battery-trend.js's chart
+# permanently dead (it captures its DOM once). The registry card and its
+# filter bar are excluded for list-filter.js's sake.
 
 # `a[href="/health"]`, not a ".dot" selector, is the nav-severity target:
 # the severity dot only exists in the DOM for "warn"/"error", so a
@@ -312,7 +315,7 @@ REFRESH_SWAP_SELECTORS_BY_PAGE = {
         ".frame-strip",
     ),
     REFRESH_PAGE_HEALTH: (
-        ".dashboard-grid",
+        ".health-row__summary",
         "div." + HEALTH_ANOMALY_CLASS,
         "section." + HEALTH_SOURCE_FAULT_CLASS,
         ".page-header__freshness",

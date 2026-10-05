@@ -1007,25 +1007,19 @@ def test_both_tabs_ok_end_to_end(make_app_server):
         assert heading.encode() in body, "expected the %r heading in %s's response body" % (heading, path)
         if path == "/health":
             body_text = body.decode("utf-8", errors="replace")
-            for constant in (
-                    health_page.PAGE_PURPOSE_TEXT,
-                    health_page.SCREEN_SECTION_DESCRIPTION,
-                    health_page.SERVER_DATA_SECTION_DESCRIPTION):
-                escaped = layout.escape_html(constant)
-                assert escaped not in body_text, "expected retired explanatory copy %r to be absent" % (constant,)
-            for label in (health_page.DEVICE_FRESHNESS_LABEL, health_page.PIPELINE_FRESHNESS_LABEL):
-                label_count = body_text.count(label)
-                assert label_count == 1, (
-                    "expected %r exactly once in the real /health HTTP response body, got %d"
-                    % (label, label_count))
+            for name in (health_page.ROW_CONNECTION_NAME, health_page.ROW_FLIGHT_DATA_NAME):
+                name_count = body_text.count(">%s<" % name)
+                assert name_count == 1, (
+                    "expected the row name %r exactly once in the real /health HTTP response body, got %d"
+                    % (name, name_count))
 
             assert "data-refresh-pill" not in body_text
             assert "data-stale-banner" not in body_text, "expected zero stale-banner markers in the real /health HTTP response body"
 
             nested_count = body_text.count("page-section--nested")
-            assert nested_count == 2, (
-                "expected page-section--nested exactly twice in the real /health HTTP response "
-                "body, got %d" % nested_count)
+            assert nested_count == 1, (
+                "expected page-section--nested exactly once (the registry card) in the real "
+                "/health HTTP response body, got %d" % nested_count)
             prose_count = body_text.count("data-table--prose")
             assert prose_count == 1, (
                 "expected data-table--prose exactly once in the real /health HTTP response body, "

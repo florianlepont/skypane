@@ -278,7 +278,7 @@
       ".frame-strip"
     ],
     "health": [
-      ".dashboard-grid",
+      ".health-row__summary",
       "div.health-anomaly",
       "section.health-source-fault",
       ".page-header__freshness",
