@@ -189,7 +189,7 @@ def _login(page, base_url):
 
 @contextlib.contextmanager
 def _no_js_page(make_context, base_url, route, viewport=None, sign_in=True,
-                cookies=None):
+                cookies=None, reduced_motion=None):
     """A scripts-blocked browser context, signed in, landed on `route`.
 
     `make_context` must be the guarded `new_context` fixture, never a bare `browser` object, so
@@ -197,8 +197,14 @@ def _no_js_page(make_context, base_url, route, viewport=None, sign_in=True,
     `sign_in=False` is for the login card itself, which inspects the unauthenticated page before
     signing in as its last step. `cookies` is applied before the sign-in navigation, the only
     order under which the first rendered document (e.g. a UI-language cookie) already honours it.
+    `reduced_motion="reduce"` opts a test out of the cross-document view transition (style.css only
+    installs it under `no-preference`): right after a navigation the transition's overlay is the
+    hit target (`<html>`), so a coordinate click can time out on a slow machine. Opt in only where the
+    test is about form flows, never where it asserts motion.
     """
     extra = {} if viewport is None else {"viewport": viewport}
+    if reduced_motion is not None:
+        extra["reduced_motion"] = reduced_motion
     context = make_context(java_script_enabled=False, **extra)
     try:
         if cookies:

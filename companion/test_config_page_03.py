@@ -275,22 +275,24 @@ def test_render_both_quiet_hours_time_inputs_carry_required():
 
 def test_calendar_connection_url_error_never_echoes_the_submitted_secret():
     """_calendar_connection_html(..., errors={"calendar_url": ERROR_CALENDAR_URL_INVALID}) renders
-    the error message under the field while the write-only field itself still carries no value
-    attribute at all
+    the error message under the field and opens the sheet on it, while the write-only field itself
+    still carries no value attribute at all
 
-    The write-only calendar_url field's own `errors` parameter now lives directly on
+    The write-only calendar_url field's own `errors` parameter lives directly on
     _calendar_connection_html() - it never accepts `submitted` at all (nothing to repopulate:
     the one field it renders is write-only), so there is no submitted URL for it to echo.
     """
     error_message = form_post.ERROR_CALENDAR_URL_INVALID
-    rendered, _disconnect_form_html = config_page._calendar_connection_html(
+    rendered = config_page._calendar_connection_html(
         False, False, None, None, "2026-09-07T09:12:04+00:00", 0,
         errors={"calendar_url": error_message})
-    assert error_message in rendered, "expected the calendar_url error message to render"
+    assert escape_html(error_message) in rendered, "expected the calendar_url error message to render"
     assert 'name="calendar_url"' in rendered, "expected the calendar_url field itself to still render"
     after_name = rendered.split('name="calendar_url"', 1)[1].split(">", 1)[0]
     assert "value=" not in after_name, (
         "expected no value attribute on the calendar_url field even with an error present")
+    assert re.search(r"<dialog[^>]* open[ >]", rendered), (
+        "expected a refused paste to render the sheet open")
 
 
 def test_style_css_styles_field_error(served_css):

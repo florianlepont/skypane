@@ -416,8 +416,8 @@ def test_calendar_secret_never_reaches_served_http_bytes(make_app_server):
     status, _headers, body = get(server, companion_app.DISPLAY_ROUTE, cookie=session_cookie)
     assert status == 200, "expected 200 on the authenticated Display page, got %d" % status
     body_text = body.decode("utf-8", errors="replace")
-    assert config_page.CALENDAR_STATUS_CONNECTED_VERDICT in body_text, (
-        "expected the 'Connected' verdict (no sync recorded yet)")
+    assert 'data-calendar-state="pending"' in body_text, (
+        "expected the 'saved, not read yet' state (no sync recorded yet)")
     assert escape_html("%s…" % _CALENDAR_HOST) in body_text, (
         "expected the masked host + ellipsis fragment to be served once connected")
     for needle in (_CALENDAR_TOKEN, _CALENDAR_PATH, _CALENDAR_QUERY_PARAM, _CALENDAR_URL):
@@ -849,21 +849,20 @@ def test_the_wake_interval_field_has_a_label_above_it_and_a_content_sized_input(
 
 def test_the_calendar_status_detail_has_a_singular_form():
     """the Calendar status detail has a singular form, so a feed holding exactly one flight
-    never reads '1 upcoming flights', in both languages"""
+    never reads '1 flights', in both languages, and states the 48 h window the count covers"""
     synced = "2026-09-13T09:00:00+00:00"
     now = "2026-09-13T09:05:00+00:00"
 
     def detail_for(count):
-        row_body_html, _disconnect_form_html = config_page._calendar_connection_html(
-            True, False, synced, None, now, count)
-        return row_body_html
+        return config_page._calendar_connection_html(True, False, synced, None, now, count)
 
     one = detail_for(1)
-    assert "1 upcoming flights" not in one, "expected a singular form for exactly one upcoming flight"
-    assert escape_html(config_page.CALENDAR_STATUS_DETAIL_SINGULAR_TEMPLATE.split(" ·")[0]) in one
-    for count in (0, 2, 7):
+    assert "1 flights" not in one, "expected a singular form for exactly one upcoming flight"
+    assert "1 flight in the next 48 h" in one
+    for count in (2, 7):
         many = detail_for(count)
-        assert "%d upcoming flights" % count in many, "expected the plural form at a count of %d" % count
+        assert "%d flights in the next 48 h" % count in many, (
+            "expected the plural form at a count of %d" % count)
 
     prefs.set_request_prefs(lang="fr")
     try:
@@ -871,31 +870,28 @@ def test_the_calendar_status_detail_has_a_singular_form():
         fr_many = detail_for(3)
     finally:
         prefs.set_request_prefs(lang="en")
-    assert "1 vol à venir" in fr_one, "expected the French singular form"
-    assert "3 vols à venir" in fr_many, "expected the French plural form"
+    assert "1 vol dans les 48 h" in fr_one, "expected the French singular form"
+    assert "3 vols dans les 48 h" in fr_many, "expected the French plural form"
 
 
 def test_calendar_status_refreshed_age_is_a_live_time_element():
-    """the Calendar status row's 'refreshed Xm ago' age is a live <time data-relative>
+    """the Calendar status row's 'checked Xm ago' age is a live <time data-relative>
     element (layout.relative_time_html()'s own markup) carrying last_synced_at's own instant,
-    read exactly what relative_age_text() reads today, still wrapped by the same
-    .status-row/.status-row__detail shape layout.status_row() emits, and no
-    double-escaping, at both a singular and a plural entry count"""
+    read exactly what relative_age_text() reads today, with no double-escaping, at both a
+    singular and a plural entry count"""
     now = "2026-09-27T12:00:00+00:00"
     synced = "2026-09-27T11:50:00+00:00"
     expected_age = layout.relative_age_text(600)
 
     for count in (1, 3):
-        row_body_html, _disconnect_form_html = config_page._calendar_connection_html(
-            True, False, synced, None, now, count)
-        assert "&lt;time" not in row_body_html, (
+        html_out = config_page._calendar_connection_html(True, False, synced, None, now, count)
+        assert "&lt;time" not in html_out, (
             "count=%d: found a double-escaped '&lt;time' in the Calendar status row" % count)
-        doc = parse_html(row_body_html)
-        row = doc.select_one(".status-row")
-        assert "status-row--ok" in row.attrs.get("class", "").split(), (
-            "count=%d: expected the usable branch to still carry the ok modifier" % count
-        )
-        detail = row.select_one(".status-row__detail")
+        doc = parse_html(html_out)
+        row = doc.select_one(".calendar-status")
+        assert row.attrs.get("data-calendar-state") == "ok", (
+            "count=%d: expected the usable branch to carry the ok state" % count)
+        detail = row.select_one(".calendar-status__detail")
         element = detail.select_one("time[data-relative]")
         assert element.text() == expected_age, (
             "count=%d: expected the status detail's age to read exactly relative_age_text()'s "
@@ -903,13 +899,11 @@ def test_calendar_status_refreshed_age_is_a_live_time_element():
         assert element.attrs.get("datetime"), "count=%d: expected a non-empty datetime attribute" % count
         assert layout.age_seconds(element.attrs["datetime"], now) == 600, (
             "count=%d: expected the element's own instant to carry last_synced_at" % count)
-        expected_count_text = "1 upcoming flight" if count == 1 else "%d upcoming flights" % count
+        expected_count_text = "1 flight in the next 48 h" if count == 1 else "%d flights in the next 48 h" % count
         assert expected_count_text in detail.text(), (
             "count=%d: expected the surrounding template text unchanged, got %r"
             % (count, detail.text()))
 
-
-# --- the page-refresh loop's swap regions and freshness markers ------
 
 def _display_ctx(tmp_path, now=None):
     ctx = {

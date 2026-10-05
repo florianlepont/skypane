@@ -189,6 +189,12 @@ QUICK_SWITCH_SCRIPT_SRC = "/static/quick-switch.js"
 # one clamp/round/keyboard model rather than duplicating it per control.
 VALUE_CONTROLS_SCRIPT_SRC = "/static/value-controls.js"
 
+# Must equal companion/app.py's CALENDAR_SHEET_SCRIPT_ROUTE exactly. Opens
+# the Display page's calendar Manage sheet as a modal, labels the pending
+# connect and runs the in-sheet disconnect confirmation; inert on a page
+# with no [data-calendar-sheet] dialog.
+CALENDAR_SHEET_SCRIPT_SRC = "/static/calendar-sheet.js"
+
 # The registration seam value-controls.js reads, defined here so a page
 # module never types the attribute name (a harness asserts the served
 # script body names each one). A control opts in entirely by attribute.

@@ -35,6 +35,7 @@ HOOKS = (
     ("time[data-relative]", layout.RELATIVE_TIME_SCRIPT_SRC),
     ("form[data-quick-switch]", layout.QUICK_SWITCH_SCRIPT_SRC),
     ("[data-value-control]", layout.VALUE_CONTROLS_SCRIPT_SRC),
+    ("[data-calendar-sheet]", layout.CALENDAR_SHEET_SCRIPT_SRC),
 )
 
 # A route's calendar-feed secret, saved directly (no network fetch - see

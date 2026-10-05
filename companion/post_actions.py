@@ -23,6 +23,7 @@ from PIL import Image
 
 from companion import layout
 from companion.flash import (
+    FLASH_KEY_CALENDAR_CONNECT_FAILED,
     FLASH_KEY_CALENDAR_CONNECT_INVALID,
     FLASH_KEY_CALENDAR_CONNECT_OK,
     FLASH_KEY_CALENDAR_DISCONNECTED,
@@ -513,38 +514,47 @@ class SettingsActionsMixin:
         return self.redirect(
             "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
 
+    def _calendar_sheet_redirect(self, flash_key, error=None):
+        """Back to Display with the calendar sheet reopened (the script
+        opens it on `?calendar=manage`, a scripts-blocked page renders it
+        in the page), carrying the toast key and, for a refusal, the
+        sheet's own inline error code from a fixed vocabulary."""
+        query = "flash=%s&%s=%s" % (
+            quote(flash_key), config_page.CALENDAR_SHEET_PARAM,
+            config_page.CALENDAR_SHEET_MANAGE)
+        if error:
+            query += "&%s=%s" % (config_page.CALENDAR_ERROR_PARAM, quote(error))
+        return self.redirect("%s?%s#%s" % (
+            layout.DISPLAY_ROUTE, query, config_page.CALENDAR_SHEET_ID))
+
     def _handle_calendar_connect_post(self):
-        """POST /settings/calendar/connect: the Calendar card's own
+        """POST /settings/calendar/connect: the calendar sheet's own
         dedicated route — never the scoped settings handler, since a
         scoped POST carrying only `calendar_url` would read every
-        absent checkbox on Display as an explicit OFF. Writes the URL,
-        then syncs under `_POLL_LOCK` (process-local; see
-        `companion/app.py`'s `_handle_settings_post()` for the
-        cross-process lock).
+        absent checkbox on Display as an explicit OFF.
+
+        Fetch first, save on success: the pasted link is read and parsed
+        before anything is stored (`calendar_rules.connect_calendar_url`),
+        so a refused or unreachable replacement leaves the working link
+        and its flights exactly as they were and reopens the sheet with an
+        explicit error. No caught error's text is ever read: it can
+        contain the calendar URL.
         """
         form = self.read_form()
         signal = config_page.submitted_calendar_signal(form)
-        if signal in (
-                config_page.CALENDAR_URL_SIGNAL_CARRY_FORWARD,
-                config_page.CALENDAR_URL_SIGNAL_INVALID,
-                config_page.CALENDAR_URL_SIGNAL_CLEAR):
-            return self.redirect(
-                "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_CONNECT_INVALID)))
-        state_dir = self.args.state_dir
-        stripped_url = (form.get("calendar_url") or "").strip()
-        if not calendar_rules.save_calendar_url(state_dir, stripped_url):
-            return self.redirect(
-                "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
-        if not _POLL_LOCK.acquire(blocking=False):
-            return self.redirect(
-                "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_DEFERRED)))
-        try:
-            result_code, _registry = calendar_rules.refresh_calendar_registry(
-                state_dir, poll_cycle.now_s(), min_interval_s=0)
-        finally:
-            _POLL_LOCK.release()
+        if signal != config_page.CALENDAR_URL_SIGNAL_SET:
+            return self._calendar_sheet_redirect(
+                FLASH_KEY_CALENDAR_CONNECT_INVALID, config_page.CALENDAR_ERROR_INVALID)
+        result_code = calendar_rules.connect_calendar_url(
+            self.args.state_dir, form.get("calendar_url") or "", poll_cycle.now_s())
         if result_code == calendar_rules.FETCH_OK:
             return self.redirect(
                 "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_CONNECT_OK)))
-        return self.redirect(
-            "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
+        if result_code == calendar_rules.FETCH_SAVED_UNREAD:
+            return self.redirect(
+                "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_DEFERRED)))
+        if result_code == calendar_rules.FETCH_REJECTED_URL:
+            return self._calendar_sheet_redirect(
+                FLASH_KEY_CALENDAR_CONNECT_INVALID, config_page.CALENDAR_ERROR_INVALID)
+        return self._calendar_sheet_redirect(
+            FLASH_KEY_CALENDAR_CONNECT_FAILED, config_page.CALENDAR_ERROR_UNREACHABLE)

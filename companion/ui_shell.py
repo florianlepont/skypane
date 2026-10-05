@@ -38,6 +38,7 @@ from companion.ui_base import (
     THEME_PREVIEW_SCRIPT_SRC,
     UI_THEME_CHOICES,
     VALUE_CONTROLS_SCRIPT_SRC,
+    CALENDAR_SHEET_SCRIPT_SRC,
     escape_html,
 )
 from companion.ui_nav import (
@@ -136,6 +137,7 @@ SHELL_SCRIPT_ORDER = (
     RELATIVE_TIME_SCRIPT_SRC,
     QUICK_SWITCH_SCRIPT_SRC,
     VALUE_CONTROLS_SCRIPT_SRC,
+    CALENDAR_SHEET_SCRIPT_SRC,
 )
 
 # Present on every authenticated page_shell() document regardless of its
