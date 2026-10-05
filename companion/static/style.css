@@ -2341,8 +2341,7 @@ table.data-table--registry .cell-inline-sep {
   overflow-wrap: anywhere;
 }
 
-.update-cta .mono,
-.update-row__version .mono {
+.update-cta .mono {
   white-space: nowrap;
 }
 
@@ -2440,6 +2439,7 @@ table.data-table--registry .cell-inline-sep {
 .update-row__version .mono {
   font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
+  white-space: nowrap;
 }
 
 .update-row__when {
@@ -2512,12 +2512,12 @@ table.data-table--registry .cell-inline-sep {
 }
 
 @media (min-width: 960px) {
-  .update-cta .update-actions form,
-  .update-cta .update-actions button[type="submit"] {
+  .update-cta .update-actions form {
     width: auto;
   }
 
   .update-cta .update-actions button[type="submit"] {
+    width: auto;
     min-width: 200px;
   }
 
