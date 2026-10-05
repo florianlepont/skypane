@@ -76,6 +76,8 @@ _FAKE_APP_SRC = textwrap.dedent("""\
         srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         srv.bind(("127.0.0.1", port))
         srv.listen(1)
+        # The line companion/app.py prints once it is bound; AppServer.start() waits for it.
+        print("companion: serving on 127.0.0.1:%d (state_dir=%s)" % (port, state_dir), flush=True)
         while True:
             time.sleep(1)
 

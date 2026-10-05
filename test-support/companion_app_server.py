@@ -24,6 +24,7 @@ from skypane_test_support import REPO_ROOT, FakeProviders, child_env
 TEST_PASSWORD = "companion-test-password-please-ignore"
 APP_PATH = os.path.join(REPO_ROOT, "companion", "app.py")
 STARTUP_DEADLINE_S = 10.0
+START_PORT_ATTEMPTS = 5
 
 # Duplicated from companion/app.py's STYLE_ROUTE rather than imported at
 # module scope, so importing this module never pays for companion/app.py's
@@ -149,6 +150,10 @@ def served_asset(server, path):
     return body.decode("utf-8")
 
 
+class _PortTaken(Exception):
+    """The child could not bind its port because another process holds it."""
+
+
 # --- Real subprocess server -----------------------------------------------
 
 class AppServer:
@@ -183,6 +188,26 @@ class AppServer:
         return self.proc.pid if self.proc is not None else None
 
     def start(self):
+        """Launch the child and return once IT is serving. pick_free_port()
+        releases the port before the child binds it, so another server can
+        take that port in between; the readiness check therefore waits for
+        this child's own "serving on" line (printed after a successful
+        bind) instead of trusting a connect, which a foreign listener on
+        the same port would also satisfy. A child that lost the port exits
+        with "Address already in use" and is relaunched on a fresh one.
+        """
+        for attempt in range(START_PORT_ATTEMPTS):
+            try:
+                self._launch_and_wait()
+                return
+            except _PortTaken:
+                self.proc = None
+                self.port = pick_free_port()
+        raise RuntimeError(
+            "companion/app.py could not get a free port after %d attempts"
+            % START_PORT_ATTEMPTS)
+
+    def _launch_and_wait(self):
         from companion import auth
 
         os.makedirs(self.state_dir, exist_ok=True)
@@ -209,18 +234,21 @@ class AppServer:
         finally:
             stdout_fh.close()  # child holds its own duplicated fd
 
+        serving_line = "companion: serving on "
+        port_suffix = ":%d (state_dir=" % self.port
         deadline = time.time() + STARTUP_DEADLINE_S
         while time.time() < deadline:
+            output = self.read_stdout()
+            if any(serving_line in line and port_suffix in line for line in output.splitlines()):
+                return
             if self.proc.poll() is not None:
+                if "Address already in use" in output:
+                    raise _PortTaken()
                 raise RuntimeError(
                     "companion/app.py exited early (code %s) before "
                     "accepting connections:\n%s"
-                    % (self.proc.returncode, self.read_stdout()))
-            try:
-                with socket.create_connection(("127.0.0.1", self.port), timeout=0.5):
-                    return
-            except OSError:
-                time.sleep(0.1)
+                    % (self.proc.returncode, output))
+            time.sleep(0.05)
         raise RuntimeError(
             "companion/app.py did not start listening within %.0fs:\n%s"
             % (STARTUP_DEADLINE_S, self.read_stdout()))
