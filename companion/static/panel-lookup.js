@@ -265,13 +265,15 @@
   var contextLastSeen = dialog.querySelector(".resolve-context__last-seen");
   var contextCount = dialog.querySelector(".resolve-context__count");
   var contextCallsign = dialog.querySelector(".resolve-context__callsign");
-  // The airline sheet (name, prefixes, reset). Optional like the rest:
-  // History's dialog has none of it.
+  // The airline sheet (name, reset, prefix chips beside the title, the
+  // aircraft-type switcher). Optional like the rest: History's dialog
+  // has none of it.
   var sheet = dialog.querySelector(".airline-sheet");
   var sheetNameInput = sheet ? sheet.querySelector('input[name="airline_name"]') : null;
   var sheetAirlineInputs = sheet ? sheet.querySelectorAll('input[name="airline"]') : [];
-  var sheetChips = sheet ? sheet.querySelector(".airline-sheet__chips") : null;
+  var sheetChips = dialog.querySelector(".airline-sheet__chips");
   var sheetReset = sheet ? sheet.querySelector(".airline-sheet__reset") : null;
+  var typesNav = dialog.querySelector(".airline-sheet__types");
   var sheetResetCaption = sheetReset ? sheetReset.querySelector("[data-sheet-reset-template]") : null;
 
   // ES5-safe manual ancestor walk (no Element.closest) for the nearest
@@ -327,11 +329,50 @@
         sheetResetCaption.textContent = template.replace("#", airline);
       }
     }
-    // The sheet names the airline in the dialog's own heading unless the
-    // trigger already supplied one.
-    if (heading && airline && !headingText) {
-      var titleTemplate = sheet.getAttribute("data-sheet-title-template") || "";
-      heading.textContent = titleTemplate.replace("#", name);
+  }
+
+  // The aircraft-type switcher: one link per type of the trigger's
+  // airline (key:label items joined by "|", the shown one marked with a
+  // leading "*"). A single type is a plain label. Each link takes its
+  // address from the hidden twin trigger of that type, which is also what
+  // a click opens.
+  function typeTrigger(key) {
+    try {
+      return document.querySelector(
+        '[data-view-panel-sheet-key="' + CSS.escape(key) + '"]');
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function populateTypes(trigger) {
+    if (!typesNav) {
+      return;
+    }
+    while (typesNav.firstChild) {
+      typesNav.removeChild(typesNav.firstChild);
+    }
+    var raw = trigger.getAttribute("data-view-panel-airline-types") || "";
+    typesNav.hidden = (raw === "");
+    var items = raw ? raw.split("|") : [];
+    for (var t = 0; t < items.length; t += 1) {
+      var current = items[t].charAt(0) === "*";
+      var item = current ? items[t].slice(1) : items[t];
+      var cut = item.indexOf(":");
+      var key = item.slice(0, cut);
+      var label = item.slice(cut + 1);
+      var twin = items.length > 1 ? typeTrigger(key) : null;
+      var node = document.createElement(twin ? "a" : "span");
+      node.className = "airline-sheet__type";
+      node.textContent = label;
+      if (twin) {
+        node.setAttribute("href", twin.getAttribute("href") || "#");
+        node.setAttribute("data-type-key", key);
+      }
+      if (current) {
+        node.setAttribute("aria-current", "true");
+      }
+      typesNav.appendChild(node);
     }
   }
 
@@ -400,6 +441,9 @@
     }
 
     var mode = trigger.getAttribute("data-view-panel-mode") || "";
+    // An airline's dialog is titled by its heading alone; the caption
+    // would only repeat it.
+    caption.hidden = (mode === "art" || mode === "needs-artwork");
     // Governed by mode alone, independent of manual below. Every hidden
     // assignment here runs before showModal() further down, since its
     // one-time autofocus placement is synchronous and only ever sees
@@ -470,6 +514,7 @@
     }
 
     populateSheet(trigger, headingText);
+    populateTypes(trigger);
 
     // setAttribute rather than the form.action property, which resolves
     // to an absolute URL and is shadowable by a same-named form control.
@@ -489,6 +534,15 @@
       deleteForm.setAttribute("action", deleteAction);
     }
 
+    // Switching type inside an open sheet re-fills it in place: the file
+    // chosen for the previous type must not travel to the next one.
+    if (dialog.open) {
+      if (replaceForm) {
+        replaceForm.reset();
+      }
+      clearAllUploadPreviews();
+      return;
+    }
     var focusTarget = chooseInitialFocus(trigger);
     dialog.showModal();
     if (focusTarget && document.activeElement !== focusTarget) {
@@ -496,8 +550,26 @@
     }
   }
 
+  // A type link in the sheet stands for the hidden twin trigger of that
+  // type: the click handler below opens it like any other trigger.
+  function typeLinkTrigger(target) {
+    var node = target;
+    while (typesNav && node && node !== typesNav) {
+      if (node.getAttribute && node.getAttribute("data-type-key")) {
+        return typeTrigger(node.getAttribute("data-type-key"));
+      }
+      node = node.parentNode;
+    }
+    return null;
+  }
+
   document.addEventListener("click", function (evt) {
     var trigger = findTriggerAncestor(evt.target);
+    var fromTypeLink = false;
+    if (!trigger) {
+      trigger = typeLinkTrigger(evt.target);
+      fromTypeLink = !!trigger;
+    }
     if (!trigger) {
       return;
     }
@@ -507,6 +579,13 @@
     // navigation must never happen once JS is running the show.
     evt.preventDefault();
     openFromTrigger(trigger);
+    if (fromTypeLink) {
+      // The switcher was rebuilt: keep the keyboard on the shown type.
+      var shown = typesNav.querySelector('[aria-current="true"]');
+      if (shown && shown.focus) {
+        shown.focus({ preventScroll: true });
+      }
+    }
   });
 
   var closeButton = dialog.querySelector("[data-view-panel-close]");

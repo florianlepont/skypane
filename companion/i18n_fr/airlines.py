@@ -16,24 +16,14 @@ non-breaking space (U+00A0) before ":" ";" "?" "!".
 MESSAGES = {
     # --- Page header, gallery, cards --------------------------------
     "airlines.aircraft_type": "Type d’appareil",
-    "airlines.any_aircraft": "Tout appareil",
-    "airlines.replaced_artwork": "Illustration remplacée",
-    "airlines.your_artwork": "Votre illustration",
-    "airlines.no_artwork_yet": "Pas encore d’illustration",
-    "airlines.built_in_name_used_instead": "Nom intégré utilisé à la place du vôtre",
-    "airlines.replace_artwork": "Remplacer l’illustration",
+    "airlines.all_types": "Tous types",
     "airlines.add_artwork": "Ajouter une illustration",
     "airlines.action_for": "%s : %s",
-    "airlines.enlarge_illustration": "Agrandir l’illustration %s",
     "airlines.airline_illustration": "Illustration de la compagnie",
     "airlines.close": "Fermer",
-    "airlines.resolved_by_hand": "Résolue à la main",
-    "airlines.skypane_s_built_in_list_now_recognizes_prefix":
-        "La liste intégrée de SkyPane reconnaît maintenant le préfixe %s "
-        "comme « %s » — son entrée l’emporte sur le nom que vous lui "
-        "aviez donné (« %s »), cette image n’est donc plus affichée. "
-        "Ajoutez une image pour « %s » ci-dessous, ou supprimez cette "
-        "entrée.",
+    "airlines.your_name_for_prefix_is_not_used":
+        "Votre nom « %s » pour le préfixe %s n’est pas utilisé : le nom "
+        "intégré « %s » l’emporte.",
 
     # --- The "Unidentified airlines" gap strip and its cards --------
     "airlines.unidentified_airlines": "Compagnies non identifiées",
@@ -100,17 +90,11 @@ MESSAGES = {
     "airlines.that_image_is_larger_than_the_mb_limit":
         "Cette image dépasse la limite de %d Mo.",
 
-    # --- The airline sheet (pencil on a tile) ---------------------------
+    # --- The airline sheet (an airline row) ---------------------------
     "airlines.edit_airline": "Modifier %s",
-    "airlines.new_flights_use_this_name":
-        "Affiché sur tous les vols de ces préfixes, passés et à venir.",
     "airlines.save_name": "Enregistrer le nom",
     "airlines.callsign_prefixes": "Préfixes d’indicatif",
-    "airlines.built_in_prefixes_are_fixed":
-        "Intégrés à SkyPane : ils ne peuvent pas être modifiés ici.",
     "airlines.reset_to_skypane_s_name": "Rétablir le nom de SkyPane",
     "airlines.skypane_s_own_name_for_this_airline":
         "Le nom de SkyPane pour cette compagnie est « %s ».",
-    "airlines.artwork": "Illustration",
-    "airlines.renamed": "Renommée",
 }

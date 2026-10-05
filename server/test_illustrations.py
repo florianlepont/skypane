@@ -820,3 +820,32 @@ def test_every_airline_has_an_unsuffixed_primary_file_on_disk():
             "airline %r's unsuffixed primary %r is a target but missing on disk" % (name, primary_filename)
         )
 
+
+# --- aircraft labels and the A350-1000 variant --------------------------------
+
+def test_every_curated_picture_has_an_aircraft_label_unique_within_its_airline():
+    """aircraft_label() names the airframe of every primary and secondary picture in the
+    curated list, as a designator, and no two pictures of one airline carry the same label, so
+    a primary that merely repeats a secondary's type (the "A320 twice" shape) fails here"""
+    for name, shapes in ill.target_variants_by_airline():
+        labels = [ill.aircraft_label(name)] + [ill.aircraft_label(name, shape) for shape in shapes]
+        assert all(labels), "airline %r has a picture without an aircraft label: %r" % (name, labels)
+        assert len(set(labels)) == len(labels), "airline %r repeats a label: %r" % (name, labels)
+    assert set(ill.PRIMARY_AIRCRAFT_LABELS) == set(ill.target_airline_names())
+    assert ill.aircraft_label("Transavia France") == "B737"
+    assert ill.aircraft_label("Transavia France", "a320") == "A320"
+    assert ill.aircraft_label("Royal Air Maroc", "embraer") == "E190"
+    assert ill.aircraft_label("Amelia", "embraer") == "E145"
+    assert ill.aircraft_label("No Such Airline") == ""
+
+
+def test_an_a350_1000_flight_reaches_its_own_picture_and_an_a350_900_keeps_the_primary():
+    """A35K (an A350-1000) selects air-caraibes-a350-1000.png, which the a350 shape bucket alone
+    could never reach, while an A359 still gets the primary; an airline with no sub-type file
+    (French Bee) keeps its primary for an A35K"""
+    caraibes = {"airline_name": "Air Caraïbes"}
+    assert os.path.basename(ill.select_illustration(caraibes, "A35K")) == "air-caraibes-a350-1000.png"
+    assert os.path.basename(ill.select_illustration(caraibes, "a35k ")) == "air-caraibes-a350-1000.png"
+    assert os.path.basename(ill.select_illustration(caraibes, "A359")) == "air-caraibes.png"
+    assert os.path.basename(
+        ill.select_illustration({"airline_name": "French Bee"}, "A35K")) == "french-bee.png"
