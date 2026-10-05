@@ -297,6 +297,9 @@ def test_with_scripts_blocked_manage_is_a_link_to_an_in_page_sheet_that_replaces
         assert calendar_rules.configured_calendar_url(server.state_dir) == NEW_URL
         page.goto(server.base_url() + "/display?calendar=manage")
         _dom_click(page, DISCONNECT)
+        # The click navigates to the server's confirmation page; wait for it instead of reading
+        # the previous page's heading while the navigation is still in flight.
+        page.locator("h1:text-is('Disconnect calendar?')").wait_for()
         assert page.locator("h1").inner_text() == "Disconnect calendar?"
         assert calendar_rules.calendar_is_configured(server.state_dir)
         page.wait_for_load_state("load")
