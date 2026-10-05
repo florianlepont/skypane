@@ -617,9 +617,10 @@ listed in `260923-fr4-SUMMARY.md`, not by a physical device.
 
 ## Run 2 Protocol (pre-registered)
 
-Status: CONFIRMED by the owner 2026-10-05, except section 4a, which is
-PROPOSED (owner to confirm) and must be answered before the pack is
-connected.
+Status: CONFIRMED by the owner 2026-10-05, including section 4a (the
+reference interval for the continuity gates, confirmed the same day as option
+3) and the comparability limitations recorded under "Known limitations
+carried to Phase 46".
 
 This section is written before the pack is connected and before any run-two
 measurement exists. Nothing below is a result; every number is labelled a
@@ -631,7 +632,8 @@ the owner on 2026-10-05. Run one's sections above are unchanged.
 100 mV / 3400 mV unchanged; same pack and firmware family, firmware frozen
 for the whole run; display enabled and no quiet hours; `boot_count_start`
 recorded before unplugging; production wake interval restored afterwards and
-recorded; park-window rule as in section 5.
+recorded; park-window rule as in section 5; continuity gates judged against
+the frozen reference interval of section 4a, not against the bare 60 s.
 
 ### 1. Purpose and comparability
 
@@ -701,17 +703,79 @@ Run one's values, unchanged:
 | `--cutoff-mv` | 3400 |
 
 A gate that fails is reported as failed and diagnosed, never retuned, as run
-one did with coverage. The values are not open. What the continuity gates are
-measured against is (section 4a).
+one did with coverage. The values are not open. The interval the continuity
+gates are measured against is the frozen reference interval of section 4a.
 
-### 4a. Reference interval for the continuity gates - PROPOSED (owner to confirm)
+### 4a. Reference interval for the continuity gates - CONFIRMED (2026-10-05)
 
-**Why this is open.** `run-report` computes coverage as `observed polls /
-(span / interval_s)` and the gap gate as `max gap / interval_s`, with
-`interval_s` the configured value. That is `60 / mean gap`. Run one failed
-coverage (0.915) for exactly this reason: 300 / 328. At 60 s the same
-overhead is a much larger share of the interval. Measured with the real tool
-on synthetic exports (5 days each, `interval_s=60`, in a temporary directory):
+**The rule (owner-confirmed 2026-10-05, option 3 below).** The continuity
+gates (coverage and largest gap) are judged against a *reference interval*,
+not against the bare configured 60 s:
+
+> reference interval = the mean poll-to-poll gap over the first 48 hours of
+> the run (counted from the first exported row), excluding gaps above 3 times
+> the configured interval, rounded half-up to whole seconds.
+
+In effect it is the configured interval plus the wake overhead measured early
+in the run. It is written as `reference_interval_s` in
+`hardware/logs/battery-run2-params.json` and in the `## Run 2 Start Record`,
+in a commit made **before any continuity verdict is computed**. Nothing but
+the denominator and the gap unit moves: the thresholds stay exactly 0.95
+coverage, 3 intervals for the largest gap, 100 mV and 3400 mV (D-03). The
+coverage against the configured 60 s is still reported, as an informational
+figure that drives no verdict.
+
+**Frozen before the verdict.** The value is committed, with its source, before
+`run-report` is run for the first time on the run's data. The tool cannot see
+commit order, so the version-control history is the evidence: the commit that
+adds `reference_interval_s` must precede the commit that adds
+`hardware/logs/battery-run2-report.json`. The value is never edited after the
+verdict exists. If a mistake is found, the run is reported with the value that
+was frozen and the mistake is stated.
+
+**How it is computed.** Do not hand-calculate it. With the export of the
+first days of the run saved as a file:
+
+    python3 hardware/logtools.py reference-interval <export.jsonl> --interval-s 60
+
+It prints `reference_interval_s: <value>`, the window it read, the number of
+gaps used and excluded (above 3 x 60 = 180 s), the unrounded mean and the
+sha256 of the export file. It reads only the first 48 hours after the first
+row, so later rows cannot change the value. It refuses (exit 2) an export that
+covers less than 48 hours, an unordered or empty export, or one that leaves
+fewer than 100 usable gaps. Rounding is half-up (88.5 s becomes 89 s).
+
+**Where it is recorded.** In the params file:
+
+| Key | Content |
+|---|---|
+| `reference_interval_s` | the whole-second value the helper printed (between `interval_s` and 3 x `interval_s`) |
+| `reference_interval_source` | required with the value: a short owner-written note, for example the date, who ran the helper and on which export |
+| `reference_interval_export_sha256` | optional: the `export_sha256` line the helper printed for the export it read |
+
+and in `## Run 2 Start Record`, as a dated line with the helper's full output.
+`run-report` refuses a value outside the bounds, a value without a source and
+a source without a value (exit 2). A run judged against `interval_s` alone
+leaves all three keys out or null, and `run-report` then behaves exactly as it
+did before this rule existed.
+
+**What `run-report` does with it.** Coverage, the largest-gap gate and the
+nominal cycle count of the normal-cadence window use the reference interval;
+the check names say so ("... (against the 88 s reference interval)"). The
+report's `reference_interval` block holds the value, the source, the export
+hash, the interval each figure was judged against, the coverage and largest
+gap against the configured interval (`informational_vs_configured`, no
+verdict), and the normal-window mean gap relative to the frozen value. A
+continuity check recomputes the value from the first 48 hours of the export
+being reported and FAILs when it differs from the frozen one, so a value
+cannot be derived from the whole run or from later data and still pass. The
+ceiling check keeps the configured interval.
+
+**Why option 3.** `run-report` computed coverage as `observed polls / (span /
+interval_s)`, which is `60 / mean gap`. Run one failed coverage (0.915) for
+exactly this reason: 300 / 328. At 60 s the same overhead is a much larger
+share of the interval. Measured with the tool on synthetic exports (5 days
+each, `interval_s=60`, in a temporary directory):
 
 | Synthetic gap pattern | Mean gap | Coverage vs 60 s | Coverage vs mean gap |
 |---|---|---|---|
@@ -724,48 +788,56 @@ Coverage against 60 s passes only if the mean gap is at most 63.2 s, i.e. at
 most 3.2 s of overhead. Run one's overhead was 28 s, so the gate would fail
 structurally, whatever the pack does, and the failure would carry no
 information. The gap gate has the same scaling problem: 3 intervals is 180 s
-at 60 s, against 900 s in run one. Run one's worst gap was 665 s; a gap of
-200 s (one slow wake) already fails it at 60 s (measured: 3.33 intervals),
-and a 700 s hiccup is 11.7 intervals.
+at 60 s, against 900 s in run one; a 200 s slow wake already fails it.
 
-**Rule options.**
+Options considered:
 
 1. Judge against the configured 60 s unchanged. Fully fixed in advance, but
-   it makes the coverage verdict a measurement of wake overhead, not of
-   continuity. Expected result: FAIL, uninformative.
-2. Reference = the mean (or median) gap of the same window. Coverage is then
-   about 1.0 by construction: the gate cannot fail, so it checks nothing.
-   The median of a bimodal gap distribution (no-change versus refresh) is
-   also unstable.
-3. **Reference = configured interval + overhead measured on an early,
-   separate window, frozen before the verdict.** The mean poll-to-poll gap
-   over the first 48 hours of the run, excluding gaps above 3 times the
-   configured interval, rounded to whole seconds, is written as
-   `reference_interval_s` in the params file and in the Start Record, in a
-   commit made before any continuity verdict is computed. `run-report` then
-   judges coverage and the gap gate on the whole normal-cadence window
-   against `reference_interval_s` (3 reference intervals for the gap gate).
-   The coverage against the configured 60 s is still reported, as
-   informational. A pack-independent quantity (cadence) is frozen from data
-   that cannot reveal the outcome (depletion time, voltages); only the
-   denominator moves, never a threshold.
+   the coverage verdict then measures wake overhead, not continuity. Expected
+   result: FAIL, uninformative. Rejected.
+2. Reference = the mean (or median) gap of the same window. Coverage is about
+   1.0 by construction, so the gate checks nothing; the median of a bimodal
+   no-change/refresh distribution is also unstable. Rejected.
+3. **Reference = configured interval plus overhead measured on an early,
+   separate window, frozen before the verdict. CONFIRMED.** A pack-independent
+   quantity (cadence) is frozen from data that cannot reveal the outcome
+   (depletion time, voltages).
 
-**Trade-off.** A rule fixed before any data (option 1) cannot be accused of
-retuning but is meaningless here. Anything calibrated from data (options 2
-and 3) is a retuning risk; option 3 contains it by using a window that is
-separate from, and earlier than, the outcome, by fixing the procedure in
-advance (48 h, mean, excluding gaps above 3 intervals, whole seconds), and by
-requiring the frozen value in git history before the verdict. Its weakness is
-that the first 48 hours may be unrepresentative (the refresh share varies
-with the departure banks); 48 hours spans at least two daily cycles and the
-mean absorbs most of it, and the informational coverage against 60 s and the
-gap histogram remain in the report.
+**What it does and does not guard against.** A real outage still fails: a
+700 s hiccup is about 8 reference intervals at 88 s, and a run whose observed
+polls fall to 80 % of the reference count fails coverage (both are tested on
+synthetic data). The rule can mask one thing: a *systematic* slowdown that is
+already present in the first 48 hours (for example a poor Wi-Fi link making
+every wake longer) becomes part of the reference. The informational coverage
+against 60 s, the effective mean gap and the gap distribution stay in the
+report for that reason.
 
-**Recommendation: option 3.** If confirmed, `run-report` needs a small change
-(an optional `reference_interval_s` param, defaulting to `interval_s`, used
-by the nominal count and the gap gate, with the report naming both). That
-change is planned in 45-04 (Task 0) and is not implemented until the owner
-confirms. Until confirmed, no params file may contain `reference_interval_s`.
+**Risk: an unrepresentative first 48 hours.** The refresh share varies with
+the departure banks, and 48 hours spans two daily cycles but not a weekly
+one. If the normal-window mean gap later differs from the frozen value, the
+report states the difference (`normal_window_mean_gap_vs_reference`, printed as
+a percentage). A mean gap above the frozen value lowers coverage against it
+(coverage is about the frozen value divided by the real mean gap, so a real
+mean more than about 5 % above the reference fails the 0.95 gate); a mean gap
+below the frozen value raises coverage above 1.0 and cannot fail it. A
+failure caused by drift is reported as a FAIL with that diagnosis; the value
+is not re-frozen.
+
+### Known limitations carried to Phase 46
+
+Accepted by the owner on 2026-10-05, as known limitations rather than
+problems to be removed; Phase 46 must carry both into the two-run model, not
+hide them:
+
+1. **Firmware differs between the runs.** Run two uses post-Phase-34
+   firmware; run one predates it (section 1, first caveat). Per-wake energy
+   is not guaranteed to be equal in the two runs, and the fit separates
+   per-wake energy from standing consumption only if it is.
+2. **The refresh share of run two is unknown and may differ from run one.**
+   The share of panel-refresh wakes is not recorded in `device_health` and
+   may differ from run one (section 1, second caveat). No static-image
+   workaround is used to control it: the study keeps the normal poll
+   workload. The gap distribution in the raw export is the only evidence.
 
 ### 5. Park window rule (D-10, confirmed)
 
@@ -834,7 +906,8 @@ model is not fitted here; that is Phase 46 (BAT-03).
 ### 9. Cycle-count reconciliation (D-08)
 
 Three witnesses: nominal from the elapsed span over the reference interval
-(`interval_s`, or `reference_interval_s` if section 4a is confirmed), observed
+(`reference_interval_s`, frozen as in section 4a; the configured `interval_s`
+is reported beside it), observed
 polls in the exported `device_health` rows, and the NVS `boot_count=` delta.
 `boot_count_start` MUST be read off the console wake line before the cable
 comes out: run one failed to capture it and lost the third witness. If it is
@@ -859,8 +932,9 @@ field if it was "Uses server default"), and the restored value is recorded as
 
 history.db `device_health`, read with the run-one read-only remote query
 bounded by the disconnect time (and by `end_time_utc` for a ceiling end),
-then `hardware/logtools.py run-report`, which produces the raw-export hash,
-separate continuity / voltage-validity / baseline verdicts and the three-way
+then, once, about 48 hours in, `hardware/logtools.py reference-interval` on
+the export so far (section 4a), then `hardware/logtools.py run-report`,
+which produces the raw-export hash, separate continuity / voltage-validity / baseline verdicts and the three-way
 reconciliation. At 60 s the channel is unchanged: the poll timer ingests the
 Caddy log every 30 s regardless of the device cadence, `device_health` is
 keep-forever (at most about 30000 rows over 21 days, a few MB), and the
