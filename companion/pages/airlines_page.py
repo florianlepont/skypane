@@ -39,24 +39,23 @@ ILLUSTRATION_ROUTE_PREFIX = "/illustration/"
 # nav tab label uses.
 _NAV_AIRLINES_TEXT = i18n.msg("nav.airlines", "Airlines")
 
-# Stable identifier of the airline-level (any aircraft) type section; the
-# other sections use their fleet-variant shape as identifier.
+# Stable identifier of the airline-level type section (the airline's
+# primary picture); the other sections use their fleet-variant shape as
+# identifier.
 ANY_TYPE_ID = "any"
 TYPE_LABEL_TEXT = i18n.msg("airlines.aircraft_type", "Aircraft type")
-TYPE_ANY_TEXT = i18n.msg("airlines.any_aircraft", "Any aircraft")
+# The type label of an owner-named airline: its one picture is used for
+# every aircraft, so it names no single type. A built-in airline always
+# names the airframe its picture shows (`illustrations.aircraft_label()`).
+TYPE_ALL_TEXT = i18n.msg("airlines.all_types", "All types")
 
-# The one small badge a type slide shows, only when something is notable:
-# a hand-made name, a missing picture or an owner-supplied one. A default
-# tile carries none.
-OWNER_NO_ARTWORK_TEXT = i18n.msg("airlines.no_artwork_yet", "No artwork yet")
-OWNER_REPLACED_TEXT = i18n.msg("airlines.replaced_artwork", "Replaced artwork")
-OWNER_OWN_ARTWORK_TEXT = i18n.msg("airlines.your_artwork", "Your artwork")
-OWNER_SUPERSEDED_TEXT = i18n.msg(
-    "airlines.built_in_name_used_instead", "Built-in name used instead of yours")
+# A row lists up to this many aircraft types, else its first two and "+N".
+ROW_TYPES_SHOWN_MAX = 3
+ROW_TYPES_SEP = " · "
 
-# The round edit button is icon-only, so these are its only names:
-# ACTION_LABEL_TEMPLATE takes the action then the airline/type title.
-REPLACE_ACTION_TEXT = i18n.msg("airlines.replace_artwork", "Replace artwork")
+# A row's accessible name: ACTION_LABEL_TEMPLATE takes the action (or the
+# edit wording and the airline) then the airline's types / name.
+EDIT_AIRLINE_TEXT = i18n.msg("airlines.edit_airline", "Edit %s")
 ADD_ACTION_TEXT = i18n.msg("airlines.add_artwork", "Add artwork")
 ACTION_LABEL_TEMPLATE = i18n.msg("airlines.action_for", "%s: %s")
 
@@ -90,7 +89,7 @@ LIGHTBOX_REPLACE_ZONE_CLASS = "lightbox__replace-zone"
 REPLACE_HINT_CLASS = "lightbox__replace-hint"
 REPLACE_ICON_CLASS = "lightbox__replace-icon"
 
-# The eleven data-view-panel-* attributes every trigger's vocabulary
+# The data-view-panel-* attributes every trigger's vocabulary
 # carries. Some are render-only until panel-lookup.js consumes them,
 # classified in test_view_pages.py's _LIGHTBOX_RENDER_ONLY_TOKENS.
 _VIEW_PANEL_HEADING_ATTR = "data-view-panel-heading"
@@ -104,13 +103,14 @@ _VIEW_PANEL_COUNT_ATTR = "data-view-panel-count"
 _VIEW_PANEL_UPLOAD_ACTION_ATTR = "data-view-panel-upload-action"
 _VIEW_PANEL_DELETE_ACTION_ATTR = "data-view-panel-delete-action"
 _VIEW_PANEL_MANUAL_NOTE_ATTR = "data-view-panel-manual-note"
-# The airline sheet's five attributes (see airline_sheet.py); they are part
+# The airline sheet's six attributes (see airline_sheet.py); they are part
 # of the same vocabulary, so every trigger carries them.
 _VIEW_PANEL_AIRLINE_ATTR = airline_sheet.AIRLINE_ATTR
 _VIEW_PANEL_AIRLINE_NAME_ATTR = airline_sheet.AIRLINE_NAME_ATTR
 _VIEW_PANEL_AIRLINE_PREFIXES_ATTR = airline_sheet.AIRLINE_PREFIXES_ATTR
 _VIEW_PANEL_RENAMED_ATTR = airline_sheet.RENAMED_ATTR
 _VIEW_PANEL_SHEET_KEY_ATTR = airline_sheet.SHEET_KEY_ATTR
+_VIEW_PANEL_AIRLINE_TYPES_ATTR = airline_sheet.TYPES_ATTR
 
 # Value vocabularies: no mode/manual string is ever a bare literal at a
 # call site.
@@ -184,8 +184,6 @@ UPLOAD_DROP_MULTIPLE_ERROR_TEXT = i18n.msg(
 UPLOAD_DROP_SIZE_ERROR_TEMPLATE = i18n.msg(
     "airlines.that_image_is_larger_than_the_mb_limit",
     "That image is larger than the %d MB limit.")
-
-ZOOM_LABEL_TEMPLATE = i18n.msg("airlines.enlarge_illustration", "Enlarge %s illustration")
 
 # Empty by design: panel-lookup.js's shared guard clause requires
 # .lightbox__note to exist or its click handler never attaches;
@@ -312,20 +310,16 @@ DELETE_BUTTON_TEXT = i18n.msg("airlines.delete_manual_name", "Delete my name")
 
 GAP_CARD_ARIA_TEMPLATE = i18n.msg(
     "airlines.resolve_prefix_example_callsign", "Resolve prefix %s — example callsign %s")
-MANUAL_CHIP_ACTIVE_TEXT = i18n.msg("airlines.resolved_by_hand", "Resolved by hand")
 MANUAL_DELETE_CAPTION = i18n.msg(
     "airlines.deleting_removes_the_name_you_gave_this_prefix",
     "Flights with this prefix become unidentified again. Your artwork stays.")
-# %s arity: prefix, built-in name, operator's own name, built-in name
-# again. A status message about a real naming conflict, not a caption
-# — LIGHTBOX_MANUAL_NOTE_CLASS never composes with the site-wide
+# %s arity: the operator's own name, the prefix, the built-in name. A
+# status message about a real naming conflict, not a caption —
+# LIGHTBOX_MANUAL_NOTE_CLASS never composes with the site-wide
 # caption-length selector.
 MANUAL_SUPERSEDED_NOTE_TEMPLATE = i18n.msg(
-    "airlines.skypane_s_built_in_list_now_recognizes_prefix",
-    "SkyPane’s built-in list now recognizes prefix %s as “%s” — its "
-    "entry wins over the name you gave it (“%s”), so that artwork is "
-    "no longer shown. Add artwork for “%s” below, or delete this "
-    "entry.")
+    "airlines.your_name_for_prefix_is_not_used",
+    "Your name “%s” for prefix %s isn’t used: SkyPane’s built-in name “%s” wins.")
 # Two constants because only the tail is the <a>'s own text; their
 # concatenation must equal the copy deck's single string byte-for-byte.
 MANUAL_OVERFLOW_TEMPLATE = i18n.msg(
@@ -347,38 +341,6 @@ REPLACE_FORM_ID = "airline-replace-form"
 REPLACE_HINT_TEXT = i18n.msg(
     "airlines.transparent_png_at_least_1200px_wide_landscape",
     "Transparent PNG, at least 1200px wide, landscape.")
-
-# variant_chip_label()'s two shape-domain patterns: an alphanumeric
-# type code is a letter prefix immediately followed by digits,
-# optionally with a hyphenated numeric suffix; anything else is a
-# word-form manufacturer shape.
-_TYPE_CODE_RE = re.compile(r"^[a-z]+\d[\d-]*$")
-_WORD_MODEL_RE = re.compile(r"^([a-z]+)(\d.*)$")
-
-
-def variant_chip_label(shape):
-    """Display transform for one fleet-variant chip. `shape` is a
-    free-text filename suffix from `_ILLUSTRATION_TARGETS`, a different
-    domain from `illustrations.SHAPE_SLUGS`'s ICAO-type classification
-    — this function must never validate `shape` against `SHAPE_SLUGS`
-    membership, since values like `"a350-1000"` are real but not
-    members themselves.
-
-    An alphanumeric type code upper-cases verbatim (`"a320"` ->
-    `"A320"`); a word-form manufacturer shape title-cases, splitting a
-    trailing digit-led model number (`"beechcraft1900d"` ->
-    `"Beechcraft 1900D"`).
-    """
-    if not isinstance(shape, str) or not shape:
-        return ""
-    if _TYPE_CODE_RE.match(shape):
-        return shape.upper()
-    word_match = _WORD_MODEL_RE.match(shape)
-    if word_match:
-        word, model = word_match.groups()
-        return "%s %s" % (word.title(), model.upper())
-    return shape.title()
-
 
 def _illustration_cache_buster(key, state_dir):
     """Return a `"?v={mtime}"` query suffix for `key`'s override file, or
@@ -557,8 +519,7 @@ def _airline_card_manual_fields(manual_info, airline_name, key, state_dir, now):
         stored_entry = manual_resolutions.load_manual_resolutions(state_dir).get(prefix) or {}
         operator_name = stored_entry.get("airline_name") or airline_name
         manual_note_value = i18n.t(MANUAL_SUPERSEDED_NOTE_TEMPLATE) % (
-            escape_html(prefix), escaped_built_in_name,
-            escape_html(operator_name), escaped_built_in_name,
+            escape_html(operator_name), escape_html(prefix), escaped_built_in_name,
         )
 
     first_seen_value = last_seen_value = count_value = ""
@@ -583,11 +544,13 @@ def _airline_card_zoom_html(caption_text, mode, image_html, busted_image_url, im
                             manual_value, resolve_prefix_value, heading_value,
                             upload_action_value, delete_action_value, manual_note_value,
                             first_seen_value, last_seen_value, count_value,
-                            aria_label, css_class="airline-card__zoom",
-                            sheet_values=airline_sheet.EMPTY_ATTR_VALUES, sheet_href=""):
-    """The click-to-enlarge trigger. A real `<button>`, not the `<img>`,
-    is the click target for keyboard focus; panel-lookup.js's delegation
-    still resolves an image click to it. Every trigger carries the full
+                            aria_label, css_class="airline-row",
+                            sheet_values=airline_sheet.EMPTY_ATTR_VALUES, sheet_href="",
+                            extra_attrs=""):
+    """The trigger that opens the shared dialog: a real `<a>` or
+    `<button>` wrapping `image_html` (an airline row's content), so
+    keyboard focus lands on it and panel-lookup.js's delegation resolves a
+    click anywhere inside to it. Every trigger carries the full
     data-view-panel-* vocabulary, with unused attributes left empty
     rather than omitted, since an omitted attribute is how a stale value
     could leak from a previous click. A resolve-prefix card becomes a
@@ -595,6 +558,7 @@ def _airline_card_zoom_html(caption_text, mode, image_html, busted_image_url, im
     also the edit-mode Replace control's second trigger for the same
     dialog and must carry an identical vocabulary, or panel-lookup.js's
     attr-copy idiom would blank the dialog's mode and forms there.
+    `extra_attrs` (already formed, trailing space) lands after the class.
     """
     # The per-prefix scope sentence is a raw-gap-only concept; these
     # cards already show a resolved name.
@@ -633,7 +597,7 @@ def _airline_card_zoom_html(caption_text, mode, image_html, busted_image_url, im
         _VIEW_PANEL_MANUAL_NOTE_ATTR, manual_note_value,
     ) + _sheet_attrs_html(sheet_values)
     return (
-        opening_tag + panel_attrs + 'aria-label="%s">%s%s'
+        opening_tag + extra_attrs + panel_attrs + 'aria-label="%s">%s%s'
     ) % (
         escape_html(aria_label),
         image_html,
@@ -666,7 +630,9 @@ def _type_fields(card, type_key, type_title, is_base, has_art):
     """The twelve per-trigger values for one type section, in
     `_airline_card_manual_fields()`'s order. Only the airline-level
     (base) section carries the manual-resolution values; a type with no
-    artwork at all switches its trigger to the add-artwork mode.
+    artwork at all switches its trigger to the add-artwork mode. An
+    artwork-bearing trigger's heading is the airline's own name: the
+    dialog's one title.
     """
     if is_base:
         fields = list(card["manual_fields"])
@@ -676,33 +642,17 @@ def _type_fields(card, type_key, type_title, is_base, has_art):
         fields[0] = _VIEW_PANEL_MODE_NEEDS_ARTWORK
         fields[5] = i18n.t(STEP_B_HEADING_TEMPLATE) % escape_html(type_title)
         fields[6] = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(type_key))
+    elif not fields[5]:
+        fields[5] = escape_html(card["name"])
     return fields
 
 
-def _type_badge_html(card, is_base, has_builtin, has_override):
-    """The one small badge a type slide may carry, or "" for a default
-    slide. Priority: the manual name, then a renamed airline (both airline
-    level only), then a missing picture, then an owner-supplied one.
-    """
-    if is_base and card["has_manual"]:
-        text = i18n.t(OWNER_SUPERSEDED_TEXT if card["superseded"] else MANUAL_CHIP_ACTIVE_TEXT)
-    elif is_base and card["sheet"] is not None and card["sheet"]["renamed"]:
-        text = i18n.t(airline_sheet.RENAMED_CHIP_TEXT)
-    elif not (has_builtin or has_override):
-        text = i18n.t(OWNER_NO_ARTWORK_TEXT)
-    elif has_override:
-        text = i18n.t(OWNER_REPLACED_TEXT if has_builtin else OWNER_OWN_ARTWORK_TEXT)
-    else:
-        return ""
-    return '<span class="airline-card__chip">%s</span>' % escape_html(text)
-
-
-def _type_section_html(card, type_id, type_label, type_key):
-    """One aircraft type's slide: its artwork behind the enlarge trigger
-    with a round edit button on its corner, then, only when notable, the
-    type name (several types) and one badge. `type_id` is the stable
-    identifier the pagination dot points at.
-    """
+def _type_trigger_html(card, type_id, type_label, type_key, css_class, inner_html,
+                       aria_label, extra_attrs=""):
+    """One aircraft type's trigger for the shared dialog: the airline row
+    itself for the airline-level type, a hidden twin per further type.
+    Carries the whole `data-view-panel-*` vocabulary, so opening it fills
+    the sheet with that type's picture, upload address and switcher."""
     is_base = type_id == ANY_TYPE_ID
     has_builtin, has_override = _artwork_files(type_key, card["state_dir"])
     has_art = has_builtin or has_override
@@ -713,136 +663,128 @@ def _type_section_html(card, type_id, type_label, type_key):
     image_url = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(type_key))
     busted_image_url = image_url + _illustration_cache_buster(type_key, card["state_dir"])
     if mode == _VIEW_PANEL_MODE_NEEDS_ARTWORK or not has_art:
-        image_html = '<span class="airline-card__placeholder" aria-hidden="true"></span>'
         busted_image_url = ""
-    else:
-        image_html = (
-            '<img class="airline-card__image" src="%s" width="%d" height="%d" '
-            'loading="lazy" decoding="async" alt="%s">'
-        ) % (busted_image_url, ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT,
-             escape_html(title))
-    shared = (
-        mode, image_html, busted_image_url, image_url, manual_value, resolve_prefix_value,
-        heading_value, upload_action_value, delete_action_value, manual_note_value,
-        first_seen_value, last_seen_value, count_value)
-    sheet_values = airline_sheet.attr_values(card["sheet"], type_key)
-    zoom_html = _airline_card_zoom_html(
-        title, shared[0], shared[1], shared[2], shared[3], *shared[4:],
-        aria_label=i18n.t(ZOOM_LABEL_TEMPLATE) % title, sheet_values=sheet_values)
-    action_text = i18n.t(
-        REPLACE_ACTION_TEXT if has_art else ADD_ACTION_TEXT)
-    edit_html = _airline_card_zoom_html(
-        title, shared[0], layout.icon_html("icon-pencil", 16), shared[2], shared[3], *shared[4:],
-        aria_label=i18n.t(ACTION_LABEL_TEMPLATE) % (action_text, title),
-        css_class="airline-card__edit", sheet_values=sheet_values,
+    sheet = card["sheet"]
+    sheet_values = airline_sheet.attr_values(
+        sheet, type_key, airline_sheet.types_attr_value(card["types"], type_key))
+    return _airline_card_zoom_html(
+        title, mode, inner_html, busted_image_url, image_url, manual_value,
+        resolve_prefix_value, heading_value, upload_action_value, delete_action_value,
+        manual_note_value, first_seen_value, last_seen_value, count_value,
+        aria_label=aria_label, css_class=css_class, sheet_values=sheet_values,
         sheet_href=(
             airline_sheet.sheet_href(AIRLINES_ROUTE, type_key)
-            if card["sheet"] is not None and not shared[5] else ""))
-    title_html = (
-        '<h3 class="airline-type__title text-label">%s</h3>' % escape_html(type_label)
-        if card["multiple"] else "")
-    badge_html = _type_badge_html(card, is_base, has_builtin, has_override)
-    meta_html = (
-        '<div class="airline-type__meta">%s%s</div>' % (title_html, badge_html)
-        if (title_html or badge_html) else "")
+            if sheet is not None and not resolve_prefix_value else ""),
+        extra_attrs=extra_attrs)
+
+
+def _row_art_html(card, key):
+    """The row's small picture: the airline-level artwork, or the dashed
+    placeholder frame when it has none (the cue that artwork is missing)."""
+    has_builtin, has_override = _artwork_files(key, card["state_dir"])
+    if not (has_builtin or has_override):
+        return '<span class="airline-card__placeholder" aria-hidden="true"></span>'
     return (
-        '<section class="airline-type" data-airline-type="%s">'
-        '<div class="airline-type__frame">%s%s</div>%s'
-        "</section>"
-    ) % (escape_html(type_id), zoom_html, edit_html, meta_html)
+        '<img class="airline-row__image" src="%s%s.png%s" width="%d" height="%d" '
+        'loading="lazy" decoding="async" alt="">'
+    ) % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key),
+         _illustration_cache_buster(key, card["state_dir"]),
+         ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT)
 
 
-def _type_dots_html(options):
-    """The pagination dots under a multi-type airline's slides, one real
-    button per `(type_id, label)`, named by the type. Gated on script:
-    they only scroll the slide strip, which swipes and scrolls natively
-    without one. The first dot starts current; airline-types.js keeps the
-    marker in step with the scroll position.
-    """
-    dots = "".join(
-        '<button type="button" class="airline-card__dot" data-airline-type-dot="%s" '
-        'aria-label="%s"%s></button>' % (
-            escape_html(type_id), escape_html(label),
-            ' aria-current="true"' if position == 0 else "")
-        for position, (type_id, label) in enumerate(options))
-    return (
-        '<div class="airline-card__dots %s" role="group" aria-label="%s">%s</div>'
-    ) % (layout.JS_GATE_CLASS, escape_html(i18n.t(TYPE_LABEL_TEXT)), dots)
+def _row_types_text(labels):
+    """The row's one line of aircraft types: all of them up to
+    `ROW_TYPES_SHOWN_MAX`, else the first two and a `+N` for the rest."""
+    if len(labels) > ROW_TYPES_SHOWN_MAX:
+        return ROW_TYPES_SEP.join(labels[:2] + ["+%d" % (len(labels) - 2)])
+    return ROW_TYPES_SEP.join(labels)
 
 
-def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=None,
-                       now=None, sheet=None):
-    """One `.airline-card`: the airline's name and a horizontal
-    scroll-snap strip with one slide per known aircraft type, each with
-    its artwork behind a click-to-enlarge trigger and a round edit button.
-    An airline with several types also gets pagination dots. Every value
-    is escaped exactly once, at its point of interpolation. Returns `""`
-    for an airline whose normalised key is falsy.
+def _airline_row_html(index, airline_name, shapes, state_dir=None, manual_info=None,
+                      now=None, sheet=None):
+    """One `.airline-list__item`: a fixed-height row (small picture, the
+    airline's name, every aircraft type as text, a chevron) whose whole
+    face opens the airline's sheet, with a hidden twin trigger per further
+    type so the sheet can switch type. Every value is escaped exactly
+    once, at its point of interpolation. Returns `""` for an airline whose
+    normalised key is falsy.
 
     `index` becomes `data-filter-group`; `state_dir` resolves the
     illustration cache buster. `manual_info`, when present, is the
     `(prefix, superseded, needs_artwork)` triple sliced by the caller,
-    turning the airline-level trigger into a resolve link. `sheet`, from
-    `airline_sheet.card_sheet()`, makes the pencil open the airline sheet;
-    a renamed airline shows, and edits the artwork of, the name flights
-    now carry, while `airline_name` stays its built-in identity.
+    turning the row into a resolve link. `sheet`, from
+    `airline_sheet.card_sheet()`, makes the row open the airline sheet; a
+    renamed airline shows, and edits the artwork of, the name flights now
+    carry, while its aircraft types still come from its built-in identity.
     """
+    builtin_name = airline_name
     if sheet is not None:
         airline_name = sheet["name"]
     key = illustrations.normalise_airline_key(airline_name)
     if not key:
         return ""
     manual_fields = _airline_card_manual_fields(manual_info, airline_name, key, state_dir, now)
-    has_manual, superseded = manual_fields[1], manual_fields[2]
-    types = [(ANY_TYPE_ID, i18n.t(TYPE_ANY_TEXT), key)]
-    types.extend(
-        (shape, variant_chip_label(shape), "%s-%s" % (key, shape)) for shape in shapes or [])
+    types = [(ANY_TYPE_ID, illustrations.aircraft_label(builtin_name) or i18n.t(TYPE_ALL_TEXT), key)]
+    for shape in shapes or []:
+        label = illustrations.aircraft_label(builtin_name, shape) or shape.upper()
+        types.append((shape, label, "%s-%s" % (key, shape)))
     card = {
         "name": airline_name, "state_dir": state_dir, "manual_fields": manual_fields,
-        "has_manual": has_manual, "superseded": superseded, "multiple": len(types) > 1,
-        "sheet": sheet,
+        "sheet": sheet, "types": [(type_key, label) for _id, label, type_key in types],
     }
-    sections = "".join(
-        _type_section_html(card, type_id, label, type_key) for type_id, label, type_key in types)
-    dots_html = (
-        _type_dots_html([(type_id, label) for type_id, label, _key in types])
-        if card["multiple"] else "")
-    base_filter_text = (
-        airline_name.lower() if isinstance(airline_name, str) else str(airline_name).lower())
-    if has_manual:
-        base_filter_text += " superseded manual" if superseded else " resolved by hand manual"
-    if sheet is not None and sheet["renamed"]:
-        base_filter_text += " %s renamed" % sheet["builtin"].lower()
+    labels = [label for _id, label, _key in types]
+    types_text = ROW_TYPES_SEP.join(labels)
+    needs_artwork = manual_fields[0] == _VIEW_PANEL_MODE_NEEDS_ARTWORK
+    action_label = (
+        i18n.t(ACTION_LABEL_TEMPLATE) % (i18n.t(ADD_ACTION_TEXT), airline_name)
+        if needs_artwork
+        else i18n.t(ACTION_LABEL_TEMPLATE) % (
+            i18n.t(EDIT_AIRLINE_TEXT) % airline_name, types_text))
+    inner_html = (
+        '<span class="airline-row__art">%s</span>'
+        '<span class="airline-row__text">'
+        '<span class="airline-row__name" title="%s">%s</span>'
+        '<span class="airline-row__types" title="%s">%s</span>'
+        "</span>%s"
+    ) % (
+        _row_art_html(card, key), escape_html(airline_name), escape_html(airline_name),
+        escape_html(types_text), escape_html(_row_types_text(labels)),
+        layout.icon_html("icon-chevron-right", 20, "airline-row__chevron"))
+    row_html = _type_trigger_html(
+        card, ANY_TYPE_ID, labels[0], key, "airline-row", inner_html, action_label)
+    twins = "".join(
+        _type_trigger_html(
+            card, type_id, label, type_key, "airline-row__type-trigger", escape_html(label),
+            action_label, extra_attrs="hidden ")
+        for type_id, label, type_key in types[1:])
+    filter_text = [airline_name.lower()] + [label.lower() for label in labels]
+    if sheet is not None:
+        filter_text.extend(prefix.lower() for prefix in sheet["prefixes"])
+        if sheet["renamed"]:
+            filter_text.append(sheet["builtin"].lower())
+    elif manual_info is not None:
+        filter_text.append(str(manual_info[0]).lower())
     return (
-        '<div class="airline-card" data-filter-text="%s" data-filter-group="%d">'
-        '<p class="airline-card__name">%s</p>'
-        '<div class="airline-card__types"%s><div class="airline-card__track">%s</div>%s</div>'
-        "</div>"
-    ) % (escape_html(base_filter_text), index, escape_html(airline_name),
-         " data-airline-types" if card["multiple"] else "", sections, dots_html)
+        '<li class="airline-list__item" data-filter-text="%s" data-filter-group="%d">%s%s</li>'
+    ) % (escape_html(" ".join(filter_text)), index, row_html, twins)
 
 
-def _gallery_grid_html(pairs, state_dir=None, gap_cards_html="", manual_info_by_name=None,
-                       now=None, sheets_by_name=None):
-    """Wraps one `_airline_card_html()` card per `(airline_name, shapes)`
-    pair in the `.illustration-grid` container; skips a pair whose card
-    comes back empty.
-
-    `gap_cards_html` (default `""`) is prepended inside the same wrapper —
-    kept only for call-site parity; a caller should use
-    `_gap_strip_html()` instead. `manual_info_by_name` maps a display name
-    to its `(prefix, superseded, needs_artwork)` triple, built once by
-    `render()`.
+def _gallery_grid_html(pairs, state_dir=None, manual_info_by_name=None, now=None,
+                       sheets_by_name=None):
+    """Wraps one `_airline_row_html()` row per `(airline_name, shapes)`
+    pair in the `.airline-list` container; skips a pair whose row comes
+    back empty. `manual_info_by_name` maps a display name to its
+    `(prefix, superseded, needs_artwork)` triple, built once by `render()`.
     """
     manual_info_by_name = manual_info_by_name or {}
     sheets_by_name = sheets_by_name or {}
-    cards = "".join(
-        _airline_card_html(
+    rows = "".join(
+        _airline_row_html(
             index, airline_name, shapes, state_dir,
             manual_info_by_name.get(airline_name), now=now,
             sheet=sheets_by_name.get(airline_name))
         for index, (airline_name, shapes) in enumerate(pairs))
-    return '<div class="illustration-grid">%s%s</div>' % (gap_cards_html, cards)
+    return '<ul class="airline-list">%s</ul>' % rows
 
 
 def _gap_rows_for_grid(state_dir, manual_registry=None):
@@ -977,10 +919,15 @@ def _gap_strip_html(gap_cards_html, overflow_html):
 
 
 def _lightbox_html(name_form_hidden_html=""):
-    """The single shared click-to-enlarge `<dialog>`, emitted once per page
-    when at least one card carries a zoom trigger. Mirrors
-    `history_page._lightbox_html()`'s element order and classes, plus
-    `lightbox--wide` and this module's own `LIGHTBOX_NOTE`.
+    """The single shared `<dialog>` every airline row (and a Health
+    resolve link) opens. Mirrors `history_page._lightbox_html()`'s classes,
+    plus `lightbox--wide` and this module's own `LIGHTBOX_NOTE`.
+
+    For an airline the dialog reads top to bottom: the airline's one title
+    with its prefix chips, the picture, the aircraft-type switcher, the
+    replace-artwork zone, the name form, then a manual-name note and
+    delete form when the airline carries one. The resolve flow's steps
+    take the same slots.
 
     Every optional child is a real, present placeholder — empty rather
     than omitted — so `panel-lookup.js` can find and fill it. Neither form
@@ -994,22 +941,26 @@ def _lightbox_html(name_form_hidden_html=""):
     resolve_upload_html = _resolve_upload_form_html("", "-dialog")
     sheet_html = airline_sheet.sheet_html(
         airline_sheet.EMPTY_ATTR_VALUES, "-dialog", i18n.t(NAME_LABEL_TEXT), True)
+    head_html = airline_sheet.head_html('<h2 class="%s"></h2>' % LIGHTBOX_HEADING_CLASS, "")
+    types_html = '<nav class="%s" aria-label="%s" hidden></nav>' % (
+        airline_sheet.TYPES_NAV_CLASS, escape_html(i18n.t(TYPE_LABEL_TEXT)))
     # Both forms are always in the document; panel-lookup.js decides
     # which one a given open shows — see this function's own docstring.
     replace_html = _lightbox_replace_form_html()
     delete_html = _manual_delete_form_html("")
     return (
         '<dialog class="lightbox lightbox--wide" id="%s" aria-label="%s">'
+        "%s"
         '<img class="lightbox__image" src="" alt="">'
         '<p class="lightbox__caption text-label mono"></p>'
         '<p class="lightbox__note text-body">%s</p>'
-        '<h2 class="%s"></h2>'
+        "%s"
+        "%s"
+        "%s"
+        "%s"
+        "%s"
+        "%s"
         '<p class="%s text-body"></p>'
-        "%s"
-        "%s"
-        "%s"
-        "%s"
-        "%s"
         "%s"
         '<div class="%s">'
         '<button type="button" %s>%s</button>'
@@ -1019,14 +970,15 @@ def _lightbox_html(name_form_hidden_html=""):
     ) % (
         # LIGHTBOX_NOTE is always the empty-string placeholder above, not
         # translatable text — i18n.t() only accepts a Message.
-        LIGHTBOX_DIALOG_ID, escape_html(i18n.t(LIGHTBOX_ARIA_LABEL)), escape_html(LIGHTBOX_NOTE),
-        LIGHTBOX_HEADING_CLASS,
-        LIGHTBOX_MANUAL_NOTE_CLASS,
+        LIGHTBOX_DIALOG_ID, escape_html(i18n.t(LIGHTBOX_ARIA_LABEL)), head_html,
+        escape_html(LIGHTBOX_NOTE),
+        types_html,
         resolve_context_html,
         resolve_name_html,
         resolve_upload_html,
-        sheet_html,
         replace_html,
+        sheet_html,
+        LIGHTBOX_MANUAL_NOTE_CLASS,
         delete_html,
         LIGHTBOX_ACTIONS_CLASS,
         _VIEW_PANEL_CLOSE_ATTR, escape_html(i18n.t(_CLOSE_TEXT)),
@@ -1359,6 +1311,11 @@ def _sheet_section_html(ctx, sheets_by_name, pairs):
     ever compared against keys this page derived itself, never used to
     build a path. With a script running, panel-lookup.js opens the dialog
     for the same key and hides this copy.
+
+    Reads like the dialog: one title with the prefix chips, the picture,
+    the aircraft-type links (`?sheet=<key>`), then the name form and the
+    upload zone for the shown type. The name form comes first here, unlike
+    the dialog, so the jump to this section keeps its Save button in view.
     """
     sheet_key = ctx.sheet_key
     if not sheet_key or not sheets_by_name:
@@ -1368,23 +1325,40 @@ def _sheet_section_html(ctx, sheets_by_name, pairs):
         if sheet is None:
             continue
         base_key = illustrations.normalise_airline_key(sheet["name"])
-        keys = [base_key] + ["%s-%s" % (base_key, shape) for shape in shapes]
-        if sheet_key not in keys:
+        types = [(base_key, illustrations.aircraft_label(airline_name) or i18n.t(TYPE_ALL_TEXT))]
+        types.extend(
+            ("%s-%s" % (base_key, shape),
+             illustrations.aircraft_label(airline_name, shape) or shape.upper())
+            for shape in shapes)
+        if sheet_key not in [key for key, _label in types]:
             continue
         values = airline_sheet.attr_values(sheet, sheet_key)
         back_link = '<a class="text-label" href="%s">%s</a>' % (
             AIRLINES_ROUTE, i18n.t(RESOLVE_BACK_LINK_TEXT))
-        heading = '<h2 class="text-heading">%s</h2>' % (
-            i18n.t(airline_sheet.SHEET_HEADING_TEMPLATE) % escape_html(sheet["name"]))
+        head = airline_sheet.head_html(
+            '<h2 class="text-heading">%s</h2>' % escape_html(sheet["name"]),
+            values[2])
+        _has_builtin, _has_override = _artwork_files(sheet_key, ctx.state_dir)
+        picture = (
+            '<img class="lightbox__image" src="%s%s.png%s" alt="%s">' % (
+                ILLUSTRATION_ROUTE_PREFIX, escape_html(sheet_key),
+                _illustration_cache_buster(sheet_key, ctx.state_dir), escape_html(sheet["name"]))
+            if _has_builtin or _has_override
+            else '<span class="airline-card__placeholder" aria-hidden="true"></span>')
+        types_nav = airline_sheet.types_nav_html(
+            types, sheet_key,
+            lambda key: airline_sheet.sheet_href(AIRLINES_ROUTE, key),
+            i18n.t(TYPE_LABEL_TEXT))
         focus_name = ctx.flash_key in airline_sheet.NAME_REFUSAL_FLASHES
         upload = _resolve_upload_form_html(
             "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(sheet_key)), "-edit")
         return (
-            '<div class="page-section" id="%s" data-sheet-fallback%s>%s%s%s%s</div>'
+            '<div class="page-section" id="%s" data-sheet-fallback%s>%s%s%s%s%s%s</div>'
             % (airline_sheet.SHEET_ANCHOR_ID, " data-sheet-focus-name" if focus_name else "",
-               back_link, heading,
+               back_link, head, picture, types_nav,
                airline_sheet.sheet_html(
-                   values, "-edit", i18n.t(NAME_LABEL_TEXT), False, focus_name), upload))
+                   values, "-edit", i18n.t(NAME_LABEL_TEXT), False, focus_name),
+               upload))
     return ""
 
 

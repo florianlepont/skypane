@@ -169,76 +169,30 @@ def test_flights_picture_link_works_without_scripts(new_context, server):
             raise AssertionError("expected the link to serve the archived PNG, got %r" % (response,))
 
 
-def test_airlines_grid_renders_two_cards_per_row_at_390px(new_context, server):
-    """At 390px every Airlines illustration grid renders exactly two cards per row (never a
-    one-per-row auto-fill collapse), with each row's two columns equal within 1px, the main
-    grid's cards near the width the contract predicts, and the whole page under a height
-    ceiling.
-    """
-    # `repeat(auto-fill, minmax(200px, 1fr))` can collapse to one column inside a narrow
-    # content column; only a real layout engine resolves auto-fill, so this is measured rather
-    # than asserted off the stylesheet.
+def test_airlines_list_renders_one_full_width_row_per_line_at_390px(new_context, server):
+    """At 390px the Airlines list renders one row per line, every row the same width as the
+    list and the same 76px height (a two-line name never makes one taller), and the whole page
+    stays under a height ceiling that moves deliberately when the airline count changes."""
     context = new_context(viewport=VIEWPORT_PHONE)
     try:
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + "/airlines")
-        # The gap strip carries its own narrower `.illustration-grid--gap`, so each grid is
-        # measured on its own rather than pooling two grids' rows into one histogram.
-        curated = ".illustration-grid:not(.illustration-grid--gap)"
-        page.locator(curated + " .airline-card").first.wait_for(state="visible")
-        grids = page.eval_on_selector_all(
-            ".illustration-grid",
-            "els => els.map(el => Array.from("
-            "  el.querySelectorAll('.airline-card')).map(card => {"
-            "    const r = card.getBoundingClientRect();"
-            "    return {top: Math.round(r.y), width: r.width};"
-            "}))")
-        if len(grids) < 1:
-            raise AssertionError("expected at least one illustration grid on Airlines")
-        widest_row = None
-        for grid_index, cards in enumerate(grids):
-            if not cards:
-                raise AssertionError("expected grid %d to hold cards" % (grid_index,))
-            rows = {}
-            for card in cards:
-                rows.setdefault(card["top"], []).append(card)
-            ordered = [rows[top] for top in sorted(rows)]
-            for index, row in enumerate(ordered):
-                # Every row but a grid's last holds exactly two; the last may hold one when
-                # that grid's card count is odd.
-                if len(row) > 2 or (index < len(ordered) - 1 and len(row) != 2):
-                    raise AssertionError(
-                        "expected exactly two cards per row at 390px, grid %d row "
-                        "%d held %d" % (grid_index, index, len(row)))
-                if len(row) == 2 and abs(row[0]["width"] - row[1]["width"]) > 1:
-                    raise AssertionError(
-                        "expected the two columns to be equal within 1px, got %r "
-                        "and %r" % (row[0]["width"], row[1]["width"]))
-                if len(row) == 2 and (
-                        widest_row is None
-                        or row[0]["width"] > widest_row[0]["width"]):
-                    widest_row = row
-        if widest_row is None:
-            raise AssertionError(
-                "expected at least one full two-card row to measure at 390px")
-        # The page's main content column's own arithmetic: (342 - 24) / 2.
-        if not (150 <= widest_row[0]["width"] <= 170):
-            raise AssertionError(
-                "expected each card near the 159px the contract predicts, got %r"
-                % (widest_row[0]["width"],))
-        # A working two-per-row grid roughly halves the height a one-per-row collapse would
-        # produce. The 6600px ceiling carries headroom over the measured baseline (about
-        # 6200px with every card showing its source and owner rows plus its action) for the
-        # current airline count, so this fails on a regression rather than on a pixel, and
-        # moves again deliberately whenever the airline count legitimately changes.
+        page.locator(".airline-list .airline-row").first.wait_for(state="visible")
+        rows = page.eval_on_selector_all(
+            ".airline-list .airline-row",
+            "els => els.map(el => { const r = el.getBoundingClientRect();"
+            " return {top: Math.round(r.y), width: r.width, height: r.height}; })")
+        if len(rows) < 36:
+            raise AssertionError("expected one row per curated airline, got %d" % len(rows))
+        for row in rows:
+            if abs(row["width"] - rows[0]["width"]) > 1 or row["height"] != 76:
+                raise AssertionError("expected equal 76px-tall full-width rows, got %r" % (row,))
+        if len({row["top"] for row in rows}) != len(rows):
+            raise AssertionError("expected exactly one row per line at 390px")
         height = page.evaluate("document.documentElement.scrollHeight")
-        if height > 6600:
-            raise AssertionError(
-                "expected the two-per-row grid to roughly halve the audit's 5800px "
-                "page, measured %r" % (height,))
-        if page.viewport_size["width"] != 390:
-            raise AssertionError("expected the measurement to be taken at 390px")
+        if height > 3900:
+            raise AssertionError("expected the list page under 3900px, measured %r" % (height,))
     finally:
         context.close()
 

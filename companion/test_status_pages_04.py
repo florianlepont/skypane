@@ -907,8 +907,8 @@ def test_display_header_carries_only_the_silent_refresh_marker(tmp_path):
 def test_uir_03_07_12_13_one_line_fixes_hold_together(tmp_path, css_text):
     """The four one-line fixes hold together: the anomaly toast's pills wrap and its
     count-and-noun lead is the toast's title, .banner__pill gains min-width: 0
-    while keeping flex: none and its source position before .refresh-pill, .airline-card__image
-    gains height: auto alongside its surviving aspect-ratio, the .data-table--prose first-column
+    while keeping flex: none and its source position before .refresh-pill, .airline-row__image
+    declares height: auto alongside its surviving aspect-ratio, the .data-table--prose first-column
     nowrap rule exists after the base rule, and the rendered Battery row carries no range caption"""
     pills_decls = declarations_for(css_text, ".toast__pills")
     assert pills_decls.get("flex-wrap") == "wrap", (
@@ -921,12 +921,12 @@ def test_uir_03_07_12_13_one_line_fixes_hold_together(tmp_path, css_text):
     assert _rule_index(rules, ".banner__pill") < _rule_index(rules, ".refresh-pill"), (
         "expected .banner__pill to still precede .refresh-pill in source order")
 
-    image_decls = declarations_for(css_text, ".airline-card__image")
+    image_decls = declarations_for(css_text, ".airline-row__image")
     assert image_decls.get("height") == "auto", (
-        "expected .airline-card__image to declare height: auto")
+        "expected .airline-row__image to declare height: auto")
     expected_aspect_ratio = "%d / %d" % illustration_normalize.ILLUSTRATION_TARGET_SIZE
     assert image_decls.get("aspect-ratio") == expected_aspect_ratio, (
-        "expected .airline-card__image to declare aspect-ratio: %s" % expected_aspect_ratio)
+        "expected .airline-row__image to declare aspect-ratio: %s" % expected_aspect_ratio)
 
     assert rules_with_selector(css_text, ".data-table--prose th:first-child"), (
         "expected a .data-table--prose th:first-child rule")

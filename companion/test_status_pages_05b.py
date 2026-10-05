@@ -46,12 +46,20 @@ def _battery_section_heading(lang="en"):
 
 
 def _card_slice(rendered, airline_name):
-    """The one `.airline-card` block for `airline_name`, bounded by the next
-    card's opening tag (or end of string)."""
-    name_index = rendered.index(">%s<" % airline_name)
-    card_start = rendered.rindex('<div class="airline-card"', 0, name_index)
-    next_start = rendered.find('<div class="airline-card"', card_start + 1)
-    return rendered[card_start:] if next_start == -1 else rendered[card_start:next_start]
+    """The one `<li class="airline-list__item">` row for `airline_name`: the row trigger and
+    its hidden per-type triggers."""
+    name_index = rendered.index('class="airline-row__name" title="%s"' % airline_name)
+    start = rendered.rindex('<li class="airline-list__item"', 0, name_index)
+    return rendered[start:rendered.index("</li>", start)]
+
+
+def _row_triggers(card_slice):
+    """Every `data-view-panel-*` trigger tag of one row, row first."""
+    return re.findall(r"<a\b[^>]*data-view-panel-src[^>]*>", card_slice)
+
+
+def _types_line(card_slice):
+    return re.search(r'<span class="airline-row__types"[^>]*>([^<]*)</span>', card_slice).group(1)
 
 
 def _rendered_pages_with_search_inputs(tmp_path):
@@ -337,12 +345,17 @@ def test_airlines_page_opens_with_shared_page_header(tmp_path):
     assert '<h1 class="text-heading">' not in rendered
 
 
-def test_gallery_renders_one_card_per_target_airline(tmp_path):
-    """the gallery renders exactly one .airline-card per illustrations.target_airline_names()
-    entry (36 against today's data)"""
+def test_gallery_renders_one_row_per_target_airline(tmp_path):
+    """the gallery renders exactly one fixed-height .airline-row per
+    illustrations.target_airline_names() entry (36 against today's data), as list items of one
+    .airline-list, and no carousel markup"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     expected = len(illustrations.target_airline_names())
-    assert rendered.count('class="airline-card"') == expected
+    assert rendered.count('<li class="airline-list__item"') == expected
+    assert rendered.count('class="airline-row"') == expected
+    for retired in ("airline-card__track", "airline-card__dot", "data-airline-type=",
+                    "airline-type__title", "airline-card__zoom", "airline-card__edit"):
+        assert retired not in rendered, retired
 
 
 def test_every_card_image_source_passes_route_membership_test(tmp_path):
@@ -361,65 +374,66 @@ def test_every_card_image_source_passes_route_membership_test(tmp_path):
         assert filename in targets, "%r is not a member of illustrations.target_filenames()" % (filename,)
 
 
-def test_air_caraibes_carousel_offers_every_known_type_upper_cased(tmp_path):
-    """the Air Caraïbes card renders one slide per type — its airline-level type plus A330,
-    A350-1000 and ATR72, so the A350-1000 shape-slug-validation trap is not fallen into — in
-    one scroll-snap track with the type name under each image, plus one named pagination dot
-    per slide; no native selector remains and no slide is hidden"""
+def test_air_caraibes_row_lists_every_known_type(tmp_path):
+    """the Air Caraïbes row names the airframe of its airline-level picture (A350-900, never
+    an any-aircraft label) and every secondary type, so the A350-1000 is not lost: the row
+    shows the first two and +2, its title and the sheet's type switcher carry all four, and
+    each type has its own trigger (the hidden ones for the switcher)"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     card_slice = _card_slice(rendered, "Air Caraïbes")
-    dots = re.findall(
-        r'<button type="button" class="airline-card__dot" data-airline-type-dot="([^"]+)" '
-        r'aria-label="([^"]+)"', card_slice)
-    assert dots == [
-        ("any", "Any aircraft"), ("a330", "A330"), ("a350-1000", "A350-1000"),
-        ("atr72", "ATR72")]
-    assert 'role="group" aria-label="Aircraft type"' in card_slice
-    sections = re.findall(r'<section class="airline-type" data-airline-type="([^"]+)">', card_slice)
-    assert sections == [value for value, _label in dots]
-    titles = re.findall(r'<h3 class="airline-type__title text-label">([^<]+)</h3>', card_slice)
-    assert titles == [label for _value, label in dots]
-    assert 'class="airline-card__track"' in card_slice
-    assert "<select" not in card_slice and "data-airline-type-select" not in card_slice
-    assert " hidden" not in card_slice
+    assert _types_line(card_slice) == "A350-900 · A330 · +2"
+    assert 'title="A350-900 · A330 · A350-1000 · ATR72"' in card_slice
+    triggers = _row_triggers(card_slice)
+    assert len(triggers) == 4
+    assert [" hidden " in tag for tag in triggers] == [False, True, True, True]
+    keys = [re.search(r'data-view-panel-sheet-key="([^"]+)"', tag).group(1) for tag in triggers]
+    assert keys == ["air-caraibes", "air-caraibes-a330", "air-caraibes-a350-1000",
+                    "air-caraibes-atr72"]
+    types = re.search(r'data-view-panel-airline-types="([^"]+)"', triggers[2]).group(1)
+    assert types == ("air-caraibes:A350-900|air-caraibes-a330:A330|"
+                     "*air-caraibes-a350-1000:A350-1000|air-caraibes-atr72:ATR72")
+    assert "Any aircraft" not in card_slice
 
 
-def test_every_airline_with_several_types_lists_each_of_them(tmp_path):
-    """every airline whose curated entries name more than one type (both Transavia France
-    types among them) gets one slide and one pagination dot per type; an airline with a single
-    type renders no dots at all"""
+def test_every_airline_lists_each_of_its_types_as_text(tmp_path):
+    """every airline's row carries one trigger per type (the first visible, the rest hidden),
+    and its types line is the designators of all of them: up to three in full, else the first
+    two and +N; Transavia reads B737 · A320"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     for airline_name, shapes in illustrations.target_variants_by_airline():
         card_slice = _card_slice(rendered, airline_name)
-        sections = re.findall(r'<section class="airline-type" data-airline-type="', card_slice)
-        assert len(sections) == 1 + len(shapes), airline_name
-        assert card_slice.count("data-airline-type-dot=") == (1 + len(shapes) if shapes else 0), (
-            airline_name)
-        assert ("data-airline-types" in card_slice) == bool(shapes), airline_name
-    transavia = _card_slice(rendered, "Transavia France")
-    assert re.findall(r'data-airline-type-dot="[^"]+" aria-label="([^"]+)"', transavia) == [
-        "Any aircraft", "A320"]
+        assert len(_row_triggers(card_slice)) == 1 + len(shapes), airline_name
+        labels = [illustrations.aircraft_label(airline_name)] + [
+            illustrations.aircraft_label(airline_name, shape) for shape in shapes]
+        assert all(labels), airline_name
+        expected = " · ".join(labels) if len(labels) <= 3 else (
+            " · ".join(labels[:2] + ["+%d" % (len(labels) - 2)]))
+        assert _types_line(card_slice) == layout.escape_html(expected), airline_name
+    assert _types_line(_card_slice(rendered, "Transavia France")) == "B737 · A320"
+    assert _types_line(_card_slice(rendered, "Royal Air Maroc")) == "B737 · E190"
+    assert _types_line(_card_slice(rendered, "Amelia")) == "A320 · E145"
 
 
-def test_primary_only_airline_renders_no_dots(tmp_path):
-    """an airline with no variant entries (Air France) renders no pagination dots, no type
-    title and no badge row: a default tile is its name and artwork"""
+def test_primary_only_airline_renders_one_trigger_and_no_status_chip(tmp_path):
+    """an airline with no variant entries (Air France) renders its name, its one aircraft and
+    a single trigger: no hidden twin, no chip of any kind"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     card_slice = _card_slice(rendered, "Air France")
-    for absent in ("data-airline-type-dot", "airline-card__dots", "airline-type__title",
-                   "airline-type__meta", "airline-card__chip", "data-airline-types"):
-        assert absent not in card_slice
+    assert _types_line(card_slice) == "A320"
+    assert len(_row_triggers(card_slice)) == 1
+    assert "airline-card__chip" not in card_slice and " hidden " not in card_slice
 
 
-def test_variant_chip_label_covers_both_domains():
-    """variant_chip_label() upper-cases every alphanumeric type code verbatim and word-cases
-    the Embraer/Beechcraft manufacturer forms"""
-    cases = {
-        "a320": "A320", "atr72": "ATR72", "a330": "A330", "b737": "B737",
-        "a350-1000": "A350-1000", "embraer": "Embraer", "beechcraft1900d": "Beechcraft 1900D",
-    }
-    for shape, expected in cases.items():
-        assert airlines_page.variant_chip_label(shape) == expected
+def test_every_curated_picture_has_an_aircraft_label_that_differs_within_its_airline():
+    """illustrations.aircraft_label() names the aircraft of every primary and secondary
+    picture, as a designator (E190/E145, never the "Embraer" family), and no two pictures of
+    one airline share a label"""
+    for airline_name, shapes in illustrations.target_variants_by_airline():
+        labels = [illustrations.aircraft_label(airline_name)] + [
+            illustrations.aircraft_label(airline_name, shape) for shape in shapes]
+        assert all(labels), airline_name
+        assert len(set(labels)) == len(labels), (airline_name, labels)
+        assert "Embraer" not in labels
 
 
 def test_illustration_route_prefix_matches_app_constant():
@@ -428,16 +442,16 @@ def test_illustration_route_prefix_matches_app_constant():
     assert airlines_page.ILLUSTRATION_ROUTE_PREFIX == app.ILLUSTRATION_IMAGE_ROUTE_PREFIX
 
 
-def test_every_card_image_carries_matching_intrinsic_dimensions(tmp_path):
-    """every rendered card image carries width/height attributes matching
+def test_every_row_image_carries_matching_intrinsic_dimensions(tmp_path):
+    """every rendered row image carries width/height attributes matching
     illustration_normalize.ILLUSTRATION_TARGET_WIDTH/HEIGHT exactly"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
-    tags = re.findall(r'<img class="airline-card__image"[^>]*>', rendered)
-    assert tags, "expected at least one card image in the rendered gallery"
+    tags = re.findall(r'<img class="airline-row__image"[^>]*>', rendered)
+    assert len(tags) == len(illustrations.target_airline_names())
     expected_attr = 'width="%d" height="%d"' % (
         illustration_normalize.ILLUSTRATION_TARGET_WIDTH, illustration_normalize.ILLUSTRATION_TARGET_HEIGHT)
     for tag in tags:
-        assert expected_attr in tag, "expected %r in every card image tag, missing from %r" % (expected_attr, tag)
+        assert expected_attr in tag, "expected %r in every row image tag, missing from %r" % (expected_attr, tag)
 
 
 def test_gallery_filter_bar_carries_all_four_contract_markers_exactly_once(tmp_path):
@@ -556,14 +570,17 @@ def test_gallery_filter_count_and_empty_body_name_the_real_total(tmp_path):
     assert empty_body in rendered
 
 
-def test_every_card_carries_distinct_filter_text_and_group(tmp_path):
-    """every card carries a data-filter-text equal to its own lower-cased airline name, and
-    the set of data-filter-group values has the same size as the card count"""
+def test_every_row_carries_distinct_filter_text_and_group(tmp_path):
+    """every row's data-filter-text starts with its own lower-cased airline name (then its
+    aircraft types and prefixes, so a search for A320 or AFR finds it), and the set of
+    data-filter-group values has the same size as the row count"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     for airline_name in illustrations.target_airline_names():
-        expected_text = 'data-filter-text="%s"' % airline_name.lower()
+        expected_text = 'data-filter-text="%s ' % airline_name.lower()
         assert expected_text in rendered, "expected %r for airline %r" % (expected_text, airline_name)
-    groups = re.findall(r'data-filter-group="(\d+)"', rendered)
+    france = re.search(r'data-filter-text="(air france[^"]*)"', rendered).group(1)
+    assert "a320" in france.split() and "afr" in france.split()
+    groups = re.findall(r'<li class="airline-list__item"[^>]*data-filter-group="(\d+)"', rendered)
     assert len(set(groups)) == len(illustrations.target_airline_names()), (
         "expected as many distinct data-filter-group values as target airlines, got %d "
         "distinct of %d total occurrences" % (len(set(groups)), len(groups)))
@@ -626,42 +643,26 @@ def test_airlines_page_module_exposes_no_deleted_diagnostics_symbol():
 # ==========================================================================
 
 
-def test_airline_card_zoom_button_attrs_match_expected(tmp_path):
-    """every card wraps each type's image in one .airline-card__zoom button; the first
-    (airline-level) button's data-view-panel-src is byte-identical to that same card's first
-    <img src>, its data-view-panel-caption equals the airline name, and its aria-label equals
-    ZOOM_LABEL_TEMPLATE %% name"""
+def test_airline_row_trigger_attrs_match_expected(tmp_path):
+    """each airline row is one `<a>` trigger whose data-view-panel-src is byte-identical to the
+    row's own <img src>, whose caption is the airline name, whose heading (the dialog's one
+    title) is the airline name and whose aria-label is the edit wording plus every type"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
-    for airline_name in ("Air Caraïbes", "Air France"):
+    for airline_name, types in (("Air Caraïbes", "A350-900 · A330 · A350-1000 · ATR72"),
+                                ("Air France", "A320")):
         card_slice = _card_slice(rendered, airline_name)
-        zoom_buttons = re.findall(r'<button type="button" class="airline-card__zoom"[^>]*>', card_slice)
-        shapes = dict(illustrations.target_variants_by_airline())[airline_name]
-        assert len(zoom_buttons) == 1 + len(shapes), (
-            "expected one .airline-card__zoom button per type of %r, got %d"
-            % (airline_name, len(zoom_buttons)))
-        button_tag = zoom_buttons[0]
-
-        img_src_match = re.search(r'<img class="airline-card__image" src="([^"]+)"', card_slice)
-        assert img_src_match, "expected an .airline-card__image with a src attribute for %r" % (airline_name,)
-        img_src = img_src_match.group(1)
-
-        src_attr_match = re.search(r'data-view-panel-src="([^"]+)"', button_tag)
-        assert src_attr_match and src_attr_match.group(1) == img_src, (
-            "expected the zoom button's data-view-panel-src to be byte-identical to %r's card "
-            "image src (%r), got %r"
-            % (airline_name, img_src, src_attr_match.group(1) if src_attr_match else None))
-
-        expected_caption = layout.escape_html(airline_name)
-        caption_attr_match = re.search(r'data-view-panel-caption="([^"]+)"', button_tag)
-        assert caption_attr_match and caption_attr_match.group(1) == expected_caption, (
-            "expected %r's zoom button caption attribute to equal %r, got %r"
-            % (airline_name, expected_caption, caption_attr_match.group(1) if caption_attr_match else None))
-
-        expected_aria = layout.escape_html(airlines_page.ZOOM_LABEL_TEMPLATE % airline_name)
-        aria_match = re.search(r'aria-label="([^"]+)"', button_tag)
-        assert aria_match and aria_match.group(1) == expected_aria, (
-            "expected %r's zoom button aria-label to equal %r, got %r"
-            % (airline_name, expected_aria, aria_match.group(1) if aria_match else None))
+        row_tag = _row_triggers(card_slice)[0]
+        assert 'class="airline-row"' in row_tag
+        img_src = re.search(r'<img class="airline-row__image" src="([^"]+)"', card_slice).group(1)
+        src_attr = re.search(r'data-view-panel-src="([^"]+)"', row_tag).group(1)
+        assert src_attr == img_src, (airline_name, src_attr, img_src)
+        escaped = layout.escape_html(airline_name)
+        assert re.search(r'data-view-panel-caption="([^"]+)"', row_tag).group(1) == escaped
+        assert re.search(r'data-view-panel-heading="([^"]+)"', row_tag).group(1) == escaped
+        expected_aria = layout.escape_html(
+            airlines_page.ACTION_LABEL_TEMPLATE % (
+                airlines_page.EDIT_AIRLINE_TEXT % airline_name, types))
+        assert re.search(r'aria-label="([^"]+)"', row_tag).group(1) == expected_aria
 
 
 def test_lightbox_dialog_renders_once_wide_with_own_note_text(tmp_path):
@@ -683,24 +684,19 @@ def test_lightbox_dialog_renders_once_wide_with_own_note_text(tmp_path):
     assert '<p class="lightbox__note text-body"></p>' in rendered
 
 
-def test_airline_card_zoom_stylesheet_contract(css_text):
-    """.airline-card__zoom neutralizes the base button rule's height/padding/border/background
-    and declares the zoom cursor, and declares no pointer-events property anywhere — the
-    retired orientation gate (a misreading of the developer's original request, corrected on
-    the same live test) must not silently return"""
-    zoom_rules = rules_with_selector(css_text, ".airline-card__zoom")
-    assert zoom_rules, "expected a .airline-card__zoom rule in the served stylesheet"
-    base = dict(zoom_rules[0].declarations)
-    for prop, value in (
-            ("height", "auto"), ("padding", "0"), ("border", "none"),
-            ("background", "none"), ("cursor", "zoom-in")):
-        assert base.get(prop) == value, (
-            "expected %s: %s inside the base .airline-card__zoom rule, got %r" % (prop, value, base))
-    assert not any("pointer-events" in dict(rule.declarations) for rule in zoom_rules), (
-        "expected no .airline-card__zoom rule to declare pointer-events at all")
-    assert not any(
-        "orientation: portrait" in " ".join(rule.at_rules) for rule in css_rules(css_text)), (
-        "expected the retired orientation gate to be fully removed")
+def test_airline_row_stylesheet_contract(css_text):
+    """.airline-row has a fixed (not minimum) height so every row is as tall as every other,
+    clamps its name to two lines and keeps the aircraft types on one; the retired carousel
+    selectors are gone from the served stylesheet"""
+    row = dict(rules_with_selector(css_text, ".airline-row")[0].declarations)
+    assert row.get("height") == "76px" and row.get("min-height") == "0", row
+    name = dict(rules_with_selector(css_text, ".airline-row__name")[0].declarations)
+    assert name.get("-webkit-line-clamp") == "2" and name.get("overflow") == "hidden", name
+    types = dict(rules_with_selector(css_text, ".airline-row__types")[0].declarations)
+    assert types.get("white-space") == "nowrap" and types.get("height") == "16px", types
+    for retired in (".airline-card__zoom", ".airline-card__track", ".airline-card__dots",
+                    ".airline-type", ".airline-card__edit"):
+        assert not rules_with_selector(css_text, retired), retired
 
 
 def test_mobile_button_override_block_and_source_order(css_text):
@@ -752,26 +748,20 @@ def test_lightbox_wide_max_width_matches_illustration_target_width(css_text):
 
 
 def test_replace_form_action_matches_trigger_attribute_membership(tmp_path):
-    """exactly one lightbox replace form is rendered, and every type section's two triggers
-    (the enlargeable image and the add/replace action) carry a
-    data-view-panel-replace-action attribute (two per known type) whose value, with the route prefix stripped, is a member of illustrations.
-    target_filenames() — mirroring the existing image-source membership check"""
+    """exactly one lightbox replace form is rendered, and every type's trigger (the row, or its
+    hidden twin) carries a data-view-panel-replace-action attribute (one per known type) whose
+    value, with the route prefix stripped, is a member of illustrations.target_filenames() —
+    mirroring the existing image-source membership check"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     form_count = rendered.count('<form class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS)
     assert form_count == 1, "expected exactly one lightbox replace form, got %d" % form_count
     targets = set(illustrations.target_filenames())
     prefix = airlines_page.ILLUSTRATION_ROUTE_PREFIX
     actions = re.findall(r'data-view-panel-replace-action="([^"]+)"', rendered)
-    per_type = 2
-    expected = per_type * sum(
-        1 + len(shapes) for _name, shapes in illustrations.target_variants_by_airline())
+    expected = sum(1 + len(shapes) for _name, shapes in illustrations.target_variants_by_airline())
     assert len(actions) == expected, (
-        "expected %d replace-action triggers (%d per known type), got %d"
-        % (expected, per_type, len(actions)))
-    for action in set(actions):
-        assert actions.count(action) == per_type, (
-            "expected each type's replace action to appear exactly %d time(s), %r "
-            "appeared %d" % (per_type, action, actions.count(action)))
+        "expected %d replace-action triggers (one per known type), got %d" % (expected, len(actions)))
+    assert len(set(actions)) == len(actions)
     for action in actions:
         assert action.startswith(prefix) and action.endswith(".png"), (
             "expected every replace-action trigger to be %s{key}.png, got %r" % (prefix, action))

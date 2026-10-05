@@ -1,6 +1,6 @@
-"""The airline sheet: the pencil on an Airlines tile opens one place to
-rename an airline, see its built-in callsign prefixes and replace its
-artwork. Served-HTML checks on the page, POST-route checks on the two new
+"""The airline sheet: an Airlines row opens one place to rename an
+airline, see its built-in callsign prefixes and replace its artwork, one
+aircraft type at a time. Served-HTML checks on the page, POST-route checks on the two new
 routes against a real server, and the artwork-follows-the-name behaviour.
 Nothing here reads production source text.
 """
@@ -16,10 +16,11 @@ from server.plane import illustrations, manual_resolutions, name_overrides
 
 
 def _card(rendered, airline_name):
-    name_index = rendered.index('class="airline-card__name">%s<' % airline_name)
-    start = rendered.rindex('<div class="airline-card"', 0, name_index)
-    end = rendered.find('<div class="airline-card"', start + 1)
-    return rendered[start:] if end == -1 else rendered[start:end]
+    """The one `<li>` row (with its hidden per-type triggers) of `airline_name`."""
+    name_index = rendered.index('class="airline-row__name" title="%s"' % airline_name)
+    start = rendered.rindex('<li class="airline-list__item"', 0, name_index)
+    end = rendered.find("</li>", start)
+    return rendered[start:end]
 
 
 def _attr(fragment, name):
@@ -38,23 +39,29 @@ def _flash(headers):
     return urllib.parse.parse_qs(urllib.parse.urlsplit(headers["Location"]).query)
 
 
-def test_a_builtin_tile_carries_the_sheet_vocabulary_and_a_link_pencil(tmp_path):
-    """every curated tile's triggers carry the five sheet attributes with the built-in name,
-    its prefixes and the artwork key, and the pencil is a real link to the no-script sheet"""
+def test_a_builtin_row_carries_the_sheet_vocabulary_and_links_to_the_no_script_sheet(tmp_path):
+    """every curated row's triggers carry the six sheet attributes with the built-in name, its
+    prefixes, the artwork key and every aircraft type (the shown one marked), and each is a
+    real link to the no-script sheet of its own type"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     card = _card(rendered, "Transavia France")
-    assert _attr(card, airline_sheet.AIRLINE_ATTR) == "Transavia France"
-    assert _attr(card, airline_sheet.AIRLINE_NAME_ATTR) == "Transavia France"
-    assert _attr(card, airline_sheet.AIRLINE_PREFIXES_ATTR) == "TFV TVF"
-    assert _attr(card, airline_sheet.RENAMED_ATTR) == ""
-    assert 'href="/airlines?sheet=transavia-france#airline-sheet" class="airline-card__edit"' in card
-    assert 'href="/airlines?sheet=transavia-france-a320#airline-sheet" class="airline-card__edit"' in card
-    assert ">Renamed</span>" not in card
+    row = card[:card.index("</a>")]
+    assert _attr(row, airline_sheet.AIRLINE_ATTR) == "Transavia France"
+    assert _attr(row, airline_sheet.AIRLINE_NAME_ATTR) == "Transavia France"
+    assert _attr(row, airline_sheet.AIRLINE_PREFIXES_ATTR) == "TFV TVF"
+    assert _attr(row, airline_sheet.RENAMED_ATTR) == ""
+    assert _attr(row, airline_sheet.TYPES_ATTR) == "*transavia-france:B737|transavia-france-a320:A320"
+    assert 'href="/airlines?sheet=transavia-france#airline-sheet" class="airline-row"' in row
+    twin = card[card.index('class="airline-row__type-trigger"'):]
+    assert 'href="/airlines?sheet=transavia-france-a320#airline-sheet"' in card
+    assert _attr(twin, airline_sheet.TYPES_ATTR) == "transavia-france:B737|*transavia-france-a320:A320"
+    assert " hidden " in card[card.index('<a href="/airlines?sheet=transavia-france-a320'):][:140]
+    assert "Renamed" not in card and "Renommée" not in card
 
 
-def test_every_trigger_on_the_page_carries_all_five_sheet_attributes(tmp_path):
-    """a gap card and a manual-only card carry the sheet attributes too, empty, so a click
-    never inherits another card's values"""
+def test_every_trigger_on_the_page_carries_all_six_sheet_attributes(tmp_path):
+    """a gap card and a manual-only row carry the sheet attributes too, empty (an owner-named
+    airline still names its one type), so a click never inherits another row's values"""
     tmp = str(tmp_path)
     manual_resolutions.add_entry(tmp, "XQZ", "Totally Novel Airline", now="2026-01-01T00:00:00+00:00")
     shp.seed_unresolved_prefixes(tmp, {
@@ -67,30 +74,37 @@ def test_every_trigger_on_the_page_carries_all_five_sheet_attributes(tmp_path):
             assert ('%s="' % attr) in trigger, (attr, trigger[:120])
     novel = _card(rendered, "Totally Novel Airline")
     assert _attr(novel, airline_sheet.AIRLINE_ATTR) == ""
-    assert 'class="airline-card__edit"' in novel and "<button" in novel
+    assert _attr(novel, airline_sheet.TYPES_ATTR) == "*totally-novel-airline:All types"
+    assert 'class="airline-row"' in novel and "<a " in novel
     gap = re.search(r'<a class="airline-card" href="/airlines\?resolve=XYZ"[^>]*>', rendered).group(0)
     assert _attr(gap, airline_sheet.AIRLINE_ATTR) == ""
 
 
 def test_the_shared_dialog_holds_the_sheet_forms_with_fixed_post_actions(tmp_path):
-    """the dialog carries the name form, the chip list, the reset form and the artwork label,
-    their actions fixed server-side and the name field a plain required text input with no
-    datalist (suggesting other airlines would only invite refused renames) and no autofocus"""
+    """the dialog carries one title with its chip list, the type switcher, the name form and
+    the reset form, their actions fixed server-side and the name field a plain required text
+    input with no datalist (suggesting other airlines would only invite refused renames) and
+    no autofocus; the two explanatory sentences the sheet used to carry are gone"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     dialog = rendered[rendered.index('<dialog'):]
     assert 'class="airline-sheet"' in dialog
     assert 'method="post" action="/airlines/rename"' in dialog
     assert 'method="post" action="/airlines/rename/reset"' in dialog
-    sheet = dialog[dialog.index('class="airline-sheet"'):dialog.index('class="airline-sheet__prefixes"')]
+    assert dialog.count('<h2 class="lightbox__heading">') == 1
+    assert 'class="airline-sheet__chips" aria-label="Callsign prefixes"' in dialog
+    assert 'class="airline-sheet__types"' in dialog
+    sheet = dialog[dialog.index('class="airline-sheet"'):dialog.index('class="airline-sheet__reset"')]
     assert 'name="airline_name" maxlength="100" required' in sheet
     assert "list=" not in sheet and "autofocus" not in sheet
     assert 'id="known-airlines-dialog"' in dialog
     assert "Reset to SkyPane’s name" in dialog
+    for gone in ("Shown on every past and new flight", "can’t be changed here", "airline-sheet__prefixes"):
+        assert gone not in rendered, gone
 
 
-def test_a_renamed_airline_shows_its_new_name_badge_and_new_artwork_key(tmp_path):
-    """an override renames the tile, adds the Renamed badge, keeps the built-in name as the
-    sheet's identity and points the artwork at the new name's key; the Reset form is offered"""
+def test_a_renamed_airline_shows_its_new_name_and_new_artwork_key_without_a_chip(tmp_path):
+    """an override renames the row, keeps the built-in name as the sheet's identity and its
+    aircraft types, points the artwork at the new name's key and carries no status chip"""
     tmp = str(tmp_path)
     name_overrides.set_names(tmp, ["TFV", "TVF"], "Transavia", now="2026-01-01T00:00:00+00:00")
     rendered = airlines_page.render(shp.ctx(tmp) | {"name_overrides": name_overrides.load_name_overrides(tmp)})
@@ -98,27 +112,23 @@ def test_a_renamed_airline_shows_its_new_name_badge_and_new_artwork_key(tmp_path
     assert _attr(card, airline_sheet.AIRLINE_ATTR) == "Transavia France"
     assert _attr(card, airline_sheet.AIRLINE_NAME_ATTR) == "Transavia"
     assert _attr(card, airline_sheet.RENAMED_ATTR) == "active"
-    assert '<span class="airline-card__chip">Renamed</span>' in card
-    assert 'sheet=transavia#airline-sheet' in card
-    assert 'class="airline-card__name">Transavia<' in card
+    assert _attr(card, airline_sheet.TYPES_ATTR) == "*transavia:B737|transavia-a320:A320"
+    assert "sheet=transavia#airline-sheet" in card
+    assert ">B737 · A320<" in card
+    assert "airline-card__chip" not in card and "Renamed" not in card
 
 
-def test_the_renamed_badge_is_french_and_loses_to_a_resolved_by_hand_chip(tmp_path):
-    """the badge reads Renommée in French; on a card that also has a manual entry the existing
-    manual chip keeps the single badge slot"""
-    tmp = str(tmp_path)
-    overrides = {"AFR": {"airline_name": "Skyline Air", "created_at": "t"}}
+def test_a_row_names_the_airframe_and_never_an_any_aircraft_label(tmp_path):
+    """no row for a built-in airline says "Any aircraft"/"Tout appareil"; the airline-level
+    picture's own aircraft is named, in both languages"""
     try:
-        prefs.set_request_prefs(lang="fr")
-        rendered = airlines_page.render(shp.ctx(tmp) | {"name_overrides": overrides})
-        assert '<span class="airline-card__chip">Renommée</span>' in _card(rendered, "Skyline Air")
+        for lang, forbidden in (("en", "Any aircraft"), ("fr", "Tout appareil")):
+            prefs.set_request_prefs(lang=lang)
+            rendered = airlines_page.render(shp.ctx(str(tmp_path)))
+            assert forbidden not in rendered
+            assert ">B737 · A320<" in _card(rendered, "Transavia France")
     finally:
         prefs.set_request_prefs(lang="en")
-    manual_resolutions.add_entry(tmp, "AFR", "Some Other", now="2026-01-01T00:00:00+00:00")
-    rendered = airlines_page.render(shp.ctx(tmp) | {"name_overrides": overrides})
-    card = _card(rendered, "Skyline Air")
-    assert "Renamed</span>" not in card
-    assert airline_sheet.RENAMED_ATTR in card
 
 
 def test_the_no_script_sheet_renders_for_a_known_key_only(tmp_path):
@@ -365,12 +375,12 @@ def test_a_multi_prefix_airline_keeps_its_own_name_across_prefixes(make_app_serv
 
 def test_the_sheet_name_field_has_no_datalist_and_a_taken_refusal_focuses_it_without_scripts(tmp_path):
     """the name field offers no suggestions; the no-script sheet autofocuses the name only when
-    the page was reached after a name refusal (taken included), never from the pencil link"""
+    the page was reached after a name refusal (taken included), never from the row link"""
     tmp = str(tmp_path)
     plain = airlines_page.render(shp.ctx(tmp) | {"sheet_key": "air-france"})
     section = plain[plain.index("data-sheet-fallback"):]
     assert "autofocus" not in section and "data-sheet-focus-name" not in plain
-    assert "list=" not in section[:section.index("airline-sheet__prefixes")]
+    assert "list=" not in section
     for key in (airline_sheet.FLASH_RENAME_TAKEN, "manual_name_too_long"):
         refused = airlines_page.render(shp.ctx(tmp) | {"sheet_key": "air-france", "flash_key": key})
         assert "data-sheet-focus-name" in refused

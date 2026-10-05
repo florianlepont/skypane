@@ -431,6 +431,75 @@ _ILLUSTRATION_TARGETS = [
     ),
 ]
 
+# The aircraft each curated picture shows, as a short display label.
+# The target list above stores no type for a primary file, yet the owner
+# needs to read which airframe a picture depicts; the labels are
+# transcribed from VENDOR.md's per-file aircraft-type column. A primary
+# picture is also the fallback for every type that has no file of its
+# own, so its label names the airframe drawn, not the set it serves.
+PRIMARY_AIRCRAFT_LABELS = {
+    "Air France": "A320",
+    "Iberia Airlines": "A320",
+    "TAP Portugal": "A321",
+    "Air Algerie": "B737",
+    "Air Corsica": "A320",
+    "Vueling Airlines": "A320",
+    "Transavia France": "B737",
+    "easyJet": "A320",
+    "Wizz Air": "A321",
+    "Volotea": "A320",
+    "ITA Airways": "A321",
+    "Air Europa": "B737",
+    "Royal Air Maroc": "B737",
+    "LOT Polish Airlines": "E195",
+    "Air Caraïbes": "A350-900",
+    "French Bee": "A350-900",
+    "ASL Airlines France": "B737",
+    "Tunisair": "A320",
+    "Pegasus Airlines": "A321",
+    "Chalair Aviation": "ATR72",
+    "Twin Jet": "B1900D",
+    "Corsair": "A330",
+    "KM Malta Airlines": "A320",
+    "TUIfly Belgium": "B737",
+    "Amelia": "A320",
+    "Air France Hop": "E190",
+    "KlasJet": "B737",
+    "La Compagnie": "A321",
+    "Qatar Amiri Flight": "A320",
+    "South Korea Government": "B747",
+    "Royal Jordanian": "B787",
+    "French Air Force": "A330",
+    "Saudi Royal Aviation": "B777",
+    "Saudia": "B777",
+    "Gendarmerie Nationale": "EC145",
+    "Iraqi Government": "B737",
+}
+
+# The same for each secondary-variant file, keyed by `(airline, shape)`.
+# A designator, never the shape family: "embraer" is E190 for Royal Air
+# Maroc and E145 for Amelia.
+VARIANT_AIRCRAFT_LABELS = {
+    ("Air Corsica", "atr72"): "ATR72",
+    ("Transavia France", "a320"): "A320",
+    ("Royal Air Maroc", "embraer"): "E190",
+    ("Air Caraïbes", "a330"): "A330",
+    ("Amelia", "embraer"): "E145",
+    ("Air France Hop", "atr72"): "ATR72",
+    ("Air Caraïbes", "a350-1000"): "A350-1000",
+    ("Air Caraïbes", "atr72"): "ATR72",
+}
+
+
+def aircraft_label(airline_name, shape=None):
+    """The aircraft designator the curated picture for `airline_name`
+    shows (`shape=None` for its primary file, else the secondary
+    variant's filename suffix), or `""` for a pair the list does not know."""
+    if shape is None:
+        return PRIMARY_AIRCRAFT_LABELS.get(airline_name, "")
+    return VARIANT_AIRCRAFT_LABELS.get((airline_name, shape), "")
+
+
 # A key must reduce to this shape after normalise_airline_key() - defensive
 # boundary check independent of normalise_airline_key()'s own guarantee
 # that a hostile/malformed airline_name must never escape the asset
@@ -523,6 +592,16 @@ def classify_aircraft_type(icao_type):
     return _TYPE_SHAPE_BUCKETS.get(icao_type.strip().upper())
 
 
+# ICAO designators whose picture is a sub-type of their shape bucket, to
+# the variant filename suffix carrying it. The bucket (A35K -> a350) is
+# too coarse to reach a file like `air-caraibes-a350-1000.png`.
+_TYPE_VARIANT_SLUGS = {"A35K": "a350-1000"}
+
+
+def _designator(icao_type):
+    return icao_type.strip().upper() if isinstance(icao_type, str) else ""
+
+
 def illustration_path_for_key(key):
     """Join `ILLUSTRATION_DIR` and `key + ".png"`. `None` if `key` is
     falsy or contains a path separator or parent-directory segment - this
@@ -588,7 +667,8 @@ def select_illustration(route, aircraft_type=None, state_dir=None):
     four fallback tiers, or `None` if not even the generic fallback
     exists. Never raises.
 
-    Tier 1: `{airline}-{shape}.png` - exact airline+type match.
+    Tier 1: `{airline}-{shape}.png` - exact airline+type match (for a
+        designator in `_TYPE_VARIANT_SLUGS`, its sub-type file first).
     Tier 2: `{airline}.png` - airline's own illustration (brand identity
         wins over exact type precision).
     Tier 3: `generic-{shape}.png` - neutral, correct-shape illustration
@@ -608,11 +688,15 @@ def select_illustration(route, aircraft_type=None, state_dir=None):
     airline_key = normalise_airline_key(airline_name)
     shape_key = classify_aircraft_type(aircraft_type)
 
-    # Tier 1: exact airline + shape match.
+    # Tier 1: exact airline + shape match. A designator with a sub-type
+    # file of its own (an A350-1000) tries that file first, then its shape.
     if airline_key and shape_key:
-        exact = resolved_illustration_path("%s-%s" % (airline_key, shape_key), state_dir)
-        if exact is not None:
-            return exact
+        for slug in (_TYPE_VARIANT_SLUGS.get(_designator(aircraft_type)), shape_key):
+            if not slug:
+                continue
+            exact = resolved_illustration_path("%s-%s" % (airline_key, slug), state_dir)
+            if exact is not None:
+                return exact
 
     # Tier 2: known airline, no exact-shape file - brand wins over
     # type precision; still show that airline's own default illustration.

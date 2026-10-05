@@ -84,6 +84,7 @@ _LIGHTBOX_AIRLINES_ONLY_TOKENS = (
     airlines_page._VIEW_PANEL_AIRLINE_PREFIXES_ATTR,
     airlines_page._VIEW_PANEL_RENAMED_ATTR,
     airlines_page._VIEW_PANEL_SHEET_KEY_ATTR,
+    airlines_page._VIEW_PANEL_AIRLINE_TYPES_ATTR,
     airlines_page.SHEET_CLASS,
     airlines_page.LIGHTBOX_HEADING_CLASS,
     airlines_page.LIGHTBOX_MANUAL_NOTE_CLASS,
@@ -806,8 +807,8 @@ def test_airlines_render_empty_ctx_still_contains_gallery_grid():
     """airlines_page.render({}) with a literal empty dict still succeeds and its output still
     contains the gallery grid (ctx.get("state_dir") tolerance)"""
     rendered = airlines_page.render({})
-    assert "illustration-grid" in rendered, (
-        "expected render({}) to still contain the .illustration-grid gallery container")
+    assert 'class="airline-list"' in rendered, (
+        "expected render({}) to still contain the .airline-list gallery container")
 
 
 # ======================================================================
@@ -819,8 +820,8 @@ def test_airlines_render_empty_ctx_still_contains_gallery_grid():
 
 def test_airlines_gap_strip_renders_after_the_gallery_with_heading_and_no_grid_placeholder(tmp_path):
     """a render with an eligible gap emits the "Unidentified airlines" strip with its exact
-    heading and sentence after the filter bar and the gallery grid, and the curated artwork
-    grid holds no gap card"""
+    heading and sentence after the filter bar and the gallery grid, and the airline
+    list holds no gap card"""
     vp.seed_unresolved_prefixes(tmp_path, {
         "XYZ": {"count": 3, "first_seen": "t1", "last_seen": "t2", "example_callsign": "XYZ123"},
     })
@@ -829,7 +830,7 @@ def test_airlines_gap_strip_renders_after_the_gallery_with_heading_and_no_grid_p
     assert airlines_page.GAP_STRIP_BODY in rendered
     strip_index = rendered.index(airlines_page.GAP_STRIP_HEADING)
     filter_bar_index = rendered.index('class="filter-bar')
-    gallery_index = rendered.index('class="illustration-grid"')
+    gallery_index = rendered.index('class="airline-list"')
     assert strip_index > filter_bar_index, "expected the gap strip to render after the filter bar (CFG-82, 29-02-PLAN.md)"
     assert strip_index > gallery_index, "expected the gap strip to render after the gallery grid (CFG-82, 29-02-PLAN.md)"
     assert "airline-card__placeholder" not in rendered[:strip_index], (
@@ -862,7 +863,7 @@ def test_airlines_section_order_is_title_then_filter_then_gallery_then_gapstrip_
     literals = (
         ("title", '<h1 class="page-title"'),
         ("filter", 'class="filter-bar"'),
-        ("gallery", 'class="illustration-grid"'),
+        ("gallery", 'class="airline-list"'),
         ("gapstrip", airlines_page.GAP_STRIP_HEADING),
         ("lightbox", '<dialog class="lightbox'),
     )

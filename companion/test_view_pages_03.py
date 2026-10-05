@@ -186,11 +186,11 @@ def test_resolve_dialog_save_and_close_share_one_action_row(tmp_path, served_css
     assert not btn_family, "expected no .btn-- family anywhere in style.css, got %r" % (btn_family,)
 
 
-def test_airlines_cards_carry_no_badge_or_per_card_control_but_full_vocabulary():
-    """a normal Airlines render carries no Editing badge and no per-card Replace control
-    anywhere (both deleted outright) — while every airline-card__zoom trigger still
-    carries the SAME full data-view-panel-* vocabulary, its size derived from the module's
-    own _VIEW_PANEL_*_ATTR constants rather than a hardcoded number"""
+def test_airlines_rows_carry_no_badge_or_per_row_control_but_full_vocabulary():
+    """a normal Airlines render carries no Editing badge and no per-row Replace control
+    anywhere — while every airline row trigger (the row itself and its hidden per-type twins)
+    still carries the SAME full data-view-panel-* vocabulary, its size derived from the
+    module's own _VIEW_PANEL_*_ATTR constants rather than a hardcoded number"""
     rendered = airlines_page.render({})
 
     assert "banner__pill" not in rendered, (
@@ -200,9 +200,9 @@ def test_airlines_cards_carry_no_badge_or_per_card_control_but_full_vocabulary()
         "dialog (CFG-81)")
 
     triggers = re.findall(
-        r'<(?:button type="button"|a href="[^"]*") class="airline-card__zoom" .*?</(?:button|a)>',
+        r'<(?:button type="button"|a href="[^"]*") class="airline-row(?:__type-trigger)?" .*?</(?:button|a)>',
         rendered, re.S)
-    assert len(triggers) >= 2, "expected the curated grid to render triggers to count vocabulary against"
+    assert len(triggers) >= 2, "expected the airline list to render triggers to count vocabulary against"
 
     attr_names = {
         getattr(airlines_page, name) for name in dir(airlines_page)
@@ -215,7 +215,7 @@ def test_airlines_cards_carry_no_badge_or_per_card_control_but_full_vocabulary()
     for trigger in triggers:
         found = set(re.findall(r'(data-view-panel-[a-z-]+)=', trigger))
         assert found == attr_names, (
-            "expected every airline-card__zoom trigger to carry the same data-view-panel-* "
+            "expected every airline row trigger to carry the same data-view-panel-* "
             "attribute set %r, got %r" % (sorted(attr_names), sorted(found)))
         counts.add(len(found))
     assert counts == {expected_count}, (
@@ -225,8 +225,8 @@ def test_airlines_cards_carry_no_badge_or_per_card_control_but_full_vocabulary()
 
 def test_airlines_filter_bar_has_no_manual_resolution_control(tmp_path, served_css):
     """the Airlines filter bar is the plain search pill: no "N manual resolutions" summary
-    control in either language, no style rule for it, while the per-card "Resolved by hand"
-    chip still renders (the retired count was owner feedback)"""
+    control in either language, no style rule for it, and no status chip on the row (the
+    retired count and the chips were owner feedback)"""
     registry = {"QQQ": {"airline_name": "Air France",
                         "created_at": "2026-09-01T10:00:00+00:00"}}
     ctx = {"state_dir": str(tmp_path), "manual_resolutions": registry}
@@ -243,8 +243,8 @@ def test_airlines_filter_bar_has_no_manual_resolution_control(tmp_path, served_c
         assert "data-filter-set" not in page
     assert not rules_with_selector(served_css, ".manual-summary")
     assert not rules_with_selector(served_css, ".manual-summary:hover")
-    assert '<span class="airline-card__chip">Resolved by hand</span>' in rendered
-    assert '<span class="airline-card__chip">Résolue à la main</span>' in rendered_fr
+    assert "Resolved by hand" not in rendered and "Résolue à la main" not in rendered_fr
+    assert "airline-card__chip" not in rendered and "airline-card__chip" not in rendered_fr
 
 
 def test_airlines_grid_is_two_fixed_columns_below_960px(served_css):
