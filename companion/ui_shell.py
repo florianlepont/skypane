@@ -12,7 +12,6 @@ for the quick-switch failure toast; nothing here imports a page module.
 import companion.i18n as i18n
 import companion.prefs as prefs
 from companion.ui_base import (
-    AIRLINE_TYPES_SCRIPT_SRC,
     CONFIRM_SUBMIT_SCRIPT_SRC,
     COPY_BUTTON_SCRIPT_SRC,
     DIRTY_STATE_SCRIPT_SRC,
@@ -118,7 +117,7 @@ def login_shell(body, ui_theme="auto", lang=None):
     })
 
 
-# The shell's own 15 script srcs, in the fixed relative order they are
+# The shell's own 16 script srcs, in the fixed relative order they are
 # emitted whenever present - the one place that order is declared.
 # page_shell()'s `scripts` argument only ever widens or narrows which of
 # these are present; it never reorders them.
@@ -134,7 +133,6 @@ SHELL_SCRIPT_ORDER = (
     POLL_COOLDOWN_SCRIPT_SRC,
     CONFIRM_SUBMIT_SCRIPT_SRC,
     THEME_PREVIEW_SCRIPT_SRC,
-    AIRLINE_TYPES_SCRIPT_SRC,
     SUBMIT_GUARD_SCRIPT_SRC,
     RELATIVE_TIME_SCRIPT_SRC,
     QUICK_SWITCH_SCRIPT_SRC,

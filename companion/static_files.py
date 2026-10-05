@@ -39,7 +39,6 @@ TOAST_SCRIPT_ROUTE = "/static/toast.js"
 POLL_COOLDOWN_SCRIPT_ROUTE = "/static/poll-cooldown.js"
 CONFIRM_SUBMIT_SCRIPT_ROUTE = "/static/confirm-submit.js"
 THEME_PREVIEW_SCRIPT_ROUTE = "/static/theme-preview.js"
-AIRLINE_TYPES_SCRIPT_ROUTE = "/static/airline-types.js"
 LOGIN_CARD_SCRIPT_ROUTE = "/static/login-card.js"
 SUBMIT_GUARD_SCRIPT_ROUTE = "/static/submit-guard.js"
 RELATIVE_TIME_SCRIPT_ROUTE = "/static/relative-time.js"
@@ -64,7 +63,6 @@ _TOAST_JS_PATH = os.path.join(STATIC_DIR, "toast.js")
 _POLL_COOLDOWN_JS_PATH = os.path.join(STATIC_DIR, "poll-cooldown.js")
 _CONFIRM_SUBMIT_JS_PATH = os.path.join(STATIC_DIR, "confirm-submit.js")
 _THEME_PREVIEW_JS_PATH = os.path.join(STATIC_DIR, "theme-preview.js")
-_AIRLINE_TYPES_JS_PATH = os.path.join(STATIC_DIR, "airline-types.js")
 _LOGIN_CARD_JS_PATH = os.path.join(STATIC_DIR, "login-card.js")
 _SUBMIT_GUARD_JS_PATH = os.path.join(STATIC_DIR, "submit-guard.js")
 _RELATIVE_TIME_JS_PATH = os.path.join(STATIC_DIR, "relative-time.js")
@@ -114,7 +112,6 @@ STATIC_ROUTES = {
     POLL_COOLDOWN_SCRIPT_ROUTE: StaticAsset(_POLL_COOLDOWN_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     CONFIRM_SUBMIT_SCRIPT_ROUTE: StaticAsset(_CONFIRM_SUBMIT_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     THEME_PREVIEW_SCRIPT_ROUTE: StaticAsset(_THEME_PREVIEW_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
-    AIRLINE_TYPES_SCRIPT_ROUTE: StaticAsset(_AIRLINE_TYPES_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     LOGIN_CARD_SCRIPT_ROUTE: StaticAsset(_LOGIN_CARD_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     SUBMIT_GUARD_SCRIPT_ROUTE: StaticAsset(_SUBMIT_GUARD_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     RELATIVE_TIME_SCRIPT_ROUTE: StaticAsset(_RELATIVE_TIME_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
