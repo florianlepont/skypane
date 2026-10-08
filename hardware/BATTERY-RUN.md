@@ -1065,9 +1065,56 @@ check and the exact query output were not supplied (not captured).
 (`python3 hardware/logtools.py check-battery <log> --interval-s 60 --capacity-mah 3000 --status`);
 the history channel is keep-forever, as in run one.
 
-**TODO for the owner (dated).** About 48 hours after the disconnect, around
-2026-10-07T14:08Z: save the export so far to
-`hardware/logs/battery-run2-export-48h.jsonl` and run
-`python3 hardware/logtools.py reference-interval hardware/logs/battery-run2-export-48h.jsonl --interval-s 60`
-(Protocol section 4a). The value is frozen then, in this record and the
-params file, before any continuity verdict. Nothing has been computed yet.
+**Reference-interval freeze.** Done on 2026-10-08; see
+"Reference interval frozen (2026-10-08)" below. The value is `70` s.
+
+### Reference interval frozen (2026-10-08)
+
+Recorded 2026-10-08 from what the owner ran and pasted into chat, verbatim.
+The owner ran everything on their own Mac, in their own terminal. The export
+is a read-only query (`sqlite3` URI `mode=ro`) of
+`/opt/skypane/state/history.db`, run over SSH as
+`ssh ubuntu@<vps> "sudo python3 - '2026-10-05T14:08:00Z'"`: the `ubuntu` user
+cannot read `/opt/skypane/state/` without `sudo`, so the read-only query ran
+under `sudo`. It was saved locally as
+`hardware/logs/battery-run2-export-48h.jsonl` (3360 lines). That file stays
+on the owner's machine and is not committed; it is identified here only by its
+sha256. The owner then ran:
+
+    python3 hardware/logtools.py reference-interval hardware/logs/battery-run2-export-48h.jsonl --interval-s 60
+
+Helper output, verbatim:
+
+```
+reference_interval_s: 70
+window: 2026-10-05T14:08:05+00:00 to 2026-10-07T14:07:51+00:00 (first 48 h only)
+gaps used: 2412, excluded (above 180 s): 10, unrounded mean 69.980 s
+export_sha256: fead5f2e103a1fc2a668ac52ccaf5cbabb8c84049468d9a02c8f60acd6103108
+```
+
+Export extent at export time (informational only: nothing is judged from
+these rows, and the export holds more than the 48 h window the helper read):
+
+- rows: 3360
+- first row: `{"ts": "2026-10-05T14:08:05+00:00", "battery_mv": 4106, "fw_version": "fw-v1.0.2", "boot_reason": "rtc", "rssi": "-57"}`
+- last row at export time: `{"ts": "2026-10-08T09:50:51+00:00", "battery_mv": 3804, "fw_version": "fw-v1.0.2", "boot_reason": "rtc", "rssi": "-50"}`
+
+**Frozen.** `reference_interval_s` = 70, with its source note and the export
+sha256, is written in `hardware/logs/battery-run2-params.json`. The value
+comes only from the helper's output; it is not hand-calculated and **must not
+be edited afterwards**, whatever a later report shows (Protocol section 4a).
+Commit order: the commit that records this freeze precedes any `run-report`
+run on run data, and in particular precedes the commit that adds
+`hardware/logs/battery-run2-report.json`. No `run-report` has been run, no
+run data is in the repository, and no verdict, result or end value exists.
+
+**Observation, not a judgment.** The unrounded mean gap over the first 48 h
+(69.980 s) is below the 88 s the Protocol's predictions assumed (sections 2
+and 8). The predictions in section 8 are labelled predictions and were
+derived for about 88 s (the middle column), so they are to be re-read at the
+end of the run against this frozen value. They are not rewritten here, and no
+energy figure or battery projection is computed from this value.
+
+Nothing else changes: thresholds (0.95 coverage, 3 intervals for the largest
+gap, 100 mV, 3400 mV), the 60 s cadence and the 21-day ceiling are as
+pre-registered.

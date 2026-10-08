@@ -14,7 +14,7 @@
   "production_interval_restored_s": null,
   "production_quiet_hours_before": "enabled 23:30-06:00",
   "production_quiet_hours_restored": null,
-  "reference_interval_s": null,
-  "reference_interval_source": null,
-  "reference_interval_export_sha256": null
+  "reference_interval_s": 70,
+  "reference_interval_source": "Frozen 2026-10-08 by the owner, on their own machine: read-only query of the server history database (sqlite3 URI mode=ro on /opt/skypane/state/history.db, run through sudo on the VPS because the ubuntu user cannot read that directory) saved as hardware/logs/battery-run2-export-48h.jsonl (3360 rows; the file stays on the owner's machine and is not committed), then python3 hardware/logtools.py reference-interval hardware/logs/battery-run2-export-48h.jsonl --interval-s 60. Helper window: 2026-10-05T14:08:05+00:00 to 2026-10-07T14:07:51+00:00 (first 48 h only); 2412 gaps used, 10 excluded above 180 s, unrounded mean 69.980 s.",
+  "reference_interval_export_sha256": "fead5f2e103a1fc2a668ac52ccaf5cbabb8c84049468d9a02c8f60acd6103108"
 }
