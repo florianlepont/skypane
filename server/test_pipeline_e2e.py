@@ -440,7 +440,12 @@ def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fak
         headers={"Authorization": "Bearer %s" % token, "X-Battery-Mv": "4100"})
     assert status == 200, "4100 mV recovery check-in expected 200, got %d" % status
     obj = json.loads(body.decode())
-    assert obj.get("sleep_s") != 3600, "recovering check-in still returned the parked sleep_s (3600) - recovery anticipation failed"
+    # No wake interval is saved in this state dir, so the unparked reply is
+    # the harness's --sleep value.
+    assert obj.get("sleep_s") == 300, (
+        "recovering check-in sleep_s = %r, expected exactly the unparked 300 "
+        "(a parked 3600 means recovery anticipation failed)" % (obj.get("sleep_s"),)
+    )
     time.sleep(1.0)  # allow the child process's write to land
 
     # The next run_once() clears the park and repaints the live board - a
