@@ -28,6 +28,7 @@ import time
 import types
 import urllib.error
 import urllib.request
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from unittest import mock
 
@@ -49,7 +50,7 @@ _TEST_SUPPORT_DIR = os.path.join(REPO_ROOT, "test-support")
 if _TEST_SUPPORT_DIR not in sys.path:
     sys.path.insert(0, _TEST_SUPPORT_DIR)
 
-from server import firmware_registry, state_store  # noqa: E402 - path bootstrap above must run first
+from server import device_policy, firmware_registry, state_store  # noqa: E402 - path bootstrap above must run first
 from skypane_test_support import child_env  # noqa: E402
 
 # A fixed MAC/token pair seeded directly into byos_state.json (never
@@ -320,6 +321,17 @@ def test_offer_withheld_while_battery_low_active(tmp_path):
         harness.stop()
 
 
+def _paris_hm(hours_from_now):
+    """The Europe/Paris wall-clock "HH:MM" `hours_from_now` away from the
+    current instant. A window built from two of these always contains
+    "now" with the same margin to its end, however close "now" is to
+    midnight: the window simply wraps past 00:00 when its end is
+    numerically before its start.
+    """
+    shifted = datetime.now(timezone.utc) + timedelta(hours=hours_from_now)
+    return shifted.astimezone(device_policy.QUIET_HOURS_TZ).strftime("%H:%M")
+
+
 def test_offer_present_during_quiet_hours_and_display_off(tmp_path):
     """Quiet hours and display-off still change sleep_s, but never
     withhold the offer.
@@ -332,8 +344,8 @@ def test_offer_present_during_quiet_hours_and_display_off(tmp_path):
         assert firmware_registry.schedule_release(state_dir, "fw-v1.1.0", running_version=None) == "scheduled"
         with open(os.path.join(state_dir, "device_config.json"), "w") as fh:
             json.dump({
-                "quiet_hours_enabled": True, "quiet_hours_start": "00:00",
-                "quiet_hours_end": "23:59", "display_enabled": False,
+                "quiet_hours_enabled": True, "display_enabled": False,
+                "quiet_hours_start": _paris_hm(-1), "quiet_hours_end": _paris_hm(+2),
             }, fh)
 
         status, _, body = http_request(

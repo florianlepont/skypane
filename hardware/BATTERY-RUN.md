@@ -1065,9 +1065,186 @@ check and the exact query output were not supplied (not captured).
 (`python3 hardware/logtools.py check-battery <log> --interval-s 60 --capacity-mah 3000 --status`);
 the history channel is keep-forever, as in run one.
 
-**TODO for the owner (dated).** About 48 hours after the disconnect, around
-2026-10-07T14:08Z: save the export so far to
-`hardware/logs/battery-run2-export-48h.jsonl` and run
-`python3 hardware/logtools.py reference-interval hardware/logs/battery-run2-export-48h.jsonl --interval-s 60`
-(Protocol section 4a). The value is frozen then, in this record and the
-params file, before any continuity verdict. Nothing has been computed yet.
+**Reference-interval freeze.** Done on 2026-10-08; see
+"Reference interval frozen (2026-10-08)" below. The value is `70` s.
+
+### Reference interval frozen (2026-10-08)
+
+Recorded 2026-10-08 from what the owner ran and pasted into chat, verbatim.
+The owner ran everything on their own Mac, in their own terminal. The export
+is a read-only query (`sqlite3` URI `mode=ro`) of
+`/opt/skypane/state/history.db`, run over SSH as
+`ssh ubuntu@<vps> "sudo python3 - '2026-10-05T14:08:00Z'"`: the `ubuntu` user
+cannot read `/opt/skypane/state/` without `sudo`, so the read-only query ran
+under `sudo`. It was saved locally as
+`hardware/logs/battery-run2-export-48h.jsonl` (3360 lines). That file stays
+on the owner's machine and is not committed; it is identified here only by its
+sha256. The owner then ran:
+
+    python3 hardware/logtools.py reference-interval hardware/logs/battery-run2-export-48h.jsonl --interval-s 60
+
+Helper output, verbatim:
+
+```
+reference_interval_s: 70
+window: 2026-10-05T14:08:05+00:00 to 2026-10-07T14:07:51+00:00 (first 48 h only)
+gaps used: 2412, excluded (above 180 s): 10, unrounded mean 69.980 s
+export_sha256: fead5f2e103a1fc2a668ac52ccaf5cbabb8c84049468d9a02c8f60acd6103108
+```
+
+Export extent at export time (informational only: nothing is judged from
+these rows, and the export holds more than the 48 h window the helper read):
+
+- rows: 3360
+- first row: `{"ts": "2026-10-05T14:08:05+00:00", "battery_mv": 4106, "fw_version": "fw-v1.0.2", "boot_reason": "rtc", "rssi": "-57"}`
+- last row at export time: `{"ts": "2026-10-08T09:50:51+00:00", "battery_mv": 3804, "fw_version": "fw-v1.0.2", "boot_reason": "rtc", "rssi": "-50"}`
+
+**Frozen.** `reference_interval_s` = 70, with its source note and the export
+sha256, is written in `hardware/logs/battery-run2-params.json`. The value
+comes only from the helper's output; it is not hand-calculated and **must not
+be edited afterwards**, whatever a later report shows (Protocol section 4a).
+Commit order: the commit that records this freeze precedes any `run-report`
+run on run data, and in particular precedes the commit that adds
+`hardware/logs/battery-run2-report.json`. No `run-report` has been run, no
+run data is in the repository, and no verdict, result or end value exists.
+
+**Observation, not a judgment.** The unrounded mean gap over the first 48 h
+(69.980 s) is below the 88 s the Protocol's predictions assumed (sections 2
+and 8). The predictions in section 8 are labelled predictions and were
+derived for about 88 s (the middle column), so they are to be re-read at the
+end of the run against this frozen value. They are not rewritten here, and no
+energy figure or battery projection is computed from this value.
+
+Nothing else changes: thresholds (0.95 coverage, 3 intervals for the largest
+gap, 100 mV, 3400 mV), the 60 s cadence and the 21-day ceiling are as
+pre-registered.
+
+## Run 2 Run Conditions
+
+Everything in this section was reported by the owner; none of it was measured
+by the repository tooling. Nothing here is a verdict or a figure (see
+`## Run 2 Results`).
+
+- **End of the run.** The owner stopped the run on 2026-10-12 because the frame
+  had entered the BATTERY EMPTY park (hourly check-ins) and would have taken
+  days to reach 0 %. The last row in the export is 2026-10-12T16:22:02+00:00.
+  The frame did not reach a dead battery and the 21-day ceiling was not
+  reached.
+- **Interval and quiet hours.** The 60 s interval was set for the study with
+  quiet hours disabled. After the run the owner restored the production wake
+  interval to 300 s and quiet hours to enabled 23:30-06:00, and read both values
+  back from the companion page after saving.
+- **Pack inspection.** The owner inspected the pack before any recharge and
+  reported it normal.
+- **Not reported.** NVS boot counts (the frame was never connected to a
+  computer), post-mortem wake reason, any other anomaly.
+- **Raw export.** Saved by the owner with the read-only query of section 12 and
+  committed unchanged as `hardware/logs/battery-run2-export.jsonl`.
+
+## Run 2 Results
+
+Every figure in this section is copied from the output of
+`hardware/logtools.py run-report`, committed verbatim as
+`hardware/logs/battery-run2-report.json`. Facts that did not come from the
+tool are marked **(owner-reported)** or **(diagnosis, not from the report)**.
+No two-run model and no interval or pack decision is written here; that is
+Phase 46 (BAT-03).
+
+### How the run ended
+
+**(owner-reported)** The owner stopped the run on 2026-10-12 because the frame
+had entered the BATTERY EMPTY park (hourly check-ins) and would have taken days
+to reach 0 %. The pack was inspected before any recharge and was normal. The
+frame was **not** run to a dead battery and the 21-day ceiling was not
+reached. `run-report` only accepts `depleted` or `ceiling` as the end reason;
+`depleted` was recorded because the tool's depletion check is "last reading at
+or below 3400 mV", which holds (last reading 3296 mV). This is a park end, not
+a zero-percent end, as section 5 anticipated.
+
+**(owner-reported)** Production settings restored after the run: wake interval
+300 s, quiet hours enabled 23:30-06:00 (values read back from the companion
+page after saving). The deployed server revision stayed
+`b2b08e9b89183db1fa3c5789f2134b94c311483e` and the firmware `fw-v1.0.2`
+throughout.
+
+### Command and input
+
+```
+python3 hardware/logtools.py run-report \
+  --params hardware/logs/battery-run2-params.json \
+  --out hardware/logs/battery-run2-report.json \
+  hardware/logs/battery-run2-export.jsonl
+```
+
+The command exited 1, meaning a verdict failed (not exit 2, a refusal); the
+report was written.
+
+| Item | Value (from the report) |
+|---|---|
+| Export | `hardware/logs/battery-run2-export.jsonl`, 6193 usable rows (1 dropped), sha256 `540d8f56aeab41b3a2de395a4f5820e069a9b4c1f470e526c0df12fc0557efdb` |
+| Window | 2026-10-05T14:08:05+00:00 to 2026-10-12T16:22:02+00:00, 7.093 days |
+| Normal-cadence window ends | 2026-10-10T20:33:30+00:00 (first reading at or below 3300 mV) |
+| Configured interval / reference interval | 60 s / 70 s (frozen 2026-10-08, section 4a) |
+| Effective mean gap (full run) / max gap | 74.04 s / 418 s |
+| Normal-window mean gap vs frozen reference | +5.8 % |
+| Battery endpoints (mV) | first 4106, open 4008.1, close 3415.0, drop 593.1, last 3296 (last poll 3300) |
+| Firmware / server | `fw-v1.0.2` only / `b2b08e9b89183db1fa3c5789f2134b94c311483e` |
+| Boot reasons | `rtc`: 6193 |
+
+### Verdicts
+
+**Continuity: FAIL** (judged against the 70 s reference interval, normal window)
+
+| Check | Result |
+|---|---|
+| timestamps and at least two battery-bearing polls | PASS |
+| run spans at least 1 day | PASS |
+| coverage at least 0.95 | **FAIL**: 0.946 (observed 6148, nominal 6501.8) |
+| no gap above 3 intervals | **FAIL**: largest gap 5.97 intervals |
+| span within ceiling plus one interval | PASS |
+| frozen reference equals value recomputed from first 48 h | PASS |
+
+Informational, against the configured 60 s: coverage 0.811, largest gap 6.97
+intervals.
+
+**Voltage validity: PASS** (drop 593.1 mV against the 100 mV minimum; last
+reading 3296 mV at or below the 3400 mV cutoff).
+
+**Baseline: PASS** (only `fw-v1.0.2` seen, equal to the recorded baseline).
+
+The thresholds were not changed and no gate was retuned.
+
+### Cycle-count reconciliation
+
+| Witness | Value |
+|---|---|
+| Nominal (normal window, span over reference interval) | 6501.79 |
+| Observed polls, normal window | 6148 (-5.4 % vs nominal) |
+| Observed polls, full run | 6193, of which 45 parked polls |
+| Boot-counter delta | not computable: boot_count_start and boot_count_end not recorded (as anticipated, known limitation 3) |
+
+Energy figures printed by the tool for the normal window (observed poll count
+as the basis): 0.488 mAh per cycle, 569.5 mAh per day. They are recorded for
+Phase 46 and not interpreted here.
+
+### Diagnosis of the two failed gates
+
+- **Coverage 0.946:** the normal-window mean gap is 5.8 % above the frozen
+  70 s reference. Section 4a states that a mean more than about 5 % above the
+  reference fails the 0.95 gate and that such a failure is reported as drift
+  and the value is not re-frozen. That is the case here.
+- **Largest gap 5.97 intervals (418 s):** **(diagnosis, not from the report)**
+  a separate pass over the export lists 22 gaps above 210 s in the normal
+  window, all between 381 s and 418 s (clustered at about 381-383 s and
+  416-418 s), spread over the run at a few per day. Two discrete values and
+  no longer outage point to an occasional slow wake on the frame side rather
+  than a Wi-Fi or server outage; the cause is not established from this data.
+  This is a hypothesis for Phase 46, not a finding.
+
+### What this does not establish
+
+The run ended at the park, so no zero-percent time is available. The
+post-Phase-34 firmware, the refresh share and the missing boot witness are the
+limits listed under "Known limitations carried to Phase 46". Whether the
+predictions of section 8 held is left to Phase 46, which compares like windows
+(section 5).
