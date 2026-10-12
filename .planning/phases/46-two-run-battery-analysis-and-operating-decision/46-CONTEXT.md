@@ -35,7 +35,7 @@ firmware or server feature.
 
 ### Battery pack decision (POL-02)
 - **D-09** Criteria that can trigger a replacement, in the owner's words: **autonomy at the chosen interval is insufficient**, and **safety and compatibility**. Any replacement must be 1S with built-in protection, JST-PH 2.0 connector with the right polarity, and fit the enclosure; these are not negotiable.
-- **D-10** Budget (hardware total under 300 EUR) and percentage calibration (0 % assumed at 3300 mV) are context, not decision triggers; the document may note them but the decision rests on autonomy and safety/compatibility.
+- **D-10** Budget (hardware total under 300 EUR) and percentage calibration are context, not decision triggers; the document may note them but the decision rests on autonomy and safety/compatibility. Correction (2026-10-12, from research): the percentage curve is `server/device_policy.BATTERY_DISCHARGE_CURVE` (14 knots, 2946 mV = 0 %, 4112 mV = 100 %); 3300 mV is only the BATTERY EMPTY park threshold and sits at about 7 % on that curve. An earlier version of this file said 0 % at 3300 mV; that was wrong.
 - **D-11** The pack was inspected after run two and found normal (owner-reported, 2026-10-12). The retain-or-replace decision is written as a recommendation for the owner to accept.
 
 ### Applying the interval (POL-03)
@@ -70,7 +70,7 @@ firmware or server feature.
 ### Policy code
 - `server/wake.py` — `effective_wake_interval_s` precedence (battery-critical park, display-off cadence, configured interval, default).
 - `server/device_policy.py` — quiet hours and wake-interval bounds.
-- `companion/battery.py`, `companion/health_signals.py` — battery presentation and calibration (0 % at 3300 mV, 100 % at 4200 mV).
+- `companion/battery.py`, `companion/health_signals.py`, `server/device_policy.py` `BATTERY_DISCHARGE_CURVE` — battery presentation and calibration (0 % at 2946 mV, 100 % at 4112 mV, 14-knot curve).
 
 </canonical_refs>
 
