@@ -7,6 +7,7 @@ motion drops the slide and the countdown; the dismiss control works from the key
 leaves focus stranded; the quick-switch failure is the same error toast; and
 with scripts blocked the same toast sits in flow and its dismiss link
 reloads the page without the flash."""
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
 
 import pytest
@@ -26,6 +27,7 @@ TOAST = ".toast-region--flash .toast"
 LIVE_TOAST = ".toast-region--live .toast"
 DWELL_MS = 6000
 LONG_DWELL_MS = 12000
+CLOCK_START = datetime(2030, 1, 1, tzinfo=timezone.utc)
 
 _SUCCESS_FLASH = (layout.DISPLAY_ROUTE, flash.FLASH_KEY_CALENDAR_CONNECT_OK)
 _INFO_FLASH = (layout.HOME_ROUTE, flash.FLASH_KEY_POLL_ALREADY_RUNNING)
@@ -45,7 +47,10 @@ def _open(new_context, server, viewport=VIEWPORT_DESKTOP, lang="en", clock=False
     page = context.new_page()
     _login(page, server.base_url())
     if clock:
-        page.clock.install()
+        # An installed clock keeps ticking in real time; pausing it makes fake time move only
+        # when a test calls run_for, so a slow runner cannot run a countdown out between steps.
+        page.clock.install(time=CLOCK_START)
+        page.clock.pause_at(CLOCK_START + timedelta(seconds=1))
     return context, page
 
 
