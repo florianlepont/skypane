@@ -2,7 +2,9 @@
 
 The pure functions are called on synthetic numbers with known answers. The
 `battery-model` subcommand is driven as a subprocess on inputs built in
-tmp_path; one test reads the committed logs under hardware/logs read-only.
+tmp_path; two tests read the committed logs under hardware/logs read-only,
+one of them checking that the committed battery-model.json is reproduced
+byte for byte.
 """
 import datetime
 import hashlib
@@ -346,6 +348,18 @@ def test_committed_inputs_reproduce_the_recorded_counts(tmp_path):
     assert inputs["run2"]["window"]["elapsed_s"] == 455125
     assert "3366, 3372, 3368, 3292, 3368, 3372, 3366" in proc.stdout
     assert "What this model does not measure" in proc.stdout
+
+
+def test_committed_model_json_is_reproduced(tmp_path):
+    run1 = os.path.join(COMMITTED, "battery-run-server.log")
+    export = os.path.join(COMMITTED, "battery-run2-export.jsonl")
+    report = os.path.join(COMMITTED, "battery-run2-report.json")
+    out = tmp_path / "reproduced.json"
+    proc = run_model(run1, export, report, ["--out", str(out)])
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    committed = os.path.join(COMMITTED, "battery-model.json")
+    with open(committed, "rb") as fh:
+        assert out.read_bytes() == fh.read()
 
 
 def test_tool_selects_neither_interval_nor_pack(tmp_path):
