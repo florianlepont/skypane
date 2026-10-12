@@ -1,0 +1,2140 @@
+{
+  "assumptions": [
+    "The same usable charge flows between the full-charge plateau and the first reading at or below 3300 mV in both runs.",
+    "Wake energy is equal in both runs in the central fit; the envelope allows run one's wake to cost 1.0 to 2.0 times run two's because the newer firmware shortened the wake. Run two's wake costing more than run one's is not covered.",
+    "Standing consumption is constant: it does not change with the interval, the temperature or the age of the pack.",
+    "The awake overhead (observed mean gap minus configured interval) is measured per run from the data and added to the configured interval.",
+    "The capacity is rated, not measured; it only converts the results to mAh and mA and does not move any autonomy figure.",
+    "N counts observed polls in the window and T is the time from the first poll to the cut poll.",
+    "Days are to the BATTERY EMPTY park, not to a dead pack: run one kept polling for about one more day, down to 2946 mV."
+  ],
+  "autonomy": [
+    {
+      "central_days": 11.1843,
+      "configured_s": 300,
+      "gain_vs_first_interval_days": {
+        "central": 0.0,
+        "min": 0.0
+      },
+      "max_days": 22.5832,
+      "min_days": 11.1692,
+      "nonpositive_count": 14,
+      "outside_observed_range": false,
+      "period_s": 314.0402,
+      "worst_case_data_age_s": 314.0402
+    },
+    {
+      "central_days": 13.463,
+      "configured_s": 600,
+      "gain_vs_first_interval_days": {
+        "central": 2.2787,
+        "min": 1.9133
+      },
+      "max_days": 39.5029,
+      "min_days": 13.0825,
+      "nonpositive_count": 14,
+      "outside_observed_range": true,
+      "period_s": 614.0402,
+      "worst_case_data_age_s": 614.0402
+    },
+    {
+      "central_days": 14.4763,
+      "configured_s": 900,
+      "gain_vs_first_interval_days": {
+        "central": 3.292,
+        "min": 2.7101
+      },
+      "max_days": 53.7241,
+      "min_days": 13.8793,
+      "nonpositive_count": 14,
+      "outside_observed_range": true,
+      "period_s": 914.0402,
+      "worst_case_data_age_s": 914.0402
+    },
+    {
+      "central_days": 15.6744,
+      "configured_s": 1800,
+      "gain_vs_first_interval_days": {
+        "central": 4.4901,
+        "min": 3.625
+      },
+      "max_days": 85.4066,
+      "min_days": 14.7942,
+      "nonpositive_count": 14,
+      "outside_observed_range": true,
+      "period_s": 1814.0402,
+      "worst_case_data_age_s": 1814.0402
+    }
+  ],
+  "central_fit": {
+    "basis": "raw cut, observed run-two polls, equal wake energy, equal usable charge",
+    "ceiling_days": 17.1127,
+    "note": "The standing figure is whatever consumption is not proportional to wake count; it is not a measured hardware current.",
+    "ratio_s": 166.4626,
+    "standing_ma": 7.3045,
+    "wake_mah": 0.3378
+  },
+  "does_not_measure": [
+    "Image-download energy and display-refresh energy are not measured by the baseline hash-skip workload of either run.",
+    "The share of wakes that download an image and refresh the panel is not recorded and changes with the interval, so every figure is an estimate to be confirmed on the real frame."
+  ],
+  "envelope": {
+    "intervals": {
+      "300": {
+        "central": {
+          "days": 11.1843,
+          "scenario": {
+            "cut": "raw",
+            "d": 0.0,
+            "k": 1.0,
+            "overhead": "run-two",
+            "run2": "observed"
+          }
+        },
+        "maximum": {
+          "days": 22.5832,
+          "scenario": {
+            "cut": "median-49",
+            "d": -0.05,
+            "k": 2.0,
+            "overhead": "run-one",
+            "run2": "observed"
+          }
+        },
+        "minimum": {
+          "days": 11.1692,
+          "scenario": {
+            "cut": "raw",
+            "d": 0.05,
+            "k": 1.0,
+            "overhead": "run-two",
+            "run2": "observed"
+          }
+        },
+        "nonpositive_count": 14
+      },
+      "600": {
+        "central": {
+          "days": 13.463,
+          "scenario": {
+            "cut": "raw",
+            "d": 0.0,
+            "k": 1.0,
+            "overhead": "run-two",
+            "run2": "observed"
+          }
+        },
+        "maximum": {
+          "days": 39.5029,
+          "scenario": {
+            "cut": "median-49",
+            "d": -0.05,
+            "k": 2.0,
+            "overhead": "run-one",
+            "run2": "observed"
+          }
+        },
+        "minimum": {
+          "days": 13.0825,
+          "scenario": {
+            "cut": "raw",
+            "d": -0.05,
+            "k": 1.0,
+            "overhead": "run-two",
+            "run2": "nominal"
+          }
+        },
+        "nonpositive_count": 14
+      },
+      "900": {
+        "central": {
+          "days": 14.4763,
+          "scenario": {
+            "cut": "raw",
+            "d": 0.0,
+            "k": 1.0,
+            "overhead": "run-two",
+            "run2": "observed"
+          }
+        },
+        "maximum": {
+          "days": 53.7241,
+          "scenario": {
+            "cut": "median-49",
+            "d": -0.05,
+            "k": 2.0,
+            "overhead": "run-one",
+            "run2": "observed"
+          }
+        },
+        "minimum": {
+          "days": 13.8793,
+          "scenario": {
+            "cut": "raw",
+            "d": -0.05,
+            "k": 1.0,
+            "overhead": "run-two",
+            "run2": "nominal"
+          }
+        },
+        "nonpositive_count": 14
+      },
+      "1800": {
+        "central": {
+          "days": 15.6744,
+          "scenario": {
+            "cut": "raw",
+            "d": 0.0,
+            "k": 1.0,
+            "overhead": "run-two",
+            "run2": "observed"
+          }
+        },
+        "maximum": {
+          "days": 85.4066,
+          "scenario": {
+            "cut": "median-49",
+            "d": -0.05,
+            "k": 2.0,
+            "overhead": "run-one",
+            "run2": "observed"
+          }
+        },
+        "minimum": {
+          "days": 14.7942,
+          "scenario": {
+            "cut": "raw",
+            "d": -0.05,
+            "k": 1.0,
+            "overhead": "run-two",
+            "run2": "nominal"
+          }
+        },
+        "nonpositive_count": 14
+      }
+    },
+    "nonpositive_count": 14,
+    "scenario_count": 108,
+    "scenarios": [
+      {
+        "cut": "raw",
+        "d": -0.05,
+        "days": {
+          "300": 11.1994,
+          "600": 13.2328,
+          "900": 14.1133,
+          "1800": 15.1359
+        },
+        "k": 1.0,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": -0.05,
+        "days": {
+          "300": 11.3493,
+          "600": 13.2882,
+          "900": 14.1419,
+          "1800": 15.1443
+        },
+        "k": 1.0,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": 0.0,
+        "days": {
+          "300": 11.1843,
+          "600": 13.463,
+          "900": 14.4763,
+          "1800": 15.6744
+        },
+        "k": 1.0,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": 0.0,
+        "days": {
+          "300": 11.3494,
+          "600": 13.5262,
+          "900": 14.5095,
+          "1800": 15.6843
+        },
+        "k": 1.0,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": 0.05,
+        "days": {
+          "300": 11.1692,
+          "600": 13.7012,
+          "900": 14.8585,
+          "1800": 16.2525
+        },
+        "k": 1.0,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": 0.05,
+        "days": {
+          "300": 11.3496,
+          "600": 13.7729,
+          "900": 14.8967,
+          "1800": 16.2642
+        },
+        "k": 1.0,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": -0.05,
+        "days": {
+          "300": 13.5621,
+          "600": 17.3402,
+          "900": 19.1755,
+          "1800": 21.4847
+        },
+        "k": 1.5,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": -0.05,
+        "days": {
+          "300": 13.821,
+          "600": 17.4518,
+          "900": 19.2374,
+          "1800": 21.5045
+        },
+        "k": 1.5,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": 0.0,
+        "days": {
+          "300": 13.84,
+          "600": 18.3367,
+          "900": 20.6408,
+          "1800": 23.6598
+        },
+        "k": 1.5,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": 0.0,
+        "days": {
+          "300": 14.1381,
+          "600": 18.4745,
+          "900": 20.7199,
+          "1800": 23.6863
+        },
+        "k": 1.5,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": 0.05,
+        "days": {
+          "300": 14.1295,
+          "600": 19.4547,
+          "900": 22.3485,
+          "1800": 26.3249
+        },
+        "k": 1.5,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": 0.05,
+        "days": {
+          "300": 14.4701,
+          "600": 19.6245,
+          "900": 22.45,
+          "1800": 26.3608
+        },
+        "k": 1.5,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": -0.05,
+        "days": {
+          "300": 19.3167,
+          "600": 30.8708,
+          "900": 38.8558,
+          "1800": 52.6976
+        },
+        "k": 2.0,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": -0.05,
+        "days": {
+          "300": 19.959,
+          "600": 31.3006,
+          "900": 39.1635,
+          "1800": 52.8416
+        },
+        "k": 2.0,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": 0.0,
+        "days": {
+          "300": 20.8215,
+          "600": 37.5126,
+          "900": 51.7715,
+          "1800": 84.3175
+        },
+        "k": 2.0,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0002
+      },
+      {
+        "cut": "raw",
+        "d": 0.0,
+        "days": {
+          "300": 21.6497,
+          "600": 38.216,
+          "900": 52.3763,
+          "1800": 84.725
+        },
+        "k": 2.0,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0002
+      },
+      {
+        "cut": "raw",
+        "d": 0.05,
+        "days": {
+          "300": null,
+          "600": null,
+          "900": null,
+          "1800": null
+        },
+        "k": 2.0,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": -0.0,
+        "standing_nonpositive": true,
+        "wake": 0.0002
+      },
+      {
+        "cut": "raw",
+        "d": 0.05,
+        "days": {
+          "300": null,
+          "600": null,
+          "900": null,
+          "1800": null
+        },
+        "k": 2.0,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": -0.0,
+        "standing_nonpositive": true,
+        "wake": 0.0002
+      },
+      {
+        "cut": "raw",
+        "d": -0.05,
+        "days": {
+          "300": 11.2095,
+          "600": 13.0825,
+          "900": 13.8793,
+          "1800": 14.7942
+        },
+        "k": 1.0,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": -0.05,
+        "days": {
+          "300": 11.3492,
+          "600": 13.1329,
+          "900": 13.905,
+          "1800": 14.8017
+        },
+        "k": 1.0,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": 0.0,
+        "days": {
+          "300": 11.1955,
+          "600": 13.2916,
+          "900": 14.2054,
+          "1800": 15.2715
+        },
+        "k": 1.0,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": 0.0,
+        "days": {
+          "300": 11.3493,
+          "600": 13.349,
+          "900": 14.2351,
+          "1800": 15.2803
+        },
+        "k": 1.0,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": 0.05,
+        "days": {
+          "300": 11.1814,
+          "600": 13.5074,
+          "900": 14.5471,
+          "1800": 15.7806
+        },
+        "k": 1.0,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": 0.05,
+        "days": {
+          "300": 11.3495,
+          "600": 13.5723,
+          "900": 14.5812,
+          "1800": 15.7909
+        },
+        "k": 1.0,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": -0.05,
+        "days": {
+          "300": 13.3535,
+          "600": 16.6368,
+          "900": 18.1719,
+          "1800": 20.0507
+        },
+        "k": 1.5,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": -0.05,
+        "days": {
+          "300": 13.584,
+          "600": 16.7313,
+          "900": 18.223,
+          "1800": 20.0666
+        },
+        "k": 1.5,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": 0.0,
+        "days": {
+          "300": 13.6009,
+          "600": 17.475,
+          "900": 19.3707,
+          "1800": 21.7688
+        },
+        "k": 1.5,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": 0.0,
+        "days": {
+          "300": 13.8652,
+          "600": 17.5901,
+          "900": 19.4348,
+          "1800": 21.7895
+        },
+        "k": 1.5,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": 0.05,
+        "days": {
+          "300": 13.8576,
+          "600": 18.4021,
+          "900": 20.7389,
+          "1800": 23.809
+        },
+        "k": 1.5,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": 0.05,
+        "days": {
+          "300": 14.1582,
+          "600": 18.5418,
+          "900": 20.8192,
+          "1800": 23.836
+        },
+        "k": 1.5,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": -0.05,
+        "days": {
+          "300": 18.1087,
+          "600": 26.5343,
+          "900": 31.583,
+          "1800": 39.1469
+        },
+        "k": 2.0,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": -0.05,
+        "days": {
+          "300": 18.617,
+          "600": 26.8208,
+          "900": 31.7666,
+          "1800": 39.2188
+        },
+        "k": 2.0,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": 0.0,
+        "days": {
+          "300": 19.2916,
+          "600": 30.7725,
+          "900": 38.6818,
+          "1800": 52.3435
+        },
+        "k": 2.0,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": 0.0,
+        "days": {
+          "300": 19.9309,
+          "600": 31.1988,
+          "900": 38.9862,
+          "1800": 52.4853
+        },
+        "k": 2.0,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "raw",
+        "d": 0.05,
+        "days": {
+          "300": 20.6397,
+          "600": 36.622,
+          "900": 49.8968,
+          "1800": 78.9619
+        },
+        "k": 2.0,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0002
+      },
+      {
+        "cut": "raw",
+        "d": 0.05,
+        "days": {
+          "300": 21.4444,
+          "600": 37.2849,
+          "900": 50.4523,
+          "1800": 79.3154
+        },
+        "k": 2.0,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0002
+      },
+      {
+        "cut": "median-5",
+        "d": -0.05,
+        "days": {
+          "300": 11.6423,
+          "600": 13.9547,
+          "900": 14.9767,
+          "1800": 16.18
+        },
+        "k": 1.0,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": -0.05,
+        "days": {
+          "300": 11.8106,
+          "600": 14.0186,
+          "900": 15.0101,
+          "1800": 16.19
+        },
+        "k": 1.0,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": 0.0,
+        "days": {
+          "300": 11.6264,
+          "600": 14.2116,
+          "900": 15.387,
+          "1800": 16.798
+        },
+        "k": 1.0,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": 0.0,
+        "days": {
+          "300": 11.8111,
+          "600": 14.2845,
+          "900": 15.4258,
+          "1800": 16.8098
+        },
+        "k": 1.0,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": 0.05,
+        "days": {
+          "300": 11.6106,
+          "600": 14.4781,
+          "900": 15.8205,
+          "1800": 17.465
+        },
+        "k": 1.0,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": 0.05,
+        "days": {
+          "300": 11.8117,
+          "600": 14.5607,
+          "900": 15.8652,
+          "1800": 17.4789
+        },
+        "k": 1.0,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": -0.05,
+        "days": {
+          "300": 14.3412,
+          "600": 18.8466,
+          "900": 21.1269,
+          "1800": 24.0864
+        },
+        "k": 1.5,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": -0.05,
+        "days": {
+          "300": 14.6422,
+          "600": 18.9835,
+          "900": 21.2049,
+          "1800": 24.1122
+        },
+        "k": 1.5,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": 0.0,
+        "days": {
+          "300": 14.6537,
+          "600": 20.0327,
+          "900": 22.9237,
+          "1800": 26.86
+        },
+        "k": 1.5,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": 0.0,
+        "days": {
+          "300": 15.0,
+          "600": 20.2029,
+          "900": 23.0246,
+          "1800": 26.8953
+        },
+        "k": 1.5,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": 0.05,
+        "days": {
+          "300": 14.9802,
+          "600": 21.378,
+          "900": 25.0544,
+          "1800": 30.3555
+        },
+        "k": 1.5,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": 0.05,
+        "days": {
+          "300": 15.3758,
+          "600": 21.5897,
+          "900": 25.186,
+          "1800": 30.4047
+        },
+        "k": 1.5,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": -0.05,
+        "days": {
+          "300": 21.327,
+          "600": 37.3439,
+          "900": 50.3306,
+          "1800": 77.8082
+        },
+        "k": 2.0,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": -0.05,
+        "days": {
+          "300": 22.1436,
+          "600": 37.9991,
+          "900": 50.868,
+          "1800": 78.1346
+        },
+        "k": 2.0,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": 0.0,
+        "days": {
+          "300": null,
+          "600": null,
+          "900": null,
+          "1800": null
+        },
+        "k": 2.0,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": -0.0,
+        "standing_nonpositive": true,
+        "wake": 0.0002
+      },
+      {
+        "cut": "median-5",
+        "d": 0.0,
+        "days": {
+          "300": null,
+          "600": null,
+          "900": null,
+          "1800": null
+        },
+        "k": 2.0,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": -0.0,
+        "standing_nonpositive": true,
+        "wake": 0.0002
+      },
+      {
+        "cut": "median-5",
+        "d": 0.05,
+        "days": {
+          "300": null,
+          "600": null,
+          "900": null,
+          "1800": null
+        },
+        "k": 2.0,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": -0.0,
+        "standing_nonpositive": true,
+        "wake": 0.0002
+      },
+      {
+        "cut": "median-5",
+        "d": 0.05,
+        "days": {
+          "300": null,
+          "600": null,
+          "900": null,
+          "1800": null
+        },
+        "k": 2.0,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": -0.0,
+        "standing_nonpositive": true,
+        "wake": 0.0002
+      },
+      {
+        "cut": "median-5",
+        "d": -0.05,
+        "days": {
+          "300": 11.6534,
+          "600": 13.781,
+          "900": 14.7032,
+          "1800": 15.7753
+        },
+        "k": 1.0,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": -0.05,
+        "days": {
+          "300": 11.8102,
+          "600": 13.839,
+          "900": 14.7332,
+          "1800": 15.7841
+        },
+        "k": 1.0,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": 0.0,
+        "days": {
+          "300": 11.6386,
+          "600": 14.0138,
+          "900": 15.0705,
+          "1800": 16.3202
+        },
+        "k": 1.0,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": 0.0,
+        "days": {
+          "300": 11.8107,
+          "600": 14.0798,
+          "900": 15.1051,
+          "1800": 16.3305
+        },
+        "k": 1.0,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": 0.05,
+        "days": {
+          "300": 11.6238,
+          "600": 14.2547,
+          "900": 15.4566,
+          "1800": 16.904
+        },
+        "k": 1.0,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": 0.05,
+        "days": {
+          "300": 11.8112,
+          "600": 14.3291,
+          "900": 15.4963,
+          "1800": 16.9161
+        },
+        "k": 1.0,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": -0.05,
+        "days": {
+          "300": 14.0985,
+          "600": 17.987,
+          "900": 19.8699,
+          "1800": 22.2332
+        },
+        "k": 1.5,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": -0.05,
+        "days": {
+          "300": 14.3656,
+          "600": 18.1016,
+          "900": 19.9333,
+          "1800": 22.2535
+        },
+        "k": 1.5,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": 0.0,
+        "days": {
+          "300": 14.3758,
+          "600": 18.9732,
+          "900": 21.3153,
+          "1800": 24.37
+        },
+        "k": 1.5,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": 0.0,
+        "days": {
+          "300": 14.6817,
+          "600": 19.1136,
+          "900": 21.3955,
+          "1800": 24.3968
+        },
+        "k": 1.5,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": 0.05,
+        "days": {
+          "300": 14.6642,
+          "600": 20.0739,
+          "900": 22.9874,
+          "1800": 26.9612
+        },
+        "k": 1.5,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": 0.05,
+        "days": {
+          "300": 15.012,
+          "600": 20.2453,
+          "900": 23.0892,
+          "1800": 26.9969
+        },
+        "k": 1.5,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": -0.05,
+        "days": {
+          "300": 19.8078,
+          "600": 30.9726,
+          "900": 38.4113,
+          "1800": 50.801
+        },
+        "k": 2.0,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": -0.05,
+        "days": {
+          "300": 20.4413,
+          "600": 31.3787,
+          "900": 38.6936,
+          "1800": 50.9267
+        },
+        "k": 2.0,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": 0.0,
+        "days": {
+          "300": 21.2368,
+          "600": 36.9232,
+          "900": 49.4802,
+          "1800": 75.5826
+        },
+        "k": 2.0,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": 0.0,
+        "days": {
+          "300": 22.0419,
+          "600": 37.5602,
+          "900": 49.9967,
+          "1800": 75.8889
+        },
+        "k": 2.0,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-5",
+        "d": 0.05,
+        "days": {
+          "300": null,
+          "600": null,
+          "900": null,
+          "1800": null
+        },
+        "k": 2.0,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": -0.0,
+        "standing_nonpositive": true,
+        "wake": 0.0002
+      },
+      {
+        "cut": "median-5",
+        "d": 0.05,
+        "days": {
+          "300": null,
+          "600": null,
+          "900": null,
+          "1800": null
+        },
+        "k": 2.0,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": -0.0,
+        "standing_nonpositive": true,
+        "wake": 0.0002
+      },
+      {
+        "cut": "median-49",
+        "d": -0.05,
+        "days": {
+          "300": 11.7281,
+          "600": 14.097,
+          "900": 15.1482,
+          "1800": 16.3893
+        },
+        "k": 1.0,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": -0.05,
+        "days": {
+          "300": 11.9001,
+          "600": 14.1627,
+          "900": 15.1826,
+          "1800": 16.3995
+        },
+        "k": 1.0,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": 0.0,
+        "days": {
+          "300": 11.7119,
+          "600": 14.359,
+          "900": 15.5679,
+          "1800": 17.0233
+        },
+        "k": 1.0,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": 0.0,
+        "days": {
+          "300": 11.9005,
+          "600": 14.4339,
+          "900": 15.6078,
+          "1800": 17.0355
+        },
+        "k": 1.0,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": 0.05,
+        "days": {
+          "300": 11.6957,
+          "600": 14.631,
+          "900": 16.0116,
+          "1800": 17.7084
+        },
+        "k": 1.0,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": 0.05,
+        "days": {
+          "300": 11.901,
+          "600": 14.7158,
+          "900": 16.0576,
+          "1800": 17.7228
+        },
+        "k": 1.0,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": -0.05,
+        "days": {
+          "300": 14.4928,
+          "600": 19.1495,
+          "900": 21.5258,
+          "1800": 24.6294
+        },
+        "k": 1.5,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": -0.05,
+        "days": {
+          "300": 14.8023,
+          "600": 19.2918,
+          "900": 21.6072,
+          "1800": 24.6566
+        },
+        "k": 1.5,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": 0.0,
+        "days": {
+          "300": 14.8117,
+          "600": 20.3744,
+          "900": 23.3929,
+          "1800": 27.5355
+        },
+        "k": 1.5,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": 0.0,
+        "days": {
+          "300": 15.1678,
+          "600": 20.5517,
+          "900": 23.4987,
+          "1800": 27.5728
+        },
+        "k": 1.5,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": 0.05,
+        "days": {
+          "300": 15.1449,
+          "600": 21.7668,
+          "900": 25.6148,
+          "1800": 31.2191
+        },
+        "k": 1.5,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": 0.05,
+        "days": {
+          "300": 15.5517,
+          "600": 21.9876,
+          "900": 25.7531,
+          "1800": 31.2715
+        },
+        "k": 1.5,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": -0.05,
+        "days": {
+          "300": 21.7292,
+          "600": 38.7907,
+          "900": 53.1212,
+          "1800": 85.0142
+        },
+        "k": 2.0,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0002
+      },
+      {
+        "cut": "median-49",
+        "d": -0.05,
+        "days": {
+          "300": 22.5832,
+          "600": 39.5029,
+          "900": 53.7241,
+          "1800": 85.4066
+        },
+        "k": 2.0,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0002
+      },
+      {
+        "cut": "median-49",
+        "d": 0.0,
+        "days": {
+          "300": null,
+          "600": null,
+          "900": null,
+          "1800": null
+        },
+        "k": 2.0,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": -0.0,
+        "standing_nonpositive": true,
+        "wake": 0.0002
+      },
+      {
+        "cut": "median-49",
+        "d": 0.0,
+        "days": {
+          "300": null,
+          "600": null,
+          "900": null,
+          "1800": null
+        },
+        "k": 2.0,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": -0.0,
+        "standing_nonpositive": true,
+        "wake": 0.0002
+      },
+      {
+        "cut": "median-49",
+        "d": 0.05,
+        "days": {
+          "300": null,
+          "600": null,
+          "900": null,
+          "1800": null
+        },
+        "k": 2.0,
+        "overhead": "run-two",
+        "run2": "observed",
+        "standing": -0.0,
+        "standing_nonpositive": true,
+        "wake": 0.0002
+      },
+      {
+        "cut": "median-49",
+        "d": 0.05,
+        "days": {
+          "300": null,
+          "600": null,
+          "900": null,
+          "1800": null
+        },
+        "k": 2.0,
+        "overhead": "run-one",
+        "run2": "observed",
+        "standing": -0.0,
+        "standing_nonpositive": true,
+        "wake": 0.0002
+      },
+      {
+        "cut": "median-49",
+        "d": -0.05,
+        "days": {
+          "300": 11.7396,
+          "600": 13.9187,
+          "900": 14.8668,
+          "1800": 15.9716
+        },
+        "k": 1.0,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": -0.05,
+        "days": {
+          "300": 11.8997,
+          "600": 13.9783,
+          "900": 14.8976,
+          "1800": 15.9807
+        },
+        "k": 1.0,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": 0.0,
+        "days": {
+          "300": 11.7244,
+          "600": 14.1561,
+          "900": 15.2422,
+          "1800": 16.5301
+        },
+        "k": 1.0,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": 0.0,
+        "days": {
+          "300": 11.9002,
+          "600": 14.2238,
+          "900": 15.2778,
+          "1800": 16.5408
+        },
+        "k": 1.0,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": 0.05,
+        "days": {
+          "300": 11.7093,
+          "600": 14.4017,
+          "900": 15.6371,
+          "1800": 17.1291
+        },
+        "k": 1.0,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": 0.05,
+        "days": {
+          "300": 11.9006,
+          "600": 14.4782,
+          "900": 15.6779,
+          "1800": 17.1416
+        },
+        "k": 1.0,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": -0.05,
+        "days": {
+          "300": 14.2437,
+          "600": 18.2576,
+          "900": 20.2148,
+          "1800": 22.6842
+        },
+        "k": 1.5,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": -0.05,
+        "days": {
+          "300": 14.5181,
+          "600": 18.3765,
+          "900": 20.2808,
+          "1800": 22.7054
+        },
+        "k": 1.5,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": 0.0,
+        "days": {
+          "300": 14.5264,
+          "600": 19.2739,
+          "900": 21.7119,
+          "1800": 24.9118
+        },
+        "k": 1.5,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": 0.0,
+        "days": {
+          "300": 14.8407,
+          "600": 19.4197,
+          "900": 21.7956,
+          "1800": 24.9399
+        },
+        "k": 1.5,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": 0.05,
+        "days": {
+          "300": 14.8206,
+          "600": 20.4101,
+          "900": 23.4485,
+          "1800": 27.6245
+        },
+        "k": 1.5,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": 0.05,
+        "days": {
+          "300": 15.178,
+          "600": 20.5884,
+          "900": 23.555,
+          "1800": 27.6622
+        },
+        "k": 1.5,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": -0.05,
+        "days": {
+          "300": 20.146,
+          "600": 31.9282,
+          "900": 39.957,
+          "1800": 53.6593
+        },
+        "k": 2.0,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": -0.05,
+        "days": {
+          "300": 20.8061,
+          "600": 32.3628,
+          "900": 40.2646,
+          "1800": 53.8005
+        },
+        "k": 2.0,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": 0.0,
+        "days": {
+          "300": 21.6247,
+          "600": 38.2847,
+          "900": 52.0664,
+          "1800": 82.0654
+        },
+        "k": 2.0,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": 0.0,
+        "days": {
+          "300": 22.4652,
+          "600": 38.9741,
+          "900": 52.642,
+          "1800": 82.4288
+        },
+        "k": 2.0,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": 0.0,
+        "standing_nonpositive": false,
+        "wake": 0.0001
+      },
+      {
+        "cut": "median-49",
+        "d": 0.05,
+        "days": {
+          "300": null,
+          "600": null,
+          "900": null,
+          "1800": null
+        },
+        "k": 2.0,
+        "overhead": "run-two",
+        "run2": "nominal",
+        "standing": -0.0,
+        "standing_nonpositive": true,
+        "wake": 0.0002
+      },
+      {
+        "cut": "median-49",
+        "d": 0.05,
+        "days": {
+          "300": null,
+          "600": null,
+          "900": null,
+          "1800": null
+        },
+        "k": 2.0,
+        "overhead": "run-one",
+        "run2": "nominal",
+        "standing": -0.0,
+        "standing_nonpositive": true,
+        "wake": 0.0002
+      }
+    ]
+  },
+  "inputs": {
+    "observed_gap_range_s": [
+      74.0402,
+      327.8104
+    ],
+    "overhead_s": {
+      "label": "measured from the data",
+      "run-one": 27.8104,
+      "run-two": 14.0402
+    },
+    "report": {
+      "file": "battery-run2-report.json",
+      "sha256": "f58fbd2e8d7dc9c4292aeb8e735413843e1a71a0d5dccf55f80f79d5223e57bc"
+    },
+    "run1": {
+      "configured_interval_s": 300,
+      "file": "battery-run-server.log",
+      "raw_cut": {
+        "cut_mv": 3292,
+        "cut_ts": "2026-09-13T21:17:08+00:00",
+        "elapsed_s": 980481.0,
+        "mean_gap_s": 327.8104,
+        "polls": 2992
+      },
+      "raw_cut_neighbourhood_mv": [
+        3366,
+        3372,
+        3368,
+        3292,
+        3368,
+        3372,
+        3366
+      ],
+      "sha256": "c3ea60920a38fa54f9381c5d2e7b20045aa2e337fee26a3bcec19762938b11c0",
+      "smoothed_cuts": {
+        "median-49": {
+          "cut_mv": 3256,
+          "cut_ts": "2026-09-14T10:24:56+00:00",
+          "elapsed_s": 1027749.0,
+          "extra_days_vs_raw": 0.5471,
+          "extra_polls_vs_raw": 147,
+          "mean_gap_s": 327.5172,
+          "polls": 3139
+        },
+        "median-5": {
+          "cut_mv": 3296,
+          "cut_ts": "2026-09-14T08:14:36+00:00",
+          "elapsed_s": 1019929.0,
+          "extra_days_vs_raw": 0.4566,
+          "extra_polls_vs_raw": 124,
+          "mean_gap_s": 327.425,
+          "polls": 3116
+        }
+      },
+      "whole_run": {
+        "cut_mv": 2946,
+        "cut_ts": "2026-09-14T21:05:53+00:00",
+        "elapsed_s": 1066206.0,
+        "label": "whole run, not like-for-like",
+        "mean_gap_s": 327.9625,
+        "polls": 3252
+      }
+    },
+    "run2": {
+      "configured_interval_s": 60,
+      "file": "battery-run2-export.jsonl",
+      "firmware_version": "fw-v1.0.2",
+      "nominal_cycles": 6501.7857,
+      "reference_interval_s": 70,
+      "report_max_gap_s": 418.0,
+      "sha256": "540d8f56aeab41b3a2de395a4f5820e069a9b4c1f470e526c0df12fc0557efdb",
+      "window": {
+        "cut_mv": 3300,
+        "cut_ts": "2026-10-10T20:33:30+00:00",
+        "elapsed_s": 455125.0,
+        "mean_gap_s": 74.0402,
+        "polls": 6148
+      }
+    }
+  },
+  "owner_choice": "The interval and the battery pack are the owner's choice; this tool does not select either.",
+  "rated_capacity": {
+    "label": "rated, not measured",
+    "mah": 3000
+  },
+  "sweeps": {
+    "d_sweep": [
+      {
+        "ceiling_days": 15.6308,
+        "d": -0.1,
+        "days": {
+          "300": 11.2145,
+          "600": 13.0105,
+          "900": 13.768,
+          "1800": 14.6332
+        },
+        "k": 1.0
+      },
+      {
+        "ceiling_days": 17.1127,
+        "d": 0.0,
+        "days": {
+          "300": 11.1843,
+          "600": 13.463,
+          "900": 14.4763,
+          "1800": 15.6744
+        },
+        "k": 1.0
+      },
+      {
+        "ceiling_days": 18.905,
+        "d": 0.1,
+        "days": {
+          "300": 11.1542,
+          "600": 13.9481,
+          "900": 15.2614,
+          "1800": 16.875
+        },
+        "k": 1.0
+      }
+    ],
+    "k_sweep": [
+      {
+        "ceiling_days": 17.1127,
+        "d": 0.0,
+        "days": {
+          "300": 11.1843,
+          "600": 13.463,
+          "900": 14.4763,
+          "1800": 15.6744
+        },
+        "k": 1.0
+      },
+      {
+        "ceiling_days": 20.7921,
+        "d": 0.0,
+        "days": {
+          "300": 12.2688,
+          "600": 15.3413,
+          "900": 16.7856,
+          "1800": 18.56
+        },
+        "k": 1.25
+      },
+      {
+        "ceiling_days": 27.7875,
+        "d": 0.0,
+        "days": {
+          "300": 13.84,
+          "600": 18.3367,
+          "900": 20.6408,
+          "1800": 23.6598
+        },
+        "k": 1.5
+      },
+      {
+        "ceiling_days": 46.2578,
+        "d": 0.0,
+        "days": {
+          "300": 16.3206,
+          "600": 23.8672,
+          "900": 28.3751,
+          "1800": 35.1089
+        },
+        "k": 1.75
+      },
+      {
+        "ceiling_days": 233.2126,
+        "d": 0.0,
+        "days": {
+          "300": 20.8215,
+          "600": 37.5126,
+          "900": 51.7715,
+          "1800": 84.3175
+        },
+        "k": 2.0
+      }
+    ]
+  },
+  "warnings": [
+    "run two continuity verdict: FAIL (copied from the report)",
+    "continuity check coverage is at least 0.95 (against the 70 s reference interval) (FAIL): coverage is 0.946 (observed=6148, nominal=6501.8), below 0.95 - the frame losing home Wi-Fi or internet, the server unit restarting, or journald having rotated the earliest entries out of the window being converted are the likely causes",
+    "continuity check no gap between consecutive polls exceeds 3 interval(s) (against the 70 s reference interval) (FAIL): largest gap between consecutive polls is 5.97 interval(s), exceeds 3",
+    "run two's true cycle count lies between 6148 observed polls and 6501.8 nominal cycles; both are carried in the envelope rather than hidden",
+    "no boot-counter witness exists for either run; cycle counts are observed polls, not device boots",
+    "run one's raw cut is one reading (3292 mV) with readings 3366, 3372, 3368, 3292, 3368, 3372, 3366 around it; the smoothed cuts move it later by median-5 +124 polls (+0.457 d), median-49 +147 polls (+0.547 d)",
+    "extrapolation: observed gap range is 74.0 to 327.8 s; intervals outside it: 600 s, 900 s, 1800 s",
+    "two runs give zero degrees of freedom, so no statistical interval is reported; the envelope is the uncertainty",
+    "production quiet hours were off in run two and are not modelled; field autonomy is expected to be somewhat longer",
+    "14 of 108 envelope scenarios have a standing draw not above zero; they are counted, left out of the minimum and maximum, and the maximum is open where they exist"
+  ]
+}

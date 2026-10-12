@@ -1248,3 +1248,5 @@ post-Phase-34 firmware, the refresh share and the missing boot witness are the
 limits listed under "Known limitations carried to Phase 46". Whether the
 predictions of section 8 held is left to Phase 46, which compares like windows
 (section 5).
+
+The two-run model and the operating decision built on these results are in [BATTERY-MODEL.md](BATTERY-MODEL.md).
