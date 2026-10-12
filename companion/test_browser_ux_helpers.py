@@ -985,6 +985,29 @@ _HIT_AREA_PROBE = (
     "}")
 
 
+# Resolves once every finite animation or transition that can move or resize the element has
+# finished: those running on the element itself, on an ancestor (a dialog scaling in carries its
+# controls with it) or on a descendant. Infinite animations (ambient pulses) are skipped, since
+# they never finish, and so are unrelated ones elsewhere on the page (a toast's dwell timer).
+# Two animation frames follow, so the style and layout the probe reads are the settled ones.
+_SETTLE_PROBE = (
+    "async selector => {"
+    "  const el = document.querySelector(selector);"
+    "  if (!el) return;"
+    "  const related = a => {"
+    "    const t = a.effect && a.effect.target;"
+    "    return !!t && (t.contains(el) || el.contains(t));"
+    "  };"
+    "  const finite = a => Number.isFinite(a.effect.getComputedTiming().endTime);"
+    "  const running = () => document.getAnimations().filter("
+    "    a => a.effect && related(a) && finite(a) && a.playState !== 'paused');"
+    "  for (let pass = 0; pass < 10 && running().length; pass++) {"
+    "    await Promise.all(running().map(a => a.finished.catch(() => null)));"
+    "  }"
+    "  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));"
+    "}")
+
+
 def _hit_area(page, selector, max_expand=64):
     """The element's visual box and the box the browser actually hit-tests to it, both axes,
     at whatever viewport `page` is at.
@@ -1000,11 +1023,15 @@ def _hit_area(page, selector, max_expand=64):
     at a 44px floor. The answer can therefore exceed the CSS box by about a pixel per axis when
     an edge lands off the pixel grid and the hit region snaps outward — that is real browser
     behaviour, not an artefact, so a floor comparison here is permissive by up to a pixel.
+    Finite animations and transitions on the element, its ancestors and its descendants are
+    awaited first: a dialog that fades and scales in measures a few percent small until it
+    lands, which fails a floor comparison only when the machine is slow enough to catch it.
     The element is scrolled to the viewport centre first, since an occlusion verdict that
     depends on scroll position would be intermittently red. `max_expand` bounds the outward
     search past the 44px floor without reporting a large clickable parent's size, since `owns()`
     requires the hit to be this element or a descendant, never an ancestor.
     """
+    page.evaluate(_SETTLE_PROBE, selector)
     seen = page.evaluate(
         _HIT_AREA_PROBE, {"selector": selector, "max": max_expand})
     error = seen.get("error")
