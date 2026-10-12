@@ -88,6 +88,18 @@ Subcommands:
                  less than 48 hours or leaves too few gaps. Only the first
                  48 hours are ever read.
 
+  battery-model  Reproduce the two-run battery model from the run-one
+                 log, the run-two export and the run-two report. Both
+                 runs are counted to the first reading at or below
+                 3300 mV; a closed-form solve separates per-wake energy
+                 from standing consumption, and a fixed scenario
+                 envelope gives autonomy to the BATTERY EMPTY park for
+                 each interval. Always prints the assumptions, the
+                 rated-capacity label, the continuity carry-over and
+                 what the model does not measure; selects no interval
+                 and no pack. Refuses (exit 2, nothing written) on
+                 unreadable or inconsistent inputs.
+
   selftest       Run check-backoff against the three fixtures under
                  hardware/fixtures/, and check-battery against five
                  more (including a from-journal-converted one and a
@@ -97,8 +109,8 @@ Subcommands:
                  bad ones are rejected. A checker that has never been
                  shown a bad log has not been tested.
 
-Only argparse, datetime, hashlib, json, os, re, subprocess and sys are
-imported - no pip install, matching this phase's zero-external-install
+Only argparse, datetime, hashlib, json, os, re, statistics, subprocess and
+sys are imported - no pip install, matching this phase's zero-external-install
 property. json parses from-history-db's JSON-Lines input and hashlib
 fingerprints the raw export in run-report; sqlite3 is deliberately not
 imported here — history.db lives on the VPS and is read over SSH, never
@@ -1804,6 +1816,416 @@ def sweep(n1, t1, n2, t2, overhead_s, intervals_s):
     }
 
 
+MODEL_ASSUMPTIONS = [
+    "The same usable charge flows between the full-charge plateau and the "
+    "first reading at or below 3300 mV in both runs.",
+    "Wake energy is equal in both runs in the central fit; the envelope "
+    "allows run one's wake to cost 1.0 to 2.0 times run two's because the "
+    "newer firmware shortened the wake. Run two's wake costing more than "
+    "run one's is not covered.",
+    "Standing consumption is constant: it does not change with the interval, "
+    "the temperature or the age of the pack.",
+    "The awake overhead (observed mean gap minus configured interval) is "
+    "measured per run from the data and added to the configured interval.",
+    "The capacity is rated, not measured; it only converts the results to "
+    "mAh and mA and does not move any autonomy figure.",
+    "N counts observed polls in the window and T is the time from the first "
+    "poll to the cut poll.",
+    "Days are to the BATTERY EMPTY park, not to a dead pack: run one kept "
+    "polling for about one more day, down to 2946 mV.",
+]
+
+MODEL_DOES_NOT_MEASURE = [
+    "Image-download energy and display-refresh energy are not measured by "
+    "the baseline hash-skip workload of either run.",
+    "The share of wakes that download an image and refresh the panel is not "
+    "recorded and changes with the interval, so every figure is an estimate "
+    "to be confirmed on the real frame.",
+]
+
+MODEL_STANDING_NOTE = (
+    "The standing figure is whatever consumption is not proportional to wake "
+    "count; it is not a measured hardware current.")
+
+MODEL_NOT_A_CHOICE = (
+    "The interval and the battery pack are the owner's choice; this tool "
+    "does not select either.")
+
+
+def _report_value(report, *path):
+    node = report
+    for key in path:
+        if not isinstance(node, dict) or key not in node:
+            raise RunReportError("report is missing %s" % ".".join(path))
+        node = node[key]
+    return node
+
+
+def _report_number(report, *path):
+    value = _report_value(report, *path)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise RunReportError("report field %s is not a number" % ".".join(path))
+    return value
+
+
+def _model_run_one(log_bytes):
+    """Polls of run one and the cut index of each rule (raw first)."""
+    _, polls = parse_battery_lines(log_bytes.decode("utf-8", errors="replace").splitlines())
+    if len(polls) < 2:
+        raise RunReportError("run one log has fewer than two battery polls")
+    if any(p.ts.tzinfo is None for p in polls):
+        raise RunReportError("run one timestamps must carry a timezone offset")
+    for a, b in zip(polls, polls[1:]):
+        if b.ts < a.ts:
+            raise RunReportError("run one is not in chronological order (%s follows %s)" %
+                                 (b.ts.isoformat(), a.ts.isoformat()))
+    raw = first_at_or_below(polls, MODEL_CUT_MV)
+    if raw is None or raw < 1:
+        raise RunReportError(
+            "run one never reaches a reading at or below %d mV after its first poll" %
+            MODEL_CUT_MV)
+    cuts = {"raw": raw}
+    for width in MODEL_SMOOTH_WINDOWS:
+        idx = rolling_median_cut(polls, MODEL_CUT_MV, width)
+        if idx is not None:
+            cuts["median-%d" % width] = idx
+    return polls, cuts
+
+
+def _model_run_two(export_bytes, report):
+    """Polls of run two and the cut index, cross-checked against the report."""
+    expected = _report_value(report, "export", "sha256")
+    actual = hashlib.sha256(export_bytes).hexdigest()
+    if actual != expected:
+        raise RunReportError("run two export sha256 %s differs from the report's %s" %
+                             (actual, expected))
+    polls = _rows_to_ordered_polls(export_bytes)
+    idx = first_at_or_below(polls, MODEL_CUT_MV)
+    if idx is None or idx < 1:
+        raise RunReportError(
+            "run two never reaches a reading at or below %d mV after its first row" %
+            MODEL_CUT_MV)
+    want_polls = _report_number(report, "reconciliation", "observed_normal")
+    want_ts = _aware_timestamp(
+        _report_value(report, "window", "normal_window_end_ts"), "normal_window_end_ts")
+    want_first = _aware_timestamp(_report_value(report, "window", "first_ts"), "first_ts")
+    if idx + 1 != want_polls or polls[idx].ts != want_ts:
+        raise RunReportError(
+            "run two window recomputed from the export (%d polls, cut at %s) differs "
+            "from the report (%s polls, cut at %s)" %
+            (idx + 1, polls[idx].ts.isoformat(), want_polls, want_ts.isoformat()))
+    if polls[0].ts != want_first:
+        raise RunReportError("run two first row %s differs from the report's %s" %
+                             (polls[0].ts.isoformat(), want_first.isoformat()))
+    return polls, idx
+
+
+def _model_neighbourhood(polls, idx):
+    return [p.mv for p in polls[max(0, idx - 3):idx + 4]]
+
+
+def _model_run_one_inputs(polls, cuts, name, digest, interval_s):
+    raw = window_counts(polls, cuts["raw"])
+    smoothed = {}
+    for label, idx in cuts.items():
+        if label == "raw":
+            continue
+        counts = window_counts(polls, idx)
+        counts["extra_polls_vs_raw"] = counts["polls"] - raw["polls"]
+        counts["extra_days_vs_raw"] = (counts["elapsed_s"] - raw["elapsed_s"]) / 86400.0
+        smoothed[label] = counts
+    whole = window_counts(polls, len(polls) - 1)
+    whole["label"] = "whole run, not like-for-like"
+    return {
+        "file": name, "sha256": digest, "configured_interval_s": interval_s,
+        "raw_cut": raw, "smoothed_cuts": smoothed, "whole_run": whole,
+        "raw_cut_neighbourhood_mv": _model_neighbourhood(polls, cuts["raw"]),
+    }
+
+
+def _model_run_two_inputs(polls, idx, report, name, digest):
+    win = window_counts(polls, idx)
+    return {
+        "file": name, "sha256": digest,
+        "configured_interval_s": _report_number(report, "cadence", "configured_interval_s"),
+        "reference_interval_s": _report_number(
+            report, "reference_interval", "reference_interval_s"),
+        "firmware_version": _report_value(report, "baseline", "firmware_version"),
+        "window": win,
+        "nominal_cycles": _report_number(report, "reconciliation", "nominal"),
+        "report_max_gap_s": _report_number(report, "cadence", "max_gap_s"),
+    }
+
+
+def _model_warnings(report, inputs, rows, env):
+    run1, run2 = inputs["run1"], inputs["run2"]
+    verdict = _report_value(report, "verdicts", "continuity")
+    out = ["run two continuity verdict: %s (copied from the report)" %
+           _report_value(verdict, "status")]
+    for check in _report_value(verdict, "checks"):
+        if check.get("status") != "PASS":
+            out.append("continuity check %s (%s): %s" %
+                       (check.get("name"), check.get("status"), check.get("reason")))
+    out.append(
+        "run two's true cycle count lies between %d observed polls and %.1f nominal "
+        "cycles; both are carried in the envelope rather than hidden" %
+        (run2["window"]["polls"], run2["nominal_cycles"]))
+    out.append("no boot-counter witness exists for either run; cycle counts are "
+               "observed polls, not device boots")
+    shifts = ", ".join("%s +%d polls (+%.3f d)" % (k, v["extra_polls_vs_raw"], v["extra_days_vs_raw"])
+                       for k, v in run1["smoothed_cuts"].items())
+    out.append(
+        "run one's raw cut is one reading (%d mV) with readings %s around it; "
+        "the smoothed cuts move it later by %s" %
+        (run1["raw_cut"]["cut_mv"],
+         ", ".join(str(m) for m in run1["raw_cut_neighbourhood_mv"]), shifts or "n/a"))
+    lo, hi = inputs["observed_gap_range_s"]
+    outside = [r["configured_s"] for r in rows if r["outside_observed_range"]]
+    out.append(
+        "extrapolation: observed gap range is %.1f to %.1f s; intervals outside it: %s" %
+        (lo, hi, ", ".join("%d s" % s for s in outside) if outside else "none"))
+    out.append("two runs give zero degrees of freedom, so no statistical interval is "
+               "reported; the envelope is the uncertainty")
+    out.append("production quiet hours were off in run two and are not modelled; field "
+               "autonomy is expected to be somewhat longer")
+    out.append(
+        "%d of %d envelope scenarios have a standing draw not above zero; they are "
+        "counted, left out of the minimum and maximum, and the maximum is open "
+        "where they exist" % (env["nonpositive_count"], env["scenario_count"]))
+    return out
+
+
+def _model_autonomy_rows(env, intervals_s, overhead_s, gap_range):
+    rows = []
+    first = None
+    for interval in intervals_s:
+        cell = env["intervals"][interval]
+        days = {n: (cell[n]["days"] if cell[n] else None)
+                for n in ("central", "minimum", "maximum")}
+        if first is None:
+            first = days
+        period = interval + overhead_s
+        rows.append({
+            "configured_s": interval, "period_s": period,
+            "central_days": days["central"], "min_days": days["minimum"],
+            "max_days": days["maximum"],
+            "nonpositive_count": cell["nonpositive_count"],
+            "outside_observed_range": not gap_range[0] <= period <= gap_range[1],
+            "gain_vs_first_interval_days": {
+                "central": _model_diff(days["central"], first["central"]),
+                "min": _model_diff(days["minimum"], first["minimum"])},
+            "worst_case_data_age_s": period,
+        })
+    return rows
+
+
+def _model_diff(value, base):
+    return None if value is None or base is None else value - base
+
+
+def build_battery_model(run1_bytes, run1_name, export_bytes, export_name, report,
+                        report_bytes, report_name, run1_interval_s, capacity_mah,
+                        intervals_s):
+    """Build the two-run model as a plain dict, or raise RunReportError."""
+    polls1, cuts1 = _model_run_one(run1_bytes)
+    polls2, idx2 = _model_run_two(export_bytes, report)
+    run1 = _model_run_one_inputs(polls1, cuts1, run1_name,
+                                 hashlib.sha256(run1_bytes).hexdigest(), run1_interval_s)
+    run2 = _model_run_two_inputs(polls2, idx2, report, export_name,
+                                 hashlib.sha256(export_bytes).hexdigest())
+    raw, win = run1["raw_cut"], run2["window"]
+    overhead2 = win["mean_gap_s"] - run2["configured_interval_s"]
+    overhead1 = raw["mean_gap_s"] - run1_interval_s
+    gap_range = (win["mean_gap_s"], raw["mean_gap_s"])
+    ratio = ratio_and_ceiling(raw["polls"], raw["elapsed_s"], win["polls"], win["elapsed_s"])
+    fit = fit_two_runs(raw["polls"], raw["elapsed_s"], win["polls"], win["elapsed_s"])
+    cuts = [("raw", raw["polls"], raw["elapsed_s"])] + [
+        (k, v["polls"], v["elapsed_s"]) for k, v in run1["smoothed_cuts"].items()]
+    env = build_envelope(
+        cuts, [("observed", win["polls"], win["elapsed_s"]),
+               ("nominal", run2["nominal_cycles"], win["elapsed_s"])],
+        [("run-two", overhead2), ("run-one", overhead1)], intervals_s)
+    rows = _model_autonomy_rows(env, intervals_s, overhead2, gap_range)
+    inputs = {"run1": run1, "run2": run2,
+              "report": {"file": report_name,
+                         "sha256": hashlib.sha256(report_bytes).hexdigest()},
+              "overhead_s": {"run-two": overhead2, "run-one": overhead1,
+                             "label": "measured from the data"},
+              "observed_gap_range_s": list(gap_range)}
+    return {
+        "inputs": inputs,
+        "rated_capacity": {"mah": capacity_mah, "label": "rated, not measured"},
+        "central_fit": {
+            "basis": "raw cut, observed run-two polls, equal wake energy, equal "
+                     "usable charge",
+            "ratio_s": ratio["ratio_s"], "ceiling_days": ratio["ceiling_days"],
+            "wake_mah": fit["wake"] * capacity_mah,
+            "standing_ma": fit["standing"] * capacity_mah * 3600.0,
+            "note": MODEL_STANDING_NOTE},
+        "autonomy": rows, "envelope": env,
+        "sweeps": sweep(raw["polls"], raw["elapsed_s"], win["polls"], win["elapsed_s"],
+                        overhead2, intervals_s),
+        "assumptions": MODEL_ASSUMPTIONS, "does_not_measure": MODEL_DOES_NOT_MEASURE,
+        "warnings": _model_warnings(report, inputs, rows, env),
+        "owner_choice": MODEL_NOT_A_CHOICE,
+    }
+
+
+def _model_round(value):
+    """Copy of value with floats rounded to 4 decimals (serialisation only)."""
+    if isinstance(value, float):
+        return round(value, 4)
+    if isinstance(value, dict):
+        return {k: _model_round(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_model_round(v) for v in value]
+    return value
+
+
+def _days(value):
+    return "n/a" if value is None else "%.2f" % value
+
+
+def _print_model_inputs(model):
+    inp = model["inputs"]
+    run1, run2, raw, win = inp["run1"], inp["run2"], inp["run1"]["raw_cut"], inp["run2"]["window"]
+    print("Inputs (like-for-like, both runs to the first reading at or below %d mV)" %
+          MODEL_CUT_MV)
+    for label, item in (("run one log", run1), ("run two export", run2),
+                        ("run two report", inp["report"])):
+        print("  %s: %s sha256=%s" % (label, item["file"], item["sha256"]))
+    print("  run one (configured %d s): %d polls, %.0f s elapsed, mean gap %.1f s, "
+          "cut at %s (%d mV)" % (run1["configured_interval_s"], raw["polls"],
+                                 raw["elapsed_s"], raw["mean_gap_s"], raw["cut_ts"],
+                                 raw["cut_mv"]))
+    print("  run one readings around the cut (mV): %s" %
+          ", ".join(str(m) for m in run1["raw_cut_neighbourhood_mv"]))
+    for label, cut in run1["smoothed_cuts"].items():
+        print("  run one smoothed cut %s (sensitivity): %d polls, %.0f s elapsed "
+              "(+%d polls, +%.3f d versus raw)" % (
+                  label, cut["polls"], cut["elapsed_s"], cut["extra_polls_vs_raw"],
+                  cut["extra_days_vs_raw"]))
+    whole = run1["whole_run"]
+    print("  run one %s: %d polls, %.0f s elapsed, last reading %d mV" %
+          (whole["label"], whole["polls"], whole["elapsed_s"], whole["cut_mv"]))
+    print("  run two (configured %d s, reference %d s, firmware %s): %d polls, %.0f s "
+          "elapsed, mean gap %.1f s, cut at %s (%d mV); nominal cycles %.1f" % (
+              run2["configured_interval_s"], run2["reference_interval_s"],
+              run2["firmware_version"], win["polls"], win["elapsed_s"], win["mean_gap_s"],
+              win["cut_ts"], win["cut_mv"], run2["nominal_cycles"]))
+    print("  awake overhead, measured from the data: run two %.1f s, run one %.1f s" %
+          (inp["overhead_s"]["run-two"], inp["overhead_s"]["run-one"]))
+    print("  observed gap range: %.1f to %.1f s" % tuple(inp["observed_gap_range_s"]))
+    print("  capacity: %d mAh (%s)" % (model["rated_capacity"]["mah"],
+                                      model["rated_capacity"]["label"]))
+
+
+def _print_model_tables(model):
+    fit = model["central_fit"]
+    print("\nCentral fit (%s)" % fit["basis"])
+    print("  wake-to-standing ratio: %.1f s; autonomy ceiling: %.2f d" %
+          (fit["ratio_s"], fit["ceiling_days"]))
+    print("  wake energy: %.4f mAh per wake; standing: %.3f mA (derived, capacity %s)" %
+          (fit["wake_mah"], fit["standing_ma"], model["rated_capacity"]["label"]))
+    print("  " + fit["note"])
+    print("\nAutonomy to the BATTERY EMPTY park")
+    print("  interval(s)  period(s)  central(d)  min(d)  max(d)  gain-vs-first(d)  "
+          "data-age(s)  outside-observed-range")
+    for r in model["autonomy"]:
+        print("  %-11d  %9.1f  %10s  %6s  %6s  %16s  %11.1f  %s" % (
+            r["configured_s"], r["period_s"], _days(r["central_days"]),
+            _days(r["min_days"]), _days(r["max_days"]),
+            _days(r["gain_vs_first_interval_days"]["central"]),
+            r["worst_case_data_age_s"], "yes" if r["outside_observed_range"] else "no"))
+    print("\nSensitivities (raw cut, observed run-two polls)")
+    for name, key in (("wake-energy ratio k", "k_sweep"), ("usable-charge ratio d", "d_sweep")):
+        print("  %s:" % name)
+        for r in model["sweeps"][key]:
+            cells = "  ".join("%ds=%s" % (i, _days(v)) for i, v in r["days"].items())
+            print("    k=%.2f d=%+.2f ceiling %s d  %s" %
+                  (r["k"], r["d"], _days(r["ceiling_days"]), cells))
+
+
+def print_battery_model(model):
+    _print_model_inputs(model)
+    _print_model_tables(model)
+    print("\nAssumptions")
+    for text in model["assumptions"]:
+        print("  - " + text)
+    print("\nUncertainty")
+    env = model["envelope"]
+    print("  envelope: %d scenarios (run-one cut x run-two cycles x k x d x overhead); "
+          "%d with standing draw not above zero" %
+          (env["scenario_count"], env["nonpositive_count"]))
+    for interval, cell in env["intervals"].items():
+        for name in ("minimum", "maximum"):
+            if cell[name]:
+                print("  %s at %d s: %s d (%s)" % (name, interval, _days(cell[name]["days"]),
+                                                  ", ".join("%s=%s" % kv for kv in
+                                                            cell[name]["scenario"].items())))
+    for text in model["warnings"]:
+        print("  ! " + text)
+    print("\nWhat this model does not measure")
+    for text in model["does_not_measure"]:
+        print("  - " + text)
+    print("\n" + model["owner_choice"])
+
+
+def _parse_model_intervals(text):
+    out = []
+    for part in text.split(","):
+        part = part.strip()
+        if not re.fullmatch(r"[0-9]+", part) or int(part) < 1:
+            raise RunReportError(
+                "--intervals must be positive whole seconds separated by commas, got %r" %
+                text)
+        out.append(int(part))
+    if len(set(out)) != len(out):
+        raise RunReportError("--intervals lists a value twice: %r" % text)
+    return out
+
+
+def _read_bytes(path, what):
+    try:
+        with open(path, "rb") as fh:
+            return fh.read()
+    except OSError as exc:
+        raise RunReportError("cannot read %s: %s" % (what, exc))
+
+
+def cmd_battery_model(args):
+    """Print the two-run model and write --out only on success. Exit 0, or 2
+    when the inputs are refused.
+    """
+    try:
+        intervals = _parse_model_intervals(args.intervals)
+        if args.capacity_mah < 1 or args.run1_interval_s < 1:
+            raise RunReportError("--capacity-mah and --run1-interval-s must be at least 1")
+        run1_bytes = _read_bytes(args.run1_log, "run one log")
+        export_bytes = _read_bytes(args.run2_export, "run two export")
+        report_bytes = _read_bytes(args.run2_report, "run two report")
+        try:
+            report = json.loads(report_bytes.decode("utf-8"))
+        except ValueError as exc:
+            raise RunReportError("run two report is not valid JSON: %s" % exc)
+        if not isinstance(report, dict):
+            raise RunReportError("run two report is not a JSON object")
+        model = build_battery_model(
+            run1_bytes, os.path.basename(args.run1_log), export_bytes,
+            os.path.basename(args.run2_export), report, report_bytes,
+            os.path.basename(args.run2_report), args.run1_interval_s,
+            args.capacity_mah, intervals)
+        text = json.dumps(_model_round(model), sort_keys=True, indent=2) + "\n"
+        if args.out:
+            with open(args.out, "w") as fh:
+                fh.write(text)
+    except (RunReportError, OSError) as exc:
+        sys.stderr.write("battery-model: refused: %s\n" % exc)
+        return 2
+    print_battery_model(model)
+    return 0
+
+
 # --- CLI ------------------------------------------------------------------
 
 
@@ -1827,6 +2249,27 @@ def _add_run_report_parsers(sub):
     ri.add_argument("--interval-s", type=int, required=True,
         help="the configured wake interval in seconds (gaps above 3x it "
              "are excluded)")
+
+
+def _add_battery_model_parser(sub):
+    bm = sub.add_parser("battery-model",
+        help="reproduce the two-run battery model from the run-one log, the "
+             "run-two export and the run-two report")
+    bm.add_argument("run1_log",
+        help="run-one server log (bracketed timestamps, X-Battery-Mv)")
+    bm.add_argument("--run2-export", required=True,
+        help="run-two JSON-Lines export")
+    bm.add_argument("--run2-report", required=True,
+        help="run-two report written by run-report")
+    bm.add_argument("--run1-interval-s", type=int, default=300,
+        help="run one's configured interval in seconds (default: 300)")
+    bm.add_argument("--capacity-mah", type=int, required=True,
+        help="the pack's rated capacity in mAh (printed as rated, not measured)")
+    bm.add_argument("--intervals", default=",".join(str(i) for i in MODEL_INTERVALS_S),
+        help="comma-separated configured intervals in seconds "
+             "(default: %(default)s)")
+    bm.add_argument("--out", default=None,
+        help="write the JSON model here (only on a non-refused run)")
 
 
 def build_parser():
@@ -1902,6 +2345,7 @@ def build_parser():
              "PASS/FAIL gating, always exits 0")
 
     _add_run_report_parsers(sub)
+    _add_battery_model_parser(sub)
 
     sub.add_parser("selftest",
         help="run check-backoff and check-battery against "
@@ -1927,6 +2371,8 @@ def main(argv=None):
         return cmd_run_report(args)
     if args.command == "reference-interval":
         return cmd_reference_interval(args)
+    if args.command == "battery-model":
+        return cmd_battery_model(args)
     if args.command == "selftest":
         return cmd_selftest(args)
     return 1  # pragma: no cover — argparse enforces `required=True` above
