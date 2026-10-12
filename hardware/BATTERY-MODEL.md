@@ -2,7 +2,7 @@
 
 Status: evidence complete; interval and pack decisions pending the owner.
 
-Every figure in this document is copied from `hardware/logs/battery-model.json`, the machine output of `hardware/logtools.py battery-model`. Nothing here was typed, rounded or recomputed by hand. This document does not choose the interval and does not choose the pack. Those choices are yours, in the last section.
+Every figure in this document is copied from `hardware/logs/battery-model.json`, the machine output of `hardware/logtools.py battery-model`, except the section "Six-month target" at the end, which is plain arithmetic written by Claude and labelled as such. Nothing else was typed, rounded or recomputed by hand. This document does not choose the interval and does not choose the pack. Those choices are yours, in the last section.
 
 ## How to reproduce
 
@@ -235,3 +235,19 @@ Found by Claude on the owner's request. Each line comes from the vendor page nam
 | OpenELAB 805080 (https://openelab.io/a/s/products/openelab-805080-4000mah-polymer-lithium-battery) | 4000 mAh | not read | JST PH2.0, 2 pin | yes (per search summary) | about EUR 21 to 23 per search summary; sold out when read |
 
 Notes: the two 5000 mAh listings give different sizes; confirm the real size with the seller. The size of the current Kubii pack is not recorded in this repository, and no enclosure exists, so fit cannot be judged here.
+
+## Six-month target (arithmetic by Claude, not tool output)
+
+Owner goal, 2026-10-12: about six months between charges ("je cherche 6 mois"). This section is simple arithmetic on figures printed above; it is not produced by the tool and is not tested. It assumes the whole rated capacity is usable, which is optimistic, so the real requirement is stricter.
+
+- Six months is about 180 days, or 4320 hours.
+- Average current allowed for 180 days: 0.69 mA with 3000 mAh, 1.16 mA with 5000 mAh, 1.39 mA with 6000 mAh.
+- Average current today at 300 s: about 11.2 mA (3000 mAh over the 11.18-day central figure).
+- The central fit puts the standing draw at 7.3045 mA, which is above every allowed value in the list. In the central fit, even an interval with no wake cost would leave the 3000 mAh pack at the 17.11-day ceiling.
+- The envelope also contains scenarios where the standing draw is close to zero (14 of 108 in the table above). The two runs cannot say which case is real.
+
+What six months needs, in plain words: a bigger pack, a long interval, and above all a much lower standing draw (roughly 1 mA or less). The model does not say what consumes the standing draw.
+
+The measurement that settles it: the frame's current while asleep, read with a meter in series with the battery (a range that reads milliamps down to microamps), with the display idle. One reading says whether the standing draw is near 7 mA, which needs hardware or firmware work, or near or below 1 mA, which makes six months plausible. This extends the Phase 47 recommendation above.
+
+Trade-off to accept: at six months the interval is likely an hour or more, which does not tell you whether you will catch the next train. The owner has said autonomy wins when the two conflict.
