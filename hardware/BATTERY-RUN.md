@@ -1118,3 +1118,111 @@ energy figure or battery projection is computed from this value.
 Nothing else changes: thresholds (0.95 coverage, 3 intervals for the largest
 gap, 100 mV, 3400 mV), the 60 s cadence and the 21-day ceiling are as
 pre-registered.
+
+## Run 2 Results
+
+Every figure in this section is copied from the output of
+`hardware/logtools.py run-report`, committed verbatim as
+`hardware/logs/battery-run2-report.json`. Facts that did not come from the
+tool are marked **(owner-reported)** or **(diagnosis, not from the report)**.
+No two-run model and no interval or pack decision is written here; that is
+Phase 46 (BAT-03).
+
+### How the run ended
+
+**(owner-reported)** The owner stopped the run on 2026-10-12 because the frame
+had entered the BATTERY EMPTY park (hourly check-ins) and would have taken days
+to reach 0 %. The pack was inspected before any recharge and was normal. The
+frame was **not** run to a dead battery and the 21-day ceiling was not
+reached. `run-report` only accepts `depleted` or `ceiling` as the end reason;
+`depleted` was recorded because the tool's depletion check is "last reading at
+or below 3400 mV", which holds (last reading 3296 mV). This is a park end, not
+a zero-percent end, as section 5 anticipated.
+
+**(owner-reported)** Production settings restored after the run: wake interval
+300 s, quiet hours enabled 23:30-06:00 (values read back from the companion
+page after saving). The deployed server revision stayed
+`b2b08e9b89183db1fa3c5789f2134b94c311483e` and the firmware `fw-v1.0.2`
+throughout.
+
+### Command and input
+
+```
+python3 hardware/logtools.py run-report \
+  --params hardware/logs/battery-run2-params.json \
+  --out hardware/logs/battery-run2-report.json \
+  hardware/logs/battery-run2-export.jsonl
+```
+
+The command exited 1, meaning a verdict failed (not exit 2, a refusal); the
+report was written.
+
+| Item | Value (from the report) |
+|---|---|
+| Export | `hardware/logs/battery-run2-export.jsonl`, 6193 usable rows (1 dropped), sha256 `540d8f56aeab41b3a2de395a4f5820e069a9b4c1f470e526c0df12fc0557efdb` |
+| Window | 2026-10-05T14:08:05+00:00 to 2026-10-12T16:22:02+00:00, 7.093 days |
+| Normal-cadence window ends | 2026-10-10T20:33:30+00:00 (first reading at or below 3300 mV) |
+| Configured interval / reference interval | 60 s / 70 s (frozen 2026-10-08, section 4a) |
+| Effective mean gap (full run) / max gap | 74.04 s / 418 s |
+| Normal-window mean gap vs frozen reference | +5.8 % |
+| Battery endpoints (mV) | first 4106, open 4008.1, close 3415.0, drop 593.1, last 3296 (last poll 3300) |
+| Firmware / server | `fw-v1.0.2` only / `b2b08e9b89183db1fa3c5789f2134b94c311483e` |
+| Boot reasons | `rtc`: 6193 |
+
+### Verdicts
+
+**Continuity: FAIL** (judged against the 70 s reference interval, normal window)
+
+| Check | Result |
+|---|---|
+| timestamps and at least two battery-bearing polls | PASS |
+| run spans at least 1 day | PASS |
+| coverage at least 0.95 | **FAIL**: 0.946 (observed 6148, nominal 6501.8) |
+| no gap above 3 intervals | **FAIL**: largest gap 5.97 intervals |
+| span within ceiling plus one interval | PASS |
+| frozen reference equals value recomputed from first 48 h | PASS |
+
+Informational, against the configured 60 s: coverage 0.811, largest gap 6.97
+intervals.
+
+**Voltage validity: PASS** (drop 593.1 mV against the 100 mV minimum; last
+reading 3296 mV at or below the 3400 mV cutoff).
+
+**Baseline: PASS** (only `fw-v1.0.2` seen, equal to the recorded baseline).
+
+The thresholds were not changed and no gate was retuned.
+
+### Cycle-count reconciliation
+
+| Witness | Value |
+|---|---|
+| Nominal (normal window, span over reference interval) | 6501.79 |
+| Observed polls, normal window | 6148 (-5.4 % vs nominal) |
+| Observed polls, full run | 6193, of which 45 parked polls |
+| Boot-counter delta | not computable: boot_count_start and boot_count_end not recorded (as anticipated, known limitation 3) |
+
+Energy figures printed by the tool for the normal window (observed poll count
+as the basis): 0.488 mAh per cycle, 569.5 mAh per day. They are recorded for
+Phase 46 and not interpreted here.
+
+### Diagnosis of the two failed gates
+
+- **Coverage 0.946:** the normal-window mean gap is 5.8 % above the frozen
+  70 s reference. Section 4a states that a mean more than about 5 % above the
+  reference fails the 0.95 gate and that such a failure is reported as drift
+  and the value is not re-frozen. That is the case here.
+- **Largest gap 5.97 intervals (418 s):** **(diagnosis, not from the report)**
+  a separate pass over the export lists 22 gaps above 210 s in the normal
+  window, all between 381 s and 418 s (clustered at about 381-383 s and
+  416-418 s), spread over the run at a few per day. Two discrete values and
+  no longer outage point to an occasional slow wake on the frame side rather
+  than a Wi-Fi or server outage; the cause is not established from this data.
+  This is a hypothesis for Phase 46, not a finding.
+
+### What this does not establish
+
+The run ended at the park, so no zero-percent time is available. The
+post-Phase-34 firmware, the refresh share and the missing boot witness are the
+limits listed under "Known limitations carried to Phase 46". Whether the
+predictions of section 8 held is left to Phase 46, which compares like windows
+(section 5).

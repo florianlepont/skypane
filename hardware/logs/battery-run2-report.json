@@ -1,0 +1,154 @@
+{
+  "baseline": {
+    "boot_reason_counts": {
+      "rtc": 6193
+    },
+    "firmware_version": "fw-v1.0.2",
+    "fw_versions_seen": [
+      "fw-v1.0.2"
+    ],
+    "server_revision": "b2b08e9b89183db1fa3c5789f2134b94c311483e"
+  },
+  "cadence": {
+    "configured_interval_s": 60,
+    "effective_mean_gap_s": 74.0401822027005,
+    "max_gap_s": 418.0
+  },
+  "endpoints": {
+    "close_mv": 3414.9822294022615,
+    "drop_mv": 593.1470113085625,
+    "first_mv": 4106,
+    "last_mv": 3296,
+    "last_poll_mv": 3300,
+    "open_mv": 4008.129240710824
+  },
+  "energy_normal_window": {
+    "basis": "observed poll count in the normal-cadence window",
+    "mah_per_cycle": 0.48796356538711777,
+    "mah_per_day": 569.5138698159847
+  },
+  "export": {
+    "dropped_rows": 1,
+    "row_count": 6193,
+    "sha256": "540d8f56aeab41b3a2de395a4f5820e069a9b4c1f470e526c0df12fc0557efdb"
+  },
+  "reconciliation": {
+    "boot_delta": null,
+    "boot_delta_status": "not computable: boot_count_start and boot_count_end not recorded",
+    "boot_vs_observed_full": null,
+    "nominal": 6501.785714285715,
+    "nominal_vs_observed_normal": -0.054413622631145346,
+    "observed_full": 6193,
+    "observed_normal": 6148,
+    "parked_polls": 45
+  },
+  "reference_interval": {
+    "informational_vs_configured": {
+      "configured_interval_s": 60,
+      "coverage": 0.810502609173304,
+      "max_gap_intervals": 6.966666666666667,
+      "nominal": 7585.416666666667
+    },
+    "judged_against": {
+      "coverage": "reference_interval_s",
+      "max_gap_intervals": "reference_interval_s",
+      "nominal_cycles": "reference_interval_s",
+      "span_ceiling": "configured_interval_s"
+    },
+    "normal_window_mean_gap_s": 74.0401822027005,
+    "normal_window_mean_gap_vs_reference": 0.05771688861000724,
+    "recomputed_from_first_48h": {
+      "exclusion_limit_s": 180,
+      "gaps_excluded": 10,
+      "gaps_used": 2412,
+      "mean_gap_s": 69.98009950248756,
+      "reference_interval_s": 70,
+      "window_end": "2026-10-07T14:07:51+00:00",
+      "window_start": "2026-10-05T14:08:05+00:00"
+    },
+    "reference_interval_export_sha256": "fead5f2e103a1fc2a668ac52ccaf5cbabb8c84049468d9a02c8f60acd6103108",
+    "reference_interval_s": 70,
+    "reference_interval_source": "Frozen 2026-10-08 by the owner, on their own machine: read-only query of the server history database (sqlite3 URI mode=ro on /opt/skypane/state/history.db, run through sudo on the VPS because the ubuntu user cannot read that directory) saved as hardware/logs/battery-run2-export-48h.jsonl (3360 rows; the file stays on the owner's machine and is not committed), then python3 hardware/logtools.py reference-interval hardware/logs/battery-run2-export-48h.jsonl --interval-s 60. Helper window: 2026-10-05T14:08:05+00:00 to 2026-10-07T14:07:51+00:00 (first 48 h only); 2412 gaps used, 10 excluded above 180 s, unrounded mean 69.980 s."
+  },
+  "restore": {
+    "production_interval_before_s": 300,
+    "production_interval_restored_s": 300,
+    "recorded": true
+  },
+  "thresholds": {
+    "cutoff_mv": 3400,
+    "max_gap_intervals": 3,
+    "min_coverage": 0.95,
+    "min_days": 1,
+    "min_mv_drop": 100
+  },
+  "verdicts": {
+    "baseline": {
+      "checks": [
+        {
+          "name": "firmware versions in the export equal the recorded baseline",
+          "reason": "",
+          "status": "PASS"
+        }
+      ],
+      "status": "PASS"
+    },
+    "continuity": {
+      "checks": [
+        {
+          "name": "logs carry timestamps and at least two battery-bearing polls",
+          "reason": "",
+          "status": "PASS"
+        },
+        {
+          "name": "run spans at least 1 day(s)",
+          "reason": "",
+          "status": "PASS"
+        },
+        {
+          "name": "coverage is at least 0.95 (against the 70 s reference interval)",
+          "reason": "coverage is 0.946 (observed=6148, nominal=6501.8), below 0.95 - the frame losing home Wi-Fi or internet, the server unit restarting, or journald having rotated the earliest entries out of the window being converted are the likely causes",
+          "status": "FAIL"
+        },
+        {
+          "name": "no gap between consecutive polls exceeds 3 interval(s) (against the 70 s reference interval)",
+          "reason": "largest gap between consecutive polls is 5.97 interval(s), exceeds 3",
+          "status": "FAIL"
+        },
+        {
+          "name": "span does not exceed the ceiling by more than one interval",
+          "reason": "",
+          "status": "PASS"
+        },
+        {
+          "name": "frozen reference interval equals the value recomputed from the first 48 h",
+          "reason": "",
+          "status": "PASS"
+        }
+      ],
+      "status": "FAIL"
+    },
+    "voltage_validity": {
+      "checks": [
+        {
+          "name": "millivolt drop between opening and closing windows is at least 100 mV",
+          "reason": "",
+          "status": "PASS"
+        },
+        {
+          "name": "last observed millivolt reading is at or below the 3400 mV cutoff",
+          "reason": "",
+          "status": "PASS"
+        }
+      ],
+      "status": "PASS"
+    }
+  },
+  "window": {
+    "disconnect_time_utc": "2026-10-05T14:08:00+00:00",
+    "first_ts": "2026-10-05T14:08:05+00:00",
+    "last_ts": "2026-10-12T16:22:02+00:00",
+    "normal_window_end_ts": "2026-10-10T20:33:30+00:00",
+    "span_days": 7.093020833333333
+  }
+}
