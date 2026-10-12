@@ -1,6 +1,6 @@
 ---
 phase: 45-controlled-second-discharge-study
-status: planned (45-01 and 45-02 done; reference-interval rule confirmed and implemented 2026-10-05; 45-03 physical run pending, awaiting the owner)
+status: complete (45-01..45-04 done 2026-10-12; reference-interval rule confirmed 2026-10-05 and frozen at 70 s on 2026-10-08; run 2 results recorded)
 nyquist_compliant: true
 created: 2026-10-03
 ---
@@ -26,7 +26,7 @@ created: 2026-10-03
 | OWNER | D-13 offline owner procedure: no computer during the study; interval confirmed server-side; USB power only for the first charge and the post-inspection recharge | Recorded in the Protocol (sections 2, 9, 10) | 45-01 protocol, 45-03 Task 1/4 |
 | CONTEXT | D-09 restore production interval (CONFIRMED) | Covered | 45-03 Task 4/5 |
 | PLANNER | D-10 park-window rule for the BATTERY EMPTY park at 3300 mV (CONFIRMED 2026-10-05) | Covered | 45-01, 45-02 |
-| PLANNER | D-11 reference interval for the continuity gates at 60 s (was O-1; CONFIRMED 2026-10-05, option 3: mean gap of the first 48 h, gaps above 3x excluded, whole seconds, frozen before the verdict) | Covered; tool implemented, freeze pending the run | 45-01 protocol 4a, 45-03 Task 3 (48 h freeze), 45-04 Task 0 (implemented) |
+| PLANNER | D-11 reference interval for the continuity gates at 60 s (was O-1; CONFIRMED 2026-10-05, option 3: mean gap of the first 48 h, gaps above 3x excluded, whole seconds, frozen before the verdict) | Covered; tool implemented, frozen at 70 s on 2026-10-08 before any verdict | 45-01 protocol 4a, 45-03 Task 3 (48 h freeze), 45-04 Task 0 (implemented) |
 | OWNER | D-12 accepted comparability limitations (post-Phase-34 firmware vs run one; unknown refresh share) | Recorded as known limitations; Phase 46 must carry them | 45-01 protocol, Phase 46 |
 
 Deferred ideas (solar, image-download/refresh energy) are not planned.

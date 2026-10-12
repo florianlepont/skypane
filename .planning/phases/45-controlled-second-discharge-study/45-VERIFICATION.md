@@ -1,16 +1,14 @@
 ---
 phase: 45-controlled-second-discharge-study
 verified: 2026-10-12T00:00:00Z
-status: human_needed
+status: passed
 score: 3/3 success criteria verified in the repository; owner-reported physical facts not independently verifiable
 gaps: []
 human_verification:
   - test: "Owner confirms the physical-run facts that exist only as owner statements"
-    expected: "60 s in force, 4110 mV pre-disconnect, pack normal on inspection, production 300 s and quiet hours 23:30-06:00 restored"
-    why_human: "No access to the frame, the VPS or the companion; these are recorded as (owner-reported)"
+    result: "Confirmed by the owner in chat on 2026-10-12"
   - test: "Owner accepts 'depleted' as the recorded end_reason for a park end (3296 mV, not 0 %)"
-    expected: "Accepted as a park end, with the nuance kept in Results"
-    why_human: "Judgement on a tool-enum workaround"
+    result: "Accepted by the owner in chat on 2026-10-12, as a park end with the nuance kept in Results"
 ---
 
 # Phase 45 Verification
@@ -44,3 +42,6 @@ Goal: the owner can reproduce a second battery-discharge study whose evidence is
 
 ## Could not verify
 Physical-run facts (owner-reported), the VPS-side export query, deployed server revision (read from GitHub Actions), the 48 h export file (kept off-repo, only its hash is recorded), and commit order beyond git history (confirmed via git log).
+
+## Owner acceptance (2026-10-12)
+The owner confirmed in chat both human-verification items: the owner-reported physical facts, and `end_reason: depleted` accepted as a park end (last reading 3296 mV, not 0 %). Status moved from human_needed to passed.

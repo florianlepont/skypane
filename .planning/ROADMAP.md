@@ -16,7 +16,7 @@ V1.1 begins by improving the companion through a task-based bilingual usability 
 - Decimal phases are urgent insertions created only when needed.
 
 - [x] **Phase 44: Companion Walkthrough and Focused Bilingual Polish** - Resolve the highest-value observed companion friction without a redesign. (completed 2026-10-04, owner-validated)
-- [ ] **Phase 45: Controlled Second Discharge Study** - Produce reproducible, comparable alternate-cadence battery evidence.
+- [x] **Phase 45: Controlled Second Discharge Study** - Produce reproducible, comparable alternate-cadence battery evidence.
 - [ ] **Phase 46: Two-Run Battery Analysis and Operating Decision** - Derive the model and select the field cadence and pack policy.
 - [ ] **Phase 47: Integrated Field Validation and Decision Record** - Confirm the policy on the real frame and publish the operating baseline.
 
@@ -76,6 +76,6 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 44. Companion Walkthrough and Focused Bilingual Polish | v1.1 | 12/12 | Complete | 2026-10-04 |
-| 45. Controlled Second Discharge Study | v1.1 | 4/4 | Plans complete (phase verification pending) | - |
+| 45. Controlled Second Discharge Study | v1.1 | 4/4 | Complete | 2026-10-12 |
 | 46. Two-Run Battery Analysis and Operating Decision | v1.1 | 0/TBD | Not started | - |
 | 47. Integrated Field Validation and Decision Record | v1.1 | 0/TBD | Not started | - |
