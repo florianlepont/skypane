@@ -208,12 +208,16 @@ Your procedure: open the live companion Device page, type the chosen value in se
 
 ## Owner decision
 
+Recorded from the owner's chat reply of 2026-10-12, in the owner's own words (French, quoted) with an English gloss. Table figures are copied from the autonomy and freshness tables above.
+
 | Field | Value |
 |---|---|
-| Chosen normal wake interval (seconds) | pending (owner) |
-| Autonomy at that interval (central / minimum, from the table) | pending (owner) |
-| Freshness accepted (worst-case data age) | pending (owner) |
-| Rationale, in the owner's words | pending (owner) |
-| Battery pack (retain / replace) and reason against the criteria | pending (owner) |
+| Chosen normal wake interval (seconds) | 300 (the owner wrote "5 minutes"). Temporary: "en attendant le remplacement de la batterie". |
+| Autonomy at that interval (central / minimum, from the table) | 11.1843 days / 11.1692 days, to the BATTERY EMPTY park, for the current pack |
+| Freshness accepted (worst-case data age) | 314.0402 s |
+| Rationale, in the owner's words | "en attendant le remplacement de la batterie, je vais mettre 5 minutes" (while waiting for the battery replacement, I will set 5 minutes). This is today's production value. |
+| Battery pack (retain / replace) and reason against the criteria | Replace. The owner wrote "je vais changer la batterie" (I am going to change the battery). No reason against the criteria was given. The candidate pack is not yet named and its checks (see "Owner to verify") are not yet done. |
 | Applied on the live Device page (date, read-back value) | pending (owner) |
-| Recorded by | pending (owner) |
+| Recorded by | The owner decided in chat on 2026-10-12; the entry was written by Claude on the owner's behalf. |
+
+Consequence to keep in view: the interval was chosen for the current pack. The autonomy figures scale with usable charge, so after the new pack is fitted the interval choice should be looked at again with the new pack's capacity.
