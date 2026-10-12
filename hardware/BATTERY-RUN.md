@@ -1119,6 +1119,28 @@ Nothing else changes: thresholds (0.95 coverage, 3 intervals for the largest
 gap, 100 mV, 3400 mV), the 60 s cadence and the 21-day ceiling are as
 pre-registered.
 
+## Run 2 Run Conditions
+
+Everything in this section was reported by the owner; none of it was measured
+by the repository tooling. Nothing here is a verdict or a figure (see
+`## Run 2 Results`).
+
+- **End of the run.** The owner stopped the run on 2026-10-12 because the frame
+  had entered the BATTERY EMPTY park (hourly check-ins) and would have taken
+  days to reach 0 %. The last row in the export is 2026-10-12T16:22:02+00:00.
+  The frame did not reach a dead battery and the 21-day ceiling was not
+  reached.
+- **Interval and quiet hours.** The 60 s interval was set for the study with
+  quiet hours disabled. After the run the owner restored the production wake
+  interval to 300 s and quiet hours to enabled 23:30-06:00, and read both values
+  back from the companion page after saving.
+- **Pack inspection.** The owner inspected the pack before any recharge and
+  reported it normal.
+- **Not reported.** NVS boot counts (the frame was never connected to a
+  computer), post-mortem wake reason, any other anomaly.
+- **Raw export.** Saved by the owner with the read-only query of section 12 and
+  committed unchanged as `hardware/logs/battery-run2-export.jsonl`.
+
 ## Run 2 Results
 
 Every figure in this section is copied from the output of
