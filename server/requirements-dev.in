@@ -28,6 +28,6 @@ pytest-socket==0.8.1
 pytest-playwright==0.9.0
 # Type checks the pure-core modules listed in pyproject.toml's
 # [tool.mypy]; dev-only, never deployed.
-mypy==2.3.1
+mypy==2.4.0
 # Stubs for requests, reached by imports of the typed modules above.
 types-requests==2.33.0.20260906
