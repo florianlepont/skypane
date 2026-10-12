@@ -62,9 +62,9 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 46-01-PLAN.md — `logtools.py battery-model`: like-for-like two-run solve (both runs to the first reading at or below 3300 mV), 108-scenario envelope, autonomy for 300/600/900/1800 s, mandatory assumptions / continuity-FAIL / "does not measure" blocks, refusals, tests (wave 1)
-- [ ] 46-02-PLAN.md — POL-03 tests: companion save -> HTTP `sleep_s` for 60..3600 candidates, park/display-off precedence over HTTP, exact recovery value, `wake.py` parity (wave 1)
-- [ ] 46-03-PLAN.md — Committed `battery-model.json` with byte-identical reproduction test; `hardware/BATTERY-MODEL.md` with autonomy table, uncertainty, limitations, pack criteria and a blank owner-decision block (wave 2)
+- [x] 46-01-PLAN.md — `logtools.py battery-model`: like-for-like two-run solve (both runs to the first reading at or below 3300 mV), 108-scenario envelope, autonomy for 300/600/900/1800 s, mandatory assumptions / continuity-FAIL / "does not measure" blocks, refusals, tests (wave 1)
+- [x] 46-02-PLAN.md — POL-03 tests: companion save -> HTTP `sleep_s` for 60..3600 candidates, park/display-off precedence over HTTP, exact recovery value, `wake.py` parity (wave 1)
+- [x] 46-03-PLAN.md — Committed `battery-model.json` with byte-identical reproduction test; `hardware/BATTERY-MODEL.md` with autonomy table, uncertainty, limitations, pack criteria and a blank owner-decision block (wave 2)
 - [ ] 46-04-PLAN.md — Owner chooses the interval and the pack, applies the interval on the live Device page; decisions recorded (wave 3, owner checkpoints)
 
 ### Phase 47: Integrated Field Validation and Decision Record
@@ -83,5 +83,5 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 44. Companion Walkthrough and Focused Bilingual Polish | v1.1 | 12/12 | Complete | 2026-10-04 |
 | 45. Controlled Second Discharge Study | v1.1 | 4/4 | Complete | 2026-10-12 |
-| 46. Two-Run Battery Analysis and Operating Decision | v1.1 | 0/4 | Not started | - |
+| 46. Two-Run Battery Analysis and Operating Decision | v1.1 | 3/4 | In Progress (46-04 owner decisions pending) | - |
 | 47. Integrated Field Validation and Decision Record | v1.1 | 0/TBD | Not started | - |
