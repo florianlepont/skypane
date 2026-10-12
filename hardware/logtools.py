@@ -110,6 +110,7 @@ import hashlib
 import json
 import os
 import re
+import statistics
 import subprocess
 import sys
 
@@ -1630,6 +1631,177 @@ def cmd_selftest(_args):
         all_ok = False
 
     return 0 if all_ok else 1
+
+
+# --- Two-run battery model --------------------------------------------------
+
+# Reading at or below which both runs are cut: the BATTERY EMPTY park level.
+MODEL_CUT_MV = DEFAULT_PARK_MV
+# Configured wake intervals, in seconds, that the autonomy table covers.
+MODEL_INTERVALS_S = (300, 600, 900, 1800)
+# Run-one wake energy over run-two wake energy; at least 1 because the newer
+# firmware shortened the wake.
+MODEL_K_GRID = (1.0, 1.5, 2.0)
+# Run-two usable charge over run-one usable charge, minus one.
+MODEL_D_GRID = (-0.05, 0.0, 0.05)
+# Trailing rolling-median widths, in readings, of the run-one cut sensitivity.
+MODEL_SMOOTH_WINDOWS = (5, 49)
+# Wake-energy ratios swept one at a time with equal usable charge.
+MODEL_K_SWEEP = (1.0, 1.25, 1.5, 1.75, 2.0)
+# Usable-charge ratios (minus one) swept one at a time with equal wake energy.
+MODEL_D_SWEEP = (-0.10, 0.0, 0.10)
+
+
+def first_at_or_below(polls, cut_mv):
+    """Index of the first poll whose reading is at or below cut_mv, else None."""
+    for i, p in enumerate(polls):
+        if p.mv <= cut_mv:
+            return i
+    return None
+
+
+def rolling_median_cut(polls, cut_mv, window):
+    """Index of the first poll whose trailing median of `window` readings
+    (that poll and the window-1 before it) is at or below cut_mv, else None.
+    Nothing is defined before `window` readings exist.
+    """
+    for i in range(window - 1, len(polls)):
+        if statistics.median(p.mv for p in polls[i - window + 1:i + 1]) <= cut_mv:
+            return i
+    return None
+
+
+def window_counts(polls, end_idx):
+    """Counts for the window from the first poll to polls[end_idx] inclusive:
+    polls, elapsed seconds, mean gap in seconds, and the cut poll's time and
+    reading. end_idx must be at least 1.
+    """
+    elapsed = (polls[end_idx].ts - polls[0].ts).total_seconds()
+    return {
+        "polls": end_idx + 1,
+        "elapsed_s": elapsed,
+        "mean_gap_s": elapsed / end_idx,
+        "cut_ts": polls[end_idx].ts.isoformat(),
+        "cut_mv": polls[end_idx].mv,
+    }
+
+
+def fit_two_runs(n1, t1, n2, t2, k=1.0, d=0.0):
+    """Closed-form solve of N*E + P*T = Q for two runs, in units of run-one
+    charge: E is the run-two energy per wake (charge per wake) and P the
+    standing consumption (charge per second). Run one's wake energy is k
+    times run two's and run two's usable charge is 1 + d. A zero determinant
+    or a standing consumption not above zero sets standing_nonpositive.
+    """
+    a, b = n1 * k, t1
+    det = a * t2 - b * n2
+    if det == 0:
+        return {"wake": None, "standing": None, "standing_nonpositive": True}
+    wake = (t2 - b * (1.0 + d)) / det
+    standing = (a * (1.0 + d) - n2) / det
+    return {"wake": wake, "standing": standing,
+            "standing_nonpositive": standing <= 0}
+
+
+def ratio_and_ceiling(n1, t1, n2, t2):
+    """Wake-to-standing ratio r = E/P in seconds and the autonomy ceiling
+    Q/P = n1 * r + t1 (seconds, and days), for equal wake energy and equal
+    usable charge. Refuses when the faster run does not have more cycles in
+    less time.
+    """
+    if n2 <= n1 or t1 <= t2:
+        raise RunReportError(
+            "the faster run must have more cycles in less time "
+            "(run one: %s cycles in %s s, run two: %s cycles in %s s)" %
+            (n1, t1, n2, t2))
+    ratio = (t1 - t2) / (n2 - n1)
+    ceiling = n1 * ratio + t1
+    return {"ratio_s": ratio, "ceiling_s": ceiling,
+            "ceiling_days": ceiling / 86400.0}
+
+
+def autonomy_days(wake, standing, period_s):
+    """Days to the cut at a mean cycle period of period_s seconds, or None
+    when the standing consumption is unknown or not above zero.
+    """
+    if wake is None or standing is None or standing <= 0:
+        return None
+    return period_s / (wake + standing * period_s) / 86400.0
+
+
+def _envelope_scenarios(run1_cuts, run2_counts, overheads_s, intervals_s):
+    out = []
+    for cut_label, n1, t1 in run1_cuts:
+        for r2_label, n2, t2 in run2_counts:
+            for k in MODEL_K_GRID:
+                for d in MODEL_D_GRID:
+                    fit = fit_two_runs(n1, t1, n2, t2, k, d)
+                    for oh_label, oh in overheads_s:
+                        out.append({
+                            "cut": cut_label, "run2": r2_label, "k": k, "d": d,
+                            "overhead": oh_label,
+                            "wake": fit["wake"], "standing": fit["standing"],
+                            "standing_nonpositive": fit["standing_nonpositive"],
+                            "days": {i: autonomy_days(fit["wake"], fit["standing"], i + oh)
+                                     for i in intervals_s},
+                        })
+    return out
+
+
+def _scenario_axes(s):
+    return {key: s[key] for key in ("cut", "run2", "k", "d", "overhead")}
+
+
+def build_envelope(run1_cuts, run2_counts, overheads_s, intervals_s):
+    """Enumerate every combination of run-one cut, run-two cycle count,
+    wake-energy ratio, usable-charge ratio and awake overhead, and report
+    per interval the central, minimum and maximum days over the combinations
+    whose standing consumption is above zero. run1_cuts is [(label, n1, t1)],
+    run2_counts is [(label, n2, t2)], overheads_s is [(label, seconds)]; the
+    first entry of each list, with k 1 and d 0, is the central scenario.
+    """
+    scenarios = _envelope_scenarios(run1_cuts, run2_counts, overheads_s, intervals_s)
+    central_axes = {"cut": run1_cuts[0][0], "run2": run2_counts[0][0], "k": 1.0,
+                    "d": 0.0, "overhead": overheads_s[0][0]}
+    valid = [s for s in scenarios if not s["standing_nonpositive"]]
+    nonpositive = len(scenarios) - len(valid)
+    per_interval = {}
+    for interval in intervals_s:
+        with_days = [s for s in valid if s["days"][interval] is not None]
+        central = [s for s in with_days if _scenario_axes(s) == central_axes]
+        low = min(with_days, key=lambda s: s["days"][interval], default=None)
+        high = max(with_days, key=lambda s: s["days"][interval], default=None)
+        pick = {}
+        for name, s in (("central", central[0] if central else None),
+                        ("minimum", low), ("maximum", high)):
+            pick[name] = (None if s is None else
+                          {"days": s["days"][interval], "scenario": _scenario_axes(s)})
+        pick["nonpositive_count"] = nonpositive
+        per_interval[interval] = pick
+    return {"scenario_count": len(scenarios), "nonpositive_count": nonpositive,
+            "intervals": per_interval, "scenarios": scenarios}
+
+
+def _sweep_row(n1, t1, n2, t2, k, d, overhead_s, intervals_s):
+    fit = fit_two_runs(n1, t1, n2, t2, k, d)
+    standing = fit["standing"]
+    ceiling = (1.0 / standing / 86400.0
+               if standing is not None and standing > 0 else None)
+    return {"k": k, "d": d, "ceiling_days": ceiling,
+            "days": {i: autonomy_days(fit["wake"], standing, i + overhead_s)
+                     for i in intervals_s}}
+
+
+def sweep(n1, t1, n2, t2, overhead_s, intervals_s):
+    """One-at-a-time sensitivities: the wake-energy ratio at equal usable
+    charge, and the usable-charge ratio at equal wake energy.
+    """
+    return {
+        "k_sweep": [_sweep_row(n1, t1, n2, t2, k, 0.0, overhead_s, intervals_s)
+                    for k in MODEL_K_SWEEP],
+        "d_sweep": [_sweep_row(n1, t1, n2, t2, 1.0, d, overhead_s, intervals_s)
+                    for d in MODEL_D_SWEEP],
+    }
 
 
 # --- CLI ------------------------------------------------------------------

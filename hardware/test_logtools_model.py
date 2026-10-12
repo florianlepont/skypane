@@ -56,10 +56,13 @@ def test_charge_cancels_from_ratio_and_autonomy():
     for period in (314, 614, 914, 1814):
         expected = res["ceiling_s"] * period / (res["ratio_s"] + period) / 86400.0
         assert close(lt.autonomy_days(fit["wake"], fit["standing"], period), expected)
-    # Scaling the charge of both runs scales wake and standing, not the autonomy.
-    n1b, t1b, n2b, t2b = synthetic_runs(energy, standing, 328.0, 74.0)
+    # The same drain measured with a pack of three times the charge, wake and
+    # standing scaled with it, gives the same observed counts and autonomy.
+    n1b, t1b, n2b, t2b = synthetic_runs(
+        energy * 3, standing * 3, 328.0, 74.0, charge1=3.0, charge2=3.0)
+    assert close(n1b, n1) and close(t2b, t2)
     scaled = lt.fit_two_runs(n1b, t1b, n2b, t2b)
-    assert close(lt.autonomy_days(scaled["wake"] * 3, scaled["standing"] * 3, 614),
+    assert close(lt.autonomy_days(scaled["wake"], scaled["standing"], 614),
                  lt.autonomy_days(fit["wake"], fit["standing"], 614))
 
 
