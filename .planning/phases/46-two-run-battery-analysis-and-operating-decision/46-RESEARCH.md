@@ -325,15 +325,15 @@ python3 hardware/logtools.py battery-model hardware/logs/battery-run-server.log 
 | A6 | The unrecorded run-two polls (354 vs nominal) were real wakes, so true N2 is 6148 to 6502 | Verified Inputs | If they were not wakes, N2 = 6148 is right and the upper scenario is unneeded |
 | A7 | The current pack's protection circuit exists as the BOM states | POL-02 | Safety criterion unverified beyond the listing; owner to confirm |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Run-one cut rule for the headline.**
+1. **Run-one cut rule for the headline.** (RESOLVED: raw rule as the headline, smoothed cuts as a named sensitivity; 46-01 Task 1.)
    - Known: raw first-<=3300 is a noise dip (cut at 11.35 d); smoothed cuts give 11.80 to 11.90 d.
    - Unclear: which the owner prefers as the headline.
    - Recommendation: raw (symmetric with run two) headline, smoothed in the envelope, both shown.
-2. **Is E equal across runs?** Not answerable from the two runs. Recommendation: label the 10/15/30 min upper values "open until Phase 47"; suggest Phase 47 record one extra interval or a current measurement. Do not extend scope here.
-3. **Quiet-hours adjustment in the table?** Keep as a note unless the owner asks.
-4. **Does the owner want one deliverable or two** (`BATTERY-MODEL.md` plus a decision section)? Recommend one document with an "Owner decision" block left blank for the interval and the pack, completed at the end of the phase after the owner picks.
+2. **Is E equal across runs?** (RESOLVED: upper values labelled open until Phase 47, recommendation written in the document; 46-03 Task 2.) Not answerable from the two runs. Recommendation: label the 10/15/30 min upper values "open until Phase 47"; suggest Phase 47 record one extra interval or a current measurement. Do not extend scope here.
+3. **Quiet-hours adjustment in the table?** (RESOLVED: a note only; 46-03 Task 2.) Keep as a note unless the owner asks.
+4. **Does the owner want one deliverable or two** (RESOLVED: one document with a blank owner-decision block; 46-03 Task 2.) (`BATTERY-MODEL.md` plus a decision section)? Recommend one document with an "Owner decision" block left blank for the interval and the pack, completed at the end of the phase after the owner picks.
 
 ## Environment Availability
 

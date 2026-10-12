@@ -2,7 +2,7 @@
 phase: 46
 slug: two-run-battery-analysis-and-operating-decision
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-10-12
 ---
@@ -62,6 +62,6 @@ created: 2026-10-12
 - [ ] No 3 consecutive tasks without automated verify
 - [ ] Wave 0 covers all missing references
 - [ ] No watch-mode flags
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** plan check passed after revision 2026-10-12 (Wave 0 files are created during execution)
