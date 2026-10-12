@@ -47,8 +47,8 @@ V1.1 begins by improving the companion through a task-based bilingual usability 
 Plans:
 - [x] 45-01-PLAN.md — Run 2 Protocol pre-registered and CONFIRMED by the owner 2026-10-05 (60 s cadence, 21-day ceiling, park-window rule); the reference interval for the continuity gates (D-11) also CONFIRMED 2026-10-05
 - [x] 45-02-PLAN.md — logtools `run-report`: raw export, separate continuity / voltage-validity / baseline verdicts, three-way cycle reconciliation, with tests
-- [ ] 45-03-PLAN.md — Owner runs the physical discharge; start/end values and production-interval restore recorded (human-action checkpoints). Run started 2026-10-05T14:08Z per the owner; start values recorded; 48 h reference-interval freeze done 2026-10-08 (70 s); run still in progress, paused at the long-wait checkpoint (not complete)
-- [ ] 45-04-PLAN.md — Run report on owner-supplied export and record `## Run 2 Results` (blocked unless real data is supplied); its Task 0 (frozen `reference_interval_s` in run-report plus the `reference-interval` 48 h helper) is already implemented
+- [x] 45-03-PLAN.md — Owner ran the physical discharge (disconnect 2026-10-05T14:08Z, 60 s cadence); start values, the 48 h reference-interval freeze (70 s, 2026-10-08) and the end/restore record are in `hardware/BATTERY-RUN.md`. Stopped by the owner at the BATTERY EMPTY park on 2026-10-12, not at 0 %; production interval 300 s and quiet hours 23:30-06:00 restored
+- [x] 45-04-PLAN.md — `run-report` run on the owner-supplied export; `## Run 2 Results` recorded from its output. Continuity FAIL (coverage 0.946, largest gap 5.97 intervals; diagnosed, thresholds not retuned), voltage validity PASS, baseline PASS
 
 ### Phase 46: Two-Run Battery Analysis and Operating Decision
 **Goal**: The owner can use two observed battery runs to choose and apply one defensible field operating policy.
@@ -76,6 +76,6 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 44. Companion Walkthrough and Focused Bilingual Polish | v1.1 | 12/12 | Complete | 2026-10-04 |
-| 45. Controlled Second Discharge Study | v1.1 | 2/4 | In Progress (45-03 physical run pending) | - |
+| 45. Controlled Second Discharge Study | v1.1 | 4/4 | Plans complete (phase verification pending) | - |
 | 46. Two-Run Battery Analysis and Operating Decision | v1.1 | 0/TBD | Not started | - |
 | 47. Integrated Field Validation and Decision Record | v1.1 | 0/TBD | Not started | - |
