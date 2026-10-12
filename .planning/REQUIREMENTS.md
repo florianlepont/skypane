@@ -30,6 +30,7 @@
 
 - [ ] **VAL-01**: The owner can confirm on the real frame that the selected field cadence produces the expected healthy check-in behavior and retains battery-critical and display-off safety overrides.
 - [ ] **VAL-02**: The project records the final field operating decision, including any conditional battery-pack change and its validation status.
+- [ ] **VAL-03**: The owner can measure the frame's sleep current on the real frame and record it against the six-month autonomy target (average current of about 1 mA or less), with the finding of where any excess standing draw comes from or an explicit statement that the measurement settles the question.
 
 ## Future Requirements
 
@@ -71,12 +72,13 @@
 | CMP-04 | Phase 44 | Complete |
 | VAL-01 | Phase 47 | Pending |
 | VAL-02 | Phase 47 | Pending |
+| VAL-03 | Phase 47 | Pending |
 
 **Coverage:**
-- v1.1 requirements: 13 total
-- Mapped to phases: 13
+- v1.1 requirements: 14 total
+- Mapped to phases: 14
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-09-30*
-*Last updated: 2026-09-30 after V1.1 roadmap order change*
+*Last updated: 2026-10-12 after adding VAL-03 (six-month autonomy target) to Phase 47*
