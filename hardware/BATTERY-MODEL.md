@@ -217,7 +217,21 @@ Recorded from the owner's chat reply of 2026-10-12, in the owner's own words (Fr
 | Freshness accepted (worst-case data age) | 314.0402 s |
 | Rationale, in the owner's words | "en attendant le remplacement de la batterie, je vais mettre 5 minutes" (while waiting for the battery replacement, I will set 5 minutes). This is today's production value. |
 | Battery pack (retain / replace) and reason against the criteria | Replace. The owner wrote "je vais changer la batterie" (I am going to change the battery). No reason against the criteria was given. The candidate pack is not yet named and its checks (see "Owner to verify") are not yet done. |
-| Applied on the live Device page (date, read-back value) | pending (owner) |
+| Applied on the live Device page (date, read-back value) | The owner wrote "Done c'est bon" on 2026-10-12. The read-back value was not stated in the reply; 300 is the value the owner restored after run two. |
 | Recorded by | The owner decided in chat on 2026-10-12; the entry was written by Claude on the owner's behalf. |
 
 Consequence to keep in view: the interval was chosen for the current pack. The autonomy figures scale with usable charge, so after the new pack is fitted the interval choice should be looked at again with the new pack's capacity.
+
+## Replacement pack candidates (web search, 2026-10-12, not verified)
+
+Found by Claude on the owner's request. Each line comes from the vendor page named; nothing was bought, measured or checked against the enclosure or the charger. None of the pages states which wire is positive, so polarity must be checked with a multimeter before any connection (see Battery Connector Verification in BOM.md). Stock and prices change.
+
+| Candidate | Capacity | Size (mm, as listed) | Connector | Protection stated | Price and stock when read |
+|---|---|---|---|---|---|
+| Soldered 333288 (https://soldered.com/products/li-ion-battery-5000mah-3-7v) | 5000 mAh | 10 x 55 x 75 | JST-PH 2 mm female | yes (overcharge, undervoltage, short circuit) | EUR 14.95, out of stock, about 6 weeks |
+| Electrokit 41037112 (https://www.electrokit.com/en/battery-lipo-3.7v-5000mah-jst-ph) | 5000 mAh | 67.4 x 54.6 x 10.1 | JST-PH, 50 mm cable | yes (PCM), 1C charge and discharge | SEK 239 incl. VAT, out of stock, estimated 2026-10-30 |
+| Melopero MEL-BAT-4000 (https://www.melopero.com/?p=185001) | 4000 mAh | up to 6.5 x 60.5 x 84 | "JST PH 2.0 compatible" | not stated | EUR 8.81, in stock (16) |
+| Soldered 333287 (https://www.mouser.com/catalog/specsheets/Soldered_333287 li-ion battery 4000mah 37v.pdf) | 4000 mAh | not read | JST-PH 2 mm | yes (per search summary) | EUR 14.50 per search summary; not opened |
+| OpenELAB 805080 (https://openelab.io/a/s/products/openelab-805080-4000mah-polymer-lithium-battery) | 4000 mAh | not read | JST PH2.0, 2 pin | yes (per search summary) | about EUR 21 to 23 per search summary; sold out when read |
+
+Notes: the two 5000 mAh listings give different sizes; confirm the real size with the seller. The size of the current Kubii pack is not recorded in this repository, and no enclosure exists, so fit cannot be judged here.
