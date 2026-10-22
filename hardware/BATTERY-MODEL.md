@@ -219,7 +219,7 @@ Recorded from the owner's chat reply of 2026-10-12, in the owner's own words (Fr
 | Freshness accepted (worst-case data age) | 314.0402 s |
 | Rationale, in the owner's words | "en attendant le remplacement de la batterie, je vais mettre 5 minutes" (while waiting for the battery replacement, I will set 5 minutes). This is today's production value. |
 | Battery pack (retain / replace) and reason against the criteria | Replace. The owner wrote "je vais changer la batterie" (I am going to change the battery). No reason against the criteria was given. Pack chosen by the owner on 2026-10-22: Soldered 333290, Li-Po Battery 10000mAh 3.7V (see "Chosen replacement pack"). Its checks (see "Owner to verify") are not yet done. |
-| Replacement pack ordered | The owner wrote "j'ai commandé la batterie" (I ordered the battery) on 2026-10-22. The reference was not restated; it is taken to be the Soldered 333290 chosen above. To confirm when the pack arrives (order reference not recorded here). |
+| Replacement pack ordered | Not yet. The owner wrote "j'ai commandé la batterie" on 2026-10-22, then said it was not yet paid (shipping from the vendor was about 10 euros) and asked for another reference. The pack to buy is still open. |
 | Applied on the live Device page (date, read-back value) | The owner wrote "Done c'est bon" on 2026-10-12. The read-back value was not stated in the reply; 300 is the value the owner restored after run two. |
 | Recorded by | The owner decided in chat on 2026-10-12; the entry was written by Claude on the owner's behalf. |
 
@@ -257,7 +257,7 @@ Trade-off to accept: at six months the interval is likely an hour or more, which
 
 ## Chosen replacement pack
 
-Chosen by the owner on 2026-10-22: **Soldered 333290, Li-Po Battery 10000mAh 3.7V** (https://soldered.com/products/li-ion-battery-10000mah-3-7v). Facts below are from the vendor page read on 2026-10-22; nothing was bought or measured.
+Candidate chosen by the owner on 2026-10-22 (not yet bought, may change): **Soldered 333290, Li-Po Battery 10000mAh 3.7V** (https://soldered.com/products/li-ion-battery-10000mah-3-7v). Facts below are from the vendor page read on 2026-10-22; nothing was bought or measured.
 
 | Item | Value |
 |---|---|
