@@ -153,6 +153,8 @@ Also not modelled: the share of wakes that refresh the panel, temperature, and p
 
 ## Recommendation for Phase 47
 
+The sleep-current measurement that Phase 47 needs is written step by step in `hardware/SLEEP-CURRENT.md`. Three places a lower average current could come from, in the order of how much they could save, none of them measured yet: (1) the standing draw between wakes (7.3045 mA in the central fit); (2) the awake time of a wake (14.0 s in run two, 27.8 s in run one); (3) the number of panel refreshes. Hash-skip already avoids redrawing an unchanged image.
+
 This is a suggestion for the next phase, not scope here. To test the equal-wake-energy assumption, record the real-frame validation at the chosen interval for long enough to give a third cadence point. If practical, also take one measured wake-current trace. Either one narrows the open upper side of the table.
 
 ## Battery pack: retain or replace
@@ -217,6 +219,7 @@ Recorded from the owner's chat reply of 2026-10-12, in the owner's own words (Fr
 | Freshness accepted (worst-case data age) | 314.0402 s |
 | Rationale, in the owner's words | "en attendant le remplacement de la batterie, je vais mettre 5 minutes" (while waiting for the battery replacement, I will set 5 minutes). This is today's production value. |
 | Battery pack (retain / replace) and reason against the criteria | Replace. The owner wrote "je vais changer la batterie" (I am going to change the battery). No reason against the criteria was given. Pack chosen by the owner on 2026-10-22: Soldered 333290, Li-Po Battery 10000mAh 3.7V (see "Chosen replacement pack"). Its checks (see "Owner to verify") are not yet done. |
+| Replacement pack ordered | The owner wrote "j'ai commandé la batterie" (I ordered the battery) on 2026-10-22. The reference was not restated; it is taken to be the Soldered 333290 chosen above. To confirm when the pack arrives (order reference not recorded here). |
 | Applied on the live Device page (date, read-back value) | The owner wrote "Done c'est bon" on 2026-10-12. The read-back value was not stated in the reply; 300 is the value the owner restored after run two. |
 | Recorded by | The owner decided in chat on 2026-10-12; the entry was written by Claude on the owner's behalf. |
 
