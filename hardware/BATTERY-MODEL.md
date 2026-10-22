@@ -2,7 +2,7 @@
 
 Status: evidence complete; interval and pack decisions pending the owner.
 
-Every figure in this document is copied from `hardware/logs/battery-model.json`, the machine output of `hardware/logtools.py battery-model`, except the sections "Six-month target" and "Chosen replacement pack" at the end, which contain plain arithmetic written by Claude and labelled as such. Nothing else was typed, rounded or recomputed by hand. This document does not choose the interval and does not choose the pack. Those choices are yours, in the last section.
+Every figure in this document is copied from `hardware/logs/battery-model.json`, the machine output of `hardware/logtools.py battery-model`, except the sections "Six-month target", "Chosen replacement pack" and "Evidence from the parked phase" at the end, which contain plain arithmetic written by Claude and labelled as such. Nothing else was typed, rounded or recomputed by hand. This document does not choose the interval and does not choose the pack. Those choices are yours, in the last section.
 
 ## How to reproduce
 
@@ -283,3 +283,21 @@ The tool was run for the current 3000 mAh pack at 60 s and 300 s (`--intervals 6
 | 300 | 11.1843 | 11.1692 | 22.5832 |
 
 Scaling those by 10000 / 3000 (about 3.33) gives roughly: at 60 s, central 17.6 days, minimum 16.7 days, maximum 22.8 days; at 300 s, central 37.3 days, minimum 37.2 days, maximum 75.3 days. This assumes the usable charge of the new pack is 10000/3000 of the usable charge of the current one. Both capacities are vendor ratings and the current pack's real capacity was never measured, so the scaling is a rough guide. The 60 s row is inside the observed range (run two ran at 60 s); the 300 s row is too. Neither reaches six months.
+
+## Evidence from the parked phase (analysis by Claude, not tool output; 2026-10-22)
+
+The central fit above says about 7.3 mA of the drain does not depend on how often the frame wakes. Data already in the repository points the other way. Nothing here is a measurement of current; it is arithmetic on the committed run-two export and on figures printed above, and it needs a real check.
+
+1. **The parked phase barely discharged.** Run two ended its normal window at 2026-10-10T20:33:30 (3300 mV) and kept checking in hourly, parked, until 2026-10-12T16:22:02. After the first hours of rest (the voltage rose from 3296 to a peak of 3318 mV at 2026-10-11T00:34:20), it fell from 3318 mV to 3296 mV over 39.8 hours, 41 wakes. With the repository's discharge curve (`server/device_policy.battery_fraction`, 6.23 % to 5.86 %) and the 3000 mAh rating, that is about 11 mAh, an average of about 0.28 mA over that span. If the 7.3 mA drain had been present, the pack would have lost about 290 mAh (about 10 %) in 39.8 hours, a fall of several hundred millivolts, not 22 mV.
+2. **The two runs scale with awake time, not with a standing draw.** Per wake, run one used 0.923 mAh with 27.8104 s awake and run two 0.48796 mAh (tool figure) with 14.0402 s awake. The energy ratio is 1.892 and the awake-time ratio 1.981. The same figures give an average of about 119.5 mA while awake for run one and about 125.1 mA for run two. A fixed cost per awake second explains both runs without any standing draw.
+3. **What this suggests.** The envelope's upper side (the cases where the standing draw is close to zero) is more likely than the central fit. In that case the cost of a wake is the whole story: about 0.488 mAh per wake with the current firmware.
+
+Caveats: the voltage of a pack at rest creeps upward for hours, which hides part of the drain, so 0.28 mA is likely an underestimate; the curve and the 3000 mAh are ratings, not measurements; a parked frame may behave differently from a normal one; the average of 0.49 mA expected from the wakes alone (41 wakes of 0.48796 mAh over 39.8 hours) is higher than 0.28 mA, so the two are the same order of magnitude but do not match exactly.
+
+### What it would mean for autonomy (arithmetic, only if point 3 holds)
+
+With a 10000 mAh pack, an average current of 2.31 mA or less gives 180 days (10000 mAh over 4320 hours). With 0.48796 mAh per wake and 14.04 s of overhead per wake, the wake alone gives these averages: 300 s, about 5.6 mA (about 75 days); 600 s, about 2.9 mA (about 146 days); 900 s, about 1.9 mA (about 217 days); 1800 s, about 1.0 mA (about 430 days). Six months would then need an interval of roughly 12 to 14 minutes or more. Run two used one wake per 60 s plus 14 s overhead (23.7 mA, about 17.6 days), as above.
+
+### How to check without opening the frame
+
+Run the frame at a longer interval (for example 900 s) for a few days and read the battery voltage trend from the Health page or the export. Converting the fall in millivolts to charge with the curve gives the average current, which can be compared with the 1.9 mA this paragraph predicts. A multimeter in series would settle it directly (`hardware/SLEEP-CURRENT.md`), but it is not required for this check.
