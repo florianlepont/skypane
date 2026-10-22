@@ -2,7 +2,7 @@
 
 Status: evidence complete; interval and pack decisions pending the owner.
 
-Every figure in this document is copied from `hardware/logs/battery-model.json`, the machine output of `hardware/logtools.py battery-model`, except the section "Six-month target" at the end, which is plain arithmetic written by Claude and labelled as such. Nothing else was typed, rounded or recomputed by hand. This document does not choose the interval and does not choose the pack. Those choices are yours, in the last section.
+Every figure in this document is copied from `hardware/logs/battery-model.json`, the machine output of `hardware/logtools.py battery-model`, except the sections "Six-month target" and "Chosen replacement pack" at the end, which contain plain arithmetic written by Claude and labelled as such. Nothing else was typed, rounded or recomputed by hand. This document does not choose the interval and does not choose the pack. Those choices are yours, in the last section.
 
 ## How to reproduce
 
@@ -216,7 +216,7 @@ Recorded from the owner's chat reply of 2026-10-12, in the owner's own words (Fr
 | Autonomy at that interval (central / minimum, from the table) | 11.1843 days / 11.1692 days, to the BATTERY EMPTY park, for the current pack |
 | Freshness accepted (worst-case data age) | 314.0402 s |
 | Rationale, in the owner's words | "en attendant le remplacement de la batterie, je vais mettre 5 minutes" (while waiting for the battery replacement, I will set 5 minutes). This is today's production value. |
-| Battery pack (retain / replace) and reason against the criteria | Replace. The owner wrote "je vais changer la batterie" (I am going to change the battery). No reason against the criteria was given. The candidate pack is not yet named and its checks (see "Owner to verify") are not yet done. |
+| Battery pack (retain / replace) and reason against the criteria | Replace. The owner wrote "je vais changer la batterie" (I am going to change the battery). No reason against the criteria was given. Pack chosen by the owner on 2026-10-22: Soldered 333290, Li-Po Battery 10000mAh 3.7V (see "Chosen replacement pack"). Its checks (see "Owner to verify") are not yet done. |
 | Applied on the live Device page (date, read-back value) | The owner wrote "Done c'est bon" on 2026-10-12. The read-back value was not stated in the reply; 300 is the value the owner restored after run two. |
 | Recorded by | The owner decided in chat on 2026-10-12; the entry was written by Claude on the owner's behalf. |
 
@@ -251,3 +251,32 @@ What six months needs, in plain words: a bigger pack, a long interval, and above
 The measurement that settles it: the frame's current while asleep, read with a meter in series with the battery (a range that reads milliamps down to microamps), with the display idle. One reading says whether the standing draw is near 7 mA, which needs hardware or firmware work, or near or below 1 mA, which makes six months plausible. This extends the Phase 47 recommendation above.
 
 Trade-off to accept: at six months the interval is likely an hour or more, which does not tell you whether you will catch the next train. The owner has said autonomy wins when the two conflict.
+
+## Chosen replacement pack
+
+Chosen by the owner on 2026-10-22: **Soldered 333290, Li-Po Battery 10000mAh 3.7V** (https://soldered.com/products/li-ion-battery-10000mah-3-7v). Facts below are from the vendor page read on 2026-10-22; nothing was bought or measured.
+
+| Item | Value |
+|---|---|
+| Capacity | 10000 mAh (vendor rating, not measured) |
+| Size | 11 x 60 x 100 mm |
+| Connector | standard JST-PH 2 mm female |
+| Protection | the page says the battery has an implemented protection system against overcharge, undervoltage and short circuit |
+| Price and stock when read | EUR 23.95, 215 units in stock, ready to ship; new stock about 6 weeks |
+| Shipping | from an EU warehouse (Croatia), ground or courier only (battery, no air); France is not named, the page says to contact the seller if no option is offered |
+| Warranty | 2 years (standard EU, as stated on the page) |
+
+Fit: the owner measured **18 mm** of free depth behind the screen in the IKEA RODALM 30 x 40 cm frame (owner-reported, 2026-10-22). The pack is 11 mm thick, a margin of 7 mm. The free surface around the screen has not been measured.
+
+Still to do before connecting (owner): polarity of the wires with a multimeter (the page does not state it), the board's charge current against a 10000 mAh pack, and the free area for 60 x 100 mm.
+
+### Expected autonomy with this pack (arithmetic by Claude, not tool output)
+
+The tool was run for the current 3000 mAh pack at 60 s and 300 s (`--intervals 60,300`, nothing written to the repository). Central, minimum and maximum days to the BATTERY EMPTY park printed by the tool for the 3000 mAh pack:
+
+| Configured interval (s) | Central (days) | Minimum (days) | Maximum (days) |
+|---|---|---|---|
+| 60 | 5.2682 | 5.0174 | 6.8385 |
+| 300 | 11.1843 | 11.1692 | 22.5832 |
+
+Scaling those by 10000 / 3000 (about 3.33) gives roughly: at 60 s, central 17.6 days, minimum 16.7 days, maximum 22.8 days; at 300 s, central 37.3 days, minimum 37.2 days, maximum 75.3 days. This assumes the usable charge of the new pack is 10000/3000 of the usable charge of the current one. Both capacities are vendor ratings and the current pack's real capacity was never measured, so the scaling is a rough guide. The 60 s row is inside the observed range (run two ran at 60 s); the 300 s row is too. Neither reaches six months.
