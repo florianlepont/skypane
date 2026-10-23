@@ -8,5 +8,5 @@
 # To regenerate server/requirements.txt (and the dev lock) after editing
 # this file, run scripts/lock-deps.sh. Never hand-edit the hashes in the
 # compiled lock.
-Pillow==12.3.0
+Pillow==13.0.0
 requests==2.34.2
