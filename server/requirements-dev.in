@@ -25,7 +25,7 @@ pytest-cov==7.1.0
 pytest-socket==0.8.1
 # pytest fixtures (`page`, `browser`) for the companion browser tests;
 # dev-only, never deployed.
-pytest-playwright==0.9.0
+pytest-playwright==0.10.0
 # Type checks the pure-core modules listed in pyproject.toml's
 # [tool.mypy]; dev-only, never deployed.
 mypy==2.4.0
