@@ -1,6 +1,6 @@
 # Two-Run Battery Model and Operating Decision
 
-Status: evidence complete; interval and pack decisions pending the owner.
+Status: evidence complete. Owner decisions recorded (2026-10-12 and 2026-10-22): interval 300 s, provisional while waiting for a replacement pack; pack: replace, Soldered 333290, ordered and not yet received or checked. The value read back on the live Device page was not stated. Whether the standing draw is near 7 mA or near zero is open and is settled by the sleep-current measurement (VAL-03).
 
 Every figure in this document is copied from `hardware/logs/battery-model.json`, the machine output of `hardware/logtools.py battery-model`, except the sections "Six-month target", "Chosen replacement pack" and "Evidence from the parked phase" at the end, which contain plain arithmetic written by Claude and labelled as such. Nothing else was typed, rounded or recomputed by hand. This document does not choose the interval and does not choose the pack. Those choices are yours, in the last section.
 
@@ -44,7 +44,7 @@ The awake overhead is measured from the data: the observed mean gap minus the co
 
 Each time the frame wakes, it uses a fixed amount of charge. Between wakes it also draws a small steady amount while it sleeps. Two runs at two different cadences give two equations, and two equations separate those two unknowns.
 
-Under the assumptions below, two things depend only on the counted wakes and the elapsed time: the ratio between the cost of one wake and the standing draw, and the ceiling (the days a frame would last if wakes cost nothing). The rated capacity (3000 mAh, rated, not measured) is only used to convert those into mAh per wake and mA.
+Under the assumptions below (equal wake energy in both runs, which a later section questions), two things depend only on the counted wakes and the elapsed time: the ratio between the cost of one wake and the standing draw, and the ceiling (the days a frame would last if wakes cost nothing). The rated capacity (3000 mAh, rated, not measured) is only used to convert those into mAh per wake and mA.
 
 Central fit (basis: raw cut, observed run-two polls, equal wake energy, equal usable charge):
 
@@ -153,7 +153,7 @@ Also not modelled: the share of wakes that refresh the panel, temperature, and p
 
 ## Recommendation for Phase 47
 
-The sleep-current measurement that Phase 47 needs is written step by step in `hardware/SLEEP-CURRENT.md`. Three places a lower average current could come from, in the order of how much they could save, none of them measured yet: (1) the standing draw between wakes (7.3045 mA in the central fit); (2) the awake time of a wake (14.0 s in run two, 27.8 s in run one); (3) the number of panel refreshes. Hash-skip already avoids redrawing an unchanged image.
+The sleep-current measurement that Phase 47 needs is written step by step in `hardware/SLEEP-CURRENT.md`. Three places a lower average current could come from, none of them measured yet, so no order of importance is claimed: (1) the standing draw between wakes (7.3045 mA in the central fit, but the section "Evidence from the parked phase" suggests it may be close to zero; the sleep-current measurement decides); (2) the awake time of a wake (14.0 s in run two, 27.8 s in run one); (3) the number of panel refreshes. Hash-skip already avoids redrawing an unchanged image.
 
 This is a suggestion for the next phase, not scope here. To test the equal-wake-energy assumption, record the real-frame validation at the chosen interval for long enough to give a third cadence point. If practical, also take one measured wake-current trace. Either one narrows the open upper side of the table.
 
@@ -187,7 +187,7 @@ Arithmetic on the model, not a product claim: usable capacity scales every auton
 
 ### Recommendation for the owner to accept
 
-Retain the current pack if the minimum-days figure at the interval you choose is acceptable to you. The pack was inspected after run two and found normal (owner-reported, 2026-10-12), and it meets the compatibility criteria as documented. Otherwise replace it, subject to the non-negotiables above. This depends on your interval choice and is not a decision.
+Superseded on 2026-10-22 by the owner's decision to replace the pack (see "Owner decision"). Original text: retain the current pack if the minimum-days figure at the interval you choose is acceptable to you. The pack was inspected after run two and found normal (owner-reported, 2026-10-12), and it meets the compatibility criteria as documented. Otherwise replace it, subject to the non-negotiables above. This depends on your interval choice and is not a decision.
 
 ## Applying the interval
 
@@ -249,9 +249,9 @@ Owner goal, 2026-10-12: about six months between charges ("je cherche 6 mois"). 
 - The central fit puts the standing draw at 7.3045 mA, which is above every allowed value in the list. In the central fit, even an interval with no wake cost would leave the 3000 mAh pack at the 17.11-day ceiling.
 - The envelope also contains scenarios where the standing draw is close to zero (14 of 108 in the table above). The two runs cannot say which case is real.
 
-What six months needs, in plain words: a bigger pack, a long interval, and above all a much lower standing draw (roughly 1 mA or less). The model does not say what consumes the standing draw.
+What six months needs, in plain words: a bigger pack and a long interval, and, if the central fit is right, a much lower standing draw (roughly 1 mA or less). The model does not say what consumes the standing draw, and the section "Evidence from the parked phase" suggests there may be little of it; in that case the interval matters most.
 
-The measurement that settles it: the frame's current while asleep, read with a meter in series with the battery (a range that reads milliamps down to microamps), with the display idle. One reading says whether the standing draw is near 7 mA, which needs hardware or firmware work, or near or below 1 mA, which makes six months plausible. This extends the Phase 47 recommendation above.
+The measurement that settles it: the frame's current while asleep, read with a meter in series with the battery (a range that reads milliamps down to microamps), with the display idle. One reading says whether the standing draw is near 7 mA, which would need hardware or firmware work, or near or below 1 mA, which makes six months plausible with a long interval. This extends the Phase 47 recommendation above.
 
 Trade-off to accept: at six months the interval is likely an hour or more, which does not tell you whether you will catch the next train. The owner has said autonomy wins when the two conflict.
 
@@ -288,11 +288,11 @@ Scaling those by 10000 / 3000 (about 3.33) gives roughly: at 60 s, central 17.6 
 
 The central fit above says about 7.3 mA of the drain does not depend on how often the frame wakes. Data already in the repository points the other way. Nothing here is a measurement of current; it is arithmetic on the committed run-two export and on figures printed above, and it needs a real check.
 
-1. **The parked phase barely discharged.** Run two ended its normal window at 2026-10-10T20:33:30 (3300 mV) and kept checking in hourly, parked, until 2026-10-12T16:22:02. After the first hours of rest (the voltage rose from 3296 to a peak of 3318 mV at 2026-10-11T00:34:20), it fell from 3318 mV to 3296 mV over 39.8 hours, 41 wakes. With the repository's discharge curve (`server/device_policy.battery_fraction`, 6.23 % to 5.86 %) and the 3000 mAh rating, that is about 11 mAh, an average of about 0.28 mA over that span. If the 7.3 mA drain had been present, the pack would have lost about 290 mAh (about 10 %) in 39.8 hours, a fall of several hundred millivolts, not 22 mV.
-2. **The two runs scale with awake time, not with a standing draw.** Per wake, run one used 0.923 mAh with 27.8104 s awake and run two 0.48796 mAh (tool figure) with 14.0402 s awake. The energy ratio is 1.892 and the awake-time ratio 1.981. The same figures give an average of about 119.5 mA while awake for run one and about 125.1 mA for run two. A fixed cost per awake second explains both runs without any standing draw.
-3. **What this suggests.** The envelope's upper side (the cases where the standing draw is close to zero) is more likely than the central fit. In that case the cost of a wake is the whole story: about 0.488 mAh per wake with the current firmware.
+1. **The parked phase barely discharged.** Run two ended its normal window at 2026-10-10T20:33:30 (3300 mV) and kept checking in hourly, parked, until 2026-10-12T16:22:02. After the first hours of rest (the voltage rose from 3296 to a peak of 3318 mV at 2026-10-11T00:34:20), it fell from 3318 mV to 3296 mV over 39.8 hours, 41 check-ins (40 intervals). With the repository's discharge curve (`server/device_policy.battery_fraction`, 6.23 % to 5.86 %) and the 3000 mAh rating, that is about 11 mAh, an average of about 0.28 mA over that span. If the 7.3 mA drain had been present, the pack would have lost about 290 mAh (about 10 %) in 39.8 hours, a fall of several hundred millivolts, not 22 mV.
+2. **The two runs scale with awake time, not with a standing draw.** Like for like, both runs to the first reading at or below 3300 mV on the same 3000 mAh rating: run one is 3000/2992 = 1.0027 mAh per wake (arithmetic by Claude; the 0.923 mAh in `BATTERY-RUN.md` is the whole run to 2946 mV and is not like for like) with 27.8104 s awake, and run two is 0.48796 mAh per wake (3000/6148, the `mah_per_cycle` printed by `run-report` in `hardware/logs/battery-run2-report.json`) with 14.0402 s awake. The energy ratio is 2.055 and the awake-time ratio 1.981. The same figures give an average of about 129.8 mA while awake for run one and about 125.1 mA for run two. A fixed cost per awake second explains both runs without any standing draw.
+3. **What this suggests.** The envelope's upper side (the cases where the standing draw is close to zero) may be more likely than the central fit; this rests on one parked span and is not established. In that case the cost of a wake is the whole story: about 0.488 mAh per wake with the current firmware.
 
-Caveats: the voltage of a pack at rest creeps upward for hours, which hides part of the drain, so 0.28 mA is likely an underestimate; the curve and the 3000 mAh are ratings, not measurements; a parked frame may behave differently from a normal one; the average of 0.49 mA expected from the wakes alone (41 wakes of 0.48796 mAh over 39.8 hours) is higher than 0.28 mA, so the two are the same order of magnitude but do not match exactly.
+Caveats: the voltage of a pack at rest creeps upward for hours, which hides part of the drain, so 0.28 mA is likely an underestimate; the curve and the 3000 mAh are ratings, not measurements; a parked frame may behave differently from a normal one; the average of 0.49 mA expected from the wakes alone (40 intervals of 0.48796 mAh over 39.8 hours) is higher than 0.28 mA, so the two are the same order of magnitude but do not match exactly.
 
 ### What it would mean for autonomy (arithmetic, only if point 3 holds)
 

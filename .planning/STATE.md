@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Battery and Companion!
 status: phase_complete
-stopped_at: "Phase 46 plans 46-01..46-03 executed (2026-10-12): battery-model tool, POL-03 delivery tests and BATTERY-MODEL.md with committed model JSON. Owner decisions recorded 2026-10-12 (interval 300 s while waiting for a replacement pack; replace the pack) and a six-month autonomy target added to Phase 47 as VAL-03. Awaiting the owner for 46-04: choose the wake interval, decide the battery pack, apply the interval on the live Device page."
+stopped_at: "Phase 46 plans 46-01..46-03 executed (2026-10-12): battery-model tool, POL-03 delivery tests and BATTERY-MODEL.md with committed model JSON. Owner decisions recorded 2026-10-12 (interval 300 s while waiting for a replacement pack; replace the pack) and a six-month autonomy target added to Phase 47 as VAL-03. The owner ordered the Soldered 333290 pack on 2026-10-22 and started a 900 s test on 2026-10-23 (result due about 2026-10-28). Phase 46 verification (2026-10-23): human_needed. Awaiting the owner for 46-04: choose the wake interval, decide the battery pack, apply the interval on the live Device page."
 last_updated: "2026-10-04T12:00:00.000Z"
 last_activity: "2026-10-12 — Phase 45 plans 45-03 and 45-04 closed on the owner-supplied run 2 export"
 progress:

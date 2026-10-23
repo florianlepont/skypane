@@ -10,8 +10,8 @@
 
 - [x] **BAT-01**: The owner can run and reproduce a second controlled battery-discharge study at a materially different effective wake cadence while keeping the pack and normal poll workload comparable to the first study.
 - [x] **BAT-02**: The study records its actual cadence, firmware and server baseline, observation window, battery endpoints, raw observation export, continuity evidence, and voltage-validity evidence.
-- [ ] **BAT-03**: The owner can derive a two-run model that separates per-wake energy from standing deep-sleep consumption using observed elapsed time and observed cycle counts.
-- [ ] **BAT-04**: The model states its assumptions, uncertainty, and the limitation that the baseline workload does not measure image-download or display-refresh energy.
+- [x] **BAT-03**: The owner can derive a two-run model that separates per-wake energy from standing deep-sleep consumption using observed elapsed time and observed cycle counts.
+- [x] **BAT-04**: The model states its assumptions, uncertainty, and the limitation that the baseline workload does not measure image-download or display-refresh energy.
 
 ### Field Operating Policy
 
@@ -61,8 +61,8 @@
 |---|---|---|
 | BAT-01 | Phase 45 | Complete |
 | BAT-02 | Phase 45 | Complete |
-| BAT-03 | Phase 46 | Pending |
-| BAT-04 | Phase 46 | Pending |
+| BAT-03 | Phase 46 | Complete |
+| BAT-04 | Phase 46 | Complete |
 | POL-01 | Phase 46 | Pending |
 | POL-02 | Phase 46 | Pending |
 | POL-03 | Phase 46 | Pending |

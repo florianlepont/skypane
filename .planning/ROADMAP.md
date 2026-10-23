@@ -65,7 +65,7 @@ Plans:
 - [x] 46-01-PLAN.md — `logtools.py battery-model`: like-for-like two-run solve (both runs to the first reading at or below 3300 mV), 108-scenario envelope, autonomy for 300/600/900/1800 s, mandatory assumptions / continuity-FAIL / "does not measure" blocks, refusals, tests (wave 1)
 - [x] 46-02-PLAN.md — POL-03 tests: companion save -> HTTP `sleep_s` for 60..3600 candidates, park/display-off precedence over HTTP, exact recovery value, `wake.py` parity (wave 1)
 - [x] 46-03-PLAN.md — Committed `battery-model.json` with byte-identical reproduction test; `hardware/BATTERY-MODEL.md` with autonomy table, uncertainty, limitations, pack criteria and a blank owner-decision block (wave 2)
-- [ ] 46-04-PLAN.md — Owner chooses the interval and the pack, applies the interval on the live Device page; decisions recorded (wave 3, owner checkpoints)
+- [ ] 46-04-PLAN.md — Owner chooses the interval and the pack, applies the interval on the live Device page; decisions recorded (wave 3, owner checkpoints). Partly done: interval 300 s provisional and pack Soldered 333290 (ordered 2026-10-22) recorded; live read-back value and pack checks pending
 
 ### Phase 47: Integrated Field Validation and Decision Record
 **Goal**: The selected field policy is confirmed on the real frame and recorded as the current operating baseline.
