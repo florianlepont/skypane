@@ -75,7 +75,7 @@ Plans:
   1. The owner can confirm on the real frame that the selected cadence produces the expected healthy check-in behaviour.
   2. The real-frame validation confirms that battery-critical and display-off safety overrides still take precedence over the normal cadence.
   3. The project records the final wake-interval decision, its evidence-based rationale, and the validation status of any battery-pack change.
-  4. The owner measures the sleeping frame's current and records it against the six-month autonomy target (about 1 mA or less on average); the record says whether the standing draw is near the modelled 7 mA or far lower, and what that means for reaching six months. See `hardware/BATTERY-MODEL.md`, section "Six-month target". The procedure is `hardware/SLEEP-CURRENT.md`.
+  4. The sleeping frame's current is estimated from the battery-voltage trend of a long-interval run on the real frame and recorded against the six-month autonomy target (about 1 mA or less on average); the record says whether the standing draw is near the modelled 7 mA or far lower, and what that means for reaching six months. This criterion is satisfied only by outcome (a) (estimate at or below the favourable hypothesis) or (b) (estimate above the central hypothesis), where the trend settles the question; under outcome (c) (estimate between the two hypotheses, or the estimate not applicable) the finding is recorded plainly and VAL-03 stays open on purpose. The multimeter procedure in `hardware/SLEEP-CURRENT.md` stays optional (the owner declined it on 2026-10-23). See `hardware/BATTERY-MODEL.md`, section "Six-month target".
 **Plans**: 6 plans
 
 Plans:
