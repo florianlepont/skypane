@@ -75,8 +75,16 @@ Plans:
   1. The owner can confirm on the real frame that the selected cadence produces the expected healthy check-in behaviour.
   2. The real-frame validation confirms that battery-critical and display-off safety overrides still take precedence over the normal cadence.
   3. The project records the final wake-interval decision, its evidence-based rationale, and the validation status of any battery-pack change.
-  4. The owner measures the sleeping frame's current and records it against the six-month autonomy target (about 1 mA or less on average); the record says whether the standing draw is near the modelled 7 mA or far lower, and what that means for reaching six months. See `hardware/BATTERY-MODEL.md`, section "Six-month target". The procedure is `hardware/SLEEP-CURRENT.md`.
-**Plans**: TBD
+  4. The sleeping frame's current is estimated from the battery-voltage trend of a long-interval run on the real frame and recorded against the six-month autonomy target (about 1 mA or less on average); the record says whether the standing draw is near the modelled 7 mA or far lower, and what that means for reaching six months. This criterion is satisfied only by outcome (a) (estimate at or below the favourable hypothesis) or (b) (estimate above the central hypothesis), where the trend settles the question; under outcome (c) (estimate between the two hypotheses, or the estimate not applicable) the finding is recorded plainly and VAL-03 stays open on purpose. The multimeter procedure in `hardware/SLEEP-CURRENT.md` stays optional (the owner declined it on 2026-10-23). See `hardware/BATTERY-MODEL.md`, section "Six-month target".
+**Plans**: 6 plans
+
+Plans:
+- [ ] 47-01-PLAN.md — `logtools.py sleep-trend`: average current from the voltage fall of an owner export (first 24 h ignored, medians, quiet hours handled), printed against the 1.9 mA and 8.6 mA hypotheses and the 180-day allowances, fixed band keys, mandatory bias caveats, refusals, synthetic-data tests (wave 1)
+- [ ] 47-02-PLAN.md — `logtools.py checkin-gaps`: healthy cadence against an expected interval with the Phase 45 gates, quiet-hours gaps set aside, `--skip-first-gaps` for display-off; battery-critical park evidence from run-two history and the existing precedence tests (wave 2)
+- [ ] 47-03-PLAN.md — `hardware/PACK-ACCEPTANCE.md` (status NOT RECEIVED), `hardware/FIELD-VALIDATION.md` evidence skeleton, plain-French owner steps with one pinned export route (wave 1)
+- [ ] 47-04-PLAN.md — Owner's 900 s export run through `sleep-trend`; VAL-03 finding recorded by the fixed band mapping (wave 3, owner checkpoint, due about 2026-10-28)
+- [ ] 47-05-PLAN.md — Owner chooses the final interval; 24 h cadence trial and display-off window measured with `checkin-gaps` (wave 4, owner checkpoints)
+- [ ] 47-06-PLAN.md — Final decision, pack validation status and per-requirement closing record; final interval in the precedence-test tuples; roadmap criterion and VAL-03 wording amended (wave 5, owner checkpoint)
 
 ## Progress
 
@@ -85,4 +93,4 @@ Plans:
 | 44. Companion Walkthrough and Focused Bilingual Polish | v1.1 | 12/12 | Complete | 2026-10-04 |
 | 45. Controlled Second Discharge Study | v1.1 | 4/4 | Complete | 2026-10-12 |
 | 46. Two-Run Battery Analysis and Operating Decision | v1.1 | 4/4 | Complete | 2026-10-23 |
-| 47. Integrated Field Validation and Decision Record | v1.1 | 0/TBD | Not started | - |
+| 47. Integrated Field Validation and Decision Record | v1.1 | 0/6 | Planned | - |
