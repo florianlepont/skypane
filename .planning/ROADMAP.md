@@ -17,7 +17,7 @@ V1.1 begins by improving the companion through a task-based bilingual usability 
 
 - [x] **Phase 44: Companion Walkthrough and Focused Bilingual Polish** - Resolve the highest-value observed companion friction without a redesign. (completed 2026-10-04, owner-validated)
 - [x] **Phase 45: Controlled Second Discharge Study** - Produce reproducible, comparable alternate-cadence battery evidence.
-- [ ] **Phase 46: Two-Run Battery Analysis and Operating Decision** - Derive the model and select the field cadence and pack policy.
+- [x] **Phase 46: Two-Run Battery Analysis and Operating Decision** - Derive the model and select the field cadence and pack policy.
 - [ ] **Phase 47: Integrated Field Validation and Decision Record** - Confirm the policy on the real frame and publish the operating baseline.
 
 ## Phase Details
@@ -65,7 +65,7 @@ Plans:
 - [x] 46-01-PLAN.md — `logtools.py battery-model`: like-for-like two-run solve (both runs to the first reading at or below 3300 mV), 108-scenario envelope, autonomy for 300/600/900/1800 s, mandatory assumptions / continuity-FAIL / "does not measure" blocks, refusals, tests (wave 1)
 - [x] 46-02-PLAN.md — POL-03 tests: companion save -> HTTP `sleep_s` for 60..3600 candidates, park/display-off precedence over HTTP, exact recovery value, `wake.py` parity (wave 1)
 - [x] 46-03-PLAN.md — Committed `battery-model.json` with byte-identical reproduction test; `hardware/BATTERY-MODEL.md` with autonomy table, uncertainty, limitations, pack criteria and a blank owner-decision block (wave 2)
-- [ ] 46-04-PLAN.md — Owner chooses the interval and the pack, applies the interval on the live Device page; decisions recorded (wave 3, owner checkpoints)
+- [ ] 46-04-PLAN.md — Owner chooses the interval and the pack, applies the interval on the live Device page; decisions recorded (wave 3, owner checkpoints). Partly done: interval 300 s provisional and pack Soldered 333290 (ordered 2026-10-22) recorded; live read-back value and pack checks pending
 
 ### Phase 47: Integrated Field Validation and Decision Record
 **Goal**: The selected field policy is confirmed on the real frame and recorded as the current operating baseline.
@@ -75,7 +75,7 @@ Plans:
   1. The owner can confirm on the real frame that the selected cadence produces the expected healthy check-in behaviour.
   2. The real-frame validation confirms that battery-critical and display-off safety overrides still take precedence over the normal cadence.
   3. The project records the final wake-interval decision, its evidence-based rationale, and the validation status of any battery-pack change.
-  4. The owner measures the sleeping frame's current and records it against the six-month autonomy target (about 1 mA or less on average); the record says whether the standing draw is near the modelled 7 mA or far lower, and what that means for reaching six months. See `hardware/BATTERY-MODEL.md`, section "Six-month target".
+  4. The owner measures the sleeping frame's current and records it against the six-month autonomy target (about 1 mA or less on average); the record says whether the standing draw is near the modelled 7 mA or far lower, and what that means for reaching six months. See `hardware/BATTERY-MODEL.md`, section "Six-month target". The procedure is `hardware/SLEEP-CURRENT.md`.
 **Plans**: TBD
 
 ## Progress
