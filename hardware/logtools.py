@@ -2226,6 +2226,207 @@ def cmd_battery_model(args):
     return 0
 
 
+# --- sleep-trend ------------------------------------------------------------
+#
+# Average current from the voltage fall of a long-interval run. The rated
+# capacity and the repository discharge curve are ratings, not measurements,
+# so the result is an estimate with stated biases, never a measured current.
+
+TREND_IGNORE_HOURS = 24.0  # settling after a full charge (rest-voltage creep)
+TREND_EDGE_HOURS = 12.0  # width of each end-point window, hours
+TREND_MIN_SPAN_HOURS = 48.0  # least span left after the ignore cut, hours
+TREND_MIN_POLLS = 5  # least non-quiet polls inside each end-point window
+# The owner's production quiet window, set here rather than read from the
+# policy module's code default (23:00 to 07:00).
+TREND_QUIET_START = "23:30"
+TREND_QUIET_END = "06:00"
+TREND_ALLOWANCE_HOURS = 4320.0  # 180 days
+TREND_SENSITIVITY_MV = 10  # end-point error used for the sensitivity figure
+
+_DEVICE_POLICY = []
+
+
+def _device_policy():
+    """The stdlib-only server/device_policy.py, loaded by file path and
+    cached, so this script stays standalone.
+    """
+    if not _DEVICE_POLICY:
+        import importlib.util
+        path = os.path.join(os.path.dirname(HERE), "server", "device_policy.py")
+        spec = importlib.util.spec_from_file_location("skypane_device_policy", path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        try:
+            spec.loader.exec_module(module)
+        except (OSError, ImportError) as exc:
+            raise RunReportError("cannot load server/device_policy.py: %s" % exc)
+        _DEVICE_POLICY.append(module)
+    return _DEVICE_POLICY[0]
+
+
+def check_trend_quiet_window(start, end):
+    """Return (start, end) when both are HH:MM, else raise RunReportError."""
+    pattern = _device_policy().HHMM_RE
+    for label, value in (("--quiet-start", start), ("--quiet-end", end)):
+        if not isinstance(value, str) or not pattern.match(value):
+            raise RunReportError("%s must be HH:MM (24 h), got %r" % (label, value))
+    return start, end
+
+
+def is_trend_quiet(ts, quiet_window):
+    """True when the aware timestamp falls inside the daily Europe/Paris
+    [start, end) quiet window; always False when quiet_window is None.
+    """
+    if quiet_window is None:
+        return False
+    policy = _device_policy()
+    return policy.seconds_until_quiet_hours_end(ts, quiet_window[0], quiet_window[1]) is not None
+
+
+def _median_point(polls):
+    """(median mV, median timestamp, count) of a non-empty poll list."""
+    mv = statistics.median(p.mv for p in polls)
+    epoch = statistics.median(p.ts.timestamp() for p in polls)
+    return mv, datetime.datetime.fromtimestamp(epoch, tz=datetime.timezone.utc), len(polls)
+
+
+def select_trend_endpoints(polls, ignore_hours=TREND_IGNORE_HOURS,
+                           edge_hours=TREND_EDGE_HOURS,
+                           quiet_window=(TREND_QUIET_START, TREND_QUIET_END)):
+    """Cut the first `ignore_hours` after the first poll, then return the
+    median millivolts, median timestamp and poll count over the first and
+    last `edge_hours` of the remaining non-quiet polls, plus the share of
+    the remaining polls that fall in quiet hours. Raises RunReportError
+    when the data cannot support an estimate.
+    """
+    if len(polls) < 2:
+        raise RunReportError("export has fewer than two usable rows")
+    cut = polls[0].ts + datetime.timedelta(hours=ignore_hours)
+    kept = [p for p in polls if p.ts >= cut]
+    span_h = (kept[-1].ts - kept[0].ts).total_seconds() / 3600.0 if kept else 0.0
+    if span_h < TREND_MIN_SPAN_HOURS:
+        raise RunReportError(
+            "only %.1f h remain after the first %g h are ignored; at least %g h "
+            "are needed" % (span_h, ignore_hours, TREND_MIN_SPAN_HOURS))
+    edge = datetime.timedelta(hours=edge_hours)
+    quiet_count = sum(1 for p in kept if is_trend_quiet(p.ts, quiet_window))
+    usable = [p for p in kept if not is_trend_quiet(p.ts, quiet_window)]
+    windows = {
+        "first": [p for p in usable if p.ts < kept[0].ts + edge],
+        "last": [p for p in usable if p.ts > kept[-1].ts - edge],
+    }
+    out = {"cut": cut, "polls_after_cut": len(kept), "span_hours": span_h,
+           "quiet_share": quiet_count / len(kept) if quiet_window else 0.0}
+    for name, chosen in windows.items():
+        if len(chosen) < TREND_MIN_POLLS:
+            raise RunReportError(
+                "only %d non-quiet poll(s) in the %s %g h window; at least %d are "
+                "needed" % (len(chosen), name, edge_hours, TREND_MIN_POLLS))
+        mv, ts, count = _median_point(chosen)
+        out[name] = {"mv": mv, "ts": ts, "polls": count}
+    return out
+
+
+def _trend_fraction(mv):
+    value = _device_policy().battery_fraction(mv)
+    if value is None:
+        raise RunReportError("millivolt reading %r is not usable" % (mv,))
+    return value
+
+
+def estimate_average_current_ma(polls, capacity_mah, ignore_hours=TREND_IGNORE_HOURS,
+                                edge_hours=TREND_EDGE_HOURS,
+                                quiet_window=(TREND_QUIET_START, TREND_QUIET_END)):
+    """Average current in mA from the fall of the curve fraction between two
+    median end points: fraction fall x rated capacity (mAh) / elapsed hours.
+    Raises RunReportError when no positive fall can be resolved.
+    """
+    if capacity_mah < 1:
+        raise RunReportError("--capacity-mah must be at least 1")
+    ends = select_trend_endpoints(polls, ignore_hours, edge_hours, quiet_window)
+    f_first = _trend_fraction(ends["first"]["mv"])
+    f_last = _trend_fraction(ends["last"]["mv"])
+    elapsed_h = (ends["last"]["ts"] - ends["first"]["ts"]).total_seconds() / 3600.0
+    if f_first - f_last <= 0 or elapsed_h <= 0:
+        raise RunReportError(
+            "the voltage fall between the two end points is zero or negative "
+            "(%.0f mV to %.0f mV), below what the voltage can resolve here; no "
+            "current is claimed" % (ends["first"]["mv"], ends["last"]["mv"]))
+    charge_mah = (f_first - f_last) * capacity_mah
+    policy = _device_policy()
+    sensitivity = {}
+    for name in ("first", "last"):
+        mv = ends[name]["mv"]
+        step = policy.battery_fraction(mv + TREND_SENSITIVITY_MV) - _trend_fraction(mv)
+        sensitivity[name] = step * capacity_mah / elapsed_h
+    ends.update({
+        "average_ma": charge_mah / elapsed_h,
+        "charge_mah": charge_mah,
+        "elapsed_hours": elapsed_h,
+        "fraction": {"first": f_first, "last": f_last},
+        "capacity_mah": capacity_mah,
+        "sensitivity_ma_per_10mv": sensitivity,
+    })
+    return ends
+
+
+def _json_number(source, label, *path):
+    value = source
+    for key in path:
+        value = value.get(key) if isinstance(value, dict) else None
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+        raise RunReportError("%s is missing %s" % (label, ".".join(path)))
+    return float(value)
+
+
+def trend_hypotheses(model_json, report_json, interval_s, capacity_mah):
+    """Currents in mA at `interval_s` implied by the committed analysis:
+    favourable = energy per cycle x cycles per hour (no standing draw),
+    central = standing draw + wake energy x cycles per hour; allowance is
+    the average that empties the rated pack in 180 days.
+    """
+    if interval_s < 1 or capacity_mah < 1:
+        raise RunReportError("--interval-s and --capacity-mah must be at least 1")
+    cycles_per_hour = 3600.0 / interval_s
+    per_cycle = _json_number(report_json, "run two report", "energy_normal_window",
+                             "mah_per_cycle")
+    standing = _json_number(model_json, "battery model", "central_fit", "standing_ma")
+    wake = _json_number(model_json, "battery model", "central_fit", "wake_mah")
+    return {
+        "favourable_ma": per_cycle * cycles_per_hour,
+        "central_ma": standing + wake * cycles_per_hour,
+        "allowance_ma": capacity_mah / TREND_ALLOWANCE_HOURS,
+        "interval_s": interval_s,
+    }
+
+
+def classify_current_band(estimate, allowance, favourable, central):
+    """Return (band key, sentence). Strict comparison with no tolerance; an
+    estimate equal to a reference value falls in the lower band.
+    """
+    refs = "%.2f mA (180-day allowance), %.2f mA (favourable) and %.2f mA (central)" % (
+        allowance, favourable, central)
+    if not allowance < favourable < central:
+        return "not_applicable", (
+            "The bands are undefined because the 180-day allowance, the favourable "
+            "and the central hypotheses are not in increasing order: %s." % refs)
+    if estimate <= allowance:
+        return "at_or_below_allowance", (
+            "The estimate %.2f mA is at or below the %.2f mA 180-day allowance." %
+            (estimate, allowance))
+    if estimate <= favourable:
+        return "between_allowance_and_favourable", (
+            "The estimate %.2f mA lies between the %.2f mA 180-day allowance and the "
+            "%.2f mA favourable hypothesis." % (estimate, allowance, favourable))
+    if estimate <= central:
+        return "between_favourable_and_central", (
+            "The estimate %.2f mA lies between the %.2f mA favourable hypothesis and "
+            "the %.2f mA central hypothesis." % (estimate, favourable, central))
+    return "above_central", (
+        "The estimate %.2f mA is above the %.2f mA central hypothesis." %
+        (estimate, central))
+
+
 # --- CLI ------------------------------------------------------------------
 
 
