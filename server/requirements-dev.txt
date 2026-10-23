@@ -859,22 +859,17 @@ pytest==9.1.1 \
     --hash=sha256:37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c
     # via
     #   -r requirements-dev.in
-    #   pytest-base-url
     #   pytest-cov
     #   pytest-playwright
     #   pytest-socket
     #   pytest-xdist
-pytest-base-url==2.1.0 \
-    --hash=sha256:02748589a54f9e63fcbe62301d6b0496da0d10231b753e950c63e03aee745d45 \
-    --hash=sha256:3ad15611778764d451927b2a53240c1a7a591b521ea44cebfe45849d2d2812e6
-    # via pytest-playwright
 pytest-cov==7.1.0 \
     --hash=sha256:30674f2b5f6351aa09702a9c8c364f6a01c27aae0c1366ae8016160d1efc56b2 \
     --hash=sha256:a0461110b7865f9a271aa1b51e516c9a95de9d696734a2f71e3e78f46e1d4678
     # via -r requirements-dev.in
-pytest-playwright==0.9.0 \
-    --hash=sha256:9d9dc74e335c647944cecfffa706cc9e6e4bf4c25e84592c128b584d494d4471 \
-    --hash=sha256:bd44daa852b0fb8b0e55a2f88b727507dedda0e350bea5d09420647252f2454b
+pytest-playwright==0.10.0 \
+    --hash=sha256:47baf574dfb120bb53675d05c9784f8bf94e04c6dd7477dc56159ce732191952 \
+    --hash=sha256:8314d1af726e2c15531635902ece3ee47ed83f5a75c937a7eda8686d3dae6c0d
     # via -r requirements-dev.in
 pytest-socket==0.8.1 \
     --hash=sha256:2f57787914ad2e1308d09ce141b95c3e55741fbb4fb7b7556593a6b063e0c9c7 \
@@ -891,9 +886,7 @@ python-slugify==8.0.4 \
 requests==2.34.2 \
     --hash=sha256:2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0 \
     --hash=sha256:f288924cae4e29463698d6d60bc6a4da69c89185ad1e0bcc4104f584e960b9ed
-    # via
-    #   -r requirements.in
-    #   pytest-base-url
+    # via -r requirements.in
 ruff==0.17.1 \
     --hash=sha256:056c5d5fa0ac790051ae165d7035c7bf956d02de2db557f2e9b31d877a505fca \
     --hash=sha256:1796c41eafec66f4635125dd1e074a7aa27b8d20c187d484360acf11d247fc4a \
