@@ -10,14 +10,14 @@
 
 - [x] **BAT-01**: The owner can run and reproduce a second controlled battery-discharge study at a materially different effective wake cadence while keeping the pack and normal poll workload comparable to the first study.
 - [x] **BAT-02**: The study records its actual cadence, firmware and server baseline, observation window, battery endpoints, raw observation export, continuity evidence, and voltage-validity evidence.
-- [ ] **BAT-03**: The owner can derive a two-run model that separates per-wake energy from standing deep-sleep consumption using observed elapsed time and observed cycle counts.
-- [ ] **BAT-04**: The model states its assumptions, uncertainty, and the limitation that the baseline workload does not measure image-download or display-refresh energy.
+- [x] **BAT-03**: The owner can derive a two-run model that separates per-wake energy from standing deep-sleep consumption using observed elapsed time and observed cycle counts.
+- [x] **BAT-04**: The model states its assumptions, uncertainty, and the limitation that the baseline workload does not measure image-download or display-refresh energy.
 
 ### Field Operating Policy
 
-- [ ] **POL-01**: The owner can choose and document one normal field wake interval from the two-run evidence, including an explicit freshness and autonomy rationale.
-- [ ] **POL-02**: The owner can decide to retain the current battery pack or select a replacement using documented 1S chemistry, protection, JST-PH 2.0 polarity, fit, charge-time, budget, and voltage-calibration criteria.
-- [ ] **POL-03**: The selected normal wake interval round-trips through the companion Device settings and is returned to a healthy frame as `sleep_s` without bypassing battery-critical or display-off precedence.
+- [x] **POL-01**: The owner can choose and document one normal field wake interval from the two-run evidence, including an explicit freshness and autonomy rationale.
+- [x] **POL-02**: The owner can decide to retain the current battery pack or select a replacement using documented 1S chemistry, protection, JST-PH 2.0 polarity, fit, charge-time, budget, and voltage-calibration criteria.
+- [x] **POL-03**: The selected normal wake interval round-trips through the companion Device settings and is returned to a healthy frame as `sleep_s` without bypassing battery-critical or display-off precedence.
 
 ### Companion Experience
 
@@ -61,11 +61,11 @@
 |---|---|---|
 | BAT-01 | Phase 45 | Complete |
 | BAT-02 | Phase 45 | Complete |
-| BAT-03 | Phase 46 | Pending |
-| BAT-04 | Phase 46 | Pending |
-| POL-01 | Phase 46 | Pending |
-| POL-02 | Phase 46 | Pending |
-| POL-03 | Phase 46 | Pending |
+| BAT-03 | Phase 46 | Complete |
+| BAT-04 | Phase 46 | Complete |
+| POL-01 | Phase 46 | Complete |
+| POL-02 | Phase 46 | Complete |
+| POL-03 | Phase 46 | Complete |
 | CMP-01 | Phase 44 | Complete |
 | CMP-02 | Phase 44 | Complete |
 | CMP-03 | Phase 44 | Complete |
