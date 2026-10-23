@@ -11,7 +11,6 @@ import re
 import subprocess
 import sys
 
-import pytest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LOGTOOLS = os.path.join(HERE, "logtools.py")

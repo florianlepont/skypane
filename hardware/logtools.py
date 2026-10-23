@@ -2577,6 +2577,140 @@ def cmd_sleep_trend(args):
     return 0
 
 
+def _gaps_params(args):
+    quiet = None
+    if args.no_quiet_hours:
+        if args.quiet_start is not None or args.quiet_end is not None:
+            raise RunReportError("--no-quiet-hours cannot be combined with "
+                                 "--quiet-start or --quiet-end")
+    else:
+        quiet = check_trend_quiet_window(args.quiet_start or TREND_QUIET_START,
+                                         args.quiet_end or TREND_QUIET_END)
+    if args.expect_s <= 0:
+        raise RunReportError("--expect-s must be above 0")
+    if args.skip_first_gaps < 0:
+        raise RunReportError("--skip-first-gaps must be at least 0")
+    lower = _aware_timestamp(args.from_utc, "--from") if args.from_utc else None
+    upper = _aware_timestamp(args.to_utc, "--to") if args.to_utc else None
+    return {"expect_s": args.expect_s, "quiet_window": quiet,
+            "skip_first": args.skip_first_gaps, "from": lower, "to": upper}
+
+
+def split_checkin_gaps(polls, quiet_window, skip_first):
+    """Return (judged, quiet, skipped) gap lists in seconds for chronological
+    `polls`. A gap is quiet when its start poll is inside the quiet window;
+    quiet gaps are set aside first, then the first `skip_first` of the rest.
+    """
+    judged, quiet = [], []
+    for a, b in zip(polls, polls[1:]):
+        gap = (b.ts - a.ts).total_seconds()
+        (quiet if is_trend_quiet(a.ts, quiet_window) else judged).append(gap)
+    if skip_first > len(judged):
+        raise RunReportError("--skip-first-gaps %d is more than the %d gap(s) "
+                             "left after quiet hours" % (skip_first, len(judged)))
+    return judged[skip_first:], quiet, judged[:skip_first]
+
+
+def gap_gate_stats(judged, expect_s):
+    """The stats the continuity gates read, from judged gaps in seconds, with
+    the definitions compute_battery_stats uses.
+    """
+    total = sum(judged)
+    if total <= 0:
+        raise RunReportError("judged gaps add up to zero seconds")
+    nominal = total / expect_s
+    return {"observed": len(judged), "nominal": nominal,
+            "coverage": len(judged) / nominal,
+            "max_gap": max(judged) / expect_s, "span_days": total / 86400.0,
+            "span_s": total}
+
+
+def build_checkin_gaps_report(raw, params):
+    """Judge the check-in cadence of a window of an export against the
+    expected interval, with the run-report continuity gates read from
+    RUN_THRESHOLDS at call time.
+    """
+    polls = _rows_to_ordered_polls(raw)
+    if params["from"] is not None:
+        polls = [p for p in polls if p.ts >= params["from"]]
+    if params["to"] is not None:
+        polls = [p for p in polls if p.ts <= params["to"]]
+    if len(polls) < 2:
+        raise RunReportError("the window holds %d row(s), need at least 2" % len(polls))
+    judged, quiet, skipped = split_checkin_gaps(
+        polls, params["quiet_window"], params["skip_first"])
+    if len(judged) < 2:
+        raise RunReportError("%d judged gap(s) left, need at least 2" % len(judged))
+    expect = params["expect_s"]
+    stats = gap_gate_stats(judged, expect)
+    th = RUN_THRESHOLDS
+    basis = " (judged gaps only)"
+    results = [check_coverage(stats, th["min_coverage"], basis),
+               check_max_gap(stats, th["max_gap_intervals"], basis)]
+    median = statistics.median(judged)
+    return {
+        "expect_s": expect, "window_start": polls[0].ts.isoformat(),
+        "window_end": polls[-1].ts.isoformat(), "rows": len(polls),
+        "gaps_judged": len(judged), "quiet_window": params["quiet_window"],
+        "quiet_gaps": quiet, "skipped_gaps": skipped,
+        "min_gap_s": min(judged), "median_gap_s": median, "max_gap_s": max(judged),
+        "median_ratio": median / expect,
+        "share_within": sum(1 for g in judged if expect <= g <= 1.5 * expect) / len(judged),
+        "gaps_above_limit": sum(1 for g in judged if g > th["max_gap_intervals"] * expect),
+        "limit_intervals": th["max_gap_intervals"],
+        "coverage": stats["coverage"], "max_gap_intervals": stats["max_gap"],
+        "gates": [{"name": r.name, "status": r.status, "reason": r.reason}
+                  for r in results],
+        "verdict": "PASS" if all(r.status == "PASS" for r in results) else "FAIL",
+        "results": results,
+    }
+
+
+def print_checkin_gaps(rep):
+    print("checkin-gaps: check-in cadence against an expected interval")
+    print("window: %s to %s (%d rows)" % (rep["window_start"], rep["window_end"], rep["rows"]))
+    print("expected interval: %d s" % rep["expect_s"])
+    if rep["quiet_window"]:
+        print("quiet hours: %s-%s Europe/Paris" % tuple(rep["quiet_window"]))
+        print("quiet gaps set aside: %d" % len(rep["quiet_gaps"]))
+        for gap in rep["quiet_gaps"]:
+            print("  quiet gap: %g s" % gap)
+    else:
+        print("quiet hours: off, no gap set aside")
+    if rep["skipped_gaps"]:
+        print("first gap(s) set aside: " + ", ".join("%g" % g for g in rep["skipped_gaps"]))
+    print("gaps: %d judged (coverage and largest gap describe the judged gaps only)" %
+          rep["gaps_judged"])
+    print("min / median / max gap: %g / %g / %g s" % (
+        rep["min_gap_s"], rep["median_gap_s"], rep["max_gap_s"]))
+    print("median gap vs expected: %g s, %.3f x expected (information only)" % (
+        rep["median_gap_s"], rep["median_ratio"]))
+    print("gaps within expected to 1.5 x expected: %.1f%%" % (100 * rep["share_within"]))
+    print("gaps above %g x expected: %d" % (rep["limit_intervals"], rep["gaps_above_limit"]))
+    for result in rep["results"]:
+        print(result.line())
+    print("cadence verdict: %s" % rep["verdict"])
+
+
+def cmd_checkin_gaps(args):
+    """Print the check-in cadence verdict; exit 0 PASS, 1 FAIL, 2 refused.
+    Never modifies its input; --out is written only on a non-refused run.
+    """
+    try:
+        params = _gaps_params(args)
+        raw = _read_bytes(args.rows, "export") if args.rows else sys.stdin.buffer.read()
+        rep = build_checkin_gaps_report(raw, params)
+        if args.out:
+            body = {k: v for k, v in rep.items() if k != "results"}
+            with open(args.out, "w") as fh:
+                fh.write(json.dumps(body, sort_keys=True, indent=2) + "\n")
+    except (RunReportError, OSError) as exc:
+        sys.stderr.write("checkin-gaps: refused: %s\n" % exc)
+        return 2
+    print_checkin_gaps(rep)
+    return 0 if rep["verdict"] == "PASS" else 1
+
+
 # --- CLI ------------------------------------------------------------------
 
 
@@ -2616,6 +2750,35 @@ def _add_sleep_trend_parser(sub):
     st.add_argument("--run2-report", default=os.path.join(HERE, "logs", "battery-run2-report.json"),
         help="run two report JSON (default: %(default)s)")
     st.add_argument("--out", default=None,
+        help="write the JSON report here (only on a non-refused run)")
+
+
+def _add_checkin_gaps_parser(sub):
+    cg = sub.add_parser(
+        "checkin-gaps",
+        help="judge the check-in cadence of an export window against an "
+             "expected interval (read-only)",
+        description="Measure the gaps between consecutive check-ins in an owner "
+                    "export and judge them with the run-report continuity gates "
+                    "(thresholds read from RUN_THRESHOLDS). Gaps that start in "
+                    "quiet hours are listed separately and not judged.")
+    cg.add_argument("rows", nargs="?", default=None,
+        help="JSON-Lines export; reads stdin when omitted")
+    cg.add_argument("--expect-s", type=int, required=True,
+        help="the interval the frame is expected to keep, in seconds")
+    cg.add_argument("--from", dest="from_utc", default=None,
+        help="keep rows at or after this ISO-8601 instant")
+    cg.add_argument("--to", dest="to_utc", default=None,
+        help="keep rows at or before this ISO-8601 instant")
+    cg.add_argument("--quiet-start", default=None,
+        help="quiet-hours start, HH:MM Paris time (default: %s)" % TREND_QUIET_START)
+    cg.add_argument("--quiet-end", default=None,
+        help="quiet-hours end, HH:MM Paris time (default: %s)" % TREND_QUIET_END)
+    cg.add_argument("--no-quiet-hours", action="store_true",
+        help="judge every gap in the window")
+    cg.add_argument("--skip-first-gaps", type=int, default=0,
+        help="set aside the first N judged gaps and print them (default: %(default)d)")
+    cg.add_argument("--out", default=None,
         help="write the JSON report here (only on a non-refused run)")
 
 
@@ -2737,6 +2900,7 @@ def build_parser():
     _add_run_report_parsers(sub)
     _add_battery_model_parser(sub)
     _add_sleep_trend_parser(sub)
+    _add_checkin_gaps_parser(sub)
 
     sub.add_parser("selftest",
         help="run check-backoff and check-battery against "
@@ -2766,6 +2930,8 @@ def main(argv=None):
         return cmd_battery_model(args)
     if args.command == "sleep-trend":
         return cmd_sleep_trend(args)
+    if args.command == "checkin-gaps":
+        return cmd_checkin_gaps(args)
     if args.command == "selftest":
         return cmd_selftest(args)
     return 1  # pragma: no cover — argparse enforces `required=True` above
