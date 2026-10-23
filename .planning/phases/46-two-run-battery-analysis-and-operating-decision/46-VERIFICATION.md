@@ -1,7 +1,7 @@
 ---
 phase: 46-two-run-battery-analysis-and-operating-decision
 verified: 2026-10-23T00:00:00Z
-status: human_needed
+status: passed
 score: 2/4 success criteria fully verified, 2/4 partial (owner input outstanding); 0 blockers, 6 documentation warnings
 overrides_applied: 0
 gaps:
@@ -105,3 +105,7 @@ _Verifier: Claude (gsd-verifier)_
 
 ## Documentation warnings W1 to W6 (resolved 2026-10-23)
 The six warnings on `hardware/BATTERY-MODEL.md` were fixed after this report: reconciled the standing-draw statements (W1), relabelled the 0.48796 mAh figure as the `run-report` figure and recomputed run one like for like (1.0027 mAh, energy ratio 2.055, awake current about 129.8 mA against 125.1 mA) (W2), updated the status lines (W3), marked the retain recommendation as superseded (W4), softened "more likely" to "may be more likely" (W5), and corrected the wake count to 41 check-ins and 40 intervals (W6). The status stays `human_needed` until the owner items above are answered.
+
+## Owner confirmations (2026-10-23)
+
+The owner answered the three open items: the interval read back on the live Device page is 900 s (the value set for the running 900 s test; it confirms the setting is stored and returned, the 300 s decision is separate); 300 s accepted as provisional; the Soldered 333290 replacement accepted. The pack's physical checks (polarity by multimeter, charge current, free area, printed reference) remain to be done on receipt and are recorded under Phase 47. Status moved from human_needed to passed on the strength of these owner statements.

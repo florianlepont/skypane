@@ -15,9 +15,9 @@
 
 ### Field Operating Policy
 
-- [ ] **POL-01**: The owner can choose and document one normal field wake interval from the two-run evidence, including an explicit freshness and autonomy rationale.
-- [ ] **POL-02**: The owner can decide to retain the current battery pack or select a replacement using documented 1S chemistry, protection, JST-PH 2.0 polarity, fit, charge-time, budget, and voltage-calibration criteria.
-- [ ] **POL-03**: The selected normal wake interval round-trips through the companion Device settings and is returned to a healthy frame as `sleep_s` without bypassing battery-critical or display-off precedence.
+- [x] **POL-01**: The owner can choose and document one normal field wake interval from the two-run evidence, including an explicit freshness and autonomy rationale.
+- [x] **POL-02**: The owner can decide to retain the current battery pack or select a replacement using documented 1S chemistry, protection, JST-PH 2.0 polarity, fit, charge-time, budget, and voltage-calibration criteria.
+- [x] **POL-03**: The selected normal wake interval round-trips through the companion Device settings and is returned to a healthy frame as `sleep_s` without bypassing battery-critical or display-off precedence.
 
 ### Companion Experience
 
@@ -63,9 +63,9 @@
 | BAT-02 | Phase 45 | Complete |
 | BAT-03 | Phase 46 | Complete |
 | BAT-04 | Phase 46 | Complete |
-| POL-01 | Phase 46 | Pending |
-| POL-02 | Phase 46 | Pending |
-| POL-03 | Phase 46 | Pending |
+| POL-01 | Phase 46 | Complete |
+| POL-02 | Phase 46 | Complete |
+| POL-03 | Phase 46 | Complete |
 | CMP-01 | Phase 44 | Complete |
 | CMP-02 | Phase 44 | Complete |
 | CMP-03 | Phase 44 | Complete |
