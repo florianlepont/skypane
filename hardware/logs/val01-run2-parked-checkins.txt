@@ -1,0 +1,50 @@
+Real frame, run-two history, 2026-10-10 to 2026-10-12. Export: hardware/logs/battery-run2-export.jsonl, sha256 540d8f56aeab41b3a2de395a4f5820e069a9b4c1f470e526c0df12fc0557efdb (the value in hardware/logs/battery-model.json). Output below is verbatim; each block is preceded by its command, run from the repository root.
+
+=== 1. Parked window against the park interval (the command the plan names) ===
+$ python3 hardware/logtools.py checkin-gaps hardware/logs/battery-run2-export.jsonl --expect-s 3600 --from 2026-10-10T20:33:30+00:00 --to 2026-10-12T16:22:02+00:00 --no-quiet-hours
+checkin-gaps: check-in cadence against an expected interval
+window: 2026-10-10T20:33:30+00:00 to 2026-10-12T16:22:02+00:00 (46 rows)
+expected interval: 3600 s
+quiet hours: off, no gap set aside
+gaps: 45 judged (coverage and largest gap describe the judged gaps only)
+min / median / max gap: 98 / 3582 / 3613 s
+median gap vs expected: 3582 s, 0.995 x expected (information only)
+gaps within expected to 1.5 x expected: 2.2%
+gaps above 3 x expected: 0
+PASS coverage is at least 0.95 (judged gaps only)
+PASS no gap between consecutive polls exceeds 3 interval(s) (judged gaps only)
+cadence verdict: PASS
+exit code: 0
+
+=== 2. Same window against the normal 60 s cadence (must FAIL: the frame was not running at 60 s while parked) ===
+$ python3 hardware/logtools.py checkin-gaps hardware/logs/battery-run2-export.jsonl --expect-s 60 --from 2026-10-10T20:33:30+00:00 --to 2026-10-12T16:22:02+00:00 --no-quiet-hours
+checkin-gaps: check-in cadence against an expected interval
+window: 2026-10-10T20:33:30+00:00 to 2026-10-12T16:22:02+00:00 (46 rows)
+expected interval: 60 s
+quiet hours: off, no gap set aside
+gaps: 45 judged (coverage and largest gap describe the judged gaps only)
+min / median / max gap: 98 / 3582 / 3613 s
+median gap vs expected: 3582 s, 59.700 x expected (information only)
+gaps within expected to 1.5 x expected: 0.0%
+gaps above 3 x expected: 44
+FAIL coverage is at least 0.95 (judged gaps only) - coverage is 0.017 (observed=45, nominal=2628.5), below 0.95 - the frame losing home Wi-Fi or internet, the server unit restarting, or journald having rotated the earliest entries out of the window being converted are the likely causes
+FAIL no gap between consecutive polls exceeds 3 interval(s) (judged gaps only) - largest gap between consecutive polls is 60.22 interval(s), exceeds 3
+cadence verdict: FAIL
+exit code: 1
+
+=== 3. Block 1 again with the first gap set aside (the 98 s gap is the last gap before the park took effect, still the old interval) ===
+$ python3 hardware/logtools.py checkin-gaps hardware/logs/battery-run2-export.jsonl --expect-s 3600 --from 2026-10-10T20:33:30+00:00 --to 2026-10-12T16:22:02+00:00 --no-quiet-hours --skip-first-gaps 1
+checkin-gaps: check-in cadence against an expected interval
+window: 2026-10-10T20:33:30+00:00 to 2026-10-12T16:22:02+00:00 (46 rows)
+expected interval: 3600 s
+quiet hours: off, no gap set aside
+first gap(s) set aside: 98
+gaps: 44 judged (coverage and largest gap describe the judged gaps only)
+min / median / max gap: 3573 / 3582 / 3613 s
+median gap vs expected: 3582 s, 0.995 x expected (information only)
+gaps within expected to 1.5 x expected: 2.3%
+gaps above 3 x expected: 0
+PASS coverage is at least 0.95 (judged gaps only)
+PASS no gap between consecutive polls exceeds 3 interval(s) (judged gaps only)
+cadence verdict: PASS
+exit code: 0
