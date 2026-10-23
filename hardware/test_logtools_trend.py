@@ -5,9 +5,12 @@ charge falls at an exactly known current, read back through the repository
 curve. No real owner export is needed for the suite to pass.
 """
 import datetime
+import hashlib
 import importlib.util
 import json
 import os
+import re
+import subprocess
 import sys
 
 import pytest
@@ -220,3 +223,158 @@ def test_sensitivity_per_10_mv_matches_the_curve():
         step = (dp.battery_fraction(mv + 10) - dp.battery_fraction(mv)) * 3000
         assert result["sensitivity_ma_per_10mv"][end] == pytest.approx(
             step / result["elapsed_hours"])
+
+
+# --- CLI ---------------------------------------------------------------------
+
+BAND_FIXTURES = [
+    ("at_or_below_allowance", 0.4, 3000),
+    ("between_allowance_and_favourable", 1.2, 3000),
+    ("between_favourable_and_central", 4.0, 3000),
+    ("above_central", 12.0, 3000),
+    ("not_applicable", 3.0, 10000),
+]
+
+
+def write_export(path, polls):
+    lines = []
+    for p in polls:
+        lines.append(json.dumps({
+            "ts": p.ts.isoformat(), "battery_mv": p.mv, "fw_version": "fw-v1.0.2",
+            "boot_reason": "rtc", "rssi": "-57"}))
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
+def run_trend(*args, stdin=None):
+    return subprocess.run(
+        [sys.executable, LOGTOOLS, "sleep-trend", *args],
+        input=stdin, capture_output=True, timeout=60)
+
+
+def sag_at_night(i, ts, h):
+    return -60 if is_paris_night(ts) else 0
+
+
+def standard_args(export, capacity=3000):
+    return [str(export), "--capacity-mah", str(capacity), "--interval-s", "900"]
+
+
+def test_cli_prints_estimate_caveats_and_band(tmp_path):
+    export = write_export(tmp_path / "e.jsonl",
+                          synthetic_polls(2.0, 3000, extra_mv=sag_at_night))
+    done = run_trend(*standard_args(export))
+    out = done.stdout.decode()
+    assert done.returncode == 0, done.stderr.decode()
+    match = re.search(r"average current: ([0-9.]+) mA", out)
+    assert match and float(match.group(1)) == pytest.approx(2.0, rel=0.05)
+    assert "rated, not measured" in out
+    assert "What this estimate does not measure" in out
+    assert "first 24 h" in out
+    assert "180-day allowance" in out
+    assert "favourable" in out and "central" in out
+    assert re.search(r"^band: between_favourable_and_central$", out, re.M)
+    assert "export sha256: " + hashlib.sha256(export.read_bytes()).hexdigest() in out
+    for bias in ("Rest-voltage creep", "1 mV", "Quiet-hours wakes", "single interval"):
+        assert bias in out
+
+
+@pytest.mark.parametrize("key,current,capacity", BAND_FIXTURES)
+def test_cli_prints_one_band_key_per_fixture(tmp_path, key, current, capacity):
+    export = write_export(tmp_path / "e.jsonl", synthetic_polls(current, capacity))
+    done = run_trend(*standard_args(export, capacity))
+    out = done.stdout.decode()
+    assert done.returncode == 0, done.stderr.decode()
+    assert re.findall(r"^band: (\S+)$", out, re.M) == [key]
+    assert not re.search(r"finding", out, re.I)
+
+
+def test_cli_refuses_a_short_export(tmp_path):
+    export = write_export(tmp_path / "e.jsonl", synthetic_polls(3.0, 3000, days=1.25))
+    done = run_trend(*standard_args(export))
+    assert done.returncode == 2
+    assert done.stderr.decode().startswith("sleep-trend: refused: ")
+    assert done.stdout == b""
+
+
+def test_cli_refuses_a_rising_voltage(tmp_path):
+    export = write_export(tmp_path / "e.jsonl", synthetic_polls(-2.0, 3000, start_fraction=0.5))
+    done = run_trend(*standard_args(export))
+    assert done.returncode == 2
+    assert "no current is claimed" in done.stderr.decode()
+
+
+def test_cli_refuses_an_unreadable_input(tmp_path):
+    done = run_trend(*standard_args(tmp_path / "missing.jsonl"))
+    assert done.returncode == 2
+    assert "sleep-trend: refused: " in done.stderr.decode()
+
+
+def test_cli_out_is_deterministic_and_written_only_on_success(tmp_path):
+    export = write_export(tmp_path / "e.jsonl", synthetic_polls(2.0, 3000))
+    before = export.read_bytes()
+    out_a, out_b = tmp_path / "a.json", tmp_path / "b.json"
+    assert run_trend(*standard_args(export), "--out", str(out_a)).returncode == 0
+    assert run_trend(*standard_args(export), "--out", str(out_b)).returncode == 0
+    assert out_a.read_bytes() == out_b.read_bytes()
+    text = out_a.read_text()
+    assert text.endswith("\n") and text.startswith("{\n  ")
+    report = json.loads(text)
+    assert report["export_sha256"] == hashlib.sha256(before).hexdigest()
+    assert report["band"] == "between_favourable_and_central"
+    assert export.read_bytes() == before
+    short = write_export(tmp_path / "short.jsonl", synthetic_polls(2.0, 3000, days=1))
+    refused = tmp_path / "refused.json"
+    assert run_trend(*standard_args(short), "--out", str(refused)).returncode == 2
+    assert not refused.exists()
+
+
+def test_cli_reads_stdin(tmp_path):
+    export = write_export(tmp_path / "e.jsonl", synthetic_polls(2.0, 3000))
+    done = run_trend("--capacity-mah", "3000", "--interval-s", "900",
+                     stdin=export.read_bytes())
+    assert done.returncode == 0, done.stderr.decode()
+    assert "average current:" in done.stdout.decode()
+
+
+def test_cli_start_utc_drops_earlier_rows_and_prints_the_cut(tmp_path):
+    # 2 days of a charge-like rise, then a clean 5-day fall
+    early = synthetic_polls(-3.0, 3000, days=2, start_fraction=0.5)
+    late = synthetic_polls(2.0, 3000)
+    shift = datetime.timedelta(days=2)
+    late = [lt.BatteryPoll(p.ts + shift, p.mv, "") for p in late]
+    export = write_export(tmp_path / "e.jsonl", early + late)
+    cut = (START + shift).isoformat()
+    done = run_trend(*standard_args(export), "--start-utc", cut)
+    out = done.stdout.decode()
+    assert done.returncode == 0, done.stderr.decode()
+    assert "rows before " + cut in out
+    match = re.search(r"average current: ([0-9.]+) mA", out)
+    assert float(match.group(1)) == pytest.approx(2.0, rel=0.05)
+
+
+def test_cli_no_quiet_hours_flag_and_bad_quiet_time(tmp_path):
+    export = write_export(tmp_path / "e.jsonl", synthetic_polls(2.0, 3000))
+    done = run_trend(*standard_args(export), "--no-quiet-hours")
+    assert done.returncode == 0
+    assert "quiet hours: off" in done.stdout.decode()
+    bad = run_trend(*standard_args(export), "--quiet-start", "25:00")
+    assert bad.returncode == 2
+    both = run_trend(*standard_args(export), "--no-quiet-hours", "--quiet-start", "23:00")
+    assert both.returncode == 2
+
+
+def test_help_lists_band_keys_without_finding_letters():
+    done = run_trend("--help")
+    text = done.stdout.decode()
+    assert done.returncode == 0
+    for key in ("at_or_below_allowance", "between_favourable_and_central", "above_central"):
+        assert key in text
+    assert not re.search(r"finding|\([abc]\)", text, re.I)
+
+
+def test_suite_runs_without_any_committed_owner_export(tmp_path):
+    # every fixture above lives in tmp_path; nothing under hardware/logs is read
+    # except the two committed analysis JSON files the hypotheses come from
+    export = write_export(tmp_path / "e.jsonl", synthetic_polls(2.0, 3000))
+    assert run_trend(*standard_args(export)).returncode == 0
