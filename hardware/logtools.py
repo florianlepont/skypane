@@ -2226,7 +2226,560 @@ def cmd_battery_model(args):
     return 0
 
 
+# --- sleep-trend ------------------------------------------------------------
+#
+# Average current from the voltage fall of a long-interval run. The rated
+# capacity and the repository discharge curve are ratings, not measurements,
+# so the result is an estimate with stated biases, never a measured current.
+
+TREND_IGNORE_HOURS = 24.0  # settling after a full charge (rest-voltage creep)
+TREND_EDGE_HOURS = 12.0  # width of each end-point window, hours
+TREND_MIN_SPAN_HOURS = 48.0  # least span left after the ignore cut, hours
+TREND_MIN_POLLS = 5  # least non-quiet polls inside each end-point window
+# The owner's production quiet window, set here rather than read from the
+# policy module's code default (23:00 to 07:00).
+TREND_QUIET_START = "23:30"
+TREND_QUIET_END = "06:00"
+TREND_ALLOWANCE_HOURS = 4320.0  # 180 days
+TREND_SENSITIVITY_MV = 10  # end-point error used for the sensitivity figure
+
+_DEVICE_POLICY = []
+
+
+def _device_policy():
+    """The stdlib-only server/device_policy.py, loaded by file path and
+    cached, so this script stays standalone.
+    """
+    if not _DEVICE_POLICY:
+        import importlib.util
+        path = os.path.join(os.path.dirname(HERE), "server", "device_policy.py")
+        spec = importlib.util.spec_from_file_location("skypane_device_policy", path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        try:
+            spec.loader.exec_module(module)
+        except (OSError, ImportError) as exc:
+            raise RunReportError("cannot load server/device_policy.py: %s" % exc)
+        _DEVICE_POLICY.append(module)
+    return _DEVICE_POLICY[0]
+
+
+def check_trend_quiet_window(start, end):
+    """Return (start, end) when both are HH:MM, else raise RunReportError."""
+    pattern = _device_policy().HHMM_RE
+    for label, value in (("--quiet-start", start), ("--quiet-end", end)):
+        if not isinstance(value, str) or not pattern.match(value):
+            raise RunReportError("%s must be HH:MM (24 h), got %r" % (label, value))
+    return start, end
+
+
+def is_trend_quiet(ts, quiet_window):
+    """True when the aware timestamp falls inside the daily Europe/Paris
+    [start, end) quiet window; always False when quiet_window is None.
+    """
+    if quiet_window is None:
+        return False
+    policy = _device_policy()
+    return policy.seconds_until_quiet_hours_end(ts, quiet_window[0], quiet_window[1]) is not None
+
+
+def _median_point(polls):
+    """(median mV, median timestamp, count) of a non-empty poll list."""
+    mv = statistics.median(p.mv for p in polls)
+    epoch = statistics.median(p.ts.timestamp() for p in polls)
+    return mv, datetime.datetime.fromtimestamp(epoch, tz=datetime.timezone.utc), len(polls)
+
+
+def select_trend_endpoints(polls, ignore_hours=TREND_IGNORE_HOURS,
+                           edge_hours=TREND_EDGE_HOURS,
+                           quiet_window=(TREND_QUIET_START, TREND_QUIET_END)):
+    """Cut the first `ignore_hours` after the first poll, then return the
+    median millivolts, median timestamp and poll count over the first and
+    last `edge_hours` of the remaining non-quiet polls, plus the share of
+    the remaining polls that fall in quiet hours. Raises RunReportError
+    when the data cannot support an estimate.
+    """
+    if len(polls) < 2:
+        raise RunReportError("export has fewer than two usable rows")
+    cut = polls[0].ts + datetime.timedelta(hours=ignore_hours)
+    kept = [p for p in polls if p.ts >= cut]
+    span_h = (kept[-1].ts - kept[0].ts).total_seconds() / 3600.0 if kept else 0.0
+    if span_h < TREND_MIN_SPAN_HOURS:
+        raise RunReportError(
+            "only %.1f h remain after the first %g h are ignored; at least %g h "
+            "are needed" % (span_h, ignore_hours, TREND_MIN_SPAN_HOURS))
+    edge = datetime.timedelta(hours=edge_hours)
+    quiet_count = sum(1 for p in kept if is_trend_quiet(p.ts, quiet_window))
+    usable = [p for p in kept if not is_trend_quiet(p.ts, quiet_window)]
+    windows = {
+        "first": [p for p in usable if p.ts < kept[0].ts + edge],
+        "last": [p for p in usable if p.ts > kept[-1].ts - edge],
+    }
+    out = {"cut": cut, "polls_after_cut": len(kept), "span_hours": span_h,
+           "quiet_share": quiet_count / len(kept) if quiet_window else 0.0}
+    for name, chosen in windows.items():
+        if len(chosen) < TREND_MIN_POLLS:
+            raise RunReportError(
+                "only %d non-quiet poll(s) in the %s %g h window; at least %d are "
+                "needed" % (len(chosen), name, edge_hours, TREND_MIN_POLLS))
+        mv, ts, count = _median_point(chosen)
+        out[name] = {"mv": mv, "ts": ts, "polls": count}
+    return out
+
+
+def _trend_fraction(mv):
+    value = _device_policy().battery_fraction(mv)
+    if value is None:
+        raise RunReportError("millivolt reading %r is not usable" % (mv,))
+    return value
+
+
+def estimate_average_current_ma(polls, capacity_mah, ignore_hours=TREND_IGNORE_HOURS,
+                                edge_hours=TREND_EDGE_HOURS,
+                                quiet_window=(TREND_QUIET_START, TREND_QUIET_END)):
+    """Average current in mA from the fall of the curve fraction between two
+    median end points: fraction fall x rated capacity (mAh) / elapsed hours.
+    Raises RunReportError when no positive fall can be resolved.
+    """
+    if capacity_mah < 1:
+        raise RunReportError("--capacity-mah must be at least 1")
+    ends = select_trend_endpoints(polls, ignore_hours, edge_hours, quiet_window)
+    f_first = _trend_fraction(ends["first"]["mv"])
+    f_last = _trend_fraction(ends["last"]["mv"])
+    elapsed_h = (ends["last"]["ts"] - ends["first"]["ts"]).total_seconds() / 3600.0
+    if f_first - f_last <= 0 or elapsed_h <= 0:
+        raise RunReportError(
+            "the voltage fall between the two end points is zero or negative "
+            "(%.0f mV to %.0f mV), below what the voltage can resolve here; no "
+            "current is claimed" % (ends["first"]["mv"], ends["last"]["mv"]))
+    charge_mah = (f_first - f_last) * capacity_mah
+    policy = _device_policy()
+    sensitivity = {}
+    for name in ("first", "last"):
+        mv = ends[name]["mv"]
+        step = policy.battery_fraction(mv + TREND_SENSITIVITY_MV) - _trend_fraction(mv)
+        sensitivity[name] = step * capacity_mah / elapsed_h
+    ends.update({
+        "average_ma": charge_mah / elapsed_h,
+        "charge_mah": charge_mah,
+        "elapsed_hours": elapsed_h,
+        "fraction": {"first": f_first, "last": f_last},
+        "capacity_mah": capacity_mah,
+        "sensitivity_ma_per_10mv": sensitivity,
+    })
+    return ends
+
+
+def _json_number(source, label, *path):
+    value = source
+    for key in path:
+        value = value.get(key) if isinstance(value, dict) else None
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+        raise RunReportError("%s is missing %s" % (label, ".".join(path)))
+    return float(value)
+
+
+def trend_hypotheses(model_json, report_json, interval_s, capacity_mah):
+    """Currents in mA at `interval_s` implied by the committed analysis:
+    favourable = energy per cycle x cycles per hour (no standing draw),
+    central = standing draw + wake energy x cycles per hour; allowance is
+    the average that empties the rated pack in 180 days.
+    """
+    if interval_s < 1 or capacity_mah < 1:
+        raise RunReportError("--interval-s and --capacity-mah must be at least 1")
+    cycles_per_hour = 3600.0 / interval_s
+    per_cycle = _json_number(report_json, "run two report", "energy_normal_window",
+                             "mah_per_cycle")
+    standing = _json_number(model_json, "battery model", "central_fit", "standing_ma")
+    wake = _json_number(model_json, "battery model", "central_fit", "wake_mah")
+    return {
+        "favourable_ma": per_cycle * cycles_per_hour,
+        "central_ma": standing + wake * cycles_per_hour,
+        "allowance_ma": capacity_mah / TREND_ALLOWANCE_HOURS,
+        "interval_s": interval_s,
+    }
+
+
+def classify_current_band(estimate, allowance, favourable, central):
+    """Return (band key, sentence). Strict comparison with no tolerance; an
+    estimate equal to a reference value falls in the lower band.
+    """
+    refs = "%.2f mA (180-day allowance), %.2f mA (favourable) and %.2f mA (central)" % (
+        allowance, favourable, central)
+    if not allowance < favourable < central:
+        return "not_applicable", (
+            "The bands are undefined because the 180-day allowance, the favourable "
+            "and the central hypotheses are not in increasing order: %s." % refs)
+    if estimate <= allowance:
+        return "at_or_below_allowance", (
+            "The estimate %.2f mA is at or below the %.2f mA 180-day allowance." %
+            (estimate, allowance))
+    if estimate <= favourable:
+        return "between_allowance_and_favourable", (
+            "The estimate %.2f mA lies between the %.2f mA 180-day allowance and the "
+            "%.2f mA favourable hypothesis." % (estimate, allowance, favourable))
+    if estimate <= central:
+        return "between_favourable_and_central", (
+            "The estimate %.2f mA lies between the %.2f mA favourable hypothesis and "
+            "the %.2f mA central hypothesis." % (estimate, favourable, central))
+    return "above_central", (
+        "The estimate %.2f mA is above the %.2f mA central hypothesis." %
+        (estimate, central))
+
+
+TREND_DOES_NOT_MEASURE = [
+    "Rest-voltage creep after a full charge: the voltage keeps settling for "
+    "days, which lowers the apparent draw early in the run.",
+    "The curve shape and the 3000 or 10000 mAh figure are ratings; a real pack "
+    "differs and the voltage-to-charge mapping is not a measurement.",
+    "1 mV quantisation of the reading and the sensitivity above: a few mV of "
+    "end-point error moves the estimate by the amounts printed.",
+    "Quiet-hours wakes are longer, so the field average over a day is below a "
+    "daytime-rate hypothesis; the end points leave quiet-hours polls out.",
+    "The figure is an average over the window, not the instantaneous sleep current.",
+    "It cannot separate the standing draw from the wake energy at a single interval.",
+]
+
+
+def _trend_start_cut(polls, start_utc):
+    """(polls at or after start_utc, number dropped)."""
+    if start_utc is None:
+        return polls, 0
+    kept = [p for p in polls if p.ts >= start_utc]
+    return kept, len(polls) - len(kept)
+
+
+def build_sleep_trend_report(raw, params, model_json, report_json):
+    """Estimate, hypotheses and band for an export's bytes. `params` carries
+    capacity_mah, interval_s, ignore_hours, edge_hours, quiet_window (or
+    None) and start_utc (aware datetime or None).
+    """
+    polls, dropped = _trend_start_cut(_rows_to_ordered_polls(raw), params["start_utc"])
+    est = estimate_average_current_ma(
+        polls, params["capacity_mah"], params["ignore_hours"], params["edge_hours"],
+        params["quiet_window"])
+    hyp = trend_hypotheses(model_json, report_json, params["interval_s"],
+                           params["capacity_mah"])
+    band, sentence = classify_current_band(
+        est["average_ma"], hyp["allowance_ma"], hyp["favourable_ma"], hyp["central_ma"])
+    for name in ("first", "last"):
+        est[name]["ts"] = est[name]["ts"].isoformat()
+    est["cut"] = est["cut"].isoformat()
+    return {
+        "export_sha256": hashlib.sha256(raw).hexdigest(),
+        "capacity_mah": params["capacity_mah"],
+        "capacity_basis": "rated, not measured",
+        "interval_s": params["interval_s"],
+        "ignore_hours": params["ignore_hours"],
+        "edge_hours": params["edge_hours"],
+        "quiet_window": list(params["quiet_window"]) if params["quiet_window"] else None,
+        "start_utc": params["start_utc"].isoformat() if params["start_utc"] else None,
+        "rows_dropped_before_start": dropped,
+        "estimate": est,
+        "hypotheses": hyp,
+        "band": band,
+        "band_sentence": sentence,
+        "does_not_measure": TREND_DOES_NOT_MEASURE,
+    }
+
+
+def print_sleep_trend(report):
+    est, hyp = report["estimate"], report["hypotheses"]
+    print("sleep-trend: average current from the battery-voltage fall")
+    print("export sha256: %s" % report["export_sha256"])
+    print("capacity: %d mAh (rated, not measured)" % report["capacity_mah"])
+    print("interval: %d s" % report["interval_s"])
+    if report["start_utc"]:
+        print("start cut: %d rows before %s dropped" % (
+            report["rows_dropped_before_start"], report["start_utc"]))
+    print("rule: the first %g h after the first kept poll are ignored; end points are "
+          "medians over %g h" % (report["ignore_hours"], report["edge_hours"]))
+    if report["quiet_window"]:
+        print("quiet hours: %s-%s Europe/Paris left out of the end points "
+              "(%.0f%% of polls after the cut)" % (
+                  report["quiet_window"][0], report["quiet_window"][1],
+                  100 * est["quiet_share"]))
+    else:
+        print("quiet hours: off (every poll can enter the end points)")
+    for name, label in (("first", "start"), ("last", "end")):
+        point = est[name]
+        print("%s end point: median %.1f mV at %s (%d polls, %.1f%% on the curve)" % (
+            label, point["mv"], point["ts"], point["polls"],
+            100 * est["fraction"][name]))
+    print("elapsed between end points: %.1f h" % est["elapsed_hours"])
+    print("charge drawn: %.1f mAh (curve fraction fall x rated capacity)" %
+          est["charge_mah"])
+    print("average current: %.2f mA" % est["average_ma"])
+    print("sensitivity: %.2f mA per 10 mV of error at the start end point, "
+          "%.2f mA at the end one" % (
+              est["sensitivity_ma_per_10mv"]["first"],
+              est["sensitivity_ma_per_10mv"]["last"]))
+    print("\nReference values at %d s:" % hyp["interval_s"])
+    print("  favourable hypothesis: %.2f mA" % hyp["favourable_ma"])
+    print("  central hypothesis:    %.2f mA" % hyp["central_ma"])
+    print("  180-day allowance for %d mAh (rated): %.2f mA" % (
+        report["capacity_mah"], hyp["allowance_ma"]))
+    print("\nband: %s" % report["band"])
+    print(report["band_sentence"])
+    print("\nWhat this estimate does not measure:")
+    for text in report["does_not_measure"]:
+        print("  - " + text)
+
+
+def _sleep_trend_params(args):
+    quiet = None
+    if args.no_quiet_hours:
+        if args.quiet_start is not None or args.quiet_end is not None:
+            raise RunReportError("--no-quiet-hours cannot be combined with "
+                                 "--quiet-start or --quiet-end")
+    else:
+        quiet = check_trend_quiet_window(args.quiet_start or TREND_QUIET_START,
+                                         args.quiet_end or TREND_QUIET_END)
+    start = _aware_timestamp(args.start_utc, "--start-utc") if args.start_utc else None
+    if args.ignore_hours < 0 or args.edge_hours <= 0:
+        raise RunReportError("--ignore-hours must be at least 0 and --edge-hours above 0")
+    return {"capacity_mah": args.capacity_mah, "interval_s": args.interval_s,
+            "ignore_hours": args.ignore_hours, "edge_hours": args.edge_hours,
+            "quiet_window": quiet, "start_utc": start}
+
+
+def _read_json_object(path, what):
+    try:
+        value = json.loads(_read_bytes(path, what).decode("utf-8"))
+    except ValueError as exc:
+        raise RunReportError("%s is not valid JSON: %s" % (what, exc))
+    if not isinstance(value, dict):
+        raise RunReportError("%s is not a JSON object" % what)
+    return value
+
+
+def cmd_sleep_trend(args):
+    """Print the voltage-trend current estimate; write --out only on success.
+    Exit 0, or 2 when the input is refused. Never modifies its input.
+    """
+    try:
+        params = _sleep_trend_params(args)
+        if args.rows:
+            raw = _read_bytes(args.rows, "export")
+        else:
+            raw = sys.stdin.buffer.read()
+        report = build_sleep_trend_report(
+            raw, params, _read_json_object(args.model, "battery model"),
+            _read_json_object(args.run2_report, "run two report"))
+        if args.out:
+            text = json.dumps(_model_round(report), sort_keys=True, indent=2) + "\n"
+            with open(args.out, "w") as fh:
+                fh.write(text)
+    except (RunReportError, OSError) as exc:
+        sys.stderr.write("sleep-trend: refused: %s\n" % exc)
+        return 2
+    print_sleep_trend(report)
+    return 0
+
+
+def _gaps_params(args):
+    quiet = None
+    if args.no_quiet_hours:
+        if args.quiet_start is not None or args.quiet_end is not None:
+            raise RunReportError("--no-quiet-hours cannot be combined with "
+                                 "--quiet-start or --quiet-end")
+    else:
+        quiet = check_trend_quiet_window(args.quiet_start or TREND_QUIET_START,
+                                         args.quiet_end or TREND_QUIET_END)
+    if args.expect_s <= 0:
+        raise RunReportError("--expect-s must be above 0")
+    if args.skip_first_gaps < 0:
+        raise RunReportError("--skip-first-gaps must be at least 0")
+    lower = _aware_timestamp(args.from_utc, "--from") if args.from_utc else None
+    upper = _aware_timestamp(args.to_utc, "--to") if args.to_utc else None
+    return {"expect_s": args.expect_s, "quiet_window": quiet,
+            "skip_first": args.skip_first_gaps, "from": lower, "to": upper}
+
+
+def split_checkin_gaps(polls, quiet_window, skip_first):
+    """Return (judged, quiet, skipped) gap lists in seconds for chronological
+    `polls`. A gap is quiet when its start poll is inside the quiet window;
+    quiet gaps are set aside first, then the first `skip_first` of the rest.
+    """
+    judged, quiet = [], []
+    for a, b in zip(polls, polls[1:]):
+        gap = (b.ts - a.ts).total_seconds()
+        (quiet if is_trend_quiet(a.ts, quiet_window) else judged).append(gap)
+    if skip_first > len(judged):
+        raise RunReportError("--skip-first-gaps %d is more than the %d gap(s) "
+                             "left after quiet hours" % (skip_first, len(judged)))
+    return judged[skip_first:], quiet, judged[:skip_first]
+
+
+def gap_gate_stats(judged, expect_s):
+    """The stats the continuity gates read, from judged gaps in seconds, with
+    the definitions compute_battery_stats uses.
+    """
+    total = sum(judged)
+    if total <= 0:
+        raise RunReportError("judged gaps add up to zero seconds")
+    nominal = total / expect_s
+    return {"observed": len(judged), "nominal": nominal,
+            "coverage": len(judged) / nominal,
+            "max_gap": max(judged) / expect_s, "span_days": total / 86400.0,
+            "span_s": total}
+
+
+def build_checkin_gaps_report(raw, params):
+    """Judge the check-in cadence of a window of an export against the
+    expected interval, with the run-report continuity gates read from
+    RUN_THRESHOLDS at call time.
+    """
+    polls = _rows_to_ordered_polls(raw)
+    if params["from"] is not None:
+        polls = [p for p in polls if p.ts >= params["from"]]
+    if params["to"] is not None:
+        polls = [p for p in polls if p.ts <= params["to"]]
+    if len(polls) < 2:
+        raise RunReportError("the window holds %d row(s), need at least 2" % len(polls))
+    judged, quiet, skipped = split_checkin_gaps(
+        polls, params["quiet_window"], params["skip_first"])
+    if len(judged) < 2:
+        raise RunReportError("%d judged gap(s) left, need at least 2" % len(judged))
+    expect = params["expect_s"]
+    stats = gap_gate_stats(judged, expect)
+    th = RUN_THRESHOLDS
+    basis = " (judged gaps only)"
+    results = [check_coverage(stats, th["min_coverage"], basis),
+               check_max_gap(stats, th["max_gap_intervals"], basis)]
+    median = statistics.median(judged)
+    return {
+        "expect_s": expect, "window_start": polls[0].ts.isoformat(),
+        "window_end": polls[-1].ts.isoformat(), "rows": len(polls),
+        "gaps_judged": len(judged), "quiet_window": params["quiet_window"],
+        "quiet_gaps": quiet, "skipped_gaps": skipped,
+        "min_gap_s": min(judged), "median_gap_s": median, "max_gap_s": max(judged),
+        "median_ratio": median / expect,
+        "share_within": sum(1 for g in judged if expect <= g <= 1.5 * expect) / len(judged),
+        "gaps_above_limit": sum(1 for g in judged if g > th["max_gap_intervals"] * expect),
+        "limit_intervals": th["max_gap_intervals"],
+        "coverage": stats["coverage"], "max_gap_intervals": stats["max_gap"],
+        "gates": [{"name": r.name, "status": r.status, "reason": r.reason}
+                  for r in results],
+        "verdict": "PASS" if all(r.status == "PASS" for r in results) else "FAIL",
+        "results": results,
+    }
+
+
+def print_checkin_gaps(rep):
+    print("checkin-gaps: check-in cadence against an expected interval")
+    print("window: %s to %s (%d rows)" % (rep["window_start"], rep["window_end"], rep["rows"]))
+    print("expected interval: %d s" % rep["expect_s"])
+    if rep["quiet_window"]:
+        print("quiet hours: %s-%s Europe/Paris" % tuple(rep["quiet_window"]))
+        print("quiet gaps set aside: %d" % len(rep["quiet_gaps"]))
+        for gap in rep["quiet_gaps"]:
+            print("  quiet gap: %g s" % gap)
+    else:
+        print("quiet hours: off, no gap set aside")
+    if rep["skipped_gaps"]:
+        print("first gap(s) set aside: " + ", ".join("%g" % g for g in rep["skipped_gaps"]))
+    print("gaps: %d judged (coverage and largest gap describe the judged gaps only)" %
+          rep["gaps_judged"])
+    print("min / median / max gap: %g / %g / %g s" % (
+        rep["min_gap_s"], rep["median_gap_s"], rep["max_gap_s"]))
+    print("median gap vs expected: %g s, %.3f x expected (information only)" % (
+        rep["median_gap_s"], rep["median_ratio"]))
+    print("gaps within expected to 1.5 x expected: %.1f%%" % (100 * rep["share_within"]))
+    print("gaps above %g x expected: %d" % (rep["limit_intervals"], rep["gaps_above_limit"]))
+    for result in rep["results"]:
+        print(result.line())
+    print("cadence verdict: %s" % rep["verdict"])
+
+
+def cmd_checkin_gaps(args):
+    """Print the check-in cadence verdict; exit 0 PASS, 1 FAIL, 2 refused.
+    Never modifies its input; --out is written only on a non-refused run.
+    """
+    try:
+        params = _gaps_params(args)
+        raw = _read_bytes(args.rows, "export") if args.rows else sys.stdin.buffer.read()
+        rep = build_checkin_gaps_report(raw, params)
+        if args.out:
+            body = {k: v for k, v in rep.items() if k != "results"}
+            with open(args.out, "w") as fh:
+                fh.write(json.dumps(body, sort_keys=True, indent=2) + "\n")
+    except (RunReportError, OSError) as exc:
+        sys.stderr.write("checkin-gaps: refused: %s\n" % exc)
+        return 2
+    print_checkin_gaps(rep)
+    return 0 if rep["verdict"] == "PASS" else 1
+
+
 # --- CLI ------------------------------------------------------------------
+
+
+def _add_sleep_trend_parser(sub):
+    st = sub.add_parser(
+        "sleep-trend",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        help="estimate the average current from the voltage fall of a "
+             "long-interval export (read-only)",
+        description="Estimate the frame's average current from the battery-voltage "
+                    "fall in an owner export. The capacity and the discharge curve "
+                    "are ratings, not measurements.",
+        epilog="The printed band key is one of: at_or_below_allowance, "
+               "between_allowance_and_favourable, between_favourable_and_central, "
+               "above_central, not_applicable. The key only places the estimate "
+               "against the three reference values printed with it.")
+    st.add_argument("rows", nargs="?", default=None,
+        help="JSON-Lines export; reads stdin when omitted")
+    st.add_argument("--capacity-mah", type=int, required=True,
+        help="the pack's rated capacity in mAh (printed as rated, not measured)")
+    st.add_argument("--interval-s", type=int, required=True,
+        help="the configured wake interval in seconds")
+    st.add_argument("--ignore-hours", type=float, default=TREND_IGNORE_HOURS,
+        help="hours ignored after the first kept poll (default: %(default)g)")
+    st.add_argument("--edge-hours", type=float, default=TREND_EDGE_HOURS,
+        help="width of each end-point window in hours (default: %(default)g)")
+    st.add_argument("--quiet-start", default=None,
+        help="quiet-hours start, HH:MM Paris time (default: %s)" % TREND_QUIET_START)
+    st.add_argument("--quiet-end", default=None,
+        help="quiet-hours end, HH:MM Paris time (default: %s)" % TREND_QUIET_END)
+    st.add_argument("--no-quiet-hours", action="store_true",
+        help="do not leave quiet-hours polls out of the end points")
+    st.add_argument("--start-utc", default=None,
+        help="drop rows before this ISO-8601 instant (for a window broken by charging)")
+    st.add_argument("--model", default=os.path.join(HERE, "logs", "battery-model.json"),
+        help="battery model JSON (default: %(default)s)")
+    st.add_argument("--run2-report", default=os.path.join(HERE, "logs", "battery-run2-report.json"),
+        help="run two report JSON (default: %(default)s)")
+    st.add_argument("--out", default=None,
+        help="write the JSON report here (only on a non-refused run)")
+
+
+def _add_checkin_gaps_parser(sub):
+    cg = sub.add_parser(
+        "checkin-gaps",
+        help="judge the check-in cadence of an export window against an "
+             "expected interval (read-only)",
+        description="Measure the gaps between consecutive check-ins in an owner "
+                    "export and judge them with the run-report continuity gates "
+                    "(thresholds read from RUN_THRESHOLDS). Gaps that start in "
+                    "quiet hours are listed separately and not judged.")
+    cg.add_argument("rows", nargs="?", default=None,
+        help="JSON-Lines export; reads stdin when omitted")
+    cg.add_argument("--expect-s", type=int, required=True,
+        help="the interval the frame is expected to keep, in seconds")
+    cg.add_argument("--from", dest="from_utc", default=None,
+        help="keep rows at or after this ISO-8601 instant")
+    cg.add_argument("--to", dest="to_utc", default=None,
+        help="keep rows at or before this ISO-8601 instant")
+    cg.add_argument("--quiet-start", default=None,
+        help="quiet-hours start, HH:MM Paris time (default: %s)" % TREND_QUIET_START)
+    cg.add_argument("--quiet-end", default=None,
+        help="quiet-hours end, HH:MM Paris time (default: %s)" % TREND_QUIET_END)
+    cg.add_argument("--no-quiet-hours", action="store_true",
+        help="judge every gap in the window")
+    cg.add_argument("--skip-first-gaps", type=int, default=0,
+        help="set aside the first N judged gaps and print them (default: %(default)d)")
+    cg.add_argument("--out", default=None,
+        help="write the JSON report here (only on a non-refused run)")
 
 
 def _add_run_report_parsers(sub):
@@ -2346,6 +2899,8 @@ def build_parser():
 
     _add_run_report_parsers(sub)
     _add_battery_model_parser(sub)
+    _add_sleep_trend_parser(sub)
+    _add_checkin_gaps_parser(sub)
 
     sub.add_parser("selftest",
         help="run check-backoff and check-battery against "
@@ -2373,6 +2928,10 @@ def main(argv=None):
         return cmd_reference_interval(args)
     if args.command == "battery-model":
         return cmd_battery_model(args)
+    if args.command == "sleep-trend":
+        return cmd_sleep_trend(args)
+    if args.command == "checkin-gaps":
+        return cmd_checkin_gaps(args)
     if args.command == "selftest":
         return cmd_selftest(args)
     return 1  # pragma: no cover — argparse enforces `required=True` above
