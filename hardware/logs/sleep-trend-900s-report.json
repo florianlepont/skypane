@@ -1,0 +1,58 @@
+{
+  "band": "at_or_below_allowance",
+  "band_sentence": "The estimate 0.39 mA is at or below the 0.69 mA 180-day allowance.",
+  "capacity_basis": "rated, not measured",
+  "capacity_mah": 3000,
+  "does_not_measure": [
+    "Rest-voltage creep after a full charge: the voltage keeps settling for days, which lowers the apparent draw early in the run.",
+    "The curve shape and the 3000 or 10000 mAh figure are ratings; a real pack differs and the voltage-to-charge mapping is not a measurement.",
+    "1 mV quantisation of the reading and the sensitivity above: a few mV of end-point error moves the estimate by the amounts printed.",
+    "Quiet-hours wakes are longer, so the field average over a day is below a daytime-rate hypothesis; the end points leave quiet-hours polls out.",
+    "The figure is an average over the window, not the instantaneous sleep current.",
+    "It cannot separate the standing draw from the wake energy at a single interval."
+  ],
+  "edge_hours": 12.0,
+  "estimate": {
+    "average_ma": 0.3867,
+    "capacity_mah": 3000,
+    "charge_mah": 37.5,
+    "cut": "2026-10-24T04:29:23+00:00",
+    "elapsed_hours": 96.9811,
+    "first": {
+      "mv": 4022,
+      "polls": 47,
+      "ts": "2026-10-24T10:42:51+00:00"
+    },
+    "fraction": {
+      "first": 0.9196,
+      "last": 0.9071
+    },
+    "last": {
+      "mv": 4008,
+      "polls": 47,
+      "ts": "2026-10-28T11:41:43+00:00"
+    },
+    "polls_after_cut": 323,
+    "quiet_share": 0.0248,
+    "sensitivity_ma_per_10mv": {
+      "first": 0.2762,
+      "last": 0.2762
+    },
+    "span_hours": 108.9108
+  },
+  "export_sha256": "507e8cf70b75d9c8385813b75d5806d3fe6de981fdc084413d6f1643aaaf5980",
+  "hypotheses": {
+    "allowance_ma": 0.6944,
+    "central_ma": 8.6557,
+    "favourable_ma": 1.9519,
+    "interval_s": 900
+  },
+  "ignore_hours": 24.0,
+  "interval_s": 900,
+  "quiet_window": [
+    "23:30",
+    "06:00"
+  ],
+  "rows_dropped_before_start": 0,
+  "start_utc": "2026-10-23T04:25:00+00:00"
+}
