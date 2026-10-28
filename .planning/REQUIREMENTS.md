@@ -2,7 +2,7 @@
 
 **Defined:** 2026-09-30
 **Milestone:** v1.1 Battery and Companion!
-**Core Value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
+**Core Value:** Glancing at the frame tells you, in real time, which plane is taking off or landing right now — while also being a satisfying ambient piece on the wall.
 
 ## v1.1 Requirements
 
@@ -42,7 +42,6 @@
 
 ### Product Scope
 
-- **RER-01**: The frame shows the next RER trains and leave-by guidance.
 - **MSG-01**: The companion sends a short message to the frame.
 
 ## Out of Scope

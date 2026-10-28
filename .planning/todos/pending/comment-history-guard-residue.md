@@ -3,6 +3,7 @@ title: Tighten the comment-history guard and reword the residue it misses
 created: 2026-09-28
 source: Phase 41 closing re-audit (HYG-01, HYG-06 accepted open)
 area: tooling / comments
+resolves_phase: 59
 ---
 
 # Tighten the comment-history guard and reword the residue it misses

@@ -4,9 +4,9 @@
 
 **SkyPane**
 
-An e-ink wall/desk frame that shows real-time departure info: flights taking off from Paris-Orly (ORY) and the next RER trains from Orly-Ville station, switchable via a physical button. Built on the same "wake → poll → display → deep sleep" architecture as the flightportrait reference project, running on battery power, with a small always-on cloud server generating the display images.
+An e-ink wall/desk frame that shows the real-time flight taking off or landing near it, starting with Paris-Orly (ORY) runway 3 and growing into a fleet platform (several users, several hardware types, any location in France). Built on the same "wake → poll → display → deep sleep" architecture as the flightportrait reference project, running on battery power, with a small always-on cloud server generating the display images.
 
-**Core Value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
+**Core Value:** Glancing at the frame tells you, in real time, which plane is taking off or landing right now — while also being a satisfying ambient piece on the wall.
 
 ### Constraints
 
