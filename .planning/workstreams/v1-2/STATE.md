@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Fleet platform
 current_plan: N/A
-status: planning
+status: ready_to_plan
 stopped_at: Phase 48 context gathered
 last_updated: "2026-10-28T23:31:21.220Z"
 last_activity: 2026-10-28 — Roadmap for v1.2 created
