@@ -204,8 +204,12 @@ def test_add_a_special_look_is_a_dialog_that_posts_a_rule(new_context, make_app_
         panel.wait_for(state="visible")
         assert panel.get_attribute("role") == "dialog"
         assert not page.locator("[data-look-table-host]").is_visible()
+        # The panel handles Escape only while focus is inside it, and the script moves focus there
+        # from the details toggle event, which the browser queues as a task after the click.
+        page.wait_for_function(
+            "() => document.querySelector('.special-add__panel').contains(document.activeElement)")
         page.keyboard.press("Escape")
-        assert not page.locator(".special-add").evaluate("d => d.open")
+        page.wait_for_function("() => !document.querySelector('.special-add').open")
         page.click(".special-add__summary")
         page.click('label[for="rule-kind-prefix"]')
         page.click('.rule-suggestion-chip[data-kind="prefix"]')
