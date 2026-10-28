@@ -86,7 +86,37 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 ## Traceability
 
-Filled by the roadmap.
+Coverage: 30/30 v1.2 requirements mapped, each to exactly one phase.
 
 | Requirement | Phase | Status |
 |---|---|---|
+| DATA-01 | Phase 48 | Pending |
+| DATA-02 | Phase 48 | Pending |
+| DATA-03 | Phase 48 | Pending |
+| DATA-04 | Phase 48 | Pending |
+| DATA-05 | Phase 48 | Pending |
+| OTA-01 | Phase 49 | Pending |
+| OTA-02 | Phase 49 | Pending |
+| OTA-03 | Phase 49 | Pending |
+| IMG-01 | Phase 50 | Pending |
+| IMG-02 | Phase 50 | Pending |
+| IMG-03 | Phase 50 | Pending |
+| FLT-01 | Phase 51 | Pending |
+| FLT-02 | Phase 51 | Pending |
+| FLT-03 | Phase 52 | Pending |
+| FLT-04 | Phase 52 | Pending |
+| DET-01 | Phase 53 | Pending |
+| DET-02 | Phase 53 | Pending |
+| DET-03 | Phase 53 | Pending |
+| AUTH-01 | Phase 54 | Pending |
+| AUTH-02 | Phase 54 | Pending |
+| AUTH-03 | Phase 54 | Pending |
+| AUTH-06 | Phase 54 | Pending |
+| AUTH-04 | Phase 55 | Pending |
+| AUTH-05 | Phase 55 | Pending |
+| HWR-01 | Phase 56 | Pending |
+| HWR-02 | Phase 56 | Pending |
+| OTA-04 | Phase 57 | Pending |
+| HW2-01 | Phase 58 | Pending |
+| HW2-02 | Phase 58 | Pending |
+| DEBT-01 | Phase 59 | Pending |
