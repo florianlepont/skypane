@@ -47,7 +47,7 @@ def mv_for_fraction(fraction):
 
 
 def synthetic_polls(current_ma, capacity_mah, days=5, interval_s=900,
-                    start_fraction=0.92, extra_mv=None, round_mv=True):
+                    start_fraction=0.80, extra_mv=None, round_mv=True):
     """Polls of a pack drained at exactly `current_ma`. `extra_mv(i, ts, elapsed_h)`
     adds millivolts to a poll (glitches, sag, early drop)."""
     polls = []
@@ -223,6 +223,66 @@ def test_sensitivity_per_10_mv_matches_the_curve():
         step = (dp.battery_fraction(mv + 10) - dp.battery_fraction(mv)) * 3000
         assert result["sensitivity_ma_per_10mv"][end] == pytest.approx(
             step / result["elapsed_hours"])
+
+
+# --- top of the curve --------------------------------------------------------
+
+def top_of_curve_report(tmp_path, start_mv, end_mv, days=5):
+    """Run build_sleep_trend_report on a straight fall from start_mv to end_mv."""
+    count = int(days * 86400 / 900)
+    polls = []
+    for i in range(count):
+        ts = START + datetime.timedelta(seconds=i * 900)
+        mv = start_mv + (end_mv - start_mv) * i / (count - 1)
+        polls.append(lt.BatteryPoll(ts, int(round(mv)), ""))
+    export = write_export(tmp_path / "top.jsonl", polls)
+    with open(MODEL_JSON) as fh:
+        model = json.load(fh)
+    with open(RUN2_REPORT) as fh:
+        run2 = json.load(fh)
+    params = {"capacity_mah": 3000, "interval_s": 900, "ignore_hours": 24.0,
+              "edge_hours": 12.0, "quiet_window": ("23:30", "06:00"), "start_utc": None}
+    return lt.build_sleep_trend_report(export.read_bytes(), params, model, run2), export
+
+
+def test_top_of_curve_limit_is_the_4000_mv_knot():
+    assert lt.TREND_CURVE_LIMIT_MV == 4000
+    assert (4000, 90) in dp.BATTERY_DISCHARGE_CURVE
+
+
+def test_end_points_above_4000_mv_give_no_band(tmp_path):
+    # the situation of the 900 s owner export: end medians near 4022 and 4008 mV,
+    # an estimate far below the allowance that the curve cannot support
+    report, _ = top_of_curve_report(tmp_path, 4026, 4004)
+    assert report["estimate"]["first"]["mv"] > 4000
+    assert report["estimate"]["average_ma"] < report["hypotheses"]["allowance_ma"]
+    assert report["band"] == "not_applicable"
+    assert "not calibrated" in report["band_sentence"]
+    assert report["estimate"]["curve_calibrated"] is False
+    assert any("4000 mV" in item for item in report["does_not_measure"])
+
+
+def test_one_end_point_above_4000_mv_is_enough(tmp_path):
+    report, _ = top_of_curve_report(tmp_path, 4020, 3960)
+    assert report["estimate"]["first"]["mv"] > 4000 >= report["estimate"]["last"]["mv"]
+    assert report["band"] == "not_applicable"
+
+
+def test_both_end_points_below_4000_mv_keep_a_normal_band(tmp_path):
+    report, _ = top_of_curve_report(tmp_path, 3990, 3930)
+    assert report["estimate"]["first"]["mv"] <= 4000
+    assert report["estimate"]["curve_calibrated"] is True
+    assert report["band"] in ("at_or_below_allowance", "between_allowance_and_favourable",
+                              "between_favourable_and_central", "above_central")
+    assert "not calibrated" not in report["band_sentence"]
+
+
+def test_cli_labels_the_estimate_unreliable_above_4000_mv(tmp_path):
+    _, export = top_of_curve_report(tmp_path, 4026, 4004)
+    out = run_trend(*standard_args(export)).stdout.decode()
+    assert re.findall(r"^band: (\S+)$", out, re.M) == ["not_applicable"]
+    assert re.search(r"average current: [0-9.]+ mA \(unreliable", out)
+    assert "not calibrated" in out
 
 
 # --- CLI ---------------------------------------------------------------------
