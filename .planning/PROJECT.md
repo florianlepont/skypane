@@ -2,13 +2,13 @@
 
 ## What This Is
 
-An e-ink wall/desk frame that shows real-time departure info for flights taking off from Paris-Orly (ORY) runway 3. Built on the same "wake → poll → display → deep sleep" architecture as the flightportrait reference project, running on battery power, with a small always-on cloud server generating the display images. v1 ships as a single-view (plane-only) device; the next RER trains from Orly-Ville station and the physical button to switch between views are deferred to v2 (2026-08-11 scope decision — see Key Decisions).
+An e-ink wall/desk frame that shows the real-time flight taking off or landing near it. v1 detects traffic on Paris-Orly (ORY) runway 3; v1.2 turns it into a fleet platform where several users each own frames of different hardware types, placed anywhere in France, each with its own detection mode. Built on the same "wake → poll → display → deep sleep" architecture as the flightportrait reference project, running on battery power, with a small always-on cloud server generating the display images. The frame is a single-view (plane-only) device; the RER view has been dropped from the project (2026-10-28).
 
 **Milestone status (2026-09-30):** V1.0 (MVP) is complete and archived. V1.1 is now being scoped around field battery viability and companion interface polish.
 
 ## Core Value
 
-Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
+Glancing at the frame tells you, in real time, which plane is taking off or landing right now — while also being a satisfying ambient piece on the wall.
 
 ## Current Milestone: v1.1 Battery and Companion!
 
@@ -18,6 +18,26 @@ Glancing at the frame tells you, in real time, whether you'll make the next RER 
 - Measure and model the split between per-wake consumption and deep-sleep leakage.
 - Choose a production wake interval and determine whether a higher-capacity battery pack is warranted.
 - Polish the companion interface through a focused usability and visual-consistency walkthrough.
+
+## Current Milestone: v1.2 Fleet platform
+
+Runs in parallel with v1.1 (Phase 47, field validation, still open and untouched). Its planning artifacts live in the `v1-2` workstream (`.planning/workstreams/v1-2/`); phase numbering continues after Phase 47, starting at Phase 48.
+
+**Goal:** SkyPane becomes a fleet platform: several users each own frames of different hardware types, placed anywhere in France, each frame with its own detection mode, managed by an admin from a remote console.
+
+**Target features:**
+- User / device / hardware-type / location model with roles (admin, user), and migration of the current frame.
+- Firmware registry and OTA indexed by hardware type first.
+- Common, versioned image format (width, height and palette in the header), backward compatible with existing frames.
+- Per-device config, image and state in the BYOS server and the poll loop, with a global request budget (≤ 1 request/s) and zone grouping.
+- Two detection modes per device: airport + runway of choice, or aircraft around a position.
+- Auth0 sign-in (authorization code + PKCE, no extra crypto dependency), account ownership of devices, pairing of a new frame; shared password kept temporarily as a fallback.
+- Admin console for remote fleet management; users get a reduced view and fewer options.
+- Per-hardware-type rendering, battery and health, plus a credits page for the data sources.
+- Selection and validation of a second hardware type (not chosen yet).
+- Comment-history guard debt.
+
+**Key context:** small fleet (the owner and a few relatives) on the same OVH VPS; adsb.fi / adsb.lol / adsbdb usage constraints apply (research of 2026-10-28); phases 1–7 are tested against a simulated hardware type, only the second-hardware phase needs a purchase.
 
 ## Requirements
 
@@ -36,12 +56,8 @@ Glancing at the frame tells you, in real time, whether you'll make the next RER 
 - [ ] (v1.1) Device battery consumption is measured well enough to distinguish per-wake energy from deep-sleep leakage.
 - [ ] (v1.1) The production wake interval and battery-pack decision are documented from measured field data.
 - [ ] (v1.1) The companion interface is improved from a focused usability and visual-consistency walkthrough.
-- [ ] (v2/later) User can see line, destination, and minutes-until-departure for the next 2+ RER trains from Orly-Ville
-- [ ] (v2/later) User can see a "leave by" cue combining the next RER train's countdown with a fixed walk-time buffer
-- [ ] (v2/later) User can see a disruption banner on the RER view during a service disruption on the line
-- [ ] (v2/later) Physical button on the device switches between the plane view and the RER view
-- [ ] (v2/later) Switching views (button press) triggers a fresh poll for that view's data
-- [ ] (v2/later) Server fetches RER data for the Orly-Ville view (the RER clause split out of the original server requirement on 2026-09-06; the ADS-B/render/serve half is Validated above)
+- [ ] (v1.2) Several users each own frames of different hardware types, anywhere in France, each with its own detection mode (airport + runway, or aircraft around a position).
+- [ ] (v1.2) An admin manages the whole fleet remotely from a console; ordinary users see only their own frames with fewer options.
 - [ ] (v2/later) Companion phone app can push a short message that appears on the frame
 
 ### Out of Scope
@@ -50,8 +66,8 @@ Glancing at the frame tells you, in real time, whether you'll make the next RER 
 - Public flight-data/schedule API (e.g. AeroDataBox) as the plane-detection source — reversed after scoping: the actual goal is "the specific plane using runway 3 right now," which schedule APIs don't expose (no runway/operational data); local ADS-B detects real aircraft directly
 - Wall power — battery-only for v1, to force realistic power-budget decisions early
 - Freshness timestamp / graceful stale-offline handling on the display — explicitly deferred by user for v1 despite research flagging it as a risk (frame could show stale data without indicating it); revisit if staleness becomes a real problem
-- Additional views beyond plane/RER (weather, other transit lines, etc.) — stay two-view (long-term) to preserve focus
-- RER view and physical button view-switching — deferred to v2 (2026-08-11); v1 ships as a single-view (plane-only) device
+- Additional views (weather, transit lines, etc.) — the frame stays a single plane view to preserve focus
+- RER view and physical button view-switching — dropped from the project (2026-10-28); no RER content anywhere
 - Status LEDs, on-device settings/menu UI, gate/terminal/check-in fields, push notifications to phone, animated transitions — anti-features that would make the frame read as a gadget rather than ambient art
 
 ## Next Milestone (planned): v1.1
@@ -74,8 +90,7 @@ Phases 32–41) is complete. Scope seeds:
 - **Plane detection approach**: free public ADS-B aggregator APIs, geofenced to runway 3's flight path, detect real aircraft directly (one plane at a time, departure or arrival depending on current wind-driven runway configuration), rather than pulling a schedule from a public flight-data API. Originally planned around a local RTL-SDR receiver; Phase 1 plan 01-04 validated the aggregators clear the coverage bar (~92min real traffic, 38/37 distinct aircraft, 2/2 on-ground) with no RTL-SDR hardware needed — corrected here 2026-08-26 at Phase 1 close, see Key Decisions. **Correction (2026-08-27):** adsb.fi is now the sole default provider — airplanes.live discontinued its free API tier that day; see Key Decisions. **Correction (2026-08-27, later the same day):** adsb.lol was added as a second default provider alongside adsb.fi, so a production poll now cross-validates two independent sources instead of running single-source; see Key Decisions.
 - **Address / reception feasibility**: <street-address> — this commune borders/partially contains Orly airport itself; runway 3 (the 08/26 runway, ~3,320m) is close by. Low-altitude ADS-B coverage at this range was validated early with real traffic against the two aggregators above, confirming reception is reliable without needing dedicated RTL-SDR hardware.
 - **Airport**: Paris-Orly (ORY), specifically runway 3
-- **RER station**: Orly-Ville
-- **Motivation**: equal parts satisfying hardware build / ambient art piece, and genuinely useful daily tool (e.g. checking whether you'll make the next RER before leaving the house)
+- **Motivation**: equal parts satisfying hardware build / ambient art piece, and genuinely useful daily tool (e.g. glancing at which plane is using the runway right now)
 
 ## Constraints
 
@@ -122,6 +137,7 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
+*Last updated: 2026-10-28, after starting milestone v1.2 Fleet platform (in parallel with v1.1) and dropping the RER view from the project.*
 *Last updated: 2026-09-27, after Phase 40 (Companion architecture: routes, pages, templates, i18n keys) closed at 16/16 plans with verification passed (12/12 must-haves). An audit-remediation phase (CMP-01..09, plus developer-confirmed CFG-34/CFG-39/CFG-52), not a v1 user-facing requirement, so this document's Requirements section is unchanged. The companion now dispatches every route through one table (`companion/routes.py`) proven by a session-gating test against a committed pre-refactor baseline; static files are served through one `{route: path}` allowlist; every page reads a typed, lazy `PageContext`; `page_shell()` fills named templates instead of positional `%s`; no companion file sits over the file-length guard and no function over 80 code lines; CSS has zero duplicated selectors and zero hard-coded colours outside tokens; and every UI string is looked up by a stable message ID that can never silently drop its French translation on an English reword (`i18n.t()` now rejects a plain string outright). The battery chart draws through the shared `draw.py` module (CFG-39); the artwork drop zone's keyboard operability is measured, not assumed (CFG-52); and three ages on screen (Flights' "When" cell, Calendar's "refreshed Xm ago", Health's unresolved-prefix cells) now tick live via `<time data-relative>` (CFG-34) — the battery-trend tooltip is the one documented exception. Full suite: 3211 passed, 94.86% coverage.*
 *Last updated: 2026-09-30, after starting milestone v1.1 Battery and Companion! The active scope is the two retained field-battery studies (SEED-007 and SEED-008) and companion interface polish (SEED-010).*
 *Last updated: 2026-09-27, after Phase 38 (Efficiency: companion, poll cycle, storage) closed at 13/13 plans with verification passed. It was an audit-remediation phase (EFF-01..EFF-06), not a v1 user-facing requirement, so this document's Requirements section is unchanged. The companion now serves zstd-compressed, revalidatable static files (confirmed live: style.css 140 KB to 39 KB, 304 on revalidation) and each page loads only its own scripts. Each page request and each poll cycle uses one SQLite connection. The freshness tick answers 304 without rendering, `poll_state.json` is written once per cycle and only when it changed, and the fixed 1.1 s sleep between providers is gone. The before/after record is in `38-EFF-BASELINE.md`.*
