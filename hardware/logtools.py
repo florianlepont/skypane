@@ -2242,6 +2242,9 @@ TREND_QUIET_START = "23:30"
 TREND_QUIET_END = "06:00"
 TREND_ALLOWANCE_HOURS = 4320.0  # 180 days
 TREND_SENSITIVITY_MV = 10  # end-point error used for the sensitivity figure
+# Above this the curve is not calibrated against a discharge: the segment between
+# its 4000 and 4112 mV knots was never measured on a falling pack.
+TREND_CURVE_LIMIT_MV = 4000
 
 _DEVICE_POLICY = []
 
@@ -2438,7 +2441,22 @@ TREND_DOES_NOT_MEASURE = [
     "daytime-rate hypothesis; the end points leave quiet-hours polls out.",
     "The figure is an average over the window, not the instantaneous sleep current.",
     "It cannot separate the standing draw from the wake energy at a single interval.",
+    "Above 4000 mV the curve is not calibrated against a discharge; an end point "
+    "there gives no band, and the estimate is printed as unreliable.",
 ]
+
+
+def trend_curve_calibrated(est):
+    """False when either end-point median lies above the top-of-curve limit."""
+    return max(est["first"]["mv"], est["last"]["mv"]) <= TREND_CURVE_LIMIT_MV
+
+
+def uncalibrated_band_sentence(est):
+    return (
+        "The curve is not calibrated at this voltage (end points %.0f mV and %.0f mV; "
+        "limit %d mV), so no band and no finding letter can be drawn from the %.2f mA "
+        "estimate." % (est["first"]["mv"], est["last"]["mv"], TREND_CURVE_LIMIT_MV,
+                       est["average_ma"]))
 
 
 def _trend_start_cut(polls, start_utc):
@@ -2460,8 +2478,12 @@ def build_sleep_trend_report(raw, params, model_json, report_json):
         params["quiet_window"])
     hyp = trend_hypotheses(model_json, report_json, params["interval_s"],
                            params["capacity_mah"])
-    band, sentence = classify_current_band(
-        est["average_ma"], hyp["allowance_ma"], hyp["favourable_ma"], hyp["central_ma"])
+    est["curve_calibrated"] = trend_curve_calibrated(est)
+    if est["curve_calibrated"]:
+        band, sentence = classify_current_band(
+            est["average_ma"], hyp["allowance_ma"], hyp["favourable_ma"], hyp["central_ma"])
+    else:
+        band, sentence = "not_applicable", uncalibrated_band_sentence(est)
     for name in ("first", "last"):
         est[name]["ts"] = est[name]["ts"].isoformat()
     est["cut"] = est["cut"].isoformat()
@@ -2507,9 +2529,11 @@ def print_sleep_trend(report):
             label, point["mv"], point["ts"], point["polls"],
             100 * est["fraction"][name]))
     print("elapsed between end points: %.1f h" % est["elapsed_hours"])
-    print("charge drawn: %.1f mAh (curve fraction fall x rated capacity)" %
-          est["charge_mah"])
-    print("average current: %.2f mA" % est["average_ma"])
+    note = "" if est["curve_calibrated"] else (
+        " (unreliable: the curve is not calibrated above %d mV)" % TREND_CURVE_LIMIT_MV)
+    print("charge drawn: %.1f mAh (curve fraction fall x rated capacity)%s" %
+          (est["charge_mah"], note))
+    print("average current: %.2f mA%s" % (est["average_ma"], note))
     print("sensitivity: %.2f mA per 10 mV of error at the start end point, "
           "%.2f mA at the end one" % (
               est["sensitivity_ma_per_10mv"]["first"],
@@ -2725,7 +2749,8 @@ def _add_sleep_trend_parser(sub):
                     "are ratings, not measurements.",
         epilog="The printed band key is one of: at_or_below_allowance, "
                "between_allowance_and_favourable, between_favourable_and_central, "
-               "above_central, not_applicable. The key only places the estimate "
+               "above_central, not_applicable (also printed when an end point is above "
+               "4000 mV, where the curve is not calibrated). The key only places the estimate "
                "against the three reference values printed with it.")
     st.add_argument("rows", nargs="?", default=None,
         help="JSON-Lines export; reads stdin when omitted")

@@ -20,6 +20,8 @@ requirements-completed: [VAL-03]
 completed: 2026-10-28
 ---
 
+> **Correction, 2026-10-28.** The outcome (a) finding recorded below is withdrawn: both end points were above 4000 mV, where the discharge curve is not calibrated, and run one's data show far more charge per mV there. VAL-03 is `open`. See `.planning/quick/261028-trend-top-of-curve/` and the VAL-03 section of `hardware/FIELD-VALIDATION.md`. The text below is kept as written.
+
 # Phase 47 Plan 04: VAL-03 from the voltage trend Summary
 
 The tool's average-current estimate on the owner's 900 s export is 0.39 mA (3000 mAh, rated), band `at_or_below_allowance`, which maps to outcome (a); the record carries the caveats that limit how far that figure can be trusted.

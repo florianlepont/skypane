@@ -16,7 +16,7 @@ This is the single evidence record for the integrated field validation. It is a 
 |---|---|---|
 | VAL-01 | Healthy check-in behaviour at the selected cadence; battery-critical and display-off overrides still win | pending |
 | VAL-02 | Final field operating decision, conditional pack change and its validation status | pending |
-| VAL-03 | Sleep current against the six-month target of about 1 mA average or less | settled by the voltage trend (outcome (a), 900 s test on the current 3000 mAh pack only; see the caveats in the VAL-03 section) |
+| VAL-03 | Sleep current against the six-month target of about 1 mA average or less | open: the 2026-10-28 finding (a) is withdrawn because both end points were above 4000 mV, where the curve is not calibrated against a discharge, and the run-one data show about 7 times more charge per mV there than the curve assumes; re-analysis with end medians below 4000 mV about 2026-11-11 |
 
 ## Overrides: battery-critical park
 
@@ -66,70 +66,71 @@ The run-two history contains no period with the display switched off, so there i
 
 ## Sleep current from the voltage trend (VAL-03)
 
-Scope: this covers only the 900 s test on the current 3000 mAh pack. It says nothing about the replacement 10000 mAh pack, which has not been in the frame. The multimeter-in-series procedure (`hardware/SLEEP-CURRENT.md`) stays optional; the owner declined it between 2026-10-12 and 2026-10-23 and it is not needed here.
+Status: open. The finding (a) recorded on 2026-10-28 is withdrawn; see "Withdrawn finding" below.
 
-Closing rule used: outcomes (a) and (b) both settle the question and the row reads `settled by the voltage trend`; outcome (c) satisfies neither closing form of VAL-03 (neither a located excess draw nor an explicit statement that the measurement settles the question), so the row would be `open` and plan 47-06 would close it as open with the reason. The outcome is chosen only from the `band:` key the tool printed, with the fixed mapping `at_or_below_allowance` and `between_allowance_and_favourable` give (a), `between_favourable_and_central` and `not_applicable` give (c), `above_central` gives (b).
+Scope: this covers only the 900 s test on the current 3000 mAh pack. It says nothing about the replacement 10000 mAh pack, which has not been in the frame. The multimeter-in-series procedure (`hardware/SLEEP-CURRENT.md`) stays optional; the owner declined it between 2026-10-12 and 2026-10-23 and it is still not required.
+
+Closing rule: outcomes (a) and (b) settle the question and the row would read `settled by the voltage trend`; outcome (c) satisfies neither closing form of VAL-03 (neither a located excess draw nor an explicit statement that the measurement settles the question), so the row stays `open`. The outcome is chosen only from the `band:` key the tool printed, with the fixed mapping `at_or_below_allowance` and `between_allowance_and_favourable` give (a), `between_favourable_and_central` and `not_applicable` give (c), `above_central` gives (b). The corrected tool prints `not_applicable` whenever an end-point median is above 4000 mV, so such a run gives (c).
+
+### Withdrawn finding
+
+On 2026-10-28 the 900 s test export was run through `sleep-trend`: end medians 4022 mV and 4008 mV, estimate 0.39 mA, band `at_or_below_allowance`, recorded as outcome (a). That finding is withdrawn, for two reasons that come from the repository's own data:
+
+1. Both end points sit in the curve's top segment, between the 4000 mV and 4112 mV knots (90 % to 100 %), where the curve gives about 0.09 % per mV, about 2.7 mAh per mV on 3000 mAh (arithmetic by Claude from `BATTERY_DISCHARGE_CURVE`). That segment's top knot is a charger-plateau reading, not a point measured on a falling pack (`hardware/BATTERY-MODEL.md`, 'Percentage calibration at the top of the curve').
+2. Run one itself (`hardware/logs/battery-run-server.log`, 300 s cadence, about 10.1 mA from 243.10 mAh per day in `hardware/BATTERY-RUN.md`) went from a median of 4008 mV to 4000 mV in about 15.4 h and from 4008 mV to 3982 mV in about 50.3 h. That is about 154 mAh over 8 mV and about 507 mAh over 26 mV, about 19 mAh per mV, roughly 7 times the charge per mV that the curve assumes at the top (arithmetic by Claude). The curve therefore understates the charge behind each millivolt there, and the 0.39 mA figure is too low by a large factor that cannot be stated from this data.
+
+The earlier tool output is kept unchanged as what the tool printed before the correction, and is superseded by the `-v2` files below.
 
 ### Method
 
-`python3 hardware/logtools.py sleep-trend` reads the owner's export, drops everything before the stated start, ignores the first 24 h after the first kept poll, takes the median millivolts and the median time over the first and the last 12 h of polls (polls in quiet hours 23:30-06:00 Paris time are left out of both end points), converts the two medians to a charge fraction with the curve `server/device_policy.BATTERY_DISCHARGE_CURVE` and multiplies the fall by the rated capacity, 3000 mAh (a rating, not a measurement), then divides by the elapsed hours.
+`python3 hardware/logtools.py sleep-trend` reads the owner's export, drops everything before the stated start, ignores the first 24 h after the first kept poll, takes the median millivolts and the median time over the first and the last 12 h of polls (polls in quiet hours 23:30-06:00 Paris time are left out of both end points), converts the two medians to a charge fraction with the curve `server/device_policy.BATTERY_DISCHARGE_CURVE` and multiplies the fall by the rated capacity, 3000 mAh (a rating, not a measurement), then divides by the elapsed hours. Since the correction, when either end-point median is above 4000 mV the band is `not_applicable`, the estimate is printed labelled unreliable, and the 'does not measure' list names the reason.
 
 ### Conditions
 
 - Owner-reported, 2026-10-28: the test started at about 2026-10-23 06:25 Paris time (04:25Z) with the first reading 4058 mV and USB unplugged. On 2026-10-28 the owner read 4006 mV at 19:30 Paris time on the Health page. The owner said no USB cable was plugged in and no setting was changed since the start. These statements are not verifiable from the export; the export shows no rise in voltage that would suggest charging, and the tool did not refuse the run.
-- The owner exported the history rows themselves on 2026-10-28 with the pinned route and attached the file. It is committed unmodified as `hardware/logs/sleep-trend-900s-export.jsonl`, 395 lines, sha256 `507e8cf70b75d9c8385813b75d5806d3fe6de981fdc084413d6f1643aaaf5980` (identical for the original and the committed copy; the tool prints and stores the same value in the JSON).
+- The owner exported the history rows themselves on 2026-10-28 with the pinned route and attached the file. It is committed unmodified as `hardware/logs/sleep-trend-900s-export.jsonl`, 395 lines, sha256 `507e8cf70b75d9c8385813b75d5806d3fe6de981fdc084413d6f1643aaaf5980`.
 - Properties of the export noted by Claude: two rows have a null battery reading (2026-10-23T05:46:36 and 06:30:06 UTC), which the tool tolerates; the median gap is 934 s; five gaps exceed 2700 s (quiet hours at night). Nothing was cut: the tool reported 0 rows before the start instant.
+- Owner decision, 2026-10-28: the interval stays at 900 s so that the voltage keeps falling into the steeper part of the curve, below about 3980 mV, where the estimate becomes precise. The test continues on the old 3000 mAh pack.
 
-### Commands and numbers (copied from the tool output)
+### Commands and numbers
 
 Commands, run from the repository root:
 
-`python3 hardware/logtools.py sleep-trend hardware/logs/sleep-trend-900s-export.jsonl --capacity-mah 3000 --interval-s 900 --start-utc 2026-10-23T04:25:00Z --out hardware/logs/sleep-trend-900s-report.json`
+`python3 hardware/logtools.py sleep-trend --capacity-mah 3000 --interval-s 900 --start-utc 2026-10-23T04:25:00Z hardware/logs/sleep-trend-900s-export.jsonl`
 
-The 10000 mAh run is the same command with `--capacity-mah 10000` and no `--out`. It exists only to print the 10000 mAh allowance; its estimate (1.29 mA, `not_applicable`) is not used, because the 10000 mAh pack was not in the frame. The current drawn from a voltage fall scales with the capacity that was in the frame, which is the 3000 mAh pack, so the 3000 mAh run is the estimate.
+with `--out hardware/logs/sleep-trend-900s-report-v2.json` for the JSON. The 10000 mAh run is the same command with `--capacity-mah 10000` and no `--out`; it exists only to print the 10000 mAh allowance (2.31 mA, rated), because the 10000 mAh pack was not in the frame.
 
-Verbatim output files: `hardware/logs/sleep-trend-900s-output.txt` (3000 mAh), `hardware/logs/sleep-trend-900s-10000mah-output.txt` (allowance only), JSON `hardware/logs/sleep-trend-900s-report.json`. Figures from the 3000 mAh output:
+Corrected output (verbatim files): `hardware/logs/sleep-trend-900s-output-v2.txt` (3000 mAh), `hardware/logs/sleep-trend-900s-10000mah-output-v2.txt`, JSON `hardware/logs/sleep-trend-900s-report-v2.json`. Figures from the 3000 mAh output:
 
 ```
 start end point: median 4022.0 mV at 2026-10-24T10:42:51+00:00 (47 polls, 92.0% on the curve)
 end end point: median 4008.0 mV at 2026-10-28T11:41:43+00:00 (47 polls, 90.7% on the curve)
 elapsed between end points: 97.0 h
-charge drawn: 37.5 mAh (curve fraction fall x rated capacity)
-average current: 0.39 mA
-sensitivity: 0.28 mA per 10 mV of error at the start end point, 0.28 mA at the end one
+average current: 0.39 mA (unreliable: the curve is not calibrated above 4000 mV)
 
-Reference values at 900 s:
-  favourable hypothesis: 1.95 mA
-  central hypothesis:    8.66 mA
-  180-day allowance for 3000 mAh (rated): 0.69 mA
-
-band: at_or_below_allowance
-The estimate 0.39 mA is at or below the 0.69 mA 180-day allowance.
+band: not_applicable
+The curve is not calibrated at this voltage (end points 4022 mV and 4008 mV; limit 4000 mV), so no band and no finding letter can be drawn from the 0.39 mA estimate.
 ```
 
-The 180-day allowance for 10000 mAh (rated), copied from the 10000 mAh output file, is 2.31 mA.
+Superseded files, what the tool printed before the correction (kept, not deleted, and not to be relied on): `hardware/logs/sleep-trend-900s-output.txt`, `hardware/logs/sleep-trend-900s-10000mah-output.txt`, `hardware/logs/sleep-trend-900s-report.json` (band `at_or_below_allowance`).
 
-The tool's printed biases (verbatim from the output file):
+### Raw fall and the curve-free comparison
 
-- Rest-voltage creep after a full charge: the voltage keeps settling for days, which lowers the apparent draw early in the run.
-- The curve shape and the 3000 or 10000 mAh figure are ratings; a real pack differs and the voltage-to-charge mapping is not a measurement.
-- 1 mV quantisation of the reading and the sensitivity above: a few mV of end-point error moves the estimate by the amounts printed.
-- Quiet-hours wakes are longer, so the field average over a day is below a daytime-rate hypothesis; the end points leave quiet-hours polls out.
-- The figure is an average over the window, not the instantaneous sleep current.
-- It cannot separate the standing draw from the wake energy at a single interval.
+Raw fall of the test, no curve involved (arithmetic by Claude from the tool's end points): 14 mV (4022 to 4008) in 96.98 h, 0.144 mV/h, 3.46 mV per day.
 
-### Finding
+Curve-free comparison, analysis by Claude, not tool output, rough: run one's server log, median-of-9 smoothing of the X-Battery-Mv readings counted from the first reading below 4060 mV (2026-09-02T12:58:50Z), first crossings at 4008 mV after 5.4 h, at 4000 mV after 20.9 h and at 3982 mV after 55.7 h. That is a fall of about 0.5 mV/h (about 12.5 mV per day) near 4010 mV at about 10 mA, against 0.14 to 0.16 mV/h for the test. The ratio is about 0.3 to 0.4, which gives roughly 3 to 4 mA at 900 s. This is consistent with run one's wake cost scaled by the wake count (a third of the wakes at 900 s) and lies between the favourable (1.95 mA) and central (8.66 mA) hypotheses, the band that maps to outcome (c). It is not a measurement and settles nothing: run-one readings near the top are noisy by about 15 mV, and the slope depends on how the crossings are chosen (taking the point after which the smoothed value stays at or below the threshold gives 0.38 to 0.63 mV/h; straight-line fits over different windows near 4000 mV give 0.16 to 0.46 mV/h).
 
-Printed band key: `at_or_below_allowance`. Printed band sentence: "The estimate 0.39 mA is at or below the 0.69 mA 180-day allowance." By the fixed mapping this is outcome (a), and the VAL-03 row reads settled by the voltage trend. The estimate (0.39 mA) is lower than the favourable hypothesis (1.95 mA), which is the wake cost alone at run two's 0.48796 mAh per wake and one wake per 900 s. So the data do not support the modelled 7 mA standing draw, and they also do not match the wake-cost-only figure. Two readings are possible and this test cannot tell them apart: a wake at 900 s costs less than in run two, or the curve and the rated 3000 mAh overstate the charge per millivolt (the top of the curve is its least reliable part). Arithmetic by Claude, not tool output, ignoring quiet hours and the pack rating: at face value 0.39 mA would last about 320 days on 3000 mAh; if instead the wake cost of run two holds, the interval at which the wake cost alone meets the 2.31 mA allowance of a 10000 mAh pack is 0.48796 mAh per wake x 3600 s / 2.31 mA, about 759 s. Both lines are context for the interval decision in 47-05; neither is that decision.
+Bound on intervals, arithmetic by Claude: if the wake cost is 0.49 to 1 mAh and the standing draw is about zero (not established), a 10000 mAh pack reaches 180 days (2.31 mA allowance) only at intervals of roughly 13 to 26 minutes or more (0.49 mAh x 3600 s / 2.31 mA is about 760 s, 1 mAh gives about 1560 s). Nothing in this record shows that six months is reachable at 900 s.
 
-### Caveats the finding must be read with
+### Re-analysis, about 2026-11-11
 
-- The discharge curve and the 3000 mAh are ratings, not measurements. The top of the curve is the least reliable part of the voltage-to-charge mapping, and both end points (4022 mV and 4008 mV, 92.0 % and 90.7 % on the curve) sit at the top. The cross-reference to `hardware/BATTERY-MODEL.md` that the owner request named, a section titled 'Percentage calibration at the top of the curve', does not exist in that file at this commit; no such section is cited as support here.
-- The estimate rests on a 14 mV fall between the two end points (4022 to 4008 mV), about 3.46 mV per day over the 96.98 h between them (arithmetic by Claude; the elapsed time is in the JSON). The sensitivity is 0.28 mA per 10 mV, so an error of 14 mV in the fall would move the estimate by about as much as the estimate itself (arithmetic by Claude: 1.4 x 0.28 = 0.39 mA).
-- Analysis by Claude, not tool output: the central model (about 8.66 mA at 900 s) would imply a much larger fall than observed. At 8.66 mA over 96.98 h the charge drawn would be about 839 mAh, 28 % of 3000 mAh, which at the curve's average slope (1166 mV per 100 %) is a fall of roughly 326 mV, against 14 mV observed. The data do not support the central model.
-- The favourable hypothesis (about 1.95 mA) is not matched exactly either. The estimate, 0.39 mA, is lower than it, and lower than the 0.49 mA that the wakes alone were expected to cost in the parked phase of run two. This record states the gap and does not explain it away. Rest-voltage creep (a printed bias) would push the apparent draw down; whether it accounts for all of it is not known.
-- Taken at face value, 0.39 mA would give about 323 days on a 3000 mAh pack (arithmetic by Claude), which is longer than the six months. This record does not rely on that: a 14 mV fall on ratings is not enough to support it, and the owner decision on the pack stays with 47-05 and 47-06.
-- The 4058 mV first reading and the 4006 mV owner reading of 2026-10-28 19:30 Paris time are not tool inputs. The end of the export is the 4008 mV median at 11:41Z; the 4006 mV reading is later and consistent with it.
+The 900 s test continues on the old 3000 mAh pack until about 2026-11-11. The re-analysis will use: the end-point medians below 4000 mV (a run whose end points are still above 4000 mV stays `not_applicable`); the corrected tool, reading its band as before; then the curve-free comparison against run one, if the tool alone still leaves the question open. The multimeter route stays optional.
+
+### Caveats
+
+- The discharge curve and the 3000 mAh are ratings, not measurements, and the top of the curve is its least reliable part.
+- The 4058 mV first reading and the 4006 mV owner reading of 2026-10-28 19:30 Paris time are not tool inputs; the latter is consistent with the 4008 mV end median.
+- Rest-voltage creep after a full charge lowers the apparent draw early in a run (a printed bias).
 - Only the 900 s test on the current 3000 mAh pack is covered. Nothing here concerns the new pack.
 
 ## Healthy check-in cadence at the final interval (VAL-01)
