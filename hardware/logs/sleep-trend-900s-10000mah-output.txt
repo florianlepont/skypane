@@ -1,0 +1,29 @@
+sleep-trend: average current from the battery-voltage fall
+export sha256: 507e8cf70b75d9c8385813b75d5806d3fe6de981fdc084413d6f1643aaaf5980
+capacity: 10000 mAh (rated, not measured)
+interval: 900 s
+start cut: 0 rows before 2026-10-23T04:25:00+00:00 dropped
+rule: the first 24 h after the first kept poll are ignored; end points are medians over 12 h
+quiet hours: 23:30-06:00 Europe/Paris left out of the end points (2% of polls after the cut)
+start end point: median 4022.0 mV at 2026-10-24T10:42:51+00:00 (47 polls, 92.0% on the curve)
+end end point: median 4008.0 mV at 2026-10-28T11:41:43+00:00 (47 polls, 90.7% on the curve)
+elapsed between end points: 97.0 h
+charge drawn: 125.0 mAh (curve fraction fall x rated capacity)
+average current: 1.29 mA
+sensitivity: 0.92 mA per 10 mV of error at the start end point, 0.92 mA at the end one
+
+Reference values at 900 s:
+  favourable hypothesis: 1.95 mA
+  central hypothesis:    8.66 mA
+  180-day allowance for 10000 mAh (rated): 2.31 mA
+
+band: not_applicable
+The bands are undefined because the 180-day allowance, the favourable and the central hypotheses are not in increasing order: 2.31 mA (180-day allowance), 1.95 mA (favourable) and 8.66 mA (central).
+
+What this estimate does not measure:
+  - Rest-voltage creep after a full charge: the voltage keeps settling for days, which lowers the apparent draw early in the run.
+  - The curve shape and the 3000 or 10000 mAh figure are ratings; a real pack differs and the voltage-to-charge mapping is not a measurement.
+  - 1 mV quantisation of the reading and the sensitivity above: a few mV of end-point error moves the estimate by the amounts printed.
+  - Quiet-hours wakes are longer, so the field average over a day is below a daytime-rate hypothesis; the end points leave quiet-hours polls out.
+  - The figure is an average over the window, not the instantaneous sleep current.
+  - It cannot separate the standing draw from the wake energy at a single interval.

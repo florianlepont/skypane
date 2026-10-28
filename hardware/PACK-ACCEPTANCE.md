@@ -28,6 +28,17 @@ Do the checks in this order. Do not connect the pack to the frame until check 2 
 | 3. Free area | Lay the pack flat behind the screen, in the frame, without pressure on the panel. | 60 x 100 mm lies flat in the free area and nothing presses on the panel. | | |
 | 4. First charge | Connect the pack (only after checks 1 to 3 pass), plug in USB, watch the charge LED, and read the battery voltage on the Health page. Record the charge LED behaviour and the time taken to reach the plateau of 4058 to 4112 mV. A current meter is not required; record a current only if the owner volunteers one. | The first full charge completes without the pack or the board getting warm to the touch. If the board's charger current against a 10000 mAh pack is not documented, this check is recorded as `unverified` and the record says so. | | |
 
+## Optional comparison: voltage across the pack connector (calibration)
+
+Not a pass or fail check, and it does not change the status values below. Context: `hardware/BATTERY-MODEL.md`, section "Percentage calibration at the top of the curve". The frame reads a full pack off the charger at about 4030 to 4060 mV, which is lower than a Li-Po charged to 4.2 V normally rests at, and it is not known whether the frame reads low or the charger stops early.
+
+When the multimeter is already out for check 2 (voltage mode only, nothing in series), also record:
+
+- the voltage across the pack connector after the pack has been charged and unplugged for at least one hour, nothing connected to the frame;
+- the battery voltage the frame reports for the same pack, read on the Health page, the same hour.
+
+The difference between the two numbers is the frame's reading error; if it is small, the charger stops early instead. Record both numbers and the time in the Result column of check 4 or in a note. This is optional: it needs no current measurement and no opening of the frame beyond the pack connector.
+
 ## Validation status values
 
 | Status | Meaning |
