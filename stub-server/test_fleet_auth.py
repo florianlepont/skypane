@@ -386,6 +386,22 @@ def test_orphan_token_is_skipped_by_migration_and_rejected(live, servers):
     assert server.display(REMOVED_TOKEN)[0] == 401
 
 
+UPPER_TOKEN = "upper-case-key-token"
+
+
+def test_upper_case_token_key_is_skipped_by_migration_and_rejected(live, servers):
+    _give_token(live.state_dir, live.mac.upper(), UPPER_TOKEN)
+    _migrate(live.state_dir)
+    conn = fleet_db.connect_readonly(live.state_dir)
+    try:
+        assert UPPER_TOKEN not in fleet_db.tokens_by_mac(conn).values()
+    finally:
+        conn.close()
+    server = servers(live.state_dir)
+    assert server.display(live.token)[0] == 200
+    assert server.display(UPPER_TOKEN)[0] == 401
+
+
 def test_remove_after_migration_leaves_no_row_and_no_token(live, servers):
     _register_new(live.state_dir)
     _give_token(live.state_dir, NEW_MAC, REMOVED_TOKEN)
