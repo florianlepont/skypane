@@ -448,16 +448,21 @@ def registry_path(state_dir, hardware_type=hardware.LEGACY_KEY):
 | A6 | Second hardware's firmware can use a distinct `project_name` | Pitfall 2, Option M | Build parametrisation (`CMakeLists.txt`, `FP_OTA_PROJECT_NAME`) is Phase 58 work and unverified |
 | A7 | Emulators (QEMU/Wokwi) can or cannot exercise the OTA signature path | Pattern 5 | Unverified either way; planner should not assume it |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Voluntary downgrade vs "never an older build".**
    - Known: Update page and `schedule_release` deliberately allow older published releases at or above the floor; goal text forbids offering an older build; criterion 2 only requires publish-time refusal.
    - Unclear: whether the owner wants the rollback feature kept.
    - Recommendation: keep it (expand-only, tested, floor-bounded), document that "older build" is enforced at publish time and by the floor, and ask the owner to confirm in the plan checkpoint. If not kept: `compute_offer` must additionally refuse `build(offer) < build(reported)` and the Update page drops the older-release Install form.
+   - RESOLVED: by CONTEXT D-03 (voluntary rollback above the floor stays; the lower-build refusal applies at publish time, per type, non-bench only).
 2. **OTA-03 signing option** (S, P, M, N, combinations): owner decision, checkpoint before any second hardware is provisioned.
+   - RESOLVED (as a checkpoint, not a decision): plan 49-02 presents the options to the owner and records the answer in `firmware/SIGNING.md`; plan 49-10 implements only the matching verification branch. The choice stays undecided in the planning artifacts.
 3. **Per-type version series:** should a second type reuse the repo-wide `fw-v*` tag series (assumed here) or get its own prefix? Reusing means a tag may release only one of several types; `build` must stay monotonic only within a type.
+   - RESOLVED: by the default accepted in CONTEXT D-03 (a second type reuses the repo-wide `fw-v*` tag series).
 4. **Acceptable level of the manual bench proof** for criterion 3 (see Validation Architecture), and when it can happen (Phase 47 gating, Phase 58 hardware).
+   - RESOLVED: by the blocking human-verify checkpoint in plan 49-10 (bench proof or an explicit deferral with a provisioning block; a deferral leaves success criterion 3 unmet and is reported as such).
 5. **Real-image fixture:** may the 1.1 MB `fw-v1.0.2` asset (or only its first 288 bytes plus signature sector) be committed as a golden fixture? Not decided; synthetic builder is the default.
+   - RESOLVED: by the default accepted in CONTEXT D-03 (synthetic image builder, no committed real-image fixture).
 
 ## Environment Availability
 
