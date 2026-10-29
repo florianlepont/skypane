@@ -213,10 +213,14 @@ Practical effect:
 
 ## Decision record (OTA-03)
 
-Status: PENDING OWNER DECISION
+Status: DECIDED -- option S (one signing key for all hardware types),
+recorded 2026-10-29 by the project owner.
 
-Nothing in this section is decided yet. It must be completed before any
-non-simulated second hardware type is provisioned.
+The decision can be revisited (for example to give the second hardware
+type its own key, option P) any time before that board is first
+cable-flashed, because the first image on a new board is chosen at its
+cable flash. After that flash, changing a board's key needs a transition
+release (see "Rotation").
 
 ### Current mechanism
 
@@ -308,8 +312,32 @@ first signature block is honoured in this mode.
 
 ### Owner fields
 
-- Chosen option(s):
-- Cable flash required (yes/no, which device, reason):
-- Key custody and backup note:
-- Decision date:
-- Decided by:
+- Chosen option(s): S only. No combination with P, M or N.
+- Cable flash required (yes/no, which device, reason): No for the live
+  frame (`xiao-ee02-13in3-spectra6`), which keeps its current key. The
+  future second board's first cable flash is signed with the existing key.
+- Key custody and backup note: no new key is created. The existing key
+  stays where "One-time key generation (human only)" puts it: the
+  `firmware-signing` GitHub environment secret and the developer's own
+  encrypted offline backup, nowhere else. Rotation follows "Rotation".
+- Decision date: 2026-10-29
+- Decided by: Florian Lepont (project owner)
+
+### Consequences for the build
+
+These name what later work must do for option S. They are not implemented
+by recording the decision.
+
+- The artifact-key check pins the existing public key,
+  `firmware/signing/skypane-signing-pubkey.pem`, for every hardware type.
+- No second public key, no per-type signing secret and no per-type
+  `flash.sh` or manifest key path are added.
+- Cross-type protection rests on the chip id, the project name check and
+  the server's per-type typing, not on the signature.
+- Device-side verification that the running firmware rejects a wrongly
+  signed or unsigned OTA image still needs a bench unit (see "What needs a
+  bench unit").
+
+Voluntary rollback to an older, already-published release above the
+version floor stays allowed. The refusal of a lower build number applies
+at publish time only. This is settled context, not an open question.
