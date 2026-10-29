@@ -53,7 +53,15 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
   2. The previous release still runs correctly on the migrated state, and re-running the migration changes nothing.
   3. The owner can create users with role admin or user, devices with exactly one owner each, and hardware types (including simulated ones) as profiles; the role is stored locally and never read from Auth0 alone.
   4. The fleet database is part of the backup and a restore from that backup is tested; a test fails if wake cadence, battery telemetry or poll state fields that Phase 47 measures change.
-**Plans**: TBD
+**Plans**: 7 plans
+Plans:
+- [ ] 48-01-PLAN.md — Hardware profile registry with env-gated simulated types (DATA-04)
+- [ ] 48-02-PLAN.md — fleet.db schema, user_version migrations, users/roles/locations/devices with one owner (DATA-01, DATA-03)
+- [ ] 48-03-PLAN.md — fleet_migrate (idempotent, dry-run), fleet_cli, live-shaped fixture (DATA-01..03)
+- [ ] 48-04-PLAN.md — byos auth from fleet.db with legacy fallback, dual-write, drop "default" bucket (DATA-02)
+- [ ] 48-05-PLAN.md — fleet.db in backup with tested restore; activate.sh backup, dry-run, migrate before swap (DATA-05, DATA-02)
+- [ ] 48-06-PLAN.md — Freeze list and before/after migration replay tests (DATA-02, DATA-05)
+- [ ] 48-07-PLAN.md — Health-page signal for the fleet.db fallback (owner-confirmable) (DATA-02)
 
 ### Phase 49: Per-Hardware OTA Registry
 **Goal**: The owner can publish and schedule firmware per hardware type, and no frame can ever be offered a binary built for another type or an older build.
