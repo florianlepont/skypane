@@ -1,10 +1,17 @@
 """scripts/fw_release_manifest.py -- generates the release manifest
-`server.firmware_registry.publish_release` expects (version, sha256,
-size, released_at, commit, notes), plus an optional Markdown release
-body for the GitHub Release text. Every field comes from git and the
-image file itself: there is no hand-written text anywhere in the
-output. Stdlib only, argument lists to subprocess only -- never a raw
-shell string.
+`server.firmware_registry.publish_release` expects (version,
+hardware_type, build, sha256, size, released_at, commit, notes), plus an
+optional Markdown release body for the GitHub Release text. Every field
+comes from git and the image file itself: there is no hand-written text
+anywhere in the output. Stdlib only, argument lists to subprocess only
+-- never a raw shell string.
+
+The image is parsed and checked against the declared hardware type with
+the same server.firmware_image validator the registry uses, so a
+wrong-type, mis-versioned or unsigned image fails here, before anything
+is published. Run it from the repository root with PYTHONPATH=. so the
+`server` package is importable; it needs no third-party package.
+`--check-only` runs that validation alone and writes nothing.
 """
 import argparse
 import hashlib
@@ -13,15 +20,20 @@ import re
 import subprocess
 import sys
 
+from server import firmware_image, firmware_registry, hardware
+
 # A CI-tagged release, e.g. "fw-v1.3.0" -- the same shape
 # server.firmware_registry.RELEASE_TAG_RE requires.
 RELEASE_TAG_RE = re.compile(
     r"\Afw-v(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,3})\Z"
 )
 
-# One OTA slot (firmware/partitions.csv): ota_0/ota_1 are each 0x250000
-# -- the same bound server.firmware_registry.MAX_IMAGE_BYTES enforces.
-MAX_IMAGE_BYTES = 0x250000
+# Signing policy the descriptor check applies to every hardware type: the
+# image must carry a signature sector, and no particular signing key
+# (RSA modulus) is compared here -- espsecure verifies the signature
+# itself against the committed public key.
+DEFAULT_REQUIRE_SIGNATURE = True
+DEFAULT_EXPECTED_MODULUS = None
 
 # Matches server.firmware_registry's own release-note limits: at most
 # 60 notes, each truncated to 200 characters.
@@ -172,21 +184,44 @@ def _hash_and_size(image_path):
     return digest.hexdigest(), size
 
 
-def build_manifest(repo, tag, image_path):
+def size_bound(hardware_type):
+    """Largest image, in bytes, the declared type's OTA slot holds. The
+    hardware profile is the only place this number lives.
+    """
+    return hardware.get_profile(hardware_type).firmware.max_app_bytes
+
+
+def check_image(image_path, hardware_type, version=None):
+    """Parse the image at `image_path` and validate it for
+    `hardware_type` (chip id, project name, descriptor version equal to
+    `version` when given, signature sector, size bound). Returns the
+    parsed image; raises ValueError naming the offending field.
+    """
+    profile = hardware.get_profile(hardware_type)
+    with open(image_path, "rb") as fh:
+        data = fh.read()
+    return firmware_image.validate_for_target(
+        data,
+        profile.firmware,
+        manifest_version=version,
+        require_signature=DEFAULT_REQUIRE_SIGNATURE,
+        expected_modulus=DEFAULT_EXPECTED_MODULUS,
+    )
+
+
+def build_manifest(repo, tag, image_path, hardware_type=hardware.LEGACY_KEY):
     """The release manifest dict for `tag`'s image at `image_path`.
-    Raises ValueError for a malformed tag or an oversized image, and
-    RuntimeError for a git failure (for example an unknown tag) -- both
-    are caller errors the release job must fail on before anything is
-    published, never silently coerced.
+    Raises ValueError for a malformed tag or an image that does not
+    validate for `hardware_type`, and RuntimeError for a git failure
+    (for example an unknown tag) -- both are caller errors the release
+    job must fail on before anything is published, never silently
+    coerced. The build number comes from the descriptor version.
     """
     if _version_tuple(tag) is None:
         raise ValueError("tag: %r does not match fw-vX.Y.Z" % tag)
 
+    image = check_image(image_path, hardware_type, tag)
     sha256, size = _hash_and_size(image_path)
-    if size > MAX_IMAGE_BYTES:
-        raise ValueError(
-            "image: %r is %d bytes, over the %d byte OTA slot" % (image_path, size, MAX_IMAGE_BYTES)
-        )
 
     prev_tag = previous_tag(repo, tag)
     notes = commit_notes(repo, prev_tag, tag)
@@ -194,6 +229,8 @@ def build_manifest(repo, tag, image_path):
 
     return {
         "version": tag,
+        "hardware_type": hardware_type,
+        "build": firmware_registry.build_number(image.version),
         "sha256": sha256,
         "size": size,
         "released_at": released_at,
@@ -219,13 +256,28 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog="fw_release_manifest.py")
     parser.add_argument("--tag", required=True, help="release tag, e.g. fw-v1.3.0")
     parser.add_argument("--image", required=True, help="path to the signed image")
-    parser.add_argument("--out", required=True, help="path to write the manifest JSON")
+    parser.add_argument("--out", help="path to write the manifest JSON")
+    parser.add_argument(
+        "--hardware-type", default=hardware.LEGACY_KEY,
+        help="hardware type key the image is built for (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--check-only", action="store_true",
+        help="validate the image for the hardware type and write nothing",
+    )
     parser.add_argument("--repo", default=".", help="git repository root (default: cwd)")
     parser.add_argument("--notes-md", help="also write a Markdown release body here")
     args = parser.parse_args(argv)
+    if not args.check_only and not args.out:
+        parser.error("--out is required unless --check-only is given")
 
     try:
-        manifest = build_manifest(args.repo, args.tag, args.image)
+        if args.check_only:
+            if _version_tuple(args.tag) is None:
+                raise ValueError("tag: %r does not match fw-vX.Y.Z" % args.tag)
+            check_image(args.image, args.hardware_type, args.tag)
+            return 0
+        manifest = build_manifest(args.repo, args.tag, args.image, args.hardware_type)
     except (ValueError, RuntimeError, OSError) as exc:
         print("fw_release_manifest.py: %s" % exc, file=sys.stderr)
         return 2

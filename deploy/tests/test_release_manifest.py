@@ -9,6 +9,7 @@ to prove it is the real shape the registry expects.
 """
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -60,7 +61,8 @@ def _run_cli(tag, image, out, repo, notes_md=None, extra=()):
     if notes_md is not None:
         args += ["--notes-md", str(notes_md)]
     args += list(extra)
-    return subprocess.run(args, capture_output=True, text=True, timeout=60)
+    env = dict(os.environ, PYTHONPATH=str(_REPO_ROOT))
+    return subprocess.run(args, capture_output=True, text=True, timeout=60, env=env)
 
 
 @pytest.fixture
@@ -135,15 +137,6 @@ def test_malformed_tag_exits_2(two_release_repo, tmp_path, bad_tag):
     assert not out.exists()
 
 
-def test_oversized_image_exits_2(two_release_repo, tmp_path):
-    image = tmp_path / "skypane.bin"
-    _make_image(image, size=firmware_registry.MAX_IMAGE_BYTES + 1)
-    out = tmp_path / "release.json"
-    result = _run_cli("fw-v1.1.0", image, out, two_release_repo)
-    assert result.returncode == 2
-    assert not out.exists()
-
-
 def test_long_subject_is_truncated_to_200_chars(tmp_path):
     repo = _init_repo(tmp_path / "repo")
     long_subject = "X" * 250
@@ -214,7 +207,7 @@ def test_manifest_round_trips_through_firmware_registry_publish_release(two_rele
     result = _run_cli("fw-v1.1.0", image, out, two_release_repo)
     assert result.returncode == 0, result.stderr
     manifest = json.loads(out.read_text())
-    manifest["hardware_type"] = hardware.LEGACY_KEY
+    assert manifest["hardware_type"] == hardware.LEGACY_KEY
 
     state_dir = tmp_path / "state"
     outcome = firmware_registry.publish_release(str(state_dir), manifest, str(image))
@@ -320,3 +313,124 @@ def test_a_release_whose_commits_are_all_housekeeping_has_no_notes(tmp_path):
 def test_no_shell_true_in_the_script():
     text = _SCRIPT.read_text()
     assert "shell=True" not in text
+
+
+def test_manifest_declares_hardware_type_and_derived_build(two_release_repo, tmp_path):
+    image = _make_image(tmp_path / "skypane.bin")
+    out = tmp_path / "release.json"
+    result = _run_cli("fw-v1.1.0", image, out, two_release_repo)
+    assert result.returncode == 0, result.stderr
+    manifest = json.loads(out.read_text())
+    assert manifest["hardware_type"] == hardware.LEGACY_KEY
+    assert manifest["build"] == firmware_registry.build_number("fw-v1.1.0")
+    assert set(manifest) == {
+        "version", "hardware_type", "build", "sha256", "size",
+        "released_at", "commit", "notes"}
+
+
+def test_explicit_legacy_hardware_type_is_accepted(two_release_repo, tmp_path):
+    image = _make_image(tmp_path / "skypane.bin")
+    out = tmp_path / "release.json"
+    result = _run_cli(
+        "fw-v1.1.0", image, out, two_release_repo,
+        extra=["--hardware-type", hardware.LEGACY_KEY])
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize("bad_type", ["no-such-type", hardware.SIM_CLONE_KEY])
+def test_unknown_or_unavailable_hardware_type_exits_2(two_release_repo, tmp_path, bad_type):
+    image = _make_image(tmp_path / "skypane.bin")
+    out = tmp_path / "release.json"
+    result = _run_cli("fw-v1.1.0", image, out, two_release_repo,
+                      extra=["--hardware-type", bad_type])
+    assert result.returncode == 2
+    assert not out.exists()
+
+
+@pytest.mark.parametrize("kwargs, version, field", [
+    ({"chip_id": 0x0005}, "fw-v1.1.0", "chip"),
+    ({"project_name": "other"}, "fw-v1.1.0", "project_name"),
+    ({}, "fw-v1.0.0", "version"),
+    ({"signed": False}, "fw-v1.1.0", "signature"),
+])
+def test_mismatching_image_fails_naming_the_field_and_writes_nothing(
+        two_release_repo, tmp_path, kwargs, version, field):
+    image = tmp_path / "skypane.bin"
+    image.write_bytes(build_image(version, **kwargs))
+    out = tmp_path / "release.json"
+    result = _run_cli("fw-v1.1.0", image, out, two_release_repo)
+    assert result.returncode == 2
+    assert field in result.stderr
+    assert not out.exists()
+
+
+def test_size_bound_is_the_legacy_slot_and_the_profile_bound():
+    import scripts.fw_release_manifest as fw_release_manifest
+
+    assert fw_release_manifest.size_bound(hardware.LEGACY_KEY) == 0x250000
+    assert fw_release_manifest.size_bound(hardware.LEGACY_KEY) == (
+        hardware.get_profile(hardware.LEGACY_KEY).firmware.max_app_bytes)
+    assert not hasattr(fw_release_manifest, "MAX_IMAGE_BYTES")
+
+
+@pytest.mark.parametrize("size, expected_rc", [(0x250000, 0), (0x250000 + 1, 2)])
+def test_image_at_the_bound_passes_and_one_byte_over_fails(
+        two_release_repo, tmp_path, size, expected_rc):
+    image = tmp_path / "skypane.bin"
+    image.write_bytes(build_image("fw-v1.1.0", size=size))
+    assert image.stat().st_size == size
+    out = tmp_path / "release.json"
+    result = _run_cli("fw-v1.1.0", image, out, two_release_repo)
+    assert result.returncode == expected_rc, result.stderr
+    assert out.exists() == (expected_rc == 0)
+    if expected_rc:
+        assert "size" in result.stderr
+
+
+def test_check_only_validates_and_writes_nothing(two_release_repo, tmp_path):
+    image = _make_image(tmp_path / "skypane.bin")
+    out = tmp_path / "release.json"
+    args = [sys.executable, str(_SCRIPT), "--tag", "fw-v1.1.0", "--image", str(image),
+            "--check-only", "--out", str(out)]
+    env = dict(os.environ, PYTHONPATH=str(_REPO_ROOT))
+    ok = subprocess.run(args, capture_output=True, text=True, timeout=60, env=env)
+    assert ok.returncode == 0, ok.stderr
+    assert not out.exists()
+    unsigned = tmp_path / "unsigned.bin"
+    unsigned.write_bytes(build_image("fw-v1.1.0", signed=False))
+    bad = subprocess.run(
+        args[:5] + [str(unsigned)] + args[6:], capture_output=True, text=True,
+        timeout=60, env=env)
+    assert bad.returncode == 2 and "signature" in bad.stderr
+    assert not out.exists()
+
+
+def test_check_only_needs_no_repo_or_out(tmp_path):
+    image = _make_image(tmp_path / "skypane.bin")
+    env = dict(os.environ, PYTHONPATH=str(_REPO_ROOT))
+    result = subprocess.run(
+        [sys.executable, str(_SCRIPT), "--tag", "fw-v1.1.0", "--image", str(image),
+         "--check-only"], capture_output=True, text=True, timeout=60, env=env)
+    assert result.returncode == 0, result.stderr
+
+
+def test_script_signing_policy_constants_are_strict_until_per_type_values_exist():
+    import scripts.fw_release_manifest as fw_release_manifest
+
+    assert fw_release_manifest.DEFAULT_REQUIRE_SIGNATURE is True
+    assert fw_release_manifest.DEFAULT_EXPECTED_MODULUS is None
+
+
+def test_script_runs_without_pillow(two_release_repo, tmp_path):
+    image = _make_image(tmp_path / "skypane.bin")
+    out = tmp_path / "release.json"
+    blocker = tmp_path / "blocker"
+    blocker.mkdir()
+    (blocker / "PIL.py").write_text("raise ImportError('Pillow is not available in CI')\n")
+    env = dict(os.environ, PYTHONPATH=os.pathsep.join([str(blocker), str(_REPO_ROOT)]))
+    result = subprocess.run(
+        [sys.executable, str(_SCRIPT), "--tag", "fw-v1.1.0", "--image", str(image),
+         "--out", str(out), "--repo", str(two_release_repo)],
+        capture_output=True, text=True, timeout=60, env=env)
+    assert result.returncode == 0, result.stderr
+    assert out.exists()
