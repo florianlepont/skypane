@@ -4,14 +4,14 @@ milestone: v1.2
 milestone_name: Fleet platform
 current_plan: 1
 status: executing
-stopped_at: Completed 49-07-PLAN.md
-last_updated: "2026-10-29T18:52:12.293Z"
+stopped_at: Completed 49-08-PLAN.md
+last_updated: "2026-10-29T19:10:39.694Z"
 last_activity: 2026-10-29
 progress:
   total_phases: 12
   completed_phases: 1
   total_plans: 19
-  completed_plans: 15
+  completed_plans: 16
   percent: 8
 ---
 
@@ -25,11 +25,11 @@ progress:
 ## Current Position
 
 Phase: 49 (per-hardware-ota-registry) — EXECUTING
-Plan: 8 of 11 (49-01, 49-02, 49-03 complete)
+Plan: 9 of 11 (49-01, 49-02, 49-03 complete)
 Status: Ready to execute
 Last activity: 2026-10-29
 
-Progress: [████████░░] 79%
+Progress: [████████░░] 84%
 
 ## Progress
 
@@ -48,6 +48,7 @@ Progress: [████████░░] 79%
 - [Phase 49]: Phase 49-02: OTA signing option S (one key for all hardware types), decided 2026-10-29 by project owner; revisitable before second board first cable flash (Phase 58)
 - [Phase 49]: import-dir orders by build; per-type pairs release-<key>.json + skypane-<key>-<tag>.bin; --hardware-type on import-bench/list/check-image
 - [Phase 49]: 49-07: legacy frame's report entry is not rewritten solely to add hardware_type (Phase 47 telemetry freeze)
+- [Phase 49]: Update page type chooser reuses the segmented control as a GET form; shown only with more than one relevant type; hidden hardware_type field also carried for a sole non-legacy type
 
 ### Pending Todos
 
@@ -60,5 +61,5 @@ None yet.
 
 ## Session Continuity
 
-**Stopped At:** Completed 49-07-PLAN.md
+**Stopped At:** Completed 49-08-PLAN.md
 **Resume File:** None
