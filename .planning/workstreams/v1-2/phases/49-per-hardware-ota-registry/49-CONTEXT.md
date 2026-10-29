@@ -17,6 +17,9 @@ The owner can publish and schedule firmware per hardware type, and no frame can 
 - **D-01:** Publishing stays on the current channel: tag, CI build, reviewed deploy, `firmware_cli import-dir` on the VPS. The hardware type is added to the release manifest and to `firmware_cli`. No web upload of binaries in this phase: the companion is still guarded only by the shared password until Phases 54-55.
 - **D-02:** Scheduling stays on the companion Update page, extended with a hardware-type choice and an independent schedule per type. With one type in production the page must look and behave as today.
 
+### Downgrades (decided after research)
+- **D-03:** The owner can still schedule an older already-published release above the floor for a voluntary rollback. The "lower build number refused" rule (OTA-02) applies when a release is published, per hardware type, and non-bench only. Defaults accepted from research: a second type reuses the repo-wide `fw-v*` tag series; tests use a synthetic image builder rather than a committed real-image fixture.
+
 ### Not discussed (planner and researcher resolve within the success criteria)
 - Registry shape per hardware type and the migration of `firmware/registry.json` (the live frame's entries keep working unchanged; a `*.pre-fleet` copy is kept before any rewrite).
 - How a binary's app descriptor and chip target are checked against the declared type, and the monotonic build number that refuses downgrades.
