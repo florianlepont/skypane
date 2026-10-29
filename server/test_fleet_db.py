@@ -139,3 +139,214 @@ def test_status_malformed_is_none(state_dir):
     with open(path, "w") as fh:
         fh.write('{"state": 1}')
     assert fleet_db.read_status(state_dir) is None
+
+
+# ---- users, locations, devices ----------------------------------------
+
+import inspect
+import threading
+
+import server.hardware as hardware
+
+SECRET = "a" * 64
+MAC = "aa:bb:cc:dd:ee:01"
+MAC2 = "aa:bb:cc:dd:ee:02"
+SIM_ON = {hardware.SIM_ENV_VAR: "1"}
+
+
+@pytest.fixture
+def conn():
+    c = fleet_db.connect_memory()
+    yield c
+    c.close()
+
+
+def _dev(conn, owner, mac=MAC, **kw):
+    return fleet_db.add_device(conn, mac, SECRET, hardware.LEGACY_KEY, owner, **kw)
+
+
+def test_add_user_normalises_and_rejects_duplicates(conn):
+    uid = fleet_db.add_user(conn, "  Flo@Example.COM ", "admin")
+    assert fleet_db.get_user_by_email(conn, "flo@example.com")["id"] == uid
+    with pytest.raises(sqlite3.IntegrityError):
+        fleet_db.add_user(conn, "FLO@example.com", "user")
+
+
+@pytest.mark.parametrize("bad", ["", "nope", "a@b@c", "a b@c.d", "@x.y", "x@"])
+def test_bad_emails_rejected(conn, bad):
+    with pytest.raises(ValueError):
+        fleet_db.add_user(conn, bad, "user")
+
+
+def test_bad_role_rejected(conn):
+    with pytest.raises(ValueError):
+        fleet_db.add_user(conn, "a@b.c", "root")
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(
+            "INSERT INTO users (email, role, created_at) VALUES ('x@y.z', 'root', 't')"
+        )
+
+
+def test_null_iss_sub_coexist_and_pair_is_unique(conn):
+    fleet_db.add_user(conn, "a@b.c", "user")
+    fleet_db.add_user(conn, "d@e.f", "user")
+    fleet_db.add_user(conn, "g@h.i", "user", iss="https://idp", sub="1")
+    with pytest.raises(sqlite3.IntegrityError):
+        fleet_db.add_user(conn, "j@k.l", "user", iss="https://idp", sub="1")
+
+
+def test_get_user_role_and_signature(conn):
+    uid = fleet_db.add_user(conn, "a@b.c", "admin")
+    assert fleet_db.get_user_role(conn, uid) == "admin"
+    assert fleet_db.get_user_role(conn, uid + 100) is None
+    params = list(inspect.signature(fleet_db.get_user_role).parameters)
+    assert params == ["conn", "user_id"]
+
+
+def test_device_requires_existing_owner(conn):
+    with pytest.raises(sqlite3.IntegrityError):
+        _dev(conn, None)
+    with pytest.raises(sqlite3.IntegrityError):
+        _dev(conn, 4242)
+
+
+def test_single_owner_column_and_reassignment(conn):
+    a = fleet_db.add_user(conn, "a@b.c", "user")
+    b = fleet_db.add_user(conn, "d@e.f", "user")
+    _dev(conn, a)
+    cols = [r["name"] for r in conn.execute("PRAGMA table_info(devices)")]
+    assert [c for c in cols if "owner" in c] == ["owner_user_id"]
+    assert fleet_db.assign_owner(conn, MAC, b) is True
+    assert fleet_db.get_device_by_mac(conn, MAC)["owner_user_id"] == b
+    with pytest.raises(sqlite3.IntegrityError):
+        fleet_db.assign_owner(conn, MAC, 4242)
+    assert fleet_db.assign_owner(conn, "aa:bb:cc:dd:ee:99", a) is False
+
+
+def test_disabling_owner_keeps_device(conn):
+    a = fleet_db.add_user(conn, "a@b.c", "user")
+    _dev(conn, a)
+    assert fleet_db.set_user_disabled(conn, "A@b.c", True) is True
+    assert fleet_db.get_user_by_email(conn, "a@b.c")["disabled"] == 1
+    assert fleet_db.get_device_by_mac(conn, MAC)["owner_user_id"] == a
+    assert fleet_db.set_user_disabled(conn, "no@one.x", True) is False
+
+
+def test_device_id_is_opaque_and_not_the_mac(conn):
+    a = fleet_db.add_user(conn, "a@b.c", "user")
+    device_id = _dev(conn, a)
+    assert device_id.startswith("d_") and len(device_id) == 10
+    assert "aabbccddee" not in device_id
+
+
+@pytest.mark.parametrize("mac", ["AA:BB:CC:DD:EE:01", "aa-bb-cc-dd-ee-01", "aa:bb:cc", ""])
+def test_bad_mac_rejected(conn, mac):
+    a = fleet_db.add_user(conn, "a@b.c", "user")
+    with pytest.raises(ValueError):
+        _dev(conn, a, mac=mac)
+
+
+@pytest.mark.parametrize("secret", ["A" * 64, "a" * 63, "g" * 64, ""])
+def test_bad_secret_rejected(conn, secret):
+    a = fleet_db.add_user(conn, "a@b.c", "user")
+    with pytest.raises(ValueError):
+        fleet_db.add_device(conn, MAC, secret, hardware.LEGACY_KEY, a)
+
+
+def test_location_validation_and_link(conn):
+    a = fleet_db.add_user(conn, "a@b.c", "user")
+    with pytest.raises(ValueError):
+        fleet_db.add_location(conn, "x", 91.0, 2.0, "Europe/Paris")
+    with pytest.raises(ValueError):
+        fleet_db.add_location(conn, "x", 48.0, 181.0, "Europe/Paris")
+    with pytest.raises(ValueError):
+        fleet_db.add_location(conn, "x", 48.0, 2.0, "Mars/Olympus")
+    loc = fleet_db.add_location(conn, "Orly", 48.72, 2.38, "Europe/Paris")
+    assert [r["name"] for r in fleet_db.list_locations(conn)] == ["Orly"]
+    _dev(conn, a, location_id=loc)
+    assert fleet_db.list_devices(conn)[0]["location_name"] == "Orly"
+    assert fleet_db.set_device_location(conn, MAC, None) is True
+    assert fleet_db.list_devices(conn)[0]["location_name"] is None
+
+
+def test_sim_hardware_needs_gate_to_add(conn):
+    a = fleet_db.add_user(conn, "a@b.c", "user")
+    with pytest.raises(hardware.UnknownHardwareType):
+        fleet_db.add_device(conn, MAC, SECRET, "sim-ee02-clone", a, environ={})
+    with pytest.raises(hardware.UnknownHardwareType):
+        fleet_db.add_device(conn, MAC, SECRET, "no-such-type", a)
+    device_id = fleet_db.add_device(
+        conn, MAC, SECRET, "sim-ee02-clone", a, environ=SIM_ON
+    )
+    assert device_id.startswith("d_")
+
+
+def test_gated_rows_remain_readable_with_gate_off(conn, monkeypatch):
+    monkeypatch.delenv(hardware.SIM_ENV_VAR, raising=False)
+    a = fleet_db.add_user(conn, "a@b.c", "user")
+    conn.execute(
+        "INSERT INTO devices (id, mac, secret_sha256, token, hardware_type, "
+        "owner_user_id, created_at) VALUES ('d_00000001', ?, ?, 'tok', "
+        "'sim-ee02-clone', ?, 't')",
+        (MAC, SECRET, a),
+    )
+    assert fleet_db.get_device_by_mac(conn, MAC)["hardware_type"] == "sim-ee02-clone"
+    assert fleet_db.tokens_by_mac(conn) == {MAC: "tok"}
+    assert fleet_db.registry_view(conn) == {"devices": {MAC: {"secret_sha256": SECRET}}}
+
+
+def test_tokens_registry_and_removal(conn):
+    a = fleet_db.add_user(conn, "a@b.c", "user")
+    _dev(conn, a, token="t1")
+    _dev(conn, a, mac=MAC2)
+    assert fleet_db.tokens_by_mac(conn) == {MAC: "t1"}
+    assert set(fleet_db.registry_view(conn)["devices"]) == {MAC, MAC2}
+    assert fleet_db.set_device_token(conn, MAC, None) is True
+    assert fleet_db.tokens_by_mac(conn) == {}
+    assert fleet_db.set_device_secret(conn, MAC, "b" * 64) is True
+    assert fleet_db.registry_view(conn)["devices"][MAC]["secret_sha256"] == "b" * 64
+    assert fleet_db.remove_device(conn, MAC) is True
+    assert fleet_db.remove_device(conn, MAC) is False
+    assert any("devices" in line for line in fleet_db.dump_logical(conn))
+
+
+def test_list_devices_hides_token_and_full_hash(conn):
+    a = fleet_db.add_user(conn, "a@b.c", "user")
+    _dev(conn, a, token="secret-token")
+    row = fleet_db.list_devices(conn)[0]
+    assert "token" not in row.keys()
+    assert "secret_sha256" not in row.keys()
+    assert row["secret_prefix"] == SECRET[:12]
+    assert row["owner_email"] == "a@b.c"
+
+
+def test_concurrent_readers_and_writer(state_dir):
+    setup = fleet_db.connect(state_dir)
+    owner = fleet_db.add_user(setup, "a@b.c", "user")
+    _dev(setup, owner, token="t0")
+    errors = []
+    stop = threading.Event()
+
+    def reader():
+        c = fleet_db.connect(state_dir)
+        try:
+            while not stop.is_set():
+                fleet_db.tokens_by_mac(c)
+        except Exception as exc:  # noqa: BLE001 - collected for the assertion
+            errors.append(exc)
+        finally:
+            c.close()
+
+    threads = [threading.Thread(target=reader) for _ in range(8)]
+    for t in threads:
+        t.start()
+    try:
+        for i in range(50):
+            with fleet_db.transaction(setup):
+                fleet_db.set_device_token(setup, MAC, f"t{i}")
+    finally:
+        stop.set()
+        for t in threads:
+            t.join()
+    setup.close()
+    assert errors == []

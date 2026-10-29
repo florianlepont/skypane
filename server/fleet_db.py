@@ -23,11 +23,14 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import re
+import secrets
 import sqlite3
 import sys
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 # Same repo-root sys.path bootstrap as server/history_db.py.
 _HERE = os.path.dirname(os.path.abspath(__file__))  # server/
@@ -35,7 +38,7 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from server import atomic_io  # noqa: E402
+from server import atomic_io, hardware  # noqa: E402
 
 FLEET_DB_FILENAME = "fleet.db"
 FLEET_STATUS_FILENAME = "fleet_status.json"
@@ -52,6 +55,13 @@ STATUS_FAULT = "fault"
 ROLES = ("admin", "user")
 
 _BUSY_TIMEOUT_MS = 5000
+
+# Stored MAC form: lowercase, colon separated.
+_MAC_RE = re.compile(r"^[0-9a-f]{2}(:[0-9a-f]{2}){5}$")
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+$")
+# Leading characters of a secret hash shown in listings; never the full hash.
+_SECRET_PREFIX_LEN = 12
 
 
 class FleetDbError(Exception):
@@ -264,3 +274,218 @@ def write_status(state_dir: str, state: str, detail: str = "") -> None:
         os.path.join(state_dir, FLEET_STATUS_FILENAME),
         json.dumps(doc, sort_keys=True) + "\n",
     )
+
+
+# ---- users -----------------------------------------------------------
+
+
+def normalize_email(value: str) -> str:
+    """Lowercase and shape-check an email; raises ValueError."""
+    email = value.strip().lower()
+    if not _EMAIL_RE.match(email):
+        raise ValueError(f"invalid email: {value!r}")
+    return email
+
+
+def add_user(
+    conn: sqlite3.Connection,
+    email: str,
+    role: str,
+    disabled: bool = False,
+    iss: str | None = None,
+    sub: str | None = None,
+) -> int:
+    """Insert a user and return its id; duplicates raise IntegrityError."""
+    if role not in ROLES:
+        raise ValueError(f"invalid role: {role!r}")
+    cur = conn.execute(
+        "INSERT INTO users (email, role, disabled, iss, sub, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (normalize_email(email), role, 1 if disabled else 0, iss, sub, utc_now_iso()),
+    )
+    assert cur.lastrowid is not None
+    return cur.lastrowid
+
+
+def get_user_by_email(conn: sqlite3.Connection, email: str) -> sqlite3.Row | None:
+    row: sqlite3.Row | None = conn.execute(
+        "SELECT * FROM users WHERE email = ?", (normalize_email(email),)
+    ).fetchone()
+    return row
+
+
+def list_users(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    return list(conn.execute("SELECT * FROM users ORDER BY id"))
+
+
+def set_user_disabled(conn: sqlite3.Connection, email: str, disabled: bool) -> bool:
+    cur = conn.execute(
+        "UPDATE users SET disabled = ? WHERE email = ?",
+        (1 if disabled else 0, normalize_email(email)),
+    )
+    return cur.rowcount > 0
+
+
+def get_user_role(conn: sqlite3.Connection, user_id: int) -> str | None:
+    """The stored role of a user, or None for an unknown id.
+
+    This is the only role reader. The role comes from the local row alone;
+    it is never derived from an issuer claim or a request header.
+    """
+    row = conn.execute("SELECT role FROM users WHERE id = ?", (user_id,)).fetchone()
+    return None if row is None else str(row["role"])
+
+
+# ---- locations -------------------------------------------------------
+
+
+def add_location(
+    conn: sqlite3.Connection,
+    name: str,
+    latitude: float,
+    longitude: float,
+    timezone: str,
+) -> int:
+    """Insert a location; latitude/longitude are degrees, timezone an IANA name."""
+    if not name.strip():
+        raise ValueError("location name is empty")
+    if not -90.0 <= latitude <= 90.0:
+        raise ValueError(f"latitude out of range: {latitude}")
+    if not -180.0 <= longitude <= 180.0:
+        raise ValueError(f"longitude out of range: {longitude}")
+    try:
+        ZoneInfo(timezone)
+    except (KeyError, ValueError, OSError) as exc:
+        raise ValueError(f"unknown timezone: {timezone!r}") from exc
+    cur = conn.execute(
+        "INSERT INTO locations (name, latitude, longitude, timezone) "
+        "VALUES (?, ?, ?, ?)",
+        (name, latitude, longitude, timezone),
+    )
+    assert cur.lastrowid is not None
+    return cur.lastrowid
+
+
+def list_locations(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    return list(conn.execute("SELECT * FROM locations ORDER BY id"))
+
+
+# ---- devices ---------------------------------------------------------
+
+
+def _check_mac(mac: str) -> None:
+    if not _MAC_RE.match(mac):
+        raise ValueError(f"invalid MAC (lowercase aa:bb:cc:dd:ee:ff): {mac!r}")
+
+
+def _check_secret(secret_sha256: str) -> None:
+    if not _SHA256_RE.match(secret_sha256):
+        raise ValueError("secret_sha256 must be 64 lowercase hex characters")
+
+
+def add_device(
+    conn: sqlite3.Connection,
+    mac: str,
+    secret_sha256: str,
+    hardware_type: str,
+    owner_user_id: int | None,
+    location_id: int | None = None,
+    name: str | None = None,
+    token: str | None = None,
+    state_path: str = ".",
+    environ: Mapping[str, str] | None = None,
+) -> str:
+    """Insert a device and return its opaque id (`d_` plus 8 hex).
+
+    The owner is mandatory: a missing or unknown owner raises
+    sqlite3.IntegrityError. The hardware type must be available under the
+    simulation gate in `environ`; reading existing rows never consults it.
+    """
+    _check_mac(mac)
+    _check_secret(secret_sha256)
+    hardware.get_profile(hardware_type, environ)
+    while True:
+        device_id = "d_" + secrets.token_hex(4)
+        if conn.execute("SELECT 1 FROM devices WHERE id = ?", (device_id,)).fetchone() is None:
+            break
+    conn.execute(
+        "INSERT INTO devices (id, mac, secret_sha256, token, hardware_type, "
+        "owner_user_id, location_id, name, state_path, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (device_id, mac, secret_sha256, token, hardware_type, owner_user_id,
+         location_id, name, state_path, utc_now_iso()),
+    )
+    return device_id
+
+
+def get_device_by_mac(conn: sqlite3.Connection, mac: str) -> sqlite3.Row | None:
+    row: sqlite3.Row | None = conn.execute(
+        "SELECT * FROM devices WHERE mac = ?", (mac,)
+    ).fetchone()
+    return row
+
+
+def list_devices(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    """Devices with owner email and location name; no token, no full hash."""
+    return list(conn.execute(
+        "SELECT d.id, d.mac, d.hardware_type, d.name, d.state_path, d.created_at, "
+        "substr(d.secret_sha256, 1, ?) AS secret_prefix, "
+        "u.email AS owner_email, l.name AS location_name "
+        "FROM devices d JOIN users u ON u.id = d.owner_user_id "
+        "LEFT JOIN locations l ON l.id = d.location_id ORDER BY d.created_at, d.id",
+        (_SECRET_PREFIX_LEN,),
+    ))
+
+
+def remove_device(conn: sqlite3.Connection, mac: str) -> bool:
+    return conn.execute("DELETE FROM devices WHERE mac = ?", (mac,)).rowcount > 0
+
+
+def set_device_secret(conn: sqlite3.Connection, mac: str, secret_sha256: str) -> bool:
+    _check_secret(secret_sha256)
+    cur = conn.execute(
+        "UPDATE devices SET secret_sha256 = ? WHERE mac = ?", (secret_sha256, mac)
+    )
+    return cur.rowcount > 0
+
+
+def set_device_token(conn: sqlite3.Connection, mac: str, token: str | None) -> bool:
+    cur = conn.execute("UPDATE devices SET token = ? WHERE mac = ?", (token, mac))
+    return cur.rowcount > 0
+
+
+def assign_owner(conn: sqlite3.Connection, mac: str, owner_user_id: int) -> bool:
+    """Re-point the single owner; an unknown user raises IntegrityError."""
+    cur = conn.execute(
+        "UPDATE devices SET owner_user_id = ? WHERE mac = ?", (owner_user_id, mac)
+    )
+    return cur.rowcount > 0
+
+
+def set_device_location(
+    conn: sqlite3.Connection, mac: str, location_id: int | None
+) -> bool:
+    cur = conn.execute(
+        "UPDATE devices SET location_id = ? WHERE mac = ?", (location_id, mac)
+    )
+    return cur.rowcount > 0
+
+
+def tokens_by_mac(conn: sqlite3.Connection) -> dict[str, str]:
+    rows = conn.execute("SELECT mac, token FROM devices WHERE token IS NOT NULL")
+    return {str(r["mac"]): str(r["token"]) for r in rows}
+
+
+def registry_view(conn: sqlite3.Connection) -> dict[str, dict[str, dict[str, str]]]:
+    """Secret registry in the shape the byos server already consumes."""
+    rows = conn.execute("SELECT mac, secret_sha256 FROM devices")
+    return {
+        "devices": {
+            str(r["mac"]): {"secret_sha256": str(r["secret_sha256"])} for r in rows
+        }
+    }
+
+
+def dump_logical(conn: sqlite3.Connection) -> list[str]:
+    """The `iterdump()` statements, for logical-equality assertions."""
+    return list(conn.iterdump())
