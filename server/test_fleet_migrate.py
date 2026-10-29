@@ -4,6 +4,8 @@ previewable import of the legacy device files into fleet.db."""
 import json
 import os
 import stat
+import subprocess
+import sys
 import zoneinfo
 
 import pytest
@@ -12,6 +14,7 @@ import server.fleet_db as fleet_db
 import server.fleet_migrate as fleet_migrate
 import server.hardware as hardware
 import skypane_live_state as live
+from skypane_test_support import child_env
 
 OWNER = "owner@example.com"
 
@@ -176,13 +179,84 @@ def test_malformed_state_aborts(seeded, doc):
     assert not os.path.exists(fleet_db.fleet_db_path(seeded.state_dir))
 
 
-def test_token_without_registry_entry_aborts_naming_mac(seeded, capsys):
-    stray = "aa:bb:cc:dd:ee:99"
-    _write(seeded.state_path, {"tokens": {seeded.mac: seeded.token, stray: "secret-stray-token"}})
+STRAY_MAC = "aa:bb:cc:dd:ee:99"
+STRAY_TOKEN = "secret-stray-token"
+SKIPPED_LINE = "skipped 1 token(s) for unregistered device(s)"
+
+
+def _add_stray_token(seeded):
+    _write(seeded.state_path,
+           {"tokens": {seeded.mac: seeded.token, STRAY_MAC: STRAY_TOKEN}})
+
+
+def _device_tokens(state_dir):
+    conn = fleet_db.connect_readonly(state_dir)
+    try:
+        return fleet_db.tokens_by_mac(conn)
+    finally:
+        conn.close()
+
+
+def test_orphan_token_is_skipped_counted_and_never_imported(seeded, capsys):
+    _add_stray_token(seeded)
+    assert _run(seeded, "--dry-run") == 0
+    dry = capsys.readouterr()
+    assert SKIPPED_LINE in dry.out
+    assert not os.path.exists(fleet_db.fleet_db_path(seeded.state_dir))
+
+    assert _run(seeded) == 0
+    real = capsys.readouterr()
+    assert SKIPPED_LINE in real.out
+    assert _device_tokens(seeded.state_dir) == {seeded.mac: seeded.token}
+    for text in (dry.out, dry.err, real.out, real.err):
+        assert STRAY_TOKEN not in text
+
+
+def test_second_run_with_orphan_token_is_a_noop(seeded, capsys):
+    _add_stray_token(seeded)
+    assert _run(seeded) == 0
+    capsys.readouterr()
+    legacy_before = {
+        k: v for k, v in live.snapshot_dir(seeded.state_dir).items()
+        if not k.startswith("fleet.db")
+    }
+    main_before = _db_main(seeded.state_dir)
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert "nothing to do" in out
+    assert SKIPPED_LINE in out
+    assert _db_main(seeded.state_dir) == main_before
+    assert _db_files(live.snapshot_dir(seeded.state_dir)) == legacy_before
+
+
+def test_remove_then_migrate_succeeds_in_both_modes(seeded, capsys):
+    second = "aa:bb:cc:dd:ee:02"
+    registry = json.load(open(seeded.devices_path, encoding="utf-8"))
+    registry["devices"][second] = {"secret_sha256": "1" * 64}
+    _write(seeded.devices_path, registry)
+    _write(seeded.state_path,
+           {"tokens": {seeded.mac: seeded.token, second: "second-token"}})
+    cli = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                       "stub-server", "devices_cli.py")
+    result = subprocess.run(
+        [sys.executable, cli, "--state-dir", seeded.state_dir, "remove", "--mac", second],
+        capture_output=True, text=True, env=child_env(),
+    )
+    assert result.returncode == 0, result.stderr
+
+    assert _run(seeded, "--dry-run") == 0
+    assert _run(seeded) == 0
+    capsys.readouterr()
+    assert _device_tokens(seeded.state_dir) == {seeded.mac: seeded.token}
+    with open(seeded.state_path, encoding="utf-8") as fh:
+        assert json.load(fh)["tokens"] == {seeded.mac: seeded.token}
+
+
+@pytest.mark.parametrize("bad", ["", 5, None])
+def test_malformed_token_on_an_orphan_mac_still_aborts(seeded, bad):
+    _write(seeded.state_path,
+           {"tokens": {seeded.mac: seeded.token, STRAY_MAC: bad}})
     assert _run(seeded) == 2
-    err = capsys.readouterr().err
-    assert stray in err
-    assert "secret-stray-token" not in err
     assert not os.path.exists(fleet_db.fleet_db_path(seeded.state_dir))
 
 

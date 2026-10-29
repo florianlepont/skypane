@@ -18,6 +18,8 @@ Invariants:
 - Reconcile after a rollback period is legacy-wins on the secret hash and
   token of devices present in both places, inserts devices present only in
   the legacy files, and never deletes anything.
+- A token for a MAC absent from devices.json (left by an earlier device
+  removal) is skipped and counted, never copied into fleet.db.
 - Output names MACs and counts only; never a token, secret hash or file
   content.
 """
@@ -65,6 +67,7 @@ class MigrationError(Exception):
 class LegacyState:
     devices: dict[str, str]  # mac -> secret_sha256
     tokens: dict[str, str]  # mac -> token
+    skipped_tokens: int = 0  # tokens for unregistered MACs, never imported
 
 
 @dataclass(frozen=True)
@@ -124,29 +127,33 @@ def _read_registry(state_dir: str) -> dict[str, str]:
     return out
 
 
-def _read_tokens(state_dir: str, known: dict[str, str]) -> dict[str, str]:
+def _read_tokens(state_dir: str, known: dict[str, str]) -> tuple[dict[str, str], int]:
+    """Tokens of registered devices, and how many orphan tokens were skipped."""
     name = LEGACY_STATE_FILE
     doc = _load_json(os.path.join(state_dir, name))
     if doc is None:
-        return {}
+        return {}, 0
     if not isinstance(doc, dict) or not isinstance(doc.get("tokens"), dict):
         raise LegacyStateError(f"{name} has the wrong shape")
     out: dict[str, str] = {}
+    skipped = 0
     for mac, token in doc["tokens"].items():
         if not isinstance(mac, str) or not _MAC_RE.match(mac):
             raise LegacyStateError(f"{name} holds a malformed MAC")
         if not isinstance(token, str) or not token:
             raise LegacyStateError(f"{name} holds a malformed token for {mac}")
         if mac not in known:
-            raise LegacyStateError(f"{name} has a token for unregistered device {mac}")
+            skipped += 1
+            continue
         out[mac] = token
-    return out
+    return out, skipped
 
 
 def read_legacy(state_dir: str) -> LegacyState:
     """Strict reader: a missing file is empty, an invalid one raises."""
     devices = _read_registry(state_dir)
-    return LegacyState(devices=devices, tokens=_read_tokens(state_dir, devices))
+    tokens, skipped = _read_tokens(state_dir, devices)
+    return LegacyState(devices=devices, tokens=tokens, skipped_tokens=skipped)
 
 
 # ---- planning ----------------------------------------------------------
@@ -320,6 +327,14 @@ def _describe(plan: MigrationPlan, dry_run: bool) -> list[str]:
     return lines
 
 
+def _with_skipped(lines: list[str], legacy: LegacyState) -> list[str]:
+    if legacy.skipped_tokens:
+        lines.append(
+            f"skipped {legacy.skipped_tokens} token(s) for unregistered device(s)"
+        )
+    return lines
+
+
 def migrate(state_dir: str, owner_email: str | None, dry_run: bool) -> MigrationReport:
     """Plan and (unless dry_run) apply the import; reads legacy files first."""
     email: str | None = None
@@ -335,13 +350,14 @@ def migrate(state_dir: str, owner_email: str | None, dry_run: bool) -> Migration
     snapshot = read_snapshot(state_dir)
     plan = plan_migration(legacy, snapshot, email)
     if not plan.needs_write:
-        return MigrationReport(["nothing to do"], changed=False)
+        return MigrationReport(_with_skipped(["nothing to do"], legacy), changed=False)
     lines = _describe(plan, dry_run)
     if dry_run:
-        return MigrationReport(lines or ["would mark fleet.db migrated"], changed=False)
+        lines = lines or ["would mark fleet.db migrated"]
+        return MigrationReport(_with_skipped(lines, legacy), changed=False)
     _apply(state_dir, plan, legacy, email)
     lines.append(f"migrated {len(legacy.devices)} legacy device(s)")
-    return MigrationReport(lines, changed=True)
+    return MigrationReport(_with_skipped(lines, legacy), changed=True)
 
 
 def build_parser() -> argparse.ArgumentParser:

@@ -5,7 +5,7 @@
 
 Stdlib only. Adds, removes and lists devices.json entries (MAC -> the
 SHA-256 hex digest of that device's own enrolment secret - never the
-secret itself), and revokes a single device's issued bearer token from
+secret itself) - removing a device also drops its issued token - and revokes a single device's issued bearer token from
 byos_state.json. Shares byos_server.py's own registry/state functions
 (register_device, load_registry, save_registry, load_state, save_state,
 normalize_mac) by importing that module directly, so the on-disk format
@@ -73,6 +73,10 @@ def cmd_remove(args):
         return 1
     del registry["devices"][mac]
     byos_server.save_registry(args.state_dir, registry)
+    state = byos_server.load_state(args.state_dir)
+    if mac in state.get("tokens", {}):
+        del state["tokens"][mac]
+        byos_server.save_state(args.state_dir, state)
     print("removed %s" % mac)
     return _mirror(args.state_dir, "remove", mac)
 

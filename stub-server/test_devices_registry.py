@@ -453,6 +453,35 @@ def test_devices_cli_add_over_existing_mac_without_replace_exits_nonzero(tmp_pat
     assert code == 0, "--replace must allow overwriting an existing MAC: %s" % err
 
 
+def test_devices_cli_remove_drops_only_that_macs_token(tmp_path):
+    tmpdir = str(tmp_path)
+    module = load_byos_module()
+    module.register_device(tmpdir, "aa:bb:cc:dd:ee:01", _sha256_hex(SECRET_A))
+    module.register_device(tmpdir, "aa:bb:cc:dd:ee:02", _sha256_hex(SECRET_A))
+    module.save_state(tmpdir, {"tokens": {
+        "aa:bb:cc:dd:ee:01": "token-one",
+        "aa:bb:cc:dd:ee:02": "token-two",
+    }})
+    code, _, err = _run_cli(tmpdir, "remove", "--mac", "aa:bb:cc:dd:ee:01")
+    assert code == 0, "remove failed: %s" % err
+    assert module.load_state(tmpdir)["tokens"] == {"aa:bb:cc:dd:ee:02": "token-two"}
+    assert "aa:bb:cc:dd:ee:01" not in module.load_registry(tmpdir)["devices"]
+
+
+def test_devices_cli_remove_without_a_token_leaves_the_state_file_untouched(tmp_path):
+    tmpdir = str(tmp_path)
+    module = load_byos_module()
+    module.register_device(tmpdir, "aa:bb:cc:dd:ee:01", _sha256_hex(SECRET_A))
+    module.save_state(tmpdir, {"tokens": {"aa:bb:cc:dd:ee:02": "token-two"}})
+    state_path = os.path.join(tmpdir, "byos_state.json")
+    with open(state_path, "rb") as fh:
+        before = fh.read()
+    code, _, err = _run_cli(tmpdir, "remove", "--mac", "aa:bb:cc:dd:ee:01")
+    assert code == 0, "remove failed: %s" % err
+    with open(state_path, "rb") as fh:
+        assert fh.read() == before
+
+
 def test_devices_cli_revoke_token_removes_only_that_macs_token(tmp_path):
     tmpdir = str(tmp_path)
     module = load_byos_module()
