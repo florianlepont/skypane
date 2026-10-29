@@ -19,7 +19,9 @@ Invariants:
   token of devices present in both places, inserts devices present only in
   the legacy files, and never deletes anything.
 - A token for a MAC absent from devices.json (left by an earlier device
-  removal) is skipped and counted, never copied into fleet.db.
+  removal) is skipped and counted, never copied into fleet.db. So is a
+  token whose key is not the canonical lowercase MAC: byos lowercases MACs,
+  so such a key can never match a device.
 - Output names MACs and counts only; never a token, secret hash or file
   content.
 """
@@ -52,7 +54,10 @@ LIVE_DEVICE_NAME = "Orly frame"
 LIVE_STATE_PATH = "."
 
 _MAC_RE = re.compile(r"^[0-9a-f]{2}(:[0-9a-f]{2}){5}$")
-_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+# byos accepts and lowercases MACs of any case, so token keys are shape-checked
+# case-insensitively here; only the canonical lowercase key can match a device.
+_TOKEN_KEY_RE = re.compile(r"\A[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}\Z")
+_SHA256_RE =re.compile(r"^[0-9a-f]{64}$")
 
 
 class LegacyStateError(Exception):
@@ -67,7 +72,7 @@ class MigrationError(Exception):
 class LegacyState:
     devices: dict[str, str]  # mac -> secret_sha256
     tokens: dict[str, str]  # mac -> token
-    skipped_tokens: int = 0  # tokens for unregistered MACs, never imported
+    skipped_tokens: int = 0  # tokens under unregistered or non-canonical MACs, never imported
 
 
 @dataclass(frozen=True)
@@ -128,7 +133,7 @@ def _read_registry(state_dir: str) -> dict[str, str]:
 
 
 def _read_tokens(state_dir: str, known: dict[str, str]) -> tuple[dict[str, str], int]:
-    """Tokens of registered devices, and how many orphan tokens were skipped."""
+    """Tokens under canonical registered MACs, and how many other tokens were skipped."""
     name = LEGACY_STATE_FILE
     doc = _load_json(os.path.join(state_dir, name))
     if doc is None:
@@ -138,11 +143,11 @@ def _read_tokens(state_dir: str, known: dict[str, str]) -> tuple[dict[str, str],
     out: dict[str, str] = {}
     skipped = 0
     for mac, token in doc["tokens"].items():
-        if not isinstance(mac, str) or not _MAC_RE.match(mac):
+        if not isinstance(mac, str) or not _TOKEN_KEY_RE.match(mac):
             raise LegacyStateError(f"{name} holds a malformed MAC")
         if not isinstance(token, str) or not token:
             raise LegacyStateError(f"{name} holds a malformed token for {mac}")
-        if mac not in known:
+        if mac != mac.lower() or mac not in known:
             skipped += 1
             continue
         out[mac] = token
