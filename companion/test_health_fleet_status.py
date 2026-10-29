@@ -23,6 +23,8 @@ from server import history_db  # noqa: E402
 
 _NOW = "2026-09-21T12:00:00+00:00"
 _SENTENCE = "Fleet database unavailable; using the legacy device files."
+# The banner pills drop the trailing full stop.
+_PILL = _SENTENCE.rstrip(".")
 _FRENCH = "Base de données de la flotte"
 
 
@@ -124,16 +126,16 @@ def _fetch_health(make_app_server, status, lang="en"):
 
 def test_served_health_page_shows_sentence_for_fault(make_app_server):
     html = _fetch_health(make_app_server, fleet_db.STATUS_FAULT)
-    assert _SENTENCE in html
+    assert _PILL in html
 
 
 @pytest.mark.parametrize("status", [None, "absent", "malformed"])
 def test_served_health_page_silent_otherwise(make_app_server, status):
     html = _fetch_health(make_app_server, status)
-    assert _SENTENCE not in html
+    assert _PILL not in html
 
 
 def test_served_health_page_french_for_fault(make_app_server):
     html = _fetch_health(make_app_server, fleet_db.STATUS_FAULT, lang="fr")
     assert _FRENCH in html
-    assert _SENTENCE not in html
+    assert _PILL not in html

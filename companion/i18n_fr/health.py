@@ -71,6 +71,9 @@ MESSAGES = {
     "health.error": "erreur",
     "health.issue": "problème",
     "health.device_check_in_is_stale": "Le cadre ne répond plus.",
+    "health.fleet_database_unavailable":
+        "Base de données de la flotte indisponible\u00a0: les fichiers "
+        "d’appareils historiques sont utilisés.",
     "health.flight_data_is_stale": "Données de vol anciennes.",
     "health.battery_dropped_abnormally":
         "Baisse anormale de batterie.",
