@@ -110,7 +110,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 49-05-PLAN.md — publish_release image validation, grandfather rule, per-type build gate (OTA-01, OTA-02)
+- [x] 49-05-PLAN.md — publish_release image validation, grandfather rule, per-type build gate (OTA-01, OTA-02)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -266,7 +266,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 48. Fleet Data Model, Roles and Live-Frame Migration | v1.2 | 8/8 | Complete   | 2026-10-29 |
-| 49. Per-Hardware OTA Registry | v1.2 | 4/11 | In Progress|  |
+| 49. Per-Hardware OTA Registry | v1.2 | 5/11 | In Progress|  |
 | 50. Common Image Format | v1.2 | 0/0 | Not started | - |
 | 51. Per-Device Config, Image and State | v1.2 | 0/0 | Not started | - |
 | 52. Fleet Poll Cycle, Zones and Request Budget | v1.2 | 0/0 | Not started | - |
