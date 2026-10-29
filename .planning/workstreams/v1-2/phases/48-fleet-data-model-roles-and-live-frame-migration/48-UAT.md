@@ -33,6 +33,7 @@ evidence: Full companion suite in the cloud container with SKYPANE_REQUIRE_BROWS
 ### 3. Production deploy migrates the live frame with no visible change
 expected: After the next deploy, deploy/activate.sh runs the backup, the dry-run and the real migration without stopping, and the frame's next poll still gets the same image and sleep interval. `fleet_cli devices list` on the VPS shows 94:a9:90:cf:80:08 owned by florian.lepont@yahoo.fr.
 result: [pending]
+evidence_so_far: Deployed by hand with deploy/deploy.sh (not through CI); /opt/skypane/current -> releases/d51b4bdb; skypane-byos, skypane-companion and skypane-poll.timer active; fleet_cli lists 94:a9:90:cf:80:08 (owner florian.lepont@yahoo.fr, xiao-ee02-13in3-spectra6, Orly) and the admin user; GET /device/v1/display on the public host returns 401 without a token. Still to confirm: the frame wakes, polls and shows its image as before.
 
 ## Summary
 
