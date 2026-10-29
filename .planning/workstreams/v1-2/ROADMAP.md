@@ -117,7 +117,7 @@ Plans:
 - [x] 49-06-PLAN.md — firmware_cli per-type, build-ordered import, check-image, docs (OTA-01, OTA-02)
 - [x] 49-07-PLAN.md — byos type resolution, per-type offers, report stamp, reconcile-all (OTA-01)
 - [x] 49-08-PLAN.md — Update page type chooser, EN/FR (OTA-01)
-- [ ] 49-09-PLAN.md — Release manifest hardware_type/build and CI descriptor check (OTA-01, OTA-02)
+- [x] 49-09-PLAN.md — Release manifest hardware_type/build and CI descriptor check (OTA-01, OTA-02)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -266,7 +266,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 48. Fleet Data Model, Roles and Live-Frame Migration | v1.2 | 8/8 | Complete   | 2026-10-29 |
-| 49. Per-Hardware OTA Registry | v1.2 | 8/11 | In Progress|  |
+| 49. Per-Hardware OTA Registry | v1.2 | 9/11 | In Progress|  |
 | 50. Common Image Format | v1.2 | 0/0 | Not started | - |
 | 51. Per-Device Config, Image and State | v1.2 | 0/0 | Not started | - |
 | 52. Fleet Poll Cycle, Zones and Request Budget | v1.2 | 0/0 | Not started | - |
