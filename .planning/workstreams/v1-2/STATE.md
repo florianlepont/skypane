@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Fleet platform
 current_plan: 1
-status: verifying
-stopped_at: Phase 48 context gathered
-last_updated: "2026-10-29T17:30:12.315Z"
+status: executing
+stopped_at: Completed 49-03-PLAN.md
+last_updated: "2026-10-29T17:36:32.950Z"
 last_activity: 2026-10-29
 progress:
   total_phases: 12
   completed_phases: 1
   total_plans: 19
-  completed_plans: 9
+  completed_plans: 10
   percent: 8
 ---
 
@@ -20,16 +20,16 @@ progress:
 ## Project Reference
 
 **Core Value:** Glancing at the frame tells you, in real time, which plane is taking off or landing right now — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 48 — fleet-data-model-roles-and-live-frame-migration
+**Current focus:** Phase 49 — per-hardware-ota-registry
 
 ## Current Position
 
-Phase: 48 (fleet-data-model-roles-and-live-frame-migration) — EXECUTING
-Plan: 7 of 7
-Status: Phase complete — ready for verification
+Phase: 49 (per-hardware-ota-registry) — EXECUTING
+Plan: 3 of 11 (49-01, 49-03 complete)
+Status: Executing phase 49
 Last activity: 2026-10-29
 
-Progress: [█████░░░░░] 47%
+Progress: [█████░░░░░] 53%
 
 ## Progress
 
