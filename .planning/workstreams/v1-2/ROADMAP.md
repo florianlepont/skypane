@@ -65,7 +65,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 48-02-PLAN.md — fleet.db schema, user_version migrations, users/roles/locations/devices with one owner (DATA-01, DATA-03)
+- [x] 48-02-PLAN.md — fleet.db schema, user_version migrations, users/roles/locations/devices with one owner (DATA-01, DATA-03)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -238,7 +238,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 48. Fleet Data Model, Roles and Live-Frame Migration | v1.2 | 1/7 | In Progress|  |
+| 48. Fleet Data Model, Roles and Live-Frame Migration | v1.2 | 2/7 | In Progress|  |
 | 49. Per-Hardware OTA Registry | v1.2 | 0/0 | Not started | - |
 | 50. Common Image Format | v1.2 | 0/0 | Not started | - |
 | 51. Per-Device Config, Image and State | v1.2 | 0/0 | Not started | - |
