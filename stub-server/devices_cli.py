@@ -22,7 +22,12 @@ Usage:
     python3 devices_cli.py --state-dir DIR list
     python3 devices_cli.py --state-dir DIR revoke-token --mac aa:bb:cc:dd:ee:ff
 
-Exit codes: 0 success, 2 usage/validation error, 1 not found.
+Exit codes: 0 success, 2 usage/validation error, 1 not found or the
+change could not be mirrored into fleet.db.
+
+Once fleet.db is migrated this tool keeps it in step with every change
+(a failed mirror prints a warning and exits 1; re-running the migration
+reconciles it). fleet_cli.py is the full operator tool.
 """
 import argparse
 import os
@@ -32,7 +37,20 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import byos_server  # noqa: E402 - the sys.path bootstrap above must run first
 
 
+def _mirror(state_dir, op, mac, secret_sha256=None):
+    """0 when fleet.db is in step (or has nothing to mirror), else 1."""
+    message = byos_server.mirror_to_fleet(state_dir, op, mac, secret_sha256)
+    if message is None:
+        return 0
+    print("warning: fleet.db not updated: %s" % message, file=sys.stderr)
+    return 1
+
+
 def cmd_add(args):
+    existed = False
+    normalized = byos_server.normalize_mac(args.mac)
+    if normalized is not None:
+        existed = normalized in byos_server.load_registry(args.state_dir)["devices"]
     try:
         mac = byos_server.register_device(
             args.state_dir, args.mac, args.secret_sha256, replace=args.replace)
@@ -40,7 +58,8 @@ def cmd_add(args):
         print("error: %s" % exc, file=sys.stderr)
         return 2
     print("registered %s" % mac)
-    return 0
+    op = "replace" if args.replace and existed else "add"
+    return _mirror(args.state_dir, op, mac, args.secret_sha256)
 
 
 def cmd_remove(args):
@@ -55,7 +74,7 @@ def cmd_remove(args):
     del registry["devices"][mac]
     byos_server.save_registry(args.state_dir, registry)
     print("removed %s" % mac)
-    return 0
+    return _mirror(args.state_dir, "remove", mac)
 
 
 def cmd_list(args):
@@ -89,7 +108,7 @@ def cmd_revoke_token(args):
           "the running process will overwrite this file with its own "
           "in-memory copy (still holding the revoked token) on its next "
           "write")
-    return 0
+    return _mirror(args.state_dir, "revoke", mac)
 
 
 def build_parser():
