@@ -837,6 +837,126 @@ def _resolve_device_id(state, presented_token):
     return None
 
 
+# Returned by _fleet_device_type() when identity must come from the
+# legacy files (fleet.db absent, unmigrated or faulted).
+_FLEET_UNAVAILABLE = object()
+_unresolved_logged = set()
+_unresolved_logged_lock = threading.Lock()
+
+
+def _fleet_device_type(state_dir, mac):
+    """The hardware_type fleet.db stores for `mac` (a str), None when it
+    has no row for that MAC, or _FLEET_UNAVAILABLE when fleet.db cannot
+    answer. Never raises. The type is server-assigned: nothing a device
+    sends is ever consulted.
+    """
+    try:
+        conn = fleet_db.connect_readonly(state_dir)
+    except fleet_db.FleetDbAbsent:
+        _note_fleet_status(state_dir, fleet_db.STATUS_ABSENT)
+        return _FLEET_UNAVAILABLE
+    except (fleet_db.FleetDbError, sqlite3.Error, OSError) as exc:
+        _note_fleet_status(state_dir, fleet_db.STATUS_FAULT, type(exc).__name__)
+        return _FLEET_UNAVAILABLE
+    try:
+        if fleet_db.meta_get(conn, fleet_db.META_MIGRATED) is None:
+            _note_fleet_status(state_dir, fleet_db.STATUS_ABSENT)
+            return _FLEET_UNAVAILABLE
+        row = fleet_db.get_device_by_mac(conn, mac)
+    except (fleet_db.FleetDbError, sqlite3.Error, OSError) as exc:
+        _note_fleet_status(state_dir, fleet_db.STATUS_FAULT, type(exc).__name__)
+        return _FLEET_UNAVAILABLE
+    finally:
+        conn.close()
+    stored = row["hardware_type"] if row is not None else None
+    return stored if isinstance(stored, str) else None
+
+
+def _log_unresolved_type_once(mac, stored):
+    with _unresolved_logged_lock:
+        first = (mac, stored) not in _unresolved_logged
+        _unresolved_logged.add((mac, stored))
+    if first:
+        print("ota: %s has no usable hardware type (%s); no firmware offer" % (mac, stored))
+
+
+def resolve_hardware_type(state_dir, mac):
+    """The hardware type key the server assigned to `mac`, or None when
+    it cannot be resolved (no fleet.db row, a key that is unknown or not
+    available here). Fails closed: with fleet.db unavailable only a MAC in
+    the legacy devices.json registry resolves, to the legacy type, so a
+    device that exists only in fleet.db is never offered the legacy
+    binary.
+    """
+    stored = _fleet_device_type(state_dir, mac)
+    if stored is _FLEET_UNAVAILABLE:
+        return hardware.LEGACY_KEY if mac in load_registry(state_dir)["devices"] else None
+    if stored is None:
+        return None
+    if not hardware.is_known(stored) or stored not in hardware.available_types():
+        _log_unresolved_type_once(mac, stored)
+        return None
+    return stored
+
+
+def _offer_for_type(registry, entry, battery_low_active, base_url, hardware_type):
+    """compute_offer() over one type's document, withheld unless the
+    matched release belongs to `hardware_type` as well.
+    """
+    if hardware_type is None:
+        return None
+    offer = firmware_registry.compute_offer(registry, entry, battery_low_active, base_url)
+    if offer is None:
+        return None
+    sha256 = offer["sha256"][len("sha256:"):]
+    release = next(
+        (r for r in registry.get("releases", [])
+         if r.get("sha256") == sha256 and r.get("version") == offer["version"]), None)
+    if release is None or release.get("hardware_type") != hardware_type:
+        return None
+    return offer
+
+
+def _registry_for_type(state_dir, hardware_type):
+    """The registry document the offer decision reads. A device whose type
+    is unresolved sees no schedule, so none of its events is attributed
+    to one.
+    """
+    registry = firmware_registry.load_registry(state_dir, hardware_type or hardware.LEGACY_KEY)
+    if hardware_type is None:
+        registry = dict(registry, schedule=None)
+    return registry
+
+
+def _next_event_seq(device_report, registry):
+    """The highest event seq already handed out: floored against every
+    event seq on record and against the registry's reconciled_seq, so a
+    restore or a missing document can never reset it below the point
+    reconcile() ignores.
+    """
+    highest_recorded_seq = max(
+        (event.get("seq", 0)
+         for device_entry in device_report["devices"].values()
+         for event in device_entry.get("events", [])),
+        default=0,
+    )
+    return max(device_report["next_seq"], registry.get("reconciled_seq", 0), highest_recorded_seq)
+
+
+def _stamp_hardware_type(entry, hardware_type, known):
+    """Record the resolved type on the report entry (the unresolved
+    sentinel when there is none). True when an already recorded entry
+    must be rewritten for it to carry the right type. An entry with no
+    stamp already reads as the legacy type, so a legacy frame's entry is
+    only rewritten when something else changes, never for the stamp.
+    """
+    stamp = hardware_type or firmware_registry.UNRESOLVED_TYPE
+    stored = entry.get("hardware_type")
+    stale = known and stored != stamp and not (stored is None and stamp == hardware.LEGACY_KEY)
+    entry["hardware_type"] = stamp
+    return stale
+
+
 def _write_device_report(state_dir, doc):
     """The one writer of firmware/device_report.json anywhere in this
     process -- server/firmware_registry.py deliberately never writes it.
@@ -872,6 +992,9 @@ def _record_device_report_and_offer(state_dir, state, headers, image_url_scheme,
         {"tokens": effective_tokens(state_dir, state)}, presented)
     if device_id is None:
         return None
+    # Resolved once per poll, before any lock is taken: the SQLite read
+    # must not run while registry_lock or the report lock is held.
+    hardware_type = resolve_hardware_type(state_dir, device_id)
     base_url = "%s://%s" % (image_url_scheme, host)
 
     # registry_lock is taken first, _device_report_lock second -- the
@@ -888,7 +1011,7 @@ def _record_device_report_and_offer(state_dir, state, headers, image_url_scheme,
     # already an OSError subclass), which the GET handler already treats
     # as "no offer this poll", never a 500.
     with firmware_registry.registry_lock(state_dir), _device_report_lock:
-        registry = firmware_registry.load_registry(state_dir)
+        registry = _registry_for_type(state_dir, hardware_type)
         battery_low_active = read_battery_low_active(state_dir)
         schedule = registry.get("schedule")
         schedule_id = schedule.get("id") if schedule is not None else None
@@ -896,29 +1019,10 @@ def _record_device_report_and_offer(state_dir, state, headers, image_url_scheme,
 
         device_report = firmware_registry.load_device_report(state_dir)
         devices = device_report["devices"]
-        entry = devices.get(device_id) or {"fw_version": None, "reported_at": None, "events": []}
-        # device_report["next_seq"] counts events already assigned (0 for
-        # a fresh document), so the next seq to hand out is one more than
-        # that - never 0, since compute_offer()'s own reconciled_seq
-        # baseline starts at 0 and only counts events with seq strictly
-        # greater than it. Floored against every event seq actually on
-        # record and against registry["reconciled_seq"] too: a restore
-        # whose tarball captured device_report.json just before a
-        # reconcile and registry.json just after (the two files are read
-        # at different moments, with no shared lock), or simply a
-        # missing/corrupt device_report.json, would otherwise reset
-        # next_seq below reconciled_seq. Every event this call assigns
-        # would then already be <= reconciled_seq and reconcile() would
-        # ignore them all forever -- no offer ever counts as an attempt
-        # again, and an "installed" result never closes its schedule.
-        highest_recorded_seq = max(
-            (event.get("seq", 0)
-             for device_entry in devices.values()
-             for event in device_entry.get("events", [])),
-            default=0,
-        )
-        next_seq = max(device_report["next_seq"], registry.get("reconciled_seq", 0), highest_recorded_seq)
-        changed = False
+        recorded = devices.get(device_id)
+        entry = recorded or {"fw_version": None, "reported_at": None, "events": []}
+        next_seq = _next_event_seq(device_report, registry)
+        changed = _stamp_hardware_type(entry, hardware_type, recorded is not None)
 
         if fw_version is not None:
             entry["fw_version"] = fw_version
@@ -954,7 +1058,7 @@ def _record_device_report_and_offer(state_dir, state, headers, image_url_scheme,
             })
             changed = True
 
-        offer = firmware_registry.compute_offer(registry, entry, battery_low_active, base_url)
+        offer = _offer_for_type(registry, entry, battery_low_active, base_url, hardware_type)
         if offer is not None:
             next_seq += 1
             entry["events"].append({
