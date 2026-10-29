@@ -150,6 +150,14 @@ def publish_test_release(state_dir, version, image_bytes=None, commit="a" * 40, 
     return sha256, image_bytes
 
 
+TOKEN_STATE = {"tokens": {KNOWN_MAC: KNOWN_TOKEN}}
+
+
+def _auth(headers):
+    """`headers` plus the bearer header of the known test device."""
+    return dict(headers, Authorization="Bearer %s" % KNOWN_TOKEN)
+
+
 class Harness:
     """Owns one byos_server.py subprocess: a free port, the caller's
     tmp_path as --state-dir, a generated panel image, and a seeded
@@ -596,7 +604,7 @@ def test_cancel_cannot_race_the_offer_decision(byos_module, tmp_path):
     with mock.patch.object(byos_module.firmware_registry, "compute_offer", side_effect=slow_compute_offer):
         thread.start()
         offer = byos_module._record_device_report_and_offer(
-            state_dir, {"tokens": {}}, {"X-Fw-Version": "fw-v1.0.0"}, "http", "example.org")
+            state_dir, TOKEN_STATE, _auth({"X-Fw-Version": "fw-v1.0.0"}), "http", "example.org")
     thread.join(5)
     assert not thread.is_alive(), "cancel_schedule() did not return within the join timeout"
 
@@ -627,8 +635,8 @@ def test_stale_resent_result_does_not_close_a_different_schedule(byos_module, tm
     # S1 (v1.3.0) installs; byos records it, but (from the device's own
     # point of view) the response never arrives.
     offer1 = byos_module._record_device_report_and_offer(
-        state_dir, {"tokens": {}},
-        {"X-Fw-Version": "fw-v1.3.0", "X-Ota-Result": "installed;fw-v1.3.0"},
+        state_dir, TOKEN_STATE,
+        _auth({"X-Fw-Version": "fw-v1.3.0", "X-Ota-Result": "installed;fw-v1.3.0"}),
         "http", "example.org")
     assert offer1 is None  # already running the scheduled version
 
@@ -643,12 +651,12 @@ def test_stale_resent_result_does_not_close_a_different_schedule(byos_module, tm
     # The device, still waiting for its own confirmation of the S1
     # install, resends the SAME result on its next wake.
     byos_module._record_device_report_and_offer(
-        state_dir, {"tokens": {}},
-        {"X-Fw-Version": "fw-v1.3.0", "X-Ota-Result": "installed;fw-v1.3.0"},
+        state_dir, TOKEN_STATE,
+        _auth({"X-Fw-Version": "fw-v1.3.0", "X-Ota-Result": "installed;fw-v1.3.0"}),
         "http", "example.org")
 
     device_report = firmware_registry.load_device_report(state_dir)
-    entry = device_report["devices"]["default"]
+    entry = device_report["devices"][KNOWN_MAC]
     result_events = [e for e in entry["events"] if e["kind"] == "result"]
     stale_event = result_events[-1]
     assert stale_event["version"] == "fw-v1.3.0"
@@ -688,10 +696,10 @@ def test_next_seq_stays_monotonic_against_a_reset_device_report(byos_module, tmp
     assert not os.path.exists(firmware_registry.device_report_path(state_dir))
 
     byos_module._record_device_report_and_offer(
-        state_dir, {"tokens": {}}, {"X-Fw-Version": "fw-v1.0.0"}, "http", "example.org")
+        state_dir, TOKEN_STATE, _auth({"X-Fw-Version": "fw-v1.0.0"}), "http", "example.org")
 
     device_report = firmware_registry.load_device_report(state_dir)
-    entry = device_report["devices"]["default"]
+    entry = device_report["devices"][KNOWN_MAC]
     seqs = [e["seq"] for e in entry["events"]]
     assert seqs and min(seqs) > 40, (
         "a new event's seq must be strictly above reconciled_seq, got %r" % (seqs,)
@@ -847,3 +855,38 @@ def test_serve_firmware_image_streams_in_fixed_size_chunks(byos_module, tmp_path
     assert all(size == byos_module._FW_STREAM_CHUNK_BYTES for size in read_sizes), (
         "expected every read() to request exactly _FW_STREAM_CHUNK_BYTES, got %r" % (read_sizes,))
 
+
+
+def test_unmatched_token_records_nothing_and_offers_nothing(byos_module, tmp_path):
+    state_dir = str(tmp_path)
+    publish_test_release(state_dir, "fw-v1.1.0")
+    assert firmware_registry.schedule_release(state_dir, "fw-v1.1.0", running_version=None) == "scheduled"
+    for headers in (
+        {"X-Fw-Version": "fw-v1.0.0"},
+        {"X-Fw-Version": "fw-v1.0.0", "Authorization": "Bearer not-a-known-token"},
+    ):
+        offer = byos_module._record_device_report_and_offer(
+            state_dir, TOKEN_STATE, headers, "http", "example.org")
+        assert offer is None
+    assert not os.path.exists(firmware_registry.device_report_path(state_dir))
+
+
+def test_legacy_default_bucket_survives_valid_poll(byos_module, tmp_path):
+    state_dir = str(tmp_path)
+    os.makedirs(os.path.join(state_dir, "firmware"))
+    legacy = {"fw_version": "old", "reported_at": "2026-01-01T00:00:00+00:00", "events": []}
+    with open(firmware_registry.device_report_path(state_dir), "w") as fh:
+        json.dump({"schema": 1, "next_seq": 0, "devices": {"default": legacy}}, fh)
+    byos_module._record_device_report_and_offer(
+        state_dir, TOKEN_STATE, _auth({"X-Fw-Version": "fw-v1.0.0"}), "http", "example.org")
+    report = firmware_registry.load_device_report(state_dir)
+    assert report["devices"].get("default") == legacy
+    assert report["devices"][KNOWN_MAC]["fw_version"] == "fw-v1.0.0"
+
+
+def test_resolve_device_id_returns_none_when_nothing_matches(byos_module):
+    assert byos_module._resolve_device_id({"tokens": {}}, "x") is None
+    assert byos_module._resolve_device_id({"tokens": {KNOWN_MAC: KNOWN_TOKEN}}, "x") is None
+    assert byos_module._resolve_device_id({"tokens": {KNOWN_MAC: KNOWN_TOKEN}}, None) is None
+    assert byos_module._resolve_device_id({"tokens": {KNOWN_MAC: KNOWN_TOKEN}}, 5) is None
+    assert byos_module._resolve_device_id({"tokens": {KNOWN_MAC: KNOWN_TOKEN}}, "") is None

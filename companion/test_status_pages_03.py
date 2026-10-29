@@ -970,19 +970,19 @@ def test_migrated_cards_have_independent_failure_isolation(tmp_path):
 
 
 def test_read_health_inputs_keeps_stats_separate(tmp_path):
-    """_read_health_inputs() carries exactly nine keys — device_config and registry_rows now join it for
-    severity's sake — while the stats read alone stays a separate call in
+    """_read_health_inputs() carries exactly ten keys — device_config and registry_rows join it for
+    severity's sake, fleet_status for the fleet.db fallback anomaly — while the stats read alone stays a separate call in
     render()"""
     inputs = health_page._read_health_inputs(str(tmp_path), shp.iso(shp.now()))
     expected_keys = {
         "device_health", "pipeline_ts", "last_detection", "source_fault_raw",
         "trend_rows", "daily_rows", "corroboration_counts",
-        "device_config", "registry_rows",
+        "device_config", "registry_rows", "fleet_status",
     }
     assert set(inputs.keys()) == expected_keys, (
-        "expected _read_health_inputs() to carry exactly these nine keys, got %r"
+        "expected _read_health_inputs() to carry exactly these ten keys, got %r"
         % (set(inputs.keys()),))
-    assert not any("stat" in k for k in inputs.keys()), (
+    assert not any("stats" in k for k in inputs.keys()), (
         "D-11: the stats read must stay a separate call in render(), not join this dict")
 
 

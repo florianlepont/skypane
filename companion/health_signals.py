@@ -21,6 +21,7 @@ import companion.i18n as i18n
 import companion.layout as layout
 import companion.wake as wake
 from server import device_config
+from server import fleet_db
 from server import history_db
 import server.state_store as state_store
 
@@ -101,6 +102,9 @@ _SOME_AIRLINES_ARE_UNIDENTIFIED_TEXT = i18n.msg(
     "health.some_airlines_are_unidentified", "Some airlines are unidentified.")
 _ALL_DATA_SOURCES_FAILED_TEXT = i18n.msg(
     "health.all_data_sources_failed", "All data sources failed.")
+_FLEET_DATABASE_UNAVAILABLE_TEXT = i18n.msg(
+    "health.fleet_database_unavailable",
+    "Fleet database unavailable; using the legacy device files.")
 
 
 def _safe_query(state_dir, fn):
@@ -330,14 +334,15 @@ def _offbox_anomaly_text(offbox):
 
 def collect_anomalies(
     device_state, pipeline_state, battery_state, disagreement_warn,
-    coverage_state="ok", source_fault=False, offbox=None,
+    coverage_state="ok", source_fault=False, offbox=None, fleet_fault=False,
 ):
     """A list of short, human-readable strings, one per non-healthy
     signal. An empty list means no anomaly banner renders; only the
     list's emptiness is consumed, and it stays the canonical, greppable
     definition of what counts as an anomaly. The nav-tab severity routes
     through `overall_severity()` instead, which derives severity from the
-    same inputs.
+    same inputs. `fleet_fault` (byos fell back to the legacy device files
+    because fleet.db is unusable) appends one sentence last.
     """
     anomalies = []
     # device_state/pipeline_state can be "off" (held frame / pipeline
@@ -356,19 +361,24 @@ def collect_anomalies(
     offbox_text = _offbox_anomaly_text(offbox)
     if offbox_text:
         anomalies.append(offbox_text)
+    if fleet_fault:
+        anomalies.append(i18n.t(_FLEET_DATABASE_UNAVAILABLE_TEXT))
     return anomalies
 
 
 def overall_severity(
     device_state, pipeline_state, battery_state, disagreement_warn,
     coverage_state="ok", source_fault=False, offbox_state="ok",
+    fleet_fault=False,
 ):
     """Derives one "ok"/"warn"/"error" severity from the same signals
     `collect_anomalies()` tracks, in precedence order: (1) `source_fault`
     wins outright, every ADS-B source failed so severity is "error"
     regardless of anything else; (2) otherwise "error" if any of the
     three states equals "error"; (3) otherwise "warn" if any state is
-    "warn", or `disagreement_warn` or `offbox_state` is "warn"; (4)
+    "warn", or `disagreement_warn` or `offbox_state` is "warn" or
+    `fleet_fault` is set (a fleet.db fallback is a warning, never an
+    error); (4)
     otherwise "ok". `coverage_state` remains part of the snapshot for
     the informational airline-coverage section, but never promotes the
     page or navigation to a warning. `offbox_state` can never reach
@@ -381,7 +391,7 @@ def overall_severity(
     states = (device_state, pipeline_state, battery_state)
     if "error" in states:
         return "error"
-    if "warn" in states or disagreement_warn or offbox_state == "warn":
+    if "warn" in states or disagreement_warn or offbox_state == "warn" or fleet_fault:
         return "warn"
     return "ok"
 
@@ -507,6 +517,15 @@ def coverage_status(rows):
     return "ok" if not rows else "warn"
 
 
+def _read_fleet_status(state_dir):
+    """The byos fleet status document, or None when it is missing,
+    malformed or unreadable; this signal never fails the page."""
+    try:
+        return fleet_db.read_status(state_dir)
+    except Exception:  # noqa: BLE001 - advisory signal, degrade to none
+        return None
+
+
 def _read_health_inputs(state_dir, now):
     """The reads `render()` and `compute_health_state()`
     (the Health page) both need, single-sourced into one
@@ -539,6 +558,7 @@ def _read_health_inputs(state_dir, now):
             lambda conn: history_db.corroboration_counts(conn, since=cutoff)),
         "device_config": device_config.load_device_config(state_dir),
         "registry_rows": registry_rows,
+        "fleet_status": _read_fleet_status(state_dir),
     }
 
 
@@ -585,14 +605,17 @@ def health_signals(state_dir, now=None):
     # two reads (and two verdicts) disagreeing within one response.
     offbox = offbox_backup_status(now)
     offbox_state = offbox["state"] if offbox is not None else "ok"
+    fleet_status = inputs["fleet_status"]
+    fleet_fault = bool(
+        fleet_status and fleet_status.get("state") == fleet_db.STATUS_FAULT)
     severity = overall_severity(
         device_state, pipeline_state, battery_state, disagreement_warn,
         coverage_state=coverage_state, source_fault=source_fault,
-        offbox_state=offbox_state)
+        offbox_state=offbox_state, fleet_fault=fleet_fault)
     anomalies = collect_anomalies(
         device_state, pipeline_state, battery_state, disagreement_warn,
         coverage_state=coverage_state, source_fault=source_fault,
-        offbox=offbox)
+        offbox=offbox, fleet_fault=fleet_fault)
     return {
         "now": now,
         "inputs": inputs,

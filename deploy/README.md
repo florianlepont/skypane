@@ -281,6 +281,53 @@ refused and the device's existing token keeps working.
    The frame re-enrols with its own secret on its next wake, with no
    reflash and no other operator action.
 
+## Fleet database
+
+Users, locations and devices live in `fleet.db` (SQLite, WAL) in the state
+directory, mode 0600, owned by `skypane`. It is created and filled by
+`server/fleet_migrate.py`, which `deploy/activate.sh` runs on every deploy
+after an automatic backup and a `--dry-run`, before the symlink swap. The
+migration never runs at service start.
+
+- **Bootstrap.** The first migration needs the administrator's email.
+  Add `SKYPANE_BOOTSTRAP_ADMIN_EMAIL=<address>` to `/opt/skypane/skypane.env`
+  once, before the first deploy that carries the fleet database. This is
+  the only manual step; without it the dry-run exits 2 and the deploy stops
+  with a message saying so. The value is validated before anything changes
+  and is ignored once the database is migrated.
+- **Idempotent.** `python3 -m server.fleet_migrate --state-dir
+  /opt/skypane/state [--owner-email <address>] --dry-run` reports what
+  would change and writes nothing; running the real migration twice leaves
+  the database as it was.
+- **Expand only.** The legacy `devices.json` and `byos_state.json` are never
+  modified or removed by the migration and stay valid, so rolling back to
+  the previous release works. A later roll-forward reconciles anything
+  that was written only to the legacy files in the meantime.
+- **Operator tool.** `stub-server/fleet_cli.py` manages the database:
+
+  ```bash
+  FLEET="sudo -u skypane /opt/skypane/venv/bin/python3 /opt/skypane/current/stub-server/fleet_cli.py --state-dir /opt/skypane/state"
+  ssh <ssh-target> "$FLEET users add --email someone@example.org --role user"
+  ssh <ssh-target> "$FLEET users list"
+  ssh <ssh-target> "$FLEET locations add --name 'Orly east' --latitude 48.72 --longitude 2.38 --timezone Europe/Paris"
+  ssh <ssh-target> "$FLEET devices add --mac <mac> --secret-sha256 <hash> --owner-email someone@example.org --location-id <id>"
+  ssh <ssh-target> "$FLEET devices list"
+  ssh <ssh-target> "$FLEET hardware list"
+  ```
+
+  `devices assign`, `set-location`, `remove`, `revoke-token` and
+  `users disable|enable` complete the set. The legacy
+  `stub-server/devices_cli.py` still works and mirrors its changes into a
+  migrated database.
+- **Backup and restore.** `fleet.db` is in every nightly archive as a
+  consistent online copy (its `-wal`/`-shm` files are never archived). To
+  restore it, stop `skypane-byos`, extract `fleet.db` from the tarball into
+  `/opt/skypane/state` (`tar -xzf <archive> -C /opt/skypane/state fleet.db`),
+  `chown skypane:skypane` it, `chmod 0600` it, and start `skypane-byos`.
+- **Health signal.** byos writes `fleet_status.json` in the state directory
+  (`ok`, `absent` or `fault`) for the Health page. It is derived, so it is
+  not backed up.
+
 ## Ship the code
 
 From your laptop, from the repository root:
@@ -306,6 +353,12 @@ files, never `state/`, `.venv/` or `skypane.env`) into
   every `deploy/skypane-*.service`/`.timer` unit — **units and the site
   file are installed on every deploy**, not just the first one,
   so they can never silently drift from the code that shipped them.
+- Backs up the state directory (the same archive as the nightly job), then
+  runs `python3 -m server.fleet_migrate --dry-run` and `python3 -m
+  server.fleet_migrate` as `skypane`, in that order and **before the
+  swap**. Any non-zero exit aborts the deploy with the previous release
+  still current. The migration is idempotent, so redeploying a sha repeats
+  both steps without effect. See "Fleet database" below.
 - Atomically swaps `/opt/skypane/current` (a symlink) to point at the new
   release and restarts `skypane-byos`/`skypane-companion`/
   `skypane-poll.timer`.
@@ -407,7 +460,7 @@ session, never run by a deploy.
 A nightly systemd timer (`skypane-backup.timer`, 03:15 UTC,
 `skypane-backup.service` running as `skypane`) archives
 `/opt/skypane/state` into `/var/lib/skypane-backup/archives/`. It takes a
-consistent online copy of `history.db` with SQLite's own backup API
+consistent online copy of `history.db` and `fleet.db` with SQLite's own backup API
 (never a raw copy of the live `-wal`/`-shm` files), and copies everything
 else that cannot be regenerated from an **include list** — device
 tokens, device/colour/calendar/manual-resolution config, the calendar
@@ -467,7 +520,8 @@ VPS's own state is actually lost or corrupted):
 1. `sudo systemctl stop skypane-poll.timer skypane-poll.service skypane-companion skypane-byos`
 2. `sudo mv /opt/skypane/state /opt/skypane/state.broken-<date>`
 3. `sudo install -d -o skypane -g skypane -m 2775 /opt/skypane/state`
-4. `sudo tar -xzf <archive> -C /opt/skypane/state`
+4. `sudo tar -xzf <archive> -C /opt/skypane/state` (this restores
+   `fleet.db` too)
 5. `sudo chown -R skypane:skypane /opt/skypane/state`
 6. Recreate `/opt/skypane/skypane.env` from the password manager if the
    box itself was lost, not just its state (root:root 0600, see above).
