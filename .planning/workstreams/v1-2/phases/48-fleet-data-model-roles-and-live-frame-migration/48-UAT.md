@@ -1,5 +1,5 @@
 ---
-status: testing
+status: complete
 phase: 48-fleet-data-model-roles-and-live-frame-migration
 source: [48-VERIFICATION.md, 48-07-SUMMARY.md, 48-08-SUMMARY.md, 261029-f10-SUMMARY.md]
 started: 2026-10-29T12:00:00Z
@@ -7,16 +7,8 @@ updated: 2026-10-29T12:00:00Z
 ---
 
 ## Current Test
-<!-- OVERWRITE each test - shows where we are -->
 
-number: 3
-name: Production deploy migrates the live frame with no visible change
-expected: |
-  After the next deploy, deploy/activate.sh runs the backup, the dry-run and the real
-  migration without stopping, and the frame's next poll still gets the same image and
-  the same sleep interval as before. `fleet_cli devices list` on the VPS shows
-  94:a9:90:cf:80:08 owned by florian.lepont@yahoo.fr.
-awaiting: user response
+[testing complete]
 
 ## Tests
 
@@ -32,15 +24,15 @@ evidence: Full companion suite in the cloud container with SKYPANE_REQUIRE_BROWS
 
 ### 3. Production deploy migrates the live frame with no visible change
 expected: After the next deploy, deploy/activate.sh runs the backup, the dry-run and the real migration without stopping, and the frame's next poll still gets the same image and sleep interval. `fleet_cli devices list` on the VPS shows 94:a9:90:cf:80:08 owned by florian.lepont@yahoo.fr.
-result: [pending]
-evidence_so_far: Deployed by hand with deploy/deploy.sh (not through CI); /opt/skypane/current -> releases/d51b4bdb; skypane-byos, skypane-companion and skypane-poll.timer active; fleet_cli lists 94:a9:90:cf:80:08 (owner florian.lepont@yahoo.fr, xiao-ee02-13in3-spectra6, Orly) and the admin user; GET /device/v1/display on the public host returns 401 without a token. Still to confirm: the frame wakes, polls and shows its image as before.
+result: pass
+evidence: Deployed by hand with deploy/deploy.sh (not through CI); /opt/skypane/current -> releases/d51b4bdb; skypane-byos, skypane-companion and skypane-poll.timer active; fleet_cli lists 94:a9:90:cf:80:08 (owner florian.lepont@yahoo.fr, xiao-ee02-13in3-spectra6, Orly) and the admin user; GET /device/v1/display on the public host returns 401 without a token. User confirmed the frame woke and updated its display after the deploy.
 
 ## Summary
 
 total: 3
-passed: 2
+passed: 3
 issues: 0
-pending: 1
+pending: 0
 skipped: 0
 
 ## Gaps
