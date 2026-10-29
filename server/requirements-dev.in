@@ -14,7 +14,7 @@ coverage==7.17.0
 # Browser driver companion/test_browser_ux.py uses to prove defects a
 # string-comparison harness can't see. Dev-only: deploy/deploy.sh installs
 # server/requirements.txt only, so a browser driver never reaches the VPS.
-playwright==1.64.0
+playwright==1.64.1
 # pytest is the test runner/discovery/assertions, pytest-xdist
 # parallelises across worker processes, pytest-cov bridges pytest to
 # coverage.py above, and pytest-socket is the non-loopback network guard
