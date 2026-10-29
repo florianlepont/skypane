@@ -14,7 +14,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from server import history_db
+from server import fleet_db, history_db
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _MODULE_PATH = _REPO_ROOT / "deploy" / "backup" / "skypane_backup.py"
@@ -363,3 +363,131 @@ class TestFailureAndCleanupPaths:
         ])
         assert rc == 1
         assert capsys.readouterr().out.strip() == "skypane_backup: OSError: disk gone"
+
+
+_SECRET = "ab" * 32
+_MAC = "aa:bb:cc:dd:ee:01"
+
+
+def _seed_fleet_db(state_dir):
+    conn = fleet_db.connect(str(state_dir))
+    owner = fleet_db.add_user(conn, "Owner@Example.org", "admin")
+    loc = fleet_db.add_location(conn, "Orly east", 48.72, 2.38, "Europe/Paris")
+    fleet_db.add_device(
+        conn, _MAC, _SECRET, "xiao-ee02-13in3-spectra6", owner, location_id=loc, name="Salon"
+    )
+    fleet_db.meta_set(conn, fleet_db.META_MIGRATED, "1")
+    conn.close()
+
+
+class TestFleetDbBackup:
+    def test_restore_into_empty_directory_matches_seeded_rows(self, tmp_path):
+        state_dir = tmp_path / "state"
+        archive_dir = tmp_path / "archives"
+        _seed_minimal_state(state_dir)
+        _seed_fleet_db(state_dir)
+
+        assert skypane_backup.main(
+            ["--state-dir", str(state_dir), "--archive-dir", str(archive_dir)]
+        ) == 0
+        archive = archive_dir / _archive_names(archive_dir)[0]
+        assert "fleet.db" in _members(archive)
+
+        restored = tmp_path / "restored"
+        restored.mkdir()
+        with tarfile.open(archive, "r:gz") as tar:
+            tar.extractall(restored, filter="data")
+        conn = fleet_db.connect_readonly(str(restored))
+        try:
+            assert conn.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+            assert fleet_db.schema_version(conn) == fleet_db.SCHEMA_VERSION
+            (device,) = fleet_db.list_devices(conn)
+            assert device["mac"] == _MAC
+            assert device["owner_email"] == "owner@example.org"
+            assert device["hardware_type"] == "xiao-ee02-13in3-spectra6"
+            assert device["location_name"] == "Orly east"
+            assert fleet_db.meta_get(conn, fleet_db.META_MIGRATED) == "1"
+        finally:
+            conn.close()
+
+    def test_wal_shm_and_status_file_never_archived_nor_drift(self, tmp_path, capsys):
+        state_dir = tmp_path / "state"
+        archive_dir = tmp_path / "archives"
+        _seed_minimal_state(state_dir)
+        _seed_fleet_db(state_dir)
+        (state_dir / "fleet.db-wal").write_bytes(b"wal")
+        (state_dir / "fleet.db-shm").write_bytes(b"shm")
+        (state_dir / "fleet_status.json").write_text("{}")
+
+        assert skypane_backup.main(
+            ["--state-dir", str(state_dir), "--archive-dir", str(archive_dir)]
+        ) == 0
+        members = _members(archive_dir / _archive_names(archive_dir)[0])
+        for excluded in ("fleet.db-wal", "fleet.db-shm", "fleet_status.json"):
+            assert excluded not in members
+        assert "not in include list" not in capsys.readouterr().out
+
+    def test_corrupt_fleet_db_fails_loudly_without_partial(self, tmp_path, capsys):
+        state_dir = tmp_path / "state"
+        archive_dir = tmp_path / "archives"
+        _seed_minimal_state(state_dir)
+        (state_dir / "fleet.db").write_bytes(b"this is not a sqlite database" * 100)
+
+        assert skypane_backup.backup(str(state_dir), str(archive_dir), keep=3) == 1
+        out = capsys.readouterr().out
+        assert "snapshot failed" in out
+        assert "fleet.db" in out
+        assert os.listdir(archive_dir) == []
+
+    def test_concurrent_fleet_writer_still_yields_consistent_snapshot(self, tmp_path):
+        state_dir = tmp_path / "state"
+        archive_dir = tmp_path / "archives"
+        _seed_minimal_state(state_dir)
+        _seed_fleet_db(state_dir)
+
+        stop = threading.Event()
+        written = []
+
+        def writer():
+            conn = fleet_db.connect(str(state_dir))
+            n = 0
+            while not stop.is_set():
+                fleet_db.add_user(conn, "u%d@example.org" % n, "user")
+                written.append(n)
+                n += 1
+                time.sleep(0.001)
+            conn.close()
+
+        thread = threading.Thread(target=writer)
+        thread.start()
+        time.sleep(0.02)
+        try:
+            rc = skypane_backup.main(
+                ["--state-dir", str(state_dir), "--archive-dir", str(archive_dir)]
+            )
+        finally:
+            stop.set()
+            thread.join()
+        assert written
+        assert rc == 0
+        restored = tmp_path / "restored"
+        restored.mkdir()
+        with tarfile.open(archive_dir / _archive_names(archive_dir)[0], "r:gz") as tar:
+            tar.extractall(restored, filter="data")
+        conn = fleet_db.connect_readonly(str(restored))
+        try:
+            assert conn.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+        finally:
+            conn.close()
+
+    def test_state_without_fleet_db_backs_up_silently(self, tmp_path, capsys):
+        state_dir = tmp_path / "state"
+        archive_dir = tmp_path / "archives"
+        _seed_minimal_state(state_dir)
+        (state_dir / "poll_state.json").write_text("{}")
+
+        assert skypane_backup.main(
+            ["--state-dir", str(state_dir), "--archive-dir", str(archive_dir)]
+        ) == 0
+        assert "fleet" not in capsys.readouterr().out
+        assert "fleet.db" not in _members(archive_dir / _archive_names(archive_dir)[0])
