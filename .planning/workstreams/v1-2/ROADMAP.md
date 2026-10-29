@@ -238,7 +238,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 48. Fleet Data Model, Roles and Live-Frame Migration | v1.2 | 7/7 | Complete   | 2026-10-29 |
+| 48. Fleet Data Model, Roles and Live-Frame Migration | v1.2 | 8/8 | Complete   | 2026-10-29 |
 | 49. Per-Hardware OTA Registry | v1.2 | 0/0 | Not started | - |
 | 50. Common Image Format | v1.2 | 0/0 | Not started | - |
 | 51. Per-Device Config, Image and State | v1.2 | 0/0 | Not started | - |
