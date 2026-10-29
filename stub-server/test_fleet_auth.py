@@ -350,3 +350,49 @@ def test_devices_cli_mirror_failure_warns_and_exits_1(live, capsys):
     assert "warning: fleet.db not updated" in capsys.readouterr().err
     with open(live.devices_path) as fh:
         assert NEW_MAC in json.load(fh)["devices"]
+
+
+# ---- removed and orphan tokens ----------------------------------------
+
+REMOVED_TOKEN = "removed-device-token"
+
+
+def _give_token(state_dir, mac, token):
+    state = byos_server.load_state(state_dir)
+    state["tokens"][mac] = token
+    byos_server.save_state(state_dir, state)
+
+
+def test_removed_device_token_is_rejected_after_migration(live, servers):
+    _register_new(live.state_dir)
+    _give_token(live.state_dir, NEW_MAC, REMOVED_TOKEN)
+    assert _cli("remove", "--mac", NEW_MAC, state_dir=live.state_dir) == 0
+    _migrate(live.state_dir)
+    server = servers(live.state_dir)
+    assert server.display(live.token)[0] == 200
+    assert server.display(REMOVED_TOKEN)[0] == 401
+
+
+def test_orphan_token_is_skipped_by_migration_and_rejected(live, servers):
+    _give_token(live.state_dir, NEW_MAC, REMOVED_TOKEN)
+    _migrate(live.state_dir)
+    conn = fleet_db.connect_readonly(live.state_dir)
+    try:
+        assert REMOVED_TOKEN not in fleet_db.tokens_by_mac(conn).values()
+    finally:
+        conn.close()
+    server = servers(live.state_dir)
+    assert server.display(live.token)[0] == 200
+    assert server.display(REMOVED_TOKEN)[0] == 401
+
+
+def test_remove_after_migration_leaves_no_row_and_no_token(live, servers):
+    _register_new(live.state_dir)
+    _give_token(live.state_dir, NEW_MAC, REMOVED_TOKEN)
+    _migrate(live.state_dir)
+    assert _cli("remove", "--mac", NEW_MAC, state_dir=live.state_dir) == 0
+    assert _fleet_row(live.state_dir, NEW_MAC) is None
+    assert NEW_MAC not in byos_server.load_state(live.state_dir)["tokens"]
+    server = servers(live.state_dir)
+    assert server.display(live.token)[0] == 200
+    assert server.display(REMOVED_TOKEN)[0] == 401
