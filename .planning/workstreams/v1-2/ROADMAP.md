@@ -61,7 +61,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 Plans:
 **Wave 1**
 
-- [ ] 48-01-PLAN.md — Hardware profile registry with env-gated simulated types (DATA-04)
+- [x] 48-01-PLAN.md — Hardware profile registry with env-gated simulated types (DATA-04)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -238,7 +238,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 48. Fleet Data Model, Roles and Live-Frame Migration | v1.2 | 0/0 | Not started | - |
+| 48. Fleet Data Model, Roles and Live-Frame Migration | v1.2 | 1/7 | In Progress|  |
 | 49. Per-Hardware OTA Registry | v1.2 | 0/0 | Not started | - |
 | 50. Common Image Format | v1.2 | 0/0 | Not started | - |
 | 51. Per-Device Config, Image and State | v1.2 | 0/0 | Not started | - |
