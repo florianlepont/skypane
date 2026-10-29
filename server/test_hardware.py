@@ -132,3 +132,17 @@ def test_production_config_never_enables_sim_types() -> None:
     for environ in ({}, env):
         keys = hardware.available_types(environ)
         assert all(not hardware.REGISTRY[k].simulated for k in keys)
+
+
+def test_firmware_bound_is_separate_from_display_bound() -> None:
+    from skypane_fw_image import build_image
+
+    import server.firmware_image as firmware_image
+
+    for key in (hardware.LEGACY_KEY, hardware.SIM_CLONE_KEY, hardware.SIM_LANDSCAPE_KEY):
+        assert hardware.REGISTRY[key].firmware.max_app_bytes == 0x250000
+    assert hardware.REGISTRY[hardware.LEGACY_KEY].firmware.max_image_bytes == 960000
+    assert hardware.REGISTRY[hardware.SIM_LANDSCAPE_KEY].firmware.max_image_bytes == 192000
+    image = build_image("fw-v1.0.0", size=1_118_208)
+    for key in (hardware.LEGACY_KEY, hardware.SIM_LANDSCAPE_KEY):
+        firmware_image.validate_for_target(image, hardware.REGISTRY[key].firmware)
