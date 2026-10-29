@@ -4,14 +4,14 @@ milestone: v1.2
 milestone_name: Fleet platform
 current_plan: 1
 status: executing
-stopped_at: Completed 49-03-PLAN.md
-last_updated: "2026-10-29T17:36:32.950Z"
+stopped_at: Completed 49-02-PLAN.md
+last_updated: "2026-10-29T17:42:38.664Z"
 last_activity: 2026-10-29
 progress:
   total_phases: 12
   completed_phases: 1
   total_plans: 19
-  completed_plans: 10
+  completed_plans: 11
   percent: 8
 ---
 
@@ -25,11 +25,11 @@ progress:
 ## Current Position
 
 Phase: 49 (per-hardware-ota-registry) — EXECUTING
-Plan: 3 of 11 (49-01, 49-03 complete)
-Status: Executing phase 49
+Plan: 4 of 11 (49-01, 49-02, 49-03 complete)
+Status: Ready to execute
 Last activity: 2026-10-29
 
-Progress: [█████░░░░░] 53%
+Progress: [██████░░░░] 58%
 
 ## Progress
 
@@ -45,6 +45,7 @@ Progress: [█████░░░░░] 53%
 - Phases 48–57 use simulated hardware types; only Phase 58 needs a purchase, after its driver spike.
 - Registry rewrite lives in Phase 49, not Phase 48. Auth is split: Phase 54 gate, Phase 55 pairing and console.
 - Run `scripts/check_comment_history.py check` before Phase 48 and record the result for Phase 59.
+- [Phase 49]: Phase 49-02: OTA signing option S (one key for all hardware types), decided 2026-10-29 by project owner; revisitable before second board first cable flash (Phase 58)
 
 ### Pending Todos
 
