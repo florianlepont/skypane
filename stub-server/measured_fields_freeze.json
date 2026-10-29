@@ -1,0 +1,108 @@
+{
+  "description": "The field-validation freeze list: what the v1.1 on-wall validation measures (wake cadence, battery telemetry, poll-state fields and the served image hash). A deploy must not change any of it. Values were recorded by running the current byos server, the poll cycle and the policy module, and test_phase47_freeze.py compares running code with this file. Change an entry only with the owner's agreement.",
+  "display_response_keys": {
+    "measured_by": "Every wake reads these keys; the image hash decides whether the panel refreshes and sleep_s sets the cadence the validation times.",
+    "keys": ["firmware", "image_hash", "image_url", "led_enabled", "reset", "sleep_s"]
+  },
+  "display_response_values": {
+    "measured_by": "The image hash is how the validation tells a refreshed panel from an unchanged one; reset and firmware must stay inert on a healthy frame.",
+    "image_hash_prefix": "sha256:",
+    "image_hash_is_sha256_of_served_image": true,
+    "image_url_path_template": "/img/{sha256}.bin",
+    "reset": false,
+    "firmware": null,
+    "led_enabled": true
+  },
+  "telemetry_request_headers": {
+    "measured_by": "Battery drain and firmware behaviour in the field validation are read from these request headers; nothing else a frame sends is parsed.",
+    "headers": ["X-Battery-Mv", "X-Boot-Reason", "X-Fw-Version", "X-Ota-Result", "X-Rssi"],
+    "stored_in_battery_state": ["X-Battery-Mv"],
+    "stored_in_device_report": ["X-Fw-Version", "X-Ota-Result"],
+    "logged_only": ["X-Boot-Reason", "X-Rssi"]
+  },
+  "battery_state_keys": {
+    "measured_by": "Battery-life data (the discharge curve the validation records) comes from battery_state.json.",
+    "keys": ["battery_mv", "received_at"]
+  },
+  "poll_state_keys": {
+    "measured_by": "The validation reads what the poll cycle remembers (detected flight, hold, battery latches) from poll_state.json after a flight was detected.",
+    "keys": [
+      "battery_critical_active",
+      "battery_low_active",
+      "enrichment_cache",
+      "last_advance_at",
+      "last_calendar_theme_id",
+      "last_confirmed_state",
+      "last_flight",
+      "last_recorded_confirmed_state",
+      "last_recorded_corroborated",
+      "last_recorded_hex",
+      "last_route",
+      "pending_flights",
+      "previous_confirmed_state",
+      "previous_flight",
+      "previous_route",
+      "unresolved_prefixes"
+    ]
+  },
+  "wake_constants": {
+    "measured_by": "The wake cadence the validation times: the wake bounds and the flat pins that override a saved interval.",
+    "values": {
+      "WAKE_INTERVAL_MIN_S": 60,
+      "WAKE_INTERVAL_MAX_S": 3600,
+      "DISPLAY_OFF_SLEEP_S": 300,
+      "BATTERY_CRITICAL_SLEEP_S": 3600,
+      "BATTERY_CRITICAL_MV": 3300,
+      "BATTERY_CRITICAL_RECOVER_MV": 3700,
+      "BATTERY_LOW_THRESHOLD_MV": 3500,
+      "BATTERY_LOW_CLEAR_MV": 3600
+    }
+  },
+  "sleep_scenarios": {
+    "measured_by": "The sleep_s a frame receives in each mode is the wake cadence the validation measures against battery drain.",
+    "scenarios": [
+      {
+        "name": "default_server_sleep",
+        "device_config": null,
+        "poll_state": null,
+        "headers": {},
+        "expect_sleep_s": 30
+      },
+      {
+        "name": "saved_wake_interval",
+        "device_config": {"wake_interval_s": 600},
+        "poll_state": null,
+        "headers": {},
+        "expect_sleep_s": 600
+      },
+      {
+        "name": "display_off",
+        "device_config": {"wake_interval_s": 600, "display_enabled": false},
+        "poll_state": null,
+        "headers": {},
+        "expect_sleep_s": 300
+      },
+      {
+        "name": "battery_critical_park",
+        "device_config": {"wake_interval_s": 600},
+        "poll_state": {"battery_critical_active": true},
+        "headers": {"X-Battery-Mv": "3200"},
+        "expect_sleep_s": 3600
+      },
+      {
+        "name": "battery_critical_recovered_by_fresh_reading",
+        "device_config": {"wake_interval_s": 600},
+        "poll_state": {"battery_critical_active": true},
+        "headers": {"X-Battery-Mv": "3800"},
+        "expect_sleep_s": 600
+      },
+      {
+        "name": "quiet_hours_covering_now",
+        "device_config": {"wake_interval_s": 600, "quiet_hours_enabled": true, "quiet_hours_window": "covering_now"},
+        "poll_state": null,
+        "headers": {},
+        "expect_min_sleep_s": 600
+      }
+    ]
+  }
+}
