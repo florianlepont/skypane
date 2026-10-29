@@ -957,6 +957,19 @@ def _stamp_hardware_type(entry, hardware_type, known):
     return stale
 
 
+def _is_registered_release(state_dir, sha256):
+    """True when `sha256` is a release in the legacy registry document or
+    in the document of any hardware type available here. Downloads are
+    content-addressed and unauthenticated; which device may fetch a
+    binary is decided by the offer, not by this check.
+    """
+    for hardware_type in hardware.available_types():
+        registry = firmware_registry.load_registry(state_dir, hardware_type)
+        if any(r.get("sha256") == sha256 for r in registry.get("releases", [])):
+            return True
+    return False
+
+
 def _write_device_report(state_dir, doc):
     """The one writer of firmware/device_report.json anywhere in this
     process -- server/firmware_registry.py deliberately never writes it.
@@ -1298,16 +1311,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def _serve_firmware_image(self, sha256):
         """Stream firmware/<sha>.bin for a `sha256` that is both a
-        release registered in registry.json and a regular file on disk
+        release registered in the legacy document or any available type's
+        document and a regular file on disk
         within MAX_IMAGE_BYTES - anything else gets the same 404 body
         the /img/ route above already uses. No authentication, matching
         /img/'s own rule: release images are signed and carry no
         credential, so they are not secret.
         """
-        registry = firmware_registry.load_registry(self.args.state_dir)
-        release = next(
-            (r for r in registry.get("releases", []) if r.get("sha256") == sha256), None)
-        if release is None:
+        if not _is_registered_release(self.args.state_dir, sha256):
             return self.send_json(404, {"detail": "unknown image"})
         path = firmware_registry.firmware_image_path(self.args.state_dir, sha256)
         try:

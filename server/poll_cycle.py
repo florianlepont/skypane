@@ -247,8 +247,8 @@ def _classify_state_source(vertical_rate_fpm):
 
 
 def _reconcile_firmware(state_dir, now):
-    """Fold every device-reported OTA outcome into the release registry,
-    once per cycle, called before the hold decision so a battery-hold,
+    """Fold every device-reported OTA outcome into the release registry
+    of its hardware type, once per cycle, called before the hold decision so a battery-hold,
     quiet-hours or display-off cycle still closes out an install,
     rollback or failure exactly like a live cycle would. The outcomes
     the registry reports are recorded there (its `last_outcome`) and
@@ -257,7 +257,7 @@ def _reconcile_firmware(state_dir, now):
     continues untouched - a reconcile failure must never break polling.
     """
     try:
-        firmware_registry.apply_reconcile(state_dir, now)
+        firmware_registry.apply_reconcile_all(state_dir, now)
     except Exception as exc:
         print(
             "poll_loop: firmware reconcile failed: %s" % type(exc).__name__,
