@@ -14,7 +14,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 - [x] **DATA-02**: The current frame is migrated into the fleet database keeping its MAC, secret and token, so it keeps polling without a reflash or re-enrolment and its next poll returns the same image hash and wake interval.
 - [x] **DATA-03**: Each user has a role, admin or user, stored in the local database and never derived from Auth0 alone.
 - [x] **DATA-04**: The owner can define hardware types as profiles (resolution, palette, image format, battery profile, firmware target), including simulated types so phases 1–7 are testable without a purchase.
-- [ ] **DATA-05**: The fleet database is included in the backup with a tested restore, and a written freeze list of what Phase 47 measures (wake cadence, battery telemetry, poll state fields) is enforced by a test.
+- [x] **DATA-05**: The fleet database is included in the backup with a tested restore, and a written freeze list of what Phase 47 measures (wake cadence, battery telemetry, poll state fields) is enforced by a test.
 
 ### Firmware and OTA
 
@@ -94,7 +94,7 @@ Coverage: 30/30 v1.2 requirements mapped, each to exactly one phase.
 | DATA-02 | Phase 48 | Complete |
 | DATA-03 | Phase 48 | Complete |
 | DATA-04 | Phase 48 | Complete |
-| DATA-05 | Phase 48 | Pending |
+| DATA-05 | Phase 48 | Complete |
 | OTA-01 | Phase 49 | Pending |
 | OTA-02 | Phase 49 | Pending |
 | OTA-03 | Phase 49 | Pending |
