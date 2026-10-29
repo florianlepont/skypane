@@ -44,7 +44,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
-from server import firmware_registry
+from server import firmware_registry, hardware
 from server.state_store import DEFAULT_STATE_DIR
 
 # release.json is a small, trusted-at-publish-time document -- capped so
@@ -239,6 +239,7 @@ def cmd_import_bench(args):
         "released_at": datetime.now(timezone.utc).isoformat(),
         "commit": commit,
         "notes": ["Bench image (not a release)"],
+        "hardware_type": hardware.LEGACY_KEY,
     }
     try:
         outcome = firmware_registry.publish_release(args.state_dir, manifest, args.file, bench=True)

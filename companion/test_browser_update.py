@@ -78,6 +78,7 @@ def _seed_three_releases_with_realistic_notes(state_dir):
         manifest = {
             "version": version, "sha256": hashlib.sha256(image_bytes).hexdigest(),
             "size": len(image_bytes), "released_at": _NOW, "commit": "a" * 40,
+            "hardware_type": fr.hardware.LEGACY_KEY,
             "notes": notes,
         }
         fr.publish_release(str(state_dir), manifest, image_path, now=_NOW)
@@ -115,6 +116,7 @@ def _seed_running_bench_and_newer(state_dir):
         manifest = {
             "version": version, "sha256": hashlib.sha256(image_bytes).hexdigest(),
             "size": len(image_bytes), "released_at": published_at, "commit": "a" * 40,
+            "hardware_type": fr.hardware.LEGACY_KEY,
             "notes": notes,
         }
         fr.publish_release(str(state_dir), manifest, image_path, bench=bench, now=published_at)
@@ -157,6 +159,7 @@ def _seed_many_releases(state_dir, scenario=None):
         fr.publish_release(str(state_dir), {
             "version": version, "sha256": hashlib.sha256(image_bytes).hexdigest(),
             "size": len(image_bytes), "released_at": published_at, "commit": "a" * 40,
+            "hardware_type": fr.hardware.LEGACY_KEY,
             "notes": notes,
         }, image_path, now=published_at)
     registry = fr.load_registry(str(state_dir))

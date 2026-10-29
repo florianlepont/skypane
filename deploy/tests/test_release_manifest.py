@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from server import firmware_registry
+from server import firmware_registry, hardware
 from skypane_fw_image import build_image
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -214,6 +214,7 @@ def test_manifest_round_trips_through_firmware_registry_publish_release(two_rele
     result = _run_cli("fw-v1.1.0", image, out, two_release_repo)
     assert result.returncode == 0, result.stderr
     manifest = json.loads(out.read_text())
+    manifest["hardware_type"] = hardware.LEGACY_KEY
 
     state_dir = tmp_path / "state"
     outcome = firmware_registry.publish_release(str(state_dir), manifest, str(image))

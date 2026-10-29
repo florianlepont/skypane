@@ -18,6 +18,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 import server.device_config as device_config  # noqa: E402
+from server import hardware  # noqa: E402
 import server.firmware_registry as firmware_registry  # noqa: E402
 import server.http_fetch as http_fetch  # noqa: E402
 import server.net.safe_fetch as safe_fetch  # noqa: E402
@@ -118,6 +119,7 @@ def _schedule_installed_release(state_dir):
     manifest = {
         "version": NEXT_VERSION, "sha256": hashlib.sha256(image).hexdigest(),
         "size": len(image), "released_at": "2026-09-28", "commit": "a" * 40, "notes": [],
+        "hardware_type": hardware.LEGACY_KEY,
     }
     firmware_registry.publish_release(state_dir, manifest, image_path, now=NOW)
     firmware_registry.schedule_release(state_dir, NEXT_VERSION, RUNNING_VERSION, now=NOW)

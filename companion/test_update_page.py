@@ -674,6 +674,7 @@ def _seed_update_state(state_dir):
     manifest = {
         "version": "fw-v1.0.0", "sha256": hashlib.sha256(image_bytes).hexdigest(),
         "size": len(image_bytes), "released_at": _NOW, "commit": "a" * 40,
+        "hardware_type": fr.hardware.LEGACY_KEY,
         "notes": ["initial release"],
     }
     fr.publish_release(str(state_dir), manifest, image_path, now=_NOW)

@@ -22,6 +22,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 import server.device_config as device_config  # noqa: E402
+from server import hardware  # noqa: E402
 import server.firmware_registry as firmware_registry  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
 from skypane_fw_image import build_image  # noqa: E402
@@ -49,7 +50,7 @@ def _publish(state_dir, version=NEXT_VERSION):
     manifest = {
         "version": version, "sha256": hashlib.sha256(image).hexdigest(),
         "size": len(image), "released_at": "2026-09-28", "commit": "a" * 40,
-        "notes": [],
+        "notes": [], "hardware_type": hardware.LEGACY_KEY,
     }
     firmware_registry.publish_release(state_dir, manifest, image_path, now=NOW)
 

@@ -50,6 +50,7 @@ def _seed_releases(state_dir):
         manifest = {
             "version": version, "sha256": hashlib.sha256(image_bytes).hexdigest(),
             "size": len(image_bytes), "released_at": _NOW, "commit": "a" * 40,
+            "hardware_type": fr.hardware.LEGACY_KEY,
             "notes": ["release " + version],
         }
         fr.publish_release(str(state_dir), manifest, image_path, now=_NOW)
@@ -348,6 +349,7 @@ def test_confirm_page_shows_bench_note_for_a_bench_release(server, cookie):
     manifest = {
         "version": bench_version, "sha256": hashlib.sha256(image_bytes).hexdigest(),
         "size": len(image_bytes), "released_at": _NOW, "commit": "a" * 40, "notes": [],
+        "hardware_type": fr.hardware.LEGACY_KEY,
     }
     fr.publish_release(server.state_dir, manifest, image_path, bench=True, now=_NOW)
 

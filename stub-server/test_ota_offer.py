@@ -51,6 +51,7 @@ if _TEST_SUPPORT_DIR not in sys.path:
     sys.path.insert(0, _TEST_SUPPORT_DIR)
 
 from server import device_policy, firmware_registry, state_store  # noqa: E402 - path bootstrap above must run first
+from server import hardware  # noqa: E402
 from skypane_test_support import child_env  # noqa: E402
 from skypane_fw_image import build_image  # noqa: E402
 
@@ -145,7 +146,7 @@ def publish_test_release(state_dir, version, image_bytes=None, commit="a" * 40, 
     manifest = {
         "version": version, "sha256": sha256, "size": len(image_bytes),
         "released_at": "2026-01-01T00:00:00Z", "commit": commit,
-        "notes": notes or [],
+        "notes": notes or [], "hardware_type": hardware.LEGACY_KEY,
     }
     firmware_registry.publish_release(state_dir, manifest, image_path)
     return sha256, image_bytes

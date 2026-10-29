@@ -41,7 +41,7 @@ import secrets
 import time
 from datetime import datetime, timezone
 
-from server import atomic_io, hardware
+from server import atomic_io, firmware_image, hardware
 
 # --- Storage layout --------------------------------------------------------
 
@@ -64,6 +64,9 @@ _TYPE_KEY_RE = re.compile(r"\A[a-z0-9-]{1,64}\Z")
 REGISTRY_LOCK_TIMEOUT_S = 10.0
 
 FLOOR_VERSION = "fw-v1.0.0"
+# The newest release tag that may omit hardware_type from its manifest;
+# anything later must declare the type it is built for.
+GRANDFATHERED_MAX_TAG = "fw-v1.0.2"
 MAX_ATTEMPTS = 3
 # One OTA slot (firmware/partitions.csv): ota_0/ota_1 are each 0x250000.
 MAX_IMAGE_BYTES = 0x250000
@@ -623,18 +626,21 @@ def _hash_and_size(path):
     return digest.hexdigest(), size, b"".join(chunks)
 
 
-def publish_release(state_dir, manifest, image_path, bench=False, now=None,
-                    hardware_type=hardware.LEGACY_KEY):
-    """Register one release: copy its image into firmware/<sha>.bin
-    (only if not already present) and append its registry entry.
-    Idempotent on an identical manifest ("exists", no change); raises
-    ValueError naming the offending field for anything that does not
-    match what the interfaces block documents. Never deletes anything.
+def _signing_policy(hardware_type):
+    """(require_signature, expected_modulus) applied to an image at
+    publish time. Every type currently requires a signed image and
+    compares no modulus; the per-type profile supplies the value once a
+    signing option is recorded for it.
+    """
+    return True, None
+
+
+def _validate_manifest(manifest, hardware_type, bench):
+    """Check the manifest fields alone (no image, no registry state)
+    and return (version, sha256, size, released_at, commit, notes).
     """
     if not isinstance(manifest, dict):
         raise ValueError("manifest: must be a dict, got %r" % (manifest,))
-    _checked_type(hardware_type)
-
     version = manifest.get("version")
     version_pattern = VERSION_RE if bench else RELEASE_TAG_RE
     if not isinstance(version, str) or len(version) > VERSION_MAX_LEN or not version_pattern.match(version):
@@ -644,10 +650,11 @@ def publish_release(state_dir, manifest, image_path, bench=False, now=None,
     if not isinstance(sha256, str) or not SHA256_HEX_RE.match(sha256):
         raise ValueError("sha256: manifest sha256 must be 64 lowercase hex characters, got %r" % (sha256,))
 
+    max_bytes = hardware.get_profile(hardware_type).firmware.max_app_bytes
     size = manifest.get("size")
-    if not isinstance(size, int) or isinstance(size, bool) or size <= 0 or size > MAX_IMAGE_BYTES:
+    if not isinstance(size, int) or isinstance(size, bool) or size <= 0 or size > max_bytes:
         raise ValueError(
-            "size: manifest size must be a positive int at most %d bytes, got %r" % (MAX_IMAGE_BYTES, size)
+            "size: manifest size must be a positive int at most %d bytes, got %r" % (max_bytes, size)
         )
 
     released_at = manifest.get("released_at")
@@ -663,8 +670,103 @@ def publish_release(state_dir, manifest, image_path, bench=False, now=None,
         raw_notes = []
     if not isinstance(raw_notes, list) or not all(isinstance(n, str) for n in raw_notes):
         raise ValueError("notes: must be a list of strings, got %r" % (raw_notes,))
-    notes = [n[:200] for n in raw_notes][:60]
+    _check_declared_type(manifest, version, hardware_type)
+    return version, sha256, size, released_at, commit, [n[:200] for n in raw_notes][:60]
 
+
+def _check_declared_type(manifest, version, hardware_type):
+    """A manifest names its hardware type; only releases at or below the
+    pinned grandfather tag, for the legacy type, may omit it.
+    """
+    declared = manifest.get("hardware_type")
+    if declared is None:
+        if hardware_type != hardware.LEGACY_KEY:
+            raise ValueError(
+                "hardware_type: manifest must declare %r for this type" % (hardware_type,)
+            )
+        if parse_version(version) > parse_version(GRANDFATHERED_MAX_TAG):
+            raise ValueError(
+                "hardware_type: manifest for %s must declare hardware_type "
+                "(only releases up to %s may omit it)" % (version, GRANDFATHERED_MAX_TAG)
+            )
+        return
+    if declared != hardware_type:
+        raise ValueError(
+            "hardware_type: manifest declares %r but the release is published for %r"
+            % (declared, hardware_type)
+        )
+
+
+def _validate_image(manifest, version, image_bytes, hardware_type, bench):
+    """Check the image against the hardware type's firmware target and
+    the signing policy; the manifest build, when given, must equal the
+    build derived from the signed descriptor version. Returns the
+    parsed image.
+    """
+    target = hardware.get_profile(hardware_type).firmware
+    require_signature, expected_modulus = _signing_policy(hardware_type)
+    image = firmware_image.validate_for_target(
+        image_bytes, target, manifest_version=version, bench=bench,
+        require_signature=require_signature, expected_modulus=expected_modulus,
+    )
+    declared_build = manifest.get("build")
+    if declared_build is not None and declared_build != _pack_build(parse_version(image.version)):
+        raise ValueError(
+            "build: manifest build %r differs from the build of descriptor version %s"
+            % (declared_build, image.version)
+        )
+    return image
+
+
+def _apply_build_gate(registry, version, bench):
+    """Refuse a new non-bench release whose build is not strictly above
+    the highest non-bench build already in this type's document. Only
+    publishing is gated: scheduling an older published release stays
+    possible, and the floor still bounds what may be offered.
+    """
+    if bench:
+        return
+    new_build = build_number(version)
+    highest = max(
+        (r["build"] for r in registry["releases"] if not r.get("bench")), default=None
+    )
+    if highest is not None and new_build <= highest:
+        raise ValueError(
+            "build: %s (build %d) is not above the newest published build %d"
+            % (version, new_build, highest)
+        )
+
+
+def _store_image(state_dir, sha256, size, image_bytes):
+    """Write firmware/<sha256>.bin, repairing a file whose bytes no
+    longer match the digest it is named after.
+    """
+    target = firmware_image_path(state_dir, sha256)
+    if not os.path.exists(target):
+        atomic_io.atomic_write(target, image_bytes)
+        return
+    # The filename encodes the digest but is not proof the bytes still
+    # match it (hand-copied partial file, disk corruption, truncated
+    # restore); re-verify and repair from the bytes already hashed.
+    existing_digest, existing_size, _ = _hash_and_size(target)
+    if existing_digest != sha256 or existing_size != size:
+        atomic_io.atomic_write(target, image_bytes)
+
+
+def publish_release(state_dir, manifest, image_path, bench=False, now=None,
+                    hardware_type=hardware.LEGACY_KEY):
+    """Register one release for `hardware_type`: validate the manifest,
+    then (only when it is new) the image against that type's firmware
+    target and the per-type build gate, copy the image into
+    firmware/<sha>.bin and append the registry entry. Idempotent on an
+    identical (type, version, sha256): "exists", and the image is not
+    validated again. Raises ValueError naming the offending field.
+    Never deletes anything.
+    """
+    _checked_type(hardware_type)
+    version, sha256, size, released_at, commit, notes = _validate_manifest(
+        manifest, hardware_type, bench
+    )
     digest, actual_size, image_bytes = _hash_and_size(image_path)
     if digest != sha256:
         raise ValueError(
@@ -674,7 +776,6 @@ def publish_release(state_dir, manifest, image_path, bench=False, now=None,
         raise ValueError(
             "size: image at %r is %d bytes, manifest declares %d" % (image_path, actual_size, size)
         )
-
     now = now if now is not None else _utc_now_iso()
 
     with registry_lock(state_dir):
@@ -687,20 +788,9 @@ def publish_release(state_dir, manifest, image_path, bench=False, now=None,
                 "version: %r is already registered with a different sha256 (%s != %s)"
                 % (version, existing["sha256"], sha256)
             )
-        target = firmware_image_path(state_dir, sha256)
-        if not os.path.exists(target):
-            atomic_io.atomic_write(target, image_bytes)
-        else:
-            # The path is content-addressed by sha256, but its
-            # filename encoding that digest is not proof the bytes on
-            # disk still match it -- a hand-copied partial file, disk
-            # corruption, or a restore of a truncated archive would
-            # otherwise be kept forever and re-imported "idempotently"
-            # on every deploy with nothing to notice it. Re-verify and
-            # repair from the bytes this call already hashed above.
-            existing_digest, existing_size, _ = _hash_and_size(target)
-            if existing_digest != sha256 or existing_size != size:
-                atomic_io.atomic_write(target, image_bytes)
+        _validate_image(manifest, version, image_bytes, hardware_type, bench)
+        _apply_build_gate(registry, version, bench)
+        _store_image(state_dir, sha256, size, image_bytes)
         registry["releases"].append({
             "version": version, "sha256": sha256, "size": size,
             "released_at": released_at, "published_at": now, "commit": commit,

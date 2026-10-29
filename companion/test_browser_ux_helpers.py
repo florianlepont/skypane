@@ -60,6 +60,7 @@ def seed_two_releases(state_dir):
         manifest = {
             "version": version, "sha256": hashlib.sha256(image_bytes).hexdigest(),
             "size": len(image_bytes), "released_at": RELEASE_SEED_NOW, "commit": "a" * 40,
+            "hardware_type": fr.hardware.LEGACY_KEY,
             "notes": ["release " + version],
         }
         fr.publish_release(str(state_dir), manifest, image_path, now=RELEASE_SEED_NOW)
