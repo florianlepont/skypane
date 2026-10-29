@@ -73,7 +73,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 48-04-PLAN.md — byos auth from fleet.db with legacy fallback, dual-write, drop "default" bucket (DATA-02)
+- [x] 48-04-PLAN.md — byos auth from fleet.db with legacy fallback, dual-write, drop "default" bucket (DATA-02)
 - [ ] 48-05-PLAN.md — fleet.db in backup with tested restore; activate.sh backup, dry-run, migrate before swap (DATA-05, DATA-02)
 
 **Wave 5** *(blocked on Wave 4 completion)*
@@ -238,7 +238,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 48. Fleet Data Model, Roles and Live-Frame Migration | v1.2 | 3/7 | In Progress|  |
+| 48. Fleet Data Model, Roles and Live-Frame Migration | v1.2 | 4/7 | In Progress|  |
 | 49. Per-Hardware OTA Registry | v1.2 | 0/0 | Not started | - |
 | 50. Common Image Format | v1.2 | 0/0 | Not started | - |
 | 51. Per-Device Config, Image and State | v1.2 | 0/0 | Not started | - |
