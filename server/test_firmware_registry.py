@@ -1258,3 +1258,232 @@ def test_most_recent_device_entry_skips_entries_without_reported_at():
     view = registry_mod.update_view(registry, device_report, NOW)
     assert view["running_version"] == RUNNING_VERSION
     assert view["reported_at"] == NOW
+
+
+# --- Per-hardware-type documents -----------------------------------------
+
+import json as _json  # noqa: E402
+
+from server import hardware  # noqa: E402
+from skypane_legacy_registry import (  # noqa: E402
+    legacy_release, legacy_shaped_registry, write_legacy_registry,
+)
+
+LEGACY = hardware.LEGACY_KEY
+TYPE_B = hardware.SIM_CLONE_KEY
+
+
+@pytest.fixture
+def sim_on(monkeypatch):
+    monkeypatch.setenv(hardware.SIM_ENV_VAR, "1")
+
+
+def _read(path):
+    with open(path, "rb") as fh:
+        return fh.read()
+
+
+def test_registry_path_per_type(tmp_path, sim_on):
+    fw = registry_mod.firmware_dir(str(tmp_path))
+    assert registry_mod.registry_path(str(tmp_path)) == os.path.join(fw, "registry.json")
+    assert registry_mod.registry_path(str(tmp_path), LEGACY) == os.path.join(fw, "registry.json")
+    assert registry_mod.registry_path(str(tmp_path), TYPE_B) == os.path.join(fw, "registry.%s.json" % TYPE_B)
+
+
+@pytest.mark.parametrize("key", ["../etc", "a/b", "..", "", "UPPER", "x" * 65, "nope", None, 3])
+def test_registry_path_rejects_bad_keys_without_touching_disk(tmp_path, sim_on, key):
+    with pytest.raises(ValueError, match="hardware_type"):
+        registry_mod.registry_path(str(tmp_path / "state"), key)
+    assert not (tmp_path / "state").exists()
+
+
+def test_registry_path_rejects_simulated_key_with_gate_off(tmp_path, monkeypatch):
+    monkeypatch.delenv(hardware.SIM_ENV_VAR, raising=False)
+    with pytest.raises(ValueError, match="hardware_type"):
+        registry_mod.registry_path(str(tmp_path), TYPE_B)
+
+
+def test_build_number_orders_and_rejects_bench():
+    assert registry_mod.build_number("fw-v1.2.3") == 1 * 10**8 + 2 * 10**4 + 3
+    tags = ["fw-v0.9.9", "fw-v1.0.0", "fw-v1.0.1", "fw-v1.1.0", "fw-v2.0.0", "fw-v9999.9999.9999"]
+    builds = [registry_mod.build_number(t) for t in tags]
+    assert builds == sorted(builds) and len(set(builds)) == len(builds)
+    with pytest.raises(ValueError):
+        registry_mod.build_number("fw-v1.0.0-bench1")
+
+
+def test_old_shape_entries_get_type_and_build_at_read_time(tmp_path):
+    original = write_legacy_registry(str(tmp_path))
+    doc = registry_mod.load_registry(str(tmp_path))
+    assert {r["hardware_type"] for r in doc["releases"]} == {LEGACY}
+    assert [r["build"] for r in doc["releases"]] == [
+        registry_mod.build_number(v) for v in ("fw-v1.0.0", "fw-v1.0.1", "fw-v1.0.2")]
+    assert _read(registry_mod.registry_path(str(tmp_path))) == original
+    assert not os.path.exists(registry_mod.registry_path(str(tmp_path)) + ".pre-fleet")
+
+
+def test_legacy_shaped_document_still_drives_offer_view_schedule(tmp_path):
+    write_legacy_registry(str(tmp_path))
+    assert registry_mod.schedule_release(str(tmp_path), "fw-v1.0.2", "fw-v1.0.0", now=NOW) == "scheduled"
+    doc = registry_mod.load_registry(str(tmp_path))
+    offer = registry_mod.compute_offer(doc, {"fw_version": "fw-v1.0.0"}, False, "https://x")
+    assert offer["version"] == "fw-v1.0.2"
+    view = registry_mod.update_view(doc, {"devices": {}}, NOW)
+    assert view["state"] == "scheduled" and view["target_version"] == "fw-v1.0.2"
+    for release in _json.loads(_read(registry_mod.registry_path(str(tmp_path))))["releases"]:
+        assert "hardware_type" not in release and "build" not in release
+
+
+def test_pre_fleet_copy_made_once_with_original_bytes(tmp_path):
+    original = write_legacy_registry(str(tmp_path))
+    path = registry_mod.registry_path(str(tmp_path))
+    assert registry_mod.schedule_release(str(tmp_path), "fw-v1.0.1", "fw-v1.0.0", now=NOW) == "scheduled"
+    assert _read(path + ".pre-fleet") == original
+    assert _read(path) != original
+    assert registry_mod.cancel_schedule(str(tmp_path)) == "cancelled"
+    assert _read(path + ".pre-fleet") == original
+
+
+def test_no_pre_fleet_copy_without_existing_registry_or_for_other_types(tmp_path, sim_on):
+    _publish(tmp_path)
+    path = registry_mod.registry_path(str(tmp_path))
+    assert not os.path.exists(path + ".pre-fleet")
+    other = tmp_path / "other"
+    img = _image_bytes(b"b")
+    image_path = _write_image(tmp_path, img, "b.bin")
+    registry_mod.publish_release(str(other), _manifest_for(img, NEXT_VERSION), image_path, now=NOW,
+                                 hardware_type=TYPE_B)
+    assert not os.path.exists(registry_mod.registry_path(str(other)) + ".pre-fleet")
+    assert not os.path.exists(registry_mod.registry_path(str(other)))
+
+
+def _publish_b(tmp_path, version=NEXT_VERSION):
+    img = _image_bytes(b"type-b-" + version.encode())
+    image_path = _write_image(tmp_path, img, "b-%s.bin" % version)
+    return registry_mod.publish_release(
+        str(tmp_path), _manifest_for(img, version), image_path, now=NOW, hardware_type=TYPE_B)
+
+
+def test_types_have_independent_documents_and_schedules(tmp_path, sim_on):
+    _publish(tmp_path, "fw-v1.1.0")
+    _publish(tmp_path, "fw-v1.2.0")
+    _publish_b(tmp_path, "fw-v1.1.0")
+    _publish_b(tmp_path, "fw-v1.3.0")
+    legacy_path = registry_mod.registry_path(str(tmp_path))
+    assert registry_mod.schedule_release(str(tmp_path), "fw-v1.1.0", "fw-v1.0.0", now=NOW) == "scheduled"
+    legacy_bytes = _read(legacy_path)
+
+    assert registry_mod.schedule_release(
+        str(tmp_path), "fw-v1.3.0", "fw-v1.0.0", now=NOW, hardware_type=TYPE_B) == "scheduled"
+    assert _read(legacy_path) == legacy_bytes
+    b_doc = registry_mod.load_registry(str(tmp_path), TYPE_B)
+    assert b_doc["hardware_type"] == TYPE_B
+    assert {r["version"] for r in b_doc["releases"]} == {"fw-v1.1.0", "fw-v1.3.0"}
+    assert {r["hardware_type"] for r in b_doc["releases"]} == {TYPE_B}
+    assert registry_mod.load_registry(str(tmp_path))["schedule"]["version"] == "fw-v1.1.0"
+    assert registry_mod.schedule_release(str(tmp_path), "fw-v1.3.0", "fw-v1.0.0", now=NOW) == "unknown"
+
+    assert registry_mod.cancel_schedule(str(tmp_path), hardware_type=TYPE_B) == "cancelled"
+    assert registry_mod.load_registry(str(tmp_path))["schedule"] is not None
+    assert registry_mod.load_registry(str(tmp_path), TYPE_B)["schedule"] is None
+
+
+def test_legacy_load_save_round_trip_leaves_other_type_untouched(tmp_path, sim_on):
+    _publish_b(tmp_path)
+    b_path = registry_mod.registry_path(str(tmp_path), TYPE_B)
+    before = _read(b_path)
+    write_legacy_registry(str(tmp_path))
+    assert registry_mod.schedule_release(str(tmp_path), "fw-v1.0.1", "fw-v1.0.0", now=NOW) == "scheduled"
+    assert _read(b_path) == before
+
+
+# --- Type-scoped reconcile and view --------------------------------------
+
+def _doc(hardware_type, version="fw-v1.1.0", schedule_id="sid"):
+    doc = legacy_shaped_registry([legacy_release(version)])
+    doc["releases"][0]["hardware_type"] = hardware_type
+    doc["schedule"] = {
+        "id": schedule_id, "version": version, "sha256": doc["releases"][0]["sha256"],
+        "scheduled_at": NOW, "state": "scheduled", "attempts": 0,
+        "failed_at": None, "last_result": None,
+    }
+    if hardware_type != LEGACY:
+        doc["hardware_type"] = hardware_type
+    return doc
+
+
+def _report(**devices):
+    return {"schema": 1, "next_seq": 99, "devices": devices}
+
+
+def _device(seq, token, version, hardware_type=None, schedule_id="sid", reported_at=NOW):
+    entry = {
+        "fw_version": version, "reported_at": reported_at,
+        "events": [{"seq": seq, "at": NOW, "kind": "result", "schedule_id": schedule_id,
+                    "token": token, "version": version}],
+    }
+    if hardware_type is not None:
+        entry["hardware_type"] = hardware_type
+    return entry
+
+
+def test_device_entry_type_stamp_kept_or_dropped(tmp_path):
+    report = registry_mod._normalise_device_report(_report(
+        a=_device(1, "installed", "fw-v1.1.0", hardware_type=registry_mod.UNRESOLVED_TYPE),
+        b=_device(2, "installed", "fw-v1.1.0", hardware_type="bogus"),
+        c=_device(3, "installed", "fw-v1.1.0", hardware_type=TYPE_B),
+        d=_device(4, "installed", "fw-v1.1.0")))
+    devices = report["devices"]
+    assert devices["a"]["hardware_type"] == registry_mod.UNRESOLVED_TYPE
+    assert "hardware_type" not in devices["b"]
+    assert devices["c"]["hardware_type"] == TYPE_B
+    assert registry_mod._entry_type(devices["a"]) == registry_mod.UNRESOLVED_TYPE
+    assert registry_mod._entry_type(devices["b"]) == LEGACY
+    assert not hardware.is_known(registry_mod.UNRESOLVED_TYPE)
+
+
+def test_unresolved_entry_never_closes_or_shows_in_any_type(sim_on):
+    report = _report(x=_device(5, "installed", "fw-v1.1.0", hardware_type=registry_mod.UNRESOLVED_TYPE))
+    for hardware_type in (LEGACY, TYPE_B):
+        doc = _doc(hardware_type)
+        new_doc, outcomes = registry_mod.reconcile(doc, report, LATER)
+        assert outcomes == [] and new_doc["schedule"]["state"] == "scheduled"
+        assert registry_mod.update_view(doc, report, LATER)["running_version"] is None
+
+
+def test_foreign_type_event_never_closes_other_schedule(sim_on):
+    legacy_doc = _doc(LEGACY)
+    report = _report(b=_device(7, "installed", "fw-v1.1.0", hardware_type=TYPE_B))
+    new_doc, outcomes = registry_mod.reconcile(legacy_doc, report, LATER)
+    assert outcomes == []
+    assert new_doc["schedule"] is not None
+    assert new_doc["last_outcome"] is None and new_doc["reconciled_seq"] == 0
+    b_doc, b_outcomes = registry_mod.reconcile(_doc(TYPE_B), report, LATER)
+    assert b_outcomes == [("installed", "fw-v1.1.0", None)] and b_doc["schedule"] is None
+
+
+def test_untyped_entry_counts_as_legacy(sim_on):
+    report = _report(old=_device(3, "installed", "fw-v1.1.0"))
+    _, outcomes = registry_mod.reconcile(_doc(LEGACY), report, LATER)
+    assert outcomes == [("installed", "fw-v1.1.0", None)]
+    _, b_outcomes = registry_mod.reconcile(_doc(TYPE_B), report, LATER)
+    assert b_outcomes == []
+
+
+def test_update_view_uses_only_own_type_devices(sim_on):
+    report = _report(
+        legacy=_device(1, "trial", "fw-v1.0.0", reported_at="2026-09-28T12:00:00+00:00"),
+        other=_device(2, "trial", "fw-v1.5.0", hardware_type=TYPE_B, reported_at="2026-09-28T13:00:00+00:00"))
+    assert registry_mod.update_view(_doc(LEGACY), report, LATER)["running_version"] == "fw-v1.0.0"
+    assert registry_mod.update_view(_doc(TYPE_B), report, LATER)["running_version"] == "fw-v1.5.0"
+
+
+def test_relevant_types(tmp_path, sim_on, monkeypatch):
+    assert registry_mod.relevant_types(str(tmp_path), _report()) == []
+    _publish(tmp_path)
+    assert registry_mod.relevant_types(str(tmp_path), _report()) == [LEGACY]
+    assert registry_mod.relevant_types(
+        str(tmp_path), _report(b=_device(1, "trial", "fw-v1.0.0", hardware_type=TYPE_B))) == [LEGACY, TYPE_B]
+    monkeypatch.delenv(hardware.SIM_ENV_VAR)
+    assert registry_mod.relevant_types(
+        str(tmp_path), _report(b=_device(1, "trial", "fw-v1.0.0", hardware_type=TYPE_B))) == [LEGACY]

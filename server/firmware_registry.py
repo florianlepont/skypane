@@ -13,8 +13,14 @@ the four surfaces from drifting apart on what "scheduled" or "at the
 floor" means.
 
 Storage layout under `state_dir`:
-  firmware/registry.json       -- this module's own document, written
-                                   only here, under firmware/registry.lock.
+  firmware/registry.json       -- this module's own document for the legacy
+                                   hardware type, written only here, under
+                                   firmware/registry.lock.
+  firmware/registry.<key>.json -- the same document for any other hardware
+                                   type; schedule, floor and reconcile
+                                   counter are independent per document.
+  firmware/registry.json.pre-fleet -- the original registry.json bytes,
+                                   copied once before its first rewrite.
   firmware/<sha256>.bin        -- release images, content-addressed.
   firmware/device_report.json  -- byos-owned; this module only reads it.
 
@@ -35,7 +41,7 @@ import secrets
 import time
 from datetime import datetime, timezone
 
-from server import atomic_io
+from server import atomic_io, hardware
 
 # --- Storage layout --------------------------------------------------------
 
@@ -43,6 +49,14 @@ FIRMWARE_DIRNAME = "firmware"
 REGISTRY_FILE = "registry.json"
 DEVICE_REPORT_FILE = "device_report.json"
 LOCK_FILE = "registry.lock"
+PRE_FLEET_SUFFIX = ".pre-fleet"
+
+# Stamped by byos on a device entry whose hardware type cannot be
+# resolved. It is not a hardware key, so no registry document ever has
+# this type and such an entry is excluded from every reconcile and view.
+UNRESOLVED_TYPE = "unresolved"
+
+_TYPE_KEY_RE = re.compile(r"\A[a-z0-9-]{1,64}\Z")
 
 # Bounded wait for a second writer (companion HTTP thread, the poll loop,
 # or the deploy import) already holding the lock -- the same convention
@@ -95,8 +109,26 @@ def firmware_dir(state_dir):
     return os.path.join(state_dir, FIRMWARE_DIRNAME)
 
 
-def registry_path(state_dir):
-    return os.path.join(firmware_dir(state_dir), REGISTRY_FILE)
+def _checked_type(hardware_type):
+    """The hardware type key, validated before any path is built from
+    it: shape first, then membership in the types usable here.
+    """
+    if not isinstance(hardware_type, str) or not _TYPE_KEY_RE.match(hardware_type):
+        raise ValueError("hardware_type: invalid key %r" % (hardware_type,))
+    if hardware_type not in hardware.available_types():
+        raise ValueError("hardware_type: unknown hardware type %r" % (hardware_type,))
+    return hardware_type
+
+
+def _type_document_name(hardware_type):
+    if hardware_type == hardware.LEGACY_KEY:
+        return REGISTRY_FILE
+    return "registry.%s.json" % hardware_type
+
+
+def registry_path(state_dir, hardware_type=hardware.LEGACY_KEY):
+    name = _type_document_name(_checked_type(hardware_type))
+    return os.path.join(firmware_dir(state_dir), name)
 
 
 def device_report_path(state_dir):
@@ -165,6 +197,21 @@ def parse_version(text):
     return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
 
 
+def build_number(version):
+    """A monotonically comparable integer for a release tag; bench
+    versions have no build number. Components are at most 4 digits, so
+    the packing is injective and order preserving.
+    """
+    if not isinstance(version, str) or not RELEASE_TAG_RE.match(version):
+        raise ValueError("version: not a release tag %r" % (version,))
+    return _pack_build(parse_version(version))
+
+
+def _pack_build(parsed):
+    major, minor, patch = parsed
+    return major * 10**8 + minor * 10**4 + patch
+
+
 def at_or_above_floor(version, floor):
     """False for anything unparsable on either side -- never raises."""
     parsed_version = parse_version(version)
@@ -181,8 +228,8 @@ def at_or_above_floor(version, floor):
 # raises -- the same contract as server/device_config.py's
 # load_device_config().
 
-def _default_registry():
-    return {
+def _default_registry(hardware_type=hardware.LEGACY_KEY):
+    doc = {
         "schema": 1,
         "floor_version": FLOOR_VERSION,
         "releases": [],
@@ -190,9 +237,20 @@ def _default_registry():
         "last_outcome": None,
         "reconciled_seq": 0,
     }
+    if hardware_type != hardware.LEGACY_KEY:
+        doc["hardware_type"] = hardware_type
+    return doc
 
 
-def _normalise_release(value):
+def _document_type(registry):
+    """The hardware type a registry document belongs to; a document
+    without the field is the legacy one.
+    """
+    value = registry.get("hardware_type") if isinstance(registry, dict) else None
+    return value if isinstance(value, str) else hardware.LEGACY_KEY
+
+
+def _normalise_release(value, hardware_type=hardware.LEGACY_KEY):
     if not isinstance(value, dict):
         return None
     version = value.get("version")
@@ -224,6 +282,8 @@ def _normalise_release(value):
         "released_at": released_at, "published_at": published_at,
         "commit": commit, "notes": notes, "bench": bench,
         "installed_at": installed_at,
+        "hardware_type": hardware_type,
+        "build": _pack_build(parse_version(version)),
     }
 
 
@@ -275,7 +335,7 @@ def _normalise_last_outcome(value):
     return {"kind": kind, "version": version, "back_on": back_on, "at": at}
 
 
-def _normalise_registry(data):
+def _normalise_registry(data, hardware_type=hardware.LEGACY_KEY):
     floor_version = data.get("floor_version")
     if not isinstance(floor_version, str) or len(floor_version) > VERSION_MAX_LEN or not VERSION_RE.match(floor_version):
         floor_version = FLOOR_VERSION
@@ -283,7 +343,7 @@ def _normalise_registry(data):
     releases = []
     if isinstance(raw_releases, list):
         for raw_release in raw_releases:
-            normalised = _normalise_release(raw_release)
+            normalised = _normalise_release(raw_release, hardware_type)
             if normalised is not None:
                 releases.append(normalised)
     reconciled_seq = data.get("reconciled_seq")
@@ -292,7 +352,7 @@ def _normalise_registry(data):
         if isinstance(reconciled_seq, int) and not isinstance(reconciled_seq, bool) and reconciled_seq >= 0
         else 0
     )
-    return {
+    doc = {
         "schema": 1,
         "floor_version": floor_version,
         "releases": releases,
@@ -300,9 +360,12 @@ def _normalise_registry(data):
         "last_outcome": _normalise_last_outcome(data.get("last_outcome")),
         "reconciled_seq": reconciled_seq,
     }
+    if hardware_type != hardware.LEGACY_KEY:
+        doc["hardware_type"] = hardware_type
+    return doc
 
 
-def load_registry(state_dir):
+def load_registry(state_dir, hardware_type=hardware.LEGACY_KEY):
     """The registry document, tolerant of a missing/empty/non-JSON/
     wrong-shape file -- always the empty schema-1 document (floor_version
     == FLOOR_VERSION) in that case. Never raises.
@@ -314,14 +377,15 @@ def load_registry(state_dir):
     instead, which never lets this tolerance turn a corrupt on-disk file
     into a silent, unrecoverable reset to empty.
     """
+    path = registry_path(state_dir, hardware_type)
     try:
-        with open(registry_path(state_dir)) as fh:
+        with open(path) as fh:
             data = json.load(fh)
     except (OSError, ValueError):
-        return _default_registry()
+        return _default_registry(hardware_type)
     if not isinstance(data, dict):
-        return _default_registry()
-    return _normalise_registry(data)
+        return _default_registry(hardware_type)
+    return _normalise_registry(data, hardware_type)
 
 
 class RegistryCorruptError(OSError):
@@ -336,7 +400,7 @@ class RegistryCorruptError(OSError):
     """
 
 
-def _load_registry_for_write(state_dir):
+def _load_registry_for_write(state_dir, hardware_type=hardware.LEGACY_KEY):
     """Like load_registry(), but never quietly substitutes the empty
     document for a file that exists and fails to parse. A missing file
     (a fresh state directory) is still the empty schema-1 document --
@@ -349,32 +413,65 @@ def _load_registry_for_write(state_dir):
     schedule and the floor silently replaced by the next write this
     process makes.
     """
-    path = registry_path(state_dir)
+    path = registry_path(state_dir, hardware_type)
     try:
         with open(path) as fh:
             raw = fh.read()
     except FileNotFoundError:
-        return _default_registry()
+        return _default_registry(hardware_type)
     try:
         data = json.loads(raw)
     except ValueError:
         data = None
     if isinstance(data, dict):
-        return _normalise_registry(data)
+        return _normalise_registry(data, hardware_type)
     corrupt_path = "%s.corrupt-%d" % (path, int(time.time()))
     try:
         os.replace(path, corrupt_path)
     except OSError:
         corrupt_path = None
     raise RegistryCorruptError(
-        "firmware/registry.json is not a valid registry document"
+        "firmware/%s is not a valid registry document" % os.path.basename(path)
         + (" -- moved aside to %s" % corrupt_path if corrupt_path else " -- could not move it aside")
     )
 
 
-def _save_registry(state_dir, doc):
+def _write_pre_fleet_copy(path):
+    """Copy the exact bytes of an existing registry.json to
+    registry.json.pre-fleet, once: an existing copy is never replaced.
+    """
+    copy_path = path + PRE_FLEET_SUFFIX
+    if os.path.exists(copy_path):
+        return
+    try:
+        with open(path, "rb") as fh:
+            original = fh.read()
+    except FileNotFoundError:
+        return
+    atomic_io.atomic_write(copy_path, original)
+
+
+def _serialisable(doc):
+    """The legacy document keeps its original shape on disk: release
+    entries carry no hardware_type or build there (both are filled in at
+    read time). Other types store the full entries.
+    """
+    if _document_type(doc) != hardware.LEGACY_KEY:
+        return doc
+    out = dict(doc)
+    out["releases"] = [
+        {k: v for k, v in r.items() if k not in ("hardware_type", "build")}
+        for r in doc.get("releases", [])
+    ]
+    return out
+
+
+def _save_registry(state_dir, doc, hardware_type=hardware.LEGACY_KEY):
     _ensure_firmware_dir(state_dir)
-    atomic_io.atomic_write(registry_path(state_dir), json.dumps(doc, indent=1, sort_keys=True))
+    path = registry_path(state_dir, hardware_type)
+    if hardware_type == hardware.LEGACY_KEY:
+        _write_pre_fleet_copy(path)
+    atomic_io.atomic_write(path, json.dumps(_serialisable(doc), indent=1, sort_keys=True))
 
 
 def _default_device_report():
@@ -420,7 +517,22 @@ def _normalise_device_entry(value):
             if normalised is not None:
                 events.append(normalised)
     events = events[-_MAX_EVENTS_PER_DEVICE:]
-    return {"fw_version": fw_version, "reported_at": reported_at, "events": events}
+    entry = {"fw_version": fw_version, "reported_at": reported_at, "events": events}
+    stored_type = value.get("hardware_type")
+    if isinstance(stored_type, str) and (
+        stored_type == UNRESOLVED_TYPE or hardware.is_known(stored_type)
+    ):
+        entry["hardware_type"] = stored_type
+    return entry
+
+
+def _entry_type(entry):
+    """The hardware type stamped on a device entry: the stored value
+    (the UNRESOLVED_TYPE sentinel included, unchanged), or the legacy
+    type for an entry written before the field existed.
+    """
+    stored = entry.get("hardware_type") if isinstance(entry, dict) else None
+    return stored if isinstance(stored, str) else hardware.LEGACY_KEY
 
 
 def _normalise_device_report(data):
@@ -511,7 +623,8 @@ def _hash_and_size(path):
     return digest.hexdigest(), size, b"".join(chunks)
 
 
-def publish_release(state_dir, manifest, image_path, bench=False, now=None):
+def publish_release(state_dir, manifest, image_path, bench=False, now=None,
+                    hardware_type=hardware.LEGACY_KEY):
     """Register one release: copy its image into firmware/<sha>.bin
     (only if not already present) and append its registry entry.
     Idempotent on an identical manifest ("exists", no change); raises
@@ -520,6 +633,7 @@ def publish_release(state_dir, manifest, image_path, bench=False, now=None):
     """
     if not isinstance(manifest, dict):
         raise ValueError("manifest: must be a dict, got %r" % (manifest,))
+    _checked_type(hardware_type)
 
     version = manifest.get("version")
     version_pattern = VERSION_RE if bench else RELEASE_TAG_RE
@@ -564,7 +678,7 @@ def publish_release(state_dir, manifest, image_path, bench=False, now=None):
     now = now if now is not None else _utc_now_iso()
 
     with registry_lock(state_dir):
-        registry = _load_registry_for_write(state_dir)
+        registry = _load_registry_for_write(state_dir, hardware_type)
         existing = _find_release(registry, version)
         if existing is not None:
             if existing["sha256"] == sha256:
@@ -591,12 +705,15 @@ def publish_release(state_dir, manifest, image_path, bench=False, now=None):
             "version": version, "sha256": sha256, "size": size,
             "released_at": released_at, "published_at": now, "commit": commit,
             "notes": notes, "bench": bool(bench), "installed_at": [],
+            "hardware_type": hardware_type,
+            "build": _pack_build(parse_version(version)),
         })
-        _save_registry(state_dir, registry)
+        _save_registry(state_dir, registry, hardware_type)
         return "added"
 
 
-def schedule_release(state_dir, version, running_version, now=None):
+def schedule_release(state_dir, version, running_version, now=None,
+                     hardware_type=hardware.LEGACY_KEY):
     """Make `version` the scheduled release -- recording intent only,
     never touching the device or byos. Any published release at or
     above the floor whose version differs from `running_version` can be
@@ -604,8 +721,9 @@ def schedule_release(state_dir, version, running_version, now=None):
     return value table in this module's tests for every other outcome.
     """
     now = now if now is not None else _utc_now_iso()
+    _checked_type(hardware_type)
     with registry_lock(state_dir):
-        registry = _load_registry_for_write(state_dir)
+        registry = _load_registry_for_write(state_dir, hardware_type)
         release = _find_release(registry, version)
         if release is None:
             return "unknown"
@@ -630,19 +748,20 @@ def schedule_release(state_dir, version, running_version, now=None):
             "failed_at": None,
             "last_result": None,
         }
-        _save_registry(state_dir, registry)
+        _save_registry(state_dir, registry, hardware_type)
         return "scheduled"
 
 
-def cancel_schedule(state_dir, now=None):
+def cancel_schedule(state_dir, now=None, hardware_type=hardware.LEGACY_KEY):
     """Clear the current schedule, only while it is not yet acknowledged.
     `now` is accepted for signature symmetry with schedule_release() but
     is not stored anywhere -- cancelling leaves no trace in the registry
     beyond the schedule's absence.
     """
     del now
+    _checked_type(hardware_type)
     with registry_lock(state_dir):
-        registry = _load_registry_for_write(state_dir)
+        registry = _load_registry_for_write(state_dir, hardware_type)
         schedule = registry["schedule"]
         if schedule is None:
             return "none"
@@ -650,7 +769,7 @@ def cancel_schedule(state_dir, now=None):
         if acknowledged(schedule, device_report):
             return "not_cancellable"
         registry["schedule"] = None
-        _save_registry(state_dir, registry)
+        _save_registry(state_dir, registry, hardware_type)
         return "cancelled"
 
 
@@ -719,12 +838,14 @@ def compute_offer(registry, device_entry, battery_low_active, base_url):
     }
 
 
-def _collect_events(device_report, min_seq):
+def _collect_events(device_report, min_seq, hardware_type=hardware.LEGACY_KEY):
     """(seq, event, reporting device's fw_version) for every event with
-    seq > min_seq across every device, oldest first.
+    seq > min_seq across every device of `hardware_type`, oldest first.
     """
     collected = []
     for device_entry in device_report.get("devices", {}).values():
+        if _entry_type(device_entry) != hardware_type:
+            continue
         fw_version = device_entry.get("fw_version")
         for event in device_entry.get("events", []):
             seq = event.get("seq")
@@ -750,8 +871,9 @@ def reconcile(registry, device_report, now):
     outcomes = []
     reconciled_seq = new_registry.get("reconciled_seq", 0)
     highest_seq = reconciled_seq
+    doc_type = _document_type(new_registry)
 
-    for seq, event, device_fw_version in _collect_events(device_report, reconciled_seq):
+    for seq, event, device_fw_version in _collect_events(device_report, reconciled_seq, doc_type):
         if seq > highest_seq:
             highest_seq = seq
         if event.get("kind") != "result":
@@ -811,28 +933,61 @@ def reconcile(registry, device_report, now):
     return new_registry, outcomes
 
 
-def apply_reconcile(state_dir, now=None):
+def apply_reconcile(state_dir, now=None, hardware_type=hardware.LEGACY_KEY):
     """The one locked I/O wrapper around reconcile(), used by the poll
     loop. Writes only when reconciled_seq actually moved.
     """
     now = now if now is not None else _utc_now_iso()
+    _checked_type(hardware_type)
     with registry_lock(state_dir):
-        registry = _load_registry_for_write(state_dir)
+        registry = _load_registry_for_write(state_dir, hardware_type)
         device_report = load_device_report(state_dir)
         new_registry, outcomes = reconcile(registry, device_report, now)
         if new_registry.get("reconciled_seq") != registry.get("reconciled_seq"):
-            _save_registry(state_dir, new_registry)
+            _save_registry(state_dir, new_registry, hardware_type)
         return outcomes
 
 
-def _most_recent_device_entry(device_report):
-    """The device entry with the latest reported_at -- the per-device
-    map stays (so multiple devices are not ruled out) but the Update
-    page shows one frame's state (single-frame UI).
+def apply_reconcile_all(state_dir, now=None):
+    """Reconcile the legacy document and every other available type that
+    has a document on disk. Returns all outcomes, legacy first. A type
+    whose reconciled_seq did not move is not rewritten.
+    """
+    now = now if now is not None else _utc_now_iso()
+    outcomes = list(apply_reconcile(state_dir, now))
+    for hardware_type in hardware.available_types():
+        if hardware_type == hardware.LEGACY_KEY:
+            continue
+        if not os.path.exists(registry_path(state_dir, hardware_type)):
+            continue
+        outcomes.extend(apply_reconcile(state_dir, now, hardware_type))
+    return outcomes
+
+
+def relevant_types(state_dir, device_report):
+    """Available hardware types that have at least one release or one
+    device entry, in registry order. A type unavailable in this
+    environment is never relevant.
+    """
+    device_types = {_entry_type(e) for e in device_report.get("devices", {}).values()}
+    relevant = []
+    for hardware_type in hardware.available_types():
+        has_releases = bool(load_registry(state_dir, hardware_type)["releases"])
+        if has_releases or hardware_type in device_types:
+            relevant.append(hardware_type)
+    return relevant
+
+
+def _most_recent_device_entry(device_report, hardware_type=hardware.LEGACY_KEY):
+    """The device entry of `hardware_type` with the latest reported_at --
+    the per-device map stays (so multiple devices are not ruled out) but
+    the Update page shows one frame's state (single-frame UI).
     """
     best = None
     best_reported_at = None
     for device_entry in device_report.get("devices", {}).values():
+        if _entry_type(device_entry) != hardware_type:
+            continue
         reported_at = device_entry.get("reported_at")
         if reported_at is None:
             continue
@@ -917,7 +1072,7 @@ def update_view(registry, device_report, now):
     never reads the clock.
     """
     del now
-    device_entry = _most_recent_device_entry(device_report) or {}
+    device_entry = _most_recent_device_entry(device_report, _document_type(registry)) or {}
     running_version = device_entry.get("fw_version")
     reported_at = device_entry.get("reported_at")
 
