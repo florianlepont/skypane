@@ -380,3 +380,208 @@ def test_schedule_failed_flash_renders_in_french(server, cookie):
         prefs.set_request_prefs(lang="en")
     assert flash_toast_title_detail(body.decode("utf-8")) == (
         layout.split_toast_message(expected_flash))
+
+
+# ==========================================================================
+# Per-hardware-type scheduling: a type chooser appears only when more than
+# one type is relevant, and every action is scoped to the chosen type.
+# ==========================================================================
+
+_LEGACY = fr.hardware.LEGACY_KEY
+_OTHER = fr.hardware.SIM_CLONE_KEY
+_OTHER_RUNNING = "fw-v1.4.0"
+_OTHER_ROLLBACK = "fw-v1.3.0"
+_SIM_ENV = {fr.hardware.SIM_ENV_VAR: "1"}
+
+
+def _seed_two_types(state_dir):
+    """The legacy fixture plus a second type with its own releases and its
+    own running device, written straight into that type's registry."""
+    _seed_releases(state_dir)
+    registry = fr.load_registry(state_dir, _OTHER)
+    registry["releases"] = [
+        {
+            "version": version, "sha256": version.replace(".", "").ljust(64, "0")[:64],
+            "size": 10, "released_at": _NOW, "published_at": _NOW,
+            "commit": "b" * 40, "notes": ["other " + version], "bench": False,
+            "installed_at": [],
+        }
+        for version in (_FLOOR_VERSION, _OTHER_ROLLBACK, _OTHER_RUNNING)]
+    fr._save_registry(state_dir, registry, _OTHER)
+    report = fr.load_device_report(state_dir)
+    report["devices"]["dev2"] = {
+        "fw_version": _OTHER_RUNNING, "reported_at": _NOW, "events": [],
+        "hardware_type": _OTHER}
+    atomic_io.atomic_write(fr.device_report_path(state_dir), json.dumps(report))
+
+
+@pytest.fixture
+def two_type_server(make_app_server, monkeypatch):
+    # The seeding below runs in this process, where the second type is
+    # only usable while the simulation gate is on.
+    monkeypatch.setenv(fr.hardware.SIM_ENV_VAR, "1")
+    return make_app_server(seed=_seed_two_types, env_overrides=_SIM_ENV)
+
+
+@pytest.fixture
+def two_type_cookie(two_type_server):
+    return login(two_type_server)
+
+
+def _type_buttons(html):
+    from companion_markup import parse_html
+    return [
+        (button.attrs["value"], button.attrs["aria-pressed"], button.text())
+        for button in parse_html(html).select('form[method="get"] button[name="type"]')]
+
+
+def _hidden_types(html):
+    from companion_markup import parse_html
+    return [node.attrs["value"] for node in
+            parse_html(html).select('input[name="hardware_type"]')]
+
+
+def test_one_relevant_type_shows_no_chooser_and_no_type_field(server, cookie):
+    status, _headers, body = get(server, layout.UPDATE_ROUTE, cookie=cookie)
+    assert status == 200
+    html = body.decode("utf-8")
+    assert _type_buttons(html) == []
+    assert _hidden_types(html) == []
+    assert "hardware_type" not in html
+    status, _headers, other = get(
+        server, layout.UPDATE_ROUTE + "?type=" + _OTHER, cookie=cookie)
+    assert status == 200
+    assert _type_buttons(other.decode("utf-8")) == []
+
+
+def test_chooser_lists_each_relevant_type_and_defaults_to_legacy(
+        two_type_server, two_type_cookie):
+    status, _headers, body = get(two_type_server, layout.UPDATE_ROUTE, cookie=two_type_cookie)
+    assert status == 200
+    html = body.decode("utf-8")
+    labels = {key: fr.hardware.get_profile(key, _SIM_ENV).label for key in (_LEGACY, _OTHER)}
+    assert _type_buttons(html) == [
+        (_LEGACY, "true", labels[_LEGACY]), (_OTHER, "false", labels[_OTHER])]
+    assert _RUNNING_VERSION in html
+    assert _OTHER_RUNNING not in html
+    assert set(_hidden_types(html)) == {_LEGACY}
+
+
+def test_other_type_page_shows_only_that_types_releases_and_schedule(
+        two_type_server, two_type_cookie):
+    fr.schedule_release(
+        two_type_server.state_dir, _OTHER_ROLLBACK, _OTHER_RUNNING, _NOW, hardware_type=_OTHER)
+    status, _headers, body = get(
+        two_type_server, layout.UPDATE_ROUTE + "?type=" + _OTHER, cookie=two_type_cookie)
+    html = body.decode("utf-8")
+    assert status == 200
+    assert _OTHER_ROLLBACK in html and _OTHER_RUNNING in html
+    assert _DOWNGRADE_VERSION not in html
+    assert i18n.t(update_page.STATE_LABELS["scheduled"]) in html
+    assert 'action="%s"' % update_page.CANCEL_ROUTE in html
+    assert set(_hidden_types(html)) == {_OTHER}
+    _status, _headers, legacy = get(two_type_server, layout.UPDATE_ROUTE, cookie=two_type_cookie)
+    assert 'action="%s"' % update_page.CANCEL_ROUTE not in legacy.decode("utf-8")
+
+
+def test_unknown_or_malformed_query_type_falls_back_to_legacy(two_type_server, two_type_cookie):
+    for value in ("nope", "../x", "", _OTHER + "x"):
+        status, _headers, body = get(
+            two_type_server, layout.UPDATE_ROUTE + "?type=" + urllib.parse.quote(value),
+            cookie=two_type_cookie)
+        assert status == 200
+        assert _RUNNING_VERSION in body.decode("utf-8"), value
+
+
+def test_install_in_the_other_type_leaves_the_legacy_schedule_alone(
+        two_type_server, two_type_cookie):
+    status, headers, _body = _post(
+        two_type_server, update_page.INSTALL_ROUTE, two_type_cookie,
+        {"version": _OTHER_ROLLBACK, "hardware_type": _OTHER, "confirm": "yes"})
+    assert status == 303
+    assert "type=" + _OTHER in headers["Location"]
+    state_dir = two_type_server.state_dir
+    assert fr.load_registry(state_dir, _OTHER)["schedule"]["version"] == _OTHER_ROLLBACK
+    assert fr.load_registry(state_dir)["schedule"] is None
+    status, headers, _body = _post(
+        two_type_server, update_page.CANCEL_ROUTE, two_type_cookie, {"hardware_type": _OTHER})
+    assert status == 303
+    assert fr.load_registry(state_dir, _OTHER)["schedule"] is None
+
+
+def test_cancel_in_one_type_keeps_the_other_types_schedule(two_type_server, two_type_cookie):
+    state_dir = two_type_server.state_dir
+    fr.schedule_release(state_dir, _DOWNGRADE_VERSION, _RUNNING_VERSION, _NOW)
+    fr.schedule_release(state_dir, _OTHER_ROLLBACK, _OTHER_RUNNING, _NOW, hardware_type=_OTHER)
+    _post(two_type_server, update_page.CANCEL_ROUTE, two_type_cookie, {"hardware_type": _OTHER})
+    assert fr.load_registry(state_dir, _OTHER)["schedule"] is None
+    assert fr.load_registry(state_dir)["schedule"]["version"] == _DOWNGRADE_VERSION
+
+
+def test_post_without_a_type_field_means_legacy(two_type_server, two_type_cookie):
+    state_dir = two_type_server.state_dir
+    _post(two_type_server, update_page.INSTALL_ROUTE, two_type_cookie,
+          {"version": _DOWNGRADE_VERSION, "confirm": "yes"})
+    assert fr.load_registry(state_dir)["schedule"]["version"] == _DOWNGRADE_VERSION
+    assert fr.load_registry(state_dir, _OTHER)["schedule"] is None
+
+
+@pytest.mark.parametrize("hostile", [
+    "nope", "../../etc", "", _OTHER + "/../x", "A" * 500, "sim-ee02-landscape%00"])
+def test_post_with_an_invalid_type_is_rejected_and_changes_nothing(
+        two_type_server, two_type_cookie, hostile):
+    state_dir = two_type_server.state_dir
+    for route, data in (
+            (update_page.INSTALL_ROUTE,
+             {"version": _DOWNGRADE_VERSION, "confirm": "yes", "hardware_type": hostile}),
+            (update_page.INSTALL_ROUTE, {"version": _DOWNGRADE_VERSION, "hardware_type": hostile}),
+            (update_page.CANCEL_ROUTE, {"hardware_type": hostile})):
+        status, headers, body = _post(two_type_server, route, two_type_cookie, data)
+        assert status == 303, (route, hostile)
+        assert "flash=" in headers["Location"]
+        assert hostile.strip() == "" or urllib.parse.quote(hostile) not in headers["Location"]
+    assert fr.load_registry(state_dir)["schedule"] is None
+    assert fr.load_registry(state_dir, _OTHER)["schedule"] is None
+
+
+def test_an_unavailable_type_is_rejected_without_the_simulation_gate(server, cookie):
+    status, headers, _body = _post(
+        server, update_page.INSTALL_ROUTE, cookie,
+        {"version": _DOWNGRADE_VERSION, "confirm": "yes", "hardware_type": _OTHER})
+    assert status == 303
+    assert "flash=" in headers["Location"]
+    assert fr.load_registry(server.state_dir)["schedule"] is None
+
+
+def test_confirm_page_names_the_type_and_carries_it_only_with_the_chooser(
+        two_type_server, two_type_cookie, server, cookie):
+    status, _headers, body = _post(
+        two_type_server, update_page.INSTALL_ROUTE, two_type_cookie,
+        {"version": _OTHER_ROLLBACK, "hardware_type": _OTHER})
+    html = body.decode("utf-8")
+    assert status == 200
+    assert _hidden_types(html) == [_OTHER]
+    assert fr.hardware.get_profile(_OTHER, _SIM_ENV).label in html
+    _status, _headers, one_type = _post(
+        server, update_page.INSTALL_ROUTE, cookie, {"version": _DOWNGRADE_VERSION})
+    assert _hidden_types(one_type.decode("utf-8")) == []
+
+
+def test_older_release_above_the_floor_can_be_scheduled_in_each_type(
+        two_type_server, two_type_cookie):
+    state_dir = two_type_server.state_dir
+    _post(two_type_server, update_page.INSTALL_ROUTE, two_type_cookie,
+          {"version": _DOWNGRADE_VERSION, "confirm": "yes"})
+    _post(two_type_server, update_page.INSTALL_ROUTE, two_type_cookie,
+          {"version": _OTHER_ROLLBACK, "hardware_type": _OTHER, "confirm": "yes"})
+    assert fr.load_registry(state_dir)["schedule"]["version"] == _DOWNGRADE_VERSION
+    assert fr.load_registry(state_dir, _OTHER)["schedule"]["version"] == _OTHER_ROLLBACK
+
+
+def test_chooser_renders_in_french(two_type_server, two_type_cookie):
+    fr_cookie = two_type_cookie + "; %s=fr" % auth.UI_LANG_COOKIE_NAME
+    status, _headers, body = get(two_type_server, layout.UPDATE_ROUTE, cookie=fr_cookie)
+    html = body.decode("utf-8")
+    assert status == 200
+    assert "Hardware type" not in html
+    assert "Type de matériel" in html
