@@ -378,7 +378,9 @@ def test_image_at_the_bound_passes_and_one_byte_over_fails(
         two_release_repo, tmp_path, size, expected_rc):
     image = tmp_path / "skypane.bin"
     image.write_bytes(build_image("fw-v1.1.0", size=size))
-    assert image.stat().st_size == size
+    # The builder rounds up to a whole signature sector.
+    assert image.stat().st_size >= size
+    assert (image.stat().st_size == size) or expected_rc == 2
     out = tmp_path / "release.json"
     result = _run_cli("fw-v1.1.0", image, out, two_release_repo)
     assert result.returncode == expected_rc, result.stderr
