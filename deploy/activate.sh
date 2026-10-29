@@ -9,7 +9,8 @@
 #
 # Flow: stage the release -> install/reinstall dependencies if their hash
 # changed -> byte-compile -> smoke-test the release's own scripts ->
-# render SkyPane's own Caddy site file and validate the whole host config
+# import firmware -> back up state, dry-run then apply the fleet database
+# migration (all before the swap, any failure aborts) -> render SkyPane's own Caddy site file and validate the whole host config
 # with it in place -> install units and swap `current` atomically
 # (ln -sfn + mv -T) -> restart services and reload Caddy only if the site
 # file actually changed -> probe every unit and both
@@ -118,6 +119,8 @@ SKYPANE_PUBLIC_HOST="$(_extract_env SKYPANE_PUBLIC_HOST)"
 SKYPANE_COMPANION_HOST="$(_extract_env SKYPANE_COMPANION_HOST)"
 SKYPANE_BYOS_PORT="$(_extract_env SKYPANE_BYOS_PORT)"
 SKYPANE_COMPANION_PORT="$(_extract_env SKYPANE_COMPANION_PORT)"
+# Optional: only the first fleet migration needs it.
+SKYPANE_BOOTSTRAP_ADMIN_EMAIL="$(_extract_env SKYPANE_BOOTSTRAP_ADMIN_EMAIL)"
 
 for _host in "${SKYPANE_PUBLIC_HOST}" "${SKYPANE_COMPANION_HOST}"; do
     if [ -z "${_host}" ] || ! [[ "${_host}" =~ ^[A-Za-z0-9.-]+$ ]]; then
@@ -131,6 +134,14 @@ for _port in "${SKYPANE_BYOS_PORT}" "${SKYPANE_COMPANION_PORT}"; do
         exit 1
     fi
 done
+
+# The value reaches a child command line as one quoted argument; the
+# allow-list keeps anything else out before any change is made.
+if [ -n "${SKYPANE_BOOTSTRAP_ADMIN_EMAIL}" ] \
+    && ! [[ "${SKYPANE_BOOTSTRAP_ADMIN_EMAIL}" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+$ ]]; then
+    echo "activate.sh: invalid SKYPANE_BOOTSTRAP_ADMIN_EMAIL in ${ENV_FILE}" >&2
+    exit 1
+fi
 
 echo "==> Staging release ${SHA}"
 # Firmware is per-deploy input, not part of the immutable release tree:
@@ -185,7 +196,8 @@ echo "==> Smoke-testing release scripts"
 if ! "${VENV}/bin/python3" "${RELEASE_DIR}/companion/app.py" --help >/dev/null 2>&1 \
     || ! "${VENV}/bin/python3" "${RELEASE_DIR}/server/poll_loop.py" --help >/dev/null 2>&1 \
     || ! "${VENV}/bin/python3" "${RELEASE_DIR}/stub-server/byos_server.py" --help >/dev/null 2>&1 \
-    || ! "${VENV}/bin/python3" "${RELEASE_DIR}/deploy/backup/skypane_backup.py" --help >/dev/null 2>&1; then
+    || ! "${VENV}/bin/python3" "${RELEASE_DIR}/deploy/backup/skypane_backup.py" --help >/dev/null 2>&1 \
+    || ! ( cd "${RELEASE_DIR}" && "${VENV}/bin/python3" -m server.fleet_migrate --help >/dev/null 2>&1 ); then
     echo "activate.sh: smoke check failed for release ${SHA} - not swapping" >&2
     exit 1
 fi
@@ -220,6 +232,46 @@ if [ -d "${FIRMWARE_RELEASES_DIR}" ]; then
     fi
 else
     echo "    no firmware-releases directory staged - skipping import"
+fi
+
+echo "==> Fleet database backup and migration"
+# Runs before the swap and never at service start. The backup comes first so
+# a bad migration can always be undone from the archive; the dry-run proves
+# the migration on a throwaway copy; both run as the service user so
+# fleet.db is owned by it. Re-running with the same sha is harmless: the
+# backup repeats and the migration is idempotent.
+BACKUP_RC=0
+runuser -u skypane -- "${VENV}/bin/python3" "${RELEASE_DIR}/deploy/backup/skypane_backup.py" \
+    --state-dir "${STATE_DIR}" --archive-dir "${BACKUP_ROOT}/archives" --keep 14 || BACKUP_RC=$?
+if [ "${BACKUP_RC}" -ne 0 ]; then
+    echo "activate.sh: pre-migration backup failed for ${SHA} - not swapping" >&2
+    exit 1
+fi
+
+OWNER_ARGS=()
+if [ -n "${SKYPANE_BOOTSTRAP_ADMIN_EMAIL}" ]; then
+    OWNER_ARGS=(--owner-email "${SKYPANE_BOOTSTRAP_ADMIN_EMAIL}")
+fi
+
+DRYRUN_RC=0
+( cd "${RELEASE_DIR}" \
+    && runuser -u skypane -- "${VENV}/bin/python3" -m server.fleet_migrate \
+        --state-dir "${STATE_DIR}" ${OWNER_ARGS[@]+"${OWNER_ARGS[@]}"} --dry-run ) || DRYRUN_RC=$?
+if [ "${DRYRUN_RC}" -ne 0 ]; then
+    echo "activate.sh: fleet migration dry-run failed for ${SHA} - not swapping" >&2
+    if [ "${DRYRUN_RC}" -eq 2 ] && [ -z "${SKYPANE_BOOTSTRAP_ADMIN_EMAIL}" ]; then
+        echo "Action requise : ajoutez la ligne SKYPANE_BOOTSTRAP_ADMIN_EMAIL=votre-adresse@exemple.fr dans /opt/skypane/skypane.env, puis relancez le deploiement." >&2
+    fi
+    exit 1
+fi
+
+MIGRATE_RC=0
+( cd "${RELEASE_DIR}" \
+    && runuser -u skypane -- "${VENV}/bin/python3" -m server.fleet_migrate \
+        --state-dir "${STATE_DIR}" ${OWNER_ARGS[@]+"${OWNER_ARGS[@]}"} ) || MIGRATE_RC=$?
+if [ "${MIGRATE_RC}" -ne 0 ]; then
+    echo "activate.sh: fleet migration failed for ${SHA} - not swapping" >&2
+    exit 1
 fi
 
 restore_site_file() {

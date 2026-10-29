@@ -73,6 +73,35 @@ def _write_fake_firmware_cli(path, log_path, current_link):
     path.chmod(0o755)
 
 
+def _write_fake_fleet_migrate(path, log_path, current_link):
+    """A stand-in for server/fleet_migrate.py: `--help` exits
+    FAKE_SMOKE_RC; otherwise the call is logged with what `current`
+    pointed to at invocation time (proof of running before the swap) and
+    it exits FAKE_FLEET_MIGRATE_DRYRUN_RC when `--dry-run` is among the
+    arguments, FAKE_FLEET_MIGRATE_RC otherwise.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "#!/usr/bin/env python3\n"
+        "import os\n"
+        "import sys\n"
+        f"_LOG = {str(log_path)!r}\n"
+        f"_CURRENT_LINK = {str(current_link)!r}\n"
+        "_args = sys.argv[1:]\n"
+        "if '--help' in _args:\n"
+        "    sys.exit(int(os.environ.get('FAKE_SMOKE_RC', '0')))\n"
+        "try:\n"
+        "    _current = os.readlink(_CURRENT_LINK)\n"
+        "except OSError:\n"
+        "    _current = '<none>'\n"
+        "with open(_LOG, 'a') as f:\n"
+        "    f.write('fleet_migrate ' + ' '.join(_args) + ' current=' + _current + chr(10))\n"
+        "_key = 'FAKE_FLEET_MIGRATE_DRYRUN_RC' if '--dry-run' in _args else 'FAKE_FLEET_MIGRATE_RC'\n"
+        "sys.exit(int(os.environ.get(_key, '0')))\n"
+    )
+    path.chmod(0o755)
+
+
 def _write_fake_smoke_script(path):
     """A minimal stand-in for companion/app.py, server/poll_loop.py and
     stub-server/byos_server.py inside a fake release: it only needs to
@@ -182,6 +211,7 @@ def fake_root(tmp_path):
         "SKYPANE_COMPANION_HOST=cfg.example.org\n"
         "SKYPANE_BYOS_PORT=8642\n"
         "SKYPANE_COMPANION_PORT=8643\n"
+        "SKYPANE_BOOTSTRAP_ADMIN_EMAIL=owner@example.org\n"
         f"X=$(touch {pwned_marker})\n"
     )
     env_file.chmod(0o600)
@@ -327,6 +357,8 @@ def fake_release(fake_root):
         _write_fake_smoke_script(incoming / "stub-server" / "byos_server.py")
         _write_fake_firmware_cli(
             incoming / "server" / "firmware_cli.py", fake_root.call_log, fake_root.current_link)
+        _write_fake_fleet_migrate(
+            incoming / "server" / "fleet_migrate.py", fake_root.call_log, fake_root.current_link)
         (incoming / "server" / "requirements.txt").write_text("stubpkg==1.0.0\n")
         (incoming / "adsb-test").mkdir(parents=True, exist_ok=True)
         (incoming / "adsb-test" / "runway3.json").write_text("{}\n")

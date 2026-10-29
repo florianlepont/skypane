@@ -548,3 +548,146 @@ def test_firmware_import_failure_blocks_swap_previous_release_still_current(
     assert "firmware import failed" in r2.stderr
 
     assert os.readlink(fake_root.current_link) == "releases/f00d004"
+
+
+# ---- fleet database backup and migration ------------------------------
+
+
+def _migration_lines(fake_root, start=0):
+    lines = fake_root.call_log.read_text().splitlines()[start:]
+    return lines, [ln for ln in lines if ln.startswith("fleet_migrate ") and "--help" not in ln]
+
+
+def _deploy_first_release(fake_root, fake_release, run_activate, sha="b0a7001"):
+    fake_release(sha)
+    r = run_activate(sha)
+    assert r.returncode == 0, r.stderr
+    return len(fake_root.call_log.read_text().splitlines())
+
+
+def _drop_email_from_env(fake_root):
+    kept = [
+        ln for ln in fake_root.env_file.read_text().splitlines(keepends=True)
+        if not ln.startswith("SKYPANE_BOOTSTRAP_ADMIN_EMAIL=")
+    ]
+    fake_root.env_file.write_text("".join(kept))
+
+
+def test_backup_dry_run_and_migrate_run_in_order_before_swap(fake_root, fake_release, run_activate):
+    start = _deploy_first_release(fake_root, fake_release, run_activate)
+    fake_release("b0a7002")
+    r = run_activate("b0a7002")
+    assert r.returncode == 0, r.stderr
+
+    lines, migrations = _migration_lines(fake_root, start)
+    backup_idx = next(i for i, ln in enumerate(lines) if "skypane_backup.py" in ln and ln.startswith("runuser "))
+    dry_idx = next(i for i, ln in enumerate(lines) if ln.startswith("fleet_migrate ") and "--dry-run" in ln)
+    mig_idx = next(
+        i for i, ln in enumerate(lines)
+        if ln.startswith("fleet_migrate ") and "--dry-run" not in ln and "--help" not in ln
+    )
+    assert backup_idx < dry_idx < mig_idx
+    assert "--archive-dir %s" % (fake_root.backup_root / "archives") in lines[backup_idx]
+    assert "--keep 14" in lines[backup_idx]
+    for line in migrations:
+        assert "--owner-email owner@example.org" in line
+        assert "--state-dir %s" % fake_root.state_dir in line
+        assert "current=releases/b0a7001" in line
+    assert "--dry-run" in lines[dry_idx]
+    assert "--dry-run" not in lines[mig_idx]
+
+
+def test_owner_email_omitted_when_variable_unset(fake_root, fake_release, run_activate):
+    _drop_email_from_env(fake_root)
+    fake_release("b0a7003")
+    r = run_activate("b0a7003")
+    assert r.returncode == 0, r.stderr
+    _, migrations = _migration_lines(fake_root)
+    assert len(migrations) == 2
+    assert all("--owner-email" not in ln for ln in migrations)
+
+
+def test_empty_owner_email_is_omitted(fake_root, fake_release, run_activate):
+    with open(fake_root.env_file, "a") as fh:
+        fh.write("SKYPANE_BOOTSTRAP_ADMIN_EMAIL=\n")
+    fake_release("b0a7004")
+    r = run_activate("b0a7004")
+    assert r.returncode == 0, r.stderr
+    _, migrations = _migration_lines(fake_root)
+    assert all("--owner-email" not in ln for ln in migrations)
+
+
+def test_invalid_owner_email_fails_before_any_change(fake_root, fake_release, run_activate):
+    start = _deploy_first_release(fake_root, fake_release, run_activate)
+    with open(fake_root.env_file, "a") as fh:
+        fh.write("SKYPANE_BOOTSTRAP_ADMIN_EMAIL=a@b.org;touch${IFS}x\n")
+    incoming = fake_release("b0a7005")
+    r = run_activate("b0a7005")
+    assert r.returncode != 0
+    assert "SKYPANE_BOOTSTRAP_ADMIN_EMAIL" in r.stderr
+    assert incoming.is_dir()
+    assert not (fake_root.releases / "b0a7005").exists()
+    assert os.readlink(fake_root.current_link) == "releases/b0a7001"
+    assert _migration_lines(fake_root, start)[1] == []
+
+
+def test_backup_failure_blocks_migration_and_swap(fake_root, fake_release, run_activate):
+    start = _deploy_first_release(fake_root, fake_release, run_activate)
+    archives_before = sorted(os.listdir(fake_root.backup_root / "archives"))
+    (fake_root.state_dir / "fleet.db").write_bytes(b"this is not a sqlite database" * 100)
+    fake_release("b0a7006")
+    r = run_activate("b0a7006")
+    assert r.returncode != 0
+    assert "pre-migration backup failed" in r.stderr
+    assert _migration_lines(fake_root, start)[1] == []
+    assert os.readlink(fake_root.current_link) == "releases/b0a7001"
+    assert sorted(os.listdir(fake_root.backup_root / "archives")) == archives_before
+
+
+def test_dry_run_failure_blocks_real_migration(fake_root, fake_release, run_activate):
+    start = _deploy_first_release(fake_root, fake_release, run_activate)
+    fake_release("b0a7007")
+    r = run_activate("b0a7007", FAKE_FLEET_MIGRATE_DRYRUN_RC="1")
+    assert r.returncode != 0
+    assert "fleet migration dry-run failed" in r.stderr
+    assert "Action requise" not in r.stderr
+    _, migrations = _migration_lines(fake_root, start)
+    assert len(migrations) == 1 and "--dry-run" in migrations[0]
+    assert os.readlink(fake_root.current_link) == "releases/b0a7001"
+
+
+def test_dry_run_exit_2_without_email_tells_owner_in_french(fake_root, fake_release, run_activate):
+    _drop_email_from_env(fake_root)
+    fake_release("b0a7008")
+    r = run_activate("b0a7008", FAKE_FLEET_MIGRATE_DRYRUN_RC="2")
+    assert r.returncode != 0
+    assert "SKYPANE_BOOTSTRAP_ADMIN_EMAIL" in r.stderr
+    assert "Action requise" in r.stderr
+    assert not fake_root.current_link.exists()
+
+
+def test_migration_failure_blocks_swap(fake_root, fake_release, run_activate):
+    _deploy_first_release(fake_root, fake_release, run_activate)
+    fake_release("b0a7009")
+    r = run_activate("b0a7009", FAKE_FLEET_MIGRATE_RC="1")
+    assert r.returncode != 0
+    assert "fleet migration failed" in r.stderr
+    assert os.readlink(fake_root.current_link) == "releases/b0a7001"
+
+
+def test_same_sha_redeploy_repeats_backup_and_migration(fake_root, fake_release, run_activate):
+    start = _deploy_first_release(fake_root, fake_release, run_activate)
+    fake_release("b0a7001")
+    r = run_activate("b0a7001")
+    assert r.returncode == 0, r.stderr
+    lines, migrations = _migration_lines(fake_root, start)
+    assert len(migrations) == 2
+    assert any("skypane_backup.py" in ln for ln in lines)
+
+
+def test_failing_migrate_smoke_blocks_swap(fake_root, fake_release, run_activate):
+    fake_release("b0a7010")
+    r = run_activate("b0a7010", FAKE_SMOKE_RC="1")
+    assert r.returncode != 0
+    assert "smoke check failed" in r.stderr
+    assert not fake_root.current_link.exists()
