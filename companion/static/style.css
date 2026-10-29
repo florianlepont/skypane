@@ -2256,6 +2256,23 @@ table.data-table--registry .cell-inline-sep {
  * works with scripts blocked. Status colour only marks state (ok, warn,
  * error); the accent fill is the global primary button and is spent only
  * on installing a newer release. */
+/* The hardware type switch reuses the segmented control (.theme-form).
+ * Type labels are long, so a segment may wrap to a second line instead
+ * of clipping, and the control sits one card gap above the cards. The
+ * doubled selector (0,3,0) outranks .theme-form .theme-option's fixed
+ * height and nowrap. */
+.update-type-chooser {
+  margin-bottom: var(--space-lg);
+}
+
+.update-type-chooser .theme-option {
+  height: auto;
+  min-height: 28px;
+  padding: var(--space-xs) var(--space-sm);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .update-cta__top {
   display: flex;
   align-items: flex-start;

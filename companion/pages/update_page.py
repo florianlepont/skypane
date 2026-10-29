@@ -9,6 +9,8 @@ is the real, server-side install-confirmation gate -- `companion/app.py`'s
 `_handle_update_install_post()`/`_handle_update_cancel_post()` are the
 live POST handlers for the forms this module renders.
 """
+import collections
+
 import companion.frame_state as frame_state
 import companion.i18n as i18n
 import companion.layout as layout
@@ -16,6 +18,7 @@ from companion.layout import escape_html
 import companion.page_context as page_context
 import companion.wake as wake
 from server import firmware_registry
+from server import hardware
 from server import history_db
 
 # Named here once, so the per-row/Cancel forms below, companion/app.py's
@@ -29,6 +32,17 @@ CANCEL_ROUTE = "/update/cancel"
 # msg() is idempotent for a repeat id/English pair, and this page's own
 # <h1> heading must read exactly what the nav calls it.
 _NAV_UPDATE_TEXT = i18n.msg("nav.update", "Update")
+
+# The query parameter that picks the hardware type on GET and the form
+# field that carries it on POST. A POST without the field means the
+# legacy type, so a form bookmarked before the chooser existed still works.
+TYPE_QUERY_PARAM = "type"
+TYPE_FORM_FIELD = "hardware_type"
+
+# Names the group of type buttons (a form's accessible name).
+TYPE_CHOOSER_LABEL_TEXT = i18n.msg("update.hardware_type", "Hardware type")
+# "%s" is the hardware type's label, on the install confirmation page.
+CONFIRM_TYPE_TEMPLATE = i18n.msg("update.for_hardware_type_s", "For %s")
 
 HISTORY_HEADING_TEXT = i18n.msg("update.version_history", "Versions")
 NO_VERSION_REPORTED_TEXT = i18n.msg(
@@ -164,6 +178,81 @@ _DIRECTION_NEWER = "newer"
 _DIRECTION_OLDER = "older"
 
 
+class TypeChoice(collections.namedtuple("TypeChoice", "selected relevant chooser")):
+    """The hardware type a request acts on. `chooser` is True only when
+    more than one type is relevant; `carries_field` adds the hidden
+    `hardware_type` field to every form, which is also needed when the
+    single relevant type is not the legacy one (a form without the field
+    would act on the legacy type)."""
+
+    @property
+    def carries_field(self):
+        return self.chooser or self.selected != hardware.LEGACY_KEY
+
+
+def resolve_type_choice(state_dir, device_report, requested=None):
+    """The `TypeChoice` for a GET: `requested` (the `type` query value) is
+    honoured only when it names a relevant type and the chooser is shown;
+    anything else falls back to the legacy type."""
+    relevant = tuple(firmware_registry.relevant_types(state_dir, device_report))
+    if len(relevant) > 1:
+        default = hardware.LEGACY_KEY if hardware.LEGACY_KEY in relevant else relevant[0]
+        return TypeChoice(requested if requested in relevant else default, relevant, True)
+    return TypeChoice(relevant[0] if relevant else hardware.LEGACY_KEY, relevant, False)
+
+
+def posted_type(value):
+    """The validated hardware type of a POSTed `hardware_type` value, or
+    None when it is not usable here. An absent field (None) is the legacy
+    type; anything else must be an exact member of the available types
+    before it reaches a path or a registry."""
+    if value is None:
+        return hardware.LEGACY_KEY
+    if isinstance(value, str) and value in hardware.available_types():
+        return value
+    return None
+
+
+def post_choice(state_dir, hardware_type):
+    """The `TypeChoice` for a POST that already passed `posted_type()`."""
+    relevant = tuple(firmware_registry.relevant_types(
+        state_dir, firmware_registry.load_device_report(state_dir)))
+    return TypeChoice(hardware_type, relevant, len(relevant) > 1)
+
+
+def page_route(hardware_type):
+    """The Update page's own route, pointing at `hardware_type` unless it
+    is the legacy type (whose page is the bare route)."""
+    if hardware_type == hardware.LEGACY_KEY:
+        return layout.UPDATE_ROUTE
+    return "%s?%s=%s" % (layout.UPDATE_ROUTE, TYPE_QUERY_PARAM, hardware_type)
+
+
+def _type_field_html(hardware_type):
+    return '<input type="hidden" name="%s" value="%s">' % (
+        TYPE_FORM_FIELD, escape_html(hardware_type))
+
+
+def _type_label(hardware_type):
+    return hardware.get_profile(hardware_type).label
+
+
+def _type_chooser_html(choice):
+    """The type switch: the app's segmented control (`.theme-form`) as a
+    GET form, so it works without script. The active type is marked with
+    `aria-pressed`; the full label is also the button's `title`."""
+    buttons = "".join(
+        '<button type="submit" name="%s" value="%s" class="%s" aria-pressed="%s" title="%s">%s</button>'
+        % (TYPE_QUERY_PARAM, escape_html(key),
+           "theme-option theme-option--active" if key == choice.selected else "theme-option",
+           "true" if key == choice.selected else "false",
+           escape_html(_type_label(key)), escape_html(_type_label(key)))
+        for key in choice.relevant)
+    return (
+        '<form class="theme-form update-type-chooser" method="get" action="%s" aria-label="%s">%s</form>'
+    ) % (layout.UPDATE_ROUTE, escape_html(i18n.t(TYPE_CHOOSER_LABEL_TEXT)), buttons)
+
+
 def _mono_html(version):
     return '<span class="mono">%s</span>' % escape_html(version)
 
@@ -198,7 +287,7 @@ def _owner_releases(view):
     return [release for release in (view.get("releases") or []) if not release.get("bench")]
 
 
-def _install_form_html(version, label_template=None, quiet=False):
+def _install_form_html(version, label_template=None, quiet=False, type_html=""):
     """The Install form for `version`: `data-confirm` misclick guard, the
     hidden `version` field and no `confirm` field (the server
     confirmation page is the real gate).
@@ -218,16 +307,16 @@ def _install_form_html(version, label_template=None, quiet=False):
     class_html = ' class="%s"' % _QUIET_BUTTON_CLASS if quiet else ""
     return (
         '<form method="post" action="%s" data-confirm="%s">'
-        '<input type="hidden" name="version" value="%s">'
+        '<input type="hidden" name="version" value="%s">%s'
         '<button type="submit"%s%s>%s</button>'
         "</form>"
     ) % (
-        INSTALL_ROUTE, escape_html(confirm_question), escape_html(version),
+        INSTALL_ROUTE, escape_html(confirm_question), escape_html(version), type_html,
         class_html, aria_html, escape_html(label),
     )
 
 
-def _release_install_form_html(release, with_version_label=False):
+def _release_install_form_html(release, with_version_label=False, type_html=""):
     """The Install form for `release`, worded and styled by where it sits
     against the running release: a newer one is "Install" on the accent
     primary button; an older one is "Roll back to <version>" on the quiet
@@ -236,22 +325,26 @@ def _release_install_form_html(release, with_version_label=False):
     version = release.get("version")
     direction = release.get("direction")
     if direction == _DIRECTION_OLDER:
-        return _install_form_html(version, ROLLBACK_BUTTON_TEMPLATE, quiet=True)
+        return _install_form_html(
+            version, ROLLBACK_BUTTON_TEMPLATE, quiet=True, type_html=type_html)
     if direction == _DIRECTION_NEWER:
         return _install_form_html(
-            version, INSTALL_VERSION_BUTTON_TEMPLATE if with_version_label else None)
+            version, INSTALL_VERSION_BUTTON_TEMPLATE if with_version_label else None,
+            type_html=type_html)
     return _install_form_html(
-        version, INSTALL_VERSION_BUTTON_TEMPLATE if with_version_label else None, quiet=True)
+        version, INSTALL_VERSION_BUTTON_TEMPLATE if with_version_label else None, quiet=True,
+        type_html=type_html)
 
 
 def _cancel_form_html(view):
     if not view.get("cancellable"):
         return ""
     return (
-        '<form method="post" action="%s">'
+        '<form method="post" action="%s">%s'
         '<button type="submit" class="%s">%s</button>'
         "</form>"
-    ) % (CANCEL_ROUTE, _QUIET_BUTTON_CLASS, escape_html(i18n.t(CANCEL_BUTTON_TEXT)))
+    ) % (CANCEL_ROUTE, view.get("type_field_html", ""), _QUIET_BUTTON_CLASS,
+         escape_html(i18n.t(CANCEL_BUTTON_TEXT)))
 
 
 def _rollback_banner_html(view):
@@ -323,7 +416,7 @@ def _cta_up_to_date(view, now):
     return (_CTA_TONE_OK, "icon-check", CTA_UP_TO_DATE_TEXT, details, "")
 
 
-def _cta_available(release, now):
+def _cta_available(release, now, type_html=""):
     details = [
         _mono_html(release["version"]) + " · "
         + _fill_html(RELEASED_AGO_TEMPLATE, _ago_html(release.get("released_at"), now))]
@@ -331,7 +424,7 @@ def _cta_available(release, now):
     if note:
         details.append('<span class="update-cta__note">%s</span>' % escape_html(note))
     return (_CTA_TONE_NEUTRAL, "icon-upload", CTA_AVAILABLE_TEXT, details,
-            _release_install_form_html(release, with_version_label=True))
+            _release_install_form_html(release, with_version_label=True, type_html=type_html))
 
 
 def _cta_for_state(view, releases, now, next_wake_text, wake_held):
@@ -340,6 +433,7 @@ def _cta_for_state(view, releases, now, next_wake_text, wake_held):
     state = view.get("state")
     target = view.get("target_version")
     state_ago = _ago_html(view.get("state_at"), now)
+    type_html = view.get("type_field_html", "")
     if state == "scheduled" and target:
         template = SCHEDULED_SENTENCE_HELD_TEMPLATE if wake_held else SCHEDULED_SENTENCE_TEMPLATE
         sentence = i18n.t(template) % (next_wake_text or i18n.t(UNKNOWN_TIME_TEXT))
@@ -358,11 +452,12 @@ def _cta_for_state(view, releases, now, next_wake_text, wake_held):
             details.append(state_ago)
         retry = next((release for release in releases
                       if release.get("version") == target and release.get("installable")), None)
-        action_html = _release_install_form_html(retry, with_version_label=True) if retry else ""
+        action_html = _release_install_form_html(
+            retry, with_version_label=True, type_html=type_html) if retry else ""
         return (_CTA_TONE_ERROR, "icon-warning", CTA_FAILED_TEXT, details, action_html)
     newer = _newer_release_to_offer(view, releases)
     if newer is not None:
-        return _cta_available(newer, now)
+        return _cta_available(newer, now, type_html)
     return _cta_up_to_date(view, now)
 
 
@@ -420,7 +515,7 @@ def _row_action_html(release, view):
         return '<span class="text-label">%s</span>' % escape_html(
             i18n.t(STATE_LABELS["scheduled"]))
     if release.get("installable"):
-        return _release_install_form_html(release)
+        return _release_install_form_html(release, type_html=view.get("type_field_html", ""))
     return '<span class="text-label">%s</span>' % escape_html(i18n.t(NOT_INSTALLABLE_TEXT))
 
 
@@ -488,17 +583,18 @@ def _versions_card_html(ctx, view, releases):
     ) % (escape_html(i18n.t(HISTORY_HEADING_TEXT)), count_html, body_html)
 
 
-def _install_confirm_form_html(version):
+def _install_confirm_form_html(version, type_html=""):
     return (
         '<form method="post" action="%s">'
-        '<input type="hidden" name="version" value="%s">'
+        '<input type="hidden" name="version" value="%s">%s'
         '<input type="hidden" name="confirm" value="yes">'
         '<button type="submit">%s</button>'
         "</form>"
-    ) % (INSTALL_ROUTE, escape_html(version), escape_html(i18n.t(INSTALL_BUTTON_TEXT)))
+    ) % (INSTALL_ROUTE, escape_html(version), type_html, escape_html(i18n.t(INSTALL_BUTTON_TEXT)))
 
 
-def update_install_confirm_page(ctx, version, next_wake_text, wake_held=False, is_bench=False):
+def update_install_confirm_page(
+        ctx, version, next_wake_text, wake_held=False, is_bench=False, type_choice=None):
     """Two-step install confirmation: rendered whenever the posted
     `confirm` field is not exactly "yes", including a bare POST with
     none. This page is the actual security control -- it works with
@@ -515,7 +611,10 @@ def update_install_confirm_page(ctx, version, next_wake_text, wake_held=False, i
     `compute_next_wake_text()`'s own resolved state. `is_bench` adds one
     extra sentence naming the release as a bench build -- the version
     tag alone (e.g. "fw-v1.2.0-bench1") is the only other hint, and an
-    operator has to already know that convention.
+    operator has to already know that convention. `type_choice` (a
+    `TypeChoice`, None for the single-type page) adds the hidden type
+    field to the confirming form and, when the chooser is shown, names
+    the hardware type; with None the page is the one-type page.
     """
     ctx = page_context.coerce(ctx)
     resolved_wake_text = next_wake_text or i18n.t(UNKNOWN_TIME_TEXT)
@@ -527,13 +626,22 @@ def update_install_confirm_page(ctx, version, next_wake_text, wake_held=False, i
     bench_note_html = (
         '<p class="text-label">%s</p>' % escape_html(i18n.t(BENCH_CONFIRM_NOTE_TEXT))
     ) if is_bench else ""
+    type_html = type_note_html = ""
+    back_route = layout.UPDATE_ROUTE
+    if type_choice is not None and type_choice.carries_field:
+        type_html = _type_field_html(type_choice.selected)
+        back_route = escape_html(page_route(type_choice.selected))
+    if type_choice is not None and type_choice.chooser:
+        type_note_html = '<p class="text-label">%s</p>' % escape_html(
+            i18n.t(CONFIRM_TYPE_TEMPLATE) % _type_label(type_choice.selected))
     return (
         layout.page_header(heading)
         + '<p class="text-body">%s</p>' % escape_html(sentence)
+        + type_note_html
         + bench_note_html
-        + _install_confirm_form_html(version)
+        + _install_confirm_form_html(version, type_html)
         + '<p><a class="text-label" href="%s">%s</a></p>'
-        % (layout.UPDATE_ROUTE, escape_html(i18n.t(CANCEL_BUTTON_TEXT)))
+        % (back_route, escape_html(i18n.t(CANCEL_BUTTON_TEXT)))
     )
 
 
@@ -572,7 +680,7 @@ def compute_next_wake_text(ctx):
     return text, state == frame_state.STATE_HELD
 
 
-def update_page(ctx, view, next_wake_text, wake_held=False):
+def update_page(ctx, view, next_wake_text, wake_held=False, type_choice=None):
     """The page body: `layout.page_header()`, then the rollback warning
     (when the last outcome was a rollback), the call-to-action card
     (running version and its install time, or the newer release to
@@ -581,28 +689,41 @@ def update_page(ctx, view, next_wake_text, wake_held=False):
     `view` is `server.firmware_registry.update_view()`'s own return
     value; `next_wake_text` is the caller's own formatted clock string
     (or "" when no next-wake time could be computed); `wake_held`
-    selects the quiet-hours wording for that sentence.
+    selects the quiet-hours wording for that sentence. `type_choice` (a
+    `TypeChoice`) adds the type chooser when it is shown and the hidden
+    type field to every action form when needed; None renders the
+    single-type page, byte for byte.
     """
     ctx = page_context.coerce(ctx)
     releases = _owner_releases(view)
+    chooser_html = ""
+    if type_choice is not None:
+        if type_choice.carries_field:
+            view = dict(view, type_field_html=_type_field_html(type_choice.selected))
+        if type_choice.chooser:
+            chooser_html = _type_chooser_html(type_choice)
     return (
         layout.page_header(i18n.t(_NAV_UPDATE_TEXT))
+        + chooser_html
         + _rollback_banner_html(view)
         + _cta_card_html(ctx, view, releases, next_wake_text, wake_held)
         + _versions_card_html(ctx, view, releases)
     )
 
 
-def render(ctx):
+def render(ctx, requested_type=None):
     """companion/routes.py's GET /update entry point: loads the registry
     and device report fresh from `ctx.state_dir`, derives the next-wake
     clock text via `compute_next_wake_text()`, and renders `update_page()`.
+    `requested_type` is the untrusted `type` query value: it picks among
+    the relevant hardware types only when more than one exists.
     """
     ctx = page_context.coerce(ctx)
     state_dir = ctx.state_dir
     now = ctx.now or history_db.utc_now_iso()
-    registry = firmware_registry.load_registry(state_dir)
     device_report = firmware_registry.load_device_report(state_dir)
+    choice = resolve_type_choice(state_dir, device_report, requested_type)
+    registry = firmware_registry.load_registry(state_dir, choice.selected)
     view = firmware_registry.update_view(registry, device_report, now)
     next_wake_text, wake_held = compute_next_wake_text(ctx)
-    return update_page(ctx, view, next_wake_text, wake_held)
+    return update_page(ctx, view, next_wake_text, wake_held, choice)

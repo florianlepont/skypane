@@ -401,7 +401,7 @@ def _seed_two_types(state_dir):
     registry = fr.load_registry(state_dir, _OTHER)
     registry["releases"] = [
         {
-            "version": version, "sha256": version.replace(".", "").ljust(64, "0")[:64],
+            "version": version, "sha256": hashlib.sha256(("other" + version).encode()).hexdigest(),
             "size": 10, "released_at": _NOW, "published_at": _NOW,
             "commit": "b" * 40, "notes": ["other " + version], "bench": False,
             "installed_at": [],

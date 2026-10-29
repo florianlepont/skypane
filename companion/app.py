@@ -39,7 +39,7 @@ from companion.pages import (  # noqa: E402
     health_page,
     update_page,
 )
-from server import device_config, firmware_registry, history_db  # noqa: E402
+from server import device_config, firmware_registry, hardware, history_db  # noqa: E402
 from server.plane import calendar_rules, illustrations, name_overrides  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
 import server.state_store as state_store  # noqa: E402
@@ -1177,44 +1177,60 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         """
         form = self.read_form()
         version = form.get("version") or ""
+        hardware_type = update_page.posted_type(form.get(update_page.TYPE_FORM_FIELD))
         if (
-                len(version) > firmware_registry.VERSION_MAX_LEN
+                hardware_type is None
+                or len(version) > firmware_registry.VERSION_MAX_LEN
                 or not firmware_registry.VERSION_RE.match(version)):
-            return self.redirect(
-                "%s?flash=%s" % (UPDATE_ROUTE, quote(FLASH_KEY_UPDATE_SCHEDULE_FAILED)))
+            return self.redirect(self._update_flash_url(FLASH_KEY_UPDATE_SCHEDULE_FAILED))
         if form.get("confirm") != "yes":
             ctx = self.page_context()
             next_wake_text, wake_held = update_page.compute_next_wake_text(ctx)
             confirm_view = firmware_registry.update_view(
-                firmware_registry.load_registry(self.args.state_dir),
+                firmware_registry.load_registry(self.args.state_dir, hardware_type),
                 firmware_registry.load_device_report(self.args.state_dir),
                 history_db.utc_now_iso())
             is_bench = any(
                 release.get("version") == version and release.get("bench")
                 for release in confirm_view.get("releases") or [])
             body = update_page.update_install_confirm_page(
-                ctx, version, next_wake_text, wake_held=wake_held, is_bench=is_bench)
+                ctx, version, next_wake_text, wake_held=wake_held, is_bench=is_bench,
+                type_choice=update_page.post_choice(self.args.state_dir, hardware_type))
             return self.send_html(200, self._page_shell_for(UPDATE_ROUTE, body, ctx))
         state_dir = self.args.state_dir
         now = history_db.utc_now_iso()
         view = firmware_registry.update_view(
-            firmware_registry.load_registry(state_dir),
+            firmware_registry.load_registry(state_dir, hardware_type),
             firmware_registry.load_device_report(state_dir), now)
         try:
             result = firmware_registry.schedule_release(
-                state_dir, version, view.get("running_version"), now)
+                state_dir, version, view.get("running_version"), now,
+                hardware_type=hardware_type)
         except (OSError, TimeoutError):
             result = None
         if result == "scheduled":
-            return self.redirect(UPDATE_ROUTE)
+            return self.redirect(update_page.page_route(hardware_type))
         if result == "busy":
             # An install is already running -- the generic
             # schedule-failed copy tells the operator to retry, which
             # cannot work until that install finishes.
-            return self.redirect(
-                "%s?flash=%s" % (UPDATE_ROUTE, quote(FLASH_KEY_UPDATE_BUSY)))
+            return self.redirect(self._update_flash_url(FLASH_KEY_UPDATE_BUSY, hardware_type))
         return self.redirect(
-            "%s?flash=%s" % (UPDATE_ROUTE, quote(FLASH_KEY_UPDATE_SCHEDULE_FAILED)))
+            self._update_flash_url(FLASH_KEY_UPDATE_SCHEDULE_FAILED, hardware_type))
+
+    def _update_flash_url(self, flash_key, hardware_type=hardware.LEGACY_KEY):
+        """The Update page URL carrying `flash_key`, and the hardware type
+        when it is not the legacy one (so the flash shows on the page the
+        action came from)."""
+        url = "%s?flash=%s" % (UPDATE_ROUTE, quote(flash_key))
+        if hardware_type != hardware.LEGACY_KEY:
+            url += "&%s=%s" % (update_page.TYPE_QUERY_PARAM, quote(hardware_type))
+        return url
+
+    def _requested_update_type(self):
+        """The raw `type` query value of the current request, or None."""
+        return parse_qs(urlsplit(self.path).query).get(
+            update_page.TYPE_QUERY_PARAM, [None])[0]
 
     def _handle_update_cancel_post(self):
         """POST UPDATE_CANCEL_ROUTE: a plain POST, no confirmation step —
@@ -1223,14 +1239,19 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         acknowledged the offer (firmware_registry.cancel_schedule()'s
         own "not_cancellable" outcome).
         """
+        hardware_type = update_page.posted_type(
+            self.read_form().get(update_page.TYPE_FORM_FIELD))
+        if hardware_type is None:
+            return self.redirect(self._update_flash_url(FLASH_KEY_UPDATE_CANCEL_FAILED))
         try:
-            result = firmware_registry.cancel_schedule(self.args.state_dir)
+            result = firmware_registry.cancel_schedule(
+                self.args.state_dir, hardware_type=hardware_type)
         except (OSError, TimeoutError):
             result = None
         if result in ("cancelled", "none"):
-            return self.redirect(UPDATE_ROUTE)
+            return self.redirect(update_page.page_route(hardware_type))
         return self.redirect(
-            "%s?flash=%s" % (UPDATE_ROUTE, quote(FLASH_KEY_UPDATE_CANCEL_FAILED)))
+            self._update_flash_url(FLASH_KEY_UPDATE_CANCEL_FAILED, hardware_type))
 
     def do_POST(self):
         """Same one-connection-per-request scope as `do_GET()` above,
