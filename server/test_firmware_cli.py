@@ -10,6 +10,7 @@ import os
 import pytest
 
 from server import firmware_cli, firmware_registry
+from skypane_fw_image import build_image
 
 COMMIT = "a" * 40
 
@@ -18,7 +19,7 @@ def _write_release_subdir(base, tag, image=None, released_at="2026-09-28T00:00:0
     """Write <base>/<tag>/{skypane-<tag>.bin,release.json} with a
     manifest that matches the image's real hash/size unless overridden.
     """
-    image = image if image is not None else (tag.encode() + b"-image-payload")
+    image = image if image is not None else build_image(tag)
     subdir = base / tag
     subdir.mkdir(parents=True, exist_ok=True)
     image_path = subdir / ("skypane-%s.bin" % tag)
@@ -133,11 +134,11 @@ def test_import_dir_stale_release_sha_conflict_alone_does_not_block_deploy(tmp_p
     _write_release_subdir(base, "fw-v1.0.1")
     assert firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)]) == 0
     capsys.readouterr()
-    original_sha = hashlib.sha256(b"fw-v1.0.1-image-payload").hexdigest()
+    original_sha = hashlib.sha256(build_image("fw-v1.0.1")).hexdigest()
 
     # The staged directory's asset changed since it was first registered
     # -- same tag, different bytes.
-    _write_release_subdir(base, "fw-v1.0.1", image=b"different-bytes-now")
+    _write_release_subdir(base, "fw-v1.0.1", image=build_image("fw-v1.0.1", size=16384))
 
     rc = firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)])
     out = capsys.readouterr()
@@ -164,7 +165,7 @@ def test_import_dir_new_tag_failure_still_blocks_despite_unrelated_stale_release
     assert firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)]) == 0
     capsys.readouterr()
 
-    _write_release_subdir(base, "fw-v1.0.1", image=b"different-bytes-now")  # stale, non-fatal
+    _write_release_subdir(base, "fw-v1.0.1", image=build_image("fw-v1.0.1", size=16384))  # stale, non-fatal
     _write_release_subdir(base, "fw-v1.0.3", sha256="0" * 64)  # new, must still fail
 
     rc = firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)])
@@ -376,7 +377,7 @@ def test_import_dir_skips_stray_top_level_file(tmp_path, capsys):
 def test_import_bench_records_bench_true_and_generated_note(tmp_path, capsys):
     state_dir = tmp_path / "state"
     image = tmp_path / "bench.bin"
-    image.write_bytes(b"a-bench-image-payload")
+    image.write_bytes(build_image("fw-v1.0.1-bench1"))
 
     rc = firmware_cli.main([
         "--state-dir", str(state_dir), "import-bench",
@@ -440,7 +441,7 @@ def test_import_bench_accepts_explicit_commit_outside_a_git_checkout(tmp_path, m
     """
     state_dir = tmp_path / "state"
     image = tmp_path / "bench.bin"
-    image.write_bytes(b"payload")
+    image.write_bytes(build_image("fw-v1.0.1-bench1"))
     monkeypatch.setattr(firmware_cli, "_repo_root", lambda: str(tmp_path))
 
     rc = firmware_cli.main([
@@ -499,9 +500,9 @@ def test_current_commit_returns_none_when_git_is_unavailable(monkeypatch):
 def test_import_bench_rebinding_existing_version_to_different_sha_fails(tmp_path, capsys):
     state_dir = tmp_path / "state"
     image1 = tmp_path / "bench1.bin"
-    image1.write_bytes(b"payload-one")
+    image1.write_bytes(build_image("fw-v1.0.1-bench1"))
     image2 = tmp_path / "bench2.bin"
-    image2.write_bytes(b"payload-two-different")
+    image2.write_bytes(build_image("fw-v1.0.1-bench1", size=16384))
 
     rc1 = firmware_cli.main([
         "--state-dir", str(state_dir), "import-bench",
@@ -524,7 +525,7 @@ def test_import_bench_rebinding_existing_version_to_different_sha_fails(tmp_path
 
 def test_list_prints_version_published_at_size_and_installed_count(tmp_path, capsys):
     state_dir = tmp_path / "state"
-    image = b"list-me-image-payload"
+    image = build_image("fw-v1.0.1")
     manifest = {
         "version": "fw-v1.0.1", "sha256": hashlib.sha256(image).hexdigest(),
         "size": len(image), "released_at": "2026-09-28T00:00:00+00:00",

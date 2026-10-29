@@ -12,6 +12,7 @@ import os
 import pytest
 
 from server import firmware_registry as registry_mod
+from skypane_fw_image import build_image
 
 RUNNING_VERSION = "fw-v1.0.0"
 NEXT_VERSION = "fw-v1.1.0"
@@ -21,8 +22,9 @@ NOW = "2026-09-28T12:00:00+00:00"
 LATER = "2026-09-28T12:05:00+00:00"
 
 
-def _image_bytes(tag=b"firmware-image"):
-    return tag + b"-payload"
+def _image_bytes(version=NEXT_VERSION, size=None):
+    """A valid synthetic image whose descriptor version is `version`."""
+    return build_image(version, size=size)
 
 
 def _manifest_for(image, version, **overrides):
@@ -45,7 +47,7 @@ def _write_image(tmp_path, image, name="image.bin"):
 
 
 def _publish(tmp_path, version=NEXT_VERSION, image=None, bench=False, now=NOW):
-    image = image if image is not None else _image_bytes(version.encode())
+    image = image if image is not None else _image_bytes(version)
     image_path = _write_image(tmp_path, image, name=version + ".bin")
     manifest = _manifest_for(image, version)
     outcome = registry_mod.publish_release(str(tmp_path), manifest, image_path, bench=bench, now=now)
@@ -194,7 +196,7 @@ def test_publish_release_adds_entry_and_copies_image(tmp_path):
     assert entry["installed_at"] == []
     image_target = registry_mod.firmware_image_path(str(tmp_path), manifest["sha256"])
     with open(image_target, "rb") as fh:
-        assert fh.read() == _image_bytes(NEXT_VERSION.encode())
+        assert fh.read() == _image_bytes(NEXT_VERSION)
 
 
 def test_publish_release_idempotent_same_manifest_returns_exists(tmp_path):
@@ -260,7 +262,7 @@ def test_publish_release_rejects_zero_size(tmp_path):
 
 def test_publish_release_rejects_different_sha_same_version(tmp_path):
     _publish(tmp_path)
-    other_image = _image_bytes(b"a-completely-different-image")
+    other_image = _image_bytes(NEXT_VERSION, size=16384)
     other_path = _write_image(tmp_path, other_image, name="other.bin")
     other_manifest = _manifest_for(other_image, NEXT_VERSION)
     with pytest.raises(ValueError, match="version"):
@@ -268,7 +270,7 @@ def test_publish_release_rejects_different_sha_same_version(tmp_path):
 
 
 def test_publish_release_accepts_bench_version_with_suffix(tmp_path):
-    image = _image_bytes(b"bench-image")
+    image = _image_bytes("fw-v1.1.0-bench1")
     image_path = _write_image(tmp_path, image, name="bench.bin")
     manifest = _manifest_for(image, "fw-v1.1.0-bench1")
     outcome = registry_mod.publish_release(str(tmp_path), manifest, image_path, bench=True)
@@ -278,7 +280,7 @@ def test_publish_release_accepts_bench_version_with_suffix(tmp_path):
 
 
 def test_publish_release_rejects_bench_suffix_without_bench_flag(tmp_path):
-    image = _image_bytes(b"bench-image-2")
+    image = _image_bytes("fw-v1.1.0-bench1")
     image_path = _write_image(tmp_path, image, name="bench2.bin")
     manifest = _manifest_for(image, "fw-v1.1.0-bench1")
     with pytest.raises(ValueError, match="version"):
@@ -306,7 +308,7 @@ def test_publish_release_repairs_a_corrupted_image_already_on_disk(tmp_path):
     writing forever.
     """
     version = "fw-v1.3.0"
-    image = _image_bytes(version.encode())
+    image = _image_bytes(version)
     image_path = _write_image(tmp_path, image, name=version + ".bin")
     manifest = _manifest_for(image, version)
     sha256 = manifest["sha256"]
@@ -341,7 +343,7 @@ def test_schedule_release_unknown_version(tmp_path):
 
 
 def test_schedule_release_below_floor(tmp_path):
-    image = _image_bytes(b"below-floor")
+    image = _image_bytes(BELOW_FLOOR_VERSION)
     image_path = _write_image(tmp_path, image, name="below.bin")
     manifest = _manifest_for(image, BELOW_FLOOR_VERSION)
     registry_mod.publish_release(str(tmp_path), manifest, image_path)
@@ -356,7 +358,7 @@ def test_schedule_release_same_as_running(tmp_path):
 
 
 def test_schedule_release_older_release_schedules_successfully(tmp_path):
-    image = _image_bytes(b"older-release")
+    image = _image_bytes(OLDER_VERSION)
     image_path = _write_image(tmp_path, image, name="older.bin")
     manifest = _manifest_for(image, OLDER_VERSION)  # equals the floor, older than a running fw-v1.2.0
     registry_mod.publish_release(str(tmp_path), manifest, image_path)
@@ -488,7 +490,7 @@ def test_cancel_schedule_none_when_nothing_scheduled(tmp_path):
 def _publish_worker(state_dir, count):
     for i in range(count):
         version = "fw-v2.%d.0" % i
-        image = ("worker-a-image-%d" % i).encode()
+        image = build_image(version)
         image_path = os.path.join(state_dir, "src-%d.bin" % i)
         with open(image_path, "wb") as fh:
             fh.write(image)
@@ -512,7 +514,7 @@ def _schedule_worker(state_dir, count):
 def test_concurrent_publish_and_schedule_loses_no_update(tmp_path):
     state_dir = str(tmp_path)
     for seed_version in ("fw-v1.1.0", "fw-v1.2.0"):
-        image = ("seed-%s" % seed_version).encode()
+        image = build_image(seed_version)
         image_path = os.path.join(state_dir, seed_version + "-seed.bin")
         with open(image_path, "wb") as fh:
             fh.write(image)
@@ -1349,7 +1351,7 @@ def test_no_pre_fleet_copy_without_existing_registry_or_for_other_types(tmp_path
     path = registry_mod.registry_path(str(tmp_path))
     assert not os.path.exists(path + ".pre-fleet")
     other = tmp_path / "other"
-    img = _image_bytes(b"b")
+    img = _image_bytes(NEXT_VERSION)
     image_path = _write_image(tmp_path, img, "b.bin")
     registry_mod.publish_release(str(other), _manifest_for(img, NEXT_VERSION), image_path, now=NOW,
                                  hardware_type=TYPE_B)
@@ -1358,7 +1360,7 @@ def test_no_pre_fleet_copy_without_existing_registry_or_for_other_types(tmp_path
 
 
 def _publish_b(tmp_path, version=NEXT_VERSION):
-    img = _image_bytes(b"type-b-" + version.encode())
+    img = _image_bytes(version)
     image_path = _write_image(tmp_path, img, "b-%s.bin" % version)
     return registry_mod.publish_release(
         str(tmp_path), _manifest_for(img, version), image_path, now=NOW, hardware_type=TYPE_B)

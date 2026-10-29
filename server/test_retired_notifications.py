@@ -23,6 +23,7 @@ import server.http_fetch as http_fetch  # noqa: E402
 import server.net.safe_fetch as safe_fetch  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
 import server.state_store as state_store  # noqa: E402
+from skypane_fw_image import build_image  # noqa: E402
 
 _LEGACY_TOPIC_URL = "https://push.example/secret-topic"
 _LEGACY_GROUP = {
@@ -110,7 +111,7 @@ class _FakeResponse:
 
 
 def _schedule_installed_release(state_dir):
-    image = b"firmware-image-" + NEXT_VERSION.encode()
+    image = build_image(NEXT_VERSION)
     image_path = os.path.join(state_dir, NEXT_VERSION + ".bin")
     with open(image_path, "wb") as fh:
         fh.write(image)

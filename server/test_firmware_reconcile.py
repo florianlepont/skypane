@@ -24,6 +24,7 @@ if REPO_ROOT not in sys.path:
 import server.device_config as device_config  # noqa: E402
 import server.firmware_registry as firmware_registry  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
+from skypane_fw_image import build_image  # noqa: E402
 
 RUNNING_VERSION = "fw-v1.0.0"
 NEXT_VERSION = "fw-v1.1.0"
@@ -37,7 +38,7 @@ def _mkdir(base, name):
 
 
 def _image_bytes(version):
-    return b"firmware-image-" + version.encode()
+    return build_image(version)
 
 
 def _publish(state_dir, version=NEXT_VERSION):
