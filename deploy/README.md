@@ -469,10 +469,11 @@ ssh ubuntu@<vps-ip> "sudo -u skypane /bin/sh -c 'cd /opt/skypane/current && exec
 ```
 
 Check a file against a hardware type with the same parser publishing
-uses, without writing anything:
+uses, without writing anything (the file must be readable by the
+`skypane` user):
 
 ```bash
-python3 -m server.firmware_cli check-image --hardware-type <key> <file.bin>
+ssh ubuntu@<vps-ip> "sudo -u skypane /bin/sh -c 'cd /opt/skypane/current && exec /opt/skypane/venv/bin/python3 -m server.firmware_cli check-image --hardware-type <key> <path-to-file.bin>'"
 ```
 
 `list` and `import-bench` also take `--hardware-type <key>` (default:
