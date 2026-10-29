@@ -4,14 +4,14 @@ milestone: v1.2
 milestone_name: Fleet platform
 current_plan: 1
 status: executing
-stopped_at: Completed 49-06-PLAN.md
-last_updated: "2026-10-29T18:37:54.897Z"
+stopped_at: Completed 49-07-PLAN.md
+last_updated: "2026-10-29T18:52:12.293Z"
 last_activity: 2026-10-29
 progress:
   total_phases: 12
   completed_phases: 1
   total_plans: 19
-  completed_plans: 14
+  completed_plans: 15
   percent: 8
 ---
 
@@ -25,11 +25,11 @@ progress:
 ## Current Position
 
 Phase: 49 (per-hardware-ota-registry) — EXECUTING
-Plan: 7 of 11 (49-01, 49-02, 49-03 complete)
+Plan: 8 of 11 (49-01, 49-02, 49-03 complete)
 Status: Ready to execute
 Last activity: 2026-10-29
 
-Progress: [███████░░░] 74%
+Progress: [████████░░] 79%
 
 ## Progress
 
@@ -47,6 +47,7 @@ Progress: [███████░░░] 74%
 - Run `scripts/check_comment_history.py check` before Phase 48 and record the result for Phase 59.
 - [Phase 49]: Phase 49-02: OTA signing option S (one key for all hardware types), decided 2026-10-29 by project owner; revisitable before second board first cable flash (Phase 58)
 - [Phase 49]: import-dir orders by build; per-type pairs release-<key>.json + skypane-<key>-<tag>.bin; --hardware-type on import-bench/list/check-image
+- [Phase 49]: 49-07: legacy frame's report entry is not rewritten solely to add hardware_type (Phase 47 telemetry freeze)
 
 ### Pending Todos
 
@@ -59,5 +60,5 @@ None yet.
 
 ## Session Continuity
 
-**Stopped At:** Completed 49-06-PLAN.md
+**Stopped At:** Completed 49-07-PLAN.md
 **Resume File:** None
