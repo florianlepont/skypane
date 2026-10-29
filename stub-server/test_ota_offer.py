@@ -951,7 +951,7 @@ def publish_and_schedule(state_dir, version, hardware_type):
 def poll(byos_module, state_dir, token, headers=None, state=None):
     return byos_module._record_device_report_and_offer(
         state_dir, state if state is not None else FLEET_TOKEN_STATE,
-        dict(headers or {}, Authorization="Bearer %s" % token, **{"X-Fw-Version": "fw-v1.0.0"}),
+        {"X-Fw-Version": "fw-v1.0.0", **(headers or {}), "Authorization": "Bearer %s" % token},
         "http", "example.org")
 
 
@@ -1085,3 +1085,64 @@ def test_hardware_legacy_frame_offer_matches_a_registry_without_types(byos_modul
     offer = poll(byos_module, state_dir, KNOWN_TOKEN, state=TOKEN_STATE)
     assert set(offer) == {"version", "url", "sha256", "size"}
     assert offer["version"] == "fw-v1.1.0"
+
+
+def test_hardware_unresolved_device_is_stamped_and_leaves_the_legacy_document_untouched(byos_module, tmp_path):
+    state_dir = str(tmp_path)
+    publish_test_release(state_dir, "fw-v1.1.0")
+    assert firmware_registry.schedule_release(state_dir, "fw-v1.1.0", running_version=None) == "scheduled"
+    state = {"tokens": {SIM_MAC: SIM_TOKEN}}
+    legacy_path = firmware_registry.registry_path(state_dir)
+    with open(legacy_path, "rb") as fh:
+        legacy_before = fh.read()
+
+    assert poll(byos_module, state_dir, SIM_TOKEN, state=state) is None
+    poll(byos_module, state_dir, SIM_TOKEN, state=state,
+         headers={"X-Fw-Version": "fw-v1.1.0", "X-Ota-Result": "installed;fw-v1.1.0"})
+    entry = report_entry(state_dir, SIM_MAC)
+    assert entry["hardware_type"] == firmware_registry.UNRESOLVED_TYPE
+    assert entry["fw_version"] == "fw-v1.1.0"
+
+    assert firmware_registry.apply_reconcile_all(state_dir) == []
+    with open(legacy_path, "rb") as fh:
+        assert fh.read() == legacy_before
+    assert firmware_registry.load_registry(state_dir)["schedule"] is not None
+
+
+def test_hardware_installed_event_of_one_type_leaves_the_other_types_document_alone(byos_module, tmp_path, sim_gate):
+    state_dir = str(tmp_path)
+    seed_fleet(state_dir, [(KNOWN_MAC, KNOWN_TOKEN, hardware.LEGACY_KEY),
+                           (SIM_MAC, SIM_TOKEN, SIM_KEY)])
+    publish_and_schedule(state_dir, "fw-v1.1.0", hardware.LEGACY_KEY)
+    publish_and_schedule(state_dir, "fw-v1.2.0", SIM_KEY)
+    legacy_path = firmware_registry.registry_path(state_dir)
+    assert poll(byos_module, state_dir, SIM_TOKEN)["version"] == "fw-v1.2.0"
+    with open(legacy_path, "rb") as fh:
+        legacy_before = fh.read()
+
+    poll(byos_module, state_dir, SIM_TOKEN,
+         headers={"X-Fw-Version": "fw-v1.2.0", "X-Ota-Result": "installed;fw-v1.2.0"})
+    outcomes = firmware_registry.apply_reconcile_all(state_dir)
+
+    assert outcomes == [("installed", "fw-v1.2.0", None)]
+    assert firmware_registry.load_registry(state_dir, SIM_KEY)["schedule"] is None
+    with open(legacy_path, "rb") as fh:
+        assert fh.read() == legacy_before
+
+
+def test_hardware_fw_route_serves_a_release_registered_only_for_another_type(tmp_path, monkeypatch):
+    monkeypatch.setenv(hardware.SIM_ENV_VAR, "1")
+    state_dir = str(tmp_path)
+    harness = Harness(state_dir)
+    try:
+        harness.start()
+        legacy_sha, legacy_bytes = publish_test_release(state_dir, "fw-v1.1.0")
+        sim_sha = publish_and_schedule(state_dir, "fw-v1.2.0", SIM_KEY)
+        status, _, body = http_request(harness.base_url() + "/fw/%s.bin" % sim_sha)
+        assert status == 200 and hashlib.sha256(body).hexdigest() == sim_sha
+        status, _, body = http_request(harness.base_url() + "/fw/%s.bin" % legacy_sha)
+        assert status == 200 and body == legacy_bytes
+        status, _, _ = http_request(harness.base_url() + "/fw/" + "b" * 64 + ".bin")
+        assert status == 404
+    finally:
+        harness.stop()
