@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Tests for server/firmware_image.py: parser and target validation on
 synthetic images from the shared test-support builder."""
+import base64
 import dataclasses
+import pathlib
 
 import pytest
 
@@ -12,6 +14,10 @@ from skypane_fw_image import CORRUPTIONS, build_image, default_modulus
 
 TARGET = hardware.get_profile(hardware.LEGACY_KEY).firmware
 VERSION = "fw-v1.2.3"
+COMMITTED_PEM = (
+    pathlib.Path(__file__).resolve().parent.parent
+    / "firmware" / "signing" / "skypane-signing-pubkey.pem"
+)
 
 
 def test_round_trip_signed_image() -> None:
@@ -117,6 +123,87 @@ def test_expected_modulus_comparison() -> None:
     fi.validate_for_target(data, TARGET, expected_modulus=default_modulus())
     with pytest.raises(ValueError, match=r"^signature: key mismatch"):
         fi.validate_for_target(data, TARGET, expected_modulus=b"\x80" * 384)
+
+
+def _pem(der: bytes, label: str = "PUBLIC KEY") -> str:
+    body = base64.encodebytes(der).decode("ascii")
+    return f"-----BEGIN {label}-----\n{body}-----END {label}-----\n"
+
+
+def test_committed_key_modulus_is_a_3072_bit_rsa_modulus() -> None:
+    modulus = fi.public_key_modulus(COMMITTED_PEM.read_text())
+    assert len(modulus) == 384
+    assert modulus[0] & 0x80
+
+
+def test_committed_key_modulus_matches_an_image_carrying_it() -> None:
+    modulus = fi.public_key_modulus(COMMITTED_PEM.read_text())
+    data = build_image(VERSION, modulus=modulus)
+    assert fi.parse_app_image(data).modulus == modulus
+    fi.validate_for_target(data, TARGET, expected_modulus=modulus)
+
+
+def test_image_with_another_modulus_is_refused_against_the_committed_key() -> None:
+    modulus = fi.public_key_modulus(COMMITTED_PEM.read_text())
+    other = bytes([modulus[0] ^ 0x01]) + modulus[1:]
+    data = build_image(VERSION, modulus=other)
+    with pytest.raises(ValueError, match=r"^signature: key mismatch"):
+        fi.validate_for_target(data, TARGET, expected_modulus=modulus)
+
+
+def test_modulus_reader_accepts_bytes_and_path() -> None:
+    expected = fi.public_key_modulus(COMMITTED_PEM.read_text())
+    assert fi.public_key_modulus(COMMITTED_PEM.read_bytes()) == expected
+    assert fi.load_public_key_modulus(str(COMMITTED_PEM)) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "",
+        "not a pem",
+        "-----BEGIN PUBLIC KEY-----\n!!!notbase64!!!\n-----END PUBLIC KEY-----\n",
+        "-----BEGIN PUBLIC KEY-----\nAAAA\n-----END PUBLIC KEY-----\n",
+    ],
+)
+def test_malformed_pem_is_rejected_naming_the_field(text: str) -> None:
+    with pytest.raises(ValueError, match=r"^public_key: "):
+        fi.public_key_modulus(text)
+
+
+def test_truncated_der_is_rejected() -> None:
+    pem = COMMITTED_PEM.read_text().splitlines()
+    der = base64.b64decode("".join(pem[1:-1]))
+    with pytest.raises(ValueError, match=r"^public_key: "):
+        fi.public_key_modulus(_pem(der[:-40]))
+
+
+def test_non_rsa_key_is_rejected() -> None:
+    # SubjectPublicKeyInfo for an EC P-256 key (id-ecPublicKey, prime256v1).
+    ec = bytes.fromhex(
+        "3059301306072a8648ce3d020106082a8648ce3d03010703420004"
+        + "11" * 32 + "22" * 32
+    )
+    with pytest.raises(ValueError, match=r"^public_key: not an RSA key"):
+        fi.public_key_modulus(_pem(ec))
+
+
+def test_wrong_size_rsa_key_is_rejected() -> None:
+    n = bytes([0x80]) + bytes(127)  # 1024-bit
+    rsa_key = _der(0x30, _der(0x02, b"\x00" + n) + _der(0x02, b"\x01\x00\x01"))
+    alg = _der(0x30, _der(0x06, bytes.fromhex("2a864886f70d010101")) + b"\x05\x00")
+    spki = _der(0x30, alg + _der(0x03, b"\x00" + rsa_key))
+    with pytest.raises(ValueError, match=r"^public_key: .*3072"):
+        fi.public_key_modulus(_pem(spki))
+
+
+def _der(tag: int, body: bytes) -> bytes:
+    if len(body) < 0x80:
+        length = bytes([len(body)])
+    else:
+        raw = len(body).to_bytes((len(body).bit_length() + 7) // 8, "big")
+        length = bytes([0x80 | len(raw)]) + raw
+    return bytes([tag]) + length + body
 
 
 def test_size_bound_defaults_to_the_ota_slot_not_the_display_bound() -> None:

@@ -18,6 +18,8 @@ name ("image", "descriptor", "signature", "chip", "project_name",
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import re
 import struct
@@ -41,6 +43,17 @@ _SIG_MAGIC = (0xE7, 0x02)
 _SIG_DIGEST = (4, 36)
 _SIG_MODULUS = (36, 420)
 _SIG_CRC_OFFSET = 1196
+
+# DER constants for an RSA SubjectPublicKeyInfo.
+_DER_SEQUENCE = 0x30
+_DER_INTEGER = 0x02
+_DER_BIT_STRING = 0x03
+_DER_OID = 0x06
+_OID_RSA_ENCRYPTION = bytes.fromhex("2a864886f70d010101")
+_RSA_MODULUS_BYTES = 384  # RSA-3072
+_PEM_RE = re.compile(
+    rb"-----BEGIN PUBLIC KEY-----\s*([A-Za-z0-9+/=\s]+?)\s*-----END PUBLIC KEY-----"
+)
 
 CHIP_IDS: dict[str, int] = {
     "esp32": 0x0000,
@@ -186,3 +199,65 @@ def validate_for_target(
     if image.size > limit:
         raise ValueError(f"size: {image.size} bytes exceeds the {limit} byte bound")
     return image
+
+
+def _der_read(data: bytes, offset: int, tag: int, what: str) -> tuple[bytes, int]:
+    """Read one DER element of `tag` at `offset`; (content, next offset)."""
+    if offset + 2 > len(data) or data[offset] != tag:
+        raise ValueError(f"public_key: unexpected DER structure at {what}")
+    first = data[offset + 1]
+    pos = offset + 2
+    if first < 0x80:
+        length = first
+    else:
+        count = first & 0x7F
+        if count == 0 or count > 3 or pos + count > len(data):
+            raise ValueError(f"public_key: bad DER length at {what}")
+        length = int.from_bytes(data[pos:pos + count], "big")
+        pos += count
+    if pos + length > len(data):
+        raise ValueError(f"public_key: DER {what} runs past the end of the key")
+    return data[pos:pos + length], pos + length
+
+
+def public_key_modulus(pem: str | bytes) -> bytes:
+    """Big-endian RSA-3072 modulus of a PEM SubjectPublicKeyInfo key.
+
+    Reads only the public half with a minimal DER walk; raises ValueError
+    starting with "public_key" for malformed, non-RSA or non-3072-bit input.
+    """
+    raw = pem.encode("ascii", "replace") if isinstance(pem, str) else pem
+    match = _PEM_RE.search(raw)
+    if match is None:
+        raise ValueError("public_key: no PEM PUBLIC KEY block found")
+    try:
+        der = base64.b64decode(b"".join(match.group(1).split()), validate=True)
+    except binascii.Error:
+        raise ValueError("public_key: PEM body is not valid base64") from None
+    spki, end = _der_read(der, 0, _DER_SEQUENCE, "SubjectPublicKeyInfo")
+    if end != len(der):
+        raise ValueError("public_key: trailing bytes after the key")
+    alg, pos = _der_read(spki, 0, _DER_SEQUENCE, "algorithm")
+    oid, _ = _der_read(alg, 0, _DER_OID, "algorithm identifier")
+    if oid != _OID_RSA_ENCRYPTION:
+        raise ValueError("public_key: not an RSA key")
+    bits, _ = _der_read(spki, pos, _DER_BIT_STRING, "key bit string")
+    if not bits or bits[0] != 0:
+        raise ValueError("public_key: bad key bit string padding")
+    rsa, _ = _der_read(bits[1:], 0, _DER_SEQUENCE, "RSAPublicKey")
+    number, _ = _der_read(rsa, 0, _DER_INTEGER, "modulus")
+    modulus = number.lstrip(b"\0")
+    if len(modulus) != _RSA_MODULUS_BYTES:
+        raise ValueError(
+            f"public_key: modulus is {len(modulus) * 8} bits, expected RSA-3072"
+        )
+    return modulus
+
+
+def load_public_key_modulus(path: str) -> bytes:
+    """`public_key_modulus` of the PEM file at `path`."""
+    try:
+        with open(path, "rb") as fh:
+            return public_key_modulus(fh.read())
+    except OSError as exc:
+        raise ValueError(f"public_key: cannot read {path}: {exc.strerror}") from None
