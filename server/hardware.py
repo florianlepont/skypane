@@ -47,7 +47,11 @@ class BatteryProfile:
 class FirmwareTarget:
     idf_target: str
     project_name: str
-    max_image_bytes: int
+    max_image_bytes: int  # packed display image, not the firmware
+    # Bounds the OTA application image (the ota slot in
+    # firmware/partitions.csv); a new hardware type sets it from its own
+    # partition table.
+    max_app_bytes: int = 0x250000
 
 
 @dataclass(frozen=True)
