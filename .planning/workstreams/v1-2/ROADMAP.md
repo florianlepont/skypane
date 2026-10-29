@@ -78,7 +78,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 48-07-PLAN.md — Health-page signal for the fleet.db fallback (owner-confirmable) (DATA-02)
+- [x] 48-07-PLAN.md — Health-page signal for the fleet.db fallback (owner-confirmable) (DATA-02)
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
@@ -238,7 +238,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 48. Fleet Data Model, Roles and Live-Frame Migration | v1.2 | 5/7 | In Progress|  |
+| 48. Fleet Data Model, Roles and Live-Frame Migration | v1.2 | 6/7 | In Progress|  |
 | 49. Per-Hardware OTA Registry | v1.2 | 0/0 | Not started | - |
 | 50. Common Image Format | v1.2 | 0/0 | Not started | - |
 | 51. Per-Device Config, Image and State | v1.2 | 0/0 | Not started | - |
