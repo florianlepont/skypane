@@ -21,6 +21,7 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
+import os
 import re
 import struct
 import zlib
@@ -51,6 +52,7 @@ _DER_BIT_STRING = 0x03
 _DER_OID = 0x06
 _OID_RSA_ENCRYPTION = bytes.fromhex("2a864886f70d010101")
 _RSA_MODULUS_BYTES = 384  # RSA-3072
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _PEM_RE = re.compile(
     rb"-----BEGIN PUBLIC KEY-----\s*([A-Za-z0-9+/=\s]+?)\s*-----END PUBLIC KEY-----"
 )
@@ -193,7 +195,8 @@ def validate_for_target(
     _check_version(image.version, manifest_version, bench)
     if require_signature and image.signature_offset is None:
         raise ValueError("signature: image is not signed")
-    if expected_modulus is not None and image.modulus != expected_modulus:
+    if (expected_modulus is not None and image.modulus is not None
+            and image.modulus != expected_modulus):
         raise ValueError("signature: key mismatch")
     limit = target.max_app_bytes if max_bytes is None else max_bytes
     if image.size > limit:
@@ -261,3 +264,15 @@ def load_public_key_modulus(path: str) -> bytes:
             return public_key_modulus(fh.read())
     except OSError as exc:
         raise ValueError(f"public_key: cannot read {path}: {exc.strerror}") from None
+
+
+def signing_policy(target: hardware.FirmwareTarget) -> tuple[bool, bytes | None]:
+    """(require_signature, expected_modulus) for images of `target`.
+
+    The expected modulus is read from the target's repo-relative public key
+    path; an unreadable or malformed key raises ValueError (fail closed).
+    """
+    if target.signing_pubkey is None:
+        return target.require_signature, None
+    modulus = load_public_key_modulus(os.path.join(_REPO_ROOT, target.signing_pubkey))
+    return target.require_signature, modulus

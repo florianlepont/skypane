@@ -5,15 +5,17 @@ functions every other OTA surface uses.
 Every assertion is about observable behaviour (return values, files on
 disk, registry contents) -- never about the module's source text.
 """
+import dataclasses
 import hashlib
 import multiprocessing
 import os
 
 import pytest
 
+from server import firmware_image
 from server import firmware_registry as registry_mod
 from server import hardware
-from skypane_fw_image import build_image
+from skypane_fw_image import build_image, other_modulus
 
 RUNNING_VERSION = "fw-v1.0.0"
 NEXT_VERSION = "fw-v1.1.0"
@@ -1501,11 +1503,12 @@ LEGACY_TARGET = hardware.get_profile(hardware.LEGACY_KEY).firmware
 
 
 def _try_publish(tmp_path, image, version=NEXT_VERSION, bench=False,
-                 hardware_type=hardware.LEGACY_KEY, **overrides):
+                 hardware_type=hardware.LEGACY_KEY, allow_foreign_key=False, **overrides):
     manifest = _manifest_for(image, version, hardware_type=hardware_type, **overrides)
     image_path = _write_image(tmp_path, image, name="try-%s.bin" % hashlib.sha256(image).hexdigest()[:8])
     return registry_mod.publish_release(
-        str(tmp_path), manifest, image_path, bench=bench, now=NOW, hardware_type=hardware_type)
+        str(tmp_path), manifest, image_path, bench=bench, now=NOW, hardware_type=hardware_type,
+        allow_foreign_key=allow_foreign_key)
 
 
 def _nothing_written(tmp_path):
@@ -1545,8 +1548,56 @@ def test_legacy_size_bound_is_unchanged(tmp_path):
         _try_publish(tmp_path, over, version="fw-v1.2.0")
 
 
-def test_signing_policy_is_strict_for_every_type():
-    assert registry_mod._signing_policy(hardware.LEGACY_KEY) == (True, None)
+def _committed_modulus():
+    return firmware_image.load_public_key_modulus(
+        os.path.join(os.path.dirname(__file__), "..", hardware.COMMITTED_SIGNING_PUBKEY))
+
+
+def test_signing_policy_is_strict_for_every_type(sim_on):
+    expected = (True, _committed_modulus())
+    for key in hardware.available_types():
+        assert registry_mod._signing_policy(key) == expected
+
+
+def test_legacy_round_trip_is_unchanged_under_the_committed_key(tmp_path):
+    image = build_image(NEXT_VERSION)
+    assert _try_publish(tmp_path, image) == "added"
+    release = registry_mod.load_registry(str(tmp_path))["releases"][0]
+    assert release["sha256"] == hashlib.sha256(image).hexdigest()
+
+
+@pytest.mark.parametrize("key", [
+    hardware.LEGACY_KEY, hardware.SIM_CLONE_KEY, hardware.SIM_LANDSCAPE_KEY])
+def test_publish_refuses_an_image_signed_shape_with_another_key_for_any_type(
+        tmp_path, sim_on, key):
+    image = build_image(NEXT_VERSION, modulus=other_modulus())
+    with pytest.raises(ValueError, match="signature: key mismatch"):
+        _try_publish(tmp_path, image, hardware_type=key)
+    assert _nothing_written(tmp_path)
+
+
+def test_foreign_key_is_allowed_only_for_a_bench_publish(tmp_path):
+    image = build_image(NEXT_VERSION, modulus=other_modulus())
+    with pytest.raises(ValueError, match="allow_foreign_key"):
+        _try_publish(tmp_path, image, allow_foreign_key=True)
+    bench_version = NEXT_VERSION + "-wrongkey"
+    bench_image = build_image(bench_version, modulus=other_modulus())
+    assert _try_publish(
+        tmp_path, bench_image, version=bench_version, bench=True,
+        allow_foreign_key=True) == "added"
+
+
+def test_unreadable_committed_key_fails_closed(tmp_path, monkeypatch):
+    target = dataclasses.replace(
+        hardware.get_profile(hardware.LEGACY_KEY).firmware,
+        signing_pubkey="firmware/signing/does-not-exist.pem")
+    profile = dataclasses.replace(hardware.REGISTRY[hardware.LEGACY_KEY], firmware=target)
+    monkeypatch.setattr(
+        hardware, "REGISTRY",
+        {**hardware.REGISTRY, hardware.LEGACY_KEY: profile})
+    with pytest.raises(ValueError, match="public_key"):
+        _try_publish(tmp_path, build_image(NEXT_VERSION))
+    assert _nothing_written(tmp_path)
 
 
 def test_publish_stores_declared_type_and_derived_build(tmp_path):

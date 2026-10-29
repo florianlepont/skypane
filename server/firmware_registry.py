@@ -628,11 +628,9 @@ def _hash_and_size(path):
 
 def _signing_policy(hardware_type):
     """(require_signature, expected_modulus) applied to an image at
-    publish time. Every type currently requires a signed image and
-    compares no modulus; the per-type profile supplies the value once a
-    signing option is recorded for it.
+    publish time, read from the hardware type's firmware target.
     """
-    return True, None
+    return firmware_image.signing_policy(hardware.get_profile(hardware_type).firmware)
 
 
 def _validate_manifest(manifest, hardware_type, bench):
@@ -697,7 +695,8 @@ def _check_declared_type(manifest, version, hardware_type):
         )
 
 
-def _validate_image(manifest, version, image_bytes, hardware_type, bench):
+def _validate_image(manifest, version, image_bytes, hardware_type, bench,
+                    allow_foreign_key=False):
     """Check the image against the hardware type's firmware target and
     the signing policy; the manifest build, when given, must equal the
     build derived from the signed descriptor version. Returns the
@@ -705,6 +704,8 @@ def _validate_image(manifest, version, image_bytes, hardware_type, bench):
     """
     target = hardware.get_profile(hardware_type).firmware
     require_signature, expected_modulus = _signing_policy(hardware_type)
+    if allow_foreign_key:
+        expected_modulus = None
     image = firmware_image.validate_for_target(
         image_bytes, target, manifest_version=version, bench=bench,
         require_signature=require_signature, expected_modulus=expected_modulus,
@@ -754,7 +755,7 @@ def _store_image(state_dir, sha256, size, image_bytes):
 
 
 def publish_release(state_dir, manifest, image_path, bench=False, now=None,
-                    hardware_type=hardware.LEGACY_KEY):
+                    hardware_type=hardware.LEGACY_KEY, allow_foreign_key=False):
     """Register one release for `hardware_type`: validate the manifest,
     then (only when it is new) the image against that type's firmware
     target and the per-type build gate, copy the image into
@@ -762,8 +763,15 @@ def publish_release(state_dir, manifest, image_path, bench=False, now=None,
     identical (type, version, sha256): "exists", and the image is not
     validated again. Raises ValueError naming the offending field.
     Never deletes anything.
+
+    allow_foreign_key skips only the signing-key comparison (the image
+    must still carry a signature sector) and is valid for a bench publish
+    alone: it lets a bench session offer a wrongly signed image to a unit
+    to watch the device refuse it.
     """
     _checked_type(hardware_type)
+    if allow_foreign_key and not bench:
+        raise ValueError("allow_foreign_key: only a bench publish may skip the signing-key check")
     version, sha256, size, released_at, commit, notes = _validate_manifest(
         manifest, hardware_type, bench
     )
@@ -788,7 +796,7 @@ def publish_release(state_dir, manifest, image_path, bench=False, now=None,
                 "version: %r is already registered with a different sha256 (%s != %s)"
                 % (version, existing["sha256"], sha256)
             )
-        _validate_image(manifest, version, image_bytes, hardware_type, bench)
+        _validate_image(manifest, version, image_bytes, hardware_type, bench, allow_foreign_key)
         _apply_build_gate(registry, version, bench)
         _store_image(state_dir, sha256, size, image_bytes)
         registry["releases"].append({

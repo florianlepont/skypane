@@ -11,7 +11,9 @@ the same server.firmware_image validator the registry uses, so a
 wrong-type, mis-versioned or unsigned image fails here, before anything
 is published. Run it from the repository root with PYTHONPATH=. so the
 `server` package is importable; it needs no third-party package.
-`--check-only` runs that validation alone and writes nothing.
+The signing policy (signature required, key modulus compared) comes from
+the hardware type's profile, the same source the registry's publish gate
+uses. `--check-only` runs that validation alone and writes nothing.
 """
 import argparse
 import hashlib
@@ -27,13 +29,6 @@ from server import firmware_image, firmware_registry, hardware
 RELEASE_TAG_RE = re.compile(
     r"\Afw-v(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,3})\Z"
 )
-
-# Signing policy the descriptor check applies to every hardware type: the
-# image must carry a signature sector, and no particular signing key
-# (RSA modulus) is compared here -- espsecure verifies the signature
-# itself against the committed public key.
-DEFAULT_REQUIRE_SIGNATURE = True
-DEFAULT_EXPECTED_MODULUS = None
 
 # Matches server.firmware_registry's own release-note limits: at most
 # 60 notes, each truncated to 200 characters.
@@ -200,12 +195,13 @@ def check_image(image_path, hardware_type, version=None):
     profile = hardware.get_profile(hardware_type)
     with open(image_path, "rb") as fh:
         data = fh.read()
+    require_signature, expected_modulus = firmware_image.signing_policy(profile.firmware)
     return firmware_image.validate_for_target(
         data,
         profile.firmware,
         manifest_version=version,
-        require_signature=DEFAULT_REQUIRE_SIGNATURE,
-        expected_modulus=DEFAULT_EXPECTED_MODULUS,
+        require_signature=require_signature,
+        expected_modulus=expected_modulus,
     )
 
 

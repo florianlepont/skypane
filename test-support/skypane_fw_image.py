@@ -3,7 +3,7 @@
 Produces structurally valid images (header, one segment holding the 256-byte
 app descriptor, checksum, appended SHA-256 and, when signed, a 4 KiB
 signature sector with a correct embedded digest and CRC32). The RSA
-signature bytes are filler: these images pass the structural checks of
+signature bytes are filler (the embedded modulus is the committed release key's by default): these images pass the structural checks of
 server.firmware_image but are not cryptographically signed.
 """
 
@@ -12,10 +12,14 @@ from __future__ import annotations
 import hashlib
 import struct
 import zlib
+from pathlib import Path
 
 APP_DESC_MAGIC = 0xABCD5432
 SECTOR = 4096
 MODULUS_BYTES = 384
+COMMITTED_PUBKEY = (
+    Path(__file__).resolve().parent.parent / "firmware" / "signing" / "skypane-signing-pubkey.pem"
+)
 CORRUPTIONS = (
     "digest",
     "signature_digest",
@@ -27,7 +31,15 @@ CORRUPTIONS = (
 
 
 def default_modulus() -> bytes:
-    """Deterministic 384-byte big-endian modulus (top bit set)."""
+    """Big-endian modulus of the committed release public key, so default
+    synthetic images carry the key every hardware type is checked against."""
+    from server import firmware_image
+
+    return firmware_image.load_public_key_modulus(str(COMMITTED_PUBKEY))
+
+
+def other_modulus() -> bytes:
+    """Deterministic 384-byte modulus (top bit set) that is not the release key."""
     out = b""
     counter = 0
     while len(out) < MODULUS_BYTES:

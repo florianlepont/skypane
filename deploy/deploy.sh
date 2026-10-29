@@ -43,6 +43,7 @@ echo "==> Streaming the committed tree at ${SHA} to ${SSH_TARGET}:${INCOMING}"
 # shellcheck disable=SC2029
 git -C "${REPO_ROOT}" archive --format=tar "${SHA}" -- \
     server stub-server companion deploy adsb-test/runway3.json \
+    firmware/signing/skypane-signing-pubkey.pem \
     ':(exclude)server/state/**' \
     | ssh "${SSH_TARGET}" "sudo install -d -m 0755 /opt/skypane/releases \
         && sudo rm -rf '${INCOMING}' \

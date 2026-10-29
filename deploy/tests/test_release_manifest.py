@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 
 from server import firmware_registry, hardware
-from skypane_fw_image import build_image
+from skypane_fw_image import build_image, other_modulus
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _SCRIPT = _REPO_ROOT / "scripts" / "fw_release_manifest.py"
@@ -416,11 +416,31 @@ def test_check_only_needs_no_repo_or_out(tmp_path):
     assert result.returncode == 0, result.stderr
 
 
-def test_script_signing_policy_constants_are_strict_until_per_type_values_exist():
+def test_script_refuses_an_image_carrying_another_key(tmp_path):
+    image = tmp_path / "other-key.bin"
+    image.write_bytes(build_image("fw-v1.1.0", modulus=other_modulus()))
+    env = dict(os.environ, PYTHONPATH=str(_REPO_ROOT))
+    result = subprocess.run(
+        [sys.executable, str(_SCRIPT), "--tag", "fw-v1.1.0", "--image", str(image),
+         "--check-only"], capture_output=True, text=True, timeout=60, env=env)
+    assert result.returncode == 2
+    assert "signature: key mismatch" in result.stderr
+
+
+def test_script_takes_its_signing_policy_from_the_type_profile(tmp_path, monkeypatch):
+    import dataclasses
+
     import scripts.fw_release_manifest as fw_release_manifest
 
-    assert fw_release_manifest.DEFAULT_REQUIRE_SIGNATURE is True
-    assert fw_release_manifest.DEFAULT_EXPECTED_MODULUS is None
+    unsigned = tmp_path / "unsigned.bin"
+    unsigned.write_bytes(build_image("fw-v1.1.0", signed=False))
+    with pytest.raises(ValueError, match="signature: image is not signed"):
+        fw_release_manifest.check_image(str(unsigned), hardware.LEGACY_KEY, "fw-v1.1.0")
+    profile = hardware.REGISTRY[hardware.LEGACY_KEY]
+    relaxed = dataclasses.replace(
+        profile, firmware=dataclasses.replace(profile.firmware, require_signature=False))
+    monkeypatch.setattr(hardware, "REGISTRY", {**hardware.REGISTRY, hardware.LEGACY_KEY: relaxed})
+    fw_release_manifest.check_image(str(unsigned), hardware.LEGACY_KEY, "fw-v1.1.0")
 
 
 def test_script_runs_without_pillow(two_release_repo, tmp_path):

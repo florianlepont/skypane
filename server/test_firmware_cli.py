@@ -10,7 +10,7 @@ import os
 import pytest
 
 from server import firmware_cli, firmware_registry, hardware
-from skypane_fw_image import build_image
+from skypane_fw_image import build_image, other_modulus
 
 COMMIT = "a" * 40
 
@@ -426,6 +426,37 @@ def test_import_bench_records_bench_true_and_generated_note(tmp_path, capsys):
     assert release["version"] == "fw-v1.0.1-bench1"
     assert release["bench"] is True
     assert release["notes"] == ["Bench image (not a release)"]
+
+
+def test_import_bench_refuses_another_signing_key_unless_explicitly_allowed(tmp_path, capsys):
+    state_dir = tmp_path / "state"
+    image = tmp_path / "bench.bin"
+    image.write_bytes(build_image("fw-v1.0.1-wrongkey", modulus=other_modulus()))
+    args = [
+        "--state-dir", str(state_dir), "import-bench",
+        "--file", str(image), "--version", "fw-v1.0.1-wrongkey", "--commit", COMMIT,
+    ]
+
+    assert firmware_cli.main(args) == 1
+    assert "signature: key mismatch" in capsys.readouterr().err
+    assert firmware_registry.load_registry(str(state_dir))["releases"] == []
+
+    assert firmware_cli.main(args + ["--allow-foreign-key"]) == 0
+    release = firmware_registry.load_registry(str(state_dir))["releases"][0]
+    assert release["bench"] is True
+
+
+def test_allow_foreign_key_still_requires_a_signature_sector(tmp_path, capsys):
+    state_dir = tmp_path / "state"
+    image = tmp_path / "bench.bin"
+    image.write_bytes(build_image("fw-v1.0.1-unsigned", signed=False))
+    rc = firmware_cli.main([
+        "--state-dir", str(state_dir), "import-bench",
+        "--file", str(image), "--version", "fw-v1.0.1-unsigned", "--commit", COMMIT,
+        "--allow-foreign-key",
+    ])
+    assert rc == 1
+    assert "signature: image is not signed" in capsys.readouterr().err
 
 
 def test_import_bench_symlinked_image_rejected(tmp_path, capsys):

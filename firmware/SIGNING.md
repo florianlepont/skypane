@@ -341,3 +341,101 @@ by recording the decision.
 Voluntary rollback to an older, already-published release above the
 version floor stays allowed. The refusal of a lower build number applies
 at publish time only. This is settled context, not an open question.
+
+## Verification status
+
+Recorded option: S (one key for every hardware type). This section says
+what is checked automatically, what is not proven without hardware, and how
+to prove the rest on a bench unit.
+
+### Checked without hardware
+
+| Check | Where it runs | What it covers |
+|-------|---------------|----------------|
+| Kconfig chain | `sh firmware/tests/check_production_config.sh static` (and `built` against a build) | signature verification on update is on, every eFuse option is off |
+| C policy verdicts | `sh firmware/tests/run_host_tests.sh` (`test_ota_policy.c`) | project name, version and floor decisions of `fp_ota_image_check` |
+| Image structure | `server/firmware_image.py`, used by the publish gate, `server.firmware_cli check-image` and `scripts/fw_release_manifest.py` | chip id, project name, descriptor version, size bound, signature sector present and well formed |
+| Artifact key | same code, `expected_modulus` | the RSA modulus embedded in the image equals the modulus of `firmware/signing/skypane-signing-pubkey.pem`; for option S that key is the expected one for every type |
+| Per-type policy | `FirmwareTarget.require_signature` and `FirmwareTarget.signing_pubkey` in `server/hardware.py` | the publish gate and the manifest script read the same values; every type currently requires a signature and the committed key |
+| Signature validity | `espsecure.py verify_signature` in `firmware-release.yml`, and in `flash.sh` | RSA-PSS validity against the public key |
+
+The server-side key check compares the embedded modulus only. It never
+verifies an RSA-PSS signature. The cryptographic verifiers are `espsecure.py`
+in CI and the device itself.
+
+`server.firmware_cli import-bench` applies the same key check, so a bench
+image signed with another key is refused when it is imported. For a bench
+session that must offer such an image to a unit, `import-bench` takes
+`--allow-foreign-key`. It skips the key comparison only; an image without a
+signature sector is still refused. It exists for bench imports and cannot be
+used for a real release.
+
+### Not proven without hardware
+
+- A running device accepts a correctly signed OTA image and rejects a
+  wrongly signed or unsigned one with `fail-image`.
+- The `fail-image` and `fail-floor` result tokens round-trip from the device
+  into the server's reconcile.
+- Rollback behaviour for a wrong-hardware image. With option S the chip id
+  and the project name are the only device-side guards between two types.
+
+Earlier evidence: on the live EE02 frame, a wrong-key image and a tampered
+image were refused on the device during the Phase 42 hardware session
+(`hardware/logs/phase42/H42-09a-*` and `H42-09b-*`, summarised in
+`hardware/BRINGUP-LOG.md`). That evidence predates the per-type registry and
+concerns the legacy type only. It does not cover a second hardware type, and
+it does not replace the bench run below for this decision.
+
+### Bench procedure
+
+Use a bench unit that is NOT the live frame. Everything below uses a bench
+key kept outside the repository; never the release key, and never on the
+live frame.
+
+1. Pick the bench unit and the bench key (a throwaway key made with
+   `espsecure.py generate_signing_key --version 2 --scheme rsa3072`).
+2. Build a dev-profile image and sign it with the bench key. Cable-flash it
+   with `SKYPANE_PROFILE=dev SKYPANE_BENCH_PUBKEY=<bench public key>
+   firmware/flash.sh <port>`. The unit now trusts the bench key.
+3. Build a second image with a higher bench version (a suffix such as
+   `-bench1`), sign it with the SAME bench key, and publish it to the unit
+   with `server.firmware_cli import-bench --allow-foreign-key` (the bench key
+   is not the committed key). Schedule it to the bench unit only.
+4. Let the unit wake. Expect it to install, reboot and report the new
+   version.
+5. Build a third image with a higher bench version and sign it with a
+   DIFFERENT throwaway key (not the bench key, not the release key). Publish
+   it the same way and schedule it to the same unit.
+6. Let the unit wake while watching `firmware/monitor.sh`.
+7. Optionally repeat step 5 with an unsigned image. A device that was
+   cable-flashed with signing on cannot run an unsigned image, so the server
+   still refuses it; this step shows the refusal on the server side only.
+
+Pass when:
+- Step 4: the unit reports the new version and keeps polling.
+- Step 6: the device log shows the signature check failing and
+  `ota step=finish result=fail`, the unit keeps running the step-4 firmware,
+  and the next poll carries `X-Ota-Result: fail-image;<version>`
+  (visible in `firmware/monitor.sh` and in `device_report.json`).
+
+Fail when:
+- the wrongly signed image installs, or
+- the unit reboots into a boot loop, or
+- the result token is missing or is not `fail-image`.
+
+### Bench results (to be filled in by the owner)
+
+| Field | Value |
+|-------|-------|
+| Date | |
+| Bench unit (hardware type, serial) | |
+| Firmware versions (flashed / correctly signed / wrongly signed) | |
+| Correctly signed image installed (yes/no, reported version) | |
+| Wrongly signed image rejected on the device (yes/no) | |
+| Result token seen (`fail-image` expected) | |
+| Running firmware kept working after the rejection (yes/no) | |
+| Verdict (pass/fail/deferred) | |
+
+Until this table is filled in, the device-side accept and reject behaviour
+for a second hardware type is unproven, and no second non-simulated hardware
+may be provisioned.

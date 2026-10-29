@@ -20,7 +20,10 @@ Subcommands:
                                       hardware session, never by a
                                       deploy. V must carry a bench
                                       suffix (e.g. "-bench1"); a bare
-                                      release tag is refused. --commit
+                                      release tag is refused.
+                                      --allow-foreign-key skips the
+                                      signing-key comparison (bench
+                                      only). --commit
                                       is required when run from a
                                       checkout with no .git (a release
                                       directory such as
@@ -369,7 +372,8 @@ def cmd_import_bench(args):
     }
     try:
         outcome = firmware_registry.publish_release(
-            args.state_dir, manifest, args.file, bench=True, hardware_type=key)
+            args.state_dir, manifest, args.file, bench=True, hardware_type=key,
+            allow_foreign_key=args.allow_foreign_key)
     except (ValueError, firmware_registry.RegistryCorruptError) as exc:
         print("firmware_cli: %s" % exc, file=sys.stderr)
         return 1
@@ -464,6 +468,10 @@ def build_parser():
     import_bench.add_argument(
         "--hardware-type", default=hardware.LEGACY_KEY,
         help="hardware type key the bench image is for (default: %s)" % hardware.LEGACY_KEY)
+    import_bench.add_argument(
+        "--allow-foreign-key", action="store_true",
+        help="skip the signing-key comparison so a wrongly signed bench image can be "
+             "offered to a unit (the image must still carry a signature sector)")
     import_bench.set_defaults(func=cmd_import_bench)
 
     listp = sub.add_parser("list", parents=[common], help="list published releases")

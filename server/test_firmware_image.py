@@ -206,6 +206,14 @@ def _der(tag: int, body: bytes) -> bytes:
     return bytes([tag]) + length + body
 
 
+def test_unsigned_image_skips_the_modulus_check_when_signature_is_optional() -> None:
+    data = build_image(VERSION, signed=False)
+    fi.validate_for_target(
+        data, TARGET, require_signature=False, expected_modulus=default_modulus())
+    with pytest.raises(ValueError, match=r"^signature: image is not signed"):
+        fi.validate_for_target(data, TARGET, expected_modulus=default_modulus())
+
+
 def test_size_bound_defaults_to_the_ota_slot_not_the_display_bound() -> None:
     big = build_image(VERSION, size=1_118_208)
     assert len(big) >= 1_118_208

@@ -163,6 +163,7 @@ def test_deploy_streams_committed_tree_then_runs_activate(tmp_path):
         "server/poll_loop.py",
         "stub-server/byos_server.py",
         "adsb-test/runway3.json",
+        "firmware/signing/skypane-signing-pubkey.pem",
     ):
         assert expected in names, expected
 
