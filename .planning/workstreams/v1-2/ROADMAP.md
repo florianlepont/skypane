@@ -30,7 +30,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - Integer phases are planned milestone work, continuing from v1.1 (Phase 47).
 - Decimal phases are urgent insertions created only when needed.
 
-- [ ] **Phase 48: Fleet Data Model, Roles and Live-Frame Migration** - One fleet database with users, roles, devices and hardware profiles; the live frame migrated without any visible change.
+- [x] **Phase 48: Fleet Data Model, Roles and Live-Frame Migration** - One fleet database with users, roles, devices and hardware profiles; the live frame migrated without any visible change. (completed 2026-10-29)
 - [ ] **Phase 49: Per-Hardware OTA Registry** - Firmware releases are published, scheduled and offered per hardware type, with integrity checks.
 - [ ] **Phase 50: Common Image Format** - A versioned image container served only to frames that announce support, with a legacy-safe firmware reader specified.
 - [ ] **Phase 51: Per-Device Config, Image and State** - Every device has its own config, image, history and health, and the BYOS serves each frame its own image.
@@ -82,7 +82,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 48-06-PLAN.md — Freeze list and before/after migration replay tests (DATA-02, DATA-05)
+- [x] 48-06-PLAN.md — Freeze list and before/after migration replay tests (DATA-02, DATA-05)
 
 ### Phase 49: Per-Hardware OTA Registry
 
@@ -238,7 +238,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 48. Fleet Data Model, Roles and Live-Frame Migration | v1.2 | 6/7 | In Progress|  |
+| 48. Fleet Data Model, Roles and Live-Frame Migration | v1.2 | 7/7 | Complete   | 2026-10-29 |
 | 49. Per-Hardware OTA Registry | v1.2 | 0/0 | Not started | - |
 | 50. Common Image Format | v1.2 | 0/0 | Not started | - |
 | 51. Per-Device Config, Image and State | v1.2 | 0/0 | Not started | - |
