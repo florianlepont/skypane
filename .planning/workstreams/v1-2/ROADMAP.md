@@ -26,6 +26,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 ## Phases
 
 **Phase Numbering:**
+
 - Integer phases are planned milestone work, continuing from v1.1 (Phase 47).
 - Decimal phases are urgent insertions created only when needed.
 
@@ -45,139 +46,192 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 ## Phase Details
 
 ### Phase 48: Fleet Data Model, Roles and Live-Frame Migration
+
 **Goal**: The owner can record users, devices, hardware types and locations in one fleet database, and the live frame is migrated into it with no observable change.
 **Depends on**: Nothing in v1.2 (v1.1 Phase 47 must stay unaffected; production deploy waits for it)
 **Requirements**: DATA-01, DATA-02, DATA-03, DATA-04, DATA-05
 **Success Criteria** (what must be TRUE):
+
   1. After migration, the live frame's next poll returns the same image hash and wake interval as before, with no reflash and no re-enrolment (MAC, secret, token and file paths kept).
   2. The previous release still runs correctly on the migrated state, and re-running the migration changes nothing.
   3. The owner can create users with role admin or user, devices with exactly one owner each, and hardware types (including simulated ones) as profiles; the role is stored locally and never read from Auth0 alone.
   4. The fleet database is part of the backup and a restore from that backup is tested; a test fails if wake cadence, battery telemetry or poll state fields that Phase 47 measures change.
+
 **Plans**: 7 plans
 Plans:
+**Wave 1**
+
 - [ ] 48-01-PLAN.md — Hardware profile registry with env-gated simulated types (DATA-04)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 48-02-PLAN.md — fleet.db schema, user_version migrations, users/roles/locations/devices with one owner (DATA-01, DATA-03)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 48-03-PLAN.md — fleet_migrate (idempotent, dry-run), fleet_cli, live-shaped fixture (DATA-01..03)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 48-04-PLAN.md — byos auth from fleet.db with legacy fallback, dual-write, drop "default" bucket (DATA-02)
 - [ ] 48-05-PLAN.md — fleet.db in backup with tested restore; activate.sh backup, dry-run, migrate before swap (DATA-05, DATA-02)
-- [ ] 48-06-PLAN.md — Freeze list and before/after migration replay tests (DATA-02, DATA-05)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 48-07-PLAN.md — Health-page signal for the fleet.db fallback (owner-confirmable) (DATA-02)
 
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 48-06-PLAN.md — Freeze list and before/after migration replay tests (DATA-02, DATA-05)
+
 ### Phase 49: Per-Hardware OTA Registry
+
 **Goal**: The owner can publish and schedule firmware per hardware type, and no frame can ever be offered a binary built for another type or an older build.
 **Depends on**: Phase 48
 **Requirements**: OTA-01, OTA-02, OTA-03
 **Success Criteria** (what must be TRUE):
+
   1. The owner can publish and schedule a release for a chosen hardware type, and a simulated frame of each type is offered only a release of its own server-assigned type.
   2. Uploading a binary whose app descriptor or chip target does not match the declared type is rejected, and a lower build number than the current one is refused.
   3. The owner's decision on OTA signing (and any one-time cable flash it needs) is recorded before any second hardware is provisioned, and the chosen integrity check is verified on the device-side code path.
   4. The live frame's existing registry entries keep working unchanged (registry rewrite keeps a `*.pre-fleet` copy).
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 50: Common Image Format
+
 **Goal**: Images use one versioned container that any hardware type can carry, introduced without changing what existing frames receive.
 **Depends on**: Phase 48
 **Requirements**: IMG-01, IMG-02, IMG-03
 **Success Criteria** (what must be TRUE):
+
   1. A written spec and golden fixtures define the container (width, height, palette, length, checksum), and encoder and decoder agree on them.
   2. A frame that does not announce support receives its current raw image byte for byte; a frame that announces support receives the new container.
   3. The reference reader rejects bad magic, version, length or panel dimensions before touching a display buffer, and still accepts the legacy raw format (host-tested firmware reader).
+
 **Plans**: TBD
 
 ### Phase 51: Per-Device Config, Image and State
+
 **Goal**: Each device has its own config, image, poll state, history and health, so that one frame's settings and failures never affect another.
 **Depends on**: Phase 48, Phase 50
 **Requirements**: FLT-01, FLT-02
 **Success Criteria** (what must be TRUE):
+
   1. Two simulated devices each receive their own image from their own directory, and the live frame's files and responses are unchanged.
   2. The owner can trigger a poll for one device and set its quiet hours and timezone, and no other device's state changes.
   3. Each device shows its own history and health, and there is no fallback to a shared "default" device.
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 52: Fleet Poll Cycle, Zones and Request Budget
+
 **Goal**: The poll loop serves the whole fleet while total ADS-B requests stay within 1 per second.
 **Depends on**: Phase 51
 **Requirements**: FLT-03, FLT-04
 **Success Criteria** (what must be TRUE):
+
   1. Devices sharing a zone are served by one upstream request, and the budget holds across all providers and across the poll process and the companion's poll-now.
   2. A simulated 100-device fleet test with a fake clock shows at most 1 request per second.
   3. A provider failure or timeout for one device or zone leaves the other devices' images updated on time.
+
 **Plans**: TBD
 
 ### Phase 53: Detection Modes (Airport/Runway and Position/Radius)
+
 **Goal**: A device can follow traffic on any French runway, or any aircraft around a chosen position, in addition to the Orly runway 3 behaviour.
 **Depends on**: Phase 52
 **Requirements**: DET-01, DET-02, DET-03
 **Success Criteria** (what must be TRUE):
+
   1. The owner can pick an airport and runway from the committed France catalogue (real designators, rows without both thresholds absent) and the device follows it.
   2. Recorded Orly traffic replayed through the new runway logic gives the same decisions as the existing runway-3 geofence, and at least one parallel-runway airport is tested.
   3. A device set to a position and radius inside France shows aircraft around it; radius and country bounds are enforced, and coordinates sent to third parties are rounded.
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 54: Auth0 Sign-In, Local Roles and Default-Deny Access
+
 **Goal**: Invited users can sign in with Auth0, and every route enforces a minimum role and device ownership.
 **Depends on**: Phase 48 (and Phase 51 for device-scoped routes)
 **Requirements**: AUTH-01, AUTH-02, AUTH-03, AUTH-06
 **Success Criteria** (what must be TRUE):
+
   1. An admin-created user can sign in with Auth0 (state, nonce, issuer, audience and expiry checked), the Auth0 subject is linked once and matched on subject afterwards, and an uninvited person cannot create an account.
   2. The shared password still works as a flagged, throttled legacy-admin fallback with a dated removal task, and sessions no longer depend on that password.
   3. A route by role by owner matrix test proves every route is default-deny, and a user gets a 404 for another user's device.
   4. Frames still authenticate with MAC and secret independently of Auth0, and the whole auth flow is tested against a local fake Auth0 including failure modes.
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 55: Frame Pairing, Admin Console and Reduced User View
+
 **Goal**: Admins can add frames to users and manage the whole fleet; ordinary users manage only their own frames with a simpler view.
 **Depends on**: Phase 54
 **Requirements**: AUTH-04, AUTH-05
 **Success Criteria** (what must be TRUE):
+
   1. An admin can pair a new frame to a user with a short on-panel code that is single-use, expires, is claimed atomically, and is recorded in an audit log.
   2. The admin console shows every device with owner, hardware, last seen, battery and firmware, and lets the admin manage users, reassign or retire devices and manage releases.
   3. An ordinary user sees only their own frames with fewer options and no fleet or release controls.
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 56: Per-Hardware Rendering, Battery Profiles, Health and Credits
+
 **Goal**: What a frame displays and how its health is judged follow its hardware profile, and data sources are credited.
 **Depends on**: Phase 48, Phase 50, Phase 51 (final legacy battery numbers need Phase 47)
 **Requirements**: HWR-01, HWR-02
 **Success Criteria** (what must be TRUE):
+
   1. A simulated second-geometry frame is rendered natively from its profile, and a golden-image baseline shows the legacy render is unchanged.
   2. Battery thresholds and health views come from the device's profile, with the provenance of each battery number recorded.
   3. A credits page generated from one data file cites adsb.fi (with link), adsb.lol, adsbdb and OurAirports, and contact with adsb.fi / adsb.lol about multi-zone use is recorded.
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 57: Combined Legacy-Frame Firmware Release
+
 **Goal**: The live frame receives, in one OTA, every firmware change the fleet needs.
 **Depends on**: Phase 47 (v1.1, must be closed), Phase 49, Phase 50, Phase 54
 **Requirements**: OTA-04
 **Success Criteria** (what must be TRUE):
+
   1. One release bundles the image-header reader, any hardware header and recovery after repeated 401, and it is published only after Phase 47 allows it.
   2. After the OTA, the live frame still wakes on its cadence and displays a correct image, and it is served the new container only after announcing support.
   3. A frame that fails the update stays on the previous working firmware.
+
 **Plans**: TBD
 
 ### Phase 58: Second Hardware (Shortlist, Spike, Purchase, Validate)
+
 **Goal**: A second hardware type is chosen on evidence and proven on a real unit.
 **Depends on**: Phase 49, Phase 50, Phase 56
 **Requirements**: HW2-01, HW2-02
 **Success Criteria** (what must be TRUE):
+
   1. The owner can choose from a documented shortlist after a time-boxed ESP-IDF panel-driver spike, with the choice within the hardware budget; no purchase happens before the spike.
   2. The evaluation unit is cable-flashed, receives a real OTA, and shows a native layout.
   3. A measured battery sample is recorded and the battery model for the new type is rebuilt from it.
+
 **Plans**: TBD
 
 ### Phase 59: Comment-History Debt
+
 **Goal**: The comment-history guard passes without a growing baseline, and no v1.2 phase has added violations.
 **Depends on**: Phase 48 (guard checked before it starts; runs last)
 **Requirements**: DEBT-01
 **Success Criteria** (what must be TRUE):
+
   1. `scripts/check_comment_history.py check` passes in CI, or its baseline is strictly smaller than before v1.2.
   2. The check output measured before Phase 48 is recorded, and no v1.2 phase raised it.
+
 **Plans**: TBD
 
 ## Progress
