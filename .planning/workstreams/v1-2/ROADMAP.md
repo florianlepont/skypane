@@ -96,7 +96,34 @@ Plans:
   3. The owner's decision on OTA signing (and any one-time cable flash it needs) is recorded before any second hardware is provisioned, and the chosen integrity check is verified on the device-side code path.
   4. The live frame's existing registry entries keep working unchanged (registry rewrite keeps a `*.pre-fleet` copy).
 
-**Plans**: TBD
+**Plans**: 11 plans
+Plans:
+**Wave 1**
+
+- [ ] 49-01-PLAN.md — Stdlib ESP image parser, synthetic image builder, separate firmware size bound (OTA-02)
+- [ ] 49-02-PLAN.md — OTA signing decision checkpoint (S/P/M/N) recorded in firmware/SIGNING.md, non-autonomous (OTA-03)
+- [ ] 49-03-PLAN.md — Per-type registry documents, pre-fleet copy, type-filtered reconcile/view (OTA-01)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 49-04-PLAN.md — Migrate publishing test fixtures to valid synthetic images (OTA-02)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 49-05-PLAN.md — publish_release image validation, grandfather rule, per-type build gate (OTA-01, OTA-02)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 49-06-PLAN.md — firmware_cli per-type, build-ordered import, check-image, docs (OTA-01, OTA-02)
+- [ ] 49-07-PLAN.md — byos type resolution, per-type offers, report stamp, reconcile-all (OTA-01)
+- [ ] 49-08-PLAN.md — Update page type chooser, EN/FR (OTA-01)
+- [ ] 49-09-PLAN.md — Release manifest hardware_type/build and CI descriptor check (OTA-01, OTA-02)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 49-10-PLAN.md — Hardware-free verification of the chosen signing option and bench checkpoint, non-autonomous (OTA-03)
+- [ ] 49-11-PLAN.md — End-to-end and live-frame regression, phase gates (OTA-01, OTA-02)
+
 **UI hint**: yes
 
 ### Phase 50: Common Image Format
