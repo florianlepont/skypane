@@ -52,6 +52,7 @@ if _TEST_SUPPORT_DIR not in sys.path:
 
 from server import device_policy, firmware_registry, state_store  # noqa: E402 - path bootstrap above must run first
 from skypane_test_support import child_env  # noqa: E402
+from skypane_fw_image import build_image  # noqa: E402
 
 # A fixed MAC/token pair seeded directly into byos_state.json (never
 # through the /device/v1/setup handshake, which stub-server/
@@ -131,12 +132,12 @@ def raw_http_get(port, path, extra_header_lines=None, read_timeout=5.0):
 def publish_test_release(state_dir, version, image_bytes=None, commit="a" * 40, notes=None):
     """Publish one release through server/firmware_registry.py's own
     publish_release() - never a hand-written registry.json entry - and
-    return (sha256, image_bytes). image_bytes defaults to a small
-    deterministic buffer derived from `version`, well under
+    return (sha256, image_bytes). image_bytes defaults to a valid
+    synthetic image whose descriptor version is `version`, well under
     firmware_registry.MAX_IMAGE_BYTES.
     """
     if image_bytes is None:
-        image_bytes = hashlib.sha256(version.encode("ascii")).digest() * 64
+        image_bytes = build_image(version)
     image_path = os.path.join(state_dir, "release-%s.bin" % version.replace(".", "_").replace("-", "_"))
     with open(image_path, "wb") as fh:
         fh.write(image_bytes)
@@ -792,7 +793,7 @@ def test_serve_firmware_image_streams_in_fixed_size_chunks(byos_module, tmp_path
     over HTTP.
     """
     state_dir = str(tmp_path)
-    image_bytes = os.urandom(3 * byos_module._FW_STREAM_CHUNK_BYTES + 100)
+    image_bytes = build_image("fw-v1.0.0", size=3 * byos_module._FW_STREAM_CHUNK_BYTES + 100)
     image_path = os.path.join(state_dir, "release.bin")
     with open(image_path, "wb") as fh:
         fh.write(image_bytes)

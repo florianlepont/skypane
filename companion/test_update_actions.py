@@ -23,6 +23,7 @@ from companion_app_server import get, http_request, login
 from companion_markup import flash_toast_title_detail
 from server import atomic_io
 from server import firmware_registry as fr
+from skypane_fw_image import build_image
 
 _NOW = "2026-09-28T12:00:00+00:00"
 
@@ -43,7 +44,7 @@ def _seed_releases(state_dir):
     os.makedirs(str(state_dir), exist_ok=True)
     for version in (_FLOOR_VERSION, _DOWNGRADE_VERSION, _RUNNING_VERSION):
         image_path = os.path.join(str(state_dir), version + ".bin")
-        image_bytes = ("fake-firmware-" + version).encode()
+        image_bytes = build_image(version)
         with open(image_path, "wb") as fh:
             fh.write(image_bytes)
         manifest = {
@@ -341,7 +342,7 @@ def test_confirm_page_shows_bench_note_for_a_bench_release(server, cookie):
     (not just the page module's own rendering) wires the flag through"""
     bench_version = "fw-v1.2.0-bench1"
     image_path = os.path.join(server.state_dir, bench_version + ".bin")
-    image_bytes = ("fake-firmware-" + bench_version).encode()
+    image_bytes = build_image(bench_version)
     with open(image_path, "wb") as fh:
         fh.write(image_bytes)
     manifest = {

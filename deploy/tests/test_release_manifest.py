@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from server import firmware_registry
+from skypane_fw_image import build_image
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _SCRIPT = _REPO_ROOT / "scripts" / "fw_release_manifest.py"
@@ -79,8 +80,9 @@ def two_release_repo(tmp_path):
     return repo
 
 
-def _make_image(path, size=1024, fill=b"\xab"):
-    path.write_bytes(fill * size)
+def _make_image(path, version="fw-v1.1.0", size=None):
+    """Write a valid synthetic image whose descriptor version is `version`."""
+    path.write_bytes(build_image(version, size=size))
     return path
 
 
@@ -95,7 +97,7 @@ def test_second_release_notes_are_firmware_only_newest_first_no_merges(two_relea
 
 
 def test_first_release_notes_list_firmware_commits_up_to_it(two_release_repo, tmp_path):
-    image = _make_image(tmp_path / "skypane.bin")
+    image = _make_image(tmp_path / "skypane.bin", "fw-v1.0.0")
     out = tmp_path / "release.json"
     result = _run_cli("fw-v1.0.0", image, out, two_release_repo)
     assert result.returncode == 0, result.stderr
@@ -106,7 +108,7 @@ def test_first_release_notes_list_firmware_commits_up_to_it(two_release_repo, tm
 
 
 def test_manifest_fields_match_image_and_commit(two_release_repo, tmp_path):
-    image = _make_image(tmp_path / "skypane.bin", size=2048, fill=b"\x11")
+    image = _make_image(tmp_path / "skypane.bin")
     out = tmp_path / "release.json"
     result = _run_cli("fw-v1.1.0", image, out, two_release_repo)
     assert result.returncode == 0, result.stderr
@@ -114,7 +116,7 @@ def test_manifest_fields_match_image_and_commit(two_release_repo, tmp_path):
 
     expected_sha256 = hashlib.sha256(image.read_bytes()).hexdigest()
     assert manifest["sha256"] == expected_sha256
-    assert manifest["size"] == 2048
+    assert manifest["size"] == image.stat().st_size
 
     expected_commit = _git(two_release_repo, "rev-list", "-n", "1", "fw-v1.1.0").strip()
     assert manifest["commit"] == expected_commit
@@ -135,7 +137,7 @@ def test_malformed_tag_exits_2(two_release_repo, tmp_path, bad_tag):
 
 def test_oversized_image_exits_2(two_release_repo, tmp_path):
     image = tmp_path / "skypane.bin"
-    _make_image(image, size=firmware_registry.MAX_IMAGE_BYTES + 1, fill=b"\x00")
+    _make_image(image, size=firmware_registry.MAX_IMAGE_BYTES + 1)
     out = tmp_path / "release.json"
     result = _run_cli("fw-v1.1.0", image, out, two_release_repo)
     assert result.returncode == 2
@@ -147,7 +149,7 @@ def test_long_subject_is_truncated_to_200_chars(tmp_path):
     long_subject = "X" * 250
     _commit(repo, "firmware/x.c", "int x;\n", long_subject)
     _tag(repo, "fw-v1.0.0")
-    image = _make_image(tmp_path / "skypane.bin")
+    image = _make_image(tmp_path / "skypane.bin", "fw-v1.0.0")
     out = tmp_path / "release.json"
     result = _run_cli("fw-v1.0.0", image, out, repo)
     assert result.returncode == 0, result.stderr
@@ -183,7 +185,7 @@ def test_more_than_60_firmware_commits_are_capped_with_a_summary_entry(tmp_path)
     for i in range(65):
         _commit(repo, "firmware/f%02d.c" % i, "int f%d;\n" % i, "commit %02d" % i)
     _tag(repo, "fw-v1.0.0")
-    image = _make_image(tmp_path / "skypane.bin")
+    image = _make_image(tmp_path / "skypane.bin", "fw-v1.0.0")
     out = tmp_path / "release.json"
     result = _run_cli("fw-v1.0.0", image, out, repo)
     assert result.returncode == 0, result.stderr
@@ -207,7 +209,7 @@ def test_notes_md_is_a_heading_plus_bullet_list(two_release_repo, tmp_path):
 
 
 def test_manifest_round_trips_through_firmware_registry_publish_release(two_release_repo, tmp_path):
-    image = _make_image(tmp_path / "skypane.bin", size=4096, fill=b"\x42")
+    image = _make_image(tmp_path / "skypane.bin")
     out = tmp_path / "release.json"
     result = _run_cli("fw-v1.1.0", image, out, two_release_repo)
     assert result.returncode == 0, result.stderr
@@ -288,7 +290,7 @@ def test_cli_notes_are_cleaned_but_manifest_identity_is_untouched(tmp_path):
     _commit(repo, "firmware/b.c", "int b;\n", "chore(firmware): housekeeping (#8)")
     _commit(repo, "firmware/c.c", "int c;\n", "Phase 42: honest Update page (#9)")
     _tag(repo, "fw-v1.0.0")
-    image = _make_image(tmp_path / "skypane.bin", size=512, fill=b"\x5a")
+    image = _make_image(tmp_path / "skypane.bin", "fw-v1.0.0")
     out = tmp_path / "release.json"
     notes_md = tmp_path / "notes.md"
     result = _run_cli("fw-v1.0.0", image, out, repo, notes_md=notes_md)
@@ -296,7 +298,7 @@ def test_cli_notes_are_cleaned_but_manifest_identity_is_untouched(tmp_path):
     manifest = json.loads(out.read_text())
     assert manifest["notes"] == ["Honest Update page", "Keep the rail off"]
     assert manifest["sha256"] == hashlib.sha256(image.read_bytes()).hexdigest()
-    assert manifest["size"] == 512 and manifest["version"] == "fw-v1.0.0"
+    assert manifest["size"] == image.stat().st_size and manifest["version"] == "fw-v1.0.0"
     assert "- Honest Update page" in notes_md.read_text()
     assert firmware_registry.publish_release(
         str(tmp_path / "state"), manifest, str(image)) == "added"
@@ -306,7 +308,7 @@ def test_a_release_whose_commits_are_all_housekeeping_has_no_notes(tmp_path):
     repo = _init_repo(tmp_path / "repo")
     _commit(repo, "firmware/a.c", "int a;\n", "chore(firmware): bump (#1)")
     _tag(repo, "fw-v1.0.0")
-    image = _make_image(tmp_path / "skypane.bin")
+    image = _make_image(tmp_path / "skypane.bin", "fw-v1.0.0")
     out = tmp_path / "release.json"
     notes_md = tmp_path / "notes.md"
     assert _run_cli("fw-v1.0.0", image, out, repo, notes_md=notes_md).returncode == 0

@@ -26,6 +26,7 @@ from companion_app_server import get, login
 from companion_markup import parse_html, toast_title_detail
 from server import atomic_io
 from server import firmware_registry as fr
+from skypane_fw_image import build_image
 
 _NOW = "2026-09-28T12:00:00+00:00"
 
@@ -667,7 +668,7 @@ def _seed_update_state(state_dir):
     it directly rather than through firmware_registry's own API."""
     os.makedirs(str(state_dir), exist_ok=True)
     image_path = os.path.join(str(state_dir), "fixture.bin")
-    image_bytes = b"fake-firmware-image-bytes"
+    image_bytes = build_image("fw-v1.0.0")
     with open(image_path, "wb") as fh:
         fh.write(image_bytes)
     manifest = {

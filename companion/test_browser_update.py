@@ -33,6 +33,7 @@ from companion.test_browser_ux_helpers import (
 )
 from server import atomic_io
 from server import firmware_registry as fr
+from skypane_fw_image import build_image
 
 pytestmark = pytest.mark.browser
 
@@ -71,7 +72,7 @@ def _seed_three_releases_with_realistic_notes(state_dir):
     )
     for version, notes in releases:
         image_path = os.path.join(str(state_dir), version + ".bin")
-        image_bytes = ("fake-firmware-" + version).encode()
+        image_bytes = build_image(version)
         with open(image_path, "wb") as fh:
             fh.write(image_bytes)
         manifest = {
@@ -108,7 +109,7 @@ def _seed_running_bench_and_newer(state_dir):
     )
     for version, published_at, bench, notes in releases:
         image_path = os.path.join(str(state_dir), version + ".bin")
-        image_bytes = ("fake-firmware-" + version).encode()
+        image_bytes = build_image(version)
         with open(image_path, "wb") as fh:
             fh.write(image_bytes)
         manifest = {
@@ -150,7 +151,7 @@ def _seed_many_releases(state_dir, scenario=None):
         if minor == 0:
             notes[-1] = _UNBROKEN_NOTE
         image_path = os.path.join(str(state_dir), version + ".bin")
-        image_bytes = ("fake-firmware-" + version).encode()
+        image_bytes = build_image(version)
         with open(image_path, "wb") as fh:
             fh.write(image_bytes)
         fr.publish_release(str(state_dir), {
