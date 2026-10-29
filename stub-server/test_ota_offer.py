@@ -50,7 +50,7 @@ _TEST_SUPPORT_DIR = os.path.join(REPO_ROOT, "test-support")
 if _TEST_SUPPORT_DIR not in sys.path:
     sys.path.insert(0, _TEST_SUPPORT_DIR)
 
-from server import device_policy, firmware_registry, state_store  # noqa: E402 - path bootstrap above must run first
+from server import atomic_io, device_policy, firmware_registry, fleet_db, state_store  # noqa: E402 - path bootstrap above must run first
 from server import hardware  # noqa: E402
 from skypane_test_support import child_env  # noqa: E402
 from skypane_fw_image import build_image  # noqa: E402
@@ -248,6 +248,16 @@ class Harness:
 @pytest.fixture(scope="module")
 def byos_module():
     return load_byos_module()
+
+
+@pytest.fixture(autouse=True)
+def _legacy_device_registered(tmp_path):
+    """The known test device is enrolled in the legacy devices.json
+    registry, the only place a frame without a fleet.db row resolves to
+    the legacy hardware type from.
+    """
+    with open(os.path.join(str(tmp_path), "devices.json"), "w") as fh:
+        json.dump({"devices": {KNOWN_MAC: {"secret_sha256": "0" * 64}}}, fh)
 
 
 # --- The offer in GET /device/v1/display ----------------------------------
@@ -892,3 +902,186 @@ def test_resolve_device_id_returns_none_when_nothing_matches(byos_module):
     assert byos_module._resolve_device_id({"tokens": {KNOWN_MAC: KNOWN_TOKEN}}, None) is None
     assert byos_module._resolve_device_id({"tokens": {KNOWN_MAC: KNOWN_TOKEN}}, 5) is None
     assert byos_module._resolve_device_id({"tokens": {KNOWN_MAC: KNOWN_TOKEN}}, "") is None
+
+
+# --- Per-hardware offers ---------------------------------------------------
+
+SIM_KEY = hardware.SIM_CLONE_KEY
+SIM_MAC = "aa:bb:cc:dd:ee:02"
+SIM_TOKEN = "ef" * 32
+FLEET_TOKEN_STATE = {"tokens": {}}
+
+
+@pytest.fixture
+def sim_gate(monkeypatch):
+    monkeypatch.setenv(hardware.SIM_ENV_VAR, "1")
+
+
+def seed_fleet(state_dir, devices):
+    """Create a migrated fleet.db holding (mac, token, hardware_type) rows."""
+    conn = fleet_db.connect(state_dir)
+    try:
+        fleet_db.meta_set(conn, fleet_db.META_MIGRATED, "1")
+        owner = fleet_db.add_user(conn, "owner@example.com", "admin")
+        for mac, token, hardware_type in devices:
+            fleet_db.add_device(
+                conn, mac, "1" * 64, hardware_type, owner, token=token,
+                environ={hardware.SIM_ENV_VAR: "1"})
+    finally:
+        conn.close()
+
+
+def publish_and_schedule(state_dir, version, hardware_type):
+    image_bytes = build_image(version)
+    image_path = os.path.join(state_dir, "img-%s-%s.bin" % (hardware_type, version))
+    with open(image_path, "wb") as fh:
+        fh.write(image_bytes)
+    manifest = {
+        "version": version, "sha256": hashlib.sha256(image_bytes).hexdigest(),
+        "size": len(image_bytes), "released_at": "2026-01-01T00:00:00Z",
+        "commit": "a" * 40, "notes": [], "hardware_type": hardware_type,
+    }
+    firmware_registry.publish_release(
+        state_dir, manifest, image_path, hardware_type=hardware_type)
+    assert firmware_registry.schedule_release(
+        state_dir, version, None, hardware_type=hardware_type) == "scheduled"
+    return manifest["sha256"]
+
+
+def poll(byos_module, state_dir, token, headers=None, state=None):
+    return byos_module._record_device_report_and_offer(
+        state_dir, state if state is not None else FLEET_TOKEN_STATE,
+        dict(headers or {}, Authorization="Bearer %s" % token, **{"X-Fw-Version": "fw-v1.0.0"}),
+        "http", "example.org")
+
+
+def report_entry(state_dir, mac):
+    return firmware_registry.load_device_report(state_dir)["devices"][mac]
+
+
+def test_hardware_each_type_is_offered_only_its_own_release(byos_module, tmp_path, sim_gate):
+    state_dir = str(tmp_path)
+    seed_fleet(state_dir, [(KNOWN_MAC, KNOWN_TOKEN, hardware.LEGACY_KEY),
+                           (SIM_MAC, SIM_TOKEN, SIM_KEY)])
+    legacy_sha = publish_and_schedule(state_dir, "fw-v1.1.0", hardware.LEGACY_KEY)
+    sim_sha = publish_and_schedule(state_dir, "fw-v1.2.0", SIM_KEY)
+
+    legacy_offer = poll(byos_module, state_dir, KNOWN_TOKEN)
+    sim_offer = poll(byos_module, state_dir, SIM_TOKEN)
+
+    assert legacy_offer["version"] == "fw-v1.1.0"
+    assert legacy_offer["sha256"] == "sha256:" + legacy_sha
+    assert sim_offer["version"] == "fw-v1.2.0"
+    assert sim_offer["sha256"] == "sha256:" + sim_sha
+    assert report_entry(state_dir, KNOWN_MAC)["hardware_type"] == hardware.LEGACY_KEY
+    assert report_entry(state_dir, SIM_MAC)["hardware_type"] == SIM_KEY
+
+
+def test_hardware_type_with_no_schedule_gets_nothing_from_another_types_schedule(byos_module, tmp_path, sim_gate):
+    state_dir = str(tmp_path)
+    seed_fleet(state_dir, [(SIM_MAC, SIM_TOKEN, SIM_KEY)])
+    publish_and_schedule(state_dir, "fw-v1.1.0", hardware.LEGACY_KEY)
+    assert poll(byos_module, state_dir, SIM_TOKEN) is None
+
+
+def test_hardware_unknown_type_in_fleet_db_gets_no_offer(byos_module, tmp_path, sim_gate):
+    state_dir = str(tmp_path)
+    seed_fleet(state_dir, [(KNOWN_MAC, KNOWN_TOKEN, hardware.LEGACY_KEY)])
+    publish_and_schedule(state_dir, "fw-v1.1.0", hardware.LEGACY_KEY)
+    conn = fleet_db.connect(state_dir)
+    try:
+        conn.execute("UPDATE devices SET hardware_type = 'retired-type' WHERE mac = ?", (KNOWN_MAC,))
+    finally:
+        conn.close()
+
+    assert poll(byos_module, state_dir, KNOWN_TOKEN) is None
+    assert report_entry(state_dir, KNOWN_MAC)["hardware_type"] == firmware_registry.UNRESOLVED_TYPE
+
+
+def test_hardware_simulated_type_with_the_gate_off_gets_no_offer(byos_module, tmp_path, monkeypatch):
+    monkeypatch.setenv(hardware.SIM_ENV_VAR, "1")
+    state_dir = str(tmp_path)
+    seed_fleet(state_dir, [(SIM_MAC, SIM_TOKEN, SIM_KEY)])
+    publish_and_schedule(state_dir, "fw-v1.2.0", SIM_KEY)
+    monkeypatch.delenv(hardware.SIM_ENV_VAR)
+
+    assert poll(byos_module, state_dir, SIM_TOKEN) is None
+    assert report_entry(state_dir, SIM_MAC)["hardware_type"] == firmware_registry.UNRESOLVED_TYPE
+
+
+def test_hardware_mac_without_a_fleet_row_resolves_to_nothing(byos_module, tmp_path):
+    state_dir = str(tmp_path)
+    seed_fleet(state_dir, [(KNOWN_MAC, KNOWN_TOKEN, hardware.LEGACY_KEY)])
+    assert byos_module.resolve_hardware_type(state_dir, KNOWN_MAC) == hardware.LEGACY_KEY
+    assert byos_module.resolve_hardware_type(state_dir, SIM_MAC) is None
+
+
+def test_hardware_fallback_serves_the_legacy_device_and_refuses_a_fleet_only_one(byos_module, tmp_path, sim_gate):
+    state_dir = str(tmp_path)
+    publish_and_schedule(state_dir, "fw-v1.1.0", hardware.LEGACY_KEY)
+    state = {"tokens": {KNOWN_MAC: KNOWN_TOKEN, SIM_MAC: SIM_TOKEN}}
+
+    for prepare in (lambda: None, lambda: open(fleet_db.fleet_db_path(state_dir), "w").close()):
+        prepare()
+        legacy_offer = poll(byos_module, state_dir, KNOWN_TOKEN, state=state)
+        assert legacy_offer is not None and legacy_offer["version"] == "fw-v1.1.0"
+        assert poll(byos_module, state_dir, SIM_TOKEN, state=state) is None
+        assert report_entry(state_dir, KNOWN_MAC)["hardware_type"] == hardware.LEGACY_KEY
+        assert report_entry(state_dir, SIM_MAC)["hardware_type"] == firmware_registry.UNRESOLVED_TYPE
+
+
+def test_hardware_claimed_by_the_device_has_no_effect(byos_module, tmp_path, sim_gate):
+    state_dir = str(tmp_path)
+    seed_fleet(state_dir, [(KNOWN_MAC, KNOWN_TOKEN, hardware.LEGACY_KEY),
+                           (SIM_MAC, SIM_TOKEN, SIM_KEY)])
+    publish_and_schedule(state_dir, "fw-v1.1.0", hardware.LEGACY_KEY)
+    publish_and_schedule(state_dir, "fw-v1.2.0", SIM_KEY)
+    claims = {"X-Hardware-Type": SIM_KEY, "X-Hw-Rev": SIM_KEY, "X-Project-Name": SIM_KEY}
+    assert poll(byos_module, state_dir, KNOWN_TOKEN, claims)["version"] == "fw-v1.1.0"
+    claims = {"X-Hardware-Type": hardware.LEGACY_KEY, "X-Hw-Rev": hardware.LEGACY_KEY}
+    assert poll(byos_module, state_dir, SIM_TOKEN, claims)["version"] == "fw-v1.2.0"
+
+
+def test_hardware_release_of_another_type_in_the_document_is_never_offered(byos_module, tmp_path, sim_gate):
+    state_dir = str(tmp_path)
+    seed_fleet(state_dir, [(KNOWN_MAC, KNOWN_TOKEN, hardware.LEGACY_KEY)])
+    publish_and_schedule(state_dir, "fw-v1.1.0", hardware.LEGACY_KEY)
+    real_load = firmware_registry.load_registry
+
+    def mislabelled(path_state_dir, hardware_type=hardware.LEGACY_KEY):
+        registry = real_load(path_state_dir, hardware_type)
+        for release in registry["releases"]:
+            release["hardware_type"] = SIM_KEY
+        return registry
+
+    with mock.patch.object(byos_module.firmware_registry, "load_registry", side_effect=mislabelled):
+        assert poll(byos_module, state_dir, KNOWN_TOKEN) is None
+
+
+def test_hardware_type_is_resolved_once_outside_the_locks(byos_module, tmp_path):
+    state_dir = str(tmp_path)
+    seed_fleet(state_dir, [(KNOWN_MAC, KNOWN_TOKEN, hardware.LEGACY_KEY)])
+    publish_and_schedule(state_dir, "fw-v1.1.0", hardware.LEGACY_KEY)
+    real_resolve = byos_module.resolve_hardware_type
+    observed = []
+
+    def watching_resolve(*args, **kwargs):
+        observed.append(byos_module._device_report_lock.locked())
+        # The registry lock is free: a non-blocking acquire succeeds.
+        with atomic_io.exclusive_lock(
+                firmware_registry.lock_path(state_dir), 0, blocking=False):
+            observed.append("registry-lock-free")
+        return real_resolve(*args, **kwargs)
+
+    with mock.patch.object(byos_module, "resolve_hardware_type", side_effect=watching_resolve):
+        assert poll(byos_module, state_dir, KNOWN_TOKEN) is not None
+    assert observed == [False, "registry-lock-free"]
+
+
+def test_hardware_legacy_frame_offer_matches_a_registry_without_types(byos_module, tmp_path):
+    state_dir = str(tmp_path)
+    publish_test_release(state_dir, "fw-v1.1.0")
+    assert firmware_registry.schedule_release(state_dir, "fw-v1.1.0", running_version=None) == "scheduled"
+    offer = poll(byos_module, state_dir, KNOWN_TOKEN, state=TOKEN_STATE)
+    assert set(offer) == {"version", "url", "sha256", "size"}
+    assert offer["version"] == "fw-v1.1.0"
