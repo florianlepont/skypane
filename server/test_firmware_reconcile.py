@@ -197,3 +197,40 @@ def test_reconcile_runs_on_battery_empty_hold_branch(tmp_path):
     assert result.get("state") == "battery_empty", "expected the battery-empty hold branch, got %r" % (result,)
     registry = firmware_registry.load_registry(d)
     assert registry["schedule"] is None, "the reconcile step must run even inside the battery-empty hold branch"
+
+
+def test_apply_reconcile_all_scopes_each_type_and_skips_unmoved_writes(tmp_path, monkeypatch):
+    from server import hardware
+    monkeypatch.setenv(hardware.SIM_ENV_VAR, "1")
+    state = str(tmp_path)
+    type_b = hardware.SIM_CLONE_KEY
+    sha = hashlib.sha256(b"img").hexdigest()
+    for key in (hardware.LEGACY_KEY, type_b):
+        doc = firmware_registry._default_registry(key)
+        doc["releases"] = [{
+            "version": NEXT_VERSION, "sha256": sha, "size": 3, "released_at": "d",
+            "published_at": NOW, "commit": "a" * 40, "notes": [], "bench": False,
+            "installed_at": [],
+        }]
+        doc["schedule"] = {
+            "id": "sid-" + key[:3], "version": NEXT_VERSION, "sha256": sha, "scheduled_at": NOW,
+            "state": "scheduled", "attempts": 0, "failed_at": None, "last_result": None,
+        }
+        with firmware_registry.registry_lock(state):
+            firmware_registry._save_registry(state, doc, key)
+    report = {"schema": 1, "next_seq": 3, "devices": {"b": {
+        "fw_version": NEXT_VERSION, "reported_at": NOW, "hardware_type": type_b,
+        "events": [{"seq": 2, "at": NOW, "kind": "result", "schedule_id": "sid-" + type_b[:3],
+                    "token": "installed", "version": NEXT_VERSION}]}}}
+    with open(firmware_registry.device_report_path(state), "w") as fh:
+        json.dump(report, fh)
+
+    outcomes = firmware_registry.apply_reconcile_all(state, NOW)
+    assert outcomes == [("installed", NEXT_VERSION, None)]
+    assert firmware_registry.load_registry(state)["schedule"] is not None
+    assert firmware_registry.load_registry(state, type_b)["schedule"] is None
+
+    legacy_path = firmware_registry.registry_path(state)
+    before = (open(legacy_path, "rb").read(), os.stat(legacy_path).st_mtime_ns)
+    assert firmware_registry.apply_reconcile_all(state, NOW) == []
+    assert (open(legacy_path, "rb").read(), os.stat(legacy_path).st_mtime_ns) == before
