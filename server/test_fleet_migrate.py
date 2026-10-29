@@ -171,7 +171,16 @@ def test_malformed_registry_aborts(seeded, doc):
 
 @pytest.mark.parametrize(
     "doc",
-    ["[", {"tokens": []}, {"tokens": {"aa:bb:cc:dd:ee:01": 5}}, {"tokens": {"zz": "t"}}],
+    [
+        "[",
+        {"tokens": []},
+        {"tokens": {"aa:bb:cc:dd:ee:01": 5}},
+        {"tokens": {"zz": "t"}},
+        {"tokens": {"DE:AD:BE:EF:00:0G": "t"}},
+        {"tokens": {"DE-AD-BE-EF-00-01": "t"}},
+        {"tokens": {"DE:AD:BE:EF:00": "t"}},
+        {"tokens": {"de:ad:be:ef:00:01\n": "t"}},
+    ],
 )
 def test_malformed_state_aborts(seeded, doc):
     _write(seeded.state_path, doc)
@@ -181,6 +190,8 @@ def test_malformed_state_aborts(seeded, doc):
 
 STRAY_MAC = "aa:bb:cc:dd:ee:99"
 STRAY_TOKEN = "secret-stray-token"
+UPPER_MAC = "DE:AD:BE:EF:00:01"
+UPPER_TOKEN = "secret-upper-token"
 SKIPPED_LINE = "skipped 1 token(s) for unregistered device(s)"
 
 
@@ -252,12 +263,76 @@ def test_remove_then_migrate_succeeds_in_both_modes(seeded, capsys):
         assert json.load(fh)["tokens"] == {seeded.mac: seeded.token}
 
 
+@pytest.mark.parametrize("key", [STRAY_MAC, UPPER_MAC])
 @pytest.mark.parametrize("bad", ["", 5, None])
-def test_malformed_token_on_an_orphan_mac_still_aborts(seeded, bad):
+def test_malformed_token_on_an_orphan_mac_still_aborts(seeded, bad, key):
     _write(seeded.state_path,
-           {"tokens": {seeded.mac: seeded.token, STRAY_MAC: bad}})
+           {"tokens": {seeded.mac: seeded.token, key: bad}})
     assert _run(seeded) == 2
     assert not os.path.exists(fleet_db.fleet_db_path(seeded.state_dir))
+
+
+@pytest.mark.parametrize("key", [UPPER_MAC, "De:aD:be:EF:00:01"])
+def test_upper_case_token_key_is_skipped_in_both_modes(seeded, capsys, key):
+    _write(seeded.state_path,
+           {"tokens": {seeded.mac: seeded.token, key: UPPER_TOKEN}})
+    assert _run(seeded, "--dry-run") == 0
+    dry = capsys.readouterr()
+    assert SKIPPED_LINE in dry.out
+    assert not os.path.exists(fleet_db.fleet_db_path(seeded.state_dir))
+
+    assert _run(seeded) == 0
+    real = capsys.readouterr()
+    assert SKIPPED_LINE in real.out
+    assert _device_tokens(seeded.state_dir) == {seeded.mac: seeded.token}
+    for text in (dry.out, dry.err, real.out, real.err):
+        assert UPPER_TOKEN not in text
+
+
+def test_second_run_with_upper_case_token_key_is_a_noop(seeded, capsys):
+    _write(seeded.state_path,
+           {"tokens": {seeded.mac: seeded.token, UPPER_MAC: UPPER_TOKEN}})
+    assert _run(seeded) == 0
+    capsys.readouterr()
+    legacy_before = {
+        k: v for k, v in live.snapshot_dir(seeded.state_dir).items()
+        if not k.startswith("fleet.db")
+    }
+    main_before = _db_main(seeded.state_dir)
+    assert _run(seeded) == 0
+    out = capsys.readouterr().out
+    assert "nothing to do" in out
+    assert SKIPPED_LINE in out
+    assert _db_main(seeded.state_dir) == main_before
+    assert _db_files(live.snapshot_dir(seeded.state_dir)) == legacy_before
+
+
+def test_upper_case_key_of_a_registered_mac_loses_to_the_lowercase_token(
+    seeded, capsys
+):
+    _write(seeded.state_path,
+           {"tokens": {seeded.mac: seeded.token, seeded.mac.upper(): UPPER_TOKEN}})
+    assert _run(seeded) == 0
+    out = capsys.readouterr()
+    assert SKIPPED_LINE in out.out
+    assert _device_tokens(seeded.state_dir) == {seeded.mac: seeded.token}
+    assert UPPER_TOKEN not in out.out + out.err
+
+
+def test_upper_case_key_alone_leaves_the_registered_device_without_a_token(
+    seeded, capsys
+):
+    _write(seeded.state_path, {"tokens": {seeded.mac.upper(): UPPER_TOKEN}})
+    assert _run(seeded) == 0
+    out = capsys.readouterr()
+    assert SKIPPED_LINE in out.out
+    assert UPPER_TOKEN not in out.out + out.err
+    assert UPPER_TOKEN not in _device_tokens(seeded.state_dir).values()
+    conn = fleet_db.connect_readonly(seeded.state_dir)
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM devices").fetchone()[0] == 1
+    finally:
+        conn.close()
 
 
 def test_absent_legacy_files_migrate_an_empty_fleet(tmp_path):
