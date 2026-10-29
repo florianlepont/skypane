@@ -210,3 +210,106 @@ Practical effect:
 - `espsecure.py` (from the `esptool` PyPI package) must be on `PATH` for
   the `prod` profile; `flash.sh` fails closed with a clear message if it
   is missing rather than skipping the check.
+
+## Decision record (OTA-03)
+
+Status: PENDING OWNER DECISION
+
+Nothing in this section is decided yet. It must be completed before any
+non-simulated second hardware type is provisioned.
+
+### Current mechanism
+
+- OTA images are RSA-3072 signed apps without hardware secure boot
+  (`CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT`,
+  `CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT`).
+- A device trusts the key that signed the image it is currently running:
+  the update check uses the public key in the running app's own signature
+  block.
+- Only the first signature block (the first key) is honoured. Trusting
+  several keys at once needs full hardware secure boot with eFuses, which
+  is forbidden (see "Forbidden").
+- The first image on any new board is always cable-flashed, so that
+  board's key is chosen at that moment at no extra cost.
+- Voluntary rollback to an older, already-published release above the
+  version floor stays allowed. The refusal of a lower build number applies
+  at publish time only. This is settled context, not an open question.
+
+### Options
+
+Combinations are allowed (S+M, P+M). The second hardware's first image is
+always cable-flashed, whatever the option.
+
+**S. One key for all hardware types (status quo).**
+- Live frame: no change, no cable flash.
+- Second hardware's first cable flash: signed with the existing key.
+- Cross-type protection on the device: none from the signature. Only the
+  chip id (rejected by the OTA download if chips differ) and the project
+  name check help; with the same chip and the same project name, the
+  server's typing is the only guard.
+- CI and key custody: no change. One key compromise reaches the whole
+  fleet; rotation needs a transition release per key generation.
+
+**P. One key per hardware type.**
+- Live frame: keeps its current key, which becomes the key of the legacy
+  type. No cable flash.
+- Second hardware's first cable flash: signed with its own new key.
+- Cross-type protection on the device: a wrong-type binary fails the
+  device's signature check even if the server is wrong.
+- CI and key custody: a second signing secret (for example a per-type
+  secret in the `firmware-signing` environment, or a second environment),
+  a per-type signing step, per-type public keys committed under
+  `firmware/signing/`, `flash.sh` and the manifest taking a per-type
+  public key path. More keys to back up and rotate.
+
+**M. Single key plus a unique project name per hardware type.**
+- Live frame: no change, no cable flash. Its existing project-name check
+  already rejects images carrying another name.
+- Second hardware's first cable flash: signed with the existing key, built
+  with its own project name, and its firmware must compile that name into
+  its own project-name check.
+- Cross-type protection on the device: name-based only, no cryptographic
+  separation.
+- CI and key custody: no new key. The build needs per-type
+  parametrisation of the project name, which is currently fixed.
+
+**N. Do not sign the new hardware type (TLS and SHA-256 only).**
+- Live frame: no change, no cable flash.
+- Second hardware's first cable flash: an unsigned image; its sdkconfig
+  must opt out of the shared signed-app lines, otherwise an unsigned image
+  aborts at boot.
+- Cross-type protection on the device: none beyond the project name and
+  hash checks.
+- CI and key custody: no signing machinery for that type. Weakest
+  integrity. A later move to signing needs a cable flash.
+
+Not viable: signing one image with both the old and a new key. Only the
+first signature block is honoured in this mode.
+
+### What can be verified without hardware
+
+- The Kconfig chain that turns on signature verification and keeps the
+  eFuse options off (`firmware/tests/check_production_config.sh`).
+- The C decision logic for project name, version and floor
+  (`firmware/tests/test_ota_policy.c` via `run_host_tests.sh`).
+- That a published artifact is signed by the intended key
+  (`espsecure.py verify_signature`, plus a server-side check that the
+  signature sector is well formed and its key matches the committed
+  public key).
+- That the server refuses binaries the device would refuse for reasons
+  visible in the image header.
+
+### What needs a bench unit
+
+- That the running firmware really rejects a wrongly-signed or unsigned
+  OTA image (the device accepting or rejecting by signature).
+- That the result tokens round-trip from a real device back to the server.
+- Rollback behaviour for a wrong-hardware image.
+
+### Owner fields
+
+- Chosen option(s):
+- Cable flash required (yes/no, which device, reason):
+- Key custody and backup note:
+- Decision date:
+- Decided by:
