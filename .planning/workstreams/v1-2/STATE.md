@@ -10,8 +10,8 @@ last_activity: 2026-10-30
 progress:
   total_phases: 12
   completed_phases: 2
-  total_plans: 19
-  completed_plans: 19
+  total_plans: 24
+  completed_plans: 24
   percent: 17
 ---
 
@@ -49,6 +49,7 @@ Progress: [██████████] 100%
 - [Phase 49]: import-dir orders by build; per-type pairs release-<key>.json + skypane-<key>-<tag>.bin; --hardware-type on import-bench/list/check-image
 - [Phase 49]: 49-07: legacy frame's report entry is not rewritten solely to add hardware_type (Phase 47 telemetry freeze)
 - [Phase 49]: Update page type chooser reuses the segmented control as a GET form; shown only with more than one relevant type; hidden hardware_type field also carried for a sole non-legacy type
+- [Phase 50]: Image container announced per request by `X-Img-Fmt` (never persisted); BYOS imports the canonical `server/image_container.py` encoder; legacy frames get raw 960000 bytes byte for byte; firmware reader is host-tested only, wiring and OTA belong to Phase 57
 
 ### Pending Todos
 
