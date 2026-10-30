@@ -27,6 +27,7 @@ MESSAGES = {
         "Ce compte n’a pas été invité sur SkyPane. Demandez une invitation "
         "à l’administrateur.",
     "account.back_to_sign_in": "Retour à la connexion",
+    "account.back_to_account": "Retour au compte",
 
     # --- Generic sign-in errors ------------------------------------
     "account.sign_in_could_not_be_completed":

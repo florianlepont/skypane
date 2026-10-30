@@ -73,6 +73,7 @@ QUICK_LED_ROUTE = "/quick/led"
 THEME_ROUTE = "/ui-theme"
 LANG_ROUTE = "/ui-lang"
 LOGOUT_ROUTE = "/logout"
+ACCOUNT_ROUTE = "/account"
 GALLERY_ROUTE_PREFIX = "/gallery/"
 ILLUSTRATION_IMAGE_ROUTE_PREFIX = "/illustration/"
 
@@ -123,6 +124,7 @@ _GET_ROUTES = (
     )
     + _static_get_routes()
     + (
+        Route("GET", Exact(ACCOUNT_ROUTE), lambda h, m: h._handle_account_get(), SIGNED_IN),
         Route(
             "GET", Exact(HOME_ROUTE),
             lambda h, m: h._render_tab(HOME_ROUTE, home_page.render), ADMIN_ONLY),

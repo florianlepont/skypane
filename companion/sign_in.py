@@ -15,8 +15,13 @@ import os
 import sqlite3
 from urllib.parse import parse_qs, urlsplit
 
-from companion import access, auth, login_page, oidc, prefs
+from companion import access, auth, i18n, layout, login_page, oidc, prefs
+from companion.pages import account_page
 from server import fleet_db, fleet_sessions
+
+# Shown as the Email value for the shared-password administrator, who has none.
+_NO_EMAIL = "\u2014"
+ACCOUNT_ROUTE = "/account"
 
 # Bounded in-memory record of started sign-ins; single process.
 ATTEMPTS = oidc.AttemptTable()
@@ -213,3 +218,22 @@ class SignInMixin:
             login_page.INTERSTITIAL_OUT, oidc.logout_url(cfg),
             login_page.CONTINUE_TARGET_SIGN_IN, self._pre_session_theme())
         return self.send_html(200, page, set_cookies=[clear])
+
+    # --- account -------------------------------------------------------
+
+    def _handle_account_get(self):
+        """GET /account: who is signed in, the browser preferences and the
+        empty Frames card. Reads nothing but the principal and the
+        preference cookies, so no frame, device or health data can reach it.
+        """
+        principal = self._principal()
+        legacy = principal.kind == access.KIND_LEGACY_ADMIN
+        identity = account_page.Identity(
+            principal.email or _NO_EMAIL, principal.role, legacy)
+        prefs.set_request_prefs(lang=self._lang_from_request())
+        theme = self._resolved_ui_theme()
+        body = account_page.render(identity, ui_theme=theme)
+        page = layout.page_shell(
+            title=i18n.t(account_page.ACCOUNT_TITLE), active=layout.nav_slug(ACCOUNT_ROUTE),
+            body=body, ui_theme=theme, health_alert=None)
+        return self.send_html(200, page)

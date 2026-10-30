@@ -128,6 +128,7 @@ _UNAUTH_GET_REQUESTS = (
     companion_app.HEALTH_ROUTE,
     companion_app.AIRLINES_ROUTE,
     companion_app.UPDATE_ROUTE,
+    "/account",
     companion_app.SETTINGS_ROUTE,
     companion_app.HISTORY_LEGACY_ROUTE,
     companion_app.PREVIEW_PAGE_ROUTE,

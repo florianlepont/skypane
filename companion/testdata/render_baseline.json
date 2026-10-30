@@ -198,6 +198,10 @@
    "location": "/login?next=%2F",
    "status": 303
   },
+  "GET /account": {
+   "location": "/login",
+   "status": 303
+  },
   "GET /airlines": {
    "location": "/login?next=%2Fairlines",
    "status": 303

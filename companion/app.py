@@ -744,7 +744,8 @@ class Handler(
         # Pre-session: resolved from the cookie or Accept-Language.
         prefs.set_request_prefs(lang=self._lang_from_request())
         health_alert = self._health_alert_for_admin()
-        return login_page.not_found_page(self._resolved_ui_theme(), health_alert)
+        return login_page.not_found_page(
+            self._resolved_ui_theme(), health_alert, back=self._back_target())
 
     def _forbidden_page(self):
         """The shared 403 body for do_POST()'s Origin/Sec-Fetch-Site gate.
@@ -753,7 +754,19 @@ class Handler(
         """
         prefs.set_request_prefs(lang=self._lang_from_request())
         health_alert = self._health_alert_for_admin()
-        return login_page.forbidden_page(self._resolved_ui_theme(), health_alert)
+        return login_page.forbidden_page(
+            self._resolved_ui_theme(), health_alert, back=self._back_target())
+
+    def _back_target(self):
+        """Which onward link an error page offers the current caller. Reads
+        the principal `_health_alert_for_admin()` already resolved.
+        """
+        principal = self._safe_principal()
+        if principal is None:
+            return login_page.BACK_SIGN_IN
+        if principal.role == access.USER:
+            return login_page.BACK_ACCOUNT
+        return login_page.BACK_HOME
 
     def _health_alert_for_admin(self):
         """The Health nav-dot severity for an admin caller, else None: a
@@ -928,7 +941,10 @@ class Handler(
             path = urlsplit(referer).path
         except ValueError:
             path = ""
-        allowed = {route for route, _ in layout.NAV_TABS}
+        principal = self._safe_principal()
+        if principal is not None and principal.role == access.USER:
+            return access.home_for(principal)
+        allowed = {route for route, _ in layout.NAV_TABS} | {sign_in.ACCOUNT_ROUTE}
         return path if path in allowed else HOME_ROUTE
 
     def _page_shell_for(self, route, body, ctx, refresh_token=None):

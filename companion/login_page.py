@@ -81,6 +81,7 @@ UNAVAILABLE_PURPOSE_TEXT = i18n.msg(
 # forbidden_page() below used to carry, hoisted to module-level
 # Messages.
 _BACK_TO_HOME_TEXT = i18n.msg("common.back_to_home", "Back to Home")
+_BACK_TO_ACCOUNT_TEXT = i18n.msg("account.back_to_account", "Back to Account")
 _PASSWORD_TEXT = i18n.msg("common.password", "Password")
 _SIGN_IN_TEXT = i18n.msg("common.sign_in", "Sign in")
 _NOT_FOUND_TAB_TITLE_TEXT = i18n.msg("common.not_found", "Not Found")
@@ -450,7 +451,27 @@ def interstitial_page(kind, target, target_label, ui_theme="auto"):
     })
 
 
-def not_found_page(ui_theme, health_alert):
+BACK_HOME = "home"
+BACK_ACCOUNT = "account"
+BACK_SIGN_IN = "sign-in"
+
+
+def _back_link_html(back):
+    """The error pages' one onward link: Home for an administrator, the
+    Account page for a plain user, the sign-in page for a caller with no
+    session. Any other value reads as Home.
+    """
+    if back == BACK_ACCOUNT:
+        route, label = "/account", _BACK_TO_ACCOUNT_TEXT
+    elif back == BACK_SIGN_IN:
+        route, label = LOGIN_ROUTE, _BACK_TO_SIGN_IN_TEXT
+    else:
+        route, label = layout.HOME_ROUTE, _BACK_TO_HOME_TEXT
+    return '<p class="text-body"><a href="%s">%s</a></p>' % (
+        route, layout.escape_html(i18n.t(label)))
+
+
+def not_found_page(ui_theme, health_alert, back=BACK_HOME):
     """The shared 404 body, reached pre-auth from static-asset
     delegates too. `health_alert` (`None` for an unauthenticated
     caller) is the caller's own already-computed nav-dot severity,
@@ -458,8 +479,7 @@ def not_found_page(ui_theme, health_alert):
     """
     body = (
         layout.page_header(i18n.t(NOT_FOUND_TITLE), purpose=i18n.t(NOT_FOUND_PURPOSE_TEXT))
-        + '<p class="text-body"><a href="%s">%s</a></p>'
-        % (layout.HOME_ROUTE, layout.escape_html(i18n.t(_BACK_TO_HOME_TEXT)))
+        + _back_link_html(back)
     )
     return layout.page_shell(
         # The <title> tag's own short form — distinct from
@@ -469,7 +489,7 @@ def not_found_page(ui_theme, health_alert):
         ui_theme=ui_theme, health_alert=health_alert)
 
 
-def forbidden_page(ui_theme, health_alert):
+def forbidden_page(ui_theme, health_alert, back=BACK_HOME):
     """The shared 403 body for the Origin/Sec-Fetch-Site POST gate.
     Byte-for-byte the same shape as not_found_page() above, kept as a
     separate function so a later change can relocate that gate
@@ -477,8 +497,7 @@ def forbidden_page(ui_theme, health_alert):
     """
     body = (
         layout.page_header(i18n.t(FORBIDDEN_TITLE), purpose=i18n.t(FORBIDDEN_PURPOSE_TEXT))
-        + '<p class="text-body"><a href="%s">%s</a></p>'
-        % (layout.HOME_ROUTE, layout.escape_html(i18n.t(_BACK_TO_HOME_TEXT)))
+        + _back_link_html(back)
     )
     return layout.page_shell(
         title=i18n.t(FORBIDDEN_TITLE), active="", body=body,
