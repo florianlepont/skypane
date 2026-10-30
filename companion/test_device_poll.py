@@ -31,6 +31,25 @@ def _prefix(device):
     return "/devices/%s" % device.id
 
 
+def _retype_landscape_as_unknown(fleet):
+    """Give the seeded third device a hardware type no profile knows, the
+    one case the poll cycle cannot render."""
+    conn = sqlite3.connect(fleet_db.fleet_db_path(os.path.dirname(os.path.dirname(fleet.dev_a.state_dir))))
+    try:
+        with conn:
+            conn.execute(
+                "UPDATE devices SET hardware_type = ? WHERE id = ?",
+                ("unknown-panel", fleet.landscape.id))
+    finally:
+        conn.close()
+
+
+@pytest.fixture
+def unsupported_app(make_app_server):
+    return start_fleet_app(
+        make_app_server, seed_extra=_retype_landscape_as_unknown, fake_providers=True)
+
+
 def _flash(headers):
     location = headers.get("Location", "")
     assert "flash=" in location, location
@@ -104,8 +123,8 @@ def test_live_frame_poll_keeps_its_flash_key_and_redirect(fleet_app):
     assert headers["Location"] == "/?flash=poll_triggered"
 
 
-def test_unsupported_hardware_is_refused_without_touching_any_directory(fleet_app):
-    app = fleet_app
+def test_unsupported_hardware_is_refused_without_touching_any_directory(unsupported_app):
+    app = unsupported_app
     fleet = app.fleet
     _warm_up(app)
     live, dev_a, dev_b = snapshot_all(app.server, fleet)
@@ -120,8 +139,8 @@ def test_unsupported_hardware_is_refused_without_touching_any_directory(fleet_ap
     assert snapshot(fleet.landscape.state_dir) == landscape
 
 
-def test_unsupported_refusal_toast_is_a_warning_that_never_auto_hides(fleet_app):
-    app = fleet_app
+def test_unsupported_refusal_toast_is_a_warning_that_never_auto_hides(unsupported_app):
+    app = unsupported_app
     _status, headers, _ = post(app, _prefix(app.fleet.landscape) + "/poll-now")
     status, _, page = get(app, headers["Location"])
     assert status == 200
@@ -246,6 +265,11 @@ def page_app(make_app_server):
     return start_fleet_app(make_app_server, seed_extra=_seed_cooldown_and_rule)
 
 
+@pytest.fixture
+def unsupported_page_app(make_app_server):
+    return start_fleet_app(make_app_server, seed_extra=_retype_landscape_as_unknown)
+
+
 def _poll_section(page):
     found = re.search(
         r'<section class="page-section"><h2 class="text-heading">[^<]*</h2>(.*?)</section>',
@@ -303,18 +327,19 @@ def test_one_device_keeps_the_shipped_caption_and_markup():
     assert 'action="/poll-now"' in one and "aria-disabled" not in one
 
 
-def test_an_unsupported_screen_type_disables_the_button_and_replaces_the_caption(page_app):
-    section = _poll_section(_device_page(page_app, page_app.fleet.landscape))
+def test_an_unsupported_screen_type_disables_the_button_and_replaces_the_caption(unsupported_page_app):
+    section = _poll_section(_device_page(unsupported_page_app, unsupported_page_app.fleet.landscape))
     assert re.search(r"<button[^>]* disabled aria-disabled=\"true\">", section)
     assert _caption(section) == "Not available for this screen type yet."
     assert section.count("<p") == 1
     assert BASE_CAPTION not in section
 
 
-def test_the_unsupported_caption_is_translated(page_app):
-    cookie = "%s; %s=fr" % (page_app.cookie, auth.UI_LANG_COOKIE_NAME)
+def test_the_unsupported_caption_is_translated(unsupported_page_app):
+    app = unsupported_page_app
+    cookie = "%s; %s=fr" % (app.cookie, auth.UI_LANG_COOKIE_NAME)
     _status, _, body = http_request(
-        page_app.server.base_url() + _prefix(page_app.fleet.landscape) + "/device", cookie=cookie)
+        app.server.base_url() + _prefix(app.fleet.landscape) + "/device", cookie=cookie)
     assert _caption(_poll_section(body.decode("utf-8"))) == "Indisponible pour ce type d’écran pour l’instant."
 
 
@@ -342,3 +367,14 @@ def test_rule_and_settings_forms_carry_the_device_prefix(page_app):
     assert 'action="/settings/rules/add"' in live
     assert "/settings/rules/callsign/AFR1234/delete" not in live
     assert 'action="/devices/' not in live
+
+
+def test_non_live_devices_poll_with_their_own_profile(inprocess):
+    app = inprocess
+    post(app, _prefix(app.fleet.landscape) + "/poll-now")
+    post(app, _prefix(app.fleet.dev_a) + "/poll-now")
+    post(app, "/poll-now")
+    landscape, clone, live = app.calls
+    assert landscape["profile"].key == hardware.SIM_LANDSCAPE_KEY
+    assert clone["profile"].key == hardware.SIM_CLONE_KEY
+    assert "profile" not in live

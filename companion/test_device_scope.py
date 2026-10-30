@@ -2,16 +2,18 @@
 scope helpers, poll capability and offline status. Real fleet.db and state
 directories seeded through the shared two-device fixture.
 """
+import dataclasses
 import json
 import os
 import threading
+import types
 
 import pytest
 
 from skypane_two_device_fleet import seed_two_device_fleet, sim_hardware_env
 
 from companion import device_scope, routes
-from server import device_dirs, fleet_db, history_db
+from server import device_dirs, fleet_db, hardware, history_db
 
 
 @pytest.fixture
@@ -184,13 +186,30 @@ class TestPathHelpers:
 
 
 class TestPollSupported:
-    def test_geometry_decides(self, fleet):
+    def test_layout_family_decides(self, fleet):
         state_dir, seeded = fleet
         with sim_hardware_env():
+            # Portrait at the 1200x1600 frame size.
             assert device_scope.poll_supported(device_scope.find_device(state_dir, seeded.dev_a.id))
             assert device_scope.poll_supported(device_scope.live_device(state_dir))
-            assert not device_scope.poll_supported(
+            # A registered landscape profile has a renderer.
+            assert device_scope.poll_supported(
                 device_scope.find_device(state_dir, seeded.landscape.id))
+
+    def test_unknown_hardware_type_is_not_pollable(self):
+        device = types.SimpleNamespace(hardware_type="no-such-type")
+        with sim_hardware_env():
+            assert not device_scope.poll_supported(device)
+
+    def test_family_without_renderer_is_not_pollable(self, fleet, monkeypatch):
+        state_dir, seeded = fleet
+        device = device_scope.find_device(state_dir, seeded.dev_a.id)
+        for profile in (
+            dataclasses.replace(hardware.REGISTRY[hardware.LEGACY_KEY], layout_family="square"),
+            dataclasses.replace(hardware.REGISTRY[hardware.LEGACY_KEY], width=800, height=480),
+        ):
+            monkeypatch.setattr(hardware, "get_profile", lambda key, environ=None, p=profile: p)
+            assert not device_scope.poll_supported(device)
 
     def test_gate_off_rejects_simulated_type_without_raising(self, fleet, monkeypatch):
         state_dir, seeded = fleet

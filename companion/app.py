@@ -1171,9 +1171,14 @@ class Handler(
                     # once, exactly like the in-process lock above.
                     # The firmware registry is global, so only the live
                     # frame's cycle reconciles it.
+                    # The live frame passes no profile (the legacy path);
+                    # any other device renders through its own.
+                    profile_kwargs = (
+                        {} if device.is_live else {"profile": device_scope.profile_for(device)})
                     poll_cycle.run_once(
                         state_dir=state_dir, geofence=self.args.geofence,
-                        lock_timeout_s=0, reconcile_firmware=device.is_live)
+                        lock_timeout_s=0, reconcile_firmware=device.is_live,
+                        **profile_kwargs)
                 except poll_cycle.PollBusy:
                     flash = FLASH_KEY_POLL_ALREADY_RUNNING
                 except Exception:

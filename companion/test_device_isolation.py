@@ -14,6 +14,7 @@ from skypane_two_device_fleet import device_headers
 
 from server import device_dirs, device_config, fleet_db
 
+LANDSCAPE_IMAGE_BYTES = 192000
 MARTINIQUE = {"timezone": "America/Martinique"}
 
 
@@ -177,3 +178,21 @@ def test_removed_panel_file_is_503_and_never_the_live_image(byos_only):
     assert status == 503
     assert "image_url" not in (body or {})
     assert byos_only.display(fleet.dev_b)[0] == 200
+
+
+def test_poll_now_landscape_device_renders_its_own_profile(stack):
+    fleet = stack.fleet
+    before_live = stack.served(fleet.live)
+    snapshots = stack.all_snapshots()
+
+    status, _headers, _ = post(stack.app, _prefix(fleet.landscape) + "/poll-now")
+    assert status == 303
+
+    panel = os.path.join(fleet.landscape.state_dir, "panel.bin")
+    assert os.path.getsize(panel) == LANDSCAPE_IMAGE_BYTES
+    after = stack.all_snapshots()
+    assert after["live"] == snapshots["live"]
+    assert after["a"] == snapshots["a"]
+    assert after["b"] == snapshots["b"]
+    assert after["landscape"] != snapshots["landscape"]
+    assert stack.served(fleet.live) == before_live
