@@ -45,6 +45,14 @@ document.
   nobody reads a repository's compliance document before its README. Both
   places must agree; if one is ever edited, update the other in the same
   change.
+- **Personal, non-commercial clause:** adsb.fi open data is for personal,
+  non-commercial use only, and its operators ask to be contacted for
+  commercial or higher-rate needs (source: the README of
+  github.com/adsbfi/opendata, checked 2026-10-30). A multi-zone contact
+  draft is recorded in the Phase 56 directory as the document
+  `56-PROVIDER-CONTACT.md`; its status is "to send" (not yet sent).
+- **Credits:** the credits are generated from `companion/credits.json` and
+  shown at the public `/credits` page.
 - **Status:** requirement met, citation present in two places.
 
 ## adsb.lol
