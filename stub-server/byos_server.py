@@ -80,7 +80,8 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from server import device_policy, firmware_registry, fleet_db, hardware, state_store
+from server import device_policy, firmware_registry, fleet_db, hardware, image_container, state_store
+from server.panel_format import HEIGHT, WIDTH
 
 IMAGE_BYTES = 960000
 # X-Battery-Mv bounds: PROTOCOL.md §2 reserves 0 as the "unknown" sentinel,
@@ -658,6 +659,20 @@ _FW_STREAM_CHUNK_BYTES = 65536
 
 def _img_dir(state_dir):
     return os.path.join(state_dir, IMG_DIRNAME)
+
+
+def _served_image(announced, image):
+    """The bytes to serve for an X-Img-Fmt announcement.
+
+    A frame that announces no usable container version gets the panel file
+    itself, unmodified; an announcing frame gets it wrapped in the container
+    at the highest version both sides support. The header is read only
+    here and is never stored or logged.
+    """
+    version = image_container.negotiate_version(announced)
+    if version is None:
+        return image
+    return image_container.encode_container(image, WIDTH, HEIGHT, version=version)
 
 
 def _publish_image(state_dir, digest, image):
@@ -1238,9 +1253,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(503, {"detail": "image unreadable"})
             if len(image) != IMAGE_BYTES:
                 return self.send_json(503, {"detail": "image wrong size"})
-            digest = hashlib.sha256(image).hexdigest()
+            served = _served_image(self.headers.get("X-Img-Fmt"), image)
+            digest = hashlib.sha256(served).hexdigest()
             try:
-                _publish_image(self.args.state_dir, digest, image)
+                _publish_image(self.args.state_dir, digest, served)
             except OSError:
                 return self.send_json(503, {"detail": "image unavailable"})
             host = self.headers.get("Host", "localhost")

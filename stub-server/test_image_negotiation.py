@@ -8,6 +8,7 @@ The REFERENCE_* constants were captured from the server before any
 negotiation code was added; the panel bytes come from deterministic_panel().
 """
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -24,6 +25,7 @@ for _p in (REPO_ROOT, os.path.join(REPO_ROOT, "test-support")):
 
 from skypane_frame_server import FrameServer  # noqa: E402
 from skypane_live_state import seed_live_like_state  # noqa: E402
+from server import image_container  # noqa: E402
 
 PANEL_BYTES = 960000
 # The six Spectra 6 nibble codes.
@@ -152,3 +154,53 @@ def test_legacy_state_files_ignore_announcement_header(served, value):
     baseline = read_state_files(live.state_dir)
     poll(server, live, {"X-Img-Fmt": value})
     assert read_state_files(live.state_dir) == baseline
+
+
+CONTAINER_BYTES = PANEL_BYTES + image_container.HEADER_LEN
+
+
+@pytest.mark.parametrize("value", ["1", "2", "999"])
+def test_announce_serves_the_container(served, value):
+    live, server = served
+    doc = poll(server, live, {"X-Img-Fmt": value})
+    body = fetch_bytes(doc["image_url"])
+    assert len(body) == CONTAINER_BYTES
+    assert body.startswith(b"SPIM")
+    view = image_container.decode_container(body, 1200, 1600)
+    assert view.payload == deterministic_panel()
+    assert doc["image_hash"] == "sha256:" + hashlib.sha256(body).hexdigest()
+    assert doc["image_url"].endswith(hashlib.sha256(body).hexdigest() + ".bin")
+
+
+def test_announce_adds_no_display_key(served):
+    live, server = served
+    with open(FREEZE_PATH, encoding="utf-8") as fh:
+        frozen = json.load(fh)["display_response_keys"]["keys"]
+    assert sorted(poll(server, live, {"X-Img-Fmt": "1"})) == sorted(frozen)
+
+
+def test_announce_and_legacy_urls_both_stay_fetchable(served):
+    live, server = served
+    announced = poll(server, live, {"X-Img-Fmt": "1"})
+    legacy = poll(server, live)
+    assert legacy["image_hash"] == "sha256:" + REFERENCE_PANEL_SHA256
+    assert fetch_bytes(legacy["image_url"]) == deterministic_panel()
+    body = fetch_bytes(announced["image_url"])
+    assert len(body) == CONTAINER_BYTES
+
+
+def test_announce_leaves_state_files_unchanged(served):
+    live, server = served
+    poll(server, live)
+    baseline = read_state_files(live.state_dir)
+    poll(server, live, {"X-Img-Fmt": "1"})
+    assert read_state_files(live.state_dir) == baseline
+
+
+def test_announce_uses_the_shared_container_encoder():
+    spec = importlib.util.spec_from_file_location(
+        "byos_server_negotiation", os.path.join(HERE, "byos_server.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.image_container.encode_container is image_container.encode_container
+    assert module.image_container.negotiate_version is image_container.negotiate_version
