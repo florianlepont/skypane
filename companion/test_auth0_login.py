@@ -12,9 +12,12 @@ import html
 import re
 import threading
 import time
+import sqlite3
 import urllib.parse
 
 import pytest
+
+from server import fleet_sessions
 
 from companion import oidc, sign_in
 from companion_app_server import (
@@ -415,3 +418,19 @@ def test_start_throttle_table_stays_bounded():
     for index in range(100):
         assert throttle.allow("client-%d" % index)
     assert len(throttle._starts) <= 8
+
+
+def test_a_failure_storing_the_session_leaves_no_identity_link(auth0_rig, monkeypatch):
+    rig = auth0_rig
+    rig.invite("admin@example.test", "admin")
+
+    def refuse(*_args, **_kwargs):
+        raise sqlite3.OperationalError("disk I/O error")
+
+    monkeypatch.setattr(fleet_sessions, "_insert_session", refuse)
+    result = login_via_auth0(
+        rig.server, rig.fake, sub="auth0|admin", email="admin@example.test")
+    assert result.status == 503
+    assert result.session_cookie is None
+    assert rig.rows("SELECT iss, sub FROM users") == [(None, None)]
+    assert rig.rows("SELECT COUNT(*) FROM sessions") == [(0,)]

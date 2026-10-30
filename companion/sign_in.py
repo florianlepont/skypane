@@ -111,7 +111,8 @@ class SignInMixin:
         attempt = ATTEMPTS.pop(cookie_id) if cookie_id else None
         try:
             claims = self._verified_claims(cfg, attempt, cookie_id is not None)
-            user_id = self._resolve_invited(cfg, claims)
+            token = auth.new_session_token()
+            user_id = self._resolve_invited(cfg, claims, token)
         except oidc.SignInError as exc:
             _log("sign-in failed: %s" % exc.reason)
             return self._sign_in_failed(exc.kind, attempt)
@@ -123,7 +124,7 @@ class SignInMixin:
                 403, login_page.not_invited_page(self._pre_session_theme()),
                 set_cookies=[auth.oidc_attempt_clear_cookie_header()])
         try:
-            return self._land_signed_in(user_id, claims.email, attempt)
+            return self._land_signed_in(user_id, claims.email, attempt, token)
         except _STORE_ERRORS as exc:
             _log("sign-in store error: %s" % type(exc).__name__)
             return self._sign_in_failed(oidc.KIND_UNAVAILABLE, attempt)
@@ -148,11 +149,17 @@ class SignInMixin:
         token = oidc.exchange_code(cfg, code, attempt.verifier, oidc.requests_post)
         return oidc.validate_id_token(token, cfg, attempt.nonce, self._clock())
 
-    def _resolve_invited(self, cfg, claims):
-        """The id of the invited user these claims map to, or None."""
-        outcome = fleet_sessions.resolve_login(
+    def _resolve_invited(self, cfg, claims, token):
+        """The id of the invited user these claims map to, or None. For an
+        invited user the session for `token` is stored in the same
+        transaction as any first-time identity link, so a failure leaves
+        neither behind.
+        """
+        old = auth.parse_cookies(self.headers.get("Cookie")).get(auth.SESSION_COOKIE_NAME)
+        outcome = fleet_sessions.sign_in_user(
             self._fleet_conn(), cfg.issuer, claims.sub, claims.email,
-            claims.email_verified, self._clock())
+            claims.email_verified, self._clock(), auth.hash_session_token(token),
+            replace_hash=auth.hash_session_token(old) if old else None)
         if outcome.user_id is None:
             _log("sign-in refused: %s" % outcome.reason)
         return outcome.user_id
@@ -167,24 +174,18 @@ class SignInMixin:
             _STATUS_BY_KIND.get(kind, 400), page,
             set_cookies=[auth.oidc_attempt_clear_cookie_header()])
 
-    def _land_signed_in(self, user_id, email, attempt):
-        """Create the session and answer with an interstitial. A 200 page
-        with a meta refresh, not a 303: a redirect chain that began on
-        another site makes the browser withhold a SameSite=Strict cookie,
-        and the page also keeps the callback query out of the next
-        request's Referer.
+    def _land_signed_in(self, user_id, email, attempt, token):
+        """Answer with an interstitial for the session already stored for
+        `token`. A 200 page with a meta refresh, not a 303: a redirect
+        chain that began on another site makes the browser withhold a
+        SameSite=Strict cookie, and the page also keeps the callback query
+        out of the next request's Referer.
         """
         conn = self._fleet_conn()
         role = fleet_db.get_user_role(conn, user_id)
         if role is None:
             return self._sign_in_failed(oidc.KIND_INCOMPLETE, attempt)
         principal = access.Principal(access.KIND_USER, user_id, email, role)
-        old = auth.parse_cookies(self.headers.get("Cookie")).get(auth.SESSION_COOKIE_NAME)
-        token = auth.new_session_token()
-        fleet_sessions.create_session(
-            conn, auth.hash_session_token(token), user_id=user_id,
-            principal=fleet_sessions.PRINCIPAL_USER, now=self._clock(),
-            replace_hash=auth.hash_session_token(old) if old else None)
         if role == access.USER:
             target, label = access.home_for(principal), login_page.CONTINUE_TARGET_ACCOUNT
         else:

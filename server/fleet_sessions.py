@@ -67,14 +67,26 @@ def create_session(
 ) -> None:
     """Store a session, atomically dropping the one it replaces (rotation)."""
     with fleet_db.transaction(conn):
-        if replace_hash is not None:
-            conn.execute("DELETE FROM sessions WHERE id_hash = ?", (replace_hash,))
-        conn.execute(
-            "INSERT INTO sessions "
-            "(id_hash, user_id, principal, created_at, last_seen_at, expires_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (token_hash, user_id, principal, now, now, now + ABSOLUTE_LIFETIME_S),
-        )
+        _insert_session(conn, token_hash, user_id, principal, now, replace_hash)
+
+
+def _insert_session(
+    conn: sqlite3.Connection,
+    token_hash: str,
+    user_id: int | None,
+    principal: str,
+    now: int,
+    replace_hash: str | None,
+) -> None:
+    """The session write; joins the caller's open transaction."""
+    if replace_hash is not None:
+        conn.execute("DELETE FROM sessions WHERE id_hash = ?", (replace_hash,))
+    conn.execute(
+        "INSERT INTO sessions "
+        "(id_hash, user_id, principal, created_at, last_seen_at, expires_at) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (token_hash, user_id, principal, now, now, now + ABSOLUTE_LIFETIME_S),
+    )
 
 
 def lookup_session(
@@ -226,11 +238,46 @@ def resolve_login(
     """
     del now
     with fleet_db.transaction(conn):
-        known = _by_identity(conn, iss, sub)
-        if known is not None:
-            return known
-        if email_verified is not True:
-            return LoginOutcome(None, "unverified_email")
-        if not email:
-            return LoginOutcome(None, "unknown")
-        return _link_by_email(conn, iss, sub, email)
+        return _resolve(conn, iss, sub, email, email_verified)
+
+
+def _resolve(
+    conn: sqlite3.Connection,
+    iss: str,
+    sub: str,
+    email: str | None,
+    email_verified: object,
+) -> LoginOutcome:
+    known = _by_identity(conn, iss, sub)
+    if known is not None:
+        return known
+    if email_verified is not True:
+        return LoginOutcome(None, "unverified_email")
+    if not email:
+        return LoginOutcome(None, "unknown")
+    return _link_by_email(conn, iss, sub, email)
+
+
+def sign_in_user(
+    conn: sqlite3.Connection,
+    iss: str,
+    sub: str,
+    email: str | None,
+    email_verified: object,
+    now: int,
+    token_hash: str,
+    replace_hash: str | None = None,
+) -> LoginOutcome:
+    """`resolve_login` plus the session write in one transaction.
+
+    An identity link is only kept when the session is stored with it: a
+    failure at either step rolls the link back. A refused login writes
+    nothing.
+    """
+    with fleet_db.transaction(conn):
+        outcome = _resolve(conn, iss, sub, email, email_verified)
+        if outcome.user_id is None:
+            return outcome
+        _insert_session(
+            conn, token_hash, outcome.user_id, PRINCIPAL_USER, now, replace_hash)
+        return outcome

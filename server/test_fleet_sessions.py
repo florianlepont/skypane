@@ -256,3 +256,29 @@ def test_expired_sessions_read_as_none_on_a_read_only_store(tmp_path):
         assert _count(reader, "sessions") == 1
     finally:
         reader.close()
+
+
+def test_sign_in_user_links_and_stores_the_session_together(conn):
+    uid = _user(conn)
+    outcome = fs.sign_in_user(conn, ISS, "s1", "a@example.com", True, T0, _h("t"))
+    assert (outcome.user_id, outcome.reason) == (uid, "linked")
+    assert fs.lookup_session(conn, _h("t"), T0 + 1).user_id == uid
+
+
+def test_sign_in_user_rolls_the_link_back_when_the_session_cannot_be_stored(conn):
+    uid = _user(conn)
+    other = _user(conn, email="b@example.com")
+    fs.create_session(conn, _h("taken"), user_id=other, principal="user", now=T0)
+    with pytest.raises(Exception):
+        fs.sign_in_user(conn, ISS, "s1", "a@example.com", True, T0, _h("taken"))
+    row = conn.execute("SELECT iss, sub FROM users WHERE id = ?", (uid,)).fetchone()
+    assert (row["iss"], row["sub"]) == (None, None)
+    assert _count(conn, "sessions") == 1
+
+
+def test_sign_in_user_writes_nothing_for_a_refused_login(conn):
+    _user(conn)
+    outcome = fs.sign_in_user(conn, ISS, "s1", "a@example.com", False, T0, _h("t"))
+    assert outcome.user_id is None
+    assert _count(conn, "sessions") == 0
+    assert conn.execute("SELECT iss FROM users").fetchone()["iss"] is None
