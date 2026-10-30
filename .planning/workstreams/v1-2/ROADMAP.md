@@ -197,7 +197,7 @@ Plans:
 **Wave 1**
 
 - [x] 54-01-PLAN.md — fleet.db schema v2 sessions, race-free upgrade, fleet_migrate pending schema, invite-only identity resolution, CLI unlink-identity (AUTH-01, AUTH-02, AUTH-06)
-- [ ] 54-02-PLAN.md — loopback fake Auth0 with failure knobs and the pure OIDC client module (AUTH-01, AUTH-06)
+- [x] 54-02-PLAN.md — loopback fake Auth0 with failure knobs and the pure OIDC client module (AUTH-01, AUTH-06)
 - [ ] 54-03-PLAN.md — login, refusal, error, interstitial and Account markup, user shell and legacy pill hook, FR strings (AUTH-01, AUTH-02, AUTH-03)
 
 **Wave 2**
@@ -300,7 +300,7 @@ Real `/d/<id>/...` routes and their matrix rows are completed after Phase 51; se
 | 51. Per-Device Config, Image and State | v1.2 | 0/0 | Not started | - |
 | 52. Fleet Poll Cycle, Zones and Request Budget | v1.2 | 0/0 | Not started | - |
 | 53. Detection Modes | v1.2 | 0/0 | Not started | - |
-| 54. Auth0 Sign-In, Local Roles and Default-Deny Access | v1.2 | 0/0 | Not started | - |
+| 54. Auth0 Sign-In, Local Roles and Default-Deny Access | v1.2 | 2/9 | In Progress|  |
 | 55. Frame Pairing, Admin Console and Reduced User View | v1.2 | 0/0 | Not started | - |
 | 56. Per-Hardware Rendering, Battery Profiles, Health and Credits | v1.2 | 0/0 | Not started | - |
 | 57. Combined Legacy-Frame Firmware Release | v1.2 | 0/0 | Not started (gated on Phase 47) | - |
