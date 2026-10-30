@@ -62,6 +62,7 @@ _PUBLIC_EXEMPTIONS = {
     ("POST", routes.Exact(routes.LOGIN_ROUTE)),
     ("GET", routes.Exact("/login/auth0")),
     ("GET", routes.Exact("/callback")),
+    ("GET", routes.Exact(routes.CREDITS_ROUTE)),
 }
 _PUBLIC_EXEMPTIONS |= {("GET", routes.Exact(route)) for route in static_files.STATIC_ROUTES}
 
@@ -74,7 +75,7 @@ _GATED_ROUTE_IDS = [
 
 def test_public_routes_are_exactly_login_and_static_assets():
     """The only routes with a PUBLIC access are GET/POST /login, the
-    GET sign-in start and callback, and one GET per companion/static_files.py STATIC_ROUTES entry - nothing
+    GET sign-in start and callback, the credits page, and one GET per companion/static_files.py STATIC_ROUTES entry - nothing
     else in the table ever grants pre-session access.
     """
     actual = {(r.method, r.matcher) for r in routes.ROUTES if r.access.min_role == routes.ANONYMOUS}
@@ -83,6 +84,7 @@ def test_public_routes_are_exactly_login_and_static_assets():
         ("POST", routes.Exact(routes.LOGIN_ROUTE)),
         ("GET", routes.Exact("/login/auth0")),
         ("GET", routes.Exact("/callback")),
+        ("GET", routes.Exact(routes.CREDITS_ROUTE)),
     }
     expected |= {("GET", routes.Exact(route)) for route in static_files.STATIC_ROUTES}
     assert actual == expected

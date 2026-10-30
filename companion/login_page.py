@@ -85,6 +85,7 @@ _BACK_TO_ACCOUNT_TEXT = i18n.msg("account.back_to_account", "Back to Account")
 _PASSWORD_TEXT = i18n.msg("common.password", "Password")
 _SIGN_IN_TEXT = i18n.msg("common.sign_in", "Sign in")
 _NOT_FOUND_TAB_TITLE_TEXT = i18n.msg("common.not_found", "Not Found")
+_CREDITS_LINK_TEXT = i18n.msg("credits.credits", "Credits")
 
 # The Auth0 sign-in start route. A plain GET link, never a form: a form
 # POST would be blocked by the CSP `form-action 'self'` once the response
@@ -362,6 +363,8 @@ def render_login_page(
         auth0_enabled=False, legacy_enabled=True, notice=None):
     body = _login_card_html(
         error, lockout_seconds, next_route, auth0_enabled, legacy_enabled, notice)
+    body += '<a class="text-link login-card__link" href="/credits">%s</a>' % (
+        layout.escape_html(i18n.t(_CREDITS_LINK_TEXT)))
     return layout.login_shell(body, ui_theme=ui_theme)
 
 

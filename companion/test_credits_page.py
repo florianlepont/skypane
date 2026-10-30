@@ -172,3 +172,11 @@ def test_anonymous_page_carries_no_health_alert_or_device_name(
 def test_the_device_prefixed_path_is_refused(app_server_in_process):
     status, _html = _get(app_server_in_process, "/devices/d_00000000/credits")
     assert status != 200
+
+
+@pytest.mark.parametrize("lang, label", [("en", "Credits"), ("fr", "Crédits")])
+def test_login_page_links_to_credits(app_server_in_process, lang, label):
+    status, html = _get(app_server_in_process, "/login", lang=lang)
+    assert status == 200
+    assert 'href="/credits"' in html
+    assert ">%s</a>" % label in html

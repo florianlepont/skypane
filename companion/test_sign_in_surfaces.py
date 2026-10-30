@@ -224,9 +224,9 @@ def test_new_login_surfaces_render_the_approved_french():
 
 _LOGIN_BASELINE = {
     "en": {
-        "plain": "193bef738f845b735bfdbc8478cac029ee1c173108e2fe451f3d7829b830d608",
-        "err": "fe1adc0245aa6b954ca4a6542b6d5ebaf342f0b9d9f5ed60650f983b3ef5012d",
-        "lock": "b26c2c3d3d40ae4cbab42a292111d930ab0b033e02cabc1c6bc5e0034a22476c",
+        "plain": "151f46dcc124274a0485b1ee56e177b8a4aeacb542bfefbfa17abb84d596a8fd",
+        "err": "004aacbf2d7f2838a0c049e3dac98dd6e78ea6650308fc0d72f3701d6a72c8cd",
+        "lock": "f65e31a9492b9ef0a32f4f6d98d7f1d5b686e1e6fa819ca3cdcd3d434ce1af58",
         "nf": "c569146c8324cd5e3c2c25b49dd567ed7a8f3442008da607cf276651617ab300",
         "nf2": "7afb1cdcdeca413afcf9cdee6a6241c5e3be1434841f179a2bac06349caa48d1",
         "forb": "9f474dfc188f5290489ce64ffae5af6d2357e70b4b35c82efba17fe771804323",
