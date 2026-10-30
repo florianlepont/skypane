@@ -2,7 +2,7 @@
 Runway selector card, and the Device page's LED on/off card plus its
 own Frame-strip quick-switch form.
 """
-from companion import i18n
+from companion import device_scope, i18n
 from companion.layout import escape_html
 import companion.layout as layout
 from server import device_config
@@ -189,12 +189,13 @@ def quick_led_form_html(current_led_enabled):
     next_state = (
         layout.QUICK_STATE_OFF if current_led_enabled is True else layout.QUICK_STATE_ON)
     return (
-        '<form method="post" action="/quick/led" id="%s" '
+        '<form method="post" action="%s" id="%s" '
         'class="quick-action__form" data-quick-switch>'
         '<input type="hidden" name="state" value="%s">'
         '<input type="hidden" name="return_to" value="%s">'
         "</form>"
     ) % (
+        escape_html(device_scope.scoped("/quick/led", "POST")),
         escape_html(QUICK_LED_FORM_ID),
         escape_html(next_state),
         escape_html(layout.DEVICE_ROUTE),

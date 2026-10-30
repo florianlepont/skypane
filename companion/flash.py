@@ -453,7 +453,8 @@ def flash_toast_html(flash_key, text, request_path):
     return layout.flash_banner(
         text, role=FLASH_ROLES.get(flash_key), tone=FLASH_TONES.get(flash_key, _INFO),
         dismiss_href=dismiss_href,
-        action_html=_flash_action_html(flash_key, urlsplit(dismiss_href).path),
+        action_html=_flash_action_html(
+            flash_key, device_scope.strip_prefix(urlsplit(dismiss_href).path)),
         glyph=_FLASH_GLYPHS.get(flash_key))
 
 
