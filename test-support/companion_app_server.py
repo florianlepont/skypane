@@ -426,8 +426,9 @@ class InProcessAppServer:
         from http.server import ThreadingHTTPServer
 
         import companion.app as app_module
-        from companion import auth
+        from companion import auth, sign_in
 
+        sign_in.START_THROTTLE.reset()
         os.makedirs(state_dir, exist_ok=True)
         self.state_dir = state_dir
         self._app_module = app_module

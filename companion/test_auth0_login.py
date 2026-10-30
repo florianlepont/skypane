@@ -380,3 +380,38 @@ def test_login_page_offers_the_auth0_start_link(auth0_rig):
     status, _, body = http_request(auth0_rig.server.url("/login"))
     assert status == 200
     assert b'href="/login/auth0"' in body
+
+
+# --- start throttle ---------------------------------------------------------------
+
+def test_one_client_cannot_start_unlimited_sign_ins(auth0_rig, monkeypatch):
+    rig = auth0_rig
+    monkeypatch.setattr(sign_in, "START_THROTTLE", oidc.StartThrottle(limit=3))
+    pending = begin_auth0(rig.server, rig.fake)
+    for _ in range(2):
+        assert http_request(rig.server.url("/login/auth0"))[0] == 303
+    status, headers, body = http_request(rig.server.url("/login/auth0"))
+    assert status == 429
+    assert "Set-Cookie" not in headers
+    assert b"Sign-in is not available right now" in body
+    # The attempt begun before the flood still completes.
+    _start, _authorize, attempt_cookie, callback_path = pending
+    callback = http_request_full(rig.server.url(callback_path), cookie=attempt_cookie)
+    assert callback[0] != 429
+
+
+def test_start_throttle_window_slides_and_is_per_client():
+    now = [1000.0]
+    throttle = oidc.StartThrottle(clock=lambda: now[0], limit=2, window=60)
+    assert throttle.allow("a") and throttle.allow("a")
+    assert not throttle.allow("a")
+    assert throttle.allow("b")
+    now[0] += 61
+    assert throttle.allow("a")
+
+
+def test_start_throttle_table_stays_bounded():
+    throttle = oidc.StartThrottle(limit=2, max_keys=8)
+    for index in range(100):
+        assert throttle.allow("client-%d" % index)
+    assert len(throttle._starts) <= 8

@@ -25,6 +25,10 @@ ACCOUNT_ROUTE = "/account"
 
 # Bounded in-memory record of started sign-ins; single process.
 ATTEMPTS = oidc.AttemptTable()
+# Per-client cap on starting a sign-in, so one client cannot evict others'
+# pending attempts from ATTEMPTS.
+START_THROTTLE = oidc.StartThrottle()
+_THROTTLED_STATUS = 429
 
 _STORE_ERRORS = (sqlite3.Error, fleet_db.FleetDbError, OSError)
 _UNAVAILABLE_STATUS = 503
@@ -76,6 +80,11 @@ class SignInMixin:
             return self._config_unavailable(exc)
         if cfg is None:
             return self.send_html(404, self._not_found_page())
+        if not START_THROTTLE.allow(self._login_throttle_key()):
+            _log("sign-in start throttled")
+            return self.send_html(_THROTTLED_STATUS, login_page.sign_in_error_page(
+                login_page.SIGN_IN_ERROR_UNAVAILABLE, self._pre_session_theme(),
+                auth0_enabled=True, legacy_enabled=self._legacy_login_on()))
         query = parse_qs(urlsplit(self.path).query)
         next_route = self._next_route_of(query.get("next", [None])[0])
         attempt_id, attempt = ATTEMPTS.create(next_route)
