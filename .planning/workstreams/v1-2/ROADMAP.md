@@ -214,7 +214,7 @@ Plans:
 
 **Wave 5**
 
-- [ ] 54-07-PLAN.md — legacy-admin flag, audit, fail-closed startup, removal of the stateless token API (AUTH-02, AUTH-06)
+- [x] 54-07-PLAN.md — legacy-admin flag, audit, fail-closed startup, removal of the stateless token API (AUTH-02, AUTH-06)
 - [ ] 54-08-PLAN.md — route x role x owner matrix with probe family, frame-auth independence tests (AUTH-03, AUTH-06)
 
 **Wave 6**
