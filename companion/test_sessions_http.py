@@ -86,7 +86,34 @@ def test_turning_the_legacy_flag_off_refuses_an_existing_legacy_session(
     assert http_request(server.url("/health"), cookie=cookie)[0] == 200
     monkeypatch.setenv(auth.LEGACY_LOGIN_ENV_VAR, "0")
     assert http_request(server.url("/health"), cookie=cookie)[0] == 303
+
+
+def test_a_legacy_session_refused_while_the_flag_was_off_stays_gone(
+        app_server_in_process, monkeypatch):
+    server = app_server_in_process
+    cookie = login(server)
+    monkeypatch.setenv(auth.LEGACY_LOGIN_ENV_VAR, "0")
+    assert http_request(server.url("/health"), cookie=cookie)[0] == 303
+    assert _session_hashes(server.state_dir) == set()
     monkeypatch.setenv(auth.LEGACY_LOGIN_ENV_VAR, "1")
+    assert http_request(server.url("/health"), cookie=cookie)[0] == 303
+
+
+def test_a_malformed_legacy_flag_does_not_delete_legacy_sessions(
+        app_server_in_process, monkeypatch):
+    server = app_server_in_process
+    cookie = login(server)
+    monkeypatch.setenv(auth.LEGACY_LOGIN_ENV_VAR, "maybe")
+    assert http_request(server.url("/health"), cookie=cookie)[0] == 303
+    monkeypatch.setenv(auth.LEGACY_LOGIN_ENV_VAR, "1")
+    assert http_request(server.url("/health"), cookie=cookie)[0] == 200
+
+
+def test_a_password_change_does_not_end_a_legacy_session(
+        app_server_in_process, monkeypatch):
+    server = app_server_in_process
+    cookie = login(server)
+    monkeypatch.setenv(auth.PASSWORD_ENV_VAR, "a-new-shared-password")
     assert http_request(server.url("/health"), cookie=cookie)[0] == 200
 
 

@@ -91,11 +91,11 @@ def lookup_session(
     if row is None:
         return None
     if now >= row["expires_at"] or now - row["last_seen_at"] >= IDLE_TIMEOUT_S:
-        _discard_session(conn, token_hash)
+        discard_session(conn, token_hash)
         return None
     if row["principal"] == PRINCIPAL_USER:
         if row["role"] is None:
-            _discard_session(conn, token_hash)
+            discard_session(conn, token_hash)
             return None
         if row["disabled"]:
             return None
@@ -120,7 +120,7 @@ def lookup_session(
     )
 
 
-def _discard_session(conn: sqlite3.Connection, token_hash: str) -> None:
+def discard_session(conn: sqlite3.Connection, token_hash: str) -> None:
     """Best-effort cleanup of a dead session found during a lookup. A
     read-only store (unwritable state dir) cannot delete; the row stays and
     the lookup still reports no session.
