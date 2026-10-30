@@ -7,6 +7,7 @@ two pages share one markup and one set of `history-card__*` rules in
 style.css. Page modules cannot import each other, which is why these
 helpers live here.
 """
+import companion.device_scope as device_scope
 import companion.i18n as i18n
 import companion.layout as layout
 from companion.layout import escape_html
@@ -42,8 +43,10 @@ def art_html(airline_raw, state_dir):
     alt_text = i18n.t(THUMBNAIL_ALT_TEMPLATE) % panel_render.display_airline_name(airline_raw)
     return (
         '<img class="history-card__art" loading="lazy" decoding="async" '
-        'src="%s%s.png" alt="%s">'
-    ) % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key), escape_html(alt_text))
+        'src="%s" alt="%s">'
+    ) % (
+        escape_html(device_scope.scoped("%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, key))),
+        escape_html(alt_text))
 
 
 def art_or_placeholder_html(art):

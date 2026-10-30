@@ -13,7 +13,7 @@ disconnect confirmation.
 """
 from urllib.parse import urlsplit
 
-from companion import i18n
+from companion import device_scope, i18n
 import companion.layout as layout
 from companion.layout import escape_html
 import companion.page_context as page_context
@@ -296,7 +296,13 @@ def _status_detail_html(state, last_synced_at, now, entry_count):
 
 def _sheet_href(fragment=SHEET_ID):
     """The no-script address of the sheet (the page with the sheet open)."""
-    return "%s?%s=%s#%s" % (layout.DISPLAY_ROUTE, SHEET_PARAM, SHEET_MANAGE, fragment)
+    return device_scope.scoped(
+        "%s?%s=%s#%s" % (layout.DISPLAY_ROUTE, SHEET_PARAM, SHEET_MANAGE, fragment))
+
+
+def _display_fragment_href(fragment):
+    """The Display page's own fragment link, under the current device's prefix."""
+    return device_scope.scoped("%s#%s" % (layout.DISPLAY_ROUTE, fragment))
 
 
 def _status_row_html(state, title, detail_html):
@@ -354,10 +360,11 @@ def _url_form_html(connected, error_message):
         '<button type="submit" data-pending-label="%s">%s</button></div>'
         "</form>"
     ) % (
-        CALENDAR_CONNECT_ROUTE, escape_html(i18n.t(label)), CALENDAR_URL_MAX_LEN,
+        device_scope.scoped(CALENDAR_CONNECT_ROUTE, "POST"), escape_html(i18n.t(label)),
+        CALENDAR_URL_MAX_LEN,
         escape_html(i18n.t(CALENDAR_URL_PLACEHOLDER)), describedby, invalid,
         hint_id, escape_html(i18n.t(hint)), error_html, how_html,
-        escape_html("%s#%s" % (layout.DISPLAY_ROUTE, ROW_ID)),
+        escape_html(_display_fragment_href(ROW_ID)),
         escape_html(i18n.t(CALENDAR_DISCONNECT_CANCEL_TEXT)),
         escape_html(i18n.t(CALENDAR_CHECKING_TEXT)),
         escape_html(i18n.t(CALENDAR_REPLACE_BUTTON_TEXT if connected
@@ -385,7 +392,7 @@ def _disconnect_html(provider):
         '<button type="button" class="calendar-danger calendar-danger--solid" '
         'data-calendar-confirm-yes>%s</button></div></div></div>'
     ) % (
-        CALENDAR_DISCONNECT_FORM_ID, CALENDAR_DISCONNECT_ROUTE,
+        CALENDAR_DISCONNECT_FORM_ID, device_scope.scoped(CALENDAR_DISCONNECT_ROUTE, "POST"),
         escape_html(CALENDAR_DISCONNECT_CONFIRM_VALUE), CALENDAR_DISCONNECT_CONFIRM_FIELD,
         escape_html(i18n.t(CALENDAR_DISCONNECT_BUTTON_TEXT)),
         escape_html(
@@ -424,7 +431,7 @@ def _sheet_html(configured, drift, provider, masked_url, is_open, error_message)
     ) % (
         SHEET_ID, " open" if is_open else "",
         ' data-calendar-error="1"' if error_message else "",
-        escape_html(title), escape_html("%s#%s" % (layout.DISPLAY_ROUTE, ROW_ID)),
+        escape_html(title), escape_html(_display_fragment_href(ROW_ID)),
         escape_html(i18n.t(CALENDAR_CLOSE_LABEL)),
         link_html, _url_form_html(configured, error_message), disconnect_html)
 
@@ -487,10 +494,11 @@ def calendar_disconnect_confirm_page(ctx):
         '<p><a class="text-label" href="%s">%s</a></p>'
     ) % (
         escape_html(i18n.t(CALENDAR_DISCONNECT_CONFIRM_SENTENCE)),
-        CALENDAR_DISCONNECT_ROUTE,
+        device_scope.scoped(CALENDAR_DISCONNECT_ROUTE, "POST"),
         CALENDAR_DISCONNECT_CONFIRM_FIELD, escape_html(CALENDAR_DISCONNECT_CONFIRM_VALUE),
         escape_html(i18n.t(CALENDAR_DISCONNECT_CONFIRM_BUTTON_TEXT)),
-        layout.DISPLAY_ROUTE, escape_html(i18n.t(CALENDAR_DISCONNECT_CANCEL_TEXT)),
+        device_scope.scoped(layout.DISPLAY_ROUTE),
+        escape_html(i18n.t(CALENDAR_DISCONNECT_CANCEL_TEXT)),
     )
 
 

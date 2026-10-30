@@ -281,7 +281,8 @@ REFRESH_PENDING_ATTR = "data-pending"
 # permanently dead (it captures its DOM once). The registry card and its
 # filter bar are excluded for list-filter.js's sake.
 
-# `a[href="/health"]`, not a ".dot" selector, is the nav-severity target:
+# `a[href$="/health"]`, not a ".dot" selector, is the nav-severity target
+# (an ends-with match, so the prefixed link on a device page is found too):
 # the severity dot only exists in the DOM for "warn"/"error", so a
 # dot-only selector would have nothing to replace when severity clears.
 
@@ -325,7 +326,7 @@ REFRESH_SWAP_SELECTORS_BY_PAGE = {
         "div." + HEALTH_ANOMALY_CLASS,
         "section." + HEALTH_SOURCE_FAULT_CLASS,
         ".page-header__freshness",
-        'a[href="/health"]',
+        'a[href$="/health"]',
     ),
     REFRESH_PAGE_FLIGHTS: (
         ".page-header__freshness",

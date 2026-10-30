@@ -1088,7 +1088,7 @@ def test_swap_registry_has_one_definition_site_and_one_key_set(freshness_js):
         "div.health-anomaly",
         "section.health-source-fault",
         ".page-header__freshness",
-        'a[href="/health"]'), (
+        'a[href$="/health"]'), (
         "Health's five regions: each row's summary replaces the retired tile grid, the other "
         "four are unchanged")
 
