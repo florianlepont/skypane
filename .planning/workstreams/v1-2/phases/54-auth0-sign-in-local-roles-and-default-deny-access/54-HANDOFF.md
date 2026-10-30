@@ -26,7 +26,9 @@ Related: [legacy-admin removal task](54-LEGACY-ADMIN-REMOVAL.md),
 - Co-management (see section D) extends `access.authorized_device_id`, which
   takes the owner as input.
 
-## B. Owner go-live checklist (nothing is deployed by this phase)
+## B. Owner go-live checklist
+
+Status 2026-10-30: items 1 to 6 are done in production (deploy `af9e8521` at 20:27 UTC, Auth0 variables at 20:33 UTC, real-tenant smoke test passed, see `54-VERIFICATION.md`). Items 7 and 8 remain: keep the rollback caveat in mind, and remove the legacy fallback when the owner chooses.
 
 1. Configure the Auth0 tenant: Regular Web Application, Allowed Callback URL
    `https://<companion host>/callback`, Allowed Logout URL

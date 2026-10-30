@@ -7,6 +7,8 @@ production and the administrator has signed in through it successfully. The
 owner stamps a "remove by" date at go-live (this refines the roadmap's
 "dated" wording). Remove by: ______ (to be filled at go-live).
 
+Status 2026-10-30: the trigger is reached (Auth0 sign-in works in production and the administrator signed in through it). The owner has not yet chosen the date; the fallback is still enabled.
+
 ## Steps
 
 1. Set `SKYPANE_LEGACY_PASSWORD_LOGIN=0` in the production environment,
