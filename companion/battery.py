@@ -13,15 +13,29 @@ module's own, companion-only additions on top of that shared curve.
 
 import datetime
 
+from server import device_policy
 from server.device_policy import (  # noqa: F401
     BATTERY_DISCHARGE_CURVE, BATTERY_FULL_MV, BATTERY_EMPTY_MV,
-    battery_fraction, battery_percent,
 )
 
 
-def _curve_mv_at_percent(percent):
-    """The millivolt value where BATTERY_DISCHARGE_CURVE reads `percent`,
-    by inverting the table `battery_fraction()` walks below.
+def battery_fraction(mv, curve=None):
+    """The shared state-of-charge fraction for `mv` on `curve` (a
+    hardware profile's discharge curve); None selects the legacy curve."""
+    return device_policy.battery_fraction(
+        mv, curve=BATTERY_DISCHARGE_CURVE if curve is None else curve)
+
+
+def battery_percent(mv, curve=None):
+    """The shared 0-100 estimate for `mv` on `curve`; None selects the
+    legacy curve."""
+    return device_policy.battery_percent(
+        mv, curve=BATTERY_DISCHARGE_CURVE if curve is None else curve)
+
+
+def _curve_mv_at_percent(percent, curve=None):
+    """The millivolt value where `curve` (default BATTERY_DISCHARGE_CURVE)
+    reads `percent`, by inverting the table `battery_fraction()` walks.
 
     Raises ValueError outside 0..100 — an import-time programming error,
     since the only caller is LOW_BATTERY_DISPLAY_MV, evaluated at module
@@ -29,13 +43,14 @@ def _curve_mv_at_percent(percent):
     """
     if percent < 0 or percent > 100:
         raise ValueError("percent out of range 0..100: %r" % (percent,))
-    for (lower_mv, lower_pct), (upper_mv, upper_pct) in zip(
-            BATTERY_DISCHARGE_CURVE, BATTERY_DISCHARGE_CURVE[1:]):
+    if curve is None:
+        curve = BATTERY_DISCHARGE_CURVE
+    for (lower_mv, lower_pct), (upper_mv, upper_pct) in zip(curve, curve[1:]):
         if upper_pct >= percent:
             mv = lower_mv + (percent - lower_pct) * (upper_mv - lower_mv) / float(
                 upper_pct - lower_pct)
             return int(round(mv))
-    return BATTERY_DISCHARGE_CURVE[-1][0]
+    return curve[-1][0]
 
 
 # The COMPANION's own low-battery chart mark — distinct from
@@ -45,6 +60,12 @@ def _curve_mv_at_percent(percent):
 # can never tell two different stories: 3540 mV at 20%.
 LOW_BATTERY_DISPLAY_PERCENT = 20
 LOW_BATTERY_DISPLAY_MV = _curve_mv_at_percent(LOW_BATTERY_DISPLAY_PERCENT)
+
+
+def low_display_mv(curve=None):
+    """The millivolt value of the low-battery display mark on `curve`;
+    None selects the legacy curve (LOW_BATTERY_DISPLAY_MV)."""
+    return _curve_mv_at_percent(LOW_BATTERY_DISPLAY_PERCENT, curve)
 
 
 # Named states, not an overloaded None: "no reading at all" must read
@@ -126,7 +147,7 @@ def _life_cadence_or_none(seconds):
 
 
 def battery_life_estimate(rows, current_wake_interval_s=None,
-                          proposed_wake_interval_s=None):
+                          proposed_wake_interval_s=None, curve=None):
     """What can honestly be said about how long this battery has left.
     `rows` is a daily-average series (`server/history_db.py`'s row
     shape); order doesn't matter. `current_wake_interval_s` is the
@@ -136,7 +157,8 @@ def battery_life_estimate(rows, current_wake_interval_s=None,
     `observed_span_days`, `mv_per_day`, `days_remaining` (an int only
     when history supports one), `relative_factor` (proposed/current
     cadence, available even with no history at all — a wake-count
-    ratio, never a lifetime multiplier).
+    ratio, never a lifetime multiplier). `curve` is the device's
+    discharge curve; None selects the legacy one.
 
     Never assumes a per-wake energy cost (the source discharge run left
     that split unresolved) and never turns a RISING series into a
@@ -189,8 +211,8 @@ def battery_life_estimate(rows, current_wake_interval_s=None,
     # millivolts do not. Validated against the discharge run: this
     # projection landed at 6.0 days for a window where 6.2 actually
     # elapsed; millivolt extrapolation was off by 2-3x on the same window.
-    newest_fraction = battery_fraction(newest_mv)
-    oldest_fraction = battery_fraction(oldest_mv)
+    newest_fraction = battery_fraction(newest_mv, curve)
+    oldest_fraction = battery_fraction(oldest_mv, curve)
     if newest_fraction == 0.0:
         result["days_remaining"] = 0
     elif (oldest_fraction - newest_fraction) <= 0:
@@ -227,6 +249,9 @@ def battery_life_estimate(rows, current_wake_interval_s=None,
 # (a step DOWN) ends the estimate on the first reading after it.
 # Medians, not endpoints: the panel refresh load makes single readings sag
 # and recover by up to ~100 mV, which as an endpoint looks like a rise.
+#
+# These heuristics stay global rather than per hardware profile: they are
+# single-pack calibrations, not properties of a hardware type.
 #
 # Calibration data: one battery, one discharge run (3248 discharge
 # readings at about 342 s spacing, hardware/logs/battery-run-server.log)

@@ -153,6 +153,16 @@ def poll_supported(device):
     return (profile.width, profile.height) == (panel_format.WIDTH, panel_format.HEIGHT)
 
 
+def profile_for(device):
+    """The hardware profile of `device`. Never raises: an unknown or
+    gated-off hardware type, None or a malformed value reads as the
+    legacy profile, so a page can always render."""
+    try:
+        return hardware.get_profile(device.hardware_type, os.environ)
+    except Exception:
+        return hardware.REGISTRY[hardware.LEGACY_KEY]
+
+
 def _battery_received_at(state_dir):
     """`received_at` of the device's own battery_state.json, or None."""
     try:
