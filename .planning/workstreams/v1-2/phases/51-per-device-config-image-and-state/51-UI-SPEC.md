@@ -20,11 +20,11 @@ created: 2026-10-30
 |----------|-------|
 | Tool | none (shadcn not applicable: server-rendered Python, no React; no registry) |
 | Preset | not applicable |
-| Component library | none. Existing companion emitters only (`ui_components`, `layout`, `settings/*`, `.toast`, `.empty-state`, `.segmented`/`<select>` GET-form idiom of `update_page.py`) |
+| Component library | none. Existing companion emitters only (`ui_components`, `layout`, `settings/*`, `.toast`, `.empty-state`, `.banner__pill`) |
 | Icon library | none new. Existing inline glyphs and the toast tone discs |
-| Font | existing tokens: `--font-ui` (body, controls, labels), `--font-serif` (headings only), `--font-mono` (identifiers only) |
+| Font | existing tokens: `--font-ui` (body, controls, labels), `--font-serif` (headings only), `--font-mono` (identifiers only, never inside a native `<option>`) |
 
-Source: CONTEXT D-08, D-10; sketch-findings-skypane (locked). No new stylesheet token, no new `@keyframes`, no new duration.
+Source: CONTEXT D-08, D-10; sketch-findings-skypane (locked). No new stylesheet token, no new `@keyframes`, no new duration, no new script file.
 
 ---
 
@@ -36,26 +36,30 @@ Existing tokens, unchanged: `--space-xs` 4, `--space-sm` 8, `--space-md` 16, `--
 |-------------------|-------|
 | Selector inner padding (inline) | `--space-sm` / `--space-md` |
 | Gap between selector and page title | `--space-md` |
-| Gap label to select inside the selector | `--space-sm` |
-| Gap between timezone field and quiet-hours dial card content | `--space-md` |
+| Gap between caption, select and pill | `--space-sm` |
+| Gap between timezone field and the dial above it | `--space-md` |
 | Sibling-card gap | `--space-lg` (unchanged rule) |
 
-Exceptions: the selector control and the timezone `<select>` keep the app's 44px hit area on phone widths (touch-target floor, below 960px); at >=960px they follow the existing 30px control density (13px control text). No other exception.
+Exceptions: none. The selector `<select>`, its no-JS submit and the timezone `<select>` keep the app's global native input/select 44px min-height and min-width at ALL widths (`control-density.md`; `style.css` native-control rule). They do not drop to the 30px button density at 960px and wider, and they use the existing control font size. The 24rem cap in Component 1 is a layout width, not a spacing value.
 
 ---
 
 ## Typography
 
-Existing four sizes and two weights only. No new role.
+Existing four sizes and two weights only. No new role, no new size.
 
 | Role | Size | Weight | Line Height | Used for |
 |------|------|--------|-------------|----------|
-| Body | 16px (`--font-body-size`) | 400 | 1.5 | Selector option text on phone, empty-state body text |
-| Label | 14px (`--font-label-size`) | 400 | 1.5 | Selector caption "Frame", timezone helper text, field error |
+| Body | 16px (`--font-body-size`) | 400 | 1.5 | Empty-state body text |
+| Label | 14px (`--font-label-size`) | 400 | 1.5 | Timezone helper text, field error |
 | Heading | 22px serif (`--font-heading-size`) | 400 | 1.2 | Empty-state full-card heading (unchanged) |
 | Page title | 32px serif | 600 | 1.2 | Existing `.page-title`; unchanged. It does NOT carry the device name |
 
-Weights: 400 and 600 only. The selected device name in the selector is 600 (Emphasis role: body size + semibold), the caption is the 12px uppercase label voice (existing, `.data-card__label` family). Device identifiers (short id `d_xxxxxxxx`) use `--font-mono` because they are identifiers; the device display name is sans.
+Weights: 400 and 600 only.
+
+- The "Frame" caption beside the selector uses the existing 12px uppercase semibold label voice and nothing else (no 14px or 16px caption variant). The `<select>` itself uses the existing native-control font size.
+- The 12px label voice and the 13px control text are the app's existing sub-scale tier (see sketch-findings Typography), not new sizes and not content roles.
+- Native `<option>` text is plain `--font-ui` in whatever the browser renders; no mono, weight or colour styling is claimed inside options.
 
 ---
 
@@ -70,7 +74,7 @@ Existing tokens, both themes (light/dark switch via the existing `--color-*` cus
 | Accent (10%) | `--color-accent` (#B13F16 light / #FF8A5C dark) | See reserved list |
 | Destructive | `--color-error` (#BE123C / #FB7185) | Validation error text and error toast only. No destructive action in this phase |
 
-Accent reserved for (this phase adds NO new accent consumer): the focus-visible outline on the selector and timezone `<select>` (existing "focused-input outline" entry), the Save button of the settings save bar (existing primary), and the existing active nav-pill indicator. The selector's current value is NOT accent-filled; selection is shown by text weight and the native control. The "Poll now" button stays a quiet button (existing wash), not an accent fill. Status of a device (unreachable, never checked in) uses the existing status colours plus glyph and spoken prefix, never colour alone.
+Accent reserved for (this phase adds NO new accent consumer): the focus-visible outline on the selector and timezone `<select>` (existing "focused-input outline" entry), the Save button of the existing save bar (existing primary), and the existing active nav-pill indicator. The selector's current value is not accent-filled. "Poll now" stays a quiet button. The selector pill is neutral (`.banner__pill`, the 12px uppercase label voice, neutral colours) and carries NO status colour; urgency lives in the docked warning toast, which uses the existing warning tone with glyph and spoken prefix.
 
 ---
 
@@ -78,39 +82,49 @@ Accent reserved for (this phase adds NO new accent consumer): the focus-visible 
 
 ### 1. Device selector
 
-**Mechanism (defaulted, per research Pattern 6):** a native `<select>` inside a GET `<form>` (the idiom of the Update page type chooser), with a visible `<label>`. Not a segmented control: a fleet is unbounded and a segmented control does not fit 360px beyond two options. Without JS the form carries a visible "Go" submit (`Show`/`Afficher`); with `.js` the submit is hidden and `change` navigates (progressive enhancement, same `.js` gate pattern as existing controls). Option value navigates to `/devices/<id>/<current page path>`; the live frame option navigates to the un-prefixed path.
+**Focal point.** The page title and the page's primary card remain the visual anchor of every page. The selector is quiet chrome: no accent, no card elevation beyond the control's own surface, no heading-size text.
 
-**Placement (defaulted):** top of the content column, directly above `.page-title`, left-aligned, in the shell so it appears on every device-scoped page (home, flights, airlines, health, history, display/settings, device). Not in the sidebar, not in the bottom tab bar (the tab bar stays pure page navigation, per mobile-navigation findings). It is NOT rendered on global pages (`/update`, `/login`). Layout: one row, caption on the left (`Frame`), select filling the remaining width, max width 24rem at >=960px, full column width on phone.
+**Mechanism (defaulted):** a native `<select>` inside a GET `<form>` with a visible `<label>`. Justification on its own terms: the fleet is unbounded (several users, several devices), and a segmented control cannot hold more than two or three options at 360px. (Correction of record: the Update page type chooser at `update_page.py:241-248` is a segmented control, not a `<select>` GET form. RESEARCH Pattern 6 states the opposite and is wrong on this point; RESEARCH is not edited, this spec is authoritative.) Option value navigates to `/devices/<id>/<current page path>`; the live frame option navigates to the un-prefixed path.
 
-**Option label:** `devices.name` else the short id. Never MAC, token or secret. A suffix ` (live frame)` is NOT added; the live frame is simply option 1 and, when selected by default, shows its name (default name: `Orly frame` if the row has none). Options are sorted: live frame first, then by name.
+**No-JS and enhancement gate.** The form always renders a visible submit button `Show frame` / `Afficher le cadre`. The submit is hidden ONLY under the enhancement's own armed class `device-selector--armed`, which the enhancement script adds to the form when it attaches its `change` handler. It is not keyed to the global `.js` class alone (that class is set before any handler exists, and a scripts-blocked or failed handler must leave the submit visible). The `change` handler lives in the existing `static/nav-dropdown.js` (the script that already owns the `.js` class and navigation); no new script file. Browser tests are required both ways: scripts blocked (submit visible and working, selecting then submitting navigates) and scripts armed (submit hidden, `change` navigates).
+
+**Placement (defaulted):** top of the content column, directly above `.page-title`, in the shell on every device-scoped page (home, flights, airlines, health, history, display, device). Not in the sidebar, not in the bottom tab bar (the tab bar stays pure page navigation). Not rendered on global pages (`/update`, `/login`) or on the 404.
+
+**Landmark.** The form is a non-landmark grouping: `<div role="group" aria-labelledby="{label id}">` wrapping a plain `<form>` without an accessible name (a `<form>` is exposed as a landmark only when named, so it must stay unnamed). This keeps the pinned landmark counts (exactly two Primary navigation landmarks, one `main`) on every page unchanged.
+
+**Layout.** One flex row that wraps. Desktop: caption, select (max width 24rem), pill, in one row. Phone at 360px (312px content column after 24px side padding): the caption sits on its own line above (12px label voice), the 44px-high select spans the full 312px on the next line, and the pill wraps to a third line below the select only when present (`flex-wrap: wrap`, gap `--space-sm`). The no-JS submit wraps under the select at the same 44px height. Nothing scrolls horizontally.
+
+**Option label:** `devices.name` else the short id. Never MAC, token or secret. Options sorted: live frame first, then by name. Default name if the live row has none: `Orly frame`.
 
 **States**
 
 | State | Behaviour |
 |-------|-----------|
-| Single device (fleet.db lists one) | Selector NOT rendered. Zero new markup, live frame HTML and baselines byte-identical (D-01, D-08) |
+| Single device (fleet.db lists one) | Selector NOT rendered. Zero new markup on every page except Display (see Scope of byte-identity). |
 | Several devices | Selector rendered, current device selected. Live frame selected by default on un-prefixed URLs |
-| Device never checked in | Option text suffix ` — not seen yet` (visually muted via text, not colour). On its pages, page-level empty states below. Fully selectable |
-| Device unreachable (no check-in for more than two expected wake intervals, from the device's own `poll_state`) | Option text suffix ` — offline`. On its pages a docked warning toast (existing `.toast--docked`, tone warning, glyph + spoken prefix) under the title: "No check-in since {time}. Showing the last known data." Persistent, no dismiss, no timer |
-| Unknown or invalid id in URL | 404 page (existing). Never falls back to the live frame (D-07). Selector is not rendered on the 404 |
-| Focus | Existing focus-visible outline on the `<select>` (2px accent, offset 2px). Visible at both themes |
-| Disabled | Not used. If only one device exists the control does not exist |
+| Device never checked in | Option suffix ` — not seen yet`; selected-device pill `Not seen yet`. Page-level empty states below. Fully selectable |
+| Device unreachable (no check-in for more than two expected wake intervals, from the device's own `poll_state`) | Option suffix ` — offline`; selected-device pill `Offline`; docked warning toast (existing `.toast--docked`, glyph + spoken prefix, in flow under the title, no dismiss, no timer): title `No signal since {time}`, detail `Showing the last known data.` (rendered with the existing " — " title/detail split) |
+| Unknown or invalid id in URL | 404 page (existing). Never falls back to the live frame (D-07). No selector |
+| Focus | Existing focus-visible outline on the `<select>` and the submit. Visible in both themes |
+| Disabled | Not used |
 
-Status in option text is plain words, not glyphs, because native `<option>` cannot render styled marks; the selected-device status additionally appears as a `.banner__pill` neutral pill next to the select (`Offline`, `Not seen yet`; hidden when healthy).
+**Scope of the unreachable/never-seen states.** They apply only to non-live devices selected through the selector. The live frame's existing Health behaviour, anomaly toasts and HTML are not changed by this phase: no new toast, pill or option suffix is emitted for the live frame, and the single-device install renders none of it.
 
-**Accessibility:** `<label for>` with visible text; landmark `<form role="search">` NOT used, plain `<form aria-label="Frame">`. Keyboard: native select (arrows, type-ahead), Enter submits in no-JS mode. Hit area: 44px min height below 960px, measured in its own container (standing review-feedback contract). Skip link and tab order: the selector comes after the skip link and before page content. After navigation the page title receives no forced focus (default browser behaviour).
+**Accessibility:** `<label for>` with visible text; keyboard is native select (arrows, type-ahead), Enter submits in no-JS mode. Tab order: skip link, then the selector, then page content. Hit area: 44px min height and width at all widths, measured in its own container by the 360px browser test.
 
 ### 2. Per-device pages: header and links
 
-All internal links, forms, `return_to` and redirects on a device page keep the `/devices/<id>` prefix (research Pattern 5). A device that is not the live frame is reachable at `/devices/<id>/health`, `/devices/<id>/history`, `/devices/<id>/settings` and so on. The live frame's un-prefixed URLs still work and are selected by default. The document `<title>` for a non-live device is `{page} — {device name} — SkyPane` (defaulted) so tabs from different devices are distinguishable.
+All internal links, forms, `return_to` and redirects on a device page keep the `/devices/<id>` prefix (research Pattern 5). A non-live device is reachable at `/devices/<id>/health`, `/devices/<id>/history`, `/devices/<id>/settings` and so on; the live frame's un-prefixed URLs still work and are selected by default. Document `<title>` for a non-live device: `{page} — {device name} — SkyPane` (defaulted).
+
+**Navigation.** The nav has 7 entries (`ui_base.NAV_GROUPS`: Home, Display, Flights, Airlines in the first group; Health, Device, Update under Advanced). With a non-live device selected, the six device-scoped links are prefixed `/devices/<id>/...`. Update is global (D-17): its link is NEVER prefixed with `/devices/<id>`, in the sidebar, in the tab bar More sheet and in the footer.
 
 ### 3. Per-device image (home)
 
-Defaulted: Home shows the selected device's own last frame image in the existing frame-preview slot, with the existing relative age (`.time-value`). A device that has never fetched an image shows the seeded/placeholder state below (a device never falls back to the shared image, D-07).
+Defaulted: Home shows the selected device's own last frame image in the existing frame-preview slot with the existing relative age (`.time-value`). A device that has never fetched an image shows the compact empty state below; it never falls back to the shared image (D-07).
 
 ### 4. Per-device health and history empty states
 
-Reuse `empty_state()` (full-card form for a page, compact form inside a tile). No new component.
+Reuse `empty_state()` (full-card form for a page, compact form inside a tile).
 
 | Surface | Heading | Body |
 |---------|---------|------|
@@ -118,15 +132,15 @@ Reuse `empty_state()` (full-card form for a page, compact form inside a tile). N
 | Health battery tile, no battery reading (compact) | `No battery reading` | `Shown after the first check-in.` |
 | History, no rows (full card) | `No history for this frame yet` | `Flights and checks appear here after the first poll. Use Poll now to run one.` |
 | Home preview, no image (compact) | `No picture yet` | `The first image appears after a poll or the frame's first wake.` |
-| Health, device unreachable | none (data is shown) | docked warning toast from the selector contract above |
+| Health, device unreachable | none (data is shown) | docked warning toast from Component 1 |
 
-Never show another device's rows, battery or provider statistics in these slots, including when the selected device is empty.
+Never show another device's rows, battery or provider statistics in these slots.
 
 ### 5. Timezone field (next to quiet hours)
 
-**Placement (defaulted):** inside the existing quiet-hours settings card, directly BELOW the dial and its readout, above the card's save area. It is a labelled field row, not a new card, so card count and the save bar contract (real Save/Cancel over native form POST) are unchanged. It joins the same dirty-section and form as quiet hours (one POST, one Save).
+**Placement (defaulted):** a labelled field row inside the existing quiet-hours settings card. The card pins an element order today (caption, presets, start, end, dial); the timezone field is inserted AFTER the dial and its readout, as the last element of the card, and the pinned order is extended to (caption, presets, start, end, dial, timezone). There is no card-level "save area": persistence uses the page-wide `.dirty-bar` (Save / Cancel) and the existing no-JS fallback Save button. The quiet-hours card renders outside `#settings-form` (`SETTINGS_FORM_ID`), so the timezone `<select>` MUST carry `form="settings-form"` to submit with the rest; quiet hours and timezone go in one POST and one Save. It joins the card's `data-dirty-section` so the dirty bar counts it.
 
-**Control:** native `<select>` with `<label>` `Time zone` and helper text (14px muted `.section-caption` voice): `Quiet hours follow this time zone.` Options are a curated France-wide list (D-18), most specific first, grouped with `<optgroup>` only if more than one group exists; defaulted list (IANA keys, display text EN/FR via i18n keys):
+**Control:** native `<select>` with `<label>` `Time zone` and one helper line (existing 14px muted `.section-caption` voice): `Quiet hours follow this time zone.` Options are a curated France-wide list (D-18), Paris first; display text through i18n keys, each option appending the current UTC offset computed server-side at render (`Martinique (UTC-4)`), plain text:
 
 | Key | EN display |
 |-----|-----------|
@@ -141,108 +155,114 @@ Never show another device's rows, battery or provider statistics in these slots,
 | Pacific/Noumea | New Caledonia |
 | Pacific/Wallis | Wallis and Futuna |
 
-Each option text appends the current UTC offset computed server-side at render (for example `Martinique (UTC-4)`), plain text, so DST is visible for Paris. Stored value is the IANA key. If a stored key is not in the curated list (hand-edited file), render it as an extra last option with its raw key so it is never silently changed on save.
+A stored key not in the curated list (hand-edited file) renders as one extra last option with its raw key so a save never silently changes it.
 
 **States**
 
 | State | Behaviour |
 |-------|-----------|
-| Default | `Europe/Paris` selected. Saving without touching it does NOT write the key (D-18) |
-| Dirty | Existing dirty-bar appears (Save / Cancel), same as quiet hours |
-| Validation error (POSTed key not in `zoneinfo.available_timezones()` or not in curated list) | Page re-renders with the submitted value discarded, the field restored to the stored value, `.field-error` text under the select (error colour, `role="alert"` via the existing field-error pattern, `aria-describedby` linking select to the message and `aria-invalid="true"`), plus an error toast `Time zone not saved — Pick one from the list.` Nothing else in that save is lost: quiet hours values in the same POST are not applied either (atomic per device) and the page states it in the detail |
-| Success | Existing pending toast `Saved — reaches the frame at its next wake` (reuse the existing quiet-hours pending copy and tone) |
-| Quiet hours disabled | Timezone stays editable, helper text unchanged (the field is stored regardless) |
-| Non-Paris selected | Existing quiet-hours readout shows times in the device's zone with the zone name appended (`23:00 to 07:00, Martinique time`, defaulted). Timestamps elsewhere in the companion remain Paris time (research open question 4, accepted, note in Health footer not added) |
+| Default | `Europe/Paris` selected. Saving without changing it does NOT write the key (D-18) |
+| Dirty | Existing `.dirty-bar` appears, same as quiet hours |
+| Validation error (key not in `zoneinfo.available_timezones()` or not in the curated list) | Page re-renders with the field RESTORED to the stored value, not echoing the rejected submission. This deliberately deviates from the app's D-07 echo convention (invalid text fields redisplay what the user typed): a `<select>` can only submit a listed key, so an invalid value means a tampered or stale form and there is nothing meaningful to echo. `.field-error` under the select (error colour, `role="alert"`, `aria-describedby` linking select to the message, `aria-invalid="true"`) plus an error toast. The whole POST is rejected atomically: quiet-hours values in the same submission are not applied either, and the toast detail says so |
+| Success | Existing pending toast `Saved — reaches the frame at its next wake` (existing quiet-hours copy and tone) |
+| Quiet hours disabled | Timezone stays editable; helper unchanged |
+| Non-Paris selected | The dial readout keeps its shipped form `23:00 → 07:00 · 8h` (one duration form only) and the zone is appended as a trailing clause: `23:00 → 07:00 · 8h · Martinique time`. Nothing else in the readout changes. Timestamps elsewhere stay Paris time (research open question 4, accepted) |
 
-**Accessibility:** label programmatically associated, 44px phone hit area, keyboard native, focus-visible outline unchanged, error is announced (role alert) and not colour-only (error glyph per toast tone, text in the field-error). Dial and select remain independently operable; the dial's existing no-JS contract (value read back from disk) is unchanged.
+**Accessibility:** label associated; 44px at all widths; keyboard native; focus-visible outline unchanged; error announced via role alert and not colour-only (text plus toast glyph). Dial and select are independently operable; the dial's no-JS contract is unchanged.
 
 ### 6. Per-device "Poll now"
 
-Reuses the existing Poll card/button and cooldown behaviour, scoped to the selected device (`POST /devices/<id>/poll-now`). Button label unchanged: `Poll now`. The poll card heading names the scope in its caption: `Runs one check for {device name} only.`
+Reuses the existing Poll card, button and cooldown, scoped to the selected device (`POST /devices/<id>/poll-now`). Button label unchanged: `Poll now`.
 
-| Outcome | Feedback (flash toast, return to the same device page) |
-|---------|--------------------------------------------------------|
-| Pending (JS on) | Button text swaps to existing `Checking…` (`display.polling`) and is `aria-disabled`/disabled; re-enabled on response |
-| Success | success toast: `Check complete — {device name} was refreshed.` auto-hides after the existing 6s dwell |
+**One caption per section.** The Poll section keeps exactly its existing caption (`POLL_SECTION_CAPTION`) and gains no second caption or helper line. The device scope is folded into that caption only when the fleet has more than one device: `Runs one check for {device name} only.` is appended as a trailing sentence to the same caption element. With a single device the caption is the existing text, unchanged. The unsupported-hardware state (below) replaces the caption's text with the refusal sentence rather than adding a line.
+
+| Outcome | Feedback (flash toast, redirect back to the same device page) |
+|---------|--------------------------------------------------------------|
+| Pending (JS on) | Button text swaps to existing `Checking…` (`display.polling`), button disabled; re-enabled on response |
+| Success | success toast `Check complete — {device name} was refreshed.`, auto-hides at the existing 6s dwell |
 | Cooldown | info toast, existing `Poll triggered recently — try again in {n} s` (per-device cooldown) |
-| Already running (per-device lock) | warning toast, existing `A poll is already in progress — try again in a few seconds` (never blocked by another device's poll) |
-| Failure | error toast, existing `Poll could not start — Try again; if it keeps failing, check Health.` with action `See Health` linking to `/devices/<id>/health` |
-| Hardware not supported by the poll cycle (D-16) | warning toast (never auto-hides): `Poll not available — This frame's screen type cannot be refreshed from here yet. It still updates on its own wake.` No action. The Poll button on that device is rendered `disabled` with `aria-disabled="true"` and the helper text `Not available for this screen type yet.` below it, so the refusal is visible before pressing; a POST forced anyway returns the same toast with HTTP 200 flash redirect, never a stack trace and never touching any directory |
-| Device unknown | 404, never a fallback |
+| Already running (per-device lock) | warning toast, existing `A poll is already in progress — try again in a few seconds`. Never blocked by another device's poll |
+| Failure | error toast, existing `Poll could not start — Try again; if it keeps failing, check Health.` with action `See Health` to `/devices/<id>/health` |
+| Hardware not supported by the poll cycle (D-16) | Button rendered `disabled` with `aria-disabled="true"`; the existing caption text is replaced by `Not available for this screen type yet.` A forced POST returns HTTP 303 (the same redirect-with-flash status the existing poll POST uses) to the device page with a warning toast that never auto-hides: `Poll not available — This frame's screen type cannot be refreshed from here yet. It still updates on its own wake.` No directory is touched, no traceback |
+| Device unknown | HTTP 404, never a fallback |
 
-A poll for device A never changes any visible content on device B's pages. Tone is never colour alone (glyph + spoken prefix, existing toast).
+A poll for device A never changes content on device B's pages. Tone is never colour alone (glyph + spoken prefix).
+
+---
+
+## Scope of byte-identity
+
+The guarantee that the live frame's HTML and committed baselines are byte-identical on a single-device install covers the selector, the nav, and every page EXCEPT Display. The Display page changes for everyone, including the live frame and single-device installs: it gains the timezone field in the quiet-hours card (Component 5) and, with more than one device, the device-scope sentence in the poll caption. Display baselines (`companion/testdata`) must be regenerated for the timezone field; this is an intended change, not a regression. The live frame's `device_config.json` bytes stay unchanged (D-18).
 
 ---
 
 ## Copywriting Contract
 
-All strings via `i18n.msg` with a French translation in `companion/i18n_fr/` (`test_i18n_ids.py` enforces coverage). French follows sentence case, typographic apostrophe U+2019, NBSP before `: ; ? !`. Owner-facing copy is plain French.
+All strings via `i18n.msg` with a French translation in `companion/i18n_fr/` (`test_i18n_ids.py` enforces coverage). French follows sentence case, typographic apostrophe U+2019, NBSP before `: ; ? !`. Owner-facing copy is plain French. Title/detail strings use the " — " split.
 
 | Element | EN | FR | i18n_fr module / key (defaulted) |
 |---------|----|----|----------------|
-| Selector caption | Frame | Cadre | nav: `nav.device_selector_label` |
-| Selector no-JS submit | Show | Afficher | nav: `nav.device_selector_go` |
-| Selector form accessible name | Frame | Cadre | nav: `nav.device_selector_label` (shared) |
+| Selector caption and label | Frame | Cadre | nav: `nav.device_selector_label` |
+| Selector no-JS submit | Show frame | Afficher le cadre | nav: `nav.device_selector_go` |
 | Option suffix never seen | not seen yet | pas encore vu | nav: `nav.device_never_seen` |
 | Option suffix offline | offline | hors ligne | nav: `nav.device_offline` |
 | Pill never seen | Not seen yet | Pas encore vu | nav: `nav.device_pill_never_seen` |
 | Pill offline | Offline | Hors ligne | nav: `nav.device_pill_offline` |
-| Unreachable toast | No check-in since {time} — Showing the last known data. | Aucune connexion depuis {time} — Dernières données connues affichées. | health: `health.device_unreachable` |
+| Unreachable toast | No signal since {time} — Showing the last known data. | Aucun signal depuis {time} — Dernières données connues affichées. | health: `health.device_unreachable` |
 | Default live frame name | Orly frame | Cadre d’Orly | nav: `nav.device_default_name` |
-| Primary CTA (poll) | Poll now | Vérifier maintenant | existing `display`/`common` key, reused |
-| Poll scope caption | Runs one check for {device} only. | Lance une vérification pour {device} uniquement. | display: `display.poll_scope_caption` |
+| Primary CTA (poll) | Poll now | Vérifier maintenant | existing key, reused |
+| Poll scope sentence (appended to existing caption, several devices only) | Runs one check for {device} only. | Lance une vérification pour {device} uniquement. | display: `display.poll_scope_caption` |
 | Poll success | Check complete — {device} was refreshed. | Vérification terminée — {device} est à jour. | common: `common.device_poll_done` |
 | Poll unsupported (toast) | Poll not available — This frame’s screen type cannot be refreshed from here yet. It still updates on its own wake. | Vérification indisponible — Le type d’écran de ce cadre ne peut pas encore être rafraîchi d’ici. Il se met à jour tout seul à son prochain réveil. | common: `common.device_poll_unsupported` |
-| Poll unsupported (helper) | Not available for this screen type yet. | Indisponible pour ce type d’écran pour l’instant. | display: `display.poll_unsupported_helper` |
+| Poll unsupported (caption replacement) | Not available for this screen type yet. | Indisponible pour ce type d’écran pour l’instant. | display: `display.poll_unsupported_caption` |
 | Timezone label | Time zone | Fuseau horaire | display: `display.timezone_label` |
 | Timezone helper | Quiet hours follow this time zone. | Les heures calmes suivent ce fuseau horaire. | display: `display.timezone_helper` |
 | Timezone error (field) | Pick a time zone from the list. | Choisissez un fuseau horaire dans la liste. | display: `display.timezone_invalid` |
 | Timezone error (toast) | Time zone not saved — Pick one from the list. Nothing in this save was applied. | Fuseau horaire non enregistré — Choisissez-en un dans la liste. Rien n’a été appliqué. | display: `display.timezone_invalid_toast` |
-| Timezone options (10 labels, see table) | see Component 5 | Métropole (Paris), Martinique, Guadeloupe, Guyane, La Réunion, Mayotte, Saint-Pierre-et-Miquelon, Polynésie française (Tahiti), Nouvelle-Calédonie, Wallis-et-Futuna | display: `display.timezone_opt_*` |
+| Readout zone clause | {zone} time | heure de {zone} | display: `display.readout_zone_clause` |
+| Timezone options (10 labels) | see Component 5 | Métropole (Paris), Martinique, Guadeloupe, Guyane, La Réunion, Mayotte, Saint-Pierre-et-Miquelon, Polynésie française (Tahiti), Nouvelle-Calédonie, Wallis-et-Futuna | display: `display.timezone_opt_*` |
 | Health empty heading | This frame has not checked in yet | Ce cadre ne s’est pas encore connecté | health: `health.device_empty_heading` |
 | Health empty body | Health appears after its first wake. Make sure it is powered on and in range of Wi-Fi. | L’état apparaîtra après son premier réveil. Vérifiez qu’il est allumé et à portée du Wi-Fi. | health: `health.device_empty_body` |
-| History empty heading | No history for this frame yet | Pas encore d’historique pour ce cadre | health or flights: `flights.device_empty_heading` |
-| History empty body | Flights and checks appear here after the first poll. Use Poll now to run one. | Les vols et vérifications apparaîtront après la première vérification. Utilisez « Vérifier maintenant » pour en lancer une. | `flights.device_empty_body` |
+| History empty heading | No history for this frame yet | Pas encore d’historique pour ce cadre | flights: `flights.device_empty_heading` |
+| History empty body | Flights and checks appear here after the first poll. Use Poll now to run one. | Les vols et vérifications apparaîtront après la première vérification. Utilisez « Vérifier maintenant » pour en lancer une. | flights: `flights.device_empty_body` |
 | Home no picture | No picture yet / The first image appears after a poll or the frame’s first wake. | Pas encore d’image / La première image apparaîtra après une vérification ou le premier réveil du cadre. | home: `home.device_no_image_*` |
 | Error state (unknown device) | Frame not found — Pick a frame from the selector. | Cadre introuvable — Choisissez un cadre dans le sélecteur. | common: `common.device_not_found` |
-| Destructive confirmation | none in this phase (no delete/reset/unpair action; device creation and removal belong to Phase 55) | none | not applicable |
+| Destructive confirmation | none in this phase (no delete/reset/unpair; creation and removal are Phase 55) | none | not applicable |
 
-Key names are defaulted; the planner may rename them within the existing module naming, as long as every new English `Message` has a French entry.
+Key names are defaulted; the planner may rename them within existing module naming as long as every new English `Message` has a French entry.
 
 ---
 
 ## Layout, Responsiveness and Themes
 
-- Phone (360px minimum, 320px not in contract): selector full column width, one row (caption above the select below 480px, inline above it); timezone select full width of the card; no horizontal scroll; poll button and selector at 44px minimum height. Bottom tab bar unchanged, the selector is never inside it.
-- Desktop (>=960px): selector sits above the page title in the content column at max 24rem; controls use the 30px density.
-- Dark/light: every colour is a `--color-*` token; verify the selector, pill, field-error and warning toast with the existing theme-switching browser assertions in both themes. Toast inverse-surface rule applies unchanged.
-- Motion: none added. No transition on the selector. Reduced-motion needs nothing new.
-- The nav links (sidebar and tab bar) keep their 8 labels; when a non-live device is selected they point to `/devices/<id>/...`.
+- Phone (360px minimum, 320px not in contract): see Component 1 layout; timezone select full width of the card; no horizontal scroll; every native control at 44px min height and width.
+- Desktop (>=960px): selector above the page title at max width 24rem; native controls keep 44px (no density drop).
+- Dark/light: every colour is a `--color-*` token; verify selector, pill, field-error and the warning toast with the existing theme-switching browser assertions in both themes.
+- Motion: none added.
 
 ---
 
 ## Accessibility Checklist
 
-- Keyboard: selector, timezone select, Poll now and Save/Cancel all reachable in DOM order, operable with native keys; no keyboard trap; no JS required (no-JS form submit visible).
-- Focus: existing focus-visible outline, 3:1 against adjacent colours in both themes (existing contrast gate).
-- Hit area: 44px below 960px, measured in each control's own container; the 360px browser test measures the selector and the timezone select.
-- Semantics: `<label>` for both selects; `aria-describedby` on the timezone select (helper plus error); `aria-invalid` on error; toast roles per tone (`status` for success/info/pending, `alert` for warning/error); disabled Poll uses `disabled` plus `aria-disabled` and visible helper text (not tooltip only).
-- Not colour alone: status in words and glyphs, spoken prefix on toasts.
-- Language: new strings present in EN and FR; the page `lang` already follows the UI language.
-- Contrast: all text uses existing token pairs already gated by `companion/contrast_check.py`; nothing new to add.
+- Keyboard: selector, no-JS submit, timezone select, Poll now and Save/Cancel reachable in DOM order, native keys, no trap; no JS required.
+- Focus: existing focus-visible outline, within the existing contrast gate.
+- Hit area: 44px at all widths, measured in each control's own container; the 360px browser test measures the selector, its submit and the timezone select.
+- Semantics: `<label>` for both selects; selector in a non-landmark `role="group"`; `aria-describedby` and `aria-invalid` on the timezone select on error; toast roles per tone; disabled Poll uses `disabled` plus `aria-disabled` with the visible caption text (not a tooltip).
+- Not colour alone: status in words, glyphs and spoken prefixes.
+- Contrast: only existing token pairs already gated by `companion/contrast_check.py`.
 
 ---
 
 ## Defaulted Choices (not decided by CONTEXT.md; owner may override)
 
-1. Native `<select>` rather than a segmented control for the selector, with a no-JS submit button.
-2. Selector at the top of the content column above the page title, hidden when only one device exists.
-3. Device status shown as option-text suffix plus a neutral pill; unreachable threshold "more than two expected wake intervals".
+1. Native `<select>` for the selector, justified by an unbounded fleet, with a no-JS submit that hides only under its own armed class.
+2. Selector at the top of the content column above the page title, hidden for one device; non-landmark grouping.
+3. Device status as option-text suffix plus a neutral pill; unreachable = more than two expected wake intervals; non-live devices only.
 4. Document title includes the device name for non-live devices.
-5. Timezone field placed inside the quiet-hours card under the dial, joined to the same save bar; atomic rejection of the whole POST on an invalid zone.
-6. Curated zone list of ten French zones with live UTC offset in the option text; unknown stored key kept as an extra option.
-7. Quiet-hours readout appends the zone name only when the zone is not Paris.
-8. Unsupported poll: button disabled with visible helper text AND a warning toast on a forced POST.
+5. Timezone field last in the quiet-hours card, `form="settings-form"`, atomic rejection of the whole POST on an invalid zone, restored-value-on-error (documented deviation from the echo convention).
+6. Curated ten-zone list with live UTC offset; unknown stored key kept as an extra option.
+7. Readout zone clause only when the zone is not Paris.
+8. Poll scope folded into the single existing caption; unsupported poll replaces the caption and disables the button, and a forced POST gets a warning toast.
 9. Empty-state copy and i18n key names.
 10. Timestamps stay in Paris time (research open question 4).
 
