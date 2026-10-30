@@ -513,9 +513,10 @@ class CycleContext:
     snapshot: dict | None
     geofence: str | None
     caddy_log: object | None
-    # Shared fetch result for this device's zone and the directory that
-    # holds the request ledger.
+    # Shared fetch result for this device's zone, the shared adsbdb
+    # transport and the directory that holds the request ledger.
     zone_fetch: object | None = None
+    route_transport: object | None = None
     ledger_root: str | None = None
 
     # Config: the per-cycle settings snapshot, read once in
@@ -587,7 +588,7 @@ class CycleContext:
     panel_changed: bool = False
 
 
-def load_cycle_context(snapshot, state_dir, geofence, caddy_log, zone_fetch=None, ledger_root=None):
+def load_cycle_context(snapshot, state_dir, geofence, caddy_log, zone_fetch=None, route_transport=None, ledger_root=None):
     """Everything a cycle needs before the hold decision can be made:
     ensures `state_dir` exists, loads the manual-resolution and
     colour-rule registries from THIS cycle's state_dir (once per cycle,
@@ -649,7 +650,7 @@ def load_cycle_context(snapshot, state_dir, geofence, caddy_log, zone_fetch=None
 
     return CycleContext(
         state_dir=state_dir, snapshot=snapshot, geofence=geofence, caddy_log=caddy_log,
-        zone_fetch=zone_fetch, ledger_root=ledger_root,
+        zone_fetch=zone_fetch, route_transport=route_transport, ledger_root=ledger_root,
         device_cfg=device_cfg, theme_id=theme_id, tracked_runway_id=tracked_runway_id,
         display_enabled=display_enabled, effective_wake_interval_s=effective_wake_interval_s,
         quiet_remaining=quiet_remaining, quiet_until=quiet_until,
@@ -679,6 +680,26 @@ def decide_hold(battery_critical: bool, display_enabled: bool, quiet_remaining: 
     if quiet_remaining is not None:
         return "quiet_hours"
     return None
+
+
+def peek_hold(state_dir, now=None):
+    """The hold kind `run_once()` would decide for `state_dir` right now
+    ("battery_empty", "display_off", "quiet_hours" or None), computed from
+    read-only loads: nothing is created, written or locked. `run_once()`
+    stays the authority; this peek only lets the fleet loop avoid
+    spending request budget on a held device. A missing directory or
+    unreadable state degrades to None.
+    """
+    try:
+        device_cfg = device_config.load_device_config(state_dir)
+        poll_state = state_store.load_poll_state(state_dir)
+        battery_mv = state_store.load_battery_state(state_dir)
+        was_critical = poll_state.get(wake.BATTERY_CRITICAL_STATE_KEY) is True
+        critical = device_policy.apply_battery_critical_hysteresis(battery_mv, was_critical)
+        quiet_remaining, _ = device_config.quiet_hours_status(device_cfg, now_s() if now is None else now)
+        return decide_hold(critical, device_cfg["display_enabled"], quiet_remaining)
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
 
 
 def publish_canvas(ctx, canvas):
@@ -1001,7 +1022,7 @@ def _enrich_current_flight(ctx):
     # "miss" resolved nothing.
     route, route_source = enrich.resolve_route(
         current_flight.get("callsign"), cache, now=now_s(), manual_registry=ctx.manual_registry,
-        name_overrides=ctx.name_overrides)
+        name_overrides=ctx.name_overrides, transport=ctx.route_transport)
     enrich.trim_cache(cache)
     poll_state["enrichment_cache"] = cache
     # A "miss" is an unrecognized ICAO prefix - recorded so the finding
@@ -1308,7 +1329,7 @@ def cycle_result(ctx):
     }
 
 
-def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_timeout_s=None, reconcile_firmware=True, zone_fetch=None, ledger_root=None):
+def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_timeout_s=None, reconcile_firmware=True, zone_fetch=None, route_transport=None, ledger_root=None):
     """One poll cycle: detect -> infer -> enrich -> render -> publish
     (atomic panel/gallery write) -> record (history.db), as a sequence of
     named steps over one `CycleContext`, serialised across every process
@@ -1358,7 +1379,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_
     fetched once for every device in the zone; this cycle only selects
     from it. With neither a snapshot nor a `zone_fetch`, the cycle fetches
     through the request ledger under `ledger_root` (default: derived from
-    `state_dir`).
+    `state_dir`). `route_transport` replaces the adsbdb transport.
 
     The live path itself: `detect_flight`, `load_display_slots`,
     `update_battery_low`, `advance_display_queue`, `render_and_publish`,
@@ -1369,7 +1390,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_
         with history_db.connection_scope(state_dir):
             ctx = load_cycle_context(
                 snapshot, state_dir, geofence, caddy_log, zone_fetch=zone_fetch,
-                ledger_root=ledger_root)
+                route_transport=route_transport, ledger_root=ledger_root)
             # Before the hold decision, so a battery-hold, quiet-hours or
             # display-off cycle still reconciles device-reported OTA
             # outcomes exactly like a live cycle would.
