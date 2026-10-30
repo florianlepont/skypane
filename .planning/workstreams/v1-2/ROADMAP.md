@@ -42,6 +42,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [ ] **Phase 57: Combined Legacy-Frame Firmware Release** - One OTA release gives the live frame the new image reader and 401 recovery. Gated on Phase 47.
 - [ ] **Phase 58: Second Hardware (Shortlist, Spike, Purchase, Validate)** - A second hardware type chosen after a driver spike and validated on a real unit.
 - [ ] **Phase 59: Comment-History Debt** - The comment-history guard debt is cleared or only shrinks.
+- [ ] **Phase 60: Device Co-Management** - A frame keeps one primary owner and gains co-managers whom the owner or an admin can add.
 
 ## Phase Details
 
@@ -297,6 +298,21 @@ Real `/d/<id>/...` routes and their matrix rows are completed after Phase 51; se
 
 **Plans**: TBD
 
+### Phase 60: Device Co-Management
+
+**Goal**: A frame keeps exactly one primary owner and can also be managed by co-managers, added by the owner or by an admin.
+**Depends on**: Phase 51, Phase 54, Phase 55
+**Requirements**: AUTH-08
+**Success Criteria** (what must be TRUE):
+
+  1. A co-manager can view and change a shared frame's settings like its owner, but cannot retire it, reassign it or remove the owner.
+  2. The owner of a frame and an admin can add or remove a co-manager among users already invited to the platform; a co-manager cannot add others.
+  3. A user who is neither owner nor co-manager still gets a 404 for the frame, and the route x role x owner matrix covers the co-manager rows.
+  4. The one-primary-owner rule from the fleet data model still holds, and adding or removing a co-manager is recorded in the audit log.
+
+**Plans**: TBD
+**UI hint**: yes
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -307,9 +323,10 @@ Real `/d/<id>/...` routes and their matrix rows are completed after Phase 51; se
 | 51. Per-Device Config, Image and State | v1.2 | 0/0 | Not started | - |
 | 52. Fleet Poll Cycle, Zones and Request Budget | v1.2 | 0/0 | Not started | - |
 | 53. Detection Modes | v1.2 | 0/0 | Not started | - |
-| 54. Auth0 Sign-In, Local Roles and Default-Deny Access | v1.2 | 9/9 | In Progress|  |
+| 54. Auth0 Sign-In, Local Roles and Default-Deny Access | v1.2 | 9/9 | Executed, verified; owner go-live checks and post-Phase-51 matrix rows pending (see 54-HANDOFF.md) | - |
 | 55. Frame Pairing, Admin Console and Reduced User View | v1.2 | 0/0 | Not started | - |
 | 56. Per-Hardware Rendering, Battery Profiles, Health and Credits | v1.2 | 0/0 | Not started | - |
 | 57. Combined Legacy-Frame Firmware Release | v1.2 | 0/0 | Not started (gated on Phase 47) | - |
 | 58. Second Hardware | v1.2 | 0/0 | Not started | - |
 | 59. Comment-History Debt | v1.2 | 0/0 | Not started | - |
+| 60. Device Co-Management | v1.2 | 0/0 | Not started | - |

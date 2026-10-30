@@ -50,6 +50,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 - [ ] **AUTH-04**: An admin can pair a new frame to a user with a short, single-use, expiring on-panel code, claimed atomically and audited.
 - [ ] **AUTH-05**: An admin can use a console to see the whole fleet (owner, hardware, last seen, battery, firmware), manage users, reassign or retire devices and manage releases, while ordinary users get a reduced view of their own frames with fewer options.
 - [x] **AUTH-06**: Frames keep authenticating with MAC and secret, independently of Auth0, and Auth0 is replaced by a local fake server in tests.
+- [ ] **AUTH-08**: A frame keeps one primary owner and can have co-managers who change its settings like the owner but cannot retire, reassign or remove it. The owner and an admin can add or remove co-managers among already-invited users, and each change is audited.
 
 ### Per-Hardware Rendering and Credits
 
@@ -86,7 +87,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 ## Traceability
 
-Coverage: 30/30 v1.2 requirements mapped, each to exactly one phase.
+Coverage: 31/31 v1.2 requirements mapped, each to exactly one phase.
 
 | Requirement | Phase | Status |
 |---|---|---|
@@ -110,8 +111,9 @@ Coverage: 30/30 v1.2 requirements mapped, each to exactly one phase.
 | DET-03 | Phase 53 | Pending |
 | AUTH-01 | Phase 54 | Complete |
 | AUTH-02 | Phase 54 | Complete |
-| AUTH-03 | Phase 54 | Pending |
+| AUTH-03 | Phase 54 | Pending (gate and matrix delivered; real per-device route rows after Phase 51) |
 | AUTH-06 | Phase 54 | Complete |
+| AUTH-08 | Phase 60 | Pending |
 | AUTH-04 | Phase 55 | Pending |
 | AUTH-05 | Phase 55 | Pending |
 | HWR-01 | Phase 56 | Pending |
