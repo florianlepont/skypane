@@ -42,6 +42,7 @@ INCLUDE_FILES = (
     "manual_resolutions.json",
     "poll_state.json",
     "battery_state.json",
+    "live_frame_macs.json",
 )
 INCLUDE_DIRS = (
     "illustration_overrides",
