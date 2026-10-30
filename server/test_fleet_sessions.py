@@ -282,3 +282,36 @@ def test_sign_in_user_writes_nothing_for_a_refused_login(conn):
     assert outcome.user_id is None
     assert _count(conn, "sessions") == 0
     assert conn.execute("SELECT iss FROM users").fetchone()["iss"] is None
+
+
+def test_session_creation_prunes_dead_sessions_at_most_hourly(conn, monkeypatch):
+    monkeypatch.setattr(fs, "_last_prune_at", None)
+    uid = _user(conn)
+    fs.create_session(conn, _h("old"), user_id=uid, principal="user", now=T0)
+    later = T0 + fs.ABSOLUTE_LIFETIME_S + 10
+    fs.create_session(conn, _h("new"), user_id=uid, principal="user", now=later)
+    assert [r[0] for r in conn.execute("SELECT id_hash FROM sessions")] == [_h("new")]
+
+    # Within the interval a second dead session is left alone ...
+    conn.execute(
+        "INSERT INTO sessions (id_hash, user_id, principal, created_at, "
+        "last_seen_at, expires_at) VALUES (?, ?, 'user', ?, ?, ?)",
+        (_h("dead"), uid, T0, T0, T0 + 1))
+    fs.create_session(
+        conn, _h("newer"), user_id=uid, principal="user", now=later + 60)
+    assert _h("dead") in {r[0] for r in conn.execute("SELECT id_hash FROM sessions")}
+
+    # ... and is swept once the interval has passed.
+    fs.create_session(
+        conn, _h("newest"), user_id=uid, principal="user",
+        now=later + fs.PRUNE_INTERVAL_S + 1)
+    assert _h("dead") not in {r[0] for r in conn.execute("SELECT id_hash FROM sessions")}
+
+
+def test_sign_in_prunes_dead_sessions_too(conn, monkeypatch):
+    monkeypatch.setattr(fs, "_last_prune_at", None)
+    uid = _user(conn)
+    fs.create_session(conn, _h("old"), user_id=uid, principal="user", now=T0)
+    later = T0 + fs.ABSOLUTE_LIFETIME_S + 10
+    fs.sign_in_user(conn, ISS, "s1", "a@example.com", True, later, _h("fresh"))
+    assert [r[0] for r in conn.execute("SELECT id_hash FROM sessions")] == [_h("fresh")]

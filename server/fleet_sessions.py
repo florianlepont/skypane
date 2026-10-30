@@ -22,6 +22,7 @@ from __future__ import annotations
 import os
 import sqlite3
 import sys
+import threading
 from typing import NamedTuple
 
 # Same repo-root sys.path bootstrap as server/fleet_db.py.
@@ -36,6 +37,12 @@ ABSOLUTE_LIFETIME_S = 30 * 86400
 IDLE_TIMEOUT_S = 7 * 86400
 # last_seen_at is rewritten at most this often, to avoid a write per request.
 TOUCH_INTERVAL_S = 300
+
+# Dead sessions are swept at most this often per process, from the session
+# write path.
+PRUNE_INTERVAL_S = 3600
+_prune_lock = threading.Lock()
+_last_prune_at: int | None = None
 
 PRINCIPAL_USER = "user"
 PRINCIPAL_LEGACY_ADMIN = "legacy-admin"
@@ -79,6 +86,7 @@ def _insert_session(
     replace_hash: str | None,
 ) -> None:
     """The session write; joins the caller's open transaction."""
+    _prune_if_due(conn, now)
     if replace_hash is not None:
         conn.execute("DELETE FROM sessions WHERE id_hash = ?", (replace_hash,))
     conn.execute(
@@ -87,6 +95,20 @@ def _insert_session(
         "VALUES (?, ?, ?, ?, ?, ?)",
         (token_hash, user_id, principal, now, now, now + ABSOLUTE_LIFETIME_S),
     )
+
+
+def _prune_if_due(conn: sqlite3.Connection, now: int) -> None:
+    """Sweep expired sessions when the last sweep in this process is older
+    than PRUNE_INTERVAL_S. Joins the caller's open transaction. The clock
+    stepping backwards counts as due.
+    """
+    global _last_prune_at
+    with _prune_lock:
+        last = _last_prune_at
+        if last is not None and 0 <= now - last < PRUNE_INTERVAL_S:
+            return
+        _last_prune_at = now
+    prune_expired(conn, now)
 
 
 def lookup_session(
