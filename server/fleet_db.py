@@ -241,6 +241,40 @@ def connect_readonly(state_dir: str, immutable: bool = False) -> sqlite3.Connect
     return conn
 
 
+def _state_dir_writable(state_dir: str) -> bool:
+    return os.access(state_dir, os.W_OK)
+
+
+def _wal_has_pending_data(state_dir: str) -> bool:
+    """Whether the write-ahead log holds data not yet merged into the main
+    file. A log that cannot be inspected counts as pending.
+    """
+    try:
+        return os.path.getsize(fleet_db_path(state_dir) + "-wal") > 0
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return True
+
+
+def connect_readonly_fallback(state_dir: str) -> sqlite3.Connection | None:
+    """The degraded read for a state directory that cannot be written, or
+    None when the caller should surface the original connect error: the
+    directory is writable, or a pending write-ahead log means an immutable
+    read would skip revocations and demotions and serve a revoked session.
+    Prints one line (no secrets) whenever it engages or refuses.
+    """
+    if _state_dir_writable(state_dir):
+        return None
+    if _wal_has_pending_data(state_dir):
+        print("companion: fleet.db read-only fallback refused: "
+              "write-ahead log has unmerged data", flush=True)
+        return None
+    print("companion: fleet.db state directory is not writable; "
+          "reading sessions from the main file only", flush=True)
+    return connect_readonly(state_dir, immutable=True)
+
+
 def connect_memory() -> sqlite3.Connection:
     """Fully migrated in-memory database for dry runs."""
     conn = sqlite3.connect(":memory:", isolation_level=None)

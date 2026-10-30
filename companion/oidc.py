@@ -399,3 +399,58 @@ class AttemptTable:
             if now - self._items[oldest_id].created_at < self._ttl:
                 break
             del self._items[oldest_id]
+
+
+START_LIMIT = 30
+START_WINDOW_SECONDS = 60
+START_THROTTLE_MAX_KEYS = 4096
+
+
+class StartThrottle:
+    """Per-client sliding-window limit on starting a sign-in, so one client
+    cannot fill `AttemptTable` and push out other people's pending
+    attempts. Bounded: past `max_keys` clients, idle ones go first and then
+    the least recently seen.
+    """
+
+    def __init__(self, clock=time.time, limit=START_LIMIT,
+                 window=START_WINDOW_SECONDS, max_keys=START_THROTTLE_MAX_KEYS):
+        self._clock = clock
+        self._limit = limit
+        self._window = window
+        self._max_keys = max_keys
+        self._lock = threading.Lock()
+        self._starts = collections.OrderedDict()
+
+    def allow(self, key):
+        """Record a start for `key` and return True, or return False
+        (recording nothing) when `key` has used up its window.
+        """
+        now = self._clock()
+        with self._lock:
+            times = self._starts.get(key)
+            if times is None:
+                self._make_room(now)
+                times = self._starts[key] = collections.deque()
+            else:
+                self._starts.move_to_end(key)
+            while times and now - times[0] >= self._window:
+                times.popleft()
+            if len(times) >= self._limit:
+                return False
+            times.append(now)
+            return True
+
+    def reset(self):
+        with self._lock:
+            self._starts.clear()
+
+    def _make_room(self, now):
+        if len(self._starts) < self._max_keys:
+            return
+        for key in list(self._starts):
+            times = self._starts[key]
+            if not times or now - times[-1] >= self._window:
+                del self._starts[key]
+        while len(self._starts) >= self._max_keys:
+            self._starts.popitem(last=False)

@@ -50,6 +50,8 @@ Progress: [████████░░] 84%
 - [Phase 49]: 49-07: legacy frame's report entry is not rewritten solely to add hardware_type (Phase 47 telemetry freeze)
 - [Phase 49]: Update page type chooser reuses the segmented control as a GET form; shown only with more than one relevant type; hidden hardware_type field also carried for a sole non-legacy type
 - [Phase 50]: Image container announced per request by `X-Img-Fmt` (never persisted); BYOS imports the canonical `server/image_container.py` encoder; legacy frames get raw 960000 bytes byte for byte; firmware reader is host-tested only, wiring and OTA belong to Phase 57
+- [Phase 54]: Auth0 sign-in, local roles and default-deny delivered; per-device route rows wait for Phase 51. Legacy shared-password removal is event-driven (when Auth0 sign-in is in production), owner stamps the date at go-live. Sessions live in fleet.db (30 d absolute, 7 d idle), sign-out also ends the Auth0 session. Role denial answers the same 404 as an unknown path. See phases/54-*/54-HANDOFF.md.
+- [Phase 60 added 2026-10-30]: device co-management (primary owner plus co-managers, added by the owner or an admin) requested by the owner; extends the ownership gate `access.authorized_device_id`.
 
 ### Pending Todos
 

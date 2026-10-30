@@ -551,7 +551,9 @@ def test_a_legacy_session_is_refused_once_the_flag_is_off(rig, stubbed):
         assert status == 303 and headers["Location"].startswith("/login")
     finally:
         rig.server.apply_env({_ACCESS_ENV_LEGACY: None})
-    assert rig.request("GET", "/", cookie)[0] == 200
+    # The refused session was deleted, so switching the flag back on does
+    # not revive it.
+    assert rig.request("GET", "/", cookie)[0] == 303
 
 
 def test_a_demoted_admin_loses_admin_pages_without_signing_in_again(rig, stubbed):
