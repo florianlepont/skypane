@@ -137,7 +137,14 @@ Plans:
   2. A frame that does not announce support receives its current raw image byte for byte; a frame that announces support receives the new container.
   3. The reference reader rejects bad magic, version, length or panel dimensions before touching a display buffer, and still accepts the legacy raw format (host-tested firmware reader).
 
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 50-01-PLAN.md — Capture legacy reference constants from unmodified BYOS; legacy regression and junk-header tests
+- [ ] 50-02-PLAN.md — Canonical server/image_container.py, golden fixtures, manifest, generator, Python tests
+- [ ] 50-03-PLAN.md — Pure-C reference reader, host test over shared fixtures, runner fixture dir
+- [ ] 50-04-PLAN.md — BYOS X-Img-Fmt negotiation (import of canonical encoder), announce and no-state-effect tests
+- [ ] 50-05-PLAN.md — docs/IMAGE-FORMAT.md, README pointer, phase gates, Phase 50 close-out via GSD tooling
 
 ### Phase 51: Per-Device Config, Image and State
 
