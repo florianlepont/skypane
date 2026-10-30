@@ -3194,3 +3194,34 @@ def test_now_s_clock_reaches_adsbdb_cache_stamp(tmp_path, clock):
     assert entry.get("cached_at") == clock["t"], (
         "expected cached_at to equal the injected clock's time (poll_cycle.now_s() must reach "
         "enrich.resolve_route()), got %r" % (entry.get("cached_at"),))
+
+
+def _fleet_outcomes(*outcomes):
+    from server import fleet_cycle
+
+    return fleet_cycle.FleetResult(outcomes=list(outcomes))
+
+
+def test_main_exits_zero_when_only_another_device_failed(tmp_path, monkeypatch, capsys):
+    from server import fleet_cycle
+
+    result = _fleet_outcomes(
+        fleet_cycle.DeviceOutcome("live", True, "ok"),
+        fleet_cycle.DeviceOutcome("dev1", False, "failed", "ValueError: boom", "trace"))
+    monkeypatch.setattr(poll_loop, "run_fleet", lambda *args, **kwargs: result)
+    assert poll_loop.main(["--state-dir", str(tmp_path), "--geofence", GEOFENCE_PATH]) == 0
+    out = capsys.readouterr().out
+    assert "device dev1 failed: ValueError: boom" in out
+    assert "trace" not in out
+
+
+def test_main_exits_one_when_the_live_frame_failed_or_was_busy(tmp_path, monkeypatch, capsys):
+    from server import fleet_cycle
+
+    for status in ("failed", "busy"):
+        result = _fleet_outcomes(
+            fleet_cycle.DeviceOutcome("live", True, status, "live-detail", "live-trace\n"),
+            fleet_cycle.DeviceOutcome("dev1", False, "ok"))
+        monkeypatch.setattr(poll_loop, "run_fleet", lambda *args, **kwargs: result)
+        assert poll_loop.main(["--state-dir", str(tmp_path), "--geofence", GEOFENCE_PATH]) == 1
+        assert "live-detail" in capsys.readouterr().out
