@@ -21,7 +21,7 @@ Out of scope: device co-management (Phase 60), firmware changes (Phase 57 ships 
 - **D-01:** Frames keep MAC + secret authentication, independent of Auth0. What the live frame receives (image, interval, auth) does not change; `stub-server/test_phase47_freeze.py` stays green; expand-only.
 - **D-02:** No production deploy. No real Auth0 or external service in tests (fake Auth0, pytest-socket guard). No Auth0 secret or real pairing code in the repo.
 - **D-03:** Pairing works server-side with what the firmware already does (a frame shows whatever image the display endpoint returns and sleeps for the interval it is given). Any firmware need is reported to the owner, never worked around or added here.
-- **D-04:** `legacy-admin` removal stays the owner's decision; do not remove it.
+- **D-04:** The shared-password `legacy-admin` fallback was removed by the owner on `main` (Auth0 is the only sign-in) after this context was first written; nothing in this phase depends on it and no `legacy-admin` principal exists any more. Plans and the matrix cover `anonymous`, `user` (owner / other) and `admin` only.
 - **D-05:** Co-management is Phase 60; do not implement it. `access.authorized_device_id` keeps its owner-as-input shape.
 
 ### Unassigned frame (owner choice)
@@ -66,7 +66,6 @@ Module layout, table and column names, how the pairing image is drawn (Pillow, v
 - `.planning/workstreams/v1-2/STATE.md` — project decisions (edit only Phase 55 lines)
 - `.planning/workstreams/v1-2/phases/54-auth0-sign-in-local-roles-and-default-deny-access/54-HANDOFF.md` — leftover work; matrix rows come first
 - `.planning/workstreams/v1-2/phases/54-auth0-sign-in-local-roles-and-default-deny-access/54-CONTEXT.md` — roles, sessions, 404 on denial, D-11 account page
-- `.planning/workstreams/v1-2/phases/54-auth0-sign-in-local-roles-and-default-deny-access/54-LEGACY-ADMIN-REMOVAL.md` — NOT to be executed
 - `.planning/workstreams/v1-2/phases/51-per-device-config-image-and-state/51-DEVICE-SCOPED-ROUTES.md` — route inventory and BYOS endpoints
 - `.planning/workstreams/v1-2/phases/51-per-device-config-image-and-state/51-CONTEXT.md` — per-device directories
 - `.planning/workstreams/v1-2/phases/48-fleet-data-model-roles-and-live-frame-migration/48-CONTEXT.md` — freeze list, one owner rule
@@ -116,7 +115,6 @@ Module layout, table and column names, how the pairing image is drawn (Pillow, v
 ## Deferred Ideas
 
 - Device co-management — Phase 60.
-- Removal of the `legacy-admin` fallback — owner decision, any time after this phase.
 - Firmware recovery after 401 and any on-device pairing UI — Phase 57.
 - "View as user" (AUTH-07).
 - Audit log purge/export.
