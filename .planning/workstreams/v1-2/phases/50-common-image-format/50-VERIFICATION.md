@@ -1,7 +1,7 @@
 ---
 phase: 50-common-image-format
 verified: 2026-10-30T00:00:00Z
-status: human_needed
+status: passed
 score: 3/3 must-haves verified
 overrides_applied: 0
 human_verification:
@@ -16,7 +16,7 @@ human_verification:
 # Phase 50: Common Image Format Verification Report
 
 **Goal:** Images use one versioned container that any hardware type can carry, introduced without changing what existing frames receive.
-**Status:** human_needed (all automated checks pass; two sandbox-only items remain)
+**Status:** passed. The two items the sandbox could not run were covered by CI on PR #242 (head c2927ad): the `Build EE02 firmware image` job (ESP-IDF 5.3.1 container build with the new C file) and `Lint, test, coverage, attribution` (full suite including the Chromium browser tests) both succeeded; the production deploy job was skipped.
 
 ## Observable Truths
 

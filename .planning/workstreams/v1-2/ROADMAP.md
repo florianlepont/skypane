@@ -32,7 +32,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 
 - [x] **Phase 48: Fleet Data Model, Roles and Live-Frame Migration** - One fleet database with users, roles, devices and hardware profiles; the live frame migrated without any visible change. (completed 2026-10-29)
 - [ ] **Phase 49: Per-Hardware OTA Registry** - Firmware releases are published, scheduled and offered per hardware type, with integrity checks. (criteria 1, 2, 4 verified 2026-10-30; criterion 3 device-side check deferred, awaiting a bench unit)
-- [ ] **Phase 50: Common Image Format** - A versioned image container served only to frames that announce support, with a legacy-safe firmware reader specified.
+- [x] **Phase 50: Common Image Format** - A versioned image container served only to frames that announce support, with a legacy-safe firmware reader specified. (completed 2026-10-30)
 - [ ] **Phase 51: Per-Device Config, Image and State** - Every device has its own config, image, history and health, and the BYOS serves each frame its own image.
 - [ ] **Phase 52: Fleet Poll Cycle, Zones and Request Budget** - One upstream ADS-B request per zone under a persisted global 1 req/s budget.
 - [ ] **Phase 53: Detection Modes (Airport/Runway and Position/Radius)** - Devices can follow any French runway or any position within a bounded radius.
@@ -274,7 +274,7 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 48. Fleet Data Model, Roles and Live-Frame Migration | v1.2 | 8/8 | Complete   | 2026-10-29 |
 | 49. Per-Hardware OTA Registry | v1.2 | 11/11 | Human verification pending (OTA-03 bench check deferred) | - |
-| 50. Common Image Format | v1.2 | 5/5 | In Progress|  |
+| 50. Common Image Format | v1.2 | 5/5 | Complete    | 2026-10-30 |
 | 51. Per-Device Config, Image and State | v1.2 | 0/0 | Not started | - |
 | 52. Fleet Poll Cycle, Zones and Request Budget | v1.2 | 0/0 | Not started | - |
 | 53. Detection Modes | v1.2 | 0/0 | Not started | - |

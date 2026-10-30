@@ -25,9 +25,9 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 ### Image Format
 
-- [ ] **IMG-01**: Images use a common versioned format whose header carries width, height and palette, specified with golden fixtures.
-- [ ] **IMG-02**: The server serves the new format only to frames that announce support; existing frames keep receiving their current raw image, byte for byte.
-- [ ] **IMG-03**: The firmware reader validates magic, version, length and panel dimensions before touching the display buffer, and still accepts the legacy format.
+- [x] **IMG-01**: Images use a common versioned format whose header carries width, height and palette, specified with golden fixtures.
+- [x] **IMG-02**: The server serves the new format only to frames that announce support; existing frames keep receiving their current raw image, byte for byte.
+- [x] **IMG-03**: The firmware reader validates magic, version, length and panel dimensions before touching the display buffer, and still accepts the legacy format.
 
 ### Per-Device Runtime
 
@@ -98,9 +98,9 @@ Coverage: 30/30 v1.2 requirements mapped, each to exactly one phase.
 | OTA-01 | Phase 49 | Complete |
 | OTA-02 | Phase 49 | Complete |
 | OTA-03 | Phase 49 | Pending (decision recorded; device-side bench check deferred) |
-| IMG-01 | Phase 50 | Pending |
-| IMG-02 | Phase 50 | Pending |
-| IMG-03 | Phase 50 | Pending |
+| IMG-01 | Phase 50 | Complete |
+| IMG-02 | Phase 50 | Complete |
+| IMG-03 | Phase 50 | Complete |
 | FLT-01 | Phase 51 | Pending |
 | FLT-02 | Phase 51 | Pending |
 | FLT-03 | Phase 52 | Pending |
