@@ -202,4 +202,23 @@ MESSAGES = {
     "display.that_link_is_too_long_or_conflicts_with_the":
         "Ce lien est trop long, ou entre en conflit avec l’option de "
         "déconnexion ci-dessous.",
+
+    # --- Time zone field and its readout clause ----------------------
+    "display.timezone_label": "Fuseau horaire",
+    "display.timezone_helper": "Les heures calmes suivent ce fuseau horaire.",
+    "display.timezone_invalid": "Choisissez un fuseau horaire dans la liste.",
+    "display.timezone_invalid_toast":
+        "Fuseau horaire non enregistré — Choisissez-en un dans la liste. "
+        "Rien n’a été appliqué.",
+    "display.readout_zone_clause": "heure de {zone}",
+    "display.timezone_opt_paris": "Métropole (Paris)",
+    "display.timezone_opt_martinique": "Martinique",
+    "display.timezone_opt_guadeloupe": "Guadeloupe",
+    "display.timezone_opt_french_guiana": "Guyane",
+    "display.timezone_opt_reunion": "La Réunion",
+    "display.timezone_opt_mayotte": "Mayotte",
+    "display.timezone_opt_saint_pierre_miquelon": "Saint-Pierre-et-Miquelon",
+    "display.timezone_opt_tahiti": "Polynésie française (Tahiti)",
+    "display.timezone_opt_new_caledonia": "Nouvelle-Calédonie",
+    "display.timezone_opt_wallis_futuna": "Wallis-et-Futuna",
 }

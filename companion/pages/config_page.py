@@ -229,6 +229,8 @@ from companion.settings.form_post import (
     ERROR_CALENDAR_URL_INVALID as ERROR_CALENDAR_URL_INVALID,
     ERROR_INVALID_CHOICE as ERROR_INVALID_CHOICE,
     ERROR_QUIET_HOURS_TIME_SHAPE as ERROR_QUIET_HOURS_TIME_SHAPE,
+    ERROR_TIMEZONE_INVALID as ERROR_TIMEZONE_INVALID,
+    TIMEZONE_INVALID_TOAST as TIMEZONE_INVALID_TOAST,
     ERROR_UNEXPECTED_SWITCH_VALUE as ERROR_UNEXPECTED_SWITCH_VALUE,
     ERROR_WAKE_INTERVAL_RANGE as ERROR_WAKE_INTERVAL_RANGE,
     LED_CHECKBOX_VALUE as LED_CHECKBOX_VALUE,
@@ -495,6 +497,7 @@ def _render_current_values(ctx):
         "quiet_end": device_cfg.get("quiet_hours_end", device_config.DEFAULT_QUIET_HOURS_END),
         "wake_interval_s": wake_interval_s,
         "calendar_theme_id": device_cfg.get("calendar_theme_id"),
+        "timezone": device_cfg.get("timezone", device_config.DEFAULT_TIMEZONE),
     }
 
 
@@ -567,7 +570,8 @@ def _group_builders(ctx, values, errors, submitted, next_wake_clock):
             next_wake_clock=next_wake_clock),
         screens.GROUP_QUIET_HOURS: lambda: quiet_hours_group(
             values["quiet_start"], values["quiet_end"],
-            errors=errors, submitted=submitted),
+            errors=errors, submitted=submitted,
+            current_timezone=values["timezone"]),
         # Read inside the lambda so it costs nothing unless this group
         # is actually in scope.
         screens.GROUP_WAKE_INTERVAL: lambda: wake_interval_group(
@@ -884,6 +888,9 @@ def handle_post(form, ctx, errors=None):
         lambda: form_post.resolve_quiet_hours_enabled(form, errors),
         lambda: form_post.resolve_wake_interval(form, errors),
         lambda: form_post.resolve_display(form, errors),
+        lambda: form_post.resolve_timezone(
+            form, errors, (ctx.device_config or {}).get(
+                "timezone", device_config.DEFAULT_TIMEZONE)),
     )
     save_kwargs = {}
     for step in steps:

@@ -1931,6 +1931,29 @@ button:disabled {
   text-align: center;
 }
 
+.quiet-timezone {
+  margin-top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.quiet-timezone select {
+  max-width: 100%;
+}
+
+/* The helper line shares .section-caption's muted voice without using that
+ * class: the card keeps exactly one section caption. */
+.quiet-timezone__helper {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  margin: 0;
+}
+
+.quiet-timezone .field-error {
+  margin: 0;
+}
+
 .quiet-times-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

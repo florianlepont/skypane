@@ -851,7 +851,7 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
             prefix = device_scope.current_prefix()
         return prefix + path
 
-    def _page_shell_for(self, route, body, ctx, refresh_token=None):
+    def _page_shell_for(self, route, body, ctx, refresh_token=None, flash_html=None):
         """The `layout.page_shell()` assembly both `_render_tab()`
         (every GET) and `_handle_settings_post()`'s rejected-save branch
         (a POST that already has its own rendered `body`) need, so
@@ -860,7 +860,8 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         carries one) forwards straight to `layout.page_shell()`, which
         renders it onto `<body>` only when given.
         """
-        flash_html = flash.flash_toast_html(ctx.flash_key, ctx.flash, self.path)
+        if flash_html is None:
+            flash_html = flash.flash_toast_html(ctx.flash_key, ctx.flash, self.path)
         return layout.page_shell(
             title=i18n.t(_PAGE_TITLES[route]), active=layout.nav_slug(route),
             body=body,
@@ -1055,7 +1056,12 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         if errors:
             scope = config_page.submitted_scope(form)
             body = config_page.render(ctx, scope=scope, errors=errors, submitted=form)
-            return self.send_html(200, self._page_shell_for(back_route, body, ctx))
+            toast_html = None
+            if "timezone" in errors:
+                toast_html = flash.flash_toast_html(
+                    FLASH_KEY_SAVE_FAILED, i18n.t(config_page.TIMEZONE_INVALID_TOAST), back)
+            return self.send_html(200, self._page_shell_for(
+                back_route, body, ctx, flash_html=toast_html))
         if flash_key != FLASH_KEY_SAVED:
             return self.redirect("%s?flash=%s" % (back, quote(flash_key)))
 
