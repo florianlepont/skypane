@@ -54,6 +54,12 @@ def fake_providers(monkeypatch):
     from server.plane import detect
 
     monkeypatch.setattr(detect, "MIN_SECONDS_BETWEEN_CALLS", 0)
+    # A standalone cycle spends the request ledger's 1.1 s spacing between
+    # providers; zero it (the default is bound at definition time, so the
+    # constructor's defaults are replaced) so such cycles stay fast.
+    from server import request_budget
+
+    monkeypatch.setattr(request_budget.RequestLedger.__init__, "__defaults__", (None, None, 0.0))
     fake = skypane_test_support.FakeProviders()
     fake.install(monkeypatch.setattr)
     return fake

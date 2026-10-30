@@ -21,9 +21,11 @@ import pytest
 
 import server.device_config as device_config
 import server.firmware_registry as firmware_registry
+import server.plane.enrich as enrich
 import server.plane.render as render
 from server import hardware
 import server.poll_cycle as poll_cycle
+import server.zone_fetch as zone_fetch
 
 
 # --- decide_hold(): pure precedence, no I/O ---------------------------------
@@ -241,3 +243,83 @@ def test_reconcile_step_with_only_the_legacy_type_closes_its_schedule(tmp_path):
     assert firmware_registry.load_registry(state)["schedule"] is None
     assert not [n for n in os.listdir(os.path.join(state, "firmware"))
                 if n.startswith("registry.") and n.endswith(".json") and n != "registry.json"]
+
+
+# --- detect_flight over a shared ZoneFetch ----------------------------------
+
+
+def _aircraft(hex_code, callsign):
+    """An aircraft climbing out inside the runway-3 box of
+    adsb-test/runway3.json."""
+    return {
+        "hex": hex_code, "flight": callsign, "lat": 48.7233, "lon": 2.3794,
+        "alt_baro": 450, "gs": 137.1, "baro_rate": 2400, "seen_pos": 1.0,
+    }
+
+
+_GEOFENCE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "adsb-test", "runway3.json")
+
+
+def _cycle(tmp_path, **kwargs):
+    kwargs.setdefault("geofence", _GEOFENCE)
+    return poll_cycle.run_once(state_dir=str(tmp_path), **kwargs)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_route_lookup(monkeypatch):
+    monkeypatch.setattr(enrich, "default_transport", lambda callsign, timeout=None: (404, None))
+
+
+def test_zone_fetch_with_both_providers_agreeing_selects_the_corroborated_aircraft(tmp_path, monkeypatch):
+    def _no_provider_call(*args, **kwargs):
+        raise AssertionError("a shared zone result must not trigger a provider call")
+
+    monkeypatch.setattr(poll_cycle.detect, "query_provider", _no_provider_call)
+    fetched = zone_fetch.ZoneFetch(
+        results=(("adsbfi", [_aircraft("aaaaaa", "AFR1234 ")]), ("adsblol", [_aircraft("aaaaaa", "AFR1234 ")])),
+        queried=("adsbfi", "adsblol"))
+
+    result = _cycle(tmp_path, zone_fetch=fetched)
+
+    assert result["flight"]["hex"] == "aaaaaa"
+    assert result["flight"]["corroborated"] is True
+    assert result["source_fault"] is False
+    assert not os.path.exists(os.path.join(str(tmp_path), "request_ledger.json"))
+
+
+def test_zone_fetch_where_every_provider_failed_marks_a_source_fault(tmp_path):
+    fetched = zone_fetch.ZoneFetch(queried=("adsbfi", "adsblol"), failed=("adsbfi", "adsblol"))
+
+    result = _cycle(tmp_path, zone_fetch=fetched)
+
+    assert result["flight"] is None
+    assert result["source_fault"] is True
+
+
+def test_zone_fetch_with_one_failed_provider_gives_a_single_source_pick(tmp_path):
+    fetched = zone_fetch.ZoneFetch(
+        results=(("adsblol", [_aircraft("bbbbbb", "AFR9999 ")]),),
+        queried=("adsbfi", "adsblol"), failed=("adsbfi",))
+
+    result = _cycle(tmp_path, zone_fetch=fetched)
+
+    assert result["flight"]["hex"] == "bbbbbb"
+    assert result["flight"]["corroborated"] is None
+    assert result["source_fault"] is False
+
+
+def test_a_not_fetched_zone_gives_no_flight_and_no_fault(tmp_path):
+    result = _cycle(tmp_path, zone_fetch=zone_fetch.ZoneFetch.not_fetched())
+
+    assert result["flight"] is None
+    assert result["source_fault"] is False
+
+
+@pytest.mark.parametrize(
+    "state_dir_parts, ledger_parts",
+    [(("state",), ("state",)), (("root", "devices", "frame-1"), ("root",))],
+)
+def test_ledger_root_is_derived_from_the_state_directory(tmp_path, state_dir_parts, ledger_parts):
+    state_dir = os.path.join(str(tmp_path), *state_dir_parts)
+
+    assert poll_cycle._ledger_root_for(state_dir) == os.path.join(str(tmp_path), *ledger_parts)

@@ -78,6 +78,7 @@ if _TEST_SUPPORT_DIR not in sys.path:
     sys.path.insert(0, _TEST_SUPPORT_DIR)
 
 import server.poll_loop as poll_loop  # noqa: E402
+import server.zone_fetch as zone_fetch  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
 import server.device_config as device_config  # noqa: E402
 import server.device_policy as device_policy  # noqa: E402
@@ -164,7 +165,7 @@ def _stub_adsbdb(monkeypatch, fake_providers):
     live cycle can reach: `fake_providers` (repo-root conftest.py) patches
     `requests.get` itself, which is what `detect.query_provider()` uses -
     so a test that calls run_once() with no injected snapshot (and so
-    takes the LIVE detect.poll_current_aircraft() path, e.g. a
+    takes the LIVE ledger-budgeted fetch path, e.g. a
     battery-state test that only cares about the hold/park branches) still
     never reaches the real network; and `enrich.default_transport` is
     additionally monkeypatched straight to a hard miss, mirroring every
@@ -927,23 +928,24 @@ def test_non_default_runway_reaches_select_aircraft_for_runway(tmp_path, monkeyp
         shutil.rmtree(runway_dir, ignore_errors=True)
 
 
-def test_non_default_runway_reaches_poll_current_aircraft(tmp_path, monkeypatch):
-    """a saved non-default tracked runway reaches detect.poll_current_aircraft on the live branch"""
+def test_non_default_runway_reaches_the_zone_selection(tmp_path, monkeypatch):
+    """a saved non-default tracked runway reaches the selection over the zone result on the live branch"""
     runway_dir = _mkdir(tmp_path, "runway-live")
     try:
         device_config.save_device_config(runway_dir, tracked_runway="02-20")
         captured = {}
+        real_select = poll_cycle.detect.select_from_provider_results
 
-        def _fake_poll(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None, last_call_at=None):
+        def _spy_select(results, geofence, runway_id=device_config.DEFAULT_RUNWAY_ID, **kwargs):
             captured["runway_id"] = runway_id
-            if diagnostics is not None:
-                diagnostics.update({"queried": [], "failed": [], "selected": [], "disagreement": False, "runway_id": runway_id})
-            return None
+            return real_select(results, geofence, runway_id=runway_id, **kwargs)
 
-        monkeypatch.setattr(poll_cycle.detect, "poll_current_aircraft", _fake_poll)
-        poll_cycle.run_once(state_dir=runway_dir, geofence=GEOFENCE_PATH)
+        monkeypatch.setattr(poll_cycle.detect, "select_from_provider_results", _spy_select)
+        poll_cycle.run_once(
+            state_dir=runway_dir, geofence=GEOFENCE_PATH,
+            zone_fetch=zone_fetch.ZoneFetch(results=(("adsbfi", []),), queried=("adsbfi",)))
         if captured.get("runway_id") != "02-20":
-            pytest.fail("poll_current_aircraft received runway_id=%r, expected '02-20'" % (captured.get("runway_id"),))
+            pytest.fail("the zone selection received runway_id=%r, expected '02-20'" % (captured.get("runway_id"),))
         return
     finally:
         shutil.rmtree(runway_dir, ignore_errors=True)
@@ -953,11 +955,6 @@ def test_all_failed_diagnostics_yields_true_fault_flag(tmp_path, monkeypatch):
     """an all-providers-failed diagnostics report yields a true source_fault flag passed to render.build_canvas"""
     fault_dir = _mkdir(tmp_path, "fault")
     try:
-        def _fake_poll(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None, last_call_at=None):
-            if diagnostics is not None:
-                diagnostics.update({"queried": ["adsbfi", "adsblol"], "failed": ["adsbfi", "adsblol"], "selected": [], "disagreement": False, "runway_id": runway_id})
-            return None
-
         captured = {}
         original_build = poll_cycle.render.build_canvas
 
@@ -965,9 +962,8 @@ def test_all_failed_diagnostics_yields_true_fault_flag(tmp_path, monkeypatch):
             captured["source_fault"] = kwargs.get("source_fault")
             return original_build(flight, state, **kwargs)
 
-        monkeypatch.setattr(poll_cycle.detect, "poll_current_aircraft", _fake_poll)
         monkeypatch.setattr(poll_cycle.render, "build_canvas", _spy_build)
-        result = poll_cycle.run_once(state_dir=fault_dir, geofence=GEOFENCE_PATH)
+        result = poll_cycle.run_once(state_dir=fault_dir, geofence=GEOFENCE_PATH, zone_fetch=zone_fetch.ZoneFetch(queried=("adsbfi", "adsblol"), failed=("adsbfi", "adsblol")))
         if result.get("source_fault") is not True:
             pytest.fail("run_once() result source_fault=%r, expected True" % (result.get("source_fault"),))
         if captured.get("source_fault") is not True:
@@ -981,13 +977,9 @@ def test_successful_query_no_selection_yields_false_fault_flag(tmp_path, monkeyp
     """providers queried successfully with nothing selected leaves the source_fault flag false"""
     fault_dir = _mkdir(tmp_path, "nofault")
     try:
-        def _fake_poll(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None, last_call_at=None):
-            if diagnostics is not None:
-                diagnostics.update({"queried": ["adsbfi", "adsblol"], "failed": [], "selected": [], "disagreement": False, "runway_id": runway_id})
-            return None
-
-        monkeypatch.setattr(poll_cycle.detect, "poll_current_aircraft", _fake_poll)
-        result = poll_cycle.run_once(state_dir=fault_dir, geofence=GEOFENCE_PATH)
+        result = poll_cycle.run_once(
+            state_dir=fault_dir, geofence=GEOFENCE_PATH,
+            zone_fetch=zone_fetch.ZoneFetch(results=(("adsbfi", []), ("adsblol", [])), queried=("adsbfi", "adsblol")))
         if result.get("source_fault") is not False:
             pytest.fail("run_once() result source_fault=%r, expected False" % (result.get("source_fault"),))
         return
@@ -1015,14 +1007,9 @@ def test_fault_transition_gated_not_value(tmp_path, monkeypatch):
     try:
         poll_cycle.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=trans_dir, geofence=GEOFENCE_PATH)
 
-        def _fake_poll_all_failed(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None, last_call_at=None):
-            if diagnostics is not None:
-                diagnostics.update({"queried": ["adsbfi", "adsblol"], "failed": ["adsbfi", "adsblol"], "selected": [], "disagreement": False, "runway_id": runway_id})
-            return None
-
-        monkeypatch.setattr(poll_cycle.detect, "poll_current_aircraft", _fake_poll_all_failed)
-        r1 = poll_cycle.run_once(state_dir=trans_dir, geofence=GEOFENCE_PATH)
-        r2 = poll_cycle.run_once(state_dir=trans_dir, geofence=GEOFENCE_PATH)
+        all_failed = zone_fetch.ZoneFetch(queried=("adsbfi", "adsblol"), failed=("adsbfi", "adsblol"))
+        r1 = poll_cycle.run_once(state_dir=trans_dir, geofence=GEOFENCE_PATH, zone_fetch=all_failed)
+        r2 = poll_cycle.run_once(state_dir=trans_dir, geofence=GEOFENCE_PATH, zone_fetch=all_failed)
         writes = sum(1 for r in (r1, r2) if r.get("panel_changed"))
         if writes != 1:
             pytest.fail("two consecutive cycles with an unchanged true fault flag wrote panel.bin %d times, expected exactly 1" % (writes,))
@@ -1120,33 +1107,6 @@ def test_history_row_written_on_corroboration_flip(tmp_path, monkeypatch):
         return
     finally:
         shutil.rmtree(hist_dir, ignore_errors=True)
-
-
-def test_load_provider_last_calls_drops_non_finite_and_future_values(tmp_path):
-    """_load_provider_last_calls: an inf/nan stored value and a value far in the future are both dropped as if absent, never raised"""
-    meta_dir = _mkdir(tmp_path, "provider-last-call")
-    try:
-        provider_names = list(detect.DEFAULT_PROVIDER_ORDER)
-        if len(provider_names) < 2:
-            pytest.skip("this test needs at least two default providers")
-        finite_name, future_name = provider_names[0], provider_names[1]
-        with history_db.open_db(meta_dir) as conn:
-            history_db.set_meta(
-                conn, history_db.META_PROVIDER_LAST_CALL_PREFIX + finite_name, repr(float("nan")))
-            # An hour ahead of the real wall clock - a stepped-back clock or
-            # a restored history.db, not a value this code should ever
-            # trust enough to space a live poll off it.
-            history_db.set_meta(
-                conn, history_db.META_PROVIDER_LAST_CALL_PREFIX + future_name,
-                repr(time.time() + 3600.0))
-        last_call_at = poll_cycle._load_provider_last_calls(meta_dir, provider_names)
-        if finite_name in last_call_at:
-            pytest.fail("expected the non-finite stored value for %r dropped, got %r" % (finite_name, last_call_at))
-        if future_name in last_call_at:
-            pytest.fail("expected the future stored value for %r dropped, got %r" % (future_name, last_call_at))
-        return
-    finally:
-        shutil.rmtree(meta_dir, ignore_errors=True)
 
 
 def test_pipeline_run_meta_updated_every_cycle(tmp_path):
@@ -1379,34 +1339,6 @@ def test_caddy_log_tail_reads_before_the_write_batch_opens(tmp_path, monkeypatch
         shutil.rmtree(log_dir, ignore_errors=True)
 
 
-def test_provider_last_call_meta_failure_does_not_roll_back_heartbeat(tmp_path, monkeypatch):
-    """a provider-timestamp meta write failure inside _record_history's write_batch rolls back
-    only its own write - never the pipeline heartbeat staged in the same cycle"""
-    prov_dir = _mkdir(tmp_path, "provider-meta-fault")
-    try:
-        original_set_meta = poll_cycle.history_db.set_meta
-
-        def _flaky_set_meta(conn, key, value):
-            if key.startswith(poll_cycle.history_db.META_PROVIDER_LAST_CALL_PREFIX):
-                raise sqlite3.OperationalError("simulated provider-meta fault")
-            return original_set_meta(conn, key, value)
-
-        monkeypatch.setattr(poll_cycle.history_db, "set_meta", _flaky_set_meta)
-        # No injected snapshot - the injected-snapshot path never queries a
-        # live provider, so provider_last_calls would stay empty and this
-        # fault would never be reached; the live path (stubbed via the
-        # fake_providers fixture, autoused through _stub_adsbdb) always
-        # populates it, queried or not.
-        poll_cycle.run_once(state_dir=prov_dir, geofence=GEOFENCE_PATH)
-        with history_db.open_db(prov_dir) as conn:
-            pipeline_run = history_db.get_meta(conn, history_db.META_LAST_PIPELINE_RUN)
-        if not pipeline_run:
-            pytest.fail("a provider-meta fault rolled back the pipeline-run heartbeat")
-        return
-    finally:
-        shutil.rmtree(prov_dir, ignore_errors=True)
-
-
 def test_caddy_log_omitted_is_noop(tmp_path):
     """omitting --caddy-log (the default) ingests nothing and raises nothing"""
     none_dir = _mkdir(tmp_path, "nocaddylog")
@@ -1544,7 +1476,7 @@ def test_quiet_hours_panel_matches_expected_canvas(tmp_path, clock):
 
 
 def test_quiet_hours_skips_ads_b_detection(tmp_path, monkeypatch, clock):
-    """an in-window cycle on the live path never calls detect.poll_current_aircraft or detect.load_geofence"""
+    """an in-window cycle on the live path never calls zone_fetch.fetch_zone or detect.load_geofence"""
     qh_dir = _mkdir(tmp_path, "quiet-skip")
     try:
         device_config.save_device_config(
@@ -1562,11 +1494,11 @@ def test_quiet_hours_skips_ads_b_detection(tmp_path, monkeypatch, clock):
             called["geofence"] = True
             return {}
 
-        monkeypatch.setattr(poll_cycle.detect, "poll_current_aircraft", _fake_poll)
+        monkeypatch.setattr(poll_cycle.zone_fetch, "fetch_zone", _fake_poll)
         monkeypatch.setattr(poll_cycle.detect, "load_geofence", _fake_geofence)
         poll_cycle.run_once(state_dir=qh_dir, geofence=GEOFENCE_PATH)
         if called["poll"] or called["geofence"]:
-            pytest.fail("detect.poll_current_aircraft/load_geofence were called during an active quiet-hours window: %r" % (called,))
+            pytest.fail("zone_fetch.fetch_zone/detect.load_geofence were called during an active quiet-hours window: %r" % (called,))
         return
     finally:
         shutil.rmtree(qh_dir, ignore_errors=True)
@@ -1704,7 +1636,7 @@ def test_display_off_hold_is_noop_across_battery_transition(tmp_path, clock):
 
 
 def test_display_off_skips_ads_b_detection(tmp_path, monkeypatch, clock):
-    """a toggle-off cycle on the live path never calls detect.poll_current_aircraft or detect.load_geofence - an off period is unbounded, so a query-and-discard loop would run against the free-tier aggregators indefinitely"""
+    """a toggle-off cycle on the live path never calls zone_fetch.fetch_zone or detect.load_geofence - an off period is unbounded, so a query-and-discard loop would run against the free-tier aggregators indefinitely"""
     off_dir = _mkdir(tmp_path, "off-skip")
     try:
         device_config.save_device_config(off_dir, display_enabled=False)
@@ -1719,11 +1651,11 @@ def test_display_off_skips_ads_b_detection(tmp_path, monkeypatch, clock):
             called["geofence"] = True
             return {}
 
-        monkeypatch.setattr(poll_cycle.detect, "poll_current_aircraft", _fake_poll)
+        monkeypatch.setattr(poll_cycle.zone_fetch, "fetch_zone", _fake_poll)
         monkeypatch.setattr(poll_cycle.detect, "load_geofence", _fake_geofence)
         poll_cycle.run_once(state_dir=off_dir, geofence=GEOFENCE_PATH)
         if called["poll"] or called["geofence"]:
-            pytest.fail("detect.poll_current_aircraft/load_geofence were called during an active display-off hold: %r" % (called,))
+            pytest.fail("zone_fetch.fetch_zone/detect.load_geofence were called during an active display-off hold: %r" % (called,))
         return
     finally:
         shutil.rmtree(off_dir, ignore_errors=True)
@@ -2733,7 +2665,7 @@ def test_apply_battery_critical_hysteresis_boundaries():
 
 
 def test_battery_empty_entry_from_live_board_renders_and_skips_detection(tmp_path, monkeypatch, clock):
-    """a 3290 mV reading on the live board enters BATTERY EMPTY: state, panel_changed, the persisted hold_state/battery_critical_active latch, byte-identical panel.bin, and detection skipped entirely (detect.poll_current_aircraft/load_geofence never called)"""
+    """a 3290 mV reading on the live board enters BATTERY EMPTY: state, panel_changed, the persisted hold_state/battery_critical_active latch, byte-identical panel.bin, and detection skipped entirely (zone_fetch.fetch_zone/detect.load_geofence never called)"""
     be_dir = _mkdir(tmp_path, "be-entry")
     try:
         _write_battery_state(be_dir, 3290)
@@ -2747,7 +2679,7 @@ def test_battery_empty_entry_from_live_board_renders_and_skips_detection(tmp_pat
             called["geofence"] = True
             return {}
 
-        monkeypatch.setattr(poll_cycle.detect, "poll_current_aircraft", _fake_poll)
+        monkeypatch.setattr(poll_cycle.zone_fetch, "fetch_zone", _fake_poll)
         monkeypatch.setattr(poll_cycle.detect, "load_geofence", _fake_geofence)
         clock["t"] = CLOCK_BASE
         result = poll_cycle.run_once(state_dir=be_dir, geofence=GEOFENCE_PATH)
