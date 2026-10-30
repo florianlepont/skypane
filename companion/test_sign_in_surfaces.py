@@ -8,7 +8,7 @@ import hashlib
 import pytest
 
 import companion_markup
-from companion import i18n, login_page, prefs
+from companion import i18n, layout, login_page, prefs
 
 
 @pytest.fixture(autouse=True)
@@ -255,3 +255,150 @@ def test_every_new_message_has_a_french_translation():
     account_ids = [m for m in i18n.REGISTRY if m.startswith("account.")]
     assert account_ids
     assert all(m in i18n_fr.BY_ID for m in account_ids)
+
+
+# --- Account page -----------------------------------------------------
+
+def test_account_page_shows_identity_preferences_frames_and_sign_out():
+    from companion.pages import account_page
+    html = account_page.render(account_page.Identity("ada@example.com", "user"))
+    doc = _doc(html)
+    assert doc.select_one("h1.page-title").text() == "Account"
+    cards = doc.select("section.page-section")
+    assert [c.select_one("h2").text() for c in cards] == [
+        "Identity", "Preferences", "Frames"]
+    identity = cards[0].text()
+    assert "ada@example.com" in identity
+    assert "User" in identity
+    prefs_card = cards[1]
+    assert prefs_card.select_one("form[action=\"/ui-lang\"]") is not None
+    assert prefs_card.select_one("form[action=\"/ui-theme\"]") is not None
+    frames = cards[2]
+    assert frames.select_one(".empty-state__heading").text() == (
+        "Your frames will appear here")
+    assert frames.select_one(".empty-state__body").text() == (
+        "Once an administrator pairs a frame to your account it will show up "
+        "on this page.")
+    logout = doc.select_one("form[action=\"/logout\"]")
+    assert logout.attrs["method"] == "post"
+    assert logout.select_one("button").text() == "Sign out"
+    assert not doc.select("a")
+
+
+def test_account_page_role_labels_and_escaping():
+    from companion.pages import account_page
+    admin = _doc(account_page.render(
+        account_page.Identity("root@example.com", "admin")))
+    assert "Administrator" in admin.select_one("#account-identity").parent.text()
+    legacy = _doc(account_page.render(
+        account_page.Identity("shared", "admin", legacy=True)))
+    assert "Administrator (legacy access)" in legacy.text()
+    hostile = account_page.render(
+        account_page.Identity("<img src=x onerror=1>@e.com", "user"))
+    assert "<img" not in hostile
+
+
+def test_account_page_renders_in_french():
+    from companion.pages import account_page
+    prefs.set_request_prefs("fr")
+    doc = _doc(account_page.render(account_page.Identity("a@b.fr", "user")))
+    assert doc.select_one("h1.page-title").text() == "Compte"
+    assert [c.select_one("h2").text() for c in doc.select("section.page-section")] == [
+        "Identité", "Préférences", "Cadres"]
+    assert "Vos cadres apparaîtront ici" in doc.text()
+    assert "Utilisateur" in doc.text()
+
+
+# --- Shell ---------------------------------------------------------------
+
+def _shell(active="account", **kwargs):
+    return layout.page_shell(
+        "Account", active, "<p>body</p>", ui_theme="dark",
+        health_alert="warn", device_config={"a": 1}, **kwargs)
+
+
+def test_user_principal_shell_has_one_account_link_and_no_tab_bar():
+    prefs.set_request_principal(kind="user", role="user")
+    doc = _doc(_shell())
+    links = doc.select("nav.sidebar-nav a")
+    assert [(a.attrs["href"], a.text()) for a in links] == [("/account", "Account")]
+    assert links[0].attrs["aria-current"] == "page"
+    assert not doc.select(".nav-group__label")
+    assert not doc.select(".nav-notification")
+    assert not doc.select("nav.tab-bar")
+    assert "has-tab-bar" not in doc.select_one("body").attrs.get("class", "")
+    panel = doc.select_one("div.mobile-nav")
+    assert panel.select_one("form[action=\"/ui-lang\"]") is not None
+    assert panel.select_one("form[action=\"/ui-theme\"]") is not None
+    assert panel.select_one("form[action=\"/logout\"]") is not None
+    assert doc.select(".brand__link")
+    for brand in doc.select(".brand__link"):
+        assert brand.attrs["href"] == "/account"
+
+
+def test_user_principal_shell_links_only_to_reachable_destinations():
+    prefs.set_request_principal(kind="user", role="user")
+    doc = _doc(_shell(active=""))
+    hrefs = {a.attrs["href"] for a in doc.select("a") if "href" in a.attrs}
+    assert all(h == "/account" or h.startswith("#") for h in hrefs), hrefs
+    assert not doc.select("a[href=\"/\"]")
+    inactive = doc.select_one("nav.sidebar-nav a")
+    assert "aria-current" not in inactive.attrs
+
+
+@pytest.mark.parametrize("surface", [
+    ".sidebar-footer form.logout-form", ".mobile-nav__footer form.logout-form"])
+def test_legacy_admin_gets_a_neutral_pill_before_sign_out(surface):
+    prefs.set_request_principal(kind="legacy-admin", role="admin")
+    doc = _doc(_shell(active="home"))
+    form = doc.select_one(surface)
+    first, second = [c for c in form.children if hasattr(c, "tag")][:2]
+    assert "banner__pill" in first.attrs["class"].split()
+    assert first.text() == "Legacy access"
+    assert first.attrs["title"] == "Signed in with the shared password"
+    assert second.tag == "button"
+    assert doc.select("nav.sidebar-nav a")[0].attrs["href"] == "/"
+    assert doc.select("nav.tab-bar")
+
+
+@pytest.mark.parametrize("principal", [
+    None, ("user", "user"), ("admin", "admin")])
+def test_other_principals_get_no_legacy_pill(principal):
+    if principal:
+        prefs.set_request_principal(kind=principal[0], role=principal[1])
+    assert not _doc(_shell(active="home")).select(".logout-form .banner__pill")
+
+
+def test_legacy_pill_is_translated():
+    prefs.set_request_principal(kind="legacy-admin", role="admin")
+    prefs.set_request_prefs("fr")
+    pill = _doc(_shell(active="home")).select_one(".logout-form .banner__pill")
+    assert pill.text() == "Ancien accès"
+    assert pill.attrs["title"] == "Connecté avec le mot de passe partagé"
+
+
+def test_unrecognised_principal_clears_to_default():
+    prefs.set_request_principal(kind="user", role="user")
+    prefs.set_request_principal(kind="bogus", role="user")
+    assert prefs.current_principal() is None
+
+
+_SHELL_BASELINE_DIGEST = (
+    "3602249591834cf4e1870e61219342ed411ef258dd75114fbab67d5cc282b675")
+
+
+def test_shell_without_a_principal_is_byte_identical_to_before():
+    digests = []
+    for lang in ("en", "fr"):
+        prefs.set_request_prefs(lang)
+        for active in (
+                "home", "display", "flights", "airlines", "health", "device",
+                "update", ""):
+            for device_config in (None, {"a": 1}):
+                for alert in (None, "warn"):
+                    html = layout.page_shell(
+                        "T", active, "<p>b</p>", ui_theme="dark",
+                        health_alert=alert, device_config=device_config)
+                    digests.append(hashlib.sha256(html.encode()).hexdigest())
+    assert hashlib.sha256("".join(digests).encode()).hexdigest() == (
+        _SHELL_BASELINE_DIGEST)

@@ -52,4 +52,26 @@ MESSAGES = {
     "account.signing_out": "Déconnexion",
     "account.continue_to_s": "Continuer vers %s",
     "account.account": "Compte",
+
+    # --- Account page ------------------------------------------------
+    "account.your_skypane_sign_in_and_preferences":
+        "Votre connexion SkyPane et vos préférences.",
+    "account.identity": "Identité",
+    "account.email": "E-mail",
+    "account.role": "Rôle",
+    "account.user": "Utilisateur",
+    "account.administrator": "Administrateur",
+    "account.administrator_legacy_access":
+        "Administrateur (ancien accès)",
+    "account.preferences": "Préférences",
+    "account.frames": "Cadres",
+    "account.your_frames_will_appear_here": "Vos cadres apparaîtront ici",
+    "account.once_an_administrator_pairs_a_frame_to_your":
+        "Dès qu’un administrateur associe un cadre à votre compte, il "
+        "apparaîtra sur cette page.",
+
+    # --- Shell flag --------------------------------------------------
+    "account.legacy_access": "Ancien accès",
+    "account.signed_in_with_the_shared_password":
+        "Connecté avec le mot de passe partagé",
 }
