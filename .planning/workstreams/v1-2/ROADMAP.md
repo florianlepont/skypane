@@ -157,7 +157,22 @@ Plans:
   2. The owner can trigger a poll for one device and set its quiet hours and timezone, and no other device's state changes.
   3. Each device shows its own history and health, and there is no fallback to a shared "default" device.
 
-**Plans**: TBD
+**Plans**: 13 plans in 7 waves
+
+Plans:
+- [ ] 51-01-PLAN.md — device_dirs path chokepoint, add_device validation, CLI --state-path auto, two-device test fixture
+- [ ] 51-02-PLAN.md — per-device IANA timezone in device_config and tz-aware quiet-hours arithmetic
+- [ ] 51-03-PLAN.md — backup walks devices/<id>/ with WAL-safe history snapshots; layout and rollback notes
+- [ ] 51-04-PLAN.md — BYOS token to device resolution, per-device image/health/sleep, /img/<id>/<sha>.bin
+- [ ] 51-05-PLAN.md — route table device_scoped flag, /devices/<id> prefix matching, device_scope module
+- [ ] 51-06-PLAN.md — device-aware dispatch, page context, GET handlers, per-device poll-now, settings and quick switches
+- [ ] 51-07-PLAN.md — explicit-device airline, illustration, rule and calendar action handlers
+- [ ] 51-08-PLAN.md — prefix-aware nav, quick switches, flash actions, airlines, calendar sheet, previews, freshness
+- [ ] 51-09-PLAN.md — device selector (markup, no-JS switch, CSS, change handler, browser tests)
+- [ ] 51-10-PLAN.md — timezone field in the quiet-hours card, device-aware Poll section and rule forms
+- [ ] 51-11-PLAN.md — per-device Home, Health and History pages with empty and unreachable states
+- [ ] 51-12-PLAN.md — prefix crawl, end-to-end isolation tests, device-scoped route inventory for the auth phase
+- [ ] 51-13-PLAN.md — merge main, full suite and gates, verification items and owner checks
 **UI hint**: yes
 
 ### Phase 52: Fleet Poll Cycle, Zones and Request Budget
