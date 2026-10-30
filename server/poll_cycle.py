@@ -599,6 +599,8 @@ class CycleContext:
     colour_rules_registry: dict = field(default_factory=dict)
     manual_registry: dict = field(default_factory=dict)
     name_overrides: dict = field(default_factory=dict)
+    # The device's hardware profile; None is the legacy live-frame path.
+    profile: object | None = None
 
     # State: poll_state.json's read-once contents, and the hysteresis
     # flags derived from it before the hold decision.
@@ -655,7 +657,23 @@ class CycleContext:
     panel_changed: bool = False
 
 
-def load_cycle_context(snapshot, state_dir, geofence, caddy_log):
+def _low_thresholds(profile):
+    """Battery-low keyword overrides from a hardware profile; empty (the
+    module defaults) for the legacy path."""
+    if profile is None:
+        return {}
+    return {"low_mv": profile.battery.low_mv, "clear_mv": profile.battery.low_clear_mv}
+
+
+def _critical_thresholds(profile):
+    """BATTERY EMPTY keyword overrides from a hardware profile; empty (the
+    module defaults) for the legacy path."""
+    if profile is None:
+        return {}
+    return {"critical_mv": profile.battery.critical_mv, "recover_mv": profile.battery.critical_recover_mv}
+
+
+def load_cycle_context(snapshot, state_dir, geofence, caddy_log, profile=None):
     """Everything a cycle needs before the hold decision can be made:
     ensures `state_dir` exists, loads the manual-resolution and
     colour-rule registries from THIS cycle's state_dir (once per cycle,
@@ -699,7 +717,8 @@ def load_cycle_context(snapshot, state_dir, geofence, caddy_log):
     # wake.effective_wake_interval_s() below, so it sees this cycle's own
     # decision, not last cycle's stale one.
     was_battery_critical = poll_state.get(wake.BATTERY_CRITICAL_STATE_KEY) is True
-    battery_critical = device_policy.apply_battery_critical_hysteresis(battery_mv, was_battery_critical)
+    battery_critical = device_policy.apply_battery_critical_hysteresis(
+        battery_mv, was_battery_critical, **_critical_thresholds(profile))
     poll_state[wake.BATTERY_CRITICAL_STATE_KEY] = battery_critical
     # The cadence in force this cycle, resolved once and passed to every
     # _record_history() call rather than re-resolved. None is a
@@ -729,7 +748,7 @@ def load_cycle_context(snapshot, state_dir, geofence, caddy_log):
         # run here without either raising or resolving against stale
         # values. Both are computed at the flight-detected branch's
         # resolver call site, further down the live path.
-        effective_theme_id=theme_id,
+        effective_theme_id=theme_id, profile=profile,
     )
 
 
@@ -809,11 +828,11 @@ def run_hold_cycle(ctx):
             # consults theme_id/quiet_hours_until/source_fault/
             # battery_low for this state, so none can leak a
             # hash-changing byte into the parked image.
-            canvas = render.build_canvas(None, "battery_empty")
+            canvas = render.build_canvas(None, "battery_empty", profile=ctx.profile)
         else:
             canvas = render.build_canvas(
                 None, ctx.hold_kind, theme_id=ctx.theme_id, quiet_hours_until=ctx.quiet_until,
-                source_fault=ctx.source_fault, battery_low=ctx.battery_low,
+                source_fault=ctx.source_fault, battery_low=ctx.battery_low, profile=ctx.profile,
             )
         publish_canvas(ctx, canvas)
 
@@ -867,7 +886,8 @@ def update_battery_low(ctx):
     """
     poll_state = ctx.poll_state
     was_battery_low = bool(poll_state.get("battery_low_active", False))
-    ctx.battery_low = device_policy.apply_battery_hysteresis(ctx.battery_mv, was_battery_low)
+    ctx.battery_low = device_policy.apply_battery_hysteresis(
+        ctx.battery_mv, was_battery_low, **_low_thresholds(ctx.profile))
     ctx.battery_changed = ctx.battery_low != was_battery_low
     poll_state["battery_low_active"] = ctx.battery_low
 
@@ -1134,7 +1154,7 @@ def _render_promoted(ctx):
         ctx.calendar_theme_id = None
         canvas = render.build_canvas(
             None, ctx.render_state, theme_id=ctx.theme_id, runway_id=ctx.tracked_runway_id,
-            source_fault=ctx.source_fault, battery_low=ctx.battery_low, state_dir=ctx.state_dir,
+            source_fault=ctx.source_fault, battery_low=ctx.battery_low, state_dir=ctx.state_dir, profile=ctx.profile,
         )
     else:
         ctx.render_state = confirmed_state
@@ -1147,7 +1167,7 @@ def _render_promoted(ctx):
             previous_flight=ctx.previous_flight, previous_route=ctx.previous_route,
             previous_state=ctx.previous_confirmed_state, theme_id=ctx.effective_theme_id,
             runway_id=ctx.tracked_runway_id, source_fault=ctx.source_fault,
-            battery_low=ctx.battery_low, state_dir=ctx.state_dir,
+            battery_low=ctx.battery_low, state_dir=ctx.state_dir, profile=ctx.profile,
         )
 
     publish_canvas(ctx, canvas)
@@ -1203,12 +1223,12 @@ def _render_held(ctx):
                 previous_flight=ctx.previous_flight, previous_route=ctx.previous_route,
                 previous_state=ctx.previous_confirmed_state, theme_id=ctx.effective_theme_id,
                 runway_id=ctx.tracked_runway_id, source_fault=ctx.source_fault,
-                battery_low=ctx.battery_low, state_dir=ctx.state_dir,
+                battery_low=ctx.battery_low, state_dir=ctx.state_dir, profile=ctx.profile,
             )
         else:
             held_canvas = render.build_canvas(
                 None, "empty", theme_id=ctx.theme_id, runway_id=ctx.tracked_runway_id,
-                source_fault=ctx.source_fault, battery_low=ctx.battery_low, state_dir=ctx.state_dir,
+                source_fault=ctx.source_fault, battery_low=ctx.battery_low, state_dir=ctx.state_dir, profile=ctx.profile,
             )
         publish_canvas(ctx, held_canvas)
     if ctx.queue_dirty:
@@ -1236,7 +1256,7 @@ def _render_empty(ctx):
     ctx.route_source = "n/a"
     canvas = render.build_canvas(
         None, ctx.render_state, theme_id=ctx.theme_id, runway_id=ctx.tracked_runway_id,
-        source_fault=ctx.source_fault, battery_low=ctx.battery_low, state_dir=ctx.state_dir,
+        source_fault=ctx.source_fault, battery_low=ctx.battery_low, state_dir=ctx.state_dir, profile=ctx.profile,
     )
     publish_canvas(ctx, canvas)
 
@@ -1358,7 +1378,7 @@ def cycle_result(ctx):
     }
 
 
-def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_timeout_s=None, reconcile_firmware=True):
+def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_timeout_s=None, reconcile_firmware=True, profile=None):
     """One poll cycle: detect -> infer -> enrich -> render -> publish
     (atomic panel/gallery write) -> record (history.db), as a sequence of
     named steps over one `CycleContext`, serialised across every process
@@ -1390,6 +1410,10 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_
     lives in the root state directory only, so a caller polling a
     per-device directory passes `reconcile_firmware=False`.
 
+    `profile`: the device's `hardware.HardwareProfile`. `None` is the
+    legacy live-frame path; otherwise rendering and the battery
+    thresholds come from the profile.
+
     Hold states: a quiet-hours window and the manual display-off toggle
     both gate through one shared `poll_state["hold_state"]` latch
     (`state_store.hold_state()`), decided by `decide_hold()`. Either
@@ -1411,7 +1435,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_
     state_dir = state_dir or DEFAULT_STATE_DIR
     with poll_cycle_lock(state_dir, lock_timeout_s):
         with history_db.connection_scope(state_dir):
-            ctx = load_cycle_context(snapshot, state_dir, geofence, caddy_log)
+            ctx = load_cycle_context(snapshot, state_dir, geofence, caddy_log, profile=profile)
             # Before the hold decision, so a battery-hold, quiet-hours or
             # display-off cycle still reconciles device-reported OTA
             # outcomes exactly like a live cycle would.
