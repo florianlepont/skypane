@@ -103,6 +103,11 @@ Phase 1 stub. The Phase 2 VPS uses real HTTPS; the ESP-TLS and public CA
 bundle code path stays compiled into the firmware and reachable the whole
 time, so that later move is a configuration change, not a code change.
 
+## Image container format
+
+The framed image body and the `X-Img-Fmt` negotiation are specified in
+[`../docs/IMAGE-FORMAT.md`](../docs/IMAGE-FORMAT.md).
+
 ## Run the contract harness
 
 ```bash

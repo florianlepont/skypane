@@ -42,6 +42,11 @@ run_suite() {
     fi
 }
 
+# Directory of golden fixtures shared with the Python tests; suites that
+# need them read it from the environment.
+FIXTURE_DIR="${SCRIPT_DIR}/fixtures/image_container"
+export FIXTURE_DIR
+
 for test_src in "${SCRIPT_DIR}"/test_*.c; do
     [ -e "${test_src}" ] || continue
     COUNT=$((COUNT + 1))
