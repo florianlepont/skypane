@@ -9,7 +9,8 @@ import os
 
 import pytest
 
-from server import firmware_cli, firmware_registry
+from server import firmware_cli, firmware_registry, hardware
+from skypane_fw_image import build_image, other_modulus
 
 COMMIT = "a" * 40
 
@@ -18,7 +19,7 @@ def _write_release_subdir(base, tag, image=None, released_at="2026-09-28T00:00:0
     """Write <base>/<tag>/{skypane-<tag>.bin,release.json} with a
     manifest that matches the image's real hash/size unless overridden.
     """
-    image = image if image is not None else (tag.encode() + b"-image-payload")
+    image = image if image is not None else build_image(tag)
     subdir = base / tag
     subdir.mkdir(parents=True, exist_ok=True)
     image_path = subdir / ("skypane-%s.bin" % tag)
@@ -34,6 +35,39 @@ def _write_release_subdir(base, tag, image=None, released_at="2026-09-28T00:00:0
     manifest.update(overrides)
     (subdir / "release.json").write_text(__import__("json").dumps(manifest))
     return subdir
+
+
+def _write_typed_files(base, tag, key, image=None, **overrides):
+    """Write <base>/<tag>/{skypane-<key>-<tag>.bin,release-<key>.json}
+    next to whatever else the tag directory already holds.
+    """
+    image = image if image is not None else build_image(tag)
+    subdir = base / tag
+    subdir.mkdir(parents=True, exist_ok=True)
+    image_path = subdir / ("skypane-%s-%s.bin" % (key, tag))
+    image_path.write_bytes(image)
+    manifest = {
+        "version": tag,
+        "sha256": hashlib.sha256(image).hexdigest(),
+        "size": len(image),
+        "released_at": "2026-09-28T00:00:00+00:00",
+        "commit": COMMIT,
+        "notes": ["Typed release"],
+        "hardware_type": key,
+    }
+    manifest.update(overrides)
+    (subdir / ("release-%s.json" % key)).write_text(__import__("json").dumps(manifest))
+    return subdir
+
+
+def _versions(state_dir, key=hardware.LEGACY_KEY):
+    registry = firmware_registry.load_registry(str(state_dir), key)
+    return [r["version"] for r in registry["releases"]]
+
+
+@pytest.fixture
+def sim_types(monkeypatch):
+    monkeypatch.setenv(hardware.SIM_ENV_VAR, "1")
 
 
 # --- import-dir ------------------------------------------------------------
@@ -133,11 +167,11 @@ def test_import_dir_stale_release_sha_conflict_alone_does_not_block_deploy(tmp_p
     _write_release_subdir(base, "fw-v1.0.1")
     assert firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)]) == 0
     capsys.readouterr()
-    original_sha = hashlib.sha256(b"fw-v1.0.1-image-payload").hexdigest()
+    original_sha = hashlib.sha256(build_image("fw-v1.0.1")).hexdigest()
 
     # The staged directory's asset changed since it was first registered
     # -- same tag, different bytes.
-    _write_release_subdir(base, "fw-v1.0.1", image=b"different-bytes-now")
+    _write_release_subdir(base, "fw-v1.0.1", image=build_image("fw-v1.0.1", size=16384))
 
     rc = firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)])
     out = capsys.readouterr()
@@ -164,7 +198,7 @@ def test_import_dir_new_tag_failure_still_blocks_despite_unrelated_stale_release
     assert firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)]) == 0
     capsys.readouterr()
 
-    _write_release_subdir(base, "fw-v1.0.1", image=b"different-bytes-now")  # stale, non-fatal
+    _write_release_subdir(base, "fw-v1.0.1", image=build_image("fw-v1.0.1", size=16384))  # stale, non-fatal
     _write_release_subdir(base, "fw-v1.0.3", sha256="0" * 64)  # new, must still fail
 
     rc = firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)])
@@ -376,7 +410,7 @@ def test_import_dir_skips_stray_top_level_file(tmp_path, capsys):
 def test_import_bench_records_bench_true_and_generated_note(tmp_path, capsys):
     state_dir = tmp_path / "state"
     image = tmp_path / "bench.bin"
-    image.write_bytes(b"a-bench-image-payload")
+    image.write_bytes(build_image("fw-v1.0.1-bench1"))
 
     rc = firmware_cli.main([
         "--state-dir", str(state_dir), "import-bench",
@@ -392,6 +426,37 @@ def test_import_bench_records_bench_true_and_generated_note(tmp_path, capsys):
     assert release["version"] == "fw-v1.0.1-bench1"
     assert release["bench"] is True
     assert release["notes"] == ["Bench image (not a release)"]
+
+
+def test_import_bench_refuses_another_signing_key_unless_explicitly_allowed(tmp_path, capsys):
+    state_dir = tmp_path / "state"
+    image = tmp_path / "bench.bin"
+    image.write_bytes(build_image("fw-v1.0.1-wrongkey", modulus=other_modulus()))
+    args = [
+        "--state-dir", str(state_dir), "import-bench",
+        "--file", str(image), "--version", "fw-v1.0.1-wrongkey", "--commit", COMMIT,
+    ]
+
+    assert firmware_cli.main(args) == 1
+    assert "signature: key mismatch" in capsys.readouterr().err
+    assert firmware_registry.load_registry(str(state_dir))["releases"] == []
+
+    assert firmware_cli.main(args + ["--allow-foreign-key"]) == 0
+    release = firmware_registry.load_registry(str(state_dir))["releases"][0]
+    assert release["bench"] is True
+
+
+def test_allow_foreign_key_still_requires_a_signature_sector(tmp_path, capsys):
+    state_dir = tmp_path / "state"
+    image = tmp_path / "bench.bin"
+    image.write_bytes(build_image("fw-v1.0.1-unsigned", signed=False))
+    rc = firmware_cli.main([
+        "--state-dir", str(state_dir), "import-bench",
+        "--file", str(image), "--version", "fw-v1.0.1-unsigned", "--commit", COMMIT,
+        "--allow-foreign-key",
+    ])
+    assert rc == 1
+    assert "signature: image is not signed" in capsys.readouterr().err
 
 
 def test_import_bench_symlinked_image_rejected(tmp_path, capsys):
@@ -440,7 +505,7 @@ def test_import_bench_accepts_explicit_commit_outside_a_git_checkout(tmp_path, m
     """
     state_dir = tmp_path / "state"
     image = tmp_path / "bench.bin"
-    image.write_bytes(b"payload")
+    image.write_bytes(build_image("fw-v1.0.1-bench1"))
     monkeypatch.setattr(firmware_cli, "_repo_root", lambda: str(tmp_path))
 
     rc = firmware_cli.main([
@@ -499,9 +564,9 @@ def test_current_commit_returns_none_when_git_is_unavailable(monkeypatch):
 def test_import_bench_rebinding_existing_version_to_different_sha_fails(tmp_path, capsys):
     state_dir = tmp_path / "state"
     image1 = tmp_path / "bench1.bin"
-    image1.write_bytes(b"payload-one")
+    image1.write_bytes(build_image("fw-v1.0.1-bench1"))
     image2 = tmp_path / "bench2.bin"
-    image2.write_bytes(b"payload-two-different")
+    image2.write_bytes(build_image("fw-v1.0.1-bench1", size=16384))
 
     rc1 = firmware_cli.main([
         "--state-dir", str(state_dir), "import-bench",
@@ -524,7 +589,7 @@ def test_import_bench_rebinding_existing_version_to_different_sha_fails(tmp_path
 
 def test_list_prints_version_published_at_size_and_installed_count(tmp_path, capsys):
     state_dir = tmp_path / "state"
-    image = b"list-me-image-payload"
+    image = build_image("fw-v1.0.1")
     manifest = {
         "version": "fw-v1.0.1", "sha256": hashlib.sha256(image).hexdigest(),
         "size": len(image), "released_at": "2026-09-28T00:00:00+00:00",
@@ -553,3 +618,315 @@ def test_list_no_releases_prints_placeholder(tmp_path, capsys):
 
     assert rc == 0
     assert "no releases" in out
+
+
+# --- build-ordered import ---------------------------------------------------
+
+def test_import_dir_orders_by_build_not_lexicographically(tmp_path, capsys):
+    base = tmp_path / "releases"
+    state_dir = tmp_path / "state"
+    for tag in ("fw-v1.2.0", "fw-v1.10.0", "fw-v1.9.0"):
+        _write_release_subdir(base, tag, hardware_type=hardware.LEGACY_KEY)
+
+    rc = firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)])
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    assert out.splitlines() == ["added fw-v1.2.0", "added fw-v1.9.0", "added fw-v1.10.0"]
+    assert sorted(_versions(state_dir)) == ["fw-v1.10.0", "fw-v1.2.0", "fw-v1.9.0"]
+
+
+def test_import_order_puts_unparsable_names_last():
+    names = ["zz-notes", "fw-v1.10.0", "aa-notes", "fw-v1.2.0"]
+    assert firmware_cli._import_order(names) == ["fw-v1.2.0", "fw-v1.10.0", "aa-notes", "zz-notes"]
+
+
+def test_import_dir_legacy_manifest_without_type_still_imports_at_grandfathered_tag(tmp_path, capsys):
+    base = tmp_path / "releases"
+    state_dir = tmp_path / "state"
+    _write_release_subdir(base, "fw-v1.0.2")
+
+    assert firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)]) == 0
+    assert "added fw-v1.0.2" in capsys.readouterr().out
+
+
+# --- per-type import-dir -----------------------------------------------------
+
+def test_import_dir_imports_typed_pair_into_that_types_document(tmp_path, capsys, sim_types):
+    base = tmp_path / "releases"
+    state_dir = tmp_path / "state"
+    _write_release_subdir(base, "fw-v1.2.0", hardware_type=hardware.LEGACY_KEY)
+    _write_typed_files(base, "fw-v1.2.0", hardware.SIM_CLONE_KEY)
+
+    rc = firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)])
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    assert "added fw-v1.2.0" in out
+    assert _versions(state_dir) == ["fw-v1.2.0"]
+    assert _versions(state_dir, hardware.SIM_CLONE_KEY) == ["fw-v1.2.0"]
+    clone = firmware_registry.load_registry(str(state_dir), hardware.SIM_CLONE_KEY)
+    assert clone["releases"][0]["hardware_type"] == hardware.SIM_CLONE_KEY
+
+
+def test_import_dir_typed_only_tag_directory_needs_no_legacy_pair(tmp_path, capsys, sim_types):
+    base = tmp_path / "releases"
+    state_dir = tmp_path / "state"
+    _write_typed_files(base, "fw-v1.2.0", hardware.SIM_CLONE_KEY)
+
+    rc = firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)])
+
+    assert rc == 0
+    assert _versions(state_dir, hardware.SIM_CLONE_KEY) == ["fw-v1.2.0"]
+    assert capsys.readouterr().err == ""
+
+
+def test_import_dir_typed_rerun_reports_every_item_as_existing(tmp_path, capsys, sim_types):
+    base = tmp_path / "releases"
+    state_dir = tmp_path / "state"
+    _write_release_subdir(base, "fw-v1.2.0", hardware_type=hardware.LEGACY_KEY)
+    _write_typed_files(base, "fw-v1.2.0", hardware.SIM_CLONE_KEY)
+    argv = ["--state-dir", str(state_dir), "import-dir", str(base)]
+    firmware_cli.main(argv)
+    capsys.readouterr()
+
+    rc = firmware_cli.main(argv)
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    assert out.count("exists fw-v1.2.0") == 2
+
+
+@pytest.mark.parametrize("key", ["no-such-type", "BAD_KEY", "x" * 65])
+def test_import_dir_bad_type_key_is_an_item_error_and_others_still_import(tmp_path, capsys, key):
+    base = tmp_path / "releases"
+    state_dir = tmp_path / "state"
+    _write_release_subdir(base, "fw-v1.2.0", hardware_type=hardware.LEGACY_KEY)
+    _write_typed_files(base, "fw-v1.2.0", key)
+
+    rc = firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)])
+    out = capsys.readouterr()
+
+    assert rc == 1
+    assert "added fw-v1.2.0" in out.out
+    assert "fw-v1.2.0" in out.err and key in out.err
+    assert _versions(state_dir) == ["fw-v1.2.0"]
+
+
+def test_import_dir_simulated_type_is_refused_when_simulation_is_off(tmp_path, capsys, monkeypatch):
+    monkeypatch.delenv(hardware.SIM_ENV_VAR, raising=False)
+    base = tmp_path / "releases"
+    state_dir = tmp_path / "state"
+    _write_typed_files(base, "fw-v1.2.0", hardware.SIM_CLONE_KEY)
+
+    rc = firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)])
+
+    assert rc == 1
+    assert hardware.SIM_CLONE_KEY in capsys.readouterr().err
+    assert not os.path.exists(str(state_dir / "firmware" / ("registry.%s.json" % hardware.SIM_CLONE_KEY)))
+
+
+@pytest.mark.parametrize("which", ["image", "manifest"])
+def test_import_dir_typed_symlink_is_refused(tmp_path, capsys, sim_types, which):
+    base = tmp_path / "releases"
+    state_dir = tmp_path / "state"
+    subdir = _write_typed_files(base, "fw-v1.2.0", hardware.SIM_CLONE_KEY)
+    name = ("skypane-%s-fw-v1.2.0.bin" if which == "image" else "release-%s.json") % hardware.SIM_CLONE_KEY
+    link = subdir / name
+    target = tmp_path / "elsewhere"
+    link.rename(target)
+    link.symlink_to(target)
+
+    rc = firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)])
+
+    assert rc == 1
+    assert "symlink" in capsys.readouterr().err
+    assert _versions(state_dir, hardware.SIM_CLONE_KEY) == []
+
+
+def test_import_dir_manifest_type_must_match_file_key(tmp_path, capsys, sim_types):
+    base = tmp_path / "releases"
+    state_dir = tmp_path / "state"
+    _write_typed_files(base, "fw-v1.2.0", hardware.SIM_CLONE_KEY, hardware_type=hardware.LEGACY_KEY)
+
+    rc = firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)])
+
+    assert rc == 1
+    assert "hardware_type" in capsys.readouterr().err
+    assert _versions(state_dir, hardware.SIM_CLONE_KEY) == []
+    assert _versions(state_dir) == []
+
+
+def test_import_dir_one_bad_typed_item_does_not_stop_the_next_type(tmp_path, capsys, sim_types):
+    base = tmp_path / "releases"
+    state_dir = tmp_path / "state"
+    _write_typed_files(base, "fw-v1.2.0", hardware.SIM_CLONE_KEY, sha256="0" * 64)
+    _write_typed_files(base, "fw-v1.2.0", hardware.SIM_LANDSCAPE_KEY)
+
+    rc = firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)])
+
+    assert rc == 1
+    assert _versions(state_dir, hardware.SIM_LANDSCAPE_KEY) == ["fw-v1.2.0"]
+    assert _versions(state_dir, hardware.SIM_CLONE_KEY) == []
+
+
+def test_import_dir_typed_lower_build_for_already_registered_type_does_not_block(tmp_path, capsys, sim_types):
+    base = tmp_path / "releases"
+    state_dir = tmp_path / "state"
+    _write_typed_files(base, "fw-v1.3.0", hardware.SIM_CLONE_KEY)
+    assert firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)]) == 0
+    capsys.readouterr()
+    # Registered after a higher build: refused by the build gate, but a
+    # tag that is new to this run is this run's failure.
+    _write_typed_files(base, "fw-v1.2.0", hardware.SIM_CLONE_KEY)
+
+    rc = firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)])
+
+    assert rc == 1
+    assert "build" in capsys.readouterr().err
+
+
+# --- --hardware-type on import-bench, list; check-image ---------------------
+
+def _bench_argv(state_dir, image_path, *extra):
+    return ["--state-dir", str(state_dir), "import-bench", "--file", str(image_path),
+            "--version", "fw-v1.3.0-bench1", "--commit", COMMIT, *extra]
+
+
+def test_import_bench_with_type_publishes_to_that_types_document_and_skips_build_gate(
+        tmp_path, capsys, sim_types):
+    base = tmp_path / "releases"
+    state_dir = tmp_path / "state"
+    _write_typed_files(base, "fw-v1.5.0", hardware.SIM_CLONE_KEY)
+    assert firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)]) == 0
+    capsys.readouterr()
+    image_path = tmp_path / "bench.bin"
+    image_path.write_bytes(build_image("fw-v1.3.0-bench1"))
+
+    rc = firmware_cli.main(_bench_argv(state_dir, image_path, "--hardware-type", hardware.SIM_CLONE_KEY))
+
+    assert rc == 0
+    assert "added fw-v1.3.0-bench1" in capsys.readouterr().out
+    clone = firmware_registry.load_registry(str(state_dir), hardware.SIM_CLONE_KEY)
+    bench = [r for r in clone["releases"] if r["bench"]]
+    assert [r["version"] for r in bench] == ["fw-v1.3.0-bench1"]
+    assert bench[0]["hardware_type"] == hardware.SIM_CLONE_KEY
+    assert _versions(state_dir) == []
+
+
+def test_import_bench_defaults_to_the_legacy_type(tmp_path, capsys):
+    state_dir = tmp_path / "state"
+    image_path = tmp_path / "bench.bin"
+    image_path.write_bytes(build_image("fw-v1.3.0-bench1"))
+
+    assert firmware_cli.main(_bench_argv(state_dir, image_path)) == 0
+    assert _versions(state_dir) == ["fw-v1.3.0-bench1"]
+
+
+def test_import_bench_unknown_type_is_a_usage_error(tmp_path, capsys):
+    image_path = tmp_path / "bench.bin"
+    image_path.write_bytes(build_image("fw-v1.3.0-bench1"))
+
+    rc = firmware_cli.main(_bench_argv(tmp_path / "state", image_path, "--hardware-type", "nope"))
+
+    assert rc == 2
+    assert "nope" in capsys.readouterr().err
+
+
+def _publish(state_dir, tmp_path, tag, key):
+    image = build_image(tag)
+    path = tmp_path / ("%s-%s.bin" % (key, tag))
+    path.write_bytes(image)
+    manifest = {
+        "version": tag, "sha256": hashlib.sha256(image).hexdigest(), "size": len(image),
+        "released_at": "2026-09-28T00:00:00+00:00", "commit": COMMIT, "notes": [],
+        "hardware_type": key,
+    }
+    firmware_registry.publish_release(
+        str(state_dir), manifest, str(path), now="2026-09-28T00:05:00+00:00", hardware_type=key)
+
+
+def test_list_with_only_the_legacy_type_prints_one_plain_line_per_release(tmp_path, capsys, sim_types):
+    state_dir = tmp_path / "state"
+    _publish(state_dir, tmp_path, "fw-v1.2.0", hardware.LEGACY_KEY)
+
+    assert firmware_cli.main(["--state-dir", str(state_dir), "list"]) == 0
+    lines = capsys.readouterr().out.splitlines()
+
+    assert len(lines) == 1
+    assert lines[0].split()[:2] == ["fw-v1.2.0", "2026-09-28T00:05:00+00:00"]
+
+
+def test_list_headings_per_type_when_another_type_has_releases(tmp_path, capsys, sim_types):
+    state_dir = tmp_path / "state"
+    _publish(state_dir, tmp_path, "fw-v1.2.0", hardware.LEGACY_KEY)
+    _publish(state_dir, tmp_path, "fw-v1.3.0", hardware.SIM_CLONE_KEY)
+
+    assert firmware_cli.main(["--state-dir", str(state_dir), "list"]) == 0
+    out = capsys.readouterr().out
+
+    assert hardware.LEGACY_KEY in out and hardware.SIM_CLONE_KEY in out
+    assert out.index(hardware.LEGACY_KEY) < out.index("fw-v1.2.0") < out.index(hardware.SIM_CLONE_KEY)
+    assert out.index(hardware.SIM_CLONE_KEY) < out.index("fw-v1.3.0")
+
+
+def test_list_hardware_type_lists_one_type_only(tmp_path, capsys, sim_types):
+    state_dir = tmp_path / "state"
+    _publish(state_dir, tmp_path, "fw-v1.2.0", hardware.LEGACY_KEY)
+    _publish(state_dir, tmp_path, "fw-v1.3.0", hardware.SIM_CLONE_KEY)
+
+    argv = ["--state-dir", str(state_dir), "list", "--hardware-type", hardware.SIM_CLONE_KEY]
+    assert firmware_cli.main(argv) == 0
+    out = capsys.readouterr().out
+
+    assert "fw-v1.3.0" in out and "fw-v1.2.0" not in out
+
+
+def test_list_unknown_type_is_a_usage_error(tmp_path, capsys):
+    rc = firmware_cli.main(["--state-dir", str(tmp_path), "list", "--hardware-type", "nope"])
+
+    assert rc == 2
+
+
+def test_check_image_accepts_a_valid_image_without_writing(tmp_path, capsys):
+    image_path = tmp_path / "fw.bin"
+    image_path.write_bytes(build_image("fw-v1.2.0"))
+    state_dir = tmp_path / "state"
+
+    rc = firmware_cli.main(["--state-dir", str(state_dir), "check-image", str(image_path)])
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    assert len(out.strip().splitlines()) == 1
+    assert "fw-v1.2.0" in out
+    assert not state_dir.exists()
+
+
+def test_check_image_reports_a_mismatch_for_the_declared_type(tmp_path, capsys):
+    image_path = tmp_path / "fw.bin"
+    image_path.write_bytes(build_image("fw-v1.2.0", project_name="other"))
+
+    rc = firmware_cli.main(["check-image", "--hardware-type", hardware.LEGACY_KEY, str(image_path)])
+    err = capsys.readouterr().err
+
+    assert rc == 1
+    assert "project_name" in err
+
+
+def test_check_image_rejects_an_unsigned_image(tmp_path, capsys):
+    image_path = tmp_path / "fw.bin"
+    image_path.write_bytes(build_image("fw-v1.2.0", signed=False))
+
+    assert firmware_cli.main(["check-image", str(image_path)]) == 1
+    assert "signature" in capsys.readouterr().err
+
+
+def test_check_image_rejects_unknown_type_and_symlink(tmp_path, capsys):
+    image_path = tmp_path / "fw.bin"
+    image_path.write_bytes(build_image("fw-v1.2.0"))
+    link = tmp_path / "link.bin"
+    link.symlink_to(image_path)
+
+    assert firmware_cli.main(["check-image", "--hardware-type", "nope", str(image_path)]) == 2
+    assert firmware_cli.main(["check-image", str(link)]) == 1
+    assert "symlink" in capsys.readouterr().err

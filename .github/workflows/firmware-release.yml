@@ -164,12 +164,25 @@ jobs:
               --keyfile /project/signing/skypane-signing-pubkey.pem \
               /project/build-ee02/skypane-signed.bin
 
+      - name: Verify image descriptor and signature sector
+        # The same stdlib parser the registry uses (no Pillow needed):
+        # chip id, project name, descriptor version, signature sector
+        # and size bound must match the declared hardware type, so a
+        # wrong or unsigned image fails here, before the release.
+        run: |
+          PYTHONPATH=. python3 scripts/fw_release_manifest.py \
+            --check-only \
+            --hardware-type xiao-ee02-13in3-spectra6 \
+            --tag "$GITHUB_REF_NAME" \
+            --image firmware/build-ee02/skypane-signed.bin
+
       - name: Generate the release manifest and notes
         # No hand-written release text: version, hash, size, date and
         # commit all come from the image and git; notes are firmware/
         # commit subjects since the previous release tag.
         run: |
-          python3 scripts/fw_release_manifest.py \
+          PYTHONPATH=. python3 scripts/fw_release_manifest.py \
+            --hardware-type xiao-ee02-13in3-spectra6 \
             --tag "$GITHUB_REF_NAME" \
             --image firmware/build-ee02/skypane-signed.bin \
             --out release.json \

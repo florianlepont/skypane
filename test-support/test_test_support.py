@@ -282,3 +282,27 @@ def test_fake_response_raise_for_status_and_json():
     empty = FakeResponse(404, None)
     with pytest.raises(ValueError):
         empty.json()
+
+
+# --- Synthetic firmware image builder -----------------------------------
+
+
+def test_fw_image_builder_outputs_parse_and_honour_options():
+    from skypane_fw_image import CORRUPTIONS, build_image
+
+    from server import firmware_image
+
+    signed = firmware_image.parse_app_image(build_image("fw-v1.0.0"))
+    assert signed.signature_offset is not None
+    unsigned = firmware_image.parse_app_image(build_image("fw-v1.0.0", signed=False))
+    assert unsigned.signature_offset is None
+    other = firmware_image.parse_app_image(
+        build_image("fw-v2.0.0", project_name="x", chip_id=0x0005)
+    )
+    assert (other.version, other.project_name, other.chip_id) == ("fw-v2.0.0", "x", 5)
+    assert len(build_image("fw-v1.0.0", size=300_000)) >= 300_000
+    for name in CORRUPTIONS:
+        with pytest.raises(ValueError):
+            firmware_image.parse_app_image(build_image("fw-v1.0.0", corrupt=name))
+    with pytest.raises(ValueError):
+        build_image("fw-v1.0.0", corrupt="nonsense")

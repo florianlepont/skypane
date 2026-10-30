@@ -13,12 +13,16 @@ server/poll_cycle.py - CycleContext and its step functions:
 Every assertion is a return value, a CycleContext field, a recorded call
 order, or a gallery/panel.bin write - never source text.
 """
+import hashlib
+import json
 import os
 
 import pytest
 
 import server.device_config as device_config
+import server.firmware_registry as firmware_registry
 import server.plane.render as render
+from server import hardware
 import server.poll_cycle as poll_cycle
 
 
@@ -172,3 +176,68 @@ def test_hold_path_never_detects_and_publishes_at_most_once(tmp_path, monkeypatc
 
     assert detect_calls == []
     assert len(publish_calls) == 1
+
+
+# --- the poll loop reconciles every hardware type ---------------------------
+
+_RECONCILE_NOW = "2026-10-01T00:00:00+00:00"
+_RECONCILE_VERSION = "fw-v1.1.0"
+
+
+def _scheduled_document(hardware_type):
+    sha = hashlib.sha256(b"image").hexdigest()
+    doc = firmware_registry._default_registry(hardware_type)
+    doc["releases"] = [{
+        "version": _RECONCILE_VERSION, "sha256": sha, "size": 5, "released_at": "d",
+        "published_at": _RECONCILE_NOW, "commit": "a" * 40, "notes": [], "bench": False,
+        "installed_at": [],
+    }]
+    doc["schedule"] = {
+        "id": "sid-" + hardware_type[:3], "version": _RECONCILE_VERSION, "sha256": sha,
+        "scheduled_at": _RECONCILE_NOW, "state": "scheduled", "attempts": 0,
+        "failed_at": None, "last_result": None,
+    }
+    return doc
+
+
+def _installed_report(hardware_type):
+    event = {"seq": 2, "at": _RECONCILE_NOW, "kind": "result",
+             "schedule_id": "sid-" + hardware_type[:3], "token": "installed",
+             "version": _RECONCILE_VERSION}
+    return {"schema": 1, "next_seq": 3, "devices": {"aa:bb:cc:dd:ee:02": {
+        "fw_version": _RECONCILE_VERSION, "reported_at": _RECONCILE_NOW,
+        "hardware_type": hardware_type, "events": [event]}}}
+
+
+def test_reconcile_step_closes_only_the_reporting_types_schedule(tmp_path, monkeypatch):
+    monkeypatch.setenv(hardware.SIM_ENV_VAR, "1")
+    state = str(tmp_path)
+    other = hardware.SIM_CLONE_KEY
+    for key in (hardware.LEGACY_KEY, other):
+        with firmware_registry.registry_lock(state):
+            firmware_registry._save_registry(state, _scheduled_document(key), key)
+    with open(firmware_registry.device_report_path(state), "w") as fh:
+        json.dump(_installed_report(other), fh)
+    legacy_path = firmware_registry.registry_path(state)
+    with open(legacy_path, "rb") as fh:
+        legacy_before = fh.read()
+
+    poll_cycle._reconcile_firmware(state, _RECONCILE_NOW)
+
+    assert firmware_registry.load_registry(state, other)["schedule"] is None
+    with open(legacy_path, "rb") as fh:
+        assert fh.read() == legacy_before
+
+
+def test_reconcile_step_with_only_the_legacy_type_closes_its_schedule(tmp_path):
+    state = str(tmp_path)
+    with firmware_registry.registry_lock(state):
+        firmware_registry._save_registry(state, _scheduled_document(hardware.LEGACY_KEY))
+    with open(firmware_registry.device_report_path(state), "w") as fh:
+        json.dump(_installed_report(hardware.LEGACY_KEY), fh)
+
+    poll_cycle._reconcile_firmware(state, _RECONCILE_NOW)
+
+    assert firmware_registry.load_registry(state)["schedule"] is None
+    assert not [n for n in os.listdir(os.path.join(state, "firmware"))
+                if n.startswith("registry.") and n.endswith(".json") and n != "registry.json"]

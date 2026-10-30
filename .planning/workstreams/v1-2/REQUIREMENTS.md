@@ -18,8 +18,8 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 ### Firmware and OTA
 
-- [ ] **OTA-01**: The owner can publish and schedule firmware releases per hardware type, and a frame is only ever offered a release of its own server-assigned type.
-- [ ] **OTA-02**: An uploaded binary whose app descriptor or chip target does not match the declared hardware type is rejected, and downgrades are refused by a monotonic build number.
+- [x] **OTA-01**: The owner can publish and schedule firmware releases per hardware type, and a frame is only ever offered a release of its own server-assigned type.
+- [x] **OTA-02**: An uploaded binary whose app descriptor or chip target does not match the declared hardware type is rejected, and downgrades are refused by a monotonic build number.
 - [ ] **OTA-03**: The owner can decide whether OTA images are signed, record the decision (including any one-time cable flash it needs) before the second hardware is provisioned, and the chosen integrity mechanism is verified on the device side.
 - [ ] **OTA-04**: All firmware changes needed on the current frame (image-header reader, any hardware header, recovery after repeated 401) ship in one release, only once Phase 47 allows it.
 
@@ -95,9 +95,9 @@ Coverage: 30/30 v1.2 requirements mapped, each to exactly one phase.
 | DATA-03 | Phase 48 | Complete |
 | DATA-04 | Phase 48 | Complete |
 | DATA-05 | Phase 48 | Complete |
-| OTA-01 | Phase 49 | Pending |
-| OTA-02 | Phase 49 | Pending |
-| OTA-03 | Phase 49 | Pending |
+| OTA-01 | Phase 49 | Complete |
+| OTA-02 | Phase 49 | Complete |
+| OTA-03 | Phase 49 | Pending (decision recorded; device-side bench check deferred) |
 | IMG-01 | Phase 50 | Pending |
 | IMG-02 | Phase 50 | Pending |
 | IMG-03 | Phase 50 | Pending |

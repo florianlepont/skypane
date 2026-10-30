@@ -111,7 +111,10 @@ _GET_ROUTES = (
             lambda h, m: h._render_tab(AIRLINES_ROUTE, airlines_page.render), True),
         Route(
             "GET", Exact(UPDATE_ROUTE),
-            lambda h, m: h._render_tab(UPDATE_ROUTE, update_page.render), True),
+            lambda h, m: h._render_tab(
+                UPDATE_ROUTE,
+                lambda ctx: update_page.render(ctx, h._requested_update_type())),
+            True),
         # The pre-refactor page routes survive as fixed 303s so a stale
         # bookmark or link still lands somewhere useful. The targets are
         # literals, never derived from any request value.

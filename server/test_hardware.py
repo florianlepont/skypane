@@ -132,3 +132,32 @@ def test_production_config_never_enables_sim_types() -> None:
     for environ in ({}, env):
         keys = hardware.available_types(environ)
         assert all(not hardware.REGISTRY[k].simulated for k in keys)
+
+
+def test_firmware_bound_is_separate_from_display_bound() -> None:
+    from skypane_fw_image import build_image
+
+    import server.firmware_image as firmware_image
+
+    for key in (hardware.LEGACY_KEY, hardware.SIM_CLONE_KEY, hardware.SIM_LANDSCAPE_KEY):
+        assert hardware.REGISTRY[key].firmware.max_app_bytes == 0x250000
+    assert hardware.REGISTRY[hardware.LEGACY_KEY].firmware.max_image_bytes == 960000
+    assert hardware.REGISTRY[hardware.SIM_LANDSCAPE_KEY].firmware.max_image_bytes == 192000
+    image = build_image("fw-v1.0.0", size=1_118_208)
+    for key in (hardware.LEGACY_KEY, hardware.SIM_LANDSCAPE_KEY):
+        firmware_image.validate_for_target(image, hardware.REGISTRY[key].firmware)
+
+
+def test_every_type_defaults_to_a_signed_image_under_the_committed_key() -> None:
+    for profile in hardware.REGISTRY.values():
+        assert profile.firmware.require_signature is True
+        assert profile.firmware.signing_pubkey == hardware.COMMITTED_SIGNING_PUBKEY
+    committed = os.path.join(REPO_ROOT, hardware.COMMITTED_SIGNING_PUBKEY)
+    assert os.path.isfile(committed)
+
+
+def test_firmware_target_signing_fields_are_defaulted() -> None:
+    target = hardware.FirmwareTarget(
+        idf_target="esp32s3", project_name="x", max_image_bytes=1)
+    assert target.require_signature is True
+    assert target.signing_pubkey == hardware.COMMITTED_SIGNING_PUBKEY

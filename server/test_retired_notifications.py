@@ -18,11 +18,13 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 import server.device_config as device_config  # noqa: E402
+from server import hardware  # noqa: E402
 import server.firmware_registry as firmware_registry  # noqa: E402
 import server.http_fetch as http_fetch  # noqa: E402
 import server.net.safe_fetch as safe_fetch  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
 import server.state_store as state_store  # noqa: E402
+from skypane_fw_image import build_image  # noqa: E402
 
 _LEGACY_TOPIC_URL = "https://push.example/secret-topic"
 _LEGACY_GROUP = {
@@ -110,13 +112,14 @@ class _FakeResponse:
 
 
 def _schedule_installed_release(state_dir):
-    image = b"firmware-image-" + NEXT_VERSION.encode()
+    image = build_image(NEXT_VERSION)
     image_path = os.path.join(state_dir, NEXT_VERSION + ".bin")
     with open(image_path, "wb") as fh:
         fh.write(image)
     manifest = {
         "version": NEXT_VERSION, "sha256": hashlib.sha256(image).hexdigest(),
         "size": len(image), "released_at": "2026-09-28", "commit": "a" * 40, "notes": [],
+        "hardware_type": hardware.LEGACY_KEY,
     }
     firmware_registry.publish_release(state_dir, manifest, image_path, now=NOW)
     firmware_registry.schedule_release(state_dir, NEXT_VERSION, RUNNING_VERSION, now=NOW)

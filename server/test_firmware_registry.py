@@ -5,13 +5,17 @@ functions every other OTA surface uses.
 Every assertion is about observable behaviour (return values, files on
 disk, registry contents) -- never about the module's source text.
 """
+import dataclasses
 import hashlib
 import multiprocessing
 import os
 
 import pytest
 
+from server import firmware_image
 from server import firmware_registry as registry_mod
+from server import hardware
+from skypane_fw_image import build_image, other_modulus
 
 RUNNING_VERSION = "fw-v1.0.0"
 NEXT_VERSION = "fw-v1.1.0"
@@ -21,8 +25,9 @@ NOW = "2026-09-28T12:00:00+00:00"
 LATER = "2026-09-28T12:05:00+00:00"
 
 
-def _image_bytes(tag=b"firmware-image"):
-    return tag + b"-payload"
+def _image_bytes(version=NEXT_VERSION, size=None):
+    """A valid synthetic image whose descriptor version is `version`."""
+    return build_image(version, size=size)
 
 
 def _manifest_for(image, version, **overrides):
@@ -33,6 +38,7 @@ def _manifest_for(image, version, **overrides):
         "released_at": "2026-09-28",
         "commit": "a" * 40,
         "notes": ["Fixed the thing"],
+        "hardware_type": hardware.LEGACY_KEY,
     }
     manifest.update(overrides)
     return manifest
@@ -45,7 +51,7 @@ def _write_image(tmp_path, image, name="image.bin"):
 
 
 def _publish(tmp_path, version=NEXT_VERSION, image=None, bench=False, now=NOW):
-    image = image if image is not None else _image_bytes(version.encode())
+    image = image if image is not None else _image_bytes(version)
     image_path = _write_image(tmp_path, image, name=version + ".bin")
     manifest = _manifest_for(image, version)
     outcome = registry_mod.publish_release(str(tmp_path), manifest, image_path, bench=bench, now=now)
@@ -194,7 +200,7 @@ def test_publish_release_adds_entry_and_copies_image(tmp_path):
     assert entry["installed_at"] == []
     image_target = registry_mod.firmware_image_path(str(tmp_path), manifest["sha256"])
     with open(image_target, "rb") as fh:
-        assert fh.read() == _image_bytes(NEXT_VERSION.encode())
+        assert fh.read() == _image_bytes(NEXT_VERSION)
 
 
 def test_publish_release_idempotent_same_manifest_returns_exists(tmp_path):
@@ -260,7 +266,7 @@ def test_publish_release_rejects_zero_size(tmp_path):
 
 def test_publish_release_rejects_different_sha_same_version(tmp_path):
     _publish(tmp_path)
-    other_image = _image_bytes(b"a-completely-different-image")
+    other_image = _image_bytes(NEXT_VERSION, size=16384)
     other_path = _write_image(tmp_path, other_image, name="other.bin")
     other_manifest = _manifest_for(other_image, NEXT_VERSION)
     with pytest.raises(ValueError, match="version"):
@@ -268,7 +274,7 @@ def test_publish_release_rejects_different_sha_same_version(tmp_path):
 
 
 def test_publish_release_accepts_bench_version_with_suffix(tmp_path):
-    image = _image_bytes(b"bench-image")
+    image = _image_bytes("fw-v1.1.0-bench1")
     image_path = _write_image(tmp_path, image, name="bench.bin")
     manifest = _manifest_for(image, "fw-v1.1.0-bench1")
     outcome = registry_mod.publish_release(str(tmp_path), manifest, image_path, bench=True)
@@ -278,7 +284,7 @@ def test_publish_release_accepts_bench_version_with_suffix(tmp_path):
 
 
 def test_publish_release_rejects_bench_suffix_without_bench_flag(tmp_path):
-    image = _image_bytes(b"bench-image-2")
+    image = _image_bytes("fw-v1.1.0-bench1")
     image_path = _write_image(tmp_path, image, name="bench2.bin")
     manifest = _manifest_for(image, "fw-v1.1.0-bench1")
     with pytest.raises(ValueError, match="version"):
@@ -306,7 +312,7 @@ def test_publish_release_repairs_a_corrupted_image_already_on_disk(tmp_path):
     writing forever.
     """
     version = "fw-v1.3.0"
-    image = _image_bytes(version.encode())
+    image = _image_bytes(version)
     image_path = _write_image(tmp_path, image, name=version + ".bin")
     manifest = _manifest_for(image, version)
     sha256 = manifest["sha256"]
@@ -341,7 +347,7 @@ def test_schedule_release_unknown_version(tmp_path):
 
 
 def test_schedule_release_below_floor(tmp_path):
-    image = _image_bytes(b"below-floor")
+    image = _image_bytes(BELOW_FLOOR_VERSION)
     image_path = _write_image(tmp_path, image, name="below.bin")
     manifest = _manifest_for(image, BELOW_FLOOR_VERSION)
     registry_mod.publish_release(str(tmp_path), manifest, image_path)
@@ -356,7 +362,7 @@ def test_schedule_release_same_as_running(tmp_path):
 
 
 def test_schedule_release_older_release_schedules_successfully(tmp_path):
-    image = _image_bytes(b"older-release")
+    image = _image_bytes(OLDER_VERSION)
     image_path = _write_image(tmp_path, image, name="older.bin")
     manifest = _manifest_for(image, OLDER_VERSION)  # equals the floor, older than a running fw-v1.2.0
     registry_mod.publish_release(str(tmp_path), manifest, image_path)
@@ -488,7 +494,7 @@ def test_cancel_schedule_none_when_nothing_scheduled(tmp_path):
 def _publish_worker(state_dir, count):
     for i in range(count):
         version = "fw-v2.%d.0" % i
-        image = ("worker-a-image-%d" % i).encode()
+        image = build_image(version)
         image_path = os.path.join(state_dir, "src-%d.bin" % i)
         with open(image_path, "wb") as fh:
             fh.write(image)
@@ -499,6 +505,7 @@ def _publish_worker(state_dir, count):
             "released_at": "2026-09-28",
             "commit": "b" * 40,
             "notes": [],
+            "hardware_type": hardware.LEGACY_KEY,
         }
         registry_mod.publish_release(state_dir, manifest, image_path)
 
@@ -512,7 +519,7 @@ def _schedule_worker(state_dir, count):
 def test_concurrent_publish_and_schedule_loses_no_update(tmp_path):
     state_dir = str(tmp_path)
     for seed_version in ("fw-v1.1.0", "fw-v1.2.0"):
-        image = ("seed-%s" % seed_version).encode()
+        image = build_image(seed_version)
         image_path = os.path.join(state_dir, seed_version + "-seed.bin")
         with open(image_path, "wb") as fh:
             fh.write(image)
@@ -523,6 +530,7 @@ def test_concurrent_publish_and_schedule_loses_no_update(tmp_path):
             "released_at": "2026-09-28",
             "commit": "c" * 40,
             "notes": [],
+            "hardware_type": hardware.LEGACY_KEY,
         }
         registry_mod.publish_release(state_dir, manifest, image_path)
 
@@ -1258,3 +1266,443 @@ def test_most_recent_device_entry_skips_entries_without_reported_at():
     view = registry_mod.update_view(registry, device_report, NOW)
     assert view["running_version"] == RUNNING_VERSION
     assert view["reported_at"] == NOW
+
+
+# --- Per-hardware-type documents -----------------------------------------
+
+import json as _json  # noqa: E402
+
+from skypane_legacy_registry import (  # noqa: E402
+    legacy_release, legacy_shaped_registry, write_legacy_registry,
+)
+
+LEGACY = hardware.LEGACY_KEY
+TYPE_B = hardware.SIM_CLONE_KEY
+
+
+@pytest.fixture
+def sim_on(monkeypatch):
+    monkeypatch.setenv(hardware.SIM_ENV_VAR, "1")
+
+
+def _read(path):
+    with open(path, "rb") as fh:
+        return fh.read()
+
+
+def test_registry_path_per_type(tmp_path, sim_on):
+    fw = registry_mod.firmware_dir(str(tmp_path))
+    assert registry_mod.registry_path(str(tmp_path)) == os.path.join(fw, "registry.json")
+    assert registry_mod.registry_path(str(tmp_path), LEGACY) == os.path.join(fw, "registry.json")
+    assert registry_mod.registry_path(str(tmp_path), TYPE_B) == os.path.join(fw, "registry.%s.json" % TYPE_B)
+
+
+@pytest.mark.parametrize("key", ["../etc", "a/b", "..", "", "UPPER", "x" * 65, "nope", None, 3])
+def test_registry_path_rejects_bad_keys_without_touching_disk(tmp_path, sim_on, key):
+    with pytest.raises(ValueError, match="hardware_type"):
+        registry_mod.registry_path(str(tmp_path / "state"), key)
+    assert not (tmp_path / "state").exists()
+
+
+def test_registry_path_rejects_simulated_key_with_gate_off(tmp_path, monkeypatch):
+    monkeypatch.delenv(hardware.SIM_ENV_VAR, raising=False)
+    with pytest.raises(ValueError, match="hardware_type"):
+        registry_mod.registry_path(str(tmp_path), TYPE_B)
+
+
+def test_build_number_orders_and_rejects_bench():
+    assert registry_mod.build_number("fw-v1.2.3") == 1 * 10**8 + 2 * 10**4 + 3
+    tags = ["fw-v0.9.9", "fw-v1.0.0", "fw-v1.0.1", "fw-v1.1.0", "fw-v2.0.0", "fw-v9999.9999.9999"]
+    builds = [registry_mod.build_number(t) for t in tags]
+    assert builds == sorted(builds) and len(set(builds)) == len(builds)
+    with pytest.raises(ValueError):
+        registry_mod.build_number("fw-v1.0.0-bench1")
+
+
+def test_old_shape_entries_get_type_and_build_at_read_time(tmp_path):
+    original = write_legacy_registry(str(tmp_path))
+    doc = registry_mod.load_registry(str(tmp_path))
+    assert {r["hardware_type"] for r in doc["releases"]} == {LEGACY}
+    assert [r["build"] for r in doc["releases"]] == [
+        registry_mod.build_number(v) for v in ("fw-v1.0.0", "fw-v1.0.1", "fw-v1.0.2")]
+    assert _read(registry_mod.registry_path(str(tmp_path))) == original
+    assert not os.path.exists(registry_mod.registry_path(str(tmp_path)) + ".pre-fleet")
+
+
+def test_legacy_shaped_document_still_drives_offer_view_schedule(tmp_path):
+    write_legacy_registry(str(tmp_path))
+    assert registry_mod.schedule_release(str(tmp_path), "fw-v1.0.2", "fw-v1.0.0", now=NOW) == "scheduled"
+    doc = registry_mod.load_registry(str(tmp_path))
+    offer = registry_mod.compute_offer(doc, {"fw_version": "fw-v1.0.0"}, False, "https://x")
+    assert offer["version"] == "fw-v1.0.2"
+    view = registry_mod.update_view(doc, {"devices": {}}, NOW)
+    assert view["state"] == "scheduled" and view["target_version"] == "fw-v1.0.2"
+    for release in _json.loads(_read(registry_mod.registry_path(str(tmp_path))))["releases"]:
+        assert "hardware_type" not in release and "build" not in release
+
+
+def test_pre_fleet_copy_made_once_with_original_bytes(tmp_path):
+    original = write_legacy_registry(str(tmp_path))
+    path = registry_mod.registry_path(str(tmp_path))
+    assert registry_mod.schedule_release(str(tmp_path), "fw-v1.0.1", "fw-v1.0.0", now=NOW) == "scheduled"
+    assert _read(path + ".pre-fleet") == original
+    assert _read(path) != original
+    assert registry_mod.cancel_schedule(str(tmp_path)) == "cancelled"
+    assert _read(path + ".pre-fleet") == original
+
+
+def test_no_pre_fleet_copy_without_existing_registry_or_for_other_types(tmp_path, sim_on):
+    _publish(tmp_path)
+    path = registry_mod.registry_path(str(tmp_path))
+    assert not os.path.exists(path + ".pre-fleet")
+    other = tmp_path / "other"
+    img = _image_bytes(NEXT_VERSION)
+    image_path = _write_image(tmp_path, img, "b.bin")
+    registry_mod.publish_release(str(other), _manifest_for(img, NEXT_VERSION, hardware_type=TYPE_B), image_path,
+                                 now=NOW, hardware_type=TYPE_B)
+    assert not os.path.exists(registry_mod.registry_path(str(other)) + ".pre-fleet")
+    assert not os.path.exists(registry_mod.registry_path(str(other)))
+
+
+def _publish_b(tmp_path, version=NEXT_VERSION):
+    img = _image_bytes(version)
+    image_path = _write_image(tmp_path, img, "b-%s.bin" % version)
+    return registry_mod.publish_release(
+        str(tmp_path), _manifest_for(img, version, hardware_type=TYPE_B), image_path, now=NOW,
+        hardware_type=TYPE_B)
+
+
+def test_types_have_independent_documents_and_schedules(tmp_path, sim_on):
+    _publish(tmp_path, "fw-v1.1.0")
+    _publish(tmp_path, "fw-v1.2.0")
+    _publish_b(tmp_path, "fw-v1.1.0")
+    _publish_b(tmp_path, "fw-v1.3.0")
+    legacy_path = registry_mod.registry_path(str(tmp_path))
+    assert registry_mod.schedule_release(str(tmp_path), "fw-v1.1.0", "fw-v1.0.0", now=NOW) == "scheduled"
+    legacy_bytes = _read(legacy_path)
+
+    assert registry_mod.schedule_release(
+        str(tmp_path), "fw-v1.3.0", "fw-v1.0.0", now=NOW, hardware_type=TYPE_B) == "scheduled"
+    assert _read(legacy_path) == legacy_bytes
+    b_doc = registry_mod.load_registry(str(tmp_path), TYPE_B)
+    assert b_doc["hardware_type"] == TYPE_B
+    assert {r["version"] for r in b_doc["releases"]} == {"fw-v1.1.0", "fw-v1.3.0"}
+    assert {r["hardware_type"] for r in b_doc["releases"]} == {TYPE_B}
+    assert registry_mod.load_registry(str(tmp_path))["schedule"]["version"] == "fw-v1.1.0"
+    assert registry_mod.schedule_release(str(tmp_path), "fw-v1.3.0", "fw-v1.0.0", now=NOW) == "unknown"
+
+    assert registry_mod.cancel_schedule(str(tmp_path), hardware_type=TYPE_B) == "cancelled"
+    assert registry_mod.load_registry(str(tmp_path))["schedule"] is not None
+    assert registry_mod.load_registry(str(tmp_path), TYPE_B)["schedule"] is None
+
+
+def test_legacy_load_save_round_trip_leaves_other_type_untouched(tmp_path, sim_on):
+    _publish_b(tmp_path)
+    b_path = registry_mod.registry_path(str(tmp_path), TYPE_B)
+    before = _read(b_path)
+    write_legacy_registry(str(tmp_path))
+    assert registry_mod.schedule_release(str(tmp_path), "fw-v1.0.1", "fw-v1.0.0", now=NOW) == "scheduled"
+    assert _read(b_path) == before
+
+
+# --- Type-scoped reconcile and view --------------------------------------
+
+def _doc(hardware_type, version="fw-v1.1.0", schedule_id="sid"):
+    doc = legacy_shaped_registry([legacy_release(version)])
+    doc["releases"][0]["hardware_type"] = hardware_type
+    doc["schedule"] = {
+        "id": schedule_id, "version": version, "sha256": doc["releases"][0]["sha256"],
+        "scheduled_at": NOW, "state": "scheduled", "attempts": 0,
+        "failed_at": None, "last_result": None,
+    }
+    if hardware_type != LEGACY:
+        doc["hardware_type"] = hardware_type
+    return doc
+
+
+def _report(**devices):
+    return {"schema": 1, "next_seq": 99, "devices": devices}
+
+
+def _device(seq, token, version, hardware_type=None, schedule_id="sid", reported_at=NOW):
+    entry = {
+        "fw_version": version, "reported_at": reported_at,
+        "events": [{"seq": seq, "at": NOW, "kind": "result", "schedule_id": schedule_id,
+                    "token": token, "version": version}],
+    }
+    if hardware_type is not None:
+        entry["hardware_type"] = hardware_type
+    return entry
+
+
+def test_device_entry_type_stamp_kept_or_dropped(tmp_path):
+    report = registry_mod._normalise_device_report(_report(
+        a=_device(1, "installed", "fw-v1.1.0", hardware_type=registry_mod.UNRESOLVED_TYPE),
+        b=_device(2, "installed", "fw-v1.1.0", hardware_type="bogus"),
+        c=_device(3, "installed", "fw-v1.1.0", hardware_type=TYPE_B),
+        d=_device(4, "installed", "fw-v1.1.0")))
+    devices = report["devices"]
+    assert devices["a"]["hardware_type"] == registry_mod.UNRESOLVED_TYPE
+    assert "hardware_type" not in devices["b"]
+    assert devices["c"]["hardware_type"] == TYPE_B
+    assert registry_mod._entry_type(devices["a"]) == registry_mod.UNRESOLVED_TYPE
+    assert registry_mod._entry_type(devices["b"]) == LEGACY
+    assert not hardware.is_known(registry_mod.UNRESOLVED_TYPE)
+
+
+def test_unresolved_entry_never_closes_or_shows_in_any_type(sim_on):
+    report = _report(x=_device(5, "installed", "fw-v1.1.0", hardware_type=registry_mod.UNRESOLVED_TYPE))
+    for hardware_type in (LEGACY, TYPE_B):
+        doc = _doc(hardware_type)
+        new_doc, outcomes = registry_mod.reconcile(doc, report, LATER)
+        assert outcomes == [] and new_doc["schedule"]["state"] == "scheduled"
+        assert registry_mod.update_view(doc, report, LATER)["running_version"] is None
+
+
+def test_foreign_type_event_never_closes_other_schedule(sim_on):
+    legacy_doc = _doc(LEGACY)
+    report = _report(b=_device(7, "installed", "fw-v1.1.0", hardware_type=TYPE_B))
+    new_doc, outcomes = registry_mod.reconcile(legacy_doc, report, LATER)
+    assert outcomes == []
+    assert new_doc["schedule"] is not None
+    assert new_doc["last_outcome"] is None and new_doc["reconciled_seq"] == 0
+    b_doc, b_outcomes = registry_mod.reconcile(_doc(TYPE_B), report, LATER)
+    assert b_outcomes == [("installed", "fw-v1.1.0", None)] and b_doc["schedule"] is None
+
+
+def test_untyped_entry_counts_as_legacy(sim_on):
+    report = _report(old=_device(3, "installed", "fw-v1.1.0"))
+    _, outcomes = registry_mod.reconcile(_doc(LEGACY), report, LATER)
+    assert outcomes == [("installed", "fw-v1.1.0", None)]
+    _, b_outcomes = registry_mod.reconcile(_doc(TYPE_B), report, LATER)
+    assert b_outcomes == []
+
+
+def test_update_view_uses_only_own_type_devices(sim_on):
+    report = _report(
+        legacy=_device(1, "trial", "fw-v1.0.0", reported_at="2026-09-28T12:00:00+00:00"),
+        other=_device(2, "trial", "fw-v1.5.0", hardware_type=TYPE_B, reported_at="2026-09-28T13:00:00+00:00"))
+    assert registry_mod.update_view(_doc(LEGACY), report, LATER)["running_version"] == "fw-v1.0.0"
+    assert registry_mod.update_view(_doc(TYPE_B), report, LATER)["running_version"] == "fw-v1.5.0"
+
+
+def test_relevant_types(tmp_path, sim_on, monkeypatch):
+    assert registry_mod.relevant_types(str(tmp_path), _report()) == []
+    _publish(tmp_path)
+    assert registry_mod.relevant_types(str(tmp_path), _report()) == [LEGACY]
+    assert registry_mod.relevant_types(
+        str(tmp_path), _report(b=_device(1, "trial", "fw-v1.0.0", hardware_type=TYPE_B))) == [LEGACY, TYPE_B]
+    monkeypatch.delenv(hardware.SIM_ENV_VAR)
+    assert registry_mod.relevant_types(
+        str(tmp_path), _report(b=_device(1, "trial", "fw-v1.0.0", hardware_type=TYPE_B))) == [LEGACY]
+
+
+# --- publish validation, grandfather rule and build gate -------------------
+
+LEGACY_TARGET = hardware.get_profile(hardware.LEGACY_KEY).firmware
+
+
+def _try_publish(tmp_path, image, version=NEXT_VERSION, bench=False,
+                 hardware_type=hardware.LEGACY_KEY, allow_foreign_key=False, **overrides):
+    manifest = _manifest_for(image, version, hardware_type=hardware_type, **overrides)
+    image_path = _write_image(tmp_path, image, name="try-%s.bin" % hashlib.sha256(image).hexdigest()[:8])
+    return registry_mod.publish_release(
+        str(tmp_path), manifest, image_path, bench=bench, now=NOW, hardware_type=hardware_type,
+        allow_foreign_key=allow_foreign_key)
+
+
+def _nothing_written(tmp_path):
+    fw_dir = registry_mod.firmware_dir(str(tmp_path))
+    return not os.path.isdir(fw_dir) or [
+        n for n in os.listdir(fw_dir) if n.endswith(".bin") or (n.startswith("registry") and n.endswith(".json"))
+    ] == []
+
+
+@pytest.mark.parametrize("kwargs, field", [
+    ({"chip_id": 0x0005}, "chip"),
+    ({"project_name": "other"}, "project_name"),
+    ({"signed": False}, "signature"),
+    ({"corrupt": "digest"}, "image"),
+])
+def test_publish_rejects_wrong_image_before_writing(tmp_path, kwargs, field):
+    image = build_image(NEXT_VERSION, **kwargs)
+    with pytest.raises(ValueError, match=field):
+        _try_publish(tmp_path, image)
+    assert _nothing_written(tmp_path)
+
+
+def test_publish_rejects_descriptor_version_differing_from_manifest(tmp_path):
+    image = build_image("fw-v1.2.0")
+    with pytest.raises(ValueError, match="version"):
+        _try_publish(tmp_path, image, version=NEXT_VERSION)
+    assert _nothing_written(tmp_path)
+
+
+def test_legacy_size_bound_is_unchanged(tmp_path):
+    assert LEGACY_TARGET.max_app_bytes == 0x250000 == registry_mod.MAX_IMAGE_BYTES
+    exact = build_image(NEXT_VERSION, size=0x250000)
+    assert len(exact) == 0x250000
+    assert _try_publish(tmp_path, exact) == "added"
+    over = build_image("fw-v1.2.0", size=0x250001)
+    with pytest.raises(ValueError, match="size"):
+        _try_publish(tmp_path, over, version="fw-v1.2.0")
+
+
+def _committed_modulus():
+    return firmware_image.load_public_key_modulus(
+        os.path.join(os.path.dirname(__file__), "..", hardware.COMMITTED_SIGNING_PUBKEY))
+
+
+def test_signing_policy_is_strict_for_every_type(sim_on):
+    expected = (True, _committed_modulus())
+    for key in hardware.available_types():
+        assert registry_mod._signing_policy(key) == expected
+
+
+def test_legacy_round_trip_is_unchanged_under_the_committed_key(tmp_path):
+    image = build_image(NEXT_VERSION)
+    assert _try_publish(tmp_path, image) == "added"
+    release = registry_mod.load_registry(str(tmp_path))["releases"][0]
+    assert release["sha256"] == hashlib.sha256(image).hexdigest()
+
+
+@pytest.mark.parametrize("key", [
+    hardware.LEGACY_KEY, hardware.SIM_CLONE_KEY, hardware.SIM_LANDSCAPE_KEY])
+def test_publish_refuses_an_image_signed_shape_with_another_key_for_any_type(
+        tmp_path, sim_on, key):
+    image = build_image(NEXT_VERSION, modulus=other_modulus())
+    with pytest.raises(ValueError, match="signature: key mismatch"):
+        _try_publish(tmp_path, image, hardware_type=key)
+    assert _nothing_written(tmp_path)
+
+
+def test_foreign_key_is_allowed_only_for_a_bench_publish(tmp_path):
+    image = build_image(NEXT_VERSION, modulus=other_modulus())
+    with pytest.raises(ValueError, match="allow_foreign_key"):
+        _try_publish(tmp_path, image, allow_foreign_key=True)
+    bench_version = NEXT_VERSION + "-wrongkey"
+    bench_image = build_image(bench_version, modulus=other_modulus())
+    assert _try_publish(
+        tmp_path, bench_image, version=bench_version, bench=True,
+        allow_foreign_key=True) == "added"
+
+
+def test_unreadable_committed_key_fails_closed(tmp_path, monkeypatch):
+    target = dataclasses.replace(
+        hardware.get_profile(hardware.LEGACY_KEY).firmware,
+        signing_pubkey="firmware/signing/does-not-exist.pem")
+    profile = dataclasses.replace(hardware.REGISTRY[hardware.LEGACY_KEY], firmware=target)
+    monkeypatch.setattr(
+        hardware, "REGISTRY",
+        {**hardware.REGISTRY, hardware.LEGACY_KEY: profile})
+    with pytest.raises(ValueError, match="public_key"):
+        _try_publish(tmp_path, build_image(NEXT_VERSION))
+    assert _nothing_written(tmp_path)
+
+
+def test_publish_stores_declared_type_and_derived_build(tmp_path):
+    assert _try_publish(tmp_path, build_image(NEXT_VERSION)) == "added"
+    release = registry_mod.load_registry(str(tmp_path))["releases"][0]
+    assert release["hardware_type"] == hardware.LEGACY_KEY
+    assert release["build"] == registry_mod.build_number(NEXT_VERSION)
+
+
+def test_publish_rejects_unknown_type_and_manifest_type_mismatch(tmp_path, monkeypatch):
+    monkeypatch.delenv(hardware.SIM_ENV_VAR, raising=False)
+    image = build_image(NEXT_VERSION)
+    with pytest.raises(ValueError, match="hardware_type"):
+        _try_publish(tmp_path, image, hardware_type=hardware.SIM_CLONE_KEY)
+    monkeypatch.setenv(hardware.SIM_ENV_VAR, "1")
+    image_path = _write_image(tmp_path, image)
+    with pytest.raises(ValueError, match="hardware_type"):
+        registry_mod.publish_release(
+            str(tmp_path), _manifest_for(image, NEXT_VERSION, hardware_type=hardware.LEGACY_KEY),
+            image_path, hardware_type=hardware.SIM_CLONE_KEY)
+    assert _nothing_written(tmp_path)
+
+
+def test_reimport_of_registered_release_skips_image_validation(tmp_path):
+    image = build_image(NEXT_VERSION)
+    assert _try_publish(tmp_path, image) == "added"
+    stored = registry_mod.firmware_image_path(str(tmp_path), hashlib.sha256(image).hexdigest())
+    with open(stored, "wb") as fh:
+        fh.write(b"junk")
+    assert _try_publish(tmp_path, image) == "exists"
+    with open(stored, "rb") as fh:
+        assert fh.read() == b"junk"
+
+
+def test_same_version_different_sha_is_refused(tmp_path):
+    assert _try_publish(tmp_path, build_image(NEXT_VERSION)) == "added"
+    other = build_image(NEXT_VERSION, size=9000)
+    with pytest.raises(ValueError, match="already registered"):
+        _try_publish(tmp_path, other)
+
+
+def test_missing_hardware_type_is_grandfathered_up_to_the_pinned_tag(tmp_path):
+    assert registry_mod.GRANDFATHERED_MAX_TAG == "fw-v1.0.2"
+    old = build_image("fw-v1.0.2")
+    manifest_old = _manifest_for(old, "fw-v1.0.2")
+    manifest_old.pop("hardware_type")
+    assert registry_mod.publish_release(
+        str(tmp_path), manifest_old, _write_image(tmp_path, old, "old.bin"), now=NOW) == "added"
+    newer = build_image("fw-v1.0.3")
+    manifest = _manifest_for(newer, "fw-v1.0.3")
+    manifest.pop("hardware_type")
+    with pytest.raises(ValueError, match="must declare hardware_type"):
+        registry_mod.publish_release(str(tmp_path), manifest, _write_image(tmp_path, newer), now=NOW)
+
+
+def test_missing_hardware_type_is_never_accepted_for_another_type(tmp_path, sim_on):
+    image = build_image("fw-v1.0.1")
+    manifest = _manifest_for(image, "fw-v1.0.1")
+    manifest.pop("hardware_type")
+    with pytest.raises(ValueError, match="hardware_type"):
+        registry_mod.publish_release(
+            str(tmp_path), manifest, _write_image(tmp_path, image), now=NOW,
+            hardware_type=TYPE_B)
+
+
+def test_manifest_build_must_match_the_descriptor_build(tmp_path):
+    image = build_image(NEXT_VERSION)
+    good = registry_mod.build_number(NEXT_VERSION)
+    with pytest.raises(ValueError, match="build"):
+        _try_publish(tmp_path, image, build=good + 1)
+    assert _try_publish(tmp_path, image, build=good) == "added"
+
+
+def test_build_gate_refuses_lower_build_with_new_sha(tmp_path):
+    _try_publish(tmp_path, build_image("fw-v1.0.1"), version="fw-v1.0.1")
+    _try_publish(tmp_path, build_image("fw-v1.0.2"), version="fw-v1.0.2")
+    with pytest.raises(ValueError, match="build"):
+        _try_publish(tmp_path, build_image("fw-v1.0.0"), version="fw-v1.0.0")
+    assert [r["version"] for r in registry_mod.load_registry(str(tmp_path))["releases"]] == [
+        "fw-v1.0.1", "fw-v1.0.2"]
+
+
+def test_build_gate_orders_numerically(tmp_path):
+    _try_publish(tmp_path, build_image("fw-v1.2.0"), version="fw-v1.2.0")
+    assert _try_publish(tmp_path, build_image("fw-v1.10.0"), version="fw-v1.10.0") == "added"
+    with pytest.raises(ValueError, match="build"):
+        _try_publish(tmp_path, build_image("fw-v1.3.0"), version="fw-v1.3.0")
+
+
+def test_bench_versions_skip_the_gate_and_are_not_current(tmp_path):
+    _try_publish(tmp_path, build_image("fw-v1.2.0"), version="fw-v1.2.0")
+    assert _try_publish(tmp_path, build_image("fw-v1.0.1-bench1"),
+                        version="fw-v1.0.1-bench1", bench=True) == "added"
+    _try_publish(tmp_path, build_image("fw-v9.0.0-bench1"), version="fw-v9.0.0-bench1", bench=True)
+    assert _try_publish(tmp_path, build_image("fw-v1.3.0"), version="fw-v1.3.0") == "added"
+
+
+def test_build_gate_is_per_type(tmp_path, sim_on):
+    _try_publish(tmp_path, build_image("fw-v2.0.0"), version="fw-v2.0.0")
+    assert _publish_b(tmp_path, "fw-v1.0.0") == "added"
+
+
+def test_voluntary_rollback_by_schedule_survives_the_publish_gate(tmp_path):
+    _try_publish(tmp_path, build_image("fw-v1.1.0"), version="fw-v1.1.0")
+    _try_publish(tmp_path, build_image("fw-v1.2.0"), version="fw-v1.2.0")
+    with pytest.raises(ValueError, match="build"):
+        _try_publish(tmp_path, build_image("fw-v1.0.5"), version="fw-v1.0.5")
+    assert registry_mod.schedule_release(str(tmp_path), "fw-v1.1.0", "fw-v1.2.0", now=NOW) == "scheduled"

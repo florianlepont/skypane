@@ -33,6 +33,7 @@ from companion.test_browser_ux_helpers import (
 )
 from server import atomic_io
 from server import firmware_registry as fr
+from skypane_fw_image import build_image
 
 pytestmark = pytest.mark.browser
 
@@ -71,12 +72,13 @@ def _seed_three_releases_with_realistic_notes(state_dir):
     )
     for version, notes in releases:
         image_path = os.path.join(str(state_dir), version + ".bin")
-        image_bytes = ("fake-firmware-" + version).encode()
+        image_bytes = build_image(version)
         with open(image_path, "wb") as fh:
             fh.write(image_bytes)
         manifest = {
             "version": version, "sha256": hashlib.sha256(image_bytes).hexdigest(),
             "size": len(image_bytes), "released_at": _NOW, "commit": "a" * 40,
+            "hardware_type": fr.hardware.LEGACY_KEY,
             "notes": notes,
         }
         fr.publish_release(str(state_dir), manifest, image_path, now=_NOW)
@@ -108,12 +110,13 @@ def _seed_running_bench_and_newer(state_dir):
     )
     for version, published_at, bench, notes in releases:
         image_path = os.path.join(str(state_dir), version + ".bin")
-        image_bytes = ("fake-firmware-" + version).encode()
+        image_bytes = build_image(version)
         with open(image_path, "wb") as fh:
             fh.write(image_bytes)
         manifest = {
             "version": version, "sha256": hashlib.sha256(image_bytes).hexdigest(),
             "size": len(image_bytes), "released_at": published_at, "commit": "a" * 40,
+            "hardware_type": fr.hardware.LEGACY_KEY,
             "notes": notes,
         }
         fr.publish_release(str(state_dir), manifest, image_path, bench=bench, now=published_at)
@@ -150,12 +153,13 @@ def _seed_many_releases(state_dir, scenario=None):
         if minor == 0:
             notes[-1] = _UNBROKEN_NOTE
         image_path = os.path.join(str(state_dir), version + ".bin")
-        image_bytes = ("fake-firmware-" + version).encode()
+        image_bytes = build_image(version)
         with open(image_path, "wb") as fh:
             fh.write(image_bytes)
         fr.publish_release(str(state_dir), {
             "version": version, "sha256": hashlib.sha256(image_bytes).hexdigest(),
             "size": len(image_bytes), "released_at": published_at, "commit": "a" * 40,
+            "hardware_type": fr.hardware.LEGACY_KEY,
             "notes": notes,
         }, image_path, now=published_at)
     registry = fr.load_registry(str(state_dir))
@@ -796,5 +800,149 @@ def test_desktop_sidebar_advanced_group_fits_with_no_overlap(new_context, server
             assert upper["y"] + upper["height"] <= lower["y"] + 0.5, (
                 "expected sidebar Advanced links to stack without overlap, "
                 "got %r then %r" % (upper, lower))
+    finally:
+        context.close()
+
+
+# ==========================================================================
+# The hardware type chooser: present only with more than one relevant type.
+# ==========================================================================
+
+_OTHER_TYPE = fr.hardware.SIM_CLONE_KEY
+_OTHER_AVAILABLE_VERSION = "fw-v1.2.0"
+_SIM_ENV = {fr.hardware.SIM_ENV_VAR: "1"}
+_CHOOSER = "form.update-type-chooser"
+
+
+def _seed_two_types(state_dir):
+    """The two-release legacy fixture plus a second hardware type with its
+    own releases (one running, one available) and its own device."""
+    _seed_two_releases(state_dir)
+    registry = fr.load_registry(state_dir, _OTHER_TYPE)
+    registry["releases"] = [
+        {
+            "version": version, "sha256": hashlib.sha256(("other" + version).encode()).hexdigest(),
+            "size": 10, "released_at": _NOW, "published_at": _NOW, "commit": "b" * 40,
+            "notes": ["other " + version], "bench": False, "installed_at": [],
+        }
+        for version in (_RUNNING_VERSION, _OTHER_AVAILABLE_VERSION)]
+    fr._save_registry(state_dir, registry, _OTHER_TYPE)
+    report = fr.load_device_report(state_dir)
+    report["devices"]["dev2"] = {
+        "fw_version": _RUNNING_VERSION, "reported_at": _NOW, "events": [],
+        "hardware_type": _OTHER_TYPE}
+    atomic_io.atomic_write(fr.device_report_path(state_dir), json.dumps(report))
+
+
+@pytest.fixture
+def two_type_server(make_app_server, monkeypatch):
+    # The seeding runs in this process, where the second type is usable
+    # only while the simulation gate is on.
+    monkeypatch.setenv(fr.hardware.SIM_ENV_VAR, "1")
+    return make_app_server(seed=_seed_two_types, env_overrides=_SIM_ENV)
+
+
+def test_single_type_page_has_no_chooser(new_context, server):
+    context = new_context(viewport=VIEWPORT_PHONE)
+    try:
+        page = context.new_page()
+        _login(page, server.base_url())
+        page.goto(server.base_url() + layout.UPDATE_ROUTE)
+        assert page.locator(_CHOOSER).count() == 0
+        assert page.locator('input[name="%s"]' % update_page.TYPE_FORM_FIELD).count() == 0
+    finally:
+        context.close()
+
+
+def test_switching_type_shows_that_types_schedule_and_scheduling_is_independent(
+        new_context, two_type_server):
+    server = two_type_server
+    context = new_context(viewport=VIEWPORT_PHONE)
+    try:
+        page = context.new_page()
+        base_url = server.base_url()
+        _login(page, base_url)
+        page.goto(base_url + layout.UPDATE_ROUTE)
+        other_label = fr.hardware.get_profile(_OTHER_TYPE, _SIM_ENV).label
+        assert page.locator(_CHOOSER + " button").count() == 2
+        assert page.locator(_CHOOSER + ' button[aria-pressed="true"]').count() == 1
+
+        page.locator(_CHOOSER + " button", has_text=other_label).click()
+        page.wait_for_load_state("networkidle")
+        assert page.url == "%s%s?%s=%s" % (
+            base_url, layout.UPDATE_ROUTE, update_page.TYPE_QUERY_PARAM, _OTHER_TYPE)
+        assert page.locator(_CHOOSER + ' button[aria-pressed="true"]').inner_text() == other_label
+        assert page.locator("section.update-cta").inner_text().count(_OTHER_AVAILABLE_VERSION) >= 1
+
+        page.once("dialog", lambda dialog: dialog.accept())
+        _install_submit(page).click()
+        page.wait_for_load_state("networkidle")
+        page.locator(
+            'form[action="%s"] button[type="submit"]' % update_page.INSTALL_ROUTE).click()
+        page.wait_for_load_state("networkidle")
+        assert _OTHER_TYPE in page.url
+        other = fr.load_registry(server.state_dir, _OTHER_TYPE)
+        assert other["schedule"]["version"] == _OTHER_AVAILABLE_VERSION
+        assert fr.load_registry(server.state_dir)["schedule"] is None
+        assert page.locator('form[action="%s"]' % update_page.CANCEL_ROUTE).count() == 1
+
+        page.locator(_CHOOSER + " button", has_text=fr.hardware.get_profile(
+            fr.hardware.LEGACY_KEY).label).click()
+        page.wait_for_load_state("networkidle")
+        assert page.locator('form[action="%s"]' % update_page.CANCEL_ROUTE).count() == 0
+        assert page.locator("section.update-cta").inner_text().count(_AVAILABLE_VERSION) >= 1
+    finally:
+        context.close()
+
+
+def test_chooser_is_keyboard_operable(new_context, two_type_server):
+    context = new_context(viewport=VIEWPORT_PHONE)
+    try:
+        page = context.new_page()
+        base_url = two_type_server.base_url()
+        _login(page, base_url)
+        page.goto(base_url + layout.UPDATE_ROUTE)
+        for _ in range(40):
+            page.keyboard.press("Tab")
+            if page.evaluate(
+                    "sel => !!document.activeElement.closest(sel)", _CHOOSER):
+                break
+        else:
+            raise AssertionError("Tab never reached the type chooser")
+        page.keyboard.press("Tab")
+        assert page.evaluate("sel => !!document.activeElement.closest(sel)", _CHOOSER)
+        with page.expect_navigation():
+            page.keyboard.press("Enter")
+        assert "%s=%s" % (update_page.TYPE_QUERY_PARAM, _OTHER_TYPE) in page.url
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize(
+    "viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_375, VIEWPORT_DESKTOP],
+    ids=["360", "375", "1280"])
+def test_chooser_fits_without_horizontal_overflow(
+        new_context, two_type_server, viewport, lang):
+    context = new_context(viewport=viewport)
+    try:
+        page = context.new_page()
+        base_url = two_type_server.base_url()
+        context.add_cookies([{
+            "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
+        _login(page, base_url)
+        page.goto(base_url + layout.UPDATE_ROUTE)
+        assert page.locator(_CHOOSER).count() == 1
+        sizes = page.evaluate(
+            "() => ({doc: document.documentElement.scrollWidth,"
+            " view: document.documentElement.clientWidth})")
+        assert sizes["doc"] <= sizes["view"], sizes
+        box = page.locator(_CHOOSER).bounding_box()
+        assert box["x"] >= 0 and box["x"] + box["width"] <= viewport["width"] + 0.5, box
+        for index in range(page.locator(_CHOOSER + " button").count()):
+            button = page.locator(_CHOOSER + " button").nth(index)
+            assert button.evaluate("el => el.scrollWidth <= el.clientWidth + 0.5")
+        label = page.locator(_CHOOSER).get_attribute("aria-label")
+        assert label == ("Hardware type" if lang == "en" else "Type de matériel")
     finally:
         context.close()

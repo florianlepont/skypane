@@ -84,4 +84,7 @@ MESSAGES = {
 
     "update.bench": "Banc d’essai",
     "update.this_is_a_bench_build": "Il s’agit d’une version de banc d’essai.",
+
+    "update.hardware_type": "Type de matériel",
+    "update.for_hardware_type_s": "Pour %s",
 }

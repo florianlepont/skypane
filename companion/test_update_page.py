@@ -26,6 +26,7 @@ from companion_app_server import get, login
 from companion_markup import parse_html, toast_title_detail
 from server import atomic_io
 from server import firmware_registry as fr
+from skypane_fw_image import build_image
 
 _NOW = "2026-09-28T12:00:00+00:00"
 
@@ -667,12 +668,13 @@ def _seed_update_state(state_dir):
     it directly rather than through firmware_registry's own API."""
     os.makedirs(str(state_dir), exist_ok=True)
     image_path = os.path.join(str(state_dir), "fixture.bin")
-    image_bytes = b"fake-firmware-image-bytes"
+    image_bytes = build_image("fw-v1.0.0")
     with open(image_path, "wb") as fh:
         fh.write(image_bytes)
     manifest = {
         "version": "fw-v1.0.0", "sha256": hashlib.sha256(image_bytes).hexdigest(),
         "size": len(image_bytes), "released_at": _NOW, "commit": "a" * 40,
+        "hardware_type": fr.hardware.LEGACY_KEY,
         "notes": ["initial release"],
     }
     fr.publish_release(str(state_dir), manifest, image_path, now=_NOW)
@@ -835,3 +837,58 @@ def test_update_route_is_the_third_advanced_entry_end_to_end(module_app_server_f
     assert status == 200
     fr_text = fr_body.decode("utf-8")
     assert ">Mise à jour<" in fr_text
+
+
+# ==========================================================================
+# The one-hardware-type page is the page the owner has always had: a
+# recorded render of every state, compared byte for byte.
+# ==========================================================================
+
+ONE_TYPE_GOLDEN_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "testdata", "update_page_one_type_golden.json")
+
+
+def one_type_golden_pages():
+    """Served Update-page bodies for a single-type registry, keyed by state
+    and language: idle (up to date), an install on offer, a schedule with
+    its Cancel form, an install in progress, a failed install, no
+    releases at all, and the install confirmation page."""
+    newer = _release("fw-v1.1.0", published_at="2026-09-29T09:00:00+00:00")
+    views = {
+        "up_to_date": _running_view(installed_at=[_NOW]),
+        "available": _running_view([newer]),
+        "scheduled": _view(
+            releases=[_release("fw-v1.0.0"), _release("fw-v0.9.5")],
+            schedule=_schedule("fw-v1.0.0"), device_entry=_device("fw-v0.9.0")),
+        "in_progress": _view(
+            releases=[_release("fw-v1.0.0")], schedule=_schedule("fw-v1.0.0"),
+            device_entry=_device("fw-v0.9.0", [_offered("fw-v1.0.0")])),
+        "failed": _view(
+            releases=[_release("fw-v1.0.0")],
+            schedule=_schedule("fw-v1.0.0", state="failed", attempts=3, failed_at=_NOW),
+            device_entry=_device("fw-v0.9.0")),
+        "no_releases": _view(),
+    }
+    pages = {}
+    for lang in ("en", "fr"):
+        try:
+            prefs.set_request_prefs(lang=lang)
+            for name, view in views.items():
+                pages["%s.%s" % (name, lang)] = update_page.update_page(
+                    _ctx(), view, "08:14")
+            pages["confirm.%s" % lang] = update_page.update_install_confirm_page(
+                _ctx(), "fw-v1.1.0", "08:14")
+        finally:
+            prefs.set_request_prefs(lang="en")
+    return pages
+
+
+def test_one_type_page_is_byte_identical_to_the_recorded_render():
+    """with a single hardware type every state of the Update page renders exactly the
+    recorded bytes: no heading, field, link or text was added for the type feature"""
+    with open(ONE_TYPE_GOLDEN_PATH, encoding="utf-8") as fh:
+        golden = json.load(fh)
+    pages = one_type_golden_pages()
+    assert sorted(pages) == sorted(golden)
+    for name, html in pages.items():
+        assert html == golden[name], name

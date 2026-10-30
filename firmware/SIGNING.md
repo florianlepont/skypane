@@ -210,3 +210,239 @@ Practical effect:
 - `espsecure.py` (from the `esptool` PyPI package) must be on `PATH` for
   the `prod` profile; `flash.sh` fails closed with a clear message if it
   is missing rather than skipping the check.
+
+## Decision record (OTA-03)
+
+Status: DECIDED -- option S (one signing key for all hardware types),
+recorded 2026-10-29 by the project owner.
+
+The decision can be revisited (for example to give the second hardware
+type its own key, option P) any time before that board is first
+cable-flashed, because the first image on a new board is chosen at its
+cable flash. After that flash, changing a board's key needs a transition
+release (see "Rotation").
+
+### Current mechanism
+
+- OTA images are RSA-3072 signed apps without hardware secure boot
+  (`CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT`,
+  `CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT`).
+- A device trusts the key that signed the image it is currently running:
+  the update check uses the public key in the running app's own signature
+  block.
+- Only the first signature block (the first key) is honoured. Trusting
+  several keys at once needs full hardware secure boot with eFuses, which
+  is forbidden (see "Forbidden").
+- The first image on any new board is always cable-flashed, so that
+  board's key is chosen at that moment at no extra cost.
+- Voluntary rollback to an older, already-published release above the
+  version floor stays allowed. The refusal of a lower build number applies
+  at publish time only. This is settled context, not an open question.
+
+### Options
+
+Combinations are allowed (S+M, P+M). The second hardware's first image is
+always cable-flashed, whatever the option.
+
+**S. One key for all hardware types (status quo).**
+- Live frame: no change, no cable flash.
+- Second hardware's first cable flash: signed with the existing key.
+- Cross-type protection on the device: none from the signature. Only the
+  chip id (rejected by the OTA download if chips differ) and the project
+  name check help; with the same chip and the same project name, the
+  server's typing is the only guard.
+- CI and key custody: no change. One key compromise reaches the whole
+  fleet; rotation needs a transition release per key generation.
+
+**P. One key per hardware type.**
+- Live frame: keeps its current key, which becomes the key of the legacy
+  type. No cable flash.
+- Second hardware's first cable flash: signed with its own new key.
+- Cross-type protection on the device: a wrong-type binary fails the
+  device's signature check even if the server is wrong.
+- CI and key custody: a second signing secret (for example a per-type
+  secret in the `firmware-signing` environment, or a second environment),
+  a per-type signing step, per-type public keys committed under
+  `firmware/signing/`, `flash.sh` and the manifest taking a per-type
+  public key path. More keys to back up and rotate.
+
+**M. Single key plus a unique project name per hardware type.**
+- Live frame: no change, no cable flash. Its existing project-name check
+  already rejects images carrying another name.
+- Second hardware's first cable flash: signed with the existing key, built
+  with its own project name, and its firmware must compile that name into
+  its own project-name check.
+- Cross-type protection on the device: name-based only, no cryptographic
+  separation.
+- CI and key custody: no new key. The build needs per-type
+  parametrisation of the project name, which is currently fixed.
+
+**N. Do not sign the new hardware type (TLS and SHA-256 only).**
+- Live frame: no change, no cable flash.
+- Second hardware's first cable flash: an unsigned image; its sdkconfig
+  must opt out of the shared signed-app lines, otherwise an unsigned image
+  aborts at boot.
+- Cross-type protection on the device: none beyond the project name and
+  hash checks.
+- CI and key custody: no signing machinery for that type. Weakest
+  integrity. A later move to signing needs a cable flash.
+
+Not viable: signing one image with both the old and a new key. Only the
+first signature block is honoured in this mode.
+
+### What can be verified without hardware
+
+- The Kconfig chain that turns on signature verification and keeps the
+  eFuse options off (`firmware/tests/check_production_config.sh`).
+- The C decision logic for project name, version and floor
+  (`firmware/tests/test_ota_policy.c` via `run_host_tests.sh`).
+- That a published artifact is signed by the intended key
+  (`espsecure.py verify_signature`, plus a server-side check that the
+  signature sector is well formed and its key matches the committed
+  public key).
+- That the server refuses binaries the device would refuse for reasons
+  visible in the image header.
+
+### What needs a bench unit
+
+- That the running firmware really rejects a wrongly-signed or unsigned
+  OTA image (the device accepting or rejecting by signature).
+- That the result tokens round-trip from a real device back to the server.
+- Rollback behaviour for a wrong-hardware image.
+
+### Owner fields
+
+- Chosen option(s): S only. No combination with P, M or N.
+- Cable flash required (yes/no, which device, reason): No for the live
+  frame (`xiao-ee02-13in3-spectra6`), which keeps its current key. The
+  future second board's first cable flash is signed with the existing key.
+- Key custody and backup note: no new key is created. The existing key
+  stays where "One-time key generation (human only)" puts it: the
+  `firmware-signing` GitHub environment secret and the developer's own
+  encrypted offline backup, nowhere else. Rotation follows "Rotation".
+- Decision date: 2026-10-29
+- Decided by: Florian Lepont (project owner)
+
+### Consequences for the build
+
+These name what later work must do for option S. They are not implemented
+by recording the decision.
+
+- The artifact-key check pins the existing public key,
+  `firmware/signing/skypane-signing-pubkey.pem`, for every hardware type.
+- No second public key, no per-type signing secret and no per-type
+  `flash.sh` or manifest key path are added.
+- Cross-type protection rests on the chip id, the project name check and
+  the server's per-type typing, not on the signature.
+- Device-side verification that the running firmware rejects a wrongly
+  signed or unsigned OTA image still needs a bench unit (see "What needs a
+  bench unit").
+
+Voluntary rollback to an older, already-published release above the
+version floor stays allowed. The refusal of a lower build number applies
+at publish time only. This is settled context, not an open question.
+
+## Verification status
+
+Recorded option: S (one key for every hardware type). This section says
+what is checked automatically, what is not proven without hardware, and how
+to prove the rest on a bench unit.
+
+### Checked without hardware
+
+| Check | Where it runs | What it covers |
+|-------|---------------|----------------|
+| Kconfig chain | `sh firmware/tests/check_production_config.sh static` (and `built` against a build) | signature verification on update is on, every eFuse option is off |
+| C policy verdicts | `sh firmware/tests/run_host_tests.sh` (`test_ota_policy.c`) | project name, version and floor decisions of `fp_ota_image_check` |
+| Image structure | `server/firmware_image.py`, used by the publish gate, `server.firmware_cli check-image` and `scripts/fw_release_manifest.py` | chip id, project name, descriptor version, size bound, signature sector present and well formed |
+| Artifact key | same code, `expected_modulus` | the RSA modulus embedded in the image equals the modulus of `firmware/signing/skypane-signing-pubkey.pem`; for option S that key is the expected one for every type |
+| Per-type policy | `FirmwareTarget.require_signature` and `FirmwareTarget.signing_pubkey` in `server/hardware.py` | the publish gate and the manifest script read the same values; every type currently requires a signature and the committed key |
+| Signature validity | `espsecure.py verify_signature` in `firmware-release.yml`, and in `flash.sh` | RSA-PSS validity against the public key |
+
+The server-side key check compares the embedded modulus only. It never
+verifies an RSA-PSS signature. The cryptographic verifiers are `espsecure.py`
+in CI and the device itself.
+
+`server.firmware_cli import-bench` applies the same key check, so a bench
+image signed with another key is refused when it is imported. For a bench
+session that must offer such an image to a unit, `import-bench` takes
+`--allow-foreign-key`. It skips the key comparison only; an image without a
+signature sector is still refused. It exists for bench imports and cannot be
+used for a real release.
+
+### Not proven without hardware
+
+- A running device accepts a correctly signed OTA image and rejects a
+  wrongly signed or unsigned one with `fail-image`.
+- The `fail-image` and `fail-floor` result tokens round-trip from the device
+  into the server's reconcile.
+- Rollback behaviour for a wrong-hardware image. With option S the chip id
+  and the project name are the only device-side guards between two types.
+
+Legacy-only earlier evidence (not a pass of the bench run below): on the live EE02 frame, a wrong-key image and a tampered
+image were refused on the device during the Phase 42 hardware session
+(`hardware/logs/phase42/H42-09a-*` and `H42-09b-*`, summarised in
+`hardware/BRINGUP-LOG.md`). That evidence predates the per-type registry and
+concerns the legacy type only. It does not cover a second hardware type, and
+it does not replace the bench run below for this decision.
+
+### Bench procedure
+
+Use a bench unit that is NOT the live frame. Everything below uses a bench
+key kept outside the repository; never the release key, and never on the
+live frame.
+
+1. Pick the bench unit and the bench key (a throwaway key made with
+   `espsecure.py generate_signing_key --version 2 --scheme rsa3072`).
+2. Build a dev-profile image and sign it with the bench key. Cable-flash it
+   with `SKYPANE_PROFILE=dev SKYPANE_BENCH_PUBKEY=<bench public key>
+   firmware/flash.sh <port>`. The unit now trusts the bench key.
+3. Build a second image with a higher bench version (a suffix such as
+   `-bench1`), sign it with the SAME bench key, and publish it to the unit
+   with `server.firmware_cli import-bench --allow-foreign-key` (the bench key
+   is not the committed key). Schedule it to the bench unit only.
+4. Let the unit wake. Expect it to install, reboot and report the new
+   version.
+5. Build a third image with a higher bench version and sign it with a
+   DIFFERENT throwaway key (not the bench key, not the release key). Publish
+   it the same way and schedule it to the same unit.
+6. Let the unit wake while watching `firmware/monitor.sh`.
+7. Optionally repeat step 5 with an unsigned image. A device that was
+   cable-flashed with signing on cannot run an unsigned image, so the server
+   still refuses it; this step shows the refusal on the server side only.
+
+Pass when:
+- Step 4: the unit reports the new version and keeps polling.
+- Step 6: the device log shows the signature check failing and
+  `ota step=finish result=fail`, the unit keeps running the step-4 firmware,
+  and the next poll carries `X-Ota-Result: fail-image;<version>`
+  (visible in `firmware/monitor.sh` and in `device_report.json`).
+
+Fail when:
+- the wrongly signed image installs, or
+- the unit reboots into a boot loop, or
+- the result token is missing or is not `fail-image`.
+
+### Bench results
+
+| Field | Value |
+|-------|-------|
+| Date | 2026-10-30 (deferral recorded; no bench run) |
+| Bench unit (hardware type, serial) | none available |
+| Firmware versions (flashed / correctly signed / wrongly signed) | not run |
+| Correctly signed image installed (yes/no, reported version) | not run |
+| Wrongly signed image rejected on the device (yes/no) | not run |
+| Result token seen (`fail-image` expected) | not run |
+| Running firmware kept working after the rejection (yes/no) | not run |
+| Verdict (pass/fail/deferred) | DEFERRED |
+
+Status: DEFERRED, not passed. On 2026-10-30 the owner (Florian Lepont)
+reported that no bench unit is available and deferred the on-device
+rejection test to the first second-hardware session. No result is recorded
+because none was observed. Consequence: no second non-simulated hardware may
+be provisioned until the bench procedure has been run and its result
+recorded in the table above.
+
+Until the table holds observed results, the device-side accept and reject behaviour
+for a second hardware type is unproven, and no second non-simulated hardware
+may be provisioned.

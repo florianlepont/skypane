@@ -38,6 +38,7 @@ import server.poll_cycle as poll_cycle  # noqa: E402
 import server.state_store as state_store  # noqa: E402
 from server import atomic_io  # noqa: E402
 from server import firmware_registry as fr  # noqa: E402
+from skypane_fw_image import build_image  # noqa: E402
 
 RELEASE_SEED_NOW = "2026-09-28T12:00:00+00:00"
 RELEASE_SEED_RUNNING_VERSION = "fw-v1.0.0"
@@ -53,12 +54,13 @@ def seed_two_releases(state_dir):
     os.makedirs(str(state_dir), exist_ok=True)
     for version in (RELEASE_SEED_RUNNING_VERSION, RELEASE_SEED_AVAILABLE_VERSION):
         image_path = os.path.join(str(state_dir), version + ".bin")
-        image_bytes = ("fake-firmware-" + version).encode()
+        image_bytes = build_image(version)
         with open(image_path, "wb") as fh:
             fh.write(image_bytes)
         manifest = {
             "version": version, "sha256": hashlib.sha256(image_bytes).hexdigest(),
             "size": len(image_bytes), "released_at": RELEASE_SEED_NOW, "commit": "a" * 40,
+            "hardware_type": fr.hardware.LEGACY_KEY,
             "notes": ["release " + version],
         }
         fr.publish_release(str(state_dir), manifest, image_path, now=RELEASE_SEED_NOW)

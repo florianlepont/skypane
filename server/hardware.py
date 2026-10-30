@@ -26,6 +26,9 @@ SIM_CLONE_KEY = "sim-ee02-clone"
 SIM_LANDSCAPE_KEY = "sim-landscape-800x480"
 SIM_ENV_VAR = "SKYPANE_SIM_HARDWARE"
 
+# Repo-relative path of the public key release images are checked against.
+COMMITTED_SIGNING_PUBKEY = "firmware/signing/skypane-signing-pubkey.pem"
+
 # Four bits per pixel, two pixels per byte, Spectra 6 colour indices.
 IMAGE_FORMAT_SPECTRA6_NIBBLE = "spectra6-nibble-packed"
 
@@ -47,7 +50,17 @@ class BatteryProfile:
 class FirmwareTarget:
     idf_target: str
     project_name: str
-    max_image_bytes: int
+    max_image_bytes: int  # packed display image, not the firmware
+    # Bounds the OTA application image (the ota slot in
+    # firmware/partitions.csv); a new hardware type sets it from its own
+    # partition table.
+    max_app_bytes: int = 0x250000
+    # Signing policy applied to this type's release images at publish time:
+    # a signature sector is required unless require_signature is False, and
+    # when signing_pubkey (a repo-relative PEM path) is set the embedded
+    # modulus must equal that key's.
+    require_signature: bool = True
+    signing_pubkey: str | None = COMMITTED_SIGNING_PUBKEY
 
 
 @dataclass(frozen=True)

@@ -180,6 +180,7 @@ jobs:
           # excluding them here stops them from blocking this deploy.
           if git diff --quiet "${GITHUB_SHA}" "${latest}" -- \
               server stub-server companion adsb-test/runway3.json deploy \
+              firmware/signing/skypane-signing-pubkey.pem \
               ':(exclude,glob)**/*.md'; then
             echo "::notice::main moved to ${latest}, but shipped files are identical to ${GITHUB_SHA}; deploying."
           else

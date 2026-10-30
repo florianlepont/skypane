@@ -428,6 +428,59 @@ deploy, never any other path (D-17):
    automatically (D-01); an operator or the device owner still chooses
    Install from the companion.
 
+### Per-hardware-type releases
+
+The tag, CI build, reviewed deploy and `import-dir` channel above is
+unchanged for every hardware type; there is no web upload of binaries.
+What changed is what a release carries:
+
+- `release.json` names the `hardware_type` the image is built for and
+  its `build` (a single integer derived from the tag, so `fw-v1.10.0`
+  ranks above `fw-v1.9.0`). Only legacy-type manifests for tags up to
+  `fw-v1.0.2` may omit `hardware_type`.
+- The original EE02 type keeps its layout exactly:
+  `<tag>/skypane-<tag>.bin` plus `<tag>/release.json`, stored in
+  `firmware/registry.json`.
+- Every other type adds `<tag>/skypane-<key>-<tag>.bin` plus
+  `<tag>/release-<key>.json` in the same tag directory and is stored in
+  its own `firmware/registry.<key>.json`. An older importer (for
+  example the one in a rollback release) does not know these files and
+  ignores them.
+- `import-dir` visits tags in ascending build order, not name order, so
+  the per-type monotonic build check cannot refuse a lower build
+  because of directory sorting. A new release whose build is not above
+  the type's newest published build is refused at publish time;
+  scheduling an older, already-published release (at or above the
+  floor) stays possible from the Update page. A name that is not a
+  release tag is reported and sorted last.
+- One bad item never stops the others, and an item that is already
+  registered is reported without blocking the deploy.
+
+The first time a type's registry is rewritten in the new format the
+previous file is kept beside it as `registry.json.pre-fleet`.
+
+Before the first deploy of this change, list what is published and
+confirm that no non-bench release is out of version order (a later
+published release with a lower version than an earlier one would make
+the new build check refuse later tags):
+
+```bash
+ssh ubuntu@<vps-ip> "sudo -u skypane /bin/sh -c 'cd /opt/skypane/current && exec /opt/skypane/venv/bin/python3 -m server.firmware_cli --state-dir /opt/skypane/state list'"
+```
+
+Check a file against a hardware type with the same parser publishing
+uses, without writing anything (the file must be readable by the
+`skypane` user):
+
+```bash
+ssh ubuntu@<vps-ip> "sudo -u skypane /bin/sh -c 'cd /opt/skypane/current && exec /opt/skypane/venv/bin/python3 -m server.firmware_cli check-image --hardware-type <key> <path-to-file.bin>'"
+```
+
+`list` and `import-bench` also take `--hardware-type <key>` (default:
+the original EE02 type). With only that type holding releases, `list`
+prints one line per release as before; with others it prints a
+`[<key>]` heading per type, and `list --hardware-type <key>` shows one.
+
 The firmware store lives under `/opt/skypane/state/firmware/`, so it
 is included in the nightly backup's allow-list alongside `devices.json`
 and `gallery/` (see "Backups" below) — each archive grows by roughly
@@ -453,7 +506,8 @@ a device-side check such as fetching a firmware image goes to
 `import-bench --file <bin> --version <v>` publishes one locally-built
 bench image (marked `bench=True`, with a generated
 "Bench image (not a release)" note) — reserved for the hardware
-session, never run by a deploy.
+session, never run by a deploy. Add `--hardware-type <key>` to publish
+it for another type; bench images are exempt from the build check.
 
 ## Backups
 
