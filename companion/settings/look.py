@@ -14,9 +14,9 @@ checks one of those radios.
 """
 import json
 
-from companion import i18n
+from companion import device_scope, i18n
 from companion.layout import escape_html
-from server import device_config, panel_format
+from server import device_config, panel_format, themes
 
 from companion.settings.form import SETTINGS_FORM_ID
 
@@ -143,13 +143,26 @@ def theme_axes(theme_id):
     return colour, background, stripe
 
 
-def _cells():
-    """`{(colour, background, stripe): theme_id}` for every real theme;
-    plain paper fills its cell under every colour, since a page with no
-    background colour and no stripe looks the same whatever was picked.
+def offered_theme_ids(device=None):
+    """Theme ids the device's hardware profile can show, in registry
+    order. Defaults to the request's device; never raises, and a device
+    with no scope offers the whole registry.
+    """
+    if device is None:
+        device = device_scope.current_device()
+    if device is None:
+        return device_config.THEME_IDS
+    return themes.themes_for_inks(device_scope.profile_for(device).inks)
+
+
+def _cells(theme_ids=None):
+    """`{(colour, background, stripe): theme_id}` for every offered theme
+    (the whole registry by default); plain paper fills its cell under
+    every colour, since a page with no background colour and no stripe
+    looks the same whatever was picked.
     """
     cells = {}
-    for theme_id in device_config.THEME_IDS:
+    for theme_id in device_config.THEME_IDS if theme_ids is None else theme_ids:
         colour, background, stripe = theme_axes(theme_id)
         if colour is None:
             for any_colour in COLOURS:
@@ -159,17 +172,21 @@ def _cells():
     return cells
 
 
-def resolve(colour, background, stripe):
-    """The theme id for three choices, or `None` for a gap."""
-    return _cells().get((colour, background, stripe))
+def resolve(colour, background, stripe, theme_ids=None):
+    """The theme id for three choices among `theme_ids` (the whole
+    registry by default), or `None` for a gap."""
+    return _cells(theme_ids).get((colour, background, stripe))
 
 
-def gap_reason(colour, background, stripe):
+def gap_reason(colour, background, stripe, theme_ids=None):
     """Why `(colour, background, stripe)` has no theme: one of the
-    REASON_* keys, or `None` when it does have one.
+    REASON_* keys, or `None` when it does have one. A combination the
+    registry has but `theme_ids` leaves out is `REASON_NO_THEME`.
     """
-    if resolve(colour, background, stripe) is not None:
+    if resolve(colour, background, stripe, theme_ids) is not None:
         return None
+    if resolve(colour, background, stripe) is not None:
+        return REASON_NO_THEME
     if background == BACKGROUND_FULL and stripe != STRIPE_NONE:
         return REASON_STRIPE_ON_FULL
     if background == BACKGROUND_SOFT and stripe == STRIPE_SOFT:
@@ -239,12 +256,14 @@ def _gap_notes(gaps):
     return numbers
 
 
-def _table_cell_html(field_name, colour, background, stripe, selected_theme_id, preview_src, notes, form_id):
-    theme_id = resolve(colour, background, stripe)
+def _table_cell_html(
+        field_name, colour, background, stripe, selected_theme_id, preview_src, notes, form_id,
+        theme_ids=None):
+    theme_id = resolve(colour, background, stripe, theme_ids)
     style_label = i18n.t(STYLE_LABELS[(background, stripe)])
     name = "%s, %s" % (i18n.t(COLOUR_LABELS[colour]), style_label.lower())
     if theme_id is None:
-        reason = gap_reason(colour, background, stripe)
+        reason = gap_reason(colour, background, stripe, theme_ids)
         return (
             '<td class="look-table__gap"><span class="look-table__gap-mark" aria-hidden="true">'
             "<sup>%d</sup></span>"
@@ -281,18 +300,24 @@ def _option_html(field_name, value, checked, label_text, preview_src, form_id, e
         swatch_html, visible, escape_html(label_text))
 
 
-def look_table_html(field_name, selected_theme_id, caption, preview_src, leading_html="", form_id=SETTINGS_FORM_ID):
+def look_table_html(
+        field_name, selected_theme_id, caption, preview_src, leading_html="", form_id=SETTINGS_FORM_ID,
+        theme_ids=None):
     """The no-script picker for one usage: a colour x style table of
     native radios, one per real theme id, with every gap marked and
     explained under the table. Plain paper (and `leading_html`, e.g.
     "Same as departures") sit above it in the same radio group.
 
     `preview_src(theme_id)` gives each option's frame-preview URL.
+    `theme_ids` limits the selectable themes (the request device's
+    profile by default); the others render as explained gaps.
     """
+    if theme_ids is None:
+        theme_ids = offered_theme_ids()
     gaps = [
-        gap_reason(colour, background, stripe)
+        gap_reason(colour, background, stripe, theme_ids)
         for colour in COLOURS for background, stripe in STYLE_COLUMNS
-        if resolve(colour, background, stripe) is None]
+        if resolve(colour, background, stripe, theme_ids) is None]
     notes = _gap_notes(gaps)
     head = "".join(
         '<th scope="col">%s</th>' % escape_html(i18n.t(STYLE_LABELS[pair]))
@@ -301,7 +326,8 @@ def look_table_html(field_name, selected_theme_id, caption, preview_src, leading
     for colour in COLOURS:
         cells = "".join(
             _table_cell_html(
-                field_name, colour, background, stripe, selected_theme_id, preview_src, notes, form_id)
+                field_name, colour, background, stripe, selected_theme_id, preview_src, notes, form_id,
+                theme_ids)
             for background, stripe in STYLE_COLUMNS)
         rows.append(
             '<tr><th scope="row"><svg class="look-table__ink" viewBox="0 0 12 12" width="12" '
@@ -309,8 +335,8 @@ def look_table_html(field_name, selected_theme_id, caption, preview_src, leading
             'fill="%s"></circle></svg><span class="look-table__colour">%s</span></th>%s</tr>' % (
                 escape_html(colour_hex(colour)), escape_html(i18n.t(COLOUR_LABELS[colour])),
                 cells))
-    paper_id = resolve(COLOURS[0], BACKGROUND_PAPER, STRIPE_NONE)
-    paper_html = _option_html(
+    paper_id = resolve(COLOURS[0], BACKGROUND_PAPER, STRIPE_NONE, theme_ids)
+    paper_html = "" if paper_id is None else _option_html(
         field_name, paper_id, paper_id == selected_theme_id, i18n.t(PLAIN_PAPER_LABEL),
         preview_src(paper_id), form_id)
     notes_html = "".join(
@@ -336,20 +362,25 @@ def same_option_html(field_name, checked, label_text, form_id=SETTINGS_FORM_ID):
     return _option_html(field_name, "", checked, label_text, "", form_id, swatch=False)
 
 
-def look_model_json():
+def look_model_json(theme_ids=None):
     """Everything the picker script needs, computed here so the script
     holds no theme knowledge of its own: the valid cells, the reason
     for every gap, each theme's axes and read-back, and the ink colours.
+    `theme_ids` limits the valid cells (the request device's profile by
+    default).
     """
+    if theme_ids is None:
+        theme_ids = offered_theme_ids()
     cells = {}
     reasons = {}
     for colour in COLOURS:
         for background in BACKGROUNDS:
             for stripe in STRIPES:
                 key = "%s|%s|%s" % (colour, background, stripe)
-                theme_id = resolve(colour, background, stripe)
+                theme_id = resolve(colour, background, stripe, theme_ids)
                 if theme_id is None:
-                    reasons[key] = i18n.t(REASON_MESSAGES[gap_reason(colour, background, stripe)])
+                    reasons[key] = i18n.t(
+                        REASON_MESSAGES[gap_reason(colour, background, stripe, theme_ids)])
                 else:
                     cells[key] = theme_id
     axes = {}
