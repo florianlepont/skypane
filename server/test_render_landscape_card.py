@@ -3,11 +3,11 @@ import dataclasses
 from collections import Counter
 
 import pytest
-from PIL import Image, ImageChops
+from PIL import ImageChops
 
 from server import device_config, hardware
 from server import panel_format as pf
-from server.plane.render import landscape_card as lc
+from server.plane.render import landscape, landscape_card as lc
 
 PROFILE = hardware.get_profile(hardware.SIM_LANDSCAPE_KEY, {hardware.SIM_ENV_VAR: "1"})
 SIZE = (PROFILE.width, PROFILE.height)
@@ -145,3 +145,49 @@ def test_second_size_renders_natively():
     canvas = lc.build_card_canvas((640, 384), FLIGHT, "arriving", route=LONG_ROUTE)
     assert canvas.size == (640, 384)
     assert len(pf.pack_panel(canvas)) == 640 * 384 // 2
+
+
+STATES = ["departing", "arriving", "empty", "quiet_hours", "display_off", "battery_empty"]
+
+
+def entry(profile=PROFILE, state="departing", **kwargs):
+    kwargs.setdefault("route", ROUTE)
+    return landscape.build_landscape_canvas(profile, FLIGHT, state, **kwargs)
+
+
+@pytest.mark.parametrize("state", STATES)
+def test_entry_point_renders_every_state_natively(state):
+    canvas = entry(state=state, quiet_hours_until="07:00")
+    assert canvas.size == SIZE
+    assert len(pf.pack_panel(canvas)) == 192000
+
+
+def test_entry_point_missing_flight_is_empty_screen():
+    canvas = landscape.build_landscape_canvas(PROFILE, None, "departing")
+    assert canvas.tobytes() == entry(state="empty").tobytes()
+
+
+def test_battery_empty_ignores_other_arguments():
+    plain = entry(state="battery_empty")
+    noisy = entry(state="battery_empty", theme_id="band_red", source_fault=True, battery_low=True)
+    assert plain.tobytes() == noisy.tobytes()
+
+
+def test_entry_point_unknown_state_rejected():
+    with pytest.raises(ValueError):
+        entry(state="landing")
+
+
+def test_portrait_profile_rejected():
+    portrait = hardware.get_profile(hardware.LEGACY_KEY)
+    with pytest.raises(ValueError):
+        entry(profile=portrait)
+
+
+@pytest.mark.parametrize("size", [(640, 384), (1024, 600)])
+@pytest.mark.parametrize("state", STATES)
+def test_entry_point_follows_profile_size(size, state):
+    profile = dataclasses.replace(PROFILE, width=size[0], height=size[1])
+    canvas = entry(profile=profile, state=state, quiet_hours_until="07:00")
+    assert canvas.size == size
+    assert len(pf.pack_panel(canvas)) == size[0] * size[1] // 2
