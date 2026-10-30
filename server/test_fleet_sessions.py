@@ -240,3 +240,19 @@ def test_lookup_works_on_an_immutable_read_only_store(tmp_path):
             reader.execute("DELETE FROM sessions")
     finally:
         reader.close()
+
+
+def test_expired_sessions_read_as_none_on_a_read_only_store(tmp_path):
+    state = str(tmp_path)
+    writer = fleet_db.connect(state)
+    uid = _user(writer)
+    fs.create_session(writer, _h("old"), user_id=uid, principal="user", now=T0)
+    writer.close()
+
+    reader = fleet_db.connect_readonly(state, immutable=True)
+    try:
+        assert fs.lookup_session(reader, _h("old"), T0 + fs.ABSOLUTE_LIFETIME_S + 1) is None
+        assert fs.lookup_session(reader, _h("old"), T0 + fs.IDLE_TIMEOUT_S + 1) is None
+        assert _count(reader, "sessions") == 1
+    finally:
+        reader.close()
