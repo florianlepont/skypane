@@ -987,6 +987,13 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
                 return self.send_html(404, self._not_found_page())
             devices = device_scope.load_devices(root)
         device_scope.set_request_scope(device, devices)
+        if route.method == "GET" and route.device_scoped:
+            location = device_scope.switch_target(
+                route_match.path, route_match.query, devices)
+            if location == device_scope.SWITCH_UNKNOWN:
+                return self.send_html(404, self._not_found_page())
+            if location is not None:
+                return self.redirect(location)
         with history_db.connection_scope(device.state_dir):
             return route.handler(self, route_match._replace(device=device))
 

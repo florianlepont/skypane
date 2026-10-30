@@ -48,4 +48,13 @@ MESSAGES = {
     "nav.auto_full": "Auto (suit le système)",
     "nav.light": "Clair",
     "nav.dark": "Sombre",
+
+    # The device selector above the page title (several devices only).
+    "nav.device_selector_label": "Cadre",
+    "nav.device_selector_go": "Afficher le cadre",
+    "nav.device_never_seen": "pas encore vu",
+    "nav.device_offline": "hors ligne",
+    "nav.device_pill_never_seen": "Pas encore vu",
+    "nav.device_pill_offline": "Hors ligne",
+    "nav.device_default_name": "Cadre d’Orly",
 }

@@ -21,6 +21,7 @@ import os
 import sqlite3
 import threading
 import time
+import urllib.parse
 
 from server import (
     device_config, device_dirs, fleet_db, hardware, history_db, panel_format)
@@ -275,3 +276,52 @@ def scoped(path, method="GET"):
     if found is None or not found[0].device_scoped:
         return path
     return prefix + path
+
+
+# --- no-script device switch ---------------------------------------------------
+
+# Returned by `switch_target` for a `device` value that names no known device.
+SWITCH_UNKNOWN = ""
+
+
+def page_routes():
+    """The un-prefixed paths of the device-scoped pages (every nav tab but the
+    global Update page)."""
+    from companion import ui_base
+    return tuple(
+        route for route, _label in ui_base.NAV_TABS if route != ui_base.UPDATE_ROUTE)
+
+
+def _switch_device(value, devices):
+    """The Device in `devices` that `value` ("live" or a device id) names."""
+    if value == LIVE_ID:
+        return next((d for d in devices if d.is_live), None)
+    if not device_dirs.is_valid_device_id(value):
+        return None
+    return next((d for d in devices if d.id == value), None)
+
+
+def switch_target(path, query, devices):
+    """Where the selector form's no-script submit goes.
+
+    `path` is the matched, un-prefixed route path (never request text) and
+    `devices` the fleet's loaded devices. Returns None when the query carries
+    no `device` parameter or `path` is not a device-scoped page, SWITCH_UNKNOWN
+    when its first value names no device, else the same page under that device
+    with the other query parameters kept. The location is built only from the
+    fixed page path and a validated device id, so it can never leave the site.
+    """
+    if path not in page_routes():
+        return None
+    params = urllib.parse.parse_qsl(query, keep_blank_values=True)
+    values = [value for key, value in params if key == "device"]
+    if not values:
+        return None
+    target = _switch_device(values[0], devices)
+    if target is None:
+        return SWITCH_UNKNOWN
+    location = target_path(path, target)
+    rest = [(key, value) for key, value in params if key != "device"]
+    if rest:
+        location += "?" + urllib.parse.urlencode(rest)
+    return location
