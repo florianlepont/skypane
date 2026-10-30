@@ -145,6 +145,7 @@ files = [
     "server/fleet_db.py",
     "server/fleet_migrate.py",
     "server/atomic_io.py",
+    "server/device_dirs.py",
     "server/plane/runway_config.py",
     "server/plane/colour_rules.py",
     # Added under the global settings only, not the strict override below:
@@ -174,6 +175,7 @@ module = [
     "server.fleet_db",
     "server.fleet_migrate",
     "server.atomic_io",
+    "server.device_dirs",
     "server.plane.runway_config",
     "server.plane.colour_rules",
 ]
