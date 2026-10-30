@@ -91,9 +91,10 @@ def count_db():
 
     def counting_connect(*args, **kwargs):
         conn = real_connect(*args, **kwargs)
-        if str(args[0]).endswith("fleet.db"):
-            # The session store is a separate database; these counts are
-            # about history.db only.
+        if str(args[0]).split("?", 1)[0].endswith("fleet.db"):
+            # The fleet store (sessions, devices; also opened through a
+            # read-only "...fleet.db?mode=ro" URI) is a separate database;
+            # these counts are about history.db only.
             return conn
         with lock:
             counts.connections += 1

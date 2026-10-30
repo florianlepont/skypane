@@ -21,6 +21,7 @@ from datetime import datetime, timedelta, timezone
 
 from companion.layout import escape_html
 import companion.battery_chart as battery_chart
+import companion.device_scope as device_scope
 import companion.health_signals as health_signals_module
 import companion.i18n as i18n
 import companion.layout as layout
@@ -309,7 +310,7 @@ def _registry_row_html(index, prefix, count, first_seen, last_seen, example_call
     first_seen_html = _registry_seen_cell_html(first_seen, now)
     last_seen_html = _registry_seen_cell_html(last_seen, now)
     escaped_prefix = escape_html(prefix)
-    resolve_href = RESOLVE_LINK_HREF_TEMPLATE % escaped_prefix
+    resolve_href = device_scope.scoped(RESOLVE_LINK_HREF_TEMPLATE % escaped_prefix)
     resolve_aria = escape_html(i18n.t(RESOLVE_LINK_ARIA_TEMPLATE)) % escaped_prefix
     trigger_attrs = _resolve_trigger_attrs(
         (prefix, count, first_seen, last_seen, example_callsign), now)
@@ -382,7 +383,7 @@ def _registry_cards_html(rows, now):
             escape_html(i18n.t(_REGISTRY_HEADERS[3])),
             layout.concise_timestamp_html(last_seen, now, fallback=""))
         escaped_prefix = escape_html(prefix)
-        resolve_href = RESOLVE_LINK_HREF_TEMPLATE % escaped_prefix
+        resolve_href = device_scope.scoped(RESOLVE_LINK_HREF_TEMPLATE % escaped_prefix)
         resolve_aria = escape_html(i18n.t(RESOLVE_LINK_ARIA_TEMPLATE)) % escaped_prefix
         action = (
             '<div class="data-card__action">'

@@ -81,7 +81,7 @@ def seed_fleet(state_dir, devices):
         for mac, token, hardware_type in devices:
             fleet_db.add_device(
                 conn, mac, "1" * 64, hardware_type, owner, token=token,
-                environ={hardware.SIM_ENV_VAR: "1"})
+                environ={hardware.SIM_ENV_VAR: "1"}, state_path="auto")
     finally:
         conn.close()
 

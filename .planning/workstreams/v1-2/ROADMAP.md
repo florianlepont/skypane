@@ -158,7 +158,22 @@ Plans:
   2. The owner can trigger a poll for one device and set its quiet hours and timezone, and no other device's state changes.
   3. Each device shows its own history and health, and there is no fallback to a shared "default" device.
 
-**Plans**: TBD
+**Plans**: 13 plans in 8 waves
+
+Plans:
+- [x] 51-01-PLAN.md — device_dirs path chokepoint, add_device validation, CLI --state-path auto, two-device test fixture
+- [x] 51-02-PLAN.md — per-device IANA timezone in device_config and tz-aware quiet-hours arithmetic
+- [x] 51-03-PLAN.md — backup walks devices/<id>/ with WAL-safe history snapshots; layout and rollback notes
+- [x] 51-04-PLAN.md — BYOS token to device resolution, per-device image/health/sleep, /img/<id>/<sha>.bin
+- [x] 51-05-PLAN.md — route table device_scoped flag, /devices/<id> prefix matching, device_scope module
+- [x] 51-06-PLAN.md — device-aware dispatch, page context, GET handlers, per-device poll-now, settings and quick switches
+- [x] 51-07-PLAN.md — explicit-device airline, illustration, rule and calendar action handlers
+- [x] 51-08-PLAN.md — prefix-aware nav, quick switches, flash actions, airlines, calendar sheet, previews, freshness
+- [x] 51-09-PLAN.md — device selector (markup, no-JS switch, CSS, change handler, browser tests)
+- [x] 51-10-PLAN.md — timezone field in the quiet-hours card, device-aware Poll section and rule forms
+- [x] 51-11-PLAN.md — per-device Home, Health and History pages with empty and unreachable states
+- [x] 51-12-PLAN.md — prefix crawl, end-to-end isolation tests, device-scoped route inventory for the auth phase
+- [x] 51-13-PLAN.md — merge main, full suite and gates, verification items and owner checks
 **UI hint**: yes
 
 ### Phase 52: Fleet Poll Cycle, Zones and Request Budget
@@ -320,7 +335,7 @@ Real `/d/<id>/...` routes and their matrix rows are completed after Phase 51; se
 | 48. Fleet Data Model, Roles and Live-Frame Migration | v1.2 | 8/8 | Complete   | 2026-10-29 |
 | 49. Per-Hardware OTA Registry | v1.2 | 11/11 | Human verification pending (OTA-03 bench check deferred) | - |
 | 50. Common Image Format | v1.2 | 5/5 | Complete    | 2026-10-30 |
-| 51. Per-Device Config, Image and State | v1.2 | 0/0 | Not started | - |
+| 51. Per-Device Config, Image and State | v1.2 | 13/13 | Verified by tests, awaiting owner checks |  |
 | 52. Fleet Poll Cycle, Zones and Request Budget | v1.2 | 0/0 | Not started | - |
 | 53. Detection Modes | v1.2 | 0/0 | Not started | - |
 | 54. Auth0 Sign-In, Local Roles and Default-Deny Access | v1.2 | 9/9 | Deployed and verified on the real tenant 2026-10-30; legacy-admin removal and post-Phase-51 matrix rows pending (see 54-HANDOFF.md) | - |

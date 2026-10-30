@@ -31,9 +31,9 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from companion import (  # noqa: E402
-    access, auth, flash, freshness, i18n, illustration_normalize, layout, login_page,
-    page_context, post_actions, prefs, request_body, routes, sign_in, sign_in_config,
-    static_files, theme_preview)
+    access, auth, device_dispatch, device_scope, flash, freshness, i18n, illustration_normalize, layout,
+    login_page, page_context, post_actions, preview_images, prefs, request_body, routes, sign_in,
+    sign_in_config, static_files, theme_preview)
 from companion.pages import (  # noqa: E402
     # airlines_page is unused by this module's own code; kept so
     # companion/test_post_origin.py's app.airlines_page.* route reads
@@ -45,7 +45,7 @@ from companion.pages import (  # noqa: E402
 )
 from server import (  # noqa: E402
     device_config, firmware_registry, fleet_db, fleet_sessions, hardware, history_db)
-from server.plane import calendar_rules, illustrations, name_overrides  # noqa: E402
+from server.plane import calendar_rules, illustrations  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
 import server.state_store as state_store  # noqa: E402
 
@@ -195,6 +195,8 @@ FLASH_KEY_POLL_TRIGGERED = flash.FLASH_KEY_POLL_TRIGGERED
 FLASH_KEY_POLL_COOLDOWN = flash.FLASH_KEY_POLL_COOLDOWN
 FLASH_KEY_POLL_FAILED = flash.FLASH_KEY_POLL_FAILED
 FLASH_KEY_POLL_ALREADY_RUNNING = flash.FLASH_KEY_POLL_ALREADY_RUNNING
+FLASH_KEY_DEVICE_POLL_DONE = flash.FLASH_KEY_DEVICE_POLL_DONE
+FLASH_KEY_DEVICE_POLL_UNSUPPORTED = flash.FLASH_KEY_DEVICE_POLL_UNSUPPORTED
 FLASH_KEY_ILLUSTRATION_REPLACED = flash.FLASH_KEY_ILLUSTRATION_REPLACED
 FLASH_KEY_ILLUSTRATION_REJECTED = flash.FLASH_KEY_ILLUSTRATION_REJECTED
 FLASH_KEY_ILLUSTRATION_REPLACE_FAILED = flash.FLASH_KEY_ILLUSTRATION_REPLACE_FAILED
@@ -255,17 +257,9 @@ LOGIN_THROTTLE = auth.LoginThrottle()
 # The name the shared-password principal carries in audit lines.
 LEGACY_PRINCIPAL_NAME = "legacy-admin"
 
-# Guards the check-cooldown -> run_once() -> mark-triggered sequence in
-# _handle_poll_now(), so two concurrent POST /poll-now requests can
-# never both call poll_cycle.run_once(). Process-local only: correct
-# because main() runs exactly one ThreadingHTTPServer in one OS process -
-# the in-process fast path. Cross-process exclusion (the systemd oneshot
-# racing this same handler) is poll_cycle.poll_cycle_lock()'s poll.lock,
-# taken inside run_once() itself with lock_timeout_s=0 below, so a busy
-# lock never blocks this request thread. Single definition site is
-# companion/post_actions.py (whose own calendar-connect route also
-# guards under it) — rebound here, never a second, independent Lock().
-_POLL_LOCK = post_actions._POLL_LOCK
+# The in-process poll guard is per device directory
+# (`device_scope.poll_lock_for()`); cross-process exclusion is
+# poll_cycle.poll_cycle_lock()'s poll.lock, taken inside run_once().
 
 # The same six (route, label) pairs layout.NAV_TABS already carries as
 # Messages — reused rather than re-declared, so this dict's labels never
@@ -379,27 +373,6 @@ env_wake_interval_default = page_context.env_wake_interval_default
 _safe_last_checkin_ts = page_context._safe_last_checkin_ts
 
 
-def _safe_latest_runway_event(state_dir):
-    """The single most recent `runway_events` row (the `?live=1` render
-    source), or `None` on any failure — a missing/locked/unreadable
-    database, a malformed row, or simply no event recorded yet.
-    Deliberately a broad `except Exception` (not the narrower
-    `(sqlite3.Error, OSError)` `_safe_last_checkin_ts()` above uses): any
-    exception reading the event must degrade to `live_event=None` (the
-    fixed fictional scene), never a 500 — this route's one query is not
-    allowed to be the reason a preview image fails to render.
-    """
-    try:
-        with history_db.open_db(state_dir) as conn:
-            rows = history_db.recent_runway_events(
-                conn, limit=1,
-                airline_names=name_overrides.names_by_prefix(
-                    name_overrides.load_name_overrides(state_dir)))
-    except Exception:
-        return None
-    return rows[0] if rows else None
-
-
 def mark_poll_triggered(state_dir):
     with history_db.open_db(state_dir) as conn:
         history_db.set_meta(
@@ -451,7 +424,9 @@ parse_single_uploaded_file = post_actions.parse_single_uploaded_file
 
 
 class Handler(
-        sign_in.SignInMixin, post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
+        device_dispatch.DeviceDispatchMixin, preview_images.PreviewImagesMixin,
+        sign_in.SignInMixin,
+        post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
     server_version = "skypane-companion"
     args = None
     # socketserver.StreamRequestHandler honours this attribute, so a
@@ -734,12 +709,18 @@ class Handler(
             self.rfile, length, MAX_ILLUSTRATION_UPLOAD_BYTES)
         return raw
 
-    def page_context(self):
+    def page_context(self, device=None):
         """Build the `PageContext` every page module's render()/
         handle_post() receives — documented in full in
         companion/pages/__init__.py and companion/page_context.py.
+        `device` is the request's device; omitted, it is the one the
+        dispatcher stored for this request, else the live frame.
         """
-        return page_context.build_page_context(self)
+        if device is None:
+            device = device_scope.current_device()
+        if device is None:
+            device = device_scope.live_device(self.args.state_dir)
+        return page_context.build_page_context(self, device)
 
     # --- shared page fragments -------------------------------------------
 
@@ -850,8 +831,8 @@ class Handler(
         asset = static_files.STATIC_ROUTES[route]
         return self._serve_static(asset.path, asset.content_type, asset.cache_control)
 
-    def _serve_gallery_image(self, requested):
-        payload = gallery_bytes(self.args.state_dir, requested)
+    def _serve_gallery_image(self, device, requested):
+        payload = gallery_bytes(device.state_dir, requested)
         if payload is None:
             return self.send_html(404, self._not_found_page())
         # This route sits behind the access gate in _dispatch(), so it
@@ -872,18 +853,18 @@ class Handler(
         # ETag/Last-Modified and in-memory bytes via _serve_static().
         return self._serve_static(path, "image/png", "private, max-age=300")
 
-    def _serve_illustration_image(self, key):
+    def _serve_illustration_image(self, device, key):
         # Membership test first (validate-then-join, same shape as
         # _serve_runway_image()). The set is a per-request union of
         # vendored and server-persisted manual keys, computed fresh.
         filename = key + ".png"
-        if filename not in _illustration_filenames(self.args.state_dir):
+        if filename not in _illustration_filenames(device.state_dir):
             return self.send_html(404, self._not_found_page())
         # An overridden key's bytes may have originated as a user
         # upload, but this route only ever decodes bytes this server's
         # own Pillow re-encoded in _handle_illustration_replace() —
         # never a client's raw upload.
-        path = illustrations.resolved_illustration_path(key, self.args.state_dir)
+        path = illustrations.resolved_illustration_path(key, device.state_dir)
         if path is None:
             return self.send_html(404, self._not_found_page())
         # lru_cache'd per path+mtime, so a replaced asset is picked up
@@ -895,52 +876,6 @@ class Handler(
             return self.send_html(404, self._not_found_page())
         return self.send_bytes(200, "image/png", payload, cache_seconds=300)
 
-    def _serve_theme_preview_image(self, theme_id):
-        # Membership test first, same shape as _serve_runway_image().
-        if theme_id not in device_config.THEMES:
-            return self.send_html(404, self._not_found_page())
-        # The non-live variant is always the fixed fictional scene. A
-        # `?live=1` request reads the operator's own most recent
-        # runway_events row and renders it into a raster (never markup);
-        # any read/coercion failure degrades to the fixed scene.
-        parsed = urlsplit(self.path)
-        live_flag = parse_qs(parsed.query).get("live", [None])[0]
-        live_event = None
-        if live_flag == "1":
-            live_event = _safe_latest_runway_event(self.args.state_dir)
-        try:
-            payload = theme_preview.cached_preview_bytes(
-                self.args.state_dir, theme_id, live_event=live_event)
-        except OSError:
-            return self.send_html(404, self._not_found_page())
-        except Exception:
-            return self.send_html(404, self._not_found_page())
-        if payload is None:
-            return self.send_html(404, self._not_found_page())
-        return self.send_bytes(200, "image/png", payload, cache_seconds=300)
-
-    def _serve_frame_preview_image(self, theme_id):
-        # Every part is an allow-list member before it reaches the cache
-        # path: the theme id from the registry, state and size from
-        # theme_preview's own tuples. A missing parameter takes the
-        # default; an unknown one is a 404, never a guess.
-        if theme_id not in device_config.THEMES:
-            return self.send_html(404, self._not_found_page())
-        query = parse_qs(urlsplit(self.path).query)
-        state = query.get("state", [theme_preview.FRAME_PREVIEW_STATE_DEPARTING])[0]
-        size = query.get("size", [theme_preview.FRAME_PREVIEW_SIZE_LARGE])[0]
-        if (state not in theme_preview.FRAME_PREVIEW_STATES
-                or size not in theme_preview.FRAME_PREVIEW_SIZES):
-            return self.send_html(404, self._not_found_page())
-        try:
-            payload = theme_preview.cached_frame_preview_bytes(
-                self.args.state_dir, theme_id, state, size)
-        except Exception:
-            return self.send_html(404, self._not_found_page())
-        if payload is None:
-            return self.send_html(404, self._not_found_page())
-        return self.send_bytes(200, "image/png", payload, cache_seconds=300)
-
     # _handle_illustration_replace(), _handle_manual_resolve_post(),
     # _handle_manual_resolution_delete(), _handle_rule_add_post(),
     # _handle_rule_delete(), _handle_calendar_disconnect_post(),
@@ -948,19 +883,7 @@ class Handler(
     # this class inherits — method names unchanged, so
     # companion/routes.py's ROUTES table keeps resolving them.
 
-    def _referring_tab(self):
-        referer = self.headers.get("Referer", "")
-        try:
-            path = urlsplit(referer).path
-        except ValueError:
-            path = ""
-        principal = self._safe_principal()
-        if principal is not None and principal.role == access.USER:
-            return access.home_for(principal)
-        allowed = {route for route, _ in layout.NAV_TABS} | {sign_in.ACCOUNT_ROUTE}
-        return path if path in allowed else HOME_ROUTE
-
-    def _page_shell_for(self, route, body, ctx, refresh_token=None):
+    def _page_shell_for(self, route, body, ctx, refresh_token=None, flash_html=None):
         """The `layout.page_shell()` assembly both `_render_tab()`
         (every GET) and `_handle_settings_post()`'s rejected-save branch
         (a POST that already has its own rendered `body`) need, so
@@ -969,7 +892,8 @@ class Handler(
         carries one) forwards straight to `layout.page_shell()`, which
         renders it onto `<body>` only when given.
         """
-        flash_html = flash.flash_toast_html(ctx.flash_key, ctx.flash, self.path)
+        if flash_html is None:
+            flash_html = flash.flash_toast_html(ctx.flash_key, ctx.flash, self.path)
         return layout.page_shell(
             title=i18n.t(_PAGE_TITLES[route]), active=layout.nav_slug(route),
             body=body,
@@ -977,7 +901,7 @@ class Handler(
             health_alert=ctx.health_severity, device_config=ctx.device_config,
             scripts=_PAGE_SCRIPTS[route], refresh_token=refresh_token)
 
-    def _render_tab(self, route, render):
+    def _render_tab(self, route, render, device):
         """Render one authenticated tab: `render(ctx) -> body markup`
         (a page module's render(), or a lambda binding a scope onto
         config_page.render()) wrapped in layout.page_shell(), so the six
@@ -995,7 +919,7 @@ class Handler(
         are not refresh pages, so they skip this whole branch and
         carry neither an ETag nor a `data-refresh-token` attribute.
         """
-        ctx = self.page_context()
+        ctx = self.page_context(device)
         if layout.nav_slug(route) in _FRESHNESS_PAGE_SLUGS:
             query = urlsplit(self.path).query
             token = _page_freshness_token(route, ctx, query)
@@ -1026,7 +950,7 @@ class Handler(
             parse_qs(urlsplit(self.path).query).get("next", [None])[0])
         return self.send_html(200, self._render_login_page(next_route=next_route))
 
-    def _handle_rule_delete_post(self, middle):
+    def _handle_rule_delete_post(self, device, middle):
         """POST RULES_DELETE_ROUTE_PREFIX/{kind}/{value}/RULES_DELETE_ROUTE_SUFFIX:
         split the captured middle on '/' once to recover kind and value.
         A middle that does not split into exactly two non-empty segments
@@ -1036,21 +960,14 @@ class Handler(
         segments = middle.split("/", 1)
         if len(segments) != 2 or not segments[0] or not segments[1]:
             return self.send_html(404, self._not_found_page())
-        return self._handle_rule_delete(segments[0], segments[1])
+        return self._handle_rule_delete(device, segments[0], segments[1])
 
     def do_GET(self):
-        """One `history_db.connection_scope()` for the whole request:
-        every `history_db.open_db()` call `_dispatch()` makes on this
-        thread (however many route handlers read the database) shares one
-        connection, opened lazily on the first database read - a static
-        asset or an unauthenticated/pre-login route that reads no
-        database table never opens one at all.
-        """
-        with history_db.connection_scope(self.args.state_dir):
-            try:
-                return self._dispatch("GET")
-            finally:
-                self._close_fleet_conn()
+        """Releases the request's fleet connection when dispatch returns."""
+        try:
+            return self._dispatch("GET")
+        finally:
+            self._close_fleet_conn()
 
     # Runs as the first statement for a POST, before urlsplit()/routing, so
     # it covers every route uniformly including ones added later. Defence
@@ -1083,7 +1000,12 @@ class Handler(
         if outcome == access.NOT_FOUND:
             return self.send_html(404, self._not_found_page())
         self._apply_principal(principal)
-        return route.handler(self, route_match)
+        if route.access.min_role == access.ANONYMOUS:
+            # Login, sign-in and static assets: no device.
+            device_scope.set_request_scope(None, ())
+            with history_db.connection_scope(self.args.state_dir):
+                return route.handler(self, route_match)
+        return self._dispatch_for_device(route, route_match)
 
     def _login_throttle_key(self):
         """The one place this handler derives a LoginThrottle bucket key,
@@ -1147,24 +1069,34 @@ class Handler(
         return self.redirect(
             destination, set_cookie=auth.session_set_cookie_header(token))
 
-    def _handle_settings_post(self):
-        """POST /settings. Re-renders the scoped page at 200 with field
-        errors attached, never redirects, when validation rejects the
-        submission. On a calendar-URL save, syncs under `_POLL_LOCK`,
-        which is process-local only — cross-process safety is the
-        `fcntl.flock()` lock inside `calendar_rules` itself. No caught
-        error's text is ever read: it can contain the calendar URL.
+    def _handle_settings_post(self, device):
+        """POST /settings for `device`. Re-renders the scoped page at 200
+        with field errors attached, never redirects, when validation
+        rejects the submission. On a calendar-URL save, syncs under the
+        device's own poll lock, which is process-local only —
+        cross-process safety is the `fcntl.flock()` lock inside
+        `calendar_rules` itself. No caught error's text is ever read: it
+        can contain the calendar URL.
         """
-        state_dir = self.args.state_dir
         form = self.read_form()
-        ctx = self.page_context()
+        ctx = self.page_context(device)
         errors = {}
         flash_key = config_page.handle_post(form, ctx, errors=errors)
-        back = config_page.submitted_return_route(form)
+        # The return field is matched without this device's own prefix;
+        # any other prefix is not a whitelisted route and falls back.
+        back_route = config_page.submitted_return_route({
+            config_page.RETURN_TO_FIELD_NAME:
+                device_scope.strip_current_prefix(form.get(config_page.RETURN_TO_FIELD_NAME))})
+        back = device_scope.scoped(back_route)
         if errors:
             scope = config_page.submitted_scope(form)
             body = config_page.render(ctx, scope=scope, errors=errors, submitted=form)
-            return self.send_html(200, self._page_shell_for(back, body, ctx))
+            toast_html = None
+            if "timezone" in errors:
+                toast_html = flash.flash_toast_html(
+                    FLASH_KEY_SAVE_FAILED, i18n.t(config_page.TIMEZONE_INVALID_TOAST), back)
+            return self.send_html(200, self._page_shell_for(
+                back_route, body, ctx, flash_html=toast_html))
         if flash_key != FLASH_KEY_SAVED:
             return self.redirect("%s?flash=%s" % (back, quote(flash_key)))
 
@@ -1174,13 +1106,14 @@ class Handler(
         if calendar_signal != config_page.CALENDAR_URL_SIGNAL_SET:
             return self._settings_saved_redirect(back, FLASH_KEY_SAVED)
 
-        if not _POLL_LOCK.acquire(blocking=False):
+        poll_lock = device_scope.poll_lock_for(device.state_dir)
+        if not poll_lock.acquire(blocking=False):
             return self._settings_saved_redirect(back, FLASH_KEY_CALENDAR_SYNC_DEFERRED)
         try:
             result_code, _registry = calendar_rules.refresh_calendar_registry(
-                state_dir, poll_cycle.now_s(), min_interval_s=0)
+                device.state_dir, poll_cycle.now_s(), min_interval_s=0)
         finally:
-            _POLL_LOCK.release()
+            poll_lock.release()
 
         if result_code == calendar_rules.FETCH_OK:
             return self._settings_saved_redirect(back, FLASH_KEY_CALENDAR_CONNECTED)
@@ -1193,18 +1126,27 @@ class Handler(
         """
         return self.redirect("%s?flash=%s" % (back, quote(flash_key)))
 
-    def _handle_poll_now(self):
-        # The trigger lives on Home (Refresh now) and on Device (Poll);
-        # redirect back to whichever page posted it.
+    def _handle_poll_now(self, device):
+        """POST /poll-now for `device`: one poll cycle against that
+        device's directory only, under its own lock and cooldown. The
+        trigger lives on Home (Refresh now) and on Device (Poll); the
+        redirect goes back to whichever page posted it. A hardware type
+        the cycle cannot render is refused before any directory is
+        touched.
+        """
         back = self._referring_tab()
+        if not device_scope.poll_supported(device):
+            return self.redirect(
+                "%s?flash=%s" % (back, quote(FLASH_KEY_DEVICE_POLL_UNSUPPORTED)))
+        poll_lock = device_scope.poll_lock_for(device.state_dir)
         # Non-blocking acquire, never a timeout.
-        if not _POLL_LOCK.acquire(blocking=False):
+        if not poll_lock.acquire(blocking=False):
             # The loser gets an honest "already running" redirect rather
             # than racing into a second poll cycle.
             return self.redirect(
                 "%s?flash=%s" % (back, quote(FLASH_KEY_POLL_ALREADY_RUNNING)))
         try:
-            state_dir = self.args.state_dir
+            state_dir = device.state_dir
             remaining = poll_cooldown_remaining(state_dir)
             if remaining > 0:
                 flash = FLASH_KEY_POLL_COOLDOWN
@@ -1212,29 +1154,35 @@ class Handler(
                 try:
                     # The exact production code path the systemd timer
                     # already runs, in-process — never a second process
-                    # and never a re-parsed subprocess result.
+                    # and never a re-parsed subprocess result. No caddy
+                    # log: the battery log belongs to the live frame.
                     # lock_timeout_s=0: never block this request thread on
                     # poll.lock — a lock held by another process (the
                     # oneshot, or an overlapping trigger) must answer at
-                    # once, exactly like the in-process _POLL_LOCK above.
+                    # once, exactly like the in-process lock above.
+                    # The firmware registry is global, so only the live
+                    # frame's cycle reconciles it.
                     poll_cycle.run_once(
                         state_dir=state_dir, geofence=self.args.geofence,
-                        lock_timeout_s=0)
+                        lock_timeout_s=0, reconcile_firmware=device.is_live)
                 except poll_cycle.PollBusy:
                     flash = FLASH_KEY_POLL_ALREADY_RUNNING
                 except Exception:
                     flash = FLASH_KEY_POLL_FAILED
                 else:
                     mark_poll_triggered(state_dir)
-                    flash = FLASH_KEY_POLL_TRIGGERED
+                    flash = (
+                        FLASH_KEY_POLL_TRIGGERED if device.is_live
+                        else FLASH_KEY_DEVICE_POLL_DONE)
         finally:
             # A failed poll still releases the guard: never a wedged trigger.
-            _POLL_LOCK.release()
+            poll_lock.release()
         # Written only after release, so an immediate double-tap sees
         # the lock already free rather than a stale "already running".
         return self.redirect("%s?flash=%s" % (back, quote(flash)))
 
-    def _handle_quick_toggle(self, field, allowed_return_to=None, fallback_return_to=None):
+    def _handle_quick_toggle(
+            self, device, field, allowed_return_to=None, fallback_return_to=None):
         """The Home page's one-tap switches. `state` ("on"/"off") is the
         only field read; every other device-config value is carried
         forward untouched. `return_to` is membership-tested against
@@ -1248,9 +1196,12 @@ class Handler(
         if fallback_return_to is None:
             fallback_return_to = layout.DISPLAY_ROUTE
         form = self.read_form()
-        return_to = form.get("return_to")
+        # Matched without this device's own prefix, so another device's
+        # prefix is just a value that is not whitelisted.
+        return_to = device_scope.strip_current_prefix(form.get("return_to"))
         if return_to not in allowed_return_to:
             return_to = fallback_return_to
+        return_to = device_scope.scoped(return_to)
         state = form.get(layout.QUICK_STATE_FIELD)
         if state not in (layout.QUICK_STATE_ON, layout.QUICK_STATE_OFF):
             # NOT a 204, even for a fetch: the client reads 204 as
@@ -1274,7 +1225,7 @@ class Handler(
             kwargs = {"quiet_hours_enabled": enabled}
             flash_key = FLASH_KEY_QUIET_ON if enabled else FLASH_KEY_QUIET_OFF
         try:
-            device_config.save_device_config(self.args.state_dir, **kwargs)
+            device_config.save_device_config(device.state_dir, **kwargs)
         except (ValueError, OSError):
             flash_key = FLASH_KEY_QUICK_FAILED
         # The write happens identically in both shapes; only the
@@ -1305,7 +1256,7 @@ class Handler(
         cookie_header = self._choice_cookie_header(
             auth.UI_THEME_COOKIE_NAME, form.get("ui_theme"), layout.UI_THEME_CHOICES,
             THEME_COOKIE_MAX_AGE_S)
-        return self.redirect(self._referring_tab(), set_cookie=cookie_header)
+        return self.redirect(self._referring_tab(any_device=True), set_cookie=cookie_header)
 
     def _handle_lang_post(self):
         """POST /ui-lang — byte-for-byte sibling of _handle_theme_post()
@@ -1316,7 +1267,7 @@ class Handler(
         cookie_header = self._choice_cookie_header(
             auth.UI_LANG_COOKIE_NAME, form.get("ui_lang"), prefs.LANG_CHOICES,
             LANG_COOKIE_MAX_AGE_S)
-        return self.redirect(self._referring_tab(), set_cookie=cookie_header)
+        return self.redirect(self._referring_tab(any_device=True), set_cookie=cookie_header)
 
     def _handle_update_install_post(self):
         """POST UPDATE_INSTALL_ROUTE: two-step confirmation, server-side,
@@ -1412,16 +1363,10 @@ class Handler(
             self._update_flash_url(FLASH_KEY_UPDATE_CANCEL_FAILED, hardware_type))
 
     def do_POST(self):
-        """Same one-connection-per-request scope as `do_GET()` above,
-        wrapped around the unchanged `_dispatch()` dispatch - the
-        Origin/Sec-Fetch-Site gate stays that dispatch's first statement,
-        run before this scope has opened anything.
-        """
-        with history_db.connection_scope(self.args.state_dir):
-            try:
-                return self._dispatch("POST")
-            finally:
-                self._close_fleet_conn()
+        try:
+            return self._dispatch("POST")
+        finally:
+            self._close_fleet_conn()
 
     # --- logging -------------------------------------------------------
 

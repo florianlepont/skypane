@@ -9,6 +9,7 @@ ui_time for the relative-time `<body>` wordings, companion.ui_nav for
 the sidebar/tab-bar/preferences renderers, and companion.ui_components
 for the quick-switch failure toast; nothing here imports a page module.
 """
+import companion.device_scope as device_scope
 import companion.i18n as i18n
 import companion.prefs as prefs
 from companion.ui_base import (
@@ -41,6 +42,7 @@ from companion.ui_base import (
     VALUE_CONTROLS_SCRIPT_SRC,
     CALENDAR_SHEET_SCRIPT_SRC,
     escape_html,
+    nav_slug,
 )
 from companion.ui_nav import (
     REFRESH_PAGE_ATTR,
@@ -279,7 +281,7 @@ PAGE_SHELL_TEMPLATE = (
     "{mobile_nav}\n"
     "</header>\n"
     '<main class="page-content dashboard-main" id="{main_id}" tabindex="-1">\n'
-    "{flash}\n{banner}\n{body}\n"
+    "{device_selector}{flash}\n{banner}\n{body}\n"
     "</main>\n"
     "</div>\n"
     "{tab_bar}\n"
@@ -289,6 +291,106 @@ PAGE_SHELL_TEMPLATE = (
     "</body>\n"
     "</html>\n"
 )
+
+
+# The device selector: shown above the page title of every device-scoped page
+# once the fleet holds more than one device.
+_DEVICE_SELECTOR_LABEL_TEXT = i18n.msg("nav.device_selector_label", "Frame")
+_DEVICE_SELECTOR_GO_TEXT = i18n.msg("nav.device_selector_go", "Show frame")
+_DEVICE_NEVER_SEEN_TEXT = i18n.msg("nav.device_never_seen", "not seen yet")
+_DEVICE_OFFLINE_TEXT = i18n.msg("nav.device_offline", "offline")
+_DEVICE_PILL_NEVER_SEEN_TEXT = i18n.msg("nav.device_pill_never_seen", "Not seen yet")
+_DEVICE_PILL_OFFLINE_TEXT = i18n.msg("nav.device_pill_offline", "Offline")
+_DEVICE_DEFAULT_NAME_TEXT = i18n.msg("nav.device_default_name", "Orly frame")
+
+DEVICE_SELECTOR_CLASS = "device-selector"
+DEVICE_SELECTOR_ARMED_CLASS = "device-selector--armed"
+_DEVICE_SELECTOR_LABEL_ID = "device-selector-label"
+_DEVICE_SELECTOR_SELECT_ID = "device-selector-select"
+_DEVICE_SELECTOR_PARAM = "device"
+
+
+def _device_page_path(active):
+    """The un-prefixed path of the device-scoped page `active` names, else None
+    (the Update page, a page with no nav tab, no context)."""
+    for route in device_scope.page_routes():
+        if nav_slug(route) == active:
+            return route
+    return None
+
+
+def _device_display_name(device):
+    if device.is_live and device.name == device_scope.LIVE_NAME:
+        return i18n.t(_DEVICE_DEFAULT_NAME_TEXT)
+    return device.name
+
+
+def _device_status_texts(status):
+    """(option suffix, pill text) for a status that deserves one, else None."""
+    if status == device_scope.STATUS_NEVER_SEEN:
+        return _DEVICE_NEVER_SEEN_TEXT, _DEVICE_PILL_NEVER_SEEN_TEXT
+    if status == device_scope.STATUS_OFFLINE:
+        return _DEVICE_OFFLINE_TEXT, _DEVICE_PILL_OFFLINE_TEXT
+    return None
+
+
+def _device_option_html(device, page, current, now):
+    """(option markup, pill markup or "") for one device. Only a non-live device
+    gets a status suffix; the live frame never does."""
+    label = _device_display_name(device)
+    texts = _device_status_texts(device_scope.device_status(device, now))
+    pill = ""
+    selected = device.id == current.id
+    if texts is not None:
+        label = "%s \u2014 %s" % (label, i18n.t(texts[0]))
+        if selected:
+            pill = '<span class="banner__pill">%s</span>' % escape_html(i18n.t(texts[1]))
+    option = '<option value="%s" data-href="%s"%s>%s</option>' % (
+        escape_html(device_scope.LIVE_ID if device.is_live else device.id),
+        escape_html(device_scope.target_path(page, device)),
+        " selected" if selected else "", escape_html(label))
+    return option, pill
+
+
+def device_selector_html(active):
+    """The device selector, or "" when it would be useless or out of place: one
+    device only, a global page (Update) or no request scope. A GET form, so it
+    works without script; its submit stays visible until the page script arms
+    it. The grouping `<div role="group">` keeps the unnamed form out of the
+    landmark list. Never renders a MAC, token or secret: a Device has none."""
+    page = _device_page_path(active)
+    current = device_scope.current_device()
+    devices = device_scope.current_devices()
+    if page is None or current is None or len(devices) < 2:
+        return ""
+    now = device_scope.now_epoch()
+    rendered = [_device_option_html(device, page, current, now) for device in devices]
+    return (
+        '<div role="group" aria-labelledby="%(label_id)s">'
+        '<form class="%(cls)s" method="get" action="%(action)s">'
+        '<label class="%(cls)s__label" id="%(label_id)s" for="%(select_id)s">%(label)s</label>'
+        '<select id="%(select_id)s" name="%(param)s">%(options)s</select>'
+        '<button class="%(cls)s__go">%(go)s</button>%(pill)s'
+        "</form></div>\n") % {
+            "label_id": _DEVICE_SELECTOR_LABEL_ID,
+            "select_id": _DEVICE_SELECTOR_SELECT_ID,
+            "cls": DEVICE_SELECTOR_CLASS,
+            "param": _DEVICE_SELECTOR_PARAM,
+            "action": escape_html(device_scope.target_path(page, current)),
+            "label": escape_html(i18n.t(_DEVICE_SELECTOR_LABEL_TEXT)),
+            "go": escape_html(i18n.t(_DEVICE_SELECTOR_GO_TEXT)),
+            "options": "".join(option for option, _pill in rendered),
+            "pill": "".join(pill for _option, pill in rendered),
+        }
+
+
+def _device_scoped_title(title, active):
+    """The page title with the selected device's name appended for a non-live
+    device on a device-scoped page; every other title is returned unchanged."""
+    current = device_scope.current_device()
+    if current is None or current.is_live or _device_page_path(active) is None:
+        return title
+    return "%s - %s" % (title, current.name)
 
 
 def page_shell(
@@ -361,7 +463,7 @@ def page_shell(
     return PAGE_SHELL_TEMPLATE.format_map({
         "lang": escape_html(resolved_lang),
         "ui_theme": escape_html(resolved_theme),
-        "title": escape_html(title),
+        "title": escape_html(_device_scoped_title(title, active)),
         "site_title": escaped_site_title,
         "favicon_link": FAVICON_LINK_HTML,
         # Decorative: the adjacent site-title text stays the accessible name.
@@ -374,6 +476,7 @@ def page_shell(
         "sidebar_footer": sidebar_footer_html,
         "mobile_nav": mobile_nav_html,
         "main_id": SKIP_LINK_TARGET_ID,
+        "device_selector": device_selector_html(active),
         "flash": flash_html,
         "banner": banner_html,
         "body": body,

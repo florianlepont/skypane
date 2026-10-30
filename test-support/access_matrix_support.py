@@ -37,13 +37,19 @@ def seed_matrix_fleet(state_dir):
     """Two users, one admin and one device per user, written to fleet.db."""
     conn = fleet_db.connect(state_dir)
     try:
+        # The device routes resolve a /devices/<id> prefix only against a
+        # migrated fleet.db, and each seeded device gets its own directory
+        # path, as the fleet CLI's `--state-path auto` does.
+        fleet_db.meta_set(conn, fleet_db.META_MIGRATED, "1")
         owner_id = fleet_db.add_user(conn, OWNER_EMAIL, "user")
         other_id = fleet_db.add_user(conn, OTHER_EMAIL, "user")
         admin_id = fleet_db.add_user(conn, ADMIN_EMAIL, "admin")
         owner_device = fleet_db.add_device(
-            conn, MAC_OWNER_DEVICE, _SECRET_A, hardware.LEGACY_KEY, owner_id)
+            conn, MAC_OWNER_DEVICE, _SECRET_A, hardware.LEGACY_KEY, owner_id,
+            state_path="auto")
         other_device = fleet_db.add_device(
-            conn, MAC_OTHER_DEVICE, _SECRET_B, hardware.LEGACY_KEY, other_id)
+            conn, MAC_OTHER_DEVICE, _SECRET_B, hardware.LEGACY_KEY, other_id,
+            state_path="auto")
     finally:
         conn.close()
     return MatrixFleet(owner_id, other_id, admin_id, owner_device, other_device)
@@ -87,10 +93,12 @@ def _recording_handler(recorder):
 
 
 def stub_routes(routes_tuple, recorder):
-    """The same routes (method, matcher, access) with recording handlers."""
+    """The same routes (method, matcher, access, device_scoped) with
+    recording handlers."""
     handler = _recording_handler(recorder)
     return tuple(
-        routes.Route(r.method, r.matcher, handler, r.access) for r in routes_tuple)
+        routes.Route(r.method, r.matcher, handler, r.access, r.device_scoped)
+        for r in routes_tuple)
 
 
 def probe_routes(recorder):

@@ -6,22 +6,24 @@ pair. Packaged as a `SettingsActionsMixin`
 so every method keeps its historical name and `companion/routes.py`'s
 `ROUTES` table keeps resolving it unchanged.
 
+Every handler takes the request's `Device` explicitly and reads and writes
+only `device.state_dir`; none consults a global state directory. Redirect
+targets go through `device_scope.scoped()` so they stay under the device's
+URL prefix. The calendar-connect route serialises its sync against poll-now
+with the same per-device lock (`device_scope.poll_lock_for`).
+
 Never imports `companion.app` (that would be a cycle — app.py imports
-this module). `_POLL_LOCK` lives here (guarding the calendar-connect
-route's own sync below) because it must be the same lock object
-`companion/app.py`'s `_handle_settings_post()`/`_handle_poll_now()`
-serialise against; app.py rebinds it under its historical name.
+this module).
 """
 import email.message
 import io
 import os
 import tempfile
-import threading
 from urllib.parse import parse_qs, quote, urlsplit
 
 from PIL import Image
 
-from companion import layout
+from companion import device_scope, layout
 from companion.flash import (
     FLASH_KEY_CALENDAR_CONNECT_FAILED,
     FLASH_KEY_CALENDAR_CONNECT_INVALID,
@@ -70,14 +72,6 @@ import server.poll_cycle as poll_cycle
 # rebinds this under its historical name — companion/pages/airlines_page.py
 # also imports it from there lazily.
 MAX_ILLUSTRATION_UPLOAD_BYTES = 4 * 1024 * 1024
-
-# Guards the calendar-connect route's own sync below against racing a
-# concurrent /poll-now trigger or the systemd timer's own oneshot cycle;
-# process-local only, unlike calendar_rules' own cross-process
-# fcntl.flock(). companion/app.py's _handle_settings_post()/
-# _handle_poll_now() share this exact object, rebound under its
-# historical name — never a second, independent Lock().
-_POLL_LOCK = threading.Lock()
 
 
 def _illustration_filenames(state_dir=None):
@@ -206,11 +200,15 @@ class SettingsActionsMixin:
     ahead of `BaseHTTPRequestHandler` (`Handler(SettingsActionsMixin,
     BaseHTTPRequestHandler)`), so every method below runs with the full
     `self` a request handler provides (`self.args`, `self.read_form()`,
-    `self.redirect()`, `self.send_html()`, `self.page_context()`,
+    `self._scoped_redirect()`, `self.send_html()`, `self.page_context()`,
     `self._page_shell_for()`, `self._not_found_page()`, `self._read_upload_body()`).
     """
 
-    def _handle_illustration_replace(self, key):
+    def _scoped_redirect(self, location):
+        """303 to `location`, kept under the current device's URL prefix."""
+        return self.redirect(device_scope.scoped(location))
+
+    def _handle_illustration_replace(self, device, key):
         """POST /illustration/{key}.png — upload a replacement
         illustration, the first untrusted file upload this codebase
         handles. Membership-tests `key` before any path is built or
@@ -224,25 +222,25 @@ class SettingsActionsMixin:
         back = resolve_dialog.return_route(
             parse_qs(urlsplit(self.path).query).get(resolve_dialog.RETURN_FIELD, [None])[0])
         filename = key + ".png"
-        if filename not in _illustration_filenames(self.args.state_dir):
+        if filename not in _illustration_filenames(device.state_dir):
             return self.send_html(404, self._not_found_page())
 
         raw = self._read_upload_body()
         if raw is None:
-            return self.redirect(
+            return self._scoped_redirect(
                 back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
 
         payload = parse_single_uploaded_file(self.headers.get("Content-Type"), raw)
         if payload is None or len(payload) > MAX_ILLUSTRATION_UPLOAD_BYTES:
-            return self.redirect(
+            return self._scoped_redirect(
                 back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
 
-        state_dir = self.args.state_dir
+        state_dir = device.state_dir
         override_dir = illustrations.override_dir_for_state_dir(state_dir)
         try:
             os.makedirs(override_dir, exist_ok=True)
         except OSError:
-            return self.redirect(
+            return self._scoped_redirect(
                 back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED))
 
         # The raw upload's temp lives in override_dir (mkstemp: a unique
@@ -267,7 +265,7 @@ class SettingsActionsMixin:
             if problems:
                 for problem in problems:
                     print("illustration replace rejected for %r: %s" % (key, problem))
-                return self.redirect(
+                return self._scoped_redirect(
                     back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
 
             with Image.open(raw_tmp_path) as img:
@@ -277,10 +275,10 @@ class SettingsActionsMixin:
 
             override_path = illustrations.override_path_for_key(key, state_dir)
             atomic_io.atomic_write(override_path, buffer.getvalue())
-            return self.redirect(
+            return self._scoped_redirect(
                 back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACED))
         except Exception:
-            return self.redirect(
+            return self._scoped_redirect(
                 back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED))
         finally:
             if raw_tmp_path is not None:
@@ -289,7 +287,7 @@ class SettingsActionsMixin:
                 except OSError:
                     pass
 
-    def _handle_manual_resolve_post(self):
+    def _handle_manual_resolve_post(self, device):
         """POST /airlines/resolve — Step A of the two-step resolve flow.
         `prefix` is re-validated against the live unresolved-callsign
         registry, never trusted from the hidden form field; a stale
@@ -299,14 +297,14 @@ class SettingsActionsMixin:
         every other state-changing route.
         """
         form = self.read_form()
-        state_dir = self.args.state_dir
+        state_dir = device.state_dir
         # Airlines unless the form names an allow-listed page that
         # started the flow (the dialog on Health).
         back = resolve_dialog.return_route(form.get(resolve_dialog.RETURN_FIELD))
 
         row = unresolved_row_for_prefix(state_dir, form.get("prefix"))
         if row is None:
-            return self.redirect(
+            return self._scoped_redirect(
                 "%s?flash=%s" % (back, quote(FLASH_KEY_MANUAL_PREFIX_STALE)))
         prefix = row[0]
 
@@ -317,9 +315,9 @@ class SettingsActionsMixin:
             entry = registry.get(prefix) or {}
             key = manual_resolutions.illustration_key_for_name(entry.get("airline_name"))
             if key and illustrations.resolved_illustration_path(key, state_dir) is not None:
-                return self.redirect(
+                return self._scoped_redirect(
                     "%s?flash=%s" % (back, quote(FLASH_KEY_MANUAL_RESOLVED)))
-            return self.redirect(
+            return self._scoped_redirect(
                 "%s?resolve=%s&flash=%s"
                 % (back, quote(prefix, safe=""), quote(FLASH_KEY_MANUAL_RESOLVED)))
 
@@ -346,7 +344,7 @@ class SettingsActionsMixin:
             # An unrecognised result must still speak, never fall through
             # to no flash at all.
             flash_key = FLASH_KEY_MANUAL_SAVE_FAILED
-        return self.redirect(
+        return self._scoped_redirect(
             "%s?resolve=%s&flash=%s"
             % (back, quote(prefix, safe=""), quote(flash_key)))
 
@@ -355,9 +353,9 @@ class SettingsActionsMixin:
         query = "flash=%s" % quote(flash_key)
         if sheet_key:
             query = "%s=%s&%s" % (airline_sheet.SHEET_QUERY_PARAM, quote(sheet_key, safe=""), query)
-        return self.redirect("%s?%s" % (airlines_page.AIRLINES_ROUTE, query))
+        return self._scoped_redirect("%s?%s" % (airlines_page.AIRLINES_ROUTE, query))
 
-    def _handle_airline_rename_post(self):
+    def _handle_airline_rename_post(self, device):
         """POST /airlines/rename — set the owner's name for a built-in
         airline. `airline` is the built-in name and is re-validated against
         the built-in prefix table, never trusted: the prefixes the name
@@ -367,7 +365,7 @@ class SettingsActionsMixin:
         other state-changing route.
         """
         form = self.read_form()
-        state_dir = self.args.state_dir
+        state_dir = device.state_dir
         built_in = form.get("airline")
         prefixes = enrich.static_prefixes_for_name(built_in)
         if not prefixes:
@@ -393,21 +391,21 @@ class SettingsActionsMixin:
             flash_key = _RENAME_FLASH_BY_RESULT.get(result, FLASH_KEY_RENAME_SAVE_FAILED)
         return self._rename_redirect(flash_key, sheet_key)
 
-    def _handle_airline_rename_reset_post(self):
+    def _handle_airline_rename_reset_post(self, device):
         """POST /airlines/rename/reset — drop the owner's name for a
         built-in airline so new flights use SkyPane's name again."""
         form = self.read_form()
         prefixes = enrich.static_prefixes_for_name(form.get("airline"))
         if not prefixes:
             return self._rename_redirect(FLASH_KEY_RENAME_STALE)
-        return self._reset_airline_name(self.args.state_dir, prefixes, None)
+        return self._reset_airline_name(device.state_dir, prefixes, None)
 
     def _reset_airline_name(self, state_dir, prefixes, sheet_key):
         if name_overrides.clear_names(state_dir, prefixes):
             return self._rename_redirect(FLASH_KEY_RENAME_RESET)
         return self._rename_redirect(FLASH_KEY_RENAME_SAVE_FAILED, sheet_key)
 
-    def _handle_manual_resolution_delete(self, key):
+    def _handle_manual_resolution_delete(self, device, key):
         """POST /airlines/manual-resolutions/{prefix}/delete. `key` is
         normalised and used only as a dict key into
         `manual_resolutions.json`, never joined into a filesystem path.
@@ -419,16 +417,16 @@ class SettingsActionsMixin:
         if prefix is None:
             return self.send_html(404, self._not_found_page())
 
-        state_dir = self.args.state_dir
+        state_dir = device.state_dir
         existed = prefix in manual_resolutions.load_manual_resolutions(state_dir)
         deleted = manual_resolutions.delete_entry(state_dir, prefix)
         if not deleted and existed:
-            return self.redirect(
+            return self._scoped_redirect(
                 "%s?flash=%s"
                 % (airlines_page.AIRLINES_ROUTE, quote(FLASH_KEY_MANUAL_DELETE_FAILED)))
-        return self.redirect(airlines_page.AIRLINES_ROUTE)
+        return self._scoped_redirect(airlines_page.AIRLINES_ROUTE)
 
-    def _handle_rule_add_post(self):
+    def _handle_rule_add_post(self, device):
         """POST /settings/rules/add: the colour-rules editor's immediate
         add route, an action outside SETTINGS_ROUTE. `colour_rules.add_rule()`
         is the single validation authority; this handler validates
@@ -437,7 +435,7 @@ class SettingsActionsMixin:
         through silently. No CSRF token, like every state-changing route.
         """
         form = self.read_form()
-        state_dir = self.args.state_dir
+        state_dir = device.state_dir
 
         submitted_kind = form.get("rule_kind")
         submitted_key = form.get("rule_key")
@@ -447,7 +445,7 @@ class SettingsActionsMixin:
             state_dir, submitted_kind, submitted_key, submitted_theme_id)
 
         if result == colour_rules.ADD_OK_NEW:
-            return self.redirect(
+            return self._scoped_redirect(
                 "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_RULE_ADDED)))
         if result == colour_rules.ADD_OK_REPLACED:
             # Both segments are already known-valid at this point (that is
@@ -457,7 +455,7 @@ class SettingsActionsMixin:
             normalised_kind = colour_rules.normalise_rule_kind(submitted_kind)
             normalised_value = colour_rules.normalise_rule_value(
                 normalised_kind, submitted_key)
-            return self.redirect(
+            return self._scoped_redirect(
                 "%s?flash=%s&rule=%s"
                 % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_RULE_REPLACED),
                    quote(normalised_value, safe="")))
@@ -470,9 +468,9 @@ class SettingsActionsMixin:
             # unrecognised result all reuse the generic save-failed key —
             # a result must never fall through to no flash at all.
             flash_key = FLASH_KEY_RULE_SAVE_FAILED
-        return self.redirect("%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(flash_key)))
+        return self._scoped_redirect("%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(flash_key)))
 
-    def _handle_rule_delete(self, kind, value):
+    def _handle_rule_delete(self, device, kind, value):
         """POST /settings/rules/{kind}/{value}/delete. `kind` and
         `value` are re-normalised before any registry lookup — an
         unrecognised kind or malformed value 404s without touching the
@@ -486,19 +484,19 @@ class SettingsActionsMixin:
         if normalised_value is None:
             return self.send_html(404, self._not_found_page())
 
-        state_dir = self.args.state_dir
+        state_dir = device.state_dir
         registry = colour_rules.load_colour_rules(state_dir)
         existed = normalised_value in registry.get(normalised_kind, {})
         deleted = colour_rules.delete_rule(state_dir, normalised_kind, normalised_value)
         if deleted:
-            return self.redirect(
+            return self._scoped_redirect(
                 "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_RULE_DELETED)))
         if existed:
-            return self.redirect(
+            return self._scoped_redirect(
                 "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_RULE_DELETE_FAILED)))
-        return self.redirect(layout.DISPLAY_ROUTE)
+        return self._scoped_redirect(layout.DISPLAY_ROUTE)
 
-    def _handle_calendar_disconnect_post(self):
+    def _handle_calendar_disconnect_post(self, device):
         """POST /settings/calendar/disconnect. Two-step confirmation,
         server-side: a bare or non-matching confirm value renders the
         confirm page at 200 without touching anything — the client-side
@@ -511,12 +509,12 @@ class SettingsActionsMixin:
             ctx = self.page_context()
             body = config_page.calendar_disconnect_confirm_page(ctx)
             return self.send_html(200, self._page_shell_for(layout.DISPLAY_ROUTE, body, ctx))
-        state_dir = self.args.state_dir
+        state_dir = device.state_dir
         if calendar_rules.save_calendar_url(
                 state_dir, calendar_rules.CLEAR_CALENDAR_URL):
-            return self.redirect(
+            return self._scoped_redirect(
                 "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_DISCONNECTED)))
-        return self.redirect(
+        return self._scoped_redirect(
             "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
 
     def _calendar_sheet_redirect(self, flash_key, error=None):
@@ -529,10 +527,10 @@ class SettingsActionsMixin:
             config_page.CALENDAR_SHEET_MANAGE)
         if error:
             query += "&%s=%s" % (config_page.CALENDAR_ERROR_PARAM, quote(error))
-        return self.redirect("%s?%s#%s" % (
+        return self._scoped_redirect("%s?%s#%s" % (
             layout.DISPLAY_ROUTE, query, config_page.CALENDAR_SHEET_ID))
 
-    def _handle_calendar_connect_post(self):
+    def _handle_calendar_connect_post(self, device):
         """POST /settings/calendar/connect: the calendar sheet's own
         dedicated route — never the scoped settings handler, since a
         scoped POST carrying only `calendar_url` would read every
@@ -550,13 +548,22 @@ class SettingsActionsMixin:
         if signal != config_page.CALENDAR_URL_SIGNAL_SET:
             return self._calendar_sheet_redirect(
                 FLASH_KEY_CALENDAR_CONNECT_INVALID, config_page.CALENDAR_ERROR_INVALID)
-        result_code = calendar_rules.connect_calendar_url(
-            self.args.state_dir, form.get("calendar_url") or "", poll_cycle.now_s())
+        poll_lock = device_scope.poll_lock_for(device.state_dir)
+        # Non-blocking, like poll-now: a poll cycle for this device in
+        # flight means the link is not fetched now.
+        if not poll_lock.acquire(blocking=False):
+            return self._scoped_redirect(
+                "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_DEFERRED)))
+        try:
+            result_code = calendar_rules.connect_calendar_url(
+                device.state_dir, form.get("calendar_url") or "", poll_cycle.now_s())
+        finally:
+            poll_lock.release()
         if result_code == calendar_rules.FETCH_OK:
-            return self.redirect(
+            return self._scoped_redirect(
                 "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_CONNECT_OK)))
         if result_code == calendar_rules.FETCH_SAVED_UNREAD:
-            return self.redirect(
+            return self._scoped_redirect(
                 "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_DEFERRED)))
         if result_code == calendar_rules.FETCH_REJECTED_URL:
             return self._calendar_sheet_redirect(

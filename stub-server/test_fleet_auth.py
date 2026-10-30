@@ -313,7 +313,12 @@ def test_devices_cli_without_fleet_db_creates_none(tmp_path):
 def test_devices_cli_mirrors_into_migrated_fleet_db(live):
     _migrate(live.state_dir)
     sd = live.state_dir
-    owner_id = _fleet_row(sd, live.mac)["owner_user_id"]
+    assert _cli("revoke-token", "--mac", live.mac, state_dir=sd) == 0
+    assert _fleet_row(sd, live.mac)["token"] is None
+    assert _cli("remove", "--mac", live.mac, state_dir=sd) == 0
+    assert _fleet_row(sd, live.mac) is None
+    owner_id = fleet_db.connect_readonly(sd).execute(
+        "SELECT id FROM users").fetchone()["id"]
     assert _cli("add", "--mac", NEW_MAC, "--secret-sha256", "a" * 64, state_dir=sd) == 0
     row = _fleet_row(sd, NEW_MAC)
     assert row["owner_user_id"] == owner_id
@@ -324,10 +329,16 @@ def test_devices_cli_mirrors_into_migrated_fleet_db(live):
     row = _fleet_row(sd, NEW_MAC)
     assert row["secret_sha256"] == "b" * 64
     assert row["owner_user_id"] == owner_id
-    assert _cli("revoke-token", "--mac", live.mac, state_dir=sd) == 0
-    assert _fleet_row(sd, live.mac)["token"] is None
     assert _cli("remove", "--mac", NEW_MAC, state_dir=sd) == 0
     assert _fleet_row(sd, NEW_MAC) is None
+
+
+def test_devices_cli_does_not_mirror_a_second_frame_onto_the_live_state(live):
+    _migrate(live.state_dir)
+    sd = live.state_dir
+    assert _cli("add", "--mac", NEW_MAC, "--secret-sha256", "a" * 64, state_dir=sd) == 1
+    assert _fleet_row(sd, NEW_MAC) is None
+    assert _fleet_row(sd, live.mac)["state_path"] == "."
 
 
 def test_devices_cli_ignores_unmigrated_fleet_db(live):

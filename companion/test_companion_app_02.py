@@ -953,7 +953,7 @@ def test_flash_manual_keys_complete_and_byte_identical(tmp_path):
     interpolated_keys = (
         app_module.FLASH_KEY_POLL_COOLDOWN, app_module.FLASH_KEY_RULE_REPLACED,
         app_module.FLASH_KEY_CALENDAR_CONNECTED, app_module.FLASH_KEY_CALENDAR_CONNECT_OK,
-        app_module.FLASH_KEY_SAVED)
+        app_module.FLASH_KEY_SAVED, app_module.FLASH_KEY_DEVICE_POLL_DONE)
     for key, text in app_module.FLASH_MESSAGES.items():
         if key in interpolated_keys:
             continue
