@@ -278,4 +278,14 @@ MESSAGES = {
     "health.health_history_is_temporarily_unavailable_check":
         "L’historique d’état est temporairement indisponible — "
         "consultez les journaux du service companion.",
+
+    # --- A selected device other than the live frame ---------------------
+    "health.device_unreachable":
+        "Aucun signal depuis {time} \u2014 Dernières données connues affichées.",
+    "health.device_empty_heading": "Ce cadre ne s’est pas encore connecté",
+    "health.device_empty_body":
+        "L’état apparaîtra après son premier réveil. Vérifiez qu’il est allumé "
+        "et à portée du Wi-Fi.",
+    "health.device_battery_empty_heading": "Aucune mesure de batterie",
+    "health.device_battery_empty_body": "Affichée après la première connexion.",
 }

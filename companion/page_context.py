@@ -38,6 +38,7 @@ import os
 import sqlite3
 from urllib.parse import parse_qs, urlsplit
 
+import companion.device_scope as device_scope
 import companion.prefs as prefs
 import companion.wake as wake
 from server import device_config, history_db
@@ -224,6 +225,13 @@ def _lazy_health_severity(ctx):
     resolved. "ok" when the snapshot is `None` (a failure), the same
     fail-closed default `compute_health_state()`'s callers use.
     """
+    device = ctx.device
+    if (device is not None and not device.is_live
+            and device_scope.device_status(device, device_scope.now_epoch())
+            == device_scope.STATUS_NEVER_SEEN):
+        # A frame that has never checked in has nothing to warn about yet;
+        # its Health page explains that, so no tab carries a dot for it.
+        return "ok"
     if ctx.is_resolved("health_state"):
         health_state = ctx.health_state
         return health_state["severity"] if health_state else "ok"

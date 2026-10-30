@@ -78,4 +78,8 @@ MESSAGES = {
         "Le premier avion détecté par le cadre sur la piste surveillée "
         "apparaîtra ici.",
     "home.illustration": "Illustration %s",
+    "home.device_no_image_heading": "Pas encore d’image",
+    "home.device_no_image_body":
+        "La première image apparaîtra après une vérification ou le premier "
+        "réveil du cadre.",
 }

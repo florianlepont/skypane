@@ -16,6 +16,7 @@ import sqlite3
 import urllib.parse
 from datetime import datetime, timezone
 
+import companion.device_scope as device_scope
 import companion.flight_card as flight_card
 import companion.i18n as i18n
 from companion.layout import escape_html
@@ -202,6 +203,13 @@ _DAY_YESTERDAY_LABEL = i18n.msg("flights.yesterday", "Yesterday")
 
 VIEW_PICTURE_LABEL = i18n.msg("flights.view_picture", "View picture")
 
+# Shown for a selected device that has no recorded flights yet.
+DEVICE_EMPTY_HEADING = i18n.msg(
+    "flights.device_empty_heading", "No history for this frame yet")
+DEVICE_EMPTY_BODY = i18n.msg(
+    "flights.device_empty_body",
+    "Flights and checks appear here after the first poll. Use Poll now to run one.")
+
 # The phone card's artwork, route and time pieces are shared with Home's
 # recent-flight tiles through companion/flight_card.py.
 ILLUSTRATION_ROUTE_PREFIX = flight_card.ILLUSTRATION_ROUTE_PREFIX
@@ -326,7 +334,7 @@ def _view_panel_attrs(name, iso, row_name):
     `/gallery/` href, the two `data-view-panel-*` trigger attributes
     panel-lookup.js reads, and the per-row accessible name.
     """
-    src = "%s%s" % (_GALLERY_ROUTE_PREFIX, escape_html(name))
+    src = escape_html(device_scope.scoped(_GALLERY_ROUTE_PREFIX + name))
     caption = lightbox_caption_text(iso)
     return 'href="%s" %s="%s" %s="%s" aria-label="%s"' % (
         src,
@@ -536,7 +544,8 @@ def _resolve_link_html(prefix):
     both at this single point of interpolation; the resolve view
     re-validates the prefix on arrival regardless.
     """
-    href = RESOLVE_LINK_HREF_TEMPLATE % urllib.parse.quote(prefix, safe="")
+    href = device_scope.scoped(
+        RESOLVE_LINK_HREF_TEMPLATE % urllib.parse.quote(prefix, safe=""))
     return '<a class="%s" href="%s">%s</a>' % (
         escape_html(UNRESOLVED_LINK_CLASS),
         escape_html(href), escape_html(i18n.t(RESOLVE_LINK_TEXT)))
@@ -891,7 +900,12 @@ def render(ctx):
         lightbox_html = _lightbox_html() if has_view_panel_button else ""
         if not visible_rows:
             # No filter bar over nothing to filter.
-            body = _history_table_html(visible_rows, now)
+            device = ctx.device
+            if device is not None and not device.is_live:
+                body = layout.empty_state(
+                    i18n.t(DEVICE_EMPTY_HEADING), i18n.t(DEVICE_EMPTY_BODY))
+            else:
+                body = _history_table_html(visible_rows, now)
         else:
             # Cards render before the table: style.css's
             # `.history-cards ~ .data-table-wrap` sibling-combinator
