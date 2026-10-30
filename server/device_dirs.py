@@ -13,6 +13,7 @@ never legitimate).
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import sys
@@ -28,6 +29,12 @@ LIVE_STATE_PATH = "."
 DEVICES_DIRNAME = "devices"
 PANEL_FILENAME = "panel.bin"
 CONFIG_FILENAME = "device_config.json"
+# Root file naming the MACs that share the live frame's state directory.
+# It is the only record of which frame is the live one that survives an
+# unreadable fleet.db, so BYOS can refuse every other MAC instead of
+# serving it the live image. Absent on an install that never had a
+# per-device directory; the previous release ignores it.
+LIVE_MACS_FILENAME = "live_frame_macs.json"
 # `\Z` (not `$`) so a trailing newline cannot slip through.
 DEVICE_ID_RE = re.compile(r"\Ad_[0-9a-f]{8}\Z")
 
@@ -105,3 +112,38 @@ def provision_device_dir(
         bytes([fill]) * ((width // 2) * height),
     )
     return directory
+
+
+def devices_dir_exists(root: str) -> bool:
+    """True when `<root>/devices` exists in any form (even a dangling
+    symlink or an unreadable entry): the install has per-device state.
+    """
+    return os.path.lexists(os.path.join(root, DEVICES_DIRNAME))
+
+
+def read_live_macs(root: str) -> frozenset[str] | None:
+    """The recorded live-frame MACs, or None when the record is absent or
+    unusable. Never raises.
+    """
+    try:
+        with open(os.path.join(root, LIVE_MACS_FILENAME), encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    macs = doc.get("macs") if isinstance(doc, dict) else None
+    if not isinstance(macs, list) or not all(isinstance(m, str) for m in macs):
+        return None
+    return frozenset(macs)
+
+
+def record_live_macs(root: str, macs: frozenset[str] | set[str]) -> None:
+    """Merge `macs` into the live-frame record. The file is rewritten only
+    when its content changes; an unreadable existing record is replaced.
+    Raises OSError when the write fails.
+    """
+    existing = read_live_macs(root)
+    merged = frozenset(macs) | (existing or frozenset())
+    if existing == merged:
+        return
+    data = json.dumps({"macs": sorted(merged)}, indent=2) + "\n"
+    atomic_io.atomic_write(os.path.join(root, LIVE_MACS_FILENAME), data.encode("utf-8"))

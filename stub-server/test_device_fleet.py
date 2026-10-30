@@ -23,10 +23,11 @@ for _p in (REPO_ROOT, HERE, os.path.join(REPO_ROOT, "test-support")):
 
 import byos_server  # noqa: E402
 from skypane_frame_server import FrameServer  # noqa: E402
+from skypane_live_state import seed_live_like_state as live_state_seed  # noqa: E402
 from skypane_live_state import snapshot_dir  # noqa: E402
 from skypane_two_device_fleet import device_headers, seed_two_device_fleet  # noqa: E402
 
-from server import history_db, image_container, panel_format  # noqa: E402
+from server import device_dirs, history_db, image_container, panel_format  # noqa: E402
 
 FREEZE_PATH = os.path.join(HERE, "measured_fields_freeze.json")
 LIVE_PANEL_BYTES = 960000
@@ -207,21 +208,86 @@ def test_unavailable_hardware_type_is_503_when_gate_is_off(fleet):
     assert live_status == 200
 
 
-def test_legacy_without_fleet_db_every_mac_is_the_live_frame(fleet):
+def _remove_fleet_db(state_dir):
     for name in ("fleet.db", "fleet.db-wal", "fleet.db-shm"):
-        path = os.path.join(fleet.live.state_dir, name)
+        path = os.path.join(state_dir, name)
         if os.path.exists(path):
             os.remove(path)
+
+
+def _corrupt_fleet_db(state_dir):
+    _remove_fleet_db(state_dir)
+    with open(os.path.join(state_dir, "fleet.db"), "wb") as fh:
+        fh.write(b"this is not a sqlite database" * 20)
+
+
+def _live_digest(fleet):
+    with open(os.path.join(fleet.live.state_dir, "panel.bin"), "rb") as fh:
+        return hashlib.sha256(fh.read()).hexdigest()
+
+
+def _display_once(fleet, device, extra=None):
     server = FrameServer(fleet.live.state_dir, env_overrides=SIM_ENV)
     server.start()
     try:
-        doc = poll(server, fleet.dev_a)
+        return server.display(device.token, extra or {})
     finally:
         server.stop()
-    with open(os.path.join(fleet.live.state_dir, "panel.bin"), "rb") as fh:
+
+
+def test_pre_fleet_install_serves_the_live_frame_unchanged(tmp_path):
+    state_dir = str(tmp_path)
+    seeded = live_state_seed(state_dir)
+    server = FrameServer(state_dir, env_overrides=SIM_ENV)
+    server.start()
+    try:
+        status, doc = server.display(seeded.token, {"X-Battery-Mv": "3900"})
+    finally:
+        server.stop()
+    assert status == 200
+    with open(os.path.join(state_dir, "panel.bin"), "rb") as fh:
         digest = hashlib.sha256(fh.read()).hexdigest()
     assert doc["image_hash"] == "sha256:" + digest
     assert doc["image_url"].endswith("/img/%s.bin" % digest)
+    assert not os.path.exists(os.path.join(state_dir, "devices"))
+
+
+@pytest.mark.parametrize("damage", [_remove_fleet_db, _corrupt_fleet_db])
+def test_unavailable_fleet_db_refuses_a_non_live_device(fleet, damage):
+    damage(fleet.live.state_dir)
+    before = snapshot_dir(fleet.live.state_dir)
+    status, doc = _display_once(fleet, fleet.dev_a, {"X-Battery-Mv": "3123"})
+    assert (status, doc) == (503, {"detail": "device state unavailable"})
+    assert "image_url" not in doc
+    after = snapshot_dir(fleet.live.state_dir)
+    changed = {k for k in set(before) | set(after) if before.get(k) != after.get(k)}
+    assert changed <= {"fleet_status.json", "byos.stdout.log"}
+    assert "battery_state.json" not in changed
+
+
+def test_corrupt_fleet_db_still_serves_the_live_frame(fleet):
+    _corrupt_fleet_db(fleet.live.state_dir)
+    status, doc = _display_once(fleet, fleet.live, {"X-Battery-Mv": "3900"})
+    assert status == 200
+    digest = _live_digest(fleet)
+    assert doc["image_hash"] == "sha256:" + digest
+    assert doc["image_url"].endswith("/img/%s.bin" % digest)
+
+
+def test_unavailable_fleet_db_without_the_live_record_refuses_everyone(fleet):
+    _corrupt_fleet_db(fleet.live.state_dir)
+    os.remove(os.path.join(fleet.live.state_dir, device_dirs.LIVE_MACS_FILENAME))
+    assert _display_once(fleet, fleet.live)[0] == 503
+    assert _display_once(fleet, fleet.dev_a)[0] == 503
+
+
+def test_unavailable_fleet_db_with_an_unreadable_live_record_refuses_everyone(fleet):
+    _corrupt_fleet_db(fleet.live.state_dir)
+    record = os.path.join(fleet.live.state_dir, device_dirs.LIVE_MACS_FILENAME)
+    with open(record, "w", encoding="utf-8") as fh:
+        fh.write("{not json")
+    assert _display_once(fleet, fleet.live)[0] == 503
+    assert _display_once(fleet, fleet.dev_a)[0] == 503
 
 
 # ---- negotiation and geometry ---------------------------------------------

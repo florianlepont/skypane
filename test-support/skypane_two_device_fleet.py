@@ -106,6 +106,8 @@ def seed_two_device_fleet(state_dir: str, with_landscape: bool = False) -> Simpl
             id=str(live_row["id"]), mac=seeded.mac, secret_hex=seeded.secret_hex,
             token=seeded.token, state_dir=state_dir, fill=None,
             hardware_type=hardware.LEGACY_KEY)
+        # As `fleet_cli devices add --state-path auto` does before devices/ exists.
+        device_dirs.record_live_macs(state_dir, {seeded.mac})
         with sim_hardware_env(), fleet_db.transaction(conn):
             dev_a = _simulated_device(
                 state_dir, conn, owner_id, 1, hardware.SIM_CLONE_KEY, FILL_A)

@@ -1009,15 +1009,30 @@ def _live_context(args, mac, device_id=None):
                          WIDTH, HEIGHT, IMAGE_BYTES, True)
 
 
+def _context_without_fleet_db(args, mac):
+    """The live frame's context, or _STATE_UNAVAILABLE, while fleet.db
+    cannot answer. An install without a devices/ directory has only the
+    live frame, so every authenticated MAC is it. Once per-device state
+    exists only a MAC recorded as live is served the live image and
+    state; any other MAC, or a missing or unreadable record, is refused.
+    """
+    if not device_dirs.devices_dir_exists(args.state_dir):
+        return _live_context(args, mac)
+    live_macs = device_dirs.read_live_macs(args.state_dir)
+    if live_macs is not None and mac in live_macs:
+        return _live_context(args, mac)
+    return _STATE_UNAVAILABLE
+
+
 def _device_context(args, state, mac):
     """The DeviceContext for `mac`, or _NO_DEVICE (answer 401) when fleet.db
     is usable but has no row for it, or _STATE_UNAVAILABLE (answer 503)
     when the stored state_path or hardware type cannot be used. With
-    fleet.db unusable every authenticated MAC is the live frame.
+    fleet.db unusable see _context_without_fleet_db.
     """
     row = _fleet_row(args.state_dir, _row_by_mac(mac))
     if row is _FLEET_UNAVAILABLE:
-        return _live_context(args, mac)
+        return _context_without_fleet_db(args, mac)
     if row is None:
         return _NO_DEVICE
     try:
