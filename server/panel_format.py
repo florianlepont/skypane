@@ -73,21 +73,25 @@ def padded_palette() -> list[int]:
     return list(PALETTE_RGB) + [0, 0, 0] * (_PALETTE_SIZE - len(PALETTE_RGB) // 3)
 
 
-def new_canvas(bg_index: int) -> "PILImageModule.Image":
-    """A fresh "P"-mode (1200x1600) canvas, palette applied, filled with
-    bg_index. Draw with integer palette-index fills, never RGB.
+def new_canvas(
+    bg_index: int, size: tuple[int, int] = (WIDTH, HEIGHT)
+) -> "PILImageModule.Image":
+    """A fresh "P"-mode canvas (1200x1600 unless `size` is given), palette
+    applied, filled with bg_index. Draw with integer palette-index fills,
+    never RGB.
     """
     from PIL import Image
 
-    canvas = Image.new("P", (WIDTH, HEIGHT), color=bg_index)
+    canvas = Image.new("P", size, color=bg_index)
     canvas.putpalette(padded_palette())
     return canvas
 
 
 def pack_panel(canvas: "PILImageModule.Image") -> bytes:
-    """Pack a "P"-mode (1200x1600) canvas into the exact 960,000-byte
-    docs/PROTOCOL.md section 1 wire format: 1600 rows x 600 bytes, 2 px
-    per byte, left pixel in the high nibble.
+    """Pack a "P"-mode canvas of any even width into the
+    docs/PROTOCOL.md section 1 wire format: height rows x width/2 bytes,
+    2 px per byte, left pixel in the high nibble. At 1200x1600 this is the
+    exact 960,000-byte legacy payload.
 
     Vectorised (~0.085s -> ~0.003s per panel): translate() maps every
     even/odd-offset byte through the nibble tables in C, and the combine
@@ -96,10 +100,13 @@ def pack_panel(canvas: "PILImageModule.Image") -> bytes:
     the low-nibble bits (0x0F) of its pair, so no bit ever carries between
     output bytes.
     """
+    width, height = canvas.size
+    if width <= 0 or height <= 0 or width % 2:
+        raise ValueError(f"canvas width must be even and positive, got {canvas.size}")
     raw = canvas.tobytes()
-    assert len(raw) == WIDTH * HEIGHT
+    assert len(raw) == width * height
     hi = raw[0::2].translate(_HIGH_NIBBLE_TABLE)
     lo = raw[1::2].translate(_LOW_NIBBLE_TABLE)
     out = (int.from_bytes(hi, "big") | int.from_bytes(lo, "big")).to_bytes(len(hi), "big")
-    assert len(out) == IMAGE_BYTES
+    assert len(out) == (width // 2) * height
     return out
