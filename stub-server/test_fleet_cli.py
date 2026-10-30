@@ -99,6 +99,70 @@ def test_users_disable_enable_and_unknown(sd, capsys):
     assert run(sd, "users", "disable", "--email", "ghost@example.com") == 1
 
 
+def _user_row(sd, email):
+    conn = fleet_db.connect_readonly(sd)
+    try:
+        return fleet_db.get_user_by_email(conn, email)
+    finally:
+        conn.close()
+
+
+def _session_count(sd):
+    conn = fleet_db.connect_readonly(sd)
+    try:
+        return conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+    finally:
+        conn.close()
+
+
+def _link_and_session(sd, email="owner@example.com"):
+    conn = fleet_db.connect(sd)
+    try:
+        out = fleet_cli.fleet_sessions.resolve_login(
+            conn, "https://t.example/", "sub-1", email, True, 1000)
+        fleet_cli.fleet_sessions.create_session(
+            conn, "h" * 64, user_id=out.user_id, principal="user", now=1000)
+    finally:
+        conn.close()
+
+
+def test_users_unlink_identity_clears_link_and_sessions(sd, capsys):
+    add_owner(sd)
+    _link_and_session(sd)
+    assert _user_row(sd, "owner@example.com")["sub"] == "sub-1"
+    assert run(sd, "users", "unlink-identity", "--email", "owner@example.com") == 0
+    row = _user_row(sd, "owner@example.com")
+    assert row["sub"] is None and row["iss"] is None
+    assert _session_count(sd) == 0
+    capsys.readouterr()
+    assert run(sd, "users", "unlink-identity", "--email", "owner@example.com") == 0
+    assert "already unlinked" in capsys.readouterr().out
+    conn = fleet_db.connect(sd)
+    try:
+        out = fleet_cli.fleet_sessions.resolve_login(
+            conn, "https://t.example/", "sub-2", "owner@example.com", True, 1000)
+    finally:
+        conn.close()
+    assert out.reason == "linked"
+
+
+def test_users_unlink_identity_unknown_email(sd, capsys):
+    assert run(sd, "users", "unlink-identity", "--email", "ghost@example.com") == 1
+    assert "no such user" in capsys.readouterr().err
+
+
+def test_users_disable_drops_sessions_and_enable_does_not_restore(sd, capsys):
+    add_owner(sd)
+    _link_and_session(sd)
+    assert _session_count(sd) == 1
+    assert run(sd, "users", "disable", "--email", "owner@example.com") == 0
+    assert _session_count(sd) == 0
+    assert run(sd, "users", "enable", "--email", "owner@example.com") == 0
+    assert _session_count(sd) == 0
+    out = capsys.readouterr()
+    assert "sub-1" not in out.out + out.err
+
+
 def test_locations_add_list_and_validation(sd, capsys):
     assert run(sd, "locations", "add", "--name", "Home", "--latitude", "48.7",
                "--longitude", "2.3", "--timezone", "Europe/Paris") == 0
