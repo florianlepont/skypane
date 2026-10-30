@@ -526,6 +526,25 @@ logged as drift rather than silently skipped or silently included. Each
 run writes a checksummed `skypane-state-<UTC timestamp>.tar.gz` and keeps
 the newest 14 on the VPS.
 
+**Per-device directories.** Devices beyond the live frame live in
+`<state_dir>/devices/<id>/` (id: `d_` plus 8 lowercase hex characters) with
+the same file set as the root; the live frame stays at the root and is never
+moved. The backup archives each `devices/<id>/` entry under the same path in
+the archive: `device_config.json`, `poll_state.json`, `battery_state.json`,
+the calendar, colour and manual-resolution files, `illustration_overrides/`,
+`gallery/` and a WAL-safe snapshot of `history.db`. It does not archive
+`panel.bin`, `img/`, lock files, temp files, WAL/SHM files or symlinks. A
+directory under `devices/` with a malformed name, or an unexpected file
+inside a device directory, is logged as drift. Restoring an archive into an
+empty directory recreates every `devices/<id>/`.
+
+**Rollback caveat (expand-only).** The previous release ignores `devices/`
+and the `timezone` key: it drops the key on its next save, which reverts
+that device to Paris. A device created through the CLI is also written to the
+legacy `devices.json` and `byos_state.json`, so the previous release
+authenticates it and would serve it the live frame's image. This only affects
+devices created after this change; none exist in production yet.
+
 **The off-box copy is pulled, not pushed.** A dedicated `skypane-backup`
 system user (never a member of the `skypane` group, so it can never write
 live state) authenticates only through one SSH key restricted to a forced
