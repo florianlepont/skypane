@@ -1837,7 +1837,7 @@ def test_valid_save_writes_both_and_returns_saved_key(tmp_path):
         "theme": "black", "theme_arriving": None, "calendar_theme_id": None,
         "tracked_runway": "06-24", "led_enabled": True, "quiet_hours_enabled": False,
         "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": True,
-        "wake_interval_s": None,
+        "wake_interval_s": None, "timezone": "Europe/Paris",
     }, "on-disk config does not match the posted values: %r" % (on_disk,)
 
 
