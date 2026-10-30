@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": "adsbfi",
+      "name": "adsb.fi",
+      "url": "https://adsb.fi",
+      "licence": "Open data, non-commercial use",
+      "citation_required": true,
+      "description": {
+        "en": "Community-run ADS-B network. Its open aircraft positions are how SkyPane notices a plane taking off or landing near the frame.",
+        "fr": "Réseau ADS-B communautaire. Ses positions d’avions en accès libre permettent à SkyPane de repérer un avion qui décolle ou atterrit près du cadre."
+      }
+    },
+    {
+      "id": "adsblol",
+      "name": "adsb.lol",
+      "url": "https://adsb.lol",
+      "licence": "CC0",
+      "citation_required": false,
+      "description": {
+        "en": "A second open ADS-B network, used to corroborate the positions reported by adsb.fi. Credited by choice.",
+        "fr": "Un second réseau ADS-B ouvert, utilisé pour corroborer les positions fournies par adsb.fi. Cité par choix."
+      }
+    },
+    {
+      "id": "adsbdb",
+      "name": "adsbdb",
+      "url": "https://www.adsbdb.com",
+      "licence": "Free, crowdsourced",
+      "citation_required": false,
+      "description": {
+        "en": "A free crowdsourced lookup that turns a callsign into an airline and a route.",
+        "fr": "Une base gratuite alimentée par la communauté, qui associe un indicatif d’appel à une compagnie et à un trajet."
+      }
+    },
+    {
+      "id": "ourairports",
+      "name": "OurAirports",
+      "url": "https://ourairports.com",
+      "licence": "Public domain",
+      "citation_required": false,
+      "description": {
+        "en": "Open airport data used to name airports. Credited as a courtesy.",
+        "fr": "Données aéroportuaires ouvertes servant à nommer les aéroports. Citées par courtoisie."
+      }
+    }
+  ]
+}
