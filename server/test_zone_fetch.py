@@ -63,7 +63,8 @@ def test_both_providers_queried_in_order(monkeypatch, ledger, clock):
 
 @pytest.mark.parametrize(
     "error",
-    [requests.HTTPError("429 from adsbfi"), requests.Timeout("slow"), ValueError("bad")],
+    [requests.HTTPError("429 from adsbfi"), requests.Timeout("slow"), ValueError("bad"),
+     RuntimeError("unexpected"), KeyError("shape")],
 )
 def test_failing_provider_is_paused_and_other_still_answers(
     monkeypatch, ledger, clock, error

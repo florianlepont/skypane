@@ -16,8 +16,6 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-import requests
-
 import server.plane.detect as detect
 import server.request_budget as request_budget
 
@@ -71,7 +69,9 @@ def _query_one(
         aircraft: list[dict[str, Any]] = detect.query_provider(
             name, lat, lon, radius_nm, timeout
         )
-    except (requests.RequestException, ValueError, OSError) as exc:
+    except Exception as exc:
+        # Any provider-side failure, expected or not, spends the slot and
+        # pauses the provider so a persistent fault is not retried every cycle.
         print(
             "detect: %s query failed: %s: %s" % (name, type(exc).__name__, exc),
             file=sys.stderr,
