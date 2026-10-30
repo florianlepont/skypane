@@ -23,6 +23,9 @@ from urllib.parse import urlsplit
 PASSWORD_ENV_VAR = "SKYPANE_COMPANION_PASSWORD"
 SESSION_TTL_S = 12 * 3600
 SESSION_COOKIE_NAME = "sp_session"
+# Server-side sessions live 30 days at most; the cookie matches that.
+SESSION_COOKIE_MAX_AGE_S = 30 * 86400
+LEGACY_LOGIN_ENV_VAR = "SKYPANE_LEGACY_PASSWORD_LOGIN"
 UI_THEME_COOKIE_NAME = "sp_ui_theme"
 # Shares secure_cookie_flag() with UI_THEME_COOKIE_NAME, so the Secure
 # flag can never drift between them.
@@ -171,6 +174,31 @@ def verify_session_token(value):
     return expiry > time.time_ns()
 
 
+def new_session_token():
+    """A fresh opaque 256-bit session token for the cookie. Only its
+    hash_session_token() is ever stored server-side.
+    """
+    return secrets.token_urlsafe(32)
+
+
+def hash_session_token(token):
+    """Hex sha256 of a session token: the only form the database holds."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def legacy_login_enabled(environ):
+    """Whether the shared-password login is on: unset or "1" is on, "0" is
+    off. Any other value raises rather than guessing, so a typo cannot
+    leave the fallback silently enabled.
+    """
+    value = environ.get(LEGACY_LOGIN_ENV_VAR)
+    if value is None or value == "1":
+        return True
+    if value == "0":
+        return False
+    raise ValueError("%s must be 0 or 1" % LEGACY_LOGIN_ENV_VAR)
+
+
 def secure_cookie_flag():
     """The `"; Secure"` cookie-attribute fragment, or `""`. On by
     default (Caddy terminates TLS in production); the opt-out exists
@@ -194,7 +222,7 @@ def session_set_cookie_header(token):
     """
     return (
         "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d"
-        % (SESSION_COOKIE_NAME, token, secure_cookie_flag(), SESSION_TTL_S))
+        % (SESSION_COOKIE_NAME, token, secure_cookie_flag(), SESSION_COOKIE_MAX_AGE_S))
 
 
 def logout_set_cookie_header():

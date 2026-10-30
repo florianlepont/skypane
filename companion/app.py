@@ -3,8 +3,10 @@
 hand-rolled route table, run as its own systemd unit, separate from the
 vendored device-protocol server in `stub-server/`.
 
-Every route except the login routes and the stylesheet requires a
-session (`Handler.require_session()`), enforced in this one file. Binds
+Every route except the login routes and the static assets carries a
+minimum role (`routes.Access`); `Handler._dispatch()` resolves the
+caller's principal from a server-side session and `access.decide()`
+enforces it, in this one file. Binds
 `--bind 0.0.0.0` by default; production passes `--bind 127.0.0.1`
 because Caddy is the only intended client.
 
@@ -15,6 +17,7 @@ Never writes the poll pipeline's own persisted flight-state file —
 auth silently disabled.
 """
 import os
+import sqlite3
 import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -28,7 +31,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from companion import (  # noqa: E402
-    auth, flash, freshness, i18n, illustration_normalize, layout, login_page, page_context,
+    access, auth, flash, freshness, i18n, illustration_normalize, layout, login_page, page_context,
     post_actions, prefs, request_body, routes, static_files, theme_preview)
 from companion.pages import (  # noqa: E402
     # airlines_page is unused by this module's own code; kept so
@@ -39,12 +42,22 @@ from companion.pages import (  # noqa: E402
     health_page,
     update_page,
 )
-from server import device_config, firmware_registry, hardware, history_db  # noqa: E402
+from server import (  # noqa: E402
+    device_config, firmware_registry, fleet_db, fleet_sessions, hardware, history_db)
 from server.plane import calendar_rules, illustrations, name_overrides  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
 import server.state_store as state_store  # noqa: E402
 
 DEFAULT_PORT = 8643
+# Errors that mean the session store could not be read: a gated request is
+# answered 503 (never allowed, never bounced to the login page).
+_STORE_ERRORS = (sqlite3.Error, fleet_db.FleetDbError, OSError)
+_UNRESOLVED = object()
+
+
+def _now():
+    return int(time.time())
+
 # The gallery-directory-name convention lives in companion/page_context.py
 # (build_page_context()'s "gallery_entries" loader owns it); rebound here
 # under its historical name since companion/test_freshness_token.py reads
@@ -441,6 +454,8 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
     # stalled read (e.g. the unauthenticated POST /login body) raises
     # socket.timeout instead of blocking the worker thread forever.
     timeout = REQUEST_SOCKET_TIMEOUT_S
+    _fleet = None
+    _principal_cache = _UNRESOLVED
 
     # --- response helpers -------------------------------------------
 
@@ -544,17 +559,74 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
 
     # --- auth ----------------------------------------------------------
 
-    def _is_authenticated(self):
-        # This is the only place the revocation check runs — every
-        # require_session() call site below goes through this single
-        # predicate, never duplicated per route.
-        cookies = auth.parse_cookies(self.headers.get("Cookie"))
-        token = cookies.get(auth.SESSION_COOKIE_NAME)
-        return bool(token) and auth.verify_session_token(token) and not auth.is_revoked(token)
+    def _fleet_conn(self):
+        """This request's fleet.db connection, opened on first use so a
+        request that needs no session never touches the file.
+        """
+        if self._fleet is None:
+            self._fleet = fleet_db.connect(self.args.state_dir)
+        return self._fleet
 
-    def require_session(self):
-        if self._is_authenticated():
-            return True
+    def _close_fleet_conn(self):
+        conn, self._fleet = self._fleet, None
+        if conn is not None:
+            conn.close()
+
+    def _legacy_login_on(self):
+        try:
+            return auth.legacy_login_enabled(os.environ)
+        except ValueError:
+            return False
+
+    def _resolve_principal(self):
+        """The Principal behind this request's session cookie, or None.
+        Role, disabled state and expiry are read fresh from fleet.db every
+        time; a legacy-admin session is also re-checked against the
+        legacy-login flag, so switching the flag off ends it at once.
+        """
+        token = auth.parse_cookies(self.headers.get("Cookie")).get(auth.SESSION_COOKIE_NAME)
+        if not token:
+            return None
+        record = fleet_sessions.lookup_session(
+            self._fleet_conn(), auth.hash_session_token(token), _now())
+        if record is None:
+            return None
+        if record.principal == fleet_sessions.PRINCIPAL_LEGACY_ADMIN:
+            if not self._legacy_login_on():
+                return None
+            return access.Principal(access.KIND_LEGACY_ADMIN, None, None, access.ADMIN)
+        return access.Principal(access.KIND_USER, record.user_id, record.email, record.role)
+
+    def _principal(self):
+        """Cached per request; reset at the top of `_dispatch()`. Raises
+        the store errors in `_STORE_ERRORS`.
+        """
+        if self._principal_cache is _UNRESOLVED:
+            self._principal_cache = self._resolve_principal()
+        return self._principal_cache
+
+    def _safe_principal(self):
+        """`_principal()` for pages that must still render when the store
+        is unreadable: a store error reads as signed out.
+        """
+        try:
+            return self._principal()
+        except _STORE_ERRORS:
+            return None
+
+    def _apply_principal(self, principal):
+        """Tell the page shell who is signed in."""
+        if principal is None:
+            prefs.set_request_principal(None)
+        elif principal.kind == access.KIND_LEGACY_ADMIN:
+            prefs.set_request_principal(access.KIND_LEGACY_ADMIN, principal.role)
+        else:
+            prefs.set_request_principal(principal.role, principal.role)
+
+    def _owner_lookup(self, device_id):
+        return fleet_db.get_device_owner(self._fleet_conn(), device_id)
+
+    def _redirect_to_login(self):
         # Carries the requested route through login via an allowlisted
         # `next` param, validated by _validated_next_route(); unrecognised
         # values discard silently to the bare LOGIN_ROUTE.
@@ -567,7 +639,6 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
                 "%s?next=%s" % (LOGIN_ROUTE, quote(next_route, safe="")))
         else:
             self.redirect(LOGIN_ROUTE)
-        return False
 
     def _resolved_ui_theme(self):
         cookies = auth.parse_cookies(self.headers.get("Cookie"))
@@ -643,9 +714,8 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
     def _not_found_page(self):
         """The shared 404 body, reached pre-auth from static-asset
         delegates too. `health_alert` is computed only on
-        `self._is_authenticated()` (a pure bool check) so Health's
-        warn/error state never leaks to an unauthenticated caller — and
-        even then, from `safe_health_signals()` alone: the nav dot's
+        an admin principal so Health's warn/error state never leaks to
+        an unauthenticated caller or a plain user — and even then, from `safe_health_signals()` alone: the nav dot's
         severity, never the markup `health_state_from_signals()` would
         build for an error page that never renders it.
         `self.page_context()` is deliberately not called: too many
@@ -654,11 +724,7 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         """
         # Pre-session: resolved from the cookie or Accept-Language.
         prefs.set_request_prefs(lang=self._lang_from_request())
-        health_alert = None
-        if self._is_authenticated():
-            signals = health_page.safe_health_signals(
-                self.args.state_dir, history_db.utc_now_iso())
-            health_alert = signals["severity"] if signals else "ok"
+        health_alert = self._health_alert_for_admin()
         return login_page.not_found_page(self._resolved_ui_theme(), health_alert)
 
     def _forbidden_page(self):
@@ -667,12 +733,25 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         markup itself is `companion/login_page.py`'s `forbidden_page()`.
         """
         prefs.set_request_prefs(lang=self._lang_from_request())
-        health_alert = None
-        if self._is_authenticated():
-            signals = health_page.safe_health_signals(
-                self.args.state_dir, history_db.utc_now_iso())
-            health_alert = signals["severity"] if signals else "ok"
+        health_alert = self._health_alert_for_admin()
         return login_page.forbidden_page(self._resolved_ui_theme(), health_alert)
+
+    def _health_alert_for_admin(self):
+        """The Health nav-dot severity for an admin caller, else None: a
+        plain user or an anonymous caller never learns fleet health. Also
+        tells the shell who is signed in.
+        """
+        principal = self._safe_principal()
+        self._apply_principal(principal)
+        if principal is None or principal.role != access.ADMIN:
+            return None
+        signals = health_page.safe_health_signals(
+            self.args.state_dir, history_db.utc_now_iso())
+        return signals["severity"] if signals else "ok"
+
+    def _unavailable_page(self):
+        prefs.set_request_prefs(lang=self._lang_from_request())
+        return login_page.unavailable_page(self._resolved_ui_theme())
 
     def _render_login_page(self, error=None, lockout_seconds=None, next_route=None):
         # Pre-session, like _not_found_page() above. The markup itself is
@@ -729,7 +808,7 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         payload = gallery_bytes(self.args.state_dir, requested)
         if payload is None:
             return self.send_html(404, self._not_found_page())
-        # This route sits behind do_GET()'s require_session() gate, so it
+        # This route sits behind the access gate in _dispatch(), so it
         # deliberately relies on send_bytes()'s non-shared (private)
         # default rather than opting into shared cacheability.
         return self.send_bytes(200, "image/png", payload, cache_seconds=3600)
@@ -742,7 +821,7 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
             return self.send_html(404, self._not_found_page())
         path = _runway_image_path(runway_id)
         # Policy unchanged (private, max-age=300; this route sits behind
-        # do_GET()'s require_session() gate, so the conditional path
+        # the access gate in _dispatch(), so the conditional path
         # below is only ever reached post-auth) — it now also gains an
         # ETag/Last-Modified and in-memory bytes via _serve_static().
         return self._serve_static(path, "image/png", "private, max-age=300")
@@ -891,21 +970,26 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         destination carried through, so an unrecognised value never even
         renders a hidden field for the user to resubmit.
         """
-        if self._is_authenticated():
-            return self.redirect(HOME_ROUTE)
+        principal = self._safe_principal()
+        if principal is not None:
+            return self.redirect(access.home_for(principal))
         next_route = _validated_next_route(
             parse_qs(urlsplit(self.path).query).get("next", [None])[0])
         return self.send_html(200, self._render_login_page(next_route=next_route))
 
     def _handle_logout_post(self):
-        """POST LOGOUT_ROUTE: revokes the session token server-side
-        before clearing the cookie, so replaying the old cookie value
-        stops verifying. Session gating happens in routes.ROUTES before
-        this runs.
+        """POST LOGOUT_ROUTE: deletes the session row first, so replaying
+        the old cookie value stops working, then clears the cookie. A
+        store error answers 503 and leaves the cookie alone rather than
+        pretending the session ended.
         """
         token = auth.parse_cookies(self.headers.get("Cookie")).get(auth.SESSION_COOKIE_NAME)
         if token:
-            auth.revoke(token)
+            try:
+                fleet_sessions.delete_session(
+                    self._fleet_conn(), auth.hash_session_token(token))
+            except _STORE_ERRORS:
+                return self.send_html(503, self._unavailable_page())
         return self.redirect(LOGIN_ROUTE, set_cookie=auth.logout_set_cookie_header())
 
     def _handle_rule_delete_post(self, middle):
@@ -929,7 +1013,10 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         database table never opens one at all.
         """
         with history_db.connection_scope(self.args.state_dir):
-            return self._dispatch("GET")
+            try:
+                return self._dispatch("GET")
+            finally:
+                self._close_fleet_conn()
 
     # Runs as the first statement for a POST, before urlsplit()/routing, so
     # it covers every route uniformly including ones added later. Defence
@@ -937,11 +1024,12 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
     # docstring).
     def _dispatch(self, method):
         """The one dispatch every do_GET()/do_POST() call goes through:
-        `routes.match()` looks the request up in routes.ROUTES, the one
-        table that makes every route's gating a field of the route
-        itself rather than a hand-repeated `require_session()` call, and
-        this method is the ONLY place that gate now runs.
+        origin gate, `routes.match()`, then `access.decide()` over the
+        route's own `Access` and the caller's principal. This method is
+        the ONLY place that gate runs.
         """
+        self._principal_cache = _UNRESOLVED
+        prefs.set_request_principal(None)
         if method == "POST" and not auth.post_origin_ok(self.headers):
             return self.send_html(403, self._forbidden_page())
         parsed = urlsplit(self.path)
@@ -949,8 +1037,18 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         if result is None:
             return self.send_html(404, self._not_found_page())
         route, route_match = result
-        if route.auth_required and not self.require_session():
-            return None
+        try:
+            principal = (
+                None if route.access.min_role == access.ANONYMOUS else self._principal())
+            outcome = access.decide(
+                principal, route.access, route_match.captured, self._owner_lookup)
+        except _STORE_ERRORS:
+            return self.send_html(503, self._unavailable_page())
+        if outcome == access.LOGIN:
+            return self._redirect_to_login()
+        if outcome == access.NOT_FOUND:
+            return self.send_html(404, self._not_found_page())
+        self._apply_principal(principal)
         return route.handler(self, route_match)
 
     def _login_throttle_key(self):
@@ -978,16 +1076,30 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         submitted = form.get("password", "")
         if auth.password_ok(submitted):
             LOGIN_THROTTLE.record_success(throttle_key)
-            token = auth.issue_session_token()
-            return self.redirect(
-                next_route or HOME_ROUTE,
-                set_cookie=auth.session_set_cookie_header(token))
+            return self._start_legacy_session(next_route or HOME_ROUTE)
         LOGIN_THROTTLE.record_failure(throttle_key)
         return self.send_html(401, self._render_login_page(
             # Translated here, at the call site — see login_page.py's
             # own login_body() docstring for why (`error` is an opaque
             # parameter by the time it reaches that function).
             error=i18n.t(_INCORRECT_PASSWORD_TEXT), next_route=next_route))
+
+    def _start_legacy_session(self, destination):
+        """Create a legacy-admin session row under a fresh token, dropping
+        the session whose cookie accompanied this login (rotation), and
+        redirect to `destination` with the new cookie.
+        """
+        old = auth.parse_cookies(self.headers.get("Cookie")).get(auth.SESSION_COOKIE_NAME)
+        token = auth.new_session_token()
+        try:
+            fleet_sessions.create_session(
+                self._fleet_conn(), auth.hash_session_token(token),
+                user_id=None, principal=fleet_sessions.PRINCIPAL_LEGACY_ADMIN,
+                now=_now(), replace_hash=auth.hash_session_token(old) if old else None)
+        except _STORE_ERRORS:
+            return self.send_html(503, self._unavailable_page())
+        return self.redirect(
+            destination, set_cookie=auth.session_set_cookie_header(token))
 
     def _handle_settings_post(self):
         """POST /settings. Re-renders the scoped page at 200 with field
@@ -1260,7 +1372,10 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         run before this scope has opened anything.
         """
         with history_db.connection_scope(self.args.state_dir):
-            return self._dispatch("POST")
+            try:
+                return self._dispatch("POST")
+            finally:
+                self._close_fleet_conn()
 
     # --- logging -------------------------------------------------------
 
@@ -1307,6 +1422,11 @@ def main():
         auth.configured_password()
     except auth.AuthNotConfigured as exc:
         print(str(exc), file=sys.stderr)
+        sys.exit(1)
+    try:
+        fleet_db.connect(args.state_dir).close()
+    except _STORE_ERRORS as exc:
+        print("companion: cannot open fleet.db (%s)" % type(exc).__name__, file=sys.stderr)
         sys.exit(1)
 
     # Matches stub-server/byos_server.py's own main(): stdout is fully

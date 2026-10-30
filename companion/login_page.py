@@ -4,7 +4,7 @@ takes whatever request state it needs (the resolved UI theme, the
 already-computed health-alert severity, an already-translated error
 string) as an argument, and never reads `self`/the request itself —
 `companion/app.py`'s `Handler` keeps a thin method for each (gathering
-that state, e.g. `self._resolved_ui_theme()`/`self._is_authenticated()`,
+that state, e.g. `self._resolved_ui_theme()`/`self._principal()`,
 and setting the request-scoped language via `prefs.set_request_prefs()`
 before calling in here) so every existing call site
 (`self._not_found_page()`, `self._render_login_page(...)`, etc.) is
@@ -70,6 +70,12 @@ FORBIDDEN_PURPOSE_TEXT = i18n.msg(
     "common.this_request_came_from_another_site_so_it_was",
     "This request came from another site, so it was refused. Open SkyPane "
     "directly and try again.")
+
+# The 503 body when the session store cannot be read.
+UNAVAILABLE_TITLE = i18n.msg("common.temporarily_unavailable", "Temporarily unavailable")
+UNAVAILABLE_PURPOSE_TEXT = i18n.msg(
+    "common.sign_in_data_could_not_be_read_please_try_again",
+    "SkyPane could not check your session. Please try again in a moment.")
 
 # The inline i18n.t() literals login_body()/not_found_page()/
 # forbidden_page() below used to carry, hoisted to module-level
@@ -477,3 +483,15 @@ def forbidden_page(ui_theme, health_alert):
     return layout.page_shell(
         title=i18n.t(FORBIDDEN_TITLE), active="", body=body,
         ui_theme=ui_theme, health_alert=health_alert)
+
+
+def unavailable_page(ui_theme):
+    """The generic 503 body for a request whose session could not be
+    checked. Fixed wording: no error text ever reaches the page, and no
+    Health state is computed.
+    """
+    body = layout.page_header(
+        i18n.t(UNAVAILABLE_TITLE), purpose=i18n.t(UNAVAILABLE_PURPOSE_TEXT))
+    return layout.page_shell(
+        title=i18n.t(UNAVAILABLE_TITLE), active="", body=body,
+        ui_theme=ui_theme, health_alert=None)

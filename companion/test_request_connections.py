@@ -141,7 +141,13 @@ def test_a_database_fault_attempts_the_connection_exactly_once_per_request(
 
     connect_attempts = []
 
+    real_connect = sqlite3.connect
+
     def _raising_connect(*args, **kwargs):
+        # Only the history database is faulted; the session store (fleet.db)
+        # keeps working so the request is still authenticated.
+        if str(args[0]).endswith("fleet.db"):
+            return real_connect(*args, **kwargs)
         connect_attempts.append(1)
         raise sqlite3.OperationalError("database unavailable (fault injected for this test)")
 
