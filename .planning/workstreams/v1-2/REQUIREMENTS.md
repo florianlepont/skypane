@@ -32,7 +32,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 ### Per-Device Runtime
 
 - [x] **FLT-01**: Each device has its own config, image, poll state, history and health, and the BYOS server serves each frame its own image from its own directory.
-- [x] **FLT-02**: The owner or a user can trigger a poll for one device and set its quiet hours and timezone without affecting others.
+- [x] **FLT-02**: The owner or a user can set a device's quiet hours and timezone without affecting others. (The manual poll trigger was removed in Phase 52; the poll process is the only budget consumer.)
 - [ ] **FLT-03**: Total ADS-B requests stay at or below 1 per second across all providers and processes, using a persisted global limiter, with devices sharing a zone served by one request.
 - [ ] **FLT-04**: A simulated 100-device fleet test proves the request budget with a fake clock, and a failure for one device or zone never blocks the others.
 

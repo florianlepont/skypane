@@ -183,7 +183,7 @@ Plans:
 **Requirements**: FLT-03, FLT-04
 **Success Criteria** (what must be TRUE):
 
-  1. Devices sharing a zone are served by one upstream request, and the budget holds across all providers and across the poll process and the companion's poll-now.
+  1. Devices sharing a zone are served by one upstream request set, and the budget holds across all providers and across overlapping poll processes (persisted, file-locked).
   2. A simulated 100-device fleet test with a fake clock shows at most 1 request per second.
   3. A provider failure or timeout for one device or zone leaves the other devices' images updated on time.
 
