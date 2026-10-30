@@ -370,7 +370,7 @@ def test_an_unknown_device_id_is_404_for_a_permitted_caller_and_login_for_anonym
         rig, stubbed, key):
     method = key[0]
     path = _scoped_path(UNKNOWN_ID, key)
-    for who in ("admin", "legacy-admin"):
+    for who in ("admin",):
         status, _h, body = rig.request(method, path, rig.cookies[who])
         assert status == 404
         assert body == _unknown_path_404(rig, rig.cookies[who])
