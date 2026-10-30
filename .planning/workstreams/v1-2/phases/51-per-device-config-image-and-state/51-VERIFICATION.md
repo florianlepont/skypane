@@ -1,7 +1,7 @@
 ---
 phase: 51-per-device-config-image-and-state
 verified: 2026-10-30T23:00:00Z
-status: human_needed
+status: passed
 score: 3/3 roadmap criteria verified; both first-pass gaps closed; 0 open code gaps
 re_verification:
   previous_status: gaps_found
@@ -109,3 +109,11 @@ None open. Info items: browser tests not runnable here (above); backup test does
 - Phase 52: `poll_cycle.run_once(state_dir=<device dir>, reconcile_firmware=False)`, per-device `poll_state.json`, `history.db`, `battery_state.json`, `panel.bin`, `img/`; `device_dirs.resolve_state_dir` as the only path chokepoint; `device_scope.load_devices` to enumerate; exactly one "." live row and `live_frame_macs.json` as the live-MAC record. Shared provider spacing is not built.
 - Phase 53: per-device `device_config.json` for per-device airport, runway and position keys (expand-only, omit when default); Display page and POST handler exist.
 - Phase 56: BYOS takes width, height and byte count from the hardware profile; `device_scope.poll_supported` refuses poll-now for anything other than 1200x1600 and is the switch to lift.
+
+## Closure
+
+Closed on 2026-10-30 at the owner's explicit instruction. Status moved from `human_needed` to `passed`.
+
+- The browser suite item was satisfied by CI: all checks were green on the merge commit of PR #244, including the Chromium tests.
+- The 7 manual checks in `51-OWNER-CHECKS.md` were not run by Claude and are not recorded here as performed. The owner chose to close the phase without waiting for them and can still run them at any time.
+- Still open and unchanged: no production deploy until Phase 47 closes and the owner decides; a real second frame must be added with `--state-path auto`.
