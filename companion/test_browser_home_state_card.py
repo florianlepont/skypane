@@ -465,7 +465,10 @@ def test_quiet_hours_window_link_opens_the_display_section_without_toggling(
         heading = page.locator("#quiet-hours-group-heading")
         heading.wait_for(state="visible")
         top = heading.bounding_box()["y"]
-        assert 0 <= top < viewport["height"], top
+        # The jump aligns the heading with the top edge, but layout positions are
+        # fractional while the scroll offset is a whole pixel, so a heading that
+        # is in view can sit a fraction of a pixel above the edge.
+        assert -1 < top < viewport["height"], top
         assert device_config.load_device_config(server.state_dir)["quiet_hours_enabled"] is False
         page.goto(server.base_url() + layout.HOME_ROUTE)
         label = page.locator("#home-switch-quiet-label").bounding_box()
