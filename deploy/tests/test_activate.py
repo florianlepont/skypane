@@ -81,6 +81,18 @@ def test_first_deploy_no_current(fake_root, fake_release, run_activate):
     assert not fake_root.pwned_marker.exists()
 
 
+def test_retired_password_variables_in_the_env_file_are_ignored(
+        fake_root, fake_release, run_activate):
+    with open(fake_root.env_file, "a") as fh:
+        fh.write("SKYPANE_COMPANION_PASSWORD=retired-shared-password\n")
+        fh.write("SKYPANE_LEGACY_PASSWORD_LOGIN=0\n")
+    fake_release("aaaaaab")
+    result = run_activate("aaaaaab")
+    assert result.returncode == 0, result.stderr
+    assert os.readlink(fake_root.current_link) == "releases/aaaaaab"
+    assert "retired-shared-password" not in result.stdout + result.stderr
+
+
 def test_second_deploy_keeps_previous_release(fake_root, fake_release, run_activate):
     fake_release("1111111")
     r1 = run_activate("1111111")

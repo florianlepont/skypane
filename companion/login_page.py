@@ -13,7 +13,6 @@ unchanged.
 Never imports `companion.app` (that would be a cycle — app.py imports
 this module).
 """
-import json
 from urllib.parse import quote
 
 from companion import i18n, layout, prefs
@@ -23,38 +22,6 @@ from companion import i18n, layout, prefs
 # companion.app either — the same "duplicated-not-imported" contract
 # companion/routes.py's own module docstring documents.
 LOGIN_ROUTE = "/login"
-
-# The login card's one-sentence purpose text.
-LOGIN_EXPLANATION_TEXT = i18n.msg(
-    "common.sign_in_to_manage_this_device_s_settings",
-    "Sign in to manage this device's settings.")
-
-# A module constant beside LOGIN_EXPLANATION_TEXT because login_body()
-# and the live countdown's template must both build from this one string.
-LOGIN_LOCKOUT_TEXT = i18n.msg(
-    "common.too_many_attempts_try_again_in_s",
-    "Too many attempts — try again in %ds.")
-
-# The substitution token the live countdown swaps for the remaining
-# figure each second. "__N__" is excluded from test_i18n.py's French-
-# catalogue scan as an uppercase code; a lowercase placeholder would not
-# be, and would have to be translated (meaningless) or exempted.
-LOGIN_LOCKOUT_TEMPLATE_TOKEN = "__N__"
-
-# The id the login card's one message element carries (wrong-password
-# and lockout share it); `aria-describedby` points at it only when a
-# message is rendered.
-LOGIN_MESSAGE_ID = "login-error"
-
-# Rendered as server-escaped data-* attributes and swapped by
-# companion/static/login-card.js, so that file hard-codes no English.
-LOGIN_REVEAL_SHOW_LABEL = i18n.msg("common.show_password", "Show password")
-LOGIN_REVEAL_HIDE_LABEL = i18n.msg("common.hide_password", "Hide password")
-
-# Marks, not words — deliberately not translated; legible without
-# relying on colour alone.
-LOGIN_REVEAL_MASKED_GLYPH = "●"
-LOGIN_REVEAL_SHOWN_GLYPH = "○"
 
 # `layout.page_header()` escapes both when it renders them — these are
 # always plain strings, never pre-escaped markup.
@@ -82,7 +49,6 @@ UNAVAILABLE_PURPOSE_TEXT = i18n.msg(
 # Messages.
 _BACK_TO_HOME_TEXT = i18n.msg("common.back_to_home", "Back to Home")
 _BACK_TO_ACCOUNT_TEXT = i18n.msg("account.back_to_account", "Back to Account")
-_PASSWORD_TEXT = i18n.msg("common.password", "Password")
 _SIGN_IN_TEXT = i18n.msg("common.sign_in", "Sign in")
 _NOT_FOUND_TAB_TITLE_TEXT = i18n.msg("common.not_found", "Not Found")
 
@@ -94,16 +60,6 @@ AUTH0_LOGIN_ROUTE = "/login/auth0"
 LOGIN_EXPLANATION_AUTH0_TEXT = i18n.msg(
     "account.sign_in_to_manage_your_skypane_frames",
     "Sign in to manage your SkyPane frames.")
-_LEGACY_SUMMARY_TEXT = i18n.msg(
-    "account.use_the_shared_password_legacy",
-    "Use the shared password (legacy)")
-_LEGACY_BADGE_TEXT = i18n.msg("account.legacy", "Legacy")
-_LEGACY_HELPER_TEXT = i18n.msg(
-    "account.temporary_access_for_the_administrator_it",
-    "Temporary access for the administrator. It will be removed once "
-    "Auth0 sign-in is live.")
-_LEGACY_SUBMIT_TEXT = i18n.msg(
-    "account.sign_in_with_password", "Sign in with password")
 _NOT_CONFIGURED_TEXT = i18n.msg(
     "account.sign_in_is_not_configured", "Sign-in is not configured")
 
@@ -121,7 +77,6 @@ _BACK_TO_SIGN_IN_TEXT = i18n.msg(
 SIGN_IN_ERROR_INCOMPLETE = "incomplete"
 SIGN_IN_ERROR_EXPIRED = "expired"
 SIGN_IN_ERROR_UNAVAILABLE = "unavailable"
-SIGN_IN_ERROR_PASSWORD_OFF = "password_off"
 _SIGN_IN_ERROR_TEXT = {
     SIGN_IN_ERROR_INCOMPLETE: (
         i18n.msg("account.sign_in_could_not_be_completed",
@@ -138,11 +93,6 @@ _SIGN_IN_ERROR_TEXT = {
                  "Sign-in is not available right now"),
         i18n.msg("account.try_again_in_a_few_minutes",
                  "Try again in a few minutes.")),
-    SIGN_IN_ERROR_PASSWORD_OFF: (
-        i18n.msg("account.password_sign_in_is_turned_off",
-                 "Password sign-in is turned off"),
-        i18n.msg("account.use_the_sign_in_button_above",
-                 "Use the Sign in button above.")),
 }
 
 INTERSTITIAL_IN = "in"
@@ -163,131 +113,12 @@ CONTINUE_TARGET_HOME = i18n.msg("nav.home", "Home")
 CONTINUE_TARGET_SIGN_IN = _SIGN_IN_TEXT
 
 
-def login_reveal_toggle_html():
-    """The show-password toggle. Server-rendered `hidden`, always —
-    a script-blocked browser never sees it (no-JS floor by
-    construction), and the form still submits normally. Glyph swaps
-    with state so appearance isn't carried by colour alone; both
-    labels/glyphs are server-escaped data-* attributes so no English
-    is hard-coded in the JS.
-    """
-    show_label = i18n.t(LOGIN_REVEAL_SHOW_LABEL)
-    return (
-        '<button type="button" class="copy-btn login-reveal" hidden '
-        'aria-pressed="false" aria-label="%s" title="%s" '
-        'data-login-reveal data-show-label="%s" data-hide-label="%s" '
-        'data-show-glyph="%s" data-hide-glyph="%s">'
-        '<span class="icon login-reveal__glyph" aria-hidden="true" '
-        'data-login-reveal-glyph>%s</span>'
-        "</button>" % (
-            layout.escape_html(show_label),
-            layout.escape_html(show_label),
-            layout.escape_html(show_label),
-            layout.escape_html(i18n.t(LOGIN_REVEAL_HIDE_LABEL)),
-            layout.escape_html(LOGIN_REVEAL_MASKED_GLYPH),
-            layout.escape_html(LOGIN_REVEAL_SHOWN_GLYPH),
-            layout.escape_html(LOGIN_REVEAL_MASKED_GLYPH))
-    )
-
-
-def login_body(error=None, lockout_seconds=None, next_route=None):
-    """The legacy-only login card's inner markup (the shared-password form
-    under the logo, title and purpose sentence). `next_route` rides a
-    hidden field so a failed login doesn't lose the destination. `error`
-    is already translated by the caller; this only escapes it, so
-    test_i18n.py's scanner can trace the literal at its one call site.
-    """
-    return _login_heading_html(LOGIN_EXPLANATION_TEXT) + login_form_html(
-        error=error, lockout_seconds=lockout_seconds, next_route=next_route)
-
-
 def _login_heading_html(explanation):
     return (
         # Decorative: the h1 beside it names the page.
         layout.logo_mark_html(40)
         + '<h1 class="page-title">SkyPane</h1>'
         + '<p class="text-body">%s</p>' % layout.escape_html(i18n.t(explanation)))
-
-
-def login_form_html(
-        error=None, lockout_seconds=None, next_route=None, autofocus=True,
-        submit_text=None, quiet_submit=False):
-    """The shared-password form. `aria-invalid="true"` fires only on
-    wrong-password, never on lockout (the typed value isn't what's wrong).
-    `autofocus` is dropped when another control owns the page's one
-    autofocus; `quiet_submit` swaps the accent fill for the quiet wash
-    when the password form is not the page's primary action.
-    """
-    # `if lockout_seconds:` (not `is not None`): a zero or absent
-    # figure never renders a lockout sentence, matching
-    # companion/static/login-card.js's own `remaining > 0` guard.
-    locked = bool(lockout_seconds)
-    if locked:
-        message = i18n.t(LOGIN_LOCKOUT_TEXT) % lockout_seconds
-    elif error:
-        message = error
-    else:
-        message = None
-
-    field_attrs = ""
-    if message is not None:
-        field_attrs += ' aria-describedby="%s"' % LOGIN_MESSAGE_ID
-    if message is not None and not locked:
-        field_attrs += ' aria-invalid="true"'
-    # During a lockout both controls are natively disabled. This is
-    # an affordance, never a boundary: companion/auth.py's
-    # LoginThrottle is re-consulted on every POST before the
-    # password is even looked at, so a visitor who re-enables these
-    # two elements in devtools gains nothing at all.
-    if locked:
-        field_attrs += " disabled"
-
-    # The live countdown's seed and template, server-computed and
-    # serialised here — never computed from a client clock.
-    form_attrs = ""
-    if locked:
-        form_attrs = (
-            ' data-lockout-seconds="%s" data-lockout-template="%s"'
-            ' data-lockout-token="%s"' % (
-                layout.escape_html(json.dumps(int(lockout_seconds))),
-                layout.escape_html(
-                    i18n.t(LOGIN_LOCKOUT_TEXT).replace(
-                        "%d", LOGIN_LOCKOUT_TEMPLATE_TOKEN)),
-                layout.escape_html(LOGIN_LOCKOUT_TEMPLATE_TOKEN)))
-
-    message_html = (
-        '<p id="%s" class="field-error text-label" role="alert">%s</p>'
-        % (LOGIN_MESSAGE_ID, layout.escape_html(message))
-    ) if message is not None else ""
-
-    next_field_html = (
-        '<input type="hidden" name="next" value="%s">'
-        % layout.escape_html(next_route)) if next_route else ""
-    submit_attrs = ' class="login-form__submit--quiet"' if quiet_submit else ""
-    if locked:
-        submit_attrs += " disabled"
-    return (
-        '<form method="post" action="%s" class="login-form"%s>'
-        "%s"
-        '<label for="password">%s</label>'
-        '<span class="login-form__field">'
-        '<input type="password" id="password" name="password" '
-        'class="login-form__input" '
-        'autocomplete="current-password"%s required%s>'
-        "%s"
-        "</span>"
-        "%s"
-        '<button type="submit"%s>%s</button>'
-        "</form>" % (
-            LOGIN_ROUTE, form_attrs, next_field_html,
-            layout.escape_html(i18n.t(_PASSWORD_TEXT)),
-            " autofocus" if autofocus else "",
-            field_attrs,
-            login_reveal_toggle_html(),
-            message_html,
-            submit_attrs,
-            layout.escape_html(i18n.t(submit_text or _SIGN_IN_TEXT)))
-    )
 
 
 def _sign_in_link_html(next_route):
@@ -302,45 +133,14 @@ def _sign_in_link_html(next_route):
         layout.escape_html(href), layout.escape_html(i18n.t(_SIGN_IN_TEXT)))
 
 
-def _legacy_block_html(error, lockout_seconds, next_route):
-    """The collapsed shared-password disclosure shown beside Auth0. It
-    opens by itself when it carries a wrong-password or lockout message
-    so that message is never hidden.
+def _login_card_html(next_route, auth0_enabled, notice):
+    """The card body. `notice` is an optional (title, detail) pair of
+    Messages rendered as the page's one docked error toast above the
+    primary action. Without Auth0 the card says sign-in is not configured
+    and offers no way to start a session.
     """
-    is_open = " open" if (error or lockout_seconds) else ""
-    return (
-        '<details class="login-legacy"%s>'
-        "<summary>"
-        '<span class="banner__pill">%s</span>'
-        '<span class="login-legacy__summary">%s</span>'
-        "</summary>"
-        "%s"
-        '<p class="login-legacy__helper text-label section-caption">%s</p>'
-        "</details>" % (
-            is_open,
-            layout.escape_html(i18n.t(_LEGACY_BADGE_TEXT)),
-            layout.escape_html(i18n.t(_LEGACY_SUMMARY_TEXT)),
-            login_form_html(
-                error=error, lockout_seconds=lockout_seconds,
-                next_route=next_route, autofocus=False,
-                submit_text=_LEGACY_SUBMIT_TEXT, quiet_submit=True),
-            layout.escape_html(i18n.t(_LEGACY_HELPER_TEXT)))
-    )
-
-
-def _login_card_html(
-        error, lockout_seconds, next_route, auth0_enabled, legacy_enabled, notice):
-    """The card body for every combination of the two sign-in methods.
-    `notice` is an optional (title, detail) pair of Messages rendered as
-    the page's one docked error toast above the primary action.
-    """
-    if not auth0_enabled and legacy_enabled and notice is None:
-        return login_body(
-            error=error, lockout_seconds=lockout_seconds, next_route=next_route)
-    explanation = (
-        LOGIN_EXPLANATION_AUTH0_TEXT if auth0_enabled else LOGIN_EXPLANATION_TEXT)
-    parts = [_login_heading_html(explanation)]
-    if not auth0_enabled and not legacy_enabled and notice is None:
+    parts = [_login_heading_html(LOGIN_EXPLANATION_AUTH0_TEXT)]
+    if not auth0_enabled and notice is None:
         notice = (_NOT_CONFIGURED_TEXT, None)
     if notice is not None:
         title, detail = notice
@@ -349,24 +149,15 @@ def _login_card_html(
             tone=layout.TOAST_TONE_ERROR, docked=True))
     if auth0_enabled:
         parts.append(_sign_in_link_html(next_route))
-        if legacy_enabled:
-            parts.append(_legacy_block_html(error, lockout_seconds, next_route))
-    elif legacy_enabled:
-        parts.append(login_form_html(
-            error=error, lockout_seconds=lockout_seconds, next_route=next_route))
     return "".join(parts)
 
 
-def render_login_page(
-        ui_theme, error=None, lockout_seconds=None, next_route=None, *,
-        auth0_enabled=False, legacy_enabled=True, notice=None):
-    body = _login_card_html(
-        error, lockout_seconds, next_route, auth0_enabled, legacy_enabled, notice)
+def render_login_page(ui_theme, next_route=None, *, auth0_enabled=False, notice=None):
+    body = _login_card_html(next_route, auth0_enabled, notice)
     return layout.login_shell(body, ui_theme=ui_theme)
 
 
-def sign_in_error_page(
-        kind, ui_theme, auth0_enabled=True, legacy_enabled=False, next_route=None):
+def sign_in_error_page(kind, ui_theme, auth0_enabled=True, next_route=None):
     """The login card with one generic, fixed-wording error toast. `kind`
     is a SIGN_IN_ERROR_* value; an unknown kind reads as the incomplete
     case, so no caller-supplied text can ever reach the page.
@@ -374,8 +165,7 @@ def sign_in_error_page(
     notice = _SIGN_IN_ERROR_TEXT.get(
         kind, _SIGN_IN_ERROR_TEXT[SIGN_IN_ERROR_INCOMPLETE])
     return render_login_page(
-        ui_theme, next_route=next_route, auth0_enabled=auth0_enabled,
-        legacy_enabled=legacy_enabled, notice=notice)
+        ui_theme, next_route=next_route, auth0_enabled=auth0_enabled, notice=notice)
 
 
 def not_invited_page(ui_theme):

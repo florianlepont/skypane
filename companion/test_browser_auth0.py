@@ -10,7 +10,6 @@ other host.
 import pytest
 
 from companion import auth
-from companion_app_server import TEST_PASSWORD
 
 pytestmark = pytest.mark.browser
 
@@ -96,25 +95,6 @@ def test_sign_out_ends_on_the_fixed_login_page(rig, new_context):
     page.goto(base + "/account")
     assert page.url == base + "/login"
     assert rig.fake.calls_to("/v2/logout")
-
-
-def test_legacy_block_is_collapsed_and_the_password_form_still_works(rig, new_context):
-    base = rig.server.base_url()
-    rig.server.apply_env({"SKYPANE_LEGACY_PASSWORD_LOGIN": "1"})
-    context = _context(new_context, base)
-    page = context.new_page()
-    page.goto(base + "/login")
-    assert page.locator("a.login-signin").is_visible()
-    legacy = page.locator("details.login-legacy")
-    assert legacy.get_attribute("open") is None
-    assert not page.locator("#password").is_visible()
-    legacy.locator("summary").click()
-    page.fill("#password", TEST_PASSWORD)
-    page.click("details.login-legacy button[type=submit]")
-    page.wait_for_url(base + "/")
-    assert len(_session_cookie(context)) == 1
-    page.goto(base + "/account")
-    assert "Administrator (legacy access)" in page.locator(".account-identity").inner_text()
 
 
 def test_uninvited_identity_gets_the_refusal_and_no_cookie(rig, new_context):

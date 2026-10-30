@@ -24,14 +24,14 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 # Mirrors companion/conftest.py's own bootstrap, so a direct import of this module outside
-# pytest still finds test-support (companion_app_server, for TEST_PASSWORD).
+# pytest still finds test-support (companion_app_server, for browser_login).
 _TEST_SUPPORT_DIR = os.path.join(REPO_ROOT, "test-support")
 if _TEST_SUPPORT_DIR not in sys.path:
     sys.path.insert(0, _TEST_SUPPORT_DIR)
 
 from companion import layout  # noqa: E402
 from companion.pages import config_page  # noqa: E402
-from companion_app_server import TEST_PASSWORD  # noqa: E402
+from companion_app_server import browser_login  # noqa: E402
 from server import device_config, history_db  # noqa: E402
 from server.plane import colour_rules, manual_resolutions  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
@@ -182,11 +182,8 @@ def seed_state_dir(state_dir, base_ts=SEED_BASE_TS):
 
 
 def _login(page, base_url):
-    """Drive the real login form through the UI and wait for the post-login redirect to land."""
-    page.goto(base_url + "/login")
-    page.fill("#password", TEST_PASSWORD)
-    page.click('button[type="submit"]')
-    page.wait_for_load_state("networkidle")
+    """Sign the page in with a session row written straight into the server's state directory."""
+    browser_login(page, base_url)
 
 
 @contextlib.contextmanager
@@ -213,10 +210,7 @@ def _no_js_page(make_context, base_url, route, viewport=None, sign_in=True,
             context.add_cookies(cookies)
         page = context.new_page()
         if sign_in:
-            page.goto(base_url + "/login")
-            page.fill("#password", TEST_PASSWORD)
-            page.click('button[type="submit"]')
-            page.wait_for_load_state("load")
+            browser_login(page, base_url)
         page.goto(base_url + route)
         yield page
     finally:

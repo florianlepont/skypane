@@ -1,4 +1,4 @@
-# The real production env file - holds SKYPANE_COMPANION_PASSWORD and the
+# The real production env file - holds the Auth0 client secret and the
 # rest of deploy/skypane.env.example's values. Created by hand on the VPS
 # only (deploy/README.md), never on a laptop, never committed.
 # Mirrors firmware/.gitignore's `main/secrets.h` rule - the ignore entry

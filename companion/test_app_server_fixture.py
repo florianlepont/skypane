@@ -7,29 +7,21 @@ plumbing, and the in-process variant.
 import os
 import textwrap
 import time
-import urllib.parse
 
 import companion_app_server
-from companion import auth
 from skypane_test_support import NO_NETWORK_ENV_VAR, TEST_SUPPORT_DIR
 
 
 def test_login_page_and_flow(app_server):
-    """GET /login returns 200; POST /login with TEST_PASSWORD returns 303
-    with a Set-Cookie; login(app_server) returns a non-empty cookie.
+    """GET /login returns 200; login(app_server) returns a cookie the
+    server accepts on a signed-in page.
     """
     status, _, _ = companion_app_server.get(app_server, "/login")
     assert status == 200
 
-    status, headers, _ = companion_app_server.http_request(
-        app_server.base_url() + "/login", method="POST",
-        data=urllib.parse.urlencode(
-            {"password": companion_app_server.TEST_PASSWORD}).encode())
-    assert status == 303
-    assert companion_app_server.cookie_value(headers)
-
     cookie = companion_app_server.login(app_server)
-    assert cookie
+    status, _, _ = companion_app_server.get(app_server, "/health", cookie=cookie)
+    assert status == 200
 
 
 def test_http_request_never_follows_redirects(app_server):
@@ -170,25 +162,24 @@ def test_make_app_server_seed_runs_before_start(make_app_server):
     assert seen == [server.state_dir]
 
 
-def test_app_server_in_process_serves_login_and_restores_password_env(tmp_path):
-    """app_server_in_process (exercised here via InProcessAppServer
-    directly, so a pre-existing env value can be planted before its
-    constructor runs) serves /login while it is up, and restores the
-    password env var to whatever it was before, once stopped.
+def test_app_server_in_process_serves_login_and_restores_auth0_env(tmp_path):
+    """InProcessAppServer sets a complete default Auth0 configuration while
+    it is up and restores the environment, whatever it was, once stopped.
     """
-    sentinel = "sentinel-password-should-be-restored"
-    os.environ[auth.PASSWORD_ENV_VAR] = sentinel
+    sentinel = "sentinel-domain-should-be-restored"
+    os.environ["SKYPANE_AUTH0_DOMAIN"] = sentinel
     try:
         server = companion_app_server.InProcessAppServer(str(tmp_path / "state"))
         try:
-            assert os.environ.get(auth.PASSWORD_ENV_VAR) == companion_app_server.TEST_PASSWORD
+            assert os.environ.get("SKYPANE_AUTH0_DOMAIN") == (
+                companion_app_server.DEFAULT_AUTH0_DOMAIN)
             status, _, _ = companion_app_server.get(server, "/login")
             assert status == 200
         finally:
             server.stop()
-        assert os.environ.get(auth.PASSWORD_ENV_VAR) == sentinel
+        assert os.environ.get("SKYPANE_AUTH0_DOMAIN") == sentinel
     finally:
-        os.environ.pop(auth.PASSWORD_ENV_VAR, None)
+        os.environ.pop("SKYPANE_AUTH0_DOMAIN", None)
 
 
 def test_app_server_in_process_fixture_serves_login(app_server_in_process):

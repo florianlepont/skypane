@@ -11,7 +11,7 @@ import sqlite3
 import urllib.parse
 
 from companion import app, auth, static_files
-from companion_app_server import TEST_PASSWORD, cookie_value, http_request, login
+from companion_app_server import http_request, login
 from server import fleet_db, fleet_sessions
 
 
@@ -42,12 +42,6 @@ def _seed_user_session(state_dir, role="user", disabled=False, token="seeded-tok
     return "sp_session=%s" % token, user_id
 
 
-def _post_login(server, cookie=None):
-    return http_request(
-        server.url("/login"), method="POST", cookie=cookie,
-        data=urllib.parse.urlencode({"password": TEST_PASSWORD}).encode())
-
-
 def test_cookie_is_opaque_and_only_its_hash_is_stored(app_server_in_process):
     server = app_server_in_process
     cookie = login(server)
@@ -57,70 +51,14 @@ def test_cookie_is_opaque_and_only_its_hash_is_stored(app_server_in_process):
     assert http_request(server.url("/health"), cookie=cookie)[0] == 200
 
 
-def test_login_rotates_the_session(app_server_in_process):
-    server = app_server_in_process
-    first = login(server)
-    _status, headers, _body = _post_login(server, cookie=first)
-    second = cookie_value(headers)
-    assert second != first
-    assert _session_hashes(server.state_dir) == {_hash(_token(second))}
-    assert http_request(server.url("/health"), cookie=first)[0] == 303
-    assert http_request(server.url("/health"), cookie=second)[0] == 200
-
-
 def test_logout_deletes_the_row_and_the_old_cookie_is_refused(app_server_in_process):
     server = app_server_in_process
     cookie = login(server)
     status, _headers, _body = http_request(
         server.url("/logout"), method="POST", data=b"", cookie=cookie,
         extra_headers={"Origin": server.base_url()})
-    assert status == 303
+    assert status == 200
     assert _session_hashes(server.state_dir) == set()
-    assert http_request(server.url("/health"), cookie=cookie)[0] == 303
-
-
-def test_turning_the_legacy_flag_off_refuses_an_existing_legacy_session(
-        app_server_in_process, monkeypatch):
-    server = app_server_in_process
-    cookie = login(server)
-    assert http_request(server.url("/health"), cookie=cookie)[0] == 200
-    monkeypatch.setenv(auth.LEGACY_LOGIN_ENV_VAR, "0")
-    assert http_request(server.url("/health"), cookie=cookie)[0] == 303
-
-
-def test_a_legacy_session_refused_while_the_flag_was_off_stays_gone(
-        app_server_in_process, monkeypatch):
-    server = app_server_in_process
-    cookie = login(server)
-    monkeypatch.setenv(auth.LEGACY_LOGIN_ENV_VAR, "0")
-    assert http_request(server.url("/health"), cookie=cookie)[0] == 303
-    assert _session_hashes(server.state_dir) == set()
-    monkeypatch.setenv(auth.LEGACY_LOGIN_ENV_VAR, "1")
-    assert http_request(server.url("/health"), cookie=cookie)[0] == 303
-
-
-def test_a_malformed_legacy_flag_does_not_delete_legacy_sessions(
-        app_server_in_process, monkeypatch):
-    server = app_server_in_process
-    cookie = login(server)
-    monkeypatch.setenv(auth.LEGACY_LOGIN_ENV_VAR, "maybe")
-    assert http_request(server.url("/health"), cookie=cookie)[0] == 303
-    monkeypatch.setenv(auth.LEGACY_LOGIN_ENV_VAR, "1")
-    assert http_request(server.url("/health"), cookie=cookie)[0] == 200
-
-
-def test_a_password_change_does_not_end_a_legacy_session(
-        app_server_in_process, monkeypatch):
-    server = app_server_in_process
-    cookie = login(server)
-    monkeypatch.setenv(auth.PASSWORD_ENV_VAR, "a-new-shared-password")
-    assert http_request(server.url("/health"), cookie=cookie)[0] == 200
-
-
-def test_a_malformed_legacy_flag_fails_closed(app_server_in_process, monkeypatch):
-    server = app_server_in_process
-    cookie = login(server)
-    monkeypatch.setenv(auth.LEGACY_LOGIN_ENV_VAR, "maybe")
     assert http_request(server.url("/health"), cookie=cookie)[0] == 303
 
 
@@ -161,8 +99,7 @@ def test_expired_and_idle_sessions_are_refused(app_server_in_process, monkeypatc
 
 
 def test_set_cookie_attributes(app_server_in_process):
-    _status, headers, _body = _post_login(app_server_in_process)
-    attributes = [part.strip() for part in headers["Set-Cookie"].split(";")]
+    attributes = [part.strip() for part in auth.session_set_cookie_header("tok").split(";")]
     assert attributes[0].startswith("sp_session=")
     assert "HttpOnly" in attributes
     assert "SameSite=Strict" in attributes
@@ -181,7 +118,7 @@ def test_an_unreadable_fleet_db_answers_503_on_gated_routes_only(app_server_in_p
         assert "Location" not in headers
     status, _headers, body = http_request(server.url("/login"), cookie=cookie)
     assert status == 200
-    assert b"password" in body.lower()
+    assert b"/login/auth0" in body
 
 
 def test_a_static_asset_request_does_not_create_fleet_db(app_server_in_process):

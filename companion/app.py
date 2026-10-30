@@ -13,8 +13,8 @@ because Caddy is the only intended client.
 Never writes the poll pipeline's own persisted flight-state file —
 `server.poll_cycle.run_once()` is that file's one legitimate writer.
 
-`main()` fails closed on a missing password rather than starting with
-auth silently disabled.
+`main()` fails closed on an incomplete Auth0 configuration rather than
+starting with sign-in silently unavailable.
 """
 import os
 import sqlite3
@@ -112,7 +112,6 @@ TOAST_SCRIPT_ROUTE = static_files.TOAST_SCRIPT_ROUTE
 POLL_COOLDOWN_SCRIPT_ROUTE = static_files.POLL_COOLDOWN_SCRIPT_ROUTE
 CONFIRM_SUBMIT_SCRIPT_ROUTE = static_files.CONFIRM_SUBMIT_SCRIPT_ROUTE
 THEME_PREVIEW_SCRIPT_ROUTE = static_files.THEME_PREVIEW_SCRIPT_ROUTE
-LOGIN_CARD_SCRIPT_ROUTE = static_files.LOGIN_CARD_SCRIPT_ROUTE
 SUBMIT_GUARD_SCRIPT_ROUTE = static_files.SUBMIT_GUARD_SCRIPT_ROUTE
 RELATIVE_TIME_SCRIPT_ROUTE = static_files.RELATIVE_TIME_SCRIPT_ROUTE
 QUICK_SWITCH_SCRIPT_ROUTE = static_files.QUICK_SWITCH_SCRIPT_ROUTE
@@ -251,12 +250,6 @@ _if_none_match_matches = static_files.if_none_match_matches
 _not_modified = static_files.not_modified
 
 
-# Process-global, not per-session: keyed per client IP and bounded, so
-# failed logins from one address never lock another.
-LOGIN_THROTTLE = auth.LoginThrottle()
-# The name the shared-password principal carries in audit lines.
-LEGACY_PRINCIPAL_NAME = "legacy-admin"
-
 # The in-process poll guard is per device directory
 # (`device_scope.poll_lock_for()`); cross-process exclusion is
 # poll_cycle.poll_cycle_lock()'s poll.lock, taken inside run_once().
@@ -266,12 +259,6 @@ LEGACY_PRINCIPAL_NAME = "legacy-admin"
 # drift from the nav's own and this module never registers a second
 # Message for the same id.
 _PAGE_TITLES = dict(layout.NAV_TABS)
-
-# The literal call-site translation _handle_login_post() below needs —
-# see that method's own comment for why it cannot go through a
-# constant `login_page` would otherwise own.
-_INCORRECT_PASSWORD_TEXT = i18n.msg(
-    "common.incorrect_password_try_again", "Incorrect password. Try again.")
 
 # Each tab's own extra scripts, on top of layout.GLOBAL_PAGE_SCRIPTS
 # (present on every authenticated page regardless). One tuple per
@@ -565,17 +552,10 @@ class Handler(
     def _next_route_of(self, candidate):
         return _validated_next_route(candidate)
 
-    def _legacy_login_on(self):
-        try:
-            return auth.legacy_login_enabled(os.environ)
-        except ValueError:
-            return False
-
     def _resolve_principal(self):
         """The Principal behind this request's session cookie, or None.
         Role, disabled state and expiry are read fresh from fleet.db every
-        time; a legacy-admin session is also re-checked against the
-        legacy-login flag, so switching the flag off ends it at once.
+        time; the session store never returns a legacy-admin row.
         """
         token = auth.parse_cookies(self.headers.get("Cookie")).get(auth.SESSION_COOKIE_NAME)
         if not token:
@@ -584,25 +564,7 @@ class Handler(
             self._fleet_conn(), auth.hash_session_token(token), _now())
         if record is None:
             return None
-        if record.principal == fleet_sessions.PRINCIPAL_LEGACY_ADMIN:
-            if not self._legacy_login_on():
-                self._drop_legacy_session_if_switched_off(token)
-                return None
-            return access.Principal(access.KIND_LEGACY_ADMIN, None, None, access.ADMIN)
         return access.Principal(access.KIND_USER, record.user_id, record.email, record.role)
-
-    def _drop_legacy_session_if_switched_off(self, token):
-        """Delete a legacy-admin session row when the legacy-login flag is
-        cleanly off, so switching it back on does not revive old sessions.
-        A malformed flag only fails closed and deletes nothing. Needs a
-        writable store; on a read-only one the row stays.
-        """
-        try:
-            if auth.legacy_login_enabled(os.environ):
-                return
-        except ValueError:
-            return
-        fleet_sessions.discard_session(self._fleet_conn(), auth.hash_session_token(token))
 
     def _principal(self):
         """Cached per request; reset at the top of `_dispatch()`. Raises
@@ -625,8 +587,6 @@ class Handler(
         """Tell the page shell who is signed in."""
         if principal is None:
             prefs.set_request_principal(None)
-        elif principal.kind == access.KIND_LEGACY_ADMIN:
-            prefs.set_request_principal(access.KIND_LEGACY_ADMIN, principal.role)
         else:
             prefs.set_request_principal(principal.role, principal.role)
 
@@ -779,14 +739,13 @@ class Handler(
         prefs.set_request_prefs(lang=self._lang_from_request())
         return login_page.unavailable_page(self._resolved_ui_theme())
 
-    def _render_login_page(self, error=None, lockout_seconds=None, next_route=None):
+    def _render_login_page(self, next_route=None):
         # Pre-session, like _not_found_page() above. The markup itself is
-        # companion/login_page.py's render_login_page()/login_body().
+        # companion/login_page.py's render_login_page().
         prefs.set_request_prefs(lang=self._lang_from_request())
         return login_page.render_login_page(
-            self._resolved_ui_theme(), error=error, lockout_seconds=lockout_seconds,
-            next_route=next_route, auth0_enabled=self._auth0_enabled(),
-            legacy_enabled=self._legacy_login_on())
+            self._resolved_ui_theme(), next_route=next_route,
+            auth0_enabled=self._auth0_enabled())
 
     def _serve_static(self, abs_path, content_type, cache_control):
         """Shared body behind `_serve_static_route()` and
@@ -1008,66 +967,12 @@ class Handler(
         return self._dispatch_for_device(route, route_match)
 
     def _login_throttle_key(self):
-        """The one place this handler derives a LoginThrottle bucket key,
-        so every LOGIN_THROTTLE call site below uses the identical
-        derivation (`auth.login_throttle_key()`, trusting
-        X-Forwarded-For only from a loopback peer — Caddy in
-        production).
+        """The one place this handler derives a sign-in throttle bucket key
+        (`sign_in.START_THROTTLE`) with `auth.login_throttle_key()`, trusting
+        X-Forwarded-For only from a loopback peer (Caddy in production).
         """
         return auth.login_throttle_key(
             self.client_address[0], self.headers.get("X-Forwarded-For"))
-
-    def _handle_login_post(self):
-        # With the shared password switched off nothing below runs: the
-        # form body is not read, the password is not compared and the
-        # throttle is not touched.
-        if not self._legacy_login_on():
-            return self.send_html(403, login_page.sign_in_error_page(
-                login_page.SIGN_IN_ERROR_PASSWORD_OFF, self._pre_session_theme(),
-                auth0_enabled=self._auth0_enabled(), legacy_enabled=False))
-        # Read and validate `next` before the lockout/password checks so
-        # it survives every branch below (lockout, incorrect password,
-        # and success) — a failed attempt must not lose the
-        # originally-requested destination.
-        form = self.read_form()
-        next_route = _validated_next_route(form.get("next"))
-        throttle_key = self._login_throttle_key()
-        if LOGIN_THROTTLE.locked_out(throttle_key):
-            remaining = LOGIN_THROTTLE.seconds_remaining(throttle_key)
-            return self.send_html(429, self._render_login_page(
-                lockout_seconds=remaining, next_route=next_route))
-        submitted = form.get("password", "")
-        if auth.password_ok(submitted):
-            LOGIN_THROTTLE.record_success(throttle_key)
-            print("companion: legacy_login_success principal=%s bucket=%s" % (
-                LEGACY_PRINCIPAL_NAME, throttle_key))
-            return self._start_legacy_session(next_route or HOME_ROUTE)
-        LOGIN_THROTTLE.record_failure(throttle_key)
-        if LOGIN_THROTTLE.locked_out(throttle_key):
-            print("companion: legacy_login_lockout principal=%s bucket=%s" % (
-                LEGACY_PRINCIPAL_NAME, throttle_key))
-        return self.send_html(401, self._render_login_page(
-            # Translated here, at the call site — see login_page.py's
-            # own login_body() docstring for why (`error` is an opaque
-            # parameter by the time it reaches that function).
-            error=i18n.t(_INCORRECT_PASSWORD_TEXT), next_route=next_route))
-
-    def _start_legacy_session(self, destination):
-        """Create a legacy-admin session row under a fresh token, dropping
-        the session whose cookie accompanied this login (rotation), and
-        redirect to `destination` with the new cookie.
-        """
-        old = auth.parse_cookies(self.headers.get("Cookie")).get(auth.SESSION_COOKIE_NAME)
-        token = auth.new_session_token()
-        try:
-            fleet_sessions.create_session(
-                self._fleet_conn(), auth.hash_session_token(token),
-                user_id=None, principal=fleet_sessions.PRINCIPAL_LEGACY_ADMIN,
-                now=_now(), replace_hash=auth.hash_session_token(old) if old else None)
-        except _STORE_ERRORS:
-            return self.send_html(503, self._unavailable_page())
-        return self.redirect(
-            destination, set_cookie=auth.session_set_cookie_header(token))
 
     def _handle_settings_post(self, device):
         """POST /settings for `device`. Re-renders the scoped page at 200

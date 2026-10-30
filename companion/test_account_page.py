@@ -9,7 +9,7 @@ import urllib.parse
 import pytest
 
 from companion import app, routes
-from companion_app_server import http_request, login
+from companion_app_server import http_request
 from server import fleet_db, fleet_sessions
 
 _THEME_RESPONSES = ("/ui-theme", "/ui-lang")
@@ -68,19 +68,11 @@ def test_user_sees_the_account_page_with_email_and_role(server, user_cookie):
     assert 'action="/logout"' in body
 
 
-def test_admin_and_legacy_admin_can_open_account(server, admin_cookie):
+def test_admin_can_open_account(server, admin_cookie):
     status, _headers, body = _get(server, "/account", admin_cookie)
     assert status == 200
     assert ">Administrator<" in body
-    legacy = login(server)
-    status, _headers, body = _get(server, "/account", legacy)
-    assert status == 200
-    assert "Administrator (legacy access)" in body
-    assert "banner__pill" in body
-
-
-def test_user_page_has_no_legacy_pill(server, user_cookie):
-    assert "banner__pill" not in _get(server, "/account", user_cookie)[2]
+    assert "banner__pill" not in body
 
 
 def test_anonymous_account_redirects_to_bare_login(server):

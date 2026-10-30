@@ -233,7 +233,8 @@ def test_env_example_documents_auth0_variables_with_placeholders():
     assert active["SKYPANE_AUTH0_CLIENT_ID"].startswith("<")
     assert active["SKYPANE_AUTH0_CLIENT_SECRET"].startswith("<")
     text = _ENV_EXAMPLE.read_text()
-    assert "SKYPANE_LEGACY_PASSWORD_LOGIN" in text
+    assert "SKYPANE_LEGACY_PASSWORD_LOGIN" not in text
+    assert "SKYPANE_COMPANION_PASSWORD" not in text
     assert "SKYPANE_COMPANION_PUBLIC_URL" in text
 
 

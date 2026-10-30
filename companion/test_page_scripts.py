@@ -188,11 +188,10 @@ def test_authenticated_404_carries_exactly_the_global_set(servers):
         "GLOBAL_PAGE_SCRIPTS, got %r" % (sorted(set(srcs)),))
 
 
-def test_login_page_carries_exactly_login_card_js(servers):
+def test_login_page_carries_no_script(servers):
     server = servers["empty"]
     status, _headers, body = get(server, "/login")
     assert status == 200, "expected 200 from /login, got %d" % status
     doc = parse_html(body.decode("utf-8"))
     srcs = _script_srcs(doc)
-    assert srcs == [layout.LOGIN_CARD_SCRIPT_SRC], (
-        "expected /login to carry exactly [LOGIN_CARD_SCRIPT_SRC], got %r" % (srcs,))
+    assert srcs == [], "expected /login to carry no script, got %r" % (srcs,)

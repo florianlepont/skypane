@@ -81,3 +81,4 @@ Status 2026-10-30: items 1 to 6 are done in production (deploy `af9e8521` at 20:
 4. **Playwright in this sandbox.** The repo's Playwright expects
    `chromium_headless_shell-1248` while 1243 is installed here; a symlink
    outside the repo fixed it locally. CI is unaffected.
+5. **Shared-password path removed (2026-10-30).** Auth0 is the only sign-in and a complete Auth0 configuration is required at startup; the sessions schema step (removal task step 5) was left undone on purpose.

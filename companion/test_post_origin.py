@@ -166,19 +166,11 @@ def test_cross_site_origin_rejected_before_routing_on_unknown_path(origin_server
     assert status == 403
 
 
-def test_login_with_correct_password_and_cross_site_origin_is_rejected(origin_server):
-    body = urllib.parse.urlencode({"password": companion_app_server.TEST_PASSWORD}).encode()
+def test_a_cross_site_origin_is_rejected_on_the_login_path(origin_server):
     status, headers, _ = _post(
-        origin_server.url(app.LOGIN_ROUTE), headers={"Origin": EVIL_ORIGIN}, data=body)
+        origin_server.url(app.LOGIN_ROUTE), headers={"Origin": EVIL_ORIGIN}, data=b"x=1")
     assert status == 403
     assert companion_app_server.cookie_value(headers) is None
-
-
-def test_login_with_no_origin_or_fetch_metadata_behaves_as_before(origin_server):
-    body = urllib.parse.urlencode({"password": companion_app_server.TEST_PASSWORD}).encode()
-    status, headers, _ = _post(origin_server.url(app.LOGIN_ROUTE), data=body)
-    assert status == 303
-    assert companion_app_server.cookie_value(headers) is not None
 
 
 def test_403_body_is_an_html_page_with_no_store(origin_server):
@@ -199,13 +191,7 @@ def _read_bytes_or_none(path):
 
 
 def test_quick_switch_cross_site_rejected_then_same_origin_applied(app_server):
-    login_status, login_headers, _ = _post(
-        app_server.url(app.LOGIN_ROUTE),
-        data=urllib.parse.urlencode(
-            {"password": companion_app_server.TEST_PASSWORD}).encode())
-    assert login_status == 303
-    cookie = companion_app_server.cookie_value(login_headers)
-    assert cookie
+    cookie = companion_app_server.login(app_server)
 
     config_path = device_config.device_config_path(app_server.state_dir)
     before = _read_bytes_or_none(config_path)

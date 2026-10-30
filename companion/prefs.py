@@ -33,10 +33,10 @@ def current_lang():
 # The signed-in principal's (kind, role) for this request, or None when no
 # principal has been established (every pre-sign-in page, and any caller
 # that never sets one). Shell rendering reads it to pick the user-role
-# navigation and the legacy-access flag.
+# navigation.
 _PRINCIPAL_CTX = contextvars.ContextVar("skypane_principal", default=None)
 
-PRINCIPAL_KINDS = ("user", "admin", "legacy-admin")
+PRINCIPAL_KINDS = ("user", "admin")
 
 
 def set_request_principal(kind=None, role=None):

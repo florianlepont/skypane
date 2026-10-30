@@ -17,7 +17,6 @@ from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_PHONE, _assert_hit_target, _assert_no_page_overflow,
     _in_both_themes, _login, _no_js_page,
 )
-from companion_app_server import TEST_PASSWORD
 from server.plane import calendar_rules
 
 pytestmark = pytest.mark.browser
@@ -321,6 +320,5 @@ def test_a_signed_out_post_never_reaches_the_connection(new_context, server):
             max_redirects=0)
         assert response.status == 303 and response.headers["location"] == "/login"
         assert not calendar_rules.calendar_is_configured(server.state_dir)
-        assert TEST_PASSWORD
     finally:
         context.close()

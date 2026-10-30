@@ -154,8 +154,8 @@ def _build_fake(base_url):
 
 @pytest.fixture
 def auth0_rig(tmp_path):
-    """An in-process companion pointed at a loopback fake Auth0 (legacy
-    password login left at its default). Function-scoped.
+    """An in-process companion pointed at a loopback fake Auth0.
+    Function-scoped.
     """
     server = companion_app_server.InProcessAppServer(str(tmp_path / "state"))
     fake = _build_fake(server.base_url())
