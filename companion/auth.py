@@ -1,13 +1,11 @@
-"""The shared-password session gate for the SkyPane companion service.
+"""Password, cookie and login-throttle helpers for the SkyPane companion
+service. Stdlib-only: must never import Pillow, sqlite3, or anything under
+server/.
 
-No per-user accounts. Stdlib-only — must never import Pillow, sqlite3,
-or anything under server/.
-
-Session tokens are stateless: `expiry.signature`, HMAC-SHA256 keyed by
-a signing key *derived* from the password (`_signing_key()`), never the
-raw password — a leaked pair is not an offline password oracle. The
-in-memory revocation set below is the one stateful exception: pruned by
-expiry, lost on restart.
+A session is an opaque random token. The cookie carries the token and only
+its sha256 is stored server-side (server/fleet_sessions.py), so the shared
+password derives nothing: a session outlives a restart or a password change,
+and no value computed from the password is ever accepted as a session.
 """
 import collections
 import hashlib
@@ -21,7 +19,6 @@ from http.cookies import SimpleCookie
 from urllib.parse import urlsplit
 
 PASSWORD_ENV_VAR = "SKYPANE_COMPANION_PASSWORD"
-SESSION_TTL_S = 12 * 3600
 SESSION_COOKIE_NAME = "sp_session"
 OIDC_COOKIE_NAME = "sp_oidc"
 OIDC_COOKIE_MAX_AGE_S = 600
@@ -35,74 +32,6 @@ UI_LANG_COOKIE_NAME = "sp_ui_lang"
 LOGIN_FAILURE_LIMIT = 5
 LOGIN_LOCKOUT_S = 300
 INSECURE_COOKIES_ENV_VAR = "SKYPANE_COMPANION_INSECURE_COOKIES"
-
-# Never leaves this process. Mixed into the signing key so a leaked
-# (expiry, signature) pair cannot brute-force the password offline. A
-# process restart regenerates it, invalidating every outstanding session.
-_PROCESS_SALT = secrets.token_bytes(32)
-
-
-def _signing_key():
-    """HMAC-as-KDF over the shared password and the process salt —
-    deriving rather than reusing the password directly makes a leaked
-    signature useless for guessing it offline.
-    """
-    return hmac.new(
-        configured_password(), _PROCESS_SALT, hashlib.sha256).digest()
-
-
-# The Sign out revocation set. Maps a presented token string to its own
-# embedded expiry (an int), so pruning never needs to touch auth.py's
-# other stateless machinery. Guarded by _REVOKED_LOCK, mirroring
-# companion/app.py's own _POLL_LOCK precedent for a lock around small
-# shared mutable state under ThreadingHTTPServer.
-_REVOKED = {}
-_REVOKED_LOCK = threading.Lock()
-
-
-def _prune_revoked_locked():
-    """Drop every revoked entry whose embedded expiry has already
-    passed. Caller must hold _REVOKED_LOCK."""
-    now = time.time_ns()
-    expired = [token for token, expiry in _REVOKED.items() if expiry <= now]
-    for token in expired:
-        del _REVOKED[token]
-
-
-def revoke(token):
-    """Add `token` to the revocation set, pruning expired entries on
-    the way in so the set stays bounded. A malformed or already-expired
-    token is ignored (not stored, never raises) — there is nothing
-    useful to revoke once a token can no longer verify anyway.
-
-    `token`'s embedded expiry is a nanosecond timestamp, matching
-    issue_session_token()'s field (see that function's docstring).
-    """
-    if not isinstance(token, str) or "." not in token:
-        return
-    expiry_str, _signature = token.split(".", 1)
-    try:
-        expiry = int(expiry_str)
-    except ValueError:
-        return
-    with _REVOKED_LOCK:
-        _prune_revoked_locked()
-        if expiry > time.time_ns():
-            _REVOKED[token] = expiry
-
-
-def is_revoked(token):
-    """True if `token` is in the revocation set. Prunes expired entries
-    first, so a revoked-but-since-expired token correctly stops
-    counting against the set's bound. Returns False for a non-string or
-    empty token rather than raising.
-    """
-    if not isinstance(token, str) or not token:
-        return False
-    with _REVOKED_LOCK:
-        _prune_revoked_locked()
-        return token in _REVOKED
-
 
 class AuthNotConfigured(RuntimeError):
     """Raised when PASSWORD_ENV_VAR is unset or empty — fails closed
@@ -135,46 +64,6 @@ def password_ok(submitted):
     if not isinstance(submitted, str):
         submitted = ""
     return hmac.compare_digest(submitted.encode(), configured_password())
-
-
-def issue_session_token():
-    """Build and sign a fresh session token: "<expiry>.<hex signature>".
-    `expiry` is nanosecond-resolution: at second resolution, two logins
-    in the same second would share a token, so revoking one on Sign out
-    would silently revoke the other too.
-    """
-    expiry = str(time.time_ns() + SESSION_TTL_S * 1_000_000_000)
-    signature = hmac.new(
-        _signing_key(), expiry.encode(), hashlib.sha256).hexdigest()
-    return "%s.%s" % (expiry, signature)
-
-
-def verify_session_token(value):
-    """Return True only for a token this server issued and that has not
-    expired. Never raises — every malformed shape (non-string, missing
-    separator, wrong signature, non-integer expiry) returns False, and
-    the caller is never told which check failed.
-
-    The signature is verified *before* the expiry field is parsed, so a
-    forged or truncated token cannot influence control flow through its
-    own payload.
-    """
-    if not isinstance(value, str) or "." not in value:
-        return False
-    expiry_str, signature = value.split(".", 1)
-    try:
-        secret = _signing_key()
-    except AuthNotConfigured:
-        return False
-    expected_signature = hmac.new(
-        secret, expiry_str.encode(), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(signature, expected_signature):
-        return False
-    try:
-        expiry = int(expiry_str)
-    except ValueError:
-        return False
-    return expiry > time.time_ns()
 
 
 def new_session_token():

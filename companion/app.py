@@ -31,8 +31,9 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from companion import (  # noqa: E402
-    access, auth, flash, freshness, i18n, illustration_normalize, layout, login_page, oidc,
-    page_context, post_actions, prefs, request_body, routes, sign_in, static_files, theme_preview)
+    access, auth, flash, freshness, i18n, illustration_normalize, layout, login_page,
+    page_context, post_actions, prefs, request_body, routes, sign_in, sign_in_config,
+    static_files, theme_preview)
 from companion.pages import (  # noqa: E402
     # airlines_page is unused by this module's own code; kept so
     # companion/test_post_origin.py's app.airlines_page.* route reads
@@ -1451,40 +1452,11 @@ def build_parser():
     return parser
 
 
-class SignInConfigError(Exception):
-    """The environment leaves no safe sign-in setup; names variables only."""
-
-
-def validate_sign_in_config(environ):
-    """Refuse a configuration that would silently enable, or silently lose,
-    a login method. The shared password is required only while its switch
-    is on; the Auth0 variables are all-or-nothing; at least one method must
-    remain. Messages name variables, never values.
-    """
-    try:
-        legacy_on = auth.legacy_login_enabled(environ)
-    except ValueError as exc:
-        raise SignInConfigError(str(exc)) from None
-    if legacy_on:
-        try:
-            auth.configured_password(environ)
-        except auth.AuthNotConfigured as exc:
-            raise SignInConfigError(str(exc)) from None
-    try:
-        auth0 = oidc.Auth0Config.from_env(environ)
-    except oidc.Auth0ConfigError as exc:
-        raise SignInConfigError(str(exc)) from None
-    if not legacy_on and auth0 is None:
-        raise SignInConfigError(
-            "no sign-in method is configured: set the SKYPANE_AUTH0_* "
-            "variables or enable %s" % auth.LEGACY_LOGIN_ENV_VAR)
-
-
 def main():
     args = build_parser().parse_args()
     try:
-        validate_sign_in_config(os.environ)
-    except SignInConfigError as exc:
+        sign_in_config.validate_sign_in_config(os.environ)
+    except sign_in_config.SignInConfigError as exc:
         print("companion: %s" % exc, file=sys.stderr)
         sys.exit(1)
     try:
