@@ -140,11 +140,11 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
-- [ ] 50-01-PLAN.md — Capture legacy reference constants from unmodified BYOS; legacy regression and junk-header tests
-- [ ] 50-02-PLAN.md — Canonical server/image_container.py, golden fixtures, manifest, generator, Python tests
-- [ ] 50-03-PLAN.md — Pure-C reference reader, host test over shared fixtures, runner fixture dir
-- [ ] 50-04-PLAN.md — BYOS X-Img-Fmt negotiation (import of canonical encoder), announce and no-state-effect tests
-- [ ] 50-05-PLAN.md — docs/IMAGE-FORMAT.md, README pointer, phase gates, Phase 50 close-out via GSD tooling
+- [x] 50-01-PLAN.md — Capture legacy reference constants from unmodified BYOS; legacy regression and junk-header tests
+- [x] 50-02-PLAN.md — Canonical server/image_container.py, golden fixtures, manifest, generator, Python tests
+- [x] 50-03-PLAN.md — Pure-C reference reader, host test over shared fixtures, runner fixture dir
+- [x] 50-04-PLAN.md — BYOS X-Img-Fmt negotiation (import of canonical encoder), announce and no-state-effect tests
+- [x] 50-05-PLAN.md — docs/IMAGE-FORMAT.md, README pointer, phase gates, Phase 50 close-out via GSD tooling
 
 ### Phase 51: Per-Device Config, Image and State
 
@@ -274,7 +274,7 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 48. Fleet Data Model, Roles and Live-Frame Migration | v1.2 | 8/8 | Complete   | 2026-10-29 |
 | 49. Per-Hardware OTA Registry | v1.2 | 11/11 | Human verification pending (OTA-03 bench check deferred) | - |
-| 50. Common Image Format | v1.2 | 0/0 | Not started | - |
+| 50. Common Image Format | v1.2 | 5/5 | In Progress|  |
 | 51. Per-Device Config, Image and State | v1.2 | 0/0 | Not started | - |
 | 52. Fleet Poll Cycle, Zones and Request Budget | v1.2 | 0/0 | Not started | - |
 | 53. Detection Modes | v1.2 | 0/0 | Not started | - |
