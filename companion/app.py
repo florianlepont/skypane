@@ -32,7 +32,7 @@ if _REPO_ROOT not in sys.path:
 
 from companion import (  # noqa: E402
     access, auth, flash, freshness, i18n, illustration_normalize, layout, login_page, page_context,
-    post_actions, prefs, request_body, routes, static_files, theme_preview)
+    post_actions, prefs, request_body, routes, sign_in, static_files, theme_preview)
 from companion.pages import (  # noqa: E402
     # airlines_page is unused by this module's own code; kept so
     # companion/test_post_origin.py's app.airlines_page.* route reads
@@ -447,7 +447,8 @@ parse_single_uploaded_file = post_actions.parse_single_uploaded_file
 # page_context.build_page_context().
 
 
-class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
+class Handler(
+        sign_in.SignInMixin, post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
     server_version = "skypane-companion"
     args = None
     # socketserver.StreamRequestHandler honours this attribute, so a
@@ -470,12 +471,13 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         self.send_header("Referrer-Policy", "same-origin")
         self.send_header("Content-Security-Policy", CONTENT_SECURITY_POLICY)
 
-    def send_html(self, code, html_str, etag=None):
+    def send_html(self, code, html_str, etag=None, set_cookies=()):
         """`etag` (default `None`) is a change TOKEN, never a cache
         freshness signal - it rides alongside `Cache-Control: no-store`
         below, always, so it can only ever be used for the freshness
         tick's own conditional GET (`_render_tab()`), never to let a
-        shared cache or the back button replay a stale page.
+        shared cache or the back button replay a stale page. Each entry
+        of `set_cookies` becomes its own Set-Cookie header.
         """
         body = html_str.encode("utf-8")
         self.send_response(code)
@@ -487,6 +489,8 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         if etag is not None:
             self.send_header("ETag", etag)
+        for cookie in set_cookies:
+            self.send_header("Set-Cookie", cookie)
         self._send_hardening_headers()
         self.end_headers()
         self.wfile.write(body)
@@ -571,6 +575,12 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         conn, self._fleet = self._fleet, None
         if conn is not None:
             conn.close()
+
+    def _clock(self):
+        return _now()
+
+    def _next_route_of(self, candidate):
+        return _validated_next_route(candidate)
 
     def _legacy_login_on(self):
         try:
@@ -759,7 +769,8 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         prefs.set_request_prefs(lang=self._lang_from_request())
         return login_page.render_login_page(
             self._resolved_ui_theme(), error=error, lockout_seconds=lockout_seconds,
-            next_route=next_route)
+            next_route=next_route, auth0_enabled=self._auth0_enabled(),
+            legacy_enabled=self._legacy_login_on())
 
     def _serve_static(self, abs_path, content_type, cache_control):
         """Shared body behind `_serve_static_route()` and
@@ -976,21 +987,6 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         next_route = _validated_next_route(
             parse_qs(urlsplit(self.path).query).get("next", [None])[0])
         return self.send_html(200, self._render_login_page(next_route=next_route))
-
-    def _handle_logout_post(self):
-        """POST LOGOUT_ROUTE: deletes the session row first, so replaying
-        the old cookie value stops working, then clears the cookie. A
-        store error answers 503 and leaves the cookie alone rather than
-        pretending the session ended.
-        """
-        token = auth.parse_cookies(self.headers.get("Cookie")).get(auth.SESSION_COOKIE_NAME)
-        if token:
-            try:
-                fleet_sessions.delete_session(
-                    self._fleet_conn(), auth.hash_session_token(token))
-            except _STORE_ERRORS:
-                return self.send_html(503, self._unavailable_page())
-        return self.redirect(LOGIN_ROUTE, set_cookie=auth.logout_set_cookie_header())
 
     def _handle_rule_delete_post(self, middle):
         """POST RULES_DELETE_ROUTE_PREFIX/{kind}/{value}/RULES_DELETE_ROUTE_SUFFIX:

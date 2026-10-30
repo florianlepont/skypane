@@ -23,6 +23,8 @@ from urllib.parse import urlsplit
 PASSWORD_ENV_VAR = "SKYPANE_COMPANION_PASSWORD"
 SESSION_TTL_S = 12 * 3600
 SESSION_COOKIE_NAME = "sp_session"
+OIDC_COOKIE_NAME = "sp_oidc"
+OIDC_COOKIE_MAX_AGE_S = 600
 # Server-side sessions live 30 days at most; the cookie matches that.
 SESSION_COOKIE_MAX_AGE_S = 30 * 86400
 LEGACY_LOGIN_ENV_VAR = "SKYPANE_LEGACY_PASSWORD_LOGIN"
@@ -233,6 +235,25 @@ def logout_set_cookie_header():
     return (
         "%s=; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=0"
         % (SESSION_COOKIE_NAME, secure_cookie_flag()))
+
+
+def oidc_attempt_set_cookie_header(attempt_id):
+    """Set-Cookie value for the pre-login cookie that ties the browser to a
+    started sign-in. SameSite=Lax is required: the callback is a
+    cross-site top-level navigation from the identity provider, and Strict
+    would withhold the cookie. It carries only an opaque attempt id and is
+    sent to /callback alone.
+    """
+    return (
+        "%s=%s; HttpOnly%s; SameSite=Lax; Path=/callback; Max-Age=%d"
+        % (OIDC_COOKIE_NAME, attempt_id, secure_cookie_flag(), OIDC_COOKIE_MAX_AGE_S))
+
+
+def oidc_attempt_clear_cookie_header():
+    """Set-Cookie value that expires the pre-login cookie."""
+    return (
+        "%s=; HttpOnly%s; SameSite=Lax; Path=/callback; Max-Age=0"
+        % (OIDC_COOKIE_NAME, secure_cookie_flag()))
 
 
 def parse_cookies(header_value):

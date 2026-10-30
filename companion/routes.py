@@ -15,7 +15,7 @@ both off, byte for byte the same arithmetic the pre-table if-chains
 used. `access` is a validated `Access(min_role, device_arg)`: a Route
 cannot be constructed without one (default-deny). PUBLIC is the one place
 this whole app grants pre-session access; the only routes with it are
-GET/POST /login and the static assets in `companion/static_files.py`'s
+GET/POST /login, the sign-in start and callback, and the static assets in `companion/static_files.py`'s
 `STATIC_ROUTES`. SIGNED_IN needs any signed-in user; ADMIN_ONLY needs the
 admin role (every global page and mutation).
 """
@@ -62,6 +62,8 @@ class Route(collections.namedtuple("Route", "method matcher handler access")):
 # Literal here, byte-identical to companion/app.py's own constants of the
 # same name, since this module can never import companion.app either.
 LOGIN_ROUTE = "/login"
+AUTH0_LOGIN_ROUTE = "/login/auth0"
+CALLBACK_ROUTE = "/callback"
 POLL_ROUTE = "/poll-now"
 HISTORY_LEGACY_ROUTE = "/history"
 PREVIEW_PAGE_ROUTE = "/preview"
@@ -114,7 +116,11 @@ def _static_get_routes():
 # three legacy fixed redirects, then the four prefix-matched image
 # routes.
 _GET_ROUTES = (
-    (Route("GET", Exact(LOGIN_ROUTE), lambda h, m: h._handle_login_get(), PUBLIC),)
+    (
+        Route("GET", Exact(LOGIN_ROUTE), lambda h, m: h._handle_login_get(), PUBLIC),
+        Route("GET", Exact(AUTH0_LOGIN_ROUTE), lambda h, m: h._handle_login_auth0_get(), PUBLIC),
+        Route("GET", Exact(CALLBACK_ROUTE), lambda h, m: h._handle_callback_get(), PUBLIC),
+    )
     + _static_get_routes()
     + (
         Route(
