@@ -574,13 +574,9 @@ class Handler(
             try:
                 self._fleet = fleet_db.connect(self.args.state_dir)
             except sqlite3.OperationalError:
-                # A state directory that cannot be written still lets
-                # existing sessions be read, so pages that fail on their own
-                # write path keep reporting that failure.
-                if os.access(self.args.state_dir, os.W_OK):
+                self._fleet = fleet_db.connect_readonly_fallback(self.args.state_dir)
+                if self._fleet is None:
                     raise
-                self._fleet = fleet_db.connect_readonly(
-                    self.args.state_dir, immutable=True)
         return self._fleet
 
     def _close_fleet_conn(self):
@@ -615,9 +611,23 @@ class Handler(
             return None
         if record.principal == fleet_sessions.PRINCIPAL_LEGACY_ADMIN:
             if not self._legacy_login_on():
+                self._drop_legacy_session_if_switched_off(token)
                 return None
             return access.Principal(access.KIND_LEGACY_ADMIN, None, None, access.ADMIN)
         return access.Principal(access.KIND_USER, record.user_id, record.email, record.role)
+
+    def _drop_legacy_session_if_switched_off(self, token):
+        """Delete a legacy-admin session row when the legacy-login flag is
+        cleanly off, so switching it back on does not revive old sessions.
+        A malformed flag only fails closed and deletes nothing. Needs a
+        writable store; on a read-only one the row stays.
+        """
+        try:
+            if auth.legacy_login_enabled(os.environ):
+                return
+        except ValueError:
+            return
+        fleet_sessions.discard_session(self._fleet_conn(), auth.hash_session_token(token))
 
     def _principal(self):
         """Cached per request; reset at the top of `_dispatch()`. Raises

@@ -22,6 +22,7 @@ from __future__ import annotations
 import os
 import sqlite3
 import sys
+import threading
 from typing import NamedTuple
 
 # Same repo-root sys.path bootstrap as server/fleet_db.py.
@@ -36,6 +37,12 @@ ABSOLUTE_LIFETIME_S = 30 * 86400
 IDLE_TIMEOUT_S = 7 * 86400
 # last_seen_at is rewritten at most this often, to avoid a write per request.
 TOUCH_INTERVAL_S = 300
+
+# Dead sessions are swept at most this often per process, from the session
+# write path.
+PRUNE_INTERVAL_S = 3600
+_prune_lock = threading.Lock()
+_last_prune_at: int | None = None
 
 PRINCIPAL_USER = "user"
 PRINCIPAL_LEGACY_ADMIN = "legacy-admin"
@@ -67,14 +74,41 @@ def create_session(
 ) -> None:
     """Store a session, atomically dropping the one it replaces (rotation)."""
     with fleet_db.transaction(conn):
-        if replace_hash is not None:
-            conn.execute("DELETE FROM sessions WHERE id_hash = ?", (replace_hash,))
-        conn.execute(
-            "INSERT INTO sessions "
-            "(id_hash, user_id, principal, created_at, last_seen_at, expires_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (token_hash, user_id, principal, now, now, now + ABSOLUTE_LIFETIME_S),
-        )
+        _insert_session(conn, token_hash, user_id, principal, now, replace_hash)
+
+
+def _insert_session(
+    conn: sqlite3.Connection,
+    token_hash: str,
+    user_id: int | None,
+    principal: str,
+    now: int,
+    replace_hash: str | None,
+) -> None:
+    """The session write; joins the caller's open transaction."""
+    _prune_if_due(conn, now)
+    if replace_hash is not None:
+        conn.execute("DELETE FROM sessions WHERE id_hash = ?", (replace_hash,))
+    conn.execute(
+        "INSERT INTO sessions "
+        "(id_hash, user_id, principal, created_at, last_seen_at, expires_at) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (token_hash, user_id, principal, now, now, now + ABSOLUTE_LIFETIME_S),
+    )
+
+
+def _prune_if_due(conn: sqlite3.Connection, now: int) -> None:
+    """Sweep expired sessions when the last sweep in this process is older
+    than PRUNE_INTERVAL_S. Joins the caller's open transaction. The clock
+    stepping backwards counts as due.
+    """
+    global _last_prune_at
+    with _prune_lock:
+        last = _last_prune_at
+        if last is not None and 0 <= now - last < PRUNE_INTERVAL_S:
+            return
+        _last_prune_at = now
+    prune_expired(conn, now)
 
 
 def lookup_session(
@@ -91,11 +125,11 @@ def lookup_session(
     if row is None:
         return None
     if now >= row["expires_at"] or now - row["last_seen_at"] >= IDLE_TIMEOUT_S:
-        delete_session(conn, token_hash)
+        discard_session(conn, token_hash)
         return None
     if row["principal"] == PRINCIPAL_USER:
         if row["role"] is None:
-            delete_session(conn, token_hash)
+            discard_session(conn, token_hash)
             return None
         if row["disabled"]:
             return None
@@ -118,6 +152,17 @@ def lookup_session(
         created_at=int(row["created_at"]),
         expires_at=int(row["expires_at"]),
     )
+
+
+def discard_session(conn: sqlite3.Connection, token_hash: str) -> None:
+    """Best-effort cleanup of a dead session found during a lookup. A
+    read-only store (unwritable state dir) cannot delete; the row stays and
+    the lookup still reports no session.
+    """
+    try:
+        delete_session(conn, token_hash)
+    except sqlite3.OperationalError:
+        pass
 
 
 def delete_session(conn: sqlite3.Connection, token_hash: str) -> None:
@@ -215,11 +260,46 @@ def resolve_login(
     """
     del now
     with fleet_db.transaction(conn):
-        known = _by_identity(conn, iss, sub)
-        if known is not None:
-            return known
-        if email_verified is not True:
-            return LoginOutcome(None, "unverified_email")
-        if not email:
-            return LoginOutcome(None, "unknown")
-        return _link_by_email(conn, iss, sub, email)
+        return _resolve(conn, iss, sub, email, email_verified)
+
+
+def _resolve(
+    conn: sqlite3.Connection,
+    iss: str,
+    sub: str,
+    email: str | None,
+    email_verified: object,
+) -> LoginOutcome:
+    known = _by_identity(conn, iss, sub)
+    if known is not None:
+        return known
+    if email_verified is not True:
+        return LoginOutcome(None, "unverified_email")
+    if not email:
+        return LoginOutcome(None, "unknown")
+    return _link_by_email(conn, iss, sub, email)
+
+
+def sign_in_user(
+    conn: sqlite3.Connection,
+    iss: str,
+    sub: str,
+    email: str | None,
+    email_verified: object,
+    now: int,
+    token_hash: str,
+    replace_hash: str | None = None,
+) -> LoginOutcome:
+    """`resolve_login` plus the session write in one transaction.
+
+    An identity link is only kept when the session is stored with it: a
+    failure at either step rolls the link back. A refused login writes
+    nothing.
+    """
+    with fleet_db.transaction(conn):
+        outcome = _resolve(conn, iss, sub, email, email_verified)
+        if outcome.user_id is None:
+            return outcome
+        _insert_session(
+            conn, token_hash, outcome.user_id, PRINCIPAL_USER, now, replace_hash)
+        return outcome

@@ -240,3 +240,78 @@ def test_lookup_works_on_an_immutable_read_only_store(tmp_path):
             reader.execute("DELETE FROM sessions")
     finally:
         reader.close()
+
+
+def test_expired_sessions_read_as_none_on_a_read_only_store(tmp_path):
+    state = str(tmp_path)
+    writer = fleet_db.connect(state)
+    uid = _user(writer)
+    fs.create_session(writer, _h("old"), user_id=uid, principal="user", now=T0)
+    writer.close()
+
+    reader = fleet_db.connect_readonly(state, immutable=True)
+    try:
+        assert fs.lookup_session(reader, _h("old"), T0 + fs.ABSOLUTE_LIFETIME_S + 1) is None
+        assert fs.lookup_session(reader, _h("old"), T0 + fs.IDLE_TIMEOUT_S + 1) is None
+        assert _count(reader, "sessions") == 1
+    finally:
+        reader.close()
+
+
+def test_sign_in_user_links_and_stores_the_session_together(conn):
+    uid = _user(conn)
+    outcome = fs.sign_in_user(conn, ISS, "s1", "a@example.com", True, T0, _h("t"))
+    assert (outcome.user_id, outcome.reason) == (uid, "linked")
+    assert fs.lookup_session(conn, _h("t"), T0 + 1).user_id == uid
+
+
+def test_sign_in_user_rolls_the_link_back_when_the_session_cannot_be_stored(conn):
+    uid = _user(conn)
+    other = _user(conn, email="b@example.com")
+    fs.create_session(conn, _h("taken"), user_id=other, principal="user", now=T0)
+    with pytest.raises(Exception):
+        fs.sign_in_user(conn, ISS, "s1", "a@example.com", True, T0, _h("taken"))
+    row = conn.execute("SELECT iss, sub FROM users WHERE id = ?", (uid,)).fetchone()
+    assert (row["iss"], row["sub"]) == (None, None)
+    assert _count(conn, "sessions") == 1
+
+
+def test_sign_in_user_writes_nothing_for_a_refused_login(conn):
+    _user(conn)
+    outcome = fs.sign_in_user(conn, ISS, "s1", "a@example.com", False, T0, _h("t"))
+    assert outcome.user_id is None
+    assert _count(conn, "sessions") == 0
+    assert conn.execute("SELECT iss FROM users").fetchone()["iss"] is None
+
+
+def test_session_creation_prunes_dead_sessions_at_most_hourly(conn, monkeypatch):
+    monkeypatch.setattr(fs, "_last_prune_at", None)
+    uid = _user(conn)
+    fs.create_session(conn, _h("old"), user_id=uid, principal="user", now=T0)
+    later = T0 + fs.ABSOLUTE_LIFETIME_S + 10
+    fs.create_session(conn, _h("new"), user_id=uid, principal="user", now=later)
+    assert [r[0] for r in conn.execute("SELECT id_hash FROM sessions")] == [_h("new")]
+
+    # Within the interval a second dead session is left alone ...
+    conn.execute(
+        "INSERT INTO sessions (id_hash, user_id, principal, created_at, "
+        "last_seen_at, expires_at) VALUES (?, ?, 'user', ?, ?, ?)",
+        (_h("dead"), uid, T0, T0, T0 + 1))
+    fs.create_session(
+        conn, _h("newer"), user_id=uid, principal="user", now=later + 60)
+    assert _h("dead") in {r[0] for r in conn.execute("SELECT id_hash FROM sessions")}
+
+    # ... and is swept once the interval has passed.
+    fs.create_session(
+        conn, _h("newest"), user_id=uid, principal="user",
+        now=later + fs.PRUNE_INTERVAL_S + 1)
+    assert _h("dead") not in {r[0] for r in conn.execute("SELECT id_hash FROM sessions")}
+
+
+def test_sign_in_prunes_dead_sessions_too(conn, monkeypatch):
+    monkeypatch.setattr(fs, "_last_prune_at", None)
+    uid = _user(conn)
+    fs.create_session(conn, _h("old"), user_id=uid, principal="user", now=T0)
+    later = T0 + fs.ABSOLUTE_LIFETIME_S + 10
+    fs.sign_in_user(conn, ISS, "s1", "a@example.com", True, later, _h("fresh"))
+    assert [r[0] for r in conn.execute("SELECT id_hash FROM sessions")] == [_h("fresh")]
