@@ -568,7 +568,16 @@ class Handler(
         request that needs no session never touches the file.
         """
         if self._fleet is None:
-            self._fleet = fleet_db.connect(self.args.state_dir)
+            try:
+                self._fleet = fleet_db.connect(self.args.state_dir)
+            except sqlite3.OperationalError:
+                # A state directory that cannot be written still lets
+                # existing sessions be read, so pages that fail on their own
+                # write path keep reporting that failure.
+                if os.access(self.args.state_dir, os.W_OK):
+                    raise
+                self._fleet = fleet_db.connect_readonly(
+                    self.args.state_dir, immutable=True)
         return self._fleet
 
     def _close_fleet_conn(self):

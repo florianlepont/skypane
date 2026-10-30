@@ -221,3 +221,22 @@ def test_sessions_and_linking_do_not_touch_devices(conn):
     fs.delete_session(conn, _h("t"))
     assert devices() == before
     assert fleet_db.registry_view(conn)["devices"]["aa:bb:cc:dd:ee:ff"]
+
+
+def test_lookup_works_on_an_immutable_read_only_store(tmp_path):
+    state = str(tmp_path)
+    writer = fleet_db.connect(state)
+    uid = _user(writer)
+    fs.create_session(writer, _h("t"), user_id=uid, principal="user", now=T0)
+    writer.close()
+
+    reader = fleet_db.connect_readonly(state, immutable=True)
+    try:
+        # Past the touch interval: the idle clock cannot be written, the
+        # session still resolves.
+        rec = fs.lookup_session(reader, _h("t"), T0 + 600)
+        assert rec is not None and rec.email == "a@example.com"
+        with pytest.raises(Exception):
+            reader.execute("DELETE FROM sessions")
+    finally:
+        reader.close()

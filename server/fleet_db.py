@@ -218,12 +218,19 @@ def connect(
     return conn
 
 
-def connect_readonly(state_dir: str) -> sqlite3.Connection:
-    """Read-only handle; never creates and never migrates."""
+def connect_readonly(state_dir: str, immutable: bool = False) -> sqlite3.Connection:
+    """Read-only handle; never creates and never migrates.
+
+    `immutable` skips locking and the WAL side files, which is the only way
+    to read a database inside a directory that cannot be written. It is for
+    that degraded case only: concurrent writers would go unseen.
+    """
     path = fleet_db_path(state_dir)
     if not os.path.exists(path):
         raise FleetDbAbsent(path)
     uri = Path(os.path.abspath(path)).as_uri() + "?mode=ro"
+    if immutable:
+        uri += "&immutable=1"
     conn = sqlite3.connect(uri, uri=True, isolation_level=None)
     try:
         _apply_pragmas(conn)

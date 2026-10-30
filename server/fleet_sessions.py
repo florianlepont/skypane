@@ -100,10 +100,15 @@ def lookup_session(
         if row["disabled"]:
             return None
     if now - row["last_seen_at"] > TOUCH_INTERVAL_S:
-        conn.execute(
-            "UPDATE sessions SET last_seen_at = ? WHERE id_hash = ?",
-            (now, token_hash),
-        )
+        try:
+            conn.execute(
+                "UPDATE sessions SET last_seen_at = ? WHERE id_hash = ?",
+                (now, token_hash),
+            )
+        except sqlite3.OperationalError:
+            # Read-only store (unwritable state dir): the session is still
+            # valid, only the idle clock cannot advance.
+            pass
     is_user = row["principal"] == PRINCIPAL_USER
     return SessionRecord(
         user_id=row["user_id"],
