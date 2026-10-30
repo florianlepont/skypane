@@ -59,22 +59,6 @@ _UNRESOLVED = object()
 def _now():
     return int(time.time())
 
-
-def _state_dir_writable(state_dir):
-    return os.access(state_dir, os.W_OK)
-
-
-def _wal_has_pending_data(state_dir):
-    """Whether fleet.db's write-ahead log holds data not yet merged into
-    the main file. A log that cannot be inspected counts as pending.
-    """
-    try:
-        return os.path.getsize(fleet_db.fleet_db_path(state_dir) + "-wal") > 0
-    except FileNotFoundError:
-        return False
-    except OSError:
-        return True
-
 # The gallery-directory-name convention lives in companion/page_context.py
 # (build_page_context()'s "gallery_entries" loader owns it); rebound here
 # under its historical name since companion/test_freshness_token.py reads
@@ -590,22 +574,9 @@ class Handler(
             try:
                 self._fleet = fleet_db.connect(self.args.state_dir)
             except sqlite3.OperationalError:
-                # A state directory that cannot be written still lets
-                # existing sessions be read, so pages that fail on their own
-                # write path keep reporting that failure.
-                if _state_dir_writable(self.args.state_dir):
+                self._fleet = fleet_db.connect_readonly_fallback(self.args.state_dir)
+                if self._fleet is None:
                     raise
-                # An immutable read ignores the write-ahead log, so a log
-                # holding revocations or demotions would be skipped and a
-                # revoked session served. Refuse instead (a 503).
-                if _wal_has_pending_data(self.args.state_dir):
-                    print("companion: fleet.db read-only fallback refused: "
-                          "write-ahead log has unmerged data", flush=True)
-                    raise
-                print("companion: fleet.db state directory is not writable; "
-                      "reading sessions from the main file only", flush=True)
-                self._fleet = fleet_db.connect_readonly(
-                    self.args.state_dir, immutable=True)
         return self._fleet
 
     def _close_fleet_conn(self):

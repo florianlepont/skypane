@@ -230,7 +230,7 @@ def _unwritable_state_dir(monkeypatch):
         raise sqlite3.OperationalError("attempt to write a readonly database")
 
     monkeypatch.setattr(fleet_db, "connect", refuse)
-    monkeypatch.setattr(app, "_state_dir_writable", lambda _state_dir: False)
+    monkeypatch.setattr(fleet_db, "_state_dir_writable", lambda _state_dir: False)
 
 
 def test_unwritable_state_dir_reads_sessions_and_logs_the_fallback(
