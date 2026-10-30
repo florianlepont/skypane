@@ -68,7 +68,7 @@ Constants as named in `companion/routes.py`: `UPDATE_ROUTE` = `/update`, `UPDATE
 
 - `routes.Route` has a `device_scoped` field. It is derived once in `routes.ROUTES` from `_DEVICE_SCOPED_KEYS` (page and image keys plus action keys), so adding a route to the table without listing it there leaves it global.
 - `routes.match(method, path, query)` strips a well-formed `/devices/{id}` prefix, matches the remainder against the `device_scoped` routes only, and reports the id on `RouteMatch.device_id`. A malformed prefix (wrong length, upper case, encoded slash, trailing newline) finds nothing.
-- `Handler._dispatch` order: POST Origin / Sec-Fetch-Site gate, then `routes.match` (no match: 404), then the session gate (`require_session()`, for every route with `auth_required=True`), then device resolution in `_dispatch_for_device`. The session gate therefore always runs before any device lookup, and an unauthenticated request cannot probe which device ids exist.
+- `Handler._dispatch` order: POST Origin / Sec-Fetch-Site gate, then `routes.match` (no match: 404), then the access gate (`access.decide()` over the route's `Access`, see the section below), then device resolution in `_dispatch_for_device`. The session gate therefore always runs before any device lookup, and an unauthenticated request cannot probe which device ids exist.
 - `_dispatch_for_device` resolves `RouteMatch.device_id` through `device_scope.find_device` against `fleet.db`; the result is passed to the handler as `RouteMatch.device` (a `device_scope.Device` with `id`, `name`, `hardware_type`, `state_path`, `state_dir`, `is_live`). An id with no `fleet.db` row is the 404 page. An un-prefixed route uses the live frame (the first loaded device). There is no fallback from an unknown id to the live frame, and no handler reads a global state directory for device data.
 - This is the single place for the auth phase to add the check: after `find_device` returns and before `route.handler` runs, compare the session's user against `Device` ownership (`fleet.db` `devices.owner_user_id`, user roles in `fleet.db`) using the route's access class. `Device` does not yet carry the owner; add it to `device_scope.load_devices` / `find_device` when needed.
 - `GET` device-scoped pages also accept a `?device=<id>` query (the no-script selector form); `device_scope.switch_target` redirects to the same page under that device, 404 for an unknown id. The redirect target is built only from the fixed page path and a validated id.
@@ -88,3 +88,25 @@ Served by `stub-server/byos_server.py` (`skypane-byos.service`), a separate HTTP
 | GET | `/fw/{sha256}.bin` | None (signed release images carry no credential) | Release registered in the OTA registry | OTA download. The OTA offer itself is part of the `/device/v1/display` response. |
 
 The device-scoped companion routes and the BYOS endpoints share one state directory and `fleet.db`, but the two sides authenticate differently: users by session, frames by token.
+
+## After merging the Auth0 / roles / default-deny work
+
+The dispatcher and the route table now carry both mechanisms.
+
+- `routes.Route` is `(method, matcher, handler, access, device_scoped)`. `access` is the validated `Access(min_role, device_arg)` every route must declare (default-deny); `device_scoped` is derived as before. The old `auth_required` flag no longer exists.
+- Order in `Handler._dispatch`: POST Origin gate, `routes.match` (a prefixed match is against the `device_scoped` routes only), `access.decide(principal, route.access, route_match.captured, owner_lookup)`, then, for any route that is not PUBLIC, `_dispatch_for_device`. An anonymous caller is redirected to sign-in before the device id is looked up, so an unknown id and a known id look the same to them; a signed-in caller below the route's minimum role gets the generic 404 for both.
+- A route under `/devices/<id>` is the same `Route` object as its un-prefixed form, so it carries exactly the same `Access`. Today every device-scoped route is `ADMIN_ONLY`, so only an admin or the legacy admin reaches a device route; an unknown id is still the 404 page with no fallback to the live frame.
+- Public routes (login, sign-in start and callback, static assets) are never `device_scoped`, so the prefix never reaches them.
+
+What the auth phase still has to do for device routes:
+
+- Ownership check hook: `_dispatch_for_device`, after `device_scope.find_device` returns and before `route.handler` runs. `device_arg` is `None` on every real route, so `access.decide()` never applies the ownership gate (`access.authorized_device_id` with `Handler._owner_lookup`, backed by `fleet_db.get_device_owner`) to a prefixed route. To open device routes to owners, give the relevant routes `Access(USER, "device")` and pass `route_match.device_id` as the `captured` argument of `access.decide()` for a prefixed match (the captured middle of a `PrefixSuffix` route is not the device id).
+- `device_scope.Device` does not carry `owner_user_id`; the owner is only available through `fleet_db.get_device_owner(conn, device_id)`. Either use that in the hook or add the owner to `Device`.
+- A signed-in user with the `user` role cannot reach any device route or the device selector yet, and `GET /account` is the only page for that role. The device list and selector are built from `device_scope.load_devices` without any owner filter, so a user-visible selector must filter by ownership before it is shown.
+- The `next` parameter after sign-in only accepts the fixed un-prefixed routes, so an anonymous request for `/devices/<id>/display` signs in and lands on the default page, not on that device.
+
+How the access matrix covers prefixed routes (`companion/test_access_matrix.py`, `test-support/access_matrix_support.py`):
+
+- `DEVICE_SCOPED` is a hand-written set of the 27 device-scoped (method, template) keys, compared with `routes.ROUTES`; a route that gains or loses the prefix fails the completeness test.
+- Every device-scoped route is exercised against every principal under `/devices/<owner device id>/...` with the same expectation as its base route (anonymous: sign-in redirect, owner and other user: the unknown-path 404, admin and legacy admin: reaches the handler with the un-prefixed path). An unknown id gives 404 for admins and a sign-in redirect for anonymous, and every global route is a 404 under the prefix.
+- `seed_matrix_fleet` now marks `fleet.db` migrated and gives both seeded devices their own device directory path, which the prefix lookup needs; `stub_routes` keeps `device_scoped` on the recording routes.

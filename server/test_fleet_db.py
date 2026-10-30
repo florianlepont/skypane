@@ -373,3 +373,88 @@ def test_add_device_rejects_unsafe_state_path_and_inserts_nothing(conn, bad):
     with pytest.raises(ValueError):
         _dev(conn, owner, state_path=bad)
     assert conn.execute("SELECT count(*) FROM devices").fetchone()[0] == before
+
+
+def _make_v1(state_dir):
+    path = fleet_db.fleet_db_path(state_dir)
+    conn = sqlite3.connect(path, isolation_level=None)
+    fleet_db.migrate_schema(conn, fleet_db.MIGRATIONS[:1])
+    assert fleet_db.schema_version(conn) == 1
+    conn.close()
+
+
+def test_v1_database_upgrades_in_place_to_v2(state_dir):
+    _make_v1(state_dir)
+    conn = fleet_db.connect(state_dir)
+    assert fleet_db.schema_version(conn) == 2
+    assert conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0] == 0
+    names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='index'")}
+    assert {"sessions_user", "sessions_expires"} <= names
+    conn.close()
+    again = fleet_db.connect(state_dir)
+    assert fleet_db.schema_version(again) == 2
+    again.close()
+
+
+def test_concurrent_upgrades_both_end_at_v2(state_dir):
+    import threading
+
+    _make_v1(state_dir)
+    path = fleet_db.fleet_db_path(state_dir)
+    barrier = threading.Barrier(2)
+    errors = []
+    versions = []
+
+    def run():
+        conn = sqlite3.connect(path, isolation_level=None, timeout=10)
+        try:
+            barrier.wait()
+            fleet_db.migrate_schema(conn)
+            versions.append(fleet_db.schema_version(conn))
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+        finally:
+            conn.close()
+
+    threads = [threading.Thread(target=run) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert errors == []
+    assert versions == [2, 2]
+
+
+def test_readonly_opens_v2_and_still_refuses_newer(state_dir):
+    fleet_db.connect(state_dir).close()
+    fleet_db.connect_readonly(state_dir).close()
+    raw = sqlite3.connect(fleet_db.fleet_db_path(state_dir))
+    raw.execute("PRAGMA user_version = %d" % (fleet_db.SCHEMA_VERSION + 1))
+    raw.commit()
+    raw.close()
+    with pytest.raises(fleet_db.FleetDbTooNew):
+        fleet_db.connect_readonly(state_dir)
+
+
+def test_sessions_principal_user_id_check():
+    conn = fleet_db.connect_memory()
+    uid = fleet_db.add_user(conn, "a@example.com", "admin")
+    insert = "INSERT INTO sessions VALUES (?, ?, ?, 1, 1, 2)"
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(insert, ("h1", None, "user"))
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(insert, ("h2", uid, "legacy-admin"))
+    conn.execute(insert, ("h3", uid, "user"))
+    conn.execute(insert, ("h4", None, "legacy-admin"))
+
+
+def test_get_device_owner():
+    conn = fleet_db.connect_memory()
+    uid = fleet_db.add_user(conn, "a@example.com", "admin")
+    device_id = fleet_db.add_device(
+        conn, "aa:bb:cc:dd:ee:ff", "0" * 64, hardware.LEGACY_KEY, uid
+    )
+    owner = fleet_db.get_device_owner(conn, device_id)
+    assert owner == uid and isinstance(owner, int)
+    assert fleet_db.get_device_owner(conn, "d_unknown0") is None
+    assert fleet_db.get_device_owner(conn, "'; --") is None

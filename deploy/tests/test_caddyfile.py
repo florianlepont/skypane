@@ -186,3 +186,60 @@ def test_device_block_carries_no_encode_directive():
     blocks = _site_blocks(result.stdout)
     non_comment = _non_comment_lines(blocks["pub.example.org"])
     assert not any(ln.split()[0] == "encode" for ln in non_comment), non_comment
+
+
+def test_companion_log_drops_callback_query_values():
+    """The companion access log deletes the sign-in callback query keys.
+
+    Text assertions on the rendered output; the real `caddy validate`
+    runs on the VPS inside deploy/activate.sh.
+    """
+    result = _render("pub.example.org", "cfg.example.org")
+    assert result.returncode == 0, result.stderr
+    blocks = _site_blocks(result.stdout)
+    lines = _non_comment_lines(blocks["cfg.example.org"])
+    assert "format filter {" in lines
+    assert "wrap json" in lines
+    assert "request>uri query {" in lines
+    for key in ("code", "state", "error_description"):
+        assert "delete " + key in lines, key
+    assert "format json" not in lines
+
+
+def test_device_log_keeps_plain_json_format_and_file_output():
+    result = _render("pub.example.org", "cfg.example.org")
+    blocks = _site_blocks(result.stdout)
+    lines = _non_comment_lines(blocks["pub.example.org"])
+    assert "format json" in lines
+    assert not any(ln.startswith("format filter") for ln in lines)
+    assert not any(ln.startswith("delete ") for ln in lines)
+    assert any(ln.startswith("output file /opt/skypane/state/caddy-access.log") for ln in lines)
+
+
+_ENV_EXAMPLE = _REPO_ROOT / "deploy" / "skypane.env.example"
+
+
+def _env_lines():
+    return _ENV_EXAMPLE.read_text().splitlines()
+
+
+def test_env_example_documents_auth0_variables_with_placeholders():
+    active = {}
+    for line in _env_lines():
+        if line and not line.startswith("#") and "=" in line:
+            key, _, value = line.partition("=")
+            active[key] = value
+    assert active["SKYPANE_AUTH0_DOMAIN"].startswith("<")
+    assert active["SKYPANE_AUTH0_CLIENT_ID"].startswith("<")
+    assert active["SKYPANE_AUTH0_CLIENT_SECRET"].startswith("<")
+    text = _ENV_EXAMPLE.read_text()
+    assert "SKYPANE_LEGACY_PASSWORD_LOGIN" in text
+    assert "SKYPANE_COMPANION_PUBLIC_URL" in text
+
+
+def test_env_example_loopback_flag_is_only_commented_out():
+    lines = [ln for ln in _env_lines() if "SKYPANE_AUTH0_ALLOW_INSECURE_LOOPBACK" in ln]
+    assert lines
+    assert all(ln.startswith("#") for ln in lines)
+    text = _ENV_EXAMPLE.read_text()
+    assert "NEVER" in text

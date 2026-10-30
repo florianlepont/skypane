@@ -608,6 +608,88 @@ VPS's own state is actually lost or corrupted):
 |------|---------|--------|
 | 2026-09-24 | skypane-state-20260924T200731Z.tar.gz | integrity_check ok; restored into a scratch dir on the Mac and served by a local companion: flight history, Health, Display/Device settings, uploaded illustrations and the gallery all present. No gap found. |
 
+## Sign-in (Auth0)
+
+The companion signs people in through Auth0 (authorization code flow with
+PKCE) and keeps its own roles and sessions in `fleet.db`. Frame
+authentication is unchanged: a frame still authenticates with its MAC and
+per-device secret, and Auth0 is not involved in any device request.
+
+### Auth0 tenant (owner, once)
+
+In the owner's EU Auth0 tenant:
+
+1. Create a **Regular Web Application** (authorization code flow).
+2. **Allowed Callback URLs**: exactly `https://<companion host>/callback`.
+3. **Allowed Logout URLs**: exactly `https://<companion host>/login`.
+4. On the database connection, **disable sign-ups**, and enable no social
+   connection. People are invited from SkyPane, never self-registered.
+
+### Environment variables
+
+Set these in `/opt/skypane/skypane.env` (`root:root 0600`; the secret
+lives nowhere else), then `sudo systemctl restart skypane-companion`:
+
+- `SKYPANE_AUTH0_DOMAIN=<your-tenant>.eu.auth0.com`
+- `SKYPANE_AUTH0_CLIENT_ID=<auth0-client-id>`
+- `SKYPANE_AUTH0_CLIENT_SECRET=<auth0-client-secret>`
+
+The three are all-or-nothing: a partial set refuses to start. The callback
+and logout URLs are derived from `SKYPANE_COMPANION_HOST` (or the optional
+`SKYPANE_COMPANION_PUBLIC_URL`); nothing is ever read from the request
+Host header. `SKYPANE_LEGACY_PASSWORD_LOGIN` unset or `1` keeps the
+shared-password fallback, `0` turns it off, any other value refuses to
+start.
+
+### Inviting and managing people
+
+```bash
+FLEET="sudo -u skypane /opt/skypane/venv/bin/python3 /opt/skypane/current/stub-server/fleet_cli.py --state-dir /opt/skypane/state"
+ssh <ssh-target> "$FLEET users add --email someone@example.org --role user"
+ssh <ssh-target> "$FLEET users unlink-identity --email someone@example.org"
+ssh <ssh-target> "$FLEET users disable --email someone@example.org"
+```
+
+The person signs in with the same verified email. `unlink-identity` lets
+someone who lost their Auth0 account sign in with a new one; `disable`
+ends their sessions. Always run the CLI as the `skypane` user: run as
+root it leaves a root-owned `fleet.db` or `-wal` file the companion
+cannot write, and sign-in then fails closed with a 503.
+
+### Real-tenant smoke test (manual, owner)
+
+1. Sign in through Auth0 and confirm the session and the Account page.
+2. Send a token request with a wrong `code_verifier` and confirm Auth0
+   rejects it.
+3. Sign out and confirm the browser returns to the allowed logout URL,
+   and that signing in again prompts for credentials (the Auth0 session
+   ended). The logout URL uses `/v2/logout`; on newer tenants verify its
+   behaviour here. The URL builder is isolated so it can switch to the
+   tenant's `end_session_endpoint`.
+
+### Log redaction
+
+Caddy drops the `code`, `state` and `error_description` query keys from
+the companion access log. `caddy validate` runs in `activate.sh`; also
+check that a real `/callback` line in `journalctl -u caddy` shows no
+query values.
+
+### Schema v2 and rollback
+
+`fleet_migrate` upgrades `fleet.db` from schema 1 to 2 before the symlink
+swap, as the `skypane` user, after the backup. The previous release's byos
+refuses a v2 file as too new and serves from the legacy files, so a
+rollback keeps the frame working, but Health shows a fleet fault until the
+new release is live again. Backups now contain the `sessions` table
+(hashes only); restoring one brings back unexpired sessions.
+
+### Legacy password fallback
+
+Enabled by default, flagged in the UI and logged. Removal is event-driven:
+as soon as Auth0 sign-in works in production, set
+`SKYPANE_LEGACY_PASSWORD_LOGIN=0` and stamp a "remove by" date; the steps
+are in `.planning/workstreams/v1-2/phases/54-auth0-sign-in-local-roles-and-default-deny-access/54-LEGACY-ADMIN-REMOVAL.md`.
+
 ## Verifying the deployment
 
 ```bash

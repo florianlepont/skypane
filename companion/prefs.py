@@ -28,3 +28,28 @@ def current_lang():
     """The resolved language for the current request context — always
     a member of LANG_CHOICES ("fr" or "en"), never raises."""
     return _LANG_CTX.get()
+
+
+# The signed-in principal's (kind, role) for this request, or None when no
+# principal has been established (every pre-sign-in page, and any caller
+# that never sets one). Shell rendering reads it to pick the user-role
+# navigation and the legacy-access flag.
+_PRINCIPAL_CTX = contextvars.ContextVar("skypane_principal", default=None)
+
+PRINCIPAL_KINDS = ("user", "admin", "legacy-admin")
+
+
+def set_request_principal(kind=None, role=None):
+    """Store this request's principal. Anything unrecognised (including
+    None) clears it, so the shell falls back to the unchanged default
+    rendering. Call it once per request, before any page is rendered.
+    """
+    if kind in PRINCIPAL_KINDS:
+        _PRINCIPAL_CTX.set((kind, role))
+    else:
+        _PRINCIPAL_CTX.set(None)
+
+
+def current_principal():
+    """The request's (kind, role) pair, or None when unset."""
+    return _PRINCIPAL_CTX.get()

@@ -4693,6 +4693,98 @@ a.airline-card {
   margin-top: var(--space-md);
 }
 
+/* The Sign in link carries the declarations of a.calendar-manage--primary:
+ * it is the page's one primary action when Auth0 is configured. A link,
+ * not a button, so the redirect is not subject to the CSP form-action. */
+.login-card a.login-signin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  margin-top: var(--space-md);
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+}
+
+.login-card a.login-signin:hover {
+  background: var(--color-accent-hover);
+}
+
+/* The shared-password disclosure beside Auth0. The submit takes the quiet
+ * wash of .logout-form button; the extra class keeps it above
+ * button[type="submit"] and button[type="submit"]:hover. */
+.login-card .login-legacy {
+  margin-top: var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.login-card .login-legacy__summary {
+  margin-left: var(--space-sm);
+}
+
+.login-card .login-legacy__helper {
+  margin: var(--space-md) 0 0;
+}
+
+.login-card button[type="submit"].login-form__submit--quiet {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
+  box-shadow: none;
+  color: var(--color-text);
+}
+
+.login-card button[type="submit"].login-form__submit--quiet:hover {
+  background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
+  border-color: color-mix(in srgb, var(--color-text) 14%, transparent);
+  box-shadow: none;
+}
+
+/* A standalone text link inside the card keeps a 44px hit height. */
+.login-card .login-card__link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin-top: var(--space-md);
+}
+
+.login-card .toast--docked {
+  margin-top: var(--space-md);
+}
+
+/* The wordmark link of a plain user's shell inherits the brand row's
+ * layout and the page text colour. */
+.brand__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* The legacy-access badge sits on its own line above Sign out. */
+.logout-form .banner__pill {
+  display: flex;
+  width: fit-content;
+  margin-bottom: var(--space-sm);
+}
+
+/* A long email wraps instead of widening the Account card. */
+.account-identity .data-card__value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
 /* box-shadow at rest is this file's one hairline-at-rest exception: a
  * <dialog> is a floating modal, not a page-flow card. color is set
  * explicitly because <dialog> promoted via showModal() does not reliably

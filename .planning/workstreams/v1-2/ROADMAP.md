@@ -214,7 +214,36 @@ Plans:
   3. A route by role by owner matrix test proves every route is default-deny, and a user gets a 404 for another user's device.
   4. Frames still authenticate with MAC and secret independently of Auth0, and the whole auth flow is tested against a local fake Auth0 including failure modes.
 
-**Plans**: TBD
+**Plans**: 9 plans
+Plans:
+**Wave 1**
+
+- [x] 54-01-PLAN.md — fleet.db schema v2 sessions, race-free upgrade, fleet_migrate pending schema, invite-only identity resolution, CLI unlink-identity (AUTH-01, AUTH-02, AUTH-06)
+- [x] 54-02-PLAN.md — loopback fake Auth0 with failure knobs and the pure OIDC client module (AUTH-01, AUTH-06)
+- [x] 54-03-PLAN.md — login, refusal, error, interstitial and Account markup, user shell and legacy pill hook, FR strings (AUTH-01, AUTH-02, AUTH-03)
+
+**Wave 2**
+
+- [x] 54-04-PLAN.md — Access annotation, decide() and ownership gate, server-side session principal, session-backed shared-password login, baseline regeneration (AUTH-02, AUTH-03)
+
+**Wave 3**
+
+- [x] 54-05-PLAN.md — Auth0 start, callback, invite-only sign-in and sign-out handlers with the full failure-mode suite (AUTH-01)
+
+**Wave 4**
+
+- [x] 54-06-PLAN.md — Account route, user shell and 404 pages, real-browser sign-in/sign-out proof (AUTH-01, AUTH-03)
+
+**Wave 5**
+
+- [x] 54-07-PLAN.md — legacy-admin flag, audit, fail-closed startup, removal of the stateless token API (AUTH-02, AUTH-06)
+- [x] 54-08-PLAN.md — route x role x owner matrix with probe family, frame-auth independence tests (AUTH-03, AUTH-06)
+
+**Wave 6**
+
+- [x] 54-09-PLAN.md — Caddy query redaction, env and README owner steps, handoff record for the work after the device-scoped routes (AUTH-01, AUTH-02, AUTH-03, AUTH-06)
+
+Real `/d/<id>/...` routes and their matrix rows are completed after Phase 51; see 54-HANDOFF.md.
 **UI hint**: yes
 
 ### Phase 55: Frame Pairing, Admin Console and Reduced User View
@@ -293,7 +322,7 @@ Plans:
 | 51. Per-Device Config, Image and State | v1.2 | 7/13 | In Progress|  |
 | 52. Fleet Poll Cycle, Zones and Request Budget | v1.2 | 0/0 | Not started | - |
 | 53. Detection Modes | v1.2 | 0/0 | Not started | - |
-| 54. Auth0 Sign-In, Local Roles and Default-Deny Access | v1.2 | 0/0 | Not started | - |
+| 54. Auth0 Sign-In, Local Roles and Default-Deny Access | v1.2 | 9/9 | In Progress|  |
 | 55. Frame Pairing, Admin Console and Reduced User View | v1.2 | 0/0 | Not started | - |
 | 56. Per-Hardware Rendering, Battery Profiles, Health and Credits | v1.2 | 0/0 | Not started | - |
 | 57. Combined Legacy-Frame Firmware Release | v1.2 | 0/0 | Not started (gated on Phase 47) | - |

@@ -78,6 +78,7 @@ class LegacyState:
 @dataclass(frozen=True)
 class Snapshot:
     marker: bool = False
+    schema: int = 0  # PRAGMA user_version of an existing fleet.db, else 0
     bootstrap_owner_id: int | None = None
     user_emails: frozenset[str] = frozenset()
     location_names: frozenset[str] = frozenset()
@@ -92,6 +93,7 @@ Action = tuple[str, ...]
 class MigrationPlan:
     actions: tuple[Action, ...]
     needs_write: bool
+    schema_upgrade: tuple[int, int] | None = None  # (from, to) when behind
 
 
 @dataclass(frozen=True)
@@ -195,14 +197,22 @@ def plan_migration(
     if ORLY_NAME not in snapshot.location_names and (not snapshot.marker or adds):
         actions.append(("ensure_location",))
     actions.extend(device_actions)
-    return MigrationPlan(actions=tuple(actions), needs_write=bool(actions) or not snapshot.marker)
+    upgrade: tuple[int, int] | None = None
+    if 0 < snapshot.schema < fleet_db.SCHEMA_VERSION:
+        upgrade = (snapshot.schema, fleet_db.SCHEMA_VERSION)
+    return MigrationPlan(
+        actions=tuple(actions),
+        needs_write=bool(actions) or not snapshot.marker or upgrade is not None,
+        schema_upgrade=upgrade,
+    )
 
 
 # ---- reading fleet.db --------------------------------------------------
 
 
 def _snapshot_from(conn: sqlite3.Connection) -> Snapshot:
-    if fleet_db.schema_version(conn) == 0:
+    version = fleet_db.schema_version(conn)
+    if version == 0:
         return Snapshot()
     owner = fleet_db.meta_get(conn, fleet_db.META_BOOTSTRAP_OWNER)
     secrets: dict[str, str] = {}
@@ -211,6 +221,7 @@ def _snapshot_from(conn: sqlite3.Connection) -> Snapshot:
         secrets[str(row["mac"])] = str(row["secret_sha256"])
         tokens[str(row["mac"])] = None if row["token"] is None else str(row["token"])
     return Snapshot(
+        schema=version,
         marker=fleet_db.meta_get(conn, fleet_db.META_MIGRATED) is not None,
         bootstrap_owner_id=int(owner) if owner is not None else None,
         user_emails=frozenset(str(r["email"]) for r in fleet_db.list_users(conn)),
@@ -326,6 +337,9 @@ def _describe(plan: MigrationPlan, dry_run: bool) -> list[str]:
         "sync_token": f"{verb}update token from legacy for",
     }
     lines = []
+    if plan.schema_upgrade is not None:
+        old, new = plan.schema_upgrade
+        lines.append(f"{verb}upgrade fleet.db schema {old} -> {new}")
     for action in plan.actions:
         text = labels[action[0]]
         lines.append(f"{text} {action[1]}" if len(action) == 2 else text)
@@ -360,8 +374,12 @@ def migrate(state_dir: str, owner_email: str | None, dry_run: bool) -> Migration
     if dry_run:
         lines = lines or ["would mark fleet.db migrated"]
         return MigrationReport(_with_skipped(lines, legacy), changed=False)
-    _apply(state_dir, plan, legacy, email)
-    lines.append(f"migrated {len(legacy.devices)} legacy device(s)")
+    if plan.actions or not snapshot.marker:
+        _apply(state_dir, plan, legacy, email)
+        lines.append(f"migrated {len(legacy.devices)} legacy device(s)")
+    else:
+        # Only the schema is behind: connect() applies the pending steps.
+        fleet_db.connect(state_dir).close()
     return MigrationReport(_with_skipped(lines, legacy), changed=True)
 
 

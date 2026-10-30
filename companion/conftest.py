@@ -103,6 +103,85 @@ def app_server_in_process(tmp_path):
     server.stop()
 
 
+# --- Auth0 sign-in rigs ---------------------------------------------------
+
+AUTH0_TEST_CLIENT_ID = "test-client-id"
+AUTH0_TEST_CLIENT_SECRET = "test-client-secret-placeholder"
+
+
+class Auth0Rig:
+    """A companion server wired to a loopback FakeAuth0, plus helpers to
+    invite users and read fleet.db rows directly.
+    """
+
+    def __init__(self, server, fake):
+        self.server = server
+        self.fake = fake
+        self.state_dir = server.state_dir
+
+    def _connect(self):
+        from server import fleet_db
+        return fleet_db.connect(self.state_dir)
+
+    def invite(self, email, role="user", **fields):
+        from server import fleet_db
+        conn = self._connect()
+        try:
+            return fleet_db.add_user(conn, email, role, **fields)
+        finally:
+            conn.close()
+
+    def rows(self, sql, args=()):
+        conn = self._connect()
+        try:
+            return [tuple(r) for r in conn.execute(sql, args)]
+        finally:
+            conn.close()
+
+    def session_count(self):
+        return self.rows("SELECT COUNT(*) FROM sessions")[0][0]
+
+    def user_count(self):
+        return self.rows("SELECT COUNT(*) FROM users")[0][0]
+
+
+def _build_fake(base_url):
+    from fake_auth0 import FakeAuth0
+    return FakeAuth0(
+        AUTH0_TEST_CLIENT_ID, AUTH0_TEST_CLIENT_SECRET, base_url + "/callback",
+        allowed_logout_urls=[base_url + "/login"]).start()
+
+
+@pytest.fixture
+def auth0_rig(tmp_path):
+    """An in-process companion pointed at a loopback fake Auth0 (legacy
+    password login left at its default). Function-scoped.
+    """
+    server = companion_app_server.InProcessAppServer(str(tmp_path / "state"))
+    fake = _build_fake(server.base_url())
+    server.apply_env(companion_app_server.auth0_env(fake, server.base_url()))
+    yield Auth0Rig(server, fake)
+    server.stop()
+    fake.stop()
+
+
+@pytest.fixture
+def auth0_subprocess_rig(tmp_path):
+    """The same wiring against a real companion subprocess, for output
+    capture and cookie checks on genuine response bytes.
+    """
+    state_dir = str(tmp_path / "state")
+    os.makedirs(state_dir, exist_ok=True)
+    server = companion_app_server.AppServer(state_dir)
+    fake = _build_fake(server.base_url())
+    server.env_overrides = companion_app_server.auth0_env(fake, server.base_url())
+    server.env_overrides["PYTHONUNBUFFERED"] = "1"
+    server.start()
+    yield Auth0Rig(server, fake)
+    server.stop()
+    fake.stop()
+
+
 # --- Missing-browser policy and loopback-only browser guard --------------
 
 def _browser_required():

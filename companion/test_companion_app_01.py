@@ -12,13 +12,11 @@ running `companion/app.py` server. Two checks run with
 `@requires_non_root`, so the suite runs green as root too.
 """
 import hashlib
-import hmac
 import html
 import io
 import os
 import re
 import socket
-import time
 import urllib.parse
 
 import pytest
@@ -58,17 +56,6 @@ def served_css(module_app_server_factory):
     return served_stylesheet(server)
 
 
-def _sign_with_secret(payload, secret):
-    """Hand-build an "expiry.signature" token signed with an arbitrary
-    secret — used to construct forged/malformed tokens that never go
-    through auth.issue_session_token(). Local to this module: no other
-    part of the companion_app chain calls it.
-    """
-    signature = hmac.new(
-        secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
-    return "%s.%s" % (payload, signature)
-
-
 # ==========================================================================
 # Section 1: companion/auth.py
 # ==========================================================================
@@ -87,41 +74,52 @@ def test_password_ok_unconfigured_fails_closed(monkeypatch):
         auth.password_ok("anything")
 
 
-def test_issue_and_verify_round_trip():
-    """verify_session_token(issue_session_token()) is True"""
-    token = auth.issue_session_token()
-    assert auth.verify_session_token(token)
+def test_new_session_token_is_long_unique_and_url_safe():
+    """new_session_token() yields distinct unguessable url-safe tokens"""
+    tokens = {auth.new_session_token() for _ in range(200)}
+    assert len(tokens) == 200
+    for token in tokens:
+        assert len(token) >= 43  # 256 bits, base64url
+        assert re.fullmatch(r"[A-Za-z0-9_-]+", token)
 
 
-def test_verify_rejects_five_malformed_inputs():
-    """verify_session_token() returns False for five malformed inputs without raising"""
-    cases = {
-        "empty string": "",
-        "no separator": "nodotshere",
-        "non-integer expiry": _sign_with_secret("not-a-number", TEST_PASSWORD),
-        "different-secret signature": _sign_with_secret(
-            str(int(time.time()) + 3600), "a-completely-different-secret"),
-        "expiry in the past": _sign_with_secret(
-            str(int(time.time()) - 100), TEST_PASSWORD),
-    }
-    for label, value in cases.items():
-        assert auth.verify_session_token(value) is False, (
-            "expected False for %s (%r)" % (label, value))
+def test_hash_session_token_is_deterministic_and_not_the_token():
+    """hash_session_token() is a stable sha256 hex digest that differs per token"""
+    token = auth.new_session_token()
+    assert auth.hash_session_token(token) == auth.hash_session_token(token)
+    assert auth.hash_session_token(token) == hashlib.sha256(token.encode()).hexdigest()
+    assert auth.hash_session_token(token) != token
+    assert auth.hash_session_token(token) != auth.hash_session_token(token + "x")
 
 
-def test_verify_rejects_flipped_signature():
-    """flipping a single hex character of a valid signature invalidates the token"""
-    token = auth.issue_session_token()
-    expiry, signature = token.split(".", 1)
-    flipped_char = "0" if signature[0] != "0" else "1"
-    flipped_signature = flipped_char + signature[1:]
-    flipped_token = "%s.%s" % (expiry, flipped_signature)
-    assert auth.verify_session_token(flipped_token) is False
+def test_password_ok_non_string_submission_is_a_wrong_password():
+    """password_ok() treats a non-string submission as wrong, never an error"""
+    for value in (None, 123, b"bytes", ["x"]):
+        assert auth.password_ok(value) is False
+
+
+def test_password_ok_compares_in_constant_time(monkeypatch):
+    """password_ok() goes through hmac.compare_digest, never ==, and unicode input is safe"""
+    seen = []
+    real = auth.hmac.compare_digest
+    monkeypatch.setattr(
+        auth.hmac, "compare_digest", lambda a, b: seen.append((a, b)) or real(a, b))
+    assert auth.password_ok("caf\u00e9-\u2603") is False
+    assert seen and seen[0][1] == TEST_PASSWORD.encode()
+
+
+def test_the_password_derived_token_api_is_gone():
+    """no stateless password-derived token machinery exists on the module"""
+    for name in (
+            "_PROCESS_SALT", "_signing_key", "_REVOKED", "_REVOKED_LOCK",
+            "revoke", "is_revoked", "issue_session_token", "verify_session_token",
+            "SESSION_TTL_S"):
+        assert not hasattr(auth, name), name
 
 
 def test_session_cookie_header_carries_security_flags():
     """session_set_cookie_header() carries HttpOnly/Secure/SameSite=Strict/Path"""
-    header = auth.session_set_cookie_header(auth.issue_session_token())
+    header = auth.session_set_cookie_header(auth.new_session_token())
     for needle in ("HttpOnly", "Secure", "SameSite=Strict", "Path=/"):
         assert needle in header, "missing %r in session cookie header: %r" % (needle, header)
 
@@ -130,7 +128,7 @@ def test_insecure_cookies_flag_drops_secure_but_keeps_other_flags(monkeypatch):
     """SKYPANE_COMPANION_INSECURE_COOKIES=1 drops Secure from both cookie builders while
     HttpOnly/SameSite=Strict/Path survive"""
     monkeypatch.setenv(auth.INSECURE_COOKIES_ENV_VAR, "1")
-    session_header = auth.session_set_cookie_header(auth.issue_session_token())
+    session_header = auth.session_set_cookie_header(auth.new_session_token())
     logout_header = auth.logout_set_cookie_header()
     for header in (session_header, logout_header):
         assert "Secure" not in header, "expected Secure to be absent, got %r" % (header,)
@@ -141,7 +139,7 @@ def test_insecure_cookies_flag_drops_secure_but_keeps_other_flags(monkeypatch):
 def test_insecure_cookies_flag_fails_closed_on_other_values(monkeypatch):
     """SKYPANE_COMPANION_INSECURE_COOKIES="true" fails closed - Secure stays on"""
     monkeypatch.setenv(auth.INSECURE_COOKIES_ENV_VAR, "true")
-    header = auth.session_set_cookie_header(auth.issue_session_token())
+    header = auth.session_set_cookie_header(auth.new_session_token())
     assert "Secure" in header, "expected Secure to remain on for a non-'1' value, got %r" % (header,)
 
 
@@ -155,6 +153,12 @@ def test_env_example_documents_insecure_cookies_flag():
     assert auth.INSECURE_COOKIES_ENV_VAR in contents, (
         "expected %r to be documented in deploy/skypane.env.example"
         % (auth.INSECURE_COOKIES_ENV_VAR,))
+
+
+def test_session_cookie_lives_thirty_days():
+    """session_set_cookie_header() carries a 30-day Max-Age"""
+    header = auth.session_set_cookie_header(auth.new_session_token())
+    assert "Max-Age=%d" % (30 * 86400) in header
 
 
 def test_logout_cookie_expires_immediately():
@@ -220,73 +224,6 @@ def test_login_throttle_self_releases_with_real_window():
     assert not throttle.locked_out(key), (
         "one post-window failure should count as 1 of 3 toward a fresh lockout, "
         "not immediately re-arm it")
-
-
-def test_forged_token_different_secret_rejected():
-    """a forged token signed with a different secret is rejected"""
-    forged = _sign_with_secret(
-        str(int(time.time()) + 3600), "attacker-controlled-secret")
-    assert auth.verify_session_token(forged) is False
-
-
-def test_hand_built_expired_token_rejected():
-    """a hand-built token expired by one second is rejected despite a correct signature"""
-    expiry = str(int(time.time()) - 1)
-    token = _sign_with_secret(expiry, TEST_PASSWORD)
-    assert auth.verify_session_token(token) is False
-
-
-def test_tokens_signed_with_derived_key_not_raw_password():
-    """issued tokens verify within this process, but a raw-password-keyed signature (the old
-    scheme) does not - the signing key is genuinely derived"""
-    # Two tokens issued in this process both verify - the derived
-    # signing key is stable within a process.
-    token_a = auth.issue_session_token()
-    token_b = auth.issue_session_token()
-    assert auth.verify_session_token(token_a)
-    assert auth.verify_session_token(token_b)
-    # But a signature computed with the OLD scheme (the raw shared
-    # password as the HMAC key, no per-process salt) must NOT verify -
-    # that is the actual behaviour being fixed.
-    expiry = str(int(time.time()) + 3600)
-    raw_password_token = _sign_with_secret(expiry, TEST_PASSWORD)
-    assert auth.verify_session_token(raw_password_token) is False, (
-        "a signature computed with the raw password (the pre-D-16 scheme) must not "
-        "verify - the signing key must be genuinely derived")
-
-
-def test_revoke_then_is_revoked_round_trip():
-    """revoke(token) then is_revoked(token) is True, a never-issued token is False, and a
-    malformed token passed to revoke() raises nothing"""
-    token = auth.issue_session_token()
-    # A different token string, not a second real session (which
-    # issue_session_token()'s nanosecond-resolution expiry already makes
-    # vanishingly unlikely to collide with `token` anyway) - is_revoked()
-    # only ever does a plain membership test.
-    never_issued = token + "0"
-    assert not auth.is_revoked(token)
-    auth.revoke(token)
-    assert auth.is_revoked(token)
-    assert not auth.is_revoked(never_issued), (
-        "revoking one token must not affect a different, never-revoked token")
-    auth.revoke("not-a-valid-token-shape")
-    auth.revoke(None)
-    auth.revoke("")
-
-
-def test_revoked_token_pruned_once_it_expires():
-    """a revoked token is pruned out of the revocation set once its own expiry passes"""
-    # revoke() stores (token -> expiry); once that expiry has passed, the
-    # NEXT revoke()/is_revoked() call must prune the entry out of
-    # auth._REVOKED, keeping the set bounded rather than growing for the
-    # lifetime of the process.
-    token = auth.issue_session_token()
-    auth.revoke(token)
-    assert token in auth._REVOKED, "expected revoke() to store a not-yet-expired token"
-    auth._REVOKED[token] = 0  # simulate its expiry having already passed
-    assert not auth.is_revoked(token), "expected an expired revoked entry to report False, not True"
-    assert token not in auth._REVOKED, (
-        "expected is_revoked() to prune the now-expired entry out of _REVOKED")
 
 
 def test_auth_not_configured_message_omits_password(monkeypatch):
