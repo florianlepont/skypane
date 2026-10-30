@@ -5,7 +5,7 @@ import pytest
 
 from server import hardware
 from server import panel_format as pf
-from server.plane.render import layout
+from server.plane.render import cli, layout
 
 LEGACY = hardware.get_profile(hardware.LEGACY_KEY)
 SIM_ENV = {hardware.SIM_ENV_VAR: "1"}
@@ -66,3 +66,43 @@ def test_mixed_order_matches_separate_renders():
     assert first == (second[1], second[0])
     assert _bytes(LANDSCAPE) == first[0]
     assert _bytes(None) == first[1]
+
+
+def test_cli_landscape_preview_is_800x480(tmp_path, monkeypatch, capsys):
+    from PIL import Image
+
+    monkeypatch.setenv(hardware.SIM_ENV_VAR, "1")
+    out = tmp_path / "land.png"
+    code = cli.main([
+        "--hardware", hardware.SIM_LANDSCAPE_KEY, "--state", "departing",
+        "--callsign", "AF1380", "--preview", str(out),
+    ])
+    assert code == 0
+    with Image.open(out) as img:
+        assert img.size == (800, 480)
+    capsys.readouterr()
+
+
+def test_cli_default_preview_is_portrait(tmp_path, capsys):
+    from PIL import Image
+
+    out = tmp_path / "port.png"
+    assert cli.main(["--state", "departing", "--callsign", "AF1380", "--preview", str(out)]) == 0
+    with Image.open(out) as img:
+        assert img.size == (1200, 1600)
+    capsys.readouterr()
+
+
+def test_cli_unknown_key_exits_non_zero(capsys):
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["--hardware", "no-such-frame"])
+    assert exc.value.code not in (0, None)
+    capsys.readouterr()
+
+
+def test_cli_simulated_key_without_gate_is_refused(monkeypatch, capsys):
+    monkeypatch.delenv(hardware.SIM_ENV_VAR, raising=False)
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["--hardware", hardware.SIM_LANDSCAPE_KEY])
+    assert exc.value.code not in (0, None)
+    capsys.readouterr()
