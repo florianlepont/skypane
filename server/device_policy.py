@@ -19,7 +19,8 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
+from functools import lru_cache
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
 
 # --- Battery-low hysteresis ---------------------------------------------
 #
@@ -184,9 +185,31 @@ BATTERY_CRITICAL_SLEEP_S = 3600
 # unvalidated.
 HHMM_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)\Z")
 
-# Fixed physical location, so the timezone is hardcoded, not
-# per-installation.
+# Zone used when a device's config names none (or an unusable one).
 QUIET_HOURS_TZ = ZoneInfo("Europe/Paris")
+
+
+@lru_cache(maxsize=1)
+def _known_timezones() -> frozenset[str]:
+    return frozenset(available_timezones())
+
+
+def timezone_for(config: object) -> ZoneInfo:
+    """The zone a device's quiet-hours window is evaluated in: the
+    config's `timezone` key when it names a known IANA zone, else
+    `QUIET_HOURS_TZ`. Membership in the known-zone set is checked before
+    any `ZoneInfo` is built so a path-like string never touches the
+    filesystem. Never raises.
+    """
+    if not isinstance(config, dict):
+        return QUIET_HOURS_TZ
+    name = config.get("timezone")
+    if not isinstance(name, str) or name not in _known_timezones():
+        return QUIET_HOURS_TZ
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError, OSError):
+        return QUIET_HOURS_TZ
 
 DEFAULT_QUIET_HOURS_START = "23:00"  # One daily recurring window, never per-weekday.
 DEFAULT_QUIET_HOURS_END = "07:00"  # One daily recurring window, never per-weekday.
@@ -202,9 +225,11 @@ def normalise_quiet_hours_time(value: object, default: str) -> str:
     return default
 
 
-def seconds_until_quiet_hours_end(now_utc: datetime, start_hm: str, end_hm: str) -> int | None:
-    """Seconds remaining until the daily [start_hm, end_hm) Europe/Paris
-    window's end, or None when `now_utc` falls outside it. Wraps midnight
+def seconds_until_quiet_hours_end(
+    now_utc: datetime, start_hm: str, end_hm: str, tz: ZoneInfo = QUIET_HOURS_TZ,
+) -> int | None:
+    """Seconds remaining until the daily [start_hm, end_hm) window's end
+    (evaluated in `tz`, default Europe/Paris), or None when `now_utc` falls outside it. Wraps midnight
     when `end_hm <= start_hm`; a zero-width window (`start_hm == end_hm`)
     is never active.
 
@@ -218,7 +243,7 @@ def seconds_until_quiet_hours_end(now_utc: datetime, start_hm: str, end_hm: str)
     configured inside the 02:00-03:00 transition hour can resolve up to
     an hour off (PEP 495 `fold=0`, accepted, not engineered around).
     """
-    local_now = now_utc.astimezone(QUIET_HOURS_TZ)
+    local_now = now_utc.astimezone(tz)
     start_h, start_m = (int(x) for x in start_hm.split(":"))
     end_h, end_m = (int(x) for x in end_hm.split(":"))
     start_today = local_now.replace(hour=start_h, minute=start_m, second=0, microsecond=0)
@@ -269,7 +294,7 @@ def quiet_hours_status(config: object, now_epoch: object) -> tuple[int, str] | t
             return None, None
         start_hm, end_hm = window
         now_utc = datetime.fromtimestamp(float(now_epoch), timezone.utc)  # type: ignore[arg-type]
-        remaining = seconds_until_quiet_hours_end(now_utc, start_hm, end_hm)
+        remaining = seconds_until_quiet_hours_end(now_utc, start_hm, end_hm, tz=timezone_for(config))
         if remaining is None:
             return None, None
         return remaining, end_hm
