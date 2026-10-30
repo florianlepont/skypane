@@ -770,9 +770,6 @@ def poll_current_aircraft(geofence, timeout=PROVIDER_TIMEOUT_S, providers=None, 
     stderr output unchanged.
     """
     provider_names = providers if providers is not None else list(DEFAULT_PROVIDER_ORDER)
-    center = geofence["center"]
-    radius_nm = geofence["radius_nm"]
-
     # Resolved here, not as default parameter values, so a caller (or
     # test) that patches time.sleep/time.time AFTER this module loads is
     # still honoured - a default argument would have captured the
@@ -784,29 +781,36 @@ def poll_current_aircraft(geofence, timeout=PROVIDER_TIMEOUT_S, providers=None, 
     # this one poll, which can never carry a previous call for any
     # provider, so it never waits and never raises.
     call_times = last_call_at if last_call_at is not None else {}
-    call_times_lock = threading.Lock()
 
-    effective_runway_id = _effective_runway_id(geofence, runway_id)
+    results, queried, failed = _fetch_providers(
+        geofence, provider_names, timeout, call_times, resolved_clock, resolved_sleep
+    )
+    return select_from_provider_results(
+        results, geofence, runway_id=runway_id, diagnostics=diagnostics,
+        queried=queried, failed=failed,
+    )
+
+
+def _fetch_providers(geofence, provider_names, timeout, call_times, clock, sleep):
+    """Query every provider in parallel; return `(results, queried, failed)`.
+
+    One worker per provider so no provider's own spacing wait ever blocks
+    another provider's call. Futures are submitted AND collected in
+    `provider_names` order (never `as_completed()`), so which provider
+    physically answers first can never change the result ordering or which
+    provider's record wins on agreement.
+    """
+    center = geofence["center"]
+    radius_nm = geofence["radius_nm"]
+    call_times_lock = threading.Lock()
+    results = []
     queried = []
     failed = []
-    # [(provider_name, candidate_records)] in provider order, for the
-    # providers that both answered AND saw at least one aircraft on the
-    # selected runway. A provider that answered but saw nothing there is
-    # not a dissenting vote - it simply has nothing to corroborate with.
-    polled = []
-
-    # One worker per provider so no provider's own spacing wait ever
-    # blocks another provider's call - the fixed inter-provider sleep this
-    # replaces used to cost ~90% of a no-network poll cycle. Futures are
-    # submitted AND collected in provider_names order (never
-    # as_completed()), so which provider physically answers first can
-    # never change queried/failed/polled ordering or which provider's
-    # record wins on agreement below.
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(provider_names))) as pool:
         futures = [
             pool.submit(
                 _spaced_query, name, center, radius_nm, timeout,
-                call_times, call_times_lock, resolved_clock, resolved_sleep,
+                call_times, call_times_lock, clock, sleep,
             )
             for name in provider_names
         ]
@@ -818,16 +822,47 @@ def poll_current_aircraft(geofence, timeout=PROVIDER_TIMEOUT_S, providers=None, 
                 print("detect: %s query failed: %s: %s" % (name, type(exc).__name__, exc), file=sys.stderr)
                 failed.append(name)
                 continue
-            candidates = runway_candidates(aircraft, geofence, runway_id=runway_id)
-            if candidates:
-                polled.append((name, candidates))
+            results.append((name, aircraft))
+    return results, queried, failed
 
-    # Populated before every return below, so an all-providers-failed poll
-    # stays distinguishable from a nothing-on-the-runway poll even though
-    # both return None.
+
+def select_from_provider_results(results, geofence, runway_id=DEFAULT_RUNWAY_ID,
+                                 diagnostics=None, queried=None, failed=None):
+    """Pick the aircraft on the selected runway from already-fetched lists.
+
+    `results` is a sequence of `(provider_name, aircraft_list)` for the
+    providers that answered, in provider order. `queried`/`failed` default
+    to the answering names and an empty list. Pure: no network, no clock.
+
+    Candidate SETS (not final picks) are cross-validated across the
+    providers that saw traffic on the runway:
+
+      >=1 aircraft common to every such source
+                          -> select one from that common set, corroborated=True
+      only one saw any    -> return its pick, corroborated=None
+      nothing in common   -> log every source's candidate set, return None
+
+    A provider that answered but saw nothing on the runway is not a
+    dissenting vote. On agreement the winner is drawn from the FIRST
+    provider's own records, so its altitude/track/position values reach the
+    renderer. The result carries `sources`, `corroborated`, `runway_id` and
+    `selected_runway`.
+
+    `diagnostics`, when a dict, is populated in place with `queried`,
+    `failed`, `selected`, `disagreement` and `runway_id` before every
+    return, which keeps "every source is down" distinguishable from
+    "nothing is on the runway".
+    """
+    effective_runway_id = _effective_runway_id(geofence, runway_id)
+    polled = []
+    for name, aircraft in results:
+        candidates = runway_candidates(aircraft, geofence, runway_id=runway_id)
+        if candidates:
+            polled.append((name, candidates))
+
     if diagnostics is not None:
-        diagnostics["queried"] = queried
-        diagnostics["failed"] = failed
+        diagnostics["queried"] = list(queried) if queried is not None else [n for n, _ in results]
+        diagnostics["failed"] = list(failed) if failed is not None else []
         diagnostics["selected"] = [name for name, _ in polled]
         diagnostics["disagreement"] = False
         diagnostics["runway_id"] = runway_id
@@ -846,9 +881,8 @@ def poll_current_aircraft(geofence, timeout=PROVIDER_TIMEOUT_S, providers=None, 
         result["runway_id"] = runway_id
         return result
 
-    # Two or more sources each saw traffic on the selected runway. `hex` is
-    # normalised the same way selection_sort_key() normalises it, so this
-    # comparison cannot disagree with the ordering that follows.
+    # `hex` is normalised the same way selection_sort_key() normalises it,
+    # so this comparison cannot disagree with the ordering that follows.
     common = set.intersection(*[{ac.get("hex") or "" for ac in c} for _, c in polled])
 
     if not common:
@@ -868,9 +902,6 @@ def poll_current_aircraft(geofence, timeout=PROVIDER_TIMEOUT_S, providers=None, 
         )
         return None
 
-    # Ordering is load-bearing: the winner is picked from the
-    # FIRST-queried provider's own records, so its altitude/track/position
-    # values are what reach the renderer.
     first_candidates = polled[0][1]
     corroborated_records = [ac for ac in first_candidates if (ac.get("hex") or "") in common]
     result = _normalise_selection(
