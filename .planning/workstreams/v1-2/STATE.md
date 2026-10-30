@@ -4,8 +4,8 @@ milestone: v1.2
 milestone_name: Fleet platform
 current_plan: 11
 status: verifying
-stopped_at: Phase 51 context gathered
-last_updated: "2026-10-30T15:34:23.857Z"
+stopped_at: Phase 51 UI-SPEC approved
+last_updated: "2026-10-30T15:46:46.541Z"
 last_activity: 2026-10-30
 progress:
   total_phases: 12
@@ -62,5 +62,5 @@ None yet.
 
 ## Session Continuity
 
-**Stopped At:** Phase 51 context gathered
-**Resume File:** .planning/workstreams/v1-2/phases/51-per-device-config-image-and-state/51-CONTEXT.md
+**Stopped At:** Phase 51 UI-SPEC approved
+**Resume File:** .planning/workstreams/v1-2/phases/51-per-device-config-image-and-state/51-UI-SPEC.md
