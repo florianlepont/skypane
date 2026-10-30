@@ -43,7 +43,10 @@ Decisions below marked "owner" were fixed by the project owner in the phase brie
 ### Hash, URL and cut-over (delegated)
 - **D-16:** The advertised `image_hash` and the content-addressed `/img/<sha256>.bin` path keep their meaning: SHA-256 over the exact bytes served, header included. A format change for a frame therefore changes its hash, costing that frame one extra full refresh once, accepted.
 - **D-17:** Canonical server artifact stays the pixel buffer; the container is a per-response encoding. The legacy path is not refactored: the code that serves a non-announcing frame is behaviour-preserving, proven by a byte-for-byte regression test of the display response and the served image against pre-change output.
-- **D-18:** Negotiation lives in the BYOS (`stub-server/byos_server.py`, stdlib only). Because that file duplicates rather than imports `server/` helpers, the container encode/decode helpers follow the same duplicate-and-pin pattern, with a test that fails if the two copies drift.
+- **D-18 (amended after research):** Negotiation lives in the BYOS (`stub-server/byos_server.py`). Research found the BYOS already imports `server` modules, so the container encoder is a single module in `server/` imported by the BYOS rather than duplicated; no drift test is needed. If the import turns out to be unusable at deploy time, fall back to a duplicated encoder pinned by a behaviour test.
+- **D-19:** An announced version above the server's maximum gets the server's highest supported version; non-numeric, empty, zero or oversized (more than 3 digits) values get legacy raw.
+- **D-20:** Payload length is `ceil(width*height/2)` (identical to `width*height/2` for even pixel counts).
+- **D-21:** The written spec lives in a new `docs/IMAGE-FORMAT.md` (the upstream protocol doc was never vendored), referenced from `stub-server/README.md`.
 
 ### Claude's Discretion
 - Module and test names, error-code naming, fixture file layout, and where the written spec lives (alongside the existing protocol documentation), provided the spec states D-08 to D-13 exactly.
