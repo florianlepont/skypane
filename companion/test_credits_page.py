@@ -133,3 +133,42 @@ def test_text_is_escaped(tmp_path):
     assert "<script>alert(1)</script>" not in html
     assert "&lt;script&gt;" in html
     assert "<img src=x" not in html
+
+
+# --- the served route ------------------------------------------------------
+
+def _get(server, path, lang=None):
+    from companion_app_server import http_request
+    headers = {"Accept-Language": lang} if lang else None
+    status, _headers, body = http_request(
+        server.url(path), extra_headers=headers)
+    return status, body.decode("utf-8")
+
+
+def test_anonymous_gets_the_english_page(app_server_in_process):
+    status, html = _get(app_server_in_process, "/credits", lang="en")
+    assert status == 200
+    for name in ("adsb.fi", "adsb.lol", "adsbdb", "OurAirports"):
+        assert name in html
+    assert 'href="https://adsb.fi"' in html
+    assert "<h1" in html and "Credits" in html
+
+
+def test_anonymous_gets_the_french_page(app_server_in_process):
+    sources = credits_page.load_credits()
+    status, html = _get(app_server_in_process, "/credits", lang="fr")
+    assert status == 200
+    assert sources[0]["description"]["fr"][:30] in html
+    assert sources[0]["description"]["en"][:30] not in html
+    assert "Crédits" in html
+
+
+def test_anonymous_page_carries_no_health_alert_or_device_name(
+        app_server_in_process):
+    _status, html = _get(app_server_in_process, "/credits")
+    assert "toast--docked" not in html
+
+
+def test_the_device_prefixed_path_is_refused(app_server_in_process):
+    status, _html = _get(app_server_in_process, "/devices/d_00000000/credits")
+    assert status != 200

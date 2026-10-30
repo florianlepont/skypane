@@ -49,6 +49,7 @@ ROUTE_POLICY = {
     ("GET", "/login"): PUBLIC,
     ("GET", "/login/auth0"): PUBLIC,
     ("GET", "/callback"): PUBLIC,
+    ("GET", "/credits"): PUBLIC,
     ("POST", "/login"): PUBLIC,
     ("GET", "/account"): SIGNED_IN,
     ("POST", "/ui-theme"): SIGNED_IN,

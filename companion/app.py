@@ -31,7 +31,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from companion import (  # noqa: E402
-    access, auth, device_dispatch, device_scope, flash, freshness, i18n, illustration_normalize, layout,
+    access, auth, credits_page, device_dispatch, device_scope, flash, freshness, i18n, illustration_normalize, layout,
     login_page, page_context, post_actions, preview_images, prefs, request_body, routes, sign_in,
     sign_in_config, static_files, theme_preview)
 from companion.pages import (  # noqa: E402
@@ -740,6 +740,15 @@ class Handler(
         health_alert = self._health_alert_for_admin()
         return login_page.not_found_page(
             self._resolved_ui_theme(), health_alert, back=self._back_target())
+
+    def _handle_credits_get(self):
+        """GET CREDITS_ROUTE: the public credits page. Only the request
+        language is read; the health alert is computed for an admin
+        principal alone, like the 404 page.
+        """
+        prefs.set_request_prefs(lang=self._lang_from_request())
+        return self.send_html(200, credits_page.credits_page(
+            self._resolved_ui_theme(), self._health_alert_for_admin()))
 
     def _forbidden_page(self):
         """The shared 403 body for do_POST()'s Origin/Sec-Fetch-Site gate.
