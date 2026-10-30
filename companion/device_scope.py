@@ -166,7 +166,7 @@ def _battery_received_at(state_dir):
     return float(received)
 
 
-def _last_check_in_epoch(state_dir):
+def last_check_in_epoch(state_dir):
     """Epoch seconds of the newest check-in recorded for this directory, or None."""
     if os.path.exists(history_db.history_db_path(state_dir)):
         try:
@@ -188,7 +188,7 @@ def device_status(device, now_epoch):
     wake interval."""
     if device.is_live:
         return None
-    last = _last_check_in_epoch(device.state_dir)
+    last = last_check_in_epoch(device.state_dir)
     if last is None:
         return STATUS_NEVER_SEEN
     interval = device_config.load_device_config(device.state_dir)["wake_interval_s"]

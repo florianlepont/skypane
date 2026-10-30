@@ -1044,7 +1044,7 @@ def _device_status(ctx, now):
 def _device_unreachable_html(ctx, now):
     """The docked warning toast for a device that has been silent for more
     than two of its own wake intervals."""
-    last = device_scope._last_check_in_epoch(ctx.state_dir)
+    last = device_scope.last_check_in_epoch(ctx.state_dir)
     parsed = None if last is None else datetime.fromtimestamp(last, timezone.utc)
     now_parsed = history_db.instant_or_none(now)
     when = layout.local_clock_text(parsed, now_parsed) if parsed else i18n.t(_NO_CHECK_IN_TEXT)
