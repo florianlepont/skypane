@@ -379,7 +379,7 @@ used for a real release.
 - Rollback behaviour for a wrong-hardware image. With option S the chip id
   and the project name are the only device-side guards between two types.
 
-Earlier evidence: on the live EE02 frame, a wrong-key image and a tampered
+Legacy-only earlier evidence (not a pass of the bench run below): on the live EE02 frame, a wrong-key image and a tampered
 image were refused on the device during the Phase 42 hardware session
 (`hardware/logs/phase42/H42-09a-*` and `H42-09b-*`, summarised in
 `hardware/BRINGUP-LOG.md`). That evidence predates the per-type registry and
@@ -423,19 +423,26 @@ Fail when:
 - the unit reboots into a boot loop, or
 - the result token is missing or is not `fail-image`.
 
-### Bench results (to be filled in by the owner)
+### Bench results
 
 | Field | Value |
 |-------|-------|
-| Date | |
-| Bench unit (hardware type, serial) | |
-| Firmware versions (flashed / correctly signed / wrongly signed) | |
-| Correctly signed image installed (yes/no, reported version) | |
-| Wrongly signed image rejected on the device (yes/no) | |
-| Result token seen (`fail-image` expected) | |
-| Running firmware kept working after the rejection (yes/no) | |
-| Verdict (pass/fail/deferred) | |
+| Date | 2026-10-30 (deferral recorded; no bench run) |
+| Bench unit (hardware type, serial) | none available |
+| Firmware versions (flashed / correctly signed / wrongly signed) | not run |
+| Correctly signed image installed (yes/no, reported version) | not run |
+| Wrongly signed image rejected on the device (yes/no) | not run |
+| Result token seen (`fail-image` expected) | not run |
+| Running firmware kept working after the rejection (yes/no) | not run |
+| Verdict (pass/fail/deferred) | DEFERRED |
 
-Until this table is filled in, the device-side accept and reject behaviour
+Status: DEFERRED, not passed. On 2026-10-30 the owner (Florian Lepont)
+reported that no bench unit is available and deferred the on-device
+rejection test to the first second-hardware session. No result is recorded
+because none was observed. Consequence: no second non-simulated hardware may
+be provisioned until the bench procedure has been run and its result
+recorded in the table above.
+
+Until the table holds observed results, the device-side accept and reject behaviour
 for a second hardware type is unproven, and no second non-simulated hardware
 may be provisioned.
