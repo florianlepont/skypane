@@ -92,6 +92,43 @@ def http_request(
         return exc.code, dict(exc.headers or {}), exc.read()
 
 
+def http_request_full(
+        url, method="GET", data=None, cookie=None, timeout=10, extra_headers=None):
+    """Like http_request(), but the headers come back as the original
+    message object so a response with several Set-Cookie headers keeps all
+    of them (`headers.get_all("Set-Cookie")`).
+    """
+    headers = {}
+    if cookie:
+        headers["Cookie"] = cookie
+    if data is not None and method == "POST":
+        headers.setdefault("Content-Type", "application/x-www-form-urlencoded")
+    if extra_headers:
+        headers.update(extra_headers)
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with _OPENER.open(req, timeout=timeout) as resp:
+            return resp.status, resp.headers, resp.read()
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.headers, exc.read()
+
+
+def set_cookie_headers(headers):
+    """Every raw Set-Cookie header value of a response from
+    http_request_full().
+    """
+    return list(headers.get_all("Set-Cookie") or [])
+
+
+def named_cookie(headers, name):
+    """The "name=value" pair of the Set-Cookie header for `name`, or None."""
+    for raw in set_cookie_headers(headers):
+        pair = raw.split(";", 1)[0]
+        if pair.startswith(name + "="):
+            return pair
+    return None
+
+
 def cookie_value(headers):
     """Extract just the "name=value" portion of a Set-Cookie response
     header (dropping the trailing attribute flags), or None.
@@ -118,6 +155,80 @@ def login(server, password=TEST_PASSWORD):
     if not cookie:
         raise AssertionError("expected a Set-Cookie header on successful login")
     return cookie
+
+
+AUTH0_LEGACY_ENV_VAR = "SKYPANE_LEGACY_PASSWORD_LOGIN"
+
+
+def auth0_env(fake, public_url, legacy_login=None):
+    """The environment variables that point a companion at `fake` and tell
+    it its own public address. `legacy_login` ("0" or "1") sets the
+    shared-password switch when given.
+    """
+    env = fake.register_with_env({})
+    env["SKYPANE_COMPANION_PUBLIC_URL"] = public_url
+    if legacy_login is not None:
+        env[AUTH0_LEGACY_ENV_VAR] = legacy_login
+    return env
+
+
+class Auth0Login:
+    """What login_via_auth0() saw: the two hops and the callback reply."""
+
+    def __init__(self, start, authorize, callback, attempt_cookie):
+        self.start = start
+        self.authorize = authorize
+        self.callback = callback
+        self.attempt_cookie = attempt_cookie
+
+    @property
+    def status(self):
+        return self.callback[0]
+
+    @property
+    def headers(self):
+        return self.callback[1]
+
+    @property
+    def body(self):
+        return self.callback[2]
+
+    @property
+    def session_cookie(self):
+        """The "sp_session=..." pair set by the callback, or None."""
+        return named_cookie(self.headers, "sp_session")
+
+
+def begin_auth0(server, fake, next_route=None, cookie=None, **identity):
+    """GET /login/auth0 and follow the authorize hop to the fake by hand.
+    Returns (start_reply, authorize_reply, attempt_cookie, callback_path).
+    `identity` is passed to fake.next_login().
+    """
+    if identity:
+        fake.next_login(**identity)
+    path = "/login/auth0"
+    if next_route is not None:
+        path += "?next=" + urllib.parse.quote(next_route, safe="")
+    start = http_request_full(server.url(path), cookie=cookie)
+    attempt_cookie = named_cookie(start[1], "sp_oidc")
+    location = start[1].get("Location") or ""
+    authorize = http_request_full(location)
+    back = urllib.parse.urlsplit(authorize[1].get("Location") or "")
+    callback_path = back.path + ("?" + back.query if back.query else "")
+    return start, authorize, attempt_cookie, callback_path
+
+
+def login_via_auth0(server, fake, next_route=None, cookie=None, **identity):
+    """Sign in through the whole flow with every hop done by hand against
+    the loopback fake: start, authorize, then GET /callback with the
+    pre-login cookie. Returns an Auth0Login; callers assert on its
+    status, headers, body and session_cookie.
+    """
+    start, authorize, attempt_cookie, callback_path = begin_auth0(
+        server, fake, next_route=next_route, cookie=cookie, **identity)
+    sent = "; ".join(c for c in (cookie, attempt_cookie) if c) or None
+    callback = http_request_full(server.url(callback_path), cookie=sent)
+    return Auth0Login(start, authorize, callback, attempt_cookie)
 
 
 def get(server, path, cookie=None):
@@ -309,7 +420,7 @@ class InProcessAppServer:
     a ThreadingHTTPServer built the identical way.
     """
 
-    def __init__(self, state_dir):
+    def __init__(self, state_dir, env_overrides=None):
         import argparse
         import threading
         from http.server import ThreadingHTTPServer
@@ -321,6 +432,7 @@ class InProcessAppServer:
         self.state_dir = state_dir
         self._app_module = app_module
         self._previous_password = os.environ.get(auth.PASSWORD_ENV_VAR)
+        self._saved_env = {}
         os.environ[auth.PASSWORD_ENV_VAR] = TEST_PASSWORD
         self.port = pick_free_port()
         app_module.Handler.args = argparse.Namespace(
@@ -328,6 +440,20 @@ class InProcessAppServer:
         self.server = ThreadingHTTPServer(("127.0.0.1", self.port), app_module.Handler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
+        if env_overrides:
+            self.apply_env(env_overrides)
+
+    def apply_env(self, env):
+        """Set environment variables the running server reads per request
+        (Auth0 settings, the legacy-login switch). A None value unsets the
+        variable. The previous values come back at stop().
+        """
+        for name, value in env.items():
+            self._saved_env.setdefault(name, os.environ.get(name))
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
 
     def base_url(self):
         return "http://127.0.0.1:%d" % self.port
@@ -340,6 +466,12 @@ class InProcessAppServer:
 
         self.server.shutdown()
         self.server.server_close()
+        for name, previous in self._saved_env.items():
+            if previous is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = previous
+        self._saved_env = {}
         if self._previous_password is None:
             os.environ.pop(auth.PASSWORD_ENV_VAR, None)
         else:
