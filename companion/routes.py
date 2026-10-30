@@ -8,6 +8,12 @@ duplicated here as literals instead, the same "duplicated-not-imported"
 contract `app.py`'s own `QUICK_*_ROUTE` constants already document for
 the identical reason.
 
+Routes that act on one device carry `device_scoped=True`; only those also
+resolve under a `/devices/<id>` prefix (`match()` strips the prefix and
+reports the id on `RouteMatch.device_id`). Global routes (login, logout,
+theme, language, static assets, runway diagrams, update) never match under
+the prefix. The set is declared once in `_DEVICE_SCOPED_KEYS`.
+
 Only two matcher shapes exist: `Exact` (a fixed literal path) and
 `PrefixSuffix` (a fixed prefix and, for every route but the gallery one,
 a fixed suffix too) - a captured middle segment is recovered by slicing
@@ -17,6 +23,7 @@ pre-session access; the only routes with it are GET/POST /login and the
 18 static assets in `companion/static_files.py`'s `STATIC_ROUTES`.
 """
 import collections
+import re
 
 from companion import layout, static_files, theme_preview
 from companion.pages import (
@@ -24,8 +31,16 @@ from companion.pages import (
 
 Exact = collections.namedtuple("Exact", "path")
 PrefixSuffix = collections.namedtuple("PrefixSuffix", "prefix suffix")
-RouteMatch = collections.namedtuple("RouteMatch", "path query captured")
-Route = collections.namedtuple("Route", "method matcher handler auth_required")
+# `device_id` is None for an un-prefixed match; `device` is filled in later
+# by the dispatcher once the id has been looked up.
+RouteMatch = collections.namedtuple(
+    "RouteMatch", "path query captured device_id device", defaults=(None, None))
+Route = collections.namedtuple(
+    "Route", "method matcher handler auth_required device_scoped", defaults=(False,))
+
+# Anchored on the raw path (never percent-decoded); `\Z` and the absence of
+# DOTALL keep a newline from slipping into the id or the remainder.
+DEVICE_PREFIX_RE = re.compile(r"\A/devices/(d_[0-9a-f]{8})(/.*)?\Z")
 
 # Literal here, byte-identical to companion/app.py's own constants of the
 # same name, since this module can never import companion.app either.
@@ -198,7 +213,64 @@ _POST_ROUTES = (
         lambda h, m: h._handle_rule_delete_post(m.captured), True),
 )
 
-ROUTES = _GET_ROUTES + _POST_ROUTES
+_PAGE_AND_IMAGE_KEYS = (
+    ("GET", Exact(HOME_ROUTE)),
+    ("GET", Exact(DISPLAY_ROUTE)),
+    ("GET", Exact(DEVICE_ROUTE)),
+    ("GET", Exact(FLIGHTS_ROUTE)),
+    ("GET", Exact(HEALTH_ROUTE)),
+    ("GET", Exact(AIRLINES_ROUTE)),
+    ("GET", Exact(SETTINGS_ROUTE)),
+    ("GET", Exact(HISTORY_LEGACY_ROUTE)),
+    ("GET", Exact(PREVIEW_PAGE_ROUTE)),
+    ("GET", PrefixSuffix(GALLERY_ROUTE_PREFIX, "")),
+    ("GET", PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png")),
+    ("GET", PrefixSuffix(THEME_PREVIEW_ROUTE_PREFIX, ".png")),
+    ("GET", PrefixSuffix(FRAME_PREVIEW_ROUTE_PREFIX, ".png")),
+)
+
+_ACTION_KEYS = (
+    ("POST", Exact(SETTINGS_ROUTE)),
+    ("POST", Exact(POLL_ROUTE)),
+    ("POST", Exact(QUICK_DISPLAY_ROUTE)),
+    ("POST", Exact(QUICK_QUIET_HOURS_ROUTE)),
+    ("POST", Exact(QUICK_LED_ROUTE)),
+    ("POST", Exact(airlines_page.RESOLVE_ROUTE)),
+    ("POST", Exact(airlines_page.RENAME_ROUTE)),
+    ("POST", Exact(airlines_page.RENAME_RESET_ROUTE)),
+    ("POST", PrefixSuffix(
+        airlines_page.MANUAL_DELETE_ROUTE_PREFIX, airlines_page.MANUAL_DELETE_ROUTE_SUFFIX)),
+    ("POST", PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png")),
+    ("POST", Exact(RULES_ADD_ROUTE)),
+    ("POST", PrefixSuffix(RULES_DELETE_ROUTE_PREFIX, RULES_DELETE_ROUTE_SUFFIX)),
+    ("POST", Exact(CALENDAR_CONNECT_ROUTE)),
+    ("POST", Exact(CALENDAR_DISCONNECT_ROUTE)),
+)
+
+# The routes that act on a single device: 13 GET and 14 POST.
+_DEVICE_SCOPED_KEYS = frozenset(_PAGE_AND_IMAGE_KEYS + _ACTION_KEYS)
+
+ROUTES = tuple(
+    route._replace(device_scoped=(route.method, route.matcher) in _DEVICE_SCOPED_KEYS)
+    for route in _GET_ROUTES + _POST_ROUTES
+)
+
+
+def _match_in(routes, method, path, query, device_id):
+    for route in routes:
+        if route.method != method:
+            continue
+        matcher = route.matcher
+        if isinstance(matcher, Exact):
+            if path == matcher.path:
+                return route, RouteMatch(path, query, None, device_id)
+            continue
+        if path.startswith(matcher.prefix) and path.endswith(matcher.suffix):
+            captured = (
+                path[len(matcher.prefix):-len(matcher.suffix)] if matcher.suffix
+                else path[len(matcher.prefix):])
+            return route, RouteMatch(path, query, captured, device_id)
+    return None
 
 
 def match(method, path, query):
@@ -206,18 +278,15 @@ def match(method, path, query):
     matcher agree with `method`/`path` - the same first-branch-wins order
     the pre-table if-chains evaluated - else None. `query` is carried
     through unparsed onto RouteMatch for a handler that wants it.
+
+    A `/devices/<id>/...` path is matched on its remainder against the
+    `device_scoped` routes only, and the id is reported on the match; a
+    path that merely starts with `/devices/` but is not a well-formed
+    prefix goes through the plain loop and finds nothing.
     """
-    for route in ROUTES:
-        if route.method != method:
-            continue
-        matcher = route.matcher
-        if isinstance(matcher, Exact):
-            if path == matcher.path:
-                return route, RouteMatch(path, query, None)
-            continue
-        if path.startswith(matcher.prefix) and path.endswith(matcher.suffix):
-            captured = (
-                path[len(matcher.prefix):-len(matcher.suffix)] if matcher.suffix
-                else path[len(matcher.prefix):])
-            return route, RouteMatch(path, query, captured)
-    return None
+    prefixed = DEVICE_PREFIX_RE.match(path)
+    if prefixed is not None:
+        scoped_routes = tuple(route for route in ROUTES if route.device_scoped)
+        return _match_in(
+            scoped_routes, method, prefixed.group(2) or "/", query, prefixed.group(1))
+    return _match_in(ROUTES, method, path, query, None)
