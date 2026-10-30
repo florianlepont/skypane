@@ -154,7 +154,7 @@ companion/
 |-- credits_page.py                # NEW load/validate + markup
 |-- i18n_fr/credits.py             # NEW French chrome strings
 |-- routes.py / app.py             # + PUBLIC GET /credits
-.planning/workstreams/v1-2/phases/56-.../56-ADSB-CONTACT.md   # NEW, status: to send
+.planning/workstreams/v1-2/phases/56-.../56-PROVIDER-CONTACT.md   # NEW, status: to send
 ```
 
 ### Pattern 1: Optional-size primitives with identical defaults
@@ -334,7 +334,7 @@ Resolve once per request: `PageContext` already carries the device (`ctx.device`
 
 ## adsb.fi / adsb.lol contact (D-07)
 
-Deliverable: `.planning/workstreams/v1-2/phases/56-per-hardware-rendering-battery-profiles-health-and-credits/56-ADSB-CONTACT.md` with a front-matter line `status: to-send`, the channel (unknown, see below), the English draft, and an empty "sent / reply" log for the owner. The requirement HWR-02 says "recorded contact"; Claude can only record the draft and its status, and the verifier must treat "sent" as an owner action. A companion test cannot read `.planning/` (guard), so this is a manual verification line.
+Deliverable: `.planning/workstreams/v1-2/phases/56-per-hardware-rendering-battery-profiles-health-and-credits/56-PROVIDER-CONTACT.md` with a front-matter line `status: to-send`, the channel (unknown, see below), the English draft, and an empty "sent / reply" log for the owner. The requirement HWR-02 says "recorded contact"; Claude can only record the draft and its status, and the verifier must treat "sent" as an owner action. A companion test cannot read `.planning/` (guard), so this is a manual verification line.
 
 What `COMPLIANCE.md` already records (so the draft need not repeat it): current usage is two requests per 30 s cycle, one to each provider, in parallel; each provider sees at most one request per cycle; at least 1.1 s between two requests to the same provider; adsb.fi documents 1 req/s and counts 4xx; adsb.lol documents dynamic limits and pre-announces a future feeder-contributed key; no raw data is republished (`COMPLIANCE.md` lines 218-250).
 
@@ -485,28 +485,28 @@ Route("GET", Exact(CREDITS_ROUTE), lambda h, m: h._handle_credits_get(), PUBLIC)
 | A7 | Credits data file at `companion/credits.json` rather than `docs/` | Credits | Purely locational; README links follow |
 | A8 | `ROADMAP`'s "UI hint: yes" implies owner visual review of landscape previews and the credits page | Validation | Extra manual step if not wanted |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Reduced-ink profiles and illustration dithering**
+1. RESOLVED: **Reduced-ink profiles and illustration dithering**
    - Known: themes can be filtered by ink; illustrations always dither to six inks.
    - Unclear: whether any future hardware has fewer than six inks (EE04 is Spectra 6 per owner).
    - Recommendation: implement filtering and fallback only; guard the registry to six-ink profiles; do not build restricted dithering.
 
-2. **Per-profile charge/drop heuristics (`CHARGE_*`, `BATTERY_DROP_WARN_MV`)**
+2. RESOLVED: **Per-profile charge/drop heuristics (`CHARGE_*`, `BATTERY_DROP_WARN_MV`)**
    - Known: they are calibrated on one EE02 pack.
    - Unclear: nobody has a second pack's data.
    - Recommendation: leave global, add a comment saying so; revisit with the second hardware's measurements.
 
-3. **Key and label for the planned second hardware slot**
+3. RESOLVED: **Key and label for the planned second hardware slot**
    - Recommendation: `seeed-ee04-7in3-spectra6` as the slot key, owner can rename in the plan; no registry entry.
 
-4. **Theme previews for landscape devices** (`theme_preview.py` crops a portrait canvas)
+4. RESOLVED: **Theme previews for landscape devices** (`theme_preview.py` crops a portrait canvas)
    - Recommendation: out of scope; note in the plan summary that previews show the portrait sample.
 
-5. **Contact channel for adsb.fi / adsb.lol**
+5. RESOLVED: **Contact channel for adsb.fi / adsb.lol**
    - Recommendation: owner supplies; draft marks the channel `unknown`.
 
-6. **Should the Health page display battery provenance to the owner?**
+6. RESOLVED: **Should the Health page display battery provenance to the owner?**
    - Recommendation: not required by D-05 ("recorded"); keep it in the profile and tests; add UI only if the owner asks.
 
 ## Environment Availability
@@ -547,7 +547,7 @@ Route("GET", Exact(CREDITS_ROUTE), lambda h, m: h._handle_credits_get(), PUBLIC)
 | HWR-02a | Anonymous `GET /credits` returns 200 in EN and FR, with the four sources and an `href="https://adsb.fi"` link; `/devices/<id>/credits` is refused | HTTP | `pytest companion/test_access_matrix.py companion/test_credits_page.py -q -n 0 --no-cov` | matrix exists, credits new |
 | HWR-02b | `load_credits` accepts the shipped file and rejects each broken variant (missing source, http URL, missing French, duplicate id, wrong adsb.fi host) | unit | `pytest companion/test_credits_page.py -q -n 0 --no-cov` | new |
 | HWR-02c | French catalogue complete for new ids | unit | `pytest companion/test_i18n.py -q -n 0 --no-cov` | exists |
-| HWR-02d | Contact draft recorded with status to-send | manual (guard forbids tests reading `.planning/`) | verifier opens `56-ADSB-CONTACT.md` | n/a |
+| HWR-02d | Contact draft recorded with status to-send | manual (guard forbids tests reading `.planning/`) | verifier opens `56-PROVIDER-CONTACT.md` | n/a |
 | HWR-01h | Owner reviews landscape preview PNGs (`render --hardware ... --preview`) | manual | owner, end of phase | n/a |
 
 ### Sampling Rate
@@ -596,7 +596,7 @@ Route("GET", Exact(CREDITS_ROUTE), lambda h, m: h._handle_credits_get(), PUBLIC)
 | 2 | D: Battery plumbing | `device_policy` optional params, poll cycle uses `ctx.profile.battery`, byos pin, companion `battery*`/pages/`profile_for` | depends on C for the `ctx.profile` field; `device_policy.py`, `byos_server.py`, companion |
 | 3 | E: Themes per profile in pickers | `look._cells(theme_ids)`, Display page passes profile themes | companion settings |
 | 3 | F: Credits page | route, data file, page, i18n, matrix row, README/COMPLIANCE pointers | companion; independent of A-E (can run in wave 1 in parallel if capacity) |
-| 3 | G: Contact draft | `56-ADSB-CONTACT.md`, COMPLIANCE non-commercial clause | docs only |
+| 3 | G: Contact draft | `56-PROVIDER-CONTACT.md`, COMPLIANCE non-commercial clause | docs only |
 
 Golden test runs at the end of B through G.
 
