@@ -8,7 +8,7 @@
 
 Admins pair a new frame to a user with a short on-panel code (single-use, expiring, claimed atomically, audited), manage the whole fleet from a console (devices, users, releases, audit log) and ordinary users see only their own frames with fewer options. Requirements: AUTH-04, AUTH-05. Depends on Phase 54.
 
-First deliverable (first plan): the Phase 54 hand-off. The rows of the route x role x owner matrix (`companion/test_access_matrix.py`) that waited for Phase 51 are completed, because the new pairing and admin routes extend that same matrix. Items in `54-HANDOFF.md` section A are in scope; the removal of the `legacy-admin` fallback is NOT (owner decision, needs explicit agreement).
+First deliverable (first plan): the Phase 54 hand-off. The rows of the route x role x owner matrix (`companion/test_access_matrix.py`) that waited for Phase 51 are completed, because the new pairing and admin routes extend that same matrix. Items in `54-HANDOFF.md` section A are in scope. The `legacy-admin` fallback is already removed on `main` (owner's change); nothing to do about it.
 
 Out of scope: device co-management (Phase 60), firmware changes (Phase 57 ships the single combined OTA), fleet polling and zones (52), detection modes (53), per-hardware rendering and battery profiles (56), any production deploy, Phase 47 files and `hardware/`.
 
