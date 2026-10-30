@@ -1358,7 +1358,7 @@ def cycle_result(ctx):
     }
 
 
-def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_timeout_s=None):
+def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_timeout_s=None, reconcile_firmware=True):
     """One poll cycle: detect -> infer -> enrich -> render -> publish
     (atomic panel/gallery write) -> record (history.db), as a sequence of
     named steps over one `CycleContext`, serialised across every process
@@ -1386,7 +1386,9 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_
     Before any hold decision, `_reconcile_firmware()` folds every
     device-reported OTA outcome into the release registry, unconditionally -
     a battery-hold, quiet-hours or display-off cycle still closes out a
-    pending update exactly like a live cycle would.
+    pending update exactly like a live cycle would. The firmware registry
+    lives in the root state directory only, so a caller polling a
+    per-device directory passes `reconcile_firmware=False`.
 
     Hold states: a quiet-hours window and the manual display-off toggle
     both gate through one shared `poll_state["hold_state"]` latch
@@ -1413,7 +1415,8 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_
             # Before the hold decision, so a battery-hold, quiet-hours or
             # display-off cycle still reconciles device-reported OTA
             # outcomes exactly like a live cycle would.
-            _reconcile_firmware(ctx.state_dir, history_db.utc_now_iso())
+            if reconcile_firmware:
+                _reconcile_firmware(ctx.state_dir, history_db.utc_now_iso())
             ctx.hold_kind = decide_hold(ctx.battery_critical, ctx.display_enabled, ctx.quiet_remaining)
             if ctx.hold_kind is not None:
                 return run_hold_cycle(ctx)

@@ -236,3 +236,17 @@ def test_apply_reconcile_all_scopes_each_type_and_skips_unmoved_writes(tmp_path,
     before = (open(legacy_path, "rb").read(), os.stat(legacy_path).st_mtime_ns)
     assert firmware_registry.apply_reconcile_all(state, NOW) == []
     assert (open(legacy_path, "rb").read(), os.stat(legacy_path).st_mtime_ns) == before
+
+
+def test_reconcile_can_be_skipped_for_a_per_device_directory(tmp_path):
+    """A caller polling a per-device directory passes reconcile_firmware=False: the
+    firmware registry is global, so no firmware/ directory appears there."""
+    skipped = _mkdir(tmp_path, "device")
+    _save_cfg(skipped, _DISPLAY_OFF)
+    poll_cycle.run_once(state_dir=skipped, reconcile_firmware=False)
+    assert not os.path.exists(os.path.join(skipped, "firmware"))
+
+    reconciled = _mkdir(tmp_path, "live")
+    _save_cfg(reconciled, _DISPLAY_OFF)
+    poll_cycle.run_once(state_dir=reconciled)
+    assert os.path.isdir(os.path.join(reconciled, "firmware"))

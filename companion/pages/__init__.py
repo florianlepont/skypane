@@ -18,7 +18,11 @@ Every page module exposes:
     Handler.page_context(); a plain {field: value} mapping — the shape
     several hundred existing unit tests still pass — is accepted too,
     converted at the call by companion.page_context.coerce()):
-        - state_dir: the on-disk state directory
+        - state_dir: the on-disk state directory of the device the
+          request is for (the root for the live frame)
+        - device: that request's `companion.device_scope.Device`
+        - root_state_dir: the root state directory, for the inputs that
+          are global rather than per device (the fleet status document)
         - ui_theme: the resolved theme ("auto"/"light"/"dark")
         - lang: the resolved language ("fr"/"en"); presentation only, no
           POST handler consults it

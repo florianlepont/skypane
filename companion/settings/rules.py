@@ -44,7 +44,7 @@ POLL_TRIGGER_BUTTON_ID = "poll-trigger-btn"
 POLL_COOLDOWN_TEXT_ID = "poll-cooldown-text"
 
 # The enabled (zero-cooldown) branch's button label while a submit is
-# pending. Cosmetic only: companion/app.py's _POLL_LOCK is the actual
+# pending. Cosmetic only: the device's poll lock (companion/device_scope.py) is the actual
 # correctness boundary.
 POLL_SUBMIT_PENDING_TEXT = i18n.msg("display.polling", "Polling…")
 

@@ -237,6 +237,19 @@ def strip_prefix(path):
     return matched.group(2) or "/"
 
 
+def strip_current_prefix(value):
+    """`value` without this request's own /devices/<id> prefix. A value under
+    any other prefix, or a non-string, is returned unchanged, so it fails every
+    exact-membership test against un-prefixed routes."""
+    prefix = current_prefix()
+    if prefix and isinstance(value, str):
+        if value == prefix:
+            return "/"
+        if value.startswith(prefix + "/"):
+            return value[len(prefix):]
+    return value
+
+
 def target_path(path, device):
     """The same page under `device`: un-prefixed for the live frame."""
     base = strip_prefix(path)

@@ -54,7 +54,7 @@ GALLERY_DEFAULT_LIMIT = 30
 # build_page_context(). Order matches companion/pages/__init__.py's own
 # contract docstring.
 EAGER_FIELDS = (
-    "state_dir", "ui_theme", "lang", "device_config",
+    "state_dir", "device", "root_state_dir", "ui_theme", "lang", "device_config",
     "last_checkin_ts", "battery_critical", "wake_interval_env_default",
     "flash", "flash_role", "flash_key", "runway_images", "now", "resolve_prefix",
     "sheet_key", "calendar_sheet", "calendar_sheet_error",
@@ -309,15 +309,17 @@ def runway_images_available(image_dir=_RUNWAY_IMAGE_DIR):
     return available
 
 
-def build_page_context(handler):
+def build_page_context(handler, device):
     """Build the `PageContext` every page module's `render()`/
     `handle_post()` receives — documented in full in
     `companion/pages/__init__.py`. `handler` is the request's `Handler`
     instance, read for its path/args/headers/`_lang_from_request()`/
     `_resolved_ui_theme()` alone — this module owns no request state of
-    its own.
+    its own. `device` is the `device_scope.Device` the request is for:
+    its directory is `ctx.state_dir`, while `ctx.root_state_dir` stays the
+    root for the one global input (the fleet status document).
 
-    Returns a `PageContext`: the 14 `EAGER_FIELDS` values below are
+    Returns a `PageContext`: the `EAGER_FIELDS` values below are
     computed eagerly (every route needs them, or a later value here
     depends on one), but the expensive ones — Health's severity/markup,
     the gallery listing, the manual-resolutions/colour-rules/calendar
@@ -340,7 +342,8 @@ def build_page_context(handler):
     # For FLASH_KEY_RULE_REPLACED's copy; re-normalised inside
     # resolve_flash_text() before ever being interpolated.
     rule_key = params.get("rule", [None])[0]
-    state_dir = handler.args.state_dir
+    root_state_dir = handler.args.state_dir
+    state_dir = device.state_dir
     now = history_db.utc_now_iso()
     # Must run before any Health work below: a fresh per-thread
     # ContextVar defaults to English, so setting the language late
@@ -366,6 +369,8 @@ def build_page_context(handler):
     ctx = PageContext(
         {
             "state_dir": state_dir,
+            "device": device,
+            "root_state_dir": root_state_dir,
             "ui_theme": handler._resolved_ui_theme(),
             "lang": prefs.current_lang(),
             "device_config": device_cfg,
@@ -411,7 +416,8 @@ def build_page_context(handler):
             # The severity/anomaly snapshot every tab's nav dot needs,
             # with zero markup built. Shared (never recomputed) by the
             # "health_state" and "health_severity" loaders below.
-            "_health_signals": lambda: health_page.safe_health_signals(state_dir, now),
+            "_health_signals": lambda: health_page.safe_health_signals(
+                state_dir, now, root_state_dir),
             # Only Home and Health read this — the markup step. `None`
             # both when the signals snapshot itself failed and when
             # building markup from a real snapshot raises: the same

@@ -384,7 +384,7 @@ FLASH_POLL_COOLDOWN = "poll_cooldown"
 FLASH_POLL_FAILED = "poll_failed"
 # Distinct from FLASH_POLL_COOLDOWN: this key means a poll is executing
 # on this exact request right now, in another thread —
-# `_POLL_LOCK.acquire(blocking=False)` failing is the only producer,
+# the device's non-blocking poll-lock acquire failing is the only producer,
 # closing the window where two requests could both observe zero
 # cooldown and both call `poll_cycle.run_once()`.
 FLASH_POLL_ALREADY_RUNNING = "poll_already_running"

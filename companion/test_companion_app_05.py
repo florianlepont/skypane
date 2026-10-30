@@ -38,7 +38,7 @@ import companion.test_companion_app_helpers as cah
 import companion.ui_nav as ui_nav
 import companion.ui_shell as ui_shell
 from companion.test_config_page_helpers import caption_word_count_text
-from companion import auth, frame_state
+from companion import auth, device_scope, frame_state
 from companion.pages import config_page
 from companion_app_server import http_request, login
 from companion_markup import flash_toast_title_detail
@@ -742,11 +742,11 @@ def test_poll_trigger_failure_uses_distinct_flash_key(make_app_server, tmp_path)
 
 # Two genuinely overlapping threads issuing POST /poll-now
 # against the same running server, on a session with zero cooldown, must
-# never both reach run_once() — the server-side _POLL_LOCK
-# (companion/app.py) is the correctness boundary.
+# never both reach run_once() — the per-device poll lock
+# (companion/device_scope.py) is the correctness boundary.
 def test_poll_now_concurrent_requests_serialize_on_the_lock(make_app_server):
     """two genuinely overlapping POST /poll-now requests: exactly one gets the
-    poll_already_running flash key, proving the server-side _POLL_LOCK serializes execution"""
+    poll_already_running flash key, proving the per-device poll lock serializes execution"""
     server = make_app_server(fake_providers=True)
     base = server.base_url()
     cookie = login(server)
@@ -1165,8 +1165,9 @@ def test_calendar_sync_lock_contention_is_honest(app_server_in_process):
     hostname = "calendar-sync-contention.example"
     url = "https://%s/feed.ics?token=CONTENTIONTOKEN" % hostname
     calls = []
-    locked = app_module._POLL_LOCK.acquire(blocking=False)
-    assert locked, "test setup failure: could not acquire _POLL_LOCK from the test thread"
+    poll_lock = device_scope.poll_lock_for(server.state_dir)
+    locked = poll_lock.acquire(blocking=False)
+    assert locked, "test setup failure: could not acquire the poll lock from the test thread"
     try:
         with cah.stubbed_calendar_transport(cah.make_calendar_transport(calls=calls)), \
                 cah.fake_public_hostname(hostname):
@@ -1174,7 +1175,7 @@ def test_calendar_sync_lock_contention_is_honest(app_server_in_process):
                 server.base_url() + "/settings", method="POST",
                 data=urllib.parse.urlencode({"calendar_url": url}).encode(), cookie=session)
     finally:
-        app_module._POLL_LOCK.release()
+        poll_lock.release()
     assert status == 303, "expected a 303 redirect, got %d" % status
     location = headers.get("Location", "")
     assert "flash=calendar_sync_deferred" in location, "expected the calendar_sync_deferred flash key, got %r" % location
@@ -1195,9 +1196,10 @@ def test_calendar_sync_lock_is_released_after_a_failed_sync(app_server_in_proces
         http_request(
             server.base_url() + "/settings", method="POST",
             data=urllib.parse.urlencode({"calendar_url": url}).encode(), cookie=session)
-    reacquired = app_module._POLL_LOCK.acquire(blocking=False)
+    poll_lock = device_scope.poll_lock_for(server.state_dir)
+    reacquired = poll_lock.acquire(blocking=False)
     if reacquired:
-        app_module._POLL_LOCK.release()
+        poll_lock.release()
     assert reacquired, (
         "expected the poll lock to be free after one failed sync - a wedged trigger is the "
         "failure mode the finally-release exists to prevent")

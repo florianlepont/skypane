@@ -442,7 +442,7 @@ def health_state_from_signals(signals):
     }
 
 
-def compute_health_state(state_dir, now=None):
+def compute_health_state(state_dir, now=None, fleet_root=None):
     """The single computation both the nav-tab dot and the full Health
     page need. Running these independently against fresh DB connections
     at two different instants let a write land between them and make
@@ -454,7 +454,7 @@ def compute_health_state(state_dir, now=None):
     could hand the nav dot and the banner this page renders always come
     from the same read.
     """
-    return health_state_from_signals(health_signals(state_dir, now))
+    return health_state_from_signals(health_signals(state_dir, now, fleet_root))
 
 
 def safe_health_state(state_dir, now=None):
@@ -1011,7 +1011,8 @@ def render(ctx):
 
     # Reuse the state build_page_context() already computed, rather than
     # re-deriving it. Falls back to a fresh compute for a direct caller.
-    state = ctx.health_state or compute_health_state(state_dir, now)
+    state = ctx.health_state or compute_health_state(
+        state_dir, now, ctx.root_state_dir)
 
     severity = state["severity"]
     anomalies = state["anomalies"]

@@ -49,7 +49,7 @@ def _signing_key():
 # The Sign out revocation set. Maps a presented token string to its own
 # embedded expiry (an int), so pruning never needs to touch auth.py's
 # other stateless machinery. Guarded by _REVOKED_LOCK, mirroring
-# companion/app.py's own _POLL_LOCK precedent for a lock around small
+# the per-device poll locks' precedent for a lock around small
 # shared mutable state under ThreadingHTTPServer.
 _REVOKED = {}
 _REVOKED_LOCK = threading.Lock()

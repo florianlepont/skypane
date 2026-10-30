@@ -25,7 +25,7 @@ pre-session access; the only routes with it are GET/POST /login and the
 import collections
 import re
 
-from companion import layout, static_files, theme_preview
+from companion import device_scope, layout, static_files, theme_preview
 from companion.pages import (
     airlines_page, config_page, health_page, history_page, home_page, update_page)
 
@@ -102,55 +102,65 @@ _GET_ROUTES = (
     + (
         Route(
             "GET", Exact(HOME_ROUTE),
-            lambda h, m: h._render_tab(HOME_ROUTE, home_page.render), True),
+            lambda h, m: h._render_tab(HOME_ROUTE, home_page.render, m.device), True),
         Route(
             "GET", Exact(DISPLAY_ROUTE),
             lambda h, m: h._render_tab(
                 DISPLAY_ROUTE,
-                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)),
+                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DISPLAY),
+                m.device),
             True),
         Route(
             "GET", Exact(DEVICE_ROUTE),
             lambda h, m: h._render_tab(
                 DEVICE_ROUTE,
-                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DEVICE)),
+                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DEVICE),
+                m.device),
             True),
         Route(
             "GET", Exact(FLIGHTS_ROUTE),
-            lambda h, m: h._render_tab(FLIGHTS_ROUTE, history_page.render), True),
+            lambda h, m: h._render_tab(FLIGHTS_ROUTE, history_page.render, m.device), True),
         Route(
             "GET", Exact(HEALTH_ROUTE),
-            lambda h, m: h._render_tab(HEALTH_ROUTE, health_page.render), True),
+            lambda h, m: h._render_tab(HEALTH_ROUTE, health_page.render, m.device), True),
         Route(
             "GET", Exact(AIRLINES_ROUTE),
-            lambda h, m: h._render_tab(AIRLINES_ROUTE, airlines_page.render), True),
+            lambda h, m: h._render_tab(AIRLINES_ROUTE, airlines_page.render, m.device), True),
         Route(
             "GET", Exact(UPDATE_ROUTE),
             lambda h, m: h._render_tab(
                 UPDATE_ROUTE,
-                lambda ctx: update_page.render(ctx, h._requested_update_type())),
+                lambda ctx: update_page.render(ctx, h._requested_update_type()),
+                m.device),
             True),
         # The pre-refactor page routes survive as fixed 303s so a stale
         # bookmark or link still lands somewhere useful. The targets are
-        # literals, never derived from any request value.
-        Route("GET", Exact(SETTINGS_ROUTE), lambda h, m: h.redirect(DISPLAY_ROUTE), True),
-        Route("GET", Exact(HISTORY_LEGACY_ROUTE), lambda h, m: h.redirect(FLIGHTS_ROUTE), True),
-        Route("GET", Exact(PREVIEW_PAGE_ROUTE), lambda h, m: h.redirect(FLIGHTS_ROUTE), True),
+        # literals, never derived from any request value; under a device
+        # prefix they keep that prefix.
+        Route(
+            "GET", Exact(SETTINGS_ROUTE),
+            lambda h, m: h.redirect(device_scope.scoped(DISPLAY_ROUTE)), True),
+        Route(
+            "GET", Exact(HISTORY_LEGACY_ROUTE),
+            lambda h, m: h.redirect(device_scope.scoped(FLIGHTS_ROUTE)), True),
+        Route(
+            "GET", Exact(PREVIEW_PAGE_ROUTE),
+            lambda h, m: h.redirect(device_scope.scoped(FLIGHTS_ROUTE)), True),
         Route(
             "GET", PrefixSuffix(GALLERY_ROUTE_PREFIX, ""),
-            lambda h, m: h._serve_gallery_image(m.captured), True),
+            lambda h, m: h._serve_gallery_image(m.device, m.captured), True),
         Route(
             "GET", PrefixSuffix(RUNWAY_IMAGE_ROUTE_PREFIX, ".png"),
             lambda h, m: h._serve_runway_image(m.captured), True),
         Route(
             "GET", PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png"),
-            lambda h, m: h._serve_illustration_image(m.captured), True),
+            lambda h, m: h._serve_illustration_image(m.device, m.captured), True),
         Route(
             "GET", PrefixSuffix(THEME_PREVIEW_ROUTE_PREFIX, ".png"),
-            lambda h, m: h._serve_theme_preview_image(m.captured), True),
+            lambda h, m: h._serve_theme_preview_image(m.device, m.captured), True),
         Route(
             "GET", PrefixSuffix(FRAME_PREVIEW_ROUTE_PREFIX, ".png"),
-            lambda h, m: h._serve_frame_preview_image(m.captured), True),
+            lambda h, m: h._serve_frame_preview_image(m.device, m.captured), True),
     )
 )
 
@@ -159,14 +169,16 @@ _GET_ROUTES = (
 # ever called - see Handler._dispatch() - so it is not represented here).
 _POST_ROUTES = (
     Route("POST", Exact(LOGIN_ROUTE), lambda h, m: h._handle_login_post(), False),
-    Route("POST", Exact(SETTINGS_ROUTE), lambda h, m: h._handle_settings_post(), True),
-    Route("POST", Exact(POLL_ROUTE), lambda h, m: h._handle_poll_now(), True),
+    Route(
+        "POST", Exact(SETTINGS_ROUTE),
+        lambda h, m: h._handle_settings_post(m.device), True),
+    Route("POST", Exact(POLL_ROUTE), lambda h, m: h._handle_poll_now(m.device), True),
     Route(
         "POST", Exact(QUICK_DISPLAY_ROUTE),
-        lambda h, m: h._handle_quick_toggle("display_enabled"), True),
+        lambda h, m: h._handle_quick_toggle(m.device, "display_enabled"), True),
     Route(
         "POST", Exact(QUICK_QUIET_HOURS_ROUTE),
-        lambda h, m: h._handle_quick_toggle("quiet_hours_enabled"), True),
+        lambda h, m: h._handle_quick_toggle(m.device, "quiet_hours_enabled"), True),
     # Session-checked POST only, no CSRF token - SameSite=Strict is the
     # only control here. return_to whitelist: /device is the LED
     # switch's only page, so it is both the sole allowed value and the
@@ -174,7 +186,8 @@ _POST_ROUTES = (
     Route(
         "POST", Exact(QUICK_LED_ROUTE),
         lambda h, m: h._handle_quick_toggle(
-            "led_enabled", allowed_return_to=(DEVICE_ROUTE,), fallback_return_to=DEVICE_ROUTE),
+            m.device, "led_enabled", allowed_return_to=(DEVICE_ROUTE,),
+            fallback_return_to=DEVICE_ROUTE),
         True),
     Route("POST", Exact(THEME_ROUTE), lambda h, m: h._handle_theme_post(), True),
     Route("POST", Exact(LANG_ROUTE), lambda h, m: h._handle_lang_post(), True),
@@ -249,6 +262,22 @@ _ACTION_KEYS = (
 
 # The routes that act on a single device: 13 GET and 14 POST.
 _DEVICE_SCOPED_KEYS = frozenset(_PAGE_AND_IMAGE_KEYS + _ACTION_KEYS)
+
+# The action POSTs whose handlers still act on the root directory. Under a
+# device prefix they are refused before any handler runs, so a device-prefixed
+# POST can never write the live frame's directory.
+UNMIGRATED_DEVICE_POSTS = frozenset({
+    ("POST", Exact(airlines_page.RESOLVE_ROUTE)),
+    ("POST", Exact(airlines_page.RENAME_ROUTE)),
+    ("POST", Exact(airlines_page.RENAME_RESET_ROUTE)),
+    ("POST", PrefixSuffix(
+        airlines_page.MANUAL_DELETE_ROUTE_PREFIX, airlines_page.MANUAL_DELETE_ROUTE_SUFFIX)),
+    ("POST", PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png")),
+    ("POST", Exact(RULES_ADD_ROUTE)),
+    ("POST", PrefixSuffix(RULES_DELETE_ROUTE_PREFIX, RULES_DELETE_ROUTE_SUFFIX)),
+    ("POST", Exact(CALENDAR_CONNECT_ROUTE)),
+    ("POST", Exact(CALENDAR_DISCONNECT_ROUTE)),
+})
 
 ROUTES = tuple(
     route._replace(device_scoped=(route.method, route.matcher) in _DEVICE_SCOPED_KEYS)

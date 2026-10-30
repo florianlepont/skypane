@@ -526,14 +526,16 @@ def _read_fleet_status(state_dir):
         return None
 
 
-def _read_health_inputs(state_dir, now):
+def _read_health_inputs(state_dir, now, fleet_root=None):
     """The reads `render()` and `compute_health_state()`
     (the Health page) both need, single-sourced into one
     dict so the nav-tab dot and the page's own anomaly banner can't
     disagree. `registry_rows` uses its own narrow `(OSError, ValueError)`
     guard, a different failure mode from the SQLite reads below
     (`_safe_query()`), so a registry failure degrades only severity, not
-    the other sections.
+    the other sections. The fleet status document is global: it is read
+    from `fleet_root` (the root state directory) when given, else from
+    `state_dir`.
     """
     cutoff = _cutoff_iso(now, _CORROBORATION_WINDOW_DAYS)
     try:
@@ -558,11 +560,11 @@ def _read_health_inputs(state_dir, now):
             lambda conn: history_db.corroboration_counts(conn, since=cutoff)),
         "device_config": device_config.load_device_config(state_dir),
         "registry_rows": registry_rows,
-        "fleet_status": _read_fleet_status(state_dir),
+        "fleet_status": _read_fleet_status(state_dir if fleet_root is None else fleet_root),
     }
 
 
-def health_signals(state_dir, now=None):
+def health_signals(state_dir, now=None, fleet_root=None):
     """Every state the nav-tab dot and the full Health page banner need
     — severity, the anomaly list, and each section's own state — derived
     from one `_read_health_inputs()` read, with zero markup built. This
@@ -575,11 +577,12 @@ def health_signals(state_dir, now=None):
     markup step), the device cadence/staleness/next-wake triple, every
     section's state, `disagreement_warn`, `coverage_state`,
     `source_fault`/`source_fault_raw`, `registry_rows`, `offbox`,
-    `severity` and `anomalies`.
+    `severity` and `anomalies`. `fleet_root` is where the global fleet
+    status is read (default: `state_dir`).
     """
     if now is None:
         now = history_db.utc_now_iso()
-    inputs = _read_health_inputs(state_dir, now)
+    inputs = _read_health_inputs(state_dir, now, fleet_root)
     # The device's effective wake cadence resolves to its staleness
     # thresholds, computed once here.
     wake_interval_s = wake.effective_wake_interval_s(inputs["device_config"])
@@ -643,12 +646,12 @@ def health_signals(state_dir, now=None):
     }
 
 
-def safe_health_signals(state_dir, now=None):
+def safe_health_signals(state_dir, now=None, fleet_root=None):
     """Fail-closed wrapper around `health_signals()`, mirroring
     `safe_health_state()`'s broad `except Exception` and "`None` means
     ok" convention: `None` on any unanticipated exception, never a raise.
     """
     try:
-        return health_signals(state_dir, now)
+        return health_signals(state_dir, now, fleet_root)
     except Exception:
         return None
