@@ -157,7 +157,7 @@ Plans:
   2. The owner can trigger a poll for one device and set its quiet hours and timezone, and no other device's state changes.
   3. Each device shows its own history and health, and there is no fallback to a shared "default" device.
 
-**Plans**: 13 plans in 7 waves
+**Plans**: 13 plans in 8 waves
 
 Plans:
 - [ ] 51-01-PLAN.md — device_dirs path chokepoint, add_device validation, CLI --state-path auto, two-device test fixture
