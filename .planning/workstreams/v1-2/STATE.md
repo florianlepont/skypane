@@ -4,12 +4,12 @@ milestone: v1.2
 milestone_name: Fleet platform
 current_plan: 11
 status: verifying
-stopped_at: Phase 51 verified by tests; owner checks pending
+stopped_at: Phase 51 closed at the owner's request
 last_updated: "2026-10-30T18:02:51.253Z"
 last_activity: 2026-10-30
 progress:
   total_phases: 12
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 37
   completed_plans: 31
   percent: 25
@@ -65,5 +65,5 @@ None yet.
 
 ## Session Continuity
 
-**Stopped At:** Phase 51 verified by tests; owner checks pending
+**Stopped At:** Phase 51 closed at the owner's request
 **Resume File:** None

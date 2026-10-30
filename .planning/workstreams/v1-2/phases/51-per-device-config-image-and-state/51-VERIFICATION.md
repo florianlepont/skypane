@@ -1,7 +1,7 @@
 ---
 phase: 51-per-device-config-image-and-state
 verified: 2026-10-30T23:00:00Z
-status: human_needed
+status: passed
 score: 3/3 roadmap criteria verified; both first-pass gaps closed; 0 open code gaps
 re_verification:
   previous_status: gaps_found
@@ -109,3 +109,20 @@ None open. Info items: browser tests not runnable here (above); backup test does
 - Phase 52: `poll_cycle.run_once(state_dir=<device dir>, reconcile_firmware=False)`, per-device `poll_state.json`, `history.db`, `battery_state.json`, `panel.bin`, `img/`; `device_dirs.resolve_state_dir` as the only path chokepoint; `device_scope.load_devices` to enumerate; exactly one "." live row and `live_frame_macs.json` as the live-MAC record. Shared provider spacing is not built.
 - Phase 53: per-device `device_config.json` for per-device airport, runway and position keys (expand-only, omit when default); Display page and POST handler exist.
 - Phase 56: BYOS takes width, height and byte count from the hardware profile; `device_scope.poll_supported` refuses poll-now for anything other than 1200x1600 and is the switch to lift.
+
+## Closure
+
+Closed on 2026-10-30 at the owner's explicit instruction. Status moved from `human_needed` to `passed`.
+
+- The browser suite item was satisfied by CI: all checks were green on the merge commit of PR #244, including the Chromium tests.
+- The 7 manual checks in `51-OWNER-CHECKS.md` were then run by Claude on 2026-10-30 in a real Chromium against a local companion (loopback, two simulated frames, plus a one-frame install for check 7), driving the pages as the owner would. All 7 passed:
+  1. Selector: three choices, the live frame first; choosing `sim-1` goes to `/devices/d_.../` and the menu keeps the frame on every page.
+  2. Switching: `sim-1` and `sim-2` show their own pages; an invented id gives the 404 page, never the live frame; `?device=live` returns to the un-prefixed pages.
+  3. "Actualiser maintenant" on `sim-1`: "Vérification terminée", only `sim-1`'s `poll_state.json`, `panel.bin` and `history.db` changed (live frame and `sim-2` byte-identical); the second press is refused (button disabled during the cooldown).
+  4. Quiet hours and time zone on `sim-1`: saved, shown again, `sim-2` and the live frame unchanged; a zone outside the list is refused with "Choisissez un fuseau horaire dans la liste." and nothing is applied.
+  5. Never-seen frame: clear empty states on Home, Health and Flights, no error, no data from another frame.
+  6. Live frame: every page answers 200 without a `/devices/` prefix; `/update` is never prefixed.
+  7. One-frame install: no selector and no `/devices/` link on any page.
+  These runs are not part of the test suite. Remaining human items: a real second frame (add it with `--state-path auto`) and the production decision.
+- Observation, not a defect: on a never-seen frame's Home page the "Un élément demande votre attention" toast still appears, because it follows shared health state.
+- Still open and unchanged: no production deploy until Phase 47 closes and the owner decides; a real second frame must be added with `--state-path auto`.
