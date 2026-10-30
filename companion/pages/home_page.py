@@ -571,7 +571,8 @@ def _battery_pill_html(ctx):
     if not reading or not reading.get("battery_mv"):
         return '<p class="home-battery home-battery--none text-label">%s</p>' % escape_html(
             i18n.t(BATTERY_FACT_EMPTY))
-    percent = battery.battery_percent(reading["battery_mv"])
+    percent = battery.percent(
+        reading["battery_mv"], page_context.device_curve(ctx.device))
     value = "%d%%" % percent if percent is not None else "%s mV" % reading["battery_mv"]
     level = _battery_level(ctx, percent)
     word = {"low": BATTERY_LOW_TEXT, "critical": BATTERY_CRITICAL_TEXT}.get(level)

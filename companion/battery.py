@@ -16,19 +16,19 @@ import datetime
 from server import device_policy
 from server.device_policy import (  # noqa: F401
     BATTERY_DISCHARGE_CURVE, BATTERY_FULL_MV, BATTERY_EMPTY_MV,
+    battery_fraction, battery_percent,
 )
 
 
-def battery_fraction(mv, curve=None):
-    """The shared state-of-charge fraction for `mv` on `curve` (a
-    hardware profile's discharge curve); None selects the legacy curve."""
+def fraction(mv, curve=None):
+    """`battery_fraction()` on `curve` (a hardware profile's discharge
+    curve); None selects the legacy curve."""
     return device_policy.battery_fraction(
         mv, curve=BATTERY_DISCHARGE_CURVE if curve is None else curve)
 
 
-def battery_percent(mv, curve=None):
-    """The shared 0-100 estimate for `mv` on `curve`; None selects the
-    legacy curve."""
+def percent(mv, curve=None):
+    """`battery_percent()` on `curve`; None selects the legacy curve."""
     return device_policy.battery_percent(
         mv, curve=BATTERY_DISCHARGE_CURVE if curve is None else curve)
 
@@ -65,6 +65,8 @@ LOW_BATTERY_DISPLAY_MV = _curve_mv_at_percent(LOW_BATTERY_DISPLAY_PERCENT)
 def low_display_mv(curve=None):
     """The millivolt value of the low-battery display mark on `curve`;
     None selects the legacy curve (LOW_BATTERY_DISPLAY_MV)."""
+    if curve is None:
+        return LOW_BATTERY_DISPLAY_MV
     return _curve_mv_at_percent(LOW_BATTERY_DISPLAY_PERCENT, curve)
 
 
@@ -211,8 +213,8 @@ def battery_life_estimate(rows, current_wake_interval_s=None,
     # millivolts do not. Validated against the discharge run: this
     # projection landed at 6.0 days for a window where 6.2 actually
     # elapsed; millivolt extrapolation was off by 2-3x on the same window.
-    newest_fraction = battery_fraction(newest_mv, curve)
-    oldest_fraction = battery_fraction(oldest_mv, curve)
+    newest_fraction = fraction(newest_mv, curve)
+    oldest_fraction = fraction(oldest_mv, curve)
     if newest_fraction == 0.0:
         result["days_remaining"] = 0
     elif (oldest_fraction - newest_fraction) <= 0:

@@ -414,14 +414,14 @@ def _next_wake_clock(signals):
         parsed, now_parsed=layout.parse_iso(signals["now"]))
 
 
-def health_state_from_signals(signals):
+def health_state_from_signals(signals, curve=None):
     """Builds the markup fragments Home and the Health rows share
     (`*_detail_html`, `battery_html`, `battery_caption`) from
     `signals["inputs"]` (a `health_signals()` snapshot), and returns
     exactly `compute_health_state()`'s key set. Every state, `severity`
     and `anomalies` value is copied straight from `signals`, never
     recomputed here, so the nav-tab dot and this page's own banner can
-    never disagree.
+    never disagree. `curve` is the device's discharge curve (None: legacy).
     """
     now = signals["now"]
     inputs = signals["inputs"]
@@ -429,7 +429,7 @@ def health_state_from_signals(signals):
     pipeline_detail_html = _pipeline_timestamp_only(
         inputs["pipeline_ts"], inputs["last_detection"], now)
     battery_html, _battery_state_unused = _battery_section(
-        inputs["trend_rows"], inputs["daily_rows"])
+        inputs["trend_rows"], inputs["daily_rows"], curve)
     # Threaded through the returned dict rather than as a third
     # _battery_section() return value: that function's 2-tuple return is
     # directly unpacked by a pinned harness check.
@@ -459,7 +459,7 @@ def health_state_from_signals(signals):
     }
 
 
-def compute_health_state(state_dir, now=None, fleet_root=None):
+def compute_health_state(state_dir, now=None, fleet_root=None, curve=None):
     """The single computation both the nav-tab dot and the full Health
     page need. Running these independently against fresh DB connections
     at two different instants let a write land between them and make
@@ -471,7 +471,8 @@ def compute_health_state(state_dir, now=None, fleet_root=None):
     could hand the nav dot and the banner this page renders always come
     from the same read.
     """
-    return health_state_from_signals(health_signals(state_dir, now, fleet_root))
+    return health_state_from_signals(
+        health_signals(state_dir, now, fleet_root), curve)
 
 
 def safe_health_state(state_dir, now=None):
@@ -600,7 +601,7 @@ def _pipeline_timestamp_only(pipeline_ts, last_detection, now):
 _latest_numeric_battery_reading = health_signals_module._latest_numeric_battery_reading
 
 
-def _battery_readout_block(latest_reading, now):
+def _battery_readout_block(latest_reading, now, curve=None):
     """The reserved-height readout `battery-trend.js` writes into on
     hover/tap/keyboard reveal, seeded by default with `latest_reading`'s
     humanised `(value, when)` pair, the same helper
@@ -614,7 +615,7 @@ def _battery_readout_block(latest_reading, now):
         value_text, when_text = "", ""
     else:
         mv, ts = latest_reading
-        value_text, when_text = _battery_reading_parts(mv, ts, now)
+        value_text, when_text = _battery_reading_parts(mv, ts, now, curve)
     return (
         '<p id="%s" class="battery-readout" role="status">'
         '<span class="battery-readout__value mono">%s</span>'
@@ -633,7 +634,7 @@ def _battery_readout_block(latest_reading, now):
 BATTERY_RING_SIZE = 72
 
 
-def _battery_ring_html(latest_reading, state):
+def _battery_ring_html(latest_reading, state, curve=None):
     """The battery ring for `latest_reading`, or "" when there is
     nothing honest to draw (an empty ring would read as a false "0%").
     The fraction is the printed percentage divided by 100, not a second
@@ -644,22 +645,22 @@ def _battery_ring_html(latest_reading, state):
     if not latest_reading:
         return ""
     mv, _ts = latest_reading
-    percent = battery.battery_percent(mv)
+    percent = battery.percent(mv, curve)
     if percent is None:
         return ""
     return draw.ring_gauge(
         percent / 100.0, BATTERY_RING_SIZE, draw.status_class(state))
 
 
-def _battery_readout_row_html(latest_reading, now, state):
+def _battery_readout_row_html(latest_reading, now, state, curve=None):
     """The readout, with the ring beside it when there is one. With no
     ring this returns `_battery_readout_block()`'s markup unwrapped, so
     the no-reading page renders identically to before the ring existed.
     The ring comes first in document order; `battery-trend.js` finds the
     readout by `getElementById` and never depends on its position.
     """
-    readout_html = _battery_readout_block(latest_reading, now)
-    ring_html = _battery_ring_html(latest_reading, state)
+    readout_html = _battery_readout_block(latest_reading, now, curve)
+    ring_html = _battery_ring_html(latest_reading, state, curve)
     if not ring_html:
         return readout_html
     return '<div class="battery-readout-row">%s%s</div>' % (ring_html, readout_html)
@@ -678,7 +679,7 @@ def _battery_body_html(battery_html):
         BATTERY_SECTION_CLASS, BATTERY_SECTION_CLASS, battery_html)
 
 
-def _battery_section(trend_rows, daily_rows=None):
+def _battery_section(trend_rows, daily_rows=None, curve=None):
     """Returns `(markup, state)` for the Battery row's details. `state`
     drives both the card-edge status modifier and
     `collect_anomalies()`'s abnormal-drop signal. The chart plots
@@ -726,12 +727,13 @@ def _battery_section(trend_rows, daily_rows=None):
     plot_daily = _battery_daily_series_usable(daily_rows)
     plot_rows = daily_rows if plot_daily else trend_rows
     sparkline_html = (
-        battery_chart.battery_unit_chart(plot_rows, now=now, daily=plot_daily)
+        battery_chart.battery_unit_chart(
+            plot_rows, now=now, daily=plot_daily, curve=curve)
         if len(plot_rows) >= 2 else "")
     # Script tag and readout emit only when a chart exists, keeping
     # "exactly one script tag, zero on the empty path" testable.
     latest_reading = _latest_numeric_battery_reading(trend_rows)
-    chart_block = _battery_readout_row_html(latest_reading, now, state)
+    chart_block = _battery_readout_row_html(latest_reading, now, state, curve)
     if sparkline_html:
         chart_block = (
             chart_block + sparkline_html
@@ -877,7 +879,7 @@ def _battery_row(state, battery_critical=False, device=None):
             "battery", "off", name, i18n.t(_NO_READINGS_VERDICT_TEXT), "",
             empty_html)
     millivolts, _ts = latest
-    percent = battery.battery_percent(millivolts)
+    percent = battery.percent(millivolts, page_context.device_curve(device))
     value = (
         i18n.t(_BATTERY_VALUE_TEMPLATE) % (percent, millivolts)
         if percent is not None else "%d mV" % millivolts)
@@ -1068,7 +1070,7 @@ def render(ctx):
     # Reuse the state build_page_context() already computed, rather than
     # re-deriving it. Falls back to a fresh compute for a direct caller.
     state = ctx.health_state or compute_health_state(
-        state_dir, now, ctx.root_state_dir)
+        state_dir, now, ctx.root_state_dir, page_context.device_curve(ctx.device))
 
     severity = state["severity"]
     anomalies = state["anomalies"]
