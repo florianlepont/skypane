@@ -2,6 +2,7 @@
 """Two simulated devices through a real BYOS subprocess: each frame is
 authenticated to its own fleet.db row and served from its own directory,
 while the live frame keeps its exact legacy behaviour."""
+import dataclasses
 import hashlib
 import json
 import os
@@ -500,3 +501,40 @@ def test_image_route_audit_other_endpoints_do_not_serve_shared_state(served):
     assert status == 404
     status, _ = get(server.base_url + "/img/%s.bin" % ("0" * 64))
     assert status == 404
+
+
+def _context_for(fleet, device, monkeypatch, recover_mv=None):
+    real = byos_server.hardware.get_profile
+
+    def patched(hardware_type, env=None):
+        profile = real(hardware_type, env)
+        if recover_mv is None:
+            return profile
+        return dataclasses.replace(
+            profile, battery=dataclasses.replace(
+                profile.battery, critical_recover_mv=recover_mv))
+
+    monkeypatch.setattr(byos_server.hardware, "get_profile", patched)
+    args = SimpleNamespace(state_dir=fleet.live.state_dir, image=None)
+    return byos_server._device_context(args, None, device.mac)
+
+
+def test_fleet_device_recover_threshold_comes_from_its_profile(fleet, monkeypatch):
+    ctx = _context_for(fleet, fleet.dev_a, monkeypatch, recover_mv=3600)
+    assert ctx.recover_mv == 3600
+    with open(os.path.join(ctx.state_dir, "poll_state.json"), "w") as fh:
+        json.dump({"battery_critical_active": True}, fh)
+    base = 120
+    pinned = byos_server.BATTERY_CRITICAL_SLEEP_S
+    # 3650 mV recovers under the profile's 3600 but not under the legacy 3700.
+    assert byos_server.battery_critical_sleep_s(
+        base, ctx.state_dir, 3650, ctx.recover_mv) == base
+    assert byos_server.battery_critical_sleep_s(base, ctx.state_dir, 3650) == pinned
+    assert byos_server.battery_critical_sleep_s(
+        base, ctx.state_dir, 3500, ctx.recover_mv) == pinned
+
+
+def test_live_context_keeps_the_legacy_recover_threshold(fleet, monkeypatch):
+    ctx = _context_for(fleet, fleet.live, monkeypatch)
+    assert ctx.is_live
+    assert ctx.recover_mv == byos_server.BATTERY_CRITICAL_RECOVER_MV

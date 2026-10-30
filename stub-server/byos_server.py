@@ -607,12 +607,15 @@ def display_off_sleep_s(base_sleep_s, state_dir):
     return base_sleep_s
 
 
-def battery_critical_sleep_s(base_sleep_s, state_dir, fresh_battery_mv):
+def battery_critical_sleep_s(
+        base_sleep_s, state_dir, fresh_battery_mv,
+        recover_mv=BATTERY_CRITICAL_RECOVER_MV):
     """Return the sleep_s to feed into quiet_hours_sleep_s() as its base:
     exactly BATTERY_CRITICAL_SLEEP_S (3600) while poll_cycle.py's
     battery-empty hold is active, unless `fresh_battery_mv` (this
     request's own X-Battery-Mv) already signals recovery at or above
-    BATTERY_CRITICAL_RECOVER_MV, in which case `base_sleep_s` wins.
+    `recover_mv` (the device profile's value; the legacy constant by
+    default), in which case `base_sleep_s` wins.
 
     poll_cycle.py clears its latch up to 30s after the recovering
     check-in this request represents, so a plain latch read would still
@@ -627,7 +630,9 @@ def battery_critical_sleep_s(base_sleep_s, state_dir, fresh_battery_mv):
     the one canonical latched/fresh-reading truth table this file and
     the poll cycle both apply.
     """
-    if device_policy.battery_critical_pin_applies(read_battery_critical(state_dir), fresh_battery_mv):
+    if device_policy.battery_critical_pin_applies(
+            read_battery_critical(state_dir), fresh_battery_mv,
+            recover_mv=recover_mv):
         return BATTERY_CRITICAL_SLEEP_S
     return base_sleep_s
 
@@ -944,7 +949,9 @@ def resolve_hardware_type(state_dir, mac):
 # ever falls back to the live frame's image or root state.
 DeviceContext = namedtuple(
     "DeviceContext",
-    "device_id mac state_dir image_path width height expected_bytes is_live")
+    "device_id mac state_dir image_path width height expected_bytes is_live "
+    "recover_mv",
+    defaults=(BATTERY_CRITICAL_RECOVER_MV,))
 _NO_DEVICE = object()
 _STATE_UNAVAILABLE = object()
 
@@ -1049,7 +1056,7 @@ def _device_context(args, state, mac):
         row["id"], mac, directory,
         os.path.join(directory, device_dirs.PANEL_FILENAME),
         profile.width, profile.height, (profile.width // 2) * profile.height,
-        False)
+        False, profile.battery.critical_recover_mv)
 
 
 def _parse_rssi_header(raw):
@@ -1510,7 +1517,7 @@ class Handler(BaseHTTPRequestHandler):
                     display_off_sleep_s(
                         read_wake_interval_s(ctx.state_dir, self.args.sleep),
                         ctx.state_dir),
-                    ctx.state_dir, battery_mv),
+                    ctx.state_dir, battery_mv, ctx.recover_mv),
                 ctx.state_dir),
             # The operator's scheduled release, gated by
             # server/firmware_registry.py's compute_offer(). Deliberately
