@@ -3,6 +3,8 @@ hardware profile can draw; every real profile offers all of them."""
 import dataclasses
 import json
 import re
+
+import pytest
 import types
 
 from companion import device_scope
@@ -26,6 +28,12 @@ def _table(**kwargs):
 
 def _radio_values(html):
     return re.findall(r'<input type="radio" name="theme" value="([^"]*)"', html)
+
+
+@pytest.fixture(autouse=True)
+def _clear_request_scope():
+    yield
+    device_scope.set_request_scope(None, ())
 
 
 def _use_reduced_profile(monkeypatch):

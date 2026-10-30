@@ -28,7 +28,7 @@ from skypane_live_state import seed_live_like_state as live_state_seed  # noqa: 
 from skypane_live_state import snapshot_dir  # noqa: E402
 from skypane_two_device_fleet import device_headers, seed_two_device_fleet  # noqa: E402
 
-from server import device_dirs, history_db, image_container, panel_format  # noqa: E402
+from server import device_dirs, hardware, history_db, image_container, panel_format, poll_cycle  # noqa: E402
 
 FREEZE_PATH = os.path.join(HERE, "measured_fields_freeze.json")
 LIVE_PANEL_BYTES = 960000
@@ -320,6 +320,50 @@ def test_negotiation_announcing_clone_gets_full_size_container(served):
     view = image_container.decode_container(body, panel_format.WIDTH, panel_format.HEIGHT)
     assert view.width == panel_format.WIDTH
 
+
+def render_landscape(fleet):
+    """One poll cycle rendered through the landscape device's own profile."""
+    with open(os.path.join(REPO_ROOT, "server", "fixtures", "geofence_multi_aircraft.json")) as fh:
+        snapshot = json.load(fh)
+    profile = hardware.get_profile(hardware.SIM_LANDSCAPE_KEY, SIM_ENV)
+    poll_cycle.run_once(
+        snapshot=snapshot, state_dir=fleet.landscape.state_dir,
+        geofence=os.path.join(REPO_ROOT, "adsb-test", "runway3.json"),
+        reconcile_firmware=False, profile=profile)
+
+
+def test_polled_landscape_image_is_served_raw_and_as_container(served):
+    fleet, server = served
+    live_before = poll(server, fleet.live)
+    render_landscape(fleet)
+    rendered = panel_of(fleet.landscape)
+    assert len(rendered) == 192000
+
+    raw_doc = poll(server, fleet.landscape)
+    assert raw_doc["image_hash"] == "sha256:" + hashlib.sha256(rendered).hexdigest()
+    assert fetch(server, raw_doc) == (200, rendered)
+
+    container_doc = poll(server, fleet.landscape, {"X-Img-Fmt": "1"})
+    status, body = fetch(server, container_doc)
+    assert status == 200
+    view = image_container.decode_container(body, 800, 480)
+    assert (view.width, view.height) == (800, 480)
+    assert container_doc["image_hash"] == "sha256:" + hashlib.sha256(body).hexdigest()
+
+    live_after = poll(server, fleet.live)
+    assert live_after["image_hash"] == live_before["image_hash"]
+    assert live_after["sleep_s"] == live_before["sleep_s"]
+
+
+def test_portrait_polling_still_works_after_a_landscape_cycle(served):
+    fleet, server = served
+    render_landscape(fleet)
+    poll_cycle.run_once(
+        snapshot={}, state_dir=fleet.dev_a.state_dir, reconcile_firmware=False,
+        profile=hardware.get_profile(hardware.SIM_CLONE_KEY, SIM_ENV))
+    assert len(panel_of(fleet.dev_a)) == LIVE_PANEL_BYTES
+    doc = poll(server, fleet.dev_a)
+    assert fetch(server, doc) == (200, panel_of(fleet.dev_a))
 
 # ---- sleep, quiet hours, battery -------------------------------------------
 
