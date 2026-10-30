@@ -927,7 +927,7 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
             auth.revoke(token)
         return self.redirect(LOGIN_ROUTE, set_cookie=auth.logout_set_cookie_header())
 
-    def _handle_rule_delete_post(self, middle):
+    def _handle_rule_delete_post(self, device, middle):
         """POST RULES_DELETE_ROUTE_PREFIX/{kind}/{value}/RULES_DELETE_ROUTE_SUFFIX:
         split the captured middle on '/' once to recover kind and value.
         A middle that does not split into exactly two non-empty segments
@@ -937,7 +937,7 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         segments = middle.split("/", 1)
         if len(segments) != 2 or not segments[0] or not segments[1]:
             return self.send_html(404, self._not_found_page())
-        return self._handle_rule_delete(segments[0], segments[1])
+        return self._handle_rule_delete(device, segments[0], segments[1])
 
     def do_GET(self):
         return self._dispatch("GET")
@@ -984,8 +984,6 @@ class Handler(post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
         else:
             device = device_scope.find_device(root, route_match.device_id)
             if device is None:
-                return self.send_html(404, self._not_found_page())
-            if (route.method, route.matcher) in routes.UNMIGRATED_DEVICE_POSTS:
                 return self.send_html(404, self._not_found_page())
             devices = device_scope.load_devices(root)
         device_scope.set_request_scope(device, devices)

@@ -194,27 +194,27 @@ _POST_ROUTES = (
     Route("POST", Exact(LOGOUT_ROUTE), lambda h, m: h._handle_logout_post(), True),
     Route(
         "POST", Exact(airlines_page.RESOLVE_ROUTE),
-        lambda h, m: h._handle_manual_resolve_post(), True),
+        lambda h, m: h._handle_manual_resolve_post(m.device), True),
     Route(
         "POST", Exact(airlines_page.RENAME_ROUTE),
-        lambda h, m: h._handle_airline_rename_post(), True),
+        lambda h, m: h._handle_airline_rename_post(m.device), True),
     Route(
         "POST", Exact(airlines_page.RENAME_RESET_ROUTE),
-        lambda h, m: h._handle_airline_rename_reset_post(), True),
+        lambda h, m: h._handle_airline_rename_reset_post(m.device), True),
     Route(
         "POST",
         PrefixSuffix(airlines_page.MANUAL_DELETE_ROUTE_PREFIX, airlines_page.MANUAL_DELETE_ROUTE_SUFFIX),
-        lambda h, m: h._handle_manual_resolution_delete(m.captured), True),
+        lambda h, m: h._handle_manual_resolution_delete(m.device, m.captured), True),
     Route(
         "POST", PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png"),
-        lambda h, m: h._handle_illustration_replace(m.captured), True),
-    Route("POST", Exact(RULES_ADD_ROUTE), lambda h, m: h._handle_rule_add_post(), True),
+        lambda h, m: h._handle_illustration_replace(m.device, m.captured), True),
+    Route("POST", Exact(RULES_ADD_ROUTE), lambda h, m: h._handle_rule_add_post(m.device), True),
     Route(
         "POST", Exact(CALENDAR_DISCONNECT_ROUTE),
-        lambda h, m: h._handle_calendar_disconnect_post(), True),
+        lambda h, m: h._handle_calendar_disconnect_post(m.device), True),
     Route(
         "POST", Exact(CALENDAR_CONNECT_ROUTE),
-        lambda h, m: h._handle_calendar_connect_post(), True),
+        lambda h, m: h._handle_calendar_connect_post(m.device), True),
     Route(
         "POST", Exact(UPDATE_INSTALL_ROUTE),
         lambda h, m: h._handle_update_install_post(), True),
@@ -223,7 +223,7 @@ _POST_ROUTES = (
         lambda h, m: h._handle_update_cancel_post(), True),
     Route(
         "POST", PrefixSuffix(RULES_DELETE_ROUTE_PREFIX, RULES_DELETE_ROUTE_SUFFIX),
-        lambda h, m: h._handle_rule_delete_post(m.captured), True),
+        lambda h, m: h._handle_rule_delete_post(m.device, m.captured), True),
 )
 
 _PAGE_AND_IMAGE_KEYS = (
@@ -262,22 +262,6 @@ _ACTION_KEYS = (
 
 # The routes that act on a single device: 13 GET and 14 POST.
 _DEVICE_SCOPED_KEYS = frozenset(_PAGE_AND_IMAGE_KEYS + _ACTION_KEYS)
-
-# The action POSTs whose handlers still act on the root directory. Under a
-# device prefix they are refused before any handler runs, so a device-prefixed
-# POST can never write the live frame's directory.
-UNMIGRATED_DEVICE_POSTS = frozenset({
-    ("POST", Exact(airlines_page.RESOLVE_ROUTE)),
-    ("POST", Exact(airlines_page.RENAME_ROUTE)),
-    ("POST", Exact(airlines_page.RENAME_RESET_ROUTE)),
-    ("POST", PrefixSuffix(
-        airlines_page.MANUAL_DELETE_ROUTE_PREFIX, airlines_page.MANUAL_DELETE_ROUTE_SUFFIX)),
-    ("POST", PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png")),
-    ("POST", Exact(RULES_ADD_ROUTE)),
-    ("POST", PrefixSuffix(RULES_DELETE_ROUTE_PREFIX, RULES_DELETE_ROUTE_SUFFIX)),
-    ("POST", Exact(CALENDAR_CONNECT_ROUTE)),
-    ("POST", Exact(CALENDAR_DISCONNECT_ROUTE)),
-})
 
 ROUTES = tuple(
     route._replace(device_scoped=(route.method, route.matcher) in _DEVICE_SCOPED_KEYS)

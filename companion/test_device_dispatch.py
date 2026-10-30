@@ -3,7 +3,6 @@ directory only; an unknown id is a 404 page; the live frame's un-prefixed
 URLs keep reading the root. Real app subprocess over a seeded two-device fleet.
 """
 import os
-import urllib.parse
 
 import pytest
 
@@ -17,17 +16,6 @@ CALLSIGN_B = "ZZB2222"
 CALLSIGN_LIVE = "ZZL3333"
 FW_A = "9.1.1-devA"
 BATTERY_A_TEXT = "3777 mV"
-NINE_UNMIGRATED_POSTS = (
-    "/airlines/resolve",
-    "/airlines/rename",
-    "/airlines/rename/reset",
-    "/airlines/manual-resolutions/ABC/delete",
-    "/illustration/example.png",
-    "/settings/rules/add",
-    "/settings/rules/callsign/ABC/delete",
-    "/settings/calendar/connect",
-    "/settings/calendar/disconnect",
-)
 
 
 def _seed_history(state_dir, callsign, fw_version=None):
@@ -187,16 +175,3 @@ def test_fleet_status_is_read_from_the_root_for_a_device_page(fleet_app):
     # The global fleet status lives in the root only; a device page still
     # reflects it.
     assert after != before
-
-
-@pytest.mark.parametrize("route", NINE_UNMIGRATED_POSTS)
-def test_unmigrated_device_posts_refused(fleet_app, route):
-    server, fleet, cookie = fleet_app
-    # Warm-up request: the first request creates fleet.db's SQLite sidecars.
-    _get(server, "/devices/%s/health" % fleet.dev_a.id, cookie)
-    before = snapshot_all(server, fleet)
-    url = server.base_url() + "/devices/%s%s" % (fleet.dev_a.id, route)
-    form = urllib.parse.urlencode({"callsign": "ABC", "name": "X", "prefix": "ABC"}).encode()
-    status, _, _ = http_request(url, method="POST", data=form, cookie=cookie)
-    assert status == 404
-    assert snapshot_all(server, fleet) == before
