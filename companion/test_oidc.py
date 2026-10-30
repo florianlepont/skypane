@@ -336,3 +336,86 @@ def test_attempt_table_thread_safety():
     for t in threads:
         t.join()
     assert failures == []
+
+
+# --- requests_post against the loopback fake ---
+
+@pytest.fixture
+def live():
+    from fake_auth0 import FakeAuth0
+
+    redirect = "http://127.0.0.1:9/callback"
+    fake = FakeAuth0("client-abc", "secret-xyz", redirect,
+                     ["http://127.0.0.1:9/login"]).start()
+    config = oidc.Auth0Config.from_env({
+        "SKYPANE_AUTH0_DOMAIN": fake.domain,
+        "SKYPANE_AUTH0_CLIENT_ID": "client-abc",
+        "SKYPANE_AUTH0_CLIENT_SECRET": "secret-xyz",
+        "SKYPANE_COMPANION_PUBLIC_URL": "http://127.0.0.1:9",
+        "SKYPANE_AUTH0_ALLOW_INSECURE_LOOPBACK": "1"})
+    yield fake, config
+    fake.stop()
+
+
+def start_login(fake, config):
+    import http.client
+    verifier, challenge = oidc.new_pkce()
+    url = urllib.parse.urlsplit(oidc.authorize_url(config, "st", NONCE, challenge))
+    conn = http.client.HTTPConnection("127.0.0.1", fake.port, timeout=5)
+    conn.request("GET", url.path + "?" + url.query)
+    location = conn.getresponse().getheader("Location")
+    conn.close()
+    query = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(location).query))
+    return query["code"], verifier
+
+
+def test_real_exchange_round_trip(live):
+    fake, config = live
+    code, verifier = start_login(fake, config)
+    token = oidc.exchange_code(config, code, verifier, oidc.requests_post)
+    assert oidc.validate_id_token(token, config, NONCE).sub == "auth0|fake-user"
+
+
+def test_real_exchange_wrong_verifier_fails(live):
+    fake, config = live
+    code, _ = start_login(fake, config)
+    with pytest.raises(oidc.SignInError) as err:
+        oidc.exchange_code(config, code, "wrong", oidc.requests_post)
+    assert err.value.reason == "token_status_400"
+
+
+def test_slow_token_endpoint_is_unavailable(live, monkeypatch):
+    fake, config = live
+    monkeypatch.setattr(oidc, "TOKEN_READ_TIMEOUT", 0.3)
+    fake.set_knob("token_delay_s", 1.5)
+    code, verifier = start_login(fake, config)
+    with pytest.raises(oidc.SignInError) as err:
+        oidc.exchange_code(config, code, verifier, oidc.requests_post)
+    assert err.value.kind == "unavailable"
+
+
+def test_oversized_token_body_is_refused(live):
+    fake, config = live
+    fake.set_knob("token_body", "x" * (oidc.TOKEN_MAX_BYTES + 1))
+    code, verifier = start_login(fake, config)
+    with pytest.raises(oidc.SignInError) as err:
+        oidc.exchange_code(config, code, verifier, oidc.requests_post)
+    assert err.value.kind == "unavailable"
+
+
+def test_redirect_from_token_endpoint_is_not_followed(live):
+    fake, config = live
+    fake.set_knob("token_status", 302)
+    code, verifier = start_login(fake, config)
+    with pytest.raises(oidc.SignInError) as err:
+        oidc.exchange_code(config, code, verifier, oidc.requests_post)
+    assert err.value.reason == "token_status_302"
+    assert not fake.calls_to("/oauth/redirected")
+
+
+def test_unreachable_endpoint_is_unavailable(live):
+    fake, config = live
+    fake.stop()
+    with pytest.raises(oidc.SignInError) as err:
+        oidc.exchange_code(config, "c", "v", oidc.requests_post)
+    assert err.value.kind == "unavailable"
