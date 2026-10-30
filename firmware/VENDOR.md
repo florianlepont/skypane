@@ -97,6 +97,16 @@ Files in `firmware/` that are not vendored from upstream at all:
   `main/<name>.c` counterpart is missing fails loudly, and a test
   needing more than its one matching implementation file names the
   extras in a `HOST_TEST_DEPS:` comment.
+- `main/image_container.[ch]` — pure-C reader for the image container the
+  server sends (magic, version, panel dimensions, lengths, CRC-32), plus
+  the legacy raw form. Nothing calls it yet and it is not linked into the
+  shipped binary until a later release, although `SRC_DIRS "."` in
+  `main/CMakeLists.txt` still compiles it.
+- `tests/test_image_container.c` — host test running the reader over the
+  shared fixtures, the CRC-32 check value, full-size panel sizes and
+  hostile buffers; needs `FIXTURE_DIR`, which `run_host_tests.sh` exports.
+- `tests/fixtures/image_container/` — golden container fixtures and
+  manifest shared with the server's Python decoder tests.
 - `.gitignore` — this repository's own ignore rules.
 - `main/CMakeLists.txt` — this project's own component registration,
   using `SRC_DIRS "."` so every new `main/*.c` file compiles into the
