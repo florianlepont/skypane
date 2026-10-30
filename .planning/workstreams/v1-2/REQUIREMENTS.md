@@ -97,7 +97,7 @@ Coverage: 30/30 v1.2 requirements mapped, each to exactly one phase.
 | DATA-05 | Phase 48 | Complete |
 | OTA-01 | Phase 49 | Complete |
 | OTA-02 | Phase 49 | Complete |
-| OTA-03 | Phase 49 | Pending |
+| OTA-03 | Phase 49 | Pending (decision recorded; device-side bench check deferred) |
 | IMG-01 | Phase 50 | Pending |
 | IMG-02 | Phase 50 | Pending |
 | IMG-03 | Phase 50 | Pending |
