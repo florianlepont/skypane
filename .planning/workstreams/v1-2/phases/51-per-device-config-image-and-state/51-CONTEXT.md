@@ -24,9 +24,9 @@ Not in this phase: the fleet-wide poll loop, zones and request budget (52), dete
 - **D-04 (owner):** No production deploy.
 
 ### Directory layout (owner choice, 2026-10-30)
-- **D-05:** New devices live in `<state_dir>/devices/<id>/`, `<id>` being the numeric `devices.id` of fleet.db. The path is stored in `devices.state_path`. No MAC in paths.
+- **D-05:** New devices live in `<state_dir>/devices/<id>/`, `<id>` being the `devices.id` of fleet.db (text, `d_` + 8 hex, validated with `\Ad_[0-9a-f]{8}\Z`). The path is stored in `devices.state_path`. No MAC in paths.
 - **D-06:** The live frame stays at the root of the state dir (`state_path = "."`); it is never moved. Each device directory holds the same file set a state dir holds today (`device_config.json`, `poll_state.json`, `panel.bin`, history DB, `img/`, battery state).
-- **D-07:** The BYOS resolves the presented token or MAC to its device and reads/writes only that device's directory. `--image` remains the live frame's image only; no other device ever falls back to it, and the `"default"` device fallback is gone (an unresolved token is a 401).
+- **D-07:** The BYOS resolves the presented token or MAC to its device and reads/writes only that device's directory. `--image` remains the live frame's image only; no other device ever falls back to it, and no handler serves the shared image or shared state to a device that is not the live frame (`_resolve_device_id` already returns `None` for an unknown token and keeps its name and contract).
 
 ### Companion navigation (owner choice)
 - **D-08:** A device selector at the top of the companion. Existing pages (home, health, history, settings) show the selected device; the live frame is selected by default and its current URLs keep working unchanged.
@@ -40,6 +40,14 @@ Not in this phase: the fleet-wide poll loop, zones and request budget (52), dete
 ### Quiet hours and timezone (owner choice)
 - **D-13:** The timezone is a validated IANA field in each device's own `device_config.json`, next to quiet hours. Default `Europe/Paris`, so the live frame's behaviour does not change. The fixed `QUIET_HOURS_TZ` constant becomes the default, not the only value.
 - **D-14:** Setting quiet hours or timezone for one device writes that device's config only; a test proves other devices' files are byte-identical.
+
+### Technical defaults (recorded 2026-10-30 from research; to be reported to the owner)
+- **D-15:** Non-live devices get image URLs `/img/<device_id>/<sha>.bin`; the live frame's `/img/<sha>.bin` is unchanged. No new keys in the display JSON.
+- **D-16:** Poll-now for a hardware type the poll cycle cannot render (not 1200x1600) is refused with a clear message until Phase 56.
+- **D-17:** `/update*` (OTA) stays global, not device-scoped.
+- **D-18:** `device_config.timezone` is authoritative; it is written to the file only when it differs from `Europe/Paris`, so the live frame's file bytes never change. Phase 53 reconciles it with `locations.timezone`. Timezone picker is a curated France-wide `<select>`.
+- **D-19:** Device-scoped polls never read the shared Caddy battery log.
+- **D-20:** Backup walks `devices/<id>/` (config, state, WAL-safe history snapshot; no `panel.bin`, `img/`, locks).
 
 ### Claude's Discretion
 - Module and function names, the device-resolution helper, test layout, plan split and waves, how simulated devices get their initial image/config, and the migration of nothing for the live frame (none is needed).
