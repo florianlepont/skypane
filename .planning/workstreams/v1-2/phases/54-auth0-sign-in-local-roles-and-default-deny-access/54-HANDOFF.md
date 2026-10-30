@@ -28,7 +28,7 @@ Related: [legacy-admin removal task](54-LEGACY-ADMIN-REMOVAL.md),
 
 ## B. Owner go-live checklist
 
-Status 2026-10-30: items 1 to 6 are done in production (deploy `af9e8521` at 20:27 UTC, Auth0 variables at 20:33 UTC, real-tenant smoke test passed, see `54-VERIFICATION.md`). Items 7 and 8 remain: keep the rollback caveat in mind, and remove the legacy fallback when the owner chooses.
+Status 2026-10-30: items 1 to 6 are done in production (deploy `af9e8521` at 20:27 UTC, Auth0 variables at 20:33 UTC, real-tenant smoke test passed, see `54-VERIFICATION.md`). Item 8 is half done: the flag is `0` in production since 2026-10-30; removing the legacy code path remains. Item 7 is a standing caveat: keep the rollback behaviour in mind.
 
 1. Configure the Auth0 tenant: Regular Web Application, Allowed Callback URL
    `https://<companion host>/callback`, Allowed Logout URL

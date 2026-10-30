@@ -62,7 +62,7 @@ Deployed `af9e8521` to production at 20:27 UTC (deploy log: backup, `fleet.db` s
 - A token request with a wrong `code_verifier` was rejected by Auth0: `invalid_grant`, "Failed to verify code verifier". PKCE is enforced for this Regular Web Application.
 - Caddy journal: 2 `/callback` lines, 0 containing `code=` (redaction works on a real request).
 
-Still open: the legacy-admin removal (trigger reached, see `54-LEGACY-ADMIN-REMOVAL.md`) and the per-device route rows after Phase 51.
+The owner then turned the shared-password fallback off (`SKYPANE_LEGACY_PASSWORD_LOGIN=0`); the login page no longer shows it. Still open: removing the legacy code (see `54-LEGACY-ADMIN-REMOVAL.md`, steps 2 to 5) and the per-device route rows after Phase 51.
 
 ## Human verification required (remaining)
 
