@@ -280,6 +280,34 @@ _CHIP_COUNTS = (
     "  l.querySelector('[data-filter-chip-count]').textContent]))")
 
 
+_SETTLE_JS = """async (selectors) => {
+  const rects = () => selectors.map(s => {
+    const el = document.querySelector(s);
+    const r = el ? el.getBoundingClientRect() : null;
+    return r ? [r.x, r.y, r.width, r.height].join() : "missing";
+  }).join("|");
+  let last = rects();
+  let still = 0;
+  const deadline = performance.now() + 5000;
+  while (still < 5) {
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    const now = rects();
+    still = now === last ? still + 1 : 0;
+    last = now;
+    if (performance.now() > deadline) {
+      throw new Error("layout still moving: " + last);
+    }
+  }
+}"""
+
+
+def _wait_until_still(page, *selectors):
+    """Block until every selector's box has held still for five animation frames, so a click
+    is aimed at where the element will stay (the phone search animates open and re-wraps the
+    chips, which moves the empty state under the pointer)."""
+    page.evaluate(_SETTLE_JS, list(selectors))
+
+
 def test_direction_chips_filter_count_and_clear(new_context, server):
     """The chips carry live counts from the rows' own direction, filter the list, combine with
     the search text, hide a day header left with no flight, and the empty state's Clear resets
@@ -310,7 +338,10 @@ def test_direction_chips_filter_count_and_clear(new_context, server):
                                  % (page.evaluate(_CHIP_COUNTS),))
         empty = page.locator("[data-filter-empty]")
         empty.wait_for(state="visible")
+        _wait_until_still(page, ".filter-bar__search", ".filter-bar__chips",
+                          "[data-filter-empty] [data-filter-clear]")
         empty.locator("[data-filter-clear]").click()
+        empty.wait_for(state="hidden")
         if page.evaluate(_VISIBLE_CALLSIGNS) != page.evaluate(
                 "() => [...document.querySelectorAll('li.history-card .history-card__callsign')]"
                 ".map(e => e.textContent)"):
