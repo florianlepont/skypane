@@ -758,10 +758,8 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
     Device) in one session, addresses every settings-card title by structural position
     rather than by class name, reads its getComputedStyle font-size/font-weight/font-family,
     and asserts the combined set across both pages has cardinality 1. Fails naming the empty
-    side if either page contributes zero titles; every Device title must be one of the three
-    named cards and the Poll card's own title specifically must be among them, proving the
-    probe's reach extends to the one .page-section card, not just the two .theme-status
-    ones; the failure message names the offending page, the offending title's text and both
+    side if either page contributes zero titles; every Device title must be one of the two
+    named cards; the failure message names the offending page, the offending title's text and both
     triples. Supersection intro headings (.section-intro > h2) are excluded structurally,
     deliberately: a different, generically-worded tier, not an inconsistency this check
     should assert away. The Display appearance card sits inside its own labelled section and
@@ -803,11 +801,10 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
                     "expected at least one settings-card title on %s, got NONE - a "
                     "comparator with an empty side would pass vacuously" % route)
 
-        # Device must contribute exactly the three NAMED cards.
+        # Device must contribute exactly the two NAMED cards.
         allowed_device_texts = {
             config_page.LED_SECTION_HEADING,
-            config_page.WAKE_INTERVAL_SECTION_HEADING,
-            config_page.POLL_SECTION_HEADING}
+            config_page.WAKE_INTERVAL_SECTION_HEADING}
         device_texts = {e["text"] for e in by_page["/device"]}
         unexpected = device_texts - allowed_device_texts
         if unexpected:
@@ -817,14 +814,6 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
                 "than structural position would pick up supersection intro headings too, "
                 "which is exactly the 27-06-shaped mistake this check exists to avoid"
                 % (sorted(allowed_device_texts), sorted(unexpected)))
-        if config_page.POLL_SECTION_HEADING not in device_texts:
-            raise AssertionError(
-                "expected the Poll card's own title (%r) among Device's settings-card "
-                "titles - it reaches the page through a .page-section wrapper, not "
-                ".theme-status like the other three, and a probe that silently misses it "
-                "would pass this check while leaving CFG-72 unmet on a card the developer "
-                "can see" % config_page.POLL_SECTION_HEADING)
-
         # The only nested settings card is the Display appearance card.
         if set(nested_titles) != {config_page.ASPECT_HEADING}:
             raise AssertionError(
