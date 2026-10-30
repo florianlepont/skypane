@@ -7,6 +7,7 @@ legacy-login flag can be changed under the live server.
 """
 import hashlib
 import os
+import sqlite3
 import urllib.parse
 
 from companion import app, auth, static_files
@@ -195,3 +196,44 @@ def test_a_user_session_may_use_the_signed_in_routes(app_server_in_process):
 def test_an_unknown_token_is_refused(app_server_in_process):
     server = app_server_in_process
     assert http_request(server.url("/health"), cookie="sp_session=nope")[0] == 303
+
+
+def _unwritable_state_dir(monkeypatch):
+    def refuse(*_args, **_kwargs):
+        raise sqlite3.OperationalError("attempt to write a readonly database")
+
+    monkeypatch.setattr(fleet_db, "connect", refuse)
+    monkeypatch.setattr(app, "_state_dir_writable", lambda _state_dir: False)
+
+
+def test_unwritable_state_dir_reads_sessions_and_logs_the_fallback(
+        app_server_in_process, monkeypatch, capfd):
+    server = app_server_in_process
+    cookie, _user_id = _seed_user_session(server.state_dir, role="admin")
+    _unwritable_state_dir(monkeypatch)
+    capfd.readouterr()
+    assert http_request(server.url("/health"), cookie=cookie)[0] == 200
+    assert "state directory is not writable" in capfd.readouterr().out
+
+
+def test_unwritable_state_dir_with_pending_wal_answers_503(
+        app_server_in_process, monkeypatch, capfd):
+    server = app_server_in_process
+    cookie, _user_id = _seed_user_session(server.state_dir, role="admin")
+    _unwritable_state_dir(monkeypatch)
+    with open(fleet_db.fleet_db_path(server.state_dir) + "-wal", "wb") as handle:
+        handle.write(b"unmerged frames")
+    capfd.readouterr()
+    status, headers, _body = http_request(server.url("/health"), cookie=cookie)
+    assert status == 503
+    assert "Location" not in headers
+    assert "fallback refused" in capfd.readouterr().out
+
+
+def test_unwritable_state_dir_with_empty_wal_still_reads(
+        app_server_in_process, monkeypatch):
+    server = app_server_in_process
+    cookie, _user_id = _seed_user_session(server.state_dir, role="admin")
+    _unwritable_state_dir(monkeypatch)
+    open(fleet_db.fleet_db_path(server.state_dir) + "-wal", "wb").close()
+    assert http_request(server.url("/health"), cookie=cookie)[0] == 200
