@@ -41,10 +41,6 @@ _PRIMARY_NAVIGATION_TEXT = i18n.msg("nav.primary_navigation", "Primary navigatio
 _THEME_TEXT = i18n.msg("nav.theme", "Theme")
 _LANGUAGE_TEXT = i18n.msg("nav.language", "Language")
 _SIGN_OUT_TEXT = i18n.msg("common.sign_out", "Sign out")
-_LEGACY_ACCESS_TEXT = i18n.msg("account.legacy_access", "Legacy access")
-_LEGACY_ACCESS_TITLE_TEXT = i18n.msg(
-    "account.signed_in_with_the_shared_password",
-    "Signed in with the shared password")
 
 # The one destination a plain user can reach. The nav a user sees is built
 # from this table instead of NAV_TABS, so a link exists only for a route
@@ -55,8 +51,6 @@ USER_NAV = (
     (ACCOUNT_ROUTE, i18n.msg("account.account", "Account")),
 )
 
-# prefs.current_principal() kind for the shared-password administrator.
-LEGACY_ADMIN_KIND = "legacy-admin"
 USER_ROLE = "user"
 
 
@@ -64,11 +58,6 @@ def is_user_principal():
     """True when the request's principal is a plain user (role "user")."""
     principal = prefs.current_principal()
     return principal is not None and principal[1] == USER_ROLE
-
-
-def is_legacy_admin_principal():
-    principal = prefs.current_principal()
-    return principal is not None and principal[0] == LEGACY_ADMIN_KIND
 
 
 def ui_theme_from_cookie(cookies):
@@ -513,16 +502,6 @@ def _lang_form_html(resolved_lang):
         % (escape_html(i18n.t(_LANGUAGE_TEXT)), "".join(options)))
 
 
-def _legacy_pill_html():
-    """The neutral "Legacy access" badge shown before Sign out, only for
-    the shared-password administrator; "" for every other principal."""
-    if not is_legacy_admin_principal():
-        return ""
-    return '<span class="banner__pill" title="%s">%s</span>' % (
-        escape_html(i18n.t(_LEGACY_ACCESS_TITLE_TEXT)),
-        escape_html(i18n.t(_LEGACY_ACCESS_TEXT)))
-
-
 def _logout_form_html():
     """The POST /logout control, shared verbatim by the sidebar and mobile-nav
     footers.
@@ -530,15 +509,13 @@ def _logout_form_html():
     The `/logout` path is hard-coded rather than imported from companion.app to
     avoid a circular import. method="post" matters: a GET logout can be
     triggered by a stray prefetch, crawler or `<img src="/logout">`, silently
-    ending a session. The legacy-access pill, when present, sits inside the
-    form right before the button.
+    ending a session.
     """
     return (
         '<form method="post" action="/logout" class="logout-form">'
-        "%s"
         '<button type="submit">%s</button>'
         "</form>"
-    ) % (_legacy_pill_html(), escape_html(i18n.t(_SIGN_OUT_TEXT)))
+    ) % escape_html(i18n.t(_SIGN_OUT_TEXT))
 
 
 def _mobile_nav_html(

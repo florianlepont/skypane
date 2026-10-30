@@ -45,6 +45,9 @@ _prune_lock = threading.Lock()
 _last_prune_at: int | None = None
 
 PRINCIPAL_USER = "user"
+# Rows written before the shared password was removed may still carry this
+# value. Such a row is invalid: lookup_session never authenticates it and
+# deletes it. Nothing creates one.
 PRINCIPAL_LEGACY_ADMIN = "legacy-admin"
 
 
@@ -127,12 +130,11 @@ def lookup_session(
     if now >= row["expires_at"] or now - row["last_seen_at"] >= IDLE_TIMEOUT_S:
         discard_session(conn, token_hash)
         return None
-    if row["principal"] == PRINCIPAL_USER:
-        if row["role"] is None:
-            discard_session(conn, token_hash)
-            return None
-        if row["disabled"]:
-            return None
+    if row["principal"] != PRINCIPAL_USER or row["role"] is None:
+        discard_session(conn, token_hash)
+        return None
+    if row["disabled"]:
+        return None
     if now - row["last_seen_at"] > TOUCH_INTERVAL_S:
         try:
             conn.execute(
@@ -143,12 +145,11 @@ def lookup_session(
             # Read-only store (unwritable state dir): the session is still
             # valid, only the idle clock cannot advance.
             pass
-    is_user = row["principal"] == PRINCIPAL_USER
     return SessionRecord(
         user_id=row["user_id"],
         principal=str(row["principal"]),
-        email=str(row["email"]) if is_user else None,
-        role=str(row["role"]) if is_user else "admin",
+        email=str(row["email"]),
+        role=str(row["role"]),
         created_at=int(row["created_at"]),
         expires_at=int(row["expires_at"]),
     )

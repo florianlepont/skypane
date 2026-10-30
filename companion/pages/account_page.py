@@ -16,8 +16,6 @@ _EMAIL_TEXT = i18n.msg("account.email", "Email")
 _ROLE_TEXT = i18n.msg("account.role", "Role")
 _ROLE_USER_TEXT = i18n.msg("account.user", "User")
 _ROLE_ADMIN_TEXT = i18n.msg("account.administrator", "Administrator")
-_ROLE_LEGACY_ADMIN_TEXT = i18n.msg(
-    "account.administrator_legacy_access", "Administrator (legacy access)")
 _PREFERENCES_TEXT = i18n.msg("account.preferences", "Preferences")
 _FRAMES_TEXT = i18n.msg("account.frames", "Frames")
 _NO_FRAMES_HEADING = i18n.msg(
@@ -34,16 +32,12 @@ ROLE_ADMIN = "admin"
 
 class Identity(NamedTuple):
     """What the page shows about the signed-in person: the email, the
-    role ("user" or "admin") and whether they signed in with the legacy
-    shared password."""
+    role ("user" or "admin")."""
     email: str
     role: str
-    legacy: bool = False
 
 
 def _role_text(identity):
-    if identity.legacy:
-        return _ROLE_LEGACY_ADMIN_TEXT
     return _ROLE_ADMIN_TEXT if identity.role == ROLE_ADMIN else _ROLE_USER_TEXT
 
 

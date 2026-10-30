@@ -1,6 +1,6 @@
-"""Startup validation of the sign-in environment: which login methods are
-configured, and whether the combination is safe to serve."""
-from companion import auth, oidc
+"""Startup validation of the sign-in environment: Auth0 is the only way to
+sign in, so a complete Auth0 configuration is required to serve at all."""
+from companion import oidc
 
 
 class SignInConfigError(Exception):
@@ -8,25 +8,16 @@ class SignInConfigError(Exception):
 
 
 def validate_sign_in_config(environ):
-    """Refuse a configuration that would silently enable, or silently lose,
-    a login method. The shared password is required only while its switch
-    is on; the Auth0 variables are all-or-nothing; at least one method must
-    remain. Messages name variables, never values.
+    """Refuse to start without a complete Auth0 configuration. The Auth0
+    variables are all-or-nothing, and an absent set is as fatal as a partial
+    one. Messages name variables, never values; unrelated variables
+    are never read.
     """
-    try:
-        legacy_on = auth.legacy_login_enabled(environ)
-    except ValueError as exc:
-        raise SignInConfigError(str(exc)) from None
-    if legacy_on:
-        try:
-            auth.configured_password(environ)
-        except auth.AuthNotConfigured as exc:
-            raise SignInConfigError(str(exc)) from None
     try:
         auth0 = oidc.Auth0Config.from_env(environ)
     except oidc.Auth0ConfigError as exc:
         raise SignInConfigError(str(exc)) from None
-    if not legacy_on and auth0 is None:
+    if auth0 is None:
         raise SignInConfigError(
-            "no sign-in method is configured: set the SKYPANE_AUTH0_* "
-            "variables or enable %s" % auth.LEGACY_LOGIN_ENV_VAR)
+            "sign-in is not configured: set SKYPANE_AUTH0_DOMAIN, "
+            "SKYPANE_AUTH0_CLIENT_ID and SKYPANE_AUTH0_CLIENT_SECRET")

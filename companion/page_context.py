@@ -236,8 +236,7 @@ def env_wake_interval_default():
     not captured at import time. Clamped to `[WAKE_INTERVAL_MIN_S,
     WAKE_INTERVAL_MAX_S]` only for this Settings form `min=` pre-fill —
     `wake.effective_wake_interval_s()` reads the unclamped value. Fail-open
-    (None), unlike `configured_password()`'s fail-closed contract: a UI
-    convenience, not an auth boundary.
+    (None): a UI convenience, not an auth boundary.
     """
     value = wake.env_sleep_s()
     if value is None:

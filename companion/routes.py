@@ -15,7 +15,7 @@ both off, byte for byte the same arithmetic the pre-table if-chains
 used. `access` is a validated `Access(min_role, device_arg)`: a Route
 cannot be constructed without one (default-deny). PUBLIC is the one place
 this whole app grants pre-session access; the only routes with it are
-GET/POST /login, the sign-in start and callback, and the static assets in `companion/static_files.py`'s
+GET /login, the sign-in start and callback, and the static assets in `companion/static_files.py`'s
 `STATIC_ROUTES`. SIGNED_IN needs any signed-in user; ADMIN_ONLY needs the
 admin role (every global page and mutation).
 """
@@ -113,7 +113,7 @@ def _static_get_routes():
 
 
 # GET routes, in companion/app.py's pre-table _dispatch_get() branch
-# order: the login page, the 18 static assets, the six live tabs, the
+# order: the login page, the 17 static assets, the six live tabs, the
 # three legacy fixed redirects, then the four prefix-matched image
 # routes.
 _GET_ROUTES = (
@@ -183,7 +183,6 @@ _GET_ROUTES = (
 # order (the Origin/Sec-Fetch-Site gate runs before routes.match() is
 # ever called - see Handler._dispatch() - so it is not represented here).
 _POST_ROUTES = (
-    Route("POST", Exact(LOGIN_ROUTE), lambda h, m: h._handle_login_post(), PUBLIC),
     Route("POST", Exact(SETTINGS_ROUTE), lambda h, m: h._handle_settings_post(), ADMIN_ONLY),
     Route("POST", Exact(POLL_ROUTE), lambda h, m: h._handle_poll_now(), ADMIN_ONLY),
     Route(

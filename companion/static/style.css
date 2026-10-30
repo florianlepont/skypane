@@ -4551,77 +4551,6 @@ a.airline-card {
   box-shadow: var(--shadow-card-hover);
 }
 
-.login-form__field {
-  position: relative;
-  display: block;
-}
-
-.login-form__input {
-  display: block;
-  width: 100%;
-  /* Explicit height, not the global input rule's min-height floor: the
-   * primary button below states the same 44px, and a floor plus a fixed
-   * height cannot be compared without resolving padding too. */
-  height: 44px;
-}
-
-  /* --color-status-error as this border measures 6.29/5.16/5.73:1 in
-   * light and 6.53/5.93/7.13:1 in dark against the three surfaces it
-   * appears on — all above WCAG_AA_UI_COMPONENT (3.0). Attribute-
-   * selected so the visual and announced states cannot drift. */
-.login-form__input[aria-invalid="true"] {
-  border-color: var(--color-status-error);
-}
-
-  /* --space-xl (32px), not the suggested 40px (not a token): 32px
-   * clears the toggle's real 30px reach with room to spare. */
-.login-form__field--with-toggle .login-form__input {
-  padding-right: var(--space-xl);
-}
-
-  /* Reuses every .copy-btn dimension (22x22 box, 44x44 hit area via
-   * ::before, hover wash) — this rule adds only position. Declared
-   * after .copy-btn in source, so this equal-specificity position:
-   * absolute wins over that rule's position: relative. Do not reorder. */
-.login-reveal {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: var(--space-sm);
-  margin-block: auto;
-}
-
-  /* Without this, [hidden] has no effect: .copy-btn's own display:
-   * inline-flex beats the UA [hidden] { display: none } rule regardless
-   * of source order, since both are equal-specificity author-vs-UA. Any
-   * component whose base rule sets display needs this same guard. */
-.login-reveal[hidden] {
-  display: none;
-}
-
-.login-reveal[aria-pressed="true"] {
-  background: color-mix(in srgb, var(--color-text) 7%, transparent);
-}
-
-.login-reveal__glyph {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-}
-
-  /* 44px restores the WCAG 2.5.5 (AAA) floor here rather than trading it
-   * — this is the app's only pre-auth surface, with no density argument
-   * to trade against. Full accent fill is correct here only: Sign in is
-   * the page's single action, which is what the accent is reserved for. */
-.login-card button[type="submit"] {
-  width: 100%;
-  height: 44px;
-  border-radius: var(--radius-control);
-  font-size: var(--font-body-size);
-  margin-top: var(--space-md);
-}
-
 /* The Sign in link carries the declarations of a.calendar-manage--primary:
  * it is the page's one primary action when Auth0 is configured. A link,
  * not a button, so the redirect is not subject to the CSP form-action. */
@@ -4644,36 +4573,6 @@ a.airline-card {
 
 .login-card a.login-signin:hover {
   background: var(--color-accent-hover);
-}
-
-/* The shared-password disclosure beside Auth0. The submit takes the quiet
- * wash of .logout-form button; the extra class keeps it above
- * button[type="submit"] and button[type="submit"]:hover. */
-.login-card .login-legacy {
-  margin-top: var(--space-lg);
-  padding-top: var(--space-md);
-  border-top: 1px solid var(--color-border);
-}
-
-.login-card .login-legacy__summary {
-  margin-left: var(--space-sm);
-}
-
-.login-card .login-legacy__helper {
-  margin: var(--space-md) 0 0;
-}
-
-.login-card button[type="submit"].login-form__submit--quiet {
-  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
-  box-shadow: none;
-  color: var(--color-text);
-}
-
-.login-card button[type="submit"].login-form__submit--quiet:hover {
-  background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
-  border-color: color-mix(in srgb, var(--color-text) 14%, transparent);
-  box-shadow: none;
 }
 
 /* A standalone text link inside the card keeps a 44px hit height. */

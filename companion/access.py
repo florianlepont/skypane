@@ -26,7 +26,6 @@ LOGIN = "login"
 NOT_FOUND = "not-found"
 
 KIND_USER = "user"
-KIND_LEGACY_ADMIN = "legacy-admin"
 
 Principal = collections.namedtuple("Principal", "kind user_id email role")
 
@@ -76,7 +75,7 @@ def decide(principal, access, captured, owner_lookup):
 
 def home_for(principal):
     """Where a signed-in principal lands: the account page for a user, the
-    dashboard for an admin or the legacy admin.
+    dashboard for an admin.
     """
     if principal is not None and principal.role == USER:
         return "/account"
