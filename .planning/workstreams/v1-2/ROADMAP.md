@@ -206,7 +206,7 @@ Plans:
 
 **Wave 3**
 
-- [ ] 54-05-PLAN.md — Auth0 start, callback, invite-only sign-in and sign-out handlers with the full failure-mode suite (AUTH-01)
+- [x] 54-05-PLAN.md — Auth0 start, callback, invite-only sign-in and sign-out handlers with the full failure-mode suite (AUTH-01)
 
 **Wave 4**
 
