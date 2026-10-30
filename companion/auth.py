@@ -111,12 +111,13 @@ class AuthNotConfigured(RuntimeError):
     """
 
 
-def configured_password():
+def configured_password(environ=None):
     """Return the shared password as bytes, or raise AuthNotConfigured.
+    Reads `environ` (default: the process environment).
 
     Never include the environment value in the raised exception.
     """
-    value = os.environ.get(PASSWORD_ENV_VAR)
+    value = (os.environ if environ is None else environ).get(PASSWORD_ENV_VAR)
     if not value:
         raise AuthNotConfigured(
             "%s is not set in the process environment — refusing to "

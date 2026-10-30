@@ -340,7 +340,7 @@ def _login_card_html(
     explanation = (
         LOGIN_EXPLANATION_AUTH0_TEXT if auth0_enabled else LOGIN_EXPLANATION_TEXT)
     parts = [_login_heading_html(explanation)]
-    if not auth0_enabled and not legacy_enabled:
+    if not auth0_enabled and not legacy_enabled and notice is None:
         notice = (_NOT_CONFIGURED_TEXT, None)
     if notice is not None:
         title, detail = notice

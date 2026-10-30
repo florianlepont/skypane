@@ -31,8 +31,8 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from companion import (  # noqa: E402
-    access, auth, flash, freshness, i18n, illustration_normalize, layout, login_page, page_context,
-    post_actions, prefs, request_body, routes, sign_in, static_files, theme_preview)
+    access, auth, flash, freshness, i18n, illustration_normalize, layout, login_page, oidc,
+    page_context, post_actions, prefs, request_body, routes, sign_in, static_files, theme_preview)
 from companion.pages import (  # noqa: E402
     # airlines_page is unused by this module's own code; kept so
     # companion/test_post_origin.py's app.airlines_page.* route reads
@@ -251,6 +251,8 @@ _not_modified = static_files.not_modified
 # Process-global, not per-session: keyed per client IP and bounded, so
 # failed logins from one address never lock another.
 LOGIN_THROTTLE = auth.LoginThrottle()
+# The name the shared-password principal carries in audit lines.
+LEGACY_PRINCIPAL_NAME = "legacy-admin"
 
 # Guards the check-cooldown -> run_once() -> mark-triggered sequence in
 # _handle_poll_now(), so two concurrent POST /poll-now requests can
@@ -1083,6 +1085,13 @@ class Handler(
             self.client_address[0], self.headers.get("X-Forwarded-For"))
 
     def _handle_login_post(self):
+        # With the shared password switched off nothing below runs: the
+        # form body is not read, the password is not compared and the
+        # throttle is not touched.
+        if not self._legacy_login_on():
+            return self.send_html(403, login_page.sign_in_error_page(
+                login_page.SIGN_IN_ERROR_PASSWORD_OFF, self._pre_session_theme(),
+                auth0_enabled=self._auth0_enabled(), legacy_enabled=False))
         # Read and validate `next` before the lockout/password checks so
         # it survives every branch below (lockout, incorrect password,
         # and success) — a failed attempt must not lose the
@@ -1097,8 +1106,13 @@ class Handler(
         submitted = form.get("password", "")
         if auth.password_ok(submitted):
             LOGIN_THROTTLE.record_success(throttle_key)
+            print("companion: legacy_login_success principal=%s bucket=%s" % (
+                LEGACY_PRINCIPAL_NAME, throttle_key))
             return self._start_legacy_session(next_route or HOME_ROUTE)
         LOGIN_THROTTLE.record_failure(throttle_key)
+        if LOGIN_THROTTLE.locked_out(throttle_key):
+            print("companion: legacy_login_lockout principal=%s bucket=%s" % (
+                LEGACY_PRINCIPAL_NAME, throttle_key))
         return self.send_html(401, self._render_login_page(
             # Translated here, at the call site — see login_page.py's
             # own login_body() docstring for why (`error` is an opaque
@@ -1437,12 +1451,41 @@ def build_parser():
     return parser
 
 
+class SignInConfigError(Exception):
+    """The environment leaves no safe sign-in setup; names variables only."""
+
+
+def validate_sign_in_config(environ):
+    """Refuse a configuration that would silently enable, or silently lose,
+    a login method. The shared password is required only while its switch
+    is on; the Auth0 variables are all-or-nothing; at least one method must
+    remain. Messages name variables, never values.
+    """
+    try:
+        legacy_on = auth.legacy_login_enabled(environ)
+    except ValueError as exc:
+        raise SignInConfigError(str(exc)) from None
+    if legacy_on:
+        try:
+            auth.configured_password(environ)
+        except auth.AuthNotConfigured as exc:
+            raise SignInConfigError(str(exc)) from None
+    try:
+        auth0 = oidc.Auth0Config.from_env(environ)
+    except oidc.Auth0ConfigError as exc:
+        raise SignInConfigError(str(exc)) from None
+    if not legacy_on and auth0 is None:
+        raise SignInConfigError(
+            "no sign-in method is configured: set the SKYPANE_AUTH0_* "
+            "variables or enable %s" % auth.LEGACY_LOGIN_ENV_VAR)
+
+
 def main():
     args = build_parser().parse_args()
     try:
-        auth.configured_password()
-    except auth.AuthNotConfigured as exc:
-        print(str(exc), file=sys.stderr)
+        validate_sign_in_config(os.environ)
+    except SignInConfigError as exc:
+        print("companion: %s" % exc, file=sys.stderr)
         sys.exit(1)
     try:
         fleet_db.connect(args.state_dir).close()
