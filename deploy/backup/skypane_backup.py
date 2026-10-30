@@ -74,6 +74,26 @@ KNOWN_EXCLUDED = (
     "img",
 )
 
+# Per-device directories under <state>/devices/. This script is deliberately
+# standalone (it runs without the server package), so the device id shape is
+# duplicated here and mirrors server/device_dirs: "d_" plus 8 lowercase hex.
+DEVICES_DIRNAME = "devices"
+DEVICE_ID_RE = re.compile(r"\Ad_[0-9a-f]{8}\Z")
+DEVICE_INCLUDE_FILES = (
+    "device_config.json",
+    "poll_state.json",
+    "battery_state.json",
+    "calendar_rules.json",
+    "calendar_url.secret",
+    "colour_rules.json",
+    "manual_resolutions.json",
+)
+DEVICE_INCLUDE_DIRS = (
+    "illustration_overrides",
+    "gallery",
+)
+DEVICE_SNAPSHOT_DBS = ("history.db",)
+
 ARCHIVE_RE = re.compile(r"^skypane-state-(\d{8}T\d{6}Z)\.tar\.gz$")
 
 
@@ -147,6 +167,62 @@ def snapshot_db(src_path, dst_path):
     finally:
         dst.close()
         src.close()
+
+
+def _device_ids(state_dir):
+    """Sorted ids of real (non-symlink) device directories with a valid name."""
+    devices_dir = os.path.join(state_dir, DEVICES_DIRNAME)
+    if not os.path.isdir(devices_dir) or os.path.islink(devices_dir):
+        return []
+    ids = []
+    for entry in sorted(os.listdir(devices_dir)):
+        path = os.path.join(devices_dir, entry)
+        if DEVICE_ID_RE.match(entry) and os.path.isdir(path) and not os.path.islink(path):
+            ids.append(entry)
+    return ids
+
+
+def _add_device_dirs(tar, state_dir, tmp_dir):
+    """Archive each device directory as devices/<id>/... : allow-listed
+    files and directories plus a WAL-safe snapshot of its history.db.
+    Snapshot temp files get a per-device name so devices never collide.
+    """
+    for dev_id in _device_ids(state_dir):
+        src_dir = os.path.join(state_dir, DEVICES_DIRNAME, dev_id)
+        arc_dir = "%s/%s" % (DEVICES_DIRNAME, dev_id)
+        for db_name in DEVICE_SNAPSHOT_DBS:
+            db_src = os.path.join(src_dir, db_name)
+            if os.path.isfile(db_src) and not os.path.islink(db_src):
+                snap_path = os.path.join(tmp_dir, "%s-%s" % (dev_id, db_name))
+                snapshot_db(db_src, snap_path)
+                tar.add(snap_path, arcname="%s/%s" % (arc_dir, db_name), filter=_no_symlinks)
+        for filename in DEVICE_INCLUDE_FILES:
+            path = os.path.join(src_dir, filename)
+            if os.path.exists(path):
+                tar.add(path, arcname="%s/%s" % (arc_dir, filename), filter=_no_symlinks)
+        for dirname in DEVICE_INCLUDE_DIRS:
+            path = os.path.join(src_dir, dirname)
+            if os.path.isdir(path):
+                tar.add(path, arcname="%s/%s" % (arc_dir, dirname), filter=_no_symlinks_or_known_excluded)
+
+
+def _report_device_drift(state_dir):
+    """Print a drift line for device directory names that are not valid ids
+    and for unexpected entries inside valid device directories.
+    """
+    devices_dir = os.path.join(state_dir, DEVICES_DIRNAME)
+    if not os.path.isdir(devices_dir):
+        return
+    valid = set(_device_ids(state_dir))
+    known = set(DEVICE_INCLUDE_FILES) | set(DEVICE_INCLUDE_DIRS) | set(DEVICE_SNAPSHOT_DBS)
+    for entry in sorted(os.listdir(devices_dir)):
+        if entry not in valid:
+            print("skypane_backup: not in include list: %s/%s" % (DEVICES_DIRNAME, entry))
+            continue
+        for inner in sorted(os.listdir(os.path.join(devices_dir, entry))):
+            if inner in known or _is_known_excluded(inner):
+                continue
+            print("skypane_backup: not in include list: %s/%s/%s" % (DEVICES_DIRNAME, entry, inner))
 
 
 def _write_checksum(archive_path):
@@ -227,6 +303,7 @@ def backup(state_dir, archive_dir, keep):
                     path = os.path.join(state_dir, dirname)
                     if os.path.isdir(path):
                         tar.add(path, arcname=dirname, filter=_no_symlinks_or_known_excluded)
+                _add_device_dirs(tar, state_dir, tmp_dir)
         except Exception as exc:
             try:
                 os.remove(partial_path)
@@ -238,11 +315,12 @@ def backup(state_dir, archive_dir, keep):
         # Drift: a top-level state/ entry that is neither included nor a
         # known-regenerable file is worth a line in the journal, even
         # though this run silently leaves it out either way.
-        known = set(INCLUDE_FILES) | set(INCLUDE_DIRS) | set(SNAPSHOT_DBS)
+        known = set(INCLUDE_FILES) | set(INCLUDE_DIRS) | set(SNAPSHOT_DBS) | {DEVICES_DIRNAME}
         for entry in sorted(os.listdir(state_dir)):
             if entry in known or _is_known_excluded(entry):
                 continue
             print("skypane_backup: not in include list: %s" % entry)
+        _report_device_drift(state_dir)
 
     with open(partial_path, "rb") as fh:
         os.fsync(fh.fileno())

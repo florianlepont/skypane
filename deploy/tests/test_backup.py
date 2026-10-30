@@ -491,3 +491,183 @@ class TestFleetDbBackup:
         ) == 0
         assert "fleet" not in capsys.readouterr().out
         assert "fleet.db" not in _members(archive_dir / _archive_names(archive_dir)[0])
+
+
+_DEV = "d_1a2b3c4d"
+_DEV2 = "d_deadbeef"
+
+
+def _seed_device(state_dir, dev_id=_DEV, with_history=True):
+    ddir = Path(state_dir) / "devices" / dev_id
+    (ddir / "gallery").mkdir(parents=True)
+    (ddir / "img").mkdir()
+    for name in ("device_config.json", "poll_state.json", "battery_state.json"):
+        (ddir / name).write_text('{"id": "%s"}' % dev_id)
+    (ddir / "gallery" / "x.png").write_bytes(b"png")
+    (ddir / "panel.bin").write_bytes(b"panel")
+    (ddir / "img" / "h.bin").write_bytes(b"img")
+    (ddir / "poll.lock").write_text("")
+    if with_history:
+        conn = history_db.connect(str(ddir))
+        history_db.record_device_health(conn, "2026-09-24T00:00:00Z", battery_mv=3700)
+        conn.close()
+    return ddir
+
+
+def _run_backup(tmp_path):
+    state_dir = tmp_path / "state"
+    archive_dir = tmp_path / "archives"
+    rc = skypane_backup.main(["--state-dir", str(state_dir), "--archive-dir", str(archive_dir)])
+    return rc, archive_dir
+
+
+class TestDeviceDirectories:
+    def test_devices_include_list_and_exclusions(self, tmp_path, capsys):
+        state_dir = tmp_path / "state"
+        _seed_minimal_state(state_dir)
+        ddir = _seed_device(state_dir)
+        for name in ("calendar_rules.json", "calendar_url.secret", "colour_rules.json", "manual_resolutions.json"):
+            (ddir / name).write_text("x")
+        (ddir / "illustration_overrides").mkdir()
+        (ddir / "illustration_overrides" / "a.png").write_bytes(b"o")
+        (ddir / "history.db-wal").write_bytes(b"wal")
+        (ddir / "history.db-shm").write_bytes(b"shm")
+        (ddir / "state.tmp").write_text("t")
+
+        rc, archive_dir = _run_backup(tmp_path)
+        assert rc == 0
+        members = _members(archive_dir / _archive_names(archive_dir)[0])
+        base = "devices/" + _DEV + "/"
+        for kept in (
+            "device_config.json", "poll_state.json", "battery_state.json", "history.db",
+            "gallery/x.png", "calendar_rules.json", "calendar_url.secret",
+            "colour_rules.json", "manual_resolutions.json", "illustration_overrides/a.png",
+        ):
+            assert base + kept in members
+        for dropped in ("panel.bin", "img", "img/h.bin", "poll.lock", "history.db-wal", "history.db-shm", "state.tmp"):
+            assert base + dropped not in members
+        assert "not in include list" not in capsys.readouterr().out
+
+    def test_bad_directory_name_is_drift_not_archived(self, tmp_path, capsys):
+        state_dir = tmp_path / "state"
+        _seed_minimal_state(state_dir)
+        _seed_device(state_dir)
+        bad = state_dir / "devices" / "D_1A2B3C4D"
+        bad.mkdir()
+        (bad / "device_config.json").write_text("{}")
+        (state_dir / "devices" / "stray.txt").write_text("x")
+
+        rc, archive_dir = _run_backup(tmp_path)
+        assert rc == 0
+        members = _members(archive_dir / _archive_names(archive_dir)[0])
+        assert not any("D_1A2B3C4D" in m or "stray.txt" in m for m in members)
+        out = capsys.readouterr().out
+        assert "not in include list: devices/D_1A2B3C4D" in out
+
+    def test_unexpected_file_in_device_directory_is_drift(self, tmp_path, capsys):
+        state_dir = tmp_path / "state"
+        _seed_minimal_state(state_dir)
+        ddir = _seed_device(state_dir)
+        (ddir / "surprise.dat").write_text("x")
+
+        rc, archive_dir = _run_backup(tmp_path)
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "not in include list: devices/%s/surprise.dat" % _DEV in out
+        assert out.count("not in include list") == 1
+        assert "devices/%s/surprise.dat" % _DEV not in _members(archive_dir / _archive_names(archive_dir)[0])
+
+    def test_symlinks_never_archived(self, tmp_path):
+        state_dir = tmp_path / "state"
+        _seed_minimal_state(state_dir)
+        ddir = _seed_device(state_dir)
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        (outside / "device_config.json").write_text("secret")
+        (state_dir / "devices" / _DEV2).symlink_to(outside, target_is_directory=True)
+        (ddir / "colour_rules.json").symlink_to(outside / "device_config.json")
+        (ddir / "gallery" / "link.png").symlink_to(outside / "device_config.json")
+
+        rc, archive_dir = _run_backup(tmp_path)
+        assert rc == 0
+        members = _members(archive_dir / _archive_names(archive_dir)[0])
+        assert not any(_DEV2 in m for m in members)
+        assert "devices/%s/colour_rules.json" % _DEV not in members
+        assert "devices/%s/gallery/link.png" % _DEV not in members
+        assert "devices/%s/gallery/x.png" % _DEV in members
+
+    def test_two_devices_restore_round_trip(self, tmp_path):
+        state_dir = tmp_path / "state"
+        _seed_minimal_state(state_dir)
+        _seed_device(state_dir, _DEV)
+        d2 = _seed_device(state_dir, _DEV2, with_history=False)
+        conn = history_db.connect(str(d2))
+        for i in range(3):
+            history_db.record_device_health(conn, "2026-09-24T00:00:%02dZ" % i, battery_mv=3600 + i)
+        conn.close()
+
+        rc, archive_dir = _run_backup(tmp_path)
+        assert rc == 0
+        restored = tmp_path / "restored"
+        restored.mkdir()
+        with tarfile.open(archive_dir / _archive_names(archive_dir)[0], "r:gz") as tar:
+            tar.extractall(restored, filter="data")
+        for dev_id, rows in ((_DEV, 1), (_DEV2, 3)):
+            rdir = restored / "devices" / dev_id
+            assert (rdir / "device_config.json").read_text() == '{"id": "%s"}' % dev_id
+            rconn = history_db.connect(str(rdir))
+            assert rconn.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+            assert rconn.execute("SELECT COUNT(*) FROM device_health").fetchone()[0] == rows
+            rconn.close()
+
+    def test_concurrent_device_writer_yields_consistent_snapshot(self, tmp_path):
+        state_dir = tmp_path / "state"
+        _seed_minimal_state(state_dir)
+        ddir = _seed_device(state_dir)
+
+        stop = threading.Event()
+        written = []
+
+        def writer():
+            conn = history_db.connect(str(ddir))
+            n = 0
+            while not stop.is_set():
+                conn.execute(
+                    "INSERT INTO device_health (ts, battery_mv) VALUES (?, ?)",
+                    ("2026-09-24T01:00:%02d.%06dZ" % (n % 60, n), 3700),
+                )
+                conn.commit()
+                written.append(n)
+                n += 1
+                time.sleep(0.001)
+            conn.close()
+
+        thread = threading.Thread(target=writer)
+        thread.start()
+        time.sleep(0.02)
+        try:
+            rc, archive_dir = _run_backup(tmp_path)
+        finally:
+            stop.set()
+            thread.join()
+        assert written
+        assert rc == 0
+        restored = tmp_path / "restored"
+        restored.mkdir()
+        with tarfile.open(archive_dir / _archive_names(archive_dir)[0], "r:gz") as tar:
+            tar.extractall(restored, filter="data")
+        rconn = history_db.connect(str(restored / "devices" / _DEV))
+        assert rconn.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+        rconn.close()
+
+    def test_corrupt_device_history_fails_loudly_without_partial(self, tmp_path, capsys):
+        state_dir = tmp_path / "state"
+        _seed_minimal_state(state_dir)
+        ddir = _seed_device(state_dir, with_history=False)
+        (ddir / "history.db").write_bytes(b"this is not a sqlite database" * 100)
+
+        assert skypane_backup.backup(str(state_dir), str(tmp_path / "archives"), keep=3) == 1
+        out = capsys.readouterr().out
+        assert "snapshot failed" in out
+        assert "history.db" in out
+        assert os.listdir(tmp_path / "archives") == []
