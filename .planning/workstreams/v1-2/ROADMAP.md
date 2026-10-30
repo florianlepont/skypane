@@ -169,7 +169,7 @@ Plans:
 - [x] 51-07-PLAN.md — explicit-device airline, illustration, rule and calendar action handlers
 - [ ] 51-08-PLAN.md — prefix-aware nav, quick switches, flash actions, airlines, calendar sheet, previews, freshness
 - [ ] 51-09-PLAN.md — device selector (markup, no-JS switch, CSS, change handler, browser tests)
-- [ ] 51-10-PLAN.md — timezone field in the quiet-hours card, device-aware Poll section and rule forms
+- [x] 51-10-PLAN.md — timezone field in the quiet-hours card, device-aware Poll section and rule forms
 - [ ] 51-11-PLAN.md — per-device Home, Health and History pages with empty and unreachable states
 - [ ] 51-12-PLAN.md — prefix crawl, end-to-end isolation tests, device-scoped route inventory for the auth phase
 - [ ] 51-13-PLAN.md — merge main, full suite and gates, verification items and owner checks
