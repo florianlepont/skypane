@@ -125,7 +125,6 @@ def test_documents_auth0_sign_in():
         "SKYPANE_AUTH0_DOMAIN",
         "SKYPANE_AUTH0_CLIENT_ID",
         "SKYPANE_AUTH0_CLIENT_SECRET",
-        "SKYPANE_LEGACY_PASSWORD_LOGIN",
         "https://<companion host>/callback",
         "https://<companion host>/login",
         "unlink-identity",
@@ -140,3 +139,14 @@ def test_auth0_section_has_placeholders_only():
     section = _auth0_section()
     assert "<auth0-client-secret>" in section
     assert ".auth0.com" not in section.replace("<your-tenant>.eu.auth0.com", "")
+
+
+def test_retired_password_variables_appear_only_in_the_upgrade_note():
+    text = _text()
+    start = text.index("**Upgrade note:**")
+    end = text.index("\n\n", start)
+    rest = text[:start] + text[end:]
+    assert "Upgrade note" in text[start:end]
+    for name in ("SKYPANE_COMPANION_PASSWORD", "SKYPANE_LEGACY_PASSWORD_LOGIN"):
+        assert name in text[start:end]
+        assert name not in rest
