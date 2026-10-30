@@ -1,6 +1,6 @@
 """The one route table `companion/app.py`'s `Handler._dispatch()` walks:
 every GET and POST route declared exactly once as `(method, matcher,
-handler, auth_required)`.
+handler, access)`.
 
 Never imports `companion.app` (that would be a cycle - `app.py` imports
 this module). Route constants that exist only in `app.py` today are
@@ -12,20 +12,52 @@ Only two matcher shapes exist: `Exact` (a fixed literal path) and
 `PrefixSuffix` (a fixed prefix and, for every route but the gallery one,
 a fixed suffix too) - a captured middle segment is recovered by slicing
 both off, byte for byte the same arithmetic the pre-table if-chains
-used. `auth_required=False` is the one place this whole app grants
-pre-session access; the only routes with it are GET/POST /login and the
-18 static assets in `companion/static_files.py`'s `STATIC_ROUTES`.
+used. `access` is a validated `Access(min_role, device_arg)`: a Route
+cannot be constructed without one (default-deny). PUBLIC is the one place
+this whole app grants pre-session access; the only routes with it are
+GET/POST /login and the static assets in `companion/static_files.py`'s
+`STATIC_ROUTES`. SIGNED_IN needs any signed-in user; ADMIN_ONLY needs the
+admin role (every global page and mutation).
 """
 import collections
 
-from companion import layout, static_files, theme_preview
+from companion import access as _access, layout, static_files, theme_preview
 from companion.pages import (
     airlines_page, config_page, health_page, history_page, home_page, update_page)
 
 Exact = collections.namedtuple("Exact", "path")
 PrefixSuffix = collections.namedtuple("PrefixSuffix", "prefix suffix")
 RouteMatch = collections.namedtuple("RouteMatch", "path query captured")
-Route = collections.namedtuple("Route", "method matcher handler auth_required")
+
+ANONYMOUS = _access.ANONYMOUS
+USER = _access.USER
+ADMIN = _access.ADMIN
+
+# min_role: the lowest role that may reach the route. device_arg: None for a
+# global route, otherwise the name of what the matcher captures (a device id)
+# so the ownership gate applies.
+Access = collections.namedtuple("Access", "min_role device_arg")
+
+PUBLIC = Access(ANONYMOUS, None)
+SIGNED_IN = Access(USER, None)
+ADMIN_ONLY = Access(ADMIN, None)
+
+
+class Route(collections.namedtuple("Route", "method matcher handler access")):
+    """One table entry. Refuses to exist without a valid Access, so a route
+    cannot register without a policy (a bool or nothing raises at import).
+    """
+
+    __slots__ = ()
+
+    def __new__(cls, method, matcher, handler, access):
+        if (
+            not isinstance(access, Access)
+            or access.min_role not in (ANONYMOUS, USER, ADMIN)
+        ):
+            raise TypeError("every route needs an explicit Access annotation")
+        return super().__new__(cls, method, matcher, handler, access)
+
 
 # Literal here, byte-identical to companion/app.py's own constants of the
 # same name, since this module can never import companion.app either.
@@ -72,7 +104,7 @@ def _static_get_routes():
     no closure over the loop variable needed.
     """
     return tuple(
-        Route("GET", Exact(route), lambda h, m: h._serve_static_route(m.path), False)
+        Route("GET", Exact(route), lambda h, m: h._serve_static_route(m.path), PUBLIC)
         for route in static_files.STATIC_ROUTES
     )
 
@@ -82,60 +114,60 @@ def _static_get_routes():
 # three legacy fixed redirects, then the four prefix-matched image
 # routes.
 _GET_ROUTES = (
-    (Route("GET", Exact(LOGIN_ROUTE), lambda h, m: h._handle_login_get(), False),)
+    (Route("GET", Exact(LOGIN_ROUTE), lambda h, m: h._handle_login_get(), PUBLIC),)
     + _static_get_routes()
     + (
         Route(
             "GET", Exact(HOME_ROUTE),
-            lambda h, m: h._render_tab(HOME_ROUTE, home_page.render), True),
+            lambda h, m: h._render_tab(HOME_ROUTE, home_page.render), ADMIN_ONLY),
         Route(
             "GET", Exact(DISPLAY_ROUTE),
             lambda h, m: h._render_tab(
                 DISPLAY_ROUTE,
                 lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)),
-            True),
+            ADMIN_ONLY),
         Route(
             "GET", Exact(DEVICE_ROUTE),
             lambda h, m: h._render_tab(
                 DEVICE_ROUTE,
                 lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DEVICE)),
-            True),
+            ADMIN_ONLY),
         Route(
             "GET", Exact(FLIGHTS_ROUTE),
-            lambda h, m: h._render_tab(FLIGHTS_ROUTE, history_page.render), True),
+            lambda h, m: h._render_tab(FLIGHTS_ROUTE, history_page.render), ADMIN_ONLY),
         Route(
             "GET", Exact(HEALTH_ROUTE),
-            lambda h, m: h._render_tab(HEALTH_ROUTE, health_page.render), True),
+            lambda h, m: h._render_tab(HEALTH_ROUTE, health_page.render), ADMIN_ONLY),
         Route(
             "GET", Exact(AIRLINES_ROUTE),
-            lambda h, m: h._render_tab(AIRLINES_ROUTE, airlines_page.render), True),
+            lambda h, m: h._render_tab(AIRLINES_ROUTE, airlines_page.render), ADMIN_ONLY),
         Route(
             "GET", Exact(UPDATE_ROUTE),
             lambda h, m: h._render_tab(
                 UPDATE_ROUTE,
                 lambda ctx: update_page.render(ctx, h._requested_update_type())),
-            True),
+            ADMIN_ONLY),
         # The pre-refactor page routes survive as fixed 303s so a stale
         # bookmark or link still lands somewhere useful. The targets are
         # literals, never derived from any request value.
-        Route("GET", Exact(SETTINGS_ROUTE), lambda h, m: h.redirect(DISPLAY_ROUTE), True),
-        Route("GET", Exact(HISTORY_LEGACY_ROUTE), lambda h, m: h.redirect(FLIGHTS_ROUTE), True),
-        Route("GET", Exact(PREVIEW_PAGE_ROUTE), lambda h, m: h.redirect(FLIGHTS_ROUTE), True),
+        Route("GET", Exact(SETTINGS_ROUTE), lambda h, m: h.redirect(DISPLAY_ROUTE), ADMIN_ONLY),
+        Route("GET", Exact(HISTORY_LEGACY_ROUTE), lambda h, m: h.redirect(FLIGHTS_ROUTE), ADMIN_ONLY),
+        Route("GET", Exact(PREVIEW_PAGE_ROUTE), lambda h, m: h.redirect(FLIGHTS_ROUTE), ADMIN_ONLY),
         Route(
             "GET", PrefixSuffix(GALLERY_ROUTE_PREFIX, ""),
-            lambda h, m: h._serve_gallery_image(m.captured), True),
+            lambda h, m: h._serve_gallery_image(m.captured), ADMIN_ONLY),
         Route(
             "GET", PrefixSuffix(RUNWAY_IMAGE_ROUTE_PREFIX, ".png"),
-            lambda h, m: h._serve_runway_image(m.captured), True),
+            lambda h, m: h._serve_runway_image(m.captured), ADMIN_ONLY),
         Route(
             "GET", PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png"),
-            lambda h, m: h._serve_illustration_image(m.captured), True),
+            lambda h, m: h._serve_illustration_image(m.captured), ADMIN_ONLY),
         Route(
             "GET", PrefixSuffix(THEME_PREVIEW_ROUTE_PREFIX, ".png"),
-            lambda h, m: h._serve_theme_preview_image(m.captured), True),
+            lambda h, m: h._serve_theme_preview_image(m.captured), ADMIN_ONLY),
         Route(
             "GET", PrefixSuffix(FRAME_PREVIEW_ROUTE_PREFIX, ".png"),
-            lambda h, m: h._serve_frame_preview_image(m.captured), True),
+            lambda h, m: h._serve_frame_preview_image(m.captured), ADMIN_ONLY),
     )
 )
 
@@ -143,15 +175,15 @@ _GET_ROUTES = (
 # order (the Origin/Sec-Fetch-Site gate runs before routes.match() is
 # ever called - see Handler._dispatch() - so it is not represented here).
 _POST_ROUTES = (
-    Route("POST", Exact(LOGIN_ROUTE), lambda h, m: h._handle_login_post(), False),
-    Route("POST", Exact(SETTINGS_ROUTE), lambda h, m: h._handle_settings_post(), True),
-    Route("POST", Exact(POLL_ROUTE), lambda h, m: h._handle_poll_now(), True),
+    Route("POST", Exact(LOGIN_ROUTE), lambda h, m: h._handle_login_post(), PUBLIC),
+    Route("POST", Exact(SETTINGS_ROUTE), lambda h, m: h._handle_settings_post(), ADMIN_ONLY),
+    Route("POST", Exact(POLL_ROUTE), lambda h, m: h._handle_poll_now(), ADMIN_ONLY),
     Route(
         "POST", Exact(QUICK_DISPLAY_ROUTE),
-        lambda h, m: h._handle_quick_toggle("display_enabled"), True),
+        lambda h, m: h._handle_quick_toggle("display_enabled"), ADMIN_ONLY),
     Route(
         "POST", Exact(QUICK_QUIET_HOURS_ROUTE),
-        lambda h, m: h._handle_quick_toggle("quiet_hours_enabled"), True),
+        lambda h, m: h._handle_quick_toggle("quiet_hours_enabled"), ADMIN_ONLY),
     # Session-checked POST only, no CSRF token - SameSite=Strict is the
     # only control here. return_to whitelist: /device is the LED
     # switch's only page, so it is both the sole allowed value and the
@@ -160,42 +192,42 @@ _POST_ROUTES = (
         "POST", Exact(QUICK_LED_ROUTE),
         lambda h, m: h._handle_quick_toggle(
             "led_enabled", allowed_return_to=(DEVICE_ROUTE,), fallback_return_to=DEVICE_ROUTE),
-        True),
-    Route("POST", Exact(THEME_ROUTE), lambda h, m: h._handle_theme_post(), True),
-    Route("POST", Exact(LANG_ROUTE), lambda h, m: h._handle_lang_post(), True),
-    Route("POST", Exact(LOGOUT_ROUTE), lambda h, m: h._handle_logout_post(), True),
+        ADMIN_ONLY),
+    Route("POST", Exact(THEME_ROUTE), lambda h, m: h._handle_theme_post(), SIGNED_IN),
+    Route("POST", Exact(LANG_ROUTE), lambda h, m: h._handle_lang_post(), SIGNED_IN),
+    Route("POST", Exact(LOGOUT_ROUTE), lambda h, m: h._handle_logout_post(), SIGNED_IN),
     Route(
         "POST", Exact(airlines_page.RESOLVE_ROUTE),
-        lambda h, m: h._handle_manual_resolve_post(), True),
+        lambda h, m: h._handle_manual_resolve_post(), ADMIN_ONLY),
     Route(
         "POST", Exact(airlines_page.RENAME_ROUTE),
-        lambda h, m: h._handle_airline_rename_post(), True),
+        lambda h, m: h._handle_airline_rename_post(), ADMIN_ONLY),
     Route(
         "POST", Exact(airlines_page.RENAME_RESET_ROUTE),
-        lambda h, m: h._handle_airline_rename_reset_post(), True),
+        lambda h, m: h._handle_airline_rename_reset_post(), ADMIN_ONLY),
     Route(
         "POST",
         PrefixSuffix(airlines_page.MANUAL_DELETE_ROUTE_PREFIX, airlines_page.MANUAL_DELETE_ROUTE_SUFFIX),
-        lambda h, m: h._handle_manual_resolution_delete(m.captured), True),
+        lambda h, m: h._handle_manual_resolution_delete(m.captured), ADMIN_ONLY),
     Route(
         "POST", PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png"),
-        lambda h, m: h._handle_illustration_replace(m.captured), True),
-    Route("POST", Exact(RULES_ADD_ROUTE), lambda h, m: h._handle_rule_add_post(), True),
+        lambda h, m: h._handle_illustration_replace(m.captured), ADMIN_ONLY),
+    Route("POST", Exact(RULES_ADD_ROUTE), lambda h, m: h._handle_rule_add_post(), ADMIN_ONLY),
     Route(
         "POST", Exact(CALENDAR_DISCONNECT_ROUTE),
-        lambda h, m: h._handle_calendar_disconnect_post(), True),
+        lambda h, m: h._handle_calendar_disconnect_post(), ADMIN_ONLY),
     Route(
         "POST", Exact(CALENDAR_CONNECT_ROUTE),
-        lambda h, m: h._handle_calendar_connect_post(), True),
+        lambda h, m: h._handle_calendar_connect_post(), ADMIN_ONLY),
     Route(
         "POST", Exact(UPDATE_INSTALL_ROUTE),
-        lambda h, m: h._handle_update_install_post(), True),
+        lambda h, m: h._handle_update_install_post(), ADMIN_ONLY),
     Route(
         "POST", Exact(UPDATE_CANCEL_ROUTE),
-        lambda h, m: h._handle_update_cancel_post(), True),
+        lambda h, m: h._handle_update_cancel_post(), ADMIN_ONLY),
     Route(
         "POST", PrefixSuffix(RULES_DELETE_ROUTE_PREFIX, RULES_DELETE_ROUTE_SUFFIX),
-        lambda h, m: h._handle_rule_delete_post(m.captured), True),
+        lambda h, m: h._handle_rule_delete_post(m.captured), ADMIN_ONLY),
 )
 
 ROUTES = _GET_ROUTES + _POST_ROUTES

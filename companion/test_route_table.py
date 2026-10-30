@@ -53,8 +53,8 @@ def _all_matches(method, path):
 
 # The routes this test expects to be gated, built from the FIXED public
 # exemption set (LOGIN_ROUTE + STATIC_ROUTES) rather than from each
-# route's own `auth_required` field - so a route whose `auth_required`
-# is wrongly flipped to False stays in this worklist and its real,
+# route's own `access` field - so a route whose access is wrongly
+# loosened to PUBLIC stays in this worklist and its real,
 # observed HTTP response (not the table's own bookkeeping) is what the
 # assertion below checks.
 _PUBLIC_EXEMPTIONS = {
@@ -71,17 +71,56 @@ _GATED_ROUTE_IDS = [
 
 
 def test_public_routes_are_exactly_login_and_static_assets():
-    """The only routes with auth_required=False are GET/POST /login and
+    """The only routes with a PUBLIC access are GET/POST /login and
     one GET per companion/static_files.py STATIC_ROUTES entry - nothing
     else in the table ever grants pre-session access.
     """
-    actual = {(r.method, r.matcher) for r in routes.ROUTES if not r.auth_required}
+    actual = {(r.method, r.matcher) for r in routes.ROUTES if r.access.min_role == routes.ANONYMOUS}
     expected = {
         ("GET", routes.Exact(routes.LOGIN_ROUTE)),
         ("POST", routes.Exact(routes.LOGIN_ROUTE)),
     }
     expected |= {("GET", routes.Exact(route)) for route in static_files.STATIC_ROUTES}
     assert actual == expected
+
+
+def test_signed_in_routes_are_exactly_the_preference_and_logout_posts():
+    actual = {(r.method, r.matcher) for r in routes.ROUTES if r.access == routes.SIGNED_IN}
+    assert actual == {
+        ("POST", routes.Exact(routes.THEME_ROUTE)),
+        ("POST", routes.Exact(routes.LANG_ROUTE)),
+        ("POST", routes.Exact(routes.LOGOUT_ROUTE)),
+    }
+
+
+def test_every_other_route_is_admin_only():
+    handwritten_non_admin = _PUBLIC_EXEMPTIONS | {
+        ("POST", routes.Exact(routes.THEME_ROUTE)),
+        ("POST", routes.Exact(routes.LANG_ROUTE)),
+        ("POST", routes.Exact(routes.LOGOUT_ROUTE)),
+    }
+    for r in routes.ROUTES:
+        if (r.method, r.matcher) in handwritten_non_admin:
+            continue
+        assert r.access == routes.ADMIN_ONLY, (
+            "%s %r is not admin-only" % (r.method, r.matcher))
+
+
+@pytest.mark.parametrize("bad_access", [True, False, None, "admin", ("admin", None)])
+def test_a_route_without_a_valid_access_cannot_be_constructed(bad_access):
+    with pytest.raises(TypeError):
+        routes.Route("GET", routes.Exact("/x"), lambda h, m: None, bad_access)
+
+
+def test_a_route_with_a_missing_access_field_cannot_be_constructed():
+    with pytest.raises(TypeError):
+        routes.Route("GET", routes.Exact("/x"), lambda h, m: None)
+
+
+def test_an_access_with_an_unknown_min_role_is_refused():
+    with pytest.raises(TypeError):
+        routes.Route(
+            "GET", routes.Exact("/x"), lambda h, m: None, routes.Access("root", None))
 
 
 @pytest.fixture(scope="module")
