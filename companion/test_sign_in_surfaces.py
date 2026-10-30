@@ -1,5 +1,5 @@
 """Rendering tests for the sign-in surfaces: the login card in each
-combination of Auth0 and the shared password, the not-invited refusal,
+presence of Auth0, the not-invited refusal,
 the generic sign-in errors, the interstitial, the Account page and the
 user-role shell. Every assertion parses the served markup.
 """
@@ -41,7 +41,7 @@ def _autofocus_count(doc):
 
 def test_auth0_only_shows_a_plain_get_link_and_no_password_control():
     doc = _doc(login_page.render_login_page(
-        "auto", auth0_enabled=True, legacy_enabled=False))
+        "auto", auth0_enabled=True))
     link = doc.select_one("a.login-signin")
     assert link.attrs["href"] == "/login/auth0"
     assert link.text() == "Sign in"
@@ -53,54 +53,18 @@ def test_auth0_only_shows_a_plain_get_link_and_no_password_control():
 
 def test_sign_in_link_carries_next_only_for_a_same_site_path():
     doc = _doc(login_page.render_login_page(
-        "auto", next_route="/flights?x=1", auth0_enabled=True,
-        legacy_enabled=False))
+        "auto", next_route="/flights?x=1", auth0_enabled=True))
     href = doc.select_one("a.login-signin").attrs["href"]
     assert href.startswith("/login/auth0?next=/flights")
     for hostile in ("//evil.example/x", "https://evil.example/", "javascript:1"):
         doc = _doc(login_page.render_login_page(
-            "auto", next_route=hostile, auth0_enabled=True,
-            legacy_enabled=False))
+            "auto", next_route=hostile, auth0_enabled=True))
         assert doc.select_one("a.login-signin").attrs["href"] == "/login/auth0"
 
 
-def test_both_methods_collapse_the_password_form_into_a_legacy_disclosure():
+def test_without_auth0_the_card_shows_a_not_configured_toast_and_no_control():
     doc = _doc(login_page.render_login_page(
-        "auto", auth0_enabled=True, legacy_enabled=True))
-    details = doc.select_one("details.login-legacy")
-    assert "open" not in details.attrs
-    assert details.select_one("input[type=\"password\"]") is not None
-    assert details.select_one(".banner__pill").text() == "Legacy"
-    assert "Use the shared password (legacy)" in details.select_one("summary").text()
-    assert details.select_one("button[type=\"submit\"]").text() == "Sign in with password"
-    assert "Temporary access for the administrator" in details.text()
-    assert not _has_form_ancestor(doc.select_one("a.login-signin"))
-    assert _autofocus_count(doc) == 1
-    assert "autofocus" in doc.select_one("a.login-signin").attrs
-
-
-def test_legacy_disclosure_opens_itself_to_show_a_password_error():
-    doc = _doc(login_page.render_login_page(
-        "auto", error="Incorrect password. Try again.", auth0_enabled=True,
-        legacy_enabled=True))
-    assert "open" in doc.select_one("details.login-legacy").attrs
-    assert doc.select_one(".field-error").text() == "Incorrect password. Try again."
-    assert _autofocus_count(doc) == 1
-
-
-def test_legacy_only_shows_the_open_password_form_as_the_single_action():
-    doc = _doc(login_page.render_login_page(
-        "auto", auth0_enabled=False, legacy_enabled=True))
-    assert not doc.select("a.login-signin")
-    assert not doc.select("details")
-    assert doc.select_one("input[type=\"password\"]") is not None
-    assert not doc.select("button.login-form__submit--quiet")
-    assert _autofocus_count(doc) == 1
-
-
-def test_neither_method_shows_a_not_configured_toast_and_no_control():
-    doc = _doc(login_page.render_login_page(
-        "auto", auth0_enabled=False, legacy_enabled=False))
+        "auto", auth0_enabled=False))
     toast = doc.select_one(".toast--docked")
     title, detail = companion_markup.toast_title_detail(toast)
     assert title == "Sign-in is not configured"
@@ -137,12 +101,10 @@ def test_not_invited_page_is_a_generic_warning_with_one_way_back():
      "Start again from this page."),
     (login_page.SIGN_IN_ERROR_UNAVAILABLE, "Sign-in is not available right now",
      "Try again in a few minutes."),
-    (login_page.SIGN_IN_ERROR_PASSWORD_OFF, "Password sign-in is turned off",
-     "Use the Sign in button above."),
 ])
 def test_sign_in_error_pages_render_the_approved_wording(kind, title, detail):
     doc = _doc(login_page.sign_in_error_page(
-        kind, "auto", auth0_enabled=True, legacy_enabled=False))
+        kind, "auto", auth0_enabled=True))
     toasts = doc.select(".toast--docked")
     assert len(toasts) == 1
     assert "toast--error" in toasts[0].attrs["class"]
@@ -196,13 +158,10 @@ def test_interstitial_escapes_the_target_and_refuses_unsafe_schemes():
 
 def test_new_login_surfaces_render_the_approved_french():
     prefs.set_request_prefs("fr")
-    both = _doc(login_page.render_login_page(
-        "auto", auth0_enabled=True, legacy_enabled=True))
-    assert "Connectez-vous pour gérer vos cadres SkyPane." in both.text()
-    assert both.select_one("a.login-signin").text() == "Se connecter"
-    assert both.select_one(".banner__pill").text() == "Ancien accès"
-    assert "Utiliser le mot de passe partagé (ancien accès)" in both.text()
-    assert "Se connecter avec le mot de passe" in both.text()
+    card = _doc(login_page.render_login_page("auto", auth0_enabled=True))
+    assert "Connectez-vous pour gérer vos cadres SkyPane." in card.text()
+    assert card.select_one("a.login-signin").text() == "Se connecter"
+    assert not card.select("input")
     refusal = _doc(login_page.not_invited_page("auto"))
     title, detail = companion_markup.toast_title_detail(
         refusal.select_one(".toast--docked"))
@@ -224,9 +183,6 @@ def test_new_login_surfaces_render_the_approved_french():
 
 _LOGIN_BASELINE = {
     "en": {
-        "plain": "193bef738f845b735bfdbc8478cac029ee1c173108e2fe451f3d7829b830d608",
-        "err": "fe1adc0245aa6b954ca4a6542b6d5ebaf342f0b9d9f5ed60650f983b3ef5012d",
-        "lock": "b26c2c3d3d40ae4cbab42a292111d930ab0b033e02cabc1c6bc5e0034a22476c",
         "nf": "c569146c8324cd5e3c2c25b49dd567ed7a8f3442008da607cf276651617ab300",
         "nf2": "7afb1cdcdeca413afcf9cdee6a6241c5e3be1434841f179a2bac06349caa48d1",
         "forb": "9f474dfc188f5290489ce64ffae5af6d2357e70b4b35c82efba17fe771804323",
@@ -234,13 +190,8 @@ _LOGIN_BASELINE = {
 }
 
 
-def test_original_call_signatures_render_byte_identical_output():
+def test_error_pages_render_byte_identical_output():
     outputs = {
-        "plain": login_page.render_login_page("auto"),
-        "err": login_page.render_login_page(
-            "dark", error="Bad", next_route="/flights"),
-        "lock": login_page.render_login_page(
-            "light", lockout_seconds=42, next_route="/x"),
         "nf": login_page.not_found_page("auto", None),
         "nf2": login_page.not_found_page("auto", "warn"),
         "forb": login_page.forbidden_page("dark", None),
@@ -290,9 +241,6 @@ def test_account_page_role_labels_and_escaping():
     admin = _doc(account_page.render(
         account_page.Identity("root@example.com", "admin")))
     assert "Administrator" in admin.select_one("#account-identity").parent.text()
-    legacy = _doc(account_page.render(
-        account_page.Identity("shared", "admin", legacy=True)))
-    assert "Administrator (legacy access)" in legacy.text()
     hostile = account_page.render(
         account_page.Identity("<img src=x onerror=1>@e.com", "user"))
     assert "<img" not in hostile
@@ -344,37 +292,6 @@ def test_user_principal_shell_links_only_to_reachable_destinations():
     assert not doc.select("a[href=\"/\"]")
     inactive = doc.select_one("nav.sidebar-nav a")
     assert "aria-current" not in inactive.attrs
-
-
-@pytest.mark.parametrize("surface", [
-    ".sidebar-footer form.logout-form", ".mobile-nav__footer form.logout-form"])
-def test_legacy_admin_gets_a_neutral_pill_before_sign_out(surface):
-    prefs.set_request_principal(kind="legacy-admin", role="admin")
-    doc = _doc(_shell(active="home"))
-    form = doc.select_one(surface)
-    first, second = [c for c in form.children if hasattr(c, "tag")][:2]
-    assert "banner__pill" in first.attrs["class"].split()
-    assert first.text() == "Legacy access"
-    assert first.attrs["title"] == "Signed in with the shared password"
-    assert second.tag == "button"
-    assert doc.select("nav.sidebar-nav a")[0].attrs["href"] == "/"
-    assert doc.select("nav.tab-bar")
-
-
-@pytest.mark.parametrize("principal", [
-    None, ("user", "user"), ("admin", "admin")])
-def test_other_principals_get_no_legacy_pill(principal):
-    if principal:
-        prefs.set_request_principal(kind=principal[0], role=principal[1])
-    assert not _doc(_shell(active="home")).select(".logout-form .banner__pill")
-
-
-def test_legacy_pill_is_translated():
-    prefs.set_request_principal(kind="legacy-admin", role="admin")
-    prefs.set_request_prefs("fr")
-    pill = _doc(_shell(active="home")).select_one(".logout-form .banner__pill")
-    assert pill.text() == "Ancien accès"
-    assert pill.attrs["title"] == "Connecté avec le mot de passe partagé"
 
 
 def test_unrecognised_principal_clears_to_default():

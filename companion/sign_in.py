@@ -19,7 +19,7 @@ from companion import access, auth, i18n, layout, login_page, oidc, prefs
 from companion.pages import account_page
 from server import fleet_db, fleet_sessions
 
-# Shown as the Email value for the shared-password administrator, who has none.
+# Shown as the Email value when the principal carries no address.
 _NO_EMAIL = "\u2014"
 ACCOUNT_ROUTE = "/account"
 
@@ -84,7 +84,7 @@ class SignInMixin:
             _log("sign-in start throttled")
             return self.send_html(_THROTTLED_STATUS, login_page.sign_in_error_page(
                 login_page.SIGN_IN_ERROR_UNAVAILABLE, self._pre_session_theme(),
-                auth0_enabled=True, legacy_enabled=self._legacy_login_on()))
+                auth0_enabled=True))
         query = parse_qs(urlsplit(self.path).query)
         next_route = self._next_route_of(query.get("next", [None])[0])
         attempt_id, attempt = ATTEMPTS.create(next_route)
@@ -168,7 +168,6 @@ class SignInMixin:
         next_route = attempt.next_route if attempt is not None else None
         page = login_page.sign_in_error_page(
             kind, self._pre_session_theme(), auth0_enabled=True,
-            legacy_enabled=self._legacy_login_on(),
             next_route=self._next_route_of(next_route))
         return self.send_html(
             _STATUS_BY_KIND.get(kind, 400), page,
@@ -237,9 +236,7 @@ class SignInMixin:
         preference cookies, so no frame, device or health data can reach it.
         """
         principal = self._principal()
-        legacy = principal.kind == access.KIND_LEGACY_ADMIN
-        identity = account_page.Identity(
-            principal.email or _NO_EMAIL, principal.role, legacy)
+        identity = account_page.Identity(principal.email or _NO_EMAIL, principal.role)
         prefs.set_request_prefs(lang=self._lang_from_request())
         theme = self._resolved_ui_theme()
         body = account_page.render(identity, ui_theme=theme)

@@ -19,18 +19,7 @@ MESSAGES = {
     "common.clear_search": "Effacer la recherche",
 
     # --- Login page ------------------------------------------------
-    "common.sign_in_to_manage_this_device_s_settings":
-        "Connectez-vous pour gérer les réglages de cet appareil.",
-    "common.too_many_attempts_try_again_in_s":
-        "Trop de tentatives — réessayez dans %d s.",
-    "common.password": "Mot de passe",
     "common.sign_in": "Se connecter",
-    "common.incorrect_password_try_again":
-        "Mot de passe incorrect. Réessayez.",
-    # The show-password toggle's two accessible names. The toggle is
-    # icon-only, so these are the only names it ever has.
-    "common.show_password": "Afficher le mot de passe",
-    "common.hide_password": "Masquer le mot de passe",
     "common.login": "Connexion",
 
     # --- 404 page ----------------------------------------------------

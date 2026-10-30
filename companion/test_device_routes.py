@@ -94,7 +94,6 @@ class TestPrefixMatching:
 
     @pytest.mark.parametrize("method,path", [
         ("GET", "/login"),
-        ("POST", "/login"),
         ("POST", "/logout"),
         ("POST", "/ui-theme"),
         ("POST", "/ui-lang"),

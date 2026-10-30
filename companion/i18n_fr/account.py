@@ -11,13 +11,6 @@ MESSAGES = {
     # --- Login card -------------------------------------------------
     "account.sign_in_to_manage_your_skypane_frames":
         "Connectez-vous pour gérer vos cadres SkyPane.",
-    "account.use_the_shared_password_legacy":
-        "Utiliser le mot de passe partagé (ancien accès)",
-    "account.legacy": "Ancien accès",
-    "account.temporary_access_for_the_administrator_it":
-        "Accès temporaire pour l’administrateur. Il sera retiré une fois "
-        "la connexion Auth0 en service.",
-    "account.sign_in_with_password": "Se connecter avec le mot de passe",
     "account.sign_in_is_not_configured":
         "La connexion n’est pas configurée",
 
@@ -41,10 +34,6 @@ MESSAGES = {
     "account.sign_in_is_not_available_right_now":
         "La connexion n’est pas disponible pour le moment",
     "account.try_again_in_a_few_minutes": "Réessayez dans quelques minutes.",
-    "account.password_sign_in_is_turned_off":
-        "La connexion par mot de passe est désactivée",
-    "account.use_the_sign_in_button_above":
-        "Utilisez le bouton Se connecter ci-dessus.",
 
     # --- Interstitial ----------------------------------------------
     "account.signing_you_in": "Connexion en cours…",
@@ -62,17 +51,10 @@ MESSAGES = {
     "account.role": "Rôle",
     "account.user": "Utilisateur",
     "account.administrator": "Administrateur",
-    "account.administrator_legacy_access":
-        "Administrateur (ancien accès)",
     "account.preferences": "Préférences",
     "account.frames": "Cadres",
     "account.your_frames_will_appear_here": "Vos cadres apparaîtront ici",
     "account.once_an_administrator_pairs_a_frame_to_your":
         "Dès qu’un administrateur associe un cadre à votre compte, il "
         "apparaîtra sur cette page.",
-
-    # --- Shell flag --------------------------------------------------
-    "account.legacy_access": "Ancien accès",
-    "account.signed_in_with_the_shared_password":
-        "Connecté avec le mot de passe partagé",
 }

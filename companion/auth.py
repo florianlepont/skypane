@@ -1,70 +1,28 @@
-"""Password, cookie and login-throttle helpers for the SkyPane companion
-service. Stdlib-only: must never import Pillow, sqlite3, or anything under
+"""Session-token, cookie and client-address helpers for the SkyPane
+companion service. Stdlib-only: must never import Pillow, sqlite3, or anything under
 server/.
 
 A session is an opaque random token. The cookie carries the token and only
-its sha256 is stored server-side (server/fleet_sessions.py), so the shared
-password derives nothing: a session outlives a restart or a password change,
-and no value computed from the password is ever accepted as a session.
+its sha256 is stored server-side (server/fleet_sessions.py), so a session
+outlives a restart and no derived value is ever accepted as a session.
 """
-import collections
 import hashlib
-import hmac
 import ipaddress
 import os
 import secrets
-import threading
-import time
 from http.cookies import SimpleCookie
 from urllib.parse import urlsplit
 
-PASSWORD_ENV_VAR = "SKYPANE_COMPANION_PASSWORD"
 SESSION_COOKIE_NAME = "sp_session"
 OIDC_COOKIE_NAME = "sp_oidc"
 OIDC_COOKIE_MAX_AGE_S = 600
 # Server-side sessions live 30 days at most; the cookie matches that.
 SESSION_COOKIE_MAX_AGE_S = 30 * 86400
-LEGACY_LOGIN_ENV_VAR = "SKYPANE_LEGACY_PASSWORD_LOGIN"
 UI_THEME_COOKIE_NAME = "sp_ui_theme"
 # Shares secure_cookie_flag() with UI_THEME_COOKIE_NAME, so the Secure
 # flag can never drift between them.
 UI_LANG_COOKIE_NAME = "sp_ui_lang"
-LOGIN_FAILURE_LIMIT = 5
-LOGIN_LOCKOUT_S = 300
 INSECURE_COOKIES_ENV_VAR = "SKYPANE_COMPANION_INSECURE_COOKIES"
-
-class AuthNotConfigured(RuntimeError):
-    """Raised when PASSWORD_ENV_VAR is unset or empty — fails closed
-    rather than starting with auth silently disabled. The message names
-    only the environment variable, never a value.
-    """
-
-
-def configured_password(environ=None):
-    """Return the shared password as bytes, or raise AuthNotConfigured.
-    Reads `environ` (default: the process environment).
-
-    Never include the environment value in the raised exception.
-    """
-    value = (os.environ if environ is None else environ).get(PASSWORD_ENV_VAR)
-    if not value:
-        raise AuthNotConfigured(
-            "%s is not set in the process environment — refusing to "
-            "authenticate rather than running with auth silently "
-            "disabled." % PASSWORD_ENV_VAR)
-    return value.encode()
-
-
-def password_ok(submitted):
-    """Constant-time check of `submitted` against the configured
-    password. Never uses `==` — a plain comparison leaks timing
-    information proportional to the matching prefix length. A
-    non-string submission degrades to "wrong password", never a 500.
-    """
-    if not isinstance(submitted, str):
-        submitted = ""
-    return hmac.compare_digest(submitted.encode(), configured_password())
-
 
 def new_session_token():
     """A fresh opaque 256-bit session token for the cookie. Only its
@@ -76,19 +34,6 @@ def new_session_token():
 def hash_session_token(token):
     """Hex sha256 of a session token: the only form the database holds."""
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
-
-
-def legacy_login_enabled(environ):
-    """Whether the shared-password login is on: unset or "1" is on, "0" is
-    off. Any other value raises rather than guessing, so a typo cannot
-    leave the fallback silently enabled.
-    """
-    value = environ.get(LEGACY_LOGIN_ENV_VAR)
-    if value is None or value == "1":
-        return True
-    if value == "0":
-        return False
-    raise ValueError("%s must be 0 or 1" % LEGACY_LOGIN_ENV_VAR)
 
 
 def secure_cookie_flag():
@@ -186,7 +131,7 @@ def client_ip(peer, xff):
 
 
 def login_throttle_key(peer, xff):
-    """The LoginThrottle bucket key for a request: client_ip(), with an
+    """The sign-in throttle bucket key for a request: client_ip(), with an
     IPv6 result collapsed to its /64 network so a single host cannot buy
     itself unlimited fresh buckets out of its own /64 allocation.
     """
@@ -198,97 +143,6 @@ def login_throttle_key(peer, xff):
     if parsed.version == 6:
         return str(ipaddress.ip_network(ip + "/64", strict=False))
     return ip
-
-
-class LoginThrottle:
-    """A failed-login guard keyed on the caller's address, not a single
-    shared counter — one stranger's wrong guesses must not lock out the
-    site's real owner. A courtesy guard for a single-user tool, not a
-    defence against a distributed attacker; the real strength is the
-    shared secret's length.
-
-    The bucket table is bounded by `max_entries`: on an insert that
-    would exceed the cap, unlocked-and-idle entries are dropped first,
-    then least-recently-touched entries regardless of lock state. A
-    spraying attacker can evict and reset their own bucket, never
-    anyone else's.
-    """
-
-    def __init__(self, limit=LOGIN_FAILURE_LIMIT, lockout_s=LOGIN_LOCKOUT_S,
-                 max_entries=4096, clock=time.time):
-        self._limit = limit
-        self._lockout_s = lockout_s
-        self._max_entries = max_entries
-        self._clock = clock
-        self._entries = collections.OrderedDict()
-        # Shared across every request thread under ThreadingHTTPServer;
-        # mirrors _REVOKED_LOCK's precedent above.
-        self._lock = threading.Lock()
-
-    def _evict_locked(self):
-        # Must be called with self._lock already held.
-        if len(self._entries) < self._max_entries:
-            return
-        now = self._clock()
-        for key in list(self._entries.keys()):
-            if len(self._entries) < self._max_entries:
-                break
-            failures, locked_until, last_seen = self._entries[key]
-            unlocked = now >= locked_until
-            stale = (now - last_seen) > self._lockout_s
-            if unlocked and stale:
-                del self._entries[key]
-        while len(self._entries) >= self._max_entries:
-            self._entries.popitem(last=False)
-
-    def _touch_locked(self, key):
-        # Must be called with self._lock held. Returns the mutable
-        # [failures, locked_until, last_seen] entry, creating it if needed.
-        if key in self._entries:
-            self._entries.move_to_end(key)
-            return self._entries[key]
-        self._evict_locked()
-        entry = [0, 0.0, self._clock()]
-        self._entries[key] = entry
-        return entry
-
-    def record_failure(self, key):
-        # Once the lockout window has fully elapsed, a failure starts a
-        # fresh count rather than re-arming from a saturated counter —
-        # otherwise one stray guess per window keeps the lockout permanent.
-        with self._lock:
-            entry = self._touch_locked(key)
-            now = self._clock()
-            failures = entry[0]
-            if failures >= self._limit and now >= entry[1]:
-                failures = 0
-            failures += 1
-            entry[0] = failures
-            if failures >= self._limit:
-                entry[1] = now + self._lockout_s
-            entry[2] = now
-
-    def record_success(self, key):
-        with self._lock:
-            entry = self._touch_locked(key)
-            entry[0] = 0
-            entry[1] = 0.0
-            entry[2] = self._clock()
-
-    def locked_out(self, key):
-        with self._lock:
-            entry = self._entries.get(key)
-            if entry is None:
-                return False
-            return self._clock() < entry[1]
-
-    def seconds_remaining(self, key):
-        with self._lock:
-            entry = self._entries.get(key)
-            if entry is None:
-                return 0
-            remaining = entry[1] - self._clock()
-        return int(remaining) if remaining > 0 else 0
 
 
 # Defence in depth on SameSite=Strict: catches pre-SameSite browsers

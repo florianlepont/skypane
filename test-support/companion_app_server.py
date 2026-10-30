@@ -21,7 +21,12 @@ import urllib.request
 
 from skypane_test_support import REPO_ROOT, FakeProviders, child_env
 
-TEST_PASSWORD = "companion-test-password-please-ignore"
+TEST_ADMIN_EMAIL = "admin@example.test"
+# Placeholder Auth0 settings that let main() start without any identity
+# provider; tests that sign in through a fake provider override them.
+DEFAULT_AUTH0_DOMAIN = "tenant.example.test"
+DEFAULT_AUTH0_CLIENT_ID = "test-client-id"
+DEFAULT_AUTH0_CLIENT_SECRET = "test-client-secret-please-ignore"
 APP_PATH = os.path.join(REPO_ROOT, "companion", "app.py")
 STARTUP_DEADLINE_S = 10.0
 START_PORT_ATTEMPTS = 5
@@ -139,36 +144,78 @@ def cookie_value(headers):
     return raw.split(";", 1)[0]
 
 
-def login(server, password=TEST_PASSWORD):
-    """POST /login with `password` against `server` and return the
-    session cookie's "name=value" pair. Raises AssertionError if login
-    did not succeed — callers that expect failure should call
-    http_request() directly.
+DEFAULT_PUBLIC_URL = "https://frame.example.test"
+
+
+def default_auth0_env(public_url=DEFAULT_PUBLIC_URL):
+    """A complete, network-free Auth0 configuration so a companion starts
+    (main() refuses to serve without one). It points at no live provider.
     """
-    status, headers, _ = http_request(
-        server.base_url() + "/login", method="POST",
-        data=urllib.parse.urlencode({"password": password}).encode())
-    if status != 303:
-        raise AssertionError(
-            "expected a 303 redirect on successful login, got %d" % status)
-    cookie = cookie_value(headers)
-    if not cookie:
-        raise AssertionError("expected a Set-Cookie header on successful login")
-    return cookie
+    return {
+        "SKYPANE_AUTH0_DOMAIN": DEFAULT_AUTH0_DOMAIN,
+        "SKYPANE_AUTH0_CLIENT_ID": DEFAULT_AUTH0_CLIENT_ID,
+        "SKYPANE_AUTH0_CLIENT_SECRET": DEFAULT_AUTH0_CLIENT_SECRET,
+        "SKYPANE_COMPANION_PUBLIC_URL": public_url,
+    }
 
 
-AUTH0_LEGACY_ENV_VAR = "SKYPANE_LEGACY_PASSWORD_LOGIN"
+def session_cookie_for_state_dir(state_dir, email=TEST_ADMIN_EMAIL, role="admin"):
+    """Write a local user and a fresh opaque session row straight into
+    `<state_dir>/fleet.db` and return the "sp_session=<token>" cookie pair.
+    No HTTP and no identity-provider round trip. The user is reused when it
+    already exists.
+    """
+    from companion import auth
+    from server import fleet_db, fleet_sessions
+
+    conn = fleet_db.connect(state_dir)
+    try:
+        row = fleet_db.get_user_by_email(conn, email)
+        user_id = row["id"] if row is not None else fleet_db.add_user(conn, email, role)
+        token = auth.new_session_token()
+        fleet_sessions.create_session(
+            conn, auth.hash_session_token(token), user_id=user_id,
+            principal=fleet_sessions.PRINCIPAL_USER, now=int(time.time()))
+    finally:
+        conn.close()
+    return "%s=%s" % (auth.SESSION_COOKIE_NAME, token)
 
 
-def auth0_env(fake, public_url, legacy_login=None):
+_STATE_DIR_BY_PORT = {}
+
+
+def login(server):
+    """A signed-in administrator's "sp_session=..." cookie pair for
+    `server`, created directly in its state directory.
+    """
+    return session_cookie_for_state_dir(server.state_dir)
+
+
+def login_cookie_for_url(base_url):
+    """`login()` for a server known only by its base URL (browser helpers
+    that hold a URL, not the server object).
+    """
+    port = urllib.parse.urlsplit(base_url).port
+    return session_cookie_for_state_dir(_STATE_DIR_BY_PORT[port])
+
+
+def browser_login(page, base_url):
+    """Sign a Playwright page in by installing a session cookie for the
+    server at `base_url`; no form is driven.
+    """
+    pair = login_cookie_for_url(base_url)
+    name, value = pair.split("=", 1)
+    page.context.add_cookies([{
+        "name": name, "value": value, "url": base_url, "httpOnly": True,
+        "sameSite": "Strict"}])
+
+
+def auth0_env(fake, public_url):
     """The environment variables that point a companion at `fake` and tell
-    it its own public address. `legacy_login` ("0" or "1") sets the
-    shared-password switch when given.
+    it its own public address.
     """
     env = fake.register_with_env({})
     env["SKYPANE_COMPANION_PUBLIC_URL"] = public_url
-    if legacy_login is not None:
-        env[AUTH0_LEGACY_ENV_VAR] = legacy_login
     return env
 
 
@@ -277,12 +324,11 @@ class AppServer:
 
     def __init__(
             self, state_dir, *, extra_args=(), fake_providers=False,
-            password=TEST_PASSWORD, env_overrides=None):
+            env_overrides=None):
         self.state_dir = state_dir
         self.tmpdir = state_dir  # alias: some callers migrate from Harness.tmpdir
         self.extra_args = list(extra_args)
         self.fake_providers = fake_providers
-        self.password = password
         self.env_overrides = env_overrides
         self.port = pick_free_port()
         self.stdout_path = os.path.join(state_dir, "app.stdout.log")
@@ -319,8 +365,6 @@ class AppServer:
             % START_PORT_ATTEMPTS)
 
     def _launch_and_wait(self):
-        from companion import auth
-
         os.makedirs(self.state_dir, exist_ok=True)
         fake_providers = (
             FakeProviders() if self.fake_providers is True
@@ -328,10 +372,11 @@ class AppServer:
         )
         env = child_env(
             dict(os.environ), fake_providers=fake_providers, state_dir=self.state_dir)
-        env[auth.PASSWORD_ENV_VAR] = self.password
+        env.update(default_auth0_env())
         if self.env_overrides:
             env.update(self.env_overrides)
 
+        _STATE_DIR_BY_PORT[self.port] = self.state_dir
         stdout_fh = open(self.stdout_path, "w")
         cmd = [
             sys.executable, APP_PATH,
@@ -426,16 +471,16 @@ class InProcessAppServer:
         from http.server import ThreadingHTTPServer
 
         import companion.app as app_module
-        from companion import auth, sign_in
+        from companion import sign_in
 
         sign_in.START_THROTTLE.reset()
         os.makedirs(state_dir, exist_ok=True)
         self.state_dir = state_dir
         self._app_module = app_module
-        self._previous_password = os.environ.get(auth.PASSWORD_ENV_VAR)
         self._saved_env = {}
-        os.environ[auth.PASSWORD_ENV_VAR] = TEST_PASSWORD
         self.port = pick_free_port()
+        _STATE_DIR_BY_PORT[self.port] = state_dir
+        self.apply_env(default_auth0_env())
         app_module.Handler.args = argparse.Namespace(
             state_dir=state_dir, geofence=None)
         self.server = ThreadingHTTPServer(("127.0.0.1", self.port), app_module.Handler)
@@ -446,7 +491,7 @@ class InProcessAppServer:
 
     def apply_env(self, env):
         """Set environment variables the running server reads per request
-        (Auth0 settings, the legacy-login switch). A None value unsets the
+        (Auth0 settings). A None value unsets the
         variable. The previous values come back at stop().
         """
         for name, value in env.items():
@@ -463,8 +508,6 @@ class InProcessAppServer:
         return self.base_url() + path
 
     def stop(self):
-        from companion import auth
-
         self.server.shutdown()
         self.server.server_close()
         for name, previous in self._saved_env.items():
@@ -473,7 +516,3 @@ class InProcessAppServer:
             else:
                 os.environ[name] = previous
         self._saved_env = {}
-        if self._previous_password is None:
-            os.environ.pop(auth.PASSWORD_ENV_VAR, None)
-        else:
-            os.environ[auth.PASSWORD_ENV_VAR] = self._previous_password

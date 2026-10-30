@@ -46,11 +46,12 @@ def test_create_stores_hash_and_lookup_by_hash_only(conn):
     assert stored == [_h("tok")]
 
 
-def test_legacy_admin_session(conn):
-    fs.create_session(conn, _h("l"), user_id=None, principal="legacy-admin", now=T0)
-    rec = fs.lookup_session(conn, _h("l"), T0)
-    assert rec is not None
-    assert (rec.user_id, rec.email, rec.role) == (None, None, "admin")
+def test_legacy_admin_row_never_authenticates_and_is_deleted(conn):
+    fs.create_session(
+        conn, _h("l"), user_id=None, principal=fs.PRINCIPAL_LEGACY_ADMIN, now=T0)
+    assert _count(conn, "sessions") == 1
+    assert fs.lookup_session(conn, _h("l"), T0) is None
+    assert _count(conn, "sessions") == 0
 
 
 def test_absolute_lifetime(conn):
