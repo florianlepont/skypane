@@ -2,7 +2,10 @@
 24h dial SVG/handles/readout, and `quiet_hours_group()` itself.
 """
 import collections
+import datetime
 import re
+import time
+import zoneinfo
 
 from companion import i18n
 from companion import draw
@@ -42,6 +45,106 @@ QUIET_HOURS_PRESET_WORKDAY_LABEL = i18n.msg("display.day", "Day")
 # than overloading the time attributes with a sentinel value.
 QUIET_HOURS_PRESET_ALWAYS_ON_LABEL = i18n.msg("display.always_on", "Always on")
 QUIET_HOURS_PRESET_ATTR = "data-quiet-preset"
+
+
+# The France-wide zones a frame can be set to, Paris first: the IANA
+# key and the label shown for it. A stored key outside this list (a
+# hand-edited file) is shown as one extra last option so a save never
+# silently changes it.
+TIMEZONE_FIELD_NAME = "timezone"
+TIMEZONE_FIELD_ID = "quiet-hours-timezone"
+TIMEZONE_HELPER_ID = "quiet-hours-timezone-hint"
+TIMEZONE_LABEL = i18n.msg("display.timezone_label", "Time zone")
+TIMEZONE_HELPER = i18n.msg(
+    "display.timezone_helper", "Quiet hours follow this time zone.")
+CURATED_TIMEZONES = (
+    (device_config.DEFAULT_TIMEZONE, i18n.msg(
+        "display.timezone_opt_paris", "Metropolitan France (Paris)")),
+    ("America/Martinique", i18n.msg("display.timezone_opt_martinique", "Martinique")),
+    ("America/Guadeloupe", i18n.msg("display.timezone_opt_guadeloupe", "Guadeloupe")),
+    ("America/Cayenne", i18n.msg("display.timezone_opt_french_guiana", "French Guiana")),
+    ("Indian/Reunion", i18n.msg("display.timezone_opt_reunion", "Réunion")),
+    ("Indian/Mayotte", i18n.msg("display.timezone_opt_mayotte", "Mayotte")),
+    ("America/Miquelon", i18n.msg(
+        "display.timezone_opt_saint_pierre_miquelon", "Saint-Pierre and Miquelon")),
+    ("Pacific/Tahiti", i18n.msg(
+        "display.timezone_opt_tahiti", "French Polynesia (Tahiti)")),
+    ("Pacific/Noumea", i18n.msg(
+        "display.timezone_opt_new_caledonia", "New Caledonia")),
+    ("Pacific/Wallis", i18n.msg(
+        "display.timezone_opt_wallis_futuna", "Wallis and Futuna")),
+)
+CURATED_TIMEZONE_KEYS = tuple(key for key, _label in CURATED_TIMEZONES)
+# Appended to the dial readout when the zone is not the default: "{zone}
+# time" / "heure de {zone}".
+TIMEZONE_READOUT_CLAUSE = i18n.msg(
+    "display.readout_zone_clause", "{zone} time")
+
+
+def timezone_label_text(key):
+    """The translated label for a curated zone, else the raw key."""
+    for curated_key, label in CURATED_TIMEZONES:
+        if curated_key == key:
+            return i18n.t(label)
+    return key
+
+
+def timezone_offset_text(key):
+    """The zone's current UTC offset as plain text ("UTC-4",
+    "UTC+5:30"), or "" when the zone cannot be resolved. Computed from
+    the server clock and the zone database only.
+    """
+    try:
+        offset = datetime.datetime.fromtimestamp(
+            time.time(), tz=zoneinfo.ZoneInfo(key)).utcoffset()
+    except (zoneinfo.ZoneInfoNotFoundError, ValueError, OSError):
+        return ""
+    if offset is None:
+        return ""
+    minutes = int(offset.total_seconds() // 60)
+    sign = "-" if minutes < 0 else "+"
+    hours, rest = divmod(abs(minutes), 60)
+    return "UTC%s%d%s" % (sign, hours, ":%02d" % rest if rest else "")
+
+
+def timezone_readout_clause(key):
+    """" · Martinique time" for a non-default zone, "" for the default."""
+    if key == device_config.DEFAULT_TIMEZONE:
+        return ""
+    return " · " + i18n.t(TIMEZONE_READOUT_CLAUSE).format(zone=timezone_label_text(key))
+
+
+def timezone_field_html(current_timezone, errors=None):
+    """The Time zone label, native select and helper line. The select
+    submits with the settings form, and always shows the stored zone: a
+    rejected value is never echoed back (a select can only submit a
+    listed key, so an invalid one is a stale or tampered form).
+    """
+    keys = [key for key, _label in CURATED_TIMEZONES]
+    if current_timezone not in keys:
+        keys.append(current_timezone)
+    options = []
+    for key in keys:
+        offset = timezone_offset_text(key)
+        text = "%s (%s)" % (timezone_label_text(key), offset) if offset else timezone_label_text(key)
+        options.append('<option value="%s"%s>%s</option>' % (
+            escape_html(key), " selected" if key == current_timezone else "",
+            escape_html(text)))
+    error_attrs = _field_error_attrs(
+        errors, TIMEZONE_FIELD_NAME, TIMEZONE_FIELD_ID, hint_id=TIMEZONE_HELPER_ID)
+    return (
+        '<div class="quiet-timezone">'
+        '<label for="%s">%s</label>'
+        '<select id="%s" name="%s" form="%s"%s>%s</select>'
+        '<p class="text-label quiet-timezone__helper" id="%s">%s</p>%s'
+        "</div>"
+    ) % (
+        TIMEZONE_FIELD_ID, escape_html(i18n.t(TIMEZONE_LABEL)),
+        TIMEZONE_FIELD_ID, TIMEZONE_FIELD_NAME, SETTINGS_FORM_ID, error_attrs,
+        "".join(options),
+        TIMEZONE_HELPER_ID, escape_html(i18n.t(TIMEZONE_HELPER)),
+        _field_error_html(errors, TIMEZONE_FIELD_NAME, TIMEZONE_FIELD_ID),
+    )
 
 
 # The quiet window always runs forward from start, through midnight if
@@ -379,7 +482,7 @@ _QUIET_DIAL_DURATION_TEXTS = (
 )
 
 
-def quiet_dial_readout_html(start_hm, end_hm, span):
+def quiet_dial_readout_html(start_hm, end_hm, span, zone_clause=""):
     """"23:00 → 07:00 · 8h" — the window in words, or "" when `span` is
     None. `aria-hidden="true"`, not a live region: dragging fires
     continuously, and the focused handle's own `aria-valuetext` is
@@ -392,7 +495,8 @@ def quiet_dial_readout_html(start_hm, end_hm, span):
     can substitute "HH:MM" client-side; the duration span carries all
     four `layout.DURATION_ATTRS` translated wordings, so the client
     substitutes a quantity into the right bucket with no language logic
-    of its own.
+    of its own. `zone_clause` (already translated, leading " · ") is
+    static trailing text the client never rewrites.
     """
     if span is None:
         return ""
@@ -405,7 +509,7 @@ def quiet_dial_readout_html(start_hm, end_hm, span):
         ' → '
         '<span %s="quiet_hours_end" %s="%s" %s="%s">%s</span>'
         ' · '
-        '<span %s="quiet_hours_start" %s="%d"%s>%s</span>'
+        '<span %s="quiet_hours_start" %s="%d"%s>%s</span>%s'
         "</p>"
     ) % (
         escape_html(QUIET_DIAL_READOUT_CLASS),
@@ -421,10 +525,13 @@ def quiet_dial_readout_html(start_hm, end_hm, span):
         layout.VALUE_CONTROL_READOUT_BASE_ATTR, quiet_window_minute_of_day(start_hm),
         duration_attrs_html,
         escape_html(layout.duration_text(span.minutes * 60)),
+        escape_html(zone_clause),
     )
 
 
-def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
+def quiet_hours_group(
+        current_start, current_end, errors=None, submitted=None,
+        current_timezone=device_config.DEFAULT_TIMEZONE):
     """The Quiet hours settings card: a sibling of the settings form,
     never a literal descendant; both time inputs submit via `form=`.
 
@@ -486,7 +593,9 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
     dial_span = quiet_window_span(effective_start, effective_end)
     dial_html = quiet_dial_html(
         dial_span, quiet_dial_handles_html(effective_start, effective_end))
-    readout_html = quiet_dial_readout_html(effective_start, effective_end, dial_span)
+    readout_html = quiet_dial_readout_html(
+        effective_start, effective_end, dial_span,
+        zone_clause=timezone_readout_clause(current_timezone))
 
     site_lang = prefs.current_lang()
     caption_html = i18n.t(QUIET_HOURS_SECTION_CAPTION)
@@ -505,6 +614,7 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
         ' lang="%s" form="%s"%s>%s</label>%s</div>'
         "</div>"
         '<div class="quiet-dial-summary">%s%s</div>'
+        "%s"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html(i18n.t(QUIET_HOURS_SECTION_HEADING)),
@@ -523,4 +633,5 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
         _normalised_time_html(effective_end),
         end_error_html,
         dial_html, readout_html,
+        timezone_field_html(current_timezone, errors),
     )

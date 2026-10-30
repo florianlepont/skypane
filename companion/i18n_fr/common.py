@@ -95,6 +95,11 @@ MESSAGES = {
     "common.a_poll_is_already_in_progress_try_again_in_a":
         "Une vérification est déjà en cours — réessayez dans un "
         "instant.",
+    "common.device_poll_done":
+        "Vérification terminée — {device} est à jour.",
+    "common.device_poll_unsupported":
+        "Vérification indisponible — Le type d’écran de ce cadre ne peut pas encore "
+        "être rafraîchi d’ici. Il se met à jour tout seul à son prochain réveil.",
     "common.illustration_replaced_the_frame_will_use_it":
         "Illustration remplacée — le cadre l’utilisera à son prochain "
         "réveil et à sa prochaine vérification.",

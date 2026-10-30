@@ -17,6 +17,7 @@ import re
 
 from PIL import Image
 
+import companion.device_scope as device_scope
 import companion.i18n as i18n
 from server import atomic_io, device_config, panel_format
 from server.plane import render
@@ -368,7 +369,8 @@ def frame_preview_src(theme_id, state=FRAME_PREVIEW_STATE_DEPARTING, size=FRAME_
     """The page-side URL for one full-frame variant. Callers pass
     registry ids only; the route re-validates every part anyway.
     """
-    return "%s%s.png?state=%s&size=%s" % (FRAME_PREVIEW_ROUTE_PREFIX, theme_id, state, size)
+    return device_scope.scoped(
+        "%s%s.png?state=%s&size=%s" % (FRAME_PREVIEW_ROUTE_PREFIX, theme_id, state, size))
 
 
 def cached_preview_bytes(state_dir, theme_id, live_event=None):

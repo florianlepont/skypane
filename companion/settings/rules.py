@@ -4,7 +4,7 @@ special look" form with recent suggestions), plus the manual "Trigger
 poll now" control. Built here so `companion.settings.theme` stays
 independent of this module — see that module's own docstring for why.
 """
-from companion import i18n
+from companion import device_scope, i18n
 from companion import theme_preview
 import companion.layout as layout
 from companion.layout import escape_html
@@ -27,6 +27,15 @@ POLL_SECTION_CAPTION = i18n.msg(
     "Ask the server to check for new flight data now.")
 
 
+# Appended to the caption, inside the same element, when the fleet has
+# more than one device. "{device}" is a device name, escaped with the
+# rest of the caption.
+POLL_SCOPE_CAPTION = i18n.msg(
+    "display.poll_scope_caption", "Runs one check for {device} only.")
+# Replaces the caption for a device whose screen type the poll cannot
+# render.
+POLL_UNSUPPORTED_CAPTION = i18n.msg(
+    "display.poll_unsupported_caption", "Not available for this screen type yet.")
 
 # "{n}" is filled in with a server-computed remaining-seconds figure,
 # never anything client-supplied. This is the button-adjacent copy
@@ -44,7 +53,7 @@ POLL_TRIGGER_BUTTON_ID = "poll-trigger-btn"
 POLL_COOLDOWN_TEXT_ID = "poll-cooldown-text"
 
 # The enabled (zero-cooldown) branch's button label while a submit is
-# pending. Cosmetic only: companion/app.py's _POLL_LOCK is the actual
+# pending. Cosmetic only: the device's poll lock (companion/device_scope.py) is the actual
 # correctness boundary.
 POLL_SUBMIT_PENDING_TEXT = i18n.msg("display.polling", "Polling…")
 
@@ -127,28 +136,56 @@ RULE_REMOVE_CONFIRM_QUESTION = i18n.msg("rules.remove_this_rule", "Remove this r
 RULE_SUGGESTIONS_PER_KIND = 5
 
 
-def poll_trigger_section(cooldown_remaining):
+def _poll_caption_text(device, device_count, supported):
+    """The Poll section's single caption: the shipped sentence, plus the
+    one-device scope sentence when several devices exist, or the refusal
+    sentence alone when the device's screen type cannot be polled."""
+    if not supported:
+        return i18n.t(POLL_UNSUPPORTED_CAPTION)
+    caption = i18n.t(POLL_SECTION_CAPTION)
+    if device is not None and device_count > 1:
+        caption += " " + i18n.t(POLL_SCOPE_CAPTION).format(device=device.name)
+    return caption
+
+
+def poll_trigger_section(cooldown_remaining, device=None, device_count=1):
     """The manual poll-trigger control: an enabled button, or a
     native-disabled button with remaining-seconds copy during a
     cooldown. Emits zero `<script>` elements: the countdown lives in
     `poll-cooldown.js`, driven by `data-*` attributes, UX only —
     `_handle_poll_now()` re-checks the cooldown server-side regardless.
     The caption is computed once, above both branches.
+
+    The form posts to the selected device (`device`, with `device_count`
+    devices in the fleet); a device whose screen type the poll cannot
+    render gets a disabled button and the refusal caption instead.
     """
+    supported = device is None or device_scope.poll_supported(device)
+    caption_html = (
+        '<p class="text-label section-caption">%s</p>'
+        % escape_html(_poll_caption_text(device, device_count, supported)))
+    action = escape_html(device_scope.scoped("/poll-now", "POST"))
+    if not supported:
+        return (
+            "%s"
+            '<form method="post" action="%s">'
+            '<button type="submit" id="%s" disabled aria-disabled="true">%s</button>'
+            "</form>"
+        ) % (
+            caption_html, action, POLL_TRIGGER_BUTTON_ID,
+            escape_html(i18n.t(POLL_TRIGGER_BUTTON_TEXT)),
+        )
     # `> 0`, not truthy: must agree with poll-cooldown.js's own
     # `remaining > 0` guard, or a negative value would disable the
     # button natively while the script no-ops, with no way to re-enable
     # it client-side.
-    caption_html = (
-        '<p class="text-label section-caption">%s</p>'
-        % escape_html(i18n.t(POLL_SECTION_CAPTION)))
     if cooldown_remaining > 0:
         translated_helper_text = i18n.t(POLL_COOLDOWN_HELPER_TEXT)
         cooldown_text = translated_helper_text.format(n=cooldown_remaining)
         template = translated_helper_text.format(n=POLL_COOLDOWN_TEMPLATE_TOKEN)
         return (
             "%s"
-            '<form method="post" action="/poll-now">'
+            '<form method="post" action="%s">'
             '<button type="submit" id="%s" disabled '
             'data-cooldown="%s" data-cooldown-text-id="%s" '
             'data-cooldown-template="%s" data-cooldown-token="%s">'
@@ -157,6 +194,7 @@ def poll_trigger_section(cooldown_remaining):
             '<p class="text-body" id="%s">%s</p>'
         ) % (
             caption_html,
+            action,
             POLL_TRIGGER_BUTTON_ID,
             escape_html(str(cooldown_remaining)),
             escape_html(POLL_COOLDOWN_TEXT_ID),
@@ -168,12 +206,13 @@ def poll_trigger_section(cooldown_remaining):
         )
     return (
         "%s"
-        '<form method="post" action="/poll-now">'
+        '<form method="post" action="%s">'
         '<button type="submit" id="%s" data-submit-pending="%s">'
         "%s</button>"
         "</form>"
     ) % (
         caption_html,
+        action,
         POLL_TRIGGER_BUTTON_ID,
         escape_html(i18n.t(POLL_SUBMIT_PENDING_TEXT)),
         escape_html(i18n.t(POLL_TRIGGER_BUTTON_TEXT)),
@@ -193,10 +232,8 @@ def _rule_delete_action(kind, value):
     builder for both the desktop and mobile row renderers, so they can
     never diverge into building two different strings for the same row.
     """
-    return "%s%s/%s%s" % (
-        RULES_DELETE_ROUTE_PREFIX, escape_html(kind), escape_html(value),
-        RULES_DELETE_ROUTE_SUFFIX,
-    )
+    return escape_html(device_scope.scoped("%s%s/%s%s" % (
+        RULES_DELETE_ROUTE_PREFIX, kind, value, RULES_DELETE_ROUTE_SUFFIX), "POST"))
 
 
 def _rule_kind_radio_html(kind, checked):
@@ -289,7 +326,7 @@ def _rule_add_form_html(errors=None, submitted=None, suggestions_html=""):
         '<button type="submit">%s</button></div>'
         "</form>"
     ) % (
-        RULES_ADD_ROUTE,
+        escape_html(device_scope.scoped(RULES_ADD_ROUTE, "POST")),
         look_target_attrs(
             COLOUR_USAGE_RULES, "rule_theme_id", theme_preview.FRAME_PREVIEW_STATE_DEPARTING,
             small, False),

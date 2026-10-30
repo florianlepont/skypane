@@ -5,7 +5,7 @@ colour-rules editor and the manual "Trigger poll now" control (its
 route, cooldown gate and poll trigger are owned by companion/app.py;
 this module only renders its button/copy).
 """
-from companion import i18n
+from companion import device_scope, i18n
 from companion.layout import escape_html
 import companion.layout as layout
 import companion.page_context as page_context
@@ -229,6 +229,8 @@ from companion.settings.form_post import (
     ERROR_CALENDAR_URL_INVALID as ERROR_CALENDAR_URL_INVALID,
     ERROR_INVALID_CHOICE as ERROR_INVALID_CHOICE,
     ERROR_QUIET_HOURS_TIME_SHAPE as ERROR_QUIET_HOURS_TIME_SHAPE,
+    ERROR_TIMEZONE_INVALID as ERROR_TIMEZONE_INVALID,
+    TIMEZONE_INVALID_TOAST as TIMEZONE_INVALID_TOAST,
     ERROR_UNEXPECTED_SWITCH_VALUE as ERROR_UNEXPECTED_SWITCH_VALUE,
     ERROR_WAKE_INTERVAL_RANGE as ERROR_WAKE_INTERVAL_RANGE,
     LED_CHECKBOX_VALUE as LED_CHECKBOX_VALUE,
@@ -384,7 +386,7 @@ FLASH_POLL_COOLDOWN = "poll_cooldown"
 FLASH_POLL_FAILED = "poll_failed"
 # Distinct from FLASH_POLL_COOLDOWN: this key means a poll is executing
 # on this exact request right now, in another thread —
-# `_POLL_LOCK.acquire(blocking=False)` failing is the only producer,
+# the device's non-blocking poll-lock acquire failing is the only producer,
 # closing the window where two requests could both observe zero
 # cooldown and both call `poll_cycle.run_once()`.
 FLASH_POLL_ALREADY_RUNNING = "poll_already_running"
@@ -495,6 +497,7 @@ def _render_current_values(ctx):
         "quiet_end": device_cfg.get("quiet_hours_end", device_config.DEFAULT_QUIET_HOURS_END),
         "wake_interval_s": wake_interval_s,
         "calendar_theme_id": device_cfg.get("calendar_theme_id"),
+        "timezone": device_cfg.get("timezone", device_config.DEFAULT_TIMEZONE),
     }
 
 
@@ -567,7 +570,8 @@ def _group_builders(ctx, values, errors, submitted, next_wake_clock):
             next_wake_clock=next_wake_clock),
         screens.GROUP_QUIET_HOURS: lambda: quiet_hours_group(
             values["quiet_start"], values["quiet_end"],
-            errors=errors, submitted=submitted),
+            errors=errors, submitted=submitted,
+            current_timezone=values["timezone"]),
         # Read inside the lambda so it costs nothing unless this group
         # is actually in scope.
         screens.GROUP_WAKE_INTERVAL: lambda: wake_interval_group(
@@ -661,13 +665,15 @@ def _render_all_scope(groups, builders):
     }
 
 
-def _poll_html_for_scope(scope, show_poll, cooldown_remaining):
-    """The native refresh action, with no redundant Device framing."""
+def _poll_html_for_scope(scope, show_poll, cooldown_remaining, device=None):
+    """The native refresh action, with no redundant Device framing,
+    scoped to the selected `device`."""
     poll_section_html = (
         '<section class="page-section">'
         '<h2 class="text-heading">%s</h2>'
         "%s"
-        "</section>" % (escape_html(i18n.t(POLL_SECTION_HEADING)), poll_trigger_section(cooldown_remaining))
+        "</section>" % (escape_html(i18n.t(POLL_SECTION_HEADING)), poll_trigger_section(
+            cooldown_remaining, device, len(device_scope.current_devices())))
         if show_poll else "")
     return poll_section_html
 
@@ -719,7 +725,7 @@ def _settings_page_html(pieces, quick_led_html, poll_html, dirty_strings):
         "</div>"
     ) % (
         SETTINGS_FORM_ID,
-        SETTINGS_ROUTE,
+        device_scope.scoped(SETTINGS_ROUTE, "POST"),
         pieces["hidden_html"],
         pieces["groups_html"],
         # "" on the Device/SCOPE_ALL paths (both set it to "" above).
@@ -785,7 +791,8 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     else:
         pieces = _render_all_scope(groups, builders)
 
-    poll_html = _poll_html_for_scope(scope, pieces["show_poll"], calendar_status["cooldown_remaining"])
+    poll_html = _poll_html_for_scope(
+        scope, pieces["show_poll"], calendar_status["cooldown_remaining"], ctx.device)
     return _settings_page_html(pieces, quick_led_html, poll_html, dirty_strings)
 
 
@@ -884,6 +891,9 @@ def handle_post(form, ctx, errors=None):
         lambda: form_post.resolve_quiet_hours_enabled(form, errors),
         lambda: form_post.resolve_wake_interval(form, errors),
         lambda: form_post.resolve_display(form, errors),
+        lambda: form_post.resolve_timezone(
+            form, errors, (ctx.device_config or {}).get(
+                "timezone", device_config.DEFAULT_TIMEZONE)),
     )
     save_kwargs = {}
     for step in steps:

@@ -191,6 +191,9 @@ def test_plain_strings_are_refused():
 # translation. Keyed by the stable message id.
 _UNCHANGED_IN_FRENCH = frozenset({
     "display.aspect",
+    # Place names spelled identically in French.
+    "display.timezone_opt_martinique", "display.timezone_opt_guadeloupe",
+    "display.timezone_opt_mayotte",
     "health.corroboration", "health.source", "health.description",
     # "≈ %s": symbolic notation, identical in both languages.
     "display.next_wake_approx",

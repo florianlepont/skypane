@@ -328,3 +328,51 @@ def test_device_policy_import_pulls_in_no_extra_server_module_and_no_third_party
     assert banned == [], (
         "importing server.device_policy pulled %r into sys.modules - this module "
         "is stdlib-only on purpose" % (banned,))
+
+
+def test_seconds_until_quiet_hours_end_default_tz_is_paris_and_tz_shifts_result():
+    """no tz argument keeps the Paris result; a UTC-4 zone sees the same instant four hours earlier locally"""
+    from zoneinfo import ZoneInfo
+
+    # 2026-01-15 03:00 UTC = 04:00 Paris (inside 23:00-07:00, 3h left)
+    # but 23:00 the previous evening in Martinique (UTC-4): 8h left.
+    now = datetime(2026, 1, 15, 3, 0, tzinfo=timezone.utc)
+    assert device_policy.seconds_until_quiet_hours_end(now, "23:00", "07:00") == 3 * 3600
+    assert device_policy.seconds_until_quiet_hours_end(now, "23:00", "07:00", tz=ZoneInfo("Europe/Paris")) == 3 * 3600
+    assert device_policy.seconds_until_quiet_hours_end(now, "23:00", "07:00", tz=ZoneInfo("America/Martinique")) == 8 * 3600
+    late = datetime(2026, 1, 15, 15, 0, tzinfo=timezone.utc)  # 00:00 in Tokyo
+    assert device_policy.seconds_until_quiet_hours_end(late, "23:00", "07:00", tz=ZoneInfo("Asia/Tokyo")) == 7 * 3600
+
+
+def test_paris_dst_transition_day_is_unchanged_by_explicit_paris_tz():
+    """across the spring-forward night the explicit Paris zone matches the default"""
+    from zoneinfo import ZoneInfo
+
+    now = datetime(2026, 3, 29, 0, 30, tzinfo=timezone.utc)  # 01:30 CET, clocks jump at 01:00 UTC
+    default = device_policy.seconds_until_quiet_hours_end(now, "23:00", "07:00")
+    assert default is not None
+    assert default == device_policy.seconds_until_quiet_hours_end(now, "23:00", "07:00", tz=ZoneInfo("Europe/Paris"))
+    assert default == 4 * 3600 + 30 * 60  # 07:00 CEST is 05:00 UTC
+
+
+def test_timezone_for_reads_a_valid_zone():
+    """a known zone name in the config is returned as that zone"""
+    from zoneinfo import ZoneInfo
+
+    assert device_policy.timezone_for({"timezone": "Asia/Tokyo"}) == ZoneInfo("Asia/Tokyo")
+
+
+@pytest.mark.parametrize("config", [{}, {"timezone": "../x"}, {"timezone": 5}, {"timezone": ""},
+                                    {"timezone": "Not/AZone"}, {"timezone": None}, None, "Asia/Tokyo", [], 7])
+def test_timezone_for_falls_back_to_paris_and_never_raises(config):
+    """a missing, hostile or non-dict config yields the default zone"""
+    assert device_policy.timezone_for(config) is device_policy.QUIET_HOURS_TZ
+
+
+def test_quiet_hours_status_uses_the_config_timezone():
+    """the same instant is inside the window for Martinique and outside it for Tokyo"""
+    now = datetime(2026, 1, 15, 3, 0, tzinfo=timezone.utc).timestamp()
+    base = {"quiet_hours_enabled": True, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"}
+    assert device_policy.quiet_hours_status(base, now) == (3 * 3600, "07:00")
+    assert device_policy.quiet_hours_status(dict(base, timezone="America/Martinique"), now) == (8 * 3600, "07:00")
+    assert device_policy.quiet_hours_status(dict(base, timezone="Asia/Tokyo"), now) == (None, None)

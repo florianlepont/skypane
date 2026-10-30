@@ -17,6 +17,7 @@ from companion.illustration_normalize import (
     ILLUSTRATION_TARGET_HEIGHT,
     ILLUSTRATION_TARGET_WIDTH,
 )
+import companion.device_scope as device_scope
 import companion.i18n as i18n
 from companion.layout import escape_html
 import companion.layout as layout
@@ -502,7 +503,7 @@ def _airline_card_manual_fields(manual_info, airline_name, key, state_dir, now):
     upload_action_value = ""
     if mode == _VIEW_PANEL_MODE_NEEDS_ARTWORK:
         heading_value = i18n.t(STEP_B_HEADING_TEMPLATE) % escape_html(airline_name)
-        upload_action_value = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
+        upload_action_value = _illustration_url(key, "POST")
 
     delete_action_value = _manual_delete_action(prefix) if has_manual else ""
 
@@ -566,7 +567,8 @@ def _airline_card_zoom_html(caption_text, mode, image_html, busted_image_url, im
 
     if resolve_prefix_value:
         opening_tag = '<a href="%s?%s=%s" class="%s" ' % (
-            AIRLINES_ROUTE, RESOLVE_QUERY_PARAM, resolve_prefix_value, css_class)
+            device_scope.scoped(AIRLINES_ROUTE), RESOLVE_QUERY_PARAM, resolve_prefix_value,
+            css_class)
         closing_tag = "</a>"
     elif sheet_href:
         # No script: the link opens the same sheet as an in-page section.
@@ -641,7 +643,7 @@ def _type_fields(card, type_key, type_title, is_base, has_art):
     if not has_art and fields[0] == _VIEW_PANEL_MODE_ART:
         fields[0] = _VIEW_PANEL_MODE_NEEDS_ARTWORK
         fields[5] = i18n.t(STEP_B_HEADING_TEMPLATE) % escape_html(type_title)
-        fields[6] = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(type_key))
+        fields[6] = _illustration_url(type_key, "POST")
     elif not fields[5]:
         fields[5] = escape_html(card["name"])
     return fields
@@ -660,7 +662,7 @@ def _type_trigger_html(card, type_id, type_label, type_key, css_class, inner_htm
     (mode, _has_manual, _superseded, manual_value, resolve_prefix_value, heading_value,
      upload_action_value, delete_action_value, manual_note_value, first_seen_value,
      last_seen_value, count_value) = _type_fields(card, type_key, title, is_base, has_art)
-    image_url = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(type_key))
+    image_url = _illustration_url(type_key)
     busted_image_url = image_url + _illustration_cache_buster(type_key, card["state_dir"])
     if mode == _VIEW_PANEL_MODE_NEEDS_ARTWORK or not has_art:
         busted_image_url = ""
@@ -673,7 +675,7 @@ def _type_trigger_html(card, type_id, type_label, type_key, css_class, inner_htm
         manual_note_value, first_seen_value, last_seen_value, count_value,
         aria_label=aria_label, css_class=css_class, sheet_values=sheet_values,
         sheet_href=(
-            airline_sheet.sheet_href(AIRLINES_ROUTE, type_key)
+            device_scope.scoped(airline_sheet.sheet_href(AIRLINES_ROUTE, type_key))
             if sheet is not None and not resolve_prefix_value else ""),
         extra_attrs=extra_attrs)
 
@@ -685,9 +687,9 @@ def _row_art_html(card, key):
     if not (has_builtin or has_override):
         return '<span class="airline-card__placeholder" aria-hidden="true"></span>'
     return (
-        '<img class="airline-row__image" src="%s%s.png%s" width="%d" height="%d" '
+        '<img class="airline-row__image" src="%s%s" width="%d" height="%d" '
         'loading="lazy" decoding="async" alt="">'
-    ) % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key),
+    ) % (_illustration_url(key),
          _illustration_cache_buster(key, card["state_dir"]),
          ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT)
 
@@ -859,7 +861,7 @@ def _gap_card_html(index, row, now=None):
         '<p class="airline-card__name mono">%s</p>'
         "</a>"
     ) % (
-        AIRLINES_ROUTE, RESOLVE_QUERY_PARAM, escaped_prefix,
+        device_scope.scoped(AIRLINES_ROUTE), RESOLVE_QUERY_PARAM, escaped_prefix,
         _VIEW_PANEL_SRC_ATTR,
         _VIEW_PANEL_CAPTION_ATTR, escaped_callsign,
         _VIEW_PANEL_HEADING_ATTR, i18n.t(RESOLVE_HEADING),
@@ -886,8 +888,9 @@ def _gap_overflow_html(overflow_count):
     """
     if not overflow_count:
         return ""
-    return '<p class="text-label section-caption">%s<a href="/health">%s</a>.</p>' % (
-        i18n.t(MANUAL_OVERFLOW_TEMPLATE) % overflow_count, i18n.t(MANUAL_OVERFLOW_LINK_TEXT))
+    return '<p class="text-label section-caption">%s<a href="%s">%s</a>.</p>' % (
+        i18n.t(MANUAL_OVERFLOW_TEMPLATE) % overflow_count, device_scope.scoped("/health"),
+        i18n.t(MANUAL_OVERFLOW_LINK_TEXT))
 
 
 def _gap_strip_html(gap_cards_html, overflow_html):
@@ -1155,7 +1158,8 @@ def _resolve_name_form_html(prefix_value, id_suffix, include_submit=True, hidden
         # A permanently empty resolve-scope paragraph: panel-lookup.js
         # writes data-view-panel-scope into it client-side on every open.
     ) % (
-        LIGHTBOX_RESOLVE_NAME_CLASS, MANUAL_RESOLVE_FORM_ID + id_suffix, RESOLVE_ROUTE,
+        LIGHTBOX_RESOLVE_NAME_CLASS, MANUAL_RESOLVE_FORM_ID + id_suffix,
+        device_scope.scoped(RESOLVE_ROUTE, "POST"),
         escape_html(prefix_value),
         hidden_html,
         name_field,
@@ -1240,7 +1244,7 @@ def _resolve_section_html(ctx):
     state_dir = ctx.state_dir
     now = ctx.now
     back_link = '<a class="text-label" href="%s">%s</a>' % (
-        AIRLINES_ROUTE, i18n.t(RESOLVE_BACK_LINK_TEXT))
+        device_scope.scoped(AIRLINES_ROUTE), i18n.t(RESOLVE_BACK_LINK_TEXT))
 
     row = unresolved_row_for_prefix(state_dir, prefix_raw)
     if row is not None:
@@ -1291,10 +1295,10 @@ def _resolve_section_html(ctx):
     if illustrations.resolved_illustration_path(key, state_dir) is None:
         # Step B: name already saved, no artwork exists yet.
         caption = '<p class="text-label section-caption">%s</p>' % i18n.t(STEP_B_CAPTION)
-        upload_action = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
+        upload_action = _illustration_url(key, "POST")
         upload_zone = _resolve_upload_form_html(upload_action, "")
         skip_link = '<a class="text-label" href="%s">%s</a>' % (
-            AIRLINES_ROUTE, i18n.t(STEP_B_SKIP_TEXT))
+            device_scope.scoped(AIRLINES_ROUTE), i18n.t(STEP_B_SKIP_TEXT))
         return '<div class="page-section" data-resolve-fallback>%s%s%s%s%s%s%s</div>' % (
             back_link, heading, caption, context_html, upload_zone, skip_link, delete_form)
 
@@ -1334,24 +1338,24 @@ def _sheet_section_html(ctx, sheets_by_name, pairs):
             continue
         values = airline_sheet.attr_values(sheet, sheet_key)
         back_link = '<a class="text-label" href="%s">%s</a>' % (
-            AIRLINES_ROUTE, i18n.t(RESOLVE_BACK_LINK_TEXT))
+            device_scope.scoped(AIRLINES_ROUTE), i18n.t(RESOLVE_BACK_LINK_TEXT))
         head = airline_sheet.head_html(
             '<h2 class="text-heading">%s</h2>' % escape_html(sheet["name"]),
             values[2])
         _has_builtin, _has_override = _artwork_files(sheet_key, ctx.state_dir)
         picture = (
-            '<img class="lightbox__image" src="%s%s.png%s" alt="%s">' % (
-                ILLUSTRATION_ROUTE_PREFIX, escape_html(sheet_key),
+            '<img class="lightbox__image" src="%s%s" alt="%s">' % (
+                _illustration_url(sheet_key),
                 _illustration_cache_buster(sheet_key, ctx.state_dir), escape_html(sheet["name"]))
             if _has_builtin or _has_override
             else '<span class="airline-card__placeholder" aria-hidden="true"></span>')
         types_nav = airline_sheet.types_nav_html(
             types, sheet_key,
-            lambda key: airline_sheet.sheet_href(AIRLINES_ROUTE, key),
+            lambda key: device_scope.scoped(airline_sheet.sheet_href(AIRLINES_ROUTE, key)),
             i18n.t(TYPE_LABEL_TEXT))
         focus_name = ctx.flash_key in airline_sheet.NAME_REFUSAL_FLASHES
         upload = _resolve_upload_form_html(
-            "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(sheet_key)), "-edit")
+            _illustration_url(sheet_key, "POST"), "-edit")
         return (
             '<div class="page-section" id="%s" data-sheet-fallback%s>%s%s%s%s%s%s</div>'
             % (airline_sheet.SHEET_ANCHOR_ID, " data-sheet-focus-name" if focus_name else "",
@@ -1367,7 +1371,17 @@ def _manual_delete_action(prefix):
     so the desktop `<tr>` and the mobile `<li>` can never diverge into
     building two different strings for the same row.
     """
-    return "%s%s%s" % (MANUAL_DELETE_ROUTE_PREFIX, escape_html(prefix), MANUAL_DELETE_ROUTE_SUFFIX)
+    return device_scope.scoped(
+        "%s%s%s" % (MANUAL_DELETE_ROUTE_PREFIX, escape_html(prefix), MANUAL_DELETE_ROUTE_SUFFIX),
+        "POST")
+
+
+def _illustration_url(key, method="GET"):
+    """The illustration route for `key` (an image source for GET, an upload
+    action for POST), under the current device's prefix on a non-live
+    device's page."""
+    return device_scope.scoped(
+        "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key)), method)
 
 
 def _manual_resolution_rows(state_dir, registry):

@@ -15,6 +15,7 @@ new name's artwork. A rename therefore copies the current
 artwork to the new key when that key has none (`companion/post_actions.py`),
 and the tile shows and edits the artwork of the name flights now carry.
 """
+import companion.device_scope as device_scope
 import companion.i18n as i18n
 from companion.layout import escape_html
 from server.plane import enrich, illustrations, name_overrides
@@ -199,7 +200,7 @@ def sheet_html(values, id_suffix, name_label, in_dialog, focus_name=False):
         '<button type="submit">%s</button>'
         "</form>"
     ) % (
-        RENAME_RESET_ROUTE, escape_html(builtin),
+        device_scope.scoped(RENAME_RESET_ROUTE, "POST"), escape_html(builtin),
         escape_html(i18n.t(SHEET_RESET_CAPTION_TEMPLATE) % "#"), reset_caption,
         i18n.t(SHEET_RESET_TEXT))
     if not in_dialog and not renamed:
@@ -217,7 +218,8 @@ def sheet_html(values, id_suffix, name_label, in_dialog, focus_name=False):
         "</section>"
     ) % (
         SHEET_CLASS, "airline-sheet-body" + id_suffix,
-        SHEET_RENAME_FORM_ID + id_suffix, RENAME_ROUTE,
+        SHEET_RENAME_FORM_ID + id_suffix,
+        device_scope.scoped(RENAME_ROUTE, "POST"),
         escape_html(builtin),
         name_id, name_label,
         name_id, " autofocus" if focus_name and not in_dialog else "", escape_html(name),

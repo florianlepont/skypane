@@ -19,7 +19,7 @@ this module).
 import time
 from urllib.parse import parse_qsl, urlencode, urlsplit
 
-from companion import frame_state, i18n, layout, routes, wake
+from companion import device_scope, frame_state, i18n, layout, routes, wake
 from companion.pages import airlines_page, config_page, update_page
 from server import history_db
 from server.plane import calendar_rules, colour_rules
@@ -38,6 +38,10 @@ FLASH_KEY_POLL_TRIGGERED = config_page.FLASH_POLL_TRIGGERED
 FLASH_KEY_POLL_COOLDOWN = config_page.FLASH_POLL_COOLDOWN
 FLASH_KEY_POLL_FAILED = config_page.FLASH_POLL_FAILED
 FLASH_KEY_POLL_ALREADY_RUNNING = config_page.FLASH_POLL_ALREADY_RUNNING
+# Poll outcomes for a device other than the live frame; the live frame keeps
+# FLASH_KEY_POLL_TRIGGERED. Defined here because only the dispatcher uses them.
+FLASH_KEY_DEVICE_POLL_DONE = "device_poll_done"
+FLASH_KEY_DEVICE_POLL_UNSUPPORTED = "device_poll_unsupported"
 FLASH_KEY_ILLUSTRATION_REPLACED = airlines_page.FLASH_ILLUSTRATION_REPLACED
 FLASH_KEY_ILLUSTRATION_REJECTED = airlines_page.FLASH_ILLUSTRATION_REJECTED
 FLASH_KEY_ILLUSTRATION_REPLACE_FAILED = airlines_page.FLASH_ILLUSTRATION_REPLACE_FAILED
@@ -134,6 +138,14 @@ FLASH_MESSAGES = {
         "The frame may update on a later wake."),
     # Owned by display.py's catalogue (untouched by this plan), not
     # common.py's — the Frame strip's own poll-cooldown copy.
+    # "{device}" is filled by resolve_flash_text() with the name of the device
+    # this request is scoped to.
+    FLASH_KEY_DEVICE_POLL_DONE: i18n.msg(
+        "common.device_poll_done", "Check complete — {device} was refreshed."),
+    FLASH_KEY_DEVICE_POLL_UNSUPPORTED: i18n.msg(
+        "common.device_poll_unsupported",
+        "Poll not available — This frame’s screen type cannot be refreshed from "
+        "here yet. It still updates on its own wake."),
     FLASH_KEY_POLL_COOLDOWN: i18n.msg(
         "display.poll_triggered_recently_try_again_in_n_s",
         "Poll triggered recently — try again in {n}s."),
@@ -321,6 +333,9 @@ FLASH_TONES = {
     FLASH_KEY_SAVE_FAILED: _ERROR,
     FLASH_KEY_POLL_TRIGGERED: _INFO,
     FLASH_KEY_POLL_COOLDOWN: _INFO,
+    FLASH_KEY_DEVICE_POLL_DONE: _SUCCESS,
+    # A warning is never auto-hidden: the refusal stays until dismissed.
+    FLASH_KEY_DEVICE_POLL_UNSUPPORTED: _WARNING,
     FLASH_KEY_POLL_FAILED: _ERROR,
     # Informational, not itself a failure: a different session/tab is
     # already legitimately running a poll.
@@ -419,11 +434,11 @@ def _flash_action_html(flash_key, return_to):
     if flash_key in _FLASH_UNDO:
         route, state = _FLASH_UNDO[flash_key]
         return layout.toast_post_action_html(
-            route, ((layout.QUICK_STATE_FIELD, state), ("return_to", return_to)),
+            device_scope.scoped(route, "POST"), ((layout.QUICK_STATE_FIELD, state), ("return_to", return_to)),
             i18n.t(layout.TOAST_UNDO_TEXT))
     if flash_key in _FLASH_LINKS:
         href, label = _FLASH_LINKS[flash_key]
-        return layout.toast_link_action_html(href, i18n.t(label))
+        return layout.toast_link_action_html(device_scope.scoped(href), i18n.t(label))
     return ""
 
 
@@ -438,7 +453,8 @@ def flash_toast_html(flash_key, text, request_path):
     return layout.flash_banner(
         text, role=FLASH_ROLES.get(flash_key), tone=FLASH_TONES.get(flash_key, _INFO),
         dismiss_href=dismiss_href,
-        action_html=_flash_action_html(flash_key, urlsplit(dismiss_href).path),
+        action_html=_flash_action_html(
+            flash_key, device_scope.strip_prefix(urlsplit(dismiss_href).path)),
         glyph=_FLASH_GLYPHS.get(flash_key))
 
 
@@ -496,6 +512,9 @@ def resolve_flash_text(
         return template % delay_text
     if flash_key == FLASH_KEY_POLL_COOLDOWN:
         return template.format(n=poll_cooldown_remaining(state_dir))
+    if flash_key == FLASH_KEY_DEVICE_POLL_DONE:
+        device = device_scope.current_device()
+        return template.format(device=device.name if device is not None else "")
     if flash_key == FLASH_KEY_CALENDAR_CONNECTED:
         # Read fresh from disk, on this redirect target's own render —
         # never carried through the redirect's query string, which is

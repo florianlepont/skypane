@@ -31,6 +31,7 @@ import re
 from companion import i18n
 from companion import screens
 from companion.settings.form import _note_error
+from companion.settings.quiet_hours import CURATED_TIMEZONE_KEYS
 from server import device_config
 
 
@@ -58,6 +59,15 @@ ERROR_WAKE_INTERVAL_RANGE = i18n.msg(
 ERROR_QUIET_HOURS_TIME_SHAPE = i18n.msg(
     "display.enter_a_time_as_hh_mm_for_example_23_00",
     "Enter a time as HH:MM, for example 23:00.")
+ERROR_TIMEZONE_INVALID = i18n.msg(
+    "display.timezone_invalid", "Pick a time zone from the list.")
+# Shown as a toast when a rejected time zone aborts the whole save; the
+# detail half (after the dash) says that nothing in the submission,
+# quiet hours included, was written.
+TIMEZONE_INVALID_TOAST = i18n.msg(
+    "display.timezone_invalid_toast",
+    "Time zone not saved — Pick one from the list. "
+    "Nothing in this save was applied.")
 # Covers both the over-length and the contradictory (calendar_url +
 # calendar_disconnect together) cases; deliberately never echoes any
 # part of the submitted URL back.
@@ -267,3 +277,23 @@ def resolve_display(form, errors):
         _note_error(errors, "display_enabled", ERROR_UNEXPECTED_SWITCH_VALUE)
         return FAILED
     return {"display_enabled": display_enabled}
+
+
+def resolve_timezone(form, errors, current):
+    """Time zone group: the submitted zone must be one of the curated
+    keys and a zone the host's database knows. A value equal to the
+    stored zone is accepted as-is (it covers a hand-edited stored zone
+    that is not in the curated list) but is not forwarded, so a save
+    that leaves the zone alone never rewrites it. Absent -> unchanged.
+    """
+    submitted = form.get("timezone")
+    if submitted is None or submitted == current:
+        return {"timezone": None}
+    if (
+        not isinstance(submitted, str)
+        or submitted not in CURATED_TIMEZONE_KEYS
+        or device_config.normalise_timezone(submitted) != submitted
+    ):
+        _note_error(errors, "timezone", ERROR_TIMEZONE_INVALID)
+        return FAILED
+    return {"timezone": submitted}

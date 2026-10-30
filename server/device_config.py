@@ -24,6 +24,8 @@ import json
 import os
 import sys
 import threading
+import zoneinfo
+from functools import lru_cache
 
 # Allow both `import server.device_config` (package import) and direct
 # script execution: sys.path[0] is server/ itself when this file is
@@ -69,6 +71,10 @@ _HHMM_RE = device_policy.HHMM_RE
 DEFAULT_RUNWAY_ID = "3"
 DEFAULT_LED_ENABLED = True  # Matches the LED's current hardcoded always-on behaviour, so nothing changes until a user opts out.
 DEFAULT_QUIET_HOURS_ENABLED = False  # An explicit boolean independent of the stored times - never "empty fields mean off" - so nothing changes for any existing installation until a user opts in.
+# The zone the quiet-hours window is evaluated in when a device has none of
+# its own. A device on this zone never stores the key, so its file bytes
+# stay what they were before the setting existed.
+DEFAULT_TIMEZONE = "Europe/Paris"
 DEFAULT_DISPLAY_ENABLED = True  # An explicit boolean following the
 # DEFAULT_LED_ENABLED/DEFAULT_QUIET_HOURS_ENABLED precedent, never an
 # absence-means-off convention, so nothing changes for an installation
@@ -218,10 +224,28 @@ def normalise_wake_interval_s(value):
     return None
 
 
+@lru_cache(maxsize=1)
+def _known_timezones():
+    """The IANA zone names this host knows, read once. Membership here is
+    checked before any `ZoneInfo` is built, so a path-like string never
+    reaches the filesystem.
+    """
+    return frozenset(zoneinfo.available_timezones())
+
+
+def normalise_timezone(value):
+    """`value` unchanged if it is a known IANA zone name, else
+    `DEFAULT_TIMEZONE`. Never raises.
+    """
+    if isinstance(value, str) and value in _known_timezones():
+        return value
+    return DEFAULT_TIMEZONE
+
+
 def load_device_config(state_dir):
     """Read device_config.json; a missing/unreadable/malformed/non-dict
     file falls back to an empty dict, never raises. Always returns all
-    ten keys with valid values via the normalise_*() functions above,
+    eleven keys with valid values via the normalise_*() functions above,
     so a hostile or stale value on disk never reaches a caller.
     `theme_arriving`, `calendar_theme_id` are read with
     `.get()` so an older file missing them resolves to their documented
@@ -251,7 +275,22 @@ def load_device_config(state_dir):
         "quiet_hours_end": normalise_quiet_hours_time(data.get("quiet_hours_end"), DEFAULT_QUIET_HOURS_END),
         "wake_interval_s": normalise_wake_interval_s(data.get("wake_interval_s")),
         "display_enabled": normalise_display_enabled(data.get("display_enabled")),
+        "timezone": normalise_timezone(data.get("timezone")),
     }
+
+
+def _validate_timezone(timezone):
+    """`timezone`'s own validation: `None` means not supplied; anything
+    else must be a string naming a known IANA zone. Fails closed when the
+    host has no time zone database at all.
+    """
+    if timezone is None:
+        return
+    known = _known_timezones()
+    if not known:
+        raise ValueError("no time zone database available to validate timezone %r" % (timezone,))
+    if not isinstance(timezone, str) or timezone not in known:
+        raise ValueError("unknown timezone %r (expected an IANA zone name such as %r)" % (timezone, DEFAULT_TIMEZONE))
 
 
 def _validate_theme_fields(theme, theme_arriving, calendar_theme_id):
@@ -313,9 +352,10 @@ def _validate_wake_interval(wake_interval_s):
 def _merged_config(
     current, theme=None, theme_arriving=None, calendar_theme_id=None, tracked_runway=None,
     led_enabled=None, quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
-    wake_interval_s=None, display_enabled=None,
+    wake_interval_s=None, display_enabled=None, timezone=None,
 ):
-    """The ten-key dict `save_device_config()` writes: every supplied
+    """The dict `save_device_config()` writes (ten keys, plus `timezone`
+    only when it differs from `DEFAULT_TIMEZONE`): every supplied
     (non-`None`) field wins, everything else carries `current`'s value
     forward. `theme_arriving`'s three-state contract (sentinel clears,
     non-None sets, None carries forward) is unchanged from before the
@@ -327,7 +367,8 @@ def _merged_config(
         new_theme_arriving = theme_arriving
     else:
         new_theme_arriving = current["theme_arriving"]
-    return {
+    new_timezone = timezone if timezone is not None else current["timezone"]
+    merged = {
         "theme": theme if theme is not None else current["theme"],
         "theme_arriving": new_theme_arriving,
         "calendar_theme_id": calendar_theme_id if calendar_theme_id is not None else current["calendar_theme_id"],
@@ -339,12 +380,15 @@ def _merged_config(
         "wake_interval_s": wake_interval_s if wake_interval_s is not None else current["wake_interval_s"],
         "display_enabled": display_enabled if display_enabled is not None else current["display_enabled"],
     }
+    if new_timezone != DEFAULT_TIMEZONE:
+        merged["timezone"] = new_timezone
+    return merged
 
 
 def save_device_config(
     state_dir, theme=None, theme_arriving=None, tracked_runway=None, led_enabled=None,
     quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
-    wake_interval_s=None, display_enabled=None, calendar_theme_id=None,
+    wake_interval_s=None, display_enabled=None, calendar_theme_id=None, timezone=None,
 ):
     """Validate and persist any subset of the device settings; `None`
     means "not supplied, carry the current on-disk value forward" for
@@ -353,6 +397,10 @@ def save_device_config(
     a rejected write leaves any pre-existing file byte-identical. Each
     field's own gate lives in one of the `_validate_*()` helpers above,
     run in the same order they used to appear inline here.
+
+    `timezone` is the IANA zone the quiet-hours window is evaluated in;
+    it is stored only when it differs from `DEFAULT_TIMEZONE`, so saving
+    the default removes the key and an unrelated save never adds one.
 
     `theme_arriving` has a three-state contract instead of two: `None`
     carries forward, `CLEAR_THEME_ARRIVING` (an identity-compared
@@ -376,6 +424,7 @@ def save_device_config(
     _validate_runway_and_flags(tracked_runway, led_enabled, display_enabled)
     _validate_quiet_hours(quiet_hours_enabled, quiet_hours_start, quiet_hours_end)
     _validate_wake_interval(wake_interval_s)
+    _validate_timezone(timezone)
 
     os.makedirs(state_dir, exist_ok=True)
     with _SAVE_LOCK:
@@ -390,6 +439,7 @@ def save_device_config(
                 led_enabled=led_enabled, quiet_hours_enabled=quiet_hours_enabled,
                 quiet_hours_start=quiet_hours_start, quiet_hours_end=quiet_hours_end,
                 wake_interval_s=wake_interval_s, display_enabled=display_enabled,
+                timezone=timezone,
             )
             atomic_io.atomic_write(device_config_path(state_dir), json.dumps(new_config, indent=1))
 

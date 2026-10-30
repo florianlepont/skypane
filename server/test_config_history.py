@@ -55,7 +55,7 @@ def test_missing_state_dir_yields_defaults(tmp_path):
     tmpdir = tmp_path
     missing = os.path.join(tmpdir, "does-not-exist")
     config = device_config.load_device_config(missing)
-    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
+    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris"}:
         pytest.fail("expected defaults, got %r" % (config,))
 
 
@@ -67,7 +67,7 @@ def test_malformed_file_yields_defaults(tmp_path):
         with open(path, "w") as fh:
             fh.write(bad_content)
         config = device_config.load_device_config(tmpdir)
-        if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
+        if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris"}:
             pytest.fail("content %r produced %r, expected defaults" % (bad_content, config))
 
 
@@ -78,7 +78,7 @@ def test_hostile_values_yield_defaults(tmp_path):
     with open(path, "w") as fh:
         fh.write('{"theme": "../../etc/passwd", "tracked_runway": 7}')
     config = device_config.load_device_config(tmpdir)
-    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
+    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris"}:
         pytest.fail("hostile input produced %r, expected defaults for both keys" % (config,))
 
 
@@ -87,7 +87,7 @@ def test_save_then_load_round_trips(tmp_path):
     tmpdir = tmp_path
     device_config.save_device_config(tmpdir, theme="black", tracked_runway="02-20")
     config = device_config.load_device_config(tmpdir)
-    if config != {"theme": "black", "theme_arriving": None, "tracked_runway": "02-20", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
+    if config != {"theme": "black", "theme_arriving": None, "tracked_runway": "02-20", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris"}:
         pytest.fail("round-trip produced %r" % (config,))
 
 
@@ -124,7 +124,7 @@ def test_hostile_hand_edit_after_a_real_save_still_yields_defaults(tmp_path):
     with open(path, "w") as fh:
         fh.write('{"theme": "black/../x", "tracked_runway": "3; DROP TABLE"}')
     config = device_config.load_device_config(tmpdir)
-    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
+    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris"}:
         pytest.fail("hand-edited hostile file produced %r, expected defaults for both keys" % (config,))
 
 
@@ -145,7 +145,7 @@ def test_save_led_enabled_false_round_trips(tmp_path):
     tmpdir = tmp_path
     device_config.save_device_config(tmpdir, led_enabled=False)
     config = device_config.load_device_config(tmpdir)
-    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
+    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris"}:
         pytest.fail("round-trip produced %r" % (config,))
 
 
@@ -464,7 +464,7 @@ def test_save_quiet_hours_round_trips(tmp_path):
     if config != {
         "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
         "quiet_hours_enabled": True, "quiet_hours_start": "22:30", "quiet_hours_end": "06:15",
-        "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None,
+        "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris",
     }:
         pytest.fail("round-trip produced %r" % (config,))
 
@@ -610,7 +610,7 @@ def test_save_wake_interval_s_round_trips(tmp_path):
     if config != {
         "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
         "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
-        "wake_interval_s": 120, "display_enabled": True, "calendar_theme_id": None,
+        "wake_interval_s": 120, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris",
     }:
         pytest.fail("round-trip produced %r" % (config,))
 
@@ -813,7 +813,7 @@ def test_save_display_enabled_false_round_trips_and_carries_forward(tmp_path):
     if config != {
         "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
         "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
-        "wake_interval_s": None, "display_enabled": False, "calendar_theme_id": None,
+        "wake_interval_s": None, "display_enabled": False, "calendar_theme_id": None, "timezone": "Europe/Paris",
     }:
         pytest.fail("round-trip produced %r" % (config,))
     device_config.save_device_config(tmpdir, theme="black")
@@ -1696,3 +1696,69 @@ def test_retired_screen_setting_is_ignored_and_removed_on_next_save(tmp_path, le
     assert "screen_id" not in saved
     assert saved["theme"] == "black"
     assert saved["led_enabled"] is False
+
+
+def test_timezone_defaults_to_paris_when_missing_or_invalid(tmp_path):
+    """a missing or hostile stored timezone loads as Europe/Paris"""
+    d = str(tmp_path)
+    assert device_config.load_device_config(d)["timezone"] == "Europe/Paris"
+    for bad in ("../x", "", 5, None, "Not/AZone", ["Asia/Tokyo"]):
+        (tmp_path / "device_config.json").write_text(json.dumps({"timezone": bad}))
+        assert device_config.load_device_config(d)["timezone"] == "Europe/Paris"
+
+
+def test_save_timezone_round_trips_and_default_removes_key(tmp_path):
+    """a non-default zone is persisted; saving Europe/Paris drops the key"""
+    d = str(tmp_path)
+    path = tmp_path / "device_config.json"
+    device_config.save_device_config(d, timezone="America/Martinique")
+    assert json.loads(path.read_text())["timezone"] == "America/Martinique"
+    assert device_config.load_device_config(d)["timezone"] == "America/Martinique"
+    device_config.save_device_config(d, timezone="Europe/Paris")
+    assert "timezone" not in json.loads(path.read_text())
+    assert device_config.load_device_config(d)["timezone"] == "Europe/Paris"
+
+
+def test_other_saves_carry_the_timezone_forward(tmp_path):
+    """a save that omits timezone keeps the stored zone"""
+    d = str(tmp_path)
+    device_config.save_device_config(d, timezone="Asia/Tokyo")
+    device_config.save_device_config(d, led_enabled=False, quiet_hours_start="22:00")
+    cfg = device_config.load_device_config(d)
+    assert cfg["timezone"] == "Asia/Tokyo"
+    assert cfg["led_enabled"] is False
+
+
+@pytest.mark.parametrize("bad", ["", "../x", "../../etc/passwd", "Not/AZone", "Europe/Paris\x00", 5, True, ["Europe/Paris"]])
+def test_invalid_timezone_rejected_without_touching_file(tmp_path, bad):
+    """a hostile zone raises ValueError before any write"""
+    d = str(tmp_path)
+    device_config.save_device_config(d, theme="black")
+    path = tmp_path / "device_config.json"
+    before = path.read_bytes()
+    with pytest.raises(ValueError):
+        device_config.save_device_config(d, timezone=bad)
+    assert path.read_bytes() == before
+
+
+def test_unrelated_save_never_adds_timezone_key_to_a_paris_file(tmp_path):
+    """a config file without the key is rewritten without it, other keys intact"""
+    d = str(tmp_path)
+    path = tmp_path / "device_config.json"
+    path.write_text(json.dumps({"theme": "black", "quiet_hours_enabled": True}))
+    device_config.save_device_config(d, quiet_hours_start="22:00")
+    text = path.read_text()
+    assert "timezone" not in text
+    saved = json.loads(text)
+    assert set(saved) == {
+        "theme", "theme_arriving", "calendar_theme_id", "tracked_runway", "led_enabled",
+        "quiet_hours_enabled", "quiet_hours_start", "quiet_hours_end", "wake_interval_s", "display_enabled",
+    }
+    assert text == json.dumps(saved, indent=1)
+
+
+def test_empty_timezone_database_fails_closed(tmp_path, monkeypatch):
+    """with no tz database the validator raises instead of accepting everything"""
+    monkeypatch.setattr(device_config, "_known_timezones", lambda: frozenset())
+    with pytest.raises(ValueError):
+        device_config.save_device_config(str(tmp_path), timezone="Asia/Tokyo")

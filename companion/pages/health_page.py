@@ -17,9 +17,12 @@ and its `compute_health_state()`/`safe_health_state()` wrappers, which
 still need the shared fragments and so stay here). The generic row
 components live in companion/health_rows.py.
 """
+from datetime import datetime, timezone
+
 from companion.layout import escape_html
 import companion.battery as battery
 import companion.battery_chart as battery_chart
+import companion.device_scope as device_scope
 import companion.draw as draw
 import companion.health_rows as health_rows
 import companion.health_sections as health_sections_module
@@ -200,6 +203,20 @@ BACKUP_STATE_TEXT = {
 }
 _NO_READINGS_VERDICT_TEXT = i18n.msg("health.row_no_readings", "No readings yet")
 _NO_CHECK_IN_TEXT = i18n.msg("health.row_no_check_in", "No check-in yet")
+# {time} is the device's last check-in, filled in by the page.
+DEVICE_UNREACHABLE_TEXT = i18n.msg(
+    "health.device_unreachable",
+    "No signal since {time} \u2014 Showing the last known data.")
+DEVICE_EMPTY_HEADING = i18n.msg(
+    "health.device_empty_heading", "This frame has not checked in yet")
+DEVICE_EMPTY_BODY = i18n.msg(
+    "health.device_empty_body",
+    "Health appears after its first wake. Make sure it is powered on and in "
+    "range of Wi-Fi.")
+DEVICE_BATTERY_EMPTY_HEADING = i18n.msg(
+    "health.device_battery_empty_heading", "No battery reading")
+DEVICE_BATTERY_EMPTY_BODY = i18n.msg(
+    "health.device_battery_empty_body", "Shown after the first check-in.")
 _ROW_UNAVAILABLE_TEXT = i18n.msg("health.row_unavailable", "Unavailable")
 _LAST_CHECK_IN_TEXT = i18n.msg("health.row_last_check_in", "Last check-in")
 _NEXT_WAKE_TEXT = i18n.msg("health.row_next_wake", "Next wake")
@@ -442,7 +459,7 @@ def health_state_from_signals(signals):
     }
 
 
-def compute_health_state(state_dir, now=None):
+def compute_health_state(state_dir, now=None, fleet_root=None):
     """The single computation both the nav-tab dot and the full Health
     page need. Running these independently against fresh DB connections
     at two different instants let a write land between them and make
@@ -454,7 +471,7 @@ def compute_health_state(state_dir, now=None):
     could hand the nav dot and the banner this page renders always come
     from the same read.
     """
-    return health_state_from_signals(health_signals(state_dir, now))
+    return health_state_from_signals(health_signals(state_dir, now, fleet_root))
 
 
 def safe_health_state(state_dir, now=None):
@@ -843,7 +860,7 @@ def _charging_pill_html(state, trend_rows, battery_critical):
     return layout.battery_charging_pill_html("health-row__charging")
 
 
-def _battery_row(state, battery_critical=False):
+def _battery_row(state, battery_critical=False, device=None):
     name = i18n.t(ROW_BATTERY_NAME)
     trend_rows = state["inputs"]["trend_rows"]
     if trend_rows is _DB_UNAVAILABLE:
@@ -851,9 +868,14 @@ def _battery_row(state, battery_critical=False):
     latest = _latest_numeric_battery_reading(trend_rows)
     if latest is None:
         # `battery_html` is the empty state when there is no history.
+        empty_html = state["battery_html"]
+        if device is not None and not device.is_live:
+            empty_html = layout.empty_state(
+                i18n.t(DEVICE_BATTERY_EMPTY_HEADING),
+                i18n.t(DEVICE_BATTERY_EMPTY_BODY), compact=True)
         return health_rows.row_html(
             "battery", "off", name, i18n.t(_NO_READINGS_VERDICT_TEXT), "",
-            state["battery_html"])
+            empty_html)
     millivolts, _ts = latest
     percent = battery.battery_percent(millivolts)
     value = (
@@ -1004,19 +1026,56 @@ def _resolve_dialog_html(ctx, registry_rows):
     return resolve_dialog.dialog_html() + step_b_html
 
 
+def _epoch_of(iso):
+    """Epoch seconds of an ISO instant, or None when it does not parse."""
+    parsed = history_db.instant_or_none(iso)
+    return None if parsed is None else parsed.timestamp()
+
+
+def _device_status(ctx, now):
+    """`device_scope`'s status for the selected device, or None for the live
+    frame (whose Health page is unchanged) and for a context with no device."""
+    device = ctx.device
+    if device is None or device.is_live:
+        return None
+    return device_scope.device_status(device, _epoch_of(now) or device_scope.now_epoch())
+
+
+def _device_unreachable_html(ctx, now):
+    """The docked warning toast for a device that has been silent for more
+    than two of its own wake intervals."""
+    last = device_scope.last_check_in_epoch(ctx.state_dir)
+    parsed = None if last is None else datetime.fromtimestamp(last, timezone.utc)
+    now_parsed = history_db.instant_or_none(now)
+    when = layout.local_clock_text(parsed, now_parsed) if parsed else i18n.t(_NO_CHECK_IN_TEXT)
+    return layout.anomaly_banner(
+        i18n.t(DEVICE_UNREACHABLE_TEXT).replace("{time}", when), severity="warn")
+
+
 def render(ctx):
     ctx = page_context.coerce(ctx)
     state_dir = ctx.state_dir
     now = ctx.now or history_db.utc_now_iso()
+    status = _device_status(ctx, now)
+    if status == device_scope.STATUS_NEVER_SEEN:
+        return (
+            '<div class="status-page">'
+            + layout.page_header(i18n.t(_NAV_HEALTH_TEXT))
+            + layout.empty_state(
+                i18n.t(DEVICE_EMPTY_HEADING), i18n.t(DEVICE_EMPTY_BODY))
+            + "</div>")
 
     # Reuse the state build_page_context() already computed, rather than
     # re-deriving it. Falls back to a fresh compute for a direct caller.
-    state = ctx.health_state or compute_health_state(state_dir, now)
+    state = ctx.health_state or compute_health_state(
+        state_dir, now, ctx.root_state_dir)
 
     severity = state["severity"]
     anomalies = state["anomalies"]
     banner_html = (
         _anomaly_banner_html(severity, anomalies) if severity != "ok" else "")
+    if status == device_scope.STATUS_OFFLINE:
+        banner_html = _device_unreachable_html(ctx, now) + banner_html
 
     # Registry (filesystem/JSON) and stats (SQLite) stay independent
     # reads. Reuses state["registry_rows"] when already computed.
@@ -1032,7 +1091,7 @@ def render(ctx):
 
     screen_rows = (
         _connection_row(state, now)
-        + _battery_row(state, ctx.battery_critical))
+        + _battery_row(state, ctx.battery_critical, ctx.device))
     server_rows = (
         _flight_data_row(state, now) + _sources_row(state)
         + _identification_row(stats, len(registry_rows))

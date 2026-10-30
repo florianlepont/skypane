@@ -67,6 +67,7 @@ import sys
 import tempfile
 import threading
 import time
+from collections import namedtuple
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -80,7 +81,10 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from server import device_policy, firmware_registry, fleet_db, hardware, image_container, state_store
+from server import (
+    device_dirs, device_policy, firmware_registry, fleet_db, hardware, history_db,
+    image_container, state_store,
+)
 from server.panel_format import HEIGHT, WIDTH
 
 IMAGE_BYTES = 960000
@@ -571,6 +575,21 @@ def read_quiet_hours(state_dir):
     return device_policy.quiet_hours_window(data)
 
 
+def read_timezone(state_dir):
+    """The IANA zone saved in device_config.json for the quiet-hours
+    window, or the default zone. Never raises; a missing, unreadable or
+    non-dict document degrades to the default.
+    """
+    try:
+        with open(device_config_path(state_dir)) as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return device_policy.timezone_for(None)
+    if not isinstance(data, dict):
+        return device_policy.timezone_for(None)
+    return device_policy.timezone_for(data)
+
+
 def display_off_sleep_s(base_sleep_s, state_dir):
     """Return the sleep_s to feed into quiet_hours_sleep_s() as its base:
     exactly DISPLAY_OFF_SLEEP_S (300) when the display is off, otherwise
@@ -631,7 +650,8 @@ def quiet_hours_sleep_s(base_sleep_s, state_dir, now=None):
     start_hm, end_hm = window
     if now is None:
         now = datetime.now(timezone.utc)
-    remaining = seconds_until_quiet_hours_end(now, start_hm, end_hm)
+    remaining = seconds_until_quiet_hours_end(
+        now, start_hm, end_hm, read_timezone(state_dir))
     if remaining is None:
         return base_sleep_s
     return max(base_sleep_s, remaining)
@@ -646,6 +666,7 @@ IMG_KEEP = 8
 
 _IMG_NAME_RE = re.compile(r"\A[0-9a-f]{64}\.bin\Z")
 _IMG_PATH_RE = re.compile(r"\A/img/([0-9a-f]{64})\.bin\Z")
+_DEVICE_IMG_PATH_RE = re.compile(r"\A/img/(d_[0-9a-f]{8})/([0-9a-f]{64})\.bin\Z")
 
 # Matched against the raw request path (never a query-stripped copy), so
 # a query string, a trailing extra path segment, or an uppercase digest
@@ -661,7 +682,7 @@ def _img_dir(state_dir):
     return os.path.join(state_dir, IMG_DIRNAME)
 
 
-def _served_image(announced, image):
+def _served_image(announced, image, width=WIDTH, height=HEIGHT):
     """The bytes to serve for an X-Img-Fmt announcement.
 
     A frame that announces no usable container version gets the panel file
@@ -672,7 +693,7 @@ def _served_image(announced, image):
     version = image_container.negotiate_version(announced)
     if version is None:
         return image
-    return image_container.encode_container(image, WIDTH, HEIGHT, version=version)
+    return image_container.encode_container(image, width, height, version=version)
 
 
 def _publish_image(state_dir, digest, image):
@@ -914,6 +935,148 @@ def resolve_hardware_type(state_dir, mac):
     return stored
 
 
+# --- Token to device context -------------------------------------------
+#
+# Every display poll is bound to exactly one device: the token resolves to
+# a MAC, the MAC to a fleet.db row, the row's state_path to a directory
+# through device_dirs (the only code that turns a stored path into a
+# filesystem path). A failure at any step is an explicit refusal; nothing
+# ever falls back to the live frame's image or root state.
+DeviceContext = namedtuple(
+    "DeviceContext",
+    "device_id mac state_dir image_path width height expected_bytes is_live")
+_NO_DEVICE = object()
+_STATE_UNAVAILABLE = object()
+
+
+def _authenticate_device(headers, state_dir, legacy_state):
+    """The MAC whose token the request presents, or None. Every candidate
+    is compared with hmac.compare_digest and the loop never exits early,
+    so timing does not reveal which token (if any) matched.
+    """
+    auth = headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return None
+    presented = auth[len("Bearer "):].encode("utf-8", "surrogateescape")
+    matched = None
+    candidates = effective_tokens(state_dir, legacy_state)
+    for mac, stored in list(candidates.items()):
+        stored_bytes = stored.encode("utf-8", "surrogateescape")
+        if hmac.compare_digest(presented, stored_bytes):
+            matched = mac
+    return matched
+
+
+def _fleet_row(state_dir, lookup):
+    """`lookup(conn)` against a migrated, readable fleet.db: the row, None
+    when it has no such row, or _FLEET_UNAVAILABLE when fleet.db cannot
+    answer. Never raises.
+    """
+    try:
+        conn = fleet_db.connect_readonly(state_dir)
+    except fleet_db.FleetDbAbsent:
+        _note_fleet_status(state_dir, fleet_db.STATUS_ABSENT)
+        return _FLEET_UNAVAILABLE
+    except (fleet_db.FleetDbError, sqlite3.Error, OSError) as exc:
+        _note_fleet_status(state_dir, fleet_db.STATUS_FAULT, type(exc).__name__)
+        return _FLEET_UNAVAILABLE
+    try:
+        if fleet_db.meta_get(conn, fleet_db.META_MIGRATED) is None:
+            _note_fleet_status(state_dir, fleet_db.STATUS_ABSENT)
+            return _FLEET_UNAVAILABLE
+        return lookup(conn)
+    except (fleet_db.FleetDbError, sqlite3.Error, OSError) as exc:
+        _note_fleet_status(state_dir, fleet_db.STATUS_FAULT, type(exc).__name__)
+        return _FLEET_UNAVAILABLE
+    finally:
+        conn.close()
+
+
+def _row_by_mac(mac):
+    return lambda conn: conn.execute(
+        "SELECT id, hardware_type, state_path FROM devices WHERE mac = ?",
+        (mac,)).fetchone()
+
+
+def _row_by_id(device_id):
+    return lambda conn: conn.execute(
+        "SELECT id, hardware_type, state_path FROM devices WHERE id = ?",
+        (device_id,)).fetchone()
+
+
+def _live_context(args, mac, device_id=None):
+    return DeviceContext(device_id, mac, args.state_dir, args.image,
+                         WIDTH, HEIGHT, IMAGE_BYTES, True)
+
+
+def _context_without_fleet_db(args, mac):
+    """The live frame's context, or _STATE_UNAVAILABLE, while fleet.db
+    cannot answer. An install without a devices/ directory has only the
+    live frame, so every authenticated MAC is it. Once per-device state
+    exists only a MAC recorded as live is served the live image and
+    state; any other MAC, or a missing or unreadable record, is refused.
+    """
+    if not device_dirs.devices_dir_exists(args.state_dir):
+        return _live_context(args, mac)
+    live_macs = device_dirs.read_live_macs(args.state_dir)
+    if live_macs is not None and mac in live_macs:
+        return _live_context(args, mac)
+    return _STATE_UNAVAILABLE
+
+
+def _device_context(args, state, mac):
+    """The DeviceContext for `mac`, or _NO_DEVICE (answer 401) when fleet.db
+    is usable but has no row for it, or _STATE_UNAVAILABLE (answer 503)
+    when the stored state_path or hardware type cannot be used. With
+    fleet.db unusable see _context_without_fleet_db.
+    """
+    row = _fleet_row(args.state_dir, _row_by_mac(mac))
+    if row is _FLEET_UNAVAILABLE:
+        return _context_without_fleet_db(args, mac)
+    if row is None:
+        return _NO_DEVICE
+    try:
+        directory = device_dirs.resolve_state_dir(args.state_dir, row["state_path"])
+    except (ValueError, TypeError, OSError):
+        return _STATE_UNAVAILABLE
+    if row["state_path"] == device_dirs.LIVE_STATE_PATH:
+        return _live_context(args, mac, row["id"])
+    try:
+        profile = hardware.get_profile(row["hardware_type"], os.environ)
+    except (hardware.UnknownHardwareType, TypeError):
+        return _STATE_UNAVAILABLE
+    return DeviceContext(
+        row["id"], mac, directory,
+        os.path.join(directory, device_dirs.PANEL_FILENAME),
+        profile.width, profile.height, (profile.width // 2) * profile.height,
+        False)
+
+
+def _parse_rssi_header(raw):
+    if not isinstance(raw, str) or not re.fullmatch(r"-?[0-9]{1,3}", raw):
+        return None
+    return int(raw)
+
+
+def _record_device_health(device_state_dir, headers, battery_mv):
+    """Best-effort device_health row in a non-live device's own history
+    database. A failure never changes the poll's response.
+    """
+    boot_reason = headers.get("X-Boot-Reason")
+    if not isinstance(boot_reason, str) or not _FW_VERSION_HEADER_RE.match(boot_reason):
+        boot_reason = None
+    try:
+        with history_db.open_db(device_state_dir) as conn:
+            history_db.record_device_health(
+                conn, datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                battery_mv=battery_mv,
+                fw_version=parse_fw_version_header(headers.get("X-Fw-Version")),
+                boot_reason=boot_reason,
+                rssi=_parse_rssi_header(headers.get("X-Rssi")))
+    except (OSError, sqlite3.Error):
+        pass
+
+
 def _offer_for_type(registry, entry, battery_low_active, base_url, hardware_type):
     """compute_offer() over one type's document, withheld unless the
     matched release belongs to `hardware_type` as well.
@@ -1000,7 +1163,8 @@ def _write_device_report(state_dir, doc):
     _atomic_write(path, json.dumps(doc, indent=1, sort_keys=True))
 
 
-def _record_device_report_and_offer(state_dir, state, headers, image_url_scheme, host):
+def _record_device_report_and_offer(
+        state_dir, state, headers, image_url_scheme, host, device_state_dir=None):
     """The single call GET /device/v1/display makes for the whole OTA
     offer contract: parse this request's X-Fw-Version/X-Ota-Result,
     resolve which device sent it, update firmware/device_report.json
@@ -1010,7 +1174,10 @@ def _record_device_report_and_offer(state_dir, state, headers, image_url_scheme,
     has just been offered is no longer cancellable from that instant.
     Any failure raised by the write below is the caller's to treat as
     no offer, never an error response; the registry/device-report reads
-    this function makes are already tolerant and never raise.
+    this function makes are already tolerant and never raise. The OTA
+    registry and device report always live under `state_dir`;
+    `device_state_dir` (default `state_dir`) only supplies the device's
+    own battery-low flag.
     """
     fw_version = parse_fw_version_header(headers.get("X-Fw-Version"))
     ota_result = parse_ota_result_header(headers.get("X-Ota-Result"))
@@ -1040,7 +1207,8 @@ def _record_device_report_and_offer(state_dir, state, headers, image_url_scheme,
     # as "no offer this poll", never a 500.
     with firmware_registry.registry_lock(state_dir), _device_report_lock:
         registry = _registry_for_type(state_dir, hardware_type)
-        battery_low_active = read_battery_low_active(state_dir)
+        battery_low_active = read_battery_low_active(
+            state_dir if device_state_dir is None else device_state_dir)
         schedule = registry.get("schedule")
         schedule_id = schedule.get("id") if schedule is not None else None
         schedule_version = schedule.get("version") if schedule is not None else None
@@ -1229,101 +1397,132 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/device/v1/display":
-            if not self.bearer_ok():
-                return self.send_json(401, {"detail": "unknown token"})
-            self.log_telemetry()
-            # Strictly after the bearer_ok() gate above, so an
-            # unauthenticated or wrong-token caller can never pin a
-            # victim frame's panel into a permanent low-battery warning.
-            # A telemetry side-effect must never turn a healthy panel
-            # poll into a 500 - a full or read-only state directory
-            # degrades to "no battery signal", which server/poll_cycle.py
-            # already treats as legitimate (this is the only place
-            # battery_state.json is written).
-            battery_mv = parse_battery_mv(self.headers.get("X-Battery-Mv"))
-            if battery_mv is not None:
-                try:
-                    save_battery_state(self.args.state_dir, battery_mv)
-                except OSError:
-                    pass
-            try:
-                with open(self.args.image, "rb") as fh:
-                    image = fh.read()
-            except OSError:
-                return self.send_json(503, {"detail": "image unreadable"})
-            if len(image) != IMAGE_BYTES:
-                return self.send_json(503, {"detail": "image wrong size"})
-            served = _served_image(self.headers.get("X-Img-Fmt"), image)
-            digest = hashlib.sha256(served).hexdigest()
-            try:
-                _publish_image(self.args.state_dir, digest, served)
-            except OSError:
-                return self.send_json(503, {"detail": "image unavailable"})
-            host = self.headers.get("Host", "localhost")
-            try:
-                offer = _record_device_report_and_offer(
-                    self.args.state_dir, self.state, self.headers,
-                    self.args.image_url_scheme, host)
-            except OSError:
-                # A full or read-only state dir degrades to "no offer",
-                # never a 500 - the panel poll above already succeeded
-                # and must still be answered.
-                offer = None
-            return self.send_json(200, {
-                "image_url": "%s://%s/img/%s.bin" % (
-                    self.args.image_url_scheme, host, digest),
-                "image_hash": "sha256:" + digest,
-                # sleep_s composes, in order: the companion Settings page's
-                # saved wake_interval_s (falling back to --sleep), the flat
-                # off-state cadence while display_enabled is false, the
-                # flat parked cadence while poll_cycle's battery-empty hold
-                # is active (unless this poll's own battery_mv already
-                # reports recovery), and the quiet-hours extension.
-                # Composition order is load-bearing - see each function's
-                # own docstring above; do not reorder the calls below.
-                "sleep_s": quiet_hours_sleep_s(
-                    battery_critical_sleep_s(
-                        display_off_sleep_s(
-                            read_wake_interval_s(self.args.state_dir, self.args.sleep),
-                            self.args.state_dir),
-                        self.args.state_dir, battery_mv),
-                    self.args.state_dir),
-                # The operator's scheduled release, gated by
-                # server/firmware_registry.py's compute_offer(): only
-                # when it differs from the device's own reported
-                # version, is at or above the version floor, has not
-                # already failed three times, and the device's own
-                # battery-low alert is not active. Deliberately does not
-                # go through quiet_hours_sleep_s()/display_off_sleep_s()
-                # above - a scheduled update reaches the frame at its
-                # next wake whatever the display/quiet-hours mode.
-                "firmware": offer,
-                "reset": False,
-                # The bring-up LED toggle: the firmware half can only be
-                # changed by reflashing the board, while this server-side
-                # half comes from the shared device_config.json document
-                # written by the companion app's Config page
-                # (server/device_config.py's save_device_config()).
-                "led_enabled": read_led_enabled(self.args.state_dir),
-            })
+            return self._handle_display()
         match = _IMG_PATH_RE.match(self.path)
         if match is not None:
-            path = os.path.join(_img_dir(self.args.state_dir), "%s.bin" % match.group(1))
-            try:
-                with open(path, "rb") as fh:
-                    image = fh.read()
-            except OSError:
-                return self.send_json(404, {"detail": "unknown image"})
-            self.send_response(200)
-            self.send_header("Content-Type", "application/octet-stream")
-            self.send_header("Content-Length", str(len(image)))
-            self.end_headers()
-            self.wfile.write(image)
-            return None
+            return self._serve_image_file(
+                _img_dir(self.args.state_dir), match.group(1))
+        match = _DEVICE_IMG_PATH_RE.match(self.path)
+        if match is not None:
+            return self._serve_device_image(match.group(1), match.group(2))
         match = _FW_PATH_RE.match(self.path)
         if match is not None:
             return self._serve_firmware_image(match.group(1))
         return self.send_json(404, {"detail": "unknown endpoint"})
+
+    def _serve_image_file(self, img_dir, digest):
+        """Send img_dir/<digest>.bin, or the unknown-image 404."""
+        path = os.path.join(img_dir, "%s.bin" % digest)
+        try:
+            with open(path, "rb") as fh:
+                image = fh.read()
+        except OSError:
+            return self.send_json(404, {"detail": "unknown image"})
+        self.send_response(200)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Content-Length", str(len(image)))
+        self.end_headers()
+        self.wfile.write(image)
+        return None
+
+    def _serve_device_image(self, device_id, digest):
+        """GET /img/<device id>/<sha>.bin: only that non-live device's own
+        img/ directory is read. The id must have a fleet.db row whose
+        state_path is a devices/ directory; every failure is the same 404.
+        """
+        row = _fleet_row(self.args.state_dir, _row_by_id(device_id))
+        if row is _FLEET_UNAVAILABLE or row is None:
+            return self.send_json(404, {"detail": "unknown image"})
+        if row["state_path"] == device_dirs.LIVE_STATE_PATH:
+            return self.send_json(404, {"detail": "unknown image"})
+        try:
+            directory = device_dirs.resolve_state_dir(
+                self.args.state_dir, row["state_path"])
+        except (ValueError, TypeError, OSError):
+            return self.send_json(404, {"detail": "unknown image"})
+        return self._serve_image_file(_img_dir(directory), digest)
+
+    def _handle_display(self):
+        mac = _authenticate_device(self.headers, self.args.state_dir, self.state)
+        if mac is None:
+            return self.send_json(401, {"detail": "unknown token"})
+        ctx = _device_context(self.args, self.state, mac)
+        if ctx is _NO_DEVICE:
+            return self.send_json(401, {"detail": "unknown token"})
+        if ctx is _STATE_UNAVAILABLE:
+            return self.send_json(503, {"detail": "device state unavailable"})
+        self.log_telemetry()
+        # Strictly after the authentication gate above, so an
+        # unauthenticated or wrong-token caller can never pin a
+        # victim frame's panel into a permanent low-battery warning.
+        # A telemetry side-effect must never turn a healthy panel
+        # poll into a 500 - a full or read-only state directory
+        # degrades to "no battery signal", which server/poll_cycle.py
+        # already treats as legitimate.
+        battery_mv = parse_battery_mv(self.headers.get("X-Battery-Mv"))
+        if battery_mv is not None:
+            try:
+                save_battery_state(ctx.state_dir, battery_mv)
+            except OSError:
+                pass
+        try:
+            with open(ctx.image_path, "rb") as fh:
+                image = fh.read()
+        except OSError:
+            return self.send_json(503, {"detail": "image unreadable"})
+        if len(image) != ctx.expected_bytes:
+            return self.send_json(503, {"detail": "image wrong size"})
+        served = _served_image(
+            self.headers.get("X-Img-Fmt"), image, ctx.width, ctx.height)
+        digest = hashlib.sha256(served).hexdigest()
+        try:
+            _publish_image(ctx.state_dir, digest, served)
+        except OSError:
+            return self.send_json(503, {"detail": "image unavailable"})
+        host = self.headers.get("Host", "localhost")
+        try:
+            offer = _record_device_report_and_offer(
+                self.args.state_dir, self.state, self.headers,
+                self.args.image_url_scheme, host, ctx.state_dir)
+        except OSError:
+            # A full or read-only state dir degrades to "no offer",
+            # never a 500 - the panel poll above already succeeded
+            # and must still be answered.
+            offer = None
+        if ctx.is_live:
+            image_path = "/img/%s.bin" % digest
+        else:
+            image_path = "/img/%s/%s.bin" % (ctx.device_id, digest)
+            _record_device_health(ctx.state_dir, self.headers, battery_mv)
+        return self.send_json(200, {
+            "image_url": "%s://%s%s" % (
+                self.args.image_url_scheme, host, image_path),
+            "image_hash": "sha256:" + digest,
+            # sleep_s composes, in order: the saved wake_interval_s
+            # (falling back to --sleep), the flat off-state cadence while
+            # display_enabled is false, the flat parked cadence while
+            # poll_cycle's battery-empty hold is active (unless this
+            # poll's own battery_mv already reports recovery), and the
+            # quiet-hours extension. Composition order is load-bearing -
+            # see each function's own docstring above; do not reorder.
+            "sleep_s": quiet_hours_sleep_s(
+                battery_critical_sleep_s(
+                    display_off_sleep_s(
+                        read_wake_interval_s(ctx.state_dir, self.args.sleep),
+                        ctx.state_dir),
+                    ctx.state_dir, battery_mv),
+                ctx.state_dir),
+            # The operator's scheduled release, gated by
+            # server/firmware_registry.py's compute_offer(). Deliberately
+            # does not go through quiet_hours_sleep_s()/display_off_sleep_s()
+            # above - a scheduled update reaches the frame at its next
+            # wake whatever the display/quiet-hours mode.
+            "firmware": offer,
+            "reset": False,
+            # The bring-up LED toggle, from the device's own
+            # device_config.json (server/device_config.py).
+            "led_enabled": read_led_enabled(ctx.state_dir),
+        })
 
     def _serve_firmware_image(self, sha256):
         """Stream firmware/<sha>.bin for a `sha256` that is both a

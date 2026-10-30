@@ -13,6 +13,13 @@ The policy table is written by hand and states the intended policy per
 route independently of each route's own `access` field. When a real
 device-scoped route (`/d/<id>/...`) is added to the table it needs a row
 here; the completeness test names the missing route.
+
+Routes that act on one device also resolve under `/devices/<id>/...`. The
+hand-written `DEVICE_SCOPED` set names them, and each is exercised under a
+real device prefix with the same expectation as its un-prefixed counterpart:
+anonymous is sent to sign-in, a role below the route's minimum gets the
+unknown-path 404, and the device is only looked up after that decision (an
+anonymous caller gets the same sign-in redirect for an unknown id).
 """
 import time
 
@@ -79,6 +86,22 @@ ROUTE_POLICY = {
 }
 ROUTE_POLICY.update({("GET", path): PUBLIC for path in _STATIC_PATHS})
 
+# The routes that act on one device and so also resolve under a
+# `/devices/<id>` prefix. Every other route must refuse the prefix.
+DEVICE_SCOPED = frozenset(
+    [("GET", path) for path in (
+        "/", "/display", "/device", "/flights", "/health", "/airlines",
+        "/settings", "/history", "/preview", "/gallery/{}",
+        "/illustration/{}.png", "/theme-preview/{}.png",
+        "/frame-preview/{}.png")]
+    + [("POST", path) for path in (
+        "/settings", "/poll-now", "/quick/display", "/quick/quiet-hours",
+        "/quick/led", "/airlines/resolve", "/airlines/rename",
+        "/airlines/rename/reset", "/airlines/manual-resolutions/{}/delete",
+        "/illustration/{}.png", "/settings/rules/add",
+        "/settings/calendar/disconnect", "/settings/calendar/connect",
+        "/settings/rules/{}/delete")])
+
 # Policy -> principal -> outcome, hand-written. A disabled, deleted or
 # expired session resolves to no principal, so it reads as anonymous.
 OUTCOMES = {
@@ -135,6 +158,12 @@ _CELLS = [(key, name) for key in _REAL_KEYS for name in PRINCIPAL_NAMES]
 _CELL_IDS = [
     "%s_%s_%s" % (key[0], key[1].strip("/").replace("/", "_") or "root", name)
     for key, name in _CELLS]
+_SCOPED_KEYS = [key for key in _REAL_KEYS if key in DEVICE_SCOPED]
+_UNSCOPED_KEYS = [key for key in _REAL_KEYS if key not in DEVICE_SCOPED]
+_SCOPED_CELLS = [(key, name) for key in _SCOPED_KEYS for name in PRINCIPAL_NAMES]
+_SCOPED_CELL_IDS = [
+    "%s_%s_%s" % (key[0], key[1].strip("/").replace("/", "_") or "root", name)
+    for key, name in _SCOPED_CELLS]
 
 # --- completeness ------------------------------------------------------------
 
@@ -153,6 +182,29 @@ def test_every_route_has_a_policy_row_and_every_row_has_a_route():
 
 def test_no_route_is_declared_twice():
     assert len(_REAL_KEYS) == len(set(_REAL_KEYS))
+
+
+def test_the_device_scoped_set_is_exactly_the_hand_written_one():
+    actual = {_route_key(r) for r in _REAL_ROUTES if r.device_scoped}
+    assert actual == DEVICE_SCOPED
+    assert DEVICE_SCOPED <= set(ROUTE_POLICY)
+
+
+def test_no_public_route_resolves_under_a_device_prefix():
+    for route in _REAL_ROUTES:
+        if route.device_scoped:
+            assert route.access.min_role != access.ANONYMOUS
+
+
+def test_a_prefixed_route_never_has_less_access_than_its_base_route():
+    for key in _SCOPED_KEYS:
+        base = next(r for r in _REAL_ROUTES if _route_key(r) == key)
+        prefixed, match = routes.match(
+            key[0], "/devices/d_00000000" + _sample_path(key), "")
+        assert match.device_id == "d_00000000"
+        assert prefixed.access == base.access
+        assert prefixed.access == routes.Access(
+            access.ADMIN if ROUTE_POLICY[key] == ADMIN_ONLY else access.USER, None)
 
 
 def test_a_dummy_route_without_a_row_is_reported(monkeypatch):
@@ -281,6 +333,71 @@ def test_http_outcome_matches_the_policy_table(rig, stubbed, key, name):
         assert status == 404
         assert body == _unknown_path_404(rig, cookie)
         assert stubbed.calls == []
+
+
+def _scoped_path(device_id, key):
+    return "/devices/" + device_id + _sample_path(key)
+
+
+@pytest.mark.parametrize("key,name", _SCOPED_CELLS, ids=_SCOPED_CELL_IDS)
+def test_http_outcome_under_a_device_prefix_matches_the_base_route(
+        rig, stubbed, key, name):
+    method = key[0]
+    cookie = rig.cookies[name]
+    expected = OUTCOMES[ROUTE_POLICY[key]][name]
+
+    status, headers, body = rig.request(
+        method, _scoped_path(rig.fleet.owner_device, key), cookie)
+
+    if expected == "allow":
+        assert status == 200 and body == REACHED_BODY
+        assert stubbed.calls == [(method, _sample_path(key))]
+    elif expected == "login":
+        assert status == 303
+        location = headers.get("Location")
+        assert location == "/login" or location.startswith("/login?next=")
+        assert stubbed.calls == []
+    else:
+        assert status == 404
+        assert body == _unknown_path_404(rig, cookie)
+        assert stubbed.calls == []
+
+
+@pytest.mark.parametrize("key", _SCOPED_KEYS, ids=[
+    "%s_%s" % (k[0], k[1].strip("/").replace("/", "_") or "root")
+    for k in _SCOPED_KEYS])
+def test_an_unknown_device_id_is_404_for_a_permitted_caller_and_login_for_anonymous(
+        rig, stubbed, key):
+    method = key[0]
+    path = _scoped_path(UNKNOWN_ID, key)
+    for who in ("admin", "legacy-admin"):
+        status, _h, body = rig.request(method, path, rig.cookies[who])
+        assert status == 404
+        assert body == _unknown_path_404(rig, rig.cookies[who])
+    status, headers, _b = rig.request(method, path, None)
+    # Sign-in first: an anonymous caller never learns whether the id exists.
+    assert status == 303 and headers["Location"].startswith("/login")
+    known_status, known_headers, _b = rig.request(
+        method, _scoped_path(rig.fleet.owner_device, key), None)
+    assert known_status == 303
+    assert known_headers["Location"].startswith("/login")
+    assert stubbed.calls == []
+
+
+@pytest.mark.parametrize("key", _UNSCOPED_KEYS, ids=[
+    "%s_%s" % (k[0], k[1].strip("/").replace("/", "_") or "root")
+    for k in _UNSCOPED_KEYS])
+def test_a_global_route_is_not_reachable_under_a_device_prefix(rig, stubbed, key):
+    method = key[0]
+    path = _scoped_path(rig.fleet.owner_device, key)
+    for who in ("anonymous", "admin"):
+        cookie = rig.cookies[who]
+        status, headers, body = rig.request(method, path, cookie)
+        if who == "anonymous":
+            assert status == 404 and body == _unknown_path_404(rig, None)
+        else:
+            assert status == 404 and body == _unknown_path_404(rig, cookie)
+    assert stubbed.calls == []
 
 
 def test_a_user_404_shows_no_health_dot_and_no_admin_navigation(rig, stubbed):

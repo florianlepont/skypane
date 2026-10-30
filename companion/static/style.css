@@ -1602,6 +1602,54 @@ select.visually-hidden {
   display: none;
 }
 
+/* Device selector above the page title (several devices only). Quiet
+ * chrome: no accent, no card. A wrapping flex row; below 960px the caption
+ * and the select each take a full line, so the select spans the content
+ * column. The no-script submit stays visible until nav-dropdown.js arms the
+ * form with --armed, so a blocked or failed script never hides it. */
+.device-selector {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-md);
+}
+
+.device-selector__label {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.device-selector select {
+  flex: 1 1 100%;
+  min-width: 0;
+  max-width: 24rem;
+}
+
+.device-selector__go {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.device-selector--armed .device-selector__go {
+  display: none;
+}
+
+@media (min-width: 960px) {
+  .device-selector__label {
+    flex: none;
+  }
+
+  .device-selector select {
+    flex: 0 1 24rem;
+  }
+}
+
 .refresh-pill {
   display: inline-flex;
   align-items: center;
@@ -1881,6 +1929,29 @@ button:disabled {
 .quiet-dial-summary {
   margin-top: var(--space-md);
   text-align: center;
+}
+
+.quiet-timezone {
+  margin-top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.quiet-timezone select {
+  max-width: 100%;
+}
+
+/* The helper line shares .section-caption's muted voice without using that
+ * class: the card keeps exactly one section caption. */
+.quiet-timezone__helper {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  margin: 0;
+}
+
+.quiet-timezone .field-error {
+  margin: 0;
 }
 
 .quiet-times-row {

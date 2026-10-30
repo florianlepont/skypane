@@ -287,6 +287,7 @@ def _apply_device(
             name=LIVE_DEVICE_NAME,
             token=legacy.tokens.get(mac),
             state_path=LIVE_STATE_PATH,
+            allow_shared_live=True,
         )
     elif kind == "sync_secret":
         fleet_db.set_device_secret(conn, mac, legacy.devices[mac])

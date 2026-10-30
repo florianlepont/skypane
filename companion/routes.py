@@ -8,6 +8,15 @@ duplicated here as literals instead, the same "duplicated-not-imported"
 contract `app.py`'s own `QUICK_*_ROUTE` constants already document for
 the identical reason.
 
+Routes that act on one device carry `device_scoped=True`; only those also
+resolve under a `/devices/<id>` prefix (`match()` strips the prefix and
+reports the id on `RouteMatch.device_id`). Global routes (login, logout,
+theme, language, static assets, runway diagrams, update) never match under
+the prefix. The set is declared once in `_DEVICE_SCOPED_KEYS`. A prefixed
+route carries exactly the `access` of its un-prefixed counterpart, so it is
+never less protected; the dispatcher applies that decision before it looks
+the device up.
+
 Only two matcher shapes exist: `Exact` (a fixed literal path) and
 `PrefixSuffix` (a fixed prefix and, for every route but the gallery one,
 a fixed suffix too) - a captured middle segment is recovered by slicing
@@ -20,14 +29,22 @@ GET /login, the sign-in start and callback, and the static assets in `companion/
 admin role (every global page and mutation).
 """
 import collections
+import re
 
-from companion import access as _access, layout, static_files, theme_preview
+from companion import access as _access, device_scope, layout, static_files, theme_preview
 from companion.pages import (
     airlines_page, config_page, health_page, history_page, home_page, update_page)
 
 Exact = collections.namedtuple("Exact", "path")
 PrefixSuffix = collections.namedtuple("PrefixSuffix", "prefix suffix")
-RouteMatch = collections.namedtuple("RouteMatch", "path query captured")
+# `device_id` is None for an un-prefixed match; `device` is filled in later
+# by the dispatcher once the id has been looked up.
+RouteMatch = collections.namedtuple(
+    "RouteMatch", "path query captured device_id device", defaults=(None, None))
+
+# Anchored on the raw path (never percent-decoded); `\Z` and the absence of
+# DOTALL keep a newline from slipping into the id or the remainder.
+DEVICE_PREFIX_RE = re.compile(r"\A/devices/(d_[0-9a-f]{8})(/.*)?\Z")
 
 ANONYMOUS = _access.ANONYMOUS
 USER = _access.USER
@@ -43,21 +60,24 @@ SIGNED_IN = Access(USER, None)
 ADMIN_ONLY = Access(ADMIN, None)
 
 
-class Route(collections.namedtuple("Route", "method matcher handler access")):
+class Route(collections.namedtuple(
+        "Route", "method matcher handler access device_scoped")):
     """One table entry. Refuses to exist without a valid Access, so a route
     cannot register without a policy (a bool or nothing raises at import).
+
+    `device_scoped` routes also resolve under a `/devices/<id>` prefix and
+    there inherit `access` unchanged.
     """
 
     __slots__ = ()
 
-    def __new__(cls, method, matcher, handler, access):
+    def __new__(cls, method, matcher, handler, access, device_scoped=False):
         if (
             not isinstance(access, Access)
             or access.min_role not in (ANONYMOUS, USER, ADMIN)
         ):
             raise TypeError("every route needs an explicit Access annotation")
-        return super().__new__(cls, method, matcher, handler, access)
-
+        return super().__new__(cls, method, matcher, handler, access, device_scoped)
 
 # Literal here, byte-identical to companion/app.py's own constants of the
 # same name, since this module can never import companion.app either.
@@ -127,55 +147,65 @@ _GET_ROUTES = (
         Route("GET", Exact(ACCOUNT_ROUTE), lambda h, m: h._handle_account_get(), SIGNED_IN),
         Route(
             "GET", Exact(HOME_ROUTE),
-            lambda h, m: h._render_tab(HOME_ROUTE, home_page.render), ADMIN_ONLY),
+            lambda h, m: h._render_tab(HOME_ROUTE, home_page.render, m.device), ADMIN_ONLY),
         Route(
             "GET", Exact(DISPLAY_ROUTE),
             lambda h, m: h._render_tab(
                 DISPLAY_ROUTE,
-                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)),
+                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DISPLAY),
+                m.device),
             ADMIN_ONLY),
         Route(
             "GET", Exact(DEVICE_ROUTE),
             lambda h, m: h._render_tab(
                 DEVICE_ROUTE,
-                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DEVICE)),
+                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DEVICE),
+                m.device),
             ADMIN_ONLY),
         Route(
             "GET", Exact(FLIGHTS_ROUTE),
-            lambda h, m: h._render_tab(FLIGHTS_ROUTE, history_page.render), ADMIN_ONLY),
+            lambda h, m: h._render_tab(FLIGHTS_ROUTE, history_page.render, m.device), ADMIN_ONLY),
         Route(
             "GET", Exact(HEALTH_ROUTE),
-            lambda h, m: h._render_tab(HEALTH_ROUTE, health_page.render), ADMIN_ONLY),
+            lambda h, m: h._render_tab(HEALTH_ROUTE, health_page.render, m.device), ADMIN_ONLY),
         Route(
             "GET", Exact(AIRLINES_ROUTE),
-            lambda h, m: h._render_tab(AIRLINES_ROUTE, airlines_page.render), ADMIN_ONLY),
+            lambda h, m: h._render_tab(AIRLINES_ROUTE, airlines_page.render, m.device), ADMIN_ONLY),
         Route(
             "GET", Exact(UPDATE_ROUTE),
             lambda h, m: h._render_tab(
                 UPDATE_ROUTE,
-                lambda ctx: update_page.render(ctx, h._requested_update_type())),
+                lambda ctx: update_page.render(ctx, h._requested_update_type()),
+                m.device),
             ADMIN_ONLY),
         # The pre-refactor page routes survive as fixed 303s so a stale
         # bookmark or link still lands somewhere useful. The targets are
-        # literals, never derived from any request value.
-        Route("GET", Exact(SETTINGS_ROUTE), lambda h, m: h.redirect(DISPLAY_ROUTE), ADMIN_ONLY),
-        Route("GET", Exact(HISTORY_LEGACY_ROUTE), lambda h, m: h.redirect(FLIGHTS_ROUTE), ADMIN_ONLY),
-        Route("GET", Exact(PREVIEW_PAGE_ROUTE), lambda h, m: h.redirect(FLIGHTS_ROUTE), ADMIN_ONLY),
+        # literals, never derived from any request value; under a device
+        # prefix they keep that prefix.
+        Route(
+            "GET", Exact(SETTINGS_ROUTE),
+            lambda h, m: h.redirect(device_scope.scoped(DISPLAY_ROUTE)), ADMIN_ONLY),
+        Route(
+            "GET", Exact(HISTORY_LEGACY_ROUTE),
+            lambda h, m: h.redirect(device_scope.scoped(FLIGHTS_ROUTE)), ADMIN_ONLY),
+        Route(
+            "GET", Exact(PREVIEW_PAGE_ROUTE),
+            lambda h, m: h.redirect(device_scope.scoped(FLIGHTS_ROUTE)), ADMIN_ONLY),
         Route(
             "GET", PrefixSuffix(GALLERY_ROUTE_PREFIX, ""),
-            lambda h, m: h._serve_gallery_image(m.captured), ADMIN_ONLY),
+            lambda h, m: h._serve_gallery_image(m.device, m.captured), ADMIN_ONLY),
         Route(
             "GET", PrefixSuffix(RUNWAY_IMAGE_ROUTE_PREFIX, ".png"),
             lambda h, m: h._serve_runway_image(m.captured), ADMIN_ONLY),
         Route(
             "GET", PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png"),
-            lambda h, m: h._serve_illustration_image(m.captured), ADMIN_ONLY),
+            lambda h, m: h._serve_illustration_image(m.device, m.captured), ADMIN_ONLY),
         Route(
             "GET", PrefixSuffix(THEME_PREVIEW_ROUTE_PREFIX, ".png"),
-            lambda h, m: h._serve_theme_preview_image(m.captured), ADMIN_ONLY),
+            lambda h, m: h._serve_theme_preview_image(m.device, m.captured), ADMIN_ONLY),
         Route(
             "GET", PrefixSuffix(FRAME_PREVIEW_ROUTE_PREFIX, ".png"),
-            lambda h, m: h._serve_frame_preview_image(m.captured), ADMIN_ONLY),
+            lambda h, m: h._serve_frame_preview_image(m.device, m.captured), ADMIN_ONLY),
     )
 )
 
@@ -183,14 +213,16 @@ _GET_ROUTES = (
 # order (the Origin/Sec-Fetch-Site gate runs before routes.match() is
 # ever called - see Handler._dispatch() - so it is not represented here).
 _POST_ROUTES = (
-    Route("POST", Exact(SETTINGS_ROUTE), lambda h, m: h._handle_settings_post(), ADMIN_ONLY),
-    Route("POST", Exact(POLL_ROUTE), lambda h, m: h._handle_poll_now(), ADMIN_ONLY),
+    Route(
+        "POST", Exact(SETTINGS_ROUTE),
+        lambda h, m: h._handle_settings_post(m.device), ADMIN_ONLY),
+    Route("POST", Exact(POLL_ROUTE), lambda h, m: h._handle_poll_now(m.device), ADMIN_ONLY),
     Route(
         "POST", Exact(QUICK_DISPLAY_ROUTE),
-        lambda h, m: h._handle_quick_toggle("display_enabled"), ADMIN_ONLY),
+        lambda h, m: h._handle_quick_toggle(m.device, "display_enabled"), ADMIN_ONLY),
     Route(
         "POST", Exact(QUICK_QUIET_HOURS_ROUTE),
-        lambda h, m: h._handle_quick_toggle("quiet_hours_enabled"), ADMIN_ONLY),
+        lambda h, m: h._handle_quick_toggle(m.device, "quiet_hours_enabled"), ADMIN_ONLY),
     # Session-checked POST only, no CSRF token - SameSite=Strict is the
     # only control here. return_to whitelist: /device is the LED
     # switch's only page, so it is both the sole allowed value and the
@@ -198,34 +230,35 @@ _POST_ROUTES = (
     Route(
         "POST", Exact(QUICK_LED_ROUTE),
         lambda h, m: h._handle_quick_toggle(
-            "led_enabled", allowed_return_to=(DEVICE_ROUTE,), fallback_return_to=DEVICE_ROUTE),
+            m.device, "led_enabled", allowed_return_to=(DEVICE_ROUTE,),
+            fallback_return_to=DEVICE_ROUTE),
         ADMIN_ONLY),
     Route("POST", Exact(THEME_ROUTE), lambda h, m: h._handle_theme_post(), SIGNED_IN),
     Route("POST", Exact(LANG_ROUTE), lambda h, m: h._handle_lang_post(), SIGNED_IN),
     Route("POST", Exact(LOGOUT_ROUTE), lambda h, m: h._handle_logout_post(), SIGNED_IN),
     Route(
         "POST", Exact(airlines_page.RESOLVE_ROUTE),
-        lambda h, m: h._handle_manual_resolve_post(), ADMIN_ONLY),
+        lambda h, m: h._handle_manual_resolve_post(m.device), ADMIN_ONLY),
     Route(
         "POST", Exact(airlines_page.RENAME_ROUTE),
-        lambda h, m: h._handle_airline_rename_post(), ADMIN_ONLY),
+        lambda h, m: h._handle_airline_rename_post(m.device), ADMIN_ONLY),
     Route(
         "POST", Exact(airlines_page.RENAME_RESET_ROUTE),
-        lambda h, m: h._handle_airline_rename_reset_post(), ADMIN_ONLY),
+        lambda h, m: h._handle_airline_rename_reset_post(m.device), ADMIN_ONLY),
     Route(
         "POST",
         PrefixSuffix(airlines_page.MANUAL_DELETE_ROUTE_PREFIX, airlines_page.MANUAL_DELETE_ROUTE_SUFFIX),
-        lambda h, m: h._handle_manual_resolution_delete(m.captured), ADMIN_ONLY),
+        lambda h, m: h._handle_manual_resolution_delete(m.device, m.captured), ADMIN_ONLY),
     Route(
         "POST", PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png"),
-        lambda h, m: h._handle_illustration_replace(m.captured), ADMIN_ONLY),
-    Route("POST", Exact(RULES_ADD_ROUTE), lambda h, m: h._handle_rule_add_post(), ADMIN_ONLY),
+        lambda h, m: h._handle_illustration_replace(m.device, m.captured), ADMIN_ONLY),
+    Route("POST", Exact(RULES_ADD_ROUTE), lambda h, m: h._handle_rule_add_post(m.device), ADMIN_ONLY),
     Route(
         "POST", Exact(CALENDAR_DISCONNECT_ROUTE),
-        lambda h, m: h._handle_calendar_disconnect_post(), ADMIN_ONLY),
+        lambda h, m: h._handle_calendar_disconnect_post(m.device), ADMIN_ONLY),
     Route(
         "POST", Exact(CALENDAR_CONNECT_ROUTE),
-        lambda h, m: h._handle_calendar_connect_post(), ADMIN_ONLY),
+        lambda h, m: h._handle_calendar_connect_post(m.device), ADMIN_ONLY),
     Route(
         "POST", Exact(UPDATE_INSTALL_ROUTE),
         lambda h, m: h._handle_update_install_post(), ADMIN_ONLY),
@@ -234,10 +267,67 @@ _POST_ROUTES = (
         lambda h, m: h._handle_update_cancel_post(), ADMIN_ONLY),
     Route(
         "POST", PrefixSuffix(RULES_DELETE_ROUTE_PREFIX, RULES_DELETE_ROUTE_SUFFIX),
-        lambda h, m: h._handle_rule_delete_post(m.captured), ADMIN_ONLY),
+        lambda h, m: h._handle_rule_delete_post(m.device, m.captured), ADMIN_ONLY),
 )
 
-ROUTES = _GET_ROUTES + _POST_ROUTES
+_PAGE_AND_IMAGE_KEYS = (
+    ("GET", Exact(HOME_ROUTE)),
+    ("GET", Exact(DISPLAY_ROUTE)),
+    ("GET", Exact(DEVICE_ROUTE)),
+    ("GET", Exact(FLIGHTS_ROUTE)),
+    ("GET", Exact(HEALTH_ROUTE)),
+    ("GET", Exact(AIRLINES_ROUTE)),
+    ("GET", Exact(SETTINGS_ROUTE)),
+    ("GET", Exact(HISTORY_LEGACY_ROUTE)),
+    ("GET", Exact(PREVIEW_PAGE_ROUTE)),
+    ("GET", PrefixSuffix(GALLERY_ROUTE_PREFIX, "")),
+    ("GET", PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png")),
+    ("GET", PrefixSuffix(THEME_PREVIEW_ROUTE_PREFIX, ".png")),
+    ("GET", PrefixSuffix(FRAME_PREVIEW_ROUTE_PREFIX, ".png")),
+)
+
+_ACTION_KEYS = (
+    ("POST", Exact(SETTINGS_ROUTE)),
+    ("POST", Exact(POLL_ROUTE)),
+    ("POST", Exact(QUICK_DISPLAY_ROUTE)),
+    ("POST", Exact(QUICK_QUIET_HOURS_ROUTE)),
+    ("POST", Exact(QUICK_LED_ROUTE)),
+    ("POST", Exact(airlines_page.RESOLVE_ROUTE)),
+    ("POST", Exact(airlines_page.RENAME_ROUTE)),
+    ("POST", Exact(airlines_page.RENAME_RESET_ROUTE)),
+    ("POST", PrefixSuffix(
+        airlines_page.MANUAL_DELETE_ROUTE_PREFIX, airlines_page.MANUAL_DELETE_ROUTE_SUFFIX)),
+    ("POST", PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png")),
+    ("POST", Exact(RULES_ADD_ROUTE)),
+    ("POST", PrefixSuffix(RULES_DELETE_ROUTE_PREFIX, RULES_DELETE_ROUTE_SUFFIX)),
+    ("POST", Exact(CALENDAR_CONNECT_ROUTE)),
+    ("POST", Exact(CALENDAR_DISCONNECT_ROUTE)),
+)
+
+# The routes that act on a single device: 13 GET and 14 POST.
+_DEVICE_SCOPED_KEYS = frozenset(_PAGE_AND_IMAGE_KEYS + _ACTION_KEYS)
+
+ROUTES = tuple(
+    route._replace(device_scoped=(route.method, route.matcher) in _DEVICE_SCOPED_KEYS)
+    for route in _GET_ROUTES + _POST_ROUTES
+)
+
+
+def _match_in(routes, method, path, query, device_id):
+    for route in routes:
+        if route.method != method:
+            continue
+        matcher = route.matcher
+        if isinstance(matcher, Exact):
+            if path == matcher.path:
+                return route, RouteMatch(path, query, None, device_id)
+            continue
+        if path.startswith(matcher.prefix) and path.endswith(matcher.suffix):
+            captured = (
+                path[len(matcher.prefix):-len(matcher.suffix)] if matcher.suffix
+                else path[len(matcher.prefix):])
+            return route, RouteMatch(path, query, captured, device_id)
+    return None
 
 
 def match(method, path, query):
@@ -245,18 +335,15 @@ def match(method, path, query):
     matcher agree with `method`/`path` - the same first-branch-wins order
     the pre-table if-chains evaluated - else None. `query` is carried
     through unparsed onto RouteMatch for a handler that wants it.
+
+    A `/devices/<id>/...` path is matched on its remainder against the
+    `device_scoped` routes only, and the id is reported on the match; a
+    path that merely starts with `/devices/` but is not a well-formed
+    prefix goes through the plain loop and finds nothing.
     """
-    for route in ROUTES:
-        if route.method != method:
-            continue
-        matcher = route.matcher
-        if isinstance(matcher, Exact):
-            if path == matcher.path:
-                return route, RouteMatch(path, query, None)
-            continue
-        if path.startswith(matcher.prefix) and path.endswith(matcher.suffix):
-            captured = (
-                path[len(matcher.prefix):-len(matcher.suffix)] if matcher.suffix
-                else path[len(matcher.prefix):])
-            return route, RouteMatch(path, query, captured)
-    return None
+    prefixed = DEVICE_PREFIX_RE.match(path)
+    if prefixed is not None:
+        scoped_routes = tuple(route for route in ROUTES if route.device_scoped)
+        return _match_in(
+            scoped_routes, method, prefixed.group(2) or "/", query, prefixed.group(1))
+    return _match_in(ROUTES, method, path, query, None)

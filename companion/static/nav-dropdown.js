@@ -2,7 +2,8 @@
  * SkyPane companion service — nav-dropdown.js.
  *
  * Drives the mobile nav toggle/panel (open, close, Escape-to-close,
- * reduced-motion). No build step, ES5-safe subset. Served by
+ * reduced-motion) and arms the device selector (a change navigates to the
+ * chosen option's data-href, and the no-script submit is hidden). No build step, ES5-safe subset. Served by
  * companion/app.py's NAV_SCRIPT_ROUTE. Never a network call, a timer,
  * or persistent state; reads and writes attributes and class names
  * only, never element content or markup.
@@ -13,6 +14,23 @@
   // Runs unconditionally, even with no dropdown on the page, since
   // style.css's .js-scoped rules must never be left unresolved.
   document.documentElement.className += " js";
+
+  // Device selector: runs before the nav toggle lookup below, which returns
+  // early on a page without one. The armed class is added only after the
+  // change listener is attached, so a failed handler leaves the submit shown.
+  // Mirrors companion/ui_shell.py's DEVICE_SELECTOR_CLASS literals.
+  var selectorForm = document.querySelector("form.device-selector");
+  var selectorSelect = selectorForm && selectorForm.querySelector("select");
+  if (selectorSelect) {
+    selectorSelect.addEventListener("change", function () {
+      var option = selectorSelect.options[selectorSelect.selectedIndex];
+      var href = option && option.getAttribute("data-href");
+      if (href) {
+        window.location.assign(href);
+      }
+    });
+    selectorForm.className += " device-selector--armed";
+  }
 
   var toggle = document.getElementById("site-nav-toggle");
   var panel = document.getElementById("mobile-nav");

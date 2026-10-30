@@ -306,3 +306,85 @@ def test_fw_image_builder_outputs_parse_and_honour_options():
             firmware_image.parse_app_image(build_image("fw-v1.0.0", corrupt=name))
     with pytest.raises(ValueError):
         build_image("fw-v1.0.0", corrupt="nonsense")
+
+
+# --- Two-device fleet fixture ----------------------------------------------
+
+
+def _panel(path):
+    with open(os.path.join(path, "panel.bin"), "rb") as fh:
+        return fh.read()
+
+
+def test_two_device_fleet_has_three_rows_and_own_directories(tmp_path):
+    import skypane_two_device_fleet as tdf
+    from server import fleet_db, hardware
+
+    fleet = tdf.seed_two_device_fleet(str(tmp_path))
+    conn = fleet_db.connect_readonly(str(tmp_path))
+    try:
+        rows = {r["mac"]: r["state_path"] for r in fleet_db.list_devices(conn)}
+    finally:
+        conn.close()
+    assert rows == {
+        fleet.live.mac: ".",
+        fleet.dev_a.mac: "devices/" + fleet.dev_a.id,
+        fleet.dev_b.mac: "devices/" + fleet.dev_b.id,
+    }
+    profile = hardware.get_profile(
+        hardware.SIM_CLONE_KEY, {hardware.SIM_ENV_VAR: "1"})
+    for dev in (fleet.dev_a, fleet.dev_b):
+        assert os.path.isdir(dev.state_dir)
+        assert len(_panel(dev.state_dir)) == (profile.width // 2) * profile.height
+    assert _panel(fleet.dev_a.state_dir) != _panel(fleet.dev_b.state_dir)
+
+
+def test_two_device_fleet_tokens_authenticate(tmp_path):
+    import skypane_two_device_fleet as tdf
+    import byos_server
+
+    fleet = tdf.seed_two_device_fleet(str(tmp_path))
+    tokens = byos_server.effective_tokens(
+        str(tmp_path), byos_server.load_state(str(tmp_path)))
+    for dev in (fleet.live, fleet.dev_a, fleet.dev_b):
+        assert tokens[dev.mac] == dev.token
+        assert tdf.device_headers(dev)["Authorization"] == "Bearer %s" % dev.token
+    assert len({d.token for d in (fleet.live, fleet.dev_a, fleet.dev_b)}) == 3
+
+
+def test_two_device_fleet_leaves_live_frame_files_untouched(tmp_path):
+    import skypane_live_state as live
+    import skypane_two_device_fleet as tdf
+
+    root = str(tmp_path)
+    live.seed_live_like_state(root)
+    before = live.snapshot_dir(root)
+    # Re-seeding the same directory rewrites the live files with the same
+    # content; compare content digests of the files only the live frame owns.
+    import shutil
+    shutil.rmtree(root)
+    tdf.seed_two_device_fleet(root)
+    after = live.snapshot_dir(root)
+    # The legacy registries are rewritten by the dual write by design, and
+    # fleet.db plus devices/ belong to the fleet, not to the live frame.
+    shared = {"devices.json", "byos_state.json"}
+    for rel, (digest, _mtime) in before.items():
+        if rel in shared:
+            continue
+        assert after[rel][0] == digest, rel
+
+
+def test_two_device_fleet_landscape_device(tmp_path):
+    import skypane_two_device_fleet as tdf
+
+    fleet = tdf.seed_two_device_fleet(str(tmp_path), with_landscape=True)
+    assert len(_panel(fleet.landscape.state_dir)) == 192000
+
+
+def test_sim_hardware_env_restores_the_variable(monkeypatch):
+    import skypane_two_device_fleet as tdf
+
+    monkeypatch.delenv("SKYPANE_SIM_HARDWARE", raising=False)
+    with tdf.sim_hardware_env():
+        assert os.environ["SKYPANE_SIM_HARDWARE"] == "1"
+    assert "SKYPANE_SIM_HARDWARE" not in os.environ

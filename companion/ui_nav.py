@@ -7,6 +7,7 @@ route/label tables, icon lookup and escaping, plus companion.i18n/
 companion.prefs and companion.auth's theme-cookie name; no import from
 ui_components or ui_shell.
 """
+import companion.device_scope as device_scope
 import companion.i18n as i18n
 import companion.prefs as prefs
 from companion.auth import UI_THEME_COOKIE_NAME
@@ -92,7 +93,12 @@ def _nav_links(active):
         # The label is looked up through i18n.t() at render time — NAV_TABS/
         # NAV_GROUPS keep their English values; escape_html() still wraps the
         # result, exactly like any other t() call site.
-        links.append((is_active, escape_html(route), escape_html(i18n.t(label)), slug))
+        # The href goes through device_scope.scoped(); the slug and active
+        # state stay keyed on the un-prefixed route. Global routes (Update)
+        # are left alone by the helper.
+        links.append((
+            is_active, escape_html(device_scope.scoped(route)),
+            escape_html(i18n.t(label)), slug))
     return links
 
 
@@ -310,7 +316,8 @@ REFRESH_PENDING_ATTR = "data-pending"
 # permanently dead (it captures its DOM once). The registry card and its
 # filter bar are excluded for list-filter.js's sake.
 
-# `a[href="/health"]`, not a ".dot" selector, is the nav-severity target:
+# `a[href$="/health"]`, not a ".dot" selector, is the nav-severity target
+# (an ends-with match, so the prefixed link on a device page is found too):
 # the severity dot only exists in the DOM for "warn"/"error", so a
 # dot-only selector would have nothing to replace when severity clears.
 
@@ -354,7 +361,7 @@ REFRESH_SWAP_SELECTORS_BY_PAGE = {
         "div." + HEALTH_ANOMALY_CLASS,
         "section." + HEALTH_SOURCE_FAULT_CLASS,
         ".page-header__freshness",
-        'a[href="/health"]',
+        'a[href$="/health"]',
     ),
     REFRESH_PAGE_FLIGHTS: (
         ".page-header__freshness",

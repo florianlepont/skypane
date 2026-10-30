@@ -6,6 +6,7 @@ for escaping/icon lookup and the quick-action/frame-strip constant tables,
 and on companion.ui_time for the timestamp parsing and relative-time
 element frame_strip_html() renders; no import from ui_nav or ui_shell.
 """
+import companion.device_scope as device_scope
 import companion.frame_state as frame_state
 import companion.i18n as i18n
 import companion.page_context as page_context
@@ -360,6 +361,10 @@ def quick_switch_html(action, return_to, is_on, label_id, state_id, form_id=None
     post the flip, not re-assert its state. `form_id` is for the one
     caller whose switch cannot contain its own form (nested forms are
     invalid HTML): renders the button only, attached via `form=`.
+
+    On a non-live device's page the form action is carried under that
+    device's prefix; `return_to` stays the un-prefixed whitelisted route, which
+    the handler re-prefixes.
     """
     button_html = (
         '<button type="submit" class="switch" role="switch" aria-checked="%s"'
@@ -383,7 +388,7 @@ def quick_switch_html(action, return_to, is_on, label_id, state_id, form_id=None
         "%s"
         "</form>"
     ) % (
-        escape_html(action),
+        escape_html(device_scope.scoped(action, "POST")),
         QUICK_STATE_FIELD, escape_html(next_state),
         escape_html(return_to),
         button_html,
@@ -542,7 +547,7 @@ def _frame_quiet_cell_html(device_cfg, return_to, delay_caption_html):
             "/quick/quiet-hours", return_to, is_quiet_on,
             QUICK_SWITCH_QUIET_LABEL_ID, QUICK_SWITCH_QUIET_STATE_ID))
     quiet_schedule_link_html = '<a class="text-link frame-strip__schedule-link" href="%s#%s">%s</a>' % (
-        DISPLAY_ROUTE, _FRAME_QUIET_SCHEDULE_TARGET_ID,
+        device_scope.scoped(DISPLAY_ROUTE), _FRAME_QUIET_SCHEDULE_TARGET_ID,
         escape_html(i18n.t(_FRAME_QUIET_SCHEDULE_LINK_TEXT)))
     quiet_caption_html = delay_caption_html + quiet_schedule_link_html
     return _frame_strip_cell_html(

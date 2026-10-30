@@ -12,6 +12,7 @@ picture's flight line share one `history_db` read.
 """
 
 import companion.battery as battery
+import companion.device_scope as device_scope
 import companion.draw as draw
 import companion.flight_card as flight_card
 import companion.frame_state as frame_state
@@ -64,6 +65,13 @@ PANEL_FLIGHT_ALT_TEMPLATE = i18n.msg(
     "home.the_picture_currently_on_the_frame_flight",
     "The picture currently on the frame: %s")
 GALLERY_ROUTE_PREFIX = "/gallery/"
+
+# Shown instead of the shared "Nothing rendered yet" wording for a selected
+# device that has not been sent a picture yet.
+DEVICE_NO_IMAGE_HEADING = i18n.msg("home.device_no_image_heading", "No picture yet")
+DEVICE_NO_IMAGE_BODY = i18n.msg(
+    "home.device_no_image_body",
+    "The first image appears after a poll or the frame\u2019s first wake.")
 
 DIRECTION_DEPARTING_TEXT = i18n.msg("home.departing", "Departing")
 DIRECTION_ARRIVING_TEXT = i18n.msg("home.arriving", "Arriving")
@@ -196,6 +204,11 @@ def _current_picture_html(ctx, current_flight_row):
     entries = ctx.gallery_entries or []
     newest = entries[0] if entries else None
     if not newest:
+        device = ctx.device
+        if device is not None and not device.is_live:
+            return layout.empty_state(
+                i18n.t(DEVICE_NO_IMAGE_HEADING), i18n.t(DEVICE_NO_IMAGE_BODY),
+                compact=True)
         return layout.empty_state(i18n.t(NO_PANEL_HEADING), i18n.t(NO_PANEL_BODY))
 
     alt = i18n.t(PANEL_ALT_TEXT)
@@ -207,10 +220,12 @@ def _current_picture_html(ctx, current_flight_row):
 
     return (
         '<figure class="preview-frame">'
-        '<img class="preview-frame__image" src="%s%s" alt="%s" '
+        '<img class="preview-frame__image" src="%s" alt="%s" '
         'width="600" height="800" decoding="async">'
         "</figure>"
-    ) % (GALLERY_ROUTE_PREFIX, escape_html(newest), escape_html(alt))
+    ) % (
+        escape_html(device_scope.scoped(GALLERY_ROUTE_PREFIX + newest)),
+        escape_html(alt))
 
 
 def _recent_flight_thumb_html(row, state_dir):
@@ -232,8 +247,10 @@ def _recent_flight_thumb_html(row, state_dir):
         alt_text = i18n.t(THUMBNAIL_ALT_TEMPLATE) % panel_render.display_airline_name(raw_airline)
         return (
             '<img class="recent-flight__thumb" loading="lazy" decoding="async" '
-            'width="40" height="40" src="%s%s.png" alt="%s">'
-        ) % (ILLUSTRATION_ROUTE_PREFIX, key, escape_html(alt_text))
+            'width="40" height="40" src="%s" alt="%s">'
+        ) % (
+            device_scope.scoped("%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, key)),
+            escape_html(alt_text))
     return '<span class="recent-flight__thumb recent-flight__thumb--placeholder"></span>'
 
 
@@ -349,7 +366,7 @@ def _recent_flights_html(rows, now, state_dir):
         "</section>"
     ) % (
         escape_html(i18n.t(RECENT_FLIGHTS_HEADING)), body,
-        FLIGHTS_ROUTE, escape_html(i18n.t(RECENT_FLIGHTS_LINK_TEXT)))
+        device_scope.scoped(FLIGHTS_ROUTE), escape_html(i18n.t(RECENT_FLIGHTS_LINK_TEXT)))
 
 
 def _interval_text(interval_s):
@@ -449,7 +466,7 @@ def _next_update_html(next_iso, interval_s, hold_reason, now, base_interval_s):
 def _health_link_html():
     """The "See Health" pill shown once the frame is long overdue."""
     return '<a class="home-state__health-link" href="%s">%s%s</a>' % (
-        HEALTH_ROUTE, escape_html(i18n.t(SEE_HEALTH_TEXT)),
+        device_scope.scoped(HEALTH_ROUTE), escape_html(i18n.t(SEE_HEALTH_TEXT)),
         layout.icon_html("icon-chevron-right", 16))
 
 
@@ -501,7 +518,7 @@ def _switches_html(cfg):
     window_text = _quiet_window_text(cfg)
     window = (
         ' · <a class="home-switch__window time-value" href="%s#%s" aria-label="%s">%s</a>'
-        % (layout.DISPLAY_ROUTE, layout._FRAME_QUIET_SCHEDULE_TARGET_ID,
+        % (device_scope.scoped(layout.DISPLAY_ROUTE), layout._FRAME_QUIET_SCHEDULE_TARGET_ID,
            escape_html(i18n.t(EDIT_QUIET_HOURS_LABEL) % window_text),
            escape_html(window_text)))
     return (
@@ -644,7 +661,7 @@ def _action_needed_html(ctx):
         tone=layout.TOAST_TONE_ERROR if worst_is_error else layout.TOAST_TONE_WARNING,
         role="", docked=True, extra_class="home-action",
         action_html=layout.toast_link_action_html(
-            layout.HEALTH_ROUTE, i18n.t(ACTION_NEEDED_LINK_TEXT)))
+            device_scope.scoped(layout.HEALTH_ROUTE), i18n.t(ACTION_NEEDED_LINK_TEXT)))
 
 
 def render(ctx):

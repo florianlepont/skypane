@@ -8,6 +8,7 @@ step, and the allow-list that says where a finished flow returns to. Stdlib plus
 modules below; no server package import beyond the manual-resolutions and illustrations stores
 airlines_page already reads.
 """
+import companion.device_scope as device_scope
 import companion.i18n as i18n
 import companion.layout as layout
 from companion.layout import escape_html
@@ -92,8 +93,10 @@ def step_b_trigger_html(state_dir, prefix_raw, return_target):
     if not key or illustrations.resolved_illustration_path(key, state_dir) is not None:
         return ""
     query = _return_query(return_target)
-    upload_action = "%s%s.png%s" % (
-        ap.ILLUSTRATION_ROUTE_PREFIX, escape_html(key), "?" + query if query else "")
+    upload_action = device_scope.scoped(
+        "%s%s.png%s" % (
+            ap.ILLUSTRATION_ROUTE_PREFIX, escape_html(key), "?" + query if query else ""),
+        "POST")
     heading = i18n.t(ap.STEP_B_HEADING_TEMPLATE) % escape_html(name)
     attrs = _trigger_attrs_html({
         ap._VIEW_PANEL_HEADING_ATTR: heading,
@@ -105,7 +108,8 @@ def step_b_trigger_html(state_dir, prefix_raw, return_target):
         RETURN_ATTR: escape_html(return_target),
     })
     return '<a hidden href="%s?%s=%s" %saria-label="%s">%s</a>' % (
-        ap.AIRLINES_ROUTE, ap.RESOLVE_QUERY_PARAM, escape_html(prefix), attrs, heading,
+        device_scope.scoped(ap.AIRLINES_ROUTE), ap.RESOLVE_QUERY_PARAM, escape_html(prefix),
+        attrs, heading,
         escape_html(name))
 
 

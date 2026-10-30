@@ -29,7 +29,7 @@ from skypane_fw_image import build_image  # noqa: E402
 _LEGACY_TOPIC_URL = "https://push.example/secret-topic"
 _LEGACY_GROUP = {
     "topic_url": _LEGACY_TOPIC_URL, "battery_low": True, "frame_silent": True, "lang": "fr"}
-_REMAINING_CONFIG_KEYS = 10
+_REMAINING_CONFIG_KEYS = 11
 RUNNING_VERSION = "fw-v1.0.0"
 NEXT_VERSION = "fw-v1.1.0"
 NOW = "2026-09-28T12:00:00+00:00"
@@ -62,7 +62,7 @@ def test_a_legacy_device_config_loads_without_surfacing_the_retired_group(tmp_pa
     _write_config(str(tmp_path), legacy_value)
     cfg = device_config.load_device_config(str(tmp_path))
     assert "notifications" not in cfg, "the legacy group must never reach a caller, got %r" % (cfg,)
-    assert len(cfg) == _REMAINING_CONFIG_KEYS, "expected ten keys, got %r" % (sorted(cfg),)
+    assert len(cfg) == _REMAINING_CONFIG_KEYS, "expected eleven keys, got %r" % (sorted(cfg),)
     assert cfg["theme"] == "black"
     assert cfg["led_enabled"] is False
 
