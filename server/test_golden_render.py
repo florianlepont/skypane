@@ -10,7 +10,7 @@ and resolve vendored illustrations only: no network, no clock.
 Regenerate the manifest only when a change is proven renderer-neutral by
 re-rendering at the pre-change commit:
 
-    server/.venv/bin/python3 -m server.test_golden_render > manifest.json
+    server/.venv/bin/python3 -c "import server.test_golden_render as g; g.print_manifest()" > manifest.json
 """
 import contextlib
 import hashlib
@@ -147,6 +147,11 @@ def build_manifest():
     return {"pillow_version": PIL.__version__, "cases": cases}
 
 
+def print_manifest():
+    json.dump(build_manifest(), sys.stdout, sort_keys=True, indent=2)
+    sys.stdout.write("\n")
+
+
 def _load_manifest():
     with open(MANIFEST_PATH) as fh:
         return json.load(fh)
@@ -186,8 +191,3 @@ def test_legacy_render_is_byte_identical_to_the_baseline():
         "the legacy 1200x1600 render changed for %d case(s):\n  %s\n"
         "Do not regenerate the manifest unless the change is proven renderer-neutral by "
         "re-rendering at the pre-change commit." % (len(mismatches), "\n  ".join(mismatches)))
-
-
-if __name__ == "__main__":
-    json.dump(build_manifest(), sys.stdout, sort_keys=True, indent=2)
-    sys.stdout.write("\n")
