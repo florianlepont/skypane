@@ -208,7 +208,7 @@ DEVICE_EMPTY_HEADING = i18n.msg(
     "flights.device_empty_heading", "No history for this frame yet")
 DEVICE_EMPTY_BODY = i18n.msg(
     "flights.device_empty_body",
-    "Flights and checks appear here after the first poll. Use Poll now to run one.")
+    "Flights and checks appear here after the first poll.")
 
 # The phone card's artwork, route and time pieces are shared with Home's
 # recent-flight tiles through companion/flight_card.py.

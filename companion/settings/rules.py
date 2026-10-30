@@ -1,7 +1,6 @@
 """The colour-rules settings group: the per-flight rules shown as the
 look card's "Special looks" list (rows, per-row delete, and the "Add a
-special look" form with recent suggestions), plus the manual "Trigger
-poll now" control. Built here so `companion.settings.theme` stays
+special look" form with recent suggestions). Built here so `companion.settings.theme` stays
 independent of this module — see that module's own docstring for why.
 """
 from companion import device_scope, i18n

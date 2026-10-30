@@ -20,7 +20,7 @@ distinct new detection is queued rather than shown immediately, and the
 and lose flights.
 
 The poll cycle itself (detect/infer/enrich/render/publish/record) lives in
-server/poll_cycle.py, shared with the companion's POST /poll-now. One run of
+server/poll_cycle.py, shared by every device. One run of
 this module serves every device of the fleet through server/fleet_cycle.py:
 devices sharing a zone cost one request set, and a failure for one device
 never stops the others. Without a fleet.db it serves the live frame alone,
@@ -53,7 +53,7 @@ def build_parser():
         "--once",
         action="store_true",
         help="Run a single poll cycle and exit. This script is always single-cycle "
-             "(a systemd timer, added in plan 02-05, drives the 30s repeat cadence) - "
+             "(a systemd timer drives the 30s repeat cadence) - "
              "accepted for explicitness at the CLI.",
     )
     parser.add_argument(

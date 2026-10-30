@@ -1,8 +1,7 @@
 """The poll-cycle library: detect -> infer -> enrich -> render -> publish
 (atomic panel/gallery write) -> record (history.db). Shared by the
 systemd-timer entrypoint module (a thin `argparse`/`main()` wrapper
-around `run_once()`) and the companion's POST /poll-now, so both trigger
-paths run the exact same cycle body through the same `poll_cycle_lock()`.
+around `run_once()`) and the fleet loop, so both paths run the exact same cycle body through the same `poll_cycle_lock()`.
 
 Poll cadence: 30 seconds, inside both aggregators' 1 req/s limit, driven
 from outside this module (the systemd `.timer`/`.service` unit pair, or a
@@ -83,8 +82,8 @@ MAX_PENDING_FLIGHTS = 5
 # --- Cross-process poll-cycle lock ------------------------------------------
 #
 # poll.lock serialises run_once() across every process that shares
-# state_dir: the systemd oneshot (main()) and the companion's POST
-# /poll-now both go through poll_cycle_lock() below. A normal cycle takes
+# state_dir: the systemd oneshot (main()) and any overlapping run
+# both go through poll_cycle_lock() below. A normal cycle takes
 # a few seconds; POLL_LOCK_WAIT_S=10 plus a worst-case cycle (every
 # upstream at its own bounded deadline) stays comfortably under the
 # systemd unit's TimeoutStartSec=90s.
@@ -1310,7 +1309,7 @@ def log_cycle(ctx):
 
 def cycle_result(ctx):
     """The dict `run_once()` returns to every caller (the systemd
-    oneshot, the companion's POST /poll-now, and every test). `flight` is
+    oneshot and every test). `flight` is
     what this cycle detected, not necessarily what it displayed (see
     "Display pacing" module note) - read poll_state.json's "last_flight"
     for what's actually on the panel. `effective_theme` equals `theme` on
@@ -1337,7 +1336,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_
     whole body, acquired before any state read). `lock_timeout_s` is
     passed straight through to `poll_cycle_lock()` - `None` (the systemd
     oneshot's default) waits up to `POLL_LOCK_WAIT_S`; `0` (the
-    companion's POST /poll-now) raises `PollBusy` at once rather than
+    overlapping trigger) raises `PollBusy` at once rather than
     ever blocking a request thread. Nested inside the lock, one
     `history_db.connection_scope(state_dir)` spans the whole cycle body,
     so every `history_db.open_db(state_dir)` call this cycle makes on

@@ -679,7 +679,7 @@ def _spaced_query(name, center, radius_nm, timeout, last_call_at, lock, clock, s
 
     `wait` is clamped to `[0, MIN_SECONDS_BETWEEN_CALLS]`: `previous` is a
     wall-clock value that can outlive the process that wrote it (the
-    systemd timer oneshot and the companion's own /poll-now each persist
+    systemd timer oneshot and any other process each persist
     it independently), so a clock that stepped back (NTP), a restored
     history.db from a host with a skewed clock, or a hand-edited meta row
     can leave `previous` ahead of `clock()` by an arbitrary amount. An
@@ -713,8 +713,8 @@ def poll_current_aircraft(geofence, timeout=PROVIDER_TIMEOUT_S, providers=None, 
     aggregator being down never aborts the poll.
 
     `last_call_at` is a mutable `{provider_name: epoch_seconds}` map the
-    caller may keep across polls (a timer cycle followed by a manual
-    "poll now" is the hazard this guards: without it, two back-to-back
+    caller may keep across polls (two back-to-back cycles in
+    separate processes are the hazard this guards: without it, two back-to-back
     polls could both call the same provider immediately). Passing `None`
     (the default) uses a fresh local dict, so a single poll never sleeps
     for spacing it cannot know about, and never raises. `clock`/`sleep`
