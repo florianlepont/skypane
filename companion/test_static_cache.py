@@ -78,8 +78,8 @@ def test_style_css_has_strong_etag_last_modified_and_no_cache_policy(static_serv
 
 
 def test_every_served_script_route_has_the_same_validators_and_policy(static_server):
-    """Every `script[src]` on a real rendered authenticated page, plus the two pre-auth
-    scripts no authenticated page links to (login-card.js, battery-trend.js), all carry
+    """Every `script[src]` on a real rendered authenticated page, plus the
+    script no authenticated page links to (battery-trend.js), all carry
     the same validator/policy contract as the stylesheet.
     """
     cookie = login(static_server)
@@ -87,7 +87,7 @@ def test_every_served_script_route_has_the_same_validators_and_policy(static_ser
     assert status == 200, "expected 200 from /, got %d" % status
     doc = parse_html(body.decode("utf-8"))
     srcs = {node.attrs["src"] for node in doc.select("script[src]")}
-    srcs |= {"/static/login-card.js", "/static/battery-trend.js"}
+    srcs |= {"/static/battery-trend.js"}
     assert srcs, "expected at least one script[src] on the rendered page"
     for src in sorted(srcs):
         status, headers, body = http_request(static_server.base_url() + src)

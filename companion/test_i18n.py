@@ -422,7 +422,7 @@ def test_login_page_renders_in_french(french_render_server):
         cookie="%s=fr" % auth.UI_LANG_COOKIE_NAME)
     text = body.decode("utf-8", "replace")
     assert status == 200
-    needle = "Connectez-vous pour gérer les réglages de cet appareil."
+    needle = "Connectez-vous pour gérer vos cadres SkyPane."
     assert needle in text
     assert _no_format_artefact(text)
 

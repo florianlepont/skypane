@@ -32,19 +32,6 @@ from companion_markup import css_rules, declarations_for, rules_with_selector
 from server.plane import manual_resolutions
 from skypane_test_support import requires_non_root
 
-TEST_PASSWORD = "companion-test-password-please-ignore"
-
-
-@pytest.fixture(autouse=True)
-def _password_configured(monkeypatch):
-    """Every Section 1/2 check in this module runs with
-    `auth.PASSWORD_ENV_VAR` set to `TEST_PASSWORD` — mirrors the legacy
-    harness's own `main()` setup, which wrapped every check() call in
-    exactly this env var assignment/restore.
-    """
-    monkeypatch.setenv(auth.PASSWORD_ENV_VAR, TEST_PASSWORD)
-
-
 @pytest.fixture(scope="module")
 def served_css(module_app_server_factory):
     """The stylesheet `companion/app.py` actually serves — the 5 checks
@@ -59,19 +46,6 @@ def served_css(module_app_server_factory):
 # ==========================================================================
 # Section 1: companion/auth.py
 # ==========================================================================
-
-
-def test_password_ok_correct_and_wrong():
-    """password_ok() accepts the correct password and rejects a wrong one"""
-    assert auth.password_ok(TEST_PASSWORD)
-    assert not auth.password_ok("definitely-the-wrong-password")
-
-
-def test_password_ok_unconfigured_fails_closed(monkeypatch):
-    """password_ok() raises AuthNotConfigured when the password env var is unset"""
-    monkeypatch.delenv(auth.PASSWORD_ENV_VAR, raising=False)
-    with pytest.raises(auth.AuthNotConfigured):
-        auth.password_ok("anything")
 
 
 def test_new_session_token_is_long_unique_and_url_safe():
@@ -90,22 +64,6 @@ def test_hash_session_token_is_deterministic_and_not_the_token():
     assert auth.hash_session_token(token) == hashlib.sha256(token.encode()).hexdigest()
     assert auth.hash_session_token(token) != token
     assert auth.hash_session_token(token) != auth.hash_session_token(token + "x")
-
-
-def test_password_ok_non_string_submission_is_a_wrong_password():
-    """password_ok() treats a non-string submission as wrong, never an error"""
-    for value in (None, 123, b"bytes", ["x"]):
-        assert auth.password_ok(value) is False
-
-
-def test_password_ok_compares_in_constant_time(monkeypatch):
-    """password_ok() goes through hmac.compare_digest, never ==, and unicode input is safe"""
-    seen = []
-    real = auth.hmac.compare_digest
-    monkeypatch.setattr(
-        auth.hmac, "compare_digest", lambda a, b: seen.append((a, b)) or real(a, b))
-    assert auth.password_ok("caf\u00e9-\u2603") is False
-    assert seen and seen[0][1] == TEST_PASSWORD.encode()
 
 
 def test_the_password_derived_token_api_is_gone():
@@ -175,64 +133,6 @@ def test_parse_cookies_multi_and_malformed():
     assert parsed.get(auth.UI_THEME_COOKIE_NAME) == "dark"
     assert auth.parse_cookies(None) == {}
     assert auth.parse_cookies("\x00\x01\x02 not a cookie") == {}
-
-
-def test_login_throttle_allows_locks_and_resets():
-    """LoginThrottle allows attempts up to its limit, locks out, then resets on success"""
-    throttle = auth.LoginThrottle(limit=3, lockout_s=60)
-    key = "203.0.113.5"
-    for _ in range(2):
-        assert not throttle.locked_out(key)
-        throttle.record_failure(key)
-    throttle.record_failure(key)  # the 3rd failure reaches the limit
-    assert throttle.locked_out(key)
-    assert throttle.seconds_remaining(key) > 0
-    throttle.record_success(key)
-    assert not throttle.locked_out(key)
-
-
-def test_login_throttle_self_releases_with_zero_length_window():
-    """LoginThrottle with a zero-length window releases itself and a post-window failure
-    starts a fresh count"""
-    # With lockout_s=0 the window elapses immediately. The regression this
-    # pins: a fix that only checks the failure count (not the elapsed
-    # window) would re-arm the lockout on this 4th failure instead of
-    # starting a fresh count.
-    throttle = auth.LoginThrottle(limit=3, lockout_s=0)
-    key = "203.0.113.5"
-    for _ in range(3):
-        throttle.record_failure(key)
-    assert not throttle.locked_out(key)
-    throttle.record_failure(key)
-    assert not throttle.locked_out(key), (
-        "one post-window failure should count as 1 of 3 toward a fresh lockout, "
-        "not immediately re-arm it")
-
-
-def test_login_throttle_self_releases_with_real_window():
-    """LoginThrottle with a real lockout_s releases itself once the window elapses and a
-    post-window failure starts a fresh count"""
-    clock = [1000.0]
-    throttle = auth.LoginThrottle(limit=3, lockout_s=60, clock=lambda: clock[0])
-    key = "203.0.113.5"
-    for _ in range(3):
-        throttle.record_failure(key)
-    assert throttle.locked_out(key)
-    clock[0] += 61  # the window elapses
-    assert not throttle.locked_out(key)
-    throttle.record_failure(key)
-    assert not throttle.locked_out(key), (
-        "one post-window failure should count as 1 of 3 toward a fresh lockout, "
-        "not immediately re-arm it")
-
-
-def test_auth_not_configured_message_omits_password(monkeypatch):
-    """AuthNotConfigured's message never contains the configured password value"""
-    monkeypatch.delenv(auth.PASSWORD_ENV_VAR, raising=False)
-    with pytest.raises(auth.AuthNotConfigured) as excinfo:
-        auth.configured_password()
-    assert TEST_PASSWORD not in str(excinfo.value), (
-        "the exception text must never contain the password value")
 
 
 # ==========================================================================

@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 """Browser checks for both `<dialog>`s' entrance/exit motion, the live theme preview's
-crossfade, the image-hold skeletons, the login card's layout and show-password toggle, the
-login lockout countdown, the focused desktop/mobile navigation, the mobile nav's close
+crossfade, the image-hold skeletons, the login card's layout, the
+focused desktop/mobile navigation, the mobile nav's close
 consistency, the restored dirty bar's own clearance geometry, the Health refresh loop's
 failure/recovery pill, overflow sweeps (Home, the recent-flight callsign column, Health's
 disclosure-gated tables, every `<details>` on every page), the cross-document view-transition
 name uniqueness and its reduced-motion opt-out, and the Health freshness line's live-tab
 ticking, hidden-tab idling and no-JS floor.
 
-Read-only checks share one module-scoped, read-only `server` fixture. The login-lockout check
-drives the process-global LoginThrottle to its limit, which would lock out every other check
-sharing that subprocess, so it alone gets its own function-scoped `make_app_server` server.
+Read-only checks share one module-scoped, read-only `server` fixture.
 
 Route/width/language/motion-mode combinations with no cross-iteration comparison are
 parametrized rather than looped.
@@ -18,7 +16,6 @@ parametrized rather than looped.
 import pytest
 
 from companion import auth, layout
-from companion_app_server import TEST_PASSWORD
 from server import device_config
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE,
@@ -271,200 +268,30 @@ def test_images_hold_their_place_before_they_arrive(new_context, server):
                 context.close()
 
 
-def test_login_card_stacks_at_both_widths(new_context, server):
-    """At 390px and at 1280px the login card's field and primary are stacked, the same
-    width, filling the card's content column, both 44px tall, sharing one radius and
-    separated by the one 16px token — never a small field beside a mismatched button, and
-    never glued at a 0px gap.
+def test_login_card_sign_in_link_is_a_full_width_44px_target(new_context, server):
+    """At 390px and at 1280px the sign-in link fills the card's content column and is at
+    least 44px tall, so the page's one action is never a small target.
     """
     for width in (390, 1280):
         context = new_context(viewport={"width": width, "height": 844})
         try:
             page = context.new_page()
             page.goto(server.base_url() + "/login")
-            field = page.locator(".login-form__input").bounding_box()
-            primary = page.locator('.login-card button[type="submit"]').bounding_box()
-            form = page.locator(".login-form").bounding_box()
-            if not field or not primary or not form:
+            link = page.locator("a.login-signin").bounding_box()
+            heading = page.locator(".login-card h1").bounding_box()
+            if not link or not heading:
+                raise AssertionError("%dpx: expected the card to be laid out" % width)
+            if link["height"] < 44 - 0.5:
                 raise AssertionError(
-                    "%dpx: expected both controls to be laid out" % width)
-            if abs(field["width"] - primary["width"]) > 1:
+                    "%dpx: the sign-in link must be at least 44px tall, measured %.1f"
+                    % (width, link["height"]))
+            card = page.locator(".login-card").bounding_box()
+            if link["width"] > card["width"] or link["width"] < card["width"] / 2:
                 raise AssertionError(
-                    "%dpx: the field and the primary must be the same width, "
-                    "measured %.1f vs %.1f" % (width, field["width"], primary["width"]))
-            if abs(field["width"] - form["width"]) > 1:
-                raise AssertionError(
-                    "%dpx: both controls must fill the card's content column "
-                    "(%.1f), the field measured %.1f"
-                    % (width, form["width"], field["width"]))
-            for name, box in (("field", field), ("primary", primary)):
-                if abs(box["height"] - 44) > 0.5:
-                    raise AssertionError(
-                        "%dpx: the %s must be 44px tall, measured %.1f"
-                        % (width, name, box["height"]))
-            gap = primary["y"] - (field["y"] + field["height"])
-            if gap <= 0:
-                raise AssertionError(
-                    "%dpx: the two controls must be separated, measured a "
-                    "%.1fpx gap" % (width, gap))
-            if abs(gap - 16) > 1:
-                raise AssertionError(
-                    "%dpx: the gap must be the one medium spacing token "
-                    "(16px), measured %.1f" % (width, gap))
-            # Same radius as well as same height, which a bounding box cannot see.
-            radii = page.evaluate(
-                "() => [getComputedStyle(document.querySelector("
-                "'.login-form__input')).borderTopLeftRadius,"
-                " getComputedStyle(document.querySelector("
-                "'.login-card button[type=\\\"submit\\\"]'))"
-                ".borderTopLeftRadius]")
-            if radii[0] != radii[1]:
-                raise AssertionError(
-                    "%dpx: the field and the primary must share a radius, "
-                    "measured %r" % (width, radii))
+                    "%dpx: the sign-in link must fill the card's content column, measured "
+                    "%.1f in a %.1f card" % (width, link["width"], card["width"]))
         finally:
             context.close()
-
-
-def test_show_password_toggle_reveals_itself_and_swaps_its_name(new_context, server):
-    """The show-password toggle reveals itself at load (the hidden attribute is removed, not
-    overridden), swaps aria-pressed and its translated accessible name with the state, keeps
-    .copy-btn's synthesized 44x44 hit area, and with scripts blocked it never appears,
-    reserves no gutter, and the form still signs in.
-    """
-    context = new_context()
-    try:
-        page = context.new_page()
-        page.goto(server.base_url() + "/login")
-        toggle = page.locator("[data-login-reveal]")
-        toggle.wait_for(state="visible")
-        if toggle.get_attribute("hidden") is not None:
-            raise AssertionError(
-                "login-card.js must remove the server-rendered hidden "
-                "attribute, not merely override it in CSS — a visible "
-                "control that is still hidden from assistive tech is worse "
-                "than the defect")
-        show_name = toggle.get_attribute("aria-label")
-        if not show_name:
-            raise AssertionError("expected the icon-only toggle to carry an aria-label")
-        if toggle.get_attribute("aria-pressed") != "false":
-            raise AssertionError("expected the toggle to start unpressed")
-        if page.locator("#password").get_attribute("type") != "password":
-            raise AssertionError("expected the field to start masked")
-        # The class-at-load idiom: the gutter is reserved only now that
-        # the toggle is there.
-        wrapper_class = page.locator(".login-form__field").get_attribute("class")
-        if "login-form__field--with-toggle" not in (wrapper_class or ""):
-            raise AssertionError(
-                "expected login-card.js to append the padding modifier at "
-                "load, got %r" % (wrapper_class,))
-        # .copy-btn reused verbatim: a 22x22 visual box with the ::before inset synthesizing
-        # 44x44.
-        hit = toggle.evaluate(
-            "el => { var r = el.getBoundingClientRect();"
-            " var s = getComputedStyle(el, '::before');"
-            " return [r.width - parseFloat(s.left) - parseFloat(s.right),"
-            " r.height - parseFloat(s.top) - parseFloat(s.bottom)]; }")
-        if not hit or hit[0] < 44 or hit[1] < 44:
-            raise AssertionError(
-                "expected the toggle's hit area to measure at least 44x44 in "
-                "both axes, measured %r" % (hit,))
-        toggle.click()
-        hide_name = toggle.get_attribute("aria-label")
-        if hide_name == show_name or not hide_name:
-            raise AssertionError(
-                "the accessible name must swap with the state, still %r" % (hide_name,))
-        if toggle.get_attribute("aria-pressed") != "true":
-            raise AssertionError("expected aria-pressed to flip to true")
-        if page.locator("#password").get_attribute("type") != "text":
-            raise AssertionError("expected the field to reveal its value")
-        toggle.click()
-        if toggle.get_attribute("aria-label") != show_name:
-            raise AssertionError("expected the accessible name to swap back")
-        if page.locator("#password").get_attribute("type") != "password":
-            raise AssertionError("expected the field to mask again")
-    finally:
-        context.close()
-
-    # With scripts blocked the toggle is not there at all (never a dead control), no gutter is
-    # reserved for it, and the form still signs in.
-    with _no_js_page(
-            new_context, server.base_url(), "/login", sign_in=False) as page:
-        if page.locator("[data-login-reveal]").is_visible():
-            raise AssertionError(
-                "with scripts blocked the toggle must stay hidden — a "
-                "control that silently does nothing is worse than no "
-                "control")
-        wrapper_class = page.locator(".login-form__field").get_attribute("class")
-        if "login-form__field--with-toggle" in (wrapper_class or ""):
-            raise AssertionError(
-                "with scripts blocked the field must reserve no gutter for "
-                "a toggle that is not shown")
-        page.fill("#password", TEST_PASSWORD)
-        with page.expect_navigation():
-            page.click('button[type="submit"]')
-        if "/login" in page.url:
-            raise AssertionError(
-                "expected a scripts-blocked sign-in to succeed, landed on %r"
-                % page.url)
-
-
-# Driving the process-global LoginThrottle to its limit locks that subprocess out for the
-# whole window, and the lockout branch is checked before the password is, so a correct
-# password cannot unlock it over HTTP — an isolated, function-scoped server keeps this from
-# locking out any other test that shares a server in this module.
-
-def test_a_locked_out_login_page_ticks_down_and_re_enables_the_form(page, make_app_server):
-    """A locked-out login page ticks down from the server's own seed, with both controls
-    natively disabled, and re-enables them by itself at zero with no reload — the message
-    cleared and its aria-describedby dropped with it.
-    """
-    # Playwright's clock API drives the countdown to zero instead of this check sleeping for
-    # the real five-minute window. The timer under test is the page's own; only its clock is
-    # faked.
-    server = make_app_server(seed=seed_state_dir, fake_providers=True)
-    base_url = server.base_url()
-    page.clock.install()
-    page.goto(base_url + "/login")
-    for _attempt in range(auth.LOGIN_FAILURE_LIMIT + 1):
-        page.fill("#password", "not-the-password")
-        with page.expect_navigation():
-            page.click('button[type="submit"]')
-    seed = page.locator(".login-form").get_attribute("data-lockout-seconds")
-    if not seed:
-        raise AssertionError(
-            "expected the locked-out form to carry the server's own "
-            "remaining-seconds seed")
-    remaining = int(seed)
-    if remaining <= 0:
-        raise AssertionError("expected a positive seed, got %r" % (seed,))
-    if not page.locator("#password").is_disabled():
-        raise AssertionError("expected the password field to be disabled")
-    if not page.locator('button[type="submit"]').is_disabled():
-        raise AssertionError("expected the primary to be disabled")
-    first_text = page.locator("#login-error").inner_text()
-    page.clock.run_for(2000)
-    ticked_text = page.locator("#login-error").inner_text()
-    if ticked_text == first_text:
-        raise AssertionError(
-            "the countdown must tick — the sentence was still %r after "
-            "two seconds" % (first_text,))
-    if str(remaining - 2) not in ticked_text:
-        raise AssertionError(
-            "expected the sentence to count down from the server's own "
-            "seed, got %r" % (ticked_text,))
-    # All the way to zero: the form re-enables itself with no reload.
-    page.clock.run_for((remaining + 2) * 1000)
-    if page.locator("#password").is_disabled():
-        raise AssertionError("expected the password field to re-enable itself at zero")
-    if page.locator('button[type="submit"]').is_disabled():
-        raise AssertionError("expected the primary to re-enable itself at zero")
-    if page.locator("#login-error").inner_text().strip():
-        raise AssertionError("expected the expired lockout sentence to be cleared")
-    if page.locator("#password").get_attribute("aria-describedby"):
-        raise AssertionError(
-            "expected the field to stop pointing at a message that is "
-            "no longer there")
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
@@ -1158,7 +985,7 @@ def test_every_disclosure_on_every_page_opens_without_overflow(new_context, serv
         # and carries no <details> at all, so its own "this measured something" guard is the
         # password field, not a disclosure count.
         page.goto(base_url + "/login")
-        page.locator("#password").wait_for(state="visible")
+        page.locator("a.login-signin").wait_for(state="visible")
         seen = page.evaluate(_DISCLOSURE_SWEEP_PROBE)
         if page.viewport_size["width"] != width:
             raise AssertionError("expected the measurement to be taken at %dpx" % (width,))

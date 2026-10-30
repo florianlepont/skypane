@@ -420,9 +420,8 @@ def test_sixteen_deferred_scripts_before_closing_body():
     sixteen together, including panel-lookup.js, flash-cleanup.js, toast.js,
     poll-cooldown.js, confirm-submit.js, theme-preview.js,
     submit-guard.js, relative-time.js, quick-switch.js,
-    value-controls.js and calendar-sheet.js — and NOT login-card.js, which login_shell() alone
-    emits, nor submit-guard.js/relative-time.js/quick-switch.js/value-controls.js on that login
-    shell, which still emits exactly one"""
+    value-controls.js and calendar-sheet.js — and none of submit-guard.js/relative-time.js/
+    quick-switch.js/value-controls.js on the login shell, which emits no script"""
     bare_doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     bare_count = bare_doc[:bare_doc.index("</body>")].count('<script src=')
     assert bare_count == len(layout.GLOBAL_PAGE_SCRIPTS), (
@@ -449,9 +448,6 @@ def test_sixteen_deferred_scripts_before_closing_body():
             layout.CALENDAR_SHEET_SCRIPT_SRC):
         expected_tag = '<script src="%s" defer></script>' % src_const
         assert expected_tag in doc, "expected a deferred <script> tag for %r" % src_const
-    assert layout.LOGIN_CARD_SCRIPT_SRC not in doc, (
-        "login-card.js must not be emitted on an authenticated page — nothing there carries a "
-        ".login-form")
     login_doc = layout.login_shell("<p>login</p>")
     for shell_only in (layout.SUBMIT_GUARD_SCRIPT_SRC,
                        layout.RELATIVE_TIME_SCRIPT_SRC,
@@ -459,11 +455,10 @@ def test_sixteen_deferred_scripts_before_closing_body():
                        layout.VALUE_CONTROLS_SCRIPT_SRC,
                        layout.CALENDAR_SHEET_SCRIPT_SRC):
         assert shell_only not in login_doc, (
-            "%s is registered on the authenticated shell only — the login shell keeps emitting "
-            "exactly one deferred script" % shell_only)
-    assert login_doc.count('<script src=') == 1, (
-        "expected the login shell to keep emitting exactly one deferred script, got %d"
-        % login_doc.count('<script src='))
+            "%s is registered on the authenticated shell only — the login shell emits "
+            "no script" % shell_only)
+    assert login_doc.count('<script') == 0, (
+        "expected the login shell to emit no script, got %d" % login_doc.count('<script'))
 
 
 def _first_rule_index(rules, selector):

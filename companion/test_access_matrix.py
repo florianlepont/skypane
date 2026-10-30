@@ -14,14 +14,13 @@ route independently of each route's own `access` field. When a real
 device-scoped route (`/d/<id>/...`) is added to the table it needs a row
 here; the completeness test names the missing route.
 """
-import os
 import time
 
 import pytest
 
-from companion import access, auth, routes, static_files
+from companion import access, routes, static_files
 from companion_app_server import (
-    AUTH0_LEGACY_ENV_VAR, InProcessAppServer, auth0_env, http_request, login,
+    InProcessAppServer, auth0_env, http_request,
     login_via_auth0)
 from fake_auth0 import FakeAuth0
 from access_matrix_support import (
@@ -42,7 +41,6 @@ ROUTE_POLICY = {
     ("GET", "/login"): PUBLIC,
     ("GET", "/login/auth0"): PUBLIC,
     ("GET", "/callback"): PUBLIC,
-    ("POST", "/login"): PUBLIC,
     ("GET", "/account"): SIGNED_IN,
     ("POST", "/ui-theme"): SIGNED_IN,
     ("POST", "/ui-lang"): SIGNED_IN,
@@ -86,15 +84,15 @@ ROUTE_POLICY.update({("GET", path): PUBLIC for path in _STATIC_PATHS})
 OUTCOMES = {
     PUBLIC: {
         "anonymous": "allow", "owner": "allow", "other": "allow",
-        "admin": "allow", "legacy-admin": "allow"},
+        "admin": "allow"},
     SIGNED_IN: {
         "anonymous": "login", "owner": "allow", "other": "allow",
-        "admin": "allow", "legacy-admin": "allow"},
+        "admin": "allow"},
     ADMIN_ONLY: {
         "anonymous": "login", "owner": "not-found", "other": "not-found",
-        "admin": "allow", "legacy-admin": "allow"},
+        "admin": "allow"},
 }
-PRINCIPAL_NAMES = ("anonymous", "owner", "other", "admin", "legacy-admin")
+PRINCIPAL_NAMES = ("anonymous", "owner", "other", "admin")
 
 # One concrete middle per templated route.
 SAMPLE_MIDDLE = {
@@ -176,7 +174,6 @@ _PRINCIPALS = {
     "owner": access.Principal(access.KIND_USER, 1, OWNER_EMAIL, "user"),
     "other": access.Principal(access.KIND_USER, 2, OTHER_EMAIL, "user"),
     "admin": access.Principal(access.KIND_USER, 3, ADMIN_EMAIL, "admin"),
-    "legacy-admin": access.Principal(access.KIND_LEGACY_ADMIN, None, None, "admin"),
 }
 _DECISION_WORDS = {
     access.ALLOW: "allow", access.LOGIN: "login", access.NOT_FOUND: "not-found"}
@@ -199,9 +196,6 @@ def test_every_templated_route_has_a_sample_middle():
 
 
 # --- HTTP layer --------------------------------------------------------------
-
-_ACCESS_ENV_LEGACY = AUTH0_LEGACY_ENV_VAR
-
 
 class MatrixRig:
     def __init__(self, server, fake, fleet, cookies):
@@ -246,7 +240,6 @@ def rig(tmp_path_factory):
             server, fake, sub="auth0|" + name, email=email)
         assert result.status == 200
         cookies[name] = result.session_cookie
-    cookies["legacy-admin"] = login(server)
     yield MatrixRig(server, fake, fleet, cookies)
     server.stop()
     fake.stop()
@@ -338,7 +331,7 @@ def test_probe_other_user_cannot_reach_a_foreign_device(rig, stubbed, method):
 
 
 @pytest.mark.parametrize("method", ["GET", "POST"])
-@pytest.mark.parametrize("who", ["admin", "legacy-admin"])
+@pytest.mark.parametrize("who", ["admin"])
 def test_probe_admin_reaches_existing_devices_but_not_unknown_ones(
         rig, stubbed, method, who):
     for device_id in (rig.fleet.owner_device, rig.fleet.other_device):
@@ -425,17 +418,18 @@ def test_an_expired_session_is_refused(rig, stubbed):
     _expect_signed_out(rig, cookie)
 
 
-def test_a_legacy_session_is_refused_once_the_flag_is_off(rig, stubbed):
-    cookie = rig.cookies["legacy-admin"]
-    assert rig.request("GET", "/", cookie)[0] == 200
-    rig.server.apply_env({_ACCESS_ENV_LEGACY: "0"})
+@pytest.mark.parametrize("retired_flag", [None, "0", "1"])
+def test_a_legacy_session_is_refused_whatever_the_retired_flag_says(
+        rig, stubbed, retired_flag):
+    cookie = session_cookie_for(
+        rig.state_dir, fleet_sessions.PRINCIPAL_LEGACY_ADMIN, None, int(time.time()))
+    rig.server.apply_env({"SKYPANE_LEGACY_PASSWORD_LOGIN": retired_flag})
     try:
         status, headers, _b = rig.request("GET", "/", cookie)
         assert status == 303 and headers["Location"].startswith("/login")
     finally:
-        rig.server.apply_env({_ACCESS_ENV_LEGACY: None})
-    # The refused session was deleted, so switching the flag back on does
-    # not revive it.
+        rig.server.apply_env({"SKYPANE_LEGACY_PASSWORD_LOGIN": None})
+    # The refused row was deleted, so it cannot be revived either.
     assert rig.request("GET", "/", cookie)[0] == 303
 
 
@@ -449,10 +443,3 @@ def test_a_demoted_admin_loses_admin_pages_without_signing_in_again(rig, stubbed
         conn.close()
     assert rig.request("GET", "/", cookie)[0] == 404
     assert rig.request("GET", "/account", cookie)[0] == 200
-
-
-def test_a_session_secret_is_not_a_password(rig, stubbed):
-    assert os.environ.get(auth.PASSWORD_ENV_VAR)
-    status, _h, _b = rig.request(
-        "GET", "/", auth.SESSION_COOKIE_NAME + "=" + os.environ[auth.PASSWORD_ENV_VAR])
-    assert status == 303
