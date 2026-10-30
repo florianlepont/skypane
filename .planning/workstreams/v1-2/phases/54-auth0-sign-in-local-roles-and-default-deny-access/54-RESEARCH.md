@@ -497,14 +497,14 @@ def landing_page(target):
 | A7 | Chromium resolves `localhost` to loopback so the browser test can reach a fake bound to `127.0.0.1` | Fake Auth0 | Bind the fake on `::1` as well or use a `*.localhost` name |
 | A8 | `requests` falls back from `::1` to `127.0.0.1` for `localhost` | Fake Auth0 | Use `127.0.0.1` for the server-side leg via a separate config knob |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Per-session CSRF token now or in Phase 55?** Recommendation: defer; keep Strict + Origin gate (A6). Owner/planner to confirm.
-2. **Where should the "legacy sign-in" flag be shown?** Shared shell (all pages; forces a baseline regeneration) vs Account and Health only. Recommend Account + Health row to keep the diff small; D-07 says "flagged in the UI" and either satisfies it.
-3. **Companion public URL source:** derive from `SKYPANE_COMPANION_HOST` (no new variable) with an optional override. Confirm at plan time.
-4. **403 vs 404 for role denial** (A5).
-5. **Event-driven removal wording (D-08):** the roadmap success criterion says "dated removal task". Surface to the owner at the end that it is event-driven, with the date stamped at go-live.
-6. **`users unlink-identity` CLI verb** is outside the strict requirement text but prevents a permanent lockout; recommended, small.
+1. **Per-session CSRF token now or in Phase 55?** Recommendation: defer; keep Strict + Origin gate (A6). Owner/planner to confirm. RESOLVED: deferred to Phase 55; recorded in the handoff.
+2. **Where should the "legacy sign-in" flag be shown?** Shared shell (all pages; forces a baseline regeneration) vs Account and Health only. Recommend Account + Health row to keep the diff small; D-07 says "flagged in the UI" and either satisfies it. RESOLVED: the UI contract places a neutral pill in the shared sign-out form; the render baseline is regenerated once, deliberately, in the access plan.
+3. **Companion public URL source:** derive from `SKYPANE_COMPANION_HOST` (no new variable) with an optional override. Confirm at plan time. RESOLVED: derived from `SKYPANE_COMPANION_HOST` with an optional override.
+4. **403 vs 404 for role denial** (A5). RESOLVED: 404, identical to an unknown path.
+5. **Event-driven removal wording (D-08):** the roadmap success criterion says "dated removal task". Surface to the owner at the end that it is event-driven, with the date stamped at go-live. RESOLVED: removal task file and handoff record it.
+6. **`users unlink-identity` CLI verb** is outside the strict requirement text but prevents a permanent lockout; recommended, small. RESOLVED: added to the CLI plan.
 
 ## Environment Availability
 
