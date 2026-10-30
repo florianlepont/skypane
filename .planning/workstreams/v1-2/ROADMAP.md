@@ -31,7 +31,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - Decimal phases are urgent insertions created only when needed.
 
 - [x] **Phase 48: Fleet Data Model, Roles and Live-Frame Migration** - One fleet database with users, roles, devices and hardware profiles; the live frame migrated without any visible change. (completed 2026-10-29)
-- [ ] **Phase 49: Per-Hardware OTA Registry** - Firmware releases are published, scheduled and offered per hardware type, with integrity checks.
+- [x] **Phase 49: Per-Hardware OTA Registry** - Firmware releases are published, scheduled and offered per hardware type, with integrity checks. (completed 2026-10-30)
 - [ ] **Phase 50: Common Image Format** - A versioned image container served only to frames that announce support, with a legacy-safe firmware reader specified.
 - [ ] **Phase 51: Per-Device Config, Image and State** - Every device has its own config, image, history and health, and the BYOS serves each frame its own image.
 - [ ] **Phase 52: Fleet Poll Cycle, Zones and Request Budget** - One upstream ADS-B request per zone under a persisted global 1 req/s budget.
@@ -122,7 +122,7 @@ Plans:
 **Wave 5** *(blocked on Wave 4 completion)*
 
 - [x] 49-10-PLAN.md — Hardware-free verification of the chosen signing option and bench checkpoint, non-autonomous (OTA-03)
-- [ ] 49-11-PLAN.md — End-to-end and live-frame regression, phase gates (OTA-01, OTA-02)
+- [x] 49-11-PLAN.md — End-to-end and live-frame regression, phase gates (OTA-01, OTA-02)
 
 **UI hint**: yes
 
@@ -266,7 +266,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 48. Fleet Data Model, Roles and Live-Frame Migration | v1.2 | 8/8 | Complete   | 2026-10-29 |
-| 49. Per-Hardware OTA Registry | v1.2 | 10/11 | In Progress|  |
+| 49. Per-Hardware OTA Registry | v1.2 | 11/11 | Complete   | 2026-10-30 |
 | 50. Common Image Format | v1.2 | 0/0 | Not started | - |
 | 51. Per-Device Config, Image and State | v1.2 | 0/0 | Not started | - |
 | 52. Fleet Poll Cycle, Zones and Request Budget | v1.2 | 0/0 | Not started | - |
