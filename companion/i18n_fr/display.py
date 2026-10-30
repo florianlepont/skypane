@@ -221,4 +221,9 @@ MESSAGES = {
     "display.timezone_opt_tahiti": "Polynésie française (Tahiti)",
     "display.timezone_opt_new_caledonia": "Nouvelle-Calédonie",
     "display.timezone_opt_wallis_futuna": "Wallis-et-Futuna",
+
+    # --- Poll section, per device -------------------------------------
+    "display.poll_scope_caption": "Lance une vérification pour {device} uniquement.",
+    "display.poll_unsupported_caption":
+        "Indisponible pour ce type d’écran pour l’instant.",
 }

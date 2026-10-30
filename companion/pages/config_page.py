@@ -5,7 +5,7 @@ colour-rules editor and the manual "Trigger poll now" control (its
 route, cooldown gate and poll trigger are owned by companion/app.py;
 this module only renders its button/copy).
 """
-from companion import i18n
+from companion import device_scope, i18n
 from companion.layout import escape_html
 import companion.layout as layout
 import companion.page_context as page_context
@@ -665,13 +665,15 @@ def _render_all_scope(groups, builders):
     }
 
 
-def _poll_html_for_scope(scope, show_poll, cooldown_remaining):
-    """The native refresh action, with no redundant Device framing."""
+def _poll_html_for_scope(scope, show_poll, cooldown_remaining, device=None):
+    """The native refresh action, with no redundant Device framing,
+    scoped to the selected `device`."""
     poll_section_html = (
         '<section class="page-section">'
         '<h2 class="text-heading">%s</h2>'
         "%s"
-        "</section>" % (escape_html(i18n.t(POLL_SECTION_HEADING)), poll_trigger_section(cooldown_remaining))
+        "</section>" % (escape_html(i18n.t(POLL_SECTION_HEADING)), poll_trigger_section(
+            cooldown_remaining, device, len(device_scope.current_devices())))
         if show_poll else "")
     return poll_section_html
 
@@ -723,7 +725,7 @@ def _settings_page_html(pieces, quick_led_html, poll_html, dirty_strings):
         "</div>"
     ) % (
         SETTINGS_FORM_ID,
-        SETTINGS_ROUTE,
+        device_scope.scoped(SETTINGS_ROUTE, "POST"),
         pieces["hidden_html"],
         pieces["groups_html"],
         # "" on the Device/SCOPE_ALL paths (both set it to "" above).
@@ -789,7 +791,8 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     else:
         pieces = _render_all_scope(groups, builders)
 
-    poll_html = _poll_html_for_scope(scope, pieces["show_poll"], calendar_status["cooldown_remaining"])
+    poll_html = _poll_html_for_scope(
+        scope, pieces["show_poll"], calendar_status["cooldown_remaining"], ctx.device)
     return _settings_page_html(pieces, quick_led_html, poll_html, dirty_strings)
 
 

@@ -4,6 +4,9 @@ is refused. Real app subprocess (fake providers) for the on-disk effects, the
 in-process server for call spies and lock holding.
 """
 import os
+import re
+import sqlite3
+import time
 
 import pytest
 
@@ -12,7 +15,11 @@ from skypane_two_device_fleet import seed_two_device_fleet
 
 import companion.app as app_module
 from companion import device_scope
-from server import atomic_io, hardware, history_db
+from companion import auth
+from companion.settings import rules
+from companion_app_server import http_request
+from server import atomic_io, fleet_db, hardware, history_db
+from server.plane import colour_rules
 
 
 @pytest.fixture
@@ -210,3 +217,128 @@ def test_the_lock_registry_is_per_directory(inprocess):
     b = device_scope.poll_lock_for(inprocess.fleet.dev_b.state_dir)
     assert a is not b
     assert a is device_scope.poll_lock_for(inprocess.fleet.dev_a.state_dir)
+
+
+# --- Poll section markup on the device pages ----------------------------------
+
+MARKUP_NAME = "<b>x</b>&"
+BASE_CAPTION = "Ask the server to check for new flight data now."
+
+
+def _rename_dev_a(fleet):
+    conn = sqlite3.connect(fleet_db.fleet_db_path(os.path.dirname(os.path.dirname(fleet.dev_a.state_dir))))
+    try:
+        with conn:
+            conn.execute("UPDATE devices SET name = ? WHERE id = ?", (MARKUP_NAME, fleet.dev_a.id))
+    finally:
+        conn.close()
+
+
+def _seed_cooldown_and_rule(fleet):
+    _rename_dev_a(fleet)
+    with history_db.open_db(fleet.dev_a.state_dir) as conn:
+        history_db.set_meta(conn, history_db.META_LAST_POLL_TRIGGER, str(int(time.time()) - 5))
+    colour_rules.add_rule(fleet.dev_a.state_dir, colour_rules.RULE_KIND_CALLSIGN, "AFR1234", "white")
+
+
+@pytest.fixture
+def page_app(make_app_server):
+    return start_fleet_app(make_app_server, seed_extra=_seed_cooldown_and_rule)
+
+
+def _poll_section(page):
+    found = re.search(
+        r'<section class="page-section"><h2 class="text-heading">[^<]*</h2>(.*?)</section>',
+        page[page.index('class="config-form"'):], re.S)
+    assert found, "the Poll section is missing"
+    return found.group(1)
+
+
+def _caption(section):
+    return re.search(r'<p class="text-label section-caption">(.*?)</p>', section, re.S).group(1)
+
+
+def _device_page(app, device):
+    status, _, page = get(app, _prefix(device) + "/device")
+    assert status == 200
+    return page
+
+
+def test_the_poll_form_posts_to_the_selected_device(page_app):
+    section = _poll_section(_device_page(page_app, page_app.fleet.dev_b))
+    assert 'action="%s/poll-now"' % _prefix(page_app.fleet.dev_b) in section
+    status, _, live = get(page_app, "/device")
+    assert status == 200
+    assert '<form method="post" action="/poll-now">' in _poll_section(live)
+
+
+def test_several_devices_add_the_scope_sentence_to_the_same_caption(page_app):
+    section = _poll_section(_device_page(page_app, page_app.fleet.dev_b))
+    assert _caption(section) == BASE_CAPTION + " Runs one check for sim-2 only."
+    assert section.count("section-caption") == 1
+
+
+def test_the_device_name_is_escaped_in_the_caption(page_app):
+    page = _device_page(page_app, page_app.fleet.dev_a)
+    caption = _caption(_poll_section(page))
+    assert caption.endswith("Runs one check for &lt;b&gt;x&lt;/b&gt;&amp; only.")
+    assert "<b>x</b>" not in _poll_section(page)
+
+
+def test_the_caption_is_translated(page_app):
+    cookie = "%s; %s=fr" % (page_app.cookie, auth.UI_LANG_COOKIE_NAME)
+    _status, _, body = http_request(
+        page_app.server.base_url() + _prefix(page_app.fleet.dev_b) + "/device", cookie=cookie)
+    caption = _caption(_poll_section(body.decode("utf-8")))
+    assert caption.endswith("Lance une vérification pour sim-2 uniquement.")
+
+
+def test_one_device_keeps_the_shipped_caption_and_markup():
+    one = rules.poll_trigger_section(0)
+    assert one == rules.poll_trigger_section(0, None, 1)
+    only = rules.poll_trigger_section(0, device_scope.Device(
+        "live", "Orly frame", hardware.LEGACY_KEY, "", "", True), 1)
+    assert only == one
+    assert _caption(one) == BASE_CAPTION
+    assert 'action="/poll-now"' in one and "aria-disabled" not in one
+
+
+def test_an_unsupported_screen_type_disables_the_button_and_replaces_the_caption(page_app):
+    section = _poll_section(_device_page(page_app, page_app.fleet.landscape))
+    assert re.search(r"<button[^>]* disabled aria-disabled=\"true\">", section)
+    assert _caption(section) == "Not available for this screen type yet."
+    assert section.count("<p") == 1
+    assert BASE_CAPTION not in section
+
+
+def test_the_unsupported_caption_is_translated(page_app):
+    cookie = "%s; %s=fr" % (page_app.cookie, auth.UI_LANG_COOKIE_NAME)
+    _status, _, body = http_request(
+        page_app.server.base_url() + _prefix(page_app.fleet.landscape) + "/device", cookie=cookie)
+    assert _caption(_poll_section(body.decode("utf-8"))) == "Indisponible pour ce type d’écran pour l’instant."
+
+
+def test_the_cooldown_shown_is_that_devices_own(page_app):
+    fleet = page_app.fleet
+    cooling = _poll_section(_device_page(page_app, fleet.dev_a))
+    assert "data-cooldown=" in cooling and " disabled " in cooling
+    assert 'id="poll-cooldown-text"' in cooling
+    idle = _poll_section(_device_page(page_app, fleet.dev_b))
+    assert "data-cooldown=" not in idle and "disabled" not in idle
+    live = _poll_section(get(page_app, "/device")[2])
+    assert "disabled" not in live
+
+
+def test_rule_and_settings_forms_carry_the_device_prefix(page_app):
+    fleet = page_app.fleet
+    prefix = _prefix(fleet.dev_a)
+    status, _, page = get(page_app, prefix + "/display")
+    assert status == 200
+    assert 'id="settings-form" data-dirty-form method="post" action="%s/settings"' % prefix in page
+    assert 'action="%s/settings/rules/add"' % prefix in page
+    assert 'action="%s/settings/rules/callsign/AFR1234/delete"' % prefix in page
+    _status, _, live = get(page_app, "/display")
+    assert 'id="settings-form" data-dirty-form method="post" action="/settings"' in live
+    assert 'action="/settings/rules/add"' in live
+    assert "/settings/rules/callsign/AFR1234/delete" not in live
+    assert 'action="/devices/' not in live
