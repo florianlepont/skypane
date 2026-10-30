@@ -56,13 +56,13 @@ s'appelle « Cadre d'Orly » (ou « Orly frame » en anglais).
    « introuvable », pas le cadre d'Orly.
 
 3. **« Vérifier maintenant » pour un seul cadre.** Sélectionnez `sim-1`,
-   ouvrez la page Vols (ou Appareil) et appuyez sur « Vérifier maintenant ».
-   Résultat attendu : un message confirme la vérification pour `sim-1`
-   seulement. Revenez sur `sim-2` et sur le cadre d'Orly : leur dernière
+   ouvrez la page Appareil et appuyez sur « Actualiser maintenant ».
+   Résultat attendu : un message « Vérification terminée » confirme la
+   vérification pour `sim-1` seulement. Revenez sur `sim-2` et sur le cadre d'Orly : leur dernière
    vérification n'a pas changé. (Sur votre machine, cette vérification
    interroge les sources publiques de vols ; sans connexion elle peut
    indiquer qu'elle n'a pas abouti, ce qui est normal pour l'essai.)
-   Un second appui juste après doit être refusé poliment (délai d'attente).
+   Un second appui juste après est refusé poliment (le bouton reste désactivé pendant le délai d'attente).
 
 4. **Heures calmes et fuseau horaire d'un seul cadre.** Sélectionnez `sim-1`,
    ouvrez Affichage, changez les heures calmes (début et fin) et choisissez un
