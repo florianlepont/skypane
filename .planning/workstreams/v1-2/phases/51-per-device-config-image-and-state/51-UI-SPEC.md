@@ -1,7 +1,8 @@
 ---
 phase: 51
 slug: per-device-config-image-and-state
-status: draft
+status: approved
+reviewed_at: 2026-10-30
 shadcn_initialized: false
 preset: none
 created: 2026-10-30
@@ -40,7 +41,7 @@ Existing tokens, unchanged: `--space-xs` 4, `--space-sm` 8, `--space-md` 16, `--
 | Gap between timezone field and the dial above it | `--space-md` |
 | Sibling-card gap | `--space-lg` (unchanged rule) |
 
-Exceptions: none. The selector `<select>`, its no-JS submit and the timezone `<select>` keep the app's global native input/select 44px min-height and min-width at ALL widths (`control-density.md`; `style.css` native-control rule). They do not drop to the 30px button density at 960px and wider, and they use the existing control font size. The 24rem cap in Component 1 is a layout width, not a spacing value.
+Exceptions: none. The selector `<select>` and the timezone `<select>` keep the app's global native input/select 44px min-height and min-width at ALL widths; the no-JS submit is a base button and keeps the base button size (`control-density.md`; `style.css` native-control rule). They do not drop to the 30px button density at 960px and wider, and they use the existing control font size. The 24rem cap in Component 1 is a layout width, not a spacing value.
 
 ---
 
