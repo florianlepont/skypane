@@ -53,8 +53,17 @@ human_verification:
 - Redaction of the `/callback` query in the Caddy log is covered by text tests only.
 - The Playwright browser mismatch noted in the handoff is a local-sandbox issue.
 
-## Human verification required
+## Real-tenant verification (owner, 2026-10-30, EU tenant, production)
 
-1. Real-tenant Auth0 smoke test (see frontmatter).
-2. `caddy validate` and real log-line check on the VPS.
-3. Stamp the legacy-admin removal date at go-live, then set the flag to 0 and run the removal task.
+Deployed `af9e8521` to production at 20:27 UTC (deploy log: backup, `fleet.db` schema 1 -> 2, Caddy config valid, health probe passed). Auth0 variables set and the companion restarted at 20:33 UTC. Results, as reported by the owner and read from the deploy and Caddy logs:
+
+- Sign-in through Auth0 works; the invited admin was linked and landed signed in. Only the `skypane-users` database connection is enabled for the application (the shared tenant's other database connection and the social connections are off); the "Sign up" link no longer shows.
+- Sign-out returns to `/login` and Auth0 asks for credentials again (the Auth0 session ended).
+- A token request with a wrong `code_verifier` was rejected by Auth0: `invalid_grant`, "Failed to verify code verifier". PKCE is enforced for this Regular Web Application.
+- Caddy journal: 2 `/callback` lines, 0 containing `code=` (redaction works on a real request).
+
+The owner then turned the shared-password fallback off (`SKYPANE_LEGACY_PASSWORD_LOGIN=0`); the login page no longer shows it. Still open: removing the legacy code (see `54-LEGACY-ADMIN-REMOVAL.md`, steps 2 to 5) and the per-device route rows after Phase 51.
+
+## Human verification required (remaining)
+
+1. Stamp the legacy-admin removal date at go-live, then set the flag to 0 and run the removal task.
