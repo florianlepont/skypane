@@ -49,12 +49,14 @@ from companion.ui_nav import (
     REFRESH_RECONNECTING_ATTR,
     REFRESH_RECONNECTING_TEXT,
     REFRESH_TOKEN_ATTR,
+    ACCOUNT_ROUTE,
     TAB_BAR_BODY_CLASS,
     _lang_form_html,
     _logout_form_html,
     _mobile_nav_html,
     _tab_bar_html,
     _theme_form_html,
+    is_user_principal,
     sidebar_nav,
 )
 from companion.ui_components import TOAST_TONE_ERROR, split_toast_message, toast_html
@@ -268,12 +270,12 @@ PAGE_SHELL_TEMPLATE = (
     "{icon_defs}\n"
     '<div class="dashboard-shell">\n'
     '<aside class="dashboard-sidebar">\n'
-    '<span class="brand">{brand_mark}<span class="site-title sidebar-title">{site_title}</span></span>\n'
+    '<span class="brand">{brand_inner_sidebar}</span>\n'
     "{sidebar}\n"
     "{sidebar_footer}\n"
     "</aside>\n"
     '<header class="site-header">\n'
-    '<span class="brand">{brand_mark}<span class="site-title">{site_title}</span></span>\n'
+    '<span class="brand">{brand_inner_header}</span>\n'
     "{mobile_nav}\n"
     "</header>\n"
     '<main class="page-content dashboard-main" id="{main_id}" tabindex="-1">\n'
@@ -344,6 +346,18 @@ def page_shell(
         '<a class="skip-link" href="#%s">Skip to content</a>'
         % SKIP_LINK_TARGET_ID)
     escaped_site_title = escape_html(SITE_TITLE)
+    brand_mark_html = icon_html("icon-logo", size=28, extra_class=LOGO_MARK_CLASS)
+    brand_inner_sidebar = (
+        '{brand_mark}<span class="site-title sidebar-title">{site_title}</span>'
+    ).format(brand_mark=brand_mark_html, site_title=escaped_site_title)
+    brand_inner_header = (
+        '{brand_mark}<span class="site-title">{site_title}</span>'
+    ).format(brand_mark=brand_mark_html, site_title=escaped_site_title)
+    if is_user_principal():
+        # A plain user has no Home; the wordmark leads to their one page.
+        brand_link = '<a class="brand__link" href="%s">%%s</a>' % escape_html(ACCOUNT_ROUTE)
+        brand_inner_sidebar = brand_link % brand_inner_sidebar
+        brand_inner_header = brand_link % brand_inner_header
     return PAGE_SHELL_TEMPLATE.format_map({
         "lang": escape_html(resolved_lang),
         "ui_theme": escape_html(resolved_theme),
@@ -351,7 +365,8 @@ def page_shell(
         "site_title": escaped_site_title,
         "favicon_link": FAVICON_LINK_HTML,
         # Decorative: the adjacent site-title text stays the accessible name.
-        "brand_mark": icon_html("icon-logo", size=28, extra_class=LOGO_MARK_CLASS),
+        "brand_inner_sidebar": brand_inner_sidebar,
+        "brand_inner_header": brand_inner_header,
         "body_attrs": body_attrs,
         "skip_link": skip_link_html,
         "icon_defs": ICON_DEFS_HTML,

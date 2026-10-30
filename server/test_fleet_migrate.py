@@ -411,3 +411,29 @@ def test_orly_constants_match_the_runway_config():
     assert fleet_migrate.ORLY_LATITUDE == center["lat"]
     assert fleet_migrate.ORLY_LONGITUDE == center["lon"]
     zoneinfo.ZoneInfo(fleet_migrate.ORLY_TIMEZONE)
+
+
+def _downgrade_to_v1(state_dir):
+    conn = fleet_db.connect(state_dir)
+    conn.execute("DROP TABLE sessions")
+    conn.execute("PRAGMA user_version = 1")
+    conn.close()
+
+
+def test_pending_schema_is_previewed_applied_and_idempotent(seeded, capsys):
+    assert _run(seeded) == 0
+    _downgrade_to_v1(seeded.state_dir)
+    capsys.readouterr()
+    before = _without_wal_sides(live.snapshot_dir(seeded.state_dir))
+    assert _run(seeded, "--dry-run") == 0
+    assert "would upgrade fleet.db schema 1 -> 2" in capsys.readouterr().out
+    assert _without_wal_sides(live.snapshot_dir(seeded.state_dir)) == before
+    assert _run(seeded) == 0
+    assert "upgrade fleet.db schema 1 -> 2" in capsys.readouterr().out
+    conn = fleet_db.connect_readonly(seeded.state_dir)
+    try:
+        assert fleet_db.schema_version(conn) == 2
+    finally:
+        conn.close()
+    assert _run(seeded) == 0
+    assert "nothing to do" in capsys.readouterr().out

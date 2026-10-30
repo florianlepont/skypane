@@ -111,3 +111,32 @@ def test_firmware_section_names_both_hosts_with_placeholders_only():
     assert "<public-host>" in section
     assert "<companion-host>" in section
     assert ".ovh" not in section
+
+
+def _auth0_section():
+    text = _text()
+    start = text.index("## Sign-in (Auth0)")
+    return text[start:text.index("## Verifying the deployment", start)]
+
+
+def test_documents_auth0_sign_in():
+    section = _auth0_section()
+    for name in (
+        "SKYPANE_AUTH0_DOMAIN",
+        "SKYPANE_AUTH0_CLIENT_ID",
+        "SKYPANE_AUTH0_CLIENT_SECRET",
+        "SKYPANE_LEGACY_PASSWORD_LOGIN",
+        "https://<companion host>/callback",
+        "https://<companion host>/login",
+        "unlink-identity",
+        "wrong `code_verifier`",
+        "refuses a v2 file as too new",
+        "sessions",
+    ):
+        assert name in section, name
+
+
+def test_auth0_section_has_placeholders_only():
+    section = _auth0_section()
+    assert "<auth0-client-secret>" in section
+    assert ".auth0.com" not in section.replace("<your-tenant>.eu.auth0.com", "")

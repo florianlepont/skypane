@@ -59,8 +59,20 @@ config-203-0-113-10.nip.io {
 
     # Console log only: no durable-telemetry requirement here, just
     # operator convenience for `journalctl -u caddy`.
+    #
+    # The sign-in callback URL carries a one-time authorization code and
+    # the state value in its query string; the filter drops those keys
+    # (and error_description) from the logged request URI so they never
+    # reach journald. The companion has no other sensitive query keys.
     log {
         output stdout
-        format json
+        format filter {
+            wrap json
+            request>uri query {
+                delete code
+                delete state
+                delete error_description
+            }
+        }
     }
 }

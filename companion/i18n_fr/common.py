@@ -48,6 +48,11 @@ MESSAGES = {
         "Cette requête venait d’un autre site, elle a donc été refusée. "
         "Ouvrez SkyPane directement et réessayez.",
 
+    # --- 503 page ------------------------------------------------------
+    "common.temporarily_unavailable": "Temporairement indisponible",
+    "common.sign_in_data_could_not_be_read_please_try_again":
+        "SkyPane n’a pas pu vérifier votre session. Réessayez dans un instant.",
+
     # --- Shared footer control -----------------------------------------
     "common.sign_out": "Se déconnecter",
 

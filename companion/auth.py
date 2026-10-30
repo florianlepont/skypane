@@ -1,13 +1,11 @@
-"""The shared-password session gate for the SkyPane companion service.
+"""Password, cookie and login-throttle helpers for the SkyPane companion
+service. Stdlib-only: must never import Pillow, sqlite3, or anything under
+server/.
 
-No per-user accounts. Stdlib-only — must never import Pillow, sqlite3,
-or anything under server/.
-
-Session tokens are stateless: `expiry.signature`, HMAC-SHA256 keyed by
-a signing key *derived* from the password (`_signing_key()`), never the
-raw password — a leaked pair is not an offline password oracle. The
-in-memory revocation set below is the one stateful exception: pruned by
-expiry, lost on restart.
+A session is an opaque random token. The cookie carries the token and only
+its sha256 is stored server-side (server/fleet_sessions.py), so the shared
+password derives nothing: a session outlives a restart or a password change,
+and no value computed from the password is ever accepted as a session.
 """
 import collections
 import hashlib
@@ -21,8 +19,12 @@ from http.cookies import SimpleCookie
 from urllib.parse import urlsplit
 
 PASSWORD_ENV_VAR = "SKYPANE_COMPANION_PASSWORD"
-SESSION_TTL_S = 12 * 3600
 SESSION_COOKIE_NAME = "sp_session"
+OIDC_COOKIE_NAME = "sp_oidc"
+OIDC_COOKIE_MAX_AGE_S = 600
+# Server-side sessions live 30 days at most; the cookie matches that.
+SESSION_COOKIE_MAX_AGE_S = 30 * 86400
+LEGACY_LOGIN_ENV_VAR = "SKYPANE_LEGACY_PASSWORD_LOGIN"
 UI_THEME_COOKIE_NAME = "sp_ui_theme"
 # Shares secure_cookie_flag() with UI_THEME_COOKIE_NAME, so the Secure
 # flag can never drift between them.
@@ -31,74 +33,6 @@ LOGIN_FAILURE_LIMIT = 5
 LOGIN_LOCKOUT_S = 300
 INSECURE_COOKIES_ENV_VAR = "SKYPANE_COMPANION_INSECURE_COOKIES"
 
-# Never leaves this process. Mixed into the signing key so a leaked
-# (expiry, signature) pair cannot brute-force the password offline. A
-# process restart regenerates it, invalidating every outstanding session.
-_PROCESS_SALT = secrets.token_bytes(32)
-
-
-def _signing_key():
-    """HMAC-as-KDF over the shared password and the process salt —
-    deriving rather than reusing the password directly makes a leaked
-    signature useless for guessing it offline.
-    """
-    return hmac.new(
-        configured_password(), _PROCESS_SALT, hashlib.sha256).digest()
-
-
-# The Sign out revocation set. Maps a presented token string to its own
-# embedded expiry (an int), so pruning never needs to touch auth.py's
-# other stateless machinery. Guarded by _REVOKED_LOCK, mirroring
-# companion/app.py's own _POLL_LOCK precedent for a lock around small
-# shared mutable state under ThreadingHTTPServer.
-_REVOKED = {}
-_REVOKED_LOCK = threading.Lock()
-
-
-def _prune_revoked_locked():
-    """Drop every revoked entry whose embedded expiry has already
-    passed. Caller must hold _REVOKED_LOCK."""
-    now = time.time_ns()
-    expired = [token for token, expiry in _REVOKED.items() if expiry <= now]
-    for token in expired:
-        del _REVOKED[token]
-
-
-def revoke(token):
-    """Add `token` to the revocation set, pruning expired entries on
-    the way in so the set stays bounded. A malformed or already-expired
-    token is ignored (not stored, never raises) — there is nothing
-    useful to revoke once a token can no longer verify anyway.
-
-    `token`'s embedded expiry is a nanosecond timestamp, matching
-    issue_session_token()'s field (see that function's docstring).
-    """
-    if not isinstance(token, str) or "." not in token:
-        return
-    expiry_str, _signature = token.split(".", 1)
-    try:
-        expiry = int(expiry_str)
-    except ValueError:
-        return
-    with _REVOKED_LOCK:
-        _prune_revoked_locked()
-        if expiry > time.time_ns():
-            _REVOKED[token] = expiry
-
-
-def is_revoked(token):
-    """True if `token` is in the revocation set. Prunes expired entries
-    first, so a revoked-but-since-expired token correctly stops
-    counting against the set's bound. Returns False for a non-string or
-    empty token rather than raising.
-    """
-    if not isinstance(token, str) or not token:
-        return False
-    with _REVOKED_LOCK:
-        _prune_revoked_locked()
-        return token in _REVOKED
-
-
 class AuthNotConfigured(RuntimeError):
     """Raised when PASSWORD_ENV_VAR is unset or empty — fails closed
     rather than starting with auth silently disabled. The message names
@@ -106,12 +40,13 @@ class AuthNotConfigured(RuntimeError):
     """
 
 
-def configured_password():
+def configured_password(environ=None):
     """Return the shared password as bytes, or raise AuthNotConfigured.
+    Reads `environ` (default: the process environment).
 
     Never include the environment value in the raised exception.
     """
-    value = os.environ.get(PASSWORD_ENV_VAR)
+    value = (os.environ if environ is None else environ).get(PASSWORD_ENV_VAR)
     if not value:
         raise AuthNotConfigured(
             "%s is not set in the process environment — refusing to "
@@ -131,44 +66,29 @@ def password_ok(submitted):
     return hmac.compare_digest(submitted.encode(), configured_password())
 
 
-def issue_session_token():
-    """Build and sign a fresh session token: "<expiry>.<hex signature>".
-    `expiry` is nanosecond-resolution: at second resolution, two logins
-    in the same second would share a token, so revoking one on Sign out
-    would silently revoke the other too.
+def new_session_token():
+    """A fresh opaque 256-bit session token for the cookie. Only its
+    hash_session_token() is ever stored server-side.
     """
-    expiry = str(time.time_ns() + SESSION_TTL_S * 1_000_000_000)
-    signature = hmac.new(
-        _signing_key(), expiry.encode(), hashlib.sha256).hexdigest()
-    return "%s.%s" % (expiry, signature)
+    return secrets.token_urlsafe(32)
 
 
-def verify_session_token(value):
-    """Return True only for a token this server issued and that has not
-    expired. Never raises — every malformed shape (non-string, missing
-    separator, wrong signature, non-integer expiry) returns False, and
-    the caller is never told which check failed.
+def hash_session_token(token):
+    """Hex sha256 of a session token: the only form the database holds."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
-    The signature is verified *before* the expiry field is parsed, so a
-    forged or truncated token cannot influence control flow through its
-    own payload.
+
+def legacy_login_enabled(environ):
+    """Whether the shared-password login is on: unset or "1" is on, "0" is
+    off. Any other value raises rather than guessing, so a typo cannot
+    leave the fallback silently enabled.
     """
-    if not isinstance(value, str) or "." not in value:
+    value = environ.get(LEGACY_LOGIN_ENV_VAR)
+    if value is None or value == "1":
+        return True
+    if value == "0":
         return False
-    expiry_str, signature = value.split(".", 1)
-    try:
-        secret = _signing_key()
-    except AuthNotConfigured:
-        return False
-    expected_signature = hmac.new(
-        secret, expiry_str.encode(), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(signature, expected_signature):
-        return False
-    try:
-        expiry = int(expiry_str)
-    except ValueError:
-        return False
-    return expiry > time.time_ns()
+    raise ValueError("%s must be 0 or 1" % LEGACY_LOGIN_ENV_VAR)
 
 
 def secure_cookie_flag():
@@ -194,7 +114,7 @@ def session_set_cookie_header(token):
     """
     return (
         "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d"
-        % (SESSION_COOKIE_NAME, token, secure_cookie_flag(), SESSION_TTL_S))
+        % (SESSION_COOKIE_NAME, token, secure_cookie_flag(), SESSION_COOKIE_MAX_AGE_S))
 
 
 def logout_set_cookie_header():
@@ -205,6 +125,25 @@ def logout_set_cookie_header():
     return (
         "%s=; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=0"
         % (SESSION_COOKIE_NAME, secure_cookie_flag()))
+
+
+def oidc_attempt_set_cookie_header(attempt_id):
+    """Set-Cookie value for the pre-login cookie that ties the browser to a
+    started sign-in. SameSite=Lax is required: the callback is a
+    cross-site top-level navigation from the identity provider, and Strict
+    would withhold the cookie. It carries only an opaque attempt id and is
+    sent to /callback alone.
+    """
+    return (
+        "%s=%s; HttpOnly%s; SameSite=Lax; Path=/callback; Max-Age=%d"
+        % (OIDC_COOKIE_NAME, attempt_id, secure_cookie_flag(), OIDC_COOKIE_MAX_AGE_S))
+
+
+def oidc_attempt_clear_cookie_header():
+    """Set-Cookie value that expires the pre-login cookie."""
+    return (
+        "%s=; HttpOnly%s; SameSite=Lax; Path=/callback; Max-Age=0"
+        % (OIDC_COOKIE_NAME, secure_cookie_flag()))
 
 
 def parse_cookies(header_value):

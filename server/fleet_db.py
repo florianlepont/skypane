@@ -117,7 +117,24 @@ def _migrate_v1(conn: sqlite3.Connection) -> None:
     )
 
 
-MIGRATIONS: tuple[Migration, ...] = (_migrate_v1,)
+def _migrate_v2(conn: sqlite3.Connection) -> None:
+    # Timestamps are integer epoch seconds: lifetime and idle checks are
+    # arithmetic. Only the sha256 of the session token is stored.
+    conn.execute(
+        "CREATE TABLE sessions ("
+        " id_hash TEXT PRIMARY KEY,"
+        " user_id INTEGER REFERENCES users(id),"
+        " principal TEXT NOT NULL CHECK (principal IN ('user', 'legacy-admin')),"
+        " created_at INTEGER NOT NULL,"
+        " last_seen_at INTEGER NOT NULL,"
+        " expires_at INTEGER NOT NULL,"
+        " CHECK ((principal = 'user') = (user_id IS NOT NULL)))"
+    )
+    conn.execute("CREATE INDEX sessions_user ON sessions (user_id)")
+    conn.execute("CREATE INDEX sessions_expires ON sessions (expires_at)")
+
+
+MIGRATIONS: tuple[Migration, ...] = (_migrate_v1, _migrate_v2)
 SCHEMA_VERSION = len(MIGRATIONS)
 
 
@@ -163,6 +180,11 @@ def migrate_schema(
     for index in range(current, len(migrations)):
         conn.execute("BEGIN IMMEDIATE")
         try:
+            # Another process may have applied this step while we waited
+            # for the write lock; re-read inside the lock and skip it.
+            if schema_version(conn) > index:
+                conn.execute("COMMIT")
+                continue
             migrations[index](conn)
             # PRAGMA cannot take bound parameters; the value is an int.
             conn.execute("PRAGMA user_version = %d" % (index + 1))
@@ -196,12 +218,19 @@ def connect(
     return conn
 
 
-def connect_readonly(state_dir: str) -> sqlite3.Connection:
-    """Read-only handle; never creates and never migrates."""
+def connect_readonly(state_dir: str, immutable: bool = False) -> sqlite3.Connection:
+    """Read-only handle; never creates and never migrates.
+
+    `immutable` skips locking and the WAL side files, which is the only way
+    to read a database inside a directory that cannot be written. It is for
+    that degraded case only: concurrent writers would go unseen.
+    """
     path = fleet_db_path(state_dir)
     if not os.path.exists(path):
         raise FleetDbAbsent(path)
     uri = Path(os.path.abspath(path)).as_uri() + "?mode=ro"
+    if immutable:
+        uri += "&immutable=1"
     conn = sqlite3.connect(uri, uri=True, isolation_level=None)
     try:
         _apply_pragmas(conn)
@@ -423,6 +452,17 @@ def get_device_by_mac(conn: sqlite3.Connection, mac: str) -> sqlite3.Row | None:
         "SELECT * FROM devices WHERE mac = ?", (mac,)
     ).fetchone()
     return row
+
+
+def get_device_owner(conn: sqlite3.Connection, device_id: str) -> int | None:
+    """The owner user id of a device, or None for an unknown id.
+
+    Reads only `owner_user_id`; never a secret hash or token.
+    """
+    row = conn.execute(
+        "SELECT owner_user_id FROM devices WHERE id = ?", (device_id,)
+    ).fetchone()
+    return None if row is None else int(row["owner_user_id"])
 
 
 def list_devices(conn: sqlite3.Connection) -> list[sqlite3.Row]:

@@ -265,7 +265,13 @@ def test_a_database_fault_still_returns_200_with_a_token(app_server_in_process, 
     server = app_server_in_process
     session = login(server)  # succeeds before the fault is injected
 
+    real_connect = sqlite3.connect
+
     def _raising_connect(*args, **kwargs):
+        # Only the history database is faulted; the session store (fleet.db)
+        # keeps working so the request is still authenticated.
+        if str(args[0]).endswith("fleet.db"):
+            return real_connect(*args, **kwargs)
         raise sqlite3.OperationalError("database unavailable (fault injected for this test)")
 
     monkeypatch.setattr(sqlite3, "connect", _raising_connect)

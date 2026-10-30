@@ -18,6 +18,7 @@ Usage:
     fleet_cli.py --state-dir DIR users add --email E --role admin|user [--disabled]
     fleet_cli.py --state-dir DIR users list
     fleet_cli.py --state-dir DIR users disable|enable --email E
+    fleet_cli.py --state-dir DIR users unlink-identity --email E
     fleet_cli.py --state-dir DIR locations add --name N --latitude F \\
         --longitude F --timezone TZ
     fleet_cli.py --state-dir DIR locations list
@@ -40,7 +41,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import byos_server  # noqa: E402 - the sys.path bootstrap above must run first
-from server import fleet_db, hardware  # noqa: E402
+from server import fleet_db, fleet_sessions, hardware  # noqa: E402
 
 RESTART_CAUTION = (
     "warning: byos keeps its registry and issued tokens in memory - stop "
@@ -93,6 +94,9 @@ def _set_disabled(args, disabled):
     conn = _open(args)
     with fleet_db.transaction(conn):
         found = fleet_db.set_user_disabled(conn, args.email, disabled)
+        if found and disabled:
+            row = fleet_db.get_user_by_email(conn, args.email)
+            fleet_sessions.delete_sessions_for_user(conn, int(row["id"]))
     if not found:
         return _fail("no such user: %s" % args.email, 1)
     print("%s %s" % ("disabled" if disabled else "enabled", args.email))
@@ -105,6 +109,18 @@ def cmd_users_disable(args):
 
 def cmd_users_enable(args):
     return _set_disabled(args, False)
+
+
+def cmd_users_unlink_identity(args):
+    """Forget a user's Auth0 link so the next verified login can link afresh."""
+    conn = _open(args)
+    if fleet_db.get_user_by_email(conn, args.email) is None:
+        return _fail("no such user: %s" % args.email, 1)
+    if fleet_sessions.unlink_identity(conn, args.email):
+        print("unlinked %s" % args.email)
+    else:
+        print("%s is already unlinked" % args.email)
+    return 0
 
 
 # ---- locations -------------------------------------------------------
@@ -279,6 +295,10 @@ def _add_users(sub):
         p = verbs.add_parser(name, help="%s a user" % name)
         p.add_argument("--email", required=True)
         p.set_defaults(func=func)
+    unlink = verbs.add_parser(
+        "unlink-identity", help="clear a user's Auth0 link and sessions")
+    unlink.add_argument("--email", required=True)
+    unlink.set_defaults(func=cmd_users_unlink_identity)
 
 
 def _add_locations(sub):
