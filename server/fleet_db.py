@@ -38,7 +38,7 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from server import atomic_io, hardware  # noqa: E402
+from server import atomic_io, device_dirs, hardware  # noqa: E402
 
 FLEET_DB_FILENAME = "fleet.db"
 FLEET_STATUS_FILENAME = "fleet_status.json"
@@ -400,14 +400,25 @@ def add_device(
     The owner is mandatory: a missing or unknown owner raises
     sqlite3.IntegrityError. The hardware type must be available under the
     simulation gate in `environ`; reading existing rows never consults it.
+
+    `state_path` is either "." (the live frame, the default) or "auto",
+    which stores `devices/<the generated id>`. Any other value raises
+    ValueError before the INSERT: a stored path becomes a directory the
+    services read and write, and a hand-built `devices/<id>` could name
+    another device's directory. Reads re-validate through
+    `device_dirs.resolve_state_dir`, so an edited row cannot escape either.
     """
     _check_mac(mac)
     _check_secret(secret_sha256)
+    if state_path not in (device_dirs.LIVE_STATE_PATH, "auto"):
+        raise ValueError(f"state_path must be '.' or 'auto': {state_path!r}")
     hardware.get_profile(hardware_type, environ)
     while True:
         device_id = "d_" + secrets.token_hex(4)
         if conn.execute("SELECT 1 FROM devices WHERE id = ?", (device_id,)).fetchone() is None:
             break
+    if state_path == "auto":
+        state_path = device_dirs.state_path_for(device_id)
     conn.execute(
         "INSERT INTO devices (id, mac, secret_sha256, token, hardware_type, "
         "owner_user_id, location_id, name, state_path, created_at) "

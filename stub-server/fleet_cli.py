@@ -22,7 +22,8 @@ Usage:
         --longitude F --timezone TZ
     fleet_cli.py --state-dir DIR locations list
     fleet_cli.py --state-dir DIR devices add --mac M --secret-sha256 H \\
-        --owner-email E [--hardware-type K] [--location-id N] [--name S]
+        --owner-email E [--hardware-type K] [--location-id N] [--name S] \\
+        [--state-path .|auto]
     fleet_cli.py --state-dir DIR devices list
     fleet_cli.py --state-dir DIR devices assign --mac M --owner-email E
     fleet_cli.py --state-dir DIR devices set-location --mac M --location-id N
@@ -34,13 +35,14 @@ Exit codes: 0 success, 2 usage/validation error, 1 not found.
 """
 import argparse
 import os
+import shutil
 import sqlite3
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import byos_server  # noqa: E402 - the sys.path bootstrap above must run first
-from server import fleet_db, hardware  # noqa: E402
+from server import device_dirs, fleet_db, hardware  # noqa: E402
 
 RESTART_CAUTION = (
     "warning: byos keeps its registry and issued tokens in memory - stop "
@@ -142,12 +144,27 @@ def cmd_devices_add(args):
         return _fail("no such owner: %s" % args.owner_email, 1)
     # The legacy write runs inside the transaction: if it raises, the
     # insert is rolled back and the two stores stay equal.
-    with fleet_db.transaction(conn):
-        fleet_db.add_device(
-            conn, mac, args.secret_sha256, args.hardware_type, owner_id,
-            location_id=args.location_id, name=args.name)
-        byos_server.register_device(args.state_dir, mac, args.secret_sha256)
+    new_id = None
+    created_dir = None
+    try:
+        with fleet_db.transaction(conn):
+            new_id = fleet_db.add_device(
+                conn, mac, args.secret_sha256, args.hardware_type, owner_id,
+                location_id=args.location_id, name=args.name,
+                state_path=args.state_path)
+            if args.state_path == "auto":
+                profile = hardware.get_profile(args.hardware_type, os.environ)
+                created_dir = device_dirs.provision_device_dir(
+                    args.state_dir, new_id, profile.width, profile.height)
+            byos_server.register_device(args.state_dir, mac, args.secret_sha256)
+    except BaseException:
+        # The row is rolled back; do not leave its directory behind.
+        if created_dir is not None:
+            shutil.rmtree(created_dir, ignore_errors=True)
+        raise
     print("registered %s" % mac)
+    if args.state_path == "auto":
+        print("device id %s" % new_id)
     return 0
 
 
@@ -304,6 +321,8 @@ def _add_devices(sub):
     add.add_argument("--hardware-type", default=hardware.LEGACY_KEY)
     add.add_argument("--location-id", type=int, default=None)
     add.add_argument("--name", default=None)
+    add.add_argument("--state-path", choices=[".", "auto"], default=".",
+                     help="'auto' gives the device its own directory under devices/")
     add.set_defaults(func=cmd_devices_add)
     verbs.add_parser("list", help="list devices (hash prefix only)").set_defaults(
         func=cmd_devices_list)

@@ -350,3 +350,26 @@ def test_concurrent_readers_and_writer(state_dir):
             t.join()
     setup.close()
     assert errors == []
+
+
+def test_add_device_auto_state_path_uses_generated_id(conn):
+    owner = fleet_db.add_user(conn, "o@example.com", "admin")
+    device_id = _dev(conn, owner, state_path="auto")
+    row = conn.execute("SELECT state_path FROM devices WHERE id = ?", (device_id,)).fetchone()
+    assert row["state_path"] == "devices/" + device_id
+
+
+def test_add_device_default_state_path_is_live(conn):
+    owner = fleet_db.add_user(conn, "o@example.com", "admin")
+    device_id = _dev(conn, owner)
+    row = conn.execute("SELECT state_path FROM devices WHERE id = ?", (device_id,)).fetchone()
+    assert row["state_path"] == "."
+
+
+@pytest.mark.parametrize("bad", ["../x", "devices/d_deadbeef", "/abs", "", "devices"])
+def test_add_device_rejects_unsafe_state_path_and_inserts_nothing(conn, bad):
+    owner = fleet_db.add_user(conn, "o@example.com", "admin")
+    before = conn.execute("SELECT count(*) FROM devices").fetchone()[0]
+    with pytest.raises(ValueError):
+        _dev(conn, owner, state_path=bad)
+    assert conn.execute("SELECT count(*) FROM devices").fetchone()[0] == before

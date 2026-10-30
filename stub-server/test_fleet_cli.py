@@ -253,3 +253,41 @@ def test_script_entry_contract(sd):
         capture_output=True, text=True)
     assert failed.returncode == 2
     assert "error:" in failed.stderr
+
+
+def test_devices_add_state_path_auto_provisions_directory(sd, monkeypatch, capsys):
+    monkeypatch.setenv("SKYPANE_SIM_HARDWARE", "1")
+    add_owner(sd)
+    capsys.readouterr()
+    assert add_device(sd, MAC, SECRET, "--hardware-type", "sim-ee02-clone",
+                      "--state-path", "auto") == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "registered %s" % MAC
+    device_id = lines[1].split()[-1]
+    assert db_rows(sd)[0]["state_path"] == "devices/" + device_id
+    directory = os.path.join(sd, "devices", device_id)
+    profile = fleet_cli.hardware.get_profile("sim-ee02-clone", os.environ)
+    assert len(read(os.path.join(directory, "panel.bin"))) == (profile.width // 2) * profile.height
+    assert os.path.exists(os.path.join(directory, "device_config.json"))
+    assert not os.path.exists(os.path.join(directory, "poll_state.json"))
+    assert byos_server.load_registry(sd)["devices"][MAC]["secret_sha256"] == SECRET
+
+
+def test_devices_add_without_flag_output_and_layout_unchanged(sd, capsys):
+    add_owner(sd)
+    capsys.readouterr()
+    assert add_device(sd) == 0
+    assert capsys.readouterr().out == "registered %s\n" % MAC
+    assert db_rows(sd)[0]["state_path"] == "."
+    assert not os.path.exists(os.path.join(sd, "devices"))
+
+
+def test_devices_add_auto_rollback_removes_directory(sd, monkeypatch):
+    monkeypatch.setenv("SKYPANE_SIM_HARDWARE", "1")
+    add_owner(sd)
+    byos_server.register_device(sd, MAC, SECRET)
+    assert add_device(sd, MAC, SECRET, "--hardware-type", "sim-ee02-clone",
+                      "--state-path", "auto") == 2
+    assert db_rows(sd) == []
+    devices = os.path.join(sd, "devices")
+    assert not os.path.isdir(devices) or os.listdir(devices) == []
