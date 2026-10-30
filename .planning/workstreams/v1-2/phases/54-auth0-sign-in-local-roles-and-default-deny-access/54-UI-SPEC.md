@@ -1,7 +1,8 @@
 ---
 phase: 54
 slug: auth0-sign-in-local-roles-and-default-deny-access
-status: draft
+status: approved
+reviewed_at: 2026-10-30
 shadcn_initialized: false
 preset: none
 created: 2026-10-30
@@ -111,7 +112,7 @@ Order, top to bottom:
 ### 3. Interstitial page (post-callback landing and sign-out)
 
 - Bare 200 document per RESEARCH ("Interstitial landing"): `<meta http-equiv="refresh" content="0;url=...">` with the target escaped, no inline script, CSP-safe, `referrer no-referrer`. It is built as a `login_shell` card so a slow hop never flashes blank, but it must not depend on any script.
-- Content: logo mark, one `.text-body` line ("Signing you in…" / "Signing you out…"), and a visible `.text-link` fallback ("Continue") to the same target for browsers that block meta refresh. Role `status`.
+- Content: logo mark, one `.text-body` line ("Signing you in…" / "Signing you out…"), and a visible `.text-link` fallback ("Continue to Account" / "Continue to Home" / "Continue to sign in", chosen by target) to the same target for browsers that block meta refresh. Role `status`.
 - No spinner and no new animation (motion budget). The meta refresh fires immediately; the page should be effectively invisible on a normal connection.
 - Targets: callback -> `/account` for `user`, `/` (or whitelisted `next`) for admin/legacy-admin. Logout -> Auth0 `/v2/logout?...returnTo=...`, and the local session is already destroyed when this page renders. If the Auth0 hop fails, the user lands on the fixed `returnTo` (the login page) with the signed-out state; never an error.
 - Title tags: "Signing in" / "Signing out". Cache-Control no-store.
@@ -122,7 +123,7 @@ Role `user` minimum (admins may open it too; harmless, and it is where "signed i
 - `layout.page_header("Account", purpose="Your SkyPane sign-in and preferences.")`.
 - Card 1, "Identity" (`.page-section`, nested card title tier): a two-row key/value list using the existing `data-card` label/value pairing (12px label voice + 16px value): "Email" (the linked email), "Role" ("User" / "Administrator"). Value text only; no avatar, no Auth0 `sub` shown.
 - Card 2, "Preferences": language and theme controls are the SAME `_lang_form_html` / `_theme_form_html` partials the shell already uses (POST `/ui-lang`, `/ui-theme`), rendered inline in the card so they are reachable at 360px without opening the gear panel. Return target after those POSTs is `/account` for a `user` (RESEARCH pitfall 6).
-- Card 3, "Frames": `ui_components.empty_state(heading, body)` full-card form (not compact): heading "Your frames will appear here", body "Once an administrator pairs a frame to your account it will show up on this page." No illustration, no action button, no health, no owner-frame data. This card is the slot Phase 55 replaces.
+- Card 3, "Frames": `ui_components.empty_state(heading, body)` in its compact form (it sits inside a nested card, keeping the 32/22/16 title ladder): heading "Your frames will appear here", body "Once an administrator pairs a frame to your account it will show up on this page." No illustration, no action button, no health, no owner-frame data. This card is the slot Phase 55 replaces.
 - Sign out: the existing `.logout-form` quiet button, in the card list after "Preferences" and also in the shell footer/mobile panel as today. Label "Sign out". Not destructive: no confirm dialog.
 - No dirty-bar / save bar: both preference controls are already immediate POST forms.
 - Header toast: a `flash` toast may appear after theme/lang changes via the existing flash mechanism; nothing new.
@@ -155,7 +156,7 @@ All render on the login card (`login_shell`) with the login page's primary Sign 
 | Auth0 unavailable / token call failed / invalid token | "Sign-in is not available right now" | "Try again in a few minutes." |
 | Auth0 returned `error=access_denied` or similar | same as state mismatch (no distinguishing) | same |
 | Legacy flag off, password POST | "Password sign-in is turned off" | "Use the Sign in button above." |
-| Account disabled mid-session | session ends; login page, same toast as "expired" is NOT used; show the refusal page wording "No invitation found" | see Surface 2 |
+| Account disabled mid-session | session ends; the refusal page (Surface 2, "No invitation found") is served | see Surface 2 |
 
 ---
 
@@ -176,7 +177,7 @@ All render on the login card (`login_shell`) with the login page's primary Sign 
 | Refusal toast detail | This account has not been invited to SkyPane. Ask the administrator for an invitation. | Ce compte n'a pas été invité sur SkyPane. Demandez une invitation à l'administrateur. |
 | Refusal link | Back to sign in | Retour à la connexion |
 | Interstitial in / out | Signing you in… / Signing you out… | Connexion en cours… / Déconnexion en cours… |
-| Interstitial fallback link | Continue | Continuer |
+| Interstitial fallback link | Continue to {target} | Continuer vers {cible} |
 | Account title / purpose | Account / Your SkyPane sign-in and preferences. | Compte / Votre connexion SkyPane et vos préférences. |
 | Identity card | Identity (Email, Role: User, Administrator, Administrator (legacy access)) | Identité (E-mail, Rôle : Utilisateur, Administrateur, Administrateur (ancien accès)) |
 | Preferences card | Preferences (Language, Theme: existing labels) | Préférences (existing labels) |
@@ -238,3 +239,11 @@ French uses the project's existing register (vous, sentence case, existing "Se c
 - [ ] Dimension 6 Registry Safety: PASS
 
 **Approval:** pending
+
+
+## Checker follow-ups applied
+
+- Sign in link renders only when Auth0 is configured; with Auth0 unconfigured the legacy form is the only control. With both Auth0 and the legacy flag off the login page shows a docked error toast ("Sign-in is not configured") and no control.
+- The legacy `<details>` summary keeps the 44px hit floor.
+- Account page visual anchor: the Identity card, first in reading order.
+- Type scale: four content sizes (32/22/16/14); the 12px label voice is inherited from existing classes.
