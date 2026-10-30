@@ -298,7 +298,7 @@ def test_gated_rows_remain_readable_with_gate_off(conn, monkeypatch):
 def test_tokens_registry_and_removal(conn):
     a = fleet_db.add_user(conn, "a@b.c", "user")
     _dev(conn, a, token="t1")
-    _dev(conn, a, mac=MAC2)
+    _dev(conn, a, mac=MAC2, state_path="auto")
     assert fleet_db.tokens_by_mac(conn) == {MAC: "t1"}
     assert set(fleet_db.registry_view(conn)["devices"]) == {MAC, MAC2}
     assert fleet_db.set_device_token(conn, MAC, None) is True
@@ -364,6 +364,32 @@ def test_add_device_default_state_path_is_live(conn):
     device_id = _dev(conn, owner)
     row = conn.execute("SELECT state_path FROM devices WHERE id = ?", (device_id,)).fetchone()
     assert row["state_path"] == "."
+
+
+def test_add_device_rejects_a_second_live_state_path(conn):
+    owner = fleet_db.add_user(conn, "o@example.com", "admin")
+    _dev(conn, owner)
+    with pytest.raises(ValueError, match="already uses the live state path"):
+        _dev(conn, owner, mac="aa:bb:cc:dd:ee:02")
+    assert conn.execute("SELECT count(*) FROM devices").fetchone()[0] == 1
+
+
+def test_add_device_auto_rows_never_conflict_with_the_live_row(conn):
+    owner = fleet_db.add_user(conn, "o@example.com", "admin")
+    _dev(conn, owner)
+    first = _dev(conn, owner, mac="aa:bb:cc:dd:ee:02", state_path="auto")
+    second = _dev(conn, owner, mac="aa:bb:cc:dd:ee:03", state_path="auto")
+    assert first != second
+    assert conn.execute(
+        "SELECT count(*) FROM devices WHERE state_path = '.'").fetchone()[0] == 1
+
+
+def test_add_device_legacy_import_may_share_the_live_path(conn):
+    owner = fleet_db.add_user(conn, "o@example.com", "admin")
+    _dev(conn, owner)
+    _dev(conn, owner, mac="aa:bb:cc:dd:ee:02", allow_shared_live=True)
+    assert conn.execute(
+        "SELECT count(*) FROM devices WHERE state_path = '.'").fetchone()[0] == 2
 
 
 @pytest.mark.parametrize("bad", ["../x", "devices/d_deadbeef", "/abs", "", "devices"])

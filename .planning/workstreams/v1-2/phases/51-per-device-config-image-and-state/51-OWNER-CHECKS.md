@@ -32,6 +32,11 @@ Dans un terminal, depuis le dossier du projet (`/home/user/skypane`) :
 3. Ouvrez http://127.0.0.1:8099 dans votre navigateur et entrez le mot de
    passe `essai-local`.
 
+**Attention : un deuxième cadre doit toujours être ajouté avec
+`--state-path auto`** (`fleet_cli devices add ... --state-path auto`). Sans
+cela, il partagerait l'état du cadre d'Orly (image, historique, batterie) ;
+l'outil refuse désormais cet ajout dès qu'un cadre d'Orly existe.
+
 Les deux cadres simulés s'appellent `sim-1` et `sim-2`. Le cadre d'Orly
 s'appelle « Cadre d'Orly » (ou « Orly frame » en anglais).
 

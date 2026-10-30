@@ -457,6 +457,7 @@ def add_device(
     token: str | None = None,
     state_path: str = ".",
     environ: Mapping[str, str] | None = None,
+    allow_shared_live: bool = False,
 ) -> str:
     """Insert a device and return its opaque id (`d_` plus 8 hex).
 
@@ -470,12 +471,28 @@ def add_device(
     services read and write, and a hand-built `devices/<id>` could name
     another device's directory. Reads re-validate through
     `device_dirs.resolve_state_dir`, so an edited row cannot escape either.
+
+    Only one device may use "." (the live frame's state is the state root,
+    so a second one would share its image, history and battery): a second
+    "." row raises ValueError and the caller must pass "auto". The import
+    of a legacy registry sets `allow_shared_live`, because the previous
+    release already served every registered MAC from the root.
     """
     _check_mac(mac)
     _check_secret(secret_sha256)
     if state_path not in (device_dirs.LIVE_STATE_PATH, "auto"):
         raise ValueError(f"state_path must be '.' or 'auto': {state_path!r}")
     hardware.get_profile(hardware_type, environ)
+    if (
+        state_path == device_dirs.LIVE_STATE_PATH
+        and not allow_shared_live
+        and conn.execute("SELECT 1 FROM devices WHERE state_path = ?", (state_path,)).fetchone()
+        is not None
+    ):
+        raise ValueError(
+            "a device already uses the live state path '.'; "
+            "add further devices with state_path 'auto'"
+        )
     while True:
         device_id = "d_" + secrets.token_hex(4)
         if conn.execute("SELECT 1 FROM devices WHERE id = ?", (device_id,)).fetchone() is None:

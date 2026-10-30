@@ -160,6 +160,13 @@ def cmd_devices_add(args):
     owner_id = _owner_id(conn, args.owner_email)
     if owner_id is None:
         return _fail("no such owner: %s" % args.owner_email, 1)
+    live_macs = {str(row["mac"]) for row in conn.execute(
+        "SELECT mac FROM devices WHERE state_path = ?",
+        (device_dirs.LIVE_STATE_PATH,))}
+    if args.state_path != "auto" and live_macs:
+        return _fail(
+            "a live frame already exists; add this device with "
+            "--state-path auto so it gets its own directory")
     # The legacy write runs inside the transaction: if it raises, the
     # insert is rolled back and the two stores stay equal.
     new_id = None
@@ -172,6 +179,9 @@ def cmd_devices_add(args):
                 state_path=args.state_path)
             if args.state_path == "auto":
                 profile = hardware.get_profile(args.hardware_type, os.environ)
+                # Recorded before devices/ first appears, so a corrupt
+                # fleet.db can never leave per-device state without it.
+                device_dirs.record_live_macs(args.state_dir, live_macs)
                 created_dir = device_dirs.provision_device_dir(
                     args.state_dir, new_id, profile.width, profile.height)
             byos_server.register_device(args.state_dir, mac, args.secret_sha256)

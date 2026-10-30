@@ -180,9 +180,9 @@ def test_devices_add_mirrors_to_legacy_and_remove_restores_bytes(sd):
     assert not os.path.exists(byos_server.registry_path(sd))
     assert add_device(sd) == 0
     assert byos_server.load_registry(sd)["devices"][MAC]["secret_sha256"] == SECRET
-    assert add_device(sd, OTHER_MAC, SECRET2) == 0
+    assert add_device(sd, OTHER_MAC, SECRET2, "--state-path", "auto") == 0
     original = read(byos_server.registry_path(sd))
-    assert add_device(sd, "aa:bb:cc:dd:ee:03", SECRET) == 0
+    assert add_device(sd, "aa:bb:cc:dd:ee:03", SECRET, "--state-path", "auto") == 0
     assert run(sd, "devices", "remove", "--mac", "aa:bb:cc:dd:ee:03") == 0
     assert read(byos_server.registry_path(sd)) == original
 
@@ -344,6 +344,35 @@ def test_devices_add_without_flag_output_and_layout_unchanged(sd, capsys):
     assert capsys.readouterr().out == "registered %s\n" % MAC
     assert db_rows(sd)[0]["state_path"] == "."
     assert not os.path.exists(os.path.join(sd, "devices"))
+
+
+def test_devices_add_second_default_is_refused_with_a_clear_message(sd, capsys):
+    add_owner(sd)
+    assert add_device(sd) == 0
+    capsys.readouterr()
+    assert add_device(sd, OTHER_MAC, SECRET2) == 2
+    err = capsys.readouterr().err
+    assert "--state-path auto" in err
+    assert [r["mac"] for r in db_rows(sd)] == [MAC]
+    assert OTHER_MAC not in byos_server.load_registry(sd)["devices"]
+    assert not os.path.exists(os.path.join(sd, "devices"))
+
+
+def test_devices_add_second_explicit_dot_is_refused_too(sd):
+    add_owner(sd)
+    assert add_device(sd) == 0
+    assert add_device(sd, OTHER_MAC, SECRET2, "--state-path", ".") == 2
+    assert len(db_rows(sd)) == 1
+
+
+def test_devices_add_auto_records_the_live_mac_before_devices_appear(sd, monkeypatch):
+    monkeypatch.setenv("SKYPANE_SIM_HARDWARE", "1")
+    add_owner(sd)
+    assert add_device(sd) == 0
+    assert fleet_cli.device_dirs.read_live_macs(sd) is None
+    assert add_device(sd, OTHER_MAC, SECRET2, "--hardware-type", "sim-ee02-clone",
+                      "--state-path", "auto") == 0
+    assert fleet_cli.device_dirs.read_live_macs(sd) == frozenset({MAC})
 
 
 def test_devices_add_auto_rollback_removes_directory(sd, monkeypatch):
