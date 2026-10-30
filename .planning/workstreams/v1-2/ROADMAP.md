@@ -300,7 +300,7 @@ Real `/d/<id>/...` routes and their matrix rows are completed after Phase 51; se
 | 51. Per-Device Config, Image and State | v1.2 | 0/0 | Not started | - |
 | 52. Fleet Poll Cycle, Zones and Request Budget | v1.2 | 0/0 | Not started | - |
 | 53. Detection Modes | v1.2 | 0/0 | Not started | - |
-| 54. Auth0 Sign-In, Local Roles and Default-Deny Access | v1.2 | 6/9 | In Progress|  |
+| 54. Auth0 Sign-In, Local Roles and Default-Deny Access | v1.2 | 7/9 | In Progress|  |
 | 55. Frame Pairing, Admin Console and Reduced User View | v1.2 | 0/0 | Not started | - |
 | 56. Per-Hardware Rendering, Battery Profiles, Health and Credits | v1.2 | 0/0 | Not started | - |
 | 57. Combined Legacy-Frame Firmware Release | v1.2 | 0/0 | Not started (gated on Phase 47) | - |
