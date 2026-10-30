@@ -25,7 +25,7 @@ Fetch is split from selection in `detect.py` so devices in one zone select from 
 
 ## Commits
 - 67051b5: split fetch from selection in detect (Task 1)
-- dd90427: fleet_zones module, tests and this summary (Task 2)
+- d823e60: fleet_zones module, tests and this summary (Task 2)
 
 ## Verification
 - test_fleet_zones, test_plane_detection, test_poll_efficiency, test_provider_rate, stub-server/test_phase47_freeze: all pass (no pre-existing assertion edited)
