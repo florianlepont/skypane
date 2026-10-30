@@ -599,7 +599,7 @@ _POSITIVE_CASES = [
     ("G6", "nonexistent_path",
      'V = health_page.anomaly_active("/nonexistent/definitely-not-here")\n', None),
     ("G6", "host_tmp_state_dir",
-     'CTX = {"state_dir": "/tmp", "poll_cooldown_remaining": 0}\n', None),
+     'CTX = {"state_dir": "/tmp"}\n', None),
     ("G6", "host_tmp_file_path",
      'P = "/var/tmp/skypane/history.db"\n', None),
     ("G6", "tempfile_mkdtemp",

@@ -28,7 +28,7 @@ _PENDING = layout.TOAST_TONE_PENDING
 # One real flash per tone, on the page its producer redirects to.
 _ONE_PER_TONE = (
     (_SUCCESS, layout.DISPLAY_ROUTE, flash.FLASH_KEY_CALENDAR_CONNECT_OK),
-    (_INFO, layout.HOME_ROUTE, flash.FLASH_KEY_POLL_ALREADY_RUNNING),
+    (_INFO, layout.DISPLAY_ROUTE, flash.FLASH_KEY_CALENDAR_SYNC_DEFERRED),
     (_WARNING, layout.DISPLAY_ROUTE, flash.FLASH_KEY_CALENDAR_SYNC_FAILED),
     (_ERROR, layout.DISPLAY_ROUTE, flash.FLASH_KEY_SAVE_FAILED),
     (_PENDING, layout.HOME_ROUTE, flash.FLASH_KEY_QUIET_ON),
@@ -87,7 +87,7 @@ def test_every_flash_key_has_a_tone_and_its_role_follows_the_tone():
         assert flash.FLASH_ROLES[key] == _EXPECTED_ROLE[tone], (
             "%s (%s) must carry role=%r, got %r"
             % (key, tone, _EXPECTED_ROLE[tone], flash.FLASH_ROLES[key]))
-    for key in (flash.FLASH_KEY_SAVE_FAILED, flash.FLASH_KEY_POLL_FAILED,
+    for key in (flash.FLASH_KEY_SAVE_FAILED,
                 flash.FLASH_KEY_QUICK_FAILED, flash.FLASH_KEY_RULE_SAVE_FAILED):
         assert flash.FLASH_TONES[key] == _ERROR, "%s is a failure and must be an error" % key
     for key in (flash.FLASH_KEY_QUIET_ON, flash.FLASH_KEY_LED_OFF, flash.FLASH_KEY_SAVED,

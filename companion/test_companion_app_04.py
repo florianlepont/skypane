@@ -449,7 +449,7 @@ def test_home_page_renders_widgets(app04_server, session_cookie):
             "Your frame at a glance.", "Quick actions", "On the frame now",
             "status-card__rows", "home-hero", 'class="frame-strip',
             'class="dashboard-grid home-status-grid"', 'class="day-band',
-            'action="%s"' % app_module.POLL_ROUTE):
+            'action="/poll-now"'):
         assert absent not in text, (
             "expected %r to be absent from the rebuilt Home page (D-04)" % absent)
 
@@ -770,7 +770,7 @@ def test_display_and_device_pages_split_the_groups(app04_server, session_cookie)
             "expected the %s page to carry its hidden return_to field" % scope)
         assert "Screen: Plane frame" not in text, (
             "expected the retired screen-type caption to stay off the %s page" % scope)
-    assert "Refresh now" in device_text, "expected the Device page to carry the Refresh now action"
+    assert "Refresh now" not in device_text, "expected the Device page to carry no Refresh now action"
     rules_panel_marker = 'data-look-usage="rules"'
     assert rules_panel_marker not in device_text, (
         "expected the Device page NOT to carry the rules editor (moved to Display, 20-07/D-10)")

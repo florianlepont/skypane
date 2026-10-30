@@ -176,27 +176,11 @@ class TestPathHelpers:
         assert len(device_scope.current_devices()) == 4
         assert device_scope.scoped("/health") == prefix + "/health"
         assert device_scope.scoped("/health?x=1#top") == prefix + "/health?x=1#top"
-        assert device_scope.scoped("/poll-now", method="POST") == prefix + "/poll-now"
-        assert device_scope.scoped("/poll-now") == "/poll-now"
+        assert device_scope.scoped("/quick/led", method="POST") == prefix + "/quick/led"
+        assert device_scope.scoped("/quick/led") == "/quick/led"
         for global_path in ("/update", "/login", "/static/style.css", "/ui-lang"):
             assert device_scope.scoped(global_path) == global_path
         assert routes.match("GET", device_scope.scoped("/health"), "") is not None
-
-
-class TestPollSupported:
-    def test_geometry_decides(self, fleet):
-        state_dir, seeded = fleet
-        with sim_hardware_env():
-            assert device_scope.poll_supported(device_scope.find_device(state_dir, seeded.dev_a.id))
-            assert device_scope.poll_supported(device_scope.live_device(state_dir))
-            assert not device_scope.poll_supported(
-                device_scope.find_device(state_dir, seeded.landscape.id))
-
-    def test_gate_off_rejects_simulated_type_without_raising(self, fleet, monkeypatch):
-        state_dir, seeded = fleet
-        monkeypatch.delenv("SKYPANE_SIM_HARDWARE", raising=False)
-        assert not device_scope.poll_supported(
-            device_scope.find_device(state_dir, seeded.dev_a.id))
 
 
 class TestDeviceStatus:

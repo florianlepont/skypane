@@ -726,7 +726,7 @@ def test_freshness_js_carries_the_refresh_loop_contract(freshness_js):
 def _display_render(state_dir, now_iso):
     """Display's body, carrying the silent page-header refresh marker."""
     return config_page.render(
-        {"device_config": {}, "state_dir": state_dir, "poll_cooldown_remaining": 0, "now": now_iso},
+        {"device_config": {}, "state_dir": state_dir, "now": now_iso},
         scope=config_page.SCOPE_DISPLAY)
 
 

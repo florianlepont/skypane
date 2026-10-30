@@ -146,10 +146,6 @@ FLASH_CLEANUP_SCRIPT_SRC = "/static/flash-cleanup.js"
 # as above: dismiss and auto-hide for every toast.
 TOAST_SCRIPT_SRC = "/static/toast.js"
 
-# Must equal companion/app.py's POLL_COOLDOWN_SCRIPT_ROUTE exactly, same
-# contract as above.
-POLL_COOLDOWN_SCRIPT_SRC = "/static/poll-cooldown.js"
-
 # Must equal companion/app.py's CONFIRM_SUBMIT_SCRIPT_ROUTE exactly, same
 # contract as above.
 CONFIRM_SUBMIT_SCRIPT_SRC = "/static/confirm-submit.js"
