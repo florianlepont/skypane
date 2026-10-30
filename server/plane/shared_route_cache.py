@@ -99,7 +99,7 @@ class SharedRouteTransport:
 
     def _fresh(self, entry: dict[str, Any], now: float) -> bool:
         age = now - entry["stored_at"]
-        return 0 <= age < _ttl_for(entry["status"])
+        return bool(0 <= age < _ttl_for(entry["status"]))
 
     def _lookup_cached(self, key: str, now: float) -> tuple[int, Any] | None:
         try:

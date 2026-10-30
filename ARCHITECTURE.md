@@ -148,10 +148,24 @@ panel being visibly mid-redraw for roughly half a minute afterward.
 
 `server/poll_loop.py` is the single entrypoint, invoked as a systemd-timer
 oneshot every 30 seconds (matching Phase 1's validated aggregator sampler
-interval, and comfortably inside both aggregators' 1 req/s limit) — it
-does nothing but parse `argparse` arguments and call `server/poll_cycle.py`'s
-`run_once()`, which the companion's `POST /poll-now` calls the exact same
-way — the two callers can never run a cycle concurrently, because
+interval, and comfortably inside both aggregators' 1 req/s limit). It
+parses `argparse` arguments and hands the whole fleet to
+`server/fleet_cycle.py`'s `run_fleet()`, which lists the devices in
+`fleet.db` (the live frame alone when there is none), drops devices that
+cannot be rendered here or have not checked in for seven days, and groups
+the rest by exact polling zone. Held devices (battery critical, display
+off, quiet hours) join no zone and cost no request. Each zone is fetched
+once through `server/zone_fetch.py`: adsb.fi then adsb.lol, one after the
+other, every request spending a slot from the shared
+`server/request_budget.py` ledger (`request_ledger.json` in the state
+root: 1.1 s global spacing, a 60 s pause per failing provider, and each
+zone's last-served time, all behind a `flock`). Zones holding the live
+frame go first, then the oldest-served; no new zone or device starts
+after 25 seconds, and the devices not reached keep their current image.
+Each device then runs `server/poll_cycle.py`'s `run_once()` on its zone's
+shared result, in its own try/except, so one failing zone or device never
+stops the others. The companion's `POST /poll-now` calls the same
+`run_once()` the exact same way — the two callers can never run a cycle concurrently, because
 `run_once()` opens `state/poll.lock` (`poll_cycle.poll_cycle_lock()`, an
 `fcntl.flock`) for the duration of the cycle: the systemd timer's call
 waits up to a bounded timeout for the lock, and the companion's call
