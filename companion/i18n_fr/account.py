@@ -57,4 +57,11 @@ MESSAGES = {
     "account.once_an_administrator_pairs_a_frame_to_your":
         "Dès qu’un administrateur associe un cadre à votre compte, il "
         "apparaîtra sur cette page.",
+    "account.your_frames": "Vos cadres",
+    "account.last_contact": "Dernier contact",
+    "account.no_contact_yet": "Aucun contact pour l’instant",
+    "account.battery": "Batterie",
+    "account.unnamed_frame": "Cadre sans nom",
+    "account.open": "Ouvrir",
+    "account.open_frame": "Ouvrir %s",
 }
