@@ -9,8 +9,9 @@ import pytest
 from companion import i18n
 from companion.layout import escape_html
 from companion.settings import form_post
-from companion.test_user_view_http import Rig
-from provisioned_fleet import device_dir
+from companion_app_server import (
+    InProcessAppServer, http_request, session_cookie_for_state_dir)
+from provisioned_fleet import ADMIN_EMAIL, USER_A_EMAIL, device_dir, provision_fleet
 from server.net import safe_fetch
 from server.plane import calendar_rules
 from server.plane.calendar_rules import registry as calendar_registry
@@ -24,6 +25,26 @@ PRIVATE_URLS = (
     "https://localhost/x.ics",
     "webcal://127.0.0.1/x.ics",
 )
+
+
+class Rig:
+    """A companion over one provisioned fleet, with a session per persona."""
+
+    def __init__(self, state_dir):
+        self.state_dir = state_dir
+        self.server = InProcessAppServer(state_dir)
+        self.fleet = provision_fleet(state_dir)
+        self.cookies = {
+            "a": session_cookie_for_state_dir(state_dir, USER_A_EMAIL),
+            "admin": session_cookie_for_state_dir(state_dir, ADMIN_EMAIL)}
+
+    def request(self, method, path, who, data=None):
+        return http_request(
+            self.server.url(path), method=method, data=data, cookie=self.cookies[who],
+            extra_headers={"Origin": self.server.base_url()})
+
+    def stop(self):
+        self.server.stop()
 
 
 @pytest.fixture
