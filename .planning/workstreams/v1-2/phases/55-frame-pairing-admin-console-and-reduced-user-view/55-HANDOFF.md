@@ -170,7 +170,7 @@ python3 -m server.fleet_migrate --state-dir /opt/skypane/state --dry-run
 16. **Flaky test, not from this phase.** `stub-server/test_ota_offer.py` showed
     a port race once in CI. It is a test-harness port pick, unrelated to pairing.
 17. **Branch state.** `origin/main` has moved on (Phase 56 and Phase 49 docs
-    merged) since this branch was cut; the branch has not been rebased onto it.
+    merged) since this branch was cut; the branch was merged with main (68796be6) onto it.
 
 UI-SPEC open questions and the defaults taken:
 
@@ -182,6 +182,15 @@ UI-SPEC open questions and the defaults taken:
 | 4 | User tab bar | Home, Flights, Display, Health, Account; Airlines and Calendar reachable from Display and the sidebar |
 | 5 | Pairing screen hierarchy | 168 px code as the largest element; red header band kept; owner to confirm on the panel |
 | 6 | Location quota and range | 10 per user; latitude and longitude validated as numbers in range, 4 decimals stored |
+
+## D2. Code review follow-up (after the phase verification)
+
+The deep code review (`55-REVIEW.md`) found one critical and four warnings. The fixes are in `55-REVIEW-FIX.md`: crash-safe wipe order for reassign and re-activate (rename aside, commit, delete), consistent location save, state-path and device-id guards, `\Z` id matching, bidirectional characters stripped from location names, and a viewer-scoped location usage count. Left as they are, for the owner to decide:
+
+- **Reassigning the live frame keeps the previous owner's data** (calendar secret, name, history), by design (owner decision D-13, which protects the Phase 47 measurements). If the live frame is ever handed to a different person, clear its calendar link by hand first.
+- **CSRF scope** is the six routes you chose plus the new console routes. Other forms rely on the session cookie's SameSite setting and the Origin check, which accepts a request with no Origin header (pre-existing).
+- **The CLI `devices assign` and `devices reactivate` wipe a frame directory without the busy guard** the console uses. Stop `skypane-byos` and the poll timer first, as the existing restart caution says.
+- Remaining info items (pairing throttle is in memory and not atomic between check and record, Fleet page hides a device whose stored state path is invalid, `COMMIT` failure not rolled back by `fleet_db.transaction`, CLI `devices remove` leaves the directory) are low risk and recorded in `55-REVIEW.md`.
 
 ## E. What stays with the owner or later phases
 
