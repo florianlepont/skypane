@@ -181,15 +181,6 @@ def resolve_theme_arriving(form, in_scope, errors):
     return {"theme_arriving": theme_arriving}
 
 
-def resolve_runway(form, errors):
-    """Runway group: the submitted tracked_runway's membership check."""
-    submitted_runway = form.get("tracked_runway")
-    if submitted_runway is not None and submitted_runway not in device_config.RUNWAY_IDS:
-        _note_error(errors, "tracked_runway", ERROR_INVALID_CHOICE)
-        return FAILED
-    return {"tracked_runway": submitted_runway}
-
-
 def resolve_quiet_hours_times(form, errors):
     """Quiet hours group, step 1: the start/end time fields' shape
     check. quiet_hours_enabled is a separate function

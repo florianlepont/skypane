@@ -410,7 +410,7 @@ def test_look_supersection_carries_exactly_one_dirty_section_named_aspect():
         ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=configured, calendar_last_synced_at=None)
         rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
         look_start = rendered.index('id="%s"' % config_page.DISPLAY_LOOK_SECTION_ID)
-        look_end = cp.runway_section_start(rendered, look_start)
+        look_end = cp.aspect_section_end(rendered, look_start)
         look_segment = rendered[look_start:look_end]
         count = look_segment.count(config_page.DIRTY_SECTION_ATTR + "=")
         assert count == 1, (
@@ -502,18 +502,18 @@ def test_calendar_disconnect_form_is_not_inside_settings_form_on_display_scope()
         "expected the disconnect form's opening tag to appear AFTER the settings form's closing tag")
 
 
-def test_calendar_connect_form_appears_before_the_runway_card_on_display_scope():
+def test_calendar_connect_form_appears_before_the_quiet_hours_card_on_display_scope():
     """on the Display scope, the calendar connect/replace form's own <form> opening tag renders
-    inside the Calendar row and strictly before the Runway card's own radio input"""
+    inside the Calendar row and strictly before the Quiet hours card"""
     ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
     rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     calendar_row_index = rendered.index('data-look-usage="%s"' % config_page.COLOUR_USAGE_CALENDAR)
     connect_form_index = rendered.index(
         '<form class="calendar-sheet__form" method="post" action="%s"' % config_page.CALENDAR_CONNECT_ROUTE)
-    runway_index = rendered.index('name="tracked_runway"')
-    assert calendar_row_index < connect_form_index < runway_index, (
-        "expected Calendar row < connect form < Runway card, got %d, %d, %d"
-        % (calendar_row_index, connect_form_index, runway_index))
+    quiet_hours_index = rendered.index('id="%s"' % config_page.QUIET_HOURS_GROUP_HEADING_ID)
+    assert calendar_row_index < connect_form_index < quiet_hours_index, (
+        "expected Calendar row < connect form < Quiet hours card, got %d, %d, %d"
+        % (calendar_row_index, connect_form_index, quiet_hours_index))
 
 
 def test_calendar_disconnect_form_absent_when_not_configured_or_on_device_scope():

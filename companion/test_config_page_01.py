@@ -6,7 +6,6 @@ rendering, and runway_fieldset()'s cards/escaping/photograph survival.
 Each test calls config_page directly against a tmp_path-backed state
 directory; no running companion/app.py server is needed.
 """
-import contextlib
 import json
 import os
 import re
@@ -31,19 +30,20 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # ======================================================================
 
 
-def test_render_emits_no_fieldset_or_legend_four_groups_three_runway_cards_and_save_button():
+def test_render_emits_no_fieldset_or_legend_three_groups_no_runway_cards_and_save_button():
     """render() emits no <fieldset>/<legend> and no .theme-chip-grid on this legacy SCOPE_ALL
-    render, four theme-status-wrapped groups (Runway/Diagnostic LED/Quiet hours/Wake
-    interval), three runway-card labels, and a Save settings submit button"""
+    render, three theme-status-wrapped groups (Diagnostic LED/Quiet hours/Wake interval), no
+    runway-card label, and a Save settings submit button"""
     ctx = {
         "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
     }
     rendered = config_page.render(ctx)
     assert "<fieldset" not in rendered
     assert "<legend" not in rendered
-    assert rendered.count('class="theme-status"') == 4
+    assert rendered.count('class="theme-status"') == 3
     assert "theme-chip-grid" not in rendered
-    assert rendered.count('<label class="runway-card') == 3
+    assert '<label class="runway-card' not in rendered
+    assert 'name="tracked_runway"' not in rendered
     assert "Save settings" in rendered
 
 
@@ -236,7 +236,7 @@ def test_render_places_wake_interval_last_and_resolves_prefill():
     # "Theme" does not render on this legacy SCOPE_ALL page, so it is
     # excluded from this order check.
     headings = [
-        "Runway", config_page.LED_SECTION_HEADING,
+        config_page.LED_SECTION_HEADING,
         config_page.QUIET_HOURS_SECTION_HEADING,
         config_page.WAKE_INTERVAL_SECTION_HEADING,
     ]
@@ -361,27 +361,27 @@ def test_handle_post_theme_only_save_never_flips_display_quiet_hours_or_led_off(
 
 
 def test_every_settings_group_is_named_exactly_once():
-    """all four Config settings groups (Theme/Runway/Diagnostic LED) are named exactly
+    """the Config settings groups (Theme/Diagnostic LED) are named exactly
     once, all via the shared <h2 class="text-heading"> role, with zero <legend> and zero
     <fieldset> anywhere on the page"""
     ctx = {
         "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
     }
     rendered = config_page.render(ctx)
-    # Runway's and Diagnostic LED's own <h2> each carry an id (an
-    # aria-labelledby target); "Theme" is excluded from this list because
-    # its replacement only ever renders on the Display scope.
+    # Diagnostic LED's own <h2> carries an id (an aria-labelledby target);
+    # "Theme" is excluded from this list because its replacement only ever
+    # renders on the Display scope.
     heading_ids = {
-        "Runway": config_page.RUNWAY_GROUP_HEADING_ID,
         "Diagnostic LED": config_page.QUICK_LED_LABEL_ID,
     }
-    for name in ("Runway", "Diagnostic LED"):
+    for name in ("Diagnostic LED",):
         heading_id = heading_ids.get(name)
         if heading_id:
             heading = '<h2 class="text-heading" id="%s">%s</h2>' % (escape_html(heading_id), name)
         else:
             heading = '<h2 class="text-heading">%s</h2>' % name
         assert rendered.count(heading) == 1
+    assert 'id="runway-group-heading"' not in rendered
     assert "<legend" not in rendered
     assert "<fieldset" not in rendered
     assert '<p class="text-label">Theme</p>' not in rendered, (
@@ -464,36 +464,6 @@ def test_aspect_card_default_selects_exactly_the_white_departures_option():
         assert checked == [expected_value]
 
 
-def test_runway_fieldset_exactly_three_radios():
-    """runway_fieldset() emits exactly three runway radio inputs"""
-    rendered = config_page.runway_fieldset("3")
-    assert rendered.count('name="tracked_runway"') == 3
-
-
-def test_runway_fieldset_cards_visually_hidden_radio_and_selected_class():
-    """runway_fieldset('3') renders three selectable cards, each wrapping a visually-hidden
-    radio, with only the '3' card selected"""
-    rendered = config_page.runway_fieldset("3", images_available=())
-    assert rendered.count('<label class="runway-card') == 3
-    assert rendered.count("runway-card--selected") == 1
-    # Polish fix 4 (D-14c): each radio also carries form="settings-form",
-    # inserted between class="visually-hidden" and checked.
-    assert (
-        'value="3" class="visually-hidden" form="%s" checked' % config_page.SETTINGS_FORM_ID
-        in rendered)
-    assert "display:none" not in rendered and "display: none" not in rendered
-    assert rendered.count('class="visually-hidden"') >= 3
-
-
-def test_runway_fieldset_cards_image_rendering_per_card():
-    """runway_fieldset('3', images_available=('3', '06-24')) renders an <img> inside exactly
-    those two cards, none in the third"""
-    rendered = config_page.runway_fieldset("3", images_available=("3", "06-24"))
-    assert rendered.count("<img") == 2
-    assert "/runway-image/3.png" in rendered and "/runway-image/06-24.png" in rendered
-    assert "/runway-image/02-20.png" not in rendered
-
-
 def test_look_swatch_matches_the_live_registry_band_facts():
     """look.swatch_svg() draws a diagonal band exactly for the registry's band themes, a soft
     (dithered) ink as a translucent fill over white paper and a solid ink fully opaque, with no
@@ -556,57 +526,10 @@ def test_look_sentence_reads_every_theme_back_from_its_three_choices():
         assert look.resolve(colour or look.COLOUR_BLACK, background, stripe) == theme_id
 
 
-@contextlib.contextmanager
-def _temporary_registry(entries):
-    """Swap device_config.RUNWAYS/RUNWAY_IDS for `entries` and put them back. A context manager
-    rather than a try/finally at each call site: this fixture mutates a module-level registry
-    every other check in this file reads, and one missed restore would make an unrelated
-    neighbour fail in a way nobody would trace back to here. Used only by the one check below
-    that needs a hostile registry entry to swap in."""
-    was_runways = device_config.RUNWAYS
-    was_ids = device_config.RUNWAY_IDS
-    device_config.RUNWAYS = entries
-    device_config.RUNWAY_IDS = tuple(entries)
-    try:
-        yield
-    finally:
-        device_config.RUNWAYS = was_runways
-        device_config.RUNWAY_IDS = was_ids
-
-
-def _runway_entry(label):
-    return {"label": label, "tag_text": label, "empty_heading": label}
-
-
-def test_runway_fieldset_escapes_a_hostile_registry_label():
-    """runway_fieldset() escapes a hostile registry label rather than dropping or interpolating
-    it unescaped"""
-    hostile = 'Runway <script>"x"</script> (07/25)'
-    with _temporary_registry({"h": _runway_entry(hostile)}):
-        rendered = config_page.runway_fieldset("h")
-        assert "<script>" not in rendered, "a registry label containing markup reached the page unescaped"
-        assert "&lt;script&gt;" in rendered, "expected the hostile registry label to render escaped, not dropped"
-
-
-def test_the_controls_semantics_and_the_photographs_survive_the_maps_removal():
-    """the control's own semantics and the photographs survive the map's removal — the row
-    keeps role="radiogroup" with the same aria-labelledby/aria-describedby ids,
-    current_runway_id=None marks nothing selected and leaves no radio checked, and the three
-    runway photographs still render from the session-gated route and still exist on disk"""
-    rendered = config_page.runway_fieldset("3")
-    for fragment in (
-            'role="radiogroup"',
-            'aria-labelledby="%s"' % config_page.RUNWAY_GROUP_HEADING_ID,
-            'aria-describedby="%s"' % config_page.RUNWAY_SECTION_CAPTION_ID):
-        assert fragment in rendered
-    none_selected = config_page.runway_fieldset(None)
-    assert "runway-card--selected" not in none_selected
-    assert " checked" not in none_selected
-    empty = config_page.runway_fieldset("3", images_available=())
-    assert "<img" not in empty
-    with_images = config_page.runway_fieldset("3", images_available=device_config.RUNWAY_IDS)
-    assert with_images.count("<img") == len(device_config.RUNWAY_IDS)
-    assert config_page.RUNWAY_IMAGE_ROUTE_PREFIX in with_images
+def test_the_runway_photographs_survive_the_runway_card_removal():
+    """the three runway photographs still exist on disk and are still served by the
+    session-gated route, although the Display page no longer shows a Runway card"""
+    assert config_page.RUNWAY_IMAGE_ROUTE_PREFIX == "/runway-image/"
     for runway_id in device_config.RUNWAY_IDS:
         path = os.path.join(HERE, "static", "runway-%s.png" % runway_id)
         assert os.path.exists(path), (

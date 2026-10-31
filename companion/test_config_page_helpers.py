@@ -40,11 +40,10 @@ ASPECT_RETIRED_MARKUP_TOKENS = (
 )
 
 
-def runway_section_start(rendered, after=0):
-    """Offset of the opening tag of the Runway section (the card that follows the Aspect card),
-    found from its id-anchored heading so it does not depend on the card's wrapper class."""
-    heading = rendered.index('id="%s"' % config_page.RUNWAY_GROUP_HEADING_ID, after)
-    return rendered.rindex("<div", after, heading)
+def aspect_section_end(rendered, after=0):
+    """Offset of the closing tag of the Aspect section: the first thing that follows the look
+    card and its special-looks list, whatever card the page renders next."""
+    return rendered.index("</section>", after)
 
 
 def aspect_usage_row_bounds(rendered, usage):
@@ -52,12 +51,12 @@ def aspect_usage_row_bounds(rendered, usage):
     the look card: Departures and Arrivals are the two framed pictures,
     Calendar flights the first Special looks row, and the rules the rest
     of the Special looks list (rule rows plus the "Add a special look"
-    form) up to the Runway section's own id-anchored heading.
+    form) up to the end of the Aspect section.
     """
     if usage == config_page.COLOUR_USAGE_RULES:
         start = rendered.index(
             '<li class="special-row', rendered.index('data-look-usage="calendar"'))
-        return start, runway_section_start(rendered, start)
+        return start, aspect_section_end(rendered, start)
     start = rendered.rindex("<", 0, rendered.index('data-look-usage="%s"' % usage))
     following = {
         config_page.COLOUR_USAGE_DEPARTURES: 'data-look-usage="arrivals"',

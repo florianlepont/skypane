@@ -1,7 +1,7 @@
 """Tests handle_post()'s field-level `errors` dict, the retired LED-route/
-helper-symbol guards, runway-image detection and runway_fieldset() image
-emission, cross-file DOM-contract guards between config_page.py and its
-static assets (dirty-state.js, style.css), the theme-chip grid's markup/
+helper-symbol guards, runway-image detection, cross-file DOM-contract guards
+between config_page.py and its static assets (dirty-state.js, style.css),
+the theme-chip grid's markup/
 selection-state contract, the arrivals/calendar theme override's
 clearable contract, and the Aspect card's accordion shape and per-flight
 rules editor markup. Some checks fetch style.css or a served JS asset
@@ -399,50 +399,6 @@ def test_runway_images_available_bounded_by_registry_not_directory_listing(tmp_p
     result = companion_app.runway_images_available(image_dir=str(tmp_path))
     assert result == set(), (
         "expected an empty set (non-registry files must be ignored), got %r" % (result,))
-
-
-# ======================================================================
-# Section 6: runway_fieldset() image emission - unit checks against the
-# string output only, no filesystem/subprocess involved.
-# ======================================================================
-
-def test_runway_fieldset_emits_img_only_for_available_runway():
-    """runway_fieldset(images_available={'3'}) emits exactly one <img, for runway 3 only"""
-    rendered = config_page.runway_fieldset("3", {"3"})
-    assert rendered.count("<img") == 1, (
-        "expected exactly one <img occurrence, got %d" % rendered.count("<img"))
-    assert "/runway-image/3.png" in rendered, "expected the src to point at /runway-image/3.png"
-    assert "runway-image/06-24" not in rendered and "runway-image/02-20" not in rendered, (
-        "expected no image reference for runways not in images_available")
-
-
-def test_runway_fieldset_graceful_fallback_no_images():
-    """runway_fieldset(images_available=set()) renders zero <img tags and all three
-    number/heading labels (graceful fallback)"""
-    rendered = config_page.runway_fieldset("3", set())
-    assert "<img" not in rendered, "expected zero <img occurrences with an empty images_available set"
-    assert rendered.count('name="tracked_runway"') == 3, "expected all three runway radios still present"
-    for runway_id in device_config.RUNWAY_IDS:
-        assert escape_html(device_config.runway_label(runway_id)) in rendered, (
-            "expected the label text for runway %r" % (runway_id,))
-
-
-def test_render_forwards_ctx_runway_images_key():
-    """render() forwards ctx['runway_images'] to runway_fieldset() rather than relying on the
-    parameter default"""
-    rendered = config_page.render({
-        "device_config": {"theme": "black", "tracked_runway": "3"},
-        "runway_images": {"06-24"},
-    })
-    assert "/runway-image/06-24.png" in rendered, (
-        "expected render() to forward ctx['runway_images'] into the <img> src")
-    # 06.6.4.1.1-05: scoped to the runway-card image class specifically -
-    # the page now also carries one theme-chip preview <img> per THEME_IDS
-    # entry, so a bare "<img" count is no longer exclusive to the runway
-    # picker.
-    assert rendered.count('<img class="runway-card__image"') == 1, (
-        "expected exactly one runway-card__image <img occurrence, got %d"
-        % rendered.count('<img class="runway-card__image"'))
 
 
 # ======================================================================
@@ -895,10 +851,11 @@ def test_theme_arriving_clearable_contract_full_round_trip(tmp_path):
     Named so a failure says plainly that the empty-string clear signal stopped working.
     """
     tmpdir = str(tmp_path)
+    device_config.save_device_config(tmpdir, tracked_runway="06-24")
     ctx = {"state_dir": tmpdir}
     first = config_page.handle_post(
         {
-            "theme": "white", "tracked_runway": "06-24",
+            "theme": "white",
             "led_enabled": config_page.LED_CHECKBOX_VALUE,
             "theme_arriving": "black",
         },
@@ -911,7 +868,7 @@ def test_theme_arriving_clearable_contract_full_round_trip(tmp_path):
 
     second = config_page.handle_post(
         {
-            "theme": "white", "tracked_runway": "06-24",
+            "theme": "white",
             "led_enabled": config_page.LED_CHECKBOX_VALUE,
             "theme_arriving": "",
         },
@@ -928,9 +885,9 @@ def test_theme_arriving_clearable_contract_full_round_trip(tmp_path):
     ), "expected every other setting to survive the second save unchanged, got %r" % (after_second,)
 
 
-def test_settings_page_has_zero_fieldsets_and_four_dirty_sections():
-    """the rendered Settings page contains no <fieldset> and no <legend>, and exactly four
-    data-dirty-section groups (Runway/Diagnostic LED/Quiet hours/Wake interval -
+def test_settings_page_has_zero_fieldsets_and_three_dirty_sections():
+    """the rendered Settings page contains no <fieldset> and no <legend>, and exactly three
+    data-dirty-section groups (Diagnostic LED/Quiet hours/Wake interval -
     Theme, Calendar and Display each have no entry on this legacy scope)
 
     dirty-state.js's section-aware walk still finds each group as one addressable unit.
@@ -940,8 +897,8 @@ def test_settings_page_has_zero_fieldsets_and_four_dirty_sections():
     })
     assert "<fieldset" not in rendered, "expected zero <fieldset> elements on the rendered Settings page"
     assert "<legend" not in rendered, "expected zero <legend> elements on the rendered Settings page"
-    assert rendered.count(config_page.DIRTY_SECTION_ATTR) == 4, (
-        "expected exactly 4 %s occurrences (Runway/Diagnostic LED/Quiet hours/Wake interval), "
+    assert rendered.count(config_page.DIRTY_SECTION_ATTR) == 3, (
+        "expected exactly 3 %s occurrences (Diagnostic LED/Quiet hours/Wake interval), "
         "got %d" % (config_page.DIRTY_SECTION_ATTR, rendered.count(config_page.DIRTY_SECTION_ATTR)))
 
 

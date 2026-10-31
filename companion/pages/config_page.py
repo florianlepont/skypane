@@ -50,14 +50,9 @@ from companion.settings.runway_led import (
     QUICK_LED_FORM_ID as QUICK_LED_FORM_ID,
     QUICK_LED_LABEL_ID as QUICK_LED_LABEL_ID,
     QUICK_LED_STATE_ID as QUICK_LED_STATE_ID,
-    RUNWAY_GROUP_HEADING_ID as RUNWAY_GROUP_HEADING_ID,
-    RUNWAY_IMAGE_ALT_TEMPLATE as RUNWAY_IMAGE_ALT_TEMPLATE,
     RUNWAY_IMAGE_ROUTE_PREFIX as RUNWAY_IMAGE_ROUTE_PREFIX,
-    RUNWAY_SECTION_CAPTION as RUNWAY_SECTION_CAPTION,
-    RUNWAY_SECTION_CAPTION_ID as RUNWAY_SECTION_CAPTION_ID,
     led_group as led_group,
-    quick_led_form_html as quick_led_form_html,
-    runway_fieldset as runway_fieldset)
+    quick_led_form_html as quick_led_form_html)
 from companion.settings.quiet_hours import (
     QUIET_DIAL_ARC_CLASS as QUIET_DIAL_ARC_CLASS,
     QUIET_DIAL_CLASS as QUIET_DIAL_CLASS,
@@ -289,16 +284,14 @@ def scope_groups(scope, screen_id=None):
     for the given screen type. SCOPE_ALL preserves the historical
     single-page order; the two live scopes read the screen type's own
     declaration in companion/screens.py. A user principal never gets the
-    runway, wake-interval or LED groups: its Device scope is empty and
-    every other scope resolves to the display groups without the runway.
+    wake-interval or LED groups: its Device scope is empty and
+    every other scope resolves to the display groups.
     """
     screen = screens.screen_type(screen_id)
     if user_view.is_user_view():
         if scope == SCOPE_DEVICE:
             return ()
-        return tuple(
-            group for group in screen["everyday_groups"]
-            if group != screens.GROUP_RUNWAY)
+        return tuple(screen["everyday_groups"])
     if scope == SCOPE_DISPLAY:
         return tuple(screen["everyday_groups"])
     if scope == SCOPE_DEVICE:
@@ -307,7 +300,7 @@ def scope_groups(scope, screen_id=None):
     # a test pins the invariant that the two live scopes' groups are
     # disjoint and their union equals this tuple's own set exactly.
     return (
-        screens.GROUP_THEME, screens.GROUP_RUNWAY, screens.GROUP_LED,
+        screens.GROUP_THEME, screens.GROUP_LED,
         screens.GROUP_QUIET_HOURS, screens.GROUP_WAKE_INTERVAL,
         screens.GROUP_CALENDAR)
 
@@ -428,19 +421,16 @@ CALENDAR_SHEET_ID = "calendar-sheet"
 
 
 def _display_groups_html(builders, groups):
-    """Display scope's independent Runway and Quiet hours cards.
+    """Display scope's independent Quiet hours card.
 
     The cards carry their own headings, so the former supersection
-    headings repeated the same information. Both are siblings of the
-    settings form and keep their fields associated with it via `form=`.
+    headings repeated the same information. Quiet hours is a sibling of
+    the settings form and keeps its fields associated with it via `form=`.
     """
-    runway_html = (
-        builders[screens.GROUP_RUNWAY]()
-        if screens.GROUP_RUNWAY in groups else "")
     quiet_hours_html = (
         builders[screens.GROUP_QUIET_HOURS]()
         if screens.GROUP_QUIET_HOURS in groups else "")
-    return runway_html, quiet_hours_html
+    return "", quiet_hours_html
 
 
 def _device_groups_html(builders, groups):
@@ -475,7 +465,6 @@ def _render_current_values(ctx):
         # theme chosen yet), not an oversight.
         "theme_id": device_cfg.get("theme", device_config.DEFAULT_THEME_ID),
         "theme_arriving": device_cfg.get("theme_arriving"),
-        "runway_id": device_cfg.get("tracked_runway", device_config.DEFAULT_RUNWAY_ID),
         "led_enabled": device_cfg.get("led_enabled", device_config.DEFAULT_LED_ENABLED),
         "quiet_start": device_cfg.get("quiet_hours_start", device_config.DEFAULT_QUIET_HOURS_START),
         "quiet_end": device_cfg.get("quiet_hours_end", device_config.DEFAULT_QUIET_HOURS_END),
@@ -543,9 +532,6 @@ def _group_builders(ctx, values, errors, submitted, next_wake_clock):
     render as a literal descendant of <form id="{SETTINGS_FORM_ID}">.
     """
     return {
-        screens.GROUP_RUNWAY: lambda: runway_fieldset(
-            values["runway_id"], ctx.runway_images or (),
-            errors=errors, submitted=submitted),
         screens.GROUP_LED: lambda: led_group(
             values["led_enabled"], errors=errors, submitted=submitted,
             next_wake_clock=next_wake_clock),
@@ -562,12 +548,12 @@ def _group_builders(ctx, values, errors, submitted, next_wake_clock):
     }
 
 
-def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, submitted, values, calendar_status, next_wake_iso):
+def _render_display_scope(
+        ctx, groups, builders, errors, submitted, values, calendar_status):
     """Display scope's own header, hidden scope fields, appearance flow,
     and scheduling cards. `groups_html` stays empty: every saved
     control here cross-submits from outside the physical form via
-    `form="{SETTINGS_FORM_ID}"`, exactly like Runway/Calendar's own
-    cards already do.
+    `form="{SETTINGS_FORM_ID}"`, exactly like the Calendar card does.
 
     Gated on GROUP_THEME alone: safe only because companion/screens.py's
     one registered screen type lists GROUP_THEME and GROUP_CALENDAR
@@ -615,7 +601,7 @@ def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, subm
     }
 
 
-def _render_device_scope(screen, screen_id, groups, builders, errors, next_wake_clock):
+def _render_device_scope(groups, builders):
     """Device's focused advanced controls and native form wiring."""
     header = layout.page_header(i18n.t(DEVICE_PAGE_TITLE))
     return {
@@ -725,8 +711,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     `submitted` is deliberately not defaulted to `{}`: `None` (an
     ordinary load) and an actual dict mean different things to
     `_submitted_checkbox_checked()` — collapsing them would render
-    every checkbox unchecked on every ordinary load.
-    """
+    every checkbox unchecked on every ordinary load.    """
     ctx = page_context.coerce(ctx)
     if errors is None:
         errors = {}
@@ -736,7 +721,6 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     dirty_strings = _dirty_bar_strings()
 
     screen_id = screens.current_screen_id(ctx)
-    screen = screens.screen_type(screen_id)
     if scope not in SCOPES:
         scope = SCOPE_ALL
     if user_view.is_user_view():
@@ -751,10 +735,9 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
 
     if scope == SCOPE_DISPLAY:
         pieces = _render_display_scope(
-            ctx, screen, screen_id, groups, builders, errors, submitted, values,
-            calendar_status, next_wake_iso)
+            ctx, groups, builders, errors, submitted, values, calendar_status)
     elif scope == SCOPE_DEVICE:
-        pieces = _render_device_scope(screen, screen_id, groups, builders, errors, next_wake_clock)
+        pieces = _render_device_scope(groups, builders)
     else:
         pieces = _render_all_scope(groups, builders)
 
@@ -850,7 +833,6 @@ def handle_post(form, ctx, errors=None):
         lambda: form_post.resolve_calendar_signal(calendar_signal, errors),
         lambda: form_post.resolve_calendar_theme_id(form, errors),
         lambda: form_post.resolve_theme_arriving(form, in_scope, errors),
-        lambda: form_post.resolve_runway(form, errors),
         lambda: form_post.resolve_quiet_hours_times(form, errors),
         lambda: form_post.resolve_led(form, errors),
         lambda: form_post.resolve_quiet_hours_enabled(form, errors),

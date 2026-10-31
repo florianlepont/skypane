@@ -32,7 +32,7 @@ import companion.test_config_page_helpers as cp
 from companion import app as companion_app
 from companion import battery
 from companion.layout import escape_html
-from companion.pages import config_page
+from companion.pages import config_page, detection_page
 from companion import theme_preview
 from companion.settings import form_post, look, wake_interval
 from companion_app_server import get, http_request, login, served_asset, served_stylesheet
@@ -112,7 +112,7 @@ _FLOOR_CTX = {
 }
 # Minimums pinned a little below the observed figures - re-derived by RUNNING this exact
 # fixture through this exact selector.
-_FLOOR_MIN_MEASURED = {"display": 4, "device": 2}
+_FLOOR_MIN_MEASURED = {"display": 3, "device": 2}
 _FLOOR_EXPECTED_SKIPS = {"display": 1, "device": 0}
 
 
@@ -208,8 +208,8 @@ def test_device_keeps_only_actionable_advanced_controls_in_both_languages():
 
 
 def test_save_round_trip_shows_confirmation_and_new_selection(make_app_server):
-    """a real HTTP save round trip shows the confirmation copy and the newly-saved runway
-    selected"""
+    """a real HTTP save round trip shows the confirmation copy, and a tracked_runway posted with
+    it is ignored: the Display page offers no runway field and the stored runway is unchanged"""
     server = make_app_server()
     session_cookie = login(server)
     status, headers, _ = http_request(
@@ -227,10 +227,9 @@ def test_save_round_trip_shows_confirmation_and_new_selection(make_app_server):
     assert flash_toast_title_detail(body.decode("utf-8")) == confirmation, (
         "expected D-07's exact confirmation copy in the response's flash toast")
     _s, _h, body = get(server, companion_app.DISPLAY_ROUTE, cookie=session_cookie)
-    assert (
-        b'value="06-24" class="visually-hidden" form="%s" checked'
-        % config_page.SETTINGS_FORM_ID.encode()
-    ) in body, "expected the newly-saved runway (06-24) to be shown selected"
+    assert b'name="tracked_runway"' not in body
+    stored = device_config.load_device_config(server.state_dir)
+    assert stored["theme"] == "black" and stored["tracked_runway"] == "3"
 
 
 def test_settings_save_redirect_carries_flash_banner_and_cleanup_script(make_app_server):
@@ -433,14 +432,14 @@ _TASK3_BASE_CTX = {
 
 
 def test_display_scope_has_three_radiogroups_device_has_none():
-    """the Display scope renders at least two role="radiogroup" elements (the Runway row and the
-    special look form's "Applies to" control; the look tables are native same-name radio groups
+    """the Display scope renders at least one role="radiogroup" element (the special look
+    form's "Applies to" control; the look tables are native same-name radio groups
     labelled by their own table caption) and the Device scope renders none"""
     display_rendered = config_page.render(_TASK3_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
     device_rendered = config_page.render(_TASK3_BASE_CTX, scope=config_page.SCOPE_DEVICE)
     display_count = display_rendered.count('role="radiogroup"')
-    assert display_count >= 2, (
-        "expected at least two role=\"radiogroup\" occurrences on the Display scope, got %d"
+    assert display_count >= 1, (
+        "expected at least one role=\"radiogroup\" occurrence on the Display scope, got %d"
         % display_count)
     assert display_rendered.count('<caption class="visually-hidden">') == 4, (
         "expected each of the four look tables to carry its own caption")
@@ -660,9 +659,11 @@ def test_the_current_badge_reads_a_server_rendered_translated_attribute():
     """the 'Current' badge's text is server-rendered as a translated data-current-label attribute
     on exactly the --selected chip/card (never on any other), and the French render carries the
     French text"""
-    rendered = config_page.render({
+    # The runway cards live on the detection page now; the saved airport's runways render
+    # without any search.
+    rendered = detection_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
-    }, scope=config_page.SCOPE_DISPLAY)
+    })
     attr = config_page.CURRENT_BADGE_ATTR
     en = '%s="%s"' % (attr, escape_html(config_page.CURRENT_BADGE_LABEL))
     assert rendered.count(attr + "=") > 0, "expected the saved chip/card to carry the %s attribute" % attr
@@ -676,9 +677,9 @@ def test_the_current_badge_reads_a_server_rendered_translated_attribute():
 
     prefs.set_request_prefs(lang="fr")
     try:
-        fr_rendered = config_page.render({
+        fr_rendered = detection_page.render({
             "device_config": {"theme": "white", "tracked_runway": "3"},
-        }, scope=config_page.SCOPE_DISPLAY)
+        })
     finally:
         prefs.set_request_prefs(lang="en")
     assert ('%s="Actuel"' % attr) in fr_rendered
@@ -1432,7 +1433,6 @@ _FULLY_INVALID_SETTINGS_ORDER = (
     ("calendar_url", "That link is too long, or conflicts with the disconnect option below."),
     ("calendar_theme_id", "That is not one of the available choices."),
     ("theme_arriving", "That is not one of the available choices."),
-    ("tracked_runway", "That is not one of the available choices."),
     ("quiet_hours_start", "Enter a time as HH:MM, for example 23:00."),
     ("quiet_hours_end", "Enter a time as HH:MM, for example 23:00."),
     ("led_enabled", "That switch sent an unexpected value."),
@@ -1457,7 +1457,7 @@ def test_handle_post_errors_keep_their_order_for_a_fully_invalid_submission(tmp_
         "calendar_disconnect": "bogus-disconnect",
         "calendar_theme_id": "not-a-theme",
         "theme_arriving": "not-a-theme",
-        "tracked_runway": "not-a-runway",
+        "tracked_runway": "not-a-runway",  # never read: not part of the validation order
         "quiet_hours_start": "bogus",
         "quiet_hours_end": "bogus",
         "led_enabled": "bogus",
@@ -1505,13 +1505,13 @@ _GROUP_SHAPES = (
         },
     ),
     (
-        "runway",
+        "runway_ignored",
         {}, {"tracked_runway": ""}, {"tracked_runway": "06-24"}, {"tracked_runway": "bogus"},
         {
             "absent": ("saved", {}),
-            "empty": ("save_failed", {}),
-            "valid": ("saved", {"tracked_runway": "06-24"}),
-            "invalid": ("save_failed", {}),
+            "empty": ("saved", {}),
+            "valid": ("saved", {}),
+            "invalid": ("saved", {}),
         },
     ),
     (
@@ -1603,19 +1603,3 @@ def test_handle_post_saves_the_same_config_for_every_group_shape(tmp_path, group
                 "%s/%s: expected calendar_is_configured() == %r"
                 % (group_name, shape_name, expected_configured))
 
-
-def test_runway_caption_names_no_next_wake_time():
-    """the Runway section's caption is the bare sentence in both languages, with no
-    "(next wake ≈ …)" clause even when a next wake clock is known to the page"""
-    expected = {"en": "Which Orly runway the device watches.",
-                "fr": "Quelle piste d’Orly l’appareil surveille."}
-    for lang, sentence in expected.items():
-        prefs.set_request_prefs(lang=lang)
-        try:
-            rendered = config_page.runway_fieldset("3")
-        finally:
-            prefs.set_request_prefs(lang="en")
-        caption = re.search(
-            r'<p class="text-label section-caption" id="%s">(.*?)</p>'
-            % re.escape(config_page.RUNWAY_SECTION_CAPTION_ID), rendered)
-        assert caption is not None and caption.group(1) == sentence, (lang, caption)

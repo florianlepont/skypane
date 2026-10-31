@@ -1,7 +1,7 @@
 """Tests companion.pages.config_page's quiet-window arithmetic and dial
 (span/arc/readout/handles/pair seam), remaining render()/
-runway_fieldset()/dirty-bar markup, and
-handle_post()'s theme/runway/LED/quiet-hours/wake-interval validation.
+dirty-bar markup, and
+handle_post()'s theme/LED/quiet-hours/wake-interval validation.
 Some checks fetch style.css or a JS asset from a running app server.
 """
 import datetime
@@ -1308,82 +1308,30 @@ def test_the_pair_seam_publishes_both_handles_onto_the_shared_ancestor(value_con
 
 
 # ======================================================================
-# Section 2: render()'s remaining markup checks, runway_fieldset()'s
-# single-root/caption/order proofs, the restored .dirty-bar, and
+# Section 2: render()'s remaining markup checks, the led_group()
+# caption/order proof, the restored .dirty-bar, and
 # poll_trigger_section()'s data-attribute contract.
 # ======================================================================
 
 
-def test_render_exactly_four_dirty_sections_in_order():
-    """render() carries exactly four data-dirty-section elements, in document order Runway/
+def test_render_exactly_three_dirty_sections_in_order():
+    """render() carries exactly three data-dirty-section elements, in document order
     Diagnostic LED/Quiet hours/Wake interval (Theme, Calendar and Display each have no entry
-    on this legacy scope)"""
+    on this legacy scope, and there is no Runway section any more)"""
     rendered = config_page.render({
         "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
     })
     found = re.findall(
         r'%s="([^"]*)"' % re.escape(config_page.DIRTY_SECTION_ATTR), rendered)
-    expected = [
-        "Runway", "Diagnostic LED", "Quiet hours", "Wake interval"]
+    expected = ["Diagnostic LED", "Quiet hours", "Wake interval"]
     assert found == expected, "expected %r in document order, got %r" % (expected, found)
 
 
-def test_runway_fieldset_returns_single_top_level_div():
-    """runway_fieldset() returns exactly two div pairs - the top-level .theme-status wrapper
-    and the nested .runway-row layout container, not five flat siblings"""
-    rendered = config_page.runway_fieldset("3")
-    assert rendered.startswith('<div class="theme-status"'), (
-        "expected runway_fieldset() to start with a single <div class=\"theme-status\"> wrapper")
-    assert rendered.endswith("</div>"), (
-        "expected runway_fieldset() to end with the wrapper's matching </div>")
-    assert rendered.count("<div") == 2 and rendered.count("</div>") == 2, (
-        "expected exactly two div pairs - the top-level .theme-status wrapper and the "
-        "nested .runway-row layout container")
-
-
-def test_runway_row_starts_after_caption_and_nothing_follows_it():
-    """runway_fieldset() renders RUNWAY_SECTION_CAPTION before .runway-row opens, and no <p
-    element after .runway-row closes"""
-    rendered = config_page.runway_fieldset("3")
-    caption = escape_html(config_page.RUNWAY_SECTION_CAPTION)
-    # The row also carries role="radiogroup"/aria-labelledby/
-    # aria-describedby, so the opening tag itself is not a bare literal;
-    # the match still proves there is exactly one .runway-row element.
-    row_open = '<div class="runway-row" role="radiogroup"'
-    assert rendered.count(row_open) == 1, (
-        "expected exactly one <div class=\"runway-row\" role=\"radiogroup\"...> opening tag, "
-        "got %d" % rendered.count(row_open))
-    caption_pos = rendered.index(caption)
-    row_start = rendered.index(row_open)
-    assert caption_pos < row_start, "expected RUNWAY_SECTION_CAPTION to render before .runway-row opens"
-    row_close = rendered.index("</div>", row_start)
-    card_positions = [m.start() for m in re.finditer(r'<label class="runway-card', rendered)]
-    assert len(card_positions) == 3, "expected exactly 3 runway-card labels, got %d" % len(card_positions)
-    assert all(row_start < pos < row_close for pos in card_positions), (
-        "expected all three runway-card labels to fall inside the .runway-row container")
-    after_row = rendered[row_close + len("</div>"):]
-    assert "<p" not in after_row, (
-        "expected no <p element anywhere after .runway-row closes - the retired trailing "
-        "helper paragraph must be gone, not merely moved")
-
-
-def test_runway_section_caption_appears_exactly_once():
-    """render() carries RUNWAY_SECTION_CAPTION exactly once"""
-    rendered = config_page.render({
-        "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
-    })
-    runway_caption = escape_html(config_page.RUNWAY_SECTION_CAPTION)
-    assert rendered.count(runway_caption) == 1, (
-        "expected RUNWAY_SECTION_CAPTION exactly once, got %d" % rendered.count(runway_caption))
-
-
 def test_each_group_emits_exactly_one_caption_between_heading_and_control():
-    """runway_fieldset()/led_group() each emit exactly one section-caption <p> element,
+    """led_group() emits exactly one section-caption <p> element,
     positioned after the group's own naming element and before its control"""
-    runway_rendered = config_page.runway_fieldset("3")
     led_rendered = config_page.led_group(True)
     groups = (
-        ("runway_fieldset()", runway_rendered, "</h2>", "runway-row", 1),
         # The control marker is the switch's own class — the LED's
         # control changed, the heading-then-caption-then-control ORDER
         # this row is about did not.
@@ -1548,39 +1496,25 @@ def test_nothing_inside_the_bar_is_inert_or_claims_a_dirty_state_that_does_not_e
 
 
 def test_section_captions_appear_escaped_verbatim_exactly_once():
-    """the runway and LED section captions both appear escaped-verbatim exactly once in
-    render()'s output"""
+    """the LED section caption appears escaped-verbatim exactly once in render()'s output"""
     rendered = config_page.render({
         "device_config": {"theme": "black", "tracked_runway": "3"},
     })
-    runway_caption = escape_html(config_page.RUNWAY_SECTION_CAPTION)
     led_caption = escape_html(config_page.LED_SECTION_CAPTION)
-    assert rendered.count(runway_caption) == 1, (
-        "expected RUNWAY_SECTION_CAPTION exactly once (escaped-verbatim), got %d"
-        % rendered.count(runway_caption))
     assert rendered.count(led_caption) == 1, (
         "expected LED_SECTION_CAPTION exactly once (escaped-verbatim), got %d"
         % rendered.count(led_caption))
 
 
-def test_current_theme_and_runway_are_selected():
-    """the (non-default) saved runway card is the one marked selected, and this legacy SCOPE_ALL
-    render carries zero .theme-chip--selected modifiers now that theme_fieldset(), Calendar's own
+def test_no_runway_card_and_no_theme_chip_selected_on_the_legacy_scope():
+    """this legacy SCOPE_ALL render carries no runway card for a saved non-default runway, and
+    zero .theme-chip--selected modifiers now that theme_fieldset(), Calendar's own
     chip grid, and the rules add-form's own chip grid are all retired from it"""
     rendered = config_page.render({
         "device_config": {"theme": "black", "tracked_runway": "06-24"},
     })
-    # Polish fix 4 (D-14c): each runway radio now also carries an
-    # explicit form="settings-form" attribute, inserted between
-    # class="visually-hidden" and checked.
-    assert ('value="06-24" class="visually-hidden" form="%s" checked'
-            % config_page.SETTINGS_FORM_ID) in rendered, (
-        "expected the non-default saved runway (06-24) to be marked selected")
-    assert ('value="3" class="visually-hidden" form="%s" checked'
-            % config_page.SETTINGS_FORM_ID) not in rendered, (
-        "expected runway 3 (not the saved value) to NOT be marked selected")
-    assert rendered.count("runway-card--selected") == 1, (
-        "expected exactly one runway-card--selected modifier")
+    assert "runway-card" not in rendered and 'name="tracked_runway"' not in rendered, (
+        "expected no runway card or tracked_runway field on any render")
     # theme_fieldset(), Calendar's own compact chip grid, and the
     # Flight-colours add form's compact chip grid are all retired from
     # this legacy SCOPE_ALL render — zero .theme-chip--selected modifiers
@@ -1599,7 +1533,8 @@ def test_current_theme_and_runway_are_selected():
 
 
 def test_valid_save_writes_both_and_returns_saved_key(tmp_path):
-    """a post with a valid theme and runway writes both and returns the saved flash key"""
+    """a post with a valid theme writes it and returns the saved flash key, and a forged
+    tracked_runway in the same post is ignored"""
     tmpdir = str(tmp_path)
     ctx = {"state_dir": tmpdir}
     flash_key = config_page.handle_post(
@@ -1629,7 +1564,7 @@ def test_valid_save_writes_both_and_returns_saved_key(tmp_path):
     # state directory it falls through to DEFAULT_LED_ENABLED.
     assert on_disk == {
         "theme": "black", "theme_arriving": None, "calendar_theme_id": None,
-        "tracked_runway": "06-24", "led_enabled": True, "quiet_hours_enabled": False,
+        "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False,
         "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": True,
         "wake_interval_s": None, "timezone": "Europe/Paris", "detection": None,
     }, "on-disk config does not match the posted values: %r" % (on_disk,)
@@ -1648,17 +1583,22 @@ def test_nonmember_theme_writes_nothing(tmp_path):
     assert before == after, "expected device_config.json to be byte-identical, it changed"
 
 
-def test_nonmember_runway_writes_nothing(tmp_path):
-    """a post with a non-member runway writes nothing and returns the save-failure flash key"""
+@pytest.mark.parametrize("forged", ["06-24", "not-a-real-runway", ""])
+def test_forged_tracked_runway_is_ignored(tmp_path, forged):
+    """a tracked_runway posted to the settings handler is never read: the post saves, raises no
+    field error, and the stored runway and detection object stay exactly as they were"""
     tmpdir = str(tmp_path)
-    cp.write_device_config(tmpdir, "black", "3")
-    before = Path(device_config.device_config_path(tmpdir)).read_bytes()
-    ctx = {"state_dir": tmpdir}
+    device_config.save_device_config(tmpdir, theme="black", tracked_runway="02-20")
+    device_config.save_device_config(tmpdir, detection={
+        "mode": "runway", "airport": "LFPG", "runway": "08L/26R"})
+    before = device_config.load_device_config(tmpdir)
+    errors = {}
     flash_key = config_page.handle_post(
-        {"theme": "black", "tracked_runway": "not-a-real-runway"}, ctx)
-    after = Path(device_config.device_config_path(tmpdir)).read_bytes()
-    assert flash_key == config_page.FLASH_SAVE_FAILED, "expected FLASH_SAVE_FAILED, got %r" % (flash_key,)
-    assert before == after, "expected device_config.json to be byte-identical, it changed"
+        {"theme": "black", "tracked_runway": forged}, {"state_dir": tmpdir}, errors=errors)
+    after = device_config.load_device_config(tmpdir)
+    assert flash_key == config_page.FLASH_SAVED and not errors
+    assert after["tracked_runway"] == before["tracked_runway"] == "02-20"
+    assert after["detection"] == before["detection"] and after["detection"] is not None
 
 
 def test_theme_only_post_carries_runway_forward(tmp_path):
@@ -1785,9 +1725,9 @@ def test_handle_post_invalid_theme_rejects_led_half_too(tmp_path):
     assert before == after, "expected device_config.json to be byte-identical, it changed"
 
 
-def test_handle_post_valid_runway_and_led_persist_together_one_call(tmp_path):
+def test_handle_post_led_persists_and_a_posted_runway_is_ignored(tmp_path):
     """handle_post({"tracked_runway": <a real runway id>, "led_enabled": LED_CHECKBOX_VALUE}, ctx)
-    persists both in one call and returns the saved flash key"""
+    persists the LED switch, leaves the runway at its default and returns the saved flash key"""
     tmpdir = str(tmp_path)
     ctx = {"state_dir": tmpdir}
     flash_key = config_page.handle_post(
@@ -1795,8 +1735,8 @@ def test_handle_post_valid_runway_and_led_persist_together_one_call(tmp_path):
         ctx)
     assert flash_key == config_page.FLASH_SAVED, "expected FLASH_SAVED, got %r" % (flash_key,)
     on_disk = device_config.load_device_config(tmpdir)
-    assert on_disk["tracked_runway"] == "06-24", (
-        "expected tracked_runway 06-24 on disk, got %r" % (on_disk["tracked_runway"],))
+    assert on_disk["tracked_runway"] == device_config.DEFAULT_RUNWAY_ID, (
+        "expected the runway to stay at its default, got %r" % (on_disk["tracked_runway"],))
     assert on_disk["led_enabled"] is True, "expected led_enabled True on disk, got %r" % (on_disk["led_enabled"],)
 
 

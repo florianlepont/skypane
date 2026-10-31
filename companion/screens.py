@@ -15,7 +15,6 @@ values live. Plain data plus one lookup helper; nothing renders.
 GROUP_THEME = "theme"
 GROUP_QUIET_HOURS = "quiet_hours"
 GROUP_DISPLAY = "display"
-GROUP_RUNWAY = "runway"
 GROUP_LED = "led"
 GROUP_WAKE_INTERVAL = "wake_interval"
 GROUP_CALENDAR = "calendar"
@@ -25,7 +24,7 @@ GROUP_CALENDAR = "calendar"
 # config_page.scope_groups() reads. GROUP_DISPLAY is not listed: the
 # Frame strip is the only on/off control, but the constant stays
 # defined since handle_post() still validates a crafted value against it.
-EVERYDAY_GROUPS = (GROUP_THEME, GROUP_CALENDAR, GROUP_RUNWAY, GROUP_QUIET_HOURS)
+EVERYDAY_GROUPS = (GROUP_THEME, GROUP_CALENDAR, GROUP_QUIET_HOURS)
 ADVANCED_GROUPS = (GROUP_LED, GROUP_WAKE_INTERVAL)
 
 DEFAULT_SCREEN_ID = "plane-frame"
@@ -35,11 +34,10 @@ SCREEN_TYPES = {
         "label": "Plane frame",
         "description": (
             "The e-ink frame showing the aircraft currently using the "
-            "watched Orly runway."),
+            "watched runway or flying near the watched location."),
         # Order doesn't dictate rendered order: config_page.render()
         # groups these into its own supersections.
-        "everyday_groups": (
-            GROUP_THEME, GROUP_CALENDAR, GROUP_RUNWAY, GROUP_QUIET_HOURS),
+        "everyday_groups": (GROUP_THEME, GROUP_CALENDAR, GROUP_QUIET_HOURS),
         "advanced_groups": (GROUP_LED, GROUP_WAKE_INTERVAL),
         "has_colour_rules": True,
     },
