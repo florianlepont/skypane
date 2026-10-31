@@ -179,6 +179,8 @@ def _store_detection(ctx, device, subject, form):
     if form["mode"] == detection_page.MODE_RUNWAY:
         detection.apply_runway_selection(ctx.state_dir, form["airport"], form["runway"])
         return None
+    before = fleet_db.get_device(subject.conn, device.id)
+    previous = None if before is None else before["location_id"]
     try:
         assigned = fleet_db.set_device_location_checked(
             subject.conn, device.id, int(form["location_id"]),
@@ -187,8 +189,25 @@ def _store_detection(ctx, device, subject, form):
         return {"location_id": detection_page.ERROR_LOCATION_UNAVAILABLE}
     if not assigned:
         raise OSError("device has no fleet.db row")
-    detection.apply_position_selection(ctx.state_dir, int(form["radius_km"]))
+    try:
+        detection.apply_position_selection(ctx.state_dir, int(form["radius_km"]))
+    except OSError:
+        _restore_location(subject.conn, device.id, previous)
+        raise
     return None
+
+
+def _restore_location(conn, device_id, location_id):
+    """Put the previous location back after a failed config write. This
+    restores an already stored value, so it skips the ownership check; a
+    failure here is ignored because the caller is already reporting one."""
+    try:
+        with fleet_db.transaction(conn):
+            conn.execute(
+                "UPDATE devices SET location_id = ? WHERE id = ?",
+                (location_id, device_id))
+    except sqlite3.Error:
+        pass
 
 
 def parse_coordinate(text):

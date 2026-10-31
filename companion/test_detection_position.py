@@ -460,3 +460,24 @@ def test_position_page_in_french(rig):
     assert "Vos lieux" in text
     assert "Enregistrer le lieu" in text
     assert "NEARBY · 9 KM" in text
+
+
+def test_position_save_leaves_the_location_unchanged_when_the_config_write_fails(
+        rig, monkeypatch):
+    old = rig.add_location(rig.fleet.owner_id, "Old", 45.76, 4.84)
+    new = rig.add_location(rig.fleet.owner_id, "New", 48.8566, 2.3522)
+    conn = fleet_db.connect(rig.state_dir)
+    try:
+        fleet_db.set_device_location_checked(
+            conn, rig.fleet.owner_device, old, rig.fleet.owner_id, False)
+    finally:
+        conn.close()
+
+    def refuse(*_args, **_kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(device_config, "save_device_config", refuse)
+    status, response, _body = _post_detection(rig, "owner", _position_form(new))
+    assert status == 303
+    assert "flash=save_failed" in response["Location"]
+    assert rig.device_location(rig.fleet.owner_device) == old
