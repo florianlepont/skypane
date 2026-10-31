@@ -876,17 +876,24 @@ def handle_post(form, ctx, errors=None, handler=None):
             return FLASH_SAVE_FAILED
         save_kwargs.update(step_result)
 
+    replaced_location = []
     if handler is not None and screens.GROUP_QUIET_HOURS in in_scope:
         # The picker sits with the time zone: applied only when the page
         # that carries it was the one submitted, and before any file write
         # so a refused assignment leaves everything unchanged.
         from companion import console_locations
-        if not console_locations.apply_device_location(form, ctx, handler):
+        if not console_locations.apply_device_location(
+                form, ctx, handler, replaced_location):
             return FLASH_SAVE_FAILED
 
     try:
         device_config.save_device_config(state_dir, **save_kwargs)
     except (ValueError, OSError):
+        # A location assigned above is put back so a failed save never
+        # leaves one half of the form applied.
+        if replaced_location:
+            from companion import console_locations
+            console_locations.undo_device_location(ctx, handler, replaced_location[0])
         return FLASH_SAVE_FAILED
 
     if calendar_signal == CALENDAR_URL_SIGNAL_CLEAR:

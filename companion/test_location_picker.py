@@ -233,6 +233,24 @@ def test_a_refused_assignment_changes_nothing_and_shows_the_save_failed_toast(ri
     assert len(denied) == 6
 
 
+def test_a_failed_config_save_puts_the_location_back(rig, monkeypatch):
+    mine = rig.add_location("Alpha Place", rig.fleet.a_id)
+    config_before = rig.config(rig.fleet.a1)
+
+    def refuse(*_args, **_kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(device_config, "save_device_config", refuse)
+    status, headers, _ = rig.save_display(
+        rig.fleet.a1, "a", location_id=str(mine), quiet_hours_start="01:02")
+    assert status == 303 and "flash=save_failed" in headers["Location"]
+    assert rig.location_of(rig.fleet.a1) is None
+    assert rig.config(rig.fleet.a1) == config_before
+    assert [row["outcome"] for row in rig.audit()] == ["ok", "failed"]
+    assert json.loads(rig.audit()[-1]["detail"]) == {
+        "location_id": None, "reason": "settings_save_failed"}
+
+
 def test_a_user_cannot_assign_a_location_to_a_frame_they_do_not_own(rig):
     mine = rig.add_location("Alpha Place", rig.fleet.a_id)
     before = rig.config(rig.fleet.b1)

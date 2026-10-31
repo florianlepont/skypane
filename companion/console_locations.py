@@ -450,10 +450,14 @@ def _dirty_section_attr():
     return form.DIRTY_SECTION_ATTR
 
 
-def apply_device_location(form, ctx, handler):
+def apply_device_location(form, ctx, handler, previous=None):
     """Apply the Display form's `location_id` to `ctx.device`; True when the
     form carries none, it equals the stored value, or the assignment was
     made, False when it was refused (nothing is changed then).
+
+    When `previous` is a list and an assignment was made, the location id it
+    replaced is appended, so the caller can undo it with
+    `undo_device_location` if a later step of the same save fails.
 
     A user may assign only a location they own and only to a frame they own;
     an administrator may assign any location. The change and its audit row
@@ -476,6 +480,7 @@ def apply_device_location(form, ctx, handler):
         row = fleet_db.get_device(conn, device.id)
         if row is not None and row["location_id"] == location_id:
             return True
+        replaced = None if row is None else row["location_id"]
         try:
             with fleet_db.transaction(conn):
                 try:
@@ -491,9 +496,30 @@ def apply_device_location(form, ctx, handler):
                     {"location_id": location_id})
         except _Refused:
             return _deny_assignment(handler, device, location_id)
+        if previous is not None:
+            previous.append(replaced)
     finally:
         conn.close()
     return True
+
+
+def undo_device_location(ctx, handler, location_id):
+    """Put `location_id` back on `ctx.device` after a failed save.
+
+    Skips the ownership check on purpose: it restores a value that was
+    already stored. The restoration is audited next to the original change.
+    """
+    conn = fleet_db.connect(ctx.root_state_dir)
+    try:
+        with fleet_db.transaction(conn):
+            conn.execute(
+                "UPDATE devices SET location_id = ? WHERE id = ?",
+                (location_id, ctx.device.id))
+            audit.record_in(
+                handler, conn, "location.update", "device", ctx.device.id, "failed",
+                {"location_id": location_id, "reason": "settings_save_failed"})
+    finally:
+        conn.close()
 
 
 def _deny_assignment(handler, device, location_id):
