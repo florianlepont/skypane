@@ -33,7 +33,7 @@ if _REPO_ROOT not in sys.path:
 from companion import (  # noqa: E402
     access, auth, device_dispatch, device_scope, flash, freshness, i18n, illustration_normalize, layout,
     login_page, page_context, post_actions, preview_images, prefs, request_body, routes, sign_in,
-    sign_in_config, static_files, theme_preview)
+    sign_in_config, static_files, theme_preview, user_view)
 from companion.pages import (  # noqa: E402
     # airlines_page is unused by this module's own code; kept so
     # companion/test_post_origin.py's app.airlines_page.* route reads
@@ -965,7 +965,9 @@ class Handler(
         `calendar_rules` itself. No caught error's text is ever read: it
         can contain the calendar URL.
         """
-        form = self.read_form()
+        principal = self._safe_principal()
+        form = user_view.sanitise_settings_form(
+            self.read_form(), None if principal is None else principal.role)
         ctx = self.page_context(device)
         errors = {}
         flash_key = config_page.handle_post(form, ctx, errors=errors)
