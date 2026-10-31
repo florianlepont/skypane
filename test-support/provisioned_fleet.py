@@ -5,9 +5,11 @@ No pytest import. `provision_fleet` writes plain data: one admin, two users,
 frames with provisioned directories (a seeded config and panel, a gallery
 image), the live-frame row, and a pending and a retired row.
 """
+import json
 import os
+import time
 
-from server import device_config, device_dirs, fleet_db, hardware
+from server import device_config, device_dirs, fleet_db, hardware, history_db
 
 ADMIN_EMAIL = "admin@example.test"
 USER_A_EMAIL = "user-a@example.test"
@@ -105,3 +107,15 @@ def provision_fleet(state_dir, live_owner="admin"):
 def device_dir(state_dir, device_id):
     return device_dirs.resolve_state_dir(
         state_dir, device_dirs.state_path_for(device_id))
+
+
+def mark_checked_in(state_dir, device_id, source_fault=False):
+    """Record a check-in for a provisioned frame so its Health page renders
+    the full rows (a frame never seen shows only an empty state), and
+    optionally raise the platform source-fault flag in its history."""
+    directory = device_dir(state_dir, device_id)
+    with open(os.path.join(directory, "battery_state.json"), "w") as fh:
+        json.dump({"received_at": time.time()}, fh)
+    if source_fault:
+        with history_db.open_db(directory) as conn:
+            history_db.set_meta(conn, history_db.META_SOURCE_FAULT, "True")

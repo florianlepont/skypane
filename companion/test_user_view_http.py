@@ -3,18 +3,26 @@ device directories, no stubbed routes, real session cookies. Proves page and
 derived-image access (owner, another user, admin), the identical 404, and the
 live-frame and selector rules, over HTTP.
 """
+import json
 import os
 import re
+import urllib.parse
 
 import pytest
 
-from companion import routes
+from companion import i18n, layout, routes
+from companion.layout import escape_html
+from companion.pages import health_page
+from companion.settings import calendar as calendar_settings
 from companion_app_server import (
     InProcessAppServer, http_request, session_cookie_for_state_dir)
 from provisioned_fleet import (
     ADMIN_EMAIL, FRAMELESS_EMAIL, GALLERY_FILENAME, NAME_A1, NAME_A2, NAME_B1,
-    USER_A_EMAIL, USER_B_EMAIL, provision_fleet)
-from server import device_dirs
+    SEEDED_ADMIN_ONLY, USER_A_EMAIL, USER_B_EMAIL, device_dir, mark_checked_in,
+    provision_fleet)
+from server import device_config, device_dirs
+from server.plane import calendar_rules
+from server.plane.calendar_rules import registry as calendar_registry
 
 _EMAILS = {
     "a": USER_A_EMAIL, "b": USER_B_EMAIL, "admin": ADMIN_EMAIL,
@@ -221,3 +229,226 @@ def test_pending_and_retired_frames_do_not_exist_for_a_user(rig):
                 "/devices/%s/" % (rig.fleet.a1 if who == "a" else rig.fleet.b1), who)):
             assert rig.fleet.pending not in body_text
             assert rig.fleet.retired not in body_text
+
+
+# --- reduced content, crafted POSTs and the calendar gate -----------------------
+
+ADMIN_ONLY_KEYS = tuple(SEEDED_ADMIN_ONLY)
+_ADMIN_LINK_PATHS = ("/fleet", "/users", "/audit", "/update", "/device")
+_FRAME_PAGES = ("/", "/display", "/flights", "/health", "/airlines")
+
+
+def _form(**fields):
+    return urllib.parse.urlencode(fields).encode()
+
+
+def _admin_only_values(rig, device_id):
+    config = device_config.load_device_config(device_dir(rig.state_dir, device_id))
+    return {key: config[key] for key in ADMIN_ONLY_KEYS}
+
+
+def _hrefs(body):
+    return re.findall(r'(?:data-)?href="([^"]*)"', body)
+
+
+def _page_path(href):
+    """The page an href names, without a frame prefix, query or fragment."""
+    path = urllib.parse.urlsplit(href).path
+    return _strip_frame_prefix(path)
+
+
+def _strip_frame_prefix(path):
+    return re.sub(r"\A/devices/d_[0-9a-f]{8}", "", path) or "/"
+
+
+def test_a_crafted_settings_post_changes_quiet_hours_and_no_admin_only_key(rig):
+    before = _admin_only_values(rig, rig.fleet.a1)
+    assert before == SEEDED_ADMIN_ONLY
+    status, headers, _body = rig.request(
+        "POST", "/devices/%s/settings" % rig.fleet.a1, "a",
+        data=_form(
+            wake_interval_s="60", led_enabled="on", tracked_runway="02-20",
+            scope="all", quiet_hours_enabled="on", quiet_hours_start="21:30",
+            quiet_hours_end="06:15"))
+    assert status == 303
+    assert headers["Location"].startswith("/devices/%s/" % rig.fleet.a1)
+    config = device_config.load_device_config(device_dir(rig.state_dir, rig.fleet.a1))
+    assert (config["quiet_hours_start"], config["quiet_hours_end"]) == ("21:30", "06:15")
+    assert config["quiet_hours_enabled"] is True
+    assert _admin_only_values(rig, rig.fleet.a1) == before
+
+
+def test_a_crafted_settings_post_to_another_users_frame_is_a_404_and_changes_nothing(rig):
+    path = os.path.join(device_dir(rig.state_dir, rig.fleet.b1), "device_config.json")
+    with open(path, "rb") as fh:
+        before = fh.read()
+    rig.assert_unknown(
+        "POST", "/devices/%s/settings" % rig.fleet.b1, "a",
+        data=_form(
+            wake_interval_s="60", led_enabled="on", tracked_runway="02-20",
+            scope="all", quiet_hours_start="01:00"))
+    with open(path, "rb") as fh:
+        assert fh.read() == before
+
+
+def test_a_crafted_post_cannot_use_the_unprefixed_live_frame_form(rig):
+    live_before = device_config.load_device_config(rig.state_dir)
+    rig.assert_unknown(
+        "POST", "/settings", "a", data=_form(wake_interval_s="60", scope="all"))
+    assert device_config.load_device_config(rig.state_dir) == live_before
+
+
+def test_user_display_has_no_runway_wake_interval_or_led_control(rig):
+    admin_only_fields = ("tracked_runway", "wake_interval_s", "led_enabled")
+    user_display = rig.page("/devices/%s/display" % rig.fleet.a1, "a")
+    assert 'name="quiet_hours_start"' in user_display
+    for field in admin_only_fields:
+        assert 'name="%s"' % field not in user_display
+    assert "/quick/led" not in user_display
+    assert 'name="tracked_runway"' in rig.page(
+        "/devices/%s/display" % rig.fleet.a1, "admin")
+    admin_device = rig.page("/devices/%s/device" % rig.fleet.a1, "admin")
+    assert 'name="wake_interval_s"' in admin_device
+    assert "/quick/led" in admin_device
+
+
+def test_user_home_has_no_led_switch_and_no_refresh_trigger(rig):
+    home = rig.page("/devices/%s/" % rig.fleet.a1, "a")
+    for absent in ("/quick/led", "led_enabled", "/poll", "Refresh now"):
+        assert absent not in home
+    assert "/quick/display" in home and "/quick/quiet-hours" in home
+
+
+def test_user_health_has_none_of_the_platform_rows(rig):
+    mark_checked_in(rig.state_dir, rig.fleet.a1, source_fault=True)
+    platform_texts = (
+        health_page.SERVER_DATA_SECTION_HEADING, health_page.ROW_FLIGHT_DATA_NAME,
+        health_page.ROW_SOURCES_NAME, health_page.SOURCE_FAULT_HEADING,
+        health_page.UNRESOLVED_SECTION_HEADING)
+    path = "/devices/%s/health" % rig.fleet.a1
+    admin_health = rig.page(path, "admin")
+    user_health = rig.page(path, "a")
+    for text in platform_texts:
+        needle = escape_html(i18n.t(text))
+        assert needle in admin_health, text
+        assert needle not in user_health, text
+    assert escape_html(i18n.t(health_page.SCREEN_SECTION_HEADING)) in user_health
+    assert "resolve-dialog" not in user_health
+
+
+def test_user_pages_link_to_no_admin_page_and_admin_pages_still_do(rig):
+    own = rig.fleet.a1
+    user_paths = ["/devices/%s%s" % (own, page) for page in _FRAME_PAGES] + ["/account"]
+    for path in user_paths:
+        for target in _hrefs(rig.page(path, "a")):
+            page = _page_path(target)
+            assert page not in _ADMIN_LINK_PATHS, (path, target)
+            assert not page.startswith(("/fleet/", "/users/", "/audit/")), (path, target)
+    admin_targets = [_page_path(t) for t in _hrefs(rig.page("/devices/%s/" % own, "admin"))]
+    assert "/update" in admin_targets
+    assert "/device" in admin_targets
+
+
+def test_a_user_quick_toggle_changes_their_frame_and_returns_to_it(rig):
+    own = rig.fleet.a1
+    base = "/devices/%s" % own
+    cases = (
+        ("/quick/display", "display_enabled", False, "off"),
+        ("/quick/quiet-hours", "quiet_hours_enabled", True, "on"))
+    for route, key, expected, state in cases:
+        status, headers, _b = rig.request(
+            "POST", base + route, "a", data=_form(**{layout.QUICK_STATE_FIELD: state}))
+        assert status == 303
+        assert headers["Location"].startswith(base + "/display")
+        config = device_config.load_device_config(device_dir(rig.state_dir, own))
+        assert config[key] is expected
+
+
+def test_the_led_quick_toggle_is_a_404_for_a_user_and_changes_nothing(rig):
+    before = _admin_only_values(rig, rig.fleet.a1)
+    for path in ("/quick/led", "/devices/%s/quick/led" % rig.fleet.a1):
+        rig.assert_unknown("POST", path, "a", data=_form(**{layout.QUICK_STATE_FIELD: "on"}))
+    assert _admin_only_values(rig, rig.fleet.a1) == before
+
+
+def test_a_user_with_no_frame_reaches_the_account_page_and_no_device_page(rig):
+    assert rig.page("/account", "frameless")
+    for page in _FRAME_PAGES:
+        for prefix in ("", "/devices/%s" % rig.fleet.a1, "/devices/%s" % rig.fleet.live):
+            rig.assert_unknown("GET", prefix + page, "frameless")
+    for target in _hrefs(rig.page("/account", "frameless")):
+        assert not target.startswith("/devices/"), target
+        assert _page_path(target) not in _FRAME_PAGES[1:], target
+
+
+@pytest.fixture
+def calendar_calls(monkeypatch):
+    """Every outbound calendar transport call; the real transport is
+    replaced so a call that slipped past the gate cannot touch the network."""
+    calls = []
+
+    def refuse(url, timeout):
+        calls.append(url)
+        raise OSError("no outbound connection in this test")
+
+    monkeypatch.setattr(calendar_rules, "default_calendar_transport", refuse)
+    return calls
+
+
+_PRIVATE_CALENDAR_URLS = (
+    "http://127.0.0.1:%d/x.ics",
+    "https://127.0.0.1:%d/x.ics",
+    "http://10.0.0.1/x.ics",
+    "https://10.0.0.1/x.ics",
+    "https://192.168.1.10/x.ics",
+    "https://169.254.169.254/latest/x.ics",
+    "https://localhost/x.ics",
+    "webcal://127.0.0.1/x.ics",
+)
+
+
+@pytest.mark.parametrize("template", _PRIVATE_CALENDAR_URLS)
+def test_a_user_calendar_url_aimed_at_a_private_address_is_rejected_with_no_fetch(
+        rig, calendar_calls, template):
+    url = template % rig.server.port if "%d" in template else template
+    own = rig.fleet.a1
+    status, headers, _b = rig.request(
+        "POST", "/devices/%s/settings/calendar/connect" % own, "a",
+        data=_form(calendar_url=url))
+    assert status == 303
+    assert headers["Location"].startswith("/devices/%s/display" % own)
+    assert "calendar_error=invalid" in headers["Location"]
+    assert calendar_calls == []
+    secret = os.path.join(
+        device_dir(rig.state_dir, own), calendar_registry.CALENDAR_SECRET_FILENAME)
+    assert not os.path.exists(secret)
+    shown = rig.page(headers["Location"].split("#")[0], "a")
+    assert escape_html(i18n.t(calendar_settings.CALENDAR_ERROR_INVALID)) in shown
+
+
+@pytest.mark.parametrize("template", _PRIVATE_CALENDAR_URLS)
+def test_a_private_calendar_url_in_the_settings_form_is_never_fetched(
+        rig, calendar_calls, template):
+    url = template % rig.server.port if "%d" in template else template
+    rig.request(
+        "POST", "/devices/%s/settings" % rig.fleet.a1, "a",
+        data=_form(calendar_url=url))
+    assert calendar_calls == []
+
+
+def test_the_calendar_connect_route_is_a_404_on_another_users_frame(rig, calendar_calls):
+    rig.assert_unknown(
+        "POST", "/devices/%s/settings/calendar/connect" % rig.fleet.b1, "a",
+        data=_form(calendar_url="https://example.test/x.ics"))
+    assert calendar_calls == []
+    assert not os.path.exists(os.path.join(
+        device_dir(rig.state_dir, rig.fleet.b1), calendar_registry.CALENDAR_SECRET_FILENAME))
+
+
+def test_the_provisioned_config_file_stays_valid_json_after_a_user_save(rig):
+    rig.request(
+        "POST", "/devices/%s/settings" % rig.fleet.a1, "a",
+        data=_form(quiet_hours_start="20:00"))
+    path = os.path.join(device_dir(rig.state_dir, rig.fleet.a1), "device_config.json")
+    with open(path) as fh:
+        assert isinstance(json.load(fh), dict)
