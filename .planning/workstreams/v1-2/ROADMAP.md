@@ -38,7 +38,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [ ] **Phase 53: Detection Modes (Airport/Runway and Position/Radius)** - Devices can follow any French runway or any position within a bounded radius.
 - [ ] **Phase 54: Auth0 Sign-In, Local Roles and Default-Deny Access** - Invite-only sign-in with local roles and a proven route and ownership matrix.
 - [ ] **Phase 55: Frame Pairing, Admin Console and Reduced User View** - Admins pair frames to users and manage the fleet; users see only their own frames with fewer options.
-- [ ] **Phase 56: Per-Hardware Rendering, Battery Profiles, Health and Credits** - Rendering and health follow the hardware profile; credits page published. (criteria 1-3 verified in code 2026-10-31; adsb.fi / adsb.lol contact drafted, sending deferred by the owner until the fleet exceeds 10 users)
+- [ ] **Phase 56: Per-Hardware Rendering, Battery Profiles, Health and Credits** - Rendering and health follow the hardware profile; credits page published. (11/11 plans done; criteria 1-3 verified in code 2026-10-31, merged in #257. Owner items pending: send the adsb.fi / adsb.lol contact draft once the fleet exceeds 10 users, run the browser tests on a machine with Chromium, non-blocking landscape preview follow-up)
 - [ ] **Phase 57: Combined Legacy-Frame Firmware Release** - One OTA release gives the live frame the new image reader and 401 recovery. Gated on Phase 47.
 - [ ] **Phase 58: Second Hardware (Shortlist, Spike, Purchase, Validate)** - A second hardware type chosen after a driver spike and validated on a real unit.
 - [ ] **Phase 59: Comment-History Debt** - The comment-history guard debt is cleared or only shrinks.
@@ -399,7 +399,7 @@ Plans:
 | 53. Detection Modes | v1.2 | 0/0 | Not started | - |
 | 54. Auth0 Sign-In, Local Roles and Default-Deny Access | v1.2 | 9/9 | Deployed and verified on the real tenant 2026-10-30; legacy-admin removal and post-Phase-51 matrix rows pending (see 54-HANDOFF.md) | - |
 | 55. Frame Pairing, Admin Console and Reduced User View | v1.2 | 0/14 | Planned | - |
-| 56. Per-Hardware Rendering, Battery Profiles, Health and Credits | v1.2 | 0/0 | Not started | - |
+| 56. Per-Hardware Rendering, Battery Profiles, Health and Credits | v1.2 | 11/11 | Complete in code, merged (#257) and deployed 2026-10-31; verification human_needed (3 owner items pending, see 56-VERIFICATION.md) | - |
 | 57. Combined Legacy-Frame Firmware Release | v1.2 | 0/0 | Not started (gated on Phase 47) | - |
 | 58. Second Hardware | v1.2 | 0/0 | Not started | - |
 | 59. Comment-History Debt | v1.2 | 0/0 | Not started | - |
