@@ -73,6 +73,16 @@ def test_every_theme_renders_with_state_background(theme_id, state):
     assert counts[bg] >= max(c for v, c in counts.items() if v != bg)
 
 
+
+
+def band_columns(canvas, theme_id):
+    """Columns of the canvas that hold band-coloured pixels in row `y`."""
+    band = device_config.theme_band_index(theme_id)
+    width, height = canvas.size
+    data = canvas.tobytes()
+    return [[x for x in range(width) if data[y * width + x] == band] for y in range(height)]
+
+
 def right_corner(canvas):
     width, height = canvas.size
     margin = lc.common.margin_for(canvas.size)
@@ -81,8 +91,7 @@ def right_corner(canvas):
 
 @pytest.mark.parametrize("theme_id", THEMES)
 def test_band_only_for_band_themes(theme_id):
-    canvas = card(theme_id=theme_id)
-    colours = set(right_corner(canvas).tobytes())
+    colours = set(right_corner(card(theme_id=theme_id)).tobytes())
     if device_config.theme_is_band(theme_id):
         assert device_config.theme_band_index(theme_id) in colours
     else:
@@ -90,10 +99,94 @@ def test_band_only_for_band_themes(theme_id):
         assert colours <= {bg, pf.IDX_WHITE}
 
 
+@pytest.mark.parametrize("size", [SIZE, (640, 384), (1024, 600)])
+@pytest.mark.parametrize("theme_id", [t for t in BAND_THEMES if not device_config.theme_band_dithered(t) and not device_config.theme_dithered(t)])
+def test_band_crosses_whole_canvas(theme_id, size):
+    canvas = lc.build_card_canvas(size, FLIGHT, "departing", route=ROUTE, theme_id=theme_id)
+    columns = band_columns(canvas, theme_id)
+    width, height = size
+    assert min(columns[0], default=width) > width * 0.5
+    assert max(columns[0], default=0) > width * 0.9
+    assert min(columns[-1], default=width) < width * 0.4
+    assert max(columns[-1], default=0) > width * 0.6
+    assert min(min(c, default=width) for c in columns) < width * 0.4
+    assert max(max(c, default=0) for c in columns) > width * 0.9
+    for y in range(0, height, 8):
+        assert columns[y], "band missing on row %d" % y
+
+
+@pytest.mark.parametrize("size", [SIZE, (640, 384), (1024, 600)])
+def test_band_slants_down_left_like_portrait(size):
+    centers = [lc.band_center(size, y) for y in (0, size[1] / 2, size[1])]
+    assert centers[0] > centers[1] > centers[2]
+    shift = (centers[0] - centers[2]) / size[1]
+    portrait = (lc.style.BAND_TOP_LEFT_FRAC - lc.style.BAND_BOT_LEFT_FRAC) * pf.WIDTH / pf.HEIGHT
+    assert shift == pytest.approx(portrait)
+
+
+@pytest.mark.parametrize("size", [SIZE, (640, 384), (1024, 600)])
 @pytest.mark.parametrize("theme_id", BAND_THEMES)
-def test_text_stays_left_of_band(theme_id):
+@pytest.mark.parametrize("state", ["departing", "arriving"])
+def test_band_text_stays_inside_band(theme_id, state, size):
+    base = lc.build_card_canvas(size, FLIGHT, state, route=ROUTE, theme_id=theme_id)
+    other = lc.build_card_canvas(size, FLIGHT, state, route=LONG_ROUTE, theme_id=theme_id)
+    with_prev = lc.build_card_canvas(
+        size, FLIGHT, state, route=ROUTE, theme_id=theme_id,
+        previous_flight=PREVIOUS_FLIGHT, previous_route=PREVIOUS_ROUTE, previous_state="arriving",
+    )
+    illustration_right = lc.card_geometry(size, True).illustration_right
+    for changed, x_min in ((other, illustration_right), (with_prev, 0)):
+        diff = ImageChops.difference(base.convert("RGB"), changed.convert("RGB")).convert("L").point(
+            lambda v: 255 if v else 0
+        )
+        box = diff.getbbox()
+        assert box is not None
+        pixels = diff.load()
+        for y in range(box[1], box[3]):
+            left, right = lc.band_edges(size, y + 0.5)
+            for x in range(max(box[0], x_min), box[2]):
+                if pixels[x, y]:
+                    assert left - 1 <= x <= right + 1, "changed text pixel off the band at (%d, %d)" % (x, y)
+
+
+@pytest.mark.parametrize("theme_id", BAND_THEMES)
+def test_band_never_white_so_white_text_reads(theme_id):
+    assert device_config.theme_band_index(theme_id) != pf.IDX_WHITE
+
+
+@pytest.mark.parametrize("theme_id", BAND_THEMES)
+def test_text_column_fits_inside_band(theme_id):
     geom = lc.card_geometry(SIZE, True)
-    assert geom.text_right < round(SIZE[0] * lc.BAND_BOTTOM_LEFT_FRACTION)
+    mid = SIZE[1] / 2
+    left, right = lc.band_edges(SIZE, mid)
+    assert left < geom.text_left < geom.text_right < right
+    assert geom.overlay_right < lc.band_edges(SIZE, SIZE[1])[0]
+
+
+@pytest.mark.parametrize("theme_id", BAND_THEMES)
+def test_band_overlays_stay_left_of_band(theme_id):
+    base = card(theme_id=theme_id)
+    box = ImageChops.difference(
+        base.convert("RGB"), card(theme_id=theme_id, source_fault=True, battery_low=True).convert("RGB")
+    ).getbbox()
+    assert box is not None
+    assert box[2] <= lc.band_edges(SIZE, SIZE[1])[0]
+
+
+@pytest.mark.parametrize("theme_id", BAND_THEMES)
+def test_band_card_is_deterministic(theme_id):
+    assert card(theme_id=theme_id).tobytes() == card(theme_id=theme_id).tobytes()
+
+
+@pytest.mark.parametrize("size", [(640, 384), (1024, 600)])
+@pytest.mark.parametrize("theme_id", BAND_THEMES)
+def test_band_size_sweep_renders(theme_id, size):
+    canvas = lc.build_card_canvas(
+        size, FLIGHT, "arriving", route=LONG_ROUTE, theme_id=theme_id,
+        previous_flight=PREVIOUS_FLIGHT, previous_route=PREVIOUS_ROUTE, previous_state="departing",
+        source_fault=True, battery_low=True,
+    )
+    assert canvas.size == size
 
 
 def test_long_route_fits_every_theme_and_state():

@@ -3,9 +3,11 @@ family.
 
 The aircraft illustration fills the left of the canvas, nose-left; the right
 column holds the flight text and, when there is one, a compact strip for
-the previous flight. Band themes add a slanted parallelogram along the right
-edge that the text column keeps clear of. Every dimension derives from the
-canvas size passed in, so any landscape panel renders natively.
+the previous flight. Band themes add a diagonal band across the full canvas,
+slanted like the portrait band; the flight text and previous strip are
+centred inside it in white ink and the aircraft illustration is drawn over
+it. Every dimension derives from the canvas size passed in, so any landscape
+panel renders natively.
 """
 from typing import NamedTuple
 
@@ -20,10 +22,11 @@ ILLUSTRATION_LEFT_FRACTION = 0.0
 ILLUSTRATION_RIGHT_FRACTION = 0.55
 ILLUSTRATION_MAX_HEIGHT_FRACTION = 0.55
 TEXT_LEFT_FRACTION = 0.58
-BAND_TOP_LEFT_FRACTION = 0.93
-BAND_BOTTOM_LEFT_FRACTION = 0.90
-BAND_BOTTOM_RIGHT_FRACTION = 0.97
-BAND_CLEARANCE_FRACTION = 0.02
+BAND_CENTER_FRACTION = 0.70
+BAND_TOP_WIDTH_FRACTION = 0.34
+BAND_BOTTOM_WIDTH_FRACTION = 0.46
+BAND_TEXT_REFERENCE_HEIGHT_FRACTION = 0.4
+BAND_TEXT_INK = pf.IDX_WHITE
 LABEL_HEIGHT_FRACTION = 0.045
 LABEL_TRACKING_FRACTION = 0.008
 LINE1_HEIGHT_FRACTION = 0.075
@@ -39,47 +42,94 @@ ELLIPSIS = "…"
 
 
 class CardGeometry(NamedTuple):
-    """Pixel columns of a landscape card for one canvas size."""
+    """Pixel columns of a landscape card for one canvas size. For band
+    themes the text columns are the nominal text width at the band's
+    mid-height; lines are centred on the band, not on these edges."""
 
     margin: int
     illustration_left: int
     illustration_right: int
     text_left: int
     text_right: int
+    band: bool
+    overlay_right: int
+
+
+def band_slope(size):
+    """Horizontal shift per row of the band's centreline (towards the left
+    going down): the portrait band's slope, so both orientations share one
+    angle."""
+    return (style.BAND_TOP_LEFT_FRAC - style.BAND_BOT_LEFT_FRAC) * pf.WIDTH / pf.HEIGHT
+
+
+def band_center(size, y):
+    """Horizontal centre of the band at canvas row `y`."""
+    width, height = size
+    return BAND_CENTER_FRACTION * width + band_slope(size) * (height / 2 - y)
+
+
+def band_edges(size, y):
+    """Band's (left, right) pixel edges at canvas row `y`; it widens
+    linearly from the top row to the bottom row."""
+    width, height = size
+    fraction = BAND_TOP_WIDTH_FRACTION + (BAND_BOTTOM_WIDTH_FRACTION - BAND_TOP_WIDTH_FRACTION) * y / height
+    center = band_center(size, y)
+    return center - fraction * width / 2, center + fraction * width / 2
+
+
+def band_span(size, center, y_top, y_bottom):
+    """Width of the text that, centred on `center`, stays inside the band
+    for every row from `y_top` to `y_bottom`, with a margin of clearance
+    on both sides."""
+    pad = common.margin_for(size)
+    half = min(
+        min(center - left, right - center)
+        for left, right in (band_edges(size, y_top), band_edges(size, y_bottom))
+    )
+    return max(1, round(2 * (half - pad)))
 
 
 def card_geometry(size, band_theme) -> CardGeometry:
-    """Column edges for `size`; a band theme pulls the text column's right
-    edge inwards so text clears the band's leftmost point."""
-    width = size[0]
+    """Column edges for `size`. A band theme sizes the text column to fit
+    inside the band around the text block's expected extent and keeps the
+    bottom-left overlays clear of the band's left edge."""
+    width, height = size
     margin = common.margin_for(size)
     if band_theme:
-        text_right = round(width * (BAND_BOTTOM_LEFT_FRACTION - BAND_CLEARANCE_FRACTION))
+        mid = height / 2
+        reference = BAND_TEXT_REFERENCE_HEIGHT_FRACTION * height
+        center = band_center(size, mid)
+        column = band_span(size, center, mid - reference / 2, mid + reference / 2)
+        text_left = round(center - column / 2)
+        text_right = text_left + column
+        overlay_right = max(margin, round(band_edges(size, height)[0] - margin))
     else:
+        text_left = round(width * TEXT_LEFT_FRACTION)
         text_right = width - margin
+        overlay_right = text_left
     return CardGeometry(
         margin=margin,
         illustration_left=margin + round(width * ILLUSTRATION_LEFT_FRACTION),
         illustration_right=round(width * ILLUSTRATION_RIGHT_FRACTION),
-        text_left=round(width * TEXT_LEFT_FRACTION),
+        text_left=text_left,
         text_right=text_right,
+        band=bool(band_theme),
+        overlay_right=overlay_right,
     )
 
 
-def draw_right_band(canvas, band_idx, dithered):
-    """Paint the right-hand parallelogram in `band_idx` (flat or dithered
+def draw_diagonal_band(canvas, band_idx, dithered):
+    """Paint the full-canvas diagonal band in `band_idx` (flat or dithered
     toward White) onto `canvas`, behind all later drawing."""
-    width, height = canvas.size
-    poly = [
-        (BAND_TOP_LEFT_FRACTION * width, 0),
-        (width, 0),
-        (BAND_BOTTOM_RIGHT_FRACTION * width, height),
-        (BAND_BOTTOM_LEFT_FRACTION * width, height),
-    ]
+    size = canvas.size
+    height = size[1]
+    top_left, top_right = band_edges(size, 0)
+    bottom_left, bottom_right = band_edges(size, height)
+    poly = [(top_left, 0), (top_right, 0), (bottom_right, height), (bottom_left, height)]
     if dithered:
-        mask = Image.new("L", canvas.size, 0)
+        mask = Image.new("L", size, 0)
         ImageDraw.Draw(mask).polygon(poly, fill=255)
-        canvas.paste(dither.dithered_state_background(band_idx, size=canvas.size), (0, 0), mask)
+        canvas.paste(dither.dithered_state_background(band_idx, size=size), (0, 0), mask)
     else:
         ImageDraw.Draw(canvas).polygon(poly, fill=band_idx)
 
@@ -114,8 +164,9 @@ def _line_height(font, size):
 
 
 def _draw_top_row(canvas, size, state, geom, ink, weight, runway_id):
-    """State label at the left and runway tag flush to the text column's
-    right edge, both tracked."""
+    """State label at the left and runway tag at the right, both tracked.
+    The tag is flush to the text column's right edge, or centred on the
+    band's top row in white ink for band themes."""
     draw = ImageDraw.Draw(canvas)
     px = max(12, round(size[1] * LABEL_HEIGHT_FRACTION))
     tracking = max(1, round(size[1] * LABEL_TRACKING_FRACTION))
@@ -126,10 +177,15 @@ def _draw_top_row(canvas, size, state, geom, ink, weight, runway_id):
     label_bbox = text._tracked_text_bbox(font, (geom.margin, top), label, tracking)
     common.assert_within_canvas(label_bbox, size, "landscape state label")
     text.draw_tracked_text(draw, (geom.margin, top), label, font, ink, tracking=tracking)
-    tag_x = geom.text_right - text._tracked_text_width(font, tag, tracking)
+    tag_width = text._tracked_text_width(font, tag, tracking)
+    if geom.band:
+        tag_x = band_center(size, top + px / 2) - tag_width / 2
+    else:
+        tag_x = geom.text_right - tag_width
+    tag_ink = BAND_TEXT_INK if geom.band else ink
     tag_bbox = text._tracked_text_bbox(font, (tag_x, top), tag, tracking)
     common.assert_within_canvas(tag_bbox, size, "landscape runway tag")
-    text.draw_tracked_text(draw, (tag_x, top), tag, font, ink, tracking=tracking)
+    text.draw_tracked_text(draw, (tag_x, top), tag, font, tag_ink, tracking=tracking)
     return label_bbox[3]
 
 
@@ -175,20 +231,36 @@ def _main_text_lines(size, geom, flight, state, route, weight):
     return first, second
 
 
+def _centered_line(draw, size, geom, line, font, y, center, ink, what):
+    """Draw `line` centred on `center` (band themes) or left-aligned in the
+    text column; a band line is first ellipsized to the band's width over
+    its own rows so it never overhangs onto the background."""
+    if not geom.band:
+        bbox = draw.textbbox((geom.text_left, y), line, font=font)
+        common.assert_within_canvas(bbox, size, what)
+        draw.text((geom.text_left, y), line, font=font, fill=ink)
+        return
+    ascent, descent = font.getmetrics()
+    line = _ellipsize(font, line, band_span(size, center, y, y + ascent + descent))
+    bbox = draw.textbbox((center, y), line, font=font, anchor="ma")
+    common.assert_within_canvas(bbox, size, what)
+    draw.text((center, y), line, font=font, fill=BAND_TEXT_INK, anchor="ma")
+
+
 def _draw_main_text(canvas, size, geom, flight, state, route, ink, weight, top, bottom):
     """Draw the flight text block vertically centred between `top` and
-    `bottom`, left-aligned in the text column."""
+    `bottom`: left-aligned in the text column, or centred on the band at
+    the block's mid-height for band themes."""
     draw = ImageDraw.Draw(canvas)
     groups = [g for g in _main_text_lines(size, geom, flight, state, route, weight) if g]
     gap = round(size[1] * BLOCK_GAP_FRACTION)
     heights = [len(lines) * _line_height(font, size) for font, lines in groups]
     block_h = sum(heights) + gap * (len(groups) - 1)
     y = top + max(0, (bottom - top - block_h) // 2)
+    center = band_center(size, y + block_h / 2) if geom.band else 0
     for font, lines in groups:
         for line in lines:
-            bbox = draw.textbbox((geom.text_left, y), line, font=font)
-            common.assert_within_canvas(bbox, size, "landscape flight text")
-            draw.text((geom.text_left, y), line, font=font, fill=ink)
+            _centered_line(draw, size, geom, line, font, y, center, ink, "landscape flight text")
             y += _line_height(font, size)
         y += gap
 
@@ -201,7 +273,7 @@ def _previous_strip_height(size):
 
 def _draw_previous_strip(canvas, size, geom, previous_flight, previous_state, previous_route, ink, weight):
     """One ellipsized line for the previous flight above a thin rule, at
-    the bottom of the text column."""
+    the bottom of the text column (centred on the band for band themes)."""
     draw = ImageDraw.Draw(canvas)
     px = max(10, round(size[1] * PREVIOUS_HEIGHT_FRACTION))
     font = text._font((text._role_weight_path(weight), px, None))
@@ -210,15 +282,21 @@ def _draw_previous_strip(canvas, size, geom, previous_flight, previous_state, pr
     if not summary:
         summary = text._flight_line2_text(previous_route, previous_flight.get("aircraft_type"))
     line = "Previous %s \u00b7 %s" % (state_word, summary) if state_word else "Previous \u00b7 %s" % (summary,)
-    line = _ellipsize(font, line.strip(), geom.text_right - geom.text_left)
     ascent, descent = font.getmetrics()
-    bottom = size[1] - geom.margin
-    y = bottom - ascent - descent
+    y = size[1] - geom.margin - ascent - descent
     rule_y = y - round(size[1] * BLOCK_GAP_FRACTION) // 2
-    draw.line((geom.text_left, rule_y, geom.text_right, rule_y), fill=ink, width=max(1, round(size[1] * 0.004)))
-    bbox = draw.textbbox((geom.text_left, y), line, font=font)
-    common.assert_within_canvas(bbox, size, "landscape previous strip")
-    draw.text((geom.text_left, y), line, font=font, fill=ink)
+    if geom.band:
+        center = band_center(size, y)
+        ink = BAND_TEXT_INK
+        rule_left = center - band_span(size, center, rule_y, y + ascent + descent) / 2
+        rule_right = center + (center - rule_left)
+        line = line.strip()
+    else:
+        center = 0
+        rule_left, rule_right = geom.text_left, geom.text_right
+        line = _ellipsize(font, line.strip(), geom.text_right - geom.text_left)
+    draw.line((rule_left, rule_y, rule_right, rule_y), fill=ink, width=max(1, round(size[1] * 0.004)))
+    _centered_line(draw, size, geom, line, font, y, center, ink, "landscape previous strip")
 
 
 def _battery_box(size, margin):
@@ -247,7 +325,7 @@ def draw_battery_low(canvas, size, ink):
 
 def draw_source_fault(canvas, size, geom, ink, weight):
     """Alert triangle and caption in the bottom-left corner, right of the
-    battery slot, clear of the text column."""
+    battery slot, clear of the text column and the band."""
     draw = ImageDraw.Draw(canvas)
     box, nub_w = _battery_box(size, geom.margin)
     side = max(16, round(size[1] * 0.06))
@@ -262,7 +340,7 @@ def draw_source_fault(canvas, size, geom, ink, weight):
     draw.rectangle((mid - stroke // 2, bottom - side // 4, mid + stroke // 2, bottom - side // 4 + stroke), fill=ink)
     font = text._font((text._role_weight_path(weight), max(10, round(size[1] * 0.03)), None))
     caption_left = left + side + gap
-    caption = _ellipsize(font, style.SOURCE_FAULT_TEXT, geom.text_left - gap - caption_left)
+    caption = _ellipsize(font, style.SOURCE_FAULT_TEXT, geom.overlay_right - gap - caption_left)
     ascent, descent = font.getmetrics()
     caption_top = bottom - side // 2 - (ascent + descent) // 2
     bbox = draw.textbbox((caption_left, caption_top), caption, font=font)
@@ -293,7 +371,7 @@ def build_card_canvas(
     else:
         canvas = pf.new_canvas(bg_idx, size)
     if band_theme:
-        draw_right_band(
+        draw_diagonal_band(
             canvas, device_config.theme_band_index(theme_id), device_config.theme_band_dithered(theme_id)
         )
     label_bottom = _draw_top_row(canvas, size, state, geom, ink, weight, runway_id)
