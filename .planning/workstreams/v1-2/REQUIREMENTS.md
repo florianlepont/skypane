@@ -54,13 +54,13 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 ### Per-Hardware Rendering and Credits
 
-- [ ] **HWR-01**: The renderer, battery thresholds and health views are driven by the device's hardware profile, with provenance recorded for each battery number and a golden-image baseline of the legacy render.
-- [ ] **HWR-02**: A credits page, generated from one data file, cites adsb.fi (with link), adsb.lol, adsbdb and OurAirports, and the project has recorded contact with adsb.fi / adsb.lol about multi-zone use.
+- [x] **HWR-01**: The renderer, battery thresholds and health views are driven by the device's hardware profile, with provenance recorded for each battery number and a golden-image baseline of the legacy render.
+- [ ] **HWR-02**: A credits page, generated from one data file, cites adsb.fi (with link), adsb.lol, adsbdb and OurAirports, and the project has recorded contact with adsb.fi / adsb.lol about multi-zone use (owner decision 2026-10-31: the message is drafted and its sending is deferred until the fleet has more than 10 registered users).
 
 ### Second Hardware
 
 - [ ] **HW2-01**: The owner can choose a second hardware type from a documented shortlist after a time-boxed ESP-IDF panel-driver spike, within the hardware budget.
-- [ ] **HW2-02**: The chosen board is validated on an evaluation unit: cable flash, a real OTA, a native layout, a measured battery sample and a rebuilt battery model.
+- [ ] **HW2-02**: The chosen board is validated on an evaluation unit: cable flash, a real OTA, the OTA signing bench procedure of `firmware/SIGNING.md` (the device-side half of OTA-03), a native layout, a measured battery sample and a rebuilt battery model.
 
 ### Debt
 
@@ -98,7 +98,7 @@ Coverage: 31/31 v1.2 requirements mapped, each to exactly one phase.
 | DATA-05 | Phase 48 | Complete |
 | OTA-01 | Phase 49 | Complete |
 | OTA-02 | Phase 49 | Complete |
-| OTA-03 | Phase 49 | Pending (decision recorded; device-side bench check deferred) |
+| OTA-03 | Phase 49 (decision), Phase 58 (device-side check) | Pending (decision recorded 2026-10-29; device-side bench check carried to Phase 58 by the owner, 2026-10-31) |
 | IMG-01 | Phase 50 | Complete |
 | IMG-02 | Phase 50 | Complete |
 | IMG-03 | Phase 50 | Complete |
@@ -116,8 +116,8 @@ Coverage: 31/31 v1.2 requirements mapped, each to exactly one phase.
 | AUTH-08 | Phase 60 | Pending |
 | AUTH-04 | Phase 55 | Pending |
 | AUTH-05 | Phase 55 | Pending |
-| HWR-01 | Phase 56 | Pending |
-| HWR-02 | Phase 56 | Pending |
+| HWR-01 | Phase 56 | Complete |
+| HWR-02 | Phase 56 | Complete (contact deferred by the owner until more than 10 users) |
 | OTA-04 | Phase 57 | Pending |
 | HW2-01 | Phase 58 | Pending |
 | HW2-02 | Phase 58 | Pending |

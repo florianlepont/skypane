@@ -386,3 +386,7 @@ fixture, always explicitly noted).
 - Follows the same wrapper convention as `adsbdb_miss_EJU84YF.json` (a
   top-level object carrying `http_status` alongside `body`) so
   `test_enrich.py` can replay both the status and the body.
+
+## `golden/legacy_render_baseline.json`
+
+- SHA-256 and byte count of 43 packed 1200x1600 panels, recorded from the renderer tree at commit `cc7c1568` before any per-hardware render change. Compared by `server/test_golden_render.py`; do not regenerate unless a change is proven renderer-neutral by re-rendering at the pre-change commit.

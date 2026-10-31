@@ -13,7 +13,7 @@ import sys
 
 from PIL import Image, ImageDraw
 
-from server import device_config
+from server import device_config, hardware, themes
 from server import panel_format as pf
 from server.panel_format import HEIGHT, IDX_BLACK, IDX_BLUE, IDX_GREEN, IDX_RED, IDX_WHITE, IDX_YELLOW, WIDTH
 from server.plane import dither, illustrations
@@ -428,6 +428,7 @@ def build_canvas(
     flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None,
     theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID,
     source_fault=False, battery_low=False, quiet_hours_until=None, state_dir=None,
+    profile=None,
 ):
     """Pre-pack "P"-mode canvas for `flight` in `state` ("departing" /
     "arriving" / "empty" / "quiet_hours" / "display_off" /
@@ -444,10 +445,27 @@ def build_canvas(
     `_build_display_off_canvas`/`_build_quiet_hours_canvas`/
     `_build_empty_canvas`) draw no illustration and never consult it.
 
+    `profile`: a `hardware.HardwareProfile`. `None` (the default) is the
+    legacy portrait path, unchanged. Otherwise the theme falls back to the
+    default when the profile's inks cannot show it (nothing stored is
+    rewritten) and the profile's layout family picks the renderer; a
+    landscape profile renders natively at the profile's size.
+
     `"display_off"`/`"quiet_hours"`/`"empty"` are always White/Black.
     `"battery_empty"` ignores every other argument: its bytes/hash must
     stay constant for the whole parked episode.
     """
+    if profile is not None:
+        theme_id = themes.theme_or_default(theme_id, profile.inks)
+        if profile.layout_family == hardware.LAYOUT_LANDSCAPE:
+            # Imported here: landscape_card reuses helpers from this module.
+            from server.plane.render import landscape
+            return landscape.build_landscape_canvas(
+                profile, flight, state, route=route, previous_flight=previous_flight,
+                previous_route=previous_route, previous_state=previous_state,
+                theme_id=theme_id, runway_id=runway_id, source_fault=source_fault,
+                battery_low=battery_low, quiet_hours_until=quiet_hours_until,
+                state_dir=state_dir)
     if state == "battery_empty":
         return hold_screens._build_battery_empty_canvas()
     if state == "display_off":

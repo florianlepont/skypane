@@ -182,7 +182,22 @@ def _renders_here(device: FleetDevice, environ: Mapping[str, str] | None) -> boo
             device.hardware_type, os.environ if environ is None else environ)
     except hardware.UnknownHardwareType:
         return False
-    return (profile.width, profile.height) == (panel_format.WIDTH, panel_format.HEIGHT)
+    if profile.layout_family == hardware.LAYOUT_LANDSCAPE:
+        return True
+    return (
+        profile.layout_family == hardware.LAYOUT_PORTRAIT
+        and (profile.width, profile.height) == (panel_format.WIDTH, panel_format.HEIGHT))
+
+
+def _cycle_profile_kwargs(device: FleetDevice) -> dict[str, Any]:
+    """`profile` keyword for a non-live device's cycle; empty for the live
+    frame, which keeps the legacy render path."""
+    if device.is_live:
+        return {}
+    try:
+        return {"profile": hardware.get_profile(device.hardware_type, os.environ)}
+    except hardware.UnknownHardwareType:
+        return {}
 
 
 def runnable_devices(
@@ -333,6 +348,7 @@ class _FleetRun:
                 route_transport=self.route_transport,
                 ledger_root=self.root,
                 reconcile_firmware=device.is_live,
+                **_cycle_profile_kwargs(device),
             )
         except poll_cycle.PollBusy as exc:
             status, detail, trace = STATUS_BUSY, str(exc), ""

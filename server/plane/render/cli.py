@@ -7,7 +7,7 @@ import argparse
 import hashlib
 import sys
 
-from server import device_config
+from server import device_config, hardware
 from server import panel_format as pf
 from server.plane import dither, enrich, runway_config
 from server.plane.render import layout
@@ -122,6 +122,19 @@ def _add_route_shaping_arguments(parser):
     )
 
 
+def _add_hardware_argument(parser):
+    """--hardware: preview a card for another hardware type."""
+    parser.add_argument(
+        "--hardware",
+        metavar="KEY",
+        default=None,
+        help="Render for this hardware type (a key from server/hardware.py) at its own size; the "
+             "preview PNG and the packed .bin use that profile. Simulated types such as "
+             "%s are only available with %s=1 in the environment. Omit for the legacy 1200x1600 frame."
+             % (hardware.SIM_LANDSCAPE_KEY, hardware.SIM_ENV_VAR),
+    )
+
+
 def _add_state_arguments(parser):
     """Theme/runway registry ids plus the device/server-health indicator
     flags and the quiet-hours end-time preview flag.
@@ -162,6 +175,7 @@ def build_parser():
     _add_output_arguments(parser)
     _add_route_shaping_arguments(parser)
     _add_state_arguments(parser)
+    _add_hardware_argument(parser)
     return parser
 
 
@@ -222,7 +236,19 @@ def _preview_inputs(args):
     return flight, route, previous_flight, previous_route, previous_state
 
 
-def _render_preview(args, flight, route, previous_flight, previous_route, previous_state):
+def _resolve_profile(args):
+    """The --hardware profile, or None for the legacy frame. Exits with a
+    clear message for an unknown or gated key.
+    """
+    if args.hardware is None:
+        return None
+    try:
+        return hardware.get_profile(args.hardware)
+    except hardware.UnknownHardwareType:
+        sys.exit("unknown hardware type %r (simulated types need %s=1)" % (args.hardware, hardware.SIM_ENV_VAR))
+
+
+def _render_preview(args, flight, route, previous_flight, previous_route, previous_state, profile=None):
     """Build the canvas and pack it, exiting on an internal size mismatch."""
     canvas = layout.build_canvas(
         flight,
@@ -236,10 +262,12 @@ def _render_preview(args, flight, route, previous_flight, previous_route, previo
         source_fault=args.source_fault,
         battery_low=args.battery_low,
         quiet_hours_until=args.quiet_hours_until,
+        profile=profile,
     )
     data = pf.pack_panel(canvas)
-    if len(data) != pf.IMAGE_BYTES:
-        sys.exit("internal error: generated %d bytes, expected %d" % (len(data), pf.IMAGE_BYTES))
+    expected = pf.IMAGE_BYTES if profile is None else profile.firmware.max_image_bytes
+    if len(data) != expected:
+        sys.exit("internal error: generated %d bytes, expected %d" % (len(data), expected))
     return canvas, data
 
 
@@ -289,7 +317,9 @@ def main(argv=None):
             print("wrote %s" % path)
         return 0
 
+    profile = _resolve_profile(args)
     flight, route, previous_flight, previous_route, previous_state = _preview_inputs(args)
-    canvas, data = _render_preview(args, flight, route, previous_flight, previous_route, previous_state)
+    canvas, data = _render_preview(
+        args, flight, route, previous_flight, previous_route, previous_state, profile=profile)
     _write_outputs(args, canvas, data)
     return 0

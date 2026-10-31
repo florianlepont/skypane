@@ -273,3 +273,40 @@ def theme_band_dithered(theme_id: str) -> bool:
     non-band theme.
     """
     return cast(bool, THEMES[theme_id].get("band_dithered", False))
+
+
+# --- Ink requirements --------------------------------------------------
+#
+# A hardware profile lists the inks its panel can show; a theme is only
+# offered when every ink it draws with is available.
+
+
+def theme_required_inks(theme_id: str) -> frozenset[int]:
+    """Palette indices `theme_id` draws with: its two backgrounds, text ink
+    and band colour (if any), plus White (the paper every theme sits on).
+    """
+    inks = {
+        theme_background_index("departing", theme_id),
+        theme_background_index("arriving", theme_id),
+        theme_ink_index(theme_id),
+        IDX_WHITE,
+    }
+    band = theme_band_index(theme_id)
+    if band is not None:
+        inks.add(band)
+    return frozenset(inks)
+
+
+def themes_for_inks(inks: frozenset[int]) -> tuple[str, ...]:
+    """Theme ids, in registry order, whose required inks are all in `inks`."""
+    return tuple(t for t in THEME_IDS if theme_required_inks(t) <= inks)
+
+
+def theme_or_default(theme_id: str, inks: frozenset[int]) -> str:
+    """`theme_id` when it exists and `inks` can show it, else the default.
+
+    Pure: stored configuration is never rewritten.
+    """
+    if theme_id in themes_for_inks(inks):
+        return theme_id
+    return DEFAULT_THEME_ID

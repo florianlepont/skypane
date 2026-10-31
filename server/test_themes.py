@@ -105,3 +105,79 @@ def test_importing_server_themes_in_a_subprocess_never_imports_pil():
     assert banned == [], (
         "importing server.themes pulled %r into sys.modules - this module "
         "must never import PIL" % (banned,))
+
+
+_ALL_INKS = frozenset(range(6))
+
+_THEME_SNAPSHOT = {
+    "white": (1, 1, 0, None), "black": (0, 0, 1, None),
+    "grey": (0, 0, 1, None), "yellow": (2, 2, 0, None),
+    "yellow_light": (2, 2, 0, None), "red": (3, 3, 1, None),
+    "red_light": (3, 3, 1, None), "green": (5, 5, 1, None),
+    "green_light": (5, 5, 1, None), "blue": (4, 4, 1, None),
+    "blue_light": (4, 4, 1, None), "band_blue": (1, 1, 0, 4),
+    "band_blue_light": (1, 1, 0, 4), "band_green_light": (1, 1, 0, 5),
+    "band_red": (1, 1, 0, 3), "band_black": (1, 1, 0, 0),
+    "band_blue_field": (4, 4, 1, 4), "band_red_field": (3, 3, 1, 3),
+}
+
+
+def test_theme_ids_and_indices_match_pinned_snapshot():
+    assert list(themes.THEME_IDS) == list(_THEME_SNAPSHOT)
+    for tid, (dep, arr, ink, band) in _THEME_SNAPSHOT.items():
+        assert (
+            themes.theme_background_index("departing", tid),
+            themes.theme_background_index("arriving", tid),
+            themes.theme_ink_index(tid),
+            themes.theme_band_index(tid),
+        ) == (dep, arr, ink, band)
+
+
+def test_required_inks_of_white_and_union_rule():
+    assert themes.theme_required_inks("white") == {
+        panel_format.IDX_BLACK, panel_format.IDX_WHITE}
+    for tid in themes.THEME_IDS:
+        expected = {
+            themes.theme_background_index("departing", tid),
+            themes.theme_background_index("arriving", tid),
+            themes.theme_ink_index(tid),
+            panel_format.IDX_WHITE,
+        }
+        band = themes.theme_band_index(tid)
+        if band is not None:
+            expected.add(band)
+        assert themes.theme_required_inks(tid) == expected
+
+
+def test_themes_for_inks_all_six_offers_every_theme_in_order():
+    assert themes.themes_for_inks(_ALL_INKS) == themes.THEME_IDS
+    assert len(themes.THEME_IDS) == len(_THEME_SNAPSHOT)
+
+
+def test_reduced_ink_set_filters_and_falls_back_to_white():
+    inks = frozenset({panel_format.IDX_BLACK, panel_format.IDX_WHITE})
+    offered = themes.themes_for_inks(inks)
+    assert "white" in offered and "black" in offered
+    assert "red" not in offered and "band_blue" not in offered
+    assert themes.theme_or_default("black", inks) == "black"
+    assert themes.theme_or_default("red", inks) == "white"
+    assert themes.theme_or_default("band_blue", inks) == "white"
+
+
+def test_theme_or_default_handles_unknown_ids():
+    assert themes.theme_or_default("sky", _ALL_INKS) == themes.DEFAULT_THEME_ID
+    assert themes.theme_or_default("", _ALL_INKS) == themes.DEFAULT_THEME_ID
+    assert themes.theme_or_default("red", _ALL_INKS) == "red"
+
+
+def test_importing_server_themes_does_not_import_hardware():
+    script = (
+        "import sys\n"
+        "import server.themes\n"
+        "print('server.hardware' in sys.modules)\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script], env=child_env(), cwd=REPO_ROOT,
+        capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout.strip().splitlines()[-1] == "False"

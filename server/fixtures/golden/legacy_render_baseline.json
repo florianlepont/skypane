@@ -1,0 +1,177 @@
+{
+  "cases": {
+    "arriving_battery_low": {
+      "bytes": 960000,
+      "sha256": "0d40ee7bae6dff596c3ec2d97992b21ed1276bdd0379bb1b1d91c258866f33b2"
+    },
+    "arriving_both_overlays": {
+      "bytes": 960000,
+      "sha256": "4185045bb9fd8db022d1c482dcbeda0f15135864cda426ac0c6e11585fcf554f"
+    },
+    "arriving_previous_band_blue": {
+      "bytes": 960000,
+      "sha256": "d8cde5b87a0c488a2af92eb053a5d7bfd42d0a72c0e10cbcc023c3797b7e21a7"
+    },
+    "arriving_previous_band_red_field": {
+      "bytes": 960000,
+      "sha256": "55c698b985558a1a00fb2900646231ff0cb749658a4b1b451df819011fb1b563"
+    },
+    "arriving_previous_red_light": {
+      "bytes": 960000,
+      "sha256": "25f688fcb8264255a3cbc4326248402e07c9631ad7869c06c2462408b130ffb2"
+    },
+    "arriving_previous_white": {
+      "bytes": 960000,
+      "sha256": "d85c85bacfeb5693f45e083902765b2acde27b590cc7b995cfce153636ce0816"
+    },
+    "arriving_source_fault": {
+      "bytes": 960000,
+      "sha256": "a306eb08e42b542077a0d8c1ad096653ef58eb4b3ce22eb42a23dc161bf4c385"
+    },
+    "battery_empty": {
+      "bytes": 960000,
+      "sha256": "80f7c8949c1842a0655b7fde08cdd2ecc392ce85953bd77df32c779ba2c957ab"
+    },
+    "departing_battery_low": {
+      "bytes": 960000,
+      "sha256": "1c3d3d6a2d6ec0f7a5daed0e905f2f51587d4554f43aefc72cc23aa804f0d538"
+    },
+    "departing_both_overlays": {
+      "bytes": 960000,
+      "sha256": "f17b12ede325116535bee57880c040832b26987948131809f689637ced38d0ee"
+    },
+    "departing_source_fault": {
+      "bytes": 960000,
+      "sha256": "9cb1fb4b68a5050aa43524238e0d0150701cbbf4d9e98c45cdb2575ff8a2b7c6"
+    },
+    "display_off": {
+      "bytes": 960000,
+      "sha256": "53ee1f2927e0152ddede401c9612aa2bd702e48f5b7618d79b9587afeaee971e"
+    },
+    "display_off_source_fault": {
+      "bytes": 960000,
+      "sha256": "74e74b55e375de9ad3b8385209808ba0105a55503fcb8be6dadc9e8cbb4ae115"
+    },
+    "empty_battery_low": {
+      "bytes": 960000,
+      "sha256": "e60fcfcbcba66491a23efbc477ec28b4ecb194d866571b3af4f32c564ab69c00"
+    },
+    "empty_default": {
+      "bytes": 960000,
+      "sha256": "1c15167824b849a07ee6444517e2b7b99713b419fd7f5791ccd183a7468995d0"
+    },
+    "empty_runway_06_24": {
+      "bytes": 960000,
+      "sha256": "55696e347f23e5841b8a5e12919a49ccf53567ffeac418642ca145e95a58cfc3"
+    },
+    "empty_source_fault": {
+      "bytes": 960000,
+      "sha256": "71288f20368a81f2f71f04bd18a19a9383097372e500dbd6b6a169668d36349f"
+    },
+    "flat_no_connection": {
+      "bytes": 960000,
+      "sha256": "bd61802dcd394c90c1f6e88da19f7dafa5379abe83ac2572b9466d8d3fcdf3ed"
+    },
+    "flat_updating": {
+      "bytes": 960000,
+      "sha256": "0431ee72f719e7edba97ef22bfd50f6cebe76b1c7844af55644f59d187297e51"
+    },
+    "long_names_arriving_previous": {
+      "bytes": 960000,
+      "sha256": "5dc4ecc0430387d0421c33808f1bf0a0fbbee16eda3cc5bc8a0df8e0941399df"
+    },
+    "long_names_departing": {
+      "bytes": 960000,
+      "sha256": "d6896d86c612b3cba44ec0c6d3021b0eed72db1ea5eff3baae024fc6d63b0025"
+    },
+    "quiet_hours_0700": {
+      "bytes": 960000,
+      "sha256": "f709ae92b308c3d8bed6c0cf21db65084e07295cf7c8d31795b12b2146d53ccb"
+    },
+    "quiet_hours_battery_low": {
+      "bytes": 960000,
+      "sha256": "2abe26bc167e849fc523498d258944ea53c6c15ce2cf7698159c8bda630be681"
+    },
+    "quiet_hours_none": {
+      "bytes": 960000,
+      "sha256": "db90e66689e641861f08c07d434b1fff81caf16392a94cb60adac2cd0d8237cd"
+    },
+    "run_once_panel_bin": {
+      "bytes": 960000,
+      "sha256": "a50a8f3aab130dc37799a5c80cfcb33978cc24688b3d268ed7b96dbb4cbdd2ee"
+    },
+    "theme_band_black_departing": {
+      "bytes": 960000,
+      "sha256": "631b922fd1464521d40ec4cb385495baede708313029e68c024a9b2a25ea15a4"
+    },
+    "theme_band_blue_departing": {
+      "bytes": 960000,
+      "sha256": "aedcd493cd4ce75b3da9e1ce18f6b3904fc637213bf22ac7e183e61233a32cba"
+    },
+    "theme_band_blue_field_departing": {
+      "bytes": 960000,
+      "sha256": "0e8f8b1717f444a348a3d14bbf3b11a38663ef0ace6d11612915ddfffea0823e"
+    },
+    "theme_band_blue_light_departing": {
+      "bytes": 960000,
+      "sha256": "e0f955e045782a3626e9e0ea0f4043979f31e84fa117b23e6b5018528f5984fc"
+    },
+    "theme_band_green_light_departing": {
+      "bytes": 960000,
+      "sha256": "527e528b4d43ee6c9aa04bf41a27c4aec9ce3b2ccc951a53f0ea67d5ed2fe7e7"
+    },
+    "theme_band_red_departing": {
+      "bytes": 960000,
+      "sha256": "6ed4ea7c1250b8f3c753d69dad466a8d3bb4127880558b8616619b4963ffeaf6"
+    },
+    "theme_band_red_field_departing": {
+      "bytes": 960000,
+      "sha256": "8adbc4831da2096ec0443bfd7646fe3c945d6c2498c8723352772f065207947a"
+    },
+    "theme_black_departing": {
+      "bytes": 960000,
+      "sha256": "6964c051989fa2983c77101ea6f47e52599a9be56df5967ce6528accd3cbd25c"
+    },
+    "theme_blue_departing": {
+      "bytes": 960000,
+      "sha256": "6befdd7ec6644c4adcbf94b6de2c6c93234e8a5818da1b6ec94b038fc4fd7b73"
+    },
+    "theme_blue_light_departing": {
+      "bytes": 960000,
+      "sha256": "0992222207e663aa183af4a7300ff00ab8d59a9fa903ee09be20818793a4336e"
+    },
+    "theme_green_departing": {
+      "bytes": 960000,
+      "sha256": "c16c20826bb46baac7ec909ac8b576894743c2b15c171578d2adeb3d74656d7d"
+    },
+    "theme_green_light_departing": {
+      "bytes": 960000,
+      "sha256": "19ddf045c16e041971411b49db2c3cea72c9bafb4bdcc8ecd4cbb7d04bdd7ef1"
+    },
+    "theme_grey_departing": {
+      "bytes": 960000,
+      "sha256": "c4e787fc8a85a5422060a48a91c3ce6d22af60d087729b389dbed3db675bce34"
+    },
+    "theme_red_departing": {
+      "bytes": 960000,
+      "sha256": "e122324372c6c60dfe9455eac32e6f7cbd63168a899f1c3a8f6a9ec994d25e43"
+    },
+    "theme_red_light_departing": {
+      "bytes": 960000,
+      "sha256": "e820833ed4041e5535c5849eb5e85b7d01d2cb712b14c75d7a2e00e86d8701f6"
+    },
+    "theme_white_departing": {
+      "bytes": 960000,
+      "sha256": "158a0b2ce64fb013d5317bcec44585a9dfef155d3f3112a0e94da8ef36c4bb0b"
+    },
+    "theme_yellow_departing": {
+      "bytes": 960000,
+      "sha256": "5b296d4e4a26590459ae6abe45cfdcec290e50e46b3f3dd44dec7dfa5fc17645"
+    },
+    "theme_yellow_light_departing": {
+      "bytes": 960000,
+      "sha256": "c52a306dceb566795eee2e19b52613fe02bc4cbc22401c0ad9f345e1a2283d06"
+    }
+  },
+  "pillow_version": "13.0.0"
+}

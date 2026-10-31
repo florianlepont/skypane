@@ -17,7 +17,9 @@ human_verification:
 # Phase 49: Per-Hardware OTA Registry Verification Report
 
 **Phase Goal:** The owner can publish and schedule firmware per hardware type, and no frame can ever be offered a binary built for another type or an older build.
-**Status:** human_needed. OTA-03 is NOT fully met: the signing decision is recorded (option S) but the device-side verification is deferred and unproven. This must not be read as passed.
+**Status:** human_needed at verification time (2026-10-30). OTA-03 was NOT fully met: the signing decision is recorded (option S) but the device-side verification is deferred and unproven. This must not be read as passed on that point.
+
+**Closed by the owner, 2026-10-31:** Phase 49 is closed with the OTA-03 device-side verification unproven and carried to Phase 58 (HW2-02), where the evaluation unit is the non-live bench unit. Nothing about that verification has been run; the two human items above stay open and now belong to Phase 58.
 **Re-verification:** No (initial)
 
 ## Observable Truths
@@ -64,7 +66,7 @@ None blocking found in the files examined; no debt markers observed in the revie
 
 ## Gaps Summary
 
-No code gaps. One outstanding human item: run the SIGNING.md bench procedure on a non-live unit before provisioning any second non-simulated hardware (Phase 58 depends on this).
+No code gaps. One outstanding human item: run the SIGNING.md bench procedure on a non-live unit before provisioning any second non-simulated hardware (Phase 58 depends on this). On 2026-10-31 the owner closed the phase and carried this item to Phase 58.
 
 ---
 

@@ -376,3 +376,46 @@ def test_quiet_hours_status_uses_the_config_timezone():
     assert device_policy.quiet_hours_status(base, now) == (3 * 3600, "07:00")
     assert device_policy.quiet_hours_status(dict(base, timezone="America/Martinique"), now) == (8 * 3600, "07:00")
     assert device_policy.quiet_hours_status(dict(base, timezone="Asia/Tokyo"), now) == (None, None)
+
+
+_LEGACY_MV_SWEEP = [*range(-1, 4301), 3499, 3500, 3501]
+
+
+def test_hysteresis_functions_with_explicit_legacy_values_match_defaults():
+    low = device_policy.BATTERY_LOW_THRESHOLD_MV
+    clear = device_policy.BATTERY_LOW_CLEAR_MV
+    crit = device_policy.BATTERY_CRITICAL_MV
+    recover = device_policy.BATTERY_CRITICAL_RECOVER_MV
+    for mv in [None, *_LEGACY_MV_SWEEP]:
+        for was in (False, True):
+            assert device_policy.apply_battery_hysteresis(
+                mv, was, low_mv=low, clear_mv=clear
+            ) == device_policy.apply_battery_hysteresis(mv, was)
+            assert device_policy.apply_battery_critical_hysteresis(
+                mv, was, critical_mv=crit, recover_mv=recover
+            ) == device_policy.apply_battery_critical_hysteresis(mv, was)
+        assert device_policy.battery_critical_pin_applies(
+            True, mv, recover_mv=recover
+        ) == device_policy.battery_critical_pin_applies(True, mv)
+        assert device_policy.battery_critical_pin_applies(False, mv, recover_mv=recover) is False
+
+
+def test_battery_curve_argument_matches_default_and_drives_clamps():
+    curve = device_policy.BATTERY_DISCHARGE_CURVE
+    for mv in [None, "x", float("nan"), *_LEGACY_MV_SWEEP]:
+        assert device_policy.battery_fraction(mv, curve=curve) == device_policy.battery_fraction(mv)
+        assert device_policy.battery_percent(mv, curve=curve) == device_policy.battery_percent(mv)
+    other = ((3000, 0), (3600, 50), (3800, 100))
+    assert device_policy.battery_fraction(3000, curve=other) == 0.0
+    assert device_policy.battery_fraction(3800, curve=other) == 1.0
+    assert device_policy.battery_percent(3700, curve=other) == 75
+    assert device_policy.battery_percent(3700) != 75
+
+
+def test_different_thresholds_change_decisions_between_the_two_values():
+    assert device_policy.apply_battery_hysteresis(3550, False) is False
+    assert device_policy.apply_battery_hysteresis(3550, False, low_mv=3600, clear_mv=3700) is True
+    assert device_policy.apply_battery_critical_hysteresis(3650, True) is True
+    assert device_policy.apply_battery_critical_hysteresis(3650, True, recover_mv=3600) is False
+    assert device_policy.battery_critical_pin_applies(True, 3650) is True
+    assert device_policy.battery_critical_pin_applies(True, 3650, recover_mv=3600) is False

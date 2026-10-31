@@ -133,14 +133,14 @@ _percent_point_y = functools.partial(
     inset_percent=_SPARKLINE_VERTICAL_INSET_PERCENT)
 
 
-def _plot_value(unit, mv):
+def _plot_value(unit, mv, curve=None):
     """The number a reading of `mv` plots at in `unit`: the millivolt
     reading itself, or the server's own percentage estimate for it (0
     when the estimate cannot resolve, so the point pins to the floor
     rather than vanishing).
     """
     if unit == UNIT_PERCENT:
-        pct = battery.battery_percent(mv)
+        pct = battery.percent(mv, curve)
         return pct if pct is not None else 0
     return mv
 
@@ -222,7 +222,7 @@ def _axis_day_label(ts):
     return "%d %s" % (local.day, layout.month_abbr(local.month))
 
 
-def _battery_reading_parts(mv, ts, now):
+def _battery_reading_parts(mv, ts, now, curve=None):
     """The plain-text `(value, when)` pair every rendering of one
     battery reading shares, computed once so they can't drift apart.
     `value` is "≈ NN% · {mv} mV" when the estimate resolves, else bare
@@ -230,7 +230,7 @@ def _battery_reading_parts(mv, ts, now):
     this estimate). Returns unescaped text, not markup: `battery-trend.js`
     rewrites the readout via `textContent`, which would destroy markup.
     """
-    pct = battery.battery_percent(mv)
+    pct = battery.percent(mv, curve)
     value = ("≈ %d%% · %s mV" % (pct, mv)) if pct is not None else ("%s mV" % mv)
     age = layout.age_seconds(ts, now)
     if age is None:
@@ -295,7 +295,7 @@ def _sparkline_area_layer(plotted, unit=UNIT_MV):
         draw.polygon(SPARKLINE_AREA_CLASS, points))
 
 
-def _sparkline_points_and_marks(pairs, point_count, now, daily, unit=UNIT_MV):
+def _sparkline_points_and_marks(pairs, point_count, now, daily, unit=UNIT_MV, curve=None):
     """`(plotted, markup)` for every reading: `plotted` is the
     `[(x, y), ...]` coordinate list the area layer plots against, and
     `markup` is every line segment, cosmetic dot/mark and hit-target
@@ -313,7 +313,7 @@ def _sparkline_points_and_marks(pairs, point_count, now, daily, unit=UNIT_MV):
     prev_point = None
     for index, (value, ts, reading_count) in enumerate(pairs):
         x = draw.percent_x(index, point_count)
-        plotted_value = _plot_value(unit, value)
+        plotted_value = _plot_value(unit, value, curve)
         y = _unit_point_y(unit, plotted_value)
         plotted.append((x, y))
         if prev_point is not None:
@@ -347,7 +347,7 @@ def _sparkline_points_and_marks(pairs, point_count, now, daily, unit=UNIT_MV):
         if daily:
             _value_text, when_text = _daily_reading_parts(value, ts, reading_count)
         else:
-            _value_text, when_text = _battery_reading_parts(value, ts, now)
+            _value_text, when_text = _battery_reading_parts(value, ts, now, curve)
         # Tooltip, aria-label and data-when carry the same string, never
         # a "value — when" composite: battery-trend.js's reveal() writes
         # data-mv into the readout separately and prepends its own
@@ -379,16 +379,16 @@ def _sparkline_points_and_marks(pairs, point_count, now, daily, unit=UNIT_MV):
     return plotted, "".join(line_segments) + "".join(circles)
 
 
-def _sparkline_threshold(pairs, unit=UNIT_MV):
+def _sparkline_threshold(pairs, unit=UNIT_MV, curve=None):
     """`(rect_markup, legend_markup)` for the low-battery threshold, or
-    `("", "")` when `battery.LOW_BATTERY_DISPLAY_MV` falls outside the
+    `("", "")` when `battery.low_display_mv(curve)` falls outside the
     chart's fixed range — `sparkline_point_y()` clamps, so an
     out-of-range threshold would draw pinned to the axis edge and
     falsely read as "low starts at the bottom". Placed by the same
     `sparkline_point_y()` every reading uses, so it cannot drift from
     the readings it is compared against.
     """
-    threshold_mv = battery.LOW_BATTERY_DISPLAY_MV
+    threshold_mv = battery.low_display_mv(curve)
     if not (isinstance(threshold_mv, int) and not isinstance(threshold_mv, bool)
             and SPARKLINE_Y_MIN_MV < threshold_mv < SPARKLINE_Y_MAX_MV):
         return "", ""
@@ -444,7 +444,7 @@ def _sparkline_axis_labels(pairs, daily, unit=UNIT_MV):
     return y_labels_html, x_labels_html
 
 
-def battery_sparkline_svg(rows, now=None, daily=False, unit=UNIT_MV):
+def battery_sparkline_svg(rows, now=None, daily=False, unit=UNIT_MV, curve=None):
     """A minimal, dependency-free battery-trend chart built server-side
     from `rows` (newest-first). No external reference of any kind
     (`url(`, `<image`, a script tag). Each plotted point carries a
@@ -464,6 +464,7 @@ def battery_sparkline_svg(rows, now=None, daily=False, unit=UNIT_MV):
     Returns `""` when fewer than two rows carry a numeric `battery_mv`.
     `unit` is `UNIT_MV` (the stored reading) or `UNIT_PERCENT` (the
     shared battery estimate of that reading, on a 0-100 axis).
+    `curve` is the device's discharge curve (None: the legacy one).
     `daily=True` plots daily aggregates instead of individual readings:
     axis and point labels switch to their day-aware siblings, and
     cosmetic dots suppress above `_SPARKLINE_DENSE_POINT_THRESHOLD`.
@@ -485,10 +486,10 @@ def battery_sparkline_svg(rows, now=None, daily=False, unit=UNIT_MV):
     point_count = len(pairs)
 
     plotted, points_markup = _sparkline_points_and_marks(
-        pairs, point_count, now, daily, unit)
+        pairs, point_count, now, daily, unit, curve)
     area_layer = _sparkline_area_layer(plotted, unit)
     axis_chrome = _sparkline_axis_chrome(point_count)
-    threshold_rect, legend_html = _sparkline_threshold(pairs, unit)
+    threshold_rect, legend_html = _sparkline_threshold(pairs, unit, curve)
     y_labels_html, x_labels_html = _sparkline_axis_labels(pairs, daily, unit)
 
     heading = i18n.t(BATTERY_SECTION_HEADING)
@@ -513,7 +514,7 @@ def _unit_button(unit, label, selected):
     ) % (unit, "true" if selected else "false", escape_html(label))
 
 
-def battery_unit_chart(rows, now=None, daily=False):
+def battery_unit_chart(rows, now=None, daily=False, curve=None):
     """The voltage chart (the visible default) and its percentage twin,
     both built server-side from the same `rows`, inside one
     `.battery-chart` wrapper, plus the Percentage/Voltage control.
@@ -524,10 +525,10 @@ def battery_unit_chart(rows, now=None, daily=False):
     visible. The script swaps which view is shown and never converts a
     value itself.
     """
-    mv_chart = battery_sparkline_svg(rows, now=now, daily=daily, unit=UNIT_MV)
+    mv_chart = battery_sparkline_svg(rows, now=now, daily=daily, unit=UNIT_MV, curve=curve)
     if not mv_chart:
         return ""
-    percent_chart = battery_sparkline_svg(rows, now=now, daily=daily, unit=UNIT_PERCENT)
+    percent_chart = battery_sparkline_svg(rows, now=now, daily=daily, unit=UNIT_PERCENT, curve=curve)
     control = (
         '<div class="battery-unit" role="group" aria-label="%s" hidden>%s%s</div>'
     ) % (
