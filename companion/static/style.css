@@ -2166,6 +2166,153 @@ button:disabled {
     text-decoration: line-through;
     cursor: not-allowed;
   }
+
+  /* Detection page: the checked mode decides which panel shows. The
+   * server may also mark the inactive panel [hidden] after a round trip;
+   * the checked panel's display: block wins over that attribute so a
+   * client-side mode change still reveals it. */
+  .detection-modes:has(#detection-mode-position:checked) .detection-panel--runway,
+  .detection-modes:has(#detection-mode-runway:checked) .detection-panel--position {
+    display: none;
+  }
+
+  .detection-modes:has(#detection-mode-runway:checked) .detection-panel--runway,
+  .detection-modes:has(#detection-mode-position:checked) .detection-panel--position {
+    display: block;
+  }
+}
+
+/* Detection page. Summary of the saved setting: a label-voice caption over
+ * an emphasis value, one row per fact. */
+.detection-summary {
+  display: grid;
+  gap: var(--space-md);
+  margin: 0;
+}
+
+.detection-summary > div {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.detection-summary dt {
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.detection-summary dd {
+  margin: 0;
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.detection-summary__detail {
+  display: block;
+  font-weight: var(--weight-regular);
+  margin-top: var(--space-xs);
+}
+
+.detection-tag {
+  font-family: var(--font-mono);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-regular);
+}
+
+/* Links on this page are 44px tall: inline-flex so the box, not the text
+ * line, is the hit target. */
+.detection-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+/* Airport search results: each row is one full-width link. */
+.detection-results {
+  list-style: none;
+  margin: 0 0 var(--space-md);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.detection-result {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-height: 48px;
+  padding: var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.detection-result:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, var(--color-dominant));
+}
+
+.detection-result:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.detection-result__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.detection-result__name {
+  display: block;
+  font-weight: var(--weight-semibold);
+}
+
+.detection-result__codes {
+  display: block;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The saved airport carries the same quiet "current" label the runway
+ * cards use. */
+.detection-result__codes[data-current-label]::after {
+  content: " · " attr(data-current-label);
+}
+
+/* Runway cards: the .runway-row flex row becomes a grid here, since an
+ * airport can list many runways and flex would crush them on a phone. */
+.detection-runways {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-sm);
+}
+
+@media (min-width: 600px) {
+  .detection-runways {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+}
+
+.detection-runways .runway-card__detail {
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Mode choice: the two segment labels are long, so they wrap and grow
+ * instead of clipping (the same approach as the hardware-type chooser). */
+.detection-modes .theme-form input[type="radio"] + label {
+  height: auto;
+  min-height: 44px;
+  padding: var(--space-xs) var(--space-sm);
+  white-space: normal;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 /* summary's own idiom reused verbatim: a centred flex row with a 44px
@@ -5074,6 +5221,25 @@ a.airline-sheet__type[aria-current="true"] {
     height: 36px;
     font-size: 14px;
   }
+}
+
+/* The airport Search button must be type="submit" for the no-script GET,
+ * which would paint it with the primary accent fill; this quiet override
+ * (equal specificity to button[type="submit"], placed after it) keeps the
+ * accent for the page's Save. min-height outranks the 30px and 36px
+ * button heights at every width. */
+button.detection-search {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
+  box-shadow: none;
+  color: var(--color-text);
+  min-height: 44px;
+}
+
+button.detection-search:hover {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+  border-color: color-mix(in srgb, var(--color-text) 14%, transparent);
+  box-shadow: none;
 }
 
 .rule-add-form {
