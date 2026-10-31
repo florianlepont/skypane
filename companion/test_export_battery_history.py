@@ -161,6 +161,13 @@ def test_since_keeps_only_rows_from_that_time_on(seeded, token):
     assert [i["ts"] for i in _lines(body)] == [rows[2][0], rows[3][0]]
 
 
+def test_a_row_stamped_exactly_at_since_is_included(seeded, token):
+    server, rows, base = seeded
+    status, _h, body = _get(server, _since_query(base), _bearer(token))
+    assert status == 200
+    assert [i["ts"] for i in _lines(body)][0] == rows[0][0]
+
+
 def test_an_empty_window_is_a_200_with_an_empty_body(seeded, token):
     server, _rows, _base = seeded
     status, _h, body = _get(

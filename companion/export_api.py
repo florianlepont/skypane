@@ -34,7 +34,7 @@ EXPORT_ROUTE = "/api/export/battery-history"
 TOKEN_ENV_VAR = "SKYPANE_EXPORT_TOKEN"
 MIN_TOKEN_CHARS = 32
 
-MAX_ROWS = 200000
+MAX_ROWS = 100000
 MAX_AGE = timedelta(days=400)
 MAX_FUTURE = timedelta(days=1)
 

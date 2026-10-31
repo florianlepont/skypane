@@ -467,6 +467,15 @@ def recent_device_health(conn, limit=200):
     return [dict(row) for row in rows]
 
 
+def _stored_since(since):
+    """`since` (`...Z`) spelled the way the battery-log tailer stores `ts`
+    (`...+00:00`), so the text comparison `ts >= since` is inclusive at the
+    boundary: `+` sorts before `Z`, so comparing the two spellings directly
+    would drop a row stamped exactly at `since`.
+    """
+    return since[:-1] + "+00:00"
+
+
 class TooManyRows(Exception):
     """A read-only export matched more rows than its caller allows."""
 
@@ -490,7 +499,7 @@ def export_device_health(state_dir, since, max_rows):
         cursor = conn.execute(
             "SELECT ts, battery_mv, fw_version, boot_reason, rssi "
             "FROM device_health WHERE ts >= ? ORDER BY ts LIMIT ?",
-            (since, max_rows + 1))
+            (_stored_since(since), max_rows + 1))
         rows = cursor.fetchall()
     finally:
         conn.close()

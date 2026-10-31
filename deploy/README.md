@@ -700,7 +700,7 @@ exposed, and nothing is ever written.
 Access is by bearer token only (`Authorization: Bearer <token>`). A session
 cookie never grants access. `since` must be a UTC time in that exact format,
 at most 400 days old and at most a day ahead; any other query parameter is
-refused with 400. More than 200000 matching rows answers 413. Ten failed
+refused with 400. More than 100000 matching rows answers 413. Ten failed
 attempts in a minute from one client address answer 429 for that client.
 
 ### Enable
@@ -725,6 +725,14 @@ attempts in a minute from one client address answer 429 for that client.
    path prefix `/api/export/`, header `Authorization` with prefix `Bearer`,
    and the token as the value. The platform adds the header to requests to
    that host and path; the reader never sees the token.
+
+The token must be the generated value, exactly as printed: no quotes, no
+spaces, nothing else on the line. A stray space or quote means it never
+matches and the route answers 401, then 429 after ten tries, which can look
+like an attack. Do not choose a token by hand; a short or patterned one
+defeats the throttle. If the reader shares an outbound address with other
+users, someone else's failed attempts can make the throttle answer 429 to
+the reader for up to a minute; the block clears by itself.
 
 ### Rotate or revoke
 
