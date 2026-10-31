@@ -369,15 +369,37 @@ _SECRET = "ab" * 32
 _MAC = "aa:bb:cc:dd:ee:01"
 
 
+_PENDING_MAC = "aa:bb:cc:dd:ee:02"
+_RETIRED_MAC = "aa:bb:cc:dd:ee:03"
+
+
 def _seed_fleet_db(state_dir):
     conn = fleet_db.connect(str(state_dir))
     owner = fleet_db.add_user(conn, "Owner@Example.org", "admin")
-    loc = fleet_db.add_location(conn, "Orly east", 48.72, 2.38, "Europe/Paris")
+    loc = fleet_db.add_location(
+        conn, "Orly east", 48.72, 2.38, "Europe/Paris", owner_user_id=owner
+    )
     fleet_db.add_device(
         conn, _MAC, _SECRET, "xiao-ee02-13in3-spectra6", owner, location_id=loc, name="Salon"
     )
+    fleet_db.register_pending(conn, _PENDING_MAC, _SECRET, "xiao-ee02-13in3-spectra6", owner)
+    retired = fleet_db.register_pending(
+        conn, _RETIRED_MAC, _SECRET, "xiao-ee02-13in3-spectra6", owner
+    )
+    conn.execute("UPDATE pending_devices SET status = 'retired' WHERE id = ?", (retired,))
+    fleet_db.audit_append(
+        conn, fleet_db.AuditActor(owner, "owner@example.org", None),
+        "frame.register", "pending", retired, "ok", {"mac": _RETIRED_MAC}, now=1000,
+    )
     fleet_db.meta_set(conn, fleet_db.META_MIGRATED, "1")
     conn.close()
+
+
+_SCHEMA3_TABLES = ("pending_devices", "audit_log", "locations")
+
+
+def _table_rows(conn, table):
+    return [tuple(r) for r in conn.execute("SELECT * FROM %s ORDER BY 1" % table)]
 
 
 class TestFleetDbBackup:
@@ -409,6 +431,59 @@ class TestFleetDbBackup:
             assert fleet_db.meta_get(conn, fleet_db.META_MIGRATED) == "1"
         finally:
             conn.close()
+
+    def test_restore_carries_pending_audit_and_location_owner(self, tmp_path):
+        state_dir = tmp_path / "state"
+        archive_dir = tmp_path / "archives"
+        _seed_minimal_state(state_dir)
+        _seed_fleet_db(state_dir)
+        assert skypane_backup.main(
+            ["--state-dir", str(state_dir), "--archive-dir", str(archive_dir)]
+        ) == 0
+        archive = archive_dir / _archive_names(archive_dir)[0]
+        restored = tmp_path / "restored"
+        restored.mkdir()
+        with tarfile.open(archive, "r:gz") as tar:
+            tar.extractall(restored, filter="data")
+
+        source = fleet_db.connect_readonly(str(state_dir))
+        copy = fleet_db.connect_readonly(str(restored))
+        try:
+            assert fleet_db.schema_version(copy) == fleet_db.SCHEMA_VERSION
+            for table in _SCHEMA3_TABLES:
+                assert _table_rows(copy, table) == _table_rows(source, table)
+            assert len(_table_rows(copy, "pending_devices")) == 2
+            assert len(_table_rows(copy, "audit_log")) == 1
+            assert copy.execute(
+                "SELECT owner_user_id FROM locations"
+            ).fetchone()[0] is not None
+            assert [s for s in fleet_db.dump_logical(copy) if s.startswith("CREATE TRIGGER")] == [
+                s for s in fleet_db.dump_logical(source) if s.startswith("CREATE TRIGGER")
+            ]
+            triggers = {
+                r[0] for r in copy.execute("SELECT name FROM sqlite_master WHERE type = 'trigger'")
+            }
+            assert {"audit_log_no_update", "audit_log_no_delete"} <= triggers
+        finally:
+            source.close()
+            copy.close()
+
+    def test_pairing_directory_is_excluded_without_drift(self, tmp_path, capsys):
+        state_dir = tmp_path / "state"
+        archive_dir = tmp_path / "archives"
+        _seed_minimal_state(state_dir)
+        _seed_fleet_db(state_dir)
+        pairing = state_dir / "pairing" / "p_0123abcd" / "img"
+        pairing.mkdir(parents=True)
+        (state_dir / "pairing" / "p_0123abcd" / "panel.bin").write_bytes(b"pixels")
+        (pairing / ("c" * 64 + ".bin")).write_bytes(b"pixels")
+
+        assert skypane_backup.main(
+            ["--state-dir", str(state_dir), "--archive-dir", str(archive_dir)]
+        ) == 0
+        assert "not in include list" not in capsys.readouterr().out
+        members = _members(archive_dir / _archive_names(archive_dir)[0])
+        assert not any(m == "pairing" or m.startswith("pairing/") for m in members)
 
     def test_wal_shm_and_status_file_never_archived_nor_drift(self, tmp_path, capsys):
         state_dir = tmp_path / "state"
