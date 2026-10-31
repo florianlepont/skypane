@@ -168,7 +168,9 @@ _GET_ROUTES = (
             "GET", Exact(DISPLAY_ROUTE),
             lambda h, m: h._render_tab(
                 DISPLAY_ROUTE,
-                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DISPLAY),
+                lambda ctx: config_page.render(
+                    ctx, scope=config_page.SCOPE_DISPLAY,
+                    location_name=h._detection_card_location(m.device, ctx)),
                 m.device),
             OWNER_DEVICE),
         Route(
@@ -184,7 +186,9 @@ _GET_ROUTES = (
             "GET", Exact(DEVICE_ROUTE),
             lambda h, m: h._render_tab(
                 DEVICE_ROUTE,
-                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DEVICE),
+                lambda ctx: config_page.render(
+                    ctx, scope=config_page.SCOPE_DEVICE,
+                    location_name=h._detection_card_location(m.device, ctx)),
                 m.device),
             ADMIN_ONLY),
         Route(

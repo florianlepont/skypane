@@ -92,6 +92,15 @@ def location_scope(handler, device):
         return detection_page.LocationScope()
 
 
+def card_location_name(handler, device, device_cfg):
+    """The device's usable location name for the Detection card on Display
+    and Device; None unless the saved setting follows a position, so a
+    runway device never reads fleet.db for it."""
+    if detection.current_selection(device_cfg)["mode"] != detection.POSITION_MODE:
+        return None
+    return location_scope(handler, device).device_location_name
+
+
 def _runway_errors(form):
     """Field -> message for a runway-mode post; empty when it is valid."""
     airport = form.get("airport", "")

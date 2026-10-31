@@ -112,7 +112,7 @@ _FLOOR_CTX = {
 }
 # Minimums pinned a little below the observed figures - re-derived by RUNNING this exact
 # fixture through this exact selector.
-_FLOOR_MIN_MEASURED = {"display": 3, "device": 2}
+_FLOOR_MIN_MEASURED = {"display": 4, "device": 3}
 _FLOOR_EXPECTED_SKIPS = {"display": 1, "device": 0}
 
 

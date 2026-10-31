@@ -1016,7 +1016,9 @@ class Handler(
         back = device_scope.scoped(back_route)
         if errors:
             scope = config_page.submitted_scope(form)
-            body = config_page.render(ctx, scope=scope, errors=errors, submitted=form)
+            body = config_page.render(
+                ctx, scope=scope, errors=errors, submitted=form,
+                location_name=self._detection_card_location(device, ctx))
             toast_html = None
             if "timezone" in errors:
                 toast_html = flash.flash_toast_html(
@@ -1049,6 +1051,11 @@ class Handler(
         """The locations GET /detection may list for `device`: its owner's,
         or the signed-in user's own."""
         return detection_actions.location_scope(self, device)
+
+    def _detection_card_location(self, device, ctx):
+        """The usable location name the Display and Device Detection cards
+        describe a position setting with, or None."""
+        return detection_actions.card_location_name(self, device, ctx.device_config)
 
     def _handle_detection_post(self, device):
         """POST /detection for `device`: the dispatcher already applied the

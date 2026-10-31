@@ -18,6 +18,9 @@ import unicodedata
 from urllib.parse import parse_qs, urlencode
 
 from companion import device_scope, i18n, layout, page_context, prefs
+from companion.detection_summary import (
+    LEGACY_PILL, LEGACY_PILL_NUMBER, airport_label as airport_label,
+    display_id_for, summary_values)
 from companion.layout import escape_html
 from companion.pages import config_page
 from companion.settings import quiet_hours
@@ -64,15 +67,6 @@ SUMMARY_TITLE = i18n.msg("detection.current_setting", "Current setting")
 SUMMARY_FOLLOWING = i18n.msg("detection.following", "Following")
 SUMMARY_TAG = i18n.msg("detection.text_on_the_frame", "Text on the frame")
 SUMMARY_EMPTY = i18n.msg("detection.when_nothing_is_in_range", "When nothing is in range")
-SUMMARY_RUNWAY_VALUE = i18n.msg(
-    "detection.summary_runway", "Runway %(runway)s at %(airport)s")
-SUMMARY_RUNWAY_DETAIL = i18n.msg(
-    "detection.summary_runway_detail", "Departures and arrivals, in both directions.")
-SUMMARY_POSITION_VALUE = i18n.msg(
-    "detection.summary_position", "Aircraft within %(radius)d km of %(location)s")
-SUMMARY_POSITION_DETAIL = i18n.msg(
-    "detection.summary_position_detail", "In the air, below 10,000 ft, lowest first.")
-LEGACY_PILL = i18n.msg("detection.legacy_runway_pill", "Runway %(number)s")
 FAIL_SAFE_TOAST = i18n.msg(
     "detection.fail_safe_toast",
     "No usable location — the frame keeps following Orly runway 3 until you "
@@ -192,9 +186,6 @@ ERROR_NUMBER = i18n.msg(
 ERROR_TIMEZONE = i18n.msg(
     "detection.error_timezone", "Choose a time zone from the list.")
 
-_LEGACY_PILL_NUMBER = {"3": "3", "06-24": "4", "02-20": "2"}
-_LEGACY_BY_RUNWAY = {pair: key for key, pair in detection.LEGACY_RUNWAY_MAP.items()}
-
 _RESULTS_ANCHOR = "airport-results"
 _RUNWAYS_ANCHOR = "airport-runways"
 _COUNT_ID = "airport-results-count"
@@ -238,17 +229,6 @@ def format_count(number, lang):
     """A thousands-grouped integer: comma in English, no-break space in French."""
     grouped = "{:,}".format(number)
     return grouped.replace(",", " ") if lang == "fr" else grouped
-
-
-def display_id_for(icao, designator):
-    """The id the frame text is built from: the legacy Orly id when the
-    runway has one, else "ICAO:designator"."""
-    legacy = _LEGACY_BY_RUNWAY.get((icao, designator))
-    return legacy if legacy is not None else detection.runway_display_id(icao, designator)
-
-
-def airport_label(airport):
-    return "%s (%s)" % (airport.name, airport.iata or airport.icao)
 
 
 def airport_codes(airport):
@@ -361,34 +341,8 @@ def coordinate_text(value):
     return "0" if text in ("", "-0") else text
 
 
-def _summary_values(view):
-    """(value, detail, pill, tag, empty) texts for the saved setting. A
-    position setting without a usable location reads as the default Orly
-    runway, as the frame itself does."""
-    selection = view.selection
-    if selection["mode"] == MODE_POSITION and not view.fail_safe:
-        display_id = detection.position_display_id(selection["radius_km"])
-        value = i18n.t(SUMMARY_POSITION_VALUE) % {
-            "radius": selection["radius_km"], "location": view.location_name}
-        return (value, i18n.t(SUMMARY_POSITION_DETAIL), "",
-                detection.tag_text(display_id), detection.empty_heading(display_id))
-    if selection["mode"] == MODE_POSITION:
-        selection = detection.current_selection({})
-    icao, designator = selection["airport"], selection["runway"]
-    airport = airports.find_airport(icao)
-    display_id = display_id_for(icao, designator)
-    value = i18n.t(SUMMARY_RUNWAY_VALUE) % {
-        "runway": designator, "airport": airport_label(airport)}
-    number = _LEGACY_PILL_NUMBER.get(display_id)
-    pill = (
-        '<span class="banner__pill">%s</span>' % escape_html(
-            i18n.t(LEGACY_PILL) % {"number": number}) if number else "")
-    return (value, i18n.t(SUMMARY_RUNWAY_DETAIL), pill,
-            detection.tag_text(display_id), detection.empty_heading(display_id))
-
-
 def summary_card_html(view):
-    value, detail, pill, tag, empty = _summary_values(view)
+    value, detail, pill, tag, empty = summary_values(view.selection, view.location_name)
     return (
         '<div class="theme-status">'
         '<h2 class="text-heading">%s</h2>'
@@ -532,7 +486,7 @@ def _length_surface_text(runway, lang):
 
 def _runway_card_html(view, airport, runway, checked, current):
     display_id = display_id_for(airport.icao, runway.designator)
-    number = _LEGACY_PILL_NUMBER.get(display_id)
+    number = LEGACY_PILL_NUMBER.get(display_id)
     pill = (
         ' <span class="banner__pill">%s</span>' % escape_html(
             i18n.t(LEGACY_PILL) % {"number": number}) if number else "")

@@ -70,6 +70,11 @@ MESSAGES = {
     "display.sample_panel_rendered_in_the_theme":
         "Sample panel rendered in the %s theme",
 
+    # --- Detection card ------------------------------------------------
+    "display.detection_card_title": "Détection",
+    "display.detection_card_link":
+        "Changer d’aéroport, de piste ou de position",
+
     # --- Calendar row's connection block --------------------------------
     # The confirmation-page strings below (with a question mark, or
     # naming "calendar"/"calendar?" alone) belong to
