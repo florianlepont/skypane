@@ -31,6 +31,7 @@ MESSAGES = {
 
     # --- 403 page ------------------------------------------------------
     "common.request_refused": "Requête refusée",
+    "common.csrf_expired": "Cette page a expiré. Rechargez-la et réessayez.",
     "common.this_request_came_from_another_site_so_it_was":
         "Cette requête venait d’un autre site, elle a donc été refusée. "
         "Ouvrez SkyPane directement et réessayez.",

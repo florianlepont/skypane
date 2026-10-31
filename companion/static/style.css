@@ -3168,6 +3168,13 @@ a.calendar-disconnect-btn.flight-picture-link {
   margin-left: auto;
 }
 
+/* The identifying text may shrink and wrap so a long second line cannot
+ * push the status pill past the card edge on a narrow phone. */
+.data-card__primary > :first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 /* Mirrors .data-table th's own label tier by VALUE, not selector — a
  * harness check pins these two font-size declarations string-equal, so
  * they must always move together. */
@@ -3424,6 +3431,41 @@ a.calendar-disconnect-btn.flight-picture-link {
 
 .filter-chip.is-zero .filter-chip__count {
   color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+/* Console section sub-nav: the chip look, as plain links. Wraps onto a
+ * second line on a narrow phone and is redundant with the sidebar from
+ * 960px up, so it is hidden there. */
+.section-subnav {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 0 var(--space-md);
+}
+
+.section-subnav .filter-chip {
+  flex: 1 1 auto;
+  text-decoration: none;
+}
+
+.filter-chip--current .filter-chip__box {
+  background: var(--color-dominant);
+  box-shadow: inset 0 0 0 1px var(--color-border), var(--shadow-card);
+}
+
+.filter-chip--current .filter-chip__text {
+  color: var(--color-text);
+}
+
+.section-subnav .filter-chip:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+  border-radius: var(--radius-control);
+}
+
+@media (min-width: 960px) {
+  .section-subnav {
+    display: none;
+  }
 }
 
 /* Phone, scripts on: the search collapses to a 48px icon button beside
@@ -7868,4 +7910,37 @@ button.rule-suggestion-chip {
   .look-cell {
     width: 44px;
   }
+}
+
+/* Audit log: the filter chips as plain links, always visible, wrapping on a
+ * narrow phone; the pager links keep a full touch target. */
+.audit-chips {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 0 var(--space-md);
+}
+
+.audit-chips .filter-chip {
+  flex: 1 1 auto;
+  text-decoration: none;
+}
+
+.audit-chips .filter-chip:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+  border-radius: var(--radius-control);
+}
+
+.audit-pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.audit-pager .text-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
 }

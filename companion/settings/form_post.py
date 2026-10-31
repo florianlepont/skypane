@@ -33,6 +33,7 @@ from companion import screens
 from companion.settings.form import _note_error
 from companion.settings.quiet_hours import CURATED_TIMEZONE_KEYS
 from server import device_config
+from server.plane import calendar_rules
 
 
 # The single sentinel every resolver below returns instead of a kwargs
@@ -131,6 +132,19 @@ def resolve_calendar_signal(calendar_signal, errors):
     through this dict.
     """
     if calendar_signal == CALENDAR_URL_SIGNAL_INVALID:
+        _note_error(errors, "calendar_url", ERROR_CALENDAR_URL_INVALID)
+        return FAILED
+    return {}
+
+
+def resolve_calendar_url(calendar_signal, submitted_url, errors):
+    """Calendar group, URL gate: a link being set must pass the same
+    address check the calendar sheet's connect route applies, so a private
+    or loopback address is rejected at save instead of stored. Runs before
+    any write; a clear or carry-forward signal has nothing to check.
+    """
+    if calendar_signal == CALENDAR_URL_SIGNAL_SET and not (
+            calendar_rules.calendar_url_is_acceptable(submitted_url)):
         _note_error(errors, "calendar_url", ERROR_CALENDAR_URL_INVALID)
         return FAILED
     return {}

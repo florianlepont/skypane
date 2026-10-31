@@ -3,7 +3,9 @@
 import contextlib
 import hmac
 import os
+import sqlite3
 import threading
+import types
 
 import pytest
 import skypane_live_state as live
@@ -381,20 +383,184 @@ def test_busy_guard_blocks_every_wipe(conn, root, owner):
     assert db_before != db_retired
 
 
-@pytest.mark.parametrize("failing", ["wipe_device_dir", "provision_device_dir"])
-def test_failure_during_wipe_rolls_back_reassign(conn, root, owner, monkeypatch, failing):
+@pytest.mark.parametrize(
+    "target,failing",
+    [(device_dirs, "provision_device_dir"), (fleet_db, "audit_append")],
+)
+def test_failure_during_wipe_rolls_back_reassign(
+    conn, root, owner, monkeypatch, target, failing
+):
     new_owner = _second_user(conn)
-    did, _ = _claimed(conn, root, owner)
+    did, directory = _claimed(conn, root, owner)
+    snapshot = _tree(root)
+    db_before = fleet_db.dump_logical(conn)
 
     def boom(*_a, **_k):
         raise OSError("disk")
 
-    monkeypatch.setattr(device_dirs, failing, boom)
+    monkeypatch.setattr(target, failing, boom)
     with pytest.raises(OSError):
         fleet_ops.reassign_frame(conn, root, did, new_owner, ACTOR)
     dev = conn.execute("SELECT * FROM devices WHERE id = ?", (did,)).fetchone()
     assert dev["owner_user_id"] == owner and dev["name"] == "Kitchen"
     assert not [a for a in _audit_rows(conn) if a["action"] == "device.reassign"]
+    assert fleet_db.dump_logical(conn) == db_before
+    assert _tree(root) == snapshot
+    assert not _leftover_asides(root)
+
+
+def _leftover_asides(root):
+    return [n for n in os.listdir(os.path.join(root, "devices")) if n.startswith(".wipe-")]
+
+
+def test_reassign_failure_after_the_rename_restores_the_directory(
+    conn, root, owner, monkeypatch
+):
+    new_owner = _second_user(conn)
+    did, directory = _claimed(conn, root, owner)
+    snapshot = _tree(root)
+    seen = {}
+    real = fleet_db.audit_append
+
+    def late_failure(*args, **kwargs):
+        seen["moved"] = not os.path.exists(os.path.join(directory, "history.db"))
+        real(*args, **kwargs)
+        raise OSError("commit-time failure")
+
+    monkeypatch.setattr(fleet_db, "audit_append", late_failure)
+    with pytest.raises(OSError):
+        fleet_ops.reassign_frame(conn, root, did, new_owner, ACTOR)
+    assert seen["moved"] is True
+    assert _tree(root) == snapshot
+    assert not conn.in_transaction
+    assert conn.execute(
+        "SELECT owner_user_id FROM devices WHERE id = ?", (did,)).fetchone()[0] == owner
+
+
+def test_failed_commit_restores_the_directory_and_the_database(
+    conn, root, owner, monkeypatch
+):
+    new_owner = _second_user(conn)
+    did, directory = _claimed(conn, root, owner)
+    snapshot = _tree(root)
+    db_before = fleet_db.dump_logical(conn)
+
+    class FailingCommit:
+        def __init__(self, inner):
+            self._inner = inner
+
+        def execute(self, sql, *args):
+            if sql == "COMMIT":
+                raise sqlite3.OperationalError("disk full")
+            return self._inner.execute(sql, *args)
+
+        def __getattr__(self, name):
+            return getattr(self._inner, name)
+
+    with pytest.raises(sqlite3.OperationalError):
+        fleet_ops.reassign_frame(FailingCommit(conn), root, did, new_owner, ACTOR)
+    assert fleet_db.dump_logical(conn) == db_before
+    assert _tree(root) == snapshot
+    assert not _leftover_asides(root)
+
+
+def test_reassign_success_leaves_no_renamed_directory_and_no_old_data(
+    conn, root, owner
+):
+    new_owner = _second_user(conn)
+    did, directory = _claimed(conn, root, owner)
+    fleet_ops.reassign_frame(conn, root, did, new_owner, ACTOR)
+    assert not _leftover_asides(root)
+    for dirpath, _dirs, names in os.walk(os.path.join(root, "devices")):
+        for name in names:
+            with open(os.path.join(dirpath, name), "rb") as fh:
+                assert b"previous owner data" not in fh.read()
+
+
+def test_a_failed_delete_after_commit_keeps_the_change_and_hides_old_data(
+    conn, root, owner, monkeypatch
+):
+    new_owner = _second_user(conn)
+    did, directory = _claimed(conn, root, owner)
+
+    def refuse(*_a, **_k):
+        raise OSError("busy")
+
+    monkeypatch.setattr(fleet_ops.shutil, "rmtree", refuse)
+    fleet_ops.reassign_frame(conn, root, did, new_owner, ACTOR)
+    assert conn.execute(
+        "SELECT owner_user_id FROM devices WHERE id = ?", (did,)).fetchone()[0] == new_owner
+    assert sorted(os.listdir(directory)) == ["device_config.json", "panel.bin"]
+    assert len(_leftover_asides(root)) == 1
+
+
+def test_reactivate_failure_before_commit_restores_the_directory(
+    conn, root, owner, monkeypatch
+):
+    did, directory = _claimed(conn, root, owner)
+    pid = fleet_ops.retire_frame(conn, root, did, ACTOR)
+    snapshot = _tree(root)
+    db_before = fleet_db.dump_logical(conn)
+
+    def boom(*_a, **_k):
+        raise OSError("disk")
+
+    monkeypatch.setattr(fleet_db, "audit_append", boom)
+    with pytest.raises(OSError):
+        fleet_ops.reactivate_frame(conn, root, pid, ACTOR)
+    assert fleet_db.dump_logical(conn) == db_before
+    assert _tree(root) == snapshot
+    assert not _leftover_asides(root)
+
+
+def test_reactivate_success_leaves_no_renamed_directory(conn, root, owner):
+    did, directory = _claimed(conn, root, owner)
+    pid = fleet_ops.retire_frame(conn, root, did, ACTOR)
+    fleet_ops.reactivate_frame(conn, root, pid, ACTOR)
+    assert not os.path.exists(directory) and not _leftover_asides(root)
+
+
+def test_reassign_refuses_a_state_path_that_is_not_the_frames_own(conn, root, owner):
+    new_owner = _second_user(conn)
+    did, _ = _claimed(conn, root, owner)
+    other, other_dir = _claimed(
+        conn, root, owner, mac=MAC2, code="WXYZ2345", token="tok-2")
+    conn.execute("UPDATE devices SET state_path = ? WHERE id = ?", ("devices/" + other, did))
+    snapshot = _tree(root)
+    with pytest.raises(fleet_ops.OpsError):
+        fleet_ops.reassign_frame(conn, root, did, new_owner, ACTOR)
+    assert _tree(root) == snapshot
+
+
+def test_reactivate_refuses_a_state_path_that_is_not_the_frames_own(conn, root, owner):
+    did, _ = _claimed(conn, root, owner)
+    other, other_dir = _claimed(
+        conn, root, owner, mac=MAC2, code="WXYZ2345", token="tok-2")
+    pid = fleet_ops.retire_frame(conn, root, did, ACTOR)
+    conn.execute(
+        "UPDATE pending_devices SET previous_state_path = ? WHERE id = ?",
+        ("devices/" + other, pid))
+    snapshot = _tree(root)
+    with pytest.raises(fleet_ops.OpsError):
+        fleet_ops.reactivate_frame(conn, root, pid, ACTOR)
+    assert _tree(root) == snapshot
+
+
+def test_claim_never_reuses_a_device_id_whose_directory_exists(
+    conn, root, owner, monkeypatch
+):
+    taken = os.path.join(root, "devices", "d_00000001")
+    os.makedirs(taken)
+    with open(os.path.join(taken, "keep.txt"), "w") as fh:
+        fh.write("old frame data")
+    _pending(conn)
+    ids = iter(["00000001", "00000002"])
+    monkeypatch.setattr(
+        fleet_db, "secrets", types.SimpleNamespace(token_hex=lambda _n: next(ids)))
+    res = fleet_ops.claim_pairing_code(conn, root, CODE, owner, ACTOR, now=1000)
+    assert res.device_id == "d_00000002"
+    assert os.path.isfile(os.path.join(taken, "keep.txt"))
+    assert conn.execute("SELECT count(*) FROM devices").fetchone()[0] == 1
 
 
 def test_unavailable_new_owner_before_any_wipe(conn, root, owner, monkeypatch):

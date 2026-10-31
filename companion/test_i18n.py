@@ -41,8 +41,7 @@ import companion.prefs as prefs
 import companion_app_server
 from skypane_test_support import REPO_ROOT, child_env
 
-# ==========================================================================
-# Import every companion production module once per test session: a
+# ===================================================================# Import every companion production module once per test session: a
 # Message only reaches companion.i18n.REGISTRY when the module that
 # declares it (i18n.msg(...)) is imported, and pytest never imports a
 # module this file does not otherwise need for collection. Every
@@ -211,6 +210,17 @@ _UNCHANGED_IN_FRENCH = frozenset({
     # format is only names and numbers.
     "detection.field_latitude", "detection.field_longitude",
     "detection.location_option",
+=======
+    # "Administration" and "Admin" are the French words too, spelled
+    # identically: real cognates for the console's nav group and phone tab.
+    "nav.administration", "nav.admin",
+    # The French column heading for a list of row actions is the same word.
+    "admin_fleet.actions", "admin_users.actions", "admin_locations.actions",
+    # "Latitude" and "Longitude" are the French words too, spelled identically.
+    "admin_locations.latitude", "admin_locations.longitude",
+    "admin_locations.latitude_longitude",
+    # "Action" is the French word too, for the audit table's column heading.
+    "admin_lifecycle.action",
 })
 
 
@@ -446,10 +456,11 @@ def test_404_page_renders_in_french(french_render_server, french_session):
 
 
 def test_calendar_disconnect_confirm_page_renders_in_french(french_render_server, french_session):
-    _session_cookie, lang_cookie = french_session
+    session_cookie, lang_cookie = french_session
+    token = auth.csrf_token(session_cookie.split("=", 1)[1])
     status, _headers, body = companion_app_server.http_request(
         french_render_server.base_url() + "/settings/calendar/disconnect",
-        method="POST", cookie=lang_cookie, data=b"")
+        method="POST", cookie=lang_cookie, data=("csrf_token=" + token).encode())
     text = body.decode("utf-8", "replace")
     assert status == 200, (
         "a bare POST /settings/calendar/disconnect under lang=fr returned "

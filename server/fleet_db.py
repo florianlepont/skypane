@@ -656,11 +656,23 @@ def count_locations_owned(conn: sqlite3.Connection, user_id: int) -> int:
     return int(row[0])
 
 
-def location_usage_counts(conn: sqlite3.Connection) -> dict[int, int]:
-    """Devices per location id (locations no device uses are absent)."""
+def location_usage_counts(
+    conn: sqlite3.Connection, owner_user_id: int | None = None
+) -> dict[int, int]:
+    """Devices per location id (locations no device uses are absent).
+
+    With `owner_user_id`, only that user's devices are counted, so a viewer
+    never learns how many frames of other owners use a location.
+    """
+    where = "location_id IS NOT NULL"
+    args: tuple[int, ...] = ()
+    if owner_user_id is not None:
+        where += " AND owner_user_id = ?"
+        args = (owner_user_id,)
     rows = conn.execute(
-        "SELECT location_id, count(*) AS n FROM devices "
-        "WHERE location_id IS NOT NULL GROUP BY location_id"
+        "SELECT location_id, count(*) AS n FROM devices WHERE "
+        + where + " GROUP BY location_id",
+        args,
     )
     return {int(r["location_id"]): int(r["n"]) for r in rows}
 

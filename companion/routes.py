@@ -30,62 +30,32 @@ its own token and never reads the session cookie), and the static assets in
 `companion/static_files.py`'s `STATIC_ROUTES`. SIGNED_IN needs any signed-in user; ADMIN_ONLY needs the
 admin role (every global page and mutation).
 """
-import collections
 import re
 
-from companion import access as _access, device_scope, layout, static_files, theme_preview
+from companion import (
+    console_routes, device_scope, layout, route_types, static_files, theme_preview)
 from companion.pages import (
     airlines_page, config_page, detection_page, health_page, history_page, home_page,
     update_page)
-
-Exact = collections.namedtuple("Exact", "path")
-PrefixSuffix = collections.namedtuple("PrefixSuffix", "prefix suffix")
-# `device_id` is None for an un-prefixed match; `device` is filled in later
-# by the dispatcher once the id has been looked up.
-RouteMatch = collections.namedtuple(
-    "RouteMatch", "path query captured device_id device", defaults=(None, None))
 
 # Anchored on the raw path (never percent-decoded); `\Z` and the absence of
 # DOTALL keep a newline from slipping into the id or the remainder.
 DEVICE_PREFIX_RE = re.compile(r"\A/devices/(d_[0-9a-f]{8})(/.*)?\Z")
 
-ANONYMOUS = _access.ANONYMOUS
-USER = _access.USER
-ADMIN = _access.ADMIN
+Exact = route_types.Exact
+PrefixSuffix = route_types.PrefixSuffix
+RouteMatch = route_types.RouteMatch
+Access = route_types.Access
+Route = route_types.Route
 
-# min_role: the lowest role that may reach the route. device_arg: None for a
-# global route, otherwise the name of what the matcher captures (a device id)
-# so the ownership gate applies.
-Access = collections.namedtuple("Access", "min_role device_arg")
+ANONYMOUS = route_types.ANONYMOUS
+USER = route_types.USER
+ADMIN = route_types.ADMIN
 
-PUBLIC = Access(ANONYMOUS, None)
-SIGNED_IN = Access(USER, None)
-ADMIN_ONLY = Access(ADMIN, None)
-# A user reaches a device route only for a frame they own (the ownership gate
-# reads the device id from the URL prefix); an admin reaches every frame. The
-# un-prefixed form of such a route acts on the live frame and stays admin-only.
-OWNER_DEVICE = Access(USER, "device")
-
-
-class Route(collections.namedtuple(
-        "Route", "method matcher handler access device_scoped")):
-    """One table entry. Refuses to exist without a valid Access, so a route
-    cannot register without a policy (a bool or nothing raises at import).
-
-    `device_scoped` routes also resolve under a `/devices/<id>` prefix and
-    there are decided on `access` with the prefix id; un-prefixed they are
-    admin-only.
-    """
-
-    __slots__ = ()
-
-    def __new__(cls, method, matcher, handler, access, device_scoped=False):
-        if (
-            not isinstance(access, Access)
-            or access.min_role not in (ANONYMOUS, USER, ADMIN)
-        ):
-            raise TypeError("every route needs an explicit Access annotation")
-        return super().__new__(cls, method, matcher, handler, access, device_scoped)
+PUBLIC = route_types.PUBLIC
+SIGNED_IN = route_types.SIGNED_IN
+ADMIN_ONLY = route_types.ADMIN_ONLY
+OWNER_DEVICE = route_types.OWNER_DEVICE
 
 # Literal here, byte-identical to companion/app.py's own constants of the
 # same name, since this module can never import companion.app either.
@@ -339,9 +309,26 @@ _ACTION_KEYS = (
 # The routes that act on a single device: 14 GET and 15 POST.
 _DEVICE_SCOPED_KEYS = frozenset(_PAGE_AND_IMAGE_KEYS + _ACTION_KEYS)
 
+# Form field carrying the per-session anti-forgery token.
+CSRF_FIELD = "csrf_token"
+
+# Existing POST routes that need the token: the destructive actions and the
+# release actions. New console routes set `csrf=True` on their own Route.
+CSRF_ROUTE_KEYS = frozenset((
+    ("POST", PrefixSuffix(RULES_DELETE_ROUTE_PREFIX, RULES_DELETE_ROUTE_SUFFIX)),
+    ("POST", Exact(CALENDAR_DISCONNECT_ROUTE)),
+    ("POST", PrefixSuffix(
+        airlines_page.MANUAL_DELETE_ROUTE_PREFIX, airlines_page.MANUAL_DELETE_ROUTE_SUFFIX)),
+    ("POST", Exact(airlines_page.RENAME_RESET_ROUTE)),
+    ("POST", Exact(UPDATE_INSTALL_ROUTE)),
+    ("POST", Exact(UPDATE_CANCEL_ROUTE)),
+))
+
 ROUTES = tuple(
-    route._replace(device_scoped=(route.method, route.matcher) in _DEVICE_SCOPED_KEYS)
-    for route in _GET_ROUTES + _POST_ROUTES
+    route._replace(
+        device_scoped=(route.method, route.matcher) in _DEVICE_SCOPED_KEYS,
+        csrf=route.csrf or (route.method, route.matcher) in CSRF_ROUTE_KEYS)
+    for route in _GET_ROUTES + _POST_ROUTES + console_routes.ROUTES
 )
 
 

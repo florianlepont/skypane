@@ -21,7 +21,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 - [x] **OTA-01**: The owner can publish and schedule firmware releases per hardware type, and a frame is only ever offered a release of its own server-assigned type.
 - [x] **OTA-02**: An uploaded binary whose app descriptor or chip target does not match the declared hardware type is rejected, and downgrades are refused by a monotonic build number.
 - [ ] **OTA-03**: The owner can decide whether OTA images are signed, record the decision (including any one-time cable flash it needs) before the second hardware is provisioned, and the chosen integrity mechanism is verified on the device side.
-- [ ] **OTA-04**: All firmware changes needed on the current frame (image-header reader, any hardware header, recovery after repeated 401) ship in one release, only once Phase 47 allows it.
+- [ ] **OTA-04**: All firmware changes needed on the current frame (image-header reader, any hardware header, recovery after repeated 401) ship in one release, only once Phase 47 allows it and the OTA signing bench procedure of `firmware/SIGNING.md` has passed on a non-live unit.
 
 ### Image Format
 
@@ -60,7 +60,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 ### Second Hardware
 
 - [ ] **HW2-01**: The owner can choose a second hardware type from a documented shortlist after a time-boxed ESP-IDF panel-driver spike, within the hardware budget.
-- [ ] **HW2-02**: The chosen board is validated on an evaluation unit: cable flash, a real OTA, a native layout, a measured battery sample and a rebuilt battery model.
+- [ ] **HW2-02**: The chosen board is validated on an evaluation unit: cable flash, a real OTA, the OTA signing bench procedure of `firmware/SIGNING.md` (the device-side half of OTA-03), a native layout, a measured battery sample and a rebuilt battery model.
 
 ### Debt
 
@@ -98,7 +98,7 @@ Coverage: 31/31 v1.2 requirements mapped, each to exactly one phase.
 | DATA-05 | Phase 48 | Complete |
 | OTA-01 | Phase 49 | Complete |
 | OTA-02 | Phase 49 | Complete |
-| OTA-03 | Phase 49 | Pending (decision recorded; device-side bench check deferred) |
+| OTA-03 | Phase 49 (decision), Phase 58 (device-side check) | Pending (decision recorded 2026-10-29; device-side bench check carried to Phase 58 by the owner, 2026-10-31) |
 | IMG-01 | Phase 50 | Complete |
 | IMG-02 | Phase 50 | Complete |
 | IMG-03 | Phase 50 | Complete |
@@ -111,7 +111,7 @@ Coverage: 31/31 v1.2 requirements mapped, each to exactly one phase.
 | DET-03 | Phase 53 | Pending |
 | AUTH-01 | Phase 54 | Complete |
 | AUTH-02 | Phase 54 | Complete |
-| AUTH-03 | Phase 54 | Pending (gate and matrix delivered; real per-device route rows after Phase 51) |
+| AUTH-03 | Phase 54 (gate and matrix), Phase 55 (real per-device rows) | Pending (gate and matrix delivered and verified in production; the real per-device route rows are carried to Phase 55 by the owner, 2026-10-31) |
 | AUTH-06 | Phase 54 | Complete |
 | AUTH-08 | Phase 60 | Pending |
 | AUTH-04 | Phase 55 | Pending |

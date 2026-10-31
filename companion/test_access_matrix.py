@@ -25,7 +25,7 @@ import time
 
 import pytest
 
-from companion import access, app, routes, static_files
+from companion import access, app, auth, routes, static_files
 from companion_app_server import (
     InProcessAppServer, auth0_env, http_request,
     login_via_auth0)
@@ -33,6 +33,10 @@ from fake_auth0 import FakeAuth0
 from access_matrix_support import (
     ADMIN_EMAIL, OTHER_EMAIL, OWNER_EMAIL, REACHED_BODY, Recorder, probe_path,
     probe_routes, seed_matrix_fleet, session_cookie_for, stub_routes)
+import matrix_rows_lifecycle
+import matrix_rows_locations
+import matrix_rows_pairing
+import matrix_rows_users
 from server import fleet_db, fleet_sessions
 
 # --- the hand-written policy -------------------------------------------------
@@ -153,6 +157,14 @@ SAMPLE_MIDDLE = {
     "/settings/rules/{}/delete": "callsign/AFR",
 }
 
+# The console areas keep their own rows in test-support/matrix_rows_*.py so
+# each can be filled in without touching this file.
+for _rows in (
+        matrix_rows_pairing, matrix_rows_lifecycle, matrix_rows_users,
+        matrix_rows_locations):
+    ROUTE_POLICY.update(_rows.ROWS)
+    SAMPLE_MIDDLE.update(_rows.SAMPLES)
+
 
 def _template(route):
     matcher = route.matcher
@@ -252,6 +264,24 @@ def test_a_dummy_route_without_a_row_is_reported(monkeypatch):
     assert ("GET", "/zz-new-page") in keys - set(ROUTE_POLICY)
 
 
+def test_a_console_route_without_a_row_is_reported_by_name(monkeypatch):
+    dummy = routes.Route(
+        "GET", routes.Exact("/zz-console-page"), lambda h, m: None, routes.ADMIN_ONLY)
+    monkeypatch.setattr(routes, "ROUTES", routes.ROUTES + (dummy,))
+    keys = {_route_key(r) for r in routes.ROUTES}
+    assert ("GET", "/zz-console-page") in keys - set(ROUTE_POLICY)
+
+
+def test_the_console_row_modules_are_merged_into_the_matrix():
+    for module in (
+            matrix_rows_pairing, matrix_rows_lifecycle, matrix_rows_users,
+            matrix_rows_locations):
+        for key, kind in module.ROWS.items():
+            assert ROUTE_POLICY[key] == kind
+        for template, middle in module.SAMPLES.items():
+            assert SAMPLE_MIDDLE[template] == middle
+
+
 def test_the_export_route_is_the_only_api_route_and_is_public_and_global():
     export_key = ("GET", "/api/export/battery-history")
     api_keys = {key for key in _REAL_KEYS if key[1].startswith("/api/")}
@@ -346,8 +376,12 @@ class MatrixRig:
     def request(self, method, path, cookie=None):
         if method == "GET":
             return http_request(self.server.url(path), cookie=cookie)
+        body = b""
+        if cookie:
+            token = cookie.split("=", 1)[1]
+            body = ("%s=%s" % (routes.CSRF_FIELD, auth.csrf_token(token))).encode("ascii")
         return http_request(
-            self.server.url(path), method="POST", data=b"", cookie=cookie,
+            self.server.url(path), method="POST", data=body, cookie=cookie,
             extra_headers={"Origin": self.server.base_url()})
 
     def conn(self):

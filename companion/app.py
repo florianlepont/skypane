@@ -31,7 +31,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from companion import (  # noqa: E402
-    access, auth, credits_page, detection_actions, device_dispatch, device_scope, export_api, flash, freshness, i18n, illustration_normalize, layout,
+    access, audit, auth, console_flash, console_routes, credits_page, detection_actions, device_dispatch, device_scope, export_api, flash, freshness, i18n, illustration_normalize, layout,
     login_page, page_context, post_actions, preview_images, prefs, request_body, routes, sign_in,
     sign_in_config, static_files, theme_preview, user_view)
 from companion.pages import (  # noqa: E402
@@ -428,6 +428,7 @@ class Handler(
     timeout = REQUEST_SOCKET_TIMEOUT_S
     _fleet = None
     _principal_cache = _UNRESOLVED
+    _form_cache = None
 
     # --- response helpers -------------------------------------------
 
@@ -572,6 +573,12 @@ class Handler(
             return None
         return access.Principal(access.KIND_USER, record.user_id, record.email, record.role)
 
+    def _raw_session_token(self):
+        """The raw session cookie value, or None. Only used to derive the
+        anti-forgery token; never logged or echoed.
+        """
+        return auth.parse_cookies(self.headers.get("Cookie")).get(auth.SESSION_COOKIE_NAME)
+
     def _principal(self):
         """Cached per request; reset at the top of `_dispatch()`. Raises
         the store errors in `_STORE_ERRORS`.
@@ -639,6 +646,15 @@ class Handler(
     # --- form / query parsing -------------------------------------------
 
     def read_form(self):
+        """The request form, read once per request: later calls (the
+        dispatcher's anti-forgery check, then the handler) get the same
+        dict. See `_read_form_body()` for the parsing rules.
+        """
+        if self._form_cache is None:
+            self._form_cache = self._read_form_body()
+        return self._form_cache
+
+    def _read_form_body(self):
         """Read the request body as `application/x-www-form-urlencoded`,
         capped at MAX_FORM_BYTES. An oversized/undecodable/stalled
         (`socket.timeout`, bounded by `Handler.timeout`) body degrades
@@ -716,7 +732,7 @@ class Handler(
         return self.send_html(200, credits_page.credits_page(
             self._resolved_ui_theme(), self._health_alert_for_admin()))
 
-    def _forbidden_page(self):
+    def _forbidden_page(self, purpose=None):
         """The shared 403 body for do_POST()'s Origin/Sec-Fetch-Site gate.
         Byte-for-byte the same shape as `_not_found_page()` above. The
         markup itself is `companion/login_page.py`'s `forbidden_page()`.
@@ -724,7 +740,8 @@ class Handler(
         prefs.set_request_prefs(lang=self._lang_from_request())
         health_alert = self._health_alert_for_admin()
         return login_page.forbidden_page(
-            self._resolved_ui_theme(), health_alert, back=self._back_target())
+            self._resolved_ui_theme(), health_alert, back=self._back_target(),
+            purpose=purpose)
 
     def _back_target(self):
         """Which onward link an error page offers the current caller. Reads
@@ -912,6 +929,34 @@ class Handler(
         body = render(ctx)
         return self.send_html(200, self._page_shell_for(route, body, ctx))
 
+    def _console_page(self, route, title_msg, body_html, purpose_msg=None, status=200):
+        """Render one admin console page: the page header (the title falls
+        back to the console registry when `title_msg` is None), the section
+        sub-nav, then `body_html`, inside the shell with the console route's
+        own nav slug active. A queued console flash is shown once and its
+        cookie cleared. `status` is the HTTP status of the response (an
+        invalid submission re-renders its page at 400 or 429). Console pages
+        are not in `layout.NAV_TABS`, so they carry no tab scripts of their
+        own. `body_html` may be a callable returning the markup.
+        """
+        ctx = self.page_context()
+        # Resolved after the context so a body built from translated text
+        # sees this request's language.
+        if callable(body_html):
+            body_html = body_html()
+        title = i18n.t(title_msg or console_routes.CONSOLE_TITLES[route])
+        purpose = i18n.t(purpose_msg) if purpose_msg else None
+        flash_html, clear_cookie = console_flash.take_flash(self.headers.get("Cookie"))
+        body = (
+            layout.page_header(title, purpose)
+            + console_routes.section_subnav_html(route) + body_html)
+        page = layout.page_shell(
+            title=title, active=layout.nav_slug(route), body=body,
+            ui_theme=ctx.ui_theme, flash=flash_html or None,
+            health_alert=ctx.health_severity, device_config=ctx.device_config)
+        return self.send_html(
+            status, page, set_cookies=(clear_cookie,) if clear_cookie else ())
+
     # --- routing -----------------------------------------------------------
 
     def _handle_login_get(self):
@@ -957,7 +1002,9 @@ class Handler(
         the ONLY place that gate runs.
         """
         self._principal_cache = _UNRESOLVED
+        self._form_cache = None
         prefs.set_request_principal(None)
+        prefs.set_request_csrf("")
         if method == "POST" and not auth.post_origin_ok(self.headers):
             return self.send_html(403, self._forbidden_page())
         parsed = urlsplit(self.path)
@@ -978,6 +1025,12 @@ class Handler(
         if outcome == access.NOT_FOUND:
             return self.send_html(404, self._not_found_page())
         self._apply_principal(principal)
+        raw_session = self._raw_session_token()
+        prefs.set_request_csrf(
+            auth.csrf_token(raw_session) if raw_session and principal is not None else "")
+        if method == "POST" and route.csrf and not auth.csrf_ok(
+                raw_session, self.read_form().get(routes.CSRF_FIELD)):
+            return self.send_html(403, self._forbidden_page(login_page.CSRF_EXPIRED_TEXT))
         if route.access.min_role == access.ANONYMOUS:
             # Login, sign-in and static assets: no device.
             device_scope.set_request_scope(None, ())
@@ -1007,7 +1060,7 @@ class Handler(
             self.read_form(), None if principal is None else principal.role)
         ctx = self.page_context(device)
         errors = {}
-        flash_key = config_page.handle_post(form, ctx, errors=errors)
+        flash_key = config_page.handle_post(form, ctx, errors=errors, handler=self)
         # The return field is matched without this device's own prefix;
         # any other prefix is not a whitelisted route and falls back.
         back_route = config_page.submitted_return_route({
@@ -1205,6 +1258,9 @@ class Handler(
                 hardware_type=hardware_type)
         except (OSError, TimeoutError):
             result = None
+        audit.record_standalone(
+            self, "release.install", "release", hardware_type,
+            "ok" if result == "scheduled" else "failed", {"version": version})
         if result == "scheduled":
             return self.redirect(update_page.page_route(hardware_type))
         if result == "busy":
@@ -1245,6 +1301,9 @@ class Handler(
                 self.args.state_dir, hardware_type=hardware_type)
         except (OSError, TimeoutError):
             result = None
+        audit.record_standalone(
+            self, "release.cancel", "release", hardware_type,
+            "ok" if result in ("cancelled", "none") else "failed")
         if result in ("cancelled", "none"):
             return self.redirect(update_page.page_route(hardware_type))
         return self.redirect(
