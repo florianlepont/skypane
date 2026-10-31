@@ -1,7 +1,9 @@
 """France runway catalogue: offline build rules, data checks and loader."""
 
 import importlib.util
+import json
 import math
+import re
 import os
 
 import pytest
@@ -81,7 +83,7 @@ def test_filter_traps_yield_only_valid_rows_and_one_exclusion_each():
         ]
     ]
     short = east_west(48.0, length_m=50.0)
-    bearing_67 = ((48.0, 2.0), (48.0 + 800 / M_PER_DEG, 2.0 + 1900 / (M_PER_DEG * 0.669)))
+    bearing_50 = ((48.0, 2.0), (48.0 + 1300 / M_PER_DEG, 2.0 + 1500 / (M_PER_DEG * 0.669)))
     runways = [
         runway("LFAA", "09", "27", good),
         runway("LFAB", "09", "27", good, he_latitude_deg="", he_longitude_deg=""),
@@ -92,7 +94,7 @@ def test_filter_traps_yield_only_valid_rows_and_one_exclusion_each():
         runway("LFAF", "16G", "34G", good),
         runway("LFAG", "08H", "26H", good),
         runway("LFAH", "09", "27", good, surface="WATER"),
-        runway("LFAI", "09", "27", bearing_67),
+        runway("LFAI", "09", "27", bearing_50),
         runway("LFAJ", "09", "27", short),
         runway("LFAK", "09", "27", good, he_latitude_deg="abc"),
     ]
@@ -206,3 +208,129 @@ def test_half_width_stored_values_are_never_non_positive():
         for record in widths(two_runways(offset)).values():
             assert record["half_width_m"] >= build.MIN_HALF_WIDTH_M
             assert record["ground_half_width_m"] == min(75.0, record["half_width_m"])
+
+
+def test_filter_known_bad_row_is_listed_with_its_reason():
+    bad_row = runway("TFFA", "09", "27", east_west(16.3, lon0=-61.3))
+    catalogue, exclusions = run([airport("TFFA", lat=16.3, lon=-61.3)], [bad_row])
+    assert catalogue["airports"] == []
+    assert exclusions[0]["reason"] == "known_bad_survey"
+
+
+def test_filter_declination_sized_deviation_is_kept():
+    start = (-20.88, 55.4)
+    end = (round(start[0] - 0.0108, 6), round(start[1] + 0.0229, 6))
+    catalogue, exclusions = run(
+        [airport("FMEE", lat=-20.88, lon=55.4)], [runway("FMEE", "14", "32", (start, end))]
+    )
+    assert exclusions == [] and len(catalogue["airports"][0]["runways"]) == 1
+
+
+# ---- committed data -------------------------------------------------------
+
+_ROOT = os.path.dirname(_HERE)
+_DATA = os.path.join(_ROOT, "scripts", "data")
+_CATALOGUE = os.path.join(_HERE, "data", "airports_fr.json")
+
+
+def load_committed():
+    with open(_CATALOGUE, encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def by_icao():
+    return {a["icao"]: a for a in load_committed()["airports"]}
+
+
+def runway_map(icao):
+    return {r["designator"]: r for r in by_icao()[icao]["runways"]}
+
+
+def test_reproducible_build_matches_committed(tmp_path):
+    catalogue = tmp_path / "airports_fr.json"
+    exclusions = tmp_path / "exclusions.json"
+    build.build(_DATA, str(catalogue), str(exclusions))
+    with open(_CATALOGUE, "rb") as handle:
+        assert catalogue.read_bytes() == handle.read()
+    with open(os.path.join(_DATA, "ourairports-exclusions.json"), "rb") as handle:
+        assert exclusions.read_bytes() == handle.read()
+    with open(os.path.join(_DATA, "ourairports-source.json"), encoding="utf-8") as handle:
+        source = json.load(handle)
+    assert source["snapshot_date"] == "2026-10-31"
+    for name, key in (("ourairports-fr-airports.csv", "airports"), ("ourairports-fr-runways.csv", "runways")):
+        with open(os.path.join(_DATA, name), "rb") as handle:
+            assert build.sha256_bytes(handle.read()) == source["subset"][key]["sha256"]
+    assert len(source["full"]["airports"]["sha256"]) == 64
+    assert len(source["full"]["runways"]["sha256"]) == 64
+
+
+def test_absent_rows():
+    data = load_committed()
+    pairs = {(a["icao"], r["designator"]) for a in data["airports"] for r in a["runways"]}
+    assert ("NTGY", "18/36") not in pairs and ("TFFA", "09/27") not in pairs
+    for icao, designator in pairs:
+        assert not re.match(r"^[A-Z]{2}-\d{4}$", icao)
+        assert not re.search(r"[GH]/", designator)
+    for airport_record in data["airports"]:
+        assert airport_record["runways"]
+        for record in airport_record["runways"]:
+            assert len(record["thresholds"]) == 2
+
+
+def test_designators_real():
+    assert set(runway_map("LFPG")) == {"08L/26R", "08R/26L", "09L/27R", "09R/27L"}
+    assert set(runway_map("LFDH")) == {"18/36"}
+
+
+def test_lfpo():
+    runways = runway_map("LFPO")
+    assert set(runways) == {"02/20", "06/24", "07/25"}
+    with open(os.path.join(_ROOT, "adsb-test", "runway3.json"), encoding="utf-8") as handle:
+        legacy = json.load(handle)["runways"]["3"]["runway"]["thresholds"]
+    assert runways["07/25"]["thresholds"] == legacy
+    assert all(r["half_width_m"] == 500.0 for r in runways.values())
+    deviation = abs(runways["07/25"]["bearing_deg"] - runways["06/24"]["bearing_deg"])
+    assert build.PARALLEL_AXIS_DEG < deviation
+
+
+def test_parallel_lfpg():
+    for designator in ("08L/26R", "08R/26L"):
+        assert runway_map("LFPG")[designator]["half_width_m"] == pytest.approx(193, abs=1)
+    for designator in ("09L/27R", "09R/27L"):
+        assert runway_map("LFPG")[designator]["half_width_m"] == pytest.approx(192, abs=1)
+
+
+def test_parallel_other_airports():
+    for record in by_icao()["LFMN"]["runways"]:
+        assert record["half_width_m"] == pytest.approx(150, abs=5)
+    for record in by_icao()["LFBO"]["runways"]:
+        assert record["half_width_m"] == pytest.approx(144.7, abs=0.5)
+    assert {r["half_width_m"] for r in by_icao()["LFMT"]["runways"]} == {500.0}
+
+
+def test_floor_cases():
+    assert all(r["half_width_m"] >= 50 for r in by_icao()["LFPK"]["runways"])
+    assert all(r["half_width_m"] >= 50 for r in by_icao()["LFGI"]["runways"])
+    assert runway_map("LFGI")["02/20"]["half_width_m"] == 50.0
+
+
+def test_counts():
+    data = load_committed()
+    airports = data["airports"]
+    assert 265 <= len(airports) <= 280
+    assert 330 <= sum(len(a["runways"]) for a in airports) <= 350
+    iatas = [a["iata"] for a in airports if a["iata"]]
+    assert len(iatas) == len(set(iatas))
+    for record in airports:
+        assert re.match(r"^[A-Z]{2}[A-Z0-9]{2}$", record["icao"])
+        for rw in record["runways"]:
+            assert rw["half_width_m"] > 0
+            assert rw["ground_half_width_m"] == min(75, rw["half_width_m"])
+
+
+def test_corridor_inside_zone():
+    for record in load_committed()["airports"]:
+        arp = (record["lat"], record["lon"])
+        for rw in record["runways"]:
+            pair = {"thresholds": [(t["lat"], t["lon"]) for t in rw["thresholds"]]}
+            assert build.corners_within_zone(pair, rw["half_width_m"], arp), record["icao"]

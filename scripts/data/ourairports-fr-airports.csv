@@ -1,0 +1,578 @@
+id,ident,type,name,latitude_deg,longitude_deg,elevation_ft,continent,iso_country,iso_region,municipality,scheduled_service,icao_code,iata_code,gps_code,local_code,home_link,wikipedia_link,keywords
+2904,FMCZ,large_airport,Dzaoudzi Pamandzi International Airport,-12.809319,45.281815,23,AF,YT,YT-U-A,Dzaoudzi,yes,FMCZ,DZA,FMCZ,,,https://en.wikipedia.org/wiki/Dzaoudzi_Pamandzi_International_Airport,
+2905,FMEE,large_airport,Roland Garros Airport,-20.890087,55.518894,66,AF,RE,RE-SD,Sainte-Marie,yes,FMEE,RUN,FMEE,,http://www.reunion.aeroport.fr/index.htm,https://en.wikipedia.org/wiki/Roland_Garros_Airport,Gillot Airport
+2906,FMEP,large_airport,Saint-Pierre Pierrefonds Airport,-21.319362,55.422506,59,AF,RE,RE-SR,Saint-Pierre,yes,FMEP,ZSE,FMEP,,https://www.grandsudreunion.org/FR2004/aeroport.php,https://en.wikipedia.org/wiki/Pierrefonds_Airport,Aéroport de Saint-Pierre - Pierrefonds
+313725,FMZJ,small_airport,Juan de Nova Airstrip,-17.05396,42.7193,3,AF,TF,TF-U-A,Juan de Nova,no,,,FMZJ,,,,
+350567,FR-0009,small_airport,Altisurface Notre-Dame-des-Neiges-Abbaye,44.601293,3.927773,3760,EU,FR,FR-ARA,Saint-Laurent-les-Bains,no,,,,LF0723,,,
+43360,FR-0020,small_airport,Escary Aramits Altiport,43.121208,-0.742491,1076,EU,FR,FR-NAQ,Aramits,no,,,,LF6428,,,
+506406,FR-0158,small_airport,Bournizeaux Airfield,46.88053,-0.28448,430,EU,FR,FR-NAQ,,no,,,,,https://www.bournizeaux.com/pilot-info/,,"PPR, Private"
+43522,FR-0182,seaplane_base,Berre/Marignane Seaplane Base,43.444635,5.209672,,EU,FR,FR-PAC,"Marignane, Bouches-du-Rhône",no,LFTB,,LFTB,,,,
+43589,FR-0247,small_airport,Artigues Altisurface,43.071944,-0.003333,2450,EU,FR,FR-OCC,Artigues,no,,,,LF6527,http://www.appm.fr/pages/page.html,,
+43597,FR-0255,small_airport,Clamensane Altisurface,44.314371,6.071514,2933,EU,FR,FR-PAC,"Clamensane, Alpes-de-Haute-Provence",no,,,,LF0421,,,Trois Fontaines
+43620,FR-0278,small_airport,Glacier du Tour Altisurface,45.983033,6.99983,10170,EU,FR,FR-ARA,"Chamonix-Mont-Blanc, Haute-Savoie",no,,,,LF7426,,,
+43631,FR-0289,small_airport,La Serre d'Aulon Altiport,42.836109,0.272222,6562,EU,FR,FR-OCC,Aulon,no,,,,LF6525,,,
+43641,FR-0299,small_airport,Pene De Soulit Altisurface,42.793056,0.4625,6365,EU,FR,FR-OCC,Garin,no,,,,LF3129,,,
+43642,FR-0300,small_airport,Altiport du Plateau de la Calme,42.530556,2.004167,6988,EU,FR,FR-OCC,Font Romeu-Odeillo,no,,,,LF6627,,,
+43644,FR-0302,small_airport,Saint-Jean-d'Arves Altisurface,45.189711,6.252546,5958,EU,FR,FR-ARA,"Saint-Jean-d'Arves, Savoie",no,,,,LF7331,,,"LFTU, Praz Sauge et Pré Vernay"
+43652,FR-0309,small_airport,Val Thorens Altiport,45.281685,6.569465,8100,EU,FR,FR-ARA,"Les Belleville, Savoie",no,,,,LF7327,,,
+44902,FR-0314,small_airport,Europa Island Airstrip,-22.349385,40.35129,38,AF,TF,TF-U-A,Europa Island,no,,,,,,https://en.wikipedia.org/wiki/Europa_Island,Île Europa
+308849,FR-0320,small_airport,Luçon - Chasnais Aerodrome,46.461913,-1.241447,20,EU,FR,FR-PDL,Luçon,no,,,,LF8523,https://www.atlanticairpark.com/,,Atlantic Air Park
+333576,FR-0321,small_airport,Mens Altiport,44.804998,5.754122,2800,EU,FR,FR-ARA,"Mens, Isère",no,,,,LF3828,,,
+315461,FR-0323,small_airport,Mont sur Meurthe Airfield,48.543823,6.441912,814,EU,FR,FR-GES,,no,,,,LF5421,,,
+315955,FR-0328,small_airport,La Flamengrie ULM,50.00025,3.94482,699,EU,FR,FR-HDF,La Flamengrie,no,,,,LF0258,,,Base ULM de La Flamengrie
+315958,FR-0331,small_airport,Javerlhac Ultralight Airfield,45.553817,0.5585,633,EU,FR,FR-NAQ,"Javerlhac-et-la-Chapelle-Saint-Robert, Dordogne",no,,,,LF2428,,,Base ULM de Javerlhac
+316142,FR-0335,small_airport,Doucier Airfield,46.663693,5.761492,1735,EU,FR,FR-BFC,"Doucier, Jura",no,,,,LF3951,http://www.alize-ulm.com,,Base ULM Doucier
+316147,FR-0338,small_airport,Carlucet Biguès ULM,44.744167,1.618333,1045,EU,FR,FR-OCC,Carlucet,no,,,,LF4630,,,
+322006,FR-0349,small_airport,Aérodrome de Saint-Aubin La Plaine,46.515876,-1.051669,155,EU,FR,FR-PDL,Saint-Aubin La Plaine,no,,,,LF8571,,,
+322121,FR-0353,small_airport,Val de l'Ailette Airfield,49.568056,3.225278,180,EU,FR,FR-HDF,"Pierremande, Aisne",no,,,,LF0259,,,Base ULM du Val de l'Ailette
+330786,FR-0382,closed,Petit Fay Airfield,48.247629,3.194275,607,EU,FR,FR-BFC,"Nailly, Yonne",no,,,,,,,"LF8926, Base ULM du Petit Fay"
+332571,FR-0391,closed,Aérodrome d'Aynac ULM,44.796911,1.836498,,EU,FR,FR-OCC,Aynac,no,,,,,https://www.giteduquie.fr/,,"Gite, Quié"
+333578,FR-0392,small_airport,Col de Bacchus Airstrip,44.8531,5.168788,3200,EU,FR,FR-ARA,Col de Bacchus,no,,,,LF2623,,,
+333581,FR-0394,small_airport,Aérodrome de Lacave le Frau,44.841835,1.58879,980,EU,FR,FR-OCC,Lacave,no,,,,LF4623,,,
+333886,FR-0401,small_airport,Sadournin Airfield,43.32606,0.415109,918,EU,FR,FR-OCC,Sadournin,no,,,,LF6530,,,
+333888,FR-0402,small_airport,Larreule Ultralight Airfield,43.44217,0.039654,606,EU,FR,FR-OCC,"Maubourguet, Hautes-Pyrénées",no,,,,LF6540,,,Base ULM de Larreule
+333904,FR-0410,small_airport,Villeneuve du Latou Airfield,43.20358,1.418663,1330,EU,FR,FR-OCC,Villeneuve-du-Latou,no,,,,LF0925,,,
+333918,FR-0412,small_airport,Sarrat Ultralight Airfield,43.208593,1.708594,846,EU,FR,FR-OCC,"Mazères, Ariège",no,,,,LF0951,,,Base ULM du Sarrat
+333919,FR-0413,small_airport,Altiport d'Ustou,42.78137,1.22577,5896,EU,FR,FR-OCC,Pouech d'Ardio,no,,,,LF0953,,,
+333923,FR-0414,small_airport,Le Fousseret Ultralight Airfield,43.268889,1.053889,820,EU,FR,FR-OCC,"Le Fousseret, Haute-Garonne",no,,,,LF3151,,,"Base ULM du Fousseret, Les Ailes Fousseretoises"
+333966,FR-0416,small_airport,Aérodrome de Sabonnères,43.455707,1.07548,1050,EU,FR,FR-OCC,,no,,,,LF3126,,,
+336353,FR-0420,small_airport,Valberg Altisurface,44.106418,6.939904,5680,EU,FR,FR-PAC,"Péone, Alpes-Maritimes",no,,,,LF0654,,,
+336355,FR-0423,small_airport,Le Burgaud Ultralight Airfield,43.816327,1.13966,600,EU,FR,FR-OCC,"Le Burgaud, Haute-Garonne",no,,,,LF3157,,,Base ULM du Burgaud
+337341,FR-0425,small_airport,La Tranche-sur-Mer ULM,46.363534,-1.427364,16,EU,FR,FR-PDL,La Tranche-sur-Mer,no,LFTA,,,,http://www.aclatranchesurmer.fr/,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_La_Tranche-sur-Mer,"tranche, sur, mer, LF8522"
+337376,FR-0429,small_airport,Fontrailles Ultralight Airfield,43.345961,0.361649,900,EU,FR,FR-OCC,"Fontrailles, Hautes-Pyrénées",no,,,,LF6554,,,Base ULM de Fontrailles
+350576,FR-0445,small_airport,Altiport du Bez,44.63415,4.046499,4320,EU,FR,FR-ARA,Le Bez,no,,,,LF0725,,,
+339786,FR-0451,small_airport,Aerodrome de Fougères-sur-Bièvre,47.45769,1.36382,335,EU,FR,FR-CVL,,no,,,,LF4128,,,
+342295,FR-0465,small_airport,Neuflieux Airfield,49.611111,3.148611,195,EU,FR,FR-HDF,"Neuflieux, Aisne",no,,,,LF0253,,,Base ULM Neuflieux
+342298,FR-0466,small_airport,Corbeny Ultralight Airfield,49.457382,3.854544,230,EU,FR,FR-HDF,"Corbeny, Aisne",no,,,,LF0256,,,Base ULM de Corbeny
+342300,FR-0467,small_airport,Taillefontaine Airfield,49.307868,3.06599,475,EU,FR,FR-HDF,"Taillefontaine, Aisne",no,,,,LF0257,,,Base ULM de Taillefontaine
+342321,FR-0469,small_airport,Kogenheim Ultralight Airfield,48.322866,7.535108,528,EU,FR,FR-GES,"Kogenheim, Bas-Rhin",no,,,,LF6715,,,"Base ULM de Kogenheim, Club ULM de Kogenheim"
+342525,FR-0475,small_airport,Évaux Airfield,46.168657,2.432184,1512,EU,FR,FR-NAQ,"Chambon-sur-Voueize, Creuse",no,,,,LF2321,,,
+348515,FR-0487,small_airport,Altisurface de Banon,44.072222,5.639166,3723,EU,FR,FR-PAC,Banon,no,,,,LF0456,http://www.cabane-haute-provence.com,,
+350584,FR-0490,small_airport,Avaux-Les Bourdons Ultralight Airfield,49.480697,4.074769,374,EU,FR,FR-GES,"Asfeld, Ardennes",no,,,,LF0851,,,Base ULM Avaux - Les Bourdons
+350586,FR-0491,small_airport,Régat Ultralight Airfield,42.98382,1.894069,1341,EU,FR,FR-OCC,"Régat, Ariège",no,,,,LF0928,,,Base ULM de Régat
+354000,FR-0492,small_airport,Treigny Ultralight Airfield,47.550607,3.196549,918,EU,FR,FR-BFC,"Treigny, Yonne",no,,,,LF8929,https://www.facebook.com/ULMtreigny89/,,Base ULM de Treigny
+354009,FR-0493,small_airport,Perreux Airfield,47.874976,3.135556,610,EU,FR,FR-BFC,"Charny-Orée-de-Puisaye, Yonne",no,,,,LF8928,,,Base ULM de Perreux
+354018,FR-0494,small_airport,Genevrelle à Maisse Airfield,48.387512,2.349953,420,EU,FR,FR-IDF,"Maisse, Essonne",no,,,,LF9151,,,"Base ULM de Genevrelle à Maisse, Libellule 91"
+354021,FR-0496,small_airport,Avernes Paramotor Airfield,49.10568,1.87907,456,EU,FR,FR-IDF,"Avernes, Val-d'Oise",no,,,,LF9551,,,"Base Paramoteurs d'Avernes, Grand Paris Paramoteur"
+355191,FR-0499,small_airport,Les Ailes d'Eure et Loir Airfield,48.59244,1.53759,480,EU,FR,FR-CVL,"Pierres, Eure-et-Loir",no,,,,LF2834,,,
+355195,FR-0500,small_airport,Écrosnes ULM,48.561187,1.730196,520,EU,FR,FR-CVL,Écrosnes,no,,,,LF2830,,,Base ULM d'Écrosnes
+355202,FR-0501,small_airport,Base ULM du Le Gault-Saint-Denis,48.218818,1.496185,446,EU,FR,FR-CVL,Le Gault-Saint-Denis,no,,,,LF2853,,,
+356274,FR-0502,small_airport,Zoufftgen Airfield,49.449166,6.125555,750,EU,FR,FR-GES,Zoufftgen,no,,,,LF5755,https://aeroplume.lu/,,
+429985,FR-0507,small_airport,Boulogne-sur-Mer - Alprech Aerodrome,50.69512,1.56871,187,EU,FR,FR-HDF,Le Portel,no,,,,LF6251,,,
+506713,FR-0511,small_airport,Chamonet Airfield,45.797877,5.624628,1250,EU,FR,FR-ARA,"Contrevoz, Ain",no,,,,LF0164,,,Chamonet  ULM
+506715,FR-0512,small_airport,Malafretaz Ultralight Airfield,46.333642,5.140369,640,EU,FR,FR-ARA,"Malafretaz, Ain",no,,,,LF0163,,,Base ULM de Malafretaz
+506717,FR-0513,small_airport,Gite de l'Aviateur Ultralight Airfield,46.40247,5.046324,673,EU,FR,FR-ARA,"Saint-Jean-sur-Reyssouze, Ain",no,,,,LF0162,,,Base ULM Gite de l'Aviateur
+506719,FR-0514,small_airport,Base ULM de Chaneins,46.106504,4.851045,800,EU,FR,FR-ARA,Chaneins,no,,,,LF0161,,,
+506721,FR-0515,small_airport,Talissieu Airfield,45.871584,5.726938,1433,EU,FR,FR-ARA,"Arvière-en-Valromey, Ain",no,,,,LF0160,,,Tallissieu ULM
+506737,FR-0517,small_airport,Les Ailes de Sergy ULM,46.25967,6.023689,1509,EU,FR,FR-ARA,Sergy,no,,,,LF0155,,,Base ULM des Ailes de Sergy
+506739,FR-0518,small_airport,Base ULM de Polliat,46.255832,5.149601,718,EU,FR,FR-ARA,Polliat,no,,,,LF0154,,,
+506741,FR-0519,small_airport,Base ULM d'Izenave,46.027516,5.5239,2280,EU,FR,FR-ARA,Izenave,no,,,,LF0153,,,
+509577,FR-0521,small_airport,L'Arpette Altisurface,45.412882,6.516073,6200,EU,FR,FR-ARA,"Les Belleville, Savoie",no,,,,,,,Altisurface de l'Arpette
+509584,FR-0522,small_airport,Aérodrome de Liorac sur Louyre,44.918681,0.645777,518,EU,FR,FR-NAQ,Liorac-sur-Louyre,no,,,,LF2431,,,
+509586,FR-0523,small_airport,Aérodrome d'Argentine,45.466925,0.386779,468,EU,FR,FR-NAQ,La Rochebeaucourt-et-Argentine,no,,,,LF2433,https://www.larochebeaucourt.fr/patrimoine-de-la-commune/aerodrome-argentine/,,
+509590,FR-0524,small_airport,Aérodrome de Saint Crépin Carlucet,44.967076,1.251023,840,EU,FR,FR-NAQ,Saint-Crépin-et-Carlucet,no,,,,LF2434,,,
+514354,FR-0535,small_airport,Cann'Air ULM,49.34389,6.28805,840,EU,FR,FR-GES,Inglange,no,,,,LF5760,,,
+527230,FR-0564,small_airport,Veauce Airfield,46.173151,3.059489,1570,EU,FR,FR-ARA,Veauce,no,,,,LF0324,,,
+527233,FR-0567,small_airport,Omaha Beach Airfield,49.353231,-0.843067,203,EU,FR,FR-NOR,"Colleville-sur-Mer, Calvados",no,,,,LF1456,https://lf1456.com/,,
+527235,FR-0569,small_airport,Fontaine Simon Airfield,48.506027,0.991064,689,EU,FR,FR-CVL,Fontaine-Simon,no,,,,LF2827,,,
+527244,FR-0570,small_airport,Banelle Ultralight Airfield,46.124953,3.286886,1165,EU,FR,FR-ARA,"Escurolles, Allier",no,,,,LF0355,,,Base ULM Banelle
+527248,FR-0571,small_airport,Saint-Fargeol Les Fougères Airfield,46.142669,2.612133,1640,EU,FR,FR-ARA,"Saint-Fargeol, Allier",no,,,,LF0353,,,
+527250,FR-0572,small_airport,Base ULM La Bouble,46.218609,2.952293,1650,EU,FR,FR-ARA,Louroux-de-Bouble,no,,,,LF0371,,,
+527720,FR-0573,small_airport,Hommes Volants Ultralight Airfield,47.418534,0.323495,285,EU,FR,FR-CVL,"Hommes, Indre-et-Loire",no,,,,LF3730,http://www.hommes-volants.fr/,,"Base ULM Hommes Volants, Base ULM Jacopeau, Jacopeau Ultralight Airfield"
+527721,FR-0574,small_airport,Torreilles Airfield,42.746077,3.015628,10,EU,FR,FR-OCC,"Torreilles, Pyrénées-Orientales",no,,,,LF6651,,,"Aérodrome/Base ULM de Torreilles - Ste-Marie, Torreilles Sainte-Marie Airfield"
+528592,FR-0598,small_airport,Les Cigognes d'Epfig Ultralight Airfield,48.338333,7.477778,552,EU,FR,FR-GES,"Epfig, Bas-Rhin",no,,,,LF6757,,,
+528624,FR-0624,small_airport,Lamourache Nord Airfield,44.622778,0.193333,364,EU,FR,FR-NAQ,,no,,,,LF4733,,,
+528644,FR-0640,small_airport,Ozenx Montrestrucq Airfield,43.433074,-0.80036,295,EU,FR,FR-NAQ,,no,,,,LF6432,,,
+528785,FR-0722,small_airport,Channay-Rillé Airfield,47.461034,0.236731,300,EU,FR,FR-CVL,"Rillé, Indre-et-Loire",no,,,,LF3753,https://www.ulm-channay.com,,"Base ULM Channay-Rillé, Base ULM Channay-sur-Lathan"
+528797,FR-0733,small_airport,Frepelle Airfield,47.826605,1.319255,419,EU,FR,FR-CVL,"Oucques la Nouvelle, Loir-et-Cher",no,,,,LF4156,http://www.avoileetamoteur.fr,,
+528816,FR-0740,small_airport,Cravant Les Lilas Airfield,47.836706,1.617899,377,EU,FR,FR-CVL,"Cravant, Loiret",no,,,,LF4558,https://www.les-lilas.org/relais-u-l-m,,
+528938,FR-0851,small_airport,Dropt AltiSurface,47.959167,6.542222,2040,EU,FR,FR-GES,Girmont-Val-d'Ajol,no,,,,LF8852,,,
+529061,FR-0974,small_airport,Chenommet Airfield,45.926111,0.261389,330,EU,FR,FR-NAQ,Aunac-sur-Charente,no,,,,LF1655,https://www.autogire16.com/,,
+529067,FR-0980,small_airport,Piste du Tartou,45.650278,0.575,756,EU,FR,FR-NAQ,Tartou,no,,,,LF2458,https://www.ulm-piste-dordogne-perigord.com/,,
+529090,FR-1003,small_airport,Crots Ultralight Airfield,44.536743,6.435379,2631,EU,FR,FR-PAC,"Crots, Hautes-Alpes",no,,,,LF0551,,,Base ULM de Crots
+529101,FR-1014,small_airport,Les Eyssagnes Ultralight Airfield,44.660886,6.212319,3642,EU,FR,FR-PAC,"Saint-Jean-Saint-Nicolas, Hautes-Alpes",no,,,,LF0554,,,Base ULM des Eyssagnes
+529103,FR-1016,small_airport,Aix-en-Provence Paramotor Field,43.682523,5.412207,558,EU,FR,FR-PAC,"Le Puy-Sainte-Réparade, Bouches-du-Rhône",no,,,,LF1356,https://aixparamoteur.com/,,
+534887,FR-1175,closed,Trizac Airfield,45.268026,2.548348,3300,EU,FR,FR-ARA,Trizac - Cantal,no,,,,,,,LF1522
+552334,FR-1184,closed,Moulins Avermes Airfield,46.592637,3.318354,728,EU,FR,FR-ARA,Avermes,no,,,,,,,LFHB
+552414,FR-1185,heliport,UL Helipad Clissac,44.91028,1.29139,,EU,FR,FR-NAQ,Sainte-Nathalène,no,,,,LF2466,,,
+4075,FR-1237,closed,Ancien Aérodrome de Brive-La Roche,45.150799,1.469202,379,EU,FR,FR-NAQ,Brive-la-Gaillarde,no,,,,,,https://en.wikipedia.org/wiki/Brive_-_La_Roche_Airport,"BVE, LFBV"
+4198,FR-1238,closed,Cambrai-Épinoy (BA 103) Air Base,50.221802,3.15424,257,EU,FR,FR-HDF,"Épinoy, Pas-de-Calais",no,,,,,,,LFQI
+4227,FR-1239,closed,Colmar-Meyenheim Air Base,47.922001,7.39967,693,EU,FR,FR-GES,Meyenheim,no,,,,,,https://en.wikipedia.org/wiki/Quartier_Colonel_Dio,"BA 132, LFSC, Base aérienne d'opérations 132 Colmar-Meyenheim, Quartier Colonel Dio"
+4229,FR-1240,closed,Metz-Frescaty (BA 128) Air Base,49.073415,6.132946,629,EU,FR,FR-GES,Augny,no,,,,,,,"LFSF, MZM"
+4237,FR-1241,closed,Reims-Champagne (BA 112) Air Base,49.310001,4.05,312,EU,FR,FR-GES,"Bétheny, Marne",no,,,,,,,"LFSR, RHE"
+4247,FR-1242,closed,Damblain Air Base,48.0863,5.66406,1280,EU,FR,FR-GES,"Damblain, Vosges",no,,,,,,,LFYD
+28858,FR-1245,closed,Arbois Airfield,46.919998,5.76,876,EU,FR,FR-BFC,"Arbois, Jura",no,,,,,,,LFGD
+28873,FR-1246,closed,Thionville Yutz Airport,49.354698,6.20139,518,EU,FR,FR-GES,Yutz,no,,,,,,,LFGV
+28928,FR-1249,closed,Oyonnax-Arbent Airfield,46.278424,5.666342,1755,EU,FR,FR-ARA,"Arbent, Ain",no,,,,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Oyonnax_-_Arbent,"Jean Coutty, Aérodrome d'Oyonnax-Arbent, Centre de Vol à Voile du Haut-Bugey, LFLK"
+28940,FR-1250,closed,Pont-Saint-Esprit Airfield,44.269402,4.65333,144,EU,FR,FR-OCC,"Lamotte-du-Rhône, Vaucluse",no,,,,,,,LFND
+28980,FR-1252,closed,Brétigny-sur-Orge Air Base,48.5961,2.33222,270,EU,FR,FR-IDF,"Le Plessis-Pâté, Essonne",no,,,,,,,LFPY
+28988,FR-1253,closed,Romilly Sur Seine Airfield,48.500599,3.76333,267,EU,FR,FR-GES,,no,,,,,,,"LFQR, LFQR"
+29005,FR-1255,closed,Champ de Courses Airfield,48.2239,5.93528,1076,EU,FR,FR-GES,"Vittel, Vosges",no,,,,,,,"LFSZ, VTL"
+29016,FR-1260,closed,Apt St Christol Air Base,44.058234,5.494654,2736,EU,FR,FR-PAC,Saint-Christol,no,,,,,,https://fr.wikipedia.org/wiki/Base_a%C3%A9rienne_200_Apt-Saint-Christol,"Base_aérienne_200, LFXI"
+30786,FR-1269,closed,Belfort-Fontaine Airfield,47.655602,7.01083,1208,EU,FR,FR-BFC,Fontaine,no,,,,,,,"BOR, LFSQ, Aéroparc de Belfort-Fontaine"
+28957,FR-1275,small_airport,Saint-Étienne-en-Dévoluy AltiSurface,44.667877,5.904735,6201,EU,FR,FR-PAC,Dévoluy,no,,,,LF0538,,,
+31813,FR-1277,small_airport,Condat sur Vézère,45.103885,1.215121,499,EU,FR,FR-NAQ,Condat sur Vézère,no,,,,LF2423,,,LFDZ
+595807,FR-1278,closed,Jumel Ultralight Airfield,49.757233,2.302594,413,EU,FR,FR-HDF,Jumel,no,,,,,,,LF8022
+604032,FR-1323,closed,Peronne - Moulin Chevraut Airfield,46.433079,4.801533,755,EU,FR,FR-BFC,Peronne,no,,,,,,,LF7152
+41524,GF-0001,small_airport,Kourou Airport,5.176046,-52.694206,47,SA,GF,GF-CY,Kourou,no,SOOK,,SOOK,,,https://en.wikipedia.org/wiki/Kourou_Airport,QKR Kourou Off-line Point
+318335,GF-0003,small_airport,Saint-Élie Airport,4.816117,-53.289505,440,SA,GF,GF-CY,Saint-Élie,no,,,,,,,
+348616,GF-0011,seaplane_base,Guyane Ultralight Seaplane Base,5.66061,-53.7764,16,SA,GF,GF-SL,Mana,no,,,,,,,
+349348,GF-0013,seaplane_base,Montsinery Seaplane Base,4.89211,-52.49146,,SA,GF,GF-CY,Montsinery,no,,,,,,,LF97302
+534380,GP-0004,seaplane_base,Grand Baie Seaplane Base,16.211667,-61.512778,0,NA,GP,GP-U-A,Grande-Terre,no,,,,,https://ulm-guadeloupe.com/,,LF97101
+2987,LF50,small_airport,Aérodrome privé de Soucelles,47.580399,-0.412269,255,EU,FR,FR-PDL,Soucelles,no,,,,LF4925,,,Angers
+2988,LF51,small_airport,Plan-de-Dieu-Orange Airfield,44.18,4.91889,312,EU,FR,FR-PAC,"Travaillan, Vaucluse",no,,,LFPR,LF8451,http://www.aeroclubduplandedieu.fr,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Orange_Plan_de_Dieu,
+28770,LFAB,small_airport,Dieppe-Saint-Aubin Airport,49.884662,1.08101,344,EU,FR,FR-NOR,Saint-Aubin-sur-Scie,no,LFAB,DPE,LFAB,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Dieppe_-_Saint-Aubin,
+4050,LFAC,medium_airport,Calais Marck Airport,50.962101,1.95476,12,EU,FR,FR-HDF,Calais,no,LFAC,CQF,LFAC,,https://calais.aeroport.fr/en/homepage/,https://fr.wikipedia.org/wiki/A%C3%A9roport_de_Calais_-_Dunkerque,"Dunkirk, Grand Calais"
+28771,LFAD,small_airport,Compiègne Margny Airfield,49.431242,2.801514,315,EU,FR,FR-HDF,Margny-lès-Compiègne,no,LFAD,,LFAD,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Compi%C3%A8gne_-_Margny,XCP
+28772,LFAE,small_airport,Eu Mers-Le Tréport Airfield,50.068168,1.424748,328,EU,FR,FR-NOR,Eu,no,LFAE,,LFAE,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Eu_-_Mers_-_Le_Tr%C3%A9port,
+28773,LFAF,small_airport,Laon-Chambry Airfield,49.595798,3.63167,256,EU,FR,FR-HDF,"Laon, Aisne",no,LFAF,,LFAF,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Laon_-_Chambry,XLN
+4051,LFAG,medium_airport,Péronne Saint-Quentin Airfield,49.868871,3.029566,295,EU,FR,FR-HDF,"Monchy-Lagache, Somme",no,LFAG,,LFAG,,,https://en.wikipedia.org/wiki/Peronne-St_Quentin_Airfield,Aérodrome de Péronne Saint-Quentin
+4052,LFAI,small_airport,Nangis-Les Loges Aerodrome,48.596199,3.00679,428,EU,FR,FR-IDF,Clos-Fontaine,no,LFAI,,LFAI,,,https://en.wikipedia.org/wiki/Nangis_-_Les_Loges_aerodrome,Aérodrome de Nangis Les Loges
+28774,LFAJ,small_airport,Argentan Airfield,48.709456,0.002856,581,EU,FR,FR-NOR,"Argentan, Orne",no,LFAJ,,LFAJ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Argentan,
+28775,LFAK,small_airport,Dunkerque-Les Moëres Airfield,51.039559,2.549129,-3,EU,FR,FR-HDF,Ghyvelde,no,LFAK,,LFAK,,http://www.aeroclub-dunkerque.com/,https://en.wikipedia.org/wiki/Dunkerque_%E2%80%93_Les_Mo%C3%ABres_Airfield,"Dunkirk, Dunkerque Aeroclub"
+28776,LFAL,small_airport,La Flèche-Thorée-les-Pins Airfield,47.69261,-0.002198,120,EU,FR,FR-PDL,"La Flèche, Sarthe",no,LFAL,,LFAL,,http://www.aeroclublafleche.fr/,https://fr.wikipedia.org/wiki/Aérodrome_de_La_Flèche_-_Thorée-les-Pins,
+28777,LFAM,small_airport,Berck-sur-Mer Airfield,50.4231,1.59194,30,EU,FR,FR-HDF,Berck-sur-Mer,no,LFAM,,LFAM,,http://www.aeroberck.com/,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Berck-sur-Mer,
+4053,LFAO,small_airport,Bagnoles-Couterne Airfield,48.545799,-0.387444,718,EU,FR,FR-NOR,"Rives-d'Andaine, Orne",no,LFAO,,LFAO,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Bagnoles-de-l%27Orne_-_Couterne,Aérodrome de Bagnoles - Couterne
+28779,LFAP,small_airport,Rethel-Perthes Airfield,49.48097,4.363304,410,EU,FR,FR-GES,"Sault-lès-Rethel, Ardennes",no,LFAP,,LFAP,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Rethel_-_Perthes,
+4054,LFAQ,small_airport,Albert Bray airport,49.970049,2.693939,364,EU,FR,FR-HDF,Albert,no,LFAQ,BYF,LFAQ,,https://www.aeroportalbertpicardie.com/en/home/,https://en.wikipedia.org/wiki/Albert_%E2%80%93_Picardie_Airport,"Albert-Bray, Amiens-Henry Potez"
+28781,LFAS,small_airport,Falaise-Mont d'Eraines Airfield,48.9272,-0.144722,512,EU,FR,FR-NOR,"Damblainville, Calvados",no,LFAS,,LFAS,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Falaise-Mont_d%27Eraines,
+4055,LFAT,medium_airport,Le Touquet-Côte d'Opale Airport,50.518284,1.621656,36,EU,FR,FR-HDF,Le Touquet-Paris-Plage,no,LFAT,LTQ,LFAT,,https://www.aeroport-letouquet.com/,https://en.wikipedia.org/wiki/Le_Touquet_%E2%80%93_C%C3%B4te_d%27Opale_Airport,Paris-Plage
+4056,LFAV,medium_airport,Valenciennes-Denain Airfield,50.327823,3.461061,165,EU,FR,FR-HDF,Prouvy,no,LFAV,,LFAV,,,https://en.wikipedia.org/wiki/Valenciennes-Denain_Airport,
+4057,LFAY,medium_airport,Amiens Glisy Airfield,49.873004,2.387074,208,EU,FR,FR-HDF,Amiens,no,LFAY,,LFAY,,,https://en.wikipedia.org/wiki/Amiens_%E2%80%93_Glisy_Aerodrome,"QAM, Aérodrome d'Amiens-Glisy"
+4058,LFBA,medium_airport,Agen La Garenne airport,44.174171,0.59309,204,EU,FR,FR-NAQ,Agen,no,LFBA,AGF,LFBA,,http://www.aeroport-agen.com/,https://en.wikipedia.org/wiki/Agen_-_La_Garenne_Aerodrome,
+4059,LFBC,medium_airport,Cazaux (BA 120) Air Base,44.533298,-1.125,84,EU,FR,FR-NAQ,Cazaux (La Teste-de-Buch),no,,,LFBC,,,https://en.wikipedia.org/wiki/Cazaux_Air_Base,
+4060,LFBD,large_airport,Bordeaux–Mérignac Airport,44.82865,-0.715356,162,EU,FR,FR-NAQ,Bordeaux,yes,LFBD,BOD,LFBD,,https://www.bordeaux.aeroport.fr/,https://en.wikipedia.org/wiki/Bordeaux%E2%80%93M%C3%A9rignac_Airport,
+4061,LFBE,medium_airport,Bergerac Dordogne-Périgord airport,44.825298,0.518611,171,EU,FR,FR-NAQ,Bergerac,yes,LFBE,EGC,LFBE,,https://www.bergerac.aeroport.fr/,https://en.wikipedia.org/wiki/Bergerac_Dordogne_P%C3%A9rigord_Airport,
+4062,LFBF,medium_airport,Toulouse-Francazal (BA 101) Air Base,43.545601,1.3675,535,EU,FR,FR-OCC,"Toulouse/Francazal, Haute-Garonne",no,LFBF,,LFBF,,https://www.toulouse-francazal.aeroport.fr/,https://fr.wikipedia.org/wiki/A%C3%A9roport_de_Toulouse_Francazal,
+4063,LFBG,medium_airport,Cognac-Châteaubernard (BA 709) Air Base,45.658298,-0.3175,102,EU,FR,FR-NAQ,Cognac/Châteaubernard,no,LFBG,CNG,LFBG,,,https://en.wikipedia.org/wiki/Cognac_%E2%80%93_Ch%C3%A2teaubernard_Air_Base,
+4064,LFBH,medium_airport,La Rochelle Île de Ré Airport,46.179199,-1.19528,74,EU,FR,FR-NAQ,La Rochelle,yes,LFBH,LRH,LFBH,,https://www.larochelle.aeroport.fr/en/,https://en.wikipedia.org/wiki/La_Rochelle_-_%C3%8Ele_de_R%C3%A9_Airport,Laleu Airport
+4065,LFBI,medium_airport,Poitiers-Biard Airport,46.5877,0.306666,423,EU,FR,FR-NAQ,Poitiers/Biard,yes,LFBI,PIS,LFBI,,https://www.poitiers.aeroport.fr/,https://en.wikipedia.org/wiki/Poitiers_-_Biard_Airport,
+4066,LFBK,medium_airport,Montluçon-Guéret Airport,46.222599,2.36396,1497,EU,FR,FR-NAQ,"Lépaud, Creuse",no,LFBK,MCU,LFBK,,https://aerodrome-montlucon-gueret.fr/,https://en.wikipedia.org/wiki/Montlu%C3%A7on_%E2%80%93_Gu%C3%A9ret_Airport,
+4067,LFBL,medium_airport,Limoges Airport,45.862801,1.17944,1300,EU,FR,FR-NAQ,Limoges/Bellegarde,yes,LFBL,LIG,LFBL,,https://www.aeroportlimoges.com/en/,https://en.wikipedia.org/wiki/Limoges_-_Bellegarde_Airport,
+4068,LFBM,medium_airport,Mont-de-Marsan (BA 118) Air Base,43.911701,-0.5075,203,EU,FR,FR-NAQ,Mont-de-Marsan,no,LFBM,,LFBM,,,https://en.wikipedia.org/wiki/Mont-de-Marsan_Air_Base,XMJ
+4069,LFBN,medium_airport,Niort - Marais Poitevin Airport,46.313477,-0.394529,203,EU,FR,FR-NAQ,Niort/Souché,no,LFBN,NIT,LFBN,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Niort_-_Marais_Poitevin,
+4070,LFBO,large_airport,Toulouse-Blagnac Airport,43.629101,1.36382,499,EU,FR,FR-OCC,Toulouse/Blagnac,yes,LFBO,TLS,LFBO,,http://www.toulouse.aeroport.fr/,https://en.wikipedia.org/wiki/Toulouse_Blagnac_International_Airport,Airbus
+4071,LFBP,medium_airport,Pau Pyrénées Airport,43.380001,-0.418611,616,EU,FR,FR-NAQ,Pau/Pyrénées (Uzein),yes,LFBP,PUF,LFBP,,https://www.pau.aeroport.fr/passenger/,https://en.wikipedia.org/wiki/Pau_Pyr%C3%A9n%C3%A9es_Airport,
+4072,LFBR,small_airport,Aérodrome de Muret - Lherm,43.448898,1.26333,622,EU,FR,FR-OCC,"Muret/Lherm, Haute-Garonne",no,LFBR,,LFBR,,https://www.muret-lherm.aero,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Muret_-_Lherm,
+28786,LFBS,small_airport,Biscarrosse Parentis Airfield,44.36756,-1.133903,98,EU,FR,FR-NAQ,"Biscarrosse, Landes",no,LFBS,,LFBS,,,https://en.wikipedia.org/wiki/Biscarrosse_%E2%80%93_Parentis_Airport,
+4073,LFBT,medium_airport,Tarbes-Lourdes-Pyrénées Airport,43.178699,-0.006439,1260,EU,FR,FR-OCC,Tarbes/Lourdes/Pyrénées,yes,LFBT,LDE,LFBT,,https://www.tlp.aeroport.fr/,https://en.wikipedia.org/wiki/Tarbes-Lourdes-Pyr%C3%A9n%C3%A9es_Airport,
+4074,LFBU,medium_airport,Angoulême Brie-Champniers airport,45.729198,0.221456,436,EU,FR,FR-NAQ,Angoulême,no,LFBU,ANG,LFBU,,https://angouleme-airport.com/,https://en.wikipedia.org/wiki/Angoul%C3%AAme_-_Brie_-_Champniers_Airport,
+4076,LFBX,medium_airport,Périgueux-Bassillac Airport,45.198101,0.815556,328,EU,FR,FR-NAQ,Périgueux/Bassillac,no,LFBX,PGX,LFBX,,,https://en.wikipedia.org/wiki/P%C3%A9rigueux_Bassillac_Airport,
+28787,LFBY,small_airport,Dax Seyresse Airfield,43.689201,-1.06889,106,EU,FR,FR-NAQ,"Perigueux, Dordogne",no,LFBY,,LFBY,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Dax_-_Seyresse,XDA
+4077,LFBZ,medium_airport,Biarritz Pays Basque airport,43.468372,-1.523223,245,EU,FR,FR-NAQ,Biarritz,yes,LFBZ,BIQ,LFBZ,,https://biarritz.aeroport.fr/en/,https://en.wikipedia.org/wiki/Biarritz_-_Anglet_-_Bayonne_Airport,
+28788,LFCA,small_airport,Aérodrome de Châtellerault-Targé,46.782644,0.550485,207,EU,FR,FR-NAQ,"Châtellerault, Vienne",no,LFCA,,LFCA,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Ch%C3%A2tellerault_-_Targ%C3%A9,XCX 
+28789,LFCB,small_airport,Aérodrome de Bagnères de Luchon,42.799999,0.6,2028,EU,FR,FR-OCC,,no,,,LFCB,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Bagn%C3%A8res-de-Luchon,
+4078,LFCC,medium_airport,Cahors Lalbenque airport,44.351398,1.47528,912,EU,FR,FR-OCC,Cahors,no,LFCC,ZAO,LFCC,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Cahors_-_Lalbenque,
+28790,LFCD,small_airport,Aérodrome d'Andernos,44.755,-1.065,66,EU,FR,FR-NAQ,Andernos-les-Bains,no,,,LFCD,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Andernos-les-Bains,
+28791,LFCE,small_airport,Guéret Saint-Laurent Airfield,46.176071,1.953831,1207,EU,FR,FR-NAQ,"Saint-Laurent, Creuse",no,,,LFCE,,http://aeroclub-gueret-saint-laurent.fr/,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Gu%C3%A9ret_-_Saint-Laurent,Aérodrome de Guéret Saint-Laurent
+28792,LFCF,small_airport,Aérodrome de Figeac - Livernon,44.673302,1.78917,1086,EU,FR,FR-OCC,,no,,,LFCF,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Figeac-Livernon,
+4079,LFCG,medium_airport,Aérodrome de Saint-Girons - Antichan,43.007801,1.10315,1368,EU,FR,FR-OCC,Saint-Girons/Antichan,no,,,LFCG,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Saint-Girons_-_Antichan,
+4080,LFCH,medium_airport,Aérodrome d'Arcachon-La Teste-de-Buch,44.596401,-1.11083,52,EU,FR,FR-NAQ,Arcachon/La Teste-de-Buch,no,,,LFCH,,https://www.agglo-cobas.fr/mobilites/aerodrome/,https://en.wikipedia.org/wiki/Arcachon_-_La_Teste-de-Buch_Airport,XAC
+4081,LFCI,medium_airport,Albi Le Sequestre airport,43.913898,2.11306,564,EU,FR,FR-OCC,Albi,no,LFCI,LBI,LFCI,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Albi_-_Le_Sequestre,
+28793,LFCJ,small_airport,Aérodrome de Jonzac Neulles,45.4842,-0.421389,128,EU,FR,FR-NAQ,Albi,no,,,LFCJ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Jonzac_-_Neulles,
+4082,LFCK,medium_airport,Castres Mazamet Airport,43.556301,2.28918,788,EU,FR,FR-OCC,Castres,yes,LFCK,DCM,LFCK,,http://aeroport81.fr/,https://en.wikipedia.org/wiki/Castres-Mazamet_Airport,
+4083,LFCL,small_airport,Toulouse-Lasbordes Airfield,43.58677,1.49924,460,EU,FR,FR-OCC,"Balma, Haute-Garonne",no,,,LFCL,,https://www.toulouse-metropole.fr/missions/deplacements/aerodrome-toulouse-lasbordes,https://en.wikipedia.org/wiki/Toulouse_-_Lasbordes_Airport,
+4084,LFCM,small_airport,Millau-Larzac Airfield,43.9893,3.183,2606,EU,FR,FR-OCC,Millau/Larzac,no,,,LFCM,,https://www.larzac-airport.com/fr-fr/,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Millau-Larzac,
+28794,LFCN,small_airport,Nogaro Airfield,43.769699,-0.032778,304,EU,FR,FR-OCC,,no,,,LFCN,,https://www.aeronogaro.com/,https://en.wikipedia.org/wiki/Nogaro_Aerodrome,
+28795,LFCO,small_airport,Oloron Herrere Airfield,43.163503,-0.561494,984,EU,FR,FR-NAQ,,no,,,LFCO,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Oloron_-_Herr%C3%A8re,
+28796,LFCP,small_airport,Pons Avy Airfield,45.57,-0.515,117,EU,FR,FR-NAQ,,no,,,LFCP,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Pons_-_Avy,
+4085,LFCQ,small_airport,Aérodrome de Graulhet-Montdragon,43.771099,2.01083,581,EU,FR,FR-OCC,Graulhet/Montdragon,no,LFCQ,,LFCQ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Graulhet_-_Montdragon,
+4086,LFCR,medium_airport,Rodez–Aveyron Airport,44.407902,2.48267,1910,EU,FR,FR-OCC,Rodez/Marcillac,yes,LFCR,RDZ,LFCR,,https://www.aeroport-rodez.fr/en/,https://en.wikipedia.org/wiki/Rodez%E2%80%93Aveyron_Airport,
+28797,LFCS,small_airport,Aérodrome de Bordeaux-Léognan-Saucats,44.700298,-0.595556,190,EU,FR,FR-NAQ,Bordeaux-Saucats,no,,,LFCS,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Bordeaux_-_L%C3%A9ognan_-_Saucats,
+28798,LFCT,small_airport,Aérodrome de Thouars,46.961899,-0.152778,341,EU,FR,FR-NAQ,Thouars,no,,,LFCT,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Thouars,
+4087,LFCU,small_airport,Ussel-Thalamy Airfield,45.535738,2.424474,2428,EU,FR,FR-NAQ,"Ussel, Corrèze",no,,,LFCU,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Ussel_-_Thalamy,
+28799,LFCV,small_airport,Aérodrome de Villefranche de Rouergue,44.369491,2.025722,1096,EU,FR,FR-OCC,Rodez,no,,,LFCV,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Villefranche-de-Rouergue,
+4088,LFCW,small_airport,Villeneuve-sur-Lot Airfield,44.3969,0.758889,190,EU,FR,FR-NAQ,Villeneuve-sur-Lot,no,,,LFCW,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Villeneuve-sur-Lot,
+28800,LFCX,small_airport,Aérodrome de Castelsarrasin Moissac,44.086423,1.127191,243,EU,FR,FR-OCC,Moissac,no,LFCX,,LFCX,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Castelsarrasin_-_Moissac,
+4089,LFCY,medium_airport,Royan-Médis Airport,45.628101,-0.9725,72,EU,FR,FR-NAQ,Royan/Médis,no,LFCY,RYN,LFCY,,,https://en.wikipedia.org/wiki/Royan_%E2%80%93_M%C3%A9dis_Aerodrome,
+4090,LFCZ,small_airport,Aérodrome de Mimizan,44.145928,-1.16432,164,EU,FR,FR-NAQ,Mimizan,no,LFCZ,,LFCZ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Mimizan,
+4091,LFDA,small_airport,Aire-sur-l'Adour Airfield,43.7094,-0.245278,259,EU,FR,FR-NAQ,Aire-sur-Adour,no,,,LFDA,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Aire-sur-l%27Adour,
+4092,LFDB,small_airport,Aérodrome Morin - Védrines,44.0257,1.37804,351,EU,FR,FR-OCC,Montauban,no,LFDB,,LFDB,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Montauban,
+28801,LFDC,small_airport,Aérodrome de Montendre-Marcillac,45.274399,-0.452222,148,EU,FR,FR-NAQ,,no,,,LFDC,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Montendre_-_Marcillac,
+28802,LFDE,small_airport,Aérodrome d'Égletons,45.421398,2.06889,1857,EU,FR,FR-NAQ,,no,,,LFDE,,,http://wikipedia.fr/Aérodrome d'Égletons,
+28803,LFDF,small_airport,Aérodrome de Sainte-Foy-la-Grande,44.8536,0.176667,282,EU,FR,FR-NAQ,,no,,,LFDF,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Sainte-Foy-la-Grande,
+28804,LFDG,small_airport,Aérodrome de Gaillac - Lisle-sur-Tarn,43.8839,1.87556,446,EU,FR,FR-OCC,Gaillac,no,LFDG,,LFDG,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Gaillac_-_Lisle-sur-Tarn,
+4093,LFDH,medium_airport,Auch Gers Airfield,43.683606,0.599747,411,EU,FR,FR-OCC,Auch,no,LFDH,,LFDH,,http://www.auchaeroport.fr/ (dead link as of 17-sep-2017),https://fr.wikipedia.org/wiki/Aéroport_Auch_-_Gers,Lamothe
+4094,LFDI,small_airport,Libourne-Artigues-de-Lussac Airfield,44.98347,-0.138359,157,EU,FR,FR-NAQ,Libourne/Artigues-de-Lussac,no,,,LFDI,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Libourne_-_Artigues-de-Lussac,
+4095,LFDJ,small_airport,Aérodrome de Pamiers - Les Pujols,43.090599,1.69583,1115,EU,FR,FR-OCC,Pamiers/Les Pujols,no,,,LFDJ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Pamiers_-_Les_Pujols,
+28805,LFDK,small_airport,Soulac Sur Mer Airfield,45.494999,-1.08222,7,EU,FR,FR-NAQ,Pamiers,no,,,LFDK,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Soulac-sur-Mer,
+28806,LFDL,small_airport,Loudun Airfield,47.035941,0.100619,315,EU,FR,FR-NAQ,Pamiers,no,,,LFDL,,http://www.aeroclubloudun.fr/,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Loudun,Aeroclub Loudunais
+4096,LFDM,small_airport,Marmande – Virazeil Airfield,44.499049,0.200511,110,EU,FR,FR-NAQ,Marmande,no,,,LFDM,,,https://en.wikipedia.org/wiki/Marmande_%E2%80%93_Virazeil_Airport,
+4097,LFDN,medium_airport,Rochefort-Saint-Agnant (BA 721) Airport,45.887798,-0.983056,60,EU,FR,FR-NAQ,Rochefort/Saint-Agnant,no,LFDN,RCO,LFDN,,,https://fr.wikipedia.org/wiki/A%C3%A9roport_de_Rochefort_-_Charente-Maritime,
+28808,LFDP,small_airport,St Pierre d'Oléron Airfield,45.959202,-1.31611,20,EU,FR,FR-NAQ,,no,,,LFDP,,http://ac.oleron.free.fr,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Saint-Pierre-d%27Ol%C3%A9ron,
+28810,LFDR,small_airport,La Réole Floudes Airfield,44.5681,-0.056111,43,EU,FR,FR-NAQ,,no,,,LFDR,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_La_R%C3%A9ole_-_Floud%C3%A8s,
+28812,LFDT,small_airport,Aérodrome de Tarbes Laloubère,43.215269,0.077304,1076,EU,FR,FR-OCC,Tarbes,no,,,LFDT,,https://www.aerobigorre.org/,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Tarbes_-_Laloub%C3%A8re,XTB
+28813,LFDU,small_airport,Lesparre St Laurent Medoc Airfield,45.1978,-0.882222,105,EU,FR,FR-NAQ,,no,,,LFDU,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Lesparre_-_Saint-Laurent-M%C3%A9doc,
+28814,LFDV,small_airport,Couhé Vérac Airfield,46.2728,0.190556,499,EU,FR,FR-NAQ,,no,,,LFDV,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Couh%C3%A9_-_V%C3%A9rac,
+28816,LFDX,small_airport,Fumel Montayral Airfield,44.460921,1.006708,692,EU,FR,FR-NAQ,Rochefort,no,,,LFDX,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Fumel_-_Montayral,
+28818,LFEA,small_airport,Aérodrome de Belle Île,47.325256,-3.201255,171,EU,FR,FR-BRE,Bangor,no,LFEA,BIC,LFEA,,,https://fr.wikipedia.org/wiki/Aérodrome_de_Belle-Île,Palais-Belle-İle-en-Mer Aerodrome
+28819,LFEB,small_airport,Dinan-Trélivan Airfield,48.443351,-2.103142,394,EU,FR,FR-BRE,"Trélivan, Côtes-d'Armor",no,LFEB,,LFEB,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Dinan_-_Tr%C3%A9livan,
+28820,LFEC,small_airport,Ouessant Airport,48.4632,-5.06358,142,EU,FR,FR-BRE,Ushant,yes,LFEC,OUI,LFEC,,,https://en.wikipedia.org/wiki/Ushant_Airport,
+4098,LFED,small_airport,Pontivy Airfield,48.05674,-2.920818,407,EU,FR,FR-BRE,Pontivy,no,LFED,,LFED,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Pontivy,
+28821,LFEF,small_airport,Amboise Dierre Airfield,47.339771,0.945861,180,EU,FR,FR-CVL,"Dierre, Indre-et-Loire",no,LFEF,,LFEF,,http://www.ailestourangelles.fr/en/,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Amboise_-_Dierre,
+28822,LFEG,small_airport,Argenton-sur-Creuse Airfield,46.59626,1.601572,663,EU,FR,FR-CVL,"Le Pêchereau, Indre",no,LFEG,,LFEG,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Argenton-sur-Creuse,
+4099,LFEH,small_airport,Aubigny-sur-Nère Airfield,47.47993,2.393271,630,EU,FR,FR-CVL,"Aubigny-sur-Nère, Cher",no,,,LFEH,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Aubigny-sur-N%C3%A8re,
+28823,LFEI,small_airport,Briare Châtillon Airfield,47.614399,2.78194,539,EU,FR,FR-CVL,"Briare, Loiret",no,,,LFEI,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Briare_-_Ch%C3%A2tillon,
+28824,LFEJ,small_airport,Châteauroux Villers Airfield,46.840863,1.619951,541,EU,FR,FR-CVL,"Saint-Maur, Indre",no,,,LFEJ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Ch%C3%A2teauroux_-_Villers,
+28825,LFEK,small_airport,Issoudun Le Fay Airfield,46.887981,2.039903,531,EU,FR,FR-CVL,"Saint-Aubin, Indre",no,,,LFEK,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Issoudun_-_Le_Fay,
+28826,LFEL,small_airport,Le Blanc Airfield,46.6208,1.0875,377,EU,FR,FR-CVL,,no,,,LFEL,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_du_Blanc,
+28827,LFEM,small_airport,Montargis Vimory Airfield,47.960602,2.68583,308,EU,FR,FR-CVL,"Vimory, Loiret",no,,,LFEM,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Montargis_-_Vimory,
+28828,LFEN,small_airport,Tours Sorigny Airfield,47.266071,0.698691,299,EU,FR,FR-CVL,"Sorigny, Indre-et-Loire",no,,,LFEN,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Tours_-_Sorigny,
+28829,LFEP,small_airport,Pouilly-Maconge Airfield,47.221401,4.56111,1411,EU,FR,FR-BFC,Meilly-sur-Rouvres,no,,,LFEP,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Pouilly_-_Maconge,
+28830,LFEQ,small_airport,Quiberon Airfield,47.482201,-3.1,37,EU,FR,FR-BRE,,no,,,LFEQ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Quiberon,
+28484,LFER,small_airport,Redon Bains-sur-Oust Airfield,47.698723,-2.037935,225,EU,FR,FR-BRE,Redon,no,LFER,,LFER,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Redon_-_Bains-sur-Oust,XRN
+4100,LFES,small_airport,Guiscriff Scaer Airfield,48.052502,-3.66472,574,EU,FR,FR-BRE,Guiscriff,no,,,LFES,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Guiscriff_-_Sca%C3%ABr,
+28831,LFET,small_airport,Til Châtel Airfield,47.546293,5.210438,938,EU,FR,FR-BFC,Til-Châtel,no,,,LFET,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Til-Ch%C3%A2tel,
+28832,LFEU,small_airport,Bar-le-Duc Airfield,48.867519,5.185068,909,EU,FR,FR-GES,Les Hauts-de-Chée,no,LFEU,,LFEU,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Bar-le-Duc_-_Les_Hauts-de-Ch%C3%A9e,"Bar le Duc, South Meuse Aeroclub, XBD"
+28833,LFEV,small_airport,Gray Saint-Adrien Airfield,47.431659,5.61775,679,EU,FR,FR-BFC,Gray,no,,,LFEV,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Gray_-_Saint-Adrien,
+28834,LFEW,small_airport,Saulieu-Liernais Airfield,47.239263,4.265928,1722,EU,FR,FR-BFC,"Liernais, Côte-d'Or",no,,,LFEW,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Saulieu_-_Liernais,
+28835,LFEX,small_airport,Nancy Azelot Airfield,48.59347,6.241035,961,EU,FR,FR-GES,"Azelot, Meurthe-et-Moselle",no,,,LFEX,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Nancy_-_Azelot,
+4101,LFEY,small_airport,Île d'Yeu Airport,46.717641,-2.392544,79,EU,FR,FR-PDL,Île d'Yeu,no,LFEY,IDY,LFEY,,,https://en.wikipedia.org/wiki/%C3%8Ele_d'Yeu_Aerodrome,
+28836,LFEZ,small_airport,Nancy-Malzéville Airfield,48.7244,6.20778,1253,EU,FR,FR-GES,"Saint-Max, Meurthe-et-Moselle",no,LFEZ,,LFEZ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Nancy_-_Malz%C3%A9ville,
+28837,LFFB,small_airport,Buno-Bonnevaux Airfield,48.350074,2.424431,420,EU,FR,FR-IDF,"Buno-Bonnevaux, Essonne",no,LFFB,,LFFB,,,,
+28838,LFFC,small_airport,Mantes-Chérence Airfield,49.078814,1.68829,512,EU,FR,FR-IDF,"Chérence, Val-d'Oise",no,LFFC,,LFFC,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Mantes_-_Ch%C3%A9rence,
+28839,LFFD,small_airport,Saint-André-de-l'Eure Airfield,48.897669,1.250839,489,EU,FR,FR-NOR,"Saint-André-de-l'Eure, Eure",no,LFFD,,LFFD,,,https://en.wikipedia.org/wiki/Saint-Andr%C3%A9-de-l%27Eure_Airfield,Evreux-Saint-André
+28841,LFFG,small_airport,La Ferté-Gaucher Airfield,48.757019,3.278098,538,EU,FR,FR-IDF,"La Ferté-Gaucher, Seine-et-Marne",no,LFFG,,LFFG,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_La_Fert%C3%A9-Gaucher,
+28842,LFFH,small_airport,Château-Thierry-Belleau Airfield,49.066753,3.355465,728,EU,FR,FR-HDF,"Château-Thierry, Aisne",no,LFFH,,LFFH,,,https://en.wikipedia.org/wiki/Ch%C3%A2teau-Thierry_%E2%80%93_Belleau_Aerodrome,
+4102,LFFI,small_airport,Ancenis Airfield,47.4081,-1.1775,111,EU,FR,FR-PDL,Ancenis,no,,,LFFI,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Ancenis,
+28843,LFFJ,small_airport,Joinville Mussey Airfield,48.385086,5.143468,1024,EU,FR,FR-GES,Mussey-sur-Marne,no,,,LFFJ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Joinville_-_Mussey,
+28844,LFFK,small_airport,Fontenay Le Comte Airfield,46.441399,-0.792778,85,EU,FR,FR-PDL,Fontenay Le Comte,no,,,LFFK,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Fontenay-le-Comte,
+28845,LFFL,small_airport,Bailleau Armenonville Airfield,48.5158,1.64,509,EU,FR,FR-CVL,,no,,,LFFL,,,,
+4103,LFFN,small_airport,Brienne-le-Château Airfield,48.430396,4.472487,381,EU,FR,FR-GES,Saint-Christophe-Dodinicourt,no,,,LFFN,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Brienne-le-Ch%C3%A2teau,
+339753,LFFO,small_airport,Beauvoir Fromentine Airfield,46.890422,-2.088475,10,EU,FR,FR-PDL,Fromentine,no,LFFO,,LFFO,,,,
+28847,LFFP,small_airport,Pithiviers Airfield,48.155176,2.187563,384,EU,FR,FR-CVL,"Pithiviers, Loiret",no,,,LFFP,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Pithiviers,
+28848,LFFQ,small_airport,Cerny-La Ferté Alais Airfield,48.498571,2.336891,453,EU,FR,FR-IDF,"Cerny, Essonne",no,,,LFFQ,,https://www.musee-volant-salis.fr/,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_La_Fert%C3%A9-Alais,"Jean-Baptiste Salis, Plateau Ardenay, AVA, Aero Vintage Academy, Salis"
+28849,LFFR,small_airport,Bar-sur-Seine Airfield,48.065907,4.412368,938,EU,FR,FR-GES,"Celles-sur-Ource, Aube",no,,,LFFR,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Bar-sur-Seine,
+28850,LFFT,small_airport,Neufchâteau Airfield,48.35895,5.719615,1224,EU,FR,FR-GES,Neufchâteau,no,,,LFFT,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Neufch%C3%A2teau,
+28851,LFFU,small_airport,Châteauneuf Sur Cher Airfield,46.871101,2.37694,551,EU,FR,FR-CVL,,no,,,LFFU,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Ch%C3%A2teauneuf-sur-Cher,
+28852,LFFV,small_airport,Vierzon-Méreau Airfield,47.194052,2.065412,430,EU,FR,FR-CVL,"Vierzon, Cher",no,LFFV,,LFFV,,,http://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Vierzon_-_M%C3%A9reau,XVZ
+28853,LFFW,small_airport,Montaigu St Georges Airfield,46.931998,-1.327881,184,EU,FR,FR-PDL,Montaigu-Vendée,no,LFFW,,LFFW,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Montaigu-Saint-Georges,
+28856,LFFZ,small_airport,Sézanne-Saint-Remy Airfield,48.70957,3.763304,354,EU,FR,FR-GES,"Saint-Remy-sous-Broyes, Marne",no,,,LFFZ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_S%C3%A9zanne_-_Saint-Remy,
+4104,LFGA,medium_airport,Colmar Houssen airport,48.109901,7.35901,628,EU,FR,FR-GES,Colmar,no,LFGA,CMR,LFGA,,https://www.colmar.aeroport.fr/en/,https://en.wikipedia.org/wiki/Colmar_Airport,
+4105,LFGB,small_airport,Mulhouse-Habsheim Airfield,47.741299,7.43221,788,EU,FR,FR-GES,Mulhouse/Habsheim,no,,,LFGB,,,https://en.wikipedia.org/wiki/Mulhouse%E2%80%93Habsheim_Airfield,
+28857,LFGC,small_airport,Strasbourg Neuhof Airfield,48.553263,7.776604,456,EU,FR,FR-GES,Strasbourg,no,,,LFGC,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Strasbourg-Neuhof,Strasbourg Polygone
+4106,LFGF,small_airport,Beaune-Challanges Airfield,47.006643,4.894132,656,EU,FR,FR-BFC,Beaune/Challanges,no,LFGF,,LFGF,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Beaune_-_Challanges,XBV
+28860,LFGG,small_airport,Belfort Chaux Airfield,47.700732,6.831265,1368,EU,FR,FR-BFC,Chaux,no,,,LFGG,,,https://en.wikipedia.org/wiki/Belfort_Chaux_Airport,
+28861,LFGH,small_airport,Cosne-sur-Loire Airfield,47.36092,2.915862,581,EU,FR,FR-BFC,"Cosne-Cours-sur-Loire, Nièvre",no,,,LFGH,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Cosne-sur-Loire,
+28862,LFGI,small_airport,Dijon Darois Airfield,47.385278,4.946944,1586,EU,FR,FR-BFC,"Darois, Côte-d'Or",no,,,LFGI,,,https://fr.m.wikipedia.org/wiki/Aérodrome_de_Dijon_-_Darois,
+4107,LFGJ,medium_airport,Dole Tavaux Airport,47.038955,5.427589,645,EU,FR,FR-BFC,Dole,yes,LFGJ,DLE,LFGJ,,https://dole.aeroport.fr/,https://en.wikipedia.org/wiki/Dole%E2%80%93Jura_Airport,Dole-Tavaux
+4108,LFGK,small_airport,Joigny Airfield,47.994462,3.392715,732,EU,FR,FR-BFC,"Joigny, Yonne",no,,,LFGK,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Joigny,
+28863,LFGL,small_airport,Lons-le-Saunier Courlaoux Airfield,46.675046,5.46911,761,EU,FR,FR-BFC,Courlaoux,no,LFGL,,LFGL,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Lons-le-Saunier_-_Courlaoux,XLL
+28864,LFGM,small_airport,Montceau-les-Mines Pouilloux Airfield,46.60318,4.338162,1030,EU,FR,FR-BFC,"Pouilloux, Saône-et-Loire",no,,,LFGM,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Montceau-les-Mines_-_Pouilloux,
+28865,LFGN,small_airport,Paray-le-Monial Airfield,46.465798,4.13454,997,EU,FR,FR-BFC,"Paray-le-Monial, Saône-et-Loire",no,,,LFGN,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Paray-le-Monial,
+28866,LFGO,small_airport,Pont-sur-Yonne Airfield,48.291587,3.245745,236,EU,FR,FR-BFC,"Gisy-les-Nobles, Yonne",no,,,LFGO,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Pont-sur-Yonne,
+28867,LFGP,small_airport,Saint-Florentin - Chéu Airfield,47.98019,3.775583,351,EU,FR,FR-BFC,"Jaulges, Yonne",no,,,LFGP,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Saint-Florentin_-_Ch%C3%A9u,
+28868,LFGQ,small_airport,Semur-en-Auxois Airfield,47.480998,4.342976,1053,EU,FR,FR-BFC,"Semur-en-Auxois, Côte-d'Or",no,,,LFGQ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Semur-en-Auxois,
+28869,LFGR,small_airport,Doncourt-lès-Conflans Airfield,49.152165,5.933447,804,EU,FR,FR-GES,Doncourt-lès-Conflans,no,,,LFGR,,,https://en.wikipedia.org/wiki/Doncourt-l%C3%A8s-Conflans_Airport,
+28870,LFGS,small_airport,Longuyon Villette Airfield,49.483617,5.571939,1148,EU,FR,FR-GES,"Longuyon, Meurthe-et-Moselle",no,,,LFGS,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Longuyon_-_Villette,
+28872,LFGU,small_airport,Sarreguemines Neunkirch Airfield,49.128101,7.10833,853,EU,FR,FR-GES,,no,,,LFGU,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Sarreguemines_-_Neunkirch,
+4109,LFGW,medium_airport,Verdun-Le Rozelier Airfield,49.122398,5.46905,1230,EU,FR,FR-GES,"Sommedieue, Meuse",no,LFGW,,LFGW,,,https://en.wikipedia.org/wiki/Verdun-Le-Rozelier_Airport,"XVN, Verdun Sommedieue"
+28875,LFGY,small_airport,Saint-Dié-Remomeix Airfield,48.266475,7.007447,1184,EU,FR,FR-GES,"Remomeix, Vosges",no,LFGY,,LFGY,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Saint-Di%C3%A9_-_Remomeix,"XCK, Aérodrome de Saint-Dié-Remomeix"
+28876,LFGZ,small_airport,Nuits-Saint-Georges Airfield,47.142032,4.968538,797,EU,FR,FR-BFC,"Nuits-Saint-Georges, Côte-d'Or",no,,,LFGZ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Nuits-Saint-Georges,Aérodrome de Nuits-Saint-Georges
+28877,LFHA,small_airport,Issoire-Le Broc Airfield,45.514999,3.2675,1240,EU,FR,FR-ARA,"Le Broc, Alpes-Maritimes",no,,,LFHA,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Issoire_-_Le_Broc,Aérodrome d'Issoire-Le Broc
+28879,LFHD,small_airport,Pierrelatte Airfield,44.397601,4.717646,197,EU,FR,FR-ARA,"La Garde-Adhémar, Drôme",no,,,LFHD,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Pierrelatte,
+28880,LFHE,small_airport,Aérodrome de Romans - Saint-Paul,45.066101,5.10333,594,EU,FR,FR-ARA,,no,,,LFHE,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Romans_-_Saint-Paul,
+28881,LFHF,small_airport,Ruoms Airfield,44.444611,4.332755,361,EU,FR,FR-ARA,Ruoms,no,,,LFHF,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Ruoms,
+28883,LFHH,small_airport,Vienne Reventin Airfield,45.462434,4.828147,719,EU,FR,FR-ARA,"Reventin-Vaugris, Isère",no,LFHH,,LFHH,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Vienne_-_Reventin,XVI
+28884,LFHI,small_airport,Morestel Airfield,45.686905,5.452244,804,EU,FR,FR-ARA,"Arandon-Passins, Isère",no,,,LFHI,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Morestel,
+28885,LFHJ,small_airport,Lyon Corbas Airfield,45.654202,4.91361,650,EU,FR,FR-ARA,Corbas,no,,,LFHJ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Lyon_-_Corbas,
+28886,LFHL,small_airport,Langogne-Lespéron Airfield,44.703589,3.88485,3339,EU,FR,FR-ARA,"Lespéron, Ardèche",no,,,LFHL,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Langogne_-_Lesp%C3%A9ron,Aérodrome de Langogne-Lespéron
+28887,LFHM,small_airport,Megève Altiport,45.823005,6.649406,4823,EU,FR,FR-ARA,Megève,no,LFHM,MVV,LFHM,,,https://en.wikipedia.org/wiki/Meg%C3%A8ve_Altiport,
+28888,LFHN,small_airport,Bellegarde-Vouvray Airfield,46.123336,5.804858,1624,EU,FR,FR-ARA,"Valserhône, Ain",no,LFHN,,LFHN,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Bellegarde_-_Vouvray#Histoire,"XBF, Aérodrome de Bellegarde-Vouvray"
+4110,LFHO,medium_airport,Aubenas-South Ardèche Airport,44.544367,4.372194,923,EU,FR,FR-ARA,"Lanas, Ardèche",no,LFHO,OBS,LFHO,,,https://en.wikipedia.org/wiki/Aubenas_Aerodrome,Aubenas Ardèche Méridionale
+4111,LFHP,small_airport,Le Puy-Loudes Airfield,45.0807,3.76289,2731,EU,FR,FR-ARA,"Chaspuzac, Haute-Loire",yes,LFHP,LPY,LFHP,,,https://en.wikipedia.org/wiki/Le_Puy_-_Loudes_Airport,
+4112,LFHQ,small_airport,Saint-Flour-Coltines Airfield,45.076401,2.99361,3218,EU,FR,FR-ARA,Saint-Flour/Coltines,no,,,LFHQ,,https://www.aerodrome-stflour-coltines.fr/,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Saint-Flour_-_Coltines,
+28889,LFHR,small_airport,Brioude Beaumont Airfield,45.319888,3.361615,1483,EU,FR,FR-ARA,"Beaumont, Puy-de-Dôme",no,,,LFHR,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Brioude_-_Beaumont,
+4113,LFHS,small_airport,Bourg-Ceyzériat Airfield,46.200901,5.29203,857,EU,FR,FR-ARA,Bourg/Ceyzériat,no,LFHS,,LFHS,,,https://en.wikipedia.org/wiki/Bourg_-_Ceyz%C3%A9riat_Airport,
+28890,LFHT,small_airport,Ambert - Le Poyet Airfield,45.516196,3.74514,1847,EU,FR,FR-ARA,"Ambert, Puy-de-Dôme",no,,,LFHT,,https://aeroclub-ambert.fr/,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Ambert_-_Le_Poyet,Aérodrome d'Ambert - Le Poyet
+28891,LFHU,small_airport,L'Alpe d'Huez - Henri Giraud Altiport,45.087399,6.083604,6102,EU,FR,FR-ARA,"Huez, Isère",no,LFHU,AHZ,LFHU,,,https://fr.wikipedia.org/wiki/Altiport_de_l'Alpe_d'Huez,
+4114,LFHV,small_airport,Villefranche-Tarare Airfield,45.918314,4.635184,1076,EU,FR,FR-ARA,"Frontenas, Rhône",no,LFHV,,LFHV,,,https://en.wikipedia.org/wiki/Villefranche_-_Tarare_Airport,
+28893,LFHX,small_airport,Lapalisse - Périgny Airfield,46.253899,3.58861,1040,EU,FR,FR-ARA,,no,,,LFHX,,,http://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Lapalisse_-_P%C3%A9rigny,
+4115,LFHY,small_airport,Moulins-Montbeugny Airfield,46.534599,3.42372,915,EU,FR,FR-ARA,Toulon-sur-Allier,no,LFHY,,LFHY,,,https://en.wikipedia.org/wiki/Moulins_-_Montbeugny_Airport,"XMU, Aérodrome de Moulins-Montbeugny"
+28895,LFIB,small_airport,Aérodrome de Belvès Saint-Pardoux,44.782501,0.958889,791,EU,FR,FR-NAQ,,no,,,LFIB,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Belv%C3%A8s_-_Saint-Pardoux,
+28896,LFID,small_airport,Aérodrome de Condom - Valence-sur-Baïse,43.910301,0.387222,444,EU,FR,FR-OCC,,no,,,LFID,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Condom_-_Valence-sur-Ba%C3%AFse,
+4116,LFIF,small_airport,Saint-Affrique-Belmont Airfield,43.824568,2.743979,1686,EU,FR,FR-OCC,"Belmont-sur-Rance, Aveyron",no,,,LFIF,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Saint-Affrique_-_Belmont,
+4117,LFIG,small_airport,Cassagnes-Bégonhès Airfield,44.177799,2.515,2024,EU,FR,FR-OCC,Cassagnes-Bégonhès,no,,,LFIG,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Cassagnes-B%C3%A9gonh%C3%A8s,
+28897,LFIH,small_airport,Chalais Airfield,45.268101,0.016944,285,EU,FR,FR-NAQ,,no,,,LFIH,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Chalais,
+28898,LFIK,small_airport,Aérodrome de Ribérac-Tourette,45.238667,0.264798,351,EU,FR,FR-NAQ,Ribérac,no,,,LFIK,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Rib%C3%A9rac-Tourette,
+28899,LFIL,small_airport,Rion Des Landes Airfield,43.915798,-0.949167,256,EU,FR,FR-NAQ,,no,,,LFIL,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Rion-des-Landes,
+28901,LFIP,small_airport,Altiport de Peyresourde Balestas,42.796723,0.436503,5190,EU,FR,FR-OCC,,no,,,LFIP,,,https://fr.wikipedia.org/wiki/Altiport_de_Peyresourde-Balestas,
+315430,LFIS,small_airport,Saint-Inglevert Aerodrome,50.882608,1.735757,443,EU,FR,FR-HDF,Saint-Inglevert,no,,,LFIS,,https://www.aeroclub-boulonnais.fr/,https://en.wikipedia.org/wiki/Saint-Inglevert_Airfield,"Boulonnais Aeroclub, Les Deux Caps"
+28904,LFIV,small_airport,Aérodrome de Vendays-Montalivet,45.3806,-1.11583,16,EU,FR,FR-NAQ,,no,,,LFIV,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Vendays-Montalivet,
+28906,LFIY,small_airport,St Jean d'Angély Airfield,45.964993,-0.523374,246,EU,FR,FR-NAQ,,no,,,LFIY,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Saint-Jean-d%27Ang%C3%A9ly_-_Saint-Denis-du-Pin,
+4118,LFJA,small_airport,Chaumont-Semoutiers Airfield,48.080719,5.047703,1001,EU,FR,FR-GES,"Villiers-le-Sec, Haute-Marne",no,LFJA,,LFJA,,,https://en.wikipedia.org/wiki/Chaumont-Semoutiers_Air_Base,"XCW, Chaumont-Semoutiers Air Base"
+4119,LFJB,small_airport,Mauléon Airfield,46.902802,-0.697778,576,EU,FR,FR-NAQ,Mauléon,no,LFJB,,LFJB,,,https://en.wikipedia.org/wiki/Maul%C3%A9on_Aerodrome,
+28907,LFJC,small_airport,Clamecy-Rix Airfield,47.437597,3.507422,713,EU,FR,FR-BFC,"Clamecy, Nièvre",no,,,LFJC,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Clamecy,
+28909,LFJE,small_airport,Altiport de La Motte Chalancon,44.4958,5.40285,2887,EU,FR,FR-ARA,,no,,,LFJE,,https://www.altisurfacelamotte-lfje.fr/,https://fr.wikipedia.org/wiki/Altiport_de_La_Motte-Chalancon,
+28910,LFJF,small_airport,Aérodrome d'Aubenasson,44.6945,5.15111,810,EU,FR,FR-ARA,,no,,,LFJF,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Aubenasson,
+28911,LFJH,small_airport,Aérodrome de Cazères - Palaminy,43.202202,1.05111,811,EU,FR,FR-OCC,,no,,,LFJH,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Caz%C3%A8res_-_Palaminy,
+4120,LFJL,medium_airport,Metz-Nancy-Lorraine Airport,48.982101,6.25132,870,EU,FR,FR-GES,Goin,yes,LFJL,ETZ,LFJL,,https://lorraineaeroport.com/,https://en.wikipedia.org/wiki/Metz-Nancy-Lorraine_Airport,
+4121,LFJR,medium_airport,Angers Marcé airport,47.560299,-0.312222,194,EU,FR,FR-PDL,Angers,no,LFJR,ANE,LFJR,,https://www.angers.aeroport.fr/en,https://en.wikipedia.org/wiki/Angers_–_Loire_Airport,Marcé Airport.
+28914,LFJS,small_airport,Soissons-Courmelles Airfield,49.344978,3.282681,509,EU,FR,FR-HDF,"Soissons, Aisne",no,LFJS,,LFJS,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Soissons_-_Courmelles,"XSS, Aérodrome de Soissons - Courmelles"
+28915,LFJT,small_airport,Tours Le Louroux Airfield,47.149251,0.711125,413,EU,FR,FR-CVL,Angers,no,,,LFJT,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Tours_-_Le_Louroux,Aérodrome de Tours-Le Louroux
+4122,LFJU,small_airport,Lurcy-Lévis Airfield,46.712283,2.944768,746,EU,FR,FR-ARA,"Lurcy-Lévis, Allier",no,,,LFJU,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Lurcy-L%C3%A9vis,
+2989,LFJY,small_airport,Chambley airfield,49.025501,5.87607,866,EU,FR,FR-GES,Chambley-Bussières,no,,,LFJY,,,https://en.wikipedia.org/wiki/Chambley-Bussières_Air_Base,Chambley-Bussières Air Base
+28916,LFKA,small_airport,Albertville General Pierre Delachenal Airfield,45.626044,6.328125,1033,EU,FR,FR-ARA,Tournon,no,,,LFKA,,,https://en.wikipedia.org/wiki/Albertville_Aerodrome,
+4123,LFKB,large_airport,Bastia-Poretta International airport,42.5527,9.48373,26,EU,FR,FR-COR,Bastia,yes,LFKB,BIA,LFKB,,https://bastia-aeroport.cci.corsica/,https://en.wikipedia.org/wiki/Bastia_-_Poretta_Airport,
+4124,LFKC,medium_airport,Calvi Sainte Catherine Airport,42.530422,8.792984,209,EU,FR,FR-COR,Calvi,yes,LFKC,CLY,LFKC,,https://en.balagne-corsica.com/commerce-et-service/calvi-sainte-catherine-airport/,https://en.wikipedia.org/wiki/Calvi_-_Sainte-Catherine_Airport,
+4125,LFKF,large_airport,Figari Sud-Corse Airport,41.50185,9.097092,85,EU,FR,FR-COR,Figari,yes,LFKF,FSC,LFKF,,https://figari-aeroport.cci.corsica/,https://en.wikipedia.org/wiki/Figari_Sud-Corse_Airport,
+28919,LFKG,small_airport,Aérodrome de Ghisonaccia - Alzitone,42.053387,9.400241,177,EU,FR,FR-COR,GHISONACCIA,no,LFKG,,LFKG,,https://aerodromudiaghisunaccia.com/,https://en.wikipedia.org/wiki/Ghisonaccia_Alzitone_Airport,
+28920,LFKH,small_airport,St Jean D'avelanne Airfield,45.516701,5.68056,964,EU,FR,FR-ARA,Figari/Sud Corse,no,,,LFKH,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Saint-Jean-d%27Avelanne,
+4126,LFKJ,medium_airport,Ajaccio Napoléon Bonaparte airport,41.923599,8.80292,18,EU,FR,FR-COR,Ajaccio,yes,LFKJ,AJA,LFKJ,,,https://en.wikipedia.org/wiki/Ajaccio_-_Campo_dell'Oro_Airport,
+28922,LFKM,small_airport,St Galmier Airfield,45.607201,4.30583,1266,EU,FR,FR-ARA,,no,,,LFKM,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Saint-Galmier,
+4127,LFKO,small_airport,Propriano Airport,41.660599,8.88975,13,EU,FR,FR-COR,Propriano,no,LFKO,PRP,LFKO,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Propriano,
+28923,LFKP,small_airport,La Tour-de-Pin Airfield,45.554924,5.385867,1050,EU,FR,FR-ARA,"Cessieu, Isère",no,,,LFKP,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_La_Tour-du-Pin_-_Cessieu,
+4128,LFKS,medium_airport,Solenzara (BA 126) Air Base,41.9244,9.406,28,EU,FR,FR-COR,Solenzara,no,LFKS,SOZ,LFKS,,,https://en.wikipedia.org/wiki/Solenzara_Air_Base,
+4129,LFKT,small_airport,Aérodrome de Corte,42.2919,9.189,1132,EU,FR,FR-COR,Corte,no,,,LFKT,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Corte,
+28924,LFKX,small_airport,Méribel Altiport,45.407505,6.577597,5636,EU,FR,FR-ARA,Les Allues,no,LFKX,MFX,LFKX,,,https://en.wikipedia.org/wiki/M%C3%A9ribel_Altiport,
+28925,LFKY,small_airport,Belley-Peyrieu Airfield,45.694121,5.691533,739,EU,FR,FR-ARA,"Peyrieu, Ain",no,,,LFKY,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Belley_-_Peyrieu,"Aéroclub de Belley-Peyrieu, Aérodrome de Belley-Peyrieu"
+4130,LFLA,medium_airport,Auxerre Branches airport,47.850201,3.49711,523,EU,FR,FR-BFC,Auxerre,no,LFLA,AUF,LFLA,,https://www.auxerre.aeroport.fr/,https://en.wikipedia.org/wiki/Auxerre_%E2%80%93_Branches_Aerodrome,
+4131,LFLB,medium_airport,Chambéry Aix les Bains airport,45.6381,5.88023,779,EU,FR,FR-ARA,Chambéry,yes,LFLB,CMF,LFLB,,https://www.chambery-airport.com/en,https://en.wikipedia.org/wiki/Chamb%C3%A9ry_Airport,
+4132,LFLC,large_airport,Clermont-Ferrand Auvergne airport,45.786701,3.16917,1090,EU,FR,FR-ARA,Clermont-Ferrand,yes,LFLC,CFE,LFLC,,https://www.clermont-aeroport.com/en,https://en.wikipedia.org/wiki/Clermont-Ferrand_Auvergne_Airport,
+4133,LFLD,medium_airport,Bourges airport,47.060158,2.369633,529,EU,FR,FR-CVL,Bourges,no,LFLD,BOU,LFLD,,https://www.bourges.aeroport.fr/en,https://en.wikipedia.org/wiki/Bourges_Airport,
+4134,LFLE,small_airport,Chambéry Challes-les-Eaux Airfield,45.5611,5.97576,973,EU,FR,FR-ARA,Barby,no,LFLE,,LFLE,,https://www.aeroclubdechalles.com/,https://en.wikipedia.org/wiki/Chamb%C3%A9ry_Aerodrome,Aérodrome de Chambéry Challes-les-Eaux
+28927,LFLG,small_airport,Grenoble Le Versoud Airfield,45.218047,5.848317,722,EU,FR,FR-ARA,"Le Versoud, Isère",no,LFLG,,LFLG,,,https://en.wikipedia.org/wiki/Grenoble_%E2%80%93_Le_Versoud_Aerodrome,
+4135,LFLH,small_airport,Chalon Champforgeuil Airfield,46.825813,4.817646,623,EU,FR,FR-BFC,Châlon sur Saône,no,LFLH,,LFLH,,,https://en.wikipedia.org/wiki/Chalon_-_Champforgeuil_Airfield,XCD
+4136,LFLI,medium_airport,Annemasse Airfield,46.192001,6.26839,1620,EU,FR,FR-ARA,Annemasse,no,LFLI,,LFLI,,http://www.caa.asso.fr/,https://en.wikipedia.org/wiki/Annemasse_Aerodrome,QNJ
+28488,LFLJ,small_airport,Courchevel Altiport,45.397531,6.63498,6583,EU,FR,FR-ARA,Saint-Bon,no,LFLJ,CVF,LFLJ,,,https://en.wikipedia.org/wiki/Courchevel_Altiport,
+4137,LFLL,large_airport,Lyon Saint-Exupéry Airport,45.725996,5.090139,821,EU,FR,FR-ARA,"Colombier-Saugnieu, Rhône",yes,LFLL,LYS,LFLL,,https://www.lyonaeroports.com/,https://en.wikipedia.org/wiki/Lyon%E2%80%93Saint-Exup%C3%A9ry_Airport,"Lyon, Saint-Exupéry, Satolas"
+4138,LFLM,medium_airport,Mâcon-Charnay Airfield,46.295131,4.795977,728,EU,FR,FR-BFC,"Charnay-lès-Mâcon, Saône-et-Loire",no,,,LFLM,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_M%C3%A2con_-_Charnay,QNX
+4139,LFLN,medium_airport,Saint-Yan Airport,46.414019,4.014177,796,EU,FR,FR-BFC,"L'Hôpital-le-Mercier, Saône-et-Loire",no,LFLN,SYT,LFLN,,http://www.aeroportsaintyan.fr/,https://en.wikipedia.org/wiki/Saint-Yan_Airport,
+4140,LFLO,medium_airport,Roanne-Renaison Airport,46.053818,3.999023,1106,EU,FR,FR-ARA,Saint-Léger-sur-Roanne,no,LFLO,RNE,LFLO,,,https://fr.wikipedia.org/wiki/A%C3%A9roport_de_Roanne,
+4141,LFLP,medium_airport,Annecy Meythet airport,45.928947,6.0987,1521,EU,FR,FR-ARA,Annecy,yes,LFLP,NCY,LFLP,,https://www.annecy-airport.com/en,https://en.wikipedia.org/wiki/Annecy_-_Haute-Savoie_-_Mont_Blanc_Airport,Annecy-Meythet
+28929,LFLQ,small_airport,Montélimar-Ancône Airfield,44.579883,4.738789,240,EU,FR,FR-ARA,"Montélimar, Drôme",no,,,LFLQ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Mont%C3%A9limar_-_Anc%C3%B4ne,
+28930,LFLR,small_airport,Saint-Rambert-d'Albon Airfield,45.251531,4.826403,509,EU,FR,FR-ARA,"Albon, Drôme",no,,,LFLR,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Saint-Rambert-d'Albon,
+4142,LFLS,medium_airport,Grenoble Alpes Isère Airport,45.3629,5.32937,1302,EU,FR,FR-ARA,Grenoble,yes,LFLS,GNB,LFLS,,https://www.grenoble-airport.com/en,https://en.wikipedia.org/wiki/Grenoble-Is%C3%A8re_Airport,
+4143,LFLT,small_airport,Montluçon-Domérat Airfield,46.352767,2.570479,771,EU,FR,FR-ARA,"Domérat, Allier",no,,,LFLT,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Montlu%C3%A7on_-_Dom%C3%A9rat,
+4144,LFLU,medium_airport,Valence-Chabeuil Airport,44.9216,4.9699,525,EU,FR,FR-ARA,"Chabeuil, Drôme",no,LFLU,VAF,LFLU,,http://www.valenceaeroport.fr,https://en.wikipedia.org/wiki/Valence-Chabeuil_Airport,
+4145,LFLV,medium_airport,Vichy-Charmeil Airport,46.16969,3.403637,817,EU,FR,FR-ARA,"Charmeil, Allier",no,LFLV,VHY,LFLV,,,https://en.wikipedia.org/wiki/Vichy_%E2%80%94_Charmeil_Airport,
+4146,LFLW,medium_airport,Aurillac airport,44.891399,2.42194,2096,EU,FR,FR-ARA,Aurillac,yes,LFLW,AUR,LFLW,,,https://en.wikipedia.org/wiki/Aurillac_Airport,
+4147,LFLX,medium_airport,Châteauroux Déols airport,46.860221,1.728326,529,EU,FR,FR-CVL,Châteauroux,no,LFLX,CHR,LFLX,,https://chateauroux.aeroport.fr/#,https://en.wikipedia.org/wiki/Ch%C3%A2teauroux-D%C3%A9ols_%22Marcel_Dassault%22_Airport,
+4148,LFLY,medium_airport,Lyon Bron Airport,45.727947,4.943991,659,EU,FR,FR-ARA,"Chassieu, Lyon",no,LFLY,LYN,LFLY,,https://www.lyonaeroports.com/en/lyon-bron,https://en.wikipedia.org/wiki/Lyon%E2%80%93Bron_Airport,
+28931,LFLZ,small_airport,Aérodrome de Feurs - Chambéon,45.70622,4.19734,1096,EU,FR,FR-ARA,,no,,,LFLZ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Feurs_-_Chamb%C3%A9on,
+4149,LFMA,small_airport,Aix Les Milles airport,43.506294,5.366426,367,EU,FR,FR-PAC,Aix en Provence,no,LFMA,,LFMA,,,https://en.wikipedia.org/wiki/Aix-en-Provence_Aerodrome,Aérodrome d'Aix - Les Milles
+4150,LFMC,medium_airport,Le Luc-Le Cannet Airfield,43.384701,6.38714,265,EU,FR,FR-PAC,"Le Cannet-des-Maures, Var",no,,,LFMC,,,https://en.wikipedia.org/wiki/Le_Luc_%E2%80%93_Le_Cannet_Airport,
+4151,LFMD,medium_airport,Cannes Mandelieu Airport,43.547998,6.955176,13,EU,FR,FR-PAC,Cannes,no,LFMD,CEQ,LFMD,,https://www.cannes.aeroport.fr/,https://en.wikipedia.org/wiki/Cannes_%E2%80%93_Mandelieu_Airport,
+28932,LFME,small_airport,Nîmes Courbessac Airfield,43.853901,4.41361,197,EU,FR,FR-OCC,Nîmes,no,,,LFME,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_N%C3%AEmes-Courbessac,
+28933,LFMF,small_airport,Fayence-Tourrettes Airfield,43.609576,6.697369,741,EU,FR,FR-PAC,"Fayence, Var",no,,,LFMF,,,https://en.wikipedia.org/wiki/Fayence-Tourrettes_Airfield,Tourrettes
+4152,LFMH,medium_airport,Saint-Étienne-Bouthéon Airport,45.5406,4.29639,1325,EU,FR,FR-ARA,"Andrézieux-Bouthéon, Loire",no,LFMH,EBU,LFMH,,https://saint-etienne.aeroport.fr/en/,https://en.wikipedia.org/wiki/Saint-%C3%89tienne_-_Bouth%C3%A9on_Airport,Saint-Étienne-Loire
+4153,LFMI,medium_airport,Istres-Le Tubé Air Base,43.522701,4.92384,82,EU,FR,FR-PAC,"Istres, Bouches-du-Rhône",no,LFMI,,LFMI,,,https://en.wikipedia.org/wiki/Istres-Le_Tub%C3%A9_Air_Base,"QIE, Istres Air Base, BA125, Base aérienne 125 Istres, Pôle aéronautique Jean Sarrail"
+4154,LFMK,medium_airport,Carcassonne Salvaza Airport,43.216,2.30632,433,EU,FR,FR-OCC,Carcassonne,yes,LFMK,CCF,LFMK,,https://www.aeroport-carcassonne.com/,https://en.wikipedia.org/wiki/Carcassonne_Salvaza_Airport,
+4155,LFML,large_airport,Marseille Provence Airport,43.438088,5.2125,74,EU,FR,FR-PAC,"Marignane, Bouches-du-Rhône",yes,LFML,MRS,LFML,,https://www.marseille.aeroport.fr/,https://en.wikipedia.org/wiki/Marseille_Provence_Airport,
+4156,LFMN,large_airport,Nice-Côte d'Azur Airport,43.658401,7.21587,12,EU,FR,FR-PAC,"Nice, Alpes-Maritimes",yes,LFMN,NCE,LFMN,,https://www.nice.aeroport.fr/en,https://en.wikipedia.org/wiki/C%C3%B4te_d'Azur_International_Airport,
+4157,LFMO,medium_airport,Orange-Caritat (BA 115) Air Base,44.140499,4.86672,197,EU,FR,FR-PAC,"Orange, Vaucluse",no,LFMO,,LFMO,,,https://en.wikipedia.org/wiki/Orange-Caritat_Air_Base,XOG
+4158,LFMP,medium_airport,Perpignan-Rivesaltes (Llabanère) Airport,42.740398,2.87067,144,EU,FR,FR-OCC,Perpignan/Rivesaltes,yes,LFMP,PGF,LFMP,,https://www.aeroport-perpignan.com/,https://en.wikipedia.org/wiki/Perpignan_-_Rivesaltes_Airport,
+4159,LFMQ,medium_airport,Le Castellet Airport,43.252499,5.78519,1391,EU,FR,FR-PAC,"Le Castellet, Var",no,LFMQ,CTT,LFMQ,,https://www.aeroportducastellet.com/en/,https://fr.wikipedia.org/wiki/A%C3%A9roport_du_Castellet,
+28935,LFMR,small_airport,Barcelonnette - Saint-Pons Airfield,44.387198,6.608831,3714,EU,FR,FR-PAC,"Saint-Pons, Alpes-de-Haute-Provence",no,LFMR,BAE,LFMR,,https://www.aerodromebarcelonnette.fr/,https://en.wikipedia.org/wiki/Barcelonnette_%E2%80%93_Saint-Pons_Airport,
+4160,LFMS,medium_airport,Aérodrome d'Alès Cévennes,44.069698,4.14212,668,EU,FR,FR-OCC,Alès/Deaux,no,LFMS,,LFMS,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Al%C3%A8s_C%C3%A9vennes,XAS
+4161,LFMT,large_airport,Montpellier-Méditerranée Airport,43.576199,3.96301,17,EU,FR,FR-OCC,Montpellier/Méditerranée,yes,LFMT,MPL,LFMT,,https://www.montpellier.aeroport.fr/,https://en.wikipedia.org/wiki/Montpellier_-_M%C3%A9diterran%C3%A9e_Airport,
+4162,LFMU,medium_airport,Béziers Vias airport,43.323502,3.3539,56,EU,FR,FR-OCC,Béziers,yes,LFMU,BZR,LFMU,,https://beziers.aeroport.fr/en/,https://en.wikipedia.org/wiki/B%C3%A9ziers-Agde-Vias_Airport,
+4163,LFMV,medium_airport,Avignon Caumont airport,43.907299,4.90183,124,EU,FR,FR-PAC,Avignon,yes,LFMV,AVN,LFMV,,https://avignon.aero/,https://en.wikipedia.org/wiki/Avignon_-_Caumont_Airport,
+28936,LFMW,small_airport,Aérodrome de Castelnaudary-Villeneuve,43.312199,1.92111,551,EU,FR,FR-OCC,Castelnaudary Villeneuve,no,,,LFMW,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Castelnaudary_-_Villeneuve,
+4164,LFMY,medium_airport,Salon-de-Provence (BA 701) Air Base,43.6064,5.10925,195,EU,FR,FR-PAC,Salon,no,,,LFMY,,,https://en.wikipedia.org/wiki/Salon-de-Provence_Air_Base,
+4165,LFMZ,small_airport,Lézignan-Corbières Airfield,43.1758,2.73417,207,EU,FR,FR-OCC,Lézignan-Corbières,no,,,LFMZ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_L%C3%A9zignan-Corbi%C3%A8res,
+28938,LFNA,small_airport,Gap-Tallard Airfield,44.455002,6.03778,1986,EU,FR,FR-PAC,"Tallard, Hautes-Alpes",no,LFNA,GAT,LFNA,,,https://en.wikipedia.org/wiki/Gap%E2%80%93Tallard_Airport,
+4166,LFNB,medium_airport,Mende-Brenoux Airfield,44.502102,3.53282,3362,EU,FR,FR-OCC,Mende/Brénoux,no,LFNB,MEN,LFNB,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Mende_-_Brenoux,
+28939,LFNC,small_airport,Mont-Dauphin Saint-Crépin Airfield,44.701698,6.60028,2963,EU,FR,FR-PAC,"Saint-Crépin, Hautes-Alpes",no,LFNC,SCP,LFNC,,http://www.stcrepin-aero.com/,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Mont-Dauphin_-_Saint-Cr%C3%A9pin,
+28941,LFNE,small_airport,Aérodrome d'Eyguières,43.658298,5.01361,246,EU,FR,FR-PAC,,no,,,LFNE,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Salon_-_Eygui%C3%A8res,
+28942,LFNF,small_airport,Vinon Airfield,43.737801,5.78417,902,EU,FR,FR-PAC,"Vinon-sur-Verdon, Var",no,,,LFNF,,,https://fr.wikipedia.org/wiki/Liste_des_a%C3%A9rodromes_en_France,
+28943,LFNG,small_airport,Aérodrome de Montpellier - Candillargues,43.610298,4.07028,5,EU,FR,FR-OCC,,no,,,LFNG,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Montpellier_-_Candillargues,
+4167,LFNH,small_airport,Edgar Soumille Airfield,44.027689,5.084255,394,EU,FR,FR-PAC,"Carpentras, Vaucluse",no,,,LFNH,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_Edgar_Soumille,Pernes-les-Fontaines
+28944,LFNJ,small_airport,Aspres-sur-Buëch Airfield,44.517458,5.735743,2726,EU,FR,FR-PAC,"Aspres-sur-Buëch, Hautes-Alpes",no,,,LFNJ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Aspres-sur-Bu%C3%ABch,
+28945,LFNL,small_airport,Aérodrome de Saint-Martin-de-Londres,43.8008,3.7825,597,EU,FR,FR-OCC,,no,,,LFNL,,,,
+28947,LFNO,small_airport,Florac Ste Enimie Airfield,44.2864,3.46667,3054,EU,FR,FR-OCC,,no,,,LFNO,,,,
+28949,LFNQ,small_airport,Mont Louis La Quillane Airfield,42.543598,2.12,5610,EU,FR,FR-OCC,,no,,,LFNQ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Mont-Louis_-_La_Quillane,
+28950,LFNR,small_airport,Berre-la-Fare Airfield,43.536659,5.177444,108,EU,FR,FR-PAC,"Berre-l'Étang, Bouches-du-Rhône",no,,,LFNR,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Berre_-_La_Fare,
+28951,LFNS,small_airport,Sistéron-Vaumeilh Airfield,44.286471,5.929086,1772,EU,FR,FR-PAC,"Vaumeilh, Alpes-de-Haute-Provence",no,,,LFNS,,http://www.aerodrome-sisteron.com,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Sisteron-Vaumeilh,Sistéron-Thèze
+28952,LFNT,small_airport,Avignon-Pujaut Airfield,43.996899,4.75556,148,EU,FR,FR-OCC,"Pujaut, Gard",no,,,LFNT,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Avignon_-_Pujaut,
+28953,LFNU,small_airport,Uzès-Belvezet Airfield,44.082146,4.393926,886,EU,FR,FR-OCC,"Mont-Lozère-et-Goulet, Lozère",no,,,LFNU,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Uz%C3%A8s,
+28954,LFNV,small_airport,Valréas Visan Airfield,44.33574,4.906877,472,EU,FR,FR-PAC,Visan,no,,,LFNV,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Valr%C3%A9as_-_Visan,
+28956,LFNX,small_airport,Bédarieux La Tour Airfield,43.6408,3.14556,1237,EU,FR,FR-OCC,,no,,,LFNX,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_B%C3%A9darieux_-_La_Tour-sur-Orb,
+4168,LFOA,medium_airport,Avord (BA 702) Air Base,47.053299,2.6325,580,EU,FR,FR-CVL,Avord,no,,,LFOA,,,https://en.wikipedia.org/wiki/Avord_Air_Base,
+4169,LFOB,large_airport,Beauvais-Tillé airport,49.454399,2.11278,359,EU,FR,FR-HDF,Beauvais,yes,LFOB,BVA,LFOB,,https://www.aeroportparisbeauvais.com/,https://en.wikipedia.org/wiki/Paris_Beauvais_Till%C3%A9_Airport,Beauvais-Tillé
+4170,LFOC,medium_airport,Châteaudun Airfield,48.057907,1.379309,433,EU,FR,FR-CVL,"Châteaudun, Eure-et-Loir",no,,,LFOC,,https://airchateaudun.com/,https://en.wikipedia.org/wiki/Ch%C3%A2teaudun_Air_Base,
+4171,LFOD,small_airport,Aérodrome de Saumur - Saint-Florent,47.256802,-0.115142,269,EU,FR,FR-PDL,Saumur/Saint-Florent,no,LFOD,,LFOD,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Saumur_-_Saint-Florent,XSU
+4172,LFOE,medium_airport,Évreux-Fauville (BA 105) Air Base,49.028702,1.21986,464,EU,FR,FR-NOR,"Fauville, Eure",no,LFOE,EVX,LFOE,,,https://en.wikipedia.org/wiki/%C3%89vreux-Fauville_Air_Base,
+28959,LFOF,small_airport,Alençon-Valframbert Airfield,48.446568,0.107996,479,EU,FR,FR-NOR,"Alençon, Orne",no,LFOF,,LFOF,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Alen%C3%A7on_-_Valframbert,XAN
+28960,LFOG,small_airport,Aérodrome de Flers Saint-Paul,48.749964,-0.593927,656,EU,FR,FR-NOR,Flers,no,,,LFOG,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Flers_-_Saint-Paul,
+4173,LFOH,medium_airport,Le Havre-Octeville Airport,49.534038,0.088406,313,EU,FR,FR-NOR,Le Havre,no,LFOH,LEH,LFOH,,https://www.lehavre.aeroport.fr/,https://en.wikipedia.org/wiki/Le_Havre_Octeville_Airport,
+4174,LFOI,medium_airport,Abbeville-Buigny Baie de Somme Airfield,50.143501,1.831891,220,EU,FR,FR-HDF,Buigny-Saint-Maclou,no,LFOI,,LFOI,,http://aeroclub-abbeville.fr/,https://fr.wikipedia.org/wiki/Aérodrome_d'Abbeville,"XAB, Aérodrome d'Abbeville"
+4175,LFOJ,medium_airport,Orléans-Bricy (BA 123) Air Base,47.987801,1.76056,412,EU,FR,FR-CVL,"Boulay-les-Barres, Loiret",no,,,LFOJ,,,https://en.wikipedia.org/wiki/Orl%C3%A9ans_-_Bricy_Air_Base,
+4176,LFOK,medium_airport,Chalons Vatry airport,48.77333,4.20611,587,EU,FR,FR-GES,Chalons en Champagne,yes,LFOK,XCR,LFOK,,https://www.parisvatry.com/,https://en.wikipedia.org/wiki/Ch%C3%A2lons_Vatry_Airport,"Paris-Châlons, Paris-Vatry, Paris-Vatry (Disney), Vatry Europort"
+28961,LFOL,small_airport,L'Aigle-Saint-Michel Airfield,48.758502,0.656632,787,EU,FR,FR-NOR,"Saint-Sulpice-sur-Risle, Orne",no,,,LFOL,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_L%27Aigle_-_Saint-Michel,Aérodrome de L'Aigle-Saint-Michel
+28962,LFOM,small_airport,Lessay Airfield,49.202276,-1.507983,92,EU,FR,FR-NOR,"Lessay, Basse-Normandie",no,,,LFOM,,,https://en.wikipedia.org/wiki/Lessay_Airport,"Aérodrome Charles Lindbergh, Charles Lindbergh Airfield"
+28963,LFON,small_airport,Dreux Vernouillet Airfield,48.70543,1.361155,443,EU,FR,FR-CVL,"Vernouillet, Yvelines",no,LFON,,LFON,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Dreux_-_Vernouillet,XDR
+4177,LFOP,medium_airport,Rouen Vallée de Seine Airport,49.384887,1.179142,512,EU,FR,FR-NOR,Boos,no,LFOP,URO,LFOP,,https://www.aeroport-rouen.fr/,https://en.wikipedia.org/wiki/Rouen_Airport,
+4178,LFOQ,small_airport,Blois Le Breuil Airfield,47.678502,1.20884,398,EU,FR,FR-CVL,Blois,no,LFOQ,,LFOQ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Blois_-_Le_Breuil,"XBQ, Aérodrome de Blois-Le Breuil"
+28965,LFOR,small_airport,Chartres-Métropole Airfield,48.457502,1.519843,509,EU,FR,FR-CVL,"Chartres, Eure-et-Loir",no,LFOR,,LFOR,,,https://en.wikipedia.org/wiki/Chartres_%E2%80%93_Champhol_Aerodrome,"QTJ, Champhol, A-40"
+28966,LFOS,small_airport,Saint-Valery-Vittefleur Airfield,49.83516,0.655281,272,EU,FR,FR-NOR,Saint-Sylvain,no,,,LFOS,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Saint-Valery_-_Vittefleur,Aérodrome de Saint-Valery-Vittefleur
+4179,LFOT,medium_airport,Tours Val de Loire Airport,47.432201,0.727606,357,EU,FR,FR-CVL,"Tours, Indre-et-Loire",yes,LFOT,TUF,LFOT,,http://www.tours.aeroport.fr/index_en.php,https://en.wikipedia.org/wiki/Tours_Val_de_Loire_Airport,"Aéroport Tours-Val de Loire, Loire Valley"
+4180,LFOU,small_airport,Cholet Le Pontreau airfield,47.0821,-0.877064,443,EU,FR,FR-PDL,Cholet,no,LFOU,CET,LFOU,,,https://en.wikipedia.org/wiki/Cholet_Le_Pontreau_Airport,
+4181,LFOV,medium_airport,Laval-Entrammes Airport,48.032208,-0.743999,330,EU,FR,FR-PDL,"Laval, Mayenne",no,LFOV,LVA,LFOV,,https://www.aeroport-laval.com/en/home/,https://fr.wikipedia.org/wiki/A%C3%A9roport_de_Laval_-_La_Mayenne,
+28968,LFOX,small_airport,Étampes-Mondésir Airfield,48.381901,2.07528,494,EU,FR,FR-IDF,"Guillerval, Essonne",no,,,LFOX,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27%C3%89tampes_-_Mond%C3%A9sir,
+28969,LFOY,small_airport,Havre-Saint-Romain-de-Colbosc Airfield,49.544676,0.360403,423,EU,FR,FR-NOR,Gommerville,no,,,LFOY,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_du_Havre_-_Saint-Romain-de-Colbosc,Aérodrome du Havre-Saint-Romain
+4182,LFOZ,small_airport,Orléans–Saint-Denis-de-l'Hôtel Airport,47.897758,2.164478,396,EU,FR,FR-CVL,"Saint-Denis-de-l'Hôtel, Loiret",no,LFOZ,ORE,LFOZ,,https://orleans.aeroport.fr/,https://en.wikipedia.org/wiki/Orl%C3%A9ans_%E2%80%93_Saint-Denis-de-l%27H%C3%B4tel_Airport,"Aéroport du Loiret, Loiret, Loire Valley, Loire-Vallée"
+28970,LFPA,small_airport,Persan-Beaumont Airfield,49.165798,2.31306,148,EU,FR,FR-IDF,"Bernes-sur-Oise, Val-d'Oise",no,,,LFPA,,,https://en.wikipedia.org/wiki/Persan-Beaumont_Airport,Aérodrome de Persan-Beaumont
+4183,LFPB,large_airport,Paris-Le Bourget International Airport,48.962276,2.436539,218,EU,FR,FR-IDF,Paris,no,LFPB,LBG,LFPB,,http://www.aeroportsdeparis.fr/,https://en.wikipedia.org/wiki/Le_Bourget_Airport,PAR
+4184,LFPC,medium_airport,Creil Air Base,49.253502,2.51914,291,EU,FR,FR-HDF,Creil,no,LFPC,CSF,LFPC,,,https://fr.wikipedia.org/wiki/Base_a%C3%A9rienne_110_Creil,BA 110
+28971,LFPD,small_airport,Bernay-Saint-Martin Airfield,49.102351,0.565882,554,EU,FR,FR-NOR,"Bernay, Eure",no,LFPD,,LFPD,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Bernay_-_Saint-Martin,XBX
+28972,LFPE,small_airport,Meaux-Esbly Airfield,48.927462,2.833457,217,EU,FR,FR-IDF,"Isles-lès-Villenoy, Seine-et-Marne",no,,,LFPE,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Meaux_-_Esbly,Aérodrome de Meaux-Esbly
+28973,LFPF,small_airport,Beynes Thiverval Airfield,48.843165,1.906279,371,EU,FR,FR-IDF,"Beynes, Yvelines",no,LFPF,,LFPF,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Beynes_-_Thiverval,Aérodrome de Beynes - Thiverval
+4185,LFPG,large_airport,Charles de Gaulle International Airport,49.00896,2.554117,392,EU,FR,FR-IDF,"Paris (Roissy-en-France, Val-d'Oise)",yes,LFPG,CDG,LFPG,,http://www.aeroportsdeparis.fr/,https://en.wikipedia.org/wiki/Charles_de_Gaulle_Airport,"PAR, Aéroport Roissy-Charles de Gaulle, Roissy Airport"
+28974,LFPH,small_airport,Chelles-le-Pin Airfield,48.896568,2.606206,207,EU,FR,FR-IDF,"Chelles, Seine-et-Marne",no,,,LFPH,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Chelles_-_Le_Pin,Aérodrome de Chelles-le-Pin
+30241,LFPI,heliport,Paris Issy-les-Moulineaux Heliport,48.832987,2.273043,112,EU,FR,FR-IDF,"Issy-les-Moulineaux, Hauts-de-Seine",no,,,LFPI,,,https://fr.wikipedia.org/wiki/H%C3%A9liport_de_Paris_-_Issy-les-Moulineaux_-_Val%C3%A9rie-Andr%C3%A9,JDP
+4186,LFPK,small_airport,Coulommiers-Voisins Aerodrome,48.839602,3.008653,470,EU,FR,FR-IDF,"Pommeuse, Seine-et-Marne",no,LFPK,,LFPK,,,https://en.wikipedia.org/wiki/Coulommiers_%E2%80%93_Voisins_Aerodrome,Aérodrome de Coulommiers - Voisins
+28975,LFPL,small_airport,Lognes Emerainville Airfield,48.821028,2.625967,359,EU,FR,FR-IDF,"Lognes, Seine-et-Marne",no,LFPL,,LFPL,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Lognes-%C3%89merainville,"XLG, Aérodrome Lognes-Emerainville"
+4187,LFPM,medium_airport,Melun-Villaroche Airfield,48.604698,2.67112,302,EU,FR,FR-IDF,"Moissy-Cramayel, Seine-et-Marne",no,,,LFPM,,,https://en.wikipedia.org/wiki/Melun_Villaroche_Aerodrome,
+4188,LFPN,medium_airport,Toussus-le-Noble Airport,48.7519,2.10619,538,EU,FR,FR-IDF,"Toussus-le-Noble, Yvelines",no,LFPN,TNF,LFPN,,,https://en.wikipedia.org/wiki/Toussus-le-Noble_Airport,
+4189,LFPO,large_airport,Paris-Orly Airport,48.729499,2.358963,291,EU,FR,FR-IDF,"Paris (Orly, Val-de-Marne)",yes,LFPO,ORY,LFPO,,https://www.parisaeroport.fr/orly,https://en.wikipedia.org/wiki/Orly_Airport,
+28976,LFPP,small_airport,Le Plessis-Belleville Airfield,49.108837,2.736138,387,EU,FR,FR-HDF,Le Plessis-Belleville,no,,,LFPP,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_du_Plessis-Belleville,
+28977,LFPQ,small_airport,Fontenay-Trésigny Aerodrome,48.706276,2.902849,371,EU,FR,FR-IDF,Fontenay-Trésigny,no,,,LFPQ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Fontenay-Tr%C3%A9signy,Aérodrome de Fontenay-Trésigny
+4190,LFPT,medium_airport,Pontoise-Cormeilles Aerodrome,49.096064,2.035543,325,EU,FR,FR-IDF,"Cormeilles-en-Vexin, Val-d'Oise",no,LFPT,POX,LFPT,,,https://en.wikipedia.org/wiki/Pontoise_%E2%80%93_Cormeilles_Aerodrome,"Aérodrome de Pontoise-Cormeilles en Vexin, Cergy Pontoise"
+28978,LFPU,small_airport,Moret-Episy Airfield,48.34119,2.798517,253,EU,FR,FR-IDF,"Moret-Loing-et-Orvanne, Seine-et-Marne",no,,,LFPU,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Moret_-_%C3%89pisy,Aéroclub de la Vallée du Loing
+4191,LFPV,medium_airport,Vélizy-Villacoublay Air Base,48.774406,2.203102,584,EU,FR,FR-IDF,"Vélizy-Villacoublay, Yvelines",no,,VIY,LFPV,,,https://en.wikipedia.org/wiki/V%C3%A9lizy_%E2%80%93_Villacoublay_Air_Base,BA 107
+28979,LFPX,small_airport,Chavenay-Villepreux Airfield,48.842323,1.9805,426,EU,FR,FR-IDF,"Chavenay, Yvelines",no,LFPX,,LFPX,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Chavenay_-_Villepreux,
+28981,LFPZ,small_airport,Saint-Cyr-l'École Airport,48.812459,2.067533,373,EU,FR,FR-IDF,"Saint-Cyr-l'École, Yvelines",no,,,LFPZ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Saint-Cyr-l%27%C3%89cole,
+4192,LFQA,small_airport,Reims-Prunay Airfield,49.208698,4.15658,313,EU,FR,FR-GES,"Prunay, Marne",no,,,LFQA,,,https://en.wikipedia.org/wiki/Reims_%E2%80%93_Prunay_Aerodrome,"Aérodrome de Reims Prunay, Reims-Champagne, Reims"
+4193,LFQB,medium_airport,Troyes-Barberey Airport,48.322102,4.0167,388,EU,FR,FR-GES,"Barberey-Saint-Sulpice, Aube",no,,,LFQB,,http://www.troyes.aeroport.fr/,https://en.wikipedia.org/wiki/Troyes_%E2%80%93_Barberey_Airport,QYR
+4194,LFQC,small_airport,Lunéville-Croismare Airfield,48.593262,6.545419,790,EU,FR,FR-GES,Chanteheux,no,,,LFQC,,,https://en.wikipedia.org/wiki/Lun%C3%A9ville-Croismare_Airport,
+28982,LFQD,small_airport,Arras-Roclincourt Airfield,50.323898,2.80278,338,EU,FR,FR-HDF,Saint-Laurent-Blangy,no,,,LFQD,,,https://en.wikipedia.org/wiki/Arras_%E2%80%93_Roclincourt_Airfield,
+4195,LFQE,medium_airport,Lieutenant Étienne Mantoux Air Base,49.226898,5.67222,770,EU,FR,FR-GES,Rouvres-en-Woëvre,no,,,LFQE,,,https://en.wikipedia.org/wiki/Base_Lieutenant_%C3%89tienne_Mantoux,Étain-Rouvres Air Base
+4196,LFQF,small_airport,Autun-Bellevue Airfield,46.967277,4.260925,997,EU,FR,FR-BFC,"Autun, Saône-et-Loire",no,,,LFQF,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Autun-Bellevue,
+4197,LFQG,medium_airport,Nevers-Fourchambault Airport,47.002913,3.113114,602,EU,FR,FR-BFC,"Marzy, Nièvre",no,LFQG,NVS,LFQG,,,https://fr.wikipedia.org/wiki/A%C3%A9roport_de_Nevers-Fourchambault,
+28983,LFQH,small_airport,Châtillon-sur-Seine Airfield,47.843924,4.580045,905,EU,FR,FR-BFC,Châtillon-sur-Seine,no,,,LFQH,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Ch%C3%A2tillon-sur-Seine,Aéro-Club du Chatillonnais
+4199,LFQJ,small_airport,Maubeuge-Élesmes Airfield,50.310501,4.03312,452,EU,FR,FR-HDF,"Vieux-Reng, Nord",no,,,LFQJ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Maubeuge_-_%C3%89lesmes,"Maubeuge-Vieux-Reng-Élesmes Airport,"
+28984,LFQK,small_airport,Châlons - Écury-sur-Coole Airfield,48.905107,4.352703,319,EU,FR,FR-GES,Écury-sur-Coole,no,,,LFQK,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Ch%C3%A2lons_-_%C3%89cury-sur-Coole,Farman Clément Aeroclub
+28985,LFQL,small_airport,Lens-Bénifontaine Airfield,50.4664,2.81972,167,EU,FR,FR-HDF,"Bénifontaine, Pas-de-Calais",no,,,LFQL,,https://aeroclub-vailler.fr/,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Lens_-_B%C3%A9nifontaine,
+4200,LFQM,small_airport,Besançon La Vèze Airfield,47.206615,6.083168,1271,EU,FR,FR-BFC,Besançon,no,LFQM,,LFQM,,,https://en.wikipedia.org/wiki/Besan%C3%A7on_%E2%80%93_La_V%C3%A8ze_Aerodrome,QBQ
+28986,LFQN,small_airport,Saint-Omer Wizernes Airfield,50.727456,2.232586,249,EU,FR,FR-HDF,"Longuenesse, Pas-de-Calais",no,,,LFQN,,https://www.aerodromes.fr/aeroport-de-saint-omer---wizernes-lfqn-a350.html,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Saint-Omer_-_Wizernes,
+28987,LFQO,small_airport,Marcq-en-Baroeul Airfield,50.687199,3.07556,69,EU,FR,FR-HDF,Bondues,no,,,LFQO,,,https://en.wikipedia.org/wiki/Marcq-en-Baroeul_Airport,"Aérodrome de Lille/Marcq-en-Barœul, Aérodrome de Marcq-en-Barœul/Bondues, Advanced Landing Ground B-57 Lille/Wambrechie"
+4201,LFQP,medium_airport,Phalsbourg-Bourscheid Air Base,48.766203,7.200551,1017,EU,FR,FR-GES,Bourscheid,no,,,LFQP,,,https://fr.wikipedia.org/wiki/Base_a%C3%A9rienne_de_Phalsbourg-Bourscheid,
+4202,LFQQ,large_airport,Lille Airport,50.566564,3.102429,157,EU,FR,FR-HDF,Lesquin,yes,LFQQ,LIL,LFQQ,,https://www.lille.aeroport.fr/home/,https://en.wikipedia.org/wiki/Lille_Airport,Aéroport de Lille. Lille-Lesquin Airport
+28989,LFQS,small_airport,Vitry-en-Artois Airfield,50.337883,2.990714,174,EU,FR,FR-HDF,"Vitry-en-Artois, Pas-de-Calais",no,,,LFQS,,,https://en.wikipedia.org/wiki/Vitry-en-Artois_Airfield,
+4203,LFQT,medium_airport,Merville-Calonne Airport,50.618401,2.64224,61,EU,FR,FR-HDF,"Merville, Nord",no,LFQT,HZB,LFQT,,https://aeroport-mervillelestrem.fr/,https://en.wikipedia.org/wiki/Merville%E2%80%93Calonne_Airport,
+28990,LFQU,small_airport,Sarre-Union Airfield,48.950944,7.078468,837,EU,FR,FR-GES,Sarre-Union,no,,,LFQU,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Sarre-Union,
+4204,LFQV,medium_airport,Charleville-Mézières Ardennes-Etienne Riché Airfield,49.783901,4.64708,492,EU,FR,FR-GES,Charleville-Mézières,no,LFQV,,LFQV,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Charleville-M%C3%A9zi%C3%A8res,
+4205,LFQW,medium_airport,Vesoul-Frotey Airfield,47.638588,6.204443,1249,EU,FR,FR-BFC,"Frotey-lès-Vesoul, Haute-Saône",no,,,LFQW,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Vesoul_-_Frotey,
+28991,LFQX,small_airport,Juvancourt Aerodrome,48.113977,4.819424,1145,EU,FR,FR-GES,"Juvancourt, Aube",no,LFQX,,LFQX,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Juvancourt,Aérodrome de Juvancourt
+28993,LFQZ,small_airport,Dieuze-Guéblange Airfield,48.774378,6.714106,722,EU,FR,FR-GES,Gelucourt,no,,,LFQZ,,,,
+4206,LFRB,large_airport,Brest Bretagne airport,48.447899,-4.41854,325,EU,FR,FR-BRE,Brest,yes,LFRB,BES,LFRB,,https://www.brest.aeroport.bzh,https://en.wikipedia.org/wiki/Brest_Bretagne_Airport,
+4207,LFRC,medium_airport,Cherbourg Manche airport,49.650101,-1.47028,459,EU,FR,FR-NOR,Cherbourg,no,LFRC,CER,LFRC,,https://www.cherbourg.aeroport.fr/,https://en.wikipedia.org/wiki/Cherbourg_-_Maupertus_Airport,"Aéroport de Cherbourg - Maupertus, Aéroport de Cherbourg - Manche, Cherbourg-Manche"
+4208,LFRD,medium_airport,Dinard Pleurtuit Saint-Malo airport,48.5877,-2.07996,219,EU,FR,FR-BRE,Dinard,no,LFRD,DNR,LFRD,,https://www.dinard.aeroport.fr/en,https://en.wikipedia.org/wiki/Dinard_-_Pleurtuit_-_Saint-Malo_Airport,
+4209,LFRE,medium_airport,La Baule-Escoublac Airport,47.289398,-2.34639,105,EU,FR,FR-PDL,La Baule-Escoublac,no,LFRE,LBY,LFRE,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_La_Baule-Escoublac,
+4210,LFRF,medium_airport,Granville Airport,48.883099,-1.56417,45,EU,FR,FR-NOR,"Bréville-sur-Mer, Manche",no,LFRF,GFR,LFRF,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Granville-Mont-Saint-Michel,Granville Mont-Saint-Michel
+4211,LFRG,medium_airport,Deauville Normandie airport,49.365237,0.154481,479,EU,FR,FR-NOR,Deauville,yes,LFRG,DOL,LFRG,,https://www.deauville.aeroport.fr/,https://en.wikipedia.org/wiki/Deauville_%E2%80%93_Normandie_Airport,Deauville-Saint Gatien
+4212,LFRH,medium_airport,Lorient South Brittany (Bretagne Sud) Airport,47.760601,-3.44,160,EU,FR,FR-BRE,Lorient/Lann/Bihoué,no,LFRH,LRT,LFRH,,https://www.lorient.aeroport.fr/en,https://en.wikipedia.org/wiki/Lorient_South_Brittany_Airport,
+4213,LFRI,medium_airport,La Roche-sur-Yon Les Ajoncs Airport,46.7019,-1.37863,299,EU,FR,FR-PDL,La Roche-sur-Yon,no,LFRI,EDM,LFRI,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_La_Roche-sur-Yon_-_Les_Ajoncs,
+4214,LFRJ,medium_airport,Landivisiau Air Base,48.5303,-4.15164,348,EU,FR,FR-BRE,Landivisiau,no,LFRJ,LDV,LFRJ,,,https://fr.wikipedia.org/wiki/Base_d%27a%C3%A9ronautique_navale_de_Landivisiau,
+4215,LFRK,medium_airport,Caen Carpiquet airport,49.17678,-0.454883,256,EU,FR,FR-NOR,Caen,yes,LFRK,CFR,LFRK,,https://www.caen.aeroport.fr/,https://en.wikipedia.org/wiki/Caen_-_Carpiquet_Airport,
+4216,LFRL,medium_airport,Lanvéoc-Poulmic Air Base,48.2817,-4.44502,287,EU,FR,FR-BRE,Lanvéoc/Poulmic,no,,,LFRL,,,https://fr.wikipedia.org/wiki/Base_d%27a%C3%A9ronautique_navale_de_Lanv%C3%A9oc-Poulmic,
+4217,LFRM,medium_airport,Le Mans-Arnage Airport,47.948604,0.201702,194,EU,FR,FR-PDL,"Le Mans, Sarthe",no,LFRM,LME,LFRM,,https://aeroport.lemans.sarthe.cci.fr/,https://fr.wikipedia.org/wiki/A%C3%A9roport_Le_Mans-Arnage,
+4218,LFRN,medium_airport,Rennes-Saint-Jacques Airport,48.0695,-1.73479,124,EU,FR,FR-BRE,"Saint-Jacques-de-la-Lande, Ille-et-Vilaine",yes,LFRN,RNS,LFRN,,http://www.rennes.aeroport.fr/,https://en.wikipedia.org/wiki/Rennes_-_Saint-Jacques_Airport,Rennes Bretagne
+4219,LFRO,medium_airport,Lannion Airport,48.754398,-3.47166,290,EU,FR,FR-BRE,Lannion,no,LFRO,LAI,LFRO,,http://www.lannion.aeroport.fr,https://en.wikipedia.org/wiki/Lannion_%E2%80%93_C%C3%B4te_de_Granit_Airport,Servel Airport
+28995,LFRP,small_airport,Ploërmel Loyat Airfield,48.0028,-2.37722,236,EU,FR,FR-BRE,Rennes,no,,,LFRP,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Plo%C3%ABrmel_-_Loyat,
+4220,LFRQ,medium_airport,Quimper-Cornouaille Airport,47.973031,-4.169655,297,EU,FR,FR-BRE,Quimper/Pluguffan,no,LFRQ,UIP,LFRQ,,https://www.quimper.aeroport.bzh/accueil,https://en.wikipedia.org/wiki/Quimper_-_Cornouaille_Airport,
+4221,LFRS,large_airport,Nantes Atlantique Airport,47.153198,-1.61073,90,EU,FR,FR-PDL,Nantes,yes,LFRS,NTE,LFRS,,https://www.nantes.aeroport.fr/en,https://en.wikipedia.org/wiki/Nantes_Atlantique_Airport,
+4222,LFRT,medium_airport,Saint-Brieuc-Armor Airport,48.538628,-2.853518,453,EU,FR,FR-BRE,"Trémuson, Côtes-d'Armor",no,LFRT,SBK,LFRT,,https://www.st-brieuc.aeroport.fr/en/,https://en.wikipedia.org/wiki/Saint-Brieuc_%E2%80%93_Armor_Airport,
+4223,LFRU,medium_airport,Morlaix-Ploujean Airport,48.6031990051,-3.81577992439,272,EU,FR,FR-BRE,Morlaix/Ploujean,no,LFRU,MXN,LFRU,,,https://en.wikipedia.org/wiki/Morlaix_%E2%80%93_Ploujean_Airport,
+4224,LFRV,medium_airport,Vannes-Meucon Airport,47.723301,-2.71856,446,EU,FR,FR-BRE,Vannes/Meucon,no,LFRV,VNE,LFRV,,http://www.vannes.aeroport.fr/,https://en.wikipedia.org/wiki/Meucon_Airport,
+4225,LFRZ,medium_airport,Saint-Nazaire-Montoir Airport,47.31142,-2.152634,13,EU,FR,FR-PDL,Saint-Nazaire/Montoir,no,LFRZ,SNR,LFRZ,,,https://en.wikipedia.org/wiki/Saint-Nazaire_Montoir_Airport,
+28997,LFSA,small_airport,Besançon-Thise Airfield,47.273144,6.082885,807,EU,FR,FR-BFC,Thise,no,,,LFSA,,,http://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Besan%C3%A7on_-_Thise,
+4226,LFSB,large_airport,EuroAirport Basel–Mulhouse–Freiburg,47.60068,7.521117,885,EU,FR,FR-GES,Bâle / Mulhouse,yes,LFSB,BSL,LFSB,,http://www.euroairport.com/,https://en.wikipedia.org/wiki/EuroAirport_Basel-Mulhouse-Freiburg,"MLH, EAP, LSZM, Bâle, Basle"
+4228,LFSD,medium_airport,Dijon Longvic airport,47.268902,5.09,726,EU,FR,FR-BFC,Dijon,no,LFSD,DIJ,LFSD,,http://www.aeroport.dijon.cci.fr/,https://fr.wikipedia.org/wiki/A%C3%A9roport_de_Dijon-Bourgogne,BA 102
+28998,LFSE,small_airport,Épinal Dogneville Airfield,48.211899,6.44917,1040,EU,FR,FR-GES,Dogneville,no,,,LFSE,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27%C3%89pinal_-_Dogneville,
+4230,LFSG,medium_airport,Épinal Mirecourt Airport,48.325001,6.06998,1084,EU,FR,FR-GES,Épinal,no,LFSG,EPL,LFSG,,http://www.epinal-mirecourt.aeroport.fr,https://en.wikipedia.org/wiki/%C3%89pinal_%E2%80%93_Mirecourt_Airport,
+4231,LFSH,small_airport,Haguenau Airfield,48.794821,7.816129,491,EU,FR,FR-GES,Haguenau,no,,,LFSH,,,https://en.wikipedia.org/wiki/Haguenau_Airport,
+4232,LFSI,medium_airport,Saint-Dizier – Robinson Air Base,48.636002,4.89942,458,EU,FR,FR-GES,Saint-Dizier,no,,,LFSI,,,https://en.wikipedia.org/wiki/Saint-Dizier_%E2%80%93_Robinson_Air_Base,BA 113
+28999,LFSJ,small_airport,Sédan Douzy Airfield,49.659698,5.03778,512,EU,FR,FR-GES,Douzy,no,,,LFSJ,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Sedan_-_Douzy,
+29000,LFSK,small_airport,Vitry-le-François Vauclerc Airfield,48.702367,4.683109,410,EU,FR,FR-GES,Vauclerc,no,,,LFSK,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Vitry-le-Fran%C3%A7ois_-_Vauclerc,
+29001,LFSL,medium_airport,Brive Souillac airport,45.039722,1.485556,1016,EU,FR,FR-NAQ,Brive,yes,LFSL,BVE,LFSL,,http://www.aeroport-brive-vallee-dordogne.fr,https://fr.wikipedia.org/wiki/Aéroport_de_Brive-Souillac,"Vallee de la Dordogne, Brive-la-Gaillarde"
+4233,LFSM,medium_airport,Montbéliard-Courcelles Airfield,47.487,6.79054,1041,EU,FR,FR-BFC,Courcelles-lès-Montbéliard,no,,,LFSM,,,https://en.wikipedia.org/wiki/Montb%C3%A9liard_%E2%80%93_Courcelles_Aerodrome,
+4234,LFSN,medium_airport,Nancy-Essey Airport,48.692101,6.23046,751,EU,FR,FR-GES,"Tomblaine, Meurthe-et-Moselle",no,LFSN,ENC,LFSN,,https://www.nancy.aeroport.fr/,https://en.wikipedia.org/wiki/Nancy-Essey_Airport,
+4235,LFSO,medium_airport,Nancy-Ochey (BA 133) Air Base,48.583099,5.955,1106,EU,FR,FR-GES,Thuilley-aux-Groseilles,no,,,LFSO,,,https://en.wikipedia.org/wiki/Nancy_%E2%80%93_Ochey_Air_Base,
+4236,LFSP,small_airport,Pontarlier Airfield,46.904032,6.326826,2683,EU,FR,FR-BFC,"Pontarlier, Doubs",no,,,LFSP,,,https://en.wikipedia.org/wiki/Pontarlier_Airfield,
+4238,LFST,large_airport,Strasbourg Airport,48.5383,7.62823,505,EU,FR,FR-GES,Strasbourg,yes,LFST,SXB,LFST,,http://www.strasbourg.aeroport.fr/E/index.php,https://en.wikipedia.org/wiki/Strasbourg_Airport,BA 124
+29002,LFSU,small_airport,Langres-Rolampont Airfield,47.964804,5.293663,1378,EU,FR,FR-GES,"Rolampont, Haute-Marne",no,,,LFSU,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Langres_-_Rolampont,
+29003,LFSV,small_airport,Pont-Saint-Vincent Airfield,48.600127,6.056514,1339,EU,FR,FR-GES,"Pont-Saint-Vincent, Meurthe-et-Moselle",no,,,LFSV,,http://acam54.fr/,,
+29004,LFSW,small_airport,Épernay Plivot Airfield,49.004461,4.085342,289,EU,FR,FR-GES,"Plivot, Marne",no,,,LFSW,,http://www.aeroclub-epernay.com/,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27%C3%89pernay_-_Plivot,
+4239,LFSX,medium_airport,Luxeuil-Saint-Sauveur (BA 116) Air Base,47.787747,6.353419,913,EU,FR,FR-BFC,Saint-Sauveur,no,,,LFSX,,,https://en.wikipedia.org/wiki/Luxeuil_-_Saint-Sauveur_Air_Base,
+4240,LFTF,small_airport,Cuers-Pierrefeu Airfield,43.247615,6.126654,266,EU,FR,FR-PAC,"Pierrefeu-du-Var, Var",no,,,LFTF,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Cuers-Pierrefeu,
+4241,LFTH,medium_airport,Toulon-Hyères Airport,43.097301,6.14603,7,EU,FR,FR-PAC,"Hyères, Var",yes,LFTH,TLN,LFTH,,http://toulon-hyeres.aeroport.fr/,https://en.wikipedia.org/wiki/Toulon-Hy%C3%A8res_Airport,"La Palyvestre, Toulon"
+29008,LFTP,small_airport,Puimoisson Airfield,43.86889,6.16278,2523,EU,FR,FR-PAC,"Puimoisson, Alpes de Haute-Provence",no,,,LFTP,,http://www.puivolavoile.com/?lang=en,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Puimoisson,
+4242,LFTW,medium_airport,Nîmes-Arles-Camargue Airport,43.757401,4.41635,309,EU,FR,FR-OCC,Nîmes/Garons,yes,LFTW,FNI,LFTW,,https://www.nimes.aeroport.fr/en,https://en.wikipedia.org/wiki/N%C3%AEmes-Arles-Camargue_Airport,
+4243,LFTZ,small_airport,La Môle Airport,43.205399,6.482,59,EU,FR,FR-PAC,Saint-Tropez,yes,LFTZ,LTT,LFTZ,,https://www.sainttropez.aeroport.fr/en,https://en.wikipedia.org/wiki/La_M%C3%B4le_%E2%80%93_Saint-Tropez_Airport,"Golfe du Saint-Tropez, Saint-Tropez"
+4244,LFVM,small_airport,Miquelon Airport,47.095501,-56.380299,10,NA,PM,PM-ML,Miquelon,yes,LFVM,MQC,LFVM,,,https://en.wikipedia.org/wiki/Miquelon_Airport,
+4245,LFVP,medium_airport,Saint-Pierre Pointe-Blanche Airport,46.762651,-56.17499,27,NA,PM,PM-SP,Saint-Pierre,yes,LFVP,FSP,LFVP,,,https://en.wikipedia.org/wiki/Saint-Pierre_Airport,
+4246,LFXA,medium_airport,Ambérieu Air Base (BA 278),45.987301,5.32844,823,EU,FR,FR-ARA,Ambérieu,no,,,LFXA,,,https://en.wikipedia.org/wiki/Amb%C3%A9rieu-en-Bugey_Air_Base,
+29012,LFXB,small_airport,Saintes Thénac Airfield,45.7019,-0.636111,118,EU,FR,FR-NAQ,,no,,,LFXB,,,,
+29020,LFXU,small_airport,Les Mureaux Airfield,48.998299,1.94278,89,EU,FR,FR-IDF,"Les Mureaux, Yvelines",no,,,LFXU,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_des_Mureaux,
+29021,LFYG,small_airport,Cambrai Niergnies Airfield,50.140533,3.263226,312,EU,FR,FR-HDF,"Niergnies, Nord",no,,,LFYG,,https://www.aeroclubcambrai.com/,https://en.wikipedia.org/wiki/Cambrai-Niergnies_Airport,
+29026,LFYR,small_airport,Romorantin Pruniers Airbase,47.317543,1.691036,289,EU,FR,FR-CVL,"Gièvres, Loir-et-Cher",no,,,LFYR,,,https://fr.wikipedia.org/wiki/Base_a%C3%A9rienne_273_Romorantin-Pruniers,
+29027,LFYS,small_airport,Ste Léocadie Airfield,42.447201,2.01083,4331,EU,FR,FR-OCC,,no,,,LFYS,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_de_Sainte-L%C3%A9ocadie,
+5022,NC-0006,small_airport,Canala Airport,-21.520435,165.971947,7,OC,NC,NC-02,Canala,no,NWWX,,NWWX,,,https://en.wikipedia.org/wiki/Canala_Airport,
+31215,NLWF,small_airport,Pointe Vele Airport,-14.311565,-178.066492,20,OC,WF,WF-U-A,Futuna Island,yes,NLWF,FUT,NLWF,,,https://en.wikipedia.org/wiki/Pointe_Vele_Airport,
+4975,NLWW,large_airport,Hihifo Airport,-13.239445,-176.19865,79,OC,WF,WF-U-A,Wallis Island,yes,NLWW,WLS,NLWW,,,https://en.wikipedia.org/wiki/Hihifo_Airport,
+4979,NTAA,large_airport,Fa'a'ā International Airport,-17.553472,-149.606936,5,OC,PF,PF-U-A,Papeete,yes,NTAA,PPT,NTAA,,https://www.aeroports-voyages.fr/en/airport/tahiti-island/PPT,https://en.wikipedia.org/wiki/Faa'a_International_Airport,
+309518,NTAM,small_airport,Rimatara Airport,-22.63725,-152.8059,60,OC,PF,PF-U-A,Rimatara Island,yes,NTAM,RMT,NTAM,,,https://en.wikipedia.org/wiki/Rimatara_Airport,
+4980,NTAR,medium_airport,Rurutu Airport,-22.434099197387695,-151.36099243164062,18,OC,PF,PF-U-A,,yes,NTAR,RUR,NTAR,,,https://en.wikipedia.org/wiki/Rurutu_Airport,
+4981,NTAT,medium_airport,Tubuai Airport,-23.365400314331055,-149.5240020751953,7,OC,PF,PF-U-A,,yes,NTAT,TUB,NTAT,,,https://en.wikipedia.org/wiki/Tubuai_-_Mataura_Airport,
+4982,NTAV,small_airport,Raivavae Airport,-23.885201,-147.662003,7,OC,PF,PF-U-A,,yes,NTAV,RVV,NTAV,,,https://en.wikipedia.org/wiki/Raivavae_Airport,
+4983,NTGA,medium_airport,Anaa Airport,-17.3526,-145.509995,10,OC,PF,PF-U-A,Anaa,yes,NTGA,AAA,NTGA,,,https://en.wikipedia.org/wiki/Anaa_Airport,
+4984,NTGB,medium_airport,Fangatau Airport,-15.820044,-140.888071,9,OC,PF,PF-U-A,Fangatau,yes,NTGB,FGU,NTGB,,,https://en.wikipedia.org/wiki/Fangatau_Airport,
+4985,NTGC,medium_airport,Tikehau Airport,-15.1196,-148.231003,6,OC,PF,PF-U-A,Tuherahera,yes,NTGC,TIH,NTGC,,,https://en.wikipedia.org/wiki/Tikehau_Airport,Palliser Islands
+30648,NTGD,small_airport,Apataki Airport,-15.5736,-146.414993,8,OC,PF,PF-U-A,Apataki,yes,NTGD,APK,NTGD,,,https://en.wikipedia.org/wiki/Apataki_Airport,
+4986,NTGE,medium_airport,Reao Airport,-18.46652,-136.43855,12,OC,PF,PF-U-A,Reao,no,NTGE,REA,NTGE,,,https://en.wikipedia.org/wiki/Reao_Airport,
+4987,NTGF,medium_airport,Fakarava Airport,-16.054100036621094,-145.65699768066406,13,OC,PF,PF-U-A,,yes,NTGF,FAV,NTGF,,,https://en.wikipedia.org/wiki/Fakarava_Airport,
+4988,NTGI,medium_airport,Manihi Airport,-14.436800003051758,-146.07000732421875,14,OC,PF,PF-U-A,,yes,NTGI,XMH,NTGI,,,https://en.wikipedia.org/wiki/Manihi_Airport,
+4989,NTGJ,medium_airport,Totegegie Airport,-23.07990074157715,-134.88999938964844,7,OC,PF,PF-U-A,,yes,NTGJ,GMR,NTGJ,,,https://en.wikipedia.org/wiki/Totegegie_Airport,
+4990,NTGK,medium_airport,Kaukura Airport,-15.6633,-146.884995,11,OC,PF,PF-U-A,Raitahiti,yes,NTGK,KKR,NTGK,,,https://en.wikipedia.org/wiki/Kaukura_Airport,
+4991,NTGM,medium_airport,Makemo Airport,-16.5839,-143.658005,3,OC,PF,PF-U-A,Makemo,yes,NTGM,MKP,NTGM,,,https://en.wikipedia.org/wiki/Makemo_Airport,
+4992,NTGP,small_airport,Puka Puka Airport,-14.80955,-138.812621,5,OC,PF,PF-U-A,,yes,NTGP,PKP,NTGP,,,https://en.wikipedia.org/wiki/Puka-Puka_Airport,
+44636,NTGS,small_airport,Marutea Airport,-21.482194900512695,-135.63705444335938,10,OC,PF,PF-U-A,Auorotini,no,,,NTGS,,,https://en.wikipedia.org/wiki/Marutea_Sud,
+4993,NTGT,medium_airport,Takapoto Airport,-14.709500312805176,-145.24600219726562,12,OC,PF,PF-U-A,,yes,NTGT,TKP,NTGT,,,https://en.wikipedia.org/wiki/Takapoto_Airport,
+4994,NTGU,medium_airport,Arutua Airport,-15.248299598693848,-146.61700439453125,9,OC,PF,PF-U-A,,yes,NTGU,AXR,NTGU,,,https://en.wikipedia.org/wiki/Arutua_Airport,
+4995,NTGV,medium_airport,Mataiva Airport,-14.8681001663208,-148.7169952392578,11,OC,PF,PF-U-A,,yes,NTGV,MVT,NTGV,,,https://en.wikipedia.org/wiki/Mataiva_Airport,
+4996,NTGY,small_airport,Tureia Airport,-20.784262,-138.56796,12,OC,PF,PF-U-A,Tureia,no,NTGY,ZTA,NTGY,,,https://en.wikipedia.org/wiki/Tureia_Airport,
+4997,NTHE,medium_airport,Ahe Airport,-14.428099632263184,-146.2570037841797,11,OC,PF,PF-U-A,Ahe Atoll,yes,NTHE,AHE,NTHE,,http://www.sia.aviation-civile.gouv.fr/aip/enligne/PDF_AIPparSSection/AIP%20PAC-P/AD/2/0703_AD%202.NTHE.pdf,https://en.wikipedia.org/wiki/Ahe_Airport,Tenukupara
+4998,NTKF,small_airport,Faaite Airport,-16.68657,-145.329394,7,OC,PF,PF-U-A,Faaite,no,NTKF,FAC,NTKF,,,https://en.wikipedia.org/wiki/Faaite_Airport,
+4999,NTKK,small_airport,Aratika Nord Airport,-15.485673,-145.464778,10,OC,PF,PF-U-A,,no,NTKK,RKA,NTKK,,,https://fr.wikipedia.org/wiki/A%C3%A9rodrome_d%27Aratika-Nord,
+5000,NTKR,medium_airport,Takaroa Airport,-14.45580005645752,-145.02499389648438,13,OC,PF,PF-U-A,,yes,NTKR,TKX,NTKR,,,https://en.wikipedia.org/wiki/Takaroa_Airport,
+5001,NTMD,medium_airport,Nuku Hiva Airport,-8.7956,-140.229004,220,OC,PF,PF-U-A,Nuku Hiva,yes,NTMD,NHV,NTMD,,,https://en.wikipedia.org/wiki/Nuku_Hiva_Airport,
+5002,NTMN,medium_airport,Hiva Oa-Atuona Airport,-9.76879024506,-139.011001587,1481,OC,PF,PF-U-A,Hiva Oa Island,yes,NTMN,AUQ,NTMN,,,https://en.wikipedia.org/wiki/Atuona_Airport,HIX
+32499,NTMP,small_airport,Ua Pou Airport,-9.35167,-140.078003,16,OC,PF,PF-U-A,Ua Pou,yes,NTMP,UAP,NTMP,,,https://en.wikipedia.org/wiki/Ua_Pou_Airport,
+32497,NTMU,small_airport,Ua Huka Airport,-8.936228,-139.554062,160,OC,PF,PF-U-A,Ua Huka,yes,NTMU,UAH,NTMU,,,https://en.wikipedia.org/wiki/Ua_Huka_Airport,
+5003,NTTB,medium_airport,Bora Bora Airport,-16.444400787353516,-151.75100708007812,10,OC,PF,PF-U-A,Motu Mute,yes,NTTB,BOB,NTTB,,,https://en.wikipedia.org/wiki/Bora_Bora_Airport,
+5004,NTTG,medium_airport,Rangiroa Airport,-14.954299926757812,-147.66099548339844,10,OC,PF,PF-U-A,,yes,NTTG,RGI,NTTG,,,https://en.wikipedia.org/wiki/Rangiroa_Airport,
+5005,NTTH,medium_airport,Huahine-Fare Airport,-16.687084,-151.021593,7,OC,PF,PF-U-A,Fare,yes,NTTH,HUH,NTTH,,,https://en.wikipedia.org/wiki/Huahine_-_Fare_Airport,
+5006,NTTM,medium_airport,Moorea Temae Airport,-17.48979,-149.761777,9,OC,PF,PF-U-A,Moorea-Maiao,yes,NTTM,MOZ,NTTM,,,https://en.wikipedia.org/wiki/Moorea_Airport,"Temae Airport, Moorea Temae Airport"
+5007,NTTO,medium_airport,Hao Airport,-18.0748,-140.945999,10,OC,PF,PF-U-A,Otepa,yes,NTTO,HOI,NTTO,,,https://en.wikipedia.org/wiki/Hao_Airport,
+5008,NTTP,medium_airport,Maupiti Airport,-16.42650032043457,-152.24400329589844,15,OC,PF,PF-U-A,,yes,NTTP,MAU,NTTP,,,https://en.wikipedia.org/wiki/Maupiti_Airport,
+5009,NTTR,medium_airport,Raiatea Airport,-16.7229,-151.466003,3,OC,PF,PF-U-A,Uturoa,yes,NTTR,RFP,NTTR,,,https://en.wikipedia.org/wiki/Raiatea_Airport,
+32053,NTTX,small_airport,Moruroa Airport,-21.80978,-138.813385,7,OC,PF,PF-TG,Moruroa Atoll,no,NTTX,UOA,NTTX,,,,"Mururoa, Mururura, Aopuni"
+32060,NWWB,small_airport,Bourail - Poé Airport,-21.609604,165.397103,7,OC,NC,NC-03,Poé,no,NWWB,,NWWB,,,,
+30778,NWWC,small_airport,Île Art - Waala Airport,-19.720521,163.661077,306,OC,NC,NC-02,Waala,yes,NWWC,BMY,NWWC,,,https://en.wikipedia.org/wiki/%C3%8Ele_Art_-_Waala_Airport,Belep Islands Airport
+5013,NWWD,medium_airport,Koné Airport,-21.053551,164.838768,23,OC,NC,NC-02,Koné,yes,NWWD,KNQ,NWWD,,,https://en.wikipedia.org/wiki/Kon%C3%A9_Airport,
+5014,NWWE,medium_airport,Île des Pins Airport,-22.5889,167.455994,315,OC,NC,NC-03,Île des Pins,yes,NWWE,ILP,NWWE,,,https://en.wikipedia.org/wiki/%C3%8Ele_des_Pins_Airport,
+31605,NWWH,closed,Nesson Airport,-21.257288,165.61821,10,OC,NC,NC-02,Houailou,no,,,,,,,"NWWH, HLU, Aerodrome de Warai"
+5015,NWWK,small_airport,Koumac Airport,-20.546323,164.255648,42,OC,NC,NC-02,Koumac,yes,NWWK,KOC,NWWK,,,https://en.wikipedia.org/wiki/Koumac_Airport,
+5016,NWWL,medium_airport,Lifou Airport,-20.774563,167.239328,92,OC,NC,NC-01,Lifou,yes,NWWL,LIF,NWWL,,,https://en.wikipedia.org/wiki/Lifou_Airport,
+5017,NWWM,medium_airport,Nouméa Magenta Airport,-22.257706,166.472822,10,OC,NC,NC-03,Nouméa,yes,NWWM,GEA,NWWM,,,https://en.wikipedia.org/wiki/Noum%C3%A9a_Magenta_Airport,l'Aéroport de Nouméa Magenta
+5018,NWWR,medium_airport,Maré Airport,-21.482438,168.038465,141,OC,NC,NC-01,Maré,yes,NWWR,MEE,NWWR,,,https://en.wikipedia.org/wiki/Mar%C3%A9_Airport,
+32063,NWWT,small_airport,Oua Tom Airport,-21.8197,165.860992,98,OC,NC,NC-03,La Foa,no,NWWT,,NWWT,,,https://en.wikipedia.org/wiki/La_Foa_-_Oua_Tom_Airport,
+5019,NWWU,medium_airport,Touho Airport,-20.790127,165.259524,10,OC,NC,NC-02,Touho,yes,NWWU,TOU,NWWU,,,https://en.wikipedia.org/wiki/Touho_Airport,
+5020,NWWV,medium_airport,Ouvéa Airport,-20.640932,166.573024,23,OC,NC,NC-01,Ouvéa,yes,NWWV,UVE,NWWV,,,https://en.wikipedia.org/wiki/Ouv%C3%A9a_Airport,
+5021,NWWW,large_airport,La Tontouta International Airport,-22.014601,166.212997,52,OC,NC,NC-03,Nouméa (La Tontouta),yes,NWWW,NOU,NWWW,,http://www.cci-nc.com/tontouta/index.php,https://en.wikipedia.org/wiki/La_Tontouta_International_Airport,Aéroport de Nouméa - La Tontouta
+610900,PM-0001,closed,Saint-Pierre Airport OLD,46.773641,-56.168157,20,NA,PM,PM-SP,Saint-Pierre,no,,,,,,,"FSP, LFVP"
+6198,SOCA,large_airport,Cayenne – Félix Eboué Airport,4.819964,-52.361326,26,SA,GF,GF-CY,Matoury,yes,SOCA,CAY,SOCA,,,https://en.wikipedia.org/wiki/Cayenne_%E2%80%93_F%C3%A9lix_Ebou%C3%A9_Airport,"Cayenne-Rochambeau, Matoury"
+31941,SOOA,medium_airport,Maripasoula Airport,3.655907,-54.039431,406,SA,GF,GF-SL,Maripasoula,yes,SOOA,MPY,SOOA,,,https://en.wikipedia.org/wiki/Maripasoula_Airport,
+6199,SOOG,medium_airport,Saint-Georges-de-l'Oyapock Airport,3.8976,-51.8041,46,SA,GF,GF-CY,Saint-Georges-de-l'Oyapock,no,SOOG,OYP,SOOG,,,https://en.wikipedia.org/wiki/Saint-Georges-de-l%27Oyapock_Airport,
+31803,SOOM,medium_airport,Saint-Laurent-du-Maroni Airport,5.481891,-54.034964,16,SA,GF,GF-SL,Saint-Laurent-du-Maroni,yes,SOOM,LDX,SOOM,,,https://en.wikipedia.org/wiki/Saint-Laurent-du-Maroni_Airport,
+32203,SOOR,small_airport,Régina Airport,4.31339,-52.132745,82,SA,GF,GF-CY,Régina,no,SOOR,REI,SOOR,,,https://en.wikipedia.org/wiki/R%C3%A9gina_Airport,
+35337,SOOY,small_airport,Sinnamary Airport,5.373546,-52.945628,33,SA,GF,GF-CY,Sinnamary,no,,,SOOY,,,https://en.wikipedia.org/wiki/Sinnamary_Airport,
+30948,TFFA,small_airport,La Désirade Airport,16.296902,-61.0844,10,NA,GP,GP-U-A,Grande Anse,yes,TFFA,DSD,TFFA,,,https://en.wikipedia.org/wiki/La_D%C3%A9sirade_Airport,
+6363,TFFF,large_airport,Martinique Aimé Césaire International Airport,14.591,-61.003201,16,NA,MQ,MQ-U-A,Fort-de-France,yes,TFFF,FDF,TFFF,,http://www.martinique.aeroport.fr/,https://en.wikipedia.org/wiki/Martinique_Aim%C3%A9_C%C3%A9saire_International_Airport,Le Lamentin Airport
+6364,TFFG,medium_airport,Grand Case-l'Espérance Airport,18.100057,-63.047444,7,NA,MF,MF-U-A,Grand Case,yes,TFFG,SFG,TFFG,,,https://en.wikipedia.org/wiki/Grand_Case-Esp%C3%A9rance_Airport,"Aérodrome de Grand-Case Espérance, CCE, Saint-Martin"
+32249,TFFJ,medium_airport,St. Jean Airport,17.904398,-62.843333,49,NA,BL,BL-U-A,Gustavia,yes,TFFJ,SBH,TFFJ,,,https://en.wikipedia.org/wiki/Gustaf_III_Airport,"Gustaf III Rémy de Haenen, Saint Barthélemy Airport, Saint-Jean, Aérodrome de St Jean, Saint Barth, St. Barts"
+6365,TFFM,medium_airport,Marie-Galante Airport,15.868925,-61.270087,16,NA,GP,GP-U-A,Grand-Bourg,yes,TFFM,GBJ,TFFM,,,https://en.wikipedia.org/wiki/Marie-Galante_Airport,Marie Galante
+6366,TFFR,large_airport,Maryse Condé International Airport,16.265443,-61.532754,36,NA,GP,GP-U-A,Pointe-à-Pitre,yes,TFFR,PTP,TFFR,,http://www.guadeloupe.aeroport.fr/,https://en.wikipedia.org/wiki/Pointe-%C3%A0-Pitre_International_Airport,"Le Raizet, Les Abymes"
+31853,TFFS,small_airport,Terre-de-Haut Airport,15.86439991,-61.5806007385,46,NA,GP,GP-U-A,Les Saintes,no,TFFS,LSS,TFFS,,,https://en.wikipedia.org/wiki/Les_Saintes_Airport,

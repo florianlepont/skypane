@@ -1,0 +1,27 @@
+{
+  "data_dictionary": "https://ourairports.com/help/data-dictionary.html",
+  "full": {
+    "airports": {
+      "bytes": 12754691,
+      "sha256": "6c600b7821829c2bd672c97b0c1e25b51a12e1e281fbd6fb1b698156b17d6acb",
+      "url": "https://davidmegginson.github.io/ourairports-data/airports.csv"
+    },
+    "runways": {
+      "bytes": 3972528,
+      "sha256": "64103ae9a363538774f43c9b7b510962ac8f1d89ec976be2c91829622d6edd67",
+      "url": "https://davidmegginson.github.io/ourairports-data/runways.csv"
+    }
+  },
+  "licence": "All data is released to the Public Domain, and comes with no guarantee of accuracy or fitness for use.",
+  "snapshot_date": "2026-10-31",
+  "subset": {
+    "airports": {
+      "bytes": 107473,
+      "sha256": "46e1af5bc60e2ea60362cbdee8779541ba9c6a46ec2a99d098804b0b808591a0"
+    },
+    "runways": {
+      "bytes": 67313,
+      "sha256": "b334d3d901f51a171b6ffcef1bbae08cd93556176523940966238390a5a5f5bc"
+    }
+  }
+}

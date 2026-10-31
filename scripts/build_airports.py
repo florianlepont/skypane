@@ -70,9 +70,18 @@ M_PER_NM = 1852.0
 
 # Bearing computed from the thresholds may differ from the designator by
 # this much before the row is considered wrongly surveyed and dropped.
-MAX_DESIGNATOR_DEVIATION_DEG = 20.0
+# Designators are magnetic and thresholds give true bearings, so overseas
+# declination of up to about 25 degrees is legitimate.
+MAX_DESIGNATOR_DEVIATION_DEG = 30.0
 HEADING_WARN_DEG = 10.0
 MIN_LENGTH_M = 100.0
+
+# Rows reviewed by hand whose thresholds disagree with the designator beyond
+# what declination explains but within the automatic limit. Keyed by
+# (airport ident, lower designator, higher designator).
+KNOWN_BAD_ROWS = {
+    ("TFFA", "09", "27"): "thresholds disagree with the designator beyond declination",
+}
 
 # Two runways count as parallel neighbours when their axes differ by at
 # most this many degrees. Orly runways 06/24 and 07/25 deviate 12.6 degrees:
@@ -409,6 +418,8 @@ def collect_pairs(airports, runway_rows, warnings):
             pair = normalise_pair(row, thresholds)
             pair["surface"] = row.get("surface") or ""
             reason = geometry_reason(pair)
+            if reason is None and (ident, pair["le"], pair["he"]) in KNOWN_BAD_ROWS:
+                reason = "known_bad_survey"
         if reason is not None:
             exclusions.append({
                 "ident": ident, "designator": label,
