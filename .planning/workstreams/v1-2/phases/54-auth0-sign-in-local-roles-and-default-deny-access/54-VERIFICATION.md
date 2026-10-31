@@ -1,7 +1,7 @@
 ---
 phase: 54-auth0-sign-in-local-roles-and-default-deny-access
 verified: 2026-10-30T00:00:00Z
-status: human_needed
+status: passed
 score: 4/4 must-haves verified
 overrides_applied: 0
 human_verification:
@@ -19,7 +19,7 @@ human_verification:
 # Phase 54: Auth0 Sign-In, Local Roles and Default-Deny Access - Verification
 
 **Goal:** Invited users can sign in with Auth0, and every route enforces a minimum role and device ownership.
-**Status:** human_needed (no code gaps; owner go-live items remain)
+**Status:** passed. Verified as `human_needed` on 2026-10-30 (no code gaps, owner go-live items remaining); the owner completed those items on 2026-10-30 and 2026-10-31 (see "Real-tenant verification" and "Owner production tests, 2026-10-31" below) and closed the phase on 2026-10-31. One requirement stays open and is carried to Phase 55: the real per-device rows of the route x role x owner matrix (AUTH-03), see "Not achievable until Phase 51" below.
 
 ## Targeted tests (run by the verifier)
 
@@ -64,6 +64,22 @@ Deployed `af9e8521` to production at 20:27 UTC (deploy log: backup, `fleet.db` s
 
 The owner then turned the shared-password fallback off (`SKYPANE_LEGACY_PASSWORD_LOGIN=0`); the login page no longer shows it. Still open: removing the legacy code (see `54-LEGACY-ADMIN-REMOVAL.md`, steps 2 to 5) and the per-device route rows after Phase 51.
 
-## Human verification required (remaining)
+## Owner production tests, 2026-10-31
 
-1. Stamp the legacy-admin removal date at go-live, then set the flag to 0 and run the removal task.
+Run by the owner on the production companion, as reported by the owner in conversation and, where noted, read from server logs:
+
+| # | Test | Result |
+|---|------|--------|
+| 1 | An invited user with the role `user` signs in | Passed. Lands on the Account page with the empty frames state; no admin pages in the navigation; opening the Health and Update pages by address gives the not-found page. |
+| 2 | A verified Auth0 account that was not invited | Passed. Gets the "no invitation found" page and no session. `users list` afterwards showed the same invited users and no new one. |
+| 3 | Sign-in and sign-out on an iPhone (Safari, private tab) | Passed. |
+| 4 | Session survives `systemctl restart skypane-companion`; sign-out ends it | Passed. Still signed in after the restart; after sign-out, back and reload return to the sign-in page. |
+| 5 | The live frame is not disturbed | Passed. Health page: the frame connects normally, no fleet fault. `journalctl -u skypane-byos` shows regular wakes with `GET /device/v1/display` then `GET /img/<hash>.bin`, no 401, 403 or 5xx; the wake gap moves from about 15 min to 60 min at the 11:10 UTC wake, matching the owner's change of the interval to 3600 s. No error on the frame. |
+| 6 | `fleet_cli users unlink-identity` | Passed. The command printed `unlinked <email>`; the user stayed in `users list`; the open session was ended (reload returned to sign-in); signing in again with the same Auth0 account linked it again. |
+
+Finding, not a failure: an invited user whose Auth0 email is not verified is refused on first sign-in (`unverified_email`) but sees the "no invitation found" page. Observed with an account created by hand in the Auth0 dashboard; it signed in once the address was verified. Tracked as SEED-011, together with SEED-012 (invite from the admin companion also creating the Auth0 account).
+
+## Closure (owner, 2026-10-31)
+
+- The three human items of the 2026-10-30 verification are done: the real-tenant smoke test, the Caddy check (0 `/callback` lines with `code=`), and the legacy-admin fallback, which is off in production (`SKYPANE_LEGACY_PASSWORD_LOGIN=0`) with the shared-password path removed (see `54-HANDOFF.md`, D.5).
+- Carried to Phase 55: the real `/d/<id>/...` route rows and derived resources of the access matrix (AUTH-03), and the reduced user view, as listed in `54-HANDOFF.md` section A. AUTH-03 stays Pending until they exist.
