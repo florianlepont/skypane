@@ -1,7 +1,7 @@
 ---
 phase: 48-fleet-data-model-roles-and-live-frame-migration
 verified: 2026-10-29T00:00:00Z
-status: human_needed
+status: passed
 score: 4/4 roadmap truths verified
 re_verification:
   previous_status: gaps_found
@@ -22,7 +22,7 @@ human_verification:
 # Phase 48 Verification (re-verification after plan 48-08)
 
 **Goal:** Owner can record users, devices, hardware types and locations in one fleet database; the live frame is migrated with no observable change.
-**Status:** human_needed. Re-verification: Yes, after gap closure.
+**Status:** passed. It was `human_needed` on 2026-10-29 with two environment-bound checks open; both are closed below (2026-10-31). Re-verification: Yes, after gap closure.
 
 ## Observable truths
 
@@ -54,13 +54,21 @@ A pre-existing orphan token stays valid only while byos runs in the legacy fallb
 
 WR-01 through WR-07 in 48-REVIEW.md (dry-run does not exercise apply, token write ordering, empty new fleet.db reported as a fault, backup retention sharing, archive file mode and umask, bootstrap owner not checked for admin).
 
-## Human verification required
+## Human verification (closed 2026-10-31)
 
-1. Dry-run the migration against a copy of real production state.
-2. Run the companion Chromium browser tests.
+1. **Dry-run of the migration against real production state.** Run by the owner on the production host on 2026-10-31, directly on the live state directory (a dry run writes nothing):
+
+   ```
+   python3 -m server.fleet_migrate --state-dir /opt/skypane/state --dry-run
+   nothing to do
+   skipped 1 token(s) for unregistered device(s)
+   ```
+
+   The state is already migrated (production deploys since 2026-10-30 ran the migration before the release swap, and the frame kept waking on its cadence, see `skypane-byos` journal of 2026-10-31: regular `GET /device/v1/display` then `GET /img/<hash>.bin`, no 401, 403 or 5xx). The run also shows the thing the check looked for: production holds **one orphan token** for an unregistered device, counted and skipped, not an error. That token stays valid only while byos runs in the legacy fallback (accepted residual above); `devices_cli revoke-token` clears it if the owner wants it gone. The exit code was not recorded.
+2. **Browser tests for the Health fleet-fallback signal.** The CI check "Lint, test, coverage, attribution" succeeded on PR #240 (2026-10-29), where a missing Playwright browser fails the run by project policy instead of skipping. The CI result is the evidence; the specific test was not individually confirmed in the run output.
 
 ## Gaps summary
 
-No code gaps remain. Status is human_needed because two environment-bound checks are still open.
+No code gaps remain. Both environment-bound checks are closed (see above). One production observation stays open and is not a gap: the orphan token of check 1, which the owner may revoke at will.
 
 _Verifier: Claude (gsd-verifier)_

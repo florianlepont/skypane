@@ -1,8 +1,8 @@
 ---
 phase: 56-per-hardware-rendering-battery-profiles-health-and-credits
 verified: 2026-10-31T00:00:00Z
-status: human_needed
-score: 3/3 success criteria verified in code (1 human-only item remains)
+status: passed
+score: 3/3 success criteria verified in code; of the 3 human items, the browser tests are covered by CI and the other two are owner-deferred follow-ups, not gaps (closed 2026-10-31)
 gaps: []
 human_verification:
   - test: "Send 56-PROVIDER-CONTACT.md to adsb.fi and adsb.lol once the fleet has more than 10 registered users"
@@ -17,6 +17,16 @@ human_verification:
 ---
 
 # Phase 56 Verification
+
+## Closure (owner, 2026-10-31)
+
+Closed as `passed`. It was `human_needed` on 2026-10-31 with three human items:
+
+1. **Companion browser tests (566 skipped in this sandbox).** Covered by CI: the check "Lint, test, coverage, attribution" succeeded on PR #257 (2026-10-31, 08:52 UTC), where a missing Playwright browser fails the run by project policy rather than skipping. Evidence is the CI result; individual tests were not re-confirmed in the run output.
+2. **Contact with adsb.fi and adsb.lol about multi-zone use.** The English draft exists (`56-PROVIDER-CONTACT.md`). The owner deferred sending it until the fleet has more than 10 registered users. Open follow-up, not a gap: the roadmap criterion asks for the contact to be traced, and it is.
+3. **Simulated landscape preview.** The owner approved the preview. Repositioning the plane and illustration is a non-blocking follow-up.
+
+The legacy-frame battery numbers recorded in the profile stay provisional until Phase 47 closes (see the Phase 47 coordination note in the roadmap).
 
 **Goal:** What a frame displays and how its health is judged follow its hardware
 profile, and data sources are credited.

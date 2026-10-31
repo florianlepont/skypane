@@ -1,9 +1,14 @@
 ---
 phase: 49-per-hardware-ota-registry
 verified: 2026-10-30T00:00:00Z
-status: human_needed
-score: 3/4 must-haves verified
-overrides_applied: 0
+status: passed
+score: 3/4 must-haves verified, 1 accepted by override
+overrides_applied: 1
+overrides:
+  - must_have: "The chosen OTA integrity check is verified on the device-side code path (second half of roadmap criterion 3, OTA-03)"
+    reason: "Not run: no non-live bench unit exists. The owner closed the phase on 2026-10-31 and carried the bench run to Phase 58 (HW2-02); Phase 57 may not start its live-frame OTA before it has passed. OTA-03 stays Pending in REQUIREMENTS.md."
+    accepted_by: owner
+    accepted_at: 2026-10-31
 gaps: []
 human_verification:
   - test: "Bench run of the firmware/SIGNING.md procedure on a non-live unit (OTA-03 device side)"
