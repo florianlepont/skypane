@@ -31,9 +31,9 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from companion import (  # noqa: E402
-    access, auth, credits_page, device_dispatch, device_scope, flash, freshness, i18n, illustration_normalize, layout,
+    access, auth, credits_page, device_dispatch, device_scope, export_api, flash, freshness, i18n, illustration_normalize, layout,
     login_page, page_context, post_actions, preview_images, prefs, request_body, routes, sign_in,
-    sign_in_config, static_files, theme_preview)
+    sign_in_config, static_files, theme_preview, user_view)
 from companion.pages import (  # noqa: E402
     # airlines_page is unused by this module's own code; kept so
     # companion/test_post_origin.py's app.airlines_page.* route reads
@@ -392,9 +392,23 @@ parse_single_uploaded_file = post_actions.parse_single_uploaded_file
 # page_context.build_page_context().
 
 
+def _effective_access(route, route_match):
+    """The `Access` and the captured value `access.decide` is fed for a
+    matched route. A device-scoped route under a /devices/<id> prefix is
+    decided against that id; the same route without a prefix acts on the live
+    frame and is admin-only, whatever its own access says. Every other route
+    is decided on its own access and matcher capture.
+    """
+    if not route.device_scoped:
+        return route.access, route_match.captured
+    if route_match.device_id is None:
+        return routes.ADMIN_ONLY, None
+    return route.access, route_match.device_id
+
+
 class Handler(
         device_dispatch.DeviceDispatchMixin, preview_images.PreviewImagesMixin,
-        sign_in.SignInMixin,
+        sign_in.SignInMixin, export_api.ExportMixin,
         post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
     server_version = "skypane-companion"
     args = None
@@ -716,7 +730,9 @@ class Handler(
     def _health_alert_for_admin(self):
         """The Health nav-dot severity for an admin caller, else None: a
         plain user or an anonymous caller never learns fleet health. Also
-        tells the shell who is signed in.
+        tells the shell who is signed in. Error pages carry no device
+        scope, so a user's frame-only dot is drawn by the tab pages
+        themselves (through the page context), not here.
         """
         principal = self._safe_principal()
         self._apply_principal(principal)
@@ -938,11 +954,12 @@ class Handler(
         if result is None:
             return self.send_html(404, self._not_found_page())
         route, route_match = result
+        route_access, captured = _effective_access(route, route_match)
         try:
             principal = (
-                None if route.access.min_role == access.ANONYMOUS else self._principal())
+                None if route_access.min_role == access.ANONYMOUS else self._principal())
             outcome = access.decide(
-                principal, route.access, route_match.captured, self._owner_lookup)
+                principal, route_access, captured, self._owner_lookup)
         except _STORE_ERRORS:
             return self.send_html(503, self._unavailable_page())
         if outcome == access.LOGIN:
@@ -974,7 +991,9 @@ class Handler(
         `calendar_rules` itself. No caught error's text is ever read: it
         can contain the calendar URL.
         """
-        form = self.read_form()
+        principal = self._safe_principal()
+        form = user_view.sanitise_settings_form(
+            self.read_form(), None if principal is None else principal.role)
         ctx = self.page_context(device)
         errors = {}
         flash_key = config_page.handle_post(form, ctx, errors=errors)

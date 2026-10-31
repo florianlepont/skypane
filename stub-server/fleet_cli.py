@@ -27,6 +27,11 @@ Usage:
         [--state-path .|auto]
     fleet_cli.py --state-dir DIR devices list
     fleet_cli.py --state-dir DIR devices assign --mac M --owner-email E
+    fleet_cli.py --state-dir DIR devices register-pending --mac M \\
+        --secret-sha256 H [--hardware T]
+    fleet_cli.py --state-dir DIR devices pending-list
+    fleet_cli.py --state-dir DIR devices retire --id d_xxxxxxxx
+    fleet_cli.py --state-dir DIR devices reactivate --id p_xxxxxxxx
     fleet_cli.py --state-dir DIR devices set-location --mac M --location-id N
     fleet_cli.py --state-dir DIR devices remove --mac M
     fleet_cli.py --state-dir DIR devices revoke-token --mac M
@@ -39,13 +44,16 @@ import os
 import shutil
 import sqlite3
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import byos_server  # noqa: E402 - the sys.path bootstrap above must run first
 from server import (  # noqa: E402
-    device_dirs, fleet_db, fleet_sessions, hardware,
+    device_dirs, fleet_db, fleet_ops, fleet_sessions, hardware,
 )
+
+CLI_ACTOR = fleet_db.AuditActor(None, "cli", None)
 
 RESTART_CAUTION = (
     "warning: byos keeps its registry and issued tokens in memory - stop "
@@ -210,6 +218,9 @@ def cmd_devices_list(args):
 
 
 def cmd_devices_assign(args):
+    """Reassign through the shared operation: a non-live frame is wiped and
+    re-provisioned for its new owner, the live frame only changes owner.
+    """
     mac = _mac_or_none(args.mac)
     if mac is None:
         return _fail("not a MAC address: %r" % (args.mac,))
@@ -217,11 +228,55 @@ def cmd_devices_assign(args):
     owner_id = _owner_id(conn, args.owner_email)
     if owner_id is None:
         return _fail("no such owner: %s" % args.owner_email, 1)
-    with fleet_db.transaction(conn):
-        found = fleet_db.assign_owner(conn, mac, owner_id)
-    if not found:
+    device = fleet_db.get_device_by_mac(conn, mac)
+    if device is None:
         return _fail("%s is not registered" % mac, 1)
+    fleet_ops.reassign_frame(
+        conn, args.state_dir, str(device["id"]), owner_id, CLI_ACTOR)
     print("assigned %s to %s" % (mac, args.owner_email))
+    return 0
+
+
+def cmd_devices_register_pending(args):
+    """Register a frame that will show a pairing code. Only the secret's
+    SHA-256 is accepted; there is no way to pass the raw secret.
+    """
+    mac = _mac_or_none(args.mac)
+    if mac is None:
+        return _fail("not a MAC address: %r" % (args.mac,))
+    conn = _open(args)
+    pending_id = fleet_ops.register_frame(
+        conn, mac, args.secret_sha256, args.hardware, CLI_ACTOR)
+    print("registered %s as pending" % mac)
+    print("pending id %s" % pending_id)
+    return 0
+
+
+def cmd_devices_pending_list(args):
+    rows = fleet_db.list_pending(_open(args))
+    if not rows:
+        print("(no pending frames)")
+    now = int(time.time())
+    for row in rows:
+        expires = row["code_expires_at"]
+        live = bool(row["has_code"]) and expires is not None and expires > now
+        print("%s %s %s %s code:%s" % (
+            row["id"], row["mac"], row["hardware_type"], row["status"],
+            "live" if live else "none"))
+    return 0
+
+
+def cmd_devices_retire(args):
+    conn = _open(args)
+    pending_id = fleet_ops.retire_frame(conn, args.state_dir, args.id, CLI_ACTOR)
+    print("retired %s (pending id %s)" % (args.id, pending_id))
+    return 0
+
+
+def cmd_devices_reactivate(args):
+    conn = _open(args)
+    fleet_ops.reactivate_frame(conn, args.state_dir, args.id, CLI_ACTOR)
+    print("reactivated %s" % args.id)
     return 0
 
 
@@ -252,6 +307,32 @@ def _mirror_remove(state_dir, mac):
         byos_server.save_state(state_dir, state)
 
 
+def _legacy_has(state_dir, mac):
+    registry = byos_server.load_registry(state_dir)
+    state = byos_server.load_state(state_dir)
+    return mac in registry["devices"] or mac in state.get("tokens", {})
+
+
+def _remove_pending(args, conn, mac):
+    """Delete a pending or retired frame's row and pairing directory; the
+    legacy files are touched only when they know the MAC. None when there
+    is no such row, else whether a legacy mirror ran.
+    """
+    row = fleet_db.get_pending_by_mac(conn, mac)
+    if row is None:
+        return None
+    mirrored = False
+    with fleet_db.transaction(conn):
+        fleet_db.delete_pending(conn, str(row["id"]))
+        if _legacy_has(args.state_dir, mac):
+            _mirror_remove(args.state_dir, mac)
+            mirrored = True
+    shutil.rmtree(
+        fleet_ops.pairing_dir(args.state_dir, str(row["id"])),
+        ignore_errors=True)
+    return mirrored
+
+
 def cmd_devices_remove(args):
     mac = _mac_or_none(args.mac)
     if mac is None:
@@ -262,7 +343,13 @@ def cmd_devices_remove(args):
         if found:
             _mirror_remove(args.state_dir, mac)
     if not found:
-        return _fail("%s is not registered" % mac, 1)
+        mirrored = _remove_pending(args, conn, mac)
+        if mirrored is None:
+            return _fail("%s is not registered" % mac, 1)
+        print("removed %s" % mac)
+        if mirrored:
+            print(RESTART_CAUTION)
+        return 0
     print("removed %s" % mac)
     print(RESTART_CAUTION)
     return 0
@@ -362,6 +449,22 @@ def _add_devices(sub):
     assign.add_argument("--mac", required=True)
     assign.add_argument("--owner-email", required=True)
     assign.set_defaults(func=cmd_devices_assign)
+    regp = verbs.add_parser(
+        "register-pending", help="register a frame that will show a pairing code")
+    regp.add_argument("--mac", required=True)
+    regp.add_argument("--secret-sha256", required=True,
+                      help="sha256(secret_hex) - 64 lowercase hex characters")
+    regp.add_argument("--hardware", default=hardware.LEGACY_KEY)
+    regp.set_defaults(func=cmd_devices_register_pending)
+    verbs.add_parser(
+        "pending-list", help="list pending and retired frames").set_defaults(
+        func=cmd_devices_pending_list)
+    retire = verbs.add_parser("retire", help="park a frame as retired")
+    retire.add_argument("--id", required=True)
+    retire.set_defaults(func=cmd_devices_retire)
+    react = verbs.add_parser("reactivate", help="return a retired frame to pending")
+    react.add_argument("--id", required=True)
+    react.set_defaults(func=cmd_devices_reactivate)
     setloc = verbs.add_parser("set-location", help="move a device to a location")
     setloc.add_argument("--mac", required=True)
     setloc.add_argument("--location-id", required=True, type=int)
@@ -394,7 +497,9 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
     try:
         return args.func(args)
-    except (ValueError, sqlite3.IntegrityError) as exc:
+    except fleet_ops.NotFound as exc:
+        return _fail(exc, 1)
+    except (fleet_ops.OpsError, ValueError, sqlite3.IntegrityError) as exc:
         return _fail(exc)
     except (sqlite3.Error, OSError) as exc:
         return _fail(type(exc).__name__, 1)

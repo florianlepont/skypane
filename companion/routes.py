@@ -13,9 +13,10 @@ resolve under a `/devices/<id>` prefix (`match()` strips the prefix and
 reports the id on `RouteMatch.device_id`). Global routes (login, logout,
 theme, language, static assets, runway diagrams, update) never match under
 the prefix. The set is declared once in `_DEVICE_SCOPED_KEYS`. A prefixed
-route carries exactly the `access` of its un-prefixed counterpart, so it is
-never less protected; the dispatcher applies that decision before it looks
-the device up.
+route is decided on its own `access` with the id from the prefix (the
+ownership gate for `OWNER_DEVICE`); the un-prefixed form acts on the live
+frame and is always admin-only (`Handler._dispatch` via `_effective_access`).
+The dispatcher applies that decision before it looks the device up.
 
 Only two matcher shapes exist: `Exact` (a fixed literal path) and
 `PrefixSuffix` (a fixed prefix and, for every route but the gallery one,
@@ -24,8 +25,9 @@ both off, byte for byte the same arithmetic the pre-table if-chains
 used. `access` is a validated `Access(min_role, device_arg)`: a Route
 cannot be constructed without one (default-deny). PUBLIC is the one place
 this whole app grants pre-session access; the only routes with it are
-GET /login, the sign-in start and callback, and the static assets in `companion/static_files.py`'s
-`STATIC_ROUTES`. SIGNED_IN needs any signed-in user; ADMIN_ONLY needs the
+GET /login, the sign-in start and callback, the bearer-token export (it checks
+its own token and never reads the session cookie), and the static assets in
+`companion/static_files.py`'s `STATIC_ROUTES`. SIGNED_IN needs any signed-in user; ADMIN_ONLY needs the
 admin role (every global page and mutation).
 """
 import collections
@@ -58,6 +60,10 @@ Access = collections.namedtuple("Access", "min_role device_arg")
 PUBLIC = Access(ANONYMOUS, None)
 SIGNED_IN = Access(USER, None)
 ADMIN_ONLY = Access(ADMIN, None)
+# A user reaches a device route only for a frame they own (the ownership gate
+# reads the device id from the URL prefix); an admin reaches every frame. The
+# un-prefixed form of such a route acts on the live frame and stays admin-only.
+OWNER_DEVICE = Access(USER, "device")
 
 
 class Route(collections.namedtuple(
@@ -66,7 +72,8 @@ class Route(collections.namedtuple(
     cannot register without a policy (a bool or nothing raises at import).
 
     `device_scoped` routes also resolve under a `/devices/<id>` prefix and
-    there inherit `access` unchanged.
+    there are decided on `access` with the prefix id; un-prefixed they are
+    admin-only.
     """
 
     __slots__ = ()
@@ -94,6 +101,7 @@ THEME_ROUTE = "/ui-theme"
 LANG_ROUTE = "/ui-lang"
 LOGOUT_ROUTE = "/logout"
 ACCOUNT_ROUTE = "/account"
+EXPORT_ROUTE = "/api/export/battery-history"
 GALLERY_ROUTE_PREFIX = "/gallery/"
 ILLUSTRATION_IMAGE_ROUTE_PREFIX = "/illustration/"
 
@@ -142,20 +150,25 @@ _GET_ROUTES = (
         Route("GET", Exact(AUTH0_LOGIN_ROUTE), lambda h, m: h._handle_login_auth0_get(), PUBLIC),
         Route("GET", Exact(CALLBACK_ROUTE), lambda h, m: h._handle_callback_get(), PUBLIC),
         Route("GET", Exact(CREDITS_ROUTE), lambda h, m: h._handle_credits_get(), PUBLIC),
+        # PUBLIC only in the sense that the cookie gate does not apply: the
+        # handler authenticates the bearer token itself.
+        Route(
+            "GET", Exact(EXPORT_ROUTE),
+            lambda h, m: h._handle_export_get(m.query), PUBLIC),
     )
     + _static_get_routes()
     + (
         Route("GET", Exact(ACCOUNT_ROUTE), lambda h, m: h._handle_account_get(), SIGNED_IN),
         Route(
             "GET", Exact(HOME_ROUTE),
-            lambda h, m: h._render_tab(HOME_ROUTE, home_page.render, m.device), ADMIN_ONLY),
+            lambda h, m: h._render_tab(HOME_ROUTE, home_page.render, m.device), OWNER_DEVICE),
         Route(
             "GET", Exact(DISPLAY_ROUTE),
             lambda h, m: h._render_tab(
                 DISPLAY_ROUTE,
                 lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DISPLAY),
                 m.device),
-            ADMIN_ONLY),
+            OWNER_DEVICE),
         Route(
             "GET", Exact(DEVICE_ROUTE),
             lambda h, m: h._render_tab(
@@ -165,13 +178,13 @@ _GET_ROUTES = (
             ADMIN_ONLY),
         Route(
             "GET", Exact(FLIGHTS_ROUTE),
-            lambda h, m: h._render_tab(FLIGHTS_ROUTE, history_page.render, m.device), ADMIN_ONLY),
+            lambda h, m: h._render_tab(FLIGHTS_ROUTE, history_page.render, m.device), OWNER_DEVICE),
         Route(
             "GET", Exact(HEALTH_ROUTE),
-            lambda h, m: h._render_tab(HEALTH_ROUTE, health_page.render, m.device), ADMIN_ONLY),
+            lambda h, m: h._render_tab(HEALTH_ROUTE, health_page.render, m.device), OWNER_DEVICE),
         Route(
             "GET", Exact(AIRLINES_ROUTE),
-            lambda h, m: h._render_tab(AIRLINES_ROUTE, airlines_page.render, m.device), ADMIN_ONLY),
+            lambda h, m: h._render_tab(AIRLINES_ROUTE, airlines_page.render, m.device), OWNER_DEVICE),
         Route(
             "GET", Exact(UPDATE_ROUTE),
             lambda h, m: h._render_tab(
@@ -185,28 +198,28 @@ _GET_ROUTES = (
         # prefix they keep that prefix.
         Route(
             "GET", Exact(SETTINGS_ROUTE),
-            lambda h, m: h.redirect(device_scope.scoped(DISPLAY_ROUTE)), ADMIN_ONLY),
+            lambda h, m: h.redirect(device_scope.scoped(DISPLAY_ROUTE)), OWNER_DEVICE),
         Route(
             "GET", Exact(HISTORY_LEGACY_ROUTE),
-            lambda h, m: h.redirect(device_scope.scoped(FLIGHTS_ROUTE)), ADMIN_ONLY),
+            lambda h, m: h.redirect(device_scope.scoped(FLIGHTS_ROUTE)), OWNER_DEVICE),
         Route(
             "GET", Exact(PREVIEW_PAGE_ROUTE),
-            lambda h, m: h.redirect(device_scope.scoped(FLIGHTS_ROUTE)), ADMIN_ONLY),
+            lambda h, m: h.redirect(device_scope.scoped(FLIGHTS_ROUTE)), OWNER_DEVICE),
         Route(
             "GET", PrefixSuffix(GALLERY_ROUTE_PREFIX, ""),
-            lambda h, m: h._serve_gallery_image(m.device, m.captured), ADMIN_ONLY),
+            lambda h, m: h._serve_gallery_image(m.device, m.captured), OWNER_DEVICE),
         Route(
             "GET", PrefixSuffix(RUNWAY_IMAGE_ROUTE_PREFIX, ".png"),
             lambda h, m: h._serve_runway_image(m.captured), ADMIN_ONLY),
         Route(
             "GET", PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png"),
-            lambda h, m: h._serve_illustration_image(m.device, m.captured), ADMIN_ONLY),
+            lambda h, m: h._serve_illustration_image(m.device, m.captured), OWNER_DEVICE),
         Route(
             "GET", PrefixSuffix(THEME_PREVIEW_ROUTE_PREFIX, ".png"),
-            lambda h, m: h._serve_theme_preview_image(m.device, m.captured), ADMIN_ONLY),
+            lambda h, m: h._serve_theme_preview_image(m.device, m.captured), OWNER_DEVICE),
         Route(
             "GET", PrefixSuffix(FRAME_PREVIEW_ROUTE_PREFIX, ".png"),
-            lambda h, m: h._serve_frame_preview_image(m.device, m.captured), ADMIN_ONLY),
+            lambda h, m: h._serve_frame_preview_image(m.device, m.captured), OWNER_DEVICE),
     )
 )
 
@@ -216,13 +229,13 @@ _GET_ROUTES = (
 _POST_ROUTES = (
     Route(
         "POST", Exact(SETTINGS_ROUTE),
-        lambda h, m: h._handle_settings_post(m.device), ADMIN_ONLY),
+        lambda h, m: h._handle_settings_post(m.device), OWNER_DEVICE),
     Route(
         "POST", Exact(QUICK_DISPLAY_ROUTE),
-        lambda h, m: h._handle_quick_toggle(m.device, "display_enabled"), ADMIN_ONLY),
+        lambda h, m: h._handle_quick_toggle(m.device, "display_enabled"), OWNER_DEVICE),
     Route(
         "POST", Exact(QUICK_QUIET_HOURS_ROUTE),
-        lambda h, m: h._handle_quick_toggle(m.device, "quiet_hours_enabled"), ADMIN_ONLY),
+        lambda h, m: h._handle_quick_toggle(m.device, "quiet_hours_enabled"), OWNER_DEVICE),
     # Session-checked POST only, no CSRF token - SameSite=Strict is the
     # only control here. return_to whitelist: /device is the LED
     # switch's only page, so it is both the sole allowed value and the
@@ -238,27 +251,27 @@ _POST_ROUTES = (
     Route("POST", Exact(LOGOUT_ROUTE), lambda h, m: h._handle_logout_post(), SIGNED_IN),
     Route(
         "POST", Exact(airlines_page.RESOLVE_ROUTE),
-        lambda h, m: h._handle_manual_resolve_post(m.device), ADMIN_ONLY),
+        lambda h, m: h._handle_manual_resolve_post(m.device), OWNER_DEVICE),
     Route(
         "POST", Exact(airlines_page.RENAME_ROUTE),
-        lambda h, m: h._handle_airline_rename_post(m.device), ADMIN_ONLY),
+        lambda h, m: h._handle_airline_rename_post(m.device), OWNER_DEVICE),
     Route(
         "POST", Exact(airlines_page.RENAME_RESET_ROUTE),
-        lambda h, m: h._handle_airline_rename_reset_post(m.device), ADMIN_ONLY),
+        lambda h, m: h._handle_airline_rename_reset_post(m.device), OWNER_DEVICE),
     Route(
         "POST",
         PrefixSuffix(airlines_page.MANUAL_DELETE_ROUTE_PREFIX, airlines_page.MANUAL_DELETE_ROUTE_SUFFIX),
-        lambda h, m: h._handle_manual_resolution_delete(m.device, m.captured), ADMIN_ONLY),
+        lambda h, m: h._handle_manual_resolution_delete(m.device, m.captured), OWNER_DEVICE),
     Route(
         "POST", PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png"),
-        lambda h, m: h._handle_illustration_replace(m.device, m.captured), ADMIN_ONLY),
-    Route("POST", Exact(RULES_ADD_ROUTE), lambda h, m: h._handle_rule_add_post(m.device), ADMIN_ONLY),
+        lambda h, m: h._handle_illustration_replace(m.device, m.captured), OWNER_DEVICE),
+    Route("POST", Exact(RULES_ADD_ROUTE), lambda h, m: h._handle_rule_add_post(m.device), OWNER_DEVICE),
     Route(
         "POST", Exact(CALENDAR_DISCONNECT_ROUTE),
-        lambda h, m: h._handle_calendar_disconnect_post(m.device), ADMIN_ONLY),
+        lambda h, m: h._handle_calendar_disconnect_post(m.device), OWNER_DEVICE),
     Route(
         "POST", Exact(CALENDAR_CONNECT_ROUTE),
-        lambda h, m: h._handle_calendar_connect_post(m.device), ADMIN_ONLY),
+        lambda h, m: h._handle_calendar_connect_post(m.device), OWNER_DEVICE),
     Route(
         "POST", Exact(UPDATE_INSTALL_ROUTE),
         lambda h, m: h._handle_update_install_post(), ADMIN_ONLY),
@@ -267,7 +280,7 @@ _POST_ROUTES = (
         lambda h, m: h._handle_update_cancel_post(), ADMIN_ONLY),
     Route(
         "POST", PrefixSuffix(RULES_DELETE_ROUTE_PREFIX, RULES_DELETE_ROUTE_SUFFIX),
-        lambda h, m: h._handle_rule_delete_post(m.device, m.captured), ADMIN_ONLY),
+        lambda h, m: h._handle_rule_delete_post(m.device, m.captured), OWNER_DEVICE),
 )
 
 _PAGE_AND_IMAGE_KEYS = (

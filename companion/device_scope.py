@@ -23,12 +23,14 @@ import threading
 import time
 import urllib.parse
 
+from companion import access, prefs
 from server import (
     device_config, device_dirs, fleet_db, hardware, history_db)
 
 # Never carries a MAC, token or secret: the type is safe to hand to templates.
 Device = collections.namedtuple(
-    "Device", "id name hardware_type state_path state_dir is_live")
+    "Device", "id name hardware_type state_path state_dir is_live owner_user_id",
+    defaults=(None,))
 
 LIVE_NAME = "Orly frame"
 LIVE_ID = "live"
@@ -43,6 +45,15 @@ STATUS_ONLINE = "online"
 _DEVICE_URL_PREFIX = "/devices/"
 
 
+def _owner_of(row):
+    """The row's owner user id, or None for a row that carries none."""
+    try:
+        value = row["owner_user_id"]
+    except (IndexError, KeyError):
+        return None
+    return None if value is None else int(value)
+
+
 def _live_from_row(root, row):
     name = None if row is None else row["name"]
     return Device(
@@ -51,7 +62,8 @@ def _live_from_row(root, row):
         hardware_type=hardware.LEGACY_KEY if row is None else str(row["hardware_type"]),
         state_path=device_dirs.LIVE_STATE_PATH,
         state_dir=root,
-        is_live=True)
+        is_live=True,
+        owner_user_id=None if row is None else _owner_of(row))
 
 
 def live_device(root):
@@ -94,14 +106,21 @@ def _device_from_row(root, row):
         hardware_type=str(row["hardware_type"]),
         state_path=state_path,
         state_dir=state_dir,
-        is_live=False)
+        is_live=False,
+        owner_user_id=_owner_of(row))
 
 
 def load_devices(root):
     """The live frame first, then the others by name then id. Never raises."""
+    return _devices_from_rows(root, _fleet_rows(root), True)
+
+
+def _devices_from_rows(root, rows, with_fallback):
+    """Devices for `rows`, live first then by name then id. The synthetic
+    live entry (no fleet row) is added only when `with_fallback`."""
     live = None
     others = []
-    for row in _fleet_rows(root):
+    for row in rows:
         device = _device_from_row(root, row)
         if device is None:
             continue
@@ -110,7 +129,28 @@ def load_devices(root):
         else:
             others.append(device)
     others.sort(key=lambda d: (d.name, d.id))
-    return [live or _live_from_row(root, None)] + others
+    if live is None and with_fallback:
+        live = _live_from_row(root, None)
+    return ([live] if live is not None else []) + others
+
+
+def _is_user_view():
+    """True when this request's principal is a plain user."""
+    principal = prefs.current_principal()
+    return principal is not None and principal[1] == access.USER
+
+
+def load_devices_for(root, principal):
+    """The devices `principal` may see: all of them for an admin or when no
+    principal is known, and for a user only the frames they own. A user's
+    list never holds the synthetic live fallback, so a user who owns no
+    frame sees none. Never raises."""
+    if principal is None or principal.role != access.USER:
+        return load_devices(root)
+    owned = [
+        row for row in _fleet_rows(root)
+        if principal.user_id is not None and _owner_of(row) == principal.user_id]
+    return _devices_from_rows(root, owned, False)
 
 
 def find_device(root, device_id):
@@ -221,10 +261,25 @@ def current_devices():
     return _SCOPE_CTX.get()[1]
 
 
+def _unprefixed(device):
+    """True when `device` is addressed without a /devices/<id> prefix. The
+    un-prefixed form acts on the live frame and is admin-only, so a user
+    always gets the prefixed form with the frame's real id."""
+    if not device.is_live:
+        return False
+    return not _is_user_view() or device.id == LIVE_ID
+
+
+def selector_value(device):
+    """The selector option value for `device`: the literal "live" for the
+    un-prefixed live frame, else the real id."""
+    return LIVE_ID if _unprefixed(device) else device.id
+
+
 def current_prefix():
-    """"" for the live frame or no scope, else "/devices/<id>"."""
+    """"" for the un-prefixed live frame or no scope, else "/devices/<id>"."""
     device = current_device()
-    if device is None or device.is_live:
+    if device is None or _unprefixed(device):
         return ""
     return _DEVICE_URL_PREFIX + device.id
 
@@ -255,7 +310,7 @@ def strip_current_prefix(value):
 def target_path(path, device):
     """The same page under `device`: un-prefixed for the live frame."""
     base = strip_prefix(path)
-    if device.is_live:
+    if _unprefixed(device):
         return base
     return _DEVICE_URL_PREFIX + device.id + base
 
@@ -296,6 +351,8 @@ def page_routes():
 def _switch_device(value, devices):
     """The Device in `devices` that `value` ("live" or a device id) names."""
     if value == LIVE_ID:
+        if _is_user_view():
+            return None
         return next((d for d in devices if d.is_live), None)
     if not device_dirs.is_valid_device_id(value):
         return None

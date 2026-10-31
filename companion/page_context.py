@@ -40,6 +40,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import companion.device_scope as device_scope
 import companion.prefs as prefs
+import companion.user_view as user_view
 import companion.wake as wake
 from server import device_config, history_db
 from server.plane import calendar_rules, colour_rules, manual_resolutions, name_overrides
@@ -413,8 +414,8 @@ def build_page_context(handler, device):
             # The severity/anomaly snapshot every tab's nav dot needs,
             # with zero markup built. Shared (never recomputed) by the
             # "health_state" and "health_severity" loaders below.
-            "_health_signals": lambda: health_page.safe_health_signals(
-                state_dir, now, root_state_dir),
+            "_health_signals": lambda: user_view.reduce_signals(
+                health_page.safe_health_signals(state_dir, now, root_state_dir)),
             # Only Home and Health read this — the markup step. `None`
             # both when the signals snapshot itself failed and when
             # building markup from a real snapshot raises: the same

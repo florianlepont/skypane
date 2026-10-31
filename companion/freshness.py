@@ -16,7 +16,7 @@ import os
 import sqlite3
 from zoneinfo import ZoneInfo
 
-from companion import battery, frame_state, health_signals, layout
+from companion import battery, frame_state, health_signals, layout, user_view
 import companion.page_context as page_context
 from companion.pages import health_page
 from server import device_config, history_db
@@ -53,7 +53,7 @@ def _freshness_file_stamp(path):
     return [st.st_mtime_ns, st.st_ctime_ns, st.st_size, st.st_mode]
 
 
-def _freshness_file_stamps(state_dir):
+def _freshness_file_stamps(state_dir, platform=True):
     """`_freshness_file_stamp()` for every file-backed freshness-token
     input: `device_config.json`, `poll_state.json`, the calendar
     registry, the calendar secret, the manual-resolutions registry, the
@@ -75,7 +75,7 @@ def _freshness_file_stamps(state_dir):
     the secret was exposed.
     """
     marker_path = os.environ.get(health_page.OFFBOX_MARKER_ENV_VAR)
-    return {
+    stamps = {
         "device_config": _freshness_file_stamp(
             device_config.device_config_path(state_dir)),
         "poll_state": _freshness_file_stamp(state_store.poll_state_path(state_dir)),
@@ -90,9 +90,13 @@ def _freshness_file_stamps(state_dir):
         "offbox_marker": (
             "disabled" if not marker_path else _freshness_file_stamp(marker_path)),
     }
+    if not platform:
+        # The off-box backup marker is platform state a user never sees.
+        del stamps["offbox_marker"]
+    return stamps
 
 
-def _freshness_db_signal(state_dir, want_pipeline_run):
+def _freshness_db_signal(state_dir, want_pipeline_run, platform=True):
     """The freshness token's database-backed piece: the two per-table
     MAX(id) watermarks (one SELECT) plus the last-detection/source-fault
     meta keys, read through the request's own single scoped connection -
@@ -125,8 +129,10 @@ def _freshness_db_signal(state_dir, want_pipeline_run):
                 "runway_events_id": row["runway_events_id"],
                 "device_health_id": row["device_health_id"],
                 "last_detection": history_db.get_meta(conn, history_db.META_LAST_DETECTION),
-                "source_fault": history_db.get_meta(conn, history_db.META_SOURCE_FAULT),
             }
+            if platform:
+                result["source_fault"] = history_db.get_meta(
+                    conn, history_db.META_SOURCE_FAULT)
             if want_pipeline_run:
                 result["last_pipeline_run"] = history_db.get_meta(
                     conn, history_db.META_LAST_PIPELINE_RUN)
@@ -199,6 +205,7 @@ def _page_freshness_token(route, ctx, query):
     state_dir = ctx.state_dir
     now = ctx.now
     slug = layout.nav_slug(route)
+    platform = user_view.platform_visible()
     signals = ctx._health_signals
     signal_fields = (
         None if signals is None
@@ -211,9 +218,11 @@ def _page_freshness_token(route, ctx, query):
         "ui_theme": ctx.ui_theme,
         "db": _freshness_db_signal(
             state_dir,
-            want_pipeline_run=slug in (layout.REFRESH_PAGE_HEALTH, layout.REFRESH_PAGE_HOME)),
+            want_pipeline_run=platform and slug in (
+                layout.REFRESH_PAGE_HEALTH, layout.REFRESH_PAGE_HOME),
+            platform=platform),
         "signals": signal_fields,
-        "files": _freshness_file_stamps(state_dir),
+        "files": _freshness_file_stamps(state_dir, platform),
         # Reuses the ctx's own lazy "gallery_entries" loader (cached after
         # this first read) rather than a second, direct gallery_entries()
         # call - a route whose render() also reads it (Home, Flights)

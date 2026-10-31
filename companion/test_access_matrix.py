@@ -25,7 +25,7 @@ import time
 
 import pytest
 
-from companion import access, routes, static_files
+from companion import access, app, routes, static_files
 from companion_app_server import (
     InProcessAppServer, auth0_env, http_request,
     login_via_auth0)
@@ -40,6 +40,7 @@ from server import fleet_db, fleet_sessions
 PUBLIC = "public"
 SIGNED_IN = "signed-in"
 ADMIN_ONLY = "admin-only"
+OWNER_DEVICE = "owner-device"
 
 _PUBLIC_PATHS = ("/login", "/login/auth0", "/callback")
 _STATIC_PATHS = tuple(static_files.STATIC_ROUTES)
@@ -49,40 +50,43 @@ ROUTE_POLICY = {
     ("GET", "/login/auth0"): PUBLIC,
     ("GET", "/callback"): PUBLIC,
     ("GET", "/credits"): PUBLIC,
+    # Self-authenticating: the handler checks its own bearer token and never
+    # looks at a session cookie, so the cookie gate has nothing to add.
+    ("GET", "/api/export/battery-history"): PUBLIC,
     ("GET", "/account"): SIGNED_IN,
     ("POST", "/ui-theme"): SIGNED_IN,
     ("POST", "/ui-lang"): SIGNED_IN,
     ("POST", "/logout"): SIGNED_IN,
-    ("GET", "/"): ADMIN_ONLY,
-    ("GET", "/display"): ADMIN_ONLY,
+    ("GET", "/"): OWNER_DEVICE,
+    ("GET", "/display"): OWNER_DEVICE,
     ("GET", "/device"): ADMIN_ONLY,
-    ("GET", "/flights"): ADMIN_ONLY,
-    ("GET", "/health"): ADMIN_ONLY,
-    ("GET", "/airlines"): ADMIN_ONLY,
+    ("GET", "/flights"): OWNER_DEVICE,
+    ("GET", "/health"): OWNER_DEVICE,
+    ("GET", "/airlines"): OWNER_DEVICE,
     ("GET", "/update"): ADMIN_ONLY,
-    ("GET", "/settings"): ADMIN_ONLY,
-    ("GET", "/history"): ADMIN_ONLY,
-    ("GET", "/preview"): ADMIN_ONLY,
-    ("GET", "/gallery/{}"): ADMIN_ONLY,
+    ("GET", "/settings"): OWNER_DEVICE,
+    ("GET", "/history"): OWNER_DEVICE,
+    ("GET", "/preview"): OWNER_DEVICE,
+    ("GET", "/gallery/{}"): OWNER_DEVICE,
     ("GET", "/runway-image/{}.png"): ADMIN_ONLY,
-    ("GET", "/illustration/{}.png"): ADMIN_ONLY,
-    ("GET", "/theme-preview/{}.png"): ADMIN_ONLY,
-    ("GET", "/frame-preview/{}.png"): ADMIN_ONLY,
-    ("POST", "/settings"): ADMIN_ONLY,
-    ("POST", "/quick/display"): ADMIN_ONLY,
-    ("POST", "/quick/quiet-hours"): ADMIN_ONLY,
+    ("GET", "/illustration/{}.png"): OWNER_DEVICE,
+    ("GET", "/theme-preview/{}.png"): OWNER_DEVICE,
+    ("GET", "/frame-preview/{}.png"): OWNER_DEVICE,
+    ("POST", "/settings"): OWNER_DEVICE,
+    ("POST", "/quick/display"): OWNER_DEVICE,
+    ("POST", "/quick/quiet-hours"): OWNER_DEVICE,
     ("POST", "/quick/led"): ADMIN_ONLY,
-    ("POST", "/airlines/resolve"): ADMIN_ONLY,
-    ("POST", "/airlines/rename"): ADMIN_ONLY,
-    ("POST", "/airlines/rename/reset"): ADMIN_ONLY,
-    ("POST", "/airlines/manual-resolutions/{}/delete"): ADMIN_ONLY,
-    ("POST", "/illustration/{}.png"): ADMIN_ONLY,
-    ("POST", "/settings/rules/add"): ADMIN_ONLY,
-    ("POST", "/settings/calendar/disconnect"): ADMIN_ONLY,
-    ("POST", "/settings/calendar/connect"): ADMIN_ONLY,
+    ("POST", "/airlines/resolve"): OWNER_DEVICE,
+    ("POST", "/airlines/rename"): OWNER_DEVICE,
+    ("POST", "/airlines/rename/reset"): OWNER_DEVICE,
+    ("POST", "/airlines/manual-resolutions/{}/delete"): OWNER_DEVICE,
+    ("POST", "/illustration/{}.png"): OWNER_DEVICE,
+    ("POST", "/settings/rules/add"): OWNER_DEVICE,
+    ("POST", "/settings/calendar/disconnect"): OWNER_DEVICE,
+    ("POST", "/settings/calendar/connect"): OWNER_DEVICE,
     ("POST", "/update/install"): ADMIN_ONLY,
     ("POST", "/update/cancel"): ADMIN_ONLY,
-    ("POST", "/settings/rules/{}/delete"): ADMIN_ONLY,
+    ("POST", "/settings/rules/{}/delete"): OWNER_DEVICE,
 }
 ROUTE_POLICY.update({("GET", path): PUBLIC for path in _STATIC_PATHS})
 
@@ -114,8 +118,27 @@ OUTCOMES = {
     ADMIN_ONLY: {
         "anonymous": "login", "owner": "not-found", "other": "not-found",
         "admin": "allow"},
+    OWNER_DEVICE: {
+        "anonymous": "login", "owner": "allow", "other": "not-found",
+        "admin": "allow"},
 }
+# The un-prefixed form of a device-scoped route acts on the live frame and is
+# admin-only for every policy kind.
+UNPREFIXED_OUTCOMES = {
+    "anonymous": "login", "owner": "not-found", "other": "not-found",
+    "admin": "allow"}
 PRINCIPAL_NAMES = ("anonymous", "owner", "other", "admin")
+
+# The kinds whose prefixed form reaches a frame only through the ownership gate.
+_MIN_ROLE_OF_KIND = {
+    PUBLIC: access.ANONYMOUS, SIGNED_IN: access.USER, ADMIN_ONLY: access.ADMIN,
+    OWNER_DEVICE: access.USER}
+
+MALFORMED_IDS = (
+    "d_ZZZZZZZZ", "..", "d_" + "0" * 40, "a/b", "d_0000000", "D_00000000", "",
+    "d_00000000/..",
+)
+UNKNOWN_ID = "d_00000000"
 
 # One concrete middle per templated route.
 SAMPLE_MIDDLE = {
@@ -208,9 +231,15 @@ def test_a_prefixed_route_never_has_less_access_than_its_base_route():
         prefixed, match = routes.match(
             key[0], "/devices/d_00000000" + _sample_path(key), "")
         assert match.device_id == "d_00000000"
-        assert prefixed.access == base.access
-        assert prefixed.access == routes.Access(
-            access.ADMIN if ROUTE_POLICY[key] == ADMIN_ONLY else access.USER, None)
+        assert prefixed.access.min_role == base.access.min_role
+        assert prefixed.access.min_role == _MIN_ROLE_OF_KIND[ROUTE_POLICY[key]]
+        expected_arg = "device" if ROUTE_POLICY[key] == OWNER_DEVICE else None
+        assert prefixed.access.device_arg == expected_arg
+        # The un-prefixed form acts on the live frame: admin-only, no id.
+        base_route, base_match = routes.match(key[0], _sample_path(key), "")
+        assert app._effective_access(base_route, base_match) == (routes.ADMIN_ONLY, None)
+        effective, captured = app._effective_access(prefixed, match)
+        assert effective == prefixed.access and captured == "d_00000000"
 
 
 def test_a_dummy_route_without_a_row_is_reported(monkeypatch):
@@ -219,6 +248,18 @@ def test_a_dummy_route_without_a_row_is_reported(monkeypatch):
     monkeypatch.setattr(routes, "ROUTES", routes.ROUTES + (dummy,))
     keys = {_route_key(r) for r in routes.ROUTES}
     assert ("GET", "/zz-new-page") in keys - set(ROUTE_POLICY)
+
+
+def test_the_export_route_is_the_only_api_route_and_is_public_and_global():
+    export_key = ("GET", "/api/export/battery-history")
+    api_keys = {key for key in _REAL_KEYS if key[1].startswith("/api/")}
+    assert api_keys == {export_key}
+    route = next(r for r in _REAL_ROUTES if _route_key(r) == export_key)
+    assert route.access == routes.PUBLIC
+    assert not route.device_scoped
+    assert export_key not in DEVICE_SCOPED
+    assert routes.match("GET", "/devices/d_00000000" + export_key[1], "") is None
+    assert routes.match("POST", export_key[1], "") is None
 
 
 def test_the_probe_family_is_not_in_the_production_table():
@@ -237,15 +278,52 @@ _DECISION_WORDS = {
     access.ALLOW: "allow", access.LOGIN: "login", access.NOT_FOUND: "not-found"}
 
 
+_PURE_DEVICE = "d_0000beef"
+
+
 def _never_owner(_device_id):
     raise AssertionError("a global route must not look up a device owner")
 
 
+def _owner_one(device_id):
+    return 1 if device_id == _PURE_DEVICE else None
+
+
+def _pure_outcome(principal, method, path, owner_lookup):
+    route, route_match = routes.match(method, path, "")
+    route_access, captured = app._effective_access(route, route_match)
+    return _DECISION_WORDS[
+        access.decide(principal, route_access, captured, owner_lookup)]
+
+
 @pytest.mark.parametrize("key,name", _CELLS, ids=_CELL_IDS)
 def test_decide_matches_the_policy_table(key, name):
-    route = next(r for r in _REAL_ROUTES if _route_key(r) == key)
-    outcome = access.decide(_PRINCIPALS[name], route.access, None, _never_owner)
-    assert _DECISION_WORDS[outcome] == OUTCOMES[ROUTE_POLICY[key]][name]
+    scoped = key in DEVICE_SCOPED
+    outcome = _pure_outcome(
+        _PRINCIPALS[name], key[0], _sample_path(key),
+        _never_owner if not scoped else _owner_one)
+    expected = (
+        UNPREFIXED_OUTCOMES[name] if scoped else OUTCOMES[ROUTE_POLICY[key]][name])
+    assert outcome == expected
+
+
+@pytest.mark.parametrize("key,name", _SCOPED_CELLS, ids=_SCOPED_CELL_IDS)
+def test_decide_matches_the_policy_table_under_a_device_prefix(key, name):
+    outcome = _pure_outcome(
+        _PRINCIPALS[name], key[0], "/devices/%s%s" % (_PURE_DEVICE, _sample_path(key)),
+        _owner_one)
+    assert outcome == OUTCOMES[ROUTE_POLICY[key]][name]
+
+
+def test_the_owner_gate_is_never_asked_about_a_foreign_or_unknown_id_as_owner():
+    for device_id in ("d_00000000", "d_1111beef"):
+        for key in _SCOPED_KEYS:
+            if ROUTE_POLICY[key] != OWNER_DEVICE:
+                continue
+            outcome = _pure_outcome(
+                _PRINCIPALS["owner"], key[0],
+                "/devices/%s%s" % (device_id, _sample_path(key)), _owner_one)
+            assert outcome == "not-found"
 
 
 def test_every_templated_route_has_a_sample_middle():
@@ -323,7 +401,9 @@ def test_http_outcome_matches_the_policy_table(rig, stubbed, key, name):
     method = key[0]
     path = _sample_path(key)
     cookie = rig.cookies[name]
-    expected = OUTCOMES[ROUTE_POLICY[key]][name]
+    expected = (
+        UNPREFIXED_OUTCOMES[name] if key in DEVICE_SCOPED
+        else OUTCOMES[ROUTE_POLICY[key]][name])
 
     status, headers, body = rig.request(method, path, cookie)
 
@@ -394,7 +474,7 @@ def test_an_unknown_device_id_is_404_for_a_permitted_caller_and_login_for_anonym
         rig, stubbed, key):
     method = key[0]
     path = _scoped_path(UNKNOWN_ID, key)
-    for who in ("admin",):
+    for who in ("owner", "other", "admin"):
         status, _h, body = rig.request(method, path, rig.cookies[who])
         assert status == 404
         assert body == _unknown_path_404(rig, rig.cookies[who])
@@ -405,6 +485,44 @@ def test_an_unknown_device_id_is_404_for_a_permitted_caller_and_login_for_anonym
         method, _scoped_path(rig.fleet.owner_device, key), None)
     assert known_status == 303
     assert known_headers["Location"].startswith("/login")
+    assert stubbed.calls == []
+
+
+@pytest.mark.parametrize("raw", MALFORMED_IDS)
+@pytest.mark.parametrize("who", ["owner", "other", "admin"])
+def test_a_malformed_device_id_under_a_prefix_is_an_identical_404(
+        rig, stubbed, who, raw):
+    cookie = rig.cookies[who]
+    unknown = _unknown_path_404(rig, cookie)
+    for method, page in (("GET", "/display"), ("POST", "/settings")):
+        status, _h, body = rig.request(method, "/devices/" + raw + page, cookie)
+        assert status == 404 and body == unknown
+    assert stubbed.calls == []
+
+
+_ADMIN_ONLY_DEVICE_KEYS = [
+    key for key in _SCOPED_KEYS if ROUTE_POLICY[key] == ADMIN_ONLY]
+
+
+def test_the_device_update_and_led_routes_stay_admin_only_in_both_forms():
+    assert {key[1] for key in _ADMIN_ONLY_DEVICE_KEYS} == {
+        "/device", "/quick/led"}
+    for path in ("/update", "/update/install", "/update/cancel",
+                 "/runway-image/{}.png"):
+        assert any(key[1] == path and ROUTE_POLICY[key] == ADMIN_ONLY
+                   for key in _REAL_KEYS)
+
+
+@pytest.mark.parametrize("key", _ADMIN_ONLY_DEVICE_KEYS, ids=[
+    "%s_%s" % (k[0], k[1].strip("/").replace("/", "_") or "root")
+    for k in _ADMIN_ONLY_DEVICE_KEYS])
+def test_an_admin_only_device_route_refuses_its_owner_in_both_forms(
+        rig, stubbed, key):
+    cookie = rig.cookies["owner"]
+    unknown = _unknown_path_404(rig, cookie)
+    for path in (_sample_path(key), _scoped_path(rig.fleet.owner_device, key)):
+        status, _h, body = rig.request(key[0], path, cookie)
+        assert status == 404 and body == unknown
     assert stubbed.calls == []
 
 
@@ -433,12 +551,6 @@ def test_a_user_404_shows_no_health_dot_and_no_admin_navigation(rig, stubbed):
 
 
 # --- device-scoped probe family ---------------------------------------------
-
-MALFORMED_IDS = (
-    "d_ZZZZZZZZ", "..", "d_" + "0" * 40, "a/b", "d_0000000", "D_00000000", "",
-    "d_00000000/..",
-)
-UNKNOWN_ID = "d_00000000"
 
 
 @pytest.mark.parametrize("method", ["GET", "POST"])
