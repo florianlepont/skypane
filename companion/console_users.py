@@ -30,7 +30,7 @@ DISABLE_SUFFIX = "/disable"
 ENABLE_SUFFIX = "/enable"
 UNLINK_SUFFIX = "/unlink"
 
-_USER_ID_RE = re.compile(r"^[0-9]{1,9}$")
+_USER_ID_RE = re.compile(r"\A[0-9]{1,9}\Z")
 _MAX_EMAIL_CHARS = 254
 _ROLES = (users_page.ROLE_USER, users_page.ROLE_ADMIN)
 

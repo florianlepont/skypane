@@ -266,6 +266,41 @@ def test_control_characters_are_stripped_from_the_name(rig):
     assert _sql(server.state_dir, "SELECT name FROM locations") == [("Sample Town",)]
 
 
+def test_format_and_bidirectional_characters_are_stripped_from_the_name(rig):
+    server, _seed, cookies = rig
+    name = "Sam\u202eple\u200b Town\u2066"
+    assert fx.post(
+        server, cookies["owner"], "/locations/add", _form(name=name))[0] == 303
+    assert _sql(server.state_dir, "SELECT name FROM locations") == [("Sample Town",)]
+
+
+def test_a_user_sees_only_their_own_frames_in_the_used_by_count(rig):
+    server, seed, cookies = rig
+    plain = _add(server.state_dir, "Plain Place", seed.user_id)
+    _sql(server.state_dir, "UPDATE devices SET location_id = ? WHERE id = ?",
+         (plain, seed.owned_id))
+    status, _headers, body = fx.get(server, cookies["plain"], "/locations")
+    assert status == 200
+    assert "No frame" in _row_html(body, plain)
+    assert "1 frame" not in _row_html(body, plain)
+    _status, _headers, admin_body = fx.get(server, cookies["admin"], "/locations")
+    assert "1 frame" in _row_html(admin_body, plain)
+    own = _add(server.state_dir, "Owner Place", seed.owner_id)
+    _sql(server.state_dir, "UPDATE devices SET location_id = ? WHERE id = ?",
+         (own, seed.owned_id))
+    _status, _headers, owner_body = fx.get(server, cookies["owner"], "/locations")
+    assert "1 frame" in _row_html(owner_body, own)
+
+
+def test_a_path_id_with_a_trailing_newline_is_not_an_id():
+    from types import SimpleNamespace
+
+    from companion import console_users
+    for module in (console_locations, console_users):
+        assert module._target_id(SimpleNamespace(captured="12")) == 12
+        assert module._target_id(SimpleNamespace(captured="12\n")) is None
+
+
 def test_a_refused_submission_keeps_what_was_typed(rig):
     server, _seed, cookies = rig
     _status, _headers, body = fx.post(

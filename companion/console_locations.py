@@ -40,7 +40,7 @@ DELETE_SUFFIX = "/delete"
 USER_LOCATION_LIMIT = 10
 MUTATION_LIMIT = 20
 MUTATION_LOCKOUT_S = 600
-_ID_RE = re.compile(r"^[0-9]{1,9}$")
+_ID_RE = re.compile(r"\A[0-9]{1,9}\Z")
 _NUMBER_RE = re.compile(r"^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$")
 _ZONE_NAME_RE = re.compile(r"^[A-Za-z0-9_+\-/]{1,64}$")
 _MAX_NUMBER_CHARS = 20
@@ -165,8 +165,14 @@ def _redirect(h, flash_key, **params):
     return h.redirect(LOCATIONS_PATH, set_cookie=_back(flash_key, **params))
 
 
+# Control, format (including bidirectional overrides) and line/paragraph
+# separator characters are removed from names shown in admin tables.
+_STRIPPED_CATEGORIES = ("Cc", "Cf", "Zl", "Zp")
+
+
 def _clean_name(raw):
-    text = "".join(ch for ch in raw if unicodedata.category(ch) not in ("Cc", "Zl", "Zp"))
+    text = "".join(
+        ch for ch in raw if unicodedata.category(ch) not in _STRIPPED_CATEGORIES)
     return text.strip()
 
 
@@ -230,7 +236,8 @@ def _validate(form, target_id):
 def _rows(conn, principal):
     is_admin = _is_admin(principal)
     stored = fleet_db.list_locations_for(conn, principal.user_id, is_admin)
-    usage = fleet_db.location_usage_counts(conn)
+    usage = fleet_db.location_usage_counts(
+        conn, None if is_admin else principal.user_id)
     emails = {}
     if is_admin:
         emails = {
