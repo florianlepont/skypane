@@ -340,7 +340,7 @@ def _device_option_html(device, page, current, now):
         if selected:
             pill = '<span class="banner__pill">%s</span>' % escape_html(i18n.t(texts[1]))
     option = '<option value="%s" data-href="%s"%s>%s</option>' % (
-        escape_html(device_scope.LIVE_ID if device.is_live else device.id),
+        escape_html(device_scope.selector_value(device)),
         escape_html(device_scope.target_path(page, device)),
         " selected" if selected else "", escape_html(label))
     return option, pill
