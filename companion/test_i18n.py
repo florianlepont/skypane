@@ -207,6 +207,9 @@ _UNCHANGED_IN_FRENCH = frozenset({
     # "Auto" is the usual French abbreviation of "Automatique" on a
     # narrow segmented control.
     "nav.auto",
+    # "Administration" and "Admin" are the French words too, spelled
+    # identically: real cognates for the console's nav group and phone tab.
+    "nav.administration", "nav.admin",
 })
 
 
