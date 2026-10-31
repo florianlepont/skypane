@@ -418,6 +418,7 @@ class Handler(
     timeout = REQUEST_SOCKET_TIMEOUT_S
     _fleet = None
     _principal_cache = _UNRESOLVED
+    _form_cache = None
 
     # --- response helpers -------------------------------------------
 
@@ -562,6 +563,12 @@ class Handler(
             return None
         return access.Principal(access.KIND_USER, record.user_id, record.email, record.role)
 
+    def _raw_session_token(self):
+        """The raw session cookie value, or None. Only used to derive the
+        anti-forgery token; never logged or echoed.
+        """
+        return auth.parse_cookies(self.headers.get("Cookie")).get(auth.SESSION_COOKIE_NAME)
+
     def _principal(self):
         """Cached per request; reset at the top of `_dispatch()`. Raises
         the store errors in `_STORE_ERRORS`.
@@ -629,6 +636,15 @@ class Handler(
     # --- form / query parsing -------------------------------------------
 
     def read_form(self):
+        """The request form, read once per request: later calls (the
+        dispatcher's anti-forgery check, then the handler) get the same
+        dict. See `_read_form_body()` for the parsing rules.
+        """
+        if self._form_cache is None:
+            self._form_cache = self._read_form_body()
+        return self._form_cache
+
+    def _read_form_body(self):
         """Read the request body as `application/x-www-form-urlencoded`,
         capped at MAX_FORM_BYTES. An oversized/undecodable/stalled
         (`socket.timeout`, bounded by `Handler.timeout`) body degrades
@@ -697,7 +713,7 @@ class Handler(
         return login_page.not_found_page(
             self._resolved_ui_theme(), health_alert, back=self._back_target())
 
-    def _forbidden_page(self):
+    def _forbidden_page(self, purpose=None):
         """The shared 403 body for do_POST()'s Origin/Sec-Fetch-Site gate.
         Byte-for-byte the same shape as `_not_found_page()` above. The
         markup itself is `companion/login_page.py`'s `forbidden_page()`.
@@ -705,7 +721,8 @@ class Handler(
         prefs.set_request_prefs(lang=self._lang_from_request())
         health_alert = self._health_alert_for_admin()
         return login_page.forbidden_page(
-            self._resolved_ui_theme(), health_alert, back=self._back_target())
+            self._resolved_ui_theme(), health_alert, back=self._back_target(),
+            purpose=purpose)
 
     def _back_target(self):
         """Which onward link an error page offers the current caller. Reads
@@ -937,7 +954,9 @@ class Handler(
         the ONLY place that gate runs.
         """
         self._principal_cache = _UNRESOLVED
+        self._form_cache = None
         prefs.set_request_principal(None)
+        prefs.set_request_csrf("")
         if method == "POST" and not auth.post_origin_ok(self.headers):
             return self.send_html(403, self._forbidden_page())
         parsed = urlsplit(self.path)
@@ -958,6 +977,12 @@ class Handler(
         if outcome == access.NOT_FOUND:
             return self.send_html(404, self._not_found_page())
         self._apply_principal(principal)
+        raw_session = self._raw_session_token()
+        prefs.set_request_csrf(
+            auth.csrf_token(raw_session) if raw_session and principal is not None else "")
+        if method == "POST" and route.csrf and not auth.csrf_ok(
+                raw_session, self.read_form().get(routes.CSRF_FIELD)):
+            return self.send_html(403, self._forbidden_page(login_page.CSRF_EXPIRED_TEXT))
         if route.access.min_role == access.ANONYMOUS:
             # Login, sign-in and static assets: no device.
             device_scope.set_request_scope(None, ())

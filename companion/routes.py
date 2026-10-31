@@ -66,24 +66,26 @@ OWNER_DEVICE = Access(USER, "device")
 
 
 class Route(collections.namedtuple(
-        "Route", "method matcher handler access device_scoped")):
+        "Route", "method matcher handler access device_scoped csrf")):
     """One table entry. Refuses to exist without a valid Access, so a route
     cannot register without a policy (a bool or nothing raises at import).
 
     `device_scoped` routes also resolve under a `/devices/<id>` prefix and
     there are decided on `access` with the prefix id; un-prefixed they are
-    admin-only.
+    admin-only. A POST route with `csrf` set also needs the per-session
+    token in its form body (checked by the dispatcher after the access
+    decision).
     """
 
     __slots__ = ()
 
-    def __new__(cls, method, matcher, handler, access, device_scoped=False):
+    def __new__(cls, method, matcher, handler, access, device_scoped=False, csrf=False):
         if (
             not isinstance(access, Access)
             or access.min_role not in (ANONYMOUS, USER, ADMIN)
         ):
             raise TypeError("every route needs an explicit Access annotation")
-        return super().__new__(cls, method, matcher, handler, access, device_scoped)
+        return super().__new__(cls, method, matcher, handler, access, device_scoped, csrf)
 
 # Literal here, byte-identical to companion/app.py's own constants of the
 # same name, since this module can never import companion.app either.
@@ -310,8 +312,25 @@ _ACTION_KEYS = (
 # The routes that act on a single device: 13 GET and 14 POST.
 _DEVICE_SCOPED_KEYS = frozenset(_PAGE_AND_IMAGE_KEYS + _ACTION_KEYS)
 
+# Form field carrying the per-session anti-forgery token.
+CSRF_FIELD = "csrf_token"
+
+# Existing POST routes that need the token: the destructive actions and the
+# release actions. New console routes set `csrf=True` on their own Route.
+CSRF_ROUTE_KEYS = frozenset((
+    ("POST", PrefixSuffix(RULES_DELETE_ROUTE_PREFIX, RULES_DELETE_ROUTE_SUFFIX)),
+    ("POST", Exact(CALENDAR_DISCONNECT_ROUTE)),
+    ("POST", PrefixSuffix(
+        airlines_page.MANUAL_DELETE_ROUTE_PREFIX, airlines_page.MANUAL_DELETE_ROUTE_SUFFIX)),
+    ("POST", Exact(airlines_page.RENAME_RESET_ROUTE)),
+    ("POST", Exact(UPDATE_INSTALL_ROUTE)),
+    ("POST", Exact(UPDATE_CANCEL_ROUTE)),
+))
+
 ROUTES = tuple(
-    route._replace(device_scoped=(route.method, route.matcher) in _DEVICE_SCOPED_KEYS)
+    route._replace(
+        device_scoped=(route.method, route.matcher) in _DEVICE_SCOPED_KEYS,
+        csrf=route.csrf or (route.method, route.matcher) in CSRF_ROUTE_KEYS)
     for route in _GET_ROUTES + _POST_ROUTES
 )
 

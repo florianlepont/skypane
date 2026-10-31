@@ -442,10 +442,11 @@ def test_404_page_renders_in_french(french_render_server, french_session):
 
 
 def test_calendar_disconnect_confirm_page_renders_in_french(french_render_server, french_session):
-    _session_cookie, lang_cookie = french_session
+    session_cookie, lang_cookie = french_session
+    token = auth.csrf_token(session_cookie.split("=", 1)[1])
     status, _headers, body = companion_app_server.http_request(
         french_render_server.base_url() + "/settings/calendar/disconnect",
-        method="POST", cookie=lang_cookie, data=b"")
+        method="POST", cookie=lang_cookie, data=("csrf_token=" + token).encode())
     text = body.decode("utf-8", "replace")
     assert status == 200, (
         "a bare POST /settings/calendar/disconnect under lang=fr returned "

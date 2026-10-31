@@ -10,6 +10,7 @@ import companion.device_scope as device_scope
 import companion.frame_state as frame_state
 import companion.i18n as i18n
 import companion.page_context as page_context
+import companion.prefs as prefs
 import companion.wake as wake
 from companion.ui_base import (
     DISPLAY_ROUTE,
@@ -169,6 +170,16 @@ def toast_post_action_html(action, fields, label, glyph="icon-undo"):
         '<button type="submit" class="toast__action">%s%s</button></form>'
     ) % (escape_html(action), hidden, escape_html(label),
          icon_html(glyph, 16, extra_class="toast__action-glyph"))
+
+
+def csrf_field():
+    """The hidden anti-forgery input for a protected POST form, carrying the
+    current session's token; an empty string when no session is in scope.
+    """
+    token = prefs.current_csrf()
+    if not token:
+        return ""
+    return '<input type="hidden" name="csrf_token" value="%s">' % escape_html(token)
 
 
 def toast_dismiss_html(href):

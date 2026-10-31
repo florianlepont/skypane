@@ -25,7 +25,7 @@ import time
 
 import pytest
 
-from companion import access, app, routes, static_files
+from companion import access, app, auth, routes, static_files
 from companion_app_server import (
     InProcessAppServer, auth0_env, http_request,
     login_via_auth0)
@@ -328,8 +328,12 @@ class MatrixRig:
     def request(self, method, path, cookie=None):
         if method == "GET":
             return http_request(self.server.url(path), cookie=cookie)
+        body = b""
+        if cookie:
+            token = cookie.split("=", 1)[1]
+            body = ("%s=%s" % (routes.CSRF_FIELD, auth.csrf_token(token))).encode("ascii")
         return http_request(
-            self.server.url(path), method="POST", data=b"", cookie=cookie,
+            self.server.url(path), method="POST", data=body, cookie=cookie,
             extra_headers={"Origin": self.server.base_url()})
 
     def conn(self):

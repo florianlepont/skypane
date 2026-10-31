@@ -38,6 +38,10 @@ FORBIDDEN_PURPOSE_TEXT = i18n.msg(
     "This request came from another site, so it was refused. Open SkyPane "
     "directly and try again.")
 
+# The 403 body when a protected form arrives without a valid session token.
+CSRF_EXPIRED_TEXT = i18n.msg(
+    "common.csrf_expired", "This page expired. Reload and try again.")
+
 # The 503 body when the session store cannot be read.
 UNAVAILABLE_TITLE = i18n.msg("common.temporarily_unavailable", "Temporarily unavailable")
 UNAVAILABLE_PURPOSE_TEXT = i18n.msg(
@@ -279,14 +283,14 @@ def not_found_page(ui_theme, health_alert, back=BACK_HOME):
         ui_theme=ui_theme, health_alert=health_alert)
 
 
-def forbidden_page(ui_theme, health_alert, back=BACK_HOME):
+def forbidden_page(ui_theme, health_alert, back=BACK_HOME, purpose=None):
     """The shared 403 body for the Origin/Sec-Fetch-Site POST gate.
     Byte-for-byte the same shape as not_found_page() above, kept as a
     separate function so a later change can relocate that gate
     independently.
     """
     body = (
-        layout.page_header(i18n.t(FORBIDDEN_TITLE), purpose=i18n.t(FORBIDDEN_PURPOSE_TEXT))
+        layout.page_header(i18n.t(FORBIDDEN_TITLE), purpose=i18n.t(purpose or FORBIDDEN_PURPOSE_TEXT))
         + _back_link_html(back)
     )
     return layout.page_shell(

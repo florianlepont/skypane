@@ -53,3 +53,20 @@ def set_request_principal(kind=None, role=None):
 def current_principal():
     """The request's (kind, role) pair, or None when unset."""
     return _PRINCIPAL_CTX.get()
+
+
+# The anti-forgery token derived from this request's session, or "" when no
+# session is in scope. Only forms read it (ui_components.csrf_field()).
+_CSRF_CTX = contextvars.ContextVar("skypane_csrf", default="")
+
+
+def set_request_csrf(token=""):
+    """Store this request's anti-forgery token; anything but a non-empty
+    string clears it. Call it once per request, after the principal.
+    """
+    _CSRF_CTX.set(token if isinstance(token, str) else "")
+
+
+def current_csrf():
+    """The request's anti-forgery token, or "" when none is in scope."""
+    return _CSRF_CTX.get()
