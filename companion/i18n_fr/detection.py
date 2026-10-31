@@ -78,6 +78,50 @@ MESSAGES = {
         "Le cadre affiche l’avion en vol le plus bas, sous 10 000 ft, "
         "dans le rayon.",
 
+    "detection.location_label": "Lieu",
+    "detection.location_option": "%(name)s — %(lat)s, %(lon)s",
+    "detection.location_option_outside": "%(name)s — hors de France",
+    "detection.rounding_note":
+        "Partagé avec les fournisseurs de données, arrondi à environ 1 km.",
+    "detection.radius_label": "Rayon (kilomètres)",
+    "detection.radius_hint": "De 4 à 28 km.",
+    "detection.no_location_heading": "Aucun lieu pour l’instant",
+    "detection.no_location_body":
+        "Ajoutez un lieu ci-dessous, puis choisissez-le ici pour suivre les "
+        "avions autour.",
+    "detection.add_location": "Ajouter un lieu",
+    "detection.locations_title": "Vos lieux",
+    "detection.locations_caption":
+        "Les lieux enregistrés ici peuvent servir à vos cadres.",
+    "detection.locations_title_owner": "Lieux du propriétaire de ce cadre",
+    "detection.locations_caption_owner":
+        "Vous enregistrez des lieux pour le propriétaire de ce cadre.",
+    "detection.edit_location": "Modifier le lieu",
+    "detection.edit_location_named": "Modifier le lieu %(name)s",
+    "detection.edit_location_summary": "Modifier les détails du lieu",
+    "detection.field_name": "Nom",
+    "detection.field_latitude": "Latitude",
+    "detection.field_longitude": "Longitude",
+    "detection.latitude_hint": "Degrés décimaux, par exemple 48,8566.",
+    "detection.longitude_hint": "Degrés décimaux, par exemple 2,3522.",
+    "detection.save_location": "Enregistrer le lieu",
+    "detection.cancel_location": "Annuler le lieu",
+    "detection.location_saved_flash":
+        "Lieu enregistré — vous pouvez maintenant le choisir ci-dessus.",
+
+    "detection.error_location_missing": "Choisissez un lieu.",
+    "detection.error_location_unavailable":
+        "Ce lieu n’est pas disponible. Choisissez-en un dans la liste.",
+    "detection.error_location_outside":
+        "Ce lieu est hors de la France métropolitaine. Choisissez un lieu en "
+        "France.",
+    "detection.error_radius":
+        "Saisissez un nombre entier de kilomètres de 4 à 28.",
+    "detection.error_name":
+        "Saisissez un nom de 60 caractères au maximum.",
+    "detection.error_number": "Saisissez un nombre tel que 48,8566.",
+    "detection.error_timezone": "Choisissez un fuseau horaire dans la liste.",
+
     "detection.error_mode": "Choisissez un mode de détection.",
     "detection.error_airport": "Choisissez un aéroport.",
     "detection.error_runway_missing": "Choisissez une piste.",

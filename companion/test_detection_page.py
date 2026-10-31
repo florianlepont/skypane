@@ -256,7 +256,9 @@ def test_runway_cards_show_real_designators_for_cdg(rig):
     assert page.count('role="radiogroup" aria-labelledby="runway-group-heading"') == 1
     assert '<input type="hidden" name="airport" value="LFPG" form="detection-form">' in page
     assert "CDG · 08L/26R" in text
-    assert not re.search(r"\brequired\b", page)
+    detection_controls = re.sub(
+        r'<details id="location-form".*?</details>', "", page, flags=re.S)
+    assert not re.search(r"\brequired\b", detection_controls)
 
 
 def test_runway_cards_for_a_single_runway_airport_are_preselected(rig):
@@ -335,7 +337,7 @@ def test_post_runway_works_for_an_admin_on_the_owners_device(rig):
 REJECTIONS = [
     ({"action": "save_detection"}, "Choose a detection mode."),
     ({"action": "save_detection", "mode": "sideways"}, "Choose a detection mode."),
-    ({"action": "save_detection", "mode": "position"}, "Choose a detection mode."),
+    ({"action": "save_detection", "mode": "position"}, "Choose a location."),
     ({"mode": "runway", "airport": "LFPG", "runway": "08L/26R"}, "Choose a detection mode."),
     ({"action": "save_detection", "mode": "runway"}, "Choose an airport."),
     ({"action": "save_detection", "mode": "runway", "airport": "ZZZZ", "runway": "08L/26R"},
@@ -450,3 +452,4 @@ def test_no_nm_text(rig, lang):
         _s, _h, page = rig.get("owner", rig.scope() + "/detection" + query, lang=lang)
         text = _visible_text(page)
         assert not re.search(r"\bNM\b|\bnm\b|nautical", text)
+

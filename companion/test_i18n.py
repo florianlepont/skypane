@@ -207,6 +207,10 @@ _UNCHANGED_IN_FRENCH = frozenset({
     # "Auto" is the usual French abbreviation of "Automatique" on a
     # narrow segmented control.
     "nav.auto",
+    # Latitude and Longitude are spelled identically in French; the option
+    # format is only names and numbers.
+    "detection.field_latitude", "detection.field_longitude",
+    "detection.location_option",
 })
 
 

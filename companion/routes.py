@@ -176,7 +176,8 @@ _GET_ROUTES = (
             lambda h, m: h._render_tab(
                 DETECTION_ROUTE,
                 lambda ctx: detection_page.render(
-                    ctx, query=detection_page.parse_query(m.query)),
+                    ctx, query=detection_page.parse_query(m.query),
+                    locations=h._detection_locations(m.device)),
                 m.device),
             OWNER_DEVICE),
         Route(

@@ -1045,6 +1045,11 @@ class Handler(
             return self._settings_saved_redirect(back, FLASH_KEY_CALENDAR_CONNECTED)
         return self._settings_saved_redirect(back, FLASH_KEY_CALENDAR_SYNC_FAILED)
 
+    def _detection_locations(self, device):
+        """The locations GET /detection may list for `device`: its owner's,
+        or the signed-in user's own."""
+        return detection_actions.location_scope(self, device)
+
     def _handle_detection_post(self, device):
         """POST /detection for `device`: the dispatcher already applied the
         route's ownership gate; the write acts only on that device."""
