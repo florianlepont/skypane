@@ -153,6 +153,7 @@ files = [
     "server/fleet_zones.py",
     "server/zone_fetch.py",
     "server/plane/shared_route_cache.py",
+    "server/pairing_code.py",
     # Added under the global settings only, not the strict override below:
     # the pure helpers (decide_hold, advance_is_due, normalise_pending,
     # enqueue_pending, pop_fresh_pending) and CycleContext are fully
@@ -188,6 +189,7 @@ module = [
     "server.fleet_zones",
     "server.zone_fetch",
     "server.plane.shared_route_cache",
+    "server.pairing_code",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
