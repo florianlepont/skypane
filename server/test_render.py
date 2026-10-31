@@ -3368,3 +3368,82 @@ def test_draw_alert_icon_returns_height_and_uses_only_given_ink():
         pytest.fail("no ink found at the dot's row - the dot must be a real filled ellipse, not a degenerate zero-length line")
     if gap_top < gap_bottom and _row_has_ink((gap_top + gap_bottom) // 2):
         pytest.fail("ink found inside the stroke/dot gap - stroke and dot should be visually separated")
+
+
+def _catalogue_display_ids():
+    from server import airports
+
+    return [
+        "%s:%s" % (airport.icao, runway.designator)
+        for airport in airports.load_catalogue().values()
+        for runway in airport.runways
+    ]
+
+
+def _longest_catalogue_display_id():
+    return max(_catalogue_display_ids(), key=lambda rid: len(render.runway_tag_text(rid)))
+
+
+def test_runway_tag_text_legacy_ids_keep_their_exact_text():
+    assert render.runway_tag_text("3") == "ORY · RWY 3"
+    assert render.runway_tag_text("06-24") == "ORY · RWY 06/24"
+    assert render.runway_tag_text("02-20") == "ORY · RWY 02/20"
+    assert render.empty_heading_text("3") == render.device_config.runway_empty_heading("3")
+
+
+def test_runway_tag_text_follows_catalogue_and_position_ids():
+    assert render.runway_tag_text("LFPG:08L/26R") == "CDG · 08L/26R"
+    assert render.runway_tag_text("position:9") == "NEARBY · 9 KM"
+    assert render.empty_heading_text("LFPG:08L/26R") == "Watching Runway 08L/26R"
+    assert render.empty_heading_text("position:9") == "Watching Within 9 km"
+
+
+def test_runway_tag_text_uses_icao_when_the_airport_has_no_iata():
+    from server import airports
+
+    found = [a for a in airports.load_catalogue().values() if not a.iata and a.runways]
+    assert found, "the catalogue should hold at least one airport without an IATA code"
+    airport = found[0]
+    designator = airport.runways[0].designator
+    assert render.runway_tag_text("%s:%s" % (airport.icao, designator)) == (
+        "%s · %s" % (airport.icao, designator))
+
+
+@pytest.mark.parametrize("bad", [None, 7, ["3"], "LFPG:99/99", "position:", "position:x", "nope"])
+def test_runway_tag_text_unusable_ids_degrade_to_the_default(bad):
+    assert render.runway_tag_text(bad) == render.runway_tag_text()
+    assert render.empty_heading_text(bad) == render.empty_heading_text()
+
+
+def test_non_orly_ids_never_render_the_orly_tag():
+    for runway_id in ("LFPG:08L/26R", "position:9", "position:28"):
+        assert "ORY" not in render.runway_tag_text(runway_id)
+        assert "RWY 3" not in render.runway_tag_text(runway_id)
+
+
+def test_portrait_canvases_build_for_the_longest_catalogue_tag_and_position_ids():
+    ids = [_longest_catalogue_display_id(), "LFPG:08L/26R", "position:4", "position:28"]
+    for runway_id in ids:
+        for theme_id in ("white", "grey"):
+            for state in ("departing", "arriving"):
+                render.build_canvas(
+                    TEST_FLIGHT, state, route=TEST_ROUTE, runway_id=runway_id, theme_id=theme_id)
+        render.build_canvas(None, "empty", runway_id=runway_id)
+
+
+def test_portrait_band_themes_derive_the_airport_word_from_the_tag():
+    band_theme_ids = [t for t in render.device_config.THEME_IDS if render.device_config.theme_is_band(t)]
+    assert band_theme_ids
+    theme_id = band_theme_ids[0]
+    for runway_id, airport_code, runway_part in (
+            ("LFPG:08L/26R", "CDG", "08L/26R"), ("position:9", "NEARBY", "9 KM")):
+        for state, direction in (("departing", "FROM"), ("arriving", "TO")):
+            expected_label = "%s %s %s" % (render.STATE_LABEL_TEXT[state], direction, airport_code)
+            with _TextSpy(render) as spy:
+                render.build_canvas(
+                    TEST_FLIGHT, state, route=TEST_ROUTE, runway_id=runway_id, theme_id=theme_id)
+            top_row = [t for t, xy, _a in spy.calls if len(t) == 1 and xy[1] == render.MARGIN]
+            joined = "".join(top_row)
+            assert joined.startswith(expected_label)
+            assert joined[len(expected_label):].startswith(runway_part)
+    assert expected_label == "ARRIVING TO NEARBY"

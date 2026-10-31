@@ -9,7 +9,7 @@ between those siblings.
 """
 import os
 
-from server import device_config
+from server import detection, device_config
 from server.panel_format import HEIGHT, IDX_BLACK, IDX_WHITE, WIDTH
 from server.plane import runway_config
 
@@ -114,17 +114,20 @@ def state_ink_index(state, theme_id=device_config.DEFAULT_THEME_ID):
 
 
 def runway_tag_text(runway_id=device_config.DEFAULT_RUNWAY_ID):
-    """Top-right tag string for `runway_id`; an unrecognised id degrades
-    to the default runway rather than raising.
+    """Top-right tag string for `runway_id`: a registry id, a catalogue
+    display id ("LFPG:08L/26R") or a position id ("position:9"). Anything
+    else degrades to the default runway rather than raising.
     """
-    runway_id = device_config.normalise_runway_id(runway_id)
-    return device_config.runway_tag_text(runway_id)
+    if not isinstance(runway_id, str):
+        runway_id = device_config.DEFAULT_RUNWAY_ID
+    return detection.tag_text(runway_id)
 
 
 def empty_heading_text(runway_id=device_config.DEFAULT_RUNWAY_ID):
     """Same contract as runway_tag_text(), for the empty-state heading."""
-    runway_id = device_config.normalise_runway_id(runway_id)
-    return device_config.runway_empty_heading(runway_id)
+    if not isinstance(runway_id, str):
+        runway_id = device_config.DEFAULT_RUNWAY_ID
+    return detection.empty_heading(runway_id)
 
 
 # Retained as module constants only because server/test_render.py reads
