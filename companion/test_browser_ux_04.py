@@ -4,7 +4,7 @@ Targets measurement sweep over the palette/usage-row/rule-add controls, the no-J
 save-to-disk proof, the restored dirty bar's settle contract, a server-side validation
 rejection's inline-error/echo/no-toast floor, the bar's own document-order section naming, a
 real Annuler click's restore-every-surface proof, the settings-card-title consistency probe,
-the single-submit-affordance audit, the runway radios' cross-tree `form="settings-form"`
+the single-submit-affordance audit, the theme radios' cross-tree `form="settings-form"`
 regression check, and the artwork drop zone's own upload/equivalence/geometry family.
 
 Read-only checks share one module-scoped, read-only `server` fixture: the palette Touch
@@ -306,7 +306,7 @@ def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, serve
 def test_the_floor_saves_to_disk_with_scripts_blocked_after_the_gate_simplifies(
         new_context, make_app_server):
     """The no-JS floor still saves to disk after the gate simplifies to the plain .js rule:
-    tracked_runway operated natively, submitted through the real form, re-read from disk
+    theme operated natively, submitted through the real form, re-read from disk
     after a fresh GET, in both shipped languages, at 360px, restored as the last act. The
     data-static-save-fallback submit is present and visible on that scripts-blocked page
     after the save, so a rendering can never stand in for it.
@@ -315,28 +315,28 @@ def test_the_floor_saves_to_disk_with_scripts_blocked_after_the_gate_simplifies(
     base_url = server.base_url()
 
     def read_back():
-        return device_config.load_device_config(server.tmpdir)["tracked_runway"]
+        return device_config.load_device_config(server.tmpdir)["theme"]
 
     before = read_back()
-    target = next(r for r in device_config.RUNWAY_IDS if r != before)
+    target = next(r for r in device_config.THEME_IDS if r != before)
     seen = {}
     # Both shipped languages, at the 360px floor: the UI language is a cookie the first
     # rendered document already has to honour, and "it saves in English" is not the floor.
     for lang in ("en", "fr"):
         seen[lang] = _persist_without_js(
-            new_context, base_url, "/display", "tracked_runway", target, read_back,
+            new_context, base_url, "/display", "theme", target, read_back,
             viewport=VIEWPORT_MIN_SUPPORTED,
             cookies=[{"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
     after = read_back()
     if str(after) != str(before):
         raise AssertionError(
-            "the scripts-blocked save left tracked_runway at %r, it started at %r - a "
+            "the scripts-blocked save left theme at %r, it started at %r - a "
             "harness that changes a real setting is a test that edits its neighbours' "
             "subject" % (after, before))
     for lang, result in seen.items():
         if str(result["stored"]) != str(target):
             raise AssertionError(
-                "lang=%s: tracked_runway did not reach disk, it reads %r"
+                "lang=%s: theme did not reach disk, it reads %r"
                 % (lang, result["stored"]))
         if str(result["restored"]) != str(before):
             raise AssertionError(
@@ -378,25 +378,25 @@ def test_the_bar_settles_the_field_disk_agree_and_the_bar_hides(new_context, mak
             raise AssertionError("expected the bar to be hidden before any edit")
 
         before = str(
-            device_config.load_device_config(server.tmpdir)["tracked_runway"])
-        target = next(r for r in device_config.RUNWAY_IDS if r != before)
+            device_config.load_device_config(server.tmpdir)["theme"])
+        target = next(r for r in device_config.THEME_IDS if r != before)
 
         # Change a field: the bar reveals, the count names the section, the field shows the
         # new value, and disk still shows the old value — the bar means unsaved.
-        _click_control(page, 'input[name="tracked_runway"][value="%s"]' % target)
+        _click_control(page, 'input[name="theme"][value="%s"]' % target)
         _wait_for_bar(page)
         if not _bar_text(page):
             raise AssertionError(
                 "expected [data-dirty-count] to name the changed section once the bar "
                 "reveals")
         field_now = str(page.eval_on_selector(
-            'input[name="tracked_runway"]:checked', "el => el.value"))
+            'input[name="theme"]:checked', "el => el.value"))
         if field_now != target:
             raise AssertionError(
                 "expected the field's own DOM value to already read %r, got %r"
                 % (target, field_now))
         disk_before_save = str(
-            device_config.load_device_config(server.tmpdir)["tracked_runway"])
+            device_config.load_device_config(server.tmpdir)["theme"])
         if disk_before_save != before:
             raise AssertionError(
                 "expected disk to still read %r while the bar is visible and unsaved, "
@@ -410,12 +410,12 @@ def test_the_bar_settles_the_field_disk_agree_and_the_bar_hides(new_context, mak
             page,
             {
                 "the field's own DOM value": lambda: str(page.eval_on_selector(
-                    'input[name="tracked_runway"]:checked', "el => el.value")),
+                    'input[name="theme"]:checked', "el => el.value")),
                 "the value on disk": lambda: str(device_config.load_device_config(
-                    server.tmpdir)["tracked_runway"]),
+                    server.tmpdir)["theme"]),
             },
             requested=target, before=before,
-            where="Display's runway card after the bar's own save settles")
+            where="Display's theme chips after the bar's own save settles")
         if page.locator("[data-dirty-bar]").is_visible():
             raise AssertionError(
                 "expected the bar to be HIDDEN after the navigation lands - a bar still "
@@ -505,11 +505,11 @@ def test_section_naming_reflects_the_fields_actually_changed_in_document_order(
         new_context, server):
     """The bar's own [data-dirty-count] names which section(s) actually changed, built from
     the bar's own data-dirty-* attributes plus each section wrapper's own label, never
-    hardcoded English/French: a single changed Runway field reads exactly that wrapper's own
+    hardcoded English/French: a single changed Frame colours field reads exactly that wrapper's own
     label plus the changed-suffix, and a second, different-section change (Quiet hours)
-    reads the two-item join with Runway before Quiet hours in both click orders — the
+    reads the two-item join with the theme section before Quiet hours in both click orders — the
     reversed-order pass is what proves document order rather than click order, since
-    dirtySectionLabels() walks the document and Runway's own wrapper precedes Quiet hours'
+    dirtySectionLabels() walks the document and the theme wrapper precedes Quiet hours'
     on Display regardless of which the visitor touches first; run in both site languages.
     """
     base_url = server.base_url()
@@ -529,11 +529,11 @@ def test_section_naming_reflects_the_fields_actually_changed_in_document_order(
                     " return !!el && el.textContent === args.expected;}",
                     arg={"expected": expected}, timeout=timeout)
 
-            runway_sel = 'input[name="tracked_runway"]'
-            current_runway = page.eval_on_selector(
-                "%s:checked" % runway_sel, "el => el.value")
-            target_runway = next(
-                r for r in device_config.RUNWAY_IDS if r != current_runway)
+            theme_sel = 'input[name="theme"]'
+            current_theme = page.eval_on_selector(
+                "%s:checked" % theme_sel, "el => el.value")
+            target_theme = next(
+                r for r in device_config.THEME_IDS if r != current_theme)
 
             current_quiet_start = page.input_value(
                 'input[name="quiet_hours_start"]')
@@ -543,8 +543,8 @@ def test_section_naming_reflects_the_fields_actually_changed_in_document_order(
             # Built from the bar's own data-dirty-* words and each section wrapper's own
             # label, never a hardcoded English/French literal, so this check works unchanged
             # in either language.
-            runway_label = page.eval_on_selector(
-                runway_sel,
+            theme_label = page.eval_on_selector(
+                theme_sel,
                 "el => el.closest('[data-dirty-section]')"
                 ".getAttribute('data-dirty-section')")
             quiet_label = page.eval_on_selector(
@@ -557,37 +557,37 @@ def test_section_naming_reflects_the_fields_actually_changed_in_document_order(
             and_word = page.eval_on_selector(
                 "[data-dirty-bar]", "el => el.getAttribute('data-dirty-and')")
 
-            expected_one = runway_label + changed_suffix
+            expected_one = theme_label + changed_suffix
             expected_two = (
-                runway_label + and_word + quiet_label + changed_suffix)
+                theme_label + and_word + quiet_label + changed_suffix)
 
-            # Phase A: one changed field (Runway). The bar names only it.
+            # Phase A: one changed field (the theme). The bar names only it.
             _click_control(
-                page, '%s[value="%s"]' % (runway_sel, target_runway))
+                page, '%s[value="%s"]' % (theme_sel, target_theme))
             _wait_for_bar(page)
             actual_one = _bar_text(page)
             if actual_one != expected_one:
                 raise AssertionError(
                     "lang=%s: expected [data-dirty-count] to read %r for a single "
-                    "changed field (Runway), got %r" % (lang, expected_one, actual_one))
+                    "changed field (the theme), got %r" % (lang, expected_one, actual_one))
 
-            # Phase B: also change a Quiet hours field. The bar names both, Runway before
+            # Phase B: also change a Quiet hours field. The bar names both, the theme before
             # Quiet hours — document order.
             page.fill(
                 'input[name="quiet_hours_start"]', target_quiet_start)
             _commit_field(page, 'input[name="quiet_hours_start"]')
             wait_for_bar_text(expected_two)
 
-            # Fresh load, reversed click order: Quiet hours first, Runway second.
-            # dirtySectionLabels() walks the document, so the bar must still read Runway
-            # before Quiet hours.
+            # Fresh load, reversed click order: Quiet hours first, the theme second.
+            # dirtySectionLabels() walks the document, so the bar must still read the theme
+            # section before Quiet hours.
             page.goto(base_url + "/display")
             page.fill(
                 'input[name="quiet_hours_start"]', target_quiet_start)
             _commit_field(page, 'input[name="quiet_hours_start"]')
             _wait_for_bar(page)
             _click_control(
-                page, '%s[value="%s"]' % (runway_sel, target_runway))
+                page, '%s[value="%s"]' % (theme_sel, target_theme))
             wait_for_bar_text(expected_two)
         finally:
             context.close()
@@ -804,7 +804,8 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
         # Device must contribute exactly the two NAMED cards.
         allowed_device_texts = {
             config_page.LED_SECTION_HEADING,
-            config_page.WAKE_INTERVAL_SECTION_HEADING}
+            config_page.WAKE_INTERVAL_SECTION_HEADING,
+            config_page.DETECTION_CARD_TITLE}
         device_texts = {e["text"] for e in by_page["/device"]}
         unexpected = device_texts - allowed_device_texts
         if unexpected:
@@ -838,7 +839,7 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
         context.close()
 
 
-# The single-affordance audit, and the runway radios' cross-tree form= regression check.
+# The single-affordance audit, and the theme radios' cross-tree form= regression check.
 
 def _submit_shaped_controls(page):
     return page.evaluate(
@@ -936,13 +937,13 @@ def test_exactly_one_submit_shaped_control_resolves_to_the_settings_form(new_con
                 context.close()
 
 
-def test_the_runway_form_associated_path_reaches_the_bar_and_disk_end_to_end(
+def test_a_form_associated_radio_path_reaches_the_bar_and_disk_end_to_end(
         new_context, make_app_server):
-    """The runway radios' cross-tree form="settings-form" wiring drives the same
+    """The theme radios' cross-tree form="settings-form" wiring drives the same
     bar-appears -> Enregistrer -> persisted-to-disk path every natively-nested control
-    does, against the real POST: selecting a runway radio (rendered outside the settings
-    form) reveals the bar naming exactly its own Runway/Piste label, a real Enregistrer
-    navigation writes tracked_runway to disk, and a reload shows the radio reflecting the
+    does, against the real POST: selecting a theme radio (rendered outside the settings
+    form) reveals the bar naming exactly its own section label, a real Enregistrer
+    navigation writes theme to disk, and a reload shows the radio reflecting the
     saved value — both site languages.
     """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
@@ -959,33 +960,33 @@ def test_the_runway_form_associated_path_reaches_the_bar_and_disk_end_to_end(
             # 1. Fresh load: script has run, nothing dirty.
             _wait_for_bar_hidden(page)
 
-            runway_sel = 'input[name="tracked_runway"]'
-            current_runway = page.eval_on_selector(
-                "%s:checked" % runway_sel, "el => el.value")
-            target_runway = next(
-                r for r in device_config.RUNWAY_IDS if r != current_runway)
+            theme_sel = 'input[name="theme"]'
+            current_theme = page.eval_on_selector(
+                "%s:checked" % theme_sel, "el => el.value")
+            target_theme = next(
+                r for r in device_config.THEME_IDS if r != current_theme)
 
-            runway_label = page.eval_on_selector(
-                runway_sel,
+            theme_label = page.eval_on_selector(
+                theme_sel,
                 "el => el.closest('[data-dirty-section]')"
                 ".getAttribute('data-dirty-section')")
             changed_suffix = page.eval_on_selector(
                 "[data-dirty-bar]",
                 "el => el.getAttribute('data-dirty-changed-suffix')")
-            expected = runway_label + changed_suffix
+            expected = theme_label + changed_suffix
 
-            # 2. Select a runway radio whose value differs from disk, via
+            # 2. Select a theme radio whose value differs from disk, via
             #    a real element.click().
             _click_control(
-                page, '%s[value="%s"]' % (runway_sel, target_runway))
+                page, '%s[value="%s"]' % (theme_sel, target_theme))
 
-            # 3. The bar becomes visible AND names EXACTLY Runway.
+            # 3. The bar becomes visible AND names EXACTLY the theme section.
             _wait_for_bar(page)
             actual = _bar_text(page)
             if actual != expected:
                 raise AssertionError(
                     "lang=%s: expected [data-dirty-count] to read %r after selecting a "
-                    "cross-tree form=-associated runway radio, got %r - the "
+                    "cross-tree form=-associated theme radio, got %r - the "
                     "section-naming walk must resolve this control's own "
                     "[data-dirty-section] ancestor even though the radio is not a "
                     "literal descendant of <form id=\"settings-form\">"
@@ -994,22 +995,22 @@ def test_the_runway_form_associated_path_reaches_the_bar_and_disk_end_to_end(
             # 4. Click Enregistrer, wait for the REAL navigation.
             _save_via_bar(page)
 
-            # 5. Re-read tracked_runway OFF DISK.
-            saved = device_config.load_device_config(server.tmpdir)["tracked_runway"]
-            if saved != target_runway:
+            # 5. Re-read theme OFF DISK.
+            saved = device_config.load_device_config(server.tmpdir)["theme"]
+            if saved != target_theme:
                 raise AssertionError(
-                    "lang=%s: expected tracked_runway on disk to be %r after a real "
-                    "Enregistrer navigation through the runway's own cross-tree form= "
-                    "path, got %r" % (lang, target_runway, saved))
+                    "lang=%s: expected theme on disk to be %r after a real "
+                    "Enregistrer navigation through the theme radios' own cross-tree form= "
+                    "path, got %r" % (lang, target_theme, saved))
 
             # Reload: the round trip, not just the write.
             page.goto(base_url + "/display")
             checked = page.eval_on_selector(
-                "%s:checked" % runway_sel, "el => el.value")
-            if checked != target_runway:
+                "%s:checked" % theme_sel, "el => el.value")
+            if checked != target_theme:
                 raise AssertionError(
-                    "lang=%s: expected the reloaded page's checked runway radio to be "
-                    "%r, got %r" % (lang, target_runway, checked))
+                    "lang=%s: expected the reloaded page's checked theme radio to be "
+                    "%r, got %r" % (lang, target_theme, checked))
         finally:
             context.close()
 

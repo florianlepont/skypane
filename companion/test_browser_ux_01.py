@@ -302,18 +302,17 @@ def test_the_no_js_floor_holds_for_health(new_context, server):
 # function-scoped, seeded server.
 
 def test_display_reveal_and_persist_across_all_field_kinds(page, make_app_server):
-    """Display: a theme chip, a runway card and a quiet-hours time field each commit via
-    change, reveal the bar, and persist to disk once Enregistrer is clicked (form=-attached
-    radio and time-input field kinds).
+    """Display: a theme chip and a quiet-hours time field each commit via change, reveal the
+    bar, and persist to disk once Enregistrer is clicked (form=-attached radio and time-input
+    field kinds); the Runway card is replaced by a Detection card with a link.
     """
     # A committed edit reveals the bar (never a click before that) and only Enregistrer
-    # persists it (never a click-free auto-save). Exercises three cross-DOM form=-attached
-    # field kinds: radio-as-chip, radio-as-card, time input.
+    # persists it (never a click-free auto-save). Exercises two cross-DOM form=-attached
+    # field kinds: radio-as-chip, time input.
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     base_url = server.base_url()
     _login(page, base_url)
     theme_ids = device_config.THEME_IDS
-    runway_ids = device_config.RUNWAY_IDS
 
     def on_disk():
         return device_config.load_device_config(server.tmpdir)
@@ -331,16 +330,13 @@ def test_display_reveal_and_persist_across_all_field_kinds(page, make_app_server
             "expected the theme chip's committed value to reach disk, got %r"
             % (on_disk()["theme"],))
 
-    # 2. Runway card (also a sibling of the form).
-    target_runway = runway_ids[1]
-    runway_sel = 'input[name="tracked_runway"][value="%s"]' % target_runway
-    _click_control(page, runway_sel)
-    _wait_for_bar(page)
-    _save_via_bar(page)
-    if str(on_disk()["tracked_runway"]) != str(target_runway):
-        raise AssertionError(
-            "expected the runway card's committed value to reach disk, got %r"
-            % (on_disk()["tracked_runway"],))
+    # 2. The Runway card is gone: Display only links to the Detection page, which owns the
+    # runway choice, so there is no runway field here to commit.
+    if page.locator('input[name="tracked_runway"]').count():
+        raise AssertionError("Display still renders a tracked_runway control")
+    link = page.locator('.detection-card a[href$="/detection"]')
+    if link.count() != 1:
+        raise AssertionError("expected one Detection card link on Display, got %d" % link.count())
 
     # The Frame strip is now the only on/off control for the screen, so this settings page no
     # longer renders a display_enabled checkbox; the remaining two field kinds below (radio,
@@ -520,16 +516,16 @@ def test_the_leave_guard_re_arms_after_a_new_edit_following_cancel(page, server)
         raise AssertionError("expected the leave-guard to start disarmed on a clean page load")
     _wait_for_bar_hidden(page)
 
-    runway_sel = 'input[name="tracked_runway"]'
-    current_runway = page.eval_on_selector("%s:checked" % runway_sel, "el => el.value")
-    first_target = next(r for r in device_config.RUNWAY_IDS if r != current_runway)
+    theme_sel = 'input[name="theme"]'
+    current_theme = page.eval_on_selector("%s:checked" % theme_sel, "el => el.value")
+    first_target = next(t for t in device_config.THEME_IDS if t != current_theme)
     second_target = next(
-        r for r in device_config.RUNWAY_IDS
-        if r != current_runway and r != first_target)
+        t for t in device_config.THEME_IDS
+        if t != current_theme and t != first_target)
 
     # Edit a field: armed, bar visible. Kept minimal on purpose; this step is only the
     # precondition the rest of the check needs.
-    _click_control(page, '%s[value="%s"]' % (runway_sel, first_target))
+    _click_control(page, '%s[value="%s"]' % (theme_sel, first_target))
     if not _guard_armed(page):
         raise AssertionError("expected the leave-guard to arm for a real edit")
     _wait_for_bar(page)
@@ -542,7 +538,7 @@ def test_the_leave_guard_re_arms_after_a_new_edit_following_cancel(page, server)
 
     # A new edit that follows a Cancel must re-arm the guard: this is exactly what a naive
     # `suppressGuard = true` set once in the Cancel handler and never cleared gets wrong.
-    _click_control(page, '%s[value="%s"]' % (runway_sel, second_target))
+    _click_control(page, '%s[value="%s"]' % (theme_sel, second_target))
     if not _guard_armed(page):
         raise AssertionError(
             "expected the leave-guard to RE-ARM for an edit that follows a "
@@ -559,23 +555,24 @@ def test_the_leave_guard_re_arms_after_a_new_edit_following_cancel(page, server)
         raise AssertionError("expected the leave-guard to disarm on a SECOND Annuler too")
 
 
-def test_three_runway_cards_share_one_line_at_390px(new_context, server):
-    """At 390px the three runway cards report one shared line (equal tops), equal heights,
-    and both their border-excluded and their outer widths equal within 1px at a border total
-    of exactly 2.0 each, and each still clears 44x44 — never a two-plus-one orphan — with the
-    transform neutralised for the read and exactly one card proven to carry the selection scale.
+def test_three_runway_cards_stack_in_one_full_width_column_at_390px(new_context, server):
+    """On the Detection page at 390px the three runway cards of the follower airport report
+    one shared left edge and equal widths and heights within 1px at a border total of exactly
+    2.0 each, stack top to bottom without overlap, and each still clears 44x44, with the
+    transform neutralised for the read and exactly one card proven to carry the selection
+    scale.
     """
-    # Only a real layout engine can see a two-plus-one orphan wrap, which is why this lives
-    # here and not in a string-comparison harness.
+    # The cards sit in a one-column grid below 600px. Only a real layout engine can see a
+    # card that fails to take the full row or overlaps its neighbour.
     context = new_context(viewport=VIEWPORT_PHONE)
     try:
         page = context.new_page()
         _login(page, server.base_url())
-        page.goto(server.base_url() + "/display")
+        page.goto(server.base_url() + "/detection?airport=LFPO&mode=runway")
         page.wait_for_load_state("networkidle")
         # The selected card carries a `transform: scale(...)`. A transform is reflected in
         # getBoundingClientRect() (the visual box) but not in the layout box, and this check is
-        # about the layout box, so the transform is neutralised for the read — with its own
+        # about the layout box, so the transform is neutralised for the read, with its own
         # transition neutralised first, or the read would catch the unwind mid-flight.
         #
         # Neutralising it is only honest if the scale is really there, so the real computed
@@ -583,7 +580,7 @@ def test_three_runway_cards_share_one_line_at_390px(new_context, server):
         # three cards must be scaled, keeping this check from passing for a build that dropped
         # the scale entirely.
         boxes = page.evaluate(
-            "() => [...document.querySelectorAll('.runway-card')]"
+            "() => [...document.querySelectorAll('.detection-runways .runway-card')]"
             ".map(e => { const live = getComputedStyle(e).transform; "
             "e.style.transition = 'none'; e.style.transform = 'none'; "
             "const b = e.getBoundingClientRect(); "
@@ -600,27 +597,27 @@ def test_three_runway_cards_share_one_line_at_390px(new_context, server):
         if len(scaled) != 1:
             raise AssertionError(
                 "expected EXACTLY ONE of the three runway cards to carry the "
-                "selection scale (D3's 'selecting a card answers with a small "
-                "scale'), got %r — this measurement neutralises the transform to "
+                "selection scale, got %r - this measurement neutralises the transform to "
                 "read the LAYOUT box, so it is only meaningful while the "
                 "transform genuinely exists"
                 % ([b["live"] for b in boxes],))
 
-        tops = [b["top"] for b in boxes]
-        if max(tops) - min(tops) > 0.5:
+        lefts = [b["left"] for b in boxes]
+        if max(lefts) - min(lefts) > 0.5:
             raise AssertionError(
-                "expected all three cards on ONE line (equal tops), got %r - a "
-                "2 + 1 orphan is exactly B9's defect" % (tops,))
+                "expected all three cards in ONE column (equal left edges), got %r" % (lefts,))
+        ordered = sorted(boxes, key=lambda b: b["top"])
+        for above, below in zip(ordered, ordered[1:]):
+            if below["top"] < above["top"] + above["h"] - 0.5:
+                raise AssertionError(
+                    "expected stacked cards that do not overlap, got %r" % (ordered,))
         heights = [b["h"] for b in boxes]
         if max(heights) - min(heights) > 0.5:
             raise AssertionError("expected three equal card heights, got %r" % (heights,))
-        lefts = sorted(b["left"] for b in boxes)
-        if lefts != [b["left"] for b in sorted(boxes, key=lambda b: b["left"])]:
-            raise AssertionError("expected three distinct columns")
 
         # "Equal within 1px" is asserted on the cards' border-excluded widths, which is what
-        # "three equal columns" actually means, and on their outer widths too: every
-        # selected-state border is held constant at 1px and selection is carried on
+        # "equal columns" actually means, and on their outer widths too: every selected-state
+        # border is held constant at 1px and selection is carried on
         # `box-shadow: inset 0 0 0 2px`, which occupies no layout space, so `inner` and `w`
         # have converged and plain equality applies to both.
         inners = [b["inner"] for b in boxes]
@@ -632,15 +629,14 @@ def test_three_runway_cards_share_one_line_at_390px(new_context, server):
         outers = [b["w"] for b in boxes]
         if max(outers) - min(outers) > 1.0:
             raise AssertionError(
-                "expected three equal card OUTER widths within 1px now that T6 is "
-                "closed - a selected card must be the same size as its siblings, "
-                "got %r (inner %r)" % (outers, inners))
+                "expected three equal card OUTER widths - a selected card must be the same "
+                "size as its siblings, got %r (inner %r)" % (outers, inners))
         borders = sorted({round(b["border"], 2) for b in boxes})
         if borders != [2.0]:
             raise AssertionError(
                 "expected every card's border total to be exactly 2.0 (1px per "
-                "side) in every selection state - T6 moved the 2px accent signal "
-                "to an inset ring, got border totals %r" % (borders,))
+                "side) in every selection state - the 2px accent signal is an inset ring, "
+                "got border totals %r" % (borders,))
         # Touch target, confirmed by measurement: the hidden radio's own hit-target entry is
         # exempt by delegation to this wrapping <label>, so the label itself must still clear
         # 44px in both axes.
