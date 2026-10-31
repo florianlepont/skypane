@@ -1469,8 +1469,10 @@ def test_position_ceiling_and_floor():
         _pos_record("b", 10001),
         _pos_record("c", 0),
         _pos_record("d", -50),
+        _pos_record("e", -1500),
+        _pos_record("f", -1501),
     ]
-    assert _pos_hexes(records) == ["a", "c"]
+    assert _pos_hexes(records) == ["a", "c", "d", "e"]
 
 
 def test_position_rejects_ground_and_bad_altitudes():
@@ -1481,6 +1483,7 @@ def test_position_rejects_ground_and_bad_altitudes():
         _pos_record("d", True),
         _pos_record("e", float("nan")),
         _pos_record("f", 500, on_ground=True),
+        _pos_record("h", -50, on_ground=True),
         {"hex": "g", "lat": 48.86, "lon": 2.35},
         _pos_record("ok", 500),
     ]

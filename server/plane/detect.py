@@ -561,6 +561,11 @@ def selection_sort_key(ac):
     return (effective_altitude_ft(ac), ac.get("hex") or "")
 
 
+# Lowest barometric altitude still taken as airborne: low pressure at a
+# sea-level field makes a flying aircraft report a few tens of feet below 0.
+_MIN_AIRBORNE_ALT_FT = -1500.0
+
+
 def _airborne_altitude_ft(ac):
     """Numeric barometric altitude of an airborne record, else None.
 
@@ -586,7 +591,8 @@ def _finite_coordinate(value):
 
 def position_candidates(aircraft, geofence):
     """Airborne records within `geofence["radius_nm"]` nautical miles of
-    `geofence["center"]` and between 0 and `geofence["alt_ceiling_ft"]` feet.
+    `geofence["center"]` and between `_MIN_AIRBORNE_ALT_FT` and
+    `geofence["alt_ceiling_ft"]` feet.
 
     Malformed records (non-numeric position or altitude) are skipped, never
     raised on. Distances use the same local flat-earth metres as the runway
@@ -605,7 +611,7 @@ def position_candidates(aircraft, geofence):
         alt = _airborne_altitude_ft(ac)
         if lat is None or lon is None or alt is None:
             continue
-        if not 0.0 <= alt <= ceiling_ft:
+        if not _MIN_AIRBORNE_ALT_FT <= alt <= ceiling_ft:
             continue
         if math.hypot((lat - lat0) * _M_PER_DEG_LAT, (lon - lon0) * lon_scale) > radius_m:
             continue
