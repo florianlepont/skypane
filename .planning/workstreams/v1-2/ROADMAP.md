@@ -200,7 +200,7 @@ Plans:
   2. Recorded Orly traffic replayed through the new runway logic gives the same decisions as the existing runway-3 geofence, and at least one parallel-runway airport is tested.
   3. A device set to a position and radius inside France shows aircraft around it; radius and country bounds are enforced, and coordinates sent to third parties are rounded.
 
-**Plans**: 11 plans
+**Plans**: 12 plans
 Plans:
 **Wave 1**
 
@@ -234,7 +234,8 @@ Plans:
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
-- [ ] 53-10-PLAN.md — Browser tests: no-JS flow, hidden-panel submit, 360 px measurements, dirty bar (DET-01, DET-03)
+- [ ] 53-10-PLAN.md — Browser tests: no-JS flow, hidden-panel submit, 360 px measurements, dirty bar; legacy browser tests updated (DET-01, DET-03)
+- [ ] 53-12-PLAN.md — Remaining non-browser tests and test-support helpers updated for the removed Display Runway card (DET-01)
 
 **Wave 9** *(blocked on Wave 8 completion)*
 
