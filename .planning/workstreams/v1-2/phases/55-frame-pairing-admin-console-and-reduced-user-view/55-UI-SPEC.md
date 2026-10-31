@@ -41,11 +41,11 @@ Existing tokens, unchanged: xs 4, sm 8, md 16, lg 24, xl 32, 2xl 48, 3xl 64 (px)
 | Form field vertical gap inside a card | md 16 |
 | Gap between buttons in a row-action group | sm 8 |
 | Gap between label and input | xs 4 |
-| Table cell padding | existing `.data-table` 16px; Audit uses the scoped `--space-sm` register already defined for `data-table--flights` pattern (planner reuses that scoped rule via a second modifier class, no new value) |
+| Table cell padding | existing `.data-table` 16px; Audit adds the existing `data-table--flights` class to its `<table>` (`table.data-table--flights td, th { padding: var(--space-sm) var(--space-sm) }`, 8px; plus its stacked `.cell-primary` / `.cell-secondary` block rule); no new class and no new value |
 | Section sub-nav chip gap | sm 8 |
 | Pairing code input | single field, height 44px |
 
-Exceptions: 44px minimum hit height for every standalone control on the pairing claim form, invite form and inline confirm buttons (WCAG 2.5.5; the app's 30px quiet button density is traded away on these because they are consequential and used by one hand on a phone). Row-action buttons inside a table row stay at the existing 30px density at >=960px and become 44px when the row collapses to a card below 960px. Nothing else.
+Exceptions: 44px minimum hit height for every standalone control on the pairing claim form, invite form and inline confirm buttons (WCAG 2.5.5; the app's 30px quiet button density is traded away on these because they are consequential and used by one hand on a phone). Inherited exception: the base `button` rule in `style.css` (~line 1742, `height: 30px`, 13px semibold) is the existing quiet-button density; row-action buttons inside a table row keep it at >=960px and become 44px when the row collapses to a card below 960px. Nothing else.
 
 ---
 
@@ -56,14 +56,14 @@ Existing four content sizes and two weights only.
 | Role | Size | Weight | Line height | Used for here |
 |------|------|--------|-------------|---------------|
 | Page title | 32px serif | 600 | existing | "Fleet", "Users", "Locations", "Audit log", "Account", frame page titles via `layout.page_header` |
-| Heading | 22px serif | 400 | existing | supersection intros only if used (`section_intro_html`); not required |
+| Heading | 22px serif | 400 | existing | inherited size, NOT used in this phase (no supersection intros are added) |
 | Emphasis / nested card title | 16px sans | 600 | existing | card titles ("Register a frame", "Pair a frame", "Invite a user", "New location"), table cell primary value (device name, user email) |
 | Body | 16px sans | 400 | 1.5 | form inputs, purpose sentences, confirm text |
 | Label | 14px sans | 400 | existing | helper text, `.field-error`, empty-state body, secondary cell lines (MAC under device name), toast detail |
 | Label voice | 12px uppercase 600 | 600 | existing | table headers, `.banner__pill` status badges, `.data-card__label` |
 | Identifier | 14px mono | 400 | existing | MAC, device id, SHA-256 (truncated 12 chars + copy button, full value in the input), pairing code as typed back in the confirmation line |
 
-Exactly 4 sizes plus the pre-existing 12px label voice, 2 weights. The pairing code input renders at Body 16px mono, upper-cased via `text-transform: uppercase` and `letter-spacing: 0.08em` (a declaration on an existing size, not a new size).
+Exactly 4 inherited sizes (32, 16, 14 plus the inherited 22 which this phase does not use) plus the pre-existing 12px label voice, 2 weights (400, 600). Every size is inherited; none is new. The pairing code input renders at Body 16px mono, upper-cased via `text-transform: uppercase` and `letter-spacing: 0.08em` (a declaration on an existing size, not a new size).
 
 ---
 
@@ -81,7 +81,7 @@ No new colour, no new accent use. The accent list in `style.css`'s header commen
 | Destructive | none new. Quiet secondary (`button.calendar-disconnect-btn`) is the destructive treatment, as for the existing Disconnect | Retire, Disable, Unlink identity, Reassign (wipe) confirm buttons |
 
 Accent reserved for (all already on the list):
-1. The ONE primary action per page or per card: "Pair frame" on the claim card, "Register frame" on the register card (only one primary on screen at a time: on Fleet the claim card carries the primary, register card submit is quiet unless it is the page's only form), "Send invitation" on Users, "Add location" on Locations, "Save" on existing settings pages.
+1. The ONE primary action per page or per card: "Pair frame" on the claim card, "Register frame" on the register card (only one primary on screen at a time: on Fleet the claim card carries the single primary; the register card submit "Register frame" is ALWAYS a quiet secondary button (never accent), so the one-primary-per-page rule holds on Fleet), "Send invitation" on Users, "Add location" on Locations, "Save" on existing settings pages.
 2. Links (`.text-link`, "Open frame", "Releases"), focus ring, `<summary>` marker, the active nav pill (Fleet, Users, Locations, Audit log, Releases, Account).
 3. Native `accent-color` on radios/checkboxes (role choice, if radios).
 
@@ -96,9 +96,9 @@ Not accent: destructive confirm buttons (quiet wash, never accent fill, never er
 | Retired | Retired / Retiré | neutral pill |
 | Disabled (user) | Disabled / Désactivé | neutral pill |
 | Admin / User role | Administrator / Utilisateur | neutral pill in the Users table |
-| Low battery, stale contact | existing Health tone (warn) via the same data used on Health | warn-tone `.banner__pill` modifier already used by Health, otherwise neutral |
+| Low battery, stale contact | neutral pill with text (e.g. "Low battery" / "Batterie faible", "No recent contact" / "Pas de contact récent") | neutral pill; `style.css` has no `.banner__pill--*` modifier and this phase adds none |
 
-All state badges are neutral on purpose (state labels, not alerts); warn tone is reserved for battery/contact staleness already defined on Health.
+All badges are neutral on purpose (state labels, not alerts); the meaning is carried by the text.
 
 ---
 
@@ -132,7 +132,7 @@ Sorting: live first, then pending, then retired; inside each, most recently seen
 | Pending | Open is absent (no pages yet), Show code status is not offered (the code is only on the panel). Action: none except Retire is also not offered; pending frames can be removed only by CLI. Row shows the text "Waiting for pairing" in the Owner cell |
 | Retired | Re-activate |
 
-**Confirm pattern (no JS required, no dialog, no motion).** Reassign, Retire and Re-activate use an inline two-step `<details>` in the actions cell: the `<summary>` is the quiet action button ("Retire"); opening it reveals, in flow, a confirm block containing (1) one sentence naming consequence (Copywriting below) with the toast `error`/`warning` glyph in front, (2) for Reassign a `<select>` of target users (own label "New owner"), (3) a quiet submit button with the action verb ("Retire frame") and a "Cancel" `.text-link` that re-closes the details via its own `<summary>` label swap (no script). At most one is open at a time is NOT enforced (no JS). The form carries the hidden CSRF field. Below 960px the confirm block spans the card width. After submit: PRG redirect to Fleet with a flash toast (success tone) naming the result; a refused action (live frame retire, stale state) is an `error` flash toast, not an inline error. No browser `confirm()` and no `<dialog>` in this phase.
+**Confirm pattern (no JS required, no dialog, no motion).** Reassign, Retire and Re-activate use an inline two-step `<details>` in the actions cell: the `<summary>` is the quiet action button ("Retire"); opening it reveals, in flow, a confirm block containing (1) one sentence naming consequence (Copywriting below) with the toast `error`/`warning` glyph in front, (2) for Reassign a `<select>` of target users (own label "New owner"), (3) a quiet submit button with the action verb ("Retire frame") and a specific keep-as-is `.text-link` (never a generic "Cancel"): "Keep frame" (Retire, Reassign, Re-activate, frame actions), "Keep user" (Disable, Demote, Unlink identity), "Keep location" (Delete location), "Keep as is" (fallback for any other confirm). It is a `<label for>` / second `<summary>` that re-closes the details (no script); strings in the Copywriting table. At most one is open at a time is NOT enforced (no JS). The form carries the hidden CSRF field. Below 960px the confirm block spans the card width. After submit: PRG redirect to Fleet with a flash toast (success tone) naming the result; a refused action (live frame retire, stale state) is an `error` flash toast, not an inline error. No browser `confirm()` and no `<dialog>` in this phase.
 
 **Empty state (no frames at all):** `empty_state` full-card: heading "No frames yet", body "Register a frame below, then enter the code shown on its screen." Table is not rendered. The two form cards still render.
 
@@ -153,14 +153,14 @@ States (rendered as one `toast--docked` in flow directly above the form inside t
 | Throttled (per session or global) | warning docked toast title "Too many attempts", detail "Wait a few minutes before trying again." No countdown number, no live timer (avoid leaking the threshold and keep the page script-free); submit stays enabled (the server decides) |
 | No owner chosen / empty code | `.field-error` under the offending field, "Enter the pairing code." / "Choose an owner." (400, no throttle count) |
 | No pending frames exist | The card still renders; below the form a `.text-label` line: "No frame is waiting for a code. Register one first." (informational only, form not disabled, since a frame can register mid-way) |
-| Selected owner has no valid role (race) | same generic "Code not recognised"? NO: this is "That user is no longer available." `.field-error` under Owner; the code is NOT consumed (single transaction rolls back) |
+| Selected owner has no valid role (race) | `.field-error` under Owner: "That user is no longer available." The code is NOT consumed (single transaction rolls back) |
 
 Never echo the guess in an audit-visible place, in the URL, in a toast, or in `title` attributes. The typed value is re-rendered only into the input's `value` on the immediate error response (POST response, no-store).
 
 ### 3. "Register a frame" card (Fleet page)
 
 Title: "Register a frame". Purpose (14px): "Use the MAC and secret hash printed by the provisioning script. The secret itself is never entered here."
-Fields: "MAC address" (mono text, `placeholder="AA:BB:CC:DD:EE:FF"`, accepts `:` `-` or none, server normalises), "Secret hash (SHA-256)" (mono text, 64 hex characters, `placeholder="64 hex characters"`, `maxlength="64"`, `pattern` for 64 hex; `autocomplete="off"`, NOT `type=password`, because it is a hash and the operator needs to verify a paste), "Hardware" (`<select>` of hardware profiles from `server/hardware.py`, label = display name). Submit "Register frame" (quiet unless the sole primary).
+Fields: "MAC address" (mono text, `placeholder="AA:BB:CC:DD:EE:FF"`, accepts `:` `-` or none, server normalises), "Secret hash (SHA-256)" (mono text, 64 hex characters, `placeholder="64 hex characters"`, `maxlength="64"`, `pattern` for 64 hex; `autocomplete="off"`, NOT `type=password`, because it is a hash and the operator needs to verify a paste), "Hardware" (`<select>` of hardware profiles from `server/hardware.py`, label = display name). Submit "Register frame": quiet secondary button (not accent), 44px height; the claim card's "Pair frame" is the page's single primary.
 Guard text under the hash field (14px, `.section-caption`): "Paste the SHA-256 value only. If you paste anything that is not 64 hex characters it is refused." Errors: `.field-error` per field: "Enter a valid MAC address." / "Enter the 64-character hash." / "Choose the hardware type." / duplicate MAC: error flash "A frame with this address is already registered." Success: flash success "Frame registered", detail "Power it on. It shows a pairing code within 5 minutes." Pending row appears in the table.
 
 ### 4. Users page (admin; "Users")
@@ -250,11 +250,11 @@ The retired screen contains no code, no date, no owner. Both screens hash-skip: 
 | Primary CTA (register) | Register frame | Enregistrer le cadre |
 | Primary CTA (invite) | Send invitation | Enregistrer l'invitation |
 | Primary CTA (location) | Add location | Ajouter un lieu |
-| Fleet title / purpose | Fleet / Every frame on the platform, with its owner and state. | Parc / Tous les cadres de la plateforme, avec leur propriétaire et leur état. |
+| Fleet title / purpose | Fleet / Every frame on the platform, with its owner and state. | Cadres / Tous les cadres de la plateforme, avec leur propriétaire et leur état. |
 | Users title / purpose | Users / Who can sign in and what they can do. | Utilisateurs / Qui peut se connecter et ce qu'il peut faire. |
 | Audit title / purpose | Audit log / What happened on the platform, newest first. | Journal d'audit / Ce qui s'est passé sur la plateforme, du plus récent au plus ancien. |
 | Locations title / purpose | Locations / Places a frame can show flights for. | Lieux / Lieux pour lesquels un cadre peut afficher des vols. |
-| Sub-nav / sidebar group | Administration; Fleet, Users, Locations, Audit log, Releases | Administration ; Parc, Utilisateurs, Lieux, Journal d'audit, Versions |
+| Sub-nav / sidebar group | Administration; Fleet, Users, Locations, Audit log, Releases | Administration ; Cadres, Utilisateurs, Lieux, Journal d'audit, Versions |
 | Status badges | Live, Pending, Retired, Disabled, Invited | Actif, En attente, Retiré, Désactivé, Invité |
 | Pending owner cell | Waiting for pairing | En attente d'association |
 | Empty state: fleet | No frames yet / Register a frame below, then enter the code shown on its screen. | Aucun cadre pour l'instant / Enregistrez un cadre ci-dessous, puis saisissez le code affiché sur son écran. |
@@ -283,11 +283,18 @@ The retired screen contains no code, no date, no owner. Both screens hash-skip: 
 | Destructive: Delete location | Delete location: "Frames that do not use it are unaffected." (refused if used) | Supprimer le lieu : « Les cadres qui ne l'utilisent pas ne sont pas touchés. » (refusé s'il est utilisé) |
 | Location errors | Enter a name. / Enter a latitude between -90 and 90. / Enter a longitude between -180 and 180. / Choose a time zone. | Saisissez un nom. / Saisissez une latitude entre -90 et 90. / Saisissez une longitude entre -180 et 180. / Choisissez un fuseau horaire. |
 | Location limit / in use | Location limit reached / Delete one before adding another. ; This location is used by a frame. | Limite de lieux atteinte / Supprimez-en un avant d'en ajouter. ; Ce lieu est utilisé par un cadre. |
+| Confirm: keep (frame) | Keep frame | Garder le cadre |
+| Confirm: keep (user) | Keep user | Garder l'utilisateur |
+| Confirm: keep (location) | Keep location | Garder le lieu |
+| Confirm: keep (fallback) | Keep as is | Laisser tel quel |
+| Claim owner unavailable | That user is no longer available. | Cet utilisateur n'est plus disponible. |
+| CSRF expired | This page expired. Reload and try again. | Cette page a expiré. Rechargez-la et réessayez. |
+| Status badge extras | Low battery; No recent contact | Batterie faible ; Pas de contact récent |
 | Location picker | Location; Manage locations; No location chosen. ; Add a location | Lieu ; Gérer les lieux ; Aucun lieu choisi. ; Ajouter un lieu |
 | E-ink pairing | PAIR THIS FRAME; 1. Open SkyPane on your phone or computer.; 2. Ask your administrator to enter this code.; Code changes about every 30 minutes.; Waiting for pairing | ASSOCIER CE CADRE ; 1. Ouvrez SkyPane sur votre téléphone ou ordinateur. ; 2. Demandez à votre administrateur de saisir ce code. ; Le code change environ toutes les 30 minutes. ; En attente d'association |
 | E-ink retired | FRAME RETIRED; This frame is no longer in service.; Contact your administrator if this is a mistake. | CADRE RETIRÉ ; Ce cadre n'est plus en service. ; Contactez votre administrateur en cas d'erreur. |
 
-Register: "vous", sentence case, existing FR terms ("cadre" for frame, "Se connecter"). Note FR admin term "Parc" for Fleet; owner may prefer "Flotte" (open question 3). Frame names in toasts are escaped.
+Register: "vous", sentence case, existing FR terms ("cadre" for frame, "Se connecter"). FR for the Fleet page: "Parc" is not used anywhere in the existing FR UI and "Flotte" is not used here, so the title and nav entry follow the existing vocabulary "cadres" (`companion/i18n_fr/`): "Cadres" (open question 3). Frame names in toasts are escaped.
 
 ---
 
@@ -319,9 +326,9 @@ Register: "vous", sentence case, existing FR terms ("cadre" for frame, "Se conne
 
 1. Mobile tab bar for admins: this spec adds one "Admin" tab -> Fleet; if the bar is already at its maximum, the planner needs the existing behaviour for overflow tabs. Default: add "Admin" and move the least-used frame tab behind the gear panel.
 2. Invite sends no email in v1 (pre-registration only). Default: say so in the helper text; confirm with the owner whether an invitation message is wanted later.
-3. French term for Fleet: "Parc" (this spec) versus "Flotte".
+3. French term for Fleet: default "Cadres" (existing vocabulary; neither "Parc" nor "Flotte"). Recorded for owner review.
 4. User tab bar membership (Home, Flights, Display, Health, Account) and Calendar/Airlines reachable from Display and sidebar; confirm against the current tab bar contents.
-5. Pairing screen hierarchy: the 168px code is the single largest element and no colour carries meaning except the header band; confirm the red header band is acceptable on the real panel (red is the interim on-glass colour (160,32,32)).
+5. Pairing screen hierarchy: the 168px code is the single largest element and no colour carries meaning except the header band; default keeps the red header band (160,32,32); FLAGGED as an owner-visual item to confirm on the real panel.
 6. Location quota per user (default 10) and the exact validation range; both are planner/research items, the copy only needs `{n}`.
 
 ---
