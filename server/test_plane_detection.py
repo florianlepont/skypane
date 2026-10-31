@@ -1439,3 +1439,105 @@ def test_select_from_results_empty_provider_is_not_a_dissenting_vote(geofence):
     assert result["corroborated"] is None
     assert diagnostics["selected"] == ["adsbfi"]
     assert diagnostics["disagreement"] is False
+
+
+# ---------------------------------------------------------------
+# Position mode
+# ---------------------------------------------------------------
+
+_POS_DOC = {
+    "detection_mode": "position",
+    "center": {"lat": 48.86, "lon": 2.35},
+    "radius_nm": 4.86,
+    "alt_ceiling_ft": 10000,
+}
+
+
+def _pos_record(hex_id, alt=2000, dlat=0.0, dlon=0.0, **extra):
+    record = {"hex": hex_id, "lat": 48.86 + dlat, "lon": 2.35 + dlon, "alt_baro": alt}
+    record.update(extra)
+    return record
+
+
+def _pos_hexes(records, doc=_POS_DOC):
+    return sorted(ac["hex"] for ac in detect.runway_candidates(records, doc, "position:9"))
+
+
+def test_position_ceiling_and_floor():
+    records = [
+        _pos_record("a", 10000),
+        _pos_record("b", 10001),
+        _pos_record("c", 0),
+        _pos_record("d", -50),
+    ]
+    assert _pos_hexes(records) == ["a", "c"]
+
+
+def test_position_rejects_ground_and_bad_altitudes():
+    records = [
+        _pos_record("a", "ground"),
+        _pos_record("b", None),
+        _pos_record("c", "5000"),
+        _pos_record("d", True),
+        _pos_record("e", float("nan")),
+        _pos_record("f", 500, on_ground=True),
+        {"hex": "g", "lat": 48.86, "lon": 2.35},
+        _pos_record("ok", 500),
+    ]
+    assert _pos_hexes(records) == ["ok"]
+
+
+def test_position_radius_edge():
+    radius_m = _POS_DOC["radius_nm"] * 1852.0
+    inside = _pos_record("in", dlat=radius_m / detect._M_PER_DEG_LAT)
+    outside = _pos_record("out", dlat=(radius_m + 1.0) / detect._M_PER_DEG_LAT)
+    assert _pos_hexes([inside, outside]) == ["in"]
+
+
+def test_position_skips_malformed_positions():
+    records = [
+        {"hex": "a", "lat": "x", "lon": 2.35, "alt_baro": 100},
+        {"hex": "b", "lat": 48.86, "lon": None, "alt_baro": 100},
+        {"hex": "c", "lat": float("inf"), "lon": 2.35, "alt_baro": 100},
+        _pos_record("ok", 100),
+    ]
+    assert _pos_hexes(records) == ["ok"]
+
+
+def test_position_dispatch_only_with_mode_key():
+    runway_doc = load_geofence()
+    assert "detection_mode" not in runway_doc
+    assert detect.runway_candidates([_pos_record("a")], runway_doc) == []
+
+
+def test_position_lowest_altitude_then_hex_wins():
+    records = [_pos_record("b", 3000), _pos_record("c", 1000), _pos_record("a", 1000)]
+    picked = detect.select_from_provider_results([("adsbfi", records)], _POS_DOC, "position:9")
+    assert picked["hex"] == "a"
+    assert picked["selected_runway"] == "position:9"
+    assert picked["runway_id"] == "position:9"
+
+
+def test_position_selection_has_runway_selection_keys():
+    picked = detect.select_aircraft_for_runway([_pos_record("a")], _POS_DOC, "position:9")
+    expected = set(detect._normalise_selection({"hex": "x"}))
+    assert set(picked) == expected
+
+
+def test_position_corroboration_uses_common_set():
+    first = [_pos_record("a", 1000), _pos_record("b", 2000)]
+    second = [_pos_record("b", 2000), _pos_record("c", 500)]
+    picked = detect.select_from_provider_results(
+        [("adsbfi", first), ("adsblol", second)], _POS_DOC, "position:9"
+    )
+    assert picked["hex"] == "b"
+    assert picked["corroborated"] is True
+
+
+def test_position_provider_disagreement_selects_nothing():
+    picked = detect.select_from_provider_results(
+        [("adsbfi", [_pos_record("a")]), ("adsblol", [_pos_record("b")])],
+        _POS_DOC,
+        "position:9",
+    )
+    assert picked is None

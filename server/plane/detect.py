@@ -128,6 +128,13 @@ DEFAULT_GEOFENCE = os.path.normpath(DEFAULT_GEOFENCE)
 # metre over a geofence a few km across.
 _M_PER_DEG_LAT = 111320.0
 
+# Value of a geofence document's "detection_mode" that selects the aircraft
+# around a point instead of those on a runway.
+POSITION_MODE = "position"
+_M_PER_NM = 1852.0
+# Slack for float rounding when a record sits exactly on the radius.
+_RADIUS_EPSILON_M = 1e-6
+
 # Fallbacks used only when a geofence file carries no `corridor` block, so
 # an older or hand-written geofence still gets the gate rather than
 # silently reverting to bbox-only behaviour.
@@ -184,6 +191,8 @@ def _effective_runway_id(geofence, runway_id):
     selection was actually gated on rather than the (possibly
     unrecognised) id it was asked for.
     """
+    if geofence.get("detection_mode") == POSITION_MODE:
+        return runway_id
     runways = geofence.get("runways")
     if isinstance(runways, dict) and isinstance(runways.get(runway_id), dict):
         return runway_id
@@ -552,6 +561,58 @@ def selection_sort_key(ac):
     return (effective_altitude_ft(ac), ac.get("hex") or "")
 
 
+def _airborne_altitude_ft(ac):
+    """Numeric barometric altitude of an airborne record, else None.
+
+    Rejects bool, strings such as "ground", None, NaN/inf and any record
+    flagged on the ground: a parked or taxiing aircraft is never "around" a
+    position.
+    """
+    if ac.get("on_ground"):
+        return None
+    alt = ac.get("alt_baro")
+    if isinstance(alt, bool) or not isinstance(alt, (int, float)):
+        return None
+    if not math.isfinite(alt):
+        return None
+    return float(alt)
+
+
+def _finite_coordinate(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value) if math.isfinite(value) else None
+
+
+def position_candidates(aircraft, geofence):
+    """Airborne records within `geofence["radius_nm"]` nautical miles of
+    `geofence["center"]` and between 0 and `geofence["alt_ceiling_ft"]` feet.
+
+    Malformed records (non-numeric position or altitude) are skipped, never
+    raised on. Distances use the same local flat-earth metres as the runway
+    gates.
+    """
+    center = geofence["center"]
+    lat0 = float(center["lat"])
+    lon0 = float(center["lon"])
+    radius_m = float(geofence["radius_nm"]) * _M_PER_NM + _RADIUS_EPSILON_M
+    ceiling_ft = float(geofence["alt_ceiling_ft"])
+    lon_scale = _M_PER_DEG_LAT * math.cos(math.radians(lat0))
+    matched = []
+    for ac in aircraft:
+        lat = _finite_coordinate(ac.get("lat"))
+        lon = _finite_coordinate(ac.get("lon"))
+        alt = _airborne_altitude_ft(ac)
+        if lat is None or lon is None or alt is None:
+            continue
+        if not 0.0 <= alt <= ceiling_ft:
+            continue
+        if math.hypot((lat - lat0) * _M_PER_DEG_LAT, (lon - lon0) * lon_scale) > radius_m:
+            continue
+        matched.append(ac)
+    return matched
+
+
 def runway_candidates(aircraft, geofence, runway_id=DEFAULT_RUNWAY_ID):
     """Every record in `aircraft` that is on the selected runway and below
     the ceiling - the candidate set `select_aircraft_for_runway()` then
@@ -566,7 +627,12 @@ def runway_candidates(aircraft, geofence, runway_id=DEFAULT_RUNWAY_ID):
 
     Gates on `on_runway`, not the deprecated `on_runway3` alias, so the
     candidate set follows the selected runway.
+
+    A document whose `detection_mode` is "position" is gated by distance
+    from its centre instead (see `position_candidates()`).
     """
+    if geofence.get("detection_mode") == POSITION_MODE:
+        return position_candidates(aircraft, geofence)
     return [
         ac for ac in filter_in_geofence(aircraft, geofence, runway_id=runway_id)
         if ac.get("below_ceiling") and ac.get("on_runway")
