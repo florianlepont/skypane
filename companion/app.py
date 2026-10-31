@@ -707,7 +707,9 @@ class Handler(
     def _health_alert_for_admin(self):
         """The Health nav-dot severity for an admin caller, else None: a
         plain user or an anonymous caller never learns fleet health. Also
-        tells the shell who is signed in.
+        tells the shell who is signed in. Error pages carry no device
+        scope, so a user's frame-only dot is drawn by the tab pages
+        themselves (through the page context), not here.
         """
         principal = self._safe_principal()
         self._apply_principal(principal)

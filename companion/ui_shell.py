@@ -49,7 +49,6 @@ from companion.ui_nav import (
     REFRESH_RECONNECTING_ATTR,
     REFRESH_RECONNECTING_TEXT,
     REFRESH_TOKEN_ATTR,
-    ACCOUNT_ROUTE,
     TAB_BAR_BODY_CLASS,
     _lang_form_html,
     _logout_form_html,
@@ -58,6 +57,7 @@ from companion.ui_nav import (
     _theme_form_html,
     is_user_principal,
     sidebar_nav,
+    user_brand_href,
 )
 from companion.ui_components import TOAST_TONE_ERROR, split_toast_message, toast_html
 from companion.ui_time import relative_copy_attrs
@@ -450,8 +450,10 @@ def page_shell(
         '{brand_mark}<span class="site-title">{site_title}</span>'
     ).format(brand_mark=brand_mark_html, site_title=escaped_site_title)
     if is_user_principal():
-        # A plain user has no Home; the wordmark leads to their one page.
-        brand_link = '<a class="brand__link" href="%s">%%s</a>' % escape_html(ACCOUNT_ROUTE)
+        # The wordmark leads to the frame's Home when the user can open it,
+        # else to Account.
+        brand_link = (
+            '<a class="brand__link" href="%s">%%s</a>' % escape_html(user_brand_href()))
         brand_inner_sidebar = brand_link % brand_inner_sidebar
         brand_inner_header = brand_link % brand_inner_header
     return PAGE_SHELL_TEMPLATE.format_map({
