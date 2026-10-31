@@ -4,5 +4,9 @@ companion/test_access_matrix.py, `SAMPLES` maps each templated route to a
 sample middle segment.
 """
 
-ROWS = {}
+ROWS = {
+    ("GET", "/fleet"): "admin-only",
+    ("POST", "/fleet/register"): "admin-only",
+    ("POST", "/fleet/pair"): "admin-only",
+}
 SAMPLES = {}

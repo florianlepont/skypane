@@ -24,9 +24,15 @@ def _dummy_get(path, access=routes.ADMIN_ONLY):
     return routes.Route("GET", routes.Exact(path), lambda h, m: None, access)
 
 
-def test_the_skeleton_aggregator_is_empty_and_only_releases_exists_yet():
-    assert console_routes.ROUTES == ()
-    assert [entry[1] for entry in console_routes.available_nav_entries()] == ["/update"]
+def test_the_aggregator_holds_the_pairing_routes_and_nav_follows_them():
+    served_routes = {
+        (route.method, route.matcher.path) for route in console_routes.ROUTES}
+    assert served_routes == {
+        ("GET", console_routes.FLEET_ROUTE),
+        ("POST", console_routes.FLEET_REGISTER_ROUTE),
+        ("POST", console_routes.FLEET_PAIR_ROUTE)}
+    assert [entry[1] for entry in console_routes.available_nav_entries()] == [
+        "/fleet", "/update"]
 
 
 def test_nav_entries_follow_the_route_table(monkeypatch):
@@ -141,7 +147,7 @@ def test_admin_sidebar_lists_the_administration_group_in_order(served):
     assert re.search(r'href="/update">Releases<', group)
 
 
-def test_the_group_lists_only_releases_while_no_console_page_exists(
+def test_the_group_lists_only_the_pages_that_exist(
         app_server_in_process, monkeypatch):
     server = app_server_in_process
     seeded = seed_matrix_fleet(server.state_dir)
@@ -156,8 +162,7 @@ def test_the_group_lists_only_releases_while_no_console_page_exists(
     assert status == 200
     sidebar = _sidebar(page)
     group = sidebar[sidebar.index('<div class="nav-group"><span'):]
-    assert _hrefs(group) == ["/update"]
-    assert "/fleet" not in page and "Admin</span>" not in _tab_bar(page)
+    assert _hrefs(group) == ["/fleet", "/update"]
 
 
 def test_a_user_sees_no_administration_navigation_and_no_console_page(served):
@@ -183,7 +188,7 @@ def test_the_admin_tab_takes_the_airlines_slot_when_fleet_exists(served):
     assert 'aria-current="page"' in cells.split('href="/fleet"')[1].split("</a>")[0]
 
 
-def test_the_phone_bar_is_unchanged_without_a_fleet_page(
+def test_the_phone_bar_gains_the_admin_tab_once_the_fleet_page_exists(
         app_server_in_process, monkeypatch):
     server = app_server_in_process
     seeded = seed_matrix_fleet(server.state_dir)
@@ -196,7 +201,7 @@ def test_the_phone_bar_is_unchanged_without_a_fleet_page(
         conn.close()
     _status, page = _get(server, "sp_session=tok-b", "/")
     cells = _tab_bar(page).split('<details class="tab-bar__more">')[0]
-    assert _hrefs(cells) == ["/", "/display", "/flights", "/airlines"]
+    assert _hrefs(cells) == ["/", "/display", "/flights", "/fleet"]
 
 
 def test_every_console_page_shows_the_sub_nav_with_the_current_page_selected(served):
@@ -266,7 +271,7 @@ def test_a_console_page_shows_its_flash_once_and_clears_the_cookie(served):
 
 def test_a_tampered_flash_cookie_shows_nothing_on_a_console_page(served):
     server, cookies = served
-    status, page = _get(server, cookies["admin"] + "; sp_flash=bm90LWpzb24", "/fleet")
+    status, page = _get(server, cookies["admin"] + "; sp_flash=bm90LWpzb24", "/audit")
     assert status == 200
     assert "toast--" not in page.split("console body")[0].split("<main")[1]
 

@@ -11,7 +11,7 @@ import base64
 import json
 import re
 
-from companion import auth, i18n, layout
+from companion import auth, i18n
 
 COOKIE_NAME = "sp_flash"
 MAX_AGE_S = 60
@@ -93,7 +93,11 @@ def _toast_for(payload):
         if isinstance(name, str) and isinstance(value, str)}
     title = _fill(i18n.t(title_msg), params)
     detail = _fill(i18n.t(detail_msg), params) if detail_msg is not None else None
-    return layout.toast_html(
+    # Imported on use: this module is a leaf so the console route modules,
+    # which register flash keys while the navigation is still importing, can
+    # import it first.
+    from companion import ui_components
+    return ui_components.toast_html(
         title, detail or None, tone=tone, dismiss_href=True)
 
 

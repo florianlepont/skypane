@@ -210,6 +210,8 @@ _UNCHANGED_IN_FRENCH = frozenset({
     # "Administration" and "Admin" are the French words too, spelled
     # identically: real cognates for the console's nav group and phone tab.
     "nav.administration", "nav.admin",
+    # The French column heading for a list of row actions is the same word.
+    "admin_fleet.actions",
 })
 
 

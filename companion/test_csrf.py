@@ -7,7 +7,7 @@ import urllib.parse
 import pytest
 
 from access_matrix_support import seed_matrix_fleet
-from companion import app, auth, prefs, routes, ui_components
+from companion import app, auth, console_routes, prefs, routes, ui_components
 from companion_app_server import http_request
 from server import fleet_db, fleet_sessions
 
@@ -260,8 +260,11 @@ def test_other_existing_forms_need_no_token(live):
     assert _raw_post(live, "/logout", cookie, {})[0] != 403
 
 
-def test_only_the_six_existing_routes_are_flagged_so_far():
+def test_only_the_six_existing_routes_and_the_console_posts_are_flagged():
     flagged = {
         (route.method, route.matcher) for route in routes.ROUTES if route.csrf}
-    assert flagged == set(routes.CSRF_ROUTE_KEYS)
-    assert len(flagged) == 6
+    console_posts = {
+        (route.method, route.matcher) for route in console_routes.ROUTES if route.csrf}
+    assert len(routes.CSRF_ROUTE_KEYS) == 6
+    assert flagged == set(routes.CSRF_ROUTE_KEYS) | console_posts
+    assert all(method == "POST" for method, _matcher in console_posts)
