@@ -4,5 +4,13 @@ companion/test_access_matrix.py, `SAMPLES` maps each templated route to a
 sample middle segment.
 """
 
-ROWS = {}
-SAMPLES = {}
+ROWS = {
+    ("POST", "/fleet/frames/{}/retire"): "admin-only",
+    ("POST", "/fleet/frames/{}/reactivate"): "admin-only",
+    ("POST", "/fleet/frames/{}/reassign"): "admin-only",
+}
+SAMPLES = {
+    "/fleet/frames/{}/retire": "d_00000000",
+    "/fleet/frames/{}/reactivate": "p_00000000",
+    "/fleet/frames/{}/reassign": "d_00000000",
+}
