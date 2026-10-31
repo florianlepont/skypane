@@ -133,6 +133,8 @@ block before returning the failure redirect.
 
 ## Low
 
+**Fixed:** `_store_detection` records the previous `location_id` and restores it when the config write raises OSError; test covers a failing write.
+
 ### LW-01: The `fail_safe` field and `is_fail_safe` helper are dead code
 
 **File:** `server/detection.py:93, 270, 312-347`; `companion/detection_summary.py:38`
@@ -153,6 +155,8 @@ pressure (Calais, Le Touquet, Mediterranean coast). Those are the lowest
 aircraft, which are exactly the ones the feature selects.
 **Fix:** Use a lower bound such as `-1000.0`, or drop the lower bound,
 since `on_ground` and the `"ground"` string are already excluded.
+
+**Fixed:** position mode accepts barometric altitude down to -1500 ft; bool, string, NaN and ground records are still rejected; tests extended.
 
 ### LW-03: Mid-cycle config change can pair a device with another zone's fetch
 
@@ -194,6 +198,8 @@ quiet hours or calendar time for every device using it.
 leave the timezone untouched on edit (do not pass it to `update_location`
 unless it changed).
 
+**Fixed:** an edit keeps the stored timezone (server ignores the posted one, the form shows the stored zone); test added.
+
 ### LW-06: Detection POST relies on SameSite and Origin only
 
 **File:** `companion/routes.py:219-221`; `companion/pages/detection_page.py:391-399, 716-725`
@@ -223,3 +229,5 @@ both forms.
 1. Use `[0-9]`, or compile with `re.ASCII`.
 2. Replace the asserts with explicit `if not isinstance(...)` raises.
 3. Match each field separately.
+
+**Fixed:** `re.ASCII` on the designator and ICAO regexes, asserts replaced by explicit checks, airport search matches each field separately; tests added.
