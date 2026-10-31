@@ -26,7 +26,6 @@ from server.plane import colour_rules
 _DISPLAY_CTX = {
     "device_config": {"theme": "band_red_field", "tracked_runway": "3"},
     "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-    "poll_cooldown_remaining": 0,
 }
 
 

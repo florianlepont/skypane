@@ -323,14 +323,14 @@ def test_wake_interval_below_floor_env_degrades_to_placeholder(make_app_server):
         "expected the placeholder text for a below-floor environment value")
 
 
-def test_login_get_with_settings_next_carries_hidden_field(app04b_server):
-    """GET /login?next=/display (a real NAV_TABS member) renders a hidden next field carrying
-    /display, surviving the round trip"""
+def test_login_get_with_settings_next_carries_the_destination_on_the_link(app04b_server):
+    """GET /login?next=/display (a real NAV_TABS member) carries /display on the sign-in
+    link, surviving the round trip"""
     status, _headers, body = http_request(app04b_server.base_url() + "/login?next=/display")
     assert status == 200, "expected 200, got %d" % status
-    assert b'name="next" value="/display"' in body, (
-        "expected the recognised /display ?next= value to survive the round trip as a rendered "
-        "hidden field")
+    assert b'href="/login/auth0?next=/display"' in body, (
+        "expected the recognised /display ?next= value to survive the round trip on the "
+        "sign-in link")
 
 
 # ==========================================================================
@@ -395,7 +395,7 @@ def test_logout_clears_cookie_and_a_replayed_or_absent_cookie_is_refused_afterwa
     assert status == 200, "expected the fresh session to reach /display before logout, got %d" % status
 
     status, headers, _ = http_request(base + "/logout", method="POST", cookie=session_cookie)
-    assert status == 303, "expected a 303 redirect on logout, got %d" % status
+    assert status == 200, "expected the sign-out interstitial on logout, got %d" % status
     set_cookie = headers.get("Set-Cookie", "")
     assert "Max-Age=0" in set_cookie, (
         "expected the logout cookie header to carry Max-Age=0, got %r" % set_cookie)

@@ -21,8 +21,7 @@ from server import fleet_sessions
 
 from companion import oidc, sign_in
 from companion_app_server import (
-    TEST_PASSWORD, begin_auth0, http_request, http_request_full, login,
-    login_via_auth0, named_cookie, set_cookie_headers)
+    begin_auth0, http_request, http_request_full, login_via_auth0, named_cookie, set_cookie_headers)
 
 REFRESH_RE = re.compile(r'http-equiv="refresh" content="0;url=([^"]*)"')
 GENERIC_FAILURE_STATUSES = (400, 503)
@@ -362,16 +361,6 @@ def test_logout_without_auth0_redirects_to_login(auth0_rig):
     rig.server.apply_env({
         "SKYPANE_AUTH0_DOMAIN": None, "SKYPANE_AUTH0_CLIENT_ID": None,
         "SKYPANE_AUTH0_CLIENT_SECRET": None})
-    status, headers, _ = http_request(
-        rig.server.url("/logout"), method="POST", data=b"", cookie=cookie)
-    assert status == 303
-    assert headers["Location"] == "/login"
-    assert rig.session_count() == 0
-
-
-def test_legacy_admin_logout_redirects_to_login_even_with_auth0(auth0_rig):
-    rig = auth0_rig
-    cookie = login(rig.server, TEST_PASSWORD)
     status, headers, _ = http_request(
         rig.server.url("/logout"), method="POST", data=b"", cookie=cookie)
     assert status == 303

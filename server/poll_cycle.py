@@ -1,8 +1,7 @@
 """The poll-cycle library: detect -> infer -> enrich -> render -> publish
 (atomic panel/gallery write) -> record (history.db). Shared by the
 systemd-timer entrypoint module (a thin `argparse`/`main()` wrapper
-around `run_once()`) and the companion's POST /poll-now, so both trigger
-paths run the exact same cycle body through the same `poll_cycle_lock()`.
+around `run_once()`) and the fleet loop, so both paths run the exact same cycle body through the same `poll_cycle_lock()`.
 
 Poll cadence: 30 seconds, inside both aggregators' 1 req/s limit, driven
 from outside this module (the systemd `.timer`/`.service` unit pair, or a
@@ -27,7 +26,6 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import io
-import math
 import os
 import sqlite3
 import sys
@@ -36,6 +34,7 @@ from dataclasses import dataclass, field
 
 import server.atomic_io as atomic_io
 import server.device_config as device_config
+import server.device_dirs as device_dirs
 import server.device_policy as device_policy
 import server.firmware_registry as firmware_registry
 import server.history_db as history_db
@@ -48,8 +47,10 @@ import server.plane.manual_resolutions as manual_resolutions
 import server.plane.name_overrides as name_overrides
 import server.plane.render as render
 import server.plane.runway_config as runway_config
+import server.request_budget as request_budget
 import server.state_store as state_store
 import server.wake as wake
+import server.zone_fetch as zone_fetch
 
 DEFAULT_STATE_DIR = state_store.DEFAULT_STATE_DIR
 POLL_INTERVAL_S = 30
@@ -81,8 +82,8 @@ MAX_PENDING_FLIGHTS = 5
 # --- Cross-process poll-cycle lock ------------------------------------------
 #
 # poll.lock serialises run_once() across every process that shares
-# state_dir: the systemd oneshot (main()) and the companion's POST
-# /poll-now both go through poll_cycle_lock() below. A normal cycle takes
+# state_dir: the systemd oneshot (main()) and any overlapping run
+# both go through poll_cycle_lock() below. A normal cycle takes
 # a few seconds; POLL_LOCK_WAIT_S=10 plus a worst-case cycle (every
 # upstream at its own bounded deadline) stays comfortably under the
 # systemd unit's TimeoutStartSec=90s.
@@ -287,7 +288,7 @@ def _classify_source_fault(diagnostics):
     """True only when every ADS-B provider this cycle queried failed
     outright - never merely because providers found nothing on the
     runway (both cases return a `None` selection from
-    `detect.poll_current_aircraft()`, so this is the only place that
+    the selection, so this is the only place that
     distinguishes them). `diagnostics=None` (the injected-snapshot test
     branch never queries) classifies as "no fault", not "unknown".
     """
@@ -300,59 +301,6 @@ def _classify_source_fault(diagnostics):
     if not isinstance(failed, list):
         return False
     return set(failed) == set(queried)
-
-
-def _load_provider_last_calls(state_dir, provider_names):
-    """The `{provider_name: epoch_seconds}` map `detect.poll_current_aircraft()`
-    needs so a provider is never called twice within its own
-    `MIN_SECONDS_BETWEEN_CALLS` spacing across two back-to-back cycles - a
-    timer cycle immediately followed by the companion's `/poll-now`, each
-    its own process with no in-memory state of the other. Read from
-    `history.db`'s meta table (a plain SELECT, no transaction, through the
-    cycle's own scoped connection) rather than `poll_state.json`: see
-    `_record_history()`'s own comment for why this bookkeeping must never
-    perturb poll_state's "only write when content changes" contract.
-
-    A missing or unparsable stored value for one provider is silently
-    treated as "no previous call" for that provider alone (never an
-    exception - a corrupted value must not block detection); a
-    database/filesystem failure logs one line and returns an empty map,
-    so the cycle still polls, just without cross-cycle spacing memory for
-    this one cycle.
-
-    Two more stored-value shapes are treated the same "no previous call"
-    way, both of them defence against `detect._spaced_query()` sleeping
-    for far longer than intended:
-
-      * non-finite (`"inf"`/`"-inf"`/`"nan"` all parse as valid floats,
-        so `float(raw)` alone would not catch them - `time.sleep(inf)`
-        raises `OverflowError`, which is outside this module's caught
-        `(requests.RequestException, ValueError)`, failing the cycle);
-      * a value ahead of the current wall clock by more than one
-        spacing interval - the clock stepped back (NTP), `history.db`
-        was restored from a host with a skewed clock, or the meta row
-        was edited by hand. `_spaced_query()` itself now also clamps its
-        wait, but a value this stale is worth dropping outright rather
-        than spacing a live poll off it at all.
-    """
-    last_call_at = {}
-    try:
-        with history_db.open_db(state_dir) as conn:
-            for name in provider_names:
-                raw = history_db.get_meta(conn, history_db.META_PROVIDER_LAST_CALL_PREFIX + name)
-                if raw is None:
-                    continue
-                try:
-                    value = float(raw)
-                except (TypeError, ValueError):
-                    continue
-                if not math.isfinite(value) or value > time.time() + detect.MIN_SECONDS_BETWEEN_CALLS:
-                    continue
-                last_call_at[name] = value
-    except (sqlite3.Error, OSError) as exc:
-        print("poll_loop: could not read provider_last_call meta: %s: %s" % (type(exc).__name__, exc))
-        return {}
-    return last_call_at
 
 
 def _last_source_fault(state_dir):
@@ -410,7 +358,7 @@ def _run_isolated_write(conn, savepoint_name, action):
         conn.execute("RELEASE %s" % savepoint_name)
 
 
-def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH, detected=False, provider_last_calls=None):
+def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH, detected=False):
     """Write this cycle's durable signals into `history.db` in one
     connection and one transaction: every write below runs inside one
     `history_db.write_batch(conn)`, committed once as this function
@@ -420,15 +368,14 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
     caught and logged, never allowed to fail the poll cycle - history is
     an accessory to the panel, not a dependency of it.
 
-    Two of the writes below are ACCESSORY rather than core, and are each
-    isolated in their own SAVEPOINT via `_run_isolated_write()` so a
-    fault in one can never roll back the pipeline heartbeat or the
-    runway-event insert staged just above them in the same outer batch:
-    the Caddy-log ingest (one `INSERT OR IGNORE` per log line - a
-    malformed row, `SQLITE_FULL`, or a corrupt page reached only by that
-    table could otherwise stop `META_LAST_PIPELINE_RUN` from advancing,
-    making the Health page report "stale" while the pipeline runs fine)
-    and the provider-timestamp meta rows. The Caddy log itself - up to 10
+    The Caddy-log ingest is ACCESSORY rather than core, and is isolated in
+    its own SAVEPOINT via `_run_isolated_write()` so a fault in it can
+    never roll back the pipeline heartbeat or the runway-event insert
+    staged just above it in the same outer batch (one `INSERT OR IGNORE`
+    per log line - a malformed row, `SQLITE_FULL`, or a corrupt page
+    reached only by that table could otherwise stop
+    `META_LAST_PIPELINE_RUN` from advancing, making the Health page report
+    "stale" while the pipeline runs fine). The Caddy log itself - up to 10
     MiB - is also tailed BEFORE this function's own `write_batch()` even
     opens (`history_db.read_caddy_battery_log()`, a plain meta SELECT
     plus file I/O, no writer), so that read never holds the write lock a
@@ -448,19 +395,6 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
     queue this cycle enqueued is a real detection in its own right). The
     last-detection timestamp advances on either signal, so "Last aircraft
     detected" never lags behind a genuinely queued sighting.
-
-    `provider_last_calls`, when a (non-empty) dict, is this cycle's
-    updated `{provider_name: epoch_seconds}` map from
-    `detect.poll_current_aircraft()` - written here, one meta row per
-    provider, inside the SAME outer batch as everything else above (just
-    isolated in its own savepoint, per the paragraph above). Lives in
-    meta rather than poll_state.json so a timer cycle immediately
-    followed by the companion's `/poll-now` (two separate processes) never
-    calls the same provider twice within its own spacing limit, without
-    making poll_state.json's own "write only if content changed" bit flip
-    on every cycle just because a provider was queried. `None` (the hold
-    branch and the injected-snapshot path, neither of which queries a
-    live provider) writes nothing here.
     """
     route = route if isinstance(route, dict) else {}
     try:
@@ -498,12 +432,6 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
                         lambda: history_db.apply_caddy_battery_log(conn, readings, new_offset))
                 if wake_interval_s is not _NO_WAKE_EPOCH:
                     history_db.record_wake_epoch(conn, now_iso, wake_interval_s)
-                if provider_last_calls:
-                    def _write_provider_last_calls():
-                        for name, value in provider_last_calls.items():
-                            history_db.set_meta(
-                                conn, history_db.META_PROVIDER_LAST_CALL_PREFIX + name, repr(float(value)))
-                    _run_isolated_write(conn, "provider_last_call_meta", _write_provider_last_calls)
     except (sqlite3.Error, OSError) as exc:
         print("poll_loop: history write failed: %s: %s" % (type(exc).__name__, exc))
 
@@ -584,6 +512,11 @@ class CycleContext:
     snapshot: dict | None
     geofence: str | None
     caddy_log: object | None
+    # Shared fetch result for this device's zone, the shared adsbdb
+    # transport and the directory that holds the request ledger.
+    zone_fetch: object | None = None
+    route_transport: object | None = None
+    ledger_root: str | None = None
 
     # Config: the per-cycle settings snapshot, read once in
     # load_cycle_context() so a mid-cycle save can never split one cycle
@@ -616,7 +549,6 @@ class CycleContext:
     # Detection: this cycle's ADS-B read (live path only - never touched
     # on a hold, which returns before detect_flight() runs).
     diagnostics: dict | None = None
-    provider_last_calls: dict | None = None
     flight: dict | None = None
     source_fault: bool = False
     previous_source_fault: bool = False
@@ -673,7 +605,7 @@ def _critical_thresholds(profile):
     return {"critical_mv": profile.battery.critical_mv, "recover_mv": profile.battery.critical_recover_mv}
 
 
-def load_cycle_context(snapshot, state_dir, geofence, caddy_log, profile=None):
+def load_cycle_context(snapshot, state_dir, geofence, caddy_log, zone_fetch=None, route_transport=None, ledger_root=None, profile=None):
     """Everything a cycle needs before the hold decision can be made:
     ensures `state_dir` exists, loads the manual-resolution and
     colour-rule registries from THIS cycle's state_dir (once per cycle,
@@ -736,6 +668,7 @@ def load_cycle_context(snapshot, state_dir, geofence, caddy_log, profile=None):
 
     return CycleContext(
         state_dir=state_dir, snapshot=snapshot, geofence=geofence, caddy_log=caddy_log,
+        zone_fetch=zone_fetch, route_transport=route_transport, ledger_root=ledger_root,
         device_cfg=device_cfg, theme_id=theme_id, tracked_runway_id=tracked_runway_id,
         display_enabled=display_enabled, effective_wake_interval_s=effective_wake_interval_s,
         quiet_remaining=quiet_remaining, quiet_until=quiet_until,
@@ -765,6 +698,26 @@ def decide_hold(battery_critical: bool, display_enabled: bool, quiet_remaining: 
     if quiet_remaining is not None:
         return "quiet_hours"
     return None
+
+
+def peek_hold(state_dir, now=None):
+    """The hold kind `run_once()` would decide for `state_dir` right now
+    ("battery_empty", "display_off", "quiet_hours" or None), computed from
+    read-only loads: nothing is created, written or locked. `run_once()`
+    stays the authority; this peek only lets the fleet loop avoid
+    spending request budget on a held device. A missing directory or
+    unreadable state degrades to None.
+    """
+    try:
+        device_cfg = device_config.load_device_config(state_dir)
+        poll_state = state_store.load_poll_state(state_dir)
+        battery_mv = state_store.load_battery_state(state_dir)
+        was_critical = poll_state.get(wake.BATTERY_CRITICAL_STATE_KEY) is True
+        critical = device_policy.apply_battery_critical_hysteresis(battery_mv, was_critical)
+        quiet_remaining, _ = device_config.quiet_hours_status(device_cfg, now_s() if now is None else now)
+        return decide_hold(critical, device_cfg["display_enabled"], quiet_remaining)
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
 
 
 def publish_canvas(ctx, canvas):
@@ -892,12 +845,47 @@ def update_battery_low(ctx):
     poll_state["battery_low_active"] = ctx.battery_low
 
 
+def _ledger_root_for(state_dir):
+    """The directory that holds the one request ledger for `state_dir`: the
+    state root when `state_dir` is a per-device directory
+    (`<root>/devices/<id>`), else `state_dir` itself. A per-device
+    directory never holds a ledger, so every device spends the same budget.
+    """
+    parent = os.path.dirname(os.path.abspath(state_dir))
+    if os.path.basename(parent) == device_dirs.DEVICES_DIRNAME:
+        return os.path.dirname(parent)
+    return state_dir
+
+
+def _fetch_standalone(ctx, geofence_data):
+    """Fetch this device's zone itself, always through the persisted
+    request ledger: no ADS-B request may exist outside the shared budget,
+    including a single-device cycle run by hand or by the companion.
+    """
+    ledger = request_budget.RequestLedger(ctx.ledger_root or _ledger_root_for(ctx.state_dir))
+    center = geofence_data["center"]
+    return zone_fetch.fetch_zone(ledger, center["lat"], center["lon"], geofence_data["radius_nm"])
+
+
+def _select_from_zone(ctx, geofence_data):
+    """Select this device's aircraft from the shared zone result, fetching
+    the zone first when the caller supplied none. Returns the selection
+    and the diagnostics dict.
+    """
+    fetched = ctx.zone_fetch if ctx.zone_fetch is not None else _fetch_standalone(ctx, geofence_data)
+    diagnostics = fetched.diagnostics()
+    flight = detect.select_from_provider_results(
+        fetched.results, geofence_data, runway_id=ctx.tracked_runway_id,
+        diagnostics=diagnostics, queried=fetched.queried, failed=fetched.failed)
+    return flight, diagnostics
+
+
 def detect_flight(ctx):
-    """This cycle's ADS-B read: `ctx.snapshot=None` polls the live
-    aggregators through `detect.poll_current_aircraft()`; a non-None
-    `ctx.snapshot` is a raw aggregator response dict injected by tests
-    (no live network call). Sets `ctx.flight`, `ctx.diagnostics`,
-    `ctx.provider_last_calls`, `ctx.source_fault`,
+    """This cycle's ADS-B read: a non-None `ctx.snapshot` is a raw
+    aggregator response dict injected by tests (no network call);
+    otherwise the selection runs over the shared `ctx.zone_fetch`, or over
+    a ledger-budgeted fetch of this device's own zone when none was
+    given. Sets `ctx.flight`, `ctx.diagnostics`, `ctx.source_fault`,
     `ctx.previous_source_fault` and `ctx.now_iso` - shared by every
     history/gallery write this cycle makes, so they all record the same
     instant.
@@ -908,31 +896,16 @@ def detect_flight(ctx):
     # source is down" apart from "nothing on the runway" - both otherwise
     # return the same None selection.
     diagnostics: dict | None = None
-    # This cycle's updated `{provider_name: epoch_seconds}` map, persisted
-    # into history.db meta (never poll_state.json - see
-    # _record_history()'s own comment) by every _record_history() call
-    # below on the live path only. Stays None on the injected-snapshot
-    # path (no live provider is ever queried there, so there is nothing to
-    # persist) - `_load_provider_last_calls()` itself is also skipped on
-    # that path for the same reason.
-    provider_last_calls = None
     if ctx.snapshot is not None:
         aircraft = _extract_aircraft(ctx.snapshot)
         flight = detect.select_aircraft_for_runway(aircraft, geofence_data, runway_id=ctx.tracked_runway_id)
     else:
-        diagnostics = {}
-        provider_last_calls = _load_provider_last_calls(ctx.state_dir, detect.DEFAULT_PROVIDER_ORDER)
-        flight = detect.poll_current_aircraft(
-            geofence_data, runway_id=ctx.tracked_runway_id, diagnostics=diagnostics,
-            last_call_at=provider_last_calls)
+        flight, diagnostics = _select_from_zone(ctx, geofence_data)
 
     ctx.diagnostics = diagnostics
-    ctx.provider_last_calls = provider_last_calls
     ctx.flight = flight
     ctx.source_fault = _classify_source_fault(diagnostics)
     ctx.previous_source_fault = _last_source_fault(ctx.state_dir)
-    # Shared by every history/gallery write this cycle makes, so they all
-    # record the same instant.
     ctx.now_iso = history_db.utc_now_iso()
 
 
@@ -1068,7 +1041,7 @@ def _enrich_current_flight(ctx):
     # "miss" resolved nothing.
     route, route_source = enrich.resolve_route(
         current_flight.get("callsign"), cache, now=now_s(), manual_registry=ctx.manual_registry,
-        name_overrides=ctx.name_overrides)
+        name_overrides=ctx.name_overrides, transport=ctx.route_transport)
     enrich.trim_cache(cache)
     poll_state["enrichment_cache"] = cache
     # A "miss" is an unrecognized ICAO prefix - recorded so the finding
@@ -1286,7 +1259,6 @@ def record(ctx):
             ctx.state_dir, ctx.current_flight, ctx.confirmed_state, ctx.route_source, ctx.route,
             ctx.tracked_runway_id, ctx.source_fault, ctx.event_recorded, ctx.now_iso,
             caddy_log=ctx.caddy_log, wake_interval_s=ctx.effective_wake_interval_s,
-            provider_last_calls=ctx.provider_last_calls,
         )
     elif ctx.branch == "held":
         _record_history(
@@ -1298,14 +1270,12 @@ def record(ctx):
             # a distinct aircraft that only got queued is still a real
             # detection.
             detected=ctx.flight is not None,
-            provider_last_calls=ctx.provider_last_calls,
         )
     else:
         _record_history(
             ctx.state_dir, None, None, None, None,
             ctx.tracked_runway_id, ctx.source_fault, False, ctx.now_iso,
             caddy_log=ctx.caddy_log, wake_interval_s=ctx.effective_wake_interval_s,
-            provider_last_calls=ctx.provider_last_calls,
         )
 
 
@@ -1359,7 +1329,7 @@ def log_cycle(ctx):
 
 def cycle_result(ctx):
     """The dict `run_once()` returns to every caller (the systemd
-    oneshot, the companion's POST /poll-now, and every test). `flight` is
+    oneshot and every test). `flight` is
     what this cycle detected, not necessarily what it displayed (see
     "Display pacing" module note) - read poll_state.json's "last_flight"
     for what's actually on the panel. `effective_theme` equals `theme` on
@@ -1378,7 +1348,7 @@ def cycle_result(ctx):
     }
 
 
-def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_timeout_s=None, reconcile_firmware=True, profile=None):
+def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_timeout_s=None, reconcile_firmware=True, zone_fetch=None, route_transport=None, ledger_root=None, profile=None):
     """One poll cycle: detect -> infer -> enrich -> render -> publish
     (atomic panel/gallery write) -> record (history.db), as a sequence of
     named steps over one `CycleContext`, serialised across every process
@@ -1386,7 +1356,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_
     whole body, acquired before any state read). `lock_timeout_s` is
     passed straight through to `poll_cycle_lock()` - `None` (the systemd
     oneshot's default) waits up to `POLL_LOCK_WAIT_S`; `0` (the
-    companion's POST /poll-now) raises `PollBusy` at once rather than
+    overlapping trigger) raises `PollBusy` at once rather than
     ever blocking a request thread. Nested inside the lock, one
     `history_db.connection_scope(state_dir)` spans the whole cycle body,
     so every `history_db.open_db(state_dir)` call this cycle makes on
@@ -1428,6 +1398,12 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_
     forces one repaint of the live board (`load_display_slots()`'s own
     `hold_exited` bookkeeping).
 
+    `zone_fetch`, when given, is a shared `ZoneFetch` the fleet loop
+    fetched once for every device in the zone; this cycle only selects
+    from it. With neither a snapshot nor a `zone_fetch`, the cycle fetches
+    through the request ledger under `ledger_root` (default: derived from
+    `state_dir`). `route_transport` replaces the adsbdb transport.
+
     The live path itself: `detect_flight`, `load_display_slots`,
     `update_battery_low`, `advance_display_queue`, `render_and_publish`,
     `record`, `persist`, `log_cycle`.
@@ -1435,7 +1411,9 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_
     state_dir = state_dir or DEFAULT_STATE_DIR
     with poll_cycle_lock(state_dir, lock_timeout_s):
         with history_db.connection_scope(state_dir):
-            ctx = load_cycle_context(snapshot, state_dir, geofence, caddy_log, profile=profile)
+            ctx = load_cycle_context(
+                snapshot, state_dir, geofence, caddy_log, zone_fetch=zone_fetch,
+                route_transport=route_transport, ledger_root=ledger_root, profile=profile)
             # Before the hold decision, so a battery-hold, quiet-hours or
             # display-off cycle still reconciles device-reported OTA
             # outcomes exactly like a live cycle would.

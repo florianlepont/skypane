@@ -30,8 +30,6 @@ Every page module exposes:
         - flash: the resolved flash-banner text, or None
         - flash_role: "status"/"alert", the ARIA role for that text
         - flash_key: the validated flash key that text came from, or None
-        - poll_cooldown_remaining: seconds before another POST /poll-now
-          is allowed (0 once elapsed)
         - gallery_entries: the newest gallery filenames; every gallery
           URL a page builds must come from a name in this list
         - runway_images: runway ids that currently have a real diagram

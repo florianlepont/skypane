@@ -14,10 +14,10 @@ from skypane_test_support import REPO_ROOT, child_env
 pytestmark = pytest.mark.browser
 
 
-def test_page_opens_login_and_reads_password_field(page, app_server):
-    """With a launchable Chromium, a browser test can open /login and read the password field."""
+def test_page_opens_login_and_reads_sign_in_link(page, app_server):
+    """With a launchable Chromium, a browser test can open /login and read the sign-in link."""
     page.goto(app_server.base_url() + "/login")
-    assert "password" in page.content().lower()
+    assert "/login/auth0" in page.content()
 
 
 def test_non_loopback_navigation_is_blocked_and_recorded(page, blocked_requests):

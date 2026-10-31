@@ -1,8 +1,6 @@
-"""Tests the JS gate/motion budget style.css contracts, login-card.js's
-public-route/ES5/route-agreement/no-inline-script/reveal-toggle checks,
-the login POST/GET flows (wrong password, right password, deep-link
-return, open-redirect rejection, the dedicated login_shell(), the
-clean/error/lockout card renders), the document-language regression
+"""Tests the JS gate/motion budget style.css contracts, the login page
+(Auth0 link only, no script, POST /login gone, deep-link return,
+open-redirect rejection, the dedicated login_shell()), the document-language regression
 guard, the six authenticated NAV_TABS headings, the retired /preview
 route redirect, the /config 404, the unscoped and scope-rejected
 /settings saves, the rebuilt Home page, the three /quick/* routes
@@ -16,7 +14,7 @@ handler runs) shares one module-scoped, already-logged-in `app04_server`
 persisted device config, gallery/illustration state or history, so the
 Home-page and Display/Device-split checks always see the same fresh
 install. Every test that actually WRITES device config, quick-toggle
-flags, or drives the process-global login throttle to a lockout gets
+flags gets
 its own fresh, function-scoped server via `make_app_server` — never the
 shared one.
 """
@@ -25,14 +23,11 @@ import urllib.parse
 
 import pytest
 
-import companion.i18n as i18n_module
 import companion.layout as layout
-import companion.login_page as login_page
-from companion import auth
 from companion.pages import config_page
 from companion_app_server import (
-    TEST_PASSWORD, http_request, login, served_asset, served_stylesheet)
-from companion_markup import at_rule_blocks, css_rules, custom_properties, rules_with_selector
+    http_request, login, served_stylesheet)
+from companion_markup import at_rule_blocks, css_rules, custom_properties
 from server import device_config
 
 import companion.app as app_module
@@ -213,291 +208,101 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
 
 
 # ==========================================================================
-# login-card.js: public route, ES5-safety, route/src agreement, the
-# no-inline-script page contract, the server-rendered reveal toggle
+# login page: Auth0 link only, no script, no password control, POST gone
 # ==========================================================================
 
 
-def test_login_card_script_public(app04_server):
-    """GET /static/login-card.js succeeds without a session and returns a shared-cacheable
-    JavaScript content type"""
-    status, headers, body = http_request(app04_server.base_url() + "/static/login-card.js")
-    assert status == 200, "expected 200, got %d" % status
-    assert "text/javascript" in headers.get("Content-Type", ""), (
-        "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
-    assert body, "expected a non-empty script body"
-    assert "no-cache" in headers.get("Cache-Control", ""), (
-        "expected Cache-Control no-cache, got %r" % headers.get("Cache-Control", ""))
+def test_login_card_script_is_gone(app04_server):
+    """the retired password-card script is no longer served"""
+    status, _headers, _body = http_request(app04_server.base_url() + "/static/login-card.js")
+    assert status == 404, "expected 404, got %d" % status
 
 
-def test_login_card_script_es5_safe_and_no_html_write(app04_server):
-    """login-card.js stays ES5-safe and sink-free (no let/const/arrow/backtick/innerHTML/
-    outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR), carries the reveal contract
-    (addEventListener/querySelector/getAttribute/data-login-reveal/aria-pressed/the class-at-
-    load modifier) and duplicates no server-side throttling constant"""
-    src = served_asset(app04_server, "/static/login-card.js")
-    assert src.count('"use strict"') == 1, (
-        "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
-    for token in (
-            "let ", "const ", "=>", "`", "innerHTML", "outerHTML", "insertAdjacentHTML",
-            "document.write", "eval(", "fetch(", "XMLHttpRequest"):
-        assert token not in src, "login-card.js must not contain %r" % token
-    for token in (
-            "addEventListener", "querySelector", "getAttribute", "data-login-reveal",
-            "aria-pressed", "login-form__field--with-toggle"):
-        assert token in src, "expected %r in login-card.js" % token
-    for leaked in ("LOGIN_FAILURE_LIMIT", "LOGIN_LOCKOUT_S"):
-        assert leaked not in src, (
-            "login-card.js must not duplicate %r — the countdown is presentational over server "
-            "state, never a second throttle" % leaked)
-
-
-def test_login_card_script_route_src_agree():
-    """layout.LOGIN_CARD_SCRIPT_SRC equals companion.app.LOGIN_CARD_SCRIPT_ROUTE"""
-    assert layout.LOGIN_CARD_SCRIPT_SRC == app_module.LOGIN_CARD_SCRIPT_ROUTE, (
-        "login-card script route drift: %r vs %r"
-        % (layout.LOGIN_CARD_SCRIPT_SRC, app_module.LOGIN_CARD_SCRIPT_ROUTE))
-
-
-def test_login_page_emits_exactly_one_script_tag(app04_server):
-    """a rendered login page contains exactly ONE <script occurrence, the deferred
-    LOGIN_CARD_SCRIPT_SRC tag, with no inline script and no nonce — login_shell() emitted zero
-    script tags before this plan"""
+def test_login_page_emits_no_script_tag(app04_server):
+    """a rendered login page carries no <script> at all, no inline script and no nonce"""
     status, _headers, body = http_request(app04_server.base_url() + "/login")
     assert status == 200, "expected 200, got %d" % status
     text = body.decode("utf-8", errors="replace")
-    assert text.count("<script") == 1, (
-        "expected exactly one <script occurrence on the login page, got %d"
-        % text.count("<script"))
-    expected_tag = '<script src="%s" defer></script>' % layout.LOGIN_CARD_SCRIPT_SRC
-    assert expected_tag in text, "expected %r on the login page" % expected_tag
-    for match in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>", text):
-        pytest.fail("expected no inline <script> without a src, found %r" % match.group(0))
+    assert "<script" not in text, "the login page must carry no script"
     assert "unsafe-inline" not in text and "nonce-" not in text, (
         "no nonce or unsafe-inline may appear on the login page")
 
 
-def test_login_reveal_toggle_is_server_hidden_and_named(app04_server):
-    """the server-rendered show-password toggle carries the hidden attribute, type="button",
-    aria-pressed="false", both translated accessible names and .copy-btn's own icon-only
-    geometry — and the field's padding modifier is NOT server-rendered (X3, the no-JS floor by
-    construction)"""
-    status, _headers, body = http_request(app04_server.base_url() + "/login")
-    assert status == 200, "expected 200, got %d" % status
-    text = body.decode("utf-8", errors="replace")
-    toggle_at = text.find("data-login-reveal")
-    assert toggle_at != -1, "expected the show-password toggle in the login card"
-    tag_open = text.rindex("<button", 0, toggle_at)
-    tag = text[tag_open:text.index(">", toggle_at) + 1]
-    assert " hidden " in tag, (
-        "the show-password toggle must server-render with the hidden attribute, got %r" % tag)
-    assert 'type="button"' in tag, "the toggle must be type=\"button\", never a submit"
-    assert 'aria-pressed="false"' in tag, "the toggle must server-render aria-pressed=\"false\""
-    for needed in ('data-show-label="Show password"', 'data-hide-label="Hide password"'):
-        assert needed in tag, "expected %r on the toggle" % needed
-    for message in (login_page.LOGIN_REVEAL_SHOW_LABEL, login_page.LOGIN_REVEAL_HIDE_LABEL):
-        assert i18n_module.t_lang(message, "fr") != message, (
-            "%r has no French catalogue entry" % message)
-    assert 'class="copy-btn login-reveal"' in tag, (
-        "the toggle must carry .copy-btn as its first class so the 22x22 box, the 44x44 "
-        "::before hit area and the 14px glyph box are reused verbatim, got %r" % tag)
-    assert "login-form__field--with-toggle" not in text, (
-        "the field's padding modifier must be added at load by login-card.js, never "
-        "server-rendered — a scripts-blocked page shows no toggle and so must reserve no room "
-        "for one")
-
-
-# ==========================================================================
-# login: wrong password, right password, deep-link return, open-redirect
-# rejection, an unrecognised next value, the dedicated shell
-# ==========================================================================
-
-
-def test_login_wrong_password(app04_server):
-    """a login POST with the wrong password re-renders the form with the exact copy and sets no
-    cookie"""
+def test_login_post_is_not_a_route(app04_server):
+    """POST /login answers 404 or 405, sets no cookie, and renders no password error"""
     status, headers, body = http_request(
-        app04_server.base_url() + "/login", method="POST",
-        data=("password=not-the-real-password").encode())
-    assert status == 401, "expected 401 for a wrong password, got %d" % status
-    assert b"Incorrect password. Try again." in body, (
-        "expected the exact login-failure copy in the response body")
-    assert "Set-Cookie" not in headers, "expected no Set-Cookie header on a failed login"
+        app04_server.base_url() + "/login", method="POST", data=b"password=anything",
+        extra_headers={"Origin": app04_server.base_url()})
+    assert status in (404, 405), "expected 404/405, got %d" % status
+    assert "Set-Cookie" not in headers, "expected no Set-Cookie header"
+    assert b"Incorrect password" not in body
 
 
-def test_login_correct_password(app04_server):
-    """a login POST with the right password sets a cookie with HttpOnly/Secure/SameSite=Strict
-    and redirects to / (Home)"""
-    status, headers, _ = http_request(
-        app04_server.base_url() + "/login", method="POST",
-        data=("password=%s" % TEST_PASSWORD).encode())
-    assert status == 303, "expected a 303 redirect on successful login, got %d" % status
-    assert headers.get("Location") == "/", (
-        "expected a redirect to / (Home), got %r" % headers.get("Location"))
-    set_cookie = headers.get("Set-Cookie", "")
-    for needle in ("HttpOnly", "Secure", "SameSite=Strict"):
-        assert needle in set_cookie, (
-            "missing %r in the session cookie header: %r" % (needle, set_cookie))
-
-
-def test_deep_link_return_round_trip(make_app_server):
-    """an unauthenticated GET /health redirects with ?next=%2Fhealth, and logging in with that
-    next value returns the user to /health, not /settings"""
+def test_deep_link_return_is_carried_into_the_sign_in_link(make_app_server):
+    """an unauthenticated GET /health redirects with ?next=%2Fhealth, and the login page
+    carries that destination on the Auth0 start link"""
     server = make_app_server(fake_providers=True)
     base = server.base_url()
     status, headers, _ = http_request(base + "/health")
     assert status == 303, "expected 303 for GET /health, got %d" % status
     assert headers.get("Location") == "/login?next=%2Fhealth", (
         "expected Location /login?next=%%2Fhealth, got %r" % headers.get("Location"))
-    status, headers, _ = http_request(
-        base + "/login", method="POST",
-        data=urllib.parse.urlencode({"password": TEST_PASSWORD, "next": "/health"}).encode())
-    assert status == 303, "expected 303 on login POST, got %d" % status
-    assert headers.get("Location") == "/health", (
-        "expected Location /health after login with next=/health, got %r" % headers.get("Location"))
+    status, _headers, body = http_request(base + "/login?next=%2Fhealth")
+    assert status == 200
+    assert b'href="/login/auth0?next=/health"' in body
 
 
 @pytest.mark.parametrize("crafted_next", ["https://evil.example", "//evil.example"])
-def test_open_redirect_rejected(make_app_server, crafted_next):
-    """a login POST with the correct password and next=%r redirects to the / (Home) fallback,
-    never to the crafted value (T-06.6.2-12)"""
+def test_open_redirect_is_not_carried_into_the_sign_in_link(make_app_server, crafted_next):
+    """a crafted next value never reaches the sign-in link"""
     server = make_app_server(fake_providers=True)
-    status, headers, _ = http_request(
-        server.base_url() + "/login", method="POST",
-        data=urllib.parse.urlencode({"password": TEST_PASSWORD, "next": crafted_next}).encode())
-    assert status == 303, "expected 303 on login POST, got %d" % status
-    location = headers.get("Location", "")
-    assert location == "/", "expected the safe / (Home) fallback, got %r" % location
-    assert "evil.example" not in location, "the crafted next value leaked into the redirect Location"
+    status, _headers, body = http_request(
+        server.base_url() + "/login?next=" + urllib.parse.quote(crafted_next, safe=""))
+    assert status == 200
+    assert b"evil.example" not in body
+    assert b'href="/login/auth0"' in body
 
 
-def test_login_get_with_unrecognised_next_carries_no_hidden_field(app04_server):
-    """GET /login?next=/no-such-route (not a real NAV_TABS member) renders the plain login form
-    with no hidden next input"""
+def test_login_get_with_unrecognised_next_leaves_the_link_bare(app04_server):
+    """GET /login?next=/no-such-route (not a real NAV_TABS member) renders the plain link"""
     # /no-such-route is not a real NAV_TABS member, so it exercises the same
-    # "no hidden next field" branch as any other unrecognised value, without
-    # being a literal a production os.makedirs() path could ever mistake for
-    # a real directory to create.
+    # unrecognised-value branch as any other, without being a literal a production
+    # os.makedirs() path could ever mistake for a real directory to create.
     status, _headers, body = http_request(
         app04_server.base_url() + "/login?next=/no-such-route")
     assert status == 200, "expected 200, got %d" % status
-    assert b'name="next"' not in body, (
-        "an unrecognised ?next= value must not render a hidden next field — "
-        "_validated_next_route() must be applied on the GET path too, not only the POST path")
+    assert b'href="/login/auth0"' in body, (
+        "an unrecognised ?next= value must be dropped before it reaches the sign-in link")
 
 
 def test_login_page_uses_dedicated_login_shell(app04_server):
     """GET /login (no session) is rendered by the dedicated login_shell(), not page_shell() —
-    no sidebar/mobile-nav markup, autocomplete present"""
+    no sidebar/mobile-nav markup, no password control"""
     status, _headers, body = http_request(app04_server.base_url() + "/login")
     assert status == 200, "expected 200, got %d" % status
     text = body.decode("utf-8", errors="replace")
     assert '<html lang="en"' in text, "expected <html lang=\"en\" in the login page"
-    assert 'autocomplete="current-password"' in text, (
-        "expected autocomplete=\"current-password\" on the password field")
+    assert 'type="password"' not in text, "the login page must offer no password control"
     for absent in ("sidebar-nav", "dashboard-shell", "site-nav-toggle"):
         assert absent not in text, (
             "the login page must render layout.login_shell(), not page_shell() — found %r in "
             "the response body" % absent)
 
 
-def test_login_clean_render_carries_no_error_association(app04_server, served_css):
-    """GET /login with no error renders the stacked card (a.login-form with a
-.login-form__input and a bare page-title brand mark, no glyph, no sprite) and carries
-    NEITHER aria-invalid NOR aria-describedby — never aria-invalid="false" — with style.css
-    carrying the field/primary/error-border rules it had none of before"""
+def test_login_clean_render_is_the_wordmark_and_the_sign_in_link(app04_server):
+    """GET /login renders a bare page-title wordmark, one decorative inline brand mark, no
+    sprite, and the sign-in link as the card's only control"""
     status, _headers, body = http_request(app04_server.base_url() + "/login")
     assert status == 200, "expected 200, got %d" % status
     text = body.decode("utf-8", errors="replace")
-    assert "aria-invalid" not in text, (
-        "a clean login render must carry no aria-invalid at all, found one in the response body")
-    assert "aria-describedby" not in text, (
-        "a clean login render must carry no aria-describedby — there is no message for it to "
-        "point at")
-    assert 'id="login-error"' not in text, "a clean login render must render no message element"
-    for needed in ('class="login-form"', 'class="login-form__input"'):
-        assert needed in text, "expected %r in the login card markup" % needed
+    assert "aria-invalid" not in text and "aria-describedby" not in text
     assert '<h1 class="page-title">SkyPane</h1>' in text, (
         "expected the page-title wordmark to stay live text")
-    # The one glyph is the decorative brand mark, inlined because login_shell() deliberately
-    # emits no ICON_DEFS_HTML sprite.
     assert text.count("<svg") == 1 and 'class="logo-mark"' in text and 'aria-hidden="true"' in text, (
         "the login card carries exactly one decorative inline brand mark")
     assert "icon-defs" not in text and "<use" not in text, "no sprite on the login page"
-    for selector in (
-            ".login-form__input", '.login-form__input[aria-invalid="true"]',
-            '.login-card button[type="submit"]'):
-        assert rules_with_selector(served_css, selector), (
-            "expected a rule for selector %r in the served stylesheet" % selector)
-
-
-def test_login_error_render_is_programmatically_associated(app04_server):
-    """a wrong-password login render carries aria-invalid="true", aria-describedby="login-error"
-    and a role="alert" message in the existing.field-error text-label treatment, rendered
-    between the field and the primary"""
-    status, _headers, body = http_request(
-        app04_server.base_url() + "/login", method="POST",
-        data=b"password=still-not-the-real-password")
-    assert status == 401, "expected 401 for a wrong password, got %d" % status
-    text = body.decode("utf-8", errors="replace")
-    assert 'aria-invalid="false"' not in text, (
-        "aria-invalid=\"false\" must never be emitted on this card")
-    for needed in (
-            'aria-invalid="true"', 'aria-describedby="login-error"',
-            '<p id="login-error" class="field-error text-label" role="alert">'):
-        assert needed in text, "expected %r in the error render" % needed
-    field_at = text.index('class="login-form__input"')
-    message_at = text.index('id="login-error"')
-    submit_at = text.index('<button type="submit">')
-    assert field_at < message_at < submit_at, (
-        "expected field -> message -> primary in document order, got offsets %d / %d / %d"
-        % (field_at, message_at, submit_at))
-    assert '<p class="text-body" role="alert">' not in text, (
-        "the old bare text-body alert paragraph must be gone — one error voice on this card")
-
-
-def test_login_lockout_render_shares_the_one_error_voice(make_app_server):
-    """a locked-out login render puts the server-computed lockout sentence in the SAME
-    .field-error text-label role=alert treatment under the field, with aria-describedby but
-    deliberately no aria-invalid (X3, one error voice)"""
-    server = make_app_server(fake_providers=True)
-    base = server.base_url()
-    for _attempt in range(auth.LOGIN_FAILURE_LIMIT):
-        http_request(base + "/login", method="POST", data=b"password=wrong")
-    status, _headers, body = http_request(
-        base + "/login", method="POST", data=("password=%s" % TEST_PASSWORD).encode())
-    assert status == 429, "expected 429 once the throttle has locked out, got %d" % status
-    text = body.decode("utf-8", errors="replace")
-    assert '<p id="login-error" class="field-error text-label" role="alert">' in text, (
-        "the lockout sentence must render in the SAME .field-error text-label treatment as the "
-        "wrong-password message")
-    assert 'aria-describedby="login-error"' in text, "expected aria-describedby on the locked-out field"
-    assert "aria-invalid" not in text, (
-        "the lockout branch must carry no aria-invalid — the typed value is not what is wrong, "
-        "the form is locked")
-    assert "Too many attempts" in text, "expected the server-computed lockout sentence"
-    assert text.count("data-lockout-seconds=") == 1, (
-        "expected exactly one server-produced countdown seed in the rendered page, got %d"
-        % text.count("data-lockout-seconds="))
-    seed = re.search(r'data-lockout-seconds="(\d+)"', text)
-    assert seed and int(seed.group(1)) > 0, (
-        "expected a positive server-computed seed, got %r" % (seed.group(1) if seed else None))
-    assert int(seed.group(1)) <= auth.LOGIN_LOCKOUT_S, (
-        "the seed must be the server's own seconds_remaining() figure, never longer than the "
-        "window itself")
-    for needed in ('data-lockout-template="', 'data-lockout-token="'):
-        assert needed in text, "expected %r on the locked-out form" % needed
-    # The brand mark's path data is numeric noise that can end in the limit's digit by chance.
-    without_mark = re.sub(r"<svg\b.*?</svg>", "", text, flags=re.DOTALL)
-    assert "LOGIN_FAILURE_LIMIT" not in without_mark and str(auth.LOGIN_FAILURE_LIMIT) + '"' not in without_mark, (
-        "no throttling constant may be rendered into the page")
-    field_tag = text[text.index("<input type=\"password\""):]
-    field_tag = field_tag[:field_tag.index(">") + 1]
-    assert " disabled" in field_tag, (
-        "the password field must be natively disabled during a lockout, got %r" % field_tag)
-    assert '<button type="submit" disabled>' in text, (
-        "the primary must be natively disabled during a lockout, in the existing "
-        "button:disabled treatment")
+    assert "<input" not in text and "<button" not in text
+    assert text.count('class="login-signin"') == 1
 
 
 def test_both_shells_agree_on_document_language():
@@ -644,7 +449,7 @@ def test_home_page_renders_widgets(app04_server, session_cookie):
             "Your frame at a glance.", "Quick actions", "On the frame now",
             "status-card__rows", "home-hero", 'class="frame-strip',
             'class="dashboard-grid home-status-grid"', 'class="day-band',
-            'action="%s"' % app_module.POLL_ROUTE):
+            'action="/poll-now"'):
         assert absent not in text, (
             "expected %r to be absent from the rebuilt Home page (D-04)" % absent)
 
@@ -965,7 +770,7 @@ def test_display_and_device_pages_split_the_groups(app04_server, session_cookie)
             "expected the %s page to carry its hidden return_to field" % scope)
         assert "Screen: Plane frame" not in text, (
             "expected the retired screen-type caption to stay off the %s page" % scope)
-    assert "Refresh now" in device_text, "expected the Device page to carry the Refresh now action"
+    assert "Refresh now" not in device_text, "expected the Device page to carry no Refresh now action"
     rules_panel_marker = 'data-look-usage="rules"'
     assert rules_panel_marker not in device_text, (
         "expected the Device page NOT to carry the rules editor (moved to Display, 20-07/D-10)")

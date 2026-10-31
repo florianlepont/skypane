@@ -699,7 +699,7 @@ def test_quiet_schedule_link_is_on_neither_home_nor_display(tmp_path):
     home_ctx = _home_ctx(tmp, now_iso)
     display_ctx = {
         "device_config": home_ctx["device_config"], "state_dir": tmp,
-        "poll_cooldown_remaining": 0, "now": now_iso,
+        "now": now_iso,
     }
     rendered_home = home_page.render(home_ctx)
     rendered_display = config_page.render(display_ctx, scope=config_page.SCOPE_DISPLAY)

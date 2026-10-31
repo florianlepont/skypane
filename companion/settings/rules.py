@@ -1,7 +1,6 @@
 """The colour-rules settings group: the per-flight rules shown as the
 look card's "Special looks" list (rows, per-row delete, and the "Add a
-special look" form with recent suggestions), plus the manual "Trigger
-poll now" control. Built here so `companion.settings.theme` stays
+special look" form with recent suggestions). Built here so `companion.settings.theme` stays
 independent of this module — see that module's own docstring for why.
 """
 from companion import device_scope, i18n
@@ -17,55 +16,6 @@ from companion.settings.form import (
     _field_error_attrs, _field_error_html, _submitted_or_current)
 from companion.settings.theme import (
     COLOUR_USAGE_RULES, LOOK_CLOSE_LABEL, look_target_attrs)
-
-
-# Owned by companion/i18n_fr/display.py, not this module's own rules.py
-# catalogue — the Poll card's copy lives beside the rest of Device's
-# own display.py strings.
-POLL_SECTION_CAPTION = i18n.msg(
-    "display.request_a_server_check_for_new_flight_data",
-    "Ask the server to check for new flight data now.")
-
-
-# Appended to the caption, inside the same element, when the fleet has
-# more than one device. "{device}" is a device name, escaped with the
-# rest of the caption.
-POLL_SCOPE_CAPTION = i18n.msg(
-    "display.poll_scope_caption", "Runs one check for {device} only.")
-# Replaces the caption for a device whose screen type the poll cannot
-# render.
-POLL_UNSUPPORTED_CAPTION = i18n.msg(
-    "display.poll_unsupported_caption", "Not available for this screen type yet.")
-
-# "{n}" is filled in with a server-computed remaining-seconds figure,
-# never anything client-supplied. This is the button-adjacent copy
-# shown while the trigger is disabled — a separate rendering site from
-# companion/app.py's own FLASH_MESSAGES entry for the same event, since
-# a page module must never import companion/app.py.
-POLL_COOLDOWN_HELPER_TEXT = i18n.msg(
-    "display.poll_triggered_recently_try_again_in_n_s",
-    "Poll triggered recently — try again in {n}s.")
-
-# DOM ids the live countdown script (poll-cooldown.js) hooks with
-# document.getElementById(), shared with poll_trigger_section()'s
-# markup so the two can never drift apart.
-POLL_TRIGGER_BUTTON_ID = "poll-trigger-btn"
-POLL_COOLDOWN_TEXT_ID = "poll-cooldown-text"
-
-# The enabled (zero-cooldown) branch's button label while a submit is
-# pending. Cosmetic only: the device's poll lock (companion/device_scope.py) is the actual
-# correctness boundary.
-POLL_SUBMIT_PENDING_TEXT = i18n.msg("display.polling", "Polling…")
-
-# The manual-poll button's own label, shared by both the enabled and
-# cooldown branches of poll_trigger_section() below.
-POLL_TRIGGER_BUTTON_TEXT = i18n.msg("display.refresh_now", "Refresh now")
-
-# The placeholder the client substitutes the live second count into, so
-# the ticking copy stays word-identical to the static, server-rendered
-# copy and to the post-redirect flash banner.
-POLL_COOLDOWN_TEMPLATE_TOKEN = "__N__"
-
 
 
 # The per-flight colour-rules editor's routes. Add and delete are
@@ -134,89 +84,6 @@ RULE_THEME_HEADING_ID = "rule-theme-heading"
 RULE_REMOVE_CONFIRM_QUESTION = i18n.msg("rules.remove_this_rule", "Remove this rule?")
 # Recent suggestions offered per kind, newest first.
 RULE_SUGGESTIONS_PER_KIND = 5
-
-
-def _poll_caption_text(device, device_count, supported):
-    """The Poll section's single caption: the shipped sentence, plus the
-    one-device scope sentence when several devices exist, or the refusal
-    sentence alone when the device's screen type cannot be polled."""
-    if not supported:
-        return i18n.t(POLL_UNSUPPORTED_CAPTION)
-    caption = i18n.t(POLL_SECTION_CAPTION)
-    if device is not None and device_count > 1:
-        caption += " " + i18n.t(POLL_SCOPE_CAPTION).format(device=device.name)
-    return caption
-
-
-def poll_trigger_section(cooldown_remaining, device=None, device_count=1):
-    """The manual poll-trigger control: an enabled button, or a
-    native-disabled button with remaining-seconds copy during a
-    cooldown. Emits zero `<script>` elements: the countdown lives in
-    `poll-cooldown.js`, driven by `data-*` attributes, UX only —
-    `_handle_poll_now()` re-checks the cooldown server-side regardless.
-    The caption is computed once, above both branches.
-
-    The form posts to the selected device (`device`, with `device_count`
-    devices in the fleet); a device whose screen type the poll cannot
-    render gets a disabled button and the refusal caption instead.
-    """
-    supported = device is None or device_scope.poll_supported(device)
-    caption_html = (
-        '<p class="text-label section-caption">%s</p>'
-        % escape_html(_poll_caption_text(device, device_count, supported)))
-    action = escape_html(device_scope.scoped("/poll-now", "POST"))
-    if not supported:
-        return (
-            "%s"
-            '<form method="post" action="%s">'
-            '<button type="submit" id="%s" disabled aria-disabled="true">%s</button>'
-            "</form>"
-        ) % (
-            caption_html, action, POLL_TRIGGER_BUTTON_ID,
-            escape_html(i18n.t(POLL_TRIGGER_BUTTON_TEXT)),
-        )
-    # `> 0`, not truthy: must agree with poll-cooldown.js's own
-    # `remaining > 0` guard, or a negative value would disable the
-    # button natively while the script no-ops, with no way to re-enable
-    # it client-side.
-    if cooldown_remaining > 0:
-        translated_helper_text = i18n.t(POLL_COOLDOWN_HELPER_TEXT)
-        cooldown_text = translated_helper_text.format(n=cooldown_remaining)
-        template = translated_helper_text.format(n=POLL_COOLDOWN_TEMPLATE_TOKEN)
-        return (
-            "%s"
-            '<form method="post" action="%s">'
-            '<button type="submit" id="%s" disabled '
-            'data-cooldown="%s" data-cooldown-text-id="%s" '
-            'data-cooldown-template="%s" data-cooldown-token="%s">'
-            "%s</button>"
-            "</form>"
-            '<p class="text-body" id="%s">%s</p>'
-        ) % (
-            caption_html,
-            action,
-            POLL_TRIGGER_BUTTON_ID,
-            escape_html(str(cooldown_remaining)),
-            escape_html(POLL_COOLDOWN_TEXT_ID),
-            escape_html(template),
-            escape_html(POLL_COOLDOWN_TEMPLATE_TOKEN),
-            escape_html(i18n.t(POLL_TRIGGER_BUTTON_TEXT)),
-            POLL_COOLDOWN_TEXT_ID,
-            escape_html(cooldown_text),
-        )
-    return (
-        "%s"
-        '<form method="post" action="%s">'
-        '<button type="submit" id="%s" data-submit-pending="%s">'
-        "%s</button>"
-        "</form>"
-    ) % (
-        caption_html,
-        action,
-        POLL_TRIGGER_BUTTON_ID,
-        escape_html(i18n.t(POLL_SUBMIT_PENDING_TEXT)),
-        escape_html(i18n.t(POLL_TRIGGER_BUTTON_TEXT)),
-    )
 
 
 # The per-flight colour-rules editor: an add form (its own immediate

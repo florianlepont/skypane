@@ -2,11 +2,9 @@
 scope helpers, poll capability and offline status. Real fleet.db and state
 directories seeded through the shared two-device fixture.
 """
-import dataclasses
 import json
 import os
 import threading
-import types
 
 import pytest
 
@@ -178,44 +176,11 @@ class TestPathHelpers:
         assert len(device_scope.current_devices()) == 4
         assert device_scope.scoped("/health") == prefix + "/health"
         assert device_scope.scoped("/health?x=1#top") == prefix + "/health?x=1#top"
-        assert device_scope.scoped("/poll-now", method="POST") == prefix + "/poll-now"
-        assert device_scope.scoped("/poll-now") == "/poll-now"
+        assert device_scope.scoped("/quick/led", method="POST") == prefix + "/quick/led"
+        assert device_scope.scoped("/quick/led") == "/quick/led"
         for global_path in ("/update", "/login", "/static/style.css", "/ui-lang"):
             assert device_scope.scoped(global_path) == global_path
         assert routes.match("GET", device_scope.scoped("/health"), "") is not None
-
-
-class TestPollSupported:
-    def test_layout_family_decides(self, fleet):
-        state_dir, seeded = fleet
-        with sim_hardware_env():
-            # Portrait at the 1200x1600 frame size.
-            assert device_scope.poll_supported(device_scope.find_device(state_dir, seeded.dev_a.id))
-            assert device_scope.poll_supported(device_scope.live_device(state_dir))
-            # A registered landscape profile has a renderer.
-            assert device_scope.poll_supported(
-                device_scope.find_device(state_dir, seeded.landscape.id))
-
-    def test_unknown_hardware_type_is_not_pollable(self):
-        device = types.SimpleNamespace(hardware_type="no-such-type")
-        with sim_hardware_env():
-            assert not device_scope.poll_supported(device)
-
-    def test_family_without_renderer_is_not_pollable(self, fleet, monkeypatch):
-        state_dir, seeded = fleet
-        device = device_scope.find_device(state_dir, seeded.dev_a.id)
-        for profile in (
-            dataclasses.replace(hardware.REGISTRY[hardware.LEGACY_KEY], layout_family="square"),
-            dataclasses.replace(hardware.REGISTRY[hardware.LEGACY_KEY], width=800, height=480),
-        ):
-            monkeypatch.setattr(hardware, "get_profile", lambda key, environ=None, p=profile: p)
-            assert not device_scope.poll_supported(device)
-
-    def test_gate_off_rejects_simulated_type_without_raising(self, fleet, monkeypatch):
-        state_dir, seeded = fleet
-        monkeypatch.delenv("SKYPANE_SIM_HARDWARE", raising=False)
-        assert not device_scope.poll_supported(
-            device_scope.find_device(state_dir, seeded.dev_a.id))
 
 
 class TestDeviceStatus:
@@ -278,7 +243,6 @@ def test_resolve_state_dir_is_the_only_directory_source(fleet):
 
 
 def test_profile_for_reads_the_row_hardware_type_and_falls_back(fleet):
-    from server import hardware
     state_dir, _seeded = fleet
     with sim_hardware_env():
         devices = device_scope.load_devices(state_dir)

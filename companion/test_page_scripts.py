@@ -28,7 +28,6 @@ HOOKS = (
     ("#panel-lookup-dialog", layout.PANEL_LOOKUP_SCRIPT_SRC),
     (".toast-region--flash", layout.FLASH_CLEANUP_SCRIPT_SRC),
     ("[data-toast]", layout.TOAST_SCRIPT_SRC),
-    ("#poll-trigger-btn", layout.POLL_COOLDOWN_SCRIPT_SRC),
     ("form[data-confirm]", layout.CONFIRM_SUBMIT_SCRIPT_SRC),
     (".theme-live-preview__image", layout.THEME_PREVIEW_SCRIPT_SRC),
     ("form", layout.SUBMIT_GUARD_SCRIPT_SRC),
@@ -188,11 +187,10 @@ def test_authenticated_404_carries_exactly_the_global_set(servers):
         "GLOBAL_PAGE_SCRIPTS, got %r" % (sorted(set(srcs)),))
 
 
-def test_login_page_carries_exactly_login_card_js(servers):
+def test_login_page_carries_no_script(servers):
     server = servers["empty"]
     status, _headers, body = get(server, "/login")
     assert status == 200, "expected 200 from /login, got %d" % status
     doc = parse_html(body.decode("utf-8"))
     srcs = _script_srcs(doc)
-    assert srcs == [layout.LOGIN_CARD_SCRIPT_SRC], (
-        "expected /login to carry exactly [LOGIN_CARD_SCRIPT_SRC], got %r" % (srcs,))
+    assert srcs == [], "expected /login to carry no script, got %r" % (srcs,)

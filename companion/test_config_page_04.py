@@ -65,7 +65,6 @@ def test_rules_suggestion_chips_present_with_data_and_absent_with_no_events(tmp_
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-        "poll_cooldown_remaining": 0,
         "state_dir": tmpdir,
     }, scope=config_page.SCOPE_DISPLAY)
     rules_segment = cp.rules_row_segment(rendered)
@@ -75,7 +74,6 @@ def test_rules_suggestion_chips_present_with_data_and_absent_with_no_events(tmp_
     empty_rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-        "poll_cooldown_remaining": 0,
         "state_dir": None,
     }, scope=config_page.SCOPE_DISPLAY)
     empty_segment = cp.rules_row_segment(empty_rendered)
@@ -89,7 +87,6 @@ def test_plain_render_carries_the_precedence_sentence_and_no_how_it_works_disclo
     ctx = {
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-        "poll_cooldown_remaining": 0,
     }
     rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     rules_segment = cp.rules_row_segment(rendered)
@@ -112,7 +109,6 @@ def test_rules_section_carries_no_dirty_section_attr():
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-        "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
     rules_segment = cp.rules_row_segment(rendered)
     assert config_page.DIRTY_SECTION_ATTR not in rules_segment, (
@@ -125,7 +121,6 @@ def test_rules_french_render_shows_french_row_label_and_button():
     ctx = {
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-        "poll_cooldown_remaining": 0,
     }
     try:
         prefs.set_request_prefs(lang="fr")
@@ -263,7 +258,6 @@ def test_aspect_calendar_row_palette_populated_in_order():
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-        "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
     start, end = cp.aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_CALENDAR)
     calendar_segment = rendered[start:end]

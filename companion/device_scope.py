@@ -144,21 +144,6 @@ def poll_lock_for(state_dir):
 
 # --- capability and status ---------------------------------------------------
 
-def poll_supported(device):
-    """True when a layout family can render this device's profile: portrait
-    only at the 1200x1600 frame size, landscape at any registered size. An
-    unknown or gated-off hardware type is not pollable."""
-    try:
-        profile = hardware.get_profile(device.hardware_type, os.environ)
-    except hardware.UnknownHardwareType:
-        return False
-    if profile.layout_family == hardware.LAYOUT_LANDSCAPE:
-        return True
-    if profile.layout_family == hardware.LAYOUT_PORTRAIT:
-        return (profile.width, profile.height) == hardware.PORTRAIT_SIZE
-    return False
-
-
 def profile_for(device):
     """The hardware profile of `device`. Never raises: an unknown or
     gated-off hardware type, None or a malformed value reads as the

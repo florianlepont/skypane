@@ -59,7 +59,6 @@ def _all_matches(method, path):
 # assertion below checks.
 _PUBLIC_EXEMPTIONS = {
     ("GET", routes.Exact(routes.LOGIN_ROUTE)),
-    ("POST", routes.Exact(routes.LOGIN_ROUTE)),
     ("GET", routes.Exact("/login/auth0")),
     ("GET", routes.Exact("/callback")),
     ("GET", routes.Exact(routes.CREDITS_ROUTE)),
@@ -74,20 +73,23 @@ _GATED_ROUTE_IDS = [
 
 
 def test_public_routes_are_exactly_login_and_static_assets():
-    """The only routes with a PUBLIC access are GET/POST /login, the
+    """The only routes with a PUBLIC access are GET /login, the
     GET sign-in start and callback, the credits page, and one GET per companion/static_files.py STATIC_ROUTES entry - nothing
     else in the table ever grants pre-session access.
     """
     actual = {(r.method, r.matcher) for r in routes.ROUTES if r.access.min_role == routes.ANONYMOUS}
     expected = {
         ("GET", routes.Exact(routes.LOGIN_ROUTE)),
-        ("POST", routes.Exact(routes.LOGIN_ROUTE)),
         ("GET", routes.Exact("/login/auth0")),
         ("GET", routes.Exact("/callback")),
         ("GET", routes.Exact(routes.CREDITS_ROUTE)),
     }
     expected |= {("GET", routes.Exact(route)) for route in static_files.STATIC_ROUTES}
     assert actual == expected
+
+
+def test_no_post_route_exists_for_login():
+    assert not _all_matches("POST", routes.LOGIN_ROUTE)
 
 
 def test_signed_in_routes_are_exactly_account_and_the_preference_and_logout_posts():

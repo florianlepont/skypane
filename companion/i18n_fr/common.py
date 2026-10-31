@@ -8,10 +8,8 @@ companion/app.py, companion/flash.py, companion/ui_shell.py,
 companion/ui_nav.py, companion/ui_base.py), never here — this module
 only carries each id's French translation.
 
-One FLASH_MESSAGES value is deliberately absent here — the Frame
-strip's poll-cooldown copy — already keyed in a sibling module; the
-auto-merge package raises ValueError on a duplicate id across sibling
-modules.
+The auto-merge package raises ValueError on a duplicate id across
+sibling modules.
 """
 
 MESSAGES = {
@@ -19,18 +17,7 @@ MESSAGES = {
     "common.clear_search": "Effacer la recherche",
 
     # --- Login page ------------------------------------------------
-    "common.sign_in_to_manage_this_device_s_settings":
-        "Connectez-vous pour gérer les réglages de cet appareil.",
-    "common.too_many_attempts_try_again_in_s":
-        "Trop de tentatives — réessayez dans %d s.",
-    "common.password": "Mot de passe",
     "common.sign_in": "Se connecter",
-    "common.incorrect_password_try_again":
-        "Mot de passe incorrect. Réessayez.",
-    # The show-password toggle's two accessible names. The toggle is
-    # icon-only, so these are the only names it ever has.
-    "common.show_password": "Afficher le mot de passe",
-    "common.hide_password": "Masquer le mot de passe",
     "common.login": "Connexion",
 
     # --- 404 page ----------------------------------------------------
@@ -96,21 +83,6 @@ MESSAGES = {
         "Impossible d’enregistrer les réglages — réessayez. Si le "
         "problème persiste, consultez les journaux du service "
         "companion.",
-    "common.refresh_requested_server_check_completed":
-        "Actualisation demandée — le serveur a fini de vérifier les nouvelles données de vol. "
-        "Le cadre peut se mettre à jour lors d’un prochain réveil.",
-    "common.poll_trigger_failed_please_try_again_if_this":
-        "Échec du déclenchement de la vérification — réessayez. Si le "
-        "problème persiste, consultez les journaux du service "
-        "companion.",
-    "common.a_poll_is_already_in_progress_try_again_in_a":
-        "Une vérification est déjà en cours — réessayez dans un "
-        "instant.",
-    "common.device_poll_done":
-        "Vérification terminée — {device} est à jour.",
-    "common.device_poll_unsupported":
-        "Vérification indisponible — Le type d’écran de ce cadre ne peut pas encore "
-        "être rafraîchi d’ici. Il se met à jour tout seul à son prochain réveil.",
     "common.illustration_replaced_the_frame_will_use_it":
         "Illustration remplacée — le cadre l’utilisera à son prochain "
         "réveil et à sa prochaine vérification.",

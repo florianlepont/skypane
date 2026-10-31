@@ -220,18 +220,20 @@ this codebase — SEC-07, D-19):
 ```bash
 ssh ubuntu@<vps-ip>
 sudo install -m 600 -o root -g root deploy/skypane.env.example /opt/skypane/skypane.env
-sudo nano /opt/skypane/skypane.env   # fill in a real SKYPANE_COMPANION_PASSWORD
-                                        # (openssl rand -hex 32), confirm
+sudo nano /opt/skypane/skypane.env   # fill in the SKYPANE_AUTH0_* values, confirm
                                         # SKYPANE_PUBLIC_HOST and SKYPANE_COMPANION_HOST
                                         # match the public hosts above, and set
                                         # SKYPANE_OFFBOX_MARKER=/var/lib/skypane-backup/pulled/last-pull
 ```
 
-**Companion password:** generate `SKYPANE_COMPANION_PASSWORD` with
-`openssl rand -hex 32`. It is the single shared password gating the
-companion configuration web interface (D-01/D-02) — there are no
-per-user accounts — and is written by hand on the VPS only, same
+**Companion sign-in:** Auth0 is the only sign-in and is required: the
+companion refuses to start without all three `SKYPANE_AUTH0_*` variables
+(see "Sign-in (Auth0)"). Secrets are written by hand on the VPS only, same
 discipline as every other secret in this file.
+
+**Upgrade note:** an existing `skypane.env` that still contains
+`SKYPANE_COMPANION_PASSWORD` or `SKYPANE_LEGACY_PASSWORD_LOGIN` keeps
+working. Both are ignored and can be deleted at leisure.
 
 Device enrolment no longer has a secret to fill in here — see the next
 section.
@@ -581,7 +583,10 @@ SCRATCH=$(mktemp -d)
 tar -xzf ~/Library/Application\ Support/SkyPane/backups/<newest>.tar.gz -C "$SCRATCH"
 python3 -c "import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute('PRAGMA integrity_check').fetchone())" "$SCRATCH/history.db"
 # expect: ('ok',)
-SKYPANE_COMPANION_PASSWORD=rehearsal SKYPANE_COMPANION_INSECURE_COOKIES=1 \
+SKYPANE_AUTH0_DOMAIN=rehearsal.example.test SKYPANE_AUTH0_CLIENT_ID=rehearsal \
+    SKYPANE_AUTH0_CLIENT_SECRET=rehearsal \
+    SKYPANE_COMPANION_PUBLIC_URL=https://rehearsal.example.test \
+    SKYPANE_COMPANION_INSECURE_COOKIES=1 \
     server/.venv/bin/python3 companion/app.py --port 8650 --state-dir "$SCRATCH"
 # open http://127.0.0.1:8650 - Flights and Health should show production
 # history, Display and Device should show production settings.
@@ -634,12 +639,11 @@ lives nowhere else), then `sudo systemctl restart skypane-companion`:
 - `SKYPANE_AUTH0_CLIENT_ID=<auth0-client-id>`
 - `SKYPANE_AUTH0_CLIENT_SECRET=<auth0-client-secret>`
 
-The three are all-or-nothing: a partial set refuses to start. The callback
+The three are required: the companion refuses to start with none or a
+partial set, and Auth0 is the only way to sign in. The callback
 and logout URLs are derived from `SKYPANE_COMPANION_HOST` (or the optional
 `SKYPANE_COMPANION_PUBLIC_URL`); nothing is ever read from the request
-Host header. `SKYPANE_LEGACY_PASSWORD_LOGIN` unset or `1` keeps the
-shared-password fallback, `0` turns it off, any other value refuses to
-start.
+Host header.
 
 ### Inviting and managing people
 
@@ -682,13 +686,6 @@ refuses a v2 file as too new and serves from the legacy files, so a
 rollback keeps the frame working, but Health shows a fleet fault until the
 new release is live again. Backups now contain the `sessions` table
 (hashes only); restoring one brings back unexpired sessions.
-
-### Legacy password fallback
-
-Enabled by default, flagged in the UI and logged. Removal is event-driven:
-as soon as Auth0 sign-in works in production, set
-`SKYPANE_LEGACY_PASSWORD_LOGIN=0` and stamp a "remove by" date; the steps
-are in `.planning/workstreams/v1-2/phases/54-auth0-sign-in-local-roles-and-default-deny-access/54-LEGACY-ADMIN-REMOVAL.md`.
 
 ## Verifying the deployment
 
@@ -802,7 +799,7 @@ by hand in the console — see the one-time human steps above). Each
 frame's enrolment secret lives only in that frame's own flash; this VPS
 stores only its SHA-256 hash, in `devices.json` under
 `${SKYPANE_STATE_DIR}`. `skypane.env.example` carries placeholders only
-for what remains a real secret there (`SKYPANE_COMPANION_PASSWORD`); the
+for what remains a real secret there (the Auth0 client secret); the
 real `skypane.env` is root:root 0600, gitignored (`deploy/.gitignore`),
 and lives solely on the VPS, same as `devices.json`. The `skypane-backup`
 pull key is restricted by its forced command to `list`/`get`/`ack` over

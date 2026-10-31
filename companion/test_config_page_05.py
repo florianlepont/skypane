@@ -89,7 +89,6 @@ def test_retired_delay_wordings_are_absent_from_the_rendered_settings_pages():
             "wake_interval_s": 900, "led_enabled": True, "quiet_hours_enabled": False,
         },
         "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
-        "poll_cooldown_remaining": 0,
     }
     for scope in (config_page.SCOPE_DISPLAY, config_page.SCOPE_DEVICE):
         for lang in ("en", "fr"):
@@ -110,11 +109,10 @@ _FLOOR_CTX = {
         "quiet_hours_enabled": False,
     },
     "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
-    "poll_cooldown_remaining": 0,
 }
 # Minimums pinned a little below the observed figures - re-derived by RUNNING this exact
 # fixture through this exact selector.
-_FLOOR_MIN_MEASURED = {"display": 4, "device": 3}
+_FLOOR_MIN_MEASURED = {"display": 4, "device": 2}
 _FLOOR_EXPECTED_SKIPS = {"display": 1, "device": 0}
 
 
@@ -181,17 +179,16 @@ def test_settings_pages_editorial_floor_render_level_both_languages():
 # ======================================================================
 
 def test_device_keeps_only_actionable_advanced_controls_in_both_languages():
-    """Device renders Wake interval, Diagnostic LED, and Refresh now
+    """Device renders Wake interval and Diagnostic LED
     without a screen-type header, next-wake clock, or generic framing."""
     ctx = {
         "device_config": {"wake_interval_s": 300, "led_enabled": True},
         "last_checkin_ts": "2026-08-27T11:55:00+00:00",
         "now": "2026-08-27T12:00:00+00:00",
-        "poll_cooldown_remaining": 0,
     }
     expected = {
-        "en": ("Wake interval", "Diagnostic LED", "Refresh now"),
-        "fr": ("Intervalle de réveil", "LED de diagnostic", "Actualiser maintenant"),
+        "en": ("Wake interval", "Diagnostic LED"),
+        "fr": ("Intervalle de réveil", "LED de diagnostic"),
     }
     retired = (
         "Screen:", "Next wake", "Hardware, data and diagnostics for the frame.",
@@ -209,20 +206,6 @@ def test_device_keeps_only_actionable_advanced_controls_in_both_languages():
             assert retired_text not in rendered, "%s: found retired framing %r" % (lang, retired_text)
         assert 'class="wake-gauge"' not in rendered
 
-
-def test_refresh_acknowledgement_reports_the_server_outcome_not_a_frame_result():
-    """The success acknowledgement says the completed server check was
-    requested and never promises that the physical frame already changed."""
-    for lang in ("en", "fr"):
-        prefs.set_request_prefs(lang=lang)
-        try:
-            message = companion_app._resolve_flash_text(
-                config_page.FLASH_POLL_TRIGGERED, None, last_checkin_ts=None, device_cfg={})
-        finally:
-            prefs.set_request_prefs(lang="en")
-        assert "server" in message.lower() or "serveur" in message.lower()
-        for forbidden in ("within a few seconds", "will appear on Home", "apparaîtra sur Accueil"):
-            assert forbidden not in message
 
 def test_save_round_trip_shows_confirmation_and_new_selection(make_app_server):
     """a real HTTP save round trip shows the confirmation copy and the newly-saved runway
@@ -446,7 +429,6 @@ def test_calendar_hostile_stored_url_renders_no_masked_line(tmp_path, hostile):
 
 _TASK3_BASE_CTX = {
     "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
-    "poll_cooldown_remaining": 0,
 }
 
 
@@ -541,7 +523,6 @@ def test_display_uses_one_bilingual_appearance_flow_without_duplicate_framing(
             {
                 "device_config": {"theme": "blue", "tracked_runway": "3"},
                 "colour_rules": {},
-                "poll_cooldown_remaining": 0,
             },
             scope=config_page.SCOPE_DISPLAY,
         )
@@ -580,7 +561,7 @@ def test_aspect_display_render_has_exactly_one_live_preview_figure_eager_with_di
     each an <img> of the saved look's full-frame preview in its own state with explicit width and
     height from the render pipeline's real served size, and loading left eager (the default)"""
     rendered = config_page.render(
-        {"device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0},
+        {"device_config": {"theme": "blue"}},
         scope=config_page.SCOPE_DISPLAY)
     images = re.findall(r'<img class="look-frame__image"[^>]*>', rendered)
     assert len(images) == 2, images
@@ -597,7 +578,7 @@ def test_every_chip_carries_data_preview_src_ending_in_live_1_chips_stay_lazy():
     full-frame preview in its look's state and size, while the table itself loads no image at
     all (its swatches are inline SVG)"""
     rendered = config_page.render(
-        {"device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0},
+        {"device_config": {"theme": "blue"}},
         scope=config_page.SCOPE_DISPLAY)
     sources = re.findall(r'<label class="look-(?:cell|option)[^"]*" data-preview-src="([^"]*)"', rendered)
     real = [src for src in sources if src]
@@ -626,7 +607,7 @@ def test_look_card_has_no_caption_or_sample_flight_pill(tmp_path):
             for ctx_state_dir in (state_dir, None):
                 rendered = config_page.render(
                     {
-                        "device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0,
+                        "device_config": {"theme": "blue"},
                         "state_dir": ctx_state_dir,
                     },
                     scope=config_page.SCOPE_DISPLAY)
@@ -646,7 +627,6 @@ def test_display_renders_one_compact_chip_grid_and_three_palettes_with_one_swatc
     never inside it"""
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
-        "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
     root = parse_html(rendered)
     blocks = root.find_all("div", cls="look-table-block")
@@ -682,7 +662,6 @@ def test_the_current_badge_reads_a_server_rendered_translated_attribute():
     French text"""
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
-        "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
     attr = config_page.CURRENT_BADGE_ATTR
     en = '%s="%s"' % (attr, escape_html(config_page.CURRENT_BADGE_LABEL))
@@ -699,7 +678,6 @@ def test_the_current_badge_reads_a_server_rendered_translated_attribute():
     try:
         fr_rendered = config_page.render({
             "device_config": {"theme": "white", "tracked_runway": "3"},
-            "poll_cooldown_remaining": 0,
         }, scope=config_page.SCOPE_DISPLAY)
     finally:
         prefs.set_request_prefs(lang="en")
@@ -756,7 +734,6 @@ _TASK2_BASE_CTX = {
         "display_enabled": True, "quiet_hours_enabled": True,
         "quiet_hours_start": "22:00", "quiet_hours_end": "06:00",
     },
-    "poll_cooldown_remaining": 0,
 }
 
 
@@ -909,7 +886,7 @@ def _display_ctx(tmp_path, now=None):
     ctx = {
         "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True,
                           "wake_interval_s": 900, "display_enabled": True},
-        "state_dir": str(tmp_path), "poll_cooldown_remaining": 0,
+        "state_dir": str(tmp_path),
         "last_checkin_ts": "2026-08-27T11:55:00+00:00",
     }
     if now is not None:
@@ -1363,7 +1340,6 @@ def test_the_display_page_carries_exactly_one_radio_set_per_theme_field():
     disagreeing places"""
     page = config_page.render({
         "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
-        "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
     theme_count = len(device_config.THEME_IDS)
     posted = len(re.findall(r'<input type="radio" name="theme" ', page))
@@ -1379,7 +1355,6 @@ def test_the_rendered_settings_page_carries_no_duplicate_id():
     appeared"""
     page = config_page.render({
         "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
-        "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
     ids = re.findall(r'\bid="([^"]*)"', page)
     assert ids, "found no id=\"...\" attributes at all on the rendered Display page"
@@ -1416,7 +1391,7 @@ def test_the_native_submit_is_emitted_unconditionally_on_every_render(tmp_path):
     """
     base_ctx = {
         "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
-        "state_dir": str(tmp_path), "poll_cooldown_remaining": 0,
+        "state_dir": str(tmp_path),
     }
     render_kwargs = [
         {},

@@ -9,8 +9,8 @@ so every method keeps its historical name and `companion/routes.py`'s
 Every handler takes the request's `Device` explicitly and reads and writes
 only `device.state_dir`; none consults a global state directory. Redirect
 targets go through `device_scope.scoped()` so they stay under the device's
-URL prefix. The calendar-connect route serialises its sync against poll-now
-with the same per-device lock (`device_scope.poll_lock_for`).
+URL prefix. The calendar-connect route serialises its sync against a running
+poll cycle with the same per-device lock (`device_scope.poll_lock_for`).
 
 Never imports `companion.app` (that would be a cycle — app.py imports
 this module).
@@ -549,7 +549,7 @@ class SettingsActionsMixin:
             return self._calendar_sheet_redirect(
                 FLASH_KEY_CALENDAR_CONNECT_INVALID, config_page.CALENDAR_ERROR_INVALID)
         poll_lock = device_scope.poll_lock_for(device.state_dir)
-        # Non-blocking, like poll-now: a poll cycle for this device in
+        # Non-blocking: a poll cycle for this device in
         # flight means the link is not fetched now.
         if not poll_lock.acquire(blocking=False):
             return self._scoped_redirect(

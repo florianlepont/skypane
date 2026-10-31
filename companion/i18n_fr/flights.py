@@ -74,6 +74,5 @@ MESSAGES = {
     # A selected device with no recorded flights yet.
     "flights.device_empty_heading": "Pas encore d’historique pour ce cadre",
     "flights.device_empty_body":
-        "Les vols et vérifications apparaîtront après la première vérification. "
-        "Utilisez «\u00a0Vérifier maintenant\u00a0» pour en lancer une.",
+        "Les vols et vérifications apparaîtront après la première vérification du cadre.",
 }

@@ -29,7 +29,6 @@ EXPECTED_DEVICE_SCOPED = {
     ("GET", ("/theme-preview/", ".png")),
     ("GET", ("/frame-preview/", ".png")),
     ("POST", "/settings"),
-    ("POST", "/poll-now"),
     ("POST", "/quick/display"),
     ("POST", "/quick/quiet-hours"),
     ("POST", "/quick/led"),
@@ -64,7 +63,7 @@ def _spec_of(route):
 class TestPrefixMatching:
     def test_flagged_routes_equal_the_explicit_list(self):
         flagged = {(r.method, _spec_of(r)) for r in routes.ROUTES if r.device_scoped}
-        assert len(EXPECTED_DEVICE_SCOPED) == 27
+        assert len(EXPECTED_DEVICE_SCOPED) == 26
         assert flagged == EXPECTED_DEVICE_SCOPED
 
     @pytest.mark.parametrize("method,spec", sorted(EXPECTED_DEVICE_SCOPED, key=str))
@@ -94,7 +93,6 @@ class TestPrefixMatching:
 
     @pytest.mark.parametrize("method,path", [
         ("GET", "/login"),
-        ("POST", "/login"),
         ("POST", "/logout"),
         ("POST", "/ui-theme"),
         ("POST", "/ui-lang"),

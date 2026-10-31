@@ -63,13 +63,11 @@ def test_poll_cycle_import_never_loads_poll_loop():
         "expected importing server.poll_cycle to never pull in server.poll_loop, but it did")
 
 
-def test_poll_loop_run_once_and_pollbusy_are_the_poll_cycle_objects():
-    """server.poll_loop.run_once/PollBusy - the two bindings main() needs -
-    are the identical server.poll_cycle objects, not copies."""
+def test_poll_loop_run_once_is_the_poll_cycle_object():
+    """server.poll_loop.run_once - the binding main() hands to the fleet
+    loop - is the identical server.poll_cycle object, not a copy."""
     assert poll_loop.run_once is poll_cycle.run_once, (
         "expected poll_loop.run_once to be the identical poll_cycle.run_once object")
-    assert poll_loop.PollBusy is poll_cycle.PollBusy, (
-        "expected poll_loop.PollBusy to be the identical poll_cycle.PollBusy object")
 
 
 def test_poll_loop_carries_none_of_the_transitional_or_removed_names():

@@ -113,10 +113,8 @@ _UNAUTH_GET_REQUESTS = (
     companion_app.PANEL_LOOKUP_SCRIPT_ROUTE,
     companion_app.FLASH_CLEANUP_SCRIPT_ROUTE,
     companion_app.TOAST_SCRIPT_ROUTE,
-    companion_app.POLL_COOLDOWN_SCRIPT_ROUTE,
     companion_app.CONFIRM_SUBMIT_SCRIPT_ROUTE,
     companion_app.THEME_PREVIEW_SCRIPT_ROUTE,
-    companion_app.LOGIN_CARD_SCRIPT_ROUTE,
     companion_app.SUBMIT_GUARD_SCRIPT_ROUTE,
     companion_app.RELATIVE_TIME_SCRIPT_ROUTE,
     companion_app.QUICK_SWITCH_SCRIPT_ROUTE,
@@ -143,7 +141,6 @@ _UNAUTH_GET_REQUESTS = (
 _UNAUTH_POST_REQUESTS = (
     companion_app.LOGIN_ROUTE,
     companion_app.SETTINGS_ROUTE,
-    companion_app.POLL_ROUTE,
     companion_app.QUICK_DISPLAY_ROUTE,
     companion_app.QUICK_QUIET_HOURS_ROUTE,
     companion_app.QUICK_LED_ROUTE,
@@ -166,11 +163,6 @@ _UNAUTH_POST_REQUESTS = (
 
 UNAUTH_REQUESTS = tuple(("GET", path) for path in _UNAUTH_GET_REQUESTS) + tuple(
     ("POST", path) for path in _UNAUTH_POST_REQUESTS)
-
-# Never a real credential: capture_unauthenticated()'s one POST /login
-# sample records today's failed-login response (401), which requires a
-# password that does not match the test server's own configured one.
-_WRONG_PASSWORD = "wrong-password-for-baseline-capture-only"
 
 # See the module docstring: data-refresh-token folds in a filesystem
 # ctime no syscall can back-date, so it can never be reproduced across
@@ -340,8 +332,7 @@ def capture_pages(server, cookie):
 def capture_unauthenticated(server):
     """{"METHOD path": {"status": int, "location": str|None}} for every
     UNAUTH_REQUESTS sample, issued with no cookie and redirects not
-    followed. The one POST /login sample records today's failed-login
-    (wrong-password) response.
+    followed. The POST /login sample records that the route is gone.
     """
     result = {}
     origin_header = {"Origin": server.base_url()}
@@ -350,10 +341,7 @@ def capture_unauthenticated(server):
             status, headers, _body = companion_app_server.http_request(
                 server.url(path))
         else:
-            if path == companion_app.LOGIN_ROUTE:
-                data = urllib.parse.urlencode({"password": _WRONG_PASSWORD}).encode()
-            else:
-                data = b""
+            data = b""
             status, headers, _body = companion_app_server.http_request(
                 server.url(path), method="POST", data=data,
                 extra_headers=origin_header)

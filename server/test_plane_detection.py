@@ -1369,3 +1369,73 @@ def test_diagnostics_distinguishes_all_failed_from_no_selection(geofence, monkey
         diagnostics2.get("failed"),
     )
 
+
+
+# ---------------------------------------------------------------
+# Selection over already-fetched provider lists
+# ---------------------------------------------------------------
+
+
+def _with_hex(record_list, hex_id):
+    return [dict(ac, hex=hex_id) for ac in record_list]
+
+
+def test_select_from_results_corroborated_uses_first_providers_records(geofence):
+    first = _runway3_record()
+    second = [dict(ac, r="SECOND-PROVIDER") for ac in _runway3_record()]
+    diagnostics = {}
+    result = detect.select_from_provider_results(
+        [("adsbfi", first), ("adsblol", second)], geofence, diagnostics=diagnostics
+    )
+    assert result is not None
+    assert result["sources"] == ["adsbfi", "adsblol"]
+    assert result["corroborated"] is True
+    assert result.get("r") != "SECOND-PROVIDER"
+    assert diagnostics["queried"] == ["adsbfi", "adsblol"]
+    assert diagnostics["failed"] == []
+    assert diagnostics["selected"] == ["adsbfi", "adsblol"]
+    assert diagnostics["disagreement"] is False
+
+
+def test_select_from_results_single_answer_is_uncorroborated(geofence):
+    diagnostics = {}
+    result = detect.select_from_provider_results(
+        [("adsbfi", _runway3_record())], geofence, diagnostics=diagnostics,
+        queried=["adsbfi", "adsblol"], failed=["adsblol"],
+    )
+    assert result is not None
+    assert result["sources"] == ["adsbfi"]
+    assert result["corroborated"] is None
+    assert diagnostics["failed"] == ["adsblol"]
+
+
+def test_select_from_results_disjoint_candidates_disagree(geofence):
+    diagnostics = {}
+    result = detect.select_from_provider_results(
+        [("adsbfi", _runway3_record()), ("adsblol", _with_hex(_runway3_record(), "abcdef"))],
+        geofence, diagnostics=diagnostics,
+    )
+    assert result is None
+    assert diagnostics["disagreement"] is True
+
+
+def test_select_from_results_all_failed_keeps_outage_diagnostics(geofence):
+    diagnostics = {}
+    result = detect.select_from_provider_results(
+        [], geofence, diagnostics=diagnostics, queried=["adsbfi", "adsblol"], failed=["adsbfi", "adsblol"]
+    )
+    assert result is None
+    assert diagnostics["queried"] == diagnostics["failed"] == ["adsbfi", "adsblol"]
+    assert diagnostics["disagreement"] is False
+
+
+def test_select_from_results_empty_provider_is_not_a_dissenting_vote(geofence):
+    diagnostics = {}
+    result = detect.select_from_provider_results(
+        [("adsbfi", _runway3_record()), ("adsblol", _wrong_runway_record())], geofence, diagnostics=diagnostics
+    )
+    assert result is not None
+    assert result["sources"] == ["adsbfi"]
+    assert result["corroborated"] is None
+    assert diagnostics["selected"] == ["adsbfi"]
+    assert diagnostics["disagreement"] is False

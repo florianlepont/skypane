@@ -25,10 +25,8 @@ from companion.ui_base import (
     icon_html,
     LOGO_MARK_CLASS,
     LIST_FILTER_SCRIPT_SRC,
-    LOGIN_CARD_SCRIPT_SRC,
     NAV_DROPDOWN_SCRIPT_SRC,
     PANEL_LOOKUP_SCRIPT_SRC,
-    POLL_COOLDOWN_SCRIPT_SRC,
     QUICK_TOAST_TEMPLATE_ATTR,
     QUICK_SWITCH_FAILED_TEXT,
     QUICK_SWITCH_SCRIPT_SRC,
@@ -88,7 +86,6 @@ LOGIN_SHELL_TEMPLATE = (
     "{body}\n"
     "</div>\n"
     "</div>\n"
-    '<script src="{script_src}" defer></script>\n'
     "</body>\n"
     "</html>\n"
 )
@@ -102,8 +99,7 @@ def login_shell(body, ui_theme="auto", lang=None):
     footer, which would visually imply the whole site's nav is usable before
     signing in. Shares page_shell()'s outer document structure (doctype, head,
     FAVICON_LINK_HTML) but the body holds only the login card: no icon sprite,
-    skip link, sidebar or nav-dropdown script. Emits exactly one deferred script
-    tag, the login card's own.
+    skip link, sidebar or nav-dropdown script. Emits no script.
     """
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
     resolved_lang = lang if lang in prefs.LANG_CHOICES else prefs.current_lang()
@@ -117,7 +113,6 @@ def login_shell(body, ui_theme="auto", lang=None):
         "site_title": escape_html(SITE_TITLE),
         "favicon_link": FAVICON_LINK_HTML,
         "body": body,
-        "script_src": LOGIN_CARD_SCRIPT_SRC,
     })
 
 
@@ -134,7 +129,6 @@ SHELL_SCRIPT_ORDER = (
     PANEL_LOOKUP_SCRIPT_SRC,
     FLASH_CLEANUP_SCRIPT_SRC,
     TOAST_SCRIPT_SRC,
-    POLL_COOLDOWN_SCRIPT_SRC,
     CONFIRM_SUBMIT_SCRIPT_SRC,
     THEME_PREVIEW_SCRIPT_SRC,
     SUBMIT_GUARD_SCRIPT_SRC,

@@ -57,8 +57,9 @@ def seed_matrix_fleet(state_dir):
 
 def session_cookie_for(state_dir, principal_kind, user_id, now):
     """Write a real session row at the injected clock `now` and return the
-    "sp_session=<token>" cookie pair. `principal_kind` is
-    fleet_sessions.PRINCIPAL_USER or PRINCIPAL_LEGACY_ADMIN.
+    "sp_session=<token>" cookie pair. `principal_kind` is normally
+    fleet_sessions.PRINCIPAL_USER; PRINCIPAL_LEGACY_ADMIN (with no user)
+    plants the invalid old-format row that must never authenticate.
     """
     token = auth.new_session_token()
     conn = fleet_db.connect(state_dir)

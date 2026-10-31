@@ -10,11 +10,11 @@ enforces it, in this one file. Binds
 `--bind 0.0.0.0` by default; production passes `--bind 127.0.0.1`
 because Caddy is the only intended client.
 
-Never writes the poll pipeline's own persisted flight-state file —
-`server.poll_cycle.run_once()` is that file's one legitimate writer.
+Never writes the poll pipeline's own persisted flight-state file; the
+poll process is its one writer and the only consumer of the ADS-B budget.
 
-`main()` fails closed on a missing password rather than starting with
-auth silently disabled.
+`main()` fails closed on an incomplete Auth0 configuration rather than
+starting with sign-in silently unavailable.
 """
 import os
 import sqlite3
@@ -109,10 +109,8 @@ FRESHNESS_SCRIPT_ROUTE = static_files.FRESHNESS_SCRIPT_ROUTE
 PANEL_LOOKUP_SCRIPT_ROUTE = static_files.PANEL_LOOKUP_SCRIPT_ROUTE
 FLASH_CLEANUP_SCRIPT_ROUTE = static_files.FLASH_CLEANUP_SCRIPT_ROUTE
 TOAST_SCRIPT_ROUTE = static_files.TOAST_SCRIPT_ROUTE
-POLL_COOLDOWN_SCRIPT_ROUTE = static_files.POLL_COOLDOWN_SCRIPT_ROUTE
 CONFIRM_SUBMIT_SCRIPT_ROUTE = static_files.CONFIRM_SUBMIT_SCRIPT_ROUTE
 THEME_PREVIEW_SCRIPT_ROUTE = static_files.THEME_PREVIEW_SCRIPT_ROUTE
-LOGIN_CARD_SCRIPT_ROUTE = static_files.LOGIN_CARD_SCRIPT_ROUTE
 SUBMIT_GUARD_SCRIPT_ROUTE = static_files.SUBMIT_GUARD_SCRIPT_ROUTE
 RELATIVE_TIME_SCRIPT_ROUTE = static_files.RELATIVE_TIME_SCRIPT_ROUTE
 QUICK_SWITCH_SCRIPT_ROUTE = static_files.QUICK_SWITCH_SCRIPT_ROUTE
@@ -123,7 +121,6 @@ CALENDAR_SHEET_SCRIPT_ROUTE = static_files.CALENDAR_SHEET_SCRIPT_ROUTE
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
 # FLASH_KEY_* constants below.
 SETTINGS_ROUTE = config_page.SETTINGS_ROUTE
-POLL_ROUTE = "/poll-now"
 
 # The page routes. All six live tabs are declared once, in
 # companion/layout.py's NAV_GROUPS; these aliases exist so this module's
@@ -191,12 +188,6 @@ UPDATE_CANCEL_ROUTE = update_page.CANCEL_ROUTE
 # stays unchanged.
 FLASH_KEY_SAVED = flash.FLASH_KEY_SAVED
 FLASH_KEY_SAVE_FAILED = flash.FLASH_KEY_SAVE_FAILED
-FLASH_KEY_POLL_TRIGGERED = flash.FLASH_KEY_POLL_TRIGGERED
-FLASH_KEY_POLL_COOLDOWN = flash.FLASH_KEY_POLL_COOLDOWN
-FLASH_KEY_POLL_FAILED = flash.FLASH_KEY_POLL_FAILED
-FLASH_KEY_POLL_ALREADY_RUNNING = flash.FLASH_KEY_POLL_ALREADY_RUNNING
-FLASH_KEY_DEVICE_POLL_DONE = flash.FLASH_KEY_DEVICE_POLL_DONE
-FLASH_KEY_DEVICE_POLL_UNSUPPORTED = flash.FLASH_KEY_DEVICE_POLL_UNSUPPORTED
 FLASH_KEY_ILLUSTRATION_REPLACED = flash.FLASH_KEY_ILLUSTRATION_REPLACED
 FLASH_KEY_ILLUSTRATION_REJECTED = flash.FLASH_KEY_ILLUSTRATION_REJECTED
 FLASH_KEY_ILLUSTRATION_REPLACE_FAILED = flash.FLASH_KEY_ILLUSTRATION_REPLACE_FAILED
@@ -251,27 +242,15 @@ _if_none_match_matches = static_files.if_none_match_matches
 _not_modified = static_files.not_modified
 
 
-# Process-global, not per-session: keyed per client IP and bounded, so
-# failed logins from one address never lock another.
-LOGIN_THROTTLE = auth.LoginThrottle()
-# The name the shared-password principal carries in audit lines.
-LEGACY_PRINCIPAL_NAME = "legacy-admin"
-
 # The in-process poll guard is per device directory
-# (`device_scope.poll_lock_for()`); cross-process exclusion is
-# poll_cycle.poll_cycle_lock()'s poll.lock, taken inside run_once().
+# (`device_scope.poll_lock_for()`); the calendar-connect sync takes it so
+# it never overlaps a running poll cycle.
 
 # The same six (route, label) pairs layout.NAV_TABS already carries as
 # Messages — reused rather than re-declared, so this dict's labels never
 # drift from the nav's own and this module never registers a second
 # Message for the same id.
 _PAGE_TITLES = dict(layout.NAV_TABS)
-
-# The literal call-site translation _handle_login_post() below needs —
-# see that method's own comment for why it cannot go through a
-# constant `login_page` would otherwise own.
-_INCORRECT_PASSWORD_TEXT = i18n.msg(
-    "common.incorrect_password_try_again", "Incorrect password. Try again.")
 
 # Each tab's own extra scripts, on top of layout.GLOBAL_PAGE_SCRIPTS
 # (present on every authenticated page regardless). One tuple per
@@ -298,7 +277,6 @@ _PAGE_SCRIPTS = {
     ),
     layout.DEVICE_ROUTE: (
         layout.DIRTY_STATE_SCRIPT_SRC,
-        layout.POLL_COOLDOWN_SCRIPT_SRC,
         layout.QUICK_SWITCH_SCRIPT_SRC,
         layout.VALUE_CONTROLS_SCRIPT_SRC,
     ),
@@ -353,30 +331,21 @@ def _validated_next_route(candidate):
     return candidate if candidate in allowed else None
 
 
-# The flash-text resolution (_resolve_flash_text()) and the poll-trigger
-# cooldown read (poll_cooldown_remaining()) now live in companion/flash.py
-# — rebound here under their historical names.
+# The flash-text resolution (_resolve_flash_text()) lives in
+# companion/flash.py — rebound here under its historical name.
 _resolve_flash_text = flash.resolve_flash_text
-poll_cooldown_remaining = flash.poll_cooldown_remaining
 
-# page_context()'s own lazy loaders (_safe_poll_cooldown_remaining(),
-# _lazy_health_state(), _lazy_health_severity()), the Settings form's
+# page_context()'s own lazy loaders (_lazy_health_state(),
+# _lazy_health_severity()), the Settings form's
 # SKYPANE_SLEEP_S pre-fill (env_wake_interval_default()), and the last-
 # check-in reader page_context() shares with resolve_flash_text()
 # (_safe_last_checkin_ts()) all now live in companion/page_context.py —
 # rebound here under their historical names for the tests that still read
 # them off this module.
-_safe_poll_cooldown_remaining = page_context._safe_poll_cooldown_remaining
 _lazy_health_state = page_context._lazy_health_state
 _lazy_health_severity = page_context._lazy_health_severity
 env_wake_interval_default = page_context.env_wake_interval_default
 _safe_last_checkin_ts = page_context._safe_last_checkin_ts
-
-
-def mark_poll_triggered(state_dir):
-    with history_db.open_db(state_dir) as conn:
-        history_db.set_meta(
-            conn, history_db.META_LAST_POLL_TRIGGER, str(int(time.time())))
 
 
 # gallery_entries() (page_context()'s own lazy loader) and
@@ -565,17 +534,10 @@ class Handler(
     def _next_route_of(self, candidate):
         return _validated_next_route(candidate)
 
-    def _legacy_login_on(self):
-        try:
-            return auth.legacy_login_enabled(os.environ)
-        except ValueError:
-            return False
-
     def _resolve_principal(self):
         """The Principal behind this request's session cookie, or None.
         Role, disabled state and expiry are read fresh from fleet.db every
-        time; a legacy-admin session is also re-checked against the
-        legacy-login flag, so switching the flag off ends it at once.
+        time; the session store never returns a legacy-admin row.
         """
         token = auth.parse_cookies(self.headers.get("Cookie")).get(auth.SESSION_COOKIE_NAME)
         if not token:
@@ -584,25 +546,7 @@ class Handler(
             self._fleet_conn(), auth.hash_session_token(token), _now())
         if record is None:
             return None
-        if record.principal == fleet_sessions.PRINCIPAL_LEGACY_ADMIN:
-            if not self._legacy_login_on():
-                self._drop_legacy_session_if_switched_off(token)
-                return None
-            return access.Principal(access.KIND_LEGACY_ADMIN, None, None, access.ADMIN)
         return access.Principal(access.KIND_USER, record.user_id, record.email, record.role)
-
-    def _drop_legacy_session_if_switched_off(self, token):
-        """Delete a legacy-admin session row when the legacy-login flag is
-        cleanly off, so switching it back on does not revive old sessions.
-        A malformed flag only fails closed and deletes nothing. Needs a
-        writable store; on a read-only one the row stays.
-        """
-        try:
-            if auth.legacy_login_enabled(os.environ):
-                return
-        except ValueError:
-            return
-        fleet_sessions.discard_session(self._fleet_conn(), auth.hash_session_token(token))
 
     def _principal(self):
         """Cached per request; reset at the top of `_dispatch()`. Raises
@@ -625,8 +569,6 @@ class Handler(
         """Tell the page shell who is signed in."""
         if principal is None:
             prefs.set_request_principal(None)
-        elif principal.kind == access.KIND_LEGACY_ADMIN:
-            prefs.set_request_principal(access.KIND_LEGACY_ADMIN, principal.role)
         else:
             prefs.set_request_principal(principal.role, principal.role)
 
@@ -788,14 +730,13 @@ class Handler(
         prefs.set_request_prefs(lang=self._lang_from_request())
         return login_page.unavailable_page(self._resolved_ui_theme())
 
-    def _render_login_page(self, error=None, lockout_seconds=None, next_route=None):
+    def _render_login_page(self, next_route=None):
         # Pre-session, like _not_found_page() above. The markup itself is
-        # companion/login_page.py's render_login_page()/login_body().
+        # companion/login_page.py's render_login_page().
         prefs.set_request_prefs(lang=self._lang_from_request())
         return login_page.render_login_page(
-            self._resolved_ui_theme(), error=error, lockout_seconds=lockout_seconds,
-            next_route=next_route, auth0_enabled=self._auth0_enabled(),
-            legacy_enabled=self._legacy_login_on())
+            self._resolved_ui_theme(), next_route=next_route,
+            auth0_enabled=self._auth0_enabled())
 
     def _serve_static(self, abs_path, content_type, cache_control):
         """Shared body behind `_serve_static_route()` and
@@ -1017,66 +958,12 @@ class Handler(
         return self._dispatch_for_device(route, route_match)
 
     def _login_throttle_key(self):
-        """The one place this handler derives a LoginThrottle bucket key,
-        so every LOGIN_THROTTLE call site below uses the identical
-        derivation (`auth.login_throttle_key()`, trusting
-        X-Forwarded-For only from a loopback peer — Caddy in
-        production).
+        """The one place this handler derives a sign-in throttle bucket key
+        (`sign_in.START_THROTTLE`) with `auth.login_throttle_key()`, trusting
+        X-Forwarded-For only from a loopback peer (Caddy in production).
         """
         return auth.login_throttle_key(
             self.client_address[0], self.headers.get("X-Forwarded-For"))
-
-    def _handle_login_post(self):
-        # With the shared password switched off nothing below runs: the
-        # form body is not read, the password is not compared and the
-        # throttle is not touched.
-        if not self._legacy_login_on():
-            return self.send_html(403, login_page.sign_in_error_page(
-                login_page.SIGN_IN_ERROR_PASSWORD_OFF, self._pre_session_theme(),
-                auth0_enabled=self._auth0_enabled(), legacy_enabled=False))
-        # Read and validate `next` before the lockout/password checks so
-        # it survives every branch below (lockout, incorrect password,
-        # and success) — a failed attempt must not lose the
-        # originally-requested destination.
-        form = self.read_form()
-        next_route = _validated_next_route(form.get("next"))
-        throttle_key = self._login_throttle_key()
-        if LOGIN_THROTTLE.locked_out(throttle_key):
-            remaining = LOGIN_THROTTLE.seconds_remaining(throttle_key)
-            return self.send_html(429, self._render_login_page(
-                lockout_seconds=remaining, next_route=next_route))
-        submitted = form.get("password", "")
-        if auth.password_ok(submitted):
-            LOGIN_THROTTLE.record_success(throttle_key)
-            print("companion: legacy_login_success principal=%s bucket=%s" % (
-                LEGACY_PRINCIPAL_NAME, throttle_key))
-            return self._start_legacy_session(next_route or HOME_ROUTE)
-        LOGIN_THROTTLE.record_failure(throttle_key)
-        if LOGIN_THROTTLE.locked_out(throttle_key):
-            print("companion: legacy_login_lockout principal=%s bucket=%s" % (
-                LEGACY_PRINCIPAL_NAME, throttle_key))
-        return self.send_html(401, self._render_login_page(
-            # Translated here, at the call site — see login_page.py's
-            # own login_body() docstring for why (`error` is an opaque
-            # parameter by the time it reaches that function).
-            error=i18n.t(_INCORRECT_PASSWORD_TEXT), next_route=next_route))
-
-    def _start_legacy_session(self, destination):
-        """Create a legacy-admin session row under a fresh token, dropping
-        the session whose cookie accompanied this login (rotation), and
-        redirect to `destination` with the new cookie.
-        """
-        old = auth.parse_cookies(self.headers.get("Cookie")).get(auth.SESSION_COOKIE_NAME)
-        token = auth.new_session_token()
-        try:
-            fleet_sessions.create_session(
-                self._fleet_conn(), auth.hash_session_token(token),
-                user_id=None, principal=fleet_sessions.PRINCIPAL_LEGACY_ADMIN,
-                now=_now(), replace_hash=auth.hash_session_token(old) if old else None)
-        except _STORE_ERRORS:
-            return self.send_html(503, self._unavailable_page())
-        return self.redirect(
-            destination, set_cookie=auth.session_set_cookie_header(token))
 
     def _handle_settings_post(self, device):
         """POST /settings for `device`. Re-renders the scoped page at 200
@@ -1134,66 +1021,6 @@ class Handler(
         calendar-sync outcome only, never whether the save succeeded.
         """
         return self.redirect("%s?flash=%s" % (back, quote(flash_key)))
-
-    def _handle_poll_now(self, device):
-        """POST /poll-now for `device`: one poll cycle against that
-        device's directory only, under its own lock and cooldown. The
-        trigger lives on Home (Refresh now) and on Device (Poll); the
-        redirect goes back to whichever page posted it. A hardware type
-        the cycle cannot render is refused before any directory is
-        touched.
-        """
-        back = self._referring_tab()
-        if not device_scope.poll_supported(device):
-            return self.redirect(
-                "%s?flash=%s" % (back, quote(FLASH_KEY_DEVICE_POLL_UNSUPPORTED)))
-        poll_lock = device_scope.poll_lock_for(device.state_dir)
-        # Non-blocking acquire, never a timeout.
-        if not poll_lock.acquire(blocking=False):
-            # The loser gets an honest "already running" redirect rather
-            # than racing into a second poll cycle.
-            return self.redirect(
-                "%s?flash=%s" % (back, quote(FLASH_KEY_POLL_ALREADY_RUNNING)))
-        try:
-            state_dir = device.state_dir
-            remaining = poll_cooldown_remaining(state_dir)
-            if remaining > 0:
-                flash = FLASH_KEY_POLL_COOLDOWN
-            else:
-                try:
-                    # The exact production code path the systemd timer
-                    # already runs, in-process — never a second process
-                    # and never a re-parsed subprocess result. No caddy
-                    # log: the battery log belongs to the live frame.
-                    # lock_timeout_s=0: never block this request thread on
-                    # poll.lock — a lock held by another process (the
-                    # oneshot, or an overlapping trigger) must answer at
-                    # once, exactly like the in-process lock above.
-                    # The firmware registry is global, so only the live
-                    # frame's cycle reconciles it.
-                    # The live frame passes no profile (the legacy path);
-                    # any other device renders through its own.
-                    profile_kwargs = (
-                        {} if device.is_live else {"profile": device_scope.profile_for(device)})
-                    poll_cycle.run_once(
-                        state_dir=state_dir, geofence=self.args.geofence,
-                        lock_timeout_s=0, reconcile_firmware=device.is_live,
-                        **profile_kwargs)
-                except poll_cycle.PollBusy:
-                    flash = FLASH_KEY_POLL_ALREADY_RUNNING
-                except Exception:
-                    flash = FLASH_KEY_POLL_FAILED
-                else:
-                    mark_poll_triggered(state_dir)
-                    flash = (
-                        FLASH_KEY_POLL_TRIGGERED if device.is_live
-                        else FLASH_KEY_DEVICE_POLL_DONE)
-        finally:
-            # A failed poll still releases the guard: never a wedged trigger.
-            poll_lock.release()
-        # Written only after release, so an immediate double-tap sees
-        # the lock already free rather than a stale "already running".
-        return self.redirect("%s?flash=%s" % (back, quote(flash)))
 
     def _handle_quick_toggle(
             self, device, field, allowed_return_to=None, fallback_return_to=None):
@@ -1408,15 +1235,13 @@ def build_parser():
         "--state-dir",
         default=state_store.DEFAULT_STATE_DIR,
         help="Directory holding the poll pipeline's own state (default: "
-             "server/state/) — read-only from this service's perspective "
-             "except via the real production poll cycle POST /poll-now "
-             "triggers.",
+             "server/state/) — read-only from this service's perspective.",
     )
     parser.add_argument(
         "--geofence",
         default=None,
-        help="Path to the geofence JSON forwarded to a manually-triggered "
-             "poll cycle (default: adsb-test/runway3.json).",
+        help="Accepted for unit-file compatibility with the poll service; "
+             "the companion runs no poll cycle and ignores it.",
     )
     return parser
 
@@ -1436,10 +1261,8 @@ def main():
 
     # Matches stub-server/byos_server.py's own main(): stdout is fully
     # buffered (not line-buffered) once journald redirects it away from a
-    # TTY, which can silently lose this process's own startup line and
-    # every server.poll_cycle print (still prefixed "poll_loop: ") a POST
-    # /poll-now trigger emits if the service is ever killed before the
-    # buffer next flushes.
+    # TTY, which can silently lose this process's own startup line if
+    # the service is ever killed before the buffer next flushes.
     sys.stdout.reconfigure(line_buffering=True)
 
     Handler.args = args

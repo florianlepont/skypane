@@ -36,10 +36,8 @@ FRESHNESS_SCRIPT_ROUTE = "/static/freshness.js"
 PANEL_LOOKUP_SCRIPT_ROUTE = "/static/panel-lookup.js"
 FLASH_CLEANUP_SCRIPT_ROUTE = "/static/flash-cleanup.js"
 TOAST_SCRIPT_ROUTE = "/static/toast.js"
-POLL_COOLDOWN_SCRIPT_ROUTE = "/static/poll-cooldown.js"
 CONFIRM_SUBMIT_SCRIPT_ROUTE = "/static/confirm-submit.js"
 THEME_PREVIEW_SCRIPT_ROUTE = "/static/theme-preview.js"
-LOGIN_CARD_SCRIPT_ROUTE = "/static/login-card.js"
 SUBMIT_GUARD_SCRIPT_ROUTE = "/static/submit-guard.js"
 RELATIVE_TIME_SCRIPT_ROUTE = "/static/relative-time.js"
 QUICK_SWITCH_SCRIPT_ROUTE = "/static/quick-switch.js"
@@ -60,10 +58,8 @@ _FRESHNESS_JS_PATH = os.path.join(STATIC_DIR, "freshness.js")
 _PANEL_LOOKUP_JS_PATH = os.path.join(STATIC_DIR, "panel-lookup.js")
 _FLASH_CLEANUP_JS_PATH = os.path.join(STATIC_DIR, "flash-cleanup.js")
 _TOAST_JS_PATH = os.path.join(STATIC_DIR, "toast.js")
-_POLL_COOLDOWN_JS_PATH = os.path.join(STATIC_DIR, "poll-cooldown.js")
 _CONFIRM_SUBMIT_JS_PATH = os.path.join(STATIC_DIR, "confirm-submit.js")
 _THEME_PREVIEW_JS_PATH = os.path.join(STATIC_DIR, "theme-preview.js")
-_LOGIN_CARD_JS_PATH = os.path.join(STATIC_DIR, "login-card.js")
 _SUBMIT_GUARD_JS_PATH = os.path.join(STATIC_DIR, "submit-guard.js")
 _RELATIVE_TIME_JS_PATH = os.path.join(STATIC_DIR, "relative-time.js")
 _QUICK_SWITCH_JS_PATH = os.path.join(STATIC_DIR, "quick-switch.js")
@@ -109,10 +105,8 @@ STATIC_ROUTES = {
     PANEL_LOOKUP_SCRIPT_ROUTE: StaticAsset(_PANEL_LOOKUP_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     FLASH_CLEANUP_SCRIPT_ROUTE: StaticAsset(_FLASH_CLEANUP_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     TOAST_SCRIPT_ROUTE: StaticAsset(_TOAST_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
-    POLL_COOLDOWN_SCRIPT_ROUTE: StaticAsset(_POLL_COOLDOWN_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     CONFIRM_SUBMIT_SCRIPT_ROUTE: StaticAsset(_CONFIRM_SUBMIT_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     THEME_PREVIEW_SCRIPT_ROUTE: StaticAsset(_THEME_PREVIEW_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
-    LOGIN_CARD_SCRIPT_ROUTE: StaticAsset(_LOGIN_CARD_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     SUBMIT_GUARD_SCRIPT_ROUTE: StaticAsset(_SUBMIT_GUARD_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     RELATIVE_TIME_SCRIPT_ROUTE: StaticAsset(_RELATIVE_TIME_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     QUICK_SWITCH_SCRIPT_ROUTE: StaticAsset(_QUICK_SWITCH_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
