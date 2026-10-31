@@ -67,6 +67,25 @@ Si le Terminal ne marche pas : une photo ou une capture d'écran de la page Heal
 
 ---
 
+## Partie A bis : export automatique
+
+Cette partie est facultative et se fait une seule fois. Une fois en place, je pourrai récupérer moi-même l'historique de la batterie, sans que vous fassiez l'export de la Partie A. La commande de la Partie A reste la solution de secours : si quelque chose ne marche pas ici, utilisez-la.
+
+Le code secret (le « jeton ») ne doit jamais être écrit dans le chat, ni dans un mail, ni dans un fichier du projet. Il va seulement à deux endroits : le serveur et le formulaire des secrets de l'environnement.
+
+1. **Créer le jeton.** Dans le Terminal de votre Mac, tapez la commande ci-dessous puis Entrée. Elle affiche une longue suite de lettres et de chiffres : c'est le jeton. Gardez la fenêtre ouverte, vous allez le copier deux fois.
+
+```
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+2. **Le mettre sur le serveur.** Connectez-vous au serveur comme d'habitude (`ssh ubuntu@<adresse du serveur>`), puis ouvrez le fichier `/opt/skypane/skypane.env` avec `sudo nano /opt/skypane/skypane.env`. Ajoutez en bas une ligne `SKYPANE_EXPORT_TOKEN=` suivie du jeton, sans espace ni guillemets. Enregistrez (Ctrl + O, Entrée) et quittez (Ctrl + X). Puis tapez `sudo systemctl restart skypane-companion`. Si une étape affiche une erreur, arrêtez-vous et écrivez-moi sans coller le jeton.
+3. **Le mettre dans le formulaire des secrets.** Dans les réglages de l'environnement claude.ai, ajoutez un secret réseau : type `Bearer`, site autorisé = l'adresse du site de réglage, préfixe de chemin `/api/export/`, en-tête `Authorization`, préfixe `Bearer`, et le jeton comme valeur. Ce formulaire est le seul endroit où le jeton se colle en dehors du serveur.
+
+Ensuite, dites-moi simplement « c'est en place » dans le chat, sans le jeton. Pour tout arrêter plus tard, supprimez la ligne `SKYPANE_EXPORT_TOKEN` du fichier et relancez la commande `systemctl restart` : l'export automatique cesse de répondre.
+
+---
+
 ## Partie B : choisir et appliquer l'intervalle final
 
 À faire seulement après que je vous ai donné le résultat et la valeur à choisir.
