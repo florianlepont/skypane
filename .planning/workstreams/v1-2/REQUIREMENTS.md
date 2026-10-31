@@ -55,7 +55,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 ### Per-Hardware Rendering and Credits
 
 - [x] **HWR-01**: The renderer, battery thresholds and health views are driven by the device's hardware profile, with provenance recorded for each battery number and a golden-image baseline of the legacy render.
-- [ ] **HWR-02**: A credits page, generated from one data file, cites adsb.fi (with link), adsb.lol, adsbdb and OurAirports, and the project has recorded contact with adsb.fi / adsb.lol about multi-zone use.
+- [ ] **HWR-02**: A credits page, generated from one data file, cites adsb.fi (with link), adsb.lol, adsbdb and OurAirports, and the project has recorded contact with adsb.fi / adsb.lol about multi-zone use (owner decision 2026-10-31: the message is drafted and its sending is deferred until the fleet has more than 10 registered users).
 
 ### Second Hardware
 
@@ -117,7 +117,7 @@ Coverage: 31/31 v1.2 requirements mapped, each to exactly one phase.
 | AUTH-04 | Phase 55 | Pending |
 | AUTH-05 | Phase 55 | Pending |
 | HWR-01 | Phase 56 | Complete |
-| HWR-02 | Phase 56 | In progress (contact draft awaiting owner) |
+| HWR-02 | Phase 56 | Complete (contact deferred by the owner until more than 10 users) |
 | OTA-04 | Phase 57 | Pending |
 | HW2-01 | Phase 58 | Pending |
 | HW2-02 | Phase 58 | Pending |

@@ -1,12 +1,13 @@
 ---
-status: to-send
+status: deferred
+send_when: the fleet has more than 10 registered users (owner decision, 2026-10-31)
 channel: unknown
 providers: [adsb.fi, adsb.lol]
 ---
 
 # Provider contact: multi-zone use of adsb.fi and adsb.lol
 
-Status: **to send**. Nothing in this document has been sent. The channel is
+Status: **deferred by the owner** until the fleet has more than 10 registered users; nothing in this document has been sent. The channel is
 unknown: the owner must find it (see the French section at the end).
 
 ## Draft message (English)

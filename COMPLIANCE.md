@@ -50,7 +50,8 @@ document.
   commercial or higher-rate needs (source: the README of
   github.com/adsbfi/opendata, checked 2026-10-30). A multi-zone contact
   draft is recorded in the Phase 56 directory as the document
-  `56-PROVIDER-CONTACT.md`; its status is "to send" (not yet sent).
+  `56-PROVIDER-CONTACT.md`; its status is "deferred": the owner will send it once the fleet has more
+  than 10 registered users.
 - **Credits:** the credits are generated from `companion/credits.json` and
   shown at the public `/credits` page.
 - **Status:** requirement met, citation present in two places.
