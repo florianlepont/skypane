@@ -41,8 +41,18 @@ Not in this phase: pairing, admin console and user view (55), Auth0 and the rout
 - **D-13:** Country bounds: a bounding box around metropolitan France including Corsica; positions outside are refused with a clear message, in the setting form and again server side.
 
 ### Settings interface (owner choice)
-- **D-14:** A new dedicated page for detection settings, not the existing Runway card. It is a new route and must be added to the route x role x owner matrix (default-deny, per-device protected route of Phases 51/54); wrong role or other owner's device answers 404.
+- **D-14:** A new dedicated page for detection settings, not the existing Runway card. It is a new route (`/detection`, GET and POST) and must be added to the route x role x owner matrix (default-deny, per-device protected route of Phases 51/54); an admin may set any device, an owner may set only their own device, another user's device and unknown devices answer 404 (owner decision 2026-10-31: a user can change the detection of their own frame).
 - **D-15:** Airport selection by a search field (ICAO, IATA, name, city) filtering the committed catalogue, then one card per runway with the real designator and orientation. The form works without JavaScript. All strings bilingual in `companion/i18n_fr/`; load `Skill("sketch-findings-skypane")` before any interface work.
+
+### Amendments after research (owner, 2026-10-31)
+- **D-16:** Access: `OWNER_DEVICE` (owner of the device or admin). Matrix rows and `test_route_table.py` expectations are updated accordingly.
+- **D-17:** Locations: creation (and renaming/moving) of a location is added to this phase, minimal and reachable from the detection page for the signed-in user (owner scope, `locations.owner_user_id`), because no interface exists today. It must not touch the Phase 55 admin console files; the `/locations` placeholder route is left alone, and the overlap with the Phase 55 session is flagged to the owner.
+- **D-18:** Corridor half-width floor of 50 m (a deviation from the literal D-07 formula) with `ground_half_width = min(75, half_width)`; the catalogue excludes designators ending in G or H (LFNC 16G/34G, LFPG 08H/26H) and the rows listed in the research (internal ids, water runway, rows whose thresholds disagree with the designator). This narrows D-04 slightly; the build script documents every exclusion.
+- **D-19:** The Display page Runway card remains only for devices on a legacy Orly id; other devices show a summary link to the detection page, so a Display save never resets a non-Orly device.
+- **D-20 (research-backed):** Legacy ids `3`, `06-24`, `02-20` keep the frozen hand-tuned bbox, centre, radius and ceiling in the generic logic (the generic corridor bbox differs at the corridor tips: 13,232 of 963,603 swept cells), with a single kill switch reverting to the legacy geofence file. Replay proof = recorded fixtures plus a deterministic sweep with dense bands at every gate edge. Selecting an Orly runway stores the legacy `tracked_runway` id and no new key (live frame's `device_config.json` stays byte-identical); any other selection stores one `detection` object.
+- **D-21:** Render and zone must use one per-device detection spec (fetch, select and tag text), otherwise a non-Orly device selects against Orly or renders `ORY · RWY 3`.
+- **D-22:** Position-mode level traffic (no climb or descent beyond the existing deadband) keeps today's hold-last-state behaviour; no new state in this phase.
+- **D-23:** `COMPLIANCE.md` gets an OurAirports section (it has none) and the `credits.json` OurAirports description is corrected (runway geometry, not only airport names), in English and French.
 
 ### Claude's Discretion
 - Catalogue JSON shape and script name, module names, storage keys in `device_config.json`, how legacy ids map, how replay fixtures are recorded, plan split, empty-state texts, exact orientation display.
