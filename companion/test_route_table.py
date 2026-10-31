@@ -31,6 +31,10 @@ _SAMPLE_MIDDLE = {
     routes.PrefixSuffix("/fleet/frames/", "/retire"): "d_00000000",
     routes.PrefixSuffix("/fleet/frames/", "/reactivate"): "p_00000000",
     routes.PrefixSuffix("/fleet/frames/", "/reassign"): "d_00000000",
+    routes.PrefixSuffix("/users/", "/role"): "1",
+    routes.PrefixSuffix("/users/", "/disable"): "1",
+    routes.PrefixSuffix("/users/", "/enable"): "1",
+    routes.PrefixSuffix("/users/", "/unlink"): "1",
 }
 
 

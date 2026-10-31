@@ -32,9 +32,11 @@ def test_the_aggregator_holds_the_pairing_routes_and_nav_follows_them():
         ("GET", console_routes.FLEET_ROUTE),
         ("POST", console_routes.FLEET_REGISTER_ROUTE),
         ("POST", console_routes.FLEET_PAIR_ROUTE),
+        ("GET", console_routes.USERS_ROUTE),
+        ("POST", console_routes.USERS_INVITE_ROUTE),
         ("GET", console_routes.AUDIT_ROUTE)} <= served_routes
     assert [entry[1] for entry in console_routes.available_nav_entries()] == [
-        "/fleet", "/audit", "/update"]
+        "/fleet", "/users", "/audit", "/update"]
 
 
 def test_nav_entries_follow_the_route_table(monkeypatch):
@@ -63,7 +65,9 @@ def test_section_subnav_is_empty_without_any_page(monkeypatch):
     monkeypatch.setattr(routes, "ROUTES", tuple(
         r for r in routes.ROUTES if not (
             isinstance(r.matcher, routes.Exact)
-            and r.matcher.path in ("/update", console_routes.AUDIT_ROUTE))))
+            and r.matcher.path in (
+                "/update", console_routes.AUDIT_ROUTE, console_routes.FLEET_ROUTE,
+                console_routes.USERS_ROUTE))))
     assert console_routes.section_subnav_html("/update") == ""
 
 
@@ -167,7 +171,7 @@ def test_the_group_lists_only_the_pages_that_exist(
     assert status == 200
     sidebar = _sidebar(page)
     group = sidebar[sidebar.index('<div class="nav-group"><span'):]
-    assert _hrefs(group) == ["/fleet", "/audit", "/update"]
+    assert _hrefs(group) == ["/fleet", "/users", "/audit", "/update"]
 
 
 def test_a_user_sees_no_administration_navigation_and_no_console_page(served):
