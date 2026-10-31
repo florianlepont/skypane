@@ -390,3 +390,91 @@ def spec_for(
         if spec is not None:
             return spec
     return _legacy_spec(_FALLBACK_ID, legacy_geofence_path, True)
+
+
+def validate_runway_selection(icao: Any, designator: Any) -> tuple[str, str]:
+    """The (airport, runway) pair when the catalogue has it, else ValueError.
+
+    The error's first argument is a stable code the page maps to its
+    messages: "airport" (unknown or malformed identifier) or "runway" (the
+    airport exists but has no runway with exactly this designator).
+    """
+    if airports.find_airport(icao) is None:
+        raise ValueError("airport")
+    if airports.find_runway(icao, designator) is None:
+        raise ValueError("runway")
+    assert isinstance(icao, str) and isinstance(designator, str)
+    return icao, designator
+
+
+def validate_radius_km(radius_km: Any) -> int:
+    """The radius when it is a whole number inside the supported bounds."""
+    if isinstance(radius_km, bool) or not isinstance(radius_km, int):
+        raise ValueError("radius")
+    if not RADIUS_KM_MIN <= radius_km <= RADIUS_KM_MAX:
+        raise ValueError("radius")
+    return radius_km
+
+
+def apply_runway_selection(state_dir: str, icao: Any, designator: Any) -> None:
+    """Store a runway choice for the device whose state lives in `state_dir`.
+
+    The three Orly runways keep the legacy `tracked_runway` id and drop any
+    detection object: the live frame's config bytes stay what they were and
+    the previous release keeps reading the id it understands. Every other
+    runway stores one detection object and leaves `tracked_runway` alone,
+    so the previous release still runs on its last Orly runway. Nothing is
+    written when validation fails.
+    """
+    icao, designator = validate_runway_selection(icao, designator)
+    legacy_id = _LEGACY_BY_RUNWAY.get((icao, designator))
+    if legacy_id is not None:
+        device_config.save_device_config(
+            state_dir,
+            tracked_runway=legacy_id,
+            detection=device_config.CLEAR_DETECTION,
+        )
+        return
+    device_config.save_device_config(
+        state_dir,
+        detection={"mode": RUNWAY_MODE, "airport": icao, "runway": designator},
+    )
+
+
+def apply_position_selection(state_dir: str, radius_km: Any) -> None:
+    """Store a position-radius choice. The centre is the device's location
+    row, never part of the config file; nothing is written on a bad radius.
+    """
+    radius = validate_radius_km(radius_km)
+    device_config.save_device_config(
+        state_dir, detection={"mode": POSITION_MODE, "radius_km": radius}
+    )
+
+
+def _legacy_selection(runway_id: str) -> dict[str, Any]:
+    icao, designator = LEGACY_RUNWAY_MAP[runway_id]
+    return {"mode": RUNWAY_MODE, "airport": icao, "runway": designator}
+
+
+def current_selection(device_cfg: Any) -> dict[str, Any]:
+    """The saved setting as the page shows it: a record with `mode`, plus
+    `airport` and `runway` for runway mode or `radius_km` for position mode.
+    Legacy runway ids map to their catalogue designators; anything
+    malformed or unknown reads as the default Orly runway.
+    """
+    if not isinstance(device_cfg, Mapping):
+        return _legacy_selection(_FALLBACK_ID)
+    detection = device_config.normalise_detection(device_cfg.get("detection"))
+    if detection is not None:
+        if detection["mode"] == POSITION_MODE:
+            try:
+                return {"mode": POSITION_MODE, "radius_km": validate_radius_km(detection["radius_km"])}
+            except ValueError:
+                return _legacy_selection(_FALLBACK_ID)
+        if airports.find_runway(detection["airport"], detection["runway"]) is not None:
+            return dict(detection)
+        return _legacy_selection(_FALLBACK_ID)
+    tracked = device_cfg.get("tracked_runway")
+    if isinstance(tracked, str) and tracked in LEGACY_RUNWAY_MAP:
+        return _legacy_selection(tracked)
+    return _legacy_selection(_FALLBACK_ID)
