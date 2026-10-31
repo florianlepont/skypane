@@ -28,7 +28,6 @@ HOOKS = (
     ("#panel-lookup-dialog", layout.PANEL_LOOKUP_SCRIPT_SRC),
     (".toast-region--flash", layout.FLASH_CLEANUP_SCRIPT_SRC),
     ("[data-toast]", layout.TOAST_SCRIPT_SRC),
-    ("#poll-trigger-btn", layout.POLL_COOLDOWN_SCRIPT_SRC),
     ("form[data-confirm]", layout.CONFIRM_SUBMIT_SCRIPT_SRC),
     (".theme-live-preview__image", layout.THEME_PREVIEW_SCRIPT_SRC),
     ("form", layout.SUBMIT_GUARD_SCRIPT_SRC),

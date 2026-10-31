@@ -1,26 +1,17 @@
 #!/usr/bin/env python3
-"""Behaviour tests for keeping each ADS-B provider's own rate limit across
-back-to-back poll cycles (and processes), now that the old fixed
-inter-provider sleep is gone.
+"""Behaviour tests for keeping the ADS-B request budget across back-to-back
+poll cycles (and processes): a standalone cycle fetches only through the
+persisted request ledger in the state root.
 
-Covers `server/history_db.py`'s `META_PROVIDER_LAST_CALL_PREFIX` and
-`server/poll_cycle.py`'s `_load_provider_last_calls()`/`_record_history()`
-wiring:
-
-  * two cycles run back to back never call the same provider twice within
-    its own `MIN_SECONDS_BETWEEN_CALLS`
-  * the per-provider last-call times persist in `history.db` meta as float
-    epoch strings, read back and honoured by a later, otherwise unrelated
-    cycle - no in-process structure is carried between the two calls
-  * a cycle with no prior meta sleeps zero times, and still opens exactly
+  * two cycles run back to back never start provider requests closer
+    together than the ledger spacing
+  * the ledger lives in the state root, never in a per-device directory
+  * a cycle with a fresh ledger sleeps zero times, and still opens exactly
     one connection and commits exactly once
-  * an unparsable stored value is treated as no previous call - no
-    exception, no sleep
-  * a hold cycle and an injected-snapshot cycle neither read nor write the
-    provider meta keys
-  * a history-write failure (the existing catch in `_record_history()`)
-    still does not raise out of the cycle with provider last-call times
-    present
+  * an unusable ledger file does not break the cycle
+  * a hold cycle and an injected-snapshot cycle make no provider request,
+    create no ledger and write no `provider_last_call:*` meta row
+  * a history-write failure still does not raise out of the cycle
 
 Every spacing assertion compares two recorded `time.time()` timestamps
 (`efficiency_probe.fake_provider_latency()`'s own call log) against each
@@ -53,6 +44,7 @@ import server.history_db as history_db  # noqa: E402
 import server.plane.detect as detect  # noqa: E402
 import server.plane.enrich as enrich  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
+import server.request_budget as request_budget  # noqa: E402
 
 pytestmark = pytest.mark.slow
 
@@ -60,11 +52,6 @@ pytestmark = pytest.mark.slow
 def _empty_snapshot():
     """No aircraft detected this cycle - the injected-snapshot path."""
     return {"ac": []}
-
-
-def _meta_value(state_dir, key):
-    with history_db.open_db(state_dir) as conn:
-        return history_db.get_meta(conn, key)
 
 
 @pytest.fixture(autouse=True)
@@ -75,91 +62,80 @@ def _stub_adsbdb(monkeypatch):
     monkeypatch.setattr(enrich, "default_transport", lambda callsign, timeout=None: (404, None))
 
 
+def _set_ledger_spacing(monkeypatch, seconds):
+    """The ledger constructor's default spacing is bound at definition
+    time, so the defaults themselves are replaced for the test."""
+    monkeypatch.setattr(request_budget.RequestLedger.__init__, "__defaults__", (None, None, seconds))
+
+
+def _meta_provider_rows(state_dir):
+    with history_db.open_db(state_dir) as conn:
+        return [
+            name for name in detect.DEFAULT_PROVIDER_ORDER
+            if history_db.get_meta(conn, history_db.META_PROVIDER_LAST_CALL_PREFIX + name) is not None
+        ]
+
+
 @pytest.fixture(autouse=True)
-def _zero_provider_spacing(monkeypatch):
-    """Same convention as the repo's `fake_providers` fixture
-    (conftest.py): most tests here don't exercise the spacing wait itself
-    and should run fast. The tests that do exercise it set this back to a
-    small positive value with their own `monkeypatch.setattr`.
-    """
-    monkeypatch.setattr(detect, "MIN_SECONDS_BETWEEN_CALLS", 0)
+def _zero_ledger_spacing(monkeypatch):
+    """Most tests here do not exercise the spacing wait and should run
+    fast; the spacing tests set a small positive value themselves."""
+    _set_ledger_spacing(monkeypatch, 0.0)
 
 
 # --- Back-to-back spacing ---------------------------------------------------
 
 
-def test_back_to_back_cycles_never_call_the_same_provider_twice_within_its_spacing(tmp_path, monkeypatch):
-    monkeypatch.setattr(detect, "MIN_SECONDS_BETWEEN_CALLS", 0.3)
+def test_back_to_back_cycles_never_start_provider_requests_within_the_ledger_spacing(tmp_path, monkeypatch):
+    _set_ledger_spacing(monkeypatch, 0.3)
     state_dir = str(tmp_path / "spacing")
 
     with efficiency_probe.fake_provider_latency(0) as calls:
         poll_cycle.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
         poll_cycle.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
 
-    by_provider = {}
-    for name, start, _end, _thread in calls:
-        by_provider.setdefault(name, []).append(start)
-
-    for name in detect.DEFAULT_PROVIDER_ORDER:
-        starts = sorted(by_provider.get(name, []))
-        if len(starts) != 2:
-            pytest.fail(
-                "expected exactly 2 calls to %s across 2 back-to-back cycles, got %d"
-                % (name, len(starts))
-            )
-        gap = starts[1] - starts[0]
-        if gap < 0.3 - 0.01:
-            pytest.fail(
-                "%s: second cycle's call started only %.3fs after the first, expected >= ~0.29s"
-                % (name, gap)
-            )
+    starts = sorted(start for _name, start, _end, _thread in calls)
+    expected = 2 * len(detect.DEFAULT_PROVIDER_ORDER)
+    if len(starts) != expected:
+        pytest.fail("expected %d provider requests across 2 cycles, got %d" % (expected, len(starts)))
+    for earlier, later in zip(starts, starts[1:]):
+        if later - earlier < 0.3 - 0.01:
+            pytest.fail("two provider requests started only %.3fs apart, expected >= ~0.29s" % (later - earlier))
 
 
-# --- Cross-cycle persistence in meta ----------------------------------------
-
-
-def test_provider_last_call_times_persist_in_meta_and_a_later_cycle_still_waits(tmp_path, monkeypatch):
-    """After one cycle, meta holds a parsable float epoch string per
-    provider; a second, independent `run_once()` call - no in-process
-    structure carried over, since `_load_provider_last_calls()` rebuilds
-    its dict from meta every time - still honours that recorded spacing.
-    """
-    monkeypatch.setattr(detect, "MIN_SECONDS_BETWEEN_CALLS", 0.3)
-    state_dir = str(tmp_path / "cross-cycle")
-
-    with efficiency_probe.fake_provider_latency(0):
-        poll_cycle.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
-
-    stored = {}
-    for name in detect.DEFAULT_PROVIDER_ORDER:
-        raw = _meta_value(state_dir, history_db.META_PROVIDER_LAST_CALL_PREFIX + name)
-        if raw is None:
-            pytest.fail("expected a provider_last_call meta row for %s after the first cycle" % name)
-        try:
-            stored[name] = float(raw)
-        except (TypeError, ValueError):
-            pytest.fail("meta value for %s is not a parsable float: %r" % (name, raw))
+def test_a_per_device_directory_spends_the_ledger_in_the_state_root(tmp_path):
+    root = tmp_path / "root"
+    device_dir = root / "devices" / "frame-1"
 
     with efficiency_probe.fake_provider_latency(0) as calls:
-        poll_cycle.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
+        poll_cycle.run_once(state_dir=str(device_dir), geofence=GEOFENCE_PATH, reconcile_firmware=False)
 
-    seen = set()
-    for name, start, _end, _thread in calls:
-        seen.add(name)
-        gap = start - stored[name]
-        if gap < 0.3 - 0.01:
-            pytest.fail(
-                "%s: second cycle's call started only %.3fs after the meta-recorded call, expected >= ~0.29s"
-                % (name, gap)
-            )
-    if seen != set(detect.DEFAULT_PROVIDER_ORDER):
-        pytest.fail("expected the second cycle to call every default provider, got %r" % (seen,))
+    if not calls:
+        pytest.fail("expected the standalone cycle to query the providers")
+    if not (root / request_budget.LEDGER_FILENAME).is_file():
+        pytest.fail("expected the request ledger in the state root")
+    if (device_dir / request_budget.LEDGER_FILENAME).exists():
+        pytest.fail("a per-device directory must never hold a request ledger")
 
 
-# --- No prior meta -----------------------------------------------------------
+def test_an_explicit_ledger_root_wins(tmp_path):
+    state_dir = tmp_path / "state"
+    ledger_root = tmp_path / "elsewhere"
+    ledger_root.mkdir()
+
+    with efficiency_probe.fake_provider_latency(0):
+        poll_cycle.run_once(state_dir=str(state_dir), geofence=GEOFENCE_PATH, ledger_root=str(ledger_root))
+
+    if not (ledger_root / request_budget.LEDGER_FILENAME).is_file():
+        pytest.fail("expected the ledger under the explicit ledger_root")
+    if (state_dir / request_budget.LEDGER_FILENAME).exists():
+        pytest.fail("the state directory must not hold a ledger when ledger_root is given")
 
 
-def test_a_cycle_with_no_prior_meta_sleeps_zero_times_and_makes_one_connection_and_commit(tmp_path):
+# --- Fresh ledger ------------------------------------------------------------
+
+
+def test_a_cycle_with_a_fresh_ledger_sleeps_zero_times_and_makes_one_connection_and_commit(tmp_path):
     state_dir = str(tmp_path / "first")
 
     with efficiency_probe.count_sleeps() as sleeps, \
@@ -168,7 +144,7 @@ def test_a_cycle_with_no_prior_meta_sleeps_zero_times_and_makes_one_connection_a
         poll_cycle.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
 
     if sleeps:
-        pytest.fail("expected no sleep on a cycle with no prior provider_last_call meta, got %r" % (sleeps,))
+        pytest.fail("expected no sleep on a cycle with a fresh ledger, got %r" % (sleeps,))
     if counts.connections != 1:
         pytest.fail("expected exactly 1 connection, got %d" % counts.connections)
     if counts.commits != 1:
@@ -194,73 +170,70 @@ def test_an_unchanged_live_repeat_writes_poll_state_zero_times(tmp_path):
         )
 
 
-# --- Corrupt stored value ----------------------------------------------------
+# --- Unusable ledger ---------------------------------------------------------
 
 
-def test_an_unparsable_stored_last_call_value_is_treated_as_no_previous_call(tmp_path, monkeypatch):
-    """A large spacing value, restored here from the autouse zeroing
-    fixture, would force a real wait IF the corrupt string were somehow
-    parsed as a recent call - proving this test actually exercises the
-    "treat as no previous call" branch rather than passing by
-    coincidence.
-    """
-    monkeypatch.setattr(detect, "MIN_SECONDS_BETWEEN_CALLS", 1.1)
-    state_dir = str(tmp_path / "corrupt")
+def test_an_unusable_ledger_file_does_not_break_the_cycle(tmp_path):
+    state_dir = tmp_path / "corrupt"
+    state_dir.mkdir()
+    (state_dir / request_budget.LEDGER_FILENAME).write_text("not json {{{", encoding="utf-8")
 
-    with history_db.open_db(state_dir) as conn:
-        history_db.set_meta(conn, history_db.META_PROVIDER_LAST_CALL_PREFIX + "adsbfi", "abc")
-
-    with efficiency_probe.count_sleeps() as sleeps, efficiency_probe.fake_provider_latency(0):
-        result = poll_cycle.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
+    with efficiency_probe.fake_provider_latency(0):
+        result = poll_cycle.run_once(state_dir=str(state_dir), geofence=GEOFENCE_PATH)
 
     if result is None or "panel_changed" not in result:
-        pytest.fail("run_once() did not return its normal result dict against a corrupt meta value: %r" % (result,))
-    if sleeps:
-        pytest.fail("expected no sleep against an unparsable stored value, got %r" % (sleeps,))
+        pytest.fail("run_once() did not return its normal result dict against a corrupt ledger: %r" % (result,))
 
 
-# --- Hold and injected-snapshot cycles never touch the provider keys --------
+def test_an_unwritable_budget_degrades_to_a_source_fault_without_a_request(tmp_path, monkeypatch):
+    def _unavailable(self, provider):
+        raise request_budget.BudgetUnavailable("busy")
+
+    monkeypatch.setattr(request_budget.RequestLedger, "acquire", _unavailable)
+
+    with efficiency_probe.fake_provider_latency(0) as calls:
+        result = poll_cycle.run_once(state_dir=str(tmp_path / "busy"), geofence=GEOFENCE_PATH)
+
+    if calls:
+        pytest.fail("no provider request may be made without budget, got %r" % (calls,))
+    if result.get("source_fault") is not True:
+        pytest.fail("expected a source fault when no provider could be queried, got %r" % (result,))
 
 
-def test_a_hold_cycle_and_an_injected_snapshot_cycle_never_touch_the_provider_meta_keys(tmp_path):
-    state_dir = str(tmp_path / "untouched")
+# --- Hold and injected-snapshot cycles spend nothing -------------------------
 
-    # One real live cycle first, so there is something in meta that a
-    # later cycle could (but must not) disturb.
+
+def test_a_hold_cycle_and_an_injected_snapshot_cycle_make_no_request_and_create_no_ledger(tmp_path):
+    state_dir = tmp_path / "untouched"
+    device_config.save_device_config(str(state_dir), display_enabled=False)
+
+    with efficiency_probe.fake_provider_latency(0) as calls:
+        poll_cycle.run_once(state_dir=str(state_dir), geofence=GEOFENCE_PATH)
+        device_config.save_device_config(str(state_dir), display_enabled=True)
+        poll_cycle.run_once(snapshot=_empty_snapshot(), state_dir=str(state_dir), geofence=GEOFENCE_PATH)
+
+    if calls:
+        pytest.fail("hold and snapshot cycles must not query a provider, got %r" % (calls,))
+    if (state_dir / request_budget.LEDGER_FILENAME).exists():
+        pytest.fail("hold and snapshot cycles must not create a request ledger")
+    if _meta_provider_rows(str(state_dir)):
+        pytest.fail("no provider_last_call meta row may be written")
+
+
+def test_a_live_cycle_writes_no_provider_last_call_meta_row(tmp_path):
+    state_dir = str(tmp_path / "live")
+
     with efficiency_probe.fake_provider_latency(0):
         poll_cycle.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
 
-    before = {
-        name: _meta_value(state_dir, history_db.META_PROVIDER_LAST_CALL_PREFIX + name)
-        for name in detect.DEFAULT_PROVIDER_ORDER
-    }
-    if any(value is None for value in before.values()):
-        pytest.fail("expected every default provider's meta row to exist after the warm-up cycle: %r" % (before,))
-
-    # A hold cycle: display_enabled=False takes the early return before
-    # detect.load_geofence()/poll_current_aircraft() is ever reached.
-    device_config.save_device_config(state_dir, display_enabled=False)
-    poll_cycle.run_once(state_dir=state_dir, geofence=GEOFENCE_PATH)
-    device_config.save_device_config(state_dir, display_enabled=True)
-
-    # An injected-snapshot cycle: no live provider is ever queried.
-    poll_cycle.run_once(snapshot=_empty_snapshot(), state_dir=state_dir, geofence=GEOFENCE_PATH)
-
-    after = {
-        name: _meta_value(state_dir, history_db.META_PROVIDER_LAST_CALL_PREFIX + name)
-        for name in detect.DEFAULT_PROVIDER_ORDER
-    }
-    if before != after:
-        pytest.fail(
-            "provider_last_call meta changed across a hold cycle and an injected-snapshot cycle: %r -> %r"
-            % (before, after)
-        )
+    if _meta_provider_rows(state_dir):
+        pytest.fail("a live cycle must not write provider_last_call meta rows")
 
 
 # --- A history-write failure is still contained ------------------------------
 
 
-def test_a_history_write_failure_does_not_raise_out_of_the_cycle_with_provider_last_calls_present(tmp_path, monkeypatch):
+def test_a_history_write_failure_does_not_raise_out_of_the_cycle(tmp_path, monkeypatch):
     state_dir = str(tmp_path / "write-failure")
 
     def _boom(*args, **kwargs):

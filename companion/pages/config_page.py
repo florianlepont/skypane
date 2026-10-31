@@ -1,9 +1,7 @@
 """The Settings page: theme/runway/LED/quiet-hours/wake-interval/
 calendar controls, rendered and validated against
 `server.device_config`'s own registries, plus the per-flight
-colour-rules editor and the manual "Trigger poll now" control (its
-route, cooldown gate and poll trigger are owned by companion/app.py;
-this module only renders its button/copy).
+colour-rules editor.
 """
 from companion import device_scope, i18n
 from companion.layout import escape_html
@@ -149,12 +147,6 @@ from companion.settings.calendar import (
     calendar_special_row_html as calendar_special_row_html,
     calendar_state as calendar_state)
 from companion.settings.rules import (
-    POLL_COOLDOWN_HELPER_TEXT as POLL_COOLDOWN_HELPER_TEXT,
-    POLL_COOLDOWN_TEMPLATE_TOKEN as POLL_COOLDOWN_TEMPLATE_TOKEN,
-    POLL_COOLDOWN_TEXT_ID as POLL_COOLDOWN_TEXT_ID,
-    POLL_SECTION_CAPTION as POLL_SECTION_CAPTION,
-    POLL_SUBMIT_PENDING_TEXT as POLL_SUBMIT_PENDING_TEXT,
-    POLL_TRIGGER_BUTTON_ID as POLL_TRIGGER_BUTTON_ID,
     RULES_ADD_ROUTE as RULES_ADD_ROUTE,
     RULES_DELETE_ROUTE_PREFIX as RULES_DELETE_ROUTE_PREFIX,
     RULES_DELETE_ROUTE_SUFFIX as RULES_DELETE_ROUTE_SUFFIX,
@@ -177,7 +169,6 @@ from companion.settings.rules import (
     _rule_list_html as _rule_list_html,
     _rule_row_html as _rule_row_html,
     _rule_suggestion_chips_html as _rule_suggestion_chips_html,
-    poll_trigger_section as poll_trigger_section,
     special_looks_html as special_looks_html)
 from companion.settings.wake_interval import (
     WAKE_BATTERY_DAYS_TEXT as WAKE_BATTERY_DAYS_TEXT,
@@ -335,9 +326,6 @@ def submitted_return_route(form):
     return layout.DISPLAY_ROUTE
 
 
-POLL_SECTION_HEADING = i18n.msg("display.refresh_now", "Refresh now")
-
-
 # The Screen on/off and Quiet hours routes the Frame strip's switches
 # post to. Home's own route constants are byte-for-byte duplicates,
 # never imported: a page module may never import another page module.
@@ -378,18 +366,6 @@ DIRTY_SAVING_TEXT = i18n.msg("display.saving", "Saving…")
 # FLASH_MESSAGES dict reference.
 FLASH_SAVED = "saved"
 FLASH_SAVE_FAILED = "save_failed"
-FLASH_POLL_TRIGGERED = "poll_triggered"
-FLASH_POLL_COOLDOWN = "poll_cooldown"
-# Distinct from FLASH_SAVE_FAILED: a run_once() exception inside
-# POST /poll-now must not show "Couldn't save settings" for a failure
-# unrelated to saving settings.
-FLASH_POLL_FAILED = "poll_failed"
-# Distinct from FLASH_POLL_COOLDOWN: this key means a poll is executing
-# on this exact request right now, in another thread —
-# the device's non-blocking poll-lock acquire failing is the only producer,
-# closing the window where two requests could both observe zero
-# cooldown and both call `poll_cycle.run_once()`.
-FLASH_POLL_ALREADY_RUNNING = "poll_already_running"
 
 
 # The flash keys this module's rule-add/rule-delete routes (owned by
@@ -501,10 +477,9 @@ def _render_current_values(ctx):
     }
 
 
-def _render_calendar_and_poll_context(ctx):
-    """The calendar-status and poll-cooldown values read straight from
-    `ctx` (not `device_config`) that the Display scope's look card
-    and the Poll section each need.
+def _render_calendar_context(ctx):
+    """The calendar-status values read straight from `ctx` (not
+    `device_config`) that the Display scope's look card needs.
     """
     return {
         "calendar_configured": ctx.calendar_configured,
@@ -515,8 +490,6 @@ def _render_calendar_and_poll_context(ctx):
         "calendar_last_attempt_at": ctx.calendar_last_attempt_at,
         "calendar_entry_count": ctx.calendar_entry_count or 0,
         "calendar_drift": ctx.calendar_drift,
-        "cooldown_remaining": (
-            ctx.poll_cooldown_remaining if ctx.poll_cooldown_remaining is not None else 0),
     }
 
 
@@ -627,7 +600,7 @@ def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, subm
     return {
         "header": header, "frame_strip_section_html": frame_strip_section_html,
         "hidden_html": _scope_fields_html(SCOPE_DISPLAY, layout.DISPLAY_ROUTE),
-        "show_poll": False, "groups_html": "",
+        "groups_html": "",
         "aspect_section_html": aspect_section_html,
         "display_watches_supersection_html": display_watches_html,
         "display_on_supersection_html": display_on_html,
@@ -640,7 +613,6 @@ def _render_device_scope(screen, screen_id, groups, builders, errors, next_wake_
     return {
         "header": header, "frame_strip_section_html": "",
         "hidden_html": _scope_fields_html(SCOPE_DEVICE, layout.DEVICE_ROUTE),
-        "show_poll": bool(screen.get("has_manual_poll")),
         "groups_html": _device_groups_html(builders, groups),
         "aspect_section_html": "", "display_watches_supersection_html": "",
         "display_on_supersection_html": "",
@@ -658,24 +630,11 @@ def _render_all_scope(groups, builders):
     """
     return {
         "header": layout.page_header(i18n.t(SCOPE_ALL_PAGE_TITLE)),
-        "frame_strip_section_html": "", "hidden_html": "", "show_poll": True,
+        "frame_strip_section_html": "", "hidden_html": "",
         "groups_html": "".join(builders[g]() for g in groups if g in builders),
         "aspect_section_html": "", "display_watches_supersection_html": "",
         "display_on_supersection_html": "",
     }
-
-
-def _poll_html_for_scope(scope, show_poll, cooldown_remaining, device=None):
-    """The native refresh action, with no redundant Device framing,
-    scoped to the selected `device`."""
-    poll_section_html = (
-        '<section class="page-section">'
-        '<h2 class="text-heading">%s</h2>'
-        "%s"
-        "</section>" % (escape_html(i18n.t(POLL_SECTION_HEADING)), poll_trigger_section(
-            cooldown_remaining, device, len(device_scope.current_devices())))
-        if show_poll else "")
-    return poll_section_html
 
 
 # The dirty-save-bar's own two button labels.
@@ -686,11 +645,11 @@ SAVE_BUTTON_TEXT = i18n.msg("display.save_settings", "Save settings")
 CANCEL_BUTTON_TEXT = i18n.msg("display.cancel", "Cancel")
 
 
-def _settings_page_html(pieces, quick_led_html, poll_html, dirty_strings):
+def _settings_page_html(pieces, quick_led_html, dirty_strings):
     """The final HTML assembly: the physical `<form>` (hidden scope
     fields, groups_html), every scope's own extra sections in their
     locked order, and the dirty-bar save affordance last, after
-    `</form>` and the Poll section, so its `position: fixed` sits
+    `</form>` and the extra sections, so its `position: fixed` sits
     outside the short settings form.
 
     A native `type="reset"` Cancel and an empty-until-JS count span
@@ -709,7 +668,6 @@ def _settings_page_html(pieces, quick_led_html, poll_html, dirty_strings):
         "%s"
         "%s"
         "</form>"
-        "%s"
         "%s"
         "%s"
         "%s"
@@ -733,7 +691,6 @@ def _settings_page_html(pieces, quick_led_html, poll_html, dirty_strings):
         pieces["display_watches_supersection_html"],
         quick_led_html,
         pieces["display_on_supersection_html"],
-        poll_html,
         dirty_strings["changed_suffix"],
         dirty_strings["and_word"],
         dirty_strings["list_and"],
@@ -766,7 +723,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     if errors is None:
         errors = {}
     values = _render_current_values(ctx)
-    calendar_status = _render_calendar_and_poll_context(ctx)
+    calendar_status = _render_calendar_context(ctx)
     next_wake_clock, next_wake_iso = _next_wake_clock_and_iso(ctx, values["device_cfg"])
     dirty_strings = _dirty_bar_strings()
 
@@ -791,9 +748,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     else:
         pieces = _render_all_scope(groups, builders)
 
-    poll_html = _poll_html_for_scope(
-        scope, pieces["show_poll"], calendar_status["cooldown_remaining"], ctx.device)
-    return _settings_page_html(pieces, quick_led_html, poll_html, dirty_strings)
+    return _settings_page_html(pieces, quick_led_html, dirty_strings)
 
 
 def _scope_fields_html(scope, return_route):

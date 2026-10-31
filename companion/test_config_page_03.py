@@ -207,7 +207,6 @@ def test_local_quiet_hours_regex_agrees_with_save_device_config(tmp_path):
 
 _TASK2_BASE_CTX = {
     "device_config": {"theme": "white", "tracked_runway": "3"},
-    "poll_cooldown_remaining": 0,
     "now": "2026-09-07T09:12:04+00:00",
 }
 
@@ -334,7 +333,6 @@ def test_render_has_no_action_pointing_at_retired_led_route():
     """
     rendered = config_page.render({
         "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
-        "poll_cooldown_remaining": 0,
     })
     assert 'action="%s"' % config_page.SETTINGS_ROUTE in rendered, (
         "expected the settings form action to be present")
@@ -434,7 +432,6 @@ def test_render_forwards_ctx_runway_images_key():
     parameter default"""
     rendered = config_page.render({
         "device_config": {"theme": "black", "tracked_runway": "3"},
-        "poll_cooldown_remaining": 0,
         "runway_images": {"06-24"},
     })
     assert "/runway-image/06-24.png" in rendered, (
@@ -498,7 +495,6 @@ def test_live_preview_crossfades_through_one_class_shared_by_css_and_js(served_c
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-        "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
     templates = re.findall(r'data-preview-src-template="([^"]+)"', rendered)
     assert len(templates) == 4, (
@@ -671,7 +667,6 @@ def test_theme_chip_preview_src_points_at_the_real_route_prefix_for_every_theme(
     rendered = config_page.render({
         "device_config": {"theme": "blue", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-        "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
     start, end = cp.aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_DEPARTURES)
     segment = rendered[start:end]
@@ -731,7 +726,6 @@ def test_aspect_arrivals_row_carries_leading_option_no_checkbox():
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-        "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
     root = parse_html(rendered)
     leading = [
@@ -752,7 +746,6 @@ def test_aspect_arrivals_override_preselects_the_override_not_same_as_departures
         "device_config": {
             "theme": "white", "tracked_runway": "3", "theme_arriving": "black"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-        "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
     arrivals_start, arrivals_end = cp.aspect_usage_row_bounds(
         rendered, config_page.COLOUR_USAGE_ARRIVALS)
@@ -944,7 +937,6 @@ def test_settings_page_has_zero_fieldsets_and_four_dirty_sections():
     """
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
-        "poll_cooldown_remaining": 0,
     })
     assert "<fieldset" not in rendered, "expected zero <fieldset> elements on the rendered Settings page"
     assert "<legend" not in rendered, "expected zero <legend> elements on the rendered Settings page"
@@ -1214,7 +1206,6 @@ def test_aspect_card_full_shape_checklist():
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-        "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
     root = parse_html(rendered)
     card = root.select_one("div.look-card")
@@ -1247,7 +1238,6 @@ def test_rules_row_renders_inside_aspect_after_form():
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-        "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
     form_start = rendered.index('<form class="config-form" id="%s"' % config_page.SETTINGS_FORM_ID)
     form_end = rendered.index("</form>", form_start)
@@ -1269,7 +1259,6 @@ def test_rules_section_empty_state_then_list_once_a_rule_exists(tmp_path):
     empty_ctx = {
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-        "poll_cooldown_remaining": 0,
     }
     rendered = config_page.render(empty_ctx, scope=config_page.SCOPE_DISPLAY)
     rules_segment = cp.rules_row_segment(rendered)
@@ -1302,7 +1291,6 @@ def test_rules_list_orders_most_specific_first_then_alphabetically(tmp_path):
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": colour_rules.load_colour_rules(tmpdir),
-        "poll_cooldown_remaining": 0,
         "now": "2026-01-02T00:00:00+00:00",
     }, scope=config_page.SCOPE_DISPLAY)
     list_segment = cp.rules_row_segment(rendered)
@@ -1321,7 +1309,6 @@ def test_aspect_rules_copy_appears_escaped_verbatim():
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-        "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
     copy_strings = (
         config_page.SPECIAL_LOOKS_HEADING,
@@ -1354,7 +1341,6 @@ def test_rules_no_select_and_three_named_radios_one_checked():
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-        "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
     rules_segment = cp.rules_row_segment(rendered)
     assert "<select" not in rules_segment
@@ -1377,7 +1363,6 @@ def test_rules_row_carries_pill_badge_and_confirmed_remove_form(tmp_path):
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": colour_rules.load_colour_rules(str(tmp_path)),
-        "poll_cooldown_remaining": 0,
         "now": "2026-01-02T00:00:00+00:00",
     }, scope=config_page.SCOPE_DISPLAY)
     row = parse_html(rendered).select_one("li.rule-row")
@@ -1396,7 +1381,6 @@ def test_rules_empty_state_carries_no_heading_element():
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-        "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
     special = parse_html(rendered).select_one("div.special-looks")
     headings = [node for node in special.find_all() if re.fullmatch(r"h[1-6]", node.tag)]

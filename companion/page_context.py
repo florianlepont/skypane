@@ -6,7 +6,7 @@ that used to live there.
 `PageContext` keeps `_LazyContext`'s laziness byte-for-byte: the cheap
 eager fields are computed once, up front; the expensive ones — Health's
 severity/markup, the gallery listing, the manual-resolutions/colour-rules/
-calendar registries, and the poll cooldown — are lazy loaders, resolved at
+calendar registries — are lazy loaders, resolved at
 most once, only if a route's own `render()` or the nav-dot read in
 `Handler._page_shell_for()` actually touches them. Every tab still reads
 `health_severity` (the nav dot), so every tab pays for one
@@ -71,7 +71,6 @@ LAZY_FIELDS = (
     "manual_resolutions", "name_overrides", "colour_rules", "calendar_configured",
     "_calendar_registry", "calendar_last_synced_at",
     "calendar_last_attempt_at", "calendar_entry_count", "calendar_drift",
-    "poll_cooldown_remaining",
 )
 
 ALL_FIELDS = EAGER_FIELDS + LAZY_FIELDS
@@ -173,24 +172,6 @@ def coerce(value):
     eager_values = {name: value.get(name) for name in EAGER_FIELDS}
     lazy_resolved = {name: value.get(name) for name in LAZY_FIELDS}
     return PageContext(eager_values, {}, resolved=lazy_resolved)
-
-
-def _safe_poll_cooldown_remaining(state_dir):
-    """`build_page_context()`'s lazy "poll_cooldown_remaining" loader:
-    degrades to 0 (cooldown elapsed) on `(sqlite3.Error, OSError)`
-    instead of raising. Unlike the plain `flash.poll_cooldown_remaining()`
-    — which `_handle_poll_now()` and `_resolve_flash_text()`'s
-    FLASH_KEY_POLL_COOLDOWN branch both still call unguarded, since a
-    database fault there means the poll trigger itself cannot be trusted
-    either way — a page render's own cooldown display is decorative: the
-    Device page's poll button just shows enabled rather than a wrong
-    countdown, instead of 500ing every tab over one meta-table read.
-    """
-    from companion import flash
-    try:
-        return flash.poll_cooldown_remaining(state_dir)
-    except (sqlite3.Error, OSError):
-        return 0
 
 
 def _lazy_health_state(ctx):
@@ -330,7 +311,7 @@ def build_page_context(handler, device):
     computed eagerly (every route needs them, or a later value here
     depends on one), but the expensive ones — Health's severity/markup,
     the gallery listing, the manual-resolutions/colour-rules/calendar
-    registries, and the poll cooldown — are lazy loaders, resolved at
+    registries — are lazy loaders, resolved at
     most once, only if a route's own render() or `_page_shell_for()`'s
     nav-dot read actually touches them. Every tab still reads
     `health_severity` (the nav dot), so every tab pays for one
@@ -472,7 +453,6 @@ def build_page_context(handler, device):
             # contract. Its own file-mode read, not the registry.
             "calendar_drift": lambda: calendar_rules.calendar_secret_mode_is_unsafe(
                 state_dir),
-            "poll_cooldown_remaining": lambda: _safe_poll_cooldown_remaining(state_dir),
         },
     )
     return ctx

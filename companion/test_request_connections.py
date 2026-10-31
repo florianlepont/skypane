@@ -5,10 +5,7 @@
 the module's ~16 `open_db()` call sites a route touches, only one real
 `sqlite3.connect()` ever happens - and a request that touches none (a
 static asset, the login page, an unauthenticated tab's redirect) opens
-zero. `POST /poll-now` shares that same connection with the whole poll
-cycle it runs, since `poll_cycle.run_once()` nests its own
-`connection_scope()` inside an already-active one for the same state
-directory.
+zero.
 
 Counted against a REAL running companion/app.py (`app_server_in_process`,
 the only fixture family whose `sqlite3.connect`/`history_db.init_schema`
@@ -16,16 +13,13 @@ monkeypatches - via `efficiency_probe.count_db()` - take effect in the
 same interpreter the server thread runs in), never by reading source
 text.
 """
-import re
 import sqlite3
 import threading
 
 import efficiency_probe
 
 from companion import layout
-from companion.pages import config_page
 from companion_app_server import http_request, login
-from server.plane import enrich
 
 import companion.app as app
 
@@ -91,51 +85,12 @@ def test_a_second_request_runs_init_schema_zero_times(app_server_in_process):
         "process, got %d" % counts.init_schema)
 
 
-def test_poll_now_uses_one_connection_for_the_whole_cycle_and_persists_the_cooldown(
-        app_server_in_process, monkeypatch):
-    """POST /poll-now shares its request's one connection with the whole poll cycle
-    poll_cycle.run_once() performs, and the cooldown it writes to history.db's meta table is
-    durable - a later GET (its own fresh request, its own fresh connection) still sees it"""
-    server = app_server_in_process
-    session = login(server)
-    # An unresolved-callsign response, never a real HTTP call - matches
-    # efficiency_probe.cycle_probe()'s own fake for exactly the same reason.
-    monkeypatch.setattr(enrich, "default_transport", lambda callsign, timeout=None: (404, None))
-
-    with efficiency_probe.fake_provider_latency(0.0), efficiency_probe.count_db() as counts:
-        status, headers, _body = http_request(
-            server.url(app.POLL_ROUTE), method="POST", cookie=session)
-    assert status == 303, "expected a 303 redirect, got %d" % status
-    location = headers.get("Location", "")
-    assert "flash=%s" % app.FLASH_KEY_POLL_TRIGGERED in location, (
-        "expected the poll_triggered flash key, got %r" % location)
-    assert counts.connections == 1, (
-        "expected exactly one connection for the whole POST /poll-now request including the "
-        "poll cycle it runs, got %d" % counts.connections)
-
-    # A fresh request, on the same session: the Device page's poll button
-    # renders disabled with a positive data-cooldown attribute only once the
-    # trigger this test just made is visible from a brand-new connection.
-    status2, _headers2, body2 = http_request(server.url(layout.DEVICE_ROUTE), cookie=session)
-    assert status2 == 200, "expected 200 from the Device page, got %d" % status2
-    match = re.search(
-        rb'id="%s"[^>]*disabled[^>]*data-cooldown="(\d+)"'
-        % config_page.POLL_TRIGGER_BUTTON_ID.encode(), body2)
-    assert match, (
-        "expected the Device page's poll button to render disabled with a data-cooldown "
-        "attribute once the trigger's cooldown meta write is visible, got %r" % body2)
-    assert int(match.group(1)) > 0, (
-        "expected a positive cooldown remaining right after triggering a poll, got %r"
-        % match.group(1))
-
-
 def test_a_database_fault_attempts_the_connection_exactly_once_per_request(
         app_server_in_process, monkeypatch):
     """a database that cannot be opened (sqlite3.connect raising) is attempted exactly once for
-    the whole request, however many of page_context()'s own call sites read the database before
-    poll_cooldown_remaining() - unguarded today - re-raises the connection_scope()'s remembered
-    failure; do not assert the response status here (the lazy-context plan makes this degrade to
-    a normal 200, this plan only proves there is no retry storm)"""
+    the whole request, however many of page_context()'s own call sites read the database; do not assert the
+    response status here (the lazy-context plan makes this degrade to a normal 200, this plan
+    only proves there is no retry storm)"""
     server = app_server_in_process
     session = login(server)  # succeeds before the fault is injected
 

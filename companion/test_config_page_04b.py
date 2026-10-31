@@ -154,7 +154,7 @@ _TASK2_BASE_CTX = {
         "display_enabled": True, "quiet_hours_enabled": True,
         "quiet_hours_start": "22:00", "quiet_hours_end": "06:00",
     },
-    "state_dir": None, "poll_cooldown_remaining": 0,
+    "state_dir": None,
 }
 
 
@@ -238,7 +238,7 @@ _TASK3_I18N_CTX = {
         "display_enabled": True, "quiet_hours_enabled": True,
         "quiet_hours_start": "22:00", "quiet_hours_end": "06:00",
     },
-    "state_dir": None, "poll_cooldown_remaining": 0,
+    "state_dir": None,
     "calendar_configured": True, "calendar_last_synced_at": None,
     "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
 }
@@ -251,7 +251,7 @@ def test_device_render_carries_no_edit_artwork_markup_in_either_language():
         try:
             prefs.set_request_prefs(lang=lang)
             rendered = config_page.render(
-                {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0},
+                {"device_config": {}, "state_dir": STATE_DIR},
                 scope=config_page.SCOPE_DEVICE)
         finally:
             prefs.set_request_prefs(lang="en")
@@ -295,7 +295,7 @@ def test_aspect_scoped_render_carries_hidden_fields_and_omits_other_groups():
     """render(scope=display/device) carries the matching hidden fields and only its own groups,
     including locating the rules row (inside the Aspect card) by its own data-look-usage attribute;
     the legacy render(ctx) carries no scope field; a hostile scope never reaches the markup"""
-    ctx = {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0}
+    ctx = {"device_config": {}, "state_dir": STATE_DIR}
     display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
     legacy = config_page.render(ctx)
@@ -310,10 +310,10 @@ def test_aspect_scoped_render_carries_hidden_fields_and_omits_other_groups():
     assert 'name="quiet_hours_enabled"' not in device, "expected no quiet-hours group on the Device page"
     assert display.count('<h1 class="page-title">Display</h1>') == 1, "expected the Display page title"
     assert device.count('<h1 class="page-title">Device</h1>') == 1, "expected the Device page title"
-    assert config_page.POLL_SECTION_HEADING not in display, "expected the manual-refresh section off the Display page"
     rules_row_marker = 'data-look-usage="%s"' % config_page.COLOUR_USAGE_RULES
     assert rules_row_marker in display, "expected the rules row, inside the Aspect card, on the Display page (D-11)"
-    assert config_page.POLL_SECTION_HEADING in device, "expected the manual-refresh section on the Device page"
+    assert "Refresh now" not in display and "Refresh now" not in device, (
+        "expected no manual-refresh section on either page")
     assert rules_row_marker not in device, "expected the rules row off the Device page (D-11)"
     hostile = config_page.render(ctx, scope="<script>")
     assert 'name="scope"' not in hostile and "&lt;script&gt;" not in hostile, (
@@ -383,7 +383,7 @@ def test_handle_post_scope_carries_out_of_scope_checkboxes_forward(tmp_path):
 def test_render_carries_no_screen_selector_today():
     """render() at Display and Device scope contains no <select name="screen_id"> today (a
     single-member registry has no real choice to offer)"""
-    ctx = {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0}
+    ctx = {"device_config": {}, "state_dir": STATE_DIR}
     display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
     assert '<select name="screen_id"' not in display and '<select name="screen_id"' not in device, (
@@ -399,7 +399,7 @@ def test_render_carries_no_screen_selector_today():
 def test_neither_scope_renders_an_edit_artwork_link():
     """neither the Display nor the Device scope renders an Edit-artwork link or markup any more -
     the link and its builder are deleted outright"""
-    ctx = {"device_config": {}, "state_dir": STATE_DIR, "poll_cooldown_remaining": 0}
+    ctx = {"device_config": {}, "state_dir": STATE_DIR}
     display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
     href_fragment = "/airlines?edit=1"

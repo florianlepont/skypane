@@ -49,7 +49,7 @@ META_LAST_POLL_TRIGGER = "last_poll_trigger"
 # "provider_last_call:adsbfi"), holding that provider's own last-call
 # epoch as a float string. Fixed-size regardless of cycle count: one row
 # per provider, updated in place, never appended. Lives here rather than
-# in poll_state.json so a timer cycle and a companion-triggered poll-now
+# in poll_state.json so concurrent processes
 # share the same bookkeeping across process boundaries without perturbing
 # poll_state.json's own "only write when content changes" contract.
 META_PROVIDER_LAST_CALL_PREFIX = "provider_last_call:"

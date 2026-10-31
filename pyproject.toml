@@ -149,6 +149,10 @@ files = [
     "server/device_dirs.py",
     "server/plane/runway_config.py",
     "server/plane/colour_rules.py",
+    "server/request_budget.py",
+    "server/fleet_zones.py",
+    "server/zone_fetch.py",
+    "server/plane/shared_route_cache.py",
     # Added under the global settings only, not the strict override below:
     # the pure helpers (decide_hold, advance_is_due, normalise_pending,
     # enqueue_pending, pop_fresh_pending) and CycleContext are fully
@@ -180,6 +184,10 @@ module = [
     "server.device_dirs",
     "server.plane.runway_config",
     "server.plane.colour_rules",
+    "server.request_budget",
+    "server.fleet_zones",
+    "server.zone_fetch",
+    "server.plane.shared_route_cache",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

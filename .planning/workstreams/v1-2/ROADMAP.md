@@ -34,7 +34,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [ ] **Phase 49: Per-Hardware OTA Registry** - Firmware releases are published, scheduled and offered per hardware type, with integrity checks. (criteria 1, 2, 4 verified 2026-10-30; criterion 3 device-side check deferred, awaiting a bench unit)
 - [x] **Phase 50: Common Image Format** - A versioned image container served only to frames that announce support, with a legacy-safe firmware reader specified. (completed 2026-10-30)
 - [x] **Phase 51: Per-Device Config, Image and State** - Every device has its own config, image, history and health, and the BYOS serves each frame its own image.
-- [ ] **Phase 52: Fleet Poll Cycle, Zones and Request Budget** - One upstream ADS-B request per zone under a persisted global 1 req/s budget.
+- [x] **Phase 52: Fleet Poll Cycle, Zones and Request Budget** - One upstream ADS-B request per zone under a persisted global 1 req/s budget.
 - [ ] **Phase 53: Detection Modes (Airport/Runway and Position/Radius)** - Devices can follow any French runway or any position within a bounded radius.
 - [ ] **Phase 54: Auth0 Sign-In, Local Roles and Default-Deny Access** - Invite-only sign-in with local roles and a proven route and ownership matrix.
 - [ ] **Phase 55: Frame Pairing, Admin Console and Reduced User View** - Admins pair frames to users and manage the fleet; users see only their own frames with fewer options.
@@ -183,11 +183,11 @@ Plans:
 **Requirements**: FLT-03, FLT-04
 **Success Criteria** (what must be TRUE):
 
-  1. Devices sharing a zone are served by one upstream request, and the budget holds across all providers and across the poll process and the companion's poll-now.
+  1. Devices sharing a zone are served by one upstream request set, and the budget holds across all providers and across overlapping poll processes (persisted, file-locked).
   2. A simulated 100-device fleet test with a fake clock shows at most 1 request per second.
   3. A provider failure or timeout for one device or zone leaves the other devices' images updated on time.
 
-**Plans**: TBD
+**Plans**: 7 plans (01–07)
 
 ### Phase 53: Detection Modes (Airport/Runway and Position/Radius)
 

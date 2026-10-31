@@ -80,31 +80,6 @@ def byos_only(make_app_server):
     built.byos.stop()
 
 
-def test_poll_isolation_end_to_end(stack):
-    fleet = stack.fleet
-    before_a = stack.served(fleet.dev_a)
-    before_b = stack.served(fleet.dev_b)
-    before_live = stack.served(fleet.live)
-    # Taken after the BYOS polls above, so only the companion's poll differs.
-    snapshots = stack.all_snapshots()
-
-    status, _headers, _ = post(stack.app, _prefix(fleet.dev_a) + "/poll-now")
-    assert status == 303
-
-    after = stack.all_snapshots()
-    assert after["b"] == snapshots["b"]
-    assert after["landscape"] == snapshots["landscape"]
-    assert after["live"] == snapshots["live"]
-
-    after_a = stack.served(fleet.dev_a)
-    digest = after_a[0].split(":", 1)[1]
-    assert after_a[0] != before_a[0]
-    assert after_a[1].endswith("/img/%s/%s.bin" % (fleet.dev_a.id, digest))
-    assert after_a[3] != before_a[3]
-    assert stack.served(fleet.dev_b) == before_b
-    assert stack.served(fleet.live) == before_live
-
-
 def test_settings_isolation_end_to_end(stack):
     fleet = stack.fleet
     served_b = stack.served(fleet.dev_b)

@@ -878,8 +878,7 @@ def test_illustration_filenames_union_contract(tmp_path):
 # RESEARCH A3: does _resolve_flash_text() ever create a directory for a
 # missing state_dir? No — reading companion/app.py's own source, the
 # function only ever reads state_dir (never os.makedirs/writes it), and
-# only for two OTHER flash keys (FLASH_KEY_POLL_COOLDOWN via
-# poll_cooldown_remaining(), and FLASH_KEY_CALENDAR_CONNECTED /
+# only for two OTHER flash keys (FLASH_KEY_CALENDAR_CONNECTED /
 # FLASH_KEY_CALENDAR_CONNECT_OK via calendar_rules.load_calendar_
 # registry()) — neither of which this check's six deck keys or its
 # unknown-key case ever reach (the per-key branch returns before either
@@ -948,18 +947,18 @@ def test_flash_manual_keys_complete_and_byte_identical(tmp_path):
         "an unknown key must not touch state_dir either")
 
     # Every other FLASH_MESSAGES value carries no runtime placeholder
-    # except the five deliberately-interpolated keys (
+    # except the deliberately-interpolated keys (
     # plan 04 Task 2 Task 2).
     interpolated_keys = (
-        app_module.FLASH_KEY_POLL_COOLDOWN, app_module.FLASH_KEY_RULE_REPLACED,
+        app_module.FLASH_KEY_RULE_REPLACED,
         app_module.FLASH_KEY_CALENDAR_CONNECTED, app_module.FLASH_KEY_CALENDAR_CONNECT_OK,
-        app_module.FLASH_KEY_SAVED, app_module.FLASH_KEY_DEVICE_POLL_DONE)
+        app_module.FLASH_KEY_SAVED)
     for key, text in app_module.FLASH_MESSAGES.items():
         if key in interpolated_keys:
             continue
         assert "%" not in text and "{" not in text, (
             "expected no runtime interpolation in FLASH_MESSAGES[%r], got %r (flash copy "
-            "is fixed, never interpolated, except the cooldown, rule_replaced, "
+            "is fixed, never interpolated, except rule_replaced, "
             "calendar_connected, calendar_connect_ok and saved keys)" % (key, text))
 
 
@@ -1507,15 +1506,6 @@ def test_unauth_post_settings_redirects_to_login_without_next(app02_server):
     no ?next=)"""
     data = urllib.parse.urlencode({"ui_theme": "sky"}).encode()
     status, headers, body = http_request(app02_server.base_url() + "/settings", method="POST", data=data)
-    assert status == 303, "expected 303, got %d" % status
-    assert headers.get("Location") == "/login"
-    assert not body
-
-
-def test_unauth_post_poll_now_redirects_to_login_without_next(app02_server):
-    """unauthenticated POST /poll-now redirects to /login without page content (not a
-    NAV_TABS route, so no ?next= is carried)"""
-    status, headers, body = http_request(app02_server.base_url() + "/poll-now", method="POST")
     assert status == 303, "expected 303, got %d" % status
     assert headers.get("Location") == "/login"
     assert not body

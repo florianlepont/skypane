@@ -7,25 +7,16 @@ and every test assertion against the literal query-string value — stays
 unchanged), the FLASH_MESSAGES/FLASH_TONES/FLASH_ROLES tables built
 from them, resolve_flash_text(), and flash_toast_html(), which turns a
 resolved flash into its toast (tone, role, glyph, optional action and
-the no-script dismiss link). poll_cooldown_remaining() lives here too: it is
-resolve_flash_text()'s own FLASH_KEY_POLL_COOLDOWN branch's only
-in-module caller; `companion/app.py` rebinds it under its historical
-name for its other two call sites (the poll-trigger route and the
-lazy page-context loader).
+the no-script dismiss link).
 
 Never imports `companion.app` (that would be a cycle — app.py imports
 this module).
 """
-import time
 from urllib.parse import parse_qsl, urlencode, urlsplit
 
 from companion import device_scope, frame_state, i18n, layout, routes, wake
 from companion.pages import airlines_page, config_page, update_page
-from server import history_db
 from server.plane import calendar_rules, colour_rules
-
-# A double-click guard on POST /poll-now, not an abuse rate-limit.
-POLL_COOLDOWN_S = 45
 
 # The flash-key string literals below are defined exactly once, in
 # companion/pages/config_page.py or companion/pages/airlines_page.py —
@@ -34,14 +25,6 @@ POLL_COOLDOWN_S = 45
 # query-string values) stays unchanged.
 FLASH_KEY_SAVED = config_page.FLASH_SAVED
 FLASH_KEY_SAVE_FAILED = config_page.FLASH_SAVE_FAILED
-FLASH_KEY_POLL_TRIGGERED = config_page.FLASH_POLL_TRIGGERED
-FLASH_KEY_POLL_COOLDOWN = config_page.FLASH_POLL_COOLDOWN
-FLASH_KEY_POLL_FAILED = config_page.FLASH_POLL_FAILED
-FLASH_KEY_POLL_ALREADY_RUNNING = config_page.FLASH_POLL_ALREADY_RUNNING
-# Poll outcomes for a device other than the live frame; the live frame keeps
-# FLASH_KEY_POLL_TRIGGERED. Defined here because only the dispatcher uses them.
-FLASH_KEY_DEVICE_POLL_DONE = "device_poll_done"
-FLASH_KEY_DEVICE_POLL_UNSUPPORTED = "device_poll_unsupported"
 FLASH_KEY_ILLUSTRATION_REPLACED = airlines_page.FLASH_ILLUSTRATION_REPLACED
 FLASH_KEY_ILLUSTRATION_REJECTED = airlines_page.FLASH_ILLUSTRATION_REJECTED
 FLASH_KEY_ILLUSTRATION_REPLACE_FAILED = airlines_page.FLASH_ILLUSTRATION_REPLACE_FAILED
@@ -82,8 +65,6 @@ FLASH_KEY_UPDATE_BUSY = update_page.FLASH_UPDATE_BUSY
 
 # A fixed key -> copy dictionary — the flash mechanism only ever renders
 # one of these, never a value taken verbatim from the query string.
-# FLASH_KEY_POLL_COOLDOWN's "{n}" is filled in with a server-computed
-# remaining-seconds figure, never anything client-supplied.
 FLASH_KEY_DISPLAY_ON = "display_on"
 FLASH_KEY_DISPLAY_OFF = "display_off"
 FLASH_KEY_QUIET_ON = "quiet_on"
@@ -96,8 +77,7 @@ FLASH_KEY_LED_ON = "led_on"
 FLASH_KEY_LED_OFF = "led_off"
 
 # Every value below is a Message. Its id is owned by companion/i18n_fr/
-# common.py, except the poll-cooldown copy (owned by
-# companion/i18n_fr/display.py) and the three firmware-update outcomes
+# common.py, except the three firmware-update outcomes
 # at the end (owned by companion/i18n_fr/update.py).
 FLASH_MESSAGES = {
     FLASH_KEY_DISPLAY_ON: i18n.msg(
@@ -132,30 +112,6 @@ FLASH_MESSAGES = {
         "common.couldn_t_save_settings_please_try_again_if_this",
         "Couldn't save settings — please try again. If this keeps "
         "happening, check the companion service logs."),
-    FLASH_KEY_POLL_TRIGGERED: i18n.msg(
-        "common.refresh_requested_server_check_completed",
-        "Refresh requested — the server finished checking for new flight data. "
-        "The frame may update on a later wake."),
-    # Owned by display.py's catalogue (untouched by this plan), not
-    # common.py's — the Frame strip's own poll-cooldown copy.
-    # "{device}" is filled by resolve_flash_text() with the name of the device
-    # this request is scoped to.
-    FLASH_KEY_DEVICE_POLL_DONE: i18n.msg(
-        "common.device_poll_done", "Check complete — {device} was refreshed."),
-    FLASH_KEY_DEVICE_POLL_UNSUPPORTED: i18n.msg(
-        "common.device_poll_unsupported",
-        "Poll not available — This frame’s screen type cannot be refreshed from "
-        "here yet. It still updates on its own wake."),
-    FLASH_KEY_POLL_COOLDOWN: i18n.msg(
-        "display.poll_triggered_recently_try_again_in_n_s",
-        "Poll triggered recently — try again in {n}s."),
-    FLASH_KEY_POLL_FAILED: i18n.msg(
-        "common.poll_trigger_failed_please_try_again_if_this",
-        "Poll trigger failed — please try again. If this keeps happening, "
-        "check the companion service logs."),
-    FLASH_KEY_POLL_ALREADY_RUNNING: i18n.msg(
-        "common.a_poll_is_already_in_progress_try_again_in_a",
-        "A poll is already in progress — try again in a moment."),
     FLASH_KEY_ILLUSTRATION_REPLACED: i18n.msg(
         "common.illustration_replaced_the_frame_will_use_it",
         "Illustration replaced — the frame will use it next time it wakes and polls."),
@@ -287,10 +243,7 @@ FLASH_MESSAGES = {
         "common.calendar_disconnected_the_flights_it_supplied",
         "Calendar disconnected — the flights it supplied have been "
         "deleted from the server."),
-    # Deliberately not FLASH_KEY_POLL_ALREADY_RUNNING's copy: that string
-    # says nothing about whether the save itself succeeded, which would
-    # leave the operator unsure their URL was even stored. This key says
-    # plainly that the save landed and the sync will happen on the
+    # Says plainly that the save landed and the sync will happen on the
     # frame's own next scheduled poll.
     FLASH_KEY_CALENDAR_SYNC_DEFERRED: i18n.msg(
         "common.saved_a_poll_was_already_running_so_this",
@@ -331,15 +284,6 @@ _PENDING = layout.TOAST_TONE_PENDING
 FLASH_TONES = {
     FLASH_KEY_SAVED: _PENDING,
     FLASH_KEY_SAVE_FAILED: _ERROR,
-    FLASH_KEY_POLL_TRIGGERED: _INFO,
-    FLASH_KEY_POLL_COOLDOWN: _INFO,
-    FLASH_KEY_DEVICE_POLL_DONE: _SUCCESS,
-    # A warning is never auto-hidden: the refusal stays until dismissed.
-    FLASH_KEY_DEVICE_POLL_UNSUPPORTED: _WARNING,
-    FLASH_KEY_POLL_FAILED: _ERROR,
-    # Informational, not itself a failure: a different session/tab is
-    # already legitimately running a poll.
-    FLASH_KEY_POLL_ALREADY_RUNNING: _INFO,
     FLASH_KEY_ILLUSTRATION_REPLACED: _PENDING,
     # The file the user picked was refused: their input needs changing.
     FLASH_KEY_ILLUSTRATION_REJECTED: _ERROR,
@@ -458,24 +402,6 @@ def flash_toast_html(flash_key, text, request_path):
         glyph=_FLASH_GLYPHS.get(flash_key))
 
 
-def poll_cooldown_remaining(state_dir):
-    """Seconds remaining before another `POST /poll-now` is allowed, or 0
-    when the cooldown has elapsed. Server-global and persisted in
-    `history.db`'s meta table (not the session cookie), so a second
-    browser tab cannot bypass it and a service restart does not reset it.
-    """
-    with history_db.open_db(state_dir) as conn:
-        value = history_db.get_meta(conn, history_db.META_LAST_POLL_TRIGGER)
-    if not value:
-        return 0
-    try:
-        last_triggered = int(value)
-    except (TypeError, ValueError):
-        return 0
-    remaining = POLL_COOLDOWN_S - (time.time() - last_triggered)
-    return int(remaining) if remaining > 0 else 0
-
-
 def resolve_flash_text(
         flash_key, state_dir, rule_key=None, last_checkin_ts=None, device_cfg=None,
         battery_critical=False):
@@ -510,11 +436,6 @@ def resolve_flash_text(
         # Kept capitalised: the toast shows it as its own detail line
         # under the "Saved" title, a standalone sentence.
         return template % delay_text
-    if flash_key == FLASH_KEY_POLL_COOLDOWN:
-        return template.format(n=poll_cooldown_remaining(state_dir))
-    if flash_key == FLASH_KEY_DEVICE_POLL_DONE:
-        device = device_scope.current_device()
-        return template.format(device=device.name if device is not None else "")
     if flash_key == FLASH_KEY_CALENDAR_CONNECTED:
         # Read fresh from disk, on this redirect target's own render —
         # never carried through the redirect's query string, which is

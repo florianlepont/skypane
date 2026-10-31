@@ -113,7 +113,6 @@ _UNAUTH_GET_REQUESTS = (
     companion_app.PANEL_LOOKUP_SCRIPT_ROUTE,
     companion_app.FLASH_CLEANUP_SCRIPT_ROUTE,
     companion_app.TOAST_SCRIPT_ROUTE,
-    companion_app.POLL_COOLDOWN_SCRIPT_ROUTE,
     companion_app.CONFIRM_SUBMIT_SCRIPT_ROUTE,
     companion_app.THEME_PREVIEW_SCRIPT_ROUTE,
     companion_app.SUBMIT_GUARD_SCRIPT_ROUTE,
@@ -142,7 +141,6 @@ _UNAUTH_GET_REQUESTS = (
 _UNAUTH_POST_REQUESTS = (
     companion_app.LOGIN_ROUTE,
     companion_app.SETTINGS_ROUTE,
-    companion_app.POLL_ROUTE,
     companion_app.QUICK_DISPLAY_ROUTE,
     companion_app.QUICK_QUIET_HOURS_ROUTE,
     companion_app.QUICK_LED_ROUTE,

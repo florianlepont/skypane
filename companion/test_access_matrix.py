@@ -68,7 +68,6 @@ ROUTE_POLICY = {
     ("GET", "/theme-preview/{}.png"): ADMIN_ONLY,
     ("GET", "/frame-preview/{}.png"): ADMIN_ONLY,
     ("POST", "/settings"): ADMIN_ONLY,
-    ("POST", "/poll-now"): ADMIN_ONLY,
     ("POST", "/quick/display"): ADMIN_ONLY,
     ("POST", "/quick/quiet-hours"): ADMIN_ONLY,
     ("POST", "/quick/led"): ADMIN_ONLY,
@@ -95,7 +94,7 @@ DEVICE_SCOPED = frozenset(
         "/illustration/{}.png", "/theme-preview/{}.png",
         "/frame-preview/{}.png")]
     + [("POST", path) for path in (
-        "/settings", "/poll-now", "/quick/display", "/quick/quiet-hours",
+        "/settings", "/quick/display", "/quick/quiet-hours",
         "/quick/led", "/airlines/resolve", "/airlines/rename",
         "/airlines/rename/reset", "/airlines/manual-resolutions/{}/delete",
         "/illustration/{}.png", "/settings/rules/add",
@@ -178,6 +177,12 @@ def test_every_route_has_a_policy_row_and_every_row_has_a_route():
         "companion/test_access_matrix.py (and a sample middle if the path "
         "is templated): %r" % (missing,))
     assert not stale, "policy rows with no route in routes.ROUTES: %r" % (stale,)
+
+
+def test_poll_now_is_not_a_route_at_any_prefix():
+    assert ("POST", "/poll-now") not in set(_REAL_KEYS)
+    assert routes.match("POST", "/poll-now", "") is None
+    assert routes.match("POST", "/devices/d_00000000/poll-now", "") is None
 
 
 def test_no_route_is_declared_twice():
@@ -333,6 +338,24 @@ def test_http_outcome_matches_the_policy_table(rig, stubbed, key, name):
         assert status == 404
         assert body == _unknown_path_404(rig, cookie)
         assert stubbed.calls == []
+
+
+@pytest.mark.parametrize("name", ("owner", "other", "admin"))
+def test_posting_to_poll_now_is_a_404_and_runs_no_cycle(rig, monkeypatch, name):
+    import server.poll_cycle as poll_cycle
+    calls = []
+    monkeypatch.setattr(poll_cycle, "run_once", lambda **kw: calls.append(kw))
+    cookie = rig.cookies[name]
+    unknown = _unknown_path_404(rig, cookie)
+
+    for path in (
+            "/poll-now",
+            "/devices/%s/poll-now" % rig.fleet.owner_device,
+            "/devices/d_00000000/poll-now"):
+        status, _headers, body = rig.request("POST", path, cookie)
+        assert status == 404, path
+        assert body == unknown, path
+    assert calls == []
 
 
 def _scoped_path(device_id, key):

@@ -4,9 +4,7 @@ pipeline, the exact-one-file write, the untouched vendored original, and
 rejection paths (non-image, oversized, unknown/traversal keys,
 unauthenticated), the manual-resolution `/airlines/resolve` and
 `/airlines/manual-resolutions/{prefix}/delete` routes, the colour-rules
-`/settings/rules/*` routes, the poll-trigger cooldown sequence and its
-distinct failure flash key, the concurrent `/poll-now` lock-serialization
-proof, the calendar save-triggered sync family (connect/disconnect
+`/settings/rules/*` routes, the calendar save-triggered sync family (connect/disconnect
 routes, the throttle bypass, lock contention, a flash leak guard), a
 `not hasattr()` battery proving the retired display-mode-switch tokens
 no longer appear anywhere in production code, the flash/title/nav i18n round trips, and the
@@ -14,9 +12,9 @@ site-wide editorial floor whose one counting rule,
 `caption_word_count_text()`, is shared with test_config_page_05.py
 through companion/test_config_page_helpers.py.
 
-The illustration-override tests below and the poll-trigger cooldown
-sequence each consolidate several checks that shared ONE mutable
-fixture in a fixed order into one atomic pytest test. Every other check
+The illustration-override tests below each consolidate several checks
+that shared ONE mutable fixture in a fixed order into one atomic pytest
+test. Every other check
 here is either fully independent (its own fresh
 `make_app_server`/`app_server_in_process`) or a module-level
 behavioural proof with no server at all.
@@ -25,7 +23,6 @@ import html
 import os
 import re
 import string
-import threading
 import time
 import urllib.parse
 
@@ -673,112 +670,6 @@ def test_rules_page_context_reads_fresh_per_request(make_app_server):
 
 
 # ==========================================================================
-# poll-trigger cooldown: server-global, not per-session (ledger rows
-# 287-290, consolidated: each step depends on the previous step's own
-# cooldown-timer mutation, matching 's own consolidation
-# rule for a fixed-order sequence sharing one mutable server).
-# ==========================================================================
-
-
-def test_poll_trigger_cooldown_sequence(make_app_server):
-    """a first poll trigger redirects with the poll_triggered flash key, and its own run_once()
-    was served by the fake ADS-B providers (adsbfi and adsblol called, no live network); an
-    immediate second poll trigger redirects with the poll_cooldown flash key; and a fresh
-    second-opener session is refused by the same cooldown (server-global, not per-session)"""
-    server = make_app_server(fake_providers=True)
-    base = server.base_url()
-    session_cookie = login(server)
-
-    status, headers, _ = http_request(base + "/poll-now", method="POST", cookie=session_cookie)
-    assert status == 303, "expected a 303 redirect, got %d" % status
-    location = headers.get("Location", "")
-    assert "flash=poll_triggered" in location, (
-        "expected the poll_triggered flash key in the redirect, got %r" % location)
-
-    calls = server.fake_provider_calls()
-    providers_called = {call["provider"] for call in calls}
-    missing = {"adsbfi", "adsblol"} - providers_called
-    assert not missing, (
-        "expected the fake provider's call log to show both adsbfi and adsblol queried by the "
-        "first poll trigger's run_once(), missing %r - full log: %r" % (missing, calls))
-
-    status, headers, _ = http_request(base + "/poll-now", method="POST", cookie=session_cookie)
-    assert status == 303, "expected a 303 redirect, got %d" % status
-    location = headers.get("Location", "")
-    assert "flash=poll_cooldown" in location, (
-        "expected the poll_cooldown flash key in the redirect, got %r" % location)
-
-    second_session_cookie = login(server)
-    status, headers, _ = http_request(base + "/poll-now", method="POST", cookie=second_session_cookie)
-    assert status == 303, "expected a 303 redirect, got %d" % status
-    location = headers.get("Location", "")
-    assert "flash=poll_cooldown" in location, (
-        "expected a fresh second-opener session to also see the poll_cooldown flash key, got %r"
-        % location)
-
-
-# 2026-08-28 fix: a genuine run_once() failure (e.g. an unreadable
-# --geofence path, exactly what production hit when
-# deploy/skypane-companion.service never passed --geofence at all and
-# the relative default didn't resolve under its WorkingDirectory) must
-# redirect with the distinct poll_failed flash key, never the misleading
-# save_failed one. `tmp_path` supplies a guaranteed-absent path rather
-# than a literal `/nonexistent/...` string.
-def test_poll_trigger_failure_uses_distinct_flash_key(make_app_server, tmp_path):
-    """a genuine poll-trigger failure redirects with the distinct poll_failed flash key, never
-    save_failed"""
-    absent_geofence = tmp_path / "absent" / "no-such-geofence.json"
-    server = make_app_server(
-        extra_args=["--geofence", str(absent_geofence)], fake_providers=True)
-    session = login(server)
-    status, headers, _ = http_request(
-        server.base_url() + "/poll-now", method="POST", cookie=session)
-    assert status == 303, "expected a 303 redirect, got %d" % status
-    location = headers.get("Location", "")
-    assert "flash=poll_failed" in location, "expected the poll_failed flash key, got %r" % location
-    assert "flash=save_failed" not in location, (
-        "a poll-trigger failure must never reuse save_failed's misleading copy")
-
-
-# Two genuinely overlapping threads issuing POST /poll-now
-# against the same running server, on a session with zero cooldown, must
-# never both reach run_once() — the per-device poll lock
-# (companion/device_scope.py) is the correctness boundary.
-def test_poll_now_concurrent_requests_serialize_on_the_lock(make_app_server):
-    """two genuinely overlapping POST /poll-now requests: exactly one gets the
-    poll_already_running flash key, proving the per-device poll lock serializes execution"""
-    server = make_app_server(fake_providers=True)
-    base = server.base_url()
-    cookie = login(server)
-
-    start_event = threading.Event()
-    responses = []
-    responses_lock = threading.Lock()
-
-    def _worker():
-        start_event.wait()
-        status, headers, _ = http_request(base + "/poll-now", method="POST", cookie=cookie)
-        with responses_lock:
-            responses.append((status, headers.get("Location", "")))
-
-    threads = [threading.Thread(target=_worker) for _ in range(2)]
-    for t in threads:
-        t.start()
-    start_event.set()
-    for t in threads:
-        t.join(timeout=30)
-
-    assert len(responses) == 2, "expected two responses, got %d: %r" % (len(responses), responses)
-    for status, _location in responses:
-        assert status == 303, "expected both responses to be 303 redirects, got %r" % (responses,)
-    already_running_count = sum(
-        1 for _status, location in responses if "flash=poll_already_running" in location)
-    assert already_running_count == 1, (
-        "expected exactly one of the two overlapping /poll-now requests to receive the "
-        "poll_already_running flash key, got %d of 2: %r" % (already_running_count, responses))
-
-
-# ==========================================================================
 # The save-triggered immediate calendar sync, its four outcomes, the throttle bypass, lock
 # contention, and a URL-leak guard. Every test here uses the
 # `app_server_in_process` fixture (a real ThreadingHTTPServer in THIS
@@ -1186,7 +1077,7 @@ def test_calendar_sync_lock_contention_is_honest(app_server_in_process):
 
 def test_calendar_sync_lock_is_released_after_a_failed_sync(app_server_in_process):
     """after a save whose immediate fetch fails, the poll lock is still free - one failure never
-    wedges a later manual poll trigger"""
+    wedges a later calendar sync"""
     server = app_server_in_process
     session = login(server)
     hostname = "calendar-sync-release.example"
@@ -1201,7 +1092,7 @@ def test_calendar_sync_lock_is_released_after_a_failed_sync(app_server_in_proces
     if reacquired:
         poll_lock.release()
     assert reacquired, (
-        "expected the poll lock to be free after one failed sync - a wedged trigger is the "
+        "expected the poll lock to be free after one failed sync - a wedged sync is the "
         "failure mode the finally-release exists to prevent")
 
 
@@ -1234,33 +1125,6 @@ def test_unrelated_settings_save_never_reaches_the_refresh_call(app_server_in_pr
     registry_after = calendar_rules.load_calendar_registry(server.state_dir)
     assert registry_after["entries"] == registry_before["entries"], (
         "expected the fetched entries to be untouched by an unrelated save")
-
-
-def test_calendar_save_does_not_touch_the_manual_poll_cooldown(app_server_in_process):
-    """a calendar save immediately followed by a manual poll trigger does not hit the poll
-    cooldown - the two mechanisms are independent"""
-    from skypane_test_support import FakeProviders
-
-    server = app_server_in_process
-    session = login(server)
-    hostname = "calendar-sync-cooldown.example"
-    url = "https://%s/feed.ics?token=COOLDOWNTOKEN" % hostname
-    with cah.stubbed_calendar_transport(cah.make_calendar_transport()), \
-            cah.fake_public_hostname(hostname):
-        http_request(
-            server.base_url() + "/settings", method="POST",
-            data=urllib.parse.urlencode({"calendar_url": url}).encode(), cookie=session)
-    # This harness runs companion/app.py's server in a thread of THIS
-    # process, so run_once() sees a plain monkeypatch of requests.get -
-    # FakeProviders().installed() rather than child_env(), which is for a
-    # subprocess child's own interpreter.
-    with FakeProviders().installed():
-        status, headers, _b = http_request(
-            server.base_url() + "/poll-now", method="POST", cookie=session)
-    assert status == 303, "expected a 303 redirect, got %d" % status
-    location = headers.get("Location", "")
-    assert "flash=poll_cooldown" not in location, (
-        "a calendar save must never consume the manual poll trigger's own cooldown, got %r" % location)
 
 
 # ==========================================================================
@@ -1451,9 +1315,9 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
     # render of each route.
     per_route_min = {
         layout.HOME_ROUTE: 0, layout.DISPLAY_ROUTE: 4, layout.FLIGHTS_ROUTE: 0,
-        layout.AIRLINES_ROUTE: 2, layout.HEALTH_ROUTE: 0, layout.DEVICE_ROUTE: 3,
+        layout.AIRLINES_ROUTE: 2, layout.HEALTH_ROUTE: 0, layout.DEVICE_ROUTE: 2,
     }
-    site_total_min = 20
+    site_total_min = 18
 
     skip_counts = {"en": 0, "fr": 0}
     site_total_captions = 0

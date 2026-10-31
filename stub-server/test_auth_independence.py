@@ -144,7 +144,7 @@ def test_frame_authentication_works_with_auth0_unconfigured_or_stopped(world):
 
 @pytest.mark.parametrize("route,method", [
     ("/", "GET"), ("/health", "GET"), ("/account", "GET"),
-    ("/poll-now", "POST"), ("/settings", "POST"), ("/update/install", "POST"),
+    ("/quick/display", "POST"), ("/settings", "POST"), ("/update/install", "POST"),
 ])
 def test_device_credentials_do_not_authenticate_a_companion_route(
         world, route, method):

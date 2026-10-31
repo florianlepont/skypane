@@ -96,7 +96,6 @@ def test_post_origin_ok_rejects_origin_with_missing_host():
 _EXACT_POST_ROUTES = (
     app.LOGIN_ROUTE,
     app.SETTINGS_ROUTE,
-    app.POLL_ROUTE,
     app.QUICK_DISPLAY_ROUTE,
     app.QUICK_QUIET_HOURS_ROUTE,
     app.QUICK_LED_ROUTE,
