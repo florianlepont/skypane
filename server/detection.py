@@ -358,7 +358,8 @@ def _catalogue_spec(
     runway = airports.find_runway(icao, designator)
     if airport is None or runway is None:
         return None
-    assert isinstance(icao, str) and isinstance(designator, str)
+    if not isinstance(icao, str) or not isinstance(designator, str):
+        return None
     legacy_id = _LEGACY_BY_RUNWAY.get((icao, designator))
     if legacy_id is not None:
         return _legacy_spec(legacy_id, geofence_path, False)
@@ -403,7 +404,8 @@ def validate_runway_selection(icao: Any, designator: Any) -> tuple[str, str]:
         raise ValueError("airport")
     if airports.find_runway(icao, designator) is None:
         raise ValueError("runway")
-    assert isinstance(icao, str) and isinstance(designator, str)
+    if not isinstance(icao, str) or not isinstance(designator, str):
+        raise ValueError("airport")
     return icao, designator
 
 

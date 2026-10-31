@@ -94,8 +94,8 @@ CLEAR_THEME_ARRIVING = object()
 # forward, this sentinel removes the key, an object sets it.
 CLEAR_DETECTION = object()
 
-_ICAO_RE = re.compile(r"[A-Z]{2}[A-Z0-9]{2}\Z")
-_DESIGNATOR_PAIR_RE = re.compile(r"\d{2}[LRC]?/\d{2}[LRC]?\Z")
+_ICAO_RE = re.compile(r"[A-Z]{2}[A-Z0-9]{2}\Z", re.ASCII)
+_DESIGNATOR_PAIR_RE = re.compile(r"\d{2}[LRC]?/\d{2}[LRC]?\Z", re.ASCII)
 
 # --- Runway registry -----------------------------------------------------
 #

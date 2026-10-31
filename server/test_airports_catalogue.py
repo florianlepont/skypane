@@ -404,3 +404,17 @@ def test_search_caps_rows_and_reports_total():
     assert len(results) == 20 and total > 20
     keys = [(loader._fold(a.name), a.icao) for a in results]
     assert keys == sorted(keys)
+
+
+def test_search_does_not_match_across_field_boundaries():
+    lfpg = loader.find_airport("LFPG")
+    straddling = "%s %s" % (lfpg.iata, lfpg.name.split()[0])
+    assert lfpg.icao not in [a.icao for a in loader.search_airports(straddling)[0]]
+    assert lfpg.icao in [a.icao for a in loader.search_airports(lfpg.iata)[0]]
+
+
+def test_shape_checks_reject_non_ascii_digits():
+    assert loader.find_runway("LFPG", "٠٨L/٢٦R") is None
+    from server import device_config
+    assert device_config.normalise_detection(
+        {"mode": "runway", "airport": "LFPG", "runway": "٠٨L/٢٦R"}) is None

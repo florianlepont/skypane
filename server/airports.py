@@ -23,8 +23,8 @@ CATALOGUE_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "data", "airports_fr.json"
 )
 
-_ICAO_RE = re.compile(r"^[A-Z]{2}[A-Z0-9]{2}\Z")
-_DESIGNATOR_RE = re.compile(r"^\d{2}[LRC]?/\d{2}[LRC]?\Z")
+_ICAO_RE = re.compile(r"^[A-Z]{2}[A-Z0-9]{2}\Z", re.ASCII)
+_DESIGNATOR_RE = re.compile(r"^\d{2}[LRC]?/\d{2}[LRC]?\Z", re.ASCII)
 
 MAX_QUERY_CHARS = 60
 DEFAULT_SEARCH_LIMIT = 20
@@ -139,14 +139,18 @@ def _fold(text: str) -> str:
 
 
 @lru_cache(maxsize=1)
-def _search_index() -> tuple[tuple[Airport, str, str, str], ...]:
-    """(airport, folded icao, folded iata, folded searchable text) rows."""
+def _search_index() -> tuple[tuple[Airport, str, str, tuple[str, ...]], ...]:
+    """(airport, folded icao, folded iata, folded searchable fields) rows.
+    The fields stay separate so a query never matches across a boundary."""
     return tuple(
         (
             airport,
             _fold(airport.icao),
             _fold(airport.iata),
-            _fold(" ".join((airport.icao, airport.iata, airport.name, airport.municipality))),
+            tuple(
+                _fold(field)
+                for field in (airport.icao, airport.iata, airport.name, airport.municipality)
+            ),
         )
         for airport in load_catalogue().values()
     )
@@ -158,7 +162,7 @@ def search_airports(
     """Airports matching the query and the total number of matches.
 
     Matching is a case- and accent-insensitive substring test over ICAO,
-    IATA, name and municipality. An exact ICAO or IATA match sorts first,
+    IATA, name and municipality, each field on its own. An exact ICAO or IATA match sorts first,
     then by name, then by ICAO. A non-string, empty or control-character
     query matches nothing; the query is capped at MAX_QUERY_CHARS.
     """
@@ -172,8 +176,8 @@ def search_airports(
         return [], 0
     hits = [
         (0 if needle in (icao, iata) else 1, _fold(airport.name), airport.icao, airport)
-        for airport, icao, iata, text in _search_index()
-        if needle in text
+        for airport, icao, iata, fields in _search_index()
+        if any(needle in field for field in fields)
     ]
     hits.sort(key=lambda hit: hit[:3])
     return [hit[3] for hit in hits[: max(0, limit)]], len(hits)
