@@ -3021,6 +3021,13 @@ a.calendar-disconnect-btn.flight-picture-link {
   margin-left: auto;
 }
 
+/* The identifying text may shrink and wrap so a long second line cannot
+ * push the status pill past the card edge on a narrow phone. */
+.data-card__primary > :first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 /* Mirrors .data-table th's own label tier by VALUE, not selector — a
  * harness check pins these two font-size declarations string-equal, so
  * they must always move together. */
