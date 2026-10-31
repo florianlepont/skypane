@@ -20,8 +20,11 @@ distinct new detection is queued rather than shown immediately, and the
 and lose flights.
 
 The poll cycle itself (detect/infer/enrich/render/publish/record) lives in
-server/poll_cycle.py, shared unchanged with the companion's POST /poll-now;
-this module is only the CLI wrapper systemd invokes.
+server/poll_cycle.py, shared by every device. One run of
+this module serves every device of the fleet through server/fleet_cycle.py:
+devices sharing a zone cost one request set, and a failure for one device
+never stops the others. Without a fleet.db it serves the live frame alone,
+as a single-device cycle. The exit status reflects the live frame only.
 
 Usage:
     server/.venv/bin/python3 server/poll_loop.py --once
@@ -39,7 +42,8 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from server.poll_cycle import PollBusy, run_once  # noqa: E402
+from server.fleet_cycle import FleetResult, run_fleet  # noqa: E402
+from server.poll_cycle import run_once  # noqa: E402
 from server.state_store import DEFAULT_STATE_DIR  # noqa: E402
 
 
@@ -49,7 +53,7 @@ def build_parser():
         "--once",
         action="store_true",
         help="Run a single poll cycle and exit. This script is always single-cycle "
-             "(a systemd timer, added in plan 02-05, drives the 30s repeat cadence) - "
+             "(a systemd timer drives the 30s repeat cadence) - "
              "accepted for explicitness at the CLI.",
     )
     parser.add_argument(
@@ -72,28 +76,44 @@ def build_parser():
     return parser
 
 
+def _report(result: FleetResult) -> int:
+    """Print the run summary and per-failure lines; 1 only for a live-frame failure."""
+    print(
+        "poll_loop: fleet ok=%d held=%d busy=%d failed=%d deferred=%d skipped=%d "
+        "zones=%d requests=%d" % (
+            result.count("ok"), result.count("held"), result.count("busy"),
+            result.count("failed"), result.count("deferred"), result.count("skipped"),
+            result.zone_fetches, result.requests))
+    exit_code = 0
+    for outcome in result.outcomes:
+        if outcome.status not in ("busy", "failed"):
+            continue
+        if not outcome.is_live:
+            print("poll_loop: device %s %s: %s" % (outcome.device_id, outcome.status, outcome.detail))
+        elif outcome.status == "busy":
+            # Another process (the companion, or an overlapping timer firing)
+            # is mid-cycle: an expected, bounded wait outcome, not a bug.
+            print(outcome.detail)
+            exit_code = 1
+        else:
+            # journald captures stdout, so the traceback goes there too.
+            print("poll_loop: cycle failed: %s" % outcome.detail)
+            print(outcome.trace, end="")
+            exit_code = 1
+    return exit_code
+
+
 def main(argv=None):
     args = build_parser().parse_args(argv)
     try:
-        run_once(state_dir=args.state_dir, geofence=args.geofence, caddy_log=args.caddy_log)
-    except PollBusy as exc:
-        # Distinct from the generic failure below: another process (the
-        # companion, or an overlapping timer firing) is mid-cycle, not a
-        # cycle that itself failed. No traceback - this is an expected,
-        # bounded wait outcome, not a bug.
-        print(str(exc))
-        return 1
+        result = run_fleet(args.state_dir, args.geofence, args.caddy_log, runner=run_once)
     except Exception as exc:
-        # A failed cycle must leave the previously served panel intact and
-        # never crash-loop the systemd timer silently - log to stdout
-        # (journald captures this) and exit non-zero.
+        # A failed run must leave the previously served panels intact and
+        # never crash-loop the systemd timer silently.
         print("poll_loop: cycle failed: %s: %s" % (type(exc).__name__, exc))
-        # journald captures stdout, not this process's own traceback
-        # rendering choices - a one-line summary alone leaves no way to
-        # tell which line raised without reproducing the failure locally.
         traceback.print_exc(file=sys.stdout)
         return 1
-    return 0
+    return _report(result)
 
 
 if __name__ == "__main__":

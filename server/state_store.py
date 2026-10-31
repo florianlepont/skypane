@@ -108,8 +108,8 @@ def serialize_poll_state(state: dict[str, object]) -> str:
 
 def save_poll_state(state_dir: str, state: dict[str, object]) -> None:
     """Atomic same-directory-mkstemp-then-os.replace() via atomic_io, so
-    two processes writing this same path (the systemd oneshot and the
-    companion's POST /poll-now) can never collide on one fixed temp name.
+    two processes writing this same path (the systemd oneshot and an
+    overlapping run) can never collide on one fixed temp name.
     Always writes, unconditionally - the public seam the test suite uses
     to seed a poll_state.json directly; the write-once-only-if-changed
     decision lives in `persist_poll_state_if_changed()`.

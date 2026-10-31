@@ -10,8 +10,8 @@ enforces it, in this one file. Binds
 `--bind 0.0.0.0` by default; production passes `--bind 127.0.0.1`
 because Caddy is the only intended client.
 
-Never writes the poll pipeline's own persisted flight-state file —
-`server.poll_cycle.run_once()` is that file's one legitimate writer.
+Never writes the poll pipeline's own persisted flight-state file; the
+poll process is its one writer and the only consumer of the ADS-B budget.
 
 `main()` fails closed on an incomplete Auth0 configuration rather than
 starting with sign-in silently unavailable.
@@ -109,7 +109,6 @@ FRESHNESS_SCRIPT_ROUTE = static_files.FRESHNESS_SCRIPT_ROUTE
 PANEL_LOOKUP_SCRIPT_ROUTE = static_files.PANEL_LOOKUP_SCRIPT_ROUTE
 FLASH_CLEANUP_SCRIPT_ROUTE = static_files.FLASH_CLEANUP_SCRIPT_ROUTE
 TOAST_SCRIPT_ROUTE = static_files.TOAST_SCRIPT_ROUTE
-POLL_COOLDOWN_SCRIPT_ROUTE = static_files.POLL_COOLDOWN_SCRIPT_ROUTE
 CONFIRM_SUBMIT_SCRIPT_ROUTE = static_files.CONFIRM_SUBMIT_SCRIPT_ROUTE
 THEME_PREVIEW_SCRIPT_ROUTE = static_files.THEME_PREVIEW_SCRIPT_ROUTE
 SUBMIT_GUARD_SCRIPT_ROUTE = static_files.SUBMIT_GUARD_SCRIPT_ROUTE
@@ -122,7 +121,6 @@ CALENDAR_SHEET_SCRIPT_ROUTE = static_files.CALENDAR_SHEET_SCRIPT_ROUTE
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
 # FLASH_KEY_* constants below.
 SETTINGS_ROUTE = config_page.SETTINGS_ROUTE
-POLL_ROUTE = "/poll-now"
 
 # The page routes. All six live tabs are declared once, in
 # companion/layout.py's NAV_GROUPS; these aliases exist so this module's
@@ -190,12 +188,6 @@ UPDATE_CANCEL_ROUTE = update_page.CANCEL_ROUTE
 # stays unchanged.
 FLASH_KEY_SAVED = flash.FLASH_KEY_SAVED
 FLASH_KEY_SAVE_FAILED = flash.FLASH_KEY_SAVE_FAILED
-FLASH_KEY_POLL_TRIGGERED = flash.FLASH_KEY_POLL_TRIGGERED
-FLASH_KEY_POLL_COOLDOWN = flash.FLASH_KEY_POLL_COOLDOWN
-FLASH_KEY_POLL_FAILED = flash.FLASH_KEY_POLL_FAILED
-FLASH_KEY_POLL_ALREADY_RUNNING = flash.FLASH_KEY_POLL_ALREADY_RUNNING
-FLASH_KEY_DEVICE_POLL_DONE = flash.FLASH_KEY_DEVICE_POLL_DONE
-FLASH_KEY_DEVICE_POLL_UNSUPPORTED = flash.FLASH_KEY_DEVICE_POLL_UNSUPPORTED
 FLASH_KEY_ILLUSTRATION_REPLACED = flash.FLASH_KEY_ILLUSTRATION_REPLACED
 FLASH_KEY_ILLUSTRATION_REJECTED = flash.FLASH_KEY_ILLUSTRATION_REJECTED
 FLASH_KEY_ILLUSTRATION_REPLACE_FAILED = flash.FLASH_KEY_ILLUSTRATION_REPLACE_FAILED
@@ -251,8 +243,8 @@ _not_modified = static_files.not_modified
 
 
 # The in-process poll guard is per device directory
-# (`device_scope.poll_lock_for()`); cross-process exclusion is
-# poll_cycle.poll_cycle_lock()'s poll.lock, taken inside run_once().
+# (`device_scope.poll_lock_for()`); the calendar-connect sync takes it so
+# it never overlaps a running poll cycle.
 
 # The same six (route, label) pairs layout.NAV_TABS already carries as
 # Messages — reused rather than re-declared, so this dict's labels never
@@ -285,7 +277,6 @@ _PAGE_SCRIPTS = {
     ),
     layout.DEVICE_ROUTE: (
         layout.DIRTY_STATE_SCRIPT_SRC,
-        layout.POLL_COOLDOWN_SCRIPT_SRC,
         layout.QUICK_SWITCH_SCRIPT_SRC,
         layout.VALUE_CONTROLS_SCRIPT_SRC,
     ),
@@ -340,30 +331,21 @@ def _validated_next_route(candidate):
     return candidate if candidate in allowed else None
 
 
-# The flash-text resolution (_resolve_flash_text()) and the poll-trigger
-# cooldown read (poll_cooldown_remaining()) now live in companion/flash.py
-# — rebound here under their historical names.
+# The flash-text resolution (_resolve_flash_text()) lives in
+# companion/flash.py — rebound here under its historical name.
 _resolve_flash_text = flash.resolve_flash_text
-poll_cooldown_remaining = flash.poll_cooldown_remaining
 
-# page_context()'s own lazy loaders (_safe_poll_cooldown_remaining(),
-# _lazy_health_state(), _lazy_health_severity()), the Settings form's
+# page_context()'s own lazy loaders (_lazy_health_state(),
+# _lazy_health_severity()), the Settings form's
 # SKYPANE_SLEEP_S pre-fill (env_wake_interval_default()), and the last-
 # check-in reader page_context() shares with resolve_flash_text()
 # (_safe_last_checkin_ts()) all now live in companion/page_context.py —
 # rebound here under their historical names for the tests that still read
 # them off this module.
-_safe_poll_cooldown_remaining = page_context._safe_poll_cooldown_remaining
 _lazy_health_state = page_context._lazy_health_state
 _lazy_health_severity = page_context._lazy_health_severity
 env_wake_interval_default = page_context.env_wake_interval_default
 _safe_last_checkin_ts = page_context._safe_last_checkin_ts
-
-
-def mark_poll_triggered(state_dir):
-    with history_db.open_db(state_dir) as conn:
-        history_db.set_meta(
-            conn, history_db.META_LAST_POLL_TRIGGER, str(int(time.time())))
 
 
 # gallery_entries() (page_context()'s own lazy loader) and
@@ -1031,61 +1013,6 @@ class Handler(
         """
         return self.redirect("%s?flash=%s" % (back, quote(flash_key)))
 
-    def _handle_poll_now(self, device):
-        """POST /poll-now for `device`: one poll cycle against that
-        device's directory only, under its own lock and cooldown. The
-        trigger lives on Home (Refresh now) and on Device (Poll); the
-        redirect goes back to whichever page posted it. A hardware type
-        the cycle cannot render is refused before any directory is
-        touched.
-        """
-        back = self._referring_tab()
-        if not device_scope.poll_supported(device):
-            return self.redirect(
-                "%s?flash=%s" % (back, quote(FLASH_KEY_DEVICE_POLL_UNSUPPORTED)))
-        poll_lock = device_scope.poll_lock_for(device.state_dir)
-        # Non-blocking acquire, never a timeout.
-        if not poll_lock.acquire(blocking=False):
-            # The loser gets an honest "already running" redirect rather
-            # than racing into a second poll cycle.
-            return self.redirect(
-                "%s?flash=%s" % (back, quote(FLASH_KEY_POLL_ALREADY_RUNNING)))
-        try:
-            state_dir = device.state_dir
-            remaining = poll_cooldown_remaining(state_dir)
-            if remaining > 0:
-                flash = FLASH_KEY_POLL_COOLDOWN
-            else:
-                try:
-                    # The exact production code path the systemd timer
-                    # already runs, in-process — never a second process
-                    # and never a re-parsed subprocess result. No caddy
-                    # log: the battery log belongs to the live frame.
-                    # lock_timeout_s=0: never block this request thread on
-                    # poll.lock — a lock held by another process (the
-                    # oneshot, or an overlapping trigger) must answer at
-                    # once, exactly like the in-process lock above.
-                    # The firmware registry is global, so only the live
-                    # frame's cycle reconciles it.
-                    poll_cycle.run_once(
-                        state_dir=state_dir, geofence=self.args.geofence,
-                        lock_timeout_s=0, reconcile_firmware=device.is_live)
-                except poll_cycle.PollBusy:
-                    flash = FLASH_KEY_POLL_ALREADY_RUNNING
-                except Exception:
-                    flash = FLASH_KEY_POLL_FAILED
-                else:
-                    mark_poll_triggered(state_dir)
-                    flash = (
-                        FLASH_KEY_POLL_TRIGGERED if device.is_live
-                        else FLASH_KEY_DEVICE_POLL_DONE)
-        finally:
-            # A failed poll still releases the guard: never a wedged trigger.
-            poll_lock.release()
-        # Written only after release, so an immediate double-tap sees
-        # the lock already free rather than a stale "already running".
-        return self.redirect("%s?flash=%s" % (back, quote(flash)))
-
     def _handle_quick_toggle(
             self, device, field, allowed_return_to=None, fallback_return_to=None):
         """The Home page's one-tap switches. `state` ("on"/"off") is the
@@ -1299,15 +1226,13 @@ def build_parser():
         "--state-dir",
         default=state_store.DEFAULT_STATE_DIR,
         help="Directory holding the poll pipeline's own state (default: "
-             "server/state/) — read-only from this service's perspective "
-             "except via the real production poll cycle POST /poll-now "
-             "triggers.",
+             "server/state/) — read-only from this service's perspective.",
     )
     parser.add_argument(
         "--geofence",
         default=None,
-        help="Path to the geofence JSON forwarded to a manually-triggered "
-             "poll cycle (default: adsb-test/runway3.json).",
+        help="Accepted for unit-file compatibility with the poll service; "
+             "the companion runs no poll cycle and ignores it.",
     )
     return parser
 
@@ -1327,10 +1252,8 @@ def main():
 
     # Matches stub-server/byos_server.py's own main(): stdout is fully
     # buffered (not line-buffered) once journald redirects it away from a
-    # TTY, which can silently lose this process's own startup line and
-    # every server.poll_cycle print (still prefixed "poll_loop: ") a POST
-    # /poll-now trigger emits if the service is ever killed before the
-    # buffer next flushes.
+    # TTY, which can silently lose this process's own startup line if
+    # the service is ever killed before the buffer next flushes.
     sys.stdout.reconfigure(line_buffering=True)
 
     Handler.args = args

@@ -15,11 +15,6 @@
 (function () {
   "use strict";
 
-  // poll-cooldown.js's own handshake attribute. A control carrying it
-  // manages its own disabled state, including re-enabling itself, and
-  // this file must not touch it.
-  var COOLDOWN_OWNED_ATTR = "data-submit-pending";
-
   // Every control this file has disabled, so a bfcache restore can put
   // exactly those back and nothing else.
   var disabledControls = [];
@@ -69,9 +64,6 @@
     if (!control || control.disabled) {
       return;
     }
-    if (control.hasAttribute && control.hasAttribute(COOLDOWN_OWNED_ATTR)) {
-      return;
-    }
     window.setTimeout(function () {
       // Another listener may have cancelled the submission (the
       // leave-page dialog is one way); a form going nowhere keeps a
@@ -86,7 +78,7 @@
 
   // A page restored from bfcache comes back with any control this file
   // disabled still disabled. Only controls this file itself disabled
-  // are restored, so a button the server or poll-cooldown.js
+  // are restored, so a button the server
   // deliberately disabled stays that way.
   window.addEventListener("pageshow", function (evt) {
     if (!evt.persisted) {

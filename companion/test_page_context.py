@@ -79,9 +79,9 @@ def test_page_context_getattr_resolves_a_loader_once():
         calls.append(1)
         return 42
 
-    ctx = page_context.PageContext({}, {"poll_cooldown_remaining": _load})
-    assert ctx.poll_cooldown_remaining == 42
-    assert ctx.poll_cooldown_remaining == 42
+    ctx = page_context.PageContext({}, {"calendar_drift": _load})
+    assert ctx.calendar_drift == 42
+    assert ctx.calendar_drift == 42
     assert len(calls) == 1, "expected the loader to run exactly once, got %d" % len(calls)
 
 
@@ -94,8 +94,8 @@ def test_page_context_is_resolved_never_triggers_the_loader():
         calls.append(1)
         return "computed"
 
-    ctx = page_context.PageContext({}, {"poll_cooldown_remaining": _load})
-    assert ctx.is_resolved("poll_cooldown_remaining") is False
+    ctx = page_context.PageContext({}, {"calendar_drift": _load})
+    assert ctx.is_resolved("calendar_drift") is False
     assert len(calls) == 0, "expected is_resolved() to never resolve the loader"
     assert ctx.is_resolved("state_dir") is True, (
         "expected a declared eager field to always report resolved")
@@ -113,12 +113,12 @@ def test_page_context_getattr_keeps_a_raising_loader_pending_for_retry():
             raise RuntimeError("simulated loader failure")
         return "computed on retry"
 
-    ctx = page_context.PageContext({}, {"poll_cooldown_remaining": _flaky_load})
+    ctx = page_context.PageContext({}, {"calendar_drift": _flaky_load})
     with pytest.raises(RuntimeError):
-        ctx.poll_cooldown_remaining
-    assert ctx.is_resolved("poll_cooldown_remaining") is False, (
+        ctx.calendar_drift
+    assert ctx.is_resolved("calendar_drift") is False, (
         "expected the field to remain a pending loader after the raise")
-    assert ctx.poll_cooldown_remaining == "computed on retry"
+    assert ctx.calendar_drift == "computed on retry"
     assert len(calls) == 2, "expected exactly one retry after the first raise, got %d calls" % len(calls)
 
 
@@ -143,8 +143,8 @@ def test_coerce_defaults_every_undeclared_field_to_none_and_runs_no_loader():
     ctx = page_context.coerce({"state_dir": "state-dir-placeholder"})
     assert ctx.state_dir == "state-dir-placeholder"
     assert ctx.now is None
-    assert ctx.poll_cooldown_remaining is None
-    assert ctx.is_resolved("poll_cooldown_remaining") is True
+    assert ctx.calendar_drift is None
+    assert ctx.is_resolved("calendar_drift") is True
 
 
 def test_coerce_rejects_an_unknown_field_by_name():
@@ -367,10 +367,9 @@ def test_expensive_registries_load_lazily_at_most_once_per_request(
 
 def test_a_database_fault_degrades_every_page_to_200_instead_of_500ing(
         app_server_in_process, monkeypatch):
-    """sqlite3.connect raising: GET /flights and GET / (neither of which ever reads
-    poll_cooldown_remaining) still return 200 with their sections' own pre-existing unavailable
-    blocks; GET /device (which does read it) also returns 200, with the poll-trigger button
-    rendered enabled rather than the page 500ing over one meta-table read"""
+    """sqlite3.connect raising: GET /flights, GET / and GET /device
+    still return 200 with their sections' own pre-existing unavailable blocks rather than
+    the page 500ing over one database read"""
     server = app_server_in_process
     session = login(server)  # succeeds before the fault is injected
 
@@ -395,16 +394,9 @@ def test_a_database_fault_degrades_every_page_to_200_instead_of_500ing(
         "expected Flights to degrade to 200 with the database unavailable, got %d"
         % status_flights)
 
-    status_device, _headers3, body3 = http_request(server.url(layout.DEVICE_ROUTE), cookie=session)
+    status_device, _headers3, _body3 = http_request(server.url(layout.DEVICE_ROUTE), cookie=session)
     assert status_device == 200, (
         "expected Device to degrade to 200 with the database unavailable, got %d" % status_device)
-    button_match = re.search(
-        rb'<button type="submit" id="%s"[^>]*>' % config_page.POLL_TRIGGER_BUTTON_ID.encode(),
-        body3)
-    assert button_match, "expected the poll-trigger button to render at all on Device"
-    assert b"disabled" not in button_match.group(0), (
-        "expected poll_cooldown_remaining to degrade to 0 (an enabled button) rather than the "
-        "database fault raising through the page render, got %r" % button_match.group(0))
 
 
 # ==========================================================================
@@ -417,11 +409,11 @@ def test_a_plain_dict_context_still_works_for_a_page_modules_render(tmp_path):
     concrete type: a plain, ordinary dict built the way every existing page unit test does still
     renders correctly"""
     plain_ctx = {
-        "state_dir": str(tmp_path), "device_config": {}, "poll_cooldown_remaining": 0,
+        "state_dir": str(tmp_path), "device_config": {},
         "ui_theme": "auto", "now": history_db.utc_now_iso(),
         "wake_interval_env_default": None,
     }
     body = config_page.render(plain_ctx, scope=config_page.SCOPE_DEVICE)
-    assert config_page.POLL_TRIGGER_BUTTON_ID in body, (
-        "expected config_page.render() to accept a plain dict ctx and still render the poll "
-        "trigger button")
+    assert 'name="wake_interval_s"' in body, (
+        "expected config_page.render() to accept a plain dict ctx and still render the Device "
+        "page's wake-interval group")

@@ -166,12 +166,6 @@ MESSAGES = {
         "Ce réglage réveille le cadre toutes les # min au lieu de toutes "
         "les %d min.",
     "display.uses_server_default": "Utilise la valeur par défaut du serveur",
-    "display.refresh_now": "Actualiser maintenant",
-    "display.request_a_server_check_for_new_flight_data":
-        "Demandez au serveur de vérifier maintenant les nouvelles données de vol.",
-    "display.polling": "Vérification en cours…",
-    "display.poll_triggered_recently_try_again_in_n_s":
-        "Vérification déclenchée récemment — réessayez dans {n} s.",
 
     # --- Save --------------------------------------------------------
     "display.save_settings": "Enregistrer les réglages",
@@ -221,9 +215,4 @@ MESSAGES = {
     "display.timezone_opt_tahiti": "Polynésie française (Tahiti)",
     "display.timezone_opt_new_caledonia": "Nouvelle-Calédonie",
     "display.timezone_opt_wallis_futuna": "Wallis-et-Futuna",
-
-    # --- Poll section, per device -------------------------------------
-    "display.poll_scope_caption": "Lance une vérification pour {device} uniquement.",
-    "display.poll_unsupported_caption":
-        "Indisponible pour ce type d’écran pour l’instant.",
 }

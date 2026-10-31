@@ -37,7 +37,6 @@ def test_render_emits_no_fieldset_or_legend_four_groups_three_runway_cards_and_s
     interval), three runway-card labels, and a Save settings submit button"""
     ctx = {
         "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
-        "poll_cooldown_remaining": 0,
     }
     rendered = config_page.render(ctx)
     assert "<fieldset" not in rendered
@@ -171,7 +170,6 @@ def test_render_wires_quiet_hours_group_after_led_before_save_button():
             "quiet_hours_enabled": True, "quiet_hours_start": "22:30",
             "quiet_hours_end": "06:15",
         },
-        "poll_cooldown_remaining": 0,
     })
     assert 'value="22:30"' in rendered and 'value="06:15"' in rendered
     # No scope renders a quiet_hours_enabled checkbox; the Frame strip is
@@ -233,7 +231,6 @@ def test_render_places_wake_interval_last_and_resolves_prefill():
     is None"""
     base_ctx = {
         "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
-        "poll_cooldown_remaining": 0,
     }
     rendered = config_page.render(base_ctx)
     # "Theme" does not render on this legacy SCOPE_ALL page, so it is
@@ -265,7 +262,7 @@ def test_no_page_and_no_scope_renders_a_display_or_quiet_hours_on_off_checkbox(t
     setting"""
     base_ctx = {
         "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
-        "state_dir": str(tmp_path), "poll_cooldown_remaining": 0,
+        "state_dir": str(tmp_path),
     }
     legacy = config_page.render(base_ctx)
     display = config_page.render(base_ctx, scope=config_page.SCOPE_DISPLAY)
@@ -284,7 +281,7 @@ def test_no_js_floor_holds_on_display_and_device_after_the_checkbox_removal(tmp_
     either way), and a plain (no-JS) POST still round-trips the Quiet hours schedule"""
     base_ctx = {
         "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
-        "state_dir": str(tmp_path), "poll_cooldown_remaining": 0,
+        "state_dir": str(tmp_path),
     }
     for scope in (config_page.SCOPE_DISPLAY, config_page.SCOPE_DEVICE):
         rendered = config_page.render(base_ctx, scope=scope)
@@ -364,12 +361,11 @@ def test_handle_post_theme_only_save_never_flips_display_quiet_hours_or_led_off(
 
 
 def test_every_settings_group_is_named_exactly_once():
-    """all four Config settings groups (Theme/Runway/Diagnostic LED/Poll) are named exactly
+    """all four Config settings groups (Theme/Runway/Diagnostic LED) are named exactly
     once, all via the shared <h2 class="text-heading"> role, with zero <legend> and zero
     <fieldset> anywhere on the page"""
     ctx = {
         "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
-        "poll_cooldown_remaining": 0,
     }
     rendered = config_page.render(ctx)
     # Runway's and Diagnostic LED's own <h2> each carry an id (an
@@ -379,7 +375,7 @@ def test_every_settings_group_is_named_exactly_once():
         "Runway": config_page.RUNWAY_GROUP_HEADING_ID,
         "Diagnostic LED": config_page.QUICK_LED_LABEL_ID,
     }
-    for name in ("Runway", "Diagnostic LED", config_page.POLL_SECTION_HEADING):
+    for name in ("Runway", "Diagnostic LED"):
         heading_id = heading_ids.get(name)
         if heading_id:
             heading = '<h2 class="text-heading" id="%s">%s</h2>' % (escape_html(heading_id), name)
@@ -396,7 +392,6 @@ def test_render_opens_with_shared_page_header():
     """Settings opens with the shared layout.page_header() component, not a bare <h1>"""
     rendered = config_page.render({
         "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
-        "poll_cooldown_remaining": 0,
     })
     assert '<h1 class="page-title">Settings</h1>' in rendered
     assert '<h1 class="text-heading">' not in rendered
@@ -407,7 +402,6 @@ def test_settings_form_carries_config_form_class_hook():
     fieldset layout targets"""
     rendered = config_page.render({
         "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
-        "poll_cooldown_remaining": 0,
     })
     assert 'class="config-form"' in rendered
     expected_tag = (
@@ -425,7 +419,6 @@ def test_aspect_card_covers_every_registered_theme_with_own_id_and_label():
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-        "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
     root = parse_html(rendered)
     theme_ids = device_config.THEME_IDS
@@ -459,7 +452,6 @@ def test_aspect_card_default_selects_exactly_the_white_departures_option():
     rendered = config_page.render({
         "device_config": {"theme": device_config.DEFAULT_THEME_ID, "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-        "poll_cooldown_remaining": 0,
     }, scope=config_page.SCOPE_DISPLAY)
     root = parse_html(rendered)
     for field_name, expected_value in (

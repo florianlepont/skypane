@@ -5,6 +5,13 @@ Description=SkyPane poll cycle (detect -> infer -> enrich -> render -> atomic sw
 # the error goes to journald and the previously rendered panel.bin keeps
 # being served by skypane-byos.service.
 #
+# One run serves every device of the fleet: devices in the same zone share
+# one pair of ADS-B requests, and the request budget (spacing between calls,
+# provider pauses) is persisted in the state root, so overlapping runs share
+# it. No new zone or device starts after 25 s; together with the one zone
+# that may be in flight at that point, a run stays below TimeoutStartSec=90s.
+# Devices not reached in time keep their current image and go first next time.
+#
 # No systemd IP address allow-list filter here: this process calls the
 # ADS-B providers on every cycle.
 After=network-online.target

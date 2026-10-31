@@ -84,7 +84,6 @@ class Route(collections.namedtuple(
 LOGIN_ROUTE = "/login"
 AUTH0_LOGIN_ROUTE = "/login/auth0"
 CALLBACK_ROUTE = "/callback"
-POLL_ROUTE = "/poll-now"
 HISTORY_LEGACY_ROUTE = "/history"
 PREVIEW_PAGE_ROUTE = "/preview"
 QUICK_DISPLAY_ROUTE = "/quick/display"
@@ -216,7 +215,6 @@ _POST_ROUTES = (
     Route(
         "POST", Exact(SETTINGS_ROUTE),
         lambda h, m: h._handle_settings_post(m.device), ADMIN_ONLY),
-    Route("POST", Exact(POLL_ROUTE), lambda h, m: h._handle_poll_now(m.device), ADMIN_ONLY),
     Route(
         "POST", Exact(QUICK_DISPLAY_ROUTE),
         lambda h, m: h._handle_quick_toggle(m.device, "display_enabled"), ADMIN_ONLY),
@@ -288,7 +286,6 @@ _PAGE_AND_IMAGE_KEYS = (
 
 _ACTION_KEYS = (
     ("POST", Exact(SETTINGS_ROUTE)),
-    ("POST", Exact(POLL_ROUTE)),
     ("POST", Exact(QUICK_DISPLAY_ROUTE)),
     ("POST", Exact(QUICK_QUIET_HOURS_ROUTE)),
     ("POST", Exact(QUICK_LED_ROUTE)),

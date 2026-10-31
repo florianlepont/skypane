@@ -1,6 +1,6 @@
 """Tests the second half of the static-script gauntlet: dirty-state.js's
 own animation contract, freshness.js/panel-lookup.js/flash-cleanup.js/
-poll-cooldown.js/confirm-submit.js/theme-preview.js/flight-rows.js/
+confirm-submit.js/theme-preview.js/flight-rows.js/
 submit-guard.js/relative-time.js/quick-switch.js/value-controls.js
 (each script's public-route check, ES5-safe/sink-free contract, and
 route/src cross-file agreement), the relative-time/duration wording
@@ -275,47 +275,6 @@ def test_flash_cleanup_script_route_src_agree():
 
 
 # ==========================================================================
-# poll-cooldown.js 
-# ==========================================================================
-
-
-def test_poll_cooldown_script_public(app03_server):
-    """GET /static/poll-cooldown.js succeeds without a session and returns a shared-cacheable
-    JavaScript content type"""
-    status, headers, body = http_request(app03_server.base_url() + "/static/poll-cooldown.js")
-    assert status == 200, "expected 200, got %d" % status
-    assert "text/javascript" in headers.get("Content-Type", ""), (
-        "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
-    assert body, "expected a non-empty script body"
-    assert "no-cache" in headers.get("Cache-Control", ""), (
-        "expected Cache-Control no-cache, got %r" % headers.get("Cache-Control", ""))
-
-
-def test_poll_cooldown_script_es5_safe_and_no_html_write(app03_server):
-    """poll-cooldown.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/
-    innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR), and carries both the countdown (textContent/removeAttribute/setInterval/clearInterval) and the disable-on-submit affordance (addEventListener)"""
-    src = served_asset(app03_server, "/static/poll-cooldown.js")
-    assert src.count('"use strict"') == 1, (
-        "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
-    banned = (
-        "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
-        "insertAdjacentHTML", "document.write", "eval(", "fetch(",
-        "XMLHttpRequest")
-    for token in banned:
-        assert token not in src, "poll-cooldown.js must not contain %r" % token
-    required = (
-        "textContent", "removeAttribute", "setInterval",
-        "clearInterval", "addEventListener")
-    for token in required:
-        assert token in src, "expected %r in poll-cooldown.js" % token
-
-
-def test_poll_cooldown_script_route_src_agree():
-    """layout.POLL_COOLDOWN_SCRIPT_SRC equals companion.app.POLL_COOLDOWN_SCRIPT_ROUTE"""
-    assert layout.POLL_COOLDOWN_SCRIPT_SRC == app_module.POLL_COOLDOWN_SCRIPT_ROUTE
-
-
-# ==========================================================================
 # confirm-submit.js 
 # ==========================================================================
 
@@ -413,12 +372,12 @@ def test_theme_preview_script_tag_exactly_once_and_no_bare_inline_script():
         pytest.fail("expected no inline <script> without a src, found %r" % match.group(0))
 
 
-def test_sixteen_deferred_scripts_before_closing_body():
+def test_fifteen_deferred_scripts_before_closing_body():
     """Per-page scripts: a bare page_shell() call emits only
     GLOBAL_PAGE_SCRIPTS' 5 tags before the closing body tag; asking for
     every other SHELL_SCRIPT_ORDER script via `scripts=` still emits all
-    sixteen together, including panel-lookup.js, flash-cleanup.js, toast.js,
-    poll-cooldown.js, confirm-submit.js, theme-preview.js,
+    fifteen together, including panel-lookup.js, flash-cleanup.js, toast.js,
+    confirm-submit.js, theme-preview.js,
     submit-guard.js, relative-time.js, quick-switch.js,
     value-controls.js and calendar-sheet.js — and none of submit-guard.js/relative-time.js/
     quick-switch.js/value-controls.js on the login shell, which emits no script"""
@@ -437,11 +396,11 @@ def test_sixteen_deferred_scripts_before_closing_body():
     body_close = doc.index("</body>")
     head = doc[:body_close]
     count = head.count('<script src=')
-    assert count == 16, "expected exactly 16 deferred <script src= tags before </body>, got %d" % count
+    assert count == 15, "expected exactly 15 deferred <script src= tags before </body>, got %d" % count
     for src_const in (
             layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
             layout.TOAST_SCRIPT_SRC,
-            layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC,
+            layout.CONFIRM_SUBMIT_SCRIPT_SRC,
             layout.THEME_PREVIEW_SCRIPT_SRC,
             layout.SUBMIT_GUARD_SCRIPT_SRC, layout.RELATIVE_TIME_SCRIPT_SRC,
             layout.QUICK_SWITCH_SCRIPT_SRC, layout.VALUE_CONTROLS_SCRIPT_SRC,
@@ -475,7 +434,7 @@ def test_submit_guard_script_serves_shared_disable_on_submit_guard(app03_server,
     delegates a submit listener and disables the submitting control from a ZERO-DELAY TIMER (so
     the browser has already built the form data set, which is what keeps the named theme/
     language submit buttons working), stands down when another listener cancelled the
-    submission, skips the control poll-cooldown.js already owns, writes no label at all, reuses
+    submission, writes no label at all, reuses
     the ONE existing button:disabled rule still ordered after button:active, and changes no CSP"""
     text = served_asset(app03_server, "/static/submit-guard.js")
     for banned in ("innerHTML", "insertAdjacentHTML", "document.write", "eval(",
@@ -487,8 +446,6 @@ def test_submit_guard_script_serves_shared_disable_on_submit_guard(app03_server,
         "expected the disable to run from a zero-delay timer, not inline in the listener (T14)")
     assert "evt.defaultPrevented" in text, (
         "expected the guard to stand down when another listener cancelled the submission")
-    assert "data-submit-pending" in text, (
-        "expected the guard to skip the control poll-cooldown.js already owns")
     for progress_word in ("Saving", "Enregistrement", "textContent"):
         assert progress_word not in text, (
             "the guard must write only the `disabled` property — a progress label is D3, "

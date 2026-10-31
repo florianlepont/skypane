@@ -157,6 +157,9 @@ document.
   operator changed — survive forever (02-RESEARCH.md: tens to low
   hundreds of enrichment calls/day for this airport's traffic,
   live-verified at a 52.6% real-world hit rate).
+- **Cache TTL review:** the thirty-day positive cache TTL is unchanged by
+  the fleet work (the shared cache reuses `enrich.py`'s TTLs) and is
+  flagged for review in the credits phase (Phase 56).
 - **Verdict:** used within the bounds of what a free, unauthenticated,
   crowdsourced lookup service reasonably expects — low request volume,
   no redistribution of its dataset, self-identifying `User-Agent` string
@@ -248,6 +251,38 @@ document.
   it appears in, and at most once per TTL window otherwise (one day for
   a miss, thirty days for a hit) — never once per poll cycle regardless
   of how many cycles that aircraft is tracked across.
+
+## Fleet-wide ADS-B request budget
+
+The fleet poll cycle serves every device from one shared, persisted budget.
+This section supersedes the parallel two-request description under "Poll
+cadence" above for the production cycle; nothing in the provider sections
+is relaxed.
+
+- **Global spacing:** at most one ADS-B request is started in any
+  1.1-second window across the whole fleet, whichever provider, zone or
+  process spends it. The spacing is enforced through a lock-guarded ledger
+  file (`request_ledger.json`) in the state root, so overlapping processes
+  share it. adsb.fi is used under its documented personal, non-commercial
+  terms with the citation above, and at most 1 request/second [CITED:
+  github.com/adsbfi/opendata].
+- **Sequential per zone:** devices polling the same zone (same centre and
+  radius) share one upstream request set: adsb.fi first, then adsb.lol, one
+  after the other, not in parallel. A hundred devices in six zones cost
+  twelve requests per cycle, not two hundred.
+- **Failure pause:** a provider that fails, times out or answers with a
+  4xx (including 429) is paused for 60 seconds for every device and
+  process; a paused provider is not queried at all.
+- **Capacity:** no new zone starts more than 25 seconds into a cycle, so
+  roughly a dozen zones fit in a 30-second cycle; zones left over are
+  served first on the next cycle (oldest-served first, the live frame's
+  zone always first).
+- **airplanes.live is never used for the fleet.** It stays an explicit,
+  single-device `--provider` opt-in.
+- **adsbdb lookups are deduplicated across devices** through a shared
+  cache in the state root, with the TTLs unchanged (one day for a miss,
+  thirty days for a hit), so a callsign seen by several devices costs one
+  lookup.
 
 ## Status table
 

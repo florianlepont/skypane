@@ -137,7 +137,7 @@ def test_a_user_role_session_gets_the_unknown_path_404_on_admin_routes(app_serve
         assert status == 404
         assert body == unknown[2]
     status, _headers, body = http_request(
-        server.url("/poll-now"), method="POST", data=b"", cookie=cookie,
+        server.url("/settings"), method="POST", data=b"", cookie=cookie,
         extra_headers={"Origin": server.base_url()})
     assert status == 404
     assert body == unknown[2]

@@ -17,7 +17,7 @@ runs inside one `history_db.connection_scope(state_dir)`, nested inside
     existing handler, and the whole batch (not just the failing write) rolls
     back
   * `run_once()` called from inside an already-active `connection_scope()`
-    on the same thread (the companion's POST /poll-now shape) opening no
+    on the same thread opening no
     additional connection
 
 No test here asserts wall-clock timing - only counts
@@ -202,8 +202,7 @@ def test_history_write_failure_is_contained_and_the_whole_batch_rolls_back(tmp_p
 
 
 def test_run_once_nested_inside_an_active_connection_scope_opens_no_additional_connection(tmp_path):
-    """POST /poll-now's shape: a caller (e.g. the companion's request
-    dispatch) already inside `history_db.connection_scope(state_dir)` on
+    """A caller (e.g. a request dispatch) already inside `history_db.connection_scope(state_dir)` on
     this thread, calling `run_once()`, reuses that same scope - re-entrant
     per plan 03 - rather than opening a second connection.
     """

@@ -1,7 +1,6 @@
 """Tests companion.pages.config_page's quiet-window arithmetic and dial
 (span/arc/readout/handles/pair seam), remaining render()/
-runway_fieldset()/dirty-bar markup, poll_trigger_section()'s
-data-attribute contract and poll-cooldown.js's sink safety, and
+runway_fieldset()/dirty-bar markup, and
 handle_post()'s theme/runway/LED/quiet-hours/wake-interval validation.
 Some checks fetch style.css or a JS asset from a running app server.
 """
@@ -43,13 +42,6 @@ def value_controls_js(app):
     """companion/static/value-controls.js's served text, fetched over
     HTTP instead of opened from disk."""
     return served_asset(app, "/static/value-controls.js")
-
-
-@pytest.fixture(scope="module")
-def poll_cooldown_js(app):
-    """companion/static/poll-cooldown.js's served text, fetched over HTTP
-    instead of opened from disk."""
-    return served_asset(app, "/static/poll-cooldown.js")
 
 
 # ======================================================================
@@ -1328,7 +1320,6 @@ def test_render_exactly_four_dirty_sections_in_order():
     on this legacy scope)"""
     rendered = config_page.render({
         "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
-        "poll_cooldown_remaining": 0,
     })
     found = re.findall(
         r'%s="([^"]*)"' % re.escape(config_page.DIRTY_SECTION_ATTR), rendered)
@@ -1380,7 +1371,6 @@ def test_runway_section_caption_appears_exactly_once():
     """render() carries RUNWAY_SECTION_CAPTION exactly once"""
     rendered = config_page.render({
         "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
-        "poll_cooldown_remaining": 0,
     })
     runway_caption = escape_html(config_page.RUNWAY_SECTION_CAPTION)
     assert rendered.count(runway_caption) == 1, (
@@ -1421,7 +1411,6 @@ def test_the_bar_s_save_button_is_the_same_static_fallback_element_relocated():
     physical <form> itself carries no submit control of its own any more"""
     rendered = config_page.render({
         "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
-        "poll_cooldown_remaining": 0,
     })
     assert rendered.count(config_page.STATIC_SAVE_FALLBACK_ATTR) == 1, (
         "expected exactly one data-static-save-fallback occurrence, got %d"
@@ -1482,7 +1471,7 @@ def test_the_dirty_bar_renders_without_hidden_on_every_scope(tmp_path):
     """
     base_ctx = {
         "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
-        "state_dir": str(tmp_path), "poll_cooldown_remaining": 0,
+        "state_dir": str(tmp_path),
     }
     for scope in (config_page.SCOPE_ALL, config_page.SCOPE_DISPLAY, config_page.SCOPE_DEVICE):
         rendered = config_page.render(base_ctx, scope=scope)
@@ -1505,7 +1494,7 @@ def test_nothing_inside_the_bar_is_inert_or_claims_a_dirty_state_that_does_not_e
     """
     base_ctx = {
         "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
-        "state_dir": str(tmp_path), "poll_cooldown_remaining": 0,
+        "state_dir": str(tmp_path),
     }
     unsaved_claim_strings_en = (
         config_page.DIRTY_BAR_INITIAL_TEXT,
@@ -1559,24 +1548,19 @@ def test_nothing_inside_the_bar_is_inert_or_claims_a_dirty_state_that_does_not_e
 
 
 def test_section_captions_appear_escaped_verbatim_exactly_once():
-    """the runway, LED, and poll section captions all appear escaped-verbatim exactly once in
+    """the runway and LED section captions both appear escaped-verbatim exactly once in
     render()'s output"""
     rendered = config_page.render({
         "device_config": {"theme": "black", "tracked_runway": "3"},
-        "poll_cooldown_remaining": 0,
     })
     runway_caption = escape_html(config_page.RUNWAY_SECTION_CAPTION)
     led_caption = escape_html(config_page.LED_SECTION_CAPTION)
-    poll_caption = escape_html(config_page.POLL_SECTION_CAPTION)
     assert rendered.count(runway_caption) == 1, (
         "expected RUNWAY_SECTION_CAPTION exactly once (escaped-verbatim), got %d"
         % rendered.count(runway_caption))
     assert rendered.count(led_caption) == 1, (
         "expected LED_SECTION_CAPTION exactly once (escaped-verbatim), got %d"
         % rendered.count(led_caption))
-    assert rendered.count(poll_caption) == 1, (
-        "expected POLL_SECTION_CAPTION exactly once (escaped-verbatim), got %d"
-        % rendered.count(poll_caption))
 
 
 def test_current_theme_and_runway_are_selected():
@@ -1585,7 +1569,6 @@ def test_current_theme_and_runway_are_selected():
     chip grid, and the rules add-form's own chip grid are all retired from it"""
     rendered = config_page.render({
         "device_config": {"theme": "black", "tracked_runway": "06-24"},
-        "poll_cooldown_remaining": 0,
     })
     # Polish fix 4 (D-14c): each runway radio now also carries an
     # explicit form="settings-form" attribute, inserted between
@@ -1607,195 +1590,6 @@ def test_current_theme_and_runway_are_selected():
     assert "theme-chip--selected" not in rendered, (
         "expected zero .theme-chip--selected modifiers on this legacy SCOPE_ALL render, got %d"
         % rendered.count("theme-chip--selected"))
-
-
-def test_poll_trigger_enabled_at_zero_cooldown():
-    """poll_trigger_section(0) renders an enabled button"""
-    rendered = config_page.poll_trigger_section(0)
-    # Scoped to the <button ...> tag itself, not a bare substring search —
-    # the zero-cooldown branch's own submit-affordance script legitimately
-    # contains the word "disabled" as a JS property name
-    # (`btn.disabled = true;`), which a whole-document substring check
-    # would false-positive on.
-    button_tag = re.search(r"<button\b[^>]*>", rendered)
-    assert button_tag, "expected a <button> tag to extract"
-    assert "disabled" not in button_tag.group(0), "expected no disabled attribute at zero cooldown"
-    assert "Refresh now</button>" in rendered, "expected the Refresh now button copy"
-
-
-def test_poll_trigger_disabled_with_remaining_seconds():
-    """poll_trigger_section(17) renders a disabled button and the remaining-seconds copy"""
-    rendered = config_page.poll_trigger_section(17)
-    assert "disabled" in rendered, "expected a disabled attribute at a non-zero cooldown"
-    assert "17" in rendered, "expected the remaining-seconds figure (17) in the visible copy"
-
-
-def test_poll_section_caption_renders_on_both_branches_under_the_heading():
-    """poll_trigger_section() emits POLL_SECTION_CAPTION exactly once on both the enabled and
-    disabled branches, before the poll-trigger form, and render() places it directly under the
-    Poll <h2> heading"""
-    # The Poll section's own caption check, separate from
-    # test_each_group_emits_exactly_one_caption_between_heading_and_control()
-    # (Poll's heading lives in render(), not in poll_trigger_section(),
-    # and its disabled branch legitimately emits a second <p>).
-    poll_caption = escape_html(config_page.POLL_SECTION_CAPTION)
-    for cooldown_remaining in (0, 17):
-        rendered = config_page.poll_trigger_section(cooldown_remaining)
-        assert rendered.count("section-caption") == 1, (
-            "expected poll_trigger_section(%d) to emit exactly one "
-            "section-caption occurrence, got %d"
-            % (cooldown_remaining, rendered.count("section-caption")))
-        assert rendered.count(poll_caption) == 1, (
-            "expected poll_trigger_section(%d) to carry "
-            "POLL_SECTION_CAPTION escaped-verbatim exactly once, got %d"
-            % (cooldown_remaining, rendered.count(poll_caption)))
-        caption_pos = rendered.index("section-caption")
-        trigger_pos = rendered.index('<form method="post" action="/poll-now">')
-        assert caption_pos < trigger_pos, (
-            "expected poll_trigger_section(%d)'s caption to precede "
-            "the poll-trigger form" % cooldown_remaining)
-
-    # The render()-level position proof: the heading is emitted by
-    # render(), the caption by poll_trigger_section() — two different
-    # functions whose relative order nothing else guards.
-    page = config_page.render({
-        "device_config": {
-            "theme": "sky", "tracked_runway": "3", "led_enabled": True},
-        "poll_cooldown_remaining": 0,
-    })
-    assert page.count(poll_caption) == 1, (
-        "expected render() to carry POLL_SECTION_CAPTION "
-        "escaped-verbatim exactly once, got %d" % page.count(poll_caption))
-    heading_pos = page.index('<h2 class="text-heading">%s</h2>' % config_page.POLL_SECTION_HEADING)
-    page_caption_pos = page.index(poll_caption)
-    poll_now_pos = page.index('action="/poll-now"')
-    assert heading_pos < page_caption_pos < poll_now_pos, (
-        "expected the Poll caption to fall between the Poll <h2> "
-        "heading and the poll-trigger form's action attribute")
-
-
-def test_poll_trigger_live_countdown_seeded_from_server_value():
-    """poll_trigger_section() emits zero <script> elements and ships the data-*
-    attribute contract companion/static/poll-cooldown.js reads instead, on both the
-    disabled and zero-cooldown branches
-
-    The disabled branch ships no inline <script> at all (that behaviour
-    lives in companion/static/poll-cooldown.js instead). This check pins
-    the data-* attribute contract the script reads instead:
-    id="poll-trigger-btn"/id="poll-cooldown-text", the unchanged
-    server-rendered no-JS copy, and every value the script needs exposed
-    as an escape_html()-gated data attribute on the button — never a
-    hardcoded quoted string, so this check stays correct if the id/token
-    constants are ever changed deliberately.
-    """
-    d17 = config_page.poll_trigger_section(17)
-    d5 = config_page.poll_trigger_section(5)
-    z = config_page.poll_trigger_section(0)
-
-    assert "<script" not in d17, (
-        "expected zero <script occurrences at cooldown=17 (D-18: externalized to poll-cooldown.js)")
-    assert "<script" not in z, (
-        "expected zero <script occurrences at cooldown=0 (D-18: externalized to poll-cooldown.js)")
-    assert ('id="%s"' % config_page.POLL_TRIGGER_BUTTON_ID) in d17, "expected the button's id attribute"
-    assert ('id="%s"' % config_page.POLL_COOLDOWN_TEXT_ID) in d17, "expected the paragraph's id attribute"
-
-    visible_copy = escape_html(
-        config_page.POLL_COOLDOWN_HELPER_TEXT.format(n=17))
-    assert visible_copy in d17, "expected the unchanged, server-rendered no-JS copy"
-
-    template = escape_html(config_page.POLL_COOLDOWN_HELPER_TEXT.format(
-        n=config_page.POLL_COOLDOWN_TEMPLATE_TOKEN))
-    token = escape_html(config_page.POLL_COOLDOWN_TEMPLATE_TOKEN)
-    expected_attrs = [
-        'data-cooldown="17"',
-        'data-cooldown-text-id="%s"' % escape_html(config_page.POLL_COOLDOWN_TEXT_ID),
-        'data-cooldown-template="%s"' % template,
-        'data-cooldown-token="%s"' % token,
-    ]
-    for attr in expected_attrs:
-        assert attr in d17, "expected data attribute %r on the disabled branch" % (attr,)
-
-    assert 'data-cooldown="5"' in d5, (
-        "expected the seed to come from the argument (5), not a hardcoded value")
-
-
-def test_poll_trigger_zero_cooldown_ships_submit_affordance_script():
-    """poll_trigger_section(0) ships id="poll-trigger-btn" and a data-submit-pending
-    attribute with zero <script> elements, while poll_trigger_section(30) carries the
-    disabled-branch data-cooldown attribute instead
-
-    The disable-on-submit affordance lives in
-    companion/static/poll-cooldown.js, not in an inline <script>. Pins
-    the contract instead: poll_trigger_section(0) carries
-    id="poll-trigger-btn" and a
-    data-submit-pending attribute, no <script> anywhere, while
-    poll_trigger_section(30) carries the disabled-branch data-cooldown
-    attribute set instead.
-    """
-    rendered = config_page.poll_trigger_section(0)
-    assert "Refresh now</button>" in rendered, "expected the Refresh now button copy"
-    # Scoped to the <button ...> tag, not a bare substring search —
-    # poll-cooldown.js's own body legitimately contains "disabled" as a
-    # JS property name, though that never reaches this render() output.
-    button_tag = re.search(r"<button\b[^>]*>", rendered)
-    assert button_tag, "expected a <button> tag to extract"
-    assert "disabled" not in button_tag.group(0), "expected no disabled attribute at zero cooldown"
-    assert ('id="%s"' % config_page.POLL_TRIGGER_BUTTON_ID) in rendered, "expected the button's id attribute"
-    assert "<script" not in rendered, (
-        "expected zero <script occurrences at zero cooldown (D-18: externalized to poll-cooldown.js)")
-    assert 'data-submit-pending="%s"' % escape_html(config_page.POLL_SUBMIT_PENDING_TEXT) in rendered, (
-        "expected the data-submit-pending attribute carrying the pending label")
-
-    nonzero = config_page.poll_trigger_section(30)
-    assert 'data-cooldown="30"' in nonzero, (
-        "expected poll_trigger_section(30) to carry the disabled-branch data-cooldown attribute")
-
-
-# The whole forbidden-sink family in one place, so a future reader can
-# see it at a glance.
-_FORBIDDEN_SCRIPT_SINKS = (
-    "innerHTML", "outerHTML", "insertAdjacentHTML",
-    "document.write", "eval(", "fetch(", "XMLHttpRequest",
-)
-_REQUIRED_SCRIPT_OPERATIONS = (
-    "use strict", "textContent", "removeAttribute",
-    "setInterval", "clearInterval",
-)
-
-
-def test_poll_cooldown_script_has_no_forbidden_sink(poll_cooldown_js):
-    """poll_trigger_section(17) carries no <script substring and ships the countdown's
-    required data attributes; companion/static/poll-cooldown.js's own source contains
-    none of the forbidden HTML-writing/eval/network sinks and does contain strict mode
-    plus the permitted DOM/timer operations"""
-    rendered = config_page.poll_trigger_section(17)
-    assert "<script" not in rendered, (
-        "expected zero <script occurrences at cooldown=17 (D-18: externalized to poll-cooldown.js)")
-    for attr in (
-            'data-cooldown="17"',
-            'data-cooldown-text-id="%s"' % escape_html(config_page.POLL_COOLDOWN_TEXT_ID)):
-        assert attr in rendered, "expected data attribute %r on the disabled branch" % (attr,)
-    src = poll_cooldown_js
-    for forbidden in _FORBIDDEN_SCRIPT_SINKS:
-        assert forbidden not in src, "forbidden sink found in poll-cooldown.js: %r" % (forbidden,)
-    for required in _REQUIRED_SCRIPT_OPERATIONS:
-        assert required in src, "expected required operation %r in poll-cooldown.js" % (required,)
-
-
-def test_poll_submit_script_has_no_forbidden_sink(poll_cooldown_js):
-    """poll_trigger_section(0) carries no <script substring and ships the data-submit-pending
-    attribute; companion/static/poll-cooldown.js's own source contains none of the
-    forbidden HTML-writing/eval/network sinks and attaches a submit listener"""
-    rendered = config_page.poll_trigger_section(0)
-    assert "<script" not in rendered, (
-        "expected zero <script occurrences at cooldown=0 (D-18: externalized to poll-cooldown.js)")
-    assert 'data-submit-pending="%s"' % escape_html(config_page.POLL_SUBMIT_PENDING_TEXT) in rendered, (
-        "expected the data-submit-pending attribute carrying the pending label")
-    src = poll_cooldown_js
-    for forbidden in _FORBIDDEN_SCRIPT_SINKS:
-        assert forbidden not in src, "forbidden sink found in poll-cooldown.js: %r" % (forbidden,)
-    assert "use strict" in src, "expected strict mode"
-    assert "addEventListener" in src, "expected a submit event listener"
 
 
 # ======================================================================
