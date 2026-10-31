@@ -838,7 +838,6 @@ def handle_post(form, ctx, errors=None):
     in_scope = set(scope_groups(scope, screens.current_screen_id(ctx)))
     calendar_signal = submitted_calendar_signal(form)
     submitted_calendar_url = form.get("calendar_url")
-
     # Each step is a zero-arg thunk, not a bare call, and the loop below
     # invokes them ONE AT A TIME, stopping at the first FAILED: a tuple
     # of already-evaluated call results would run every resolver up
@@ -848,6 +847,7 @@ def handle_post(form, ctx, errors=None):
     steps = (
         lambda: form_post.resolve_theme(form, errors),
         lambda: form_post.resolve_calendar_signal(calendar_signal, errors),
+        lambda: form_post.resolve_calendar_url(calendar_signal, submitted_calendar_url, errors),
         lambda: form_post.resolve_calendar_theme_id(form, errors),
         lambda: form_post.resolve_theme_arriving(form, in_scope, errors),
         lambda: form_post.resolve_runway(form, errors),
