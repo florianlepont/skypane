@@ -19,7 +19,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - **May proceed now** (no production effect): all design, code, tests and CI work in Phases 48–56, and the Phase 58 shortlist and driver spike.
 - **Must wait until Phase 47 closes (or the owner explicitly releases it):**
   - Any production deploy that touches the live frame's state, registry, poll loop, BYOS responses or companion: Phases 48, 49, 51, 52, 54, 55, 56 each ship to production only after this gate. The Phase 48 freeze-list test (DATA-05) is the guard that a deploy cannot change what Phase 47 measures.
-  - The combined firmware OTA to the legacy frame (Phase 57, OTA-04). No firmware change reaches the live frame before this gate.
+  - The combined firmware OTA to the legacy frame (Phase 57, OTA-04). No firmware change reaches the live frame before this gate, nor before the `firmware/SIGNING.md` bench procedure has passed on a non-live unit (owner decision, 2026-10-31).
   - The legacy-frame battery numbers feeding the hardware profile (Phase 56, HWR-01) are final only after Phase 47.
 - Every deploy before then, if the owner allows it, must run the previous release correctly on post-migration state (forward-only, expand-only).
 
@@ -36,10 +36,10 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [x] **Phase 51: Per-Device Config, Image and State** - Every device has its own config, image, history and health, and the BYOS serves each frame its own image.
 - [x] **Phase 52: Fleet Poll Cycle, Zones and Request Budget** - One upstream ADS-B request per zone under a persisted global 1 req/s budget.
 - [ ] **Phase 53: Detection Modes (Airport/Runway and Position/Radius)** - Devices can follow any French runway or any position within a bounded radius.
-- [ ] **Phase 54: Auth0 Sign-In, Local Roles and Default-Deny Access** - Invite-only sign-in with local roles and a proven route and ownership matrix.
+- [x] **Phase 54: Auth0 Sign-In, Local Roles and Default-Deny Access** - Invite-only sign-in with local roles and a proven route and ownership matrix. (closed 2026-10-31 by the owner after production tests; the real per-device rows of the matrix, AUTH-03, are carried to Phase 55)
 - [ ] **Phase 55: Frame Pairing, Admin Console and Reduced User View** - Admins pair frames to users and manage the fleet; users see only their own frames with fewer options.
 - [ ] **Phase 56: Per-Hardware Rendering, Battery Profiles, Health and Credits** - Rendering and health follow the hardware profile; credits page published. (11/11 plans done; criteria 1-3 verified in code 2026-10-31, merged in #257. Owner items pending: send the adsb.fi / adsb.lol contact draft once the fleet exceeds 10 users, run the browser tests on a machine with Chromium, non-blocking landscape preview follow-up)
-- [ ] **Phase 57: Combined Legacy-Frame Firmware Release** - One OTA release gives the live frame the new image reader and 401 recovery. Gated on Phase 47.
+- [ ] **Phase 57: Combined Legacy-Frame Firmware Release** - One OTA release gives the live frame the new image reader and 401 recovery. Gated on Phase 47 and on the OTA signing bench check passing on a non-live unit.
 - [ ] **Phase 58: Second Hardware (Shortlist, Spike, Purchase, Validate)** - A second hardware type chosen after a driver spike and validated on a real unit.
 - [ ] **Phase 59: Comment-History Debt** - The comment-history guard debt is cleared or only shrinks.
 - [ ] **Phase 60: Device Co-Management** - A frame keeps one primary owner and gains co-managers whom the owner or an admin can add.
@@ -337,11 +337,12 @@ Plans:
 ### Phase 57: Combined Legacy-Frame Firmware Release
 
 **Goal**: The live frame receives, in one OTA, every firmware change the fleet needs.
-**Depends on**: Phase 47 (v1.1, must be closed), Phase 49, Phase 50, Phase 54
+**Depends on**: Phase 47 (v1.1, must be closed), Phase 49, Phase 50, Phase 54, and the OTA-03 device-side signing check (see the precondition below)
 **Requirements**: OTA-04
+**Precondition (owner decision, 2026-10-31)**: no signed OTA reaches the live frame until the bench procedure of `firmware/SIGNING.md` has passed on a non-live unit: a correctly signed image is accepted, a wrongly signed image is refused with the unit keeping its firmware and the next poll reporting `fail-image`. The unit is either the Phase 58 evaluation unit or an earlier spare ESP32-S3 board. This check was carried out of Phase 49 and is otherwise run in Phase 58; Phase 57 does not start its release until it has passed, because a wrong signing configuration could leave the only live frame unreachable by OTA and recoverable only by cable.
 **Success Criteria** (what must be TRUE):
 
-  1. One release bundles the image-header reader, any hardware header and recovery after repeated 401, and it is published only after Phase 47 allows it.
+  1. One release bundles the image-header reader, any hardware header and recovery after repeated 401, and it is published only after Phase 47 allows it and the signing bench check has passed on a non-live unit.
   2. After the OTA, the live frame still wakes on its cadence and displays a correct image, and it is served the new container only after announcing support.
   3. A frame that fails the update stays on the previous working firmware.
 
@@ -397,10 +398,10 @@ Plans:
 | 51. Per-Device Config, Image and State | v1.2 | 13/13 | Complete    | 2026-10-30 |
 | 52. Fleet Poll Cycle, Zones and Request Budget | v1.2 | 7/7 | Complete (merged, not deployed) | 2026-10-31 |
 | 53. Detection Modes | v1.2 | 0/0 | Not started | - |
-| 54. Auth0 Sign-In, Local Roles and Default-Deny Access | v1.2 | 9/9 | Deployed and verified on the real tenant 2026-10-30; legacy-admin removal and post-Phase-51 matrix rows pending (see 54-HANDOFF.md) | - |
+| 54. Auth0 Sign-In, Local Roles and Default-Deny Access | v1.2 | 9/9 | Complete, closed by the owner after production tests (2026-10-30 and 2026-10-31); AUTH-03 per-device matrix rows carried to Phase 55 (see 54-HANDOFF.md) | 2026-10-31 |
 | 55. Frame Pairing, Admin Console and Reduced User View | v1.2 | 14/14 | Code complete and verified in code (3/3 criteria); real-frame and deploy checks pending (see 55-HANDOFF.md) | - |
 | 56. Per-Hardware Rendering, Battery Profiles, Health and Credits | v1.2 | 11/11 | Complete in code, merged (#257) and deployed 2026-10-31; verification human_needed (3 owner items pending, see 56-VERIFICATION.md) | - |
-| 57. Combined Legacy-Frame Firmware Release | v1.2 | 0/0 | Not started (gated on Phase 47) | - |
+| 57. Combined Legacy-Frame Firmware Release | v1.2 | 0/0 | Not started (gated on Phase 47 and on the OTA signing bench check) | - |
 | 58. Second Hardware | v1.2 | 0/0 | Not started | - |
 | 59. Comment-History Debt | v1.2 | 0/0 | Not started | - |
 | 60. Device Co-Management | v1.2 | 0/0 | Not started | - |

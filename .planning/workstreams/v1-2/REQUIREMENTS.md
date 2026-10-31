@@ -21,7 +21,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 - [x] **OTA-01**: The owner can publish and schedule firmware releases per hardware type, and a frame is only ever offered a release of its own server-assigned type.
 - [x] **OTA-02**: An uploaded binary whose app descriptor or chip target does not match the declared hardware type is rejected, and downgrades are refused by a monotonic build number.
 - [ ] **OTA-03**: The owner can decide whether OTA images are signed, record the decision (including any one-time cable flash it needs) before the second hardware is provisioned, and the chosen integrity mechanism is verified on the device side.
-- [ ] **OTA-04**: All firmware changes needed on the current frame (image-header reader, any hardware header, recovery after repeated 401) ship in one release, only once Phase 47 allows it.
+- [ ] **OTA-04**: All firmware changes needed on the current frame (image-header reader, any hardware header, recovery after repeated 401) ship in one release, only once Phase 47 allows it and the OTA signing bench procedure of `firmware/SIGNING.md` has passed on a non-live unit.
 
 ### Image Format
 
@@ -111,7 +111,7 @@ Coverage: 31/31 v1.2 requirements mapped, each to exactly one phase.
 | DET-03 | Phase 53 | Pending |
 | AUTH-01 | Phase 54 | Complete |
 | AUTH-02 | Phase 54 | Complete |
-| AUTH-03 | Phase 54 | Pending (gate and matrix delivered; real per-device route rows after Phase 51) |
+| AUTH-03 | Phase 54 (gate and matrix), Phase 55 (real per-device rows) | Pending (gate and matrix delivered and verified in production; the real per-device route rows are carried to Phase 55 by the owner, 2026-10-31) |
 | AUTH-06 | Phase 54 | Complete |
 | AUTH-08 | Phase 60 | Pending |
 | AUTH-04 | Phase 55 | Pending |
