@@ -173,8 +173,13 @@ _TOKEN_RE = re.compile(r'data-refresh-token="[0-9a-f]{32}"')
 _TOKEN_PLACEHOLDER = 'data-refresh-token="normalised-ctime-cannot-be-frozen"'
 
 
+# The anti-forgery token is derived from the (random) session cookie.
+_CSRF_RE = re.compile(r'name="csrf_token" value="[0-9a-f]{64}"')
+_CSRF_PLACEHOLDER = 'name="csrf_token" value="normalised-per-session-token"'
+
+
 def _normalise_body(body_text):
-    return _TOKEN_RE.sub(_TOKEN_PLACEHOLDER, body_text)
+    return _CSRF_RE.sub(_CSRF_PLACEHOLDER, _TOKEN_RE.sub(_TOKEN_PLACEHOLDER, body_text))
 
 
 @contextmanager
@@ -317,7 +322,10 @@ def capture_pages(server, cookie):
                     status, _headers, body = companion_app_server.http_request(
                         server.url(path), cookie=page_cookie)
                 else:
-                    data = urllib.parse.urlencode(form or {}).encode()
+                    fields = dict(form or {})
+                    if needs_session:
+                        fields["csrf_token"] = auth.csrf_token(cookie.split("=", 1)[1])
+                    data = urllib.parse.urlencode(fields).encode()
                     status, _headers, body = companion_app_server.http_request(
                         server.url(path), method="POST", data=data,
                         cookie=page_cookie, extra_headers=origin_header)

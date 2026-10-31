@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 
 from companion import device_scope, i18n
 import companion.layout as layout
-from companion.layout import escape_html
+from companion.layout import csrf_field, escape_html
 import companion.page_context as page_context
 from server import device_config
 from server.plane import calendar_rules
@@ -381,7 +381,7 @@ def _disconnect_html(provider):
         '<div class="calendar-sheet__disconnect">'
         '<form id="%s" method="post" action="%s" data-calendar-disconnect '
         'data-confirm-value="%s">'
-        '<input type="hidden" name="%s" value="" data-confirm-field>'
+        '<input type="hidden" name="%s" value="" data-confirm-field>%s'
         '<button type="submit" class="calendar-danger">%s</button></form>'
         '<div class="calendar-sheet__confirm" data-calendar-confirm role="alertdialog" '
         'aria-labelledby="calendar-confirm-heading" hidden>'
@@ -394,7 +394,7 @@ def _disconnect_html(provider):
     ) % (
         CALENDAR_DISCONNECT_FORM_ID, device_scope.scoped(CALENDAR_DISCONNECT_ROUTE, "POST"),
         escape_html(CALENDAR_DISCONNECT_CONFIRM_VALUE), CALENDAR_DISCONNECT_CONFIRM_FIELD,
-        escape_html(i18n.t(CALENDAR_DISCONNECT_BUTTON_TEXT)),
+        csrf_field(), escape_html(i18n.t(CALENDAR_DISCONNECT_BUTTON_TEXT)),
         escape_html(
             i18n.t(CALENDAR_CONFIRM_HEADING_TEMPLATE) % provider if provider
             else i18n.t(CALENDAR_DISCONNECT_CONFIRM_HEADING)),
@@ -488,7 +488,7 @@ def calendar_disconnect_confirm_page(ctx):
         layout.page_header(i18n.t(CALENDAR_DISCONNECT_CONFIRM_HEADING))
         + '<p class="text-body">%s</p>'
         '<form method="post" action="%s">'
-        '<input type="hidden" name="%s" value="%s">'
+        '<input type="hidden" name="%s" value="%s">%s'
         '<button type="submit">%s</button>'
         "</form>"
         '<p><a class="text-label" href="%s">%s</a></p>'
@@ -496,7 +496,7 @@ def calendar_disconnect_confirm_page(ctx):
         escape_html(i18n.t(CALENDAR_DISCONNECT_CONFIRM_SENTENCE)),
         device_scope.scoped(CALENDAR_DISCONNECT_ROUTE, "POST"),
         CALENDAR_DISCONNECT_CONFIRM_FIELD, escape_html(CALENDAR_DISCONNECT_CONFIRM_VALUE),
-        escape_html(i18n.t(CALENDAR_DISCONNECT_CONFIRM_BUTTON_TEXT)),
+        csrf_field(), escape_html(i18n.t(CALENDAR_DISCONNECT_CONFIRM_BUTTON_TEXT)),
         device_scope.scoped(layout.DISPLAY_ROUTE),
         escape_html(i18n.t(CALENDAR_DISCONNECT_CANCEL_TEXT)),
     )

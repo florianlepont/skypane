@@ -14,7 +14,7 @@ import collections
 import companion.frame_state as frame_state
 import companion.i18n as i18n
 import companion.layout as layout
-from companion.layout import escape_html
+from companion.layout import csrf_field, escape_html
 import companion.page_context as page_context
 import companion.wake as wake
 from server import firmware_registry
@@ -307,12 +307,12 @@ def _install_form_html(version, label_template=None, quiet=False, type_html=""):
     class_html = ' class="%s"' % _QUIET_BUTTON_CLASS if quiet else ""
     return (
         '<form method="post" action="%s" data-confirm="%s">'
-        '<input type="hidden" name="version" value="%s">%s'
+        '<input type="hidden" name="version" value="%s">%s%s'
         '<button type="submit"%s%s>%s</button>'
         "</form>"
     ) % (
         INSTALL_ROUTE, escape_html(confirm_question), escape_html(version), type_html,
-        class_html, aria_html, escape_html(label),
+        csrf_field(), class_html, aria_html, escape_html(label),
     )
 
 
@@ -340,10 +340,10 @@ def _cancel_form_html(view):
     if not view.get("cancellable"):
         return ""
     return (
-        '<form method="post" action="%s">%s'
+        '<form method="post" action="%s">%s%s'
         '<button type="submit" class="%s">%s</button>'
         "</form>"
-    ) % (CANCEL_ROUTE, view.get("type_field_html", ""), _QUIET_BUTTON_CLASS,
+    ) % (CANCEL_ROUTE, view.get("type_field_html", ""), csrf_field(), _QUIET_BUTTON_CLASS,
          escape_html(i18n.t(CANCEL_BUTTON_TEXT)))
 
 
@@ -586,11 +586,12 @@ def _versions_card_html(ctx, view, releases):
 def _install_confirm_form_html(version, type_html=""):
     return (
         '<form method="post" action="%s">'
-        '<input type="hidden" name="version" value="%s">%s'
+        '<input type="hidden" name="version" value="%s">%s%s'
         '<input type="hidden" name="confirm" value="yes">'
         '<button type="submit">%s</button>'
         "</form>"
-    ) % (INSTALL_ROUTE, escape_html(version), type_html, escape_html(i18n.t(INSTALL_BUTTON_TEXT)))
+    ) % (INSTALL_ROUTE, escape_html(version), type_html, csrf_field(),
+        escape_html(i18n.t(INSTALL_BUTTON_TEXT)))
 
 
 def update_install_confirm_page(

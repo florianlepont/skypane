@@ -1,6 +1,7 @@
 """Per-session anti-forgery token: derivation, dispatcher check and ordering,
 form field emitter, and the six existing protected routes."""
 import hashlib
+import re
 import urllib.parse
 
 import pytest
@@ -143,3 +144,124 @@ def test_the_token_never_leaks_into_headers_urls_or_logs(probe, capsys):
     captured = capsys.readouterr()
     assert token not in captured.out + captured.err
     assert _token_of(cookies["admin"]) not in captured.out + captured.err
+
+
+# --- the six existing protected routes ---------------------------------------
+
+from companion.pages import airlines_page, config_page, update_page  # noqa: E402
+from companion_app_server import login, with_csrf  # noqa: E402
+from server import firmware_registry  # noqa: E402
+from server.plane import (  # noqa: E402
+    calendar_rules, colour_rules, manual_resolutions, name_overrides)
+
+RULE_DELETE = "%scallsign/ZZR9999%s" % (
+    config_page.RULES_DELETE_ROUTE_PREFIX, config_page.RULES_DELETE_ROUTE_SUFFIX)
+MANUAL_DELETE = "%sABC%s" % (
+    airlines_page.MANUAL_DELETE_ROUTE_PREFIX, airlines_page.MANUAL_DELETE_ROUTE_SUFFIX)
+CALENDAR_URL = "https://csrf.example/feed.ics?token=CSRFTOKEN"
+
+
+@pytest.fixture
+def live(app_server_in_process):
+    server = app_server_in_process
+    state = server.state_dir
+    colour_rules.add_rule(state, "callsign", "ZZR9999", "grey")
+    manual_resolutions.add_entry(state, "ABC", "Abc Air", now="2026-01-01T00:00:00+00:00")
+    name_overrides.set_names(state, ["AFR"], "Renamed Air")
+    calendar_rules.save_calendar_url(state, CALENDAR_URL)
+    return server
+
+
+def _state_of(server):
+    state = server.state_dir
+    return (
+        colour_rules.load_colour_rules(state),
+        manual_resolutions.load_manual_resolutions(state),
+        name_overrides.load_name_overrides(state),
+        calendar_rules.calendar_is_configured(state),
+        firmware_registry.load_registry(state)["schedule"],
+    )
+
+
+def _raw_post(server, path, cookie, fields):
+    return http_request(
+        server.url(path), method="POST", cookie=cookie,
+        data=urllib.parse.urlencode(fields).encode(),
+        extra_headers={"Origin": server.base_url()})
+
+
+PROTECTED = (
+    (RULE_DELETE, {}),
+    (config_page.CALENDAR_DISCONNECT_ROUTE, {"confirm": "yes"}),
+    (MANUAL_DELETE, {}),
+    (airlines_page.RENAME_RESET_ROUTE, {"airline": "Air France"}),
+    (update_page.INSTALL_ROUTE, {"version": "9.9.9", "confirm": "yes"}),
+    (update_page.CANCEL_ROUTE, {}),
+)
+
+
+@pytest.mark.parametrize("path,fields", PROTECTED, ids=[p for p, _f in PROTECTED])
+def test_each_protected_route_refuses_a_tokenless_post_and_changes_nothing(live, path, fields):
+    cookie = login(live)
+    before = _state_of(live)
+    status, _h, body = _raw_post(live, path, cookie, fields)
+    assert status == 403 and b"This page expired" in body
+    assert _state_of(live) == before
+    status, _h, _b = http_request(
+        live.url(path), method="POST", cookie=cookie, data=with_csrf(cookie, fields),
+        extra_headers={"Origin": live.base_url()})
+    assert status == 303
+
+
+def test_a_token_from_another_session_is_refused(live):
+    first, second = login(live), login(live)
+    assert first != second
+    foreign = with_csrf(first, {})
+    before = _state_of(live)
+    status, _h, _b = http_request(
+        live.url(RULE_DELETE), method="POST", cookie=second, data=foreign,
+        extra_headers={"Origin": live.base_url()})
+    assert status == 403 and _state_of(live) == before
+
+
+def _form_tokens(page_html, action_fragment):
+    forms = re.findall(
+        r'(<form[^>]*>)(.*?)</form>', page_html, re.S)
+    return [
+        re.findall(r'name="csrf_token" value="([0-9a-f]{64})"', inner)
+        for opening, inner in forms if action_fragment in opening]
+
+
+@pytest.mark.parametrize("page,action", (
+    ("/display", RULE_DELETE),
+    ("/display", config_page.CALENDAR_DISCONNECT_ROUTE),
+    ("/airlines", airlines_page.RENAME_RESET_ROUTE),
+    ("/airlines", airlines_page.LIGHTBOX_DELETE_CLASS),
+))
+def test_served_forms_carry_the_requesting_sessions_token(live, page, action):
+    cookie = login(live)
+    expected = auth.csrf_token(_token_of(cookie))
+    status, _h, body = http_request(live.url(page), cookie=cookie)
+    assert status == 200
+    found = _form_tokens(body.decode("utf-8"), action)
+    assert found, "no form posting to %s on %s" % (action, page)
+    assert all(tokens == [expected] for tokens in found)
+
+
+def test_other_existing_forms_need_no_token(live):
+    cookie = login(live)
+    for path, fields in (
+            ("/ui-theme", {"theme": "dark"}), ("/ui-lang", {"lang": "fr"}),
+            ("/quick/display", {"state": "on", "return_to": "/display"}),
+            (config_page.RULES_ADD_ROUTE, {
+                "rule_kind": "callsign", "rule_key": "ZZN1234", "rule_theme_id": "black"})):
+        status, _h, _b = _raw_post(live, path, cookie, fields)
+        assert status == 303, path
+    assert _raw_post(live, "/logout", cookie, {})[0] != 403
+
+
+def test_only_the_six_existing_routes_are_flagged_so_far():
+    flagged = {
+        (route.method, route.matcher) for route in routes.ROUTES if route.csrf}
+    assert flagged == set(routes.CSRF_ROUTE_KEYS)
+    assert len(flagged) == 6
