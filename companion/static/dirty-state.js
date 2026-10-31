@@ -71,8 +71,12 @@
 
   // The bar is server-rendered visible (the no-JS floor, since there is
   // no separate fallback Save button); hiding it here, before any
-  // listener attaches, hands control to the enhanced experience.
-  bar.hidden = true;
+  // listener attaches, hands control to the enhanced experience. A bar
+  // carrying data-dirty-carried stays visible: the server rendered it
+  // for unsaved values that arrived through the URL.
+  var carriedCancelHref = bar.getAttribute("data-dirty-carried");
+  var carried = carriedCancelHref !== null;
+  bar.hidden = !carried;
 
   // Connector words read once off the dirty-bar element, server-
   // rendered and translated; each fallback literal is used only when
@@ -117,6 +121,11 @@
   }
 
   snapshot = snapshotValues();
+  if (carried) {
+    // The stored setting is unknown here, so a carried page is dirty
+    // from the start: the mode never equals this marker.
+    snapshot["mode"] = "\u0000carried";
+  }
 
   function countDifferences() {
     var current = snapshotValues();
@@ -359,6 +368,108 @@
         }
       }, 0);
     });
+  }
+
+  // Page-local navigation (data-detection-nav): the page's own GET
+  // navigations carry the live mode, radius and location through the
+  // URL, so the leave-guard must not fire for them and a typed value
+  // survives the round trip. A restore from the back/forward cache
+  // re-arms the guard.
+  var NAV_FIELDS = ["mode", "radius_km", "location_id"];
+
+  function liveNavValues() {
+    var out = {};
+    for (var i = 0; i < NAV_FIELDS.length; i++) {
+      var control = form.elements[NAV_FIELDS[i]];
+      out[NAV_FIELDS[i]] = control && typeof control.value === "string" ? control.value : "";
+    }
+    return out;
+  }
+
+  function withNavQuery(href, values) {
+    var hash = "";
+    var at = href.indexOf("#");
+    if (at >= 0) {
+      hash = href.slice(at);
+      href = href.slice(0, at);
+    }
+    var q = href.indexOf("?");
+    var base = q >= 0 ? href.slice(0, q) : href;
+    var kept = [];
+    if (q >= 0) {
+      var parts = href.slice(q + 1).split("&");
+      for (var i = 0; i < parts.length; i++) {
+        if (parts[i] && NAV_FIELDS.indexOf(parts[i].split("=")[0]) < 0) {
+          kept.push(parts[i]);
+        }
+      }
+    }
+    for (var j = 0; j < NAV_FIELDS.length; j++) {
+      var value = values[NAV_FIELDS[j]];
+      if (value) {
+        kept.push(NAV_FIELDS[j] + "=" + encodeURIComponent(value));
+      }
+    }
+    return base + (kept.length ? "?" + kept.join("&") : "") + hash;
+  }
+
+  document.addEventListener("submit", function (e) {
+    var navForm = e.target;
+    if (!navForm || !navForm.hasAttribute || !navForm.hasAttribute("data-detection-nav")) {
+      return;
+    }
+    var values = liveNavValues();
+    for (var i = 0; i < NAV_FIELDS.length; i++) {
+      var name = NAV_FIELDS[i];
+      var hidden = navForm.elements[name];
+      if (!hidden && values[name]) {
+        hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = name;
+        navForm.appendChild(hidden);
+      }
+      if (hidden) {
+        hidden.value = values[name];
+      }
+    }
+    suppressGuard = true;
+  });
+
+  document.addEventListener("click", function (e) {
+    if (e.button || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) {
+      return;
+    }
+    var link = e.target;
+    while (link && !(link.hasAttribute && link.hasAttribute("data-detection-nav") &&
+        link.getAttribute("href") !== null)) {
+      link = link.parentNode;
+    }
+    if (!link) {
+      return;
+    }
+    link.setAttribute("href", withNavQuery(link.getAttribute("href"), liveNavValues()));
+    suppressGuard = true;
+  });
+
+  window.addEventListener("pageshow", function (evt) {
+    if (evt.persisted) {
+      suppressGuard = false;
+    }
+  });
+
+  // A bar rendered for values carried in the URL counts as one unsaved
+  // change and keeps the guard armed; its Cancel returns to the stored
+  // setting at the URL the server named, since a native reset would only
+  // restore the carried defaults.
+  if (carried) {
+    updateBar();
+    if (cancelBtn && carriedCancelHref) {
+      cancelBtn.addEventListener("click", function (evt) {
+        evt.preventDefault();
+        suppressGuard = true;
+        window.location.href = carriedCancelHref;
+      });
+    }
   }
 
   // No DOMContentLoaded wrapper is needed: the <script> tag

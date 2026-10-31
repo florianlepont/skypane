@@ -715,6 +715,7 @@ def test_scoped_settings_save_carries_other_page_forward(make_app_server):
         "expected a Display-page save to leave led_enabled True (out of scope), got %r"
         % (on_disk["led_enabled"],))
 
+    runway_before = device_config.load_device_config(server.state_dir)["tracked_runway"]
     status, headers, _ = http_request(
         base + "/settings", method="POST", cookie=session_cookie,
         data=urllib.parse.urlencode({
@@ -722,8 +723,9 @@ def test_scoped_settings_save_carries_other_page_forward(make_app_server):
     assert status == 303 and headers.get("Location") == "/device?flash=saved", (
         "expected a 303 to /device?flash=saved, got %d/%r" % (status, headers.get("Location")))
     on_disk = device_config.load_device_config(server.state_dir)
-    assert on_disk["tracked_runway"] == "06-24", (
-        "expected the Device-page save to persist tracked_runway=06-24")
+    assert on_disk["tracked_runway"] == runway_before, (
+        "expected the Device-page save to ignore a posted tracked_runway, got %r"
+        % (on_disk["tracked_runway"],))
     assert on_disk["display_enabled"] is True, (
         "expected a Device-page save to leave display_enabled True (out of scope)")
     assert on_disk["led_enabled"] is True, (
@@ -752,12 +754,12 @@ def test_display_and_device_pages_split_the_groups(app04_server, session_cookie)
         "expected the Display page to carry the theme and quiet-hours schedule groups")
     assert 'name="quiet_hours_enabled"' not in display_text and 'name="display_enabled"' not in display_text, (
         "expected no quiet_hours_enabled/display_enabled checkbox on the Display page")
-    assert 'name="tracked_runway"' in display_text, (
-        "expected the Display page to carry the runway group (moved from Device, 20-07/D-10)")
+    assert 'name="tracked_runway"' not in display_text and "detection-card" in display_text, (
+        "expected the Display page to carry no runway field and the read-only Detection card")
     assert 'name="led_enabled"' not in display_text, (
         "expected the Display page NOT to carry the LED group")
     assert 'name="tracked_runway"' not in device_text, (
-        "expected the Device page NOT to carry the runway group (moved to Display, 20-07/D-10)")
+        "expected the Device page NOT to carry a runway field")
     assert 'name="wake_interval_s"' in device_text, (
         "expected the Device page to carry the wake-interval group")
     theme_probe = device_text.replace('name="theme_id"', "")

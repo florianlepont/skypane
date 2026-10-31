@@ -11,7 +11,7 @@ from companion.test_browser_ux_helpers import (
     VIEWPORT_MIN_SUPPORTED,
     VIEWPORT_PHONE,
     _assert_no_page_overflow,
-    _click_control,
+    _commit_field,
     _login,
     _save_via_bar,
     _wait_for_bar,
@@ -111,20 +111,25 @@ def test_display_setting_saves_and_reports_a_keyboard_focusable_control(
     """A real Display change confirms, persists, and leaves a focus witness."""
     server = make_app_server(seed=_seed_walkthrough_state, fake_providers=True)
     before = device_config.load_device_config(server.tmpdir)
-    target = next(item for item in device_config.RUNWAY_IDS if item != before["tracked_runway"])
+    target = "05:00" if before["quiet_hours_start"] != "05:00" else "06:00"
     context, page = _open_authenticated_page(
         new_context, server.base_url(), lang, VIEWPORT_MIN_SUPPORTED, layout.DISPLAY_ROUTE)
     try:
-        selector = 'input[name="tracked_runway"][value="%s"]' % target
+        if page.locator('input[name="tracked_runway"]').count():
+            raise AssertionError("%s: Display still renders the removed runway control" % lang)
+        if page.locator('.detection-card a[href$="/detection"]').count() != 1:
+            raise AssertionError("%s: Display offers no single link to the Detection page" % lang)
+        selector = 'input[name="quiet_hours_start"]'
         page.locator(selector).focus()
         if not page.evaluate("sel => document.activeElement === document.querySelector(sel)", selector):
-            raise AssertionError("%s: native runway control could not receive keyboard focus" % lang)
-        _click_control(page, selector)
+            raise AssertionError("%s: native quiet-hours control could not receive keyboard focus" % lang)
+        page.fill(selector, target)
+        _commit_field(page, selector)
         _wait_for_bar(page)
         _save_via_bar(page)
         after = device_config.load_device_config(server.tmpdir)
-        if after["tracked_runway"] != target:
-            raise AssertionError("%s: served save feedback did not persist the selected runway" % lang)
+        if after["quiet_hours_start"] != target:
+            raise AssertionError("%s: served save feedback did not persist the quiet-hours start" % lang)
         if page.locator('.toast-region--flash .toast[role="status"]').count() != 1:
             raise AssertionError("%s: successful save did not render its served confirmation" % lang)
     finally:

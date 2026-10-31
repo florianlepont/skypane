@@ -9,7 +9,7 @@ between those siblings.
 """
 import os
 
-from server import device_config
+from server import detection, device_config
 from server.panel_format import HEIGHT, IDX_BLACK, IDX_WHITE, WIDTH
 from server.plane import runway_config
 
@@ -114,17 +114,20 @@ def state_ink_index(state, theme_id=device_config.DEFAULT_THEME_ID):
 
 
 def runway_tag_text(runway_id=device_config.DEFAULT_RUNWAY_ID):
-    """Top-right tag string for `runway_id`; an unrecognised id degrades
-    to the default runway rather than raising.
+    """Top-right tag string for `runway_id`: a registry id, a catalogue
+    display id ("LFPG:08L/26R") or a position id ("position:9"). Anything
+    else degrades to the default runway rather than raising.
     """
-    runway_id = device_config.normalise_runway_id(runway_id)
-    return device_config.runway_tag_text(runway_id)
+    if not isinstance(runway_id, str):
+        runway_id = device_config.DEFAULT_RUNWAY_ID
+    return detection.tag_text(runway_id)
 
 
 def empty_heading_text(runway_id=device_config.DEFAULT_RUNWAY_ID):
     """Same contract as runway_tag_text(), for the empty-state heading."""
-    runway_id = device_config.normalise_runway_id(runway_id)
-    return device_config.runway_empty_heading(runway_id)
+    if not isinstance(runway_id, str):
+        runway_id = device_config.DEFAULT_RUNWAY_ID
+    return detection.empty_heading(runway_id)
 
 
 # Retained as module constants only because server/test_render.py reads
@@ -144,6 +147,19 @@ EMPTY_BODY_LINES = (
     "The display updates the moment one is.",
 )
 EMPTY_BODY_TEXT = " ".join(EMPTY_BODY_LINES)
+NO_LOCATION_BODY_LINES = (
+    "This frame has no location yet.",
+    "Choose one in the companion app.",
+)
+
+
+def empty_body_lines(runway_id=device_config.DEFAULT_RUNWAY_ID):
+    """Body sentences of the empty screen for `runway_id`."""
+    if runway_id == detection.NO_LOCATION_DISPLAY_ID:
+        return NO_LOCATION_BODY_LINES
+    return EMPTY_BODY_LINES
+
+
 TOP_RIGHT_TAG_TEXT = runway_tag_text(device_config.DEFAULT_RUNWAY_ID)
 ROUTE_FALLBACK_TEXT = "Route unavailable"
 

@@ -35,7 +35,8 @@ import re
 from companion import (
     console_routes, device_scope, layout, route_types, static_files, theme_preview)
 from companion.pages import (
-    airlines_page, config_page, health_page, history_page, home_page, update_page)
+    airlines_page, config_page, detection_page, health_page, history_page, home_page,
+    update_page)
 
 # Anchored on the raw path (never percent-decoded); `\Z` and the absence of
 # DOTALL keep a newline from slipping into the id or the remainder.
@@ -84,6 +85,7 @@ HEALTH_ROUTE = layout.HEALTH_ROUTE
 DEVICE_ROUTE = layout.DEVICE_ROUTE
 UPDATE_ROUTE = layout.UPDATE_ROUTE
 
+DETECTION_ROUTE = detection_page.DETECTION_ROUTE
 SETTINGS_ROUTE = config_page.SETTINGS_ROUTE
 RUNWAY_IMAGE_ROUTE_PREFIX = config_page.RUNWAY_IMAGE_ROUTE_PREFIX
 RULES_ADD_ROUTE = config_page.RULES_ADD_ROUTE
@@ -136,14 +138,27 @@ _GET_ROUTES = (
             "GET", Exact(DISPLAY_ROUTE),
             lambda h, m: h._render_tab(
                 DISPLAY_ROUTE,
-                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DISPLAY),
+                lambda ctx: config_page.render(
+                    ctx, scope=config_page.SCOPE_DISPLAY,
+                    location_name=h._detection_card_location(m.device, ctx)),
+                m.device),
+            OWNER_DEVICE),
+        Route(
+            "GET", Exact(DETECTION_ROUTE),
+            lambda h, m: h._render_tab(
+                DETECTION_ROUTE,
+                lambda ctx: detection_page.render(
+                    ctx, query=detection_page.parse_query(m.query),
+                    locations=h._detection_locations(m.device)),
                 m.device),
             OWNER_DEVICE),
         Route(
             "GET", Exact(DEVICE_ROUTE),
             lambda h, m: h._render_tab(
                 DEVICE_ROUTE,
-                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DEVICE),
+                lambda ctx: config_page.render(
+                    ctx, scope=config_page.SCOPE_DEVICE,
+                    location_name=h._detection_card_location(m.device, ctx)),
                 m.device),
             ADMIN_ONLY),
         Route(
@@ -201,6 +216,9 @@ _POST_ROUTES = (
         "POST", Exact(SETTINGS_ROUTE),
         lambda h, m: h._handle_settings_post(m.device), OWNER_DEVICE),
     Route(
+        "POST", Exact(DETECTION_ROUTE),
+        lambda h, m: h._handle_detection_post(m.device), OWNER_DEVICE),
+    Route(
         "POST", Exact(QUICK_DISPLAY_ROUTE),
         lambda h, m: h._handle_quick_toggle(m.device, "display_enabled"), OWNER_DEVICE),
     Route(
@@ -256,6 +274,7 @@ _POST_ROUTES = (
 _PAGE_AND_IMAGE_KEYS = (
     ("GET", Exact(HOME_ROUTE)),
     ("GET", Exact(DISPLAY_ROUTE)),
+    ("GET", Exact(DETECTION_ROUTE)),
     ("GET", Exact(DEVICE_ROUTE)),
     ("GET", Exact(FLIGHTS_ROUTE)),
     ("GET", Exact(HEALTH_ROUTE)),
@@ -271,6 +290,7 @@ _PAGE_AND_IMAGE_KEYS = (
 
 _ACTION_KEYS = (
     ("POST", Exact(SETTINGS_ROUTE)),
+    ("POST", Exact(DETECTION_ROUTE)),
     ("POST", Exact(QUICK_DISPLAY_ROUTE)),
     ("POST", Exact(QUICK_QUIET_HOURS_ROUTE)),
     ("POST", Exact(QUICK_LED_ROUTE)),
@@ -286,7 +306,7 @@ _ACTION_KEYS = (
     ("POST", Exact(CALENDAR_DISCONNECT_ROUTE)),
 )
 
-# The routes that act on a single device: 13 GET and 14 POST.
+# The routes that act on a single device: 14 GET and 15 POST.
 _DEVICE_SCOPED_KEYS = frozenset(_PAGE_AND_IMAGE_KEYS + _ACTION_KEYS)
 
 # Form field carrying the per-session anti-forgery token.

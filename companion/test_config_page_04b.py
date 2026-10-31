@@ -137,16 +137,19 @@ def test_the_quick_led_form_is_a_sibling_of_the_settings_form(tmp_path):
     assert "/quick/led" not in display, "expected no LED quick form on the Display scope, which has no LED group"
 
 
-def test_display_scope_carries_runway_and_calendar_device_carries_neither():
-    """scope_groups(SCOPE_DISPLAY) contains Runway and Calendar, and scope_groups(SCOPE_DEVICE)
-    contains neither"""
+def test_display_scope_carries_calendar_device_carries_neither_and_no_scope_has_a_runway_group():
+    """scope_groups(SCOPE_DISPLAY) contains Calendar, scope_groups(SCOPE_DEVICE) does not, and
+    no scope offers a runway group any more"""
     from companion import screens
     display_groups = config_page.scope_groups(config_page.SCOPE_DISPLAY)
     device_groups = config_page.scope_groups(config_page.SCOPE_DEVICE)
-    assert screens.GROUP_RUNWAY in display_groups and screens.GROUP_CALENDAR in display_groups, (
-        "expected Runway and Calendar in scope_groups(SCOPE_DISPLAY), got %r" % (display_groups,))
-    assert screens.GROUP_RUNWAY not in device_groups and screens.GROUP_CALENDAR not in device_groups, (
-        "expected neither Runway nor Calendar in scope_groups(SCOPE_DEVICE), got %r" % (device_groups,))
+    assert screens.GROUP_CALENDAR in display_groups, (
+        "expected Calendar in scope_groups(SCOPE_DISPLAY), got %r" % (display_groups,))
+    assert screens.GROUP_CALENDAR not in device_groups, (
+        "expected no Calendar in scope_groups(SCOPE_DEVICE), got %r" % (device_groups,))
+    assert not hasattr(screens, "GROUP_RUNWAY")
+    for scope in (config_page.SCOPE_DISPLAY, config_page.SCOPE_DEVICE, config_page.SCOPE_ALL):
+        assert "runway" not in config_page.scope_groups(scope), scope
 
 
 _TASK2_BASE_CTX = {
@@ -305,8 +308,8 @@ def test_aspect_scoped_render_carries_hidden_fields_and_omits_other_groups():
         "expected the device scope's hidden scope/return_to fields")
     assert 'name="scope"' not in legacy, "expected the legacy all-scope render to carry no scope field"
     assert 'name="led_enabled"' not in display, "expected no LED group on the Display page"
-    assert 'name="tracked_runway"' in display, "expected the runway group to render on the Display page (D-10)"
-    assert 'name="tracked_runway"' not in device, "expected no runway group on the Device page (D-10)"
+    assert 'name="tracked_runway"' not in display, "expected no runway field on the Display page"
+    assert 'name="tracked_runway"' not in device, "expected no runway field on the Device page"
     assert 'name="quiet_hours_enabled"' not in device, "expected no quiet-hours group on the Device page"
     assert display.count('<h1 class="page-title">Display</h1>') == 1, "expected the Display page title"
     assert device.count('<h1 class="page-title">Device</h1>') == 1, "expected the Device page title"
@@ -342,13 +345,15 @@ def test_handle_post_scope_carries_out_of_scope_checkboxes_forward(tmp_path):
     # role="switch" posting to /quick/led, so an absent led_enabled here means "leave alone",
     # same as display_enabled's own absence has meant since 22-05.
     key = config_page.handle_post({"scope": "device", "tracked_runway": "06-24"}, {"state_dir": tmp})
+    assert device_config.load_device_config(tmp)["tracked_runway"] == "3", (
+        "expected a posted tracked_runway to be ignored")
     assert key == config_page.FLASH_SAVED, "expected FLASH_SAVED for the device-page save, got %r" % key
     cfg = device_config.load_device_config(tmp)
     assert cfg["display_enabled"] is True and cfg["quiet_hours_enabled"] is True, (
         "expected display/quiet-hours carried forward on a device-page save, got %r" % (cfg,))
-    assert cfg["led_enabled"] is True and cfg["tracked_runway"] == "06-24", (
-        "expected a Device save that names no led_enabled to LEAVE it True and to persist its "
-        "own runway, got %r" % (cfg,))
+    assert cfg["led_enabled"] is True and cfg["tracked_runway"] == "3", (
+        "expected a Device save that names no led_enabled to LEAVE it True and the runway "
+        "untouched, got %r" % (cfg,))
     # And the explicit value is still honoured, which is what makes the clause above a statement
     # about ABSENCE rather than about led_enabled having stopped being writable here.
     key = config_page.handle_post(

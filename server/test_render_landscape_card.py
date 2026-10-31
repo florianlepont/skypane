@@ -306,3 +306,37 @@ def test_entry_point_follows_profile_size(size, state):
     canvas = entry(profile=profile, state=state, quiet_hours_until="07:00")
     assert canvas.size == size
     assert len(pf.pack_panel(canvas)) == size[0] * size[1] // 2
+
+
+def _longest_catalogue_display_id():
+    from server import airports
+
+    ids = [
+        "%s:%s" % (airport.icao, runway.designator)
+        for airport in airports.load_catalogue().values()
+        for runway in airport.runways
+    ]
+    return max(ids, key=lambda rid: len(lc.style.runway_tag_text(rid)))
+
+
+@pytest.mark.parametrize("state", ["departing", "arriving"])
+@pytest.mark.parametrize("theme_id", ["white", BAND_THEMES[0]])
+def test_landscape_card_builds_for_catalogue_and_position_tags(state, theme_id):
+    for runway_id in (_longest_catalogue_display_id(), "LFPG:08L/26R", "position:4", "position:28"):
+        canvas = card(state=state, theme_id=theme_id, runway_id=runway_id)
+        assert canvas.size == SIZE
+
+
+def test_landscape_empty_screen_follows_the_display_id():
+    from server.plane.render import landscape_hold
+
+    for runway_id in (_longest_catalogue_display_id(), "LFPG:08L/26R", "position:28"):
+        assert landscape_hold.build_empty_canvas(SIZE, runway_id).size == SIZE
+    assert (landscape_hold.build_empty_canvas(SIZE, "LFPG:08L/26R").tobytes()
+            != landscape_hold.build_empty_canvas(SIZE, "3").tobytes())
+
+
+def test_landscape_tag_text_differs_between_orly_and_cdg_cards():
+    orly = card(state="departing", runway_id="3")
+    cdg = card(state="departing", runway_id="LFPG:08L/26R")
+    assert orly.tobytes() != cdg.tobytes()

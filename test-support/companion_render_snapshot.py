@@ -122,6 +122,7 @@ _UNAUTH_GET_REQUESTS = (
     companion_app.HOME_ROUTE,
     companion_app.DISPLAY_ROUTE,
     companion_app.DEVICE_ROUTE,
+    companion_app.DETECTION_ROUTE,
     companion_app.FLIGHTS_ROUTE,
     companion_app.HEALTH_ROUTE,
     companion_app.AIRLINES_ROUTE,
@@ -145,6 +146,7 @@ _UNAUTH_GET_REQUESTS = (
 _UNAUTH_POST_REQUESTS = (
     companion_app.LOGIN_ROUTE,
     companion_app.SETTINGS_ROUTE,
+    companion_app.DETECTION_ROUTE,
     companion_app.QUICK_DISPLAY_ROUTE,
     companion_app.QUICK_QUIET_HOURS_ROUTE,
     companion_app.QUICK_LED_ROUTE,

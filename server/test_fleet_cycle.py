@@ -579,3 +579,204 @@ def test_only_non_live_devices_cycle_through_their_profile(monkeypatch, tmp_path
     other = [kw for _, kw in rec.runs if kw["state_dir"] != root]
     assert len(live) == 1 and "profile" not in live[0]
     assert [kw["profile"].key for kw in other] == [hardware.SIM_LANDSCAPE_KEY]
+
+
+# --- per-device detection resolver --------------------------------------------
+
+from server import detection, device_config  # noqa: E402
+
+
+def _save_detection(state_dir, **kwargs):
+    os.makedirs(state_dir, exist_ok=True)
+    device_config.save_device_config(state_dir, **kwargs)
+
+
+def _runway_setting(icao, designator):
+    return {"mode": "runway", "airport": icao, "runway": designator}
+
+
+def _plan(tmp_path, devices):
+    resolver = fleet_cycle.detection_resolver(GEOFENCE)
+    return fleet_cycle.plan_zones(devices, resolver, hold_of=lambda path: None)
+
+
+def _device(tmp_path, name, location=None, live=False, **config):
+    directory = str(tmp_path / name)
+    os.makedirs(directory, exist_ok=True)
+    if config:
+        device_config.save_device_config(directory, **config)
+    return fleet_cycle.FleetDevice(
+        name, directory, live, hardware.LEGACY_KEY, 1e12, location)
+
+
+def test_devices_of_one_airport_share_a_zone_across_runways(tmp_path):
+    live = _device(tmp_path, "live", live=True)
+    a = _device(tmp_path, "a", detection=_runway_setting("LFPG", "08L/26R"))
+    b = _device(tmp_path, "b", detection=_runway_setting("LFPG", "08R/26L"))
+    plan = _plan(tmp_path, [live, a, b])
+    assert len(plan.zones) == 2
+    sizes = sorted(len(g.devices) for g in plan.zones.values())
+    assert sizes == [1, 2]
+    assert plan.unzoned == []
+
+
+def test_shared_airport_zone_is_fetched_once_and_each_device_keeps_its_runway(
+        monkeypatch, tmp_path):
+    root = _fleet(monkeypatch, tmp_path, [])
+    devices = [
+        fleet_cycle.FleetDevice("live", root, True, hardware.LEGACY_KEY, None),
+        _device(tmp_path, "a", detection=_runway_setting("LFPG", "08L/26R")),
+        _device(tmp_path, "b", detection=_runway_setting("LFPG", "08R/26L")),
+    ]
+    monkeypatch.setattr(fleet_cycle, "load_fleet", lambda root_, now=None: devices)
+    rec = Recorder()
+    seen = {}
+    base_runner = rec.runner
+
+    def runner(**kwargs):
+        cfg = device_config.load_device_config(kwargs["state_dir"])
+        spec = detection.spec_for(cfg, kwargs.get("location"), legacy_geofence_path=GEOFENCE)
+        seen[os.path.basename(kwargs["state_dir"])] = spec.display_id
+        return base_runner(**kwargs)
+
+    fleet_cycle.run_fleet(
+        root, GEOFENCE, None, ledger=FakeLedger(), runner=runner,
+        fetcher=rec.fetcher, route_transport="transport", environ={})
+    assert len(rec.fetches) == 2
+    assert seen["a"] == "LFPG:08L/26R"
+    assert seen["b"] == "LFPG:08R/26L"
+    assert seen[os.path.basename(root)] == "3"
+
+
+def test_neighbouring_position_devices_share_one_zone(tmp_path):
+    setting = {"mode": "position", "radius_km": 9}
+    a = _device(tmp_path, "a", location=(48.8566, 2.3522), detection=setting)
+    b = _device(tmp_path, "b", location=(48.8601, 2.3500), detection=setting)
+    plan = _plan(tmp_path, [a, b])
+    assert len(plan.zones) == 1
+    group = next(iter(plan.zones.values()))
+    assert [d.id for d in group.devices] == ["a", "b"]
+    assert (group.zone.lat, group.zone.lon) == (48.86, 2.35)
+
+
+def test_position_devices_with_different_radius_are_different_zones(tmp_path):
+    a = _device(tmp_path, "a", location=(48.86, 2.35), detection={"mode": "position", "radius_km": 9})
+    b = _device(tmp_path, "b", location=(48.86, 2.35), detection={"mode": "position", "radius_km": 12})
+    assert len(_plan(tmp_path, [a, b]).zones) == 2
+
+
+def test_position_device_without_usable_location_joins_no_zone_and_is_served_held(tmp_path):
+    setting = {"mode": "position", "radius_km": 9}
+    live = _device(tmp_path, "live", live=True)
+    nowhere = _device(tmp_path, "nowhere", detection=setting)
+    abroad = _device(tmp_path, "abroad", location=(40.7128, -74.006), detection=setting)
+    plan = _plan(tmp_path, [live, nowhere, abroad])
+    assert len(plan.zones) == 1
+    assert [d.id for d in next(iter(plan.zones.values())).devices] == ["live"]
+    assert [d.id for d in plan.held] == ["nowhere", "abroad"]
+    assert plan.unzoned == []
+
+
+def test_run_fleet_renders_set_location_screen_without_any_fetch(monkeypatch, tmp_path):
+    root = _fleet(monkeypatch, tmp_path, [])
+    setting = {"mode": "position", "radius_km": 9}
+    nowhere = _device(tmp_path, "nowhere", detection=setting)
+    devices = [fleet_cycle.FleetDevice("live", root, True, hardware.LEGACY_KEY, None), nowhere]
+    monkeypatch.setattr(fleet_cycle, "load_fleet", lambda root_, now=None: devices)
+    rec = Recorder()
+    live_zone = detection.spec_for({"tracked_runway": "3"}, legacy_geofence_path=GEOFENCE).zone
+    result = fleet_cycle.run_fleet(
+        root, GEOFENCE, None, ledger=FakeLedger(), runner=rec.runner,
+        fetcher=rec.fetcher, route_transport="transport", environ={})
+    assert [f[0] for f in rec.fetches] == [(live_zone.lat, live_zone.lon, live_zone.radius_nm)]
+    runs = dict(rec.runs)
+    assert runs["nowhere"]["zone_fetch"].queried == ()
+    assert runs["nowhere"]["zone_fetch"].results == ()
+    assert runs[os.path.basename(root)]["zone_fetch"] is not runs["nowhere"]["zone_fetch"]
+    assert [o.status for o in result.outcomes if o.device_id == "nowhere"] == ["held"]
+
+
+def test_real_cycle_shows_set_location_and_leaves_the_live_frame_alone(monkeypatch, tmp_path):
+    root = _fleet(monkeypatch, tmp_path, [])
+    nowhere = _device(tmp_path, "nowhere", detection={"mode": "position", "radius_km": 9})
+    devices = [fleet_cycle.FleetDevice("live", root, True, hardware.LEGACY_KEY, None), nowhere]
+    monkeypatch.setattr(fleet_cycle, "load_fleet", lambda root_, now=None: devices)
+    rec = Recorder()
+    drawn = []
+    real_build = poll_cycle.render.build_canvas
+
+    def spy(*args, **kwargs):
+        drawn.append((os.path.basename(kwargs["state_dir"]), kwargs["runway_id"]))
+        return real_build(*args, **kwargs)
+
+    monkeypatch.setattr(poll_cycle.render, "build_canvas", spy)
+    fleet_cycle.run_fleet(
+        root, GEOFENCE, None, ledger=FakeLedger(), runner=poll_cycle.run_once,
+        fetcher=rec.fetcher, route_transport="transport", environ={})
+    assert len(rec.fetches) == 1
+    assert ("nowhere", detection.NO_LOCATION_DISPLAY_ID) in drawn
+    assert (os.path.basename(root), "3") in drawn
+    assert os.path.exists(os.path.join(nowhere.state_dir, "panel.bin"))
+    with open(os.path.join(nowhere.state_dir, "poll_state.json")) as fh:
+        assert json.load(fh).get("last_flight") is None
+    conn = sqlite3.connect(os.path.join(nowhere.state_dir, "history.db"))
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM runway_events").fetchone()[0] == 0
+    finally:
+        conn.close()
+
+
+def test_corrupt_device_config_falls_back_to_the_legacy_zone(tmp_path):
+    live = _device(tmp_path, "live", live=True)
+    broken = _device(tmp_path, "broken")
+    with open(os.path.join(broken.state_dir, "device_config.json"), "w") as fh:
+        fh.write("{not json")
+    plan = _plan(tmp_path, [live, broken])
+    assert len(plan.zones) == 1
+    assert plan.unzoned == []
+
+
+def test_missing_legacy_file_with_kill_switch_leaves_the_device_unzoned(monkeypatch, tmp_path):
+    monkeypatch.setenv(detection.LEGACY_GEOFENCE_ENV, "1")
+    resolver = fleet_cycle.detection_resolver(str(tmp_path / "nope.json"))
+    plan = fleet_cycle.plan_zones(
+        [_device(tmp_path, "live", live=True)], resolver, hold_of=lambda path: None)
+    assert [d.id for d in plan.unzoned] == ["live"]
+
+
+def test_generic_and_kill_switch_resolvers_give_the_live_frame_one_zone(monkeypatch, tmp_path):
+    live = _device(tmp_path, "live", live=True)
+    generic_zone, _ = fleet_cycle.detection_resolver(GEOFENCE)(live)
+    monkeypatch.setenv(detection.LEGACY_GEOFENCE_ENV, "1")
+    legacy_zone, _ = fleet_cycle.detection_resolver(GEOFENCE)(live)
+    assert generic_zone == legacy_zone
+    assert generic_zone.key == legacy_zone.key
+
+
+def test_runner_receives_location_only_for_devices_that_have_one(monkeypatch, tmp_path):
+    root = _fleet(monkeypatch, tmp_path, [])
+    devices = [
+        fleet_cycle.FleetDevice("live", root, True, hardware.LEGACY_KEY, None),
+        _device(tmp_path, "p", location=(48.86, 2.35),
+                detection={"mode": "position", "radius_km": 9}),
+    ]
+    monkeypatch.setattr(fleet_cycle, "load_fleet", lambda root_, now=None: devices)
+    rec = Recorder()
+    _run(root, rec, resolver=_resolver({}))
+    by_name = dict(rec.runs)
+    assert "location" not in by_name[os.path.basename(root)]
+    assert by_name["p"]["location"] == (48.86, 2.35)
+
+
+def test_load_fleet_reads_each_devices_own_location(fleet, tmp_path):
+    conn = fleet_db.connect(str(tmp_path))
+    try:
+        with fleet_db.transaction(conn):
+            loc = fleet_db.add_location(conn, "Paris", 48.8566, 2.3522, "Europe/Paris")
+            assert fleet_db.set_device_location(conn, fleet.dev_a.mac, loc)
+    finally:
+        conn.close()
+    by_id = {d.id: d for d in fleet_cycle.load_fleet(str(tmp_path), NOW)}
+    assert by_id[fleet.dev_a.id].location == (48.8566, 2.3522)
+    assert by_id[fleet.dev_b.id].location is None
+    assert by_id[fleet.live.id].location != by_id[fleet.dev_a.id].location

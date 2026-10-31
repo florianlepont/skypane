@@ -24,7 +24,7 @@ import pytest
 
 from companion import auth, layout
 from companion.pages import config_page
-from server import device_config, history_db, state_store
+from server import airports, device_config, history_db, state_store
 from server.plane import calendar_rules
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE,
@@ -504,7 +504,7 @@ def test_the_dirty_count_arrives_and_moves_only_when_the_word_does(new_context, 
 
 def test_the_bars_save_persists_every_field_never_only_the_touched_one(new_context, make_app_server):
     """The bar's own Save persists every field to disk, never only the touched one: reading
-    the full on-disk config before and after a single-field (tracked_runway) save, in both
+    the full on-disk config before and after a single-field (theme) save, in both
     languages, and asserting the two dicts differ in exactly the one key touched — a
     stronger surface than reading the request body, since a server that posts the whole
     form but only writes the touched key would still pass a request-body check and fail
@@ -521,24 +521,24 @@ def test_the_bars_save_persists_every_field_never_only_the_touched_one(new_conte
                 "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
             before = device_config.load_device_config(server.tmpdir)
             target = next(
-                r for r in device_config.RUNWAY_IDS
-                if str(r) != str(before["tracked_runway"]))
+                r for r in device_config.THEME_IDS
+                if str(r) != str(before["theme"]))
 
             page.goto(base_url + "/display")
-            _click_control(page, 'input[name="tracked_runway"][value="%s"]' % target)
+            _click_control(page, 'input[name="theme"][value="%s"]' % target)
             _wait_for_bar(page)
             _save_via_bar(page)
 
             after = device_config.load_device_config(server.tmpdir)
-            if str(after["tracked_runway"]) != str(target):
+            if str(after["theme"]) != str(target):
                 raise AssertionError(
                     "lang=%s: the save did not persist — expected "
-                    "tracked_runway %r, got %r"
-                    % (lang, target, after["tracked_runway"]))
+                    "theme %r, got %r"
+                    % (lang, target, after["theme"]))
             changed_keys = [k for k in before if before[k] != after.get(k)]
-            if changed_keys != ["tracked_runway"]:
+            if changed_keys != ["theme"]:
                 raise AssertionError(
-                    "lang=%s: saving ONE field (tracked_runway) changed %r on "
+                    "lang=%s: saving ONE field (theme) changed %r on "
                     "disk — a save that clobbers an untouched field is CFG-36's "
                     "own hazard; before=%r after=%r"
                     % (lang, changed_keys, before, after))
@@ -596,56 +596,54 @@ def test_with_no_script_the_fallback_save_is_the_only_way(new_context, make_app_
                     % (lang, target, saved))
 
 
-def test_the_map_is_gone_the_radios_and_photographs_remain_and_meet_their_floor(new_context, server):
-    """The schematic runway map is gone, the radios and the photographs are not — asserted
-    as one relationship rather than three separate facts: zero .runway-map elements resolve
-    on /display, exactly RUNWAY_IDS' own count of tracked_runway radios and of
-    .runway-card__image photographs still resolve, the runway row does not scroll the page
-    sideways at 360px, and every runway card clears the 44px hit-target floor in its own
-    container at 360px in both themes, measured now that the map strip no longer provides
-    the box.
+def test_the_map_is_gone_and_the_detection_runway_cards_meet_their_floor(new_context, server):
+    """The schematic runway map and the Runway card are gone from /display (no map, no card,
+    no tracked_runway radio, no photograph), and the runway choice lives on /detection, where
+    the radios and cards of the follower airport's runways stay one per runway, do not scroll
+    the page sideways at 360px, and every card clears the 44px hit-target floor in its own
+    container in both themes.
     """
     base_url = server.base_url()
-    ids = device_config.RUNWAY_IDS
+    airport = "LFPO"
+    expected = len(airports.find_airport(airport).runways)
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
     try:
         page = context.new_page()
         _login(page, base_url)
         page.goto(base_url + "/display")
+        for selector in (".runway-map", ".runway-card", ".runway-card__image",
+                         'input[name="tracked_runway"]'):
+            found = page.locator(selector).count()
+            if found != 0:
+                raise AssertionError(
+                    "expected ZERO %s on /display now that the runway choice moved to "
+                    "/detection, found %d" % (selector, found))
+        if not page.locator('a[href$="/detection"]').count():
+            raise AssertionError("/display offers no link to the Detection page")
 
-        maps = page.locator(".runway-card .runway-map").count()
-        if maps != 0:
+        page.goto(base_url + "/detection?airport=%s&mode=runway" % airport)
+        for selector in (".runway-map", ".runway-card__image"):
+            if page.locator(selector).count():
+                raise AssertionError("%s resolves on /detection" % selector)
+        radios = page.locator('input[name="runway"]').count()
+        if radios != expected:
             raise AssertionError(
-                "expected ZERO .runway-map elements on /display after CFG-66's "
-                "removal, found %d — the drawing is supposed to be gone" % (maps,))
-        radios = page.locator('input[name="tracked_runway"]').count()
-        if radios != len(ids):
-            raise AssertionError(
-                "expected %d tracked_runway radios, found %d — the map coming "
-                "out must not take the control it was wrapped around with it"
-                % (len(ids), radios))
-        photos = page.locator(".runway-card .runway-card__image").count()
-        if photos != len(ids):
-            raise AssertionError(
-                "expected %d runway photographs (.runway-card__image), found %d "
-                "— the developer objected to the drawn map, not to the "
-                "pictures, and this relationship must also fail if they vanish"
-                % (len(ids), photos))
-
+                "expected %d runway radios for %s on /detection, found %d"
+                % (expected, airport, radios))
         message = _assert_no_page_overflow(
-            page, "the runway row on /display", VIEWPORT_MIN_SUPPORTED["width"])
+            page, "the runway cards on /detection", VIEWPORT_MIN_SUPPORTED["width"])
         if message:
             raise AssertionError(message)
 
         themes_measured = []
         for state in _in_both_themes(page):
-            for index in range(len(ids)):
-                selector = ".runway-row > .runway-card:nth-child(%d)" % (index + 1)
+            for index in range(expected):
+                selector = ".detection-runways > label.runway-card:nth-of-type(%d)" % (
+                    index + 1)
                 _assert_hit_target(
                     page, selector,
-                    "the runway card %d of %d on /display in the %s theme, "
-                    "now that its map is gone"
-                    % (index + 1, len(ids), state["theme"]))
+                    "the runway card %d of %d on /detection in the %s theme"
+                    % (index + 1, expected, state["theme"]))
             themes_measured.append(state["theme"])
         if len(themes_measured) != 2:
             raise AssertionError(

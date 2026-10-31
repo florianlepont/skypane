@@ -152,7 +152,7 @@ def test_owner_device_routes_are_exactly_the_user_reachable_frame_routes():
         ("GET", routes.Exact(routes.DEVICE_ROUTE)),
         ("POST", routes.Exact(routes.QUICK_LED_ROUTE)),
     }
-    assert len(owner) == 24
+    assert len(owner) == 26
 
 
 @pytest.mark.parametrize("bad_access", [True, False, None, "admin", ("admin", None)])
