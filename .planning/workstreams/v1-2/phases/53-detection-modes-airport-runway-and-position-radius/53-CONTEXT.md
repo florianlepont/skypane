@@ -54,6 +54,12 @@ Not in this phase: pairing, admin console and user view (55), Auth0 and the rout
 - **D-22:** Position-mode level traffic (no climb or descent beyond the existing deadband) keeps today's hold-last-state behaviour; no new state in this phase.
 - **D-23:** `COMPLIANCE.md` gets an OurAirports section (it has none) and the `credits.json` OurAirports description is corrected (runway geometry, not only airport names), in English and French.
 
+### Amendments after UI contract (owner, 2026-10-31)
+- **D-24:** Position-mode radius is entered in whole kilometres, 4 to 28 km (about 2 to 15 NM), and converted to nautical miles server side for zones; the stored value is km. The frame text is `NEARBY · 9 KM` and the empty heading `Watching Within 9 km`; the converted NM radius is rounded to two decimals so equal inputs share one zone.
+- **D-25:** An admin may create and edit a location for the device owner when setting that device; the select lists the owner's locations (an admin's own list for an ownerless device). A non-admin only acts on their own locations. This resolves the dead end where an owner without locations could not enable position mode.
+- **D-26:** The France bounding box (metropolitan France and Corsica) is accepted as is; points in Geneva or Brussels pass and the error message prints no numbers. Keep the "Runway 3/4/2" pill on the three Orly runways; no cap on locations per user.
+- **D-27 (UI checker findings, implementation constraints):** the Search button needs a stylesheet override of the global submit accent; inactive-panel controls must not block native submit (drop `required` and validate on the server, or toggle `disabled`) with a browser test per mode; the leave-guard in `companion/static/dirty-state.js` needs a small bypass for the page's own GET navigations and a typed radius must survive a search round trip; rename the location form "Cancel" and the bare "Search" button to nouned labels.
+
 ### Claude's Discretion
 - Catalogue JSON shape and script name, module names, storage keys in `device_config.json`, how legacy ids map, how replay fixtures are recorded, plan split, empty-state texts, exact orientation display.
 
