@@ -38,7 +38,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [ ] **Phase 53: Detection Modes (Airport/Runway and Position/Radius)** - Devices can follow any French runway or any position within a bounded radius.
 - [ ] **Phase 54: Auth0 Sign-In, Local Roles and Default-Deny Access** - Invite-only sign-in with local roles and a proven route and ownership matrix.
 - [ ] **Phase 55: Frame Pairing, Admin Console and Reduced User View** - Admins pair frames to users and manage the fleet; users see only their own frames with fewer options.
-- [ ] **Phase 56: Per-Hardware Rendering, Battery Profiles, Health and Credits** - Rendering and health follow the hardware profile; credits page published.
+- [ ] **Phase 56: Per-Hardware Rendering, Battery Profiles, Health and Credits** - Rendering and health follow the hardware profile; credits page published. (criteria 1-3 verified in code 2026-10-31; owner still to send the adsb.fi / adsb.lol contact draft)
 - [ ] **Phase 57: Combined Legacy-Frame Firmware Release** - One OTA release gives the live frame the new image reader and 401 recovery. Gated on Phase 47.
 - [ ] **Phase 58: Second Hardware (Shortlist, Spike, Purchase, Validate)** - A second hardware type chosen after a driver spike and validated on a real unit.
 - [ ] **Phase 59: Comment-History Debt** - The comment-history guard debt is cleared or only shrinks.
@@ -272,7 +272,33 @@ Real `/d/<id>/...` routes and their matrix rows are completed after Phase 51; se
   2. Battery thresholds and health views come from the device's profile, with the provenance of each battery number recorded.
   3. A credits page generated from one data file cites adsb.fi (with link), adsb.lol, adsbdb and OurAirports, and contact with adsb.fi / adsb.lol about multi-zone use is recorded.
 
-**Plans**: TBD
+**Plans**: 11 plans
+Plans:
+**Wave 1**
+
+- [x] 56-01-PLAN.md — Golden SHA-256 baseline of the legacy render (HWR-01)
+- [x] 56-02-PLAN.md — Battery provenance, inks, layout family, theme ink accessors (HWR-01)
+- [x] 56-03-PLAN.md — Public bilingual credits page from one data file (HWR-02)
+- [x] 56-04-PLAN.md — Policy functions take profile thresholds and curve (HWR-01)
+
+**Wave 2**
+
+- [x] 56-05-PLAN.md — Provider contact draft (to send) and COMPLIANCE credits (HWR-02)
+- [x] 56-06-PLAN.md — Size-aware canvas primitives and landscape hold screens (HWR-01)
+- [x] 56-07-PLAN.md — Companion battery and health follow the device profile (HWR-01)
+
+**Wave 3**
+
+- [x] 56-08-PLAN.md — Landscape card composition and entry point (HWR-01)
+- [x] 56-11-PLAN.md — Theme picker filtered by profile inks (HWR-01)
+
+**Wave 4**
+
+- [x] 56-09-PLAN.md — Profile dispatch in build_canvas, --hardware preview (owner preview approved)
+
+**Wave 5**
+
+- [x] 56-10-PLAN.md — Poll-cycle profile seam and BYOS serving of 800x480 (HWR-01)
 **UI hint**: yes
 
 ### Phase 57: Combined Legacy-Frame Firmware Release
