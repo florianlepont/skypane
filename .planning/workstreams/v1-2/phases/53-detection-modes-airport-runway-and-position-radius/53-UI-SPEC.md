@@ -1,7 +1,7 @@
 ---
 phase: 53
 slug: detection-modes-airport-runway-and-position-radius
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-10-31
@@ -45,7 +45,7 @@ Declared values (multiples of 4), the existing tokens only:
 
 Exceptions: none new. Hit-target exception register unchanged. Specific minimums this page must meet (measured in the control's own container, not declared):
 
-- Search input: 48 px tall (existing `.filter-bar__search input`), Search button 44 px tall at every width on this page (the global 30 px desktop button height is NOT used for the Search button, the location Save button or the Edit links; they are the page's primary touch actions and get `min-height: 44px`).
+- Search input: 48 px tall (existing `.filter-bar__search input`). The "Search airports" button is 44 px tall at every width (rule `button.detection-search { min-height: 44px }`, see Stylesheet additions item 8; it must out-rank both the 30 px desktop and the 36 px phone bare-`button` heights). The Save location button also gets `min-height: 44px` (a class on the page's own form, same rule block). The "Edit location" links get the 44 px link rule below.
 - Each airport result row: >= 48 px tall, full row width is the link.
 - Each runway card: >= 44 px in both axes (existing radio-card exempt-by-delegation rule; the card is the hit target, the radio stays `visually-hidden`, never `display: none`).
 - Mode segments (`.theme-form` segmented control): same 28 px register entry as the other segmented controls, BUT the labels are long, so segments wrap and grow (`height: auto; min-height: 44px; padding: var(--space-xs) var(--space-sm); white-space: normal`), copying `.update-type-chooser .theme-option`. This page's segments are therefore 44 px or more.
@@ -63,14 +63,14 @@ Only the four existing content sizes, two weights. Line heights are the styleshe
 | Body | 16px (`--font-body-size`) | 400 | 1.5 | page purpose line, field values, result-row airport name uses Emphasis (below), select/input text |
 | Emphasis | 16px | 600 (`--weight-semibold`) | 1.2-1.5 | airport name in a result row, runway designator on a card (`.runway-card__number`), summary values, selected airport name |
 | Label | 14px (`--font-label-size`) | 400 | 1.5 | `.section-caption` captions, hints, result secondary line (`LFPG · CDG · Roissy-en-France`), runway card detail lines, field labels, the live result count |
-| Label voice | 12px uppercase, semibold, 0.06em (existing label voice) | 600 | existing | summary `dt` captions ("Following", "Text on the frame") only |
+| Label voice | 12px (the EXISTING label voice: `.data-card__label` / `.status-row__label` family, uppercase, 0.06em, 70% muted) | 600 | 1.4 | summary `dt` captions ("Following", "Text on the frame", "When nothing is in range") only; `.detection-summary dt` is written out as the eighth member of that voice with the same declaration set, line-height 1.4, and is not a new size |
 | Heading | 22px serif (`--font-heading-size`) | 400 | 1.2 | card titles on this page: "Current setting", "Detection mode", "Airport", "Runway", "Location", "Your locations" (each `<h2 class="text-heading">`, the same form Device uses) |
 | Page title | 32px serif (`--font-page-title-size`) | 600 | 1.2 | `<h1 class="page-title">Detection</h1>` via `page_header()` |
 
 Rules:
 
 - Serif stays headings-only. The frame tag preview (`CDG · 08L/26R`) and coordinates in the location list are identifiers: `--font-mono`, 14 px, weight 400 (class `.time-value` is NOT used, a tag is not a time).
-- No 13 px or 11-12 px sub-scale text is introduced (the 12 px label voice already exists).
+- No 13 px or sub-scale text is introduced; the 12 px label voice above already exists and is restated, not added.
 - Numbers that align (lengths, bearings, radius) use `font-variant-numeric: tabular-nums` (existing declaration, no new token).
 
 ---
@@ -88,7 +88,7 @@ No new colour literal. Theme tokens as shipped (light / dark values live in `sty
 
 Accent reserved for (all are existing entries of the `style.css` header list; this phase adds NO new accent consumer):
 
-1. The Save button in the dirty bar and the Save location button (`button[type="submit"]` primary fill). The Search button is a QUIET button (base `button` wash), not a primary one, so the page keeps exactly one primary action at a time.
+1. The Save button in the dirty bar and the Save location button (`button[type="submit"]` primary fill). The "Search airports" button is also `type="submit"` and WOULD inherit that accent fill, so it carries `class="detection-search"`; the page's own rule `button.detection-search` (specificity (0,1,1), equal to `button[type="submit"]`, placed after it in source order, the same mechanism as `.frame-strip__cell button`) gives it the ordinary quiet wash (`color-mix(in srgb, var(--color-text) 4.5%, transparent)`, 7% on hover) with no accent fill and no inset highlight. Net effect: the page's filled primary action is the dirty-bar Save (or Save location when that form is open) and never the Search button.
 2. The selected runway card: 2 px inset border, check glyph, 12% background wash (live `:has(input:checked)` state, unchanged component).
 3. The selected mode segment (existing `.theme-form` checked-state treatment).
 4. Native `accent-color` on the radios, the focused-input outline, `<summary>` disclosure marker, links ("Change airport", "Edit", back link).
@@ -99,6 +99,10 @@ Not accent: airport result rows (name in `--color-text`, secondary line at the 7
 ---
 
 ## Layout and Components
+
+### Visual focal point
+
+Two, in a fixed order. (1) First read: the "Following" value in the Current setting card (Emphasis 16 px semibold directly under the 32 px page title; it answers "what is this frame watching?"). (2) Primary action: once an edit exists, the dirty bar's accent-filled Save is the only accent-filled element on the page, so the eye lands on it; before any edit nothing competes with the summary. The selected runway card (accent border, wash and check) is the focal point inside the Airport panel.
 
 ### Page anatomy (all widths; single column, max content width as the other settings pages)
 
@@ -122,9 +126,9 @@ A `<dl class="detection-summary">` inside a `.theme-status` card, three rows, la
 
 | Row (dt) | Runway mode | Position mode |
 |----------|-------------|---------------|
-| Following | `Runway 08L/26R at Paris-Charles de Gaulle (CDG)` / detail `Departures and arrivals, in both directions.` | `Aircraft within 5 NM of Home` / detail `In the air, below 10,000 ft, lowest first.` |
-| Text on the frame | `CDG · 08L/26R` (mono) | `NEARBY · 5 NM` (mono) |
-| When nothing is in range | `Watching Runway 08L/26R` (mono) | `Watching Within 5 NM` (mono) |
+| Following | `Runway 08L/26R at Paris-Charles de Gaulle (CDG)` / detail `Departures and arrivals, in both directions.` | `Aircraft within 9 km of Home` / detail `In the air, below 10,000 ft, lowest first.` |
+| Text on the frame | `CDG · 08L/26R` (mono) | `NEARBY · 9 KM` (mono) |
+| When nothing is in range | `Watching Runway 08L/26R` (mono) | `Watching Within 9 km` (mono) |
 
 - The legacy Orly frame (stored `tracked_runway` `3`, `06-24`, `02-20`) renders in runway mode with the catalogue designator and its exact legacy tag: `Runway 07/25 at Paris-Orly (ORY)`, text on the frame `ORY · RWY 3` (and `ORY · RWY 06/24`, `ORY · RWY 02/20`); the empty line keeps the exact current heading text. A `.banner__pill` "Runway 3" (or 4, 2) follows the designator on the legacy Orly rows only.
 - The three picture-text rows are NOT translated: they are exactly what the e-ink frame prints (English, never localised). Their row labels and the card are translated. The mono value carries `lang="en"` so a French page reads it with English pronunciation.
@@ -143,8 +147,8 @@ A `<dl class="detection-summary">` inside a `.theme-status` card, three rows, la
 
 **3a. Search (GET form, sibling of the POST form, never nested in it)**
 
-- `<form method="get" action="{detection route}#airport-results" role="search" aria-label="Airports">` with a hidden `mode=runway`.
-- Reuse the `.filter-bar` / `.filter-bar__search` markup: visible `<label for="airport-q">Search airports</label>` (14 px) above, then the 48 px input (`type="search"`, `name="q"`, `id="airport-q"`, `autocomplete="off"`, `autocapitalize="off"`, `spellcheck="false"`, `enterkeyhint="search"`, `maxlength="60"`, `aria-describedby="airport-search-hint"`), the existing leading magnifier icon, and a real **Search** submit button (quiet button, 44 px) to its right; on 360 px the button drops under the input at full width (the existing `.filter-bar` `flex-wrap`).
+- `<form method="get" action="{detection route}#airport-results" role="search" aria-label="Airports">` with hidden inputs `mode=runway`, `radius_nm` and `location_id` (see section 5, "Carrying unsaved values").
+- Reuse the `.filter-bar` / `.filter-bar__search` markup: visible `<label for="airport-q">Find an airport</label>` (14 px) above, then the 48 px input (`type="search"`, `name="q"`, `id="airport-q"`, `autocomplete="off"`, `autocapitalize="off"`, `spellcheck="false"`, `enterkeyhint="search"`, `maxlength="60"`, `placeholder="LFPG, CDG, Nice…"` (an example only, never the label; the existing `:placeholder-shown` padding rule applies), `aria-describedby="airport-search-hint"`), the existing leading magnifier icon, and a real **Search airports** submit button (`class="detection-search"`, quiet wash, 44 px, see Color item 1) to its right; on 360 px the button drops under the input at full width (the existing `.filter-bar` `flex-wrap`).
 - Hint paragraph `#airport-search-hint` (`.text-label.section-caption`): "Search by ICAO code, IATA code, name or city."
 - No search-as-you-type. The search runs only on submit (consistent with "a keystroke is not a decision"; also keeps the no-JS and JS paths identical). There is no clear button; an empty submit returns to the unfiltered state.
 - Matching (spec for the planner): case- and accent-insensitive substring over ICAO, IATA, name, municipality; exact ICAO/IATA matches sort first; at most 20 rows shown.
@@ -170,47 +174,49 @@ A `<dl class="detection-summary">` inside a `.theme-status` card, three rows, la
 
 - When `?airport=XXXX` is valid (or the saved airport is shown): a selected-airport line (Emphasis name, Label codes) with a "Change airport" link back to `?q=…&mode=runway#airport-results`.
 - `<h2 id="runway-group-heading">Runway</h2>` + caption (`#runway-caption`): "The frame follows departures and arrivals in both directions."
-- `<div class="runway-row detection-runways" role="radiogroup" aria-labelledby="runway-group-heading" aria-describedby="runway-caption">` of `.runway-card` labels, the EXACT existing component (hidden radio + `runway-card__check`, "Selected" visually-hidden text, `data-current-label` on the saved card): `name="runway"`, `value` = the catalogue designator pair (e.g. `08L/26R`), `form="detection-form"`, `required`. A hidden `airport` input (`form="detection-form"`) carries the airport ICAO.
+- `<div class="runway-row detection-runways" role="radiogroup" aria-labelledby="runway-group-heading" aria-describedby="runway-caption">` of `.runway-card` labels, the EXACT existing component (hidden radio + `runway-card__check`, "Selected" visually-hidden text, `data-current-label` on the saved card): `name="runway"`, `value` = the catalogue designator pair (e.g. `08L/26R`), `form="detection-form"` (no `required`: see "Hidden-panel validation" in section 5). A hidden `airport` input (`form="detection-form"`) carries the airport ICAO.
 - Card content (three lines inside the `<label>`, no image):
   1. `.runway-card__number` (Emphasis): the real designator `08L/26R`; on the three LFPO legacy rows a `.banner__pill` "Runway 3" / "Runway 4" / "Runway 2" follows it.
   2. Label line: `Bearing 085° / 265° (true)`.
   3. Label line: `2,700 m · Asphalt` (length and surface; the surface segment and its separator are omitted when the surface is unknown or not in the mapped set asphalt/concrete/grass/gravel).
 - Layout: `.detection-runways` is the existing `.runway-row` converted to a grid for this page (see Stylesheet additions): 1 column below 600 px, `repeat(auto-fill, minmax(220px, 1fr))` at >= 600 px, gap `var(--space-sm)`. The existing `flex: 1 1 0` card behaviour is not relied on, because an airport can list 8+ runways and flex would crush them at 360 px. Order: catalogue order (designator ascending, parallel pairs adjacent).
 - Parallel runways (08L/26R vs 08R/26L) differ in their designator text only; no thumbnail. The L/R/C letters are never abbreviated or reformatted.
-- Preselection: if the airport equals the saved airport, the saved runway is checked. If the airport has exactly one runway, it is checked. Otherwise none is checked and `required` + the server error force a choice.
+- Preselection: if the airport equals the saved airport, the saved runway is checked. If the airport has exactly one runway, it is checked. Otherwise none is checked and the server error "Choose a runway." forces a choice.
 - Frame-tag hint under the group (`.text-label.section-caption`): "The frame labels this airport “CDG”, then the runway, for example CDG · 08L/26R." (code = IATA else ICAO per the tag rule; the example uses the first listed runway).
 - The Orly airport is an ordinary result: searching "ory", "orly" or "LFPO" finds it, and its three cards are the legacy runways. Choosing 07/25, 06/24 or 02/20 stores the legacy id; nothing in the UI reveals that difference except the pill.
 
 ### 4. Location and radius panel (`.detection-panel--position`)
 
 - `<h2>Location</h2>` + caption: "The frame shows the lowest aircraft that is in the air, below 10,000 ft, inside the radius."
-- Field 1: `<label for="detection-location">Location</label>` + `<select id="detection-location" name="location_id" form="detection-form" required>`. Options list the signed-in user's saved locations (admin acting on a device: see Open questions) as `Home — 48.86, 2.35`, i.e. name plus the ROUNDED coordinates that will be sent, so the rounding is visible without script. A location outside the France box is rendered `disabled` with the suffix ` — outside France`. The first option when nothing is saved: absent (see empty state). Saved location is `selected`. `aria-describedby="location-rounding-note"` (plus the error id when present).
+- Field 1: `<label for="detection-location">Location</label>` + `<select id="detection-location" name="location_id" form="detection-form">` (no `required`). Options list the DEVICE OWNER's saved locations (for a device with no owner: the signed-in admin's own list; for a non-admin: their own, which is the owner's) as `Home — 48.86, 2.35`, i.e. name plus the ROUNDED coordinates that will be sent, so the rounding is visible without script. A location outside the France box is rendered `disabled` with the suffix ` — outside France`. The first option when nothing is saved: absent (see empty state). Saved location is `selected`. `aria-describedby="location-rounding-note"` (plus the error id when present).
 - Note `#location-rounding-note` (`.text-label.section-caption`): "Shared with data providers rounded to about 1 km." No exact coordinates are ever printed on this page for position mode; the location LIST in card 6 is the only place the stored (unrounded) coordinates appear, because the owner entered them.
-- Field 2: `<label for="detection-radius">Radius (nautical miles)</label>` + `<input type="number" id="detection-radius" name="radius_nm" form="detection-form" min="2" max="15" step="1" inputmode="numeric" required>` with the unit text "NM" after it (14 px muted, `aria-hidden`; the unit is in the label), width `8ch; min-width: 96px` (same rule shape as `input[name="wake_interval_s"]`). Value: saved radius, else `5`. Hint `#radius-hint`: "From 2 to 15 NM. 1 NM is about 1.85 km." Whole numbers only (the server rejects decimals).
-- No slider in this phase (a continuous control needs the controls-gate script and its measured register; not worth a script for a 14-value integer). Recorded as a deliberate non-build.
+- Field 2: `<label for="detection-radius">Radius (kilometres)</label>` + `<input type="number" id="detection-radius" name="radius_nm" form="detection-form" min="4" max="28" step="1" inputmode="numeric">` (the field name stays `radius_nm` only if the planner keeps the storage key; the stored value is whole km, the planner may rename it `radius_km`; nautical miles never appear in the UI, the km-to-NM conversion is server-side) with the unit text "km" after it (14 px muted, `aria-hidden`; the unit is in the label), width `8ch; min-width: 96px` (same rule shape as `input[name="wake_interval_s"]`). Value: saved radius, else `9`. Hint `#radius-hint`: "From 4 to 28 km." Whole numbers only (the server rejects decimals). `min`/`max`/`step` are spinner hints only; they never gate submission because the form is `novalidate`.
+- No slider in this phase (a continuous control needs the controls-gate script and its measured register; not worth a script for a 25-value integer). Recorded as a deliberate non-build.
 - Errors sit directly under the offending control (`.field-error text-label role="alert"`, `aria-invalid="true"`, `aria-describedby` hint then error), per the placement rule.
 
 ### 5. Save mechanism and dirty/unsaved handling (consistent with Display/Device)
 
-- The form is `<form method="post" id="detection-form" data-dirty-form>` containing the mode card; every other control reaches it by `form="detection-form"`, exactly like the runway radios do today. The three cards are wrapped in one `data-dirty-section="Detection"` wrapper (a single section name), so the existing `dirty-state.js` bar copy reads "Detection changed" / "1 unsaved change".
+- The form is `<form method="post" id="detection-form" data-dirty-form novalidate>` containing the mode card; every other control reaches it by `form="detection-form"`, exactly like the runway radios do today. The three cards are wrapped in one `data-dirty-section="Detection"` wrapper (a single section name), so the existing `dirty-state.js` bar copy reads "Detection changed" / "1 unsaved change".
 - The dirty bar is the existing component (`dirty_bar_html()`), server-rendered VISIBLE, native `type="submit"` Save (carrying `data-static-save-fallback`, `form="detection-form"`) and native `type="reset"` Cancel. Scripts hide it at init and reveal it on the first real edit, as on Display. With scripts blocked the Save is visible from first paint. No auto-save, no `fetch`, no `.quick-toast`.
-- The three page-local GET navigations (search submit, result link, "Change airport") carry all state in the URL and must NOT raise the `beforeunload` leave-guard merely because the user toggled the mode or typed a radius first: the unsaved mode/radius is re-derived from `?mode=` and the guard is bypassed for these `[data-detection-nav]` navigations (executor: confirm `dirty-state.js` has, or gains in the same file with no new script, a one-line skip for a flagged form/link; see Open questions).
+- **Hidden-panel validation.** The inactive mode panel is `display: none`, and a hidden control that fails native constraint validation silently blocks submission ("An invalid form control is not focusable"). Solution, all three parts mandatory: (1) `novalidate` on `#detection-form`; (2) NO `required` on any control of either panel (location select, radius, runway radios); `min`/`max`/`step` stay only as spinner hints; (3) all validation is server side and runs ONLY for the posted `mode` (a `runway` post ignores `location_id`/`radius_nm`; a `position` post ignores `airport`/`runway`), with the inline errors in the Copywriting table. Browser tests, one per mode, at 360 px with scripts blocked: (a) mode Airport and runway, valid runway chosen, position panel holding an invalid radius value (e.g. `99`) -> Save succeeds and the stored setting is the runway; (b) mode Around a location, valid location and radius, no runway checked in the hidden runway panel -> Save succeeds and the stored setting is the position; (c) each mode with its own required value missing -> HTTP 200 with the exact inline error and nothing written.
+- **Page-local navigation and the leave-guard.** The page's own GET navigations (the "Search airports" submit, an airport result link, "Change airport") are marked `data-detection-nav` and carry state in the URL. They must not raise `beforeunload` for unsaved mode/radius/location values, and a typed radius must survive the round trip. Exact edit to the EXISTING `companion/static/dirty-state.js` (no new file, no new script): add one block that handles (i) `submit` on any `form[data-detection-nav]` and (ii) `click` on any `a[data-detection-nav]`; for each it (a) copies the live values of the controls named `mode`, `radius_nm` and `location_id` (those carrying `form="detection-form"`) into the nav form's matching hidden inputs, or onto the link's query string, (b) sets the file's existing `suppressGuard = true`, and (c) clears `suppressGuard` on `pageshow` when `event.persisted` so a back/forward-cache restore re-arms the guard. Without scripts the hidden inputs and link queries carry the values rendered by the server (stored or last-echoed), which is the correct no-JS behaviour. An unsaved runway-card pick is deliberately NOT carried (it belongs to one airport).
+- **Carrying unsaved values.** When the arriving URL carries `mode`, `radius_nm` or `location_id` that differ from the stored setting, the server renders those values as the controls' defaults and renders the dirty bar with `data-dirty-carried` and the existing server-rendered visible state; `dirty-state.js` does not hide the bar at init when that attribute is present, counts it as one unsaved change ("Detection changed") and keeps the leave-guard armed. In that carried state the bar's Cancel is the native reset (a no-op on the defaults), so the same small block makes Cancel navigate to the plain scoped `/detection` (stored setting) when `data-dirty-carried` is present. Browser test: type radius 12 in position mode, switch to Airport and runway, search "cdg", pick LFPG, switch back to Around a location -> radius field reads 12, bar visible, no leave-prompt fired during the search; Cancel returns to the stored radius.
 - A rejected POST re-renders at HTTP 200 with the submitted values echoed (via `_submitted_or_current`), field errors inline, the form still dirty (bar visible), nothing stored (all-or-nothing). Success is `303` to the scoped `/detection` with the pending-tone flash.
 
 ### 6. Your locations card (create / edit, minimal)
 
-- `<h2>Your locations</h2>` + caption: "Locations you save here can be used by your frames."
-- List (`<ul>`): one row per location the user owns: name (Emphasis), then a Label line `48.8566, 2.3522 · Metropolitan France (Paris)` (mono coordinates, 14 px) and an "Edit" link (44 px) with `aria-label="Edit {name}"` pointing to `?location={id}#location-form`.
+- `<h2>Your locations</h2>` + caption: "Locations you save here can be used by your frames." When an admin is acting on a device that has an owner other than themselves, the title is "Locations of this frame’s owner" and the caption is "You are saving locations for this frame’s owner." The list, the select in the position panel and the create/edit form all act on that same owner (device owner; for an ownerless device, the signed-in admin; a non-admin always acts on their own, which is the device owner).
+- List (`<ul>`): one row per location of the card's subject (see above): name (Emphasis), then a Label line `48.8566, 2.3522 · Metropolitan France (Paris)` (mono coordinates, 14 px) and an "Edit location" link (44 px) with `aria-label="Edit location {name}"` pointing to `?location={id}#location-form`.
 - Empty state (compact `empty_state()`): heading "No location yet", body "Add a location below, then choose it above to follow the aircraft around it." The position panel shows the same compact empty state in place of the select (and no radius field is rendered, so the form cannot post an unusable position setting), plus a link "Add a location" to `?new_location=1#location-form`.
-- The form lives in a native `<details id="location-form" class="detection-location-form">`, `<summary>` "Add a location" (44 px, the existing disclosure marker; keeps the 44 px native-summary floor). It is `open` when the URL has `?new_location=1` or `?location={id}`, or after a rejected location POST. When editing, the summary reads "Edit location".
+- The form lives in a native `<details id="location-form" class="detection-location-form">`, `<summary>` "Add a location" (44 px, the existing disclosure marker; keeps the 44 px native-summary floor). It is `open` when the URL has `?new_location=1` or `?location={id}`, or after a rejected location POST. When editing, the summary reads "Edit location details".
 - Its own `<form method="post">` (hidden `action=save_location`, hidden `location_id` empty on create; the detection save posts `action=save_detection`; one route, two actions, default-deny matrix unchanged). Fields, each label above its control, 28 rem max width (`.config-form` rule):
   1. Name: `type="text"`, `maxlength="60"`, `required`, `autocomplete="off"`.
   2. Latitude: `type="text" inputmode="decimal"`, `required`, hint "Decimal degrees, for example 48.8566." A comma decimal separator is accepted and normalised (French keyboards).
   3. Longitude: same, hint "Decimal degrees, for example 2.3522."
   4. Time zone: `<select>` using the existing `display.timezone_label` message; the only option is "Metropolitan France (Paris)" (`Europe/Paris`) while coordinates are limited to the France box; it stays a real `<select>` so overseas zones can be added without a markup change.
-- Buttons: primary **Save location** (`type="submit"`, 44 px) and a text link **Cancel** back to the plain `/detection`. This form is not part of the dirty-section tracking and shows no dirty bar; its own validity is server-side.
+- Buttons: primary **Save location** (`type="submit"`, 44 px) and a text link **Cancel location** back to the plain `/detection` (44 px). This form is not part of the dirty-section tracking and shows no dirty bar; its own validity is server-side.
 - Validation (server-side always; mirrored with native `required`/`inputmode` only): name 1-60 chars after trim; latitude and longitude numeric; both inside the France box (D-13); otherwise inline `.field-error` directly under the control, never a toast. Success: `303` to `/detection` with the success flash.
-- No delete and no location-sharing in this phase.
+- No delete, no location sharing and no cap on the number of locations per user in this phase.
 
 ### 7. Entry points and the Display page change
 
@@ -249,7 +255,8 @@ None required and none shipped in Phase 53 (no new script, the deferred-script p
 4. `.detection-modes` + the two `:has()` panel-hiding rules appended inside the file's EXISTING single `@supports selector(:has(*))` block (the block count stays 1).
 5. `.detection-mode .theme-option` wrap rules (the `.update-type-chooser` rule re-keyed; if a shared selector is cheaper, extend that selector list instead of adding a block).
 6. `input[name="radius_nm"]` width rule next to the `wake_interval_s` rule.
-7. `.detection-location-form` layout (field stack, `max-width: 28rem`).
+7. `.detection-location-form` layout (field stack, `max-width: 28rem`; its Save button and the Cancel link get `min-height: 44px`).
+8. `button.detection-search` quiet-button override: it removes the global `button[type="submit"]` accent fill/inset highlight and applies the ordinary quiet wash (4.5% rest, 7% hover), plus `min-height: 44px` at every width. Argued against reuse: the Search control must be `type="submit"` for the no-JS GET, and there is no existing quiet-submit class outside `.frame-strip__cell button`, `.logout-form button` and `.dirty-bar__cancel`, all structurally scoped to other components. Placed after `button[type="submit"]` and the phone `button` rule in source order; verified by a computed-style check (background is not the accent, height >= 44 px at 360 and 1280 px).
 
 No `@keyframes`, no new `reduce`/`no-preference` block, no custom property.
 
@@ -259,7 +266,7 @@ No `@keyframes`, no new `reduce`/`no-preference` block, no custom property.
 
 All user-facing strings are `i18n.msg("detection.<slug>", "English")` declared at module level; French lives in the NEW `companion/i18n_fr/detection.py` (`MESSAGES = {...}`). Reused existing ids (do NOT redeclare, the package raises on duplicates): `display.timezone_label`, `display.timezone_opt_paris`, `display.selected`, `display.current`, `nav.display`. French style: sentence case, typographic apostrophe `’`, NBSP (U+00A0) before `:` `;` `?` `!`, guillemets `« »` with NBSP inside, NBSP as thousands separator, decimal comma in French prose (inputs accept both).
 
-Panel text (tag, empty heading) is NOT i18n; it is English on the frame: `CDG · 08L/26R`, `ORY · RWY 3`, `NEARBY · 5 NM`, `Watching Runway 08L/26R`, `Watching Within 5 NM`.
+Panel text (tag, empty heading) is NOT i18n; it is English on the frame: `CDG · 08L/26R`, `ORY · RWY 3`, `NEARBY · 9 KM`, `Watching Runway 08L/26R`, `Watching Within 9 km`.
 
 | Element | English (exact) | Proposed French |
 |---------|-----------------|-----------------|
@@ -272,17 +279,17 @@ Panel text (tag, empty heading) is NOT i18n; it is English on the frame: `CDG ·
 | Summary row: empty screen | When nothing is in range | Quand rien n’est à portée |
 | Summary value, runway | Runway %(runway)s at %(airport)s | Piste %(runway)s à %(airport)s |
 | Summary detail, runway | Departures and arrivals, in both directions. | Décollages et atterrissages, dans les deux sens. |
-| Summary value, position | Aircraft within %(radius)d NM of %(location)s | Avions à moins de %(radius)d NM de %(location)s |
+| Summary value, position | Aircraft within %(radius)d km of %(location)s | Avions à moins de %(radius)d km de %(location)s |
 | Summary detail, position | In the air, below 10,000 ft, lowest first. | En vol, sous 10 000 ft, le plus bas d’abord. |
 | Mode card title | Detection mode | Mode de détection |
 | Mode segment 1 | Airport and runway | Aéroport et piste |
 | Mode segment 2 | Around a location | Autour d’un lieu |
 | Airport card title | Airport | Aéroport |
-| Search label | Search airports | Rechercher un aéroport |
+| Search field label | Find an airport | Trouver un aéroport |
 | Search hint | Search by ICAO code, IATA code, name or city. | Cherchez par code OACI, code IATA, nom ou ville. |
 | Search placeholder | LFPG, CDG, Nice… | LFPG, CDG, Nice… |
 | Search landmark label | Airports | Aéroports |
-| Primary CTA (search) | Search | Rechercher |
+| Search button (not primary) | Search airports | Rechercher des aéroports |
 | Result count, many | %(count)d airports found | %(count)d aéroports trouvés |
 | Result count, one | 1 airport found | 1 aéroport trouvé |
 | Result count, none | No airport matches “%(query)s” | Aucun aéroport ne correspond à « %(query)s » |
@@ -305,23 +312,25 @@ Panel text (tag, empty heading) is NOT i18n; it is English on the frame: `CDG ·
 | Location option | %(name)s — %(lat)s, %(lon)s | %(name)s — %(lat)s, %(lon)s |
 | Location option, out of France | %(name)s — outside France | %(name)s — hors de France |
 | Rounding note | Shared with data providers rounded to about 1 km. | Partagé avec les fournisseurs de données, arrondi à environ 1 km. |
-| Radius label | Radius (nautical miles) | Rayon (milles nautiques) |
-| Radius hint | From 2 to 15 NM. 1 NM is about 1.85 km. | De 2 à 15 NM. 1 NM vaut environ 1,85 km. |
+| Radius label | Radius (kilometres) | Rayon (kilomètres) |
+| Radius hint | From 4 to 28 km. | De 4 à 28 km. |
 | Empty state heading (no location) | No location yet | Aucun lieu pour l’instant |
 | Empty state body (no location) | Add a location below, then choose it above to follow the aircraft around it. | Ajoutez un lieu ci-dessous, puis choisissez-le ici pour suivre les avions autour. |
 | Add location link | Add a location | Ajouter un lieu |
 | Locations card title | Your locations | Vos lieux |
 | Locations caption | Locations you save here can be used by your frames. | Les lieux enregistrés ici peuvent servir à vos cadres. |
-| Edit link | Edit | Modifier |
-| Edit link accessible name | Edit %(name)s | Modifier %(name)s |
-| Location form summary (edit) | Edit location | Modifier le lieu |
+| Locations card title (admin, other owner) | Locations of this frame’s owner | Lieux du propriétaire de ce cadre |
+| Locations caption (admin, other owner) | You are saving locations for this frame’s owner. | Vous enregistrez des lieux pour le propriétaire de ce cadre. |
+| Edit link | Edit location | Modifier le lieu |
+| Edit link accessible name | Edit location %(name)s | Modifier le lieu %(name)s |
+| Location form summary (edit) | Edit location details | Modifier les détails du lieu |
 | Field: name | Name | Nom |
 | Field: latitude | Latitude | Latitude |
 | Field: longitude | Longitude | Longitude |
 | Latitude hint | Decimal degrees, for example 48.8566. | Degrés décimaux, par exemple 48,8566. |
 | Longitude hint | Decimal degrees, for example 2.3522. | Degrés décimaux, par exemple 2,3522. |
 | Primary CTA (location) | Save location | Enregistrer le lieu |
-| Cancel link | Cancel | Annuler |
+| Cancel link | Cancel location | Annuler le lieu |
 | Primary CTA (page) | Save (the dirty bar's existing Save and Cancel strings, reused) | existing French strings |
 | Dirty-section name | Detection | Détection |
 | Display/Device card title | Detection | Détection |
@@ -341,7 +350,7 @@ Panel text (tag, empty heading) is NOT i18n; it is English on the frame: `CDG ·
 | location (missing) | Choose a location. | Choisissez un lieu. |
 | location (unknown / not yours) | This location is not available. Choose one from the list. | Ce lieu n’est pas disponible. Choisissez-en un dans la liste. |
 | location or coordinates outside France | This location is outside metropolitan France. Choose a location in France. | Ce lieu est hors de la France métropolitaine. Choisissez un lieu en France. |
-| radius | Enter a whole number from 2 to 15. | Saisissez un nombre entier de 2 à 15. |
+| radius | Enter a whole number of kilometres from 4 to 28. | Saisissez un nombre entier de kilomètres de 4 à 28. |
 | name | Enter a name of up to 60 characters. | Saisissez un nom de 60 caractères au maximum. |
 | latitude / longitude | Enter a number such as 48.8566. | Saisissez un nombre tel que 48,8566. |
 
@@ -363,28 +372,26 @@ Destructive actions in this phase: **none** (no delete, no reset; changing the s
 1. No-JS: `GET /detection?q=cdg` lists Paris-Charles de Gaulle; the result link target renders the CDG runway cards with real designators and one `role="radiogroup"` labelled by its `<h2>`; POST with a runway stores it; scripts blocked at 360 px, value read back from disk, in EN and FR.
 2. Selecting LFPO 07/25 stores the legacy id and leaves `detection` absent (device config bytes for the live frame unchanged); selecting LFPG 08L/26R stores one `detection` object.
 3. Display page contains no `tracked_runway` input and no "Runway" dirty-section, contains the Detection card and a link to the scoped `/detection`; saving Display does not change `tracked_runway`.
-4. Position mode: the select option text and the rounding note show rounded coordinates only; radius 1 and 16 are refused with the exact messages; an out-of-box location is `disabled` and a forged POST is refused server-side.
+4. Position mode: the select option text and the rounding note show rounded coordinates only; radius 3 and 29 are refused with the exact messages; an out-of-box location is `disabled` and a forged POST is refused server-side.
 5. 360 px: no horizontal overflow on `/detection` with a 10-runway airport; each result row and runway card >= 44 px in both axes, measured in the control's own container; the mode segments wrap without clipping in FR.
 6. Live region: exactly one `role="status"` count element exists in the DOM before and after a search; singular, plural, zero and capped wordings each render.
-7. Dirty bar: toggling the mode reveals it with "Detection changed"; Cancel (native reset) restores the saved mode and panel; the search GET after a mode toggle does not raise the leave-guard.
+7. Dirty bar: toggling the mode reveals it with "Detection changed"; Cancel (native reset) restores the saved mode and panel; the search GET after a mode toggle does not raise the leave-guard and a typed radius survives it (section 5).
 8. Accent budget: computed accent colour appears only on the elements listed above (no result-row fill, no summary accent).
-9. Tag strings: summary shows `ORY · RWY 3` for stored `3`, `CDG · 08L/26R` for LFPG 08L/26R, `NEARBY · 5 NM` for radius 5.
+9. Tag strings: summary shows `ORY · RWY 3` for stored `3`, `CDG · 08L/26R` for LFPG 08L/26R, `NEARBY · 9 KM` for radius 9; the empty heading reads `Watching Within 9 km`; no NM appears anywhere in served HTML (EN or FR) or in the frame text.
+10. Hidden-panel submit: the per-mode browser tests of section 5 (invalid value in the hidden panel never blocks Save).
+11. Search button: computed background is not the accent colour and height >= 44 px at 360 and 1280 px.
 
 ---
 
 ## Open questions for the owner
 
-1. **Position-mode tag wording and band themes.** Locked D-22 keeps hold-last-state for level traffic, but the text on the frame for position mode is only a proposal from RESEARCH: `NEARBY · <R> NM` and `Watching Within <R> NM`. Band themes would read "DEPARTING FROM NEARBY". Accept this, or choose a direction-free wording? (Never the location name, it could overflow the canvas.)
-2. **Whose locations does the select list when an admin edits another user's device, and what about the live Orly frame?** D-16/D-17 scope creation to the signed-in user (`locations.owner_user_id`). Assumed: the select lists the DEVICE OWNER's locations (admin sees those), the create/edit form acts on the SIGNED-IN user's own locations only, so an admin setting a customer's frame can only pick that customer's existing locations. Confirm, or allow an admin to create a location for the device owner.
-3. **Overseas.** Overseas bounds are deferred (CONTEXT), so the time-zone select offers only "Metropolitan France (Paris)". Confirm that overseas time zones should stay out of the location form until the overseas-bounds follow-up.
-4. **France box numbers.** The country-bound message deliberately prints no numbers because the box (lat 41.30-51.15, lon -5.20-9.60) is an `[ASSUMED]` coarse guard that includes slivers of neighbouring countries. Confirm that a coordinate in e.g. Geneva or Brussels being accepted is tolerable.
-5. **Legacy pill.** The three Orly runways carry a pill "Runway 3 / 4 / 2" so the owner of the live frame still recognises their runway by the project's old name. Keep this, or show only the real designator (07/25, 06/24, 02/20)?
-6. **Location cap.** Should a user be limited to a maximum number of locations (spam/abuse)? Not specified anywhere; none is designed.
-7. **Overlap with Phase 55.** The `/locations` placeholder route and any Phase 55 admin console are untouched (D-17). The Detection page's "Your locations" card may later be replaced by a link to the Phase 55 page; flagged so the two sessions do not each ship a different form.
+1. **Overlap with Phase 55.** The `/locations` placeholder route and any Phase 55 admin console are untouched (D-17). The Detection page's "Your locations" card may later be replaced by a link to the Phase 55 page; flagged so the two sessions do not each ship a different form.
+
+Answered and folded in (owner decisions D-24 to D-27): radius in whole km 4-28 with frame text `NEARBY · 9 KM` / `Watching Within 9 km` and no NM in the UI; admin creates and edits locations for the device owner; the France box is accepted as is and its error prints no numbers; the "Runway 3/4/2" pill stays; no location cap. Overseas time zones remain out of the location form (overseas bounds are a deferred idea in CONTEXT). Band themes will read "DEPARTING FROM NEARBY" in position mode (accepted wording consequence of the locked tag, noted for the render phase).
 
 ## Implementation risks to confirm during planning (not owner decisions)
 
-- `dirty-state.js` is keyed on `form[data-dirty-form]` and `[data-dirty-section]`; confirm the Detection form can use it as-is and whether the leave-guard bypass for the page's own GET navigations (section 5) already exists or needs a small addition to that existing file (no new script).
+- The `dirty-state.js` edit (section 5) is a small addition to the existing file, not a new script; the deferred-script pin does not move. Confirm `suppressGuard` is in scope of the new block.
 - The panel-hiding `:has()` rules must go inside the single existing `@supports selector(:has(*))` block; `test_config_page` pins that count.
 - Hit-target and overflow claims above are targets; they must be MEASURED in a Playwright test at 360 px, not trusted from this document.
 - Regenerate `companion/testdata/render_baseline.json` after the Display card change and review that only Display, Device and the new `/detection` keys differ.
@@ -393,11 +400,11 @@ Destructive actions in this phase: **none** (no delete, no reset; changing the s
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved 2026-10-31 (checker findings applied, owner decisions D-24 to D-27 folded in)
