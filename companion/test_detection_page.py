@@ -453,3 +453,77 @@ def test_no_nm_text(rig, lang):
         text = _visible_text(page)
         assert not re.search(r"\bNM\b|\bnm\b|nautical", text)
 
+
+# --- carried values and page-local navigation -------------------------------
+
+
+def _add_home(rig):
+    from server import fleet_db
+    conn = fleet_db.connect(str(rig.server.state_dir))
+    try:
+        return fleet_db.add_location(
+            conn, "Home", 48.8566, 2.3522, "Europe/Paris",
+            owner_user_id=rig.fleet.owner_id)
+    finally:
+        conn.close()
+
+
+def test_carried_values_render_as_defaults_with_a_visible_dirty_bar(rig):
+    home = _add_home(rig)
+    path = "%s/detection?mode=position&radius_km=12&location_id=%d" % (rig.scope(), home)
+    status, _h, page = rig.get("owner", path)
+    assert status == 200
+    assert re.search(r'name="radius_km"[^>]*value="12"', page)
+    assert re.search(r'<option value="%d" selected>' % home, page)
+    assert re.search(r'id="detection-mode-position" value="position"[^>]*checked', page)
+    bar = re.search(r'<div class="dirty-bar"[^>]*>', page).group(0)
+    assert 'data-dirty-carried="%s/detection"' % rig.scope() in bar
+    assert " hidden" not in bar
+
+
+def test_carried_values_absent_when_nothing_differs(rig):
+    home = _add_home(rig)
+    path = "%s/detection?mode=runway&radius_km=9&location_id=%d" % (rig.scope(), home)
+    _s, _h, page = rig.get("owner", path)
+    assert "data-dirty-carried" not in page
+
+
+def test_carried_values_search_form_holds_them_as_hidden_inputs(rig):
+    home = _add_home(rig)
+    path = "%s/detection?mode=runway&radius_km=12&location_id=%d" % (rig.scope(), home)
+    _s, _h, page = rig.get("owner", path)
+    form = re.search(r'<form method="get".*?</form>', page, re.S).group(0)
+    assert '<input type="hidden" name="radius_km" value="12">' in form
+    assert '<input type="hidden" name="location_id" value="%d">' % home in form
+    assert '<input type="hidden" name="mode" value="runway">' in form
+    assert "data-detection-nav" in form
+
+
+def test_nav_links_carry_state(rig):
+    home = _add_home(rig)
+    path = "%s/detection?q=paris&mode=runway&radius_km=12&location_id=%d" % (rig.scope(), home)
+    _s, _h, page = rig.get("owner", path)
+    rows = re.findall(r'<a class="detection-result" href="([^"]*)" data-detection-nav>', page)
+    assert rows
+    for href in rows:
+        query = urllib.parse.parse_qs(urllib.parse.urlsplit(html.unescape(href)).query)
+        assert query["mode"] == ["runway"]
+        assert query["radius_km"] == ["12"]
+        assert query["location_id"] == [str(home)]
+
+
+def test_invalid_carried_radius_ignored(rig):
+    _add_home(rig)
+    path = rig.scope() + "/detection?mode=position&radius_km=%3Cscript%3E"
+    _s, _h, page = rig.get("owner", path)
+    assert "<script>" not in page.replace('<script src', '')
+    assert re.search(r'name="radius_km"[^>]*value="9"', page)
+    _s, _h, page = rig.get("owner", rig.scope() + "/detection?mode=position&radius_km=abc")
+    assert re.search(r'name="radius_km"[^>]*value="9"', page)
+
+
+def test_carried_values_never_change_stored_files(rig):
+    home = _add_home(rig)
+    before = rig.config_bytes(rig.owner_dir())
+    rig.get("owner", "%s/detection?mode=position&radius_km=12&location_id=%d" % (rig.scope(), home))
+    assert rig.config_bytes(rig.owner_dir()) == before
