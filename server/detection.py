@@ -1,4 +1,4 @@
-"""Per-device detection spec for runway mode.
+"""Per-device detection spec for runway and position modes.
 
 `spec_for` turns a device's stored configuration into a zone to poll and a
 geofence-shaped document that server.plane.detect consumes unchanged, so
@@ -10,6 +10,11 @@ from adsb-test/runway3.json. The generic corridor rectangle is not clipped
 the way the hand-tuned box is, so deriving the box generically would change
 decisions at the corridor tips; carrying the frozen values keeps the Orly
 frame's behaviour and its zone key unchanged.
+
+Position mode polls the area around the device's location. The location is
+rounded to two decimals (about 1 km) in `position_zone`, the only place a
+position zone is built, so no provider URL, log line or stored document ever
+carries the unrounded home coordinate; equal rounded inputs share one zone.
 
 Pure: no clock and no network. The only I/O is reading the legacy geofence
 file when the kill switch is on.
@@ -58,6 +63,21 @@ ALT_CEILING_FT = 3000
 EXTENSION_M = 2500
 AXIS_TOLERANCE_DEG = 30
 _FALLBACK_ID = "3"
+
+POSITION_MODE = detect.POSITION_MODE
+POSITION_ID_PREFIX = "position:"
+POSITION_ALT_CEILING_FT = 10000
+RADIUS_KM_MIN = 4
+RADIUS_KM_MAX = 28
+KM_PER_NM = 1.852
+
+# Coarse guard around metropolitan France and Corsica, derived from the
+# airport extremes. It is deliberately not a border test: it admits slivers
+# of neighbouring countries and the sea. Checked on the rounded values.
+FRANCE_LAT_MIN = 41.30
+FRANCE_LAT_MAX = 51.15
+FRANCE_LON_MIN = -5.20
+FRANCE_LON_MAX = 9.60
 
 
 @dataclass(frozen=True)
@@ -145,6 +165,112 @@ def runway_geofence_doc(
     }
 
 
+def km_to_nm(radius_km: int) -> float:
+    """Zone radius in nautical miles for a whole-kilometre radius.
+
+    Rounded to two decimals so equal inputs share one zone key; the allowed
+    4 to 28 km therefore span 2.16 to 15.12 NM, about 2 to 15.
+    """
+    return round(radius_km / KM_PER_NM, 2)
+
+
+def round_coordinate(value: float) -> float:
+    """Two-decimal coordinate with negative zero normalised to zero."""
+    return round(value, 2) + 0.0
+
+
+def inside_france(lat: float, lon: float) -> bool:
+    """Whether the rounded coordinate lies in the coarse France box."""
+    return (
+        FRANCE_LAT_MIN <= round_coordinate(lat) <= FRANCE_LAT_MAX
+        and FRANCE_LON_MIN <= round_coordinate(lon) <= FRANCE_LON_MAX
+    )
+
+
+def _is_number(value: Any) -> bool:
+    return (
+        not isinstance(value, bool)
+        and isinstance(value, (int, float))
+        and math.isfinite(value)
+    )
+
+
+def validate_position(lat: Any, lon: Any, radius_km: Any) -> tuple[float, float, int]:
+    """Rounded (lat, lon) and the radius, or ValueError.
+
+    The error's first argument is a stable code: "radius", "location" (not a
+    finite coordinate) or "outside_france".
+    """
+    if isinstance(radius_km, bool) or not isinstance(radius_km, int):
+        raise ValueError("radius")
+    if not RADIUS_KM_MIN <= radius_km <= RADIUS_KM_MAX:
+        raise ValueError("radius")
+    if not _is_number(lat) or not _is_number(lon):
+        raise ValueError("location")
+    if not inside_france(lat, lon):
+        raise ValueError("outside_france")
+    return round_coordinate(lat), round_coordinate(lon), radius_km
+
+
+def position_zone(lat: float, lon: float, radius_km: int) -> fleet_zones.Zone:
+    """The zone for a device position: the single place one is constructed.
+
+    Rounds before the Zone exists, so the unrounded coordinate cannot reach
+    a provider request.
+    """
+    return fleet_zones.Zone(round_coordinate(lat), round_coordinate(lon), km_to_nm(radius_km))
+
+
+def position_display_id(radius_km: int) -> str:
+    return "%s%d" % (POSITION_ID_PREFIX, radius_km)
+
+
+def _position_km(display_id: str) -> int | None:
+    if not display_id.startswith(POSITION_ID_PREFIX):
+        return None
+    text = display_id[len(POSITION_ID_PREFIX):]
+    return int(text) if text.isdigit() else None
+
+
+def _position_doc(zone: fleet_zones.Zone) -> dict[str, Any]:
+    radius_m = zone.radius_nm * 1852.0
+    dlat = radius_m / detect._M_PER_DEG_LAT
+    dlon = radius_m / (detect._M_PER_DEG_LAT * math.cos(math.radians(zone.lat)))
+    return {
+        "detection_mode": POSITION_MODE,
+        "center": {"lat": zone.lat, "lon": zone.lon},
+        "radius_nm": zone.radius_nm,
+        "bbox": {
+            "lat_min": round(zone.lat - dlat, 6),
+            "lat_max": round(zone.lat + dlat, 6),
+            "lon_min": round(zone.lon - dlon, 6),
+            "lon_max": round(zone.lon + dlon, 6),
+        },
+        "alt_ceiling_ft": POSITION_ALT_CEILING_FT,
+    }
+
+
+def _position_spec(detection: Mapping[str, Any], location: Any) -> DetectionSpec | None:
+    if detection.get("mode") != POSITION_MODE:
+        return None
+    try:
+        lat, lon = location
+        lat, lon, radius_km = validate_position(lat, lon, detection.get("radius_km"))
+    except (TypeError, ValueError):
+        return None
+    zone = position_zone(lat, lon, radius_km)
+    display_id = position_display_id(radius_km)
+    return DetectionSpec(
+        mode=POSITION_MODE,
+        display_id=display_id,
+        zone=zone,
+        geofence=_position_doc(zone),
+        tag_text=tag_text(display_id),
+        empty_heading=empty_heading(display_id),
+        fail_safe=False,
+    )
+
+
 def _split_display_id(display_id: str) -> tuple[airports.Airport, airports.Runway] | None:
     icao, sep, designator = display_id.partition(":")
     if not sep:
@@ -160,6 +286,9 @@ def tag_text(display_id: str) -> str:
     """Image tag for a runway display id; unknown ids use the default runway."""
     if display_id in device_config.RUNWAYS:
         return str(device_config.RUNWAYS[display_id]["tag_text"])
+    km = _position_km(display_id)
+    if km is not None:
+        return "NEARBY · %d KM" % km
     found = _split_display_id(display_id)
     if found is None:
         return str(device_config.RUNWAYS[_FALLBACK_ID]["tag_text"])
@@ -171,6 +300,9 @@ def empty_heading(display_id: str) -> str:
     """Heading of the empty screen for a runway display id."""
     if display_id in device_config.RUNWAYS:
         return str(device_config.RUNWAYS[display_id]["empty_heading"])
+    km = _position_km(display_id)
+    if km is not None:
+        return "Watching Within %d km" % km
     found = _split_display_id(display_id)
     if found is None:
         return str(device_config.RUNWAYS[_FALLBACK_ID]["empty_heading"])
@@ -252,7 +384,9 @@ def spec_for(
             return _legacy_spec(tracked, legacy_geofence_path, False)
         return _legacy_spec(_FALLBACK_ID, legacy_geofence_path, tracked is not None)
     if isinstance(detection, Mapping):
-        spec = _catalogue_spec(detection, legacy_geofence_path)
+        spec = _position_spec(detection, location)
+        if spec is None:
+            spec = _catalogue_spec(detection, legacy_geofence_path)
         if spec is not None:
             return spec
     return _legacy_spec(_FALLBACK_ID, legacy_geofence_path, True)

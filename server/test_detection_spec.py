@@ -204,3 +204,127 @@ def test_kill_switch_off_gives_generated_document():
     spec = detection.spec_for({"tracked_runway": "3"})
     assert list(spec.geofence["runways"]) == ["3"]
     assert "center" in spec.geofence and "source" not in spec.geofence["center"]
+
+
+# ---------------------------------------------------------------
+# Position mode
+# ---------------------------------------------------------------
+
+_POSITION_CFG = {"detection": {"mode": "position", "radius_km": 9}}
+
+
+@pytest.mark.parametrize("km,nm", [(9, 4.86), (4, 2.16), (28, 15.12)])
+def test_bounds_km_to_nm(km, nm):
+    assert detection.km_to_nm(km) == nm
+
+
+@pytest.mark.parametrize("radius", [3, 29, True, 9.5, "9", None, 9.0])
+def test_bounds_radius_rejected(radius):
+    with pytest.raises(ValueError) as err:
+        detection.validate_position(48.86, 2.35, radius)
+    assert err.value.args[0] == "radius"
+
+
+@pytest.mark.parametrize("radius", [4, 28, 9])
+def test_bounds_radius_accepted(radius):
+    assert detection.validate_position(48.86, 2.35, radius)[2] == radius
+
+
+@pytest.mark.parametrize(
+    "lat,lon",
+    [(41.29, 2.0), (51.16, 2.0), (48.0, -5.21), (48.0, 9.61), (0.0, 0.0)],
+)
+def test_bounds_outside_france(lat, lon):
+    with pytest.raises(ValueError) as err:
+        detection.validate_position(lat, lon, 9)
+    assert err.value.args[0] == "outside_france"
+
+
+@pytest.mark.parametrize(
+    "lat,lon", [(41.30, -5.20), (51.15, 9.60), (41.296, -5.196), (51.149, 9.601)]
+)
+def test_bounds_france_box_inclusive_on_rounded_values(lat, lon):
+    assert detection.validate_position(lat, lon, 9)[:2] == (
+        detection.round_coordinate(lat),
+        detection.round_coordinate(lon),
+    )
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), "48.8", None, True])
+def test_bounds_non_finite_location_rejected(bad):
+    with pytest.raises(ValueError) as err:
+        detection.validate_position(bad, 2.35, 9)
+    assert err.value.args[0] == "location"
+
+
+def test_round_negative_zero_normalised():
+    value = detection.round_coordinate(-0.001)
+    assert value == 0.0
+    assert str(value) == "0.0"
+
+
+def test_position_zone_rounds_and_converts():
+    zone = detection.position_zone(48.85661, 2.35222, 9)
+    assert zone == fleet_zones.Zone(48.86, 2.35, 4.86)
+
+
+def test_position_zone_key_has_no_negative_zero():
+    assert detection.position_zone(48.8566, -0.001, 9).key == "48.86|0.0|4.86"
+
+
+def test_position_spec_fields():
+    spec = detection.spec_for(_POSITION_CFG, location=(48.85661, 2.35222))
+    assert spec.mode == "position"
+    assert spec.display_id == "position:9"
+    assert spec.zone == fleet_zones.Zone(48.86, 2.35, 4.86)
+    assert spec.tag_text == "NEARBY · 9 KM"
+    assert spec.empty_heading == "Watching Within 9 km"
+    assert spec.fail_safe is False
+    doc = spec.geofence
+    assert doc["detection_mode"] == "position"
+    assert doc["center"] == {"lat": 48.86, "lon": 2.35}
+    assert doc["radius_nm"] == 4.86
+    assert doc["alt_ceiling_ft"] == 10000
+    assert "runways" not in doc
+
+
+def test_position_spec_keeps_no_unrounded_coordinate():
+    spec = detection.spec_for(_POSITION_CFG, location=(48.85661, 2.35222))
+    text = repr(spec) + json.dumps(spec.geofence)
+    assert "48.85661" not in text
+    assert "2.35222" not in text
+
+
+def test_position_spec_zone_matches_zone_from_document():
+    spec = detection.spec_for(_POSITION_CFG, location=(48.85661, 2.35222))
+    assert fleet_zones.zone_from_geofence(spec.geofence) == spec.zone
+
+
+@pytest.mark.parametrize(
+    "cfg,location",
+    [
+        (_POSITION_CFG, None),
+        (_POSITION_CFG, (40.0, 2.0)),
+        (_POSITION_CFG, (48.8, "x")),
+        (_POSITION_CFG, "48.8,2.3"),
+        ({"detection": {"mode": "position", "radius_km": 99}}, (48.8, 2.3)),
+        ({"detection": {"mode": "position", "radius_km": 9.5}}, (48.8, 2.3)),
+        ({"detection": {"mode": "position", "radius_km": True}}, (48.8, 2.3)),
+        ({"detection": {"mode": "position"}}, (48.8, 2.3)),
+    ],
+)
+def test_position_spec_bad_input_falls_back(cfg, location):
+    spec = detection.spec_for(cfg, location=location)
+    assert spec.fail_safe is True
+    assert spec.mode == "runway"
+    assert spec.display_id == "3"
+
+
+def test_shared_zone_for_nearby_locations():
+    first = detection.spec_for(_POSITION_CFG, location=(48.8566, 2.3522))
+    second = detection.spec_for(_POSITION_CFG, location=(48.8601, 2.3500))
+    other = detection.spec_for(
+        {"detection": {"mode": "position", "radius_km": 10}}, location=(48.8566, 2.3522)
+    )
+    assert first.zone.key == second.zone.key
+    assert first.zone.key != other.zone.key
