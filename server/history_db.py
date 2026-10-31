@@ -23,6 +23,7 @@ instead of raising "database is locked".
 import contextlib
 import json
 import os
+import pathlib
 import re
 import sqlite3
 import sys
@@ -464,6 +465,38 @@ def recent_device_health(conn, limit=200):
         (limit,),
     ).fetchall()
     return [dict(row) for row in rows]
+
+
+class TooManyRows(Exception):
+    """A read-only export matched more rows than its caller allows."""
+
+
+def export_device_health(state_dir, since, max_rows):
+    """The `device_health` rows with `ts >= since`, oldest first, as
+    (ts, battery_mv, fw_version, boot_reason, rssi) tuples.
+
+    Opens history.db read-only (`mode=ro`): it never creates the file, runs
+    no schema statement and cannot write. Raises `TooManyRows` when more
+    than `max_rows` rows match, never a silent truncation, and
+    `sqlite3.Error` when the database is missing or unreadable. `since` is
+    bound as a parameter and compared as stored text.
+    """
+    path = os.path.abspath(history_db_path(state_dir))
+    uri = pathlib.Path(path).as_uri() + "?mode=ro"
+    conn = sqlite3.connect(uri, uri=True, timeout=5.0)
+    try:
+        conn.execute("PRAGMA busy_timeout=5000")
+        conn.execute("PRAGMA query_only=ON")
+        cursor = conn.execute(
+            "SELECT ts, battery_mv, fw_version, boot_reason, rssi "
+            "FROM device_health WHERE ts >= ? ORDER BY ts LIMIT ?",
+            (since, max_rows + 1))
+        rows = cursor.fetchall()
+    finally:
+        conn.close()
+    if len(rows) > max_rows:
+        raise TooManyRows()
+    return rows
 
 
 def latest_device_health(conn):

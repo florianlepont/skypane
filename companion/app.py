@@ -31,7 +31,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from companion import (  # noqa: E402
-    access, auth, device_dispatch, device_scope, flash, freshness, i18n, illustration_normalize, layout,
+    access, auth, device_dispatch, device_scope, export_api, flash, freshness, i18n, illustration_normalize, layout,
     login_page, page_context, post_actions, preview_images, prefs, request_body, routes, sign_in,
     sign_in_config, static_files, theme_preview)
 from companion.pages import (  # noqa: E402
@@ -394,7 +394,7 @@ parse_single_uploaded_file = post_actions.parse_single_uploaded_file
 
 class Handler(
         device_dispatch.DeviceDispatchMixin, preview_images.PreviewImagesMixin,
-        sign_in.SignInMixin,
+        sign_in.SignInMixin, export_api.ExportMixin,
         post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
     server_version = "skypane-companion"
     args = None

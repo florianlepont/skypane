@@ -117,7 +117,9 @@ def test_a_token_shorter_than_32_characters_leaves_the_feature_off(make_app_serv
 
 def test_a_32_character_token_turns_the_feature_on(make_app_server):
     exact = _new_token(32)
-    server = make_app_server(env_overrides={TOKEN_ENV: exact})
+    server = make_app_server(
+        seed=lambda state_dir: _seed_rows(state_dir, []),
+        env_overrides={TOKEN_ENV: exact})
     status, _h, _body = _get(
         server, _since_query(_now() - timedelta(days=1)), _bearer(exact))
     assert status == 200

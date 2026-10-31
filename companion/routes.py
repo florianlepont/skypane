@@ -24,8 +24,9 @@ both off, byte for byte the same arithmetic the pre-table if-chains
 used. `access` is a validated `Access(min_role, device_arg)`: a Route
 cannot be constructed without one (default-deny). PUBLIC is the one place
 this whole app grants pre-session access; the only routes with it are
-GET /login, the sign-in start and callback, and the static assets in `companion/static_files.py`'s
-`STATIC_ROUTES`. SIGNED_IN needs any signed-in user; ADMIN_ONLY needs the
+GET /login, the sign-in start and callback, the bearer-token export (it checks
+its own token and never reads the session cookie), and the static assets in
+`companion/static_files.py`'s `STATIC_ROUTES`. SIGNED_IN needs any signed-in user; ADMIN_ONLY needs the
 admin role (every global page and mutation).
 """
 import collections
@@ -93,6 +94,7 @@ THEME_ROUTE = "/ui-theme"
 LANG_ROUTE = "/ui-lang"
 LOGOUT_ROUTE = "/logout"
 ACCOUNT_ROUTE = "/account"
+EXPORT_ROUTE = "/api/export/battery-history"
 GALLERY_ROUTE_PREFIX = "/gallery/"
 ILLUSTRATION_IMAGE_ROUTE_PREFIX = "/illustration/"
 
@@ -140,6 +142,11 @@ _GET_ROUTES = (
         Route("GET", Exact(LOGIN_ROUTE), lambda h, m: h._handle_login_get(), PUBLIC),
         Route("GET", Exact(AUTH0_LOGIN_ROUTE), lambda h, m: h._handle_login_auth0_get(), PUBLIC),
         Route("GET", Exact(CALLBACK_ROUTE), lambda h, m: h._handle_callback_get(), PUBLIC),
+        # PUBLIC only in the sense that the cookie gate does not apply: the
+        # handler authenticates the bearer token itself.
+        Route(
+            "GET", Exact(EXPORT_ROUTE),
+            lambda h, m: h._handle_export_get(m.query), PUBLIC),
     )
     + _static_get_routes()
     + (
