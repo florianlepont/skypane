@@ -154,6 +154,7 @@ files = [
     "server/zone_fetch.py",
     "server/plane/shared_route_cache.py",
     "server/pairing_code.py",
+    "server/pairing_image.py",
     # Added under the global settings only, not the strict override below:
     # the pure helpers (decide_hold, advance_is_due, normalise_pending,
     # enqueue_pending, pop_fresh_pending) and CycleContext are fully
