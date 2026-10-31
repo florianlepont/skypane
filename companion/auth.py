@@ -7,6 +7,7 @@ its sha256 is stored server-side (server/fleet_sessions.py), so a session
 outlives a restart and no derived value is ever accepted as a session.
 """
 import hashlib
+import hmac
 import ipaddress
 import os
 import secrets
@@ -34,6 +35,25 @@ def new_session_token():
 def hash_session_token(token):
     """Hex sha256 of a session token: the only form the database holds."""
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def csrf_token(session_token):
+    """The per-session anti-forgery token embedded in protected forms: hex
+    sha256 of a fixed prefix plus the raw session token. The database holds
+    only hash_session_token(), so a leaked database cannot yield it, and the
+    cookie is HttpOnly so page script cannot read the source value.
+    """
+    return hashlib.sha256(b"csrf-v1:" + session_token.encode("utf-8")).hexdigest()
+
+
+def csrf_ok(session_token, submitted):
+    """True only when `submitted` is exactly csrf_token(session_token)
+    (constant-time compare). Empty or missing values are always refused.
+    """
+    if not session_token or not isinstance(submitted, str) or not submitted:
+        return False
+    return hmac.compare_digest(
+        csrf_token(session_token).encode("ascii"), submitted.encode("utf-8"))
 
 
 def secure_cookie_flag():

@@ -196,7 +196,7 @@ def _hrefs(body):
 
 def _is_allowed_user_target(target):
     return (
-        target in ("/account", "/logout", "/ui-theme", "/ui-lang")
+        target in ("/account", "/locations", "/logout", "/ui-theme", "/ui-lang")
         or target.startswith("/static/")
         or target == "/favicon.ico"
         or target.startswith("#"))

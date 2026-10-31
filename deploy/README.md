@@ -330,6 +330,43 @@ migration never runs at service start.
   (`ok`, `absent` or `fault`) for the Health page. It is derived, so it is
   not backed up.
 
+## Pairing, retiring and re-activating a frame
+
+A frame can be added to a user from the companion console (the Fleet page,
+administrators only) or with `fleet_cli.py`. Nothing here deploys anything.
+
+1. **Provision the frame** over USB with `firmware/provision.sh
+   <serial-port>`. It prints the frame's MAC and the SHA-256 of its secret.
+2. **Register it as pending**, in the console (Fleet, "Register a frame": MAC,
+   SHA-256, hardware type) or with
+   `$FLEET devices register-pending --mac <mac> --secret-sha256 <hash>
+   [--hardware <type>]`. The frame has no owner yet and no legacy file is
+   written for it. `$FLEET devices pending-list` shows pending and retired
+   frames.
+3. **Power the frame.** On its first wake it shows a pairing code on the
+   panel and wakes again every 5 minutes. The panel is redrawn only when the
+   code changes: a code is valid for 30 minutes and rotates at the next
+   wake after it expires, so about every 35 minutes, roughly 40 redraws a
+   day.
+4. **Pair it in the console**: Fleet, "Pair a frame", type the code shown
+   on the panel and choose the owner. The code is single-use and the guesses
+   are throttled. A claimed frame that is not the live frame stays white (or on
+   its last image) until a poll writes its image; there is no poll-now for
+   users.
+5. **Retire** a frame from its Fleet row (it keeps its data and its token and
+   shows a "retired" image) and **re-activate** it from the pending list; a
+   re-activated frame is wiped of its previous owner's data and shows a new
+   code. Reassigning a frame to another owner wipes the previous owner's data
+   too (the live frame, `state_path` `.`, is never wiped, only re-owned).
+6. **Hard deletion is CLI-only**: `$FLEET devices remove --mac <mac>` deletes a
+   pending or retired frame's row and its pairing directory.
+
+`$FLEET devices assign` now behaves like the console reassign: for a frame
+that is not the live frame it wipes the previous owner's data and
+re-provisions it. Console actions are written to the append-only audit log
+(Audit log page). The pairing and mutation throttles and the one-shot flash
+messages are kept in memory and reset when the companion restarts.
+
 ## Ship the code
 
 From your laptop, from the repository root:
@@ -677,6 +714,19 @@ Caddy drops the `code`, `state` and `error_description` query keys from
 the companion access log. `caddy validate` runs in `activate.sh`; also
 check that a real `/callback` line in `journalctl -u caddy` shows no
 query values.
+
+### Schema v3 and rollback
+
+The pairing and console release adds schema 3 (pending frames, the audit
+log, a location owner column). The `activate.sh` dry-run prints
+`upgrade fleet.db schema 2 -> 3`; the migration runs after the backup and
+before the symlink swap, and is expand-only. The previous release's byos
+refuses a schema 3 file as too new and falls back to the legacy files;
+Health shows a fleet fault until the new release is live again. Frames
+claimed after the upgrade have no legacy token, so after a rollback they
+fail with 401 and then 403 and back off for up to 6 hours. Frames that
+existed before the upgrade keep working from the legacy files. Restoring a
+backup taken at schema 3 needs this release or later.
 
 ### Schema v2 and rollback
 

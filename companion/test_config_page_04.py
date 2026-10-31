@@ -26,6 +26,7 @@ from companion.pages import config_page
 from companion.settings import rules as rules_settings
 from server import device_config, history_db
 from companion_markup import parse_html
+from server.net import safe_fetch
 from server.plane import calendar_rules, colour_rules
 
 
@@ -588,9 +589,12 @@ def test_handle_post_disconnect_clears_url_and_registry(tmp_path):
     assert not registry["entries"], "expected zero entries after disconnect, got %r" % (registry["entries"],)
 
 
-def test_handle_post_replace_url_stores_new_value_and_clears_registry(tmp_path):
+def test_handle_post_replace_url_stores_new_value_and_clears_registry(tmp_path, monkeypatch):
     """handle_post with a different non-empty URL stores the new URL and clears the previous
     calendar's fetched-entries registry"""
+    # These forms name a placeholder host that cannot resolve; the address gate is
+    # covered in test_calendar_url_gate.py, so here every host reads as public.
+    monkeypatch.setattr(safe_fetch, "host_is_safe", lambda host, port: True)
     tmpdir = str(tmp_path)
     cp.write_device_config(tmpdir, "black", "3")
     assert calendar_rules.save_calendar_url(tmpdir, "https://example.invalid/old.ics") is True
