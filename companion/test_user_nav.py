@@ -40,6 +40,15 @@ def _open_frame_pages_to_users(monkeypatch, extra=()):
     monkeypatch.setattr(routes, "ROUTES", opened + tuple(extra))
 
 
+def _close_frame_pages_to_users(monkeypatch):
+    """The route table with every frame page admin-only again."""
+    closed = tuple(
+        route._replace(access=routes.ADMIN_ONLY)
+        if route.method == "GET" and route.device_scoped else route
+        for route in routes.ROUTES)
+    monkeypatch.setattr(routes, "ROUTES", closed)
+
+
 def _as_user_with_frame():
     prefs.set_request_principal("user", "user")
     device_scope.set_request_scope(FRAME, [FRAME])
@@ -67,7 +76,8 @@ def test_user_sidebar_lists_account_then_reachable_frame_pages(monkeypatch):
     assert "nav-notification" not in sidebar
 
 
-def test_user_sidebar_without_reachable_pages_is_account_only():
+def test_user_sidebar_without_reachable_pages_is_account_only(monkeypatch):
+    _close_frame_pages_to_users(monkeypatch)
     _as_user_with_frame()
     assert _hrefs(layout.sidebar_nav("account")) == ["/account"]
 
@@ -93,7 +103,8 @@ def test_user_phone_tab_bar_needs_a_frame(monkeypatch):
     assert "tab-bar__more" not in bar
 
 
-def test_user_tab_bar_is_empty_when_only_account_is_reachable():
+def test_user_tab_bar_is_empty_when_only_account_is_reachable(monkeypatch):
+    _close_frame_pages_to_users(monkeypatch)
     _as_user_with_frame()
     assert ui_nav._tab_bar_html("account", device_config={}) == ""
 
@@ -120,6 +131,7 @@ def test_locations_link_absent_when_route_is_admin_only(monkeypatch):
 
 
 def test_brand_link_goes_to_frame_home_or_account(monkeypatch):
+    _close_frame_pages_to_users(monkeypatch)
     _as_user_with_frame()
     assert ui_nav.user_brand_href() == "/account"
     _open_frame_pages_to_users(monkeypatch)

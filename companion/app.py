@@ -392,6 +392,20 @@ parse_single_uploaded_file = post_actions.parse_single_uploaded_file
 # page_context.build_page_context().
 
 
+def _effective_access(route, route_match):
+    """The `Access` and the captured value `access.decide` is fed for a
+    matched route. A device-scoped route under a /devices/<id> prefix is
+    decided against that id; the same route without a prefix acts on the live
+    frame and is admin-only, whatever its own access says. Every other route
+    is decided on its own access and matcher capture.
+    """
+    if not route.device_scoped:
+        return route.access, route_match.captured
+    if route_match.device_id is None:
+        return routes.ADMIN_ONLY, None
+    return route.access, route_match.device_id
+
+
 class Handler(
         device_dispatch.DeviceDispatchMixin, preview_images.PreviewImagesMixin,
         sign_in.SignInMixin,
@@ -931,11 +945,12 @@ class Handler(
         if result is None:
             return self.send_html(404, self._not_found_page())
         route, route_match = result
+        route_access, captured = _effective_access(route, route_match)
         try:
             principal = (
-                None if route.access.min_role == access.ANONYMOUS else self._principal())
+                None if route_access.min_role == access.ANONYMOUS else self._principal())
             outcome = access.decide(
-                principal, route.access, route_match.captured, self._owner_lookup)
+                principal, route_access, captured, self._owner_lookup)
         except _STORE_ERRORS:
             return self.send_html(503, self._unavailable_page())
         if outcome == access.LOGIN:

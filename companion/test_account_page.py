@@ -86,10 +86,16 @@ def test_signed_in_user_visiting_login_goes_to_account(server, user_cookie):
     assert (status, headers["Location"]) == (303, "/account")
 
 
+def _refused_to_a_user(route):
+    """An admin-only route, or a device route in its un-prefixed form (the
+    live frame), which only an admin reaches."""
+    return route.access == routes.ADMIN_ONLY or route.device_scoped
+
+
 def _admin_get_paths():
     paths = []
     for route in routes.ROUTES:
-        if route.method != "GET" or route.access != routes.ADMIN_ONLY:
+        if route.method != "GET" or not _refused_to_a_user(route):
             continue
         matcher = route.matcher
         if isinstance(matcher, routes.Exact):
@@ -102,7 +108,7 @@ def _admin_get_paths():
 def _admin_post_paths():
     paths = []
     for route in routes.ROUTES:
-        if route.method != "POST" or route.access != routes.ADMIN_ONLY:
+        if route.method != "POST" or not _refused_to_a_user(route):
             continue
         matcher = route.matcher
         if isinstance(matcher, routes.Exact):

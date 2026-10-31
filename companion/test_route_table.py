@@ -100,7 +100,7 @@ def test_signed_in_routes_are_exactly_account_and_the_preference_and_logout_post
     }
 
 
-def test_every_other_route_is_admin_only():
+def test_every_other_route_is_admin_only_or_an_owner_device_route():
     handwritten_non_admin = _PUBLIC_EXEMPTIONS | {
         ("GET", routes.Exact("/account")),
         ("POST", routes.Exact(routes.THEME_ROUTE)),
@@ -110,8 +110,27 @@ def test_every_other_route_is_admin_only():
     for r in routes.ROUTES:
         if (r.method, r.matcher) in handwritten_non_admin:
             continue
+        if r.access == routes.OWNER_DEVICE:
+            # The ownership gate reads the device id from the URL prefix, so
+            # such a route must resolve under one.
+            assert r.device_scoped, "%s %r" % (r.method, r.matcher)
+            continue
         assert r.access == routes.ADMIN_ONLY, (
             "%s %r is not admin-only" % (r.method, r.matcher))
+
+
+def test_owner_device_routes_are_exactly_the_user_reachable_frame_routes():
+    owner = {
+        (r.method, r.matcher) for r in routes.ROUTES
+        if r.access == routes.OWNER_DEVICE}
+    admin_device_only = {
+        (r.method, r.matcher) for r in routes.ROUTES
+        if r.device_scoped and r.access == routes.ADMIN_ONLY}
+    assert admin_device_only == {
+        ("GET", routes.Exact(routes.DEVICE_ROUTE)),
+        ("POST", routes.Exact(routes.QUICK_LED_ROUTE)),
+    }
+    assert len(owner) == 24
 
 
 @pytest.mark.parametrize("bad_access", [True, False, None, "admin", ("admin", None)])
