@@ -33,6 +33,7 @@ import time
 from dataclasses import dataclass, field
 
 import server.atomic_io as atomic_io
+import server.detection as detection
 import server.device_config as device_config
 import server.device_dirs as device_dirs
 import server.device_policy as device_policy
@@ -518,8 +519,11 @@ class CycleContext:
     route_transport: object | None = None
     ledger_root: str | None = None
 
-    # The device's own assigned location (lat, lon), or None.
+    # The device's own assigned location (lat, lon), or None, and the
+    # detection spec built from it and the stored setting: the zone to
+    # poll, the gating document, and the id shown on the frame.
     location: tuple | None = None
+    spec: object | None = None
 
     # Config: the per-cycle settings snapshot, read once in
     # load_cycle_context() so a mid-cycle save can never split one cycle
@@ -659,7 +663,11 @@ def load_cycle_context(snapshot, state_dir, geofence, caddy_log, zone_fetch=None
     # _record_history() call rather than re-resolved. None is a
     # legitimate "cannot be determined" value.
     effective_wake_interval_s = wake.effective_wake_interval_s(device_cfg, battery_critical=battery_critical)
-    tracked_runway_id = device_cfg["tracked_runway"]
+    # One spec per cycle: the shared fleet zone, the selection gate and the
+    # frame tag all come from it, so they cannot disagree. The geofence file
+    # is read only through the kill switch inside spec_for.
+    spec = detection.spec_for(device_cfg, location, legacy_geofence_path=geofence)
+    tracked_runway_id = spec.display_id
     # now_s(), not datetime.now(): this module's harness-replaceable clock
     # seam, so the test harness's fake clock drives this arithmetic too.
     quiet_remaining, quiet_until = device_config.quiet_hours_status(device_cfg, now_s())
@@ -672,7 +680,7 @@ def load_cycle_context(snapshot, state_dir, geofence, caddy_log, zone_fetch=None
     return CycleContext(
         state_dir=state_dir, snapshot=snapshot, geofence=geofence, caddy_log=caddy_log,
         zone_fetch=zone_fetch, route_transport=route_transport, ledger_root=ledger_root,
-        location=location,
+        location=location, spec=spec,
         device_cfg=device_cfg, theme_id=theme_id, tracked_runway_id=tracked_runway_id,
         display_enabled=display_enabled, effective_wake_interval_s=effective_wake_interval_s,
         quiet_remaining=quiet_remaining, quiet_until=quiet_until,
@@ -861,25 +869,25 @@ def _ledger_root_for(state_dir):
     return state_dir
 
 
-def _fetch_standalone(ctx, geofence_data):
+def _fetch_standalone(ctx, zone):
     """Fetch this device's zone itself, always through the persisted
     request ledger: no ADS-B request may exist outside the shared budget,
     including a single-device cycle run by hand or by the companion.
     """
     ledger = request_budget.RequestLedger(ctx.ledger_root or _ledger_root_for(ctx.state_dir))
-    center = geofence_data["center"]
-    return zone_fetch.fetch_zone(ledger, center["lat"], center["lon"], geofence_data["radius_nm"])
+    return zone_fetch.fetch_zone(ledger, zone.lat, zone.lon, zone.radius_nm)
 
 
-def _select_from_zone(ctx, geofence_data):
+def _select_from_zone(ctx):
     """Select this device's aircraft from the shared zone result, fetching
     the zone first when the caller supplied none. Returns the selection
     and the diagnostics dict.
     """
-    fetched = ctx.zone_fetch if ctx.zone_fetch is not None else _fetch_standalone(ctx, geofence_data)
+    spec = ctx.spec
+    fetched = ctx.zone_fetch if ctx.zone_fetch is not None else _fetch_standalone(ctx, spec.zone)
     diagnostics = fetched.diagnostics()
     flight = detect.select_from_provider_results(
-        fetched.results, geofence_data, runway_id=ctx.tracked_runway_id,
+        fetched.results, spec.geofence, runway_id=spec.display_id,
         diagnostics=diagnostics, queried=fetched.queried, failed=fetched.failed)
     return flight, diagnostics
 
@@ -894,7 +902,7 @@ def detect_flight(ctx):
     history/gallery write this cycle makes, so they all record the same
     instant.
     """
-    geofence_data = detect.load_geofence(ctx.geofence)
+    spec = ctx.spec
 
     # `diagnostics`, when populated, is the only signal that tells "every
     # source is down" apart from "nothing on the runway" - both otherwise
@@ -902,9 +910,9 @@ def detect_flight(ctx):
     diagnostics: dict | None = None
     if ctx.snapshot is not None:
         aircraft = _extract_aircraft(ctx.snapshot)
-        flight = detect.select_aircraft_for_runway(aircraft, geofence_data, runway_id=ctx.tracked_runway_id)
+        flight = detect.select_aircraft_for_runway(aircraft, spec.geofence, runway_id=spec.display_id)
     else:
-        flight, diagnostics = _select_from_zone(ctx, geofence_data)
+        flight, diagnostics = _select_from_zone(ctx)
 
     ctx.diagnostics = diagnostics
     ctx.flight = flight
