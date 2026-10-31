@@ -112,6 +112,8 @@ heading (a new `empty_heading` branch) and skip the live fetch. At
 minimum, consume `spec.fail_safe` in `poll_cycle` to log once per cycle
 and to avoid recording a runway-3 history row.
 
+**Fixed:** a position-mode device with no usable location (missing, cleared or outside France) now gets `detection.no_location_spec()` instead of the Orly fallback. The fleet cycle puts it in no zone and serves it like a held device; `run_once` short-circuits to `run_no_location_cycle`, which makes no ADS-B request, draws a "Set a location" screen with a short sub-line, writes no runway event (so nothing is recorded as runway "3") and repaints the live board once when a location returns. A corrupt radius or unknown detection object keeps the legacy fail-safe. The live Orly frame and legacy-id devices are unchanged. Tests added in `test_detection_spec.py`, `test_fleet_cycle.py`, `test_detection_pipeline.py` and `test_render.py`; the two tests that pinned the old Orly fallback were rewritten.
+
 ### MD-02: Position save is not atomic and has no rollback
 
 **File:** `companion/detection_actions.py:176-191`
