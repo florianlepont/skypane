@@ -49,6 +49,9 @@ ROUTE_POLICY = {
     ("GET", "/login"): PUBLIC,
     ("GET", "/login/auth0"): PUBLIC,
     ("GET", "/callback"): PUBLIC,
+    # Self-authenticating: the handler checks its own bearer token and never
+    # looks at a session cookie, so the cookie gate has nothing to add.
+    ("GET", "/api/export/battery-history"): PUBLIC,
     ("GET", "/account"): SIGNED_IN,
     ("POST", "/ui-theme"): SIGNED_IN,
     ("POST", "/ui-lang"): SIGNED_IN,
@@ -244,6 +247,18 @@ def test_a_dummy_route_without_a_row_is_reported(monkeypatch):
     monkeypatch.setattr(routes, "ROUTES", routes.ROUTES + (dummy,))
     keys = {_route_key(r) for r in routes.ROUTES}
     assert ("GET", "/zz-new-page") in keys - set(ROUTE_POLICY)
+
+
+def test_the_export_route_is_the_only_api_route_and_is_public_and_global():
+    export_key = ("GET", "/api/export/battery-history")
+    api_keys = {key for key in _REAL_KEYS if key[1].startswith("/api/")}
+    assert api_keys == {export_key}
+    route = next(r for r in _REAL_ROUTES if _route_key(r) == export_key)
+    assert route.access == routes.PUBLIC
+    assert not route.device_scoped
+    assert export_key not in DEVICE_SCOPED
+    assert routes.match("GET", "/devices/d_00000000" + export_key[1], "") is None
+    assert routes.match("POST", export_key[1], "") is None
 
 
 def test_the_probe_family_is_not_in_the_production_table():

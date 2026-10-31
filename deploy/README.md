@@ -687,6 +687,67 @@ rollback keeps the frame working, but Health shows a fleet fault until the
 new release is live again. Backups now contain the `sessions` table
 (hashes only); restoring one brings back unexpired sessions.
 
+## Read-only battery-history export
+
+The companion can serve the `device_health` table (battery history) as
+JSON Lines over HTTPS, so an automated reader can fetch it without SSH.
+It is off by default. The route is `GET /api/export/battery-history?since=<UTC time>`,
+for example `since=2026-10-23T04:25:00Z`. Each line is one JSON object with
+`ts`, `battery_mv`, `fw_version`, `boot_reason` and `rssi`, the same rows
+as the SSH export in `hardware/FIELD-VALIDATION-FR.md`. Nothing else is
+exposed, and nothing is ever written.
+
+Access is by bearer token only (`Authorization: Bearer <token>`). A session
+cookie never grants access. `since` must be a UTC time in that exact format,
+at most 400 days old and at most a day ahead; any other query parameter is
+refused with 400. More than 100000 matching rows answers 413. Ten failed
+attempts in a minute from one client address answer 429 for that client.
+
+### Enable
+
+1. On your own machine, generate a token (never on a shared screen, never
+   in chat):
+
+   ```bash
+   python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+   ```
+
+2. On the VPS, add one line to `/opt/skypane/skypane.env` (root-only,
+   never committed):
+
+   ```
+   SKYPANE_EXPORT_TOKEN=<the token>
+   ```
+
+3. Restart the companion: `sudo systemctl restart skypane-companion`.
+4. In the claude.ai cloud environment settings, add a network secret: type
+   `Bearer`, allowed site = the companion hostname (`SKYPANE_COMPANION_HOST`),
+   path prefix `/api/export/`, header `Authorization` with prefix `Bearer`,
+   and the token as the value. The platform adds the header to requests to
+   that host and path; the reader never sees the token.
+
+The token must be the generated value, exactly as printed: no quotes, no
+spaces, nothing else on the line. A stray space or quote means it never
+matches and the route answers 401, then 429 after ten tries, which can look
+like an attack. Do not choose a token by hand; a short or patterned one
+defeats the throttle. If the reader shares an outbound address with other
+users, someone else's failed attempts can make the throttle answer 429 to
+the reader for up to a minute; the block clears by itself.
+
+### Rotate or revoke
+
+To rotate, repeat steps 1 to 3 with a new token and update the network
+secret. To revoke, delete the `SKYPANE_EXPORT_TOKEN` line and restart
+`skypane-companion`: the route then answers 404, exactly like an unknown
+path. A value shorter than 32 characters also leaves it off.
+
+### Logging
+
+Caddy's access log redacts the `Authorization` header (see the comments in
+`deploy/Caddyfile`), and the companion never logs a header. The `since`
+query string is logged by Caddy; it is a time, not a secret. No Caddyfile
+change is needed for this route.
+
 ## Verifying the deployment
 
 ```bash
