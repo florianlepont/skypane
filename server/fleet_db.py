@@ -78,6 +78,18 @@ class FleetDbTooNew(FleetDbError):
     """The database schema is newer than this code understands."""
 
 
+class LastAdminError(FleetDbError):
+    """The change would leave no active admin."""
+
+
+class SelfActionError(FleetDbError):
+    """A user may not demote or disable themselves."""
+
+
+class LocationInUse(FleetDbError):
+    """A device still references the location."""
+
+
 Migration = Callable[[sqlite3.Connection], None]
 
 
@@ -349,6 +361,18 @@ def transaction(conn: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
     conn.execute("COMMIT")
 
 
+@contextlib.contextmanager
+def _atomic(conn: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
+    """Join the caller's transaction, or open one when none is active, so a
+    check-then-write helper is never run without the write lock held.
+    """
+    if conn.in_transaction:
+        yield conn
+        return
+    with transaction(conn):
+        yield conn
+
+
 def meta_get(conn: sqlite3.Connection, key: str) -> str | None:
     row = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
     return None if row is None else str(row["value"])
@@ -453,7 +477,98 @@ def get_user_role(conn: sqlite3.Connection, user_id: int) -> str | None:
     return None if row is None else str(row["role"])
 
 
+def count_active_admins(conn: sqlite3.Connection) -> int:
+    row = conn.execute(
+        "SELECT count(*) FROM users WHERE role = 'admin' AND disabled = 0"
+    ).fetchone()
+    return int(row[0])
+
+
+def _is_active_admin(conn: sqlite3.Connection, user_id: int) -> bool:
+    return conn.execute(
+        "SELECT 1 FROM users WHERE id = ? AND role = 'admin' AND disabled = 0",
+        (user_id,),
+    ).fetchone() is not None
+
+
+def set_user_role_guarded(
+    conn: sqlite3.Connection, actor_user_id: int | None, target_user_id: int, role: str
+) -> bool:
+    """Change a role; False for an unknown user.
+
+    Raises SelfActionError when an actor demotes themselves and
+    LastAdminError when the target is the only active admin. The count and
+    the write share one transaction.
+    """
+    if role not in ROLES:
+        raise ValueError(f"invalid role: {role!r}")
+    with _atomic(conn):
+        if role != "admin":
+            if actor_user_id is not None and actor_user_id == target_user_id:
+                raise SelfActionError("cannot demote yourself")
+            if _is_active_admin(conn, target_user_id) and count_active_admins(conn) <= 1:
+                raise LastAdminError("cannot demote the last active admin")
+        cur = conn.execute(
+            "UPDATE users SET role = ? WHERE id = ?", (role, target_user_id)
+        )
+        return cur.rowcount > 0
+
+
+def set_user_disabled_guarded(
+    conn: sqlite3.Connection,
+    actor_user_id: int | None,
+    target_user_id: int,
+    disabled: bool,
+) -> bool:
+    """Disable or re-enable a user; False for an unknown user.
+
+    Disabling deletes the user's sessions in the same transaction (this
+    module is a leaf and cannot call the session store). The same
+    self-action and last-admin refusals as `set_user_role_guarded` apply.
+    """
+    with _atomic(conn):
+        if disabled:
+            if actor_user_id is not None and actor_user_id == target_user_id:
+                raise SelfActionError("cannot disable yourself")
+            if _is_active_admin(conn, target_user_id) and count_active_admins(conn) <= 1:
+                raise LastAdminError("cannot disable the last active admin")
+        cur = conn.execute(
+            "UPDATE users SET disabled = ? WHERE id = ?",
+            (1 if disabled else 0, target_user_id),
+        )
+        if cur.rowcount > 0 and disabled:
+            conn.execute("DELETE FROM sessions WHERE user_id = ?", (target_user_id,))
+        return cur.rowcount > 0
+
+
+def list_users_with_frame_counts(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    """Users with owned-frame count, newest session activity and whether an
+    identity has signed in (iss and sub set). Never the issuer or subject.
+    """
+    return list(conn.execute(
+        "SELECT u.id, u.email, u.role, u.disabled, u.created_at, "
+        "(SELECT count(*) FROM devices d WHERE d.owner_user_id = u.id) AS frame_count, "
+        "(SELECT max(s.last_seen_at) FROM sessions s WHERE s.user_id = u.id) "
+        "AS last_seen_at, "
+        "(u.iss IS NOT NULL AND u.sub IS NOT NULL) AS has_identity "
+        "FROM users u ORDER BY u.id"
+    ))
+
+
 # ---- locations -------------------------------------------------------
+
+
+def _validate_location(name: str, latitude: float, longitude: float, tz: str) -> None:
+    if not name.strip():
+        raise ValueError("location name is empty")
+    if not -90.0 <= latitude <= 90.0:
+        raise ValueError(f"latitude out of range: {latitude}")
+    if not -180.0 <= longitude <= 180.0:
+        raise ValueError(f"longitude out of range: {longitude}")
+    try:
+        ZoneInfo(tz)
+    except (KeyError, ValueError, OSError) as exc:
+        raise ValueError(f"unknown timezone: {tz!r}") from exc
 
 
 def add_location(
@@ -462,22 +577,18 @@ def add_location(
     latitude: float,
     longitude: float,
     timezone: str,
+    owner_user_id: int | None = None,
 ) -> int:
-    """Insert a location; latitude/longitude are degrees, timezone an IANA name."""
-    if not name.strip():
-        raise ValueError("location name is empty")
-    if not -90.0 <= latitude <= 90.0:
-        raise ValueError(f"latitude out of range: {latitude}")
-    if not -180.0 <= longitude <= 180.0:
-        raise ValueError(f"longitude out of range: {longitude}")
-    try:
-        ZoneInfo(timezone)
-    except (KeyError, ValueError, OSError) as exc:
-        raise ValueError(f"unknown timezone: {timezone!r}") from exc
+    """Insert a location; latitude/longitude are degrees, timezone an IANA name.
+
+    A NULL owner (the default, and every pre-existing row) is visible to
+    admins only.
+    """
+    _validate_location(name, latitude, longitude, timezone)
     cur = conn.execute(
-        "INSERT INTO locations (name, latitude, longitude, timezone) "
-        "VALUES (?, ?, ?, ?)",
-        (name, latitude, longitude, timezone),
+        "INSERT INTO locations (name, latitude, longitude, timezone, owner_user_id) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (name, latitude, longitude, timezone, owner_user_id),
     )
     assert cur.lastrowid is not None
     return cur.lastrowid
@@ -485,6 +596,110 @@ def add_location(
 
 def list_locations(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     return list(conn.execute("SELECT * FROM locations ORDER BY id"))
+
+
+def get_location(conn: sqlite3.Connection, location_id: int) -> sqlite3.Row | None:
+    row: sqlite3.Row | None = conn.execute(
+        "SELECT * FROM locations WHERE id = ?", (location_id,)
+    ).fetchone()
+    return row
+
+
+def list_locations_for(
+    conn: sqlite3.Connection, user_id: int, is_admin: bool
+) -> list[sqlite3.Row]:
+    """All locations for an admin; only the user's own for everyone else."""
+    if is_admin:
+        return list_locations(conn)
+    return list(conn.execute(
+        "SELECT * FROM locations WHERE owner_user_id = ? ORDER BY id", (user_id,)
+    ))
+
+
+def update_location(
+    conn: sqlite3.Connection,
+    location_id: int,
+    name: str,
+    latitude: float,
+    longitude: float,
+    timezone: str,
+) -> bool:
+    """Rewrite a location's name, position and timezone; False when unknown."""
+    _validate_location(name, latitude, longitude, timezone)
+    cur = conn.execute(
+        "UPDATE locations SET name = ?, latitude = ?, longitude = ?, timezone = ? "
+        "WHERE id = ?",
+        (name, latitude, longitude, timezone, location_id),
+    )
+    return cur.rowcount > 0
+
+
+def delete_location_if_unused(conn: sqlite3.Connection, location_id: int) -> bool:
+    """Delete a location no device uses. Raises LocationInUse when one does;
+    False for an unknown id. Run inside the caller's transaction so the
+    check and the delete cannot interleave with an assignment.
+    """
+    with _atomic(conn):
+        if conn.execute(
+            "SELECT 1 FROM devices WHERE location_id = ?", (location_id,)
+        ).fetchone():
+            raise LocationInUse(location_id)
+        return conn.execute(
+            "DELETE FROM locations WHERE id = ?", (location_id,)
+        ).rowcount > 0
+
+
+def count_locations_owned(conn: sqlite3.Connection, user_id: int) -> int:
+    row = conn.execute(
+        "SELECT count(*) FROM locations WHERE owner_user_id = ?", (user_id,)
+    ).fetchone()
+    return int(row[0])
+
+
+def location_usage_counts(conn: sqlite3.Connection) -> dict[int, int]:
+    """Devices per location id (locations no device uses are absent)."""
+    rows = conn.execute(
+        "SELECT location_id, count(*) AS n FROM devices "
+        "WHERE location_id IS NOT NULL GROUP BY location_id"
+    )
+    return {int(r["location_id"]): int(r["n"]) for r in rows}
+
+
+def set_device_location_checked(
+    conn: sqlite3.Connection,
+    device_id: str,
+    location_id: int | None,
+    actor_user_id: int | None,
+    is_admin: bool,
+) -> bool:
+    """Assign (or clear, with None) a device's location with owner checks.
+
+    A user may only touch their own device and only assign a location they
+    own; an admin may assign any location. Anything else raises
+    PermissionError; an unknown device returns False.
+    """
+    with _atomic(conn):
+        device = conn.execute(
+            "SELECT owner_user_id FROM devices WHERE id = ?", (device_id,)
+        ).fetchone()
+        if device is None:
+            return False
+        if not is_admin and (
+            actor_user_id is None or device["owner_user_id"] != actor_user_id
+        ):
+            raise PermissionError("device is not owned by the acting user")
+        if location_id is not None:
+            loc = get_location(conn, location_id)
+            if loc is None:
+                if is_admin:
+                    raise ValueError(f"unknown location: {location_id}")
+                raise PermissionError("location is not owned by the acting user")
+            if not is_admin and loc["owner_user_id"] != actor_user_id:
+                raise PermissionError("location is not owned by the acting user")
+        conn.execute(
+            "UPDATE devices SET location_id = ? WHERE id = ?", (location_id, device_id)
+        )
+        return True
 
 
 # ---- devices ---------------------------------------------------------
@@ -568,6 +783,16 @@ def add_device(
 def get_device_by_mac(conn: sqlite3.Connection, mac: str) -> sqlite3.Row | None:
     row: sqlite3.Row | None = conn.execute(
         "SELECT * FROM devices WHERE mac = ?", (mac,)
+    ).fetchone()
+    return row
+
+
+def get_device(conn: sqlite3.Connection, device_id: str) -> sqlite3.Row | None:
+    """One device by id; never a secret hash or token."""
+    row: sqlite3.Row | None = conn.execute(
+        "SELECT id, mac, hardware_type, name, state_path, owner_user_id, "
+        "location_id, created_at FROM devices WHERE id = ?",
+        (device_id,),
     ).fetchone()
     return row
 
@@ -737,3 +962,186 @@ def count_audit(conn: sqlite3.Connection, category: str) -> int:
     where, params = _audit_where(category)
     row = conn.execute("SELECT count(*) FROM audit_log" + where, params).fetchone()
     return int(row[0])
+
+
+# ---- pending devices -------------------------------------------------
+
+PENDING_STATUS_PENDING = "pending"
+PENDING_STATUS_RETIRED = "retired"
+PENDING_ID_RE = re.compile(r"\Ap_[0-9a-f]{8}\Z")
+
+# Listing columns: never the secret hash, token, code salt or code hash.
+_PENDING_LIST_COLS = (
+    "id, mac, hardware_type, status, code_expires_at, last_seen_at, battery_mv, "
+    "fw_version, created_at, created_by, previous_owner_user_id, "
+    "previous_device_id, previous_state_path, previous_name, retired_at, "
+    "(code_hash IS NOT NULL) AS has_code"
+)
+
+
+def new_pending_id(conn: sqlite3.Connection | None = None) -> str:
+    """A fresh `p_` plus 8 hex id; unused in `conn` when one is given."""
+    while True:
+        pending_id = "p_" + secrets.token_hex(4)
+        if conn is None or conn.execute(
+            "SELECT 1 FROM pending_devices WHERE id = ?", (pending_id,)
+        ).fetchone() is None:
+            return pending_id
+
+
+def register_pending(
+    conn: sqlite3.Connection,
+    mac: str,
+    secret_sha256: str,
+    hardware_type: str,
+    created_by: int | None,
+    environ: Mapping[str, str] | None = None,
+) -> str:
+    """Insert a pending frame and return its id. Only the secret's sha256 is
+    accepted; a MAC already in `devices` or `pending_devices` raises
+    ValueError.
+    """
+    _check_mac(mac)
+    _check_secret(secret_sha256)
+    hardware.get_profile(hardware_type, environ)
+    with _atomic(conn):
+        if conn.execute("SELECT 1 FROM devices WHERE mac = ?", (mac,)).fetchone():
+            raise ValueError("MAC is already a registered frame")
+        if conn.execute("SELECT 1 FROM pending_devices WHERE mac = ?", (mac,)).fetchone():
+            raise ValueError("MAC is already pending")
+        pending_id = new_pending_id(conn)
+        conn.execute(
+            "INSERT INTO pending_devices (id, mac, secret_sha256, hardware_type, "
+            "status, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (pending_id, mac, secret_sha256, hardware_type,
+             PENDING_STATUS_PENDING, utc_now_iso(), created_by),
+        )
+    return pending_id
+
+
+# The code columns are included for single-row lookups (the pairing check
+# needs the salt and hash); the secret hash and token never are.
+_PENDING_GET_COLS = _PENDING_LIST_COLS + ", code_salt, code_hash"
+
+
+def get_pending(conn: sqlite3.Connection, pending_id: str) -> sqlite3.Row | None:
+    row: sqlite3.Row | None = conn.execute(
+        f"SELECT {_PENDING_GET_COLS} FROM pending_devices WHERE id = ?", (pending_id,)
+    ).fetchone()
+    return row
+
+
+def get_pending_by_mac(conn: sqlite3.Connection, mac: str) -> sqlite3.Row | None:
+    row: sqlite3.Row | None = conn.execute(
+        f"SELECT {_PENDING_GET_COLS} FROM pending_devices WHERE mac = ?", (mac,)
+    ).fetchone()
+    return row
+
+
+def list_pending(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    return list(conn.execute(
+        f"SELECT {_PENDING_LIST_COLS} FROM pending_devices ORDER BY created_at, id"
+    ))
+
+
+def set_pending_token(conn: sqlite3.Connection, mac: str, token: str | None) -> bool:
+    cur = conn.execute("UPDATE pending_devices SET token = ? WHERE mac = ?", (token, mac))
+    return cur.rowcount > 0
+
+
+def issue_pending_code(
+    conn: sqlite3.Connection,
+    pending_id: str,
+    code_salt: str,
+    code_hash: str,
+    expires_at: int,
+) -> bool:
+    """Store a pairing code as salt, hash and an epoch-seconds expiry."""
+    cur = conn.execute(
+        "UPDATE pending_devices SET code_salt = ?, code_hash = ?, code_expires_at = ? "
+        "WHERE id = ?",
+        (code_salt, code_hash, expires_at, pending_id),
+    )
+    return cur.rowcount > 0
+
+
+def clear_pending_code(conn: sqlite3.Connection, pending_id: str) -> bool:
+    cur = conn.execute(
+        "UPDATE pending_devices SET code_salt = NULL, code_hash = NULL, "
+        "code_expires_at = NULL WHERE id = ?",
+        (pending_id,),
+    )
+    return cur.rowcount > 0
+
+
+def touch_pending(
+    conn: sqlite3.Connection,
+    pending_id: str,
+    now: int,
+    battery_mv: int | None,
+    fw_version: str | None,
+) -> bool:
+    """Record a check-in: epoch seconds, battery in millivolts, firmware."""
+    cur = conn.execute(
+        "UPDATE pending_devices SET last_seen_at = ?, battery_mv = ?, fw_version = ? "
+        "WHERE id = ?",
+        (now, battery_mv, fw_version, pending_id),
+    )
+    return cur.rowcount > 0
+
+
+def delete_pending(conn: sqlite3.Connection, pending_id: str) -> bool:
+    return conn.execute(
+        "DELETE FROM pending_devices WHERE id = ?", (pending_id,)
+    ).rowcount > 0
+
+
+def pending_registry_view(conn: sqlite3.Connection) -> dict[str, dict[str, dict[str, str]]]:
+    """Same shape as `registry_view`, over pending and retired rows."""
+    rows = conn.execute("SELECT mac, secret_sha256 FROM pending_devices")
+    return {
+        "devices": {
+            str(r["mac"]): {"secret_sha256": str(r["secret_sha256"])} for r in rows
+        }
+    }
+
+
+def pending_tokens_by_mac(conn: sqlite3.Connection) -> dict[str, str]:
+    rows = conn.execute("SELECT mac, token FROM pending_devices WHERE token IS NOT NULL")
+    return {str(r["mac"]): str(r["token"]) for r in rows}
+
+
+def park_retired(conn: sqlite3.Connection, device_id: str, now: int) -> str | None:
+    """Move a registered frame to a retired pending row in one transaction.
+
+    The MAC, secret hash, token and hardware type carry over, and the
+    previous owner, device id, state path and name are kept for the audit
+    trail. Returns the new pending id, or None for an unknown device. The
+    live-frame guard belongs to the caller.
+    """
+    with _atomic(conn):
+        dev = conn.execute("SELECT * FROM devices WHERE id = ?", (device_id,)).fetchone()
+        if dev is None:
+            return None
+        conn.execute("DELETE FROM devices WHERE id = ?", (device_id,))
+        pending_id = new_pending_id(conn)
+        conn.execute(
+            "INSERT INTO pending_devices (id, mac, secret_sha256, token, hardware_type, "
+            "status, created_at, previous_owner_user_id, previous_device_id, "
+            "previous_state_path, previous_name, retired_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (pending_id, dev["mac"], dev["secret_sha256"], dev["token"],
+             dev["hardware_type"], PENDING_STATUS_RETIRED, utc_now_iso(),
+             dev["owner_user_id"], dev["id"], dev["state_path"], dev["name"], now),
+        )
+        return pending_id
+
+
+def reactivate_pending(conn: sqlite3.Connection, pending_id: str) -> bool:
+    """Bring a retired row back to pending with its code cleared."""
+    cur = conn.execute(
+        "UPDATE pending_devices SET status = ?, code_salt = NULL, code_hash = NULL, "
+        "code_expires_at = NULL WHERE id = ?",
+        (PENDING_STATUS_PENDING, pending_id),
+    )
+    return cur.rowcount > 0

@@ -198,3 +198,239 @@ def test_add_device_refuses_a_pending_mac(conn):
     )
     with pytest.raises(ValueError):
         fleet_db.add_device(conn, MAC, SECRET, hardware.LEGACY_KEY, owner)
+
+
+# ---- pending devices -------------------------------------------------
+
+
+def _admin(conn, email="a@example.com"):
+    return fleet_db.add_user(conn, email, "admin")
+
+
+def test_register_pending_inserts_and_rejects_duplicates(conn):
+    owner = _admin(conn)
+    pid = fleet_db.register_pending(conn, MAC, SECRET, hardware.LEGACY_KEY, owner)
+    assert fleet_db.PENDING_ID_RE.match(pid)
+    row = fleet_db.get_pending(conn, pid)
+    assert row["status"] == fleet_db.PENDING_STATUS_PENDING and row["mac"] == MAC
+    assert "secret_sha256" not in row.keys() and "token" not in row.keys()
+    with pytest.raises(ValueError):
+        fleet_db.register_pending(conn, MAC, SECRET, hardware.LEGACY_KEY, owner)
+    fleet_db.add_device(conn, MAC2, SECRET, hardware.LEGACY_KEY, owner)
+    with pytest.raises(ValueError):
+        fleet_db.register_pending(conn, MAC2, SECRET, hardware.LEGACY_KEY, owner)
+    for bad in ("A" * 64, "a" * 63, "plain-secret"):
+        with pytest.raises(ValueError):
+            fleet_db.register_pending(
+                conn, "aa:bb:cc:dd:ee:03", bad, hardware.LEGACY_KEY, owner
+            )
+    assert fleet_db.get_pending_by_mac(conn, MAC)["id"] == pid
+
+
+def test_pending_views_mirror_registry_shapes_and_leave_registry_alone(conn):
+    owner = _admin(conn)
+    fleet_db.add_device(conn, MAC2, SECRET, hardware.LEGACY_KEY, owner, token="dev")
+    pid = fleet_db.register_pending(conn, MAC, "b" * 64, hardware.LEGACY_KEY, owner)
+    assert fleet_db.set_pending_token(conn, MAC, "pt")
+    assert fleet_db.pending_registry_view(conn) == {
+        "devices": {MAC: {"secret_sha256": "b" * 64}}
+    }
+    assert fleet_db.pending_tokens_by_mac(conn) == {MAC: "pt"}
+    assert fleet_db.registry_view(conn) == {"devices": {MAC2: {"secret_sha256": SECRET}}}
+    assert fleet_db.tokens_by_mac(conn) == {MAC2: "dev"}
+    assert [r["id"] for r in fleet_db.list_pending(conn)] == [pid]
+
+
+def test_pending_code_touch_and_delete(conn):
+    owner = _admin(conn)
+    pid = fleet_db.register_pending(conn, MAC, SECRET, hardware.LEGACY_KEY, owner)
+    assert fleet_db.issue_pending_code(conn, pid, "salt", "hash", 999)
+    row = fleet_db.get_pending(conn, pid)
+    assert (row["code_salt"], row["code_hash"], row["code_expires_at"]) == ("salt", "hash", 999)
+    assert fleet_db.list_pending(conn)[0]["has_code"] == 1
+    assert "code_hash" not in fleet_db.list_pending(conn)[0].keys()
+    assert fleet_db.touch_pending(conn, pid, 50, 3900, "1.2.3")
+    row = fleet_db.get_pending(conn, pid)
+    assert (row["last_seen_at"], row["battery_mv"], row["fw_version"]) == (50, 3900, "1.2.3")
+    assert fleet_db.clear_pending_code(conn, pid)
+    assert fleet_db.get_pending(conn, pid)["code_hash"] is None
+    assert fleet_db.delete_pending(conn, pid)
+    assert not fleet_db.delete_pending(conn, pid)
+
+
+def test_park_retired_moves_a_device_and_reactivate_resets_it(conn):
+    owner = _admin(conn)
+    did = fleet_db.add_device(
+        conn, MAC, SECRET, hardware.LEGACY_KEY, owner, name="Hall",
+        token="tok", state_path="auto",
+    )
+    state_path = fleet_db.get_device(conn, did)["state_path"]
+    with fleet_db.transaction(conn):
+        pid = fleet_db.park_retired(conn, did, 777)
+    assert pid is not None
+    assert fleet_db.get_device(conn, did) is None
+    row = fleet_db.get_pending(conn, pid)
+    assert row["status"] == fleet_db.PENDING_STATUS_RETIRED
+    assert (row["previous_owner_user_id"], row["previous_device_id"]) == (owner, did)
+    assert (row["previous_state_path"], row["previous_name"], row["retired_at"]) == (
+        state_path, "Hall", 777)
+    assert fleet_db.pending_registry_view(conn)["devices"][MAC]["secret_sha256"] == SECRET
+    assert fleet_db.pending_tokens_by_mac(conn) == {MAC: "tok"}
+    assert fleet_db.park_retired(conn, did, 1) is None
+    fleet_db.issue_pending_code(conn, pid, "s", "h", 5)
+    assert fleet_db.reactivate_pending(conn, pid)
+    row = fleet_db.get_pending(conn, pid)
+    assert row["status"] == fleet_db.PENDING_STATUS_PENDING and row["code_hash"] is None
+
+
+def test_get_device_has_no_secret_columns(conn):
+    owner = _admin(conn)
+    did = fleet_db.add_device(conn, MAC, SECRET, hardware.LEGACY_KEY, owner, token="t")
+    keys = set(fleet_db.get_device(conn, did).keys())
+    assert {"mac", "state_path", "owner_user_id", "hardware_type", "name",
+            "location_id"} <= keys
+    assert not keys & {"secret_sha256", "token"}
+
+
+# ---- user guards -----------------------------------------------------
+
+
+def test_last_admin_and_self_actions_are_refused(conn):
+    a = _admin(conn)
+    u = fleet_db.add_user(conn, "u@example.com", "user")
+    with pytest.raises(fleet_db.LastAdminError):
+        fleet_db.set_user_role_guarded(conn, u, a, "user")
+    with pytest.raises(fleet_db.LastAdminError):
+        fleet_db.set_user_disabled_guarded(conn, u, a, True)
+    with pytest.raises(fleet_db.SelfActionError):
+        fleet_db.set_user_role_guarded(conn, a, a, "user")
+    with pytest.raises(fleet_db.SelfActionError):
+        fleet_db.set_user_disabled_guarded(conn, u, u, True)
+    assert fleet_db.count_active_admins(conn) == 1
+    b = fleet_db.add_user(conn, "b@example.com", "admin")
+    assert fleet_db.set_user_role_guarded(conn, a, b, "user")
+    with pytest.raises(fleet_db.LastAdminError):
+        fleet_db.set_user_role_guarded(conn, None, a, "user")
+    assert not fleet_db.set_user_role_guarded(conn, a, 999, "user")
+    with pytest.raises(ValueError):
+        fleet_db.set_user_role_guarded(conn, a, u, "root")
+
+
+def test_disable_deletes_sessions_and_leaves_no_email_in_errors(conn):
+    a = _admin(conn)
+    u = fleet_db.add_user(conn, "victim@example.com", "user")
+    conn.execute(
+        "INSERT INTO sessions (id_hash, user_id, principal, created_at, last_seen_at, "
+        "expires_at) VALUES ('h1', ?, 'user', 1, 40, 99)", (u,))
+    rows = {r["id"]: r for r in fleet_db.list_users_with_frame_counts(conn)}
+    assert rows[u]["last_seen_at"] == 40 and rows[a]["last_seen_at"] is None
+    assert rows[u]["has_identity"] == 0
+    assert fleet_db.set_user_disabled_guarded(conn, a, u, True)
+    assert conn.execute("SELECT count(*) FROM sessions").fetchone()[0] == 0
+    assert conn.execute("SELECT disabled FROM users WHERE id = ?", (u,)).fetchone()[0] == 1
+    assert fleet_db.set_user_disabled_guarded(conn, a, u, False)
+    with pytest.raises(fleet_db.SelfActionError) as exc:
+        fleet_db.set_user_disabled_guarded(conn, a, a, True)
+    assert "example.com" not in str(exc.value)
+
+
+def test_user_listing_counts_frames_and_identity(conn):
+    a = _admin(conn)
+    u = fleet_db.add_user(conn, "u@example.com", "user", iss="https://i", sub="s")
+    fleet_db.add_device(conn, MAC, SECRET, hardware.LEGACY_KEY, u, state_path="auto")
+    rows = {r["id"]: r for r in fleet_db.list_users_with_frame_counts(conn)}
+    assert rows[u]["frame_count"] == 1 and rows[a]["frame_count"] == 0
+    assert rows[u]["has_identity"] == 1 and rows[a]["has_identity"] == 0
+    assert "iss" not in rows[u].keys() and "sub" not in rows[u].keys()
+
+
+def test_concurrent_mutual_demotion_keeps_an_admin(state_dir):
+    setup = fleet_db.connect(state_dir)
+    a = _admin(setup, "a@example.com")
+    b = _admin(setup, "b@example.com")
+    setup.close()
+    barrier = threading.Barrier(2)
+    outcomes: list[str] = []
+
+    def run(actor, target):
+        c = fleet_db.connect(state_dir)
+        try:
+            barrier.wait()
+            try:
+                with fleet_db.transaction(c):
+                    fleet_db.set_user_role_guarded(c, actor, target, "user")
+                outcomes.append("ok")
+            except fleet_db.FleetDbError as exc:
+                outcomes.append(type(exc).__name__)
+        finally:
+            c.close()
+
+    threads = [threading.Thread(target=run, args=(a, b)),
+               threading.Thread(target=run, args=(b, a))]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    check = fleet_db.connect(state_dir)
+    try:
+        assert fleet_db.count_active_admins(check) >= 1
+    finally:
+        check.close()
+    assert sorted(outcomes) == ["LastAdminError", "ok"]
+
+
+# ---- locations -------------------------------------------------------
+
+
+def test_location_visibility_by_owner(conn):
+    a = _admin(conn)
+    u1 = fleet_db.add_user(conn, "u1@example.com", "user")
+    u2 = fleet_db.add_user(conn, "u2@example.com", "user")
+    legacy = fleet_db.add_location(conn, "Legacy", 48.0, 2.0, "Europe/Paris")
+    mine = fleet_db.add_location(conn, "Mine", 48.1, 2.1, "Europe/Paris", u1)
+    theirs = fleet_db.add_location(conn, "Theirs", 48.2, 2.2, "Europe/Paris", u2)
+    assert {r["id"] for r in fleet_db.list_locations_for(conn, a, True)} == {legacy, mine, theirs}
+    assert [r["id"] for r in fleet_db.list_locations_for(conn, u1, False)] == [mine]
+    assert fleet_db.count_locations_owned(conn, u1) == 1
+    assert fleet_db.get_location(conn, legacy)["owner_user_id"] is None
+    assert fleet_db.get_location(conn, 999) is None
+
+
+def test_update_and_delete_location(conn):
+    a = _admin(conn)
+    loc = fleet_db.add_location(conn, "Old", 48.0, 2.0, "Europe/Paris", a)
+    assert fleet_db.update_location(conn, loc, "New", 43.0, 5.0, "Europe/Paris")
+    assert fleet_db.get_location(conn, loc)["name"] == "New"
+    with pytest.raises(ValueError):
+        fleet_db.update_location(conn, loc, "", 43.0, 5.0, "Europe/Paris")
+    assert not fleet_db.update_location(conn, 999, "x", 1.0, 1.0, "Europe/Paris")
+    did = fleet_db.add_device(conn, MAC, SECRET, hardware.LEGACY_KEY, a, location_id=loc)
+    assert fleet_db.location_usage_counts(conn) == {loc: 1}
+    with pytest.raises(fleet_db.LocationInUse):
+        fleet_db.delete_location_if_unused(conn, loc)
+    assert fleet_db.get_location(conn, loc) is not None
+    assert fleet_db.set_device_location_checked(conn, did, None, a, True)
+    assert fleet_db.delete_location_if_unused(conn, loc)
+    assert not fleet_db.delete_location_if_unused(conn, loc)
+
+
+def test_set_device_location_checked_enforces_owners(conn):
+    a = _admin(conn)
+    u1 = fleet_db.add_user(conn, "u1@example.com", "user")
+    u2 = fleet_db.add_user(conn, "u2@example.com", "user")
+    d1 = fleet_db.add_device(conn, MAC, SECRET, hardware.LEGACY_KEY, u1, state_path="auto")
+    mine = fleet_db.add_location(conn, "Mine", 48.0, 2.0, "Europe/Paris", u1)
+    theirs = fleet_db.add_location(conn, "Theirs", 48.0, 2.0, "Europe/Paris", u2)
+    legacy = fleet_db.add_location(conn, "Legacy", 48.0, 2.0, "Europe/Paris")
+    assert fleet_db.set_device_location_checked(conn, d1, mine, u1, False)
+    for forbidden in (theirs, legacy, 999):
+        with pytest.raises(PermissionError):
+            fleet_db.set_device_location_checked(conn, d1, forbidden, u1, False)
+    with pytest.raises(PermissionError):
+        fleet_db.set_device_location_checked(conn, d1, mine, u2, False)
+    assert fleet_db.get_device(conn, d1)["location_id"] == mine
+    assert fleet_db.set_device_location_checked(conn, d1, legacy, a, True)
+    assert fleet_db.get_device(conn, d1)["location_id"] == legacy
+    assert not fleet_db.set_device_location_checked(conn, "d_00000000", mine, a, True)
+    with pytest.raises(ValueError):
+        fleet_db.set_device_location_checked(conn, d1, 999, a, True)

@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import sys
 
 # Same repo-root sys.path bootstrap as server/fleet_db.py.
@@ -112,6 +113,22 @@ def provision_device_dir(
         bytes([fill]) * ((width // 2) * height),
     )
     return directory
+
+
+def wipe_device_dir(root: str, state_path: str) -> None:
+    """Remove a device's whole directory tree; a missing directory is fine.
+
+    The live path "." is refused (it is the state root). The path goes
+    through `resolve_state_dir`, so a bad shape, a symlinked directory or
+    an escape raises ValueError before anything is deleted. The tree is
+    removed wholesale, never file by file, so a file a later release adds
+    is wiped too.
+    """
+    if state_path == LIVE_STATE_PATH:
+        raise ValueError("refusing to wipe the live state directory")
+    directory = resolve_state_dir(root, state_path)
+    if os.path.lexists(directory):
+        shutil.rmtree(directory)
 
 
 def devices_dir_exists(root: str) -> bool:
