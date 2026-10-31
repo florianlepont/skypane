@@ -404,7 +404,8 @@ _OVERFLOW_PROBE = (
 def test_more_sheet_fits_health_device_update_at_phone_widths(
         new_context, server, viewport, lang):
     """At 375px and 390px, in English and French: the tab bar's More sheet
-    holds exactly Health, Device and Update, each with a measured hit box
+    holds exactly Airlines (moved there by the admin Admin tab), Health, Device
+    and Update, each with a measured hit box
     at least 44px tall, no wrapping or truncated text, the "More" summary
     cell's own box unchanged from another tab-bar cell's, and the header
     dropdown's preferences panel gains no /update link.
@@ -425,9 +426,9 @@ def test_more_sheet_fits_health_device_update_at_phone_widths(
 
         links = page.locator(_MORE_SHEET_LINK_SELECTOR)
         count = links.count()
-        assert count == 3, (
-            "expected exactly 3 links (Health, Device, Update) in the More "
-            "sheet at %dpx/%s, got %d" % (viewport["width"], lang, count))
+        assert count == 4, (
+            "expected exactly 4 links (Airlines, Health, Device, Update) in "
+            "the More sheet at %dpx/%s, got %d" % (viewport["width"], lang, count))
 
         heights = []
         for index in range(count):

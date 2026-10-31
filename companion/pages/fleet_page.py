@@ -272,13 +272,15 @@ def _action_path(frame_id, suffix):
 def _confirm_html(row, suffix, summary_message, button_message, sentence_html, extra_html):
     """The inline two-step confirm: a `<details>` whose summary is the
     quiet action, a consequence sentence, optional fields, the submit and a
-    keep-as-is link back to the page. No script, no dialog."""
+    keep-as-is link back to the page. No script, no dialog. The buttons sit in
+    `.update-actions`, the stylesheet's full-touch-target action row."""
     return (
         '<details class="fleet-confirm"><summary>%s</summary>'
         '<form method="post" action="%s" class="fleet-confirm__form">%s'
         '<p class="text-body">%s%s</p>%s'
-        '<button type="submit" class="calendar-disconnect-btn">%s</button> '
-        '<a class="text-link" href="%s">%s</a></form></details>' % (
+        '<div class="update-actions">'
+        '<button type="submit" class="calendar-disconnect-btn">%s</button>'
+        '<a class="text-link" href="%s">%s</a></div></form></details>' % (
             _t(summary_message), _esc(_action_path(row.frame_id, suffix)),
             _ui().csrf_field(), _ui().toast_icon_html("warning"), sentence_html,
             extra_html, _t(button_message), _esc(_routes().FLEET_ROUTE),
@@ -424,7 +426,7 @@ def _pair_card(view):
         'inputmode="text" maxlength="12" placeholder="XXXX-XXXX" value="%s"%s%s>%s</p>'
         '<p><label for="pair-owner">%s</label>'
         '<select id="pair-owner" name="%s"%s>%s</select>%s</p>'
-        '<p><button type="submit">%s</button></p></form>' % (
+        '<div class="update-actions"><button type="submit">%s</button></div></form>' % (
             _esc(_routes().FLEET_PAIR_ROUTE), _ui().csrf_field(),
             _t(_PAIR_CODE_LABEL), CODE_FIELD, _esc(view.code_value),
             " autofocus" if view.autofocus_code else "", code_attrs, code_error,
@@ -468,7 +470,8 @@ def _register_card(view):
         '<span class="text-label section-caption">%s</span></p>'
         '<p><label for="register-hardware">%s</label>'
         '<select id="register-hardware" name="%s"%s>%s</select>%s</p>'
-        '<p><button type="submit" class="calendar-disconnect-btn">%s</button></p>'
+        '<div class="update-actions">'
+        '<button type="submit" class="calendar-disconnect-btn">%s</button></div>'
         "</form>" % (
             _esc(_routes().FLEET_REGISTER_ROUTE), _ui().csrf_field(),
             _t(_REGISTER_MAC_LABEL), MAC_FIELD, _esc(view.mac_value), mac_attrs, mac_error,
