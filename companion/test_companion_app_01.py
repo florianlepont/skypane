@@ -27,7 +27,7 @@ import companion.layout as layout
 import companion.prefs as prefs
 import companion.request_body as request_body
 import companion.test_companion_app_helpers as cah
-from companion_app_server import http_request, login, served_stylesheet
+from companion_app_server import http_request, login, served_stylesheet, with_csrf
 from companion_markup import css_rules, declarations_for, rules_with_selector
 from server.plane import manual_resolutions
 from skypane_test_support import requires_non_root
@@ -713,7 +713,7 @@ def test_delete_post_redirects_manual_delete_failed_when_state_dir_is_read_only(
     try:
         status, headers, _ = http_request(
             server.base_url() + "/airlines/manual-resolutions/DLF/delete", method="POST",
-            cookie=cookie)
+            data=with_csrf(cookie), cookie=cookie)
     finally:
         os.chmod(server.state_dir, 0o700)
 
