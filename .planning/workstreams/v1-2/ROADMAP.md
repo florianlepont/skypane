@@ -36,7 +36,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [x] **Phase 51: Per-Device Config, Image and State** - Every device has its own config, image, history and health, and the BYOS serves each frame its own image.
 - [x] **Phase 52: Fleet Poll Cycle, Zones and Request Budget** - One upstream ADS-B request per zone under a persisted global 1 req/s budget.
 - [ ] **Phase 53: Detection Modes (Airport/Runway and Position/Radius)** - Devices can follow any French runway or any position within a bounded radius.
-- [ ] **Phase 54: Auth0 Sign-In, Local Roles and Default-Deny Access** - Invite-only sign-in with local roles and a proven route and ownership matrix.
+- [x] **Phase 54: Auth0 Sign-In, Local Roles and Default-Deny Access** - Invite-only sign-in with local roles and a proven route and ownership matrix. (closed 2026-10-31 by the owner after production tests; the real per-device rows of the matrix, AUTH-03, are carried to Phase 55)
 - [ ] **Phase 55: Frame Pairing, Admin Console and Reduced User View** - Admins pair frames to users and manage the fleet; users see only their own frames with fewer options.
 - [ ] **Phase 56: Per-Hardware Rendering, Battery Profiles, Health and Credits** - Rendering and health follow the hardware profile; credits page published. (11/11 plans done; criteria 1-3 verified in code 2026-10-31, merged in #257. Owner items pending: send the adsb.fi / adsb.lol contact draft once the fleet exceeds 10 users, run the browser tests on a machine with Chromium, non-blocking landscape preview follow-up)
 - [ ] **Phase 57: Combined Legacy-Frame Firmware Release** - One OTA release gives the live frame the new image reader and 401 recovery. Gated on Phase 47.
@@ -397,7 +397,7 @@ Plans:
 | 51. Per-Device Config, Image and State | v1.2 | 13/13 | Complete    | 2026-10-30 |
 | 52. Fleet Poll Cycle, Zones and Request Budget | v1.2 | 7/7 | Complete (merged, not deployed) | 2026-10-31 |
 | 53. Detection Modes | v1.2 | 0/0 | Not started | - |
-| 54. Auth0 Sign-In, Local Roles and Default-Deny Access | v1.2 | 9/9 | Deployed and verified on the real tenant 2026-10-30; legacy-admin removal and post-Phase-51 matrix rows pending (see 54-HANDOFF.md) | - |
+| 54. Auth0 Sign-In, Local Roles and Default-Deny Access | v1.2 | 9/9 | Complete, closed by the owner after production tests (2026-10-30 and 2026-10-31); AUTH-03 per-device matrix rows carried to Phase 55 (see 54-HANDOFF.md) | 2026-10-31 |
 | 55. Frame Pairing, Admin Console and Reduced User View | v1.2 | 0/14 | Planned | - |
 | 56. Per-Hardware Rendering, Battery Profiles, Health and Credits | v1.2 | 11/11 | Complete in code, merged (#257) and deployed 2026-10-31; verification human_needed (3 owner items pending, see 56-VERIFICATION.md) | - |
 | 57. Combined Legacy-Frame Firmware Release | v1.2 | 0/0 | Not started (gated on Phase 47) | - |
