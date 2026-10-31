@@ -35,7 +35,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [x] **Phase 50: Common Image Format** - A versioned image container served only to frames that announce support, with a legacy-safe firmware reader specified. (completed 2026-10-30)
 - [x] **Phase 51: Per-Device Config, Image and State** - Every device has its own config, image, history and health, and the BYOS serves each frame its own image.
 - [x] **Phase 52: Fleet Poll Cycle, Zones and Request Budget** - One upstream ADS-B request per zone under a persisted global 1 req/s budget.
-- [ ] **Phase 53: Detection Modes (Airport/Runway and Position/Radius)** - Devices can follow any French runway or any position within a bounded radius.
+- [ ] **Phase 53: Detection Modes (Airport/Runway and Position/Radius)** - Devices can follow any French runway or any position within a bounded radius. (criteria 1-3 verified in code 2026-10-31; not deployed; panel look and policy numbers pending the owner)
 - [x] **Phase 54: Auth0 Sign-In, Local Roles and Default-Deny Access** - Invite-only sign-in with local roles and a proven route and ownership matrix. (closed 2026-10-31 by the owner after production tests; the real per-device rows of the matrix, AUTH-03, are carried to Phase 55)
 - [ ] **Phase 55: Frame Pairing, Admin Console and Reduced User View** - Admins pair frames to users and manage the fleet; users see only their own frames with fewer options.
 - [x] **Phase 56: Per-Hardware Rendering, Battery Profiles, Health and Credits** - Rendering and health follow the hardware profile; credits page published. (closed 2026-10-31; 11/11 plans, criteria 1-3 verified, merged in #257. Owner follow-ups, not gaps: send the adsb.fi / adsb.lol contact draft once the fleet exceeds 10 users, non-blocking landscape preview follow-up)
@@ -200,7 +200,47 @@ Plans:
   2. Recorded Orly traffic replayed through the new runway logic gives the same decisions as the existing runway-3 geofence, and at least one parallel-runway airport is tested.
   3. A device set to a position and radius inside France shows aircraft around it; radius and country bounds are enforced, and coordinates sent to third parties are rounded.
 
-**Plans**: TBD
+**Plans**: 12 plans
+Plans:
+**Wave 1**
+
+- [ ] 53-01-PLAN.md — OurAirports France catalogue: committed raw subset, offline build script, parallel half-width rule, typed loader and search (DET-01, DET-02)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 53-02-PLAN.md — Runway detection spec with frozen Orly override, replay proof (fixtures plus deterministic sweep) and kill switch (DET-01, DET-02)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 53-03-PLAN.md — Position mode: airborne gate, radius_km bounds, France box, single rounding choke point (DET-03)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 53-04-PLAN.md — Expand-only storage of the detection setting and validated selection helpers (DET-01, DET-03)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 53-05-PLAN.md — Per-device fleet resolver, spec-driven selection and frame tag text (DET-01, DET-02, DET-03)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 53-06-PLAN.md — /detection route, access matrix and the runway half of the page (DET-01)
+- [ ] 53-07-PLAN.md — OurAirports COMPLIANCE section, corrected credits text and drift test (DET-01, DET-03)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 53-08-PLAN.md — Position panel, minimal location form and leave-guard handling (DET-03)
+- [ ] 53-09-PLAN.md — Display Runway card removed; read-only Detection cards on Display and Device (DET-01)
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [ ] 53-10-PLAN.md — Browser tests: no-JS flow, hidden-panel submit, 360 px measurements, dirty bar; legacy browser tests updated (DET-01, DET-03)
+- [ ] 53-12-PLAN.md — Remaining non-browser tests and test-support helpers updated for the removed Display Runway card (DET-01)
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [ ] 53-11-PLAN.md — Kill-switch integration test and phase-level gates (DET-01, DET-02, DET-03)
+
 **UI hint**: yes
 
 ### Phase 54: Auth0 Sign-In, Local Roles and Default-Deny Access

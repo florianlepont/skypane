@@ -8,12 +8,12 @@ It uses the same per-source shape `server/assets/fonts/VENDOR.md` and
 source, upstream link, the date the terms were checked, what the terms
 require, and a verdict.
 
-Six sources are covered, not the three originally scoped by D-14 —
+Seven sources are covered, not the three originally scoped by D-14 —
 `server/plane/enrich.py` reaches a fourth aggregator in production
 (adsbdb.com) that predates this document, `server/plane/detect.py` gained
-a fifth (adsb.lol, 2026-08-27) as a second default ADS-B source, and
-leaving either out would make this document incomplete on the day it
-ships.
+a fifth (adsb.lol, 2026-08-27) as a second default ADS-B source, the
+OurAirports catalogue joined as build-time data (never fetched at run
+time), and leaving any of them out would make this document incomplete.
 
 Every behavioural claim below (request cadence, caching, what is and is
 not republished) is grounded in the file that implements it, named
@@ -176,6 +176,34 @@ document.
   back at `server/README.md`.
 - **Status:** requirement (none explicit) met; no open item.
 
+## OurAirports
+
+- **Used in shipped code:** Yes, as build-time data only.
+  `scripts/build_airports.py` turns a committed raw subset
+  (`scripts/data/ourairports-fr-airports.csv` and
+  `scripts/data/ourairports-fr-runways.csv`) into
+  `server/data/airports_fr.json`, which `server/airports.py` reads. The
+  catalogue provides runway thresholds, designators, airport names and
+  airport codes.
+- **Upstream:** https://ourairports.com/data/ (data dictionary:
+  https://ourairports.com/help/data-dictionary.html).
+- **Terms checked:** 2026-10-31. The data page states: "All data is
+  released to the Public Domain, and comes with no guarantee of accuracy
+  or fitness for use."
+- **What the terms require:** no attribution is required; this project
+  credits OurAirports on the credits page as a courtesy. There is no
+  guarantee of accuracy, which is why the build validates every runway
+  and reports each exclusion in `scripts/data/ourairports-exclusions.json`.
+- **Snapshot:** dump dated 2026-10-31, pinned in
+  `scripts/data/ourairports-source.json`. Committed subset hashes:
+  airports `46e1af5bc60e2ea60362cbdee8779541ba9c6a46ec2a99d098804b0b808591a0`,
+  runways `b334d3d901f51a171b6ffcef1bbae08cd93556176523940966238390a5a5f5bc`.
+  A refresh is a visible three-file diff (two CSV subsets and the built
+  catalogue).
+- **Verdict:** build-time only. Nothing downloads or calls OurAirports at
+  run time; credited as a courtesy.
+- **Status:** requirement (none) met; no open item.
+
 ## PRIM / Île-de-France Mobilités
 
 - **Used in shipped code:** **No.** This project's v1 ships a single
@@ -260,6 +288,9 @@ document.
   it appears in, and at most once per TTL window otherwise (one day for
   a miss, thirty days for a hit) — never once per poll cycle regardless
   of how many cycles that aircraft is tracked across.
+- **The OurAirports catalogue is not a runtime dependency.** No request to
+  OurAirports is ever made by the server, the companion or the device; the
+  catalogue is a file committed to the repository.
 
 ## Fleet-wide ADS-B request budget
 
@@ -286,6 +317,11 @@ is relaxed.
   roughly a dozen zones fit in a 30-second cycle; zones left over are
   served first on the next cycle (oldest-served first, the live frame's
   zone always first).
+- **Position-mode zones are rounded:** zones for position-mode devices are
+  queried with the device position rounded to two decimals (about 1 km),
+  so neighbouring devices share one zone and the providers never receive
+  a home coordinate more precise than that. Runway-mode zones use public
+  airport reference points.
 - **airplanes.live is never used for the fleet.** It stays an explicit,
   single-device `--provider` opt-in.
 - **adsbdb lookups are deduplicated across devices** through a shared
@@ -301,6 +337,7 @@ is relaxed.
 | adsb.lol | Yes — second of two default providers | Confirmed (direct fetch, CC0) | None — known-temporary (future feeder-contributed API key disclosed upstream), watched, not an open action |
 | airplanes.live | Present in code, not queried by default | Resolved (2026-08-27 reply + same-day live 403) | None — demoted to explicit `--provider` opt-in only |
 | adsbdb.com | Yes | Confirmed (no explicit terms published; used within reasonable bounds) | None |
+| OurAirports | Yes, build-time only | Confirmed (public domain) | None |
 | PRIM / Île-de-France Mobilités | No | Not applicable (unused in v1) | Revisit at v2 planning, when RER-01/02/03 are picked back up |
 | AeroDataBox | No | Not applicable (unused) | None |
 

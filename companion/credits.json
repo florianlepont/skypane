@@ -41,8 +41,8 @@
       "licence": "Public domain",
       "citation_required": false,
       "description": {
-        "en": "Open airport data used to name airports. Credited as a courtesy.",
-        "fr": "Données aéroportuaires ouvertes servant à nommer les aéroports. Citées par courtoisie."
+        "en": "Open airport data: it names airports and places and orients the runways each frame can follow. Credited as a courtesy.",
+        "fr": "Données aéroportuaires ouvertes : elles nomment les aéroports et situent et orientent les pistes que chaque cadre peut suivre. Citées par courtoisie."
       }
     }
   ]

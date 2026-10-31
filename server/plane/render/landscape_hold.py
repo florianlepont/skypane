@@ -120,7 +120,7 @@ def build_empty_canvas(size, runway_id=device_config.DEFAULT_RUNWAY_ID) -> Image
     """The "watching" screen: white field, black ink."""
     return build_hold_canvas(
         size, glyphs.draw_runway_icon, glyphs.RUNWAY_ICON_HEIGHT_PX,
-        style.empty_heading_text(runway_id).upper(), style.EMPTY_BODY_LINES,
+        style.empty_heading_text(runway_id).upper(), style.empty_body_lines(runway_id),
         pf.IDX_WHITE, style.EMPTY_INK, False,
     )
 

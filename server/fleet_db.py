@@ -832,6 +832,19 @@ def list_devices(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     ))
 
 
+def device_coordinates(conn: sqlite3.Connection) -> dict[str, tuple[float, float]]:
+    """Device id -> (latitude, longitude) of its own assigned location.
+
+    Devices without a location are absent. Reads only coordinates, so the
+    poll cycle never touches owner or secret columns.
+    """
+    rows = conn.execute(
+        "SELECT d.id AS id, l.latitude AS lat, l.longitude AS lon "
+        "FROM devices d JOIN locations l ON l.id = d.location_id"
+    )
+    return {str(r["id"]): (float(r["lat"]), float(r["lon"])) for r in rows}
+
+
 def remove_device(conn: sqlite3.Connection, mac: str) -> bool:
     return conn.execute("DELETE FROM devices WHERE mac = ?", (mac,)).rowcount > 0
 

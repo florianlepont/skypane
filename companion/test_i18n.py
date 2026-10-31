@@ -41,8 +41,7 @@ import companion.prefs as prefs
 import companion_app_server
 from skypane_test_support import REPO_ROOT, child_env
 
-# ==========================================================================
-# Import every companion production module once per test session: a
+# ===================================================================# Import every companion production module once per test session: a
 # Message only reaches companion.i18n.REGISTRY when the module that
 # declares it (i18n.msg(...)) is imported, and pytest never imports a
 # module this file does not otherwise need for collection. Every
@@ -207,6 +206,10 @@ _UNCHANGED_IN_FRENCH = frozenset({
     # "Auto" is the usual French abbreviation of "Automatique" on a
     # narrow segmented control.
     "nav.auto",
+    # Latitude and Longitude are spelled identically in French; the option
+    # format is only names and numbers.
+    "detection.field_latitude", "detection.field_longitude",
+    "detection.location_option",
     # "Administration" and "Admin" are the French words too, spelled
     # identically: real cognates for the console's nav group and phone tab.
     "nav.administration", "nav.admin",

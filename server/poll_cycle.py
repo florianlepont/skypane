@@ -33,6 +33,7 @@ import time
 from dataclasses import dataclass, field
 
 import server.atomic_io as atomic_io
+import server.detection as detection
 import server.device_config as device_config
 import server.device_dirs as device_dirs
 import server.device_policy as device_policy
@@ -60,6 +61,8 @@ POLL_INTERVAL_S = 30
 # use regardless of how long the server has been running.
 GALLERY_DIRNAME = "gallery"
 GALLERY_MAX_ENTRIES = 25
+# poll_state key set while the set-a-location screen is the frame image.
+NO_LOCATION_STATE_KEY = "no_location_active"
 
 # --- Display pacing constants -----------------------------------------------
 #
@@ -518,6 +521,12 @@ class CycleContext:
     route_transport: object | None = None
     ledger_root: str | None = None
 
+    # The device's own assigned location (lat, lon), or None, and the
+    # detection spec built from it and the stored setting: the zone to
+    # poll, the gating document, and the id shown on the frame.
+    location: tuple | None = None
+    spec: object | None = None
+
     # Config: the per-cycle settings snapshot, read once in
     # load_cycle_context() so a mid-cycle save can never split one cycle
     # across two configs.
@@ -605,7 +614,7 @@ def _critical_thresholds(profile):
     return {"critical_mv": profile.battery.critical_mv, "recover_mv": profile.battery.critical_recover_mv}
 
 
-def load_cycle_context(snapshot, state_dir, geofence, caddy_log, zone_fetch=None, route_transport=None, ledger_root=None, profile=None):
+def load_cycle_context(snapshot, state_dir, geofence, caddy_log, zone_fetch=None, route_transport=None, ledger_root=None, profile=None, location=None):
     """Everything a cycle needs before the hold decision can be made:
     ensures `state_dir` exists, loads the manual-resolution and
     colour-rule registries from THIS cycle's state_dir (once per cycle,
@@ -656,7 +665,11 @@ def load_cycle_context(snapshot, state_dir, geofence, caddy_log, zone_fetch=None
     # _record_history() call rather than re-resolved. None is a
     # legitimate "cannot be determined" value.
     effective_wake_interval_s = wake.effective_wake_interval_s(device_cfg, battery_critical=battery_critical)
-    tracked_runway_id = device_cfg["tracked_runway"]
+    # One spec per cycle: the shared fleet zone, the selection gate and the
+    # frame tag all come from it, so they cannot disagree. The geofence file
+    # is read only through the kill switch inside spec_for.
+    spec = detection.spec_for(device_cfg, location, legacy_geofence_path=geofence)
+    tracked_runway_id = spec.display_id
     # now_s(), not datetime.now(): this module's harness-replaceable clock
     # seam, so the test harness's fake clock drives this arithmetic too.
     quiet_remaining, quiet_until = device_config.quiet_hours_status(device_cfg, now_s())
@@ -669,6 +682,7 @@ def load_cycle_context(snapshot, state_dir, geofence, caddy_log, zone_fetch=None
     return CycleContext(
         state_dir=state_dir, snapshot=snapshot, geofence=geofence, caddy_log=caddy_log,
         zone_fetch=zone_fetch, route_transport=route_transport, ledger_root=ledger_root,
+        location=location, spec=spec,
         device_cfg=device_cfg, theme_id=theme_id, tracked_runway_id=tracked_runway_id,
         display_enabled=display_enabled, effective_wake_interval_s=effective_wake_interval_s,
         quiet_remaining=quiet_remaining, quiet_until=quiet_until,
@@ -831,6 +845,47 @@ def run_hold_cycle(ctx):
     }
 
 
+def run_no_location_cycle(ctx):
+    """Cycle of a position-mode device with no usable location: no ADS-B
+    request and no flight, only the set-a-location screen on the frame.
+    Runs after the hold decision, so a real hold still wins. The heartbeat
+    history write carries no runway event, so history gains no row for the
+    device's stale runway; the remembered display slots stay untouched for
+    when a location comes back.
+    """
+    poll_state = ctx.poll_state
+    update_battery_low(ctx)
+    ctx.source_fault = _last_source_fault(ctx.state_dir)
+    ctx.now_iso = history_db.utc_now_iso()
+    poll_state[NO_LOCATION_STATE_KEY] = True
+    canvas = render.build_canvas(
+        None, "empty", theme_id=ctx.theme_id, runway_id=ctx.tracked_runway_id,
+        source_fault=ctx.source_fault, battery_low=ctx.battery_low,
+        state_dir=ctx.state_dir, profile=ctx.profile,
+    )
+    publish_canvas(ctx, canvas)
+    _record_history(
+        ctx.state_dir, None, None, None, None, ctx.tracked_runway_id,
+        ctx.source_fault, False, ctx.now_iso, caddy_log=ctx.caddy_log,
+        wake_interval_s=ctx.effective_wake_interval_s,
+    )
+    state_store.persist_poll_state_if_changed(ctx.state_dir, poll_state, ctx.poll_state_baseline)
+    print(
+        "poll_loop: no_location panel_changed=%s battery_low=%s theme=%s tracked_runway=%s"
+        % (ctx.panel_changed, ctx.battery_low, ctx.theme_id, ctx.tracked_runway_id)
+    )
+    return {
+        "flight": None,
+        "state": "empty",
+        "panel_changed": ctx.panel_changed,
+        "theme": ctx.theme_id,
+        "effective_theme": ctx.theme_id,
+        "tracked_runway": ctx.tracked_runway_id,
+        "source_fault": ctx.source_fault,
+        "event_recorded": False,
+    }
+
+
 def update_battery_low(ctx):
     """Battery-low decision, shared verbatim by the hold and live paths -
     every branch needs it, to thread into a render call or gate a
@@ -857,25 +912,25 @@ def _ledger_root_for(state_dir):
     return state_dir
 
 
-def _fetch_standalone(ctx, geofence_data):
+def _fetch_standalone(ctx, zone):
     """Fetch this device's zone itself, always through the persisted
     request ledger: no ADS-B request may exist outside the shared budget,
     including a single-device cycle run by hand or by the companion.
     """
     ledger = request_budget.RequestLedger(ctx.ledger_root or _ledger_root_for(ctx.state_dir))
-    center = geofence_data["center"]
-    return zone_fetch.fetch_zone(ledger, center["lat"], center["lon"], geofence_data["radius_nm"])
+    return zone_fetch.fetch_zone(ledger, zone.lat, zone.lon, zone.radius_nm)
 
 
-def _select_from_zone(ctx, geofence_data):
+def _select_from_zone(ctx):
     """Select this device's aircraft from the shared zone result, fetching
     the zone first when the caller supplied none. Returns the selection
     and the diagnostics dict.
     """
-    fetched = ctx.zone_fetch if ctx.zone_fetch is not None else _fetch_standalone(ctx, geofence_data)
+    spec = ctx.spec
+    fetched = ctx.zone_fetch if ctx.zone_fetch is not None else _fetch_standalone(ctx, spec.zone)
     diagnostics = fetched.diagnostics()
     flight = detect.select_from_provider_results(
-        fetched.results, geofence_data, runway_id=ctx.tracked_runway_id,
+        fetched.results, spec.geofence, runway_id=spec.display_id,
         diagnostics=diagnostics, queried=fetched.queried, failed=fetched.failed)
     return flight, diagnostics
 
@@ -890,7 +945,7 @@ def detect_flight(ctx):
     history/gallery write this cycle makes, so they all record the same
     instant.
     """
-    geofence_data = detect.load_geofence(ctx.geofence)
+    spec = ctx.spec
 
     # `diagnostics`, when populated, is the only signal that tells "every
     # source is down" apart from "nothing on the runway" - both otherwise
@@ -898,9 +953,9 @@ def detect_flight(ctx):
     diagnostics: dict | None = None
     if ctx.snapshot is not None:
         aircraft = _extract_aircraft(ctx.snapshot)
-        flight = detect.select_aircraft_for_runway(aircraft, geofence_data, runway_id=ctx.tracked_runway_id)
+        flight = detect.select_aircraft_for_runway(aircraft, spec.geofence, runway_id=spec.display_id)
     else:
-        flight, diagnostics = _select_from_zone(ctx, geofence_data)
+        flight, diagnostics = _select_from_zone(ctx)
 
     ctx.diagnostics = diagnostics
     ctx.flight = flight
@@ -920,6 +975,10 @@ def load_display_slots(ctx):
     # Reaching this line means no hold is active any more, so a non-None
     # hold kind here means "first cycle after the last hold ended".
     ctx.hold_exited = state_store.hold_state(poll_state) is not None
+    # The set-a-location screen is not a hold kind, but leaving it needs the
+    # same one repaint so a remembered flight does not keep it on the glass.
+    if poll_state.pop(NO_LOCATION_STATE_KEY, None) is not None:
+        ctx.hold_exited = True
     if ctx.hold_exited:
         poll_state["hold_state"] = None
         if "quiet_hours_active" in poll_state:
@@ -1348,7 +1407,7 @@ def cycle_result(ctx):
     }
 
 
-def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_timeout_s=None, reconcile_firmware=True, zone_fetch=None, route_transport=None, ledger_root=None, profile=None):
+def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_timeout_s=None, reconcile_firmware=True, zone_fetch=None, route_transport=None, ledger_root=None, profile=None, location=None):
     """One poll cycle: detect -> infer -> enrich -> render -> publish
     (atomic panel/gallery write) -> record (history.db), as a sequence of
     named steps over one `CycleContext`, serialised across every process
@@ -1413,7 +1472,8 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_
         with history_db.connection_scope(state_dir):
             ctx = load_cycle_context(
                 snapshot, state_dir, geofence, caddy_log, zone_fetch=zone_fetch,
-                route_transport=route_transport, ledger_root=ledger_root, profile=profile)
+                route_transport=route_transport, ledger_root=ledger_root, profile=profile,
+                location=location)
             # Before the hold decision, so a battery-hold, quiet-hours or
             # display-off cycle still reconciles device-reported OTA
             # outcomes exactly like a live cycle would.
@@ -1422,6 +1482,8 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_
             ctx.hold_kind = decide_hold(ctx.battery_critical, ctx.display_enabled, ctx.quiet_remaining)
             if ctx.hold_kind is not None:
                 return run_hold_cycle(ctx)
+            if ctx.spec.no_location:
+                return run_no_location_cycle(ctx)
 
             detect_flight(ctx)
             load_display_slots(ctx)

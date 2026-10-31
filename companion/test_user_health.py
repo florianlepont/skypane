@@ -83,13 +83,14 @@ def test_user_display_keeps_everyday_controls_and_drops_admin_ones(tmp_path, lan
     assert 'name="timezone"' in user_html
     assert 'name="theme' in user_html
     assert 'name="%s"' % "tracked_runway" not in user_html
-    assert config_page.RUNWAY_GROUP_HEADING_ID not in user_html
+    assert "detection-card" in user_html
     for field in user_view.ADMIN_ONLY_SETTING_FIELDS:
         assert 'name="%s"' % field not in user_html
 
     _as("admin")
     admin_html = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-    assert 'name="tracked_runway"' in admin_html
+    assert 'name="tracked_runway"' not in admin_html
+    assert "detection-card" in admin_html
 
 
 def test_user_cannot_render_device_scope(tmp_path):
