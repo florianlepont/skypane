@@ -20,6 +20,7 @@ import companion.health_signals as health_signals
 import companion.i18n as i18n
 import companion.layout as layout
 import companion.page_context as page_context
+import companion.user_view as user_view
 import companion.wake as wake
 from companion.layout import escape_html
 from server import device_config, history_db
@@ -635,6 +636,14 @@ def _frame_state_html(ctx):
         _battery_pill_html(ctx), _switches_html(cfg))
 
 
+def _attention_states():
+    """The health states the attention row reads: a user's row follows
+    the frame's own signals only, never the flight-data pipeline."""
+    if user_view.is_user_view():
+        return ("device_state", "battery_state")
+    return ("device_state", "pipeline_state", "battery_state")
+
+
 def _needs_attention(ctx):
     """Whether Home should point the owner to the detailed Health page.
 
@@ -643,8 +652,7 @@ def _needs_attention(ctx):
     snapshot; Home only decides whether that snapshot warrants a link.
     """
     health = ctx.health_state or {}
-    return any(health.get(name) in ("warn", "error") for name in (
-        "device_state", "pipeline_state", "battery_state"))
+    return any(health.get(name) in ("warn", "error") for name in _attention_states())
 
 
 def _action_needed_html(ctx):
@@ -654,8 +662,7 @@ def _action_needed_html(ctx):
     if not _needs_attention(ctx):
         return ""
     health = ctx.health_state or {}
-    worst_is_error = any(health.get(name) == "error" for name in (
-        "device_state", "pipeline_state", "battery_state"))
+    worst_is_error = any(health.get(name) == "error" for name in _attention_states())
     return layout.toast_html(
         i18n.t(ACTION_NEEDED_TEXT),
         tone=layout.TOAST_TONE_ERROR if worst_is_error else layout.TOAST_TONE_WARNING,
