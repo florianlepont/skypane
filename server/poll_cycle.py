@@ -61,6 +61,8 @@ POLL_INTERVAL_S = 30
 # use regardless of how long the server has been running.
 GALLERY_DIRNAME = "gallery"
 GALLERY_MAX_ENTRIES = 25
+# poll_state key set while the set-a-location screen is the frame image.
+NO_LOCATION_STATE_KEY = "no_location_active"
 
 # --- Display pacing constants -----------------------------------------------
 #
@@ -843,6 +845,47 @@ def run_hold_cycle(ctx):
     }
 
 
+def run_no_location_cycle(ctx):
+    """Cycle of a position-mode device with no usable location: no ADS-B
+    request and no flight, only the set-a-location screen on the frame.
+    Runs after the hold decision, so a real hold still wins. The heartbeat
+    history write carries no runway event, so history gains no row for the
+    device's stale runway; the remembered display slots stay untouched for
+    when a location comes back.
+    """
+    poll_state = ctx.poll_state
+    update_battery_low(ctx)
+    ctx.source_fault = _last_source_fault(ctx.state_dir)
+    ctx.now_iso = history_db.utc_now_iso()
+    poll_state[NO_LOCATION_STATE_KEY] = True
+    canvas = render.build_canvas(
+        None, "empty", theme_id=ctx.theme_id, runway_id=ctx.tracked_runway_id,
+        source_fault=ctx.source_fault, battery_low=ctx.battery_low,
+        state_dir=ctx.state_dir, profile=ctx.profile,
+    )
+    publish_canvas(ctx, canvas)
+    _record_history(
+        ctx.state_dir, None, None, None, None, ctx.tracked_runway_id,
+        ctx.source_fault, False, ctx.now_iso, caddy_log=ctx.caddy_log,
+        wake_interval_s=ctx.effective_wake_interval_s,
+    )
+    state_store.persist_poll_state_if_changed(ctx.state_dir, poll_state, ctx.poll_state_baseline)
+    print(
+        "poll_loop: no_location panel_changed=%s battery_low=%s theme=%s tracked_runway=%s"
+        % (ctx.panel_changed, ctx.battery_low, ctx.theme_id, ctx.tracked_runway_id)
+    )
+    return {
+        "flight": None,
+        "state": "empty",
+        "panel_changed": ctx.panel_changed,
+        "theme": ctx.theme_id,
+        "effective_theme": ctx.theme_id,
+        "tracked_runway": ctx.tracked_runway_id,
+        "source_fault": ctx.source_fault,
+        "event_recorded": False,
+    }
+
+
 def update_battery_low(ctx):
     """Battery-low decision, shared verbatim by the hold and live paths -
     every branch needs it, to thread into a render call or gate a
@@ -932,6 +975,10 @@ def load_display_slots(ctx):
     # Reaching this line means no hold is active any more, so a non-None
     # hold kind here means "first cycle after the last hold ended".
     ctx.hold_exited = state_store.hold_state(poll_state) is not None
+    # The set-a-location screen is not a hold kind, but leaving it needs the
+    # same one repaint so a remembered flight does not keep it on the glass.
+    if poll_state.pop(NO_LOCATION_STATE_KEY, None) is not None:
+        ctx.hold_exited = True
     if ctx.hold_exited:
         poll_state["hold_state"] = None
         if "quiet_hours_active" in poll_state:
@@ -1435,6 +1482,8 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_
             ctx.hold_kind = decide_hold(ctx.battery_critical, ctx.display_enabled, ctx.quiet_remaining)
             if ctx.hold_kind is not None:
                 return run_hold_cycle(ctx)
+            if ctx.spec.no_location:
+                return run_no_location_cycle(ctx)
 
             detect_flight(ctx)
             load_display_slots(ctx)

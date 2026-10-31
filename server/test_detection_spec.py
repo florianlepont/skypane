@@ -303,10 +303,6 @@ def test_position_spec_zone_matches_zone_from_document():
 @pytest.mark.parametrize(
     "cfg,location",
     [
-        (_POSITION_CFG, None),
-        (_POSITION_CFG, (40.0, 2.0)),
-        (_POSITION_CFG, (48.8, "x")),
-        (_POSITION_CFG, "48.8,2.3"),
         ({"detection": {"mode": "position", "radius_km": 99}}, (48.8, 2.3)),
         ({"detection": {"mode": "position", "radius_km": 9.5}}, (48.8, 2.3)),
         ({"detection": {"mode": "position", "radius_km": True}}, (48.8, 2.3)),
@@ -318,6 +314,31 @@ def test_position_spec_bad_input_falls_back(cfg, location):
     assert spec.fail_safe is True
     assert spec.mode == "runway"
     assert spec.display_id == "3"
+
+
+@pytest.mark.parametrize(
+    "location",
+    [None, (40.0, 2.0), (48.8, "x"), "48.8,2.3", (float("nan"), 2.3), (48.8,)],
+)
+def test_position_without_usable_location_is_a_no_location_spec(location):
+    spec = detection.spec_for(_POSITION_CFG, location=location)
+    assert spec.no_location is True
+    assert spec.fail_safe is False
+    assert spec.display_id == detection.NO_LOCATION_DISPLAY_ID
+    assert spec.tag_text == "SET A LOCATION"
+    assert spec.empty_heading == "Set a location"
+    assert detection.tag_text(spec.display_id) == spec.tag_text
+    assert detection.empty_heading(spec.display_id) == spec.empty_heading
+
+
+def test_usable_location_and_other_modes_are_not_no_location():
+    assert detection.spec_for(_POSITION_CFG, location=(48.8, 2.3)).no_location is False
+    assert detection.spec_for({"tracked_runway": "3"}).no_location is False
+    assert detection.spec_for({"tracked_runway": "3"}, location=None).display_id == "3"
+    bad_radius = detection.spec_for(
+        {"detection": {"mode": "position", "radius_km": 99}}, location=None)
+    assert bad_radius.no_location is False
+    assert bad_radius.fail_safe is True
 
 
 def test_shared_zone_for_nearby_locations():

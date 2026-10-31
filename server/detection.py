@@ -66,6 +66,11 @@ _FALLBACK_ID = "3"
 
 POSITION_MODE = detect.POSITION_MODE
 POSITION_ID_PREFIX = "position:"
+NO_LOCATION_DISPLAY_ID = "position:none"
+NO_LOCATION_TAG_TEXT = "SET A LOCATION"
+NO_LOCATION_HEADING = "Set a location"
+# Stand-in zone of a no-location spec; it is never fetched.
+_NO_LOCATION_ZONE = fleet_zones.Zone(46.6, 2.5, 1.0)
 POSITION_ALT_CEILING_FT = 10000
 RADIUS_KM_MIN = 4
 RADIUS_KM_MAX = 28
@@ -91,6 +96,13 @@ class DetectionSpec:
     tag_text: str
     empty_heading: str
     fail_safe: bool
+    # True for a position-mode device with no usable location: it polls
+    # nothing and its frame shows the set-a-location screen.
+    no_location: bool = False
+
+
+class NoLocationError(ValueError):
+    """The device is in position mode but has no usable location."""
 
 
 def runway_display_id(icao: str, designator: str) -> str:
@@ -250,14 +262,35 @@ def _position_doc(zone: fleet_zones.Zone) -> dict[str, Any]:
     }
 
 
+def no_location_spec() -> DetectionSpec:
+    """Spec of a position-mode device that has no usable location."""
+    return DetectionSpec(
+        mode=POSITION_MODE,
+        display_id=NO_LOCATION_DISPLAY_ID,
+        zone=_NO_LOCATION_ZONE,
+        geofence={},
+        tag_text=NO_LOCATION_TAG_TEXT,
+        empty_heading=NO_LOCATION_HEADING,
+        fail_safe=False,
+        no_location=True,
+    )
+
+
 def _position_spec(detection: Mapping[str, Any], location: Any) -> DetectionSpec | None:
     if detection.get("mode") != POSITION_MODE:
+        return None
+    # A bad radius is a corrupt setting and keeps the legacy fail-safe; a
+    # missing, cleared or non-French location is a usable setting with
+    # nowhere to look.
+    try:
+        validate_radius_km(detection.get("radius_km"))
+    except ValueError:
         return None
     try:
         lat, lon = location
         lat, lon, radius_km = validate_position(lat, lon, detection.get("radius_km"))
     except (TypeError, ValueError):
-        return None
+        return no_location_spec()
     zone = position_zone(lat, lon, radius_km)
     display_id = position_display_id(radius_km)
     return DetectionSpec(
@@ -284,6 +317,8 @@ def _split_display_id(display_id: str) -> tuple[airports.Airport, airports.Runwa
 
 def tag_text(display_id: str) -> str:
     """Image tag for a runway display id; unknown ids use the default runway."""
+    if display_id == NO_LOCATION_DISPLAY_ID:
+        return NO_LOCATION_TAG_TEXT
     if display_id in device_config.RUNWAYS:
         return str(device_config.RUNWAYS[display_id]["tag_text"])
     km = _position_km(display_id)
@@ -298,6 +333,8 @@ def tag_text(display_id: str) -> str:
 
 def empty_heading(display_id: str) -> str:
     """Heading of the empty screen for a runway display id."""
+    if display_id == NO_LOCATION_DISPLAY_ID:
+        return NO_LOCATION_HEADING
     if display_id in device_config.RUNWAYS:
         return str(device_config.RUNWAYS[display_id]["empty_heading"])
     km = _position_km(display_id)
@@ -375,7 +412,8 @@ def spec_for(
     """The detection spec for one device.
 
     Never raises on bad configuration: anything malformed or unknown yields
-    the default Orly runway with `fail_safe` True. Only an OSError from
+    the default Orly runway with `fail_safe` True, except a position-mode
+    device without a usable location, which yields `no_location_spec()`. Only an OSError from
     reading the legacy geofence file (kill switch on) can escape.
     """
     detection = device_cfg.get("detection") if isinstance(device_cfg, Mapping) else None

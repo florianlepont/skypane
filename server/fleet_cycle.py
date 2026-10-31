@@ -272,6 +272,8 @@ def detection_resolver(geofence_path: str | None) -> Resolver:
     def resolve(device: FleetDevice) -> tuple[fleet_zones.Zone, dict[str, Any]]:
         cfg = device_config.load_device_config(device.state_dir)
         spec = detection.spec_for(cfg, device.location, legacy_geofence_path=geofence_path)
+        if spec.no_location:
+            raise detection.NoLocationError("no usable location")
         return spec.zone, spec.geofence
 
     return resolve
@@ -285,8 +287,10 @@ def plan_zones(
     """Group non-held devices by exact zone key.
 
     A held device (battery critical, display off, quiet hours) joins no zone
-    so a zone made only of held devices costs no request. A device whose
-    zone cannot be resolved lands in `unzoned`.
+    so a zone made only of held devices costs no request. A device in
+    position mode without a usable location also joins no zone and is
+    served like a held device, so its set-a-location screen still renders.
+    A device whose zone cannot be resolved lands in `unzoned`.
     """
     peek = hold_of if hold_of is not None else poll_cycle.peek_hold
     plan = ZonePlan()
@@ -296,6 +300,9 @@ def plan_zones(
             continue
         try:
             zone, geofence = resolver(device)
+        except detection.NoLocationError:
+            plan.held.append(device)
+            continue
         except (OSError, ValueError, KeyError, TypeError):
             plan.unzoned.append(device)
             continue

@@ -147,6 +147,19 @@ EMPTY_BODY_LINES = (
     "The display updates the moment one is.",
 )
 EMPTY_BODY_TEXT = " ".join(EMPTY_BODY_LINES)
+NO_LOCATION_BODY_LINES = (
+    "This frame has no location yet.",
+    "Choose one in the companion app.",
+)
+
+
+def empty_body_lines(runway_id=device_config.DEFAULT_RUNWAY_ID):
+    """Body sentences of the empty screen for `runway_id`."""
+    if runway_id == detection.NO_LOCATION_DISPLAY_ID:
+        return NO_LOCATION_BODY_LINES
+    return EMPTY_BODY_LINES
+
+
 TOP_RIGHT_TAG_TEXT = runway_tag_text(device_config.DEFAULT_RUNWAY_ID)
 ROUTE_FALLBACK_TEXT = "Route unavailable"
 

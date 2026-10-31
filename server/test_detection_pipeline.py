@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import os
+import sqlite3
 
 import pytest
 
@@ -194,13 +195,55 @@ def test_pipeline_position_adds_no_new_poll_state(tmp_path):
     assert set(_poll_state_keys(level_dir)) <= set(_poll_state_keys(runway_dir))
 
 
-def test_pipeline_position_failsafe(tmp_path):
+def test_pipeline_position_without_location_shows_set_location_and_never_fetches(
+        monkeypatch, tmp_path):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("an ADS-B fetch was attempted")
+
+    monkeypatch.setattr(poll_cycle.zone_fetch, "fetch_zone", forbidden)
     state_dir = tmp_path / "pos"
     _write_config(state_dir, detection={"mode": "position", "radius_km": 9})
+    reference = tmp_path / "ref"
+    reference.mkdir()
+    poll_cycle.run_once(snapshot={"ac": []}, state_dir=str(reference), geofence=LEGACY_FILE)
     for location in (None, (40.7128, -74.006)):
-        result = _run(state_dir, {"ac": []}, location=location)
-        assert result["tracked_runway"] == "3"
+        result = poll_cycle.run_once(state_dir=str(state_dir), geofence=LEGACY_FILE, location=location)
+        assert result["tracked_runway"] == detection.NO_LOCATION_DISPLAY_ID
         assert result["flight"] is None
+        assert result["state"] == "empty"
+        assert _panel_hash(state_dir) != _panel_hash(reference)
+
+
+def test_pipeline_no_location_screen_text_and_history(tmp_path):
+    state_dir = tmp_path / "pos"
+    _write_config(state_dir, detection={"mode": "position", "radius_km": 9})
+    poll_cycle.run_once(state_dir=str(state_dir), geofence=LEGACY_FILE, location=None)
+    spec = detection.spec_for(device_config.load_device_config(str(state_dir)), None)
+    assert spec.empty_heading == "Set a location"
+    assert spec.tag_text == "SET A LOCATION"
+    render = poll_cycle.render
+    assert render.style.empty_body_lines(spec.display_id) == render.style.NO_LOCATION_BODY_LINES
+    assert render.style.empty_body_lines("3") == render.EMPTY_BODY_LINES
+    assert render.empty_heading_text(spec.display_id) == "Set a location"
+    conn = sqlite3.connect(os.path.join(str(state_dir), "history.db"))
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM runway_events").fetchone()[0] == 0
+        assert conn.execute(
+            "SELECT COUNT(*) FROM runway_events WHERE tracked_runway = '3'").fetchone()[0] == 0
+    finally:
+        conn.close()
+
+
+def test_pipeline_leaving_no_location_repaints_the_live_board(tmp_path):
+    state_dir = tmp_path / "pos"
+    _write_config(state_dir, detection={"mode": "position", "radius_km": 9})
+    poll_cycle.run_once(state_dir=str(state_dir), geofence=LEGACY_FILE, location=None)
+    shown = _panel_hash(state_dir)
+    poll_cycle.run_once(
+        snapshot={"ac": []}, state_dir=str(state_dir), geofence=LEGACY_FILE,
+        location=(48.86, 2.35))
+    assert _panel_hash(state_dir) != shown
+    assert "no_location_active" not in json.load(open(os.path.join(str(state_dir), "poll_state.json")))
 
 
 def test_pipeline_runs_without_the_legacy_geofence_file(tmp_path):

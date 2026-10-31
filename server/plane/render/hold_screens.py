@@ -30,7 +30,7 @@ def _build_empty_canvas(runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=
         glyphs.draw_runway_icon,
         glyphs.RUNWAY_ICON_HEIGHT_PX,
         style.empty_heading_text(runway_id).upper(),
-        style.EMPTY_BODY_LINES,
+        style.empty_body_lines(runway_id),
         pf.IDX_WHITE,
         style.EMPTY_INK,
         False,

@@ -2010,6 +2010,18 @@ def test_empty_canvas_draws_selected_runways_heading():
             "single-glyph draw run, got %r" % (expected, joined))
 
 
+def test_empty_canvas_for_a_device_without_location_asks_for_one():
+    """The no-location display id draws the set-a-location heading and sub-lines, not the watching copy"""
+    runway_id = "position:none"
+    with _TextSpy(render) as spy:
+        render.build_canvas(None, "empty", runway_id=runway_id)
+    drawn = "".join(t for t, _xy, _anchor in spy.calls if len(t) == 1)
+    if "SET A LOCATION" not in drawn:
+        pytest.fail("expected the heading SET A LOCATION in the drawn glyph run, got %r" % drawn)
+    if "WATCHING" in drawn:
+        pytest.fail("the no-location screen must not show the watching heading, got %r" % drawn)
+
+
 def test_active_canvas_draws_selected_runways_tag():
     """build_canvas(flight, 'departing', runway_id='06-24') draws that runway's tag glyph-by-glyph, passing the within-canvas assertion"""
     with _TextSpy(render) as spy:
