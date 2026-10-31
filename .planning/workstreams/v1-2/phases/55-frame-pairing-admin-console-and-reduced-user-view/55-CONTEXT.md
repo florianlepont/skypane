@@ -30,14 +30,14 @@ Out of scope: device co-management (Phase 60), firmware changes (Phase 57 ships 
 - **D-08:** A pending frame calling `/device/v1/display` receives a server-rendered pairing image in the format it already understands (raw legacy format for 1200x1600; Phase 50 container where negotiated) and a server-chosen 300 s interval. The live frame never takes this path.
 
 ### Pairing code (owner choice)
-- **D-09:** 8 characters of Crockford base32 (no 0/O/1/I/L), shown as `XXXX-XXXX`, entered case-insensitively, with look-alike characters normalised. Generated with `secrets`; only a hash is stored; compared in constant time.
+- **D-09:** 8 characters from a 30-symbol Crockford alphabet (digits and letters without 0, 1, I, L, O, U; about 39 bits), shown as `XXXX-XXXX`, entered case-insensitively, with look-alike characters normalised. Generated with `secrets`; only a hash is stored; compared in constant time.
 - **D-10:** Valid 30 minutes; a new code is issued on expiry at the pending frame's next wake. An unpaired frame wakes every 5 minutes (server-imposed, new frames only), so a displayed code always outlives at least one wake.
 - **D-11:** Single use and atomic: claiming a code is one SQLite transaction that deletes the pending row, inserts the `devices` row (owner, hardware, state directory) and writes the audit entry. Two simultaneous claims: exactly one wins, the other gets "invalid or expired". Wrong, expired and already-claimed codes answer identically.
 - **D-12:** Claim attempts are throttled per admin session and globally (reuse `LoginThrottle` patterns) and every failed attempt is audited without recording the guess.
 
 ### Reassign and retire (owner choice)
 - **D-13:** Reassigning a frame to another user wipes the previous owner's data: device config (calendar URL, colour rules, airline overrides, illustration overrides), history, poll state, gallery. The frame keeps its MAC, secret and token (no re-enrolment) and restarts like a new frame. The live frame (`state_path = "."`) is never wiped: reassigning it changes the owner only, and retiring it is refused (guard that protects the Phase 47 measurements).
-- **D-14:** Retiring a frame keeps its token valid and serves a "frame retired" image with a 24 h interval, so the current firmware (no recovery from 401 before Phase 57) neither loops nor drains the battery. Retirement is reversible: an admin can re-activate the frame, which returns it to the pending state with a fresh code. Hard deletion stays a CLI-only act (`devices remove`).
+- **D-14:** Retiring a frame keeps its token valid and serves a "frame retired" image with a 24 h interval, so the current firmware (no recovery from 401 before Phase 57) neither loops nor drains the battery. Retirement is reversible: an admin can re-activate the frame, which returns it to the pending state with a fresh code. Retirement keeps the data; re-activation wipes config and history exactly like a reassignment (owner choice 2026-10-31). A retired frame is stored as `pending_devices.status = 'retired'` with its previous owner kept for the audit trail. Hard deletion stays a CLI-only act (`devices remove`).
 
 ### Console and user view (owner choice)
 - **D-15:** Admin console pages: Fleet (every device with owner, hardware, last seen, battery, firmware, pending and retired frames, actions), Users (invite with email + role, change role, disable and re-enable, unlink Auth0 identity; guard: the last active admin cannot be demoted or disabled, nobody disables themselves), Audit log (read-only, newest first), Releases (the existing per-hardware `/update` page entered from the console, no redesign), Locations (see D-18). From the Fleet list an admin opens a frame's own pages under `/devices/<id>/...` as today.
@@ -47,8 +47,14 @@ Out of scope: device co-management (Phase 60), firmware changes (Phase 57 ships 
 
 ### Audit and safety
 - **D-19:** An append-only `audit_log` table (fleet.db, therefore in the backup): actor, action, target, outcome, timestamp, source IP; no secrets, no codes, no guesses. Events: frame registered, pairing issued/claimed/failed, reassigned, retired/re-activated, user invited/role changed/disabled/enabled/identity unlinked, location changes, release actions. Read-only page for admins; no purge in this phase.
-- **D-20:** Per-session CSRF token on every state-changing admin and pairing POST (the Phase 54 hand-off asked to revisit this before destructive admin actions). Existing Origin / Sec-Fetch-Site checks stay.
+- **D-20 (owner choice 2026-10-31):** Per-session CSRF token on every new admin and pairing POST, the release actions (`/update*`) and the existing destructive POSTs (rule delete, calendar disconnect, manual-resolution delete, airline rename reset). Other existing forms keep Origin / Sec-Fetch-Site + session. The token is derived from the session secret (no schema change).
 - **D-21:** All new schema changes are one expand-only migration to schema 3 (`pending_devices`, `audit_log`, `locations.owner_user_id`). Same rollback caveat as Phase 54: the previous release's byos refuses a schema it does not know; surface it in the hand-off. The freeze test and the backup/restore test cover the new tables.
+
+### Facts to report to the owner (from research)
+- **Redraw cost:** an unclaimed frame wakes every 5 minutes but redraws only when the image hash changes (hash-skip); the pairing image is byte-deterministic (no clock, no countdown), so it redraws only when the code rotates (about every 35 minutes, roughly 40 times a day).
+- **White after claim:** a claimed non-live frame shows nothing until a poll writes its image; the fleet poll is Phase 52 and users have no poll-now, so a claimed frame stays on its last image until then.
+- **Migration index:** schema migration 3 is reserved for this phase; Phases 52/53 append v4 and later.
+- **No firmware need** identified for pairing or retirement (frame reads `image_url`, `image_hash`, `sleep_s` 1..86400, `led_enabled`).
 
 ### Claude's Discretion
 Module layout, table and column names, how the pairing image is drawn (Pillow, vendored fonts, six-colour palette), page layouts under `sketch-findings-skypane`, bilingual strings in `companion/i18n_fr/`, route paths, plan split and waves, throttle parameters, location quotas.
