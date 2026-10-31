@@ -334,3 +334,73 @@ def test_corridor_inside_zone():
         for rw in record["runways"]:
             pair = {"thresholds": [(t["lat"], t["lon"]) for t in rw["thresholds"]]}
             assert build.corners_within_zone(pair, rw["half_width_m"], arp), record["icao"]
+
+
+# ---- loader and search ----------------------------------------------------
+
+from server import airports as loader  # noqa: E402
+
+
+def test_loader_find_airport_is_exact():
+    assert loader.find_airport("LFPG") is not None
+    for bad in ("lfpg", "", None, "../x", "LFPG\n", 5, "LFPGX"):
+        assert loader.find_airport(bad) is None
+
+
+def test_loader_find_runway_is_exact():
+    runway = loader.find_runway("LFPG", "08L/26R")
+    assert runway is not None and runway.designator == "08L/26R"
+    assert loader.find_runway("LFPG", "26R/08L") is None
+    assert loader.find_runway("LFPG", "99/17") is None
+    assert loader.find_runway("LFPG", "08L/26R\n") is None
+    assert loader.find_runway("../x", "08L/26R") is None
+
+
+def test_loader_catalogue_is_immutable_and_matches_json():
+    catalogue = loader.load_catalogue()
+    assert len(catalogue) == len(load_committed()["airports"])
+    with pytest.raises(TypeError):
+        catalogue["XXXX"] = None  # type: ignore[index]
+
+
+def test_loader_rejects_malformed_file(tmp_path, monkeypatch):
+    bad = tmp_path / "bad.json"
+    bad.write_text('{"airports":[{"icao":"nope"}]}')
+    monkeypatch.setattr(loader, "CATALOGUE_PATH", str(bad))
+    loader.load_catalogue.cache_clear()
+    try:
+        with pytest.raises(ValueError):
+            loader.load_catalogue()
+    finally:
+        monkeypatch.undo()
+        loader.load_catalogue.cache_clear()
+        loader._search_index.cache_clear()
+
+
+def test_search_orders_exact_codes_first():
+    results, total = loader.search_airports("cdg")
+    assert results[0].icao == "LFPG" and total >= 1
+    assert loader.search_airports("LFPG")[0][0].icao == "LFPG"
+    assert "LFPO" in [a.icao for a in loader.search_airports("orly")[0]]
+
+
+def test_search_is_accent_insensitive():
+    accented = [a.icao for a in loader.search_airports("nîmes")[0]]
+    plain = [a.icao for a in loader.search_airports("nimes")[0]]
+    assert accented == plain and accented
+
+
+def test_search_edge_inputs_never_raise():
+    assert loader.search_airports("") == ([], 0)
+    assert loader.search_airports("   ") == ([], 0)
+    assert loader.search_airports(None) == ([], 0)
+    assert loader.search_airports("a\x00b") == ([], 0)
+    results, total = loader.search_airports("x" * 61)
+    assert results == [] and total == 0
+
+
+def test_search_caps_rows_and_reports_total():
+    results, total = loader.search_airports("a")
+    assert len(results) == 20 and total > 20
+    keys = [(loader._fold(a.name), a.icao) for a in results]
+    assert keys == sorted(keys)
