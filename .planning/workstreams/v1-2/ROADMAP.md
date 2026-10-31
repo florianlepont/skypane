@@ -336,7 +336,7 @@ Real `/d/<id>/...` routes and their matrix rows are completed after Phase 51; se
 | 49. Per-Hardware OTA Registry | v1.2 | 11/11 | Human verification pending (OTA-03 bench check deferred) | - |
 | 50. Common Image Format | v1.2 | 5/5 | Complete    | 2026-10-30 |
 | 51. Per-Device Config, Image and State | v1.2 | 13/13 | Complete    | 2026-10-30 |
-| 52. Fleet Poll Cycle, Zones and Request Budget | v1.2 | 0/0 | Not started | - |
+| 52. Fleet Poll Cycle, Zones and Request Budget | v1.2 | 7/7 | Complete (merged, not deployed) | 2026-10-31 |
 | 53. Detection Modes | v1.2 | 0/0 | Not started | - |
 | 54. Auth0 Sign-In, Local Roles and Default-Deny Access | v1.2 | 9/9 | Deployed and verified on the real tenant 2026-10-30; legacy-admin removal and post-Phase-51 matrix rows pending (see 54-HANDOFF.md) | - |
 | 55. Frame Pairing, Admin Console and Reduced User View | v1.2 | 0/0 | Not started | - |
