@@ -39,6 +39,7 @@ from companion_app_server import get, http_request, login, served_asset, served_
 from companion_markup import (
     css_rules, declarations_for, flash_toast, flash_toast_title_detail, parse_html)
 from server import device_config, history_db
+from server.net import safe_fetch
 from server.plane import calendar_rules
 
 
@@ -1577,10 +1578,14 @@ _GROUP_SHAPES = (
     (group, {"absent": absent, "empty": empty, "valid": valid, "invalid": invalid})
     for group, absent, empty, valid, invalid, _expected in _GROUP_SHAPES
 ])
-def test_handle_post_saves_the_same_config_for_every_group_shape(tmp_path, group_name, forms):
+def test_handle_post_saves_the_same_config_for_every_group_shape(
+        tmp_path, monkeypatch, group_name, forms):
     """For every settings group, the absent/empty/valid/invalid submission shapes persist the
     same device config (and calendar-configured state, for the calendar group) and return the
     same flash key as the unmodified, pre-split handle_post()."""
+    # These forms name a placeholder host that cannot resolve; the address gate is
+    # covered in test_calendar_url_gate.py, so here every host reads as public.
+    monkeypatch.setattr(safe_fetch, "host_is_safe", lambda host, port: True)
     expected_by_shape = next(
         expected for group, *_rest, expected in _GROUP_SHAPES if group == group_name)
     for shape_name, form in forms.items():
