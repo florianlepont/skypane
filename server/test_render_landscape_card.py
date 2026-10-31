@@ -130,12 +130,8 @@ def test_band_slants_down_left_like_portrait(size):
 def test_band_text_stays_inside_band(theme_id, state, size):
     base = lc.build_card_canvas(size, FLIGHT, state, route=ROUTE, theme_id=theme_id)
     other = lc.build_card_canvas(size, FLIGHT, state, route=LONG_ROUTE, theme_id=theme_id)
-    with_prev = lc.build_card_canvas(
-        size, FLIGHT, state, route=ROUTE, theme_id=theme_id,
-        previous_flight=PREVIOUS_FLIGHT, previous_route=PREVIOUS_ROUTE, previous_state="arriving",
-    )
     illustration_right = lc.card_geometry(size, True).illustration_right
-    for changed, x_min in ((other, illustration_right), (with_prev, 0)):
+    for changed, x_min in ((other, illustration_right),):
         diff = ImageChops.difference(base.convert("RGB"), changed.convert("RGB")).convert("L").point(
             lambda v: 255 if v else 0
         )
@@ -183,7 +179,6 @@ def test_band_card_is_deterministic(theme_id):
 def test_band_size_sweep_renders(theme_id, size):
     canvas = lc.build_card_canvas(
         size, FLIGHT, "arriving", route=LONG_ROUTE, theme_id=theme_id,
-        previous_flight=PREVIOUS_FLIGHT, previous_route=PREVIOUS_ROUTE, previous_state="departing",
         source_fault=True, battery_low=True,
     )
     assert canvas.size == size
@@ -199,15 +194,42 @@ def test_text_column_changes_with_route():
     assert card(route=ROUTE).tobytes() != card(route=LONG_ROUTE).tobytes()
 
 
-def test_previous_strip_optional_and_confined_to_text_column():
-    without = card()
+@pytest.mark.parametrize("theme_id", THEMES)
+@pytest.mark.parametrize("state", ["departing", "arriving"])
+def test_previous_flight_is_ignored(theme_id, state):
+    without = card(state, theme_id=theme_id)
     with_prev = card(
-        previous_flight=PREVIOUS_FLIGHT, previous_route=PREVIOUS_ROUTE, previous_state="arriving"
+        state, theme_id=theme_id,
+        previous_flight=PREVIOUS_FLIGHT, previous_route=PREVIOUS_ROUTE, previous_state="arriving",
     )
-    assert without.tobytes() != with_prev.tobytes()
-    box = ImageChops.difference(without.convert("RGB"), with_prev.convert("RGB")).getbbox()
+    assert without.tobytes() == with_prev.tobytes()
+
+
+def test_previous_flight_is_ignored_through_entry_point():
+    kwargs = dict(previous_flight=PREVIOUS_FLIGHT, previous_route=PREVIOUS_ROUTE, previous_state="departing")
+    assert entry(state="arriving", **kwargs).tobytes() == entry(state="arriving").tobytes()
+
+
+def changed_rows(a, b):
+    box = ImageChops.difference(a.convert("RGB"), b.convert("RGB")).getbbox()
     assert box is not None
-    assert box[3] > SIZE[1] * 0.8
+    return box[1], box[3]
+
+
+@pytest.mark.parametrize("size", [SIZE, (640, 384), (1024, 600)])
+@pytest.mark.parametrize("theme_id", ["white", "band_red", "band_blue"])
+@pytest.mark.parametrize("state", ["departing", "arriving"])
+def test_callsign_and_direction_text_occupy_different_rows(state, theme_id, size):
+    def render(**route_changes):
+        return lc.build_card_canvas(
+            size, FLIGHT, state, route=dict(ROUTE, **route_changes), theme_id=theme_id
+        )
+
+    base = render()
+    callsign_rows = changed_rows(base, render(callsign_iata="TO17VB"))
+    city_key = "destination_city" if state == "departing" else "origin_city"
+    city_rows = changed_rows(base, render(**{city_key: ROUTE[city_key][:-1] + "x"}))
+    assert callsign_rows[1] <= city_rows[0]
 
 
 def overlay_box(**kwargs):

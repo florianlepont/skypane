@@ -2,11 +2,9 @@
 family.
 
 The aircraft illustration fills the left of the canvas, nose-left; the right
-column holds the flight text and, when there is one, a compact strip for
-the previous flight. Band themes add a diagonal band across the full canvas,
-slanted like the portrait band; the flight text and previous strip are
-centred inside it in white ink and the aircraft illustration is drawn over
-it. Every dimension derives from the canvas size passed in, so any landscape
+column holds the flight text. Band themes add a diagonal band across the
+full canvas, slanted like the portrait band; the flight text is centred
+inside it in white ink and the aircraft illustration is drawn over it. Every dimension derives from the canvas size passed in, so any landscape
 panel renders natively.
 """
 from typing import NamedTuple
@@ -33,7 +31,6 @@ LINE1_HEIGHT_FRACTION = 0.075
 LINE1_MIN_FRACTION = 0.045
 LINE2_HEIGHT_FRACTION = 0.048
 LINE2_MIN_FRACTION = 0.032
-PREVIOUS_HEIGHT_FRACTION = 0.034
 LINE_GAP_FRACTION = 0.012
 BLOCK_GAP_FRACTION = 0.03
 LINE1_MAX_LINES = 3
@@ -211,24 +208,39 @@ def _draw_illustration(canvas, size, geom, flight, route, state_dir):
     return placement
 
 
+def _split_identifier(line1, route):
+    """(identifier, rest) when `line1` is "<identifier> to|from <city>" for
+    the route's flight identifier, else (None, line1)."""
+    identifier = (route or {}).get("callsign_iata") if isinstance(route, dict) else None
+    if isinstance(identifier, str) and identifier.strip():
+        identifier = identifier.strip()
+        for word in ("to", "from"):
+            prefix = "%s %s " % (identifier, word)
+            if line1.startswith(prefix):
+                return identifier, line1[len(identifier) + 1:]
+    return None, line1
+
+
 def _main_text_lines(size, geom, flight, state, route, weight):
-    """Fitted (font, lines) pairs for the two main text lines; the first
-    pair is None when the flight has no line 1."""
+    """Fitted (font, lines) groups for the main text: the flight identifier
+    alone on its own line, then the "to|from <city>" line, then the airline
+    and aircraft line. Groups the flight has no text for are omitted."""
     path = text._role_weight_path(weight)
     width = geom.text_right - geom.text_left
     line1 = text._flight_line1_text(flight, state, route)
     line2 = text._flight_line2_text(route, flight.get("aircraft_type"))
-    first = None
+    initial, minimum = round(size[1] * LINE1_HEIGHT_FRACTION), round(size[1] * LINE1_MIN_FRACTION)
+    groups = []
     if line1:
-        first = _fit_lines(
-            path, round(size[1] * LINE1_HEIGHT_FRACTION), round(size[1] * LINE1_MIN_FRACTION),
-            line1, width, LINE1_MAX_LINES,
-        )
-    second = _fit_lines(
+        identifier, rest = _split_identifier(line1, route)
+        if identifier:
+            groups.append(_fit_lines(path, initial, minimum, identifier, width, 1))
+        groups.append(_fit_lines(path, initial, minimum, rest, width, LINE1_MAX_LINES))
+    groups.append(_fit_lines(
         path, round(size[1] * LINE2_HEIGHT_FRACTION), round(size[1] * LINE2_MIN_FRACTION),
         line2, width, LINE2_MAX_LINES,
-    )
-    return first, second
+    ))
+    return groups
 
 
 def _centered_line(draw, size, geom, line, font, y, center, ink, what):
@@ -252,7 +264,7 @@ def _draw_main_text(canvas, size, geom, flight, state, route, ink, weight, top, 
     `bottom`: left-aligned in the text column, or centred on the band at
     the block's mid-height for band themes."""
     draw = ImageDraw.Draw(canvas)
-    groups = [g for g in _main_text_lines(size, geom, flight, state, route, weight) if g]
+    groups = _main_text_lines(size, geom, flight, state, route, weight)
     gap = round(size[1] * BLOCK_GAP_FRACTION)
     heights = [len(lines) * _line_height(font, size) for font, lines in groups]
     block_h = sum(heights) + gap * (len(groups) - 1)
@@ -263,40 +275,6 @@ def _draw_main_text(canvas, size, geom, flight, state, route, ink, weight, top, 
             _centered_line(draw, size, geom, line, font, y, center, ink, "landscape flight text")
             y += _line_height(font, size)
         y += gap
-
-
-def _previous_strip_height(size):
-    """Height reserved at the bottom of the text column for the strip."""
-    px = max(10, round(size[1] * PREVIOUS_HEIGHT_FRACTION))
-    return px + 2 * round(size[1] * BLOCK_GAP_FRACTION)
-
-
-def _draw_previous_strip(canvas, size, geom, previous_flight, previous_state, previous_route, ink, weight):
-    """One ellipsized line for the previous flight above a thin rule, at
-    the bottom of the text column (centred on the band for band themes)."""
-    draw = ImageDraw.Draw(canvas)
-    px = max(10, round(size[1] * PREVIOUS_HEIGHT_FRACTION))
-    font = text._font((text._role_weight_path(weight), px, None))
-    state_word = style.STATE_LABEL_TEXT.get(previous_state, "").lower()
-    summary = text._flight_line1_text(previous_flight, previous_state, previous_route)
-    if not summary:
-        summary = text._flight_line2_text(previous_route, previous_flight.get("aircraft_type"))
-    line = "Previous %s \u00b7 %s" % (state_word, summary) if state_word else "Previous \u00b7 %s" % (summary,)
-    ascent, descent = font.getmetrics()
-    y = size[1] - geom.margin - ascent - descent
-    rule_y = y - round(size[1] * BLOCK_GAP_FRACTION) // 2
-    if geom.band:
-        center = band_center(size, y)
-        ink = BAND_TEXT_INK
-        rule_left = center - band_span(size, center, rule_y, y + ascent + descent) / 2
-        rule_right = center + (center - rule_left)
-        line = line.strip()
-    else:
-        center = 0
-        rule_left, rule_right = geom.text_left, geom.text_right
-        line = _ellipsize(font, line.strip(), geom.text_right - geom.text_left)
-    draw.line((rule_left, rule_y, rule_right, rule_y), fill=ink, width=max(1, round(size[1] * 0.004)))
-    _centered_line(draw, size, geom, line, font, y, center, ink, "landscape previous strip")
 
 
 def _battery_box(size, margin):
@@ -355,8 +333,9 @@ def build_card_canvas(
 ):
     """Pre-pack "P"-mode landscape card of `size` for `flight` in `state`
     ("departing" or "arriving"). Theme colours, band and text weight come
-    from `theme_id`; the previous strip is omitted when `previous_flight`
-    is None."""
+    from `theme_id`. The landscape card never shows the previous flight:
+    `previous_flight`, `previous_route` and `previous_state` are accepted
+    only so callers can pass the same arguments as the portrait builder."""
     if state not in style.STATE_LABEL_TEXT:
         raise ValueError("unknown card state %r (expected 'departing' or 'arriving')" % (state,))
     size = (int(size[0]), int(size[1]))
@@ -377,11 +356,10 @@ def build_card_canvas(
     label_bottom = _draw_top_row(canvas, size, state, geom, ink, weight, runway_id)
     _draw_illustration(canvas, size, geom, flight, route, state_dir)
     gap = round(size[1] * BLOCK_GAP_FRACTION)
-    text_bottom = size[1] - geom.margin
-    if previous_flight is not None:
-        text_bottom -= _previous_strip_height(size)
-        _draw_previous_strip(canvas, size, geom, previous_flight, previous_state, previous_route, ink, weight)
-    _draw_main_text(canvas, size, geom, flight, state, route, ink, weight, label_bottom + gap, text_bottom)
+    text_top = label_bottom + gap
+    # Mirror the top inset at the bottom so the block is centred on the canvas.
+    text_bottom = size[1] - text_top
+    _draw_main_text(canvas, size, geom, flight, state, route, ink, weight, text_top, text_bottom)
     if source_fault:
         draw_source_fault(canvas, size, geom, ink, weight)
     if battery_low:
