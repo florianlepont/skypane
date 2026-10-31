@@ -54,7 +54,9 @@ BATTERY_TREND_WINDOW_DAYS = battery_chart.BATTERY_TREND_WINDOW_DAYS
 # 100 mV: a genuine discharge measured ~50 mV/day through the middle and
 # a couple mV per reading even across the steepest final cliff
 # (hardware/BATTERY-RUN.md), so crossing 100 mV between two consecutive
-# readings means an anomaly, not real discharge.
+# readings means an anomaly, not real discharge. Like the charging
+# heuristics in battery.py this is a single-pack calibration and stays
+# global, not per hardware profile.
 BATTERY_DROP_WARN_MV = 100
 
 _CORROBORATION_WINDOW_DAYS = 7  # A recent window; runway_events rows are

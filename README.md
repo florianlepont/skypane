@@ -175,6 +175,9 @@ has the terms analysis for every source, including
 [airplanes.live](https://airplanes.live), which is still available as an
 opt-in `--provider` but no longer called by default.
 
+Credits are generated from `companion/credits.json` and shown at the
+public `/credits` page.
+
 Thanks to the volunteers who feed and run these services.
 
 ## Licence

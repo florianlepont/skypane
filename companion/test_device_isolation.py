@@ -14,6 +14,7 @@ from skypane_two_device_fleet import device_headers
 
 from server import device_dirs, device_config, fleet_db
 
+LANDSCAPE_IMAGE_BYTES = 192000
 MARTINIQUE = {"timezone": "America/Martinique"}
 
 

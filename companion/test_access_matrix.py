@@ -49,6 +49,7 @@ ROUTE_POLICY = {
     ("GET", "/login"): PUBLIC,
     ("GET", "/login/auth0"): PUBLIC,
     ("GET", "/callback"): PUBLIC,
+    ("GET", "/credits"): PUBLIC,
     # Self-authenticating: the handler checks its own bearer token and never
     # looks at a session cookie, so the cookie gate has nothing to add.
     ("GET", "/api/export/battery-history"): PUBLIC,

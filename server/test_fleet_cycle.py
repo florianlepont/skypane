@@ -86,7 +86,7 @@ def test_unknown_or_unrenderable_hardware_is_skipped(fleet, tmp_path):
     assert {reason for _, reason in skipped} == {"unsupported_hardware"}
 
 
-def test_landscape_hardware_is_skipped(tmp_path):
+def test_landscape_hardware_is_skipped_while_simulation_is_off(tmp_path):
     with two_fleet.sim_hardware_env():
         seeded = two_fleet.seed_two_device_fleet(str(tmp_path), with_landscape=True)
         devices = fleet_cycle.load_fleet(str(tmp_path), NOW)
@@ -552,3 +552,30 @@ def test_overlapping_runs_never_space_requests_closer_than_the_budget(monkeypatc
     stamps.sort()
     assert len(stamps) == 4
     assert all(b - a >= request_budget.MIN_SPACING_S - 1e-6 for a, b in zip(stamps, stamps[1:]))
+
+
+def test_landscape_hardware_is_kept_when_simulation_is_on(tmp_path):
+    with two_fleet.sim_hardware_env():
+        seeded = two_fleet.seed_two_device_fleet(str(tmp_path), with_landscape=True)
+        devices = fleet_cycle.load_fleet(str(tmp_path), NOW)
+        keep, skipped = fleet_cycle.runnable_devices(
+            devices, NOW, {"SKYPANE_SIM_HARDWARE": "1"})
+    assert (seeded.landscape.id, "unsupported_hardware") not in skipped
+
+
+def test_only_non_live_devices_cycle_through_their_profile(monkeypatch, tmp_path):
+    monkeypatch.setenv("SKYPANE_SIM_HARDWARE", "1")
+    root = _fleet(monkeypatch, tmp_path, ["a"])
+    devices = fleet_cycle.load_fleet(root)
+    devices[1] = fleet_cycle.FleetDevice(
+        "a", devices[1].state_dir, False, hardware.SIM_LANDSCAPE_KEY, 1e12)
+    monkeypatch.setattr(fleet_cycle, "load_fleet", lambda root_, now=None: devices)
+    rec = Recorder()
+    fleet_cycle.run_fleet(
+        root, GEOFENCE, "caddy.log", ledger=FakeLedger(), runner=rec.runner,
+        fetcher=rec.fetcher, route_transport="transport",
+        environ={"SKYPANE_SIM_HARDWARE": "1"}, resolver=_resolver({}))
+    live = [kw for _, kw in rec.runs if kw["state_dir"] == root]
+    other = [kw for _, kw in rec.runs if kw["state_dir"] != root]
+    assert len(live) == 1 and "profile" not in live[0]
+    assert [kw["profile"].key for kw in other] == [hardware.SIM_LANDSCAPE_KEY]

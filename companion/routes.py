@@ -89,6 +89,7 @@ class Route(collections.namedtuple(
 # Literal here, byte-identical to companion/app.py's own constants of the
 # same name, since this module can never import companion.app either.
 LOGIN_ROUTE = "/login"
+CREDITS_ROUTE = "/credits"
 AUTH0_LOGIN_ROUTE = "/login/auth0"
 CALLBACK_ROUTE = "/callback"
 HISTORY_LEGACY_ROUTE = "/history"
@@ -148,6 +149,7 @@ _GET_ROUTES = (
         Route("GET", Exact(LOGIN_ROUTE), lambda h, m: h._handle_login_get(), PUBLIC),
         Route("GET", Exact(AUTH0_LOGIN_ROUTE), lambda h, m: h._handle_login_auth0_get(), PUBLIC),
         Route("GET", Exact(CALLBACK_ROUTE), lambda h, m: h._handle_callback_get(), PUBLIC),
+        Route("GET", Exact(CREDITS_ROUTE), lambda h, m: h._handle_credits_get(), PUBLIC),
         # PUBLIC only in the sense that the cookie gate does not apply: the
         # handler authenticates the bearer token itself.
         Route(

@@ -161,3 +161,89 @@ def test_firmware_target_signing_fields_are_defaulted() -> None:
         idf_target="esp32s3", project_name="x", max_image_bytes=1)
     assert target.require_signature is True
     assert target.signing_pubkey == hardware.COMMITTED_SIGNING_PUBKEY
+
+
+def _legacy() -> hardware.HardwareProfile:
+    return hardware.REGISTRY[hardware.LEGACY_KEY]
+
+
+def test_legacy_provenance_covers_every_value_as_provisional() -> None:
+    import datetime
+
+    battery = _legacy().battery
+    for name in hardware.BATTERY_VALUE_NAMES:
+        entry = battery.provenance_for(name)
+        assert entry.status == "provisional"
+        assert entry.source.strip()
+        datetime.date.fromisoformat(entry.date)
+
+
+def test_provenance_for_unknown_name_raises() -> None:
+    with pytest.raises(KeyError):
+        _legacy().battery.provenance_for("nonsense")
+
+
+def test_legacy_battery_stays_derived_from_policy_constants() -> None:
+    battery = _legacy().battery
+    assert battery.curve is device_policy.BATTERY_DISCHARGE_CURVE
+    assert battery.low_mv == device_policy.BATTERY_LOW_THRESHOLD_MV
+    assert battery.critical_recover_mv == device_policy.BATTERY_CRITICAL_RECOVER_MV
+
+
+def test_sim_clone_shares_the_legacy_battery() -> None:
+    assert hardware.REGISTRY[hardware.SIM_CLONE_KEY].battery is _legacy().battery
+
+
+def test_sim_landscape_provenance_says_copied_and_keeps_values() -> None:
+    sim = hardware.REGISTRY[hardware.SIM_LANDSCAPE_KEY].battery
+    legacy = _legacy().battery
+    for name in hardware.BATTERY_VALUE_NAMES:
+        assert getattr(sim, name) == getattr(legacy, name)
+        entry = sim.provenance_for(name)
+        assert entry.source == (
+            "copied from the legacy profile for simulation; not a measurement")
+        assert entry.status == "provisional"
+
+
+def test_every_profile_has_six_inks_and_a_valid_layout() -> None:
+    for profile in hardware.REGISTRY.values():
+        assert profile.inks == frozenset(range(6))
+    assert _legacy().layout_family == hardware.LAYOUT_PORTRAIT
+    assert hardware.REGISTRY[hardware.SIM_CLONE_KEY].layout_family == "portrait"
+    assert hardware.REGISTRY[hardware.SIM_LANDSCAPE_KEY].layout_family == "landscape"
+    assert hardware.registry_problems() == []
+
+
+def test_validation_rejects_bad_layout_and_portrait_size() -> None:
+    bad_family = dataclasses.replace(_legacy(), layout_family="square")
+    bad_size = dataclasses.replace(_legacy(), width=800, height=480)
+    for bad in (bad_family, bad_size):
+        patched = {**hardware.REGISTRY, "bad": bad}
+        original = hardware.REGISTRY
+        hardware.REGISTRY = patched  # type: ignore[assignment]
+        try:
+            assert hardware.registry_problems()
+        finally:
+            hardware.REGISTRY = original
+
+
+def test_validation_rejects_final_without_measurement_source() -> None:
+    legacy = _legacy()
+    entries = list(legacy.battery.provenance)
+    entries[0] = dataclasses.replace(entries[0], status="final")
+    bad = dataclasses.replace(
+        legacy, battery=dataclasses.replace(legacy.battery, provenance=tuple(entries)))
+    original = hardware.REGISTRY
+    hardware.REGISTRY = {"bad": bad}  # type: ignore[assignment]
+    try:
+        assert any("final" in p for p in hardware.registry_problems())
+    finally:
+        hardware.REGISTRY = original
+
+
+def test_planned_slot_has_no_numbers_and_is_not_registered() -> None:
+    slot = hardware.PLANNED_BATTERY_SLOTS["seeed-ee04-7in3-spectra6"]
+    assert slot.status == "unmeasured"
+    assert [n for n, _ in slot.values] == list(hardware.BATTERY_VALUE_NAMES)
+    assert all(v is None for _, v in slot.values)
+    assert not set(hardware.PLANNED_BATTERY_SLOTS) & set(hardware.REGISTRY)

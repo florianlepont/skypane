@@ -11,7 +11,7 @@ import pytest
 from skypane_two_device_fleet import seed_two_device_fleet, sim_hardware_env
 
 from companion import device_scope, routes
-from server import device_dirs, fleet_db, history_db
+from server import device_dirs, fleet_db, hardware, history_db
 
 
 @pytest.fixture
@@ -240,3 +240,16 @@ def test_resolve_state_dir_is_the_only_directory_source(fleet):
     state_dir, seeded = fleet
     device = device_scope.find_device(state_dir, seeded.dev_b.id)
     assert device.state_dir == device_dirs.resolve_state_dir(state_dir, device.state_path)
+
+
+def test_profile_for_reads_the_row_hardware_type_and_falls_back(fleet):
+    state_dir, _seeded = fleet
+    with sim_hardware_env():
+        devices = device_scope.load_devices(state_dir)
+        for device in devices:
+            assert device_scope.profile_for(device).key == device.hardware_type
+    # Gated off (simulation disabled): non-legacy rows read as legacy.
+    for device in devices:
+        assert device_scope.profile_for(device).key in (
+            device.hardware_type, hardware.LEGACY_KEY)
+    assert device_scope.profile_for(None).key == hardware.LEGACY_KEY

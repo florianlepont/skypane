@@ -175,6 +175,14 @@ def coerce(value):
     return PageContext(eager_values, {}, resolved=lazy_resolved)
 
 
+def device_curve(device):
+    """The discharge curve of `device`'s hardware profile; None (the
+    legacy curve) for no device. An unknown hardware type reads as legacy."""
+    if device is None:
+        return None
+    return device_scope.profile_for(device).battery.curve
+
+
 def _lazy_health_state(ctx):
     """`build_page_context()`'s lazy "health_state" loader: the markup
     `health_page.health_state_from_signals()` builds from the shared
@@ -190,7 +198,8 @@ def _lazy_health_state(ctx):
     if signals is None:
         return None
     try:
-        return health_page.health_state_from_signals(signals)
+        return health_page.health_state_from_signals(
+            signals, device_curve(ctx.device))
     except Exception:
         return None
 

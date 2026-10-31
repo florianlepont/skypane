@@ -2,6 +2,7 @@
 """Two simulated devices through a real BYOS subprocess: each frame is
 authenticated to its own fleet.db row and served from its own directory,
 while the live frame keeps its exact legacy behaviour."""
+import dataclasses
 import hashlib
 import json
 import os
@@ -27,7 +28,7 @@ from skypane_live_state import seed_live_like_state as live_state_seed  # noqa: 
 from skypane_live_state import snapshot_dir  # noqa: E402
 from skypane_two_device_fleet import device_headers, seed_two_device_fleet  # noqa: E402
 
-from server import device_dirs, history_db, image_container, panel_format  # noqa: E402
+from server import device_dirs, hardware, history_db, image_container, panel_format, poll_cycle  # noqa: E402
 
 FREEZE_PATH = os.path.join(HERE, "measured_fields_freeze.json")
 LIVE_PANEL_BYTES = 960000
@@ -320,6 +321,50 @@ def test_negotiation_announcing_clone_gets_full_size_container(served):
     assert view.width == panel_format.WIDTH
 
 
+def render_landscape(fleet):
+    """One poll cycle rendered through the landscape device's own profile."""
+    with open(os.path.join(REPO_ROOT, "server", "fixtures", "geofence_multi_aircraft.json")) as fh:
+        snapshot = json.load(fh)
+    profile = hardware.get_profile(hardware.SIM_LANDSCAPE_KEY, SIM_ENV)
+    poll_cycle.run_once(
+        snapshot=snapshot, state_dir=fleet.landscape.state_dir,
+        geofence=os.path.join(REPO_ROOT, "adsb-test", "runway3.json"),
+        reconcile_firmware=False, profile=profile)
+
+
+def test_polled_landscape_image_is_served_raw_and_as_container(served):
+    fleet, server = served
+    live_before = poll(server, fleet.live)
+    render_landscape(fleet)
+    rendered = panel_of(fleet.landscape)
+    assert len(rendered) == 192000
+
+    raw_doc = poll(server, fleet.landscape)
+    assert raw_doc["image_hash"] == "sha256:" + hashlib.sha256(rendered).hexdigest()
+    assert fetch(server, raw_doc) == (200, rendered)
+
+    container_doc = poll(server, fleet.landscape, {"X-Img-Fmt": "1"})
+    status, body = fetch(server, container_doc)
+    assert status == 200
+    view = image_container.decode_container(body, 800, 480)
+    assert (view.width, view.height) == (800, 480)
+    assert container_doc["image_hash"] == "sha256:" + hashlib.sha256(body).hexdigest()
+
+    live_after = poll(server, fleet.live)
+    assert live_after["image_hash"] == live_before["image_hash"]
+    assert live_after["sleep_s"] == live_before["sleep_s"]
+
+
+def test_portrait_polling_still_works_after_a_landscape_cycle(served):
+    fleet, server = served
+    render_landscape(fleet)
+    poll_cycle.run_once(
+        snapshot={}, state_dir=fleet.dev_a.state_dir, reconcile_firmware=False,
+        profile=hardware.get_profile(hardware.SIM_CLONE_KEY, SIM_ENV))
+    assert len(panel_of(fleet.dev_a)) == LIVE_PANEL_BYTES
+    doc = poll(server, fleet.dev_a)
+    assert fetch(server, doc) == (200, panel_of(fleet.dev_a))
+
 # ---- sleep, quiet hours, battery -------------------------------------------
 
 
@@ -500,3 +545,40 @@ def test_image_route_audit_other_endpoints_do_not_serve_shared_state(served):
     assert status == 404
     status, _ = get(server.base_url + "/img/%s.bin" % ("0" * 64))
     assert status == 404
+
+
+def _context_for(fleet, device, monkeypatch, recover_mv=None):
+    real = byos_server.hardware.get_profile
+
+    def patched(hardware_type, env=None):
+        profile = real(hardware_type, env)
+        if recover_mv is None:
+            return profile
+        return dataclasses.replace(
+            profile, battery=dataclasses.replace(
+                profile.battery, critical_recover_mv=recover_mv))
+
+    monkeypatch.setattr(byos_server.hardware, "get_profile", patched)
+    args = SimpleNamespace(state_dir=fleet.live.state_dir, image=None)
+    return byos_server._device_context(args, None, device.mac)
+
+
+def test_fleet_device_recover_threshold_comes_from_its_profile(fleet, monkeypatch):
+    ctx = _context_for(fleet, fleet.dev_a, monkeypatch, recover_mv=3600)
+    assert ctx.recover_mv == 3600
+    with open(os.path.join(ctx.state_dir, "poll_state.json"), "w") as fh:
+        json.dump({"battery_critical_active": True}, fh)
+    base = 120
+    pinned = byos_server.BATTERY_CRITICAL_SLEEP_S
+    # 3650 mV recovers under the profile's 3600 but not under the legacy 3700.
+    assert byos_server.battery_critical_sleep_s(
+        base, ctx.state_dir, 3650, ctx.recover_mv) == base
+    assert byos_server.battery_critical_sleep_s(base, ctx.state_dir, 3650) == pinned
+    assert byos_server.battery_critical_sleep_s(
+        base, ctx.state_dir, 3500, ctx.recover_mv) == pinned
+
+
+def test_live_context_keeps_the_legacy_recover_threshold(fleet, monkeypatch):
+    ctx = _context_for(fleet, fleet.live, monkeypatch)
+    assert ctx.is_live
+    assert ctx.recover_mv == byos_server.BATTERY_CRITICAL_RECOVER_MV

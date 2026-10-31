@@ -18,6 +18,7 @@ independently maintained copy.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
@@ -46,37 +47,56 @@ BATTERY_CRITICAL_RECOVER_MV = 3700
 BATTERY_CRITICAL_STATE_KEY = "battery_critical_active"
 
 
-def apply_battery_hysteresis(battery_mv: int | None, was_active: bool) -> bool:
+def apply_battery_hysteresis(
+    battery_mv: int | None,
+    was_active: bool,
+    *,
+    low_mv: int = BATTERY_LOW_THRESHOLD_MV,
+    clear_mv: int = BATTERY_LOW_CLEAR_MV,
+) -> bool:
     """Pure function: the battery-low decision, hysteresis between
-    BATTERY_LOW_THRESHOLD_MV (3500) and BATTERY_LOW_CLEAR_MV (3600).
-    `battery_mv=None` returns `was_active` unchanged. A reading strictly
-    between the two constants holds the previous decision either way.
+    `low_mv` (default BATTERY_LOW_THRESHOLD_MV, 3500) and `clear_mv`
+    (default BATTERY_LOW_CLEAR_MV, 3600). A hardware profile passes its own
+    values. `battery_mv=None` returns `was_active` unchanged. A reading
+    strictly between the two thresholds holds the previous decision.
     """
     if battery_mv is None:
         return was_active
     if was_active:
-        return battery_mv < BATTERY_LOW_CLEAR_MV
-    return battery_mv <= BATTERY_LOW_THRESHOLD_MV
+        return battery_mv < clear_mv
+    return battery_mv <= low_mv
 
 
-def apply_battery_critical_hysteresis(battery_mv: int | None, was_active: bool) -> bool:
+def apply_battery_critical_hysteresis(
+    battery_mv: int | None,
+    was_active: bool,
+    *,
+    critical_mv: int = BATTERY_CRITICAL_MV,
+    recover_mv: int = BATTERY_CRITICAL_RECOVER_MV,
+) -> bool:
     """Pure function: the BATTERY EMPTY latch decision - the identical
     shape as `apply_battery_hysteresis()` above, applied to the park/hold
-    decision, with hysteresis between BATTERY_CRITICAL_MV (3300) and
-    BATTERY_CRITICAL_RECOVER_MV (3700).
+    decision, with hysteresis between `critical_mv` (default
+    BATTERY_CRITICAL_MV, 3300) and `recover_mv` (default
+    BATTERY_CRITICAL_RECOVER_MV, 3700).
     """
     if battery_mv is None:
         return was_active
     if was_active:
-        return battery_mv < BATTERY_CRITICAL_RECOVER_MV
-    return battery_mv <= BATTERY_CRITICAL_MV
+        return battery_mv < recover_mv
+    return battery_mv <= critical_mv
 
 
-def battery_critical_pin_applies(latched: bool, fresh_mv: int | None) -> bool:
+def battery_critical_pin_applies(
+    latched: bool,
+    fresh_mv: int | None,
+    *,
+    recover_mv: int = BATTERY_CRITICAL_RECOVER_MV,
+) -> bool:
     """True when the BATTERY EMPTY sleep pin still applies: the latch is
     set and this poll's own fresh battery reading (`fresh_mv`, e.g. a
     request's X-Battery-Mv) does not already show recovery at or above
-    BATTERY_CRITICAL_RECOVER_MV. The latch itself clears up to one cycle
+    `recover_mv` (default BATTERY_CRITICAL_RECOVER_MV). The latch itself clears up to one cycle
     after the recovering check-in this reading represents, so a plain
     latch read alone would still see the stale `True`; a fresh, already-
     recovered reading anticipates that instead, without writing anything.
@@ -84,7 +104,7 @@ def battery_critical_pin_applies(latched: bool, fresh_mv: int | None) -> bool:
     """
     if not latched:
         return False
-    return not (fresh_mv is not None and fresh_mv >= BATTERY_CRITICAL_RECOVER_MV)
+    return not (fresh_mv is not None and fresh_mv >= recover_mv)
 
 
 # --- Battery discharge curve ---------------------------------------------
@@ -117,14 +137,19 @@ BATTERY_FULL_MV = BATTERY_DISCHARGE_CURVE[-1][0]
 BATTERY_EMPTY_MV = BATTERY_DISCHARGE_CURVE[0][0]
 
 
-def battery_fraction(mv: object) -> float | None:
+def battery_fraction(
+    mv: object,
+    *,
+    curve: Sequence[tuple[int, int]] = BATTERY_DISCHARGE_CURVE,
+) -> float | None:
     """The clamped 0.0-1.0 state-of-charge fraction for `mv`, read off
-    BATTERY_DISCHARGE_CURVE, or None for a non-numeric, non-positive or
+    `curve` (default BATTERY_DISCHARGE_CURVE; its end knots are the clamp
+    endpoints), or None for a non-numeric, non-positive or
     NaN reading (0 or -1 mV is a broken sensor, not a flat battery).
     Never raises. THE computation: `battery_percent()` is just this value
     rounded, so a gauge and its printed percentage can never disagree.
-    Exactly 0.0 at/below BATTERY_EMPTY_MV, exactly 1.0 at/above
-    BATTERY_FULL_MV, linear between knots otherwise.
+    Exactly 0.0 at/below the first knot, exactly 1.0 at/above the last
+    knot, linear between knots otherwise.
     """
     try:
         value = float(mv)  # type: ignore[arg-type]
@@ -134,12 +159,11 @@ def battery_fraction(mv: object) -> float | None:
         return None
     if value <= 0:
         return None
-    if value <= BATTERY_EMPTY_MV:
+    if value <= curve[0][0]:
         return 0.0
-    if value >= BATTERY_FULL_MV:
+    if value >= curve[-1][0]:
         return 1.0
-    for (lower_mv, lower_pct), (upper_mv, upper_pct) in zip(
-            BATTERY_DISCHARGE_CURVE, BATTERY_DISCHARGE_CURVE[1:]):
+    for (lower_mv, lower_pct), (upper_mv, upper_pct) in zip(curve, curve[1:]):
         if upper_mv >= value:
             percent = lower_pct + (value - lower_mv) * (upper_pct - lower_pct) / float(
                 upper_mv - lower_mv)
@@ -147,14 +171,18 @@ def battery_fraction(mv: object) -> float | None:
     return 1.0  # unreachable: value < BATTERY_FULL_MV already returned above.
 
 
-def battery_percent(mv: object) -> int | None:
+def battery_percent(
+    mv: object,
+    *,
+    curve: Sequence[tuple[int, int]] = BATTERY_DISCHARGE_CURVE,
+) -> int | None:
     """A clamped 0-100 estimate for `mv`, or None for a non-numeric,
     non-positive or NaN reading. Never raises.
 
     The arithmetic lives in `battery_fraction()` above; this function is
     just its rounding, `int(round(fraction * 100))`.
     """
-    fraction = battery_fraction(mv)
+    fraction = battery_fraction(mv, curve=curve)
     if fraction is None:
         return None
     return int(round(fraction * 100))
