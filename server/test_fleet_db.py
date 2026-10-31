@@ -409,20 +409,20 @@ def _make_v1(state_dir):
     conn.close()
 
 
-def test_v1_database_upgrades_in_place_to_v2(state_dir):
+def test_v1_database_upgrades_in_place_to_current(state_dir):
     _make_v1(state_dir)
     conn = fleet_db.connect(state_dir)
-    assert fleet_db.schema_version(conn) == 2
+    assert fleet_db.schema_version(conn) == fleet_db.SCHEMA_VERSION
     assert conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0] == 0
     names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='index'")}
     assert {"sessions_user", "sessions_expires"} <= names
     conn.close()
     again = fleet_db.connect(state_dir)
-    assert fleet_db.schema_version(again) == 2
+    assert fleet_db.schema_version(again) == fleet_db.SCHEMA_VERSION
     again.close()
 
 
-def test_concurrent_upgrades_both_end_at_v2(state_dir):
+def test_concurrent_upgrades_both_end_at_current(state_dir):
     import threading
 
     _make_v1(state_dir)
@@ -448,10 +448,10 @@ def test_concurrent_upgrades_both_end_at_v2(state_dir):
     for t in threads:
         t.join()
     assert errors == []
-    assert versions == [2, 2]
+    assert versions == [fleet_db.SCHEMA_VERSION] * 2
 
 
-def test_readonly_opens_v2_and_still_refuses_newer(state_dir):
+def test_readonly_opens_current_and_still_refuses_newer(state_dir):
     fleet_db.connect(state_dir).close()
     fleet_db.connect_readonly(state_dir).close()
     raw = sqlite3.connect(fleet_db.fleet_db_path(state_dir))

@@ -27,9 +27,11 @@ import re
 import secrets
 import sqlite3
 import sys
+import time
 from collections.abc import Callable, Iterator, Mapping
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import NamedTuple
 from zoneinfo import ZoneInfo
 
 # Same repo-root sys.path bootstrap as server/history_db.py.
@@ -134,7 +136,59 @@ def _migrate_v2(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX sessions_expires ON sessions (expires_at)")
 
 
-MIGRATIONS: tuple[Migration, ...] = (_migrate_v1, _migrate_v2)
+def _migrate_v3(conn: sqlite3.Connection) -> None:
+    # Expand-only: a new nullable column and two new tables. Existing
+    # locations keep owner NULL (visible to admins only).
+    conn.execute(
+        "ALTER TABLE locations ADD COLUMN owner_user_id INTEGER REFERENCES users(id)"
+    )
+    conn.execute(
+        "CREATE TABLE pending_devices ("
+        " id TEXT PRIMARY KEY CHECK (id GLOB 'p_[0-9a-f][0-9a-f][0-9a-f][0-9a-f]"
+        "[0-9a-f][0-9a-f][0-9a-f][0-9a-f]' AND length(id) = 10),"
+        " mac TEXT NOT NULL UNIQUE,"
+        " secret_sha256 TEXT NOT NULL,"
+        " token TEXT,"
+        " hardware_type TEXT NOT NULL,"
+        " status TEXT NOT NULL DEFAULT 'pending'"
+        " CHECK (status IN ('pending', 'retired')),"
+        " code_salt TEXT,"
+        " code_hash TEXT,"
+        " code_expires_at INTEGER,"
+        " last_seen_at INTEGER,"
+        " battery_mv INTEGER,"
+        " fw_version TEXT,"
+        " created_at TEXT NOT NULL,"
+        " created_by INTEGER,"
+        " previous_owner_user_id INTEGER,"
+        " previous_device_id TEXT,"
+        " previous_state_path TEXT,"
+        " previous_name TEXT,"
+        " retired_at INTEGER)"
+    )
+    # No foreign key on the actor: the trail must outlive a user row.
+    conn.execute(
+        "CREATE TABLE audit_log ("
+        " id INTEGER PRIMARY KEY,"
+        " ts INTEGER NOT NULL,"
+        " actor_user_id INTEGER,"
+        " actor_label TEXT NOT NULL,"
+        " action TEXT NOT NULL,"
+        " target_type TEXT NOT NULL,"
+        " target_id TEXT,"
+        " outcome TEXT NOT NULL CHECK (outcome IN ('ok', 'failed', 'denied')),"
+        " source_ip TEXT,"
+        " detail TEXT)"
+    )
+    conn.execute("CREATE INDEX audit_log_ts ON audit_log (ts DESC, id DESC)")
+    for event in ("UPDATE", "DELETE"):
+        conn.execute(
+            f"CREATE TRIGGER audit_log_no_{event.lower()} BEFORE {event} ON audit_log "
+            "BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END"
+        )
+
+
+MIGRATIONS: tuple[Migration, ...] = (_migrate_v1, _migrate_v2, _migrate_v3)
 SCHEMA_VERSION = len(MIGRATIONS)
 
 
@@ -483,6 +537,8 @@ def add_device(
     if state_path not in (device_dirs.LIVE_STATE_PATH, "auto"):
         raise ValueError(f"state_path must be '.' or 'auto': {state_path!r}")
     hardware.get_profile(hardware_type, environ)
+    if conn.execute("SELECT 1 FROM pending_devices WHERE mac = ?", (mac,)).fetchone():
+        raise ValueError("MAC is already registered as a pending frame")
     if (
         state_path == device_dirs.LIVE_STATE_PATH
         and not allow_shared_live
@@ -532,7 +588,7 @@ def list_devices(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     return list(conn.execute(
         "SELECT d.id, d.mac, d.hardware_type, d.name, d.state_path, d.created_at, "
         "substr(d.secret_sha256, 1, ?) AS secret_prefix, "
-        "u.email AS owner_email, l.name AS location_name "
+        "u.email AS owner_email, l.name AS location_name, d.owner_user_id "
         "FROM devices d JOIN users u ON u.id = d.owner_user_id "
         "LEFT JOIN locations l ON l.id = d.location_id ORDER BY d.created_at, d.id",
         (_SECRET_PREFIX_LEN,),
@@ -591,3 +647,93 @@ def registry_view(conn: sqlite3.Connection) -> dict[str, dict[str, dict[str, str
 def dump_logical(conn: sqlite3.Connection) -> list[str]:
     """The `iterdump()` statements, for logical-equality assertions."""
     return list(conn.iterdump())
+
+
+# ---- audit log -------------------------------------------------------
+
+_AUDIT_DETAIL_MAX = 1000
+
+# UI filter chips mapped to action prefixes; "failed" is by outcome instead.
+AUDIT_CATEGORIES: dict[str, tuple[str, ...]] = {
+    "all": (),
+    "pairing": ("pairing.",),
+    "frames": ("frame.", "device."),
+    "users": ("user.",),
+    "locations": ("location.",),
+    "releases": ("release.",),
+    "failed": (),
+}
+
+
+class AuditActor(NamedTuple):
+    """Who performed an audited action; `user_id` is None for the legacy
+    admin or a system actor.
+    """
+
+    user_id: int | None
+    label: str
+    source_ip: str | None
+
+
+def audit_append(
+    conn: sqlite3.Connection,
+    actor: AuditActor,
+    action: str,
+    target_type: str,
+    target_id: str | None,
+    outcome: str,
+    detail: Mapping[str, object] | None = None,
+    now: int | None = None,
+) -> int:
+    """Insert one audit row in the caller's transaction and return its id.
+
+    `detail` is a mapping of non-secret facts, stored as JSON truncated to
+    1000 characters. Codes, secrets, tokens and guesses have no parameter.
+    """
+    if outcome not in ("ok", "failed", "denied"):
+        raise ValueError(f"invalid audit outcome: {outcome!r}")
+    text: str | None = None
+    if detail is not None:
+        text = json.dumps(dict(detail), sort_keys=True, default=str)[:_AUDIT_DETAIL_MAX]
+    ts = int(time.time()) if now is None else now
+    cur = conn.execute(
+        "INSERT INTO audit_log (ts, actor_user_id, actor_label, action, "
+        "target_type, target_id, outcome, source_ip, detail) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (ts, actor.user_id, actor.label, action, target_type, target_id,
+         outcome, actor.source_ip, text),
+    )
+    assert cur.lastrowid is not None
+    return cur.lastrowid
+
+
+def _audit_where(category: str) -> tuple[str, tuple[str, ...]]:
+    if category not in AUDIT_CATEGORIES:
+        raise ValueError(f"unknown audit category: {category!r}")
+    if category == "all":
+        return "", ()
+    if category == "failed":
+        return " WHERE outcome != 'ok'", ()
+    prefixes = AUDIT_CATEGORIES[category]
+    clause = " OR ".join("substr(action, 1, ?) = ?" for _ in prefixes)
+    params: list[str] = []
+    for prefix in prefixes:
+        params.extend((str(len(prefix)), prefix))
+    return f" WHERE ({clause})", tuple(params)
+
+
+def list_audit(
+    conn: sqlite3.Connection, category: str, limit: int, offset: int
+) -> list[sqlite3.Row]:
+    """Audit rows newest first for a category chip."""
+    where, params = _audit_where(category)
+    return list(conn.execute(
+        "SELECT * FROM audit_log" + where + " ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?",
+        (*params, int(limit), int(offset)),
+    ))
+
+
+def count_audit(conn: sqlite3.Connection, category: str) -> int:
+    where, params = _audit_where(category)
+    row = conn.execute("SELECT count(*) FROM audit_log" + where, params).fetchone()
+    return int(row[0])
