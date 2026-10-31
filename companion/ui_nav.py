@@ -12,6 +12,7 @@ import companion.i18n as i18n
 import companion.prefs as prefs
 from companion.auth import UI_THEME_COOKIE_NAME
 from companion.ui_base import (
+    AIRLINES_ROUTE,
     DISPLAY_ROUTE,
     FLIGHTS_ROUTE,
     HEALTH_ALERT_SUFFIX_TEXT,
@@ -53,6 +54,16 @@ USER_NAV = (
 )
 
 USER_ROLE = "user"
+
+# A user's own locations list, linked only once its page route exists.
+LOCATIONS_ROUTE = "/locations"
+_LOCATIONS_LABEL = i18n.msg("nav.locations", "Locations")
+
+# The frame pages a user's sidebar offers, in order, and the subset the
+# phone tab bar carries (Account closes the bar).
+_USER_SIDEBAR_PAGES = (
+    HOME_ROUTE, FLIGHTS_ROUTE, DISPLAY_ROUTE, AIRLINES_ROUTE, HEALTH_ROUTE)
+_USER_TAB_PAGES = (HOME_ROUTE, FLIGHTS_ROUTE, DISPLAY_ROUTE, HEALTH_ROUTE)
 
 
 def is_user_principal():
@@ -154,17 +165,54 @@ def _health_alert_markup(severity):
     ) % (dot_class, NAV_NOTIFICATION_CLASS, escape_html(i18n.t(HEALTH_ALERT_SUFFIX_TEXT)))
 
 
+def _user_can_open(route):
+    """True when a GET route for `route` exists and a plain user may open
+    it, so a link is emitted only for a page that is reachable."""
+    from companion import access, routes
+    found = routes.match("GET", route, "")
+    if found is None:
+        return False
+    return access.RANK[found[0].access.min_role] <= access.RANK[access.USER]
+
+
+def _user_frame_links(pages):
+    """(route, label) for each of `pages` a user may open, in order, and
+    only while the request scope holds at least one frame."""
+    if not device_scope.current_devices():
+        return []
+    labels = dict(NAV_TABS)
+    return [(route, labels[route]) for route in pages if _user_can_open(route)]
+
+
+def user_brand_href():
+    """Where a user's wordmark leads: the request-scope frame's Home when
+    the user can open it, else Account."""
+    if _user_frame_links((HOME_ROUTE,)):
+        return device_scope.scoped(HOME_ROUTE)
+    return ACCOUNT_ROUTE
+
+
+def _user_sidebar_links():
+    """Every (route, label) in a user's sidebar: Account first, then the
+    reachable frame pages, then Locations once that page exists."""
+    links = list(USER_NAV) + _user_frame_links(_USER_SIDEBAR_PAGES)
+    if _user_can_open(LOCATIONS_ROUTE):
+        links.append((LOCATIONS_ROUTE, _LOCATIONS_LABEL))
+    return links
+
+
 def _user_sidebar_nav(active):
-    """The sidebar for a plain user: USER_NAV only, no group headings and
-    no Health dot."""
+    """The sidebar for a plain user: Account, the frame pages of the
+    request-scope frame and Locations, each present only when reachable.
+    No group headings and no Health dot."""
     links = []
-    for route, label in USER_NAV:
+    for route, label in _user_sidebar_links():
         is_active = nav_slug(route) == active
         css_class = "sidebar-link sidebar-link--active" if is_active else "sidebar-link"
         aria_current = ' aria-current="page"' if is_active else ""
         links.append(
             '<a class="%s" href="%s"%s>%s</a>' % (
-                css_class, escape_html(route), aria_current,
+                css_class, escape_html(device_scope.scoped(route)), aria_current,
                 escape_html(i18n.t(label))))
     return '<nav class="sidebar-nav" aria-label="%s">%s</nav>' % (
         escape_html(i18n.t(_PRIMARY_NAVIGATION_TEXT)), "".join(links))
@@ -384,7 +432,9 @@ def _tab_bar_html(active, health_alert=None, device_config=None):
     Returns "" when device_config is falsy (no session context, e.g.
     login/404 pages).
     """
-    if not device_config or is_user_principal():
+    if is_user_principal():
+        return _user_tab_bar_html(active)
+    if not device_config:
         return ""
     cells = []
     sheet_links = []
@@ -435,6 +485,30 @@ def _tab_bar_html(active, health_alert=None, device_config=None):
         # tree.
         escape_html(i18n.t(_PRIMARY_NAVIGATION_TEXT)),
         "".join(cells))
+
+
+def _user_tab_bar_html(active):
+    """A plain user's bottom tab bar: Home, Flights, Display and Health for
+    the request-scope frame, then Account. Empty without a frame, or when
+    no frame page is reachable: Account alone is not navigation.
+    """
+    pages = _user_frame_links(_USER_TAB_PAGES)
+    if not pages:
+        return ""
+    cells = []
+    for route, label in pages + list(USER_NAV):
+        slug = nav_slug(route)
+        is_active = slug == active
+        css_class = (
+            "tab-bar__link tab-bar__link--active" if is_active else "tab-bar__link")
+        aria_current = ' aria-current="page"' if is_active else ""
+        icon_id = "icon-gear" if route == ACCOUNT_ROUTE else NAV_ICON_IDS.get(slug, "")
+        cells.append(
+            '<a class="%s" href="%s"%s>%s</a>' % (
+                css_class, escape_html(device_scope.scoped(route)), aria_current,
+                _tab_bar_cell_body(icon_id, escape_html(i18n.t(label)))))
+    return '<nav class="tab-bar" aria-label="%s">%s</nav>' % (
+        escape_html(i18n.t(_PRIMARY_NAVIGATION_TEXT)), "".join(cells))
 
 
 def _tab_bar_cell_body(icon_id, label, extra_html=""):

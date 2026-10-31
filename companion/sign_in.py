@@ -15,9 +15,9 @@ import os
 import sqlite3
 from urllib.parse import parse_qs, urlsplit
 
-from companion import access, auth, i18n, layout, login_page, oidc, prefs
+from companion import access, auth, battery, device_scope, i18n, layout, login_page, oidc, prefs
 from companion.pages import account_page
-from server import fleet_db, fleet_sessions
+from server import fleet_db, fleet_sessions, hardware, state_store
 
 # Shown as the Email value when the principal carries no address.
 _NO_EMAIL = "\u2014"
@@ -230,16 +230,40 @@ class SignInMixin:
 
     # --- account -------------------------------------------------------
 
+    def _own_frame_summaries(self, principal):
+        """The caller's own live frames as `FrameSummary` values, whatever
+        the role: an admin sees here only the frames they own. The address
+        is always the prefixed Home, never the live frame's bare root."""
+        frames = []
+        for device in device_scope.load_devices_for(self.args.state_dir, principal):
+            if principal.user_id is None or device.owner_user_id != principal.user_id:
+                continue
+            profile = hardware.REGISTRY.get(device.hardware_type)
+            millivolts = state_store.load_battery_state(device.state_dir)
+            frames.append(account_page.FrameSummary(
+                # An unnamed frame is listed under its id by the device
+                # scope; the id is not shown on this page.
+                name=(
+                    i18n.t(account_page.UNNAMED_FRAME_TEXT)
+                    if device.name == device.id else device.name),
+                hardware=profile.label if profile is not None else device.hardware_type,
+                last_contact=device_scope.last_check_in_epoch(device.state_dir),
+                battery_percent=(
+                    None if millivolts is None else battery.battery_percent(millivolts)),
+                href="/devices/%s/" % device.id))
+        return frames
+
     def _handle_account_get(self):
         """GET /account: who is signed in, the browser preferences and the
-        empty Frames card. Reads nothing but the principal and the
-        preference cookies, so no frame, device or health data can reach it.
+        caller's own frames. Reads the principal, the preference cookies and
+        the frames the principal owns; never another account's data.
         """
         principal = self._principal()
         identity = account_page.Identity(principal.email or _NO_EMAIL, principal.role)
         prefs.set_request_prefs(lang=self._lang_from_request())
         theme = self._resolved_ui_theme()
-        body = account_page.render(identity, ui_theme=theme)
+        body = account_page.render(
+            identity, ui_theme=theme, frames=self._own_frame_summaries(principal))
         page = layout.page_shell(
             title=i18n.t(account_page.ACCOUNT_TITLE), active=layout.nav_slug(ACCOUNT_ROUTE),
             body=body, ui_theme=theme, health_alert=None)

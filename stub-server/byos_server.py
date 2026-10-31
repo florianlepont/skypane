@@ -82,8 +82,8 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from server import (
-    device_dirs, device_policy, firmware_registry, fleet_db, hardware, history_db,
-    image_container, state_store,
+    device_dirs, device_policy, firmware_registry, fleet_db, fleet_ops, hardware,
+    history_db, image_container, pairing_code, pairing_image, state_store,
 )
 from server.panel_format import HEIGHT, WIDTH
 
@@ -355,8 +355,7 @@ def _fleet_view(state_dir):
         if fleet_db.meta_get(conn, fleet_db.META_MIGRATED) is None:
             _note_fleet_status(state_dir, fleet_db.STATUS_ABSENT)
             return None
-        view = {"registry": fleet_db.registry_view(conn),
-                "tokens": fleet_db.tokens_by_mac(conn)}
+        view = _merged_fleet_view(conn)
     except (fleet_db.FleetDbError, sqlite3.Error, OSError) as exc:
         _note_fleet_status(state_dir, fleet_db.STATUS_FAULT, type(exc).__name__)
         return None
@@ -364,6 +363,20 @@ def _fleet_view(state_dir):
         conn.close()
     _note_fleet_status(state_dir, fleet_db.STATUS_OK)
     return view
+
+
+def _merged_fleet_view(conn):
+    """Registered and pending frames in one registry/tokens view. A MAC in
+    both tables is an inconsistent database: raise rather than prefer one.
+    """
+    registry = fleet_db.registry_view(conn)
+    tokens = fleet_db.tokens_by_mac(conn)
+    pending = fleet_db.pending_registry_view(conn)
+    if set(pending["devices"]) & set(registry["devices"]):
+        raise fleet_db.FleetDbError("MAC in devices and pending_devices")
+    registry["devices"].update(pending["devices"])
+    tokens.update(fleet_db.pending_tokens_by_mac(conn))
+    return {"registry": registry, "tokens": tokens}
 
 
 def effective_registry(state_dir):
@@ -388,6 +401,10 @@ def issue_token(state_dir, state, mac):
             try:
                 with fleet_db.transaction(conn):
                     if not fleet_db.set_device_token(conn, mac, token):
+                        # A pending or retired frame keeps its token in
+                        # fleet.db only; the legacy files never see it.
+                        if fleet_db.set_pending_token(conn, mac, token):
+                            return token
                         return None
             finally:
                 conn.close()
@@ -456,6 +473,8 @@ def _apply_mirror(conn, op, mac, secret_sha256):
         fleet_db.set_device_token(conn, mac, None)
     elif fleet_db.get_device_by_mac(conn, mac) is not None:
         fleet_db.set_device_secret(conn, mac, secret_sha256)
+    elif fleet_db.get_pending_by_mac(conn, mac) is not None:
+        raise ValueError("MAC is pending")
     else:
         owner = fleet_db.meta_get(conn, fleet_db.META_BOOTSTRAP_OWNER)
         if owner is None:
@@ -945,6 +964,9 @@ def resolve_hardware_type(state_dir, mac):
 DeviceContext = namedtuple(
     "DeviceContext",
     "device_id mac state_dir image_path width height expected_bytes is_live")
+# A registered but unassigned (pending) or retired frame: it has a token
+# and a fleet.db row but no devices/ directory.
+PendingContext = namedtuple("PendingContext", "row")
 _NO_DEVICE = object()
 _STATE_UNAVAILABLE = object()
 
@@ -1024,6 +1046,19 @@ def _context_without_fleet_db(args, mac):
     return _STATE_UNAVAILABLE
 
 
+def _pending_context(state_dir, mac):
+    """PendingContext for a MAC with a pending or retired row, else
+    _NO_DEVICE (or _STATE_UNAVAILABLE when fleet.db cannot answer).
+    """
+    row = _fleet_row(
+        state_dir, lambda conn: fleet_db.get_pending_by_mac(conn, mac))
+    if row is _FLEET_UNAVAILABLE:
+        return _STATE_UNAVAILABLE
+    if row is None:
+        return _NO_DEVICE
+    return PendingContext(row)
+
+
 def _device_context(args, state, mac):
     """The DeviceContext for `mac`, or _NO_DEVICE (answer 401) when fleet.db
     is usable but has no row for it, or _STATE_UNAVAILABLE (answer 503)
@@ -1034,7 +1069,7 @@ def _device_context(args, state, mac):
     if row is _FLEET_UNAVAILABLE:
         return _context_without_fleet_db(args, mac)
     if row is None:
-        return _NO_DEVICE
+        return _pending_context(args.state_dir, mac)
     try:
         directory = device_dirs.resolve_state_dir(args.state_dir, row["state_path"])
     except (ValueError, TypeError, OSError):
@@ -1288,6 +1323,123 @@ REQUEST_TIMEOUT_S = 15.0
 _BAD_LENGTH = object()
 
 
+# --- Pending and retired frames ----------------------------------------
+#
+# A registered frame nobody has claimed yet shows a pairing code; a retired
+# frame shows a retired screen. Their images live under
+# <state>/pairing/<pending id>/ (never the root img/, which is pruned to
+# a handful of files and belongs to the live frame), and nothing here writes
+# the live battery_state.json, poll_state.json or per-device directories.
+_PENDING_IMG_PATH_RE = re.compile(r"\A/img/(p_[0-9a-f]{8})/([0-9a-f]{64})\.bin\Z")
+PAIRING_PANEL = "panel.bin"
+RETIRED_PANEL = "retired.bin"
+
+
+def _read_panel(path, expected_bytes):
+    """The panel file's bytes, or None when missing or the wrong size."""
+    try:
+        with open(path, "rb") as fh:
+            image = fh.read()
+    except OSError:
+        return None
+    return image if len(image) == expected_bytes else None
+
+
+def _write_pairing_panel(directory, name, image):
+    os.makedirs(directory, mode=0o700, exist_ok=True)
+    _atomic_write(os.path.join(directory, name), image, 0o600)
+
+
+def _issue_pairing_code(conn, directory, row, profile, now):
+    """Generate a code, render it into the pending frame's panel file, store
+    only its salted hash and audit the issue; return the panel bytes. The
+    plaintext code exists only here and in the pixels.
+    """
+    pending_id = row["id"]
+    code = pairing_code.generate_code()
+    salt = pairing_code.new_salt()
+    image = pairing_image.render_pairing_image(profile, code)
+    _write_pairing_panel(directory, PAIRING_PANEL, image)
+    expires_at = now + pairing_code.CODE_TTL_S
+    fleet_db.issue_pending_code(
+        conn, pending_id, salt, pairing_code.hash_code(salt, code), expires_at)
+    fleet_db.audit_append(
+        conn, fleet_db.AuditActor(None, "frame:%s" % pending_id, None),
+        "pairing.issue", "pending", pending_id, "ok",
+        {"expires_at": expires_at}, now)
+    return image
+
+
+def _pending_panel(state_dir, row, profile, now, battery_mv, fw_version):
+    """(panel bytes, sleep_s) for a pending or retired frame, or None when
+    the row was claimed or removed since it was read. A live, unexpired
+    code is never re-issued, so the image hash is stable until it expires.
+    """
+    directory = fleet_ops.pairing_dir(state_dir, row["id"])
+    expected = (profile.width // 2) * profile.height
+    conn = fleet_db.connect(state_dir, create=False)
+    try:
+        with fleet_db.transaction(conn):
+            current = fleet_db.get_pending(conn, row["id"])
+            if current is None:
+                return None
+            fleet_db.touch_pending(conn, row["id"], now, battery_mv, fw_version)
+            if current["status"] == fleet_db.PENDING_STATUS_RETIRED:
+                image = _read_panel(
+                    os.path.join(directory, RETIRED_PANEL), expected)
+                if image is None:
+                    image = pairing_image.render_retired_image(profile)
+                    _write_pairing_panel(directory, RETIRED_PANEL, image)
+                return image, pairing_code.RETIRED_SLEEP_S
+            expires_at = current["code_expires_at"]
+            image = None
+            if current["code_hash"] is not None and expires_at is not None \
+                    and expires_at > now:
+                image = _read_panel(
+                    os.path.join(directory, PAIRING_PANEL), expected)
+            if image is None:
+                image = _issue_pairing_code(conn, directory, current, profile, now)
+            return image, pairing_code.PENDING_SLEEP_S
+    finally:
+        conn.close()
+
+
+def _pending_response(args, headers, row):
+    """(http_status, payload) for a display poll by a pending or retired
+    frame: the same six keys as a live frame's answer.
+    """
+    try:
+        profile = hardware.get_profile(row["hardware_type"], os.environ)
+        panel = _pending_panel(
+            args.state_dir, row, profile, int(time.time()),
+            parse_battery_mv(headers.get("X-Battery-Mv")),
+            parse_fw_version_header(headers.get("X-Fw-Version")))
+    except (hardware.UnknownHardwareType, TypeError, ValueError,
+            fleet_db.FleetDbError, sqlite3.Error, OSError):
+        return 503, {"detail": "device state unavailable"}
+    if panel is None:
+        return 503, {"detail": "device state unavailable"}
+    image, sleep_s = panel
+    served = _served_image(
+        headers.get("X-Img-Fmt"), image, profile.width, profile.height)
+    digest = hashlib.sha256(served).hexdigest()
+    directory = fleet_ops.pairing_dir(args.state_dir, row["id"])
+    try:
+        _publish_image(directory, digest, served)
+    except OSError:
+        return 503, {"detail": "image unavailable"}
+    host = headers.get("Host", "localhost")
+    return 200, {
+        "image_url": "%s://%s/img/%s/%s.bin" % (
+            args.image_url_scheme, host, row["id"], digest),
+        "image_hash": "sha256:" + digest,
+        "sleep_s": sleep_s,
+        "firmware": None,
+        "reset": False,
+        "led_enabled": True,
+    }
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "flightportrait-byos-example"
     args = None
@@ -1405,6 +1557,9 @@ class Handler(BaseHTTPRequestHandler):
         match = _DEVICE_IMG_PATH_RE.match(self.path)
         if match is not None:
             return self._serve_device_image(match.group(1), match.group(2))
+        match = _PENDING_IMG_PATH_RE.match(self.path)
+        if match is not None:
+            return self._serve_pending_image(match.group(1), match.group(2))
         match = _FW_PATH_RE.match(self.path)
         if match is not None:
             return self._serve_firmware_image(match.group(1))
@@ -1442,6 +1597,23 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(404, {"detail": "unknown image"})
         return self._serve_image_file(_img_dir(directory), digest)
 
+    def _serve_pending_image(self, pending_id, digest):
+        """GET /img/<pending id>/<sha>.bin: only that pending or retired
+        frame's own pairing/<id>/img/ directory, and only while its row
+        exists; every failure is the same 404.
+        """
+        row = _fleet_row(
+            self.args.state_dir,
+            lambda conn: fleet_db.get_pending(conn, pending_id))
+        if row is _FLEET_UNAVAILABLE or row is None:
+            return self.send_json(404, {"detail": "unknown image"})
+        directory = fleet_ops.pairing_dir(self.args.state_dir, pending_id)
+        return self._serve_image_file(_img_dir(directory), digest)
+
+    def _handle_pending_display(self, row):
+        status, payload = _pending_response(self.args, self.headers, row)
+        return self.send_json(status, payload)
+
     def _handle_display(self):
         mac = _authenticate_device(self.headers, self.args.state_dir, self.state)
         if mac is None:
@@ -1451,6 +1623,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(401, {"detail": "unknown token"})
         if ctx is _STATE_UNAVAILABLE:
             return self.send_json(503, {"detail": "device state unavailable"})
+        if isinstance(ctx, PendingContext):
+            return self._handle_pending_display(ctx.row)
         self.log_telemetry()
         # Strictly after the authentication gate above, so an
         # unauthenticated or wrong-token caller can never pin a

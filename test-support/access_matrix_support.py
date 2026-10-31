@@ -97,9 +97,7 @@ def stub_routes(routes_tuple, recorder):
     """The same routes (method, matcher, access, device_scoped) with
     recording handlers."""
     handler = _recording_handler(recorder)
-    return tuple(
-        routes.Route(r.method, r.matcher, handler, r.access, r.device_scoped)
-        for r in routes_tuple)
+    return tuple(r._replace(handler=handler) for r in routes_tuple)
 
 
 def probe_routes(recorder):

@@ -27,6 +27,7 @@ import companion.draw as draw
 import companion.health_rows as health_rows
 import companion.health_sections as health_sections_module
 import companion.health_signals as health_signals_module
+import companion.user_view as user_view
 import companion.i18n as i18n
 import companion.layout as layout
 import companion.page_context as page_context
@@ -1052,6 +1053,27 @@ def _device_unreachable_html(ctx, now):
         i18n.t(DEVICE_UNREACHABLE_TEXT).replace("{time}", when), severity="warn")
 
 
+def _server_group_html(state, stats, registry_rows, now):
+    """The platform data group: flight data, sources, identification and
+    backup rows."""
+    server_rows = (
+        _flight_data_row(state, now) + _sources_row(state)
+        + _identification_row(stats, len(registry_rows))
+        + _backup_row(state.get("offbox"), now))
+    return health_rows.group_html(
+        SERVER_DATA_SECTION_ID, i18n.t(SERVER_DATA_SECTION_HEADING), server_rows)
+
+
+def _registry_block_html(registry_rows, now):
+    # The registry sits below the rows card: the table is the long part
+    # of the page, and the verdicts above it are what a glance is for.
+    return (
+        '<section id="%s" class="page-section page-section--nested">'
+        '<h2 class="text-heading">%s</h2>%s</section>' % (
+            UNRESOLVED_SECTION_ID, escape_html(i18n.t(UNRESOLVED_SECTION_HEADING)),
+            _registry_section(registry_rows, now)))
+
+
 def render(ctx):
     ctx = page_context.coerce(ctx)
     state_dir = ctx.state_dir
@@ -1092,30 +1114,27 @@ def render(ctx):
     screen_rows = (
         _connection_row(state, now)
         + _battery_row(state, ctx.battery_critical, ctx.device))
-    server_rows = (
-        _flight_data_row(state, now) + _sources_row(state)
-        + _identification_row(stats, len(registry_rows))
-        + _backup_row(state.get("offbox"), now))
+    server_group_html = ""
+    registry_html = ""
+    source_fault_html = ""
+    dialog_html = ""
+    if user_view.platform_visible():
+        server_group_html = _server_group_html(state, stats, registry_rows, now)
+        registry_html = _registry_block_html(registry_rows, now)
+        source_fault_html = _source_fault_block(state["source_fault_raw"])
+        dialog_html = _resolve_dialog_html(ctx, registry_rows)
     rows_card_html = health_rows.card_html(
         health_rows.group_html(
             SCREEN_SECTION_ID, i18n.t(SCREEN_SECTION_HEADING), screen_rows)
-        + health_rows.group_html(
-            SERVER_DATA_SECTION_ID, i18n.t(SERVER_DATA_SECTION_HEADING), server_rows))
-    # The registry sits below the rows card: the table is the long part
-    # of the page, and the verdicts above it are what a glance is for.
-    registry_html = (
-        '<section id="%s" class="page-section page-section--nested">'
-        '<h2 class="text-heading">%s</h2>%s</section>' % (
-            UNRESOLVED_SECTION_ID, escape_html(i18n.t(UNRESOLVED_SECTION_HEADING)),
-            _registry_section(registry_rows, now)))
+        + server_group_html)
 
     return (
         '<div class="status-page">'
         + layout.page_header(i18n.t(_NAV_HEALTH_TEXT))
-        + _source_fault_block(state["source_fault_raw"])
+        + source_fault_html
         + banner_html
         + rows_card_html
         + registry_html
-        + _resolve_dialog_html(ctx, registry_rows)
+        + dialog_html
         + "</div>"
     )

@@ -115,3 +115,41 @@ def test_distinct_fills_give_distinct_panels(tmp_path):
         pa, pb = fa.read(), fb.read()
     assert pa == bytes([0x22]) * 16
     assert pb == bytes([0x33]) * 16
+
+
+def test_wipe_removes_the_whole_tree_and_allows_reprovision(tmp_path):
+    root = str(tmp_path)
+    directory = device_dirs.provision_device_dir(root, DEV, 4, 2)
+    with open(os.path.join(directory, "future_file.bin"), "wb") as fh:
+        fh.write(b"x")
+    device_dirs.wipe_device_dir(root, "devices/" + DEV)
+    assert not os.path.exists(directory)
+    device_dirs.wipe_device_dir(root, "devices/" + DEV)  # already gone: no error
+    again = device_dirs.provision_device_dir(root, DEV, 4, 2)
+    assert sorted(os.listdir(again)) == [
+        device_dirs.CONFIG_FILENAME, device_dirs.PANEL_FILENAME
+    ]
+
+
+def test_wipe_refuses_the_live_path_and_keeps_root_files(tmp_path):
+    (tmp_path / "panel.bin").write_bytes(b"live")
+    with pytest.raises(ValueError):
+        device_dirs.wipe_device_dir(str(tmp_path), ".")
+    assert (tmp_path / "panel.bin").read_bytes() == b"live"
+
+
+@pytest.mark.parametrize("bad", ["..", "devices/..", "../x", "/etc", "devices/d_1a2b3c4d/x"])
+def test_wipe_refuses_bad_shapes(tmp_path, bad):
+    with pytest.raises(ValueError):
+        device_dirs.wipe_device_dir(str(tmp_path), bad)
+
+
+def test_wipe_refuses_a_symlinked_directory_and_spares_the_target(tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "keep.txt").write_text("keep")
+    (tmp_path / "devices").mkdir()
+    os.symlink(str(outside), str(tmp_path / "devices" / DEV))
+    with pytest.raises(ValueError):
+        device_dirs.wipe_device_dir(str(tmp_path), "devices/" + DEV)
+    assert (outside / "keep.txt").read_text() == "keep"

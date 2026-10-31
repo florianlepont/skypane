@@ -29,6 +29,7 @@ MESSAGES = {
     "nav.health": "État",
     "nav.device": "Appareil",
     "nav.update": "Mise à jour",
+    "nav.locations": "Lieux",
 
     # The bottom tab bar's fifth cell; its <details> sheet holds the
     # Advanced group's two destinations.

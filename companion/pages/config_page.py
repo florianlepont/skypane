@@ -7,7 +7,7 @@ from companion import device_scope, i18n
 from companion.layout import escape_html
 import companion.layout as layout
 import companion.page_context as page_context
-from companion import screens
+from companion import screens, user_view
 from companion import wake
 from server import device_config
 from server.plane import calendar_rules
@@ -288,9 +288,17 @@ def scope_groups(scope, screen_id=None):
     """The ordered tuple of settings-group ids the given scope renders
     for the given screen type. SCOPE_ALL preserves the historical
     single-page order; the two live scopes read the screen type's own
-    declaration in companion/screens.py.
+    declaration in companion/screens.py. A user principal never gets the
+    runway, wake-interval or LED groups: its Device scope is empty and
+    every other scope resolves to the display groups without the runway.
     """
     screen = screens.screen_type(screen_id)
+    if user_view.is_user_view():
+        if scope == SCOPE_DEVICE:
+            return ()
+        return tuple(
+            group for group in screen["everyday_groups"]
+            if group != screens.GROUP_RUNWAY)
     if scope == SCOPE_DISPLAY:
         return tuple(screen["everyday_groups"])
     if scope == SCOPE_DEVICE:
@@ -731,6 +739,8 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     screen = screens.screen_type(screen_id)
     if scope not in SCOPES:
         scope = SCOPE_ALL
+    if user_view.is_user_view():
+        scope = SCOPE_DISPLAY
     groups = scope_groups(scope, screen_id)
 
     builders = _group_builders(ctx, values, errors, submitted, next_wake_clock)

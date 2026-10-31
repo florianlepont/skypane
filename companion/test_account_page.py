@@ -3,14 +3,19 @@ page itself, uniform 404s for everything else, a coherent error-page shell
 and preference redirects that stay on /account.
 """
 import hashlib
+import json
+import os
 import re
 import urllib.parse
 
 import pytest
 
+from access_matrix_support import seed_matrix_fleet
 from companion import app, routes
+from companion.pages import account_page
 from companion_app_server import http_request
-from server import fleet_db, fleet_sessions
+from companion_markup import parse_html
+from server import device_dirs, fleet_db, fleet_sessions, hardware
 
 _THEME_RESPONSES = ("/ui-theme", "/ui-lang")
 _HREF_RE = re.compile(r'href="([^"]*)"')
@@ -86,10 +91,16 @@ def test_signed_in_user_visiting_login_goes_to_account(server, user_cookie):
     assert (status, headers["Location"]) == (303, "/account")
 
 
+def _refused_to_a_user(route):
+    """An admin-only route, or a device route in its un-prefixed form (the
+    live frame), which only an admin reaches."""
+    return route.access == routes.ADMIN_ONLY or route.device_scoped
+
+
 def _admin_get_paths():
     paths = []
     for route in routes.ROUTES:
-        if route.method != "GET" or route.access != routes.ADMIN_ONLY:
+        if route.method != "GET" or not _refused_to_a_user(route):
             continue
         matcher = route.matcher
         if isinstance(matcher, routes.Exact):
@@ -102,7 +113,7 @@ def _admin_get_paths():
 def _admin_post_paths():
     paths = []
     for route in routes.ROUTES:
-        if route.method != "POST" or route.access != routes.ADMIN_ONLY:
+        if route.method != "POST" or not _refused_to_a_user(route):
             continue
         matcher = route.matcher
         if isinstance(matcher, routes.Exact):
@@ -213,3 +224,101 @@ def test_user_nav_links_are_routes_a_user_may_open(server, user_cookie):
     for target in _hrefs(body):
         if target.startswith("/") and target in by_target:
             assert by_target[target].min_role in (routes.ANONYMOUS, routes.USER), target
+
+
+# --- the caller's own frames ------------------------------------------------
+
+_SECRETS = ("d" * 64, "e" * 64, "f" * 64)
+
+
+@pytest.fixture
+def fleet_server(server):
+    """The seeded owner/other/admin fleet with a session per account, a
+    second owned frame and a battery reading."""
+    seeded = seed_matrix_fleet(server.state_dir)
+    conn = fleet_db.connect(server.state_dir)
+    try:
+        second = fleet_db.add_device(
+            conn, "aa:bb:cc:dd:ee:03", _SECRETS[0], hardware.LEGACY_KEY,
+            seeded.owner_id, name="Attic", state_path="auto")
+        cookies = {}
+        for name, user_id in (
+                ("owner", seeded.owner_id), ("other", seeded.other_id),
+                ("admin", seeded.admin_id)):
+            token = "tok-fleet-" + name
+            fleet_sessions.create_session(
+                conn, hashlib.sha256(token.encode()).hexdigest(), user_id=user_id,
+                principal="user", now=app._now())
+            cookies[name] = "sp_session=" + token
+    finally:
+        conn.close()
+    state_dir = device_dirs.resolve_state_dir(server.state_dir, "devices/" + second)
+    os.makedirs(state_dir, exist_ok=True)
+    with open(os.path.join(state_dir, "battery_state.json"), "w") as fh:
+        json.dump({"battery_mv": 3900, "received_at": app._now()}, fh)
+    return server, seeded, second, cookies
+
+
+def _frames_card(body):
+    return parse_html(body).select("section.page-section")[2]
+
+
+def test_a_user_with_no_frames_sees_the_unchanged_empty_state(server, user_cookie):
+    card = _frames_card(_get(server, "/account", user_cookie)[2])
+    assert card.select_one("h2").text() == "Frames"
+    assert card.select_one(".empty-state__heading").text() == "Your frames will appear here"
+
+
+def test_a_user_sees_their_own_frames_ordered_by_name_with_an_open_link(fleet_server):
+    server, seeded, second, cookies = fleet_server
+    status, _headers, body = _get(server, "/account", cookies["owner"])
+    assert status == 200
+    card = _frames_card(body)
+    assert card.select_one("h2").text() == "Your frames"
+    rows = card.select("li.data-card")
+    assert len(rows) == 2
+    names = [row.select_one(".text-heading").text() for row in rows]
+    assert names == sorted(names, key=str.casefold)
+    hrefs = [row.select_one("a.text-link").attrs["href"] for row in rows]
+    assert sorted(hrefs) == sorted([
+        "/devices/%s/" % seeded.owner_device, "/devices/%s/" % second])
+    attic = rows[names.index("Attic")]
+    assert "Last contact" in attic.text()
+    assert attic.select_one(".time-value") is not None
+    assert "Battery" in attic.text() and "%" in attic.text()
+    assert hardware.REGISTRY[hardware.LEGACY_KEY].label in attic.text()
+
+
+def test_the_page_never_shows_another_users_frame_or_internals(fleet_server):
+    server, seeded, second, cookies = fleet_server
+    body = _get(server, "/account", cookies["owner"])[2]
+    assert seeded.other_device not in body
+    for secret in _SECRETS + ("aa:bb:cc:dd:ee", "firmware"):
+        assert secret not in body
+    stripped = body.replace("/devices/%s/" % seeded.owner_device, "").replace(
+        "/devices/%s/" % second, "")
+    assert seeded.owner_device not in stripped and second not in stripped
+    other_body = _get(server, "/account", cookies["other"])[2]
+    assert second not in other_body and seeded.owner_device not in other_body
+
+
+def test_an_admin_sees_only_the_frames_they_own_on_the_account_page(fleet_server):
+    server, seeded, second, cookies = fleet_server
+    body = _get(server, "/account", cookies["admin"])[2]
+    card = _frames_card(body)
+    assert card.select_one(".empty-state__heading").text() == "Your frames will appear here"
+    assert seeded.owner_device not in body and seeded.other_device not in body
+    assert 'href="/devices/' not in body
+
+
+def test_the_frames_card_is_translated_to_french():
+    frame = account_page.FrameSummary("Salon", "XIAO", None, 80, "/devices/d_00000001/")
+    from companion import prefs
+    prefs.set_request_prefs(lang="fr")
+    try:
+        html = account_page.render(account_page.Identity("a@b.c", "user"), frames=[frame])
+    finally:
+        prefs.set_request_prefs(lang="en")
+    for text in ("Vos cadres", "Dernier contact", "Aucun contact pour l’instant",
+                 "Ouvrir", "Batterie"):
+        assert text in html
