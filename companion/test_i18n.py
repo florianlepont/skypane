@@ -210,7 +210,6 @@ _UNCHANGED_IN_FRENCH = frozenset({
     # format is only names and numbers.
     "detection.field_latitude", "detection.field_longitude",
     "detection.location_option",
-=======
     # "Administration" and "Admin" are the French words too, spelled
     # identically: real cognates for the console's nav group and phone tab.
     "nav.administration", "nav.admin",
