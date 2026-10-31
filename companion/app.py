@@ -31,7 +31,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from companion import (  # noqa: E402
-    access, auth, credits_page, device_dispatch, device_scope, export_api, flash, freshness, i18n, illustration_normalize, layout,
+    access, auth, credits_page, detection_actions, device_dispatch, device_scope, export_api, flash, freshness, i18n, illustration_normalize, layout,
     login_page, page_context, post_actions, preview_images, prefs, request_body, routes, sign_in,
     sign_in_config, static_files, theme_preview, user_view)
 from companion.pages import (  # noqa: E402
@@ -40,6 +40,7 @@ from companion.pages import (  # noqa: E402
     # keep resolving.
     airlines_page,  # noqa: F401
     config_page,
+    detection_page,
     health_page,
     update_page,
 )
@@ -121,6 +122,7 @@ CALENDAR_SHEET_SCRIPT_ROUTE = static_files.CALENDAR_SHEET_SCRIPT_ROUTE
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
 # FLASH_KEY_* constants below.
 SETTINGS_ROUTE = config_page.SETTINGS_ROUTE
+DETECTION_ROUTE = detection_page.DETECTION_ROUTE
 
 # The page routes. All six live tabs are declared once, in
 # companion/layout.py's NAV_GROUPS; these aliases exist so this module's
@@ -252,6 +254,11 @@ _not_modified = static_files.not_modified
 # Message for the same id.
 _PAGE_TITLES = dict(layout.NAV_TABS)
 
+# A child page is reached from a tab rather than being one: it has its own
+# title, and the tab it hangs under stays the active nav item.
+_CHILD_PAGE_TITLES = {detection_page.DETECTION_ROUTE: detection_page.PAGE_TITLE}
+_CHILD_PAGE_PARENT = {detection_page.DETECTION_ROUTE: layout.DISPLAY_ROUTE}
+
 # Each tab's own extra scripts, on top of layout.GLOBAL_PAGE_SCRIPTS
 # (present on every authenticated page regardless). One tuple per
 # layout.NAV_TABS route - companion/test_page_scripts.py's hook-coverage
@@ -279,6 +286,9 @@ _PAGE_SCRIPTS = {
         layout.DIRTY_STATE_SCRIPT_SRC,
         layout.QUICK_SWITCH_SCRIPT_SRC,
         layout.VALUE_CONTROLS_SCRIPT_SRC,
+    ),
+    detection_page.DETECTION_ROUTE: (
+        layout.DIRTY_STATE_SCRIPT_SRC,
     ),
     layout.FLIGHTS_ROUTE: (
         layout.FRESHNESS_SCRIPT_SRC,
@@ -861,7 +871,8 @@ class Handler(
         if flash_html is None:
             flash_html = flash.flash_toast_html(ctx.flash_key, ctx.flash, self.path)
         return layout.page_shell(
-            title=i18n.t(_PAGE_TITLES[route]), active=layout.nav_slug(route),
+            title=i18n.t(_CHILD_PAGE_TITLES.get(route) or _PAGE_TITLES[route]),
+            active=layout.nav_slug(_CHILD_PAGE_PARENT.get(route, route)),
             body=body,
             ui_theme=ctx.ui_theme, flash=flash_html,
             health_alert=ctx.health_severity, device_config=ctx.device_config,
@@ -1033,6 +1044,11 @@ class Handler(
         if result_code == calendar_rules.FETCH_OK:
             return self._settings_saved_redirect(back, FLASH_KEY_CALENDAR_CONNECTED)
         return self._settings_saved_redirect(back, FLASH_KEY_CALENDAR_SYNC_FAILED)
+
+    def _handle_detection_post(self, device):
+        """POST /detection for `device`: the dispatcher already applied the
+        route's ownership gate; the write acts only on that device."""
+        return detection_actions.handle_post(self, device)
 
     def _settings_saved_redirect(self, back, flash_key):
         """The success-branch response for POST /settings. Reached only

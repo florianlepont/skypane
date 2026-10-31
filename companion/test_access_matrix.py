@@ -60,6 +60,7 @@ ROUTE_POLICY = {
     ("GET", "/"): OWNER_DEVICE,
     ("GET", "/display"): OWNER_DEVICE,
     ("GET", "/device"): ADMIN_ONLY,
+    ("GET", "/detection"): OWNER_DEVICE,
     ("GET", "/flights"): OWNER_DEVICE,
     ("GET", "/health"): OWNER_DEVICE,
     ("GET", "/airlines"): OWNER_DEVICE,
@@ -73,6 +74,7 @@ ROUTE_POLICY = {
     ("GET", "/theme-preview/{}.png"): OWNER_DEVICE,
     ("GET", "/frame-preview/{}.png"): OWNER_DEVICE,
     ("POST", "/settings"): OWNER_DEVICE,
+    ("POST", "/detection"): OWNER_DEVICE,
     ("POST", "/quick/display"): OWNER_DEVICE,
     ("POST", "/quick/quiet-hours"): OWNER_DEVICE,
     ("POST", "/quick/led"): ADMIN_ONLY,
@@ -94,12 +96,12 @@ ROUTE_POLICY.update({("GET", path): PUBLIC for path in _STATIC_PATHS})
 # `/devices/<id>` prefix. Every other route must refuse the prefix.
 DEVICE_SCOPED = frozenset(
     [("GET", path) for path in (
-        "/", "/display", "/device", "/flights", "/health", "/airlines",
+        "/", "/display", "/detection", "/device", "/flights", "/health", "/airlines",
         "/settings", "/history", "/preview", "/gallery/{}",
         "/illustration/{}.png", "/theme-preview/{}.png",
         "/frame-preview/{}.png")]
     + [("POST", path) for path in (
-        "/settings", "/quick/display", "/quick/quiet-hours",
+        "/settings", "/detection", "/quick/display", "/quick/quiet-hours",
         "/quick/led", "/airlines/resolve", "/airlines/rename",
         "/airlines/rename/reset", "/airlines/manual-resolutions/{}/delete",
         "/illustration/{}.png", "/settings/rules/add",

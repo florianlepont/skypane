@@ -206,6 +206,10 @@
    "location": "/login?next=%2Fairlines",
    "status": 303
   },
+  "GET /detection": {
+   "location": "/login",
+   "status": 303
+  },
   "GET /device": {
    "location": "/login?next=%2Fdevice",
    "status": 303
@@ -343,6 +347,10 @@
    "status": 303
   },
   "POST /airlines/resolve": {
+   "location": "/login",
+   "status": 303
+  },
+  "POST /detection": {
    "location": "/login",
    "status": 303
   },

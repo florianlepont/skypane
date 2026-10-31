@@ -15,7 +15,7 @@ this module).
 from urllib.parse import parse_qsl, urlencode, urlsplit
 
 from companion import device_scope, frame_state, i18n, layout, routes, wake
-from companion.pages import airlines_page, config_page, update_page
+from companion.pages import airlines_page, config_page, detection_page, update_page
 from server.plane import calendar_rules, colour_rules
 
 # The flash-key string literals below are defined exactly once, in
@@ -62,6 +62,7 @@ FLASH_KEY_CALENDAR_CONNECT_FAILED = config_page.FLASH_CALENDAR_CONNECT_FAILED
 FLASH_KEY_UPDATE_SCHEDULE_FAILED = update_page.FLASH_UPDATE_SCHEDULE_FAILED
 FLASH_KEY_UPDATE_CANCEL_FAILED = update_page.FLASH_UPDATE_CANCEL_FAILED
 FLASH_KEY_UPDATE_BUSY = update_page.FLASH_UPDATE_BUSY
+FLASH_KEY_DETECTION_SAVED = detection_page.FLASH_DETECTION_SAVED
 
 # A fixed key -> copy dictionary — the flash mechanism only ever renders
 # one of these, never a value taken verbatim from the query string.
@@ -270,6 +271,7 @@ FLASH_MESSAGES = {
     FLASH_KEY_UPDATE_SCHEDULE_FAILED: update_page.FLASH_UPDATE_SCHEDULE_FAILED_TEXT,
     FLASH_KEY_UPDATE_CANCEL_FAILED: update_page.FLASH_UPDATE_CANCEL_FAILED_TEXT,
     FLASH_KEY_UPDATE_BUSY: update_page.FLASH_UPDATE_BUSY_TEXT,
+    FLASH_KEY_DETECTION_SAVED: detection_page.FLASH_DETECTION_SAVED_TEXT,
 }
 
 _SUCCESS = layout.TOAST_TONE_SUCCESS
@@ -323,6 +325,8 @@ FLASH_TONES = {
     FLASH_KEY_UPDATE_SCHEDULE_FAILED: _ERROR,
     FLASH_KEY_UPDATE_CANCEL_FAILED: _ERROR,
     FLASH_KEY_UPDATE_BUSY: _INFO,
+    # Stored now, followed by the frame at its next wake.
+    FLASH_KEY_DETECTION_SAVED: _PENDING,
     # The screen switch reaches the frame within about five minutes, at
     # its next wake; quiet hours and the LED wait for the next wake too.
     FLASH_KEY_DISPLAY_ON: _PENDING,
