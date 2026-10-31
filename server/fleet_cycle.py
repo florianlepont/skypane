@@ -23,6 +23,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from server import (
+    detection,
+    device_config,
     device_dirs,
     fleet_db,
     fleet_zones,
@@ -63,6 +65,8 @@ class FleetDevice:
     is_live: bool
     hardware_type: str
     created_epoch: float | None
+    # The device's own assigned location, or None when it has none.
+    location: tuple[float, float] | None = None
 
 
 @dataclass
@@ -93,7 +97,11 @@ def _created_epoch(raw: object) -> float | None:
     return parsed.timestamp()
 
 
-def _device_from_row(root: str, row: sqlite3.Row) -> FleetDevice:
+def _device_from_row(
+    root: str,
+    row: sqlite3.Row,
+    locations: Mapping[str, tuple[float, float]] | None = None,
+) -> FleetDevice:
     """A FleetDevice for the row; ValueError when its state_path is unusable."""
     state_path = str(row["state_path"])
     state_dir = device_dirs.resolve_state_dir(root, state_path)
@@ -106,21 +114,29 @@ def _device_from_row(root: str, row: sqlite3.Row) -> FleetDevice:
         is_live=is_live,
         hardware_type=str(row["hardware_type"]),
         created_epoch=_created_epoch(row["created_at"]),
+        location=(locations or {}).get(str(row["id"])),
     )
 
 
-def _fleet_rows(root: str) -> list[sqlite3.Row]:
-    """Device rows of a migrated, readable fleet.db; [] on any problem."""
+def _fleet_rows(root: str) -> tuple[list[sqlite3.Row], dict[str, tuple[float, float]]]:
+    """Device rows of a migrated, readable fleet.db and each device's own
+    location coordinates; ([], {}) on any problem. An unreadable location
+    table leaves the devices without a location, never without a row."""
     try:
         conn = fleet_db.connect_readonly(root)
     except (fleet_db.FleetDbError, sqlite3.Error, OSError):
-        return []
+        return [], {}
     try:
         if fleet_db.meta_get(conn, fleet_db.META_MIGRATED) is None:
-            return []
-        return fleet_db.list_devices(conn)
+            return [], {}
+        rows = fleet_db.list_devices(conn)
+        try:
+            locations = fleet_db.device_coordinates(conn)
+        except (sqlite3.Error, ValueError, TypeError):
+            locations = {}
+        return rows, locations
     except (fleet_db.FleetDbError, sqlite3.Error, OSError):
-        return []
+        return [], {}
     finally:
         conn.close()
 
@@ -134,9 +150,10 @@ def load_fleet(root: str, now: float | None = None) -> list[FleetDevice]:
     """
     live: FleetDevice | None = None
     others: list[FleetDevice] = []
-    for row in _fleet_rows(root):
+    rows, locations = _fleet_rows(root)
+    for row in rows:
         try:
-            device = _device_from_row(root, row)
+            device = _device_from_row(root, row, locations)
         except (ValueError, KeyError, IndexError, TypeError):
             print("fleet: skipping a device row with an unusable state_path", file=sys.stderr)
             continue
@@ -240,6 +257,26 @@ def geofence_resolver(geofence_path: str | None) -> Resolver:
     return resolve
 
 
+def detection_resolver(geofence_path: str | None) -> Resolver:
+    """Resolver giving each device the zone of its own detection setting.
+
+    Devices of one airport on different runways share one zone (the zone is
+    the airport's), so the group's stored geofence belongs to whichever
+    device came first and is never used for selection: every device's cycle
+    builds its own spec from the same stored setting. Nothing is cached per
+    run, so a setting saved between cycles takes effect on the next one.
+    `geofence_path` is only read for the legacy Orly ids when the kill
+    switch is on; a missing file then raises OSError (the device is unzoned).
+    """
+
+    def resolve(device: FleetDevice) -> tuple[fleet_zones.Zone, dict[str, Any]]:
+        cfg = device_config.load_device_config(device.state_dir)
+        spec = detection.spec_for(cfg, device.location, legacy_geofence_path=geofence_path)
+        return spec.zone, spec.geofence
+
+    return resolve
+
+
 def plan_zones(
     devices: Iterable[FleetDevice],
     resolver: Resolver,
@@ -339,6 +376,9 @@ class _FleetRun:
 
     def run_device(self, device: FleetDevice, fetched, held: bool = False) -> str:
         """Run one device's cycle; failures are recorded, never raised."""
+        extra = _cycle_profile_kwargs(device)
+        if device.location is not None:
+            extra["location"] = device.location
         try:
             self.runner(
                 state_dir=device.state_dir,
@@ -348,7 +388,7 @@ class _FleetRun:
                 route_transport=self.route_transport,
                 ledger_root=self.root,
                 reconcile_firmware=device.is_live,
-                **_cycle_profile_kwargs(device),
+                **extra,
             )
         except poll_cycle.PollBusy as exc:
             status, detail, trace = STATUS_BUSY, str(exc), ""
@@ -458,7 +498,7 @@ def run_fleet(
     devices, skipped = runnable_devices(load_fleet(state_root, wall()), wall(), environ)
     for device_id, reason in skipped:
         run.result.outcomes.append(DeviceOutcome(device_id, False, STATUS_SKIPPED, reason))
-    plan = plan_zones(devices, resolver if resolver is not None else geofence_resolver(geofence_path))
+    plan = plan_zones(devices, resolver if resolver is not None else detection_resolver(geofence_path))
     live_first = [d for d in plan.held + plan.unzoned if d.is_live]
     for device in live_first:
         if device in plan.unzoned:

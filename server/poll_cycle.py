@@ -518,6 +518,9 @@ class CycleContext:
     route_transport: object | None = None
     ledger_root: str | None = None
 
+    # The device's own assigned location (lat, lon), or None.
+    location: tuple | None = None
+
     # Config: the per-cycle settings snapshot, read once in
     # load_cycle_context() so a mid-cycle save can never split one cycle
     # across two configs.
@@ -605,7 +608,7 @@ def _critical_thresholds(profile):
     return {"critical_mv": profile.battery.critical_mv, "recover_mv": profile.battery.critical_recover_mv}
 
 
-def load_cycle_context(snapshot, state_dir, geofence, caddy_log, zone_fetch=None, route_transport=None, ledger_root=None, profile=None):
+def load_cycle_context(snapshot, state_dir, geofence, caddy_log, zone_fetch=None, route_transport=None, ledger_root=None, profile=None, location=None):
     """Everything a cycle needs before the hold decision can be made:
     ensures `state_dir` exists, loads the manual-resolution and
     colour-rule registries from THIS cycle's state_dir (once per cycle,
@@ -669,6 +672,7 @@ def load_cycle_context(snapshot, state_dir, geofence, caddy_log, zone_fetch=None
     return CycleContext(
         state_dir=state_dir, snapshot=snapshot, geofence=geofence, caddy_log=caddy_log,
         zone_fetch=zone_fetch, route_transport=route_transport, ledger_root=ledger_root,
+        location=location,
         device_cfg=device_cfg, theme_id=theme_id, tracked_runway_id=tracked_runway_id,
         display_enabled=display_enabled, effective_wake_interval_s=effective_wake_interval_s,
         quiet_remaining=quiet_remaining, quiet_until=quiet_until,
@@ -1348,7 +1352,7 @@ def cycle_result(ctx):
     }
 
 
-def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_timeout_s=None, reconcile_firmware=True, zone_fetch=None, route_transport=None, ledger_root=None, profile=None):
+def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_timeout_s=None, reconcile_firmware=True, zone_fetch=None, route_transport=None, ledger_root=None, profile=None, location=None):
     """One poll cycle: detect -> infer -> enrich -> render -> publish
     (atomic panel/gallery write) -> record (history.db), as a sequence of
     named steps over one `CycleContext`, serialised across every process
@@ -1413,7 +1417,8 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None, lock_
         with history_db.connection_scope(state_dir):
             ctx = load_cycle_context(
                 snapshot, state_dir, geofence, caddy_log, zone_fetch=zone_fetch,
-                route_transport=route_transport, ledger_root=ledger_root, profile=profile)
+                route_transport=route_transport, ledger_root=ledger_root, profile=profile,
+                location=location)
             # Before the hold decision, so a battery-hold, quiet-hours or
             # display-off cycle still reconciles device-reported OTA
             # outcomes exactly like a live cycle would.
