@@ -234,9 +234,10 @@ def _location_errors(form, rows):
         errors["longitude"] = detection_page.ERROR_NUMBER
     if lat is not None and lon is not None and not detection.inside_france(lat, lon):
         errors["latitude"] = detection_page.ERROR_LOCATION_OUTSIDE
-    if form.get("timezone") != quiet_hours.CURATED_TIMEZONES[0][0]:
-        errors["timezone"] = detection_page.ERROR_TIMEZONE
     target = form.get("location_id", "")
+    # An edit keeps the stored timezone, so only a new location is checked.
+    if not target and form.get("timezone") != quiet_hours.CURATED_TIMEZONES[0][0]:
+        errors["timezone"] = detection_page.ERROR_TIMEZONE
     if target and _find_row(rows, target) is None:
         errors["location_form"] = detection_page.ERROR_LOCATION_UNAVAILABLE
     return errors, name, lat, lon
@@ -245,17 +246,18 @@ def _location_errors(form, rows):
 def _write_location(subject, form, name, lat, lon):
     """Create the location for the subject, or update one the subject owns.
     False when an edit target is not the subject's."""
-    zone = form["timezone"]
     target = form.get("location_id", "")
     with fleet_db.transaction(subject.conn):
         if not target:
             fleet_db.add_location(
-                subject.conn, name, lat, lon, zone, owner_user_id=subject.subject_id)
+                subject.conn, name, lat, lon, form["timezone"],
+                owner_user_id=subject.subject_id)
             return True
         current = fleet_db.get_location(subject.conn, int(target))
         if current is None or current["owner_user_id"] != subject.subject_id:
             return False
-        return fleet_db.update_location(subject.conn, int(target), name, lat, lon, zone)
+        return fleet_db.update_location(
+            subject.conn, int(target), name, lat, lon, current["timezone"])
 
 
 def _save_location(handler, ctx, device, subject, scope, form):

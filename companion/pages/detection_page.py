@@ -708,7 +708,7 @@ def _text_field_html(errors, field, control_id, label, value, extra, hint=None):
 
 def location_form_html(view, errors):
     is_open, location_id, values = _location_form_state(view)
-    zone_key, zone_msg = quiet_hours.CURATED_TIMEZONES[0]
+    zone_key = (location_id and values["timezone"]) or quiet_hours.CURATED_TIMEZONES[0][0]
     summary = EDIT_LOCATION_SUMMARY if location_id else ADD_LOCATION
     return (
         '<details id="%s" class="detection-location-form"%s>'
@@ -740,7 +740,7 @@ def location_form_html(view, errors):
             values["longitude"], 'inputmode="decimal"', LONGITUDE_HINT),
         escape_html(i18n.t(quiet_hours.TIMEZONE_LABEL)),
         _field_error_attrs(errors, "timezone", "location-timezone"),
-        escape_html(zone_key), escape_html(i18n.t(zone_msg)),
+        escape_html(zone_key), escape_html(quiet_hours.timezone_label_text(zone_key)),
         _field_error_html(errors, "timezone", "location-timezone"),
         escape_html(i18n.t(SAVE_LOCATION)),
         escape_html(device_scope.scoped(DETECTION_ROUTE)),

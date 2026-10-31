@@ -481,3 +481,20 @@ def test_position_save_leaves_the_location_unchanged_when_the_config_write_fails
     assert status == 303
     assert "flash=save_failed" in response["Location"]
     assert rig.device_location(rig.fleet.owner_device) == old
+
+
+def test_location_edit_keeps_the_stored_timezone(rig):
+    conn = fleet_db.connect(rig.state_dir)
+    try:
+        home = fleet_db.add_location(
+            conn, "Paris", 48.85, 2.35, "America/Martinique",
+            owner_user_id=rig.fleet.owner_id)
+    finally:
+        conn.close()
+    _s, page = rig.get("owner", rig.scope() + "/detection?location=%d" % home)
+    assert '<option value="America/Martinique" selected>Martinique</option>' in page
+    status, _r, _b = _post_detection(
+        rig, "owner", _location_form("Renamed", "48.9", "2.4", str(home)))
+    assert status == 303
+    rows = rig.locations()
+    assert (rows[0]["name"], rows[0]["timezone"]) == ("Renamed", "America/Martinique")
