@@ -4,5 +4,13 @@ companion/test_access_matrix.py, `SAMPLES` maps each templated route to a
 sample middle segment.
 """
 
-ROWS = {}
-SAMPLES = {}
+ROWS = {
+    ("GET", "/locations"): "signed-in",
+    ("POST", "/locations/add"): "signed-in",
+    ("POST", "/locations/{}/edit"): "signed-in",
+    ("POST", "/locations/{}/delete"): "signed-in",
+}
+SAMPLES = {
+    "/locations/{}/edit": "1",
+    "/locations/{}/delete": "1",
+}

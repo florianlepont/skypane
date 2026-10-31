@@ -34,9 +34,11 @@ def test_the_aggregator_holds_the_pairing_routes_and_nav_follows_them():
         ("POST", console_routes.FLEET_PAIR_ROUTE),
         ("GET", console_routes.USERS_ROUTE),
         ("POST", console_routes.USERS_INVITE_ROUTE),
-        ("GET", console_routes.AUDIT_ROUTE)} <= served_routes
+        ("GET", console_routes.AUDIT_ROUTE),
+        ("GET", console_routes.LOCATIONS_ROUTE),
+        ("POST", console_routes.LOCATIONS_ADD_ROUTE)} <= served_routes
     assert [entry[1] for entry in console_routes.available_nav_entries()] == [
-        "/fleet", "/users", "/audit", "/update"]
+        "/fleet", "/users", "/locations", "/audit", "/update"]
 
 
 def test_nav_entries_follow_the_route_table(monkeypatch):
@@ -46,7 +48,7 @@ def test_nav_entries_follow_the_route_table(monkeypatch):
             console_routes.AUDIT_ROUTE))
     monkeypatch.setattr(routes, "ROUTES", routes.ROUTES + extra)
     keys = [entry[0] for entry in console_routes.available_nav_entries()]
-    assert keys == ["fleet", "users", "audit", "releases"]
+    assert keys == ["fleet", "users", "locations", "audit", "releases"]
 
 
 def test_section_subnav_is_links_with_the_current_page_marked(monkeypatch):
@@ -55,7 +57,7 @@ def test_section_subnav_is_links_with_the_current_page_marked(monkeypatch):
     markup = console_routes.section_subnav_html(console_routes.USERS_ROUTE)
     links = re.findall(r'<a class="([^"]*)" href="([^"]+)"([^>]*)>', markup)
     assert [href for _cls, href, _rest in links] == [
-        "/fleet", "/users", "/audit", "/update"]
+        "/fleet", "/users", "/locations", "/audit", "/update"]
     current = [href for cls, href, rest in links if "aria-current" in rest]
     assert current == ["/users"]
     assert "Fleet" in markup and "Releases" in markup
@@ -171,7 +173,7 @@ def test_the_group_lists_only_the_pages_that_exist(
     assert status == 200
     sidebar = _sidebar(page)
     group = sidebar[sidebar.index('<div class="nav-group"><span'):]
-    assert _hrefs(group) == ["/fleet", "/users", "/audit", "/update"]
+    assert _hrefs(group) == ["/fleet", "/users", "/locations", "/audit", "/update"]
 
 
 def test_a_user_sees_no_administration_navigation_and_no_console_page(served):

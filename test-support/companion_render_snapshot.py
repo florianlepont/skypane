@@ -130,6 +130,7 @@ _UNAUTH_GET_REQUESTS = (
     "/fleet",
     "/audit",
     "/users",
+    "/locations",
     companion_app.SETTINGS_ROUTE,
     companion_app.HISTORY_LEGACY_ROUTE,
     companion_app.PREVIEW_PAGE_ROUTE,
@@ -171,6 +172,9 @@ _UNAUTH_POST_REQUESTS = (
     "/users/1/disable",
     "/users/1/enable",
     "/users/1/unlink",
+    "/locations/add",
+    "/locations/1/edit",
+    "/locations/1/delete",
     _NOT_FOUND_PATH,
 )
 

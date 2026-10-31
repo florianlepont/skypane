@@ -35,6 +35,8 @@ _SAMPLE_MIDDLE = {
     routes.PrefixSuffix("/users/", "/disable"): "1",
     routes.PrefixSuffix("/users/", "/enable"): "1",
     routes.PrefixSuffix("/users/", "/unlink"): "1",
+    routes.PrefixSuffix("/locations/", "/edit"): "1",
+    routes.PrefixSuffix("/locations/", "/delete"): "1",
 }
 
 
@@ -100,14 +102,22 @@ def test_no_post_route_exists_for_login():
     assert not _all_matches("POST", routes.LOGIN_ROUTE)
 
 
-def test_signed_in_routes_are_exactly_account_and_the_preference_and_logout_posts():
+_LOCATION_ROUTES = {
+    ("GET", routes.Exact("/locations")),
+    ("POST", routes.Exact("/locations/add")),
+    ("POST", routes.PrefixSuffix("/locations/", "/edit")),
+    ("POST", routes.PrefixSuffix("/locations/", "/delete")),
+}
+
+
+def test_signed_in_routes_are_account_the_preference_and_logout_posts_and_locations():
     actual = {(r.method, r.matcher) for r in routes.ROUTES if r.access == routes.SIGNED_IN}
     assert actual == {
         ("GET", routes.Exact("/account")),
         ("POST", routes.Exact(routes.THEME_ROUTE)),
         ("POST", routes.Exact(routes.LANG_ROUTE)),
         ("POST", routes.Exact(routes.LOGOUT_ROUTE)),
-    }
+    } | _LOCATION_ROUTES
 
 
 def test_every_other_route_is_admin_only_or_an_owner_device_route():
@@ -116,7 +126,7 @@ def test_every_other_route_is_admin_only_or_an_owner_device_route():
         ("POST", routes.Exact(routes.THEME_ROUTE)),
         ("POST", routes.Exact(routes.LANG_ROUTE)),
         ("POST", routes.Exact(routes.LOGOUT_ROUTE)),
-    }
+    } | _LOCATION_ROUTES
     for r in routes.ROUTES:
         if (r.method, r.matcher) in handwritten_non_admin:
             continue
