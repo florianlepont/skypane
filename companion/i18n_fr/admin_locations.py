@@ -49,6 +49,7 @@ MESSAGES = {
     "admin_locations.manage_locations": "Gérer les lieux",
     "admin_locations.no_location_chosen": "Aucun lieu choisi.",
     "admin_locations.add_a_location": "Ajouter un lieu",
+    "admin_locations.assigned_by_an_administrator": "Attribué par un administrateur",
     "admin_locations.flash_location_added": "Lieu ajouté",
     "admin_locations.flash_location_added_detail":
         "{name} peut maintenant être choisi pour un cadre.",

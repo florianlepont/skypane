@@ -1040,7 +1040,7 @@ class Handler(
             self.read_form(), None if principal is None else principal.role)
         ctx = self.page_context(device)
         errors = {}
-        flash_key = config_page.handle_post(form, ctx, errors=errors)
+        flash_key = config_page.handle_post(form, ctx, errors=errors, handler=self)
         # The return field is matched without this device's own prefix;
         # any other prefix is not a whitelisted route and falls back.
         back_route = config_page.submitted_return_route({

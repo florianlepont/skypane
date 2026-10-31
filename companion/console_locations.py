@@ -20,11 +20,12 @@ Both roles use the page. Security invariants:
 import functools
 import math
 import re
+import sqlite3
 import unicodedata
 import zoneinfo
 
 from companion import (
-    access, audit, console_flash, device_scope, i18n, route_types, throttle)
+    access, audit, console_flash, device_scope, i18n, prefs, route_types, throttle)
 from companion.pages import locations_page
 from server import fleet_db
 
@@ -392,11 +393,114 @@ def handle_delete(h, m):
 # ---- assignment to a frame ----------------------------------------------
 
 
-def location_options(conn, principal):
-    """The (id, name) pairs the viewer may choose for a frame: every location
-    for an administrator, only their own for a user."""
-    rows = fleet_db.list_locations_for(conn, principal.user_id, _is_admin(principal))
+class _Refused(Exception):
+    """The assignment is not allowed or names nothing that exists."""
+
+
+def _viewer_options(conn, device, is_admin):
+    """The (id, name) pairs the viewer of `device`'s Display page may choose:
+    every location for an administrator, for a user only the frame owner's own
+    (a user reaches a frame only when they own it)."""
+    if is_admin:
+        rows = fleet_db.list_locations(conn)
+    elif device.owner_user_id is None:
+        rows = []
+    else:
+        rows = fleet_db.list_locations_for(conn, device.owner_user_id, False)
     return [(int(row["id"]), str(row["name"])) for row in rows]
+
+
+def display_picker_html(ctx):
+    """The Location picker for the Display page of `ctx.device`, or "" when
+    the frame has no fleet row, the fleet database cannot be read, or an
+    administrator has no location to offer."""
+    device, root = ctx.device, ctx.root_state_dir
+    role = prefs.current_principal()
+    if device is None or root is None or role is None or device.id == device_scope.LIVE_ID:
+        return ""
+    is_admin = role[1] == access.ADMIN
+    try:
+        conn = fleet_db.connect_readonly(root)
+    except (fleet_db.FleetDbError, sqlite3.Error, OSError):
+        return ""
+    try:
+        row = fleet_db.get_device(conn, device.id)
+        if row is None:
+            return ""
+        options = _viewer_options(conn, device, is_admin)
+    except sqlite3.Error:
+        return ""
+    finally:
+        conn.close()
+    current = None if row["location_id"] is None else int(row["location_id"])
+    if is_admin and not options:
+        return ""
+    return locations_page.picker_html(
+        options, current, _settings_form_id(), _dirty_section_attr())
+
+
+def _settings_form_id():
+    # Imported on use: the settings page imports this module on use too.
+    from companion.settings import form
+    return form.SETTINGS_FORM_ID
+
+
+def _dirty_section_attr():
+    from companion.settings import form
+    return form.DIRTY_SECTION_ATTR
+
+
+def apply_device_location(form, ctx, handler):
+    """Apply the Display form's `location_id` to `ctx.device`; True when the
+    form carries none, it equals the stored value, or the assignment was
+    made, False when it was refused (nothing is changed then).
+
+    A user may assign only a location they own and only to a frame they own;
+    an administrator may assign any location. The change and its audit row
+    share one transaction; a refusal is audited afterwards as denied."""
+    raw = form.get(locations_page.LOCATION_FIELD)
+    if raw is None:
+        return True
+    principal = handler._safe_principal()
+    device = ctx.device
+    if principal is None or device is None or ctx.root_state_dir is None:
+        return False
+    if raw == "":
+        location_id = None
+    elif _ID_RE.match(raw):
+        location_id = int(raw)
+    else:
+        return _deny_assignment(handler, device, None)
+    conn = fleet_db.connect(ctx.root_state_dir)
+    try:
+        row = fleet_db.get_device(conn, device.id)
+        if row is not None and row["location_id"] == location_id:
+            return True
+        try:
+            with fleet_db.transaction(conn):
+                try:
+                    assigned = fleet_db.set_device_location_checked(
+                        conn, device.id, location_id, principal.user_id,
+                        _is_admin(principal))
+                except (PermissionError, ValueError) as exc:
+                    raise _Refused() from exc
+                if not assigned:
+                    raise _Refused()
+                audit.record_in(
+                    handler, conn, "location.update", "device", device.id, "ok",
+                    {"location_id": location_id})
+        except _Refused:
+            return _deny_assignment(handler, device, location_id)
+    finally:
+        conn.close()
+    return True
+
+
+def _deny_assignment(handler, device, location_id):
+    audit.record_standalone(
+        handler, "location.update", "device", device.id, "denied",
+        {"location_id": location_id})
+    return False
 
 
 ROUTES = (

@@ -443,6 +443,13 @@ def _display_groups_html(builders, groups):
     return runway_html, quiet_hours_html
 
 
+def _location_picker_html(ctx):
+    """The frame's Location picker, built next to the time zone it goes with."""
+    # Imported on use: the console route modules import the page modules.
+    from companion import console_locations
+    return console_locations.display_picker_html(ctx)
+
+
 def _device_groups_html(builders, groups):
     """Device shows only the controls that change its behaviour.
 
@@ -605,6 +612,8 @@ def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, subm
     else:
         aspect_section_html = ""
     display_watches_html, display_on_html = _display_groups_html(builders, groups)
+    if screens.GROUP_QUIET_HOURS in groups:
+        display_on_html += _location_picker_html(ctx)
     return {
         "header": header, "frame_strip_section_html": frame_strip_section_html,
         "hidden_html": _scope_fields_html(SCOPE_DISPLAY, layout.DISPLAY_ROUTE),
@@ -807,7 +816,7 @@ def submitted_calendar_signal(form):
     return CALENDAR_URL_SIGNAL_SET
 
 
-def handle_post(form, ctx, errors=None):
+def handle_post(form, ctx, errors=None, handler=None):
     """Validate the submitted settings state against `device_config`'s
     own registries and validators, then persist all fields in one
     `save_device_config()` call. Rejection is all-or-nothing: a crafted
@@ -866,6 +875,14 @@ def handle_post(form, ctx, errors=None):
         if step_result is form_post.FAILED:
             return FLASH_SAVE_FAILED
         save_kwargs.update(step_result)
+
+    if handler is not None and screens.GROUP_QUIET_HOURS in in_scope:
+        # The picker sits with the time zone: applied only when the page
+        # that carries it was the one submitted, and before any file write
+        # so a refused assignment leaves everything unchanged.
+        from companion import console_locations
+        if not console_locations.apply_device_location(form, ctx, handler):
+            return FLASH_SAVE_FAILED
 
     try:
         device_config.save_device_config(state_dir, **save_kwargs)
