@@ -441,6 +441,16 @@ class StartThrottle:
             times.append(now)
             return True
 
+    def is_blocked(self, key):
+        """Whether `key` has used up its window, recording nothing."""
+        now = self._clock()
+        with self._lock:
+            times = self._starts.get(key)
+            if times is None:
+                return False
+            recent = sum(1 for moment in times if now - moment < self._window)
+            return recent >= self._limit
+
     def reset(self):
         with self._lock:
             self._starts.clear()
