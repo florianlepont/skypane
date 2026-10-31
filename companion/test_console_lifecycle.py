@@ -219,6 +219,92 @@ def test_reactivating_a_row_that_is_not_retired_changes_nothing(rig):
     assert fx.audit_rows(server.state_dir, "device.reactivate") == []
 
 
+# --- failures ---------------------------------------------------------------
+
+
+def _fail_the_ok_audit(monkeypatch, action):
+    real = fleet_db.audit_append
+
+    def failing(conn, actor, act, *args, **kwargs):
+        if act == action and (args[2] if len(args) > 2 else kwargs.get("outcome")) == "ok":
+            raise OSError("simulated failure before commit")
+        return real(conn, actor, act, *args, **kwargs)
+
+    monkeypatch.setattr(fleet_db, "audit_append", failing)
+
+
+def _without_lock_files(files):
+    """The poll-cycle lock file is created by the busy guard itself."""
+    return {k: v for k, v in files.items() if not k.endswith("poll.lock")}
+
+
+def _only_new_audit_rows(rows, before):
+    return [r for r in rows if r["id"] not in {b["id"] for b in before}]
+
+
+def test_a_failed_reassign_restores_everything_and_flashes_instead_of_a_500(
+        rig, monkeypatch):
+    server, fleet, cookie = rig
+    directory = _dirty(server.state_dir, fleet.a1)
+    tables, files = _state_fingerprint(server)
+    before_audit = fx.audit_rows(server.state_dir)
+    _fail_the_ok_audit(monkeypatch, "device.reassign")
+    status, headers, _ = _frame_post(
+        server, cookie, fleet.a1, "reassign", owner_user_id=str(fleet.b_id))
+    assert status == 303 and headers["Location"] == "/fleet"
+    after_tables, after_files = _state_fingerprint(server)
+    assert "Action failed" in _flash_page(server, cookie, headers)
+    assert _without_lock_files(after_files) == _without_lock_files(files)
+    assert after_tables["devices"] == tables["devices"]
+    assert "calendar_secret.json" in _files(directory)
+    new = _only_new_audit_rows(fx.audit_rows(server.state_dir), before_audit)
+    assert [(r["action"], r["outcome"]) for r in new] == [("device.reassign", "failed")]
+    assert json.loads(new[0]["detail"]) == {"reason": "storage_error"}
+    assert not [n for n in os.listdir(os.path.dirname(directory)) if n.startswith(".wipe-")]
+
+
+def test_a_failed_reactivate_restores_everything_and_flashes_instead_of_a_500(
+        rig, monkeypatch):
+    server, fleet, cookie = rig
+    pending = _pending_row(server.state_dir, fleet.retired)
+    directory = device_dirs.resolve_state_dir(
+        server.state_dir, pending["previous_state_path"])
+    os.makedirs(directory, exist_ok=True)
+    with open(os.path.join(directory, "calendar_secret.json"), "w") as fh:
+        fh.write("{}")
+    tables, files = _state_fingerprint(server)
+    before_audit = fx.audit_rows(server.state_dir)
+    _fail_the_ok_audit(monkeypatch, "device.reactivate")
+    status, headers, _ = _frame_post(server, cookie, fleet.retired, "reactivate")
+    assert status == 303
+    after_tables, after_files = _state_fingerprint(server)
+    assert "Action failed" in _flash_page(server, cookie, headers)
+    assert _without_lock_files(after_files) == _without_lock_files(files)
+    assert after_tables["pending_devices"] == tables["pending_devices"]
+    new = _only_new_audit_rows(fx.audit_rows(server.state_dir), before_audit)
+    assert [(r["action"], r["outcome"]) for r in new] == [("device.reactivate", "failed")]
+
+
+def test_a_reassign_with_a_foreign_state_path_is_refused_and_audited(rig):
+    server, fleet, cookie = rig
+    conn = fleet_db.connect(server.state_dir)
+    try:
+        conn.execute(
+            "UPDATE devices SET state_path = ? WHERE id = ?",
+            ("devices/" + fleet.b1, fleet.a1))
+    finally:
+        conn.close()
+    files = _root_snapshot(server.state_dir)
+    status, headers, _ = _frame_post(
+        server, cookie, fleet.a1, "reassign", owner_user_id=str(fleet.b_id))
+    assert status == 303
+    assert _root_snapshot(server.state_dir) == files
+    assert "Action failed" in _flash_page(server, cookie, headers)
+    last = fx.audit_rows(server.state_dir, "device.reassign")[-1]
+    assert last["outcome"] == "failed"
+    assert json.loads(last["detail"]) == {"reason": "refused"}
+
+
 # --- guards -----------------------------------------------------------------
 
 

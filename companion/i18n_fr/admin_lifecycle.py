@@ -30,6 +30,10 @@ MESSAGES = {
     "admin_lifecycle.flash_same_owner": "Déjà propriétaire",
     "admin_lifecycle.flash_same_owner_detail":
         "Cette personne possède déjà ce cadre. Rien n’a été changé.",
+    "admin_lifecycle.flash_action_failed": "Échec de l’action",
+    "admin_lifecycle.flash_action_failed_detail":
+        "Le cadre n’a pas pu être modifié. Ses données ont été conservées. "
+        "Consultez le journal d’audit.",
     "admin_lifecycle.what_happened_on_the_platform_newest_first":
         "Ce qui s’est passé sur la plateforme, du plus récent au plus ancien.",
     "admin_lifecycle.when": "Quand",

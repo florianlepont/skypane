@@ -12,6 +12,7 @@ Security invariants:
 """
 import contextlib
 import datetime
+import sqlite3
 from urllib.parse import parse_qs, urlsplit
 
 from companion import audit, console_flash, device_scope, i18n, route_types
@@ -37,6 +38,7 @@ FLASH_BUSY = "lifecycle.busy"
 FLASH_NOT_FOUND = "lifecycle.not_found"
 FLASH_OWNER_UNAVAILABLE = "lifecycle.owner_unavailable"
 FLASH_SAME_OWNER = "lifecycle.same_owner"
+FLASH_FAILED = "lifecycle.failed"
 
 console_flash.register_flash(
     FLASH_REASSIGNED, "success",
@@ -84,6 +86,12 @@ console_flash.register_flash(
     i18n.msg(
         "admin_lifecycle.flash_same_owner_detail",
         "That user already owns this frame. Nothing was modified."))
+console_flash.register_flash(
+    FLASH_FAILED, "error",
+    i18n.msg("admin_lifecycle.flash_action_failed", "Action failed"),
+    i18n.msg(
+        "admin_lifecycle.flash_action_failed_detail",
+        "The frame could not be changed. Its data was kept. See the audit log."))
 
 
 # ---- guards -----------------------------------------------------------------
@@ -117,6 +125,27 @@ def _owner_choice(raw):
 
 def _back(flash_key, **params):
     return console_flash.queue_flash(flash_key, **params)
+
+
+def _failure_reason(exc):
+    """The audited reason word for a failed operation; never the message."""
+    if isinstance(exc, ValueError):
+        return fleet_ops.FAIL_INVALID_PATH
+    if isinstance(exc, fleet_ops.OpsError):
+        return fleet_ops.FAIL_REFUSED
+    return fleet_ops.FAIL_STORAGE
+
+
+def _failed(conn, h, action, target_type, target_id, exc):
+    """Audit a failed lifecycle action and flash the error instead of a 500."""
+    with contextlib.suppress(sqlite3.Error, OSError, ValueError):
+        fleet_ops.record_failure(
+            conn, audit.actor_for(h), action, target_type, target_id,
+            _failure_reason(exc))
+    return h.redirect(FLEET_PATH, set_cookie=_back(FLASH_FAILED))
+
+
+_OPERATION_ERRORS = (fleet_ops.OpsError, ValueError, OSError, sqlite3.Error)
 
 
 def _frame_label(device):
@@ -159,6 +188,8 @@ def handle_reactivate(h, m):
         return h.redirect(FLEET_PATH, set_cookie=_back(FLASH_NOT_FOUND))
     except fleet_ops.FrameBusy:
         return h.redirect(FLEET_PATH, set_cookie=_back(FLASH_BUSY))
+    except _OPERATION_ERRORS as exc:
+        return _failed(conn, h, fleet_ops.ACTION_REACTIVATE, "pending", pending_id, exc)
     finally:
         conn.close()
     return h.redirect(FLEET_PATH, set_cookie=_back(FLASH_REACTIVATED))
@@ -199,6 +230,8 @@ def handle_reassign(h, m):
             return h.redirect(FLEET_PATH, set_cookie=_back(FLASH_OWNER_UNAVAILABLE))
         except fleet_ops.FrameBusy:
             return h.redirect(FLEET_PATH, set_cookie=_back(FLASH_BUSY))
+        except _OPERATION_ERRORS as exc:
+            return _failed(conn, h, fleet_ops.ACTION_REASSIGN, "device", device_id, exc)
         device = fleet_db.get_device(conn, device_id)
         email = conn.execute(
             "SELECT email FROM users WHERE id = ?", (owner_id,)).fetchone()["email"]
