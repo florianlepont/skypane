@@ -127,6 +127,10 @@ _UNAUTH_GET_REQUESTS = (
     companion_app.AIRLINES_ROUTE,
     companion_app.UPDATE_ROUTE,
     "/account",
+    "/fleet",
+    "/audit",
+    "/users",
+    "/locations",
     companion_app.SETTINGS_ROUTE,
     companion_app.HISTORY_LEGACY_ROUTE,
     companion_app.PREVIEW_PAGE_ROUTE,
@@ -158,6 +162,19 @@ _UNAUTH_POST_REQUESTS = (
     companion_app.UPDATE_INSTALL_ROUTE,
     companion_app.UPDATE_CANCEL_ROUTE,
     companion_app.RULES_DELETE_ROUTE_PREFIX + "callsign/AFR" + companion_app.RULES_DELETE_ROUTE_SUFFIX,
+    "/fleet/register",
+    "/fleet/pair",
+    "/fleet/frames/d_00000000/retire",
+    "/fleet/frames/p_00000000/reactivate",
+    "/fleet/frames/d_00000000/reassign",
+    "/users/invite",
+    "/users/1/role",
+    "/users/1/disable",
+    "/users/1/enable",
+    "/users/1/unlink",
+    "/locations/add",
+    "/locations/1/edit",
+    "/locations/1/delete",
     _NOT_FOUND_PATH,
 )
 
@@ -173,8 +190,13 @@ _TOKEN_RE = re.compile(r'data-refresh-token="[0-9a-f]{32}"')
 _TOKEN_PLACEHOLDER = 'data-refresh-token="normalised-ctime-cannot-be-frozen"'
 
 
+# The anti-forgery token is derived from the (random) session cookie.
+_CSRF_RE = re.compile(r'name="csrf_token" value="[0-9a-f]{64}"')
+_CSRF_PLACEHOLDER = 'name="csrf_token" value="normalised-per-session-token"'
+
+
 def _normalise_body(body_text):
-    return _TOKEN_RE.sub(_TOKEN_PLACEHOLDER, body_text)
+    return _CSRF_RE.sub(_CSRF_PLACEHOLDER, _TOKEN_RE.sub(_TOKEN_PLACEHOLDER, body_text))
 
 
 @contextmanager
@@ -317,7 +339,10 @@ def capture_pages(server, cookie):
                     status, _headers, body = companion_app_server.http_request(
                         server.url(path), cookie=page_cookie)
                 else:
-                    data = urllib.parse.urlencode(form or {}).encode()
+                    fields = dict(form or {})
+                    if needs_session:
+                        fields["csrf_token"] = auth.csrf_token(cookie.split("=", 1)[1])
+                    data = urllib.parse.urlencode(fields).encode()
                     status, _headers, body = companion_app_server.http_request(
                         server.url(path), method="POST", data=data,
                         cookie=page_cookie, extra_headers=origin_header)

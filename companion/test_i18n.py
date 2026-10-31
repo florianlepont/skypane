@@ -207,6 +207,16 @@ _UNCHANGED_IN_FRENCH = frozenset({
     # "Auto" is the usual French abbreviation of "Automatique" on a
     # narrow segmented control.
     "nav.auto",
+    # "Administration" and "Admin" are the French words too, spelled
+    # identically: real cognates for the console's nav group and phone tab.
+    "nav.administration", "nav.admin",
+    # The French column heading for a list of row actions is the same word.
+    "admin_fleet.actions", "admin_users.actions", "admin_locations.actions",
+    # "Latitude" and "Longitude" are the French words too, spelled identically.
+    "admin_locations.latitude", "admin_locations.longitude",
+    "admin_locations.latitude_longitude",
+    # "Action" is the French word too, for the audit table's column heading.
+    "admin_lifecycle.action",
 })
 
 
@@ -442,10 +452,11 @@ def test_404_page_renders_in_french(french_render_server, french_session):
 
 
 def test_calendar_disconnect_confirm_page_renders_in_french(french_render_server, french_session):
-    _session_cookie, lang_cookie = french_session
+    session_cookie, lang_cookie = french_session
+    token = auth.csrf_token(session_cookie.split("=", 1)[1])
     status, _headers, body = companion_app_server.http_request(
         french_render_server.base_url() + "/settings/calendar/disconnect",
-        method="POST", cookie=lang_cookie, data=b"")
+        method="POST", cookie=lang_cookie, data=("csrf_token=" + token).encode())
     text = body.decode("utf-8", "replace")
     assert status == 200, (
         "a bare POST /settings/calendar/disconnect under lang=fr returned "

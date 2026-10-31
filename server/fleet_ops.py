@@ -12,15 +12,19 @@ Security invariants:
 - Wrong, expired, used and malformed codes raise the same `ClaimRefused`
   after the same scan; neither the guess nor a code appears in any message,
   audit row or log.
-- Operations that delete data run the delete inside the transaction, so a
-  failure rolls the database change back.
+- Operations that delete data move the old directory aside inside the
+  transaction, and delete it only after COMMIT. A failure before COMMIT rolls
+  the database back and moves the directory back, so nothing is lost or
+  half-wiped; the new owner always starts from a fresh provisioned directory.
 - The live frame (state path ".") is never wiped, retired or re-provisioned.
 """
 from __future__ import annotations
 
 import contextlib
+import logging
 import os
 import re
+import secrets
 import shutil
 import sqlite3
 import sys
@@ -37,6 +41,15 @@ if _REPO_ROOT not in sys.path:
 from server import device_dirs, fleet_db, hardware, pairing_code  # noqa: E402
 
 PAIRING_DIRNAME = "pairing"
+
+_LOG = logging.getLogger(__name__)
+
+_ASIDE_PREFIX = ".wipe-"
+FAIL_REFUSED = "refused"
+FAIL_INVALID_PATH = "invalid_path"
+FAIL_STORAGE = "storage_error"
+FAILURE_REASONS = (FAIL_REFUSED, FAIL_INVALID_PATH, FAIL_STORAGE)
+_ID_ATTEMPTS = 8
 
 ACTION_REGISTER = "frame.register"
 ACTION_CLAIM = "pairing.claim"
@@ -112,6 +125,22 @@ def _owner_is_active(conn: sqlite3.Connection, owner_user_id: int) -> bool:
 def _require_owner(conn: sqlite3.Connection, owner_user_id: int) -> None:
     if not _owner_is_active(conn, owner_user_id):
         raise OwnerUnavailable("owner is unknown or disabled")
+
+
+def record_failure(
+    conn: sqlite3.Connection,
+    actor: fleet_db.AuditActor,
+    action: str,
+    target_type: str,
+    target_id: str | None,
+    reason: str,
+) -> None:
+    """Audit a failed operation; `reason` is a fixed enum word, never text."""
+    if reason not in FAILURE_REASONS:
+        raise ValueError("invalid failure reason")
+    if conn.in_transaction:
+        conn.execute("ROLLBACK")
+    _audit_standalone(conn, actor, action, target_type, target_id, "failed", {"reason": reason})
 
 
 def _audit_standalone(
@@ -204,6 +233,39 @@ def _claim_candidates(conn: sqlite3.Connection) -> list[dict[str, object]]:
     return [dict(r) for r in rows]
 
 
+def _add_device_with_free_directory(
+    conn: sqlite3.Connection,
+    root: str,
+    row: Mapping[str, object],
+    hardware_key: str,
+    owner_user_id: int,
+    environ: Mapping[str, str] | None,
+) -> str:
+    """Insert the device, never reusing an id whose directory already exists.
+
+    A leftover directory (for example a retired frame's kept data) must not be
+    inherited by, or deleted with, a new device. A taken id is rolled back to a
+    savepoint and a new one is generated.
+    """
+    for _attempt in range(_ID_ATTEMPTS):
+        conn.execute("SAVEPOINT claim_id")
+        device_id = fleet_db.add_device(
+            conn, str(row["mac"]), str(row["secret_sha256"]), hardware_key,
+            owner_user_id,
+            token=None if row["token"] is None else str(row["token"]),
+            state_path="auto", environ=environ,
+        )
+        taken = os.path.lexists(
+            os.path.join(root, device_dirs.DEVICES_DIRNAME, device_id)
+        )
+        if not taken:
+            conn.execute("RELEASE claim_id")
+            return device_id
+        conn.execute("ROLLBACK TO claim_id")
+        conn.execute("RELEASE claim_id")
+    raise OpsError("no free device directory")
+
+
 def claim_pairing_code(
     conn: sqlite3.Connection,
     root: str,
@@ -233,11 +295,8 @@ def claim_pairing_code(
             pending_id = str(row["id"])
             profile = hardware.get_profile(str(row["hardware_type"]), environ)
             conn.execute("DELETE FROM pending_devices WHERE id = ?", (pending_id,))
-            device_id = fleet_db.add_device(
-                conn, str(row["mac"]), str(row["secret_sha256"]), profile.key,
-                owner_user_id,
-                token=None if row["token"] is None else str(row["token"]),
-                state_path="auto", environ=environ,
+            device_id = _add_device_with_free_directory(
+                conn, root, row, profile.key, owner_user_id, environ
             )
             # Recorded before devices/ first appears, so a corrupt fleet.db
             # can never leave per-device state without the live-frame record.
@@ -272,22 +331,97 @@ def _guarded(busy_guard: BusyGuard | None, directory: str | None) -> Iterator[No
         yield
 
 
-def _wipe_and_reprovision(
-    root: str, state_path: str, hardware_type: str, environ: Mapping[str, str] | None
-) -> None:
-    """Remove the frame's directory and seed a fresh one; verify the panel."""
-    profile = hardware.get_profile(hardware_type, environ)
-    device_dirs.wipe_device_dir(root, state_path)
-    directory = device_dirs.provision_device_dir(
-        root, state_path[len(device_dirs.DEVICES_DIRNAME) + 1:],
-        profile.width, profile.height,
+def _require_canonical_path(state_path: str, device_id: object) -> None:
+    """Refuse a wipe unless the stored path is exactly `devices/<its own id>`."""
+    if state_path == device_dirs.LIVE_STATE_PATH:
+        return
+    if not isinstance(device_id, str) or not device_dirs.is_valid_device_id(device_id):
+        raise OpsError("state path does not belong to this frame")
+    if state_path != device_dirs.state_path_for(device_id):
+        raise OpsError("state path does not belong to this frame")
+
+
+def _move_aside(root: str, state_path: str) -> tuple[str, str] | None:
+    """Rename the device directory next to itself; returns (directory, aside).
+
+    Same filesystem, so the rename is atomic. None when there is no directory.
+    The live path "." is refused before anything is touched.
+    """
+    if state_path == device_dirs.LIVE_STATE_PATH:
+        raise ValueError("refusing to wipe the live state directory")
+    directory = device_dirs.resolve_state_dir(root, state_path)
+    if not os.path.lexists(directory):
+        return None
+    aside = os.path.join(
+        os.path.dirname(directory), _ASIDE_PREFIX + secrets.token_hex(8)
     )
-    panel = os.path.join(directory, device_dirs.PANEL_FILENAME)
-    if (
-        not os.path.isfile(panel)
-        or os.path.getsize(panel) != (profile.width // 2) * profile.height
-    ):
-        raise OpsError("fresh panel image missing or the wrong size")
+    os.rename(directory, aside)
+    return directory, aside
+
+
+def _restore_aside(moved: tuple[str, str] | None) -> None:
+    """Undo `_move_aside`, discarding any fresh directory created since."""
+    if moved is None:
+        return
+    directory, aside = moved
+    if os.path.lexists(directory):
+        shutil.rmtree(directory, ignore_errors=True)
+    os.rename(aside, directory)
+
+
+def _discard_aside(moved: tuple[str, str] | None) -> None:
+    """Delete the renamed directory after COMMIT; a failure is logged only."""
+    if moved is None:
+        return
+    try:
+        shutil.rmtree(moved[1])
+    except OSError as exc:
+        _LOG.warning("could not delete %s after commit: %s", moved[1], exc.__class__.__name__)
+
+
+def _reset_directory(
+    root: str, state_path: str, hardware_type: str, environ: Mapping[str, str] | None
+) -> tuple[str, str] | None:
+    """Move the old directory aside and seed a fresh one; verify the panel."""
+    profile = hardware.get_profile(hardware_type, environ)
+    moved = _move_aside(root, state_path)
+    try:
+        directory = device_dirs.provision_device_dir(
+            root, state_path[len(device_dirs.DEVICES_DIRNAME) + 1:],
+            profile.width, profile.height,
+        )
+        panel = os.path.join(directory, device_dirs.PANEL_FILENAME)
+        if (
+            not os.path.isfile(panel)
+            or os.path.getsize(panel) != (profile.width // 2) * profile.height
+        ):
+            raise OpsError("fresh panel image missing or the wrong size")
+    except BaseException:
+        _restore_aside(moved)
+        raise
+    return moved
+
+
+@contextlib.contextmanager
+def _transaction_keeping_directory(
+    conn: sqlite3.Connection, moved: list[tuple[str, str] | None]
+) -> Iterator[None]:
+    """A fleet transaction whose directory move is undone on any failure.
+
+    `moved` receives the aside pair; the caller appends it inside the body.
+    After a successful COMMIT the renamed directory is deleted.
+    """
+    try:
+        with fleet_db.transaction(conn):
+            yield
+    except BaseException:
+        if conn.in_transaction:
+            conn.execute("ROLLBACK")
+        for pair in moved:
+            _restore_aside(pair)
+        raise
+    for pair in moved:
+        _discard_aside(pair)
 
 
 def _directory_for(state_path: str | None, root: str) -> str | None:
@@ -319,8 +453,10 @@ def reassign_frame(
     if first is None:
         raise NotFound("no such frame")
     _require_owner(conn, new_owner_user_id)
+    _require_canonical_path(str(first["state_path"]), device_id)
+    moved: list[tuple[str, str] | None] = []
     with _guarded(busy_guard, _directory_for(str(first["state_path"]), root)):
-        with fleet_db.transaction(conn):
+        with _transaction_keeping_directory(conn, moved):
             dev = fleet_db.get_device(conn, device_id)
             if dev is None or dev["state_path"] != first["state_path"]:
                 raise NotFound("no such frame")
@@ -337,9 +473,9 @@ def reassign_frame(
                     "name = NULL WHERE id = ?",
                     (new_owner_user_id, device_id),
                 )
-                _wipe_and_reprovision(
+                moved.append(_reset_directory(
                     root, str(dev["state_path"]), str(dev["hardware_type"]), environ
-                )
+                ))
             fleet_db.audit_append(
                 conn, actor, ACTION_REASSIGN, "device", device_id, "ok",
                 {"old_owner_user_id": old_owner, "new_owner_user_id": new_owner_user_id},
@@ -391,21 +527,25 @@ def reactivate_frame(
     """Return a retired frame to pending, wiping its previous directory.
 
     The next display poll issues a fresh pairing code. MAC, secret and token
-    are kept.
+    are kept. The old directory is renamed aside, deleted only after COMMIT and
+    restored on any failure.
     """
     first = fleet_db.get_pending(conn, pending_id)
     if first is None or first["status"] != fleet_db.PENDING_STATUS_RETIRED:
         raise NotFound("no such retired frame")
     previous = first["previous_state_path"]
+    if previous is not None:
+        _require_canonical_path(str(previous), first["previous_device_id"])
     directory = _directory_for(None if previous is None else str(previous), root)
+    moved: list[tuple[str, str] | None] = []
     with _guarded(busy_guard, directory):
-        with fleet_db.transaction(conn):
+        with _transaction_keeping_directory(conn, moved):
             row = fleet_db.get_pending(conn, pending_id)
             if row is None or row["status"] != fleet_db.PENDING_STATUS_RETIRED:
                 raise NotFound("no such retired frame")
             fleet_db.reactivate_pending(conn, pending_id)
             if directory is not None:
-                device_dirs.wipe_device_dir(root, str(previous))
+                moved.append(_move_aside(root, str(previous)))
             fleet_db.audit_append(
                 conn, actor, ACTION_REACTIVATE, "pending", pending_id, "ok",
                 {"previous_device_id": row["previous_device_id"]},

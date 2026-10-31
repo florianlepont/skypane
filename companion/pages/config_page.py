@@ -443,6 +443,13 @@ def _display_groups_html(builders, groups):
     return runway_html, quiet_hours_html
 
 
+def _location_picker_html(ctx):
+    """The frame's Location picker, built next to the time zone it goes with."""
+    # Imported on use: the console route modules import the page modules.
+    from companion import console_locations
+    return console_locations.display_picker_html(ctx)
+
+
 def _device_groups_html(builders, groups):
     """Device shows only the controls that change its behaviour.
 
@@ -605,6 +612,8 @@ def _render_display_scope(ctx, screen, screen_id, groups, builders, errors, subm
     else:
         aspect_section_html = ""
     display_watches_html, display_on_html = _display_groups_html(builders, groups)
+    if screens.GROUP_QUIET_HOURS in groups:
+        display_on_html += _location_picker_html(ctx)
     return {
         "header": header, "frame_strip_section_html": frame_strip_section_html,
         "hidden_html": _scope_fields_html(SCOPE_DISPLAY, layout.DISPLAY_ROUTE),
@@ -807,7 +816,7 @@ def submitted_calendar_signal(form):
     return CALENDAR_URL_SIGNAL_SET
 
 
-def handle_post(form, ctx, errors=None):
+def handle_post(form, ctx, errors=None, handler=None):
     """Validate the submitted settings state against `device_config`'s
     own registries and validators, then persist all fields in one
     `save_device_config()` call. Rejection is all-or-nothing: a crafted
@@ -838,7 +847,6 @@ def handle_post(form, ctx, errors=None):
     in_scope = set(scope_groups(scope, screens.current_screen_id(ctx)))
     calendar_signal = submitted_calendar_signal(form)
     submitted_calendar_url = form.get("calendar_url")
-
     # Each step is a zero-arg thunk, not a bare call, and the loop below
     # invokes them ONE AT A TIME, stopping at the first FAILED: a tuple
     # of already-evaluated call results would run every resolver up
@@ -848,6 +856,7 @@ def handle_post(form, ctx, errors=None):
     steps = (
         lambda: form_post.resolve_theme(form, errors),
         lambda: form_post.resolve_calendar_signal(calendar_signal, errors),
+        lambda: form_post.resolve_calendar_url(calendar_signal, submitted_calendar_url, errors),
         lambda: form_post.resolve_calendar_theme_id(form, errors),
         lambda: form_post.resolve_theme_arriving(form, in_scope, errors),
         lambda: form_post.resolve_runway(form, errors),
@@ -867,9 +876,24 @@ def handle_post(form, ctx, errors=None):
             return FLASH_SAVE_FAILED
         save_kwargs.update(step_result)
 
+    replaced_location = []
+    if handler is not None and screens.GROUP_QUIET_HOURS in in_scope:
+        # The picker sits with the time zone: applied only when the page
+        # that carries it was the one submitted, and before any file write
+        # so a refused assignment leaves everything unchanged.
+        from companion import console_locations
+        if not console_locations.apply_device_location(
+                form, ctx, handler, replaced_location):
+            return FLASH_SAVE_FAILED
+
     try:
         device_config.save_device_config(state_dir, **save_kwargs)
     except (ValueError, OSError):
+        # A location assigned above is put back so a failed save never
+        # leaves one half of the form applied.
+        if replaced_location:
+            from companion import console_locations
+            console_locations.undo_device_location(ctx, handler, replaced_location[0])
         return FLASH_SAVE_FAILED
 
     if calendar_signal == CALENDAR_URL_SIGNAL_CLEAR:

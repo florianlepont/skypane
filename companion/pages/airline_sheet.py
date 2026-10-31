@@ -17,7 +17,7 @@ and the tile shows and edits the artwork of the name flights now carry.
 """
 import companion.device_scope as device_scope
 import companion.i18n as i18n
-from companion.layout import escape_html
+from companion.layout import csrf_field, escape_html
 from server.plane import enrich, illustrations, name_overrides
 
 RENAME_ROUTE = "/airlines/rename"
@@ -195,12 +195,12 @@ def sheet_html(values, id_suffix, name_label, in_dialog, focus_name=False):
         if builtin else "")
     reset_form = (
         '<form class="airline-sheet__reset" method="post" action="%s">'
-        '<input type="hidden" name="airline" value="%s">'
+        '<input type="hidden" name="airline" value="%s">%s'
         '<p class="text-label section-caption" data-sheet-reset-template="%s">%s</p>'
         '<button type="submit">%s</button>'
         "</form>"
     ) % (
-        device_scope.scoped(RENAME_RESET_ROUTE, "POST"), escape_html(builtin),
+        device_scope.scoped(RENAME_RESET_ROUTE, "POST"), escape_html(builtin), csrf_field(),
         escape_html(i18n.t(SHEET_RESET_CAPTION_TEMPLATE) % "#"), reset_caption,
         i18n.t(SHEET_RESET_TEXT))
     if not in_dialog and not renamed:

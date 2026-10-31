@@ -10,6 +10,7 @@ outcome a plain client (no JavaScript) already gets.
 import hashlib
 import json
 import os
+import re
 import urllib.parse
 
 import pytest
@@ -19,7 +20,7 @@ import companion.i18n as i18n
 import companion.layout as layout
 import companion.prefs as prefs
 from companion.pages import update_page
-from companion_app_server import get, http_request, login
+from companion_app_server import get, http_request, login, with_csrf
 from companion_markup import flash_toast_title_detail
 from server import atomic_io
 from server import firmware_registry as fr
@@ -83,7 +84,7 @@ def _set_floor(state_dir, floor_version):
 
 
 def _post(server, path, cookie, data=None):
-    body = urllib.parse.urlencode(data or {}).encode()
+    body = with_csrf(cookie, data)
     return http_request(
         server.base_url() + path, method="POST", data=body, cookie=cookie,
         extra_headers={"Origin": server.base_url()})
@@ -585,3 +586,38 @@ def test_chooser_renders_in_french(two_type_server, two_type_cookie):
     assert status == 200
     assert "Hardware type" not in html
     assert "Type de matériel" in html
+
+
+# ==========================================================================
+# Anti-forgery token: every release form carries the session's token.
+# ==========================================================================
+
+
+def _forms_to(page_text, route):
+    return [
+        inner for opening, inner in re.findall(r"(<form[^>]*>)(.*?)</form>", page_text, re.S)
+        if 'action="%s"' % route in opening]
+
+
+def _assert_token_in_forms(forms, cookie):
+    assert forms
+    expected = 'name="csrf_token" value="%s"' % auth.csrf_token(cookie.split("=", 1)[1])
+    assert all(expected in form for form in forms)
+
+
+def test_confirm_page_and_release_list_forms_carry_the_session_token(server, cookie):
+    _status, _headers, body = _post(
+        server, update_page.INSTALL_ROUTE, cookie, {"version": _DOWNGRADE_VERSION})
+    _assert_token_in_forms(_forms_to(body.decode("utf-8"), update_page.INSTALL_ROUTE), cookie)
+    _status, _headers, page = http_request(server.base_url() + layout.UPDATE_ROUTE, cookie=cookie)
+    _assert_token_in_forms(_forms_to(page.decode("utf-8"), update_page.INSTALL_ROUTE), cookie)
+
+
+def test_cancel_form_carries_the_session_token_and_works_with_it(server, cookie):
+    _post(
+        server, update_page.INSTALL_ROUTE, cookie,
+        {"version": _DOWNGRADE_VERSION, "confirm": "yes"})
+    _status, _headers, page = http_request(server.base_url() + layout.UPDATE_ROUTE, cookie=cookie)
+    _assert_token_in_forms(_forms_to(page.decode("utf-8"), update_page.CANCEL_ROUTE), cookie)
+    assert _post(server, update_page.CANCEL_ROUTE, cookie)[0] == 303
+    assert fr.load_registry(server.state_dir)["schedule"] is None

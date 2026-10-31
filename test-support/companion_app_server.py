@@ -73,6 +73,21 @@ class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
 _OPENER = urllib.request.build_opener(_NoRedirectHandler)
 
 
+def with_csrf(cookie, form=None):
+    """urlencoded POST body: `form` (a dict) plus the anti-forgery token
+    derived from the session `cookie` ("sp_session=<token>[; ...]"); an
+    anonymous caller (no cookie) gets no token.
+    """
+    from companion import auth
+    fields = dict(form or {})
+    if not cookie:
+        return urllib.parse.urlencode(fields).encode()
+    token = urllib.parse.parse_qs(
+        cookie.replace("; ", "&")).get(auth.SESSION_COOKIE_NAME, [""])[0]
+    fields["csrf_token"] = auth.csrf_token(token)
+    return urllib.parse.urlencode(fields).encode()
+
+
 def http_request(
         url, method="GET", data=None, cookie=None, timeout=10,
         content_type=None, extra_headers=None):

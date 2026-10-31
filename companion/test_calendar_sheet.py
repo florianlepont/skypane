@@ -17,7 +17,7 @@ import companion.test_companion_app_helpers as cah
 import companion.test_config_page_helpers as cp
 from companion.pages import config_page
 from companion.settings import calendar as calendar_settings
-from companion_app_server import http_request, login, served_asset
+from companion_app_server import http_request, login, served_asset, with_csrf
 from companion_markup import parse_html
 from server.plane import calendar_rules
 
@@ -404,11 +404,12 @@ def test_disconnect_still_needs_the_server_side_confirmation(app_server_in_proce
     session = login(server)
     _seed_connected(server)
     status, _h, body = http_request(
-        server.base_url() + config_page.CALENDAR_DISCONNECT_ROUTE, method="POST", data=b"", cookie=session)
+        server.base_url() + config_page.CALENDAR_DISCONNECT_ROUTE, method="POST",
+        data=with_csrf(session), cookie=session)
     assert status == 200 and calendar_rules.calendar_is_configured(server.state_dir)
     status, headers, _b = http_request(
         server.base_url() + config_page.CALENDAR_DISCONNECT_ROUTE, method="POST",
-        data=urllib.parse.urlencode({"confirm": "yes"}).encode(), cookie=session)
+        data=with_csrf(session, {"confirm": "yes"}), cookie=session)
     assert status == 303 and "flash=calendar_disconnected" in headers["Location"]
     assert not calendar_rules.calendar_is_configured(server.state_dir)
     assert calendar_rules.load_calendar_registry(server.state_dir)["entries"] == []

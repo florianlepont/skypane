@@ -30,13 +30,16 @@ def _reset_state():
     device_scope.set_request_scope(None, ())
 
 
-def _open_frame_pages_to_users(monkeypatch, extra=()):
-    """The route table as it stands once the frame pages are signed-in."""
+def _open_frame_pages_to_users(monkeypatch, extra=(), without_locations=False):
+    """The route table as it stands once the frame pages are signed-in;
+    `without_locations` drops the Locations page routes first."""
     opened = tuple(
         route._replace(access=routes.SIGNED_IN)
         if route.method == "GET" and isinstance(route.matcher, routes.Exact)
         and route.matcher.path in FRAME_PAGES else route
-        for route in routes.ROUTES)
+        for route in routes.ROUTES
+        if not (without_locations and route.method == "GET"
+                and route.matcher == routes.Exact("/locations")))
     monkeypatch.setattr(routes, "ROUTES", opened + tuple(extra))
 
 
@@ -69,23 +72,23 @@ def test_user_sidebar_lists_account_then_reachable_frame_pages(monkeypatch):
     prefix = "/devices/abc123"
     assert _hrefs(sidebar) == [
         "/account", prefix + "/", prefix + "/flights", prefix + "/display",
-        prefix + "/airlines", prefix + "/health"]
+        prefix + "/airlines", prefix + "/health", "/locations"]
     for label in ADMIN_ONLY_LABELS:
         assert label not in sidebar
     assert "nav-group" not in sidebar
     assert "nav-notification" not in sidebar
 
 
-def test_user_sidebar_without_reachable_pages_is_account_only(monkeypatch):
+def test_user_sidebar_without_reachable_frame_pages_is_account_and_locations(monkeypatch):
     _close_frame_pages_to_users(monkeypatch)
     _as_user_with_frame()
-    assert _hrefs(layout.sidebar_nav("account")) == ["/account"]
+    assert _hrefs(layout.sidebar_nav("account")) == ["/account", "/locations"]
 
 
-def test_user_sidebar_without_a_frame_is_account_only(monkeypatch):
+def test_user_sidebar_without_a_frame_is_account_and_locations_only(monkeypatch):
     _open_frame_pages_to_users(monkeypatch)
     prefs.set_request_principal("user", "user")
-    assert _hrefs(layout.sidebar_nav("account")) == ["/account"]
+    assert _hrefs(layout.sidebar_nav("account")) == ["/account", "/locations"]
 
 
 def test_user_phone_tab_bar_needs_a_frame(monkeypatch):
@@ -110,13 +113,14 @@ def test_user_tab_bar_is_empty_when_only_account_is_reachable(monkeypatch):
 
 
 def test_locations_link_follows_the_route_table(monkeypatch):
-    _open_frame_pages_to_users(monkeypatch)
+    _open_frame_pages_to_users(monkeypatch, without_locations=True)
     _as_user_with_frame()
     assert "/locations" not in _hrefs(layout.sidebar_nav("home"))
 
     locations = routes.Route(
         "GET", routes.Exact("/locations"), lambda handler, match: None, routes.SIGNED_IN)
-    _open_frame_pages_to_users(monkeypatch, extra=(locations,))
+    _open_frame_pages_to_users(
+        monkeypatch, extra=(locations,), without_locations=True)
     sidebar = layout.sidebar_nav("home")
     assert "/locations" in _hrefs(sidebar)
     assert i18n.t(ui_nav._LOCATIONS_LABEL) in sidebar
@@ -125,7 +129,8 @@ def test_locations_link_follows_the_route_table(monkeypatch):
 def test_locations_link_absent_when_route_is_admin_only(monkeypatch):
     admin_locations = routes.Route(
         "GET", routes.Exact("/locations"), lambda handler, match: None, routes.ADMIN_ONLY)
-    _open_frame_pages_to_users(monkeypatch, extra=(admin_locations,))
+    _open_frame_pages_to_users(
+        monkeypatch, extra=(admin_locations,), without_locations=True)
     _as_user_with_frame()
     assert "/locations" not in _hrefs(layout.sidebar_nav("home"))
 
@@ -146,14 +151,24 @@ def test_no_disabled_or_greyed_links_for_a_user(monkeypatch):
     assert "aria-disabled" not in markup
 
 
-def test_admin_navigation_is_unchanged(monkeypatch):
+def test_admin_navigation_only_gains_the_administration_group(monkeypatch):
     device_scope.set_request_scope(FRAME, [FRAME])
     baseline_sidebar = layout.sidebar_nav("home", health_alert="warn", device_config={})
     baseline_bar = ui_nav._tab_bar_html("home", health_alert="warn", device_config={})
     _open_frame_pages_to_users(monkeypatch)
     prefs.set_request_principal("admin", "admin")
-    assert layout.sidebar_nav(
-        "home", health_alert="warn", device_config={}) == baseline_sidebar
+    admin_sidebar = layout.sidebar_nav("home", health_alert="warn", device_config={})
+    # The one addition for an admin is the Administration group, which
+    # holds the console pages that exist (Fleet, Users, Locations, Audit log) and
+    # Releases.
+    group = (
+        '<div class="nav-group"><span class="nav-group__label text-label">'
+        'Administration</span><a class="sidebar-link" href="/fleet">Fleet</a>'
+        '<a class="sidebar-link" href="/users">Users</a>'
+        '<a class="sidebar-link" href="/locations">Locations</a>'
+        '<a class="sidebar-link" href="/audit">Audit log</a>'
+        '<a class="sidebar-link" href="/update">Releases</a></div>')
+    assert admin_sidebar == baseline_sidebar.replace("</nav>", group + "</nav>")
     assert ui_nav._tab_bar_html(
         "home", health_alert="warn", device_config={}) == baseline_bar
     assert "/devices/abc123/update" not in baseline_sidebar

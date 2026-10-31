@@ -265,11 +265,12 @@ def _shell(active="account", **kwargs):
         health_alert="warn", device_config={"a": 1}, **kwargs)
 
 
-def test_user_principal_shell_has_one_account_link_and_no_tab_bar():
+def test_user_principal_shell_has_account_and_locations_links_and_no_tab_bar():
     prefs.set_request_principal(kind="user", role="user")
     doc = _doc(_shell())
     links = doc.select("nav.sidebar-nav a")
-    assert [(a.attrs["href"], a.text()) for a in links] == [("/account", "Account")]
+    assert [(a.attrs["href"], a.text()) for a in links] == [
+        ("/account", "Account"), ("/locations", "Locations")]
     assert links[0].attrs["aria-current"] == "page"
     assert not doc.select(".nav-group__label")
     assert not doc.select(".nav-notification")
@@ -288,7 +289,7 @@ def test_user_principal_shell_links_only_to_reachable_destinations():
     prefs.set_request_principal(kind="user", role="user")
     doc = _doc(_shell(active=""))
     hrefs = {a.attrs["href"] for a in doc.select("a") if "href" in a.attrs}
-    assert all(h == "/account" or h.startswith("#") for h in hrefs), hrefs
+    assert all(h in ("/account", "/locations") or h.startswith("#") for h in hrefs), hrefs
     assert not doc.select("a[href=\"/\"]")
     inactive = doc.select_one("nav.sidebar-nav a")
     assert "aria-current" not in inactive.attrs

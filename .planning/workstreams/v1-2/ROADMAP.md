@@ -262,35 +262,35 @@ Real `/d/<id>/...` routes and their matrix rows are completed after Phase 51; se
 Plans:
 **Wave 1**
 
-- [ ] 55-01-PLAN.md — Role-conditional reductions of Display, Home, Health and navigation, settings form policy (AUTH-05)
-- [ ] 55-02-PLAN.md — fleet.db schema 3 (pending_devices, audit_log, locations.owner_user_id), typed API, directory wipe (AUTH-04, AUTH-05)
-- [ ] 55-03-PLAN.md — Pairing code module and deterministic pairing and retired screens (AUTH-04)
+- [x] 55-01-PLAN.md — Role-conditional reductions of Display, Home, Health and navigation, settings form policy (AUTH-05)
+- [x] 55-02-PLAN.md — fleet.db schema 3 (pending_devices, audit_log, locations.owner_user_id), typed API, directory wipe (AUTH-04, AUTH-05)
+- [x] 55-03-PLAN.md — Pairing code module and deterministic pairing and retired screens (AUTH-04)
 
 **Wave 2**
 
-- [ ] 55-04-PLAN.md — Ownership gate flip, owner-aware device scope, Account frames list, matrix update (AUTH-05)
-- [ ] 55-05-PLAN.md — fleet_ops: register, atomic claim, retire, re-activate, reassign (AUTH-04, AUTH-05)
+- [x] 55-04-PLAN.md — Ownership gate flip, owner-aware device scope, Account frames list, matrix update (AUTH-05)
+- [x] 55-05-PLAN.md — fleet_ops: register, atomic claim, retire, re-activate, reassign (AUTH-04, AUTH-05)
 
 **Wave 3**
 
-- [ ] 55-06-PLAN.md — Real-handler HTTP layer of the access matrix (AUTH-05)
-- [ ] 55-07-PLAN.md — BYOS pending and retired path, CLI verbs, backup and freeze coverage (AUTH-04)
-- [ ] 55-08-PLAN.md — Per-session CSRF mechanism and retrofit of release and destructive POSTs (AUTH-05)
+- [x] 55-06-PLAN.md — Real-handler HTTP layer of the access matrix (AUTH-05)
+- [x] 55-07-PLAN.md — BYOS pending and retired path, CLI verbs, backup and freeze coverage (AUTH-04)
+- [x] 55-08-PLAN.md — Per-session CSRF mechanism and retrofit of release and destructive POSTs (AUTH-05)
 
 **Wave 4**
 
-- [ ] 55-09-PLAN.md — Console shell: throttle, audit helper, flash, navigation, route seams (AUTH-04, AUTH-05)
+- [x] 55-09-PLAN.md — Console shell: throttle, audit helper, flash, navigation, route seams (AUTH-04, AUTH-05)
 
 **Wave 5**
 
-- [ ] 55-10-PLAN.md — Fleet page, register and pair handlers with throttling (AUTH-04, AUTH-05)
-- [ ] 55-11-PLAN.md — Retire, re-activate, reassign, Audit log page, release audit events (AUTH-04, AUTH-05)
-- [ ] 55-12-PLAN.md — Users page and actions with last-admin guards (AUTH-05)
-- [ ] 55-13-PLAN.md — Locations for both roles and Display location picker (AUTH-05)
+- [x] 55-10-PLAN.md — Fleet page, register and pair handlers with throttling (AUTH-04, AUTH-05)
+- [x] 55-11-PLAN.md — Retire, re-activate, reassign, Audit log page, release audit events (AUTH-04, AUTH-05)
+- [x] 55-12-PLAN.md — Users page and actions with last-admin guards (AUTH-05)
+- [x] 55-13-PLAN.md — Locations for both roles and Display location picker (AUTH-05)
 
 **Wave 6**
 
-- [ ] 55-14-PLAN.md — Browser tests, full verification, deploy docs and phase hand-off (AUTH-04, AUTH-05)
+- [x] 55-14-PLAN.md — Browser tests, full verification, deploy docs and phase hand-off (AUTH-04, AUTH-05)
 
 **UI hint**: yes
 
@@ -399,7 +399,7 @@ Plans:
 | 52. Fleet Poll Cycle, Zones and Request Budget | v1.2 | 7/7 | Complete (merged, not deployed) | 2026-10-31 |
 | 53. Detection Modes | v1.2 | 0/0 | Not started | - |
 | 54. Auth0 Sign-In, Local Roles and Default-Deny Access | v1.2 | 9/9 | Complete, closed by the owner after production tests (2026-10-30 and 2026-10-31); AUTH-03 per-device matrix rows carried to Phase 55 (see 54-HANDOFF.md) | 2026-10-31 |
-| 55. Frame Pairing, Admin Console and Reduced User View | v1.2 | 0/14 | Planned | - |
+| 55. Frame Pairing, Admin Console and Reduced User View | v1.2 | 14/14 | Code complete and verified in code (3/3 criteria); real-frame and deploy checks pending (see 55-HANDOFF.md) | - |
 | 56. Per-Hardware Rendering, Battery Profiles, Health and Credits | v1.2 | 11/11 | Complete, merged (#257) and deployed 2026-10-31; verification passed, two owner follow-ups open (see 56-VERIFICATION.md) | 2026-10-31 |
 | 57. Combined Legacy-Frame Firmware Release | v1.2 | 0/0 | Not started (gated on Phase 47 and on the OTA signing bench check) | - |
 | 58. Second Hardware | v1.2 | 0/0 | Not started | - |

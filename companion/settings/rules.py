@@ -6,7 +6,7 @@ independent of this module — see that module's own docstring for why.
 from companion import device_scope, i18n
 from companion import theme_preview
 import companion.layout as layout
-from companion.layout import escape_html
+from companion.layout import csrf_field, escape_html
 from server import device_config, history_db
 from server.plane import colour_rules, enrich, name_overrides
 
@@ -288,12 +288,13 @@ def _rule_row_html(kind, value, theme_id):
     it), and the server-side handler requires no confirm value.
     """
     delete_form = (
-        '<form method="post" action="%s" data-confirm="%s">'
+        '<form method="post" action="%s" data-confirm="%s">%s'
         '<button type="submit" class="special-row__remove">%s</button>'
         "</form>"
     ) % (
         _rule_delete_action(kind, value),
         escape_html(i18n.t(RULE_REMOVE_CONFIRM_QUESTION)),
+        csrf_field(),
         escape_html(i18n.t(RULE_REMOVE_BUTTON_TEXT)),
     )
     return (

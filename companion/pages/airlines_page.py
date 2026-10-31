@@ -19,7 +19,7 @@ from companion.illustration_normalize import (
 )
 import companion.device_scope as device_scope
 import companion.i18n as i18n
-from companion.layout import escape_html
+from companion.layout import csrf_field, escape_html
 import companion.layout as layout
 import companion.page_context as page_context
 from companion.pages import airline_sheet
@@ -1214,11 +1214,13 @@ def _manual_delete_form_html(action):
     one it doesn't need.
     """
     return (
-        '<form class="%s" method="post" action="%s">'
+        '<form class="%s" method="post" action="%s">%s'
         '<p class="text-label section-caption">%s</p>'
         '<button type="submit">%s</button>'
         "</form>"
-    ) % (LIGHTBOX_DELETE_CLASS, action, i18n.t(MANUAL_DELETE_CAPTION), i18n.t(DELETE_BUTTON_TEXT))
+    ) % (
+        LIGHTBOX_DELETE_CLASS, action, csrf_field(), i18n.t(MANUAL_DELETE_CAPTION),
+        i18n.t(DELETE_BUTTON_TEXT))
 
 
 def _resolve_section_html(ctx):

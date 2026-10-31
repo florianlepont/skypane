@@ -7,7 +7,7 @@ import os
 import sqlite3
 from types import SimpleNamespace
 
-from companion_app_server import http_request, login
+from companion_app_server import http_request, login, with_csrf
 from skypane_two_device_fleet import seed_two_device_fleet
 
 __test__ = False
@@ -97,8 +97,7 @@ def get(app, path):
 
 
 def post(app, path, form=None, headers=None):
-    import urllib.parse
-    data = urllib.parse.urlencode(form or {}).encode()
+    data = with_csrf(app.cookie, form)
     status, response_headers, body = http_request(
         app.server.base_url() + path, method="POST", data=data, cookie=app.cookie,
         extra_headers=headers)

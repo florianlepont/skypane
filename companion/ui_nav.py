@@ -7,6 +7,7 @@ route/label tables, icon lookup and escaping, plus companion.i18n/
 companion.prefs and companion.auth's theme-cookie name; no import from
 ui_components or ui_shell.
 """
+import companion.console_routes as console_routes
 import companion.device_scope as device_scope
 import companion.i18n as i18n
 import companion.prefs as prefs
@@ -70,6 +71,56 @@ def is_user_principal():
     """True when the request's principal is a plain user (role "user")."""
     principal = prefs.current_principal()
     return principal is not None and principal[1] == USER_ROLE
+
+
+ADMIN_ROLE = "admin"
+_ADMIN_TAB_LABEL = i18n.msg("nav.admin", "Admin")
+_ADMIN_TAB_ICON_ID = "icon-nav-device"
+_NAV_TAB_ROUTES = frozenset(route for route, _label in NAV_TABS)
+
+
+def is_admin_principal():
+    """True when the request's principal is an administrator."""
+    principal = prefs.current_principal()
+    return principal is not None and principal[1] == ADMIN_ROLE
+
+
+def _admin_nav_entries():
+    """The Administration links an admin may follow: console pages whose GET
+    route exists, empty for every other caller. Routes are never scoped to a
+    frame, so the links carry no device prefix.
+    """
+    if not is_admin_principal():
+        return []
+    return console_routes.available_nav_entries()
+
+
+def _admin_group_html(active):
+    """The sidebar's Administration group, or "" when it has no links.
+    Releases is the Update page, which the Advanced group already marks
+    current, so it is never marked here as well.
+    """
+    entries = _admin_nav_entries()
+    if not entries:
+        return ""
+    links = []
+    for _key, path, label in entries:
+        is_active = nav_slug(path) == active and path not in _NAV_TAB_ROUTES
+        css_class = "sidebar-link sidebar-link--active" if is_active else "sidebar-link"
+        aria_current = ' aria-current="page"' if is_active else ""
+        links.append(
+            '<a class="%s" href="%s"%s>%s</a>' % (
+                css_class, escape_html(path), aria_current, escape_html(i18n.t(label))))
+    return (
+        '<div class="nav-group"><span class="nav-group__label text-label">%s</span>%s</div>'
+        % (escape_html(i18n.t(console_routes.ADMINISTRATION_LABEL)), "".join(links)))
+
+
+def _admin_tab_present():
+    """Whether the phone bar carries the Admin tab: an admin, and a Fleet page."""
+    return is_admin_principal() and any(
+        path == console_routes.ADMIN_TAB_ROUTE
+        for _key, path, _label in console_routes.available_nav_entries())
 
 
 def ui_theme_from_cookie(cookies):
@@ -264,6 +315,7 @@ def sidebar_nav(active, health_alert=None, device_config=None):
                 % (group_label, "".join(links)))
         else:
             parts.append("".join(links))
+    parts.append(_admin_group_html(active))
     return (
         '<nav class="sidebar-nav" aria-label="%s">%s</nav>'
     ) % (
@@ -420,6 +472,38 @@ REFRESH_SWAP_SELECTORS_BY_PAGE = {
 }
 
 
+def _tab_bar_cell_link(tab):
+    """One frame tab cell for an (is_active, route, label, slug) link."""
+    is_active, route, label, slug = tab
+    css_class = "tab-bar__link tab-bar__link--active" if is_active else "tab-bar__link"
+    aria_current = ' aria-current="page"' if is_active else ""
+    return '<a class="%s" href="%s"%s>%s</a>' % (
+        css_class, route, aria_current,
+        _tab_bar_cell_body(NAV_ICON_IDS.get(slug, ""), label))
+
+
+def _tab_bar_sheet_link(tab):
+    """One More-sheet row. Reuses .mobile-nav__link, so the rows share its
+    44px/16px tap-target geometry instead of duplicating the numbers.
+    """
+    is_active, route, label, _slug = tab
+    css_class = (
+        "mobile-nav__link mobile-nav__link--active" if is_active else "mobile-nav__link")
+    aria_current = ' aria-current="page"' if is_active else ""
+    return '<a class="%s" href="%s"%s>%s</a>' % (css_class, route, aria_current, label)
+
+
+def _admin_tab_cell_html(active):
+    """The Admin tab: Fleet's page, current on any console page."""
+    is_active = active in {
+        nav_slug(path) for path in console_routes.CONSOLE_TITLES}
+    css_class = "tab-bar__link tab-bar__link--active" if is_active else "tab-bar__link"
+    aria_current = ' aria-current="page"' if is_active else ""
+    return '<a class="%s" href="%s"%s>%s</a>' % (
+        css_class, escape_html(console_routes.ADMIN_TAB_ROUTE), aria_current,
+        _tab_bar_cell_body(_ADMIN_TAB_ICON_ID, escape_html(i18n.t(_ADMIN_TAB_LABEL))))
+
+
 def _tab_bar_html(active, health_alert=None, device_config=None):
     """Bottom tab bar shown below 960px, replacing the hamburger dropdown as the
     sub-960px nav.
@@ -436,30 +520,21 @@ def _tab_bar_html(active, health_alert=None, device_config=None):
         return _user_tab_bar_html(active)
     if not device_config:
         return ""
-    cells = []
-    sheet_links = []
-    sheet_holds_active = False
+    frame_tabs = []
+    sheet_tabs = []
     for group_label, group_links in _nav_groups(active):
-        for is_active, route, label, slug in group_links:
-            aria_current = ' aria-current="page"' if is_active else ""
-            if group_label:
-                sheet_holds_active = sheet_holds_active or is_active
-                css_class = (
-                    "mobile-nav__link mobile-nav__link--active"
-                    if is_active else "mobile-nav__link")
-                # Reuses .mobile-nav__link rather than a new class, so the sheet's rows share
-                # its 44px/16px tap-target geometry instead of duplicating the numbers.
-                sheet_links.append(
-                    '<a class="%s" href="%s"%s>%s</a>'
-                    % (css_class, route, aria_current, label))
-                continue
-            css_class = (
-                "tab-bar__link tab-bar__link--active"
-                if is_active else "tab-bar__link")
-            cells.append(
-                '<a class="%s" href="%s"%s>%s</a>'
-                % (css_class, route, aria_current,
-                   _tab_bar_cell_body(NAV_ICON_IDS.get(slug, ""), label)))
+        (sheet_tabs if group_label else frame_tabs).extend(group_links)
+    admin_tab = _admin_tab_present()
+    if admin_tab:
+        # The bar holds five cells. The Admin tab takes the place of the
+        # least-used frame tab (Airlines, the last one), which moves to the
+        # front of the More sheet.
+        sheet_tabs.insert(0, frame_tabs.pop())
+    sheet_holds_active = any(tab[0] for tab in sheet_tabs)
+    cells = [_tab_bar_cell_link(tab) for tab in frame_tabs]
+    if admin_tab:
+        cells.append(_admin_tab_cell_html(active))
+    sheet_links = [_tab_bar_sheet_link(tab) for tab in sheet_tabs]
     summary_class = (
         "tab-bar__link tab-bar__link--active"
         if sheet_holds_active else "tab-bar__link")

@@ -416,6 +416,16 @@ def refresh_calendar_registry(state_dir, now, transport=None, min_interval_s=Non
 # --- Connect or replace: fetch first, save only on success -----------------
 
 
+def calendar_url_is_acceptable(url):
+    """True when `url` may be stored as the calendar link: non-empty, https
+    (a `webcal://` link is normalised first) and every address its host
+    resolves to passes the SSRF gate. The single gate shared by
+    `connect_calendar_url()` and the combined settings form.
+    """
+    candidate = url.strip() if isinstance(url, str) else ""
+    return bool(candidate) and safe_fetch.url_is_safe(_normalise_calendar_url(candidate))
+
+
 def connect_calendar_url(state_dir, url, now, transport=None):
     """Validate a candidate calendar URL by reading it, and only when it
     answers store it and replace the registry with what it supplied.
@@ -436,7 +446,7 @@ def connect_calendar_url(state_dir, url, now, transport=None):
     failed, so the poll loop reads the feed on its next cycle.
     """
     candidate = url.strip() if isinstance(url, str) else ""
-    if not candidate or not safe_fetch.url_is_safe(_normalise_calendar_url(candidate)):
+    if not calendar_url_is_acceptable(candidate):
         return FETCH_REJECTED_URL
     body = fetch_ics(candidate, transport=transport)
     if body is None:

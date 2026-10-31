@@ -11,7 +11,7 @@ import urllib.parse
 import companion.prefs as prefs
 import companion.test_status_pages_helpers as shp
 from companion.pages import airline_sheet, airlines_page
-from companion_app_server import http_request, login
+from companion_app_server import http_request, login, with_csrf
 from server.plane import illustrations, manual_resolutions, name_overrides
 
 
@@ -32,7 +32,7 @@ def _attr(fragment, name):
 def _post(server, session, path, **fields):
     return http_request(
         server.base_url() + path, method="POST", cookie=session,
-        data=urllib.parse.urlencode(fields).encode())
+        data=with_csrf(session, fields))
 
 
 def _flash(headers):

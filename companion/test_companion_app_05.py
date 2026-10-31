@@ -37,7 +37,7 @@ import companion.ui_shell as ui_shell
 from companion.test_config_page_helpers import caption_word_count_text
 from companion import auth, device_scope, frame_state
 from companion.pages import config_page
-from companion_app_server import http_request, login
+from companion_app_server import http_request, login, with_csrf
 from companion_markup import flash_toast_title_detail
 from server import device_config
 import server.state_store as state_store
@@ -417,7 +417,7 @@ def test_manual_resolution_delete_route_full_contract(make_app_server):
         fh.write(b"not a real png - only its continued existence is asserted here")
 
     status, headers, _ = http_request(
-        base + "/airlines/manual-resolutions/DEL/delete", method="POST", cookie=session)
+        base + "/airlines/manual-resolutions/DEL/delete", method="POST", data=with_csrf(session), cookie=session)
     assert status == 303, "expected a 303 redirect, got %d" % status
     location = headers.get("Location", "")
     assert location == "/airlines", "expected a redirect to /airlines with no flash, got %r" % location
@@ -426,7 +426,7 @@ def test_manual_resolution_delete_route_full_contract(make_app_server):
     assert os.path.isfile(override_path), "expected the override file to survive the delete (D-08)"
 
     status, headers, _ = http_request(
-        base + "/airlines/manual-resolutions/DEL/delete", method="POST", cookie=session)
+        base + "/airlines/manual-resolutions/DEL/delete", method="POST", data=with_csrf(session), cookie=session)
     assert status == 303, (
         "expected a second, identical delete POST to also redirect (idempotent), got %d" % status)
     location = headers.get("Location", "")
@@ -435,7 +435,7 @@ def test_manual_resolution_delete_route_full_contract(make_app_server):
         "got %r" % location)
 
     status, _headers, _body = http_request(
-        base + "/airlines/manual-resolutions/not-three-letters/delete", method="POST", cookie=session)
+        base + "/airlines/manual-resolutions/not-three-letters/delete", method="POST", data=with_csrf(session), cookie=session)
     assert status == 404, "expected 404 for a malformed prefix, got %d" % status
     assert os.path.isfile(override_path), (
         "expected the override file to still exist after a 404'd malformed-prefix POST")
@@ -620,14 +620,14 @@ def test_rules_delete_route_full_contract(make_app_server):
 
     delete_path = "%shex/3944F2%s" % (
         config_page.RULES_DELETE_ROUTE_PREFIX, config_page.RULES_DELETE_ROUTE_SUFFIX)
-    status, headers, _ = http_request(base + delete_path, method="POST", cookie=session)
+    status, headers, _ = http_request(base + delete_path, method="POST", data=with_csrf(session), cookie=session)
     assert status == 303, "expected a 303 redirect, got %d" % status
     assert "flash=rule_deleted" in headers.get("Location", ""), (
         "expected the deleted flash key, got %r" % headers.get("Location"))
     registry = colour_rules.load_colour_rules(server.state_dir)
     assert "3944F2" not in registry.get("hex", {}), "expected the entry to be removed from the registry"
 
-    status, headers, _ = http_request(base + delete_path, method="POST", cookie=session)
+    status, headers, _ = http_request(base + delete_path, method="POST", data=with_csrf(session), cookie=session)
     assert status == 303, "expected a second identical delete to also redirect, got %d" % status
     assert "flash=" not in headers.get("Location", ""), (
         "expected no flash on a repeat delete of an already-absent entry, got %r" % headers.get("Location"))
@@ -636,11 +636,11 @@ def test_rules_delete_route_full_contract(make_app_server):
     assert add_result == colour_rules.ADD_OK_NEW, "test setup failure: add_rule() returned %r" % (add_result,)
     bad_kind_path = "%sbogus/AFR1234%s" % (
         config_page.RULES_DELETE_ROUTE_PREFIX, config_page.RULES_DELETE_ROUTE_SUFFIX)
-    status, _headers, _body = http_request(base + bad_kind_path, method="POST", cookie=session)
+    status, _headers, _body = http_request(base + bad_kind_path, method="POST", data=with_csrf(session), cookie=session)
     assert status == 404, "expected 404 for a malformed kind segment, got %d" % status
     bad_value_path = "%scallsign/bad-value%s" % (
         config_page.RULES_DELETE_ROUTE_PREFIX, config_page.RULES_DELETE_ROUTE_SUFFIX)
-    status, _headers, _body = http_request(base + bad_value_path, method="POST", cookie=session)
+    status, _headers, _body = http_request(base + bad_value_path, method="POST", data=with_csrf(session), cookie=session)
     assert status == 404, "expected 404 for a malformed value segment, got %d" % status
     registry_after = colour_rules.load_colour_rules(server.state_dir)
     assert "AFR1234" in registry_after.get("callsign", {}), (
@@ -858,7 +858,7 @@ def test_calendar_disconnect_route_bare_post_renders_confirmation_and_touches_no
     calendar_rules.save_calendar_url(server.state_dir, url)
     status, _headers, body = http_request(
         server.base_url() + config_page.CALENDAR_DISCONNECT_ROUTE,
-        method="POST", data=b"", cookie=session)
+        method="POST", data=with_csrf(session), cookie=session)
     assert status == 200, "expected a 200 confirmation page for a bare POST, got %d" % status
     assert html.escape(config_page.CALENDAR_DISCONNECT_CONFIRM_SENTENCE, quote=True).encode() in body, (
         "expected the confirmation copy in the rendered page")
@@ -875,7 +875,7 @@ def test_calendar_disconnect_route_confirm_maybe_renders_confirmation_and_touche
     calendar_rules.save_calendar_url(server.state_dir, url)
     status, _headers, body = http_request(
         server.base_url() + config_page.CALENDAR_DISCONNECT_ROUTE, method="POST",
-        data=urllib.parse.urlencode({config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD: "maybe"}).encode(),
+        data=with_csrf(session, {config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD: "maybe"}),
         cookie=session)
     assert status == 200, "expected a 200 confirmation page for confirm=maybe, got %d" % status
     assert html.escape(config_page.CALENDAR_DISCONNECT_CONFIRM_SENTENCE, quote=True).encode() in body, (
@@ -893,9 +893,9 @@ def test_calendar_disconnect_route_confirm_yes_disconnects(app_server_in_process
     calendar_rules.save_calendar_url(server.state_dir, url)
     status, headers, _body = http_request(
         server.base_url() + config_page.CALENDAR_DISCONNECT_ROUTE, method="POST",
-        data=urllib.parse.urlencode({
+        data=with_csrf(session, {
             config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD: config_page.CALENDAR_DISCONNECT_CONFIRM_VALUE,
-        }).encode(),
+        }),
         cookie=session)
     assert status == 303, "expected a 303 redirect for confirm=yes, got %d" % status
     location = headers.get("Location", "")
