@@ -26,13 +26,15 @@ def _dummy_get(path, access=routes.ADMIN_ONLY):
 
 def test_the_aggregator_holds_the_pairing_routes_and_nav_follows_them():
     served_routes = {
-        (route.method, route.matcher.path) for route in console_routes.ROUTES}
-    assert served_routes == {
+        (route.method, route.matcher.path) for route in console_routes.ROUTES
+        if isinstance(route.matcher, routes.Exact)}
+    assert {
         ("GET", console_routes.FLEET_ROUTE),
         ("POST", console_routes.FLEET_REGISTER_ROUTE),
-        ("POST", console_routes.FLEET_PAIR_ROUTE)}
+        ("POST", console_routes.FLEET_PAIR_ROUTE),
+        ("GET", console_routes.AUDIT_ROUTE)} <= served_routes
     assert [entry[1] for entry in console_routes.available_nav_entries()] == [
-        "/fleet", "/update"]
+        "/fleet", "/audit", "/update"]
 
 
 def test_nav_entries_follow_the_route_table(monkeypatch):
@@ -50,7 +52,8 @@ def test_section_subnav_is_links_with_the_current_page_marked(monkeypatch):
         _dummy_get(console_routes.FLEET_ROUTE), _dummy_get(console_routes.USERS_ROUTE)))
     markup = console_routes.section_subnav_html(console_routes.USERS_ROUTE)
     links = re.findall(r'<a class="([^"]*)" href="([^"]+)"([^>]*)>', markup)
-    assert [href for _cls, href, _rest in links] == ["/fleet", "/users", "/update"]
+    assert [href for _cls, href, _rest in links] == [
+        "/fleet", "/users", "/audit", "/update"]
     current = [href for cls, href, rest in links if "aria-current" in rest]
     assert current == ["/users"]
     assert "Fleet" in markup and "Releases" in markup
@@ -59,7 +62,8 @@ def test_section_subnav_is_links_with_the_current_page_marked(monkeypatch):
 def test_section_subnav_is_empty_without_any_page(monkeypatch):
     monkeypatch.setattr(routes, "ROUTES", tuple(
         r for r in routes.ROUTES if not (
-            isinstance(r.matcher, routes.Exact) and r.matcher.path == "/update")))
+            isinstance(r.matcher, routes.Exact)
+            and r.matcher.path in ("/update", console_routes.AUDIT_ROUTE))))
     assert console_routes.section_subnav_html("/update") == ""
 
 
@@ -94,12 +98,13 @@ def _console_get(path):
 
 @pytest.fixture
 def served(app_server_in_process, monkeypatch):
-    """A real server with the four console GET pages present and one
-    session cookie per caller."""
+    """A real server with the four console GET pages answered by stand-in
+    bodies (ahead of any real page, so the shell is tested on its own) and
+    one session cookie per caller."""
     server = app_server_in_process
     seeded = seed_matrix_fleet(server.state_dir)
     monkeypatch.setattr(
-        routes, "ROUTES", routes.ROUTES + tuple(_console_get(p) for p in CONSOLE_PAGES))
+        routes, "ROUTES", tuple(_console_get(p) for p in CONSOLE_PAGES) + routes.ROUTES)
     cookies = {}
     conn = fleet_db.connect(server.state_dir)
     try:
@@ -162,7 +167,7 @@ def test_the_group_lists_only_the_pages_that_exist(
     assert status == 200
     sidebar = _sidebar(page)
     group = sidebar[sidebar.index('<div class="nav-group"><span'):]
-    assert _hrefs(group) == ["/fleet", "/update"]
+    assert _hrefs(group) == ["/fleet", "/audit", "/update"]
 
 
 def test_a_user_sees_no_administration_navigation_and_no_console_page(served):

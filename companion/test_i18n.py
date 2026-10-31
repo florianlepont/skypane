@@ -212,6 +212,8 @@ _UNCHANGED_IN_FRENCH = frozenset({
     "nav.administration", "nav.admin",
     # The French column heading for a list of row actions is the same word.
     "admin_fleet.actions",
+    # "Action" is the French word too, for the audit table's column heading.
+    "admin_lifecycle.action",
 })
 
 

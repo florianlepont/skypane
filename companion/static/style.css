@@ -7698,3 +7698,36 @@ button.rule-suggestion-chip {
     width: 44px;
   }
 }
+
+/* Audit log: the filter chips as plain links, always visible, wrapping on a
+ * narrow phone; the pager links keep a full touch target. */
+.audit-chips {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 0 var(--space-md);
+}
+
+.audit-chips .filter-chip {
+  flex: 1 1 auto;
+  text-decoration: none;
+}
+
+.audit-chips .filter-chip:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+  border-radius: var(--radius-control);
+}
+
+.audit-pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.audit-pager .text-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+}

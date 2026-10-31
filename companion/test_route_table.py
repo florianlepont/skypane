@@ -28,6 +28,9 @@ _SAMPLE_MIDDLE = {
         routes.airlines_page.MANUAL_DELETE_ROUTE_SUFFIX): "RYR",
     routes.PrefixSuffix(routes.RULES_DELETE_ROUTE_PREFIX, routes.RULES_DELETE_ROUTE_SUFFIX):
         "callsign/AFR",
+    routes.PrefixSuffix("/fleet/frames/", "/retire"): "d_00000000",
+    routes.PrefixSuffix("/fleet/frames/", "/reactivate"): "p_00000000",
+    routes.PrefixSuffix("/fleet/frames/", "/reassign"): "d_00000000",
 }
 
 

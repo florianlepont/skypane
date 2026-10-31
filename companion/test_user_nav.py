@@ -154,10 +154,11 @@ def test_admin_navigation_only_gains_the_administration_group(monkeypatch):
     prefs.set_request_principal("admin", "admin")
     admin_sidebar = layout.sidebar_nav("home", health_alert="warn", device_config={})
     # The one addition for an admin is the Administration group, which
-    # holds the console pages that exist (Fleet) and Releases.
+    # holds the console pages that exist (Fleet, Audit log) and Releases.
     group = (
         '<div class="nav-group"><span class="nav-group__label text-label">'
         'Administration</span><a class="sidebar-link" href="/fleet">Fleet</a>'
+        '<a class="sidebar-link" href="/audit">Audit log</a>'
         '<a class="sidebar-link" href="/update">Releases</a></div>')
     assert admin_sidebar == baseline_sidebar.replace("</nav>", group + "</nav>")
     assert ui_nav._tab_bar_html(

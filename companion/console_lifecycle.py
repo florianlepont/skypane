@@ -11,8 +11,11 @@ Security invariants:
 - The audit page has one GET route; nothing here changes or deletes a row.
 """
 import contextlib
+import datetime
+from urllib.parse import parse_qs, urlsplit
 
 from companion import audit, console_flash, device_scope, i18n, route_types
+from companion.pages import audit_page
 from server import device_dirs, fleet_db, fleet_ops
 
 # Same literals as companion/console_routes.py (which imports this module, so
@@ -206,6 +209,89 @@ def handle_reassign(h, m):
         FLEET_PATH, set_cookie=_back(FLASH_REASSIGNED, frame=label, email=email))
 
 
+# ---- audit log page -----------------------------------------------------------
+
+_MAX_PAGE_DIGITS = 9
+
+
+def _query_value(h, name):
+    values = parse_qs(urlsplit(h.path).query).get(name)
+    return values[0] if values else ""
+
+
+def _category(raw):
+    return raw if raw in fleet_db.AUDIT_CATEGORIES else "all"
+
+
+def _page_number(raw):
+    """The requested page: 1 for anything that is not a positive integer."""
+    text = raw.strip()
+    if not (text.isascii() and text.isdigit()) or len(text) > _MAX_PAGE_DIGITS:
+        return 1
+    return max(1, int(text))
+
+
+def _target_name(conn, target_type, target_id):
+    """A display name for the audited target, "" when none can be found."""
+    if target_id is None:
+        return ""
+    if target_type == "device":
+        row = conn.execute(
+            "SELECT name FROM devices WHERE id = ?", (target_id,)).fetchone()
+        if row is None:
+            row = conn.execute(
+                "SELECT previous_name AS name FROM pending_devices "
+                "WHERE previous_device_id = ?", (target_id,)).fetchone()
+        return str(row["name"]) if row is not None and row["name"] else ""
+    if target_id.isascii() and target_id.isdigit() and len(target_id) < 10:
+        table, column = {
+            "user": ("users", "email"), "location": ("locations", "name")
+        }.get(target_type, (None, None))
+        if table is not None:
+            row = conn.execute(
+                "SELECT %s AS name FROM %s WHERE id = ?" % (column, table),
+                (int(target_id),)).fetchone()
+            return str(row["name"]) if row is not None and row["name"] else ""
+    return ""
+
+
+def _event(conn, row):
+    return audit_page.AuditEvent(
+        ts=int(row["ts"]), actor_label=str(row["actor_label"]),
+        actor_is_user=row["actor_user_id"] is not None, action=str(row["action"]),
+        target_primary=_target_name(conn, row["target_type"], row["target_id"]),
+        target_id=None if row["target_id"] is None else str(row["target_id"]),
+        outcome=str(row["outcome"]), source_ip=row["source_ip"])
+
+
+def build_audit_view(state_dir, category, requested_page):
+    """The `AuditView` for a category chip and page; a page past the end
+    falls back to the last page."""
+    conn = fleet_db.connect(state_dir)
+    try:
+        total = fleet_db.count_audit(conn, category)
+        last_page = max(1, -(-total // audit_page.PAGE_SIZE))
+        page = min(requested_page, last_page)
+        rows = fleet_db.list_audit(
+            conn, category, audit_page.PAGE_SIZE, (page - 1) * audit_page.PAGE_SIZE)
+        events = tuple(_event(conn, row) for row in rows)
+    finally:
+        conn.close()
+    return audit_page.AuditView(
+        events=events, category=category, total=total, page=page,
+        now=datetime.datetime.now(datetime.timezone.utc))
+
+
+def handle_audit_get(h, m):
+    from companion import console_routes
+    category = _category(_query_value(h, audit_page.CATEGORY_QUERY))
+    page = _page_number(_query_value(h, audit_page.PAGE_QUERY))
+    return h._console_page(
+        console_routes.AUDIT_ROUTE, None,
+        lambda: audit_page.render(build_audit_view(h.args.state_dir, category, page)),
+        audit_page.AUDIT_PURPOSE)
+
+
 ROUTES = (
     route_types.Route(
         "POST", route_types.PrefixSuffix(FRAME_ACTION_PREFIX, RETIRE_SUFFIX),
@@ -216,4 +302,6 @@ ROUTES = (
     route_types.Route(
         "POST", route_types.PrefixSuffix(FRAME_ACTION_PREFIX, REASSIGN_SUFFIX),
         handle_reassign, route_types.ADMIN_ONLY, csrf=True),
+    route_types.Route(
+        "GET", route_types.Exact(AUDIT_PATH), handle_audit_get, route_types.ADMIN_ONLY),
 )

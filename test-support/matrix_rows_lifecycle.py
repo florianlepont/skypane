@@ -5,6 +5,7 @@ sample middle segment.
 """
 
 ROWS = {
+    ("GET", "/audit"): "admin-only",
     ("POST", "/fleet/frames/{}/retire"): "admin-only",
     ("POST", "/fleet/frames/{}/reactivate"): "admin-only",
     ("POST", "/fleet/frames/{}/reassign"): "admin-only",

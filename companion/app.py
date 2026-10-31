@@ -31,7 +31,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from companion import (  # noqa: E402
-    access, auth, console_flash, console_routes, device_dispatch, device_scope, export_api, flash, freshness, i18n, illustration_normalize, layout,
+    access, audit, auth, console_flash, console_routes, device_dispatch, device_scope, export_api, flash, freshness, i18n, illustration_normalize, layout,
     login_page, page_context, post_actions, preview_images, prefs, request_body, routes, sign_in,
     sign_in_config, static_files, theme_preview, user_view)
 from companion.pages import (  # noqa: E402
@@ -1221,6 +1221,9 @@ class Handler(
                 hardware_type=hardware_type)
         except (OSError, TimeoutError):
             result = None
+        audit.record_standalone(
+            self, "release.install", "release", hardware_type,
+            "ok" if result == "scheduled" else "failed", {"version": version})
         if result == "scheduled":
             return self.redirect(update_page.page_route(hardware_type))
         if result == "busy":
@@ -1261,6 +1264,9 @@ class Handler(
                 self.args.state_dir, hardware_type=hardware_type)
         except (OSError, TimeoutError):
             result = None
+        audit.record_standalone(
+            self, "release.cancel", "release", hardware_type,
+            "ok" if result in ("cancelled", "none") else "failed")
         if result in ("cancelled", "none"):
             return self.redirect(update_page.page_route(hardware_type))
         return self.redirect(

@@ -128,6 +128,7 @@ _UNAUTH_GET_REQUESTS = (
     companion_app.UPDATE_ROUTE,
     "/account",
     "/fleet",
+    "/audit",
     companion_app.SETTINGS_ROUTE,
     companion_app.HISTORY_LEGACY_ROUTE,
     companion_app.PREVIEW_PAGE_ROUTE,
@@ -161,6 +162,9 @@ _UNAUTH_POST_REQUESTS = (
     companion_app.RULES_DELETE_ROUTE_PREFIX + "callsign/AFR" + companion_app.RULES_DELETE_ROUTE_SUFFIX,
     "/fleet/register",
     "/fleet/pair",
+    "/fleet/frames/d_00000000/retire",
+    "/fleet/frames/p_00000000/reactivate",
+    "/fleet/frames/d_00000000/reassign",
     _NOT_FOUND_PATH,
 )
 
