@@ -12,4 +12,5 @@ MESSAGES = {
     "nav.audit_log": "Journal d’audit",
     "nav.releases": "Versions",
     "nav.administration_sections": "Sections d’administration",
+    "nav.admin": "Admin",
 }

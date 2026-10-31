@@ -1,11 +1,15 @@
 """The admin console's shell: route aggregation, navigation derived from the
 route table, the section sub-nav, the Releases entry and the page shell
 method."""
+import hashlib
 import re
 
 import pytest
 
-from companion import console_routes, i18n, prefs, routes
+from access_matrix_support import seed_matrix_fleet
+from companion import app, console_flash, console_routes, i18n, layout, prefs, routes
+from companion_app_server import http_request, http_request_full, set_cookie_headers
+from server import fleet_db, fleet_sessions
 
 
 @pytest.fixture(autouse=True)
@@ -65,3 +69,212 @@ def test_console_french_labels_are_translated():
         assert i18n.t_lang(label, "fr") == french
     assert i18n.t_lang(console_routes.SECTION_NAV_LABEL, "fr") != str(
         console_routes.SECTION_NAV_LABEL)
+
+
+# --- served pages ------------------------------------------------------------
+
+CONSOLE_PAGES = (
+    console_routes.FLEET_ROUTE, console_routes.USERS_ROUTE,
+    console_routes.LOCATIONS_ROUTE, console_routes.AUDIT_ROUTE)
+FLASH_TITLE = i18n.Message("shelltest.title", "Done {name}")
+
+
+def _console_get(path):
+    return routes.Route(
+        "GET", routes.Exact(path),
+        lambda h, m: h._console_page(path, None, "<p>console body</p>"),
+        routes.ADMIN_ONLY)
+
+
+@pytest.fixture
+def served(app_server_in_process, monkeypatch):
+    """A real server with the four console GET pages present and one
+    session cookie per caller."""
+    server = app_server_in_process
+    seeded = seed_matrix_fleet(server.state_dir)
+    monkeypatch.setattr(
+        routes, "ROUTES", routes.ROUTES + tuple(_console_get(p) for p in CONSOLE_PAGES))
+    cookies = {}
+    conn = fleet_db.connect(server.state_dir)
+    try:
+        for name, user_id in (("admin", seeded.admin_id), ("owner", seeded.owner_id)):
+            token = "tok-" + name
+            fleet_sessions.create_session(
+                conn, hashlib.sha256(token.encode()).hexdigest(), user_id=user_id,
+                principal="user", now=app._now())
+            cookies[name] = "sp_session=" + token
+    finally:
+        conn.close()
+    console_flash.register_flash("shell_test", "success", FLASH_TITLE, None)
+    yield server, cookies
+    console_flash._REGISTRY.pop("shell_test", None)
+
+
+def _get(server, cookie, path, headers=None):
+    status, _h, body = http_request(
+        server.url(path), cookie=cookie, extra_headers=headers)
+    return status, body.decode("utf-8")
+
+
+def _sidebar(markup):
+    start = markup.index('<nav class="sidebar-nav"')
+    return markup[start:markup.index("</nav>", start)]
+
+
+def _tab_bar(markup):
+    start = markup.index('<nav class="tab-bar"')
+    return markup[start:markup.index("</nav>", start)]
+
+
+def _hrefs(markup):
+    return re.findall(r'<a class="[^"]*" href="([^"]+)"', markup)
+
+
+def test_admin_sidebar_lists_the_administration_group_in_order(served):
+    server, cookies = served
+    status, page = _get(server, cookies["admin"], "/fleet")
+    assert status == 200
+    sidebar = _sidebar(page)
+    assert "Administration" in sidebar
+    group = sidebar[sidebar.index('<div class="nav-group"><span'):]
+    assert _hrefs(group) == ["/fleet", "/users", "/locations", "/audit", "/update"]
+    assert re.search(r'href="/update">Releases<', group)
+
+
+def test_the_group_lists_only_releases_while_no_console_page_exists(
+        app_server_in_process, monkeypatch):
+    server = app_server_in_process
+    seeded = seed_matrix_fleet(server.state_dir)
+    conn = fleet_db.connect(server.state_dir)
+    try:
+        fleet_sessions.create_session(
+            conn, hashlib.sha256(b"tok-a").hexdigest(), user_id=seeded.admin_id,
+            principal="user", now=app._now())
+    finally:
+        conn.close()
+    status, page = _get(server, "sp_session=tok-a", "/update")
+    assert status == 200
+    sidebar = _sidebar(page)
+    group = sidebar[sidebar.index('<div class="nav-group"><span'):]
+    assert _hrefs(group) == ["/update"]
+    assert "/fleet" not in page and "Admin</span>" not in _tab_bar(page)
+
+
+def test_a_user_sees_no_administration_navigation_and_no_console_page(served):
+    server, cookies = served
+    status, account = _get(server, cookies["owner"], "/account")
+    assert status == 200
+    for needle in ("Administration", "/fleet", "/users", "/audit", "Releases"):
+        assert needle not in account
+    refused = _get(server, cookies["owner"], "/fleet")
+    unknown = _get(server, cookies["owner"], "/no-such-page-anywhere")
+    assert refused == unknown and refused[0] == 404
+
+
+def test_the_admin_tab_takes_the_airlines_slot_when_fleet_exists(served):
+    server, cookies = served
+    _status, page = _get(server, cookies["admin"], "/users")
+    bar = _tab_bar(page)
+    cells = bar.split('<details class="tab-bar__more">')[0]
+    assert _hrefs(cells) == ["/", "/display", "/flights", "/fleet"]
+    sheet = bar.split('<div class="tab-bar__more-panel">')[1]
+    assert _hrefs(sheet)[0] == "/airlines"
+    assert "Admin" in cells
+    assert 'aria-current="page"' in cells.split('href="/fleet"')[1].split("</a>")[0]
+
+
+def test_the_phone_bar_is_unchanged_without_a_fleet_page(
+        app_server_in_process, monkeypatch):
+    server = app_server_in_process
+    seeded = seed_matrix_fleet(server.state_dir)
+    conn = fleet_db.connect(server.state_dir)
+    try:
+        fleet_sessions.create_session(
+            conn, hashlib.sha256(b"tok-b").hexdigest(), user_id=seeded.admin_id,
+            principal="user", now=app._now())
+    finally:
+        conn.close()
+    _status, page = _get(server, "sp_session=tok-b", "/")
+    cells = _tab_bar(page).split('<details class="tab-bar__more">')[0]
+    assert _hrefs(cells) == ["/", "/display", "/flights", "/airlines"]
+
+
+def test_every_console_page_shows_the_sub_nav_with_the_current_page_selected(served):
+    server, cookies = served
+    for path in CONSOLE_PAGES:
+        _status, page = _get(server, cookies["admin"], path)
+        nav = re.search(r'<nav class="filter-bar__chips section-subnav".*?</nav>', page, re.S)
+        assert nav, path
+        chips = nav.group(0)
+        assert _hrefs(chips) == [*CONSOLE_PAGES, "/update"], path
+        current = re.findall(r'href="([^"]+)" aria-current="page"', chips)
+        assert current == [path], path
+        for label in ("Fleet", "Users", "Locations", "Audit log", "Releases"):
+            assert label in chips
+
+
+def test_the_sub_nav_is_in_french_when_the_language_is_french(served):
+    server, cookies = served
+    _status, page = _get(
+        server, cookies["admin"], "/fleet", headers={"Accept-Language": "fr"})
+    chips = re.search(r'<nav class="filter-bar__chips section-subnav".*?</nav>', page, re.S)
+    assert chips
+    for label in ("Cadres", "Utilisateurs", "Lieux", "Journal d’audit", "Versions"):
+        assert label in chips.group(0)
+
+
+def _main(markup):
+    return re.search(r"<main.*?</main>", markup, re.S).group(0)
+
+
+def test_update_for_an_admin_differs_only_by_the_sub_nav_row(
+        served, monkeypatch):
+    server, cookies = served
+    _status, with_chips = _get(server, cookies["admin"], "/update")
+    chip_row = re.search(
+        r'<nav class="filter-bar__chips section-subnav".*?</nav>', with_chips, re.S)
+    assert chip_row
+    monkeypatch.setattr(console_routes, "available_nav_entries", lambda: [])
+    _status, without_chips = _get(server, cookies["admin"], "/update")
+    assert _main(with_chips).replace(chip_row.group(0), "") == _main(without_chips)
+
+
+def test_update_is_the_unknown_path_404_for_a_user(served):
+    server, cookies = served
+    assert _get(server, cookies["owner"], "/update") == _get(
+        server, cookies["owner"], "/no-such-page-anywhere")
+
+
+def test_console_pages_are_not_frame_tabs():
+    tab_routes = {route for route, _label in layout.NAV_TABS}
+    assert not tab_routes & set(CONSOLE_PAGES)
+
+
+def test_a_console_page_shows_its_flash_once_and_clears_the_cookie(served):
+    server, cookies = served
+    queued = console_flash.queue_flash("shell_test", name="Kitchen")
+    pair = queued.split(";", 1)[0]
+    status, headers, body = http_request_full(
+        server.url("/fleet"), cookie=cookies["admin"] + "; " + pair)
+    assert status == 200
+    assert "Done Kitchen" in body.decode("utf-8")
+    cleared = [c for c in set_cookie_headers(headers) if c.startswith("sp_flash=")]
+    assert cleared and "Max-Age=0" in cleared[0]
+    _status, again = _get(server, cookies["admin"], "/fleet")
+    assert "Done Kitchen" not in again
+
+
+def test_a_tampered_flash_cookie_shows_nothing_on_a_console_page(served):
+    server, cookies = served
+    status, page = _get(server, cookies["admin"] + "; sp_flash=bm90LWpzb24", "/fleet")
+    assert status == 200
+    assert "toast--" not in page.split("console body")[0].split("<main")[1]
+
+
+def test_the_console_page_title_comes_from_the_registry(served):
+    server, cookies = served
+    _status, page = _get(server, cookies["admin"], "/audit")
+    assert re.search(r"<title>[^<]*Audit log", page)
+    _status, french = _get(
+        server, cookies["admin"], "/audit", headers={"Accept-Language": "fr"})
+    assert re.search(r"<title>[^<]*Journal d’audit", french)

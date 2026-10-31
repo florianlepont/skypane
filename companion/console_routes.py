@@ -96,11 +96,12 @@ def is_console_path(path):
 
 def section_subnav_html(active_path):
     """The section sub-nav: one chip link per available console page, the
-    page for `active_path` marked current. "" when no page exists. Shown
-    below 960px only (the sidebar carries the same links above that).
+    page for `active_path` marked current. "" while fewer than two pages
+    exist (one link is not navigation). Shown below 960px only (the sidebar
+    carries the same links above that).
     """
     entries = available_nav_entries()
-    if not entries:
+    if len(entries) < 2:
         return ""
     chips = []
     for _key, path, label in entries:

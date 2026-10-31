@@ -31,7 +31,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from companion import (  # noqa: E402
-    access, auth, device_dispatch, device_scope, export_api, flash, freshness, i18n, illustration_normalize, layout,
+    access, auth, console_flash, console_routes, device_dispatch, device_scope, export_api, flash, freshness, i18n, illustration_normalize, layout,
     login_page, page_context, post_actions, preview_images, prefs, request_body, routes, sign_in,
     sign_in_config, static_files, theme_preview, user_view)
 from companion.pages import (  # noqa: E402
@@ -908,6 +908,27 @@ class Handler(
                 etag=quoted_etag)
         body = render(ctx)
         return self.send_html(200, self._page_shell_for(route, body, ctx))
+
+    def _console_page(self, route, title_msg, body_html, purpose_msg=None):
+        """Render one admin console page: the page header (the title falls
+        back to the console registry when `title_msg` is None), the section
+        sub-nav, then `body_html`, inside the shell with the console route's
+        own nav slug active. A queued console flash is shown once and its
+        cookie cleared. Console pages are not in `layout.NAV_TABS`, so they
+        carry no tab scripts of their own.
+        """
+        ctx = self.page_context()
+        title = i18n.t(title_msg or console_routes.CONSOLE_TITLES[route])
+        purpose = i18n.t(purpose_msg) if purpose_msg else None
+        flash_html, clear_cookie = console_flash.take_flash(self.headers.get("Cookie"))
+        body = (
+            layout.page_header(title, purpose)
+            + console_routes.section_subnav_html(route) + body_html)
+        page = layout.page_shell(
+            title=title, active=layout.nav_slug(route), body=body,
+            ui_theme=ctx.ui_theme, flash=flash_html or None,
+            health_alert=ctx.health_severity, device_config=ctx.device_config)
+        return self.send_html(200, page, set_cookies=(clear_cookie,) if clear_cookie else ())
 
     # --- routing -----------------------------------------------------------
 

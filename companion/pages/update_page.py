@@ -11,6 +11,7 @@ live POST handlers for the forms this module renders.
 """
 import collections
 
+import companion.console_routes as console_routes
 import companion.frame_state as frame_state
 import companion.i18n as i18n
 import companion.layout as layout
@@ -705,6 +706,7 @@ def update_page(ctx, view, next_wake_text, wake_held=False, type_choice=None):
             chooser_html = _type_chooser_html(type_choice)
     return (
         layout.page_header(i18n.t(_NAV_UPDATE_TEXT))
+        + console_routes.section_subnav_html(console_routes.UPDATE_ROUTE)
         + chooser_html
         + _rollback_banner_html(view)
         + _cta_card_html(ctx, view, releases, next_wake_text, wake_held)

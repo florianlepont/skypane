@@ -146,14 +146,19 @@ def test_no_disabled_or_greyed_links_for_a_user(monkeypatch):
     assert "aria-disabled" not in markup
 
 
-def test_admin_navigation_is_unchanged(monkeypatch):
+def test_admin_navigation_only_gains_the_administration_group(monkeypatch):
     device_scope.set_request_scope(FRAME, [FRAME])
     baseline_sidebar = layout.sidebar_nav("home", health_alert="warn", device_config={})
     baseline_bar = ui_nav._tab_bar_html("home", health_alert="warn", device_config={})
     _open_frame_pages_to_users(monkeypatch)
     prefs.set_request_principal("admin", "admin")
-    assert layout.sidebar_nav(
-        "home", health_alert="warn", device_config={}) == baseline_sidebar
+    admin_sidebar = layout.sidebar_nav("home", health_alert="warn", device_config={})
+    # The one addition for an admin is the Administration group, which
+    # holds only Releases while no console page exists.
+    group = (
+        '<div class="nav-group"><span class="nav-group__label text-label">'
+        'Administration</span><a class="sidebar-link" href="/update">Releases</a></div>')
+    assert admin_sidebar == baseline_sidebar.replace("</nav>", group + "</nav>")
     assert ui_nav._tab_bar_html(
         "home", health_alert="warn", device_config={}) == baseline_bar
     assert "/devices/abc123/update" not in baseline_sidebar
