@@ -1,7 +1,7 @@
 ---
 phase: 55
 slug: frame-pairing-admin-console-and-reduced-user-view
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-10-31
@@ -63,7 +63,7 @@ Existing four content sizes and two weights only.
 | Label voice | 12px uppercase 600 | 600 | existing | table headers, `.banner__pill` status badges, `.data-card__label` |
 | Identifier | 14px mono | 400 | existing | MAC, device id, SHA-256 (truncated 12 chars + copy button, full value in the input), pairing code as typed back in the confirmation line |
 
-Exactly 4 inherited sizes (32, 16, 14 plus the inherited 22 which this phase does not use) plus the pre-existing 12px label voice, 2 weights (400, 600). Every size is inherited; none is new. The pairing code input renders at Body 16px mono, upper-cased via `text-transform: uppercase` and `letter-spacing: 0.08em` (a declaration on an existing size, not a new size).
+4 sizes are used: 32, 16, 14 and the pre-existing 12px label voice (the inherited 22 is not used in this phase), 2 weights (400, 600). Every size is inherited; none is new. The pairing code input renders at Body 16px mono, upper-cased via `text-transform: uppercase` and `letter-spacing: 0.08em` (a declaration on an existing size, not a new size).
 
 ---
 
@@ -342,4 +342,4 @@ Register: "vous", sentence case, existing FR terms ("cadre" for frame, "Se conne
 - [ ] Dimension 5 Spacing: PASS
 - [ ] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved 2026-10-31 (checker: UI-SPEC VERIFIED)
