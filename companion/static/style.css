@@ -6586,6 +6586,12 @@ button.calendar-disconnect-btn:focus-visible {
   margin: 0;
 }
 
+/* The administrator's picker holds full e-mail addresses; a native select
+ * sizes to its longest option, so cap it at the card's width. */
+#co-manager-person {
+  max-width: 100%;
+}
+
 /* Targets <a>, not <button> — history_page's Show More link — so there
  * is no button[type="submit"] specificity fight to win here. */
 a.calendar-disconnect-btn {
