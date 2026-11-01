@@ -73,7 +73,8 @@ def draw_top_labels(
 
     if band_theme:
         airport_code, _sep, runway_part = full_tag.partition(" · ")
-        label_text = "%s %s %s" % (style.STATE_LABEL_TEXT[state], style._BAND_TOP_LABEL_DIRECTION[state], airport_code)
+        label_parts = (style.STATE_LABEL_TEXT[state], style._BAND_TOP_LABEL_DIRECTION[state], airport_code)
+        label_text = " ".join(part for part in label_parts if part)
         tag_text = runway_part
     else:
         label_text = style.STATE_LABEL_TEXT[state]
@@ -336,7 +337,7 @@ def _build_active_canvas(
     theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID,
     source_fault=False, battery_low=False, state_dir=None,
 ):
-    """Build the departing/arriving two-flight poster canvas.
+    """Build the departing/arriving/overhead two-flight poster canvas.
 
     `battery_low`/`source_fault`: when True, draw the bottom-left
     battery-low icon / bottom-centre source-fault badge in the state's
@@ -348,7 +349,7 @@ def _build_active_canvas(
     state dir reaches the rendered canvas. `None` means vendored-only.
     """
     if state not in style.STATE_BACKGROUND:
-        raise ValueError("unknown state %r (expected 'departing', 'arriving', or 'empty')" % (state,))
+        raise ValueError("unknown state %r (expected 'departing', 'arriving', 'overhead', or 'empty')" % (state,))
     bg_idx = style.state_background_index(state, theme_id=theme_id)
     fg_idx = style.state_ink_index(state, theme_id=theme_id)
 
@@ -497,7 +498,7 @@ def render_panel(
     source_fault=False, battery_low=False, quiet_hours_until=None,
 ):
     """Return a packed 960,000-byte panel for `flight` in `state`
-    ("departing" / "arriving" / "empty" / "quiet_hours" / "display_off" /
+    ("departing" / "arriving" / "overhead" / "empty" / "quiet_hours" / "display_off" /
     "battery_empty"). All other arguments pass straight through to
     `build_canvas()` - see its docstring for the full contract.
     """

@@ -1449,7 +1449,7 @@ _POS_DOC = {
     "detection_mode": "position",
     "center": {"lat": 48.86, "lon": 2.35},
     "radius_nm": 4.86,
-    "alt_ceiling_ft": 10000,
+    "alt_ceiling_ft": None,
 }
 
 
@@ -1463,16 +1463,16 @@ def _pos_hexes(records, doc=_POS_DOC):
     return sorted(ac["hex"] for ac in detect.runway_candidates(records, doc, "position:9"))
 
 
-def test_position_ceiling_and_floor():
+def test_position_has_no_ceiling_but_keeps_floor():
     records = [
         _pos_record("a", 10000),
-        _pos_record("b", 10001),
+        _pos_record("b", 30000),
         _pos_record("c", 0),
         _pos_record("d", -50),
         _pos_record("e", -1500),
         _pos_record("f", -1501),
     ]
-    assert _pos_hexes(records) == ["a", "c", "d", "e"]
+    assert _pos_hexes(records) == ["a", "b", "c", "d", "e"]
 
 
 def test_position_rejects_ground_and_bad_altitudes():

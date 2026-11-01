@@ -434,3 +434,18 @@ def test_set_device_location_checked_enforces_owners(conn):
     assert not fleet_db.set_device_location_checked(conn, "d_00000000", mine, a, True)
     with pytest.raises(ValueError):
         fleet_db.set_device_location_checked(conn, d1, 999, a, True)
+
+
+def test_set_device_location_checked_refuses_cross_owner_links_even_for_admins(conn):
+    admin = _admin(conn)
+    u1 = fleet_db.add_user(conn, "u1@example.com", "user")
+    u2 = fleet_db.add_user(conn, "u2@example.com", "user")
+    device = fleet_db.add_device(conn, MAC, SECRET, hardware.LEGACY_KEY, u1, state_path="auto")
+    theirs = fleet_db.add_location(conn, "Theirs", 48.0, 2.0, "Europe/Paris", u2)
+    platform = fleet_db.add_location(conn, "Platform", 48.0, 2.0, "Europe/Paris")
+    with pytest.raises(PermissionError):
+        fleet_db.set_device_location_checked(conn, device, theirs, admin, True)
+    assert fleet_db.get_device(conn, device)["location_id"] is None
+    assert fleet_db.set_device_location_checked(conn, device, platform, admin, True)
+    assert fleet_db.get_device(conn, device)["location_id"] == platform
+

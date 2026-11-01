@@ -6,7 +6,6 @@ import html
 import json
 import os
 import re
-import urllib.parse
 
 import pytest
 
@@ -14,7 +13,7 @@ from access_matrix_support import (
     ADMIN_EMAIL, OTHER_EMAIL, OWNER_EMAIL, seed_matrix_fleet)
 from companion import device_scope
 from companion_app_server import (
-    InProcessAppServer, http_request, session_cookie_for_state_dir)
+    InProcessAppServer, http_request, session_cookie_for_state_dir, with_csrf)
 from server import device_config, fleet_db, history_db
 
 PARIS = "Europe/Paris"
@@ -43,7 +42,7 @@ class Rig:
         return status, body.decode("utf-8", "replace")
 
     def post(self, who, path, form):
-        data = urllib.parse.urlencode(form).encode()
+        data = with_csrf(self.cookies[who], form)
         status, response, body = http_request(
             self.server.url(path), method="POST", data=data, cookie=self.cookies[who],
             extra_headers={"Origin": self.server.base_url()})

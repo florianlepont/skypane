@@ -470,3 +470,8 @@ def test_no_setter_or_module_global_remains():
     for name in ("set_colour_rules_state_dir", "_cached_rules"):
         assert not hasattr(c, name), "colour_rules module still has %r, expected it removed" % (name,)
 
+
+
+def test_overhead_state_falls_back_to_the_base_theme():
+    cfg = {"theme": device_config.DEFAULT_THEME_ID, "theme_arriving": "black"}
+    assert c.resolve_effective_theme_id("overhead", {}, cfg) == device_config.DEFAULT_THEME_ID

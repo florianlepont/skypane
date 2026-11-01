@@ -148,6 +148,8 @@ at `detection_page.py:261`. There are three independent copies of the
 **Fix:** Route all three through one function, or delete the unused
 ones.
 
+**Fixed:** the dead `fail_safe` field and parameters are gone from `DetectionSpec`, and the detail page now takes the rule from the single `detection_summary.is_fail_safe`; specs are asserted by display id and zone, and the toast by served HTML.
+
 ### LW-02: Position mode rejects aircraft with a slightly negative barometric altitude
 
 **File:** `server/plane/detect.py:577-579, 603-605`
@@ -172,6 +174,8 @@ using the new spec. The result is one cycle of an empty or wrong frame
 `spec.zone`. Pass the zone into `run_device` and skip the device (status
 "stale zone") on mismatch.
 
+**Fixed:** `ZoneFetch` carries the key of the zone it was fetched for and `_select_from_zone` raises `StaleZone` on a mismatch before any selection; the fleet records the device as `stale_zone` (not a failure, exit status unchanged) and the next cycle serves it; tests added.
+
 ### LW-04: An admin can attach a location owned by user A to a device owned by user B
 
 **File:** `server/fleet_db.py:709`; `companion/detection_actions.py:226-239`
@@ -186,6 +190,8 @@ knowledge. `scope_for` also shows B the name of A's location through
 `loc.owner_user_id` with the device owner for non-NULL owners), or make
 the edit path block when `location_usage_counts` shows devices of other
 owners.
+
+**Fixed:** `set_device_location_checked` refuses a location owned by a different user than the device owner, admins included (ownerless locations stay assignable); the admin Display picker lists only the owner's and ownerless locations, and `device_location_name` is withheld from a non-admin when the stored location is someone else's; tests added.
 
 ### LW-05: Editing a location silently rewrites its timezone
 
@@ -213,6 +219,8 @@ with the existing design, but it leaves a state-changing endpoint that
 can add, edit and assign locations (home coordinates) without a token.
 **Fix:** Set `csrf=True` on the route and add `layout.csrf_field()` to
 both forms.
+
+**Fixed:** `POST /detection` is a token-checked route and both detection forms carry the session token; tests cover a missing and a foreign-session token.
 
 ### LW-07: Unicode digits in shape regexes; asserts used for validation; cross-field search matches
 

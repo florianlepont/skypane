@@ -71,8 +71,11 @@ NO_LOCATION_TAG_TEXT = "SET A LOCATION"
 NO_LOCATION_HEADING = "Set a location"
 # Stand-in zone of a no-location spec; it is never fetched.
 _NO_LOCATION_ZONE = fleet_zones.Zone(46.6, 2.5, 1.0)
-POSITION_ALT_CEILING_FT = 10000
-RADIUS_KM_MIN = 4
+# The circle centre is rounded to 2 decimals, which can move it up to about
+# 0.7 km (0.005 deg of latitude plus 0.005 deg of longitude) from the true
+# location. At the minimum radius the true location is therefore always
+# inside the circle, and coverage around it is guaranteed to about 1.3 km.
+RADIUS_KM_MIN = 2
 RADIUS_KM_MAX = 28
 KM_PER_NM = 1.852
 
@@ -95,7 +98,6 @@ class DetectionSpec:
     geofence: dict[str, Any]
     tag_text: str
     empty_heading: str
-    fail_safe: bool
     # True for a position-mode device with no usable location: it polls
     # nothing and its frame shows the set-a-location screen.
     no_location: bool = False
@@ -181,7 +183,7 @@ def km_to_nm(radius_km: int) -> float:
     """Zone radius in nautical miles for a whole-kilometre radius.
 
     Rounded to two decimals so equal inputs share one zone key; the allowed
-    4 to 28 km therefore span 2.16 to 15.12 NM, about 2 to 15.
+    2 to 28 km therefore span 1.08 to 15.12 NM.
     """
     return round(radius_km / KM_PER_NM, 2)
 
@@ -258,7 +260,7 @@ def _position_doc(zone: fleet_zones.Zone) -> dict[str, Any]:
             "lon_min": round(zone.lon - dlon, 6),
             "lon_max": round(zone.lon + dlon, 6),
         },
-        "alt_ceiling_ft": POSITION_ALT_CEILING_FT,
+        "alt_ceiling_ft": None,
     }
 
 
@@ -271,7 +273,6 @@ def no_location_spec() -> DetectionSpec:
         geofence={},
         tag_text=NO_LOCATION_TAG_TEXT,
         empty_heading=NO_LOCATION_HEADING,
-        fail_safe=False,
         no_location=True,
     )
 
@@ -300,7 +301,6 @@ def _position_spec(detection: Mapping[str, Any], location: Any) -> DetectionSpec
         geofence=_position_doc(zone),
         tag_text=tag_text(display_id),
         empty_heading=empty_heading(display_id),
-        fail_safe=False,
     )
 
 
@@ -346,7 +346,7 @@ def empty_heading(display_id: str) -> str:
     return "Watching Runway %s" % found[1].designator
 
 
-def _spec_from_doc(display_id: str, doc: dict[str, Any], fail_safe: bool) -> DetectionSpec:
+def _spec_from_doc(display_id: str, doc: dict[str, Any]) -> DetectionSpec:
     return DetectionSpec(
         mode=RUNWAY_MODE,
         display_id=display_id,
@@ -354,34 +354,31 @@ def _spec_from_doc(display_id: str, doc: dict[str, Any], fail_safe: bool) -> Det
         geofence=doc,
         tag_text=tag_text(display_id),
         empty_heading=empty_heading(display_id),
-        fail_safe=fail_safe,
     )
 
 
 def legacy_orly_spec(
-    geofence_path: str | None = None, display_id: str = _FALLBACK_ID, fail_safe: bool = False
+    geofence_path: str | None = None, display_id: str = _FALLBACK_ID
 ) -> DetectionSpec:
     """Spec backed by the hand-tuned geofence file (the kill-switch path).
 
     Raises OSError or ValueError when the file is unreadable.
     """
     doc = detect.load_geofence(geofence_path)
-    return _spec_from_doc(display_id, doc, fail_safe)
+    return _spec_from_doc(display_id, doc)
 
 
-def _legacy_spec(
-    display_id: str, geofence_path: str | None, fail_safe: bool
-) -> DetectionSpec:
+def _legacy_spec(display_id: str, geofence_path: str | None) -> DetectionSpec:
     use_file = LEGACY_ORLY_DEFAULT_TO_FILE or os.environ.get(LEGACY_GEOFENCE_ENV) == "1"
     if use_file:
-        return legacy_orly_spec(geofence_path, display_id, fail_safe)
+        return legacy_orly_spec(geofence_path, display_id)
     icao, designator = LEGACY_RUNWAY_MAP[display_id]
     airport = airports.find_airport(icao)
     runway = airports.find_runway(icao, designator)
     if airport is None or runway is None:
         raise ValueError("catalogue is missing the legacy runway")
     doc = runway_geofence_doc(airport, runway, display_id, legacy=True)
-    return _spec_from_doc(display_id, doc, fail_safe)
+    return _spec_from_doc(display_id, doc)
 
 
 def _catalogue_spec(
@@ -399,9 +396,9 @@ def _catalogue_spec(
         return None
     legacy_id = _LEGACY_BY_RUNWAY.get((icao, designator))
     if legacy_id is not None:
-        return _legacy_spec(legacy_id, geofence_path, False)
+        return _legacy_spec(legacy_id, geofence_path)
     display_id = runway_display_id(icao, designator)
-    return _spec_from_doc(display_id, runway_geofence_doc(airport, runway, display_id), False)
+    return _spec_from_doc(display_id, runway_geofence_doc(airport, runway, display_id))
 
 
 def spec_for(
@@ -412,7 +409,7 @@ def spec_for(
     """The detection spec for one device.
 
     Never raises on bad configuration: anything malformed or unknown yields
-    the default Orly runway with `fail_safe` True, except a position-mode
+    the default Orly runway, except a position-mode
     device without a usable location, which yields `no_location_spec()`. Only an OSError from
     reading the legacy geofence file (kill switch on) can escape.
     """
@@ -420,15 +417,15 @@ def spec_for(
     if detection is None:
         tracked = device_cfg.get("tracked_runway") if isinstance(device_cfg, Mapping) else None
         if isinstance(tracked, str) and tracked in LEGACY_RUNWAY_MAP:
-            return _legacy_spec(tracked, legacy_geofence_path, False)
-        return _legacy_spec(_FALLBACK_ID, legacy_geofence_path, tracked is not None)
+            return _legacy_spec(tracked, legacy_geofence_path)
+        return _legacy_spec(_FALLBACK_ID, legacy_geofence_path)
     if isinstance(detection, Mapping):
         spec = _position_spec(detection, location)
         if spec is None:
             spec = _catalogue_spec(detection, legacy_geofence_path)
         if spec is not None:
             return spec
-    return _legacy_spec(_FALLBACK_ID, legacy_geofence_path, True)
+    return _legacy_spec(_FALLBACK_ID, legacy_geofence_path)
 
 
 def validate_runway_selection(icao: Any, designator: Any) -> tuple[str, str]:

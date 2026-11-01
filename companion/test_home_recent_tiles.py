@@ -166,3 +166,36 @@ def test_only_a_same_pass_repeat_inside_a_minute_is_folded(
     section = _home_section(server)
     assert len(section.select("li.history-card")) == expected
     assert len(section.select("li.recent-flight")) == expected
+
+
+def _overhead_seed(state_dir):
+    vp.seed_runway_events(state_dir, [
+        {"ts": "2026-09-03T20:55:00+00:00", "hex": "4b0001", "callsign": "AFR1234",
+         "airline": "Air France", "origin": None, "destination": None,
+         "confirmed_state": "overhead"},
+        {"ts": "2026-09-03T20:40:00+00:00", "hex": "4b0002", "callsign": "TVF49NS",
+         "airline": "Transavia France", "origin": "ORY", "destination": "BRI",
+         "confirmed_state": "departing"},
+    ])
+
+
+@pytest.mark.parametrize("lang,label", [("en", "Overhead"), ("fr", "Au-dessus")])
+def test_an_overhead_row_is_labelled_on_home(make_app_server, lang, label):
+    """a flight stored as overhead reads Overhead (Au-dessus) in the tile and the desktop row"""
+    server = make_app_server(seed=_overhead_seed)
+    section = _home_section(server, lang)
+    tile = _tiles(section)["AFR1234"]
+    assert tile.select_one(".history-card__dir").text() == label
+    assert "None" not in tile.text()
+
+
+def test_an_overhead_row_is_in_all_but_in_no_direction_chip(tmp_path):
+    """the Flights page names the overhead row and counts it under All only"""
+    from companion.pages import history_page
+    _overhead_seed(tmp_path)
+    rendered = history_page.render(vp.history_ctx(tmp_path, now="2026-09-03T21:00:00+00:00"))
+    doc = parse_html(rendered)
+    assert "Overhead" in rendered
+    assert doc.select('[data-filter-kind="overhead"]') == []
+    kinds = {node.attrs["data-filter-kind"] for node in doc.select("[data-filter-kind]")}
+    assert kinds == {"", "departing"}

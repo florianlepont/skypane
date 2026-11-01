@@ -20,7 +20,7 @@ from urllib.parse import parse_qs, urlencode
 from companion import device_scope, i18n, layout, page_context, prefs
 from companion.detection_summary import (
     LEGACY_PILL, LEGACY_PILL_NUMBER, airport_label as airport_label,
-    display_id_for, summary_values)
+    display_id_for, is_fail_safe, summary_values)
 from companion.layout import escape_html
 from companion.pages import config_page
 from companion.settings import quiet_hours
@@ -124,8 +124,7 @@ TAG_HINT = i18n.msg(
 POSITION_TITLE = i18n.msg("detection.location", "Location")
 POSITION_CAPTION = i18n.msg(
     "detection.location_caption",
-    "The frame shows the lowest aircraft that is in the air, below 10,000 ft, "
-    "inside the radius.")
+    "The frame shows the lowest aircraft that is in the air, inside the radius.")
 
 LOCATION_LABEL = i18n.msg("detection.location_label", "Location")
 LOCATION_OPTION = i18n.msg("detection.location_option", "%(name)s — %(lat)s, %(lon)s")
@@ -178,7 +177,7 @@ ERROR_LOCATION_OUTSIDE = i18n.msg(
     "detection.error_location_outside",
     "This location is outside metropolitan France. Choose a location in France.")
 ERROR_RADIUS = i18n.msg(
-    "detection.error_radius", "Enter a whole number of kilometres from 4 to 28.")
+    "detection.error_radius", "Enter a whole number of kilometres from 2 to 28.")
 ERROR_NAME = i18n.msg(
     "detection.error_name", "Enter a name of up to 60 characters.")
 ERROR_NUMBER = i18n.msg(
@@ -258,7 +257,7 @@ class _View:
         if location_name is None:
             location_name = scope.device_location_name
         self.location_name = location_name
-        self.fail_safe = saved_mode == MODE_POSITION and location_name is None
+        self.fail_safe = is_fail_safe(self.selection, location_name)
         requested = _submitted_or_current(
             self.submitted, "mode", self.query.get("mode"))
         self.mode_from_request = requested in MODES
@@ -389,6 +388,7 @@ def mode_form_html(view, errors):
         + _mode_radio_html(MODE_POSITION, MODE_POSITION_LABEL, view.mode == MODE_POSITION))
     return (
         '<form method="post" id="%s" action="%s" data-dirty-form novalidate>'
+        "%s"
         '<input type="hidden" name="%s" value="%s">'
         '<div class="theme-status detection-mode">'
         '<h2 class="text-heading" id="%s">%s</h2>'
@@ -396,7 +396,7 @@ def mode_form_html(view, errors):
         "%s</div></form>"
     ) % (
         FORM_ID, escape_html(device_scope.scoped(DETECTION_ROUTE, "POST")),
-        ACTION_FIELD, ACTION_SAVE_DETECTION,
+        layout.csrf_field(), ACTION_FIELD, ACTION_SAVE_DETECTION,
         _MODE_HEADING_ID, escape_html(i18n.t(MODE_TITLE)), _MODE_HEADING_ID, radios,
         _field_error_html(errors, _MODE_ERROR_FIELD, "detection-mode"))
 
@@ -714,6 +714,7 @@ def location_form_html(view, errors):
         '<details id="%s" class="detection-location-form"%s>'
         "<summary>%s</summary>"
         '<form method="post" action="%s">'
+        "%s"
         '<input type="hidden" name="%s" value="%s">'
         '<input type="hidden" name="location_id" value="%s">'
         "%s%s%s"
@@ -727,7 +728,7 @@ def location_form_html(view, errors):
         LOCATION_FORM_ID, " open" if is_open else "",
         escape_html(i18n.t(summary)),
         escape_html(device_scope.scoped(DETECTION_ROUTE, "POST")),
-        ACTION_FIELD, ACTION_SAVE_LOCATION, escape_html(location_id),
+        layout.csrf_field(), ACTION_FIELD, ACTION_SAVE_LOCATION, escape_html(location_id),
         _field_error_html(errors, "location_form", "location-form-top"),
         _text_field_html(
             errors, "location_name", "location-name", FIELD_NAME,

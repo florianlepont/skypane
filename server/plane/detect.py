@@ -591,8 +591,9 @@ def _finite_coordinate(value):
 
 def position_candidates(aircraft, geofence):
     """Airborne records within `geofence["radius_nm"]` nautical miles of
-    `geofence["center"]` and between `_MIN_AIRBORNE_ALT_FT` and
-    `geofence["alt_ceiling_ft"]` feet.
+    `geofence["center"]` and at or above `_MIN_AIRBORNE_ALT_FT`. A missing or
+    None `geofence["alt_ceiling_ft"]` means no upper altitude bound; a number
+    is an upper bound in feet.
 
     Malformed records (non-numeric position or altitude) are skipped, never
     raised on. Distances use the same local flat-earth metres as the runway
@@ -602,7 +603,8 @@ def position_candidates(aircraft, geofence):
     lat0 = float(center["lat"])
     lon0 = float(center["lon"])
     radius_m = float(geofence["radius_nm"]) * _M_PER_NM + _RADIUS_EPSILON_M
-    ceiling_ft = float(geofence["alt_ceiling_ft"])
+    ceiling = geofence.get("alt_ceiling_ft")
+    ceiling_ft = math.inf if ceiling is None else float(ceiling)
     lon_scale = _M_PER_DEG_LAT * math.cos(math.radians(lat0))
     matched = []
     for ac in aircraft:

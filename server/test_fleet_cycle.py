@@ -1,4 +1,5 @@
 """Fleet enumeration, activity and hold gating, and zone grouping."""
+import dataclasses
 import json
 import os
 import sqlite3
@@ -207,6 +208,11 @@ ANSWERED = zone_fetch.ZoneFetch((("adsbfi", []), ("adsblol", [])), ("adsbfi", "a
 ALL_FAILED = zone_fetch.ZoneFetch((), ("adsbfi", "adsblol"), ("adsbfi", "adsblol"))
 
 
+def _unstamped(fetched):
+    """A zone fetch without the zone key the fleet stamps on it."""
+    return dataclasses.replace(fetched, zone_key=None)
+
+
 class FakeClock:
     def __init__(self):
         self.now = 1000.0
@@ -349,7 +355,7 @@ def test_unanswered_zone_is_not_marked_served(monkeypatch, tmp_path):
     _run(root, rec, ledger=ledger, resolver=_resolver({"a": ZONE_B}))
     assert ledger.marked == [ZONE_A.key]
     received = dict(rec.runs)["a"]["zone_fetch"]
-    assert received is ALL_FAILED
+    assert _unstamped(received) == ALL_FAILED
 
 
 def test_deadline_defers_unreached_devices(monkeypatch, tmp_path):
@@ -444,8 +450,9 @@ def test_failed_zone_does_not_touch_other_zones(monkeypatch, tmp_path):
     rec = Recorder({(ZONE_B.lat, ZONE_B.lon, ZONE_B.radius_nm): ALL_FAILED})
     _run(root, rec, resolver=_resolver({"a": ZONE_B, "b": ZONE_B}))
     received = {name: kw["zone_fetch"] for name, kw in rec.runs}
-    assert received["a"] is ALL_FAILED and received["b"] is ALL_FAILED
-    assert received[os.path.basename(root)] is ANSWERED
+    assert _unstamped(received["a"]) == ALL_FAILED
+    assert _unstamped(received["b"]) == ALL_FAILED
+    assert _unstamped(received[os.path.basename(root)]) == ANSWERED
 
 
 def test_live_runs_with_reconcile_and_caddy_log_only(monkeypatch, tmp_path):
@@ -479,13 +486,16 @@ def test_fetcher_crash_becomes_a_failed_fetch(monkeypatch, tmp_path):
     received = dict(rec.runs)["a"]["zone_fetch"]
     assert received != zone_fetch.ZoneFetch.not_fetched()
     assert received.queried == received.failed == detect.DEFAULT_PROVIDER_ORDER
-    assert dict(rec.runs)[os.path.basename(root)]["zone_fetch"] is ANSWERED
+    assert _unstamped(dict(rec.runs)[os.path.basename(root)]["zone_fetch"]) == ANSWERED
 
 
 def test_real_cycle_reports_source_fault_only_for_the_failed_zone(fleet, tmp_path):
     outcomes = {}
 
     def runner(**kwargs):
+        # The stub resolver below plans zones unrelated to the devices' own
+        # settings; this test is about source faults, not zone matching.
+        kwargs["zone_fetch"] = _unstamped(kwargs["zone_fetch"])
         outcomes[kwargs["state_dir"]] = poll_cycle.run_once(**kwargs)
         return outcomes[kwargs["state_dir"]]
 
@@ -724,6 +734,37 @@ def test_real_cycle_shows_set_location_and_leaves_the_live_frame_alone(monkeypat
         assert conn.execute("SELECT COUNT(*) FROM runway_events").fetchone()[0] == 0
     finally:
         conn.close()
+
+
+def test_setting_changed_after_planning_is_not_gated_against_the_old_zone(monkeypatch, tmp_path):
+    root = _fleet(monkeypatch, tmp_path, [])
+    mover = _device(tmp_path, "mover", detection=_runway_setting("LFPG", "08L/26R"))
+    devices = [fleet_cycle.FleetDevice("live", root, True, hardware.LEGACY_KEY, None), mover]
+    monkeypatch.setattr(fleet_cycle, "load_fleet", lambda root_, now=None: devices)
+    rec = Recorder()
+    resolver = fleet_cycle.detection_resolver(GEOFENCE)
+
+    def moving_resolver(device):
+        planned = resolver(device)
+        if device.id == "mover":
+            device_config.save_device_config(
+                device.state_dir, detection=_runway_setting("LFML", "13L/31R"))
+        return planned
+
+    def run(chosen_resolver):
+        return fleet_cycle.run_fleet(
+            root, GEOFENCE, None, ledger=FakeLedger(), runner=poll_cycle.run_once,
+            fetcher=rec.fetcher, route_transport="transport", environ={},
+            resolver=chosen_resolver)
+
+    first = run(moving_resolver)
+    assert [o.status for o in first.outcomes if o.device_id == "mover"] == ["stale_zone"]
+    assert not os.path.exists(os.path.join(mover.state_dir, "panel.bin"))
+    assert [o.status for o in first.outcomes if o.is_live] == ["ok"]
+
+    second = run(resolver)
+    assert [o.status for o in second.outcomes if o.device_id == "mover"] == ["ok"]
+    assert os.path.exists(os.path.join(mover.state_dir, "panel.bin"))
 
 
 def test_corrupt_device_config_falls_back_to_the_legacy_zone(tmp_path):

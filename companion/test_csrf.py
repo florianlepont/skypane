@@ -1,5 +1,5 @@
 """Per-session anti-forgery token: derivation, dispatcher check and ordering,
-form field emitter, and the six existing protected routes."""
+form field emitter, and the existing protected routes."""
 import hashlib
 import re
 import urllib.parse
@@ -146,7 +146,7 @@ def test_the_token_never_leaks_into_headers_urls_or_logs(probe, capsys):
     assert _token_of(cookies["admin"]) not in captured.out + captured.err
 
 
-# --- the six existing protected routes ---------------------------------------
+# --- the existing protected routes ---------------------------------------
 
 from companion.pages import airlines_page, config_page, update_page  # noqa: E402
 from companion_app_server import login, with_csrf  # noqa: E402
@@ -260,11 +260,11 @@ def test_other_existing_forms_need_no_token(live):
     assert _raw_post(live, "/logout", cookie, {})[0] != 403
 
 
-def test_only_the_six_existing_routes_and_the_console_posts_are_flagged():
+def test_only_the_known_routes_and_the_console_posts_are_flagged():
     flagged = {
         (route.method, route.matcher) for route in routes.ROUTES if route.csrf}
     console_posts = {
         (route.method, route.matcher) for route in console_routes.ROUTES if route.csrf}
-    assert len(routes.CSRF_ROUTE_KEYS) == 6
+    assert len(routes.CSRF_ROUTE_KEYS) == 7
     assert flagged == set(routes.CSRF_ROUTE_KEYS) | console_posts
     assert all(method == "POST" for method, _matcher in console_posts)

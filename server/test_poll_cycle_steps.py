@@ -13,6 +13,7 @@ server/poll_cycle.py - CycleContext and its step functions:
 Every assertion is a return value, a CycleContext field, a recorded call
 order, or a gallery/panel.bin write - never source text.
 """
+import dataclasses
 import hashlib
 import json
 import os
@@ -285,6 +286,50 @@ def test_zone_fetch_with_both_providers_agreeing_selects_the_corroborated_aircra
     assert result["flight"]["corroborated"] is True
     assert result["source_fault"] is False
     assert not os.path.exists(os.path.join(str(tmp_path), "request_ledger.json"))
+
+
+def _tree_bytes(directory):
+    """Every regular file under a directory, by relative path."""
+    found = {}
+    for root, _dirs, names in os.walk(directory):
+        for name in names:
+            if name.endswith((".lock", "-wal", "-shm")):
+                continue
+            path = os.path.join(root, name)
+            with open(path, "rb") as handle:
+                found[os.path.relpath(path, directory)] = handle.read()
+    return found
+
+
+def test_zone_fetch_for_another_zone_is_refused_and_leaves_the_device_untouched(tmp_path):
+    answered = zone_fetch.ZoneFetch(
+        results=(("adsbfi", [_aircraft("aaaaaa", "AFR1234 ")]),
+                 ("adsblol", [_aircraft("aaaaaa", "AFR1234 ")])),
+        queried=("adsbfi", "adsblol"))
+    _cycle(tmp_path, zone_fetch=answered)
+    poll_state = os.path.join(str(tmp_path), "poll_state.json")
+    with open(poll_state, "rb") as handle:
+        state_before = handle.read()
+    panel_before = _tree_bytes(str(tmp_path)).get("panel.bin")
+
+    foreign = dataclasses.replace(answered, zone_key="49.0|2.5|20.0")
+    with pytest.raises(poll_cycle.StaleZone):
+        _cycle(tmp_path, zone_fetch=foreign)
+
+    with open(poll_state, "rb") as handle:
+        assert handle.read() == state_before
+    assert _tree_bytes(str(tmp_path)).get("panel.bin") == panel_before
+
+
+def test_zone_fetch_stamped_with_the_devices_own_zone_is_used(tmp_path):
+    own = poll_cycle.detection.spec_for(
+        {}, legacy_geofence_path=_GEOFENCE).zone.key
+    fetched = zone_fetch.ZoneFetch(
+        results=(("adsbfi", [_aircraft("aaaaaa", "AFR1234 ")]),
+                 ("adsblol", [_aircraft("aaaaaa", "AFR1234 ")])),
+        queried=("adsbfi", "adsblol"), zone_key=own)
+
+    assert _cycle(tmp_path, zone_fetch=fetched)["flight"]["hex"] == "aaaaaa"
 
 
 def test_zone_fetch_where_every_provider_failed_marks_a_source_fault(tmp_path):

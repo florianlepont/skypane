@@ -14,6 +14,10 @@ confirmed "arriving" state. `CLIMB_THRESHOLD_FPM` is **provisional**,
 inferred by symmetry and never checked against a real climbing track -
 hardware QA confirms it, not this module's test suite.
 
+Position mode (aircraft around a location) is the one place the deadband
+is surfaced as its own state: `display_state()` reports STATE_OVERHEAD for
+a level aircraft. The held state that is persisted never holds it.
+
 Heading-based inference is deliberately not implemented: vertical rate
 alone cleanly separated every real sampled track, and an unvalidated
 second signal would add a failure mode without adding evidence.
@@ -30,6 +34,7 @@ DESCEND_THRESHOLD_FPM = -200
 
 STATE_DEPARTING = "departing"
 STATE_ARRIVING = "arriving"
+STATE_OVERHEAD = "overhead"
 
 
 def infer_runway_config(vertical_rate_fpm: object, last_confirmed_state: object) -> object:
@@ -60,3 +65,21 @@ def infer_from_flight(flight: object, last_confirmed_state: object) -> object:
     if isinstance(flight, dict):
         vertical_rate_fpm = flight.get("vertical_rate_fpm")
     return infer_runway_config(vertical_rate_fpm, last_confirmed_state)
+
+
+def display_state(flight: object, held_state: object, position_mode: bool) -> object:
+    """The state to draw: STATE_OVERHEAD for a level aircraft in position
+    mode, otherwise `held_state` unchanged.
+
+    Level means a numeric (non-bool) vertical rate strictly inside the
+    deadband. A missing, boolean or non-numeric rate, and NaN, hold
+    `held_state`. Never raises.
+    """
+    if not position_mode or not isinstance(flight, dict):
+        return held_state
+    rate = flight.get("vertical_rate_fpm")
+    if isinstance(rate, bool) or not isinstance(rate, (int, float)):
+        return held_state
+    if DESCEND_THRESHOLD_FPM < rate < CLIMB_THRESHOLD_FPM:
+        return STATE_OVERHEAD
+    return held_state

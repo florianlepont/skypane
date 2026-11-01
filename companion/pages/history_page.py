@@ -220,15 +220,16 @@ ROUTE_FALLBACK_TEXT = flight_card.ROUTE_FALLBACK_TEXT
 # twice in one unresolved row (Type+Airline cell and Route cell).
 AIRLINE_FALLBACK_TEXT = i18n.msg("flights.airline_unknown", "Airline unknown")
 
-# server/plane/runway_config.py's infer_runway_config(), the only
-# writer of confirmed_state, only ever produces "departing" or
-# "arriving". Any other non-empty value degrades to a title-cased,
+# server/plane/runway_config.py is the only writer of confirmed_state: it
+# produces "departing" or "arriving", and "overhead" for a level aircraft
+# in position mode. Any other non-empty value degrades to a title-cased,
 # underscore-stripped rendering via _confirmed_state_label() below.
 # "Departing"/"Arriving" are owned by companion/i18n_fr/home.py, not
 # flights.py — the same ids home_page.py's own direction text uses.
 _CONFIRMED_STATE_LABELS = {
     "departing": i18n.msg("home.departing", "Departing"),
     "arriving": i18n.msg("home.arriving", "Arriving"),
+    "overhead": i18n.msg("home.overhead", "Overhead"),
 }
 
 
@@ -512,8 +513,8 @@ def _filter_text_attr(row):
 def _filter_kind_attr(row):
     """The row's `data-filter-kind` attribute, the dimension the chip
     group filters on: the runway direction the detector confirmed. Only
-    the two values the detector writes count; anything else belongs to
-    "All" alone, so a chip never claims a row it cannot name.
+    departing and arriving count; anything else, an overhead row
+    included, belongs to "All" alone, so a chip never claims a row it cannot name.
     """
     state = row.get("state_raw") or ""
     return state if state in _FILTER_KINDS else ""

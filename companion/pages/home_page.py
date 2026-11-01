@@ -76,6 +76,7 @@ DEVICE_NO_IMAGE_BODY = i18n.msg(
 
 DIRECTION_DEPARTING_TEXT = i18n.msg("home.departing", "Departing")
 DIRECTION_ARRIVING_TEXT = i18n.msg("home.arriving", "Arriving")
+DIRECTION_OVERHEAD_TEXT = i18n.msg("home.overhead", "Overhead")
 # Owned by companion/i18n_fr/flights.py: the same wording the Flights
 # card uses for a missing callsign or airline.
 NO_CALLSIGN_NOTE_TEXT = i18n.msg("flights.no_callsign", "no callsign")
@@ -160,6 +161,8 @@ def _direction_text(raw):
         return DIRECTION_DEPARTING_TEXT
     if raw == "arriving":
         return DIRECTION_ARRIVING_TEXT
+    if raw == "overhead":
+        return DIRECTION_OVERHEAD_TEXT
     return ""
 
 

@@ -72,6 +72,7 @@ def test_theme_background_index_matches_panel_format_constant_and_rejects_unknow
             "theme_background_index('arriving', 'white') != IDX_WHITE, got %r"
             % (themes.theme_background_index("arriving", "white"),)
         )
+    assert themes.theme_background_index("overhead", "white") == themes.theme_background_index("departing", "white")
     raised = False
     try:
         themes.theme_background_index("hovering", "white")

@@ -11,6 +11,7 @@ served from the state root.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 import sqlite3
@@ -50,6 +51,7 @@ STATUS_BUSY = "busy"
 STATUS_FAILED = "failed"
 STATUS_DEFERRED = "deferred"
 STATUS_SKIPPED = "skipped"
+STATUS_STALE_ZONE = "stale_zone"
 
 _BATTERY_STATE_FILENAME = "battery_state.json"
 
@@ -399,6 +401,8 @@ class _FleetRun:
             )
         except poll_cycle.PollBusy as exc:
             status, detail, trace = STATUS_BUSY, str(exc), ""
+        except poll_cycle.StaleZone as exc:
+            status, detail, trace = STATUS_STALE_ZONE, str(exc), ""
         except Exception as exc:
             status = STATUS_FAILED
             detail = "%s: %s" % (type(exc).__name__, exc)
@@ -420,6 +424,7 @@ class _FleetRun:
         except Exception as exc:
             print("fleet: zone fetch failed: %s" % type(exc).__name__, file=sys.stderr)
             fetched = _failed_fetch()
+        fetched = dataclasses.replace(fetched, zone_key=zone.key)
         self.result.requests += len(fetched.results) + len(fetched.failed)
         return fetched
 

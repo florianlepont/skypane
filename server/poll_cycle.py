@@ -24,6 +24,7 @@ and lose flights.
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import hashlib
 import io
 import os
@@ -912,13 +913,20 @@ def _ledger_root_for(state_dir):
     return state_dir
 
 
+class StaleZone(Exception):
+    """The shared zone fetch was made for a different zone than the one this
+    device's setting now resolves to. The cycle stops before selecting, so the
+    device keeps its image and the next planned cycle serves it."""
+
+
 def _fetch_standalone(ctx, zone):
     """Fetch this device's zone itself, always through the persisted
     request ledger: no ADS-B request may exist outside the shared budget,
     including a single-device cycle run by hand or by the companion.
     """
     ledger = request_budget.RequestLedger(ctx.ledger_root or _ledger_root_for(ctx.state_dir))
-    return zone_fetch.fetch_zone(ledger, zone.lat, zone.lon, zone.radius_nm)
+    fetched = zone_fetch.fetch_zone(ledger, zone.lat, zone.lon, zone.radius_nm)
+    return dataclasses.replace(fetched, zone_key=zone.key)
 
 
 def _select_from_zone(ctx):
@@ -928,6 +936,9 @@ def _select_from_zone(ctx):
     """
     spec = ctx.spec
     fetched = ctx.zone_fetch if ctx.zone_fetch is not None else _fetch_standalone(ctx, spec.zone)
+    if fetched.zone_key is not None and fetched.zone_key != spec.zone.key:
+        raise StaleZone(
+            "zone fetched for %s, device now watches %s" % (fetched.zone_key, spec.zone.key))
     diagnostics = fetched.diagnostics()
     flight = detect.select_from_provider_results(
         fetched.results, spec.geofence, runway_id=spec.display_id,
@@ -1157,6 +1168,15 @@ def _resolve_theme(ctx):
         calendar_theme_id=calendar_theme_id, rules=ctx.colour_rules_registry)
 
 
+def _position_mode(ctx):
+    return ctx.spec is not None and ctx.spec.mode == detection.POSITION_MODE
+
+
+def _previous_display_state(ctx):
+    return runway_config.display_state(
+        ctx.previous_flight, ctx.previous_confirmed_state, _position_mode(ctx))
+
+
 def _render_promoted(ctx):
     """The flight-detected branch: a new or re-observed aircraft occupies
     the "current" slot this cycle. Runway-state inference, enrichment
@@ -1172,10 +1192,13 @@ def _render_promoted(ctx):
     # Inference and enrichment run against the "current" slot, not
     # `ctx.flight` - on a paced cycle those differ.
     confirmed_state = runway_config.infer_from_flight(current_flight, ctx.prior_confirmed_state)
-    ctx.confirmed_state = confirmed_state
+    # Only the drawn state may be "overhead"; the held state persisted below
+    # stays departing/arriving/None.
+    shown_state = runway_config.display_state(current_flight, confirmed_state, _position_mode(ctx))
+    ctx.confirmed_state = shown_state
     ctx.state_source = _classify_state_source(current_flight.get("vertical_rate_fpm"))
 
-    if confirmed_state is None:
+    if shown_state is None:
         # A first-ever detection inside the deadband: render Empty rather
         # than guess a colour.
         ctx.render_state = "empty"
@@ -1189,7 +1212,7 @@ def _render_promoted(ctx):
             source_fault=ctx.source_fault, battery_low=ctx.battery_low, state_dir=ctx.state_dir, profile=ctx.profile,
         )
     else:
-        ctx.render_state = confirmed_state
+        ctx.render_state = shown_state
         _enrich_current_flight(ctx)
         _resolve_theme(ctx)
         # The previous flight's own real illustration/text rides along on
@@ -1197,7 +1220,7 @@ def _render_promoted(ctx):
         canvas = render.build_canvas(
             current_flight, ctx.render_state, route=ctx.route,
             previous_flight=ctx.previous_flight, previous_route=ctx.previous_route,
-            previous_state=ctx.previous_confirmed_state, theme_id=ctx.effective_theme_id,
+            previous_state=_previous_display_state(ctx), theme_id=ctx.effective_theme_id,
             runway_id=ctx.tracked_runway_id, source_fault=ctx.source_fault,
             battery_low=ctx.battery_low, state_dir=ctx.state_dir, profile=ctx.profile,
         )
@@ -1234,7 +1257,8 @@ def _render_held(ctx):
     predates the hold would keep serving that stale image indefinitely.
     """
     ctx.branch = "held"
-    confirmed_state = ctx.current_confirmed_state
+    confirmed_state = runway_config.display_state(
+        ctx.current_flight, ctx.current_confirmed_state, _position_mode(ctx))
     ctx.confirmed_state = confirmed_state
     ctx.render_state = confirmed_state if confirmed_state is not None else "empty"
     ctx.state_source = "held"
@@ -1253,7 +1277,7 @@ def _render_held(ctx):
             held_canvas = render.build_canvas(
                 ctx.current_flight, ctx.render_state, route=ctx.current_route,
                 previous_flight=ctx.previous_flight, previous_route=ctx.previous_route,
-                previous_state=ctx.previous_confirmed_state, theme_id=ctx.effective_theme_id,
+                previous_state=_previous_display_state(ctx), theme_id=ctx.effective_theme_id,
                 runway_id=ctx.tracked_runway_id, source_fault=ctx.source_fault,
                 battery_low=ctx.battery_low, state_dir=ctx.state_dir, profile=ctx.profile,
             )

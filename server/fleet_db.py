@@ -687,8 +687,10 @@ def set_device_location_checked(
     """Assign (or clear, with None) a device's location with owner checks.
 
     A user may only touch their own device and only assign a location they
-    own; an admin may assign any location. Anything else raises
-    PermissionError; an unknown device returns False.
+    own. An admin may assign any location except one owned by a different
+    user than the device owner; a location or device without an owner links
+    to anything. Anything else raises PermissionError; an unknown device
+    returns False.
     """
     with _atomic(conn):
         device = conn.execute(
@@ -708,6 +710,13 @@ def set_device_location_checked(
                 raise PermissionError("location is not owned by the acting user")
             if not is_admin and loc["owner_user_id"] != actor_user_id:
                 raise PermissionError("location is not owned by the acting user")
+            location_owner = loc["owner_user_id"]
+            if (
+                location_owner is not None
+                and device["owner_user_id"] is not None
+                and location_owner != device["owner_user_id"]
+            ):
+                raise PermissionError("location belongs to another owner")
         conn.execute(
             "UPDATE devices SET location_id = ? WHERE id = ?", (location_id, device_id)
         )

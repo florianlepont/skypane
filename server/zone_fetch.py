@@ -30,6 +30,8 @@ class ZoneFetch:
     queried: tuple[str, ...] = ()
     # Providers that failed, were paused, had no budget or ran out of time.
     failed: tuple[str, ...] = ()
+    # Key of the zone these aircraft were fetched for; None when unstamped.
+    zone_key: str | None = None
 
     def diagnostics(self) -> dict[str, list[str]]:
         """The `queried` / `failed` keys the source-fault rule reads."""

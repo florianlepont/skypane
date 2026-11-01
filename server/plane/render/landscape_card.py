@@ -337,7 +337,7 @@ def build_card_canvas(
     `previous_flight`, `previous_route` and `previous_state` are accepted
     only so callers can pass the same arguments as the portrait builder."""
     if state not in style.STATE_LABEL_TEXT:
-        raise ValueError("unknown card state %r (expected 'departing' or 'arriving')" % (state,))
+        raise ValueError("unknown card state %r (expected 'departing', 'arriving' or 'overhead')" % (state,))
     size = (int(size[0]), int(size[1]))
     theme_id = device_config.normalise_theme_id(theme_id)
     bg_idx = style.state_background_index(state, theme_id=theme_id)

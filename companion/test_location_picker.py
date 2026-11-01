@@ -128,13 +128,14 @@ def test_with_no_location_a_user_sees_a_note_and_an_add_link(rig):
     assert 'href="/locations">Add a location</a>' in body
 
 
-def test_an_admin_picker_lists_every_location_including_ownerless(rig):
+def test_an_admin_picker_lists_the_frame_owners_and_ownerless_locations(rig):
     ids = [
         rig.add_location("Alpha Place", rig.fleet.a_id),
-        rig.add_location("Neighbour Place", rig.fleet.b_id),
         rig.add_location("Platform Place")]
+    rig.add_location("Neighbour Place", rig.fleet.b_id)
     body = rig.display(rig.fleet.a1, "admin")
     assert [option[0] for option in _options(body)] == [""] + [str(i) for i in ids]
+    assert "Neighbour Place" not in body
 
 
 def test_an_admin_display_without_any_location_has_no_picker(rig):
@@ -274,13 +275,17 @@ def test_the_live_frame_form_is_refused_for_a_user(rig):
     assert rig.location_of(rig.fleet.live) is None
 
 
-def test_an_admin_may_assign_any_location(rig):
-    neighbour = rig.add_location("Neighbour Place", rig.fleet.b_id)
+def test_an_admin_may_assign_the_owners_and_ownerless_locations_but_not_a_neighbours(rig):
+    own = rig.add_location("Alpha Place", rig.fleet.a_id)
     platform = rig.add_location("Platform Place")
-    for target in (neighbour, platform):
+    neighbour = rig.add_location("Neighbour Place", rig.fleet.b_id)
+    for target in (own, platform):
         status, headers, _ = rig.save_display(rig.fleet.a1, "admin", location_id=str(target))
         assert status == 303 and "flash=saved" in headers["Location"]
         assert rig.location_of(rig.fleet.a1) == target
+    status, headers, _ = rig.save_display(rig.fleet.a1, "admin", location_id=str(neighbour))
+    assert "flash=save_failed" in headers["Location"]
+    assert rig.location_of(rig.fleet.a1) == platform
     status, headers, _ = rig.save_display(rig.fleet.a1, "admin", location_id="999999")
     assert "flash=save_failed" in headers["Location"]
     assert rig.location_of(rig.fleet.a1) == platform

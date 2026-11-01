@@ -179,6 +179,14 @@ def test_pipeline_position_selects_lowest(tmp_path):
     assert result["tracked_runway"] == "position:9"
 
 
+def test_pipeline_position_shows_high_aircraft_when_alone(tmp_path):
+    state_dir = tmp_path / "pos"
+    _write_config(state_dir, detection={"mode": "position", "radius_km": 9})
+    snapshot = {"ac": [_position_aircraft("ddd444", 0.01, 12000)]}
+    result = _run(state_dir, snapshot, location=POSITION_ORIGIN)
+    assert result["flight"]["hex"] == "ddd444"
+
+
 def test_pipeline_position_adds_no_new_poll_state(tmp_path):
     runway_dir = tmp_path / "runway"
     pos_dir = tmp_path / "pos"
@@ -251,3 +259,91 @@ def test_pipeline_runs_without_the_legacy_geofence_file(tmp_path):
     _write_config(state_dir, tracked_runway="3")
     result = _run(state_dir, _legacy_snapshot("3"), geofence=str(tmp_path / "missing.json"))
     assert result["flight"] is not None
+
+
+def _run_position(state_dir, aircraft):
+    return _run(state_dir, {"ac": aircraft}, location=POSITION_ORIGIN)
+
+
+def _position_dir(tmp_path, name="pos"):
+    state_dir = tmp_path / name
+    _write_config(state_dir, detection={"mode": "position", "radius_km": 9})
+    return state_dir
+
+
+def _poll_state(state_dir):
+    with open(os.path.join(str(state_dir), "poll_state.json")) as fh:
+        return json.load(fh)
+
+
+def _event_states(state_dir):
+    conn = sqlite3.connect(os.path.join(str(state_dir), "history.db"))
+    try:
+        rows = conn.execute("SELECT confirmed_state FROM runway_events ORDER BY rowid").fetchall()
+    finally:
+        conn.close()
+    return [row[0] for row in rows]
+
+
+def test_pipeline_position_state_follows_vertical_rate(tmp_path):
+    expected = {-600: "arriving", 900: "departing", 0: "overhead"}
+    for rate, state in expected.items():
+        state_dir = _position_dir(tmp_path, "pos%d" % rate)
+        result = _run_position(state_dir, [_position_aircraft("aaa111", 0.02, 2500, rate=rate)])
+        assert result["state"] == state
+
+
+def test_pipeline_position_level_after_descending_is_overhead_and_persists_the_held_state(tmp_path):
+    state_dir = _position_dir(tmp_path)
+    runway_dir = tmp_path / "runway"
+    _write_config(runway_dir, tracked_runway="3")
+    _run(runway_dir, _legacy_snapshot("3"))
+    assert _run_position(state_dir, [_position_aircraft("aaa111", 0.02, 2500, rate=-600)])["state"] == "arriving"
+    result = _run_position(state_dir, [_position_aircraft("aaa111", 0.02, 2500, rate=0)])
+    assert result["state"] == "overhead"
+    poll_state = _poll_state(state_dir)
+    assert poll_state["last_confirmed_state"] in ("arriving", None)
+    assert poll_state["last_confirmed_state"] != "overhead"
+    assert poll_state.get("previous_confirmed_state") != "overhead"
+    assert sorted(poll_state) == _poll_state_keys(runway_dir)
+    assert _event_states(state_dir)[-1] == "overhead"
+
+
+def test_pipeline_position_first_level_aircraft_shows_a_card_not_the_empty_screen(tmp_path):
+    state_dir = _position_dir(tmp_path)
+    reference = tmp_path / "ref"
+    reference.mkdir()
+    _run(reference, {"ac": []})
+    result = _run_position(state_dir, [_position_aircraft("fff666", 0.02, 3000, rate=0)])
+    assert result["state"] == "overhead"
+    assert result["flight"]["hex"] == "fff666"
+    assert _panel_hash(state_dir) != _panel_hash(reference)
+    assert _poll_state(state_dir)["last_confirmed_state"] is None
+    assert _event_states(state_dir) == ["overhead"]
+
+
+def test_pipeline_position_held_cycle_keeps_the_overhead_label(tmp_path):
+    state_dir = _position_dir(tmp_path)
+    _run_position(state_dir, [_position_aircraft("fff666", 0.02, 3000, rate=0)])
+    result = _run_position(state_dir, [])
+    assert result["state"] == "overhead"
+
+
+def test_pipeline_runway_mode_level_aircraft_still_holds(tmp_path):
+    state_dir = tmp_path / "rw"
+    _write_config(state_dir, tracked_runway="3")
+    snapshot = _legacy_snapshot("3")
+    assert _run(state_dir, snapshot)["state"] == "arriving"
+    level = {"ac": [dict(snapshot["ac"][0], baro_rate=0)]}
+    assert _run(state_dir, level)["state"] == "arriving"
+    first = tmp_path / "rw_first"
+    _write_config(first, tracked_runway="3")
+    assert _run(first, level)["state"] == "empty"
+
+
+def test_pipeline_position_level_aircraft_with_theme_overrides_renders(tmp_path):
+    state_dir = tmp_path / "themed"
+    _write_config(state_dir, detection={"mode": "position", "radius_km": 9},
+                  theme="white", theme_arriving="black")
+    result = _run_position(state_dir, [_position_aircraft("aaa111", 0.02, 2500, rate=0)])
+    assert result["state"] == "overhead"

@@ -222,14 +222,15 @@ THEME_IDS = tuple(THEMES)
 
 def theme_background_index(state: str, theme_id: str) -> int:
     """The theme's background palette index for `state`
-    ("departing"/"arriving"). Raises `ValueError` for any other state.
+    ("departing"/"arriving"/"overhead"). Raises `ValueError` for any other
+    state. Overhead uses the departing colour (every theme sets both equal).
     """
     theme = THEMES[theme_id]
-    if state == "departing":
+    if state in ("departing", "overhead"):
         return cast(int, theme["departing_index"])
     if state == "arriving":
         return cast(int, theme["arriving_index"])
-    raise ValueError("unknown state %r (expected 'departing' or 'arriving')" % (state,))
+    raise ValueError("unknown state %r (expected 'departing', 'arriving' or 'overhead')" % (state,))
 
 
 def theme_ink_index(theme_id: str) -> int:

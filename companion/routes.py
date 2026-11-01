@@ -312,8 +312,8 @@ _DEVICE_SCOPED_KEYS = frozenset(_PAGE_AND_IMAGE_KEYS + _ACTION_KEYS)
 # Form field carrying the per-session anti-forgery token.
 CSRF_FIELD = "csrf_token"
 
-# Existing POST routes that need the token: the destructive actions and the
-# release actions. New console routes set `csrf=True` on their own Route.
+# Existing POST routes that need the token: the destructive actions, the
+# release actions and the detection form that changes location data. New console routes set `csrf=True` on their own Route.
 CSRF_ROUTE_KEYS = frozenset((
     ("POST", PrefixSuffix(RULES_DELETE_ROUTE_PREFIX, RULES_DELETE_ROUTE_SUFFIX)),
     ("POST", Exact(CALENDAR_DISCONNECT_ROUTE)),
@@ -322,6 +322,7 @@ CSRF_ROUTE_KEYS = frozenset((
     ("POST", Exact(airlines_page.RENAME_RESET_ROUTE)),
     ("POST", Exact(UPDATE_INSTALL_ROUTE)),
     ("POST", Exact(UPDATE_CANCEL_ROUTE)),
+    ("POST", Exact(DETECTION_ROUTE)),
 ))
 
 ROUTES = tuple(

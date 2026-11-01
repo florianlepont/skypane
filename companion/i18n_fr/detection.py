@@ -28,7 +28,7 @@ MESSAGES = {
     "detection.summary_position":
         "Avions à moins de %(radius)d km de %(location)s",
     "detection.summary_position_detail":
-        "En vol, sous 10 000 ft, le plus bas d’abord.",
+        "En vol, le plus bas d’abord.",
     "detection.legacy_runway_pill": "Piste %(number)s",
     "detection.fail_safe_toast":
         "Aucun lieu utilisable — le cadre continue de suivre la piste 3 "
@@ -75,8 +75,7 @@ MESSAGES = {
 
     "detection.location": "Lieu",
     "detection.location_caption":
-        "Le cadre affiche l’avion en vol le plus bas, sous 10 000 ft, "
-        "dans le rayon.",
+        "Le cadre affiche l’avion en vol le plus bas dans le rayon.",
 
     "detection.location_label": "Lieu",
     "detection.location_option": "%(name)s — %(lat)s, %(lon)s",
@@ -84,7 +83,7 @@ MESSAGES = {
     "detection.rounding_note":
         "Partagé avec les fournisseurs de données, arrondi à environ 1 km.",
     "detection.radius_label": "Rayon (kilomètres)",
-    "detection.radius_hint": "De 4 à 28 km.",
+    "detection.radius_hint": "De 2 à 28 km.",
     "detection.no_location_heading": "Aucun lieu pour l’instant",
     "detection.no_location_body":
         "Ajoutez un lieu ci-dessous, puis choisissez-le ici pour suivre les "
@@ -116,7 +115,7 @@ MESSAGES = {
         "Ce lieu est hors de la France métropolitaine. Choisissez un lieu en "
         "France.",
     "detection.error_radius":
-        "Saisissez un nombre entier de kilomètres de 4 à 28.",
+        "Saisissez un nombre entier de kilomètres de 2 à 28.",
     "detection.error_name":
         "Saisissez un nom de 60 caractères au maximum.",
     "detection.error_number": "Saisissez un nombre tel que 48,8566.",

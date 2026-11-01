@@ -15,11 +15,11 @@ from access_matrix_support import (
     ADMIN_EMAIL, OTHER_EMAIL, OWNER_EMAIL, seed_matrix_fleet)
 from companion import device_scope
 from companion_app_server import (
-    InProcessAppServer, http_request, session_cookie_for_state_dir)
+    InProcessAppServer, http_request, session_cookie_for_state_dir, with_csrf)
 from server import device_config, fleet_db
 
 PARIS = "Europe/Paris"
-RADIUS_MESSAGE = "Enter a whole number of kilometres from 4 to 28."
+RADIUS_MESSAGE = "Enter a whole number of kilometres from 2 to 28."
 UNAVAILABLE = "This location is not available. Choose one from the list."
 OUTSIDE = "This location is outside metropolitan France. Choose a location in France."
 
@@ -47,14 +47,15 @@ class Rig:
             self.server.url(path), cookie=self.cookies[who], extra_headers=headers)
         return status, body.decode("utf-8", "replace")
 
-    def post(self, who, path, form, lang=None):
+    def post(self, who, path, form, lang=None, csrf=True):
         headers = {"Origin": self.server.base_url()}
         if lang:
             headers["Accept-Language"] = lang
-        data = urllib.parse.urlencode(form).encode()
+        cookie = self.cookies[who]
+        data = with_csrf(cookie, form) if csrf else urllib.parse.urlencode(form).encode()
         status, response, body = http_request(
             self.server.url(path), method="POST", data=data,
-            cookie=self.cookies[who], extra_headers=headers)
+            cookie=cookie, extra_headers=headers)
         return status, response, body.decode("utf-8", "replace")
 
     def config(self, state_dir):
@@ -156,7 +157,7 @@ def test_position_save_summary_and_frame_text(rig):
 
 def test_position_save_accepts_the_bounds(rig):
     home = rig.add_location(rig.fleet.owner_id, "Home", 48.8566, 2.3522)
-    for radius in ("4", "28"):
+    for radius in ("2", "28"):
         status, _r, _b = _post_detection(rig, "owner", _position_form(home, radius))
         assert status == 303
         assert rig.config(rig.owner_dir())["detection"]["radius_km"] == int(radius)
@@ -170,7 +171,7 @@ def test_position_panel_lists_rounded_coordinates_only(rig):
     assert "48.8566" not in select and "2.3522" not in select
     assert "Shared with data providers rounded to about 1 km." in _text(page)
     assert re.search(r'<input type="number" id="detection-radius" name="radius_km"[^>]*'
-                     r'min="4" max="28" step="1"[^>]*value="9"', page)
+                     r'min="2" max="28" step="1"[^>]*value="9"', page)
 
 
 def test_position_panel_marks_a_location_outside_france_disabled(rig):
@@ -191,7 +192,7 @@ def test_position_panel_without_locations_shows_empty_state_and_no_radius(rig):
 # --- rejections ---------------------------------------------------------------
 
 
-@pytest.mark.parametrize("radius", ["3", "29", "9.5", "", "abc", "-5", "0009x", "１２"])
+@pytest.mark.parametrize("radius", ["1", "29", "9.5", "", "abc", "-5", "0009x", "１２"])
 def test_position_rejections_radius(rig, radius):
     home = rig.add_location(rig.fleet.owner_id, "Home", 48.8566, 2.3522)
     before = rig.config_bytes(rig.owner_dir())
@@ -244,8 +245,8 @@ def test_position_rejections_stored_location_outside_france(rig):
 
 def test_position_rejection_keeps_the_typed_values(rig):
     home = rig.add_location(rig.fleet.owner_id, "Home", 48.8566, 2.3522)
-    _status, _r, page = _post_detection(rig, "owner", _position_form(home, "3"))
-    assert re.search(r'name="radius_km"[^>]*value="3"', page)
+    _status, _r, page = _post_detection(rig, "owner", _position_form(home, "1"))
+    assert re.search(r'name="radius_km"[^>]*value="1"', page)
     assert "data-dirty-carried" in page
 
 
@@ -418,6 +419,44 @@ def test_admin_saves_for_owner_cannot_use_the_admins_own_location(rig):
     status, _r, page = _post_detection(rig, "admin", _position_form(mine))
     assert status == 200
     assert UNAVAILABLE in _text(page)
+
+
+def test_admin_cannot_link_a_third_partys_location_to_the_owners_device(rig):
+    theirs = rig.add_location(rig.fleet.other_id, "Theirs", 43.3, 5.4)
+    before = rig.config_bytes(rig.owner_dir())
+    status, _r, page = _post_detection(rig, "admin", _position_form(theirs))
+    assert status == 200
+    assert UNAVAILABLE in _text(page)
+    assert rig.config_bytes(rig.owner_dir()) == before
+    assert rig.device_location(rig.fleet.owner_device) is None
+
+
+def test_admin_cannot_edit_a_third_partys_location_through_the_owners_form(rig):
+    theirs = rig.add_location(rig.fleet.other_id, "Theirs", 43.3, 5.4)
+    status, _r, page = _post_detection(
+        rig, "admin", _location_form("Hijack", "48.9", "2.4", str(theirs)))
+    assert status == 200
+    assert UNAVAILABLE in _text(page)
+    assert [(r["name"], r["latitude"]) for r in rig.locations()] == [("Theirs", 43.3)]
+
+
+def test_a_foreign_stored_location_name_is_not_served_to_the_device_owner(rig):
+    theirs = rig.add_location(rig.fleet.other_id, "Secret Foreign Place", 43.3, 5.4)
+    conn = fleet_db.connect(rig.state_dir)
+    try:
+        with fleet_db.transaction(conn):
+            conn.execute(
+                "UPDATE devices SET location_id = ? WHERE id = ?",
+                (theirs, rig.fleet.owner_device))
+    finally:
+        conn.close()
+    device_config.save_device_config(
+        rig.owner_dir(), detection={"mode": "position", "radius_km": 9})
+    for path in ("/detection", "/display"):
+        _s, page = rig.get("owner", rig.scope() + path)
+        assert "Secret Foreign Place" not in page
+    _s, page = rig.get("admin", rig.scope() + "/detection")
+    assert "Secret Foreign Place" in _text(page)
 
 
 # --- fail-safe toast ----------------------------------------------------------------
