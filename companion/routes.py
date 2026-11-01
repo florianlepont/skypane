@@ -33,10 +33,11 @@ admin role (every global page and mutation).
 import re
 
 from companion import (
-    console_routes, device_scope, layout, route_types, static_files, theme_preview)
+    co_managers, console_routes, device_scope, layout, route_types, static_files,
+    theme_preview)
 from companion.pages import (
-    airlines_page, config_page, detection_page, health_page, history_page, home_page,
-    update_page)
+    airlines_page, co_managers_card, config_page, detection_page, health_page,
+    history_page, home_page, update_page)
 
 # Anchored on the raw path (never percent-decoded); `\Z` and the absence of
 # DOTALL keep a newline from slipping into the id or the remainder.
@@ -56,6 +57,7 @@ PUBLIC = route_types.PUBLIC
 SIGNED_IN = route_types.SIGNED_IN
 ADMIN_ONLY = route_types.ADMIN_ONLY
 OWNER_DEVICE = route_types.OWNER_DEVICE
+OWNER_ONLY_DEVICE = route_types.OWNER_ONLY_DEVICE
 
 # Literal here, byte-identical to companion/app.py's own constants of the
 # same name, since this module can never import companion.app either.
@@ -269,6 +271,17 @@ _POST_ROUTES = (
     Route(
         "POST", PrefixSuffix(RULES_DELETE_ROUTE_PREFIX, RULES_DELETE_ROUTE_SUFFIX),
         lambda h, m: h._handle_rule_delete_post(m.device, m.captured), OWNER_DEVICE),
+    # Managing the member list is the owner's or an administrator's; a
+    # co-manager may only leave.
+    Route(
+        "POST", Exact(co_managers_card.ADD_ROUTE),
+        lambda h, m: co_managers.handle_add(h, m), OWNER_ONLY_DEVICE, csrf=True),
+    Route(
+        "POST", Exact(co_managers_card.REMOVE_ROUTE),
+        lambda h, m: co_managers.handle_remove(h, m), OWNER_ONLY_DEVICE, csrf=True),
+    Route(
+        "POST", Exact(co_managers_card.LEAVE_ROUTE),
+        lambda h, m: co_managers.handle_leave(h, m), OWNER_DEVICE, csrf=True),
 )
 
 _PAGE_AND_IMAGE_KEYS = (
@@ -304,9 +317,12 @@ _ACTION_KEYS = (
     ("POST", PrefixSuffix(RULES_DELETE_ROUTE_PREFIX, RULES_DELETE_ROUTE_SUFFIX)),
     ("POST", Exact(CALENDAR_CONNECT_ROUTE)),
     ("POST", Exact(CALENDAR_DISCONNECT_ROUTE)),
+    ("POST", Exact(co_managers_card.ADD_ROUTE)),
+    ("POST", Exact(co_managers_card.REMOVE_ROUTE)),
+    ("POST", Exact(co_managers_card.LEAVE_ROUTE)),
 )
 
-# The routes that act on a single device: 14 GET and 15 POST.
+# The routes that act on a single device: 14 GET and 17 POST.
 _DEVICE_SCOPED_KEYS = frozenset(_PAGE_AND_IMAGE_KEYS + _ACTION_KEYS)
 
 # Form field carrying the per-session anti-forgery token.
