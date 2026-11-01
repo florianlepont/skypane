@@ -1,7 +1,7 @@
 ---
 phase: 53-detection-modes-airport-runway-and-position-radius
 verified: 2026-10-31T00:00:00Z
-status: human_needed
+status: passed
 score: 3/3 success criteria, 3/3 requirements, all owner constraints verified in code; owner-only checks remain
 branch: milestone/v1.2-phase-53-detection-modes (HEAD 5d8d7d85, includes merge 2980cbea of main 9b9dc101)
 gaps: []
@@ -93,3 +93,7 @@ human_verification:
 - The suite ran with `--no-cov`, so the coverage floor was not re-measured.
 - 7 tests skip under root (permission bits), so they were not exercised here.
 - The local `main` ref is stale relative to the merged main (9b9dc101). Use that SHA as the comparison base.
+
+## Closure (2026-11-01)
+
+The owner saw the runway mode on the real panel of the live frame (`DEPARTING FROM CDG` and `08L/26R`, correct and readable), confirmed the live frame is back on Orly 07/25, confirmed the Orly image and rhythm are unchanged after both deployments, and validated the policy numbers. The position-mode screens (`NEARBY`, `OVERHEAD`, `SET A LOCATION`) have not been seen on a real panel; the owner accepted this and they are only checked by the render tests and mockups.

@@ -38,9 +38,9 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 ### Detection Modes
 
-- [ ] **DET-01**: A device can be set to an airport and runway chosen from a committed France catalogue built from OurAirports (rows without both thresholds dropped), with real runway designators.
-- [ ] **DET-02**: Recorded Orly traffic replayed through the new runway logic gives the same decisions as the current hand-tuned runway-3 geofence, and at least one parallel-runway airport is tested.
-- [ ] **DET-03**: A device can be set to show aircraft around a position within a bounded radius inside France, and coordinates sent to third parties are rounded.
+- [x] **DET-01**: A device can be set to an airport and runway chosen from a committed France catalogue built from OurAirports (rows without both thresholds dropped), with real runway designators.
+- [x] **DET-02**: Recorded Orly traffic replayed through the new runway logic gives the same decisions as the current hand-tuned runway-3 geofence, and at least one parallel-runway airport is tested.
+- [x] **DET-03**: A device can be set to show aircraft around a position within a bounded radius inside France, and coordinates sent to third parties are rounded.
 
 ### Accounts and Administration
 
