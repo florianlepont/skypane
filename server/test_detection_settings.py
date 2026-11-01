@@ -142,5 +142,4 @@ def test_stored_catalogue_selection_resolves_through_spec_for(tmp_path):
     sd = str(tmp_path)
     detection.apply_runway_selection(sd, "LFPG", "08L/26R")
     spec = detection.spec_for(device_config.load_device_config(sd))
-    assert spec.fail_safe is False
     assert spec.display_id == detection.runway_display_id("LFPG", "08L/26R")

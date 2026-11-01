@@ -35,7 +35,6 @@ def test_legacy_runway_spec_keeps_zone_key_and_text():
     assert spec.zone == fleet_zones.Zone(48.7233, 2.3794, 5.0)
     assert spec.tag_text == "ORY · RWY 3"
     assert spec.empty_heading == "Watching Runway 3"
-    assert spec.fail_safe is False
 
 
 @pytest.mark.parametrize("runway_id", LEGACY_IDS)
@@ -55,7 +54,6 @@ def test_catalogue_runway_spec_text_uses_iata():
     assert spec.display_id == "LFPG:08L/26R"
     assert spec.tag_text == "CDG · 08L/26R"
     assert spec.empty_heading == "Watching Runway 08L/26R"
-    assert spec.fail_safe is False
 
 
 def test_airport_without_iata_uses_icao_in_tag():
@@ -83,7 +81,6 @@ def test_airport_without_iata_uses_icao_in_tag():
 def test_bad_detection_object_falls_back_to_legacy_runway(bad):
     spec = detection.spec_for({"tracked_runway": "06-24", "detection": bad})
     assert spec.display_id == "3"
-    assert spec.fail_safe is True
     assert spec.zone.key == "48.7233|2.3794|5.0"
 
 
@@ -279,7 +276,6 @@ def test_position_spec_fields():
     assert spec.zone == fleet_zones.Zone(48.86, 2.35, 4.86)
     assert spec.tag_text == "NEARBY · 9 KM"
     assert spec.empty_heading == "Watching Within 9 km"
-    assert spec.fail_safe is False
     doc = spec.geofence
     assert doc["detection_mode"] == "position"
     assert doc["center"] == {"lat": 48.86, "lon": 2.35}
@@ -311,7 +307,6 @@ def test_position_spec_zone_matches_zone_from_document():
 )
 def test_position_spec_bad_input_falls_back(cfg, location):
     spec = detection.spec_for(cfg, location=location)
-    assert spec.fail_safe is True
     assert spec.mode == "runway"
     assert spec.display_id == "3"
 
@@ -323,7 +318,6 @@ def test_position_spec_bad_input_falls_back(cfg, location):
 def test_position_without_usable_location_is_a_no_location_spec(location):
     spec = detection.spec_for(_POSITION_CFG, location=location)
     assert spec.no_location is True
-    assert spec.fail_safe is False
     assert spec.display_id == detection.NO_LOCATION_DISPLAY_ID
     assert spec.tag_text == "SET A LOCATION"
     assert spec.empty_heading == "Set a location"
@@ -338,7 +332,7 @@ def test_usable_location_and_other_modes_are_not_no_location():
     bad_radius = detection.spec_for(
         {"detection": {"mode": "position", "radius_km": 99}}, location=None)
     assert bad_radius.no_location is False
-    assert bad_radius.fail_safe is True
+    assert bad_radius.display_id == "3"
 
 
 def test_shared_zone_for_nearby_locations():

@@ -20,7 +20,7 @@ from urllib.parse import parse_qs, urlencode
 from companion import device_scope, i18n, layout, page_context, prefs
 from companion.detection_summary import (
     LEGACY_PILL, LEGACY_PILL_NUMBER, airport_label as airport_label,
-    display_id_for, summary_values)
+    display_id_for, is_fail_safe, summary_values)
 from companion.layout import escape_html
 from companion.pages import config_page
 from companion.settings import quiet_hours
@@ -258,7 +258,7 @@ class _View:
         if location_name is None:
             location_name = scope.device_location_name
         self.location_name = location_name
-        self.fail_safe = saved_mode == MODE_POSITION and location_name is None
+        self.fail_safe = is_fail_safe(self.selection, location_name)
         requested = _submitted_or_current(
             self.submitted, "mode", self.query.get("mode"))
         self.mode_from_request = requested in MODES
