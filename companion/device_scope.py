@@ -140,17 +140,37 @@ def _is_user_view():
     return principal is not None and principal[1] == access.USER
 
 
+def _co_managed_ids(root, user_id):
+    """Ids of the frames `user_id` co-manages; an empty set on any problem,
+    so a database without the table or an unreadable one never hides the
+    frames the user owns."""
+    if user_id is None:
+        return set()
+    try:
+        conn = fleet_db.connect_readonly(root)
+    except (fleet_db.FleetDbError, sqlite3.Error, OSError):
+        return set()
+    try:
+        return fleet_db.co_managed_device_ids(conn, user_id)
+    except (fleet_db.FleetDbError, sqlite3.Error, OSError):
+        return set()
+    finally:
+        conn.close()
+
+
 def load_devices_for(root, principal):
     """The devices `principal` may see: all of them for an admin or when no
-    principal is known, and for a user only the frames they own. A user's
-    list never holds the synthetic live fallback, so a user who owns no
+    principal is known, and for a user the frames they own or co-manage. A
+    user's list never holds the synthetic live fallback, so a user with no
     frame sees none. Never raises."""
     if principal is None or principal.role != access.USER:
         return load_devices(root)
-    owned = [
+    shared = _co_managed_ids(root, principal.user_id)
+    visible = [
         row for row in _fleet_rows(root)
-        if principal.user_id is not None and _owner_of(row) == principal.user_id]
-    return _devices_from_rows(root, owned, False)
+        if principal.user_id is not None and (
+            _owner_of(row) == principal.user_id or str(row["id"]) in shared)]
+    return _devices_from_rows(root, visible, False)
 
 
 def find_device(root, device_id):

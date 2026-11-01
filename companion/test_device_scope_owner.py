@@ -3,6 +3,7 @@ post-POST redirect are confined to the frames they own, and the live frame
 is only ever reached through its real id. Admin behaviour is unchanged.
 """
 import hashlib
+import sqlite3
 import urllib.parse
 
 import pytest
@@ -78,6 +79,94 @@ def test_a_user_sees_only_their_own_frames_and_no_live_fallback(fleet):
     devices = device_scope.load_devices_for(state_dir, _principal(seeded, "owner"))
     assert [d.id for d in devices] == [seeded.owner_device]
     assert not any(d.is_live for d in devices)
+
+
+def _co_manager(state_dir, device_id, email="co@example.test"):
+    conn = fleet_db.connect(state_dir)
+    try:
+        user_id = fleet_db.add_user(conn, email, "user")
+        fleet_db.add_co_manager(conn, device_id, user_id, None)
+    finally:
+        conn.close()
+    return access.Principal(access.KIND_USER, user_id, email, "user")
+
+
+def test_a_user_sees_owned_and_co_managed_frames_in_name_order(fleet):
+    state_dir, seeded = fleet
+    conn = fleet_db.connect(state_dir)
+    try:
+        fleet_db.add_device(
+            conn, "aa:bb:cc:dd:ee:03", "d" * 64, hardware.LEGACY_KEY,
+            seeded.owner_id, name="Attic", state_path="auto")
+        own = fleet_db.add_device(
+            conn, "aa:bb:cc:dd:ee:04", "e" * 64, hardware.LEGACY_KEY,
+            seeded.admin_id, name="Zed", state_path="auto")
+    finally:
+        conn.close()
+    principal = _co_manager(state_dir, seeded.owner_device)
+    conn = fleet_db.connect(state_dir)
+    try:
+        fleet_db.add_co_manager(conn, own, principal.user_id, None)
+    finally:
+        conn.close()
+    devices = device_scope.load_devices_for(state_dir, principal)
+    assert [d.id for d in devices] == sorted(
+        [seeded.owner_device, own], key=lambda i: (
+            {d.id: d.name for d in device_scope.load_devices(state_dir)}[i], i))
+    assert seeded.other_device not in [d.id for d in devices]
+    assert not any(d.is_live for d in devices)
+
+
+def test_a_user_who_owns_nothing_sees_exactly_the_co_managed_frame(fleet):
+    state_dir, seeded = fleet
+    principal = _co_manager(state_dir, seeded.other_device)
+    devices = device_scope.load_devices_for(state_dir, principal)
+    assert [d.id for d in devices] == [seeded.other_device]
+    assert devices[0].owner_user_id == seeded.other_id
+
+
+def test_a_co_managed_frame_is_not_added_to_the_admin_or_unscoped_list(fleet):
+    state_dir, seeded = fleet
+    _co_manager(state_dir, seeded.other_device)
+    assert (device_scope.load_devices_for(state_dir, None)
+            == device_scope.load_devices(state_dir))
+    admin = device_scope.load_devices_for(state_dir, _principal(seeded, "admin"))
+    assert admin == device_scope.load_devices(state_dir)
+
+
+def test_a_schema_3_database_still_lists_owned_frames(fleet):
+    state_dir, seeded = fleet
+    conn = fleet_db.connect(state_dir)
+    try:
+        conn.execute("DROP TRIGGER IF EXISTS devices_owner_not_co_manager")
+        conn.execute("DROP TABLE device_co_managers")
+        conn.commit()
+    finally:
+        conn.close()
+    devices = device_scope.load_devices_for(state_dir, _principal(seeded, "owner"))
+    assert [d.id for d in devices] == [seeded.owner_device]
+
+
+def test_a_failing_co_manager_query_keeps_owned_frames(fleet, monkeypatch):
+    state_dir, seeded = fleet
+
+    def boom(conn, user_id):
+        raise sqlite3.OperationalError("no such table")
+    monkeypatch.setattr(fleet_db, "co_managed_device_ids", boom)
+    devices = device_scope.load_devices_for(state_dir, _principal(seeded, "owner"))
+    assert [d.id for d in devices] == [seeded.owner_device]
+
+
+def test_removing_the_membership_removes_the_frame_from_the_list(fleet):
+    state_dir, seeded = fleet
+    principal = _co_manager(state_dir, seeded.other_device)
+    assert device_scope.load_devices_for(state_dir, principal)
+    conn = fleet_db.connect(state_dir)
+    try:
+        fleet_db.remove_co_manager(conn, seeded.other_device, principal.user_id)
+    finally:
+        conn.close()
+    assert device_scope.load_devices_for(state_dir, principal) == []
 
 
 def test_a_user_with_no_frame_gets_an_empty_list(fleet):
