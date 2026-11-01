@@ -124,8 +124,7 @@ TAG_HINT = i18n.msg(
 POSITION_TITLE = i18n.msg("detection.location", "Location")
 POSITION_CAPTION = i18n.msg(
     "detection.location_caption",
-    "The frame shows the lowest aircraft that is in the air, below 10,000 ft, "
-    "inside the radius.")
+    "The frame shows the lowest aircraft that is in the air, inside the radius.")
 
 LOCATION_LABEL = i18n.msg("detection.location_label", "Location")
 LOCATION_OPTION = i18n.msg("detection.location_option", "%(name)s — %(lat)s, %(lon)s")
@@ -178,7 +177,7 @@ ERROR_LOCATION_OUTSIDE = i18n.msg(
     "detection.error_location_outside",
     "This location is outside metropolitan France. Choose a location in France.")
 ERROR_RADIUS = i18n.msg(
-    "detection.error_radius", "Enter a whole number of kilometres from 4 to 28.")
+    "detection.error_radius", "Enter a whole number of kilometres from 2 to 28.")
 ERROR_NAME = i18n.msg(
     "detection.error_name", "Enter a name of up to 60 characters.")
 ERROR_NUMBER = i18n.msg(

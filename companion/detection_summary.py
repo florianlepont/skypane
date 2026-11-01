@@ -17,7 +17,7 @@ SUMMARY_RUNWAY_DETAIL = i18n.msg(
 SUMMARY_POSITION_VALUE = i18n.msg(
     "detection.summary_position", "Aircraft within %(radius)d km of %(location)s")
 SUMMARY_POSITION_DETAIL = i18n.msg(
-    "detection.summary_position_detail", "In the air, below 10,000 ft, lowest first.")
+    "detection.summary_position_detail", "In the air, lowest first.")
 LEGACY_PILL = i18n.msg("detection.legacy_runway_pill", "Runway %(number)s")
 
 LEGACY_PILL_NUMBER = {"3": "3", "06-24": "4", "02-20": "2"}

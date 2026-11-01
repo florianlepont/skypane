@@ -126,7 +126,7 @@ A `<dl class="detection-summary">` inside a `.theme-status` card, three rows, la
 
 | Row (dt) | Runway mode | Position mode |
 |----------|-------------|---------------|
-| Following | `Runway 08L/26R at Paris-Charles de Gaulle (CDG)` / detail `Departures and arrivals, in both directions.` | `Aircraft within 9 km of Home` / detail `In the air, below 10,000 ft, lowest first.` |
+| Following | `Runway 08L/26R at Paris-Charles de Gaulle (CDG)` / detail `Departures and arrivals, in both directions.` | `Aircraft within 9 km of Home` / detail `In the air, lowest first.` |
 | Text on the frame | `CDG · 08L/26R` (mono) | `NEARBY · 9 KM` (mono) |
 | When nothing is in range | `Watching Runway 08L/26R` (mono) | `Watching Within 9 km` (mono) |
 
@@ -187,10 +187,10 @@ A `<dl class="detection-summary">` inside a `.theme-status` card, three rows, la
 
 ### 4. Location and radius panel (`.detection-panel--position`)
 
-- `<h2>Location</h2>` + caption: "The frame shows the lowest aircraft that is in the air, below 10,000 ft, inside the radius."
+- `<h2>Location</h2>` + caption: "The frame shows the lowest aircraft that is in the air, inside the radius."
 - Field 1: `<label for="detection-location">Location</label>` + `<select id="detection-location" name="location_id" form="detection-form">` (no `required`). Options list the DEVICE OWNER's saved locations (for a device with no owner: the signed-in admin's own list; for a non-admin: their own, which is the owner's) as `Home — 48.86, 2.35`, i.e. name plus the ROUNDED coordinates that will be sent, so the rounding is visible without script. A location outside the France box is rendered `disabled` with the suffix ` — outside France`. The first option when nothing is saved: absent (see empty state). Saved location is `selected`. `aria-describedby="location-rounding-note"` (plus the error id when present).
 - Note `#location-rounding-note` (`.text-label.section-caption`): "Shared with data providers rounded to about 1 km." No exact coordinates are ever printed on this page for position mode; the location LIST in card 6 is the only place the stored (unrounded) coordinates appear, because the owner entered them.
-- Field 2: `<label for="detection-radius">Radius (kilometres)</label>` + `<input type="number" id="detection-radius" name="radius_nm" form="detection-form" min="4" max="28" step="1" inputmode="numeric">` (the field name stays `radius_nm` only if the planner keeps the storage key; the stored value is whole km, the planner may rename it `radius_km`; nautical miles never appear in the UI, the km-to-NM conversion is server-side) with the unit text "km" after it (14 px muted, `aria-hidden`; the unit is in the label), width `8ch; min-width: 96px` (same rule shape as `input[name="wake_interval_s"]`). Value: saved radius, else `9`. Hint `#radius-hint`: "From 4 to 28 km." Whole numbers only (the server rejects decimals). `min`/`max`/`step` are spinner hints only; they never gate submission because the form is `novalidate`.
+- Field 2: `<label for="detection-radius">Radius (kilometres)</label>` + `<input type="number" id="detection-radius" name="radius_nm" form="detection-form" min="2" max="28" step="1" inputmode="numeric">` (the field name stays `radius_nm` only if the planner keeps the storage key; the stored value is whole km, the planner may rename it `radius_km`; nautical miles never appear in the UI, the km-to-NM conversion is server-side) with the unit text "km" after it (14 px muted, `aria-hidden`; the unit is in the label), width `8ch; min-width: 96px` (same rule shape as `input[name="wake_interval_s"]`). Value: saved radius, else `9`. Hint `#radius-hint`: "From 2 to 28 km." Whole numbers only (the server rejects decimals). `min`/`max`/`step` are spinner hints only; they never gate submission because the form is `novalidate`.
 - No slider in this phase (a continuous control needs the controls-gate script and its measured register; not worth a script for a 25-value integer). Recorded as a deliberate non-build.
 - Errors sit directly under the offending control (`.field-error text-label role="alert"`, `aria-invalid="true"`, `aria-describedby` hint then error), per the placement rule.
 
@@ -280,7 +280,7 @@ Panel text (tag, empty heading) is NOT i18n; it is English on the frame: `CDG ·
 | Summary value, runway | Runway %(runway)s at %(airport)s | Piste %(runway)s à %(airport)s |
 | Summary detail, runway | Departures and arrivals, in both directions. | Décollages et atterrissages, dans les deux sens. |
 | Summary value, position | Aircraft within %(radius)d km of %(location)s | Avions à moins de %(radius)d km de %(location)s |
-| Summary detail, position | In the air, below 10,000 ft, lowest first. | En vol, sous 10 000 ft, le plus bas d’abord. |
+| Summary detail, position | In the air, lowest first. | En vol, le plus bas d’abord. |
 | Mode card title | Detection mode | Mode de détection |
 | Mode segment 1 | Airport and runway | Aéroport et piste |
 | Mode segment 2 | Around a location | Autour d’un lieu |
@@ -307,13 +307,13 @@ Panel text (tag, empty heading) is NOT i18n; it is English on the frame: `CDG ·
 | Legacy Orly pill | Runway %(number)s | Piste %(number)s |
 | Frame tag hint | The frame labels this airport “%(code)s”, then the runway, for example %(example)s. | Le cadre étiquette cet aéroport « %(code)s », puis la piste, par exemple %(example)s. |
 | Location card title | Location | Lieu |
-| Location caption | The frame shows the lowest aircraft that is in the air, below 10,000 ft, inside the radius. | Le cadre affiche l’avion en vol le plus bas, sous 10 000 ft, dans le rayon. |
+| Location caption | The frame shows the lowest aircraft that is in the air, inside the radius. | Le cadre affiche l’avion en vol le plus bas dans le rayon. |
 | Location label | Location | Lieu |
 | Location option | %(name)s — %(lat)s, %(lon)s | %(name)s — %(lat)s, %(lon)s |
 | Location option, out of France | %(name)s — outside France | %(name)s — hors de France |
 | Rounding note | Shared with data providers rounded to about 1 km. | Partagé avec les fournisseurs de données, arrondi à environ 1 km. |
 | Radius label | Radius (kilometres) | Rayon (kilomètres) |
-| Radius hint | From 4 to 28 km. | De 4 à 28 km. |
+| Radius hint | From 2 to 28 km. | De 2 à 28 km. |
 | Empty state heading (no location) | No location yet | Aucun lieu pour l’instant |
 | Empty state body (no location) | Add a location below, then choose it above to follow the aircraft around it. | Ajoutez un lieu ci-dessous, puis choisissez-le ici pour suivre les avions autour. |
 | Add location link | Add a location | Ajouter un lieu |
@@ -350,7 +350,7 @@ Panel text (tag, empty heading) is NOT i18n; it is English on the frame: `CDG ·
 | location (missing) | Choose a location. | Choisissez un lieu. |
 | location (unknown / not yours) | This location is not available. Choose one from the list. | Ce lieu n’est pas disponible. Choisissez-en un dans la liste. |
 | location or coordinates outside France | This location is outside metropolitan France. Choose a location in France. | Ce lieu est hors de la France métropolitaine. Choisissez un lieu en France. |
-| radius | Enter a whole number of kilometres from 4 to 28. | Saisissez un nombre entier de kilomètres de 4 à 28. |
+| radius | Enter a whole number of kilometres from 2 to 28. | Saisissez un nombre entier de kilomètres de 2 à 28. |
 | name | Enter a name of up to 60 characters. | Saisissez un nom de 60 caractères au maximum. |
 | latitude / longitude | Enter a number such as 48.8566. | Saisissez un nombre tel que 48,8566. |
 

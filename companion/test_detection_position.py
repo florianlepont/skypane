@@ -19,7 +19,7 @@ from companion_app_server import (
 from server import device_config, fleet_db
 
 PARIS = "Europe/Paris"
-RADIUS_MESSAGE = "Enter a whole number of kilometres from 4 to 28."
+RADIUS_MESSAGE = "Enter a whole number of kilometres from 2 to 28."
 UNAVAILABLE = "This location is not available. Choose one from the list."
 OUTSIDE = "This location is outside metropolitan France. Choose a location in France."
 
@@ -157,7 +157,7 @@ def test_position_save_summary_and_frame_text(rig):
 
 def test_position_save_accepts_the_bounds(rig):
     home = rig.add_location(rig.fleet.owner_id, "Home", 48.8566, 2.3522)
-    for radius in ("4", "28"):
+    for radius in ("2", "28"):
         status, _r, _b = _post_detection(rig, "owner", _position_form(home, radius))
         assert status == 303
         assert rig.config(rig.owner_dir())["detection"]["radius_km"] == int(radius)
@@ -171,7 +171,7 @@ def test_position_panel_lists_rounded_coordinates_only(rig):
     assert "48.8566" not in select and "2.3522" not in select
     assert "Shared with data providers rounded to about 1 km." in _text(page)
     assert re.search(r'<input type="number" id="detection-radius" name="radius_km"[^>]*'
-                     r'min="4" max="28" step="1"[^>]*value="9"', page)
+                     r'min="2" max="28" step="1"[^>]*value="9"', page)
 
 
 def test_position_panel_marks_a_location_outside_france_disabled(rig):
@@ -192,7 +192,7 @@ def test_position_panel_without_locations_shows_empty_state_and_no_radius(rig):
 # --- rejections ---------------------------------------------------------------
 
 
-@pytest.mark.parametrize("radius", ["3", "29", "9.5", "", "abc", "-5", "0009x", "１２"])
+@pytest.mark.parametrize("radius", ["1", "29", "9.5", "", "abc", "-5", "0009x", "１２"])
 def test_position_rejections_radius(rig, radius):
     home = rig.add_location(rig.fleet.owner_id, "Home", 48.8566, 2.3522)
     before = rig.config_bytes(rig.owner_dir())
@@ -245,8 +245,8 @@ def test_position_rejections_stored_location_outside_france(rig):
 
 def test_position_rejection_keeps_the_typed_values(rig):
     home = rig.add_location(rig.fleet.owner_id, "Home", 48.8566, 2.3522)
-    _status, _r, page = _post_detection(rig, "owner", _position_form(home, "3"))
-    assert re.search(r'name="radius_km"[^>]*value="3"', page)
+    _status, _r, page = _post_detection(rig, "owner", _position_form(home, "1"))
+    assert re.search(r'name="radius_km"[^>]*value="1"', page)
     assert "data-dirty-carried" in page
 
 
