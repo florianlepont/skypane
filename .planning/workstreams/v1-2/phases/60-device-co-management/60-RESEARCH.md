@@ -421,18 +421,18 @@ Changes:
 | Stale access after removal/disable | Elevation of privilege | no caching; sessions deleted on disable |
 | Audit gaps | Repudiation | audit row in the same transaction for every add and remove path, including cascades |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Who may see the candidate list?** D-05 makes any invited non-disabled user eligible, and the add control needs to list them. For a plain-user owner this exposes the e-mail addresses of all invited users (the Users page is admin-only today). What we know: CONTEXT locks eligibility, not the picker's mechanics. What's unclear: whether the owner should pick from a list or type an e-mail. Recommendation: owner and admin choose from a `<select>` of eligible users (simplest, matches the Fleet "Pair a frame" owner select), but flag this privacy trade-off to the user at plan time; the lower-disclosure alternative is a typed-e-mail field that resolves against invited users and answers with one generic "not invited or not eligible" message for all failures. Either fits D-05; the planner should pick one and note the choice. [ASSUMED: privacy preference]
-2. **Card page** (Home vs Display). Recommendation Home (see UI). Needs no user decision but a browser test on freshness refresh.
-3. **Do kept co-managers survive a reassign that wipes the frame?** D-03 locks yes; confirm in the plan text that this is intended.
-4. **Audit target presentation** (frame vs frame plus e-mail). Recommendation frame target, optional label polish.
+1. **(RESOLVED by D-08: non-admin owners type an e-mail address and get one generic refusal; only admins may be offered the eligible list. The select recommendation below is superseded.) Who may see the candidate list?** D-05 makes any invited non-disabled user eligible, and the add control needs to list them. For a plain-user owner this exposes the e-mail addresses of all invited users (the Users page is admin-only today). What we know: CONTEXT locks eligibility, not the picker's mechanics. What's unclear: whether the owner should pick from a list or type an e-mail. Recommendation: owner and admin choose from a `<select>` of eligible users (simplest, matches the Fleet "Pair a frame" owner select), but flag this privacy trade-off to the user at plan time; the lower-disclosure alternative is a typed-e-mail field that resolves against invited users and answers with one generic "not invited or not eligible" message for all failures. Either fits D-05; the planner should pick one and note the choice. [ASSUMED: privacy preference]
+2. **(RESOLVED: adopted recommendation, the card lives on Home, with a browser test on freshness refresh in plan 08.) Card page** (Home vs Display). Recommendation Home (see UI). Needs no user decision but a browser test on freshness refresh.
+3. **(RESOLVED by plan 02: the plan text confirms D-03 is intended and records the visible consequence in its SUMMARY.) Do kept co-managers survive a reassign that wipes the frame?** D-03 locks yes; confirm in the plan text that this is intended.
+4. **(RESOLVED: adopted recommendation, frame as audit target, label polish only in plan 05.) Audit target presentation** (frame vs frame plus e-mail). Recommendation frame target, optional label polish.
 
 ## Assumptions Log
 
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
-| A1 | The owner is comfortable with owners seeing the e-mails of all invited users in the add control (Open Question 1) | Open Questions, Security | Privacy regression; switch to typed-e-mail resolution |
+| A1 (SUPERSEDED by D-08: owners type an e-mail and never see the invited list, so this assumption no longer applies) | The owner is comfortable with owners seeing the e-mails of all invited users in the add control (Open Question 1) | Open Questions, Security | Privacy regression; switch to typed-e-mail resolution |
 | A2 | Home is the right "frame's own page" for the card | UI | Cosmetic; card could move to Display |
 | A3 | Shipping triggers in the migration is acceptable (defence in depth; the `deploy/tests/test_backup.py` trigger comparison covers them) | Migration v4 | If undesired, drop the two triggers and rely on in-transaction checks only |
 | A4 | Roll-back semantics: previous release refuses schema 4 and falls back to legacy files (verified in code), consistent with the earlier v2/v3 README statements; the owner accepts it for v4 as for v3 | Migration v4 | Owner expects true downgrade compatibility; that would need a different design and is not what the code base does for any migration |
