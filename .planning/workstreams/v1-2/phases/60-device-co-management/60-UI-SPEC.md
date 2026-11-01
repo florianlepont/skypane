@@ -1,7 +1,8 @@
 ---
 phase: 60
 slug: device-co-management
-status: draft
+status: approved
+reviewed_at: 2026-11-01
 shadcn_initialized: false
 preset: none
 created: 2026-11-01
@@ -251,11 +252,19 @@ Rules:
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
 **Approval:** pending
+
+## Checker Flags Carried to Planning
+
+1. The global `summary` rule colours the summary text and chevron with the accent: the Leave summary is the one accent-coloured Leave element; the Leave submit stays quiet grey.
+2. Remove keeps its row e-mail as context plus the per-row aria-label.
+3. Focal point: the owner row, and the Add submit in the manage variant; the member list in the read-only variant.
+4. French terms must be aligned with the `companion/i18n_fr/` catalogue.
+5. Link accent only on the existing Account "Open" link and "Stay on this frame".
