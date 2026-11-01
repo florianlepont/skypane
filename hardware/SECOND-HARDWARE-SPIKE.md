@@ -9,7 +9,7 @@ or payment call was made. Trial code lives only in `firmware/spike-7in3/`.
 
 - Box: 1 day maximum, no hardware.
 - Started: 2026-11-01 21:42 UTC (session clock).
-- Time spent: updated at the end of each task (see the end of this file).
+- Time spent: see the last section of this file (about 10 minutes of session clock, 21:42 to 21:52 UTC).
 
 ## Method and limits
 
@@ -213,3 +213,118 @@ with the existing firmware, not controller identification.
 - PhotoPainter repository licence: not found.
 - Waveshare ESP32 driver board support for the 7.3" (E): not stated on its wiki.
 - Timeout for BUSY in the Waveshare reference: none (infinite loop).
+
+## Trial driver and build evidence
+
+Files (all new, under `firmware/spike-7in3/`): `main/epd7in3e_trial.h`,
+`main/epd7in3e_trial.c`, `main/spike_main.c`, `main/CMakeLists.txt`,
+`CMakeLists.txt`, `test_epd7in3e_trial.c`, `run-spike-host-test.sh`,
+`build-spike.sh`. The driver implements the front-runner (candidate 1): the
+20-command init table of the Seeed ED2208 driver, 800x480 at 4 bpp
+(192000 bytes, single controller, one chip select, confirmed from the
+sources above, unlike the dual-controller 960000-byte 13.3" buffer), a
+validating pixel packer, pin tables for the EE04 and the PhotoPainter, and a
+thin SPI/GPIO layer (init, blit, sleep) behind `ESP_PLATFORM`. The PhotoPainter
+table is data only; no second code path exists.
+
+Source reuse: only command bytes and their order were re-typed from the MIT
+licensed Seeed_GFX2 `Driver_ED2208.cpp` (cited in the file header). Nothing
+was copied from the PhotoPainter repository, which has no licence file. No
+code was copied from the Waveshare reference.
+
+### Host test (red then green)
+
+- Red: the test was written first; running `run-spike-host-test.sh` before the
+  driver existed failed (`epd7in3e_trial.c: No such file or directory`).
+- Green: `sh firmware/spike-7in3/run-spike-host-test.sh` compiles with
+  `cc -Wall -Wextra -std=c11` and prints `epd7in3e_trial: all cases pass`. It
+  checks the packed size (192000 bytes, high nibble first), the init table
+  order, lengths and the 800x480 resolution bytes, the refresh command,
+  rejection of a wrong pixel count, a short output buffer, null pointers and
+  out-of-range colour codes (including 4), that a rejected call writes
+  nothing, and the pin tables (EE04 equals the committed EE02 values).
+
+### Container build (ESP-IDF 5.3.1): PASS, with an image-provenance note
+
+- Command: `SPIKE_BUILD_DIR=<scratchpad>/spike-build sh firmware/spike-7in3/build-spike.sh build`
+  (the build directory is outside the repository; the source is mounted
+  read-only; the script accepts only `build` and `clean`, never flashes).
+- Result: exit 0, `Project build complete`, 1007/1007 steps, target
+  `esp32s3`, `skypane_spike_7in3.bin` 0x3b460 bytes, no compiler warnings in
+  the build log. `idf.py --version` inside the image reports `ESP-IDF v5.3.1`.
+- Image provenance: `docker pull espressif/idf:v5.3.1` from Docker Hub failed
+  with `unexpected status from HEAD request to
+  https://registry-1.docker.io/v2/espressif/idf/manifests/v5.3.1: 429 Too Many
+  Requests`; `ghcr.io/espressif/idf:v5.3.1` returned `denied`. The Docker
+  daemon was not running at the start (`failed to connect to the docker API
+  at unix:///var/run/docker.sock`) and was started by hand. The image was
+  pulled from the Docker Hub mirror `mirror.gcr.io/espressif/idf:v5.3.1`
+  (digest `sha256:55ab243e87584859c9af3acc124b0b9423a9d8b44fc99a5d5055d7bd7312722d`,
+  image id `55ab243e8758`) and tagged locally as `espressif/idf:v5.3.1`. The
+  tag matches `firmware/build.sh`, but this run did not compare that digest
+  with Docker Hub's own, because Docker Hub answered 429.
+- What this proves: the trial component compiles and links against ESP-IDF
+  5.3.1 for esp32s3. What it does not prove: any behaviour on a panel (SPI
+  chip-select timing per row, the BUSY polarity and timing, the
+  between-refresh power state, the 10 MHz clock) is untested.
+
+### Checks that stay green
+
+- `sh firmware/tests/run_host_tests.sh`: 14 suites passed.
+- `server/.venv/bin/python3 -m pytest stub-server/test_phase47_freeze.py -n 0 --no-cov`: 21 passed.
+- `python3 scripts/check_comment_history.py check`: exit 0.
+- `git diff --quiet` over `firmware/main`, `firmware/CMakeLists.txt`,
+  `firmware/build.sh`, `firmware/tests`, `firmware/sdkconfig.defaults`,
+  `firmware/sdkconfig.ee02.defaults` and `hardware`: no tracked file modified;
+  `git status` shows only new files under `firmware/spike-7in3/` plus this
+  document. Nothing was flashed.
+
+## Recommendation (cost first, D-06)
+
+Recommended: **Seeed XIAO ePaper EE04 (board + 7.3" panel)**, cheapest
+candidate that passed: at least 78.73 EUR TTC (delivery excluded), 98.73 EUR
+with the delivery assumption of the shortlist, against the 100 EUR target.
+Every unconfirmed shortlist item still applies (VAT treatment of the Seeed
+price, delivery to France, battery stock at Kubii, which is currently out of
+stock). Runner-up: **Waveshare ESP32-S3-PhotoPainter**, 90.48 EUR TTC at least
+(105.48 with assumed delivery, above the target), not recommended first
+because it costs more, carries unused parts (audio, SD, PMIC), and its only
+published ESP-IDF code is unlicensed and for IDF 5.5.2/6.1.
+
+## Risks
+
+- The driver is paper-only: no panel, no oscilloscope, no refresh was ever
+  seen. Two vendor init sets for the same 800x480 panel differ in several
+  values; the right one for a given lot is unknown until a panel answers.
+- Sleep behaviour is contested: Seeed keeps the controller powered-off but not
+  in deep sleep for this panel, Waveshare sends deep sleep. This decides the
+  standby current and therefore battery life (a battery sample is Part 2).
+- 4 bpp codes 0,1,2,3,5,6 are sent as is; the mapping from the project's image
+  container palette to these codes is not decided here (the packer takes
+  controller codes, not container indices).
+- Seeed publishes no ESP-IDF driver; the port from Arduino/C++ concentrates
+  the risk in SPI chip-select handling and timing. A 60 s BUSY timeout comes
+  from the vendor default and is also untested.
+- Fit with the existing firmware: the panel seam (`fp_panel_draw` and the
+  Kconfig pin overlay) is unchanged; a real port still needs a Kconfig overlay
+  for EE04 and a second driver behind `panel.c`, plus the container reader of
+  the image format. Not started and not in scope here.
+- Shop risk (unchanged from the shortlist): Seeed shipping to France and total
+  cost are unconfirmed; the Kubii battery is out of stock; the enclosure is
+  not priced.
+- Good Display is not purchasable evidence: its pages returned 404 to a plain
+  GET, so price, seller and connector are unconfirmed.
+- Waveshare driver-board route: ESP32 board without stated S3, 7.3" (E) not in
+  the supported list, pins differ; building for esp32s3 would not be enough.
+- Image-provenance caveat for the build evidence (digest not compared to
+  Docker Hub).
+
+## Time spent
+
+- Session clock at the end of Task 2: 21:52 UTC, started 21:42 UTC, so about
+  10 minutes elapsed of the 1-day box. Most of it was spent finding readable
+  raw paths (the GitHub API and HTML were denied) and on the image pull and
+  first build. No candidate was left unfinished.
+
+Nothing was bought, carted, ordered or paid. The owner decision is pending
+and not part of this spike.
