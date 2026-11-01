@@ -35,6 +35,9 @@ Out of scope: any production deploy, Phase 47 files and `hardware/`, Phase 55 pl
 ### Orly frame
 - **D-07:** The live Orly frame is managed like any other: it may have co-managers. This adds rows to a new table only; owner, MAC, secret, token, file paths, image and wake interval stay byte for byte, and `stub-server/test_phase47_freeze.py` stays green.
 
+### Adding a co-manager
+- **D-08:** A non-admin owner adds a co-manager by typing the e-mail address. Any address that is not an invited, active, eligible user (or is the owner or already a co-manager) gets one generic refusal, so the form never reveals who is invited. An admin may be offered the list of eligible users.
+
 ### Claude's Discretion
 - Schema shape (migration v4, expand-only new table with a uniqueness constraint and no row for the owner), function names, audit action names and detail text, wording and French strings, card layout within the sketch-findings design system, Users-page frame counts, behaviour on user demotion or disabling.
 
