@@ -47,8 +47,8 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 - [x] **AUTH-01**: A user can sign in with Auth0 (authorization code + PKCE, no new dependency), with state, nonce, iss, aud and exp checked, sign-up closed in the app, and the Auth0 `sub` linked once to an admin-created local user and matched on `sub` afterwards.
 - [x] **AUTH-02**: The shared password keeps working temporarily as a named legacy-admin fallback behind a flag, with a throttle and a dated removal task; sessions no longer depend on the password.
 - [ ] **AUTH-03**: Every route is default-deny with a minimum role, a user only sees and changes their own devices (404 for others), and a route × role × owner matrix test proves it.
-- [ ] **AUTH-04**: An admin can pair a new frame to a user with a short, single-use, expiring on-panel code, claimed atomically and audited.
-- [ ] **AUTH-05**: An admin can use a console to see the whole fleet (owner, hardware, last seen, battery, firmware), manage users, reassign or retire devices and manage releases, while ordinary users get a reduced view of their own frames with fewer options.
+- [x] **AUTH-04**: An admin can pair a new frame to a user with a short, single-use, expiring on-panel code, claimed atomically and audited.
+- [x] **AUTH-05**: An admin can use a console to see the whole fleet (owner, hardware, last seen, battery, firmware), manage users, reassign or retire devices and manage releases, while ordinary users get a reduced view of their own frames with fewer options.
 - [x] **AUTH-06**: Frames keep authenticating with MAC and secret, independently of Auth0, and Auth0 is replaced by a local fake server in tests.
 - [ ] **AUTH-08**: A frame keeps one primary owner and can have co-managers who change its settings like the owner but cannot retire, reassign or remove it. The owner and an admin can add or remove co-managers among already-invited users, and each change is audited.
 
@@ -114,8 +114,8 @@ Coverage: 31/31 v1.2 requirements mapped, each to exactly one phase.
 | AUTH-03 | Phase 54 (gate and matrix), Phase 55 (real per-device rows) | Pending (gate and matrix delivered and verified in production; the real per-device route rows are carried to Phase 55 by the owner, 2026-10-31) |
 | AUTH-06 | Phase 54 | Complete |
 | AUTH-08 | Phase 60 | Pending |
-| AUTH-04 | Phase 55 | Pending |
-| AUTH-05 | Phase 55 | Pending |
+| AUTH-04 | Phase 55 | Complete (verified in code and in production by the owner, 2026-11-01; the real-panel pairing test waits for the second hardware, Phase 58) |
+| AUTH-05 | Phase 55 | Complete (verified in code and in production by the owner, 2026-11-01; the real-panel pairing test waits for the second hardware, Phase 58) |
 | HWR-01 | Phase 56 | Complete |
 | HWR-02 | Phase 56 | Complete (contact deferred by the owner until more than 10 users) |
 | OTA-04 | Phase 57 | Pending |
