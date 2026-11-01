@@ -30,6 +30,7 @@ MESSAGES = {
 
     "home.departing": "Au départ",
     "home.arriving": "À l’arrivée",
+    "home.overhead": "Au-dessus",
 
     # Reconciled to the same French key the frame-strip headline
     # consumer (companion/layout.py's frame_strip_html()) renders
