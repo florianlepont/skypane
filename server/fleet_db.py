@@ -90,6 +90,18 @@ class LocationInUse(FleetDbError):
     """A device still references the location."""
 
 
+class UnknownDevice(FleetDbError):
+    """No frame has the given id."""
+
+
+class IneligibleUser(FleetDbError):
+    """The user cannot be added as a co-manager of the frame."""
+
+
+class AlreadyCoManager(FleetDbError):
+    """The user already co-manages the frame."""
+
+
 Migration = Callable[[sqlite3.Connection], None]
 
 
@@ -200,7 +212,39 @@ def _migrate_v3(conn: sqlite3.Connection) -> None:
         )
 
 
-MIGRATIONS: tuple[Migration, ...] = (_migrate_v1, _migrate_v2, _migrate_v3)
+def _migrate_v4(conn: sqlite3.Connection) -> None:
+    # Expand-only: one new table, one index and two triggers; no existing
+    # table or row is touched. A frame owner is never also a co-manager of
+    # that frame: the first trigger refuses such a membership row, the second
+    # refuses handing ownership to someone who is already a co-manager. The
+    # adder has no foreign key so the trail outlives a user row.
+    conn.execute(
+        "CREATE TABLE device_co_managers ("
+        " device_id TEXT NOT NULL REFERENCES devices(id),"
+        " user_id INTEGER NOT NULL REFERENCES users(id),"
+        " added_by INTEGER,"
+        " added_at INTEGER NOT NULL,"
+        " PRIMARY KEY (device_id, user_id))"
+    )
+    conn.execute(
+        "CREATE INDEX device_co_managers_user ON device_co_managers (user_id)"
+    )
+    conn.execute(
+        "CREATE TRIGGER device_co_managers_not_owner "
+        "BEFORE INSERT ON device_co_managers "
+        "WHEN NEW.user_id = (SELECT owner_user_id FROM devices WHERE id = NEW.device_id) "
+        "BEGIN SELECT RAISE(ABORT, 'a frame owner cannot be a co-manager'); END"
+    )
+    conn.execute(
+        "CREATE TRIGGER devices_owner_not_co_manager "
+        "BEFORE UPDATE OF owner_user_id ON devices "
+        "WHEN EXISTS (SELECT 1 FROM device_co_managers "
+        "WHERE device_id = NEW.id AND user_id = NEW.owner_user_id) "
+        "BEGIN SELECT RAISE(ABORT, 'a co-manager cannot become the frame owner'); END"
+    )
+
+
+MIGRATIONS: tuple[Migration, ...] = (_migrate_v1, _migrate_v2, _migrate_v3, _migrate_v4)
 SCHEMA_VERSION = len(MIGRATIONS)
 
 
@@ -903,6 +947,119 @@ def registry_view(conn: sqlite3.Connection) -> dict[str, dict[str, dict[str, str
     }
 
 
+# ---- co-managers -----------------------------------------------------
+
+# A user can be added to a frame when invited (a users row exists), not
+# disabled, and neither the frame owner nor already a co-manager. Admins and
+# users who never signed in qualify.
+_ELIGIBLE_SQL = (
+    "FROM users u WHERE u.disabled = 0 "
+    "AND u.id <> (SELECT owner_user_id FROM devices WHERE id = :device) "
+    "AND NOT EXISTS (SELECT 1 FROM device_co_managers c "
+    "WHERE c.device_id = :device AND c.user_id = u.id)"
+)
+
+
+def is_co_manager(conn: sqlite3.Connection, device_id: str, user_id: int) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM device_co_managers WHERE device_id = ? AND user_id = ?",
+        (device_id, user_id),
+    ).fetchone()
+    return row is not None
+
+
+def list_co_managers(conn: sqlite3.Connection, device_id: str) -> list[sqlite3.Row]:
+    """Co-managers of a frame, disabled ones included, ordered by e-mail."""
+    return list(conn.execute(
+        "SELECT c.user_id, u.email, u.disabled, c.added_at "
+        "FROM device_co_managers c JOIN users u ON u.id = c.user_id "
+        "WHERE c.device_id = ? ORDER BY lower(u.email), c.user_id",
+        (device_id,),
+    ))
+
+
+def co_managed_device_ids(conn: sqlite3.Connection, user_id: int) -> set[str]:
+    return {
+        str(r["device_id"]) for r in conn.execute(
+            "SELECT device_id FROM device_co_managers WHERE user_id = ?", (user_id,)
+        )
+    }
+
+
+def add_co_manager(
+    conn: sqlite3.Connection,
+    device_id: str,
+    user_id: int,
+    added_by: int | None,
+    now: int | None = None,
+) -> None:
+    """Add a co-manager; eligibility is checked inside the write transaction."""
+    with _atomic(conn):
+        owner = conn.execute(
+            "SELECT owner_user_id FROM devices WHERE id = ?", (device_id,)
+        ).fetchone()
+        if owner is None:
+            raise UnknownDevice(device_id)
+        user = conn.execute(
+            "SELECT disabled FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+        if user is None or user["disabled"] or user_id == owner["owner_user_id"]:
+            raise IneligibleUser("user cannot co-manage this frame")
+        if is_co_manager(conn, device_id, user_id):
+            raise AlreadyCoManager("user already co-manages this frame")
+        conn.execute(
+            "INSERT INTO device_co_managers (device_id, user_id, added_by, added_at) "
+            "VALUES (?, ?, ?, ?)",
+            (device_id, user_id, added_by, int(time.time()) if now is None else now),
+        )
+
+
+def remove_co_manager(conn: sqlite3.Connection, device_id: str, user_id: int) -> bool:
+    cur = conn.execute(
+        "DELETE FROM device_co_managers WHERE device_id = ? AND user_id = ?",
+        (device_id, user_id),
+    )
+    return cur.rowcount > 0
+
+
+def clear_co_managers(conn: sqlite3.Connection, device_id: str) -> list[int]:
+    """Remove every co-manager of a frame; returns the removed user ids."""
+    with _atomic(conn):
+        ids = [
+            int(r["user_id"]) for r in conn.execute(
+                "SELECT user_id FROM device_co_managers WHERE device_id = ? "
+                "ORDER BY user_id", (device_id,)
+            )
+        ]
+        conn.execute("DELETE FROM device_co_managers WHERE device_id = ?", (device_id,))
+    return ids
+
+
+def eligible_co_manager_candidates(
+    conn: sqlite3.Connection, device_id: str
+) -> list[sqlite3.Row]:
+    """Users who could be added to the frame, ordered by e-mail."""
+    return list(conn.execute(
+        f"SELECT u.id, u.email {_ELIGIBLE_SQL} ORDER BY lower(u.email), u.id",
+        {"device": device_id},
+    ))
+
+
+def find_eligible_co_manager(
+    conn: sqlite3.Connection, device_id: str, email: str
+) -> int | None:
+    """The user id for an eligible address, or None for any other outcome."""
+    try:
+        normalized = normalize_email(email)
+    except ValueError:
+        return None
+    row = conn.execute(
+        f"SELECT u.id {_ELIGIBLE_SQL} AND u.email = :email",
+        {"device": device_id, "email": normalized},
+    ).fetchone()
+    return None if row is None else int(row["id"])
+
+
 def dump_logical(conn: sqlite3.Connection) -> list[str]:
     """The `iterdump()` statements, for logical-equality assertions."""
     return list(conn.iterdump())
@@ -911,6 +1068,9 @@ def dump_logical(conn: sqlite3.Connection) -> list[str]:
 # ---- audit log -------------------------------------------------------
 
 _AUDIT_DETAIL_MAX = 1000
+
+ACTION_CO_MANAGER_ADD = "device.co_manager_add"
+ACTION_CO_MANAGER_REMOVE = "device.co_manager_remove"
 
 # UI filter chips mapped to action prefixes; "failed" is by outcome instead.
 AUDIT_CATEGORIES: dict[str, tuple[str, ...]] = {
