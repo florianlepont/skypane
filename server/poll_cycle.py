@@ -24,6 +24,7 @@ and lose flights.
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import hashlib
 import io
 import os
@@ -912,13 +913,20 @@ def _ledger_root_for(state_dir):
     return state_dir
 
 
+class StaleZone(Exception):
+    """The shared zone fetch was made for a different zone than the one this
+    device's setting now resolves to. The cycle stops before selecting, so the
+    device keeps its image and the next planned cycle serves it."""
+
+
 def _fetch_standalone(ctx, zone):
     """Fetch this device's zone itself, always through the persisted
     request ledger: no ADS-B request may exist outside the shared budget,
     including a single-device cycle run by hand or by the companion.
     """
     ledger = request_budget.RequestLedger(ctx.ledger_root or _ledger_root_for(ctx.state_dir))
-    return zone_fetch.fetch_zone(ledger, zone.lat, zone.lon, zone.radius_nm)
+    fetched = zone_fetch.fetch_zone(ledger, zone.lat, zone.lon, zone.radius_nm)
+    return dataclasses.replace(fetched, zone_key=zone.key)
 
 
 def _select_from_zone(ctx):
@@ -928,6 +936,9 @@ def _select_from_zone(ctx):
     """
     spec = ctx.spec
     fetched = ctx.zone_fetch if ctx.zone_fetch is not None else _fetch_standalone(ctx, spec.zone)
+    if fetched.zone_key is not None and fetched.zone_key != spec.zone.key:
+        raise StaleZone(
+            "zone fetched for %s, device now watches %s" % (fetched.zone_key, spec.zone.key))
     diagnostics = fetched.diagnostics()
     flight = detect.select_from_provider_results(
         fetched.results, spec.geofence, runway_id=spec.display_id,

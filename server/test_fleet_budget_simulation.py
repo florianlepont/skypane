@@ -7,6 +7,7 @@ times, which ZoneFetch each runner received and which devices ran.
 """
 from __future__ import annotations
 
+import dataclasses
 import os
 import time
 from datetime import datetime, timezone
@@ -226,7 +227,7 @@ def test_hundred_devices_cost_two_requests_per_zone_per_cycle(fleet_root, clock,
         for _, state_dir, received in recorder.runs:
             lat = zone_lat(mapping[by_dir[state_dir].id])
             assert len(recorder.fetched[lat]) == 1
-            assert received is recorder.fetched[lat][0]
+            assert dataclasses.replace(received, zone_key=None) == recorder.fetched[lat][0]
         clock.advance_to(cycle_start + 30.0)
 
 
