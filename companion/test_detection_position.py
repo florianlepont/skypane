@@ -420,6 +420,44 @@ def test_admin_saves_for_owner_cannot_use_the_admins_own_location(rig):
     assert UNAVAILABLE in _text(page)
 
 
+def test_admin_cannot_link_a_third_partys_location_to_the_owners_device(rig):
+    theirs = rig.add_location(rig.fleet.other_id, "Theirs", 43.3, 5.4)
+    before = rig.config_bytes(rig.owner_dir())
+    status, _r, page = _post_detection(rig, "admin", _position_form(theirs))
+    assert status == 200
+    assert UNAVAILABLE in _text(page)
+    assert rig.config_bytes(rig.owner_dir()) == before
+    assert rig.device_location(rig.fleet.owner_device) is None
+
+
+def test_admin_cannot_edit_a_third_partys_location_through_the_owners_form(rig):
+    theirs = rig.add_location(rig.fleet.other_id, "Theirs", 43.3, 5.4)
+    status, _r, page = _post_detection(
+        rig, "admin", _location_form("Hijack", "48.9", "2.4", str(theirs)))
+    assert status == 200
+    assert UNAVAILABLE in _text(page)
+    assert [(r["name"], r["latitude"]) for r in rig.locations()] == [("Theirs", 43.3)]
+
+
+def test_a_foreign_stored_location_name_is_not_served_to_the_device_owner(rig):
+    theirs = rig.add_location(rig.fleet.other_id, "Secret Foreign Place", 43.3, 5.4)
+    conn = fleet_db.connect(rig.state_dir)
+    try:
+        with fleet_db.transaction(conn):
+            conn.execute(
+                "UPDATE devices SET location_id = ? WHERE id = ?",
+                (theirs, rig.fleet.owner_device))
+    finally:
+        conn.close()
+    device_config.save_device_config(
+        rig.owner_dir(), detection={"mode": "position", "radius_km": 9})
+    for path in ("/detection", "/display"):
+        _s, page = rig.get("owner", rig.scope() + path)
+        assert "Secret Foreign Place" not in page
+    _s, page = rig.get("admin", rig.scope() + "/detection")
+    assert "Secret Foreign Place" in _text(page)
+
+
 # --- fail-safe toast ----------------------------------------------------------------
 
 

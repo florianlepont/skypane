@@ -406,10 +406,14 @@ class _Refused(Exception):
 
 def _viewer_options(conn, device, is_admin):
     """The (id, name) pairs the viewer of `device`'s Display page may choose:
-    every location for an administrator, for a user only the frame owner's own
-    (a user reaches a frame only when they own it)."""
+    for an administrator the frame owner's locations and the ownerless ones
+    (every location when the frame has no owner), for a user only the frame
+    owner's own (a user reaches a frame only when they own it)."""
     if is_admin:
-        rows = fleet_db.list_locations(conn)
+        rows = [
+            row for row in fleet_db.list_locations(conn)
+            if row["owner_user_id"] is None or device.owner_user_id is None
+            or row["owner_user_id"] == device.owner_user_id]
     elif device.owner_user_id is None:
         rows = []
     else:
@@ -467,8 +471,9 @@ def apply_device_location(form, ctx, handler, previous=None):
     `undo_device_location` if a later step of the same save fails.
 
     A user may assign only a location they own and only to a frame they own;
-    an administrator may assign any location. The change and its audit row
-    share one transaction; a refusal is audited afterwards as denied."""
+    an administrator may assign any location except one owned by someone
+    other than the frame's owner. The change and its audit row share one
+    transaction; a refusal is audited afterwards as denied."""
     raw = form.get(locations_page.LOCATION_FIELD)
     if raw is None:
         return True

@@ -64,6 +64,13 @@ def _location_dict(row):
     return {key: row[key] for key in ("id", "name", "latitude", "longitude", "timezone")}
 
 
+def _may_see_location(subject, located):
+    """Whether the viewer may be told this location's name: an administrator,
+    anyone for an ownerless location, else only its owner."""
+    owner = located["owner_user_id"]
+    return subject.is_admin or owner is None or owner == subject.subject_id
+
+
 def scope_for(subject, device):
     """The LocationScope the page renders from."""
     if subject.subject_id is None:
@@ -76,7 +83,10 @@ def scope_for(subject, device):
     name = None
     if location_id is not None:
         located = fleet_db.get_location(subject.conn, location_id)
-        if located is not None and detection_page.location_usable(located):
+        if (
+            located is not None and detection_page.location_usable(located)
+            and _may_see_location(subject, located)
+        ):
             name = located["name"]
     other_owner = (
         subject.is_admin and subject.owner_id is not None
