@@ -436,8 +436,8 @@ Plans:
 | 49. Per-Hardware OTA Registry | v1.2 | 11/11 | Complete, closed by the owner; OTA-03 device-side bench check carried to Phase 58 | 2026-10-31 |
 | 50. Common Image Format | v1.2 | 5/5 | Complete    | 2026-10-30 |
 | 51. Per-Device Config, Image and State | v1.2 | 13/13 | Complete    | 2026-10-30 |
-| 52. Fleet Poll Cycle, Zones and Request Budget | v1.2 | 7/7 | Complete (merged, not deployed) | 2026-10-31 |
-| 53. Detection Modes | v1.2 | 0/0 | Not started | - |
+| 52. Fleet Poll Cycle, Zones and Request Budget | v1.2 | 7/7 | Complete, merged (#253) and deployed: carried by the Phase 56 deploy of 2026-10-31 (its commit contains #253) and by the later Phase 53 deploys | 2026-10-31 |
+| 53. Detection Modes | v1.2 | 12/12 | Complete, closed 2026-11-01; deployed by CI on merge 2026-10-31 20:20 UTC (see 53-VERIFICATION.md) | 2026-11-01 |
 | 54. Auth0 Sign-In, Local Roles and Default-Deny Access | v1.2 | 9/9 | Complete, closed by the owner after production tests (2026-10-30 and 2026-10-31); AUTH-03 per-device matrix rows carried to Phase 55 (see 54-HANDOFF.md) | 2026-10-31 |
 | 55. Frame Pairing, Admin Console and Reduced User View | v1.2 | 14/14 | Code complete and verified in code (3/3 criteria); real-frame and deploy checks pending (see 55-HANDOFF.md) | - |
 | 56. Per-Hardware Rendering, Battery Profiles, Health and Credits | v1.2 | 11/11 | Complete, merged (#257) and deployed 2026-10-31; verification passed, two owner follow-ups open (see 56-VERIFICATION.md) | 2026-10-31 |
