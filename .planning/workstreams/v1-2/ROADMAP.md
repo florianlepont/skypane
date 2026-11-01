@@ -399,7 +399,23 @@ Plans:
   2. The evaluation unit is cable-flashed, receives a real OTA, and shows a native layout. Before it takes any role in the fleet, the `firmware/SIGNING.md` bench procedure is run on it (carried from Phase 49): a correctly signed image is accepted, a wrongly signed image is refused with the unit keeping its firmware and the next poll reporting `fail-image`, and the `fail-image` / `fail-floor` tokens and a wrong-hardware rollback are seen to round-trip into the right type's registry.
   3. A measured battery sample is recorded and the battery model for the new type is rebuilt from it.
 
-**Plans**: TBD
+**Plans**: 4 plans (58-01 and 58-02 executable now; 58-03 and 58-04 blocked on the owner's written purchase agreement)
+Plans:
+**Wave 1**
+
+- [ ] 58-01-PLAN.md — Costed shortlist from opened product pages, cost-first, landed cost vs 100 EUR TTC (HW2-01)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 58-02-PLAN.md — 1-day driver spike, trial driver in the IDF container, owner purchase decision checkpoint (HW2-01)
+
+**Wave 3** *(BLOCKED: owner purchase agreement)*
+
+- [ ] 58-03-PLAN.md — Cable flash of the evaluation unit, real OTA, full SIGNING.md bench before any fleet role (HW2-02)
+
+**Wave 4** *(BLOCKED)*
+
+- [ ] 58-04-PLAN.md — Native landscape layout, Phase 55 real-panel pairing test, battery sample and rebuilt model (HW2-02)
 
 ### Phase 59: Comment-History Debt
 
@@ -442,6 +458,6 @@ Plans:
 | 55. Frame Pairing, Admin Console and Reduced User View | v1.2 | 14/14 | Complete: merged and deployed 2026-10-31, verified in code and by the owner in production; real-panel pairing test waits for the second hardware (see 55-HANDOFF.md) | 2026-11-01 |
 | 56. Per-Hardware Rendering, Battery Profiles, Health and Credits | v1.2 | 11/11 | Complete, merged (#257) and deployed 2026-10-31; verification passed, two owner follow-ups open (see 56-VERIFICATION.md) | 2026-10-31 |
 | 57. Combined Legacy-Frame Firmware Release | v1.2 | 0/0 | Not started (gated on Phase 47 and on the OTA signing bench check) | - |
-| 58. Second Hardware | v1.2 | 0/0 | Not started | - |
+| 58. Second Hardware | v1.2 | 0/4 | Planned: 58-01/58-02 executable, 58-03/58-04 blocked on purchase agreement | - |
 | 59. Comment-History Debt | v1.2 | 0/0 | Not started | - |
 | 60. Device Co-Management | v1.2 | 0/0 | Not started | - |
