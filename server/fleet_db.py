@@ -730,11 +730,11 @@ def set_device_location_checked(
 ) -> bool:
     """Assign (or clear, with None) a device's location with owner checks.
 
-    A user may only touch their own device and only assign a location they
-    own. An admin may assign any location except one owned by a different
-    user than the device owner; a location or device without an owner links
-    to anything. Anything else raises PermissionError; an unknown device
-    returns False.
+    A user who owns or co-manages the device may assign only a location owned
+    by the device owner. An admin may assign any location except one owned by
+    a different user than the device owner; a location or device without an
+    owner links to anything. Anything else raises PermissionError; an unknown
+    device returns False.
     """
     with _atomic(conn):
         device = conn.execute(
@@ -743,17 +743,21 @@ def set_device_location_checked(
         if device is None:
             return False
         if not is_admin and (
-            actor_user_id is None or device["owner_user_id"] != actor_user_id
+            actor_user_id is None
+            or (
+                device["owner_user_id"] != actor_user_id
+                and not is_co_manager(conn, device_id, actor_user_id)
+            )
         ):
-            raise PermissionError("device is not owned by the acting user")
+            raise PermissionError("device is not managed by the acting user")
         if location_id is not None:
             loc = get_location(conn, location_id)
             if loc is None:
                 if is_admin:
                     raise ValueError(f"unknown location: {location_id}")
-                raise PermissionError("location is not owned by the acting user")
-            if not is_admin and loc["owner_user_id"] != actor_user_id:
-                raise PermissionError("location is not owned by the acting user")
+                raise PermissionError("location is not owned by the device owner")
+            if not is_admin and loc["owner_user_id"] != device["owner_user_id"]:
+                raise PermissionError("location is not owned by the device owner")
             location_owner = loc["owner_user_id"]
             if (
                 location_owner is not None

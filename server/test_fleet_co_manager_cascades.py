@@ -197,3 +197,71 @@ def test_remove_device_without_co_managers_is_unchanged(conn, root, owner):
     assert fleet_db.get_device(conn, did) is None
     assert fleet_db.remove_device(conn, MAC) is False
     assert not _audit(conn, fleet_ops.ACTION_CO_MANAGER_REMOVE)
+# ---- location rule -----------------------------------------------------
+
+
+@pytest.fixture
+def located(conn, root, owner, cm1):
+    did = _claimed(conn, root, owner)
+    fleet_db.add_co_manager(conn, did, cm1, owner)
+    own = fleet_db.add_location(conn, "Owner", 48.7, 2.4, "Europe/Paris", owner_user_id=owner)
+    return did, own
+
+
+def _loc(conn, name, owner_id):
+    return fleet_db.add_location(conn, name, 48.0, 2.0, "Europe/Paris", owner_user_id=owner_id)
+
+
+def test_owner_assigns_and_clears_own_location(conn, owner, located):
+    did, own = located
+    assert fleet_db.set_device_location_checked(conn, did, own, owner, False) is True
+    assert fleet_db.get_device(conn, did)["location_id"] == own
+    assert fleet_db.set_device_location_checked(conn, did, None, owner, False) is True
+    assert fleet_db.get_device(conn, did)["location_id"] is None
+
+
+def test_co_manager_assigns_the_owners_location_and_clears(conn, cm1, located):
+    did, own = located
+    assert fleet_db.set_device_location_checked(conn, did, own, cm1, False) is True
+    assert fleet_db.get_device(conn, did)["location_id"] == own
+    assert fleet_db.set_device_location_checked(conn, did, None, cm1, False) is True
+    assert fleet_db.get_device(conn, did)["location_id"] is None
+
+
+def test_co_manager_is_refused_other_locations(conn, cm1, cm2, located):
+    did, _own = located
+    mine = _loc(conn, "Mine", cm1)
+    third = _loc(conn, "Third", cm2)
+    for loc in (mine, third, 99999):
+        with pytest.raises(PermissionError):
+            fleet_db.set_device_location_checked(conn, did, loc, cm1, False)
+    assert fleet_db.get_device(conn, did)["location_id"] is None
+
+
+def test_unrelated_user_is_refused_everything(conn, cm2, located):
+    did, own = located
+    for loc in (own, None):
+        with pytest.raises(PermissionError):
+            fleet_db.set_device_location_checked(conn, did, loc, cm2, False)
+
+
+def test_admin_rules_are_unchanged(conn, owner, cm2, located):
+    did, own = located
+    free = fleet_db.add_location(conn, "Free", 48.0, 2.0, "Europe/Paris")
+    assert fleet_db.set_device_location_checked(conn, did, free, None, True) is True
+    assert fleet_db.set_device_location_checked(conn, did, own, None, True) is True
+    other = _loc(conn, "Other", cm2)
+    with pytest.raises(PermissionError):
+        fleet_db.set_device_location_checked(conn, did, other, None, True)
+    with pytest.raises(ValueError):
+        fleet_db.set_device_location_checked(conn, did, 99999, None, True)
+    for actor, admin in ((owner, False), (None, True), (cm2, False)):
+        assert fleet_db.set_device_location_checked(conn, "nope", None, actor, admin) is False
+
+
+def test_owner_is_still_refused_an_ownerless_location(conn, owner, located):
+    did, _own = located
+    free = fleet_db.add_location(conn, "Free", 48.0, 2.0, "Europe/Paris")
+    with pytest.raises(PermissionError):
+        fleet_db.set_device_location_checked(conn, did, free, owner, False)
+    assert fleet_db.get_device(conn, did)["location_id"] is None
