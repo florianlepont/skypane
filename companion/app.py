@@ -606,6 +606,15 @@ class Handler(
     def _owner_lookup(self, device_id):
         return fleet_db.get_device_owner(self._fleet_conn(), device_id)
 
+    def _co_manager_lookup(self, device_id, user_id):
+        """Whether `user_id` co-manages `device_id`, read on every request.
+        A missing table or a locked read-only fallback fails closed.
+        """
+        try:
+            return fleet_db.is_co_manager(self._fleet_conn(), device_id, user_id)
+        except sqlite3.OperationalError:
+            return False
+
     def _redirect_to_login(self):
         # Carries the requested route through login via an allowlisted
         # `next` param, validated by _validated_next_route(); unrecognised
@@ -1017,7 +1026,8 @@ class Handler(
             principal = (
                 None if route_access.min_role == access.ANONYMOUS else self._principal())
             outcome = access.decide(
-                principal, route_access, captured, self._owner_lookup)
+                principal, route_access, captured, self._owner_lookup,
+                self._co_manager_lookup)
         except _STORE_ERRORS:
             return self.send_html(503, self._unavailable_page())
         if outcome == access.LOGIN:
