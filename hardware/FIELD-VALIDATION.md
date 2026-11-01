@@ -122,16 +122,24 @@ Curve-free comparison, analysis by Claude, not tool output, rough: run one's ser
 
 Bound on intervals, arithmetic by Claude: if the wake cost is 0.49 to 1 mAh and the standing draw is about zero (not established), a 10000 mAh pack reaches 180 days (2.31 mA allowance) only at intervals of roughly 13 to 26 minutes or more (0.49 mAh x 3600 s / 2.31 mA is about 760 s, 1 mAh gives about 1560 s). Nothing in this record shows that six months is reachable at 900 s.
 
-### Re-analysis, about 2026-11-11
+### Interim state, 2026-11-01
 
-The 900 s test continues on the old 3000 mAh pack until about 2026-11-11. The re-analysis will use: the end-point medians below 4000 mV (a run whose end points are still above 4000 mV stays `not_applicable`); the corrected tool, reading its band as before; then the curve-free comparison against run one, if the tool alone still leaves the question open. The multimeter route stays optional.
+Facts first. The test went on after 2026-10-28: the first reading at or below 3999 mV is stamped 2026-10-29T09:38:00+00:00 (UTC) and the voltage then fell faster, as the curve predicts once it leaves its flat top. Median of the non-quiet polls per 12 h window (arithmetic by Claude from the export): 4006 mV (2026-10-28 evening), 3994 mV (2026-10-29 evening), 3974 mV (2026-10-30 evening), 3966 mV (2026-10-31 morning), 3950 mV (2026-11-01 midday). The owner switched the interval from 900 s to 3600 s at 12:02 Paris time on 2026-10-31 (11:02 UTC, owner-reported); the history then shows gaps of about 3620 s, longer at night (quiet hours), from the first wake after that time.
+
+The export was fetched through the read-only export route of the companion (`hardware/logs/oldpack-test-export-2026-11-01.jsonl`, 620 lines to 2026-11-01T17:02:08Z, sha256 `26300f53...e2288`, unmodified; its first 395 lines are identical to the 2026-10-28 export). The verbatim tool output for the window 2026-10-28T12:00Z onward is in `hardware/logs/oldpack-test-trend-900s-2026-10-28-to-31-output.txt` with its JSON next to it. Read it with care: the tool labels it unreliable because the start point (4006 mV) is above 4000 mV, so its band is `not_applicable`, and the window of that file ends on 2026-11-01 and therefore spans both cadences, so its 5.29 mA is a mixed figure, not an estimate at one interval. A run on the export fetched on 2026-10-31 (not committed; the tool has no end-of-window option, so it cannot be repeated on this file) covered only the 900 s part, 4006 mV to 3966 mV over 59.1 h, and printed 6.80 mA, also marked unreliable for the same reason; it is quoted here only as an order of magnitude.
+
+What this changes in the record: the 0.39 mA figure stays withdrawn, the favourable hypothesis (1.95 mA at 900 s) is not supported by the interim readings, and the order of magnitude at 900 s is several mA, between 5 and 10 on the two rough methods (the tool's curve conversion and the run-one comparison). Nothing here separates the standing draw from the wake cost; that needs two cadences, which is the point of the switch to 3600 s. VAL-03 stays `open`.
+
+### Re-analysis, 2026-11-03
+
+The analysis planned for 2026-11-03 compares the 900 s segment (below 4000 mV) with the 3600 s segment on the same pack and firmware: I = s + w x 3600 / T for the standing draw s and the cost per wake w, each average current from the corrected tool (end points below 4000 mV) and from the curve-free comparison against run one, with the spread stated. The multimeter route stays optional. If the interim picture holds (several mA at 900 s) and the 3600 s segment does not fall far below it, the standing draw dominates and six months would need a hardware or firmware change, not only a longer interval; if the 3600 s average falls toward 1 mA, the wakes dominate. This paragraph states what each outcome would mean; it is not a result.
 
 ### Caveats
 
 - The discharge curve and the 3000 mAh are ratings, not measurements, and the top of the curve is its least reliable part.
 - The 4058 mV first reading and the 4006 mV owner reading of 2026-10-28 19:30 Paris time are not tool inputs; the latter is consistent with the 4008 mV end median.
 - Rest-voltage creep after a full charge lowers the apparent draw early in a run (a printed bias).
-- Only the 900 s test on the current 3000 mAh pack is covered. Nothing here concerns the new pack.
+- Only the 900 s and 3600 s tests on the current 3000 mAh pack are covered. Nothing here concerns the new pack.
 
 ## Healthy check-in cadence at the final interval (VAL-01)
 

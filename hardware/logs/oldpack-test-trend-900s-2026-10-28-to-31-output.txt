@@ -1,0 +1,30 @@
+sleep-trend: average current from the battery-voltage fall
+export sha256: 26300f53affedce02fcd6f35a403f5acc28d27759afd5d469a25ddddbd8e2288
+capacity: 3000 mAh (rated, not measured)
+interval: 900 s
+start cut: 371 rows before 2026-10-28T12:00:00+00:00 dropped
+rule: the first 6 h after the first kept poll are ignored; end points are medians over 12 h
+quiet hours: 23:30-06:00 Europe/Paris left out of the end points (4% of polls after the cut)
+start end point: median 4006.0 mV at 2026-10-28T20:58:26+00:00 (22 polls, 90.5% on the curve)
+end end point: median 3950.0 mV at 2026-11-01T11:30:31+00:00 (12 polls, 75.3% on the curve)
+elapsed between end points: 86.5 h
+charge drawn: 458.1 mAh (curve fraction fall x rated capacity) (unreliable: the curve is not calibrated above 4000 mV)
+average current: 5.29 mA (unreliable: the curve is not calibrated above 4000 mV)
+sensitivity: 0.31 mA per 10 mV of error at the start end point, 0.40 mA at the end one
+
+Reference values at 900 s:
+  favourable hypothesis: 1.95 mA
+  central hypothesis:    8.66 mA
+  180-day allowance for 3000 mAh (rated): 0.69 mA
+
+band: not_applicable
+The curve is not calibrated at this voltage (end points 4006 mV and 3950 mV; limit 4000 mV), so no band and no finding letter can be drawn from the 5.29 mA estimate.
+
+What this estimate does not measure:
+  - Rest-voltage creep after a full charge: the voltage keeps settling for days, which lowers the apparent draw early in the run.
+  - The curve shape and the 3000 or 10000 mAh figure are ratings; a real pack differs and the voltage-to-charge mapping is not a measurement.
+  - 1 mV quantisation of the reading and the sensitivity above: a few mV of end-point error moves the estimate by the amounts printed.
+  - Quiet-hours wakes are longer, so the field average over a day is below a daytime-rate hypothesis; the end points leave quiet-hours polls out.
+  - The figure is an average over the window, not the instantaneous sleep current.
+  - It cannot separate the standing draw from the wake energy at a single interval.
+  - Above 4000 mV the curve is not calibrated against a discharge; an end point there gives no band, and the estimate is printed as unreliable.
