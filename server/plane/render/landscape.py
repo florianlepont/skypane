@@ -8,7 +8,7 @@ profile.
 from server import device_config, hardware
 from server.plane.render import landscape_card, landscape_hold
 
-ACTIVE_STATES = ("departing", "arriving")
+ACTIVE_STATES = ("departing", "arriving", "overhead")
 HOLD_STATES = ("empty", "quiet_hours", "display_off", "battery_empty")
 
 
@@ -18,7 +18,7 @@ def build_landscape_canvas(
     source_fault=False, battery_low=False, quiet_hours_until=None, state_dir=None,
 ):
     """Pre-pack "P"-mode canvas at `profile`'s size for `flight` in `state`
-    ("departing" / "arriving" / "empty" / "quiet_hours" / "display_off" /
+    ("departing" / "arriving" / "overhead" / "empty" / "quiet_hours" / "display_off" /
     "battery_empty").
 
     Raises ValueError for a profile whose layout family is not landscape

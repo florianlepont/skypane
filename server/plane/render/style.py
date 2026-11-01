@@ -56,6 +56,7 @@ LABEL_TRACKING_PX = 6
 _BAND_TOP_LABEL_DIRECTION = {
     runway_config.STATE_DEPARTING: "FROM",
     runway_config.STATE_ARRIVING: "TO",
+    runway_config.STATE_OVERHEAD: "",
 }
 
 # Overflow floors (text.fit_text_size()'s per-role minimums) - real city/
@@ -84,14 +85,19 @@ STATE_BACKGROUND = {
     runway_config.STATE_ARRIVING: device_config.theme_background_index(
         runway_config.STATE_ARRIVING, device_config.DEFAULT_THEME_ID
     ),
+    runway_config.STATE_OVERHEAD: device_config.theme_background_index(
+        runway_config.STATE_OVERHEAD, device_config.DEFAULT_THEME_ID
+    ),
 }
 STATE_INK = {
     runway_config.STATE_DEPARTING: device_config.theme_ink_index(device_config.DEFAULT_THEME_ID),
     runway_config.STATE_ARRIVING: device_config.theme_ink_index(device_config.DEFAULT_THEME_ID),
+    runway_config.STATE_OVERHEAD: device_config.theme_ink_index(device_config.DEFAULT_THEME_ID),
 }
 STATE_LABEL_TEXT = {
     runway_config.STATE_DEPARTING: "DEPARTING",
     runway_config.STATE_ARRIVING: "ARRIVING",
+    runway_config.STATE_OVERHEAD: "OVERHEAD",
 }
 
 

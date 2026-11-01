@@ -2702,3 +2702,9 @@ def test_connect_calendar_url_reports_a_secret_that_cannot_be_stored(monkeypatch
 def test_the_stale_threshold_is_four_fetch_intervals():
     """a connected feed is out of date once its last success is older than four fetch intervals"""
     assert cr.CALENDAR_STALE_AFTER_S == 4 * cr.CALENDAR_FETCH_INTERVAL_S
+
+
+def test_match_overhead_state_never_matches():
+    entries = [_entry("XX", "ORY", "AAA", MATCH_NOW, MATCH_NOW + 7200)]
+    route = _route("Some Airline", "ORY", "AAA", "XX1001")
+    assert cr.match_calendar_theme({"entries": entries}, route, "overhead", CAL_CFG, MATCH_NOW) is None

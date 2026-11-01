@@ -258,3 +258,28 @@ def test_device_config_stays_a_leaf_module():
     with open(device_config.__file__) as fh:
         text = fh.read()
     assert "server.airports" not in text and "server.detection" not in text
+
+
+@pytest.mark.parametrize("rate", [0, 199.9, -199.9, 1, -1])
+def test_display_state_level_in_position_mode_is_overhead(rate):
+    flight = {"vertical_rate_fpm": rate}
+    assert runway_config.display_state(flight, "arriving", True) == "overhead"
+    assert runway_config.display_state(flight, None, True) == "overhead"
+
+
+@pytest.mark.parametrize("rate", [200, -200, 900, -600])
+def test_display_state_outside_the_deadband_holds(rate):
+    assert runway_config.display_state({"vertical_rate_fpm": rate}, "arriving", True) == "arriving"
+
+
+@pytest.mark.parametrize("rate", [None, "x", True, float("nan")])
+def test_display_state_unreadable_rate_holds(rate):
+    assert runway_config.display_state({"vertical_rate_fpm": rate}, "departing", True) == "departing"
+    assert runway_config.display_state({}, "departing", True) == "departing"
+    assert runway_config.display_state(None, None, True) is None
+
+
+@pytest.mark.parametrize("rate", [0, 100, -100, 500, None])
+def test_display_state_runway_mode_always_holds(rate):
+    assert runway_config.display_state({"vertical_rate_fpm": rate}, "arriving", False) == "arriving"
+    assert runway_config.display_state({"vertical_rate_fpm": rate}, None, False) is None

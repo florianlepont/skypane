@@ -3459,3 +3459,40 @@ def test_portrait_band_themes_derive_the_airport_word_from_the_tag():
             assert joined.startswith(expected_label)
             assert joined[len(expected_label):].startswith(runway_part)
     assert expected_label == "ARRIVING TO NEARBY"
+
+
+def test_overhead_label_is_drawn_on_portrait():
+    with _TextSpy(render) as spy:
+        render.build_canvas(TEST_FLIGHT, "overhead", route=TEST_ROUTE)
+    top_row = [t for t, xy, _a in spy.calls if len(t) == 1 and xy[1] == render.MARGIN]
+    joined = "".join(top_row)
+    assert render.STATE_LABEL_TEXT["overhead"] == "OVERHEAD"
+    assert joined == "OVERHEAD" + render.TOP_RIGHT_TAG_TEXT
+
+
+def test_overhead_band_theme_label_has_no_direction_word():
+    band_theme_ids = [t for t in render.device_config.THEME_IDS if render.device_config.theme_is_band(t)]
+    with _TextSpy(render) as spy:
+        render.build_canvas(
+            TEST_FLIGHT, "overhead", route=TEST_ROUTE, runway_id="position:9", theme_id=band_theme_ids[0])
+    top_row = [t for t, xy, _a in spy.calls if len(t) == 1 and xy[1] == render.MARGIN]
+    assert "".join(top_row).startswith("OVERHEAD NEARBY9 KM")
+
+
+def test_overhead_differs_from_arriving_and_departing_on_portrait():
+    images = {
+        state: render.build_canvas(TEST_FLIGHT, state, route=TEST_ROUTE, runway_id="position:9").tobytes()
+        for state in ("overhead", "arriving", "departing")
+    }
+    assert len(set(images.values())) == 3
+
+
+def test_overhead_renders_on_landscape_and_dithered_themes():
+    from server import hardware
+    from server.plane.render import landscape
+    profile = hardware.get_profile(hardware.SIM_LANDSCAPE_KEY, {hardware.SIM_ENV_VAR: "1"})
+    over = landscape.build_landscape_canvas(profile, TEST_FLIGHT, "overhead", route=TEST_ROUTE)
+    arr = landscape.build_landscape_canvas(profile, TEST_FLIGHT, "arriving", route=TEST_ROUTE)
+    assert over.size == arr.size and over.tobytes() != arr.tobytes()
+    for theme_id in render.device_config.THEME_IDS:
+        render.build_canvas(TEST_FLIGHT, "overhead", route=TEST_ROUTE, theme_id=theme_id)
