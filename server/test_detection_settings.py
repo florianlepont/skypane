@@ -44,12 +44,12 @@ def test_validate_runway_rejects_with_a_stable_code(icao, designator, code):
     assert exc.value.args[0] == code
 
 
-@pytest.mark.parametrize("value", [4, 17, 28])
+@pytest.mark.parametrize("value", [2, 3, 17, 28])
 def test_validate_radius_accepts_bounds(value):
     assert detection.validate_radius_km(value) == value
 
 
-@pytest.mark.parametrize("value", [3, 29, True, 9.0, "9", None])
+@pytest.mark.parametrize("value", [1, 29, True, 9.0, "9", None])
 def test_validate_radius_rejects(value):
     with pytest.raises(ValueError) as exc:
         detection.validate_radius_km(value)
@@ -119,7 +119,7 @@ def test_current_selection_malformed_reads_as_the_legacy_default(cfg):
 @pytest.mark.parametrize("call", [
     lambda sd: detection.apply_runway_selection(sd, "ZZZZ", "08L/26R"),
     lambda sd: detection.apply_runway_selection(sd, "LFPG", "26R/08L"),
-    lambda sd: detection.apply_position_selection(sd, 3),
+    lambda sd: detection.apply_position_selection(sd, 1),
     lambda sd: detection.apply_position_selection(sd, True),
 ])
 def test_all_or_nothing_on_invalid_input(tmp_path, call):

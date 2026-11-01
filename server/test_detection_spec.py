@@ -215,14 +215,14 @@ def test_bounds_km_to_nm(km, nm):
     assert detection.km_to_nm(km) == nm
 
 
-@pytest.mark.parametrize("radius", [3, 29, True, 9.5, "9", None, 9.0])
+@pytest.mark.parametrize("radius", [1, 29, True, 9.5, "9", None, 9.0])
 def test_bounds_radius_rejected(radius):
     with pytest.raises(ValueError) as err:
         detection.validate_position(48.86, 2.35, radius)
     assert err.value.args[0] == "radius"
 
 
-@pytest.mark.parametrize("radius", [4, 28, 9])
+@pytest.mark.parametrize("radius", [2, 3, 28, 9])
 def test_bounds_radius_accepted(radius):
     assert detection.validate_position(48.86, 2.35, radius)[2] == radius
 
@@ -280,7 +280,7 @@ def test_position_spec_fields():
     assert doc["detection_mode"] == "position"
     assert doc["center"] == {"lat": 48.86, "lon": 2.35}
     assert doc["radius_nm"] == 4.86
-    assert doc["alt_ceiling_ft"] == 10000
+    assert doc["alt_ceiling_ft"] is None
     assert "runways" not in doc
 
 
@@ -343,3 +343,7 @@ def test_shared_zone_for_nearby_locations():
     )
     assert first.zone.key == second.zone.key
     assert first.zone.key != other.zone.key
+
+
+def test_km_to_nm_minimum_radius():
+    assert detection.km_to_nm(2) == 1.08

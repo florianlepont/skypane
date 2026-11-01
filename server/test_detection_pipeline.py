@@ -179,6 +179,14 @@ def test_pipeline_position_selects_lowest(tmp_path):
     assert result["tracked_runway"] == "position:9"
 
 
+def test_pipeline_position_shows_high_aircraft_when_alone(tmp_path):
+    state_dir = tmp_path / "pos"
+    _write_config(state_dir, detection={"mode": "position", "radius_km": 9})
+    snapshot = {"ac": [_position_aircraft("ddd444", 0.01, 12000)]}
+    result = _run(state_dir, snapshot, location=POSITION_ORIGIN)
+    assert result["flight"]["hex"] == "ddd444"
+
+
 def test_pipeline_position_adds_no_new_poll_state(tmp_path):
     runway_dir = tmp_path / "runway"
     pos_dir = tmp_path / "pos"

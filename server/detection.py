@@ -71,8 +71,11 @@ NO_LOCATION_TAG_TEXT = "SET A LOCATION"
 NO_LOCATION_HEADING = "Set a location"
 # Stand-in zone of a no-location spec; it is never fetched.
 _NO_LOCATION_ZONE = fleet_zones.Zone(46.6, 2.5, 1.0)
-POSITION_ALT_CEILING_FT = 10000
-RADIUS_KM_MIN = 4
+# The circle centre is rounded to 2 decimals, which can move it up to about
+# 0.7 km (0.005 deg of latitude plus 0.005 deg of longitude) from the true
+# location. At the minimum radius the true location is therefore always
+# inside the circle, and coverage around it is guaranteed to about 1.3 km.
+RADIUS_KM_MIN = 2
 RADIUS_KM_MAX = 28
 KM_PER_NM = 1.852
 
@@ -180,7 +183,7 @@ def km_to_nm(radius_km: int) -> float:
     """Zone radius in nautical miles for a whole-kilometre radius.
 
     Rounded to two decimals so equal inputs share one zone key; the allowed
-    4 to 28 km therefore span 2.16 to 15.12 NM, about 2 to 15.
+    2 to 28 km therefore span 1.08 to 15.12 NM.
     """
     return round(radius_km / KM_PER_NM, 2)
 
@@ -257,7 +260,7 @@ def _position_doc(zone: fleet_zones.Zone) -> dict[str, Any]:
             "lon_min": round(zone.lon - dlon, 6),
             "lon_max": round(zone.lon + dlon, 6),
         },
-        "alt_ceiling_ft": POSITION_ALT_CEILING_FT,
+        "alt_ceiling_ft": None,
     }
 
 
