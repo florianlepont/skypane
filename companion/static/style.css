@@ -6558,6 +6558,34 @@ button.calendar-disconnect-btn:focus-visible {
   box-shadow: none;
 }
 
+/* Co-managers card: a row is the address with its pills on the left and the
+ * Remove action on the right, wrapping beneath on a narrow phone. A long
+ * address wraps inside its own box instead of widening the page. */
+.co-manager__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.co-manager__who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.co-manager__email {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.co-manager__remove {
+  margin: 0;
+}
+
 /* Targets <a>, not <button> — history_page's Show More link — so there
  * is no button[type="submit"] specificity fight to win here. */
 a.calendar-disconnect-btn {
