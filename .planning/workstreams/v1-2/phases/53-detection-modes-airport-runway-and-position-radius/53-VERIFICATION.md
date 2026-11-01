@@ -14,8 +14,8 @@ human_verification:
     why_human: "Product policy"
   - test: "Real tenant: set a non-Orly runway and a position on a real paired device, wait for a poll"
     expected: "Device follows it; adsb.fi budget stays within 1 req/s"
-    why_human: "Real data, real tenant, no deploy performed"
-  - test: "Decide when to deploy and whether to flip SKYPANE_LEGACY_ORLY_GEOFENCE for the live Orly frame"
+    why_human: "Real data, real tenant; deployed by CI on merge, owner checked the live Orly frame on 2026-11-01"
+  - test: "Decide whether to flip SKYPANE_LEGACY_ORLY_GEOFENCE for the live Orly frame (not needed: the owner saw no change)"
     expected: "Owner decision"
     why_human: "Deploy is out of scope (D-03, D-09)"
 ---
@@ -62,7 +62,7 @@ human_verification:
 | Requirements files unchanged | OK | No diff of `*requirements*` against main. Python code uses stdlib only for the new modules. |
 | Live Orly frame identical between generic and kill-switch paths | OK | `server/test_detection_kill_switch.py:156`, `test_orly_replay.py:177`. Default `LEGACY_ORLY_DEFAULT_TO_FILE = False`, env `SKYPANE_LEGACY_ORLY_GEOFENCE=1` reverts (`detection.py:36-40,372`). |
 | Expand-only storage | OK | `apply_runway_selection:459` writes only `tracked_runway` for legacy ids and clears `detection`. Other runways write one `detection` object and leave `tracked_runway`. `test_detection_kill_switch.py:189` (config bytes unchanged) passes. |
-| No deploy performed | OK | No deploy workflow or unit changes in the diff. |
+| No deploy workflow or unit changes | OK | No deploy workflow or unit changes in the diff. Merging to main deployed the code through the existing CI job (2026-10-31 20:20 UTC); this was not part of the branch. |
 | Phase 55 files not edited | OK | `companion/console_*.py`, `companion/pages/locations_page.py`, `test_console_*` show no diff against merged main. |
 | Gates | OK | Comment-history and function-size pass (above). |
 | OurAirports on credits page and COMPLIANCE.md | OK | `companion/credits.json:38-40`, `COMPLIANCE.md:179-203` (build-time only). `companion/test_compliance_credits.py` passes. |

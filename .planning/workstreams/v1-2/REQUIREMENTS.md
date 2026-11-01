@@ -106,9 +106,9 @@ Coverage: 31/31 v1.2 requirements mapped, each to exactly one phase.
 | FLT-02 | Phase 51 | Complete |
 | FLT-03 | Phase 52 | Complete |
 | FLT-04 | Phase 52 | Complete |
-| DET-01 | Phase 53 | Complete in code, not deployed |
-| DET-02 | Phase 53 | Complete in code, not deployed |
-| DET-03 | Phase 53 | Complete in code, not deployed |
+| DET-01 | Phase 53 | Complete (deployed 2026-10-31) |
+| DET-02 | Phase 53 | Complete (deployed 2026-10-31) |
+| DET-03 | Phase 53 | Complete (deployed 2026-10-31) |
 | AUTH-01 | Phase 54 | Complete |
 | AUTH-02 | Phase 54 | Complete |
 | AUTH-03 | Phase 54 (gate and matrix), Phase 55 (real per-device rows) | Pending (gate and matrix delivered and verified in production; the real per-device route rows are carried to Phase 55 by the owner, 2026-10-31) |
