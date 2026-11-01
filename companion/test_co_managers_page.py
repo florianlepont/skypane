@@ -3,13 +3,16 @@ mark: the three card shapes as markup, the view builder's guards, and the
 leave toast. Assertions read served HTML, never source."""
 import html
 import re
+import sqlite3
 
 import pytest
 
-from companion import device_scope, prefs
+import fleet_console_support as fx
+from companion import co_managers, device_scope, prefs
 from companion.pages import co_managers_card as card
-from companion_app_server import InProcessAppServer, http_request
+from companion_app_server import InProcessAppServer, http_request, with_csrf
 from companion_markup import css_rules, declarations_for, parse_html
+from server import fleet_db
 
 OWNER = "owner@example.test"
 CO_EMAIL = "co-manager@example.test"
@@ -45,6 +48,11 @@ def _tree(view):
 
 def _add_forms(tree):
     return [f for f in tree.select("form") if f.attrs["action"] == card.ADD_ROUTE]
+
+
+def _forms_to(tree, route):
+    """The forms under `tree` whose action ends with `route`."""
+    return [f for f in tree.select("form") if f.attrs["action"].endswith(route)]
 
 
 def _rows(tree):
@@ -261,3 +269,220 @@ def test_the_card_rules_use_existing_tokens_only(tmp_path):
             assert not re.search(r"#[0-9a-fA-F]{3,8}\b|rgb\(|hsl\(", value)
             if "var(" in value:
                 assert re.fullmatch(r"var\(--space-(xs|sm|md|lg)\)", value)
+
+
+# --- the Home page over real HTTP ------------------------------------------
+
+
+class Rig:
+    def __init__(self, server, seed, cookies):
+        self.server = server
+        self.seed = seed
+        self.cookies = cookies
+        self.path = "/devices/%s/" % seed.owned_id
+
+    def get(self, who, path=None):
+        status, headers, body = http_request(
+            self.server.url(path or self.path), cookie=self.cookies[who])
+        return status, headers, body.decode("utf-8", "replace")
+
+    def post(self, who, route, form):
+        cookie = self.cookies[who]
+        status, headers, body = http_request(
+            self.server.url("/devices/%s%s" % (self.seed.owned_id, route)),
+            method="POST", cookie=cookie, data=with_csrf(cookie, form),
+            extra_headers={"Origin": self.server.base_url()})
+        return status, headers, body.decode("utf-8", "replace")
+
+    def db(self, fn):
+        conn = fleet_db.connect(self.server.state_dir)
+        try:
+            return fn(conn)
+        finally:
+            conn.close()
+
+    def card(self, who):
+        status, _headers, body = self.get(who)
+        assert status == 200
+        sections = parse_html(body).select('section[aria-labelledby="home-co-managers"]')
+        return sections[0] if sections else None
+
+
+@pytest.fixture
+def rig(tmp_path):
+    state_dir = str(tmp_path / "state")
+    server = InProcessAppServer(state_dir)
+    seed = fx.seed_fleet(state_dir)
+    cookies = {
+        "owner": fx.user_cookie(state_dir, email=fx.OWNER_EMAIL),
+        "co": fx.user_cookie(state_dir, email=CO_EMAIL),
+        "stranger": fx.user_cookie(state_dir, email=STRANGER_EMAIL),
+        "admin": fx.admin_cookie(state_dir),
+    }
+    built = Rig(server, seed, cookies)
+
+    def seed_people(conn):
+        built.co_id = fleet_db.get_user_by_email(conn, CO_EMAIL)["id"]
+        fleet_db.add_co_manager(conn, seed.owned_id, built.co_id, None)
+        fleet_db.add_user(conn, INVITED_EMAIL, "user")
+    built.db(seed_people)
+    yield built
+    server.stop()
+
+
+def test_the_owner_sees_the_manage_card(rig):
+    tree = rig.card("owner")
+    assert tree is not None
+    emails = [n.text() for n in tree.select("span.co-manager__email")]
+    assert emails == [fx.OWNER_EMAIL, CO_EMAIL]
+    (add,) = _forms_to(tree, card.ADD_ROUTE)
+    assert add.select('input[type="email"]')
+    assert _forms_to(tree, card.REMOVE_ROUTE)
+    assert not tree.select("details")
+
+
+def test_a_co_manager_sees_the_list_read_only_with_leave(rig):
+    tree = rig.card("co")
+    emails = [n.text() for n in tree.select("span.co-manager__email")]
+    assert emails == [fx.OWNER_EMAIL, CO_EMAIL]
+    assert not _forms_to(tree, card.ADD_ROUTE)
+    assert not _forms_to(tree, card.REMOVE_ROUTE)
+    assert _forms_to(tree.select_one("details.fleet-confirm"), card.LEAVE_ROUTE)
+
+
+def test_an_admin_who_is_not_a_member_sees_the_manage_card_with_a_select(rig):
+    tree = rig.card("admin")
+    assert _forms_to(tree, card.REMOVE_ROUTE)
+    options = [o.attrs["value"] for o in tree.select("select option")]
+    assert INVITED_EMAIL in options
+    assert not tree.select("details")
+
+
+def test_a_user_with_no_relation_gets_the_unknown_path_answer(rig):
+    status, _headers, body = rig.get("stranger")
+    assert status == 404
+    assert "home-co-managers" not in body
+    assert CO_EMAIL not in body
+
+
+def test_the_invited_list_never_reaches_a_non_admin(rig):
+    for who in ("owner", "co"):
+        _status, _headers, body = rig.get(who)
+        assert INVITED_EMAIL not in html.unescape(body)
+        assert STRANGER_EMAIL not in html.unescape(body)
+    _status, _headers, admin_body = rig.get("admin")
+    assert INVITED_EMAIL in html.unescape(admin_body)
+
+
+def test_a_disabled_co_manager_shows_the_pill_to_the_owner_and_not_to_a_co_manager(rig):
+    other = rig.db(lambda c: fleet_db.add_user(c, OTHER_CO.lower(), "user"))
+    rig.db(lambda c: fleet_db.add_co_manager(c, rig.seed.owned_id, other, None))
+    rig.db(lambda c: fleet_db.set_user_disabled(c, OTHER_CO.lower(), True))
+    owner_rows = rig.card("owner").select("li.data-card")
+    disabled = [r for r in owner_rows if OTHER_CO.lower() in r.text()]
+    assert "Disabled" in disabled[0].text()
+    co_tree = rig.card("co")
+    assert OTHER_CO.lower() in co_tree.text()
+    assert "Disabled" not in co_tree.text()
+
+
+def test_the_card_sits_outside_the_swapped_regions_and_every_form(rig):
+    _status, _headers, body = rig.get("owner")
+    tree = parse_html(body)
+    section = tree.select_one('section[aria-labelledby="home-co-managers"]')
+    swapped = (
+        "page-header__freshness", "preview-frame", "home-facts")
+    node = section.parent
+    while node is not None:
+        classes = node.attrs.get("class", "").split()
+        assert node.tag != "form"
+        assert not any(c in classes for c in swapped)
+        assert node.attrs.get("aria-labelledby") not in ("home-flights", "home-frame-state")
+        node = node.parent
+    assert tree.select('section[aria-labelledby="home-co-managers"]') == [section]
+    after_facts = body.index("home-co-managers") > body.index('class="home-facts"')
+    assert after_facts
+
+
+def test_the_synthetic_live_frame_renders_no_card(tmp_path):
+    state_dir = str(tmp_path / "state")
+    server = InProcessAppServer(state_dir)
+    try:
+        fx.seed_users(state_dir)
+        cookie = fx.admin_cookie(state_dir)
+        status, _headers, body = http_request(server.url("/"), cookie=cookie)
+    finally:
+        server.stop()
+    assert status == 200
+    assert b"home-co-managers" not in body
+
+
+class _BrokenHandler:
+    def __init__(self, principal, error):
+        self._principal = principal
+        self._error = error
+
+    def _safe_principal(self):
+        return self._principal
+
+    def _fleet_conn(self):
+        raise self._error
+
+
+def test_an_unreadable_fleet_database_renders_no_card():
+    device = device_scope.Device("d_0a1b2c3d", "Kitchen", "legacy", ".", ".", False, 1)
+    principal = co_managers.access.Principal("user", 1, OWNER, "user")
+    for error in (sqlite3.OperationalError("locked"), fleet_db.FleetDbError("bad")):
+        assert co_managers.card_html(_BrokenHandler(principal, error), device) == ""
+
+
+def test_adding_shows_the_toast_and_the_new_row_and_a_refusal_the_error_toast(rig):
+    status, headers, _body = rig.post("owner", card.ADD_ROUTE, {"email": INVITED_EMAIL})
+    assert status == 303
+    location = headers["Location"]
+    assert location.endswith("?flash=" + card.FLASH_ADDED)
+    status, _headers, body = rig.get("owner", location)
+    assert status == 200
+    assert "Co-manager added" in html.unescape(body)
+    emails = [n.text() for n in parse_html(body).select("span.co-manager__email")]
+    assert INVITED_EMAIL in emails
+    status, headers, _body = rig.post("owner", card.ADD_ROUTE, {"email": "nobody@example.test"})
+    location = headers["Location"]
+    assert location.endswith("?flash=" + card.FLASH_ADD_REFUSED)
+    _status, _headers, body = rig.get("owner", location)
+    assert "can't be added" in html.unescape(body)
+    assert "nobody@example.test" not in body
+    assert 'name="email"' in body and "value=" not in re.search(
+        r'<input type="email"[^>]*>', body).group(0)
+
+
+def test_role_changes_and_a_disabled_user_keep_the_row(rig):
+    def set_role(role):
+        rig.db(lambda c: c.execute(
+            "UPDATE users SET role = ? WHERE id = ?", (role, rig.co_id)))
+
+    def co_rows():
+        return [n.text() for n in rig.card("owner").select("span.co-manager__email")]
+
+    set_role("admin")
+    assert CO_EMAIL in co_rows()
+    set_role("user")
+    assert CO_EMAIL in co_rows()
+    rig.db(lambda c: fleet_db.set_user_disabled(c, CO_EMAIL, True))
+    assert CO_EMAIL in co_rows()
+    assert "Disabled" in rig.card("owner").text()
+    rig.db(lambda c: fleet_db.set_user_disabled(c, CO_EMAIL, False))
+    assert CO_EMAIL in co_rows()
+    assert "Disabled" not in rig.card("owner").text()
+    fresh = fx.user_cookie(rig.server.state_dir, email=CO_EMAIL)
+    status, _headers, _body = http_request(rig.server.url(rig.path), cookie=fresh)
+    assert status == 200
+
+
+def test_a_french_request_renders_the_card_in_french(rig):
+    status, _headers, body = http_request(
+        rig.server.url(rig.path), cookie=rig.cookies["owner"],
+        extra_headers={"Accept-Language": "fr"})
+    text = html.unescape(body.decode("utf-8"))
+    assert status == 200
+    assert "Co-gestionnaires" in text

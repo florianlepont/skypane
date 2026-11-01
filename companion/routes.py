@@ -135,7 +135,10 @@ _GET_ROUTES = (
         Route("GET", Exact(ACCOUNT_ROUTE), lambda h, m: h._handle_account_get(), SIGNED_IN),
         Route(
             "GET", Exact(HOME_ROUTE),
-            lambda h, m: h._render_tab(HOME_ROUTE, home_page.render, m.device), OWNER_DEVICE),
+            lambda h, m: h._render_tab(
+                HOME_ROUTE, lambda ctx: home_page.render(
+                    ctx, co_managers_html=co_managers.card_html(h, m.device)),
+                m.device), OWNER_DEVICE),
         Route(
             "GET", Exact(DISPLAY_ROUTE),
             lambda h, m: h._render_tab(

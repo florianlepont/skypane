@@ -18,7 +18,7 @@ import re
 import sqlite3
 import unicodedata
 
-from companion import audit, device_scope
+from companion import access, audit, device_scope
 from companion.pages import co_managers_card as card
 from server import fleet_db
 
@@ -188,3 +188,50 @@ def handle_leave(h, m):
     if not left:
         return _redirect_home(h, card.FLASH_LEAVE_NOOP)
     return h.redirect("%s?flash=%s" % (_ACCOUNT_PATH, card.FLASH_LEFT))
+
+
+def _owner_email(conn, owner_user_id):
+    row = conn.execute("SELECT email FROM users WHERE id = ?", (owner_user_id,)).fetchone()
+    return None if row is None else str(row["email"])
+
+
+def _card_view(conn, device, principal):
+    """The card's view for `principal`, or None when there is nothing to
+    show: no fleet row, no owner, or a viewer who is neither a manager nor a
+    member. Management is decided from the role and the owner, never from
+    having reached the page.
+    """
+    if fleet_db.get_device(conn, device.id) is None or device.owner_user_id is None:
+        return None
+    owner_email = _owner_email(conn, device.owner_user_id)
+    if owner_email is None:
+        return None
+    members = tuple(
+        (int(r["user_id"]), str(r["email"]), bool(r["disabled"]))
+        for r in fleet_db.list_co_managers(conn, device.id))
+    is_admin = principal.role == access.ADMIN
+    viewer_id = principal.user_id
+    can_manage = is_admin or (viewer_id is not None and device.owner_user_id == viewer_id)
+    is_member = viewer_id is not None and any(m[0] == viewer_id for m in members)
+    if not can_manage and not is_member:
+        return None
+    # The invited-user list is filled for an administrator only.
+    candidates = tuple(
+        str(r["email"]) for r in fleet_db.eligible_co_manager_candidates(conn, device.id)
+    ) if is_admin else ()
+    return card.CardView(
+        owner_email, members, candidates, can_manage, viewer_id, is_member, is_admin)
+
+
+def card_html(h, device):
+    """The Co-managers card for the frame's Home page, or "" (fail closed)
+    when the frame has no fleet row, the fleet database cannot be read, or the
+    viewer is unknown."""
+    principal = h._safe_principal()
+    if device is None or principal is None:
+        return ""
+    try:
+        view = _card_view(h._fleet_conn(), device, principal)
+    except _STORE_ERRORS:
+        return ""
+    return "" if view is None else card.render(view)
