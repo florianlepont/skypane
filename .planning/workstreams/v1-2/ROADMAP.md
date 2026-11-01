@@ -425,7 +425,17 @@ Plans:
   3. A user who is neither owner nor co-manager still gets a 404 for the frame, and the route x role x owner matrix covers the co-manager rows.
   4. The one-primary-owner rule from the fleet data model still holds, and adding or removing a co-manager is recorded in the audit log.
 
-**Plans**: TBD
+**Plans**: 9 plans
+Plans:
+- [ ] 60-01-PLAN.md — Migration v4 (expand-only device_co_managers table) and the fleet_db co-manager API, schema-3 test fix, rollback README paragraph
+- [ ] 60-02-PLAN.md — Reassign, retire, hard-delete cascades with per-user audit; location rule against the device owner
+- [ ] 60-03-PLAN.md — Ownership gate accepts co-managers; owner-or-admin access kind; dispatcher wiring
+- [ ] 60-04-PLAN.md — Device list, Detection location scope (D-04) and HTTP proof a co-manager acts like the owner
+- [ ] 60-05-PLAN.md — Add, remove, leave routes with CSRF, single refusal, audit, flash, labels and French
+- [ ] 60-06-PLAN.md — Co-managers card on Home, Account Shared mark and leave toast, CSS and i18n
+- [ ] 60-07-PLAN.md — Access matrix co-manager rows and live-frame immutability test
+- [ ] 60-08-PLAN.md — Browser tests at 360 px (layout, tap targets, leave flow, freshness)
+- [ ] 60-09-PLAN.md — Full gate run, constraint diff guard and owner handoff
 **UI hint**: yes
 
 ## Progress
