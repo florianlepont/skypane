@@ -12,7 +12,7 @@ from companion import co_managers, device_scope, prefs
 from companion.pages import co_managers_card as card
 from companion_app_server import InProcessAppServer, http_request, with_csrf
 from companion_markup import css_rules, declarations_for, parse_html
-from server import fleet_db
+from server import fleet_db, hardware
 
 OWNER = "owner@example.test"
 CO_EMAIL = "co-manager@example.test"
@@ -486,3 +486,90 @@ def test_a_french_request_renders_the_card_in_french(rig):
     text = html.unescape(body.decode("utf-8"))
     assert status == 200
     assert "Co-gestionnaires" in text
+
+
+# --- the Account page ------------------------------------------------------
+
+
+def _account(rig, who, query="", language=None):
+    extra = {"Accept-Language": language} if language else None
+    status, _headers, body = http_request(
+        rig.server.url("/account" + query), cookie=rig.cookies[who], extra_headers=extra)
+    assert status == 200
+    return body.decode("utf-8")
+
+
+def _frame_names(body):
+    return [n.text() for n in parse_html(body).select("li.data-card span.text-heading")]
+
+
+def test_a_co_managed_frame_is_marked_shared_with_the_owner_address(rig):
+    tree = parse_html(_account(rig, "co"))
+    (row,) = tree.select("li.data-card")
+    assert "Shared" in [n.text() for n in row.select("span.banner__pill")]
+    assert "Owner: %s" % fx.OWNER_EMAIL in row.text()
+    assert row.select_one("a.text-link").attrs["href"] == rig.path
+
+
+def test_an_owned_frame_carries_no_shared_mark(rig):
+    tree = parse_html(_account(rig, "owner"))
+    rows = [r for r in tree.select("li.data-card") if "Kitchen" in r.text()]
+    assert rows
+    assert "Shared" not in rows[0].text()
+    assert "Owner:" not in rows[0].text()
+
+
+def test_an_admin_lists_only_the_frames_they_own_or_co_manage(rig):
+    before = _frame_names(_account(rig, "admin"))
+    assert "Kitchen" not in before
+    assert len(before) == 1
+    admin_id = rig.db(lambda c: fleet_db.get_user_by_email(c, fx.ADMIN_EMAIL)["id"])
+    rig.db(lambda c: fleet_db.add_co_manager(c, rig.seed.owned_id, admin_id, None))
+    after = _frame_names(_account(rig, "admin"))
+    assert sorted(after) == sorted(before + ["Kitchen"])
+    tree = parse_html(_account(rig, "admin"))
+    shared = [r for r in tree.select("li.data-card") if "Kitchen" in r.text()]
+    assert "Shared" in shared[0].text()
+
+
+def test_a_user_with_no_frames_sees_the_unchanged_empty_state(rig):
+    body = html.unescape(_account(rig, "stranger"))
+    assert "Your frames will appear here" in body
+    assert "Shared" not in body
+
+
+def test_frames_stay_ordered_by_name(rig):
+    other = rig.db(lambda c: fleet_db.add_device(
+        c, "aa:bb:cc:00:00:09", fx.SECRET_HASH, hardware.LEGACY_KEY, rig.co_id,
+        name="Attic window", state_path="auto"))
+    assert other
+    assert _frame_names(_account(rig, "co")) == ["Attic window", "Kitchen"]
+
+
+def test_only_the_leave_flash_renders_a_toast_on_account(rig):
+    body = html.unescape(_account(rig, "co", "?flash=" + card.FLASH_LEFT))
+    toast = parse_html(body).select_one("div.toast-region--flash div.toast")
+    assert toast.attrs["role"] == "status"
+    assert "You left the frame" in toast.text()
+    for key in (
+            card.FLASH_ADDED, card.FLASH_REMOVED, card.FLASH_ADD_REFUSED,
+            card.FLASH_FAILED, card.FLASH_LEAVE_NOOP, "unknown_key"):
+        assert not parse_html(_account(rig, "co", "?flash=" + key)).select("div.toast-region--flash")
+
+
+def test_the_leave_toast_is_french_for_a_french_request(rig):
+    body = html.unescape(_account(rig, "co", "?flash=" + card.FLASH_LEFT, "fr"))
+    assert "Vous avez quitté le cadre" in body
+    assert "Partagé" in body
+
+
+def test_leaving_lands_on_account_with_the_toast_and_the_frame_gone(rig):
+    status, headers, _body = rig.post("co", card.LEAVE_ROUTE, {})
+    assert status == 303
+    assert headers["Location"] == "/account?flash=" + card.FLASH_LEFT
+    status, _headers, body = http_request(
+        rig.server.url(headers["Location"]), cookie=rig.cookies["co"])
+    text = html.unescape(body.decode("utf-8"))
+    assert status == 200
+    assert "You left the frame" in text
+    assert "Kitchen" not in _frame_names(text)
