@@ -37,15 +37,15 @@ def _make_old(state_dir, upto):
     return conn
 
 
-def test_fresh_database_is_at_schema_3_with_new_objects(conn):
-    assert fleet_db.SCHEMA_VERSION == 3
-    assert fleet_db.schema_version(conn) == 3
+def test_fresh_database_is_at_current_schema_with_v3_objects(conn):
+    assert fleet_db.SCHEMA_VERSION >= 3
+    assert fleet_db.schema_version(conn) == fleet_db.SCHEMA_VERSION
     assert {"pending_devices", "audit_log"} <= _objects(conn, "table")
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(locations)")}
     assert "owner_user_id" in cols
 
 
-@pytest.mark.parametrize("start", [1, 2])
+@pytest.mark.parametrize("start", [1, 2, 3])
 def test_old_databases_upgrade_in_place_keeping_rows(state_dir, start):
     raw = _make_old(state_dir, start)
     raw.execute("PRAGMA foreign_keys=ON")
@@ -74,7 +74,7 @@ def test_old_databases_upgrade_in_place_keeping_rows(state_dir, start):
     conn.close()
 
 
-def test_concurrent_upgraders_end_at_schema_3(state_dir):
+def test_concurrent_upgraders_end_at_current_schema(state_dir):
     _make_old(state_dir, 2).close()
     path = fleet_db.fleet_db_path(state_dir)
     barrier = threading.Barrier(3)
@@ -98,7 +98,7 @@ def test_concurrent_upgraders_end_at_schema_3(state_dir):
     for t in threads:
         t.join()
     assert errors == []
-    assert versions == [3, 3, 3]
+    assert versions == [fleet_db.SCHEMA_VERSION] * 3
 
 
 def test_audit_log_is_append_only(conn):
@@ -167,10 +167,10 @@ def test_pending_table_constraints(conn):
         conn.execute(ins, ("p_22222222", MAC2, SECRET, "bogus"))
 
 
-def test_schema_4_is_refused(state_dir):
+def test_a_newer_schema_is_refused(state_dir):
     fleet_db.connect(state_dir).close()
     raw = sqlite3.connect(fleet_db.fleet_db_path(state_dir))
-    raw.execute("PRAGMA user_version = 4")
+    raw.execute(f"PRAGMA user_version = {fleet_db.SCHEMA_VERSION + 1}")
     raw.commit()
     raw.close()
     with pytest.raises(fleet_db.FleetDbTooNew):
