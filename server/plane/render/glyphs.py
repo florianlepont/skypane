@@ -281,6 +281,40 @@ def draw_alert_icon(draw, center_x, top_y, ink_idx):
     return ALERT_ICON_HEIGHT_PX
 
 
+# --- Pairing chain-link glyph ----------------------------------------------
+# Two interlocking rounded rectangles, outline only, centred vertically in
+# the same 76px band as the other hold glyphs. Same Bold-class 8px stroke as
+# the power ring.
+LINK_ICON_HEIGHT_PX = 76
+LINK_ICON_LOOP_WIDTH_PX = 68
+LINK_ICON_LOOP_HEIGHT_PX = 44
+LINK_ICON_LOOP_OFFSET_PX = 48  # distance between the two loops' left edges
+LINK_ICON_STROKE_PX = POWER_ICON_STROKE_PX
+
+
+def draw_link_icon(draw, center_x, top_y, ink_idx):
+    """Draw the pairing chain link (two overlapping rounded loops) centred on
+    `center_x` and vertically within the band starting at `top_y`. Returns the
+    glyph's band height.
+    """
+    total_w = LINK_ICON_LOOP_WIDTH_PX + LINK_ICON_LOOP_OFFSET_PX
+    left = center_x - total_w // 2
+    loop_top = top_y + (LINK_ICON_HEIGHT_PX - LINK_ICON_LOOP_HEIGHT_PX) // 2
+    for loop_left in (left, left + LINK_ICON_LOOP_OFFSET_PX):
+        draw.rounded_rectangle(
+            (
+                loop_left,
+                loop_top,
+                loop_left + LINK_ICON_LOOP_WIDTH_PX - 1,
+                loop_top + LINK_ICON_LOOP_HEIGHT_PX - 1,
+            ),
+            radius=LINK_ICON_LOOP_HEIGHT_PX // 2,
+            outline=ink_idx,
+            width=LINK_ICON_STROKE_PX,
+        )
+    return LINK_ICON_HEIGHT_PX
+
+
 # --- Updating (OTA) refresh glyph ------------------------------------------
 # Two opposing ~90-degree arcs, each ending in a small chevron arrowhead
 # drawn strictly inside the ring (never past its radius) - the OTA

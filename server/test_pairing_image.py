@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from server import hardware, pairing_image, panel_format
+from server.plane.render import style
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FAKE_CODE = "ABCD2345"
@@ -23,7 +24,9 @@ LEGAL_NIBBLES = {
 }
 # sha256 of the retired screen for the legacy profile; changes only when the
 # retired layout, copy or fonts change on purpose.
-RETIRED_GOLDEN_SHA256 = "245ccd04e6fd38e8756fe7894617ce3cbbadfdbe0b4548dc588e0575675b37f9"
+RETIRED_GOLDEN_SHA256 = "315a0852353acdd9849c6cfd1e2fbffe6bbfc792a9df53907e3868a0c5290c05"
+# sha256 of the pairing screen for FAKE_CODE on the legacy profile.
+PAIRING_GOLDEN_SHA256 = "3e5d41f52f68dc506fa4f3e983b597f9382d2c183e8e9bdd47c93a8d55ba7ba0"
 
 
 @pytest.fixture()
@@ -71,47 +74,77 @@ def test_determinism_and_golden(legacy: hardware.HardwareProfile) -> None:
         capture_output=True, text=True, check=True, cwd="/",
     ).stdout.split()
     assert out[0] == hashlib.sha256(first).hexdigest()
+    assert out[0] == PAIRING_GOLDEN_SHA256
     retired = hashlib.sha256(pairing_image.render_retired_image(legacy)).hexdigest()
     assert out[1] == retired
     assert retired == RETIRED_GOLDEN_SHA256
 
 
-def test_pairing_regions(legacy: hardware.HardwareProfile) -> None:
+def _ink_rows(data: bytes, profile: hardware.HardwareProfile) -> list[tuple[int, int, int]]:
+    """Bands of consecutive rows holding black ink: (first row, last row, width)."""
+    bands: list[tuple[int, int, int]] = []
+    start = None
+    left, right = profile.width, -1
+    for y in range(profile.height):
+        xs = [
+            x for x in range(0, profile.width, 1)
+            if _pixel(data, profile, x, y) == panel_format.BLACK
+        ]
+        if xs:
+            if start is None:
+                start, left, right = y, profile.width, -1
+            left, right = min(left, xs[0]), max(right, xs[-1])
+        elif start is not None:
+            bands.append((start, y - 1, right - left + 1))
+            start = None
+    return bands
+
+
+def test_pairing_is_white_black_with_centred_blocks(
+    legacy: hardware.HardwareProfile,
+) -> None:
     data = pairing_image.render_pairing_image(legacy, FAKE_CODE)
-    for y in (0, 100, 219):
-        for x in (0, 1100, 1199):
-            assert _pixel(data, legacy, x, y) == panel_format.RED
-    assert _pixel(data, legacy, 1199, 230) == panel_format.WHITE
-    assert _pixel(data, legacy, 5, 5) == panel_format.RED
-    # The 6 px frame of the code box and the code glyphs are black.
-    assert _pixel(data, legacy, 82, 700) == panel_format.BLACK
-    region = [
-        _pixel(data, legacy, x, y)
-        for y in range(700, 900, 2)
-        for x in range(100, 1100, 2)
-    ]
-    assert panel_format.BLACK in region
+    assert _nibbles(data) == {panel_format.WHITE, panel_format.BLACK}
+    assert _pixel(data, legacy, 0, 0) == panel_format.WHITE
+    assert _pixel(data, legacy, 1199, 1599) == panel_format.WHITE
+    bands = _ink_rows(data, legacy)
+    # Glyph, label, rule, code, then the two body lines.
+    assert len(bands) >= 6
+    widths = [width for _, _, width in bands]
+    code_band = max(bands, key=lambda band: band[2])
+    # The code is the widest and tallest element and fits the safe box.
+    assert code_band[2] == max(widths)
+    assert code_band[2] <= style.SAFE_BOX[2] - style.SAFE_BOX[0]
+    assert all(
+        code_band[1] - code_band[0] > b[1] - b[0] for b in bands if b is not code_band
+    )
+    # The whole block is vertically centred like the other hold screens.
+    top, bottom = bands[0][0], bands[-1][1]
+    assert abs(top - (legacy.height - 1 - bottom)) <= 40
 
 
-def test_retired_has_no_code_area_and_no_code_argument(
+def test_longest_code_fits_the_safe_box(legacy: hardware.HardwareProfile) -> None:
+    data = pairing_image.render_pairing_image(legacy, "WWWWWWWW")
+    for y in range(legacy.height):
+        for x in (*range(0, style.SAFE_BOX[0]), *range(style.SAFE_BOX[2], legacy.width)):
+            assert _pixel(data, legacy, x, y) == panel_format.WHITE
+
+
+def test_retired_has_no_code_and_no_code_argument(
     legacy: hardware.HardwareProfile,
 ) -> None:
     assert list(inspect.signature(pairing_image.render_retired_image).parameters) == [
         "profile"
     ]
-    pairing = pairing_image.render_pairing_image(legacy, FAKE_CODE)
     retired = pairing_image.render_retired_image(legacy)
-    # The pairing code box frame is absent on the retired screen.
-    assert _pixel(pairing, legacy, 82, 700) == panel_format.BLACK
-    assert _pixel(retired, legacy, 82, 700) == panel_format.WHITE
-    assert _pixel(retired, legacy, 600, 5) == panel_format.BLACK
-    # No code glyph rows at the centre of the box on the retired screen.
-    box = [
-        _pixel(retired, legacy, x, y)
-        for y in range(600, 800)
-        for x in range(100, 1100)
-    ]
-    assert panel_format.BLACK not in box
+    assert _nibbles(retired) == {panel_format.WHITE, panel_format.BLACK}
+    # Dithered field: black and white both appear in every sampled block.
+    block = {
+        _pixel(retired, legacy, x, y) for x in range(100, 108) for y in range(100, 108)
+    }
+    assert block == {panel_format.WHITE, panel_format.BLACK}
+    # The retired screen does not depend on any code.
+    assert retired == pairing_image.render_retired_image(legacy)
 
 
 def test_simulated_profile_scales(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -125,3 +158,13 @@ def test_simulated_profile_scales(monkeypatch: pytest.MonkeyPatch) -> None:
     assert _nibbles(pairing) <= LEGAL_NIBBLES
     assert _nibbles(retired) <= LEGAL_NIBBLES
     assert _pixel(pairing, profile, 0, 0) in LEGAL_NIBBLES
+    # Nothing is clipped: the scaled composition keeps ink away from every edge.
+    ink = [
+        (x, y)
+        for y in range(profile.height)
+        for x in range(profile.width)
+        if _pixel(pairing, profile, x, y) == panel_format.BLACK
+    ]
+    assert ink
+    assert min(x for x, _ in ink) > 0 and max(x for x, _ in ink) < profile.width - 1
+    assert min(y for _, y in ink) > 0 and max(y for _, y in ink) < profile.height - 1
