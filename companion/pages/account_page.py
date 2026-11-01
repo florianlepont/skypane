@@ -33,6 +33,8 @@ _BATTERY_TEXT = i18n.msg("account.battery", "Battery")
 UNNAMED_FRAME_TEXT = i18n.msg("account.unnamed_frame", "Unnamed frame")
 _OPEN_TEXT = i18n.msg("account.open", "Open")
 _OPEN_FRAME_TEXT = i18n.msg("account.open_frame", "Open %s")
+_SHARED_TEXT = i18n.msg("account.shared", "Shared")
+_OWNER_LINE_TEXT = i18n.msg("account.owner_s", "Owner: %s")
 _SIGN_OUT_TEXT = i18n.msg("common.sign_out", "Sign out")
 
 ROLE_USER = "user"
@@ -49,12 +51,16 @@ class Identity(NamedTuple):
 class FrameSummary(NamedTuple):
     """One of the caller's own frames as the page shows it: the name, the
     hardware label, the epoch seconds of the last contact (None when never),
-    the battery percentage (None when unknown) and the address of its Home."""
+    the battery percentage (None when unknown) and the address of its Home.
+    A frame the caller co-manages is `shared` and carries its owner's address
+    in `owner_email`."""
     name: str
     hardware: str
     last_contact: float | None
     battery_percent: int | None
     href: str
+    shared: bool = False
+    owner_email: str = ""
 
 
 def _role_text(identity):
@@ -91,7 +97,19 @@ def _contact_html(epoch, now):
             layout.relative_time_html(seen.isoformat(), now.isoformat())))
 
 
+def _shared_marks(frame):
+    """The "Shared" pill and the "Owner: <address>" line of a co-managed
+    frame; nothing for an owned one."""
+    if not frame.shared:
+        return "", ""
+    pill = '<span class="banner__pill">%s</span>' % layout.escape_html(i18n.t(_SHARED_TEXT))
+    owner = '<p class="text-label co-manager__email">%s</p>' % layout.escape_html(
+        i18n.t(_OWNER_LINE_TEXT) % frame.owner_email)
+    return pill, owner
+
+
 def _frame_row_html(frame, now):
+    pill_html, owner_html = _shared_marks(frame)
     battery_html = ""
     if frame.battery_percent is not None:
         battery_html = '<p class="text-label">%s %d%%</p>' % (
@@ -99,10 +117,11 @@ def _frame_row_html(frame, now):
     return (
         '<li class="data-card"><div class="data-card__primary">'
         '<span class="text-heading">%s</span>'
-        '<span class="text-label">%s</span></div>'
+        '<span class="text-label">%s</span>%s</div>%s'
         '<p class="text-label">%s %s</p>%s'
         '<p><a class="text-link" href="%s" aria-label="%s">%s</a></p></li>' % (
             layout.escape_html(frame.name), layout.escape_html(frame.hardware),
+            pill_html, owner_html,
             layout.escape_html(i18n.t(_LAST_CONTACT_TEXT)),
             _contact_html(frame.last_contact, now), battery_html,
             layout.escape_html(frame.href),

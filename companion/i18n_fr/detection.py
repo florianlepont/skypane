@@ -95,6 +95,8 @@ MESSAGES = {
     "detection.locations_title_owner": "Lieux du propriétaire de ce cadre",
     "detection.locations_caption_owner":
         "Vous enregistrez des lieux pour le propriétaire de ce cadre.",
+    "detection.locations_caption_co_manager":
+        "Les lieux sont gérés par le propriétaire du cadre.",
     "detection.edit_location": "Modifier le lieu",
     "detection.edit_location_named": "Modifier le lieu %(name)s",
     "detection.edit_location_summary": "Modifier les détails du lieu",

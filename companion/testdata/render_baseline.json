@@ -366,6 +366,18 @@
    "location": "/login",
    "status": 303
   },
+  "POST /co-managers/add": {
+   "location": "/login",
+   "status": 303
+  },
+  "POST /co-managers/leave": {
+   "location": "/login",
+   "status": 303
+  },
+  "POST /co-managers/remove": {
+   "location": "/login",
+   "status": 303
+  },
   "POST /detection": {
    "location": "/login",
    "status": 303

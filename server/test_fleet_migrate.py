@@ -415,6 +415,8 @@ def test_orly_constants_match_the_runway_config():
 
 def _downgrade_to_v1(state_dir):
     conn = fleet_db.connect(state_dir)
+    conn.execute("DROP TRIGGER devices_owner_not_co_manager")
+    conn.execute("DROP TABLE device_co_managers")
     conn.execute("DROP TRIGGER audit_log_no_update")
     conn.execute("DROP TRIGGER audit_log_no_delete")
     conn.execute("DROP TABLE audit_log")

@@ -177,6 +177,9 @@ _UNAUTH_POST_REQUESTS = (
     "/locations/add",
     "/locations/1/edit",
     "/locations/1/delete",
+    "/co-managers/add",
+    "/co-managers/remove",
+    "/co-managers/leave",
     _NOT_FOUND_PATH,
 )
 

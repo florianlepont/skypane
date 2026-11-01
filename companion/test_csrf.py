@@ -265,6 +265,9 @@ def test_only_the_known_routes_and_the_console_posts_are_flagged():
         (route.method, route.matcher) for route in routes.ROUTES if route.csrf}
     console_posts = {
         (route.method, route.matcher) for route in console_routes.ROUTES if route.csrf}
+    co_manager_posts = {
+        ("POST", routes.Exact(path)) for path in (
+            "/co-managers/add", "/co-managers/remove", "/co-managers/leave")}
     assert len(routes.CSRF_ROUTE_KEYS) == 7
-    assert flagged == set(routes.CSRF_ROUTE_KEYS) | console_posts
+    assert flagged == set(routes.CSRF_ROUTE_KEYS) | console_posts | co_manager_posts
     assert all(method == "POST" for method, _matcher in console_posts)

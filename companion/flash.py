@@ -15,7 +15,8 @@ this module).
 from urllib.parse import parse_qsl, urlencode, urlsplit
 
 from companion import device_scope, frame_state, i18n, layout, routes, wake
-from companion.pages import airlines_page, config_page, detection_page, update_page
+from companion.pages import (
+    airlines_page, co_managers_card, config_page, detection_page, update_page)
 from server.plane import calendar_rules, colour_rules
 
 # The flash-key string literals below are defined exactly once, in
@@ -64,6 +65,12 @@ FLASH_KEY_UPDATE_CANCEL_FAILED = update_page.FLASH_UPDATE_CANCEL_FAILED
 FLASH_KEY_UPDATE_BUSY = update_page.FLASH_UPDATE_BUSY
 FLASH_KEY_DETECTION_SAVED = detection_page.FLASH_DETECTION_SAVED
 FLASH_KEY_LOCATION_SAVED = detection_page.FLASH_LOCATION_SAVED
+FLASH_KEY_CO_MANAGER_ADDED = co_managers_card.FLASH_ADDED
+FLASH_KEY_CO_MANAGER_REMOVED = co_managers_card.FLASH_REMOVED
+FLASH_KEY_CO_MANAGER_LEFT = co_managers_card.FLASH_LEFT
+FLASH_KEY_CO_MANAGER_ADD_REFUSED = co_managers_card.FLASH_ADD_REFUSED
+FLASH_KEY_CO_MANAGER_FAILED = co_managers_card.FLASH_FAILED
+FLASH_KEY_CO_MANAGER_LEAVE_NOOP = co_managers_card.FLASH_LEAVE_NOOP
 
 # A fixed key -> copy dictionary — the flash mechanism only ever renders
 # one of these, never a value taken verbatim from the query string.
@@ -274,6 +281,12 @@ FLASH_MESSAGES = {
     FLASH_KEY_UPDATE_BUSY: update_page.FLASH_UPDATE_BUSY_TEXT,
     FLASH_KEY_DETECTION_SAVED: detection_page.FLASH_DETECTION_SAVED_TEXT,
     FLASH_KEY_LOCATION_SAVED: detection_page.FLASH_LOCATION_SAVED_TEXT,
+    FLASH_KEY_CO_MANAGER_ADDED: co_managers_card.FLASH_ADDED_TEXT,
+    FLASH_KEY_CO_MANAGER_REMOVED: co_managers_card.FLASH_REMOVED_TEXT,
+    FLASH_KEY_CO_MANAGER_LEFT: co_managers_card.FLASH_LEFT_TEXT,
+    FLASH_KEY_CO_MANAGER_ADD_REFUSED: co_managers_card.FLASH_ADD_REFUSED_TEXT,
+    FLASH_KEY_CO_MANAGER_FAILED: co_managers_card.FLASH_FAILED_TEXT,
+    FLASH_KEY_CO_MANAGER_LEAVE_NOOP: co_managers_card.FLASH_LEAVE_NOOP_TEXT,
 }
 
 _SUCCESS = layout.TOAST_TONE_SUCCESS
@@ -330,6 +343,14 @@ FLASH_TONES = {
     # Stored now, followed by the frame at its next wake.
     FLASH_KEY_DETECTION_SAVED: _PENDING,
     FLASH_KEY_LOCATION_SAVED: _SUCCESS,
+    # The membership change is effective at once; a refusal and a failure
+    # need the person to act again.
+    FLASH_KEY_CO_MANAGER_ADDED: _SUCCESS,
+    FLASH_KEY_CO_MANAGER_REMOVED: _SUCCESS,
+    FLASH_KEY_CO_MANAGER_LEFT: _SUCCESS,
+    FLASH_KEY_CO_MANAGER_ADD_REFUSED: _ERROR,
+    FLASH_KEY_CO_MANAGER_FAILED: _ERROR,
+    FLASH_KEY_CO_MANAGER_LEAVE_NOOP: _INFO,
     # The screen switch reaches the frame within about five minutes, at
     # its next wake; quiet hours and the LED wait for the next wake too.
     FLASH_KEY_DISPLAY_ON: _PENDING,
@@ -348,7 +369,10 @@ FLASH_ROLES = {key: layout.TOAST_ROLES[tone] for key, tone in FLASH_TONES.items(
 
 # A confirmed deletion keeps its success tone but shows a bin, so it does
 # not read like something was added.
-_FLASH_GLYPHS = {FLASH_KEY_CALENDAR_DISCONNECTED: layout.TOAST_GLYPH_TRASH}
+_FLASH_GLYPHS = {
+    FLASH_KEY_CALENDAR_DISCONNECTED: layout.TOAST_GLYPH_TRASH,
+    FLASH_KEY_CO_MANAGER_REMOVED: layout.TOAST_GLYPH_TRASH,
+}
 
 # The three instant switches' outcomes offer an Undo: a real POST of the
 # opposite state to the same route, so it works with scripts blocked.

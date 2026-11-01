@@ -523,3 +523,51 @@ def test_audit_target_ids_are_numeric_for_every_location_action(rig):
     assert [r["action"] for r in rows] == ["location.add", "location.update", "location.delete"]
     assert all(r["target_id"] == str(row) for r in rows)
     assert all(json.dumps(r).find(LAT) < 0 for r in rows)
+
+
+# --- co-manager --------------------------------------------------------------
+
+
+def _co_manager_rig(rig):
+    server, seed, cookies = rig
+    cookie = cookies["plain"]
+    conn = fleet_db.connect(server.state_dir)
+    try:
+        fleet_db.add_co_manager(conn, seed.owned_id, seed.user_id, None)
+    finally:
+        conn.close()
+    return server, seed, cookie
+
+
+def _save_display(server, cookie, device_id, location_id):
+    return fx.post(server, cookie, "/devices/%s/settings" % device_id, {
+        "scope": "display", "return_to": "/display", "location_id": str(location_id)})
+
+
+def test_a_co_manager_display_picker_lists_the_owners_locations_and_saves_one(rig):
+    server, seed, cookie = _co_manager_rig(rig)
+    mine = _add(server.state_dir, "Co Place", seed.user_id)
+    theirs = _add(server.state_dir, "Owner Place", seed.owner_id)
+    _s, _h, page = fx.get(server, cookie, "/devices/%s/display" % seed.owned_id)
+    assert "Owner Place" in page and "Co Place" not in page
+    status, _h, _b = _save_display(server, cookie, seed.owned_id, theirs)
+    assert status == 303
+    assert _sql(server.state_dir, "SELECT location_id FROM devices WHERE id = ?",
+                (seed.owned_id,)) == [(theirs,)]
+    status, _h, _b = _save_display(server, cookie, seed.owned_id, mine)
+    assert status != 500
+    assert _sql(server.state_dir, "SELECT location_id FROM devices WHERE id = ?",
+                (seed.owned_id,)) == [(theirs,)]
+
+
+@pytest.mark.parametrize("action", ["edit", "delete"])
+def test_a_co_manager_cannot_edit_or_delete_the_owners_location(rig, action):
+    server, seed, cookie = _co_manager_rig(rig)
+    theirs = _add(server.state_dir, "Owner Place", seed.owner_id)
+    expected = _unknown_path_404(server, cookie)
+    before = _table(server.state_dir, "locations")
+    body = _form(name="Hijacked") if action == "edit" else {}
+    status, _h, text = fx.post(
+        server, cookie, "/locations/%d/%s" % (theirs, action), body)
+    assert (status, text) == expected
+    assert _table(server.state_dir, "locations") == before
