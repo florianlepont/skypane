@@ -403,7 +403,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 58-01-PLAN.md — Costed shortlist from opened product pages, cost-first, landed cost vs 100 EUR TTC (HW2-01)
+- [x] 58-01-PLAN.md — Costed shortlist from opened product pages, cost-first, landed cost vs 100 EUR TTC (HW2-01)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -458,6 +458,6 @@ Plans:
 | 55. Frame Pairing, Admin Console and Reduced User View | v1.2 | 14/14 | Complete: merged and deployed 2026-10-31, verified in code and by the owner in production; real-panel pairing test waits for the second hardware (see 55-HANDOFF.md) | 2026-11-01 |
 | 56. Per-Hardware Rendering, Battery Profiles, Health and Credits | v1.2 | 11/11 | Complete, merged (#257) and deployed 2026-10-31; verification passed, two owner follow-ups open (see 56-VERIFICATION.md) | 2026-10-31 |
 | 57. Combined Legacy-Frame Firmware Release | v1.2 | 0/0 | Not started (gated on Phase 47 and on the OTA signing bench check) | - |
-| 58. Second Hardware | v1.2 | 0/4 | Planned: 58-01/58-02 executable, 58-03/58-04 blocked on purchase agreement | - |
+| 58. Second Hardware | v1.2 | 1/4 | In progress (58-01 done 2026-11-01): 58-01/58-02 executable, 58-03/58-04 blocked on purchase agreement | - |
 | 59. Comment-History Debt | v1.2 | 0/0 | Not started | - |
 | 60. Device Co-Management | v1.2 | 0/0 | Not started | - |
