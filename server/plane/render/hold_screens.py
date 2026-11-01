@@ -156,7 +156,28 @@ def _build_updating_canvas(flat=False):
     )
 
 
-def _build_hold_canvas(glyph_draw, glyph_height, label_text, sentences, field_idx, ink, dithered, source_fault=False, battery_low=False):
+def _code_font(code_text, max_width):
+    """The code font: CODE_FONT_SIZE_PX stepped down by CODE_FONT_STEP_PX
+    until the tracked line fits `max_width`, never below CODE_FONT_FLOOR_PX."""
+    size = style.CODE_FONT_SIZE_PX
+    while True:
+        font = text._font((style.PT_SERIF_BOLD, size, 700))
+        width = text._tracked_text_width(font, code_text, style.CODE_TRACKING_PX)
+        if width <= max_width or size <= style.CODE_FONT_FLOOR_PX:
+            return font
+        size -= style.CODE_FONT_STEP_PX
+
+
+def _draw_code_line(draw, center_x, y, code_text, font, ink):
+    """Draw the tracked code centred on `center_x`, top of its line at `y`."""
+    width = text._tracked_text_width(font, code_text, style.CODE_TRACKING_PX)
+    left = round(center_x - width / 2)
+    ascent, descent = font.getmetrics()
+    style._assert_in_safe_box((left, y, round(left + width), y + ascent + descent), "hold code line")
+    text.draw_tracked_text(draw, (left, y), code_text, font, ink, tracking=style.CODE_TRACKING_PX)
+
+
+def _build_hold_canvas(glyph_draw, glyph_height, label_text, sentences, field_idx, ink, dithered, source_fault=False, battery_low=False, code_text=None):
     """Shared hold-screen composition: a field (`field_idx` dithered
     toward White when `dithered`, else flat) with a vertically-centred
     block in `ink` - glyph, tracked Bold label, short rule, body.
@@ -165,6 +186,10 @@ def _build_hold_canvas(glyph_draw, glyph_height, label_text, sentences, field_id
 
     `battery_low`/`source_fault`: device/server-health indicators drawn
     in the screen's own `ink`.
+
+    `code_text`: optional large tracked line (the pairing code) centred
+    between the rule and the body; it is the largest element and shrinks in
+    steps until it fits the safe box.
     """
     canvas = dither.dithered_state_background(field_idx) if dithered else pf.new_canvas(field_idx)
     draw = ImageDraw.Draw(canvas)
@@ -184,12 +209,16 @@ def _build_hold_canvas(glyph_draw, glyph_height, label_text, sentences, field_id
     body_ascent, body_descent = body_font.getmetrics()
     body_line_height = body_ascent + body_descent + style.DIMMED_BODY_LINE_GAP_PX
 
+    code_font = _code_font(code_text, safe_width) if code_text else None
+    code_height = sum(code_font.getmetrics()) if code_font else 0
+
     total_height = (
         glyph_height
         + style.SPACE_MD
         + label_height
         + style.SPACE_MD
         + style.DIMMED_RULE_HEIGHT_PX
+        + (style.SPACE_MD + code_height if code_font else 0)
         + (style.SPACE_MD + len(body_lines) * body_line_height if body_lines else 0)
     )
     start_y = (pf.HEIGHT - total_height) // 2
@@ -208,6 +237,9 @@ def _build_hold_canvas(glyph_draw, glyph_height, label_text, sentences, field_id
     draw.rectangle((rule_left, rule_y, rule_left + style.DIMMED_RULE_WIDTH_PX, rule_y + style.DIMMED_RULE_HEIGHT_PX - 1), fill=ink)
 
     y = rule_y + style.DIMMED_RULE_HEIGHT_PX + style.SPACE_MD
+    if code_font:
+        _draw_code_line(draw, center_x, y, code_text, code_font, ink)
+        y += code_height + style.SPACE_MD
     for line in body_lines:
         line_bbox = draw.textbbox((center_x, y), line, font=body_font, anchor="ma")
         style._assert_in_safe_box(line_bbox, "dimmed-hold body line")

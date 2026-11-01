@@ -243,6 +243,13 @@ DIMMED_RULE_HEIGHT_PX = 4
 DIMMED_BODY_FONT = EMPTY_BODY_FONT
 DIMMED_BODY_LINE_GAP_PX = 6
 
+# The pairing code line of the hold composition: the largest element on the
+# screen, shrunk in steps to fit the safe box but kept legible from 2 m.
+CODE_FONT_SIZE_PX = 150
+CODE_FONT_STEP_PX = 8
+CODE_FONT_FLOOR_PX = 110
+CODE_TRACKING_PX = 14
+
 # Points at the companion page, where an all-sources-down outage is
 # diagnosed. Glyph is small so layout._assert_legal_palette()'s
 # background-dominance assertion still holds - see
