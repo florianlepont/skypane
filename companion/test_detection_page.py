@@ -13,8 +13,9 @@ import pytest
 from access_matrix_support import (
     ADMIN_EMAIL, OTHER_EMAIL, OWNER_EMAIL, seed_matrix_fleet)
 from companion import device_scope
+from companion import auth
 from companion_app_server import (
-    InProcessAppServer, http_request, session_cookie_for_state_dir)
+    InProcessAppServer, http_request, session_cookie_for_state_dir, with_csrf)
 from server import device_config
 
 LFPG_RUNWAYS = ("08L/26R", "08R/26L", "09L/27R", "09R/27L")
@@ -42,15 +43,16 @@ class Rig:
             self.server.url(path), cookie=self.cookies[who], extra_headers=headers)
         return status, response, body.decode("utf-8", "replace")
 
-    def post(self, who, path, form, lang=None, extra=None):
+    def post(self, who, path, form, lang=None, extra=None, csrf=True):
         headers = {"Origin": self.server.base_url()}
         if lang:
             headers["Accept-Language"] = lang
         headers.update(extra or {})
-        data = urllib.parse.urlencode(form).encode()
+        cookie = self.cookies[who]
+        data = with_csrf(cookie, form) if csrf else urllib.parse.urlencode(form).encode()
         status, response, body = http_request(
             self.server.url(path), method="POST", data=data,
-            cookie=self.cookies[who], extra_headers=headers)
+            cookie=cookie, extra_headers=headers)
         return status, response, body.decode("utf-8", "replace")
 
     def config_bytes(self, state_dir):
@@ -366,6 +368,44 @@ def test_post_rejection_echoes_the_submitted_airport(rig):
         "action": "save_detection", "mode": "runway", "airport": "LFPG", "runway": "01/19"})
     assert len(_cards(page)) == 4
     assert '<input type="hidden" name="airport" value="LFPG"' in page
+
+
+RUNWAY_FORM = {
+    "action": "save_detection", "mode": "runway", "airport": "LFPG", "runway": "08L/26R"}
+
+
+def test_post_without_the_token_is_refused_and_writes_nothing(rig):
+    status, _h, _b = rig.post("owner", rig.scope() + "/detection", RUNWAY_FORM, csrf=False)
+    assert status == 403
+    assert rig.config_bytes(rig.owner_dir()) is None
+
+
+def test_post_with_another_sessions_token_is_refused_and_writes_nothing(rig):
+    cookie = rig.cookies["owner"]
+    foreign = with_csrf(rig.cookies["other"], RUNWAY_FORM)
+    status, _h, _b = http_request(
+        rig.server.url(rig.scope() + "/detection"), method="POST", data=foreign,
+        cookie=cookie, extra_headers={"Origin": rig.server.base_url()})
+    assert status == 403
+    assert rig.config_bytes(rig.owner_dir()) is None
+
+
+def test_location_form_post_without_the_token_is_refused(rig):
+    status, _h, _b = rig.post("owner", rig.scope() + "/detection", {
+        "action": "save_location", "location_name": "Lyon", "latitude": "45.76",
+        "longitude": "4.84", "timezone": "Europe/Paris", "location_id": ""}, csrf=False)
+    assert status == 403
+
+
+def test_both_forms_carry_exactly_one_token_of_the_signed_in_session(rig):
+    token = auth.csrf_token(rig.cookies["owner"].split("=", 1)[1])
+    _s, _h, page = rig.get("owner", rig.scope() + "/detection?mode=position&new_location=1")
+    forms = [
+        inner for opening, inner in re.findall(r"(<form[^>]*>)(.*?)</form>", page, re.S)
+        if 'method="post"' in opening and "/detection" in opening]
+    assert len(forms) == 2
+    for inner in forms:
+        assert re.findall(r'name="csrf_token" value="([^"]*)"', inner) == [token]
 
 
 def test_post_with_a_foreign_origin_is_refused_and_writes_nothing(rig):

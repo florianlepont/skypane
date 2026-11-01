@@ -15,7 +15,7 @@ from access_matrix_support import (
     ADMIN_EMAIL, OTHER_EMAIL, OWNER_EMAIL, seed_matrix_fleet)
 from companion import device_scope
 from companion_app_server import (
-    InProcessAppServer, http_request, session_cookie_for_state_dir)
+    InProcessAppServer, http_request, session_cookie_for_state_dir, with_csrf)
 from server import device_config, fleet_db
 
 PARIS = "Europe/Paris"
@@ -47,14 +47,15 @@ class Rig:
             self.server.url(path), cookie=self.cookies[who], extra_headers=headers)
         return status, body.decode("utf-8", "replace")
 
-    def post(self, who, path, form, lang=None):
+    def post(self, who, path, form, lang=None, csrf=True):
         headers = {"Origin": self.server.base_url()}
         if lang:
             headers["Accept-Language"] = lang
-        data = urllib.parse.urlencode(form).encode()
+        cookie = self.cookies[who]
+        data = with_csrf(cookie, form) if csrf else urllib.parse.urlencode(form).encode()
         status, response, body = http_request(
             self.server.url(path), method="POST", data=data,
-            cookie=self.cookies[who], extra_headers=headers)
+            cookie=cookie, extra_headers=headers)
         return status, response, body.decode("utf-8", "replace")
 
     def config(self, state_dir):

@@ -389,6 +389,7 @@ def mode_form_html(view, errors):
         + _mode_radio_html(MODE_POSITION, MODE_POSITION_LABEL, view.mode == MODE_POSITION))
     return (
         '<form method="post" id="%s" action="%s" data-dirty-form novalidate>'
+        "%s"
         '<input type="hidden" name="%s" value="%s">'
         '<div class="theme-status detection-mode">'
         '<h2 class="text-heading" id="%s">%s</h2>'
@@ -396,7 +397,7 @@ def mode_form_html(view, errors):
         "%s</div></form>"
     ) % (
         FORM_ID, escape_html(device_scope.scoped(DETECTION_ROUTE, "POST")),
-        ACTION_FIELD, ACTION_SAVE_DETECTION,
+        layout.csrf_field(), ACTION_FIELD, ACTION_SAVE_DETECTION,
         _MODE_HEADING_ID, escape_html(i18n.t(MODE_TITLE)), _MODE_HEADING_ID, radios,
         _field_error_html(errors, _MODE_ERROR_FIELD, "detection-mode"))
 
@@ -714,6 +715,7 @@ def location_form_html(view, errors):
         '<details id="%s" class="detection-location-form"%s>'
         "<summary>%s</summary>"
         '<form method="post" action="%s">'
+        "%s"
         '<input type="hidden" name="%s" value="%s">'
         '<input type="hidden" name="location_id" value="%s">'
         "%s%s%s"
@@ -727,7 +729,7 @@ def location_form_html(view, errors):
         LOCATION_FORM_ID, " open" if is_open else "",
         escape_html(i18n.t(summary)),
         escape_html(device_scope.scoped(DETECTION_ROUTE, "POST")),
-        ACTION_FIELD, ACTION_SAVE_LOCATION, escape_html(location_id),
+        layout.csrf_field(), ACTION_FIELD, ACTION_SAVE_LOCATION, escape_html(location_id),
         _field_error_html(errors, "location_form", "location-form-top"),
         _text_field_html(
             errors, "location_name", "location-name", FIELD_NAME,
