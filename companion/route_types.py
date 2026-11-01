@@ -26,10 +26,13 @@ Access = collections.namedtuple("Access", "min_role device_arg")
 PUBLIC = Access(ANONYMOUS, None)
 SIGNED_IN = Access(USER, None)
 ADMIN_ONLY = Access(ADMIN, None)
-# A user reaches a device route only for a frame they own (the ownership gate
-# reads the device id from the URL prefix); an admin reaches every frame. The
-# un-prefixed form of such a route acts on the live frame and stays admin-only.
-OWNER_DEVICE = Access(USER, "device")
+# A user reaches a device route for a frame they own or co-manage (the
+# ownership gate reads the device id from the URL prefix); an admin reaches
+# every frame. The un-prefixed form of such a route acts on the live frame and
+# stays admin-only.
+OWNER_DEVICE = Access(USER, _access.DEVICE_ARG)
+# Only the owner or an admin passes; a co-manager is refused like a stranger.
+OWNER_ONLY_DEVICE = Access(USER, _access.DEVICE_OWNER_ARG)
 
 
 class Route(collections.namedtuple(
