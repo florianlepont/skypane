@@ -28,7 +28,7 @@ import secrets
 import sqlite3
 import sys
 import time
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import NamedTuple
@@ -898,8 +898,19 @@ def device_coordinates(conn: sqlite3.Connection) -> dict[str, tuple[float, float
     return {str(r["id"]): (float(r["lat"]), float(r["lon"])) for r in rows}
 
 
-def remove_device(conn: sqlite3.Connection, mac: str) -> bool:
-    return conn.execute("DELETE FROM devices WHERE mac = ?", (mac,)).rowcount > 0
+def remove_device(
+    conn: sqlite3.Connection, mac: str, actor: AuditActor | None = None
+) -> bool:
+    """Hard-delete a frame by MAC, clearing and auditing its co-managers first."""
+    with _atomic(conn):
+        row = conn.execute("SELECT id FROM devices WHERE mac = ?", (mac,)).fetchone()
+        if row is not None:
+            removed = clear_co_managers(conn, str(row["id"]))
+            audit_co_manager_removals(
+                conn, actor or AuditActor(None, "system", None),
+                str(row["id"]), removed, "delete",
+            )
+        return conn.execute("DELETE FROM devices WHERE mac = ?", (mac,)).rowcount > 0
 
 
 def set_device_secret(conn: sqlite3.Connection, mac: str, secret_sha256: str) -> bool:
@@ -1126,6 +1137,21 @@ def audit_append(
     return cur.lastrowid
 
 
+def audit_co_manager_removals(
+    conn: sqlite3.Connection,
+    actor: AuditActor,
+    device_id: str,
+    user_ids: Iterable[int],
+    via: str,
+) -> None:
+    """One audit row per co-manager removed by a wider operation."""
+    for user_id in user_ids:
+        audit_append(
+            conn, actor, ACTION_CO_MANAGER_REMOVE, "device", device_id, "ok",
+            {"co_manager_user_id": user_id, "via": via},
+        )
+
+
 def _audit_where(category: str) -> tuple[str, tuple[str, ...]]:
     if category not in AUDIT_CATEGORIES:
         raise ValueError(f"unknown audit category: {category!r}")
@@ -1317,6 +1343,8 @@ def park_retired(conn: sqlite3.Connection, device_id: str, now: int) -> str | No
         dev = conn.execute("SELECT * FROM devices WHERE id = ?", (device_id,)).fetchone()
         if dev is None:
             return None
+        # Membership rows reference the device; clear them before the delete.
+        clear_co_managers(conn, device_id)
         conn.execute("DELETE FROM devices WHERE id = ?", (device_id,))
         pending_id = new_pending_id(conn)
         conn.execute(
