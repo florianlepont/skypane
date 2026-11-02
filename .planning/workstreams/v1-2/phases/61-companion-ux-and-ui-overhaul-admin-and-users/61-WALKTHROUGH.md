@@ -59,3 +59,6 @@ Steps = current number of taps/screens from sign-in on a phone.
 
 ## Admin 6. Read the audit log (current steps: 2 — Admin, Audit log tab;
 ## filter chips on a second wrapped row)
+- F10 (P1) Same objection for a user: a Co-managers card on the frame's
+  Home page is the wrong place (D5 wording revised: not on the frame page
+  body). Placement for users to settle.
