@@ -65,3 +65,8 @@ Steps = current number of taps/screens from sign-in on a phone.
 - Decision D6 (owner): for a user, "Manage access" is an action on the
   "My frames" list (owned frames only), opening the modal. Not on the
   frame page.
+- No friction reported on the audit log itself (only the global wrapped
+  console tabs, already covered by D1).
+
+## User 1. Sign in (current steps: ~4 — open the link, Sign in, Auth0 form,
+## land on Account; an unverified Auth0 email ends on "No invitation found")
