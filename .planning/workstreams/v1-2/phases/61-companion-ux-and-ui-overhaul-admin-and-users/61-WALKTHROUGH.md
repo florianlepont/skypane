@@ -30,3 +30,12 @@ Steps = current number of taps/screens from sign-in on a phone.
 
 ## Admin 3. Pair a frame (current steps: ~6 — Admin, Fleet, scroll past the
 ## frame list, type pairing code, choose owner, Pair)
+- F6 (P1) The "Register a frame" (MAC + secret hash) form is never used by
+  the owner (pairing by code only) but is always open on the page.
+- F7 (P1) Pairing should be an "Add a screen" button (modal, per D3),
+  not a section under the list. Owner's own word here: "écran".
+- Open question for the naming decision: the owner says "écran" for the
+  physical device in this sentence; the UI says "cadre/frame".
+
+## Admin 4. Retire / reassign (current steps: ~4 — Admin, Fleet, find the
+## frame card, open Reassign or Retire disclosure, pick owner/confirm)
