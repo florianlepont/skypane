@@ -1,7 +1,8 @@
 ---
 phase: 61
 slug: companion-ux-and-ui-overhaul-admin-and-users
-status: draft
+status: approved
+reviewed_at: 2026-11-02
 shadcn_initialized: false
 preset: none
 created: 2026-11-02
