@@ -36,6 +36,9 @@ Out of scope: any purchase, order call or payment; flashing the live frame; any 
 ### Part 2 preparation (owner choice)
 - **D-09:** A separate plan for part 2 is written in full, marked blocked on the owner's written purchase agreement.
 
+### Formats supported (owner choice, 2026-11-02)
+- **D-10:** For now the fleet manages two panel formats: the 13.3" (current EE02 frame, 1200x1600) and a new 7.3" (800x480). The second hardware type under evaluation is the 7.3" one. Suppliers are asked for both references in one request; no purchase is made by Claude, and the purchase decision of the 7.3" evaluation unit stays pending the owner's written agreement.
+
 ### Claude's Discretion
 - Document layout, file names (new files only), spike harness structure, test choices.
 
