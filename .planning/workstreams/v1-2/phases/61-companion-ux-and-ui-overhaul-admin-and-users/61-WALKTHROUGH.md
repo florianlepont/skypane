@@ -76,3 +76,6 @@ Steps = current number of taps/screens from sign-in on a phone.
 
 ## User 2. See my frames (current steps: 1 — land on Account, "Your frames"
 ## list: serif name + hardware model, last contact, "Open")
+- F11 (P0, structure) Landing on the Account page after sign-in is odd.
+  The owner wants the frame switch either at the start on Home, or in the
+  navigation.
