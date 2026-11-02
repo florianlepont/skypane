@@ -166,7 +166,7 @@ def _member_row(view, member):
 def _list_html(view):
     rows = [_row_html(_who_html(view.owner_email, (_PILL_OWNER,)))]
     rows.extend(_member_row(view, member) for member in view.members)
-    return '<ul class="data-cards">%s</ul>' % "".join(rows)
+    return '<ul class="data-cards data-cards--standalone">%s</ul>' % "".join(rows)
 
 
 def _empty_html(view):
