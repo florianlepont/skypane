@@ -39,6 +39,8 @@ Out of scope: any purchase, order call or payment; flashing the live frame; any 
 ### Formats supported (owner choice, 2026-11-02)
 - **D-10:** For now the fleet manages two panel formats: the 13.3" (current EE02 frame, 1200x1600) and a new 7.3" (800x480). The second hardware type under evaluation is the 7.3" one. Suppliers are asked for both references in one request; no purchase is made by Claude, and the purchase decision of the 7.3" evaluation unit stays pending the owner's written agreement.
 
+- **D-11:** Gallery 3 and Kaleido 3 are dropped for this phase (owner, 2026-11-02): no panel could be bought as a single unit and the drive requirements for an ESP32-S3 are unknown. Spectra 6 stays the technology. Watch items kept out of scope: Spectra 6 Plus, an eight-ink Spectra 6, and ChLCD.
+
 ### Claude's Discretion
 - Document layout, file names (new files only), spike harness structure, test choices.
 

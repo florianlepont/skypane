@@ -48,5 +48,4 @@ Order-of-magnitude totals: Seeed kit about 67.7 EUR excl. VAT with the 15 EUR de
 ## Decisions still open
 
 - Purchase of a 7.3" evaluation unit: pending the owner's explicit written agreement.
-- Gallery 3 and Kaleido 3: no purchasable panel found for individual buyers; dropping them for this
-  phase is not yet confirmed by the owner.
+- Gallery 3 and Kaleido 3: dropped for this phase by the owner on 2026-11-02 (decision D-11).
