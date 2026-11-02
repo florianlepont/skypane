@@ -109,6 +109,40 @@ def test_console_pages_fit_a_phone_and_collapse_tables(
         context.close()
 
 
+def _seed_long_co_manager_row(server):
+    seed = fx.seed_fleet(server.state_dir)
+    long_email = "a-very-long-co-manager-address-" + "x" * 40 + "@example.test"
+    conn = fleet_db.connect(server.state_dir)
+    try:
+        with fleet_db.transaction(conn):
+            user_id = fleet_db.add_user(conn, long_email, "user")
+            fleet_db.audit_append(
+                conn, fx.ACTOR, "device.co_manager_remove", "device", seed.owned_id,
+                "ok", {"co_manager_user_id": user_id, "via": "reassign"})
+    finally:
+        conn.close()
+    return long_email
+
+
+@pytest.mark.parametrize("viewport", [
+    {"width": 1000, "height": 900}, VIEWPORT_MIN_SUPPORTED])
+def test_audit_co_manager_row_shows_person_and_reason(
+        new_context, app_server_in_process, viewport):
+    long_email = _seed_long_co_manager_row(app_server_in_process)
+    context, page = _admin_page(
+        new_context, app_server_in_process, "/audit", viewport, seed=False)
+    try:
+        visible = page.locator(
+            "ul.data-cards:visible" if viewport["width"] < 960
+            else "table:visible")
+        text = visible.inner_text()
+        assert long_email in text
+        assert "Frame reassigned to a new owner" in text
+        assert _no_sideways_scroll(page)
+    finally:
+        context.close()
+
+
 # --- Test 2: touch targets -----------------------------------------------
 
 def test_forms_and_confirm_controls_meet_the_touch_target(
