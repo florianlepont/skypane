@@ -288,6 +288,51 @@ def test_account_shows_the_shared_mark_and_owner_without_overflow(
         context.close()
 
 
+# --- lists without a desktop table stay visible at every width -------------
+
+LIST_WIDTHS = (1000, 700, 360)
+FRAMES_LIST = '[aria-labelledby="account-frames"] ul.data-cards'
+
+
+@pytest.mark.parametrize("width", LIST_WIDTHS)
+def test_the_co_managers_list_is_visible_at_every_width(new_context, rig, width):
+    context, page = _open(
+        new_context, rig, "owner", viewport={"width": width, "height": 900})
+    try:
+        assert page.locator(CARD + " ul.data-cards").is_visible()
+        owner_row = page.locator(CARD + " li.data-card", has_text=LONG_OWNER)
+        co_row = page.locator(CARD + " li.data-card", has_text=LONG_CO)
+        assert owner_row.is_visible()
+        assert co_row.is_visible()
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("width", LIST_WIDTHS)
+def test_the_account_frames_list_is_visible_at_every_width(new_context, rig, width):
+    context, page = _open(
+        new_context, rig, "owner", path="/account",
+        viewport={"width": width, "height": 900})
+    try:
+        assert page.locator(FRAMES_LIST).is_visible()
+        assert page.locator(FRAMES_LIST + " li.data-card", has_text="Kitchen").is_visible()
+    finally:
+        context.close()
+
+
+def test_a_co_manager_sees_the_shared_frame_row_on_desktop(new_context, rig):
+    context, page = _open(
+        new_context, rig, "co", path="/account",
+        viewport={"width": 1000, "height": 900})
+    try:
+        assert page.locator(FRAMES_LIST).is_visible()
+        row = page.locator(FRAMES_LIST + " li.data-card", has_text="Kitchen")
+        assert row.is_visible()
+        assert row.get_by_text("Shared", exact=True).is_visible()
+    finally:
+        context.close()
+
+
 # --- flows -----------------------------------------------------------------
 
 
