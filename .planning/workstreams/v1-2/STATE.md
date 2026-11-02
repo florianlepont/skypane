@@ -43,6 +43,7 @@ Progress: [████████░░] 84%
 - Phase numbering continues from v1.1 (Phase 47). Phase 47 is open and untouched by this workstream.
 - Production deploys touching the live frame and the combined firmware OTA (Phase 57) wait for Phase 47 to close, or for an explicit owner release.
 - Phases 48–57 use simulated hardware types; only Phase 58 needs a purchase, after its driver spike.
+- [Phase 61 added 2026-11-02]: companion UX and UI overhaul for administrators and invited users, at the owner's request ("the companion is a mess"). Owner's problem areas: navigation and structure, the admin console, the user view, sign-in and invitation. Placed in v1.2 as Phase 61, before Phase 59, which stays last.
 - Registry rewrite lives in Phase 49, not Phase 48. Auth is split: Phase 54 gate, Phase 55 pairing and console.
 - Run `scripts/check_comment_history.py check` before Phase 48 and record the result for Phase 59.
 - [Phase 49]: Phase 49-02: OTA signing option S (one key for all hardware types), decided 2026-10-29 by project owner; revisitable before second board first cable flash (Phase 58)

@@ -62,6 +62,13 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 - [ ] **HW2-01**: The owner can choose a second hardware type from a documented shortlist after a time-boxed ESP-IDF panel-driver spike, within the hardware budget.
 - [ ] **HW2-02**: The chosen board is validated on an evaluation unit: cable flash, a real OTA, the OTA signing bench procedure of `firmware/SIGNING.md` (the device-side half of OTA-03), a native layout, a measured battery sample and a rebuilt battery model.
 
+### Companion UX
+
+- [ ] **UX-01**: The owner can walk through the companion's main tasks as an administrator and as an invited user, on a phone and a desktop and in English and French; the observed friction is recorded and ranked, and navigation and page structure are reworked for the confirmed findings against an updated design contract.
+- [ ] **UX-02**: An administrator can read the fleet state, invite a user, pair a frame, retire, reassign or re-activate a frame, add a co-manager and read the audit log without help, and the reworked console flows are validated by the owner on the deployed companion.
+- [ ] **UX-03**: An invited user sees only what concerns their own frames, understands the state of each frame at a glance and can change its settings without meeting administrator concepts, validated by the owner on a phone.
+- [ ] **UX-04**: Sign-in and invitation read clearly: a user whose Auth0 email is not verified gets a message that says so, the first arrival of an invited user is guided, and sign-in errors say what to do next.
+
 ### Debt
 
 - [ ] **DEBT-01**: The comment-history guard debt is cleared (or its baseline only shrinks), and no v1.2 phase adds violations.
@@ -87,7 +94,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 ## Traceability
 
-Coverage: 31/31 v1.2 requirements mapped, each to exactly one phase.
+Coverage: 35/35 v1.2 requirements mapped, each to exactly one phase.
 
 | Requirement | Phase | Status |
 |---|---|---|
@@ -121,4 +128,8 @@ Coverage: 31/31 v1.2 requirements mapped, each to exactly one phase.
 | OTA-04 | Phase 57 | Pending |
 | HW2-01 | Phase 58 | Pending |
 | HW2-02 | Phase 58 | Pending |
+| UX-01 | Phase 61 | Pending |
+| UX-02 | Phase 61 | Pending |
+| UX-03 | Phase 61 | Pending |
+| UX-04 | Phase 61 | Pending |
 | DEBT-01 | Phase 59 | Pending |
