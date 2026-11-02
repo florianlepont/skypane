@@ -468,7 +468,7 @@ Plans:
   4. A user whose Auth0 email is not verified gets a message that says so instead of the "not invited" page, the first arrival of an invited user is guided, and sign-in errors say what to do next.
   5. Both languages, the 360 px width and the 44 px tap targets hold, the existing browser tests stay green with new ones for the changed flows, and the owner validates on the deployed companion.
 
-**Plans**: 13 plans
+**Plans**: 14 plans
 Plans:
 **Wave 1**
 
@@ -478,6 +478,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [ ] 61-02-PLAN.md — Shared modal component (dialog helpers, modal.js, CSS) (UX-02)
+- [ ] 61-14-PLAN.md — Remove the Console section chip rows (UX-01, UX-02)
 
 **Wave 3**
 
@@ -485,7 +486,7 @@ Plans:
 
 **Wave 4**
 
-- [ ] 61-04-PLAN.md — Console and My views spaces, tab bars, sidebars, space switch (UX-01, UX-02, UX-03)
+- [ ] 61-04-PLAN.md — Console and My views spaces, tab bars, sidebars, space switch, Locations 360px fix (UX-01, UX-02, UX-03)
 
 **Wave 5**
 
