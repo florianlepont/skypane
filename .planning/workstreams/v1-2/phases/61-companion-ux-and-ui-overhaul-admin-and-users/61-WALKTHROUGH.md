@@ -20,3 +20,7 @@ Steps = current number of taps/screens from sign-in on a phone.
 
 ## Admin 2. Invite a user (current steps: ~5 — Admin tab, Users tab, scroll
 ## past the user list, type email, choose role, Send)
+- F4 (P1) Emails (and frame names) are set in large monospace: they take
+  too much room and are out of scale with the rest of the page.
+- F5 (P1) The invite form is a separate section at the bottom of the page.
+  Owner wants it as a "+" action opening a modal, or a new row in the table.
