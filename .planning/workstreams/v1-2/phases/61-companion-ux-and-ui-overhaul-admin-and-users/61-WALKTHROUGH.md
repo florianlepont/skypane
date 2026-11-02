@@ -51,3 +51,11 @@ Steps = current number of taps/screens from sign-in on a phone.
 - F9 (P0, structure) The Co-managers card sits on Home (the personal view)
   and the owner does not understand why it is there. Co-management is an
   admin/owner action on a frame, not a Home widget.
+- Decision D5 (owner): co-management moves out of Home to a per-frame
+  "Manage access" action opening a modal. For a user: the owner of a frame
+  can already add/remove co-managers (server rule), a co-manager can leave;
+  so the same modal is offered on the user's own frame page, only for
+  frames they own.
+
+## Admin 6. Read the audit log (current steps: 2 — Admin, Audit log tab;
+## filter chips on a second wrapped row)
