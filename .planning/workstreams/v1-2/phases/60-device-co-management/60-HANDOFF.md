@@ -154,20 +154,36 @@ or any Phase 55 planning file.
   remove all co-managers), #279 (fix: the Co-managers list and the Account
   "Your frames" list were hidden at 960 px and wider; both are
   `data-cards--standalone` lists now; `account_page.py` is Phase 55 code, one
-  class name). The Deploy to production jobs passed; only the pipeline was
-  read, not the server itself.
+  class name), and #282 (the Audit page shows the person's e-mail and a
+  plain reason for the co-manager rows; the raw detail is still never
+  rendered; `audit_page.py`, `console_lifecycle.py` and the audit strings of
+  `i18n_fr/admin_lifecycle.py` are Phase 55 code, for those rows only). The
+  Deploy to production jobs passed (for #282: tests, deploy, migration
+  `nothing to do`, probe passed); only the pipeline was read, not the server
+  itself.
 - Observed in production: the live Orly frame kept waking hourly with the same
   battery, firmware and wake reason after a co-manager was added to it. The
   schema went 3 to 4 at the first deploy.
-- The owner reported the production trials done. The individual items of
-  section E (backup restore, rollback acceptance, wording) were not itemised.
+- The owner reported the production trials done, and confirmed in
+  particular: the rollback caveat is accepted (the previous release refuses
+  schema 4), the French wording is fine, and the leave, reassign and owner
+  disable flows and the Audit rows were tried on a throwaway frame with
+  throwaway accounts. Not done: a schema-4 backup restore into a scratch
+  directory (optional). Not yet looked at by the owner: the Audit page
+  after #282.
 - The live Orly frame has one co-manager (an invited user), by the
   owner's choice.
 - A test frame is kept on purpose: MAC `02:00:00:00:60:01`, owner
   a non-admin test account, no location, never polled, with an id under
-  `/opt/skypane/state/devices/`. To remove it later, retire it, stop
-  `skypane-byos`, run `fleet_cli.py devices remove --mac 02:00:00:00:60:01`,
-  start `skypane-byos` again, and check that neither `devices.json` nor
-  `byos_state.json` still names the MAC; otherwise the next migration
-  reconcile can re-insert it.
+  `/opt/skypane/state/devices/`. To remove a test frame later: retire it
+  (`fleet_cli.py devices retire --id <id>`), stop `skypane-byos`, run
+  `fleet_cli.py devices remove --mac <mac>`, start `skypane-byos` again, and
+  check that neither `devices.json` nor `byos_state.json` still names the MAC
+  (otherwise the next migration reconcile can re-insert it). `devices remove`
+  deletes the row and the pairing directory only: the frame's state
+  directory `/opt/skypane/state/devices/<id>` stays behind and must be
+  removed by hand once `fleet.db` no longer references the id (check
+  `devices` and `pending_devices` first). The throwaway frame used for the
+  last trials was removed that way, and only the kept test frame's directory
+  is left.
 - AUTH-08 is ticked in `REQUIREMENTS.md`.
