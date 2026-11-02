@@ -79,3 +79,10 @@ Steps = current number of taps/screens from sign-in on a phone.
 - F11 (P0, structure) Landing on the Account page after sign-in is odd.
   The owner wants the frame switch either at the start on Home, or in the
   navigation.
+- Decision D7 (owner): a user lands on the Home of their frame. With
+  several frames a frame switcher stays at the top of every page; with one
+  there is nothing to choose. "My frames" (with Manage access, D6) lives in
+  that switcher or under Account.
+
+## User 3. Understand a frame's state (current steps: ~3 — Account, Open a
+## frame, Home status card; the state needs reading, no at-a-glance signal)
