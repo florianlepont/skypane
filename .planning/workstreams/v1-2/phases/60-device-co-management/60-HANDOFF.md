@@ -143,3 +143,27 @@ Notifications to co-managers, per-co-manager permission levels, view-as-user.
 
 Phase 47 files, `hardware/` and `firmware/` were not touched, nor Phase 58 files
 or any Phase 55 planning file.
+
+## G. Closeout (2026-11-02)
+
+- Merged and deployed by CI: #276 (phase), #277 (reassign and owner disable
+  remove all co-managers), #279 (fix: the Co-managers list and the Account
+  "Your frames" list were hidden at 960 px and wider; both are
+  `data-cards--standalone` lists now; `account_page.py` is Phase 55 code, one
+  class name). The Deploy to production jobs passed; only the pipeline was
+  read, not the server itself.
+- Observed in production: the live Orly frame kept waking hourly with the same
+  battery, firmware and wake reason after a co-manager was added to it. The
+  schema went 3 to 4 at the first deploy.
+- The owner reported the production trials done. The individual items of
+  section E (backup restore, rollback acceptance, wording) were not itemised.
+- The live Orly frame has one co-manager (an invited user), by the
+  owner's choice.
+- A test frame is kept on purpose: MAC `02:00:00:00:60:01`, owner
+  a non-admin test account, no location, never polled, with an id under
+  `/opt/skypane/state/devices/`. To remove it later, retire it, stop
+  `skypane-byos`, run `fleet_cli.py devices remove --mac 02:00:00:00:60:01`,
+  start `skypane-byos` again, and check that neither `devices.json` nor
+  `byos_state.json` still names the MAC; otherwise the next migration
+  reconcile can re-insert it.
+- AUTH-08 is ticked in `REQUIREMENTS.md`.
