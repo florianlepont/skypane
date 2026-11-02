@@ -93,3 +93,7 @@ Steps = current number of taps/screens from sign-in on a phone.
 ## User 4. Change a setting (current steps: ~4 — Account, Open a frame,
 ## Display tab, change the setting, Save bar; Display page is ~3500 px tall
 ## on a phone)
+- Decision D9 (owner): all display settings stay useful for a user; the
+  "location" and "detection" cards are merged into one.
+
+## Walkthrough complete: 6 admin tasks, 4 user tasks.
