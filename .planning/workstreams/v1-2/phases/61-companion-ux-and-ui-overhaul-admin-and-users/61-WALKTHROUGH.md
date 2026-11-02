@@ -24,3 +24,9 @@ Steps = current number of taps/screens from sign-in on a phone.
   too much room and are out of scale with the rest of the page.
 - F5 (P1) The invite form is a separate section at the bottom of the page.
   Owner wants it as a "+" action opening a modal, or a new row in the table.
+- Decision D3 (owner): creation forms (invite now; pairing, locations to
+  confirm) open from a "+" button in a modal, not as a section at the page
+  bottom.
+
+## Admin 3. Pair a frame (current steps: ~6 — Admin, Fleet, scroll past the
+## frame list, type pairing code, choose owner, Pair)
