@@ -1,0 +1,52 @@
+# Phase 58: supplier contact tracking
+
+Owner-reported contacts. Nothing here is a quote or an order; no purchase has been made.
+Last updated 2026-11-02.
+
+## Scope
+
+Two panel formats are in scope (decision D-10 in `58-CONTEXT.md`): the 13.3" (current EE02 frame,
+1200x1600) and a new 7.3" (800x480). One message asked each supplier for both references.
+
+## Contacts
+
+| Supplier | Contacted | Asked for | Status | Reply |
+|---|---|---|---|---|
+| OKRA Technologies (Shanghai) | 2026-11-02 (owner-reported; the supplier name is assumed from the datasheet page the owner shared) | 7.3" OK-EL073TF1 and the OK-DEV01C ESP32-S3 board; 13.3" if offered | waiting | none yet |
+| Seekink | 2026-11-02 (owner-reported) | 7.3" and 13.3" Spectra 6 modules, demo kits | waiting | none yet |
+
+## What each reply must answer
+
+1. Unit price for 1, 5, 20 and 50 pieces, delivered to France, with EU VAT and import duty treatment.
+2. Minimum order quantity, lead time, payment and shipping options.
+3. Datasheet, controller IC name, interface and connector, initialization sequence, waveform data,
+   and ESP-IDF sample code with its licence (13.3": confirm the two-controller layout).
+4. Typical and standby power, full refresh time at 25 C and 0 C, minimum refresh interval
+   (feeds the battery model of the new type).
+5. Proof of genuine E Ink film with batch/date code, warranty, dead-on-arrival terms.
+6. Price and datasheet of an ESP32-S3 driver or development board, and 3.7 V LiPo support.
+
+## Reference prices observed (not quotes)
+
+7.3" Spectra 6, 800x480. Currency as displayed, no delivery, VAT not uniform.
+Seeed and Waveshare figures date from 2026-11-01; the others from 2026-11-02.
+
+| Source | Price | Note |
+|---|---|---|
+| Seeed EE04 kit (board 9.82 + panel 42.87) | 52.69 EUR excl. VAT | board is an ESP32-S3 Plus; VAT and delivery unconfirmed |
+| Good Display, panel only | 39.51 USD (list 52.67) | owner screenshot, time-limited sale |
+| Good Display, panel with ESP32 kit | 51.13 USD (list 68.17) + 23.22 USD shipping | owner screenshot; board name not legible, possibly not an ESP32-S3 |
+| AliExpress, module EL073TF1 | 44.13 USD (list 66.92) | seller not checked |
+| AliExpress, GDEP073E01 | 52.80 USD (list 61.40) | seller not checked |
+| Waveshare raw panel | 53.85 EUR excl. VAT | |
+| E Ink shop | 149 USD | business shop |
+| OKRA OK-EL073TF1 | not stated | datasheet only: 17 s full refresh, 0-50 C, controller not named |
+
+Order-of-magnitude totals: Seeed kit about 67.7 EUR excl. VAT with the 15 EUR delivery estimate of
+`hardware/BOM.md`; Good Display kit about 74.4 USD with its stated shipping, before VAT and duties.
+
+## Decisions still open
+
+- Purchase of a 7.3" evaluation unit: pending the owner's explicit written agreement.
+- Gallery 3 and Kaleido 3: no purchasable panel found for individual buyers; dropping them for this
+  phase is not yet confirmed by the owner.
