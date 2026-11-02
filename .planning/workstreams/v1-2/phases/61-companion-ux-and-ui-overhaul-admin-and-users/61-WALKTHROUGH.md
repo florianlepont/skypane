@@ -97,3 +97,8 @@ Steps = current number of taps/screens from sign-in on a phone.
   "location" and "detection" cards are merged into one.
 
 ## Walkthrough complete: 6 admin tasks, 4 user tasks.
+
+## Scope decision
+- D10 (owner): option A. Rework navigation and page structure; the
+  companion architecture stays (stdlib server, hand-written CSS, no
+  framework, no new runtime dependency). Visual style unchanged.
