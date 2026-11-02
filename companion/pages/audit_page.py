@@ -4,7 +4,10 @@ events with filter chips and pagination.
 Pure markup: it takes an `AuditView` and reads nothing else. Rows carry
 display text only (actor, plain-language action label, target, outcome,
 source address); the stored `detail` JSON is never rendered, and the audit
-store cannot hold a code, guess or secret. Every value is HTML-escaped.
+store cannot hold a code, guess or secret. A co-manager row also carries the
+person's e-mail and a reason key picked from a fixed whitelist by the caller;
+a reason outside the whitelist shows a generic label. Every value is
+HTML-escaped.
 There is no form and no button on this page.
 """
 import datetime
@@ -27,6 +30,36 @@ _COL_ACTION = i18n.msg("admin_lifecycle.action", "Action")
 _COL_TARGET = i18n.msg("admin_lifecycle.target", "Target")
 _COL_OUTCOME = i18n.msg("admin_lifecycle.outcome", "Outcome")
 _COL_FROM = i18n.msg("admin_lifecycle.from", "From")
+_COL_PERSON = i18n.msg("admin_lifecycle.audit_person", "Person")
+_COL_REASON = i18n.msg("admin_lifecycle.audit_reason", "Reason")
+
+_UNKNOWN_USER = i18n.msg("admin_lifecycle.audit_unknown_user", "Unknown user")
+_REASON_OTHER = i18n.msg("admin_lifecycle.audit_reason_other", "Other reason")
+_ADD_ACTION = "device.co_manager_add"
+_REMOVE_ACTION = "device.co_manager_remove"
+# (action, via) -> why the co-manager row exists; any other pair is "other".
+REASON_LABELS = {
+    (_ADD_ACTION, "owner"): i18n.msg(
+        "admin_lifecycle.audit_reason_add_owner", "Added by the frame owner"),
+    (_ADD_ACTION, "admin"): i18n.msg(
+        "admin_lifecycle.audit_reason_add_admin", "Added by an administrator"),
+    (_REMOVE_ACTION, "self"): i18n.msg(
+        "admin_lifecycle.audit_reason_remove_self", "Left the frame"),
+    (_REMOVE_ACTION, "owner"): i18n.msg(
+        "admin_lifecycle.audit_reason_remove_owner", "Removed by the frame owner"),
+    (_REMOVE_ACTION, "admin"): i18n.msg(
+        "admin_lifecycle.audit_reason_remove_admin", "Removed by an administrator"),
+    (_REMOVE_ACTION, "reassign"): i18n.msg(
+        "admin_lifecycle.audit_reason_remove_reassign",
+        "Frame reassigned to a new owner"),
+    (_REMOVE_ACTION, "retire"): i18n.msg(
+        "admin_lifecycle.audit_reason_remove_retire", "Frame retired"),
+    (_REMOVE_ACTION, "delete"): i18n.msg(
+        "admin_lifecycle.audit_reason_remove_delete", "Frame deleted"),
+    (_REMOVE_ACTION, "owner_disabled"): i18n.msg(
+        "admin_lifecycle.audit_reason_remove_owner_disabled",
+        "Frame owner was disabled"),
+}
 
 _ACTOR_SYSTEM = i18n.msg("admin_lifecycle.system", "System")
 _ACTOR_FRAME = i18n.msg("admin_lifecycle.frame_actor", "Frame")
@@ -93,6 +126,14 @@ _NEWER = i18n.msg("admin_lifecycle.newer", "Newer")
 _PAGER_LABEL = i18n.msg("admin_lifecycle.audit_pages", "Audit log pages")
 
 
+class CoManagerNote(NamedTuple):
+    """The person and reason of a co-manager row. `email` is the user's
+    address or "" when the id is missing or unknown; `via` is the stored
+    reason word, mapped through `REASON_LABELS` and never shown itself."""
+    email: str
+    via: str
+
+
 class AuditEvent(NamedTuple):
     """One row as shown. `ts` is epoch seconds; `actor_label` and
     `actor_is_user` come from the audit row (`actor_is_user` is True when the
@@ -106,6 +147,7 @@ class AuditEvent(NamedTuple):
     target_id: str | None
     outcome: str
     source_ip: str | None
+    note: CoManagerNote | None = None
 
 
 class AuditView(NamedTuple):
@@ -148,6 +190,35 @@ def action_text(action):
     return i18n.t(ACTION_LABELS.get(action, _ACTION_OTHER))
 
 
+def note_texts(event):
+    """(person, reason) display texts of a co-manager row, or None."""
+    if event.note is None:
+        return None
+    person = event.note.email or i18n.t(_UNKNOWN_USER)
+    label = REASON_LABELS.get((event.action, event.note.via), _REASON_OTHER)
+    return person, i18n.t(label)
+
+
+def _note_cell_html(event):
+    texts = note_texts(event)
+    if texts is None:
+        return ""
+    return (
+        '<span class="cell-secondary co-manager__email">%s</span>'
+        '<span class="cell-secondary">%s</span>' % (_esc(texts[0]), _esc(texts[1])))
+
+
+def _note_cards_html(event):
+    texts = note_texts(event)
+    if texts is None:
+        return ""
+    return "".join(
+        '<div class="data-card__secondary">%s</div>' % _pair(label, value_html)
+        for label, value_html in (
+            (_COL_PERSON, '<span class="co-manager__email">%s</span>' % _esc(texts[0])),
+            (_COL_REASON, _esc(texts[1]))))
+
+
 def _when_html(event, now):
     seen = datetime.datetime.fromtimestamp(event.ts, datetime.timezone.utc)
     return (
@@ -179,7 +250,8 @@ def _from_html(event):
 def _row_html(event, now):
     return (
         "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (
-            _when_html(event, now), _esc(actor_text(event)), _esc(action_text(event.action)),
+            _when_html(event, now), _esc(actor_text(event)),
+            _esc(action_text(event.action)) + _note_cell_html(event),
             _target_html(event), _outcome_html(event), _from_html(event)))
 
 
@@ -196,12 +268,12 @@ def _card_html(event, now):
         '<div class="data-card__secondary">%s</div>'
         '<div class="data-card__secondary">%s</div>'
         '<div class="data-card__secondary">%s</div>'
-        '<div class="data-card__secondary">%s</div></li>' % (
+        '<div class="data-card__secondary">%s</div>%s</li>' % (
             _esc(action_text(event.action)), _outcome_html(event),
             _pair(_COL_WHEN, _when_html(event, now)),
             _pair(_COL_WHO, _esc(actor_text(event))),
             _pair(_COL_TARGET, _target_html(event)),
-            _pair(_COL_FROM, _from_html(event))))
+            _pair(_COL_FROM, _from_html(event)), _note_cards_html(event)))
 
 
 def _table_html(view):

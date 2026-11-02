@@ -12,6 +12,7 @@ Security invariants:
 """
 import contextlib
 import datetime
+import json
 import sqlite3
 from urllib.parse import parse_qs, urlsplit
 
@@ -288,13 +289,37 @@ def _target_name(conn, target_type, target_id):
     return ""
 
 
+_CO_MANAGER_ACTIONS = (fleet_db.ACTION_CO_MANAGER_ADD, fleet_db.ACTION_CO_MANAGER_REMOVE)
+
+
+def _co_manager_note(conn, row):
+    """The person and reason of a successful co-manager row, read from the
+    stored detail through a whitelist of two keys; nothing else in the detail
+    is used. None for every other row."""
+    if row["action"] not in _CO_MANAGER_ACTIONS or row["outcome"] != "ok":
+        return None
+    try:
+        detail = json.loads(row["detail"] or "")
+    except ValueError:
+        detail = None
+    if not isinstance(detail, dict):
+        detail = {}
+    user_id, via = detail.get("co_manager_user_id"), detail.get("via")
+    email = ""
+    if isinstance(user_id, int) and not isinstance(user_id, bool):
+        user = conn.execute("SELECT email FROM users WHERE id = ?", (user_id,)).fetchone()
+        email = str(user["email"]) if user is not None else ""
+    return audit_page.CoManagerNote(email, via if isinstance(via, str) else "")
+
+
 def _event(conn, row):
     return audit_page.AuditEvent(
         ts=int(row["ts"]), actor_label=str(row["actor_label"]),
         actor_is_user=row["actor_user_id"] is not None, action=str(row["action"]),
         target_primary=_target_name(conn, row["target_type"], row["target_id"]),
         target_id=None if row["target_id"] is None else str(row["target_id"]),
-        outcome=str(row["outcome"]), source_ip=row["source_ip"])
+        outcome=str(row["outcome"]), source_ip=row["source_ip"],
+        note=_co_manager_note(conn, row))
 
 
 def build_audit_view(state_dir, category, requested_page):
