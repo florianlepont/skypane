@@ -14,3 +14,9 @@ Steps = current number of taps/screens from sign-in on a phone.
 - Decision D1 (owner): option A. An admin signs in on a 100% admin space
   (fleet, users, ...) with a link to their own personal views (Home,
   Display, Flights). No "Admin" tab inside the everyday app.
+- Decision D2 (owner): the fleet list shows name, owner and ONE status dot.
+  No separate state column, no firmware, no battery, no location. (Last
+  image not mentioned: to confirm.)
+
+## Admin 2. Invite a user (current steps: ~5 — Admin tab, Users tab, scroll
+## past the user list, type email, choose role, Send)
