@@ -3148,6 +3148,12 @@ a.calendar-disconnect-btn.flight-picture-link {
   display: none;
 }
 
+/* A list with no desktop table sibling stays a list at every width; the
+ * extra class outranks the >=960px rule that hides .data-cards. */
+.data-cards.data-cards--standalone {
+  display: block;
+}
+
 .data-card {
   padding: var(--space-sm) 0;
   border-bottom: 1px solid var(--color-border);

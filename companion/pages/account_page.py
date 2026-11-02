@@ -138,7 +138,7 @@ def _frames_card(frames, now):
     rows = sorted(frames, key=lambda frame: (frame.name.casefold(), frame.href))
     return _card(
         "account-frames", _YOUR_FRAMES_TEXT,
-        '<ul class="data-cards">%s</ul>' % "".join(
+        '<ul class="data-cards data-cards--standalone">%s</ul>' % "".join(
             _frame_row_html(frame, now) for frame in rows))
 
 
