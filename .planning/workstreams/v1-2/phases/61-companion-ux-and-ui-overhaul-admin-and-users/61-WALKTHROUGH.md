@@ -48,3 +48,6 @@ Steps = current number of taps/screens from sign-in on a phone.
 ## Admin 5. Add a co-manager (current steps: ~5 — Home as the admin, pick
 ## the frame in the Frame picker, scroll to the Co-managers card, choose a
 ## person, Add)
+- F9 (P0, structure) The Co-managers card sits on Home (the personal view)
+  and the owner does not understand why it is there. Co-management is an
+  admin/owner action on a frame, not a Home widget.
