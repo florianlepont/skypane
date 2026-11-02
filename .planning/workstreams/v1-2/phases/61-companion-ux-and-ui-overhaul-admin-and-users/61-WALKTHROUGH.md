@@ -70,3 +70,9 @@ Steps = current number of taps/screens from sign-in on a phone.
 
 ## User 1. Sign in (current steps: ~4 — open the link, Sign in, Auth0 form,
 ## land on Account; an unverified Auth0 email ends on "No invitation found")
+- No friction reported by the owner on his test accounts. The unverified
+  email message (UX-04, SEED-011) stays in scope from the requirement, not
+  from observed friction.
+
+## User 2. See my frames (current steps: 1 — land on Account, "Your frames"
+## list: serif name + hardware model, last contact, "Open")
