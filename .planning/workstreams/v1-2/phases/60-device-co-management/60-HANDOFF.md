@@ -44,7 +44,7 @@ Code files:
 | File | Minimal change | Plan |
 |------|----------------|------|
 | `server/fleet_db.py` | migration 4 and co-manager helpers; `park_retired` calls `clear_co_managers`; `remove_device` gains an optional `actor`; location permission block | 60-01, 60-02 |
-| `server/fleet_ops.py` | `reassign_frame` deletes and audits the new owner's membership; `retire_frame` audits one removal per co-manager | 60-02 |
+| `server/fleet_ops.py` | `reassign_frame` deletes and audits every co-manager; user disable removes owned frames' co-managers; `retire_frame` audits one removal per co-manager | 60-02 |
 | `companion/app.py` | `_dispatch` passes the extra argument to `access.decide`; `Handler._co_manager_lookup` | 60-03 |
 | `companion/route_types.py` | new `OWNER_ONLY_DEVICE`; `OWNER_DEVICE` uses `access.DEVICE_ARG` | 60-03 |
 | `companion/device_scope.py` | private `_co_managed_ids`; the user branch of `load_devices_for` keeps owned or co-managed rows | 60-04 |
@@ -107,10 +107,11 @@ over added lines shows identifiers and test fixtures only. Result: exit 0.
 
 ## D. Visible consequence of the one-owner rule
 
-A non-live reassign wipes the previous owner's data, location and name but
-keeps the other co-managers, who then manage the new owner's fresh frame. The
-new owner's own membership row, if any, is removed at the same time and audited.
-Retire and hard delete remove every co-manager row and audit one removal per user.
+A reassign removes every co-manager of the frame (a non-live frame is also
+wiped of the previous owner's data, location and name) and audits one removal
+per user (via `reassign`). Disabling an owner does the same for every frame
+they own (via `owner_disabled`) and re-enabling restores nothing. Retire and
+hard delete remove every co-manager row and audit one removal per user.
 
 ## E. What stays with the owner
 
@@ -132,7 +133,7 @@ Retire and hard delete remove every co-manager row and audit one removal per use
 - Auth0 invitations still happen outside this feature.
 - AUTH-08 in `REQUIREMENTS.md` is not ticked: mark it complete after the checks
   above.
-- The D-03 consequence in section D is accepted as designed.
+- D-09 supersedes D-03: reassign and owner disable remove all co-managers. This is the owner's decision, made after the merge of this phase.
 
 ## F. Deferred and out of scope, unchanged
 

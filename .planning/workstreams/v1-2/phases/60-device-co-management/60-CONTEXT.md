@@ -21,7 +21,7 @@ Out of scope: any production deploy, Phase 47 files and `hardware/`, Phase 55 pl
 - **D-02:** A co-manager can leave a frame ("Leave this frame" button). It is audited as a removal and is the only removal a co-manager can perform; it never touches anyone else.
 
 ### Reassignment
-- **D-03:** When an admin reassigns the owner to a user who is already a co-manager, that co-manager row is deleted in the same transaction and the removal is audited. Other co-managers are kept. A frame owner is never also a co-manager.
+- **D-03:** When an admin reassigns the owner to a user who is already a co-manager, that co-manager row is deleted in the same transaction and the removal is audited. Other co-managers are kept. A frame owner is never also a co-manager. Superseded by D-09.
 
 ### Locations
 - **D-04:** A co-manager sees and assigns only the frame owner's locations (existing rule "a location of another owner is refused"). They create and edit no location on the owner's behalf. No relaxation of `fleet_db` location ownership.
@@ -37,6 +37,7 @@ Out of scope: any production deploy, Phase 47 files and `hardware/`, Phase 55 pl
 
 ### Adding a co-manager
 - **D-08:** A non-admin owner adds a co-manager by typing the e-mail address. Any address that is not an invited, active, eligible user (or is the owner or already a co-manager) gets one generic refusal, so the form never reveals who is invited. An admin may be offered the list of eligible users.
+- **D-09:** When an admin reassigns a frame, all co-managers of that frame are removed in the same transaction, one `device.co_manager_remove` audit row each (via `reassign`). When an admin disables a user who owns frames, all co-managers of every frame that user owns are removed in the disable transaction, one audit row each (via `owner_disabled`); they are not restored on re-enable. Memberships the disabled user holds on other owners' frames stay. D-09 supersedes D-03.
 
 ### Claude's Discretion
 - Schema shape (migration v4, expand-only new table with a uniqueness constraint and no row for the owner), function names, audit action names and detail text, wording and French strings, card layout within the sketch-findings design system, Users-page frame counts, behaviour on user demotion or disabling.
