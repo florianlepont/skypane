@@ -86,3 +86,10 @@ Steps = current number of taps/screens from sign-in on a phone.
 
 ## User 3. Understand a frame's state (current steps: ~3 — Account, Open a
 ## frame, Home status card; the state needs reading, no at-a-glance signal)
+- Decision D8 (owner): a user reads a frame's state from ONE status dot
+  (same vocabulary as the fleet list, D2); no battery or detail cards for
+  users.
+
+## User 4. Change a setting (current steps: ~4 — Account, Open a frame,
+## Display tab, change the setting, Save bar; Display page is ~3500 px tall
+## on a phone)
