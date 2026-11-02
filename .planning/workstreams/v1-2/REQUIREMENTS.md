@@ -113,7 +113,7 @@ Coverage: 31/31 v1.2 requirements mapped, each to exactly one phase.
 | AUTH-02 | Phase 54 | Complete |
 | AUTH-03 | Phase 54 (gate and matrix), Phase 55 (real per-device rows) | Pending (gate and matrix delivered and verified in production; the real per-device route rows are carried to Phase 55 by the owner, 2026-10-31) |
 | AUTH-06 | Phase 54 | Complete |
-| AUTH-08 | Phase 60 | Complete (merged and deployed 2026-11-02, #276, #277 and #279; production checks reported done by the owner, 2026-11-02) |
+| AUTH-08 | Phase 60 | Complete (merged and deployed 2026-11-02, #276, #277, #279 and #282; production checks reported done by the owner, 2026-11-02) |
 | AUTH-04 | Phase 55 | Complete (verified in code and in production by the owner, 2026-11-01; the real-panel pairing test waits for the second hardware, Phase 58) |
 | AUTH-05 | Phase 55 | Complete (verified in code and in production by the owner, 2026-11-01; the real-panel pairing test waits for the second hardware, Phase 58) |
 | HWR-01 | Phase 56 | Complete |

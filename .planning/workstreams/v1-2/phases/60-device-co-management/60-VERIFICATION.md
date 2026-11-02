@@ -45,7 +45,7 @@ No TBD/FIXME/XXX and no plan or phase IDs in code comments in the changed code (
 
 ## Human verification
 
-Done on 2026-11-02, after the deploys of #276, #277 and #279.
+Done on 2026-11-02, after the deploys of #276, #277, #279 and #282.
 
 - Read from the deploy logs: `fleet.db` went from schema 3 to 4 at the first
   deploy (dry run line `would upgrade ... 3 -> 4`, then `upgrade ... 3 -> 4`);
@@ -59,10 +59,19 @@ Done on 2026-11-02, after the deploys of #276, #277 and #279.
   the fix for the lists hidden at 960 px and wider (#279) seen in the owner's
   browser; the co-manager view checked on the live frame (shared mark on
   Account, read-only card, 404 on the console), and "everything works".
-- Not itemised by the owner, so not claimed here: a schema-4 backup restore,
-  the explicit acceptance of the rollback caveat (the previous release refuses
-  schema 4, see `deploy/README.md`), the French wording review, and the
-  leave-the-frame flow on a throwaway frame.
+- Confirmed by the owner on a throwaway frame with throwaway accounts: the
+  leave-the-frame flow, the reassign flow (all co-managers removed), the owner
+  disable flow (co-managers removed, nothing restored on re-enable) and the
+  Audit page rows. The throwaway frame was then removed and its leftover state
+  directory deleted (the owner listed `devices/`: only the kept test frame is
+  left).
+- Decisions confirmed by the owner: the rollback caveat is accepted (the
+  previous release refuses schema 4, see `deploy/README.md`); the French
+  wording is fine.
+- #282 (the Audit page shows the person and the reason) is deployed: tests and
+  deploy jobs passed, migration `nothing to do`. The owner has not looked at
+  the page in production yet.
+- Not done, optional: a schema-4 backup restore into a scratch directory.
 
 ## Gaps
 
