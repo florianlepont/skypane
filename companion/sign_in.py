@@ -15,8 +15,9 @@ import os
 import sqlite3
 from urllib.parse import parse_qs, urlsplit
 
-from companion import access, auth, battery, device_scope, i18n, layout, login_page, oidc, prefs
-from companion.pages import account_page
+from companion import (
+    access, auth, battery, device_scope, flash, i18n, layout, login_page, oidc, prefs)
+from companion.pages import account_page, co_managers_card
 from server import fleet_db, fleet_sessions, hardware, state_store
 
 # Shown as the Email value when the principal carries no address.
@@ -230,13 +231,39 @@ class SignInMixin:
 
     # --- account -------------------------------------------------------
 
+    def _shared_frame_facts(self, principal):
+        """(ids of the frames the caller co-manages, a user-id -> e-mail
+        lookup) read from the fleet store; empty on any store problem, so the
+        caller's own frames are listed regardless."""
+        if principal.user_id is None:
+            return set(), (lambda user_id: "")
+        try:
+            conn = self._fleet_conn()
+            shared = fleet_db.co_managed_device_ids(conn, principal.user_id)
+        except _STORE_ERRORS:
+            return set(), (lambda user_id: "")
+
+        def email_of(user_id):
+            try:
+                row = conn.execute(
+                    "SELECT email FROM users WHERE id = ?", (user_id,)).fetchone()
+            except _STORE_ERRORS:
+                return ""
+            return "" if row is None else str(row["email"])
+        return shared, email_of
+
     def _own_frame_summaries(self, principal):
-        """The caller's own live frames as `FrameSummary` values, whatever
-        the role: an admin sees here only the frames they own. The address
-        is always the prefixed Home, never the live frame's bare root."""
+        """The frames the caller owns or co-manages as `FrameSummary` values,
+        whatever the role: an admin sees here only those, not every frame. A
+        co-managed frame is marked shared and carries its owner's address. The
+        address is always the prefixed Home, never the live frame's bare
+        root."""
         frames = []
+        shared_ids, email_of = self._shared_frame_facts(principal)
         for device in device_scope.load_devices_for(self.args.state_dir, principal):
-            if principal.user_id is None or device.owner_user_id != principal.user_id:
+            owned = principal.user_id is not None and device.owner_user_id == principal.user_id
+            shared = not owned and device.id in shared_ids
+            if not owned and not shared:
                 continue
             profile = hardware.REGISTRY.get(device.hardware_type)
             millivolts = state_store.load_battery_state(device.state_dir)
@@ -250,8 +277,19 @@ class SignInMixin:
                 last_contact=device_scope.last_check_in_epoch(device.state_dir),
                 battery_percent=(
                     None if millivolts is None else battery.battery_percent(millivolts)),
-                href="/devices/%s/" % device.id))
+                href="/devices/%s/" % device.id,
+                shared=shared,
+                owner_email=email_of(device.owner_user_id) if shared else ""))
         return frames
+
+    def _account_flash_html(self):
+        """The leave-confirmation toast when the request carries exactly that
+        flash key; any other value renders nothing."""
+        key = parse_qs(urlsplit(self.path).query).get("flash", [None])[0]
+        if key != co_managers_card.FLASH_LEFT:
+            return None
+        text = flash.resolve_flash_text(key, self.args.state_dir)
+        return flash.flash_toast_html(key, text, self.path)
 
     def _handle_account_get(self):
         """GET /account: who is signed in, the browser preferences and the
@@ -266,5 +304,5 @@ class SignInMixin:
             identity, ui_theme=theme, frames=self._own_frame_summaries(principal))
         page = layout.page_shell(
             title=i18n.t(account_page.ACCOUNT_TITLE), active=layout.nav_slug(ACCOUNT_ROUTE),
-            body=body, ui_theme=theme, health_alert=None)
+            body=body, ui_theme=theme, health_alert=None, flash=self._account_flash_html())
         return self.send_html(200, page)

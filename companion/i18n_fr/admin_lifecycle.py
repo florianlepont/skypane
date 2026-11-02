@@ -54,6 +54,8 @@ MESSAGES = {
     "admin_lifecycle.action_device_reassign": "Cadre réattribué",
     "admin_lifecycle.action_device_retire": "Cadre retiré",
     "admin_lifecycle.action_device_reactivate": "Cadre réactivé",
+    "admin_lifecycle.action_device_co_manager_add": "Co-gestionnaire ajouté",
+    "admin_lifecycle.action_device_co_manager_remove": "Co-gestionnaire retiré",
     "admin_lifecycle.action_user_invite": "Utilisateur invité",
     "admin_lifecycle.action_user_role": "Rôle modifié",
     "admin_lifecycle.action_user_disable": "Utilisateur désactivé",

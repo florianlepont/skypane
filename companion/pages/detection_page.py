@@ -50,11 +50,13 @@ FLASH_LOCATION_SAVED = "location_saved"
 
 # What the page needs to know about the locations it may show: `rows` are
 # the subject's own locations as dicts (id, name, latitude, longitude,
-# timezone); `other_owner` is true when an admin acts for another user.
+# timezone); `other_owner` is true when the rows belong to another user (an
+# admin acting for them, or a co-manager); `may_edit` is false when the viewer
+# may only choose a location, not create or change one.
 LocationScope = collections.namedtuple(
     "LocationScope",
-    "rows other_owner device_location_id device_location_name",
-    defaults=((), False, None, None))
+    "rows other_owner device_location_id device_location_name may_edit",
+    defaults=((), False, None, None, True))
 
 PAGE_TITLE = i18n.msg("detection.detection", "Detection")
 PAGE_PURPOSE = i18n.msg(
@@ -147,6 +149,9 @@ LOCATIONS_TITLE_OWNER = i18n.msg(
 LOCATIONS_CAPTION_OWNER = i18n.msg(
     "detection.locations_caption_owner",
     "You are saving locations for this frame’s owner.")
+LOCATIONS_CAPTION_CO_MANAGER = i18n.msg(
+    "detection.locations_caption_co_manager",
+    "Locations are managed by the frame owner.")
 EDIT_LOCATION = i18n.msg("detection.edit_location", "Edit location")
 EDIT_LOCATION_NAMED = i18n.msg("detection.edit_location_named", "Edit location %(name)s")
 EDIT_LOCATION_SUMMARY = i18n.msg(
@@ -643,7 +648,7 @@ def position_panel_html(view, errors):
             layout.empty_state(
                 i18n.t(NO_LOCATION_HEADING), i18n.t(NO_LOCATION_BODY), compact=True)
             + _field_error_html(errors, "location_id", "detection-location")
-            + _add_location_link())
+            + (_add_location_link() if view.scope.may_edit else ""))
     return (
         "<section %s>"
         '<div class="theme-status"><h2 class="text-heading">%s</h2>'
@@ -653,21 +658,24 @@ def position_panel_html(view, errors):
         escape_html(i18n.t(POSITION_CAPTION)), controls)
 
 
-def _location_row_html(row):
+def _location_row_html(row, may_edit=True):
     lat, lon = coordinate_text(row["latitude"]), coordinate_text(row["longitude"])
     zone = quiet_hours.timezone_label_text(row["timezone"])
     name = i18n.t(EDIT_LOCATION_NAMED) % {"name": row["name"]}
     href = _detection_href(location=str(row["id"]))
+    edit_link = (
+        '<a class="text-link detection-link" href="%s#%s" aria-label="%s">%s</a>' % (
+            escape_html(href), LOCATION_FORM_ID, escape_html(name),
+            escape_html(i18n.t(EDIT_LOCATION)))
+        if may_edit else "")
     return (
         "<li>"
         '<span class="detection-locations__name">%s</span>'
         '<span class="text-label section-caption"><code class="detection-tag">%s, %s</code>'
-        " · %s</span>"
-        '<a class="text-link detection-link" href="%s#%s" aria-label="%s">%s</a></li>'
+        " · %s</span>%s</li>"
     ) % (
         escape_html(row["name"]), escape_html(lat), escape_html(lon), escape_html(zone),
-        escape_html(href), LOCATION_FORM_ID, escape_html(name),
-        escape_html(i18n.t(EDIT_LOCATION)))
+        edit_link)
 
 
 def _location_form_state(view):
@@ -752,9 +760,12 @@ def locations_card_html(view, errors):
     owner = view.scope.other_owner
     title = LOCATIONS_TITLE_OWNER if owner else LOCATIONS_TITLE
     caption = LOCATIONS_CAPTION_OWNER if owner else LOCATIONS_CAPTION
+    may_edit = view.scope.may_edit
+    if not may_edit:
+        caption = LOCATIONS_CAPTION_CO_MANAGER
     if view.locations:
         listing = '<ul class="detection-locations">%s</ul>' % "".join(
-            _location_row_html(row) for row in view.locations)
+            _location_row_html(row, may_edit) for row in view.locations)
     else:
         listing = layout.empty_state(
             i18n.t(NO_LOCATION_HEADING), i18n.t(NO_LOCATION_BODY), compact=True)
@@ -763,7 +774,7 @@ def locations_card_html(view, errors):
         '<p class="text-label section-caption">%s</p>%s%s</div>'
     ) % (
         escape_html(i18n.t(title)), escape_html(i18n.t(caption)), listing,
-        location_form_html(view, errors))
+        location_form_html(view, errors) if may_edit else "")
 
 
 def dirty_bar_html(carried_href=None):

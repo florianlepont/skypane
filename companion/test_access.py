@@ -83,6 +83,81 @@ def test_authorized_device_id_returns_the_id_or_none():
     assert access.authorized_device_id(None, "d_00000001", _lookup) is None
 
 
+_COMANAGED = {("d_00000001", 7)}
+_OWNER_ONLY = "device-owner"
+
+
+def _recording_membership():
+    calls = []
+
+    def is_co_manager(device_id, user_id):
+        calls.append((device_id, user_id))
+        return (device_id, user_id) in _COMANAGED
+
+    return is_co_manager, calls
+
+
+def test_a_co_manager_reaches_only_the_frames_they_co_manage():
+    scoped = _acc(access.USER, "device")
+    member, _calls = _recording_membership()
+    stranger_owned = {"d_00000001": 9, "d_00000002": 9}.get
+    assert access.decide(_USER, scoped, "d_00000001", stranger_owned, member) == access.ALLOW
+    assert access.decide(_USER, scoped, "d_00000002", stranger_owned, member) == access.NOT_FOUND
+
+
+def test_a_stranger_and_an_unknown_frame_are_not_found():
+    scoped = _acc(access.USER, "device")
+    member, calls = _recording_membership()
+    nobody = access.Principal("user", 11, "n@example.com", "user")
+    assert access.decide(nobody, scoped, "d_00000001", _lookup, member) == access.NOT_FOUND
+    assert access.decide(_USER, scoped, "d_0000ffff", lambda _d: None, member) == access.NOT_FOUND
+    assert ("d_0000ffff", 7) not in calls
+
+
+@pytest.mark.parametrize(
+    "bad", ["d_ZZZZZZZZ", "../x", "", "d_" + "0" * 40, "D_00000001", None, 5,
+            b"d_00000001"])
+def test_a_malformed_id_reaches_neither_lookup(bad):
+    owner_calls = []
+
+    def owner(device_id):
+        owner_calls.append(device_id)
+        return 9
+
+    member, member_calls = _recording_membership()
+    for scoped in (_acc(access.USER, "device"), _acc(access.USER, _OWNER_ONLY)):
+        assert access.decide(_USER, scoped, bad, owner, member) == access.NOT_FOUND
+    assert owner_calls == [] and member_calls == []
+
+
+def test_the_owner_only_kind_admits_owner_and_admin_but_not_a_co_manager():
+    scoped = _acc(access.USER, _OWNER_ONLY)
+    member, calls = _recording_membership()
+    owned_by_other = {"d_00000001": 9}.get
+    assert access.decide(_USER, scoped, "d_00000001", _lookup, member) == access.ALLOW
+    assert access.decide(_ADMIN, scoped, "d_00000001", owned_by_other, member) == access.ALLOW
+    assert access.decide(_USER, scoped, "d_00000001", owned_by_other, member) == access.NOT_FOUND
+    other = access.Principal("user", 11, "n@example.com", "user")
+    assert access.decide(other, scoped, "d_00000001", owned_by_other, member) == access.NOT_FOUND
+    assert access.decide(None, scoped, "d_00000001", owned_by_other, member) == access.LOGIN
+    assert calls == []
+
+
+def test_the_four_argument_form_never_admits_a_co_manager():
+    scoped = _acc(access.USER, "device")
+    assert access.decide(_USER, scoped, "d_00000002", _lookup) == access.NOT_FOUND
+    assert access.authorized_device_id(_USER, "d_00000002", _lookup) is None
+
+
+def test_no_user_id_is_never_a_co_manager_and_an_admin_skips_membership():
+    scoped = _acc(access.USER, "device")
+    member, calls = _recording_membership()
+    anonymous_id = access.Principal("user", None, "x@example.com", "user")
+    assert access.decide(anonymous_id, scoped, "d_00000002", _lookup, member) == access.NOT_FOUND
+    assert access.decide(_ADMIN, scoped, "d_00000002", _lookup, member) == access.ALLOW
+    assert calls == []
+
+
 def test_home_for():
     assert access.home_for(_USER) == "/account"
     assert access.home_for(_ADMIN) == "/"

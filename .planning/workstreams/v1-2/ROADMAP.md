@@ -42,7 +42,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [ ] **Phase 57: Combined Legacy-Frame Firmware Release** - One OTA release gives the live frame the new image reader and 401 recovery. Gated on Phase 47 and on the OTA signing bench check passing on a non-live unit.
 - [ ] **Phase 58: Second Hardware (Shortlist, Spike, Purchase, Validate)** - A second hardware type chosen after a driver spike and validated on a real unit.
 - [ ] **Phase 59: Comment-History Debt** - The comment-history guard debt is cleared or only shrinks.
-- [ ] **Phase 60: Device Co-Management** - A frame keeps one primary owner and gains co-managers whom the owner or an admin can add.
+- [ ] **Phase 60: Device Co-Management** - A frame keeps one primary owner and gains co-managers whom the owner or an admin can add. (9 plans, executed, not merged or deployed; owner go-live checklist in 60-HANDOFF.md)
 
 ## Phase Details
 
@@ -425,7 +425,17 @@ Plans:
   3. A user who is neither owner nor co-manager still gets a 404 for the frame, and the route x role x owner matrix covers the co-manager rows.
   4. The one-primary-owner rule from the fleet data model still holds, and adding or removing a co-manager is recorded in the audit log.
 
-**Plans**: TBD
+**Plans**: 9 plans
+Plans:
+- [x] 60-01-PLAN.md — Migration v4 (expand-only device_co_managers table) and the fleet_db co-manager API, schema-3 test fix, rollback README paragraph
+- [x] 60-02-PLAN.md — Reassign, retire, hard-delete cascades with per-user audit; location rule against the device owner
+- [x] 60-03-PLAN.md — Ownership gate accepts co-managers; owner-or-admin access kind; dispatcher wiring
+- [x] 60-04-PLAN.md — Device list, Detection location scope (D-04) and HTTP proof a co-manager acts like the owner
+- [x] 60-05-PLAN.md — Add, remove, leave routes with CSRF, single refusal, audit, flash, labels and French
+- [x] 60-06-PLAN.md — Co-managers card on Home, Account Shared mark and leave toast, CSS and i18n
+- [x] 60-07-PLAN.md — Access matrix co-manager rows and live-frame immutability test
+- [x] 60-08-PLAN.md — Browser tests at 360 px (layout, tap targets, leave flow, freshness)
+- [x] 60-09-PLAN.md — Full gate run, constraint diff guard and owner handoff
 **UI hint**: yes
 
 ## Progress
@@ -444,4 +454,4 @@ Plans:
 | 57. Combined Legacy-Frame Firmware Release | v1.2 | 0/0 | Not started (gated on Phase 47 and on the OTA signing bench check) | - |
 | 58. Second Hardware | v1.2 | 0/0 | Not started | - |
 | 59. Comment-History Debt | v1.2 | 0/0 | Not started | - |
-| 60. Device Co-Management | v1.2 | 0/0 | Not started | - |
+| 60. Device Co-Management | v1.2 | 9/9 | Executed, not merged or deployed | 2026-11-01 |

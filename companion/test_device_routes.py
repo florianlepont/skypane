@@ -43,6 +43,9 @@ EXPECTED_DEVICE_SCOPED = {
     ("POST", ("/settings/rules/", "/delete")),
     ("POST", "/settings/calendar/connect"),
     ("POST", "/settings/calendar/disconnect"),
+    ("POST", "/co-managers/add"),
+    ("POST", "/co-managers/remove"),
+    ("POST", "/co-managers/leave"),
 }
 
 # One concrete request path per expected entry.
@@ -65,7 +68,7 @@ def _spec_of(route):
 class TestPrefixMatching:
     def test_flagged_routes_equal_the_explicit_list(self):
         flagged = {(r.method, _spec_of(r)) for r in routes.ROUTES if r.device_scoped}
-        assert len(EXPECTED_DEVICE_SCOPED) == 28
+        assert len(EXPECTED_DEVICE_SCOPED) == 31
         assert flagged == EXPECTED_DEVICE_SCOPED
 
     @pytest.mark.parametrize("method,spec", sorted(EXPECTED_DEVICE_SCOPED, key=str))

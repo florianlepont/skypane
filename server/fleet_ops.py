@@ -56,6 +56,8 @@ ACTION_CLAIM = "pairing.claim"
 ACTION_REASSIGN = "device.reassign"
 ACTION_RETIRE = "device.retire"
 ACTION_REACTIVATE = "device.reactivate"
+ACTION_CO_MANAGER_ADD = fleet_db.ACTION_CO_MANAGER_ADD
+ACTION_CO_MANAGER_REMOVE = fleet_db.ACTION_CO_MANAGER_REMOVE
 
 FAIL_INVALID = "invalid"
 FAIL_THROTTLED = "throttled"
@@ -462,6 +464,18 @@ def reassign_frame(
                 raise NotFound("no such frame")
             _require_owner(conn, new_owner_user_id)
             old_owner = dev["owner_user_id"]
+            # The owner and co-manager sets must stay disjoint: drop the new
+            # owner's membership before the owner column changes (a trigger
+            # aborts the update otherwise). Other co-managers are kept.
+            removed = conn.execute(
+                "DELETE FROM device_co_managers WHERE device_id = ? AND user_id = ?",
+                (device_id, new_owner_user_id),
+            ).rowcount
+            if removed:
+                fleet_db.audit_append(
+                    conn, actor, ACTION_CO_MANAGER_REMOVE, "device", device_id, "ok",
+                    {"co_manager_user_id": new_owner_user_id, "via": "reassign"},
+                )
             if dev["state_path"] == device_dirs.LIVE_STATE_PATH:
                 conn.execute(
                     "UPDATE devices SET owner_user_id = ? WHERE id = ?",
@@ -507,9 +521,11 @@ def retire_frame(
         )
         raise LiveFrameProtected("the live frame cannot be retired")
     with fleet_db.transaction(conn):
+        co_manager_ids = [int(r["user_id"]) for r in fleet_db.list_co_managers(conn, device_id)]
         pending_id = fleet_db.park_retired(conn, device_id, _now(now))
         if pending_id is None:
             raise NotFound("no such frame")
+        fleet_db.audit_co_manager_removals(conn, actor, device_id, co_manager_ids, "retire")
         fleet_db.audit_append(
             conn, actor, ACTION_RETIRE, "device", device_id, "ok",
             {"pending_id": pending_id, "owner_user_id": dev["owner_user_id"]},

@@ -728,6 +728,23 @@ fail with 401 and then 403 and back off for up to 6 hours. Frames that
 existed before the upgrade keep working from the legacy files. Restoring a
 backup taken at schema 3 needs this release or later.
 
+### Schema v4 and rollback
+
+The device co-management release adds schema 4: one table
+(`device_co_managers`), one index and two triggers that keep a frame owner
+from also being a co-manager of the same frame. No existing table or row
+changes, so the live frame's registry entry, files and image are untouched.
+The `activate.sh` dry-run prints `upgrade fleet.db schema 3 -> 4`; the
+migration runs after the backup and before the symlink swap, and is
+expand-only. The previous release (schema 3) refuses a schema 4 `fleet.db`
+as too new (`FleetDbTooNew`) and falls back to the legacy files, exactly as
+it does for schemas 2 and 3; Health shows a fleet fault until the new
+release is live again. While rolled back, co-managers cannot reach the
+companion fleet store, and the frame itself keeps polling from the legacy
+files. Rolling forward again needs no manual step, because the table and its
+rows survive. Restoring a backup taken at schema 4 needs this release or
+later.
+
 ### Schema v2 and rollback
 
 `fleet_migrate` upgrades `fleet.db` from schema 1 to 2 before the symlink
