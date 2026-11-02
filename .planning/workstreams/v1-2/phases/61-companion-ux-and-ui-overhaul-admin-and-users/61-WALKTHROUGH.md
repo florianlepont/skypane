@@ -62,3 +62,6 @@ Steps = current number of taps/screens from sign-in on a phone.
 - F10 (P1) Same objection for a user: a Co-managers card on the frame's
   Home page is the wrong place (D5 wording revised: not on the frame page
   body). Placement for users to settle.
+- Decision D6 (owner): for a user, "Manage access" is an action on the
+  "My frames" list (owned frames only), opening the modal. Not on the
+  frame page.
