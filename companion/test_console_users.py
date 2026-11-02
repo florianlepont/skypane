@@ -11,7 +11,7 @@ import pytest
 import fleet_console_support as fx
 from companion import console_routes, console_users, prefs
 from companion_app_server import http_request, login_via_auth0
-from server import fleet_db
+from server import fleet_db, hardware
 
 FAKE_ISS = "https://tenant.example.test/"
 
@@ -317,6 +317,29 @@ def test_enabling_restores_sign_in_and_is_audited(rig):
     assert "User enabled" in _flash_text(server, cookie, headers)
     _act(server, cookie, seed.admin2_id, "enable")
     assert len(_audit(server.state_dir, "user.enable")) == 1
+
+
+def test_disabling_an_owner_removes_co_managers_and_enabling_restores_nothing(rig):
+    server, seed, cookie = rig
+    conn = fleet_db.connect(server.state_dir)
+    try:
+        frame = fleet_db.add_device(
+            conn, "aa:bb:cc:dd:ee:21", "ab" * 32, hardware.LEGACY_KEY, seed.owner_id, token="t21",
+            state_path="auto")
+        fleet_db.add_co_manager(conn, frame, seed.user_id, seed.owner_id)
+        fleet_db.add_co_manager(conn, frame, seed.admin2_id, seed.owner_id)
+        conn.commit()
+    finally:
+        conn.close()
+    assert _act(server, cookie, seed.owner_id, "disable")[0] == 303
+    assert _sql(server.state_dir, "SELECT COUNT(*) FROM device_co_managers") == [(0,)]
+    rows = _audit(server.state_dir, "device.co_manager_remove")
+    assert len(rows) == 2
+    assert all('"owner_disabled"' in r["detail"] and r["target_id"] == frame for r in rows)
+    assert len(_audit(server.state_dir, "user.disable")) == 1
+    _act(server, cookie, seed.owner_id, "enable")
+    assert _sql(server.state_dir, "SELECT COUNT(*) FROM device_co_managers") == [(0,)]
+    assert len(_audit(server.state_dir, "device.co_manager_remove")) == 2
 
 
 # --- guards -------------------------------------------------------------------
