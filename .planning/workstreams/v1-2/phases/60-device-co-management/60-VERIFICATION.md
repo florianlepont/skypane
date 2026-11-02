@@ -69,8 +69,8 @@ Done on 2026-11-02, after the deploys of #276, #277, #279 and #282.
   previous release refuses schema 4, see `deploy/README.md`); the French
   wording is fine.
 - #282 (the Audit page shows the person and the reason) is deployed: tests and
-  deploy jobs passed, migration `nothing to do`. The owner has not looked at
-  the page in production yet.
+  deploy jobs passed, migration `nothing to do`. The owner validated the page
+  in production (2026-11-02).
 - Not done, optional: a schema-4 backup restore into a scratch directory.
 
 ## Gaps

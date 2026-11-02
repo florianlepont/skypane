@@ -169,8 +169,8 @@ or any Phase 55 planning file.
   schema 4), the French wording is fine, and the leave, reassign and owner
   disable flows and the Audit rows were tried on a throwaway frame with
   throwaway accounts. Not done: a schema-4 backup restore into a scratch
-  directory (optional). Not yet looked at by the owner: the Audit page
-  after #282.
+  directory (optional). The owner also validated the Audit page in
+  production after #282 (person and reason shown on the co-manager rows).
 - The live Orly frame has one co-manager (an invited user), by the
   owner's choice.
 - A test frame is kept on purpose: MAC `02:00:00:00:60:01`, owner
