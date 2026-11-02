@@ -55,7 +55,7 @@ Existing tokens, used as-is (all multiples of 4):
 
 Exceptions (all already present in the stylesheet, none new in kind):
 - Touch targets: every tappable control is at least 44px high and 44px wide, including the row
-  menu button, modal close button, tab cells (78x56 today), switcher rows and menu items.
+  menu button, modal close button, tab cells (equal-share flex cells, 56px high), switcher rows and menu items.
 - Bottom-sheet geometry reused from the existing `.look-sheet` pattern: top radius 18px, 40x4px
   grab handle, `max-height: 88vh`, bottom padding adds `env(safe-area-inset-bottom)`.
 - Status dot is 12px (`.dot`) in lists and 14px (`.home-state__dot`) on Home, as today.
@@ -68,7 +68,7 @@ Layout widths: content column unchanged. Lists (fleet, users, my frames) are a s
 
 ## Typography
 
-Four sizes, two weights, as shipped (no new size, no new weight):
+Four primary sizes and two weights, as shipped. The 12px and 13px tiers (label voice, button sub-scale) are inherited from the shipped stylesheet unchanged (D10); no new size and no new weight is introduced:
 
 | Role | Size | Weight | Line Height | This phase |
 |------|------|--------|-------------|------------|
@@ -118,8 +118,8 @@ Accent is never used for: status dots, the row menu button, close buttons, secon
 pills.
 
 Destructive actions (red): Retire frame, Re-activate frame (it erases data), Reassign frame for a
-non-live frame (it erases data), Disable user, Unlink identity, Leave this frame, Remove co-manager.
-Reassign of the live frame, Save role, Add co-manager, Pair frame, Invite user are non-destructive.
+frame that is not the served frame (it erases data), Disable user, Unlink identity, Leave this frame, Remove co-manager.
+Reassign of the served frame, Save role, Add co-manager, Pair frame, Invite user are non-destructive.
 
 Dark theme: the modal, sheet handle and scrim use `--color-dominant`, `--color-border`,
 `--color-scrim`; dots keep the dark-theme status values. The contrast gates in
@@ -157,6 +157,23 @@ id. With zero frames: `/account`, showing the "Your frames will appear here" emp
 - `aria-label` states the full intent: "Switch to your own views" / "Switch to the administration console".
 - The switch is a plain GET link to `/fleet` or `/` (My views Home). No state, no cookie.
 
+### 1.2b New navigation strings (EN / FR)
+
+Reuse the existing `companion/i18n_fr/admin_shell.py` key `nav.administration` ("Administration") for
+the eyebrow; every other string below is new and needs an English message plus an FR catalog entry.
+
+| Element | EN | FR |
+|---------|----|----|
+| Eyebrow (Console sidebar) | Administration | Administration (existing) |
+| Sidebar group (My views) | Advanced | Avancé |
+| Short tab label (bar only) | Audit | Audit |
+| Space link in My views | Console | Console |
+| Space link in Console | My views | Mes vues |
+| Switch aria-label to My views | Switch to your own views | Passer à vos propres vues |
+| Switch aria-label to Console | Switch to the administration console | Passer à la console d'administration |
+| Landing interstitial, user with no frame | Continue to Account | Continuer vers Compte |
+| 404/403 link for a user with a frame | Back to Home | Retour à l'accueil |
+
 ### 1.3 Phone tab bars (bottom, existing `.tab-bar`, 5 cells max, 44px+ targets)
 
 | Space | Cell 1 | Cell 2 | Cell 3 | Cell 4 | Cell 5 |
@@ -173,6 +190,7 @@ id. With zero frames: `/account`, showing the "Your frames will appear here" emp
   bottom bar replaces them. No page shows two stacked navigation rows.
 - User bar loses Health (technical page). Health stays reachable by the Home status card's
   "See Health" link (shown only when the dot is warn/error) and by URL (access unchanged).
+- Tab cells flex: each takes an equal share of the bar width (`flex: 1 1 0`, `min-width: 0`), so 5 cells at 360px are 72px each (the 78px figure is the 4-cell/390px case and is not a fixed width); every cell stays >=44px wide and 56px high. Labels never wrap or clip: the longest FR label is checked at 360px (section 8, item 12).
 - Tab label text is 14px sentence case (existing `.tab-bar__label`); "Audit log" is shortened to
   "Audit" in the bar only (page title stays "Audit log").
 
@@ -217,9 +235,9 @@ It replaces the `<select>` + "Show frame" form of `device_selector_html`.
 | `/locations`, `/locations/add`, `/locations/<id>/{edit,delete}` | GET/POST | ADMIN_ONLY | Console tab "Locations"; its own forms get the same modal pattern only if the page already uses a "+" (not required this phase); fix the 360px select overflow (inputs `max-width: 100%`) |
 | `/audit` | GET | ADMIN_ONLY | Console tab "Audit log" |
 | `/update` (+ `/update/install`, `/update/cancel`) | GET/POST | ADMIN_ONLY | Console "Releases" (title and tab say "Releases"/"Versions"; removed from My views sidebar) |
-| `/` | GET | admin: OWNER_DEVICE un-prefixed (live frame) | admin: My views Home. **User: 303 to the Home of their default frame** (was 404) |
+| `/` | GET | admin: OWNER_DEVICE un-prefixed (served frame) | admin: My views Home. **User: 303 to the Home of their default frame** (was 404) |
 | `/display`, `/flights`, `/airlines`, `/health`, `/detection` | GET | OWNER_DEVICE | unchanged paths; a user hitting the un-prefixed path gets a 303 to the same page under their default frame prefix (was 404) |
-| `/device` | GET | ADMIN_ONLY | My views (admin) More/sidebar "Device"; the Detection card is removed from this page (it stays on Display, merged, section 5) |
+| `/device` | GET | ADMIN_ONLY | My views (admin) More/sidebar "Device"; the Detection card is removed from this page (it stays on Display, merged into the Location and detection card, section 4) |
 | `/settings`, `/history`, `/preview` | GET | OWNER_DEVICE | unchanged 303 redirects |
 | `/devices/<id>/...` | GET/POST | per route | unchanged; this is the user's frame space |
 | `/account` | GET | SIGNED_IN | user: Account tab; admin: footer/More |
@@ -245,7 +263,7 @@ Markup contract (per dialog, rendered in the page, not fetched):
     <header class="modal__head"><h2 class="modal__title text-heading" id="...-title">…</h2>
       <a class="modal__close" href="<host page path>" data-modal-close aria-label="Close">×</a></header>
     <div class="modal__body">…</div>
-    <div class="modal__actions">primary <button type="submit">, cancel <a href="<host page path>" data-modal-close></div>
+    <div class="modal__actions">primary <button type="submit">, dismiss <a href="<host page path>" data-modal-close></div>
   </form>
 </dialog>
 ```
@@ -254,9 +272,9 @@ Triggers: `<a href="#dlg-…" data-modal-open>` (a link, not a button, so the no
 Behaviour (testable):
 - **Open (JS):** `modal.js` calls `showModal()`; page behind is inert; scroll locked; focus trapped by
   the browser. **Initial focus:** first invalid field when re-rendered with an error, else the first
-  form control (`autofocus`), and for confirm-only dialogs (retire, re-activate, leave) the *cancel*
+  form control (`autofocus`), and for confirm-only dialogs (retire, re-activate, leave) the *dismiss*
   control, so Enter never confirms a destructive action.
-- **Close:** Esc (native `cancel`), the 44x44 close control, the cancel control, or a backdrop click
+- **Close:** Esc (native `cancel`), the 44x44 close control, the dismiss control, or a backdrop click
   on dialogs without inputs. A backdrop click is ignored on dialogs that hold inputs. After a
   successful POST the server redirects to the page (toast shown); the dialog is gone.
 - **Return focus:** to the element that opened it (stored by `modal.js`); when the page was reloaded
@@ -267,7 +285,7 @@ Behaviour (testable):
   code / email is re-rendered escaped, as today.
 - **No-JS fallback:** the same `<dialog>` is shown by CSS when targeted (`.modal:target`) or when
   server-rendered `open` without the `.is-modal` class `modal.js` adds: an in-page fixed card over
-  a scrim made with `box-shadow: 0 0 0 100vmax var(--color-scrim)`, bottom-anchored below 700px. Cancel/close are plain links to the host
+  a scrim made with `box-shadow: 0 0 0 100vmax var(--color-scrim)`, bottom-anchored below 700px. Dismiss/close are plain links to the host
   page path (clears the hash). The submit is the normal form POST. Without script nothing is lost:
   the row menus are `<details>`, the dialogs open from hash links.
 - **Geometry:** >=700px: centred, `width: min(480px, calc(100% - 48px))`, padding `--space-lg`,
@@ -277,7 +295,7 @@ Behaviour (testable):
   1px `--color-border`, backdrop `--color-scrim`. Identical rules for both themes via tokens.
 - **Controls:** every input/select/button/link inside is >=44px high; fields are full width
   (`max-width: 100%`, no overflow at 360px); labels above fields (14px label); `.modal__actions`
-  stacks on phone (primary on top, full width, cancel below) and is a right-aligned row on desktop.
+  stacks on phone (primary on top, full width, dismiss below) and is a right-aligned row on desktop.
 - **Motion:** entrance uses `--motion-fast` opacity/transform transition with `@starting-style`
   (the `.lightbox` mechanism); close is instant; no new `@keyframes`, no new duration.
 - **Script:** `companion/static/modal.js`, first-party, listed in `SHELL_SCRIPT_ORDER` and
@@ -290,22 +308,33 @@ Behaviour (testable):
 |---|--------|-------------|--------|---------------|---------------|
 | 1 | Invite a user | "+ Invite a user" (Users header) | Email (type=email, required, max 254), Role (User default / Administrator) | Invite user (primary) | `/users/invite` |
 | 2 | Add a frame | "+ Add a frame" (Fleet header) | Pairing code (mono, XXXX-XXXX, max 12, autocapitalize), Owner (select, "Choose an owner") | Pair frame (primary) | `/fleet/pair` |
-| 3 | Retire | row menu (live, non-live-frame rows only) | none (sentence) | Retire frame (destructive) | `/fleet/frames/<id>/retire` |
-| 4 | Reassign | row menu (live rows) | New owner (select, required) | Reassign frame (destructive when the frame is not the live frame, else primary) | `/fleet/frames/<id>/reassign` |
+| 3 | Retire | row menu (active rows that are not the served frame) | none (sentence) | Retire frame (destructive) | `/fleet/frames/<id>/retire` |
+| 4 | Reassign | row menu (active rows) | New owner (select, required) | Reassign frame (destructive when the frame is not the served frame, else primary) | `/fleet/frames/<id>/reassign` |
 | 5 | Re-activate | row menu (retired rows) | none (sentence) | Re-activate frame (destructive) | `/fleet/frames/<id>/reactivate` |
 | 6 | Manage access | row menu (Fleet, admin, any frame); "Manage access" button (Account, owned frames only) | Add: Invited person (admin: select of candidates) or E-mail (owner: typed); per-member Remove | Add co-manager (primary); Remove (destructive, per row, own POST form) | `/co-managers/add`, `/co-managers/remove` |
-| 7 | Leave this frame | "Leave" button (Account, co-managed frames) | none (sentence) | Leave this frame (destructive) | `/co-managers/leave` |
-| 8 (proposed, open item 4) | Manage user | "Manage" button (Users row) | Role select, Save role; Access section (Disable/Enable); Sign-in section (Unlink identity) | per section | `/users/<id>/{role,disable,enable,unlink}` |
+| 7 | Leave this frame | "Leave frame" button (Account, co-managed frames) | none (sentence) | Leave this frame (destructive) | `/co-managers/leave` |
+| 8 (proposed, open item 4) | Manage user | "Manage user" button (Users row) | Role select, Save role; Access section (Disable/Enable); Sign-in section (Unlink identity) | per section | `/users/<id>/{role,disable,enable,unlink}` |
 
 Dialog 2 "no frame waiting" hint (shown under the form when no frame is pending): replaces the
 obsolete "Register one first".
 
 ### 2.2 Dialog copy (EN / FR)
 
+No dialog uses a generic "Cancel / Annuler". The dismiss control names where the user goes back to:
+Invite = "Back to Users", Add a frame = "Back to Fleet" (host page), Retire = "Keep frame",
+Reassign = "Keep current owner", Re-activate = "Keep retired", Leave = "Stay on this frame",
+Manage user = "Close", Manage access = "Done". The 44x44 header close control keeps the aria-label "Close".
+
+Glossary (two senses of "live" are kept apart): **active** = a frame row that is not retired
+(and not waiting for pairing); **served frame** = the one frame the device currently serves
+(the frame whose image the physical device fetches). "Live" is not used as a UI or spec term for either.
+
 | Element | EN | FR |
 |---------|----|----|
 | Close control (all) | Close | Fermer |
-| Cancel (default) | Cancel | Annuler |
+| Back (dialogs 1, 2; label names the host page) | Back to Users (Invite) / Back to Fleet (Add a frame) | Retour aux utilisateurs / Retour à la flotte |
+| Reassign cancel | Keep current owner | Garder le propriétaire actuel |
+| Manage user dismiss | Close | Fermer |
 | **Invite** title | Invite a user | Inviter un utilisateur |
 | Email label | Email | Adresse e-mail |
 | Role label | Role | Rôle |
@@ -323,14 +352,14 @@ obsolete "Register one first".
 | Pair errors (existing) | Code not recognised / Too many attempts / Enter the pairing code. / Choose an owner. | (existing FR strings) |
 | **Retire** title | Retire “%s”? | Retirer « %s » ? |
 | Retire body (existing) | This frame will show a retired screen and stop updating. Its data is kept and you can re-activate it later. | (existing FR) |
-| Retire submit / cancel | Retire frame / Keep frame | Retirer le cadre / Garder le cadre |
+| Retire submit / dismiss | Retire frame / Keep frame | Retirer le cadre / Garder le cadre |
 | **Reassign** title | Reassign “%s” | Réattribuer « %s » |
-| Reassign body live (existing) | Only the owner changes. Nothing is erased. | (existing FR) |
-| Reassign body other (existing) | %s's settings, history and gallery on this frame are erased. The frame restarts like a new one. | (existing FR) |
-| New owner label / submit | New owner / Reassign frame | Nouveau propriétaire / Réattribuer le cadre |
+| Reassign body served frame (existing) | Only the owner changes. Nothing is erased. | (existing FR) |
+| Reassign body other frame (existing) | %s's settings, history and gallery on this frame are erased. The frame restarts like a new one. | (existing FR) |
+| New owner label / submit / dismiss | New owner / Reassign frame / Keep current owner | Nouveau propriétaire / Réattribuer le cadre / Garder le propriétaire actuel |
 | **Re-activate** title | Re-activate “%s”? | Réactiver « %s » ? |
 | Re-activate body (existing) | Its settings and history are erased. It returns to pairing and shows a new code. | (existing FR) |
-| Re-activate submit / cancel | Re-activate frame / Keep retired | Réactiver le cadre / Laisser retiré |
+| Re-activate submit / dismiss | Re-activate frame / Keep retired | Réactiver le cadre / Laisser retiré |
 | **Manage access** title | Manage access | Gérer l'accès |
 | Subtitle | the frame name, 14px muted | le nom du cadre |
 | Owner row | Owner | Propriétaire |
@@ -345,8 +374,8 @@ obsolete "Register one first".
 | Toasts (existing) | Co-manager added … / Co-manager removed … | (existing FR) |
 | **Leave** title | Leave this frame? | Quitter ce cadre ? |
 | Leave body (existing) | You will lose access to this frame and its settings. The owner or an administrator can add you again. | (existing FR) |
-| Leave submit / cancel (existing) | Leave this frame / Stay on this frame | Quitter ce cadre / Rester sur ce cadre |
-| **Manage user** title | Manage user | Gérer l'utilisateur |
+| Leave submit / dismiss (existing) | Leave this frame / Stay on this frame | Quitter ce cadre / Rester sur ce cadre |
+| **Manage user** title / dismiss | Manage user / Close | Gérer l'utilisateur / Fermer |
 | Sections | Role / Access / Sign-in | Rôle / Accès / Connexion |
 | Save role | Save role | Enregistrer le rôle |
 | Disable (button + existing sentence) | Disable user — They are signed out immediately and cannot sign in. | Désactiver l'utilisateur — Ils sont déconnectés immédiatement et ne peuvent plus se connecter. |
@@ -358,6 +387,11 @@ obsolete "Register one first".
 
 ## 3. Fleet list and users list
 
+Visual anchor (what draws the eye first): on Fleet, the first row whose dot is red or amber (rows
+are ordered problems first) and, beside the title, the accent "+ Add a frame"; with no problem the
+count line and the accent button. On Users, the accent "+ Invite a user" button, then the first
+email in 16px semibold; the "Invited"/"Disabled" pills are the only other emphasis.
+
 ### 3.1 Status dot vocabulary (D2 and D8, one shared function)
 
 One resolver (`frame_status(row)`) feeds the Fleet list, the frame switcher, My frames and the
@@ -368,8 +402,8 @@ and `frame_state.STATE_*`.
 |-------|-----|-----------------------------------------|---------|------|
 | Retired | `.dot--hollow` | Retired | Retiré | device retired (admin only) |
 | Waiting | `.dot--hollow` | Waiting for pairing | En attente d'appairage | pending (admin only) |
-| No contact | `.dot--error` | No contact | Sans contact | live and `offline` (no recent contact) |
-| Not seen yet | `.dot--warn` | Not seen yet | Pas encore vu | live, never checked in |
+| No contact | `.dot--error` | No contact | Sans contact | active and `offline` (no recent contact) |
+| Not seen yet | `.dot--warn` | Not seen yet | Pas encore vu | active, never checked in |
 | Overdue / low battery | `.dot--warn` | Overdue / Low battery | En retard / Batterie faible | `STATE_LATE`, or battery at or below the low threshold |
 | Resting | `.dot--off` | Resting | Au repos | `STATE_HELD` (quiet hours) or screen off |
 | Up to date | `.dot--ok` | Up to date | À jour | otherwise |
@@ -397,14 +431,14 @@ horizontal scroll at any width). Each `li.entity-row` is a grid
    pairing"; unassigned: "Unassigned"; retired: "Formerly user@…").
 3. **Row menu** (44x44 button, `icon-more-vertical`, `aria-label` "Actions for {name}"): a
    `<details class="row-menu">` whose panel lists 44px items: Open frame, Manage access,
-   Reassign, Retire (not offered for the live frame) for live rows; Re-activate for retired rows;
+   Reassign, Retire (not offered for the served frame) for active rows; Re-activate for retired rows;
    no menu for pending rows. Items are `data-modal-open` links to the row's dialogs.
 
 Nothing else is shown in the row: no state column, firmware, battery, location, hardware, last
 seen, id, MAC. Last image: **not shown** (open item 2). Device id and hardware appear only inside
 the dialogs' secondary text where needed to disambiguate (14px, muted).
 
-Order: live frames with problems first (error, warn), then up to date and resting, each by name; then pending;
+Order: active frames with problems first (error, warn), then up to date and resting, each by name; then pending;
 then retired frames inside a closed `<details>` "Retired frames (n)" below the list.
 Desktop (>=960px): same markup; the grid becomes `minmax(0,2fr) minmax(0,2fr) auto` with the
 owner in its own column (same DOM, CSS only), so nothing clips.
@@ -419,7 +453,7 @@ Page header: title "Users", primary "+ Invite a user". Count line "5 users". `ul
    line 2 14px muted: "{Role} · {n} frames" (+ " · You" for the signed-in admin). A `.banner__pill`
    "Invited" shows only when the account has never signed in; "Disabled" when disabled. A user who
    has signed in never shows "Invited".
-2. **Manage** (44px high text button, `aria-label` "Manage {email}") opening dialog 8.
+2. **Manage user** (44px high text button, visible label "Manage user" / "Gérer l'utilisateur"; `aria-label` "Manage {email}") opening dialog 8.
 The role `<select>` + "Save role" are no longer in the row. Desktop: same DOM, columns
 `minmax(0,3fr) minmax(0,2fr) auto`. Guard sentences ("This is you." / "last active administrator")
 render inside the Manage dialog, so they can no longer truncate in a row.
@@ -438,7 +472,7 @@ render inside the Manage dialog, so they can no longer truncate in a row.
 | Invite button | + Invite a user | + Inviter un utilisateur |
 | Users count | %d users / 1 user | %d utilisateurs / 1 utilisateur |
 | Users second line | %s · %d frames / %s · 1 frame / You | %s · %d cadres / %s · 1 cadre / Vous |
-| Manage / aria / pills | Manage / Manage %s / Invited, Disabled | Gérer / Gérer %s / Invité, Désactivé |
+| Manage user button / aria / pills | Manage user / Manage %s / Invited, Disabled | Gérer l'utilisateur / Gérer %s / Invité, Désactivé |
 
 The page name differs from "cadre" in both languages (D4): EN "Fleet", FR **"Flotte"**
 (was "Cadres"); the physical device stays "frame"/"cadre" everywhere else (open item 1 offers
@@ -447,6 +481,11 @@ The page name differs from "cadre" in both languages (D4): EN "Fleet", FR **"Flo
 ---
 
 ## 4. User Home, My frames, Account
+
+**Visual anchors.** Home: the current-frame picture is the largest element, but the 14px status
+dot with its halo and headline sits above it and is read first. Account: the "My frames" card is
+first in the order and its frame-name links (accent, 16px semibold) lead; Identity and Preferences
+are secondary and carry no accent.
 
 **Home (user and admin My views).** Page title "Home"/"Accueil" (frame name is carried by the
 switcher when two or more frames, otherwise by the header line of the status card). Order:
@@ -462,7 +501,7 @@ a blank card.
 Sign out. `id="account-frames"`. `ul.entity-list`, one row per frame the user owns or co-manages:
 dot, name link to the frame Home (16px semibold), line 2 (14px muted) hardware label for an owned
 frame or "Shared by {owner email}" for a co-managed one, and one 44px action: **"Manage access"**
-(dialog 6) on frames the user owns, **"Leave"** (dialog 7) on shared frames. No battery, no last
+(dialog 6) on frames the user owns, **"Leave frame"** (dialog 7) on shared frames. No battery, no last
 contact (D8). Empty state: heading "Your frames will appear here" / FR "Vos cadres apparaîtront ici";
 body "Once an administrator pairs a frame to your account, you land on its Home after you sign in."
 / FR "Dès qu'un administrateur appaire un cadre à votre compte, vous arrivez sur son accueil après la connexion."
@@ -482,7 +521,7 @@ tracking beyond the fields it already owns. The Device page no longer repeats th
 | Shared mark | Shared · %s | Partagé · %s |
 | My frames heading | My frames | Mes cadres |
 | Shared line | Shared by %s | Partagé par %s |
-| Row actions | Manage access / Leave | Gérer l'accès / Quitter |
+| Row actions | Manage access / Leave frame | Gérer l'accès / Quitter le cadre |
 | Merged card title | Location and detection | Lieu et détection |
 
 ---
@@ -528,7 +567,7 @@ disabled and unmatched identities.
 | Empty state heading | Fleet: No frames yet / Aucun cadre pour l'instant; My frames: Your frames will appear here / Vos cadres apparaîtront ici |
 | Empty state body | see sections 3.2 and 4 (each ends with the next step) |
 | Error state | field errors beside the field (existing messages); sign-in errors per section 5, each ends with the action to take |
-| Destructive confirmation | Retire frame: "This frame will show a retired screen and stop updating…"; Re-activate: "Its settings and history are erased…"; Reassign (other owner): "%s's settings, history and gallery on this frame are erased…"; Disable user; Unlink identity; Leave this frame; Remove co-manager. All confirm inside a dialog whose initial focus is Cancel. |
+| Destructive confirmation | Retire frame: "This frame will show a retired screen and stop updating…"; Re-activate: "Its settings and history are erased…"; Reassign (other owner): "%s's settings, history and gallery on this frame are erased…"; Disable user; Unlink identity; Leave this frame; Remove co-manager. All confirm inside a dialog whose initial focus is the dismiss control ("Keep frame", "Keep retired", "Stay on this frame", "Keep current owner"). |
 | Vocabulary | the device is always "frame"/"cadre" (D4); the console page is "Fleet"/"Flotte"; "Releases"/"Versions" is the one name of the update page; Update/Appareil naming drift removed |
 
 Every new string above needs an English message and an entry in `companion/i18n_fr/`; the existing
@@ -577,6 +616,17 @@ scroll counts one. "Before" are the measured counts in `61-WALKTHROUGH.md`.
 9. Unverified-email sign-in renders the Confirm-your-email page (403) and not the not-invited page;
    no email or provider text appears in any sign-in error page.
 10. Every new user-visible string exists in English and French; FR Fleet page title is not "Cadres".
+12. At 360px, in EN and FR, the Console and My views 5-cell tab bars have equal-width cells (each
+    >=44px wide, within 1px of each other), no cell label wraps or is clipped (`scrollWidth <=
+    clientWidth` on each `.tab-bar__label`), and the longest FR label ("Locations"/"Lieux" and
+    "Flotte"/"Mes vues" in More, whichever measures widest) fits its cell; the bar has no horizontal overflow.
+13. Phase 47 freeze: `stub-server/test_phase47_freeze.py` is run explicitly and passes unchanged
+    (verification list: run it by path, alongside `./scripts/run-all-tests.sh`). Two freeze checks cover
+    the two companion behaviour changes: (a) an authenticated user requesting an un-prefixed frame page
+    (`/`, `/display`, `/flights`, `/airlines`, `/health`, `/detection`) gets a 303 to the same page under
+    their default frame prefix, with no change to the device-protocol routes or any Phase 47 file;
+    (b) `/login` while signed in redirects (303) to the role landing page (`/fleet` for admin,
+    `/devices/<id>/` or `/account` for a user), and `/login` while signed out is unchanged.
 11. Contrast gate, motion budget (no new `@keyframes`, no bare duration on `animation`), reduce-block
     count, `check_function_size.py` (80 lines) and the stylesheet-structure tests stay green; the
     accent list in the stylesheet header covers every accent use above.
@@ -618,7 +668,7 @@ Each has a proposed default that the plan will follow unless the owner says othe
 10. **User redirect from un-prefixed pages (`/`, `/display`, ...)** to their default frame, in place
     of the 404 they get today. Default: yes, with matrix rows and a test.
 11. **Invite button text** "Invite user" replaces "Send invitation", because SkyPane sends nothing.
-12. **Pending frames** stay in the main Fleet list (hollow dot, after live frames) rather than a
+12. **Pending frames** stay in the main Fleet list (hollow dot, after active frames) rather than a
     separate section.
 13. **Landing frame for a multi-frame user:** first by name. Alternative: last frame visited
     (needs a cookie).
