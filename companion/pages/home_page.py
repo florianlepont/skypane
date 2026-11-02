@@ -675,12 +675,14 @@ def _action_needed_html(ctx):
             device_scope.scoped(layout.HEALTH_ROUTE), i18n.t(ACTION_NEEDED_LINK_TEXT)))
 
 
-def render(ctx):
+def render(ctx, co_managers_html=""):
     """Render Home: the status header (state, next update, battery and the
     two switches) first, then the generated picture and its flight line,
     with the recent flights beside it on desktop and after it on a phone.
     Only an actionable shared health state adds a Health link; daily
-    activity belongs to Health.
+    activity belongs to Health. `co_managers_html` is the Co-managers card,
+    placed after the facts block and outside every region the background
+    refresh swaps.
     """
     ctx = page_context.coerce(ctx)
     now = ctx.now
@@ -709,4 +711,5 @@ def render(ctx):
         + '<div class="home-facts">'
         + _action_needed_html(ctx)
         + "</div>"
+        + co_managers_html
     )

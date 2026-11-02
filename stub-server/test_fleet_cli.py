@@ -163,6 +163,31 @@ def test_users_disable_drops_sessions_and_enable_does_not_restore(sd, capsys):
     assert "sub-1" not in out.out + out.err
 
 
+def test_users_disable_removes_co_managers_audited_as_cli(sd):
+    add_owner(sd)
+    assert add_device(sd) == 0
+    conn = fleet_db.connect(sd)
+    try:
+        owner = fleet_db.get_user_by_email(conn, "owner@example.com")
+        co = fleet_db.add_user(conn, "co@example.com", "user")
+        device_id = conn.execute("SELECT id FROM devices").fetchone()[0]
+        fleet_db.add_co_manager(conn, device_id, co, int(owner["id"]))
+        conn.commit()
+    finally:
+        conn.close()
+    assert run(sd, "users", "disable", "--email", "owner@example.com") == 0
+    conn = fleet_db.connect_readonly(sd)
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM device_co_managers").fetchone()[0] == 0
+        rows = list(conn.execute(
+            "SELECT actor_label, detail FROM audit_log "
+            "WHERE action = 'device.co_manager_remove'"))
+    finally:
+        conn.close()
+    assert len(rows) == 1 and rows[0]["actor_label"] == "cli"
+    assert "owner_disabled" in rows[0]["detail"]
+
+
 def test_locations_add_list_and_validation(sd, capsys):
     assert run(sd, "locations", "add", "--name", "Home", "--latitude", "48.7",
                "--longitude", "2.3", "--timezone", "Europe/Paris") == 0

@@ -357,7 +357,8 @@ administrators only) or with `fleet_cli.py`. Nothing here deploys anything.
    shows a "retired" image) and **re-activate** it from the pending list; a
    re-activated frame is wiped of its previous owner's data and shows a new
    code. Reassigning a frame to another owner wipes the previous owner's data
-   too (the live frame, `state_path` `.`, is never wiped, only re-owned).
+   too (the live frame, `state_path` `.`, is never wiped, only re-owned) and
+   removes all of the frame's co-managers, each audited.
 6. **Hard deletion is CLI-only**: `$FLEET devices remove --mac <mac>` deletes a
    pending or retired frame's row and its pairing directory.
 
@@ -366,6 +367,9 @@ that is not the live frame it wipes the previous owner's data and
 re-provisions it. Console actions are written to the append-only audit log
 (Audit log page). The pairing and mutation throttles and the one-shot flash
 messages are kept in memory and reset when the companion restarts.
+Disabling a user (console or `$FLEET users disable`) removes the co-managers
+of the frames they own, audited once per user; re-enabling does not restore
+them.
 
 ## Ship the code
 
@@ -727,6 +731,23 @@ claimed after the upgrade have no legacy token, so after a rollback they
 fail with 401 and then 403 and back off for up to 6 hours. Frames that
 existed before the upgrade keep working from the legacy files. Restoring a
 backup taken at schema 3 needs this release or later.
+
+### Schema v4 and rollback
+
+The device co-management release adds schema 4: one table
+(`device_co_managers`), one index and two triggers that keep a frame owner
+from also being a co-manager of the same frame. No existing table or row
+changes, so the live frame's registry entry, files and image are untouched.
+The `activate.sh` dry-run prints `upgrade fleet.db schema 3 -> 4`; the
+migration runs after the backup and before the symlink swap, and is
+expand-only. The previous release (schema 3) refuses a schema 4 `fleet.db`
+as too new (`FleetDbTooNew`) and falls back to the legacy files, exactly as
+it does for schemas 2 and 3; Health shows a fleet fault until the new
+release is live again. While rolled back, co-managers cannot reach the
+companion fleet store, and the frame itself keeps polling from the legacy
+files. Rolling forward again needs no manual step, because the table and its
+rows survive. Restoring a backup taken at schema 4 needs this release or
+later.
 
 ### Schema v2 and rollback
 

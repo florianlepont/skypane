@@ -33,6 +33,7 @@ from fake_auth0 import FakeAuth0
 from access_matrix_support import (
     ADMIN_EMAIL, OTHER_EMAIL, OWNER_EMAIL, REACHED_BODY, Recorder, probe_path,
     probe_routes, seed_matrix_fleet, session_cookie_for, stub_routes)
+import matrix_rows_co_managers
 import matrix_rows_lifecycle
 import matrix_rows_locations
 import matrix_rows_pairing
@@ -45,7 +46,9 @@ PUBLIC = "public"
 SIGNED_IN = "signed-in"
 ADMIN_ONLY = "admin-only"
 OWNER_DEVICE = "owner-device"
+OWNER_ONLY = "owner-only-device"
 
+CO_MANAGER_EMAIL = "co-manager@example.test"
 _PUBLIC_PATHS = ("/login", "/login/auth0", "/callback")
 _STATIC_PATHS = tuple(static_files.STATIC_ROUTES)
 
@@ -110,35 +113,41 @@ DEVICE_SCOPED = frozenset(
         "/airlines/rename/reset", "/airlines/manual-resolutions/{}/delete",
         "/illustration/{}.png", "/settings/rules/add",
         "/settings/calendar/disconnect", "/settings/calendar/connect",
-        "/settings/rules/{}/delete")])
+        "/settings/rules/{}/delete")]
+    + [("POST", path) for path in (
+        "/co-managers/add", "/co-managers/remove", "/co-managers/leave")])
 
 # Policy -> principal -> outcome, hand-written. A disabled, deleted or
 # expired session resolves to no principal, so it reads as anonymous.
 OUTCOMES = {
     PUBLIC: {
         "anonymous": "allow", "owner": "allow", "other": "allow",
-        "admin": "allow"},
+        "admin": "allow", "co-manager": "allow"},
     SIGNED_IN: {
         "anonymous": "login", "owner": "allow", "other": "allow",
-        "admin": "allow"},
+        "admin": "allow", "co-manager": "allow"},
     ADMIN_ONLY: {
         "anonymous": "login", "owner": "not-found", "other": "not-found",
-        "admin": "allow"},
+        "admin": "allow", "co-manager": "not-found"},
     OWNER_DEVICE: {
         "anonymous": "login", "owner": "allow", "other": "not-found",
-        "admin": "allow"},
+        "admin": "allow", "co-manager": "allow"},
+    # Owner or admin only: a co-manager of the frame is refused.
+    OWNER_ONLY: {
+        "anonymous": "login", "owner": "allow", "other": "not-found",
+        "admin": "allow", "co-manager": "not-found"},
 }
 # The un-prefixed form of a device-scoped route acts on the live frame and is
 # admin-only for every policy kind.
 UNPREFIXED_OUTCOMES = {
     "anonymous": "login", "owner": "not-found", "other": "not-found",
-    "admin": "allow"}
-PRINCIPAL_NAMES = ("anonymous", "owner", "other", "admin")
+    "admin": "allow", "co-manager": "not-found"}
+PRINCIPAL_NAMES = ("anonymous", "owner", "other", "admin", "co-manager")
 
 # The kinds whose prefixed form reaches a frame only through the ownership gate.
 _MIN_ROLE_OF_KIND = {
     PUBLIC: access.ANONYMOUS, SIGNED_IN: access.USER, ADMIN_ONLY: access.ADMIN,
-    OWNER_DEVICE: access.USER}
+    OWNER_DEVICE: access.USER, OWNER_ONLY: access.USER}
 
 MALFORMED_IDS = (
     "d_ZZZZZZZZ", "..", "d_" + "0" * 40, "a/b", "d_0000000", "D_00000000", "",
@@ -161,7 +170,7 @@ SAMPLE_MIDDLE = {
 # each can be filled in without touching this file.
 for _rows in (
         matrix_rows_pairing, matrix_rows_lifecycle, matrix_rows_users,
-        matrix_rows_locations):
+        matrix_rows_locations, matrix_rows_co_managers):
     ROUTE_POLICY.update(_rows.ROWS)
     SAMPLE_MIDDLE.update(_rows.SAMPLES)
 
@@ -247,7 +256,9 @@ def test_a_prefixed_route_never_has_less_access_than_its_base_route():
         assert match.device_id == "d_00000000"
         assert prefixed.access.min_role == base.access.min_role
         assert prefixed.access.min_role == _MIN_ROLE_OF_KIND[ROUTE_POLICY[key]]
-        expected_arg = "device" if ROUTE_POLICY[key] == OWNER_DEVICE else None
+        expected_arg = {
+            OWNER_DEVICE: "device", OWNER_ONLY: "device-owner"}.get(
+                ROUTE_POLICY[key])
         assert prefixed.access.device_arg == expected_arg
         # The un-prefixed form acts on the live frame: admin-only, no id.
         base_route, base_match = routes.match(key[0], _sample_path(key), "")
@@ -275,7 +286,7 @@ def test_a_console_route_without_a_row_is_reported_by_name(monkeypatch):
 def test_the_console_row_modules_are_merged_into_the_matrix():
     for module in (
             matrix_rows_pairing, matrix_rows_lifecycle, matrix_rows_users,
-            matrix_rows_locations):
+            matrix_rows_locations, matrix_rows_co_managers):
         for key, kind in module.ROWS.items():
             assert ROUTE_POLICY[key] == kind
         for template, middle in module.SAMPLES.items():
@@ -305,6 +316,8 @@ _PRINCIPALS = {
     "owner": access.Principal(access.KIND_USER, 1, OWNER_EMAIL, "user"),
     "other": access.Principal(access.KIND_USER, 2, OTHER_EMAIL, "user"),
     "admin": access.Principal(access.KIND_USER, 3, ADMIN_EMAIL, "admin"),
+    "co-manager": access.Principal(
+        access.KIND_USER, 4, CO_MANAGER_EMAIL, "user"),
 }
 _DECISION_WORDS = {
     access.ALLOW: "allow", access.LOGIN: "login", access.NOT_FOUND: "not-found"}
@@ -321,11 +334,16 @@ def _owner_one(device_id):
     return 1 if device_id == _PURE_DEVICE else None
 
 
+def _co_manager_four(device_id, user_id):
+    return (device_id, user_id) == (_PURE_DEVICE, 4)
+
+
 def _pure_outcome(principal, method, path, owner_lookup):
     route, route_match = routes.match(method, path, "")
     route_access, captured = app._effective_access(route, route_match)
     return _DECISION_WORDS[
-        access.decide(principal, route_access, captured, owner_lookup)]
+        access.decide(
+            principal, route_access, captured, owner_lookup, _co_manager_four)]
 
 
 @pytest.mark.parametrize("key,name", _CELLS, ids=_CELL_IDS)
@@ -352,10 +370,11 @@ def test_the_owner_gate_is_never_asked_about_a_foreign_or_unknown_id_as_owner():
         for key in _SCOPED_KEYS:
             if ROUTE_POLICY[key] != OWNER_DEVICE:
                 continue
-            outcome = _pure_outcome(
-                _PRINCIPALS["owner"], key[0],
-                "/devices/%s%s" % (device_id, _sample_path(key)), _owner_one)
-            assert outcome == "not-found"
+            for who in ("owner", "co-manager"):
+                outcome = _pure_outcome(
+                    _PRINCIPALS[who], key[0],
+                    "/devices/%s%s" % (device_id, _sample_path(key)), _owner_one)
+                assert outcome == "not-found"
 
 
 def test_every_templated_route_has_a_sample_middle():
@@ -387,6 +406,13 @@ class MatrixRig:
     def conn(self):
         return fleet_db.connect(self.state_dir)
 
+    def add_co_manager(self, device_id, user_id):
+        conn = self.conn()
+        try:
+            fleet_db.add_co_manager(conn, device_id, user_id, self.fleet.owner_id)
+        finally:
+            conn.close()
+
     def add_user(self, email, role="user"):
         conn = self.conn()
         try:
@@ -406,8 +432,18 @@ def rig(tmp_path_factory):
     server.apply_env(auth0_env(fake, server.base_url()))
     fleet = seed_matrix_fleet(state_dir)
     cookies = {"anonymous": None}
+    # The co-manager and its membership live here, not in the shared seed.
+    conn = fleet_db.connect(state_dir)
+    try:
+        co_manager_id = fleet_db.add_user(conn, CO_MANAGER_EMAIL, "user")
+        fleet_db.add_co_manager(
+            conn, fleet.owner_device, co_manager_id, fleet.owner_id)
+    finally:
+        conn.close()
+    assert co_manager_id == _PRINCIPALS["co-manager"].user_id
     for name, email in (
-            ("owner", OWNER_EMAIL), ("other", OTHER_EMAIL), ("admin", ADMIN_EMAIL)):
+            ("owner", OWNER_EMAIL), ("other", OTHER_EMAIL), ("admin", ADMIN_EMAIL),
+            ("co-manager", CO_MANAGER_EMAIL)):
         result = login_via_auth0(
             server, fake, sub="auth0|" + name, email=email)
         assert result.status == 200
@@ -457,7 +493,7 @@ def test_http_outcome_matches_the_policy_table(rig, stubbed, key, name):
         assert stubbed.calls == []
 
 
-@pytest.mark.parametrize("name", ("owner", "other", "admin"))
+@pytest.mark.parametrize("name", ("owner", "other", "admin", "co-manager"))
 def test_posting_to_poll_now_is_a_404_and_runs_no_cycle(rig, monkeypatch, name):
     import server.poll_cycle as poll_cycle
     calls = []
@@ -510,7 +546,7 @@ def test_an_unknown_device_id_is_404_for_a_permitted_caller_and_login_for_anonym
         rig, stubbed, key):
     method = key[0]
     path = _scoped_path(UNKNOWN_ID, key)
-    for who in ("owner", "other", "admin"):
+    for who in ("owner", "other", "admin", "co-manager"):
         status, _h, body = rig.request(method, path, rig.cookies[who])
         assert status == 404
         assert body == _unknown_path_404(rig, rig.cookies[who])
@@ -525,7 +561,7 @@ def test_an_unknown_device_id_is_404_for_a_permitted_caller_and_login_for_anonym
 
 
 @pytest.mark.parametrize("raw", MALFORMED_IDS)
-@pytest.mark.parametrize("who", ["owner", "other", "admin"])
+@pytest.mark.parametrize("who", ["owner", "other", "admin", "co-manager"])
 def test_a_malformed_device_id_under_a_prefix_is_an_identical_404(
         rig, stubbed, who, raw):
     cookie = rig.cookies[who]
@@ -533,6 +569,23 @@ def test_a_malformed_device_id_under_a_prefix_is_an_identical_404(
     for method, page in (("GET", "/display"), ("POST", "/settings")):
         status, _h, body = rig.request(method, "/devices/" + raw + page, cookie)
         assert status == 404 and body == unknown
+    assert stubbed.calls == []
+
+
+_OWNER_DEVICE_KEYS = [
+    key for key in _SCOPED_KEYS if ROUTE_POLICY[key] == OWNER_DEVICE]
+
+
+@pytest.mark.parametrize("key", _OWNER_DEVICE_KEYS, ids=[
+    "%s_%s" % (k[0], k[1].strip("/").replace("/", "_") or "root")
+    for k in _OWNER_DEVICE_KEYS])
+def test_a_co_manager_gets_not_found_on_a_frame_they_do_not_co_manage(
+        rig, stubbed, key):
+    cookie = rig.cookies["co-manager"]
+    unknown = _unknown_path_404(rig, cookie)
+    status, _h, body = rig.request(
+        key[0], _scoped_path(rig.fleet.other_device, key), cookie)
+    assert status == 404 and body == unknown
     assert stubbed.calls == []
 
 

@@ -11,6 +11,7 @@ dispatcher bound to the request.
 Locations belong to the device's owner. A signed-in user acts on their own
 locations; an admin acts on the owner's (or their own for a device without
 an owner), so the list, the select and the form always share one subject.
+A co-manager picks from the owner's locations but never writes one.
 """
 import collections
 import math
@@ -35,8 +36,11 @@ _ID_RE = re.compile(r"\d{1,9}\Z", re.ASCII)
 _DECIMAL_RE = re.compile(r"[+-]?(?:\d+(?:[.,]\d{0,6})?|[.,]\d{1,6})\Z", re.ASCII)
 
 # conn: this request's fleet.db handle; actor_id/is_admin: the signed-in
-# principal; subject_id: whose locations the page lists and edits.
-Subject = collections.namedtuple("Subject", "conn actor_id is_admin owner_id subject_id")
+# principal; subject_id: whose locations the page lists and edits; may_write:
+# false for a co-manager, who may only choose among the owner's locations.
+Subject = collections.namedtuple(
+    "Subject", "conn actor_id is_admin owner_id subject_id may_write",
+    defaults=(True,))
 
 
 def clean_form(raw):
@@ -53,11 +57,15 @@ def subject_for(handler, device):
     owner_id = fleet_db.get_device_owner(conn, device.id)
     is_admin = principal is not None and principal.role == access.ADMIN
     actor_id = principal.user_id if principal is not None else None
-    if is_admin and owner_id is not None:
+    co_manager = (
+        not is_admin and actor_id is not None and owner_id is not None
+        and actor_id != owner_id
+        and fleet_db.is_co_manager(conn, device.id, actor_id))
+    if (is_admin or co_manager) and owner_id is not None:
         subject_id = owner_id
     else:
         subject_id = actor_id
-    return Subject(conn, actor_id, is_admin, owner_id, subject_id)
+    return Subject(conn, actor_id, is_admin, owner_id, subject_id, not co_manager)
 
 
 def _location_dict(row):
@@ -89,9 +97,10 @@ def scope_for(subject, device):
         ):
             name = located["name"]
     other_owner = (
-        subject.is_admin and subject.owner_id is not None
+        (subject.is_admin or not subject.may_write) and subject.owner_id is not None
         and subject.owner_id != subject.actor_id)
-    return detection_page.LocationScope(rows, other_owner, location_id, name)
+    return detection_page.LocationScope(
+        rows, other_owner, location_id, name, subject.may_write)
 
 
 def location_scope(handler, device):
@@ -271,7 +280,7 @@ def _write_location(subject, form, name, lat, lon):
 
 
 def _save_location(handler, ctx, device, subject, scope, form):
-    if subject.subject_id is None:
+    if subject.subject_id is None or not subject.may_write:
         return _rerender(
             handler, ctx, scope,
             {"location_form": detection_page.ERROR_LOCATION_UNAVAILABLE}, form)

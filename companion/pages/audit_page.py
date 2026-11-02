@@ -45,6 +45,10 @@ ACTION_LABELS = {
     "device.retire": i18n.msg("admin_lifecycle.action_device_retire", "Frame retired"),
     "device.reactivate": i18n.msg(
         "admin_lifecycle.action_device_reactivate", "Frame re-activated"),
+    "device.co_manager_add": i18n.msg(
+        "admin_lifecycle.action_device_co_manager_add", "Co-manager added"),
+    "device.co_manager_remove": i18n.msg(
+        "admin_lifecycle.action_device_co_manager_remove", "Co-manager removed"),
     "user.invite": i18n.msg("admin_lifecycle.action_user_invite", "User invited"),
     "user.role": i18n.msg("admin_lifecycle.action_user_role", "Role changed"),
     "user.disable": i18n.msg("admin_lifecycle.action_user_disable", "User disabled"),

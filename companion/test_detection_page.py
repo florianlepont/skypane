@@ -16,7 +16,7 @@ from companion import device_scope
 from companion import auth
 from companion_app_server import (
     InProcessAppServer, http_request, session_cookie_for_state_dir, with_csrf)
-from server import device_config
+from server import device_config, fleet_db
 
 LFPG_RUNWAYS = ("08L/26R", "08R/26L", "09L/27R", "09R/27L")
 
@@ -567,3 +567,109 @@ def test_carried_values_never_change_stored_files(rig):
     before = rig.config_bytes(rig.owner_dir())
     rig.get("owner", "%s/detection?mode=position&radius_km=12&location_id=%d" % (rig.scope(), home))
     assert rig.config_bytes(rig.owner_dir()) == before
+
+
+# --- co-manager ------------------------------------------------------------
+
+CO_EMAIL = "co-manager@example.test"
+
+
+def _db(rig, fn):
+    conn = fleet_db.connect(rig.server.state_dir)
+    try:
+        return fn(conn)
+    finally:
+        conn.close()
+
+
+def _co_rig(rig):
+    """Make a user a co-manager of the owner's frame; returns the user id and
+    the ids of the owner's, the co-manager's and a third party's location."""
+    rig.cookies["co"] = session_cookie_for_state_dir(
+        rig.server.state_dir, CO_EMAIL, "user")
+
+    def seed(conn):
+        co_id = fleet_db.get_user_by_email(conn, CO_EMAIL)["id"]
+        fleet_db.add_co_manager(conn, rig.fleet.owner_device, co_id, None)
+        return co_id, (
+            fleet_db.add_location(
+                conn, "Owner Town", 48.7, 2.3, "Europe/Paris", rig.fleet.owner_id),
+            fleet_db.add_location(
+                conn, "Co Town", 48.8, 2.4, "Europe/Paris", co_id),
+            fleet_db.add_location(
+                conn, "Third Town", 48.9, 2.5, "Europe/Paris", rig.fleet.other_id))
+    return _db(rig, seed)
+
+
+def _location_rows(rig):
+    return _db(rig, lambda conn: [
+        tuple(r) for r in conn.execute(
+            "SELECT id, name, owner_user_id FROM locations ORDER BY id")])
+
+
+def test_a_co_manager_page_lists_the_owners_locations_without_a_location_form(rig):
+    _co_rig(rig)
+    status, _h, body = rig.get("co", rig.scope() + "/detection")
+    assert status == 200
+    text = _visible_text(body)
+    assert "Owner Town" in text
+    assert "Co Town" not in text and "Third Town" not in text
+    assert "Locations are managed by the frame owner." in text
+    assert 'id="location-form"' not in body and 'name="location_name"' not in body
+    assert "Edit location" not in text and "Add a location" not in text
+
+
+def test_the_owner_and_admin_pages_keep_the_location_form(rig):
+    _co_rig(rig)
+    for who in ("owner", "admin"):
+        _s, _h, body = rig.get(who, rig.scope() + "/detection")
+        assert 'name="location_name"' in body, who
+        assert "managed by the frame owner" not in body, who
+
+
+def test_a_co_manager_page_is_french_when_asked(rig):
+    _co_rig(rig)
+    _s, _h, body = rig.get("co", rig.scope() + "/detection", lang="fr")
+    assert "Les lieux sont gérés par le propriétaire du cadre." in _visible_text(body)
+
+
+@pytest.mark.parametrize("edit", [False, True])
+def test_a_crafted_location_post_by_a_co_manager_writes_nothing(rig, edit):
+    _co_id, (owner_loc, _co_loc, _third) = _co_rig(rig)
+    before = _location_rows(rig)
+    form = {
+        "action": "save_location", "location_name": "Evil", "latitude": "48.7",
+        "longitude": "2.3", "timezone": "Europe/Paris",
+        "location_id": str(owner_loc) if edit else ""}
+    status, _h, body = rig.post("co", rig.scope() + "/detection", form)
+    assert status == 200
+    assert "Couldn" in _visible_text(body) and "Evil" not in body
+    assert _location_rows(rig) == before
+
+
+def test_a_co_manager_selects_an_owner_location_but_not_other_locations(rig):
+    _co_id, (owner_loc, co_loc, third) = _co_rig(rig)
+    path = rig.scope() + "/detection"
+    status, _h, _b = rig.post("co", path, {
+        "action": "save_detection", "mode": "position",
+        "location_id": str(owner_loc), "radius_km": "10"})
+    assert status == 303
+    assert _db(rig, lambda c: fleet_db.get_device(
+        c, rig.fleet.owner_device)["location_id"]) == owner_loc
+    for foreign in (co_loc, third):
+        status, _h, body = rig.post("co", path, {
+            "action": "save_detection", "mode": "position",
+            "location_id": str(foreign), "radius_km": "10"})
+        assert status == 200
+        assert _db(rig, lambda c: fleet_db.get_device(
+            c, rig.fleet.owner_device)["location_id"]) == owner_loc
+
+
+def test_a_co_manager_sees_the_current_location_name_of_the_owner(rig):
+    _co_id, (owner_loc, _c, _t) = _co_rig(rig)
+    _db(rig, lambda c: fleet_db.set_device_location_checked(
+        c, rig.fleet.owner_device, owner_loc, rig.fleet.owner_id, False))
+    device_config.save_device_config(
+        rig.owner_dir(), detection={"mode": "position", "radius_km": 10})
+    _s, _h, body = rig.get("co", rig.scope() + "/detection")
+    assert "Owner Town" in _visible_text(body)

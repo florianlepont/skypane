@@ -63,5 +63,7 @@ MESSAGES = {
     "account.battery": "Batterie",
     "account.unnamed_frame": "Cadre sans nom",
     "account.open": "Ouvrir",
+    "account.shared": "Partagé",
+    "account.owner_s": "Propriétaire\u00a0: %s",
     "account.open_frame": "Ouvrir %s",
 }

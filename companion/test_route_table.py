@@ -137,6 +137,9 @@ def test_every_other_route_is_admin_only_or_an_owner_device_route():
             # such a route must resolve under one.
             assert r.device_scoped, "%s %r" % (r.method, r.matcher)
             continue
+        if r.access == routes.OWNER_ONLY_DEVICE:
+            assert r.device_scoped, "%s %r" % (r.method, r.matcher)
+            continue
         assert r.access == routes.ADMIN_ONLY, (
             "%s %r is not admin-only" % (r.method, r.matcher))
 
@@ -152,7 +155,14 @@ def test_owner_device_routes_are_exactly_the_user_reachable_frame_routes():
         ("GET", routes.Exact(routes.DEVICE_ROUTE)),
         ("POST", routes.Exact(routes.QUICK_LED_ROUTE)),
     }
-    assert len(owner) == 26
+    assert len(owner) == 27
+    owner_only = {
+        (r.method, r.matcher) for r in routes.ROUTES
+        if r.access == routes.OWNER_ONLY_DEVICE}
+    assert owner_only == {
+        ("POST", routes.Exact("/co-managers/add")),
+        ("POST", routes.Exact("/co-managers/remove")),
+    }
 
 
 @pytest.mark.parametrize("bad_access", [True, False, None, "admin", ("admin", None)])

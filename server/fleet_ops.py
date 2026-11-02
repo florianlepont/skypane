@@ -56,6 +56,8 @@ ACTION_CLAIM = "pairing.claim"
 ACTION_REASSIGN = "device.reassign"
 ACTION_RETIRE = "device.retire"
 ACTION_REACTIVATE = "device.reactivate"
+ACTION_CO_MANAGER_ADD = fleet_db.ACTION_CO_MANAGER_ADD
+ACTION_CO_MANAGER_REMOVE = fleet_db.ACTION_CO_MANAGER_REMOVE
 
 FAIL_INVALID = "invalid"
 FAIL_THROTTLED = "throttled"
@@ -447,7 +449,8 @@ def reassign_frame(
 
     A non-live frame loses the previous owner's data (config, history, poll
     state, gallery), location and name; MAC, secret and token are kept. The
-    live frame only changes owner and its files are not touched.
+    live frame only changes owner and its files are not touched. Every
+    co-manager of the frame is removed and audited.
     """
     first = fleet_db.get_device(conn, device_id)
     if first is None:
@@ -462,6 +465,14 @@ def reassign_frame(
                 raise NotFound("no such frame")
             _require_owner(conn, new_owner_user_id)
             old_owner = dev["owner_user_id"]
+            # A new owner starts with a fresh frame, so the whole co-manager
+            # set goes. This also keeps the owner and co-manager sets
+            # disjoint: the rows must be gone before the owner column changes
+            # (a trigger aborts the update otherwise).
+            removed = fleet_db.clear_co_managers(conn, device_id)
+            fleet_db.audit_co_manager_removals(
+                conn, actor, device_id, removed, "reassign"
+            )
             if dev["state_path"] == device_dirs.LIVE_STATE_PATH:
                 conn.execute(
                     "UPDATE devices SET owner_user_id = ? WHERE id = ?",
@@ -507,9 +518,11 @@ def retire_frame(
         )
         raise LiveFrameProtected("the live frame cannot be retired")
     with fleet_db.transaction(conn):
+        co_manager_ids = [int(r["user_id"]) for r in fleet_db.list_co_managers(conn, device_id)]
         pending_id = fleet_db.park_retired(conn, device_id, _now(now))
         if pending_id is None:
             raise NotFound("no such frame")
+        fleet_db.audit_co_manager_removals(conn, actor, device_id, co_manager_ids, "retire")
         fleet_db.audit_append(
             conn, actor, ACTION_RETIRE, "device", device_id, "ok",
             {"pending_id": pending_id, "owner_user_id": dev["owner_user_id"]},
