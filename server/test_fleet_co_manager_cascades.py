@@ -109,26 +109,35 @@ def test_retire_rolls_back_membership_when_audit_fails(conn, root, owner, cm1, c
 # ---- reassign ----------------------------------------------------------
 
 
-def test_reassign_to_a_co_manager_removes_only_that_row(conn, root, owner, cm1, cm2):
+def test_reassign_to_a_co_manager_removes_every_co_manager(conn, root, owner, cm1, cm2):
     did = _claimed(conn, root, owner)
     fleet_db.add_co_manager(conn, did, cm1, owner)
     fleet_db.add_co_manager(conn, did, cm2, owner)
     fleet_ops.reassign_frame(conn, root, did, cm1, ACTOR)
-    dev = fleet_db.get_device(conn, did)
-    assert dev["owner_user_id"] == cm1
-    assert _members(conn, did) == [cm2]
-    assert not fleet_db.is_co_manager(conn, did, owner)
+    assert fleet_db.get_device(conn, did)["owner_user_id"] == cm1
+    assert _members(conn, did) == []
     removals = _audit(conn, fleet_ops.ACTION_CO_MANAGER_REMOVE)
-    assert len(removals) == 1
-    assert _detail(removals[0]) == {"co_manager_user_id": cm1, "via": "reassign"}
-    assert removals[0]["actor_label"] == "admin-test"
+    assert [_detail(r) for r in removals] == [
+        {"co_manager_user_id": cm1, "via": "reassign"},
+        {"co_manager_user_id": cm2, "via": "reassign"},
+    ]
+    assert all(r["actor_label"] == "admin-test" and r["target_id"] == did for r in removals)
 
 
-def test_reassign_to_a_non_co_manager_changes_no_membership(conn, root, owner, cm1, cm2):
+def test_reassign_to_a_non_co_manager_removes_every_co_manager(conn, root, owner, cm1, cm2):
+    third = fleet_db.add_user(conn, "third@example.test", "user")
     did = _claimed(conn, root, owner)
     fleet_db.add_co_manager(conn, did, cm1, owner)
-    fleet_ops.reassign_frame(conn, root, did, cm2, ACTOR)
-    assert _members(conn, did) == [cm1]
+    fleet_db.add_co_manager(conn, did, cm2, owner)
+    fleet_ops.reassign_frame(conn, root, did, third, ACTOR)
+    assert _members(conn, did) == []
+    removals = _audit(conn, fleet_ops.ACTION_CO_MANAGER_REMOVE)
+    assert sorted(_detail(r)["co_manager_user_id"] for r in removals) == sorted([cm1, cm2])
+
+
+def test_reassign_without_co_managers_writes_no_removal_rows(conn, root, owner, cm1):
+    did = _claimed(conn, root, owner)
+    fleet_ops.reassign_frame(conn, root, did, cm1, ACTOR)
     assert not _audit(conn, fleet_ops.ACTION_CO_MANAGER_REMOVE)
 
 
@@ -167,6 +176,98 @@ def test_assign_owner_to_a_co_manager_fails_closed(conn, root, owner, cm1):
     assert fleet_db.get_device(conn, did)["owner_user_id"] == owner
     assert _members(conn, did) == [cm1]
     assert not _audit(conn, fleet_ops.ACTION_CO_MANAGER_REMOVE)
+
+
+# ---- owner disabled ----------------------------------------------------
+
+
+def _live_frame(conn, mac, owner):
+    return fleet_db.add_device(
+        conn, mac, SECRET, HW, owner, token="t-" + mac, state_path="auto")
+
+
+def _owner_disabled_rows(conn):
+    return _audit(conn, fleet_ops.ACTION_CO_MANAGER_REMOVE)
+
+
+def test_disable_removes_every_co_manager_of_every_owned_frame(conn, owner, cm1, cm2):
+    f1 = _live_frame(conn, "aa:bb:cc:dd:ee:11", owner)
+    f2 = _live_frame(conn, "aa:bb:cc:dd:ee:12", owner)
+    fleet_db.add_co_manager(conn, f1, cm1, owner)
+    fleet_db.add_co_manager(conn, f1, cm2, owner)
+    fleet_db.add_co_manager(conn, f2, cm1, owner)
+    actor = fleet_db.AuditActor(None, "admin-test", "127.0.0.1")
+    assert fleet_db.set_user_disabled_guarded(conn, None, owner, True, actor=actor)
+    assert conn.execute("SELECT COUNT(*) FROM device_co_managers").fetchone()[0] == 0
+    rows = _owner_disabled_rows(conn)
+    assert len(rows) == 3
+    assert sorted((r["target_id"], _detail(r)["co_manager_user_id"]) for r in rows) == sorted(
+        [(f1, cm1), (f1, cm2), (f2, cm1)])
+    assert all(_detail(r)["via"] == "owner_disabled" and r["actor_label"] == "admin-test"
+               for r in rows)
+    fleet_db.set_user_disabled_guarded(conn, None, owner, False, actor=actor)
+    assert conn.execute("SELECT COUNT(*) FROM device_co_managers").fetchone()[0] == 0
+
+
+def test_redisable_and_frameless_disable_write_nothing(conn, owner, cm1, cm2):
+    f1 = _live_frame(conn, "aa:bb:cc:dd:ee:11", owner)
+    fleet_db.add_co_manager(conn, f1, cm1, owner)
+    fleet_db.set_user_disabled_guarded(conn, None, owner, True)
+    assert len(_owner_disabled_rows(conn)) == 1
+    fleet_db.add_co_manager(conn, f1, cm2, owner)
+    fleet_db.set_user_disabled_guarded(conn, None, owner, True)
+    assert _members(conn, f1) == [cm2]
+    assert len(_owner_disabled_rows(conn)) == 1
+    fleet_db.set_user_disabled_guarded(conn, None, cm1, True)
+    assert len(_owner_disabled_rows(conn)) == 1
+
+
+def test_disabled_user_keeps_memberships_on_other_frames(conn, owner, cm1):
+    f1 = _live_frame(conn, "aa:bb:cc:dd:ee:11", owner)
+    fleet_db.add_co_manager(conn, f1, cm1, owner)
+    fleet_db.set_user_disabled_guarded(conn, None, cm1, True)
+    assert _members(conn, f1) == [cm1]
+    assert not _owner_disabled_rows(conn)
+
+
+def test_disable_covers_an_admin_owner_and_guard_refusal_keeps_rows(conn, cm1):
+    admin = fleet_db.add_user(conn, "admin@example.test", "admin")
+    other = fleet_db.add_user(conn, "admin2@example.test", "admin")
+    f1 = _live_frame(conn, "aa:bb:cc:dd:ee:11", admin)
+    fleet_db.add_co_manager(conn, f1, cm1, admin)
+    with pytest.raises(fleet_db.SelfActionError):
+        fleet_db.set_user_disabled_guarded(conn, admin, admin, True)
+    assert _members(conn, f1) == [cm1]
+    fleet_db.set_user_disabled_guarded(conn, other, admin, True)
+    assert _members(conn, f1) == []
+    assert len(_owner_disabled_rows(conn)) == 1
+
+
+def test_disable_rolls_back_when_the_audit_fails(conn, owner, cm1, monkeypatch):
+    f1 = _live_frame(conn, "aa:bb:cc:dd:ee:11", owner)
+    fleet_db.add_co_manager(conn, f1, cm1, owner)
+
+    def boom(*_a, **_k):
+        raise sqlite3.OperationalError("disk")
+
+    monkeypatch.setattr(fleet_db, "audit_co_manager_removals", boom)
+    with pytest.raises(sqlite3.OperationalError):
+        fleet_db.set_user_disabled_guarded(conn, None, owner, True)
+    assert _members(conn, f1) == [cm1]
+    assert conn.execute(
+        "SELECT disabled FROM users WHERE id = ?", (owner,)).fetchone()[0] == 0
+
+
+def test_cli_style_disable_by_email_cascades_with_the_given_actor(conn, owner, cm1):
+    f1 = _live_frame(conn, "aa:bb:cc:dd:ee:11", owner)
+    fleet_db.add_co_manager(conn, f1, cm1, owner)
+    cli = fleet_db.AuditActor(None, "cli", None)
+    assert fleet_db.set_user_disabled(conn, "OWNER@example.test", True, cli)
+    assert _members(conn, f1) == []
+    rows = _owner_disabled_rows(conn)
+    assert len(rows) == 1 and rows[0]["actor_label"] == "cli"
+    assert _detail(rows[0]) == {"co_manager_user_id": cm1, "via": "owner_disabled"}
+    assert not fleet_db.set_user_disabled(conn, "ghost@example.test", True, cli)
 
 
 # ---- hard delete -------------------------------------------------------

@@ -39,6 +39,8 @@ Also changed (not in the original list): `set_device_location_checked` (permissi
 
 A non-live reassign wipes the previous owner's data, location and name but keeps the other co-managers, so they now manage the new owner's fresh frame.
 
+Follow-up 2026-11-02: D-09 replaced this. A reassign now removes all co-managers (one audit row each, via `reassign`), and disabling an owner removes the co-managers of their frames (via `owner_disabled`).
+
 ## Verification
 
 - `pytest server stub-server companion/test_console_locations.py -n auto`: 2744 passed, 4 skipped (root-permission skips).

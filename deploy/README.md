@@ -357,7 +357,8 @@ administrators only) or with `fleet_cli.py`. Nothing here deploys anything.
    shows a "retired" image) and **re-activate** it from the pending list; a
    re-activated frame is wiped of its previous owner's data and shows a new
    code. Reassigning a frame to another owner wipes the previous owner's data
-   too (the live frame, `state_path` `.`, is never wiped, only re-owned).
+   too (the live frame, `state_path` `.`, is never wiped, only re-owned) and
+   removes all of the frame's co-managers, each audited.
 6. **Hard deletion is CLI-only**: `$FLEET devices remove --mac <mac>` deletes a
    pending or retired frame's row and its pairing directory.
 
@@ -366,6 +367,9 @@ that is not the live frame it wipes the previous owner's data and
 re-provisions it. Console actions are written to the append-only audit log
 (Audit log page). The pairing and mutation throttles and the one-shot flash
 messages are kept in memory and reset when the companion restarts.
+Disabling a user (console or `$FLEET users disable`) removes the co-managers
+of the frames they own, audited once per user; re-enabling does not restore
+them.
 
 ## Ship the code
 

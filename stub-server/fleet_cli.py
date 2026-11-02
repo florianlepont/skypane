@@ -105,7 +105,8 @@ def cmd_users_list(args):
 def _set_disabled(args, disabled):
     conn = _open(args)
     with fleet_db.transaction(conn):
-        found = fleet_db.set_user_disabled(conn, args.email, disabled)
+        found = fleet_db.set_user_disabled(
+            conn, args.email, disabled, CLI_ACTOR)
         if found and disabled:
             row = fleet_db.get_user_by_email(conn, args.email)
             fleet_sessions.delete_sessions_for_user(conn, int(row["id"]))

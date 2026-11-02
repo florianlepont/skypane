@@ -449,7 +449,8 @@ def reassign_frame(
 
     A non-live frame loses the previous owner's data (config, history, poll
     state, gallery), location and name; MAC, secret and token are kept. The
-    live frame only changes owner and its files are not touched.
+    live frame only changes owner and its files are not touched. Every
+    co-manager of the frame is removed and audited.
     """
     first = fleet_db.get_device(conn, device_id)
     if first is None:
@@ -464,18 +465,14 @@ def reassign_frame(
                 raise NotFound("no such frame")
             _require_owner(conn, new_owner_user_id)
             old_owner = dev["owner_user_id"]
-            # The owner and co-manager sets must stay disjoint: drop the new
-            # owner's membership before the owner column changes (a trigger
-            # aborts the update otherwise). Other co-managers are kept.
-            removed = conn.execute(
-                "DELETE FROM device_co_managers WHERE device_id = ? AND user_id = ?",
-                (device_id, new_owner_user_id),
-            ).rowcount
-            if removed:
-                fleet_db.audit_append(
-                    conn, actor, ACTION_CO_MANAGER_REMOVE, "device", device_id, "ok",
-                    {"co_manager_user_id": new_owner_user_id, "via": "reassign"},
-                )
+            # A new owner starts with a fresh frame, so the whole co-manager
+            # set goes. This also keeps the owner and co-manager sets
+            # disjoint: the rows must be gone before the owner column changes
+            # (a trigger aborts the update otherwise).
+            removed = fleet_db.clear_co_managers(conn, device_id)
+            fleet_db.audit_co_manager_removals(
+                conn, actor, device_id, removed, "reassign"
+            )
             if dev["state_path"] == device_dirs.LIVE_STATE_PATH:
                 conn.execute(
                     "UPDATE devices SET owner_user_id = ? WHERE id = ?",

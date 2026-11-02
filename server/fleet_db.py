@@ -503,12 +503,49 @@ def list_users(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     return list(conn.execute("SELECT * FROM users ORDER BY id"))
 
 
-def set_user_disabled(conn: sqlite3.Connection, email: str, disabled: bool) -> bool:
-    cur = conn.execute(
-        "UPDATE users SET disabled = ? WHERE email = ?",
-        (1 if disabled else 0, normalize_email(email)),
-    )
-    return cur.rowcount > 0
+def _remove_owned_co_managers(
+    conn: sqlite3.Connection, user_id: int, actor: AuditActor
+) -> None:
+    """Clear and audit the co-managers of every frame the user owns.
+
+    Runs inside the caller's transaction; one audit row per removed user.
+    """
+    owned = [
+        str(r["id"]) for r in conn.execute(
+            "SELECT id FROM devices WHERE owner_user_id = ? ORDER BY id", (user_id,)
+        )
+    ]
+    for device_id in owned:
+        removed = clear_co_managers(conn, device_id)
+        audit_co_manager_removals(conn, actor, device_id, removed, "owner_disabled")
+
+
+def set_user_disabled(
+    conn: sqlite3.Connection,
+    email: str,
+    disabled: bool,
+    actor: AuditActor | None = None,
+) -> bool:
+    """Disable or enable a user by e-mail; no sessions, no guards.
+
+    Disabling an enabled user also removes the co-managers of the frames
+    they own (audited); re-enabling restores nothing.
+    """
+    with _atomic(conn):
+        row = conn.execute(
+            "SELECT id, disabled FROM users WHERE email = ?", (normalize_email(email),)
+        ).fetchone()
+        if row is None:
+            return False
+        conn.execute(
+            "UPDATE users SET disabled = ? WHERE id = ?",
+            (1 if disabled else 0, row["id"]),
+        )
+        if disabled and not row["disabled"]:
+            _remove_owned_co_managers(
+                conn, int(row["id"]), actor or AuditActor(None, "system", None)
+            )
+        return True
 
 
 def get_user_role(conn: sqlite3.Connection, user_id: int) -> str | None:
@@ -563,12 +600,15 @@ def set_user_disabled_guarded(
     actor_user_id: int | None,
     target_user_id: int,
     disabled: bool,
+    actor: AuditActor | None = None,
 ) -> bool:
     """Disable or re-enable a user; False for an unknown user.
 
     Disabling deletes the user's sessions in the same transaction (this
-    module is a leaf and cannot call the session store). The same
-    self-action and last-admin refusals as `set_user_role_guarded` apply.
+    module is a leaf and cannot call the session store). It also removes the
+    co-managers of the frames the user owns, audited once per removed user
+    under `actor`; re-enabling does not restore them. The same self-action
+    and last-admin refusals as `set_user_role_guarded` apply.
     """
     with _atomic(conn):
         if disabled:
@@ -576,12 +616,19 @@ def set_user_disabled_guarded(
                 raise SelfActionError("cannot disable yourself")
             if _is_active_admin(conn, target_user_id) and count_active_admins(conn) <= 1:
                 raise LastAdminError("cannot disable the last active admin")
+        prior = conn.execute(
+            "SELECT disabled FROM users WHERE id = ?", (target_user_id,)
+        ).fetchone()
         cur = conn.execute(
             "UPDATE users SET disabled = ? WHERE id = ?",
             (1 if disabled else 0, target_user_id),
         )
         if cur.rowcount > 0 and disabled:
             conn.execute("DELETE FROM sessions WHERE user_id = ?", (target_user_id,))
+            if prior is not None and not prior["disabled"]:
+                _remove_owned_co_managers(
+                    conn, target_user_id, actor or AuditActor(None, "system", None)
+                )
         return cur.rowcount > 0
 
 

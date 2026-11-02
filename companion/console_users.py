@@ -272,7 +272,8 @@ def handle_disable(h, m):
         return _unknown_id(h)
 
     def change(conn, actor_id, row):
-        fleet_db.set_user_disabled_guarded(conn, actor_id, user_id, True)
+        fleet_db.set_user_disabled_guarded(
+            conn, actor_id, user_id, True, actor=audit.actor_for(h))
         return {}, {"email": row["email"]}
 
     return _run_action(h, user_id, "user.disable", change, FLASH_DISABLED)
