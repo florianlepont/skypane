@@ -9,3 +9,8 @@ Steps = current number of taps/screens from sign-in on a phone.
 - F2 (P0, structure) The admin console is one tab of the everyday app.
   Owner expects an admin to land on a 100% admin space, with a way to reach
   their own frame views (their personal display) from it.
+- F3 (P0) The fleet table is unreadable (clipped columns on desktop, long
+  stacked cards on phone, big monospace names).
+- Decision D1 (owner): option A. An admin signs in on a 100% admin space
+  (fleet, users, ...) with a link to their own personal views (Home,
+  Display, Flights). No "Admin" tab inside the everyday app.
