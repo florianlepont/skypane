@@ -1,7 +1,7 @@
 ---
 phase: 60
 slug: device-co-management
-status: draft
+status: executed
 nyquist_compliant: false
 wave_0_complete: false
 created: 2026-11-01
@@ -65,12 +65,12 @@ created: 2026-11-01
 
 ## Wave 0 Requirements
 
-- [ ] `server/test_fleet_schema4.py` — migration, constraints, helpers, location rule, reassign/retire/remove cascade
-- [ ] `companion/test_co_managers.py` — HTTP behaviour (seeds via `fleet_console_support` plus a membership-row helper; `app_server_in_process`, `fx.user_cookie`/`fx.admin_cookie`, `fx.post`, `fx.audit_rows`)
-- [ ] `companion/test_browser_co_managers.py` — follow `test_browser_fleet_page.py` (`new_context`, `_login` from `companion/test_browser_ux_helpers.py`, `VIEWPORT_MIN_SUPPORTED`)
-- [ ] `test-support/matrix_rows_co_managers.py` and edits in `companion/test_access_matrix.py`
-- [ ] `stub-server/test_co_manager_live_frame.py` — live frame immutability
-- [ ] Edit three schema-3 assertions in `server/test_fleet_schema3.py`
+- [x] `server/test_fleet_schema4.py` — migration, constraints, helpers, location rule, reassign/retire/remove cascade
+- [x] `companion/test_co_managers.py` — HTTP behaviour (seeds via `fleet_console_support` plus a membership-row helper; `app_server_in_process`, `fx.user_cookie`/`fx.admin_cookie`, `fx.post`, `fx.audit_rows`)
+- [x] `companion/test_browser_co_managers.py` — follow `test_browser_fleet_page.py` (`new_context`, `_login` from `companion/test_browser_ux_helpers.py`, `VIEWPORT_MIN_SUPPORTED`)
+- [x] `test-support/matrix_rows_co_managers.py` and edits in `companion/test_access_matrix.py`
+- [x] `stub-server/test_co_manager_live_frame.py` — live frame immutability
+- [x] Edit three schema-3 assertions in `server/test_fleet_schema3.py`
 - [ ] Optional `fleet_console_support.py` helper to seed a co-manager
 
 Behaviour-over-source rule (`companion/test_suite_guards.py`): tests assert served HTML or browser state, never source text or `.planning/`; no test module imports another test module.
@@ -89,11 +89,17 @@ Behaviour-over-source rule (`companion/test_suite_guards.py`): tests assert serv
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
 - [ ] Feedback latency < 60s
 - [ ] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** the Wave 0 files exist and the full suite passed on every merged
+commit (8699 passed, coverage 96 %). Two sign-off items stay unticked on
+purpose: the feedback latency was not measured (the full suite takes about ten
+minutes; targeted runs are shorter), and `nyquist_compliant` stays `false`
+because that measurement is missing. The manual-only checks were done by the
+owner in production on 2026-11-02, except the ones listed as not itemised in
+`60-VERIFICATION.md`.
