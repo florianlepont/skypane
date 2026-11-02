@@ -39,3 +39,6 @@ Steps = current number of taps/screens from sign-in on a phone.
 
 ## Admin 4. Retire / reassign (current steps: ~4 — Admin, Fleet, find the
 ## frame card, open Reassign or Retire disclosure, pick owner/confirm)
+- Decision D4 (owner): the physical device is called "cadre" (frame), not
+  "écran". The button reads "Ajouter un cadre". The fleet page's own name
+  (F1) must differ from it: to settle.
