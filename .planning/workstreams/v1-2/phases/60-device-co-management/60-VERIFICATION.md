@@ -1,12 +1,9 @@
 ---
 phase: 60-device-co-management
 verified: 2026-11-01T00:00:00Z
-status: human_needed
+status: passed
+closed: 2026-11-02
 score: 4/4 roadmap criteria verified in code
-human_verification:
-  - test: "Owner go-live checklist in 60-HANDOFF.md (deploy after merge, live Orly frame check, accept rollback caveat)"
-    expected: "Live frame unchanged after migration to schema 4; previous release refuses schema 4 as documented"
-    why_human: "No merge or deploy was done; production behaviour and the rollback trade-off need the owner's decision"
 ---
 
 # Phase 60: Device Co-Management Verification
@@ -40,7 +37,7 @@ Initial verification, no previous VERIFICATION.md. Branch `milestone/v1.2-phase-
 
 ## Requirements
 
-AUTH-08 (co-managers): code-satisfied per criteria 1 to 4. The checkbox is intentionally left unchecked until the owner's go-live checks (see STATE).
+AUTH-08 (co-managers): code-satisfied per criteria 1 to 4, deployed, and ticked in `REQUIREMENTS.md` after the owner's production checks (see Human verification).
 
 ## Anti-patterns
 
@@ -48,7 +45,24 @@ No TBD/FIXME/XXX and no plan or phase IDs in code comments in the changed code (
 
 ## Human verification
 
-The owner must run the go-live checklist in 60-HANDOFF.md after merge. There is a rollback caveat: the previous release refuses schema 4.
+Done on 2026-11-02, after the deploys of #276, #277 and #279.
+
+- Read from the deploy logs: `fleet.db` went from schema 3 to 4 at the first
+  deploy (dry run line `would upgrade ... 3 -> 4`, then `upgrade ... 3 -> 4`);
+  the later deploys printed `nothing to do`. Services restarted and the
+  post-deploy probe passed each time. The server itself was not inspected.
+- Observed through the read-only battery-history export: the live Orly frame
+  kept waking hourly with the same battery, firmware and wake reason after a
+  co-manager was added to it.
+- Reported by the owner: the owner and admin flows tried with a non-admin
+  owner account on a test frame (the typed-address field, no invited-user list);
+  the fix for the lists hidden at 960 px and wider (#279) seen in the owner's
+  browser; the co-manager view checked on the live frame (shared mark on
+  Account, read-only card, 404 on the console), and "everything works".
+- Not itemised by the owner, so not claimed here: a schema-4 backup restore,
+  the explicit acceptance of the rollback caveat (the previous release refuses
+  schema 4, see `deploy/README.md`), the French wording review, and the
+  leave-the-frame flow on a throwaway frame.
 
 ## Gaps
 

@@ -115,6 +115,10 @@ hard delete remove every co-manager row and audit one removal per user.
 
 ## E. What stays with the owner
 
+> Superseded by section G (closeout, 2026-11-02): the phase was merged and
+> deployed, and the owner reported the production checks done. The list below
+> is the original go-live checklist, kept for the record.
+
 - Nothing was deployed or merged. PR #276 is for the owner to merge; CI deploys
   on merge to main.
 - Run the `activate.sh` dry run and confirm it prints
