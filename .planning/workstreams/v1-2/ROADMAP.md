@@ -43,6 +43,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [ ] **Phase 58: Second Hardware (Shortlist, Spike, Purchase, Validate)** - A second hardware type chosen after a driver spike and validated on a real unit.
 - [ ] **Phase 59: Comment-History Debt** - The comment-history guard debt is cleared or only shrinks.
 - [x] **Phase 60: Device Co-Management** - A frame keeps one primary owner and gains co-managers whom the owner or an admin can add. (9 plans, merged (#276, #277, #279, #282) and deployed by CI 2026-11-02; production checks reported done by the owner, see 60-HANDOFF.md)
+- [ ] **Phase 61: Companion UX and UI Overhaul (Admin and Users)** - Navigation, page structure, the admin console, the user view and the sign-in and invitation flows are reworked from observed friction and validated by the owner on a phone and a desktop, in English and French. (added 2026-11-02 at the owner's request; Phase 59 stays last)
 
 ## Phase Details
 
@@ -454,6 +455,23 @@ Plans:
 - [x] 60-09-PLAN.md — Full gate run, constraint diff guard and owner handoff
 **UI hint**: yes
 
+### Phase 61: Companion UX and UI Overhaul (Admin and Users)
+
+**Goal**: The companion is clear and pleasant to use for an administrator and for an invited user: navigation, page structure, the admin console, the user view and the sign-in and invitation flows are reworked from observed friction and validated by the owner on a real phone and a desktop, in English and French.
+**Depends on**: Phase 54, Phase 55, Phase 60 (all closed). Runs before Phase 59, which stays last.
+**Requirements**: UX-01, UX-02, UX-03, UX-04
+**Success Criteria** (what must be TRUE):
+
+  1. The owner's task-based walkthrough of the companion, as an administrator and as an invited user, on a phone and a desktop and in both languages, is recorded with each friction point ranked, and the changes made are traced to those findings.
+  2. Navigation and page structure are reworked against an updated design contract (the companion's design system), and the number of steps for each core task is recorded before and after.
+  3. An administrator completes the core console tasks without help: read the fleet state, invite a user, pair a frame, retire, reassign or re-activate a frame, add a co-manager and read the audit log. An invited user sees only their own frames, understands each frame's state at a glance and meets no administrator concept.
+  4. A user whose Auth0 email is not verified gets a message that says so instead of the "not invited" page, the first arrival of an invited user is guided, and sign-in errors say what to do next.
+  5. Both languages, the 360 px width and the 44 px tap targets hold, the existing browser tests stay green with new ones for the changed flows, and the owner validates on the deployed companion.
+
+**Plans**: TBD
+**Notes**: The extent of the structural change (how far navigation and pages may move, and whether the existing companion architecture stays as is) is settled in discuss-phase; no new runtime dependency is assumed. SEED-011 (distinct message for an unverified email) is absorbed by UX-04. SEED-012 (the admin invite creating the Auth0 account) stays an owner decision and is not part of this phase unless the owner brings it in. Phase 44 of v1.1 is the model for the walkthrough method.
+**UI hint**: yes
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -471,3 +489,4 @@ Plans:
 | 58. Second Hardware | v1.2 | 1/4 | In progress (58-01 done 2026-11-01): 58-01/58-02 executable, 58-03/58-04 blocked on purchase agreement | - |
 | 59. Comment-History Debt | v1.2 | 0/0 | Not started | - |
 | 60. Device Co-Management | v1.2 | 9/9 | Complete: merged (#276, #277, #279, #282) and deployed 2026-11-02; production checks reported done by the owner (see 60-HANDOFF.md) | 2026-11-02 |
+| 61. Companion UX and UI Overhaul (Admin and Users) | v1.2 | 0/0 | Not started | - |
