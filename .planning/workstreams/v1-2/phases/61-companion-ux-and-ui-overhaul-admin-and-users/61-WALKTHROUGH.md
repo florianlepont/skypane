@@ -42,3 +42,9 @@ Steps = current number of taps/screens from sign-in on a phone.
 - Decision D4 (owner): the physical device is called "cadre" (frame), not
   "écran". The button reads "Ajouter un cadre". The fleet page's own name
   (F1) must differ from it: to settle.
+- F8 (P1) Retire / Reassign / Re-activate open as inline disclosure
+  toggles under each frame; owner wants a modal (consistent with D3).
+
+## Admin 5. Add a co-manager (current steps: ~5 — Home as the admin, pick
+## the frame in the Frame picker, scroll to the Co-managers card, choose a
+## person, Add)
