@@ -16,6 +16,7 @@
 
 #include "api_client.h"
 #include "battery.h"
+#include "epd13in3e.h"
 #include "fault_inject.h"
 #include "led.h"
 #include "nvs_schema.h"
@@ -147,6 +148,15 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
     }
 
     fp_display_t disp;
+    if (timing_out) {
+        fp_wake_current_t cur = {
+            .seq = timing_out->seq,
+            .boot_ms = timing_out->boot_ms,
+            .wifi_ms = timing_out->wifi_ms,
+            .wifi_attempts = timing_out->wifi_attempts,
+        };
+        fp_api_set_wake_current(&cur);
+    }
     int64_t t_display = esp_timer_get_time();
     esp_err_t err = fp_api_get_display(boot_reason, &disp);
     if (timing_out) {
@@ -305,6 +315,8 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
     err = fp_panel_draw(buf);
     if (timing_out) {
         timing_out->draw_ms = elapsed_ms_since(t_draw);
+        timing_out->spi_ms = epd_spi_ms();
+        timing_out->tls_ms = fp_api_first_connect_ms();
     }
     heap_caps_free(buf);
 

@@ -42,6 +42,7 @@ typedef struct {
     uint32_t redraw;        /* 0 no draw, 1 drawn, 2 deferred by the guard */
     uint32_t spi_ms;        /* SPI transfer inside the draw; 0 until measured */
     uint32_t tls_ms;        /* first TLS connect; 0 until measured         */
+    uint32_t seq;           /* NVS boot counter of this wake, set by the caller */
 } fp_poll_timing_t;
 
 /* One wake's poll attempt: connect Wi-Fi, ensure a bearer token exists

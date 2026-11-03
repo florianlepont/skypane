@@ -337,6 +337,7 @@ void app_main(void)
     }
     uint32_t boot_count = nvs_increment_boot_count(nvs);
     s_boot_count = boot_count;
+    s_timing.seq = boot_count;
     nvs_commit(nvs);
     nvs_close(nvs);
 
