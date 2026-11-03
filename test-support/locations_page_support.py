@@ -28,3 +28,11 @@ def open_locations_page(page, base_url):
     with page.expect_navigation():
         page.evaluate(_SUBMIT_BLANK_ADD)
     page.locator("#new-name").wait_for(state="visible")
+    # The page change runs a cross-document view transition; until it ends,
+    # hit-testing lands on the root element instead of the page controls.
+    page.wait_for_function(
+        "() => { const e = document.querySelector('#new-name');"
+        " const r = e.getBoundingClientRect();"
+        " return document.elementFromPoint(r.left + r.width / 2,"
+        " r.top + r.height / 2) === e; }",
+        timeout=10000)
