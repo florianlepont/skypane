@@ -601,6 +601,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 - Phase 30 added (2026-09-21): Aspect rebuilt — one tile, three rows, one palette, the calendar absorbed (CFG-85, CFG-86); a `/gsd-sketch` round (accordion vs. segments) precedes planning; depends on Phase 29 so Display is not reworked twice.
 - Ops note (2026-09-21), not a phase: the companion's address `config-<ip>.nip.io` is to be replaced by a real domain the developer will buy (companion only; the device hostname stays on nip.io to avoid re-provisioning the frame). Recipe already in `deploy/Caddyfile`'s header: A record → VPS IP, the second site block's address, `SKYPANE_COMPANION_PUBLIC_HOST` in the env, `systemctl reload caddy`.
 - Phase 44 reordered: Companion walkthrough and focused bilingual polish moved ahead of the battery study by developer decision.
+- Phase 47.1 inserted after Phase 47: Wake-energy instrumentation and awake-time reduction (measured per-wake cost, model, then cut the awake time)
 
 ### Decisions
 
