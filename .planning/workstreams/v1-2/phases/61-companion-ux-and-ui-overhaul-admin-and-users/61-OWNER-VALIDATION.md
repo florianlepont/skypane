@@ -49,3 +49,7 @@ Larger redesigns (new design work, owner decision on scope):
   list of French airports, a search bar (Nominatim, external) and a "my
   position" button (browser geolocation, needs a permission prompt; check
   the Permissions-Policy header).
+- D20 (owner) Saved locations are removed: no Locations page in the
+  Console, a frame carries its own position chosen on the map. Expand-only
+  for the live frame (its position and responses must not change); the
+  existing locations table/column are not dropped by this phase.
