@@ -6225,7 +6225,7 @@ button.detection-location-save {
  * directly by the button's own padding — WCAG 2.5.5 in both axes at
  * every width. State is never colour-only: thumb position, aria-checked
  * and the state word all change together. */
-.switch {
+button.switch {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -6237,10 +6237,14 @@ button.detection-location-save {
   background: none;
   border: 0;
   border-radius: var(--radius-control);
+  box-shadow: none;
 }
 
-.switch:hover,
-.switch:active {
+/* button.switch (0,1,1) is declared after the generic button[type="submit"]
+ * rule and must stay so: the switch is a submit button, and without this
+ * the primary fill and shadow would paint a box behind the track. */
+button.switch:hover,
+button.switch:active {
   background: none;
   border: 0;
   transform: none;
