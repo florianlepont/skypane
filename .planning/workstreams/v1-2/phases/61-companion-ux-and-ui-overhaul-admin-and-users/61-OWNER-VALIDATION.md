@@ -40,3 +40,8 @@ Larger redesigns (new design work, owner decision on scope):
   Releases live in the Console.
 - D17 (owner) All of V1-V10 is done in this phase (not a separate phase).
   This needs an updated design contract and new plans before execution.
+- D18 (owner) The "Location and detection" tab uses a real OpenStreetMap map
+  (option A). This lifts the no-external-content rule for map tiles: the
+  CSP img-src needs the tile host, and a map script must be vendored
+  (first-party static file, no CDN). Attribution required. To specify in
+  the updated UI-SPEC.
