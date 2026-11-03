@@ -1,12 +1,11 @@
 """The Home page: answers whether the frame is alive, what it is
 showing, and what it has shown recently.
 
-Opens with one status header (one dot for the frame state, next update,
-for an administrator the battery, and the two native-POST switches for
-screen and quiet hours), then the current picture beside the recent
+Opens with one status header (one dot for the frame state, next update
+and the two native-POST switches for screen and quiet hours), then the current picture beside the recent
 flights. The dot is the shared frame-status dot; Home links to no Health
-page (Health is an administrator's Console page), and a plain user sees
-neither the battery tile nor the attention bar. A recent-flight row gets a
+page (Health is an administrator's Console page), and neither a user nor an
+administrator sees the battery tile or the attention bar here. A recent-flight row gets a
 thumbnail only when a real illustration file resolves for that
 airline, since a recognised name with no artwork file would otherwise
 404 as a broken image. The recent-flight rows and the current
@@ -662,7 +661,7 @@ def _frame_state_html(ctx):
     tone = status.dot_state
     detail_html = (
         '<p class="home-state__detail">%s</p>' % escape_html(detail)) if detail else ""
-    user = user_view.is_user_view()
+    user = user_view.is_personal_view()
     return (
         '<section class="home-state home-state--%s%s" aria-labelledby="home-frame-state">'
         '<div class="home-state__body"><div class="home-state__status">'
@@ -680,7 +679,7 @@ def _frame_state_html(ctx):
 def _attention_states():
     """The health states the attention row reads: a user's row follows
     the frame's own signals only, never the flight-data pipeline."""
-    if user_view.is_user_view():
+    if user_view.is_personal_view():
         return ("device_state", "battery_state")
     return ("device_state", "pipeline_state", "battery_state")
 
@@ -742,6 +741,6 @@ def render(ctx):
         + _recent_flights_html(rows, now, ctx.state_dir)
         + "</div>"
         + '<div class="home-facts">'
-        + ("" if user_view.is_user_view() else _action_needed_html(ctx))
+        + ("" if user_view.is_personal_view() else _action_needed_html(ctx))
         + "</div>"
     )

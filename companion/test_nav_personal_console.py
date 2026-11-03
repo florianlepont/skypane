@@ -118,8 +118,7 @@ def test_the_personal_navigation_is_identical_for_an_administrator_and_a_user(
     user_sidebar = _sidebar_anchors(user_page)
     admin_sidebar = _sidebar_anchors(admin_page)
     assert [text for _href, text in user_sidebar] == sidebar_labels
-    assert admin_sidebar[1:] == user_sidebar
-    assert admin_sidebar[0][0] == "/fleet"
+    assert admin_sidebar == user_sidebar
 
 
 def test_the_personal_navigation_never_links_console_pages_or_locations(served):
@@ -156,8 +155,7 @@ def test_the_console_navigation_lists_the_console_pages_for_the_frame_in_view(
         sidebar_labels[4], sidebar_labels[5], sidebar_labels[6], sidebar_labels[7]]
 
     sidebar = _sidebar_anchors(page)
-    assert [text for _href, text in sidebar][1:] == sidebar_labels
-    assert sidebar[0][0] == "/"
+    assert [text for _href, text in sidebar] == sidebar_labels
 
 
 @pytest.mark.parametrize("page", ["/health", "/device", "/airlines/manage"])
@@ -168,8 +166,9 @@ def test_console_frame_pages_render_in_the_console_chrome_for_each_frame(served,
         assert status == 200, path
         sidebar = _nav(markup, '<nav class="sidebar-nav"')
         assert "Administration" in sidebar and "Frame tools" in sidebar
-        assert 'class="space-switch space-switch--sidebar" href="/"' in sidebar
-        assert ">My frame<" in sidebar
+        aside = markup[markup.index("<aside"):markup.index("</aside>")]
+        assert 'class="space-switch__segment" href="/"' in aside
+        assert ">My frame<" in aside
         tools = {
             text: href for href, text in _anchors(sidebar)
             if re.sub(r"^/devices/[^/]+", "", href) in (

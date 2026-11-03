@@ -92,18 +92,18 @@ def test_a_flight_with_no_picture_shows_no_action(unpictured):
     ("en", "Airline unknown", "Name this airline"),
     ("fr", "Compagnie inconnue", "Nommer cette compagnie"),
 ])
-def test_an_unresolved_airline_reads_unknown_with_its_resolve_link(pictured, lang, unknown, resolve):
-    """an unresolved airline reads the italic unknown label with the one-hop resolve link under
-    it in the card head; a named airline carries neither"""
-    cards = _cards(_flights_doc(pictured, lang))
+def test_an_unresolved_airline_reads_unknown_with_no_resolve_link(pictured, lang, unknown, resolve):
+    """an unresolved airline reads the italic unknown label in the card head and offers no link
+    to name it, for anyone; a named airline carries neither"""
+    doc = _flights_doc(pictured, lang)
+    cards = _cards(doc)
     identity = cards["OBS412"].select_one(".history-card__head .history-card__id")
     assert identity.select_one(".history-card__airline--unknown").text() == unknown
-    link = identity.select_one(".history-card__resolve a")
-    assert link.text() == resolve
-    assert link.attrs["href"] == "/airlines?resolve=OBS"
+    assert not identity.select("a")
+    assert not [a for a in doc.select("a") if "resolve=" in a.attrs.get("href", "")]
+    assert resolve not in doc.text()
     named = cards["TVF72YL"]
     assert not named.select(".history-card__airline--unknown")
-    assert not named.select(".history-card__resolve")
 
 
 @pytest.mark.parametrize("lang,placeholder", [("en", "No illustration"), ("fr", "Pas d’illustration")])

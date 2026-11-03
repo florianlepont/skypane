@@ -445,8 +445,6 @@ def display_picker_html(ctx):
     finally:
         conn.close()
     current = None if row["location_id"] is None else int(row["location_id"])
-    if is_admin and not options:
-        return ""
     return locations_page.picker_html(
         options, current, _settings_form_id(), _dirty_section_attr())
 

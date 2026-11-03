@@ -279,7 +279,9 @@ def test_console_renders_in_french(new_context, app_server_in_process):
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + "/fleet")
-        nav = page.locator("nav").first.inner_text()
+        nav = page.locator("nav.sidebar-nav").inner_text()
+        assert page.locator("nav.space-switch:visible").inner_text().split() == [
+            "Console", "Mon", "cadre"]
         for label in ("Flotte", "Utilisateurs", "Journal d’audit"):
             assert label in nav, label
         assert "Lieux" not in nav

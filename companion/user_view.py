@@ -36,6 +36,14 @@ def is_user_view():
     return _role() == access.USER
 
 
+def is_personal_view():
+    """True when the page being rendered is a personal page seen by a signed-in
+    principal: a user, or an administrator looking at the same personal
+    pages. Both get the same body; the administration surface lives in the
+    Console. An unset principal (a bare render) keeps the unreduced body."""
+    return _role() is not None
+
+
 def platform_visible():
     """True when platform-wide sections may render: always, except for a
     user principal."""

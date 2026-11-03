@@ -661,8 +661,8 @@ def test_home_paints_nothing_outside_the_viewport_or_its_cards(new_context, serv
 @pytest.mark.parametrize("width", [360, 390, 1280])
 def test_home_prioritises_the_frame_signal_and_keeps_its_actions_usable(
         new_context, server, width, lang):
-    """The approved Direction B sequence is current frame, recent flights, then compact
-    facts at every supported delivery width.  Retired healthy dashboard blocks and the day
+    """The approved Direction B sequence is current frame, then recent flights (the facts
+    region stays empty on the personal Home) at every supported delivery width.  Retired healthy dashboard blocks and the day
     band never return, and every retained Home link can receive a visible keyboard focus."""
     context = new_context(viewport={"width": width, "height": 844})
     try:
@@ -683,9 +683,14 @@ def test_home_prioritises_the_frame_signal_and_keeps_its_actions_usable(
             " band: !!document.querySelector('.day-band'),"
             " scrollWidth: document.documentElement.scrollWidth"
             "})")
-        assert hierarchy["current"] < hierarchy["flights"] < hierarchy["facts"], (
-            "expected current frame -> recent flights -> compact facts at %dpx/%s, got %r"
+        # The facts region the refresh loop swaps stays in the page but is empty for everyone
+        # (no battery tile, no attention bar on the personal Home), so it has no box.
+        assert hierarchy["current"] < hierarchy["flights"], (
+            "expected current frame -> recent flights at %dpx/%s, got %r"
             % (width, lang, hierarchy))
+        assert page.locator(".home-facts").count() == 1
+        assert page.locator(".home-facts").inner_text().strip() == "", (
+            "the personal Home shows no battery or attention content at %dpx/%s" % (width, lang))
         assert not hierarchy["strip"] and not hierarchy["tiles"] and not hierarchy["band"], (
             "retired Home diagnostics returned at %dpx/%s: %r" % (width, lang, hierarchy))
         assert hierarchy["scrollWidth"] <= width, (

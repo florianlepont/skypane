@@ -19,6 +19,8 @@
  *     the shown aircraft type of an airline sheet
  *     (a.airline-sheet__type[aria-current]),
  *     the checked runway/look cards and look dot, the editing look frame)
+ *   - the current segment of the space switch
+ *     (.space-switch__segment--current)
  *   - switch-on state (.switch[aria-checked="true"])
  *   - stat tiles (the top rule and icon of .stat-tile)
  *   - the special-look add button's dashed plus
@@ -659,40 +661,51 @@ a:hover {
   border-color: var(--color-accent);
 }
 
-/* The admin-only link between the Console and the personal space. In the phone
- * header it sits between the wordmark and the gear, and the gear then
- * stops pushing itself right; the narrower gap keeps the header on one
- * line at 360px. */
+/* The admin-only two-segment switch between the Console and the personal
+ * space. The track is 60px high (8px padding around two 44px segments);
+ * the current segment is filled, carries a check glyph and aria-current, so
+ * it never relies on colour alone. The phone strip scrolls with the page;
+ * the sidebar copy is the first element of the sidebar. */
 .space-switch {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 var(--space-md);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-  color: var(--color-accent);
-  text-decoration: none;
-  white-space: nowrap;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  background: var(--color-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
 }
 
-.space-switch:hover {
+.space-switch__segment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 var(--space-sm);
+  background: var(--color-dominant);
+  color: var(--color-text);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  white-space: nowrap;
+  border-radius: var(--radius-control);
+}
+
+.space-switch__segment:hover {
   color: var(--color-accent-hover);
 }
 
-.site-header .space-switch {
-  margin-left: auto;
+.space-switch__segment--current,
+.space-switch__segment--current:hover {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
-.site-header .space-switch + .site-nav-toggle {
-  margin-left: 0;
-}
-
-.site-header:has(.space-switch) {
-  column-gap: var(--space-sm);
-}
-
-.space-switch--sidebar {
-  padding: 0 var(--space-sm);
+.space-strip {
+  padding: 0 var(--space-md);
+  margin-bottom: var(--space-md);
 }
 
 /* flex-basis: 100% (not position: absolute) forces this onto its own
@@ -3006,10 +3019,6 @@ table.data-table--registry .cell-inline-sep {
   margin: 0 var(--space-xs);
 }
 
-.cell-unresolved-link {
-  margin-left: var(--space-sm);
-}
-
 /* .history-cards ~ .data-table-wrap (a sibling combinator) scopes this
  * toggle to History's own pair only — Airlines/Health also reuse
  * .data-table-wrap but never render a sibling .history-cards. */
@@ -3112,14 +3121,6 @@ table.data-table--registry .cell-inline-sep {
 
 .history-card__airline--unknown {
   font-style: italic;
-}
-
-.history-card__resolve {
-  display: block;
-}
-
-.history-card__resolve .cell-unresolved-link {
-  margin-left: 0;
 }
 
 /* An icon-only link with a real 44px box, not a padded glyph. */
@@ -4872,7 +4873,8 @@ a.airline-card {
     border-top: 1px solid var(--color-border);
   }
 
-  .site-header {
+  .site-header,
+  .space-strip {
     display: none;
   }
 

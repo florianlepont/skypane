@@ -143,12 +143,14 @@ def test_admin_sidebar_lists_the_administration_group_in_order(served):
     assert status == 200
     sidebar = _sidebar(page)
     assert _unscoped(_hrefs(sidebar)) == [
-        "/", "/fleet", "/users", "/health", "/device", "/airlines/manage", "/audit",
+        "/fleet", "/users", "/health", "/device", "/airlines/manage", "/audit",
         "/update", "/account"]
     group = _console_group(sidebar)
     assert "Administration" in group
     assert re.search(r'href="/update">[^<]*(<[^>]*>)*Releases<', sidebar)
-    assert re.search(r'class="space-switch[^"]*" href="/"[^>]*>My frame<', sidebar)
+    aside = page[page.index("<aside"):page.index("</aside>")]
+    assert re.search(
+        r'class="space-switch__segment" href="/"[^>]*>(<[^>]*>)*My frame<', aside)
     tools = sidebar[sidebar.index("nav-group--frame-tools"):]
     tools = tools[:tools.index("</div>")]
     assert "Frame tools" in tools
@@ -172,7 +174,7 @@ def test_the_console_sidebar_lists_the_console_pages_for_the_frame_in_view(
     sidebar = _sidebar(page)
     assert _hrefs(_console_group(sidebar)) == ["/fleet", "/users"]
     assert _unscoped(_hrefs(sidebar)) == [
-        "/", "/fleet", "/users", "/health", "/device", "/airlines/manage", "/audit",
+        "/fleet", "/users", "/health", "/device", "/airlines/manage", "/audit",
         "/update", "/account"]
 
 
@@ -218,14 +220,16 @@ def test_my_views_pages_of_an_admin_carry_no_admin_tab(served):
     assert "Admin<" not in page and "Administration" not in _sidebar(page)
 
 
-def test_the_switch_is_in_the_header_for_an_admin_and_absent_for_a_user(served):
+def test_the_switch_is_under_the_header_for_an_admin_and_absent_for_a_user(served):
     server, cookies = served
     _status, console = _get(server, cookies["admin"], "/fleet")
     header = console[console.index('<header class="site-header"'):console.index("</header>")]
-    assert re.search(r'class="space-switch space-switch--header" href="/"', header)
+    assert "space-switch" not in header
+    strip = console[console.index('<div class="space-strip">'):console.index("<main")]
+    assert re.search(r'class="space-switch__segment" href="/"', strip)
     _status, mine = _get(server, cookies["admin"], server.frame_prefix + "/")
-    header = mine[mine.index('<header class="site-header"'):mine.index("</header>")]
-    assert re.search(r'href="/fleet"[^>]*>Console<', header)
+    strip = mine[mine.index('<div class="space-strip">'):mine.index("<main")]
+    assert re.search(r'href="/fleet"[^>]*>(<[^>]*>)*Console<', strip)
     _status, account = _get(server, cookies["owner"], "/account")
     assert "space-switch" not in account
 

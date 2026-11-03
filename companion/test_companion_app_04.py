@@ -435,13 +435,14 @@ def test_home_page_renders_widgets(app04_server, session_cookie):
             'class="home-columns home-picture-row home-signal-grid"',
             'id="home-current-frame"',
             "Recent flights", 'href="/flights"',
-            'class="home-battery ',
             'class="nav-group"',
             'aria-labelledby="home-frame-state"',
             'action="%s"' % app_module.QUICK_DISPLAY_ROUTE,
             'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE,
             "data-loaded-at="):
         assert needle in text, "expected %r in the Home page" % needle
+    assert 'class="home-battery' not in text and 'class="home-action' not in text, (
+        "expected no battery tile or attention bar on the personal Home")
     assert text.count("Frame state") == 1, "expected exactly one merged frame-state card"
     assert 'class="preview-frame"' in text or "Nothing rendered yet." in text, (
         "expected either the preview-frame figure or its empty state on Home")

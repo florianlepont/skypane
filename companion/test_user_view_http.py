@@ -341,10 +341,10 @@ def test_user_home_has_no_led_switch_and_no_refresh_trigger(rig):
     assert "/quick/display" in home and "/quick/quiet-hours" in home
 
 
-def test_user_home_has_one_dot_and_no_battery_tile_or_attention_bar(rig):
-    """a user's Home reads the frame state from one dot with its word, in the order switcher,
-    status card, picture, recent flights; the battery tile and the attention bar belong to the
-    administrator's Home only"""
+def test_home_has_one_dot_and_no_battery_tile_or_attention_bar_for_either_role(rig):
+    """a user's and an administrator's Home read the frame state from one dot with its word, in
+    the order switcher, status card, picture, recent flights; neither shows the battery tile or
+    the attention bar (the battery lives on the Console Health page)"""
     mark_checked_in(rig.state_dir, rig.fleet.a1, source_fault=True)
     path = "/devices/%s/" % rig.fleet.a1
     user_home = rig.page(path, "a")
@@ -357,7 +357,12 @@ def test_user_home_has_one_dot_and_no_battery_tile_or_attention_bar(rig):
     assert user_home.index("home-state ") < user_home.index("home-current-frame")
     assert user_home.index("home-current-frame") < user_home.index("home-flights")
     assert user_home.index("home-state ") < user_home.index("home-flights")
-    assert parse_html(admin_home).select(".home-battery")
+    admin_root = parse_html(admin_home)
+    assert not admin_root.select(".home-battery") and not admin_root.select(".home-action")
+    assert len(admin_root.select(".home-state__dot")) == 1
+    # The battery is read on the administrator's Console Health page instead.
+    admin_health = rig.page("/devices/%s/health" % rig.fleet.a1, "admin")
+    assert "Battery" in admin_health
 
 
 def test_health_is_the_administrators_alone_and_keeps_its_platform_rows(rig):

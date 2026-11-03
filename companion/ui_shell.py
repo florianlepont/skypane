@@ -53,6 +53,7 @@ from companion.ui_nav import (
     REFRESH_RECONNECTING_ATTR,
     REFRESH_RECONNECTING_TEXT,
     REFRESH_TOKEN_ATTR,
+    PERSONAL_SPACE,
     TAB_BAR_BODY_CLASS,
     _lang_form_html,
     _logout_form_html,
@@ -61,6 +62,7 @@ from companion.ui_nav import (
     _theme_form_html,
     is_admin_principal,
     is_user_principal,
+    current_space,
     sidebar_nav,
     space_switch_html,
     user_brand_href,
@@ -276,14 +278,14 @@ PAGE_SHELL_TEMPLATE = (
     '<div class="dashboard-shell">\n'
     '<aside class="dashboard-sidebar">\n'
     '<span class="brand">{brand_inner_sidebar}</span>\n'
-    "{sidebar}\n"
+    "{sidebar_switch}{sidebar}\n"
     "{sidebar_footer}\n"
     "</aside>\n"
     '<header class="site-header">\n'
     '<span class="brand">{brand_inner_header}</span>\n'
-    "{space_switch}"
     "{mobile_nav}\n"
     "</header>\n"
+    "{space_strip}"
     '<main class="page-content dashboard-main" id="{main_id}" tabindex="-1">\n'
     "{frame_switcher}{flash}\n{banner}\n{body}\n"
     "</main>\n"
@@ -510,13 +512,19 @@ def page_shell(
     brand_inner_header = (
         '{brand_mark}<span class="site-title">{site_title}</span>'
     ).format(brand_mark=brand_mark_html, site_title=escaped_site_title)
-    if is_user_principal():
-        # The wordmark leads to the frame's Home when the user can open it,
-        # else to Account.
+    if is_user_principal() or (
+            is_admin_principal() and current_space(active) == PERSONAL_SPACE):
+        # The wordmark leads to the frame's Home when the viewer can open it,
+        # else to Account; an administrator's personal pages match a user's.
         brand_link = (
             '<a class="brand__link" href="%s">%%s</a>' % escape_html(user_brand_href()))
         brand_inner_sidebar = brand_link % brand_inner_sidebar
         brand_inner_header = brand_link % brand_inner_header
+    # The same switch twice: a strip under the header below 960px and the top
+    # of the sidebar from 960px; the media query hides the unused copy.
+    space_strip_html = space_switch_html(active)
+    if space_strip_html:
+        space_strip_html = '<div class="space-strip">%s</div>\n' % space_strip_html
     return PAGE_SHELL_TEMPLATE.format_map({
         "lang": escape_html(resolved_lang),
         "ui_theme": escape_html(resolved_theme),
@@ -531,7 +539,8 @@ def page_shell(
         "icon_defs": ICON_DEFS_HTML,
         "sidebar": sidebar_html,
         "sidebar_footer": sidebar_footer_html,
-        "space_switch": space_switch_html(active, "header"),
+        "sidebar_switch": space_switch_html(active),
+        "space_strip": space_strip_html,
         "mobile_nav": mobile_nav_html,
         "main_id": SKIP_LINK_TARGET_ID,
         "frame_switcher": (

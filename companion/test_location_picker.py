@@ -138,9 +138,10 @@ def test_an_admin_picker_lists_the_frame_owners_and_ownerless_locations(rig):
     assert "Neighbour Place" not in body
 
 
-def test_an_admin_display_without_any_location_has_no_picker(rig):
+def test_an_admin_display_without_any_location_shows_the_same_note_as_a_user(rig):
     body = rig.display(rig.fleet.a1, "admin")
-    assert PICKER_ID not in body and "No location chosen." not in body
+    assert PICKER_ID not in body and "No location chosen." in body
+    assert "No location chosen." in rig.display(rig.fleet.a1, "a")
     assert "Manage locations" not in body
 
 

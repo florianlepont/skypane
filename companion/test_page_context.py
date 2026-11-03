@@ -159,9 +159,10 @@ def test_coerce_rejects_an_unknown_field_by_name():
 # ==========================================================================
 
 
-def test_health_markup_builds_only_on_home_and_health(app_server_in_process, monkeypatch):
+def test_health_markup_builds_only_on_health(app_server_in_process, monkeypatch):
     """with health_state_from_signals wrapped by a counter: GET /display, /device, /flights,
-    /airlines build zero markup; GET / and /health build exactly one; health_signals runs
+    /airlines and / (Home carries no health markup for anyone) build zero markup; GET /health
+    builds exactly one; health_signals runs
     exactly once on every one of the six tab routes, whether or not the route reads markup"""
     server = app_server_in_process
     efficiency_probe.seed_history(server.state_dir)
@@ -200,7 +201,7 @@ def test_health_markup_builds_only_on_home_and_health(app_server_in_process, mon
         assert len(signals_calls) == 1, (
             "expected exactly one health_signals() call for GET %s, got %d"
             % (route, len(signals_calls)))
-        expected_state_calls = 1 if route in (layout.HOME_ROUTE, layout.HEALTH_ROUTE) else 0
+        expected_state_calls = 1 if route == layout.HEALTH_ROUTE else 0
         assert len(state_calls) == expected_state_calls, (
             "expected %d health_state_from_signals() call(s) for GET %s, got %d"
             % (expected_state_calls, route, len(state_calls)))

@@ -167,10 +167,12 @@ def test_user_home_attention_ignores_pipeline_state():
     ctx = page_context.coerce({"health_state": {
         "device_state": "ok", "pipeline_state": "error", "battery_state": "ok"}})
     _as("admin")
-    assert home_page._needs_attention(ctx) is True
+    assert home_page._needs_attention(ctx) is False
     _as("user")
     assert home_page._needs_attention(ctx) is False
     ctx.health_state["battery_state"] = "warn"
+    assert home_page._needs_attention(ctx) is True
+    _as("admin")
     assert home_page._needs_attention(ctx) is True
 
 

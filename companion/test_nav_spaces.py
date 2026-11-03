@@ -41,10 +41,12 @@ def test_admin_personal_sidebar_follows_the_spec():
     sidebar = layout.sidebar_nav("home", health_alert="warn", device_config={})
     prefix = "/devices/abc123"
     assert _hrefs(sidebar) == [
-        "/fleet", prefix + "/", prefix + "/flights", prefix + "/detection",
+        prefix + "/", prefix + "/flights", prefix + "/detection",
         prefix + "/display", prefix + "/airlines", "/account"]
-    assert sidebar.index('class="space-switch') < sidebar.index('href="%s/"' % prefix)
-    assert ">Console<" in sidebar
+    # The switch is its own landmark above the sidebar navigation, never inside it.
+    assert "space-switch" not in sidebar
+    switch = ui_nav.space_switch_html("home")
+    assert _hrefs(switch.replace("space-switch__segment", "x")) == ["/fleet", "/"]
     assert "Advanced" not in sidebar and "Administration" not in sidebar
     for route in ("/update", "/health", "/device"):
         assert 'href="%s"' % route not in sidebar
@@ -57,9 +59,9 @@ def test_admin_console_sidebar_follows_the_spec():
     sidebar = layout.sidebar_nav("users", health_alert="error", device_config={})
     prefix = "/devices/abc123"
     assert _hrefs(sidebar) == [
-        "/", "/fleet", "/users", prefix + "/health", prefix + "/device",
+        "/fleet", "/users", prefix + "/health", prefix + "/device",
         prefix + "/airlines/manage", "/audit", "/update", "/account"]
-    assert ">My frame<" in sidebar and ">Administration<" in sidebar
+    assert "space-switch" not in sidebar and ">Administration<" in sidebar
     assert ">Frame tools<" in sidebar and "Advanced" not in sidebar
     assert sidebar.count("sidebar-link--active") == 1
     assert 'href="/users" aria-current="page"' in sidebar
