@@ -213,6 +213,10 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
                 esp_err_t apply_err = fp_ota_apply(&disp.fw, &ota_fail);
                 if (apply_err == ESP_OK) {
                     ESP_LOGI(TAG, "ota switched version=%s restarting", disp.fw.version);
+                    /* This restart does not pass through app_main.c's
+                     * enter_deep_sleep(), so no previous-wake record is
+                     * written for this wake, and the restart reinitialises
+                     * the RTC area: the next wake sends no p_ keys. */
                     /* esp_restart() is a soft reset, not deep sleep: ESP-IDF
                      * re-runs the C runtime init for the .rtc.data segment on
                      * this kind of reset, so panel.c's RTC_DATA_ATTR guard

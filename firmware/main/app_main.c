@@ -47,6 +47,7 @@
 #include "sleep_decision.h"
 #include "state_machine.h"
 #include "wake_guard.h"
+#include "wake_record.h"
 #include "wifi.h"
 
 /* fp_fault_screen_render()'s buffer contract must match the panel's own
@@ -84,6 +85,12 @@ static const char *TAG = "skypane";
  * by static storage duration - each wake is a fresh boot, so there is no
  * stale value from a previous wake to worry about. */
 static fp_poll_timing_t s_timing;
+
+/* Boot counter of this wake (0 until NVS is read) and the outcome token the
+ * sleep exit stores in the previous-wake record: "ok" or the failure step.
+ * Both are only read by enter_deep_sleep(). */
+static uint32_t s_boot_count;
+static const char *s_outcome = "unknown";
 
 static fp_wake_cause_t wake_cause_of(esp_sleep_wakeup_cause_t cause)
 {
@@ -127,6 +134,16 @@ static uint32_t nvs_increment_boot_count(nvs_handle_t nvs)
  * idempotent), then arm the timer and go. */
 static void __attribute__((noreturn)) enter_deep_sleep(uint32_t seconds)
 {
+    /* Previous-wake record for the next wake's X-Wake-Stats header. It is
+     * written here, the one place every sleeping path passes, and lives in
+     * RTC memory: no flash write, no request, no wait. */
+    fp_wake_record_t rec;
+    fp_wake_record_encode(&rec, s_boot_count, fp_wake_elapsed_ms(),
+                          s_timing.display_ms, s_timing.download_ms,
+                          s_timing.draw_ms, s_timing.spi_ms, s_timing.tls_ms,
+                          s_timing.redraw, s_outcome);
+    fp_wake_record_store(&rec);
+
     fp_wifi_stop();
     fp_panel_before_sleep(seconds);
     esp_sleep_enable_timer_wakeup((uint64_t)seconds * 1000000ULL);
@@ -153,9 +170,13 @@ static void log_wake_timing(void)
     ESP_LOGI("fp_diag",
              "wake timing total_ms=%" PRIu32 " wifi_ms=%" PRIu32
              " setup_ms=%" PRIu32 " display_ms=%" PRIu32
-             " download_ms=%" PRIu32 " draw_ms=%" PRIu32,
+             " download_ms=%" PRIu32 " draw_ms=%" PRIu32 " bt=%" PRIu32
+             " att=%" PRIu32 " rd=%" PRIu32 " sp=%" PRIu32
+             " tls=%" PRIu32 " out=%s",
              fp_wake_elapsed_ms(), s_timing.wifi_ms, s_timing.setup_ms,
-             s_timing.display_ms, s_timing.download_ms, s_timing.draw_ms);
+             s_timing.display_ms, s_timing.download_ms, s_timing.draw_ms,
+             s_timing.boot_ms, s_timing.wifi_attempts, s_timing.redraw,
+             s_timing.spi_ms, s_timing.tls_ms, s_outcome);
 }
 
 /* Draws the firmware-local NO CONNECTION hold screen on the 2nd+
@@ -200,10 +221,12 @@ static void maybe_draw_fault_screen(const char *step, uint8_t next_backoff_n)
 
     if (err == ESP_OK) {
         fp_nvs_set_str(FP_NVS_IMAGE_HASH, FP_FAULT_SCREEN_HASH);
+        s_timing.redraw = 1;
         ESP_LOGI("fp_diag", "fault screen drawn step=%s backoff_n=%u", step, next_backoff_n);
     } else if (err == ESP_ERR_TIMEOUT || err == ESP_ERR_INVALID_STATE) {
         /* Deferred by the panel guard, not a failure (PROTOCOL.md §3) -
          * do NOT write the sentinel, so the next failing wake retries. */
+        s_timing.redraw = 2;
         ESP_LOGI("fp_diag", "fault screen deferred err=%s", esp_err_to_name(err));
     } else {
         ESP_LOGW("fp_diag", "fault screen failed err=%s", esp_err_to_name(err));
@@ -218,6 +241,7 @@ static void maybe_draw_fault_screen(const char *step, uint8_t next_backoff_n)
  * missing NVS handle must never keep the radio on. */
 static void __attribute__((noreturn)) fail_and_sleep(const char *step)
 {
+    s_outcome = step;
     nvs_handle_t nvs;
     uint8_t backoff_n = 0;
     esp_err_t err = nvs_open(FP_NVS_NAMESPACE, NVS_READWRITE, &nvs);
@@ -245,6 +269,7 @@ static void __attribute__((noreturn)) fail_and_sleep(const char *step)
 static void __attribute__((noreturn)) nvs_fail_and_sleep(const char *step, esp_err_t err)
 {
     uint32_t sleep_s = fp_nvs_fail_sleep_s();
+    s_outcome = step;
     ESP_LOGE("fp_boot", "nvs unusable err=%s", esp_err_to_name(err));
     ESP_LOGW(TAG, "poll fail step=%s backoff_n=%u sleep_s=%" PRIu32, step,
              0u, sleep_s);
@@ -311,6 +336,7 @@ void app_main(void)
         nvs_fail_and_sleep("nvs", err);
     }
     uint32_t boot_count = nvs_increment_boot_count(nvs);
+    s_boot_count = boot_count;
     nvs_commit(nvs);
     nvs_close(nvs);
 
@@ -383,6 +409,7 @@ void app_main(void)
     uint8_t hash_skip = result == FP_POLL_OK_UNCHANGED ? 1 : 0;
     ESP_LOGI(TAG, "poll ok sleep_s=%" PRIu32 " hash_skip=%u",
              plan.sleep_s, hash_skip);
+    s_outcome = "ok";
     log_wake_timing();
     /* The rollback-safety call site: a trial image is confirmed only
      * after this wake's poll has already succeeded and only right
