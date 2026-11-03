@@ -437,6 +437,7 @@ _STATUS_DOT_CLASSES = {
     "warn": "dot--warn",
     "error": "dot--error",
     "off": "dot--off",
+    "hollow": "dot--hollow",
 }
 _DEFAULT_STATUS_DOT_CLASS = _STATUS_DOT_CLASSES["warn"]
 
@@ -558,6 +559,11 @@ ICON_IDS = ICON_IDS + (
 ICON_IDS = ICON_IDS + (
     "icon-pencil",
     "icon-plus",
+)
+
+# Three stacked dots, for a row's actions menu button.
+ICON_IDS = ICON_IDS + (
+    "icon-more-vertical",
 )
 
 # An outlined "i" in a circle, for the small info buttons that open a
@@ -777,6 +783,11 @@ ICON_DEFS_HTML = (
     '<symbol id="icon-pencil" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M13.5 3.5l3 3L7 16H4v-3z"/><path d="M11.5 5.5l3 3"/>'
+    "</symbol>"
+    '<symbol id="icon-more-vertical" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<path d="M10 4.5v.01M10 10v.01M10 15.5v.01"/>'
     "</symbol>"
     '<symbol id="icon-plus" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
