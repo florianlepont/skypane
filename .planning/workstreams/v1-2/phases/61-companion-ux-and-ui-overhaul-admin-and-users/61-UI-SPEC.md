@@ -1,7 +1,7 @@
 ---
 phase: 61
 slug: companion-ux-and-ui-overhaul-admin-and-users
-status: draft
+status: approved
 reviewed_at: 2026-11-02
 revision: 2
 revision_date: 2026-11-03
