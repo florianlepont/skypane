@@ -55,6 +55,9 @@ MESSAGES = {
     "common.undo": "Annuler",
     "common.see_health": "Voir l’état",
 
+    # The shared modal dialog's close control (companion/ui_modal.py).
+    "common.close": "Fermer",
+
     # --- Flash banners ---------------------------------------------
     "common.screen_switched_on_the_frame_will_wake_up_and":
         "Écran allumé — le cadre va se réveiller et afficher une image "
