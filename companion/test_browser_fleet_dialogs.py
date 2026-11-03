@@ -154,8 +154,11 @@ def test_escape_closes_a_confirm_and_returns_focus_to_the_row_menu_button(
         _open_menu_item(page, "Kitchen", "Retire")
         page.keyboard.press("Escape")
         assert not dialog.evaluate("d => d.open")
-        assert page.evaluate(
-            "() => document.activeElement.classList.contains('row-menu__toggle')")
+        # Focus goes back to the menu button when the dialog's close event
+        # fires, which can land a frame after Escape returns.
+        page.wait_for_function(
+            "() => document.activeElement.classList.contains('row-menu__toggle')",
+            timeout=5000)
         assert _device(server, seed.owned_id) is not None
     finally:
         context.close()
@@ -177,8 +180,9 @@ def test_tab_stays_inside_the_dialog_and_escape_returns_focus_to_the_trigger(
             assert page.evaluate(_ACTIVE_IN, handle)
         page.keyboard.press("Escape")
         assert not page.locator(ADD).evaluate("d => d.open")
-        assert page.evaluate(
-            "() => document.activeElement.classList.contains('page-header__action')")
+        page.wait_for_function(
+            "() => document.activeElement.classList.contains('page-header__action')",
+            timeout=5000)
     finally:
         context.close()
 
