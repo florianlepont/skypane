@@ -56,3 +56,6 @@ Larger redesigns (new design work, owner decision on scope):
 - D21 (owner, answers R2-10) A user has no Health page: the status dot on
   Home is enough. When the dot is amber, a notification gives more
   information and offers to contact an administrator (mechanism to settle).
+- D22 (owner) Contact an administrator from the amber-dot notification: a
+  mailto link addressed to the administrator's email (no server-side
+  sending). To be covered by the plans.
