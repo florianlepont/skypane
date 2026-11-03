@@ -37,9 +37,15 @@ def served(tmp_path, monkeypatch):
     server.stop()
 
 
+_battery = iter(range(3600, 4200))
+
+
 def poll(server, device, extra=None):
     headers = dict(device_headers(device))
     headers.pop("Authorization")
+    # History rows are unique per (timestamp, battery); vary the reading so
+    # polls within one second each store a row.
+    headers["X-Battery-Mv"] = str(next(_battery))
     headers.update(extra or {})
     status, doc = server.display(device.token, headers)
     assert status == 200, doc
@@ -76,10 +82,9 @@ def test_absent_or_malformed_header_stores_null_columns_and_same_response(served
     extra = {} if value is None else {"X-Wake-Stats": value}
     doc = poll(server, fleet.dev_a, extra)
     assert shape(doc) == shape(baseline)
-    newest = rows(fleet.dev_a.state_dir)[0]
-    assert newest["wake_seq"] is None
-    assert newest["prev_outcome"] is None
-    assert newest["battery_mv"] is not None or newest["fw_version"] is not None
+    stored = rows(fleet.dev_a.state_dir)
+    assert len(stored) == 2
+    assert all(r["wake_seq"] is None and r["prev_outcome"] is None for r in stored)
 
 
 def test_valid_header_leaves_the_response_unchanged(served):

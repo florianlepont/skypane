@@ -38,9 +38,10 @@ for _p in (REPO_ROOT, os.path.join(REPO_ROOT, "test-support")):
         sys.path.insert(0, _p)
 
 import efficiency_probe  # noqa: E402
-from server import device_policy, fleet_db, fleet_migrate, state_store  # noqa: E402
+from server import device_policy, fleet_db, fleet_migrate, history_db, state_store  # noqa: E402
 from skypane_frame_server import FrameServer  # noqa: E402
 from skypane_live_state import seed_live_like_state, snapshot_dir  # noqa: E402
+from skypane_two_device_fleet import device_headers, seed_two_device_fleet  # noqa: E402
 
 FREEZE_PATH = os.path.join(HERE, "measured_fields_freeze.json")
 OWNER = "owner@example.com"
@@ -228,8 +229,10 @@ PROBE_HEADERS = {
     "X-Boot-Reason": "timer",
     "X-Rssi": "-60",
     "X-Ota-Result": "installed;1.0.0",
+    "X-Wake-Stats": "v=1;seq=830;bt=400;wf=1500;att=1;p_out=ok",
     "X-Unlisted-Probe": "zzz",
 }
+WAKE_COLUMNS = ("wake_seq", "boot_ms", "wifi_ms", "wifi_attempts", "prev_outcome")
 
 
 def probe_effects(server, live, header, value):
@@ -246,12 +249,52 @@ def probe_effects(server, live, header, value):
     }
 
 
-def test_telemetry_headers_reach_exactly_the_frozen_places(served):
+def history_effects(tmp_path, monkeypatch):
+    """Headers that store a wake column in a fleet (non-live) device's own
+    history database; byos writes history only on that path."""
+    monkeypatch.setenv("SKYPANE_SIM_HARDWARE", "1")
+    fleet = seed_two_device_fleet(str(tmp_path), with_landscape=True)
+    server = FrameServer(fleet.live.state_dir, env_overrides={"SKYPANE_SIM_HARDWARE": "1"})
+    server.start()
+    try:
+        stored = set()
+        # A distinct battery reading per request: history rows are unique
+        # per (timestamp, battery), so polls in one second would otherwise
+        # collapse into a single row.
+        for index, (header, value) in enumerate(PROBE_HEADERS.items()):
+            before = _wake_rows(fleet.dev_a.state_dir)
+            headers = dict(device_headers(fleet.dev_a))
+            headers.pop("Authorization")
+            headers["X-Battery-Mv"] = str(3700 + index)
+            headers[header] = value
+            assert server.display(fleet.dev_a.token, headers)[0] == 200
+            added = _wake_rows(fleet.dev_a.state_dir)[len(before):]
+            if any(v is not None for row in added for v in row):
+                stored.add(header)
+        return sorted(stored)
+    finally:
+        server.stop()
+
+
+def _wake_rows(state_dir):
+    with history_db.open_db(state_dir) as conn:
+        rows = history_db.recent_device_health(conn)
+        return [tuple(r[c] for c in WAKE_COLUMNS) for r in reversed(list(rows))]
+
+
+def test_telemetry_headers_reach_exactly_the_frozen_places(served, tmp_path_factory, monkeypatch):
     live, server = served
     frozen = FREEZE["telemetry_request_headers"]
     effects = {h: probe_effects(server, live, h, v) for h, v in PROBE_HEADERS.items()}
-    parsed = sorted(h for h, e in effects.items() if any(e.values()))
-    assert_matches_freeze("telemetry_request_headers", frozen["headers"], parsed)
+    parsed_live = sorted(h for h, e in effects.items() if any(e.values()))
+    in_history = history_effects(tmp_path_factory.mktemp("fleet"), monkeypatch)
+    assert_matches_freeze(
+        "telemetry_request_headers", frozen["stored_in_history_db"], in_history)
+    assert_matches_freeze(
+        "telemetry_request_headers", frozen["headers"],
+        sorted(set(parsed_live) | set(in_history)))
+    assert effects["X-Wake-Stats"] == {
+        "battery_state": False, "device_report": False, "logged": False}
     for key, field in (("stored_in_battery_state", "battery_state"),
                        ("stored_in_device_report", "device_report")):
         observed = sorted(h for h, e in effects.items() if e[field])
@@ -262,6 +305,7 @@ def test_telemetry_headers_reach_exactly_the_frozen_places(served):
     assert_matches_freeze("telemetry_request_headers", frozen["logged_only"], logged_only)
     assert effects["X-Unlisted-Probe"] == {
         "battery_state": False, "device_report": False, "logged": False}
+    assert "X-Unlisted-Probe" not in in_history
 
 
 def test_battery_state_has_exactly_the_frozen_keys(served):
