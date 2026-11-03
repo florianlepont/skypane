@@ -1064,6 +1064,16 @@ select.visually-hidden {
   transition: background-color .15s ease, border-color .15s ease, color .15s ease;
 }
 
+/* The Account page holds these controls in its own card, where a tap target
+ * must reach 44px; the sidebar footer keeps the compact segments. */
+section[aria-labelledby="account-preferences"] .theme-form .theme-option {
+  height: 44px;
+}
+
+.account-sign-out button {
+  min-height: 44px;
+}
+
 .theme-form .theme-option--active {
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   color: var(--color-accent);
@@ -1548,8 +1558,8 @@ select.visually-hidden {
   }
 
   .toast .toast__action {
-    min-height: 40px;
-    margin: -6px 0 0 -10px;
+    min-height: 44px;
+    margin: -8px 0 0 -10px;
     padding: 0 10px;
   }
 
@@ -2048,6 +2058,7 @@ button:disabled {
 .quiet-preset-row button {
   flex: 1 1 0;
   min-width: 0;
+  min-height: 44px;
   border: none;
   border-radius: 0;
 }
@@ -7820,7 +7831,7 @@ button.look-sheet__done:hover {
 
 button.special-row__remove {
   flex: none;
-  height: 36px;
+  height: 44px;
   border-color: var(--color-border);
   background: transparent;
   box-shadow: none;
@@ -8352,7 +8363,16 @@ li.entity-row--no-dot {
 }
 
 a.entity-row__title {
+  position: relative;
   color: var(--color-accent);
+}
+
+/* The name link is one text line high; this widens its tap area to 44px
+ * without moving anything (the row padding is 16px, so it stays inside the row). */
+a.entity-row__title::before {
+  content: "";
+  position: absolute;
+  inset: -10px 0;
 }
 
 .entity-row__meta {

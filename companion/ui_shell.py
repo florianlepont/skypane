@@ -297,6 +297,10 @@ PAGE_SHELL_TEMPLATE = (
 )
 
 
+# The first link of every page, visible on keyboard focus.
+_SKIP_LINK_TEXT = i18n.msg("nav.skip_to_content", "Skip to content")
+
+
 # The frame switcher: shown above the page title of every device-scoped page
 # once the request scope lists two or more frames.
 _SWITCHER_ARIA_TEXT = i18n.msg(
@@ -467,8 +471,8 @@ def page_shell(
         '<div class="sidebar-footer">%s%s%s</div>'
         % (lang_form_html, theme_form_html, _logout_form_html()))
     skip_link_html = (
-        '<a class="skip-link" href="#%s">Skip to content</a>'
-        % SKIP_LINK_TARGET_ID)
+        '<a class="skip-link" href="#%s">%s</a>'
+        % (SKIP_LINK_TARGET_ID, escape_html(i18n.t(_SKIP_LINK_TEXT))))
     escaped_site_title = escape_html(SITE_TITLE)
     brand_mark_html = icon_html("icon-logo", size=28, extra_class=LOGO_MARK_CLASS)
     brand_inner_sidebar = (

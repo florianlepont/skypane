@@ -64,4 +64,5 @@ MESSAGES = {
     "nav.frame_switcher_my_frames": "Mes cadres",
     "nav.frame_switcher_all_frames": "Tous les cadres (Flotte)",
     "nav.device_default_name": "Cadre d’Orly",
+    "nav.skip_to_content": "Aller au contenu",
 }

@@ -564,12 +564,14 @@ def _tab_bar_html(active, health_alert=None, device_config=None):
     space (see current_space()). The overflow uses a native
     <details>/<summary> so it works with scripts blocked. The Health
     severity dot is drawn on the Health cell, never on More.
-    Returns "" when device_config is falsy (no session context, e.g.
-    login/404 pages).
+    Returns "" when there is no session context: no device_config and no
+    signed-in administrator (login pages, or a 404 before sign-in). An
+    administrator's own Account page carries no device_config but still needs
+    the bar to reach the rest of the app.
     """
     if is_user_principal():
         return _user_tab_bar_html(active)
-    if not device_config:
+    if not device_config and not is_admin_principal():
         return ""
     if current_space(active) == CONSOLE_SPACE:
         cells, sheet = _console_bar(active)
