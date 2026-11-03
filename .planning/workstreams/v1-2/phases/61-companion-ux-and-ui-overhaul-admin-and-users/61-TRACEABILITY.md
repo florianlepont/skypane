@@ -38,13 +38,14 @@ the context file are traced after the frictions.
 | D5, D6 | Manage access per frame (Fleet, My frames) | 61-07, 61-10 | `test_co_managers_page.py`, `test_browser_co_managers.py`, `test_browser_account_frames.py` |
 | D7 | User lands on frame Home; switcher on multi-frame | 61-05, 61-09 | `test_landing.py`, `test_frame_switcher.py`, step test U2 |
 | D8 | One status dot for a user | 61-01, 61-09 | `test_frame_status.py`, `test_home_state_card.py`, `test_browser_home_state_card.py`, step test U3 |
-| D9 | All display settings stay; location and detection merge | 61-10 | `test_display_detection_card.py`. **Owner confirm:** the time zone select stays in the Quiet hours card, not in the merged "Location and detection" card, so the save bar's dirty tracking is unchanged (plan 61-10 deviation 1). |
+| D9 | All display settings stay; location and detection merge | 61-10 | `test_display_detection_card.py`. The time zone select is in the merged "Location and detection" card (61-16, owner confirmed); the Quiet hours card keeps a sentence and a link to it. The select has its own dirty section "Time zone" (FR "Fuseau horaire") and posts through the same settings form: `test_display_time_zone_card.py`, `test_browser_display_time_zone.py` (360 and 1280 px, EN/FR, both themes, save bar naming, save, scripts blocked), `test_device_settings.py` (validation and storage unchanged). |
 | D10 | Architecture and visual style unchanged | all | no new runtime dependency; `modal.js` is the only new static script |
 | D11 | Fleet page named "Fleet" / "Flotte" | 61-04, 61-06 | ledger row 1; FR title check in the sweep |
 | D12 | Fleet list shows no last image | 61-06 | ledger row 2 |
 | D13 | User on an un-prefixed page gets a 303 to their frame | 61-05 | `test_landing.py`, `test_access_matrix.py` |
 | D14 | Health leaves the user tab bar, reached from the Home dot | 61-04, 61-09 | `test_user_nav.py`, `test_home_state_card.py` |
 | D15 | Three audit items in scope | 61-15 | section below |
+
 
 ## Visual audit notes (`61-VISUAL-AUDIT-NOTES.md`)
 
@@ -66,7 +67,7 @@ the context file are traced after the frictions.
 | Locations inputs/selects overflow at 360 px | closed | 61-04 (`max-width: 100%`); `test_browser_nav_spaces.py`; `/locations` at 360 px in the sweep |
 | Owner/co-manager actions on Home far from Fleet | closed | 61-07 |
 | Home: persistent attention bar | closed with a limit | admin Home keeps the attention bar by design; a plain user's Home has none (61-09) |
-| Home: empty states large serif blocks; Current frame card empty | closed with a limit | see "Audit items" below |
+| Home: empty states large serif blocks; Current frame card empty | closed | 61-15 (Home), 61-16 (every remaining page); see "Audit items" below |
 | Device: LED switch drawn with an orange box | closed | 61-15 |
 | Health: "Has not checked in" three ways | closed | 61-15 |
 | User view: serif name + hardware, no frame state | closed | 61-10 (My frames rows with dot) |
@@ -78,16 +79,23 @@ the context file are traced after the frictions.
 |-----|------|-------|-------|--------|
 | A | Device page Diagnostic LED switch drawn with an orange box (the primary button fill outranked the `.switch` rule) | `companion/static/style.css` (`button.switch` rules) | `companion/test_browser_device_led_switch.py` (both themes, EN/FR, 360 and 1280 px, keyboard focus ring, click toggling) | closed |
 | B | Health Frame connection row says "Has not checked in" three ways | `companion/pages/health_page.py` (`_connection_row`) | `companion/test_health_connection_row.py`, `companion/test_user_health.py` | closed |
-| C | Empty states drawn as large serif blocks | `companion/static/style.css` (`.empty-state--compact` padding), the `empty_state` callers on Home, Health, Audit, Locations, Update | `companion/test_empty_state_scale.py`, `companion/test_browser_empty_state_scale.py`, `companion/test_status_pages_02.py` | **closed with a stated limit** |
+| C | Empty states drawn as large serif blocks | `companion/static/style.css` (`.empty-state--compact` padding), the `empty_state` callers on Home, Health, Audit, Locations, Update | `companion/test_empty_state_scale.py`, `companion/test_browser_empty_state_scale.py`, `companion/test_status_pages_02.py` | closed (61-16 finished the remaining pages) |
 
-Limit on row C. Plan 61-15 converted Home (no panel, no flights), Health
-(device empty, no gaps), Audit (no events), Locations and Update. Large-form
-empty states remain, and are not claimed closed, on pages outside that list:
-`companion/pages/history_page.py` (2), `companion/pages/detection_page.py` (3),
-the My frames empty state in `companion/pages/account_page.py`, and the table
-fallback in `companion/ui_components.py`. The sweep asserts the pages that
-were converted, and does not assert "no large empty state anywhere". Whether
-to convert the rest is left to the owner; plan 61-15 did not list these pages.
+Row C, completed by plan 61-16. Plan 61-15 converted Home (no panel, no
+flights), Health (device empty, no gaps), Audit (no events), Locations and
+Update. Plan 61-16 converted the last two large-form callers: History (no
+flights, device empty) and the `data_table` empty fallback in
+`companion/ui_components.py`. The Detection page's three empty states and the
+My frames empty state in `account_page.py` were already compact when plan
+61-16 was written (the earlier note that they were large was stale). No
+empty state outside the filter form is large now: `ui_filter.py`'s
+`empty-state--filter` and the Audit filtered-result block keep the large
+filter form by design, as filter results and not empty pages. Proof:
+`companion/test_empty_state_scale.py` (served markup, EN/FR, Home, Health,
+Audit, Locations, Update, Flights, device Flights, Detection, Account, the
+table fallback) and `companion/test_browser_empty_state_scale.py` (computed
+heading size and face, both themes, 360 and 1280 px), and the sweep's
+structure check flags any large empty state on the pages it loads.
 
 ## Cross-page sweep (`companion/test_browser_overhaul_sweep.py`)
 
@@ -107,12 +115,13 @@ Stated limits of the sweep (not claimed closed):
 
 - The 44 px floor is asserted on the whole page, the header and the tab bar at
   360 px, and in dialogs. At 1280 px it is asserted for dialogs, list rows and
-  page headers only: the sidebar, its language/theme/Sign out controls, the brand
-  link and the Home "See Health" pill are pointer-sized (29 to 33 px) by design in
-  the stylesheet. UI-SPEC section 8 item 2 asks for 44 px at both widths.
-- Large-form empty states remain on History, Detection, the My frames empty
-  state and the table fallback, and are not in the sweep (see row C above). The
-  sweep asserts only the listed pages.
+  page headers, and, since plan 61-16, for the desktop sidebar links, its
+  language and theme segments, Sign out, the brand link and the Home "See
+  Health" pill (hit-tested resolved boxes, EN/FR, both themes; admin and user
+  sidebars). UI-SPEC section 8 item 2 holds at both widths for these controls.
+- The sweep's empty-state check covers the pages it loads; History and the
+  other pages converted in 61-16 are asserted in `test_empty_state_scale.py`
+  and `test_browser_empty_state_scale.py`.
 - Untranslated-text detection compares the French and English renders and
   ignores product, hardware and seeded data names, identifiers and a short list
   of words French shares with English. It is not a catalogue lookup:
@@ -130,7 +139,7 @@ Stated limits of the sweep (not claimed closed):
 | UX-02 (admin tasks) | 61-02, 61-03, 61-06, 61-07, 61-08, 61-14 | `test_browser_fleet_dialogs.py`, `test_browser_users_page.py`, `test_browser_co_managers.py`, step tests A1-A6. Owner validation on the deployed companion is plan 61-13, not done here. |
 | UX-03 (user sees own frames, state at a glance, changes settings) | 61-04, 61-05, 61-09, 61-10 | `test_browser_account_frames.py`, `test_browser_home_state_card.py`, step tests U2-U4. **U4 misses its step target** (4 and 5 against 3): see `61-STEP-COUNTS.md`. Owner validation on a phone is plan 61-13. |
 | UX-04 (sign-in clarity) | 61-11 | `test_sign_in_messages.py`, `test_browser_auth0.py` |
-| Audit items A-C (D15) | 61-15 | section above |
+| Audit items A-C (D15) | 61-15, 61-16 | section above |
 
 ## Owner-decision ledger state (`61-OWNER-DECISIONS.md`)
 
@@ -141,6 +150,7 @@ also fixed by D11, D12, D14 and D13. Owner-confirm items beyond the ledger:
 
 | Item | Detail |
 |------|--------|
-| Time zone select placement | Stays in the Quiet hours card, not in the merged Location and detection card (61-10). Needs the owner's confirmation. |
+| Time zone select placement | Moved into the merged Location and detection card by 61-16 (owner answered yes). |
 | Display page length / U4 | Changing one display setting takes 4 actions (5 for a look), one or two over the target of 3, because the settings sit below the first screen or in a sheet. Not addressed in this phase. |
-| Remaining large empty states | `history_page.py`, `detection_page.py`, My frames, table fallback (limit on row C). |
+| Remaining large empty states | Converted by 61-16 (History, table fallback; Detection and My frames were already compact). |
+| Desktop 44 px targets | Done by 61-16: sidebar, footer controls, brand link and the Home "See Health" pill. |

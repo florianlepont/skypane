@@ -1165,9 +1165,8 @@ def test_only_one_saw_it_is_neutral_and_still_distinct(tmp_path, lang, agree_lab
 
 def test_empty_state_default_form_is_byte_identical_and_compact_is_opt_in():
     """layout.empty_state()'s two-argument output is byte-identical to its
-    pre-compact form (proven against the literal markup AND against
-    data_table()'s own real no-rows caller), an explicit compact=False
-    matches it, and compact=True renders its own modifier plus the 16px
+    pre-compact form (proven against the literal markup), an explicit
+    compact=False matches it, data_table()'s no-rows fallback is compact, and compact=True renders its own modifier plus the 16px
     sans / 14px muted pair through the empty state's own class names, still
     escaped"""
     # The compact variant must not be able to change an existing caller.
@@ -1185,12 +1184,11 @@ def test_empty_state_default_form_is_byte_identical_and_compact_is_opt_in():
         "form, got %r" % (layout.empty_state(heading, body),))
     assert layout.empty_state(heading, body, compact=False) == expected_default, (
         "expected an explicit compact=False to be byte-identical too")
-    # The default form is what data_table()'s own no-rows fallback emits —
-    # an existing caller, proven rather than asserted.
-    assert layout.data_table(["A"], []) == expected_default, (
-        "expected data_table()'s no-rows fallback (a real existing caller) to render the "
-        "unchanged default empty state, got %r" % (layout.data_table(["A"], []),))
     compact = layout.empty_state(heading, body, compact=True)
+    # data_table()'s no-rows fallback is the compact form.
+    assert layout.data_table(["A"], []) == layout.empty_state(
+        "No data yet.", "Nothing to show here yet.", compact=True), (
+        "expected data_table()'s no-rows fallback to render the compact empty state")
     assert compact != expected_default, "expected compact=True to render a different block"
     assert "text-heading" not in compact, "expected the compact form to carry no 22px serif .text-heading, got %r" % (compact,)
     assert 'class="empty-state empty-state--compact"' in compact, "expected the compact form to carry its own modifier class"

@@ -32,7 +32,7 @@ _MEASURE = """() => {
   })};
 }"""
 
-PAGES = ("/", "/audit", "/locations", "/update")
+PAGES = ("/", "/audit", "/locations", "/update", "/flights", "/detection", "/account")
 
 
 @pytest.fixture(scope="module")

@@ -5,9 +5,10 @@ import pytest
 import companion_app_server
 import companion_markup
 from companion import auth
+from companion import layout
 from companion.test_device_helpers import get, start_fleet_app
 
-PAGES = ("/", "/health", "/audit", "/locations", "/update")
+PAGES = ("/", "/health", "/audit", "/locations", "/update", "/flights", "/detection", "/account")
 
 
 def _empty_states(html):
@@ -72,3 +73,21 @@ def test_the_audit_filter_empty_state_keeps_its_form(make_app_server):
     assert len(blocks) == 1
     assert "empty-state--filter" in blocks[0].attrs["class"].split()
     assert "empty-state--compact" not in blocks[0].attrs["class"].split()
+
+
+def test_a_data_table_without_rows_falls_back_to_the_compact_empty_state():
+    blocks = _empty_states_of(layout.data_table(["A", "B"], []))
+    assert len(blocks) == 1
+    _assert_compact_or_filter(blocks, "data table fallback")
+
+
+def test_a_device_history_page_without_flights_is_compact(make_app_server):
+    app = start_fleet_app(make_app_server)
+    _, _, html = get(app, "/devices/%s/flights" % app.fleet.dev_a.id)
+    blocks = _empty_states(html)
+    assert blocks
+    _assert_compact_or_filter(blocks, "device history")
+
+
+def _empty_states_of(fragment):
+    return companion_markup.parse_html(fragment).select(".empty-state")
