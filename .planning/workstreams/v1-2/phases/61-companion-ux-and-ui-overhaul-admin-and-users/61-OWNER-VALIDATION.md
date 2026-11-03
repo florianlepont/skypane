@@ -32,3 +32,11 @@ Larger redesigns (new design work, owner decision on scope):
 - V10 "Airlines" becomes a more gamified page of airlines observed; users
   must not be able to edit pictures or airline information: those options
   only for the administrator through a dedicated view.
+
+## Decisions after the first pass (2026-11-03)
+- D16 (owner) V0 confirmed: the personal space has the same pages for an
+  administrator and a user on a frame (Home, Flights, Display, Account);
+  Health, Device, airline editing, Fleet, Users, Locations, Audit and
+  Releases live in the Console.
+- D17 (owner) All of V1-V10 is done in this phase (not a separate phase).
+  This needs an updated design contract and new plans before execution.
