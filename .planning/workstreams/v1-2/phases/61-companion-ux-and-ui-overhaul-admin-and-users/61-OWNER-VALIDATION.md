@@ -53,3 +53,6 @@ Larger redesigns (new design work, owner decision on scope):
   Console, a frame carries its own position chosen on the map. Expand-only
   for the live frame (its position and responses must not change); the
   existing locations table/column are not dropped by this phase.
+- D21 (owner, answers R2-10) A user has no Health page: the status dot on
+  Home is enough. When the dot is amber, a notification gives more
+  information and offers to contact an administrator (mechanism to settle).
