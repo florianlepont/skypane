@@ -106,7 +106,22 @@ Plans:
   2. A committed, tested tool fits the per-wake energy of a wake without redraw, of a wake with redraw, and the standing draw from the stored history and the voltage trend, and prints the result with its uncertainty and the assumptions it rests on (rated capacity, discharge curve); no figure is presented as a current measurement.
   3. The energy of a wake that redraws the screen is reduced by a stated, measured amount against the baseline recorded before the change (shorter image download, shorter panel wait, or another lever the measured breakdown supports), with the image shown, the hash-skip behaviour, quiet hours, display-off and battery-critical overrides unchanged.
   4. The model is checked on the new pack: its discharge curve is derived from the calibrated per-wake cost, and the predicted autonomy at the chosen interval is stated with its range.
-**Plans**: TBD (run /gsd-plan-phase 47.1)
+**Plans**: 16 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 47.1 to break down)
+- [ ] 47.1-01-PLAN.md - dependencies and decision record: telemetry contract, schema route, owner decisions
+- [ ] 47.1-02-PLAN.md - server: strict X-Wake-Stats parser, guarded ALTER migration, tailer, export with fallback
+- [ ] 47.1-03-PLAN.md - fleet path, freeze-list amendment, owner agreement quoted in the PR text
+- [ ] 47.1-04-PLAN.md - firmware: pure telemetry module and RTC carry-forward record, host-tested
+- [ ] 47.1-05-PLAN.md - firmware: wiring at the single sleep exit, header, build (no release)
+- [ ] 47.1-06-PLAN.md - model tool that fits or refuses (WAKE-02)
+- [ ] 47.1-07-PLAN.md - owner-gated instrumentation release after the 2026-11-07 bilan
+- [ ] 47.1-08-PLAN.md - baseline from device data, gap hypothesis decided
+- [ ] 47.1-09-PLAN.md - reduction selection from the baseline, owner decision
+- [ ] 47.1-10-PLAN.md - redraw-policy decision record (fewer redraws), owner decision
+- [ ] 47.1-11-PLAN.md - compression evidence and negotiated gzip on the server (if selected)
+- [ ] 47.1-12-PLAN.md - panel-wait light sleep experiment (if selected)
+- [ ] 47.1-13-PLAN.md - firmware gzip decode, fail-closed (if selected)
+- [ ] 47.1-14-PLAN.md - Wi-Fi channel hint with fallback (if selected)
+- [ ] 47.1-15-PLAN.md - owner-gated reduction release and before/after measurement
+- [ ] 47.1-16-PLAN.md - replacement pack check (data-gated, may stay open)
