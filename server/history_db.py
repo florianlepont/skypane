@@ -37,6 +37,8 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from server.wake_stats import WAKE_COLUMNS, parse_wake_stats  # noqa: E402
+
 HISTORY_DB_FILENAME = "history.db"
 
 # Fixed-size per-cycle signals - constant storage regardless of cycle count.
@@ -68,9 +70,14 @@ _RUNWAY_EVENT_INSERT_SQL = (
     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
 
+_DEVICE_HEALTH_OLD_COLUMNS = ("ts", "battery_mv", "fw_version", "boot_reason", "rssi")
+
 _DEVICE_HEALTH_INSERT_SQL = (
-    "INSERT OR IGNORE INTO device_health "
-    "(ts, battery_mv, fw_version, boot_reason, rssi) VALUES (?, ?, ?, ?, ?)"
+    "INSERT OR IGNORE INTO device_health ("
+    + ", ".join(_DEVICE_HEALTH_OLD_COLUMNS + WAKE_COLUMNS)
+    + ") VALUES ("
+    + ", ".join("?" * (len(_DEVICE_HEALTH_OLD_COLUMNS) + len(WAKE_COLUMNS)))
+    + ")"
 )
 
 _META_UPSERT_SQL = (
@@ -80,8 +87,18 @@ _META_UPSERT_SQL = (
 # The only header names ever extracted from a Caddy access-log line -
 # indexed one at a time, the header map never copied wholesale, so a
 # future Caddy config that stops redacting Authorization/Cookie can't
-# leak a credential into history.db.
-_TELEMETRY_HEADER_ALLOWLIST = ("X-Fw-Version", "X-Boot-Reason", "X-Rssi", "X-Battery-Mv")
+# leak a credential into history.db. X-Wake-Stats is stored only through
+# `parse_wake_stats`, never as raw text.
+_TELEMETRY_HEADER_ALLOWLIST = (
+    "X-Fw-Version", "X-Boot-Reason", "X-Rssi", "X-Battery-Mv", "X-Wake-Stats",
+)
+
+# Wake columns added to `device_health` after the first release; every one
+# is nullable, only `prev_outcome` is text.
+_WAKE_COLUMN_TYPES = {
+    column: ("TEXT" if column == "prev_outcome" else "INTEGER")
+    for column in WAKE_COLUMNS
+}
 
 DEVICE_DISPLAY_URI = "/device/v1/display"
 
@@ -100,9 +117,9 @@ def history_db_path(state_dir):
 
 def init_schema(conn):
     """Create all four tables with IF NOT EXISTS, safe to call on every
-    connection. This is the project's entire migration story: no schema
-    version stamp, no in-place table alteration - a new table is free,
-    a new column would have required inventing one.
+    connection. There is no schema version stamp: a new table is free via
+    IF NOT EXISTS, and an additive nullable column is added by a guarded
+    ALTER TABLE (`_add_missing_wake_columns`).
     """
     conn.execute(
         "CREATE TABLE IF NOT EXISTS runway_events ("
@@ -145,8 +162,8 @@ def init_schema(conn):
         ")"
     )
     # One row per CHANGE in the device's effective wake interval, added as
-    # a table (free, via IF NOT EXISTS) rather than a new column on
-    # `device_health` (would need a migration mechanism). Nullable on
+    # a table because it is a change log, not a per-wake reading, so it has
+    # no `device_health` row to hang off. Nullable on
     # purpose: a NULL epoch records "cadence undetermined from here",
     # never lets a reader infer the previous interval silently continued.
     conn.execute(
@@ -156,7 +173,25 @@ def init_schema(conn):
         "wake_interval_s INTEGER"
         ")"
     )
+    _add_missing_wake_columns(conn)
     conn.commit()
+
+
+def _add_missing_wake_columns(conn):
+    """Add each wake column `device_health` lacks. The companion and the
+    poll oneshot can both reach this on the same file: a "duplicate column
+    name" error means the other process added it between the column read
+    and the ALTER, which counts as done. Any other error propagates.
+    """
+    present = {row[1] for row in conn.execute("PRAGMA table_info(device_health)")}
+    for column, sql_type in _WAKE_COLUMN_TYPES.items():
+        if column in present:
+            continue
+        try:
+            conn.execute(f"ALTER TABLE device_health ADD COLUMN {column} {sql_type}")
+        except sqlite3.OperationalError as exc:
+            if "duplicate column name" not in str(exc):
+                raise
 
 
 class _HistoryConnection(sqlite3.Connection):
@@ -365,11 +400,18 @@ def record_runway_event(conn, **fields):
     _commit(conn)
 
 
-def record_device_health(conn, ts, battery_mv=None, fw_version=None, boot_reason=None, rssi=None):
+def record_device_health(conn, ts, battery_mv=None, fw_version=None, boot_reason=None, rssi=None,
+                         wake_stats=None):
     """Insert one `device_health` row, `INSERT OR IGNORE` against
     `UNIQUE(ts, battery_mv)`. Returns rows actually inserted (0 or 1).
+    `wake_stats` is a dict from `parse_wake_stats`; a column it lacks (or
+    `None` altogether) is stored NULL, meaning unknown.
     """
-    cur = conn.execute(_DEVICE_HEALTH_INSERT_SQL, (ts, battery_mv, fw_version, boot_reason, rssi))
+    stats = wake_stats or {}
+    wake_values = tuple(stats.get(column) for column in WAKE_COLUMNS)
+    cur = conn.execute(
+        _DEVICE_HEALTH_INSERT_SQL,
+        (ts, battery_mv, fw_version, boot_reason, rssi) + wake_values)
     _commit(conn)
     return cur.rowcount
 
@@ -480,9 +522,27 @@ class TooManyRows(Exception):
     """A read-only export matched more rows than its caller allows."""
 
 
+def _select_export_rows(conn, since, max_rows):
+    params = (_stored_since(since), max_rows + 1)
+    tail = " FROM device_health WHERE ts >= ? ORDER BY ts LIMIT ?"
+    try:
+        return conn.execute(
+            "SELECT " + ", ".join(_DEVICE_HEALTH_OLD_COLUMNS + WAKE_COLUMNS) + tail,
+            params).fetchall()
+    except sqlite3.OperationalError as exc:
+        if "no such column" not in str(exc):
+            raise
+    padding = (None,) * len(WAKE_COLUMNS)
+    old_rows = conn.execute(
+        "SELECT " + ", ".join(_DEVICE_HEALTH_OLD_COLUMNS) + tail, params).fetchall()
+    return [tuple(row) + padding for row in old_rows]
+
+
 def export_device_health(state_dir, since, max_rows):
     """The `device_health` rows with `ts >= since`, oldest first, as
-    (ts, battery_mv, fw_version, boot_reason, rssi) tuples.
+    (ts, battery_mv, fw_version, boot_reason, rssi, *WAKE_COLUMNS) tuples.
+    A database not yet migrated to the wake columns yields the five old
+    values followed by thirteen `None`s instead of failing.
 
     Opens history.db read-only (`mode=ro`): it never creates the file, runs
     no schema statement and cannot write. Raises `TooManyRows` when more
@@ -496,11 +556,7 @@ def export_device_health(state_dir, since, max_rows):
     try:
         conn.execute("PRAGMA busy_timeout=5000")
         conn.execute("PRAGMA query_only=ON")
-        cursor = conn.execute(
-            "SELECT ts, battery_mv, fw_version, boot_reason, rssi "
-            "FROM device_health WHERE ts >= ? ORDER BY ts LIMIT ?",
-            (_stored_since(since), max_rows + 1))
-        rows = cursor.fetchall()
+        rows = _select_export_rows(conn, since, max_rows)
     finally:
         conn.close()
     if len(rows) > max_rows:
@@ -725,6 +781,9 @@ def tail_caddy_battery_log(log_path, offset):
                     values = headers.get(name)
                     if isinstance(values, list) and values:
                         extracted[name] = values[0]
+                wake_stats = None
+                if "X-Wake-Stats" in extracted:
+                    wake_stats = parse_wake_stats(extracted["X-Wake-Stats"])
 
                 battery_mv = None
                 battery_raw = extracted.get("X-Battery-Mv")
@@ -751,6 +810,7 @@ def tail_caddy_battery_log(log_path, offset):
                     "fw_version": extracted.get("X-Fw-Version"),
                     "boot_reason": extracted.get("X-Boot-Reason"),
                     "rssi": extracted.get("X-Rssi"),
+                    "wake_stats": wake_stats,
                 })
     except OSError:
         return [], offset
@@ -807,6 +867,7 @@ def apply_caddy_battery_log(conn, readings, new_offset):
             fw_version=reading["fw_version"],
             boot_reason=reading["boot_reason"],
             rssi=reading["rssi"],
+            wake_stats=reading.get("wake_stats"),
         )
     set_meta(conn, META_CADDY_LOG_OFFSET, str(new_offset))
     return inserted

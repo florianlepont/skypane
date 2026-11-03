@@ -340,3 +340,94 @@ def test_write_batch_on_a_plain_connection_still_commits_once(tmp_path):
 
     assert conn.execute("SELECT COUNT(*) FROM t").fetchone()[0] == 2
     conn.close()
+
+
+# --- device_health wake-column migration ------------------------------------
+
+_OLD_DEVICE_HEALTH = (
+    "CREATE TABLE device_health (id INTEGER PRIMARY KEY, ts TEXT NOT NULL, "
+    "battery_mv INTEGER, fw_version TEXT, boot_reason TEXT, rssi TEXT, "
+    "UNIQUE(ts, battery_mv))")
+
+
+def _old_schema_db(tmp_path):
+    path = os.path.join(str(tmp_path), "history.db")
+    raw = sqlite3.connect(path)
+    raw.execute(_OLD_DEVICE_HEALTH)
+    raw.execute(
+        "INSERT INTO device_health (ts, battery_mv, fw_version, boot_reason, rssi) "
+        "VALUES ('2026-09-02T10:00:00+00:00', 3700, '1.0', 'timer', '-60')")
+    raw.commit()
+    raw.close()
+    return path
+
+
+def _column_names(conn):
+    return [r[1] for r in conn.execute("PRAGMA table_info(device_health)")]
+
+
+def test_old_database_gains_the_wake_columns_without_losing_rows(tmp_path):
+    path = _old_schema_db(tmp_path)
+    conn = sqlite3.connect(path)
+    conn.row_factory = sqlite3.Row
+    history_db.init_schema(conn)
+    history_db.init_schema(conn)
+    names = _column_names(conn)
+    assert names.count("wake_seq") == 1
+    assert all(c in names for c in history_db.WAKE_COLUMNS)
+    row = conn.execute("SELECT * FROM device_health").fetchone()
+    assert (row["battery_mv"], row["fw_version"]) == (3700, "1.0")
+    assert all(row[c] is None for c in history_db.WAKE_COLUMNS)
+    conn.close()
+
+
+class _StaleColumnListConnection:
+    """Wraps a connection so PRAGMA table_info(device_health) reports only
+    the old columns, as if another process had added the wake columns
+    right after this one read the list."""
+
+    def __init__(self, inner):
+        self._inner = inner
+
+    def execute(self, sql, *args):
+        if sql.startswith("PRAGMA table_info(device_health)"):
+            return iter([(0, c, "", 0, None, 0) for c in (
+                "id", "ts", "battery_mv", "fw_version", "boot_reason", "rssi")])
+        return self._inner.execute(sql, *args)
+
+    def commit(self):
+        self._inner.commit()
+
+
+def test_a_duplicate_column_error_from_a_racing_process_counts_as_migrated(tmp_path):
+    path = _old_schema_db(tmp_path)
+    conn = sqlite3.connect(path)
+    history_db.init_schema(conn)  # the "other process" already migrated
+    history_db.init_schema(_StaleColumnListConnection(conn))
+    assert all(c in _column_names(conn) for c in history_db.WAKE_COLUMNS)
+    conn.close()
+
+
+def test_any_other_alter_error_still_propagates(tmp_path):
+    path = os.path.join(str(tmp_path), "history.db")
+    conn = sqlite3.connect(path)
+    history_db.init_schema(conn)
+    conn.execute("DROP TABLE device_health")
+    # The table is gone, so the ALTER fails with "no such table", not a
+    # duplicate column.
+    stale = _StaleColumnListConnection(conn)
+    with pytest.raises(sqlite3.OperationalError, match="no such table"):
+        history_db._add_missing_wake_columns(stale)
+    conn.close()
+
+
+def test_export_on_an_unmigrated_database_pads_the_wake_values_with_none(tmp_path):
+    _old_schema_db(tmp_path)
+    rows = history_db.export_device_health(
+        str(tmp_path), "2026-09-01T00:00:00Z", 10)
+    assert rows == [
+        ("2026-09-02T10:00:00+00:00", 3700, "1.0", "timer", "-60")
+        + (None,) * len(history_db.WAKE_COLUMNS)]
+    raw = sqlite3.connect(os.path.join(str(tmp_path), "history.db"))
+    assert "wake_seq" not in _column_names(raw)  # the read-only path never migrated
+    raw.close()
