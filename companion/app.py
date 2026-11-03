@@ -21,7 +21,7 @@ import sqlite3
 import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, quote, urlsplit
+from urllib.parse import parse_qs, quote, urlencode, urlsplit
 
 # Same repo-root sys.path bootstrap as server/poll_loop.py, so
 # server.* resolves whether this file runs as a package or standalone.
@@ -257,8 +257,14 @@ _PAGE_TITLES = dict(layout.NAV_TABS)
 
 # A child page is reached from a tab rather than being one: it has its own
 # title, and the tab it hangs under stays the active nav item.
-_CHILD_PAGE_TITLES = {detection_page.DETECTION_ROUTE: detection_page.PAGE_TITLE}
-_CHILD_PAGE_PARENT = {detection_page.DETECTION_ROUTE: layout.DISPLAY_ROUTE}
+_CHILD_PAGE_TITLES = {
+    detection_page.DETECTION_ROUTE: detection_page.PAGE_TITLE,
+    airlines_page.MANAGE_ROUTE: dict(layout.NAV_TABS)[layout.AIRLINES_ROUTE],
+}
+_CHILD_PAGE_PARENT = {
+    detection_page.DETECTION_ROUTE: layout.DISPLAY_ROUTE,
+    airlines_page.MANAGE_ROUTE: layout.AIRLINES_ROUTE,
+}
 
 # Each tab's own extra scripts, on top of layout.GLOBAL_PAGE_SCRIPTS
 # (present on every authenticated page regardless). One tuple per
@@ -303,6 +309,10 @@ _PAGE_SCRIPTS = {
         layout.PANEL_LOOKUP_SCRIPT_SRC,
     ),
     layout.AIRLINES_ROUTE: (
+        layout.LIST_FILTER_SCRIPT_SRC,
+        layout.PANEL_LOOKUP_SCRIPT_SRC,
+    ),
+    airlines_page.MANAGE_ROUTE: (
         layout.LIST_FILTER_SCRIPT_SRC,
         layout.PANEL_LOOKUP_SCRIPT_SRC,
     ),
@@ -405,7 +415,7 @@ parse_single_uploaded_file = post_actions.parse_single_uploaded_file
 
 # The un-prefixed frame pages a user is sent on to their own frame.
 _USER_FRAME_PAGES = frozenset((
-    layout.HOME_ROUTE, "/display", "/flights", "/airlines", "/health", "/detection"))
+    layout.HOME_ROUTE, "/display", "/flights", "/airlines", "/detection"))
 
 
 def _effective_access(route, route_match):
@@ -964,6 +974,27 @@ class Handler(
                 etag=quoted_etag)
         body = render(ctx)
         return self.send_html(200, self._page_shell_for(route, body, ctx))
+
+    def _render_airlines_collection(self, device):
+        """GET /airlines. An administrator asking to resolve a prefix is sent
+        to the editing page of the same frame; the target is the fixed manage
+        path plus the re-encoded prefix, never the raw query. For anyone else
+        the parameter is ignored.
+        """
+        principal = self._safe_principal()
+        is_admin = principal is not None and principal.role == access.ADMIN
+        if is_admin:
+            query = parse_qs(urlsplit(self.path).query)
+            prefix = query.get(airlines_page.RESOLVE_QUERY_PARAM, [None])[0]
+            if prefix:
+                target = device_scope.scoped(airlines_page.MANAGE_ROUTE)
+                return self.redirect("%s?%s" % (target, urlencode(
+                    {airlines_page.RESOLVE_QUERY_PARAM: prefix})))
+
+        def render(ctx):
+            ctx.resolve_prefix = None
+            return airlines_page.render(ctx)
+        return self._render_tab(layout.AIRLINES_ROUTE, render, device)
 
     def _console_page(
             self, route, title_msg, body_html, purpose_msg=None, status=200,

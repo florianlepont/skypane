@@ -5,7 +5,7 @@ sample middle segment.
 """
 
 ROWS = {
-    ("GET", "/locations"): "signed-in",
+    ("GET", "/locations"): "admin-only",
     ("POST", "/locations/add"): "signed-in",
     ("POST", "/locations/{}/edit"): "signed-in",
     ("POST", "/locations/{}/delete"): "signed-in",

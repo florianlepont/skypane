@@ -54,7 +54,7 @@ def test_admin_console_sidebar_follows_the_spec():
     _as_admin()
     sidebar = layout.sidebar_nav("users", device_config={})
     assert re.findall(r'<a class="[^"]*" href="([^"]+)"', sidebar) == [
-        "/", "/fleet", "/users", "/locations", "/audit", "/update", "/account"]
+        "/", "/fleet", "/users", "/audit", "/update", "/account"]
     assert ">My views<" in sidebar and ">Administration<" in sidebar
     assert sidebar.count("sidebar-link--active") == 1
     assert 'href="/users" aria-current="page"' in sidebar
@@ -65,7 +65,7 @@ def test_admin_bars_follow_the_spec():
     _as_admin()
     console = ui_nav._tab_bar_html("fleet", health_alert="warn", device_config={"a": 1})
     cells = console.split('<details class="tab-bar__more">')[0]
-    assert _hrefs(cells) == ["/fleet", "/users", "/locations", "/audit"]
+    assert _hrefs(cells) == ["/fleet", "/users", "/audit"]
     assert ">Audit<" in cells and "Audit log" not in console
     sheet = console.split('<div class="tab-bar__more-panel">')[1]
     assert re.findall(r'href="([^"]+)"', sheet) == ["/update", "/", "/account"]
@@ -88,7 +88,7 @@ def test_admin_bars_follow_the_spec():
 
 def test_the_space_follows_the_page_and_never_a_non_admin():
     _as_admin()
-    for slug in ("fleet", "users", "locations", "audit", "update"):
+    for slug in ("fleet", "users", "audit", "update"):
         assert ui_nav.current_space(slug) == ui_nav.CONSOLE_SPACE
     for slug in ("home", "display", "flights", "airlines", "health", "device", "account"):
         assert ui_nav.current_space(slug) == ui_nav.MY_VIEWS_SPACE

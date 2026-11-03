@@ -38,7 +38,7 @@ def test_the_aggregator_holds_the_pairing_routes_and_nav_follows_them():
         ("GET", console_routes.LOCATIONS_ROUTE),
         ("POST", console_routes.LOCATIONS_ADD_ROUTE)} <= served_routes
     assert [entry[1] for entry in console_routes.available_nav_entries()] == [
-        "/fleet", "/users", "/locations", "/audit", "/update"]
+        "/fleet", "/users", "/audit", "/update"]
 
 
 def test_nav_entries_follow_the_route_table(monkeypatch):
@@ -48,7 +48,7 @@ def test_nav_entries_follow_the_route_table(monkeypatch):
             console_routes.AUDIT_ROUTE))
     monkeypatch.setattr(routes, "ROUTES", routes.ROUTES + extra)
     keys = [entry[0] for entry in console_routes.available_nav_entries()]
-    assert keys == ["fleet", "users", "locations", "audit", "releases"]
+    assert keys == ["fleet", "users", "audit", "releases"]
 
 
 def test_console_french_labels_are_translated():
@@ -69,7 +69,7 @@ def test_console_french_labels_are_translated():
 
 CONSOLE_PAGES = (
     console_routes.FLEET_ROUTE, console_routes.USERS_ROUTE,
-    console_routes.LOCATIONS_ROUTE, console_routes.AUDIT_ROUTE)
+    console_routes.AUDIT_ROUTE)
 FLASH_TITLE = i18n.Message("shelltest.title", "Done {name}")
 
 
@@ -136,7 +136,7 @@ def test_admin_sidebar_lists_the_administration_group_in_order(served):
     assert status == 200
     sidebar = _sidebar(page)
     assert _hrefs(sidebar) == [
-        "/", "/fleet", "/users", "/locations", "/audit", "/update", "/account"]
+        "/", "/fleet", "/users", "/audit", "/update", "/account"]
     group = _console_group(sidebar)
     assert "Administration" in group
     assert re.search(r'href="/update">[^<]*(<[^>]*>)*Releases<', group)
@@ -157,7 +157,7 @@ def test_the_group_lists_only_the_pages_that_exist(
     status, page = _get(server, "sp_session=tok-a", "/update")
     assert status == 200
     group = _console_group(_sidebar(page))
-    assert _hrefs(group) == ["/fleet", "/users", "/locations", "/audit", "/update"]
+    assert _hrefs(group) == ["/fleet", "/users", "/audit", "/update"]
 
 
 def test_a_user_sees_no_administration_navigation_and_no_console_page(served):
@@ -171,12 +171,12 @@ def test_a_user_sees_no_administration_navigation_and_no_console_page(served):
     assert refused == unknown and refused[0] == 404
 
 
-def test_the_console_bar_has_fleet_users_locations_audit_and_more(served):
+def test_the_console_bar_has_fleet_users_audit_and_more(served):
     server, cookies = served
     _status, page = _get(server, cookies["admin"], "/users")
     bar = _tab_bar(page)
     cells = bar.split('<details class="tab-bar__more">')[0]
-    assert _hrefs(cells) == ["/fleet", "/users", "/locations", "/audit"]
+    assert _hrefs(cells) == ["/fleet", "/users", "/audit"]
     assert "Admin<" not in bar and "Audit log" not in bar
     assert 'aria-current="page"' in cells.split('href="/users"')[1].split("</a>")[0]
     sheet = bar.split('<div class="tab-bar__more-panel">')[1]

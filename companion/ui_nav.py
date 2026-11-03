@@ -58,10 +58,6 @@ USER_NAV = (
 
 USER_ROLE = "user"
 
-# A user's own locations list, linked only once its page route exists.
-LOCATIONS_ROUTE = "/locations"
-_LOCATIONS_LABEL = i18n.msg("nav.locations", "Locations")
-
 # The frame pages a user's sidebar offers, in order, and the subset the
 # phone tab bar carries (Account closes the bar). Health is a technical
 # page: a user reaches it from the Home status card, not from navigation.
@@ -100,7 +96,6 @@ _ACCOUNT_ICON_ID = "icon-gear"
 _CONSOLE_ICON_IDS = {
     "fleet": "icon-device",
     "users": "icon-corroboration",
-    "locations": "icon-pipeline",
     "audit": "icon-nav-history",
     "releases": "icon-nav-update",
 }
@@ -254,10 +249,8 @@ def user_brand_href():
 
 def _user_sidebar_links():
     """Every (route, label) in a user's sidebar: the reachable frame pages,
-    Locations once that page exists, then Account."""
+    then Account."""
     links = _user_frame_links(_USER_SIDEBAR_PAGES)
-    if _user_can_open(LOCATIONS_ROUTE):
-        links.append((LOCATIONS_ROUTE, _LOCATIONS_LABEL))
     return links + list(USER_NAV)
 
 
@@ -281,7 +274,7 @@ def _nav_landmark_html(parts):
 
 def _user_sidebar_nav(active):
     """The sidebar for a plain user: the frame pages of the request-scope
-    frame, Locations and Account, each present only when reachable. No group
+    frame and Account, each present only when reachable. No group
     headings and no Health dot."""
     links = []
     for route, label in _user_sidebar_links():
@@ -521,11 +514,11 @@ def _tab_bar_sheet_link(entry):
 
 
 def _console_bar(active):
-    """(cells, sheet entries) of the Console bar: Fleet, Users, Locations and
+    """(cells, sheet entries) of the Console bar: Fleet, Users and
     Audit, with Releases, My views and Account in More."""
     entries = _console_entries(active)
     cells = []
-    for key in ("fleet", "users", "locations", "audit"):
+    for key in ("fleet", "users", "audit"):
         if key in entries:
             short = _AUDIT_BAR_LABEL if key == "audit" else None
             cells.append(_tab_bar_cell_link(entries[key], short))

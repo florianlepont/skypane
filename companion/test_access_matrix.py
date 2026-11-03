@@ -33,6 +33,7 @@ from fake_auth0 import FakeAuth0
 from access_matrix_support import (
     ADMIN_EMAIL, OTHER_EMAIL, OWNER_EMAIL, REACHED_BODY, Recorder, probe_path,
     probe_routes, seed_matrix_fleet, session_cookie_for, stub_routes)
+import matrix_rows_admin_frame
 import matrix_rows_co_managers
 import matrix_rows_landing
 import matrix_rows_lifecycle
@@ -48,6 +49,7 @@ SIGNED_IN = "signed-in"
 ADMIN_ONLY = "admin-only"
 OWNER_DEVICE = "owner-device"
 OWNER_ONLY = "owner-only-device"
+ADMIN_DEVICE = "admin-only-device"
 
 CO_MANAGER_EMAIL = "co-manager@example.test"
 _PUBLIC_PATHS = ("/login", "/login/auth0", "/callback")
@@ -70,7 +72,6 @@ ROUTE_POLICY = {
     ("GET", "/device"): ADMIN_ONLY,
     ("GET", "/detection"): OWNER_DEVICE,
     ("GET", "/flights"): OWNER_DEVICE,
-    ("GET", "/health"): OWNER_DEVICE,
     ("GET", "/airlines"): OWNER_DEVICE,
     ("GET", "/update"): ADMIN_ONLY,
     ("GET", "/settings"): OWNER_DEVICE,
@@ -86,11 +87,6 @@ ROUTE_POLICY = {
     ("POST", "/quick/display"): OWNER_DEVICE,
     ("POST", "/quick/quiet-hours"): OWNER_DEVICE,
     ("POST", "/quick/led"): ADMIN_ONLY,
-    ("POST", "/airlines/resolve"): OWNER_DEVICE,
-    ("POST", "/airlines/rename"): OWNER_DEVICE,
-    ("POST", "/airlines/rename/reset"): OWNER_DEVICE,
-    ("POST", "/airlines/manual-resolutions/{}/delete"): OWNER_DEVICE,
-    ("POST", "/illustration/{}.png"): OWNER_DEVICE,
     ("POST", "/settings/rules/add"): OWNER_DEVICE,
     ("POST", "/settings/calendar/disconnect"): OWNER_DEVICE,
     ("POST", "/settings/calendar/connect"): OWNER_DEVICE,
@@ -105,6 +101,7 @@ ROUTE_POLICY.update({("GET", path): PUBLIC for path in _STATIC_PATHS})
 DEVICE_SCOPED = frozenset(
     [("GET", path) for path in (
         "/", "/display", "/detection", "/device", "/flights", "/health", "/airlines",
+        "/airlines/manage",
         "/settings", "/history", "/preview", "/gallery/{}",
         "/illustration/{}.png", "/theme-preview/{}.png",
         "/frame-preview/{}.png")]
@@ -133,6 +130,11 @@ OUTCOMES = {
     OWNER_DEVICE: {
         "anonymous": "login", "owner": "allow", "other": "not-found",
         "admin": "allow", "co-manager": "allow"},
+    # Administrator only, on any frame: an owner and a co-manager are refused
+    # like a stranger.
+    ADMIN_DEVICE: {
+        "anonymous": "login", "owner": "not-found", "other": "not-found",
+        "admin": "allow", "co-manager": "not-found"},
     # Owner or admin only: a co-manager of the frame is refused.
     OWNER_ONLY: {
         "anonymous": "login", "owner": "allow", "other": "not-found",
@@ -148,7 +150,8 @@ PRINCIPAL_NAMES = ("anonymous", "owner", "other", "admin", "co-manager")
 # The kinds whose prefixed form reaches a frame only through the ownership gate.
 _MIN_ROLE_OF_KIND = {
     PUBLIC: access.ANONYMOUS, SIGNED_IN: access.USER, ADMIN_ONLY: access.ADMIN,
-    OWNER_DEVICE: access.USER, OWNER_ONLY: access.USER}
+    OWNER_DEVICE: access.USER, OWNER_ONLY: access.USER,
+    ADMIN_DEVICE: access.ADMIN}
 
 MALFORMED_IDS = (
     "d_ZZZZZZZZ", "..", "d_" + "0" * 40, "a/b", "d_0000000", "D_00000000", "",
@@ -172,7 +175,7 @@ SAMPLE_MIDDLE = {
 for _rows in (
         matrix_rows_pairing, matrix_rows_lifecycle, matrix_rows_users,
         matrix_rows_locations, matrix_rows_co_managers,
-        matrix_rows_landing):
+        matrix_rows_landing, matrix_rows_admin_frame):
     ROUTE_POLICY.update(_rows.ROWS)
     SAMPLE_MIDDLE.update(_rows.SAMPLES)
 
@@ -259,7 +262,8 @@ def test_a_prefixed_route_never_has_less_access_than_its_base_route():
         assert prefixed.access.min_role == base.access.min_role
         assert prefixed.access.min_role == _MIN_ROLE_OF_KIND[ROUTE_POLICY[key]]
         expected_arg = {
-            OWNER_DEVICE: "device", OWNER_ONLY: "device-owner"}.get(
+            OWNER_DEVICE: "device", OWNER_ONLY: "device-owner",
+            ADMIN_DEVICE: "device"}.get(
                 ROUTE_POLICY[key])
         assert prefixed.access.device_arg == expected_arg
         # The un-prefixed form acts on the live frame: admin-only, no id.
@@ -289,7 +293,7 @@ def test_the_console_row_modules_are_merged_into_the_matrix():
     for module in (
             matrix_rows_pairing, matrix_rows_lifecycle, matrix_rows_users,
             matrix_rows_locations, matrix_rows_co_managers,
-            matrix_rows_landing):
+            matrix_rows_landing, matrix_rows_admin_frame):
         for key, kind in module.ROWS.items():
             assert ROUTE_POLICY[key] == kind
         for template, middle in module.SAMPLES.items():
@@ -650,12 +654,13 @@ def test_a_co_manager_gets_not_found_on_a_frame_they_do_not_co_manage(
 
 
 _ADMIN_ONLY_DEVICE_KEYS = [
-    key for key in _SCOPED_KEYS if ROUTE_POLICY[key] == ADMIN_ONLY]
+    key for key in _SCOPED_KEYS
+    if ROUTE_POLICY[key] in (ADMIN_ONLY, ADMIN_DEVICE)]
 
 
 def test_the_device_update_and_led_routes_stay_admin_only_in_both_forms():
     assert {key[1] for key in _ADMIN_ONLY_DEVICE_KEYS} == {
-        "/device", "/quick/led"}
+        "/device", "/quick/led"} | {key[1] for key in matrix_rows_admin_frame.ROWS}
     for path in ("/update", "/update/install", "/update/cancel",
                  "/runway-image/{}.png"):
         assert any(key[1] == path and ROUTE_POLICY[key] == ADMIN_ONLY

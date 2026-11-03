@@ -11,5 +11,5 @@ ROWS = {}
 SAMPLES = {}
 
 FRAME_PAGE_REDIRECTS = (
-    "/", "/display", "/flights", "/airlines", "/health", "/detection")
+    "/", "/display", "/flights", "/airlines", "/detection")
 SIGNED_IN_LOGIN_ROLES = ("admin", "owner", "other", "co-manager")

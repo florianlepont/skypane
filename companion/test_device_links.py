@@ -212,10 +212,12 @@ def _assert_no_escape(body, prefix):
         assert not (_device_scoped(url) or _device_scoped(url, "POST")), url
 
 
-@pytest.mark.parametrize("query", ("", "?resolve=XQZ", "?resolve=ABC"))
-def test_airlines_page_keeps_every_scoped_link_under_the_prefix(seeded, query):
+@pytest.mark.parametrize("page", (
+    "/airlines", "/airlines/manage", "/airlines/manage?resolve=XQZ",
+    "/airlines/manage?resolve=ABC"))
+def test_airlines_page_keeps_every_scoped_link_under_the_prefix(seeded, page):
     prefix = _prefix(seeded.fleet.dev_a)
-    body = _page(seeded, prefix + "/airlines" + query)
+    body = _page(seeded, prefix + page)
     _assert_no_escape(body, prefix)
     urls = _local_urls(body)
     assert any(url.startswith(prefix + "/airlines") for url in urls)
@@ -234,7 +236,7 @@ def test_airlines_page_carries_manual_delete_and_upload_actions(seeded):
 
 def test_resolve_fallback_back_link_stays_in_the_device(seeded):
     prefix = _prefix(seeded.fleet.dev_a)
-    body = _page(seeded, prefix + "/airlines?resolve=ABC")
+    body = _page(seeded, prefix + "/airlines/manage?resolve=ABC")
     fallback = parse_html(body).select_one("[data-resolve-fallback]")
     hrefs = [node.attrs.get("href") for node in fallback.find_all("a")]
     assert prefix + "/airlines" in hrefs
@@ -276,7 +278,7 @@ def test_frame_preview_urls_resolve_under_the_prefix(seeded):
 
 
 def test_unprefixed_airlines_and_display_pages_carry_no_prefix(seeded):
-    for path in ("/airlines", "/airlines?resolve=ABC", "/display?sheet=manage", "/health"):
+    for path in ("/airlines", "/airlines/manage?resolve=ABC", "/display?sheet=manage", "/health"):
         assert _prefixed_urls_outside_switcher(_page(seeded, path)) == [], path
 
 

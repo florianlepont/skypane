@@ -57,6 +57,7 @@ PUBLIC = route_types.PUBLIC
 SIGNED_IN = route_types.SIGNED_IN
 ADMIN_ONLY = route_types.ADMIN_ONLY
 OWNER_DEVICE = route_types.OWNER_DEVICE
+ADMIN_DEVICE = route_types.ADMIN_DEVICE
 OWNER_ONLY_DEVICE = route_types.OWNER_ONLY_DEVICE
 
 # Literal here, byte-identical to companion/app.py's own constants of the
@@ -83,6 +84,7 @@ HOME_ROUTE = layout.HOME_ROUTE
 DISPLAY_ROUTE = layout.DISPLAY_ROUTE
 FLIGHTS_ROUTE = layout.FLIGHTS_ROUTE
 AIRLINES_ROUTE = layout.AIRLINES_ROUTE
+MANAGE_ROUTE = airlines_page.MANAGE_ROUTE
 HEALTH_ROUTE = layout.HEALTH_ROUTE
 DEVICE_ROUTE = layout.DEVICE_ROUTE
 UPDATE_ROUTE = layout.UPDATE_ROUTE
@@ -167,10 +169,13 @@ _GET_ROUTES = (
             lambda h, m: h._render_tab(FLIGHTS_ROUTE, history_page.render, m.device), OWNER_DEVICE),
         Route(
             "GET", Exact(HEALTH_ROUTE),
-            lambda h, m: h._render_tab(HEALTH_ROUTE, health_page.render, m.device), OWNER_DEVICE),
+            lambda h, m: h._render_tab(HEALTH_ROUTE, health_page.render, m.device), ADMIN_DEVICE),
         Route(
             "GET", Exact(AIRLINES_ROUTE),
-            lambda h, m: h._render_tab(AIRLINES_ROUTE, airlines_page.render, m.device), OWNER_DEVICE),
+            lambda h, m: h._render_airlines_collection(m.device), OWNER_DEVICE),
+        Route(
+            "GET", Exact(MANAGE_ROUTE),
+            lambda h, m: h._render_tab(MANAGE_ROUTE, airlines_page.render, m.device), ADMIN_DEVICE),
         Route(
             "GET", Exact(UPDATE_ROUTE),
             lambda h, m: h._render_tab(
@@ -240,20 +245,20 @@ _POST_ROUTES = (
     Route("POST", Exact(LOGOUT_ROUTE), lambda h, m: h._handle_logout_post(), SIGNED_IN),
     Route(
         "POST", Exact(airlines_page.RESOLVE_ROUTE),
-        lambda h, m: h._handle_manual_resolve_post(m.device), OWNER_DEVICE),
+        lambda h, m: h._handle_manual_resolve_post(m.device), ADMIN_DEVICE),
     Route(
         "POST", Exact(airlines_page.RENAME_ROUTE),
-        lambda h, m: h._handle_airline_rename_post(m.device), OWNER_DEVICE),
+        lambda h, m: h._handle_airline_rename_post(m.device), ADMIN_DEVICE),
     Route(
         "POST", Exact(airlines_page.RENAME_RESET_ROUTE),
-        lambda h, m: h._handle_airline_rename_reset_post(m.device), OWNER_DEVICE),
+        lambda h, m: h._handle_airline_rename_reset_post(m.device), ADMIN_DEVICE),
     Route(
         "POST",
         PrefixSuffix(airlines_page.MANUAL_DELETE_ROUTE_PREFIX, airlines_page.MANUAL_DELETE_ROUTE_SUFFIX),
-        lambda h, m: h._handle_manual_resolution_delete(m.device, m.captured), OWNER_DEVICE),
+        lambda h, m: h._handle_manual_resolution_delete(m.device, m.captured), ADMIN_DEVICE),
     Route(
         "POST", PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png"),
-        lambda h, m: h._handle_illustration_replace(m.device, m.captured), OWNER_DEVICE),
+        lambda h, m: h._handle_illustration_replace(m.device, m.captured), ADMIN_DEVICE),
     Route("POST", Exact(RULES_ADD_ROUTE), lambda h, m: h._handle_rule_add_post(m.device), OWNER_DEVICE),
     Route(
         "POST", Exact(CALENDAR_DISCONNECT_ROUTE),
@@ -291,6 +296,7 @@ _PAGE_AND_IMAGE_KEYS = (
     ("GET", Exact(FLIGHTS_ROUTE)),
     ("GET", Exact(HEALTH_ROUTE)),
     ("GET", Exact(AIRLINES_ROUTE)),
+    ("GET", Exact(MANAGE_ROUTE)),
     ("GET", Exact(SETTINGS_ROUTE)),
     ("GET", Exact(HISTORY_LEGACY_ROUTE)),
     ("GET", Exact(PREVIEW_PAGE_ROUTE)),
@@ -321,7 +327,7 @@ _ACTION_KEYS = (
     ("POST", Exact(co_managers_card.LEAVE_ROUTE)),
 )
 
-# The routes that act on a single device: 14 GET and 17 POST.
+# The routes that act on a single device: 15 GET and 17 POST.
 _DEVICE_SCOPED_KEYS = frozenset(_PAGE_AND_IMAGE_KEYS + _ACTION_KEYS)
 
 # Form field carrying the per-session anti-forgery token.

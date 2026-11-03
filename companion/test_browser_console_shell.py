@@ -11,8 +11,7 @@ from companion.test_browser_ux_helpers import (
 pytestmark = pytest.mark.browser
 
 PAGES = (
-    console_routes.FLEET_ROUTE, console_routes.USERS_ROUTE,
-    console_routes.LOCATIONS_ROUTE, console_routes.AUDIT_ROUTE)
+    console_routes.FLEET_ROUTE, console_routes.USERS_ROUTE, console_routes.AUDIT_ROUTE)
 MIN_TAP_PX = 44
 
 
@@ -41,9 +40,9 @@ def _open(new_context, server, viewport, path):
 
 @pytest.mark.parametrize(
     "viewport", [VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED], ids=["390", "360"])
-def test_phone_bar_keeps_five_full_size_cells_in_the_console(
+def test_phone_bar_keeps_four_full_size_cells_in_the_console(
         new_context, server, viewport):
-    """the Console bar has five cells, each at least 44px tall and wide and inside the
+    """the Console bar has four cells, each at least 44px tall and wide and inside the
     viewport, and the page does not scroll sideways"""
     context, page = _open(new_context, server, viewport, console_routes.USERS_ROUTE)
     try:
@@ -51,7 +50,7 @@ def test_phone_bar_keeps_five_full_size_cells_in_the_console(
             """() => [...document.querySelectorAll('.tab-bar > a, .tab-bar > details')]
                 .map(e => { const b = e.getBoundingClientRect();
                             return {w: b.width, h: b.height, r: b.right}; })""")
-        assert len(cells) == 5, cells
+        assert len(cells) == 4, cells
         for cell in cells:
             assert cell["h"] >= MIN_TAP_PX and cell["w"] >= MIN_TAP_PX, cells
             assert cell["r"] <= viewport["width"] + 0.5, cells

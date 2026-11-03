@@ -193,12 +193,12 @@ def test_a_user_who_owns_the_live_frame_is_served_under_its_real_id(live_rig):
     status, headers, _body = live_rig.get("/", "a")
     assert status == 303
     assert headers["Location"] == "/devices/%s/" % live_rig.fleet.a2
-    pages = ("/", "/display", "/flights", "/health", "/airlines")
+    pages = ("/", "/display", "/flights", "/airlines")
     for path in pages:
         body = live_rig.page("/devices/%s%s" % (live, path), "a")
         links = re.findall(r'(?:data-)?href="([^"]*)"', body)
         for target in links:
-            assert target not in ("/display", "/flights", "/health", "/airlines"), (
+            assert target not in ("/display", "/flights", "/airlines"), (
                 path, target)
         assert any(t.startswith("/devices/%s" % live) for t in links), path
         assert 'value="live"' not in body
@@ -246,8 +246,10 @@ def test_pending_and_retired_frames_do_not_exist_for_a_user(rig):
 # --- reduced content, crafted POSTs and the calendar gate -----------------------
 
 ADMIN_ONLY_KEYS = tuple(SEEDED_ADMIN_ONLY)
-_ADMIN_LINK_PATHS = ("/fleet", "/users", "/audit", "/update", "/device")
-_FRAME_PAGES = ("/", "/display", "/flights", "/health", "/airlines")
+_ADMIN_LINK_PATHS = (
+    "/fleet", "/users", "/audit", "/update", "/device", "/health", "/airlines/manage",
+    "/locations")
+_FRAME_PAGES = ("/", "/display", "/flights", "/airlines")
 
 
 def _form(**fields):
@@ -351,7 +353,7 @@ def test_user_home_has_one_dot_and_no_battery_tile_or_attention_bar(rig):
     assert parse_html(admin_home).select(".home-battery")
 
 
-def test_user_health_has_none_of_the_platform_rows(rig):
+def test_health_is_the_administrators_alone_and_keeps_its_platform_rows(rig):
     mark_checked_in(rig.state_dir, rig.fleet.a1, source_fault=True)
     platform_texts = (
         health_page.SERVER_DATA_SECTION_HEADING, health_page.ROW_FLIGHT_DATA_NAME,
@@ -359,13 +361,10 @@ def test_user_health_has_none_of_the_platform_rows(rig):
         health_page.UNRESOLVED_SECTION_HEADING)
     path = "/devices/%s/health" % rig.fleet.a1
     admin_health = rig.page(path, "admin")
-    user_health = rig.page(path, "a")
     for text in platform_texts:
-        needle = escape_html(i18n.t(text))
-        assert needle in admin_health, text
-        assert needle not in user_health, text
-    assert escape_html(i18n.t(health_page.SCREEN_SECTION_HEADING)) in user_health
-    assert "resolve-dialog" not in user_health
+        assert escape_html(i18n.t(text)) in admin_health, text
+    rig.assert_unknown("GET", path, "a")
+    rig.assert_unknown("GET", "/health", "a")
 
 
 def test_user_pages_link_to_no_admin_page_and_admin_pages_still_do(rig):

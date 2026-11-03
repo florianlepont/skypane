@@ -17,9 +17,9 @@ from server.plane import colour_rules, name_overrides
 CO_EMAIL = "co-manager@example.test"
 STRANGER_EMAIL = "stranger@example.test"
 
-PAGES = ("/", "/display", "/detection", "/flights", "/health", "/airlines")
+PAGES = ("/", "/display", "/detection", "/flights", "/airlines")
 LEGACY_REDIRECTS = ("/settings", "/history", "/preview")
-OWNER_ONLY_GETS = ("/device", "/update")
+ADMIN_FRAME_GETS = ("/device", "/update", "/health", "/airlines/manage")
 ADMIN_GETS = ("/fleet", "/users", "/audit")
 
 
@@ -162,11 +162,12 @@ def test_a_co_manager_adds_a_colour_rule(rig):
     assert os.path.exists(colour_rules.colour_rules_path(rig.state_dir))
 
 
-def test_a_co_manager_renames_an_airline(rig):
-    status, _h, _b = rig.post("co", rig.prefix() + "/airlines/rename", {
+def test_a_co_manager_cannot_rename_an_airline(rig):
+    status, body = rig.unknown("POST")
+    got = rig.post("co", rig.prefix() + "/airlines/rename", {
         "airline": "Air France", "airline_name": "Frame Test Air"})
-    assert status == 303
-    assert os.path.exists(name_overrides.name_overrides_path(rig.state_dir))
+    assert (got[0], got[2]) == (status, body)
+    assert not os.path.exists(name_overrides.name_overrides_path(rig.state_dir))
 
 
 def test_a_co_manager_saves_a_detection_runway(rig):
@@ -181,8 +182,8 @@ def test_a_co_manager_saves_a_detection_runway(rig):
 # --- excluded ------------------------------------------------------------
 
 
-@pytest.mark.parametrize("page", OWNER_ONLY_GETS)
-def test_a_co_manager_gets_404_for_the_device_and_update_pages(rig, page):
+@pytest.mark.parametrize("page", ADMIN_FRAME_GETS)
+def test_a_co_manager_gets_404_for_the_administrator_frame_pages(rig, page):
     status, body = rig.unknown("GET")
     assert rig.get("co", rig.prefix() + page)[::2] == (status, body)
 

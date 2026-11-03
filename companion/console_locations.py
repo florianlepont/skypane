@@ -32,6 +32,7 @@ from server import fleet_db
 # Same literals as companion/console_routes.py (which imports this module, so
 # it cannot be imported at module level); a test pins that the two agree.
 LOCATIONS_PATH = "/locations"
+FLEET_PATH = "/fleet"
 LOCATIONS_ADD_PATH = "/locations/add"
 LOCATION_ACTION_PREFIX = "/locations/"
 EDIT_SUFFIX = "/edit"
@@ -214,13 +215,13 @@ def _validate(form, target_id):
     longitude = _parse_coordinate(raw_lon, 180.0)
     errors = {}
     if not name or len(name) > locations_page.NAME_MAX_CHARS:
-        errors[locations_page.NAME_FIELD] = i18n.t(locations_page.ERROR_NAME)
+        errors[locations_page.NAME_FIELD] = locations_page.ERROR_NAME
     if latitude is None:
-        errors[locations_page.LATITUDE_FIELD] = i18n.t(locations_page.ERROR_LATITUDE)
+        errors[locations_page.LATITUDE_FIELD] = locations_page.ERROR_LATITUDE
     if longitude is None:
-        errors[locations_page.LONGITUDE_FIELD] = i18n.t(locations_page.ERROR_LONGITUDE)
+        errors[locations_page.LONGITUDE_FIELD] = locations_page.ERROR_LONGITUDE
     if not _valid_zone(raw_zone):
-        errors[locations_page.TIMEZONE_FIELD] = i18n.t(locations_page.ERROR_TIMEZONE)
+        errors[locations_page.TIMEZONE_FIELD] = locations_page.ERROR_TIMEZONE
     state = locations_page.FormState(
         target_id, name[:locations_page.NAME_MAX_CHARS], raw_lat.strip()[:_MAX_NUMBER_CHARS],
         raw_lon.strip()[:_MAX_NUMBER_CHARS],
@@ -273,10 +274,10 @@ def _render(h, principal, state=None, status=200):
 
     if _is_admin(principal):
         return h._console_page(
-            console_routes.LOCATIONS_ROUTE, None, body, locations_page.LOCATIONS_PURPOSE,
-            status=status)
+            console_routes.LOCATIONS_ROUTE, console_routes.LOCATIONS_LABEL, body,
+            locations_page.LOCATIONS_PURPOSE, status=status)
     h.page_context()
-    title = i18n.t(console_routes.CONSOLE_TITLES[console_routes.LOCATIONS_ROUTE])
+    title = i18n.t(console_routes.LOCATIONS_LABEL)
     flash_html, clear_cookie = console_flash.take_flash(h.headers.get("Cookie"))
     page = layout.page_shell(
         title=title, active=layout.nav_slug(console_routes.LOCATIONS_ROUTE),
@@ -286,10 +287,10 @@ def _render(h, principal, state=None, status=200):
 
 
 def handle_locations_get(h, m):
-    principal = _principal(h)
-    if principal is None:
-        return _not_found(h)
-    return _render(h, principal)
+    """The list page no longer exists: an administrator is sent to Fleet by a
+    fixed redirect (never derived from the request); the access policy has
+    already refused every other caller."""
+    return h.redirect(FLEET_PATH)
 
 
 # ---- add ----------------------------------------------------------------
@@ -544,7 +545,7 @@ def _deny_assignment(handler, device, location_id):
 ROUTES = (
     route_types.Route(
         "GET", route_types.Exact(LOCATIONS_PATH), handle_locations_get,
-        route_types.SIGNED_IN),
+        route_types.ADMIN_ONLY),
     route_types.Route(
         "POST", route_types.Exact(LOCATIONS_ADD_PATH), handle_add,
         route_types.SIGNED_IN, csrf=True),

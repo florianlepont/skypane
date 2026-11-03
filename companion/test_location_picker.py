@@ -110,7 +110,7 @@ def test_a_user_picker_lists_only_their_own_locations_with_the_current_one_selec
         ("", "", "No location"), (str(mine), "", "Alpha Place"),
         (str(other_mine), " selected", "Beta Place")]
     assert "Neighbour Place" not in body and "Platform Place" not in body
-    assert 'href="/locations">Manage locations</a>' in body
+    assert 'href="/locations"' not in body
 
 
 def test_the_select_is_part_of_the_settings_form(rig):
@@ -121,11 +121,11 @@ def test_the_select_is_part_of_the_settings_form(rig):
     assert 'form="%s"' % form_id in select and 'name="location_id"' in select
 
 
-def test_with_no_location_a_user_sees_a_note_and_an_add_link(rig):
+def test_with_no_location_a_user_sees_a_note_and_no_link(rig):
     body = rig.display(rig.fleet.a1, "a")
     assert PICKER_ID not in body
     assert "No location chosen." in body
-    assert 'href="/locations">Add a location</a>' in body
+    assert 'href="/locations"' not in body
 
 
 def test_an_admin_picker_lists_the_frame_owners_and_ownerless_locations(rig):
@@ -167,12 +167,12 @@ def test_a_location_an_admin_assigned_to_a_user_frame_is_kept_and_not_named(rig)
 def test_the_picker_is_in_french(rig):
     rig.add_location("Alpha Place", rig.fleet.a_id)
     body = rig.display(rig.fleet.a1, "a", headers={"Accept-Language": "fr"})
-    assert "Gérer les lieux" in body and "Aucun lieu" in body
+    assert "Aucun lieu" in body and "Gérer les lieux" not in body
 
 
 def test_the_picker_with_no_location_is_in_french(rig):
     body = rig.display(rig.fleet.a1, "a", headers={"Accept-Language": "fr"})
-    assert "Aucun lieu choisi." in body and "Ajouter un lieu" in body
+    assert "Aucun lieu choisi." in body and "Ajouter un lieu" not in body
 
 
 # --- saving -----------------------------------------------------------------------

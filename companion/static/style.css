@@ -21,8 +21,7 @@
  *     the checked runway/look cards and look dot, the editing look frame)
  *   - switch-on state (.switch[aria-checked="true"])
  *   - stat tiles (the top rule and icon of .stat-tile)
- *   - the Home "See Health" pill (.home-state__health-link) and the
- *     special-look add button's dashed plus
+ *   - the special-look add button's dashed plus
  *   - the logo mark's flick (.logo-accent)
  * Border is structural only (dividers, table lines, card edges)
  * and never substitutes for accent or status colour.
@@ -5871,30 +5870,6 @@ button.detection-location-save {
 .info-tip:focus-within .info-tip__bubble {
   visibility: visible;
   opacity: 1;
-}
-
-/* The Health link as a soft accent pill; 44px tall so it is a full tap
- * target on a phone. */
-.home-state__health-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  min-height: 44px;
-  padding: 0 var(--space-sm) 0 var(--space-md);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-  text-decoration: none;
-}
-
-.home-state__health-link:hover {
-  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
-}
-
-.home-state__health-link .icon {
-  width: 16px;
-  height: 16px;
 }
 
 /* The battery dial: the open arc drawn by draw.arc_gauge() with the

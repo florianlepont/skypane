@@ -50,6 +50,8 @@ ROUTES = (
 ADMINISTRATION_LABEL = i18n.msg("nav.administration", "Administration")
 FLEET_LABEL = i18n.msg("nav.fleet", "Fleet")
 USERS_LABEL = i18n.msg("nav.users", "Users")
+# The Locations page is gone; the label still titles the page a refused
+# location submission re-renders.
 LOCATIONS_LABEL = i18n.msg("nav.locations", "Locations")
 AUDIT_LABEL = i18n.msg("nav.audit_log", "Audit log")
 RELEASES_LABEL = i18n.msg("nav.releases", "Releases")
@@ -60,7 +62,6 @@ SECTION_NAV_LABEL = i18n.msg("nav.administration_sections", "Administration sect
 CONSOLE_NAV_ENTRIES = (
     ("fleet", FLEET_ROUTE, FLEET_LABEL),
     ("users", USERS_ROUTE, USERS_LABEL),
-    ("locations", LOCATIONS_ROUTE, LOCATIONS_LABEL),
     ("audit", AUDIT_ROUTE, AUDIT_LABEL),
     ("releases", UPDATE_ROUTE, RELEASES_LABEL),
 )
@@ -69,7 +70,6 @@ CONSOLE_NAV_ENTRIES = (
 CONSOLE_TITLES = {
     FLEET_ROUTE: FLEET_LABEL,
     USERS_ROUTE: USERS_LABEL,
-    LOCATIONS_ROUTE: LOCATIONS_LABEL,
     AUDIT_ROUTE: AUDIT_LABEL,
 }
 

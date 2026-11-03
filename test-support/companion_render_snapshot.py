@@ -126,6 +126,7 @@ _UNAUTH_GET_REQUESTS = (
     companion_app.FLIGHTS_ROUTE,
     companion_app.HEALTH_ROUTE,
     companion_app.AIRLINES_ROUTE,
+    airlines_page.MANAGE_ROUTE,
     companion_app.UPDATE_ROUTE,
     "/account",
     "/fleet",

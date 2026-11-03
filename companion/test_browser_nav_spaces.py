@@ -5,6 +5,7 @@ and the Locations form fitting its card at 360px. Light and dark themes."""
 import pytest
 
 import fleet_console_support as fx
+from locations_page_support import open_locations_page
 from companion import auth
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_no_page_overflow, _login,
@@ -46,7 +47,10 @@ def _admin_page(new_context, server, path, viewport, lang="en", scheme="light"):
     context = _context(new_context, server, viewport, lang, scheme)
     page = context.new_page()
     _login(page, server.base_url())
-    page.goto(server.base_url() + path)
+    if path == "/locations":
+        open_locations_page(page, server.base_url())
+    else:
+        page.goto(server.base_url() + path)
     page.locator("main").wait_for(state="visible")
     _set_ui_theme(page, scheme)
     return context, page
@@ -82,12 +86,12 @@ def _assert_bar(page, expected_cells, where):
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("path", ["/fleet", "/users", "/audit", "/update"])
-def test_console_bar_has_five_equal_cells_at_360(
+def test_console_bar_has_four_equal_cells_at_360(
         new_context, app_server_in_process, path, lang, scheme):
     context, page = _admin_page(
         new_context, app_server_in_process, path, VIEWPORT_MIN_SUPPORTED, lang, scheme)
     try:
-        _assert_bar(page, 5, "console%s/%s/%s" % (path, lang, scheme))
+        _assert_bar(page, 4, "console%s/%s/%s" % (path, lang, scheme))
         assert page.locator(".section-subnav").count() == 0
     finally:
         context.close()

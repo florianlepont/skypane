@@ -58,7 +58,6 @@ MESSAGES = {
         "Le cadre dort entre deux mises à jour pour économiser sa batterie\u00a0: "
         "il se réveille environ toutes les %s, il ne se rafraîchit donc pas en continu.",
     "home.cadence_info_label": "À propos des mises à jour",
-    "home.see_health": "Voir la santé",
     "home.cadence_no_interval":
         "Pour économiser sa batterie, le cadre dort entre deux mises à jour\u00a0: "
         "il ne se rafraîchit donc pas en continu.",
@@ -70,7 +69,6 @@ MESSAGES = {
     "home.battery_critical": "Très faible",
     "home.battery_fact_empty": "Batterie · Aucune mesure pour l’instant",
     "home.action_needed": "Un élément demande votre attention",
-    "home.review_status": "Voir l’état",
 
     "home.recent_flights": "Vols récents",
     "home.see_all_flights": "Voir tous les vols",
