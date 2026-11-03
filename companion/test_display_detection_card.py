@@ -201,10 +201,10 @@ def test_the_card_holds_the_location_fields_and_no_detection_field(rig):
         "scope": "display", "return_to": "/display", "location_id": str(home)})
     _status, page = rig.get("owner", rig.scope() + "/display")
     card = _card(page)
-    assert re.findall(r"<select\b[^>]*name=\"([^\"]*)\"", card) == ["location_id"]
+    assert re.findall(r"<select\b[^>]*name=\"([^\"]*)\"", card) == ["location_id", "timezone"]
     assert "<textarea" not in card and "<button" not in card
     assert re.findall(r"<input\b[^>]*name=\"([^\"]*)\"", card) == []
-    assert _dirty_sections(card) == ["Location"]
+    assert _dirty_sections(card) == ["Location", "Time zone"]
     assert 'name="tracked_runway"' not in page
     assert "Runway" not in _dirty_sections(page)
     assert 'id="runway-group-heading"' not in page and "runway-card" not in page

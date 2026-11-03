@@ -105,6 +105,7 @@ from companion.settings.quiet_hours import (
     quiet_dial_readout_html as quiet_dial_readout_html,
     quiet_dial_svg as quiet_dial_svg,
     quiet_hours_group as quiet_hours_group,
+    timezone_field_html as timezone_field_html,
     quiet_window_minute_of_day as quiet_window_minute_of_day,
     quiet_window_span as quiet_window_span)
 from companion.settings.calendar import (
@@ -426,16 +427,20 @@ DETECTION_CARD_LINK = i18n.msg(
     "display.detection_card_link", "Change airport, runway or position")
 DETECTION_ROUTE = "/detection"
 DETECTION_CARD_HEADING_ID = "location-detection-heading"
+# The Location and detection card's own id: the Quiet hours card links here.
+DETECTION_CARD_ID = "location-detection"
 
 
-def detection_card_html(ctx, location_name=None, location_html=""):
+def detection_card_html(
+        ctx, location_name=None, location_html="", timezone_html=""):
     """The Location and detection card on Display: the sentence for the
-    saved detection setting, the frame's Location fields (`location_html`,
-    already built) and a link to the device-scoped detection page.
+    saved detection setting, the frame's Location fields (`location_html`)
+    and Time zone field (`timezone_html`), both already built, and a link
+    to the device-scoped detection page.
 
     The detection part has no field and no dirty-section attribute; the
-    location fields keep their own, so the save bar counts exactly what it
-    counted before. `location_name` is the device's usable location, if it
+    location and time zone fields each carry their own, so the save bar
+    names a changed zone as "Time zone". `location_name` is the device's usable location, if it
     has one; a position setting without it reads as the default runway, as
     the frame itself behaves.
     """
@@ -443,15 +448,15 @@ def detection_card_html(ctx, location_name=None, location_html=""):
     sentence = detection_summary.summary_values(selection, location_name)[0]
     return (
         '<section class="theme-status theme-status--nested detection-card" '
-        'aria-labelledby="%s">'
+        'id="%s" aria-labelledby="%s">'
         '<h2 class="text-heading" id="%s">%s</h2>'
-        '<p class="text-label section-caption">%s</p>%s'
+        '<p class="text-label section-caption">%s</p>%s%s'
         '<a class="text-link detection-link" href="%s">%s</a>'
         "</section>"
     ) % (
-        DETECTION_CARD_HEADING_ID, DETECTION_CARD_HEADING_ID,
+        DETECTION_CARD_ID, DETECTION_CARD_HEADING_ID, DETECTION_CARD_HEADING_ID,
         escape_html(i18n.t(DETECTION_CARD_TITLE)), escape_html(sentence), location_html,
-        escape_html(device_scope.scoped(DETECTION_ROUTE)),
+        timezone_html, escape_html(device_scope.scoped(DETECTION_ROUTE)),
         escape_html(i18n.t(DETECTION_CARD_LINK)))
 
 
@@ -567,7 +572,7 @@ def _dirty_bar_strings():
     }
 
 
-def _group_builders(ctx, values, errors, submitted, next_wake_clock):
+def _group_builders(ctx, values, errors, submitted, next_wake_clock, zone_in_card=False):
     """The lazy, scope-independent per-group builder table render()'s
     scope branches read from. screens.GROUP_THEME/GROUP_CALENDAR have
     no entry here: their own renderer (the look card, built by the
@@ -581,7 +586,8 @@ def _group_builders(ctx, values, errors, submitted, next_wake_clock):
         screens.GROUP_QUIET_HOURS: lambda: quiet_hours_group(
             values["quiet_start"], values["quiet_end"],
             errors=errors, submitted=submitted,
-            current_timezone=values["timezone"]),
+            current_timezone=values["timezone"],
+            zone_card_href="#" + DETECTION_CARD_ID if zone_in_card else None),
         # Read inside the lambda so it costs nothing unless this group
         # is actually in scope.
         screens.GROUP_WAKE_INTERVAL: lambda: wake_interval_group(
@@ -774,7 +780,9 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None, location_name=None
         scope = SCOPE_DISPLAY
     groups = scope_groups(scope, screen_id)
 
-    builders = _group_builders(ctx, values, errors, submitted, next_wake_clock)
+    builders = _group_builders(
+        ctx, values, errors, submitted, next_wake_clock,
+        zone_in_card=scope == SCOPE_DISPLAY)
     # Rendered after </form> closes so it never nests inside the settings
     # form: quick_led_html is the LED switch's own instant-toggle form.
     quick_led_html = (
@@ -785,7 +793,9 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None, location_name=None
             ctx, groups, builders, errors, submitted, values, calendar_status,
             detection_card_html(
                 ctx, location_name,
-                _location_picker_html(ctx) if screens.GROUP_QUIET_HOURS in groups else ""))
+                _location_picker_html(ctx) if screens.GROUP_QUIET_HOURS in groups else "",
+                timezone_field_html(values["timezone"], errors, dirty_section=True)
+                if screens.GROUP_QUIET_HOURS in groups else ""))
     elif scope == SCOPE_DEVICE:
         pieces = _render_device_scope(groups, builders)
     else:

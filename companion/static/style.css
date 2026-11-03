@@ -8576,3 +8576,13 @@ a.entity-row__button:hover {
 .modal__section > p {
   margin: 0;
 }
+
+/* The Time zone field inside the Location and detection card sits below the
+ * Location fields, like a sibling field. */
+.detection-card .quiet-timezone {
+  margin-top: var(--space-md);
+}
+
+.quiet-timezone-note {
+  margin: var(--space-md) 0 0;
+}
