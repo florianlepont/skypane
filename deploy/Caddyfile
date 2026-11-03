@@ -23,7 +23,8 @@
     #
     # Caddy's header redaction covers only Cookie/Set-Cookie/Authorization/
     # Proxy-Authorization, so telemetry headers appear here; the tailer
-    # (server/history_db.py) reads an explicit four-name allowlist, never
+    # (server/history_db.py) reads an explicit allowlist (X-Fw-Version,
+    # X-Boot-Reason, X-Rssi, X-Battery-Mv, X-Wake-Stats), never
     # the full header map, so a redaction change cannot leak a credential.
     log {
         output file /opt/skypane/state/caddy-access.log {

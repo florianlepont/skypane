@@ -764,8 +764,16 @@ The companion can serve the `device_health` table (battery history) as
 JSON Lines over HTTPS, so an automated reader can fetch it without SSH.
 It is off by default. The route is `GET /api/export/battery-history?since=<UTC time>`,
 for example `since=2026-10-23T04:25:00Z`. Each line is one JSON object with
-`ts`, `battery_mv`, `fw_version`, `boot_reason` and `rssi`, the same rows
-as the SSH export in `hardware/FIELD-VALIDATION-FR.md`. Nothing else is
+eighteen keys: `ts`, `battery_mv`, `fw_version`, `boot_reason` and `rssi`,
+followed by the thirteen wake keys `wake_seq`, `boot_ms`, `wifi_ms`,
+`wifi_attempts`, `prev_seq`, `prev_awake_ms`, `prev_request_ms`,
+`prev_download_ms`, `prev_draw_ms`, `prev_spi_ms`, `prev_tls_ms`,
+`prev_redraw` and `prev_outcome`. All eighteen are always present; the wake
+keys are null for a frame that did not send the telemetry header and for
+rows from before it existed. The SSH export in
+`hardware/FIELD-VALIDATION-FR.md` keeps its five columns. The new columns
+are added by the poll oneshot after a deploy; until it has run, the export
+returns the five old values with the new keys null. Nothing else is
 exposed, and nothing is ever written.
 
 Access is by bearer token only (`Authorization: Bearer <token>`). A session
