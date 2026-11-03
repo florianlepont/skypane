@@ -7,23 +7,25 @@ route/label tables, icon lookup and escaping, plus companion.i18n/
 companion.prefs and companion.auth's theme-cookie name; no import from
 ui_components or ui_shell.
 """
+from typing import NamedTuple
+
 import companion.console_routes as console_routes
 import companion.device_scope as device_scope
 import companion.i18n as i18n
 import companion.prefs as prefs
 from companion.auth import UI_THEME_COOKIE_NAME
 from companion.ui_base import (
+    ADVANCED_GROUP_LABEL,
     AIRLINES_ROUTE,
+    DEVICE_ROUTE,
     DISPLAY_ROUTE,
     FLIGHTS_ROUTE,
     HEALTH_ALERT_SUFFIX_TEXT,
     HEALTH_ANOMALY_CLASS,
     HEALTH_SOURCE_FAULT_CLASS,
-    HEALTH_NAV_SLUG,
     HEALTH_ROUTE,
     HOME_ROUTE,
     MOBILE_NAV_ID,
-    NAV_GROUPS,
     NAV_ICON_IDS,
     NAV_NOTIFICATION_CLASS,
     NAV_TABS,
@@ -61,10 +63,10 @@ LOCATIONS_ROUTE = "/locations"
 _LOCATIONS_LABEL = i18n.msg("nav.locations", "Locations")
 
 # The frame pages a user's sidebar offers, in order, and the subset the
-# phone tab bar carries (Account closes the bar).
-_USER_SIDEBAR_PAGES = (
-    HOME_ROUTE, FLIGHTS_ROUTE, DISPLAY_ROUTE, AIRLINES_ROUTE, HEALTH_ROUTE)
-_USER_TAB_PAGES = (HOME_ROUTE, FLIGHTS_ROUTE, DISPLAY_ROUTE, HEALTH_ROUTE)
+# phone tab bar carries (Account closes the bar). Health is a technical
+# page: a user reaches it from the Home status card, not from navigation.
+_USER_SIDEBAR_PAGES = (HOME_ROUTE, FLIGHTS_ROUTE, DISPLAY_ROUTE, AIRLINES_ROUTE)
+_USER_TAB_PAGES = (HOME_ROUTE, FLIGHTS_ROUTE, DISPLAY_ROUTE)
 
 
 def is_user_principal():
@@ -74,9 +76,6 @@ def is_user_principal():
 
 
 ADMIN_ROLE = "admin"
-_ADMIN_TAB_LABEL = i18n.msg("nav.admin", "Admin")
-_ADMIN_TAB_ICON_ID = "icon-nav-device"
-_NAV_TAB_ROUTES = frozenset(route for route, _label in NAV_TABS)
 
 
 def is_admin_principal():
@@ -85,42 +84,107 @@ def is_admin_principal():
     return principal is not None and principal[1] == ADMIN_ROLE
 
 
-def _admin_nav_entries():
-    """The Administration links an admin may follow: console pages whose GET
-    route exists, empty for every other caller. Routes are never scoped to a
-    frame, so the links carry no device prefix.
+# The two spaces an administrator moves between. The space follows the page
+# being rendered (its nav slug), never anything the request carries.
+CONSOLE_SPACE = "console"
+MY_VIEWS_SPACE = "my-views"
+
+_AUDIT_BAR_LABEL = i18n.msg("nav.audit_short", "Audit")
+_MY_VIEWS_LABEL = i18n.msg("nav.my_views", "My views")
+_CONSOLE_LABEL = i18n.msg("nav.console", "Console")
+_SWITCH_TO_MY_VIEWS_TEXT = i18n.msg(
+    "nav.switch_to_my_views", "Switch to your own views")
+_SWITCH_TO_CONSOLE_TEXT = i18n.msg(
+    "nav.switch_to_console", "Switch to the administration console")
+_ACCOUNT_ICON_ID = "icon-gear"
+_CONSOLE_ICON_IDS = {
+    "fleet": "icon-device",
+    "users": "icon-corroboration",
+    "locations": "icon-pipeline",
+    "audit": "icon-nav-history",
+    "releases": "icon-nav-update",
+}
+_CONSOLE_SLUGS = frozenset(
+    nav_slug(path) for _key, path, _label in console_routes.CONSOLE_NAV_ENTRIES)
+
+
+class _Entry(NamedTuple):
+    """One navigation destination: a final href, a label Message (or text),
+    the slug that marks it current, an icon id and its current state."""
+    href: str
+    label: object
+    slug: str
+    icon: str
+    is_active: bool
+
+
+def current_space(active):
+    """The space the page `active` belongs to, or None for a plain user.
+    Console pages are the administration routes; every other page, the
+    personal ones included, is My views.
     """
+    if is_user_principal():
+        return None
+    return CONSOLE_SPACE if active in _CONSOLE_SLUGS else MY_VIEWS_SPACE
+
+
+def _frame_entry(route, active):
+    labels = dict(NAV_TABS)
+    slug = nav_slug(route)
+    return _Entry(
+        device_scope.scoped(route), labels[route], slug,
+        NAV_ICON_IDS.get(slug, ""), slug == active)
+
+
+def _account_entry(active):
+    return _Entry(
+        device_scope.scoped(ACCOUNT_ROUTE), USER_NAV[0][1], ACCOUNT_NAV_SLUG,
+        _ACCOUNT_ICON_ID, ACCOUNT_NAV_SLUG == active)
+
+
+def _console_entries(active):
+    """The Console destinations whose GET page exists, by key."""
+    entries = {}
+    for key, path, label in console_routes.available_nav_entries():
+        slug = nav_slug(path)
+        entries[key] = _Entry(
+            path, label, slug, _CONSOLE_ICON_IDS.get(key, ""), slug == active)
+    return entries
+
+
+def _switch_target(space):
+    """(href, label, aria-label) of the link leading out of `space`, or None
+    when the destination page does not exist."""
+    if space == CONSOLE_SPACE:
+        return (HOME_ROUTE, _MY_VIEWS_LABEL, _SWITCH_TO_MY_VIEWS_TEXT)
+    if console_routes.available_nav_entries():
+        return (console_routes.ADMIN_TAB_ROUTE, _CONSOLE_LABEL, _SWITCH_TO_CONSOLE_TEXT)
+    return None
+
+
+def space_switch_html(active, variant="header"):
+    """The admin-only link between the two spaces, or "" for every other
+    caller. `variant` is "header" (phone) or "sidebar" (desktop); the label
+    names the destination."""
     if not is_admin_principal():
-        return []
-    return console_routes.available_nav_entries()
-
-
-def _admin_group_html(active):
-    """The sidebar's Administration group, or "" when it has no links.
-    Releases is the Update page, which the Advanced group already marks
-    current, so it is never marked here as well.
-    """
-    entries = _admin_nav_entries()
-    if not entries:
         return ""
-    links = []
-    for _key, path, label in entries:
-        is_active = nav_slug(path) == active and path not in _NAV_TAB_ROUTES
-        css_class = "sidebar-link sidebar-link--active" if is_active else "sidebar-link"
-        aria_current = ' aria-current="page"' if is_active else ""
-        links.append(
-            '<a class="%s" href="%s"%s>%s</a>' % (
-                css_class, escape_html(path), aria_current, escape_html(i18n.t(label))))
-    return (
-        '<div class="nav-group"><span class="nav-group__label text-label">%s</span>%s</div>'
-        % (escape_html(i18n.t(console_routes.ADMINISTRATION_LABEL)), "".join(links)))
+    target = _switch_target(current_space(active))
+    if target is None:
+        return ""
+    href, label, aria = target
+    return '<a class="space-switch space-switch--%s" href="%s" aria-label="%s">%s</a>' % (
+        variant, escape_html(href), escape_html(i18n.t(aria)),
+        escape_html(i18n.t(label)))
 
 
-def _admin_tab_present():
-    """Whether the phone bar carries the Admin tab: an admin, and a Fleet page."""
-    return is_admin_principal() and any(
-        path == console_routes.ADMIN_TAB_ROUTE
-        for _key, path, _label in console_routes.available_nav_entries())
+def _switch_entry(space):
+    """The space switch as a plain More-sheet entry, or None (not an admin,
+    or no destination page)."""
+    target = _switch_target(space) if is_admin_principal() else None
+    if target is None:
+        return None
+    href, label, _aria = target
+    return _Entry(href, label, "", "", False)
 
 
 def ui_theme_from_cookie(cookies):
@@ -136,66 +200,11 @@ def ui_theme_from_cookie(cookies):
     return value if value in UI_THEME_CHOICES else "auto"
 
 
-def _nav_links(active):
-    """Return one (is_active, escaped_route, escaped_label, slug) tuple per
-    NAV_TABS entry, in NAV_TABS order.
-
-    The single place NAV_TABS is iterated and its route/label pair
-    escaped; sidebar_nav() and _mobile_nav_html() both consume this (via
-    _nav_groups() below) instead of re-implementing the same
-    escaping/active-state logic twice. The unescaped `slug` lets a
-    renderer identify a specific link (e.g. the Health nav-tab
-    notification dot's target) without re-deriving it from an
-    already-escaped route string.
-    """
-    links = []
-    for route, label in NAV_TABS:
-        slug = nav_slug(route)
-        is_active = slug == active
-        # The label is looked up through i18n.t() at render time — NAV_TABS/
-        # NAV_GROUPS keep their English values; escape_html() still wraps the
-        # result, exactly like any other t() call site.
-        # The href goes through device_scope.scoped(); the slug and active
-        # state stay keyed on the un-prefixed route. Global routes (Update)
-        # are left alone by the helper.
-        links.append((
-            is_active, escape_html(device_scope.scoped(route)),
-            escape_html(i18n.t(label)), slug))
-    return links
-
-
-def _nav_groups(active):
-    """NAV_GROUPS in display order, each as (escaped_group_label, links)
-    where `links` is the slice of _nav_links(active) belonging to that
-    group. The one place the group structure is walked, so the sidebar
-    and the dropdown can never disagree about which tab sits under the
-    "Advanced" label.
-
-    The Advanced group (Health, Device) renders on every page for every
-    request; `/health` and `/device` were always reachable by URL and stay
-    session-gated regardless.
-    """
-    links = _nav_links(active)
-    groups = []
-    offset = 0
-    for group_label, entries in NAV_GROUPS:
-        count = len(entries)
-        group_links = links[offset:offset + count]
-        offset += count
-        # The first group's label is the empty-string sentinel "no
-        # heading" (see NAV_GROUPS), never a Message — i18n.t() only
-        # accepts a Message, so an empty label skips translation
-        # entirely rather than being passed through it.
-        label_text = i18n.t(group_label) if group_label else group_label
-        groups.append((escape_html(label_text), group_links))
-    return groups
-
-
-# There are exactly two live nav renderers, sidebar_nav() and
-# _mobile_nav_html() below, both fed by _nav_links() above. A
-# horizontally-scrollable nav strip used to render here; real-device
-# testing found it hid most tabs behind an undiscoverable swipe, so it
-# was replaced rather than repaired.
+# The navigation renderers, sidebar_nav() and _tab_bar_html(), are fed by
+# the same per-space entry lists, so the two can never disagree about which
+# destinations a space holds. A horizontally-scrollable nav strip used to
+# render here; real-device testing found it hid most tabs behind an
+# undiscoverable swipe, so it was replaced rather than repaired.
 
 
 def _health_alert_markup(severity):
@@ -244,86 +253,100 @@ def user_brand_href():
 
 
 def _user_sidebar_links():
-    """Every (route, label) in a user's sidebar: Account first, then the
-    reachable frame pages, then Locations once that page exists."""
-    links = list(USER_NAV) + _user_frame_links(_USER_SIDEBAR_PAGES)
+    """Every (route, label) in a user's sidebar: the reachable frame pages,
+    Locations once that page exists, then Account."""
+    links = _user_frame_links(_USER_SIDEBAR_PAGES)
     if _user_can_open(LOCATIONS_ROUTE):
         links.append((LOCATIONS_ROUTE, _LOCATIONS_LABEL))
-    return links
+    return links + list(USER_NAV)
+
+
+def _sidebar_link_html(entry, alert_html=""):
+    css_class = (
+        "sidebar-link sidebar-link--active" if entry.is_active else "sidebar-link")
+    aria_current = ' aria-current="page"' if entry.is_active else ""
+    return '<a class="%s" href="%s"%s>%s%s%s</a>' % (
+        css_class, escape_html(entry.href), aria_current,
+        icon_html(entry.icon, extra_class="sidebar-link__icon"),
+        escape_html(i18n.t(entry.label)), alert_html)
+
+
+def _nav_landmark_html(parts):
+    # "Primary navigation" is the one nav landmark exposed to the
+    # accessibility tree at any given viewport width (see this module's own
+    # comment above _mobile_nav_html()).
+    return '<nav class="sidebar-nav" aria-label="%s">%s</nav>' % (
+        escape_html(i18n.t(_PRIMARY_NAVIGATION_TEXT)), "".join(parts))
 
 
 def _user_sidebar_nav(active):
-    """The sidebar for a plain user: Account, the frame pages of the
-    request-scope frame and Locations, each present only when reachable.
-    No group headings and no Health dot."""
+    """The sidebar for a plain user: the frame pages of the request-scope
+    frame, Locations and Account, each present only when reachable. No group
+    headings and no Health dot."""
     links = []
     for route, label in _user_sidebar_links():
-        is_active = nav_slug(route) == active
-        css_class = "sidebar-link sidebar-link--active" if is_active else "sidebar-link"
-        aria_current = ' aria-current="page"' if is_active else ""
-        links.append(
-            '<a class="%s" href="%s"%s>%s</a>' % (
-                css_class, escape_html(device_scope.scoped(route)), aria_current,
-                escape_html(i18n.t(label))))
-    return '<nav class="sidebar-nav" aria-label="%s">%s</nav>' % (
-        escape_html(i18n.t(_PRIMARY_NAVIGATION_TEXT)), "".join(links))
+        slug = nav_slug(route)
+        links.append(_sidebar_link_html(_Entry(
+            device_scope.scoped(route), label, slug, "", slug == active)))
+    return _nav_landmark_html(links)
+
+
+def _group_html(links, label_html="", extra_class=""):
+    """A bordered sidebar group: an optional small label above its links."""
+    label = (
+        '<span class="nav-group__label text-label">%s</span>' % label_html
+        if label_html else "")
+    return '<div class="nav-group%s">%s%s</div>' % (extra_class, label, "".join(links))
+
+
+def _console_sidebar_parts(active):
+    entries = _console_entries(active)
+    eyebrow = escape_html(i18n.t(console_routes.ADMINISTRATION_LABEL))
+    links = [_sidebar_link_html(entry) for entry in entries.values()]
+    return [
+        _group_html(links, eyebrow, " nav-group--console"),
+        _group_html([_sidebar_link_html(_account_entry(active))])]
+
+
+def _my_views_sidebar_parts(active, health_alert):
+    everyday = [
+        _sidebar_link_html(_frame_entry(route, active))
+        for route in (HOME_ROUTE, DISPLAY_ROUTE, FLIGHTS_ROUTE, AIRLINES_ROUTE)]
+    alert_html = (
+        _health_alert_markup(health_alert) if health_alert in ("warn", "error") else "")
+    advanced = [
+        _sidebar_link_html(_frame_entry(HEALTH_ROUTE, active), alert_html),
+        _sidebar_link_html(_frame_entry(DEVICE_ROUTE, active))]
+    return everyday + [
+        _group_html(
+            advanced, escape_html(i18n.t(ADVANCED_GROUP_LABEL)),
+            " nav-group--advanced"),
+        _group_html([_sidebar_link_html(_account_entry(active))])]
 
 
 def sidebar_nav(active, health_alert=None, device_config=None):
     """The vertical Primary-navigation landmark shown by page_shell()'s
-    dashboard sidebar column at desktop width. Renders NAV_TABS via the
-    shared _nav_links() helper; the 960px CSS media query, not this
+    dashboard sidebar column at desktop width. Its content follows the
+    caller's space (see current_space()); the 960px CSS media query, not this
     function, decides whether sidebar_nav() or _mobile_nav_html() is
     visible.
 
     `health_alert` is `None`/`"ok"` for no dot, or `"warn"`/`"error"` to
-    append _health_alert_markup() after the Health link's label only,
-    interpolated verbatim as already-built safe HTML. The active link's
-    `<a>` carries `aria-current="page"` — never the inactive links.
+    append _health_alert_markup() after the My views Health link's label.
+    The active link's `<a>` carries `aria-current="page"` and the inactive
+    ones never do.
 
     `device_config` remains accepted because page_shell() provides one shared
-    rendering context to both navigation variants; the compact navigation no
-    longer repeats its screen or quiet-hours state.
+    rendering context to both navigation variants.
     """
     if is_user_principal():
         return _user_sidebar_nav(active)
-    parts = []
-    for group_label, group_links in _nav_groups(active):
-        links = []
-        for is_active, route, label, slug in group_links:
-            if is_active:
-                css_class = "sidebar-link sidebar-link--active"
-                aria_current = ' aria-current="page"'
-            else:
-                css_class = "sidebar-link"
-                aria_current = ""
-            icon = icon_html(
-                NAV_ICON_IDS.get(slug, ""), extra_class="sidebar-link__icon")
-            alert_html = (
-                _health_alert_markup(health_alert)
-                if health_alert in ("warn", "error") and slug == HEALTH_NAV_SLUG else "")
-            links.append(
-                '<a class="%s" href="%s"%s>%s%s%s</a>'
-                % (css_class, route, aria_current, icon, label, alert_html))
-        # An unlabelled group renders its links bare; a labelled group
-        # ("Advanced") wraps them in a .nav-group carrying a small uppercase
-        # label so the split reads at a glance.
-        if group_label:
-            parts.append(
-                '<div class="nav-group nav-group--advanced">'
-                '<span class="nav-group__label text-label">%s</span>%s</div>'
-                % (group_label, "".join(links)))
-        else:
-            parts.append("".join(links))
-    parts.append(_admin_group_html(active))
-    return (
-        '<nav class="sidebar-nav" aria-label="%s">%s</nav>'
-    ) % (
-        # "Primary navigation" is the one nav landmark exposed to the
-        # accessibility tree at any given viewport width (see this module's own
-        # comment above _mobile_nav_html()).
-        escape_html(i18n.t(_PRIMARY_NAVIGATION_TEXT)),
-        "".join(parts))
+    parts = [space_switch_html(active, "sidebar")]
+    if current_space(active) == CONSOLE_SPACE:
+        parts += _console_sidebar_parts(active)
+    else:
+        parts += _my_views_sidebar_parts(active, health_alert)
+    return _nav_landmark_html(parts)
 
 
 # The bottom tab bar's "More" cell label. Sentence case, and not the
@@ -472,75 +495,91 @@ REFRESH_SWAP_SELECTORS_BY_PAGE = {
 }
 
 
-def _tab_bar_cell_link(tab):
-    """One frame tab cell for an (is_active, route, label, slug) link."""
-    is_active, route, label, slug = tab
-    css_class = "tab-bar__link tab-bar__link--active" if is_active else "tab-bar__link"
-    aria_current = ' aria-current="page"' if is_active else ""
+def _tab_bar_cell_link(entry, label=None, extra_html=""):
+    """One bar cell for an _Entry. `label` overrides the entry's label with
+    its short bar form."""
+    css_class = (
+        "tab-bar__link tab-bar__link--active" if entry.is_active else "tab-bar__link")
+    aria_current = ' aria-current="page"' if entry.is_active else ""
     return '<a class="%s" href="%s"%s>%s</a>' % (
-        css_class, route, aria_current,
-        _tab_bar_cell_body(NAV_ICON_IDS.get(slug, ""), label))
+        css_class, escape_html(entry.href), aria_current,
+        _tab_bar_cell_body(
+            entry.icon, escape_html(i18n.t(label or entry.label)), extra_html))
 
 
-def _tab_bar_sheet_link(tab):
+def _tab_bar_sheet_link(entry):
     """One More-sheet row. Reuses .mobile-nav__link, so the rows share its
     44px/16px tap-target geometry instead of duplicating the numbers.
     """
-    is_active, route, label, _slug = tab
     css_class = (
-        "mobile-nav__link mobile-nav__link--active" if is_active else "mobile-nav__link")
-    aria_current = ' aria-current="page"' if is_active else ""
-    return '<a class="%s" href="%s"%s>%s</a>' % (css_class, route, aria_current, label)
-
-
-def _admin_tab_cell_html(active):
-    """The Admin tab: Fleet's page, current on any console page."""
-    is_active = active in {
-        nav_slug(path) for path in console_routes.CONSOLE_TITLES}
-    css_class = "tab-bar__link tab-bar__link--active" if is_active else "tab-bar__link"
-    aria_current = ' aria-current="page"' if is_active else ""
+        "mobile-nav__link mobile-nav__link--active"
+        if entry.is_active else "mobile-nav__link")
+    aria_current = ' aria-current="page"' if entry.is_active else ""
     return '<a class="%s" href="%s"%s>%s</a>' % (
-        css_class, escape_html(console_routes.ADMIN_TAB_ROUTE), aria_current,
-        _tab_bar_cell_body(_ADMIN_TAB_ICON_ID, escape_html(i18n.t(_ADMIN_TAB_LABEL))))
+        css_class, escape_html(entry.href), aria_current,
+        escape_html(i18n.t(entry.label)))
+
+
+def _console_bar(active):
+    """(cells, sheet entries) of the Console bar: Fleet, Users, Locations and
+    Audit, with Releases, My views and Account in More."""
+    entries = _console_entries(active)
+    cells = []
+    for key in ("fleet", "users", "locations", "audit"):
+        if key in entries:
+            short = _AUDIT_BAR_LABEL if key == "audit" else None
+            cells.append(_tab_bar_cell_link(entries[key], short))
+    sheet = [entries[key] for key in ("releases",) if key in entries]
+    switch = _switch_entry(CONSOLE_SPACE)
+    if switch is not None:
+        sheet.append(switch)
+    sheet.append(_account_entry(active))
+    return cells, sheet
+
+
+def _my_views_bar(active, health_alert):
+    """(cells, sheet entries) of the admin My views bar: Home, Display,
+    Flights and Health (carrying the severity dot), with Airlines, Device,
+    Account and the Console switch in More."""
+    alert_html = (
+        _health_alert_markup(health_alert) if health_alert in ("warn", "error") else "")
+    cells = [
+        _tab_bar_cell_link(
+            _frame_entry(route, active),
+            extra_html=alert_html if route == HEALTH_ROUTE else "")
+        for route in (HOME_ROUTE, DISPLAY_ROUTE, FLIGHTS_ROUTE, HEALTH_ROUTE)]
+    sheet = [_frame_entry(AIRLINES_ROUTE, active), _frame_entry(DEVICE_ROUTE, active),
+             _account_entry(active)]
+    switch = _switch_entry(MY_VIEWS_SPACE)
+    if switch is not None:
+        sheet.append(switch)
+    return cells, sheet
 
 
 def _tab_bar_html(active, health_alert=None, device_config=None):
     """Bottom tab bar shown below 960px, replacing the hamburger dropdown as the
     sub-960px nav.
 
-    Renders NAV_GROUPS via _nav_groups()/_nav_links(), the same iteration
-    sidebar_nav() and _mobile_nav_html() use, so all three renderings share one
-    route list. The "More" overflow uses a native <details>/<summary> so it works
-    with scripts blocked. health_alert is drawn on the More summary, not on the
-    Health link inside it, since the sheet is collapsed by default.
-    Returns "" when device_config is falsy (no session context, e.g.
-    login/404 pages).
+    Four destination cells plus a "More" overflow, chosen by the caller's
+    space (see current_space()). The overflow uses a native
+    <details>/<summary> so it works with scripts blocked. The Health
+    severity dot is drawn on the Health cell, never on More.
+    Returns "" when there is no session context: no device_config and no
+    signed-in administrator (login pages, or a 404 before sign-in). An
+    administrator's own Account page carries no device_config but still needs
+    the bar to reach the rest of the app.
     """
     if is_user_principal():
         return _user_tab_bar_html(active)
-    if not device_config:
+    if not device_config and not is_admin_principal():
         return ""
-    frame_tabs = []
-    sheet_tabs = []
-    for group_label, group_links in _nav_groups(active):
-        (sheet_tabs if group_label else frame_tabs).extend(group_links)
-    admin_tab = _admin_tab_present()
-    if admin_tab:
-        # The bar holds five cells. The Admin tab takes the place of the
-        # least-used frame tab (Airlines, the last one), which moves to the
-        # front of the More sheet.
-        sheet_tabs.insert(0, frame_tabs.pop())
-    sheet_holds_active = any(tab[0] for tab in sheet_tabs)
-    cells = [_tab_bar_cell_link(tab) for tab in frame_tabs]
-    if admin_tab:
-        cells.append(_admin_tab_cell_html(active))
-    sheet_links = [_tab_bar_sheet_link(tab) for tab in sheet_tabs]
+    if current_space(active) == CONSOLE_SPACE:
+        cells, sheet = _console_bar(active)
+    else:
+        cells, sheet = _my_views_bar(active, health_alert)
     summary_class = (
         "tab-bar__link tab-bar__link--active"
-        if sheet_holds_active else "tab-bar__link")
-    alert_html = (
-        _health_alert_markup(health_alert)
-        if health_alert in ("warn", "error") else "")
+        if any(entry.is_active for entry in sheet) else "tab-bar__link")
     cells.append(
         '<details class="tab-bar__more">'
         '<summary class="%s">%s</summary>'
@@ -548,10 +587,8 @@ def _tab_bar_html(active, health_alert=None, device_config=None):
         "</details>"
         % (summary_class,
            _tab_bar_cell_body(
-               TAB_BAR_MORE_ICON_ID,
-               escape_html(i18n.t(TAB_BAR_MORE_LABEL)),
-               extra_html=alert_html),
-           "".join(sheet_links)))
+               TAB_BAR_MORE_ICON_ID, escape_html(i18n.t(TAB_BAR_MORE_LABEL))),
+           "".join(_tab_bar_sheet_link(entry) for entry in sheet)))
     return (
         '<nav class="tab-bar" aria-label="%s">%s</nav>'
     ) % (
@@ -563,9 +600,9 @@ def _tab_bar_html(active, health_alert=None, device_config=None):
 
 
 def _user_tab_bar_html(active):
-    """A plain user's bottom tab bar: Home, Flights, Display and Health for
-    the request-scope frame, then Account. Empty without a frame, or when
-    no frame page is reachable: Account alone is not navigation.
+    """A plain user's bottom tab bar: Home, Flights and Display for the
+    request-scope frame, then Account. Empty without a frame, or when no
+    frame page is reachable: Account alone is not navigation.
     """
     pages = _user_frame_links(_USER_TAB_PAGES)
     if not pages:
@@ -573,15 +610,9 @@ def _user_tab_bar_html(active):
     cells = []
     for route, label in pages + list(USER_NAV):
         slug = nav_slug(route)
-        is_active = slug == active
-        css_class = (
-            "tab-bar__link tab-bar__link--active" if is_active else "tab-bar__link")
-        aria_current = ' aria-current="page"' if is_active else ""
-        icon_id = "icon-gear" if route == ACCOUNT_ROUTE else NAV_ICON_IDS.get(slug, "")
-        cells.append(
-            '<a class="%s" href="%s"%s>%s</a>' % (
-                css_class, escape_html(device_scope.scoped(route)), aria_current,
-                _tab_bar_cell_body(icon_id, escape_html(i18n.t(label)))))
+        icon_id = _ACCOUNT_ICON_ID if route == ACCOUNT_ROUTE else NAV_ICON_IDS.get(slug, "")
+        cells.append(_tab_bar_cell_link(_Entry(
+            device_scope.scoped(route), label, slug, icon_id, slug == active)))
     return '<nav class="tab-bar" aria-label="%s">%s</nav>' % (
         escape_html(i18n.t(_PRIMARY_NAVIGATION_TEXT)), "".join(cells))
 

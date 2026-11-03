@@ -1,177 +1,189 @@
-"""Real-browser checks of the device selector: its layout at 360px and 1280px,
-the no-script submit (scripts blocked) and the armed enhancement (scripts
-running), both colour schemes, and the 44px hit areas."""
-import pytest
+"""Real-browser checks of the frame switcher: a user with two frames switches
+frame from Display and stays on Display, a one-frame user sees no switcher,
+the panel fits at 360px and 1280px in both languages and colour schemes with
+44px targets, and it works with scripts blocked."""
+import os
+from types import SimpleNamespace
 
+import pytest
+from companion_app_server import session_cookie_for_state_dir
+from skypane_two_device_fleet import sim_hardware_env
+
+from companion import auth
 from companion.test_browser_ux_helpers import (
-    VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_no_page_overflow, _hit_area,
-    _login, _no_js_page)
+    VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_no_page_overflow, _hit_area)
 from companion.test_device_helpers import start_fleet_app
+from server import device_dirs, fleet_db, hardware
 
 pytestmark = pytest.mark.browser
 
-SELECT = "#device-selector-select"
-FORM = "form.device-selector"
-SUBMIT = "form.device-selector .device-selector__go"
-LABEL = "form.device-selector label"
-PILL = "form.device-selector .banner__pill"
+SWITCHER = "details.frame-switcher"
+SUMMARY = "details.frame-switcher > summary"
+ROWS = "details.frame-switcher a.frame-switcher__row"
 HIT_FLOOR = 44
-# The select's CSS box may differ from the content column by sub-pixel rounding.
-COLUMN_TOLERANCE = 2
+MULTI_EMAIL = "multi@example.test"
+SINGLE_EMAIL = "single@example.test"
+
+
+def _add_user_frames(state_dir, email, names):
+    """A plain user owning one simulated frame per name; returns the ids."""
+    ids = []
+    conn = fleet_db.connect(state_dir)
+    try:
+        with sim_hardware_env(), fleet_db.transaction(conn):
+            user_id = fleet_db.add_user(conn, email, "user")
+            for index, name in enumerate(names):
+                mac = "aa:bb:cc:ee:%02x:%02x" % (len(email), 0x20 + index)
+                device_id = fleet_db.add_device(
+                    conn, mac, "f" * 64, hardware.SIM_CLONE_KEY, user_id, name=name,
+                    state_path="auto")
+                profile = hardware.get_profile(hardware.SIM_CLONE_KEY, os.environ)
+                device_dirs.provision_device_dir(
+                    state_dir, device_id, profile.width, profile.height, fill=0)
+                ids.append(device_id)
+    finally:
+        conn.close()
+    return SimpleNamespace(ids=ids)
 
 
 @pytest.fixture(scope="module")
 def fleet_app(module_app_server_factory):
-    return start_fleet_app(module_app_server_factory)
+    holder = {}
+
+    def seed_extra(fleet):
+        root = fleet.live.state_dir
+        holder["multi"] = _add_user_frames(root, MULTI_EMAIL, ["Alpha", "Bravo"])
+        holder["single"] = _add_user_frames(root, SINGLE_EMAIL, ["Solo"])
+
+    app = start_fleet_app(module_app_server_factory, seed_extra=seed_extra)
+    app.multi, app.single = holder["multi"], holder["single"]
+    return app
 
 
-def _box(page, selector):
-    box = page.locator(selector).bounding_box()
-    assert box is not None, selector
-    return box
+def _open(new_context, app, email, route, lang="en", **context_args):
+    context = new_context(**context_args)
+    base = app.server.base_url()
+    pair = session_cookie_for_state_dir(app.server.state_dir, email, "user")
+    name, value = pair.split("=", 1)
+    context.add_cookies([
+        {"name": name, "value": value, "url": base, "httpOnly": True, "sameSite": "Strict"},
+        {"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base}])
+    page = context.new_page()
+    page.goto(base + route)
+    page.locator("main").wait_for(state="visible")
+    return context, page
 
 
-def _page_url(app, route):
-    return app.server.base_url() + route
-
-
-@pytest.mark.parametrize("scheme", ["light", "dark"])
-def test_phone_layout_caption_above_select_pill_below(new_context, fleet_app, scheme):
-    """at 360px the caption is on its own line above a 44px select that spans the content
-    column, the pill wraps below the select, and nothing scrolls sideways"""
-    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED, color_scheme=scheme)
+def test_a_user_switches_frame_from_display_and_stays_on_display(new_context, fleet_app):
+    """opening the switcher on Display and choosing the other frame lands on that frame's
+    Display, where the other frame is now the current one"""
+    first, second = fleet_app.multi.ids
+    context, page = _open(
+        new_context, fleet_app, MULTI_EMAIL, "/devices/%s/display" % first,
+        viewport=VIEWPORT_DESKTOP)
     try:
-        page = context.new_page()
-        _login(page, fleet_app.server.base_url())
-        page.goto(_page_url(fleet_app, "/devices/%s/flights" % fleet_app.fleet.landscape.id))
-        page.locator(SELECT).wait_for(state="visible")
-        label, select, pill = _box(page, LABEL), _box(page, SELECT), _box(page, PILL)
-        main = _box(page, "main")
-        assert label["y"] + label["height"] <= select["y"] + 1
-        assert select["height"] >= HIT_FLOOR
-        assert select["x"] >= main["x"] - 1
-        assert select["width"] >= main["width"] - 2 * 24 - COLUMN_TOLERANCE
-        assert select["x"] + select["width"] <= VIEWPORT_MIN_SUPPORTED["width"]
-        assert pill["y"] >= select["y"] + select["height"] - 1
-        assert not _assert_no_page_overflow(page, "selector/phone", 360)
-    finally:
-        context.close()
-
-
-@pytest.mark.parametrize("scheme", ["light", "dark"])
-def test_desktop_layout_is_one_row_with_native_controls_at_44px(
-        new_context, fleet_app, scheme):
-    """at 1280px the caption, select and pill share one row and the select stays 44px"""
-    context = new_context(viewport=VIEWPORT_DESKTOP, color_scheme=scheme)
-    try:
-        page = context.new_page()
-        _login(page, fleet_app.server.base_url())
-        page.goto(_page_url(fleet_app, "/devices/%s/flights" % fleet_app.fleet.landscape.id))
-        page.locator(SELECT).wait_for(state="visible")
-        label, select, pill = _box(page, LABEL), _box(page, SELECT), _box(page, PILL)
-        for part in (label, pill):
-            centre = part["y"] + part["height"] / 2
-            assert select["y"] <= centre <= select["y"] + select["height"]
-        assert label["x"] + label["width"] <= select["x"] + 1
-        assert select["x"] + select["width"] <= pill["x"] + 1
-        assert select["height"] >= HIT_FLOOR
-        assert select["width"] <= 24 * 16 + 1
-        assert not _assert_no_page_overflow(page, "selector/desktop", 1280)
-    finally:
-        context.close()
-
-
-def test_scripts_blocked_submit_is_visible_and_navigates(new_context, fleet_app):
-    """with scripts blocked the submit stays visible, and choosing a frame then submitting
-    lands on the same page under that frame"""
-    device = fleet_app.fleet.dev_a
-    with _no_js_page(
-            new_context, fleet_app.server.base_url(), "/flights",
-            viewport=VIEWPORT_MIN_SUPPORTED) as page:
-        assert page.locator(SUBMIT).is_visible()
-        assert "device-selector--armed" not in (page.locator(FORM).get_attribute("class") or "")
-        # No page.evaluate on a scripts-blocked page: measure the box directly.
-        assert _box(page, SUBMIT)["height"] >= HIT_FLOOR - 1
-        assert _box(page, SELECT)["height"] >= HIT_FLOOR - 1
-        page.select_option(SELECT, value=device.id)
+        page.locator(SUMMARY).click()
+        assert page.locator(ROWS).count() == 2
         with page.expect_navigation():
-            page.click(SUBMIT)
-        assert page.url.endswith("/devices/%s/flights" % device.id)
-        assert page.locator(SELECT).input_value() == device.id
-        with page.expect_navigation():
-            page.select_option(SELECT, value="live")
-            page.click(SUBMIT)
-        assert page.url.endswith("/flights") and "/devices/" not in page.url
-
-
-@pytest.mark.parametrize("scheme", ["light", "dark"])
-def test_scripts_armed_hides_submit_and_change_navigates(new_context, fleet_app, scheme):
-    """with scripts running the form is armed, the submit is hidden, and changing the select
-    navigates to the option's own page"""
-    device = fleet_app.fleet.dev_b
-    context = new_context(viewport=VIEWPORT_DESKTOP, color_scheme=scheme)
-    try:
-        page = context.new_page()
-        _login(page, fleet_app.server.base_url())
-        page.goto(_page_url(fleet_app, "/airlines"))
-        page.locator(SELECT).wait_for(state="visible")
-        assert "device-selector--armed" in page.locator(FORM).get_attribute("class")
-        assert not page.locator(SUBMIT).is_visible()
-        with page.expect_navigation():
-            page.select_option(SELECT, value=device.id)
-        assert page.url.endswith("/devices/%s/airlines" % device.id)
-        assert "device-selector--armed" in page.locator(FORM).get_attribute("class")
+            page.locator('%s[href="/devices/%s/display"]' % (ROWS, second)).click()
+        assert page.url.endswith("/devices/%s/display" % second)
+        page.locator(SUMMARY).click()
+        current = page.locator('%s[aria-current="true"]' % ROWS)
+        assert current.count() == 1
+        assert current.get_attribute("href") == "/devices/%s/display" % second
     finally:
         context.close()
 
 
-@pytest.mark.parametrize("scheme", ["light", "dark"])
-def test_select_focus_outline_is_visible_and_not_accent_filled(new_context, fleet_app, scheme):
-    """keyboard focus on the select draws an outline in both themes and the control is not
-    filled with the accent colour"""
-    context = new_context(viewport=VIEWPORT_DESKTOP, color_scheme=scheme)
+def test_a_single_frame_user_sees_no_switcher(new_context, fleet_app):
+    """with one frame the page carries no switcher at all"""
+    (solo,) = fleet_app.single.ids
+    context, page = _open(
+        new_context, fleet_app, SINGLE_EMAIL, "/devices/%s/display" % solo,
+        viewport=VIEWPORT_DESKTOP)
     try:
-        page = context.new_page()
-        _login(page, fleet_app.server.base_url())
-        page.goto(_page_url(fleet_app, "/flights"))
-        page.locator(SELECT).wait_for(state="visible")
-        # Skip link first, then the selector is the first stop inside the content.
-        page.keyboard.press("Tab")
-        page.keyboard.press("Enter")
-        page.keyboard.press("Tab")
-        assert page.evaluate("document.activeElement.id") == SELECT[1:]
-        state = page.evaluate(
-            """() => {
-                const s = getComputedStyle(document.activeElement);
-                const accent = getComputedStyle(document.documentElement)
-                    .getPropertyValue('--color-accent').trim();
-                return {style: s.outlineStyle, width: parseFloat(s.outlineWidth),
-                        colour: s.outlineColor, background: s.backgroundColor,
-                        accent: accent};
-            }""")
-        assert state["style"] != "none" and state["width"] > 0, state
-        assert state["colour"] not in ("rgba(0, 0, 0, 0)", "transparent"), state
-        probe = page.evaluate(
-            """(accent) => { const d = document.createElement('i');
-                d.style.color = accent; document.body.appendChild(d);
-                const c = getComputedStyle(d).color; d.remove(); return c; }""",
-            state["accent"])
-        assert state["background"] != probe, state
+        assert page.locator(SWITCHER).count() == 0
     finally:
         context.close()
 
 
-def test_hit_areas_at_360px(new_context, fleet_app):
-    """the select, and the selector's own container, meet the 44px floor at 360px"""
-    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP],
+                         ids=["360", "1280"])
+def test_open_panel_fits_with_44px_targets(new_context, fleet_app, viewport, scheme, lang):
+    """the closed and the open switcher have no horizontal overflow, the panel stays inside
+    the viewport, and the summary, every row and the footer link are at least 44px high"""
+    first = fleet_app.multi.ids[0]
+    context, page = _open(
+        new_context, fleet_app, MULTI_EMAIL, "/devices/%s/display" % first, lang=lang,
+        viewport=viewport, color_scheme=scheme)
     try:
-        page = context.new_page()
-        _login(page, fleet_app.server.base_url())
-        page.goto(_page_url(fleet_app, "/devices/%s/health" % fleet_app.fleet.landscape.id))
-        page.locator(SELECT).wait_for(state="visible")
-        area = _hit_area(page, SELECT)
-        assert area["visual"][1] >= HIT_FLOOR and area["visual"][0] >= HIT_FLOOR
-        assert _box(page, FORM)["height"] >= HIT_FLOOR
-        assert _box(page, PILL)["width"] > 0
+        assert not _assert_no_page_overflow(page, "switcher/closed", viewport["width"])
+        assert _hit_area(page, SUMMARY)["visual"][1] >= HIT_FLOOR
+        page.locator(SUMMARY).click()
+        panel = page.locator(".frame-switcher__panel").bounding_box()
+        assert panel["x"] >= 0 and panel["x"] + panel["width"] <= viewport["width"]
+        for index in range(page.locator(ROWS).count()):
+            assert page.locator(ROWS).nth(index).bounding_box()["height"] >= HIT_FLOOR
+        for footer in page.locator(".frame-switcher__footer a").all():
+            assert footer.bounding_box()["height"] >= HIT_FLOOR
+        assert not _assert_no_page_overflow(page, "switcher/open", viewport["width"])
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang,word,aria", [
+    ("en", "Not seen yet", "Switch frame, current: Alpha"),
+    ("fr", "Pas encore vu", "Changer de cadre, actuel\u00a0: Alpha")])
+def test_rows_carry_the_dot_word_and_the_summary_its_name(
+        new_context, fleet_app, lang, word, aria):
+    """the summary's accessible name names the current frame and every row has exactly one
+    dot with its status word, in the page language (a never-seen frame reads Not seen yet)"""
+    first = fleet_app.multi.ids[0]
+    context, page = _open(
+        new_context, fleet_app, MULTI_EMAIL, "/devices/%s/display" % first, lang=lang,
+        viewport=VIEWPORT_DESKTOP)
+    try:
+        assert page.locator(SUMMARY).get_attribute("aria-label") == aria
+        page.locator(SUMMARY).click()
+        dots = page.locator(ROWS + " [role='img']")
+        assert dots.count() == 2
+        labels = [dots.nth(i).get_attribute("aria-label") for i in range(2)]
+        assert labels == [word, word]
+    finally:
+        context.close()
+
+
+def test_escape_and_an_outside_tap_close_the_panel(new_context, fleet_app):
+    """with scripts running, Escape and a tap outside both close an open panel"""
+    first = fleet_app.multi.ids[0]
+    context, page = _open(
+        new_context, fleet_app, MULTI_EMAIL, "/devices/%s/display" % first,
+        viewport=VIEWPORT_DESKTOP)
+    try:
+        page.locator(SUMMARY).click()
+        assert page.locator(SWITCHER).get_attribute("open") is not None
+        page.keyboard.press("Escape")
+        assert page.locator(SWITCHER).get_attribute("open") is None
+        page.locator(SUMMARY).click()
+        page.locator("h1").click()
+        assert page.locator(SWITCHER).get_attribute("open") is None
+    finally:
+        context.close()
+
+
+def test_scripts_blocked_the_switcher_still_navigates(new_context, fleet_app):
+    """without script the details opens natively and the link goes to the same page of the
+    other frame"""
+    first, second = fleet_app.multi.ids
+    context, page = _open(
+        new_context, fleet_app, MULTI_EMAIL, "/devices/%s/flights" % first,
+        viewport=VIEWPORT_MIN_SUPPORTED, java_script_enabled=False)
+    try:
+        page.locator(SUMMARY).click()
+        with page.expect_navigation():
+            page.locator('%s[href="/devices/%s/flights"]' % (ROWS, second)).click()
+        assert page.url.endswith("/devices/%s/flights" % second)
     finally:
         context.close()

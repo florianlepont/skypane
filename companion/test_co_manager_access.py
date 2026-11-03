@@ -10,6 +10,7 @@ import pytest
 import fleet_console_support as fx
 from companion import device_scope
 from companion_app_server import InProcessAppServer, http_request, with_csrf
+from companion_markup import parse_html
 from server import device_config, fleet_db, hardware
 from server.plane import colour_rules, name_overrides
 
@@ -49,13 +50,14 @@ class Rig:
             extra_headers={"Origin": self.server.base_url()})
         return status, headers, body.decode("utf-8", "replace")
 
-    def unknown(self, method):
-        """The status and body of a path that matches no route."""
+    def unknown(self, method, who="co"):
+        """The status and body of a path that matches no route, as `who`
+        sees it (the onward link on the page depends on the caller)."""
         path = "/no-such-page-anywhere"
         if method == "GET":
-            status, _h, body = self.get("co", path)
+            status, _h, body = self.get(who, path)
         else:
-            status, _h, body = self.post("co", path, {})
+            status, _h, body = self.post(who, path, {})
         assert status == 404
         return status, body
 
@@ -114,13 +116,17 @@ def test_a_co_manager_follows_the_legacy_redirects(rig, page):
     assert headers["Location"].startswith(rig.prefix() + "/")
 
 
-def test_the_shared_frame_is_in_the_co_manager_device_selector(rig):
+def test_the_shared_frame_is_in_the_co_manager_frame_switcher(rig):
     own = rig.db(lambda c: fleet_db.add_device(
         c, "aa:bb:cc:00:00:09", fx.SECRET_HASH, hardware.LEGACY_KEY, rig.co_id,
         name="Desk", state_path="auto"))
     _s, _h, body = rig.get("co", rig.prefix(own) + "/display")
-    assert 'value="%s"' % rig.device in body and 'value="%s"' % own in body
-    assert 'value="%s"' % rig.seed.live_id not in body
+    assert 'href="%s/display"' % rig.prefix(rig.device) in body
+    assert 'href="%s/display"' % rig.prefix(own) in body
+    assert 'href="%s/display"' % rig.prefix(rig.seed.live_id) not in body
+    shared = parse_html(body).select_one(
+        'a.frame-switcher__row[href="%s/display"] .frame-switcher__note' % rig.prefix(rig.device))
+    assert shared is not None and shared.text().strip().startswith("Shared \u00b7 ")
 
 
 # --- change --------------------------------------------------------------
@@ -211,11 +217,11 @@ def test_a_co_manager_gets_404_for_a_frame_they_do_not_co_manage(rig):
 
 
 def test_a_stranger_gets_404_for_the_shared_frame(rig):
-    status, body = rig.unknown("GET")
+    status, body = rig.unknown("GET", "stranger")
     for page in PAGES:
         path = rig.prefix() + ("" if page == "/" else page)
         assert rig.get("stranger", path)[::2] == (status, body), path
-    post_status, post_body = rig.unknown("POST")
+    post_status, post_body = rig.unknown("POST", "stranger")
     got = rig.post("stranger", rig.prefix() + "/quick/display", {"state": "off"})
     assert (got[0], got[2]) == (post_status, post_body)
     assert device_config.load_device_config(rig.state_dir)["display_enabled"] is not False

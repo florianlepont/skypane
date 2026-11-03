@@ -9,7 +9,10 @@ ui_time for the relative-time `<body>` wordings, companion.ui_nav for
 the sidebar/tab-bar/preferences renderers, and companion.ui_components
 for the quick-switch failure toast; nothing here imports a page module.
 """
+from types import SimpleNamespace
+
 import companion.device_scope as device_scope
+import companion.frame_status as frame_status
 import companion.i18n as i18n
 import companion.prefs as prefs
 from companion.ui_base import (
@@ -39,6 +42,7 @@ from companion.ui_base import (
     UI_THEME_CHOICES,
     VALUE_CONTROLS_SCRIPT_SRC,
     CALENDAR_SHEET_SCRIPT_SRC,
+    MODAL_SCRIPT_SRC,
     escape_html,
     nav_slug,
 )
@@ -55,8 +59,10 @@ from companion.ui_nav import (
     _mobile_nav_html,
     _tab_bar_html,
     _theme_form_html,
+    is_admin_principal,
     is_user_principal,
     sidebar_nav,
+    space_switch_html,
     user_brand_href,
 )
 from companion.ui_components import TOAST_TONE_ERROR, split_toast_message, toast_html
@@ -116,7 +122,7 @@ def login_shell(body, ui_theme="auto", lang=None):
     })
 
 
-# The shell's own 16 script srcs, in the fixed relative order they are
+# The shell's own script srcs, in the fixed relative order they are
 # emitted whenever present - the one place that order is declared.
 # page_shell()'s `scripts` argument only ever widens or narrows which of
 # these are present; it never reorders them.
@@ -136,18 +142,21 @@ SHELL_SCRIPT_ORDER = (
     QUICK_SWITCH_SCRIPT_SRC,
     VALUE_CONTROLS_SCRIPT_SRC,
     CALENDAR_SHEET_SCRIPT_SRC,
+    MODAL_SCRIPT_SRC,
 )
 
 # Present on every authenticated page_shell() document regardless of its
 # `scripts` argument: the hamburger (every page has the nav), a flash
 # cleanup and the toast behaviour (any page can carry `?flash=`), every
-# form's submit guard, and the nav status line's relative time.
+# form's submit guard, the nav status line's relative time, and the
+# modal/menu dismissal script (any page can hold a dialog or a menu).
 GLOBAL_PAGE_SCRIPTS = (
     NAV_DROPDOWN_SCRIPT_SRC,
     FLASH_CLEANUP_SCRIPT_SRC,
     TOAST_SCRIPT_SRC,
     SUBMIT_GUARD_SCRIPT_SRC,
     RELATIVE_TIME_SCRIPT_SRC,
+    MODAL_SCRIPT_SRC,
 )
 
 
@@ -272,10 +281,11 @@ PAGE_SHELL_TEMPLATE = (
     "</aside>\n"
     '<header class="site-header">\n'
     '<span class="brand">{brand_inner_header}</span>\n'
+    "{space_switch}"
     "{mobile_nav}\n"
     "</header>\n"
     '<main class="page-content dashboard-main" id="{main_id}" tabindex="-1">\n'
-    "{device_selector}{flash}\n{banner}\n{body}\n"
+    "{frame_switcher}{flash}\n{banner}\n{body}\n"
     "</main>\n"
     "</div>\n"
     "{tab_bar}\n"
@@ -287,21 +297,23 @@ PAGE_SHELL_TEMPLATE = (
 )
 
 
-# The device selector: shown above the page title of every device-scoped page
-# once the fleet holds more than one device.
-_DEVICE_SELECTOR_LABEL_TEXT = i18n.msg("nav.device_selector_label", "Frame")
-_DEVICE_SELECTOR_GO_TEXT = i18n.msg("nav.device_selector_go", "Show frame")
-_DEVICE_NEVER_SEEN_TEXT = i18n.msg("nav.device_never_seen", "not seen yet")
-_DEVICE_OFFLINE_TEXT = i18n.msg("nav.device_offline", "offline")
-_DEVICE_PILL_NEVER_SEEN_TEXT = i18n.msg("nav.device_pill_never_seen", "Not seen yet")
-_DEVICE_PILL_OFFLINE_TEXT = i18n.msg("nav.device_pill_offline", "Offline")
+# The first link of every page, visible on keyboard focus.
+_SKIP_LINK_TEXT = i18n.msg("nav.skip_to_content", "Skip to content")
+
+
+# The frame switcher: shown above the page title of every device-scoped page
+# once the request scope lists two or more frames.
+_SWITCHER_ARIA_TEXT = i18n.msg(
+    "nav.frame_switcher_aria", "Switch frame, current: %s")
+_SWITCHER_SHARED_TEXT = i18n.msg("nav.frame_switcher_shared", "Shared \u00b7 %s")
+_SWITCHER_MY_FRAMES_TEXT = i18n.msg("nav.frame_switcher_my_frames", "My frames")
+_SWITCHER_ALL_FRAMES_TEXT = i18n.msg(
+    "nav.frame_switcher_all_frames", "All frames (Fleet)")
 _DEVICE_DEFAULT_NAME_TEXT = i18n.msg("nav.device_default_name", "Orly frame")
 
-DEVICE_SELECTOR_CLASS = "device-selector"
-DEVICE_SELECTOR_ARMED_CLASS = "device-selector--armed"
-_DEVICE_SELECTOR_LABEL_ID = "device-selector-label"
-_DEVICE_SELECTOR_SELECT_ID = "device-selector-select"
-_DEVICE_SELECTOR_PARAM = "device"
+FRAME_SWITCHER_CLASS = "frame-switcher"
+_MY_FRAMES_HREF = "/account#account-frames"
+_FLEET_HREF = "/fleet"
 
 
 def _device_page_path(active):
@@ -319,62 +331,82 @@ def _device_display_name(device):
     return device.name
 
 
-def _device_status_texts(status):
-    """(option suffix, pill text) for a status that deserves one, else None."""
-    if status == device_scope.STATUS_NEVER_SEEN:
-        return _DEVICE_NEVER_SEEN_TEXT, _DEVICE_PILL_NEVER_SEEN_TEXT
-    if status == device_scope.STATUS_OFFLINE:
-        return _DEVICE_OFFLINE_TEXT, _DEVICE_PILL_OFFLINE_TEXT
-    return None
+def _switcher_status_row(device, now):
+    """The status inputs the shared dot resolver reads, for one frame."""
+    from companion import battery
+    from server import state_store
+    millivolts = state_store.load_battery_state(device.state_dir)
+    percent = None if millivolts is None else battery.battery_percent(millivolts)
+    status = device_scope.device_status(device, now)
+    return SimpleNamespace(
+        kind=frame_status.KIND_LIVE,
+        offline=status == device_scope.STATUS_OFFLINE,
+        last_seen=device_scope.last_check_in_epoch(device.state_dir),
+        battery_percent=percent)
 
 
-def _device_option_html(device, page, current, now):
-    """(option markup, pill markup or "") for one device. Only a non-live device
-    gets a status suffix; the live frame never does."""
-    label = _device_display_name(device)
-    texts = _device_status_texts(device_scope.device_status(device, now))
-    pill = ""
-    selected = device.id == current.id
-    if texts is not None:
-        label = "%s \u2014 %s" % (label, i18n.t(texts[0]))
-        if selected:
-            pill = '<span class="banner__pill">%s</span>' % escape_html(i18n.t(texts[1]))
-    option = '<option value="%s" data-href="%s"%s>%s</option>' % (
-        escape_html(device_scope.selector_value(device)),
-        escape_html(device_scope.target_path(page, device)),
-        " selected" if selected else "", escape_html(label))
-    return option, pill
+def _switcher_note(entry):
+    """The muted second line of a row, or "" when there is none."""
+    if entry.owner_email is None:
+        return ""
+    if entry.co_managed:
+        return escape_html(i18n.t(_SWITCHER_SHARED_TEXT) % entry.owner_email)
+    return escape_html(entry.owner_email)
 
 
-def device_selector_html(active):
-    """The device selector, or "" when it would be useless or out of place: one
-    device only, a global page (Update) or no request scope. A GET form, so it
-    works without script; its submit stays visible until the page script arms
-    it. The grouping `<div role="group">` keeps the unnamed form out of the
-    landmark list. Never renders a MAC, token or secret: a Device has none."""
+def _switcher_row_html(entry, page, current, now):
+    device = entry.device
+    note = _switcher_note(entry)
+    current_attr = ' aria-current="true"' if device.id == current.id else ""
+    return (
+        '<li><a class="%(cls)s__row" href="%(href)s"%(current)s>%(dot)s'
+        '<span class="%(cls)s__text"><span class="%(cls)s__name">%(name)s</span>'
+        '%(note)s</span></a></li>') % {
+            "cls": FRAME_SWITCHER_CLASS,
+            "href": escape_html(device_scope.target_path(page, device)),
+            "current": current_attr,
+            "dot": frame_status.status_dot_html(_switcher_status_row(device, now)),
+            "name": escape_html(_device_display_name(device)),
+            "note": ('<span class="%s__note">%s</span>' % (FRAME_SWITCHER_CLASS, note))
+            if note else "",
+        }
+
+
+def _switcher_footer_html():
+    links = ['<a href="%s">%s</a>' % (
+        _MY_FRAMES_HREF, escape_html(i18n.t(_SWITCHER_MY_FRAMES_TEXT)))]
+    if is_admin_principal():
+        links.append('<a href="%s">%s</a>' % (
+            _FLEET_HREF, escape_html(i18n.t(_SWITCHER_ALL_FRAMES_TEXT))))
+    return '<div class="%s__footer">%s</div>' % (FRAME_SWITCHER_CLASS, "".join(links))
+
+
+def frame_switcher_html(active):
+    """The frame switcher, or "" when it would be useless or out of place: fewer
+    than two frames listed, a global page (Update) or no request scope. A native
+    `<details>` of same-page links, so it works without script. The links are
+    built from the request scope's own frame list, never from request text, and
+    never carry a MAC, token or secret: a Device has none."""
     page = _device_page_path(active)
     current = device_scope.current_device()
-    devices = device_scope.current_devices()
-    if page is None or current is None or len(devices) < 2:
+    entries = device_scope.switcher_entries()
+    if page is None or current is None or len(entries) < 2:
         return ""
     now = device_scope.now_epoch()
-    rendered = [_device_option_html(device, page, current, now) for device in devices]
+    cls = FRAME_SWITCHER_CLASS
+    name = escape_html(_device_display_name(current))
     return (
-        '<div role="group" aria-labelledby="%(label_id)s">'
-        '<form class="%(cls)s" method="get" action="%(action)s">'
-        '<label class="%(cls)s__label" id="%(label_id)s" for="%(select_id)s">%(label)s</label>'
-        '<select id="%(select_id)s" name="%(param)s">%(options)s</select>'
-        '<button class="%(cls)s__go">%(go)s</button>%(pill)s'
-        "</form></div>\n") % {
-            "label_id": _DEVICE_SELECTOR_LABEL_ID,
-            "select_id": _DEVICE_SELECTOR_SELECT_ID,
-            "cls": DEVICE_SELECTOR_CLASS,
-            "param": _DEVICE_SELECTOR_PARAM,
-            "action": escape_html(device_scope.target_path(page, current)),
-            "label": escape_html(i18n.t(_DEVICE_SELECTOR_LABEL_TEXT)),
-            "go": escape_html(i18n.t(_DEVICE_SELECTOR_GO_TEXT)),
-            "options": "".join(option for option, _pill in rendered),
-            "pill": "".join(pill for _option, pill in rendered),
+        '<details class="%(cls)s"><summary class="%(cls)s__summary" '
+        'aria-label="%(aria)s">%(dot)s<span class="%(cls)s__name">%(name)s</span>'
+        '</summary><div class="%(cls)s__panel"><ul class="%(cls)s__list">%(rows)s</ul>'
+        '%(footer)s</div></details>\n') % {
+            "cls": cls,
+            "aria": escape_html(i18n.t(_SWITCHER_ARIA_TEXT) % _device_display_name(current)),
+            "dot": frame_status.status_dot_html(_switcher_status_row(current, now)),
+            "name": name,
+            "rows": "".join(
+                _switcher_row_html(entry, page, current, now) for entry in entries),
+            "footer": _switcher_footer_html(),
         }
 
 
@@ -439,8 +471,8 @@ def page_shell(
         '<div class="sidebar-footer">%s%s%s</div>'
         % (lang_form_html, theme_form_html, _logout_form_html()))
     skip_link_html = (
-        '<a class="skip-link" href="#%s">Skip to content</a>'
-        % SKIP_LINK_TARGET_ID)
+        '<a class="skip-link" href="#%s">%s</a>'
+        % (SKIP_LINK_TARGET_ID, escape_html(i18n.t(_SKIP_LINK_TEXT))))
     escaped_site_title = escape_html(SITE_TITLE)
     brand_mark_html = icon_html("icon-logo", size=28, extra_class=LOGO_MARK_CLASS)
     brand_inner_sidebar = (
@@ -470,9 +502,10 @@ def page_shell(
         "icon_defs": ICON_DEFS_HTML,
         "sidebar": sidebar_html,
         "sidebar_footer": sidebar_footer_html,
+        "space_switch": space_switch_html(active, "header"),
         "mobile_nav": mobile_nav_html,
         "main_id": SKIP_LINK_TARGET_ID,
-        "device_selector": device_selector_html(active),
+        "frame_switcher": frame_switcher_html(active),
         "flash": flash_html,
         "banner": banner_html,
         "body": body,

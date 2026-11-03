@@ -195,9 +195,9 @@ def _seed_single_rows(state_dir):
     calendar_rules.save_calendar_url(state_dir, _CALENDAR_URL)
 
 
-def _inside_selector(node):
+def _inside_switcher(node):
     while node is not None:
-        if "device-selector" in node.attrs.get("class", ""):
+        if "frame-switcher" in node.attrs.get("class", ""):
             return True
         node = node.parent
     return False
@@ -209,7 +209,7 @@ def _crawl_addresses(body):
     every return_to hidden value and data-* address attribute."""
     found = []
     for node in parse_html(body).find_all():
-        selector = _inside_selector(node)
+        selector = _inside_switcher(node)
         for name, value in node.attrs.items():
             if not isinstance(value, str) or not value.startswith("/") or value.startswith("//"):
                 continue

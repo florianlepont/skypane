@@ -113,6 +113,8 @@ def test_home_for_user_has_no_poll_trigger_or_led_control(tmp_path):
 
 
 def test_user_health_shows_frame_card_and_no_platform_rows(tmp_path):
+    with history_db.open_db(str(tmp_path)) as conn:
+        history_db.record_device_health(conn, NOW, battery_mv=4000)
     ctx = _live_ctx(tmp_path)
     _as("admin")
     admin_html = health_page.render(ctx)

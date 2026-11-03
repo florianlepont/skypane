@@ -13,12 +13,17 @@ Security invariants:
 - Each change and its audit row share one `BEGIN IMMEDIATE` transaction, so a
   failed audit write rolls the change back too.
 - Only co-manager rows are ever deleted here, so no path can remove the owner.
+- `return_to` is attacker-controlled: it is honoured only when it equals one
+  of the whitelisted host pages exactly (`card.safe_return_to`); anything else
+  is ignored and the redirect is the frame's Home as before. The frame id put
+  in `?access=` is the one the dispatcher authorised, never a form value.
 """
 import re
 import sqlite3
 import unicodedata
+import urllib.parse
 
-from companion import access, audit, device_scope
+from companion import access, audit, console_flash, device_scope
 from companion.pages import co_managers_card as card
 from server import fleet_db
 
@@ -44,8 +49,33 @@ _REMOVE = fleet_db.ACTION_CO_MANAGER_REMOVE
 _STORE_ERRORS = (sqlite3.Error, fleet_db.FleetDbError, OSError)
 
 
+_FLEET_TONES = (
+    (card.FLASH_ADDED, "success", card.FLASH_ADDED_TEXT),
+    (card.FLASH_REMOVED, "success", card.FLASH_REMOVED_TEXT),
+    (card.FLASH_ADD_REFUSED, "error", card.FLASH_ADD_REFUSED_TEXT),
+    (card.FLASH_FAILED, "error", card.FLASH_FAILED_TEXT),
+)
+for _key, _tone, _text in _FLEET_TONES:
+    console_flash.register_flash(_key, _tone, _text)
+
+
 def _redirect_home(h, flash_key):
     return h.redirect("%s?flash=%s" % (device_scope.scoped("/"), flash_key))
+
+
+def _redirect_back(h, device, flash_key):
+    """Back to where the form came from: the whitelisted host page with the
+    Manage access dialog reopened, else the frame's Home as before. Fleet
+    shows the result as its console toast, Account through `?flash=`."""
+    return_to = card.safe_return_to(h.read_form().get(card.FIELD_RETURN_TO))
+    if return_to is None:
+        return _redirect_home(h, flash_key)
+    access_query = "%s=%s" % (card.ACCESS_QUERY, urllib.parse.quote(device.id, safe=""))
+    if return_to == card.RETURN_FLEET:
+        return h.redirect(
+            "%s?%s" % (return_to, access_query),
+            set_cookie=console_flash.queue_flash(flash_key))
+    return h.redirect("%s?%s&flash=%s" % (return_to, access_query, flash_key))
 
 
 def _actor_via(principal):
@@ -73,14 +103,17 @@ def _typed_email(form):
     return value
 
 
-def _failed(h, device, action):
+def _failed(h, device, action, back=True):
     """A write failed: a best-effort `failed` audit row, then the failure
-    flash. The audit write cannot raise out of here.
+    flash. The audit write cannot raise out of here. `back` is False for
+    leaving, whose form is never read.
     """
     try:
         audit.record_standalone(h, action, "device", device.id, "failed", {"reason": "write"})
     except _STORE_ERRORS:
         pass
+    if back:
+        return _redirect_back(h, device, card.FLASH_FAILED)
     return _redirect_home(h, card.FLASH_FAILED)
 
 
@@ -137,12 +170,12 @@ def handle_add(h, m):
     except _STORE_ERRORS:
         return _failed(h, device, _ADD)
     if reason is None:
-        return _redirect_home(h, card.FLASH_ADDED)
+        return _redirect_back(h, device, card.FLASH_ADDED)
     try:
         audit.record_standalone(h, _ADD, "device", device.id, "denied", {"reason": reason})
     except _STORE_ERRORS:
         return _failed(h, device, _ADD)
-    return _redirect_home(h, card.FLASH_ADD_REFUSED)
+    return _redirect_back(h, device, card.FLASH_ADD_REFUSED)
 
 
 def _remove_row(h, device, user_id, via):
@@ -166,13 +199,14 @@ def handle_remove(h, m):
     device = m.device
     raw = h.read_form().get(card.FIELD_USER_ID, "")
     if not isinstance(raw, str) or not _USER_ID_RE.match(raw):
-        return _redirect_home(h, card.FLASH_FAILED)
+        return _redirect_back(h, device, card.FLASH_FAILED)
     principal = h._safe_principal()
     try:
         removed = _remove_row(h, device, int(raw), _actor_via(principal))
     except _STORE_ERRORS:
         return _failed(h, device, _REMOVE)
-    return _redirect_home(h, card.FLASH_REMOVED if removed else card.FLASH_FAILED)
+    return _redirect_back(
+        h, device, card.FLASH_REMOVED if removed else card.FLASH_FAILED)
 
 
 def handle_leave(h, m):
@@ -184,7 +218,7 @@ def handle_leave(h, m):
     try:
         left = _remove_row(h, device, principal.user_id, _VIA_SELF)
     except _STORE_ERRORS:
-        return _failed(h, device, _REMOVE)
+        return _failed(h, device, _REMOVE, back=False)
     if not left:
         return _redirect_home(h, card.FLASH_LEAVE_NOOP)
     return h.redirect("%s?flash=%s" % (_ACCOUNT_PATH, card.FLASH_LEFT))
@@ -195,13 +229,17 @@ def _owner_email(conn, owner_user_id):
     return None if row is None else str(row["email"])
 
 
-def _card_view(conn, device, principal):
-    """The card's view for `principal`, or None when there is nothing to
-    show: no fleet row, no owner, or a viewer who is neither a manager nor a
-    member. Management is decided from the role and the owner, never from
-    having reached the page.
+def access_view(conn, device, principal):
+    """The Manage access dialog's view for `principal`, or None when there is
+    nothing to offer: no fleet row, no owner, or a viewer who is neither the
+    owner nor an administrator. Management is decided from the role and the
+    owner, never from having reached the page.
     """
     if fleet_db.get_device(conn, device.id) is None or device.owner_user_id is None:
+        return None
+    is_admin = principal.role == access.ADMIN
+    viewer_id = principal.user_id
+    if not (is_admin or (viewer_id is not None and device.owner_user_id == viewer_id)):
         return None
     owner_email = _owner_email(conn, device.owner_user_id)
     if owner_email is None:
@@ -209,29 +247,8 @@ def _card_view(conn, device, principal):
     members = tuple(
         (int(r["user_id"]), str(r["email"]), bool(r["disabled"]))
         for r in fleet_db.list_co_managers(conn, device.id))
-    is_admin = principal.role == access.ADMIN
-    viewer_id = principal.user_id
-    can_manage = is_admin or (viewer_id is not None and device.owner_user_id == viewer_id)
-    is_member = viewer_id is not None and any(m[0] == viewer_id for m in members)
-    if not can_manage and not is_member:
-        return None
     # The invited-user list is filled for an administrator only.
     candidates = tuple(
         str(r["email"]) for r in fleet_db.eligible_co_manager_candidates(conn, device.id)
     ) if is_admin else ()
-    return card.CardView(
-        owner_email, members, candidates, can_manage, viewer_id, is_member, is_admin)
-
-
-def card_html(h, device):
-    """The Co-managers card for the frame's Home page, or "" (fail closed)
-    when the frame has no fleet row, the fleet database cannot be read, or the
-    viewer is unknown."""
-    principal = h._safe_principal()
-    if device is None or principal is None:
-        return ""
-    try:
-        view = _card_view(h._fleet_conn(), device, principal)
-    except _STORE_ERRORS:
-        return ""
-    return "" if view is None else card.render(view)
+    return card.CardView(owner_email, members, candidates, viewer_id, is_admin)

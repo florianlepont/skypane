@@ -34,6 +34,7 @@ from access_matrix_support import (
     ADMIN_EMAIL, OTHER_EMAIL, OWNER_EMAIL, REACHED_BODY, Recorder, probe_path,
     probe_routes, seed_matrix_fleet, session_cookie_for, stub_routes)
 import matrix_rows_co_managers
+import matrix_rows_landing
 import matrix_rows_lifecycle
 import matrix_rows_locations
 import matrix_rows_pairing
@@ -170,7 +171,8 @@ SAMPLE_MIDDLE = {
 # each can be filled in without touching this file.
 for _rows in (
         matrix_rows_pairing, matrix_rows_lifecycle, matrix_rows_users,
-        matrix_rows_locations, matrix_rows_co_managers):
+        matrix_rows_locations, matrix_rows_co_managers,
+        matrix_rows_landing):
     ROUTE_POLICY.update(_rows.ROWS)
     SAMPLE_MIDDLE.update(_rows.SAMPLES)
 
@@ -286,7 +288,8 @@ def test_a_console_route_without_a_row_is_reported_by_name(monkeypatch):
 def test_the_console_row_modules_are_merged_into_the_matrix():
     for module in (
             matrix_rows_pairing, matrix_rows_lifecycle, matrix_rows_users,
-            matrix_rows_locations, matrix_rows_co_managers):
+            matrix_rows_locations, matrix_rows_co_managers,
+            matrix_rows_landing):
         for key, kind in module.ROWS.items():
             assert ROUTE_POLICY[key] == kind
         for template, middle in module.SAMPLES.items():
@@ -487,10 +490,67 @@ def test_http_outcome_matches_the_policy_table(rig, stubbed, key, name):
         location = headers.get("Location")
         assert location == "/login" or location.startswith("/login?next=")
         assert stubbed.calls == []
+    elif _moves_to_own_frame(key, name):
+        assert status == 303
+        assert headers["Location"] == _own_frame_page(rig, name, path)
+        assert stubbed.calls == []
     else:
         assert status == 404
         assert body == _unknown_path_404(rig, cookie)
         assert stubbed.calls == []
+
+
+def _moves_to_own_frame(key, name):
+    return (
+        key[0] == "GET" and key[1] in matrix_rows_landing.FRAME_PAGE_REDIRECTS
+        and name in ("owner", "other", "co-manager"))
+
+
+def _own_frame_page(rig, name, path):
+    frame = {
+        "owner": rig.fleet.owner_device, "co-manager": rig.fleet.owner_device,
+        "other": rig.fleet.other_device}[name]
+    return "/devices/%s%s" % (frame, path)
+
+
+@pytest.mark.parametrize("path", matrix_rows_landing.FRAME_PAGE_REDIRECTS)
+def test_a_user_without_a_frame_keeps_the_unknown_path_404(rig, stubbed, path):
+    _uid, cookie = _user_with_session(rig, "frameless-%s@example.test" % (path.strip("/") or "home"))
+    status, _h, body = rig.request("GET", path, cookie)
+    assert status == 404 and body == _unknown_path_404(rig, cookie)
+    assert stubbed.calls == []
+
+
+@pytest.mark.parametrize("path", ("/device", "/settings", "/history", "/preview"))
+def test_other_unprefixed_pages_are_not_redirected_for_a_user(rig, stubbed, path):
+    cookie = rig.cookies["owner"]
+    status, _h, body = rig.request("GET", path, cookie)
+    assert status == 404 and body == _unknown_path_404(rig, cookie)
+
+
+@pytest.mark.parametrize("path", matrix_rows_landing.FRAME_PAGE_REDIRECTS)
+def test_an_anonymous_unprefixed_frame_page_goes_to_login(rig, stubbed, path):
+    status, headers, _b = rig.request("GET", path, None)
+    assert status == 303 and headers["Location"].startswith("/login")
+    assert stubbed.calls == []
+
+
+@pytest.mark.parametrize("name", matrix_rows_landing.SIGNED_IN_LOGIN_ROLES)
+def test_login_while_signed_in_goes_to_the_role_landing(rig, name):
+    status, headers, _b = rig.request("GET", "/login", rig.cookies[name])
+    expected = "/fleet" if name == "admin" else _own_frame_page(rig, name, "/")
+    assert status == 303 and headers["Location"] == expected
+
+
+@pytest.mark.parametrize("name", ("owner", "other", "co-manager"))
+def test_a_foreign_frame_path_stays_404_for_a_user(rig, stubbed, name):
+    foreign = (
+        rig.fleet.other_device if name != "other" else rig.fleet.owner_device)
+    cookie = rig.cookies[name]
+    status, _h, body = rig.request(
+        "GET", "/devices/%s/display" % foreign, cookie)
+    assert status == 404 and body == _unknown_path_404(rig, cookie)
+    assert stubbed.calls == []
 
 
 @pytest.mark.parametrize("name", ("owner", "other", "admin", "co-manager"))

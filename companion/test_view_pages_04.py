@@ -155,6 +155,7 @@ def test_home_health_action_is_reserved_for_actionable_state(tmp_path):
     base = {
         "device_config": {}, "state_dir": str(tmp_path / "absent" / "nested"),
         "now": "2026-08-27T12:00:00+00:00", "gallery_entries": [],
+        "last_checkin_ts": "2026-08-27T11:58:00+00:00",
     }
     healthy = home_page.render(dict(base, health_state={
         "device_state": "ok", "pipeline_state": "ok", "battery_state": "ok"}))

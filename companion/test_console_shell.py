@@ -51,32 +51,10 @@ def test_nav_entries_follow_the_route_table(monkeypatch):
     assert keys == ["fleet", "users", "locations", "audit", "releases"]
 
 
-def test_section_subnav_is_links_with_the_current_page_marked(monkeypatch):
-    monkeypatch.setattr(routes, "ROUTES", routes.ROUTES + (
-        _dummy_get(console_routes.FLEET_ROUTE), _dummy_get(console_routes.USERS_ROUTE)))
-    markup = console_routes.section_subnav_html(console_routes.USERS_ROUTE)
-    links = re.findall(r'<a class="([^"]*)" href="([^"]+)"([^>]*)>', markup)
-    assert [href for _cls, href, _rest in links] == [
-        "/fleet", "/users", "/locations", "/audit", "/update"]
-    current = [href for cls, href, rest in links if "aria-current" in rest]
-    assert current == ["/users"]
-    assert "Fleet" in markup and "Releases" in markup
-
-
-def test_section_subnav_is_empty_without_any_page(monkeypatch):
-    monkeypatch.setattr(routes, "ROUTES", tuple(
-        r for r in routes.ROUTES if not (
-            isinstance(r.matcher, routes.Exact)
-            and r.matcher.path in (
-                "/update", console_routes.AUDIT_ROUTE, console_routes.FLEET_ROUTE,
-                console_routes.USERS_ROUTE))))
-    assert console_routes.section_subnav_html("/update") == ""
-
-
 def test_console_french_labels_are_translated():
     expected = {
         console_routes.ADMINISTRATION_LABEL: "Administration",
-        console_routes.FLEET_LABEL: "Cadres",
+        console_routes.FLEET_LABEL: "Flotte",
         console_routes.USERS_LABEL: "Utilisateurs",
         console_routes.AUDIT_LABEL: "Journal d’audit",
         console_routes.RELEASES_LABEL: "Versions",
@@ -147,15 +125,22 @@ def _hrefs(markup):
     return re.findall(r'<a class="[^"]*" href="([^"]+)"', markup)
 
 
+def _console_group(sidebar):
+    start = sidebar.index('<div class="nav-group nav-group--console"')
+    return sidebar[start:sidebar.index("</div>", start)]
+
+
 def test_admin_sidebar_lists_the_administration_group_in_order(served):
     server, cookies = served
     status, page = _get(server, cookies["admin"], "/fleet")
     assert status == 200
     sidebar = _sidebar(page)
-    assert "Administration" in sidebar
-    group = sidebar[sidebar.index('<div class="nav-group"><span'):]
-    assert _hrefs(group) == ["/fleet", "/users", "/locations", "/audit", "/update"]
-    assert re.search(r'href="/update">Releases<', group)
+    assert _hrefs(sidebar) == [
+        "/", "/fleet", "/users", "/locations", "/audit", "/update", "/account"]
+    group = _console_group(sidebar)
+    assert "Administration" in group
+    assert re.search(r'href="/update">[^<]*(<[^>]*>)*Releases<', group)
+    assert re.search(r'class="space-switch[^"]*" href="/"[^>]*>My views<', sidebar)
 
 
 def test_the_group_lists_only_the_pages_that_exist(
@@ -171,8 +156,7 @@ def test_the_group_lists_only_the_pages_that_exist(
         conn.close()
     status, page = _get(server, "sp_session=tok-a", "/update")
     assert status == 200
-    sidebar = _sidebar(page)
-    group = sidebar[sidebar.index('<div class="nav-group"><span'):]
+    group = _console_group(_sidebar(page))
     assert _hrefs(group) == ["/fleet", "/users", "/locations", "/audit", "/update"]
 
 
@@ -187,72 +171,68 @@ def test_a_user_sees_no_administration_navigation_and_no_console_page(served):
     assert refused == unknown and refused[0] == 404
 
 
-def test_the_admin_tab_takes_the_airlines_slot_when_fleet_exists(served):
+def test_the_console_bar_has_fleet_users_locations_audit_and_more(served):
     server, cookies = served
     _status, page = _get(server, cookies["admin"], "/users")
     bar = _tab_bar(page)
     cells = bar.split('<details class="tab-bar__more">')[0]
-    assert _hrefs(cells) == ["/", "/display", "/flights", "/fleet"]
+    assert _hrefs(cells) == ["/fleet", "/users", "/locations", "/audit"]
+    assert "Admin<" not in bar and "Audit log" not in bar
+    assert 'aria-current="page"' in cells.split('href="/users"')[1].split("</a>")[0]
     sheet = bar.split('<div class="tab-bar__more-panel">')[1]
-    assert _hrefs(sheet)[0] == "/airlines"
-    assert "Admin" in cells
-    assert 'aria-current="page"' in cells.split('href="/fleet"')[1].split("</a>")[0]
+    assert _hrefs(sheet) == ["/update", "/", "/account"]
+    assert "nav-notification" not in bar
 
 
-def test_the_phone_bar_gains_the_admin_tab_once_the_fleet_page_exists(
-        app_server_in_process, monkeypatch):
-    server = app_server_in_process
-    seeded = seed_matrix_fleet(server.state_dir)
-    conn = fleet_db.connect(server.state_dir)
-    try:
-        fleet_sessions.create_session(
-            conn, hashlib.sha256(b"tok-b").hexdigest(), user_id=seeded.admin_id,
-            principal="user", now=app._now())
-    finally:
-        conn.close()
-    _status, page = _get(server, "sp_session=tok-b", "/")
-    cells = _tab_bar(page).split('<details class="tab-bar__more">')[0]
-    assert _hrefs(cells) == ["/", "/display", "/flights", "/fleet"]
-
-
-def test_every_console_page_shows_the_sub_nav_with_the_current_page_selected(served):
+def test_my_views_pages_of_an_admin_carry_no_admin_tab(served):
     server, cookies = served
-    for path in CONSOLE_PAGES:
-        _status, page = _get(server, cookies["admin"], path)
-        nav = re.search(r'<nav class="filter-bar__chips section-subnav".*?</nav>', page, re.S)
-        assert nav, path
-        chips = nav.group(0)
-        assert _hrefs(chips) == [*CONSOLE_PAGES, "/update"], path
-        current = re.findall(r'href="([^"]+)" aria-current="page"', chips)
-        assert current == [path], path
-        for label in ("Fleet", "Users", "Locations", "Audit log", "Releases"):
-            assert label in chips
+    _status, page = _get(server, cookies["admin"], "/")
+    bar = _tab_bar(page)
+    cells = bar.split('<details class="tab-bar__more">')[0]
+    assert _hrefs(cells) == ["/", "/display", "/flights", "/health"]
+    sheet = bar.split('<div class="tab-bar__more-panel">')[1]
+    assert _hrefs(sheet) == ["/airlines", "/device", "/account", "/fleet"]
+    assert "Admin<" not in page and "Administration" not in _sidebar(page)
 
 
-def test_the_sub_nav_is_in_french_when_the_language_is_french(served):
+def test_the_switch_is_in_the_header_for_an_admin_and_absent_for_a_user(served):
     server, cookies = served
-    _status, page = _get(
-        server, cookies["admin"], "/fleet", headers={"Accept-Language": "fr"})
-    chips = re.search(r'<nav class="filter-bar__chips section-subnav".*?</nav>', page, re.S)
-    assert chips
-    for label in ("Cadres", "Utilisateurs", "Lieux", "Journal d’audit", "Versions"):
-        assert label in chips.group(0)
+    _status, console = _get(server, cookies["admin"], "/fleet")
+    header = console[console.index('<header class="site-header"'):console.index("</header>")]
+    assert re.search(r'class="space-switch space-switch--header" href="/"', header)
+    _status, mine = _get(server, cookies["admin"], "/")
+    header = mine[mine.index('<header class="site-header"'):mine.index("</header>")]
+    assert re.search(r'href="/fleet"[^>]*>Console<', header)
+    _status, account = _get(server, cookies["owner"], "/account")
+    assert "space-switch" not in account
+
+
+def test_a_user_still_cannot_open_the_console(served):
+    server, cookies = served
+    refused = _get(server, cookies["owner"], "/fleet")
+    unknown = _get(server, cookies["owner"], "/no-such-page-anywhere")
+    assert refused == unknown and refused[0] == 404
+
+
+def test_no_console_page_renders_a_section_chip_row(served):
+    server, cookies = served
+    for path in (*CONSOLE_PAGES, "/update"):
+        status, page = _get(server, cookies["admin"], path)
+        assert status == 200, path
+        assert "section-subnav" not in page, path
+
+
+def test_no_console_page_renders_a_section_chip_row_in_french(served):
+    server, cookies = served
+    for path in ("/fleet", "/update"):
+        status, page = _get(
+            server, cookies["admin"], path, headers={"Accept-Language": "fr"})
+        assert status == 200, path
+        assert "section-subnav" not in page, path
 
 
 def _main(markup):
     return re.search(r"<main.*?</main>", markup, re.S).group(0)
-
-
-def test_update_for_an_admin_differs_only_by_the_sub_nav_row(
-        served, monkeypatch):
-    server, cookies = served
-    _status, with_chips = _get(server, cookies["admin"], "/update")
-    chip_row = re.search(
-        r'<nav class="filter-bar__chips section-subnav".*?</nav>', with_chips, re.S)
-    assert chip_row
-    monkeypatch.setattr(console_routes, "available_nav_entries", lambda: [])
-    _status, without_chips = _get(server, cookies["admin"], "/update")
-    assert _main(with_chips).replace(chip_row.group(0), "") == _main(without_chips)
 
 
 def test_update_is_the_unknown_path_404_for_a_user(served):

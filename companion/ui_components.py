@@ -812,7 +812,7 @@ def data_table(headers, rows, mono_columns=(), raw_columns=(), desc_columns=(), 
     """
     if not rows:
         return empty_state(
-            i18n.t(_DATA_TABLE_EMPTY_HEADING), i18n.t(_DATA_TABLE_EMPTY_BODY))
+            i18n.t(_DATA_TABLE_EMPTY_HEADING), i18n.t(_DATA_TABLE_EMPTY_BODY), compact=True)
 
     header_cells = "".join(
         "<th>%s</th>" % escape_html(header) for header in headers)

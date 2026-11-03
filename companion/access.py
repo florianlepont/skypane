@@ -93,10 +93,15 @@ def decide(principal, access, captured, owner_lookup, is_co_manager=None):
     return ALLOW
 
 
-def home_for(principal):
-    """Where a signed-in principal lands: the account page for a user, the
-    dashboard for an admin.
+def home_for(principal, frame_id=None):
+    """Where a signed-in principal lands: the fleet page for an admin, the
+    Home of `frame_id` (the caller's default frame) for a user, and the
+    account page for a user with no frame or a malformed frame id.
     """
+    if principal is not None and principal.role == ADMIN:
+        return "/fleet"
     if principal is not None and principal.role == USER:
+        if _valid_device_id(frame_id):
+            return "/devices/%s/" % frame_id
         return "/account"
     return "/"

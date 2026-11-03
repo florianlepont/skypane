@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-"""French strings for frame co-management: the Co-managers card and the flash
-toasts.
+"""French strings for frame co-management: the Manage access and Leave dialogs and
+the flash toasts.
 
 The source-side Message for each id is declared in
 companion/pages/co_managers_card.py; this module only carries the French.
@@ -11,9 +11,10 @@ MESSAGES = {
     "co_managers.purpose_manage":
         "Les personnes qui peuvent modifier les réglages de ce cadre avec le "
         "propriétaire. Elles ne peuvent ni le retirer ni le réattribuer.",
-    "co_managers.purpose_read_only":
-        "Ces personnes gèrent ce cadre. Seul le propriétaire ou un "
-        "administrateur peut modifier la liste.",
+    "co_managers.dialog_title": "Gérer l’accès",
+    "co_managers.menu_label": "Gérer l’accès",
+    "co_managers.done": "Terminé",
+    "co_managers.leave_title": "Quitter ce cadre ?",
     "co_managers.pill_owner": "Propriétaire",
     "co_managers.pill_you": "Vous",
     "co_managers.pill_disabled": "Désactivé",
@@ -29,8 +30,8 @@ MESSAGES = {
     "co_managers.no_candidates":
         "Toutes les personnes invitées sont déjà sur ce cadre.",
     "co_managers.add_button": "Ajouter un co-gestionnaire",
-    "co_managers.remove_button": "Enlever",
-    "co_managers.remove_aria": "Enlever %s de ce cadre",
+    "co_managers.remove_button": "Retirer",
+    "co_managers.remove_aria": "Retirer %s de ce cadre",
     "co_managers.leave": "Quitter ce cadre",
     "co_managers.leave_consequence":
         "Vous perdrez l’accès à ce cadre et à ses réglages. Le propriétaire "

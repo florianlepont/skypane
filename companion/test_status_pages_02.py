@@ -1165,9 +1165,8 @@ def test_only_one_saw_it_is_neutral_and_still_distinct(tmp_path, lang, agree_lab
 
 def test_empty_state_default_form_is_byte_identical_and_compact_is_opt_in():
     """layout.empty_state()'s two-argument output is byte-identical to its
-    pre-compact form (proven against the literal markup AND against
-    data_table()'s own real no-rows caller), an explicit compact=False
-    matches it, and compact=True renders its own modifier plus the 16px
+    pre-compact form (proven against the literal markup), an explicit
+    compact=False matches it, data_table()'s no-rows fallback is compact, and compact=True renders its own modifier plus the 16px
     sans / 14px muted pair through the empty state's own class names, still
     escaped"""
     # The compact variant must not be able to change an existing caller.
@@ -1185,12 +1184,11 @@ def test_empty_state_default_form_is_byte_identical_and_compact_is_opt_in():
         "form, got %r" % (layout.empty_state(heading, body),))
     assert layout.empty_state(heading, body, compact=False) == expected_default, (
         "expected an explicit compact=False to be byte-identical too")
-    # The default form is what data_table()'s own no-rows fallback emits —
-    # an existing caller, proven rather than asserted.
-    assert layout.data_table(["A"], []) == expected_default, (
-        "expected data_table()'s no-rows fallback (a real existing caller) to render the "
-        "unchanged default empty state, got %r" % (layout.data_table(["A"], []),))
     compact = layout.empty_state(heading, body, compact=True)
+    # data_table()'s no-rows fallback is the compact form.
+    assert layout.data_table(["A"], []) == layout.empty_state(
+        "No data yet.", "Nothing to show here yet.", compact=True), (
+        "expected data_table()'s no-rows fallback to render the compact empty state")
     assert compact != expected_default, "expected compact=True to render a different block"
     assert "text-heading" not in compact, "expected the compact form to carry no 22px serif .text-heading, got %r" % (compact,)
     assert 'class="empty-state empty-state--compact"' in compact, "expected the compact form to carry its own modifier class"
@@ -1206,14 +1204,9 @@ def test_empty_state_default_form_is_byte_identical_and_compact_is_opt_in():
     assert "<b>" not in hostile and "<i>" not in hostile, "expected the compact form to escape both arguments"
 
 
-def test_health_in_row_empty_state_is_compact_and_the_card_one_is_not(tmp_path):
-    """on a fresh install Health's IN-ROW empty state (Battery) uses the compact form
-    while its full-width card empty state (Unresolved prefixes) keeps the default 22px
-    serif one"""
-    # The compact form belongs to the empty state that lands INSIDE a row,
-    # whose own name is 12px. The full-width card empty state on the same
-    # page keeps the default form — the variant is a row fix, not a
-    # page-wide restyle.
+def test_health_empty_states_are_all_compact(tmp_path):
+    """on a fresh install both Health empty states, the in-row one (Battery) and the
+    full-width card one (Unresolved prefixes), use the compact form"""
     state_dir = str(tmp_path)
     now = shp.now()
     rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
@@ -1224,8 +1217,8 @@ def test_health_in_row_empty_state_is_compact_and_the_card_one_is_not(tmp_path):
         % ([row.attrs["id"] for row in in_row],))
     assert in_row[0].select(".empty-state--compact"), "expected the in-row empty state to use the compact form"
     registry = doc.select_one("#" + health_page.UNRESOLVED_SECTION_ID)
-    assert registry.select(".empty-state") and not registry.select(".empty-state--compact"), (
-        "expected the full-width card empty state (Unresolved prefixes) to keep the default form")
+    assert registry.select(".empty-state--compact"), (
+        "expected the full-width card empty state (Unresolved prefixes) to use the compact form")
 
 
 _RESOLUTION_SINGULAR_CASES = [

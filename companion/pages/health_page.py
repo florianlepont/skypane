@@ -836,8 +836,14 @@ def _connection_row(state, now):
         return _unavailable_row("connection", name)
     ts = (device_health or {}).get("ts")
     device_state = state["device_state"]
-    facts = [_fact(_LAST_CHECK_IN_TEXT, layout.concise_timestamp_html(
-        ts, now, fallback=i18n.t(_NO_CHECK_IN_TEXT)))]
+    # With no check-in on record the verdict already says so; the value cell and a
+    # Last check-in fact would only repeat it.
+    facts = []
+    value_html = ""
+    if ts is not None:
+        facts.append(_fact(_LAST_CHECK_IN_TEXT, layout.concise_timestamp_html(
+            ts, now, fallback=i18n.t(_NO_CHECK_IN_TEXT))))
+        value_html = _age_html(ts, now, _NO_CHECK_IN_TEXT)
     if state["next_wake_clock"]:
         facts.append(_fact(
             _NEXT_WAKE_TEXT,
@@ -848,7 +854,7 @@ def _connection_row(state, now):
     return health_rows.row_html(
         "connection", device_state, name,
         i18n.t(DEVICE_STATE_TEXT.get(device_state, DEVICE_STATE_TEXT["warn"])),
-        _age_html(ts, now, _NO_CHECK_IN_TEXT), body)
+        value_html, body)
 
 
 def _charging_pill_html(state, trend_rows, battery_critical):
@@ -1086,7 +1092,7 @@ def render(ctx):
             '<div class="status-page">'
             + layout.page_header(i18n.t(_NAV_HEALTH_TEXT))
             + layout.empty_state(
-                i18n.t(DEVICE_EMPTY_HEADING), i18n.t(DEVICE_EMPTY_BODY))
+                i18n.t(DEVICE_EMPTY_HEADING), i18n.t(DEVICE_EMPTY_BODY), compact=True)
             + "</div>")
 
     # Reuse the state build_page_context() already computed, rather than

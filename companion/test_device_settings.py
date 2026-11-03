@@ -184,17 +184,19 @@ def _french(app, path):
 
 def test_timezone_field_markup_and_card_order(app):
     _status, _, page = get(app, _prefix(app.fleet.dev_a) + "/display")
-    card = page[page.index('data-dirty-section="Quiet hours"'):]
-    card = card[:card.index("</select>")]
+    start = page.index('id="location-detection"')
+    card = page[start:page.index("</section>", start)]
     positions = [card.index(marker) for marker in (
-        "quiet-preset-row", 'name="quiet_hours_start"', 'name="quiet_hours_end"',
-        "quiet-dial", "quiet-dial__readout", 'name="timezone"')]
+        'id="location-picker"', 'name="timezone"', "detection-link")]
     assert positions == sorted(positions)
     select = _timezone_select(page)
     assert 'form="settings-form"' in select
     assert re.search(r'<label for="quiet-hours-timezone">Time zone</label>', card)
-    assert "Quiet hours follow this time zone." in page
+    assert "Quiet hours follow this time zone." in card
     assert page.count('name="timezone"') == 1
+    quiet = page[page.index('data-dirty-section="Quiet hours"'):]
+    assert 'name="timezone"' not in quiet
+    assert 'href="#location-detection"' in quiet
 
 
 def test_timezone_options_are_curated_with_offsets_and_paris_selected(app):

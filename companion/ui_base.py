@@ -66,7 +66,7 @@ _NAV_LABEL_FLIGHTS = i18n.msg("nav.flights", "Flights")
 _NAV_LABEL_AIRLINES = i18n.msg("nav.airlines", "Airlines")
 _NAV_LABEL_HEALTH = i18n.msg("nav.health", "Health")
 _NAV_LABEL_DEVICE = i18n.msg("nav.device", "Device")
-_NAV_LABEL_UPDATE = i18n.msg("nav.update", "Update")
+_NAV_LABEL_UPDATE = i18n.msg("nav.update", "Releases")
 
 NAV_GROUPS = (
     ("", (
@@ -181,6 +181,12 @@ VALUE_CONTROLS_SCRIPT_SRC = "/static/value-controls.js"
 # connect and runs the in-sheet disconnect confirmation; inert on a page
 # with no [data-calendar-sheet] dialog.
 CALENDAR_SHEET_SCRIPT_SRC = "/static/calendar-sheet.js"
+
+# Must equal companion/app.py's MODAL_SCRIPT_ROUTE exactly. Opens the shared
+# dialog.modal component as a modal, returns focus on close, and closes open
+# row menus and frame switchers on an outside tap or Esc; registered on the
+# shell because any page can hold a dialog, a menu or a switcher.
+MODAL_SCRIPT_SRC = "/static/modal.js"
 
 # The registration seam value-controls.js reads, defined here so a page
 # module never types the attribute name (a harness asserts the served
@@ -437,6 +443,7 @@ _STATUS_DOT_CLASSES = {
     "warn": "dot--warn",
     "error": "dot--error",
     "off": "dot--off",
+    "hollow": "dot--hollow",
 }
 _DEFAULT_STATUS_DOT_CLASS = _STATUS_DOT_CLASSES["warn"]
 
@@ -558,6 +565,11 @@ ICON_IDS = ICON_IDS + (
 ICON_IDS = ICON_IDS + (
     "icon-pencil",
     "icon-plus",
+)
+
+# Three stacked dots, for a row's actions menu button.
+ICON_IDS = ICON_IDS + (
+    "icon-more-vertical",
 )
 
 # An outlined "i" in a circle, for the small info buttons that open a
@@ -777,6 +789,11 @@ ICON_DEFS_HTML = (
     '<symbol id="icon-pencil" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M13.5 3.5l3 3L7 16H4v-3z"/><path d="M11.5 5.5l3 3"/>'
+    "</symbol>"
+    '<symbol id="icon-more-vertical" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<path d="M10 4.5v.01M10 10v.01M10 15.5v.01"/>'
     "</symbol>"
     '<symbol id="icon-plus" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'

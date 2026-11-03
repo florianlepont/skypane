@@ -51,10 +51,25 @@ def _user(state_dir, user_id):
 
 
 def _row_html(body, user_id):
+    """The list row whose Manage user button opens this user's dialog."""
+    for match in re.finditer(r'<li class="entity-row.*?</li>', body, re.S):
+        if 'href="#dlg-user-%d"' % user_id in match.group(0):
+            return match.group(0)
+    raise AssertionError("no list row for user %d" % user_id)
+
+
+def _dialog_html(body, user_id):
     match = re.search(
-        r'<tr data-user="%d".*?</tr>' % user_id, body, re.S)
-    assert match, "no table row for user %d" % user_id
+        r'<dialog class="modal" id="dlg-user-%d".*?</dialog>' % user_id, body, re.S)
+    assert match, "no Manage user dialog for user %d" % user_id
     return match.group(0)
+
+
+def _dialog_forms(body, user_id):
+    """action -> inner html of every form in the user's dialog."""
+    return dict(re.findall(
+        r'<form method="post" action="([^"]+)"[^>]*>(.*?)</form>',
+        _dialog_html(body, user_id), re.S))
 
 
 def _act(server, cookie, user_id, action, **form):
@@ -75,7 +90,7 @@ def _audit(state_dir, action):
 # --- page ---------------------------------------------------------------------
 
 
-def test_the_page_lists_every_user_with_role_status_and_frames(rig):
+def test_the_page_lists_every_user_as_a_row_with_role_frames_and_pills(rig):
     server, seed, cookie = rig
     _link(server.state_dir, seed.admin_id, seed.admin2_id, seed.owner_id)
     _sql(server.state_dir, "UPDATE users SET disabled = 1 WHERE id = ?", (seed.owner_id,))
@@ -83,49 +98,97 @@ def test_the_page_lists_every_user_with_role_status_and_frames(rig):
     assert status == 200
     for email in (fx.ADMIN_EMAIL, fx.OWNER_EMAIL, fx.SECOND_ADMIN_EMAIL, fx.USER_EMAIL):
         assert email in body
-    assert "Never signed in" in body and "Signed in" in body
-    assert "Administrator" in _row_html(body, seed.admin2_id)
-    assert "Disabled" in _row_html(body, seed.owner_id)
-    assert "Invited" in _row_html(body, seed.user_id)
-    assert "Active" in _row_html(body, seed.admin2_id)
-    assert 'class="data-card"' in body and "data-table" in body
+    assert body.count('<li class="entity-row') == 4
+    assert "<table" not in body and "data-card" not in body
     assert "4 users" in body
+    assert "Administrator · 0 frames" in _row_html(body, seed.admin2_id)
+    assert "Disabled" in _row_html(body, seed.owner_id)
+    assert "Invited" not in _row_html(body, seed.admin2_id)
+    assert "Invited" in _row_html(body, seed.user_id)
+    assert "Disabled" not in _row_html(body, seed.user_id)
+    own = _row_html(body, seed.admin_id)
+    assert "Administrator · 0 frames · You" in own and "Invited" not in own
+    assert "Manage %s" % fx.USER_EMAIL in _row_html(body, seed.user_id)
+    assert ">Manage user<" in _row_html(body, seed.user_id)
 
 
-def test_own_row_shows_no_demote_or_disable_and_another_admin_row_does(rig):
+def test_a_signed_in_user_never_shows_invited_and_a_never_signed_in_one_does(rig):
+    server, seed, cookie = rig
+    _link(server.state_dir, seed.owner_id)
+    body = fx.get(server, cookie, "/users")[2]
+    assert "Invited" not in _row_html(body, seed.owner_id)
+    assert "Invited" in _row_html(body, seed.user_id)
+
+
+def test_the_header_opens_an_invite_dialog_with_role_defaulting_to_user(rig):
+    server, seed, cookie = rig
+    body = fx.get(server, cookie, "/users")[2]
+    assert re.search(
+        r'<a href="#dlg-invite-user" class="page-header__action" data-modal-open>'
+        r'\+ Invite a user</a>', body)
+    dialog = re.search(r'<dialog class="modal" id="dlg-invite-user".*?</dialog>', body, re.S)
+    assert dialog and " open" not in dialog.group(0).split(">", 1)[0]
+    html = dialog.group(0)
+    assert 'action="/users/invite"' in html and 'name="csrf_token"' in html
+    assert 'type="email"' in html and "required" in html and 'maxlength="254"' in html
+    assert re.search(r'<option value="user" selected>User</option>', html)
+    assert "<option value=\"admin\" selected" not in html
+    assert ">Invite user</button>" in html and "Send invitation" not in body
+    assert "SkyPane does not send them a message, so tell them to sign in." in html
+    assert ">Back to Users</a>" in html
+
+
+def test_a_hostile_email_is_escaped_and_the_row_is_not_monospace(rig):
+    server, seed, cookie = rig
+    hostile = "<img src=x onerror=alert(1)>@e.test"
+    _sql(server.state_dir, "UPDATE users SET email = ? WHERE id = ?", (hostile, seed.user_id))
+    body = fx.get(server, cookie, "/users")[2]
+    assert hostile not in body and "&lt;img src=x" in body
+    css = fx.get(server, cookie, "/static/style.css")[2]
+    rule = re.search(r"\.entity-row__title \{[^}]*\}", css).group(0)
+    assert "monospace" not in rule and "overflow-wrap: anywhere" in rule
+
+
+def test_own_dialog_shows_the_guard_in_place_of_the_role_and_disable_controls(rig):
     server, seed, cookie = rig
     _link(server.state_dir, seed.admin_id, seed.admin2_id)
     body = fx.get(server, cookie, "/users")[2]
-    own = _row_html(body, seed.admin_id)
-    assert "This is you." in own
-    assert "/disable" not in own and "Change to User" not in own
+    own = _dialog_html(body, seed.admin_id)
+    assert "This is you." in own and "Save role" not in own
+    assert "Disable user" not in own and "<select" not in own
     assert "The last active administrator cannot be changed." not in body
-    other = _row_html(body, seed.admin2_id)
-    assert "/users/%d/disable" % seed.admin2_id in other and "Change to User" in other
+    other = _dialog_html(body, seed.admin2_id)
     assert "This is you." not in other
+    assert "Save role" in other and "Disable user" in other
 
 
-def test_the_only_active_admin_row_shows_the_last_administrator_line(rig):
+def test_the_only_active_admin_dialog_shows_the_last_administrator_sentence(rig):
     server, seed, cookie = rig
     _sql(server.state_dir, "UPDATE users SET disabled = 1 WHERE id = ?", (seed.admin2_id,))
     body = fx.get(server, cookie, "/users")[2]
-    own = _row_html(body, seed.admin_id)
+    own = _dialog_html(body, seed.admin_id)
     assert "The last active administrator cannot be changed." in own
-    assert "/disable" not in own and "Change to User" not in own
-    assert "/users/%d/enable" % seed.admin2_id in _row_html(body, seed.admin2_id)
+    assert "Save role" not in own and "Disable user" not in own
+    assert "/users/%d/enable" % seed.admin2_id in _dialog_forms(body, seed.admin2_id)
 
 
-def test_actions_follow_the_user_state(rig):
+def test_dialog_sections_follow_the_user_state(rig):
     server, seed, cookie = rig
     _link(server.state_dir, seed.admin_id, seed.owner_id)
     _sql(server.state_dir, "UPDATE users SET disabled = 1 WHERE id = ?", (seed.user_id,))
     body = fx.get(server, cookie, "/users")[2]
-    linked = _row_html(body, seed.owner_id)
-    assert "/unlink" in linked and "/disable" in linked and "/enable" not in linked
-    never = _row_html(body, seed.admin2_id)
-    assert "/unlink" not in never and "/disable" in never
-    disabled = _row_html(body, seed.user_id)
-    assert "/enable" in disabled and "/disable" not in disabled
+    linked = _dialog_forms(body, seed.owner_id)
+    assert set(linked) == {"/users/%d/%s" % (seed.owner_id, a)
+                           for a in ("role", "disable", "unlink")}
+    never = _dialog_forms(body, seed.admin2_id)
+    assert not any(action.endswith("/unlink") for action in never)
+    assert any(action.endswith("/disable") for action in never)
+    disabled = _dialog_forms(body, seed.user_id)
+    assert any(action.endswith("/enable") for action in disabled)
+    assert not any(action.endswith("/disable") for action in disabled)
+    html = _dialog_html(body, seed.owner_id)
+    assert ">Manage user</h2>" in html and ">Close</a>" in html
+    assert html.count("calendar-disconnect-btn") == 2
 
 
 def test_every_action_form_has_csrf_and_the_right_path_and_no_script_confirm(rig):
@@ -141,21 +204,28 @@ def test_every_action_form_has_csrf_and_the_right_path_and_no_script_confirm(rig
         assert 'name="csrf_token"' in inner, action
         assert re.match(r"^/users(/invite|/\d+/(role|disable|enable|unlink))$", action)
     assert "/users/%d/role" % seed.owner_id in body
-    assert "<dialog" not in body and "confirm(" not in body
+    assert "<details" not in body.split('class="entity-list"')[1].split("</ul>")[0]
+    assert "confirm(" not in body
 
 
-def test_page_never_shows_identity_or_session_values_and_the_invite_card_copy(rig):
+def test_page_never_shows_identity_or_session_values(rig):
     server, seed, cookie = rig
     _link(server.state_dir, seed.admin_id, seed.owner_id)
     body = fx.get(server, cookie, "/users")[2]
     assert FAKE_ISS not in body and "auth0|fake-" not in body
     assert cookie.split("=", 1)[1] not in body
-    assert "They sign in with this email through Auth0. SkyPane does not send them a message." in body
-    assert body.count("Send invitation") == 1
-    content = body[body.index('id="users-list"'):]
-    accent = re.findall(r'<button type="submit">([^<]*)</button>', content)
-    assert accent == ["Send invitation"]
-    assert 'type="email"' in body and "required" in body
+
+
+def test_a_refused_invite_rerenders_the_page_with_the_dialog_open(rig):
+    server, seed, cookie = rig
+    status, _headers, body = fx.post(
+        server, cookie, "/users/invite", {"email": "not-an-email", "role": "admin"})
+    assert status == 400
+    head = re.search(r'<dialog class="modal" id="dlg-invite-user"[^>]*>', body).group(0)
+    assert " open" in head
+    assert 'value="not-an-email"' in body and "Enter a valid email address." in body
+    assert 'aria-invalid="true"' in body and "dlg-invite-user-email-error" in body
+    assert re.search(r'<option value="admin" selected>Administrator</option>', body)
 
 
 def test_page_is_admin_only_and_anonymous_is_sent_to_sign_in(rig):
@@ -172,7 +242,10 @@ def test_french_page_uses_the_catalogue(rig):
         server, cookie, "/users", headers={"Accept-Language": "fr"})
     assert status == 200
     from companion import i18n_fr
-    assert i18n_fr.BY_ID["admin_users.send_invitation"] == "Enregistrer l’invitation"
+    assert "Inviter" in body and "+ Inviter un utilisateur" in body
+    assert "Gérer l’utilisateur" in body and "Retour aux utilisateurs" in body
+    assert "Administrateur · 0 cadre" in body and "Vous" in body
+    assert i18n_fr.BY_ID["admin_users.invite_user"] == "Inviter"
 
 
 def test_the_paths_match_the_console_route_constants():
@@ -201,8 +274,8 @@ def test_invite_creates_an_active_unlinked_user_and_one_audit_row(rig):
     assert len(rows) == 1 and rows[0]["target_id"] == str(row[0])
     assert rows[0]["target_type"] == "user" and rows[0]["outcome"] == "ok"
     page = _flash_text(server, cookie, headers)
-    assert "Invitation saved" in page
-    assert "new.person@example.test can now sign in as Administrator." in page
+    assert "Invited" in page
+    assert "Tell new.person@example.test to sign in with this address." in page
 
 
 @pytest.mark.parametrize("email", ["", "not-an-email", "a b@example.test", "x" * 300 + "@e.test"])

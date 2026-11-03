@@ -71,7 +71,7 @@ MESSAGES = {
         "Sample panel rendered in the %s theme",
 
     # --- Detection card ------------------------------------------------
-    "display.detection_card_title": "Détection",
+    "display.location_and_detection_title": "Lieu et détection",
     "display.detection_card_link":
         "Changer d’aéroport, de piste ou de position",
 
@@ -199,6 +199,8 @@ MESSAGES = {
     # --- Time zone field and its readout clause ----------------------
     "display.timezone_label": "Fuseau horaire",
     "display.timezone_helper": "Les heures calmes suivent ce fuseau horaire.",
+    "display.quiet_hours_zone_note":
+        "Les heures calmes suivent le fuseau horaire choisi dans {card}.",
     "display.timezone_invalid": "Choisissez un fuseau horaire dans la liste.",
     "display.timezone_invalid_toast":
         "Fuseau horaire non enregistré — Choisissez-en un dans la liste. "

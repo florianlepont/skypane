@@ -57,6 +57,13 @@ TIMEZONE_HELPER_ID = "quiet-hours-timezone-hint"
 TIMEZONE_LABEL = i18n.msg("display.timezone_label", "Time zone")
 TIMEZONE_HELPER = i18n.msg(
     "display.timezone_helper", "Quiet hours follow this time zone.")
+# The Quiet hours card's pointer to the card that holds the Time zone
+# field; `{card}` is the link to that card.
+TIMEZONE_NOTE = i18n.msg(
+    "display.quiet_hours_zone_note",
+    "Quiet hours follow the time zone set in {card}.")
+TIMEZONE_NOTE_CARD = i18n.msg(
+    "display.location_and_detection_title", "Location and detection")
 CURATED_TIMEZONES = (
     (device_config.DEFAULT_TIMEZONE, i18n.msg(
         "display.timezone_opt_paris", "Metropolitan France (Paris)")),
@@ -114,11 +121,14 @@ def timezone_readout_clause(key):
     return " · " + i18n.t(TIMEZONE_READOUT_CLAUSE).format(zone=timezone_label_text(key))
 
 
-def timezone_field_html(current_timezone, errors=None):
+def timezone_field_html(current_timezone, errors=None, dirty_section=False):
     """The Time zone label, native select and helper line. The select
     submits with the settings form, and always shows the stored zone: a
     rejected value is never echoed back (a select can only submit a
     listed key, so an invalid one is a stale or tampered form).
+
+    `dirty_section` makes the field its own save-bar section ("Time
+    zone"); inside the Quiet hours card it counts with that card instead.
     """
     keys = [key for key, _label in CURATED_TIMEZONES]
     if current_timezone not in keys:
@@ -133,12 +143,14 @@ def timezone_field_html(current_timezone, errors=None):
     error_attrs = _field_error_attrs(
         errors, TIMEZONE_FIELD_NAME, TIMEZONE_FIELD_ID, hint_id=TIMEZONE_HELPER_ID)
     return (
-        '<div class="quiet-timezone">'
+        '<div class="quiet-timezone"%s>'
         '<label for="%s">%s</label>'
         '<select id="%s" name="%s" form="%s"%s>%s</select>'
         '<p class="text-label quiet-timezone__helper" id="%s">%s</p>%s'
         "</div>"
     ) % (
+        ' %s="%s"' % (DIRTY_SECTION_ATTR, escape_html(i18n.t(TIMEZONE_LABEL)))
+        if dirty_section else "",
         TIMEZONE_FIELD_ID, escape_html(i18n.t(TIMEZONE_LABEL)),
         TIMEZONE_FIELD_ID, TIMEZONE_FIELD_NAME, SETTINGS_FORM_ID, error_attrs,
         "".join(options),
@@ -529,9 +541,18 @@ def quiet_dial_readout_html(start_hm, end_hm, span, zone_clause=""):
     )
 
 
+def timezone_note_html(card_href):
+    """The Quiet hours card's sentence saying its hours follow the time
+    zone, with a link to the card that holds the field."""
+    link = '<a class="text-link" href="%s">%s</a>' % (
+        escape_html(card_href), escape_html(i18n.t(TIMEZONE_NOTE_CARD)))
+    sentence = escape_html(i18n.t(TIMEZONE_NOTE)).replace("{card}", link)
+    return '<p class="text-label quiet-timezone-note">%s</p>' % sentence
+
+
 def quiet_hours_group(
         current_start, current_end, errors=None, submitted=None,
-        current_timezone=device_config.DEFAULT_TIMEZONE):
+        current_timezone=device_config.DEFAULT_TIMEZONE, zone_card_href=None):
     """The Quiet hours settings card: a sibling of the settings form,
     never a literal descendant; both time inputs submit via `form=`.
 
@@ -542,6 +563,10 @@ def quiet_hours_group(
     fields, inert with no script. `errors`/`submitted` repopulate both
     controls; the server-side HH:MM gate in `handle_post()` is the real
     validation.
+
+    The Time zone field closes the card, unless `zone_card_href` is given:
+    the field then lives in the card that link points to, and this card
+    only says its hours follow that zone.
     """
     # The group's single hint links to both time inputs (there is no
     # separate per-field hint for Start vs End).
@@ -633,5 +658,6 @@ def quiet_hours_group(
         _normalised_time_html(effective_end),
         end_error_html,
         dial_html, readout_html,
-        timezone_field_html(current_timezone, errors),
+        timezone_note_html(zone_card_href) if zone_card_href
+        else timezone_field_html(current_timezone, errors),
     )

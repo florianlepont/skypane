@@ -161,9 +161,16 @@ def test_escape_html_non_string_inputs():
     assert layout.escape_html(42) == "42"
 
 
+# The destinations of the My views space: the frame pages plus Account.
+# Update is a Console destination and never appears here.
+MY_VIEWS_ROUTES = tuple(
+    route for route, _label in layout.NAV_TABS if route != layout.UPDATE_ROUTE
+) + (layout.ACCOUNT_ROUTE,)
+
+
 def test_page_shell_document_shape():
     """page_shell() renders one document with lang/viewport/stylesheet/title/a nav link for
-    every NAV_TABS route"""
+    every My views route (Update lives in the Console only)"""
     rendered = layout.page_shell(title="Health", active="health", body="<p>x</p>")
     assert rendered.count("<html") == 1
     assert 'lang="en"' in rendered
@@ -171,7 +178,7 @@ def test_page_shell_document_shape():
     assert "/static/style.css" in rendered
     assert layout.SITE_TITLE in rendered
     missing = [
-        route for route, _ in layout.NAV_TABS
+        route for route in MY_VIEWS_ROUTES
         if ('href="%s"' % route) not in rendered]
     assert not missing, "missing nav link hrefs: %r" % (missing,)
 
@@ -185,7 +192,7 @@ def test_page_shell_marks_only_the_active_sub960_nav_link():
     nav_start = rendered.find('<nav class="tab-bar"')
     nav_end = rendered.find("</nav>", nav_start)
     tab_bar_html = rendered[nav_start:nav_end]
-    for route, _ in layout.NAV_TABS:
+    for route in MY_VIEWS_ROUTES:
         slug = route.lstrip("/")
         href_needle = 'href="%s"' % route
         href_index = tab_bar_html.find(href_needle)
@@ -294,11 +301,13 @@ def test_data_table_wrapped_for_horizontal_scroll():
 
 
 def test_sidebar_nav_renders_all_tabs_with_one_active():
-    """sidebar_nav() renders every NAV_TABS link with exactly one active"""
+    """sidebar_nav() renders every My views link with exactly one active"""
     markup = layout.sidebar_nav("flights")
     assert 'aria-label="Primary navigation"' in markup
-    for route, label in layout.NAV_TABS:
-        assert route in markup and label in markup
+    labels = dict(layout.NAV_TABS)
+    labels[layout.ACCOUNT_ROUTE] = "Account"
+    for route in MY_VIEWS_ROUTES:
+        assert route in markup and labels[route] in markup
     assert markup.count("sidebar-link--active") == 1
 
 
@@ -355,7 +364,7 @@ def test_sidebar_and_tab_bar_render_exactly_six_links_one_active_each():
         "expected the dropdown panel to hold no destination links at all")
     assert "mobile-nav__nav" not in panel, (
         "expected the dropdown's own navigation landmark to be removed, not emptied")
-    for route, _label in layout.NAV_TABS:
+    for route in MY_VIEWS_ROUTES:
         assert ('href="%s"' % route) not in panel, (
             "expected no destination href (%r) left in the dropdown panel" % route)
 
@@ -468,7 +477,7 @@ def test_page_shell_escapes_hostile_body():
 
 
 def test_icon_sprite_integrity():
-    """layout.ICON_IDS has exactly forty-one unique members, each a symbol id in
+    """layout.ICON_IDS has exactly forty-two unique members, each a symbol id in
     ICON_DEFS_HTML and vice versa"""
     # The whitelist grew from ten to fourteen members
     # (icon-check/icon-copy/icon-refresh/icon-search), then to fifteen
@@ -481,13 +490,14 @@ def test_icon_sprite_integrity():
     # to 36 (icon-pencil and icon-plus, Display's look picker), then to 37
     # (icon-info, the info tooltip button), then to 39 (icon-picture and
     # icon-plane, the Flights phone card), then to 40 (icon-logo, the brand mark),
-    # then to 41 (icon-bolt, the estimated "probably charging" pill).
-    assert len(layout.ICON_IDS) == 41
-    assert len(set(layout.ICON_IDS)) == 41, "expected ICON_IDS to have no duplicates"
+    # then to 41 (icon-bolt, the estimated "probably charging" pill), then
+    # to 42 (icon-more-vertical, a row's actions menu button).
+    assert len(layout.ICON_IDS) == 42
+    assert len(set(layout.ICON_IDS)) == 42, "expected ICON_IDS to have no duplicates"
     symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
     assert sorted(symbol_ids) == sorted(layout.ICON_IDS), (
         "sprite symbol ids %r do not match ICON_IDS %r" % (symbol_ids, layout.ICON_IDS))
-    assert layout.ICON_DEFS_HTML.count("<symbol") == 41
+    assert layout.ICON_DEFS_HTML.count("<symbol") == 42
     assert 'stroke="currentColor"' in layout.ICON_DEFS_HTML
     assert 'fill="#' not in layout.ICON_DEFS_HTML, "a hard-coded hex fill would defeat the per-status tint"
 
@@ -522,7 +532,7 @@ def test_stat_tile_backcompat_and_icon_slot():
 
 
 def test_page_shell_emits_sprite_once_no_inline_styles():
-    """page_shell() emits exactly one sprite (one <defs, forty-one <symbol) before
+    """page_shell() emits exactly one sprite (one <defs, forty-two <symbol) before
     dashboard-shell, no inline styles"""
     doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     assert doc.count("<defs") == 1
@@ -530,7 +540,7 @@ def test_page_shell_emits_sprite_once_no_inline_styles():
     # (icon-more). : 22 -> 23 (icon-gear). : 23 -> 24 (icon-nav-update).
     # 24 -> 26 (icon-warning, icon-chevron-right). 26 -> 34 (the toasts).
     # 34 -> 36 (icon-pencil, icon-plus).
-    assert doc.count("<symbol") == 41
+    assert doc.count("<symbol") == 42
     assert doc.index("icon-defs") < doc.index("dashboard-shell"), (
         "expected the sprite to precede the dashboard-shell div")
     assert ' style="' not in doc, "page_shell() must emit no inline styles"
@@ -602,7 +612,7 @@ def test_serif_never_reaches_dense_or_tabular_content(served_css):
 
 def test_mobile_nav_link_and_sidebar_link_geometries_stay_diverged(served_css):
     """mobile dropdown nav link keeps its restored 44px/Body-size tap target while the desktop
-    sidebar link stays at its 32px/Label-size compaction"""
+    sidebar link keeps its 44px row with the Label size"""
     # A past fix reached .mobile-nav__link by mistake -
     # the mobile dropdown is the phone's only nav, with no desktop
     # compactness argument to trade against, while .sidebar-link is
@@ -616,9 +626,8 @@ def test_mobile_nav_link_and_sidebar_link_geometries_stay_diverged(served_css):
         ".mobile-nav__link's font size drifted off var(--font-body-size) (260902-qkm)")
 
     sidebar = declarations_for(served_css, ".sidebar-link")
-    assert sidebar.get("height") == "32px", (
-        ".sidebar-link's D-05 32px desktop compaction was reverted - it is structurally "
-        "desktop-only and should stay compact, unlike the mobile dropdown link")
+    assert sidebar.get("min-height") == "44px", (
+        ".sidebar-link lost its 44px row: a desktop sidebar link is a 44px tap target too")
     assert sidebar.get("font-size") == "var(--font-label-size)", (
         ".sidebar-link's font size drifted off var(--font-label-size)")
 

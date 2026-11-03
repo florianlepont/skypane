@@ -12,15 +12,14 @@ Security invariants:
 """
 import datetime
 import hashlib
-import os
 import re
 import sqlite3
 
 from companion import (
-    audit, console_flash, device_scope, i18n, route_types, throttle)
-from companion.pages import fleet_page
-from server import (
-    device_dirs, fleet_db, fleet_ops, hardware, history_db, state_store)
+    audit, co_managers, console_flash, device_scope, frame_state, i18n, route_types,
+    throttle, wake)
+from companion.pages import co_managers_card, fleet_page
+from server import device_config, device_dirs, fleet_db, fleet_ops, hardware, state_store
 
 # Same literals as companion/console_routes.py (which imports this module, so
 # it cannot be imported here); a test pins that the two agree.
@@ -79,19 +78,6 @@ def _read_all(state_dir):
         conn.close()
 
 
-def _firmware_version(state_dir):
-    """The firmware version of the newest health row, or ""."""
-    if not os.path.exists(history_db.history_db_path(state_dir)):
-        return ""
-    try:
-        with history_db.open_db(state_dir) as conn:
-            row = history_db.latest_device_health(conn)
-    except (OSError, sqlite3.Error):
-        return ""
-    version = None if row is None else row.get("fw_version")
-    return version if isinstance(version, str) else ""
-
-
 def _percent(millivolts):
     from companion import battery
     return None if millivolts is None else battery.battery_percent(millivolts)
@@ -102,24 +88,37 @@ def _hardware_label(key):
     return profile.label if profile is not None else key
 
 
-def _device_rows(state_dir, device_rows, now_epoch):
+def frame_signals(device, now_iso):
+    """(frame state, screen off, battery empty) of a frame, derived the way
+    the frame's Home page derives them, so one frame has one status dot."""
+    cfg = device_config.load_device_config(device.state_dir)
+    critical = wake.read_battery_critical(device.state_dir)
+    next_triple = wake.next_wake_status(
+        device_scope.last_check_in_ts(device.state_dir), cfg, battery_critical=critical)
+    state = frame_state.resolve_state(*next_triple, now_iso)
+    return state, cfg.get("display_enabled") is False, critical
+
+
+def _device_rows(state_dir, device_rows, now):
     by_id = {str(row["id"]): row for row in device_rows}
     rows = []
     for device in device_scope.load_devices(state_dir):
         row = by_id.get(device.id)
         if row is None:
             continue
-        status = device_scope.device_status(device, now_epoch)
+        status = device_scope.device_status(device, now.timestamp())
+        state, screen_off, critical = frame_signals(device, now.isoformat(timespec="seconds"))
         rows.append(fleet_page.FleetRow(
             kind=fleet_page.KIND_LIVE, frame_id=device.id,
             name=row["name"] or fleet_page.unnamed_text(), mono_id=device.id,
             owner_email=row["owner_email"], previous_owner=False,
             hardware=_hardware_label(device.hardware_type),
             last_seen=device_scope.last_check_in_epoch(device.state_dir),
-            battery_percent=_percent(state_store.load_battery_state(device.state_dir)),
-            firmware=_firmware_version(device.state_dir),
+            battery_percent=0 if critical else _percent(
+                state_store.load_battery_state(device.state_dir)),
             is_live_frame=device.state_path == device_dirs.LIVE_STATE_PATH,
-            offline=status == device_scope.STATUS_OFFLINE))
+            offline=status == device_scope.STATUS_OFFLINE,
+            state=state, screen_off=screen_off))
     return rows
 
 
@@ -141,46 +140,65 @@ def _pending_rows(pending_rows, emails):
             hardware=_hardware_label(str(row["hardware_type"])),
             last_seen=row["last_seen_at"],
             battery_percent=_percent(row["battery_mv"]),
-            firmware=row["fw_version"] or "",
             is_live_frame=False, offline=False))
     return rows
 
 
-def _hardware_choices():
-    return tuple((key, _hardware_label(key)) for key in hardware.available_types())
+def _access_views(state_dir, principal):
+    """((frame id, Manage access view), ...) for the frames `principal` can
+    manage access of; empty without a principal or when the database cannot
+    be read."""
+    if principal is None:
+        return ()
+    views = []
+    try:
+        conn = fleet_db.connect(state_dir)
+        try:
+            for device in device_scope.load_devices(state_dir):
+                view = co_managers.access_view(conn, device, principal)
+                if view is not None:
+                    views.append((device.id, view))
+        finally:
+            conn.close()
+    except (sqlite3.Error, fleet_db.FleetDbError, OSError):
+        return ()
+    return tuple(views)
 
 
-def build_view(state_dir, **state):
+def build_view(state_dir, principal=None, **state):
     """The `FleetView` for the current database plus the form state of a
     refused submission (`state` overrides the form fields)."""
     users, device_rows, pending_rows = _read_all(state_dir)
     now = datetime.datetime.now(datetime.timezone.utc)
     emails = {row["id"]: row["email"] for row in users}
-    rows = _device_rows(state_dir, device_rows, now.timestamp())
+    rows = _device_rows(state_dir, device_rows, now)
     rows += _pending_rows(pending_rows, emails)
     owners = tuple(
         (str(row["id"]), fleet_page.owner_label(row["email"], row["role"]))
         for row in users if not row["disabled"])
     return fleet_page.FleetView(
         rows=tuple(fleet_page.sort_rows(rows)), owners=owners,
-        hardware_choices=_hardware_choices(),
         has_pending=any(
             row["status"] == fleet_db.PENDING_STATUS_PENDING for row in pending_rows),
-        now=now, **state)
+        now=now, access=_access_views(state_dir, principal), **state)
 
 
 def _render(h, status=200, **state):
     from companion import console_routes
     return h._console_page(
         console_routes.FLEET_ROUTE, None,
-        lambda: fleet_page.render(build_view(h.args.state_dir, **state)),
-        fleet_page.FLEET_PURPOSE, status=status)
+        lambda: fleet_page.render(build_view(
+            h.args.state_dir, principal=h._safe_principal(), **state)),
+        fleet_page.FLEET_PURPOSE, status=status,
+        action_html=fleet_page.header_action_html)
 
 
 def handle_fleet_get(h, m):
     from urllib.parse import parse_qs, urlsplit
     query = parse_qs(urlsplit(h.path).query)
-    return _render(h, autofocus_code=query.get(fleet_page.PAIR_QUERY_FLAG) == ["1"])
+    return _render(
+        h, open_add_dialog=query.get(fleet_page.PAIR_QUERY_FLAG) == ["1"],
+        open_access=(query.get(co_managers_card.ACCESS_QUERY) or [""])[0])
 
 
 # ---- register -----------------------------------------------------------
@@ -199,18 +217,16 @@ def handle_register(h, m):
     mac = _normalise_mac(form.get(fleet_page.MAC_FIELD, ""))
     secret_hash = form.get(fleet_page.HASH_FIELD, "").strip().lower()
     hardware_type = form.get(fleet_page.HARDWARE_FIELD, "")
-    errors = {}
+    errors = []
     if mac is None:
-        errors["mac_error"] = i18n.t(fleet_page.REGISTER_MAC_ERROR)
+        errors.append(i18n.t(fleet_page.REGISTER_MAC_ERROR))
     if not _HASH_RE.match(secret_hash):
-        errors["hash_error"] = i18n.t(fleet_page.REGISTER_HASH_ERROR)
+        errors.append(i18n.t(fleet_page.REGISTER_HASH_ERROR))
     if hardware_type not in hardware.available_types():
-        errors["hardware_error"] = i18n.t(fleet_page.REGISTER_HARDWARE_ERROR)
+        errors.append(i18n.t(fleet_page.REGISTER_HARDWARE_ERROR))
     if errors:
-        # The hash field is never echoed: a refused paste may be a secret.
-        return _render(
-            h, status=400, mac_value=form.get(fleet_page.MAC_FIELD, "")[:32],
-            hardware_selected=hardware_type[:64], **errors)
+        # Nothing typed is echoed: a refused paste may be a secret.
+        return _render(h, status=400, register_errors=tuple(errors))
     conn = fleet_db.connect(h.args.state_dir)
     try:
         fleet_ops.register_frame(conn, mac, secret_hash, hardware_type, audit.actor_for(h))
@@ -268,16 +284,16 @@ def _refuse_claim(h, code, owner_raw, transitioned):
     finally:
         conn.close()
     return _render(
-        h, status=200, code_value=_echoed_code(code), owner_selected=owner_raw.strip(),
-        claim_toast_html=_docked(
+        h, status=200, open_add_dialog=True, code_value=_echoed_code(code),
+        owner_selected=owner_raw.strip(), claim_toast_html=_docked(
             "error", fleet_page.CLAIM_REFUSED_TITLE, fleet_page.CLAIM_REFUSED_DETAIL),
         code_error=i18n.t(fleet_page.CLAIM_CODE_ERROR))
 
 
 def _field_failure(h, code, owner_raw, **errors):
     return _render(
-        h, status=400, code_value=_echoed_code(code), owner_selected=owner_raw.strip(),
-        **errors)
+        h, status=400, open_add_dialog=True, code_value=_echoed_code(code),
+        owner_selected=owner_raw.strip(), **errors)
 
 
 def _claim(h, code, owner_id):
@@ -309,8 +325,8 @@ def handle_pair(h, m):
     key = _session_key(h)
     if SESSION_THROTTLE.locked_for(key) or GLOBAL_THROTTLE.locked_for(_GLOBAL_KEY):
         return _render(
-            h, status=429, code_value=_echoed_code(code), owner_selected=owner_raw.strip(),
-            claim_toast_html=_docked(
+            h, status=429, open_add_dialog=True, code_value=_echoed_code(code),
+            owner_selected=owner_raw.strip(), claim_toast_html=_docked(
                 "warning", fleet_page.CLAIM_THROTTLED_TITLE,
                 fleet_page.CLAIM_THROTTLED_DETAIL))
     if not _owner_is_active(h.args.state_dir, owner_id):

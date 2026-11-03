@@ -1,21 +1,26 @@
 """The Home page: answers whether the frame is alive, what it is
 showing, and what it has shown recently.
 
-Opens with one status header (frame state, next update, battery and the
-two native-POST switches for screen and quiet hours), then the current
-picture beside the recent flights and, only when attention is needed, a
-link to Health. A recent-flight row gets a
+Opens with one status header (one dot for the frame state, next update,
+for an administrator the battery, and the two native-POST switches for
+screen and quiet hours), then the current picture beside the recent
+flights. The dot is the shared frame-status dot; a link to Health shows
+only when it is amber or red, and a plain user sees neither the battery
+tile nor the attention bar. A recent-flight row gets a
 thumbnail only when a real illustration file resolves for that
 airline, since a recognised name with no artwork file would otherwise
 404 as a broken image. The recent-flight rows and the current
 picture's flight line share one `history_db` read.
 """
 
+from types import SimpleNamespace
+
 import companion.battery as battery
 import companion.device_scope as device_scope
 import companion.draw as draw
 import companion.flight_card as flight_card
 import companion.frame_state as frame_state
+import companion.frame_status as frame_status
 import companion.health_signals as health_signals
 import companion.i18n as i18n
 import companion.layout as layout
@@ -123,6 +128,8 @@ CADENCE_INFO_NO_INTERVAL_TEXT = i18n.msg(
 CADENCE_INFO_LABEL = i18n.msg("home.cadence_info_label", "About updates")
 CADENCE_INFO_ID = "home-cadence-info"
 SEE_HEALTH_TEXT = i18n.msg("home.see_health", "See Health")
+# The dot states that earn a link to the detailed Health page.
+_HEALTH_LINK_TONES = (frame_status.STATUS_WARN, frame_status.STATUS_ERROR)
 HEALTH_ROUTE = "/health"
 SWITCHES_LABEL = i18n.msg("home.switches", "Frame controls")
 EDIT_QUIET_HOURS_LABEL = i18n.msg(
@@ -213,7 +220,8 @@ def _current_picture_html(ctx, current_flight_row):
             return layout.empty_state(
                 i18n.t(DEVICE_NO_IMAGE_HEADING), i18n.t(DEVICE_NO_IMAGE_BODY),
                 compact=True)
-        return layout.empty_state(i18n.t(NO_PANEL_HEADING), i18n.t(NO_PANEL_BODY))
+        return layout.empty_state(
+            i18n.t(NO_PANEL_HEADING), i18n.t(NO_PANEL_BODY), compact=True)
 
     alt = i18n.t(PANEL_ALT_TEXT)
     if current_flight_row:
@@ -346,7 +354,8 @@ def _recent_flights_html(rows, now, state_dir):
     style.css's `.recent-flight-tiles ~ .recent-flights` toggle at 960 px
     depends on this order."""
     if not rows:
-        body = layout.empty_state(i18n.t(NO_FLIGHTS_HEADING), i18n.t(NO_FLIGHTS_BODY))
+        body = layout.empty_state(
+            i18n.t(NO_FLIGHTS_HEADING), i18n.t(NO_FLIGHTS_BODY), compact=True)
     else:
         tiles = "".join(_recent_card_html(row, now, state_dir) for row in rows)
         items = []
@@ -606,38 +615,81 @@ def _battery_pill_html(ctx):
         if charging else "")
 
 
+def _battery_percent(ctx):
+    """The latest battery reading as a percentage, or None without one."""
+    reading = _safe_query(ctx.state_dir, _latest_battery)
+    if not reading or not reading.get("battery_mv"):
+        return None
+    return battery.percent(reading["battery_mv"], page_context.device_curve(ctx.device))
+
+
+def _is_offline(ctx):
+    """Whether a non-live frame has gone quiet for twice its wake interval."""
+    device = ctx.device
+    if device is None or getattr(device, "is_live", True):
+        return False
+    parsed = layout.parse_iso(ctx.now)
+    now_epoch = parsed.timestamp() if parsed is not None else device_scope.now_epoch()
+    return device_scope.device_status(device, now_epoch) == device_scope.STATUS_OFFLINE
+
+
+def _status_row(ctx, next_triple):
+    """The inputs the shared frame-status resolver reads, from the page
+    context: the same words the Fleet list and the frame switcher use."""
+    cfg = ctx.device_config or {}
+    next_iso, interval_s, hold_reason = next_triple
+    state = frame_state.resolve_state(next_iso, interval_s, hold_reason, ctx.now)
+    # A battery-empty hold reads as a low battery even without a stored reading.
+    percent = 0 if ctx.battery_critical is True else _battery_percent(ctx)
+    return SimpleNamespace(
+        kind=frame_status.KIND_LIVE, offline=_is_offline(ctx),
+        last_seen=ctx.last_checkin_ts or None, battery_percent=percent,
+        state=state, screen_off=cfg.get("display_enabled") is False)
+
+
+def _status_dot_html(status):
+    """The 14px state dot: one dot, its word carried by role, label and title
+    (no visible text of its own; the headline beside it is the sentence)."""
+    word = escape_html(i18n.t(status.word))
+    return (
+        '<span class="home-state__dot dot dot--%s%s" role="img" aria-label="%s" '
+        'title="%s"></span>'
+    ) % (status.dot_state, "" if status.dot_state == frame_status.STATUS_OFF
+         else " home-state__dot--pulse", word, word)
+
+
 def _frame_state_html(ctx):
     """The status header: a "Frame state" label, the current state as a
-    short title beside a haloed dot (plus a sentence for a held state), the
-    next update (with its cadence info) and, once long overdue, a Health
-    link; then the battery dial and the screen and quiet-hours switches.
-    The dot's tone also tints the card (green on, amber long overdue or
-    battery hold, neutral when resting); a green or amber dot pulses a soft
-    halo, a resting one stays still. Everything comes from the page
-    context."""
+    short title beside one haloed dot whose colour and word come from the
+    shared frame-status resolver (plus a sentence for a held state), the
+    next update (with its cadence info) and, when the dot is amber or red, a
+    Health link; then, for an administrator, the battery dial; then the
+    screen and quiet-hours switches. The dot's tone also tints the card; a
+    resting dot stays still, every other one pulses a soft halo. Everything
+    comes from the page context."""
     cfg = ctx.device_config or {}
-    (tone, title, detail), (next_iso, interval_s, hold_reason), base_interval_s = (
-        _frame_state_summary(ctx))
-    next_html, long_overdue = _next_update_html(
+    (_tone, title, detail), next_triple, base_interval_s = _frame_state_summary(ctx)
+    next_iso, interval_s, hold_reason = next_triple
+    next_html, _long_overdue = _next_update_html(
         next_iso, interval_s, hold_reason, ctx.now, base_interval_s)
-    if long_overdue:
-        tone = "warn"
+    status = frame_status.frame_status(_status_row(ctx, next_triple))
+    tone = status.dot_state
     detail_html = (
         '<p class="home-state__detail">%s</p>' % escape_html(detail)) if detail else ""
+    user = user_view.is_user_view()
     return (
-        '<section class="home-state home-state--%s" aria-labelledby="home-frame-state">'
+        '<section class="home-state home-state--%s%s" aria-labelledby="home-frame-state">'
         '<div class="home-state__body"><div class="home-state__status">'
         '<h2 class="home-state__eyebrow" id="home-frame-state">%s%s</h2>'
-        '<p class="home-state__headline"><span class="home-state__dot dot dot--%s%s" '
-        'aria-hidden="true"></span><span class="home-state__title">%s</span></p>'
+        '<p class="home-state__headline">%s<span class="home-state__title">%s</span></p>'
         '%s%s%s</div>%s%s</div></section>'
     ) % (
-        tone, layout.icon_html("icon-nav-display", 16),
-        escape_html(i18n.t(FRAME_STATE_HEADING)), tone,
-        "" if tone == "off" else " home-state__dot--pulse", escape_html(title),
-        detail_html, next_html,
-        _health_link_html() if long_overdue else "",
-        _battery_pill_html(ctx), _switches_html(cfg))
+        tone, " home-state--no-battery" if user else "",
+        layout.icon_html("icon-nav-display", 16),
+        escape_html(i18n.t(FRAME_STATE_HEADING)), _status_dot_html(status),
+        escape_html(title), detail_html, next_html,
+        _health_link_html() if tone in _HEALTH_LINK_TONES else "",
+        "" if user else _battery_pill_html(ctx), _switches_html(cfg))
 
 
 def _attention_states():
@@ -675,14 +727,12 @@ def _action_needed_html(ctx):
             device_scope.scoped(layout.HEALTH_ROUTE), i18n.t(ACTION_NEEDED_LINK_TEXT)))
 
 
-def render(ctx, co_managers_html=""):
+def render(ctx):
     """Render Home: the status header (state, next update, battery and the
     two switches) first, then the generated picture and its flight line,
     with the recent flights beside it on desktop and after it on a phone.
     Only an actionable shared health state adds a Health link; daily
-    activity belongs to Health. `co_managers_html` is the Co-managers card,
-    placed after the facts block and outside every region the background
-    refresh swaps.
+    activity belongs to Health.
     """
     ctx = page_context.coerce(ctx)
     now = ctx.now
@@ -709,7 +759,6 @@ def render(ctx, co_managers_html=""):
         + _recent_flights_html(rows, now, ctx.state_dir)
         + "</div>"
         + '<div class="home-facts">'
-        + _action_needed_html(ctx)
+        + ("" if user_view.is_user_view() else _action_needed_html(ctx))
         + "</div>"
-        + co_managers_html
     )

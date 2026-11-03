@@ -1,18 +1,18 @@
 """Frame co-management: the three POST route paths, the form field names, the
-flash keys and their texts, and the pure markup of the Co-managers card on the
-frame's Home page, so the handlers, the card and the flash registry all read
-one definition.
+flash keys and their texts, and the pure markup of the Manage access and Leave
+this frame dialogs, so the handlers, the dialogs and the flash registry all
+read one definition.
 
-The card takes a `CardView` and reads nothing else. It has three shapes: the
-manage shape (owner or administrator: Add and per-row Remove), the read-only
-shape (a co-manager: the list and a two-step Leave) and, outside this module,
-no card at all. The shape follows `can_manage`, `is_admin_viewer` and
-`viewer_is_member` only. The invited-user list reaches the page only through
-`candidates`, which the view builder fills for an administrator alone.
+The Manage access dialog takes a `CardView` and reads nothing else. It is for
+an owner or an administrator only (`can_manage`); the invited-user list reaches
+it only through `candidates`, which the view builder fills for an
+administrator alone. Its forms post to the frame's own `/devices/<id>/...`
+routes, so the host page (Fleet or Account) need not be device-scoped, and
+carry the host page path as `return_to` so the dialog reopens after a change.
 """
 from typing import NamedTuple
 
-from companion import device_scope, i18n
+from companion import i18n
 from companion.ui_base import escape_html
 
 ADD_ROUTE = "/co-managers/add"
@@ -21,6 +21,13 @@ LEAVE_ROUTE = "/co-managers/leave"
 
 FIELD_EMAIL = "email"
 FIELD_USER_ID = "user_id"
+FIELD_RETURN_TO = "return_to"
+
+# The only pages a co-manager form may return to: exact paths, nothing else.
+RETURN_FLEET = "/fleet"
+RETURN_ACCOUNT = "/account"
+RETURN_PATHS = (RETURN_FLEET, RETURN_ACCOUNT)
+ACCESS_QUERY = "access"
 
 FLASH_ADDED = "co_manager_added"
 FLASH_REMOVED = "co_manager_removed"
@@ -56,10 +63,10 @@ _PURPOSE_MANAGE = i18n.msg(
     "co_managers.purpose_manage",
     "People who can change this frame's settings alongside the owner. They "
     "cannot retire or reassign it.")
-_PURPOSE_READ_ONLY = i18n.msg(
-    "co_managers.purpose_read_only",
-    "These people manage this frame. Only the owner or an administrator can "
-    "change the list.")
+_DIALOG_TITLE = i18n.msg("co_managers.dialog_title", "Manage access")
+MENU_LABEL = i18n.msg("co_managers.menu_label", "Manage access")
+_DONE = i18n.msg("co_managers.done", "Done")
+_LEAVE_TITLE = i18n.msg("co_managers.leave_title", "Leave this frame?")
 _PILL_OWNER = i18n.msg("co_managers.pill_owner", "Owner")
 _PILL_YOU = i18n.msg("co_managers.pill_you", "You")
 _PILL_DISABLED = i18n.msg("co_managers.pill_disabled", "Disabled")
@@ -88,23 +95,38 @@ _LEAVE_CONSEQUENCE = i18n.msg(
     "administrator can add you again.")
 _LEAVE_KEEP = i18n.msg("co_managers.leave_keep", "Stay on this frame")
 
-_EMAIL_INPUT_ID = "co-manager-email"
-_PERSON_SELECT_ID = "co-manager-person"
-_EMAIL_HELP_ID = "co-manager-email-help"
 _MAX_EMAIL_CHARS = 254
 
 
 class CardView(NamedTuple):
-    """What the card shows. `members` is a tuple of (user_id, email,
-    disabled); `candidates` is a tuple of e-mails, empty for anyone who is not
-    an administrator."""
+    """What the Manage access dialog shows. `members` is a tuple of
+    (user_id, email, disabled); `candidates` is a tuple of e-mails, empty for
+    anyone who is not an administrator."""
     owner_email: str
     members: tuple
     candidates: tuple
-    can_manage: bool
     viewer_user_id: int | None
-    viewer_is_member: bool
     is_admin_viewer: bool
+
+
+def safe_return_to(value):
+    """`value` when it is exactly one of the pages a form may return to,
+    else None. No prefix, query or look-alike path passes."""
+    return value if isinstance(value, str) and value in RETURN_PATHS else None
+
+
+def dialog_id(prefix, device_id):
+    """A dialog slug for a frame: device ids carry underscores that a dialog
+    slug does not allow."""
+    return "%s-%s" % (prefix, str(device_id).lower().replace("_", "-"))
+
+
+def access_dialog_id(device_id):
+    return dialog_id("dlg-access", device_id)
+
+
+def leave_dialog_id(device_id):
+    return dialog_id("dlg-leave", device_id)
 
 
 def _esc(value):
@@ -126,6 +148,15 @@ def _warning_icon():
     return layout.toast_icon_html("warning")
 
 
+def _frame_route(device_id, route):
+    return "/devices/%s%s" % (device_id, route)
+
+
+def _return_field(return_to):
+    return '<input type="hidden" name="%s" value="%s">' % (
+        FIELD_RETURN_TO, _esc(return_to))
+
+
 def _pill(message):
     return '<span class="banner__pill">%s</span>' % _t(message)
 
@@ -141,31 +172,31 @@ def _row_html(who_html, action_html=""):
         who_html, action_html)
 
 
-def _remove_form_html(user_id, email):
+def _remove_form_html(device_id, user_id, email, return_to):
     return (
-        '<form method="post" action="%s" class="co-manager__remove">%s'
+        '<form method="post" action="%s" class="co-manager__remove">%s%s'
         '<input type="hidden" name="%s" value="%d">'
         '<button type="submit" class="calendar-disconnect-btn" aria-label="%s">%s</button>'
         "</form>" % (
-            _esc(device_scope.scoped(REMOVE_ROUTE, "POST")), _csrf_field(),
-            FIELD_USER_ID, int(user_id),
+            _esc(_frame_route(device_id, REMOVE_ROUTE)), _csrf_field(),
+            _return_field(return_to), FIELD_USER_ID, int(user_id),
             _esc(i18n.t(_REMOVE_ARIA) % email), _t(_REMOVE_BUTTON)))
 
 
-def _member_row(view, member):
+def _member_row(view, device_id, member, return_to):
     user_id, email, disabled = member
     pills = []
     if view.viewer_user_id is not None and user_id == view.viewer_user_id:
         pills.append(_PILL_YOU)
-    if disabled and view.can_manage:
+    if disabled:
         pills.append(_PILL_DISABLED)
-    action = _remove_form_html(user_id, email) if view.can_manage else ""
-    return _row_html(_who_html(email, pills), action)
+    return _row_html(
+        _who_html(email, pills), _remove_form_html(device_id, user_id, email, return_to))
 
 
-def _list_html(view):
+def _list_html(view, device_id, return_to):
     rows = [_row_html(_who_html(view.owner_email, (_PILL_OWNER,)))]
-    rows.extend(_member_row(view, member) for member in view.members)
+    rows.extend(_member_row(view, device_id, member, return_to) for member in view.members)
     return '<ul class="data-cards data-cards--standalone">%s</ul>' % "".join(rows)
 
 
@@ -176,78 +207,83 @@ def _empty_html(view):
         i18n.t(_EMPTY_HEADING), i18n.t(body), compact=True)
 
 
-def _add_form(field_html, submit_html):
+def _add_form(device_id, return_to, field_html, submit_html):
     return (
-        '<form method="post" action="%s" class="fleet-form" autocomplete="off">%s%s'
+        '<form method="post" action="%s" class="fleet-form" autocomplete="off">%s%s%s'
         '<div class="update-actions">%s</div></form>' % (
-            _esc(device_scope.scoped(ADD_ROUTE, "POST")), _csrf_field(),
-            field_html, submit_html))
+            _esc(_frame_route(device_id, ADD_ROUTE)), _csrf_field(),
+            _return_field(return_to), field_html, submit_html))
 
 
-def _typed_field_html():
+def _field_ids(device_id):
+    slug = dialog_id("co-manager", device_id)
+    return slug + "-email", slug + "-person", slug + "-email-help"
+
+
+def _typed_field_html(device_id):
+    input_id, _person_id, help_id = _field_ids(device_id)
     return (
         '<p><label for="%s">%s</label>'
         '<input type="email" id="%s" name="%s" autocomplete="off" '
         'autocapitalize="none" spellcheck="false" required maxlength="%d" '
         'aria-describedby="%s"></p>'
         '<p class="text-label section-caption" id="%s">%s</p>' % (
-            _EMAIL_INPUT_ID, _t(_LABEL_EMAIL), _EMAIL_INPUT_ID, FIELD_EMAIL,
-            _MAX_EMAIL_CHARS, _EMAIL_HELP_ID, _EMAIL_HELP_ID, _t(_HELPER_EMAIL)))
+            input_id, _t(_LABEL_EMAIL), input_id, FIELD_EMAIL,
+            _MAX_EMAIL_CHARS, help_id, help_id, _t(_HELPER_EMAIL)))
 
 
-def _select_field_html(candidates):
+def _select_field_html(device_id, candidates):
+    _input_id, person_id, _help_id = _field_ids(device_id)
     options = '<option value="">%s</option>' % _t(_CHOOSE_PERSON) + "".join(
         '<option value="%s">%s</option>' % (_esc(email), _esc(email))
         for email in candidates)
     return (
         '<p><label for="%s">%s</label>'
         '<select id="%s" name="%s" required>%s</select></p>' % (
-            _PERSON_SELECT_ID, _t(_LABEL_PERSON), _PERSON_SELECT_ID, FIELD_EMAIL,
-            options))
+            person_id, _t(_LABEL_PERSON), person_id, FIELD_EMAIL, options))
 
 
-def _add_html(view):
+def _add_html(view, device_id, return_to):
     """The Add control: a typed address for an owner, a choice of the eligible
     invited people for an administrator (never decided by the list being
     empty)."""
     if view.is_admin_viewer and not view.candidates:
         return '<p class="text-label section-caption">%s</p>' % _t(_NO_CANDIDATES)
     field = (
-        _select_field_html(view.candidates) if view.is_admin_viewer
-        else _typed_field_html())
+        _select_field_html(device_id, view.candidates) if view.is_admin_viewer
+        else _typed_field_html(device_id))
     submit = '<button type="submit">%s</button>' % _t(_ADD_BUTTON)
-    return _add_form(field, submit)
+    return _add_form(device_id, return_to, field, submit)
 
 
-def _leave_html():
-    """The two-step Leave: a closed `<details>`. The form posts no id; the
-    server acts on the caller's own membership."""
-    return (
-        '<details class="fleet-confirm"><summary>%s</summary>'
-        '<form method="post" action="%s" class="fleet-confirm__form">%s'
-        '<p class="text-body">%s%s</p>'
-        '<div class="update-actions">'
-        '<button type="submit" class="calendar-disconnect-btn">%s</button>'
-        '<a class="text-link" href="%s">%s</a></div></form></details>' % (
-            _t(_LEAVE_TEXT), _esc(device_scope.scoped(LEAVE_ROUTE, "POST")),
-            _csrf_field(), _warning_icon(), _t(_LEAVE_CONSEQUENCE),
-            _t(_LEAVE_TEXT), _esc(device_scope.scoped("/")), _t(_LEAVE_KEEP)))
-
-
-
-def render(view):
-    """The Co-managers card for `view`."""
+def manage_access_dialog_html(view, device_id, frame_name, return_to, open_=False):
+    """The Manage access dialog of one frame: the owner, the co-managers with
+    a Remove form each, and the Add form. `return_to` is a whitelisted host
+    page path (see `safe_return_to`); the forms send it back so the dialog
+    reopens there after a change. `open_` renders it open."""
+    from companion import ui_modal
     parts = [
-        '<section class="page-section" aria-labelledby="home-co-managers">'
-        '<h2 class="text-heading" id="home-co-managers">%s</h2>'
+        '<section class="page-section">'
+        '<h3 class="text-heading">%s</h3>'
         '<p class="text-label section-caption">%s</p>' % (
-            _t(_HEADING), _t(_PURPOSE_MANAGE if view.can_manage else _PURPOSE_READ_ONLY)),
-        _list_html(view)]
-    if view.can_manage:
-        if not view.members:
-            parts.append(_empty_html(view))
-        parts.append(_add_html(view))
-    elif view.viewer_is_member:
-        parts.append(_leave_html())
+            _t(_HEADING), _t(_PURPOSE_MANAGE)),
+        _list_html(view, device_id, return_to)]
+    if not view.members:
+        parts.append(_empty_html(view))
+    parts.append(_add_html(view, device_id, return_to))
     parts.append("</section>")
-    return "".join(parts)
+    return ui_modal.sections_dialog_html(
+        access_dialog_id(device_id), i18n.t(_DIALOG_TITLE), frame_name,
+        "".join(parts), i18n.t(_DONE), return_to, open_=open_)
+
+
+def leave_dialog_html(device_id, frame_name, return_to=RETURN_ACCOUNT):
+    """The confirm-only Leave this frame dialog. The form posts no id; the
+    server acts on the caller's own membership."""
+    from companion import ui_modal
+    body = '<p class="text-body">%s%s</p>' % (_warning_icon(), _t(_LEAVE_CONSEQUENCE))
+    return ui_modal.dialog_html(
+        leave_dialog_id(device_id), i18n.t(_LEAVE_TITLE),
+        _frame_route(device_id, LEAVE_ROUTE), _csrf_field(), body,
+        i18n.t(_LEAVE_TEXT), i18n.t(_LEAVE_KEEP), return_to,
+        destructive=True, confirm_only=True, subtitle=frame_name)

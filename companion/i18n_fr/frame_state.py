@@ -21,4 +21,12 @@ MESSAGES = {
     "frame_state.next_wake_around_quiet_hours": "Prochain réveil vers %s · heures calmes",
     "frame_state.applies_at_the_next_wake_around": "S’applique au prochain réveil, vers %s.",
     "frame_state.applies_when_quiet_hours_end_around": "S’applique à la fin des heures calmes, vers %s.",
+    "frame_state.status_retired": "Retiré",
+    "frame_state.status_waiting": "En attente d’appairage",
+    "frame_state.status_no_contact": "Sans contact",
+    "frame_state.status_not_seen": "Pas encore vu",
+    "frame_state.status_overdue": "En retard",
+    "frame_state.status_low_battery": "Batterie faible",
+    "frame_state.status_resting": "Au repos",
+    "frame_state.status_up_to_date": "À jour",
 }

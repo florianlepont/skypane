@@ -11,11 +11,13 @@ import urllib.parse
 import pytest
 
 from companion import i18n, layout, routes
+from companion_markup import parse_html
 from companion.layout import escape_html
 from companion.pages import health_page
 from companion.settings import calendar as calendar_settings
 from companion_app_server import (
     InProcessAppServer, http_request, session_cookie_for_state_dir)
+from matrix_rows_landing import FRAME_PAGE_REDIRECTS
 from provisioned_fleet import (
     ADMIN_EMAIL, FRAMELESS_EMAIL, GALLERY_FILENAME, NAME_A1, NAME_A2, NAME_B1,
     SEEDED_ADMIN_ONLY, USER_A_EMAIL, USER_B_EMAIL, device_dir, mark_checked_in,
@@ -158,7 +160,15 @@ def test_an_owner_reaches_their_frame_and_another_user_gets_the_unknown_404(
 @pytest.mark.parametrize("template", _owner_get_templates())
 def test_the_unprefixed_frame_routes_are_admin_only(rig, template):
     path = _sample(template)
+    moved = {"a": rig.fleet.a2, "b": rig.fleet.b1}
     for who in ("a", "b", "frameless"):
+        if path in FRAME_PAGE_REDIRECTS and who in moved:
+            # A user's Home, Display, Flights, Airlines, Health and Detection
+            # move to the same page under their default frame (first by name).
+            status, headers, _body = rig.get(path, who)
+            assert status == 303, (path, who)
+            assert headers["Location"] == "/devices/%s%s" % (moved[who], path)
+            continue
         rig.assert_unknown("GET", path, who)
     anonymous_status, headers, _b = rig.get(path, "anonymous")
     assert anonymous_status == 303 and headers["Location"].startswith("/login")
@@ -180,7 +190,9 @@ def test_a_user_who_owns_the_live_frame_is_served_under_its_real_id(live_rig):
     live = live_rig.fleet.live
     home = live_rig.page("/devices/%s/" % live, "a")
     assert "/devices/%s/" % live in home
-    live_rig.assert_unknown("GET", "/", "a")
+    status, headers, _body = live_rig.get("/", "a")
+    assert status == 303
+    assert headers["Location"] == "/devices/%s/" % live_rig.fleet.a2
     pages = ("/", "/display", "/flights", "/health", "/airlines")
     for path in pages:
         body = live_rig.page("/devices/%s%s" % (live, path), "a")
@@ -192,10 +204,10 @@ def test_a_user_who_owns_the_live_frame_is_served_under_its_real_id(live_rig):
         assert 'value="live"' not in body
 
 
-def test_the_selector_lists_only_the_users_own_frames(rig):
+def test_the_switcher_lists_only_the_users_own_frames(rig):
     body = rig.page("/devices/%s/display" % rig.fleet.a1, "a")
     for own in (rig.fleet.a1, rig.fleet.a2):
-        assert 'value="%s"' % own in body
+        assert 'href="/devices/%s/display"' % own in body
     assert NAME_A1 in body and NAME_A2 in body
     for foreign in (rig.fleet.b1, rig.fleet.live):
         assert foreign not in body
@@ -320,6 +332,25 @@ def test_user_home_has_no_led_switch_and_no_refresh_trigger(rig):
     assert "/quick/display" in home and "/quick/quiet-hours" in home
 
 
+def test_user_home_has_one_dot_and_no_battery_tile_or_attention_bar(rig):
+    """a user's Home reads the frame state from one dot with its word, in the order switcher,
+    status card, picture, recent flights; the battery tile and the attention bar belong to the
+    administrator's Home only"""
+    mark_checked_in(rig.state_dir, rig.fleet.a1, source_fault=True)
+    path = "/devices/%s/" % rig.fleet.a1
+    user_home = rig.page(path, "a")
+    admin_home = rig.page(path, "admin")
+    root = parse_html(user_home)
+    assert len(root.select(".home-state__dot")) == 1
+    assert root.select_one(".home-state__dot").attrs["aria-label"]
+    assert not root.select(".home-battery") and not root.select(".home-action")
+    assert user_home.index("frame-switcher") < user_home.index("home-state ")
+    assert user_home.index("home-state ") < user_home.index("home-current-frame")
+    assert user_home.index("home-current-frame") < user_home.index("home-flights")
+    assert user_home.index("home-state ") < user_home.index("home-flights")
+    assert parse_html(admin_home).select(".home-battery")
+
+
 def test_user_health_has_none_of_the_platform_rows(rig):
     mark_checked_in(rig.state_dir, rig.fleet.a1, source_fault=True)
     platform_texts = (
@@ -346,7 +377,7 @@ def test_user_pages_link_to_no_admin_page_and_admin_pages_still_do(rig):
             assert page not in _ADMIN_LINK_PATHS, (path, target)
             assert not page.startswith(("/fleet/", "/users/", "/audit/")), (path, target)
     admin_targets = [_page_path(t) for t in _hrefs(rig.page("/devices/%s/" % own, "admin"))]
-    assert "/update" in admin_targets
+    assert "/fleet" in admin_targets
     assert "/device" in admin_targets
 
 

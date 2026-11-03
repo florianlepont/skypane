@@ -351,9 +351,9 @@ def test_removal_inputs_that_name_no_co_manager_change_nothing(rig):
 ])
 def test_a_co_manager_or_stranger_cannot_add_or_remove(rig, route, form):
     form = dict(form, **({"user_id": str(rig.co2_id)} if "user_id" in form else {}))
-    unknown_status, _h, unknown_body = rig.post(
-        "co", "/no-such-page-anywhere", {}, prefixed=False)
     for who in ("co", "stranger"):
+        unknown_status, _h, unknown_body = rig.post(
+            who, "/no-such-page-anywhere", {}, prefixed=False)
         status, _h, body = rig.post(who, route, form)
         assert (status, body) == (unknown_status, unknown_body) == (404, unknown_body)
     assert rig.members() == sorted([rig.co_id, rig.co2_id])

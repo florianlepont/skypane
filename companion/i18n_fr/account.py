@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """French strings for the sign-in surfaces (login card with Auth0 and the
-legacy shared password, the not-invited refusal, the generic sign-in
+legacy shared password, the refusals, the generic sign-in
 errors, the sign-in/sign-out interstitial), the Account page, and the
 shell's legacy-access flag. The source-side Message for each id is
 declared in companion/login_page.py, companion/pages/account_page.py and
@@ -14,26 +14,48 @@ MESSAGES = {
     "account.sign_in_is_not_configured":
         "La connexion n’est pas configurée",
 
-    # --- Not-invited refusal ---------------------------------------
-    "account.no_invitation_found": "Aucune invitation trouvée",
-    "account.this_account_has_not_been_invited_to_skypane":
-        "Ce compte n’a pas été invité sur SkyPane. Demandez une invitation "
-        "à l’administrateur.",
+    "account.first_visit_use_the_email_address_you_were":
+        "Première visite\u00a0? Utilisez l’adresse e-mail avec laquelle on vous "
+        "a invité.",
+
+    # --- Refusals --------------------------------------------------
+    "account.this_account_can_t_sign_in": "Ce compte ne peut pas se connecter",
+    "account.it_has_not_been_invited_to_skypane_or_its":
+        "Il n’a pas été invité sur SkyPane, ou son accès a été désactivé. "
+        "Demandez à l’administrateur, ou connectez-vous avec l’adresse de "
+        "votre invitation.",
+    "account.use_another_account": "Utiliser un autre compte",
     "account.back_to_sign_in": "Retour à la connexion",
     "account.back_to_account": "Retour au compte",
+    "account.sign_in_again": "Se reconnecter",
+    "account.confirm_your_email_address": "Confirmez votre adresse e-mail",
+    "account.your_sign_in_account_has_not_confirmed_its_email":
+        "Votre compte de connexion n’a pas encore confirmé son adresse "
+        "e-mail. Ouvrez le message de confirmation dans votre boîte de "
+        "réception, puis reconnectez-vous.",
+    "account.no_message_ask_the_administrator_to_resend_it":
+        "Pas de message\u00a0? Demandez à l’administrateur de le renvoyer.",
 
     # --- Generic sign-in errors ------------------------------------
     "account.sign_in_could_not_be_completed":
-        "La connexion n’a pas pu aboutir",
-    "account.start_again_from_this_page_if_it_keeps":
-        "Recommencez depuis cette page. Si cela persiste, vérifiez que "
-        "les cookies sont activés.",
+        "La connexion n’a pas abouti",
+    "account.press_sign_in_to_try_again_if_it_keeps":
+        "Appuyez sur Se connecter pour réessayer. Si cela se reproduit, "
+        "vérifiez que les cookies sont activés.",
     "account.sign_in_took_too_long": "La connexion a pris trop de temps",
-    "account.start_again_from_this_page":
-        "Recommencez depuis cette page.",
+    "account.press_sign_in_to_start_again":
+        "Appuyez sur Se connecter pour recommencer.",
+    "account.sign_in_was_cancelled": "La connexion a été annulée",
+    "account.press_sign_in_whenever_you_are_ready":
+        "Appuyez sur Se connecter quand vous voulez.",
     "account.sign_in_is_not_available_right_now":
-        "La connexion n’est pas disponible pour le moment",
-    "account.try_again_in_a_few_minutes": "Réessayez dans quelques minutes.",
+        "La connexion est indisponible pour le moment",
+    "account.try_again_in_a_few_minutes_if_it_lasts":
+        "Réessayez dans quelques minutes. Si cela dure, prévenez "
+        "l’administrateur.",
+    "account.too_many_attempts": "Trop de tentatives",
+    "account.wait_a_minute_then_press_sign_in":
+        "Attendez une minute, puis appuyez sur Se connecter.",
 
     # --- Interstitial ----------------------------------------------
     "account.signing_you_in": "Connexion en cours…",
@@ -52,18 +74,14 @@ MESSAGES = {
     "account.user": "Utilisateur",
     "account.administrator": "Administrateur",
     "account.preferences": "Préférences",
-    "account.frames": "Cadres",
+    "account.my_frames": "Mes cadres",
     "account.your_frames_will_appear_here": "Vos cadres apparaîtront ici",
-    "account.once_an_administrator_pairs_a_frame_to_your":
-        "Dès qu’un administrateur associe un cadre à votre compte, il "
-        "apparaîtra sur cette page.",
-    "account.your_frames": "Vos cadres",
-    "account.last_contact": "Dernier contact",
-    "account.no_contact_yet": "Aucun contact pour l’instant",
-    "account.battery": "Batterie",
+    "account.once_an_administrator_pairs_a_frame":
+        "Dès qu’un administrateur appaire un cadre à votre compte, vous "
+        "arrivez sur son accueil après la connexion.",
     "account.unnamed_frame": "Cadre sans nom",
-    "account.open": "Ouvrir",
-    "account.shared": "Partagé",
-    "account.owner_s": "Propriétaire\u00a0: %s",
-    "account.open_frame": "Ouvrir %s",
+    "account.shared_by": "Partagé par %s",
+    "account.leave_frame": "Quitter le cadre",
+    "account.leave_frame_aria": "Quitter le cadre\u00a0: %s",
+    "account.manage_access_aria": "Gérer l’accès\u00a0: %s",
 }

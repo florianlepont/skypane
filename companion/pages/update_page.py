@@ -11,7 +11,6 @@ live POST handlers for the forms this module renders.
 """
 import collections
 
-import companion.console_routes as console_routes
 import companion.frame_state as frame_state
 import companion.i18n as i18n
 import companion.layout as layout
@@ -32,7 +31,7 @@ CANCEL_ROUTE = "/update/cancel"
 # same pattern companion/pages/health_page.py's _NAV_HEALTH_TEXT uses:
 # msg() is idempotent for a repeat id/English pair, and this page's own
 # <h1> heading must read exactly what the nav calls it.
-_NAV_UPDATE_TEXT = i18n.msg("nav.update", "Update")
+_NAV_UPDATE_TEXT = i18n.msg("nav.update", "Releases")
 
 # The query parameter that picks the hardware type on GET and the form
 # field that carries it on POST. A POST without the field means the
@@ -571,7 +570,8 @@ def _row_html(release, view, now):
 def _versions_card_html(ctx, view, releases):
     if not releases:
         body_html = layout.empty_state(
-            i18n.t(EMPTY_RELEASES_HEADING_TEXT), i18n.t(EMPTY_RELEASES_BODY_TEXT))
+            i18n.t(EMPTY_RELEASES_HEADING_TEXT), i18n.t(EMPTY_RELEASES_BODY_TEXT),
+            compact=True)
         count_html = ""
     else:
         body_html = '<ul class="update-rows">%s</ul>' % "".join(
@@ -706,7 +706,6 @@ def update_page(ctx, view, next_wake_text, wake_held=False, type_choice=None):
             chooser_html = _type_chooser_html(type_choice)
     return (
         layout.page_header(i18n.t(_NAV_UPDATE_TEXT))
-        + console_routes.section_subnav_html(console_routes.UPDATE_ROUTE)
         + chooser_html
         + _rollback_banner_html(view)
         + _cta_card_html(ctx, view, releases, next_wake_text, wake_held)

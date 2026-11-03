@@ -67,7 +67,7 @@ def _class_is_styled(css, cls):
 
 def test_health_nav_notification_dot_appears_in_sidebar_and_tab_bar(served_css):
     """the Health notification dot appears inside the Health sidebar link and on the tab
-    bar's More summary — one per nav renderer — when health_alert='error', nowhere when
+    bar's Health cell — one per nav renderer — when health_alert='error', nowhere when
     None/omitted, and never on another link"""
     dot_device_cfg = {"display_enabled": True, "quiet_hours_enabled": False}
     on = layout.page_shell(
@@ -98,15 +98,16 @@ def test_health_nav_notification_dot_appears_in_sidebar_and_tab_bar(served_css):
 
     bar_start = on.index('<nav class="tab-bar"')
     bar = on[bar_start:on.index("</nav>", bar_start)]
+    health_start = bar.index('href="/health"')
+    health_end = bar.index("</a>", health_start)
+    assert layout.NAV_NOTIFICATION_CLASS in bar[health_start:health_end], (
+        "expected the dot inside the tab bar's Health cell")
+    assert bar.count(layout.NAV_NOTIFICATION_CLASS) == 1, (
+        "expected one dot in the bar, none on More or any other cell")
     summary_start = bar.index("<summary")
     summary_end = bar.index("</summary>", summary_start)
-    assert layout.NAV_NOTIFICATION_CLASS in bar[summary_start:summary_end], (
-        "expected the dot inside the tab bar's More summary, not hidden inside its "
-        "collapsed sheet")
-    assert layout.NAV_NOTIFICATION_CLASS not in bar[summary_end:], (
-        "expected no second dot inside the More sheet — one per nav renderer")
-    assert layout.NAV_NOTIFICATION_CLASS not in bar[:summary_start], (
-        "expected no dot on any of the four everyday tabs")
+    assert layout.NAV_NOTIFICATION_CLASS not in bar[summary_start:summary_end], (
+        "expected no unexplained marker on the More summary")
 
     other_active = layout.page_shell(
         title="T", active="config", body="", health_alert="error",
@@ -259,7 +260,7 @@ def test_dropdown_survives_with_javascript_disabled():
         "the no-JS floor requires the panel carry no inline display style")
     bar_start = doc.index('<nav class="tab-bar"')
     bar = doc[bar_start:doc.index("</nav>", bar_start)]
-    for route, _label in layout.NAV_TABS:
+    for route in ("/", "/display", "/flights", "/airlines", "/health", "/device", "/account"):
         assert ('href="%s"' % route) in bar, (
             "missing tab-bar href for %r with JavaScript disabled" % route)
     # A bare `hidden` attribute only — `aria-hidden` on the tab glyphs is
@@ -303,35 +304,33 @@ def _tab_bar_slice(doc):
 
 
 def test_tab_bar_is_five_cells_from_the_one_shared_nav_iteration():
-    """the bottom tab bar renders five cells fed by the ONE shared _nav_links() iteration —
-    its destinations equal the sidebar's in NAV_TABS order, the four everyday routes are tab
-    links and the Advanced group is a native <details> sheet, exactly one aria-current="page"
-    sits on the real link (never on the <summary>), the More summary wears the active pill on
-    an Advanced page, it carries the shared Primary-navigation landmark name, and the whole
-    bar carries no script hook"""
+    """the bottom tab bar renders five cells from the same My views entries as the sidebar —
+    the same destinations, Home/Display/Flights/Health as tab links and the rest behind a
+    native <details> sheet, exactly one aria-current="page" sits on the real link (never on
+    the <summary>), the More summary wears the active pill on a sheet page, it carries the
+    shared Primary-navigation landmark name, and the whole bar carries no script hook"""
     doc = layout.page_shell(
         title="T", active="flights", body="<p>b</p>", device_config=_TAB_BAR_DEVICE_CFG)
     bar = _tab_bar_slice(doc)
     sidebar = layout.sidebar_nav("flights")
     bar_routes = re.findall(r'<a class="[^"]*" href="([^"]+)"', bar)
     sidebar_routes = re.findall(r'<a class="sidebar-link[^"]*" href="([^"]+)"', sidebar)
-    assert bar_routes == sidebar_routes, (
-        "expected the tab bar's destinations to equal the sidebar's, in order; got %r vs %r"
+    assert sorted(bar_routes) == sorted(sidebar_routes), (
+        "expected the tab bar's destinations to equal the sidebar's; got %r vs %r"
         % (bar_routes, sidebar_routes))
-    assert sidebar_routes == [route for route, _label in layout.NAV_TABS], (
-        "expected both renderings to follow NAV_TABS order, got %r" % (sidebar_routes,))
+    assert sidebar_routes == [
+        "/", "/display", "/flights", "/airlines", "/health", "/device", "/account"], (
+        "expected the My views sidebar order, got %r" % (sidebar_routes,))
 
-    everyday = [route for route, _label in layout.NAV_GROUPS[0][1]]
-    advanced = [route for route, _label in layout.NAV_GROUPS[1][1]]
     tab_links = re.findall(r'<a class="tab-bar__link[^"]*" href="([^"]+)"', bar)
-    assert tab_links == everyday, (
-        "expected exactly the unlabelled everyday group as tab links, got %r" % (tab_links,))
+    assert tab_links == ["/", "/display", "/flights", "/health"], (
+        "expected Home, Display, Flights and Health as tab links, got %r" % (tab_links,))
     assert bar.count("<details class=\"tab-bar__more\">") == 1, "expected exactly one <details> More cell"
     assert bar.count("<summary") == 1, "expected the More cell to be a native <summary>"
     sheet = bar[bar.index('<div class="tab-bar__more-panel">'):]
     sheet_links = re.findall(r'<a class="mobile-nav__link[^"]*" href="([^"]+)"', sheet)
-    assert sheet_links == advanced, (
-        "expected the More sheet to hold exactly the Advanced group, got %r" % (sheet_links,))
+    assert sheet_links == ["/airlines", "/device", "/account"], (
+        "expected the More sheet to hold Airlines, Device and Account, got %r" % (sheet_links,))
 
     assert bar.count('aria-current="page"') == 1, (
         "expected exactly one aria-current=\"page\" in the tab bar, got %d"
@@ -342,7 +341,7 @@ def test_tab_bar_is_five_cells_from_the_one_shared_nav_iteration():
         "expected the aria-current link to be the active tab")
 
     advanced_doc = layout.page_shell(
-        title="T", active="health", body="<p>b</p>", device_config=_TAB_BAR_DEVICE_CFG)
+        title="T", active="airlines", body="<p>b</p>", device_config=_TAB_BAR_DEVICE_CFG)
     advanced_bar = _tab_bar_slice(advanced_doc)
     summary_start = advanced_bar.index("<summary")
     summary_tag = advanced_bar[summary_start:advanced_bar.index(">", summary_start)]
@@ -355,7 +354,7 @@ def test_tab_bar_is_five_cells_from_the_one_shared_nav_iteration():
     assert advanced_bar.count('aria-current="page"') == 1, (
         "expected exactly one aria-current on an Advanced page too")
     assert "tab-bar__link--active" not in advanced_bar[:advanced_bar.index("<details")], (
-        "expected none of the four everyday tabs to be active on /health")
+        "expected none of the four bar tabs to be active on /airlines")
 
     assert 'aria-label="Primary navigation"' in bar, "expected the landmark name on the tab bar"
     for banned in ("onclick", "data-", "<script", "id=\"site-nav-toggle\""):

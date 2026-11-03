@@ -18,7 +18,7 @@ from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _in_both_themes, _login,
     _set_ui_theme)
 from companion_app_server import served_asset
-from server import fleet_db, hardware, pairing_code
+from server import fleet_db, fleet_ops, hardware, pairing_code
 
 pytestmark = pytest.mark.browser
 
@@ -48,13 +48,17 @@ _STYLE_VALUES = (
     "              s.animationName].join('|'));"
     " }"
     " return {colours: [...colours], motion: [...motion]}; }")
-# The shared button classes the console reuses, added to a reference page so
-# their resolved paint counts as already in use.
+# The shared button and filter-chip classes the console reuses, added to a
+# reference page so their resolved paint counts as already in use.
 _ADD_EXISTING_BUTTONS = (
     "() => { for (const cls of ['calendar-disconnect-btn']) {"
     " const b = document.createElement('button'); b.type = 'submit';"
     " b.className = cls; b.textContent = 'x';"
-    " document.querySelector('main').appendChild(b); } }")
+    " document.querySelector('main').appendChild(b); }"
+    " const chip = document.createElement('a'); chip.className = 'filter-chip';"
+    " chip.href = '/'; chip.innerHTML ="
+    "  '<span class=\"filter-chip__box\"><span class=\"filter-chip__text\">x</span></span>';"
+    " document.querySelector('main').appendChild(chip); }")
 REFERENCE_PATHS = ("/", "/display", "/health", "/flights", "/airlines", "/update", "/account")
 def _no_sideways_scroll(page):
     return page.evaluate(
@@ -150,22 +154,19 @@ def test_forms_and_confirm_controls_meet_the_touch_target(
     server = app_server_in_process
     context, page = _admin_page(new_context, server, "/fleet", VIEWPORT_MIN_SUPPORTED)
     try:
+        assert _height(page, "a.page-header__action") >= MIN_TAP_PX
+        assert _height(page, "li.entity-row .row-menu__toggle") >= MIN_TAP_PX
+        page.locator("a.page-header__action").click()
         for selector in (
-                "#pair-code", "#pair-owner", 'form[action="/fleet/pair"] button',
-                "#register-mac", 'form[action="/fleet/register"] button',
-                "ul.data-cards details.fleet-confirm > summary"):
+                "#pair-code", "#pair-owner", 'form[action="/fleet/pair"] button'):
             assert _height(page, selector) >= MIN_TAP_PX, selector
-        page.locator("ul.data-cards details.fleet-confirm > summary").first.click()
-        assert _height(
-            page, "ul.data-cards details.fleet-confirm[open] button") >= MIN_TAP_PX
         page.goto(server.base_url() + "/users")
+        assert _height(page, "a.page-header__action") >= MIN_TAP_PX
+        assert _height(page, "li.entity-row a.entity-row__button") >= MIN_TAP_PX
+        page.locator("a.page-header__action").click()
         for selector in (
-                "#invite-email", "#invite-role", 'form[action="/users/invite"] button',
-                "ul.data-cards details.fleet-confirm > summary"):
+                "#invite-email", "#invite-role", 'form[action="/users/invite"] button'):
             assert _height(page, selector) >= MIN_TAP_PX, selector
-        page.locator("ul.data-cards details.fleet-confirm > summary").first.click()
-        assert _height(
-            page, "ul.data-cards details.fleet-confirm[open] button") >= MIN_TAP_PX
         page.goto(server.base_url() + "/locations")
         for selector in (
                 "#new-name", "#new-lat", "#new-lon", "#new-tz",
@@ -208,20 +209,14 @@ def test_console_works_with_scripts_blocked(new_context, app_server_in_process):
         _login(page, server.base_url())
 
         page.goto(server.base_url() + "/fleet")
-        summary = page.locator("details.fleet-confirm > summary:visible").first
+        summary = page.locator("details.row-menu > summary:visible").first
         summary.click()
-        assert page.locator("details.fleet-confirm[open]:visible").count() == 1
+        assert page.locator("details.row-menu[open]:visible").count() == 1
         summary.click()
-        assert page.locator("details.fleet-confirm[open]").count() == 0
-
-        page.fill("#register-mac", fx.MAC_NEW)
-        page.fill("#register-hash", fx.SECRET_HASH)
-        page.select_option("#register-hardware", hardware.available_types()[0])
-        page.click('form[action="/fleet/register"] button')
-        page.wait_for_url("**/fleet")
-        assert _flash(page).is_visible()
+        assert page.locator("details.row-menu[open]").count() == 0
 
         page.goto(server.base_url() + "/users")
+        page.click("a.page-header__action")
         page.fill("#invite-email", "invited@example.test")
         page.click('form[action="/users/invite"] button')
         page.wait_for_url("**/users")
@@ -251,6 +246,7 @@ def test_pair_form_posts_and_redirects_with_scripts_blocked(
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + "/fleet")
+        page.click("a.page-header__action")
         page.fill("#pair-code", code)
         page.select_option("#pair-owner", str(seed.user_id))
         page.click('form[action="/fleet/pair"] button')
@@ -287,7 +283,7 @@ def test_console_renders_in_french(new_context, app_server_in_process):
         _login(page, server.base_url())
         page.goto(server.base_url() + "/fleet")
         nav = page.locator("nav").first.inner_text()
-        for label in ("Cadres", "Utilisateurs", "Lieux", "Journal d’audit"):
+        for label in ("Flotte", "Utilisateurs", "Lieux", "Journal d’audit"):
             assert label in nav, label
         assert _no_sideways_scroll(page)
     finally:
@@ -318,7 +314,7 @@ def test_user_sees_no_administrator_entry(new_context, app_server_in_process):
         page.goto(home)
         tabs = [t.strip() for t in page.locator(
             ".tab-bar > a, .tab-bar > .tab-bar__link").all_inner_texts() if t.strip()]
-        assert tabs == ["Home", "Flights", "Display", "Health", "Account"], tabs
+        assert tabs == ["Home", "Flights", "Display", "Account"], tabs
     finally:
         context.close()
 
@@ -342,14 +338,17 @@ def test_admin_urls_are_the_unknown_path_page_for_a_user(
 
 # --- Test 6: no dialog, no confirm(), no new colour or motion ------------
 
-def test_new_pages_ship_no_dialog_or_confirm(app_server_in_process):
+def test_console_pages_ship_no_confirm_and_dialogs_only_where_planned(
+        app_server_in_process):
     server = app_server_in_process
     fx.seed_fleet(server.state_dir)
     cookie = fx.admin_cookie(server.state_dir)
     for path in CONSOLE_PATHS:
         status, _headers, body = fx.get(server, cookie, path)
         assert status == 200
-        assert "<dialog" not in body and "confirm(" not in body, path
+        assert "confirm(" not in body, path
+        if path not in ("/fleet", "/users"):
+            assert "<dialog" not in body, path
         for src in re.findall(r'<script[^>]*\ssrc="([^"]+)"', body):
             script = served_asset(server, src)
             assert "<dialog" not in script and "confirm(" not in script, src
@@ -390,14 +389,11 @@ def test_pairing_flow_in_the_browser(new_context, app_server_in_process, monkeyp
     server = app_server_in_process
     context, page = _admin_page(new_context, server, "/fleet", VIEWPORT_DESKTOP)
     try:
-        page.fill("#register-mac", fx.MAC_NEW)
-        page.fill("#register-hash", fx.SECRET_HASH)
-        page.select_option("#register-hardware", hardware.available_types()[0])
-        page.click('form[action="/fleet/register"] button')
-        page.wait_for_url("**/fleet")
         conn = fleet_db.connect(server.state_dir)
         try:
-            pending_id = fleet_db.get_pending_by_mac(conn, fx.MAC_NEW)["id"]
+            pending_id = fleet_ops.register_frame(
+                conn, fx.MAC_NEW, fx.SECRET_HASH, hardware.available_types()[0],
+                fx.ACTOR)
         finally:
             conn.close()
         code = _issue_through_byos(server.state_dir, pending_id, monkeypatch)
@@ -405,6 +401,8 @@ def test_pairing_flow_in_the_browser(new_context, app_server_in_process, monkeyp
         wrong = pairing_code.generate_code()
         while wrong == code:
             wrong = pairing_code.generate_code()
+        page.goto(server.base_url() + "/fleet")
+        page.click("a.page-header__action")
         page.fill("#pair-code", wrong)
         page.click('form[action="/fleet/pair"] button')
         first_text = _refusal_text(page)
@@ -414,11 +412,13 @@ def test_pairing_flow_in_the_browser(new_context, app_server_in_process, monkeyp
         other = pairing_code.generate_code()
         while other in (code, wrong):
             other = pairing_code.generate_code()
+        page.click("a.page-header__action")
         page.fill("#pair-code", other)
         page.click('form[action="/fleet/pair"] button')
         assert _strip_codes(first_text, wrong) == _strip_codes(_refusal_text(page), other)
 
         page.goto(server.base_url() + "/fleet")
+        page.click("a.page-header__action")
         page.fill("#pair-code", code)
         page.select_option("#pair-owner", str(_owner_id(server.state_dir)))
         page.click('form[action="/fleet/pair"] button')

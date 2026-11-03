@@ -52,6 +52,7 @@ ATTEMPT_TTL_SECONDS = 600
 KIND_INCOMPLETE = "incomplete"
 KIND_EXPIRED = "expired"
 KIND_UNAVAILABLE = "unavailable"
+KIND_PROVIDER_ERROR = "provider_error"
 
 
 class Auth0ConfigError(Exception):
@@ -60,7 +61,7 @@ class Auth0ConfigError(Exception):
 
 class SignInError(Exception):
     """A sign-in step failed. `reason` is a short code, `kind` one of
-    incomplete, expired or unavailable."""
+    incomplete, expired, unavailable or provider_error."""
 
     def __init__(self, reason, kind=KIND_INCOMPLETE):
         super().__init__(reason)
@@ -185,8 +186,10 @@ def new_token():
     return secrets.token_urlsafe(32)
 
 
-def authorize_url(cfg, state, nonce, challenge):
-    query = urllib.parse.urlencode({
+def authorize_url(cfg, state, nonce, challenge, prompt=None):
+    """The provider's authorize address. `prompt` is added only when given,
+    so the default flow's address is unchanged."""
+    params = {
         "response_type": "code",
         "client_id": cfg.client_id,
         "redirect_uri": cfg.redirect_uri,
@@ -195,7 +198,10 @@ def authorize_url(cfg, state, nonce, challenge):
         "nonce": nonce,
         "code_challenge": challenge,
         "code_challenge_method": "S256",
-    })
+    }
+    if prompt:
+        params["prompt"] = prompt
+    query = urllib.parse.urlencode(params)
     return "%s/authorize?%s" % (cfg.base_url, query)
 
 

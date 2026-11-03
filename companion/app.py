@@ -117,6 +117,7 @@ RELATIVE_TIME_SCRIPT_ROUTE = static_files.RELATIVE_TIME_SCRIPT_ROUTE
 QUICK_SWITCH_SCRIPT_ROUTE = static_files.QUICK_SWITCH_SCRIPT_ROUTE
 VALUE_CONTROLS_SCRIPT_ROUTE = static_files.VALUE_CONTROLS_SCRIPT_ROUTE
 CALENDAR_SHEET_SCRIPT_ROUTE = static_files.CALENDAR_SHEET_SCRIPT_ROUTE
+MODAL_SCRIPT_ROUTE = static_files.MODAL_SCRIPT_ROUTE
 # Single definition site is companion/pages/config_page.py (app.py imports
 # that module, so the reverse import would be a cycle) — rebound here
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
@@ -400,6 +401,11 @@ parse_single_uploaded_file = post_actions.parse_single_uploaded_file
 # here) now lives in companion/page_context.py — see that module's own
 # docstring. Handler.page_context() below is a one-line delegation to
 # page_context.build_page_context().
+
+
+# The un-prefixed frame pages a user is sent on to their own frame.
+_USER_FRAME_PAGES = frozenset((
+    layout.HOME_ROUTE, "/display", "/flights", "/airlines", "/health", "/detection"))
 
 
 def _effective_access(route, route_match):
@@ -729,8 +735,10 @@ class Handler(
         # Pre-session: resolved from the cookie or Accept-Language.
         prefs.set_request_prefs(lang=self._lang_from_request())
         health_alert = self._health_alert_for_admin()
+        back, home_route = self._back_target()
         return login_page.not_found_page(
-            self._resolved_ui_theme(), health_alert, back=self._back_target())
+            self._resolved_ui_theme(), health_alert, back=back,
+            home_route=home_route)
 
     def _handle_credits_get(self):
         """GET CREDITS_ROUTE: the public credits page. Only the request
@@ -748,20 +756,39 @@ class Handler(
         """
         prefs.set_request_prefs(lang=self._lang_from_request())
         health_alert = self._health_alert_for_admin()
+        back, home_route = self._back_target()
         return login_page.forbidden_page(
-            self._resolved_ui_theme(), health_alert, back=self._back_target(),
-            purpose=purpose)
+            self._resolved_ui_theme(), health_alert, back=back, purpose=purpose,
+            home_route=home_route)
 
     def _back_target(self):
-        """Which onward link an error page offers the current caller. Reads
-        the principal `_health_alert_for_admin()` already resolved.
+        """(which onward link, Home route) an error page offers the current
+        caller. A user with a frame goes back to that frame's Home; a user
+        without one to the account page. Reads the principal
+        `_health_alert_for_admin()` already resolved.
         """
         principal = self._safe_principal()
         if principal is None:
-            return login_page.BACK_SIGN_IN
+            return login_page.BACK_SIGN_IN, None
         if principal.role == access.USER:
-            return login_page.BACK_ACCOUNT
-        return login_page.BACK_HOME
+            frame = self._default_frame(principal)
+            if frame is None:
+                return login_page.BACK_ACCOUNT, None
+            return login_page.BACK_HOME, access.home_for(principal, frame.id)
+        return login_page.BACK_HOME, None
+
+    def _default_frame(self, principal):
+        """The user's default frame, or None; a store problem reads as no
+        frame."""
+        try:
+            return device_scope.default_frame_for(self.args.state_dir, principal)
+        except _STORE_ERRORS:
+            return None
+
+    def _landing_for(self, principal):
+        """Where `principal` lands after signing in."""
+        frame = self._default_frame(principal)
+        return access.home_for(principal, None if frame is None else frame.id)
 
     def _health_alert_for_admin(self):
         """The Health nav-dot severity for an admin caller, else None: a
@@ -938,11 +965,15 @@ class Handler(
         body = render(ctx)
         return self.send_html(200, self._page_shell_for(route, body, ctx))
 
-    def _console_page(self, route, title_msg, body_html, purpose_msg=None, status=200):
+    def _console_page(
+            self, route, title_msg, body_html, purpose_msg=None, status=200,
+            action_html=None):
         """Render one admin console page: the page header (the title falls
-        back to the console registry when `title_msg` is None), the section
-        sub-nav, then `body_html`, inside the shell with the console route's
-        own nav slug active. A queued console flash is shown once and its
+        back to the console registry when `title_msg` is None), then
+        `body_html`, inside the shell with the console route's own nav slug
+        active. `action_html` is the page's already-escaped primary action,
+        shown beside the title (or a callable returning it, resolved after the
+        request language is known). A queued console flash is shown once and its
         cookie cleared. `status` is the HTTP status of the response (an
         invalid submission re-renders its page at 400 or 429). Console pages
         are not in `layout.NAV_TABS`, so they carry no tab scripts of their
@@ -953,12 +984,13 @@ class Handler(
         # sees this request's language.
         if callable(body_html):
             body_html = body_html()
+        if callable(action_html):
+            action_html = action_html()
         title = i18n.t(title_msg or console_routes.CONSOLE_TITLES[route])
         purpose = i18n.t(purpose_msg) if purpose_msg else None
         flash_html, clear_cookie = console_flash.take_flash(self.headers.get("Cookie"))
-        body = (
-            layout.page_header(title, purpose)
-            + console_routes.section_subnav_html(route) + body_html)
+        flash_html = flash_html or self._welcome_flash_html()
+        body = layout.page_header(title, purpose, action_html=action_html) + body_html
         page = layout.page_shell(
             title=title, active=layout.nav_slug(route), body=body,
             ui_theme=ctx.ui_theme, flash=flash_html or None,
@@ -976,7 +1008,7 @@ class Handler(
         """
         principal = self._safe_principal()
         if principal is not None:
-            return self.redirect(access.home_for(principal))
+            return self.redirect(self._landing_for(principal))
         next_route = _validated_next_route(
             parse_qs(urlsplit(self.path).query).get("next", [None])[0])
         return self.send_html(200, self._render_login_page(next_route=next_route))
@@ -1033,6 +1065,9 @@ class Handler(
         if outcome == access.LOGIN:
             return self._redirect_to_login()
         if outcome == access.NOT_FOUND:
+            moved = self._frame_page_redirect(method, route, route_match, principal)
+            if moved is not None:
+                return self.redirect(moved)
             return self.send_html(404, self._not_found_page())
         self._apply_principal(principal)
         raw_session = self._raw_session_token()
@@ -1047,6 +1082,24 @@ class Handler(
             with history_db.connection_scope(self.args.state_dir):
                 return route.handler(self, route_match)
         return self._dispatch_for_device(route, route_match)
+
+    def _frame_page_redirect(self, method, route, route_match, principal):
+        """Where a user's un-prefixed frame page (Home, Display, Flights,
+        Airlines, Health, Detection) moves to: the same page under their
+        default frame. None for any other request, and for a user with no
+        frame. The target is built from the user's own frame list and the
+        matched route path, never from request text.
+        """
+        if method != "GET" or not route.device_scoped \
+                or route_match.device_id is not None:
+            return None
+        if principal is None or principal.role != access.USER \
+                or route_match.path not in _USER_FRAME_PAGES:
+            return None
+        frame = self._default_frame(principal)
+        if frame is None:
+            return None
+        return "/devices/%s%s" % (frame.id, route_match.path)
 
     def _login_throttle_key(self):
         """The one place this handler derives a sign-in throttle bucket key

@@ -33,6 +33,12 @@ def _refresh_target(body):
     return html.unescape(match.group(1))
 
 
+def _landing_path(body):
+    """The meta-refresh target without the first-sign-in welcome token."""
+    target = _refresh_target(body)
+    return re.sub(r"[?&]flash=welcome\w*$", "", target)
+
+
 def _assert_refused(rig, result, statuses=GENERIC_FAILURE_STATUSES, user_sub=None):
     """No session cookie, no sessions row, no durable change to users."""
     assert result.status in statuses
@@ -45,25 +51,25 @@ def _assert_refused(rig, result, statuses=GENERIC_FAILURE_STATUSES, user_sub=Non
 
 # --- happy paths -----------------------------------------------------------
 
-def test_invited_admin_signs_in_and_lands_on_home(auth0_rig):
+def test_invited_admin_signs_in_and_lands_on_the_fleet_page(auth0_rig):
     rig = auth0_rig
     rig.invite("admin@example.test", "admin")
     result = login_via_auth0(
         rig.server, rig.fake, sub="auth0|admin", email="admin@example.test")
     assert result.status == 200
-    assert _refresh_target(result.body) == "/"
+    assert _landing_path(result.body) == "/fleet"
     token = result.session_cookie.split("=", 1)[1]
     assert rig.rows("SELECT id_hash, principal FROM sessions") == [
         (hashlib.sha256(token.encode()).hexdigest(), "user")]
     assert rig.rows("SELECT sub FROM users") == [("auth0|admin",)]
 
 
-def test_invited_user_lands_on_account(auth0_rig):
+def test_invited_user_without_a_frame_lands_on_account(auth0_rig):
     rig = auth0_rig
     rig.invite("user@example.test", "user")
     result = login_via_auth0(rig.server, rig.fake)
     assert result.status == 200
-    assert _refresh_target(result.body) == "/account"
+    assert _landing_path(result.body) == "/account"
     assert result.session_cookie is not None
 
 
@@ -222,19 +228,16 @@ def test_every_uninvited_identity_gets_the_same_403(auth0_rig):
     rig = auth0_rig
     rig.invite("linked@example.test", "user", iss="https://other.example/", sub="auth0|other")
     rig.invite("off@example.test", "user", disabled=True)
-    rig.invite("pending@example.test", "user")
     users_before = rig.user_count()
     bodies = [
         _refusal_body(rig, sub="auth0|nobody", email="nobody@example.test"),
-        _refusal_body(rig, sub="auth0|x", email="pending@example.test",
-                      email_verified=False),
         _refusal_body(rig, sub="auth0|y", email="linked@example.test"),
         _refusal_body(rig, sub="auth0|z", email="off@example.test"),
     ]
     assert len(set(bodies)) == 1
     assert rig.user_count() == users_before
-    for email in (b"nobody@example.test", b"pending@example.test",
-                  b"linked@example.test", b"off@example.test"):
+    for email in (b"nobody@example.test", b"linked@example.test",
+                  b"off@example.test"):
         assert email not in bodies[0]
     assert rig.rows("SELECT sub FROM users WHERE sub IS NOT NULL") == [("auth0|other",)]
 
@@ -270,7 +273,7 @@ def test_an_admin_lands_on_a_whitelisted_next(auth0_rig):
     result = login_via_auth0(
         rig.server, rig.fake, next_route="/health", sub="auth0|a",
         email="admin@example.test")
-    assert _refresh_target(result.body) == "/health"
+    assert _landing_path(result.body) == "/health"
 
 
 @pytest.mark.parametrize("hostile", [
@@ -285,14 +288,14 @@ def test_hostile_next_falls_back_to_the_default_landing(auth0_rig, hostile):
         rig.server, rig.fake, next_route=hostile, sub="auth0|a",
         email="admin@example.test")
     assert result.status == 200
-    assert _refresh_target(result.body) == "/"
+    assert _landing_path(result.body) == "/fleet"
 
 
 def test_a_user_ignores_an_admin_only_next(auth0_rig):
     rig = auth0_rig
     rig.invite("user@example.test", "user")
     result = login_via_auth0(rig.server, rig.fake, next_route="/health")
-    assert _refresh_target(result.body) == "/account"
+    assert _landing_path(result.body) == "/account"
 
 
 # --- unconfigured or malformed settings ------------------------------------------
@@ -385,7 +388,7 @@ def test_one_client_cannot_start_unlimited_sign_ins(auth0_rig, monkeypatch):
     status, headers, body = http_request(rig.server.url("/login/auth0"))
     assert status == 429
     assert "Set-Cookie" not in headers
-    assert b"Sign-in is not available right now" in body
+    assert b"Too many attempts" in body
     # The attempt begun before the flood still completes.
     _start, _authorize, attempt_cookie, callback_path = pending
     callback = http_request_full(rig.server.url(callback_path), cookie=attempt_cookie)

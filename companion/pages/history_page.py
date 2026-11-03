@@ -699,7 +699,8 @@ def _day_separator_row_html(day, today):
 
 def _history_table_html(formatted_rows, now=None):
     if not formatted_rows:
-        return layout.empty_state(i18n.t(_NO_FLIGHTS_HEADING), i18n.t(_NO_FLIGHTS_BODY))
+        return layout.empty_state(
+            i18n.t(_NO_FLIGHTS_HEADING), i18n.t(_NO_FLIGHTS_BODY), compact=True)
 
     # The last <th> is the visually-hidden "Picture" header: no data
     # column behind it, so built directly here rather than through the
@@ -904,7 +905,7 @@ def render(ctx):
             device = ctx.device
             if device is not None and not device.is_live:
                 body = layout.empty_state(
-                    i18n.t(DEVICE_EMPTY_HEADING), i18n.t(DEVICE_EMPTY_BODY))
+                    i18n.t(DEVICE_EMPTY_HEADING), i18n.t(DEVICE_EMPTY_BODY), compact=True)
             else:
                 body = _history_table_html(visible_rows, now)
         else:

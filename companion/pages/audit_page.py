@@ -338,7 +338,8 @@ def render(view):
     parts = [_chips_html(view), _count_html(view.total)]
     if not view.events:
         if view.category == "all":
-            parts.append(_ui().empty_state(i18n.t(_EMPTY_HEADING), i18n.t(_EMPTY_BODY)))
+            parts.append(_ui().empty_state(
+                i18n.t(_EMPTY_HEADING), i18n.t(_EMPTY_BODY), compact=True))
         else:
             parts.append(_ui().empty_state(
                 i18n.t(_EMPTY_FILTER_HEADING), i18n.t(_EMPTY_FILTER_BODY)))

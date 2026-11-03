@@ -420,7 +420,8 @@ def _registry_section(rows, now):
         i18n.t(_READ_ONLY_NOTE))
 
     if not rows:
-        return header_html + layout.empty_state(i18n.t(_NO_GAPS_HEADING), i18n.t(_NO_GAPS_BODY))
+        return header_html + layout.empty_state(
+            i18n.t(_NO_GAPS_HEADING), i18n.t(_NO_GAPS_BODY), compact=True)
 
     filter_html = _registry_filter_bar_html(len(rows))
     cards_html = _registry_cards_html(rows, now)

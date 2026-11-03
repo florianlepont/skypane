@@ -718,21 +718,20 @@ def test_advanced_group_lists_health_device_update_in_order():
     assert advanced_routes == [layout.HEALTH_ROUTE, layout.DEVICE_ROUTE, layout.UPDATE_ROUTE]
 
 
-def test_sidebar_advanced_group_renders_the_update_link():
-    """sidebar_nav() renders an Update link inside the Advanced group, after Health and Device"""
+def test_sidebar_advanced_group_holds_health_and_device_but_not_update():
+    """the My views sidebar's Advanced group holds Health then Device; Update is a Console
+    destination (Releases) and is not offered there"""
     markup = layout.sidebar_nav("flights")
     group_start = markup.index('class="nav-group nav-group--advanced"')
-    group = markup[group_start:]
-    assert ('href="%s"' % layout.UPDATE_ROUTE) in group
-    health_idx = group.index('href="%s"' % layout.HEALTH_ROUTE)
-    device_idx = group.index('href="%s"' % layout.DEVICE_ROUTE)
-    update_idx = group.index('href="%s"' % layout.UPDATE_ROUTE)
-    assert health_idx < device_idx < update_idx, (
-        "expected Health, then Device, then Update inside the Advanced group")
+    group = markup[group_start:markup.index("</div>", group_start)]
+    assert ('href="%s"' % layout.UPDATE_ROUTE) not in markup
+    assert group.index('href="%s"' % layout.HEALTH_ROUTE) < group.index(
+        'href="%s"' % layout.DEVICE_ROUTE)
 
 
-def test_tab_bar_more_sheet_lists_exactly_health_device_update():
-    """the bottom tab bar's More sheet holds exactly the Advanced group's three links, in order"""
+def test_tab_bar_more_sheet_lists_airlines_device_account():
+    """the My views More sheet holds Airlines, Device and Account, and the bar keeps its four
+    destination cells"""
     device_cfg = {"display_enabled": True, "quiet_hours_enabled": False}
     doc = layout.page_shell(
         title="T", active="flights", body="<p>b</p>", device_config=device_cfg)
@@ -741,15 +740,10 @@ def test_tab_bar_more_sheet_lists_exactly_health_device_update():
     sheet_start = bar.index('<div class="tab-bar__more-panel">')
     sheet = bar[sheet_start:]
     sheet_links = re.findall(r'<a class="mobile-nav__link[^"]*" href="([^"]+)"', sheet)
-    advanced_routes = [route for route, _label in layout.NAV_GROUPS[1][1]]
-    assert sheet_links == advanced_routes, (
-        "expected the More sheet to hold exactly the Advanced group %r, got %r"
-        % (advanced_routes, sheet_links))
-    # The tab bar still has its existing fixed cells: Update joined the
-    # More sheet, it did not become a sixth tab-bar cell.
-    everyday_routes = [route for route, _label in layout.NAV_GROUPS[0][1]]
+    assert sheet_links == [layout.AIRLINES_ROUTE, layout.DEVICE_ROUTE, layout.ACCOUNT_ROUTE]
     tab_links = re.findall(r'<a class="tab-bar__link[^"]*" href="([^"]+)"', bar)
-    assert tab_links == everyday_routes
+    assert tab_links == [
+        layout.HOME_ROUTE, layout.DISPLAY_ROUTE, layout.FLIGHTS_ROUTE, layout.HEALTH_ROUTE]
 
 
 def test_update_link_carries_active_state_only_on_the_update_page():
@@ -788,25 +782,25 @@ def test_header_dropdown_preferences_panel_gains_no_update_link():
     assert "mobile-nav__link" not in panel
 
 
-def test_french_nav_label_reads_mise_a_jour():
-    """under lang="fr" the Update nav label reads "Mise à jour", never the English "Update", in
-    both the sidebar and the tab bar's More sheet"""
+def test_french_nav_label_reads_versions():
+    """under lang="fr" the Console's Update destination reads "Versions", never the English
+    "Releases", in both the sidebar and the tab bar's More sheet"""
     device_cfg = {"display_enabled": True, "quiet_hours_enabled": False}
     try:
         prefs.set_request_prefs(lang="fr")
         doc = layout.page_shell(
-            title="T", active="flights", body="", device_config=device_cfg)
+            title="T", active="update", body="", device_config=device_cfg)
     finally:
         prefs.set_request_prefs(lang="en")
-    assert ">Mise à jour<" in doc
-    assert ">Update<" not in doc
+    assert doc.count(">Versions<") == 2
+    assert ">Releases<" not in doc
 
 
 def test_icon_sprite_has_icon_nav_update_symbol_and_the_link_uses_it():
     """the served icon sprite carries <symbol id="icon-nav-update"> and the Update link's <svg>
     references it via <use href="#icon-nav-update">"""
     doc = layout.page_shell(
-        title="T", active="flights", body="<p>b</p>",
+        title="T", active="update", body="<p>b</p>",
         device_config={"display_enabled": True, "quiet_hours_enabled": False})
     assert '<symbol id="icon-nav-update"' in doc
     sidebar_start = doc.index('<nav class="sidebar-nav"')
@@ -817,26 +811,28 @@ def test_icon_sprite_has_icon_nav_update_symbol_and_the_link_uses_it():
     assert 'href="#icon-nav-update"' in update_link
 
 
-def test_update_route_is_the_third_advanced_entry_end_to_end(module_app_server_factory):
-    """a real GET /health (already-live route) served by a real companion/app.py shows the
-    Advanced group's sidebar as Health, Device, Update, both in English and in French"""
+def test_update_route_is_a_console_entry_end_to_end(module_app_server_factory):
+    """a real GET /update served by a real companion/app.py shows Releases in the Console
+    sidebar (Versions in French), and /health shows no Update link"""
     server = module_app_server_factory()
     cookie = login(server)
-    status, _headers, body = get(server, layout.HEALTH_ROUTE, cookie=cookie)
+    status, _headers, body = get(server, layout.UPDATE_ROUTE, cookie=cookie)
     assert status == 200
     text = body.decode("utf-8")
-    group_start = text.index('class="nav-group nav-group--advanced"')
-    group = text[group_start:]
-    health_idx = group.index('href="%s"' % layout.HEALTH_ROUTE)
-    device_idx = group.index('href="%s"' % layout.DEVICE_ROUTE)
-    update_idx = group.index('href="%s"' % layout.UPDATE_ROUTE)
-    assert health_idx < device_idx < update_idx
+    sidebar = text[text.index('<nav class="sidebar-nav"'):]
+    assert 'href="%s"' % layout.UPDATE_ROUTE in sidebar
+    assert ">Releases<" in sidebar
 
     fr_cookie = cookie + "; %s=fr" % auth.UI_LANG_COOKIE_NAME
-    status, _headers, fr_body = get(server, layout.HEALTH_ROUTE, cookie=fr_cookie)
+    status, _headers, fr_body = get(server, layout.UPDATE_ROUTE, cookie=fr_cookie)
     assert status == 200
-    fr_text = fr_body.decode("utf-8")
-    assert ">Mise à jour<" in fr_text
+    assert ">Versions<" in fr_body.decode("utf-8")
+
+    status, _headers, health = get(server, layout.HEALTH_ROUTE, cookie=cookie)
+    assert status == 200
+    health_text = health.decode("utf-8")
+    assert 'href="%s"' % layout.UPDATE_ROUTE not in health_text[
+        health_text.index('<nav class="sidebar-nav"'):]
 
 
 # ==========================================================================

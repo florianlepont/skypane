@@ -191,7 +191,8 @@ def test_battery_block_without_a_reading_is_words_only(tmp_path):
     """no stored reading: a words-only block, no invented dial or percentage"""
     card = _render(tmp_path)
     assert "home-battery--none" in card and "No reading yet" in card
-    assert "drawing-arc" not in card and "<svg class=\"drawing" not in card and "role=\"img\"" not in card
+    assert "drawing-arc" not in card and "<svg class=\"drawing" not in card
+    assert '<p class="home-battery home-battery--none text-label">' in card
 
 
 def test_battery_block_in_french(tmp_path):
@@ -252,21 +253,23 @@ def test_a_short_delay_keeps_the_neutral_next_update_wording(tmp_path):
     ("en", "Update overdue · expected at <span"),
     ("fr", "Mise à jour en retard · attendue à <span"),
 ])
-def test_overdue_frame_says_so_without_the_amber_dot_or_countdown(tmp_path, lang, text):
-    """past the grace window the line names the expected time as overdue, drops the countdown,
-    and stays neutral (green dot, no Health link) until the delay is long"""
+def test_overdue_frame_says_so_with_the_overdue_dot_and_no_countdown(tmp_path, lang, text):
+    """past the grace window the line names the expected time as overdue and drops the
+    countdown; the dot turns amber, reads Overdue and a Health link appears"""
     card = _render(
         tmp_path, lang=lang,
         last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(minutes=50)).isoformat())
     assert text in card
     assert "Expected since" not in card and "Attendu depuis" not in card
     assert "data-relative-countdown" not in card
-    assert "dot--ok" in card and "dot--warn" not in card and 'href="/health"' not in card
+    assert "dot--warn" in card and "dot--ok" not in card and 'href="/health"' in card
+    word = "Overdue" if lang == "en" else "En retard"
+    assert 'role="img" aria-label="%s"' % word in card
 
 
 @pytest.mark.parametrize("lang,link", [("en", "See Health"), ("fr", "Voir la santé")])
 def test_long_overdue_turns_the_dot_amber_and_links_to_health(tmp_path, lang, link):
-    """more than three intervals past the expected wake: amber dot and one link to Health"""
+    """well past the expected wake: amber dot and one link to Health"""
     card = _render(
         tmp_path, lang=lang,
         last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(minutes=90)).isoformat())
@@ -415,6 +418,7 @@ def test_held_states_read_a_short_title_and_a_sentence(tmp_path, lang, title, de
     assert '<span class="home-state__title">%s</span>' % title in card
     assert '<p class="home-state__detail">%s</p>' % detail in card
     assert 'class="home-state home-state--%s"' % ("warn" if critical else "off") in card
+    assert ("dot--warn" in card) == critical and ("dot--off" in card) == (not critical)
     plain = _render(tmp_path)
     assert "home-state__detail" not in plain and 'class="home-state home-state--ok"' in plain
 
@@ -429,7 +433,7 @@ def test_the_header_label_is_a_visible_heading_and_the_next_line_has_an_icon(tmp
     assert "#icon-nav-history" in card and "#icon-warning" not in card
     late = _render(
         tmp_path, last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(minutes=50)).isoformat())
-    assert "#icon-warning" in late and "home-state--ok" in late
+    assert "#icon-warning" in late and "home-state--warn" in late
 
 
 def test_switch_pills_keep_the_native_switch_semantics(tmp_path):

@@ -158,6 +158,13 @@ def test_no_user_id_is_never_a_co_manager_and_an_admin_skips_membership():
     assert calls == []
 
 
-def test_home_for():
-    assert access.home_for(_USER) == "/account"
-    assert access.home_for(_ADMIN) == "/"
+@pytest.mark.parametrize("principal,frame_id,expected", [
+    (_ADMIN, None, "/fleet"),
+    (_ADMIN, "d_00000001", "/fleet"),
+    (_USER, "d_00000001", "/devices/d_00000001/"),
+    (_USER, None, "/account"),
+    (_USER, "../evil", "/account"),
+    (None, None, "/"),
+])
+def test_home_for(principal, frame_id, expected):
+    assert access.home_for(principal, frame_id) == expected

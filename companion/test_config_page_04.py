@@ -212,7 +212,8 @@ def test_calendar_no_preview_no_count_in_rendered_page(tmp_path):
     # The Detection card names the watched airport (Orly by default); that code is the saved
     # detection setting, not calendar data.
     rendered = re.sub(
-        r'<div class="theme-status detection-card">.*?</div>', "", rendered, flags=re.S)
+        r'<section class="theme-status theme-status--nested detection-card".*?</section>', "",
+        rendered, flags=re.S)
     for code_pattern in (r"\bORY\b", r"\bTLS\b", r"\bNCE\b", r"\bLHR\b", r"\bAF\b", r"\bBA\b"):
         assert not re.search(code_pattern, rendered), (
             "expected no calendar-derived code matching %r anywhere on the rendered page" % (code_pattern,))

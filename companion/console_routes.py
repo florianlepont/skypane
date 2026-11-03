@@ -13,7 +13,6 @@ only while its GET page does.
 """
 from companion import (
     console_lifecycle, console_locations, console_pairing, console_users, i18n)
-from companion.ui_base import escape_html
 
 FLEET_ROUTE = "/fleet"
 FLEET_REGISTER_ROUTE = "/fleet/register"
@@ -92,27 +91,3 @@ def available_nav_entries():
 def is_console_path(path):
     """True for one of the four console page paths (not Releases)."""
     return path in CONSOLE_TITLES
-
-
-def section_subnav_html(active_path):
-    """The section sub-nav: one chip link per available console page, the
-    page for `active_path` marked current. "" while fewer than two pages
-    exist (one link is not navigation). Shown below 960px only (the sidebar
-    carries the same links above that).
-    """
-    entries = available_nav_entries()
-    if len(entries) < 2:
-        return ""
-    chips = []
-    for _key, path, label in entries:
-        is_current = path == active_path
-        chips.append(
-            '<a class="filter-chip%s" href="%s"%s>'
-            '<span class="filter-chip__box"><span class="filter-chip__text">%s</span></span>'
-            "</a>" % (
-                " filter-chip--current" if is_current else "", escape_html(path),
-                ' aria-current="page"' if is_current else "",
-                escape_html(i18n.t(label))))
-    return (
-        '<nav class="filter-bar__chips section-subnav" aria-label="%s">%s</nav>'
-        % (escape_html(i18n.t(SECTION_NAV_LABEL)), "".join(chips)))

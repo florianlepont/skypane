@@ -1,38 +1,43 @@
 # -*- coding: utf-8 -*-
-"""French strings for the admin Fleet page: the frame table, the pairing
-claim card, the registration card and the result toasts. The source-side
-Message for each id is declared in companion/pages/fleet_page.py and
-companion/console_pairing.py; this module only carries the French.
+"""French strings for the admin Fleet page: the frame list, its dialogs and
+the result toasts. The source-side Message for each id is declared in
+companion/pages/fleet_page.py and companion/console_pairing.py; this module
+only carries the French.
 """
 
 MESSAGES = {
-    "admin_fleet.every_frame_on_the_platform_with_its_owner_and_state":
-        "Tous les cadres de la plateforme, avec leur propriétaire et leur état.",
+    "admin_fleet.every_frame_on_the_platform_who_owns_it_and_whether_it":
+        "Tous les cadres de la plateforme\u00a0: à qui ils sont et s’ils sont à jour.",
+    "admin_fleet.n_need_attention": "%d demandent de l’attention",
+    "admin_fleet.one_needs_attention": "1 demande de l’attention",
+    "admin_fleet.new_frame": "Nouveau cadre",
+    "admin_fleet.formerly_owner": "Anciennement %s",
+    "admin_fleet.retired_frames_n": "Cadres retirés (%d)",
+    "admin_fleet.actions_for_frame": "Actions pour %s",
+    "admin_fleet.switch_a_frame_on_when_its_pairing_code_appears_choose_add":
+        "Allumez un cadre. Quand son code d’association s’affiche à l’écran, "
+        "choisissez Ajouter un cadre.",
+    "admin_fleet.keep_current_owner": "Garder le propriétaire actuel",
+    "admin_fleet.keep_retired": "Laisser retiré",
+    "admin_fleet.retire_frame_title": "Retirer «\u00a0%s\u00a0»\u00a0?",
+    "admin_fleet.reassign_frame_title": "Réattribuer «\u00a0%s\u00a0»",
+    "admin_fleet.re_activate_frame_title": "Réactiver «\u00a0%s\u00a0»\u00a0?",
+    "admin_fleet.add_a_frame_button": "+ Ajouter un cadre",
+    "admin_fleet.add_a_frame": "Ajouter un cadre",
+    "admin_fleet.back_to_fleet": "Retour à la flotte",
+    "admin_fleet.the_code_stays_valid_for_about_35_minutes":
+        "Le code reste valable environ 35 minutes\u00a0; un nouveau s’affiche ensuite "
+        "sur le cadre.",
+    "admin_fleet.no_frame_is_showing_a_code_yet":
+        "Aucun cadre n’affiche de code pour l’instant. Allumez le cadre\u00a0; son "
+        "code s’affiche à l’écran.",
     "admin_fleet.frames": "Cadres",
     "admin_fleet.n_frames": "%d cadres",
     "admin_fleet.one_frame": "1 cadre",
-    "admin_fleet.frame": "Cadre",
-    "admin_fleet.owner": "Propriétaire",
-    "admin_fleet.hardware": "Matériel",
-    "admin_fleet.last_seen": "Dernier contact",
-    "admin_fleet.battery": "Batterie",
-    "admin_fleet.firmware": "Version firmware",
-    "admin_fleet.status": "État",
-    "admin_fleet.actions": "Actions",
-    "admin_fleet.n_a": "n/d",
-    "admin_fleet.never_seen": "Jamais",
     "admin_fleet.unnamed_frame": "Cadre sans nom",
     "admin_fleet.waiting_for_pairing": "En attente d’association",
-    "admin_fleet.formerly": "anciennement %s",
     "admin_fleet.unassigned": "Non attribué",
-    "admin_fleet.live": "Actif",
-    "admin_fleet.pending": "En attente",
-    "admin_fleet.retired": "Retiré",
-    "admin_fleet.low_battery": "Batterie faible",
-    "admin_fleet.no_recent_contact": "Pas de contact récent",
     "admin_fleet.no_frames_yet": "Aucun cadre pour l’instant",
-    "admin_fleet.register_a_frame_below_then_enter_the_code_shown_on":
-        "Enregistrez un cadre ci-dessous, puis saisissez le code affiché sur son écran.",
     "admin_fleet.open_frame": "Ouvrir le cadre",
     "admin_fleet.reassign": "Réattribuer",
     "admin_fleet.retire": "Retirer",
@@ -54,7 +59,6 @@ MESSAGES = {
     "admin_fleet.only_the_owner_changes_nothing_is_erased":
         "Seul le propriétaire change. Rien n’est effacé.",
     "admin_fleet.the_current_owner": "Le propriétaire actuel",
-    "admin_fleet.pair_a_frame": "Associer un cadre",
     "admin_fleet.enter_the_code_shown_on_the_frame_s_screen_and_choose":
         "Saisissez le code affiché sur l’écran du cadre et choisissez à qui il "
         "appartient.",
@@ -62,8 +66,6 @@ MESSAGES = {
     "admin_fleet.pair_owner": "Propriétaire",
     "admin_fleet.choose_an_owner_option": "Choisissez un propriétaire",
     "admin_fleet.pair_frame": "Associer le cadre",
-    "admin_fleet.no_frame_is_waiting_for_a_code_register_one_first":
-        "Aucun cadre n’attend de code. Enregistrez-en un d’abord.",
     "admin_fleet.admin_suffix": "(administrateur)",
     "admin_fleet.code_not_recognised": "Code non reconnu",
     "admin_fleet.the_code_is_wrong_expired_or_already_used":
@@ -77,22 +79,9 @@ MESSAGES = {
     "admin_fleet.choose_an_owner": "Choisissez un propriétaire.",
     "admin_fleet.that_user_is_no_longer_available":
         "Cet utilisateur n’est plus disponible.",
-    "admin_fleet.register_a_frame": "Enregistrer un cadre",
-    "admin_fleet.use_the_mac_and_secret_hash_printed_by_the_provisioning":
-        "Utilisez l’adresse MAC et le hash du secret affichés par le script de "
-        "provisionnement. Le secret lui-même n’est jamais saisi ici.",
-    "admin_fleet.mac_address": "Adresse MAC",
-    "admin_fleet.secret_hash_sha_256": "Hash du secret (SHA-256)",
-    "admin_fleet.64_hex_characters": "64 caractères hexadécimaux",
-    "admin_fleet.paste_the_sha_256_value_only":
-        "Collez uniquement la valeur SHA-256. Tout ce qui n’est pas 64 "
-        "caractères hexadécimaux est refusé.",
-    "admin_fleet.hardware_label": "Type de matériel",
-    "admin_fleet.register_frame": "Enregistrer le cadre",
     "admin_fleet.enter_a_valid_mac_address": "Saisissez une adresse MAC valide.",
     "admin_fleet.enter_the_64_character_hash": "Saisissez le hash de 64 caractères.",
     "admin_fleet.choose_the_hardware_type": "Choisissez le type de matériel.",
-    "admin_fleet.choose_the_hardware_option": "Choisissez le type de matériel",
     "admin_fleet.flash_frame_paired": "Cadre associé",
     "admin_fleet.flash_frame_paired_detail":
         "{frame} appartient maintenant à {email}. Il affichera sa première "

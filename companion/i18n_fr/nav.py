@@ -28,12 +28,20 @@ MESSAGES = {
     "nav.advanced": "Avancé",
     "nav.health": "État",
     "nav.device": "Appareil",
-    "nav.update": "Mise à jour",
+    "nav.update": "Versions",
     "nav.locations": "Lieux",
 
     # The bottom tab bar's fifth cell; its <details> sheet holds the
     # Advanced group's two destinations.
     "nav.more": "Plus",
+
+    # The Console bar's short label for the Audit log page, and the space
+    # switch between the Console and the administrator's own views.
+    "nav.audit_short": "Audit",
+    "nav.my_views": "Mes vues",
+    "nav.console": "Console",
+    "nav.switch_to_my_views": "Passer à vos propres vues",
+    "nav.switch_to_console": "Passer à la console d’administration",
 
     "nav.language": "Langue",
     "nav.theme": "Thème",
@@ -50,12 +58,11 @@ MESSAGES = {
     "nav.light": "Clair",
     "nav.dark": "Sombre",
 
-    # The device selector above the page title (several devices only).
-    "nav.device_selector_label": "Cadre",
-    "nav.device_selector_go": "Afficher le cadre",
-    "nav.device_never_seen": "pas encore vu",
-    "nav.device_offline": "hors ligne",
-    "nav.device_pill_never_seen": "Pas encore vu",
-    "nav.device_pill_offline": "Hors ligne",
+    # The frame switcher above the page title (two or more frames).
+    "nav.frame_switcher_aria": "Changer de cadre, actuel : %s",
+    "nav.frame_switcher_shared": "Partagé · %s",
+    "nav.frame_switcher_my_frames": "Mes cadres",
+    "nav.frame_switcher_all_frames": "Tous les cadres (Flotte)",
     "nav.device_default_name": "Cadre d’Orly",
+    "nav.skip_to_content": "Aller au contenu",
 }
