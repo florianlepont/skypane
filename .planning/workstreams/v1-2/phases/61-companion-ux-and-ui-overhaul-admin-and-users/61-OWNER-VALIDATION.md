@@ -45,3 +45,7 @@ Larger redesigns (new design work, owner decision on scope):
   CSP img-src needs the tile host, and a map script must be vendored
   (first-party static file, no CDN). Attribution required. To specify in
   the updated UI-SPEC.
+- D19 (owner) Place choice on the map: move the map and drop a pin, a local
+  list of French airports, a search bar (Nominatim, external) and a "my
+  position" button (browser geolocation, needs a permission prompt; check
+  the Permissions-Policy header).
