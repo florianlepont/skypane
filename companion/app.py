@@ -989,6 +989,7 @@ class Handler(
         title = i18n.t(title_msg or console_routes.CONSOLE_TITLES[route])
         purpose = i18n.t(purpose_msg) if purpose_msg else None
         flash_html, clear_cookie = console_flash.take_flash(self.headers.get("Cookie"))
+        flash_html = flash_html or self._welcome_flash_html()
         body = layout.page_header(title, purpose, action_html=action_html) + body_html
         page = layout.page_shell(
             title=title, active=layout.nav_slug(route), body=body,

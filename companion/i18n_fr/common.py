@@ -82,6 +82,14 @@ MESSAGES = {
         "cadre.",
     "common.couldn_t_change_that_please_try_again":
         "Impossible de modifier ce réglage — réessayez.",
+    "common.welcome_to_skypane_this_is_your_frame_s_home":
+        "Bienvenue sur SkyPane — Vous êtes connecté. Voici l’accueil de "
+        "votre cadre. Son point indique s’il est à jour.",
+    "common.welcome_to_skypane_your_frame_will_appear_here":
+        "Bienvenue sur SkyPane — Vous êtes connecté. Votre cadre "
+        "apparaîtra ici dès qu’un administrateur l’aura appairé.",
+    "common.welcome_to_skypane_you_are_signed_in":
+        "Bienvenue sur SkyPane — Vous êtes connecté.",
     "common.saved": "Enregistré — %s",
     "common.couldn_t_save_settings_please_try_again_if_this":
         "Impossible d’enregistrer les réglages — réessayez. Si le "

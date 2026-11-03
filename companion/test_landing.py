@@ -20,9 +20,10 @@ _SECRET = "c" * 64
 
 
 def _refresh_target(body):
+    """The meta-refresh target without the first-sign-in welcome token."""
     found = _REFRESH_RE.search(body.decode("utf-8"))
     assert found, "no meta refresh in the page"
-    return html.unescape(found.group(1))
+    return re.sub(r"[?&]flash=welcome\w*$", "", html.unescape(found.group(1)))
 
 
 def _fallback_label(body):

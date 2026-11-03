@@ -85,6 +85,13 @@ FLASH_KEY_QUICK_FAILED = "quick_failed"
 FLASH_KEY_LED_ON = "led_on"
 FLASH_KEY_LED_OFF = "led_off"
 
+# The one-time welcome after the first sign-in links an identity: shown on
+# the frame Home, on the Account page, or (neutral) anywhere else.
+FLASH_KEY_WELCOME = "welcome"
+FLASH_KEY_WELCOME_ACCOUNT = "welcome_account"
+FLASH_KEY_WELCOME_NEUTRAL = "welcome_neutral"
+WELCOME_KEYS = (FLASH_KEY_WELCOME, FLASH_KEY_WELCOME_ACCOUNT, FLASH_KEY_WELCOME_NEUTRAL)
+
 # Every value below is a Message. Its id is owned by companion/i18n_fr/
 # common.py, except the three firmware-update outcomes
 # at the end (owned by companion/i18n_fr/update.py).
@@ -103,6 +110,17 @@ FLASH_MESSAGES = {
     FLASH_KEY_QUIET_OFF: i18n.msg(
         "common.quiet_hours_turned_off_applies_the_next_time",
         "Quiet hours turned off — applies the next time the frame wakes up."),
+    FLASH_KEY_WELCOME: i18n.msg(
+        "common.welcome_to_skypane_this_is_your_frame_s_home",
+        "Welcome to SkyPane — You are signed in. This is your frame's Home; "
+        "its dot tells you whether it is up to date."),
+    FLASH_KEY_WELCOME_ACCOUNT: i18n.msg(
+        "common.welcome_to_skypane_your_frame_will_appear_here",
+        "Welcome to SkyPane — You are signed in. Your frame will appear "
+        "here once an administrator pairs it."),
+    FLASH_KEY_WELCOME_NEUTRAL: i18n.msg(
+        "common.welcome_to_skypane_you_are_signed_in",
+        "Welcome to SkyPane — You are signed in."),
     FLASH_KEY_QUICK_FAILED: i18n.msg(
         "common.couldn_t_change_that_please_try_again",
         "Couldn't change that — please try again."),
@@ -360,6 +378,9 @@ FLASH_TONES = {
     FLASH_KEY_LED_ON: _PENDING,
     FLASH_KEY_LED_OFF: _PENDING,
     FLASH_KEY_QUICK_FAILED: _ERROR,
+    FLASH_KEY_WELCOME: _INFO,
+    FLASH_KEY_WELCOME_ACCOUNT: _INFO,
+    FLASH_KEY_WELCOME_NEUTRAL: _INFO,
 }
 
 # Every FLASH_KEY_* -> its toast's ARIA role, derived from its tone:

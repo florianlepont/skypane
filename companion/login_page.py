@@ -61,6 +61,8 @@ _CREDITS_LINK_TEXT = i18n.msg("credits.credits", "Credits")
 # POST would be blocked by the CSP `form-action 'self'` once the response
 # redirects to the identity provider.
 AUTH0_LOGIN_ROUTE = "/login/auth0"
+# The one `prompt` value the start route accepts.
+PROMPT_LOGIN = "login"
 
 LOGIN_EXPLANATION_AUTH0_TEXT = i18n.msg(
     "account.sign_in_to_manage_your_skypane_frames",
@@ -69,35 +71,66 @@ _NOT_CONFIGURED_TEXT = i18n.msg(
     "account.sign_in_is_not_configured", "Sign-in is not configured")
 
 _NOT_INVITED_TITLE_TEXT = i18n.msg(
-    "account.no_invitation_found", "No invitation found")
+    "account.this_account_can_t_sign_in", "This account can't sign in")
 _NOT_INVITED_DETAIL_TEXT = i18n.msg(
-    "account.this_account_has_not_been_invited_to_skypane",
-    "This account has not been invited to SkyPane. Ask the administrator "
-    "for an invitation.")
+    "account.it_has_not_been_invited_to_skypane_or_its",
+    "It has not been invited to SkyPane, or its access was turned off. Ask "
+    "the administrator, or sign in with the address you were invited with.")
 _BACK_TO_SIGN_IN_TEXT = i18n.msg(
     "account.back_to_sign_in", "Back to sign in")
+_USE_ANOTHER_ACCOUNT_TEXT = i18n.msg(
+    "account.use_another_account", "Use another account")
+_SIGN_IN_AGAIN_TEXT = i18n.msg("account.sign_in_again", "Sign in again")
+_UNVERIFIED_TITLE_TEXT = i18n.msg(
+    "account.confirm_your_email_address", "Confirm your email address")
+_UNVERIFIED_DETAIL_TEXT = i18n.msg(
+    "account.your_sign_in_account_has_not_confirmed_its_email",
+    "Your sign-in account has not confirmed its email address yet. Open "
+    "the confirmation message in your inbox, then sign in again.")
+_UNVERIFIED_HELP_TEXT = i18n.msg(
+    "account.no_message_ask_the_administrator_to_resend_it",
+    "No message? Ask the administrator to resend it.")
+FIRST_VISIT_HINT_TEXT = i18n.msg(
+    "account.first_visit_use_the_email_address_you_were",
+    "First visit? Use the email address you were invited with.")
 
-# The closed set of generic sign-in failures, each mapped to fixed
-# wording. Nothing the identity provider returns is ever reflected.
+# The closed set of generic sign-in failures, each mapped to a tone and
+# fixed wording. Nothing the identity provider returns is ever reflected.
 SIGN_IN_ERROR_INCOMPLETE = "incomplete"
 SIGN_IN_ERROR_EXPIRED = "expired"
 SIGN_IN_ERROR_UNAVAILABLE = "unavailable"
+SIGN_IN_ERROR_PROVIDER = "provider_error"
+SIGN_IN_ERROR_THROTTLED = "throttled"
 _SIGN_IN_ERROR_TEXT = {
     SIGN_IN_ERROR_INCOMPLETE: (
+        layout.TOAST_TONE_ERROR,
         i18n.msg("account.sign_in_could_not_be_completed",
                  "Sign-in could not be completed"),
-        i18n.msg("account.start_again_from_this_page_if_it_keeps",
-                 "Start again from this page. If it keeps happening, "
+        i18n.msg("account.press_sign_in_to_try_again_if_it_keeps",
+                 "Press Sign in to try again. If it keeps happening, "
                  "check that cookies are enabled.")),
     SIGN_IN_ERROR_EXPIRED: (
+        layout.TOAST_TONE_ERROR,
         i18n.msg("account.sign_in_took_too_long", "Sign-in took too long"),
-        i18n.msg("account.start_again_from_this_page",
-                 "Start again from this page.")),
+        i18n.msg("account.press_sign_in_to_start_again",
+                 "Press Sign in to start again.")),
+    SIGN_IN_ERROR_PROVIDER: (
+        layout.TOAST_TONE_INFO,
+        i18n.msg("account.sign_in_was_cancelled", "Sign-in was cancelled"),
+        i18n.msg("account.press_sign_in_whenever_you_are_ready",
+                 "Press Sign in whenever you are ready.")),
     SIGN_IN_ERROR_UNAVAILABLE: (
+        layout.TOAST_TONE_ERROR,
         i18n.msg("account.sign_in_is_not_available_right_now",
                  "Sign-in is not available right now"),
-        i18n.msg("account.try_again_in_a_few_minutes",
-                 "Try again in a few minutes.")),
+        i18n.msg("account.try_again_in_a_few_minutes_if_it_lasts",
+                 "Try again in a few minutes. If it lasts, tell the "
+                 "administrator.")),
+    SIGN_IN_ERROR_THROTTLED: (
+        layout.TOAST_TONE_WARNING,
+        i18n.msg("account.too_many_attempts", "Too many attempts"),
+        i18n.msg("account.wait_a_minute_then_press_sign_in",
+                 "Wait a minute, then press Sign in.")),
 }
 
 INTERSTITIAL_IN = "in"
@@ -127,32 +160,42 @@ def _login_heading_html(explanation):
         + '<p class="text-body">%s</p>' % layout.escape_html(i18n.t(explanation)))
 
 
-def _sign_in_link_html(next_route):
+def _sign_in_link_html(next_route, label=_SIGN_IN_TEXT, prompt=None):
     """The Auth0 start link: a plain GET anchor carrying `next` only when
     it is a same-site relative path (the caller whitelists; this refuses
-    anything else again).
+    anything else again) and `prompt=login` only when asked for, which
+    makes the identity provider show its account form again.
     """
     href = AUTH0_LOGIN_ROUTE
+    query = []
     if next_route and next_route.startswith("/") and not next_route.startswith("//"):
-        href += "?next=" + quote(next_route, safe="/")
+        query.append("next=" + quote(next_route, safe="/"))
+    if prompt == PROMPT_LOGIN:
+        query.append("prompt=" + PROMPT_LOGIN)
+    if query:
+        href += "?" + "&".join(query)
     return '<a class="login-signin" href="%s" autofocus>%s</a>' % (
-        layout.escape_html(href), layout.escape_html(i18n.t(_SIGN_IN_TEXT)))
+        layout.escape_html(href), layout.escape_html(i18n.t(label)))
 
 
 def _login_card_html(next_route, auth0_enabled, notice):
-    """The card body. `notice` is an optional (title, detail) pair of
-    Messages rendered as the page's one docked error toast above the
-    primary action. Without Auth0 the card says sign-in is not configured
-    and offers no way to start a session.
+    """The card body. `notice` is an optional (tone, title, detail) triple
+    of a tone and two Messages rendered as the page's one docked toast
+    above the primary action. Without Auth0 the card says sign-in is not
+    configured and offers no way to start a session. The first-visit hint
+    shows only on the plain card, never beside an error.
     """
     parts = [_login_heading_html(LOGIN_EXPLANATION_AUTH0_TEXT)]
     if not auth0_enabled and notice is None:
-        notice = (_NOT_CONFIGURED_TEXT, None)
-    if notice is not None:
-        title, detail = notice
+        notice = (layout.TOAST_TONE_ERROR, _NOT_CONFIGURED_TEXT, None)
+    if notice is None:
+        parts.append('<p class="text-label section-caption">%s</p>' % (
+            layout.escape_html(i18n.t(FIRST_VISIT_HINT_TEXT))))
+    else:
+        tone, title, detail = notice
         parts.append(layout.toast_html(
             i18n.t(title), i18n.t(detail) if detail else None,
-            tone=layout.TOAST_TONE_ERROR, docked=True))
+            tone=tone, docked=True))
     if auth0_enabled:
         parts.append(_sign_in_link_html(next_route))
     return "".join(parts)
@@ -176,20 +219,40 @@ def sign_in_error_page(kind, ui_theme, auth0_enabled=True, next_route=None):
         ui_theme, next_route=next_route, auth0_enabled=auth0_enabled, notice=notice)
 
 
-def not_invited_page(ui_theme):
-    """The refusal for a verified identity with no local account. Unknown,
-    unverified and disabled identities all render this same page: nothing
-    is echoed back, and there is nothing to retry.
-    """
+def _refusal_card(toast, primary_html, extra_html, ui_theme):
     body = (
         layout.logo_mark_html(40)
-        + '<h1 class="page-title">SkyPane</h1>'
-        + layout.toast_html(
-            i18n.t(_NOT_INVITED_TITLE_TEXT), i18n.t(_NOT_INVITED_DETAIL_TEXT),
-            tone=layout.TOAST_TONE_WARNING, docked=True)
-        + '<a class="text-link login-card__link" href="%s">%s</a>'
-        % (LOGIN_ROUTE, layout.escape_html(i18n.t(_BACK_TO_SIGN_IN_TEXT))))
+        + '<h1 class="page-title">SkyPane</h1>' + toast + primary_html + extra_html)
     return layout.login_shell(body, ui_theme=ui_theme)
+
+
+def not_invited_page(ui_theme):
+    """The refusal for an identity with no usable local account. Unknown,
+    disabled and unmatched identities all render this same page: nothing is
+    echoed back, and it says nothing about which of them applied.
+    """
+    toast = layout.toast_html(
+        i18n.t(_NOT_INVITED_TITLE_TEXT), i18n.t(_NOT_INVITED_DETAIL_TEXT),
+        tone=layout.TOAST_TONE_WARNING, docked=True)
+    back = '<a class="text-link login-card__link" href="%s">%s</a>' % (
+        LOGIN_ROUTE, layout.escape_html(i18n.t(_BACK_TO_SIGN_IN_TEXT)))
+    return _refusal_card(
+        toast, _sign_in_link_html(None, _USE_ANOTHER_ACCOUNT_TEXT, PROMPT_LOGIN),
+        back, ui_theme)
+
+
+def unverified_email_page(ui_theme):
+    """The refusal for an identity whose email address the identity provider
+    has not confirmed. It is chosen from the sign-in outcome alone, so it
+    reveals nothing about who has been invited.
+    """
+    toast = layout.toast_html(
+        i18n.t(_UNVERIFIED_TITLE_TEXT), i18n.t(_UNVERIFIED_DETAIL_TEXT),
+        tone=layout.TOAST_TONE_WARNING, docked=True)
+    help_line = '<p class="text-label section-caption">%s</p>' % (
+        layout.escape_html(i18n.t(_UNVERIFIED_HELP_TEXT)))
+    return _refusal_card(
+        toast, _sign_in_link_html(None, _SIGN_IN_AGAIN_TEXT), help_line, ui_theme)
 
 
 # The interstitial is a bare document with no script: the meta refresh

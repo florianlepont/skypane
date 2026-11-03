@@ -75,42 +75,76 @@ def test_without_auth0_the_card_shows_a_not_configured_toast_and_no_control():
 
 # --- Refusal, errors, interstitial --------------------------------------
 
-def test_not_invited_page_is_a_generic_warning_with_one_way_back():
+def test_not_invited_page_is_a_generic_warning_with_two_ways_on():
     doc = _doc(login_page.not_invited_page("auto"))
     toast = doc.select_one(".toast--docked")
     assert "toast--warning" in toast.attrs["class"]
     assert toast.attrs["role"] == "alert"
     title, detail = companion_markup.toast_title_detail(toast)
-    assert title == "No invitation found"
+    assert title == "This account can't sign in"
     assert detail == (
-        "This account has not been invited to SkyPane. Ask the "
-        "administrator for an invitation.")
+        "It has not been invited to SkyPane, or its access was turned off. "
+        "Ask the administrator, or sign in with the address you were invited "
+        "with.")
+    other = doc.select_one("a.login-signin")
+    assert other.attrs["href"] == "/login/auth0?prompt=login"
+    assert other.text() == "Use another account"
     back = doc.select_one("a.text-link")
     assert back.attrs["href"] == "/login"
     assert back.text() == "Back to sign in"
-    assert not doc.select("a.login-signin")
+    assert _autofocus_count(doc) == 1
     assert not doc.select("input")
     assert not doc.select("button")
 
 
-@pytest.mark.parametrize("kind,title,detail", [
-    (login_page.SIGN_IN_ERROR_INCOMPLETE, "Sign-in could not be completed",
-     "Start again from this page. If it keeps happening, check that cookies "
+def test_unverified_email_page_is_its_own_warning_with_a_retry():
+    doc = _doc(login_page.unverified_email_page("auto"))
+    toast = doc.select_one(".toast--docked")
+    assert "toast--warning" in toast.attrs["class"]
+    assert toast.attrs["role"] == "alert"
+    assert companion_markup.toast_title_detail(toast) == (
+        "Confirm your email address",
+        "Your sign-in account has not confirmed its email address yet. Open "
+        "the confirmation message in your inbox, then sign in again.")
+    again = doc.select_one("a.login-signin")
+    assert again.attrs["href"] == "/login/auth0"
+    assert again.text() == "Sign in again"
+    assert "Ask the administrator to resend it." in doc.text()
+    assert "invited" not in doc.text()
+    assert _autofocus_count(doc) == 1
+
+
+@pytest.mark.parametrize("kind,tone,title,detail", [
+    (login_page.SIGN_IN_ERROR_INCOMPLETE, "error", "Sign-in could not be completed",
+     "Press Sign in to try again. If it keeps happening, check that cookies "
      "are enabled."),
-    (login_page.SIGN_IN_ERROR_EXPIRED, "Sign-in took too long",
-     "Start again from this page."),
-    (login_page.SIGN_IN_ERROR_UNAVAILABLE, "Sign-in is not available right now",
-     "Try again in a few minutes."),
+    (login_page.SIGN_IN_ERROR_EXPIRED, "error", "Sign-in took too long",
+     "Press Sign in to start again."),
+    (login_page.SIGN_IN_ERROR_PROVIDER, "info", "Sign-in was cancelled",
+     "Press Sign in whenever you are ready."),
+    (login_page.SIGN_IN_ERROR_UNAVAILABLE, "error", "Sign-in is not available right now",
+     "Try again in a few minutes. If it lasts, tell the administrator."),
+    (login_page.SIGN_IN_ERROR_THROTTLED, "warning", "Too many attempts",
+     "Wait a minute, then press Sign in."),
 ])
-def test_sign_in_error_pages_render_the_approved_wording(kind, title, detail):
+def test_sign_in_error_pages_render_the_approved_wording(kind, tone, title, detail):
     doc = _doc(login_page.sign_in_error_page(
         kind, "auto", auth0_enabled=True))
     toasts = doc.select(".toast--docked")
     assert len(toasts) == 1
-    assert "toast--error" in toasts[0].attrs["class"]
-    assert toasts[0].attrs["role"] == "alert"
+    assert "toast--%s" % tone in toasts[0].attrs["class"]
     assert companion_markup.toast_title_detail(toasts[0]) == (title, detail)
     assert doc.select_one("a.login-signin").attrs["href"] == "/login/auth0"
+
+
+def test_first_visit_hint_shows_on_the_plain_card_only():
+    hint = "First visit? Use the email address you were invited with."
+    plain = _doc(login_page.render_login_page("auto", auth0_enabled=True))
+    assert hint in plain.text()
+    for kind in (login_page.SIGN_IN_ERROR_INCOMPLETE, login_page.SIGN_IN_ERROR_THROTTLED):
+        assert hint not in _doc(login_page.sign_in_error_page(kind, "auto")).text()
+    assert hint not in _doc(login_page.not_invited_page("auto")).text()
+    assert hint not in _doc(login_page.render_login_page("auto")).text()
 
 
 def test_unknown_error_kind_falls_back_to_the_incomplete_wording():
@@ -165,14 +199,20 @@ def test_new_login_surfaces_render_the_approved_french():
     refusal = _doc(login_page.not_invited_page("auto"))
     title, detail = companion_markup.toast_title_detail(
         refusal.select_one(".toast--docked"))
-    assert title == "Aucune invitation trouvée"
-    assert detail.startswith("Ce compte n’a pas été invité sur SkyPane.")
+    assert title == "Ce compte ne peut pas se connecter"
+    assert detail.startswith("Il n’a pas été invité sur SkyPane")
+    assert refusal.select_one("a.login-signin").text() == "Utiliser un autre compte"
     assert refusal.select_one("a.text-link").text() == "Retour à la connexion"
+    unverified = _doc(login_page.unverified_email_page("auto"))
+    assert companion_markup.toast_title_detail(
+        unverified.select_one(".toast--docked"))[0] == "Confirmez votre adresse e-mail"
+    assert unverified.select_one("a.login-signin").text() == "Se reconnecter"
+    assert "Première visite ?" in card.text()
     error = _doc(login_page.sign_in_error_page("expired", "auto"))
     assert companion_markup.toast_title_detail(
         error.select_one(".toast--docked")) == (
             "La connexion a pris trop de temps",
-            "Recommencez depuis cette page.")
+            "Appuyez sur Se connecter pour recommencer.")
     inter = _doc(login_page.interstitial_page(
         "in", "/", login_page.CONTINUE_TARGET_HOME))
     assert "Connexion en cours…" in inter.text()
