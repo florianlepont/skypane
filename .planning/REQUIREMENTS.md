@@ -39,6 +39,8 @@
 - [ ] **WAKE-03**: The energy of a wake that redraws the screen, the dominant cost, is reduced by a measured amount against a baseline recorded before the change, through a shorter redraw wake (image download, panel wait) and any other measured lever, without changing what the frame shows when the image changes, the hash-skip behaviour, quiet hours, display-off or battery-critical overrides.
 - [ ] **WAKE-04**: The model is checked on the replacement pack: the pack's discharge curve is derived from the calibrated per-wake cost and the predicted autonomy at the chosen interval is stated with its range.
 
+> Phase split of 2026-11-03: WAKE-01 and WAKE-02 belong to Phase 47.1; WAKE-03 and WAKE-04 belong to Phase 47.2. PROPOSED, not yet agreed by the owner: WAKE-02 is satisfied inside 47.1 when the tool is committed and tested and, run on the recorded baseline, either prints a fit with its ranges or refuses naming the exact missing data (both outcomes recorded). WAKE-03 is satisfied when each reduction the owner chooses is built, measured before and after under a pre-fixed claim rule and recorded as demonstrated or not demonstrated, only demonstrated ones staying on (a duration-only claim on device-reported seconds per redraw wake satisfies it when the energy fit refuses). WAKE-04 is satisfied when the pack's curve and the predicted autonomy at the chosen interval are stated with their range once data exist; the phase may close with WAKE-04 recorded as pending data, with the reason. These closure rules need the owner's agreement before they replace the wording above.
+
 ## Future Requirements
 
 ### Battery and Frame
@@ -81,8 +83,8 @@
 | VAL-03 | Phase 47 | Pending |
 | WAKE-01 | Phase 47.1 | Pending |
 | WAKE-02 | Phase 47.1 | Pending |
-| WAKE-03 | Phase 47.1 | Pending |
-| WAKE-04 | Phase 47.1 | Pending |
+| WAKE-03 | Phase 47.2 | Pending |
+| WAKE-04 | Phase 47.2 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 18 total

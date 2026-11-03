@@ -94,34 +94,40 @@ Plans:
 | 45. Controlled Second Discharge Study | v1.1 | 4/4 | Complete | 2026-10-12 |
 | 46. Two-Run Battery Analysis and Operating Decision | v1.1 | 4/4 | Complete | 2026-10-23 |
 | 47. Integrated Field Validation and Decision Record | v1.1 | 4/6 | In Progress (47-05 and 47-06 wait on the final interval and the new pack) | - |
-| 47.1. Wake-energy instrumentation and awake-time reduction | v1.1 | 0/TBD | Not planned | - |
+| 47.1. Wake-energy instrumentation and awake-time reduction | v1.1 | 0/9 | Planned | - |
+| 47.2. Redraw-wake energy reduction and replacement-pack check | v1.1 | 0/TBD | Not planned (plans written after the 47.1 baseline) | - |
 
 ### Phase 47.1: Wake-energy instrumentation and awake-time reduction (INSERTED)
 
-**Goal**: The owner can see what every wake of the frame costs and why, can rely on a reproducible per-wake energy model with its uncertainty, and the energy of a redraw wake is cut without changing what the frame shows or any safety override.
+**Goal**: The owner can see what every wake of the frame costs and why: every wake reports its phases, the server stores and exports them, a reproducible tool fits the per-wake energy model with its uncertainty or refuses naming the missing data, and the pre-reduction baseline is recorded from the instrumented frame.
 **Depends on**: Phase 47 (its two-cadence finding on the old 3000 mAh pack: the standing draw is at most about 1 mA, the cost of a wake is not constant, 0.5 to 2 mAh)
-**Requirements**: WAKE-01, WAKE-02, WAKE-03, WAKE-04
+**Requirements**: WAKE-01, WAKE-02
 **Success Criteria** (what must be TRUE):
   1. Every wake reports how long the frame was awake and what it did (boot, Wi-Fi connection and attempts, download, whether the screen was redrawn, total awake time), the server stores it next to the battery reading, and the read-only export returns it.
-  2. A committed, tested tool fits the per-wake energy of a wake without redraw, of a wake with redraw, and the standing draw from the stored history and the voltage trend, and prints the result with its uncertainty and the assumptions it rests on (rated capacity, discharge curve); no figure is presented as a current measurement.
-  3. The energy of a wake that redraws the screen is reduced by a stated, measured amount against the baseline recorded before the change (shorter image download, shorter panel wait, or another lever the measured breakdown supports), with the image shown, the hash-skip behaviour, quiet hours, display-off and battery-critical overrides unchanged.
-  4. The model is checked on the new pack: its discharge curve is derived from the calibrated per-wake cost, and the predicted autonomy at the chosen interval is stated with its range.
-**Plans**: 16 plans
+  2. A committed, tested tool fits the per-wake energy of a wake without redraw, of a wake with redraw, and the standing draw (reported as an upper bound) from the stored history and the voltage trend, and prints the result with its uncertainty and the assumptions it rests on (rated capacity, discharge curve); no figure is presented as a current measurement. Run on the recorded baseline it either prints a fit with its ranges or refuses naming the exact missing data; both outcomes are recorded. (PROPOSED wording of the criterion after the phase split; needs the owner's agreement.)
+  3. The instrumentation-only firmware is released by the owner's own action after the Phase 47 bilan of 2026-11-07 (or the owner has chosen to wait and that is recorded), and the baseline window (at least 14 days at one interval, probably plus a second interval) is recorded from device data with the gap-versus-awake hypothesis decided.
+**Plans**: 9 plans
 
 Plans:
-- [ ] 47.1-01-PLAN.md - dependencies and decision record: telemetry contract, schema route, owner decisions
-- [ ] 47.1-02-PLAN.md - server: strict X-Wake-Stats parser, guarded ALTER migration, tailer, export with fallback
-- [ ] 47.1-03-PLAN.md - fleet path, freeze-list amendment, owner agreement quoted in the PR text
+- [ ] 47.1-01-PLAN.md - decision record and telemetry contract (docs only): header grammar, schema route, owner decisions, baseline window rule
+- [ ] 47.1-02-PLAN.md - server: strict X-Wake-Stats parser, race-tolerant guarded ALTER migration, tailer, export with fallback, export documents
+- [ ] 47.1-03-PLAN.md - fleet path, freeze-list amendment (probed on a fleet device), owner agreement quoted in the PR text
 - [ ] 47.1-04-PLAN.md - firmware: pure telemetry module and RTC carry-forward record, host-tested
-- [ ] 47.1-05-PLAN.md - firmware: wiring at the single sleep exit, header, build (no release)
-- [ ] 47.1-06-PLAN.md - model tool that fits or refuses (WAKE-02)
-- [ ] 47.1-07-PLAN.md - owner-gated instrumentation release after the 2026-11-07 bilan
-- [ ] 47.1-08-PLAN.md - baseline from device data, gap hypothesis decided
-- [ ] 47.1-09-PLAN.md - reduction selection from the baseline, owner decision
-- [ ] 47.1-10-PLAN.md - redraw-policy decision record (fewer redraws), owner decision
-- [ ] 47.1-11-PLAN.md - compression evidence and negotiated gzip on the server (if selected)
-- [ ] 47.1-12-PLAN.md - panel-wait light sleep experiment (if selected)
-- [ ] 47.1-13-PLAN.md - firmware gzip decode, fail-closed (if selected)
-- [ ] 47.1-14-PLAN.md - Wi-Fi channel hint with fallback (if selected)
-- [ ] 47.1-15-PLAN.md - owner-gated reduction release and before/after measurement
-- [ ] 47.1-16-PLAN.md - replacement pack check (data-gated, may stay open)
+- [ ] 47.1-05-PLAN.md - firmware: wake-path timings and the RTC record at the single sleep exit
+- [ ] 47.1-06-PLAN.md - firmware: header, SPI timing with a checked timer-reads-only diff, build (no release)
+- [ ] 47.1-07-PLAN.md - model tool, non-negative fit that fits or refuses (WAKE-02)
+- [ ] 47.1-08-PLAN.md - owner-gated instrumentation release after the 2026-11-07 bilan
+- [ ] 47.1-09-PLAN.md - baseline from device data, gap hypothesis decided, fit or refusal recorded
+
+### Phase 47.2: Redraw-wake energy reduction and replacement-pack check (INSERTED)
+
+**Goal**: The energy of a redraw wake is reduced where the measured baseline supports it, without changing what the frame shows or any safety override, and the model is checked on the replacement pack.
+**Depends on**: Phase 47.1 (baseline recorded, model tool committed)
+**Requirements**: WAKE-03, WAKE-04
+**Success Criteria** (what must be TRUE) (PROPOSED, the closure rules need the owner's agreement; the orchestrator asks):
+  1. Each reduction the owner chooses is built, measured before and after under a claim rule fixed before the change, and recorded as demonstrated or not demonstrated; only demonstrated reductions stay on. A duration-only claim on device-reported seconds per redraw wake satisfies this when the energy fit refuses. The image shown, the hash-skip behaviour, quiet hours, display-off and battery-critical overrides are unchanged.
+  2. The replacement pack's discharge curve and the predicted autonomy at the chosen interval are stated with their range once data exist; the phase may close with WAKE-04 recorded as pending data, with the reason.
+**Plans**: 0 plans (detailed plans are written just in time after the 47.1 baseline; the design notes salvaged from the 47.1 planning are in `.planning/phases/47.2-redraw-wake-energy-reduction-and-replacement-pack-check/drafts/`)
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 47.2 after the 47.1 baseline is recorded)
