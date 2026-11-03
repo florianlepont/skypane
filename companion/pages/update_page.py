@@ -31,7 +31,7 @@ CANCEL_ROUTE = "/update/cancel"
 # same pattern companion/pages/health_page.py's _NAV_HEALTH_TEXT uses:
 # msg() is idempotent for a repeat id/English pair, and this page's own
 # <h1> heading must read exactly what the nav calls it.
-_NAV_UPDATE_TEXT = i18n.msg("nav.update", "Update")
+_NAV_UPDATE_TEXT = i18n.msg("nav.update", "Releases")
 
 # The query parameter that picks the hardware type on GET and the form
 # field that carries it on POST. A POST without the field means the

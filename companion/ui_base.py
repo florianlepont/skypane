@@ -66,7 +66,7 @@ _NAV_LABEL_FLIGHTS = i18n.msg("nav.flights", "Flights")
 _NAV_LABEL_AIRLINES = i18n.msg("nav.airlines", "Airlines")
 _NAV_LABEL_HEALTH = i18n.msg("nav.health", "Health")
 _NAV_LABEL_DEVICE = i18n.msg("nav.device", "Device")
-_NAV_LABEL_UPDATE = i18n.msg("nav.update", "Update")
+_NAV_LABEL_UPDATE = i18n.msg("nav.update", "Releases")
 
 NAV_GROUPS = (
     ("", (
