@@ -3,8 +3,9 @@ work (modal.js and the dialog.modal rules). Browser behaviour of the
 component is asserted on the first page that adopts it."""
 import pytest
 
-from companion import i18n, ui_modal
-from companion_markup import parse_html
+from companion import i18n, layout, ui_modal
+from companion_app_server import get, login, served_asset
+from companion_markup import parse_html, strip_js_comments_and_strings
 
 HOSTILE = '"><script>alert(1)</script>'
 
@@ -119,3 +120,26 @@ def test_field_error_ids_match_between_paragraph_and_helper():
     assert node.attrs["id"] == ui_modal.error_id("dlg-invite", "email")
     assert node.text() == HOSTILE
     assert not paragraph.select("script")
+
+
+# --- served assets -----------------------------------------------------------
+
+
+def test_modal_js_is_served_and_listed_in_the_shell_scripts(app_server_in_process):
+    server = app_server_in_process
+    session = login(server)
+    status, _headers, page = get(server, "/display", cookie=session)
+    assert status == 200
+    doc = parse_html(page.decode())
+    srcs = [node.attrs["src"] for node in doc.select("script[src]")]
+    assert layout.MODAL_SCRIPT_SRC in srcs
+    assert layout.MODAL_SCRIPT_SRC in layout.GLOBAL_PAGE_SCRIPTS
+    assert all("src" in node.attrs for node in doc.select("script")), "no inline script"
+    source = served_asset(server, layout.MODAL_SCRIPT_SRC)
+    code = strip_js_comments_and_strings(source)
+    for token in ("showModal", "close", "data-modal-open", "data-modal-close", "row-menu",
+                  "frame-switcher"):
+        assert token in source, token
+    for token in ("eval(", "innerHTML", "outerHTML", "insertAdjacentHTML", "document.write",
+                  "fetch(", "XMLHttpRequest", "=>", "`"):
+        assert token not in code, token

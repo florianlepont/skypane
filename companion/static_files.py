@@ -43,6 +43,7 @@ RELATIVE_TIME_SCRIPT_ROUTE = "/static/relative-time.js"
 QUICK_SWITCH_SCRIPT_ROUTE = "/static/quick-switch.js"
 VALUE_CONTROLS_SCRIPT_ROUTE = "/static/value-controls.js"
 CALENDAR_SHEET_SCRIPT_ROUTE = "/static/calendar-sheet.js"
+MODAL_SCRIPT_ROUTE = "/static/modal.js"
 # Brand icons. Browsers fetch these before any session exists (the login page
 # links them), so they are public like every other static asset.
 FAVICON_ROUTE = "/static/favicon.svg"
@@ -65,6 +66,7 @@ _RELATIVE_TIME_JS_PATH = os.path.join(STATIC_DIR, "relative-time.js")
 _QUICK_SWITCH_JS_PATH = os.path.join(STATIC_DIR, "quick-switch.js")
 _VALUE_CONTROLS_JS_PATH = os.path.join(STATIC_DIR, "value-controls.js")
 _CALENDAR_SHEET_JS_PATH = os.path.join(STATIC_DIR, "calendar-sheet.js")
+_MODAL_JS_PATH = os.path.join(STATIC_DIR, "modal.js")
 _FAVICON_PATH = os.path.join(STATIC_DIR, "favicon.svg")
 _APPLE_TOUCH_ICON_PATH = os.path.join(STATIC_DIR, "apple-touch-icon.png")
 
@@ -112,6 +114,7 @@ STATIC_ROUTES = {
     QUICK_SWITCH_SCRIPT_ROUTE: StaticAsset(_QUICK_SWITCH_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     VALUE_CONTROLS_SCRIPT_ROUTE: StaticAsset(_VALUE_CONTROLS_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     CALENDAR_SHEET_SCRIPT_ROUTE: StaticAsset(_CALENDAR_SHEET_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
+    MODAL_SCRIPT_ROUTE: StaticAsset(_MODAL_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     FAVICON_ROUTE: StaticAsset(_FAVICON_PATH, "image/svg+xml", _PUBLIC_NO_CACHE),
     APPLE_TOUCH_ICON_ROUTE: StaticAsset(_APPLE_TOUCH_ICON_PATH, "image/png", _PUBLIC_NO_CACHE),
 }

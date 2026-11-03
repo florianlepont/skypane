@@ -39,6 +39,7 @@ from companion.ui_base import (
     UI_THEME_CHOICES,
     VALUE_CONTROLS_SCRIPT_SRC,
     CALENDAR_SHEET_SCRIPT_SRC,
+    MODAL_SCRIPT_SRC,
     escape_html,
     nav_slug,
 )
@@ -116,7 +117,7 @@ def login_shell(body, ui_theme="auto", lang=None):
     })
 
 
-# The shell's own 16 script srcs, in the fixed relative order they are
+# The shell's own script srcs, in the fixed relative order they are
 # emitted whenever present - the one place that order is declared.
 # page_shell()'s `scripts` argument only ever widens or narrows which of
 # these are present; it never reorders them.
@@ -136,18 +137,21 @@ SHELL_SCRIPT_ORDER = (
     QUICK_SWITCH_SCRIPT_SRC,
     VALUE_CONTROLS_SCRIPT_SRC,
     CALENDAR_SHEET_SCRIPT_SRC,
+    MODAL_SCRIPT_SRC,
 )
 
 # Present on every authenticated page_shell() document regardless of its
 # `scripts` argument: the hamburger (every page has the nav), a flash
 # cleanup and the toast behaviour (any page can carry `?flash=`), every
-# form's submit guard, and the nav status line's relative time.
+# form's submit guard, the nav status line's relative time, and the
+# modal/menu dismissal script (any page can hold a dialog or a menu).
 GLOBAL_PAGE_SCRIPTS = (
     NAV_DROPDOWN_SCRIPT_SRC,
     FLASH_CLEANUP_SCRIPT_SRC,
     TOAST_SCRIPT_SRC,
     SUBMIT_GUARD_SCRIPT_SRC,
     RELATIVE_TIME_SCRIPT_SRC,
+    MODAL_SCRIPT_SRC,
 )
 
 

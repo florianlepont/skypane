@@ -182,6 +182,12 @@ VALUE_CONTROLS_SCRIPT_SRC = "/static/value-controls.js"
 # with no [data-calendar-sheet] dialog.
 CALENDAR_SHEET_SCRIPT_SRC = "/static/calendar-sheet.js"
 
+# Must equal companion/app.py's MODAL_SCRIPT_ROUTE exactly. Opens the shared
+# dialog.modal component as a modal, returns focus on close, and closes open
+# row menus and frame switchers on an outside tap or Esc; registered on the
+# shell because any page can hold a dialog, a menu or a switcher.
+MODAL_SCRIPT_SRC = "/static/modal.js"
+
 # The registration seam value-controls.js reads, defined here so a page
 # module never types the attribute name (a harness asserts the served
 # script body names each one). A control opts in entirely by attribute.
