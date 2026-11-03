@@ -570,7 +570,8 @@ def _row_html(release, view, now):
 def _versions_card_html(ctx, view, releases):
     if not releases:
         body_html = layout.empty_state(
-            i18n.t(EMPTY_RELEASES_HEADING_TEXT), i18n.t(EMPTY_RELEASES_BODY_TEXT))
+            i18n.t(EMPTY_RELEASES_HEADING_TEXT), i18n.t(EMPTY_RELEASES_BODY_TEXT),
+            compact=True)
         count_html = ""
     else:
         body_html = '<ul class="update-rows">%s</ul>' % "".join(

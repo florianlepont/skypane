@@ -1206,14 +1206,9 @@ def test_empty_state_default_form_is_byte_identical_and_compact_is_opt_in():
     assert "<b>" not in hostile and "<i>" not in hostile, "expected the compact form to escape both arguments"
 
 
-def test_health_in_row_empty_state_is_compact_and_the_card_one_is_not(tmp_path):
-    """on a fresh install Health's IN-ROW empty state (Battery) uses the compact form
-    while its full-width card empty state (Unresolved prefixes) keeps the default 22px
-    serif one"""
-    # The compact form belongs to the empty state that lands INSIDE a row,
-    # whose own name is 12px. The full-width card empty state on the same
-    # page keeps the default form — the variant is a row fix, not a
-    # page-wide restyle.
+def test_health_empty_states_are_all_compact(tmp_path):
+    """on a fresh install both Health empty states, the in-row one (Battery) and the
+    full-width card one (Unresolved prefixes), use the compact form"""
     state_dir = str(tmp_path)
     now = shp.now()
     rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
@@ -1224,8 +1219,8 @@ def test_health_in_row_empty_state_is_compact_and_the_card_one_is_not(tmp_path):
         % ([row.attrs["id"] for row in in_row],))
     assert in_row[0].select(".empty-state--compact"), "expected the in-row empty state to use the compact form"
     registry = doc.select_one("#" + health_page.UNRESOLVED_SECTION_ID)
-    assert registry.select(".empty-state") and not registry.select(".empty-state--compact"), (
-        "expected the full-width card empty state (Unresolved prefixes) to keep the default form")
+    assert registry.select(".empty-state--compact"), (
+        "expected the full-width card empty state (Unresolved prefixes) to use the compact form")
 
 
 _RESOLUTION_SINGULAR_CASES = [

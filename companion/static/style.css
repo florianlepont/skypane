@@ -3692,6 +3692,13 @@ a.calendar-disconnect-btn.flight-picture-link {
   text-align: left;
 }
 
+/* A compact empty state that sits directly in a page column rather than inside a
+ * card or row keeps the card's inner padding so it does not touch the viewport edge. */
+.status-page > .empty-state--compact,
+.page-content > .empty-state--compact {
+  padding: var(--space-md);
+}
+
 .empty-state--compact .empty-state__heading {
   margin: 0 0 var(--space-xs);
   font-weight: var(--weight-semibold);

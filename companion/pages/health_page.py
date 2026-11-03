@@ -1092,7 +1092,7 @@ def render(ctx):
             '<div class="status-page">'
             + layout.page_header(i18n.t(_NAV_HEALTH_TEXT))
             + layout.empty_state(
-                i18n.t(DEVICE_EMPTY_HEADING), i18n.t(DEVICE_EMPTY_BODY))
+                i18n.t(DEVICE_EMPTY_HEADING), i18n.t(DEVICE_EMPTY_BODY), compact=True)
             + "</div>")
 
     # Reuse the state build_page_context() already computed, rather than

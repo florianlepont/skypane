@@ -313,7 +313,8 @@ def _card(heading_id, heading, inner_html):
 def _list_card(view):
     if not view.rows:
         body = _ui().empty_state(
-            i18n.t(_EMPTY_HEADING), i18n.t(_EMPTY_ADMIN if view.is_admin else _EMPTY_USER))
+            i18n.t(_EMPTY_HEADING), i18n.t(_EMPTY_ADMIN if view.is_admin else _EMPTY_USER),
+            compact=True)
     else:
         body = _count_html(len(view.rows)) + _table_html(view)
     return _card("locations-list", _LOCATIONS_TEXT, body)

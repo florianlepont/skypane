@@ -220,7 +220,8 @@ def _current_picture_html(ctx, current_flight_row):
             return layout.empty_state(
                 i18n.t(DEVICE_NO_IMAGE_HEADING), i18n.t(DEVICE_NO_IMAGE_BODY),
                 compact=True)
-        return layout.empty_state(i18n.t(NO_PANEL_HEADING), i18n.t(NO_PANEL_BODY))
+        return layout.empty_state(
+            i18n.t(NO_PANEL_HEADING), i18n.t(NO_PANEL_BODY), compact=True)
 
     alt = i18n.t(PANEL_ALT_TEXT)
     if current_flight_row:
@@ -353,7 +354,8 @@ def _recent_flights_html(rows, now, state_dir):
     style.css's `.recent-flight-tiles ~ .recent-flights` toggle at 960 px
     depends on this order."""
     if not rows:
-        body = layout.empty_state(i18n.t(NO_FLIGHTS_HEADING), i18n.t(NO_FLIGHTS_BODY))
+        body = layout.empty_state(
+            i18n.t(NO_FLIGHTS_HEADING), i18n.t(NO_FLIGHTS_BODY), compact=True)
     else:
         tiles = "".join(_recent_card_html(row, now, state_dir) for row in rows)
         items = []
