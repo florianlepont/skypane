@@ -7996,3 +7996,171 @@ button.rule-suggestion-chip {
   min-height: 44px;
   min-width: 44px;
 }
+
+/* Shared modal dialog (companion/ui_modal.py). One server-rendered
+ * <dialog>: a centred card from 700px up, a bottom sheet below it.
+ * color is explicit because a showModal() dialog does not reliably
+ * inherit it. modal.js adds .is-modal when it promotes the dialog; until
+ * then (scripts blocked) :target or a server-rendered `open` shows it as
+ * an in-page card over a box-shadow scrim. */
+dialog.modal {
+  box-sizing: border-box;
+  width: min(480px, calc(100% - 48px));
+  max-width: none;
+  max-height: 88vh;
+  margin: auto;
+  padding: var(--space-lg);
+  overflow-y: auto;
+  background: var(--color-dominant);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-pop);
+}
+
+dialog.modal::backdrop {
+  background: var(--color-scrim);
+}
+
+/* The fade and rise on open, as .lightbox does; close is instant so a
+ * closed dialog is never hit-testable meanwhile. */
+dialog.modal.is-modal {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity var(--motion-fast) ease-out,
+    transform var(--motion-fast) ease-out;
+}
+
+dialog.modal.is-modal[open] {
+  opacity: 1;
+  transform: none;
+}
+
+@starting-style {
+  dialog.modal.is-modal[open] {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* No script: a fixed card, and a scrim made from a huge shadow. */
+.modal:target:not(.is-modal),
+.modal[open]:not(.is-modal) {
+  display: block;
+  position: fixed;
+  inset: 0;
+  height: fit-content;
+  z-index: 60;
+  box-shadow: 0 0 0 100vmax var(--color-scrim), var(--shadow-pop);
+}
+
+.modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.modal__title {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.modal__subtitle {
+  margin: var(--space-xs) 0 0;
+  overflow-wrap: anywhere;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+a.modal__close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: calc(-1 * var(--space-sm)) calc(-1 * var(--space-sm)) 0 0;
+  border-radius: 50%;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  text-decoration: none;
+}
+
+.modal__body {
+  display: grid;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.modal input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+.modal select,
+.modal textarea {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-height: 44px;
+}
+
+.modal__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+}
+
+dialog.modal button {
+  height: auto;
+  min-height: 44px;
+  min-width: 44px;
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-label-size);
+}
+
+a.modal__dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  text-align: center;
+}
+
+@media (min-width: 700px) {
+  .modal__actions {
+    flex-direction: row-reverse;
+    justify-content: flex-start;
+    align-items: center;
+  }
+}
+
+@media (max-width: 699.98px) {
+  dialog.modal,
+  .modal:target:not(.is-modal),
+  .modal[open]:not(.is-modal) {
+    position: fixed;
+    inset: auto 0 0;
+    width: 100%;
+    margin: 0;
+    padding: 22px var(--space-md) calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
+    border-radius: 18px 18px 0 0;
+  }
+
+  dialog.modal.is-modal {
+    transform: translateY(24px);
+  }
+
+  dialog.modal.is-modal[open] {
+    transform: none;
+  }
+
+  dialog.modal::before {
+    content: "";
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 40px;
+    height: 4px;
+    margin-left: -20px;
+    border-radius: 2px;
+    background: var(--color-border);
+  }
+}

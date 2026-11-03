@@ -4,8 +4,8 @@ component is asserted on the first page that adopts it."""
 import pytest
 
 from companion import i18n, layout, ui_modal
-from companion_app_server import get, login, served_asset
-from companion_markup import parse_html, strip_js_comments_and_strings
+from companion_app_server import get, login, served_asset, served_stylesheet
+from companion_markup import css_rules, declarations_for, parse_html, strip_js_comments_and_strings
 
 HOSTILE = '"><script>alert(1)</script>'
 
@@ -143,3 +143,41 @@ def test_modal_js_is_served_and_listed_in_the_shell_scripts(app_server_in_proces
     for token in ("eval(", "innerHTML", "outerHTML", "insertAdjacentHTML", "document.write",
                   "fetch(", "XMLHttpRequest", "=>", "`"):
         assert token not in code, token
+
+
+def _selectors(rules):
+    return {sel for rule in rules for sel in rule.selectors}
+
+
+def test_stylesheet_serves_the_modal_rules(app_server_in_process):
+    css = served_stylesheet(app_server_in_process)
+    rules = css_rules(css)
+    selectors = _selectors(rules)
+    for wanted in ("dialog.modal", "dialog.modal::backdrop", "a.modal__close",
+                   ".modal[open]:not(.is-modal)", ".modal:target:not(.is-modal)",
+                   ".modal__actions", "a.modal__dismiss"):
+        assert wanted in selectors, wanted
+    base = declarations_for(css, "dialog.modal")
+    assert base["background"] == "var(--color-dominant)"
+    assert base["color"] == "var(--color-text)"
+    assert base["width"] == "min(480px, calc(100% - 48px))"
+    assert base["box-shadow"] == "var(--shadow-pop)"
+    assert base["border-radius"] == "var(--radius-card)"
+    assert declarations_for(css, "dialog.modal::backdrop")["background"] == "var(--color-scrim)"
+
+
+def test_modal_has_a_phone_bottom_sheet_and_a_no_script_card(app_server_in_process):
+    css = served_stylesheet(app_server_in_process)
+    phone = ("@media (max-width: 699.98px)",)
+    sheet = declarations_for(css, "dialog.modal", phone)
+    assert sheet["border-radius"] == "18px 18px 0 0"
+    assert sheet["width"] == "100%"
+    assert "env(safe-area-inset-bottom" in sheet["padding"]
+    assert declarations_for(css, "dialog.modal::before", phone)["height"] == "4px"
+    card = declarations_for(css, ".modal:target:not(.is-modal)")
+    assert card["position"] == "fixed"
+    assert "100vmax var(--color-scrim)" in card["box-shadow"]
+    assert declarations_for(css, "dialog.modal")["max-height"] == "88vh"
+    assert declarations_for(css, "dialog.modal button")["min-height"] == "44px"
+    assert declarations_for(css, "a.modal__close")["width"] == "44px"
+    assert "@starting-style" in css
