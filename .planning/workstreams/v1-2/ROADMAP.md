@@ -472,41 +472,41 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 61-01-PLAN.md — Owner-validation ledger, status-dot resolver, sprite glyphs and hollow dot (UX-01, UX-02, UX-03)
-- [ ] 61-05-PLAN.md — Role landing, user 303 from un-prefixed pages, signed-in /login redirect, matrix rows (UX-01, UX-03, UX-04)
+- [x] 61-01-PLAN.md — Owner-validation ledger, status-dot resolver, sprite glyphs and hollow dot (UX-01, UX-02, UX-03)
+- [x] 61-05-PLAN.md — Role landing, user 303 from un-prefixed pages, signed-in /login redirect, matrix rows (UX-01, UX-03, UX-04)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 61-02-PLAN.md — Shared modal component (dialog helpers, modal.js, CSS) (UX-02)
-- [ ] 61-14-PLAN.md — Remove the Console section chip rows (UX-01, UX-02)
+- [x] 61-02-PLAN.md — Shared modal component (dialog helpers, modal.js, CSS) (UX-02)
+- [x] 61-14-PLAN.md — Remove the Console section chip rows (UX-01, UX-02)
 
 **Wave 3**
 
-- [ ] 61-03-PLAN.md — Shared entity list and row menu (UX-02, UX-03)
+- [x] 61-03-PLAN.md — Shared entity list and row menu (UX-02, UX-03)
 
 **Wave 4**
 
-- [ ] 61-04-PLAN.md — Console and My views spaces, tab bars, sidebars, space switch, Locations 360px fix (UX-01, UX-02, UX-03)
+- [x] 61-04-PLAN.md — Console and My views spaces, tab bars, sidebars, space switch, Locations 360px fix (UX-01, UX-02, UX-03)
 
 **Wave 5**
 
-- [ ] 61-06-PLAN.md — Fleet list with add, retire, reassign and re-activate dialogs (UX-02)
-- [ ] 61-08-PLAN.md — Users list with invite and manage-user dialogs (UX-02)
-- [ ] 61-09-PLAN.md — Frame switcher and user Home (UX-03)
+- [x] 61-06-PLAN.md — Fleet list with add, retire, reassign and re-activate dialogs (UX-02)
+- [x] 61-08-PLAN.md — Users list with invite and manage-user dialogs (UX-02)
+- [x] 61-09-PLAN.md — Frame switcher and user Home (UX-03)
 
 **Wave 6**
 
-- [ ] 61-07-PLAN.md — Manage access dialog, co-managers leave Home (UX-02, UX-03)
-- [ ] 61-11-PLAN.md — Sign-in messages, unverified email, first-arrival guidance (UX-04)
+- [x] 61-07-PLAN.md — Manage access dialog, co-managers leave Home (UX-02, UX-03)
+- [x] 61-11-PLAN.md — Sign-in messages, unverified email, first-arrival guidance (UX-04)
 
 **Wave 7**
 
-- [ ] 61-10-PLAN.md — Account My frames, leave dialog, merged Location and detection card (UX-03)
-- [ ] 61-15-PLAN.md — Audit items in scope: Device LED switch box, Health check-in wording, compact empty states (UX-01, UX-02, UX-03)
+- [x] 61-10-PLAN.md — Account My frames, leave dialog, merged Location and detection card (UX-03)
+- [x] 61-15-PLAN.md — Audit items in scope: Device LED switch box, Health check-in wording, compact empty states (UX-01, UX-02, UX-03)
 
 **Wave 8**
 
-- [ ] 61-12-PLAN.md — Step-count record, friction traceability, cross-page sweep (UX-01..UX-04)
+- [x] 61-12-PLAN.md — Step-count record, friction traceability, cross-page sweep (UX-01..UX-04)
 
 **Wave 9**
 
@@ -532,4 +532,4 @@ Plans:
 | 58. Second Hardware | v1.2 | 1/4 | In progress (58-01 done 2026-11-01): 58-01/58-02 executable, 58-03/58-04 blocked on purchase agreement | - |
 | 59. Comment-History Debt | v1.2 | 0/0 | Not started | - |
 | 60. Device Co-Management | v1.2 | 9/9 | Complete: merged (#276, #277, #279, #282) and deployed 2026-11-02; production checks reported done by the owner (see 60-HANDOFF.md) | 2026-11-02 |
-| 61. Companion UX and UI Overhaul (Admin and Users) | v1.2 | 0/0 | Not started | - |
+| 61. Companion UX and UI Overhaul (Admin and Users) | v1.2 | 14/15 | Executed; 61-13 (owner validation on the deployed companion) pending, with the quiet-hours/look setting at 4-5 actions instead of 3 | - |
