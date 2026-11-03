@@ -94,7 +94,7 @@ Plans:
 | 45. Controlled Second Discharge Study | v1.1 | 4/4 | Complete | 2026-10-12 |
 | 46. Two-Run Battery Analysis and Operating Decision | v1.1 | 4/4 | Complete | 2026-10-23 |
 | 47. Integrated Field Validation and Decision Record | v1.1 | 4/6 | In Progress (47-05 and 47-06 wait on the final interval and the new pack) | - |
-| 47.1. Wake-energy instrumentation and awake-time reduction | v1.1 | 0/9 | Planned | - |
+| 47.1. Wake-energy instrumentation and awake-time reduction | v1.1 | 1/9 | In Progress|  |
 | 47.2. Redraw-wake energy reduction and replacement-pack check | v1.1 | 0/TBD | Not planned (plans written after the 47.1 baseline) | - |
 
 ### Phase 47.1: Wake-energy instrumentation and awake-time reduction (INSERTED)
@@ -109,7 +109,7 @@ Plans:
 **Plans**: 9 plans
 
 Plans:
-- [ ] 47.1-01-PLAN.md - decision record and telemetry contract (docs only): header grammar, schema route, owner decisions, baseline window rule
+- [x] 47.1-01-PLAN.md - decision record and telemetry contract (docs only): header grammar, schema route, owner decisions, baseline window rule
 - [ ] 47.1-02-PLAN.md - server: strict X-Wake-Stats parser, race-tolerant guarded ALTER migration, tailer, export with fallback, export documents
 - [ ] 47.1-03-PLAN.md - fleet path, freeze-list amendment (probed on a fleet device), owner agreement quoted in the PR text
 - [ ] 47.1-04-PLAN.md - firmware: pure telemetry module and RTC carry-forward record, host-tested
