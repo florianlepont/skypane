@@ -43,9 +43,9 @@ the sign-in/invitation messages of the companion (requirements UX-01..UX-04).
   redirected (303) to their own frame instead of a 404.
 - D14 (owner) Health leaves the user tab bar and is reached from the
   Home status dot.
-- Still open: the three small audit items (Device LED switch box, Health
-  "has not checked in" repeated, large serif empty states): default
-  deferred until the owner answers.
+- D15 (owner, 2026-11-03) The three small audit items are IN scope: the
+  box around the Device LED switch, the repeated "has not checked in"
+  wording on Health, and the large serif empty states (plan 61-15).
 - The raw "Register a frame" (MAC + secret) form is not used by the owner:
   remove it from the page body (keep it reachable only if the spec finds a
   need; to settle in UI-SPEC).

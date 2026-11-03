@@ -468,7 +468,7 @@ Plans:
   4. A user whose Auth0 email is not verified gets a message that says so instead of the "not invited" page, the first arrival of an invited user is guided, and sign-in errors say what to do next.
   5. Both languages, the 360 px width and the 44 px tap targets hold, the existing browser tests stay green with new ones for the changed flows, and the owner validates on the deployed companion.
 
-**Plans**: 14 plans
+**Plans**: 15 plans
 Plans:
 **Wave 1**
 
@@ -502,6 +502,7 @@ Plans:
 **Wave 7**
 
 - [ ] 61-10-PLAN.md — Account My frames, leave dialog, merged Location and detection card (UX-03)
+- [ ] 61-15-PLAN.md — Audit items in scope: Device LED switch box, Health check-in wording, compact empty states (UX-01, UX-02, UX-03)
 
 **Wave 8**
 
