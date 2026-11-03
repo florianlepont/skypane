@@ -65,33 +65,24 @@ def test_phone_bar_keeps_five_full_size_cells_with_the_admin_tab(
 
 @pytest.mark.parametrize(
     "viewport", [VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED], ids=["390", "360"])
-def test_sub_nav_wraps_to_at_most_two_lines_without_sideways_scroll(
+def test_no_section_chip_row_on_a_console_page_without_sideways_scroll(
         new_context, server, viewport):
-    """five chips, each at least 44px tall, on at most two lines, current page selected"""
+    """the console page carries no section chip row and does not overflow"""
     context, page = _open(new_context, server, viewport, console_routes.AUDIT_ROUTE)
     try:
-        chips = page.evaluate(
-            """() => [...document.querySelectorAll('.section-subnav .filter-chip')]
-                .map(e => { const b = e.getBoundingClientRect();
-                            return {top: Math.round(b.top), h: b.height,
-                                    r: b.right}; })""")
-        assert len(chips) == 5, chips
-        assert len({chip["top"] for chip in chips}) <= 2, chips
-        assert all(chip["h"] >= MIN_TAP_PX for chip in chips), chips
-        assert all(chip["r"] <= viewport["width"] + 0.5 for chip in chips), chips
-        assert page.locator('.section-subnav [aria-current="page"]').inner_text().strip(), chips
+        assert page.locator(".section-subnav").count() == 0
         assert not _assert_no_page_overflow(page, "console/subnav", viewport["width"])
     finally:
         context.close()
 
 
-def test_desktop_hides_the_sub_nav_and_shows_the_administration_group(
+def test_desktop_has_no_chip_row_and_shows_the_administration_group(
         new_context, server):
-    """at 1280px the sidebar lists the console pages and the redundant sub-nav is hidden"""
+    """at 1280px the sidebar lists the console pages and there is no chip row"""
     context, page = _open(
         new_context, server, VIEWPORT_DESKTOP, console_routes.FLEET_ROUTE)
     try:
-        assert not page.locator(".section-subnav").is_visible()
+        assert page.locator(".section-subnav").count() == 0
         group = page.locator(".sidebar-nav .nav-group:has-text('Administration')")
         assert group.locator(".nav-group__label").is_visible()
         for path in (*PAGES, "/update"):

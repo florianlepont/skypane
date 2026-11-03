@@ -209,9 +209,9 @@ def test_the_page_is_read_only(rig):
     server, _seed, cookie = rig
     _append(server.state_dir, 3)
     html = _page(server, cookie)[2]
-    body = html[html.index('<main'):] if "<main" in html else html
-    assert "<form" not in body.split('class="filter-bar__chips')[1]
-    assert "<button" not in body.split('class="filter-bar__chips')[1]
+    body = html[html.index('<main'):html.index('</main>')]
+    assert "<form" not in body
+    assert "<button" not in body
     audit_routes = [
         route for route in routes.ROUTES
         if (route.matcher.path if isinstance(route.matcher, routes.Exact)
