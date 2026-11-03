@@ -81,7 +81,7 @@ def _wait_sheet_open(page):
     # The sheet enters with a short animation; a box measured while it runs is
     # a fraction of a pixel short of its resting size.
     page.wait_for_function(
-        "() => document.getAnimations().every((a) => a.playState !== 'running')")
+        "() => document.getAnimations().every((a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
 
 
 def test_a_user_switches_frame_from_display_and_stays_on_display(new_context, fleet_app):

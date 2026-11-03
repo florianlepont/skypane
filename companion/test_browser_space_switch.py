@@ -31,14 +31,16 @@ _LABELS = {"en": ("Console", "My frame"), "fr": ("Console", "Mon cadre")}
 
 
 def _visible_switch(page):
-    """The segments of the one visible switch, read once a segment owns its
-    own centre (a view transition after navigation can still be running)."""
+    """The segments of the one visible switch, read once every visible segment
+    owns its own centre and no animation runs (a view transition after
+    navigation can still be running)."""
     page.wait_for_function(
-        "() => { const a = [...document.querySelectorAll('.space-switch__segment')]"
-        ".find(n => n.getClientRects().length > 0); if (!a) return false;"
-        " const b = a.getBoundingClientRect();"
+        "() => { const all = [...document.querySelectorAll('.space-switch__segment')]"
+        ".filter(n => n.getClientRects().length > 0); if (!all.length) return false;"
+        " if (document.getAnimations().some((x) => x.playState === 'running' && x.effect.getComputedTiming().iterations !== Infinity)) return false;"
+        " return all.every((a) => { const b = a.getBoundingClientRect();"
         " const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);"
-        " return !!hit && a.contains(hit); }")
+        " return !!hit && a.contains(hit); }); }")
     groups = page.evaluate(_SEGMENTS)
     assert len(groups) == 1, groups
     return groups[0]
