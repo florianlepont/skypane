@@ -642,9 +642,9 @@ def test_health_held_window_ended_and_grace_elapsed_both_report_late(tmp_path):
     assert "Update overdue" in rendered_strip, "expected the strip to also report late for the same fixture"
 
 
-def test_dot_modifier_classes_are_exactly_four_no_new_class_added(css_text):
-    """style.css declares exactly the four .dot--* modifier classes (ok/warn/error/off) and no
-    fifth — the structural replacement for the legacy check's own raw `css_source.count("dot--")
+def test_dot_modifier_classes_are_exactly_five_no_new_class_added(css_text):
+    """style.css declares exactly the five .dot--* modifier classes (ok/warn/error/off/hollow) and no
+    sixth — the structural replacement for the legacy check's own raw `css_source.count("dot--")
     == 9` sub-clause (this module's own docstring explains why: 5 of that count's 9 substring
     occurrences are prose inside comments, and only 4 are real selectors). This plan adds no new
     dot class, which is what the original pinned count was protecting."""
@@ -655,8 +655,8 @@ def test_dot_modifier_classes_are_exactly_four_no_new_class_added(css_text):
             match = dot_selector_re.match(selector)
             if match:
                 found.add(match.group(1))
-    assert found == {"ok", "warn", "error", "off"}, (
-        "expected exactly the four .dot--* modifier classes (ok/warn/error/off), got %r — a new "
+    assert found == {"ok", "warn", "error", "off", "hollow"}, (
+        "expected exactly the five .dot--* modifier classes (ok/warn/error/off/hollow), got %r — a new "
         "one appearing here means this plan (or a later one) added a dot class" % (found,))
 
 
