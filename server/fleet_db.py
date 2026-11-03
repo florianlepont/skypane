@@ -818,6 +818,130 @@ def set_device_location_checked(
         return True
 
 
+_FRAME_POSITION_DEFAULT_NAME = "Frame position"
+_FRAME_POSITION_LABEL_MAX = 60
+_POSITION_DECIMALS = 4
+
+
+def _clean_position_label(label: str) -> str:
+    """The trimmed label, or the default name when blank; ValueError for a
+    label over 60 characters or one holding control characters."""
+    text = label.strip()
+    if any(ord(ch) < 32 or ord(ch) == 127 or 0x80 <= ord(ch) < 0xA0 for ch in text):
+        raise ValueError("label has control characters")
+    if len(text) > _FRAME_POSITION_LABEL_MAX:
+        raise ValueError("label is too long")
+    return text or _FRAME_POSITION_DEFAULT_NAME
+
+
+def frame_position(
+    conn: sqlite3.Connection, device_id: str
+) -> dict[str, object] | None:
+    """The frame's own position row, or None when it has no usable row.
+
+    `shared` is true when more than one device uses the row.
+    """
+    row = conn.execute(
+        "SELECT l.id AS id, l.name AS name, l.latitude AS latitude, "
+        "l.longitude AS longitude, l.timezone AS timezone, "
+        "(SELECT count(*) FROM devices WHERE location_id = l.id) AS uses "
+        "FROM devices d JOIN locations l ON l.id = d.location_id WHERE d.id = ?",
+        (device_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return {
+        "id": int(row["id"]),
+        "name": str(row["name"]),
+        "latitude": float(row["latitude"]),
+        "longitude": float(row["longitude"]),
+        "timezone": str(row["timezone"]),
+        "shared": int(row["uses"]) > 1,
+    }
+
+
+def _require_frame_manager(
+    conn: sqlite3.Connection,
+    device_id: str,
+    owner_user_id: int | None,
+    actor_user_id: int | None,
+    is_admin: bool,
+) -> None:
+    if is_admin:
+        return
+    if actor_user_id is None or (
+        owner_user_id != actor_user_id
+        and not is_co_manager(conn, device_id, actor_user_id)
+    ):
+        raise PermissionError("device is not managed by the acting user")
+
+
+def save_frame_position(
+    conn: sqlite3.Connection,
+    device_id: str,
+    label: str,
+    latitude: float,
+    longitude: float,
+    timezone: str,
+    actor_user_id: int | None,
+    is_admin: bool,
+) -> tuple[int, bool]:
+    """Save a frame's own position; returns (location id, whether anything changed).
+
+    The first save creates a private row (owned by the frame's owner) and
+    links it; a later save updates that row in place; a save with the same
+    values writes nothing. A row used by another frame, or owned by someone
+    other than the frame's owner, is never edited: a new private row is
+    inserted and only this frame is linked to it. One transaction. Raises
+    ValueError for invalid input or an unknown device, PermissionError when
+    the actor may not manage the frame.
+    """
+    name = _clean_position_label(label)
+    latitude = round(float(latitude), _POSITION_DECIMALS)
+    longitude = round(float(longitude), _POSITION_DECIMALS)
+    _validate_location(name, latitude, longitude, timezone)
+    with _atomic(conn):
+        device = conn.execute(
+            "SELECT owner_user_id, location_id FROM devices WHERE id = ?",
+            (device_id,),
+        ).fetchone()
+        if device is None:
+            raise ValueError(f"unknown device: {device_id!r}")
+        owner = device["owner_user_id"]
+        _require_frame_manager(conn, device_id, owner, actor_user_id, is_admin)
+        current = (
+            None if device["location_id"] is None
+            else get_location(conn, int(device["location_id"]))
+        )
+        if current is not None and _private_to_frame(conn, device_id, current, owner):
+            location_id = int(current["id"])
+            if (
+                current["name"], current["latitude"],
+                current["longitude"], current["timezone"],
+            ) == (name, latitude, longitude, timezone):
+                return location_id, False
+            update_location(conn, location_id, name, latitude, longitude, timezone)
+            return location_id, True
+        location_id = add_location(
+            conn, name, latitude, longitude, timezone, owner_user_id=owner
+        )
+        set_device_location_checked(conn, device_id, location_id, actor_user_id, is_admin)
+        return location_id, True
+
+
+def _private_to_frame(
+    conn: sqlite3.Connection, device_id: str, location: sqlite3.Row, owner: int | None
+) -> bool:
+    """True when only this device uses the row and its owner is the device's."""
+    if owner is None or location["owner_user_id"] != owner:
+        return False
+    uses = conn.execute(
+        "SELECT count(*) FROM devices WHERE location_id = ? AND id != ?",
+        (location["id"], device_id),
+    ).fetchone()[0]
+    return int(uses) == 0
+
+
 # ---- devices ---------------------------------------------------------
 
 
