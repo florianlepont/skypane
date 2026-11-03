@@ -6,6 +6,11 @@ the frame switcher). Not approved yet: issues below.
 
 ## Issues raised (priority proposed by the assistant, to confirm)
 
+Most shocking for the owner (V0, structural, P0):
+- V0 The administrator's view of a frame differs from the view a user has of
+  the same frame. It must be the same. Only the Console / personal-space
+  switch should tell an admin from a user. (V3 and V5 are consequences.)
+
 Small, fixable in this phase:
 - V1 "Mes vues" is unclear as a label for the personal space.
 - V2 The Console / My views switch is not visible enough.
