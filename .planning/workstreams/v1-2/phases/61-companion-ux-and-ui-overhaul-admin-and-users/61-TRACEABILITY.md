@@ -89,6 +89,39 @@ fallback in `companion/ui_components.py`. The sweep asserts the pages that
 were converted, and does not assert "no large empty state anywhere". Whether
 to convert the rest is left to the owner; plan 61-15 did not list these pages.
 
+## Cross-page sweep (`companion/test_browser_overhaul_sweep.py`)
+
+204 cases: 22 page and dialog cases (Fleet and its four dialogs, Users and its
+two dialogs, Locations, Audit log, Releases, admin Account, admin Home, Display,
+Device and Health, a user's Home, Display and Account, the owner's and a
+co-manager's Account dialogs) at 360 and 1280 px, EN and FR, light and dark,
+plus a French-versus-English text comparison per case, the French Fleet title,
+and Locations fields inside their card at 360 px.
+
+Defects the sweep found and plan 61-12 fixed: the skip link had no French text;
+an administrator's Account page rendered no tab bar on a phone; the Fleet name
+link, Account language/theme/Sign out controls, the phone toast action, the
+quiet-hours presets and the special-look Remove button were under 44 px.
+
+Stated limits of the sweep (not claimed closed):
+
+- The 44 px floor is asserted on the whole page, the header and the tab bar at
+  360 px, and in dialogs. At 1280 px it is asserted for dialogs, list rows and
+  page headers only: the sidebar, its language/theme/Sign out controls, the brand
+  link and the Home "See Health" pill are pointer-sized (29 to 33 px) by design in
+  the stylesheet. UI-SPEC section 8 item 2 asks for 44 px at both widths.
+- Large-form empty states remain on History, Detection, the My frames empty
+  state and the table fallback, and are not in the sweep (see row C above). The
+  sweep asserts only the listed pages.
+- Untranslated-text detection compares the French and English renders and
+  ignores product, hardware and seeded data names, identifiers and a short list
+  of words French shares with English. It is not a catalogue lookup:
+  `test-support/i18n_ids.py` is a migration helper, and catalogue completeness is
+  already asserted by `companion/test_i18n.py`.
+- `companion/test_browser_phase44_walkthrough.py` needed no edit: its routes,
+  headings, active-navigation and Display-save assertions pass unchanged against
+  the new labels.
+
 ## Requirements to plans
 
 | Requirement | Plans | Evidence |
