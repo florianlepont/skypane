@@ -59,3 +59,9 @@ Larger redesigns (new design work, owner decision on scope):
 - D22 (owner) Contact an administrator from the amber-dot notification: a
   mailto link addressed to the administrator's email (no server-side
   sending). To be covered by the plans.
+- D23 (owner, answers R2-20) Only administrators change the wake interval
+  ("Refresh"), in the Console Device page. It does not move to
+  Personalisation.
+- D24 (owner) The Home notification with the "write to the administrator"
+  link also appears for the red state (frame without contact), not only for
+  amber.
