@@ -186,17 +186,26 @@ class SignInMixin:
         if role is None:
             return self._sign_in_failed(oidc.KIND_INCOMPLETE, attempt)
         principal = access.Principal(access.KIND_USER, user_id, email, role)
-        if role == access.USER:
-            target, label = access.home_for(principal), login_page.CONTINUE_TARGET_ACCOUNT
-        else:
-            target = self._next_route_of(attempt.next_route) or "/"
-            label = login_page.CONTINUE_TARGET_HOME
+        target, label = self._landing_target(principal, attempt)
         _log("signed in: user %d" % user_id)
         page = login_page.interstitial_page(
             login_page.INTERSTITIAL_IN, target, label, self._pre_session_theme())
         return self.send_html(200, page, set_cookies=[
             auth.session_set_cookie_header(token),
             auth.oidc_attempt_clear_cookie_header()])
+
+    def _landing_target(self, principal, attempt):
+        """(path, label) the sign-in interstitial continues to: a validated
+        `next` route when the caller can use it, else the role landing."""
+        landing = self._landing_for(principal)
+        next_route = self._next_route_of(attempt.next_route)
+        if next_route and landing != ACCOUNT_ROUTE:
+            return next_route, login_page.CONTINUE_TARGET_HOME
+        if principal.role == access.ADMIN:
+            return landing, login_page.CONTINUE_TARGET_FLEET
+        if landing == ACCOUNT_ROUTE:
+            return landing, login_page.CONTINUE_TARGET_ACCOUNT
+        return landing, login_page.CONTINUE_TARGET_HOME
 
     # --- sign-out ------------------------------------------------------
 

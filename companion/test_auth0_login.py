@@ -45,20 +45,20 @@ def _assert_refused(rig, result, statuses=GENERIC_FAILURE_STATUSES, user_sub=Non
 
 # --- happy paths -----------------------------------------------------------
 
-def test_invited_admin_signs_in_and_lands_on_home(auth0_rig):
+def test_invited_admin_signs_in_and_lands_on_the_fleet_page(auth0_rig):
     rig = auth0_rig
     rig.invite("admin@example.test", "admin")
     result = login_via_auth0(
         rig.server, rig.fake, sub="auth0|admin", email="admin@example.test")
     assert result.status == 200
-    assert _refresh_target(result.body) == "/"
+    assert _refresh_target(result.body) == "/fleet"
     token = result.session_cookie.split("=", 1)[1]
     assert rig.rows("SELECT id_hash, principal FROM sessions") == [
         (hashlib.sha256(token.encode()).hexdigest(), "user")]
     assert rig.rows("SELECT sub FROM users") == [("auth0|admin",)]
 
 
-def test_invited_user_lands_on_account(auth0_rig):
+def test_invited_user_without_a_frame_lands_on_account(auth0_rig):
     rig = auth0_rig
     rig.invite("user@example.test", "user")
     result = login_via_auth0(rig.server, rig.fake)
@@ -285,7 +285,7 @@ def test_hostile_next_falls_back_to_the_default_landing(auth0_rig, hostile):
         rig.server, rig.fake, next_route=hostile, sub="auth0|a",
         email="admin@example.test")
     assert result.status == 200
-    assert _refresh_target(result.body) == "/"
+    assert _refresh_target(result.body) == "/fleet"
 
 
 def test_a_user_ignores_an_admin_only_next(auth0_rig):

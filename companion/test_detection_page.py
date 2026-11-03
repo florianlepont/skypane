@@ -429,7 +429,9 @@ def test_scoped_anonymous_goes_to_sign_in(rig):
 
 
 def test_scoped_unprefixed_form_is_admin_only(rig):
-    assert rig.get("owner", "/detection")[0] == 404
+    status, headers, _body = rig.get("owner", "/detection")
+    assert status == 303
+    assert headers["Location"] == rig.scope() + "/detection"
     assert rig.get("admin", "/detection")[0] == 200
 
 

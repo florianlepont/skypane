@@ -359,10 +359,13 @@ def test_an_owner_reaches_their_frame_and_nobody_else_does(http_fleet):
 
 
 def test_the_unprefixed_live_frame_is_admin_only(http_fleet):
-    server, _seeded, cookies = http_fleet
+    server, seeded, cookies = http_fleet
     for path in ("/", "/display", "/flights", "/health", "/airlines"):
         assert _get(server, path, cookies["admin"])[0] == 200, path
-        assert _get(server, path, cookies["owner"])[0] == 404, path
+        status, headers, _body = _get(server, path, cookies["owner"])
+        assert status == 303, path
+        assert headers["Location"] == "/devices/%s%s" % (
+            seeded.owner_device, path), path
         assert _get(server, path, cookies["lonely"])[0] == 404, path
 
 

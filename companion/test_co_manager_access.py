@@ -49,13 +49,14 @@ class Rig:
             extra_headers={"Origin": self.server.base_url()})
         return status, headers, body.decode("utf-8", "replace")
 
-    def unknown(self, method):
-        """The status and body of a path that matches no route."""
+    def unknown(self, method, who="co"):
+        """The status and body of a path that matches no route, as `who`
+        sees it (the onward link on the page depends on the caller)."""
         path = "/no-such-page-anywhere"
         if method == "GET":
-            status, _h, body = self.get("co", path)
+            status, _h, body = self.get(who, path)
         else:
-            status, _h, body = self.post("co", path, {})
+            status, _h, body = self.post(who, path, {})
         assert status == 404
         return status, body
 
@@ -211,11 +212,11 @@ def test_a_co_manager_gets_404_for_a_frame_they_do_not_co_manage(rig):
 
 
 def test_a_stranger_gets_404_for_the_shared_frame(rig):
-    status, body = rig.unknown("GET")
+    status, body = rig.unknown("GET", "stranger")
     for page in PAGES:
         path = rig.prefix() + ("" if page == "/" else page)
         assert rig.get("stranger", path)[::2] == (status, body), path
-    post_status, post_body = rig.unknown("POST")
+    post_status, post_body = rig.unknown("POST", "stranger")
     got = rig.post("stranger", rig.prefix() + "/quick/display", {"state": "off"})
     assert (got[0], got[2]) == (post_status, post_body)
     assert device_config.load_device_config(rig.state_dir)["display_enabled"] is not False

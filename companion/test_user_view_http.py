@@ -16,6 +16,7 @@ from companion.pages import health_page
 from companion.settings import calendar as calendar_settings
 from companion_app_server import (
     InProcessAppServer, http_request, session_cookie_for_state_dir)
+from matrix_rows_landing import FRAME_PAGE_REDIRECTS
 from provisioned_fleet import (
     ADMIN_EMAIL, FRAMELESS_EMAIL, GALLERY_FILENAME, NAME_A1, NAME_A2, NAME_B1,
     SEEDED_ADMIN_ONLY, USER_A_EMAIL, USER_B_EMAIL, device_dir, mark_checked_in,
@@ -158,7 +159,15 @@ def test_an_owner_reaches_their_frame_and_another_user_gets_the_unknown_404(
 @pytest.mark.parametrize("template", _owner_get_templates())
 def test_the_unprefixed_frame_routes_are_admin_only(rig, template):
     path = _sample(template)
+    moved = {"a": rig.fleet.a2, "b": rig.fleet.b1}
     for who in ("a", "b", "frameless"):
+        if path in FRAME_PAGE_REDIRECTS and who in moved:
+            # A user's Home, Display, Flights, Airlines, Health and Detection
+            # move to the same page under their default frame (first by name).
+            status, headers, _body = rig.get(path, who)
+            assert status == 303, (path, who)
+            assert headers["Location"] == "/devices/%s%s" % (moved[who], path)
+            continue
         rig.assert_unknown("GET", path, who)
     anonymous_status, headers, _b = rig.get(path, "anonymous")
     assert anonymous_status == 303 and headers["Location"].startswith("/login")
@@ -180,7 +189,9 @@ def test_a_user_who_owns_the_live_frame_is_served_under_its_real_id(live_rig):
     live = live_rig.fleet.live
     home = live_rig.page("/devices/%s/" % live, "a")
     assert "/devices/%s/" % live in home
-    live_rig.assert_unknown("GET", "/", "a")
+    status, headers, _body = live_rig.get("/", "a")
+    assert status == 303
+    assert headers["Location"] == "/devices/%s/" % live_rig.fleet.a2
     pages = ("/", "/display", "/flights", "/health", "/airlines")
     for path in pages:
         body = live_rig.page("/devices/%s%s" % (live, path), "a")

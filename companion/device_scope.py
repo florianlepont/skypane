@@ -173,6 +173,18 @@ def load_devices_for(root, principal):
     return _devices_from_rows(root, visible, False)
 
 
+def default_frame_for(root, principal):
+    """The frame a signed-in user lands on: the first of the frames they own
+    or co-manage by name (case-insensitive) then id, or None for a user with
+    no frame and for any other principal. Built from fleet data only."""
+    if principal is None or principal.role != access.USER:
+        return None
+    frames = load_devices_for(root, principal)
+    if not frames:
+        return None
+    return min(frames, key=lambda d: (d.name.casefold(), d.id))
+
+
 def find_device(root, device_id):
     """The Device for `device_id`, or None for an unknown or malformed id or
     a row whose stored state_path fails validation."""

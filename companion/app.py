@@ -402,6 +402,11 @@ parse_single_uploaded_file = post_actions.parse_single_uploaded_file
 # page_context.build_page_context().
 
 
+# The un-prefixed frame pages a user is sent on to their own frame.
+_USER_FRAME_PAGES = frozenset((
+    layout.HOME_ROUTE, "/display", "/flights", "/airlines", "/health", "/detection"))
+
+
 def _effective_access(route, route_match):
     """The `Access` and the captured value `access.decide` is fed for a
     matched route. A device-scoped route under a /devices/<id> prefix is
@@ -729,8 +734,10 @@ class Handler(
         # Pre-session: resolved from the cookie or Accept-Language.
         prefs.set_request_prefs(lang=self._lang_from_request())
         health_alert = self._health_alert_for_admin()
+        back, home_route = self._back_target()
         return login_page.not_found_page(
-            self._resolved_ui_theme(), health_alert, back=self._back_target())
+            self._resolved_ui_theme(), health_alert, back=back,
+            home_route=home_route)
 
     def _handle_credits_get(self):
         """GET CREDITS_ROUTE: the public credits page. Only the request
@@ -748,20 +755,39 @@ class Handler(
         """
         prefs.set_request_prefs(lang=self._lang_from_request())
         health_alert = self._health_alert_for_admin()
+        back, home_route = self._back_target()
         return login_page.forbidden_page(
-            self._resolved_ui_theme(), health_alert, back=self._back_target(),
-            purpose=purpose)
+            self._resolved_ui_theme(), health_alert, back=back, purpose=purpose,
+            home_route=home_route)
 
     def _back_target(self):
-        """Which onward link an error page offers the current caller. Reads
-        the principal `_health_alert_for_admin()` already resolved.
+        """(which onward link, Home route) an error page offers the current
+        caller. A user with a frame goes back to that frame's Home; a user
+        without one to the account page. Reads the principal
+        `_health_alert_for_admin()` already resolved.
         """
         principal = self._safe_principal()
         if principal is None:
-            return login_page.BACK_SIGN_IN
+            return login_page.BACK_SIGN_IN, None
         if principal.role == access.USER:
-            return login_page.BACK_ACCOUNT
-        return login_page.BACK_HOME
+            frame = self._default_frame(principal)
+            if frame is None:
+                return login_page.BACK_ACCOUNT, None
+            return login_page.BACK_HOME, access.home_for(principal, frame.id)
+        return login_page.BACK_HOME, None
+
+    def _default_frame(self, principal):
+        """The user's default frame, or None; a store problem reads as no
+        frame."""
+        try:
+            return device_scope.default_frame_for(self.args.state_dir, principal)
+        except _STORE_ERRORS:
+            return None
+
+    def _landing_for(self, principal):
+        """Where `principal` lands after signing in."""
+        frame = self._default_frame(principal)
+        return access.home_for(principal, None if frame is None else frame.id)
 
     def _health_alert_for_admin(self):
         """The Health nav-dot severity for an admin caller, else None: a
@@ -976,7 +1002,7 @@ class Handler(
         """
         principal = self._safe_principal()
         if principal is not None:
-            return self.redirect(access.home_for(principal))
+            return self.redirect(self._landing_for(principal))
         next_route = _validated_next_route(
             parse_qs(urlsplit(self.path).query).get("next", [None])[0])
         return self.send_html(200, self._render_login_page(next_route=next_route))
@@ -1033,6 +1059,9 @@ class Handler(
         if outcome == access.LOGIN:
             return self._redirect_to_login()
         if outcome == access.NOT_FOUND:
+            moved = self._frame_page_redirect(method, route, route_match, principal)
+            if moved is not None:
+                return self.redirect(moved)
             return self.send_html(404, self._not_found_page())
         self._apply_principal(principal)
         raw_session = self._raw_session_token()
@@ -1047,6 +1076,24 @@ class Handler(
             with history_db.connection_scope(self.args.state_dir):
                 return route.handler(self, route_match)
         return self._dispatch_for_device(route, route_match)
+
+    def _frame_page_redirect(self, method, route, route_match, principal):
+        """Where a user's un-prefixed frame page (Home, Display, Flights,
+        Airlines, Health, Detection) moves to: the same page under their
+        default frame. None for any other request, and for a user with no
+        frame. The target is built from the user's own frame list and the
+        matched route path, never from request text.
+        """
+        if method != "GET" or not route.device_scoped \
+                or route_match.device_id is not None:
+            return None
+        if principal is None or principal.role != access.USER \
+                or route_match.path not in _USER_FRAME_PAGES:
+            return None
+        frame = self._default_frame(principal)
+        if frame is None:
+            return None
+        return "/devices/%s%s" % (frame.id, route_match.path)
 
     def _login_throttle_key(self):
         """The one place this handler derives a sign-in throttle bucket key
