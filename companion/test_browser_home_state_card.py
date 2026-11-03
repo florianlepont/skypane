@@ -12,6 +12,8 @@ from urllib.parse import urlsplit
 import pytest
 
 from companion import auth, layout
+from companion_app_server import session_cookie_for_state_dir
+from provisioned_fleet import USER_A_EMAIL, device_dir, provision_fleet
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP,
     VIEWPORT_MIN_SUPPORTED,
@@ -66,6 +68,9 @@ def _assert_zone_arrangement(geometry, label):
         assert zone["right"] <= geometry["panel"]["right"] + 1, label
 SCREEN_BUTTON = 'form[action="/quick/display"] button[role="switch"]'
 QUIET_BUTTON = 'form[action="/quick/quiet-hours"] button[role="switch"]'
+# The same switches under a frame prefix (a user's Home lives at /devices/<id>/).
+SCOPED_SCREEN_BUTTON = 'form[action$="/quick/display"] button[role="switch"]'
+SCOPED_QUIET_BUTTON = 'form[action$="/quick/quiet-hours"] button[role="switch"]'
 FLASH = '.toast-region--flash .toast[role="status"]'
 
 
@@ -240,15 +245,16 @@ def _seed_checkin(minutes_ago, battery_mv):
 @pytest.mark.parametrize("viewport_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 @pytest.mark.parametrize("minutes_ago,battery_mv,wording,amber", [
     (2, 4100, "Next update in", False),
-    (16, 3700, "Update overdue · expected at", False),
+    (16, 3700, "Update overdue · expected at", True),
     (30, 3381, "Update overdue · expected at", True),
 ])
 def test_late_states_and_battery_fit_every_viewport(
         new_context, make_app_server, scheme, viewport_name, viewport,
         minutes_ago, battery_mv, wording, amber):
-    """on time, briefly late and long overdue each read their own wording; only the long one
-    turns the dot amber and shows the Health link (a 44px target on a phone); the battery
-    figure and dial are large, the zones arrange for the card's width, and nothing overflows"""
+    """on time, late and long overdue each read their own wording; only the on-time one keeps
+    the green dot and no Health link, a late or long overdue frame turns the dot amber and shows
+    the Health link (a 44px target on a phone); the battery figure and dial are large, the zones
+    arrange for the card's width, and nothing overflows"""
     server = make_app_server(seed=_seed_checkin(minutes_ago, battery_mv), fake_providers=True)
     context = new_context(viewport=viewport, color_scheme=scheme)
     try:
@@ -407,6 +413,7 @@ def test_resting_dot_does_not_pulse(new_context, make_app_server):
     context, page = _open_home(new_context, server.base_url(), "en", VIEWPORT_PHONE)
     try:
         assert page.locator(".home-state__dot.dot--off").count() == 1
+        assert page.locator(".home-state__dot").get_attribute("aria-label") == "Resting"
         assert _dot_animation(page)["name"] == "none"
     finally:
         context.close()
@@ -477,3 +484,118 @@ def test_quiet_hours_window_link_opens_the_display_section_without_toggling(
         assert device_config.load_device_config(server.state_dir)["quiet_hours_enabled"] is True
     finally:
         context.close()
+
+
+# --- a plain user's Home: one dot, no battery tile, no attention bar ----------
+
+STALE_TS = "2026-01-01T00:00:00+00:00"
+
+
+def _seed_user_fleet(mode):
+    """A provisioned fleet (user A owns two frames) whose first frame is fresh, never seen,
+    long silent or switched off, by `mode`."""
+    def seed(state_dir):
+        fleet = provision_fleet(state_dir)
+        directory = device_dir(state_dir, fleet.a1)
+        stamp = {"fresh": datetime.now(timezone.utc).isoformat(), "silent": STALE_TS}.get(mode)
+        if stamp is not None:
+            with history_db.open_db(directory) as conn:
+                history_db.record_device_health(
+                    conn, stamp, battery_mv=4000, fw_version="1.0.0",
+                    boot_reason="wake", rssi="-60")
+        if mode == "off":
+            with history_db.open_db(directory) as conn:
+                history_db.record_device_health(
+                    conn, datetime.now(timezone.utc).isoformat(), battery_mv=4000,
+                    fw_version="1.0.0", boot_reason="wake", rssi="-60")
+            device_config.save_device_config(directory, display_enabled=False)
+        seed.fleet = fleet
+    return seed
+
+
+def _open_user_home(new_context, server, fleet, lang="en", **context_args):
+    context = new_context(**context_args)
+    base = server.base_url()
+    pair = session_cookie_for_state_dir(server.state_dir, USER_A_EMAIL)
+    name, value = pair.split("=", 1)
+    context.add_cookies([
+        {"name": name, "value": value, "url": base, "httpOnly": True, "sameSite": "Strict"},
+        {"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base}])
+    page = context.new_page()
+    page.goto(base + "/devices/%s/" % fleet.a1)
+    page.locator(".home-state").wait_for(state="visible")
+    return context, page
+
+
+@pytest.mark.parametrize("mode,word,tone,health_link", [
+    ("fresh", "Up to date", "ok", False),
+    ("off", "Resting", "off", False),
+    ("silent", "No contact", "error", True),
+    ("never", "Not seen yet", "warn", True),
+])
+def test_user_home_dot_names_the_state_and_health_link_follows_it(
+        new_context, make_app_server, mode, word, tone, health_link):
+    """the dot's accessible name uses the shared state words; See Health appears only when
+    the dot is amber or red"""
+    seed = _seed_user_fleet(mode)
+    server = make_app_server(seed=seed)
+    context, page = _open_user_home(new_context, server, seed.fleet, viewport=VIEWPORT_DESKTOP)
+    try:
+        dot = page.locator(".home-state__dot")
+        assert dot.count() == 1
+        assert dot.get_attribute("aria-label") == word
+        assert dot.get_attribute("role") == "img"
+        assert "home-state--%s" % tone in page.locator(".home-state").get_attribute("class")
+        assert page.locator('.home-state a[href$="/health"]').count() == (1 if health_link else 0)
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("viewport_name,viewport", [VIEWPORTS[0], VIEWPORTS[-1]], ids=["1280", "360"])
+def test_user_home_layout_has_the_switcher_first_and_no_battery_tile(
+        new_context, make_app_server, viewport_name, viewport, scheme, lang):
+    """a user with two frames sees the switcher above the title, the status card, the picture
+    and the recent flights in that order; there is no battery tile and no attention bar; the
+    switches keep 44px targets and nothing overflows"""
+    seed = _seed_user_fleet("silent")
+    server = make_app_server(seed=seed)
+    context, page = _open_user_home(
+        new_context, server, seed.fleet, lang=lang, viewport=viewport, color_scheme=scheme)
+    try:
+        assert page.locator(".home-battery").count() == 0
+        assert page.locator(".home-action").count() == 0
+        tops = page.evaluate(
+            """() => ['details.frame-switcher', 'h1', '.home-state', '.home-current-frame',
+                      '.home-section[aria-labelledby="home-flights"]']
+                .map(s => document.querySelector(s).getBoundingClientRect().top)""")
+        assert tops[0] < tops[1] < tops[2] < tops[3]
+        if viewport["width"] < 960:
+            assert tops[3] < tops[4]
+        for selector in (SCOPED_SCREEN_BUTTON, SCOPED_QUIET_BUTTON):
+            box = page.locator(selector).bounding_box()
+            assert box["height"] >= 44 and box["x"] + box["width"] <= viewport["width"]
+        link = page.locator('.home-state a[href$="/health"]').bounding_box()
+        assert link["height"] >= (32 if viewport["width"] >= 1280 else 44)
+        _assert_zone_arrangement_without_battery(page)
+        assert not _assert_no_page_overflow(
+            page, "user-home/%s/%s/%s" % (scheme, viewport_name, lang), viewport["width"])
+    finally:
+        context.close()
+
+
+def _assert_zone_arrangement_without_battery(page):
+    """the status zone and the switches stay inside the card and never overlap"""
+    geometry = page.evaluate(
+        """() => {
+            const r = s => document.querySelector(s).getBoundingClientRect();
+            return {status: r('.home-state__status'), switches: r('.home-state__switches'),
+                    panel: r('.home-state')};
+        }""")
+    status, switches, panel = geometry["status"], geometry["switches"], geometry["panel"]
+    for zone in (status, switches):
+        assert panel["left"] - 1 <= zone["left"] and zone["right"] <= panel["right"] + 1
+    beside = status["right"] <= switches["left"] + 1
+    above = status["bottom"] <= switches["top"] + 1
+    assert beside or above
