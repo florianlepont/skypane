@@ -1645,51 +1645,127 @@ select.visually-hidden {
   display: none;
 }
 
-/* Device selector above the page title (several devices only). Quiet
- * chrome: no accent, no card. A wrapping flex row; below 960px the caption
- * and the select each take a full line, so the select spans the content
- * column. The no-script submit stays visible until nav-dropdown.js arms the
- * form with --armed, so a blocked or failed script never hides it. */
-.device-selector {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-sm);
+/* Frame switcher above the page title (two or more frames). A native
+ * details: the summary shows the current frame, the panel lists one
+ * same-page link per frame. Quiet chrome on the card surface; accent only
+ * marks the current frame and the footer links. */
+details.frame-switcher {
+  position: relative;
+  max-width: 20rem;
   margin: 0 0 var(--space-md);
 }
 
-.device-selector__label {
-  flex: 1 1 100%;
-  margin: 0;
-  font-size: 12px;
-  font-weight: var(--weight-semibold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.device-selector select {
-  flex: 1 1 100%;
-  min-width: 0;
-  max-width: 24rem;
-}
-
-.device-selector__go {
+.frame-switcher__summary {
+  box-sizing: border-box;
+  gap: var(--space-sm);
   min-height: 44px;
-  min-width: 44px;
+  padding: 0 var(--space-md);
+  background: var(--color-dominant);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  list-style: none;
 }
 
-.device-selector--armed .device-selector__go {
+.frame-switcher__summary::-webkit-details-marker {
   display: none;
 }
 
-@media (min-width: 960px) {
-  .device-selector__label {
-    flex: none;
-  }
+/* The shared summary chevron moves to the trailing edge and points down
+ * (up when open). */
+.frame-switcher__summary::before {
+  order: 3;
+  margin: 0 0 0 auto;
+  transform: rotate(45deg);
+}
 
-  .device-selector select {
-    flex: 0 1 24rem;
+details.frame-switcher[open] > .frame-switcher__summary::before {
+  transform: rotate(-135deg);
+}
+
+.frame-switcher__name {
+  min-width: 0;
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.frame-switcher__panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  box-sizing: border-box;
+  margin-top: var(--space-xs);
+  padding: var(--space-xs) 0;
+  background: var(--color-dominant);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-pop);
+}
+
+.frame-switcher__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.frame-switcher__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 44px;
+  padding: var(--space-xs) var(--space-md);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.frame-switcher__row:hover {
+  background: var(--color-control-wash);
+}
+
+.frame-switcher__row[aria-current="true"] {
+  color: var(--color-accent);
+}
+
+.frame-switcher__text {
+  display: grid;
+  min-width: 0;
+}
+
+.frame-switcher__row .frame-switcher__name {
+  font-weight: var(--weight-regular);
+}
+
+.frame-switcher__row[aria-current="true"] .frame-switcher__name {
+  font-weight: var(--weight-semibold);
+}
+
+.frame-switcher__note {
+  font-size: var(--font-label-size);
+  overflow-wrap: anywhere;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.frame-switcher__footer {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-xs);
+  border-top: 1px solid var(--color-border);
+}
+
+.frame-switcher__footer a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  color: var(--color-accent);
+}
+
+@media (max-width: 959px) {
+  details.frame-switcher {
+    max-width: none;
   }
 }
 

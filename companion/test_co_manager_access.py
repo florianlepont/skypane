@@ -10,6 +10,7 @@ import pytest
 import fleet_console_support as fx
 from companion import device_scope
 from companion_app_server import InProcessAppServer, http_request, with_csrf
+from companion_markup import parse_html
 from server import device_config, fleet_db, hardware
 from server.plane import colour_rules, name_overrides
 
@@ -115,13 +116,17 @@ def test_a_co_manager_follows_the_legacy_redirects(rig, page):
     assert headers["Location"].startswith(rig.prefix() + "/")
 
 
-def test_the_shared_frame_is_in_the_co_manager_device_selector(rig):
+def test_the_shared_frame_is_in_the_co_manager_frame_switcher(rig):
     own = rig.db(lambda c: fleet_db.add_device(
         c, "aa:bb:cc:00:00:09", fx.SECRET_HASH, hardware.LEGACY_KEY, rig.co_id,
         name="Desk", state_path="auto"))
     _s, _h, body = rig.get("co", rig.prefix(own) + "/display")
-    assert 'value="%s"' % rig.device in body and 'value="%s"' % own in body
-    assert 'value="%s"' % rig.seed.live_id not in body
+    assert 'href="%s/display"' % rig.prefix(rig.device) in body
+    assert 'href="%s/display"' % rig.prefix(own) in body
+    assert 'href="%s/display"' % rig.prefix(rig.seed.live_id) not in body
+    shared = parse_html(body).select_one(
+        'a.frame-switcher__row[href="%s/display"] .frame-switcher__note' % rig.prefix(rig.device))
+    assert shared is not None and shared.text().strip().startswith("Shared \u00b7 ")
 
 
 # --- change --------------------------------------------------------------

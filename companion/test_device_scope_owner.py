@@ -200,16 +200,16 @@ def test_a_user_who_owns_the_live_frame_gets_real_id_urls(fleet):
     assert device_scope.selector_value(live) == live_id
 
 
-def test_the_selector_option_values_never_use_the_literal_live_for_a_user(fleet):
+def test_the_switcher_links_never_use_the_unprefixed_live_frame_for_a_user(fleet):
     state_dir, seeded = fleet
     live_id = _add_live_device(state_dir, seeded.owner_id)
     devices = device_scope.load_devices_for(state_dir, _principal(seeded, "owner"))
     live = next(d for d in devices if d.is_live)
     _enter("user", devices, live)
-    html = ui_shell.device_selector_html("display")
-    assert 'value="%s"' % live_id in html
+    html = ui_shell.frame_switcher_html("display")
+    assert 'href="/devices/%s/display"' % live_id in html
+    assert 'href="/display"' not in html
     assert 'value="live"' not in html
-    assert 'data-href="/devices/%s/display"' % live_id in html
 
 
 def test_an_admin_keeps_the_unprefixed_live_frame(fleet):

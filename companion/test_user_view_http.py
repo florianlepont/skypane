@@ -203,10 +203,10 @@ def test_a_user_who_owns_the_live_frame_is_served_under_its_real_id(live_rig):
         assert 'value="live"' not in body
 
 
-def test_the_selector_lists_only_the_users_own_frames(rig):
+def test_the_switcher_lists_only_the_users_own_frames(rig):
     body = rig.page("/devices/%s/display" % rig.fleet.a1, "a")
     for own in (rig.fleet.a1, rig.fleet.a2):
-        assert 'value="%s"' % own in body
+        assert 'href="/devices/%s/display"' % own in body
     assert NAME_A1 in body and NAME_A2 in body
     for foreign in (rig.fleet.b1, rig.fleet.live):
         assert foreign not in body

@@ -276,13 +276,14 @@ def now_epoch():
 
 # --- request scope ---------------------------------------------------------
 
-_SCOPE_CTX = contextvars.ContextVar("skypane_device_scope", default=(None, ()))
+_SCOPE_CTX = contextvars.ContextVar("skypane_device_scope", default=(None, (), None, None))
 
 
-def set_request_scope(device, devices):
-    """Store this request's device and device list. The sole mutation path;
-    call it exactly once per request."""
-    _SCOPE_CTX.set((device, tuple(devices)))
+def set_request_scope(device, devices, viewer_id=None, root=None):
+    """Store this request's device and device list, plus the signed-in user's
+    id and the state root the frame switcher needs to label shared frames.
+    The sole mutation path; call it exactly once per request."""
+    _SCOPE_CTX.set((device, tuple(devices), viewer_id, root))
 
 
 def current_device():
@@ -291,6 +292,63 @@ def current_device():
 
 def current_devices():
     return _SCOPE_CTX.get()[1]
+
+
+# One row of the frame switcher. `co_managed` marks a frame the viewer
+# manages but does not own; `owner_email` is set only when the row shows it.
+SwitcherEntry = collections.namedtuple("SwitcherEntry", "device co_managed owner_email")
+
+
+def _owner_emails(root, user_ids):
+    """{user id: email} for the ids; empty on any problem."""
+    ids = sorted({int(i) for i in user_ids})
+    if not ids or root is None:
+        return {}
+    try:
+        conn = fleet_db.connect_readonly(root)
+    except (fleet_db.FleetDbError, sqlite3.Error, OSError):
+        return {}
+    try:
+        marks = ",".join("?" for _ in ids)
+        rows = conn.execute(
+            "SELECT id, email FROM users WHERE id IN (%s)" % marks, ids).fetchall()
+        return {int(row["id"]): str(row["email"]) for row in rows}
+    except (sqlite3.Error, OSError):
+        return {}
+    finally:
+        conn.close()
+
+
+def _switcher_devices(device, devices, viewer_id, root):
+    """The scope's devices the switcher lists, and the co-managed ids. A user's
+    scope is already their own frames. An administrator's scope is every frame,
+    so it is cut to the frames they own or co-manage plus the one being viewed."""
+    shared = _co_managed_ids(root, viewer_id) if root is not None else set()
+    if _is_user_view() or viewer_id is None:
+        return list(devices), shared
+    kept = [
+        d for d in devices
+        if d.owner_user_id == viewer_id or d.id in shared or d.id == device.id]
+    return kept, shared
+
+
+def switcher_entries():
+    """The frames the frame switcher lists for this request, in scope order;
+    empty when no frame is in scope. Owner emails are attached only to frames
+    the viewer co-manages or, for an administrator, views without owning."""
+    device, devices, viewer_id, root = _SCOPE_CTX.get()
+    if device is None:
+        return ()
+    listed, shared = _switcher_devices(device, devices, viewer_id, root)
+    foreign = [
+        d for d in listed
+        if viewer_id is not None and d.owner_user_id not in (None, viewer_id)]
+    emails = _owner_emails(root, [d.owner_user_id for d in foreign])
+    return tuple(
+        SwitcherEntry(
+            d, d.id in shared and d in foreign,
+            emails.get(d.owner_user_id) if d in foreign else None)
+        for d in listed)
 
 
 def _unprefixed(device):

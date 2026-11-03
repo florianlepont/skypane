@@ -49,7 +49,8 @@ class DeviceDispatchMixin:
             device = device_scope.find_device(root, route_match.device_id)
             if device is None:
                 return self.send_html(404, self._not_found_page())
-        device_scope.set_request_scope(device, devices)
+        device_scope.set_request_scope(
+            device, devices, getattr(principal, "user_id", None), root)
         if route.method == "GET" and route.device_scoped:
             location = device_scope.switch_target(
                 route_match.path, route_match.query, devices)

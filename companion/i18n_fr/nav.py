@@ -58,12 +58,10 @@ MESSAGES = {
     "nav.light": "Clair",
     "nav.dark": "Sombre",
 
-    # The device selector above the page title (several devices only).
-    "nav.device_selector_label": "Cadre",
-    "nav.device_selector_go": "Afficher le cadre",
-    "nav.device_never_seen": "pas encore vu",
-    "nav.device_offline": "hors ligne",
-    "nav.device_pill_never_seen": "Pas encore vu",
-    "nav.device_pill_offline": "Hors ligne",
+    # The frame switcher above the page title (two or more frames).
+    "nav.frame_switcher_aria": "Changer de cadre, actuel : %s",
+    "nav.frame_switcher_shared": "Partagé · %s",
+    "nav.frame_switcher_my_frames": "Mes cadres",
+    "nav.frame_switcher_all_frames": "Tous les cadres (Flotte)",
     "nav.device_default_name": "Cadre d’Orly",
 }

@@ -1,4 +1,4 @@
-"""The device selector: rendered only for several devices, on device-scoped
+"""The frame switcher: rendered only for several frames, on device-scoped
 pages only, working without script, never leaking a secret, and switching
 through a validated redirect. Real app subprocess over a seeded fleet.
 """
@@ -6,7 +6,8 @@ import re
 import urllib.parse
 
 import pytest
-from companion_app_server import http_request, login
+from companion_app_server import http_request, login, session_cookie_for_state_dir
+from skypane_two_device_fleet import OWNER_EMAIL
 from companion_markup import parse_html
 from skypane_live_state import seed_live_like_state
 
@@ -42,6 +43,9 @@ def _seed(fleet):
 @pytest.fixture(scope="module")
 def fleet_app(module_app_server_factory):
     app = start_fleet_app(module_app_server_factory, seed_extra=_seed)
+    # The fleet's owner is an administrator who owns every frame, so the
+    # switcher lists all of them.
+    app.cookie = session_cookie_for_state_dir(app.server.state_dir, OWNER_EMAIL)
     return app
 
 
@@ -69,104 +73,94 @@ def _fleet_get(app, path, lang=None):
     return _get(app.server, app.cookie, path, lang)
 
 
-def _options(page):
+def _switcher(page):
     root = parse_html(page)
-    return root, root.select("select[name='device'] option")
+    return root, root.select_one("details.frame-switcher")
 
 
-def test_single_device_renders_no_selector_markup(single_app):
+def _rows(page):
+    root, _switcher_node = _switcher(page)
+    return root, root.select("details.frame-switcher a.frame-switcher__row")
+
+
+def test_single_device_renders_no_switcher_markup(single_app):
     server, cookie = single_app
     for route in SCOPED_PAGES:
         status, _, page = _get(server, cookie, route)
         assert status == 200
-        assert "device-selector" not in page
+        assert "frame-switcher" not in page
         assert 'name="device"' not in page
 
 
 @pytest.mark.parametrize("route", SCOPED_PAGES)
-def test_selector_on_every_device_scoped_page(fleet_app, route):
+def test_switcher_on_every_device_scoped_page(fleet_app, route):
     status, _, page = _fleet_get(fleet_app, route)
     assert status == 200
-    root = parse_html(page)
-    group = root.select_one("div[role='group']")
-    assert group is not None
-    label = group.select_one("label")
-    select = group.select_one("select")
-    assert group.attrs["aria-labelledby"] == label.attrs["id"]
-    assert label.attrs["for"] == select.attrs["id"]
-    assert select.attrs["name"] == "device"
-    form = group.select_one("form")
-    assert form.attrs["method"] == "get"
-    assert "aria-label" not in form.attrs and "aria-labelledby" not in form.attrs
-    assert group.select_one("button.device-selector__go") is not None
+    root, switcher = _switcher(page)
+    assert switcher is not None
+    summary = switcher.select_one("summary")
+    assert summary.attrs["aria-label"].startswith("Switch frame, current: ")
+    assert not switcher.select("form") and not switcher.select("select")
     # Before the title, inside the main region.
-    main = root.select_one("main")
-    assert main.select_one("div[role='group']") is not None
-    assert page.index("device-selector-label") < page.index("page-title")
+    assert root.select_one("main").select_one("details.frame-switcher") is not None
+    assert page.index("frame-switcher__summary") < page.index("page-title")
 
 
 @pytest.mark.parametrize("route", ["/update", "/login"])
-def test_global_pages_have_no_selector(fleet_app, route):
+def test_global_pages_have_no_switcher(fleet_app, route):
     _, _, page = _fleet_get(fleet_app, route)
-    assert "device-selector" not in page
+    assert "frame-switcher" not in page
 
 
-def test_not_found_page_has_no_selector(fleet_app):
+def test_not_found_page_has_no_switcher(fleet_app):
     status, _, page = _fleet_get(fleet_app, "/devices/d_00000000/flights")
     assert status == 404
-    assert "device-selector" not in page
+    assert "frame-switcher" not in page
 
 
-def test_options_order_value_label_and_status(fleet_app):
+def test_rows_order_and_status_words(fleet_app):
     fleet = fleet_app.fleet
     _, _, page = _fleet_get(fleet_app, "/flights")
-    _, options = _options(page)
-    values = [option.attrs["value"] for option in options]
-    assert values[0] == "live"
-    assert set(values[1:]) == {fleet.dev_a.id, fleet.dev_b.id, fleet.landscape.id}
-    texts = {option.attrs["value"]: option.text().strip() for option in options}
-    assert "—" not in texts["live"]
-    assert "—" not in texts[fleet.dev_a.id]
-    assert texts[fleet.dev_b.id].endswith("— offline")
-    assert texts[fleet.landscape.id].endswith("— not seen yet")
-    names = [texts[v].split(" — ")[0] for v in values[1:]]
+    _, rows = _rows(page)
+    hrefs = [row.attrs["href"] for row in rows]
+    assert hrefs[0] == "/flights"
+    assert set(hrefs[1:]) == {
+        "/devices/%s/flights" % d.id for d in (fleet.dev_a, fleet.dev_b, fleet.landscape)}
+    words = {
+        row.attrs["href"]: row.select_one("span[role='img']").attrs["aria-label"]
+        for row in rows}
+    assert words["/devices/%s/flights" % fleet.dev_b.id] == "No contact"
+    assert words["/devices/%s/flights" % fleet.landscape.id] == "Not seen yet"
+    assert words["/devices/%s/flights" % fleet.dev_a.id] in ("Up to date", "Low battery")
+    names = [row.select_one(".frame-switcher__name").text().strip() for row in rows[1:]]
     assert names == sorted(names)
 
 
-def test_option_data_href_targets_the_same_page_under_each_device(fleet_app):
+def test_row_links_keep_the_page_and_mark_the_current_frame(fleet_app):
     fleet = fleet_app.fleet
     _, _, page = _fleet_get(fleet_app, "/devices/%s/flights" % fleet.dev_a.id)
-    _, options = _options(page)
-    hrefs = {option.attrs["value"]: option.attrs["data-href"] for option in options}
-    assert hrefs["live"] == "/flights"
-    assert hrefs[fleet.dev_a.id] == "/devices/%s/flights" % fleet.dev_a.id
-    assert hrefs[fleet.dev_b.id] == "/devices/%s/flights" % fleet.dev_b.id
-    selected = [o.attrs["value"] for o in options if "selected" in o.attrs]
-    assert selected == [fleet.dev_a.id]
+    _, rows = _rows(page)
+    hrefs = {row.attrs["href"] for row in rows}
+    assert "/flights" in hrefs
+    assert "/devices/%s/flights" % fleet.dev_b.id in hrefs
+    current = [row.attrs["href"] for row in rows if row.attrs.get("aria-current") == "true"]
+    assert current == ["/devices/%s/flights" % fleet.dev_a.id]
 
 
-def test_live_frame_selected_by_default_and_default_name(fleet_app):
+def test_live_frame_is_current_by_default_with_its_default_name(fleet_app):
     _, _, page = _fleet_get(fleet_app, "/")
-    _, options = _options(page)
-    selected = [o for o in options if "selected" in o.attrs]
-    assert [o.attrs["value"] for o in selected] == ["live"]
-    assert selected[0].text().strip() == "Orly frame"
+    _, rows = _rows(page)
+    current = [row for row in rows if row.attrs.get("aria-current") == "true"]
+    assert [row.attrs["href"] for row in current] == ["/"]
+    assert current[0].select_one(".frame-switcher__name").text().strip() == "Orly frame"
 
 
-def test_pill_only_for_selected_non_live_device_with_a_status(fleet_app):
-    fleet = fleet_app.fleet
-    _, _, live_page = _fleet_get(fleet_app, "/health")
-    selector_html = live_page.split("<main", 1)[1].split("page-title")[0]
-    assert "banner__pill" not in selector_html
-    _, _, ok_page = _fleet_get(fleet_app, "/devices/%s/flights" % fleet.dev_a.id)
-    assert parse_html(ok_page).select("form.device-selector .banner__pill") == []
-    _, _, off_page = _fleet_get(fleet_app, "/devices/%s/flights" % fleet.dev_b.id)
-    root = parse_html(off_page)
-    pill = root.select_one("form.device-selector .banner__pill")
-    assert pill is not None and pill.text().strip() == "Offline"
-    _, _, never_page = _fleet_get(fleet_app, "/devices/%s/flights" % fleet.landscape.id)
-    pill = parse_html(never_page).select_one("form.device-selector .banner__pill")
-    assert pill is not None and pill.text().strip() == "Not seen yet"
+def test_footer_links_for_an_administrator(fleet_app):
+    _, _, page = _fleet_get(fleet_app, "/health")
+    _, switcher = _switcher(page)
+    links = {a.attrs["href"]: a.text().strip() for a in switcher.select("div.frame-switcher__footer a")}
+    assert links == {
+        "/account#account-frames": "My frames", "/fleet": "All frames (Fleet)"}
 
 
 def test_no_mac_token_or_secret_in_any_page(fleet_app):
@@ -179,9 +173,9 @@ def test_no_mac_token_or_secret_in_any_page(fleet_app):
 
 def test_markup_in_a_device_name_is_escaped(fleet_app):
     fleet = fleet_app.fleet
-    _, _, selector_page = _fleet_get(fleet_app, "/flights")
-    assert MARKUP_NAME not in selector_page
-    assert "&lt;script&gt;" in selector_page
+    _, _, switcher_page = _fleet_get(fleet_app, "/flights")
+    assert MARKUP_NAME not in switcher_page
+    assert "&lt;script&gt;" in switcher_page
     _, _, page = _fleet_get(fleet_app, "/devices/%s/flights" % fleet.dev_b.id)
     title = re.search(r"<title>(.*?)</title>", page, re.S).group(1)
     assert "<script>" not in title and "&lt;script&gt;" in title
@@ -205,15 +199,15 @@ def test_landmark_counts_are_unchanged(fleet_app):
         if n.attrs.get("aria-label")]
     assert nav_names.count("Primary navigation") == 2
     assert len(root.find_all("main")) == 1
-    assert len(root.find_all("form", attrs={"aria-label": None})) >= 1
 
 
-def test_selector_is_in_french_when_the_language_is_french(fleet_app):
+def test_switcher_is_in_french_when_the_language_is_french(fleet_app):
     _, _, page = _fleet_get(fleet_app, "/flights", lang="fr")
-    root = parse_html(page)
-    assert root.select_one("form.device-selector label").text().strip() == "Cadre"
-    assert "Afficher le cadre" in page
-    assert "pas encore vu" in page and "hors ligne" in page
+    _, switcher = _switcher(page)
+    assert switcher.select_one("summary").attrs["aria-label"].startswith(
+        "Changer de cadre, actuel\u00a0: ")
+    assert "Mes cadres" in page and "Tous les cadres (Flotte)" in page
+    assert "Sans contact" in page and "Pas encore vu" in page
     assert "Cadre d’Orly" in page
 
 

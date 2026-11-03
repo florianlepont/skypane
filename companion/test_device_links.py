@@ -46,20 +46,20 @@ def _actions(body):
     return [node.attrs.get("action", "") for node in parse_html(body).find_all("form")]
 
 
-def _inside_device_selector(node):
+def _inside_frame_switcher(node):
     while node is not None:
-        if "device-selector" in node.attrs.get("class", ""):
+        if "frame-switcher" in node.attrs.get("class", ""):
             return True
         node = node.parent
     return False
 
 
-def _prefixed_urls_outside_selector(body):
-    """URL-valued attributes under /devices/ anywhere except the device
-    selector, whose job is to link to other devices."""
+def _prefixed_urls_outside_switcher(body):
+    """URL-valued attributes under /devices/ anywhere except the frame
+    switcher, whose job is to link to other devices."""
     found = []
     for node in parse_html(body).find_all():
-        if _inside_device_selector(node):
+        if _inside_frame_switcher(node):
             continue
         for name, value in node.attrs.items():
             if isinstance(value, str) and value.startswith("/devices/") \
@@ -149,12 +149,12 @@ def test_flash_link_action_and_dismiss_keep_the_prefix(app):
 
 @pytest.mark.parametrize("path", LIVE_PAGES)
 def test_unprefixed_pages_carry_no_device_prefix(app, path):
-    assert _prefixed_urls_outside_selector(_page(app, path)) == []
+    assert _prefixed_urls_outside_switcher(_page(app, path)) == []
 
 
 def test_unprefixed_flash_toast_carries_no_device_prefix(app):
     body = _page(app, "/display?flash=display_on")
-    assert _prefixed_urls_outside_selector(body) == []
+    assert _prefixed_urls_outside_switcher(body) == []
     toast = parse_html(body).select_one("form.toast__action-form")
     assert toast.attrs["action"] == "/quick/display"
 
@@ -277,7 +277,7 @@ def test_frame_preview_urls_resolve_under_the_prefix(seeded):
 
 def test_unprefixed_airlines_and_display_pages_carry_no_prefix(seeded):
     for path in ("/airlines", "/airlines?resolve=ABC", "/display?sheet=manage", "/health"):
-        assert _prefixed_urls_outside_selector(_page(seeded, path)) == [], path
+        assert _prefixed_urls_outside_switcher(_page(seeded, path)) == [], path
 
 
 def test_freshness_script_refreshes_its_own_page_and_finds_the_prefixed_health_link(seeded):
