@@ -64,3 +64,48 @@ NULL means unknown, not zero. It appears when the frame sent no header (older fi
 ### Gap after an OTA
 
 After a successful over-the-air update the firmware restarts without entering deep sleep. The update wake's own record is never written, and RTC memory is reinitialised. The next wake therefore sends no `p_` keys, and its `seq` need not follow the previous row's `seq` by one, because every app start increments the counter. Readers treat a missing `p_` block or a gap in `seq` as unknown wakes, never as an error and never as zeros.
+
+## Model
+
+`hardware/wakemodel.py` estimates what one wake costs from a battery-history export. It reads the export, joins each row's previous-wake fields to the previous wake by sequence number, and classifies every wake from the device-reported fields (never from the time between rows): no-change (`p_rd=0`, outcome `ok`), redraw (`p_rd=1`), deferred (`p_rd=2`), failed (any other outcome with `p_rd=0`) or unknown. A row without a previous-wake block, a block that names another sequence number, and a jump in sequence numbers all make the wakes concerned unknown. They are never guessed and never counted as zeros.
+
+The export is cut into consecutive segments (48 h by default) after the first 24 h are ignored. Each segment gives the charge used, from the fall of the rated-curve charge fraction between two median end points (12 h windows, quiet-hour polls left out, the same curve and quiet-hour test as `logtools.py`), the hours between those end points, and the count of no-change and redraw wakes between them. A segment that starts above 4000 mV (the uncalibrated part of the curve), has fewer than 5 non-quiet polls in an end window, or has more than a quarter of its wakes unknown, deferred or failed, is dropped and reported.
+
+Three unknowns are fitted by exact non-negative least squares:
+
+    charge used (mAh) = standing_mA x hours + no_change_mAh x no-change wakes + redraw_mAh x redraw wakes
+
+None of the three is ever printed negative. A standing draw near zero is a result, not a refusal: it is always printed as an upper bound ("at most N mA, 95 percent upper bound") with the best fit shown only as "may be zero".
+
+### Run
+
+    python3 hardware/wakemodel.py fit EXPORT --capacity-mah N [--out FILE.json]
+
+`--capacity-mah` is the pack rating, not a measurement. Exit code 0 is a fit, 2 is a refusal, 1 is a usage or file error. `--out` writes a deterministic JSON report (sorted keys, no run time, no absolute path).
+
+### Refusals
+
+The tool refuses, prints the reason and "No wake energy figure is given.", and still prints the device-reported awake-time breakdown (a direct measurement) when:
+
+| Reason | Default limit |
+|--------|---------------|
+| no row carries per-wake fields | none |
+| too few usable segments | at least 6 |
+| the redraw share barely varies across segments | spread of at least 0.15 |
+| the design is ill-conditioned (hours and wake counts nearly proportional) | scaled condition number at most 100 |
+| the redraw wake energy is not resolved above zero | 95 percent range above zero |
+| the implied mean current during awake time conflicts with the reported timing | at most 500 mA no-change, 200 mA redraw |
+
+Each reason names what would separate the unknowns. With one check-in interval, hours and wake counts are exactly proportional, so a baseline needs a window at another interval, or a period with a different redraw share. A baseline of at least 14 days at one interval gives six 48 h segments; a second window at another interval is likely needed as well. The limits can be changed with flags, and the output states them.
+
+### Reading the output
+
+The ranges are approximate 95 percent ranges from the unconstrained least-squares covariance and a t table; they ignore curve and capacity error. The implied current is the fitted energy divided by the device-reported mean awake time; it is a plausibility check on the fit, not a measurement. Every output states that the figures are energy estimates from voltage and timing on a rated capacity, not current measurements.
+
+### What was not fittable before
+
+The aggregates of the old-pack runs could not be fitted: a three-parameter solve on them (the researcher's arithmetic on rough inputs) gave negative coefficients, which are not physical. They also carry no per-wake fields, so the tool refuses the committed old-pack export with "no per-wake telemetry in this export".
+
+### Fixtures
+
+`hardware/fixtures/wakemodel-synthetic.jsonl` and `wakemodel-collinear.jsonl` are synthetic. The truth values (standing draw, no-change and redraw energy, pack rating) are in the builder in `hardware/test_wakemodel.py`, which also regenerates both fixtures and `wakemodel-synthetic-output.json` byte for byte in a test. `python3 hardware/wakemodel.py selftest` runs the tool on the two fixtures.
