@@ -6696,7 +6696,7 @@ button.calendar-disconnect-btn:focus-visible {
   box-shadow: none;
 }
 
-/* Co-managers card: a row is the address with its pills on the left and the
+/* Manage access dialog: a row is the address with its pills on the left and the
  * Remove action on the right, wrapping beneath on a narrow phone. A long
  * address wraps inside its own box instead of widening the page. */
 .co-manager__row {
@@ -6725,8 +6725,8 @@ button.calendar-disconnect-btn:focus-visible {
 }
 
 /* The administrator's picker holds full e-mail addresses; a native select
- * sizes to its longest option, so cap it at the card's width. */
-#co-manager-person {
+ * sizes to its longest option, so cap it at the dialog's width. */
+.modal__body select {
   max-width: 100%;
 }
 

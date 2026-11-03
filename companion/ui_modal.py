@@ -132,13 +132,15 @@ def dialog_html(
 
 
 def sections_dialog_html(
-        dialog_id, title, subtitle, sections_html, dismiss_label, dismiss_href):
+        dialog_id, title, subtitle, sections_html, dismiss_label, dismiss_href,
+        open_=False):
     """A modal dialog whose body is several independent forms.
 
     Unlike `dialog_html` it wraps no form of its own: `sections_html` holds
     one `<form>` per section (the caller has already escaped it) and the
     dialog only offers a dismiss link. The first visible control takes the
-    initial focus, or the dismiss link when the sections have none.
+    initial focus, or the dismiss link when the sections have none. `open_`
+    renders the `open` attribute for a dialog reopened after a change.
     """
     slug = validated_slug(dialog_id)
     title_id = slug + "-title"
@@ -149,7 +151,7 @@ def sections_dialog_html(
         if subtitle else "")
     href = escape_html(dismiss_href)
     return (
-        '<dialog class="modal" id="%(id)s" aria-labelledby="%(title_id)s">'
+        '<dialog class="modal" id="%(id)s" aria-labelledby="%(title_id)s"%(open)s>'
         '<header class="modal__head"><div>'
         '<h2 class="modal__title text-heading" id="%(title_id)s">%(title)s</h2>'
         '%(subtitle)s</div>'
@@ -162,6 +164,7 @@ def sections_dialog_html(
     ) % {
         "id": slug,
         "title_id": title_id,
+        "open": " open" if open_ else "",
         "title": escape_html(title),
         "subtitle": subtitle_html,
         "href": href,

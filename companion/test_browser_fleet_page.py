@@ -125,7 +125,7 @@ def test_the_row_menu_opens_closes_with_escape_and_has_44px_items(
         page.locator(toggle).click()
         assert page.locator("li.entity-row >> nth=0 >> details.row-menu[open]").count() == 1
         items = page.locator("li.entity-row >> nth=0 >> .row-menu__item")
-        assert items.count() == 3
+        assert items.count() == 4
         for index in range(items.count()):
             assert items.nth(index).bounding_box()["height"] >= MIN_TAP_PX
         assert not _assert_no_page_overflow(page, "menu-open", viewport["width"])

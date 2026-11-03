@@ -110,6 +110,7 @@ def test_row_menus_follow_the_frame_state(fleet):
     rows = _rows(page)
     owned = rows[seed.owned_id]
     assert "Open frame" in owned and "/devices/%s/" % seed.owned_id in owned
+    assert 'href="#dlg-access-%s"' % _slug(seed.owned_id) in owned
     assert 'href="#dlg-reassign-%s"' % _slug(seed.owned_id) in owned
     assert 'href="#dlg-retire-%s"' % _slug(seed.owned_id) in owned
     assert 'aria-label="Actions for Kitchen"' in owned

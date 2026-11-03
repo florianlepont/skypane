@@ -239,6 +239,19 @@ def _battery_received_at(state_dir):
     return float(received)
 
 
+def last_check_in_ts(state_dir):
+    """The raw ISO `ts` of the newest check-in in the history database, or
+    None (no database, no reading, or an unreadable one)."""
+    if not os.path.exists(history_db.history_db_path(state_dir)):
+        return None
+    try:
+        with history_db.open_db(state_dir) as conn:
+            row = history_db.latest_device_health(conn)
+    except (sqlite3.Error, OSError):
+        return None
+    return row["ts"] if row else None
+
+
 def last_check_in_epoch(state_dir):
     """Epoch seconds of the newest check-in recorded for this directory, or None."""
     if os.path.exists(history_db.history_db_path(state_dir)):
