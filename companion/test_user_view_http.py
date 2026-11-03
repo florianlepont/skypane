@@ -11,6 +11,7 @@ import urllib.parse
 import pytest
 
 from companion import i18n, layout, routes
+from companion_markup import parse_html
 from companion.layout import escape_html
 from companion.pages import health_page
 from companion.settings import calendar as calendar_settings
@@ -329,6 +330,25 @@ def test_user_home_has_no_led_switch_and_no_refresh_trigger(rig):
     for absent in ("/quick/led", "led_enabled", "/poll", "Refresh now"):
         assert absent not in home
     assert "/quick/display" in home and "/quick/quiet-hours" in home
+
+
+def test_user_home_has_one_dot_and_no_battery_tile_or_attention_bar(rig):
+    """a user's Home reads the frame state from one dot with its word, in the order switcher,
+    status card, picture, recent flights; the battery tile and the attention bar belong to the
+    administrator's Home only"""
+    mark_checked_in(rig.state_dir, rig.fleet.a1, source_fault=True)
+    path = "/devices/%s/" % rig.fleet.a1
+    user_home = rig.page(path, "a")
+    admin_home = rig.page(path, "admin")
+    root = parse_html(user_home)
+    assert len(root.select(".home-state__dot")) == 1
+    assert root.select_one(".home-state__dot").attrs["aria-label"]
+    assert not root.select(".home-battery") and not root.select(".home-action")
+    assert user_home.index("frame-switcher") < user_home.index("home-state ")
+    assert user_home.index("home-state ") < user_home.index("home-current-frame")
+    assert user_home.index("home-current-frame") < user_home.index("home-flights")
+    assert user_home.index("home-state ") < user_home.index("home-flights")
+    assert parse_html(admin_home).select(".home-battery")
 
 
 def test_user_health_has_none_of_the_platform_rows(rig):

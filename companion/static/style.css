@@ -5623,6 +5623,10 @@ button.detection-location-save {
   --home-tone: var(--color-status-warn);
 }
 
+.home-state--error {
+  --home-tone: var(--color-status-error);
+}
+
 .home-state--off {
   --home-tone: color-mix(in srgb, var(--color-text) 45%, transparent);
 }
@@ -5721,7 +5725,8 @@ button.detection-location-save {
  * resting frame (quiet hours, screen off) carries no pulse class. The
  * amber ring is gentler (smaller, fainter) through two custom properties,
  * never a second duration. */
-.home-state--warn .home-state__dot {
+.home-state--warn .home-state__dot,
+.home-state--error .home-state__dot {
   --dot-halo-scale: 2.2;
   --dot-halo-alpha: 0.35;
 }
@@ -6155,6 +6160,20 @@ button.detection-location-save {
     border-top: 0;
     border-left: 1px solid var(--color-border);
     border-radius: 0 var(--radius-card) var(--radius-card) 0;
+  }
+}
+
+/* Without the battery dial (a plain user's Home) the status zone and the
+ * switches share the row. */
+@container (min-width: 520px) {
+  .home-state--no-battery .home-state__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container (min-width: 840px) {
+  .home-state--no-battery .home-state__body {
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
   }
 }
 
