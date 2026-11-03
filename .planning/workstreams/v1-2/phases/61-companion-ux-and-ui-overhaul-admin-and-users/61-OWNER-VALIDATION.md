@@ -65,3 +65,9 @@ Larger redesigns (new design work, owner decision on scope):
 - D24 (owner) The Home notification with the "write to the administrator"
   link also appears for the red state (frame without contact), not only for
   amber.
+- D25 (owner) The Home notification for the amber and red states says more
+  of what the server already knows (low battery or delay, for how long, a
+  fitting tip) so that a user can manage on their own on the things they can
+  act on (charge the frame, check the Wi-Fi, ...). The frame cannot report
+  the cause of a lost connection (frozen phase-47 protocol): Wi-Fi,
+  internet and server-down all read "no contact".
