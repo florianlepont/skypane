@@ -1,7 +1,8 @@
 """The shared entity list: helper markup contract and the served rules.
 Browser behaviour of the list is asserted on the pages that adopt it."""
 from companion import ui_entity_list as el
-from companion_markup import parse_html
+from companion_app_server import served_stylesheet
+from companion_markup import css_rules, declarations_for, parse_html
 
 HOSTILE = '"><script>alert(1)</script>'
 
@@ -19,7 +20,7 @@ def test_row_has_dot_text_block_and_action_and_no_table():
     doc = _row()
     rows = doc.select("ul.entity-list li.entity-row")
     assert len(rows) == 1
-    assert doc.select("li.entity-row .dot")
+    assert doc.select("li.entity-row .entity-row__dot .dot")
     link = doc.select_one("a.entity-row__title")
     assert link.attrs["href"] == "/devices/abc/" and link.text() == "Kitchen frame"
     assert doc.select_one(".entity-row__meta").text() == "owner@example.com"
@@ -59,3 +60,22 @@ def test_menu_renders_label_and_three_items():
     assert "data-modal-open" not in items[0].attrs and items[0].attrs["href"] == "/devices/abc/"
     assert items[1].attrs["href"] == "#reassign-abc" and "data-modal-open" in items[1].attrs
     assert "row-menu__item--destructive" in items[2].attrs["class"]
+
+
+def test_stylesheet_serves_the_list_and_menu_rules(app_server_in_process):
+    css = served_stylesheet(app_server_in_process)
+    selectors = {sel for rule in css_rules(css) for sel in rule.selectors}
+    for wanted in ("li.entity-row", "ul.entity-list", ".row-menu__panel", ".row-menu__item",
+                   ".row-menu__toggle"):
+        assert wanted in selectors, wanted
+    row = declarations_for(css, "li.entity-row")
+    assert row["display"] == "grid"
+    assert row["grid-template-columns"] == "auto minmax(0, 1fr) auto"
+    title = declarations_for(css, ".entity-row__title")
+    assert title["overflow-wrap"] == "anywhere"
+    assert "font-family" not in title and "text-overflow" not in title
+    assert declarations_for(css, ".row-menu__toggle")["width"] == "44px"
+    assert declarations_for(css, ".row-menu__item")["min-height"] == "44px"
+    assert declarations_for(css, ".row-menu__panel")["box-shadow"] == "var(--shadow-pop)"
+    desktop = declarations_for(css, "li.entity-row", ("@media (min-width: 960px)",))
+    assert desktop["grid-template-columns"] == "minmax(0, 2fr) minmax(0, 2fr) auto"

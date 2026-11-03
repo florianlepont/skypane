@@ -8164,3 +8164,169 @@ a.modal__dismiss {
     background: var(--color-border);
   }
 }
+
+/* Shared entity list (companion/ui_entity_list.py): rows of an optional
+ * dot, a text block and one action. A phone shows one column; from 960px
+ * the same DOM becomes columns, with the dot in the row's left padding.
+ * Text always wraps (no ellipsis, no monospace) so nothing clips. */
+ul.entity-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entity-count {
+  margin: 0 0 var(--space-sm);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+li.entity-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+li.entity-row:last-child {
+  border-bottom: 0;
+}
+
+li.entity-row--no-dot {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.entity-row__dot {
+  display: flex;
+  align-items: center;
+  align-self: start;
+  margin-top: 6px;
+}
+
+.entity-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.entity-row__title {
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+a.entity-row__title {
+  color: var(--color-accent);
+}
+
+.entity-row__meta {
+  overflow-wrap: anywhere;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.entity-row__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+details.row-menu {
+  position: relative;
+}
+
+.row-menu__toggle {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  list-style: none;
+  cursor: pointer;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.row-menu__toggle::-webkit-details-marker {
+  display: none;
+}
+
+.row-menu__toggle:hover,
+details.row-menu[open] > .row-menu__toggle {
+  background: var(--color-control-wash);
+}
+
+.row-menu__panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 30;
+  box-sizing: border-box;
+  min-width: 12rem;
+  max-width: calc(100vw - 2 * var(--space-md));
+  padding: var(--space-xs) 0;
+  background: var(--color-dominant);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-pop);
+}
+
+.row-menu__item {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  color: var(--color-text);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.row-menu__item:hover {
+  background: var(--color-control-wash);
+}
+
+.row-menu__item--destructive {
+  color: var(--color-status-error);
+}
+
+@media (min-width: 960px) {
+  ul.entity-list {
+    max-width: 56rem;
+  }
+
+  li.entity-row {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) auto;
+    padding-left: calc(var(--space-md) + 12px + var(--space-sm));
+  }
+
+  li.entity-row--no-dot {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) auto;
+    padding-left: var(--space-md);
+  }
+
+  .entity-row__dot {
+    position: absolute;
+    left: var(--space-md);
+    top: var(--space-md);
+  }
+
+  .entity-row__text {
+    display: grid;
+    grid-column: 1 / 3;
+    grid-template-columns: subgrid;
+    column-gap: var(--space-sm);
+    align-items: center;
+  }
+
+  .entity-row__meta {
+    grid-column: 2;
+  }
+
+  .entity-row__pills {
+    grid-column: 2;
+  }
+}

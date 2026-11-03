@@ -36,7 +36,7 @@ def entity_row_html(dot_html, title, subtitle, pills_html, action_html, href=Non
     subtitle_markup = (
         '<span class="entity-row__meta text-label">%s</span>' % escape_html(subtitle)
         if subtitle else "")
-    dot_markup = dot_html or ""
+    dot_markup = '<span class="entity-row__dot">%s</span>' % dot_html if dot_html else ""
     # Without a dot the text block takes the first grid track instead.
     css = "entity-row" if dot_markup else "entity-row entity-row--no-dot"
     pills_markup = (
