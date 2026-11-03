@@ -130,9 +130,26 @@ The export was fetched through the read-only export route of the companion (`har
 
 What this changes in the record: the 0.39 mA figure stays withdrawn, the favourable hypothesis (1.95 mA at 900 s) is not supported by the interim readings, and the order of magnitude at 900 s is several mA, between 5 and 10 on the two rough methods (the tool's curve conversion and the run-one comparison). Nothing here separates the standing draw from the wake cost; that needs two cadences, which is the point of the switch to 3600 s. VAL-03 stays `open`.
 
-### Re-analysis, 2026-11-03
+### Two-cadence analysis, 2026-11-03
 
-The analysis planned for 2026-11-03 compares the 900 s segment (below 4000 mV) with the 3600 s segment on the same pack and firmware: I = s + w x 3600 / T for the standing draw s and the cost per wake w, each average current from the corrected tool (end points below 4000 mV) and from the curve-free comparison against run one, with the spread stated. The multimeter route stays optional. If the interim picture holds (several mA at 900 s) and the 3600 s segment does not fall far below it, the standing draw dominates and six months would need a hardware or firmware change, not only a longer interval; if the 3600 s average falls toward 1 mA, the wakes dominate. This paragraph states what each outcome would mean; it is not a result.
+Inputs: the `device_health` history of the test fetched through the read-only export route (`hardware/logs/oldpack-test-export-2026-11-03.jsonl`, 664 lines, last reading 2026-11-03T15:01:14Z, sha256 `ebd2bc09...a5a`, unmodified; its first 620 lines are identical to the 2026-11-01 export; 27 lines carry no telemetry fields and are not frame wakes, they are left out of every figure). The 3600 s segment was measured with the corrected tool, verbatim output in `hardware/logs/oldpack-test-trend-3600s-2026-10-31-to-11-03-output.txt` (and `.json`); the 900 s segment and the curve-free comparison with run one come from `hardware/oldpack_two_cadence.py` (arithmetic by Claude, not the tool of record), verbatim output in `hardware/logs/oldpack-two-cadence-2026-11-03-output.txt`. The script is stdlib only and reproduces the output from the two committed inputs (the export and `hardware/logs/battery-run-server.log`).
+
+| Interval | Segment | End-point medians | Curve-based current | Curve-free comparison with run one |
+|---|---|---|---|---|
+| 900 s | first reading at or below 3999 mV (2026-10-29T09:38Z) to the switch (2026-10-31T11:10Z), 40.5 h | 3998 to 3966 mV, 0.79 mV/h | 8.63 mA | 5.8 to 9.6 mA (the two crossing definitions) |
+| 3600 s | switch plus 3 h to the last reading, 63.8 h | 3954 to 3936 mV, 0.28 mV/h | 0.99 mA | about 0.6 mA |
+
+The corrected tool on the 3600 s segment: both end points are below 4000 mV, estimate 0.98 mA, sensitivity 0.54 mA per 10 mV of error at each end point (so about 1 mA with an uncertainty of the same order), and its band is `not_applicable` only because at 3600 s the 180-day allowance, the favourable and the central values are not in increasing order (0.69, 0.49, 7.64 mA), which the tool cannot rank. Reference values at 3600 s: favourable 0.49 mA, central 7.64 mA.
+
+What the two cadences show, by reading of Claude (arithmetic and judgement, not a tool verdict):
+- The central fit, whose standing draw of 7.30 mA would give about 7.6 mA at 3600 s, is not supported: the measured average at 3600 s is about 1 mA. The standing draw is at most about 1 mA (possibly near zero, within the uncertainty).
+- The favourable hypothesis at 3600 s (0.49 mA) is within the uncertainty of the measurement and is not excluded.
+- From 900 s to 3600 s the average current falls by a factor of about 6 to 9, while the wake count falls by 4. With I = s + w x 3600 / T this would need a negative standing draw, so the cost of a wake is not constant: it appears higher at 900 s than at 3600 s. The gaps between wakes point the same way (a median overhead of about 34 s over the configured sleep at 900 s, about 20 s at 3600 s), but this record does not explain the difference and the values of s and w are not separated here.
+- No estimate exists for intervals between the two (1800 s, for example); anything quoted for them is an interpolation.
+
+Consequences, arithmetic by Claude, rated capacities, no self-discharge or ageing: at about 1 mA a 3000 mAh pack lasts about 125 days and a 10000 mAh pack about 415 days; the 180-day allowance for 10000 mAh is 2.31 mA. At 900 s the several-mA figure does not reach six months on any pack in this range. Six months with the new pack is therefore plausible at hourly wakes and not at 900 s or shorter; the intermediate intervals are not measured.
+
+VAL-03 stays `open`. This is a second measurement on the old pack with a rough curve and 64 hours at 3600 s; the figure at 3600 s will tighten with more days of data and has not been measured on the new pack at all. The multimeter route stays optional.
 
 ### Caveats
 
