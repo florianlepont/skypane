@@ -4,13 +4,13 @@ milestone: v1.1
 milestone_name: Battery and Companion!
 status: executing
 stopped_at: Phase 44 complete; Phase 45 next
-last_updated: "2026-11-03T18:08:30.413Z"
+last_updated: "2026-11-03T18:25:13.923Z"
 last_activity: 2026-11-03
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 35
-  completed_plans: 25
+  completed_plans: 26
   percent: 50
 ---
 
@@ -38,7 +38,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [███████░░░] 71%
+  [███████░░░] 74%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -57,7 +57,7 @@ See: .planning/PROJECT.md (updated 2026-09-30)
 ## Current Position
 
 Phase: 47.1 (wake-energy-instrumentation-and-awake-time-reduction) — EXECUTING
-Plan: 2 of 9
+Plan: 3 of 9
 Status: Ready to execute
 Last activity: 2026-11-03
 Phase 45: 45-01 and 45-02 complete; Run 2 Protocol CONFIRMED by the owner 2026-10-05 (cadence 60 s, ceiling 21 days, D-07/D-09/D-10) together with the reference-interval rule for the continuity gates (D-11: mean poll-to-poll gap of the first 48 h, gaps above 3x excluded, whole seconds, frozen in the params file and committed before any continuity verdict; thresholds unchanged). Implemented on branch claude/phase-45-reference-interval (not merged): optional `reference_interval_s` in `logtools.py run-report` and the `logtools.py reference-interval` helper, with synthetic-data tests. The owner also accepted two comparability limitations (post-Phase-34 firmware vs run one; unknown refresh share), recorded in the Protocol for Phase 46 (D-12). 45-03 (physical discharge, owner action, including the 48 h freeze step) is IN PROGRESS and paused at its long-wait checkpoint: the owner reports the pack was disconnected at 16h08 Paris time on 2026-10-05 (recorded as 2026-10-05T14:08:00Z) at 60 s; the start values and their provenance are in the `## Run 2 Start Record` and `hardware/logs/battery-run2-params.json`. The owner reported the cadence check from server history ("les écarts sont bons, environ 70 s"; approximate, exact time and output not captured). Not captured: the exact protocol-confirmation time (`protocol_confirmed_utc` stays null). Quiet hours (enabled 23:30-06:00) were disabled for the study and must be restored with the 300 s interval at the end. The 48 h reference-interval freeze was done on 2026-10-08 from the owner's own helper run: `reference_interval_s` = 70 (unrounded mean 69.980 s over the first 48 h), recorded with its source note and the export sha256 in the params file and in `## Run 2 Start Record`; the export file stays on the owner's machine, uncommitted. The value is frozen and is not edited afterwards; no `run-report` has been run and no run data is in the repo. The run is still in progress; 45-03 stays paused at its long-wait checkpoint until the run ends (not complete). Next owner action: nothing until the run ends; then restore the 300 s interval and quiet hours 23:30-06:00, inspect the pack before recharging, and export the full history. 45-04 not started (blocked on 45-03). Phase 45 stays in progress; no run measurement, end value or result exists.
@@ -553,6 +553,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 42 P14 | ~90min | 2 tasks | 11 files |
 | Phase 42 P15 | 120min | 3 tasks | 11 files |
 | Phase 42 P16 | 5h | 3 tasks | 44 files |
+| Phase 47.1 P02 | 5min | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -1368,7 +1369,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-11-03T18:08:30.344Z
+Last session: 2026-11-03T18:25:09.957Z
 Stopped at: Phase 44 complete; Phase 45 next
 
 Resume file: 
