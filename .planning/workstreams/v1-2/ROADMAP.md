@@ -468,7 +468,7 @@ Plans:
   4. A user whose Auth0 email is not verified gets a message that says so instead of the "not invited" page, the first arrival of an invited user is guided, and sign-in errors say what to do next.
   5. Both languages, the 360 px width and the 44 px tap targets hold, the existing browser tests stay green with new ones for the changed flows, and the owner validates on the deployed companion.
 
-**Plans**: 32 plans (15 built and merged, 61-13 the owner checkpoint kept open and last, and 16 added by the owner validation on 2026-11-03)
+**Plans**: 34 plans (15 built and merged, 61-13 the owner checkpoint kept open and last, and 18 added by the owner validation on 2026-11-03)
 Plans:
 **Wave 1**
 
@@ -512,7 +512,7 @@ Plans:
 
 - [x] 61-16-PLAN.md — Owner follow-ups: time zone in the Location and detection card, 44 px desktop targets, compact History and table empty states (UX-02, UX-03)
 
-**Revision 2 (owner validation of the deployed companion: V0-V10, D16-D20; UI-SPEC revision 2). Each plan commits green states; the stylesheet and render baseline are shared, so most waves hold one plan.**
+**Revision 2 (owner validation of the deployed companion: V0-V10, D16-D22; UI-SPEC revision 2). Each plan commits green states; the stylesheet and render baseline are shared, so most waves hold one plan.**
 
 **Revision 2, wave 1**
 
@@ -545,7 +545,7 @@ Plans:
 
 **Revision 2, wave 8**
 
-- [ ] 61-25-PLAN.md — Location and detection page, no-script complete; Display loses the location card and time zone (UX-03)
+- [ ] 61-25-PLAN.md — Location and detection page, no-script complete (UX-03)
 
 **Revision 2, wave 9**
 
@@ -557,25 +557,33 @@ Plans:
 
 **Revision 2, wave 11**
 
-- [ ] 61-28-PLAN.md — Personalisation page: five cards, Look radio cards, Refresh and Screen (UX-02, UX-03)
+- [ ] 61-33-PLAN.md — Display loses the location card, the location picker and the time zone (UX-03)
 
 **Revision 2, wave 12**
 
-- [ ] 61-29-PLAN.md — Special looks and Calendar cards, Remove confirm dialog (UX-02, UX-03)
+- [ ] 61-34-PLAN.md — Display loses quiet hours; amber-dot notification on Home with a mailto contact to an administrator (UX-01, UX-03)
 
 **Revision 2, wave 13**
 
-- [ ] 61-30-PLAN.md — Airline collection read model and page (read-only, everyone) (UX-03)
+- [ ] 61-28-PLAN.md — Personalisation page: five cards, Look radio cards, Refresh and Screen, wake-interval access decision point (UX-02, UX-03)
 
 **Revision 2, wave 14**
 
-- [ ] 61-31-PLAN.md — Airline editor in the Console (administrator only), delete-resolution dialog (UX-01, UX-03)
+- [ ] 61-29-PLAN.md — Special looks and Calendar cards, Remove confirm dialog (UX-02, UX-03)
 
 **Revision 2, wave 15**
 
-- [ ] 61-32-PLAN.md — Revision 2 step counts, cross-page sweep, traceability and the full run (UX-01..UX-04)
+- [ ] 61-30-PLAN.md — Airline collection read model and page (read-only, everyone) (UX-03)
 
 **Revision 2, wave 16**
+
+- [ ] 61-31-PLAN.md — Airline editor in the Console (administrator only), delete-resolution dialog (UX-01, UX-03)
+
+**Revision 2, wave 17**
+
+- [ ] 61-32-PLAN.md — Revision 2 step counts, cross-page sweep, traceability and the full run (UX-01..UX-04)
+
+**Revision 2, wave 18**
 
 - [ ] 61-13-PLAN.md — Owner validation on the deployed companion, both rounds (checkpoint, no deploy step) (UX-01..UX-04)
 
