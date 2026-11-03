@@ -33,8 +33,8 @@ admin role (every global page and mutation).
 import re
 
 from companion import (
-    co_managers, console_routes, device_scope, layout, route_types, static_files,
-    theme_preview)
+    co_managers, console_routes, device_scope, layout, page_policy, route_types,
+    static_files, theme_preview)
 from companion.pages import (
     airlines_page, co_managers_card, config_page, detection_page, health_page,
     history_page, home_page, update_page)
@@ -155,7 +155,7 @@ _GET_ROUTES = (
                 lambda ctx: detection_page.render(
                     ctx, query=detection_page.parse_query(m.query),
                     locations=h._detection_locations(m.device)),
-                m.device),
+                m.device, policy=page_policy.MAP_PAGE_POLICY),
             OWNER_DEVICE),
         Route(
             "GET", Exact(DEVICE_ROUTE),

@@ -24,10 +24,11 @@ def _source(data, source_id):
     return next(s for s in data["sources"] if s["id"] == source_id)
 
 
-def test_shipped_file_lists_the_four_sources():
+def test_shipped_file_lists_the_seven_sources():
     sources = credits_page.load_credits()
     assert [s["id"] for s in sources] == [
-        "adsbfi", "adsblol", "adsbdb", "ourairports"]
+        "adsbfi", "adsblol", "adsbdb", "ourairports", "leaflet",
+        "openstreetmap-tiles", "nominatim"]
 
 
 def _broken_variants():

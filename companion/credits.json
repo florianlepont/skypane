@@ -44,6 +44,39 @@
         "en": "Open airport data: it names airports and places and orients the runways each frame can follow. Credited as a courtesy.",
         "fr": "Données aéroportuaires ouvertes : elles nomment les aéroports et situent et orientent les pistes que chaque cadre peut suivre. Citées par courtoisie."
       }
+    },
+    {
+      "id": "leaflet",
+      "name": "Leaflet",
+      "url": "https://leafletjs.com",
+      "licence": "BSD-2-Clause",
+      "citation_required": true,
+      "description": {
+        "en": "The open-source map library behind the map on the Location and detection page. It is served from SkyPane itself.",
+        "fr": "La bibliothèque cartographique libre derrière la carte de la page Lieu et détection. Elle est servie par SkyPane lui-même."
+      }
+    },
+    {
+      "id": "openstreetmap-tiles",
+      "name": "OpenStreetMap tile server",
+      "url": "https://www.openstreetmap.org/copyright",
+      "licence": "Map data © OpenStreetMap contributors, ODbL",
+      "citation_required": true,
+      "description": {
+        "en": "The map pictures on the Location and detection page come from the OpenStreetMap tile server, only for the area you are looking at.",
+        "fr": "Les images de la carte de la page Lieu et détection viennent du serveur de tuiles d’OpenStreetMap, uniquement pour la zone que vous regardez."
+      }
+    },
+    {
+      "id": "nominatim",
+      "name": "Nominatim",
+      "url": "https://nominatim.openstreetmap.org",
+      "licence": "Search data © OpenStreetMap contributors, ODbL",
+      "citation_required": true,
+      "description": {
+        "en": "The place search on the Location and detection page asks Nominatim, OpenStreetMap’s search service, once per search you start.",
+        "fr": "La recherche de lieu de la page Lieu et détection interroge Nominatim, le service de recherche d’OpenStreetMap, une fois par recherche lancée."
+      }
     }
   ]
 }

@@ -32,7 +32,7 @@ if _REPO_ROOT not in sys.path:
 
 from companion import (  # noqa: E402
     access, audit, auth, console_flash, console_routes, credits_page, detection_actions, device_dispatch, device_scope, export_api, flash, freshness, i18n, illustration_normalize, layout,
-    login_page, page_context, post_actions, preview_images, prefs, request_body, routes, sign_in,
+    login_page, page_context, page_policy, post_actions, preview_images, prefs, request_body, routes, sign_in,
     sign_in_config, static_files, theme_preview, user_view)
 from companion.pages import (  # noqa: E402
     # airlines_page is unused by this module's own code; kept so
@@ -82,15 +82,15 @@ MAX_ILLUSTRATION_UPLOAD_BYTES = post_actions.MAX_ILLUSTRATION_UPLOAD_BYTES
 # check.
 REQUEST_SOCKET_TIMEOUT_S = 30
 
-# The Content-Security-Policy sent on every response. No 'unsafe-inline'
-# on script-src (no inline <script> anywhere); style-src allows
-# 'unsafe-inline' solely for theme-swatch `style="background:..."`
-# attributes sourced from the fixed THEMES registry, never user input.
-CONTENT_SECURITY_POLICY = (
-    "default-src 'self'; img-src 'self' data:; "
-    "style-src 'self' 'unsafe-inline'; script-src 'self'; "
-    "form-action 'self'; frame-ancestors 'none'"
-)
+# The default Content-Security-Policy, sent on every response except the
+# location page's.
+CONTENT_SECURITY_POLICY = page_policy.CONTENT_SECURITY_POLICY
+# The response policies live in companion/page_policy.py so the route table
+# and the detection POST handler can name the map policy without importing
+# this module.
+PagePolicy = page_policy.PagePolicy
+DEFAULT_PAGE_POLICY = page_policy.DEFAULT_PAGE_POLICY
+MAP_PAGE_POLICY = page_policy.MAP_PAGE_POLICY
 # The same environment variable deploy/skypane-byos.service passes to
 # byos_server.py as --sleep, via the identical EnvironmentFile=. Not
 # imported from companion/auth.py: unrelated lifecycles.
@@ -447,7 +447,7 @@ class Handler(
 
     # --- response helpers -------------------------------------------
 
-    def _send_hardening_headers(self):
+    def _send_hardening_headers(self, policy=DEFAULT_PAGE_POLICY):
         """Baseline hardening headers for every response: this is an
         authenticated admin panel on the public internet, so a missing
         X-Frame-Options/CSP enables clickjacking and a missing
@@ -456,15 +456,18 @@ class Handler(
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "same-origin")
-        self.send_header("Content-Security-Policy", CONTENT_SECURITY_POLICY)
+        self.send_header("Content-Security-Policy", policy.content_security_policy)
+        self.send_header("Permissions-Policy", policy.permissions_policy)
 
-    def send_html(self, code, html_str, etag=None, set_cookies=()):
+    def send_html(self, code, html_str, etag=None, set_cookies=(),
+                  policy=DEFAULT_PAGE_POLICY):
         """`etag` (default `None`) is a change TOKEN, never a cache
         freshness signal - it rides alongside `Cache-Control: no-store`
         below, always, so it can only ever be used for the freshness
         tick's own conditional GET (`_render_tab()`), never to let a
         shared cache or the back button replay a stale page. Each entry
-        of `set_cookies` becomes its own Set-Cookie header.
+        of `set_cookies` becomes its own Set-Cookie header. `policy` is chosen
+        by the calling page handler, never derived from the request.
         """
         body = html_str.encode("utf-8")
         self.send_response(code)
@@ -478,7 +481,7 @@ class Handler(
             self.send_header("ETag", etag)
         for cookie in set_cookies:
             self.send_header("Set-Cookie", cookie)
-        self._send_hardening_headers()
+        self._send_hardening_headers(policy)
         self.end_headers()
         self.wfile.write(body)
 
@@ -941,7 +944,7 @@ class Handler(
             scripts=_PAGE_SCRIPTS[route], refresh_token=refresh_token,
             console_page=route in _CONSOLE_FRAME_ROUTES)
 
-    def _render_tab(self, route, render, device):
+    def _render_tab(self, route, render, device, policy=DEFAULT_PAGE_POLICY):
         """Render one authenticated tab: `render(ctx) -> body markup`
         (a page module's render(), or a lambda binding a scope onto
         config_page.render()) wrapped in layout.page_shell(), so the six
@@ -973,7 +976,7 @@ class Handler(
                 200, self._page_shell_for(route, body, ctx, refresh_token=token),
                 etag=quoted_etag)
         body = render(ctx)
-        return self.send_html(200, self._page_shell_for(route, body, ctx))
+        return self.send_html(200, self._page_shell_for(route, body, ctx), policy=policy)
 
     def _render_airlines_collection(self, device):
         """GET /airlines. An administrator asking to resolve a prefix is sent

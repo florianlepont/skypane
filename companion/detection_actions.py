@@ -22,7 +22,7 @@ import re
 import sqlite3
 from urllib.parse import quote
 
-from companion import access, device_scope, flash
+from companion import access, device_scope, flash, page_policy
 from companion.pages import detection_page
 from companion.settings import form_post, quiet_hours
 from server import airports, detection, device_config, fleet_db
@@ -192,7 +192,8 @@ def _redirect_with(handler, flash_key):
 def _rerender(handler, ctx, scope, errors, form, status=200):
     body = detection_page.render(ctx, errors=errors, submitted=form, locations=scope)
     return handler.send_html(
-        status, handler._page_shell_for(detection_page.DETECTION_ROUTE, body, ctx))
+        status, handler._page_shell_for(detection_page.DETECTION_ROUTE, body, ctx),
+        policy=page_policy.MAP_PAGE_POLICY)
 
 
 def _store_detection(ctx, device, subject, form):
