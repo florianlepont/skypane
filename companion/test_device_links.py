@@ -83,13 +83,15 @@ def test_nav_links_carry_the_device_prefix(app):
                 assert route not in hrefs, (container, route)
 
 
-def test_update_link_is_never_prefixed(app):
+def test_global_links_are_never_prefixed(app):
     prefix = _prefix(app.fleet.dev_a)
     body = _page(app, prefix + "/health")
     for container in ("nav.sidebar-nav", "nav.tab-bar"):
         hrefs = _hrefs(body, within=container)
-        assert "/update" in hrefs, container
-        assert prefix + "/update" not in hrefs, container
+        for route in ("/account", "/fleet"):
+            assert route in hrefs, (container, route)
+            assert prefix + route not in hrefs, (container, route)
+        assert "/update" not in hrefs, container
 
 
 def test_active_nav_state_resolves_from_the_unprefixed_route(app):

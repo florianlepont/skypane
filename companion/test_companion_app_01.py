@@ -161,9 +161,16 @@ def test_escape_html_non_string_inputs():
     assert layout.escape_html(42) == "42"
 
 
+# The destinations of the My views space: the frame pages plus Account.
+# Update is a Console destination and never appears here.
+MY_VIEWS_ROUTES = tuple(
+    route for route, _label in layout.NAV_TABS if route != layout.UPDATE_ROUTE
+) + (layout.ACCOUNT_ROUTE,)
+
+
 def test_page_shell_document_shape():
     """page_shell() renders one document with lang/viewport/stylesheet/title/a nav link for
-    every NAV_TABS route"""
+    every My views route (Update lives in the Console only)"""
     rendered = layout.page_shell(title="Health", active="health", body="<p>x</p>")
     assert rendered.count("<html") == 1
     assert 'lang="en"' in rendered
@@ -171,7 +178,7 @@ def test_page_shell_document_shape():
     assert "/static/style.css" in rendered
     assert layout.SITE_TITLE in rendered
     missing = [
-        route for route, _ in layout.NAV_TABS
+        route for route in MY_VIEWS_ROUTES
         if ('href="%s"' % route) not in rendered]
     assert not missing, "missing nav link hrefs: %r" % (missing,)
 
@@ -185,7 +192,7 @@ def test_page_shell_marks_only_the_active_sub960_nav_link():
     nav_start = rendered.find('<nav class="tab-bar"')
     nav_end = rendered.find("</nav>", nav_start)
     tab_bar_html = rendered[nav_start:nav_end]
-    for route, _ in layout.NAV_TABS:
+    for route in MY_VIEWS_ROUTES:
         slug = route.lstrip("/")
         href_needle = 'href="%s"' % route
         href_index = tab_bar_html.find(href_needle)
@@ -294,11 +301,13 @@ def test_data_table_wrapped_for_horizontal_scroll():
 
 
 def test_sidebar_nav_renders_all_tabs_with_one_active():
-    """sidebar_nav() renders every NAV_TABS link with exactly one active"""
+    """sidebar_nav() renders every My views link with exactly one active"""
     markup = layout.sidebar_nav("flights")
     assert 'aria-label="Primary navigation"' in markup
-    for route, label in layout.NAV_TABS:
-        assert route in markup and label in markup
+    labels = dict(layout.NAV_TABS)
+    labels[layout.ACCOUNT_ROUTE] = "Account"
+    for route in MY_VIEWS_ROUTES:
+        assert route in markup and labels[route] in markup
     assert markup.count("sidebar-link--active") == 1
 
 
@@ -355,7 +364,7 @@ def test_sidebar_and_tab_bar_render_exactly_six_links_one_active_each():
         "expected the dropdown panel to hold no destination links at all")
     assert "mobile-nav__nav" not in panel, (
         "expected the dropdown's own navigation landmark to be removed, not emptied")
-    for route, _label in layout.NAV_TABS:
+    for route in MY_VIEWS_ROUTES:
         assert ('href="%s"' % route) not in panel, (
             "expected no destination href (%r) left in the dropdown panel" % route)
 

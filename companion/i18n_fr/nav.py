@@ -35,6 +35,14 @@ MESSAGES = {
     # Advanced group's two destinations.
     "nav.more": "Plus",
 
+    # The Console bar's short label for the Audit log page, and the space
+    # switch between the Console and the administrator's own views.
+    "nav.audit_short": "Audit",
+    "nav.my_views": "Mes vues",
+    "nav.console": "Console",
+    "nav.switch_to_my_views": "Passer à vos propres vues",
+    "nav.switch_to_console": "Passer à la console d’administration",
+
     "nav.language": "Langue",
     "nav.theme": "Thème",
 

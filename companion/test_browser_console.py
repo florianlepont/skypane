@@ -291,7 +291,7 @@ def test_console_renders_in_french(new_context, app_server_in_process):
         _login(page, server.base_url())
         page.goto(server.base_url() + "/fleet")
         nav = page.locator("nav").first.inner_text()
-        for label in ("Cadres", "Utilisateurs", "Lieux", "Journal d’audit"):
+        for label in ("Flotte", "Utilisateurs", "Lieux", "Journal d’audit"):
             assert label in nav, label
         assert _no_sideways_scroll(page)
     finally:
@@ -322,7 +322,7 @@ def test_user_sees_no_administrator_entry(new_context, app_server_in_process):
         page.goto(home)
         tabs = [t.strip() for t in page.locator(
             ".tab-bar > a, .tab-bar > .tab-bar__link").all_inner_texts() if t.strip()]
-        assert tabs == ["Home", "Flights", "Display", "Health", "Account"], tabs
+        assert tabs == ["Home", "Flights", "Display", "Account"], tabs
     finally:
         context.close()
 

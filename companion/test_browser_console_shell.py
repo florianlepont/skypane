@@ -1,7 +1,6 @@
 """Real-browser checks of the admin console shell: the phone bar keeps its
-tap-target size with the Admin tab, the section sub-nav wraps without sideways
-scroll on a small phone and disappears at desktop width, and the sidebar
-shows the Administration group."""
+tap-target size, the page has no section chip row or sideways scroll on a small
+phone, and the sidebar shows the Administration group."""
 import pytest
 
 from companion import console_routes, routes
@@ -42,10 +41,10 @@ def _open(new_context, server, viewport, path):
 
 @pytest.mark.parametrize(
     "viewport", [VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED], ids=["390", "360"])
-def test_phone_bar_keeps_five_full_size_cells_with_the_admin_tab(
+def test_phone_bar_keeps_five_full_size_cells_in_the_console(
         new_context, server, viewport):
-    """the Admin tab is at least 44px tall and wide, the bar still has five cells inside the
-    viewport and the page does not scroll sideways"""
+    """the Console bar has five cells, each at least 44px tall and wide and inside the
+    viewport, and the page does not scroll sideways"""
     context, page = _open(new_context, server, viewport, console_routes.USERS_ROUTE)
     try:
         cells = page.evaluate(
@@ -56,8 +55,8 @@ def test_phone_bar_keeps_five_full_size_cells_with_the_admin_tab(
         for cell in cells:
             assert cell["h"] >= MIN_TAP_PX and cell["w"] >= MIN_TAP_PX, cells
             assert cell["r"] <= viewport["width"] + 0.5, cells
-        admin = page.locator('.tab-bar a[href="/fleet"]')
-        assert admin.count() == 1
+        fleet = page.locator('.tab-bar a[href="/fleet"]')
+        assert fleet.count() == 1
         assert not _assert_no_page_overflow(page, "console/phone", viewport["width"])
     finally:
         context.close()

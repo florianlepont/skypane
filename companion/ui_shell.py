@@ -58,6 +58,7 @@ from companion.ui_nav import (
     _theme_form_html,
     is_user_principal,
     sidebar_nav,
+    space_switch_html,
     user_brand_href,
 )
 from companion.ui_components import TOAST_TONE_ERROR, split_toast_message, toast_html
@@ -276,6 +277,7 @@ PAGE_SHELL_TEMPLATE = (
     "</aside>\n"
     '<header class="site-header">\n'
     '<span class="brand">{brand_inner_header}</span>\n'
+    "{space_switch}"
     "{mobile_nav}\n"
     "</header>\n"
     '<main class="page-content dashboard-main" id="{main_id}" tabindex="-1">\n'
@@ -474,6 +476,7 @@ def page_shell(
         "icon_defs": ICON_DEFS_HTML,
         "sidebar": sidebar_html,
         "sidebar_footer": sidebar_footer_html,
+        "space_switch": space_switch_html(active, "header"),
         "mobile_nav": mobile_nav_html,
         "main_id": SKIP_LINK_TARGET_ID,
         "device_selector": device_selector_html(active),

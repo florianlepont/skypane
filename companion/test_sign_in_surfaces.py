@@ -183,9 +183,9 @@ def test_new_login_surfaces_render_the_approved_french():
 
 _LOGIN_BASELINE = {
     "en": {
-        "nf": "30c484f679f56ccf55f8f851116378518219d756273e845ac2560fa86e252625",
-        "nf2": "bb587c8b876f2c8403eb868c20b7470809bff6dd2bedd6d8dbb285d75f72e0a8",
-        "forb": "6f3cad8d589c623a5c38ef265f86a1d019943e40b6a8e34fba8fdda54563c436",
+        "nf": "a25450b97943d468b3c4a2b8a3b4041fe9009a807aa1ca28fe290f923785e6b5",
+        "nf2": "f794aaca4331472f762659e263ceb311401817875a2546c957c651b98baa0b67",
+        "forb": "a6693fcdc404d77c48227810d8119efdfca5d12911a4ad0c78c96f20eb90fc85",
     },
 }
 
@@ -270,8 +270,8 @@ def test_user_principal_shell_has_account_and_locations_links_and_no_tab_bar():
     doc = _doc(_shell())
     links = doc.select("nav.sidebar-nav a")
     assert [(a.attrs["href"], a.text()) for a in links] == [
-        ("/account", "Account"), ("/locations", "Locations")]
-    assert links[0].attrs["aria-current"] == "page"
+        ("/locations", "Locations"), ("/account", "Account")]
+    assert links[1].attrs["aria-current"] == "page"
     assert not doc.select(".nav-group__label")
     assert not doc.select(".nav-notification")
     assert not doc.select("nav.tab-bar")
@@ -302,7 +302,7 @@ def test_unrecognised_principal_clears_to_default():
 
 
 _SHELL_BASELINE_DIGEST = (
-    "d396e4fd8705460fbfb1660aba6dd55d7ad8c3f967f65f19866f07c33e9b8611")
+    "9ce598f6d29bae904ae29ae9805f6dd259b6e933f0d4d8bcf93d0cd3b661fa92")
 
 
 def test_shell_without_a_principal_is_byte_identical_to_before():

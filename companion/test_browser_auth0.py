@@ -70,7 +70,7 @@ def test_invited_user_lands_on_account_signed_in(rig, new_context):
     assert cookies[0]["httpOnly"] is True
 
 
-def test_invited_admin_lands_on_the_fleet_page_with_the_full_nav(rig, new_context):
+def test_invited_admin_lands_on_the_fleet_page_with_the_console_nav(rig, new_context):
     base = rig.server.base_url()
     context = _context(new_context, base)
     page = context.new_page()
@@ -78,7 +78,8 @@ def test_invited_admin_lands_on_the_fleet_page_with_the_full_nav(rig, new_contex
     page.wait_for_url(base + "/fleet")
     hrefs = page.eval_on_selector_all(
         ".dashboard-sidebar a", "els => els.map(e => e.getAttribute('href'))")
-    assert "/health" in hrefs and "/flights" in hrefs
+    assert "/users" in hrefs and "/audit" in hrefs and "/update" in hrefs
+    assert "/health" not in hrefs
     assert len(_session_cookie(context)) == 1
 
 

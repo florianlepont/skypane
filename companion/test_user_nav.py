@@ -17,7 +17,9 @@ FRAME = device_scope.Device(
     state_dir="", is_live=False)
 
 FRAME_PAGES = ("/", "/flights", "/display", "/airlines", "/health")
-ADMIN_ONLY_LABELS = ("Fleet", "Users", "Audit", "Releases", "Update", "Device")
+ADMIN_ONLY_LABELS = (
+    "Admin", "Console", "Fleet", "Users", "Audit", "Releases", "Update", "Device",
+    "Health", "My views")
 
 
 @pytest.fixture(autouse=True)
@@ -71,24 +73,24 @@ def test_user_sidebar_lists_account_then_reachable_frame_pages(monkeypatch):
     sidebar = layout.sidebar_nav("home")
     prefix = "/devices/abc123"
     assert _hrefs(sidebar) == [
-        "/account", prefix + "/", prefix + "/flights", prefix + "/display",
-        prefix + "/airlines", prefix + "/health", "/locations"]
+        prefix + "/", prefix + "/flights", prefix + "/display",
+        prefix + "/airlines", "/locations", "/account"]
     for label in ADMIN_ONLY_LABELS:
         assert label not in sidebar
     assert "nav-group" not in sidebar
     assert "nav-notification" not in sidebar
 
 
-def test_user_sidebar_without_reachable_frame_pages_is_account_and_locations(monkeypatch):
+def test_user_sidebar_without_reachable_frame_pages_is_locations_and_account(monkeypatch):
     _close_frame_pages_to_users(monkeypatch)
     _as_user_with_frame()
-    assert _hrefs(layout.sidebar_nav("account")) == ["/account", "/locations"]
+    assert _hrefs(layout.sidebar_nav("account")) == ["/locations", "/account"]
 
 
-def test_user_sidebar_without_a_frame_is_account_and_locations_only(monkeypatch):
+def test_user_sidebar_without_a_frame_is_locations_and_account_only(monkeypatch):
     _open_frame_pages_to_users(monkeypatch)
     prefs.set_request_principal("user", "user")
-    assert _hrefs(layout.sidebar_nav("account")) == ["/account", "/locations"]
+    assert _hrefs(layout.sidebar_nav("account")) == ["/locations", "/account"]
 
 
 def test_user_phone_tab_bar_needs_a_frame(monkeypatch):
@@ -100,10 +102,11 @@ def test_user_phone_tab_bar_needs_a_frame(monkeypatch):
     bar = ui_nav._tab_bar_html("home", device_config={})
     prefix = "/devices/abc123"
     assert _hrefs(bar) == [
-        prefix + "/", prefix + "/flights", prefix + "/display", prefix + "/health",
-        "/account"]
+        prefix + "/", prefix + "/flights", prefix + "/display", "/account"]
     assert 'aria-current="page"' in bar
     assert "tab-bar__more" not in bar
+    for label in ADMIN_ONLY_LABELS:
+        assert label not in bar
 
 
 def test_user_tab_bar_is_empty_when_only_account_is_reachable(monkeypatch):
@@ -149,28 +152,3 @@ def test_no_disabled_or_greyed_links_for_a_user(monkeypatch):
     markup = layout.sidebar_nav("home") + ui_nav._tab_bar_html("home", device_config={})
     assert "disabled" not in markup
     assert "aria-disabled" not in markup
-
-
-def test_admin_navigation_only_gains_the_administration_group(monkeypatch):
-    device_scope.set_request_scope(FRAME, [FRAME])
-    baseline_sidebar = layout.sidebar_nav("home", health_alert="warn", device_config={})
-    baseline_bar = ui_nav._tab_bar_html("home", health_alert="warn", device_config={})
-    _open_frame_pages_to_users(monkeypatch)
-    prefs.set_request_principal("admin", "admin")
-    admin_sidebar = layout.sidebar_nav("home", health_alert="warn", device_config={})
-    # The one addition for an admin is the Administration group, which
-    # holds the console pages that exist (Fleet, Users, Locations, Audit log) and
-    # Releases.
-    group = (
-        '<div class="nav-group"><span class="nav-group__label text-label">'
-        'Administration</span><a class="sidebar-link" href="/fleet">Fleet</a>'
-        '<a class="sidebar-link" href="/users">Users</a>'
-        '<a class="sidebar-link" href="/locations">Locations</a>'
-        '<a class="sidebar-link" href="/audit">Audit log</a>'
-        '<a class="sidebar-link" href="/update">Releases</a></div>')
-    assert admin_sidebar == baseline_sidebar.replace("</nav>", group + "</nav>")
-    assert ui_nav._tab_bar_html(
-        "home", health_alert="warn", device_config={}) == baseline_bar
-    assert "/devices/abc123/update" not in baseline_sidebar
-    assert "/update" in _hrefs(baseline_sidebar)
-    assert "/device" in " ".join(_hrefs(baseline_sidebar))

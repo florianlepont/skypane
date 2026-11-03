@@ -54,7 +54,7 @@ def test_nav_entries_follow_the_route_table(monkeypatch):
 def test_console_french_labels_are_translated():
     expected = {
         console_routes.ADMINISTRATION_LABEL: "Administration",
-        console_routes.FLEET_LABEL: "Cadres",
+        console_routes.FLEET_LABEL: "Flotte",
         console_routes.USERS_LABEL: "Utilisateurs",
         console_routes.AUDIT_LABEL: "Journal d’audit",
         console_routes.RELEASES_LABEL: "Versions",
@@ -125,15 +125,22 @@ def _hrefs(markup):
     return re.findall(r'<a class="[^"]*" href="([^"]+)"', markup)
 
 
+def _console_group(sidebar):
+    start = sidebar.index('<div class="nav-group nav-group--console"')
+    return sidebar[start:sidebar.index("</div>", start)]
+
+
 def test_admin_sidebar_lists_the_administration_group_in_order(served):
     server, cookies = served
     status, page = _get(server, cookies["admin"], "/fleet")
     assert status == 200
     sidebar = _sidebar(page)
-    assert "Administration" in sidebar
-    group = sidebar[sidebar.index('<div class="nav-group"><span'):]
-    assert _hrefs(group) == ["/fleet", "/users", "/locations", "/audit", "/update"]
-    assert re.search(r'href="/update">Releases<', group)
+    assert _hrefs(sidebar) == [
+        "/", "/fleet", "/users", "/locations", "/audit", "/update", "/account"]
+    group = _console_group(sidebar)
+    assert "Administration" in group
+    assert re.search(r'href="/update">[^<]*(<[^>]*>)*Releases<', group)
+    assert re.search(r'class="space-switch[^"]*" href="/"[^>]*>My views<', sidebar)
 
 
 def test_the_group_lists_only_the_pages_that_exist(
@@ -149,8 +156,7 @@ def test_the_group_lists_only_the_pages_that_exist(
         conn.close()
     status, page = _get(server, "sp_session=tok-a", "/update")
     assert status == 200
-    sidebar = _sidebar(page)
-    group = sidebar[sidebar.index('<div class="nav-group"><span'):]
+    group = _console_group(_sidebar(page))
     assert _hrefs(group) == ["/fleet", "/users", "/locations", "/audit", "/update"]
 
 
@@ -165,32 +171,47 @@ def test_a_user_sees_no_administration_navigation_and_no_console_page(served):
     assert refused == unknown and refused[0] == 404
 
 
-def test_the_admin_tab_takes_the_airlines_slot_when_fleet_exists(served):
+def test_the_console_bar_has_fleet_users_locations_audit_and_more(served):
     server, cookies = served
     _status, page = _get(server, cookies["admin"], "/users")
     bar = _tab_bar(page)
     cells = bar.split('<details class="tab-bar__more">')[0]
-    assert _hrefs(cells) == ["/", "/display", "/flights", "/fleet"]
+    assert _hrefs(cells) == ["/fleet", "/users", "/locations", "/audit"]
+    assert "Admin<" not in bar and "Audit log" not in bar
+    assert 'aria-current="page"' in cells.split('href="/users"')[1].split("</a>")[0]
     sheet = bar.split('<div class="tab-bar__more-panel">')[1]
-    assert _hrefs(sheet)[0] == "/airlines"
-    assert "Admin" in cells
-    assert 'aria-current="page"' in cells.split('href="/fleet"')[1].split("</a>")[0]
+    assert _hrefs(sheet) == ["/update", "/", "/account"]
+    assert "nav-notification" not in bar
 
 
-def test_the_phone_bar_gains_the_admin_tab_once_the_fleet_page_exists(
-        app_server_in_process, monkeypatch):
-    server = app_server_in_process
-    seeded = seed_matrix_fleet(server.state_dir)
-    conn = fleet_db.connect(server.state_dir)
-    try:
-        fleet_sessions.create_session(
-            conn, hashlib.sha256(b"tok-b").hexdigest(), user_id=seeded.admin_id,
-            principal="user", now=app._now())
-    finally:
-        conn.close()
-    _status, page = _get(server, "sp_session=tok-b", "/")
-    cells = _tab_bar(page).split('<details class="tab-bar__more">')[0]
-    assert _hrefs(cells) == ["/", "/display", "/flights", "/fleet"]
+def test_my_views_pages_of_an_admin_carry_no_admin_tab(served):
+    server, cookies = served
+    _status, page = _get(server, cookies["admin"], "/")
+    bar = _tab_bar(page)
+    cells = bar.split('<details class="tab-bar__more">')[0]
+    assert _hrefs(cells) == ["/", "/display", "/flights", "/health"]
+    sheet = bar.split('<div class="tab-bar__more-panel">')[1]
+    assert _hrefs(sheet) == ["/airlines", "/device", "/account", "/fleet"]
+    assert "Admin<" not in page and "Administration" not in _sidebar(page)
+
+
+def test_the_switch_is_in_the_header_for_an_admin_and_absent_for_a_user(served):
+    server, cookies = served
+    _status, console = _get(server, cookies["admin"], "/fleet")
+    header = console[console.index('<header class="site-header"'):console.index("</header>")]
+    assert re.search(r'class="space-switch space-switch--header" href="/"', header)
+    _status, mine = _get(server, cookies["admin"], "/")
+    header = mine[mine.index('<header class="site-header"'):mine.index("</header>")]
+    assert re.search(r'href="/fleet"[^>]*>Console<', header)
+    _status, account = _get(server, cookies["owner"], "/account")
+    assert "space-switch" not in account
+
+
+def test_a_user_still_cannot_open_the_console(served):
+    server, cookies = served
+    refused = _get(server, cookies["owner"], "/fleet")
+    unknown = _get(server, cookies["owner"], "/no-such-page-anywhere")
+    assert refused == unknown and refused[0] == 404
 
 
 def test_no_console_page_renders_a_section_chip_row(served):
