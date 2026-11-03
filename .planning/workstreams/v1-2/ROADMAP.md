@@ -468,7 +468,50 @@ Plans:
   4. A user whose Auth0 email is not verified gets a message that says so instead of the "not invited" page, the first arrival of an invited user is guided, and sign-in errors say what to do next.
   5. Both languages, the 360 px width and the 44 px tap targets hold, the existing browser tests stay green with new ones for the changed flows, and the owner validates on the deployed companion.
 
-**Plans**: TBD
+**Plans**: 15 plans
+Plans:
+**Wave 1**
+
+- [ ] 61-01-PLAN.md — Owner-validation ledger, status-dot resolver, sprite glyphs and hollow dot (UX-01, UX-02, UX-03)
+- [ ] 61-05-PLAN.md — Role landing, user 303 from un-prefixed pages, signed-in /login redirect, matrix rows (UX-01, UX-03, UX-04)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 61-02-PLAN.md — Shared modal component (dialog helpers, modal.js, CSS) (UX-02)
+- [ ] 61-14-PLAN.md — Remove the Console section chip rows (UX-01, UX-02)
+
+**Wave 3**
+
+- [ ] 61-03-PLAN.md — Shared entity list and row menu (UX-02, UX-03)
+
+**Wave 4**
+
+- [ ] 61-04-PLAN.md — Console and My views spaces, tab bars, sidebars, space switch, Locations 360px fix (UX-01, UX-02, UX-03)
+
+**Wave 5**
+
+- [ ] 61-06-PLAN.md — Fleet list with add, retire, reassign and re-activate dialogs (UX-02)
+- [ ] 61-08-PLAN.md — Users list with invite and manage-user dialogs (UX-02)
+- [ ] 61-09-PLAN.md — Frame switcher and user Home (UX-03)
+
+**Wave 6**
+
+- [ ] 61-07-PLAN.md — Manage access dialog, co-managers leave Home (UX-02, UX-03)
+- [ ] 61-11-PLAN.md — Sign-in messages, unverified email, first-arrival guidance (UX-04)
+
+**Wave 7**
+
+- [ ] 61-10-PLAN.md — Account My frames, leave dialog, merged Location and detection card (UX-03)
+- [ ] 61-15-PLAN.md — Audit items in scope: Device LED switch box, Health check-in wording, compact empty states (UX-01, UX-02, UX-03)
+
+**Wave 8**
+
+- [ ] 61-12-PLAN.md — Step-count record, friction traceability, cross-page sweep (UX-01..UX-04)
+
+**Wave 9**
+
+- [ ] 61-13-PLAN.md — Owner validation on the deployed companion (checkpoint, no deploy step) (UX-01..UX-04)
+
 **Notes**: The extent of the structural change (how far navigation and pages may move, and whether the existing companion architecture stays as is) is settled in discuss-phase; no new runtime dependency is assumed. SEED-011 (distinct message for an unverified email) is absorbed by UX-04. SEED-012 (the admin invite creating the Auth0 account) stays an owner decision and is not part of this phase unless the owner brings it in. Phase 44 of v1.1 is the model for the walkthrough method.
 **UI hint**: yes
 
