@@ -106,10 +106,14 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
         return FP_POLL_FAILED;
     }
 
+    if (timing_out) {
+        timing_out->boot_ms = fp_wake_elapsed_ms();
+    }
     int64_t t_wifi = esp_timer_get_time();
     esp_err_t wifi_err = fp_wifi_connect(15000);
     if (timing_out) {
         timing_out->wifi_ms = elapsed_ms_since(t_wifi);
+        timing_out->wifi_attempts = fp_wifi_attempts();
     }
     if (wifi_err != ESP_OK) {
         /* fp_wifi_connect() returns FP_ERR_CONFIG, with no radio activity
@@ -309,6 +313,9 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
      * draws it instead of a healthy panel being punished with backoff. */
     if (err == ESP_ERR_INVALID_STATE || err == ESP_ERR_TIMEOUT) {
         ESP_LOGI(TAG, "draw deferred by the panel guard");
+        if (timing_out) {
+            timing_out->redraw = 2;
+        }
         return FP_POLL_OK_DEFERRED;
     }
     if (err != ESP_OK) {
@@ -316,6 +323,9 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
         return FP_POLL_FAILED;
     }
 
+    if (timing_out) {
+        timing_out->redraw = 1;
+    }
     ESP_LOGI(TAG, "blit ok bytes=960000 sha256_ok=1");
 
     /* Persist the new hash only after a successful blit — a blit that

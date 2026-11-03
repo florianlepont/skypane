@@ -25,6 +25,7 @@ static EventGroupHandle_t s_events;
 #define CONNECTED_BIT BIT0
 #define FAILED_BIT    BIT1
 static int s_retries;
+static bool s_join_started;
 static bool s_platform_ready;
 static bool s_wifi_started;
 static esp_netif_t *s_sta_netif;
@@ -205,6 +206,7 @@ esp_err_t fp_wifi_connect(int timeout_ms)
         }
     }
     if (err == ESP_OK) {
+        s_join_started = true;
         err = esp_wifi_connect();
     }
     if (err != ESP_OK) {
@@ -223,6 +225,17 @@ esp_err_t fp_wifi_connect(int timeout_ms)
         return ESP_FAIL;
     }
     return ESP_OK;
+}
+
+uint32_t fp_wifi_attempts(void)
+{
+    if (!s_join_started) {
+        return 0;
+    }
+    /* s_retries counts disconnects: one attempt, plus one per retry. It
+     * stops at 4 when the retries run out. */
+    int attempts = s_retries + 1;
+    return (uint32_t)(attempts > 4 ? 4 : attempts);
 }
 
 int fp_wifi_rssi(void)

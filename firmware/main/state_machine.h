@@ -28,14 +28,20 @@ typedef enum {
 } fp_poll_result_t;
 
 /* Per-stage wall-clock timings for the diagnostic `wake timing` line
- * (fp_diag tag, app_main.c) — milliseconds, 0 for a stage this wake
- * never reached. Outside the Log Line Contract. */
+ * (fp_diag tag, app_main.c) and the previous-wake record written at sleep
+ * entry — milliseconds, 0 for a stage this wake never reached. Outside the
+ * Log Line Contract. */
 typedef struct {
     uint32_t wifi_ms;
     uint32_t setup_ms;
     uint32_t display_ms;
     uint32_t download_ms;
     uint32_t draw_ms;
+    uint32_t boot_ms;       /* wake start to the Wi-Fi connect call        */
+    uint32_t wifi_attempts; /* association attempts of that connect        */
+    uint32_t redraw;        /* 0 no draw, 1 drawn, 2 deferred by the guard */
+    uint32_t spi_ms;        /* SPI transfer inside the draw; 0 until measured */
+    uint32_t tls_ms;        /* first TLS connect; 0 until measured         */
 } fp_poll_timing_t;
 
 /* One wake's poll attempt: connect Wi-Fi, ensure a bearer token exists
