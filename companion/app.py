@@ -259,15 +259,11 @@ _PAGE_TITLES = dict(layout.NAV_TABS)
 # title, and the tab it hangs under stays the active nav item.
 _CHILD_PAGE_TITLES = {
     detection_page.DETECTION_ROUTE: detection_page.PAGE_TITLE,
-    airlines_page.MANAGE_ROUTE: dict(layout.NAV_TABS)[layout.AIRLINES_ROUTE],
+    airlines_page.MANAGE_ROUTE: console_routes.AIRLINE_EDITOR_LABEL,
 }
 # The frame pages that belong to the Console: they show no foreign-frame strip.
 _CONSOLE_FRAME_ROUTES = frozenset((
     layout.HEALTH_ROUTE, layout.DEVICE_ROUTE, airlines_page.MANAGE_ROUTE))
-_CHILD_PAGE_PARENT = {
-    detection_page.DETECTION_ROUTE: layout.DISPLAY_ROUTE,
-    airlines_page.MANAGE_ROUTE: layout.AIRLINES_ROUTE,
-}
 
 # Each tab's own extra scripts, on top of layout.GLOBAL_PAGE_SCRIPTS
 # (present on every authenticated page regardless). One tuple per
@@ -938,7 +934,7 @@ class Handler(
             flash_html = flash.flash_toast_html(ctx.flash_key, ctx.flash, self.path)
         return layout.page_shell(
             title=i18n.t(_CHILD_PAGE_TITLES.get(route) or _PAGE_TITLES[route]),
-            active=layout.nav_slug(_CHILD_PAGE_PARENT.get(route, route)),
+            active=layout.nav_slug(route),
             body=body,
             ui_theme=ctx.ui_theme, flash=flash_html,
             health_alert=ctx.health_severity, device_config=ctx.device_config,

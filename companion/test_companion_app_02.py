@@ -66,9 +66,9 @@ def _class_is_styled(css, cls):
 
 
 def test_health_nav_notification_dot_appears_in_sidebar_and_tab_bar(served_css):
-    """the Health notification dot appears inside the Health sidebar link and on the tab
-    bar's Health cell — one per nav renderer — when health_alert='error', nowhere when
-    None/omitted, and never on another link"""
+    """the Health notification dot appears inside the Console's Health sidebar link and on
+    the Console tab bar's Health cell — one per nav renderer — when health_alert='error',
+    nowhere when None/omitted, never on another link, and never in the personal navigation"""
     dot_device_cfg = {"display_enabled": True, "quiet_hours_enabled": False}
     on = layout.page_shell(
         title="T", active="health", body="<p>b</p>", health_alert="error",
@@ -88,6 +88,11 @@ def test_health_nav_notification_dot_appears_in_sidebar_and_tab_bar(served_css):
     assert off.count(layout.HEALTH_ALERT_SUFFIX_TEXT) == 0, (
         "expected zero alert-suffix occurrences when health_alert=None")
     assert default == off, "expected the health_alert flag to default to off"
+    personal = layout.page_shell(
+        title="T", active="home", body="<p>b</p>", health_alert="error",
+        device_config=dot_device_cfg)
+    assert personal.count(layout.NAV_NOTIFICATION_CLASS) == 0, (
+        "expected the personal navigation to carry no Health dot")
 
     side = on[on.index("sidebar-nav"):on.index("</aside>")]
     side_href_index = side.index('href="/health"')
@@ -110,11 +115,11 @@ def test_health_nav_notification_dot_appears_in_sidebar_and_tab_bar(served_css):
         "expected no unexplained marker on the More summary")
 
     other_active = layout.page_shell(
-        title="T", active="config", body="", health_alert="error",
+        title="T", active="fleet", body="", health_alert="error",
         device_config=dot_device_cfg)
     assert other_active.count(layout.NAV_NOTIFICATION_CLASS) == 2, (
         "expected exactly two dot occurrences (one per nav renderer) regardless of the "
-        "active tab")
+        "active Console tab")
 
     assert _class_is_styled(served_css, layout.NAV_NOTIFICATION_CLASS), (
         "expected the notification class to be styled")
@@ -194,7 +199,7 @@ def test_dropdown_contents_and_order():
     """the dropdown panel holds the language and theme switches and Sign out, in that order, no
     screen/quiet-hours state reminder — and zero destination links"""
     doc = layout.page_shell(
-        title="T", active="health", body="<p>b</p>",
+        title="T", active="home", body="<p>b</p>",
         device_config={"display_enabled": True, "quiet_hours_enabled": False})
     panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
     panel = doc[panel_start:doc.index("</header>")]
@@ -247,10 +252,10 @@ def test_three_file_nav_dom_contract_guard(app02_server, served_css):
 def test_dropdown_survives_with_javascript_disabled():
     """with JavaScript disabled the dropdown panel stays unclipped in the DOM (the collapsed
     look is a CSS max-height constraint, not a hidden attribute or display:none), every nav
-    link stays reachable in the tab bar with its Advanced group behind a native <details>
+    link stays reachable in the tab bar with its overflow behind a native <details>
     needing no script, and the server-rendered <html> tag carries no.js marker class"""
     doc = layout.page_shell(
-        title="T", active="health", body="<p>b</p>",
+        title="T", active="home", body="<p>b</p>",
         device_config={"display_enabled": True, "quiet_hours_enabled": False})
     panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
     panel = doc[panel_start:doc.index("</header>")]
@@ -260,9 +265,17 @@ def test_dropdown_survives_with_javascript_disabled():
         "the no-JS floor requires the panel carry no inline display style")
     bar_start = doc.index('<nav class="tab-bar"')
     bar = doc[bar_start:doc.index("</nav>", bar_start)]
-    for route in ("/", "/display", "/flights", "/airlines", "/health", "/device", "/account"):
+    for route in ("/", "/flights", "/detection", "/display", "/airlines", "/account"):
         assert ('href="%s"' % route) in bar, (
             "missing tab-bar href for %r with JavaScript disabled" % route)
+    console_doc = layout.page_shell(
+        title="T", active="fleet", body="<p>b</p>",
+        device_config={"display_enabled": True, "quiet_hours_enabled": False})
+    console_bar = console_doc[console_doc.index('<nav class="tab-bar"'):]
+    for route in ("/fleet", "/users", "/health", "/device", "/airlines/manage", "/audit",
+                  "/update", "/account"):
+        assert ('href="%s"' % route) in console_bar, (
+            "missing Console tab-bar href for %r with JavaScript disabled" % route)
     # A bare `hidden` attribute only — `aria-hidden` on the tab glyphs is
     # correct and must not be caught by this.
     assert not re.search(r"<[^>]*\shidden(?=[\s>=])", bar), (
@@ -304,8 +317,8 @@ def _tab_bar_slice(doc):
 
 
 def test_tab_bar_is_five_cells_from_the_one_shared_nav_iteration():
-    """the bottom tab bar renders five cells from the same My views entries as the sidebar —
-    the same destinations, Home/Display/Flights/Health as tab links and the rest behind a
+    """the bottom tab bar renders five cells from the same personal entries as the sidebar —
+    the same destinations, Home/History/Location/Style as tab links and the rest behind a
     native <details> sheet, exactly one aria-current="page" sits on the real link (never on
     the <summary>), the More summary wears the active pill on a sheet page, it carries the
     shared Primary-navigation landmark name, and the whole bar carries no script hook"""
@@ -319,18 +332,19 @@ def test_tab_bar_is_five_cells_from_the_one_shared_nav_iteration():
         "expected the tab bar's destinations to equal the sidebar's; got %r vs %r"
         % (bar_routes, sidebar_routes))
     assert sidebar_routes == [
-        "/", "/display", "/flights", "/airlines", "/health", "/device", "/account"], (
-        "expected the My views sidebar order, got %r" % (sidebar_routes,))
+        "/", "/flights", "/detection", "/display", "/airlines", "/account"], (
+        "expected the personal sidebar order, got %r" % (sidebar_routes,))
 
     tab_links = re.findall(r'<a class="tab-bar__link[^"]*" href="([^"]+)"', bar)
-    assert tab_links == ["/", "/display", "/flights", "/health"], (
-        "expected Home, Display, Flights and Health as tab links, got %r" % (tab_links,))
+    assert tab_links == ["/", "/flights", "/detection", "/display"], (
+        "expected Home, History, Location and Style as tab links, got %r" % (tab_links,))
     assert bar.count("<details class=\"tab-bar__more\">") == 1, "expected exactly one <details> More cell"
     assert bar.count("<summary") == 1, "expected the More cell to be a native <summary>"
     sheet = bar[bar.index('<div class="tab-bar__more-panel">'):]
     sheet_links = re.findall(r'<a class="mobile-nav__link[^"]*" href="([^"]+)"', sheet)
-    assert sheet_links == ["/airlines", "/device", "/account"], (
-        "expected the More sheet to hold Airlines, Device and Account, got %r" % (sheet_links,))
+    assert sheet_links == ["/airlines", "/account"], (
+        "expected the More sheet to hold the airline collection and Account, got %r"
+        % (sheet_links,))
 
     assert bar.count('aria-current="page"') == 1, (
         "expected exactly one aria-current=\"page\" in the tab bar, got %d"

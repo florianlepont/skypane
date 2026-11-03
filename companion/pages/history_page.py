@@ -31,7 +31,7 @@ from server.plane import render as panel_render
 # not a retention policy.
 HISTORY_ROW_LIMIT = 50
 
-PAGE_TITLE = i18n.msg("nav.flights", "Flights")
+PAGE_TITLE = i18n.msg("nav.flight_history", "Flight history")
 LIGHTBOX_ARIA_LABEL = i18n.msg(
     "flights.picture_shown_on_the_frame", "Picture shown on the frame")
 

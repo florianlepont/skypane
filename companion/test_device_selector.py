@@ -204,10 +204,10 @@ def test_markup_in_a_device_name_is_escaped(fleet_app):
 def test_document_title_names_a_non_live_device_only(fleet_app):
     fleet = fleet_app.fleet
     _, _, live_page = _live_get(fleet_app, "/flights")
-    assert re.search(r"<title>(.*?)</title>", live_page).group(1) == "Flights - SkyPane"
+    assert re.search(r"<title>(.*?)</title>", live_page).group(1) == "Flight history - SkyPane"
     _, _, page = _fleet_get(fleet_app, "/devices/%s/flights" % fleet.dev_a.id)
     title = re.search(r"<title>(.*?)</title>", page).group(1)
-    assert title == "Flights - sim-1 - SkyPane"
+    assert title == "Flight history - sim-1 - SkyPane"
 
 
 def test_landmark_counts_are_unchanged(fleet_app):

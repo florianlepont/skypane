@@ -479,10 +479,11 @@ def drig(app_server_in_process):
 
 
 def test_a_user_changes_the_location_in_three_steps(new_context, drig):
-    """Display tab, change the location, Save: the choice is stored."""
+    """Personalisation tab, change the location, Save: the choice is stored."""
     context, page = _open_as(new_context, drig, "owner")
     try:
-        page.get_by_role("link", name="Display", exact=True).first.click()  # step 1
+        page.get_by_role(
+            "link", name=re.compile(r"^(Personalisation|Style)$")).first.click()  # step 1
         page.wait_for_url("**/display")
         page.select_option("#location-picker", label="Office")  # step 2
         _save_via_bar(page)  # step 3

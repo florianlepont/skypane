@@ -40,8 +40,8 @@ _MONTH_ABBR = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
 _MONTH_ABBR_FR = ("janv.", "févr.", "mars", "avr.", "mai", "juin",
                    "juil.", "août", "sept.", "oct.", "nov.", "déc.")
 
-# Ordered (route, label) pairs, grouped into an unlabelled "everyday" group
-# and a labelled "Advanced" group. Login is deliberately absent: it is
+# Ordered (route, label) pairs, grouped into an unlabelled personal group
+# and a labelled frame-tools group. Login is deliberately absent: it is
 # shown instead of any page when unauthenticated, never as a nav tab.
 # NAV_TABS below is derived from this tuple so every existing (route,
 # label) consumer keeps working unchanged.
@@ -51,19 +51,32 @@ FLIGHTS_ROUTE = "/flights"
 AIRLINES_ROUTE = "/airlines"
 HEALTH_ROUTE = "/health"
 DEVICE_ROUTE = "/device"
-# The Update page: a third Advanced-group destination alongside Health
-# and Device, for reviewing and installing firmware releases.
+# The Update page (Releases in the Console): reviewing and installing
+# firmware releases.
 UPDATE_ROUTE = "/update"
 
-ADVANCED_GROUP_LABEL = i18n.msg("nav.advanced", "Advanced")
+# The Console sidebar group that holds the per-frame technical pages.
+FRAME_TOOLS_LABEL = i18n.msg("nav.frame_tools", "Frame tools")
+DETECTION_ROUTE = "/detection"
 
 # The seven nav-tab labels, each a Message so its French lookup survives a
 # reword of the English below; declared once here since NAV_GROUPS/
 # NAV_TABS are the one source of these labels for every renderer.
 _NAV_LABEL_HOME = i18n.msg("nav.home", "Home")
-_NAV_LABEL_DISPLAY = i18n.msg("nav.display", "Display")
-_NAV_LABEL_FLIGHTS = i18n.msg("nav.flights", "Flights")
-_NAV_LABEL_AIRLINES = i18n.msg("nav.airlines", "Airlines")
+_NAV_LABEL_DISPLAY = i18n.msg("nav.personalisation", "Personalisation")
+_NAV_LABEL_FLIGHTS = i18n.msg("nav.flight_history", "Flight history")
+_NAV_LABEL_DETECTION = i18n.msg("nav.detection", "Location and detection")
+_NAV_LABEL_AIRLINES = i18n.msg("nav.airline_collection", "Airline collection")
+# The short forms the phone tab bar uses where the full label would not fit
+# one of five equal cells.
+NAV_SHORT_LABELS = {
+    "flights": i18n.msg("nav.flights_short", "History"),
+    "detection": i18n.msg("nav.detection_short", "Location"),
+    "display": i18n.msg("nav.display_short", "Style"),
+}
+# The Console-only destination for editing airlines.
+AIRLINE_EDITOR_ROUTE = "/airlines/manage"
+AIRLINE_EDITOR_LABEL = i18n.msg("nav.airline_editor", "Airline editor")
 _NAV_LABEL_HEALTH = i18n.msg("nav.health", "Health")
 _NAV_LABEL_DEVICE = i18n.msg("nav.device", "Device")
 _NAV_LABEL_UPDATE = i18n.msg("nav.update", "Releases")
@@ -71,11 +84,12 @@ _NAV_LABEL_UPDATE = i18n.msg("nav.update", "Releases")
 NAV_GROUPS = (
     ("", (
         (HOME_ROUTE, _NAV_LABEL_HOME),
-        (DISPLAY_ROUTE, _NAV_LABEL_DISPLAY),
         (FLIGHTS_ROUTE, _NAV_LABEL_FLIGHTS),
+        (DETECTION_ROUTE, _NAV_LABEL_DETECTION),
+        (DISPLAY_ROUTE, _NAV_LABEL_DISPLAY),
         (AIRLINES_ROUTE, _NAV_LABEL_AIRLINES),
     )),
-    (ADVANCED_GROUP_LABEL, (
+    (FRAME_TOOLS_LABEL, (
         (HEALTH_ROUTE, _NAV_LABEL_HEALTH),
         (DEVICE_ROUTE, _NAV_LABEL_DEVICE),
         (UPDATE_ROUTE, _NAV_LABEL_UPDATE),
@@ -572,6 +586,15 @@ ICON_IDS = ICON_IDS + (
     "icon-more-vertical",
 )
 
+# Four more, for the two navigation spaces: a shield (Console), a locate
+# crosshair (Location and detection), a star and a downward chevron.
+ICON_IDS = ICON_IDS + (
+    "icon-shield",
+    "icon-locate",
+    "icon-star",
+    "icon-chevron-down",
+)
+
 # An outlined "i" in a circle, for the small info buttons that open a
 # hover/focus tooltip.
 ICON_IDS = ICON_IDS + (
@@ -849,6 +872,23 @@ ICON_DEFS_HTML = (
     'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M7.5 5L4 8.5 7.5 12"/><path d="M4 8.5h7.5a4 4 0 0 1 0 8H9"/>'
     "</symbol>"
+    '<symbol id="icon-shield" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M10 2.5l6 2.2v4.6c0 3.9-2.5 6.7-6 8.2-3.5-1.5-6-4.3-6-8.2V4.7z"/>'
+    "</symbol>"
+    '<symbol id="icon-locate" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<circle cx="10" cy="10" r="4.5"/><circle cx="10" cy="10" r="1.2"/>'
+    '<path d="M10 1.5v3M10 15.5v3M1.5 10h3M15.5 10h3"/>'
+    "</symbol>"
+    '<symbol id="icon-star" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M10 2.8l2.1 4.5 4.9.6-3.6 3.4.9 4.9L10 13.7 5.7 16.2l.9-4.9L3 7.9l4.9-.6z"/>'
+    "</symbol>"
+    '<symbol id="icon-chevron-down" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M5 8l5 5 5-5"/>'
+    "</symbol>"
     '<symbol id="icon-logo" viewBox="0 0 32 32">%s</symbol>'
     "</defs>"
     "</svg>"
@@ -876,6 +916,7 @@ NAV_ICON_IDS = {
     # Home/Display/Device get their own symbols above.
     "home": "icon-nav-home",
     "display": "icon-nav-display",
+    "detection": "icon-locate",
     "flights": "icon-nav-history",
     "airlines": "icon-nav-airlines",
     "health": "icon-nav-health",

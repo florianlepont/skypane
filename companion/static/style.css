@@ -659,7 +659,7 @@ a:hover {
   border-color: var(--color-accent);
 }
 
-/* The admin-only link between the Console and My views. In the phone
+/* The admin-only link between the Console and the personal space. In the phone
  * header it sits between the wordmark and the gear, and the gear then
  * stops pushing itself right; the narrower gap keeps the header on one
  * line at 360px. */
@@ -7228,6 +7228,10 @@ button.calendar-danger--solid {
     bottom: 100%;
     right: 0;
     min-width: 180px;
+    /* Sized by its longest row, not by the 78px cell it hangs from, so a
+     * long French label stays on one line; the cap keeps it on screen. */
+    width: max-content;
+    max-width: calc(100vw - var(--space-md));
     display: flex;
     flex-direction: column;
     padding: var(--space-sm);

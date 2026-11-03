@@ -1033,7 +1033,7 @@ def test_history_preview_and_gallery_round_trip_over_http(make_app_server):
 
     status, _headers, body = get(server, "/flights", cookie=session_cookie)
     assert status == 200, "expected 200 for /flights, got %d" % status
-    assert b"Flights" in body, "expected the 'Flights' heading in /flights's response body"
+    assert b"Flight history" in body, "expected the 'Flight history' heading in /flights's response body"
 
     status, headers, _body = get(server, "/preview", cookie=session_cookie)
     assert status == 303, "expected a 303 redirect for /preview, got %d" % status

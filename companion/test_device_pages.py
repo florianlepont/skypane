@@ -140,9 +140,9 @@ def test_never_seen_device_has_no_health_nav_dot(make_app_server):
             checked_in=_iso(timedelta(days=20)))
 
     app = start_fleet_app(make_app_server, seed_extra=seed_extra)
-    assert ui_nav.NAV_NOTIFICATION_CLASS in _page(app, app.fleet.dev_b, "flights")
-    assert ui_nav.NAV_NOTIFICATION_CLASS not in _page(app, app.fleet.dev_a, "flights")
+    assert ui_nav.NAV_NOTIFICATION_CLASS in _page(app, app.fleet.dev_b, "health")
     assert ui_nav.NAV_NOTIFICATION_CLASS not in _page(app, app.fleet.dev_a, "health")
+    assert ui_nav.NAV_NOTIFICATION_CLASS not in _page(app, app.fleet.dev_b, "flights")
 
 
 def test_health_empty_state_in_french(bare_device):
@@ -289,7 +289,7 @@ def test_home_links_and_switches_stay_inside_the_device(two_devices):
     prefix = "/devices/%s" % app.fleet.dev_b.id
     page = _page(app, app.fleet.dev_b, "")
     links = _hrefs(page)
-    for target in ("/flights", "/health", "/display"):
+    for target in ("/flights", "/detection", "/display"):
         owned = [h for h in links if h.split("#")[0].endswith(target)]
         assert owned, target
         assert all(h.startswith(prefix + "/") for h in owned), (target, owned)

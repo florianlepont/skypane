@@ -101,7 +101,8 @@ class DeviceDispatchMixin:
         if matched is not None:
             prefix = "/devices/" + matched.group(1)
             path = matched.group(2) or layout.HOME_ROUTE
-        allowed = {route for route, _ in layout.NAV_TABS} | {ACCOUNT_ROUTE}
+        allowed = {route for route, _ in layout.NAV_TABS} | {
+            ACCOUNT_ROUTE, layout.AIRLINE_EDITOR_ROUTE}
         if path not in allowed:
             path = layout.HOME_ROUTE
         if path in _GLOBAL_PAGES:

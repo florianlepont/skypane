@@ -782,7 +782,7 @@ def test_flights_french_render_translates_headings_not_data(tmp_path):
     finally:
         prefs.set_request_prefs(lang="en")
     for needle in (
-            ">Vols<", ">Quand<", ">Trajet<", ">Sens<", "Image",
+            ">Historique des vols<", ">Quand<", ">Trajet<", ">Sens<", "Image",
             "Filtrer les vols"):
         assert needle in rendered, "expected the French %r in a French Flights render" % (needle,)
     assert "FLT1" in rendered, "expected the seeded callsign 'FLT1' to stay untranslated data"
@@ -806,7 +806,7 @@ def test_flights_full_seeded_render_french_end_to_end(tmp_path):
     finally:
         prefs.set_request_prefs(lang="en")
     for needle in (
-            ">Vols<", "Compagnie inconnue", "aucun indicatif",
+            ">Historique des vols<", "Compagnie inconnue", "aucun indicatif",
             "Au départ", "À l’arrivée", ">Quand<", ">Vol<", ">Trajet<", ">Sens<",
             "Effacer",):
         assert needle in rendered_fr, "expected the French %r in the French Flights render" % (needle,)
@@ -819,7 +819,7 @@ def test_flights_full_seeded_render_french_end_to_end(tmp_path):
 
     rendered_en = history_page.render(vp.history_ctx(tmp_path))
     for needle in (
-            '<h1 class="page-title">Flights</h1>', history_page.AIRLINE_FALLBACK_TEXT,
+            '<h1 class="page-title">Flight history</h1>', history_page.AIRLINE_FALLBACK_TEXT,
             history_page.NO_CALLSIGN_NOTE_TEXT, "Departing", "Arriving",
             ">When<", ">Flight<", ">Route<", ">State<"):
         assert needle in rendered_en, (

@@ -712,25 +712,32 @@ def test_get_update_end_to_end_renders_the_scheduled_state(module_app_server_fac
 # ==========================================================================
 
 
-def test_advanced_group_lists_health_device_update_in_order():
-    """layout.NAV_GROUPS' Advanced group holds Health, Device, Update, in that order"""
-    advanced_routes = [route for route, _label in layout.NAV_GROUPS[1][1]]
-    assert advanced_routes == [layout.HEALTH_ROUTE, layout.DEVICE_ROUTE, layout.UPDATE_ROUTE]
+def test_frame_tools_group_lists_health_device_update_in_order():
+    """layout.NAV_GROUPS' labelled group holds Health, Device, Update, in that order"""
+    assert layout.NAV_GROUPS[1][0] == layout.FRAME_TOOLS_LABEL
+    group_routes = [route for route, _label in layout.NAV_GROUPS[1][1]]
+    assert group_routes == [layout.HEALTH_ROUTE, layout.DEVICE_ROUTE, layout.UPDATE_ROUTE]
 
 
-def test_sidebar_advanced_group_holds_health_and_device_but_not_update():
-    """the My views sidebar's Advanced group holds Health then Device; Update is a Console
-    destination (Releases) and is not offered there"""
-    markup = layout.sidebar_nav("flights")
-    group_start = markup.index('class="nav-group nav-group--advanced"')
+def test_console_frame_tools_group_holds_health_device_editor_and_releases_stands_apart():
+    """the Console sidebar's Frame tools group holds Health, Device, then the Airline editor;
+    Releases is its own destination outside the group, and the personal sidebar offers none
+    of them"""
+    markup = layout.sidebar_nav("fleet")
+    group_start = markup.index('class="nav-group nav-group--frame-tools"')
     group = markup[group_start:markup.index("</div>", group_start)]
-    assert ('href="%s"' % layout.UPDATE_ROUTE) not in markup
-    assert group.index('href="%s"' % layout.HEALTH_ROUTE) < group.index(
-        'href="%s"' % layout.DEVICE_ROUTE)
+    hrefs = re.findall(r'<a class="[^"]*" href="([^"]+)"', group)
+    assert hrefs == [layout.HEALTH_ROUTE, layout.DEVICE_ROUTE, "/airlines/manage"]
+    assert ('href="%s"' % layout.UPDATE_ROUTE) in markup
+    assert ('href="%s"' % layout.UPDATE_ROUTE) not in group
+    personal = layout.sidebar_nav("flights")
+    for route in (layout.HEALTH_ROUTE, layout.DEVICE_ROUTE, layout.UPDATE_ROUTE):
+        assert ('href="%s"' % route) not in personal
 
 
-def test_tab_bar_more_sheet_lists_airlines_device_account():
-    """the My views More sheet holds Airlines, Device and Account, and the bar keeps its four
+def test_tab_bar_more_sheets_list_the_overflow_destinations():
+    """the personal More sheet holds the airline collection and Account, the Console More sheet
+    holds the airline editor, Audit log, Releases and Account, and each bar keeps its four
     destination cells"""
     device_cfg = {"display_enabled": True, "quiet_hours_enabled": False}
     doc = layout.page_shell(
@@ -740,10 +747,20 @@ def test_tab_bar_more_sheet_lists_airlines_device_account():
     sheet_start = bar.index('<div class="tab-bar__more-panel">')
     sheet = bar[sheet_start:]
     sheet_links = re.findall(r'<a class="mobile-nav__link[^"]*" href="([^"]+)"', sheet)
-    assert sheet_links == [layout.AIRLINES_ROUTE, layout.DEVICE_ROUTE, layout.ACCOUNT_ROUTE]
+    assert sheet_links == [layout.AIRLINES_ROUTE, layout.ACCOUNT_ROUTE]
     tab_links = re.findall(r'<a class="tab-bar__link[^"]*" href="([^"]+)"', bar)
     assert tab_links == [
-        layout.HOME_ROUTE, layout.DISPLAY_ROUTE, layout.FLIGHTS_ROUTE, layout.HEALTH_ROUTE]
+        layout.HOME_ROUTE, layout.FLIGHTS_ROUTE, "/detection", layout.DISPLAY_ROUTE]
+
+    console = layout.page_shell(
+        title="T", active="fleet", body="<p>b</p>", device_config=device_cfg)
+    console_bar = console[console.index('<nav class="tab-bar"'):]
+    console_bar = console_bar[:console_bar.index("</nav>")]
+    console_sheet = console_bar[console_bar.index('<div class="tab-bar__more-panel">'):]
+    assert re.findall(r'<a class="mobile-nav__link[^"]*" href="([^"]+)"', console_sheet) == [
+        "/airlines/manage", "/audit", layout.UPDATE_ROUTE, layout.ACCOUNT_ROUTE]
+    assert re.findall(r'<a class="tab-bar__link[^"]*" href="([^"]+)"', console_bar) == [
+        "/fleet", "/users", layout.HEALTH_ROUTE, layout.DEVICE_ROUTE]
 
 
 def test_update_link_carries_active_state_only_on_the_update_page():
@@ -813,7 +830,7 @@ def test_icon_sprite_has_icon_nav_update_symbol_and_the_link_uses_it():
 
 def test_update_route_is_a_console_entry_end_to_end(module_app_server_factory):
     """a real GET /update served by a real companion/app.py shows Releases in the Console
-    sidebar (Versions in French), and /health shows no Update link"""
+    sidebar (Versions in French), and the personal /flights page shows no Update link"""
     server = module_app_server_factory()
     cookie = login(server)
     status, _headers, body = get(server, layout.UPDATE_ROUTE, cookie=cookie)
@@ -828,11 +845,11 @@ def test_update_route_is_a_console_entry_end_to_end(module_app_server_factory):
     assert status == 200
     assert ">Versions<" in fr_body.decode("utf-8")
 
-    status, _headers, health = get(server, layout.HEALTH_ROUTE, cookie=cookie)
+    status, _headers, flights = get(server, layout.FLIGHTS_ROUTE, cookie=cookie)
     assert status == 200
-    health_text = health.decode("utf-8")
-    assert 'href="%s"' % layout.UPDATE_ROUTE not in health_text[
-        health_text.index('<nav class="sidebar-nav"'):]
+    flights_text = flights.decode("utf-8")
+    assert 'href="%s"' % layout.UPDATE_ROUTE not in flights_text[
+        flights_text.index('<nav class="sidebar-nav"'):]
 
 
 # ==========================================================================

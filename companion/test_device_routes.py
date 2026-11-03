@@ -211,6 +211,11 @@ def _crawl_addresses(body):
     every return_to hidden value and data-* address attribute."""
     found = []
     for node in parse_html(body).find_all():
+        # The space switch leads to a destination the server resolves (the
+        # administrator's own frame), never to a frame-scoped address.
+        if any(name in str(node.attrs.get("class", "")) for name in (
+                "space-switch", "mobile-nav__link--space")):
+            continue
         selector = _inside_switcher(node)
         for name, value in node.attrs.items():
             if not isinstance(value, str) or not value.startswith("/") or value.startswith("//"):

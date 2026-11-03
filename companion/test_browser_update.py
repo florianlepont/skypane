@@ -401,10 +401,11 @@ _OVERFLOW_PROBE = (
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize(
     "viewport", [VIEWPORT_375, VIEWPORT_PHONE], ids=["375", "390"])
-def test_more_sheet_fits_releases_my_views_account_at_phone_widths(
+def test_more_sheet_fits_the_console_overflow_links_at_phone_widths(
         new_context, server, viewport, lang):
     """At 375px and 390px, in English and French: the Console tab bar's More
-    sheet on the Releases page holds exactly Releases, My views and Account,
+    sheet on the Releases page holds exactly My frame, Airline editor, Audit log,
+    Releases and Account,
     each with a measured hit box
     at least 44px tall, no wrapping or truncated text, the "More" summary
     cell's own box unchanged from another tab-bar cell's, and the header
@@ -426,8 +427,9 @@ def test_more_sheet_fits_releases_my_views_account_at_phone_widths(
 
         links = page.locator(_MORE_SHEET_LINK_SELECTOR)
         count = links.count()
-        assert count == 3, (
-            "expected exactly 3 links (Releases, My views, Account) in "
+        assert count == 5, (
+            "expected exactly 5 links (My frame, Airline editor, Audit log, Releases, "
+            "Account) in "
             "the More sheet at %dpx/%s, got %d" % (viewport["width"], lang, count))
 
         heights = []
@@ -782,24 +784,24 @@ def test_in_flight_states_fit_and_offer_only_what_the_server_would_accept(
         context.close()
 
 
-def test_desktop_sidebar_advanced_group_fits_with_no_overlap(new_context, server):
-    """At 1280px, the My views sidebar's Advanced group renders two links (Health,
-    Device), stacked with no overlap.
+def test_desktop_sidebar_frame_tools_group_fits_with_no_overlap(new_context, server):
+    """At 1280px, the Console sidebar's Frame tools group renders three links (Health,
+    Device, Airline editor), stacked with no overlap.
     """
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + layout.HEALTH_ROUTE)
-        group = page.locator(".nav-group--advanced")
+        group = page.locator(".nav-group--frame-tools")
         links = group.locator("a.sidebar-link")
         count = links.count()
-        assert count == 2, "expected exactly 2 sidebar Advanced links, got %d" % (count,)
+        assert count == 3, "expected exactly 3 sidebar Frame tools links, got %d" % (count,)
         boxes = [links.nth(i).bounding_box() for i in range(count)]
         for index in range(count - 1):
             upper, lower = boxes[index], boxes[index + 1]
             assert upper["y"] + upper["height"] <= lower["y"] + 0.5, (
-                "expected sidebar Advanced links to stack without overlap, "
+                "expected sidebar Frame tools links to stack without overlap, "
                 "got %r then %r" % (upper, lower))
     finally:
         context.close()

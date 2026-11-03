@@ -15,7 +15,9 @@ import server.state_store as state_store
 
 _URL_ATTRS = ("href", "action", "src")
 LIVE_PAGES = ("/", "/display", "/flights", "/airlines", "/health", "/device")
-NAV_ROUTES = ("/", "/display", "/flights", "/airlines", "/health", "/device")
+PERSONAL_NAV_ROUTES = ("/", "/flights", "/detection", "/display", "/airlines")
+CONSOLE_FRAME_NAV_ROUTES = ("/health", "/device", "/airlines/manage")
+SPACE_SWITCH_CLASSES = ("space-switch", "mobile-nav__link--space")
 
 
 @pytest.fixture(scope="module")
@@ -82,13 +84,15 @@ def _scoped_nav(prefix, route):
 
 def test_nav_links_carry_the_device_prefix(app):
     prefix = _prefix(app.fleet.dev_a)
-    body = _page(app, prefix + "/health")
-    for container in ("nav.sidebar-nav", "nav.tab-bar"):
-        hrefs = _hrefs(body, within=container)
-        for route in NAV_ROUTES:
-            assert _scoped_nav(prefix, route) in hrefs, (container, route)
-            if route != "/":
-                assert route not in hrefs, (container, route)
+    for page, routes_in_nav in (
+            ("/flights", PERSONAL_NAV_ROUTES), ("/health", CONSOLE_FRAME_NAV_ROUTES)):
+        body = _page(app, prefix + page)
+        for container in ("nav.sidebar-nav", "nav.tab-bar"):
+            hrefs = _hrefs(body, within=container)
+            for route in routes_in_nav:
+                assert _scoped_nav(prefix, route) in hrefs, (container, route)
+                if route != "/":
+                    assert route not in hrefs, (container, route)
 
 
 def test_global_links_are_never_prefixed(app):
@@ -96,10 +100,9 @@ def test_global_links_are_never_prefixed(app):
     body = _page(app, prefix + "/health")
     for container in ("nav.sidebar-nav", "nav.tab-bar"):
         hrefs = _hrefs(body, within=container)
-        for route in ("/account", "/fleet"):
+        for route in ("/account", "/fleet", "/users", "/audit", "/update"):
             assert route in hrefs, (container, route)
             assert prefix + route not in hrefs, (container, route)
-        assert "/update" not in hrefs, container
 
 
 def test_active_nav_state_resolves_from_the_unprefixed_route(app):
@@ -199,9 +202,13 @@ def seeded(module_app_server_factory):
 
 def _local_urls(body):
     """Every local URL attribute value on the page, including the dialog's
-    data-view-panel-* address attributes."""
+    data-view-panel-* address attributes. The space switch leads to a
+    destination the server resolves (the administrator's own frame), so it is
+    not a frame-scoped address."""
     urls = []
     for node in parse_html(body).find_all():
+        if any(name in str(node.attrs.get("class", "")) for name in SPACE_SWITCH_CLASSES):
+            continue
         for name, value in node.attrs.items():
             if (name in _URL_ATTRS or name.startswith("data-view-panel-")) \
                     and isinstance(value, str) and value.startswith("/") \

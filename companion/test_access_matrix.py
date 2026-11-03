@@ -712,8 +712,10 @@ def test_a_global_route_is_not_reachable_under_a_device_prefix(rig, stubbed, key
 def test_a_user_404_shows_no_health_dot_and_no_admin_navigation(rig, stubbed):
     user_body = _unknown_path_404(rig, rig.cookies["owner"]).decode("utf-8")
     admin_body = _unknown_path_404(rig, rig.cookies["admin"]).decode("utf-8")
-    assert 'href="/health"' in admin_body
-    for marker in ('href="/health"', 'href="/display"', 'href="/airlines"'):
+    assert 'href="/fleet"' in admin_body
+    assert 'href="/health"' not in admin_body
+    for marker in ('href="/fleet"', 'href="/health"', 'href="/device"', 'href="/display"',
+                   'href="/airlines"'):
         assert marker not in user_body
 
 

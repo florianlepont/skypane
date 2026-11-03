@@ -312,7 +312,7 @@ def test_user_sees_no_administrator_entry(new_context, app_server_in_process):
         page.goto(home)
         tabs = [t.strip() for t in page.locator(
             ".tab-bar > a, .tab-bar > .tab-bar__link").all_inner_texts() if t.strip()]
-        assert tabs == ["Home", "Flights", "Display", "Account"], tabs
+        assert tabs == ["Home", "History", "Location", "Style"], tabs
     finally:
         context.close()
 

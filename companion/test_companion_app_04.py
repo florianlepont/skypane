@@ -321,7 +321,7 @@ def test_both_shells_agree_on_document_language():
 
 @pytest.mark.parametrize(
     "tab_path,heading",
-    [("/", "Home"), ("/display", "Display"), ("/flights", "Flights"),
+    [("/", "Home"), ("/display", "Display"), ("/flights", "Flight history"),
      ("/airlines", "Airlines"), ("/health", "Health"), ("/device", "Device")])
 def test_authenticated_tab_returns_200_with_its_own_heading(app04_server, session_cookie, tab_path, heading):
     """authenticated GET %s returns 200 and contains its own %r heading"""
@@ -436,7 +436,7 @@ def test_home_page_renders_widgets(app04_server, session_cookie):
             'id="home-current-frame"',
             "Recent flights", 'href="/flights"',
             'class="home-battery ',
-            'class="nav-group nav-group--advanced"',
+            'class="nav-group"',
             'aria-labelledby="home-frame-state"',
             'action="%s"' % app_module.QUICK_DISPLAY_ROUTE,
             'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE,

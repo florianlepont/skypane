@@ -1,7 +1,8 @@
 """The per-tab page-builder contract every module in this package follows.
 
-Tabs are grouped into Everyday (Home, Display, Flights, Airlines) and
-Advanced (Health, Device), declared once in companion/layout.py's
+Tabs are grouped into the personal pages (Home, Flight history, Location
+and detection, Personalisation, Airline collection) and the Console frame
+tools (Health, Device), declared once in companion/layout.py's
 NAV_GROUPS. Which settings land on Display versus Device is declared per
 screen type in companion/screens.py.
 

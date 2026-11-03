@@ -263,7 +263,7 @@ def test_reworked_pages_hold_the_layout_rules(
         elif path in ("/account", "/", "/display", "/device", "/health"):
             for text in report["navText"]:
                 if MY_VIEWS_ADMIN_WORD.match(text):
-                    problems.append("Admin entry in My views: " + text)
+                    problems.append("Admin entry in the personal space: " + text)
         assert not problems, (where, problems)
     finally:
         context.close()
@@ -306,7 +306,7 @@ def test_locations_inputs_and_selects_sit_inside_their_card_at_360(
 _SHARED = re.compile(
     r"^(SkyPane|Orly|Kitchen|Attic|Orly frame|Console|Audit|Distance|Station|Local|Total|"
     r"Version|Versions|Image|Plus|Type|Description|Original|Information|Document|Action|"
-    r"Actions|Contact|Standard|Message|Notes?|Auto|Latitude|Longitude|XIAO ePaper|"
+    r"Actions|Style|Contact|Standard|Message|Notes?|Auto|Latitude|Longitude|XIAO ePaper|"
     r"Air France|easyJet|Transavia|test)\b")
 
 

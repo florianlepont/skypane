@@ -38,7 +38,7 @@ def test_the_aggregator_holds_the_pairing_routes_and_nav_follows_them():
         ("GET", console_routes.LOCATIONS_ROUTE),
         ("POST", console_routes.LOCATIONS_ADD_ROUTE)} <= served_routes
     assert [entry[1] for entry in console_routes.available_nav_entries()] == [
-        "/fleet", "/users", "/audit", "/update"]
+        "/fleet", "/users", "/health", "/device", "/airlines/manage", "/audit", "/update"]
 
 
 def test_nav_entries_follow_the_route_table(monkeypatch):
@@ -48,7 +48,8 @@ def test_nav_entries_follow_the_route_table(monkeypatch):
             console_routes.AUDIT_ROUTE))
     monkeypatch.setattr(routes, "ROUTES", routes.ROUTES + extra)
     keys = [entry[0] for entry in console_routes.available_nav_entries()]
-    assert keys == ["fleet", "users", "audit", "releases"]
+    assert keys == [
+        "fleet", "users", "health", "device", "editor", "audit", "releases"]
 
 
 def test_console_french_labels_are_translated():
@@ -126,6 +127,11 @@ def _hrefs(markup):
     return re.findall(r'<a class="[^"]*" href="([^"]+)"', markup)
 
 
+def _unscoped(hrefs):
+    """`hrefs` with any /devices/<id> frame prefix removed."""
+    return [re.sub(r"^/devices/[^/]+(?=/)", "", href) for href in hrefs]
+
+
 def _console_group(sidebar):
     start = sidebar.index('<div class="nav-group nav-group--console"')
     return sidebar[start:sidebar.index("</div>", start)]
@@ -136,15 +142,20 @@ def test_admin_sidebar_lists_the_administration_group_in_order(served):
     status, page = _get(server, cookies["admin"], "/fleet")
     assert status == 200
     sidebar = _sidebar(page)
-    assert _hrefs(sidebar) == [
-        "/", "/fleet", "/users", "/audit", "/update", "/account"]
+    assert _unscoped(_hrefs(sidebar)) == [
+        "/", "/fleet", "/users", "/health", "/device", "/airlines/manage", "/audit",
+        "/update", "/account"]
     group = _console_group(sidebar)
     assert "Administration" in group
-    assert re.search(r'href="/update">[^<]*(<[^>]*>)*Releases<', group)
-    assert re.search(r'class="space-switch[^"]*" href="/"[^>]*>My views<', sidebar)
+    assert re.search(r'href="/update">[^<]*(<[^>]*>)*Releases<', sidebar)
+    assert re.search(r'class="space-switch[^"]*" href="/"[^>]*>My frame<', sidebar)
+    tools = sidebar[sidebar.index("nav-group--frame-tools"):]
+    tools = tools[:tools.index("</div>")]
+    assert "Frame tools" in tools
+    assert _unscoped(_hrefs(tools)) == ["/health", "/device", "/airlines/manage"]
 
 
-def test_the_group_lists_only_the_pages_that_exist(
+def test_the_console_sidebar_lists_the_console_pages_for_the_frame_in_view(
         app_server_in_process, monkeypatch):
     server = app_server_in_process
     seeded = seed_matrix_fleet(server.state_dir)
@@ -158,8 +169,11 @@ def test_the_group_lists_only_the_pages_that_exist(
         conn.close()
     status, page = _get(server, "sp_session=tok-a", "/update")
     assert status == 200
-    group = _console_group(_sidebar(page))
-    assert _hrefs(group) == ["/fleet", "/users", "/audit", "/update"]
+    sidebar = _sidebar(page)
+    assert _hrefs(_console_group(sidebar)) == ["/fleet", "/users"]
+    assert _unscoped(_hrefs(sidebar)) == [
+        "/", "/fleet", "/users", "/health", "/device", "/airlines/manage", "/audit",
+        "/update", "/account"]
 
 
 def test_a_user_sees_no_administration_navigation_and_no_console_page(served):
@@ -173,17 +187,20 @@ def test_a_user_sees_no_administration_navigation_and_no_console_page(served):
     assert refused == unknown and refused[0] == 404
 
 
-def test_the_console_bar_has_fleet_users_audit_and_more(served):
+def test_the_console_bar_has_fleet_users_health_device_and_more(served):
     server, cookies = served
     _status, page = _get(server, cookies["admin"], "/users")
     bar = _tab_bar(page)
     cells = bar.split('<details class="tab-bar__more">')[0]
-    assert _hrefs(cells) == ["/fleet", "/users", "/audit"]
-    assert "Admin<" not in bar and "Audit log" not in bar
+    assert _unscoped(_hrefs(cells)) == ["/fleet", "/users", "/health", "/device"]
+    assert "Admin<" not in bar
     assert 'aria-current="page"' in cells.split('href="/users"')[1].split("</a>")[0]
     sheet = bar.split('<div class="tab-bar__more-panel">')[1]
-    assert _hrefs(sheet) == ["/update", "/", "/account"]
-    assert "nav-notification" not in bar
+    assert _unscoped(_hrefs(sheet)) == [
+        "/", "/airlines/manage", "/audit", "/update", "/account"]
+    health_at = cells.index("/health")
+    health_cell = cells[health_at:cells.index("</a>", health_at)]
+    assert health_cell.count("nav-notification") == bar.count("nav-notification") == 1
 
 
 def test_my_views_pages_of_an_admin_carry_no_admin_tab(served):
@@ -195,10 +212,9 @@ def test_my_views_pages_of_an_admin_carry_no_admin_tab(served):
     bar = _tab_bar(page)
     cells = bar.split('<details class="tab-bar__more">')[0]
     assert _hrefs(cells) == [
-        prefix + "/", prefix + "/display", prefix + "/flights", prefix + "/health"]
+        prefix + "/", prefix + "/flights", prefix + "/detection", prefix + "/display"]
     sheet = bar.split('<div class="tab-bar__more-panel">')[1]
-    assert _hrefs(sheet) == [
-        prefix + "/airlines", prefix + "/device", "/account", "/fleet"]
+    assert _hrefs(sheet) == ["/fleet", prefix + "/airlines", "/account"]
     assert "Admin<" not in page and "Administration" not in _sidebar(page)
 
 

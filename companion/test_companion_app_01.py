@@ -161,24 +161,25 @@ def test_escape_html_non_string_inputs():
     assert layout.escape_html(42) == "42"
 
 
-# The destinations of the My views space: the frame pages plus Account.
-# Update is a Console destination and never appears here.
-MY_VIEWS_ROUTES = tuple(
-    route for route, _label in layout.NAV_TABS if route != layout.UPDATE_ROUTE
+# The destinations of the personal space: the frame pages plus Account.
+# Health, Device and Releases are Console destinations and never appear here.
+PERSONAL_ROUTES = tuple(
+    route for route, _label in layout.NAV_TABS
+    if route not in (layout.HEALTH_ROUTE, layout.DEVICE_ROUTE, layout.UPDATE_ROUTE)
 ) + (layout.ACCOUNT_ROUTE,)
 
 
 def test_page_shell_document_shape():
     """page_shell() renders one document with lang/viewport/stylesheet/title/a nav link for
-    every My views route (Update lives in the Console only)"""
-    rendered = layout.page_shell(title="Health", active="health", body="<p>x</p>")
+    every personal route (Health, Device and Releases live in the Console only)"""
+    rendered = layout.page_shell(title="Home", active="home", body="<p>x</p>")
     assert rendered.count("<html") == 1
     assert 'lang="en"' in rendered
     assert "width=device-width" in rendered
     assert "/static/style.css" in rendered
     assert layout.SITE_TITLE in rendered
     missing = [
-        route for route in MY_VIEWS_ROUTES
+        route for route in PERSONAL_ROUTES
         if ('href="%s"' % route) not in rendered]
     assert not missing, "missing nav link hrefs: %r" % (missing,)
 
@@ -187,12 +188,12 @@ def test_page_shell_marks_only_the_active_sub960_nav_link():
     """the sub-960px nav link matching `active` carries a distinguishing class and
     aria-current, the others carry neither"""
     rendered = layout.page_shell(
-        title="Health", active="health", body="",
+        title="Flights", active="flights", body="",
         device_config={"display_enabled": True, "quiet_hours_enabled": False})
     nav_start = rendered.find('<nav class="tab-bar"')
-    nav_end = rendered.find("</nav>", nav_start)
+    nav_end = rendered.find("</details>", nav_start)
     tab_bar_html = rendered[nav_start:nav_end]
-    for route in MY_VIEWS_ROUTES:
+    for route in PERSONAL_ROUTES:
         slug = route.lstrip("/")
         href_needle = 'href="%s"' % route
         href_index = tab_bar_html.find(href_needle)
@@ -203,7 +204,7 @@ def test_page_shell_marks_only_the_active_sub960_nav_link():
         is_active_class_present = (
             "tab-bar__link--active" in tag or "mobile-nav__link--active" in tag)
         has_aria_current = 'aria-current="page"' in tag
-        if slug == "health":
+        if slug == "flights":
             assert is_active_class_present, (
                 "expected the active link (%r) to carry the active class" % route)
             assert has_aria_current, (
@@ -301,12 +302,12 @@ def test_data_table_wrapped_for_horizontal_scroll():
 
 
 def test_sidebar_nav_renders_all_tabs_with_one_active():
-    """sidebar_nav() renders every My views link with exactly one active"""
+    """sidebar_nav() renders every personal link with exactly one active"""
     markup = layout.sidebar_nav("flights")
     assert 'aria-label="Primary navigation"' in markup
     labels = dict(layout.NAV_TABS)
     labels[layout.ACCOUNT_ROUTE] = "Account"
-    for route in MY_VIEWS_ROUTES:
+    for route in PERSONAL_ROUTES:
         assert route in markup and labels[route] in markup
     assert markup.count("sidebar-link--active") == 1
 
@@ -319,21 +320,23 @@ def test_sidebar_nav_escapes_hostile_active():
 
 
 def test_nav_tabs_shrunk_to_four_settled_order():
-    """layout.NAV_TABS holds exactly 7 entries, in order home/display/flights/airlines/health/device/update"""
+    """layout.NAV_TABS holds exactly 8 entries, in order home/flights/detection/display/airlines/health/device/update"""
     # 06.6.4.1-08 : NAV_TABS shrinks from five entries to four -
     # Preview is retired, its whole content absorbed into History
     # (06.6.4.1-05). Order matters: every nav renderer walks NAV_TABS in
     # this exact order. : seven tabs in two groups - the everyday
     # four, then the three under the "Advanced" label (Update joined
     # Health/Device) - flattened in that order.
-    assert len(layout.NAV_TABS) == 7
-    expected_routes = ("/", "/display", "/flights", "/airlines", "/health", "/device", "/update")
+    assert len(layout.NAV_TABS) == 8
+    expected_routes = (
+        "/", "/flights", "/detection", "/display", "/airlines", "/health", "/device",
+        "/update")
     actual_routes = tuple(route for route, _ in layout.NAV_TABS)
     assert actual_routes == expected_routes
 
 
 def test_sidebar_and_tab_bar_render_exactly_six_links_one_active_each():
-    """a rendered authenticated page contains exactly seven sidebar nav links and exactly seven
+    """a rendered authenticated page contains exactly six sidebar nav links and exactly six
     tab-bar links, with exactly one marked active in each, and the hamburger dropdown holds
     zero destination links"""
     # The sub-960px dropdown now holds preferences, not destinations, and
@@ -342,7 +345,7 @@ def test_sidebar_and_tab_bar_render_exactly_six_links_one_active_each():
     # assertion are unchanged; what they are counted over moved.
     sidebar_markup = layout.sidebar_nav("flights")
     sidebar_link_count = sidebar_markup.count('<a class="sidebar-link')
-    assert sidebar_link_count == 7
+    assert sidebar_link_count == 6
     assert sidebar_markup.count("sidebar-link--active") == 1
 
     doc = layout.page_shell(
@@ -353,7 +356,7 @@ def test_sidebar_and_tab_bar_render_exactly_six_links_one_active_each():
     bar_link_count = (
         bar.count('<a class="tab-bar__link')
         + bar.count('<a class="mobile-nav__link'))
-    assert bar_link_count == 7
+    assert bar_link_count == 6
     assert bar.count("tab-bar__link--active") == 1
 
     # And the dropdown now holds ZERO destination links - this is the
@@ -364,7 +367,7 @@ def test_sidebar_and_tab_bar_render_exactly_six_links_one_active_each():
         "expected the dropdown panel to hold no destination links at all")
     assert "mobile-nav__nav" not in panel, (
         "expected the dropdown's own navigation landmark to be removed, not emptied")
-    for route in MY_VIEWS_ROUTES:
+    for route in PERSONAL_ROUTES:
         assert ('href="%s"' % route) not in panel, (
             "expected no destination href (%r) left in the dropdown panel" % route)
 
@@ -477,7 +480,7 @@ def test_page_shell_escapes_hostile_body():
 
 
 def test_icon_sprite_integrity():
-    """layout.ICON_IDS has exactly forty-two unique members, each a symbol id in
+    """layout.ICON_IDS has exactly forty-six unique members, each a symbol id in
     ICON_DEFS_HTML and vice versa"""
     # The whitelist grew from ten to fourteen members
     # (icon-check/icon-copy/icon-refresh/icon-search), then to fifteen
@@ -491,13 +494,15 @@ def test_icon_sprite_integrity():
     # (icon-info, the info tooltip button), then to 39 (icon-picture and
     # icon-plane, the Flights phone card), then to 40 (icon-logo, the brand mark),
     # then to 41 (icon-bolt, the estimated "probably charging" pill), then
-    # to 42 (icon-more-vertical, a row's actions menu button).
-    assert len(layout.ICON_IDS) == 42
-    assert len(set(layout.ICON_IDS)) == 42, "expected ICON_IDS to have no duplicates"
+    # to 42 (icon-more-vertical, a row's actions menu button), then to 46
+    # (icon-shield, icon-locate, icon-star and icon-chevron-down, the two
+    # navigation spaces' glyphs).
+    assert len(layout.ICON_IDS) == 46
+    assert len(set(layout.ICON_IDS)) == 46, "expected ICON_IDS to have no duplicates"
     symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
     assert sorted(symbol_ids) == sorted(layout.ICON_IDS), (
         "sprite symbol ids %r do not match ICON_IDS %r" % (symbol_ids, layout.ICON_IDS))
-    assert layout.ICON_DEFS_HTML.count("<symbol") == 42
+    assert layout.ICON_DEFS_HTML.count("<symbol") == 46
     assert 'stroke="currentColor"' in layout.ICON_DEFS_HTML
     assert 'fill="#' not in layout.ICON_DEFS_HTML, "a hard-coded hex fill would defeat the per-status tint"
 
@@ -532,7 +537,7 @@ def test_stat_tile_backcompat_and_icon_slot():
 
 
 def test_page_shell_emits_sprite_once_no_inline_styles():
-    """page_shell() emits exactly one sprite (one <defs, forty-two <symbol) before
+    """page_shell() emits exactly one sprite (one <defs, forty-six <symbol) before
     dashboard-shell, no inline styles"""
     doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     assert doc.count("<defs") == 1
@@ -540,7 +545,7 @@ def test_page_shell_emits_sprite_once_no_inline_styles():
     # (icon-more). : 22 -> 23 (icon-gear). : 23 -> 24 (icon-nav-update).
     # 24 -> 26 (icon-warning, icon-chevron-right). 26 -> 34 (the toasts).
     # 34 -> 36 (icon-pencil, icon-plus).
-    assert doc.count("<symbol") == 42
+    assert doc.count("<symbol") == 46
     assert doc.index("icon-defs") < doc.index("dashboard-shell"), (
         "expected the sprite to precede the dashboard-shell div")
     assert ' style="' not in doc, "page_shell() must emit no inline styles"
