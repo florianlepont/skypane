@@ -37,6 +37,15 @@ the sign-in/invitation messages of the companion (requirements UX-01..UX-04).
 - D10 Scope: rework navigation and page structure; architecture stays
   (stdlib server, hand-written CSS, no framework, no new runtime
   dependency); visual style unchanged.
+- D11 (owner, 2026-11-03) The fleet page is named "Fleet" / "Flotte".
+- D12 (owner) The fleet list does not show the last image.
+- D13 (owner) A user opening an un-prefixed page (/, /display ...) is
+  redirected (303) to their own frame instead of a 404.
+- D14 (owner) Health leaves the user tab bar and is reached from the
+  Home status dot.
+- Still open: the three small audit items (Device LED switch box, Health
+  "has not checked in" repeated, large serif empty states): default
+  deferred until the owner answers.
 - The raw "Register a frame" (MAC + secret) form is not used by the owner:
   remove it from the page body (keep it reachable only if the spec finds a
   need; to settle in UI-SPEC).
