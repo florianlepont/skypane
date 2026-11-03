@@ -506,24 +506,31 @@ def test_shell_has_two_ordered_theme_forms_each_with_aria_label():
 
 
 def test_french_shell_nav_reads_the_locked_french_labels():
-    """under lang='fr' the nav reads Accueil/Affichage/Vols/Compagnies/Avancé/État/Appareil"""
+    """under lang='fr' the personal nav reads Accueil/Historique des vols/Lieu et détection/
+    Personnalisation/Collection de compagnies and the Console nav reads Flotte/Utilisateurs/
+    Outils du cadre/État/Appareil/Éditeur de compagnies"""
     try:
         prefs.set_request_prefs(lang="fr")
-        rendered = layout.page_shell(title="Home", active="home", body="", ui_theme="auto")
+        personal = layout.page_shell(title="Home", active="home", body="", ui_theme="auto")
+        console = layout.page_shell(title="Fleet", active="fleet", body="", ui_theme="auto")
     finally:
         prefs.set_request_prefs(lang="en")
-    for label in ("Accueil", "Affichage", "Vols", "Compagnies", "Avancé", "État", "Appareil"):
-        assert label in rendered, "expected the French nav label %r in the rendered shell" % (label,)
+    for label in ("Accueil", "Historique des vols", "Lieu et détection", "Personnalisation",
+                  "Collection de compagnies"):
+        assert label in personal, "expected the French nav label %r in the personal shell" % (label,)
+    for label in ("Flotte", "Utilisateurs", "Outils du cadre", "État", "Appareil",
+                  "Éditeur de compagnies"):
+        assert label in console, "expected the French nav label %r in the Console shell" % (label,)
 
 
-def test_advanced_group_always_renders_in_both_nav_copies():
-    """the Advanced group (Health, Device) and the nav status dot always render, in both the
-    sidebar and the bottom tab bar, on a plain request (retargeted from the dropdown)"""
+def test_frame_tools_group_renders_in_both_console_nav_copies():
+    """the Console's Frame tools group (Health, Device, Airline editor) and the nav status dot
+    always render, in both the sidebar and the bottom tab bar, on a plain request"""
     rendered = layout.page_shell(
-        title="Home", active="home", body="", ui_theme="auto", health_alert="warn",
+        title="Fleet", active="fleet", body="", ui_theme="auto", health_alert="warn",
         device_config={"display_enabled": True, "quiet_hours_enabled": False})
-    assert layout.ADVANCED_GROUP_LABEL in rendered
     sidebar = rendered[rendered.index('<nav class="sidebar-nav"'):rendered.index("</aside>")]
+    assert str(layout.FRAME_TOOLS_LABEL) in sidebar
     bar_start = rendered.index('<nav class="tab-bar"')
     bar = rendered[bar_start:rendered.index("</nav>", bar_start)]
     for route in (layout.HEALTH_ROUTE, layout.DEVICE_ROUTE):

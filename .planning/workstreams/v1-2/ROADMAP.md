@@ -468,7 +468,7 @@ Plans:
   4. A user whose Auth0 email is not verified gets a message that says so instead of the "not invited" page, the first arrival of an invited user is guided, and sign-in errors say what to do next.
   5. Both languages, the 360 px width and the 44 px tap targets hold, the existing browser tests stay green with new ones for the changed flows, and the owner validates on the deployed companion.
 
-**Plans**: 16 plans
+**Plans**: 34 plans (15 built and merged, 61-13 the owner checkpoint kept open and last, and 18 added by the owner validation on 2026-11-03)
 Plans:
 **Wave 1**
 
@@ -512,7 +512,80 @@ Plans:
 
 - [x] 61-16-PLAN.md — Owner follow-ups: time zone in the Location and detection card, 44 px desktop targets, compact History and table empty states (UX-02, UX-03)
 
-- [ ] 61-13-PLAN.md — Owner validation on the deployed companion (checkpoint, no deploy step) (UX-01..UX-04)
+**Revision 2 (owner validation of the deployed companion: V0-V10, D16-D22; UI-SPEC revision 2). Each plan commits green states; the stylesheet and render baseline are shared, so most waves hold one plan.**
+
+**Revision 2, wave 1**
+
+- [ ] 61-17-PLAN.md — Admin-only device-scoped access kind: Health, airline editing, /airlines/manage, /locations redirect, ledger R2-1..R2-18 (UX-01, UX-03)
+- [ ] 61-18-PLAN.md — A frame's own position (private location row, copy-on-write) and poll-position parity tests, expand-only (UX-03)
+
+**Revision 2, wave 2**
+
+- [ ] 61-19-PLAN.md — Administrator personal space follows the user's frame rule, Fleet entry points, foreign-frame notice (UX-01, UX-03)
+
+**Revision 2, wave 3**
+
+- [ ] 61-20-PLAN.md — save_place on POST /detection: validated write of the frame's place and detection choice (UX-03)
+
+**Revision 2, wave 4**
+
+- [ ] 61-21-PLAN.md — Navigation model: one personal nav for everyone, Console with Health, Device and Airline editor, new labels and glyphs (UX-01, UX-02, UX-03)
+
+**Revision 2, wave 5**
+
+- [ ] 61-22-PLAN.md — Two-segment Console / My frame switch, personal-space parity and content scrub (UX-01, UX-02, UX-03)
+
+**Revision 2, wave 6**
+
+- [ ] 61-23-PLAN.md — Frame chip and card sheet replacing the frame drop-down; Console all-frames chip (UX-01, UX-03)
+
+**Revision 2, wave 7**
+
+- [ ] 61-24-PLAN.md — Vendored Leaflet 1.9.4, per-route CSP and Permissions-Policy, credits and COMPLIANCE.md (UX-03)
+
+**Revision 2, wave 8**
+
+- [ ] 61-25-PLAN.md — Location and detection page, no-script complete (UX-03)
+
+**Revision 2, wave 9**
+
+- [ ] 61-26-PLAN.md — Map interaction: pin, airports, search, use my position, failure modes (UX-03)
+
+**Revision 2, wave 10**
+
+- [ ] 61-27-PLAN.md — Quiet hours dialog on Home and POST /quick/quiet-hours/window (UX-03)
+
+**Revision 2, wave 11**
+
+- [ ] 61-33-PLAN.md — Display loses the location card, the location picker and the time zone (UX-03)
+
+**Revision 2, wave 12**
+
+- [ ] 61-34-PLAN.md — Display loses quiet hours; amber-dot notification on Home with a mailto contact to an administrator (UX-01, UX-03)
+
+**Revision 2, wave 13**
+
+- [ ] 61-28-PLAN.md — Personalisation page: five cards, Look radio cards, Refresh and Screen, wake-interval access decision point (UX-02, UX-03)
+
+**Revision 2, wave 14**
+
+- [ ] 61-29-PLAN.md — Special looks and Calendar cards, Remove confirm dialog (UX-02, UX-03)
+
+**Revision 2, wave 15**
+
+- [ ] 61-30-PLAN.md — Airline collection read model and page (read-only, everyone) (UX-03)
+
+**Revision 2, wave 16**
+
+- [ ] 61-31-PLAN.md — Airline editor in the Console (administrator only), delete-resolution dialog (UX-01, UX-03)
+
+**Revision 2, wave 17**
+
+- [ ] 61-32-PLAN.md — Revision 2 step counts, cross-page sweep, traceability and the full run (UX-01..UX-04)
+
+**Revision 2, wave 18**
+
+- [ ] 61-13-PLAN.md — Owner validation on the deployed companion, both rounds (checkpoint, no deploy step) (UX-01..UX-04)
 
 **Notes**: The extent of the structural change (how far navigation and pages may move, and whether the existing companion architecture stays as is) is settled in discuss-phase; no new runtime dependency is assumed. SEED-011 (distinct message for an unverified email) is absorbed by UX-04. SEED-012 (the admin invite creating the Auth0 account) stays an owner decision and is not part of this phase unless the owner brings it in. Phase 44 of v1.1 is the model for the walkthrough method.
 **UI hint**: yes

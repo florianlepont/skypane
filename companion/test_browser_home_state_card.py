@@ -252,8 +252,8 @@ def test_late_states_and_battery_fit_every_viewport(
         new_context, make_app_server, scheme, viewport_name, viewport,
         minutes_ago, battery_mv, wording, amber):
     """on time, late and long overdue each read their own wording; only the on-time one keeps
-    the green dot and no Health link, a late or long overdue frame turns the dot amber and shows
-    the Health link (a 44px target on a phone); the battery figure and dial are large, the zones
+    the green dot, a late or long overdue frame turns the dot amber, and none of them links to a
+    Health page; the battery figure and dial are large, the zones
     arrange for the card's width, and nothing overflows"""
     server = make_app_server(seed=_seed_checkin(minutes_ago, battery_mv), fake_providers=True)
     context = new_context(viewport=viewport, color_scheme=scheme)
@@ -264,12 +264,8 @@ def test_late_states_and_battery_fit_every_viewport(
         page.locator(".home-state").wait_for(state="visible")
         assert wording in page.locator(".home-state__next").inner_text()
         assert page.locator(".home-state__dot.dot--warn").count() == (1 if amber else 0)
-        link = page.locator('.home-state a[href="/health"]')
-        assert link.count() == (1 if amber else 0)
+        assert page.locator('.home-state a[href$="/health"]').count() == 0
         if amber:
-            assert link.is_visible() and link.inner_text().strip() == "See Health"
-            box = link.bounding_box()
-            assert box["height"] >= (32 if viewport["width"] >= 1280 else 44)
             assert "home-state--warn" in page.locator(".home-state").get_attribute("class")
         figure = page.locator(".home-battery__value").evaluate(
             "el => parseFloat(getComputedStyle(el).fontSize)")
@@ -527,16 +523,16 @@ def _open_user_home(new_context, server, fleet, lang="en", **context_args):
     return context, page
 
 
-@pytest.mark.parametrize("mode,word,tone,health_link", [
-    ("fresh", "Up to date", "ok", False),
-    ("off", "Resting", "off", False),
-    ("silent", "No contact", "error", True),
-    ("never", "Not seen yet", "warn", True),
+@pytest.mark.parametrize("mode,word,tone", [
+    ("fresh", "Up to date", "ok"),
+    ("off", "Resting", "off"),
+    ("silent", "No contact", "error"),
+    ("never", "Not seen yet", "warn"),
 ])
-def test_user_home_dot_names_the_state_and_health_link_follows_it(
-        new_context, make_app_server, mode, word, tone, health_link):
-    """the dot's accessible name uses the shared state words; See Health appears only when
-    the dot is amber or red"""
+def test_user_home_dot_names_the_state_and_links_to_no_health_page(
+        new_context, make_app_server, mode, word, tone):
+    """the dot's accessible name uses the shared state words; whatever the colour, the card
+    carries no link to a Health page"""
     seed = _seed_user_fleet(mode)
     server = make_app_server(seed=seed)
     context, page = _open_user_home(new_context, server, seed.fleet, viewport=VIEWPORT_DESKTOP)
@@ -546,7 +542,7 @@ def test_user_home_dot_names_the_state_and_health_link_follows_it(
         assert dot.get_attribute("aria-label") == word
         assert dot.get_attribute("role") == "img"
         assert "home-state--%s" % tone in page.locator(".home-state").get_attribute("class")
-        assert page.locator('.home-state a[href$="/health"]').count() == (1 if health_link else 0)
+        assert page.locator('.home-state a[href$="/health"]').count() == 0
     finally:
         context.close()
 
@@ -576,8 +572,7 @@ def test_user_home_layout_has_the_switcher_first_and_no_battery_tile(
         for selector in (SCOPED_SCREEN_BUTTON, SCOPED_QUIET_BUTTON):
             box = page.locator(selector).bounding_box()
             assert box["height"] >= 44 and box["x"] + box["width"] <= viewport["width"]
-        link = page.locator('.home-state a[href$="/health"]').bounding_box()
-        assert link["height"] >= (32 if viewport["width"] >= 1280 else 44)
+        assert page.locator('.home-state a[href$="/health"]').count() == 0
         _assert_zone_arrangement_without_battery(page)
         assert not _assert_no_page_overflow(
             page, "user-home/%s/%s/%s" % (scheme, viewport_name, lang), viewport["width"])

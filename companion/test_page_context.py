@@ -207,7 +207,8 @@ def test_health_markup_builds_only_on_home_and_health(app_server_in_process, mon
 
 
 def test_nav_dot_shows_warn_on_flights_and_equals_the_health_banner(app_server_in_process):
-    """seeded stale-device (warn) scenario: the nav dot on /flights shows the warn state, and on
+    """seeded stale-device (warn) scenario: the Console nav dot on /fleet shows the warn state
+    while the personal /flights navigation carries none, and on
     /health the nav dot's severity equals the banner's severity, parsed from the same response -
     they can never disagree since both come from the one shared health_signals() snapshot"""
     server = app_server_in_process
@@ -216,10 +217,15 @@ def test_nav_dot_shows_warn_on_flights_and_equals_the_health_banner(app_server_i
 
     status, _headers, body = http_request(server.url(layout.FLIGHTS_ROUTE), cookie=session)
     assert status == 200, "expected 200 from GET /flights, got %d" % status
+    assert _NAV_DOT_RE.search(body) is None, (
+        "expected the personal navigation to carry no Health dot")
+
+    status, _headers, body = http_request(server.url("/fleet"), cookie=session)
+    assert status == 200, "expected 200 from GET /fleet, got %d" % status
     dot_match = _NAV_DOT_RE.search(body)
-    assert dot_match, "expected a nav notification dot on Flights for the seeded warn scenario"
+    assert dot_match, "expected a nav notification dot in the Console for the seeded warn scenario"
     assert dot_match.group(1) == b"dot--warn", (
-        "expected the Flights nav dot to show warn, got %r" % dot_match.group(1))
+        "expected the Console nav dot to show warn, got %r" % dot_match.group(1))
 
     status2, _headers2, body2 = http_request(server.url(layout.HEALTH_ROUTE), cookie=session)
     assert status2 == 200, "expected 200 from GET /health, got %d" % status2
@@ -242,8 +248,8 @@ def test_nav_dot_shows_warn_on_flights_and_equals_the_health_banner(app_server_i
 
 def test_404_severity_is_authenticated_only_and_never_builds_markup(
         app_server_in_process, monkeypatch):
-    """authenticated GET /no-such-page -> 404 with the warn dot, sourced from health_signals()
-    alone (health_state_from_signals() never runs for an error page); unauthenticated -> 404,
+    """authenticated GET /no-such-page -> 404 (personal chrome, so no dot) whose severity is
+    sourced from health_signals() alone (health_state_from_signals() never runs for an error page); unauthenticated -> 404,
     health_signals() never runs either, so Health's warn/error state never leaks pre-auth"""
     server = app_server_in_process
     _seed_warn_scenario(server.state_dir)
@@ -272,9 +278,8 @@ def test_404_severity_is_authenticated_only_and_never_builds_markup(
 
     status, _headers, body = http_request(server.url("/no-such-page"), cookie=session)
     assert status == 404, "expected 404 from an authenticated unknown route, got %d" % status
-    dot_match = _NAV_DOT_RE.search(body)
-    assert dot_match and dot_match.group(1) == b"dot--warn", (
-        "expected an authenticated 404 to carry the warn nav dot for the seeded scenario")
+    assert _NAV_DOT_RE.search(body) is None, (
+        "expected an authenticated 404 (personal chrome) to carry no Health dot")
     assert len(signals_calls) == 1, (
         "expected exactly one health_signals() call for an authenticated 404, got %d"
         % len(signals_calls))

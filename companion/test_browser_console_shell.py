@@ -11,8 +11,7 @@ from companion.test_browser_ux_helpers import (
 pytestmark = pytest.mark.browser
 
 PAGES = (
-    console_routes.FLEET_ROUTE, console_routes.USERS_ROUTE,
-    console_routes.LOCATIONS_ROUTE, console_routes.AUDIT_ROUTE)
+    console_routes.FLEET_ROUTE, console_routes.USERS_ROUTE, console_routes.AUDIT_ROUTE)
 MIN_TAP_PX = 44
 
 
@@ -84,8 +83,10 @@ def test_desktop_has_no_chip_row_and_shows_the_administration_group(
         assert page.locator(".section-subnav").count() == 0
         group = page.locator(".sidebar-nav .nav-group:has-text('Administration')")
         assert group.locator(".nav-group__label").is_visible()
-        for path in (*PAGES, "/update"):
+        for path in (console_routes.FLEET_ROUTE, console_routes.USERS_ROUTE):
             assert group.locator('a[href="%s"]' % path).is_visible(), path
+        for path in (*PAGES, "/update"):
+            assert page.locator('.sidebar-nav a[href="%s"]' % path).is_visible(), path
         current = page.locator('.sidebar-nav a[aria-current="page"]')
         assert current.get_attribute("href") == "/fleet"
     finally:

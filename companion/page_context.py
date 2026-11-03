@@ -42,7 +42,7 @@ import companion.device_scope as device_scope
 import companion.prefs as prefs
 import companion.user_view as user_view
 import companion.wake as wake
-from server import device_config, history_db
+from server import device_config, fleet_db, history_db
 from server.plane import calendar_rules, colour_rules, manual_resolutions, name_overrides
 
 _HERE = os.path.dirname(os.path.abspath(__file__))  # companion/
@@ -245,6 +245,19 @@ def env_wake_interval_default():
     return None
 
 
+def _place_name_for_flash(handler, device, flash_key):
+    """The frame's stored place label for the place-saved toast, else None.
+    Read from fleet.db on this render, never taken from the query string;
+    only looked up when that toast is being shown."""
+    if flash_key != "place_saved":
+        return None
+    try:
+        position = fleet_db.frame_position(handler._fleet_conn(), device.id)
+    except sqlite3.Error:
+        return None
+    return None if position is None else position["name"]
+
+
 def _safe_last_checkin_ts(state_dir):
     """The device's last real check-in, as the raw `device_health.ts`
     string `history_db.latest_device_health()` returns, or `None` on any
@@ -383,7 +396,8 @@ def build_page_context(handler, device):
             "flash": flash.resolve_flash_text(
                 flash_key, state_dir, rule_key=rule_key,
                 last_checkin_ts=last_checkin_ts, device_cfg=device_cfg,
-                battery_critical=battery_critical),
+                battery_critical=battery_critical,
+                place_name=_place_name_for_flash(handler, device, flash_key)),
             "flash_role": flash.FLASH_ROLES.get(flash_key, "status"),
             # Only a key from the fixed vocabulary, never the raw query
             # value: it picks the toast's tone, glyph and action.

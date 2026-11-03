@@ -248,11 +248,12 @@ def test_a5_add_a_co_manager(world, new_context):
 def test_a6_read_the_audit_log(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        steps.tap(page.locator(".tab-bar a[href='/audit']"), "Audit tab")
+        steps.tap(page.locator(".tab-bar__more > summary"), "More")
+        steps.tap(page.locator(".tab-bar__more-panel a[href='/audit']"), "Audit log")
         page.wait_for_url("**/audit")
         assert page.locator("main h1").inner_text() == "Audit log"
         assert page.locator(".section-subnav").count() == 0
-        _report("A6", steps, 1)
+        _report("A6", steps, 2)
     finally:
         context.close()
 

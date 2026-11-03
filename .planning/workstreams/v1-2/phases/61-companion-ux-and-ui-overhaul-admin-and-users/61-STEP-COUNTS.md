@@ -41,7 +41,7 @@ Measured paths:
 - A3: Add a frame, pairing code, owner, Pair frame.
 - A4 retire: row menu, Retire, confirm. Reassign: row menu, Reassign, new owner, confirm.
 - A5: row menu, Manage access, person, Add co-manager.
-- A6: Audit tab (one chip row only, no section row).
+- A6: Audit tab (one chip row only, no section row). Since plan 61-21 the Console bar is Fleet, Users, Health, Device, More (UI-SPEC 1.3), so the path is More, Audit log: 2 taps (equal to the pre-redesign count, one over the earlier 1-tap target).
 - U2 several: the frame switcher summary; the panel lists every frame.
 - U4 quiet hours: Display tab, scroll to the field, value, Save.
 - U4 look: Display tab, Change, a colour, Done, Save.

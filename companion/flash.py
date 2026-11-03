@@ -65,6 +65,7 @@ FLASH_KEY_UPDATE_CANCEL_FAILED = update_page.FLASH_UPDATE_CANCEL_FAILED
 FLASH_KEY_UPDATE_BUSY = update_page.FLASH_UPDATE_BUSY
 FLASH_KEY_DETECTION_SAVED = detection_page.FLASH_DETECTION_SAVED
 FLASH_KEY_LOCATION_SAVED = detection_page.FLASH_LOCATION_SAVED
+FLASH_KEY_PLACE_SAVED = detection_page.FLASH_PLACE_SAVED
 FLASH_KEY_CO_MANAGER_ADDED = co_managers_card.FLASH_ADDED
 FLASH_KEY_CO_MANAGER_REMOVED = co_managers_card.FLASH_REMOVED
 FLASH_KEY_CO_MANAGER_LEFT = co_managers_card.FLASH_LEFT
@@ -299,6 +300,7 @@ FLASH_MESSAGES = {
     FLASH_KEY_UPDATE_BUSY: update_page.FLASH_UPDATE_BUSY_TEXT,
     FLASH_KEY_DETECTION_SAVED: detection_page.FLASH_DETECTION_SAVED_TEXT,
     FLASH_KEY_LOCATION_SAVED: detection_page.FLASH_LOCATION_SAVED_TEXT,
+    FLASH_KEY_PLACE_SAVED: detection_page.FLASH_PLACE_SAVED_TEXT,
     FLASH_KEY_CO_MANAGER_ADDED: co_managers_card.FLASH_ADDED_TEXT,
     FLASH_KEY_CO_MANAGER_REMOVED: co_managers_card.FLASH_REMOVED_TEXT,
     FLASH_KEY_CO_MANAGER_LEFT: co_managers_card.FLASH_LEFT_TEXT,
@@ -361,6 +363,7 @@ FLASH_TONES = {
     # Stored now, followed by the frame at its next wake.
     FLASH_KEY_DETECTION_SAVED: _PENDING,
     FLASH_KEY_LOCATION_SAVED: _SUCCESS,
+    FLASH_KEY_PLACE_SAVED: _SUCCESS,
     # The membership change is effective at once; a refusal and a failure
     # need the person to act again.
     FLASH_KEY_CO_MANAGER_ADDED: _SUCCESS,
@@ -456,7 +459,7 @@ def flash_toast_html(flash_key, text, request_path):
 
 def resolve_flash_text(
         flash_key, state_dir, rule_key=None, last_checkin_ts=None, device_cfg=None,
-        battery_critical=False):
+        battery_critical=False, place_name=None):
     """Build this flash's already-translated message text, or None if
     flash_key is unknown.
 
@@ -465,6 +468,8 @@ def resolve_flash_text(
     last_checkin_ts/device_cfg/battery_critical: feed the one computed
     delay sentence via the same wake.next_wake_status() triple every
     other reader shares, so they can never disagree.
+    place_name: the frame's stored place label, read by the caller from
+    fleet.db and never from the request; only FLASH_KEY_PLACE_SAVED uses it.
     """
     if flash_key not in FLASH_MESSAGES:
         return None
@@ -499,6 +504,9 @@ def resolve_flash_text(
     if flash_key == FLASH_KEY_CALENDAR_CONNECT_OK:
         count = len(calendar_rules.load_calendar_registry(state_dir)["entries"])
         return template.format(n=count)
+    if flash_key == FLASH_KEY_PLACE_SAVED:
+        return template.format(
+            place=place_name or i18n.t(detection_page.PLACE_FALLBACK_NAME))
     if flash_key == FLASH_KEY_RULE_REPLACED:
         normalised_key = colour_rules.normalise_rule_callsign(rule_key)
         if normalised_key is None:

@@ -105,7 +105,6 @@ def test_no_post_route_exists_for_login():
 
 
 _LOCATION_ROUTES = {
-    ("GET", routes.Exact("/locations")),
     ("POST", routes.Exact("/locations/add")),
     ("POST", routes.PrefixSuffix("/locations/", "/edit")),
     ("POST", routes.PrefixSuffix("/locations/", "/delete")),
@@ -137,7 +136,7 @@ def test_every_other_route_is_admin_only_or_an_owner_device_route():
             # such a route must resolve under one.
             assert r.device_scoped, "%s %r" % (r.method, r.matcher)
             continue
-        if r.access == routes.OWNER_ONLY_DEVICE:
+        if r.access in (routes.OWNER_ONLY_DEVICE, routes.ADMIN_DEVICE):
             assert r.device_scoped, "%s %r" % (r.method, r.matcher)
             continue
         assert r.access == routes.ADMIN_ONLY, (
@@ -155,7 +154,21 @@ def test_owner_device_routes_are_exactly_the_user_reachable_frame_routes():
         ("GET", routes.Exact(routes.DEVICE_ROUTE)),
         ("POST", routes.Exact(routes.QUICK_LED_ROUTE)),
     }
-    assert len(owner) == 27
+    assert len(owner) == 21
+    admin_device = {
+        (r.method, r.matcher) for r in routes.ROUTES
+        if r.access == routes.ADMIN_DEVICE}
+    assert admin_device == {
+        ("GET", routes.Exact(routes.HEALTH_ROUTE)),
+        ("GET", routes.Exact(routes.MANAGE_ROUTE)),
+        ("POST", routes.Exact(routes.airlines_page.RESOLVE_ROUTE)),
+        ("POST", routes.Exact(routes.airlines_page.RENAME_ROUTE)),
+        ("POST", routes.Exact(routes.airlines_page.RENAME_RESET_ROUTE)),
+        ("POST", routes.PrefixSuffix(
+            routes.airlines_page.MANUAL_DELETE_ROUTE_PREFIX,
+            routes.airlines_page.MANUAL_DELETE_ROUTE_SUFFIX)),
+        ("POST", routes.PrefixSuffix(routes.ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png")),
+    }
     owner_only = {
         (r.method, r.matcher) for r in routes.ROUTES
         if r.access == routes.OWNER_ONLY_DEVICE}

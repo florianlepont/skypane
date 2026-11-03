@@ -19,6 +19,7 @@ import re
 import pytest
 
 import fleet_console_support as fx
+from locations_page_support import open_locations_page
 from companion import auth
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_no_page_overflow, _set_ui_theme,
@@ -214,7 +215,10 @@ def _open(new_context, server, persona, path, dialog, viewport, lang, scheme):
     url = server.base_url() + path.format(**ids)
     if dialog:
         url += "#" + dialog.format(**ids)
-    page.goto(url)
+    if path == "/locations":
+        open_locations_page(page, server.base_url())
+    else:
+        page.goto(url)
     page.locator("main").wait_for(state="visible")
     if dialog:
         page.locator("dialog[open]").wait_for(state="visible")
@@ -259,7 +263,7 @@ def test_reworked_pages_hold_the_layout_rules(
         elif path in ("/account", "/", "/display", "/device", "/health"):
             for text in report["navText"]:
                 if MY_VIEWS_ADMIN_WORD.match(text):
-                    problems.append("Admin entry in My views: " + text)
+                    problems.append("Admin entry in the personal space: " + text)
         assert not problems, (where, problems)
     finally:
         context.close()
@@ -302,7 +306,7 @@ def test_locations_inputs_and_selects_sit_inside_their_card_at_360(
 _SHARED = re.compile(
     r"^(SkyPane|Orly|Kitchen|Attic|Orly frame|Console|Audit|Distance|Station|Local|Total|"
     r"Version|Versions|Image|Plus|Type|Description|Original|Information|Document|Action|"
-    r"Actions|Contact|Standard|Message|Notes?|Auto|Latitude|Longitude|XIAO ePaper|"
+    r"Actions|Style|Contact|Standard|Message|Notes?|Auto|Latitude|Longitude|XIAO ePaper|"
     r"Air France|easyJet|Transavia|test)\b")
 
 
@@ -386,7 +390,7 @@ def test_the_desktop_sidebar_controls_have_44px_hit_areas(
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_the_home_health_pill_has_a_44px_hit_area_on_desktop(
+def test_the_overdue_home_card_has_no_health_pill_on_desktop(
         new_context, make_app_server, lang, scheme):
     def seed(state_dir):
         fleet = provision_fleet(state_dir)
@@ -408,8 +412,8 @@ def test_the_home_health_pill_has_a_44px_hit_area_on_desktop(
         page.goto(server.base_url() + "/devices/%s/" % seed.fleet.a1)
         page.locator(".home-state").wait_for(state="visible")
         _set_ui_theme(page, scheme)
-        result = page.evaluate(_DESKTOP_CHROME, [".home-state__health-link"])
-        assert result["seen"] == 1, result
-        assert not result["bad"], result["bad"]
+        assert page.locator(".home-state__dot.dot--warn, .home-state__dot.dot--error").count() == 1
+        assert page.locator(".home-state__health-link").count() == 0
+        assert page.locator('a[href$="/health"]').count() == 0
     finally:
         context.close()

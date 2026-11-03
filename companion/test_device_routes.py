@@ -22,6 +22,7 @@ EXPECTED_DEVICE_SCOPED = {
     ("GET", "/flights"),
     ("GET", "/health"),
     ("GET", "/airlines"),
+    ("GET", "/airlines/manage"),
     ("GET", "/settings"),
     ("GET", "/history"),
     ("GET", "/preview"),
@@ -68,7 +69,7 @@ def _spec_of(route):
 class TestPrefixMatching:
     def test_flagged_routes_equal_the_explicit_list(self):
         flagged = {(r.method, _spec_of(r)) for r in routes.ROUTES if r.device_scoped}
-        assert len(EXPECTED_DEVICE_SCOPED) == 31
+        assert len(EXPECTED_DEVICE_SCOPED) == 32
         assert flagged == EXPECTED_DEVICE_SCOPED
 
     @pytest.mark.parametrize("method,spec", sorted(EXPECTED_DEVICE_SCOPED, key=str))
@@ -140,7 +141,8 @@ class TestPrefixMatching:
 CRAWL_PREFIXES = ("/devices/",)
 CRAWL_PAGES = (
     "/", "/display", "/device", "/flights", "/airlines", "/health",
-    "/display?sheet=manage", "/airlines?resolve=XQZ", "/airlines?resolve=ABC",
+    "/display?sheet=manage", "/airlines/manage", "/airlines/manage?resolve=XQZ",
+    "/airlines/manage?resolve=ABC",
     "/display?flash=display_on", "/airlines?flash=manual_prefix_stale")
 RETURN_TO_FIELD = "return_to"
 # A data-* address a script follows: the method is the script's, so either counts.
@@ -167,7 +169,7 @@ def _seed_crawl_rows(fleet):
 def crawl_app(module_app_server_factory):
     from companion.test_device_helpers import get, start_fleet_app
     app = start_fleet_app(module_app_server_factory, seed_extra=_seed_crawl_rows)
-    get(app, "/display")
+    get(app, "/devices/%s/display" % app.fleet.live.id)
     return app
 
 
@@ -209,6 +211,11 @@ def _crawl_addresses(body):
     every return_to hidden value and data-* address attribute."""
     found = []
     for node in parse_html(body).find_all():
+        # The space switch leads to a destination the server resolves (the
+        # administrator's own frame), never to a frame-scoped address.
+        if any(name in str(node.attrs.get("class", "")) for name in (
+                "space-switch", "mobile-nav__link--space")):
+            continue
         selector = _inside_switcher(node)
         for name, value in node.attrs.items():
             if not isinstance(value, str) or not value.startswith("/") or value.startswith("//"):
@@ -283,11 +290,22 @@ class TestPrefixCrawl:
     def test_the_six_device_pages_and_the_sheet_and_resolve_queries_are_crawled(self):
         assert {"/", "/display", "/device", "/flights", "/airlines", "/health"} <= set(CRAWL_PAGES)
         assert "/display?sheet=manage" in CRAWL_PAGES
-        assert any(page.startswith("/airlines?resolve=") for page in CRAWL_PAGES)
+        assert any(page.startswith("/airlines/manage?resolve=") for page in CRAWL_PAGES)
 
     @pytest.mark.parametrize("page", CRAWL_PAGES)
-    def test_a_single_device_fleet_never_mentions_a_device_prefix(self, single_device_app, page):
+    def test_a_single_device_fleet_addresses_its_frame_by_its_own_id(
+            self, single_device_app, page):
         from companion.test_device_helpers import get
-        status, _headers, body = get(single_device_app, page)
+        from server import fleet_db
+        conn = fleet_db.connect_readonly(single_device_app.server.state_dir)
+        try:
+            frame = str(fleet_db.list_devices(conn)[0]["id"])
+        finally:
+            conn.close()
+        status, _headers, body = get(single_device_app, "/devices/%s%s" % (frame, page))
         assert status == 200, page
-        assert "/devices/" not in body, page
+        # Every frame address on the page names that one frame.
+        assert set(re.findall(r"/devices/([^/\"'?#]+)", body)) == {frame}, page
+        # The Console pages for the served frame still resolve without a prefix.
+        if page.split("?")[0] in ("/device", "/health", "/airlines/manage"):
+            assert get(single_device_app, page)[0] == 200, page

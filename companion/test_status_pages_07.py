@@ -70,7 +70,7 @@ def _frame_strip_ctx(last_checkin_ts, device_config_dict, now):
 
 def test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit(css_text):
     """the .tab-bar__pill's horizontal margin, resolved from style.css's own --space-xs/--space-sm
-    tokens, leaves at least the longest NAV_GROUPS label's own required width (a measured
+    tokens, leaves at least the longest personal bar label's own required width (a measured
     6.5px/character advance derived from the 2026-09-17 audit's real 'Compagnies' figure, floored
     at that audit's own 65px) inside the tab cell at the app's 360px floor viewport, while
     `.tab-bar__link`'s own 56px height and `flex: 1 1 0` width basis stay byte-identical"""
@@ -108,10 +108,13 @@ def test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit(css_text):
     assert label_decls.get("font-size") == "11px", (
         "expected .tab-bar__label's font-size to still resolve to 11px, got %r" % (label_decls,))
 
+    # The personal bar's four destination cells carry the short form of a
+    # label where one exists; the airline collection lives in the More sheet.
     unlabelled_entries = [
-        (route, label) for group_label, entries in layout.NAV_GROUPS if not group_label
-        for route, label in entries]
-    cell_count = len(unlabelled_entries) + 1  # the everyday destinations plus one "More" cell
+        (route, layout.NAV_SHORT_LABELS.get(layout.nav_slug(route), label))
+        for group_label, entries in layout.NAV_GROUPS if not group_label
+        for route, label in entries if route != layout.AIRLINES_ROUTE]
+    cell_count = len(unlabelled_entries) + 1  # the bar destinations plus one "More" cell
 
     # The app's own contract floor (design_direction: "Minimum supported
     # viewport width: 360 px") is the tightest case a smaller viewport
@@ -177,9 +180,9 @@ def test_tab_bar_more_sheet_opens_upward_and_reuses_the_dropdown_row(css_text):
 
 
 def test_french_tab_bar_labels_and_landmark():
-    """under lang='fr' every tab-bar label reads French — Accueil / Affichage / Vols / Compagnies /
-    Plus, with État and Appareil inside the More sheet — and the landmark name is
-    'Navigation principale'"""
+    """under lang='fr' every personal tab-bar label reads French — Accueil / Vols / Lieu / Style /
+    Plus, with the airline collection and Compte inside the More sheet — and the landmark name
+    is 'Navigation principale'"""
     device_cfg = {"display_enabled": True, "quiet_hours_enabled": False}
     try:
         prefs.set_request_prefs(lang="fr")
@@ -193,13 +196,14 @@ def test_french_tab_bar_labels_and_landmark():
         "expected the tab bar's landmark name in French (CFG-29 must not regress), got %r"
         % (bar[:120],))
     for english, french in (
-            ("Home", "Accueil"), ("Display", "Affichage"), ("Flights", "Vols"),
-            ("Airlines", "Compagnies"), ("More", "Plus"),
-            ("Health", "État"), ("Device", "Appareil")):
+            ("Home", "Accueil"), ("History", "Vols"), ("Location", "Lieu"),
+            ("Style", "Style"), ("More", "Plus"),
+            ("Airline collection", "Collection de compagnies"), ("Account", "Compte")):
         assert ">%s<" % french in bar, (
             "expected the %r cell to read %r in French, got %r" % (english, french, bar))
-        assert ">%s<" % english not in bar, (
-            "expected no leftover English %r label under a French request" % (english,))
+        if english != french:
+            assert ">%s<" % english not in bar, (
+                "expected no leftover English %r label under a French request" % (english,))
 
 
 def test_one_open_dropdown_max_height_and_no_dead_dropdown_nav_rule(css_text):
@@ -1001,7 +1005,7 @@ def test_both_tabs_ok_end_to_end(make_app_server):
             # /history added so the served-HTML twin of the render-level
             # History guard above runs against a real running service,
             # not only an in-process render() call.
-            ("/flights", "Flights")):
+            ("/flights", "Flight history")):
         status, _headers, body = get(server, path, cookie=session_cookie)
         assert status == 200, "expected 200 for %s, got %d" % (path, status)
         assert heading.encode() in body, "expected the %r heading in %s's response body" % (heading, path)

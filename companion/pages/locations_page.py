@@ -71,9 +71,7 @@ ERROR_TIMEZONE = i18n.msg("admin_locations.choose_a_time_zone", "Choose a time z
 
 _PICKER_LABEL = i18n.msg("admin_locations.location", "Location")
 _PICKER_NONE_OPTION = i18n.msg("admin_locations.no_location", "No location")
-_PICKER_MANAGE = i18n.msg("admin_locations.manage_locations", "Manage locations")
 _PICKER_NONE_CHOSEN = i18n.msg("admin_locations.no_location_chosen", "No location chosen.")
-_PICKER_ADD = i18n.msg("admin_locations.add_a_location", "Add a location")
 _PICKER_ASSIGNED = i18n.msg(
     "admin_locations.assigned_by_an_administrator", "Assigned by an administrator")
 
@@ -148,7 +146,7 @@ def _field_error(field_id, message):
         return "", ""
     return (
         ' aria-invalid="true" aria-describedby="%s-error"' % field_id,
-        '<p class="field-error" id="%s-error">%s</p>' % (field_id, _esc(message)))
+        '<p class="field-error" id="%s-error">%s</p>' % (field_id, _t(message)))
 
 
 def _fields_html(prefix, values, timezones, errors):
@@ -347,7 +345,7 @@ def picker_html(options, selected_id, form_id, section_attr):
     choose (assigned by an administrator) stays selected under a generic label,
     so saving the page unchanged never clears it and its name is not shown.
     With nothing to choose and nothing assigned the select is replaced by a
-    note and a link to add a location.
+    note (no page lists or adds locations any more).
     """
     label = _t(_PICKER_LABEL)
     known = {location_id for location_id, _name in options}
@@ -355,10 +353,8 @@ def picker_html(options, selected_id, form_id, section_attr):
     if not options and not foreign:
         return (
             '<div class="detection-card__location" %s="%s">'
-            '<p class="text-label">%s</p>'
-            '<a class="text-link" href="%s">%s</a></div>' % (
-                section_attr, label, _t(_PICKER_NONE_CHOSEN),
-                _esc(_routes().LOCATIONS_ROUTE), _t(_PICKER_ADD)))
+            '<p class="text-label">%s</p></div>' % (
+                section_attr, label, _t(_PICKER_NONE_CHOSEN)))
     items = ['<option value=""%s>%s</option>' % (
         "" if selected_id is not None else " selected", _t(_PICKER_NONE_OPTION))]
     if foreign:
@@ -370,7 +366,5 @@ def picker_html(options, selected_id, form_id, section_attr):
     return (
         '<div class="detection-card__location" %s="%s">'
         '<p><label for="location-picker">%s</label>'
-        '<select id="location-picker" name="%s" form="%s">%s</select></p>'
-        '<a class="text-link" href="%s">%s</a></div>' % (
-            section_attr, label, label, LOCATION_FIELD, _esc(form_id),
-            "".join(items), _esc(_routes().LOCATIONS_ROUTE), _t(_PICKER_MANAGE)))
+        '<select id="location-picker" name="%s" form="%s">%s</select></p></div>' % (
+            section_attr, label, label, LOCATION_FIELD, _esc(form_id), "".join(items)))

@@ -1,7 +1,9 @@
-"""The Locations page and its add, edit and delete actions over real HTTP for
-both roles: role-scoped listing, validation, the per-user quota and rate
-limit, ownership refusals that look like an unknown path, audit rows and the
-access gates. Every place here is an obviously generic fake."""
+"""The location add, edit and delete actions over real HTTP for both roles:
+role-scoped listing on the page a refused submission re-renders, validation,
+the per-user quota and rate limit, ownership refusals that look like an unknown
+path, audit rows and the access gates. GET /locations is no longer a page: it
+sends an administrator to Fleet and is a 404 for a user. Every place here is an
+obviously generic fake."""
 import json
 import re
 import urllib.parse
@@ -9,8 +11,8 @@ import urllib.parse
 import pytest
 
 import fleet_console_support as fx
-from companion import console_locations, console_routes, i18n_fr, prefs, throttle
-from companion_app_server import http_request
+from companion import console_flash, console_locations, console_routes, i18n_fr, prefs, throttle
+from companion_app_server import http_request, with_csrf
 from server import fleet_db
 
 LAT = "10.123456"
@@ -66,11 +68,25 @@ def _form(name="Sample Town", lat=LAT, lon=LON, tz="Europe/Paris"):
     return {"name": name, "latitude": lat, "longitude": lon, "timezone": tz}
 
 
-def _flash_text(server, cookie, headers):
+def _flash_text(_server, _cookie, headers):
+    """The text of the flash the response queued (no page shows a Locations
+    flash any more, so the cookie is read back through the flash reader)."""
     values = [value.split(";")[0] for key, value in headers.items()
               if key.lower() == "set-cookie" and value.startswith("sp_flash=")]
     assert values, "no flash cookie"
-    return fx.get(server, cookie + "; " + values[0], "/locations")[2]
+    html, _clear = console_flash.take_flash(values[0])
+    assert html, "the flash cookie carried no message"
+    return html
+
+
+def _page(server, cookie, headers=None):
+    """The Locations page body as a refused submission re-renders it (the only
+    way the page is still produced): a blank name is refused with a 400."""
+    status, _headers, body = http_request(
+        server.url("/locations/add"), "POST", cookie=cookie,
+        data=with_csrf(cookie, _form(name=" ")), extra_headers=headers)
+    assert status == 400
+    return body.decode("utf-8")
 
 
 def _location_audit(state_dir, action=None):
@@ -100,8 +116,7 @@ def test_an_admin_sees_every_location_with_owner_and_used_by_counts(rig):
     _add(server.state_dir, "Plain Place", seed.user_id)
     _sql(server.state_dir, "UPDATE devices SET location_id = ? WHERE id = ?",
          (mine, seed.owned_id))
-    status, _headers, body = fx.get(server, cookies["admin"], "/locations")
-    assert status == 200
+    body = _page(server, cookies["admin"])
     for name in ("Owner Place", "Legacy Place", "Plain Place"):
         assert name in body
     assert "<th>Owner</th>" in body
@@ -118,8 +133,7 @@ def test_a_user_sees_only_their_own_rows_and_no_owner_column(rig):
     _add(server.state_dir, "Owner Place", seed.owner_id)
     _add(server.state_dir, "Legacy Place")
     _add(server.state_dir, "Plain Place", seed.user_id)
-    status, _headers, body = fx.get(server, cookies["owner"], "/locations")
-    assert status == 200
+    body = _page(server, cookies["owner"])
     assert "Owner Place" in body
     assert "Legacy Place" not in body and "Plain Place" not in body
     assert "<th>Owner</th>" not in body and "Platform" not in body
@@ -130,8 +144,8 @@ def test_a_user_sees_only_their_own_rows_and_no_owner_column(rig):
 
 def test_empty_states_and_the_default_time_zone(rig):
     server, _seed, cookies = rig
-    admin = fx.get(server, cookies["admin"], "/locations")[2]
-    user = fx.get(server, cookies["owner"], "/locations")[2]
+    admin = _page(server, cookies["admin"])
+    user = _page(server, cookies["owner"])
     assert "No locations yet" in admin and "Add the first place a frame can use." in admin
     assert "No locations yet" in user and "Add a place to choose it for your frame." in user
     for body in (admin, user):
@@ -142,7 +156,7 @@ def test_empty_states_and_the_default_time_zone(rig):
 def test_every_form_has_csrf_and_a_location_path(rig):
     server, seed, cookies = rig
     row = _add(server.state_dir, "Owner Place", seed.owner_id)
-    body = fx.get(server, cookies["owner"], "/locations")[2]
+    body = _page(server, cookies["owner"])
     forms = [
         form for form in re.findall(
             r'<form method="post" action="([^"]+)"[^>]*>(.*?)</form>', body, re.S)
@@ -158,7 +172,7 @@ def test_every_form_has_csrf_and_a_location_path(rig):
 def test_stored_text_is_escaped(rig):
     server, seed, cookies = rig
     _add(server.state_dir, "<script>alert(1)</script>", seed.owner_id)
-    body = fx.get(server, cookies["owner"], "/locations")[2]
+    body = _page(server, cookies["owner"])
     assert "<script>alert(1)" not in body
     assert "&lt;script&gt;" in body
 
@@ -190,7 +204,7 @@ def test_an_admin_creates_an_ownerless_platform_location(rig):
         assert status == 303
     rows = _sql(server.state_dir, "SELECT owner_user_id FROM locations")
     assert len(rows) == 12 and all(row == (None,) for row in rows)
-    body = fx.get(server, cookies["admin"], "/locations")[2]
+    body = _page(server, cookies["admin"])
     assert "Platform" in body
 
 
@@ -279,16 +293,15 @@ def test_a_user_sees_only_their_own_frames_in_the_used_by_count(rig):
     plain = _add(server.state_dir, "Plain Place", seed.user_id)
     _sql(server.state_dir, "UPDATE devices SET location_id = ? WHERE id = ?",
          (plain, seed.owned_id))
-    status, _headers, body = fx.get(server, cookies["plain"], "/locations")
-    assert status == 200
+    body = _page(server, cookies["plain"])
     assert "No frame" in _row_html(body, plain)
     assert "1 frame" not in _row_html(body, plain)
-    _status, _headers, admin_body = fx.get(server, cookies["admin"], "/locations")
+    admin_body = _page(server, cookies["admin"])
     assert "1 frame" in _row_html(admin_body, plain)
     own = _add(server.state_dir, "Owner Place", seed.owner_id)
     _sql(server.state_dir, "UPDATE devices SET location_id = ? WHERE id = ?",
          (own, seed.owned_id))
-    _status, _headers, owner_body = fx.get(server, cookies["owner"], "/locations")
+    owner_body = _page(server, cookies["owner"])
     assert "1 frame" in _row_html(owner_body, own)
 
 
@@ -417,7 +430,7 @@ def test_a_user_get_never_lists_another_users_rows(rig):
     server, seed, cookies = rig
     _add(server.state_dir, "Owner Place", seed.owner_id)
     _add(server.state_dir, "Plain Place", seed.user_id)
-    plain = fx.get(server, cookies["plain"], "/locations")[2]
+    plain = _page(server, cookies["plain"])
     assert "Plain Place" in plain and "Owner Place" not in plain
 
 
@@ -477,6 +490,19 @@ def test_missing_csrf_is_403_and_anonymous_is_sent_to_sign_in(rig, path):
     assert _table(server.state_dir, "audit_log") == audit_before
 
 
+def test_the_list_page_is_gone_an_administrator_is_sent_to_fleet(rig):
+    server, _seed, cookies = rig
+    status, headers, _body = http_request(server.url("/locations"), cookie=cookies["admin"])
+    assert status == 303 and headers["Location"] == "/fleet"
+
+
+def test_the_list_page_is_the_unknown_path_for_a_user(rig):
+    server, _seed, cookies = rig
+    for who in ("owner", "plain"):
+        unknown = fx.get(server, cookies[who], "/no-such-page-anywhere")
+        assert fx.get(server, cookies[who], "/locations")[::2] == unknown[::2]
+
+
 def test_anonymous_page_request_is_sent_to_sign_in(rig):
     server, _seed, _cookies = rig
     status, headers, _ = http_request(server.url("/locations"))
@@ -505,9 +531,7 @@ def test_the_paths_match_the_console_route_constants():
 def test_the_french_page_uses_the_catalogue(rig):
     server, seed, cookies = rig
     _add(server.state_dir, "Owner Place", seed.owner_id)
-    status, _headers, body = fx.get(
-        server, cookies["owner"], "/locations", headers={"Accept-Language": "fr"})
-    assert status == 200
+    body = _page(server, cookies["owner"], headers={"Accept-Language": "fr"})
     assert i18n_fr.BY_ID["admin_locations.add_location"] == "Ajouter un lieu"
     assert "Ajouter un lieu" in body and "Nouveau lieu" in body
     assert "Garder le lieu" in body

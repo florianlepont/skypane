@@ -175,8 +175,15 @@ def test_the_unprefixed_frame_routes_are_admin_only(rig, template):
 
 
 @pytest.mark.parametrize("path", ["/", "/display", "/flights", "/health", "/airlines"])
-def test_an_admin_reaches_the_unprefixed_pages(rig, path):
-    assert rig.get(path, "admin")[0] == 200
+def test_an_admin_moves_from_the_personal_pages_to_their_own_frame(rig, path):
+    status, headers, _body = rig.get(path, "admin")
+    if path == "/health":
+        assert status == 200
+        return
+    assert status == 303
+    location = headers["Location"]
+    assert re.fullmatch(r"/devices/d_[0-9a-f]{8}" + re.escape(path), location)
+    assert rig.get(location, "admin")[0] == 200
 
 
 @pytest.mark.parametrize("path", ["/device", "/update", "/runway-image/06-24.png"])
@@ -193,12 +200,12 @@ def test_a_user_who_owns_the_live_frame_is_served_under_its_real_id(live_rig):
     status, headers, _body = live_rig.get("/", "a")
     assert status == 303
     assert headers["Location"] == "/devices/%s/" % live_rig.fleet.a2
-    pages = ("/", "/display", "/flights", "/health", "/airlines")
+    pages = ("/", "/display", "/flights", "/airlines")
     for path in pages:
         body = live_rig.page("/devices/%s%s" % (live, path), "a")
         links = re.findall(r'(?:data-)?href="([^"]*)"', body)
         for target in links:
-            assert target not in ("/display", "/flights", "/health", "/airlines"), (
+            assert target not in ("/display", "/flights", "/airlines"), (
                 path, target)
         assert any(t.startswith("/devices/%s" % live) for t in links), path
         assert 'value="live"' not in body
@@ -246,8 +253,10 @@ def test_pending_and_retired_frames_do_not_exist_for_a_user(rig):
 # --- reduced content, crafted POSTs and the calendar gate -----------------------
 
 ADMIN_ONLY_KEYS = tuple(SEEDED_ADMIN_ONLY)
-_ADMIN_LINK_PATHS = ("/fleet", "/users", "/audit", "/update", "/device")
-_FRAME_PAGES = ("/", "/display", "/flights", "/health", "/airlines")
+_ADMIN_LINK_PATHS = (
+    "/fleet", "/users", "/audit", "/update", "/device", "/health", "/airlines/manage",
+    "/locations")
+_FRAME_PAGES = ("/", "/display", "/flights", "/airlines")
 
 
 def _form(**fields):
@@ -351,7 +360,7 @@ def test_user_home_has_one_dot_and_no_battery_tile_or_attention_bar(rig):
     assert parse_html(admin_home).select(".home-battery")
 
 
-def test_user_health_has_none_of_the_platform_rows(rig):
+def test_health_is_the_administrators_alone_and_keeps_its_platform_rows(rig):
     mark_checked_in(rig.state_dir, rig.fleet.a1, source_fault=True)
     platform_texts = (
         health_page.SERVER_DATA_SECTION_HEADING, health_page.ROW_FLIGHT_DATA_NAME,
@@ -359,13 +368,10 @@ def test_user_health_has_none_of_the_platform_rows(rig):
         health_page.UNRESOLVED_SECTION_HEADING)
     path = "/devices/%s/health" % rig.fleet.a1
     admin_health = rig.page(path, "admin")
-    user_health = rig.page(path, "a")
     for text in platform_texts:
-        needle = escape_html(i18n.t(text))
-        assert needle in admin_health, text
-        assert needle not in user_health, text
-    assert escape_html(i18n.t(health_page.SCREEN_SECTION_HEADING)) in user_health
-    assert "resolve-dialog" not in user_health
+        assert escape_html(i18n.t(text)) in admin_health, text
+    rig.assert_unknown("GET", path, "a")
+    rig.assert_unknown("GET", "/health", "a")
 
 
 def test_user_pages_link_to_no_admin_page_and_admin_pages_still_do(rig):
@@ -376,9 +382,12 @@ def test_user_pages_link_to_no_admin_page_and_admin_pages_still_do(rig):
             page = _page_path(target)
             assert page not in _ADMIN_LINK_PATHS, (path, target)
             assert not page.startswith(("/fleet/", "/users/", "/audit/")), (path, target)
-    admin_targets = [_page_path(t) for t in _hrefs(rig.page("/devices/%s/" % own, "admin"))]
-    assert "/fleet" in admin_targets
-    assert "/device" in admin_targets
+    personal = [_page_path(t) for t in _hrefs(rig.page("/devices/%s/" % own, "admin"))]
+    assert "/fleet" in personal
+    assert "/device" not in personal and "/health" not in personal
+    console = [_page_path(t) for t in _hrefs(rig.page("/devices/%s/health" % own, "admin"))]
+    assert "/fleet" in console
+    assert "/device" in console
 
 
 def test_a_user_quick_toggle_changes_their_frame_and_returns_to_it(rig):

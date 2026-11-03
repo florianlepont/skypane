@@ -13,6 +13,7 @@ import time
 import pytest
 
 import fleet_console_support as fx
+from locations_page_support import open_locations_page
 from companion import auth
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _in_both_themes, _login,
@@ -30,8 +31,9 @@ if _STUB_SERVER_DIR not in sys.path:
 import byos_server  # noqa: E402
 
 MIN_TAP_PX = 44
-CONSOLE_PATHS = ("/fleet", "/users", "/locations", "/audit")
-ADMIN_ONLY_PATHS = ("/fleet", "/users", "/audit", "/update", "/device")
+CONSOLE_PATHS = ("/fleet", "/users", "/audit")
+ADMIN_ONLY_PATHS = (
+    "/fleet", "/users", "/audit", "/update", "/device", "/health", "/airlines/manage")
 ADMIN_ONLY_CONTROLS = (
     "wake_interval_s", "led_enabled", "tracked_runway", "Poll now")
 
@@ -167,7 +169,7 @@ def test_forms_and_confirm_controls_meet_the_touch_target(
         for selector in (
                 "#invite-email", "#invite-role", 'form[action="/users/invite"] button'):
             assert _height(page, selector) >= MIN_TAP_PX, selector
-        page.goto(server.base_url() + "/locations")
+        open_locations_page(page, server.base_url())
         for selector in (
                 "#new-name", "#new-lat", "#new-lon", "#new-tz",
                 'form[action="/locations/add"] button'):
@@ -223,14 +225,9 @@ def test_console_works_with_scripts_blocked(new_context, app_server_in_process):
         assert _flash(page).is_visible()
         assert "invited@example.test" in page.content()
 
+        # The Locations list is gone: its address is a plain redirect to Fleet.
         page.goto(server.base_url() + "/locations")
-        page.fill("#new-name", "Test place")
-        page.fill("#new-lat", "48.7253")
-        page.fill("#new-lon", "2.3592")
-        page.click('form[action="/locations/add"] button')
-        page.wait_for_url("**/locations")
-        assert _flash(page).is_visible()
-        assert "Test place" in page.content()
+        assert page.url.endswith("/fleet")
     finally:
         context.close()
 
@@ -283,8 +280,9 @@ def test_console_renders_in_french(new_context, app_server_in_process):
         _login(page, server.base_url())
         page.goto(server.base_url() + "/fleet")
         nav = page.locator("nav").first.inner_text()
-        for label in ("Flotte", "Utilisateurs", "Lieux", "Journal d’audit"):
+        for label in ("Flotte", "Utilisateurs", "Journal d’audit"):
             assert label in nav, label
+        assert "Lieux" not in nav
         assert _no_sideways_scroll(page)
     finally:
         context.close()
@@ -298,7 +296,7 @@ def test_user_sees_no_administrator_entry(new_context, app_server_in_process):
     try:
         page = context.new_page()
         home = "%s/devices/%s/" % (server.base_url(), seed.owned_id)
-        for suffix in ("", "display", "health", "flights"):
+        for suffix in ("", "display", "flights"):
             page.goto(home + suffix)
             served = page.content()
             live = page.evaluate("document.documentElement.outerHTML")
@@ -314,12 +312,12 @@ def test_user_sees_no_administrator_entry(new_context, app_server_in_process):
         page.goto(home)
         tabs = [t.strip() for t in page.locator(
             ".tab-bar > a, .tab-bar > .tab-bar__link").all_inner_texts() if t.strip()]
-        assert tabs == ["Home", "Flights", "Display", "Account"], tabs
+        assert tabs == ["Home", "History", "Location", "Style"], tabs
     finally:
         context.close()
 
 
-@pytest.mark.parametrize("path", ADMIN_ONLY_PATHS + ("/locations/1/edit",))
+@pytest.mark.parametrize("path", ADMIN_ONLY_PATHS + ("/locations", "/locations/1/edit"))
 def test_admin_urls_are_the_unknown_path_page_for_a_user(
         new_context, app_server_in_process, path):
     server = app_server_in_process

@@ -73,6 +73,16 @@ def _fleet_get(app, path, lang=None):
     return _get(app.server, app.cookie, path, lang)
 
 
+def _live_path(app, route):
+    """`route` under the live frame's own prefix: it has a fleet row, so an
+    administrator addresses it by id like every other frame."""
+    return "/devices/%s%s" % (app.fleet.live.id, route)
+
+
+def _live_get(app, route, lang=None):
+    return _fleet_get(app, _live_path(app, route), lang)
+
+
 def _switcher(page):
     root = parse_html(page)
     return root, root.select_one("details.frame-switcher")
@@ -85,8 +95,17 @@ def _rows(page):
 
 def test_single_device_renders_no_switcher_markup(single_app):
     server, cookie = single_app
+    # The signed-in administrator owns no frame, so the un-prefixed page
+    # moves to the account page; the frame is reached by its own id.
+    status, headers, _ = _get(server, cookie, "/flights")
+    assert (status, headers["Location"]) == (303, "/account")
+    conn = fleet_db.connect_readonly(server.state_dir)
+    try:
+        prefix = "/devices/%s" % fleet_db.list_devices(conn)[0]["id"]
+    finally:
+        conn.close()
     for route in SCOPED_PAGES:
-        status, _, page = _get(server, cookie, route)
+        status, _, page = _get(server, cookie, prefix + route)
         assert status == 200
         assert "frame-switcher" not in page
         assert 'name="device"' not in page
@@ -94,7 +113,7 @@ def test_single_device_renders_no_switcher_markup(single_app):
 
 @pytest.mark.parametrize("route", SCOPED_PAGES)
 def test_switcher_on_every_device_scoped_page(fleet_app, route):
-    status, _, page = _fleet_get(fleet_app, route)
+    status, _, page = _live_get(fleet_app, route)
     assert status == 200
     root, switcher = _switcher(page)
     assert switcher is not None
@@ -120,10 +139,10 @@ def test_not_found_page_has_no_switcher(fleet_app):
 
 def test_rows_order_and_status_words(fleet_app):
     fleet = fleet_app.fleet
-    _, _, page = _fleet_get(fleet_app, "/flights")
+    _, _, page = _live_get(fleet_app, "/flights")
     _, rows = _rows(page)
     hrefs = [row.attrs["href"] for row in rows]
-    assert hrefs[0] == "/flights"
+    assert hrefs[0] == "/devices/%s/flights" % fleet.live.id
     assert set(hrefs[1:]) == {
         "/devices/%s/flights" % d.id for d in (fleet.dev_a, fleet.dev_b, fleet.landscape)}
     words = {
@@ -141,22 +160,22 @@ def test_row_links_keep_the_page_and_mark_the_current_frame(fleet_app):
     _, _, page = _fleet_get(fleet_app, "/devices/%s/flights" % fleet.dev_a.id)
     _, rows = _rows(page)
     hrefs = {row.attrs["href"] for row in rows}
-    assert "/flights" in hrefs
+    assert "/devices/%s/flights" % fleet.live.id in hrefs
     assert "/devices/%s/flights" % fleet.dev_b.id in hrefs
     current = [row.attrs["href"] for row in rows if row.attrs.get("aria-current") == "true"]
     assert current == ["/devices/%s/flights" % fleet.dev_a.id]
 
 
 def test_live_frame_is_current_by_default_with_its_default_name(fleet_app):
-    _, _, page = _fleet_get(fleet_app, "/")
+    _, _, page = _live_get(fleet_app, "/")
     _, rows = _rows(page)
     current = [row for row in rows if row.attrs.get("aria-current") == "true"]
-    assert [row.attrs["href"] for row in current] == ["/"]
+    assert [row.attrs["href"] for row in current] == [_live_path(fleet_app, "/")]
     assert current[0].select_one(".frame-switcher__name").text().strip() == "Orly frame"
 
 
 def test_footer_links_for_an_administrator(fleet_app):
-    _, _, page = _fleet_get(fleet_app, "/health")
+    _, _, page = _live_get(fleet_app, "/health")
     _, switcher = _switcher(page)
     links = {a.attrs["href"]: a.text().strip() for a in switcher.select("div.frame-switcher__footer a")}
     assert links == {
@@ -173,7 +192,7 @@ def test_no_mac_token_or_secret_in_any_page(fleet_app):
 
 def test_markup_in_a_device_name_is_escaped(fleet_app):
     fleet = fleet_app.fleet
-    _, _, switcher_page = _fleet_get(fleet_app, "/flights")
+    _, _, switcher_page = _live_get(fleet_app, "/flights")
     assert MARKUP_NAME not in switcher_page
     assert "&lt;script&gt;" in switcher_page
     _, _, page = _fleet_get(fleet_app, "/devices/%s/flights" % fleet.dev_b.id)
@@ -184,15 +203,15 @@ def test_markup_in_a_device_name_is_escaped(fleet_app):
 
 def test_document_title_names_a_non_live_device_only(fleet_app):
     fleet = fleet_app.fleet
-    _, _, live_page = _fleet_get(fleet_app, "/flights")
-    assert re.search(r"<title>(.*?)</title>", live_page).group(1) == "Flights - SkyPane"
+    _, _, live_page = _live_get(fleet_app, "/flights")
+    assert re.search(r"<title>(.*?)</title>", live_page).group(1) == "Flight history - SkyPane"
     _, _, page = _fleet_get(fleet_app, "/devices/%s/flights" % fleet.dev_a.id)
     title = re.search(r"<title>(.*?)</title>", page).group(1)
-    assert title == "Flights - sim-1 - SkyPane"
+    assert title == "Flight history - sim-1 - SkyPane"
 
 
 def test_landmark_counts_are_unchanged(fleet_app):
-    _, _, page = _fleet_get(fleet_app, "/flights")
+    _, _, page = _live_get(fleet_app, "/flights")
     root = parse_html(page)
     nav_names = [
         n.attrs.get("aria-label") for n in root.find_all("nav")
@@ -202,7 +221,7 @@ def test_landmark_counts_are_unchanged(fleet_app):
 
 
 def test_switcher_is_in_french_when_the_language_is_french(fleet_app):
-    _, _, page = _fleet_get(fleet_app, "/flights", lang="fr")
+    _, _, page = _live_get(fleet_app, "/flights", lang="fr")
     _, switcher = _switcher(page)
     assert switcher.select_one("summary").attrs["aria-label"].startswith(
         "Changer de cadre, actuel\u00a0: ")
@@ -220,11 +239,12 @@ def test_switch_redirects_to_the_same_page_under_the_device(fleet_app):
     assert (status, headers["Location"]) == (303, "/devices/%s/" % fleet.dev_b.id)
 
 
-def test_switch_to_live_redirects_to_the_unprefixed_page(fleet_app):
+def test_switch_to_live_redirects_to_the_live_frame_prefix(fleet_app):
     fleet = fleet_app.fleet
     status, headers, _ = _fleet_get(
         fleet_app, "/devices/%s/health?device=live" % fleet.dev_a.id)
-    assert (status, headers["Location"]) == (303, "/health")
+    assert (status, headers["Location"]) == (
+        303, "/devices/%s/health" % fleet.live.id)
 
 
 def test_switch_keeps_other_query_parameters(fleet_app):

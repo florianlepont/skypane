@@ -384,7 +384,12 @@ def test_cancel_in_carried_state_returns_to_stored_value(new_context, make_app_s
     _wait_for_bar(page)
     with page.expect_navigation():
         page.click("[data-dirty-cancel]")
-    if page.url.split("#")[0] != server.base_url() + "/detection":
+    # The administrator's own frame is addressed by its id, so the plain page
+    # is that frame's /detection.
+    plain = page.url.split("#")[0].split("?")[0]
+    if not re.fullmatch(
+            re.escape(server.base_url()) + r"/devices/d_[0-9a-f]{8}/detection", plain) \
+            or "?" in page.url.split("#")[0]:
         raise AssertionError("Cancel landed on %s" % page.url)
     if not page.is_checked("#detection-mode-position"):
         page.click(MODE_POSITION_LABEL)
@@ -474,10 +479,11 @@ def drig(app_server_in_process):
 
 
 def test_a_user_changes_the_location_in_three_steps(new_context, drig):
-    """Display tab, change the location, Save: the choice is stored."""
+    """Personalisation tab, change the location, Save: the choice is stored."""
     context, page = _open_as(new_context, drig, "owner")
     try:
-        page.get_by_role("link", name="Display", exact=True).first.click()  # step 1
+        page.get_by_role(
+            "link", name=re.compile(r"^(Personalisation|Style)$")).first.click()  # step 1
         page.wait_for_url("**/display")
         page.select_option("#location-picker", label="Office")  # step 2
         _save_via_bar(page)  # step 3

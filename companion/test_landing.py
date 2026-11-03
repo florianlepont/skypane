@@ -104,7 +104,7 @@ def test_an_external_next_is_ignored(auth0_rig, hostile):
 
 # --- default frame ----------------------------------------------------------
 
-def test_the_default_frame_is_none_for_an_admin_and_for_no_principal(tmp_path):
+def test_the_default_frame_is_none_without_a_fleet_or_a_principal(tmp_path):
     admin = access.Principal(access.KIND_USER, 1, "a@example.test", access.ADMIN)
     assert device_scope.default_frame_for(str(tmp_path), admin) is None
     assert device_scope.default_frame_for(str(tmp_path), None) is None
@@ -119,6 +119,8 @@ def landing_rig(auth0_rig):
     other = rig.invite("other@example.test", "user")
     rig.invite("none@example.test", "user")
     admin = rig.invite("admin@example.test", "admin")
+    keeper = rig.invite("keeper@example.test", "admin")
+    rig.keeper_frame = _add_frame(rig.state_dir, keeper, "Keeper frame", 3)
     rig.frame = _add_frame(rig.state_dir, owner, "Mine", 1)
     rig.foreign = _add_frame(rig.state_dir, other, "Theirs", 2)
     now = int(time.time())
@@ -126,7 +128,7 @@ def landing_rig(auth0_rig):
         email: session_cookie_for(
             rig.state_dir, fleet_sessions.PRINCIPAL_USER, uid, now)
         for email, uid in (
-            ("owner", owner), ("other", other), ("admin", admin),
+            ("owner", owner), ("other", other), ("admin", admin), ("keeper", keeper),
             ("none", rig.rows("SELECT id FROM users WHERE email = ?",
                               ("none@example.test",))[0][0]))}
     return rig
@@ -159,10 +161,58 @@ def test_another_users_frame_path_stays_404(landing_rig):
         assert status == 404
 
 
-def test_an_admin_keeps_the_served_frame_page(landing_rig):
-    status, _h, _b = http_request(
-        landing_rig.server.url("/"), cookie=landing_rig.cookies["admin"])
-    assert status == 200
+@pytest.mark.parametrize("page", FRAME_PAGE_REDIRECTS)
+def test_an_admin_without_a_frame_is_moved_to_the_account_page(landing_rig, page):
+    status, headers, _b = http_request(
+        landing_rig.server.url(page), cookie=landing_rig.cookies["admin"])
+    assert (status, headers["Location"]) == (303, "/account")
+
+
+@pytest.mark.parametrize("page", FRAME_PAGE_REDIRECTS)
+def test_an_admin_is_moved_to_their_default_frame_like_a_user(landing_rig, page):
+    status, headers, _b = http_request(
+        landing_rig.server.url(page), cookie=landing_rig.cookies["keeper"])
+    assert status == 303
+    assert headers["Location"] == "/devices/%s%s" % (landing_rig.keeper_frame, page)
+    follow, _h, _b = http_request(
+        landing_rig.server.url(headers["Location"]),
+        cookie=landing_rig.cookies["keeper"])
+    assert follow == 200
+
+
+def test_an_admin_redirect_keeps_the_query_re_encoded(landing_rig):
+    status, headers, _b = http_request(
+        landing_rig.server.url("/airlines?resolve=A%26B&x=1"),
+        cookie=landing_rig.cookies["keeper"])
+    assert status == 303
+    assert headers["Location"] == "/devices/%s/airlines?resolve=A%%26B&x=1" % (
+        landing_rig.keeper_frame)
+
+
+def test_an_admin_can_still_open_any_frame_by_its_id(landing_rig):
+    for frame in (landing_rig.frame, landing_rig.foreign, landing_rig.keeper_frame):
+        status, _h, _b = http_request(
+            landing_rig.server.url("/devices/%s/" % frame),
+            cookie=landing_rig.cookies["admin"])
+        assert status == 200
+
+
+@pytest.mark.parametrize("who", ["owner", "keeper"])
+@pytest.mark.parametrize("hostile", [
+    "//evil.example", "https://evil.example/x", "a%0d%0aLocation:%20//evil.example",
+    "%5Cevil.example", "/%2F%2Fevil.example"])
+def test_the_redirect_never_follows_request_text(landing_rig, who, hostile):
+    status, headers, _b = http_request(
+        landing_rig.server.url("/display?next=%s&x=%s" % (hostile, hostile)),
+        cookie=landing_rig.cookies[who])
+    assert status == 303
+    location = headers["Location"]
+    frame = landing_rig.frame if who == "owner" else landing_rig.keeper_frame
+    assert location.startswith("/devices/%s/display?" % frame)
+    assert not location.startswith("//")
+    assert "\r" not in location and "\n" not in location
+    assert "evil.example" not in location.split("?", 1)[0]
+    assert "://" not in location and "\\" not in location
 
 
 def test_the_redirect_ignores_request_text(landing_rig):
@@ -170,7 +220,13 @@ def test_the_redirect_ignores_request_text(landing_rig):
         landing_rig.server.url("/display?device=%s&x=//evil.example" % landing_rig.foreign),
         cookie=landing_rig.cookies["owner"])
     assert status == 303
-    assert headers["Location"] == "/devices/%s/display" % landing_rig.frame
+    assert headers["Location"] == (
+        "/devices/%s/display?device=%s&x=%%2F%%2Fevil.example" % (
+            landing_rig.frame, landing_rig.foreign))
+    follow, _h, _b = http_request(
+        landing_rig.server.url(headers["Location"]),
+        cookie=landing_rig.cookies["owner"])
+    assert follow == 404
 
 
 @pytest.mark.parametrize("who,expected", [

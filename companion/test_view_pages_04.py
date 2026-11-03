@@ -150,8 +150,9 @@ def test_home_recent_flights_use_display_airline_name_matching_flights(tmp_path)
     assert "CCM Airlines" not in rendered, "expected the raw upstream airline string not to leak onto Home"
 
 
-def test_home_health_action_is_reserved_for_actionable_state(tmp_path):
-    """Home keeps normal operation compact, but makes a real warning a direct Health action."""
+def test_home_attention_row_is_reserved_for_actionable_state(tmp_path):
+    """Home keeps normal operation compact and shows the attention row only for a real warning;
+    the row links to no Health page (Health is the administrator's Console page)."""
     base = {
         "device_config": {}, "state_dir": str(tmp_path / "absent" / "nested"),
         "now": "2026-08-27T12:00:00+00:00", "gallery_entries": [],
@@ -165,7 +166,8 @@ def test_home_health_action_is_reserved_for_actionable_state(tmp_path):
     assert 'href="/health"' not in healthy
     action = parse_html(warning).select_one(".toast.toast--docked.home-action")
     assert "toast--warning" in action.attrs["class"].split()
-    assert action.select_one("a.toast__action").attrs.get("href") == "/health"
+    assert not action.select("a.toast__action")
+    assert 'href="/health"' not in warning
     assert "role" not in action.attrs, "a persistent state must not announce itself on refresh"
     errored = home_page.render(dict(base, health_state={
         "device_state": "error", "pipeline_state": "ok", "battery_state": "ok"}))
@@ -1031,7 +1033,7 @@ def test_history_preview_and_gallery_round_trip_over_http(make_app_server):
 
     status, _headers, body = get(server, "/flights", cookie=session_cookie)
     assert status == 200, "expected 200 for /flights, got %d" % status
-    assert b"Flights" in body, "expected the 'Flights' heading in /flights's response body"
+    assert b"Flight history" in body, "expected the 'Flight history' heading in /flights's response body"
 
     status, headers, _body = get(server, "/preview", cookie=session_cookie)
     assert status == 303, "expected a 303 redirect for /preview, got %d" % status

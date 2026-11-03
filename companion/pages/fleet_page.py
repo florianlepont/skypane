@@ -52,7 +52,10 @@ _EMPTY_BODY = i18n.msg(
     "Switch a frame on. When its pairing code appears on its screen, choose "
     "Add a frame.")
 
-_ACTION_OPEN = i18n.msg("admin_fleet.open_frame", "Open frame")
+_ACTION_HEALTH = i18n.msg("admin_fleet.menu_health", "Health")
+_ACTION_DEVICE = i18n.msg("admin_fleet.menu_device", "Device")
+_ACTION_PERSONAL_VIEW = i18n.msg(
+    "admin_fleet.open_personal_view", "Open personal view")
 _ACTION_REASSIGN = i18n.msg("admin_fleet.reassign", "Reassign")
 _ACTION_RETIRE = i18n.msg("admin_fleet.retire", "Retire")
 _ACTION_REACTIVATE = i18n.msg("admin_fleet.re_activate", "Re-activate")
@@ -227,15 +230,19 @@ def _owner_line(row):
 
 def _menu_items(row, manages_access=False):
     """The row menu's (label, target, destructive) items by state: active
-    frames open, manage access (when offered), reassign and retire (the
-    served frame cannot be retired); retired frames re-activate; pending
-    frames have no menu."""
+    frames offer their Health and Device pages, the personal view, manage
+    access (when offered), reassign and retire (the served frame cannot be
+    retired); retired frames re-activate; pending frames have no menu. Every
+    address is built from the frame id."""
     if row.kind == KIND_RETIRED:
         return [(i18n.t(_ACTION_REACTIVATE), _slug("dlg-reactivate", row.frame_id), True)]
     if row.kind != KIND_LIVE:
         return []
+    prefix = "/devices/%s" % row.frame_id
     items = [
-        (i18n.t(_ACTION_OPEN), "/devices/%s/" % row.frame_id, False)]
+        (i18n.t(_ACTION_HEALTH), prefix + "/health", False),
+        (i18n.t(_ACTION_DEVICE), prefix + "/device", False),
+        (i18n.t(_ACTION_PERSONAL_VIEW), prefix + "/", False)]
     if manages_access:
         items.append((
             i18n.t(co_managers_card.MENU_LABEL),
@@ -255,7 +262,7 @@ def _row_html(row, access_ids=frozenset()):
     menu = (
         ui_entity_list.row_menu_html(i18n.t(_ROW_MENU_ARIA) % name, items)
         if items else "")
-    href = "/devices/%s/" % row.frame_id if row.kind == KIND_LIVE else None
+    href = "/devices/%s/health" % row.frame_id if row.kind == KIND_LIVE else None
     return ui_entity_list.entity_row_html(
         frame_status.status_dot_html(row), name, _owner_line(row), "", menu, href)
 

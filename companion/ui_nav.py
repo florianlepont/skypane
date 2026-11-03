@@ -15,11 +15,11 @@ import companion.i18n as i18n
 import companion.prefs as prefs
 from companion.auth import UI_THEME_COOKIE_NAME
 from companion.ui_base import (
-    ADVANCED_GROUP_LABEL,
     AIRLINES_ROUTE,
-    DEVICE_ROUTE,
+    DETECTION_ROUTE,
     DISPLAY_ROUTE,
     FLIGHTS_ROUTE,
+    FRAME_TOOLS_LABEL,
     HEALTH_ALERT_SUFFIX_TEXT,
     HEALTH_ANOMALY_CLASS,
     HEALTH_SOURCE_FAULT_CLASS,
@@ -28,6 +28,7 @@ from companion.ui_base import (
     MOBILE_NAV_ID,
     NAV_ICON_IDS,
     NAV_NOTIFICATION_CLASS,
+    NAV_SHORT_LABELS,
     NAV_TABS,
     NAV_TOGGLE_ID,
     NAV_TOGGLE_LABEL,
@@ -58,15 +59,13 @@ USER_NAV = (
 
 USER_ROLE = "user"
 
-# A user's own locations list, linked only once its page route exists.
-LOCATIONS_ROUTE = "/locations"
-_LOCATIONS_LABEL = i18n.msg("nav.locations", "Locations")
-
-# The frame pages a user's sidebar offers, in order, and the subset the
-# phone tab bar carries (Account closes the bar). Health is a technical
-# page: a user reaches it from the Home status card, not from navigation.
-_USER_SIDEBAR_PAGES = (HOME_ROUTE, FLIGHTS_ROUTE, DISPLAY_ROUTE, AIRLINES_ROUTE)
-_USER_TAB_PAGES = (HOME_ROUTE, FLIGHTS_ROUTE, DISPLAY_ROUTE)
+# The personal space's frame pages, in order: the sidebar lists all of them,
+# the phone bar carries the first four and the More sheet the rest. One
+# table serves an administrator and a user alike. Health and Device are
+# Console pages and never appear here.
+_PERSONAL_SIDEBAR_PAGES = (
+    HOME_ROUTE, FLIGHTS_ROUTE, DETECTION_ROUTE, DISPLAY_ROUTE, AIRLINES_ROUTE)
+_PERSONAL_BAR_PAGES = (HOME_ROUTE, FLIGHTS_ROUTE, DETECTION_ROUTE, DISPLAY_ROUTE)
 
 
 def is_user_principal():
@@ -87,23 +86,28 @@ def is_admin_principal():
 # The two spaces an administrator moves between. The space follows the page
 # being rendered (its nav slug), never anything the request carries.
 CONSOLE_SPACE = "console"
-MY_VIEWS_SPACE = "my-views"
+PERSONAL_SPACE = "personal"
 
 _AUDIT_BAR_LABEL = i18n.msg("nav.audit_short", "Audit")
-_MY_VIEWS_LABEL = i18n.msg("nav.my_views", "My views")
+_PERSONAL_LABEL = i18n.msg("nav.my_frame", "My frame")
 _CONSOLE_LABEL = i18n.msg("nav.console", "Console")
-_SWITCH_TO_MY_VIEWS_TEXT = i18n.msg(
-    "nav.switch_to_my_views", "Switch to your own views")
+_SWITCH_TO_PERSONAL_TEXT = i18n.msg(
+    "nav.switch_to_personal", "Switch to your own frame pages")
 _SWITCH_TO_CONSOLE_TEXT = i18n.msg(
     "nav.switch_to_console", "Switch to the administration console")
 _ACCOUNT_ICON_ID = "icon-gear"
 _CONSOLE_ICON_IDS = {
     "fleet": "icon-device",
     "users": "icon-corroboration",
-    "locations": "icon-pipeline",
     "audit": "icon-nav-history",
     "releases": "icon-nav-update",
+    "health": "icon-nav-health",
+    "device": "icon-nav-device",
+    "editor": "icon-nav-airlines",
 }
+# The Console destinations that act on one frame: their hrefs carry the
+# frame in view.
+_CONSOLE_FRAME_KEYS = frozenset(("health", "device", "editor"))
 _CONSOLE_SLUGS = frozenset(
     nav_slug(path) for _key, path, _label in console_routes.CONSOLE_NAV_ENTRIES)
 
@@ -120,12 +124,12 @@ class _Entry(NamedTuple):
 
 def current_space(active):
     """The space the page `active` belongs to, or None for a plain user.
-    Console pages are the administration routes; every other page, the
-    personal ones included, is My views.
+    Console pages are the administration routes, Health, Device and the
+    airline editor included; every other page is the personal space.
     """
     if is_user_principal():
         return None
-    return CONSOLE_SPACE if active in _CONSOLE_SLUGS else MY_VIEWS_SPACE
+    return CONSOLE_SPACE if active in _CONSOLE_SLUGS else PERSONAL_SPACE
 
 
 def _frame_entry(route, active):
@@ -147,8 +151,9 @@ def _console_entries(active):
     entries = {}
     for key, path, label in console_routes.available_nav_entries():
         slug = nav_slug(path)
+        href = device_scope.scoped(path) if key in _CONSOLE_FRAME_KEYS else path
         entries[key] = _Entry(
-            path, label, slug, _CONSOLE_ICON_IDS.get(key, ""), slug == active)
+            href, label, slug, _CONSOLE_ICON_IDS.get(key, ""), slug == active)
     return entries
 
 
@@ -156,7 +161,7 @@ def _switch_target(space):
     """(href, label, aria-label) of the link leading out of `space`, or None
     when the destination page does not exist."""
     if space == CONSOLE_SPACE:
-        return (HOME_ROUTE, _MY_VIEWS_LABEL, _SWITCH_TO_MY_VIEWS_TEXT)
+        return (HOME_ROUTE, _PERSONAL_LABEL, _SWITCH_TO_PERSONAL_TEXT)
     if console_routes.available_nav_entries():
         return (console_routes.ADMIN_TAB_ROUTE, _CONSOLE_LABEL, _SWITCH_TO_CONSOLE_TEXT)
     return None
@@ -235,30 +240,21 @@ def _user_can_open(route):
     return access.RANK[found[0].access.min_role] <= access.RANK[access.USER]
 
 
-def _user_frame_links(pages):
-    """(route, label) for each of `pages` a user may open, in order, and
-    only while the request scope holds at least one frame."""
-    if not device_scope.current_devices():
+def _personal_routes(pages):
+    """Each of `pages` a user may open, in order. A signed-in principal sees
+    them only while the request scope holds at least one frame; a render
+    with no principal is a bare shell and lists them unscoped."""
+    if prefs.current_principal() is not None and not device_scope.current_devices():
         return []
-    labels = dict(NAV_TABS)
-    return [(route, labels[route]) for route in pages if _user_can_open(route)]
+    return [route for route in pages if _user_can_open(route)]
 
 
 def user_brand_href():
     """Where a user's wordmark leads: the request-scope frame's Home when
     the user can open it, else Account."""
-    if _user_frame_links((HOME_ROUTE,)):
+    if _personal_routes((HOME_ROUTE,)):
         return device_scope.scoped(HOME_ROUTE)
     return ACCOUNT_ROUTE
-
-
-def _user_sidebar_links():
-    """Every (route, label) in a user's sidebar: the reachable frame pages,
-    Locations once that page exists, then Account."""
-    links = _user_frame_links(_USER_SIDEBAR_PAGES)
-    if _user_can_open(LOCATIONS_ROUTE):
-        links.append((LOCATIONS_ROUTE, _LOCATIONS_LABEL))
-    return links + list(USER_NAV)
 
 
 def _sidebar_link_html(entry, alert_html=""):
@@ -279,18 +275,6 @@ def _nav_landmark_html(parts):
         escape_html(i18n.t(_PRIMARY_NAVIGATION_TEXT)), "".join(parts))
 
 
-def _user_sidebar_nav(active):
-    """The sidebar for a plain user: the frame pages of the request-scope
-    frame, Locations and Account, each present only when reachable. No group
-    headings and no Health dot."""
-    links = []
-    for route, label in _user_sidebar_links():
-        slug = nav_slug(route)
-        links.append(_sidebar_link_html(_Entry(
-            device_scope.scoped(route), label, slug, "", slug == active)))
-    return _nav_landmark_html(links)
-
-
 def _group_html(links, label_html="", extra_class=""):
     """A bordered sidebar group: an optional small label above its links."""
     label = (
@@ -299,29 +283,38 @@ def _group_html(links, label_html="", extra_class=""):
     return '<div class="nav-group%s">%s%s</div>' % (extra_class, label, "".join(links))
 
 
-def _console_sidebar_parts(active):
+def _health_dot(health_alert):
+    """The Health severity dot markup, or "" unless the frame is warn or error."""
+    return _health_alert_markup(health_alert) if health_alert in ("warn", "error") else ""
+
+
+def _console_sidebar_parts(active, health_alert):
     entries = _console_entries(active)
     eyebrow = escape_html(i18n.t(console_routes.ADMINISTRATION_LABEL))
-    links = [_sidebar_link_html(entry) for entry in entries.values()]
-    return [
-        _group_html(links, eyebrow, " nav-group--console"),
-        _group_html([_sidebar_link_html(_account_entry(active))])]
+
+    def links(*keys):
+        return [
+            _sidebar_link_html(
+                entries[key], _health_dot(health_alert) if key == "health" else "")
+            for key in keys if key in entries]
+
+    parts = [_group_html(links("fleet", "users"), eyebrow, " nav-group--console")]
+    tools = links("health", "device", "editor")
+    if tools:
+        parts.append(_group_html(
+            tools, escape_html(i18n.t(FRAME_TOOLS_LABEL)), " nav-group--frame-tools"))
+    parts.append(_group_html(links("audit", "releases")))
+    parts.append(_group_html([_sidebar_link_html(_account_entry(active))]))
+    return parts
 
 
-def _my_views_sidebar_parts(active, health_alert):
-    everyday = [
+def _personal_sidebar_parts(active):
+    """The personal sidebar, identical for an administrator and a user: the
+    reachable frame pages, then the Account footer group. No Health dot."""
+    links = [
         _sidebar_link_html(_frame_entry(route, active))
-        for route in (HOME_ROUTE, DISPLAY_ROUTE, FLIGHTS_ROUTE, AIRLINES_ROUTE)]
-    alert_html = (
-        _health_alert_markup(health_alert) if health_alert in ("warn", "error") else "")
-    advanced = [
-        _sidebar_link_html(_frame_entry(HEALTH_ROUTE, active), alert_html),
-        _sidebar_link_html(_frame_entry(DEVICE_ROUTE, active))]
-    return everyday + [
-        _group_html(
-            advanced, escape_html(i18n.t(ADVANCED_GROUP_LABEL)),
-            " nav-group--advanced"),
-        _group_html([_sidebar_link_html(_account_entry(active))])]
+        for route in _personal_routes(_PERSONAL_SIDEBAR_PAGES)]
+    return links + [_group_html([_sidebar_link_html(_account_entry(active))])]
 
 
 def sidebar_nav(active, health_alert=None, device_config=None):
@@ -332,20 +325,18 @@ def sidebar_nav(active, health_alert=None, device_config=None):
     visible.
 
     `health_alert` is `None`/`"ok"` for no dot, or `"warn"`/`"error"` to
-    append _health_alert_markup() after the My views Health link's label.
-    The active link's `<a>` carries `aria-current="page"` and the inactive
-    ones never do.
+    append _health_alert_markup() after the Console Health link's label; the
+    personal sidebar never carries it. The active link's `<a>` carries
+    `aria-current="page"` and the inactive ones never do.
 
     `device_config` remains accepted because page_shell() provides one shared
     rendering context to both navigation variants.
     """
-    if is_user_principal():
-        return _user_sidebar_nav(active)
     parts = [space_switch_html(active, "sidebar")]
     if current_space(active) == CONSOLE_SPACE:
-        parts += _console_sidebar_parts(active)
+        parts += _console_sidebar_parts(active, health_alert)
     else:
-        parts += _my_views_sidebar_parts(active, health_alert)
+        parts += _personal_sidebar_parts(active)
     return _nav_landmark_html(parts)
 
 
@@ -514,45 +505,49 @@ def _tab_bar_sheet_link(entry):
     css_class = (
         "mobile-nav__link mobile-nav__link--active"
         if entry.is_active else "mobile-nav__link")
+    if not entry.slug:
+        css_class += " mobile-nav__link--space"
     aria_current = ' aria-current="page"' if entry.is_active else ""
     return '<a class="%s" href="%s"%s>%s</a>' % (
         css_class, escape_html(entry.href), aria_current,
         escape_html(i18n.t(entry.label)))
 
 
-def _console_bar(active):
-    """(cells, sheet entries) of the Console bar: Fleet, Users, Locations and
-    Audit, with Releases, My views and Account in More."""
+def _console_bar(active, health_alert):
+    """(cells, sheet entries) of the Console bar: Fleet, Users, Health
+    (carrying the severity dot) and Device, with the space switch, the
+    airline editor, Audit, Releases and Account in More."""
     entries = _console_entries(active)
-    cells = []
-    for key in ("fleet", "users", "locations", "audit"):
-        if key in entries:
-            short = _AUDIT_BAR_LABEL if key == "audit" else None
-            cells.append(_tab_bar_cell_link(entries[key], short))
-    sheet = [entries[key] for key in ("releases",) if key in entries]
+    cells = [
+        _tab_bar_cell_link(
+            entries[key], extra_html=_health_dot(health_alert) if key == "health" else "")
+        for key in ("fleet", "users", "health", "device") if key in entries]
+    sheet = []
     switch = _switch_entry(CONSOLE_SPACE)
     if switch is not None:
         sheet.append(switch)
+    sheet += [entries[key] for key in ("editor", "audit", "releases") if key in entries]
     sheet.append(_account_entry(active))
     return cells, sheet
 
 
-def _my_views_bar(active, health_alert):
-    """(cells, sheet entries) of the admin My views bar: Home, Display,
-    Flights and Health (carrying the severity dot), with Airlines, Device,
-    Account and the Console switch in More."""
-    alert_html = (
-        _health_alert_markup(health_alert) if health_alert in ("warn", "error") else "")
+def _personal_bar(active):
+    """(cells, sheet entries) of the personal bar, identical for an
+    administrator and a user: Home, History, Location and Style, with the
+    space switch (administrator only), the airline collection and Account
+    in More."""
     cells = [
         _tab_bar_cell_link(
-            _frame_entry(route, active),
-            extra_html=alert_html if route == HEALTH_ROUTE else "")
-        for route in (HOME_ROUTE, DISPLAY_ROUTE, FLIGHTS_ROUTE, HEALTH_ROUTE)]
-    sheet = [_frame_entry(AIRLINES_ROUTE, active), _frame_entry(DEVICE_ROUTE, active),
-             _account_entry(active)]
-    switch = _switch_entry(MY_VIEWS_SPACE)
+            _frame_entry(route, active), NAV_SHORT_LABELS.get(nav_slug(route)))
+        for route in _personal_routes(_PERSONAL_BAR_PAGES)]
+    sheet = []
+    switch = _switch_entry(PERSONAL_SPACE)
     if switch is not None:
         sheet.append(switch)
+    sheet += [
+        _frame_entry(route, active)
+        for route in _personal_routes((AIRLINES_ROUTE,))]
+    sheet.append(_account_entry(active))
     return cells, sheet
 
 
@@ -569,14 +564,14 @@ def _tab_bar_html(active, health_alert=None, device_config=None):
     administrator's own Account page carries no device_config but still needs
     the bar to reach the rest of the app.
     """
-    if is_user_principal():
-        return _user_tab_bar_html(active)
-    if not device_config and not is_admin_principal():
+    if not device_config and not is_admin_principal() and not is_user_principal():
         return ""
     if current_space(active) == CONSOLE_SPACE:
-        cells, sheet = _console_bar(active)
+        cells, sheet = _console_bar(active, health_alert)
     else:
-        cells, sheet = _my_views_bar(active, health_alert)
+        cells, sheet = _personal_bar(active)
+        if not cells and is_user_principal():
+            return ""
     summary_class = (
         "tab-bar__link tab-bar__link--active"
         if any(entry.is_active for entry in sheet) else "tab-bar__link")
@@ -597,24 +592,6 @@ def _tab_bar_html(active, health_alert=None, device_config=None):
         # tree.
         escape_html(i18n.t(_PRIMARY_NAVIGATION_TEXT)),
         "".join(cells))
-
-
-def _user_tab_bar_html(active):
-    """A plain user's bottom tab bar: Home, Flights and Display for the
-    request-scope frame, then Account. Empty without a frame, or when no
-    frame page is reachable: Account alone is not navigation.
-    """
-    pages = _user_frame_links(_USER_TAB_PAGES)
-    if not pages:
-        return ""
-    cells = []
-    for route, label in pages + list(USER_NAV):
-        slug = nav_slug(route)
-        icon_id = _ACCOUNT_ICON_ID if route == ACCOUNT_ROUTE else NAV_ICON_IDS.get(slug, "")
-        cells.append(_tab_bar_cell_link(_Entry(
-            device_scope.scoped(route), label, slug, icon_id, slug == active)))
-    return '<nav class="tab-bar" aria-label="%s">%s</nav>' % (
-        escape_html(i18n.t(_PRIMARY_NAVIGATION_TEXT)), "".join(cells))
 
 
 def _tab_bar_cell_body(icon_id, label, extra_html=""):

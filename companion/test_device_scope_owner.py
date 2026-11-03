@@ -212,16 +212,26 @@ def test_the_switcher_links_never_use_the_unprefixed_live_frame_for_a_user(fleet
     assert 'value="live"' not in html
 
 
-def test_an_admin_keeps_the_unprefixed_live_frame(fleet):
+def test_an_admin_addresses_a_live_frame_with_a_fleet_row_by_its_id(fleet):
     state_dir, seeded = fleet
     live_id = _add_live_device(state_dir, seeded.owner_id)
     devices = device_scope.load_devices_for(state_dir, _principal(seeded, "admin"))
     live = next(d for d in devices if d.is_live)
     assert live.id == live_id
     _enter("admin", devices, live)
+    assert device_scope.current_prefix() == "/devices/%s" % live_id
+    assert device_scope.scoped("/display") == "/devices/%s/display" % live_id
+    assert device_scope.selector_value(live) == live_id
+
+
+def test_a_live_frame_without_a_fleet_row_stays_unprefixed(fleet):
+    state_dir, seeded = fleet
+    synthetic = device_scope.live_device(state_dir)
+    assert synthetic.id == device_scope.LIVE_ID
+    _enter("admin", [synthetic], synthetic)
     assert device_scope.current_prefix() == ""
     assert device_scope.scoped("/display") == "/display"
-    assert device_scope.selector_value(live) == device_scope.LIVE_ID
+    assert device_scope.selector_value(synthetic) == device_scope.LIVE_ID
 
 
 def test_switch_target_for_a_user_refuses_a_foreign_or_unknown_id(fleet):
@@ -358,14 +368,25 @@ def test_an_owner_reaches_their_frame_and_nobody_else_does(http_fleet):
     assert _get(server, foreign, cookies["owner"])[0] == 404
 
 
-def test_the_unprefixed_live_frame_is_admin_only(http_fleet):
+def test_the_unprefixed_personal_pages_follow_the_frame_rule_for_every_role(http_fleet):
     server, seeded, cookies = http_fleet
-    for path in ("/", "/display", "/flights", "/health", "/airlines"):
-        assert _get(server, path, cookies["admin"])[0] == 200, path
+    for path in ("/", "/display", "/flights", "/airlines"):
+        # The administrator owns no frame here: the account page, not the
+        # served frame.
+        status, headers, _body = _get(server, path, cookies["admin"])
+        assert (status, headers["Location"]) == (303, "/account"), path
         status, headers, _body = _get(server, path, cookies["owner"])
         assert status == 303, path
         assert headers["Location"] == "/devices/%s%s" % (
             seeded.owner_device, path), path
+        assert _get(server, path, cookies["lonely"])[0] == 404, path
+    # Health and the Airline editor are the administrator's: a user is not
+    # sent to their own frame, the page is simply not there.
+    unknown = _get(server, "/no-such-page-anywhere", cookies["owner"])
+    for path in ("/health", "/airlines/manage"):
+        assert _get(server, path, cookies["admin"])[0] == 200, path
+        status, _headers, body = _get(server, path, cookies["owner"])
+        assert (status, body) == (unknown[0], unknown[2]) == (404, unknown[2]), path
         assert _get(server, path, cookies["lonely"])[0] == 404, path
 
 

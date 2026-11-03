@@ -146,7 +146,7 @@ def test_history_opens_with_shared_page_header(tmp_path):
     doc = parse_html(rendered)
     h1s = doc.select("h1")
     assert any(
-        h.attrs.get("class") == "page-title" and h.text() == "Flights" for h in h1s)
+        h.attrs.get("class") == "page-title" and h.text() == "Flight history" for h in h1s)
     assert not doc.select('[class="text-heading"]')
 
 

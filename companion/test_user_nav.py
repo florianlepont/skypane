@@ -7,7 +7,6 @@ import re
 import pytest
 
 import companion.device_scope as device_scope
-import companion.i18n as i18n
 import companion.layout as layout
 import companion.prefs as prefs
 from companion import routes, ui_nav
@@ -16,10 +15,10 @@ FRAME = device_scope.Device(
     id="abc123", name="Kitchen", hardware_type="x", state_path="devices/abc123",
     state_dir="", is_live=False)
 
-FRAME_PAGES = ("/", "/flights", "/display", "/airlines", "/health")
+FRAME_PAGES = ("/", "/flights", "/detection", "/display", "/airlines", "/health")
 ADMIN_ONLY_LABELS = (
     "Admin", "Console", "Fleet", "Users", "Audit", "Releases", "Update", "Device",
-    "Health", "My views")
+    "Health", "My views", "My frame")
 
 
 @pytest.fixture(autouse=True)
@@ -32,16 +31,13 @@ def _reset_state():
     device_scope.set_request_scope(None, ())
 
 
-def _open_frame_pages_to_users(monkeypatch, extra=(), without_locations=False):
-    """The route table as it stands once the frame pages are signed-in;
-    `without_locations` drops the Locations page routes first."""
+def _open_frame_pages_to_users(monkeypatch, extra=()):
+    """The route table as it stands once the frame pages are signed-in."""
     opened = tuple(
         route._replace(access=routes.SIGNED_IN)
         if route.method == "GET" and isinstance(route.matcher, routes.Exact)
         and route.matcher.path in FRAME_PAGES else route
-        for route in routes.ROUTES
-        if not (without_locations and route.method == "GET"
-                and route.matcher == routes.Exact("/locations")))
+        for route in routes.ROUTES)
     monkeypatch.setattr(routes, "ROUTES", opened + tuple(extra))
 
 
@@ -67,30 +63,30 @@ def _hrefs(markup):
     return [href for href, _text in _links(markup)]
 
 
-def test_user_sidebar_lists_account_then_reachable_frame_pages(monkeypatch):
+def test_user_sidebar_lists_the_reachable_frame_pages_then_account(monkeypatch):
     _open_frame_pages_to_users(monkeypatch)
     _as_user_with_frame()
     sidebar = layout.sidebar_nav("home")
     prefix = "/devices/abc123"
     assert _hrefs(sidebar) == [
-        prefix + "/", prefix + "/flights", prefix + "/display",
-        prefix + "/airlines", "/locations", "/account"]
+        prefix + "/", prefix + "/flights", prefix + "/detection", prefix + "/display",
+        prefix + "/airlines", "/account"]
     for label in ADMIN_ONLY_LABELS:
         assert label not in sidebar
-    assert "nav-group" not in sidebar
+    assert "nav-group__label" not in sidebar
     assert "nav-notification" not in sidebar
 
 
-def test_user_sidebar_without_reachable_frame_pages_is_locations_and_account(monkeypatch):
+def test_user_sidebar_without_reachable_frame_pages_is_account_only(monkeypatch):
     _close_frame_pages_to_users(monkeypatch)
     _as_user_with_frame()
-    assert _hrefs(layout.sidebar_nav("account")) == ["/locations", "/account"]
+    assert _hrefs(layout.sidebar_nav("account")) == ["/account"]
 
 
-def test_user_sidebar_without_a_frame_is_locations_and_account_only(monkeypatch):
+def test_user_sidebar_without_a_frame_is_account_only(monkeypatch):
     _open_frame_pages_to_users(monkeypatch)
     prefs.set_request_principal("user", "user")
-    assert _hrefs(layout.sidebar_nav("account")) == ["/locations", "/account"]
+    assert _hrefs(layout.sidebar_nav("account")) == ["/account"]
 
 
 def test_user_phone_tab_bar_needs_a_frame(monkeypatch):
@@ -101,10 +97,11 @@ def test_user_phone_tab_bar_needs_a_frame(monkeypatch):
     _as_user_with_frame()
     bar = ui_nav._tab_bar_html("home", device_config={})
     prefix = "/devices/abc123"
-    assert _hrefs(bar) == [
-        prefix + "/", prefix + "/flights", prefix + "/display", "/account"]
+    cells, sheet = bar.split('<div class="tab-bar__more-panel">')
+    assert _hrefs(cells) == [
+        prefix + "/", prefix + "/flights", prefix + "/detection", prefix + "/display"]
+    assert _hrefs(sheet) == [prefix + "/airlines", "/account"]
     assert 'aria-current="page"' in bar
-    assert "tab-bar__more" not in bar
     for label in ADMIN_ONLY_LABELS:
         assert label not in bar
 
@@ -115,25 +112,10 @@ def test_user_tab_bar_is_empty_when_only_account_is_reachable(monkeypatch):
     assert ui_nav._tab_bar_html("account", device_config={}) == ""
 
 
-def test_locations_link_follows_the_route_table(monkeypatch):
-    _open_frame_pages_to_users(monkeypatch, without_locations=True)
-    _as_user_with_frame()
-    assert "/locations" not in _hrefs(layout.sidebar_nav("home"))
-
+def test_a_user_sidebar_never_links_locations_whatever_the_route_table_holds(monkeypatch):
     locations = routes.Route(
         "GET", routes.Exact("/locations"), lambda handler, match: None, routes.SIGNED_IN)
-    _open_frame_pages_to_users(
-        monkeypatch, extra=(locations,), without_locations=True)
-    sidebar = layout.sidebar_nav("home")
-    assert "/locations" in _hrefs(sidebar)
-    assert i18n.t(ui_nav._LOCATIONS_LABEL) in sidebar
-
-
-def test_locations_link_absent_when_route_is_admin_only(monkeypatch):
-    admin_locations = routes.Route(
-        "GET", routes.Exact("/locations"), lambda handler, match: None, routes.ADMIN_ONLY)
-    _open_frame_pages_to_users(
-        monkeypatch, extra=(admin_locations,), without_locations=True)
+    _open_frame_pages_to_users(monkeypatch, extra=(locations,))
     _as_user_with_frame()
     assert "/locations" not in _hrefs(layout.sidebar_nav("home"))
 

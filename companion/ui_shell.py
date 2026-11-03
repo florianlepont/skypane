@@ -312,6 +312,12 @@ _SWITCHER_ALL_FRAMES_TEXT = i18n.msg(
 _DEVICE_DEFAULT_NAME_TEXT = i18n.msg("nav.device_default_name", "Orly frame")
 
 FRAME_SWITCHER_CLASS = "frame-switcher"
+
+# The strip shown to an administrator on a personal page of a frame they
+# neither own nor co-manage.
+_FRAME_NOTICE_VIEWING_TEXT = i18n.msg("nav.frame_notice_viewing", "Viewing %s\u2019s frame")
+_FRAME_NOTICE_BACK_TEXT = i18n.msg("nav.frame_notice_back", "Back to Fleet")
+FRAME_NOTICE_CLASS = "frame-notice"
 _MY_FRAMES_HREF = "/account#account-frames"
 _FLEET_HREF = "/fleet"
 
@@ -410,6 +416,26 @@ def frame_switcher_html(active):
         }
 
 
+def frame_notice_html(active, console_page=False):
+    """The Viewing-owner strip with a Back to Fleet link, or "" unless an
+    administrator is on a personal page (not a Console page) of a frame they
+    neither own nor co-manage. The owner email is escaped; the link is the
+    fixed Fleet route."""
+    if console_page or _device_page_path(active) is None:
+        return ""
+    email = device_scope.foreign_frame_owner_email()
+    if email is None:
+        return ""
+    return (
+        '<div class="%(cls)s"><span class="%(cls)s__text">%(text)s</span>'
+        '<a class="text-link %(cls)s__link" href="%(href)s">%(back)s</a></div>\n') % {
+            "cls": FRAME_NOTICE_CLASS,
+            "text": escape_html(i18n.t(_FRAME_NOTICE_VIEWING_TEXT) % email),
+            "href": _FLEET_HREF,
+            "back": escape_html(i18n.t(_FRAME_NOTICE_BACK_TEXT)),
+        }
+
+
 def _device_scoped_title(title, active):
     """The page title with the selected device's name appended for a non-live
     device on a device-scoped page; every other title is returned unchanged."""
@@ -422,7 +448,7 @@ def _device_scoped_title(title, active):
 def page_shell(
         title, active, body, ui_theme="auto", flash=None, banner=None,
         health_alert=None, lang=None, device_config=None, scripts=(),
-        refresh_token=None):
+        refresh_token=None, console_page=False):
     """Return a complete HTML5 document wrapping `body` in the shared shell.
 
     `title` and nav labels are escaped here. `body`, `flash` and `banner` are
@@ -447,6 +473,9 @@ def page_shell(
     companion/app.py call site passes their own freshness token; every
     other caller (including the rejected-settings-save re-render) omits
     it, so that page carries no such attribute at all.
+
+    `console_page` (default `False`) marks a Console page of a frame (Health,
+    Device, the Airline editor), which never carries the foreign-frame strip.
     """
     script_tags_html = _script_tags_html(scripts)
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
@@ -505,7 +534,8 @@ def page_shell(
         "space_switch": space_switch_html(active, "header"),
         "mobile_nav": mobile_nav_html,
         "main_id": SKIP_LINK_TARGET_ID,
-        "frame_switcher": frame_switcher_html(active),
+        "frame_switcher": (
+            frame_notice_html(active, console_page) + frame_switcher_html(active)),
         "flash": flash_html,
         "banner": banner_html,
         "body": body,

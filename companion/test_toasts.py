@@ -218,10 +218,10 @@ def test_unknown_flash_key_renders_no_toast(server, session):
 def test_dismiss_link_reloads_the_page_without_the_toast(server, session):
     """following the dismiss link (the no-script path) lands on the same page with no toast,
     and drops `rule=` along with `flash=` while keeping `resolve=`"""
-    body = _page(server, session, "/airlines?resolve=ABC&flash=%s&rule=AFR1"
+    body = _page(server, session, "/airlines/manage?resolve=ABC&flash=%s&rule=AFR1"
                  % flash.FLASH_KEY_RULE_ADDED)
     href = flash_toast(body).select_one("a.toast__dismiss").attrs["href"]
-    assert href == "/airlines?resolve=ABC", "expected only resolve= kept, got %r" % href
+    assert href == "/airlines/manage?resolve=ABC", "expected only resolve= kept, got %r" % href
     assert flash_toast(_page(server, session, href)) is None
 
 

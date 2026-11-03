@@ -118,13 +118,14 @@ def _save_position(rig, radius="9"):
 # --- Display ----------------------------------------------------------------
 
 
-def test_display_card_legacy_orly_on_the_live_frame_links_unprefixed(rig):
-    status, page = rig.get("admin", "/display")
+def test_display_card_legacy_orly_for_an_admin_links_under_the_frame_id(rig):
+    live = rig.scope()
+    status, page = rig.get("admin", live + "/display")
     assert status == 200
     card = _card(page)
     assert '<h2 class="text-heading" id="location-detection-heading">Location and detection</h2>' in card
     assert "Runway 07/25 at Paris-Orly Airport (ORY)" in _text(card)
-    assert re.search(r'<a [^>]*href="/detection"[^>]*>%s</a>' % LINK_TEXT, card)
+    assert re.search(r'<a [^>]*href="%s/detection"[^>]*>%s</a>' % (live, LINK_TEXT), card)
 
 
 def test_display_card_catalogue_runway_links_to_the_device_scoped_page(rig):

@@ -426,10 +426,11 @@ def test_unknown_path_404(app04b_server):
     assert b"Page not found." in body, "expected the exact 404 copy in the response body"
 
 
-def test_authenticated_404_uses_page_header_and_shows_health_dot(
+def test_authenticated_404_uses_page_header_and_the_console_shows_the_health_dot(
         app04b_server, session_cookie, seeded_stale_pipeline_run):
     """an authenticated 404 opens with the shared page_header() (page-title, not text-heading)
-    and shows the Health nav dot when state is seeded error"""
+    and carries no Health dot in its personal navigation, while a Console page shows the
+    Health nav dot when state is seeded error"""
     status, _headers, body = http_request(
         app04b_server.base_url() + "/this-route-does-not-exist-uir16", cookie=session_cookie)
     assert status == 404, "expected 404, got %d" % status
@@ -438,8 +439,13 @@ def test_authenticated_404_uses_page_header_and_shows_health_dot(
         "role every other authenticated page opens with")
     assert b'<h1 class="text-heading">' not in body, (
         "expected the old text-heading 404 heading to be gone")
-    assert b"dot--error" in body, (
-        "expected the Health nav dot (dot--error) to render for an authenticated caller under "
+    assert b"dot--error" not in body, (
+        "expected the personal navigation of a 404 to carry no Health dot")
+    status, _headers, console = http_request(
+        app04b_server.base_url() + "/fleet", cookie=session_cookie)
+    assert status == 200, "expected 200 from /fleet, got %d" % status
+    assert b"dot--error" in console, (
+        "expected the Health nav dot (dot--error) to render in the Console under "
         "seeded error state")
 
 

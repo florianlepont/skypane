@@ -1,6 +1,6 @@
 """Links, forms and image URLs rendered on a non-live device's pages stay under
-that device's /devices/<id> prefix; global routes and the live frame's
-un-prefixed pages never carry it. Real app subprocess over a seeded
+that device's /devices/<id> prefix, the live frame's included once it has a
+fleet row; global routes never carry it. Real app subprocess over a seeded
 two-device fleet.
 """
 import re
@@ -15,13 +15,15 @@ import server.state_store as state_store
 
 _URL_ATTRS = ("href", "action", "src")
 LIVE_PAGES = ("/", "/display", "/flights", "/airlines", "/health", "/device")
-NAV_ROUTES = ("/", "/display", "/flights", "/airlines", "/health", "/device")
+PERSONAL_NAV_ROUTES = ("/", "/flights", "/detection", "/display", "/airlines")
+CONSOLE_FRAME_NAV_ROUTES = ("/health", "/device", "/airlines/manage")
+SPACE_SWITCH_CLASSES = ("space-switch", "mobile-nav__link--space")
 
 
 @pytest.fixture(scope="module")
 def app(module_app_server_factory):
     app = start_fleet_app(module_app_server_factory)
-    get(app, "/display")
+    get(app, "/devices/%s/display" % app.fleet.live.id)
     return app
 
 
@@ -68,19 +70,29 @@ def _prefixed_urls_outside_switcher(body):
     return found
 
 
+def _other_frame_urls_outside_switcher(body, device):
+    """The /devices/ URLs outside the switcher that do not stay in `device`."""
+    own = _prefix(device)
+    return [
+        (name, value) for name, value in _prefixed_urls_outside_switcher(body)
+        if value != own and not value.startswith(own + "/")]
+
+
 def _scoped_nav(prefix, route):
     return prefix + route
 
 
 def test_nav_links_carry_the_device_prefix(app):
     prefix = _prefix(app.fleet.dev_a)
-    body = _page(app, prefix + "/health")
-    for container in ("nav.sidebar-nav", "nav.tab-bar"):
-        hrefs = _hrefs(body, within=container)
-        for route in NAV_ROUTES:
-            assert _scoped_nav(prefix, route) in hrefs, (container, route)
-            if route != "/":
-                assert route not in hrefs, (container, route)
+    for page, routes_in_nav in (
+            ("/flights", PERSONAL_NAV_ROUTES), ("/health", CONSOLE_FRAME_NAV_ROUTES)):
+        body = _page(app, prefix + page)
+        for container in ("nav.sidebar-nav", "nav.tab-bar"):
+            hrefs = _hrefs(body, within=container)
+            for route in routes_in_nav:
+                assert _scoped_nav(prefix, route) in hrefs, (container, route)
+                if route != "/":
+                    assert route not in hrefs, (container, route)
 
 
 def test_global_links_are_never_prefixed(app):
@@ -88,10 +100,9 @@ def test_global_links_are_never_prefixed(app):
     body = _page(app, prefix + "/health")
     for container in ("nav.sidebar-nav", "nav.tab-bar"):
         hrefs = _hrefs(body, within=container)
-        for route in ("/account", "/fleet"):
+        for route in ("/account", "/fleet", "/users", "/audit", "/update"):
             assert route in hrefs, (container, route)
             assert prefix + route not in hrefs, (container, route)
-        assert "/update" not in hrefs, container
 
 
 def test_active_nav_state_resolves_from_the_unprefixed_route(app):
@@ -148,15 +159,19 @@ def test_flash_link_action_and_dismiss_keep_the_prefix(app):
 
 
 @pytest.mark.parametrize("path", LIVE_PAGES)
-def test_unprefixed_pages_carry_no_device_prefix(app, path):
-    assert _prefixed_urls_outside_switcher(_page(app, path)) == []
+def test_the_live_frame_pages_stay_under_the_live_frames_own_prefix(app, path):
+    live = app.fleet.live
+    body = _page(app, _prefix(live) + path)
+    assert _prefixed_urls_outside_switcher(body)
+    assert _other_frame_urls_outside_switcher(body, live) == []
 
 
-def test_unprefixed_flash_toast_carries_no_device_prefix(app):
-    body = _page(app, "/display?flash=display_on")
-    assert _prefixed_urls_outside_switcher(body) == []
+def test_the_live_frame_flash_toast_posts_under_its_own_prefix(app):
+    live = app.fleet.live
+    body = _page(app, _prefix(live) + "/display?flash=display_on")
+    assert _other_frame_urls_outside_switcher(body, live) == []
     toast = parse_html(body).select_one("form.toast__action-form")
-    assert toast.attrs["action"] == "/quick/display"
+    assert toast.attrs["action"] == _prefix(live) + "/quick/display"
 
 
 def test_the_helper_agrees_with_the_route_table():
@@ -181,15 +196,19 @@ def _seed_airline_state(fleet):
 @pytest.fixture(scope="module")
 def seeded(module_app_server_factory):
     app = start_fleet_app(module_app_server_factory, seed_extra=_seed_airline_state)
-    get(app, "/display")
+    get(app, "/devices/%s/display" % app.fleet.live.id)
     return app
 
 
 def _local_urls(body):
     """Every local URL attribute value on the page, including the dialog's
-    data-view-panel-* address attributes."""
+    data-view-panel-* address attributes. The space switch leads to a
+    destination the server resolves (the administrator's own frame), so it is
+    not a frame-scoped address."""
     urls = []
     for node in parse_html(body).find_all():
+        if any(name in str(node.attrs.get("class", "")) for name in SPACE_SWITCH_CLASSES):
+            continue
         for name, value in node.attrs.items():
             if (name in _URL_ATTRS or name.startswith("data-view-panel-")) \
                     and isinstance(value, str) and value.startswith("/") \
@@ -212,10 +231,12 @@ def _assert_no_escape(body, prefix):
         assert not (_device_scoped(url) or _device_scoped(url, "POST")), url
 
 
-@pytest.mark.parametrize("query", ("", "?resolve=XQZ", "?resolve=ABC"))
-def test_airlines_page_keeps_every_scoped_link_under_the_prefix(seeded, query):
+@pytest.mark.parametrize("page", (
+    "/airlines", "/airlines/manage", "/airlines/manage?resolve=XQZ",
+    "/airlines/manage?resolve=ABC"))
+def test_airlines_page_keeps_every_scoped_link_under_the_prefix(seeded, page):
     prefix = _prefix(seeded.fleet.dev_a)
-    body = _page(seeded, prefix + "/airlines" + query)
+    body = _page(seeded, prefix + page)
     _assert_no_escape(body, prefix)
     urls = _local_urls(body)
     assert any(url.startswith(prefix + "/airlines") for url in urls)
@@ -234,7 +255,7 @@ def test_airlines_page_carries_manual_delete_and_upload_actions(seeded):
 
 def test_resolve_fallback_back_link_stays_in_the_device(seeded):
     prefix = _prefix(seeded.fleet.dev_a)
-    body = _page(seeded, prefix + "/airlines?resolve=ABC")
+    body = _page(seeded, prefix + "/airlines/manage?resolve=ABC")
     fallback = parse_html(body).select_one("[data-resolve-fallback]")
     hrefs = [node.attrs.get("href") for node in fallback.find_all("a")]
     assert prefix + "/airlines" in hrefs
@@ -275,9 +296,14 @@ def test_frame_preview_urls_resolve_under_the_prefix(seeded):
         assert headers["Content-Type"].startswith("image/png")
 
 
-def test_unprefixed_airlines_and_display_pages_carry_no_prefix(seeded):
-    for path in ("/airlines", "/airlines?resolve=ABC", "/display?sheet=manage", "/health"):
-        assert _prefixed_urls_outside_switcher(_page(seeded, path)) == [], path
+def test_live_airlines_and_display_pages_stay_under_the_live_prefix(seeded):
+    live = seeded.fleet.live
+    for path in ("/airlines", "/airlines/manage?resolve=ABC", "/display?sheet=manage", "/health"):
+        body = _page(seeded, _prefix(live) + path)
+        assert _other_frame_urls_outside_switcher(body, live) == [], path
+    # The served frame's Console pages still answer without a prefix.
+    assert get(seeded, "/health")[0] == 200
+    assert get(seeded, "/airlines/manage?resolve=ABC")[0] == 200
 
 
 def test_freshness_script_refreshes_its_own_page_and_finds_the_prefixed_health_link(seeded):

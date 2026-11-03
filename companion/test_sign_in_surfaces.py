@@ -223,9 +223,9 @@ def test_new_login_surfaces_render_the_approved_french():
 
 _LOGIN_BASELINE = {
     "en": {
-        "nf": "a25450b97943d468b3c4a2b8a3b4041fe9009a807aa1ca28fe290f923785e6b5",
-        "nf2": "f794aaca4331472f762659e263ceb311401817875a2546c957c651b98baa0b67",
-        "forb": "a6693fcdc404d77c48227810d8119efdfca5d12911a4ad0c78c96f20eb90fc85",
+        "nf": "cf128760bfb9c3c42126d47cb790fceb925fa78d687366a7357d8dead331c27c",
+        "nf2": "cf128760bfb9c3c42126d47cb790fceb925fa78d687366a7357d8dead331c27c",
+        "forb": "a838f8c31910c1648bde435a2a4466fdafdd34f36cd1618caaf085d9cf1b851d",
     },
 }
 
@@ -305,13 +305,12 @@ def _shell(active="account", **kwargs):
         health_alert="warn", device_config={"a": 1}, **kwargs)
 
 
-def test_user_principal_shell_has_account_and_locations_links_and_no_tab_bar():
+def test_user_principal_shell_has_only_the_account_link_and_no_tab_bar():
     prefs.set_request_principal(kind="user", role="user")
     doc = _doc(_shell())
     links = doc.select("nav.sidebar-nav a")
-    assert [(a.attrs["href"], a.text()) for a in links] == [
-        ("/locations", "Locations"), ("/account", "Account")]
-    assert links[1].attrs["aria-current"] == "page"
+    assert [(a.attrs["href"], a.text()) for a in links] == [("/account", "Account")]
+    assert links[0].attrs["aria-current"] == "page"
     assert not doc.select(".nav-group__label")
     assert not doc.select(".nav-notification")
     assert not doc.select("nav.tab-bar")
@@ -329,7 +328,7 @@ def test_user_principal_shell_links_only_to_reachable_destinations():
     prefs.set_request_principal(kind="user", role="user")
     doc = _doc(_shell(active=""))
     hrefs = {a.attrs["href"] for a in doc.select("a") if "href" in a.attrs}
-    assert all(h in ("/account", "/locations") or h.startswith("#") for h in hrefs), hrefs
+    assert all(h == "/account" or h.startswith("#") for h in hrefs), hrefs
     assert not doc.select("a[href=\"/\"]")
     inactive = doc.select_one("nav.sidebar-nav a")
     assert "aria-current" not in inactive.attrs
@@ -342,7 +341,7 @@ def test_unrecognised_principal_clears_to_default():
 
 
 _SHELL_BASELINE_DIGEST = (
-    "88364463442518bb34a56d52eba6c1a0ea2c59ddacd33827b5b9a6aa0e679c23")
+    "a02760b362c1e9f6854c818ff8c2e69f1ff14284760ed105cd5d6048e1b2a9c7")
 
 
 def test_shell_without_a_principal_is_byte_identical_to_before():

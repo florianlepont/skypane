@@ -4,9 +4,9 @@ showing, and what it has shown recently.
 Opens with one status header (one dot for the frame state, next update,
 for an administrator the battery, and the two native-POST switches for
 screen and quiet hours), then the current picture beside the recent
-flights. The dot is the shared frame-status dot; a link to Health shows
-only when it is amber or red, and a plain user sees neither the battery
-tile nor the attention bar. A recent-flight row gets a
+flights. The dot is the shared frame-status dot; Home links to no Health
+page (Health is an administrator's Console page), and a plain user sees
+neither the battery tile nor the attention bar. A recent-flight row gets a
 thumbnail only when a real illustration file resolves for that
 airline, since a recognised name with no artwork file would otherwise
 404 as a broken image. The recent-flight rows and the current
@@ -93,7 +93,6 @@ BATTERY_LOW_TEXT = i18n.msg("home.battery_low", "Low")
 BATTERY_CRITICAL_TEXT = i18n.msg("home.battery_critical", "Very low")
 BATTERY_FACT_EMPTY = i18n.msg("home.battery_fact_empty", "Battery · No reading yet")
 ACTION_NEEDED_TEXT = i18n.msg("home.action_needed", "Something needs attention")
-ACTION_NEEDED_LINK_TEXT = i18n.msg("home.review_status", "Review status")
 
 NO_READING_TEXT = i18n.msg("home.no_reading_yet", "No reading yet")
 
@@ -127,10 +126,6 @@ CADENCE_INFO_NO_INTERVAL_TEXT = i18n.msg(
     "refresh continuously.")
 CADENCE_INFO_LABEL = i18n.msg("home.cadence_info_label", "About updates")
 CADENCE_INFO_ID = "home-cadence-info"
-SEE_HEALTH_TEXT = i18n.msg("home.see_health", "See Health")
-# The dot states that earn a link to the detailed Health page.
-_HEALTH_LINK_TONES = (frame_status.STATUS_WARN, frame_status.STATUS_ERROR)
-HEALTH_ROUTE = "/health"
 SWITCHES_LABEL = i18n.msg("home.switches", "Frame controls")
 EDIT_QUIET_HOURS_LABEL = i18n.msg(
     "home.edit_quiet_hours", "Edit quiet hours (%s)")
@@ -446,8 +441,7 @@ def _next_update_html(next_iso, interval_s, hold_reason, now, base_interval_s):
     countdown, no clock); a held frame names the wake clock and a countdown;
     an overdue frame reads "Update overdue · expected at HH:MM" behind a
     warning sign, with no countdown. The cadence info button follows the
-    line. Returns `(html, long_overdue)`; a long-overdue frame also gets the
-    Health link, placed by the caller."""
+    line. Returns `(html, long_overdue)`."""
     parsed = layout.parse_iso(next_iso) if next_iso else None
     if parsed is None:
         return "", False
@@ -474,13 +468,6 @@ def _next_update_html(next_iso, interval_s, hold_reason, now, base_interval_s):
             modifier, layout.icon_html(icon_id, 18, "home-state__next-icon"), text, tail,
             _cadence_info_html(base_interval_s))
     ), long_overdue
-
-
-def _health_link_html():
-    """The "See Health" pill shown once the frame is long overdue."""
-    return '<a class="home-state__health-link" href="%s">%s%s</a>' % (
-        device_scope.scoped(HEALTH_ROUTE), escape_html(i18n.t(SEE_HEALTH_TEXT)),
-        layout.icon_html("icon-chevron-right", 16))
 
 
 def _quiet_window_text(cfg):
@@ -662,9 +649,8 @@ def _frame_state_html(ctx):
     """The status header: a "Frame state" label, the current state as a
     short title beside one haloed dot whose colour and word come from the
     shared frame-status resolver (plus a sentence for a held state), the
-    next update (with its cadence info) and, when the dot is amber or red, a
-    Health link; then, for an administrator, the battery dial; then the
-    screen and quiet-hours switches. The dot's tone also tints the card; a
+    next update (with its cadence info); then, for an administrator, the
+    battery dial; then the screen and quiet-hours switches. The dot's tone also tints the card; a
     resting dot stays still, every other one pulses a soft halo. Everything
     comes from the page context."""
     cfg = ctx.device_config or {}
@@ -682,13 +668,12 @@ def _frame_state_html(ctx):
         '<div class="home-state__body"><div class="home-state__status">'
         '<h2 class="home-state__eyebrow" id="home-frame-state">%s%s</h2>'
         '<p class="home-state__headline">%s<span class="home-state__title">%s</span></p>'
-        '%s%s%s</div>%s%s</div></section>'
+        '%s%s</div>%s%s</div></section>'
     ) % (
         tone, " home-state--no-battery" if user else "",
         layout.icon_html("icon-nav-display", 16),
         escape_html(i18n.t(FRAME_STATE_HEADING)), _status_dot_html(status),
         escape_html(title), detail_html, next_html,
-        _health_link_html() if tone in _HEALTH_LINK_TONES else "",
         "" if user else _battery_pill_html(ctx), _switches_html(cfg))
 
 
@@ -701,11 +686,11 @@ def _attention_states():
 
 
 def _needs_attention(ctx):
-    """Whether Home should point the owner to the detailed Health page.
+    """Whether Home should show the attention row.
 
     Quiet-hours sleep is intentional and therefore excluded.  Every other
     warn/error state already belongs to the shared, server-derived health
-    snapshot; Home only decides whether that snapshot warrants a link.
+    snapshot; Home only decides whether that snapshot warrants the row.
     """
     health = ctx.health_state or {}
     return any(health.get(name) in ("warn", "error") for name in _attention_states())
@@ -722,16 +707,14 @@ def _action_needed_html(ctx):
     return layout.toast_html(
         i18n.t(ACTION_NEEDED_TEXT),
         tone=layout.TOAST_TONE_ERROR if worst_is_error else layout.TOAST_TONE_WARNING,
-        role="", docked=True, extra_class="home-action",
-        action_html=layout.toast_link_action_html(
-            device_scope.scoped(layout.HEALTH_ROUTE), i18n.t(ACTION_NEEDED_LINK_TEXT)))
+        role="", docked=True, extra_class="home-action")
 
 
 def render(ctx):
     """Render Home: the status header (state, next update, battery and the
     two switches) first, then the generated picture and its flight line,
     with the recent flights beside it on desktop and after it on a phone.
-    Only an actionable shared health state adds a Health link; daily
+    An actionable shared health state adds the attention row; daily
     activity belongs to Health.
     """
     ctx = page_context.coerce(ctx)

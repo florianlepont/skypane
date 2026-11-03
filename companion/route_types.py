@@ -31,6 +31,11 @@ ADMIN_ONLY = Access(ADMIN, None)
 # every frame. The un-prefixed form of such a route acts on the live frame and
 # stays admin-only.
 OWNER_DEVICE = Access(USER, _access.DEVICE_ARG)
+# The administrator-only form of a device route: a user, an owner and a
+# co-manager are all refused (unknown-path 404) before any device lookup, and
+# an administrator reaches every existing frame through the `/devices/<id>`
+# prefix.
+ADMIN_DEVICE = Access(ADMIN, _access.DEVICE_ARG)
 # Only the owner or an admin passes; a co-manager is refused like a stranger.
 OWNER_ONLY_DEVICE = Access(USER, _access.DEVICE_OWNER_ARG)
 

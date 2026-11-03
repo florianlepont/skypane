@@ -19,7 +19,8 @@ import companion.i18n as i18n
 from companion.auth import UI_THEME_COOKIE_NAME
 
 from companion.ui_base import (
-    ADVANCED_GROUP_LABEL,
+    AIRLINE_EDITOR_ROUTE,
+    FRAME_TOOLS_LABEL,
     AIRLINES_ROUTE,
     CONFIRM_SUBMIT_SCRIPT_SRC,
     COPY_BUTTON_SCRIPT_SRC,
@@ -51,6 +52,7 @@ from companion.ui_base import (
     MOBILE_NAV_OPEN_CLASS,
     NAV_DROPDOWN_SCRIPT_SRC,
     NAV_GROUPS,
+    NAV_SHORT_LABELS,
     NAV_ICON_IDS,
     NAV_NOTIFICATION_CLASS,
     NAV_TABS,
@@ -263,7 +265,8 @@ from companion.ui_shell import (
 
 __all__ = (
     "i18n",
-    "ADVANCED_GROUP_LABEL",
+    "AIRLINE_EDITOR_ROUTE",
+    "FRAME_TOOLS_LABEL",
     "AIRLINES_ROUTE",
     "BATTERY_CHARGING_TEXT",
     "BATTERY_CHARGING_TITLE",
@@ -303,6 +306,7 @@ __all__ = (
     "MOBILE_NAV_OPEN_CLASS",
     "NAV_DROPDOWN_SCRIPT_SRC",
     "NAV_GROUPS",
+    "NAV_SHORT_LABELS",
     "NAV_ICON_IDS",
     "NAV_NOTIFICATION_CLASS",
     "NAV_TABS",

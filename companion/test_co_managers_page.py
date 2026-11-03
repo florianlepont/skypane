@@ -497,7 +497,7 @@ def test_a_late_served_frame_reads_overdue_on_both_home_and_fleet(rig):
     from server import device_config
     device_config.save_device_config(rig.server.state_dir, wake_interval_s=1800)
     _check_in(rig, rig.seed.live_id, 3.5)
-    assert _home_word(rig, "/") == "Overdue"
+    assert _home_word(rig, "/devices/%s/" % rig.seed.live_id) == "Overdue"
     assert _fleet_word(rig, "Orly frame") == "Overdue"
 
 

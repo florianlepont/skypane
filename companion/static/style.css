@@ -21,8 +21,7 @@
  *     the checked runway/look cards and look dot, the editing look frame)
  *   - switch-on state (.switch[aria-checked="true"])
  *   - stat tiles (the top rule and icon of .stat-tile)
- *   - the Home "See Health" pill (.home-state__health-link) and the
- *     special-look add button's dashed plus
+ *   - the special-look add button's dashed plus
  *   - the logo mark's flick (.logo-accent)
  * Border is structural only (dividers, table lines, card edges)
  * and never substitutes for accent or status colour.
@@ -660,7 +659,7 @@ a:hover {
   border-color: var(--color-accent);
 }
 
-/* The admin-only link between the Console and My views. In the phone
+/* The admin-only link between the Console and the personal space. In the phone
  * header it sits between the wordmark and the gear, and the gear then
  * stops pushing itself right; the narrower gap keeps the header on one
  * line at 360px. */
@@ -1784,6 +1783,35 @@ details.frame-switcher[open] > .frame-switcher__summary::before {
   details.frame-switcher {
     max-width: none;
   }
+}
+
+/* The strip an administrator sees on a personal page of someone else's frame:
+ * who owns it and the way back to Fleet. Wraps rather than overflows. */
+.frame-notice {
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-md);
+  min-height: 44px;
+  margin: 0 0 var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-secondary);
+  color: var(--color-text);
+  border-radius: var(--radius-card);
+  font-size: var(--font-label-size);
+  overflow-wrap: anywhere;
+}
+
+.frame-notice__text {
+  min-width: 0;
+}
+
+.frame-notice__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--font-label-size);
 }
 
 .refresh-pill {
@@ -5873,30 +5901,6 @@ button.detection-location-save {
   opacity: 1;
 }
 
-/* The Health link as a soft accent pill; 44px tall so it is a full tap
- * target on a phone. */
-.home-state__health-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  min-height: 44px;
-  padding: 0 var(--space-sm) 0 var(--space-md);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-  text-decoration: none;
-}
-
-.home-state__health-link:hover {
-  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
-}
-
-.home-state__health-link .icon {
-  width: 16px;
-  height: 16px;
-}
-
 /* The battery dial: the open arc drawn by draw.arc_gauge() with the
  * reading stacked in its middle and the level word in the arc's gap. All
  * three share the one grid cell (grid-area: 1 / 1 on each). */
@@ -7224,6 +7228,10 @@ button.calendar-danger--solid {
     bottom: 100%;
     right: 0;
     min-width: 180px;
+    /* Sized by its longest row, not by the 78px cell it hangs from, so a
+     * long French label stays on one line; the cap keeps it on screen. */
+    width: max-content;
+    max-width: calc(100vw - var(--space-md));
     display: flex;
     flex-direction: column;
     padding: var(--space-sm);

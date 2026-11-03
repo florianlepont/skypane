@@ -21,7 +21,7 @@ def app(make_app_server):
     # The first request creates fleet.db's SQLite sidecars and initialises
     # the history databases it reads; snapshots are taken after it.
     get(app, "/devices/%s/display" % app.fleet.dev_a.id)
-    get(app, "/display")
+    get(app, "/devices/%s/display" % app.fleet.live.id)
     return app
 
 
@@ -50,7 +50,7 @@ def test_live_settings_post_changes_only_the_live_config(app):
     _live, dev_a, dev_b = snapshot_all(app.server, fleet)
     status, headers, _ = post(app, "/settings", QUIET)
     assert status == 303
-    assert headers["Location"].startswith("/display?flash=")
+    assert headers["Location"].startswith(_prefix(fleet.live) + "/display?flash=")
     assert device_config.load_device_config(app.server.state_dir)["quiet_hours_start"] == "22:15"
     assert snapshot(fleet.dev_a.state_dir) == dev_a
     assert snapshot(fleet.dev_b.state_dir) == dev_b
@@ -106,7 +106,7 @@ def test_live_quick_return_to_never_follows_a_device_prefix(app):
     _status, headers, _ = post(
         app, "/quick/display",
         {"state": "on", "return_to": _prefix(app.fleet.dev_a) + "/display"})
-    assert headers["Location"].startswith("/display?flash=")
+    assert headers["Location"].startswith(_prefix(app.fleet.live) + "/display?flash=")
 
 
 def test_settings_return_to_foreign_prefix_falls_back_to_the_devices_display(app):

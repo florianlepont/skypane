@@ -13,6 +13,8 @@ only while its GET page does.
 """
 from companion import (
     console_lifecycle, console_locations, console_pairing, console_users, i18n)
+from companion.ui_base import (
+    AIRLINE_EDITOR_LABEL, AIRLINE_EDITOR_ROUTE, DEVICE_ROUTE, HEALTH_ROUTE)
 
 FLEET_ROUTE = "/fleet"
 FLEET_REGISTER_ROUTE = "/fleet/register"
@@ -50,17 +52,24 @@ ROUTES = (
 ADMINISTRATION_LABEL = i18n.msg("nav.administration", "Administration")
 FLEET_LABEL = i18n.msg("nav.fleet", "Fleet")
 USERS_LABEL = i18n.msg("nav.users", "Users")
+# The Locations page is gone; the label still titles the page a refused
+# location submission re-renders.
 LOCATIONS_LABEL = i18n.msg("nav.locations", "Locations")
+HEALTH_LABEL = i18n.msg("nav.health", "Health")
+DEVICE_LABEL = i18n.msg("nav.device", "Device")
 AUDIT_LABEL = i18n.msg("nav.audit_log", "Audit log")
 RELEASES_LABEL = i18n.msg("nav.releases", "Releases")
 SECTION_NAV_LABEL = i18n.msg("nav.administration_sections", "Administration sections")
 
 # (key, path, label) in display order. A link is rendered only when a GET
-# route for its path exists.
+# route for its path exists. Health, Device and the Airline editor are
+# per-frame pages: the renderer scopes their paths to the frame in view.
 CONSOLE_NAV_ENTRIES = (
     ("fleet", FLEET_ROUTE, FLEET_LABEL),
     ("users", USERS_ROUTE, USERS_LABEL),
-    ("locations", LOCATIONS_ROUTE, LOCATIONS_LABEL),
+    ("health", HEALTH_ROUTE, HEALTH_LABEL),
+    ("device", DEVICE_ROUTE, DEVICE_LABEL),
+    ("editor", AIRLINE_EDITOR_ROUTE, AIRLINE_EDITOR_LABEL),
     ("audit", AUDIT_ROUTE, AUDIT_LABEL),
     ("releases", UPDATE_ROUTE, RELEASES_LABEL),
 )
@@ -69,7 +78,6 @@ CONSOLE_NAV_ENTRIES = (
 CONSOLE_TITLES = {
     FLEET_ROUTE: FLEET_LABEL,
     USERS_ROUTE: USERS_LABEL,
-    LOCATIONS_ROUTE: LOCATIONS_LABEL,
     AUDIT_ROUTE: AUDIT_LABEL,
 }
 

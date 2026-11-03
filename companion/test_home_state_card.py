@@ -255,27 +255,27 @@ def test_a_short_delay_keeps_the_neutral_next_update_wording(tmp_path):
 ])
 def test_overdue_frame_says_so_with_the_overdue_dot_and_no_countdown(tmp_path, lang, text):
     """past the grace window the line names the expected time as overdue and drops the
-    countdown; the dot turns amber, reads Overdue and a Health link appears"""
+    countdown; the dot turns amber and reads Overdue, with no Health link"""
     card = _render(
         tmp_path, lang=lang,
         last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(minutes=50)).isoformat())
     assert text in card
     assert "Expected since" not in card and "Attendu depuis" not in card
     assert "data-relative-countdown" not in card
-    assert "dot--warn" in card and "dot--ok" not in card and 'href="/health"' in card
+    assert "dot--warn" in card and "dot--ok" not in card and 'href="/health"' not in card
     word = "Overdue" if lang == "en" else "En retard"
     assert 'role="img" aria-label="%s"' % word in card
 
 
 @pytest.mark.parametrize("lang,link", [("en", "See Health"), ("fr", "Voir la santé")])
-def test_long_overdue_turns_the_dot_amber_and_links_to_health(tmp_path, lang, link):
-    """well past the expected wake: amber dot and one link to Health"""
+def test_long_overdue_turns_the_dot_amber_and_links_nowhere(tmp_path, lang, link):
+    """well past the expected wake: amber dot, and no link to Health (Health is the
+    administrator's Console page)"""
     card = _render(
         tmp_path, lang=lang,
         last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(minutes=90)).isoformat())
     assert "dot--warn" in card and "dot--ok" not in card
-    assert len(re.findall(r'<a [^>]*href="/health"[^>]*>%s<svg[^>]*aria-hidden="true"' % link,
-                          card)) == 1
+    assert "/health" not in card and link not in card
     assert 'class="home-state home-state--warn"' in card and "#icon-warning" in card
 
 

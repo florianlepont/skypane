@@ -21,7 +21,7 @@ import sqlite3
 import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, quote, urlsplit
+from urllib.parse import parse_qs, parse_qsl, quote, urlencode, urlsplit
 
 # Same repo-root sys.path bootstrap as server/poll_loop.py, so
 # server.* resolves whether this file runs as a package or standalone.
@@ -257,8 +257,13 @@ _PAGE_TITLES = dict(layout.NAV_TABS)
 
 # A child page is reached from a tab rather than being one: it has its own
 # title, and the tab it hangs under stays the active nav item.
-_CHILD_PAGE_TITLES = {detection_page.DETECTION_ROUTE: detection_page.PAGE_TITLE}
-_CHILD_PAGE_PARENT = {detection_page.DETECTION_ROUTE: layout.DISPLAY_ROUTE}
+_CHILD_PAGE_TITLES = {
+    detection_page.DETECTION_ROUTE: detection_page.PAGE_TITLE,
+    airlines_page.MANAGE_ROUTE: console_routes.AIRLINE_EDITOR_LABEL,
+}
+# The frame pages that belong to the Console: they show no foreign-frame strip.
+_CONSOLE_FRAME_ROUTES = frozenset((
+    layout.HEALTH_ROUTE, layout.DEVICE_ROUTE, airlines_page.MANAGE_ROUTE))
 
 # Each tab's own extra scripts, on top of layout.GLOBAL_PAGE_SCRIPTS
 # (present on every authenticated page regardless). One tuple per
@@ -303,6 +308,10 @@ _PAGE_SCRIPTS = {
         layout.PANEL_LOOKUP_SCRIPT_SRC,
     ),
     layout.AIRLINES_ROUTE: (
+        layout.LIST_FILTER_SCRIPT_SRC,
+        layout.PANEL_LOOKUP_SCRIPT_SRC,
+    ),
+    airlines_page.MANAGE_ROUTE: (
         layout.LIST_FILTER_SCRIPT_SRC,
         layout.PANEL_LOOKUP_SCRIPT_SRC,
     ),
@@ -405,7 +414,7 @@ parse_single_uploaded_file = post_actions.parse_single_uploaded_file
 
 # The un-prefixed frame pages a user is sent on to their own frame.
 _USER_FRAME_PAGES = frozenset((
-    layout.HOME_ROUTE, "/display", "/flights", "/airlines", "/health", "/detection"))
+    layout.HOME_ROUTE, "/display", "/flights", "/airlines", "/detection"))
 
 
 def _effective_access(route, route_match):
@@ -925,11 +934,12 @@ class Handler(
             flash_html = flash.flash_toast_html(ctx.flash_key, ctx.flash, self.path)
         return layout.page_shell(
             title=i18n.t(_CHILD_PAGE_TITLES.get(route) or _PAGE_TITLES[route]),
-            active=layout.nav_slug(_CHILD_PAGE_PARENT.get(route, route)),
+            active=layout.nav_slug(route),
             body=body,
             ui_theme=ctx.ui_theme, flash=flash_html,
             health_alert=ctx.health_severity, device_config=ctx.device_config,
-            scripts=_PAGE_SCRIPTS[route], refresh_token=refresh_token)
+            scripts=_PAGE_SCRIPTS[route], refresh_token=refresh_token,
+            console_page=route in _CONSOLE_FRAME_ROUTES)
 
     def _render_tab(self, route, render, device):
         """Render one authenticated tab: `render(ctx) -> body markup`
@@ -964,6 +974,27 @@ class Handler(
                 etag=quoted_etag)
         body = render(ctx)
         return self.send_html(200, self._page_shell_for(route, body, ctx))
+
+    def _render_airlines_collection(self, device):
+        """GET /airlines. An administrator asking to resolve a prefix is sent
+        to the editing page of the same frame; the target is the fixed manage
+        path plus the re-encoded prefix, never the raw query. For anyone else
+        the parameter is ignored.
+        """
+        principal = self._safe_principal()
+        is_admin = principal is not None and principal.role == access.ADMIN
+        if is_admin:
+            query = parse_qs(urlsplit(self.path).query)
+            prefix = query.get(airlines_page.RESOLVE_QUERY_PARAM, [None])[0]
+            if prefix:
+                target = device_scope.scoped(airlines_page.MANAGE_ROUTE)
+                return self.redirect("%s?%s" % (target, urlencode(
+                    {airlines_page.RESOLVE_QUERY_PARAM: prefix})))
+
+        def render(ctx):
+            ctx.resolve_prefix = None
+            return airlines_page.render(ctx)
+        return self._render_tab(layout.AIRLINES_ROUTE, render, device)
 
     def _console_page(
             self, route, title_msg, body_html, purpose_msg=None, status=200,
@@ -1069,6 +1100,10 @@ class Handler(
             if moved is not None:
                 return self.redirect(moved)
             return self.send_html(404, self._not_found_page())
+        if principal is not None and principal.role == access.ADMIN:
+            moved = self._frame_page_redirect(method, route, route_match, principal)
+            if moved is not None:
+                return self.redirect(moved)
         self._apply_principal(principal)
         raw_session = self._raw_session_token()
         prefs.set_request_csrf(
@@ -1084,22 +1119,37 @@ class Handler(
         return self._dispatch_for_device(route, route_match)
 
     def _frame_page_redirect(self, method, route, route_match, principal):
-        """Where a user's un-prefixed frame page (Home, Display, Flights,
-        Airlines, Health, Detection) moves to: the same page under their
-        default frame. None for any other request, and for a user with no
-        frame. The target is built from the user's own frame list and the
-        matched route path, never from request text.
+        """Where an un-prefixed personal page (Home, Display, Flights,
+        Airlines, Detection) moves to for a user or an administrator: the same
+        page under their default frame, with the query kept. An administrator
+        with no frame of their own goes to the account page once the fleet has
+        rows; on an install with no fleet rows the page is served as before.
+        None for any other request, and for a user with no frame. The target
+        is built from the frame id, the matched route path and a re-encoded
+        query, never from request text.
         """
         if method != "GET" or not route.device_scoped \
                 or route_match.device_id is not None:
             return None
-        if principal is None or principal.role != access.USER \
-                or route_match.path not in _USER_FRAME_PAGES:
+        if principal is None or route_match.path not in _USER_FRAME_PAGES:
+            return None
+        if principal.role == access.ADMIN and "device" in dict(
+                parse_qsl(route_match.query or "", keep_blank_values=True)):
+            # The frame switcher's no-script submit: the device dispatcher
+            # validates the value and sends it to the chosen frame in one hop.
             return None
         frame = self._default_frame(principal)
         if frame is None:
-            return None
-        return "/devices/%s%s" % (frame.id, route_match.path)
+            if principal.role != access.ADMIN:
+                return None
+            try:
+                fleet = device_scope.has_fleet_rows(self.args.state_dir)
+            except _STORE_ERRORS:
+                return None
+            return sign_in.ACCOUNT_ROUTE if fleet else None
+        target = "/devices/%s%s" % (frame.id, route_match.path)
+        pairs = parse_qsl(route_match.query or "", keep_blank_values=True)
+        return target + ("?" + urlencode(pairs) if pairs else "")
 
     def _login_throttle_key(self):
         """The one place this handler derives a sign-in throttle bucket key

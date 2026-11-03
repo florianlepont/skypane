@@ -228,6 +228,8 @@ RESOLVE_ROUTE = "/airlines/resolve"
 MANUAL_DELETE_ROUTE_PREFIX = "/airlines/manual-resolutions/"
 MANUAL_DELETE_ROUTE_SUFFIX = "/delete"
 AIRLINES_ROUTE = "/airlines"
+# The administrator's editing page for the same frame (Console).
+MANAGE_ROUTE = "/airlines/manage"
 RESOLVE_QUERY_PARAM = "resolve"
 # Re-exported so page_context reads one query-parameter vocabulary here.
 SHEET_QUERY_PARAM = airline_sheet.SHEET_QUERY_PARAM

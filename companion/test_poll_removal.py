@@ -20,7 +20,11 @@ def fleet_app(make_app_server):
 
 @pytest.mark.parametrize("path", ("/", "/device", "/display", "/flights", "/health"))
 def test_pages_carry_no_poll_form_button_or_cooldown_script(fleet_app, path):
-    for prefix in ("", _prefix(fleet_app.fleet.dev_a)):
+    prefixes = [_prefix(fleet_app.fleet.live), _prefix(fleet_app.fleet.dev_a)]
+    if path in ("/device", "/health"):
+        # The Console pages of the served frame also answer without a prefix.
+        prefixes.append("")
+    for prefix in prefixes:
         status, _headers, page = get(fleet_app, prefix + path)
         assert status == 200
         assert "poll-now" not in page
@@ -48,7 +52,8 @@ def test_rule_and_settings_forms_carry_the_device_prefix(fleet_app):
     assert status == 200
     assert 'id="settings-form" data-dirty-form method="post" action="%s/settings"' % prefix in page
     assert 'action="%s/settings/rules/add"' % prefix in page
-    _status, _, live = get(fleet_app, "/display")
-    assert 'id="settings-form" data-dirty-form method="post" action="/settings"' in live
-    assert 'action="/settings/rules/add"' in live
-    assert 'action="/devices/' not in live
+    live_prefix = _prefix(fleet_app.fleet.live)
+    _status, _, live = get(fleet_app, live_prefix + "/display")
+    assert 'id="settings-form" data-dirty-form method="post" action="%s/settings"' % live_prefix in live
+    assert 'action="%s/settings/rules/add"' % live_prefix in live
+    assert 'action="%s/' % prefix not in live

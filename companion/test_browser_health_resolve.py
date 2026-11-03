@@ -201,9 +201,10 @@ def test_an_unknown_reopen_value_opens_nothing(new_context, server):
         context.close()
 
 
-def test_without_scripts_resolve_is_still_a_link_to_the_airlines_page(new_context, server):
-    """scripts blocked: the dialog stays closed and the Resolve link goes to Airlines, where the
-    in-page resolve section appears"""
+def test_without_scripts_resolve_is_still_a_link_to_the_airline_editor(new_context, server):
+    """scripts blocked: the dialog stays closed and the Resolve link goes to Airlines, which
+    sends the administrator on to the Airline editor, where the in-page resolve section
+    appears"""
     with _no_js_page(new_context, server.base_url(), "/health", viewport=VIEWPORT_DESKTOP,
                      reduced_motion="reduce") as page:
         page.wait_for_load_state("load")
@@ -211,7 +212,7 @@ def test_without_scripts_resolve_is_still_a_link_to_the_airlines_page(new_contex
         link = page.locator(VISIBLE_LINK % "QXA").first
         link.wait_for(state="visible")
         link.click()
-        page.wait_for_url(re.compile(r"/airlines\?resolve=QXA$"))
+        page.wait_for_url(re.compile(r"/airlines/manage\?resolve=QXA$"))
         page.wait_for_load_state("load")
         assert page.locator("[data-resolve-fallback]").is_visible()
         assert page.locator("[data-resolve-fallback] form.lightbox__resolve-name").is_visible()
