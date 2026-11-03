@@ -533,23 +533,97 @@ def _account(rig, who, query="", language=None):
 
 
 def _frame_names(body):
-    return [n.text() for n in parse_html(body).select("li.data-card span.text-heading")]
+    return [n.text() for n in parse_html(body).select("li.entity-row a.entity-row__title")]
 
 
-def test_a_co_managed_frame_is_marked_shared_with_the_owner_address(rig):
+def _row_of(tree, name):
+    return [r for r in tree.select("li.entity-row") if name in r.text()][0]
+
+
+def _leave_id(rig):
+    return "dlg-leave-%s" % rig.seed.owned_id.replace("_", "-")
+
+
+def _access_id(rig):
+    return "dlg-access-%s" % rig.seed.owned_id.replace("_", "-")
+
+
+def test_a_co_managed_frame_says_who_shared_it_and_offers_leave_not_manage_access(rig):
     tree = parse_html(_account(rig, "co"))
-    (row,) = tree.select("li.data-card")
-    assert "Shared" in [n.text() for n in row.select("span.banner__pill")]
-    assert "Owner: %s" % fx.OWNER_EMAIL in row.text()
-    assert row.select_one("a.text-link").attrs["href"] == rig.path
+    (row,) = tree.select("li.entity-row")
+    assert "Shared by %s" % fx.OWNER_EMAIL in row.text()
+    assert row.select_one("a.entity-row__title").attrs["href"] == rig.path
+    (action,) = row.select("a[data-modal-open]")
+    assert (action.text(), action.attrs["href"]) == ("Leave frame", "#" + _leave_id(rig))
+    assert tree.select_one("dialog#" + _leave_id(rig)) is not None
+    assert not tree.select("dialog#" + _access_id(rig))
+    assert "Manage access" not in tree.text()
 
 
-def test_an_owned_frame_carries_no_shared_mark(rig):
+def test_the_leave_dialog_posts_to_the_frame_and_returns_to_account(rig):
+    dialog = parse_html(_account(rig, "co")).select_one("dialog#" + _leave_id(rig))
+    form = dialog.select_one("form")
+    assert form.attrs["action"] == "/devices/%s%s" % (rig.seed.owned_id, card.LEAVE_ROUTE)
+    dismiss = dialog.select_one("a.modal__dismiss")
+    assert dismiss.attrs["href"] == "/account" and dismiss.text() == "Stay on this frame"
+
+
+def test_an_owned_frame_offers_manage_access_with_the_owner_dialog(rig):
     tree = parse_html(_account(rig, "owner"))
-    rows = [r for r in tree.select("li.data-card") if "Kitchen" in r.text()]
-    assert rows
-    assert "Shared" not in rows[0].text()
-    assert "Owner:" not in rows[0].text()
+    row = _row_of(tree, "Kitchen")
+    assert "Shared by" not in row.text()
+    (action,) = row.select("a[data-modal-open]")
+    assert (action.text(), action.attrs["href"]) == ("Manage access", "#" + _access_id(rig))
+    dialog = tree.select_one("dialog#" + _access_id(rig))
+    assert "open" not in dialog.attrs
+    assert [n.text() for n in dialog.select("span.co-manager__email")] == [
+        fx.OWNER_EMAIL, CO_EMAIL]
+    assert dialog.select_one('input[type="email"][name="email"]') is not None
+    assert not tree.select("dialog#" + _leave_id(rig))
+    forms = [f.attrs["action"] for f in dialog.select("form")]
+    assert all(a.startswith("/devices/%s/co-managers/" % rig.seed.owned_id) for a in forms)
+    returns = {i.attrs["value"] for i in dialog.select('input[name="return_to"]')}
+    assert returns == {"/account"}
+
+
+def test_account_access_query_reopens_only_the_named_frames_dialog(rig):
+    opened = parse_html(_account(rig, "owner", "?access=" + rig.seed.owned_id))
+    assert "open" in opened.select_one("dialog#" + _access_id(rig)).attrs
+    other = _account(rig, "owner", "?access=d_not_mine")
+    assert "open" not in parse_html(other).select_one("dialog#" + _access_id(rig)).attrs
+    assert "d_not_mine" not in other
+
+
+def test_a_co_manager_never_gets_an_access_dialog_even_when_asking_for_one(rig):
+    tree = parse_html(_account(rig, "co", "?access=" + rig.seed.owned_id))
+    assert not tree.select("dialog#" + _access_id(rig))
+    assert not tree.select("dialog[open]")
+
+
+def test_an_admin_sees_manage_access_only_on_frames_they_own(rig):
+    admin_id = rig.db(lambda c: fleet_db.get_user_by_email(c, fx.ADMIN_EMAIL)["id"])
+    rig.db(lambda c: fleet_db.add_co_manager(c, rig.seed.owned_id, admin_id, None))
+    tree = parse_html(_account(rig, "admin"))
+    kitchen = _row_of(tree, "Kitchen")
+    assert [a.text() for a in kitchen.select("a[data-modal-open]")] == ["Leave frame"]
+    own = _row_of(tree, "Orly frame")
+    assert [a.text() for a in own.select("a[data-modal-open]")] == ["Manage access"]
+
+
+def test_adding_from_account_returns_to_account_with_the_dialog_open_and_a_toast(rig):
+    cookie = rig.cookies["owner"]
+    status, headers, _body = rig.post(
+        "owner", card.ADD_ROUTE, {"email": INVITED_EMAIL, "return_to": "/account"})
+    assert status == 303
+    assert headers["Location"] == "/account?access=%s&flash=%s" % (
+        rig.seed.owned_id, card.FLASH_ADDED)
+    status, _headers, body = http_request(rig.server.url(headers["Location"]), cookie=cookie)
+    text = html.unescape(body.decode("utf-8"))
+    tree = parse_html(text)
+    assert "Co-manager added" in tree.select_one("div.toast-region--flash").text()
+    dialog = tree.select_one("dialog#" + _access_id(rig))
+    assert "open" in dialog.attrs
+    assert INVITED_EMAIL in [n.text() for n in dialog.select("span.co-manager__email")]
 
 
 def test_an_admin_lists_only_the_frames_they_own_or_co_manage(rig):
@@ -561,8 +635,7 @@ def test_an_admin_lists_only_the_frames_they_own_or_co_manage(rig):
     after = _frame_names(_account(rig, "admin"))
     assert sorted(after) == sorted(before + ["Kitchen"])
     tree = parse_html(_account(rig, "admin"))
-    shared = [r for r in tree.select("li.data-card") if "Kitchen" in r.text()]
-    assert "Shared" in shared[0].text()
+    assert "Shared by" in _row_of(tree, "Kitchen").text()
 
 
 def test_a_user_with_no_frames_sees_the_unchanged_empty_state(rig):
@@ -579,21 +652,24 @@ def test_frames_stay_ordered_by_name(rig):
     assert _frame_names(_account(rig, "co")) == ["Attic window", "Kitchen"]
 
 
-def test_only_the_leave_flash_renders_a_toast_on_account(rig):
+def test_only_the_co_manager_flashes_render_a_toast_on_account(rig):
     body = html.unescape(_account(rig, "co", "?flash=" + card.FLASH_LEFT))
     toast = parse_html(body).select_one("div.toast-region--flash div.toast")
     assert toast.attrs["role"] == "status"
     assert "You left the frame" in toast.text()
     for key in (
             card.FLASH_ADDED, card.FLASH_REMOVED, card.FLASH_ADD_REFUSED,
-            card.FLASH_FAILED, card.FLASH_LEAVE_NOOP, "unknown_key"):
+            card.FLASH_FAILED, card.FLASH_LEAVE_NOOP):
+        assert parse_html(_account(rig, "co", "?flash=" + key)).select("div.toast-region--flash")
+    for key in ("unknown_key", "saved"):
         assert not parse_html(_account(rig, "co", "?flash=" + key)).select("div.toast-region--flash")
 
 
 def test_the_leave_toast_is_french_for_a_french_request(rig):
     body = html.unescape(_account(rig, "co", "?flash=" + card.FLASH_LEFT, "fr"))
     assert "Vous avez quitté le cadre" in body
-    assert "Partagé" in body
+    assert "Partagé par" in body
+    assert "Quitter le cadre" in body
 
 
 def test_leaving_lands_on_account_with_the_toast_and_the_frame_gone(rig):

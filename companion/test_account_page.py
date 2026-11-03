@@ -259,34 +259,48 @@ def fleet_server(server):
     return server, seeded, second, cookies
 
 
+def _sections(body):
+    return parse_html(body).select("section.page-section")
+
+
 def _frames_card(body):
-    return parse_html(body).select("section.page-section")[2]
+    return _sections(body)[0]
 
 
-def test_a_user_with_no_frames_sees_the_unchanged_empty_state(server, user_cookie):
-    card = _frames_card(_get(server, "/account", user_cookie)[2])
-    assert card.select_one("h2").text() == "Frames"
+def test_my_frames_is_the_first_card_and_an_empty_account_shows_the_empty_state(
+        server, user_cookie):
+    body = _get(server, "/account", user_cookie)[2]
+    card = _frames_card(body)
+    assert card.attrs["aria-labelledby"] == "account-frames"
+    assert card.select_one("h2").text() == "My frames"
     assert card.select_one(".empty-state__heading").text() == "Your frames will appear here"
+    assert "you land on its Home after you sign in" in card.text()
+    assert [s.select_one("h2").text() for s in _sections(body)] == [
+        "My frames", "Identity", "Preferences"]
 
 
-def test_a_user_sees_their_own_frames_ordered_by_name_with_an_open_link(fleet_server):
+def test_a_user_sees_their_own_frames_ordered_by_name_with_a_dot_and_manage_access(
+        fleet_server):
     server, seeded, second, cookies = fleet_server
     status, _headers, body = _get(server, "/account", cookies["owner"])
     assert status == 200
     card = _frames_card(body)
-    assert card.select_one("h2").text() == "Your frames"
-    rows = card.select("li.data-card")
+    assert card.select_one("h2").text() == "My frames"
+    rows = card.select("li.entity-row")
     assert len(rows) == 2
-    names = [row.select_one(".text-heading").text() for row in rows]
+    names = [row.select_one("a.entity-row__title").text() for row in rows]
     assert names == sorted(names, key=str.casefold)
-    hrefs = [row.select_one("a.text-link").attrs["href"] for row in rows]
+    hrefs = [row.select_one("a.entity-row__title").attrs["href"] for row in rows]
     assert sorted(hrefs) == sorted([
         "/devices/%s/" % seeded.owner_device, "/devices/%s/" % second])
     attic = rows[names.index("Attic")]
-    assert "Last contact" in attic.text()
-    assert attic.select_one(".time-value") is not None
-    assert "Battery" in attic.text() and "%" in attic.text()
-    assert hardware.REGISTRY[hardware.LEGACY_KEY].label in attic.text()
+    assert attic.select_one('.entity-row__dot [role="img"]') is not None
+    assert attic.select_one(".entity-row__meta").text() == (
+        hardware.REGISTRY[hardware.LEGACY_KEY].label)
+    (action,) = attic.select("a[data-modal-open]")
+    assert action.text() == "Manage access"
+    for banned in ("Last contact", "Battery", "%"):
+        assert banned not in card.text()
 
 
 def test_the_page_never_shows_another_users_frame_or_internals(fleet_server):
@@ -295,11 +309,9 @@ def test_the_page_never_shows_another_users_frame_or_internals(fleet_server):
     assert seeded.other_device not in body
     for secret in _SECRETS + ("aa:bb:cc:dd:ee", "firmware"):
         assert secret not in body
-    stripped = body.replace("/devices/%s/" % seeded.owner_device, "").replace(
-        "/devices/%s/" % second, "")
-    assert seeded.owner_device not in stripped and second not in stripped
     other_body = _get(server, "/account", cookies["other"])[2]
     assert second not in other_body and seeded.owner_device not in other_body
+    assert "dlg-access-" + seeded.owner_device.replace("_", "-") not in other_body
 
 
 def test_an_admin_sees_only_the_frames_they_own_on_the_account_page(fleet_server):
@@ -311,14 +323,38 @@ def test_an_admin_sees_only_the_frames_they_own_on_the_account_page(fleet_server
     assert 'href="/devices/' not in body
 
 
-def test_the_frames_card_is_translated_to_french():
-    frame = account_page.FrameSummary("Salon", "XIAO", None, 80, "/devices/d_00000001/")
+def test_a_co_manager_gets_leave_frame_and_the_server_refuses_them_access_changes(
+        fleet_server):
+    server, seeded, second, cookies = fleet_server
+    conn = fleet_db.connect(server.state_dir)
+    try:
+        fleet_db.add_co_manager(conn, second, seeded.other_id, None)
+    finally:
+        conn.close()
+    tree = parse_html(_get(server, "/account", cookies["other"])[2])
+    attic = [r for r in tree.select("li.entity-row") if "Attic" in r.text()][0]
+    assert [a.text() for a in attic.select("a[data-modal-open]")] == ["Leave frame"]
+    assert "Shared by owner@example.test" in attic.text()
+    assert not tree.select("dialog#dlg-access-" + second.replace("_", "-"))
+    from companion_app_server import with_csrf
+    form = with_csrf(cookies["other"], {"email": "admin@example.com", "return_to": "/account"})
+    status, _headers, _body = http_request(
+        server.url("/devices/%s/co-managers/add" % second), method="POST",
+        cookie=cookies["other"], data=form, extra_headers={"Origin": server.base_url()})
+    assert status in (403, 404)
+
+
+def test_the_my_frames_card_is_translated_to_french():
     from companion import prefs
+    frame = account_page.FrameSummary(
+        "Salon", "XIAO", "/devices/d_00000001/", "d_00000001", shared=True,
+        owner_email="o@e.fr")
     prefs.set_request_prefs(lang="fr")
     try:
         html = account_page.render(account_page.Identity("a@b.c", "user"), frames=[frame])
+        empty = account_page.render(account_page.Identity("a@b.c", "user"))
     finally:
         prefs.set_request_prefs(lang="en")
-    for text in ("Vos cadres", "Dernier contact", "Aucun contact pour l’instant",
-                 "Ouvrir", "Batterie"):
+    for text in ("Mes cadres", "Partagé par o@e.fr", "Quitter le cadre"):
         assert text in html
+    assert "Vos cadres apparaîtront ici" in empty

@@ -74,18 +74,14 @@ MESSAGES = {
     "account.user": "Utilisateur",
     "account.administrator": "Administrateur",
     "account.preferences": "Préférences",
-    "account.frames": "Cadres",
+    "account.my_frames": "Mes cadres",
     "account.your_frames_will_appear_here": "Vos cadres apparaîtront ici",
-    "account.once_an_administrator_pairs_a_frame_to_your":
-        "Dès qu’un administrateur associe un cadre à votre compte, il "
-        "apparaîtra sur cette page.",
-    "account.your_frames": "Vos cadres",
-    "account.last_contact": "Dernier contact",
-    "account.no_contact_yet": "Aucun contact pour l’instant",
-    "account.battery": "Batterie",
+    "account.once_an_administrator_pairs_a_frame":
+        "Dès qu’un administrateur appaire un cadre à votre compte, vous "
+        "arrivez sur son accueil après la connexion.",
     "account.unnamed_frame": "Cadre sans nom",
-    "account.open": "Ouvrir",
-    "account.shared": "Partagé",
-    "account.owner_s": "Propriétaire\u00a0: %s",
-    "account.open_frame": "Ouvrir %s",
+    "account.shared_by": "Partagé par %s",
+    "account.leave_frame": "Quitter le cadre",
+    "account.leave_frame_aria": "Quitter le cadre\u00a0: %s",
+    "account.manage_access_aria": "Gérer l’accès\u00a0: %s",
 }

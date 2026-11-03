@@ -1,100 +1,26 @@
 """Real-browser checks of the Manage access dialog on Fleet and the Account
-"Shared" mark: the four-action add flow, dialog geometry and tap targets at
+"Shared by" line: the four-action add flow, dialog geometry and tap targets at
 360 and 1280px in both languages and themes, the dialog reopening after each
 change, the same forms through plain hash links with scripts blocked, and
 Home carrying no co-management."""
 import pytest
 
-import fleet_console_support as fx
-from companion import auth
-from companion.test_browser_ux_helpers import (
-    UI_THEMES_EXPLICIT, VIEWPORT_MIN_SUPPORTED, _set_ui_theme)
+from co_manager_browser_support import (
+    INVITED, LONG_CO, LONG_OWNER, MIN_TAP_PX, SUBPIXEL, UNKNOWN, Rig, _no_sideways_scroll,
+    _open)
+from companion.test_browser_ux_helpers import UI_THEMES_EXPLICIT, VIEWPORT_MIN_SUPPORTED
 from server import fleet_db
 
 pytestmark = pytest.mark.browser
-
-MIN_TAP_PX = 44
-SUBPIXEL = 1.0
-
-LONG_OWNER = "owner.with.a.very.long.address.x@example.test"
-LONG_CO = "co.manager.with.a.very.long.address@example.test"
-INVITED = "invited.person@example.test"
-UNKNOWN = "nobody.knows.me@example.test"
-SECOND_CO = "second.co@example.test"
 
 FLASH = '.toast-region--flash .toast[role="status"]'
 LANGS = ("en", "fr")
 CONSOLE_TOAST = ".toast"
 
 
-class Rig:
-    """A seeded fleet whose Orly-less "Kitchen" frame is owned by a user with a
-    long address and co-managed by another one."""
-
-    def __init__(self, server):
-        self.server = server
-        self.state_dir = server.state_dir
-        self.seed = fx.seed_fleet(self.state_dir)
-        conn = fleet_db.connect(self.state_dir)
-        try:
-            conn.execute(
-                "UPDATE users SET email = ? WHERE id = ?",
-                (LONG_OWNER, self.seed.owner_id))
-            conn.commit()
-            self.co_id = fleet_db.add_user(conn, LONG_CO, "user")
-            fleet_db.add_co_manager(conn, self.seed.owned_id, self.co_id, None)
-            fleet_db.add_user(conn, INVITED, "user")
-        finally:
-            conn.close()
-        self.path = "/devices/%s/" % self.seed.owned_id
-
-    def url(self, path=None):
-        return self.server.base_url() + (path or self.path)
-
-    def cookie(self, who):
-        email = {"owner": LONG_OWNER, "co": LONG_CO}.get(who)
-        if who == "admin":
-            pair = fx.admin_cookie(self.state_dir)
-        else:
-            pair = fx.user_cookie(self.state_dir, email=email)
-        name, value = pair.split("=", 1)
-        return {"name": name, "value": value, "url": self.server.base_url(),
-                "httpOnly": True, "sameSite": "Strict"}
-
-    def members(self):
-        conn = fleet_db.connect(self.state_dir)
-        try:
-            return sorted(
-                row["email"] for row in conn.execute(
-                    "SELECT u.email FROM device_co_managers c JOIN users u "
-                    "ON u.id = c.user_id WHERE c.device_id = ?",
-                    (self.seed.owned_id,)))
-        finally:
-            conn.close()
-
-
 @pytest.fixture
 def rig(app_server_in_process):
     return Rig(app_server_in_process)
-
-
-def _open(new_context, rig, who, path=None, lang="en", theme=None,
-          viewport=VIEWPORT_MIN_SUPPORTED, **context_kwargs):
-    context = new_context(viewport=viewport, **context_kwargs)
-    context.add_cookies([
-        rig.cookie(who),
-        {"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": rig.server.base_url()}])
-    page = context.new_page()
-    page.goto(rig.url(path))
-    page.locator("main").wait_for(state="visible")
-    if theme is not None:
-        _set_ui_theme(page, theme)
-    return context, page
-
-
-def _no_sideways_scroll(page):
-    return page.evaluate(
-        "document.documentElement.scrollWidth <= document.documentElement.clientWidth")
 
 
 _CONTAINMENT_JS = """
@@ -292,15 +218,14 @@ def test_account_shows_the_shared_mark_and_owner_without_overflow(
     context, page = _open(new_context, rig, "co", path="/account", lang=lang)
     try:
         assert _no_sideways_scroll(page)
-        assert page.get_by_text(LONG_OWNER).count() == 1
-        owner_line = page.locator(".co-manager__email", has_text=LONG_OWNER)
-        assert owner_line.is_visible()
+        owner_line = page.locator(".entity-row__meta", has_text=LONG_OWNER)
+        assert owner_line.count() == 1 and owner_line.is_visible()
         assert owner_line.evaluate(
             "e => { const r = document.createRange(); r.selectNodeContents(e);"
             " const t = r.getBoundingClientRect(), b = e.getBoundingClientRect();"
             " return t.right <= b.right + 1 && b.right <= document.documentElement.clientWidth; }")
-        if lang == "en":
-            assert page.get_by_text("Shared", exact=True).count() >= 1
+        assert owner_line.inner_text().startswith(
+            "Shared by" if lang == "en" else "Partagé par")
     finally:
         context.close()
 
@@ -308,7 +233,7 @@ def test_account_shows_the_shared_mark_and_owner_without_overflow(
 # --- lists without a desktop table stay visible at every width -------------
 
 LIST_WIDTHS = (1000, 700, 360)
-FRAMES_LIST = '[aria-labelledby="account-frames"] ul.data-cards'
+FRAMES_LIST = '[aria-labelledby="account-frames"] ul.entity-list'
 
 
 @pytest.mark.parametrize("width", LIST_WIDTHS)
@@ -318,7 +243,7 @@ def test_the_account_frames_list_is_visible_at_every_width(new_context, rig, wid
         viewport={"width": width, "height": 900})
     try:
         assert page.locator(FRAMES_LIST).is_visible()
-        assert page.locator(FRAMES_LIST + " li.data-card", has_text="Kitchen").is_visible()
+        assert page.locator(FRAMES_LIST + " li.entity-row", has_text="Kitchen").is_visible()
     finally:
         context.close()
 
@@ -329,9 +254,9 @@ def test_a_co_manager_sees_the_shared_frame_row_on_desktop(new_context, rig):
         viewport={"width": 1000, "height": 900})
     try:
         assert page.locator(FRAMES_LIST).is_visible()
-        row = page.locator(FRAMES_LIST + " li.data-card", has_text="Kitchen")
+        row = page.locator(FRAMES_LIST + " li.entity-row", has_text="Kitchen")
         assert row.is_visible()
-        assert row.get_by_text("Shared", exact=True).is_visible()
+        assert row.get_by_text("Shared by", exact=False).is_visible()
     finally:
         context.close()
 

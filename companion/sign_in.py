@@ -10,13 +10,15 @@ needs from the handler (`self._fleet_conn()`, `self._principal()`,
 Logging prints reason codes and numeric user ids only: never a code, a
 token, a claim value, an email, a response body or the client secret.
 """
+import datetime
 import hmac
 import os
 import sqlite3
 from urllib.parse import parse_qs, urlsplit
 
 from companion import (
-    access, auth, battery, device_scope, flash, i18n, layout, login_page, oidc, prefs)
+    access, auth, battery, co_managers, console_pairing, device_scope, flash, i18n,
+    layout, login_page, oidc, prefs)
 from companion.pages import account_page, co_managers_card
 from server import fleet_db, fleet_sessions, hardware, state_store
 
@@ -50,6 +52,14 @@ _REASON_LINKED = "linked"
 WELCOME_HOME = "welcome"
 WELCOME_ACCOUNT = "welcome_account"
 WELCOME_NEUTRAL = "welcome_neutral"
+
+
+# The co-manager results an Account toast may show after a Manage access or
+# Leave frame form.
+_ACCOUNT_FLASH_KEYS = (
+    co_managers_card.FLASH_ADDED, co_managers_card.FLASH_REMOVED,
+    co_managers_card.FLASH_LEFT, co_managers_card.FLASH_ADD_REFUSED,
+    co_managers_card.FLASH_FAILED, co_managers_card.FLASH_LEAVE_NOOP)
 
 
 def _log(message):
@@ -304,38 +314,57 @@ class SignInMixin:
     def _own_frame_summaries(self, principal):
         """The frames the caller owns or co-manages as `FrameSummary` values,
         whatever the role: an admin sees here only those, not every frame. A
-        co-managed frame is marked shared and carries its owner's address. The
-        address is always the prefixed Home, never the live frame's bare
-        root."""
+        co-managed frame is marked shared and carries its owner's address; an
+        owned frame carries its Manage access view. The address is always the
+        prefixed Home, never the live frame's bare root."""
         frames = []
         shared_ids, email_of = self._shared_frame_facts(principal)
+        now = datetime.datetime.now(datetime.timezone.utc)
         for device in device_scope.load_devices_for(self.args.state_dir, principal):
             owned = principal.user_id is not None and device.owner_user_id == principal.user_id
             shared = not owned and device.id in shared_ids
             if not owned and not shared:
                 continue
-            profile = hardware.REGISTRY.get(device.hardware_type)
-            millivolts = state_store.load_battery_state(device.state_dir)
-            frames.append(account_page.FrameSummary(
-                # An unnamed frame is listed under its id by the device
-                # scope; the id is not shown on this page.
-                name=(
-                    i18n.t(account_page.UNNAMED_FRAME_TEXT)
-                    if device.name == device.id else device.name),
-                hardware=profile.label if profile is not None else device.hardware_type,
-                last_contact=device_scope.last_check_in_epoch(device.state_dir),
-                battery_percent=(
-                    None if millivolts is None else battery.battery_percent(millivolts)),
-                href="/devices/%s/" % device.id,
-                shared=shared,
-                owner_email=email_of(device.owner_user_id) if shared else ""))
+            frames.append(self._frame_summary(
+                device, now, shared, email_of(device.owner_user_id) if shared else "",
+                self._access_view(device, principal) if owned else None))
         return frames
 
+    def _access_view(self, device, principal):
+        """The Manage access view of a frame the caller owns, None when the
+        store cannot be read."""
+        try:
+            return co_managers.access_view(self._fleet_conn(), device, principal)
+        except _STORE_ERRORS:
+            return None
+
+    def _frame_summary(self, device, now, shared, owner_email, access_view):
+        profile = hardware.REGISTRY.get(device.hardware_type)
+        millivolts = state_store.load_battery_state(device.state_dir)
+        state, screen_off, critical = console_pairing.frame_signals(
+            device, now.isoformat(timespec="seconds"))
+        status = device_scope.device_status(device, now.timestamp())
+        return account_page.FrameSummary(
+            # An unnamed frame is listed under its id by the device
+            # scope; the id is not shown on this page.
+            name=(
+                i18n.t(account_page.UNNAMED_FRAME_TEXT)
+                if device.name == device.id else device.name),
+            hardware=profile.label if profile is not None else device.hardware_type,
+            href="/devices/%s/" % device.id,
+            device_id=device.id,
+            last_seen=device_scope.last_check_in_epoch(device.state_dir),
+            battery_percent=0 if critical else (
+                None if millivolts is None else battery.battery_percent(millivolts)),
+            offline=status == device_scope.STATUS_OFFLINE,
+            state=state, screen_off=screen_off,
+            shared=shared, owner_email=owner_email, access=access_view)
+
     def _account_flash_html(self):
-        """The leave-confirmation or welcome toast when the request carries
-        exactly one of those flash keys; any other value renders nothing."""
+        """The co-manager or welcome toast when the request carries exactly
+        one of those flash keys; any other value renders nothing."""
         key = parse_qs(urlsplit(self.path).query).get("flash", [None])[0]
-        if key != co_managers_card.FLASH_LEFT and key not in flash.WELCOME_KEYS:
+        if key not in _ACCOUNT_FLASH_KEYS and key not in flash.WELCOME_KEYS:
             return None
         text = flash.resolve_flash_text(key, self.args.state_dir)
         return flash.flash_toast_html(key, text, self.path)
@@ -358,8 +387,10 @@ class SignInMixin:
         identity = account_page.Identity(principal.email or _NO_EMAIL, principal.role)
         prefs.set_request_prefs(lang=self._lang_from_request())
         theme = self._resolved_ui_theme()
+        query = parse_qs(urlsplit(self.path).query)
         body = account_page.render(
-            identity, ui_theme=theme, frames=self._own_frame_summaries(principal))
+            identity, ui_theme=theme, frames=self._own_frame_summaries(principal),
+            open_access=(query.get(co_managers_card.ACCESS_QUERY) or [""])[0])
         page = layout.page_shell(
             title=i18n.t(account_page.ACCOUNT_TITLE), active=layout.nav_slug(ACCOUNT_ROUTE),
             body=body, ui_theme=theme, health_alert=None, flash=self._account_flash_html())

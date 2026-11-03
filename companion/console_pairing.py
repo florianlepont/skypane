@@ -88,7 +88,7 @@ def _hardware_label(key):
     return profile.label if profile is not None else key
 
 
-def _frame_signals(device, now_iso):
+def frame_signals(device, now_iso):
     """(frame state, screen off, battery empty) of a frame, derived the way
     the frame's Home page derives them, so one frame has one status dot."""
     cfg = device_config.load_device_config(device.state_dir)
@@ -107,7 +107,7 @@ def _device_rows(state_dir, device_rows, now):
         if row is None:
             continue
         status = device_scope.device_status(device, now.timestamp())
-        state, screen_off, critical = _frame_signals(device, now.isoformat(timespec="seconds"))
+        state, screen_off, critical = frame_signals(device, now.isoformat(timespec="seconds"))
         rows.append(fleet_page.FleetRow(
             kind=fleet_page.KIND_LIVE, frame_id=device.id,
             name=row["name"] or fleet_page.unnamed_text(), mono_id=device.id,

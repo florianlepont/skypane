@@ -257,19 +257,19 @@ def test_account_page_shows_identity_preferences_frames_and_sign_out():
     assert doc.select_one("h1.page-title").text() == "Account"
     cards = doc.select("section.page-section")
     assert [c.select_one("h2").text() for c in cards] == [
-        "Identity", "Preferences", "Frames"]
-    identity = cards[0].text()
+        "My frames", "Identity", "Preferences"]
+    identity = cards[1].text()
     assert "ada@example.com" in identity
     assert "User" in identity
-    prefs_card = cards[1]
+    prefs_card = cards[2]
     assert prefs_card.select_one("form[action=\"/ui-lang\"]") is not None
     assert prefs_card.select_one("form[action=\"/ui-theme\"]") is not None
-    frames = cards[2]
+    frames = cards[0]
     assert frames.select_one(".empty-state__heading").text() == (
         "Your frames will appear here")
     assert frames.select_one(".empty-state__body").text() == (
-        "Once an administrator pairs a frame to your account it will show up "
-        "on this page.")
+        "Once an administrator pairs a frame to your account, you land on its "
+        "Home after you sign in.")
     logout = doc.select_one("form[action=\"/logout\"]")
     assert logout.attrs["method"] == "post"
     assert logout.select_one("button").text() == "Sign out"
@@ -292,7 +292,7 @@ def test_account_page_renders_in_french():
     doc = _doc(account_page.render(account_page.Identity("a@b.fr", "user")))
     assert doc.select_one("h1.page-title").text() == "Compte"
     assert [c.select_one("h2").text() for c in doc.select("section.page-section")] == [
-        "Identité", "Préférences", "Cadres"]
+        "Mes cadres", "Identité", "Préférences"]
     assert "Vos cadres apparaîtront ici" in doc.text()
     assert "Utilisateur" in doc.text()
 
