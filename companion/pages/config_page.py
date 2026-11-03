@@ -420,37 +420,44 @@ CALENDAR_ERROR_UNREACHABLE = "unreachable"
 CALENDAR_SHEET_ID = "calendar-sheet"
 
 
-DETECTION_CARD_TITLE = i18n.msg("display.detection_card_title", "Detection")
+DETECTION_CARD_TITLE = i18n.msg(
+    "display.location_and_detection_title", "Location and detection")
 DETECTION_CARD_LINK = i18n.msg(
     "display.detection_card_link", "Change airport, runway or position")
 DETECTION_ROUTE = "/detection"
+DETECTION_CARD_HEADING_ID = "location-detection-heading"
 
 
-def detection_card_html(ctx, location_name=None):
-    """The read-only Detection card on Display and Device: a sentence for
-    the saved setting and a link to the device-scoped detection page.
+def detection_card_html(ctx, location_name=None, location_html=""):
+    """The Location and detection card on Display: the sentence for the
+    saved detection setting, the frame's Location fields (`location_html`,
+    already built) and a link to the device-scoped detection page.
 
-    It has no field and no dirty-section attribute, so the save bar never
-    counts it. `location_name` is the device's usable location, if it has
-    one; a position setting without it reads as the default runway, as the
-    frame itself behaves.
+    The detection part has no field and no dirty-section attribute; the
+    location fields keep their own, so the save bar counts exactly what it
+    counted before. `location_name` is the device's usable location, if it
+    has one; a position setting without it reads as the default runway, as
+    the frame itself behaves.
     """
     selection = detection.current_selection(ctx.device_config)
     sentence = detection_summary.summary_values(selection, location_name)[0]
     return (
-        '<div class="theme-status detection-card">'
-        '<h2 class="text-heading">%s</h2>'
-        '<p class="text-label section-caption">%s</p>'
+        '<section class="theme-status theme-status--nested detection-card" '
+        'aria-labelledby="%s">'
+        '<h2 class="text-heading" id="%s">%s</h2>'
+        '<p class="text-label section-caption">%s</p>%s'
         '<a class="text-link detection-link" href="%s">%s</a>'
-        "</div>"
+        "</section>"
     ) % (
-        escape_html(i18n.t(DETECTION_CARD_TITLE)), escape_html(sentence),
+        DETECTION_CARD_HEADING_ID, DETECTION_CARD_HEADING_ID,
+        escape_html(i18n.t(DETECTION_CARD_TITLE)), escape_html(sentence), location_html,
         escape_html(device_scope.scoped(DETECTION_ROUTE)),
         escape_html(i18n.t(DETECTION_CARD_LINK)))
 
 
 def _display_groups_html(builders, groups, detection_html):
-    """Display scope's Detection card and independent Quiet hours card.
+    """Display scope's Location and detection card and independent Quiet
+    hours card.
 
     The cards carry their own headings, so the former supersection
     headings repeated the same information. Quiet hours is a sibling of
@@ -463,20 +470,19 @@ def _display_groups_html(builders, groups, detection_html):
 
 
 def _location_picker_html(ctx):
-    """The frame's Location picker, built next to the time zone it goes with."""
+    """The frame's Location fields for the Location and detection card."""
     # Imported on use: the console route modules import the page modules.
     from companion import console_locations
     return console_locations.display_picker_html(ctx)
 
 
-def _device_groups_html(builders, groups, detection_html):
-    """Device shows the Detection card, then only the controls that change
-    its behaviour.
+def _device_groups_html(builders, groups):
+    """Device shows only the controls that change the frame's behaviour.
 
     Each card names its own task, so intermediate headings would only
     repeat information a person needs to scan and act on.
     """
-    return detection_html + "".join(
+    return "".join(
         builders[group]()
         for group in (screens.GROUP_WAKE_INTERVAL, screens.GROUP_LED)
         if group in groups and group in builders)
@@ -628,8 +634,6 @@ def _render_display_scope(
     else:
         aspect_section_html = ""
     display_watches_html, display_on_html = _display_groups_html(builders, groups, detection_html)
-    if screens.GROUP_QUIET_HOURS in groups:
-        display_on_html += _location_picker_html(ctx)
     return {
         "header": header, "frame_strip_section_html": frame_strip_section_html,
         "hidden_html": _scope_fields_html(SCOPE_DISPLAY, layout.DISPLAY_ROUTE),
@@ -640,13 +644,13 @@ def _render_display_scope(
     }
 
 
-def _render_device_scope(groups, builders, detection_html):
+def _render_device_scope(groups, builders):
     """Device's focused advanced controls and native form wiring."""
     header = layout.page_header(i18n.t(DEVICE_PAGE_TITLE))
     return {
         "header": header, "frame_strip_section_html": "",
         "hidden_html": _scope_fields_html(SCOPE_DEVICE, layout.DEVICE_ROUTE),
-        "groups_html": _device_groups_html(builders, groups, detection_html),
+        "groups_html": _device_groups_html(builders, groups),
         "aspect_section_html": "", "display_watches_supersection_html": "",
         "display_on_supersection_html": "",
     }
@@ -753,7 +757,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None, location_name=None
     every checkbox unchecked on every ordinary load.
 
     `location_name` is the device's usable detection location, if it has
-    one; only the Detection card on Display and Device reads it.
+    one; only the Location and detection card on Display reads it.
     """
     ctx = page_context.coerce(ctx)
     if errors is None:
@@ -779,10 +783,11 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None, location_name=None
     if scope == SCOPE_DISPLAY:
         pieces = _render_display_scope(
             ctx, groups, builders, errors, submitted, values, calendar_status,
-            detection_card_html(ctx, location_name))
+            detection_card_html(
+                ctx, location_name,
+                _location_picker_html(ctx) if screens.GROUP_QUIET_HOURS in groups else ""))
     elif scope == SCOPE_DEVICE:
-        pieces = _render_device_scope(
-            groups, builders, detection_card_html(ctx, location_name))
+        pieces = _render_device_scope(groups, builders)
     else:
         pieces = _render_all_scope(groups, builders)
 

@@ -337,7 +337,8 @@ def render(view):
 
 
 def picker_html(options, selected_id, form_id, section_attr):
-    """The per-frame Location picker for the Display page.
+    """The per-frame Location fields for the Display page's Location and
+    detection card (the card owns the heading).
 
     `options` is a sequence of (location_id, name) the viewer may choose and
     `selected_id` the frame's current location id or None. The select submits
@@ -347,15 +348,15 @@ def picker_html(options, selected_id, form_id, section_attr):
     With nothing to choose and nothing assigned the select is replaced by a
     note and a link to add a location.
     """
-    heading = _t(_PICKER_LABEL)
+    label = _t(_PICKER_LABEL)
     known = {location_id for location_id, _name in options}
     foreign = selected_id is not None and selected_id not in known
     if not options and not foreign:
         return (
-            '<div class="theme-status" %s="%s"><h2 class="text-heading">%s</h2>'
+            '<div class="detection-card__location" %s="%s">'
             '<p class="text-label">%s</p>'
             '<a class="text-link" href="%s">%s</a></div>' % (
-                section_attr, heading, heading, _t(_PICKER_NONE_CHOSEN),
+                section_attr, label, _t(_PICKER_NONE_CHOSEN),
                 _esc(_routes().LOCATIONS_ROUTE), _t(_PICKER_ADD)))
     items = ['<option value=""%s>%s</option>' % (
         "" if selected_id is not None else " selected", _t(_PICKER_NONE_OPTION))]
@@ -366,9 +367,9 @@ def picker_html(options, selected_id, form_id, section_attr):
         items.append('<option value="%d"%s>%s</option>' % (
             location_id, " selected" if location_id == selected_id else "", _esc(name)))
     return (
-        '<div class="theme-status" %s="%s"><h2 class="text-heading">%s</h2>'
+        '<div class="detection-card__location" %s="%s">'
         '<p><label for="location-picker">%s</label>'
         '<select id="location-picker" name="%s" form="%s">%s</select></p>'
         '<a class="text-link" href="%s">%s</a></div>' % (
-            section_attr, heading, heading, heading, LOCATION_FIELD, _esc(form_id),
+            section_attr, label, label, LOCATION_FIELD, _esc(form_id),
             "".join(items), _esc(_routes().LOCATIONS_ROUTE), _t(_PICKER_MANAGE)))

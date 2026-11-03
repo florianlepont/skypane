@@ -3,7 +3,7 @@ frame is owned by a user with a long address and co-managed by another one,
 plus the page-opening and overflow helpers both test modules use."""
 import fleet_console_support as fx
 from companion import auth
-from companion.test_browser_ux_helpers import _set_ui_theme, VIEWPORT_MIN_SUPPORTED
+from companion.test_browser_ux_helpers import VIEWPORT_MIN_SUPPORTED, _set_ui_theme
 from server import fleet_db
 
 MIN_TAP_PX = 44
@@ -14,6 +14,7 @@ LONG_CO = "co.manager.with.a.very.long.address@example.test"
 INVITED = "invited.person@example.test"
 UNKNOWN = "nobody.knows.me@example.test"
 SECOND_CO = "second.co@example.test"
+
 
 class Rig:
     """A seeded fleet whose Orly-less "Kitchen" frame is owned by a user with a

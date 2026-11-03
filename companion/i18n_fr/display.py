@@ -71,7 +71,7 @@ MESSAGES = {
         "Sample panel rendered in the %s theme",
 
     # --- Detection card ------------------------------------------------
-    "display.detection_card_title": "Détection",
+    "display.location_and_detection_title": "Lieu et détection",
     "display.detection_card_link":
         "Changer d’aéroport, de piste ou de position",
 
