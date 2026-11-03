@@ -4,6 +4,8 @@ face (not the serif display stack, not 22 px), a page-level one keeps readable p
 nothing overflows, in both themes, both languages and at 360 and 1280 px."""
 import pytest
 
+from place_map_support import Hosts
+
 from companion import auth
 from companion.test_browser_ux_helpers import (
     UI_THEMES_EXPLICIT, VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED,
@@ -46,6 +48,7 @@ def server(module_app_server_factory):
     "viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP], ids=["360", "1280"])
 def test_empty_state_headings_use_the_emphasis_scale(new_context, server, viewport, theme, lang):
     context = new_context(viewport=viewport)
+    Hosts(context)
     try:
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])

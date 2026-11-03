@@ -10,6 +10,8 @@ server, so no xdist worker sees another test's leftover on-disk state.
 """
 import pytest
 
+from place_map_support import Hosts
+
 from companion import auth
 from server import device_config
 from companion.test_browser_ux_helpers import (
@@ -565,6 +567,7 @@ def test_three_runway_cards_stack_in_one_full_width_column_at_390px(new_context,
     # The cards sit in a one-column grid below 600px. Only a real layout engine can see a
     # card that fails to take the full row or overlaps its neighbour.
     context = new_context(viewport=VIEWPORT_PHONE)
+    Hosts(context)
     try:
         page = context.new_page()
         _login(page, server.base_url())

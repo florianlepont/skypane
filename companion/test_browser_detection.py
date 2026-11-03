@@ -15,6 +15,7 @@ import pytest
 from co_manager_browser_support import MIN_TAP_PX, SUBPIXEL
 from co_manager_browser_support import Rig as UserRig
 from co_manager_browser_support import _open as _open_as
+from place_map_support import Hosts
 from companion import auth
 from companion_app_server import TEST_ADMIN_EMAIL, session_cookie_for_state_dir
 from server import airports, device_config, device_dirs, fleet_db, hardware
@@ -272,6 +273,7 @@ def test_accent_budget(new_context, make_app_server):
 
 def _open(new_context, server, route="/detection", lang=None, viewport=VIEWPORT_MIN_SUPPORTED):
     context = new_context(viewport=viewport)
+    Hosts(context)
     if lang:
         context.add_cookies(_lang(server.base_url(), lang))
     page = context.new_page()
@@ -284,6 +286,9 @@ def _open(new_context, server, route="/detection", lang=None, viewport=VIEWPORT_
 
     page.on("dialog", on_dialog)
     page.goto(server.base_url() + route)
+    if route.startswith("/detection"):
+        page.wait_for_function(
+            "() => document.documentElement.classList.contains('map-ready')", timeout=15000)
     return page, dialogs
 
 
@@ -313,6 +318,7 @@ def test_editing_a_coordinate_names_the_place_section(new_context, make_app_serv
     server = make_app_server(seed=_seed(SAVED_RUNWAY), fake_providers=True)
     page, _dialogs = _open(new_context, server, lang=lang)
     _wait_for_bar_hidden(page)
+    page.click("#details > summary")
     page.fill("#place-lat", "43.1")
     _wait_for_bar(page)
     suffix = page.get_attribute("[data-dirty-bar]", "data-dirty-changed-suffix")
@@ -514,6 +520,7 @@ def test_the_merged_card_shows_sentence_location_and_link_within_the_page(
 
 def test_the_change_link_opens_the_detection_page(new_context, drig):
     context, page = _open_as(new_context, drig, "owner", path=drig.display)
+    Hosts(context)
     try:
         with page.expect_navigation():
             page.locator(CARD).get_by_role("link", name=CHANGE_LINK["en"]).click()

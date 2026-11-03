@@ -22,6 +22,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from place_map_support import Hosts
+
 from companion import auth, layout
 from companion.pages import config_page
 from server import airports, device_config, history_db, state_store
@@ -607,6 +609,7 @@ def test_the_map_is_gone_and_the_detection_runway_cards_meet_their_floor(new_con
     airport = "LFPO"
     expected = len(airports.find_airport(airport).runways)
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+    Hosts(context)
     try:
         page = context.new_page()
         _login(page, base_url)
