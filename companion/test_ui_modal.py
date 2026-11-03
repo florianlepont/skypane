@@ -137,8 +137,7 @@ def test_modal_js_is_served_and_listed_in_the_shell_scripts(app_server_in_proces
     assert all("src" in node.attrs for node in doc.select("script")), "no inline script"
     source = served_asset(server, layout.MODAL_SCRIPT_SRC)
     code = strip_js_comments_and_strings(source)
-    for token in ("showModal", "close", "data-modal-open", "data-modal-close", "row-menu",
-                  "frame-switcher"):
+    for token in ("showModal", "close", "data-modal-open", "data-modal-close", "row-menu"):
         assert token in source, token
     for token in ("eval(", "innerHTML", "outerHTML", "insertAdjacentHTML", "document.write",
                   "fetch(", "XMLHttpRequest", "=>", "`"):

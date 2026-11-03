@@ -72,9 +72,9 @@ MESSAGES = {
 
     # The frame switcher above the page title (two or more frames).
     "nav.frame_switcher_aria": "Changer de cadre, actuel : %s",
-    "nav.frame_switcher_shared": "Partagé · %s",
-    "nav.frame_switcher_my_frames": "Mes cadres",
-    "nav.frame_switcher_all_frames": "Tous les cadres (Flotte)",
+    "nav.frame_switcher_my_frames": "Gérer mes cadres",
+    "nav.frame_switcher_title": "Choisir un cadre",
+    "nav.frame_switcher_current": "Actuel",
     "nav.device_default_name": "Cadre d’Orly",
     "nav.skip_to_content": "Aller au contenu",
 }

@@ -85,12 +85,12 @@ def _live_get(app, route, lang=None):
 
 def _switcher(page):
     root = parse_html(page)
-    return root, root.select_one("details.frame-switcher")
+    return root, root.select_one("dialog.frame-sheet")
 
 
 def _rows(page):
     root, _switcher_node = _switcher(page)
-    return root, root.select("details.frame-switcher a.frame-switcher__row")
+    return root, root.select("dialog.frame-sheet a.frame-card")
 
 
 def test_single_device_renders_no_switcher_markup(single_app):
@@ -107,7 +107,7 @@ def test_single_device_renders_no_switcher_markup(single_app):
     for route in SCOPED_PAGES:
         status, _, page = _get(server, cookie, prefix + route)
         assert status == 200
-        assert "frame-switcher" not in page
+        assert "frame-chip" not in page and "frame-sheet" not in page
         assert 'name="device"' not in page
 
 
@@ -117,24 +117,25 @@ def test_switcher_on_every_device_scoped_page(fleet_app, route):
     assert status == 200
     root, switcher = _switcher(page)
     assert switcher is not None
-    summary = switcher.select_one("summary")
-    assert summary.attrs["aria-label"].startswith("Switch frame, current: ")
+    chip = root.select_one("a.frame-chip")
+    assert chip.attrs["aria-label"].startswith("Switch frame, current: ")
+    assert chip.attrs["href"] == "#dlg-frames"
     assert not switcher.select("form") and not switcher.select("select")
     # Before the title, inside the main region.
-    assert root.select_one("main").select_one("details.frame-switcher") is not None
-    assert page.index("frame-switcher__summary") < page.index("page-title")
+    assert root.select_one("main").select_one("a.frame-chip") is not None
+    assert page.index("frame-chip") < page.index("page-title")
 
 
 @pytest.mark.parametrize("route", ["/update", "/login"])
 def test_global_pages_have_no_switcher(fleet_app, route):
     _, _, page = _fleet_get(fleet_app, route)
-    assert "frame-switcher" not in page
+    assert "frame-chip" not in page and "frame-sheet" not in page
 
 
 def test_not_found_page_has_no_switcher(fleet_app):
     status, _, page = _fleet_get(fleet_app, "/devices/d_00000000/flights")
     assert status == 404
-    assert "frame-switcher" not in page
+    assert "frame-chip" not in page and "frame-sheet" not in page
 
 
 def test_rows_order_and_status_words(fleet_app):
@@ -151,7 +152,7 @@ def test_rows_order_and_status_words(fleet_app):
     assert words["/devices/%s/flights" % fleet.dev_b.id] == "No contact"
     assert words["/devices/%s/flights" % fleet.landscape.id] == "Not seen yet"
     assert words["/devices/%s/flights" % fleet.dev_a.id] in ("Up to date", "Low battery")
-    names = [row.select_one(".frame-switcher__name").text().strip() for row in rows[1:]]
+    names = [row.select_one(".frame-card__name").text().strip() for row in rows[1:]]
     assert names == sorted(names)
 
 
@@ -171,15 +172,15 @@ def test_live_frame_is_current_by_default_with_its_default_name(fleet_app):
     _, rows = _rows(page)
     current = [row for row in rows if row.attrs.get("aria-current") == "true"]
     assert [row.attrs["href"] for row in current] == [_live_path(fleet_app, "/")]
-    assert current[0].select_one(".frame-switcher__name").text().strip() == "Orly frame"
+    assert current[0].select_one(".frame-card__name").text().strip() == "Orly frame"
 
 
-def test_footer_links_for_an_administrator(fleet_app):
+def test_footer_link_for_an_administrator(fleet_app):
     _, _, page = _live_get(fleet_app, "/health")
     _, switcher = _switcher(page)
-    links = {a.attrs["href"]: a.text().strip() for a in switcher.select("div.frame-switcher__footer a")}
-    assert links == {
-        "/account#account-frames": "My frames", "/fleet": "All frames (Fleet)"}
+    links = {a.attrs["href"]: a.text().strip() for a in switcher.select(".frame-sheet__footer a")}
+    assert links == {"/account#account-frames": "Manage my frames"}
+    assert "All frames" not in page
 
 
 def test_no_mac_token_or_secret_in_any_page(fleet_app):
@@ -223,9 +224,10 @@ def test_landmark_counts_are_unchanged(fleet_app):
 def test_switcher_is_in_french_when_the_language_is_french(fleet_app):
     _, _, page = _live_get(fleet_app, "/flights", lang="fr")
     _, switcher = _switcher(page)
-    assert switcher.select_one("summary").attrs["aria-label"].startswith(
-        "Changer de cadre, actuel\u00a0: ")
-    assert "Mes cadres" in page and "Tous les cadres (Flotte)" in page
+    chip = parse_html(page).select_one("a.frame-chip")
+    assert chip.attrs["aria-label"].startswith("Changer de cadre, actuel\u00a0: ")
+    assert "Choisir un cadre" in page and "Gérer mes cadres" in page
+    assert "Tous les cadres" not in page
     assert "Sans contact" in page and "Pas encore vu" in page
     assert "Cadre d’Orly" in page
 

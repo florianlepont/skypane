@@ -21,6 +21,8 @@
  *     the checked runway/look cards and look dot, the editing look frame)
  *   - the current segment of the space switch
  *     (.space-switch__segment--current)
+ *   - the current frame's card ring and check in the frame sheet
+ *     (.frame-card[aria-current])
  *   - switch-on state (.switch[aria-checked="true"])
  *   - stat tiles (the top rule and icon of .stat-tile)
  *   - the special-look add button's dashed plus
@@ -1674,127 +1676,119 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   display: none;
 }
 
-/* Frame switcher above the page title (two or more frames). A native
- * details: the summary shows the current frame, the panel lists one
- * same-page link per frame. Quiet chrome on the card surface; accent only
- * marks the current frame and the footer links. */
-details.frame-switcher {
-  position: relative;
-  max-width: 20rem;
-  margin: 0 0 var(--space-md);
-}
-
-.frame-switcher__summary {
+/* The frame chip above the page title (two or more frames) and its card
+ * sheet. The chip is a hash link to a shared modal: a 48px card showing the
+ * current frame with a chevron. The sheet lists one whole-card link per frame
+ * in one column, two from 700px. Accent only marks the current frame's ring,
+ * check and the footer link. */
+a.frame-chip {
   box-sizing: border-box;
+  display: flex;
+  align-items: center;
   gap: var(--space-sm);
-  min-height: 44px;
+  width: 100%;
+  max-width: none;
+  min-height: 48px;
+  margin: 0 0 var(--space-md);
   padding: 0 var(--space-md);
   background: var(--color-dominant);
   color: var(--color-text);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-  list-style: none;
+  text-decoration: none;
 }
 
-.frame-switcher__summary::-webkit-details-marker {
-  display: none;
+a.frame-chip:hover {
+  background: var(--color-control-wash);
 }
 
-/* The shared summary chevron moves to the trailing edge and points down
- * (up when open). */
-.frame-switcher__summary::before {
-  order: 3;
-  margin: 0 0 0 auto;
-  transform: rotate(45deg);
-}
-
-details.frame-switcher[open] > .frame-switcher__summary::before {
-  transform: rotate(-135deg);
-}
-
-.frame-switcher__name {
+.frame-chip__name {
+  flex: 1 1 auto;
   min-width: 0;
   font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
 }
 
-.frame-switcher__panel {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 30;
-  box-sizing: border-box;
-  margin-top: var(--space-xs);
-  padding: var(--space-xs) 0;
-  background: var(--color-dominant);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-pop);
+a.frame-chip .icon {
+  flex: none;
 }
 
-.frame-switcher__list {
+.frame-sheet__list {
+  display: grid;
+  gap: var(--space-sm);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.frame-switcher__row {
+.frame-card {
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  min-height: 44px;
-  padding: var(--space-xs) var(--space-md);
+  min-height: 64px;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-dominant);
   color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
   text-decoration: none;
 }
 
-.frame-switcher__row:hover {
+.frame-card:hover {
   background: var(--color-control-wash);
 }
 
-.frame-switcher__row[aria-current="true"] {
+.frame-card[aria-current="true"] {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.frame-card[aria-current="true"] .icon {
+  flex: none;
+  margin-left: auto;
   color: var(--color-accent);
 }
 
-.frame-switcher__text {
+.frame-card__text {
   display: grid;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
-.frame-switcher__row .frame-switcher__name {
-  font-weight: var(--weight-regular);
-}
-
-.frame-switcher__row[aria-current="true"] .frame-switcher__name {
+.frame-card__name {
   font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
 }
 
-.frame-switcher__note {
+.frame-card__note {
   font-size: var(--font-label-size);
   overflow-wrap: anywhere;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.frame-switcher__footer {
-  display: flex;
-  flex-direction: column;
-  margin-top: var(--space-xs);
-  border-top: 1px solid var(--color-border);
+.frame-sheet__footer {
+  margin: var(--space-md) 0 0;
 }
 
-.frame-switcher__footer a {
-  display: flex;
+.frame-sheet__footer a {
+  display: inline-flex;
   align-items: center;
   min-height: 44px;
-  padding: 0 var(--space-md);
   color: var(--color-accent);
 }
 
-@media (max-width: 959px) {
-  details.frame-switcher {
-    max-width: none;
+@media (min-width: 700px) {
+  a.frame-chip {
+    max-width: 24rem;
+  }
+
+  .frame-sheet__list {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  dialog.frame-sheet {
+    width: min(640px, calc(100% - 48px));
   }
 }
 

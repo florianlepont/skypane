@@ -116,7 +116,7 @@ def test_a_co_manager_follows_the_legacy_redirects(rig, page):
     assert headers["Location"].startswith(rig.prefix() + "/")
 
 
-def test_the_shared_frame_is_in_the_co_manager_frame_switcher(rig):
+def test_the_shared_frame_is_in_the_co_manager_frame_sheet(rig):
     own = rig.db(lambda c: fleet_db.add_device(
         c, "aa:bb:cc:00:00:09", fx.SECRET_HASH, hardware.LEGACY_KEY, rig.co_id,
         name="Desk", state_path="auto"))
@@ -125,8 +125,8 @@ def test_the_shared_frame_is_in_the_co_manager_frame_switcher(rig):
     assert 'href="%s/display"' % rig.prefix(own) in body
     assert 'href="%s/display"' % rig.prefix(rig.seed.live_id) not in body
     shared = parse_html(body).select_one(
-        'a.frame-switcher__row[href="%s/display"] .frame-switcher__note' % rig.prefix(rig.device))
-    assert shared is not None and shared.text().strip().startswith("Shared \u00b7 ")
+        'a.frame-card[href="%s/display"] .frame-card__note' % rig.prefix(rig.device))
+    assert shared is not None and shared.text().strip().startswith("Shared by ")
 
 
 # --- change --------------------------------------------------------------

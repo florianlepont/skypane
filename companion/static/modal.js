@@ -109,7 +109,7 @@
 
   function shutDetails(except) {
     var open = document.querySelectorAll(
-      "details.row-menu[open], details.frame-switcher[open]");
+      "details.row-menu[open]");
     for (var i = 0; i < open.length; i += 1) {
       if (open[i] !== except) {
         open[i].removeAttribute("open");
@@ -184,7 +184,7 @@
       return;
     }
     var open = document.querySelectorAll(
-      "details.row-menu[open], details.frame-switcher[open]");
+      "details.row-menu[open]");
     if (open.length === 0) {
       return;
     }

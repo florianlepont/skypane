@@ -50,7 +50,7 @@ def _actions(body):
 
 def _inside_frame_switcher(node):
     while node is not None:
-        if "frame-switcher" in node.attrs.get("class", ""):
+        if "frame-sheet" in node.attrs.get("class", ""):
             return True
         node = node.parent
     return False
@@ -202,12 +202,15 @@ def seeded(module_app_server_factory):
 
 def _local_urls(body):
     """Every local URL attribute value on the page, including the dialog's
-    data-view-panel-* address attributes. The space switch leads to a
+    data-view-panel-* address attributes. The frame sheet is left out (its
+    job is to link to other frames). The space switch leads to a
     destination the server resolves (the administrator's own frame), so it is
     not a frame-scoped address."""
     urls = []
     for node in parse_html(body).find_all():
         if any(name in str(node.attrs.get("class", "")) for name in SPACE_SWITCH_CLASSES):
+            continue
+        if _inside_frame_switcher(node):
             continue
         for name, value in node.attrs.items():
             if (name in _URL_ATTRS or name.startswith("data-view-panel-")) \

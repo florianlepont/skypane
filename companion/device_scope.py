@@ -396,6 +396,24 @@ def switcher_entries():
         for d in listed)
 
 
+def console_frame_entries():
+    """Every frame of the platform with its owner's email, in scope order; the
+    list a Console frame page's chip offers. Only an administrator's scope
+    holds every frame, so for anyone else this is just their own scope with no
+    owner emails: it never widens what a viewer may see. Owner emails come from
+    one query."""
+    device, devices, _viewer_id, root = _SCOPE_CTX.get()
+    if device is None:
+        return ()
+    principal = prefs.current_principal()
+    if principal is None or principal[1] != access.ADMIN:
+        return tuple(SwitcherEntry(d, False, None) for d in devices)
+    emails = _owner_emails(
+        root, [d.owner_user_id for d in devices if d.owner_user_id is not None])
+    return tuple(
+        SwitcherEntry(d, False, emails.get(d.owner_user_id)) for d in devices)
+
+
 def _unprefixed(device):
     """True when `device` is addressed without a /devices/<id> prefix: only
     the synthetic live entry that has no fleet row. Every device with a fleet
@@ -475,10 +493,11 @@ SWITCH_UNKNOWN = ""
 
 def page_routes():
     """The un-prefixed paths of the device-scoped pages (every nav tab but the
-    global Update page)."""
+    global Update page, plus the Console airline editor)."""
     from companion import ui_base
     return tuple(
-        route for route, _label in ui_base.NAV_TABS if route != ui_base.UPDATE_ROUTE)
+        route for route, _label in ui_base.NAV_TABS if route != ui_base.UPDATE_ROUTE
+    ) + (ui_base.AIRLINE_EDITOR_ROUTE,)
 
 
 def _switch_device(value, devices):

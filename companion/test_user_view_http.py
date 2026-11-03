@@ -211,7 +211,7 @@ def test_a_user_who_owns_the_live_frame_is_served_under_its_real_id(live_rig):
         assert 'value="live"' not in body
 
 
-def test_the_switcher_lists_only_the_users_own_frames(rig):
+def test_the_frame_sheet_lists_only_the_users_own_frames(rig):
     body = rig.page("/devices/%s/display" % rig.fleet.a1, "a")
     for own in (rig.fleet.a1, rig.fleet.a2):
         assert 'href="/devices/%s/display"' % own in body
@@ -343,7 +343,7 @@ def test_user_home_has_no_led_switch_and_no_refresh_trigger(rig):
 
 def test_home_has_one_dot_and_no_battery_tile_or_attention_bar_for_either_role(rig):
     """a user's and an administrator's Home read the frame state from one dot with its word, in
-    the order switcher, status card, picture, recent flights; neither shows the battery tile or
+    the order frame chip, status card, picture, recent flights; neither shows the battery tile or
     the attention bar (the battery lives on the Console Health page)"""
     mark_checked_in(rig.state_dir, rig.fleet.a1, source_fault=True)
     path = "/devices/%s/" % rig.fleet.a1
@@ -353,7 +353,7 @@ def test_home_has_one_dot_and_no_battery_tile_or_attention_bar_for_either_role(r
     assert len(root.select(".home-state__dot")) == 1
     assert root.select_one(".home-state__dot").attrs["aria-label"]
     assert not root.select(".home-battery") and not root.select(".home-action")
-    assert user_home.index("frame-switcher") < user_home.index("home-state ")
+    assert user_home.index("frame-chip") < user_home.index("home-state ")
     assert user_home.index("home-state ") < user_home.index("home-current-frame")
     assert user_home.index("home-current-frame") < user_home.index("home-flights")
     assert user_home.index("home-state ") < user_home.index("home-flights")

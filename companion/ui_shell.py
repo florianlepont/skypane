@@ -15,6 +15,7 @@ import companion.device_scope as device_scope
 import companion.frame_status as frame_status
 import companion.i18n as i18n
 import companion.prefs as prefs
+import companion.ui_modal as ui_modal
 from companion.ui_base import (
     CONFIRM_SUBMIT_SCRIPT_SRC,
     COPY_BUTTON_SCRIPT_SRC,
@@ -53,6 +54,7 @@ from companion.ui_nav import (
     REFRESH_RECONNECTING_ATTR,
     REFRESH_RECONNECTING_TEXT,
     REFRESH_TOKEN_ATTR,
+    CONSOLE_SPACE,
     PERSONAL_SPACE,
     TAB_BAR_BODY_CLASS,
     _lang_form_html,
@@ -69,6 +71,7 @@ from companion.ui_nav import (
 )
 from companion.ui_components import TOAST_TONE_ERROR, split_toast_message, toast_html
 from companion.ui_time import relative_copy_attrs
+from server import hardware
 
 # The pre-authentication document's <title> — the one inline i18n.t()
 # literal this module used to carry, hoisted to a module-level Message.
@@ -303,17 +306,21 @@ PAGE_SHELL_TEMPLATE = (
 _SKIP_LINK_TEXT = i18n.msg("nav.skip_to_content", "Skip to content")
 
 
-# The frame switcher: shown above the page title of every device-scoped page
-# once the request scope lists two or more frames.
+# The frame chip and card sheet: shown above the page title of every
+# device-scoped page once the request scope lists two or more frames.
 _SWITCHER_ARIA_TEXT = i18n.msg(
     "nav.frame_switcher_aria", "Switch frame, current: %s")
-_SWITCHER_SHARED_TEXT = i18n.msg("nav.frame_switcher_shared", "Shared \u00b7 %s")
-_SWITCHER_MY_FRAMES_TEXT = i18n.msg("nav.frame_switcher_my_frames", "My frames")
-_SWITCHER_ALL_FRAMES_TEXT = i18n.msg(
-    "nav.frame_switcher_all_frames", "All frames (Fleet)")
+_SWITCHER_SHARED_BY_TEXT = i18n.msg("account.shared_by", "Shared by %s")
+_SWITCHER_MY_FRAMES_TEXT = i18n.msg("nav.frame_switcher_my_frames", "Manage my frames")
+_SWITCHER_TITLE_TEXT = i18n.msg("nav.frame_switcher_title", "Choose a frame")
+_SWITCHER_CURRENT_TEXT = i18n.msg("nav.frame_switcher_current", "Current")
+_CLOSE_TEXT = i18n.msg("common.close", "Close")
 _DEVICE_DEFAULT_NAME_TEXT = i18n.msg("nav.device_default_name", "Orly frame")
 
-FRAME_SWITCHER_CLASS = "frame-switcher"
+FRAME_CHIP_CLASS = "frame-chip"
+FRAME_SHEET_ID = "dlg-frames"
+FRAME_SHEET_CLASS = "frame-sheet"
+FRAME_CARD_CLASS = "frame-card"
 
 # The strip shown to an administrator on a personal page of a frame they
 # neither own nor co-manage.
@@ -353,69 +360,99 @@ def _switcher_status_row(device, now):
         battery_percent=percent)
 
 
-def _switcher_note(entry):
-    """The muted second line of a row, or "" when there is none."""
+def _hardware_label(device):
+    profile = hardware.REGISTRY.get(device.hardware_type)
+    return profile.label if profile is not None else device.hardware_type
+
+
+def _card_note(entry):
+    """The muted second line of a card: who shared the frame, the owner of a
+    frame the viewer does not own, else the frame's hardware."""
     if entry.owner_email is None:
-        return ""
+        return _hardware_label(entry.device)
     if entry.co_managed:
-        return escape_html(i18n.t(_SWITCHER_SHARED_TEXT) % entry.owner_email)
-    return escape_html(entry.owner_email)
+        return i18n.t(_SWITCHER_SHARED_BY_TEXT) % entry.owner_email
+    return entry.owner_email
 
 
-def _switcher_row_html(entry, page, current, now):
+def _frame_card_html(entry, page, current, now):
     device = entry.device
-    note = _switcher_note(entry)
-    current_attr = ' aria-current="true"' if device.id == current.id else ""
+    is_current = device.id == current.id
+    cls = FRAME_CARD_CLASS
+    marker = (
+        icon_html("icon-check", size=20)
+        + '<span class="visually-hidden">%s</span>' % escape_html(
+            i18n.t(_SWITCHER_CURRENT_TEXT))) if is_current else ""
     return (
-        '<li><a class="%(cls)s__row" href="%(href)s"%(current)s>%(dot)s'
+        '<li><a class="%(cls)s" href="%(href)s"%(current)s>%(dot)s'
         '<span class="%(cls)s__text"><span class="%(cls)s__name">%(name)s</span>'
-        '%(note)s</span></a></li>') % {
-            "cls": FRAME_SWITCHER_CLASS,
+        '<span class="%(cls)s__note">%(note)s</span></span>%(marker)s</a></li>') % {
+            "cls": cls,
             "href": escape_html(device_scope.target_path(page, device)),
-            "current": current_attr,
+            "current": ' aria-current="true"' if is_current else "",
             "dot": frame_status.status_dot_html(_switcher_status_row(device, now)),
             "name": escape_html(_device_display_name(device)),
-            "note": ('<span class="%s__note">%s</span>' % (FRAME_SWITCHER_CLASS, note))
-            if note else "",
+            "note": escape_html(_card_note(entry)),
+            "marker": marker,
         }
 
 
-def _switcher_footer_html():
-    links = ['<a href="%s">%s</a>' % (
-        _MY_FRAMES_HREF, escape_html(i18n.t(_SWITCHER_MY_FRAMES_TEXT)))]
-    if is_admin_principal():
-        links.append('<a href="%s">%s</a>' % (
-            _FLEET_HREF, escape_html(i18n.t(_SWITCHER_ALL_FRAMES_TEXT))))
-    return '<div class="%s__footer">%s</div>' % (FRAME_SWITCHER_CLASS, "".join(links))
+def _severity_rank(row):
+    state = frame_status.frame_status(row).dot_state
+    return {frame_status.STATUS_ERROR: 0, frame_status.STATUS_WARN: 1}.get(state, 2)
+
+
+def _console_ordered(entries, now):
+    """Console cards: problems first (error, then warn, then the rest), each
+    group by name."""
+    return sorted(entries, key=lambda e: (
+        _severity_rank(_switcher_status_row(e.device, now)),
+        _device_display_name(e.device).casefold(), e.device.id))
+
+
+def _sheet_footer_html():
+    return '<p class="frame-sheet__footer"><a href="%s">%s</a></p>' % (
+        _MY_FRAMES_HREF, escape_html(i18n.t(_SWITCHER_MY_FRAMES_TEXT)))
+
+
+def _sheet_entries(active, now):
+    """The cards' entries: every frame on a Console page, else the personal
+    list."""
+    if current_space(active) == CONSOLE_SPACE:
+        return _console_ordered(device_scope.console_frame_entries(), now)
+    return device_scope.switcher_entries()
 
 
 def frame_switcher_html(active):
-    """The frame switcher, or "" when it would be useless or out of place: fewer
-    than two frames listed, a global page (Update) or no request scope. A native
-    `<details>` of same-page links, so it works without script. The links are
-    built from the request scope's own frame list, never from request text, and
-    never carry a MAC, token or secret: a Device has none."""
+    """The frame chip and its card sheet, or "" when they would be useless or
+    out of place: fewer than two frames listed, a global page (Update) or no
+    request scope. The chip is a hash link to a shared modal, so it works
+    without script. The cards are built from the request scope's own frame
+    list, never from request text, and never carry a MAC, token or secret: a
+    Device has none."""
     page = _device_page_path(active)
     current = device_scope.current_device()
-    entries = device_scope.switcher_entries()
-    if page is None or current is None or len(entries) < 2:
+    if page is None or current is None:
         return ""
     now = device_scope.now_epoch()
-    cls = FRAME_SWITCHER_CLASS
-    name = escape_html(_device_display_name(current))
-    return (
-        '<details class="%(cls)s"><summary class="%(cls)s__summary" '
-        'aria-label="%(aria)s">%(dot)s<span class="%(cls)s__name">%(name)s</span>'
-        '</summary><div class="%(cls)s__panel"><ul class="%(cls)s__list">%(rows)s</ul>'
-        '%(footer)s</div></details>\n') % {
-            "cls": cls,
-            "aria": escape_html(i18n.t(_SWITCHER_ARIA_TEXT) % _device_display_name(current)),
-            "dot": frame_status.status_dot_html(_switcher_status_row(current, now)),
-            "name": name,
-            "rows": "".join(
-                _switcher_row_html(entry, page, current, now) for entry in entries),
-            "footer": _switcher_footer_html(),
-        }
+    entries = _sheet_entries(active, now)
+    if len(entries) < 2:
+        return ""
+    name = _device_display_name(current)
+    chip = ui_modal.trigger_html(
+        FRAME_SHEET_ID,
+        frame_status.status_dot_html(_switcher_status_row(current, now))
+        + '<span class="%s__name">%s</span>' % (FRAME_CHIP_CLASS, escape_html(name))
+        + icon_html("icon-chevron-down", size=20),
+        FRAME_CHIP_CLASS, i18n.t(_SWITCHER_ARIA_TEXT) % name)
+    cards = "".join(_frame_card_html(e, page, current, now) for e in entries)
+    sheet = ui_modal.sections_dialog_html(
+        FRAME_SHEET_ID, i18n.t(_SWITCHER_TITLE_TEXT), None,
+        '<ul class="%s__list">%s</ul>%s' % (
+            FRAME_SHEET_CLASS, cards, _sheet_footer_html()),
+        i18n.t(_CLOSE_TEXT), device_scope.target_path(page, current),
+        extra_class=FRAME_SHEET_CLASS)
+    return chip + "\n" + sheet
 
 
 def frame_notice_html(active, console_page=False):

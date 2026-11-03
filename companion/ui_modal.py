@@ -133,7 +133,7 @@ def dialog_html(
 
 def sections_dialog_html(
         dialog_id, title, subtitle, sections_html, dismiss_label, dismiss_href,
-        open_=False):
+        open_=False, extra_class=""):
     """A modal dialog whose body is several independent forms.
 
     Unlike `dialog_html` it wraps no form of its own: `sections_html` holds
@@ -141,8 +141,10 @@ def sections_dialog_html(
     dialog only offers a dismiss link. The first visible control takes the
     initial focus, or the dismiss link when the sections have none. `open_`
     renders the `open` attribute for a dialog reopened after a change.
+    `extra_class` adds one slug class to the dialog for page-specific styling.
     """
     slug = validated_slug(dialog_id)
+    classes = "modal " + validated_slug(extra_class) if extra_class else "modal"
     title_id = slug + "-title"
     sections_html, found = _autofocus_first_control(sections_html)
     dismiss_focus = "" if found else " autofocus"
@@ -151,7 +153,7 @@ def sections_dialog_html(
         if subtitle else "")
     href = escape_html(dismiss_href)
     return (
-        '<dialog class="modal" id="%(id)s" aria-labelledby="%(title_id)s"%(open)s>'
+        '<dialog class="%(classes)s" id="%(id)s" aria-labelledby="%(title_id)s"%(open)s>'
         '<header class="modal__head"><div>'
         '<h2 class="modal__title text-heading" id="%(title_id)s">%(title)s</h2>'
         '%(subtitle)s</div>'
@@ -162,6 +164,7 @@ def sections_dialog_html(
         '<a class="modal__dismiss" href="%(href)s" data-modal-close%(focus)s>%(dismiss)s</a>'
         '</div></dialog>\n'
     ) % {
+        "classes": classes,
         "id": slug,
         "title_id": title_id,
         "open": " open" if open_ else "",

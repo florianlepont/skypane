@@ -539,9 +539,9 @@ def test_user_home_dot_names_the_state_and_links_to_no_health_page(
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("viewport_name,viewport", [VIEWPORTS[0], VIEWPORTS[-1]], ids=["1280", "360"])
-def test_user_home_layout_has_the_switcher_first_and_no_battery_tile(
+def test_user_home_layout_has_the_frame_chip_first_and_no_battery_tile(
         new_context, make_app_server, viewport_name, viewport, scheme, lang):
-    """a user with two frames sees the switcher above the title, the status card, the picture
+    """a user with two frames sees the frame chip above the title, the status card, the picture
     and the recent flights in that order; there is no battery tile and no attention bar; the
     switches keep 44px targets and nothing overflows"""
     seed = _seed_user_fleet("silent")
@@ -552,7 +552,7 @@ def test_user_home_layout_has_the_switcher_first_and_no_battery_tile(
         assert page.locator(".home-battery").count() == 0
         assert page.locator(".home-action").count() == 0
         tops = page.evaluate(
-            """() => ['details.frame-switcher', 'h1', '.home-state', '.home-current-frame',
+            """() => ['a.frame-chip', 'h1', '.home-state', '.home-current-frame',
                       '.home-section[aria-labelledby="home-flights"]']
                 .map(s => document.querySelector(s).getBoundingClientRect().top)""")
         assert tops[0] < tops[1] < tops[2] < tops[3]

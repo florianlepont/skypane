@@ -275,7 +275,7 @@ def test_u1_sign_in_ends_on_home(world, new_context):
 def test_u2_my_frames_with_one_frame_need_no_action(world, new_context):
     context, page, steps = _owner(world, new_context)
     try:
-        assert page.locator("details.frame-switcher").count() == 0
+        assert page.locator("a.frame-chip").count() == 0
         assert page.url.split("?")[0].endswith("/devices/%s/" % world.seed.owned_id)
         assert page.locator("main h1").inner_text().strip() == "Home"
         _report("U2-one", steps, 0)
@@ -287,11 +287,29 @@ def test_u2_my_frames_with_several_frames_take_one_tap(world, new_context):
     world.add_second_frame()
     context, page, steps = _owner(world, new_context)
     try:
-        steps.tap(page.locator("details.frame-switcher > summary"), "frame switcher")
-        panel = page.locator("details.frame-switcher")
+        steps.tap(page.locator("a.frame-chip"), "frame chip")
+        panel = page.locator("dialog.frame-sheet")
+        page.wait_for_function(
+            "() => document.querySelector('dialog.frame-sheet').open")
         assert panel.locator("a", has_text="Kitchen").count() >= 1
         assert panel.locator("a", has_text="Attic office").count() >= 1
         _report("U2-several", steps, 1)
+    finally:
+        context.close()
+
+
+def test_u2_switching_frame_takes_the_chip_then_a_card(world, new_context):
+    world.add_second_frame()
+    context, page, steps = _owner(world, new_context)
+    try:
+        steps.tap(page.locator("a.frame-chip"), "frame chip")
+        page.wait_for_function(
+            "() => document.querySelector('dialog.frame-sheet').open")
+        before = page.url
+        other = page.locator("dialog.frame-sheet a.frame-card:not([aria-current])")
+        steps.tap(other, "frame card")
+        page.wait_for_function("(was) => location.href !== was", arg=before)
+        _report("U2-switch", steps, 2)
     finally:
         context.close()
 
