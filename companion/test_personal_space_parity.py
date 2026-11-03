@@ -107,6 +107,14 @@ def _normalise(markup, server):
     markup = re.sub(r"(refresh|token|nonce)=[0-9A-Za-z_\-]{16,}", r"\1=TOKEN", markup)
     markup = re.sub(r'(data-refresh-token=")[0-9a-f]+', r"\1TOKEN", markup)
     markup = re.sub(r'(<meta name="csrf[^>]*content=")[^"]*', r"\1TOKEN", markup)
+    # Both renders are fetched a moment apart, so any clock reading the page
+    # carries (a <time> element's instant and its relative wording) is not a
+    # difference between the two principals.
+    markup = re.sub(r'(<time\b[^>]*\bdatetime=")[^"]*(")', r"\1INSTANT\2", markup)
+    markup = re.sub(r"(<time\b[^>]*>)[^<]*(</time>)", r"\1CLOCK\2", markup)
+    markup = re.sub(
+        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z)?",
+        "INSTANT", markup)
     return markup
 
 
