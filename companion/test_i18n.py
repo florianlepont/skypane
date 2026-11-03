@@ -214,7 +214,7 @@ _UNCHANGED_IN_FRENCH = frozenset({
     # spelled identically: real cognates for the console's nav labels.
     "nav.administration", "nav.audit_short", "nav.console",
     # The French column heading for a list of row actions is the same word.
-    "admin_fleet.actions", "admin_users.actions", "admin_locations.actions",
+    "admin_users.actions", "admin_locations.actions",
     # "Latitude" and "Longitude" are the French words too, spelled identically.
     "admin_locations.latitude", "admin_locations.longitude",
     "admin_locations.latitude_longitude",

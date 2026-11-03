@@ -965,11 +965,14 @@ class Handler(
         body = render(ctx)
         return self.send_html(200, self._page_shell_for(route, body, ctx))
 
-    def _console_page(self, route, title_msg, body_html, purpose_msg=None, status=200):
+    def _console_page(
+            self, route, title_msg, body_html, purpose_msg=None, status=200,
+            action_html=None):
         """Render one admin console page: the page header (the title falls
-        back to the console registry when `title_msg` is None), the section
-        sub-nav, then `body_html`, inside the shell with the console route's
-        own nav slug active. A queued console flash is shown once and its
+        back to the console registry when `title_msg` is None), then
+        `body_html`, inside the shell with the console route's own nav slug
+        active. `action_html` is the page's already-escaped primary action,
+        shown beside the title. A queued console flash is shown once and its
         cookie cleared. `status` is the HTTP status of the response (an
         invalid submission re-renders its page at 400 or 429). Console pages
         are not in `layout.NAV_TABS`, so they carry no tab scripts of their
@@ -983,7 +986,7 @@ class Handler(
         title = i18n.t(title_msg or console_routes.CONSOLE_TITLES[route])
         purpose = i18n.t(purpose_msg) if purpose_msg else None
         flash_html, clear_cookie = console_flash.take_flash(self.headers.get("Cookie"))
-        body = layout.page_header(title, purpose) + body_html
+        body = layout.page_header(title, purpose, action_html=action_html) + body_html
         page = layout.page_shell(
             title=title, active=layout.nav_slug(route), body=body,
             ui_theme=ctx.ui_theme, flash=flash_html or None,

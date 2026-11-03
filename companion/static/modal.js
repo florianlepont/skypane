@@ -85,6 +85,12 @@
 
   function onClosed(evt) {
     var dialog = evt.target;
+    // The close that openModal() issues on an already-open dialog reports
+    // asynchronously, after the dialog has been shown again as a modal.
+    if (dialog.hasAttribute("data-reopening")) {
+      dialog.removeAttribute("data-reopening");
+      return;
+    }
     dialog.classList.remove("is-modal");
     clearHash();
     returnFocus();
@@ -92,6 +98,7 @@
 
   function openModal(dialog) {
     if (dialog.hasAttribute("open")) {
+      dialog.setAttribute("data-reopening", "");
       dialog.close();
     }
     dialog.classList.add("is-modal");

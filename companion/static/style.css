@@ -8279,6 +8279,11 @@ details.row-menu {
   display: none;
 }
 
+/* The global summary chevron would sit next to the kebab icon. */
+.row-menu__toggle::before {
+  content: none;
+}
+
 .row-menu__toggle:hover,
 details.row-menu[open] > .row-menu__toggle {
   background: var(--color-control-wash);
@@ -8355,4 +8360,53 @@ details.row-menu[open] > .row-menu__toggle {
   .entity-row__pills {
     grid-column: 2;
   }
+}
+
+/* Console page header with a primary action: the title and the action
+ * share the first row, the purpose line spans both. */
+.page-header:has(> .page-header__actions) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--space-md);
+  align-items: center;
+}
+
+.page-header:has(> .page-header__actions) > .page-header__purpose {
+  grid-column: 1 / -1;
+}
+
+.page-header__actions {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+a.page-header__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  border-radius: 6px;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+a.page-header__action:hover {
+  background: var(--color-accent-hover);
+}
+
+/* A labelled control inside a dialog, with its help or error text below. */
+.modal__field > p {
+  margin: var(--space-xs) 0 0;
+}
+
+/* The collapsed group of retired frames under the fleet list. */
+details.fleet-retired {
+  margin-top: var(--space-md);
 }

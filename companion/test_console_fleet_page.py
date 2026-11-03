@@ -1,5 +1,6 @@
-"""The admin Fleet page: rows by state, row actions, absence of secret
-material, the empty state, role gating and French rendering."""
+"""The admin Fleet page: one list row per frame, row menus and dialogs by
+state, absence of secret material, the empty state, role gating and French
+rendering."""
 import re
 
 import pytest
@@ -29,77 +30,158 @@ def fleet(app_server_in_process):
     return server, seed, fx.admin_cookie(server.state_dir)
 
 
-def _table(page):
-    return re.search(r"<table.*?</table>", page, re.S).group(0)
+def _list_html(page):
+    """The `<ul>` markup of every entity list on the page, main list first."""
+    return re.findall(r'<ul class="entity-list">.*?</ul>', page, re.S)
 
 
 def _rows(page):
-    return {
-        match.group(1): (match.group(2), match.group(3))
-        for match in re.finditer(
-            r'<tr data-frame="([^"]+)" data-kind="([^"]+)">(.*?)</tr>',
-            _table(page), re.S)}
+    """{frame id or name: row markup} for every list row on the page."""
+    rows = {}
+    for lists in _list_html(page):
+        for row in re.findall(r'<li class="entity-row.*?</li>', lists, re.S):
+            title = re.search(r'entity-row__title"[^>]*>([^<]*)<', row).group(1)
+            link = re.search(r'href="/devices/([^/"]+)/"', row)
+            rows[link.group(1) if link else title] = row
+    return rows
+
+
+def _dialog(page, dialog_id):
+    match = re.search(
+        r'<dialog class="modal" id="%s".*?</dialog>' % re.escape(dialog_id), page, re.S)
+    return match.group(0) if match else None
+
+
+def _slug(frame_id):
+    return frame_id.lower().replace("_", "-")
 
 
 def _text(markup):
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", markup)).strip()
 
 
-def test_an_admin_sees_every_frame_with_its_columns_in_state_order(fleet):
+def test_an_admin_sees_one_row_per_frame_without_table_or_detail_columns(fleet):
     server, seed, cookie = fleet
     status, _headers, page = fx.get(server, cookie, "/fleet")
     assert status == 200
+    assert "<table" not in page and "<th" not in page
     rows = _rows(page)
-    assert list(rows) == [
-        *sorted([seed.live_id, seed.owned_id]), seed.pending_id, seed.retired_id]
-    assert [kind for kind, _ in rows.values()] == [
-        "live", "live", "pending", "retired"]
-    for header in ("Frame", "Owner", "Hardware", "Last seen", "Battery", "Firmware",
-                   "Status", "Actions"):
-        assert "<th>%s</th>" % header in page
-    owned = _text(rows[seed.owned_id][1])
-    assert "Kitchen" in owned and seed.owned_id in owned
-    assert fx.OWNER_EMAIL in owned and "XIAO ePaper EE02" in owned
-    assert "Live" in owned and "n/a" in owned and "Never" in owned
-    pending = _text(rows[seed.pending_id][1])
-    assert "Waiting for pairing" in pending and "Pending" in pending
-    assert fx.MAC_PENDING in pending
-    retired = _text(rows[seed.retired_id][1])
-    assert "formerly %s" % fx.OWNER_EMAIL in retired and "Retired" in retired
-    assert "Attic" in retired
-    assert "4 frames" in page
+    assert list(rows) == [seed.owned_id, seed.live_id, "New frame", "Attic"]
+    owned = rows[seed.owned_id]
+    assert "Kitchen" in _text(owned) and fx.OWNER_EMAIL in _text(owned)
+    assert owned.count('class="dot ') == 1
+    listed = "".join(_list_html(page))
+    for word in ("Firmware", "Battery", "Hardware", "XIAO ePaper", "Last seen", "Never"):
+        assert word not in listed, word
+    assert seed.owned_id not in _text(owned)
+    pending = rows["New frame"]
+    assert "Waiting for pairing" in pending and "<details" not in pending
+    assert fx.MAC_PENDING not in page
+    retired = rows["Attic"]
+    assert "Formerly %s" % fx.OWNER_EMAIL in retired and "/devices/" not in retired
+    assert "2 frames" not in page and "3 frames" in page
+    assert "Retired frames (1)" in page
 
 
-def test_row_actions_follow_the_frame_state(fleet):
+def test_the_page_header_carries_the_add_trigger_and_no_register_form(fleet):
+    server, _seed, cookie = fleet
+    _status, _headers, page = fx.get(server, cookie, "/fleet")
+    header = re.search(r'<div class="page-header">.*?</div>', page, re.S).group(0)
+    assert 'href="#dlg-add-frame"' in header and "+ Add a frame" in header
+    assert "<h1" in header and ">Fleet<" in header
+    for text in ("Register a frame", "Register frame", 'name="mac"', 'name="secret_sha256"',
+                 'action="/fleet/register"', "MAC address"):
+        assert text not in page, text
+
+
+def test_one_status_dot_per_row_with_the_shared_vocabulary(fleet):
     server, seed, cookie = fleet
     _status, _headers, page = fx.get(server, cookie, "/fleet")
     rows = _rows(page)
-    prefix = console_routes.FRAME_ACTION_PREFIX
+    assert 'aria-label="Not seen yet"' in rows[seed.owned_id]
+    assert 'aria-label="Waiting for pairing"' in rows["New frame"]
+    assert "dot--hollow" in rows["New frame"] and "dot--hollow" in rows["Attic"]
+    assert 'aria-label="Retired"' in rows["Attic"]
 
-    owned_cell = rows[seed.owned_id][1]
-    assert "Open frame" in owned_cell and "/devices/%s/" % seed.owned_id in owned_cell
-    for suffix in (console_routes.FRAME_REASSIGN_SUFFIX, console_routes.FRAME_RETIRE_SUFFIX):
-        assert 'action="%s%s%s"' % (prefix, seed.owned_id, suffix) in owned_cell
-    assert "Reassign frame" in owned_cell and "Retire frame" in owned_cell
-    assert "Keep frame" in owned_cell
-    live_cell = rows[seed.live_id][1]
-    assert "Open frame" in live_cell
-    assert 'action="%s%s%s"' % (prefix, seed.live_id, console_routes.FRAME_REASSIGN_SUFFIX) in live_cell
-    assert "Only the owner changes. Nothing is erased." in live_cell
-    assert console_routes.FRAME_RETIRE_SUFFIX not in live_cell
-    pending_cell = rows[seed.pending_id][1]
-    assert "<form" not in pending_cell and "Open frame" not in pending_cell
-    retired_cell = rows[seed.retired_id][1]
-    assert 'action="%s%s%s"' % (
-        prefix, seed.retired_id, console_routes.FRAME_REACTIVATE_SUFFIX) in retired_cell
-    assert "Re-activate frame" in retired_cell and "Open frame" not in retired_cell
-    assert console_routes.FRAME_RETIRE_SUFFIX not in retired_cell
-    assert console_routes.FRAME_REASSIGN_SUFFIX not in retired_cell
-    for cell in (owned_cell, live_cell, retired_cell):
-        for form in re.findall(r"<form.*?</form>", cell, re.S):
-            assert 'name="csrf_token"' in form
-    assert "{owner_email}" not in owned_cell
-    assert "%s&#x27;s settings" % fx.OWNER_EMAIL in owned_cell
+
+def test_row_menus_follow_the_frame_state(fleet):
+    server, seed, cookie = fleet
+    _status, _headers, page = fx.get(server, cookie, "/fleet")
+    rows = _rows(page)
+    owned = rows[seed.owned_id]
+    assert "Open frame" in owned and "/devices/%s/" % seed.owned_id in owned
+    assert 'href="#dlg-reassign-%s"' % _slug(seed.owned_id) in owned
+    assert 'href="#dlg-retire-%s"' % _slug(seed.owned_id) in owned
+    assert 'aria-label="Actions for Kitchen"' in owned
+    live = rows[seed.live_id]
+    assert 'href="#dlg-reassign-%s"' % _slug(seed.live_id) in live
+    assert "dlg-retire" not in live
+    assert "row-menu" not in rows["New frame"]
+    retired = rows["Attic"]
+    assert 'href="#dlg-reactivate-%s"' % _slug(seed.retired_id) in retired
+    assert "dlg-retire" not in retired and "dlg-reassign" not in retired
+    assert _dialog(page, "dlg-retire-%s" % _slug(seed.live_id)) is None
+
+
+def test_dialogs_post_to_the_unchanged_routes_with_csrf(fleet):
+    server, seed, cookie = fleet
+    _status, _headers, page = fx.get(server, cookie, "/fleet")
+    prefix = console_routes.FRAME_ACTION_PREFIX
+    cases = (
+        ("dlg-add-frame", "/fleet/pair"),
+        ("dlg-retire-" + _slug(seed.owned_id),
+         prefix + seed.owned_id + console_routes.FRAME_RETIRE_SUFFIX),
+        ("dlg-reassign-" + _slug(seed.owned_id),
+         prefix + seed.owned_id + console_routes.FRAME_REASSIGN_SUFFIX),
+        ("dlg-reactivate-" + _slug(seed.retired_id),
+         prefix + seed.retired_id + console_routes.FRAME_REACTIVATE_SUFFIX))
+    for dialog_id, action in cases:
+        dialog = _dialog(page, dialog_id)
+        assert dialog is not None, dialog_id
+        assert 'action="%s"' % action in dialog and 'name="csrf_token"' in dialog
+        assert ' open' not in dialog.split(">", 1)[0]
+        assert 'href="/fleet" data-modal-close' in dialog
+    retire = _dialog(page, "dlg-retire-" + _slug(seed.owned_id))
+    assert "Retire \u201cKitchen\u201d?" in retire and "Keep frame" in retire
+    assert "calendar-disconnect-btn" in retire and "Retire frame" in retire
+    # A confirm-only dialog focuses its dismiss link, so Enter never confirms.
+    assert re.search(r'<a class="modal__dismiss"[^>]* autofocus', retire)
+    reassign = _dialog(page, "dlg-reassign-" + _slug(seed.owned_id))
+    assert "%s&#x27;s settings" % fx.OWNER_EMAIL in reassign
+    assert "Keep current owner" in reassign and "calendar-disconnect-btn" in reassign
+    assert "<select" in reassign and " required" in reassign
+    live = _dialog(page, "dlg-reassign-" + _slug(seed.live_id))
+    assert "Only the owner changes. Nothing is erased." in live
+    assert "calendar-disconnect-btn" not in live
+    reactivate = _dialog(page, "dlg-reactivate-" + _slug(seed.retired_id))
+    assert "Keep retired" in reactivate and "Re-activate frame" in reactivate
+    assert "{owner_email}" not in page
+
+
+def test_ordering_puts_problems_first_then_others_by_name_then_pending(fleet):
+    from companion.pages import fleet_page
+    base = fleet_page.FleetRow(
+        kind="live", frame_id="d_a", name="Zeta", mono_id="d_a", owner_email="a@x",
+        previous_owner=False, hardware="h", last_seen=1.0, battery_percent=90,
+        is_live_frame=False, offline=False)
+    rows = [
+        base,
+        base._replace(frame_id="d_b", name="Alpha"),
+        base._replace(frame_id="d_c", name="Mid", last_seen=None),
+        base._replace(frame_id="d_d", name="Gone", offline=True),
+        base._replace(frame_id="p_e", name="x", kind="pending", last_seen=None),
+        base._replace(frame_id="p_f", name="Attic", kind="retired"),
+        base._replace(frame_id="d_g", name="Low", battery_percent=3),
+    ]
+    ordered = [row.frame_id for row in fleet_page.sort_rows(rows)]
+    assert ordered == ["d_d", "d_g", "d_c", "d_b", "d_a", "p_e", "p_f"]
+
+
+def test_the_count_line_names_how_many_frames_need_attention(fleet):
+    server, _seed, cookie = fleet
+    _status, _headers, page = fx.get(server, cookie, "/fleet")
+    count = re.search(r'entity-count[^>]*>([^<]*)<', page).group(1)
+    assert count == "3 frames \u00b7 2 need attention"
 
 
 def test_the_markup_carries_no_secret_material(fleet):
@@ -118,7 +200,7 @@ def test_the_markup_carries_no_secret_material(fleet):
         assert secret not in page, secret
 
 
-def test_the_empty_state_and_the_two_form_cards(app_server_in_process):
+def test_the_empty_state_and_the_add_dialog(app_server_in_process):
     server = app_server_in_process
     seed = fx.seed_users(server.state_dir)
     conn = fleet_db.connect(server.state_dir)
@@ -129,28 +211,47 @@ def test_the_empty_state_and_the_two_form_cards(app_server_in_process):
     cookie = fx.admin_cookie(server.state_dir)
     _status, _headers, page = fx.get(server, cookie, "/fleet")
     assert "No frames yet" in page and "<table" not in page
-    assert "Pair a frame" in page and "Register a frame" in page
-    owners = re.search(r'<select id="pair-owner".*?</select>', page, re.S).group(0)
+    assert "Switch a frame on. When its pairing code appears" in page
+    dialog = _dialog(page, "dlg-add-frame")
+    assert dialog is not None and "Pair frame" in dialog and "Back to Fleet" in dialog
+    owners = re.search(r'<select id="pair-owner".*?</select>', dialog, re.S).group(0)
+    assert "Choose an owner" in owners
     assert fx.ADMIN_EMAIL in owners and fx.OWNER_EMAIL in owners
     assert fx.USER_EMAIL not in owners
     assert 'value="%d"' % seed.user_id not in owners
-    assert "No frame is waiting for a code" in page
-    assert "<dialog" not in page and "confirm(" not in page
-    assert "Pair frame" in page and "Register frame" in page
+    assert "No frame is showing a code yet" in dialog
+    assert "confirm(" not in page and "Register a frame" not in page
 
 
 def test_the_pair_hint_disappears_when_a_frame_waits(fleet):
     server, _seed, cookie = fleet
     _status, _headers, page = fx.get(server, cookie, "/fleet")
-    assert "No frame is waiting for a code" not in page
-    assert "<dialog" not in page and "confirm(" not in page
+    assert "No frame is showing a code yet" not in page
+    assert "confirm(" not in page
 
 
-def test_autofocus_only_with_the_pair_flag(fleet):
+def test_the_add_dialog_is_open_only_with_the_pair_flag_or_a_refusal(fleet):
     server, _seed, cookie = fleet
     _status, _headers, plain = fx.get(server, cookie, "/fleet")
     _status, _headers, flagged = fx.get(server, cookie, "/fleet?pair=1")
-    assert "autofocus" not in plain and "autofocus" in flagged
+    assert " open" not in _dialog(plain, "dlg-add-frame").split(">", 1)[0]
+    assert " open" in _dialog(flagged, "dlg-add-frame").split(">", 1)[0]
+
+
+def test_a_refused_pair_reopens_the_dialog_with_the_escaped_code_and_field_errors(fleet):
+    server, seed, cookie = fleet
+    status, _headers, page = fx.post(server, cookie, "/fleet/pair", {
+        "code": '"><b>x</b>', "owner_user_id": str(seed.owner_id)})
+    assert status == 200
+    dialog = _dialog(page, "dlg-add-frame")
+    assert " open" in dialog.split(">", 1)[0]
+    assert "<b>x</b>" not in page
+    assert 'aria-invalid="true"' in dialog and "Code not recognised" in dialog
+    status, _headers, page = fx.post(server, cookie, "/fleet/pair", {"code": "abcd-2345"})
+    assert status == 400
+    dialog = _dialog(page, "dlg-add-frame")
+    assert " open" in dialog.split(">", 1)[0] and "Choose an owner." in dialog
+    assert 'aria-describedby="dlg-add-frame-owner-error"' in dialog
 
 
 def test_a_user_gets_the_unknown_path_404_and_anonymous_the_sign_in_redirect(fleet):
@@ -167,27 +268,24 @@ def test_french_rendering_uses_the_console_terms(fleet):
     server, _seed, cookie = fleet
     _status, _headers, page = fx.get(
         server, cookie, "/fleet", headers={"Accept-Language": "fr"})
-    for term in ("Cadres", "En attente", "Retiré", "Associer le cadre",
-                 "Enregistrer le cadre", "En attente d’association"):
+    for term in ("Flotte", "Ajouter un cadre", "Retiré", "Associer le cadre",
+                 "En attente d\u2019association", "Retour \u00e0 la flotte",
+                 "Cadres retir\u00e9s (1)", "Garder le cadre", "Laisser retiré",
+                 "Garder le propriétaire actuel", "Actions pour Kitchen",
+                 "Anciennement", "Nouveau cadre"):
         assert term in page, term
     assert "Pair frame" not in page and "Waiting for pairing" not in page
+    assert "Cadres</h1>" not in page and ">Cadres<" not in page
 
 
-def test_battery_last_seen_and_ordering_inside_a_state(fleet):
-    import json
-    import os
-    import time
-
-    from server import device_dirs
+def test_a_long_frame_name_is_escaped_into_the_row_and_dialog_titles(fleet):
     server, seed, cookie = fleet
-    directory = device_dirs.resolve_state_dir(
-        server.state_dir, device_dirs.state_path_for(seed.owned_id))
-    os.makedirs(directory, exist_ok=True)
-    with open(os.path.join(directory, "battery_state.json"), "w") as fh:
-        json.dump({"battery_mv": 3900, "received_at": time.time() - 60}, fh)
+    conn = fleet_db.connect(server.state_dir)
+    try:
+        conn.execute(
+            "UPDATE devices SET name = ? WHERE id = ?", ('<i>x</i>' * 20, seed.owned_id))
+        conn.commit()
+    finally:
+        conn.close()
     _status, _headers, page = fx.get(server, cookie, "/fleet")
-    rows = _rows(page)
-    assert list(rows)[0] == seed.owned_id
-    owned = _text(rows[seed.owned_id][1])
-    assert re.search(r"\b\d{1,3}%", owned) and "Never" not in owned
-    assert "1 min ago" in owned or "ago" in owned
+    assert "<i>x</i>" not in page and "&lt;i&gt;x&lt;/i&gt;" in page

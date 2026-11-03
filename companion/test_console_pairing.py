@@ -43,7 +43,7 @@ def _pair(server, cookie, code, owner_id):
 
 def _pair_card(page):
     return re.search(
-        r'<section[^>]*aria-labelledby="fleet-pair".*?</section>', page, re.S).group(0)
+        r'<dialog class="modal" id="dlg-add-frame".*?</dialog>', page, re.S).group(0)
 
 
 def _count(state_dir, table, where="1=1"):
@@ -151,7 +151,7 @@ def test_a_valid_code_pairs_the_frame_to_the_chosen_owner(rig):
     finally:
         conn.close()
     assert device is not None and device["owner_user_id"] == seed.owner_id
-    assert 'data-frame="%s" data-kind="live"' % device["id"] in page
+    assert 'href="/devices/%s/"' % device["id"] in page
     ok = [row for row in fx.audit_rows(server.state_dir, "pairing.claim")
           if row["outcome"] == "ok"]
     assert len(ok) == 1 and ok[0]["actor_label"] == fx.ADMIN_EMAIL

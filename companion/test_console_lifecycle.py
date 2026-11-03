@@ -188,7 +188,8 @@ def test_retire_parks_the_frame_and_keeps_its_data(rig):
     assert fx.get(server, old_cookie, "/devices/%s/" % fleet.a1)[0] == 404
     assert pf.NAME_A1 not in fx.get(server, old_cookie, "/account")[2]
     fleet_page_text = fx.get(server, cookie, "/fleet")[2]
-    assert 'data-kind="retired"' in fleet_page_text and retired[0]["id"] in fleet_page_text
+    assert retired[0]["id"].replace("_", "-") in fleet_page_text
+    assert "Retired frames (" in fleet_page_text
 
 
 def test_reactivate_returns_the_frame_to_pairing_with_a_wiped_directory(rig):
