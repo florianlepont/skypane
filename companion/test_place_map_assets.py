@@ -94,3 +94,27 @@ def test_the_notice_container_is_in_the_card_and_starts_hidden(server):
     notice = doc.select("#place-notice")[0]
     assert "hidden" in notice.attrs
     assert doc.select(".place-card--map #place-notice")
+
+
+def test_the_container_carries_the_search_limits_and_the_position_words(server):
+    attrs = _page(server, "/detection").select("#place-map")[0].attrs
+    assert (attrs["data-search-min"], attrs["data-search-max"], attrs["data-search-lock-ms"]) == (
+        "3", "120", "1500")
+    assert attrs["data-t-locate-timeout"] == (
+        "Finding your position took too long. Try again, or search a place.")
+    assert attrs["data-t-nearest"] == "Nearest airport: %s, %d km. Follow its runway?"
+    assert attrs["data-t-follow"] == "Follow %s"
+
+
+def test_the_position_words_are_french_on_the_french_page(server):
+    attrs = _page(server, "/detection", lang="fr").select("#place-map")[0].attrs
+    assert attrs["data-t-locating"] == "Recherche de votre position…"
+    assert attrs["data-t-follow"] == "Suivre %s"
+    assert attrs["data-t-search-failed"].startswith("La recherche n’est pas disponible")
+
+
+def test_the_search_form_limits_the_typed_text_to_the_script_limit(server):
+    doc = _page(server, "/detection")
+    assert doc.select("#place-search")[0].attrs["maxlength"] == "120"
+    assert doc.select(".place-card--map #place-results")
+    assert doc.select(".place-card--map #place-nearest")

@@ -79,6 +79,35 @@ TILES_FAILED = i18n.msg(
     "The map pictures could not load. The pin and the coordinates still work.")
 ZOOM_IN = i18n.msg("detection.zoom_in", "Zoom in")
 ZOOM_OUT = i18n.msg("detection.zoom_out", "Zoom out")
+SEARCH_NONE = i18n.msg(
+    "detection.search_none",
+    "No place found in France. Try another spelling, tap the map or pick an airport.")
+SEARCH_FAILED = i18n.msg(
+    "detection.search_failed",
+    "Search is not available right now. Tap the map, pick an airport or enter coordinates.")
+SEARCH_SHORT = i18n.msg(
+    "detection.search_short", "Type at least 3 characters to search.")
+RESULTS_LABEL = i18n.msg("detection.results_label", "Search results")
+LOCATING = i18n.msg("detection.locating", "Looking for your position…")
+LOCATED = i18n.msg(
+    "detection.located", "Position found (about %d m). Check the pin, then save.")
+LOCATE_DENIED = i18n.msg(
+    "detection.locate_denied",
+    "Location access is blocked for this site. Allow it in your browser settings, or "
+    "search a place, tap the map or pick an airport.")
+LOCATE_UNAVAILABLE = i18n.msg(
+    "detection.locate_unavailable",
+    "Your position could not be found. Try again outside, or search a place.")
+LOCATE_TIMEOUT = i18n.msg(
+    "detection.locate_timeout",
+    "Finding your position took too long. Try again, or search a place.")
+NEAREST_AIRPORT = i18n.msg(
+    "detection.nearest_airport", "Nearest airport: %s, %d km. Follow its runway?")
+FOLLOW_AIRPORT = i18n.msg("detection.follow_airport", "Follow %s")
+
+SEARCH_MIN_CHARS = 3
+SEARCH_MAX_CHARS = 120
+SEARCH_LOCK_MS = 1500
 
 # The words the map script shows, handed over as `data-t-<name>` attributes on
 # the map container so the script itself holds no language. The script
@@ -89,6 +118,16 @@ _MAP_STRINGS = (
     ("tiles-failed", TILES_FAILED),
     ("zoom-in", ZOOM_IN),
     ("zoom-out", ZOOM_OUT),
+    ("search-none", SEARCH_NONE),
+    ("search-failed", SEARCH_FAILED),
+    ("search-short", SEARCH_SHORT),
+    ("locating", LOCATING),
+    ("located", LOCATED),
+    ("locate-denied", LOCATE_DENIED),
+    ("locate-unavailable", LOCATE_UNAVAILABLE),
+    ("locate-timeout", LOCATE_TIMEOUT),
+    ("nearest", NEAREST_AIRPORT),
+    ("follow", FOLLOW_AIRPORT),
 )
 
 EMPTY_HEADING = i18n.msg("detection.empty_heading", "No place chosen yet")
@@ -333,9 +372,12 @@ def _form_html(view):
 
 
 def _map_strings_attrs():
-    return " ".join(
+    words = " ".join(
         'data-t-%s="%s"' % (name, escape_html(i18n.t(message)))
         for name, message in _MAP_STRINGS)
+    return words + (
+        ' data-search-min="%d" data-search-max="%d" data-search-lock-ms="%d"'
+        % (SEARCH_MIN_CHARS, SEARCH_MAX_CHARS, SEARCH_LOCK_MS))
 
 
 def _map_attrs(view):
@@ -363,14 +405,14 @@ def _search_form_html():
         '<label for="place-search" class="text-label">%s</label>'
         '<div class="place-search__row">'
         '<input type="search" id="place-search" autocomplete="off" '
-        'autocapitalize="off" spellcheck="false" enterkeyhint="search" maxlength="120" '
+        'autocapitalize="off" spellcheck="false" enterkeyhint="search" maxlength="%d" '
         'aria-describedby="place-search-help">'
         '<button type="submit" class="detection-search">%s</button></div>'
         '<p id="place-search-help" class="text-label section-caption">%s</p></form>'
     ) % (
         escape_html(i18n.t(PLACE_TITLE)), escape_html(_href()),
-        escape_html(i18n.t(SEARCH_LABEL)), escape_html(i18n.t(SEARCH_BUTTON)),
-        escape_html(i18n.t(SEARCH_HELP)))
+        escape_html(i18n.t(SEARCH_LABEL)), SEARCH_MAX_CHARS,
+        escape_html(i18n.t(SEARCH_BUTTON)), escape_html(i18n.t(SEARCH_HELP)))
 
 
 def _about_map_html():
@@ -393,16 +435,22 @@ def place_card_html(view):
     body = (
         '<p class="place-fallback text-label section-caption">%s</p>'
         "%s"
+        '<div id="place-results" class="place-results" aria-live="polite" '
+        'aria-label="%s" hidden></div>'
         '<button type="button" class="place-locate detection-search js-gate" '
-        'id="place-locate">%s%s</button>'
+        'id="place-locate">%s<span class="place-locate__label">%s</span></button>'
         '<p id="place-notice" class="place-map__notice text-label" hidden></p>'
         '<div id="place-map" class="place-map js-gate" role="group" tabindex="0" '
         'aria-label="%s" %s></div>'
         '<p id="place-status" class="place-status text-label" role="status" '
         'aria-live="polite"></p>'
+        '<div id="place-nearest" class="place-nearest" hidden>'
+        '<p class="place-nearest__text text-label"></p>'
+        '<button type="button" class="place-nearest__button detection-search"></button></div>'
         "%s"
     ) % (
         escape_html(i18n.t(NO_SCRIPT_MAP)), _search_form_html(),
+        escape_html(i18n.t(RESULTS_LABEL)),
         layout.icon_html("icon-locate", 20), escape_html(i18n.t(LOCATE_BUTTON)),
         escape_html(i18n.t(MAP_LABEL)), _map_attrs(view), _about_map_html())
     return _card("place-heading", i18n.t(PLACE_TITLE), body, " place-card--map")

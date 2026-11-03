@@ -15,6 +15,7 @@ from companion import auth, page_policy
 from companion.test_browser_ux_helpers import (
     UI_THEMES_EXPLICIT, VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_no_page_overflow,
     _login, _set_ui_theme)
+from server import airports
 from place_map_support import (
     HIT_PROBE as _HIT_PROBE, MIN_PX, SETTLED as _SETTLED, Hosts, saved_place, seed as _seed,
     stored as _stored)
@@ -51,8 +52,10 @@ def _wait_settled(page):
 
 
 def _open(new_context, server, viewport, lang="en", theme=None, route="/detection",
-          wait_tiles=True, **host_kwargs):
-    context = new_context(viewport=viewport)
+          wait_tiles=True, init_script=None, context_options=None, **host_kwargs):
+    context = new_context(viewport=viewport, **(context_options or {}))
+    if init_script:
+        context.add_init_script(init_script)
     hosts = Hosts(context, **host_kwargs)
     context.add_cookies([
         {"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
@@ -344,3 +347,278 @@ def test_the_map_page_keeps_the_policy_headers_of_the_map_policy(new_context, ma
     finally:
         context.close()
 
+
+
+# --- Use my position -----------------------------------------------------------------
+
+LOCATE = "#place-locate"
+PARIS_FIX = {"latitude": 48.8566, "longitude": 2.3522, "accuracy": 25}
+# Counts getCurrentPosition calls and keeps the options of the last one.
+COUNT_CALLS = """
+window.__geoCalls = 0;
+const real = navigator.geolocation.getCurrentPosition.bind(navigator.geolocation);
+navigator.geolocation.getCurrentPosition = function (ok, err, options) {
+  window.__geoCalls += 1; window.__geoOptions = options; return real(ok, err, options);
+};
+"""
+# Holds the call open so a test can see the busy state and answer by hand.
+HOLD_CALLS = """
+window.__geoCalls = 0;
+navigator.geolocation.getCurrentPosition = function (ok, err, options) {
+  window.__geoCalls += 1; window.__geoOptions = options; window.__geoPending = {ok: ok, err: err};
+};
+"""
+NO_GEOLOCATION = (
+    "Object.defineProperty(Navigator.prototype, 'geolocation', {get: () => undefined});")
+DENIED = ("Location access is blocked for this site. Allow it in your browser settings, or "
+          "search a place, tap the map or pick an airport.")
+UNAVAILABLE = "Your position could not be found. Try again outside, or search a place."
+TIMED_OUT = "Finding your position took too long. Try again, or search a place."
+
+
+def _status(page, text):
+    page.wait_for_function(
+        "text => document.getElementById('place-status').textContent === text", arg=text,
+        timeout=10000)
+
+
+def test_geolocation_is_called_only_on_a_tap_and_moves_the_pin(new_context, make_app_server):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page, _hosts, errors = _open(
+        new_context, server, VIEWPORT_MIN_SUPPORTED, init_script=COUNT_CALLS,
+        context_options={"geolocation": PARIS_FIX, "permissions": ["geolocation"]})
+    try:
+        if page.evaluate("() => window.__geoCalls") != 0:
+            raise AssertionError("geolocation was called on load")
+        page.click(LOCATE)
+        page.wait_for_function(
+            "() => document.getElementById('place-lat').value === '48.8566'", timeout=10000)
+        if page.input_value("#place-lon") != "2.3522":
+            raise AssertionError("longitude is %r" % page.input_value("#place-lon"))
+        if page.evaluate("() => window.__geoCalls") != 1:
+            raise AssertionError("expected one call")
+        options = page.evaluate("() => window.__geoOptions")
+        if options != {"enableHighAccuracy": False, "timeout": 10000, "maximumAge": 60000}:
+            raise AssertionError("options were %r" % options)
+        _status(page, "Position found (about 25 m). Check the pin, then save.")
+        if page.inner_text(LOCATE).strip() != "Use my position":
+            raise AssertionError("the button label stayed busy: %r" % page.inner_text(LOCATE))
+        if page.is_disabled(LOCATE):
+            raise AssertionError("the button stayed disabled")
+        if not page.locator(MAP + " .place-pin").count():
+            raise AssertionError("no pin after the position was found")
+        if _raised(errors):
+            raise AssertionError("the page raised %r" % errors)
+    finally:
+        context.close()
+
+
+def test_the_position_sentence_is_french_on_the_french_page(new_context, make_app_server):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page, _hosts, _errors = _open(
+        new_context, server, VIEWPORT_MIN_SUPPORTED, lang="fr",
+        context_options={"geolocation": PARIS_FIX, "permissions": ["geolocation"]})
+    try:
+        page.click(LOCATE)
+        _status(page, "Position trouvée (à environ 25 m). Vérifiez le repère, puis enregistrez.")
+    finally:
+        context.close()
+
+
+def test_the_busy_state_and_each_error_state_show_their_sentence(new_context, make_app_server):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page, _hosts, _errors = _open(
+        new_context, server, VIEWPORT_MIN_SUPPORTED, init_script=HOLD_CALLS)
+    try:
+        for code, sentence in ((1, DENIED), (2, UNAVAILABLE), (3, TIMED_OUT)):
+            page.click(LOCATE)
+            page.wait_for_function("() => !!window.__geoPending", timeout=5000)
+            if not page.is_disabled(LOCATE):
+                raise AssertionError("the button is not disabled while waiting")
+            if page.inner_text(LOCATE).strip() != "Looking for your position…":
+                raise AssertionError("busy label reads %r" % page.inner_text(LOCATE))
+            _status(page, "Looking for your position…")
+            page.evaluate("code => { const p = window.__geoPending; window.__geoPending = null;"
+                          " p.err({code: code}); }", code)
+            _status(page, sentence)
+            page.wait_for_function(
+                "() => !document.getElementById('place-locate').disabled", timeout=5000)
+            if page.inner_text(LOCATE).strip() != "Use my position":
+                raise AssertionError("the label did not come back")
+        if page.locator(MAP + " .place-pin").count():
+            raise AssertionError("an error placed a pin")
+        if page.input_value("#place-lat") != "":
+            raise AssertionError("an error filled the fields")
+    finally:
+        context.close()
+
+
+def test_a_blocked_permission_shows_the_denied_sentence(new_context, make_app_server):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page, _hosts, _errors = _open(
+        new_context, server, VIEWPORT_MIN_SUPPORTED, init_script=COUNT_CALLS)
+    try:
+        page.click(LOCATE)
+        _status(page, DENIED)
+        if page.evaluate("() => window.__geoCalls") != 1:
+            raise AssertionError("expected exactly one call")
+    finally:
+        context.close()
+
+
+def test_the_button_is_hidden_when_the_browser_has_no_geolocation(new_context, make_app_server):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page, _hosts, _errors = _open(
+        new_context, server, VIEWPORT_MIN_SUPPORTED, init_script=NO_GEOLOCATION)
+    try:
+        if page.is_visible(LOCATE):
+            raise AssertionError("the locate button shows without geolocation")
+        if not page.is_visible(MAP):
+            raise AssertionError("the map is gone with it")
+    finally:
+        context.close()
+
+
+def test_the_locate_button_is_a_44px_target_under_the_search_field(new_context, make_app_server):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    for viewport in (VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP):
+        context, page, _hosts, _errors = _open(new_context, server, viewport)
+        try:
+            failures = page.evaluate(
+                _HIT_PROBE, {"selectors": [LOCATE, "form.place-search button", "#place-search"],
+                             "min": MIN_PX - SUBPIXEL})
+            if failures:
+                raise AssertionError("controls too small or covered: %r" % failures)
+        finally:
+            context.close()
+
+
+# --- Nearest airport and airport dots ------------------------------------------------
+
+NEAREST = "#place-nearest"
+
+
+def _airport_point(icao, north_km):
+    airport = airports.find_airport(icao)
+    return airport, "%.4f" % (airport.lat + north_km / 111.0), "%.4f" % airport.lon
+
+
+def test_a_pin_near_an_airport_offers_to_follow_its_runway(new_context, make_app_server):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    airport, lat, lon = _airport_point("LFPG", 1.5)
+    context, page, _hosts, _errors = _open(new_context, server, VIEWPORT_DESKTOP)
+    try:
+        if not page.is_hidden(NEAREST):
+            raise AssertionError("the offer shows with no pin")
+        page.click("#details > summary")
+        page.fill("#place-lat", lat)
+        page.fill("#place-lon", lon)
+        page.wait_for_function(
+            "() => !document.getElementById('place-nearest').hidden", timeout=5000)
+        want = "Nearest airport: %s, 2 km. Follow its runway?" % airport.name
+        if page.inner_text(NEAREST + " .place-nearest__text") != want:
+            raise AssertionError("the offer reads %r" % page.inner_text(NEAREST))
+        button = page.locator(NEAREST + " button")
+        if button.inner_text() != "Follow %s" % airport.name:
+            raise AssertionError("the button reads %r" % button.inner_text())
+        if button.bounding_box()["height"] < MIN_PX - SUBPIXEL:
+            raise AssertionError("the button is under 44 px")
+        with page.expect_navigation():
+            button.click()
+        if "airport=LFPG" not in page.url:
+            raise AssertionError("landed on %s" % page.url)
+        page.wait_for_function(READY, timeout=15000)
+        if not page.is_checked("#place-mode-runway"):
+            raise AssertionError("runway mode is not selected")
+        if not page.locator("label.runway-card").count():
+            raise AssertionError("the airport's runways are not listed")
+        if not page.is_hidden(NEAREST):
+            raise AssertionError("the offer shows for the airport already followed")
+    finally:
+        context.close()
+
+
+def test_a_pin_far_from_every_airport_offers_nothing(new_context, make_app_server):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page, _hosts, _errors = _open(new_context, server, VIEWPORT_DESKTOP)
+    try:
+        page.click("#details > summary")
+        page.fill("#place-lat", "47.0000")
+        page.fill("#place-lon", "2.5000")
+        page.wait_for_function(
+            "() => !!document.querySelector('#place-map .place-pin')", timeout=5000)
+        if not page.is_hidden(NEAREST):
+            raise AssertionError("an offer shows far from every airport")
+    finally:
+        context.close()
+
+
+def test_airport_dots_appear_when_zoomed_in_and_choosing_one_follows_its_link(
+        new_context, make_app_server):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page, _hosts, _errors = _open(
+        new_context, server, VIEWPORT_DESKTOP, route="/detection?airport=LFPG")
+    try:
+        page.wait_for_function(
+            "() => document.querySelectorAll('#place-map .place-dot').length >= 1", timeout=5000)
+        for _ in range(3):
+            page.click(MAP + " .leaflet-control-zoom-out")
+            page.wait_for_function(ANIMATIONS_DONE, timeout=10000)
+        page.wait_for_function(
+            "() => !!document.querySelector('#place-map .place-dot__mark[data-icao=LFPB]')",
+            timeout=10000)
+        dot = page.locator(MAP + " .place-dot:has(.place-dot__mark[data-icao='LFPB'])")
+        box = dot.bounding_box()
+        if box["width"] < MIN_PX - SUBPIXEL or box["height"] < MIN_PX - SUBPIXEL:
+            raise AssertionError("a dot hit box is %r" % box)
+        with page.expect_navigation():
+            dot.click()
+        page.wait_for_function(READY, timeout=15000)
+        if "airport=LFPB" not in page.url or not page.is_checked("#place-mode-runway"):
+            raise AssertionError("choosing the dot landed on %s" % page.url)
+        lfpb = airports.find_airport("LFPB")
+        if abs(float(page.input_value("#place-lat")) - lfpb.lat) > 0.0002:
+            raise AssertionError("the pin is not on the chosen airport")
+    finally:
+        context.close()
+
+
+def test_no_dots_show_at_the_overview_zoom(new_context, make_app_server):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page, _hosts, _errors = _open(new_context, server, VIEWPORT_DESKTOP)
+    try:
+        if page.locator(MAP + " .place-dot").count():
+            raise AssertionError("airport dots show at zoom 5")
+    finally:
+        context.close()
+
+
+def test_the_area_circle_follows_the_radius_and_the_mode(new_context, make_app_server):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page, _hosts, _errors = _open(new_context, server, VIEWPORT_DESKTOP)
+    try:
+        _tap_map(page, 0.5, 0.5)
+        page.wait_for_function(
+            "() => !!document.querySelector('#place-map .place-pin')", timeout=5000)
+        if page.locator(MAP + " .place-circle").count():
+            raise AssertionError("a circle shows in runway mode")
+        page.click("label.place-mode:has(#place-mode-area)")
+        page.wait_for_function(
+            "() => !!document.querySelector('#place-map .place-circle')", timeout=5000)
+        width = "() => document.querySelector('#place-map .place-circle').getBoundingClientRect().width"
+        page.fill("#place-radius", "9")
+        page.wait_for_function(ANIMATIONS_DONE, timeout=10000)
+        small = page.evaluate(width)
+        page.fill("#place-radius", "18")
+        page.wait_for_function(
+            "before => document.querySelector('#place-map .place-circle')"
+            ".getBoundingClientRect().width > before * 1.5", arg=small, timeout=5000)
+        stroke = page.evaluate(
+            "() => getComputedStyle(document.querySelector('#place-map .place-circle')).stroke")
+        accent = page.evaluate(
+            "() => { const s = document.createElement('i'); s.style.color = 'var(--color-accent)';"
+            " document.body.appendChild(s); const c = getComputedStyle(s).color; s.remove(); return c; }")
+        if stroke != accent:
+            raise AssertionError("circle stroke %r is not the accent %r" % (stroke, accent))
+    finally:
+        context.close()

@@ -102,6 +102,24 @@ MESSAGES = {
         "Les images de la carte n’ont pas pu se charger. Le repère et les coordonnées fonctionnent toujours.",
     "detection.zoom_in": "Zoomer",
     "detection.zoom_out": "Dézoomer",
+    "detection.search_none":
+        "Aucun lieu trouvé en France. Essayez une autre orthographe, touchez la carte ou choisissez un aéroport.",
+    "detection.search_failed":
+        "La recherche n’est pas disponible pour le moment. Touchez la carte, choisissez un aéroport ou saisissez des coordonnées.",
+    "detection.search_short": "Tapez au moins 3 caractères pour chercher.",
+    "detection.results_label": "Résultats de la recherche",
+    "detection.locating": "Recherche de votre position…",
+    "detection.located":
+        "Position trouvée (à environ %d m). Vérifiez le repère, puis enregistrez.",
+    "detection.locate_denied":
+        "L’accès à la position est bloqué pour ce site. Autorisez-le dans les réglages du navigateur, ou cherchez un lieu, touchez la carte ou choisissez un aéroport.",
+    "detection.locate_unavailable":
+        "Votre position est introuvable. Réessayez à l’extérieur, ou cherchez un lieu.",
+    "detection.locate_timeout":
+        "La recherche de votre position a pris trop de temps. Réessayez, ou cherchez un lieu.",
+    "detection.nearest_airport":
+        "Aéroport le plus proche : %s, à %d km. Suivre sa piste ?",
+    "detection.follow_airport": "Suivre %s",
     "detection.map_label":
         "Carte. Utilisez les flèches pour déplacer, plus et moins pour zoomer.",
     "detection.search_label":

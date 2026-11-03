@@ -13,7 +13,9 @@
  * missing or failing library leaves the plain form as it is.
  *
  * The only requests are the tile pictures the library asks the tile host for
- * (one constant below, no subdomains, no prefetch). Nothing is stored.
+ * (one constant below, no subdomains, no prefetch) and, on a submitted place
+ * search, one request to the search service. The position is read from the
+ * browser only on a tap. Nothing is stored.
  */
 (function () {
   "use strict";
@@ -24,6 +26,21 @@
   // Referrer-Policy is same-origin, so the layer overrides it per request.
   var TILE_REFERRER_POLICY = "origin";
   var COPYRIGHT_URL = "https://www.openstreetmap.org/copyright";
+  // The one search endpoint; moving to another service means changing this line.
+  var SEARCH_URL = "https://nominatim.openstreetmap.org/search";
+  var SEARCH_REFERRER_POLICY = "origin";
+  var SEARCH_RESULT_LIMIT = 5;
+  var STREET_ZOOM = 15;
+  var CITY_ZOOM = 12;
+  var LOCATE_ZOOM = 14;
+  var LOCATE_TIMEOUT_MS = 10000;
+  var LOCATE_MAX_AGE_MS = 60000;
+  // Result kinds a person means a street address by: zoom in close for these.
+  var STREET_KINDS = [
+    "house", "building", "road", "street", "residential", "pedestrian", "path",
+    "footway", "service", "living_street", "unclassified", "tertiary", "secondary",
+    "primary", "amenity", "shop", "tourism", "office"
+  ];
   var MAX_ZOOM = 18;
   var FRANCE_CENTRE = [46.6, 2.5];
   var AIRPORT_ZOOM = 13;
@@ -309,8 +326,52 @@
     afterPinMoved(point, !!opts.fromFields);
   }
 
-  // The next task's hook for the nearest-airport line; a no-op until then.
-  function pinMoved() {}
+  // --- Nearest airport ----------------------------------------------------------
+
+  var nearestEl = byId("place-nearest");
+
+  function currentAirportCode() {
+    var field = document.querySelector("input[name='airport'][form]");
+    return field ? field.value : "";
+  }
+
+  function nearestAirport(latlng) {
+    var best = null;
+    var bestKm = Infinity;
+    for (var k = 0; k < airports.length; k++) {
+      var km = distanceKm(latlng.lat, latlng.lng, airports[k].lat, airports[k].lon);
+      if (km < bestKm) {
+        best = airports[k];
+        bestKm = km;
+      }
+    }
+    return best && bestKm <= NEAREST_AIRPORT_KM ? { airport: best, km: bestKm } : null;
+  }
+
+  // Offers the catalogue airport under the pin, unless it already is the one
+  // the runway choice follows.
+  function pinMoved(latlng) {
+    if (!nearestEl) {
+      return;
+    }
+    var found = nearestAirport(latlng);
+    var runway = byId("place-mode-runway");
+    var following = found && runway && runway.checked &&
+      currentAirportCode() === found.airport.icao;
+    if (!found || following) {
+      nearestEl.hidden = true;
+      return;
+    }
+    var line = nearestEl.querySelector(".place-nearest__text");
+    var button = nearestEl.querySelector(".place-nearest__button");
+    line.textContent = format(
+      text("nearest"), found.airport.name, Math.max(1, Math.round(found.km)));
+    button.textContent = format(text("follow"), found.airport.name);
+    button.onclick = function () {
+      chooseAirport(found.airport);
+    };
+    nearestEl.hidden = false;
+  }
 
   function fieldsPoint() {
     if (!latField || !lonField) {
@@ -336,10 +397,11 @@
 
   // --- Airport dots ----------------------------------------------------------
 
-  function dotIcon() {
+  function dotIcon(airport) {
     return L.divIcon({
       className: "place-dot",
-      html: '<span class="place-dot__mark"></span>',
+      html: '<span class="place-dot__mark" data-icao="' + escapeText(airport.icao) +
+        '"></span>',
       iconSize: [44, 44],
       iconAnchor: [22, 22]
     });
@@ -375,7 +437,7 @@
 
   function makeDot(airport) {
     var marker = L.marker([airport.lat, airport.lon], {
-      icon: dotIcon(),
+      icon: dotIcon(airport),
       keyboard: false,
       riseOnHover: false
     });
@@ -383,6 +445,266 @@
       chooseAirport(airport);
     });
     return marker;
+  }
+
+  // --- Search by city or address ------------------------------------------------
+
+  var searchForm = document.querySelector("form.place-search");
+  var searchInput = byId("place-search");
+  var resultsEl = byId("place-results");
+  var searchMin = parseInt(mapEl.getAttribute("data-search-min"), 10) || 3;
+  var searchMax = parseInt(mapEl.getAttribute("data-search-max"), 10) || 120;
+  var searchLockMs = parseInt(mapEl.getAttribute("data-search-lock-ms"), 10) || 1500;
+  var searchBusy = false;
+  var searchLocked = false;
+  var searchCache = {};
+
+  function setSearchDisabled(disabled) {
+    var button = searchForm.querySelector("button[type='submit']");
+    if (button) {
+      button.disabled = disabled;
+    }
+  }
+
+  function clearResults() {
+    while (resultsEl.firstChild) {
+      resultsEl.removeChild(resultsEl.firstChild);
+    }
+    resultsEl.hidden = true;
+  }
+
+  function showResultsNote(message) {
+    clearResults();
+    var note = document.createElement("p");
+    note.className = "place-results__note text-label";
+    note.textContent = message;
+    resultsEl.appendChild(note);
+    resultsEl.hidden = false;
+  }
+
+  // Reads one search answer row into a safe record, or null when it has no
+  // usable position. Every field is treated as untrusted text.
+  function readResult(item) {
+    if (!item || typeof item !== "object") {
+      return null;
+    }
+    var lat = parseNumber(item.lat);
+    var lon = parseNumber(item.lon);
+    if (lat === null || lon === null || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+      return null;
+    }
+    var display = typeof item.display_name === "string" ? item.display_name : "";
+    var parts = display.split(",").map(function (part) {
+      return part.replace(/^\s+|\s+$/g, "");
+    }).filter(function (part) {
+      return part.length > 0;
+    });
+    var name = typeof item.name === "string" && item.name ? item.name : (parts[0] || "");
+    if (!name) {
+      return null;
+    }
+    if (parts.length && parts[parts.length - 1].toLowerCase() === "france") {
+      parts.pop();
+    }
+    var rest = parts.slice(1).join(", ");
+    var kind = String(item.addresstype || item.type || "").toLowerCase();
+    return {
+      name: name,
+      rest: rest,
+      lat: lat,
+      lon: lon,
+      zoom: STREET_KINDS.indexOf(kind) >= 0 ? STREET_ZOOM : CITY_ZOOM
+    };
+  }
+
+  function fillLabel(name) {
+    if (labelField && labelField.value.replace(/\s+/g, "") === "") {
+      labelField.value = name.slice(0, 60);
+      fire(labelField, "input");
+    }
+  }
+
+  function chooseResult(result) {
+    clearResults();
+    placePin(L.latLng(result.lat, result.lon), { zoom: result.zoom, animate: true });
+    fillLabel(result.name);
+  }
+
+  function renderResults(list) {
+    var rows = [];
+    for (var n = 0; n < list.length && rows.length < SEARCH_RESULT_LIMIT; n++) {
+      var row = readResult(list[n]);
+      if (row) {
+        rows.push(row);
+      }
+    }
+    if (!rows.length) {
+      showResultsNote(text("search-none"));
+      return;
+    }
+    clearResults();
+    var ul = document.createElement("ul");
+    ul.className = "place-results__list";
+    rows.forEach(function (result) {
+      var li = document.createElement("li");
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "place-result";
+      var nameEl = document.createElement("span");
+      nameEl.className = "place-result__name";
+      nameEl.textContent = result.name;
+      button.appendChild(nameEl);
+      if (result.rest) {
+        var restEl = document.createElement("span");
+        restEl.className = "place-result__rest text-label";
+        restEl.textContent = result.rest;
+        button.appendChild(restEl);
+      }
+      button.addEventListener("click", function () {
+        chooseResult(result);
+      });
+      li.appendChild(button);
+      ul.appendChild(li);
+    });
+    resultsEl.appendChild(ul);
+    resultsEl.hidden = false;
+  }
+
+  function searchUrl(query) {
+    var pairs = [
+      ["format", "jsonv2"], ["q", query], ["countrycodes", "fr"],
+      ["limit", String(SEARCH_RESULT_LIMIT)],
+      ["accept-language", document.documentElement.lang === "fr" ? "fr" : "en"]
+    ];
+    return SEARCH_URL + "?" + pairs.map(function (pair) {
+      return pair[0] + "=" + encodeURIComponent(pair[1]);
+    }).join("&");
+  }
+
+  // The one place a request leaves for the search service: a submitted query,
+  // one at a time, then a lock for the length the service's policy asks for.
+  function runSearch(query, key) {
+    searchBusy = true;
+    setSearchDisabled(true);
+    var done = function () {
+      searchBusy = false;
+      searchLocked = true;
+      window.setTimeout(function () {
+        searchLocked = false;
+        setSearchDisabled(false);
+      }, searchLockMs);
+    };
+    var failed = function () {
+      showResultsNote(text("search-failed"));
+    };
+    if (typeof window.fetch !== "function") {
+      failed();
+      done();
+      return;
+    }
+    window.fetch(searchUrl(query), {
+      credentials: "omit",
+      referrerPolicy: SEARCH_REFERRER_POLICY
+    }).then(function (response) {
+      if (!response.ok) {
+        throw new Error("search failed");
+      }
+      return response.json();
+    }).then(function (list) {
+      if (!Array.isArray(list)) {
+        throw new Error("search failed");
+      }
+      searchCache[key] = list;
+      renderResults(list);
+    }).then(done, function () {
+      failed();
+      done();
+    });
+  }
+
+  function onSearchSubmit(event) {
+    event.preventDefault();
+    if (searchBusy || searchLocked) {
+      return;
+    }
+    var query = searchInput.value.replace(/\s+/g, " ").replace(/^ | $/g, "");
+    if (query.length < searchMin) {
+      showResultsNote(text("search-short"));
+      return;
+    }
+    query = query.slice(0, searchMax);
+    var key = query.toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(searchCache, key)) {
+      renderResults(searchCache[key]);
+      return;
+    }
+    runSearch(query, key);
+  }
+
+  // --- Use my position --------------------------------------------------------------
+
+  var locateButton = byId("place-locate");
+  var locating = false;
+
+  function setLocateBusy(busy) {
+    locating = busy;
+    locateButton.disabled = busy;
+    locateButton.setAttribute("aria-busy", busy ? "true" : "false");
+    var label = locateButton.querySelector(".place-locate__label");
+    if (label) {
+      if (busy) {
+        label.setAttribute("data-idle", label.textContent);
+        label.textContent = text("locating");
+      } else if (label.hasAttribute("data-idle")) {
+        label.textContent = label.getAttribute("data-idle");
+        label.removeAttribute("data-idle");
+      }
+    }
+  }
+
+  function onPosition(position) {
+    setLocateBusy(false);
+    var point = L.latLng(
+      roundCoord(position.coords.latitude), roundCoord(position.coords.longitude));
+    placePin(point, { zoom: LOCATE_ZOOM, animate: true });
+    setStatus(format(text("located"), position.coords.accuracy || 0));
+  }
+
+  function onPositionError(error) {
+    setLocateBusy(false);
+    var key = "locate-unavailable";
+    if (error && error.code === 1) {
+      key = "locate-denied";
+    } else if (error && error.code === 3) {
+      key = "locate-timeout";
+    }
+    setStatus(text(key));
+  }
+
+  function onLocateClick() {
+    if (locating) {
+      return;
+    }
+    setLocateBusy(true);
+    setStatus(text("locating"));
+    navigator.geolocation.getCurrentPosition(onPosition, onPositionError, {
+      enableHighAccuracy: false,
+      timeout: LOCATE_TIMEOUT_MS,
+      maximumAge: LOCATE_MAX_AGE_MS
+    });
+  }
+
+  function wireSearchAndLocate() {
+    if (searchForm && searchInput && resultsEl) {
+      searchForm.addEventListener("submit", onSearchSubmit);
+    }
+    if (locateButton) {
+      if (!navigator.geolocation) {
+        locateButton.hidden = true;
+      } else {
+        locateButton.addEventListener("click", onLocateClick);
+      }
+    }
   }
 
   // --- Start ------------------------------------------------------------------
@@ -395,7 +717,6 @@
     });
     map.on("moveend zoomend", refreshDots);
     if (hasStartPin) {
-      pin = null;
       placePin(L.latLng(startLat, startLon), { fromFields: true });
       setStatus("");
     }
@@ -416,8 +737,12 @@
     document.addEventListener("change", function (event) {
       if (event.target && event.target.name === "mode") {
         drawCircle();
+        if (pin) {
+          pinMoved(pin.getLatLng());
+        }
       }
     });
+    wireSearchAndLocate();
 
     // Scripts and the library are up: the fields tuck away, the form stays
     // the way to type a place. A refused save keeps its card open.
