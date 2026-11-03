@@ -612,7 +612,7 @@ def test_serif_never_reaches_dense_or_tabular_content(served_css):
 
 def test_mobile_nav_link_and_sidebar_link_geometries_stay_diverged(served_css):
     """mobile dropdown nav link keeps its restored 44px/Body-size tap target while the desktop
-    sidebar link stays at its 32px/Label-size compaction"""
+    sidebar link keeps its 44px row with the Label size"""
     # A past fix reached .mobile-nav__link by mistake -
     # the mobile dropdown is the phone's only nav, with no desktop
     # compactness argument to trade against, while .sidebar-link is
@@ -626,9 +626,8 @@ def test_mobile_nav_link_and_sidebar_link_geometries_stay_diverged(served_css):
         ".mobile-nav__link's font size drifted off var(--font-body-size) (260902-qkm)")
 
     sidebar = declarations_for(served_css, ".sidebar-link")
-    assert sidebar.get("height") == "32px", (
-        ".sidebar-link's D-05 32px desktop compaction was reverted - it is structurally "
-        "desktop-only and should stay compact, unlike the mobile dropdown link")
+    assert sidebar.get("min-height") == "44px", (
+        ".sidebar-link lost its 44px row: a desktop sidebar link is a 44px tap target too")
     assert sidebar.get("font-size") == "var(--font-label-size)", (
         ".sidebar-link's font size drifted off var(--font-label-size)")
 

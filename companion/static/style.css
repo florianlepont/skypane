@@ -1070,8 +1070,14 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   height: 44px;
 }
 
-.account-sign-out button {
+.account-sign-out button,
+.sidebar-footer .logout-form button {
   min-height: 44px;
+}
+
+/* The sidebar footer's language and theme segments are 44px targets too. */
+.sidebar-footer .theme-form .theme-option {
+  height: 44px;
 }
 
 .theme-form .theme-option--active {
@@ -1136,17 +1142,18 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   display: inline-block;
 }
 
+/* Each link is a 44px row, so the rows touch instead of adding a gap. */
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: 0;
 }
 
 .sidebar-link {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  height: 32px;
+  min-height: 44px;
   padding: 0 var(--space-sm);
   color: var(--color-text);
   text-decoration: none;
@@ -4986,6 +4993,7 @@ a.airline-card {
   display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
+  min-height: 44px;
   min-width: 0;
   color: inherit;
   text-decoration: none;
@@ -6164,11 +6172,6 @@ button.detection-location-save {
   .home-state__status {
     justify-content: center;
     padding: var(--space-xl);
-  }
-
-  /* A pointer-sized pill once the header is this wide. */
-  .home-state__health-link {
-    min-height: 32px;
   }
 
   .home-state__switches {

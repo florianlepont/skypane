@@ -9,9 +9,10 @@ French render of each page with the English one and reports visible text that
 was left untranslated. Locations is checked on its own at 360px (every input
 and select inside its card), and Device and Health are part of the sweep.
 
-The empty-state rule covers exactly the pages listed here; large empty states
-that remain on pages outside this list (History, Detection, the My frames
-empty state, the table fallback) are not asserted.
+The 44px hit-area rule is asserted on the whole page and its bars at 360px, and
+on dialogs, list rows, page headers, the desktop sidebar (links, language and
+theme segments, Sign out, the brand link) and the Home "See Health" pill at
+1280px. The empty-state rule covers the pages listed here.
 """
 import re
 
@@ -22,7 +23,9 @@ from companion import auth
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_no_page_overflow, _set_ui_theme,
     seed_state_dir)
-from server import fleet_db
+from provisioned_fleet import USER_A_EMAIL, device_dir, provision_fleet
+from companion_app_server import session_cookie_for_state_dir
+from server import fleet_db, history_db
 
 pytestmark = pytest.mark.browser
 
@@ -325,3 +328,88 @@ def test_every_visible_string_has_a_french_translation(
             context.close()
     same = sorted(t for t in texts["en"] & texts["fr"] if _looks_english(t))
     assert not same, same
+
+
+# Hit areas of the desktop chrome: the same reach measurement as _TARGETS, over the sidebar
+# and the Home pill, reporting every control whose resolved hit box is under 44px either way.
+_DESKTOP_CHROME = """
+(selectors) => {
+  const bad = [];
+  let seen = 0;
+  for (const el of document.querySelectorAll(selectors.join(', '))) {
+    if (!el.checkVisibility()) continue;
+    seen++;
+    el.scrollIntoView({block: 'center', inline: 'center'});
+    const r = el.getBoundingClientRect();
+    const cx = Math.floor(r.left + r.width / 2) + 0.5, cy = Math.floor(r.top + r.height / 2) + 0.5;
+    const owns = (x, y) => { const n = document.elementFromPoint(x, y);
+      return !!n && (n === el || el.contains(n)); };
+    const label = el.tagName.toLowerCase() + '.' + String(el.className).split(' ')[0] +
+      ' "' + (el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 24) + '"';
+    if (!owns(cx, cy)) { bad.push(label + ' is covered at its centre'); continue; }
+    const reach = (dx, dy) => { let n = 0;
+      while (n < 64 && owns(cx + dx * (n + 1), cy + dy * (n + 1))) n++; return n; };
+    const w = reach(-1, 0) + reach(1, 0) + 1, h = reach(0, -1) + reach(0, 1) + 1;
+    if (w < 44 || h < 44) bad.push(label + ' hit area ' + w + 'x' + h);
+  }
+  window.scrollTo(0, 0);
+  return {bad: bad, seen: seen};
+}
+"""
+_SIDEBAR_CONTROLS = [
+    ".dashboard-sidebar .sidebar-link", ".dashboard-sidebar .theme-option",
+    ".dashboard-sidebar .logout-form button", ".dashboard-sidebar .brand__link",
+    ".dashboard-sidebar .brand a"]
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("persona,path", [
+    ("admin", "/fleet"), ("admin", "/display"), ("owner", "/account"), ("owner", "/devices/{owned}/")])
+def test_the_desktop_sidebar_controls_have_44px_hit_areas(
+        new_context, server, persona, path, lang, scheme):
+    context, page = _open(new_context, server, persona, path, None, VIEWPORT_DESKTOP, lang, scheme)
+    try:
+        result = page.evaluate(_DESKTOP_CHROME, _SIDEBAR_CONTROLS)
+        assert result["seen"] >= 6, result
+        assert not result["bad"], (persona, path, lang, scheme, result["bad"])
+        # The taller rows still fit the sticky sidebar in the viewport.
+        assert page.evaluate(
+            "() => { const s = document.querySelector('.dashboard-sidebar');"
+            " return s.scrollHeight <= Math.max(s.clientHeight, window.innerHeight); }")
+        assert page.evaluate(
+            "() => document.querySelector('.sidebar-footer .logout-form button')"
+            ".getBoundingClientRect().bottom <= window.innerHeight")
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_the_home_health_pill_has_a_44px_hit_area_on_desktop(
+        new_context, make_app_server, lang, scheme):
+    def seed(state_dir):
+        fleet = provision_fleet(state_dir)
+        with history_db.open_db(device_dir(state_dir, fleet.a1)) as conn:
+            history_db.record_device_health(
+                conn, "2026-01-01T00:00:00+00:00", battery_mv=4000, fw_version="1.0.0",
+                boot_reason="wake", rssi="-60")
+        seed.fleet = fleet
+    server = make_app_server(seed=seed)
+    name, value = session_cookie_for_state_dir(server.state_dir, USER_A_EMAIL).split("=", 1)
+    context = new_context(viewport=VIEWPORT_DESKTOP, color_scheme=scheme)
+    context.add_cookies([
+        {"name": name, "value": value, "url": server.base_url(),
+         "httpOnly": True, "sameSite": "Strict"},
+        {"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()},
+        {"name": auth.UI_THEME_COOKIE_NAME, "value": scheme, "url": server.base_url()}])
+    try:
+        page = context.new_page()
+        page.goto(server.base_url() + "/devices/%s/" % seed.fleet.a1)
+        page.locator(".home-state").wait_for(state="visible")
+        _set_ui_theme(page, scheme)
+        result = page.evaluate(_DESKTOP_CHROME, [".home-state__health-link"])
+        assert result["seen"] == 1, result
+        assert not result["bad"], result["bad"]
+    finally:
+        context.close()
