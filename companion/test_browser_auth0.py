@@ -7,9 +7,11 @@ another port would hide.
 Everything stays on loopback; the shared new_context guard aborts any
 other host.
 """
+import re
+
 import pytest
 
-from companion import auth
+from companion import auth, oidc, sign_in
 
 pytestmark = pytest.mark.browser
 
@@ -36,14 +38,22 @@ def rig(auth0_rig):
     return auth0_rig
 
 
-def _context(new_context, base_url, theme="auto", width=1280):
+def _context(new_context, base_url, theme="auto", width=1280, lang=None):
     context = new_context(
         viewport={"width": width, "height": 900},
         color_scheme="dark" if theme == "dark" else "light")
     if theme != "auto":
         context.add_cookies([{
             "name": auth.UI_THEME_COOKIE_NAME, "value": theme, "url": base_url}])
+    if lang:
+        context.add_cookies([{
+            "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
     return context
+
+
+def _landing_url(base, route):
+    """Matches the landing route with or without the welcome token."""
+    return re.compile("^%s(\\?flash=welcome\\w*)?$" % re.escape(base + route))
 
 
 def _session_cookie(context):
@@ -62,7 +72,7 @@ def test_invited_user_lands_on_account_signed_in(rig, new_context):
     context = _context(new_context, base)
     page = context.new_page()
     _sign_in(page, rig, INVITED_USER, "auth0|user-1")
-    page.wait_for_url(base + "/account")
+    page.wait_for_url(_landing_url(base, "/account"))
     assert INVITED_USER in page.locator(".account-identity").inner_text()
     cookies = _session_cookie(context)
     assert len(cookies) == 1
@@ -75,7 +85,7 @@ def test_invited_admin_lands_on_the_fleet_page_with_the_console_nav(rig, new_con
     context = _context(new_context, base)
     page = context.new_page()
     _sign_in(page, rig, INVITED_ADMIN, "auth0|admin-1")
-    page.wait_for_url(base + "/fleet")
+    page.wait_for_url(_landing_url(base, "/fleet"))
     hrefs = page.eval_on_selector_all(
         ".dashboard-sidebar a", "els => els.map(e => e.getAttribute('href'))")
     assert "/users" in hrefs and "/audit" in hrefs and "/update" in hrefs
@@ -88,7 +98,7 @@ def test_sign_out_ends_on_the_fixed_login_page(rig, new_context):
     context = _context(new_context, base)
     page = context.new_page()
     _sign_in(page, rig, INVITED_USER, "auth0|user-1")
-    page.wait_for_url(base + "/account")
+    page.wait_for_url(_landing_url(base, "/account"))
     page.click(".account-sign-out button")
     page.wait_for_url(base + "/login")
     assert page.locator("a.login-signin").count() == 1
@@ -103,7 +113,7 @@ def test_uninvited_identity_gets_the_refusal_and_no_cookie(rig, new_context):
     context = _context(new_context, base)
     page = context.new_page()
     _sign_in(page, rig, UNINVITED, "auth0|stranger")
-    page.get_by_text("No invitation found").wait_for()
+    page.get_by_text("This account can't sign in").wait_for()
     assert _session_cookie(context) == []
     assert rig.session_count() == 0
 
@@ -132,11 +142,11 @@ def test_login_refusal_and_account_fit_at_360px(rig, new_context, theme):
     assert box["width"] >= card - 1
 
     _sign_in(page, rig, UNINVITED, "auth0|stranger")
-    page.get_by_text("No invitation found").wait_for()
+    page.get_by_text("This account can't sign in").wait_for()
     assert _no_overflow(page)
 
     _sign_in(page, rig, INVITED_USER, "auth0|user-1")
-    page.wait_for_url(base + "/account")
+    page.wait_for_url(_landing_url(base, "/account"))
     assert _no_overflow(page)
     assert page.locator(".account-sign-out button").is_visible()
 
@@ -156,5 +166,111 @@ def test_sign_in_started_from_another_site_still_lands_signed_in(rig, new_contex
     rig.fake.next_login(sub="auth0|user-1", email=INVITED_USER)
     page.goto(other + "/elsewhere")
     page.click("#go")
-    page.wait_for_url(base + "/account")
+    page.wait_for_url(_landing_url(base, "/account"))
     assert INVITED_USER in page.locator(".account-identity").inner_text()
+
+
+# --- messages and first arrival -------------------------------------------
+
+_WELCOME = "Welcome to SkyPane"
+
+
+def _geometry_ok(page, selectors):
+    assert page.evaluate(
+        "() => document.documentElement.scrollWidth <= document.documentElement.clientWidth")
+    for selector in selectors:
+        box = page.locator(selector).bounding_box()
+        assert box["height"] >= 44, selector
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_unverified_email_shows_the_confirm_page_with_a_retry(rig, new_context, theme):
+    base = rig.server.base_url()
+    context = _context(new_context, base, theme=theme, width=_WIDTH)
+    page = context.new_page()
+    rig.fake.next_login(sub="auth0|new", email=INVITED_USER, email_verified=False)
+    page.goto(base + "/login")
+    page.click("a.login-signin")
+    page.get_by_text("Confirm your email address").wait_for()
+    assert page.locator("a.login-signin").inner_text() == "Sign in again"
+    assert "Ask the administrator to resend it." in page.locator(".login-card").inner_text()
+    _geometry_ok(page, ["a.login-signin"])
+    assert _session_cookie(context) == []
+    assert rig.session_count() == 0
+
+
+def test_uninvited_page_offers_another_account_and_the_way_back(rig, new_context):
+    base = rig.server.base_url()
+    context = _context(new_context, base, width=_WIDTH)
+    page = context.new_page()
+    _sign_in(page, rig, UNINVITED, "auth0|stranger")
+    page.get_by_text("This account can't sign in").wait_for()
+    other = page.locator("a.login-signin")
+    assert other.inner_text() == "Use another account"
+    assert other.get_attribute("href") == "/login/auth0?prompt=login"
+    _geometry_ok(page, ["a.login-signin", "a.login-card__link"])
+    page.click("a.login-card__link")
+    page.wait_for_url(base + "/login")
+    assert "First visit?" in page.locator(".login-card").inner_text()
+
+
+def test_use_another_account_asks_the_provider_to_show_its_form(rig, new_context):
+    base = rig.server.base_url()
+    context = _context(new_context, base)
+    page = context.new_page()
+    _sign_in(page, rig, UNINVITED, "auth0|stranger")
+    page.get_by_text("This account can't sign in").wait_for()
+    rig.fake.next_login(sub="auth0|user-1", email=INVITED_USER)
+    page.click("a.login-signin")
+    page.wait_for_url(_landing_url(base, "/account"))
+    assert _session_cookie(context)
+
+
+def test_first_sign_in_shows_one_welcome_and_the_second_none(rig, new_context):
+    base = rig.server.base_url()
+    context = _context(new_context, base, width=_WIDTH)
+    page = context.new_page()
+    _sign_in(page, rig, INVITED_USER, "auth0|user-1")
+    page.wait_for_url(_landing_url(base, "/account"))
+    page.get_by_text(_WELCOME).wait_for()
+    assert page.get_by_text(_WELCOME).count() == 1
+    assert "Your frame will appear here" in page.locator(".toast").inner_text()
+    page.click(".account-sign-out button")
+    page.wait_for_url(base + "/login")
+    _sign_in(page, rig, INVITED_USER, "auth0|user-1")
+    page.wait_for_url(base + "/account")
+    assert page.get_by_text(_WELCOME).count() == 0
+
+
+def test_the_welcome_is_translated(rig, new_context):
+    base = rig.server.base_url()
+    context = _context(new_context, base, lang="fr")
+    page = context.new_page()
+    _sign_in(page, rig, INVITED_ADMIN, "auth0|admin-1")
+    page.wait_for_url(_landing_url(base, "/fleet"))
+    page.get_by_text("Bienvenue sur SkyPane").wait_for()
+    assert page.get_by_text("Bienvenue sur SkyPane").count() == 1
+
+
+def test_a_cancelled_sign_in_is_calm_and_offers_sign_in(rig, new_context):
+    base = rig.server.base_url()
+    context = _context(new_context, base, width=_WIDTH)
+    page = context.new_page()
+    rig.fake.set_knob("redirect_error", "access_denied")
+    _sign_in(page, rig, INVITED_USER, "auth0|user-1")
+    page.get_by_text("Sign-in was cancelled").wait_for()
+    assert "toast--info" in page.locator(".toast--docked").get_attribute("class")
+    _geometry_ok(page, ["a.login-signin"])
+    assert page.locator("a.login-signin").inner_text() == "Sign in"
+
+
+def test_a_throttled_start_names_the_wait_and_offers_sign_in(rig, new_context, monkeypatch):
+    base = rig.server.base_url()
+    monkeypatch.setattr(sign_in, "START_THROTTLE", oidc.StartThrottle(limit=0))
+    context = _context(new_context, base, width=_WIDTH)
+    page = context.new_page()
+    page.goto(base + "/login")
+    page.click("a.login-signin")
+    page.get_by_text("Too many attempts").wait_for()
+    assert "toast--warning" in page.locator(".toast--docked").get_attribute("class")
+    _geometry_ok(page, ["a.login-signin"])
