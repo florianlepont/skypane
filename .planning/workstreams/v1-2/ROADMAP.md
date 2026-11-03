@@ -468,7 +468,7 @@ Plans:
   4. A user whose Auth0 email is not verified gets a message that says so instead of the "not invited" page, the first arrival of an invited user is guided, and sign-in errors say what to do next.
   5. Both languages, the 360 px width and the 44 px tap targets hold, the existing browser tests stay green with new ones for the changed flows, and the owner validates on the deployed companion.
 
-**Plans**: 15 plans
+**Plans**: 16 plans
 Plans:
 **Wave 1**
 
@@ -510,6 +510,8 @@ Plans:
 
 **Wave 9**
 
+- [x] 61-16-PLAN.md — Owner follow-ups: time zone in the Location and detection card, 44 px desktop targets, compact History and table empty states (UX-02, UX-03)
+
 - [ ] 61-13-PLAN.md — Owner validation on the deployed companion (checkpoint, no deploy step) (UX-01..UX-04)
 
 **Notes**: The extent of the structural change (how far navigation and pages may move, and whether the existing companion architecture stays as is) is settled in discuss-phase; no new runtime dependency is assumed. SEED-011 (distinct message for an unverified email) is absorbed by UX-04. SEED-012 (the admin invite creating the Auth0 account) stays an owner decision and is not part of this phase unless the owner brings it in. Phase 44 of v1.1 is the model for the walkthrough method.
@@ -532,4 +534,4 @@ Plans:
 | 58. Second Hardware | v1.2 | 1/4 | In progress (58-01 done 2026-11-01): 58-01/58-02 executable, 58-03/58-04 blocked on purchase agreement | - |
 | 59. Comment-History Debt | v1.2 | 0/0 | Not started | - |
 | 60. Device Co-Management | v1.2 | 9/9 | Complete: merged (#276, #277, #279, #282) and deployed 2026-11-02; production checks reported done by the owner (see 60-HANDOFF.md) | 2026-11-02 |
-| 61. Companion UX and UI Overhaul (Admin and Users) | v1.2 | 14/15 | Executed; 61-13 (owner validation on the deployed companion) pending, with the quiet-hours/look setting at 4-5 actions instead of 3 | - |
+| 61. Companion UX and UI Overhaul (Admin and Users) | v1.2 | 15/16 | Executed; 61-13 (owner validation on the deployed companion) pending, with the quiet-hours/look setting at 4-5 actions instead of 3 | - |
