@@ -148,7 +148,7 @@ Layout widths: content column unchanged. Lists (fleet, users, my frames) are a s
 
 ## Typography
 
-Four primary sizes and two weights, as shipped. The 12px and 13px tiers (label voice, button sub-scale) are inherited from the shipped stylesheet unchanged (D10); no new size and no new weight is introduced:
+Four primary sizes and two weights, as shipped. The 12px tier (label voice: counts, pills) and the 13px tier (button sub-scale) are inherited from the shipped stylesheet, not extended (D10); this phase adds no size and no weight:
 
 | Role | Size | Weight | Line Height | This phase |
 |------|------|--------|-------------|------------|
@@ -198,7 +198,9 @@ Accent is never used for: status dots, the row menu button, close buttons, secon
 pills.
 
 Destructive actions (red): Retire frame, Re-activate frame (it erases data), Reassign frame for a
-frame that is not the served frame (it erases data), Disable user, Unlink identity, Leave this frame, Remove co-manager.
+frame that is not the served frame (it erases data), Disable user, Unlink identity, Leave this frame, Remove co-manager, the special-look "Remove" (Personalisation) and the manual-resolution
+delete (Airline editor). Each confirms in a dialog with a named dismiss label, like the other destructive dialogs ("Keep special look" / "Garder le look spécial";
+"Keep resolution" / "Garder la résolution"; initial focus on the dismiss control).
 Reassign of the served frame, Save role, Add co-manager, Pair frame, Invite user are non-destructive.
 
 Dark theme: the modal, sheet handle and scrim use `--color-dominant`, `--color-border`,
@@ -231,8 +233,8 @@ Airline collection `/airlines`, Account `/account`. SUPERSEDED: revision 1 liste
 (editing) and Device inside the administrator's "My views"; they are Console-only now.
 
 The personal pages show **no admin control**: no Health or Device link, no airline editing, no
-"Name this airline" link in Flight history, no Fleet or Console wording, for the administrator exactly
-as for a user. The only difference in the whole personal space is the space switch (1.2).
+"Name this airline" link in Flight history, no Fleet or Console wording (excluding `.space-switch` and
+`.frame-notice`, which are administrator only), for the administrator exactly as for a user. The only difference in the whole personal space is the space switch (1.2).
 
 A user never sees the words Admin, Console, Fleet, Releases, Health, Device or Update.
 
@@ -255,7 +257,7 @@ A **two-segment control** showing both spaces at once, current one filled:
 | 2 | My frame | Mon cadre | `/` (personal Home) |
 
 - **Phone (<960px):** a full-width strip directly under the header, above the page content, on every
-  page of both spaces, 48px high (`--space-sm` vertical padding around two 44px segments,
+  page of both spaces, 60px high (`--space-sm` padding above and below two 44px-high segments,
   `--radius-card` track on `--color-secondary`, hairline `--color-border`). Two equal segments
   (about 150px each at 360px), icon 20px + label 16px semibold. It scrolls with the page (not
   sticky); it is also the first row of the **More** sheet so it stays one tap away.
@@ -355,7 +357,7 @@ scope holds two or more frames**. One frame: nothing is rendered, nothing to cho
 - Sheet footer: one text link "Manage my frames" to `/account#account-frames`; dismiss control "Close".
 - **List content, personal pages:** the frames the viewer owns or co-manages. For an administrator
   this is the same rule as for a user (V0/V3): no "All frames", no Fleet link anywhere in the personal
-  space. If an administrator opens a frame that belongs to someone else (Fleet row "Open personal
+  space (excluding `.space-switch` and `.frame-notice`, administrator only). If an administrator opens a frame that belongs to someone else (Fleet row "Open personal
   view"), a `.frame-notice` strip (14px, `--color-secondary`, 44px high, wraps) is shown above the
   page title: "Viewing {owner email}'s frame" with a link "Back to Fleet"; the picker then lists the
   viewer's own frames plus that one frame (flagged with the owner email).
@@ -428,7 +430,7 @@ SUPERSEDED: revision 1 kept Health in the admin "My views" bar and Device/Airlin
 
 ## 2. Shared modal component
 
-One component, `dialog.modal`, used by all seven dialogs below. Native `<dialog>`, no library.
+One component, `dialog.modal`, used by all thirteen dialogs below. Native `<dialog>`, no library.
 
 Markup contract (per dialog, rendered in the page, not fetched):
 ```
@@ -491,6 +493,8 @@ Behaviour (testable):
 | 9 (revision 2) | Quiet hours | schedule row on Home (section 10) | Use quiet hours, Start, End, presets | Save quiet hours (primary) | `/quick/quiet-hours/window` (new) |
 | 10 (revision 2) | Choose a frame (sheet, no form) | frame chip (section 1.5) | none, one link card per frame | none | GET links |
 | 11 (revision 2) | Airline details (sheet, read-only, no form) | an airline card (section 12.1) | none | none | none |
+| 12 (revision 2) | Remove special look (confirm) | "Remove" on a special-look row (Personalisation) | none (sentence) | Remove special look (destructive; dismiss "Keep special look") | the existing rules remove route |
+| 13 (revision 2) | Delete manual resolution (confirm) | "Delete" on a manual resolution (Airline editor) | none (sentence) | Delete resolution (destructive; dismiss "Keep resolution") | `/airlines/manual-resolutions/<p>/delete` |
 
 Dialog 2 "no frame waiting" hint (shown under the form when no frame is pending): replaces the
 obsolete "Register one first".
@@ -745,9 +749,9 @@ disabled and unmatched identities.
 | Empty state body | see sections 3.2 and 4 (each ends with the next step) |
 | Error state | field errors beside the field (existing messages); sign-in errors per section 5, each ends with the action to take |
 | Destructive confirmation | Retire frame: "This frame will show a retired screen and stop updating…"; Re-activate: "Its settings and history are erased…"; Reassign (other owner): "%s's settings, history and gallery on this frame are erased…"; Disable user; Unlink identity; Leave this frame; Remove co-manager. All confirm inside a dialog whose initial focus is the dismiss control ("Keep frame", "Keep retired", "Stay on this frame", "Keep current owner"). |
-| Revision 2 CTAs | Location: Save location / Enregistrer le lieu; Quiet hours: Save quiet hours / Enregistrer; Search: Search / Chercher; full list in section 13 |
+| Revision 2 CTAs | Location: Save location / Enregistrer le lieu; Quiet hours: Save quiet hours / Enregistrer les heures calmes; Search: Search places / Rechercher un lieu; full list in section 13 |
 | Revision 2 empty states | Place: No place chosen yet; Collection: Your collection starts with the first plane; Special looks: No special looks yet (sections 9.9, 12.1, 11) |
-| Revision 2 errors | Search, tiles and geolocation errors each end with the next step (section 13); no destructive action is added by revision 2 |
+| Revision 2 errors | Search, tiles and geolocation errors each end with the next step (section 13); the two destructive actions revision 2 keeps (special-look Remove, manual-resolution delete) confirm in named-dismiss dialogs; it adds none |
 | Vocabulary | the device is always "frame"/"cadre" (D4); the console page is "Fleet"/"Flotte"; "Releases"/"Versions" is the one name of the update page; revision 2: the personal space of an administrator is "My frame"/"Mon cadre", flights are "Flight history"/"Historique des vols", "Display" is "Personalisation"/"Personnalisation"; Update/Appareil naming drift removed |
 
 Every new string above needs an English message and an entry in `companion/i18n_fr/`; the existing
@@ -778,8 +782,8 @@ scroll counts one. "Before" are the measured counts in `61-WALKTHROUGH.md`.
 ## 8. Testable assertions (for planner and ui-auditor)
 
 1. At 360px and 1280px, EN and FR, light and dark: no horizontal overflow on Fleet, Users, Account,
-   Home, any open dialog (`scrollWidth <= clientWidth`), and no text clipped inside a list row.
-2. Every interactive element on those pages and in open dialogs measures >=44x44 by hit-testing.
+   Home, and (revision 2) Location and detection, Personalisation, Airline collection, the frame sheet, the quiet-hours dialog, any open dialog (`scrollWidth <= clientWidth`), and no text clipped inside a list row.
+2. Every interactive element on those pages (revision 2: including Location and detection, Personalisation, Airline collection, the frame sheet and the quiet-hours dialog, at 360px and 1280px) and in open dialogs measures >=44x44 by hit-testing.
 3. Fleet and Users lists contain no `<table>`, no monospace computed font on emails or frame names, and
    at most one dot per row; the dot has an accessible name from the section 3.1 table.
 4. SUPERSEDED (revision 2, see R1-R3): no element with text "Admin" in the personal space; no "Admin"/"Console"/"Fleet"/"Releases"/"Device"/"Health"
@@ -802,8 +806,10 @@ scroll counts one. "Before" are the measured counts in `61-WALKTHROUGH.md`.
 13. Phase 47 freeze: `stub-server/test_phase47_freeze.py` is run explicitly and passes unchanged
     (verification list: run it by path, alongside `./scripts/run-all-tests.sh`). Two freeze checks cover
     the two companion behaviour changes: (a) an authenticated user requesting an un-prefixed frame page
-    (`/`, `/display`, `/flights`, `/airlines`, `/health`, `/detection`) gets a 303 to the same page under
+    (`/`, `/display`, `/flights`, `/airlines`, `/detection`) gets a 303 to the same page under
     their default frame prefix, with no change to the device-protocol routes or any Phase 47 file;
+    un-prefixed `/health` and `/airlines/manage` are admin-only and answer 404 to a user (section 1.6, R4),
+    never a 303. SUPERSEDED (revision 2): the earlier wording listed `/health` among the redirected pages;
     (b) `/login` while signed in redirects (303) to the role landing page (`/fleet` for admin,
     `/devices/<id>/` or `/account` for a user), and `/login` while signed out is unchanged.
 11. Contrast gate, motion budget (no new `@keyframes`, no bare duration on `animation`), reduce-block
@@ -823,7 +829,7 @@ runway choice (server-validated against the committed catalogue `server/data/air
 airports) are kept and re-presented.
 
 **Visual anchor:** the map is the largest element and the first thing the eye reads; the accent pin on
-it is the only accent mark above the fold apart from the active tab.
+it is the only accent mark above the fold apart from the active tab and, for an administrator, the accent-filled current segment of the space switch.
 
 ### 9.1 Page structure (top to bottom on phone; two columns at >=960px)
 
@@ -875,7 +881,7 @@ order above; the map is `height: min(60vh, 26rem)`, min 17.5rem, full card width
 
 ### 9.3 Search by city or address (Nominatim, external, D19)
 
-- A search field (`type="search"`, label "Search a city or address", 44px) with a "Search" button. **Search runs
+- A search field (`type="search"`, label "Search a city or address", 44px) with a "Search places" button. **Search runs
   on submit only** (Enter or the button): never on keystroke, no autocomplete, no suggestions while typing.
   This is the Nominatim usage policy's explicit ban.
 - Request: `GET https://nominatim.openstreetmap.org/search?format=jsonv2&q=<text>&countrycodes=fr&limit=5&accept-language=<en|fr>`,
@@ -1066,7 +1072,7 @@ SUPERSEDED: revision 1 and plan 61-16 kept "Quiet hours" as a card on Display (s
   The row reads "Quiet hours" + window, a chevron-right glyph marks it as openable. The user sees the same row for administrator and user.
 - **Dialog (shared modal, section 2; one form):** title "Quiet hours" / "Heures calmes". Fields: a checkbox-switch "Use quiet hours" (44px), Start time and End time (`type="time"`,
   44px, step 300), quick presets as three 44px chips that fill both fields (the existing presets: keep their labels), helper "The screen rests during these hours, in the
-  time zone {zone}. Change the time zone in Location and detection." with a link to `/detection#details` (EN/FR in section 13). Primary submit "Save quiet hours" / "Enregistrer"; dismiss "Close" / "Fermer"; header close "Close".
+  time zone {zone}. Change the time zone in Location and detection." with a link to `/detection#details` (EN/FR in section 13). Primary submit "Save quiet hours" / "Enregistrer les heures calmes"; dismiss "Close" / "Fermer"; header close "Close".
   Initial focus on the first control (Start time). Errors (existing validator messages) re-render Home with the dialog open (400) and the standard `aria-invalid` wiring.
 - **POST:** new `POST /quick/quiet-hours/window` (OWNER_DEVICE, csrf, return to `/` or the device-scoped Home) writes only `quiet_hours_enabled`, `quiet_hours_start` and
   `quiet_hours_end` through the existing validators and `save_device_config` path and shows the toast "Quiet hours saved — The screen will rest from %s to %s." / FR "Heures calmes enregistrées — L'écran sera au repos de %s à %s."
@@ -1091,8 +1097,8 @@ in-page anchors, not a second tab row) then one card per section, in this order,
 
 | # | Card | Contents | Notes |
 |---|------|----------|-------|
-| 1 | **Look** | the themes/looks as inline radio cards: 2 columns at 360px, 3 at >=700px, 4 at >=1280px, each card a swatch preview with the look's name (16px semibold) and a check + accent ring when selected; "Customise" opens the existing look sheet for fine settings | selecting a look is one tap, no sheet needed; Save bar as today |
-| 2 | **Special looks** | the existing rules list ("When {airline} lands, use {look}"), "+ New special look" (primary, opens the existing sheet), per-row Edit/Remove (Remove is destructive-styled) | existing `rules` routes unchanged |
+| 1 | **Look** | the themes/looks as inline radio cards: 2 columns at 360px, 3 at >=700px, 4 at >=1280px, each card a swatch preview with the look's name (16px semibold) and a check + accent ring when selected; "Customise look" opens the existing look sheet for fine settings | selecting a look is one tap, no sheet needed; Save bar as today |
+| 2 | **Special looks** | the existing rules list ("When {airline} lands, use {look}"), "+ New special look" (primary, opens the existing sheet), per-row Edit/Remove (Remove is destructive-styled and confirms in a dialog, "Keep special look") | existing `rules` routes unchanged |
 | 3 | **Calendar** | status line ("Flights in your calendar: on/off, {calendar}"), "Choose calendar" opening the existing calendar sheet | existing `calendar` routes unchanged |
 | 4 | **Refresh** | wake interval (existing control) with the current value and a plain sentence on battery effect (existing copy) | |
 | 5 | **Screen** | the "when it is on" settings that remain (display on/off); the diagnostic LED is a Device (Console) setting and does not appear here | quiet hours: not here (section 10) |
@@ -1106,7 +1112,7 @@ in-page anchors, not a second tab row) then one card per section, in this order,
 - Step counts: change the look = Personalisation tab, tap a look, Save = 3 (target met, was 5).
 
 Strings (EN / FR): "Personalisation" / "Personnalisation"; "On this page" / "Sur cette page"; "Look" / "Look"; "Special looks" / "Looks spéciaux" (existing); "Calendar" / "Calendrier"; "Refresh" / "Actualisation";
-"Screen" / "Écran"; "Customise" / "Personnaliser"; "Selected" (hidden) / "Sélectionné"; current-value lines: "Current: %s" / "Actuel : %s".
+"Screen" / "Écran"; "Customise look" / "Personnaliser le style"; "Selected" (hidden) / "Sélectionné"; current-value lines: "Current: %s" / "Actuel : %s".
 
 ---
 
@@ -1129,9 +1135,9 @@ line "6 more for the 20 airlines badge" / "Encore 6 pour le badge 20 compagnies"
 **Badges (five, collection-level, derived from the count):** "First sighting" (1), "5 airlines", "10 airlines", "25 airlines", "50 airlines" (FR: "Première observation", "5 compagnies", "10 compagnies", "25 compagnies", "50 compagnies").
 A badge is a 44px-high pill: a glyph (`icon-star`, add to the sprite) and its label; earned badges are `--color-dominant` with a 2px `--color-text` border and a check; locked badges are 50% text colour with a dashed border and the word "Locked" hidden-visible to screen readers ("Locked: spot 25 airlines"). The state is carried by the border, the check and the text, not colour alone. No accent use.
 
-**Controls (GET, no script needed):** a filter row of three `filter-chip` links "All / Spotted / Not yet seen" (FR "Toutes / Repérées / Pas encore vues") and a sort select (44px) "Most seen / Latest / A to Z" (FR "Les plus vues / Les plus récentes / A à Z"), a `list-filter` text field "Filter airlines". One chip row only (the Console section chip rows are gone and this is a filter, as Audit's is).
+**Controls (GET, no script needed):** a filter row of three `filter-chip` links "All / Spotted / Not yet seen" (FR "Toutes / Repérées / Pas encore vues") and a sort select (44px) "Most seen / Latest / A to Z" (FR "Les plus vues / Les plus récentes / A à Z"), a `list-filter` text field "Filter airlines". The chips, sort select and filter field sit in one GET form with a 44px "Apply" / "Appliquer" submit button (the no-script path; hidden under the `.js` gate class where the select submits on change). One chip row only (the Console section chip rows are gone and this is a filter, as Audit's is).
 
-**Grid of airline cards:** `ul` of cards, 2 columns at 360px, 3 at >=700px, 4 at >=1280px, gap `--space-md`. Each card is one `<button>` (44px+ hit area = the whole card) opening the read-only detail sheet:
+**Grid of airline cards:** `ul` of cards, 2 columns at 360px, 3 at >=700px, 4 at >=1280px, gap `--space-md`. Each card is one `<a href="#dlg-airline-<id>" data-modal-open>` (44px+ hit area = the whole card; a link so the no-JS hash path shows the sheet, never a `<button>`) opening the read-only detail sheet:
 - the airline picture (existing normalised illustration, `width`/`height` constants from `illustration_normalize`, `loading="lazy"`);
 - the airline name, 16px semibold, wraps;
 - a second line 14px muted: "Seen 23 times" / "Vue 23 fois" (singular "Seen once" / "Vue une fois");
@@ -1165,8 +1171,8 @@ Every string needs an English message and an FR catalogue entry under `companion
 | Element | EN | FR |
 |---------|----|----|
 | Place card title | Place | Lieu |
-| Search label | Search a city or address | Chercher une ville ou une adresse |
-| Search button | Search | Chercher |
+| Search label | Search a city or address | Rechercher une ville ou une adresse |
+| Search button | Search places | Rechercher un lieu |
 | Search help (privacy) | What you type is sent to OpenStreetMap's search service (Nominatim). | Ce que vous tapez est envoyé au service de recherche d'OpenStreetMap (Nominatim). |
 | Search none | No place found in France. Try another spelling, tap the map or pick an airport. | Aucun lieu trouvé en France. Essayez une autre orthographe, touchez la carte ou choisissez un aéroport. |
 | Search failure | Search is not available right now. Tap the map, pick an airport or enter coordinates. | La recherche n'est pas disponible pour le moment. Touchez la carte, choisissez un aéroport ou saisissez des coordonnées. |
@@ -1196,7 +1202,7 @@ Every string needs an English message and an FR catalogue entry under `companion
 | Report a map problem | Report a map problem | Signaler un problème de carte |
 | Empty place | No place chosen yet / Pick an airport, search a place or tap the map, then save. | Aucun lieu choisi / Choisissez un aéroport, cherchez un lieu ou touchez la carte, puis enregistrez. |
 | Saved toast | Location saved — Detection now follows %s. | Lieu enregistré — La détection suit désormais %s. |
-| Quiet hours dialog | Quiet hours / Use quiet hours / Start / End / Save quiet hours | Heures calmes / Utiliser les heures calmes / Début / Fin / Enregistrer |
+| Quiet hours dialog | Quiet hours / Use quiet hours / Start / End / Save quiet hours | Heures calmes / Utiliser les heures calmes / Début / Fin / Enregistrer les heures calmes |
 | Quiet hours helper | The screen rests during these hours, in the time zone %s. Change the time zone in Location and detection. | L'écran est au repos pendant ces heures, dans le fuseau %s. Changez le fuseau dans Lieu et détection. |
 | Quiet hours toast | Quiet hours saved — The screen will rest from %s to %s. | Heures calmes enregistrées — L'écran sera au repos de %s à %s. |
 | Collection progress | %d of %d airlines spotted | %d compagnies sur %d repérées |
@@ -1209,6 +1215,9 @@ Every string needs an English message and an FR catalogue entry under `companion
 | Detail facts | Times seen / First seen / Last seen / Aircraft types seen / Recent callsigns | Nombre de vues / Première vue / Dernière vue / Types d'avion vus / Indicatifs récents |
 | Empty collection | Your collection starts with the first plane / Airlines show up here as your frame sees them. | Votre collection commence avec le premier avion / Les compagnies apparaissent ici dès que votre cadre les voit. |
 | Airline editor title | Airline editor | Éditeur de compagnies |
+| Remove special look: title / dismiss | Remove this special look? / Keep special look | Supprimer ce look spécial ? / Garder le look spécial |
+| Delete manual resolution: title / dismiss | Delete this resolution? / Keep resolution | Supprimer cette résolution ? / Garder la résolution |
+| Airline list apply (no-script) | Apply | Appliquer |
 
 ---
 
@@ -1223,13 +1232,13 @@ Rule unchanged: one tap, one typed or chosen value, or one needed scroll; start 
 | U4c | Change the refresh interval | measure | 3 | Personalisation tab, choose, Save |
 | L1 | Follow an airport's runway | n/a (new flow) | 4 | Location tab, type in the airport filter, tap the airport, Save |
 | L2 | Set the place with my position | n/a | 4 | Location tab, Use my position, (allow in the browser prompt counts one), Save |
-| L3 | Set the place from a city or address | n/a | 6 | Location tab, type, Search, tap the result, Save (plus choosing the radius or runway only if the default does not fit) |
+| L3 | Set the place from a city or address | n/a | 6 | Location tab, type, Search places, tap the result, Save (plus choosing the radius or runway only if the default does not fit) |
 | L4 | Set the place by dropping a pin | n/a | 3 | Location tab, tap the map, Save |
 | S1 | Switch to the Console (administrator) | 1 (link) | 1 | one tap on the visible segment, from any page |
 | S2 | Switch frame (several frames) | 1 (open the switcher) | 2 | tap the frame chip, tap the frame card (the list is the same one tap away; the card view costs one more tap than the old drop-down list, accepted for the larger targets) |
 | A7 | Read one frame's health (administrator) | measure | 1 | Fleet row name link (Console Health) |
-| A8 | Change an airline's name or picture | measure (Airlines tab) | 4 | More, Airline editor, open the airline, change and save (state in the plan test) |
-| V1 | See how many airlines my frame has spotted | 1 (Airlines tab, a gallery) | 1 | the Airline collection (More on phone, one tab of the sidebar on desktop; the headline count is the first element) |
+| A8 | Change an airline's name or picture | measure (Airlines tab) | at least 5 on phone | More, Airline editor, open the airline, change, save (4 on desktop, where the sidebar link replaces More plus the link; state the measured number in the plan test) |
+| V1 | See how many airlines my frame has spotted | 1 (Airlines tab, a gallery) | 2 on phone (1 on desktop) | phone: More, Airline collection; desktop: one sidebar link; the headline count is the first element |
 
 The unchanged rows A1-A6, U1-U3 in section 7 stay valid; A1 (Fleet) is not affected; U2 "several frames" moves from 1 to 2 (S2): note it in `61-STEP-COUNTS.md`.
 
@@ -1238,21 +1247,21 @@ The unchanged rows A1-A6, U1-U3 in section 7 stay valid; A1 (Fleet) is not affec
 ## 15. Revision 2 testable assertions (behaviour only; for planner and ui-auditor)
 
 R1 (V0). For the same frame, the administrator's and the user's personal pages (Home, Flight history, Location and detection, Personalisation, Airline collection, Account) render identical navigation (links, labels, order) and identical page bodies, except the space switch, which only the administrator has. Test: fetch each page as both, strip the `.space-switch`, compare the visible nav link set and the sets of form controls.
-R2. A user (owner of a frame) and an administrator see no element linking to or labelled Health, Device, Fleet, Users, Audit, Releases or Airline editor in any personal page, nor "Name this airline" in Flight history for a user.
+R2. A user (owner of a frame) and an administrator see no element linking to or labelled Health, Device, Fleet, Users, Audit, Releases or Airline editor in any personal page (excluding `.space-switch` and `.frame-notice` (administrator only)), nor "Name this airline" in Flight history for a user.
 R3. Console nav sets: Console phone bar cells are exactly Fleet, Users, Health, Device, More; Console sidebar has Fleet, Users, Health, Device, Airline editor, Audit log, Releases and Account; the personal bar is exactly Home, History, Location, Style, More; the personal sidebar has Home, Flight history, Location and detection, Personalisation, Airline collection, Account. No Locations entry exists anywhere.
 R4. Route access rows: `/health`, `/airlines/manage`, `/airlines/resolve`, `/airlines/rename`, `/airlines/rename-reset`, the manual-resolution delete and the illustration upload POST are 404 for an owner user and a co-manager, 200 (or the handler's normal result) for an administrator, login redirect for anonymous; `/device` unchanged; `/locations` GET is a 303 to `/fleet` for an administrator and 404 for a user; the Phase 47 freeze test passes unchanged.
 R5 (V1). The personal-space segment reads "My frame" (EN) and "Mon cadre" (FR); "My views" and "Mes vues" appear nowhere in the served pages.
 R6 (V2). At 360px and 1280px, EN and FR, both themes, an administrator sees `.space-switch` on every Console and personal page: both segments visible, each >=44px high, the current one `aria-current="page"` with a computed fill different from the other, no overflow, no wrap; a user never has it; the tab-bar cells stay equal and unclipped.
 R7. Tapping the segments navigates in one tap: Console to `/fleet`, My frame to `/`; after the switch the other segment is current.
-R8 (V3, V6). No element with the text "All frames", "Tous les cadres" or a link to `/fleet` exists inside the personal space (including the frame picker sheet) for an administrator. With one frame no frame chip is rendered.
+R8 (V3, V6). No element with the text "All frames", "Tous les cadres" or a link to `/fleet` exists inside the personal space (including the frame picker sheet) for an administrator, excluding `.space-switch` and `.frame-notice` (administrator only). With one frame no frame chip is rendered.
 R9 (V4). The sidebar and page title read "Flight history" / "Historique des vols"; the bar reads "History" / "Vols"; "Flights" as a nav label no longer appears in EN.
 R10 (V5). Health and Device render in the Console chrome (Console bar or sidebar, Console segment current) for the served frame and for `/devices/<id>/...`; the Fleet row name link points to `/devices/<id>/health`; the Console frame chip lists every frame.
 R11. Frame picker: with two or more frames the chip opens a sheet of one card per frame (>=64px, accessible name from the dot word set, `aria-current` on the current frame); choosing a card keeps the page (Personalisation stays Personalisation); Esc closes and returns focus to the chip; works without script through the hash link.
 R12 (V7). `/detection` renders the map container, the airport list (all catalogue airports), the search form, the "Use my position" button and the coordinate fields; saving through the plain form (no script) stores the airport/runway or the latitude/longitude and the label, and a refused value (outside France box, radius out of range, bad runway) returns 400 with errors beside the fields.
 R13. Map page CSP header equals the string in 9.6 a exactly; the Permissions-Policy header on that page is `geolocation=(self)`; on every other route the CSP is the pre-revision string and the Permissions-Policy is `geolocation=()`; neither tile nor Nominatim host appears in any other route's headers.
 R14. The page loads `/static/vendor/leaflet/leaflet.js`, `leaflet.css`, `place-map.js` from `/static/`, the served `leaflet.js` and `leaflet.css` SHA-256 equal the values in 9.6 f, `LICENSE` is served, no `<script src>` points to another origin, and no request to `/static/vendor/leaflet/images/*` is made.
-R15. In a real browser (tiles and Nominatim mocked with `page.route`): the map shows tiles; tapping the map moves the pin and fills latitude and longitude; dragging does too; typing in the coordinate fields moves the pin; the attribution text "© OpenStreetMap contributors" is visible inside the map and links to the OSM copyright page; at 360px nothing overflows and the controls are >=44px (except the attribution link).
-R16. Search: nothing is requested while typing; exactly one Nominatim request on submit; a second submit inside 1.5 s is ignored; the request carries `countrycodes=fr` and `limit=5`; a result tap moves the pin and fills the label; an aborted request shows the failure sentence and the rest of the page still saves.
+R15. In a real browser (tiles and Nominatim mocked with `page.route`): the map shows tiles; tapping the map moves the pin and fills latitude and longitude; dragging does too; typing in the coordinate fields moves the pin; the attribution text "© OpenStreetMap contributors" is visible inside the map and links to the OSM copyright page; at 360px and at 1280px nothing overflows and the controls are >=44px by hit-testing (except the attribution link); the Referer captured on the tile requests equals the page origin (`https://<host>/`): the tile layer's per-request `referrerPolicy: 'origin'` overrides the global `Referrer-Policy: same-origin` header.
+R16. Search: nothing is requested while typing; exactly one Nominatim request on submit; a second submit inside 1.5 s is ignored; the request carries `countrycodes=fr` and `limit=5` and a Referer equal to the page origin (per-request `referrerPolicy: 'origin'` overriding the global `same-origin` header, read from the request headers captured in `page.route`); a result tap moves the pin and fills the label; an aborted request shows the failure sentence and the rest of the page still saves.
 R17. "Use my position": no geolocation call on load; one call on tap (the browser context grants it with a fixed coordinate); the pin and fields update; with permission denied the denied sentence shows; the button is hidden when geolocation is unsupported.
 R18. Failure modes: with the tile host aborted, the tile-failure notice appears and saving by pin or fields works; with scripts disabled, the airport GET list and the coordinates form save; with `leaflet.js` aborted, the page falls back to the plain form (no console error breaks it).
 R19 (D20, live frame). No Locations UI exists; for a frame with an existing `location_id` and untouched detection the poll loop's `detection.spec_for` result and zone key are byte-identical before and after this revision; the first map save creates a private row, a repeat save updates it in place, a row shared by two frames is not modified (a new row is made); the locations table and `devices.location_id` column still exist (schema test).
@@ -1263,7 +1272,7 @@ R23. Step counts U4a=3 and U4b=3, L1=4, L2=4, L4=3, S1=1, A7=1 are measured by t
 R24 (V10). `/airlines` for a user, an owner and an administrator is the Airline collection: progress headline, badge shelf, filter chips, sort, and cards; it contains no `<input type="file">`, no form that posts to an `/airlines/...` route, no rename or resolve control.
 R25. The read model counts from `runway_events` only: with a seeded history (known airlines with counts 1, 3 and 12) the cards show Rare, Occasional, Regular, the right "Seen n times", first and last dates, the "New" pill within 7 days, and the progress count equals the number of airlines with at least one event; with no events the empty state shows and every card is "Not seen yet"; badges earned = the thresholds reached.
 R26. `/airlines/manage` shows the previous editing capabilities to an administrator (replace picture, rename, resolve, manual delete) with unchanged validation; the airline POSTs accept the same inputs as before from an administrator and refuse a user and a co-manager.
-R27. Every new string in sections 1.2b, 9, 10, 11, 12 and 13 exists in English and French; at 360px, EN and FR, light and dark, none of the new pages or dialogs overflows horizontally, and every control is >=44x44 by hit-testing (exception: the OSM attribution link).
+R27. Every new string in sections 1.2b, 9, 10, 11, 12 and 13 exists in English and French; at 360px and 1280px, EN and FR, light and dark, none of the new pages or dialogs (Location and detection, Personalisation, Airline collection, the frame sheet, the quiet-hours dialog) overflows horizontally, and every control is >=44x44 by hit-testing (exception: the OSM attribution link).
 R28. Contrast gate, motion budget (no new `@keyframes`, no bare duration on `animation`), function-size gate, comment-history guard and the stylesheet-structure tests stay green; the accent list in the stylesheet header covers the uses added in the Color section.
 
 ---
