@@ -78,6 +78,10 @@ def _open(new_context, app, email, route, lang="en", **context_args):
 
 def _wait_sheet_open(page):
     page.wait_for_function("() => document.querySelector('dialog.frame-sheet').open")
+    # The sheet enters with a short animation; a box measured while it runs is
+    # a fraction of a pixel short of its resting size.
+    page.wait_for_function(
+        "() => document.getAnimations().every((a) => a.playState !== 'running')")
 
 
 def test_a_user_switches_frame_from_display_and_stays_on_display(new_context, fleet_app):
