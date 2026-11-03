@@ -112,7 +112,8 @@ present on the VPS) as `sqlite3.connect('file:/opt/skypane/state/history.db?mode
 uri=True)`, sets `PRAGMA busy_timeout=5000`, and prints one JSON object
 per row from `SELECT ts, battery_mv, fw_version, boot_reason, rssi FROM
 device_health WHERE ts >= ? ORDER BY ts` bounded by the recorded
-disconnect time. The read-only URI is there because the 30-second
+disconnect time. The read-only export route returns thirteen further wake
+keys per row; this SSH query is unchanged. The read-only URI is there because the 30-second
 ingest oneshot is writing to this database continuously and an external
 reader must be incapable of corrupting the store or locking out the
 writer; the `busy_timeout` matches the discipline `history_db.connect()`

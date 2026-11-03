@@ -1338,15 +1338,17 @@ def test_check_in_gaps_degenerate_windows_return_empty_without_raising(tmp_path)
             pytest.fail("a window containing both rows must yield their one interval")
 
 
-def test_history_db_introduces_no_migration_mechanism():
-    """server/history_db.py still contains no ALTER TABLE and no PRAGMA user_version - the whole migration story remains CREATE TABLE IF NOT EXISTS on every connection"""
-    src_path = os.path.join(REPO_ROOT, "server", "history_db.py")
-    with open(src_path) as fh:
-        src = fh.read()
-    if re.search(r"ALTER\s+TABLE", src, re.IGNORECASE):
-        pytest.fail("history_db.py grew an ALTER TABLE - this project has no migration mechanism")
-    if re.search(r"PRAGMA\s+user_version", src, re.IGNORECASE):
-        pytest.fail("history_db.py grew a PRAGMA user_version - this project has no schema version stamp")
+def test_history_db_introduces_no_migration_mechanism(tmp_path):
+    """init_schema() adds nullable columns by a guarded ALTER but never stamps a schema version: PRAGMA user_version stays 0 on a fresh and on a migrated database"""
+    path = os.path.join(str(tmp_path), "history.db")
+    conn = sqlite3.connect(path)
+    try:
+        history_db.init_schema(conn)
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
+    finally:
+        conn.close()
+    if version != 0:
+        pytest.fail("init_schema() stamped a schema version: PRAGMA user_version = %r" % (version,))
 
 
 def test_classify_check_in_gap_boundaries_on_the_multiplier_path():

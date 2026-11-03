@@ -29,6 +29,7 @@ from urllib.parse import parse_qsl
 
 from companion import oidc
 from server import history_db
+from server.wake_stats import WAKE_COLUMNS
 
 EXPORT_ROUTE = "/api/export/battery-history"
 TOKEN_ENV_VAR = "SKYPANE_EXPORT_TOKEN"
@@ -48,7 +49,7 @@ _SINCE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 _BEARER_PREFIX = "bearer "
 _PLAIN = "text/plain; charset=utf-8"
 _NDJSON = "application/x-ndjson; charset=utf-8"
-_COLUMNS = ("ts", "battery_mv", "fw_version", "boot_reason", "rssi")
+_COLUMNS = ("ts", "battery_mv", "fw_version", "boot_reason", "rssi") + WAKE_COLUMNS
 
 _UNAUTHORIZED_BODY = b"Unauthorized\n"
 _THROTTLED_BODY = b"Too many failed attempts\n"

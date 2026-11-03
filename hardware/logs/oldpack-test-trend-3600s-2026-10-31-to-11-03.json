@@ -1,0 +1,60 @@
+{
+  "band": "not_applicable",
+  "band_sentence": "The bands are undefined because the 180-day allowance, the favourable and the central hypotheses are not in increasing order: 0.69 mA (180-day allowance), 0.49 mA (favourable) and 7.64 mA (central).",
+  "capacity_basis": "rated, not measured",
+  "capacity_mah": 3000,
+  "does_not_measure": [
+    "Rest-voltage creep after a full charge: the voltage keeps settling for days, which lowers the apparent draw early in the run.",
+    "The curve shape and the 3000 or 10000 mAh figure are ratings; a real pack differs and the voltage-to-charge mapping is not a measurement.",
+    "1 mV quantisation of the reading and the sensitivity above: a few mV of end-point error moves the estimate by the amounts printed.",
+    "Quiet-hours wakes are longer, so the field average over a day is below a daytime-rate hypothesis; the end points leave quiet-hours polls out.",
+    "The figure is an average over the window, not the instantaneous sleep current.",
+    "It cannot separate the standing draw from the wake energy at a single interval.",
+    "Above 4000 mV the curve is not calibrated against a discharge; an end point there gives no band, and the estimate is printed as unreliable."
+  ],
+  "edge_hours": 12.0,
+  "estimate": {
+    "average_ma": 0.9802,
+    "capacity_mah": 3000,
+    "charge_mah": 63.0,
+    "curve_calibrated": true,
+    "cut": "2026-10-31T14:10:58+00:00",
+    "elapsed_hours": 64.2744,
+    "first": {
+      "mv": 3954,
+      "polls": 9,
+      "ts": "2026-10-31T18:13:21+00:00"
+    },
+    "fraction": {
+      "first": 0.7573,
+      "last": 0.7363
+    },
+    "last": {
+      "mv": 3936.0,
+      "polls": 10,
+      "ts": "2026-11-03T10:29:49+00:00"
+    },
+    "polls_after_cut": 59,
+    "quiet_share": 0.1017,
+    "sensitivity_ma_per_10mv": {
+      "first": 0.5445,
+      "last": 0.5445
+    },
+    "span_hours": 72.8203
+  },
+  "export_sha256": "ebd2bc099bf8a932491ed6126901652247d7cfd98b4cb13937d3f363da28ba5a",
+  "hypotheses": {
+    "allowance_ma": 0.6944,
+    "central_ma": 7.6423,
+    "favourable_ma": 0.488,
+    "interval_s": 3600
+  },
+  "ignore_hours": 3.0,
+  "interval_s": 3600,
+  "quiet_window": [
+    "23:30",
+    "06:00"
+  ],
+  "rows_dropped_before_start": 575,
+  "start_utc": "2026-10-31T11:10:00+00:00"
+}

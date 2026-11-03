@@ -1,0 +1,10 @@
+first reading at or below 3999 mV: 2026-10-29T09:38:00+00:00
+first gap of about 3600 s starts: 2026-10-31T11:10:58+00:00
+last reading: 2026-11-03T15:01:14+00:00 3934 mV
+900 s segment: start median 3998 mV (47 polls) -> end median 3966 mV (23 polls); 40.5 h; fall 32 mV = 0.791 mV/h; curve-based 8.63 mA
+3600 s segment: start median 3954 mV (9 polls) -> end median 3936 mV (9 polls); 63.8 h; fall 18 mV = 0.282 mV/h; curve-based 0.99 mA
+run one: first median-9 crossing of 3300 mV at 283.1 h, mean 10.0 mA (3000 mAh x 0.94)
+  900 s: run-one first-crossing time between 3998 and 3966 mV = 38.9 h vs 40.5 h in the test -> ratio 0.96 -> ~9.6 mA
+  900 s: run-one sustained-crossing time between 3998 and 3966 mV = 23.4 h vs 40.5 h in the test -> ratio 0.58 -> ~5.8 mA
+  3600 s: run-one first-crossing time between 3954 and 3936 mV = 4.1 h vs 63.8 h in the test -> ratio 0.06 -> ~0.6 mA
+  3600 s: run-one sustained-crossing time between 3954 and 3936 mV = 4.1 h vs 63.8 h in the test -> ratio 0.06 -> ~0.6 mA

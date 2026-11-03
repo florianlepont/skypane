@@ -16,6 +16,7 @@
 
 #include "api_client.h"
 #include "battery.h"
+#include "epd13in3e.h"
 #include "fault_inject.h"
 #include "led.h"
 #include "nvs_schema.h"
@@ -106,10 +107,14 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
         return FP_POLL_FAILED;
     }
 
+    if (timing_out) {
+        timing_out->boot_ms = fp_wake_elapsed_ms();
+    }
     int64_t t_wifi = esp_timer_get_time();
     esp_err_t wifi_err = fp_wifi_connect(15000);
     if (timing_out) {
         timing_out->wifi_ms = elapsed_ms_since(t_wifi);
+        timing_out->wifi_attempts = fp_wifi_attempts();
     }
     if (wifi_err != ESP_OK) {
         /* fp_wifi_connect() returns FP_ERR_CONFIG, with no radio activity
@@ -143,6 +148,15 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
     }
 
     fp_display_t disp;
+    if (timing_out) {
+        fp_wake_current_t cur = {
+            .seq = timing_out->seq,
+            .boot_ms = timing_out->boot_ms,
+            .wifi_ms = timing_out->wifi_ms,
+            .wifi_attempts = timing_out->wifi_attempts,
+        };
+        fp_api_set_wake_current(&cur);
+    }
     int64_t t_display = esp_timer_get_time();
     esp_err_t err = fp_api_get_display(boot_reason, &disp);
     if (timing_out) {
@@ -209,6 +223,10 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
                 esp_err_t apply_err = fp_ota_apply(&disp.fw, &ota_fail);
                 if (apply_err == ESP_OK) {
                     ESP_LOGI(TAG, "ota switched version=%s restarting", disp.fw.version);
+                    /* This restart does not pass through app_main.c's
+                     * enter_deep_sleep(), so no previous-wake record is
+                     * written for this wake, and the restart reinitialises
+                     * the RTC area: the next wake sends no p_ keys. */
                     /* esp_restart() is a soft reset, not deep sleep: ESP-IDF
                      * re-runs the C runtime init for the .rtc.data segment on
                      * this kind of reset, so panel.c's RTC_DATA_ATTR guard
@@ -297,6 +315,8 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
     err = fp_panel_draw(buf);
     if (timing_out) {
         timing_out->draw_ms = elapsed_ms_since(t_draw);
+        timing_out->spi_ms = epd_spi_ms();
+        timing_out->tls_ms = fp_api_first_connect_ms();
     }
     heap_caps_free(buf);
 
@@ -309,6 +329,9 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
      * draws it instead of a healthy panel being punished with backoff. */
     if (err == ESP_ERR_INVALID_STATE || err == ESP_ERR_TIMEOUT) {
         ESP_LOGI(TAG, "draw deferred by the panel guard");
+        if (timing_out) {
+            timing_out->redraw = 2;
+        }
         return FP_POLL_OK_DEFERRED;
     }
     if (err != ESP_OK) {
@@ -316,6 +339,9 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
         return FP_POLL_FAILED;
     }
 
+    if (timing_out) {
+        timing_out->redraw = 1;
+    }
     ESP_LOGI(TAG, "blit ok bytes=960000 sha256_ok=1");
 
     /* Persist the new hash only after a successful blit — a blit that

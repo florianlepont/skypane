@@ -1,0 +1,202 @@
+{
+  "awake_breakdown": {
+    "nochange": {
+      "mean_ms": {
+        "prev_awake_ms": 5000.0,
+        "prev_download_ms": 0.0,
+        "prev_draw_ms": 0.0,
+        "prev_request_ms": 300.0,
+        "prev_spi_ms": 0.0,
+        "prev_tls_ms": 650.0
+      },
+      "wakes": 565
+    },
+    "redraw": {
+      "mean_ms": {
+        "prev_awake_ms": 25000.0,
+        "prev_download_ms": 4000.0,
+        "prev_draw_ms": 12000.0,
+        "prev_request_ms": 300.0,
+        "prev_spi_ms": 9000.0,
+        "prev_tls_ms": 650.0
+      },
+      "wakes": 179
+    }
+  },
+  "classes": {
+    "deferred": 0,
+    "failed": 0,
+    "nochange": 565,
+    "redraw": 179,
+    "unknown": 0
+  },
+  "fit": {
+    "degrees_of_freedom": 5,
+    "implied_current_ma": {
+      "nochange": 138.98188,
+      "redraw": 178.028123
+    },
+    "nochange_mah": {
+      "high": 0.212248,
+      "low": 0.173813,
+      "point": 0.19303
+    },
+    "redraw_mah": {
+      "high": 1.268943,
+      "low": 1.20367,
+      "point": 1.236306
+    },
+    "residual_mah_rms": 0.452471,
+    "standing_ma": {
+      "high": 0.630259,
+      "low": 0.562203,
+      "point": 0.596231
+    }
+  },
+  "inputs": {
+    "capacity_mah": 1000.0,
+    "export": "wakemodel-synthetic.jsonl",
+    "export_sha256": "f1a1747511805d01411a54fa9f5eb80c6b8a0170512d1b7a8f9f7a48dfffa1e2",
+    "parameters": {
+      "edge_hours": 12.0,
+      "ignore_hours": 24.0,
+      "max_condition": 100.0,
+      "max_nochange_ma": 500.0,
+      "max_redraw_ma": 200.0,
+      "max_unmodelled_share": 0.25,
+      "min_polls": 5,
+      "min_segments": 6,
+      "min_share_spread": 0.15,
+      "quiet_end": "06:00",
+      "quiet_start": "23:30",
+      "segment_hours": 48.0
+    },
+    "rows": 745,
+    "rows_dropped": 0
+  },
+  "reasons": [],
+  "refused": false,
+  "segments": [
+    {
+      "charge_mah": 30.555556,
+      "deferred": 0,
+      "end": "2026-03-05T05:00:00+00:00",
+      "failed": 0,
+      "first_mv": 3995.0,
+      "hours": 39.5,
+      "index": 0,
+      "last_mv": 3990,
+      "nochange": 39,
+      "redraw": 0,
+      "redraw_share": 0.0,
+      "start": "2026-03-03T13:30:00+00:00",
+      "unknown": 0
+    },
+    {
+      "charge_mah": 79.833333,
+      "deferred": 0,
+      "end": "2026-03-07T05:15:00+00:00",
+      "failed": 0,
+      "first_mv": 3988.0,
+      "hours": 39.5,
+      "index": 1,
+      "last_mv": 3945.0,
+      "nochange": 40,
+      "redraw": 39,
+      "redraw_share": 0.493671,
+      "start": "2026-03-05T13:45:00+00:00",
+      "unknown": 0
+    },
+    {
+      "charge_mah": 41.416667,
+      "deferred": 0,
+      "end": "2026-03-09T05:00:00+00:00",
+      "failed": 0,
+      "first_mv": 3935.5,
+      "hours": 39.5,
+      "index": 2,
+      "last_mv": 3911,
+      "nochange": 29,
+      "redraw": 10,
+      "redraw_share": 0.25641,
+      "start": "2026-03-07T13:30:00+00:00",
+      "unknown": 0
+    },
+    {
+      "charge_mah": 39.285714,
+      "deferred": 0,
+      "end": "2026-03-11T05:15:00+00:00",
+      "failed": 0,
+      "first_mv": 3907.0,
+      "hours": 39.5,
+      "index": 3,
+      "last_mv": 3889.0,
+      "nochange": 79,
+      "redraw": 0,
+      "redraw_share": 0.0,
+      "start": "2026-03-09T13:45:00+00:00",
+      "unknown": 0
+    },
+    {
+      "charge_mah": 50.714286,
+      "deferred": 0,
+      "end": "2026-03-13T05:00:00+00:00",
+      "failed": 0,
+      "first_mv": 3882.5,
+      "hours": 39.5,
+      "index": 4,
+      "last_mv": 3847,
+      "nochange": 20,
+      "redraw": 19,
+      "redraw_share": 0.487179,
+      "start": "2026-03-11T13:30:00+00:00",
+      "unknown": 0
+    },
+    {
+      "charge_mah": 59.415584,
+      "deferred": 0,
+      "end": "2026-03-15T05:15:00+00:00",
+      "failed": 0,
+      "first_mv": 3837.5,
+      "hours": 39.5,
+      "index": 5,
+      "last_mv": 3818.0,
+      "nochange": 60,
+      "redraw": 19,
+      "redraw_share": 0.240506,
+      "start": "2026-03-13T13:45:00+00:00",
+      "unknown": 0
+    },
+    {
+      "charge_mah": 58.333333,
+      "deferred": 0,
+      "end": "2026-03-17T05:10:00+00:00",
+      "failed": 0,
+      "first_mv": 3814.0,
+      "hours": 39.333333,
+      "index": 6,
+      "last_mv": 3789.0,
+      "nochange": 106,
+      "redraw": 12,
+      "redraw_share": 0.101695,
+      "start": "2026-03-15T13:50:00+00:00",
+      "unknown": 0
+    },
+    {
+      "charge_mah": 94.858537,
+      "deferred": 0,
+      "end": "2026-03-19T05:10:00+00:00",
+      "failed": 0,
+      "first_mv": 3779.5,
+      "hours": 39.333333,
+      "index": 7,
+      "last_mv": 3697.5,
+      "nochange": 71,
+      "redraw": 47,
+      "redraw_share": 0.398305,
+      "start": "2026-03-17T13:50:00+00:00",
+      "unknown": 0
+    }
+  ],
+  "segments_dropped": []
+}

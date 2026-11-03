@@ -158,6 +158,7 @@ files = [
     "server/fleet_ops.py",
     "server/airports.py",
     "server/detection.py",
+    "server/wake_stats.py",
     # Added under the global settings only, not the strict override below:
     # the pure helpers (decide_hold, advance_is_due, normalise_pending,
     # enqueue_pending, pop_fresh_pending) and CycleContext are fully
@@ -197,6 +198,7 @@ module = [
     "server.fleet_ops",
     "server.airports",
     "server.detection",
+    "server.wake_stats",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

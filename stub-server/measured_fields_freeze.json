@@ -1,5 +1,5 @@
 {
-  "description": "The field-validation freeze list: what the v1.1 on-wall validation measures (wake cadence, battery telemetry, poll-state fields and the served image hash). A deploy must not change any of it. Values were recorded by running the current byos server, the poll cycle and the policy module, and test_phase47_freeze.py compares running code with this file. Change an entry only with the owner's agreement.",
+  "description": "The field-validation freeze list: what the v1.1 on-wall validation measures (wake cadence, battery telemetry, poll-state fields and the served image hash). A deploy must not change any of it. Values were recorded by running the current byos server, the poll cycle and the policy module, and test_phase47_freeze.py compares running code with this file. Change an entry only with the owner's agreement. The X-Wake-Stats entry in telemetry_request_headers was added with the owner's agreement of 2026-11-03 (owner-reported, in chat).",
   "display_response_keys": {
     "measured_by": "Every wake reads these keys; the image hash decides whether the panel refreshes and sleep_s sets the cadence the validation times.",
     "keys": ["firmware", "image_hash", "image_url", "led_enabled", "reset", "sleep_s"]
@@ -14,11 +14,13 @@
     "led_enabled": true
   },
   "telemetry_request_headers": {
-    "measured_by": "Battery drain and firmware behaviour in the field validation are read from these request headers; nothing else a frame sends is parsed.",
-    "headers": ["X-Battery-Mv", "X-Boot-Reason", "X-Fw-Version", "X-Ota-Result", "X-Rssi"],
+    "measured_by": "Battery drain and firmware behaviour in the field validation are read from these request headers; X-Wake-Stats is parsed into the history database only, and nowhere else; nothing else a frame sends is parsed.",
+    "headers": ["X-Battery-Mv", "X-Boot-Reason", "X-Fw-Version", "X-Ota-Result", "X-Rssi", "X-Wake-Stats"],
     "stored_in_battery_state": ["X-Battery-Mv"],
     "stored_in_device_report": ["X-Fw-Version", "X-Ota-Result"],
-    "logged_only": ["X-Boot-Reason", "X-Rssi"]
+    "logged_only": ["X-Boot-Reason", "X-Rssi"],
+    "stored_in_history_db": ["X-Wake-Stats"],
+    "note": "The byos probe measures X-Wake-Stats on a fleet (non-live) device, the only path on which byos writes history. On the live device the same header is parsed into the history database by the Caddy access-log tailer in the poll oneshot, which the byos probe does not exercise; its parser is covered by the server tests."
   },
   "battery_state_keys": {
     "measured_by": "Battery-life data (the discharge curve the validation records) comes from battery_state.json.",

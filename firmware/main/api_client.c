@@ -29,6 +29,7 @@
 #include "tls_session.h"
 #include "validate.h"
 #include "wake_guard.h"
+#include "wake_record.h"
 #include "wifi.h"
 
 static const char *TAG = "fp_api";
@@ -63,6 +64,9 @@ static unsigned s_connects;
 static uint32_t s_first_connect_ms;
 static int64_t s_connect_started_us;
 static bool s_tls_saved; /* fp_tls_session_save() runs at most once/wake */
+static uint32_t s_last_first_connect_ms; /* survives fp_api_release() */
+static fp_wake_current_t s_wake_cur;
+static bool s_wake_cur_set;
 
 /* Every telemetry/auth header any request on the shared handle can carry.
  * Deleting all of them before setting only what the next request needs
@@ -78,6 +82,7 @@ static void clear_request_headers(esp_http_client_handle_t http)
     esp_http_client_delete_header(http, "X-Fw-Version");
     esp_http_client_delete_header(http, "X-Boot-Reason");
     esp_http_client_delete_header(http, "X-Ota-Result");
+    esp_http_client_delete_header(http, "X-Wake-Stats");
 }
 
 /* Extracts "scheme://host[:port]" from url, stopping at the first '/'
@@ -264,6 +269,34 @@ static void telemetry_headers(esp_http_client_handle_t http,
     char ota_result[FP_OTA_RESULT_BUF];
     if (fp_ota_result_pending(ota_result, sizeof(ota_result))) {
         esp_http_client_set_header(http, "X-Ota-Result", ota_result);
+    }
+}
+
+void fp_api_set_wake_current(const fp_wake_current_t *cur)
+{
+    if (cur) {
+        s_wake_cur = *cur;
+        s_wake_cur_set = true;
+    }
+}
+
+uint32_t fp_api_first_connect_ms(void)
+{
+    return s_last_first_connect_ms;
+}
+
+/* Display request only: counters and durations, no identifier. A
+ * formatting failure sends no header; telemetry never blocks a poll. */
+static void wake_stats_header(esp_http_client_handle_t http)
+{
+    if (!s_wake_cur_set) {
+        return;
+    }
+    char buf[FP_WAKE_STATS_MAX_LEN + 1];
+    int n = fp_wake_telemetry_format(buf, sizeof(buf), &s_wake_cur,
+                                     fp_wake_record_previous(), false);
+    if (n > 0) {
+        esp_http_client_set_header(http, "X-Wake-Stats", buf);
     }
 }
 
@@ -482,6 +515,7 @@ void fp_api_release(void)
                  s_connects, (unsigned)s_first_connect_ms,
                  (int)fp_tls_session_offered(),
                  (unsigned)fp_tls_session_saved_len());
+        s_last_first_connect_ms = s_first_connect_ms;
         esp_http_client_cleanup(s_http);
         s_http = NULL;
     }
@@ -569,6 +603,7 @@ esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out)
     clear_request_headers(http);
     auth_header(http);
     telemetry_headers(http, boot_reason);
+    wake_stats_header(http);
 
     char resp[RESP_MAX];
     int n = 0;

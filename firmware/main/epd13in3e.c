@@ -23,6 +23,7 @@
 #include "driver/spi_master.h"
 #include "esp_log.h"
 #include "esp_rom_sys.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "sdkconfig.h"
@@ -277,12 +278,21 @@ static esp_err_t send_half(int cs_mask, const uint8_t *buf, int offset)
     return err;
 }
 
+static int64_t s_spi_us; /* duration of the two send_half calls, in us */
+
+uint32_t epd_spi_ms(void)
+{
+    return (uint32_t)(s_spi_us / 1000); /* s_spi_us in ms */
+}
+
 esp_err_t epd_blit(const uint8_t *buf)
 {
+    int64_t t_spi_start = esp_timer_get_time();
     esp_err_t err = send_half(CS_MASTER, buf, 0);
     if (err == ESP_OK) {
         err = send_half(CS_SLAVE, buf, HALF_ROW_BYTES);
     }
+    s_spi_us = esp_timer_get_time() - t_spi_start;
     if (err != ESP_OK) {
         return err;
     }
