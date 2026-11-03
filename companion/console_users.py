@@ -48,8 +48,10 @@ FLASH_BAD_ROLE = "users.bad_role"
 _REFUSED_TITLE = i18n.msg("admin_users.flash_action_refused", "Action refused")
 console_flash.register_flash(
     FLASH_INVITED, "success",
-    i18n.msg("admin_users.flash_invitation_saved", "Invitation saved"),
-    i18n.msg("admin_users.flash_invitation_saved_detail", "{email} can now sign in as {role}."))
+    i18n.msg("admin_users.flash_invitation_saved", "Invited"),
+    i18n.msg(
+        "admin_users.flash_invitation_saved_detail",
+        "Tell {email} to sign in with this address."))
 console_flash.register_flash(
     FLASH_ROLE_SAVED, "success",
     i18n.msg("admin_users.flash_role_saved", "Role saved"),
@@ -143,7 +145,8 @@ def _render(h, status=200, **invite_state):
     return h._console_page(
         console_routes.USERS_ROUTE, None,
         lambda: users_page.render(_view(h, **invite_state)),
-        users_page.USERS_PURPOSE, status=status)
+        users_page.USERS_PURPOSE, status=status,
+        action_html=users_page.header_action_html)
 
 
 def handle_users_get(h, m):
@@ -190,7 +193,8 @@ def handle_invite(h, m):
 def _invite_failure(h, raw_email, role, errors):
     return _render(
         h, status=400, email_value=raw_email[:_MAX_EMAIL_CHARS],
-        role_selected=role if role in _ROLES else users_page.ROLE_USER, **errors)
+        role_selected=role if role in _ROLES else users_page.ROLE_USER,
+        open_invite_dialog=True, **errors)
 
 
 # ---- row actions --------------------------------------------------------

@@ -972,7 +972,8 @@ class Handler(
         back to the console registry when `title_msg` is None), then
         `body_html`, inside the shell with the console route's own nav slug
         active. `action_html` is the page's already-escaped primary action,
-        shown beside the title. A queued console flash is shown once and its
+        shown beside the title (or a callable returning it, resolved after the
+        request language is known). A queued console flash is shown once and its
         cookie cleared. `status` is the HTTP status of the response (an
         invalid submission re-renders its page at 400 or 429). Console pages
         are not in `layout.NAV_TABS`, so they carry no tab scripts of their
@@ -983,6 +984,8 @@ class Handler(
         # sees this request's language.
         if callable(body_html):
             body_html = body_html()
+        if callable(action_html):
+            action_html = action_html()
         title = i18n.t(title_msg or console_routes.CONSOLE_TITLES[route])
         purpose = i18n.t(purpose_msg) if purpose_msg else None
         flash_html, clear_cookie = console_flash.take_flash(self.headers.get("Cookie"))

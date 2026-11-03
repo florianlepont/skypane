@@ -44,12 +44,15 @@ def field_error_html(dialog_id, field, message):
         escape_html(error_id(dialog_id, field)), escape_html(message))
 
 
-def trigger_html(dialog_id, label_html, extra_class=""):
+def trigger_html(dialog_id, label_html, extra_class="", aria_label=""):
     """The link that opens dialog `dialog_id`. A link rather than a button so
-    the hash navigation works without script. `label_html` is pre-escaped."""
+    the hash navigation works without script. `label_html` is pre-escaped;
+    `aria_label` is plain text and overrides the visible label for assistive
+    technology."""
     css = ' class="%s"' % escape_html(extra_class) if extra_class else ""
-    return '<a href="#%s"%s data-modal-open>%s</a>' % (
-        validated_slug(dialog_id), css, label_html)
+    aria = ' aria-label="%s"' % escape_html(aria_label) if aria_label else ""
+    return '<a href="#%s"%s%s data-modal-open>%s</a>' % (
+        validated_slug(dialog_id), css, aria, label_html)
 
 
 def _autofocus_first_control(body_html):
@@ -124,5 +127,47 @@ def dialog_html(
         "submit_focus": submit_focus,
         "submit": escape_html(submit_label),
         "dismiss_focus": dismiss_focus,
+        "dismiss": escape_html(dismiss_label),
+    }
+
+
+def sections_dialog_html(
+        dialog_id, title, subtitle, sections_html, dismiss_label, dismiss_href):
+    """A modal dialog whose body is several independent forms.
+
+    Unlike `dialog_html` it wraps no form of its own: `sections_html` holds
+    one `<form>` per section (the caller has already escaped it) and the
+    dialog only offers a dismiss link. The first visible control takes the
+    initial focus, or the dismiss link when the sections have none.
+    """
+    slug = validated_slug(dialog_id)
+    title_id = slug + "-title"
+    sections_html, found = _autofocus_first_control(sections_html)
+    dismiss_focus = "" if found else " autofocus"
+    subtitle_html = (
+        '<p class="modal__subtitle text-label">%s</p>' % escape_html(subtitle)
+        if subtitle else "")
+    href = escape_html(dismiss_href)
+    return (
+        '<dialog class="modal" id="%(id)s" aria-labelledby="%(title_id)s">'
+        '<header class="modal__head"><div>'
+        '<h2 class="modal__title text-heading" id="%(title_id)s">%(title)s</h2>'
+        '%(subtitle)s</div>'
+        '<a class="modal__close" href="%(href)s" data-modal-close aria-label="%(close)s">'
+        '%(close_icon)s</a></header>'
+        '<div class="modal__body">%(body)s</div>'
+        '<div class="modal__actions">'
+        '<a class="modal__dismiss" href="%(href)s" data-modal-close%(focus)s>%(dismiss)s</a>'
+        '</div></dialog>\n'
+    ) % {
+        "id": slug,
+        "title_id": title_id,
+        "title": escape_html(title),
+        "subtitle": subtitle_html,
+        "href": href,
+        "close": escape_html(i18n.t(_CLOSE_LABEL_TEXT)),
+        "close_icon": icon_html("icon-close", size=20),
+        "body": sections_html,
+        "focus": dismiss_focus,
         "dismiss": escape_html(dismiss_label),
     }

@@ -8410,3 +8410,43 @@ a.page-header__action:hover {
 details.fleet-retired {
   margin-top: var(--space-md);
 }
+
+/* The "Manage user" button of a Users row: a 44px bordered text link. */
+a.entity-row__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-accent);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  text-align: center;
+}
+
+a.entity-row__button:hover {
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+}
+
+/* One independent form inside a multi-section dialog. */
+.modal__section {
+  display: grid;
+  gap: var(--space-sm);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.modal__section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.modal__section-title,
+.modal__section > p {
+  margin: 0;
+}

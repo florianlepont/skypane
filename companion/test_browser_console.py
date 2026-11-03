@@ -161,13 +161,12 @@ def test_forms_and_confirm_controls_meet_the_touch_target(
                 "#pair-code", "#pair-owner", 'form[action="/fleet/pair"] button'):
             assert _height(page, selector) >= MIN_TAP_PX, selector
         page.goto(server.base_url() + "/users")
+        assert _height(page, "a.page-header__action") >= MIN_TAP_PX
+        assert _height(page, "li.entity-row a.entity-row__button") >= MIN_TAP_PX
+        page.locator("a.page-header__action").click()
         for selector in (
-                "#invite-email", "#invite-role", 'form[action="/users/invite"] button',
-                "ul.data-cards details.fleet-confirm > summary"):
+                "#invite-email", "#invite-role", 'form[action="/users/invite"] button'):
             assert _height(page, selector) >= MIN_TAP_PX, selector
-        page.locator("ul.data-cards details.fleet-confirm > summary").first.click()
-        assert _height(
-            page, "ul.data-cards details.fleet-confirm[open] button") >= MIN_TAP_PX
         page.goto(server.base_url() + "/locations")
         for selector in (
                 "#new-name", "#new-lat", "#new-lon", "#new-tz",
@@ -217,6 +216,7 @@ def test_console_works_with_scripts_blocked(new_context, app_server_in_process):
         assert page.locator("details.row-menu[open]").count() == 0
 
         page.goto(server.base_url() + "/users")
+        page.click("a.page-header__action")
         page.fill("#invite-email", "invited@example.test")
         page.click('form[action="/users/invite"] button')
         page.wait_for_url("**/users")
@@ -347,7 +347,7 @@ def test_console_pages_ship_no_confirm_and_dialogs_only_where_planned(
         status, _headers, body = fx.get(server, cookie, path)
         assert status == 200
         assert "confirm(" not in body, path
-        if path != "/fleet":
+        if path not in ("/fleet", "/users"):
             assert "<dialog" not in body, path
         for src in re.findall(r'<script[^>]*\ssrc="([^"]+)"', body):
             script = served_asset(server, src)

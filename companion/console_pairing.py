@@ -152,7 +152,7 @@ def _render(h, status=200, **state):
         console_routes.FLEET_ROUTE, None,
         lambda: fleet_page.render(build_view(h.args.state_dir, **state)),
         fleet_page.FLEET_PURPOSE, status=status,
-        action_html=fleet_page.header_action_html())
+        action_html=fleet_page.header_action_html)
 
 
 def handle_fleet_get(h, m):
