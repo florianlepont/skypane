@@ -106,6 +106,19 @@ The ranges are approximate 95 percent ranges from the unconstrained least-square
 
 The aggregates of the old-pack runs could not be fitted: a three-parameter solve on them (the researcher's arithmetic on rough inputs) gave negative coefficients, which are not physical. They also carry no per-wake fields, so the tool refuses the committed old-pack export with "no per-wake telemetry in this export".
 
+### Release notes
+
+The firmware release that starts this telemetry carries instrumentation only:
+
+- One new request header, `X-Wake-Stats`, on the existing display request.
+- A small record kept in RTC memory across deep sleep (it is not written to flash).
+- No behavioural change: the picture, the wake interval, hash-skip, quiet hours, display-off and the battery-critical overrides are untouched.
+- No extra request, no extra flash write and no added delay. The panel code gains two timer reads and nothing else.
+
+Not yet established: the firmware has not been compiled for the target in the authoring environment, so the container build in CI must be green before a version is tagged, and the on-target cost of the additions is unmeasured. The first wake after an update has no `p_` keys (see "Gap after an OTA").
+
+Rollback: the previous release stays offerable from the Update page, above the version floor. Scheduling it again is allowed; the refusal of a lower build number applies at publish time only. The frame still refuses any install at or below 3500 mV. The owner steps, in French, are in `hardware/WAKE-ENERGY-FR.md`.
+
 ### Fixtures
 
 `hardware/fixtures/wakemodel-synthetic.jsonl` and `wakemodel-collinear.jsonl` are synthetic. The truth values (standing draw, no-change and redraw energy, pack rating) are in the builder in `hardware/test_wakemodel.py`, which also regenerates both fixtures and `wakemodel-synthetic-output.json` byte for byte in a test. `python3 hardware/wakemodel.py selftest` runs the tool on the two fixtures.
