@@ -36,7 +36,7 @@ from companion import (
     co_managers, console_routes, device_scope, layout, page_policy, route_types,
     static_files, theme_preview)
 from companion.pages import (
-    airlines_page, co_managers_card, config_page, detection_page, health_page,
+    airlines_page, co_managers_card, config_page, detection_page, health_page, place_page,
     history_page, home_page, update_page)
 
 # Anchored on the raw path (never percent-decoded); `\Z` and the absence of
@@ -152,9 +152,9 @@ _GET_ROUTES = (
             "GET", Exact(DETECTION_ROUTE),
             lambda h, m: h._render_tab(
                 DETECTION_ROUTE,
-                lambda ctx: detection_page.render(
+                lambda ctx: place_page.render(
                     ctx, query=detection_page.parse_query(m.query),
-                    locations=h._detection_locations(m.device)),
+                    place=h._detection_place(m.device)),
                 m.device, policy=page_policy.MAP_PAGE_POLICY),
             OWNER_DEVICE),
         Route(

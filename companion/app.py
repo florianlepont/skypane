@@ -41,6 +41,7 @@ from companion.pages import (  # noqa: E402
     airlines_page,  # noqa: F401
     config_page,
     detection_page,
+    place_page,
     health_page,
     update_page,
 )
@@ -258,7 +259,7 @@ _PAGE_TITLES = dict(layout.NAV_TABS)
 # A child page is reached from a tab rather than being one: it has its own
 # title, and the tab it hangs under stays the active nav item.
 _CHILD_PAGE_TITLES = {
-    detection_page.DETECTION_ROUTE: detection_page.PAGE_TITLE,
+    detection_page.DETECTION_ROUTE: place_page.PAGE_TITLE,
     airlines_page.MANAGE_ROUTE: console_routes.AIRLINE_EDITOR_LABEL,
 }
 # The frame pages that belong to the Console: they show no foreign-frame strip.
@@ -295,6 +296,7 @@ _PAGE_SCRIPTS = {
     ),
     detection_page.DETECTION_ROUTE: (
         layout.DIRTY_STATE_SCRIPT_SRC,
+        layout.LIST_FILTER_SCRIPT_SRC,
     ),
     layout.FLIGHTS_ROUTE: (
         layout.FRESHNESS_SCRIPT_SRC,
@@ -1216,10 +1218,10 @@ class Handler(
             return self._settings_saved_redirect(back, FLASH_KEY_CALENDAR_CONNECTED)
         return self._settings_saved_redirect(back, FLASH_KEY_CALENDAR_SYNC_FAILED)
 
-    def _detection_locations(self, device):
-        """The locations GET /detection may list for `device`: its owner's,
-        or the signed-in user's own."""
-        return detection_actions.location_scope(self, device)
+    def _detection_place(self, device):
+        """The frame's own position GET /detection shows for `device`, or
+        None when it has none."""
+        return detection_actions.frame_place(self, device)
 
     def _detection_card_location(self, device, ctx):
         """The usable location name the Display and Device Detection cards

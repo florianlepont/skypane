@@ -1,7 +1,8 @@
-"""Position mode of the Detection page over a real in-process server: the
-location and radius POST with its server-side checks, the hidden-panel
-rule, the minimal location form, and the owner / admin scoping of every
-location read and write.
+"""Position mode of the Location and detection page over a real in-process
+server: the older location-and-radius POST with its server-side checks, the
+hidden-field rule, the older location POST, and the owner / admin scoping of
+every location read and write. The page itself lists no saved locations;
+the frame's own place is shown and stored through `save_place`.
 """
 import html
 import json
@@ -163,30 +164,41 @@ def test_position_save_accepts_the_bounds(rig):
         assert rig.config(rig.owner_dir())["detection"]["radius_km"] == int(radius)
 
 
-def test_position_panel_lists_rounded_coordinates_only(rig):
-    rig.add_location(rig.fleet.owner_id, "Home", 48.856614, 2.352222)
+def _link_place(rig, name, lat, lon):
+    conn = fleet_db.connect(rig.state_dir)
+    try:
+        fleet_db.save_frame_position(
+            conn, rig.fleet.owner_device, name, lat, lon, PARIS,
+            rig.fleet.owner_id, False)
+    finally:
+        conn.close()
+
+
+def test_the_page_shows_the_stored_place_rounded_to_four_decimals(rig):
+    _link_place(rig, "Home", 48.856614, 2.352222)
     _status, page = rig.get("owner", rig.scope() + "/detection")
-    assert "Home — 48.86, 2.35" in _text(page)
-    select = re.search(r'<select id="detection-location".*?</select>', page, re.S).group(0)
-    assert "48.8566" not in select and "2.3522" not in select
-    assert "Shared with data providers rounded to about 1 km." in _text(page)
-    assert re.search(r'<input type="number" id="detection-radius" name="radius_km"[^>]*'
+    assert "Home · 48.8566, 2.3522" in _text(page)
+    assert re.search(r'<input type="number" id="place-radius" name="radius_km"[^>]*'
                      r'min="2" max="28" step="1"[^>]*value="9"', page)
+    assert 'id="place-lat" name="latitude" form="detection-form" step="0.0001" ' \
+        'inputmode="decimal" value="48.8566"' in page
 
 
-def test_position_panel_marks_a_location_outside_france_disabled(rig):
-    rig.add_location(rig.fleet.owner_id, "London", 51.5, -0.12)
+def test_a_stored_place_outside_france_is_listed_and_the_setting_falls_back(rig):
+    _link_place(rig, "London", 51.5, -0.12)
+    device_config.save_device_config(
+        rig.owner_dir(), detection={"mode": "position", "radius_km": 9})
     _status, page = rig.get("owner", rig.scope() + "/detection")
-    assert re.search(r"<option value=\"\d+\" disabled>London — outside France</option>", page)
+    assert "London · 51.5000, -0.1200" in _text(page)
+    assert "No usable location" in _text(page)
 
 
-def test_position_panel_without_locations_shows_empty_state_and_no_radius(rig):
+def test_without_a_place_the_empty_state_shows_and_the_radius_stays_postable(rig):
     _status, page = rig.get("owner", rig.scope() + "/detection")
-    panel = re.search(r'<section class="detection-panel detection-panel--position".*?</section>',
-                      page, re.S).group(0)
-    assert "No location yet" in panel
-    assert 'name="radius_km"' not in panel and "<select" not in panel
-    assert "new_location=1" in panel
+    text = _text(page)
+    assert "No place chosen yet" in text
+    assert "Pick an airport, search a place or tap the map, then save." in text
+    assert 'name="radius_km"' in page and "<select id=\"detection-location\"" not in page
 
 
 # --- rejections ---------------------------------------------------------------
@@ -281,16 +293,14 @@ def test_hidden_panel_position_post_ignores_airport_and_runway(rig):
 def test_hidden_panel_controls_carry_no_required_attribute(rig):
     rig.add_location(rig.fleet.owner_id, "Home", 48.8566, 2.3522)
     _status, page = rig.get("owner", rig.scope() + "/detection")
-    without_location_form = re.sub(
-        r'<details id="location-form".*?</details>', "", page, flags=re.S)
-    assert not re.search(r"\brequired\b", without_location_form)
+    assert not re.search(r"\brequired\b", page)
     assert re.search(r'<form method="post" id="detection-form"[^>]* novalidate>', page)
 
 
 # --- location create and edit -----------------------------------------------------
 
 
-def test_location_create_saves_for_the_owner_and_lists_it(rig):
+def test_location_create_saves_for_the_owner(rig):
     status, response, _b = _post_detection(rig, "owner", _location_form("Lyon", "45,76", "4.84"))
     assert status == 303
     assert "flash=location_saved" in response["Location"]
@@ -299,9 +309,6 @@ def test_location_create_saves_for_the_owner_and_lists_it(rig):
     assert rows[0]["owner_user_id"] == rig.fleet.owner_id
     assert (rows[0]["name"], rows[0]["latitude"], rows[0]["longitude"]) == ("Lyon", 45.76, 4.84)
     assert rows[0]["timezone"] == PARIS
-    _s, page = rig.get("owner", rig.scope() + "/detection")
-    assert "45.76, 4.84" in _text(page)
-    assert re.search(r'<option value="%d"[^>]*>Lyon — 45.76, 4.84</option>' % rows[0]["id"], page)
 
 
 @pytest.mark.parametrize("fields,message", [
@@ -321,35 +328,24 @@ def test_location_create_refusals_write_nothing(rig, fields, message):
     status, _r, page = _post_detection(rig, "owner", form)
     assert status == 200
     assert message in _text(page)
-    assert '<details id="location-form" class="detection-location-form" open>' in page
+    assert 'role="alert"' in page
     assert rig.locations() == []
 
 
-def test_location_create_markup_in_the_name_is_escaped(rig):
+def test_location_create_never_shows_a_saved_location_list(rig):
     _post_detection(rig, "owner", _location_form('<b onload="x">&"', "45.76", "4.84"))
     _s, page = rig.get("owner", rig.scope() + "/detection")
-    assert "<b onload" not in page
-    assert "&lt;b onload=&quot;x&quot;&gt;" in page
+    assert "<b onload" not in page and "&lt;b onload" not in page
 
 
 def test_location_edit_updates_a_row_the_user_owns(rig):
     home = rig.add_location(rig.fleet.owner_id, "Home", 48.8566, 2.3522)
-    _s, page = rig.get("owner", rig.scope() + "/detection?location=%d" % home)
-    assert 'summary>Edit location details</summary>' in page
-    assert re.search(r'name="location_name" value="Home"', page)
     status, _r, _b = _post_detection(
         rig, "owner", _location_form("Maison", "48.9", "2.4", str(home)))
     assert status == 303
     rows = rig.locations()
     assert len(rows) == 1
     assert (rows[0]["name"], rows[0]["latitude"], rows[0]["longitude"]) == ("Maison", 48.9, 2.4)
-
-
-def test_location_edit_link_names_the_location(rig):
-    rig.add_location(rig.fleet.owner_id, "Home", 48.8566, 2.3522)
-    _s, page = rig.get("owner", rig.scope() + "/detection")
-    assert 'aria-label="Edit location Home"' in page
-    assert "?location=" in page and "#location-form" in page
 
 
 def test_location_edit_of_another_owners_row_is_refused(rig):
@@ -359,14 +355,6 @@ def test_location_edit_of_another_owners_row_is_refused(rig):
     assert status == 200
     assert UNAVAILABLE in _text(page)
     assert [r["name"] for r in rig.locations()] == ["Theirs"]
-
-
-def test_location_owner_scope_lists_only_the_subjects_rows(rig):
-    rig.add_location(rig.fleet.owner_id, "Mine", 48.8, 2.3)
-    rig.add_location(rig.fleet.other_id, "Theirs", 43.3, 5.4)
-    _s, page = rig.get("owner", rig.scope() + "/detection")
-    assert "Mine" in page and "Theirs" not in page
-    assert "Your locations" in _text(page)
 
 
 def test_location_owner_scope_ignores_a_forged_owner_field(rig):
@@ -401,13 +389,8 @@ def test_admin_saves_for_owner_creates_a_row_owned_by_the_owner(rig):
     assert [r["owner_user_id"] for r in rig.locations()] == [rig.fleet.owner_id]
 
 
-def test_admin_saves_for_owner_card_wording_and_position(rig):
+def test_admin_saves_the_owners_position(rig):
     home = rig.add_location(rig.fleet.owner_id, "Home", 48.8566, 2.3522)
-    _s, page = rig.get("admin", rig.scope() + "/detection")
-    text = _text(page)
-    assert "Locations of this frame’s owner" in text
-    assert "You are saving locations for this frame’s owner." in text
-    assert "Home" in text
     status, _r, _b = _post_detection(rig, "admin", _position_form(home, "10"))
     assert status == 303
     assert rig.device_location(rig.fleet.owner_device) == home
@@ -495,8 +478,8 @@ def test_position_page_in_french(rig):
     _s, page = rig.get("owner", rig.scope() + "/detection", lang="fr")
     text = _text(page)
     assert "Avions à moins de 9 km de Home" in text
-    assert "Rayon (kilomètres)" in text
-    assert "Vos lieux" in text
+    assert "Rayon (km)" in text
+    assert "Vos lieux" not in text
     assert "Enregistrer le lieu" in text
     assert "NEARBY · 9 KM" in text
 
@@ -530,8 +513,6 @@ def test_location_edit_keeps_the_stored_timezone(rig):
             owner_user_id=rig.fleet.owner_id)
     finally:
         conn.close()
-    _s, page = rig.get("owner", rig.scope() + "/detection?location=%d" % home)
-    assert '<option value="America/Martinique" selected>Martinique</option>' in page
     status, _r, _b = _post_detection(
         rig, "owner", _location_form("Renamed", "48.9", "2.4", str(home)))
     assert status == 303

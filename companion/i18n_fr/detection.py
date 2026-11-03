@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """French strings for the Detection page: the summary of the saved setting,
-the mode choice, airport search and runway cards, and the inline errors.
+the airport search and the inline errors.
 
 Copy follows sentence case, the typographic apostrophe (U+2019), a
 non-breaking space (U+00A0) before ":" ";" "?" "!" and inside guillemets,
@@ -8,15 +8,13 @@ and a decimal comma in prose. The frame's own text rows are English and
 never appear here.
 
 The source-side Message for each id is declared in
-companion/pages/detection_page.py; this module only carries the French.
+companion/pages/detection_page.py; this module only carries the French. The
+strings of the page itself (place, map, what to follow) are declared in
+companion/pages/place_page.py and translated below.
 """
 
 MESSAGES = {
     "detection.detection": "Détection",
-    "detection.page_purpose":
-        "Choisissez les vols affichés par ce cadre : le trafic d’une "
-        "piste, ou les avions autour d’un lieu.",
-    "detection.back_to_display": "Retour à l’affichage",
 
     "detection.current_setting": "Réglage actuel",
     "detection.following": "Suivi",
@@ -36,35 +34,20 @@ MESSAGES = {
     "detection.saved_flash":
         "Détection enregistrée — le cadre l’utilisera à son prochain réveil.",
 
-    "detection.detection_mode": "Mode de détection",
-    "detection.airport_and_runway": "Aéroport et piste",
-    "detection.around_a_location": "Autour d’un lieu",
 
-    "detection.airport": "Aéroport",
-    "detection.find_an_airport": "Trouver un aéroport",
     "detection.search_hint":
         "Cherchez par code OACI, code IATA, nom ou ville.",
-    "detection.airports": "Aéroports",
     "detection.search_airports": "Rechercher des aéroports",
     "detection.airports_found": "%(count)d aéroports trouvés",
     "detection.one_airport_found": "1 aéroport trouvé",
     "detection.no_airport_matches":
         "Aucun aéroport ne correspond à « %(query)s »",
-    "detection.airports_capped":
-        "Les %(shown)d premiers aéroports sur %(total)d. Affinez votre "
-        "recherche pour réduire la liste.",
     "detection.no_airport_found": "Aucun aéroport trouvé",
     "detection.no_airport_found_body":
         "Vérifiez l’orthographe, ou essayez un code OACI comme LFPG ou un "
         "code IATA comme CDG.",
     "detection.unknown_airport": "Cet aéroport n’est pas dans le catalogue.",
-    "detection.selected_airport": "Aéroport choisi",
-    "detection.change_airport": "Changer d’aéroport",
 
-    "detection.runway": "Piste",
-    "detection.runway_caption":
-        "Le cadre suit les décollages et atterrissages dans les deux sens.",
-    "detection.runway_bearing": "Cap %(a)s° / %(b)s° (vrai)",
     "detection.surface_asphalt": "Asphalte",
     "detection.surface_concrete": "Béton",
     "detection.surface_grass": "Herbe",
@@ -73,40 +56,12 @@ MESSAGES = {
         "Le cadre étiquette cet aéroport « %(code)s », puis la "
         "piste, par exemple %(example)s.",
 
-    "detection.location": "Lieu",
-    "detection.location_caption":
-        "Le cadre affiche l’avion en vol le plus bas dans le rayon.",
 
-    "detection.location_label": "Lieu",
-    "detection.location_option": "%(name)s — %(lat)s, %(lon)s",
-    "detection.location_option_outside": "%(name)s — hors de France",
-    "detection.rounding_note":
-        "Partagé avec les fournisseurs de données, arrondi à environ 1 km.",
-    "detection.radius_label": "Rayon (kilomètres)",
-    "detection.radius_hint": "De 2 à 28 km.",
-    "detection.no_location_heading": "Aucun lieu pour l’instant",
-    "detection.no_location_body":
-        "Ajoutez un lieu ci-dessous, puis choisissez-le ici pour suivre les "
-        "avions autour.",
-    "detection.add_location": "Ajouter un lieu",
-    "detection.locations_title": "Vos lieux",
-    "detection.locations_caption":
-        "Les lieux enregistrés ici peuvent servir à vos cadres.",
-    "detection.locations_title_owner": "Lieux du propriétaire de ce cadre",
-    "detection.locations_caption_owner":
-        "Vous enregistrez des lieux pour le propriétaire de ce cadre.",
-    "detection.locations_caption_co_manager":
-        "Les lieux sont gérés par le propriétaire du cadre.",
-    "detection.edit_location": "Modifier le lieu",
-    "detection.edit_location_named": "Modifier le lieu %(name)s",
-    "detection.edit_location_summary": "Modifier les détails du lieu",
-    "detection.field_name": "Nom",
     "detection.field_latitude": "Latitude",
     "detection.field_longitude": "Longitude",
     "detection.latitude_hint": "Degrés décimaux, par exemple 48,8566.",
     "detection.longitude_hint": "Degrés décimaux, par exemple 2,3522.",
     "detection.save_location": "Enregistrer le lieu",
-    "detection.cancel_location": "Annuler le lieu",
     "detection.location_saved_flash":
         "Lieu enregistré — vous pouvez maintenant le choisir ci-dessus.",
 
@@ -133,4 +88,60 @@ MESSAGES = {
     "detection.error_runway_unknown":
         "Cette piste n’existe pas dans cet aéroport. Choisissez-en une dans "
         "la liste.",
+
+    # Page strings declared in companion/pages/place_page.py.
+    "detection.page_purpose":
+        "La détection suit votre lieu : choisissez un aéroport pour suivre une piste, ou placez un repère pour suivre la zone autour.",
+    "detection.title":
+        "Lieu",
+    "detection.no_script_map":
+        "La carte demande JavaScript et une connexion. Vous pouvez quand même choisir un lieu avec la liste d’aéroports ou en saisissant des coordonnées.",
+    "detection.map_label":
+        "Carte. Utilisez les flèches pour déplacer, plus et moins pour zoomer.",
+    "detection.search_label":
+        "Rechercher une ville ou une adresse",
+    "detection.search_button":
+        "Rechercher un lieu",
+    "detection.search_help":
+        "Ce que vous tapez est envoyé au service de recherche d’OpenStreetMap (Nominatim).",
+    "detection.locate":
+        "Utiliser ma position",
+    "detection.about_map":
+        "À propos de cette carte",
+    "detection.map_credits":
+        "Données cartographiques © contributeurs d’OpenStreetMap, ODbL. Images de carte du serveur de tuiles d’OpenStreetMap. Recherche par Nominatim.",
+    "detection.map_privacy":
+        "Afficher la carte demande aux serveurs d’OpenStreetMap les images de la zone que vous regardez. La position enregistrée de votre cadre reste sur SkyPane.",
+    "detection.report_problem":
+        "Signaler un problème de carte",
+    "detection.copyright_link":
+        "Droits d’auteur d’OpenStreetMap",
+    "detection.empty_heading":
+        "Aucun lieu choisi",
+    "detection.empty_body":
+        "Choisissez un aéroport, cherchez un lieu ou touchez la carte, puis enregistrez.",
+    "detection.airports_title":
+        "Aéroports français",
+    "detection.filter_airports":
+        "Filtrer les aéroports",
+    "detection.follow_title":
+        "À suivre",
+    "detection.mode_runway":
+        "Une piste",
+    "detection.mode_area":
+        "La zone autour du repère",
+    "detection.runway_label":
+        "Piste à suivre",
+    "detection.pick_airport":
+        "Choisissez un aéroport dans la liste pour suivre l’une de ses pistes.",
+    "detection.radius_label":
+        "Rayon (km)",
+    "detection.radius_help":
+        "Les avions proches de ce point sont affichés. 9 km est un bon début.",
+    "detection.details_title":
+        "Coordonnées et fuseau horaire",
+    "detection.label_field":
+        "Nom du lieu",
+    "detection.section_place":
+        "Lieu",
 }

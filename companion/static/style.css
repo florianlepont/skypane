@@ -2353,20 +2353,6 @@ button:disabled {
     text-decoration: line-through;
     cursor: not-allowed;
   }
-
-  /* Detection page: the checked mode decides which panel shows. The
-   * server may also mark the inactive panel [hidden] after a round trip;
-   * the checked panel's display: block wins over that attribute so a
-   * client-side mode change still reveals it. */
-  .detection-modes:has(#detection-mode-position:checked) .detection-panel--runway,
-  .detection-modes:has(#detection-mode-runway:checked) .detection-panel--position {
-    display: none;
-  }
-
-  .detection-modes:has(#detection-mode-runway:checked) .detection-panel--runway,
-  .detection-modes:has(#detection-mode-position:checked) .detection-panel--position {
-    display: block;
-  }
 }
 
 /* Detection page. Summary of the saved setting: a label-voice caption over
@@ -2417,61 +2403,6 @@ button:disabled {
   min-height: 44px;
 }
 
-/* Airport search results: each row is one full-width link. */
-.detection-results {
-  list-style: none;
-  margin: 0 0 var(--space-md);
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.detection-result {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  min-height: 48px;
-  padding: var(--space-md);
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  color: var(--color-text);
-  text-decoration: none;
-}
-
-.detection-result:hover {
-  background: color-mix(in srgb, var(--color-text) 4.5%, var(--color-dominant));
-}
-
-.detection-result:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.detection-result__text {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.detection-result__name {
-  display: block;
-  font-weight: var(--weight-semibold);
-}
-
-.detection-result__codes {
-  display: block;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-/* The saved airport carries the same quiet "current" label the runway
- * cards use. */
-.detection-result__codes[data-current-label]::after {
-  content: " · " attr(data-current-label);
-}
-
 /* Runway cards: the .runway-row flex row becomes a grid here, since an
  * airport can list many runways and flex would crush them on a phone. */
 .detection-runways {
@@ -2489,17 +2420,6 @@ button:disabled {
 .detection-runways .runway-card__detail {
   display: block;
   font-variant-numeric: tabular-nums;
-}
-
-/* Mode choice: the two segment labels are long, so they wrap and grow
- * instead of clipping (the same approach as the hardware-type chooser). */
-.detection-modes .theme-form input[type="radio"] + label {
-  height: auto;
-  min-height: 44px;
-  padding: var(--space-xs) var(--space-sm);
-  white-space: normal;
-  text-align: center;
-  overflow-wrap: anywhere;
 }
 
 /* summary's own idiom reused verbatim: a centred flex row with a 44px
@@ -5448,39 +5368,211 @@ button.detection-search:hover {
   box-shadow: none;
 }
 
-/* The location form is a native disclosure holding its own POST form: a
- * stack of labelled fields at the settings forms' 28rem measure, with the
- * Save button at the 44px touch floor. */
-.detection-location-form form {
+/* Location and detection page. A single column on a phone, in the order the
+ * markup has; from 960px the place card takes the right column and the other
+ * cards stack in a 24rem left column. Cards reuse the nested card voice. */
+.place-page {
+  display: grid;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.place-page > *,
+.place-page__rest > * {
+  min-width: 0;
+}
+
+.place-page__rest {
+  display: grid;
+  gap: var(--space-md);
+  align-content: start;
+}
+
+.place-page .place-card {
+  margin-bottom: 0;
+}
+
+.place-line {
+  margin: var(--space-sm) 0 0;
+  overflow-wrap: anywhere;
+}
+
+/* The fallback explanation stays until place-map.js reports the map is
+ * running; a failed script therefore falls back as well. */
+.place-fallback {
+  margin: 0 0 var(--space-md);
+}
+
+.map-ready .place-fallback {
+  display: none;
+}
+
+.place-search {
+  --js-gate-display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.place-search__row {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.place-search__row input[type="search"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.place-search .section-caption {
+  margin: 0;
+}
+
+.place-locate {
+  --js-gate-display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.place-map {
+  width: 100%;
+  max-width: 100%;
+  min-height: 17.5rem;
+  box-sizing: border-box;
+}
+
+.place-status {
+  margin: var(--space-sm) 0 0;
+}
+
+.place-about {
+  margin-top: var(--space-sm);
+}
+
+.place-about .section-caption {
+  margin: 0 0 var(--space-sm);
+}
+
+/* The airport list scrolls inside its card; each row is one link. */
+.place-airports {
+  list-style: none;
+  margin: var(--space-md) 0 0;
+  padding: 0;
+  max-height: 24rem;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.place-airport + .place-airport {
+  border-top: 1px solid var(--color-border);
+}
+
+.place-airport__link {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-height: 44px;
+  padding: var(--space-sm) var(--space-md);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.place-airport__link:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, var(--color-dominant));
+}
+
+.place-airport__name {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.place-airport__meta {
+  overflow-wrap: anywhere;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.place-airport__meta[data-current-label]::after {
+  content: " · " attr(data-current-label);
+}
+
+.place-modes {
+  margin-bottom: var(--space-md);
+}
+
+.place-mode {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding-right: var(--space-2xl);
+  overflow-wrap: anywhere;
+}
+
+.place-subtitle {
+  margin: var(--space-md) 0 var(--space-sm);
+  font-family: var(--font-ui);
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+}
+
+.place-chosen__name {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.place-radius,
+.place-fields {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  max-width: 28rem;
   margin-top: var(--space-md);
 }
 
-.detection-location-form input[type="text"],
-.detection-location-form select {
+.place-radius .section-caption,
+.place-fields .section-caption {
+  margin: 0;
+}
+
+.place-fields input,
+.place-fields select {
   width: 100%;
+  max-width: 28rem;
+  box-sizing: border-box;
 }
 
-button.detection-location-save {
-  min-height: 44px;
-  align-self: flex-start;
-}
-
-.detection-locations {
-  list-style: none;
-  margin: 0 0 var(--space-md);
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.detection-locations__name {
-  display: block;
+.place-details > summary {
   font-weight: var(--weight-semibold);
+}
+
+@media (min-width: 960px) {
+  .place-page {
+    grid-template-columns: 24rem minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    gap: var(--space-lg);
+  }
+
+  .place-card--status {
+    align-self: start;
+  }
+
+  .place-page__rest {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+    gap: var(--space-lg);
+  }
+
+  .place-card--map {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: start;
+  }
+
+  .place-map {
+    min-height: 24rem;
+  }
 }
 
 .rule-add-form {

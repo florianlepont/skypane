@@ -95,7 +95,14 @@ def _hrefs(markup):
 
 
 def _cards(markup):
-    return re.findall(r'<label class="runway-card[^"]*".*?</label>', markup, flags=re.S)
+    """The runway radio cards (the two mode cards share the class but post `mode`)."""
+    cards = re.findall(r'<label class="runway-card[^"]*"[^>]*>.*?</label>', markup, flags=re.S)
+    return [card for card in cards if 'name="runway"' in card]
+
+
+def airports_first_runway(icao):
+    from server import airports
+    return airports.find_airport(icao).runways[0].designator
 
 
 def _save_lfpg(rig, runway="08L/26R"):
@@ -148,11 +155,13 @@ def test_summary_position_setting_without_a_location_keeps_the_orly_values(rig):
 
 
 def test_summary_position_setting_with_a_location(rig):
-    from companion.pages import detection_page
+    from companion.pages import place_page
     device_config.save_device_config(
         rig.owner_dir(), detection={"mode": "position", "radius_km": 9})
     ctx = {"device_config": device_config.load_device_config(rig.owner_dir())}
-    markup = detection_page.render(ctx, location_name="Home")
+    place = {"id": 1, "name": "Home", "latitude": 48.8566, "longitude": 2.3522,
+             "timezone": "Europe/Paris", "shared": False}
+    markup = place_page.render(ctx, place=place)
     assert "Aircraft within 9 km of Home" in _visible_text(markup)
     assert "NEARBY · 9 KM" in markup and "Watching Within 9 km" in markup
     assert "toast--docked" not in markup
@@ -160,12 +169,13 @@ def test_summary_position_setting_with_a_location(rig):
 
 def test_mode_card_is_a_radiogroup_with_the_saved_mode_checked(rig):
     _s, _h, page = rig.get("owner", rig.scope() + "/detection")
-    assert 'role="radiogroup" aria-labelledby="detection-mode-heading"' in page
-    assert re.search(r'value="runway"[^>]*checked', page)
+    assert 'role="radiogroup" aria-labelledby="follow-heading"' in page
+    assert re.search(r'id="place-mode-runway" value="runway"[^>]*checked', page)
     assert not re.search(r'value="position"[^>]*checked', page)
     _s, _h, other = rig.get("owner", rig.scope() + "/detection?mode=position")
-    assert re.search(r'value="position"[^>]*checked', other)
-    assert "hidden" in re.search(r'<section [^>]*detection-panel--runway[^>]*>', other).group(0)
+    assert re.search(r'id="place-mode-area" value="position"[^>]*checked', other)
+    modes = other.split("runway-row place-modes")[1].split("</div>")[0]
+    assert not re.search(r'value="runway"[^>]*checked', modes)
     assert rig.config_bytes(rig.owner_dir()) is None
 
 
@@ -174,9 +184,9 @@ def test_mode_card_is_a_radiogroup_with_the_saved_mode_checked(rig):
 
 def test_search_lists_matching_airports_as_links(rig):
     _s, _h, page = rig.get("owner", rig.scope() + "/detection?q=cdg")
-    assert page.count('role="status" aria-live="polite"') == 1
-    assert page.count('id="airport-results-count"') == 1
-    assert rig.scope() + "/detection?airport=LFPG&mode=runway&q=cdg#airport-runways" in _hrefs(page)
+    assert page.count(
+        'id="airport-results-count" class="text-label" role="status" aria-live="polite"') == 1
+    assert rig.scope() + "/detection?airport=LFPG&q=cdg#airport-runways" in _hrefs(page)
     assert "airports found" in page or "1 airport found" in page
 
 
@@ -211,13 +221,14 @@ def test_search_singular_and_plural_counts(rig):
     assert re.search(r"\b[2-9]\d* airports found", _visible_text(many))
 
 
-def test_search_caps_the_list_at_twenty_with_the_capped_sentence(rig):
+def test_search_lists_every_match_without_a_cap(rig):
+    from server import airports
+    total = airports.search_airports("a", 1000)[1]
+    assert total > 20
     _s, _h, page = rig.get("owner", rig.scope() + "/detection?q=a")
     links = [h for h in _hrefs(page) if "airport=" in h]
-    assert len(links) == 20
-    assert re.search(
-        r"Showing the first 20 of \d+ airports\. Refine your search to narrow the list\.",
-        _visible_text(page))
+    assert len(links) == total
+    assert "%d airports found" % total in _visible_text(page)
 
 
 def test_search_term_is_truncated_and_escaped(rig):
@@ -249,18 +260,16 @@ def test_runway_cards_show_real_designators_for_cdg(rig):
     _s, _h, page = rig.get("owner", rig.scope() + "/detection?airport=LFPG")
     cards = _cards(page)
     assert len(cards) == 4
-    shown = re.findall(r'runway-card__number">([^<]+?)(?: <|</)', page)
+    shown = [
+        re.search(r'runway-card__number">([^<]+?)(?: <|</)', card).group(1) for card in cards]
     assert tuple(shown) == LFPG_RUNWAYS
     assert 'value="08L/26R"' in page and 'name="runway"' in page
     text = _visible_text(page)
-    assert re.search(r"Bearing 085° / 265° \(true\)", text)
     assert re.search(r"4,209 m · Asphalt", text)
     assert page.count('role="radiogroup" aria-labelledby="runway-group-heading"') == 1
     assert '<input type="hidden" name="airport" value="LFPG" form="detection-form">' in page
     assert "CDG · 08L/26R" in text
-    detection_controls = re.sub(
-        r'<details id="location-form".*?</details>', "", page, flags=re.S)
-    assert not re.search(r"\brequired\b", detection_controls)
+    assert not re.search(r"\brequired\b", page)
 
 
 def test_runway_cards_for_a_single_runway_airport_are_preselected(rig):
@@ -280,7 +289,9 @@ def test_runway_cards_preselect_and_badge_the_saved_runway(rig):
     assert 'data-current-label="Current"' in checked[0]
     assert sum("data-current-label" in c for c in cards) == 1
     _s, _h, other = rig.get("owner", rig.scope() + "/detection?airport=LFMN")
-    assert not [c for c in _cards(other) if " checked" in c]
+    first = [c for c in _cards(other) if " checked" in c]
+    assert len(first) == 1 and "data-current-label" not in first[0]
+    assert 'value="%s"' % airports_first_runway("LFMN") in first[0]
 
 
 def test_runway_cards_for_orly_carry_the_legacy_pills(rig):
@@ -292,10 +303,19 @@ def test_runway_cards_for_orly_carry_the_legacy_pills(rig):
 
 
 @pytest.mark.parametrize("code", ["ZZZZ", "..%2Fx", "lfpg", "LFPG%20"])
-def test_runway_cards_unknown_airport_is_a_page_state_not_an_error(rig, code):
+def test_an_unknown_airport_in_the_url_is_ignored(rig, code):
     status, _h, page = rig.get("owner", rig.scope() + "/detection?airport=" + code)
     assert status == 200
+    assert "This airport is not in the catalogue." not in _visible_text(page)
+    assert sorted(re.search(r'value="([^"]+)"', c).group(1) for c in _cards(page)) == [
+        "02/20", "06/24", "07/25"]
+
+
+def test_an_unknown_airport_in_a_post_is_a_page_state(rig):
+    _s, _h, page = rig.post("owner", rig.scope() + "/detection", {
+        "action": "save_detection", "mode": "runway", "airport": "ZZZZ", "runway": "01/19"})
     assert "This airport is not in the catalogue." in _visible_text(page)
+    assert "Choose an airport." in _visible_text(page)
     assert not _cards(page)
 
 
@@ -397,13 +417,13 @@ def test_location_form_post_without_the_token_is_refused(rig):
     assert status == 403
 
 
-def test_both_forms_carry_exactly_one_token_of_the_signed_in_session(rig):
+def test_the_save_form_carries_exactly_one_token_of_the_signed_in_session(rig):
     token = auth.csrf_token(rig.cookies["owner"].split("=", 1)[1])
-    _s, _h, page = rig.get("owner", rig.scope() + "/detection?mode=position&new_location=1")
+    _s, _h, page = rig.get("owner", rig.scope() + "/detection?mode=position")
     forms = [
         inner for opening, inner in re.findall(r"(<form[^>]*>)(.*?)</form>", page, re.S)
         if 'method="post"' in opening and "/detection" in opening]
-    assert len(forms) == 2
+    assert len(forms) == 1
     for inner in forms:
         assert re.findall(r'name="csrf_token" value="([^"]*)"', inner) == [token]
 
@@ -460,9 +480,10 @@ def test_other_users_device_404_for_unknown_and_malformed_ids(rig, device_id):
 
 def test_scoped_flows_stay_under_the_device_prefix(rig):
     _s, _h, page = rig.get("owner", rig.scope() + "/detection?q=cdg")
-    assert 'action="%s/detection#airport-results"' % rig.scope() in page
-    assert 'action="%s/detection"' % rig.scope() in page
-    assert rig.scope() + "/display" in _hrefs(page)
+    assert page.count('action="%s/detection"' % rig.scope()) == 3
+    assert all(
+        h.startswith(rig.scope() + "/detection?airport=")
+        for h in _hrefs(page) if "airport=" in h)
 
 
 # --- French and units -----------------------------------------------------
@@ -471,10 +492,10 @@ def test_scoped_flows_stay_under_the_device_prefix(rig):
 def test_french_page_uses_the_catalogue_strings(rig):
     _s, _h, page = rig.get("owner", rig.scope() + "/detection?q=cdg", lang="fr")
     text = _visible_text(page)
-    assert "Détection" in text
+    assert "Lieu et détection" in text
     assert "Rechercher des aéroports" in text
     assert "Réglage actuel" in text
-    assert "Retour à l’affichage" in text
+    assert "Aéroports français" in text
     assert "ORY · RWY 3" in page
     assert re.search(r"\d+ aéroports? trouvés?", text)
 
@@ -482,7 +503,7 @@ def test_french_page_uses_the_catalogue_strings(rig):
 def test_french_runway_cards_and_errors(rig):
     _s, _h, page = rig.get("owner", rig.scope() + "/detection?airport=LFPG", lang="fr")
     text = _visible_text(page)
-    assert "Cap 085° / 265° (vrai)" in text
+    assert "Piste à suivre" in text
     assert "4 209 m · Asphalte" in text
     _s, _h, rejected = rig.post("owner", rig.scope() + "/detection", {
         "action": "save_detection", "mode": "runway", "airport": "LFPG",
@@ -503,63 +524,44 @@ def test_no_nm_text(rig, lang):
 # --- carried values and page-local navigation -------------------------------
 
 
-def _add_home(rig):
-    from server import fleet_db
-    conn = fleet_db.connect(str(rig.server.state_dir))
-    try:
-        return fleet_db.add_location(
-            conn, "Home", 48.8566, 2.3522, "Europe/Paris",
-            owner_user_id=rig.fleet.owner_id)
-    finally:
-        conn.close()
-
-
 def test_carried_values_render_as_defaults_with_a_visible_dirty_bar(rig):
-    home = _add_home(rig)
-    path = "%s/detection?mode=position&radius_km=12&location_id=%d" % (rig.scope(), home)
+    path = "%s/detection?mode=position&radius_km=12" % rig.scope()
     status, _h, page = rig.get("owner", path)
     assert status == 200
     assert re.search(r'name="radius_km"[^>]*value="12"', page)
-    assert re.search(r'<option value="%d" selected>' % home, page)
-    assert re.search(r'id="detection-mode-position" value="position"[^>]*checked', page)
+    assert re.search(r'id="place-mode-area" value="position"[^>]*checked', page)
     bar = re.search(r'<div class="dirty-bar"[^>]*>', page).group(0)
     assert 'data-dirty-carried="%s/detection"' % rig.scope() in bar
     assert " hidden" not in bar
 
 
 def test_carried_values_absent_when_nothing_differs(rig):
-    home = _add_home(rig)
-    path = "%s/detection?mode=runway&radius_km=9&location_id=%d" % (rig.scope(), home)
+    path = "%s/detection?mode=runway&radius_km=9" % rig.scope()
     _s, _h, page = rig.get("owner", path)
     assert "data-dirty-carried" not in page
 
 
-def test_carried_values_search_form_holds_them_as_hidden_inputs(rig):
-    home = _add_home(rig)
-    path = "%s/detection?mode=runway&radius_km=12&location_id=%d" % (rig.scope(), home)
+def test_carried_values_filter_form_holds_them_as_hidden_inputs(rig):
+    path = "%s/detection?mode=runway&radius_km=12" % rig.scope()
     _s, _h, page = rig.get("owner", path)
     form = re.search(r'<form method="get".*?</form>', page, re.S).group(0)
     assert '<input type="hidden" name="radius_km" value="12">' in form
-    assert '<input type="hidden" name="location_id" value="%d">' % home in form
     assert '<input type="hidden" name="mode" value="runway">' in form
     assert "data-detection-nav" in form
 
 
-def test_nav_links_carry_state(rig):
-    home = _add_home(rig)
-    path = "%s/detection?q=paris&mode=runway&radius_km=12&location_id=%d" % (rig.scope(), home)
+def test_airport_links_carry_the_radius(rig):
+    path = "%s/detection?q=paris&mode=runway&radius_km=12" % rig.scope()
     _s, _h, page = rig.get("owner", path)
-    rows = re.findall(r'<a class="detection-result" href="([^"]*)" data-detection-nav>', page)
+    rows = [h for h in _hrefs(page) if "airport=" in h]
     assert rows
     for href in rows:
         query = urllib.parse.parse_qs(urllib.parse.urlsplit(html.unescape(href)).query)
-        assert query["mode"] == ["runway"]
         assert query["radius_km"] == ["12"]
-        assert query["location_id"] == [str(home)]
+        assert query["q"] == ["paris"]
 
 
 def test_invalid_carried_radius_ignored(rig):
-    _add_home(rig)
     path = rig.scope() + "/detection?mode=position&radius_km=%3Cscript%3E"
     _s, _h, page = rig.get("owner", path)
     assert "<script>" not in page.replace('<script src', '')
@@ -569,9 +571,8 @@ def test_invalid_carried_radius_ignored(rig):
 
 
 def test_carried_values_never_change_stored_files(rig):
-    home = _add_home(rig)
     before = rig.config_bytes(rig.owner_dir())
-    rig.get("owner", "%s/detection?mode=position&radius_km=12&location_id=%d" % (rig.scope(), home))
+    rig.get("owner", "%s/detection?mode=position&radius_km=12" % rig.scope())
     assert rig.config_bytes(rig.owner_dir()) == before
 
 
@@ -613,30 +614,19 @@ def _location_rows(rig):
             "SELECT id, name, owner_user_id FROM locations ORDER BY id")])
 
 
-def test_a_co_manager_page_lists_the_owners_locations_without_a_location_form(rig):
+@pytest.mark.parametrize("who", ["owner", "admin", "co"])
+def test_no_saved_locations_ui_for_anyone(rig, who):
     _co_rig(rig)
-    status, _h, body = rig.get("co", rig.scope() + "/detection")
-    assert status == 200
-    text = _visible_text(body)
-    assert "Owner Town" in text
-    assert "Co Town" not in text and "Third Town" not in text
-    assert "Locations are managed by the frame owner." in text
-    assert 'id="location-form"' not in body and 'name="location_name"' not in body
-    assert "Edit location" not in text and "Add a location" not in text
-
-
-def test_the_owner_and_admin_pages_keep_the_location_form(rig):
-    _co_rig(rig)
-    for who in ("owner", "admin"):
-        _s, _h, body = rig.get(who, rig.scope() + "/detection")
-        assert 'name="location_name"' in body, who
-        assert "managed by the frame owner" not in body, who
-
-
-def test_a_co_manager_page_is_french_when_asked(rig):
-    _co_rig(rig)
-    _s, _h, body = rig.get("co", rig.scope() + "/detection", lang="fr")
-    assert "Les lieux sont gérés par le propriétaire du cadre." in _visible_text(body)
+    for lang in (None, "fr"):
+        status, _h, body = rig.get(who, rig.scope() + "/detection", lang=lang)
+        assert status == 200
+        text = _visible_text(body)
+        for gone in ("Owner Town", "Co Town", "Third Town", "Your locations", "Add a location",
+                     "Vos lieux", "Ajouter un lieu", "Edit location", "managed by the frame owner"):
+            assert gone not in text, (who, gone)
+        for gone in ('id="location-form"', 'name="location_name"', 'name="location_id"',
+                     'id="detection-location"', "location-picker"):
+            assert gone not in body, (who, gone)
 
 
 @pytest.mark.parametrize("edit", [False, True])
